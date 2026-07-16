@@ -91,9 +91,9 @@ Everything is stored in the `data/` folder (gitignored):
 - `data/memorymap.db` — the SQLite database
 - `data/preferences.json` — your settings
 
-**Note on schema changes (MVP):** there are no database migrations yet. If the
-schema changes between versions, delete `data/memorymap.db` and restart — the
-app recreates it. (Real migrations arrive once there's real data to preserve.)
+**Schema upgrades:** the app upgrades your database automatically at startup
+(new columns are added in place — your notes are never touched). You do NOT
+need to delete `data/memorymap.db` when updating.
 
 ## Project layout
 

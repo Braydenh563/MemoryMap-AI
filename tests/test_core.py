@@ -73,6 +73,54 @@ def test_soft_deleted_entries_hidden_from_list(session):
     assert len(manager.list_entries(session, include_deleted=True)) == 1
 
 
+def test_old_database_gains_new_columns_without_data_loss(tmp_path):
+    """Reproduces the real-world bug: a database created by an older
+    version lacks columns added since (e.g. entries.access_count), and
+    every query used to 500. The auto-migration must add the column and
+    keep the old rows."""
+    import sqlite3
+
+    from memorymap.core.database import DatabaseManager, Entry
+
+    db_path = tmp_path / "old.db"
+    connection = sqlite3.connect(db_path)
+    # A pre-Phase-5 entries table: everything except access_count.
+    connection.execute(
+        """
+        CREATE TABLE entries (
+            id INTEGER PRIMARY KEY,
+            content TEXT NOT NULL,
+            category_id INTEGER,
+            tags TEXT NOT NULL,
+            ai_confidence INTEGER NOT NULL,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            is_deleted BOOLEAN NOT NULL,
+            deleted_at DATETIME
+        )
+        """
+    )
+    connection.execute(
+        "INSERT INTO entries (content, tags, ai_confidence, created_at, "
+        "updated_at, is_deleted) VALUES ('my movie note', '[]', 80, "
+        "'2026-07-16 06:09:24', '2026-07-16 06:09:24', 0)"
+    )
+    connection.commit()
+    connection.close()
+
+    db = DatabaseManager(db_path)
+    session = db.session()
+    try:
+        entry = session.get(Entry, 1)
+        assert entry.content == "my movie note"  # old data intact
+        assert entry.access_count == 0  # new column, backfilled default
+        entry.access_count += 1  # and it's writable
+        session.commit()
+    finally:
+        session.close()
+        db.engine.dispose()
+
+
 def test_bad_tags_json_returns_empty_list(session):
     entry = manager.create_entry(session, "tags test")
     entry.tags = "not json"

@@ -2,8 +2,13 @@
 
 The full MVP schema (build plan §5) is created up front — tables the
 AI needs later (embeddings, entry_links) are cheap to have from day
-one and painful to retrofit. For the MVP it is acceptable to delete
-data/memorymap.db and restart when the schema changes (noted in README).
+one and painful to retrofit.
+
+Schema upgrades: once real user data exists, "delete the db" stops
+being acceptable, so DatabaseManager does additive auto-migration —
+any column that exists in the models but not in the on-disk database
+is added with ALTER TABLE at startup. Renames/removals would still
+need a real migration tool, so don't do those casually.
 """
 
 from __future__ import annotations
@@ -138,10 +143,46 @@ class DatabaseManager:
         def _enable_foreign_keys(dbapi_connection, _record):  # noqa: ANN001
             dbapi_connection.execute("PRAGMA foreign_keys=ON")
 
-        Base.metadata.create_all(self.engine)
+        Base.metadata.create_all(self.engine)  # creates missing tables only
+        self._add_missing_columns()
         self._session_factory = sessionmaker(
             bind=self.engine, expire_on_commit=False
         )
+
+    def _add_missing_columns(self) -> None:
+        """Additive auto-migration for existing databases.
+
+        create_all() never touches tables that already exist, so a
+        database made by an older version lacks newly added columns and
+        every query on that table would 500. Add them here instead of
+        making the user delete their data."""
+        with self.engine.begin() as connection:
+            for table in Base.metadata.tables.values():
+                rows = connection.exec_driver_sql(
+                    f'PRAGMA table_info("{table.name}")'
+                ).fetchall()
+                if not rows:
+                    continue  # brand-new table — create_all just made it
+                existing = {row[1] for row in rows}
+                for column in table.columns:
+                    if column.name in existing:
+                        continue
+                    ddl = (
+                        f'ALTER TABLE "{table.name}" ADD COLUMN "{column.name}" '
+                        f"{column.type.compile(self.engine.dialect)}"
+                    )
+                    # Backfill old rows with the model's default when it's a
+                    # plain value (callables like utcnow can't run in DDL —
+                    # those columns stay NULL for pre-existing rows).
+                    if column.default is not None and column.default.is_scalar:
+                        value = column.default.arg
+                        if isinstance(value, bool):
+                            value = int(value)
+                        if isinstance(value, str):
+                            ddl += f" DEFAULT '{value}'"
+                        else:
+                            ddl += f" DEFAULT {value}"
+                    connection.exec_driver_sql(ddl)
 
     def session(self) -> Session:
         """A fresh session; caller is responsible for closing it."""

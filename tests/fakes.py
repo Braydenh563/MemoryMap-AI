@@ -54,12 +54,25 @@ class FakeOllama:
         self.running = running
         self.chat_calls: list[list[dict]] = []
         self.librarian_reply = "Here's what I found in your notebook!"
+        self.librarian_thinking: str | None = None  # set to fake a thinking model
         self.installed = [{"name": "llama3.2:latest", "size": 2_000_000_000}]
 
     def is_running(self) -> bool:
         return self.running
 
-    def chat(self, model: str, messages: list[dict]) -> str:
+    def chat(self, model: str, messages: list[dict]) -> dict:
+        return {"content": self._reply_text(messages), "thinking": self.librarian_thinking}
+
+    def chat_stream(self, model: str, messages: list[dict]):
+        """Chunks the canned reply like real streaming would."""
+        text = self._reply_text(messages)
+        if self.librarian_thinking:
+            yield {"thinking_delta": self.librarian_thinking}
+        middle = max(1, len(text) // 2)
+        yield {"content_delta": text[:middle]}
+        yield {"content_delta": text[middle:]}
+
+    def _reply_text(self, messages: list[dict]) -> str:
         if not self.running:
             raise OllamaError("Ollama is not running (fake)")
         self.chat_calls.append(messages)
@@ -104,7 +117,7 @@ class FakeOllama:
 class GarbageOllama(FakeOllama):
     """A model having a bad day — replies with no JSON at all."""
 
-    def chat(self, model: str, messages: list[dict]) -> str:
+    def _reply_text(self, messages: list[dict]) -> str:
         if not self.running:
             raise OllamaError("Ollama is not running (fake)")
         self.chat_calls.append(messages)

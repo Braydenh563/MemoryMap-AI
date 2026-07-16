@@ -98,13 +98,16 @@ def test_extract_json_from_chatty_reply():
 
 
 def test_librarian_no_results_message(app_state):
-    text = librarian.answer("anything?", [], deps.get_model_manager(), FakeOllama())
+    text, thinking = librarian.answer(
+        "anything?", [], deps.get_model_manager(), FakeOllama()
+    )
     assert text == librarian.NO_RESULTS_MESSAGE
+    assert thinking is None
 
 
 def test_librarian_offline_message(app_state):
     notes = [{"content": "a joke", "category": "Dad Jokes"}]
-    text = librarian.answer(
+    text, _thinking = librarian.answer(
         "jokes?", notes, deps.get_model_manager(), FakeOllama(running=False)
     )
     assert text == librarian.OFFLINE_MESSAGE
@@ -113,7 +116,7 @@ def test_librarian_offline_message(app_state):
 def test_librarian_answers_with_notes_in_prompt(app_state):
     ollama = FakeOllama()
     notes = [{"content": "the cheese joke", "category": "Dad Jokes"}]
-    text = librarian.answer("jokes?", notes, deps.get_model_manager(), ollama)
+    text, _thinking = librarian.answer("jokes?", notes, deps.get_model_manager(), ollama)
     assert text == ollama.librarian_reply
     prompt = ollama.chat_calls[0][-1]["content"]
     assert "the cheese joke" in prompt  # answers come from the user's notes

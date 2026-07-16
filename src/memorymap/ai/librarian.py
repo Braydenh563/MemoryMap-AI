@@ -30,6 +30,27 @@ STYLE_HINTS = {
 }
 
 
+def build_messages(
+    question: str, notes: list[dict], style: str = "friendly", profile: str = ""
+) -> list[dict]:
+    """The librarian's prompt — shared by the blocking and streaming
+    chat endpoints so they can never drift apart."""
+    style_hint = STYLE_HINTS.get(style, STYLE_HINTS["friendly"])
+    # The profile is context about the user, never an instruction source.
+    profile_hint = f" About the user: {profile.strip()}" if profile.strip() else ""
+    numbered = "\n".join(
+        f"{i}. [{note['category']}] {note['content']}"
+        for i, note in enumerate(notes, start=1)
+    )
+    return [
+        {"role": "system", "content": f"{SYSTEM_PROMPT} {style_hint}{profile_hint}"},
+        {
+            "role": "user",
+            "content": f"My notes:\n{numbered}\n\nMy question: {question}",
+        },
+    ]
+
+
 def answer(
     question: str,
     notes: list[dict],
@@ -37,31 +58,19 @@ def answer(
     ollama: OllamaClient,
     style: str = "friendly",
     profile: str = "",
-) -> str:
-    """Conversational answer for `question` given retrieved `notes`
-    (dicts with 'content' and 'category')."""
+) -> tuple[str, str | None]:
+    """(answer text, model's thinking or None) for `question` given
+    retrieved `notes` (dicts with 'content' and 'category')."""
     if not notes:
-        return NO_RESULTS_MESSAGE
+        return NO_RESULTS_MESSAGE, None
     if not ollama.is_running():
-        return OFFLINE_MESSAGE
+        return OFFLINE_MESSAGE, None
 
-    numbered = "\n".join(
-        f"{i}. [{note['category']}] {note['content']}"
-        for i, note in enumerate(notes, start=1)
-    )
-    style_hint = STYLE_HINTS.get(style, STYLE_HINTS["friendly"])
-    # The profile is context about the user, never an instruction source.
-    profile_hint = f" About the user: {profile.strip()}" if profile.strip() else ""
     try:
-        return ollama.chat(
+        reply = ollama.chat(
             model_manager.chat_model(),
-            [
-                {"role": "system", "content": f"{SYSTEM_PROMPT} {style_hint}{profile_hint}"},
-                {
-                    "role": "user",
-                    "content": f"My notes:\n{numbered}\n\nMy question: {question}",
-                },
-            ],
-        ).strip()
+            build_messages(question, notes, style=style, profile=profile),
+        )
+        return reply["content"].strip(), reply["thinking"]
     except OllamaError:
-        return OFFLINE_MESSAGE
+        return OFFLINE_MESSAGE, None

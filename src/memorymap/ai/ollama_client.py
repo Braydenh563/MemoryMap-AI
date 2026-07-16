@@ -17,6 +17,75 @@ class OllamaError(RuntimeError):
     """Ollama unreachable, or it returned something unusable."""
 
 
+class _ThinkTagSplitter:
+    """Routes streamed content into thinking vs answer pieces when a
+    model reasons inline with <think>…</think> — the tags themselves can
+    arrive split across chunks, so a little state is unavoidable."""
+
+    OPEN, CLOSE = "<think>", "</think>"
+
+    def __init__(self) -> None:
+        self._buffer = ""
+        self._mode = "start"  # start → thinking? → answer
+
+    def feed(self, chunk: str) -> list[dict]:
+        self._buffer += chunk
+        pieces: list[dict] = []
+
+        if self._mode == "start":
+            candidate = self._buffer.lstrip()
+            if candidate.startswith(self.OPEN):
+                self._mode = "thinking"
+                self._buffer = candidate[len(self.OPEN) :]
+            elif self.OPEN.startswith(candidate):
+                return pieces  # could still become "<think>" — wait
+            else:
+                self._mode = "answer"
+
+        if self._mode == "thinking":
+            end = self._buffer.find(self.CLOSE)
+            if end != -1:
+                pieces.append({"thinking_delta": self._buffer[:end]})
+                self._buffer = self._buffer[end + len(self.CLOSE) :]
+                self._mode = "answer"
+            else:
+                # Keep enough back that a half-arrived "</think>" isn't
+                # emitted as thinking text.
+                safe = len(self._buffer) - (len(self.CLOSE) - 1)
+                if safe > 0:
+                    pieces.append({"thinking_delta": self._buffer[:safe]})
+                    self._buffer = self._buffer[safe:]
+                return pieces
+
+        if self._mode == "answer" and self._buffer:
+            pieces.append({"content_delta": self._buffer})
+            self._buffer = ""
+        return pieces
+
+    def flush(self) -> list[dict]:
+        """The stream ended — emit whatever is left."""
+        leftover, self._buffer = self._buffer, ""
+        if not leftover:
+            return []
+        key = "thinking_delta" if self._mode == "thinking" else "content_delta"
+        return [{key: leftover}]
+
+
+def split_thinking(text: str) -> tuple[str, str | None]:
+    """Separate a thinking model's <think>…</think> block from its answer.
+
+    Models like DeepSeek-R1 or Qwen3 reason out loud inside think-tags;
+    shown raw it looks like garbage, hidden entirely it wastes useful
+    insight — so we return both parts and let the UI decide."""
+    start = text.find("<think>")
+    end = text.find("</think>")
+    if start == -1 or end == -1 or end < start:
+        return text.strip(), None
+    thinking = text[start + len("<think>") : end].strip()
+    clean = (text[:start] + text[end + len("</think>") :]).strip()
+    return clean, thinking or None
+
+
 class OllamaClient:
     def __init__(
         self, base_url: str = "http://localhost:11434", timeout: float = 120.0
@@ -62,8 +131,12 @@ class OllamaClient:
         except (requests.RequestException, ValueError) as exc:
             raise OllamaError(f"Downloading '{name}' failed: {exc}") from exc
 
-    def chat(self, model: str, messages: list[dict]) -> str:
-        """One non-streamed chat turn; returns the reply text only."""
+    def chat(self, model: str, messages: list[dict]) -> dict:
+        """One non-streamed chat turn.
+
+        Returns {"content": str, "thinking": str | None} — thinking is
+        filled from Ollama's native field (newer thinking models) or by
+        splitting inline <think> tags out of the content."""
         try:
             response = requests.post(
                 f"{self.base_url}/api/chat",
@@ -71,7 +144,40 @@ class OllamaClient:
                 timeout=self.timeout,
             )
             response.raise_for_status()
-            return response.json()["message"]["content"]
+            message = response.json()["message"]
+            content, inline_thinking = split_thinking(message["content"])
+            return {
+                "content": content,
+                "thinking": message.get("thinking") or inline_thinking,
+            }
+        except (requests.RequestException, KeyError, TypeError, ValueError) as exc:
+            raise OllamaError(f"Chat with '{model}' failed: {exc}") from exc
+
+    def chat_stream(self, model: str, messages: list[dict]) -> Iterator[dict]:
+        """Streamed chat turn: yields {"thinking_delta": str} and
+        {"content_delta": str} pieces as the model produces them.
+        Inline <think> tags are routed to thinking_delta too, even when
+        a tag is split across two chunks."""
+        splitter = _ThinkTagSplitter()
+        try:
+            with requests.post(
+                f"{self.base_url}/api/chat",
+                json={"model": model, "messages": messages, "stream": True},
+                stream=True,
+                timeout=self.timeout,
+            ) as response:
+                response.raise_for_status()
+                for line in response.iter_lines():
+                    if not line:
+                        continue
+                    data = json.loads(line)
+                    message = data.get("message", {})
+                    if message.get("thinking"):  # native thinking models
+                        yield {"thinking_delta": message["thinking"]}
+                    if message.get("content"):
+                        yield from splitter.feed(message["content"])
+                    if data.get("done"):
+                        yield from splitter.flush()
         except (requests.RequestException, KeyError, TypeError, ValueError) as exc:
             raise OllamaError(f"Chat with '{model}' failed: {exc}") from exc
 

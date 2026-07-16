@@ -106,7 +106,8 @@ async function initAuth() {
 }
 
 function startApp() {
-  loadEntries().catch(() => {});
+  // A failed load must be visible, not a silently empty page.
+  loadEntries().catch((error) => toast(`Couldn't load entries: ${error.message}`, true));
   loadRecentQuestions();
   loadMostUsed();
   refreshModelStatus();
@@ -447,6 +448,23 @@ async function saveEntry() {
 
 // --- ask ----------------------------------------------------------------------
 
+function renderChatMeta(meta) {
+  $("search-mode").textContent = `${meta.search_mode} search`;
+  $("answered-by").textContent = meta.answered_by
+    ? `answered by ${meta.answered_by}`
+    : "chat model offline";
+  const rawList = $("raw-results");
+  rawList.replaceChildren();
+  if (meta.raw_results.length === 0) {
+    const li = document.createElement("li");
+    li.className = "muted";
+    li.textContent = "No matching records.";
+    rawList.appendChild(li);
+  }
+  for (const entry of meta.raw_results) rawList.appendChild(entryItem(entry));
+  $("chat-results").classList.remove("hidden");
+}
+
 async function askQuestion() {
   const status = $("ask-status");
   const button = $("ask-btn");
@@ -462,31 +480,60 @@ async function askQuestion() {
   status.classList.remove("error");
   status.textContent =
     modelStatus && modelStatus.embedding_ready
-      ? "Searching your notes by meaning, then writing an answer…"
+      ? "Searching your notes by meaning…"
       : "Searching your notes…";
+
+  // Reset both output areas for the new answer.
+  const answerBox = $("ai-answer");
+  const thinkingBox = $("thinking-box");
+  const thinkingText = $("ai-thinking");
+  answerBox.textContent = "";
+  thinkingText.textContent = "";
+  thinkingBox.classList.add("hidden");
+  thinkingBox.open = false;
+
   try {
-    const reply = await apiJson("/chat", {
+    // Stream: raw results arrive first, then thinking/answer tokens live.
+    const response = await fetch("/chat/stream", {
       method: "POST",
+      headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() },
       body: JSON.stringify({ question }),
     });
-
-    $("ai-answer").textContent = reply.ai_response;
-    $("search-mode").textContent = `${reply.search_mode} search`;
-    $("answered-by").textContent = reply.answered_by
-      ? `answered by ${reply.answered_by}`
-      : "chat model offline";
-
-    const rawList = $("raw-results");
-    rawList.replaceChildren();
-    if (reply.raw_results.length === 0) {
-      const li = document.createElement("li");
-      li.className = "muted";
-      li.textContent = "No matching records.";
-      rawList.appendChild(li);
+    if (response.status === 401) {
+      showLockScreen(false);
+      throw new Error("Locked");
     }
-    for (const entry of reply.raw_results) rawList.appendChild(entryItem(entry));
+    if (!response.ok) {
+      const detail = await response.json().catch(() => ({}));
+      throw new Error(detail.detail || `Request failed (${response.status})`);
+    }
 
-    $("chat-results").classList.remove("hidden");
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffered = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffered += decoder.decode(value, { stream: true });
+      const lines = buffered.split("\n");
+      buffered = lines.pop(); // last piece may be a partial line
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const event = JSON.parse(line);
+        if (event.type === "meta") {
+          renderChatMeta(event);
+          status.textContent = "The model is writing…";
+        } else if (event.type === "thinking") {
+          thinkingBox.classList.remove("hidden");
+          thinkingText.textContent += event.delta;
+          status.textContent = "The model is thinking…";
+        } else if (event.type === "answer") {
+          answerBox.textContent += event.delta;
+          status.textContent = "The model is writing…";
+        }
+      }
+    }
+
     status.textContent = "";
     // Asking changes both quick-access lists.
     loadRecentQuestions();

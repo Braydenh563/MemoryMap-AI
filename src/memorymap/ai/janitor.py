@@ -123,7 +123,9 @@ def _ask_llm(
                 {"role": "user", "content": user_prompt},
             ],
         )
-        data = _extract_json(reply)
+        # Thinking models reason before answering; only the answer part
+        # can contain the JSON we asked for.
+        data = _extract_json(reply["content"])
         category = str(data["category"]).strip()
         if not category:
             raise ValueError("empty category")

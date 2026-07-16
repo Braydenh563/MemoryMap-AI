@@ -1,0 +1,94 @@
+"""Stand-ins for Ollama and the embedding model, so the test suite runs
+fast and fully offline (plan §7). They behave just predictably enough
+to prove the real logic around them works.
+"""
+
+from __future__ import annotations
+
+import numpy as np
+
+from memorymap.ai.embeddings import EmbeddingService
+from memorymap.ai.ollama_client import OllamaError
+
+# Three "topics" the fake embedder understands, one axis each. The 4th
+# axis is a catch-all so no vector is ever all-zero.
+_TOPIC_WORDS = {
+    0: ("joke", "funny", "pun", "scarecrow"),
+    1: ("buy", "shopping", "milk", "groceries", "eggs"),
+    2: ("race", "athletics", "carnival", "100m", "sprint"),
+}
+
+
+class FakeEmbeddingService(EmbeddingService):
+    """Keyword-based 4-dim vectors: same text topic → same direction."""
+
+    def __init__(self, available: bool = True) -> None:
+        # No real model manager / ollama needed — we override everything
+        # that would touch them.
+        super().__init__(model_manager=None, ollama_client=None)  # type: ignore[arg-type]
+        self.available = available
+
+    def backend_id(self) -> str:
+        return "fake:keywords-v1"
+
+    def embed_text(self, text: str) -> np.ndarray | None:
+        if not self.available:
+            return None
+        lowered = text.lower()
+        vector = np.zeros(4, dtype="float32")
+        for axis, words in _TOPIC_WORDS.items():
+            if any(word in lowered for word in words):
+                vector[axis] = 1.0
+        if not vector.any():
+            vector[3] = 1.0  # unknown topic
+        return vector
+
+
+class FakeOllama:
+    """Canned chat replies keyed off the prompts the app actually sends."""
+
+    def __init__(self, running: bool = True) -> None:
+        self.running = running
+        self.chat_calls: list[list[dict]] = []
+        self.librarian_reply = "Here's what I found in your notebook!"
+
+    def is_running(self) -> bool:
+        return self.running
+
+    def chat(self, model: str, messages: list[dict]) -> str:
+        if not self.running:
+            raise OllamaError("Ollama is not running (fake)")
+        self.chat_calls.append(messages)
+
+        system = messages[0]["content"].lower()
+        user = messages[-1]["content"].lower()
+        if "filing assistant" in system:  # the janitor asking
+            # Match topics against the note only — the prompt also lists
+            # existing category names (e.g. "Dad Jokes"), which would
+            # otherwise trip the keyword match.
+            if "note:" in user:
+                user = user.split("note:", 1)[1]
+            if any(w in user for w in _TOPIC_WORDS[0]):
+                return '{"category": "Dad Jokes", "confidence": 88}'
+            if any(w in user for w in _TOPIC_WORDS[1]):
+                return '{"category": "Shopping", "confidence": 85}'
+            if any(w in user for w in _TOPIC_WORDS[2]):
+                return '{"category": "Sport Results", "confidence": 82}'
+            return '{"category": "Misc", "confidence": 40}'
+        return self.librarian_reply  # the librarian asking
+
+    def embed(self, model: str, text: str) -> list[float]:
+        raise OllamaError("fake has no embedding models")
+
+    def list_models(self) -> list[dict]:
+        return [{"name": "llama3.2"}] if self.running else []
+
+
+class GarbageOllama(FakeOllama):
+    """A model having a bad day — replies with no JSON at all."""
+
+    def chat(self, model: str, messages: list[dict]) -> str:
+        if not self.running:
+            raise OllamaError("Ollama is not running (fake)")
+        self.chat_calls.append(messages)
+        return "Hmm, that's a tough one! Could be anything really."

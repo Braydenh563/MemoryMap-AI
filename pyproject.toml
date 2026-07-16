@@ -1,0 +1,15 @@
+# Minimal packaging config so `pip install -e .` makes the src/ layout
+# importable everywhere (the simplest thing that works for a beginner:
+# no PYTHONPATH fiddling on any OS).
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "memorymap"
+version = "0.1.0"
+description = "MemoryMap AI — a 100% offline, local-first AI notebook"
+requires-python = ">=3.11"
+
+[tool.setuptools.packages.find]
+where = ["src"]

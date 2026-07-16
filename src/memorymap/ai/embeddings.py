@@ -1,0 +1,94 @@
+"""The ONE active embedding backend (plan §2, resolution 1).
+
+Default: sentence-transformers `all-MiniLM-L6-v2` — no Ollama needed.
+Optional: an Ollama embedding model (user's choice, Phase 3.5).
+
+Both hide behind `embed_text()`, which returns None whenever embeddings
+are unavailable. Callers must treat None as "skip semantic features",
+never as an error — capture and keyword search keep working (plan §4).
+"""
+
+from __future__ import annotations
+
+import numpy as np
+from sqlalchemy.orm import Session
+
+from memorymap.ai.model_manager import ModelManager
+from memorymap.ai.ollama_client import OllamaClient, OllamaError
+from memorymap.core.database import EmbeddingRecord, Entry
+
+DEFAULT_ST_MODEL = "all-MiniLM-L6-v2"
+
+
+def vector_to_bytes(vector: np.ndarray) -> bytes:
+    """Raw float32 bytes — never pickle (plan §4)."""
+    return np.asarray(vector, dtype="float32").tobytes()
+
+
+def bytes_to_vector(blob: bytes) -> np.ndarray:
+    return np.frombuffer(blob, dtype="float32")
+
+
+def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
+    """1.0 = same direction, 0.0 = unrelated. Zero vectors score 0."""
+    norms = float(np.linalg.norm(a)) * float(np.linalg.norm(b))
+    if norms == 0.0:
+        return 0.0
+    return float(np.dot(a, b) / norms)
+
+
+class EmbeddingService:
+    def __init__(self, model_manager: ModelManager, ollama_client: OllamaClient) -> None:
+        self._models = model_manager
+        self._ollama = ollama_client
+        self._st_model = None  # loaded lazily, exactly once
+
+    def backend_id(self) -> str:
+        """Stored as model_version next to every vector, so a backend
+        switch is detectable — vectors from different models live in
+        different spaces and must never be compared (plan §6.5)."""
+        if self._models.embedding_backend() == "ollama":
+            return f"ollama:{self._models.embedding_model()}"
+        return f"sentence-transformers:{DEFAULT_ST_MODEL}"
+
+    def embed_text(self, text: str) -> np.ndarray | None:
+        """Vector for one text, or None if the backend is unavailable."""
+        if self._models.embedding_backend() == "ollama":
+            try:
+                vector = self._ollama.embed(self._models.embedding_model(), text)
+                return np.asarray(vector, dtype="float32")
+            except OllamaError:
+                return None
+        return self._embed_with_sentence_transformers(text)
+
+    def _embed_with_sentence_transformers(self, text: str) -> np.ndarray | None:
+        try:
+            if self._st_model is None:
+                # Heavy import (pulls in torch) — deferred so the app
+                # starts fast and still runs if the package is missing.
+                from sentence_transformers import SentenceTransformer
+
+                self._st_model = SentenceTransformer(DEFAULT_ST_MODEL)
+            return np.asarray(self._st_model.encode(text), dtype="float32")
+        except Exception:
+            # Missing package, failed model load, etc. → no semantic
+            # features right now; the rest of the app must keep working.
+            return None
+
+    def store_for_entry(self, session: Session, entry: Entry) -> bool:
+        """Save an entry's vector. Returns False on failure — which only
+        means no semantic search for this entry; it never blocks the
+        entry save itself (plan Phase 2)."""
+        vector = self.embed_text(entry.content)
+        if vector is None:
+            return False
+        session.add(
+            EmbeddingRecord(
+                entry_id=entry.id,
+                embedding=vector_to_bytes(vector),
+                dim=int(vector.shape[0]),
+                model_version=self.backend_id(),
+            )
+        )
+        session.commit()
+        return True

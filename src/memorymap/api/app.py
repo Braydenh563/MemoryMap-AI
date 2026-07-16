@@ -9,7 +9,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 
 from memorymap import __version__
-from memorymap.api import routes_entries
+from memorymap.api import routes_chat, routes_entries
 from memorymap.core.deps import init_app_state
 
 
@@ -18,6 +18,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(title="MemoryMap AI", version=__version__)
     app.include_router(routes_entries.router)
+    app.include_router(routes_chat.router)
 
     @app.get("/health", tags=["system"])
     def health() -> dict[str, str]:

@@ -15,7 +15,19 @@ Everything runs on your machine — nothing is ever sent to the cloud.
 ## Requirements
 
 - Python 3.11 or newer
-- (From Phase 2) [Ollama](https://ollama.com) for the local chat model
+- [Ollama](https://ollama.com) for the local chat model (optional but
+  recommended — capture and keyword search work without it; you only need it
+  for auto-categorising and chat answers)
+
+To set up the AI after installing Ollama:
+
+```bash
+ollama pull llama3.2     # the default chat model (~2 GB)
+```
+
+The default *embedding* model (`all-MiniLM-L6-v2`, for semantic search)
+downloads itself automatically (~90 MB) the first time it's needed — no
+Ollama pull required.
 
 ## Setup
 
@@ -42,8 +54,14 @@ Then open <http://localhost:8000/docs> — an interactive API page where you can
 try every endpoint (Phase 3 adds a real web UI at `/`).
 
 - `GET /health` — is the server alive?
-- `POST /entries` — store a thought
+- `POST /entries` — store a thought (the AI janitor files it into a category)
 - `GET /entries` — read your thoughts back
+- `POST /chat` — ask a question in plain English; you get back both a
+  conversational answer *and* the raw matching entries
+
+If Ollama isn't running, everything still works — new entries are filed as
+`Uncategorised` and `/chat` politely says the AI answer is unavailable while
+still returning matching notes.
 
 ## Run the tests
 
@@ -82,7 +100,8 @@ tests/                   # pytest suite
 ## Build status
 
 - [x] **Phase 1 — Walking skeleton:** server starts, entries stored in SQLite, tests green
-- [ ] **Phase 2 — Make the AI real:** auto-categorising janitor + question-answering librarian
+- [x] **Phase 2 — Make the AI real:** auto-categorising janitor + question-answering librarian + semantic search
+  *(code + offline tests done — run the real dad-joke test on a machine with Ollama installed)*
 - [ ] **Phase 3 — Web interface**
 - [ ] **Phase 3.5 — Model Manager** (pick & download Ollama models in-app)
 - [ ] **Phase 4 — Core MVP:** login, recycle bin, manual overrides, export

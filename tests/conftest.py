@@ -32,7 +32,40 @@ def session(app_state):
 
 @pytest.fixture()
 def client(app_state):
-    """TestClient against an app that reuses the temp-dir singletons."""
+    """TestClient with ALL AI unavailable — proves capture and keyword
+    search work with zero AI, and keeps results identical whether or not
+    the developer happens to have Ollama running."""
+    from memorymap.api.app import create_app
+    from tests.fakes import FakeEmbeddingService, FakeOllama
+
+    deps.override_ai(
+        ollama=FakeOllama(running=False),
+        embeddings=FakeEmbeddingService(available=False),
+    )
+    return TestClient(create_app())
+
+
+@pytest.fixture()
+def fake_ollama(app_state):
+    from tests.fakes import FakeOllama
+
+    fake = FakeOllama(running=True)
+    deps.override_ai(ollama=fake)
+    return fake
+
+
+@pytest.fixture()
+def fake_embeddings(app_state):
+    from tests.fakes import FakeEmbeddingService
+
+    fake = FakeEmbeddingService(available=True)
+    deps.override_ai(embeddings=fake)
+    return fake
+
+
+@pytest.fixture()
+def ai_client(app_state, fake_ollama, fake_embeddings):
+    """TestClient with working (fake) AI — full Phase 2 behaviour."""
     from memorymap.api.app import create_app
 
     return TestClient(create_app())

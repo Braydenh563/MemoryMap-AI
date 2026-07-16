@@ -8,6 +8,11 @@ SQLAlchemy>=2.0
 # Config
 python-dotenv>=1.0
 
+# AI (Phase 2)
+requests>=2.31            # talks to the local Ollama REST API
+numpy>=1.26               # vectors stored as raw float32 bytes
+sentence-transformers>=2.7  # default embedding backend (all-MiniLM-L6-v2)
+
 # Tests
 pytest>=8.0
 httpx>=0.27  # FastAPI's TestClient needs this

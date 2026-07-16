@@ -10,7 +10,9 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from memorymap.ai import janitor
 from memorymap.api.schemas import EntryCreate, EntryOut
+from memorymap.core import deps
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
 
@@ -30,9 +32,34 @@ def _to_out(session: Session, entry) -> EntryOut:  # noqa: ANN001
 
 @router.post("", response_model=EntryOut, status_code=201)
 def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> EntryOut:
-    # Phase 1: everything is Uncategorised. Phase 2 will ask the janitor
-    # for a (category, confidence) before storing.
-    entry = manager.create_entry(session, content=body.content, tags=body.tags)
+    # Ask the janitor where this belongs. Whatever goes wrong in AI land,
+    # the note still gets saved (plan §4) — worst case as Uncategorised.
+    try:
+        category, confidence = janitor.categorise(
+            session,
+            body.content,
+            deps.get_embeddings(),
+            deps.get_model_manager(),
+            deps.get_ollama(),
+        )
+    except Exception:
+        category, confidence = manager.UNCATEGORISED, 0
+
+    entry = manager.create_entry(
+        session,
+        content=body.content,
+        category_name=category,
+        tags=body.tags,
+        ai_confidence=confidence,
+    )
+
+    # Best effort: a failed embedding only means this entry is invisible
+    # to semantic search until re-indexed — never a failed save.
+    try:
+        deps.get_embeddings().store_for_entry(session, entry)
+    except Exception:
+        pass
+
     return _to_out(session, entry)
 
 

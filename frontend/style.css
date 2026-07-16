@@ -1,4 +1,6 @@
-/* MemoryMap AI — deliberately simple, readable styles. No framework. */
+/* MemoryMap AI — deliberately simple, readable styles. No framework.
+   Theming: light is the default; dark kicks in either from the OS
+   preference or from the manual toggle (data-theme on <html>). */
 
 :root {
   --bg: #f4f5f7;
@@ -9,7 +11,48 @@
   --accent-soft: #e8ecfe;
   --warn: #b45309;
   --warn-soft: #fef3c7;
+  --ok: #157347;
+  --ok-soft: #e7f6ec;
+  --error: #b91c1c;
   --border: #e3e5ea;
+  --chip-bg: #eef1f4;
+}
+
+/* Dark palette, listed once as a reusable custom-property block…
+   CSS has no variables-for-variables, so it appears twice below. */
+:root[data-theme="dark"] {
+  --bg: #14161c;
+  --card: #1d212b;
+  --ink: #e7e9ee;
+  --muted: #9aa1ad;
+  --accent: #7b90f7;
+  --accent-soft: #2a3350;
+  --warn: #fbbf24;
+  --warn-soft: #3d3320;
+  --ok: #4ade80;
+  --ok-soft: #1d3327;
+  --error: #f87171;
+  --border: #2c313d;
+  --chip-bg: #272c37;
+}
+
+/* Follow the OS when the user hasn't chosen a theme with the toggle. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14161c;
+    --card: #1d212b;
+    --ink: #e7e9ee;
+    --muted: #9aa1ad;
+    --accent: #7b90f7;
+    --accent-soft: #2a3350;
+    --warn: #fbbf24;
+    --warn-soft: #3d3320;
+    --ok: #4ade80;
+    --ok-soft: #1d3327;
+    --error: #f87171;
+    --border: #2c313d;
+    --chip-bg: #272c37;
+  }
 }
 
 * { box-sizing: border-box; }
@@ -23,10 +66,26 @@ body {
 }
 
 header {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  flex-wrap: wrap;
   padding: 1.25rem 2rem 0.75rem;
 }
 header h1 { margin: 0; font-size: 1.5rem; }
-.tagline { margin: 0.15rem 0 0; color: var(--muted); font-size: 0.9rem; }
+.tagline { margin: 0; color: var(--muted); font-size: 0.9rem; flex: 1; }
+.header-controls { display: flex; gap: 0.5rem; align-items: center; }
+
+/* Live "what is the AI doing?" indicator */
+#ai-pill {
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  background: var(--chip-bg);
+  color: var(--muted);
+}
+#ai-pill.ok { background: var(--ok-soft); color: var(--ok); }
+#ai-pill.busy { background: var(--warn-soft); color: var(--warn); }
 
 .layout {
   display: grid;
@@ -49,7 +108,7 @@ header h1 { margin: 0; font-size: 1.5rem; }
   margin-bottom: 1rem;
 }
 .card h2 { margin: 0 0 0.75rem; font-size: 1.05rem; }
-.card h3 { margin: 0 0 0.5rem; font-size: 0.9rem; color: var(--muted); }
+.card h3 { margin: 1rem 0 0.5rem; font-size: 0.9rem; color: var(--muted); }
 
 /* --- sidebar ------------------------------------------------------------ */
 #sidebar ul { list-style: none; margin: 0; padding: 0; }
@@ -66,16 +125,21 @@ header h1 { margin: 0; font-size: 1.5rem; }
 #sidebar .count { color: var(--muted); }
 
 /* --- forms --------------------------------------------------------------- */
-textarea, input[type="text"] {
+textarea, input[type="text"], select {
   width: 100%;
   padding: 0.55rem 0.7rem;
   margin-bottom: 0.6rem;
   border: 1px solid var(--border);
   border-radius: 8px;
   font: inherit;
+  background: var(--card);
+  color: var(--ink);
   resize: vertical;
 }
-textarea:focus, input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+textarea:focus, input:focus, select:focus {
+  outline: 2px solid var(--accent-soft);
+  border-color: var(--accent);
+}
 
 button {
   padding: 0.5rem 1.1rem;
@@ -89,12 +153,22 @@ button {
 }
 button:hover { filter: brightness(1.07); }
 button:disabled { opacity: 0.5; cursor: wait; }
+button.ghost {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--ink);
+  font-weight: 500;
+}
+button.small { padding: 0.3rem 0.8rem; font-size: 0.85rem; }
 
 .row { display: flex; gap: 0.6rem; align-items: center; }
-.row input { margin-bottom: 0; flex: 1; }
+.row input, .row select { margin-bottom: 0; flex: 1; }
+.space-between { justify-content: space-between; }
 
 .status { font-size: 0.88rem; color: var(--muted); }
-.status.error { color: #b91c1c; }
+.status.error { color: var(--error); }
+
+progress { accent-color: var(--accent); width: 100%; }
 
 /* --- chat panel: answer and raw records side by side --------------------- */
 .chat-grid {
@@ -106,6 +180,7 @@ button:disabled { opacity: 0.5; cursor: wait; }
 @media (max-width: 900px) {
   .chat-grid { grid-template-columns: 1fr; }
 }
+.chat-half h3 { margin-top: 0; }
 .answer {
   background: var(--accent-soft);
   border-radius: 8px;
@@ -133,10 +208,26 @@ button:disabled { opacity: 0.5; cursor: wait; }
   color: var(--accent);
   font-weight: 600;
 }
-.chip.tag { background: #eef1f4; color: var(--muted); font-weight: 400; }
-.chip.confidence { background: #e7f6ec; color: #157347; }
+.chip.tag { background: var(--chip-bg); color: var(--muted); font-weight: 400; }
+.chip.confidence { background: var(--ok-soft); color: var(--ok); }
 .chip.review { background: var(--warn-soft); color: var(--warn); }
 .entry-date { margin-left: auto; color: var(--muted); font-size: 0.78rem; }
+
+/* --- settings / model manager --------------------------------------------- */
+#settings label { display: block; margin-bottom: 0.4rem; font-size: 0.92rem; }
+#settings label input[type="radio"] { width: auto; margin-right: 0.4rem; }
+#suggested-list { list-style: none; margin: 0; padding: 0; }
+#suggested-list li {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.92rem;
+}
+#suggested-list li:last-child { border-bottom: none; }
+#suggested-list .model-name { font-weight: 600; }
+#suggested-list .model-info { color: var(--muted); flex: 1; }
 
 .muted { color: var(--muted); }
 .hidden { display: none; }

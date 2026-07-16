@@ -4,12 +4,22 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>MemoryMap AI</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/style.css">
+  <script>
+    // Apply the saved theme before first paint to avoid a flash.
+    const saved = localStorage.getItem("theme");
+    if (saved) document.documentElement.dataset.theme = saved;
+  </script>
 </head>
 <body>
   <header>
     <h1>MemoryMap AI</h1>
     <p class="tagline">Your offline, self-filing notebook</p>
+    <div class="header-controls">
+      <span id="ai-pill" title="What the AI is doing right now">checking…</span>
+      <button id="theme-btn" class="ghost small" title="Toggle light/dark">🌓</button>
+    </div>
   </header>
 
   <div class="layout">

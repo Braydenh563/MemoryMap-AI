@@ -203,8 +203,22 @@ async function askQuestion() {
   }
 }
 
+// --- theme ----------------------------------------------------------------------
+
+function toggleTheme() {
+  const root = document.documentElement;
+  // Current effective theme: explicit choice, else the OS preference.
+  const current =
+    root.dataset.theme ||
+    (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  const next = current === "dark" ? "light" : "dark";
+  root.dataset.theme = next;
+  localStorage.setItem("theme", next); // remembered across restarts
+}
+
 // --- wiring --------------------------------------------------------------------
 
+document.getElementById("theme-btn").addEventListener("click", toggleTheme);
 document.getElementById("save-btn").addEventListener("click", saveEntry);
 document.getElementById("ask-btn").addEventListener("click", askQuestion);
 // Enter in the question box asks; Ctrl+Enter in the note box saves.

@@ -39,6 +39,7 @@ source .venv/bin/activate        # Windows: .venv\Scripts\activate
 # 2. Install dependencies + the app itself (editable mode)
 pip install -r requirements.txt
 pip install -e .
+# ^ don't forget the dot — it means "install the app in THIS folder"
 
 # 3. Optional: copy the example env file and tweak it
 cp .env.example .env             # Windows: copy .env.example .env

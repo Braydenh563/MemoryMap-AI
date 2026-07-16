@@ -51,6 +51,13 @@ class EmbeddingService:
             return f"ollama:{self._models.embedding_model()}"
         return f"sentence-transformers:{DEFAULT_ST_MODEL}"
 
+    def is_ready(self) -> bool:
+        """Can we embed right now without a long first-time load?
+        Drives the UI's status pill."""
+        if self._models.embedding_backend() == "ollama":
+            return self._ollama.is_running()
+        return self._st_model is not None
+
     def embed_text(self, text: str) -> np.ndarray | None:
         """Vector for one text, or None if the backend is unavailable."""
         if self._models.embedding_backend() == "ollama":

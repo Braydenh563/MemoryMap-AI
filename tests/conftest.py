@@ -9,6 +9,7 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
+from memorymap.ai import model_manager
 from memorymap.core import deps
 
 
@@ -18,9 +19,11 @@ def app_state(tmp_path, monkeypatch):
     # Make sure a developer's real .env can't leak into tests.
     monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path / "data"))
     deps.reset_app_state()
+    model_manager.reset_jobs()
     deps.init_app_state(data_dir=tmp_path / "data")
     yield deps.get_config()
     deps.reset_app_state()
+    model_manager.reset_jobs()
 
 
 @pytest.fixture()

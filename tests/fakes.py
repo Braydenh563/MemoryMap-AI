@@ -31,6 +31,9 @@ class FakeEmbeddingService(EmbeddingService):
     def backend_id(self) -> str:
         return "fake:keywords-v1"
 
+    def is_ready(self) -> bool:
+        return self.available
+
     def embed_text(self, text: str) -> np.ndarray | None:
         if not self.available:
             return None
@@ -51,6 +54,7 @@ class FakeOllama:
         self.running = running
         self.chat_calls: list[list[dict]] = []
         self.librarian_reply = "Here's what I found in your notebook!"
+        self.installed = [{"name": "llama3.2:latest", "size": 2_000_000_000}]
 
     def is_running(self) -> bool:
         return self.running
@@ -81,7 +85,20 @@ class FakeOllama:
         raise OllamaError("fake has no embedding models")
 
     def list_models(self) -> list[dict]:
-        return [{"name": "llama3.2"}] if self.running else []
+        if not self.running:
+            raise OllamaError("Ollama is not running (fake)")
+        return list(self.installed)
+
+    def pull(self, name: str):
+        """Streams a few progress updates like the real API, then
+        'installs' the model."""
+        if not self.running:
+            raise OllamaError("Ollama is not running (fake)")
+        total = 1_000
+        for completed in (250, 600, 1_000):
+            yield {"status": "pulling", "completed": completed, "total": total}
+        yield {"status": "success"}
+        self.installed.append({"name": name, "size": total})
 
 
 class GarbageOllama(FakeOllama):

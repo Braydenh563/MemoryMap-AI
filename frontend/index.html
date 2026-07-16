@@ -18,6 +18,7 @@
     <p class="tagline">Your offline, self-filing notebook</p>
     <div class="header-controls">
       <span id="ai-pill" title="What the AI is doing right now">checking…</span>
+      <button id="models-btn" class="ghost small">⚙ Models</button>
       <button id="theme-btn" class="ghost small" title="Toggle light/dark">🌓</button>
     </div>
   </header>
@@ -30,6 +31,60 @@
     </aside>
 
     <main>
+      <!-- Model Manager (Phase 3.5): pick models, download suggested ones -->
+      <section class="card hidden" id="settings">
+        <div class="row space-between">
+          <h2>Models</h2>
+          <button id="settings-close" class="ghost small">Close</button>
+        </div>
+        <p id="ollama-status" class="status"></p>
+        <p id="ollama-help" class="muted hidden">
+          Ollama powers the chat answers and auto-filing.
+          <a href="https://ollama.com" target="_blank" rel="noopener">Install it from ollama.com</a>,
+          start it, and this screen will light up. Capturing notes and keyword
+          search work fine without it.
+        </p>
+
+        <div id="models-config" class="hidden">
+          <h3>Chat model (answers &amp; filing — switches instantly)</h3>
+          <div class="row">
+            <select id="chat-model-select"></select>
+            <button id="chat-model-apply" class="small">Use this model</button>
+          </div>
+          <p id="chat-model-note" class="status"></p>
+
+          <h3>Search engine (how your notes are understood)</h3>
+          <label>
+            <input type="radio" name="emb-backend" value="sentence-transformers">
+            Built-in (recommended — works out of the box, no download)
+          </label>
+          <label>
+            <input type="radio" name="emb-backend" value="ollama">
+            Ollama embedding model:
+          </label>
+          <div class="row">
+            <select id="embedding-model-select"></select>
+            <button id="embedding-apply" class="small">Apply &amp; re-index</button>
+          </div>
+          <p class="muted">
+            Changing this re-reads every note so search keeps making sense —
+            it runs in the background and search falls back to keywords until
+            it finishes.
+          </p>
+        </div>
+
+        <div id="reindex-box" class="hidden">
+          <h3>Re-indexing your notes…</h3>
+          <progress id="reindex-progress" value="0" max="1"></progress>
+          <p id="reindex-label" class="status"></p>
+        </div>
+
+        <div id="suggested-box" class="hidden">
+          <h3>Suggested downloads</h3>
+          <ul id="suggested-list"></ul>
+        </div>
+      </section>
+
       <!-- Capture: the start of the core loop -->
       <section class="card" id="capture">
         <h2>Capture a thought</h2>

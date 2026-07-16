@@ -203,6 +203,254 @@ async function askQuestion() {
   }
 }
 
+// --- model manager (Phase 3.5) ---------------------------------------------------
+
+let modelStatus = null; // latest /models/status payload
+let suggestedCatalog = null; // loaded once, it never changes
+let statusTimer = null;
+
+function settingsOpen() {
+  return !document.getElementById("settings").classList.contains("hidden");
+}
+
+function jobsRunning() {
+  if (!modelStatus) return false;
+  const reindexing = modelStatus.reindex && modelStatus.reindex.status === "running";
+  const pulling = Object.values(modelStatus.pulls || {}).some(
+    (job) => job.status === "running"
+  );
+  return reindexing || pulling;
+}
+
+// One polling loop for everything: slow when idle, fast while a
+// download/re-index is running or the settings panel is open.
+async function refreshModelStatus() {
+  try {
+    modelStatus = await api("/models/status");
+  } catch {
+    modelStatus = null; // server unreachable — pill shows the worst case
+  }
+  renderAiPill();
+  if (settingsOpen()) renderSettings();
+
+  clearTimeout(statusTimer);
+  const delay = jobsRunning() ? 1000 : settingsOpen() ? 3000 : 20000;
+  statusTimer = setTimeout(refreshModelStatus, delay);
+}
+
+function renderAiPill() {
+  const pill = document.getElementById("ai-pill");
+  pill.className = "";
+  if (!modelStatus) {
+    pill.textContent = "server offline";
+    return;
+  }
+  const chatReady = modelStatus.ollama_running;
+  const searchReady = modelStatus.embedding_ready;
+  if (modelStatus.reindex && modelStatus.reindex.status === "running") {
+    pill.classList.add("busy");
+    pill.textContent = "rebuilding search index…";
+  } else if (chatReady && searchReady) {
+    pill.classList.add("ok");
+    pill.textContent = "AI ready";
+  } else if (!chatReady && searchReady) {
+    pill.classList.add("busy");
+    pill.textContent = "chat AI off — notes still save";
+  } else if (chatReady && !searchReady) {
+    pill.classList.add("busy");
+    pill.textContent = "search AI warming up…";
+  } else {
+    pill.textContent = "AI off — notes still save";
+  }
+}
+
+function renderSettings() {
+  const status = modelStatus;
+  const ollamaLine = document.getElementById("ollama-status");
+  const help = document.getElementById("ollama-help");
+  const config = document.getElementById("models-config");
+  const suggestedBox = document.getElementById("suggested-box");
+
+  if (!status) {
+    ollamaLine.textContent = "Can't reach the MemoryMap server.";
+    return;
+  }
+
+  ollamaLine.textContent = status.ollama_running
+    ? "● Ollama is running"
+    : "○ Ollama not detected";
+  help.classList.toggle("hidden", status.ollama_running);
+  config.classList.toggle("hidden", !status.ollama_running);
+  suggestedBox.classList.toggle("hidden", !status.ollama_running);
+
+  if (status.ollama_running) {
+    renderChatModelPicker(status);
+    renderEmbeddingPicker(status);
+    renderSuggested(status);
+  }
+  renderReindex(status);
+}
+
+function renderChatModelPicker(status) {
+  const select = document.getElementById("chat-model-select");
+  const note = document.getElementById("chat-model-note");
+  // Don't rebuild the list under the user's cursor mid-choice.
+  if (document.activeElement !== select) {
+    select.replaceChildren();
+    for (const model of status.installed_models) {
+      const option = document.createElement("option");
+      option.value = model.name;
+      option.textContent = model.name;
+      if (
+        model.name === status.chat_model ||
+        model.name.split(":")[0] === status.chat_model
+      ) {
+        option.selected = true;
+      }
+      select.appendChild(option);
+    }
+  }
+  note.textContent =
+    status.chat_model_installed === false
+      ? `Active model “${status.chat_model}” is not installed any more — pick another or download it below.`
+      : `Active: ${status.chat_model}`;
+}
+
+function renderEmbeddingPicker(status) {
+  const radios = document.querySelectorAll('input[name="emb-backend"]');
+  for (const radio of radios) {
+    radio.checked = radio.value === status.embedding_backend;
+  }
+  const select = document.getElementById("embedding-model-select");
+  if (document.activeElement !== select) {
+    select.replaceChildren();
+    for (const model of status.installed_models) {
+      const option = document.createElement("option");
+      option.value = model.name;
+      option.textContent = model.name;
+      if (
+        model.name === status.embedding_model ||
+        model.name.split(":")[0] === status.embedding_model
+      ) {
+        option.selected = true;
+      }
+      select.appendChild(option);
+    }
+  }
+}
+
+function renderReindex(status) {
+  const box = document.getElementById("reindex-box");
+  const job = status.reindex;
+  const running = job && job.status === "running";
+  box.classList.toggle("hidden", !running);
+  if (running) {
+    document.getElementById("reindex-progress").value = job.done;
+    document.getElementById("reindex-progress").max = Math.max(job.total, 1);
+    document.getElementById("reindex-label").textContent =
+      `${job.done} of ${job.total} notes re-indexed`;
+  }
+}
+
+function renderSuggested(status) {
+  const list = document.getElementById("suggested-list");
+  if (!suggestedCatalog) return;
+  list.replaceChildren();
+  const installedNames = new Set(
+    status.installed_models.flatMap((m) => [m.name, m.name.split(":")[0]])
+  );
+
+  for (const [kind, models] of Object.entries(suggestedCatalog)) {
+    for (const model of models) {
+      const li = document.createElement("li");
+      const name = document.createElement("span");
+      name.className = "model-name";
+      name.textContent = model.name;
+      const info = document.createElement("span");
+      info.className = "model-info";
+      info.textContent = `${kind} · ${model.size} · ${model.purpose}`;
+      li.append(name, info);
+
+      const pull = (status.pulls || {})[model.name];
+      if (installedNames.has(model.name)) {
+        li.appendChild(chip("installed ✓", "confidence"));
+      } else if (pull && pull.status === "running") {
+        const progress = document.createElement("progress");
+        progress.max = Math.max(pull.total, 1);
+        progress.value = pull.done;
+        progress.style.width = "120px";
+        li.appendChild(progress);
+      } else {
+        if (pull && pull.status === "error") {
+          li.appendChild(chip("failed — retry?", "review"));
+        }
+        const button = document.createElement("button");
+        button.className = "small";
+        button.textContent = "Download";
+        button.addEventListener("click", async () => {
+          button.disabled = true;
+          try {
+            await api("/models/pull", {
+              method: "POST",
+              body: JSON.stringify({ name: model.name }),
+            });
+            refreshModelStatus();
+          } catch (error) {
+            alert(error.message);
+            button.disabled = false;
+          }
+        });
+        li.appendChild(button);
+      }
+      list.appendChild(li);
+    }
+  }
+}
+
+async function openSettings() {
+  document.getElementById("settings").classList.remove("hidden");
+  if (!suggestedCatalog) {
+    suggestedCatalog = await api("/models/suggested").catch(() => null);
+  }
+  refreshModelStatus();
+}
+
+async function applyChatModel() {
+  const select = document.getElementById("chat-model-select");
+  const note = document.getElementById("chat-model-note");
+  try {
+    await api("/models/chat-model", {
+      method: "POST",
+      body: JSON.stringify({ name: select.value }),
+    });
+    note.textContent = `Active: ${select.value} — switched instantly, no re-index needed.`;
+    refreshModelStatus();
+  } catch (error) {
+    note.textContent = error.message;
+  }
+}
+
+async function applyEmbeddingBackend() {
+  const backend = document.querySelector('input[name="emb-backend"]:checked')?.value;
+  const model = document.getElementById("embedding-model-select").value || null;
+  if (!backend) return;
+  const ok = confirm(
+    `Switching the search engine re-indexes all ${allEntries.length} of your ` +
+      "notes so search keeps making sense. Notes and keyword search stay " +
+      "available while it runs. Continue?"
+  );
+  if (!ok) return;
+  try {
+    await api("/models/embedding-backend", {
+      method: "POST",
+      body: JSON.stringify({ backend, model: backend === "ollama" ? model : null }),
+    });
+    refreshModelStatus();
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
 // --- theme ----------------------------------------------------------------------
 
 function toggleTheme() {
@@ -219,6 +467,12 @@ function toggleTheme() {
 // --- wiring --------------------------------------------------------------------
 
 document.getElementById("theme-btn").addEventListener("click", toggleTheme);
+document.getElementById("models-btn").addEventListener("click", openSettings);
+document.getElementById("settings-close").addEventListener("click", () => {
+  document.getElementById("settings").classList.add("hidden");
+});
+document.getElementById("chat-model-apply").addEventListener("click", applyChatModel);
+document.getElementById("embedding-apply").addEventListener("click", applyEmbeddingBackend);
 document.getElementById("save-btn").addEventListener("click", saveEntry);
 document.getElementById("ask-btn").addEventListener("click", askQuestion);
 // Enter in the question box asks; Ctrl+Enter in the note box saves.
@@ -232,3 +486,4 @@ document.getElementById("entry-content").addEventListener("keydown", (e) => {
 loadEntries().catch((error) => {
   document.getElementById("save-status").textContent = error.message;
 });
+refreshModelStatus();

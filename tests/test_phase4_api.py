@@ -174,7 +174,8 @@ def test_preferences_roundtrip(client):
     updated = client.put(
         "/preferences", json={"recycle_bin_days": 7, "communication_style": "concise"}
     ).json()
-    assert updated == {"recycle_bin_days": 7, "communication_style": "concise"}
+    assert updated["recycle_bin_days"] == 7
+    assert updated["communication_style"] == "concise"
     # Persisted for real.
     assert deps.get_config().get_preference("recycle_bin_days") == 7
 

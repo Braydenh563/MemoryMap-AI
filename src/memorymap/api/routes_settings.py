@@ -28,6 +28,11 @@ router = APIRouter(tags=["settings"])
 class PreferencesBody(BaseModel):
     recycle_bin_days: int | None = Field(default=None, ge=1, le=365)
     communication_style: Literal["friendly", "concise", "detailed"] | None = None
+    # Optional context about the user for the librarian (Phase 5).
+    # profile_enabled is the opt-out switch; the delete button in the UI
+    # simply saves an empty string.
+    user_profile: str | None = Field(default=None, max_length=2000)
+    profile_enabled: bool | None = None
 
 
 @router.get("/preferences")
@@ -36,6 +41,8 @@ def get_preferences() -> dict:
     return {
         "recycle_bin_days": config.get_preference("recycle_bin_days", 30),
         "communication_style": config.get_preference("communication_style", "friendly"),
+        "user_profile": config.get_preference("user_profile", ""),
+        "profile_enabled": config.get_preference("profile_enabled", False),
     }
 
 
@@ -46,7 +53,9 @@ def update_preferences(
     config = deps.get_config()
     for key, value in body.model_dump(exclude_none=True).items():
         config.set_preference(key, value)
-        manager.log_action(session, "edited", "preferences", detail=f"{key}={value}")
+        # Don't copy profile text into the audit log — it's personal.
+        detail = f"{key}=…" if key == "user_profile" else f"{key}={value}"
+        manager.log_action(session, "edited", "preferences", detail=detail)
     session.commit()
     return get_preferences()
 

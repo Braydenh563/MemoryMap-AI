@@ -86,6 +86,18 @@ def list_entries(session: Session, include_deleted: bool = False) -> list[Entry]
     return list(session.scalars(query))
 
 
+def most_accessed_entries(session: Session, limit: int = 5) -> list[Entry]:
+    """Most-used non-deleted entries; untouched entries don't qualify."""
+    return list(
+        session.scalars(
+            select(Entry)
+            .where(Entry.is_deleted == False, Entry.access_count > 0)  # noqa: E712
+            .order_by(Entry.access_count.desc(), Entry.id.desc())
+            .limit(limit)
+        )
+    )
+
+
 def list_deleted_entries(session: Session) -> list[Entry]:
     """The recycle bin, most recently deleted first."""
     return list(

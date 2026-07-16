@@ -8,16 +8,37 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from memorymap.ai import librarian
 from memorymap.api.schemas import EntryOut
 from memorymap.core import deps
+from memorymap.core.database import AuditLog
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
 from memorymap.search import search_manager
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+
+
+@router.get("/recent", response_model=list[str])
+def recent_questions(session: Session = Depends(get_session)) -> list[str]:
+    """The last 5 distinct questions, newest first (Phase 5 quick access).
+    Read straight from the audit log — no extra bookkeeping."""
+    rows = session.scalars(
+        select(AuditLog)
+        .where(AuditLog.action == "queried", AuditLog.entity_type == "chat")
+        .order_by(AuditLog.id.desc())
+        .limit(50)
+    )
+    questions: list[str] = []
+    for row in rows:
+        if row.detail and row.detail not in questions:
+            questions.append(row.detail)
+        if len(questions) == 5:
+            break
+    return questions
 
 
 class ChatRequest(BaseModel):
@@ -47,12 +68,28 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         }
         for entry in entries
     ]
-    style = deps.get_config().get_preference("communication_style", "friendly")
+    config = deps.get_config()
+    style = config.get_preference("communication_style", "friendly")
+    # The optional user profile gives the AI context — only when the
+    # user has it switched on (Phase 5, with opt-out).
+    profile = (
+        config.get_preference("user_profile", "")
+        if config.get_preference("profile_enabled", False)
+        else ""
+    )
     chat_available = bool(notes) and deps.get_ollama().is_running()
     ai_response = librarian.answer(
-        body.question, notes, deps.get_model_manager(), deps.get_ollama(), style=style
+        body.question,
+        notes,
+        deps.get_model_manager(),
+        deps.get_ollama(),
+        style=style,
+        profile=profile,
     )
 
+    # Every entry this question surfaced counts as "used" (Phase 5).
+    for entry in entries:
+        entry.access_count += 1
     manager.log_action(session, "queried", "chat", detail=body.question)
     session.commit()
 

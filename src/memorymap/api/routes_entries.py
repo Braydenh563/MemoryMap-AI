@@ -33,6 +33,7 @@ def _to_out(session: Session, entry, filed_by: str | None = None) -> EntryOut:  
         category=manager.category_name_for(session, entry),
         tags=manager.entry_tags(entry),
         ai_confidence=entry.ai_confidence,
+        access_count=entry.access_count,
         created_at=entry.created_at,
         deleted_at=entry.deleted_at if entry.is_deleted else None,
         links=[
@@ -99,11 +100,22 @@ def list_entries(
     return [_to_out(session, e) for e in entries]
 
 
+# Declared before /{entry_id} so "most-accessed" isn't parsed as an id.
+@router.get("/most-accessed", response_model=list[EntryOut])
+def most_accessed(session: Session = Depends(get_session)) -> list[EntryOut]:
+    """Top entries by how often they've been opened or matched a
+    question — the Phase 5 quick-access dashboard."""
+    entries = manager.most_accessed_entries(session, limit=5)
+    return [_to_out(session, e) for e in entries]
+
+
 @router.get("/{entry_id}", response_model=EntryOut)
 def get_entry(entry_id: int, session: Session = Depends(get_session)) -> EntryOut:
     entry = _existing_entry(session, entry_id)
     if entry.is_deleted:
         raise HTTPException(status_code=404, detail="Entry not found")
+    entry.access_count += 1  # opening an entry counts as using it
+    session.commit()
     return _to_out(session, entry)
 
 

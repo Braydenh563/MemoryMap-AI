@@ -107,6 +107,8 @@ async function initAuth() {
 
 function startApp() {
   loadEntries().catch(() => {});
+  loadRecentQuestions();
+  loadMostUsed();
   refreshModelStatus();
 }
 
@@ -486,6 +488,9 @@ async function askQuestion() {
 
     $("chat-results").classList.remove("hidden");
     status.textContent = "";
+    // Asking changes both quick-access lists.
+    loadRecentQuestions();
+    loadMostUsed();
   } catch (error) {
     status.textContent = error.message;
     status.classList.add("error");
@@ -544,6 +549,8 @@ async function renderPrefs() {
   prefsCache = await apiJson("/preferences");
   $("pref-bin-days").value = prefsCache.recycle_bin_days;
   $("pref-style").value = prefsCache.communication_style;
+  $("pref-profile").value = prefsCache.user_profile;
+  $("pref-profile-enabled").checked = prefsCache.profile_enabled;
   $("prefs-status").textContent = "";
 }
 
@@ -554,12 +561,24 @@ async function savePrefs() {
       body: JSON.stringify({
         recycle_bin_days: Number($("pref-bin-days").value),
         communication_style: $("pref-style").value,
+        user_profile: $("pref-profile").value,
+        profile_enabled: $("pref-profile-enabled").checked,
       }),
     });
     $("prefs-status").textContent = "Saved.";
   } catch (error) {
     $("prefs-status").textContent = error.message;
   }
+}
+
+async function deleteProfile() {
+  if (!confirm("Delete your profile text? The AI will stop personalising answers.")) return;
+  prefsCache = await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ user_profile: "", profile_enabled: false }),
+  });
+  await renderPrefs();
+  toast("Profile data deleted.");
 }
 
 // Downloads need the auth header, so plain <a href> won't do — fetch the
@@ -575,18 +594,70 @@ async function downloadExport(kind) {
   URL.revokeObjectURL(url);
 }
 
-// --- toasts -----------------------------------------------------------------------
-
-let toastTimer = null;
+// --- toasts (Phase 5) ---------------------------------------------------------------
 
 function toast(message, isError = false) {
-  const status = $("save-status");
-  status.textContent = message;
-  status.classList.toggle("error", isError);
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => {
-    if (status.textContent === message) status.textContent = "";
-  }, 6000);
+  const box = $("toast-box");
+  const note = document.createElement("div");
+  note.className = isError ? "toast error" : "toast";
+  note.textContent = message;
+  box.appendChild(note);
+  setTimeout(() => note.remove(), 5500);
+}
+
+// --- quick access: recent questions + most-used entries (Phase 5) -------------------
+
+async function loadRecentQuestions() {
+  const box = $("recent-questions");
+  const questions = await apiJson("/chat/recent").catch(() => []);
+  box.replaceChildren();
+  box.classList.toggle("hidden", questions.length === 0);
+  if (questions.length === 0) return;
+  const label = document.createElement("span");
+  label.className = "muted";
+  label.textContent = "Ask again:";
+  box.appendChild(label);
+  for (const question of questions) {
+    const again = chip(question.length > 48 ? question.slice(0, 47) + "…" : question);
+    again.title = question;
+    again.addEventListener("click", () => {
+      $("question").value = question;
+      askQuestion();
+    });
+    box.appendChild(again);
+  }
+}
+
+async function loadMostUsed() {
+  const box = $("most-used-box");
+  const list = $("most-used");
+  const entries = await apiJson("/entries/most-accessed").catch(() => []);
+  list.replaceChildren();
+  box.classList.toggle("hidden", entries.length === 0);
+  for (const entry of entries) {
+    const li = document.createElement("li");
+    li.title = entry.content;
+    const text = document.createElement("span");
+    text.textContent =
+      entry.content.length > 26 ? entry.content.slice(0, 25) + "…" : entry.content;
+    const count = document.createElement("span");
+    count.className = "count";
+    count.textContent = `×${entry.access_count}`;
+    li.append(text, count);
+    li.addEventListener("click", () => {
+      // Jump to the entry in the main list and flash it.
+      activeCategory = null;
+      renderSidebar();
+      renderEntries();
+      const card = document.querySelector(`#entry-list li[data-id="${entry.id}"]`);
+      if (card) {
+        card.scrollIntoView({ behavior: "smooth", block: "center" });
+        card.classList.add("flash");
+        setTimeout(() => card.classList.remove("flash"), 1700);
+      }
+    });
+    list.appendChild(li);
+  }
 }
 
 // --- model manager (Phase 3.5) ---------------------------------------------------
@@ -875,6 +946,7 @@ $("bin-empty").addEventListener("click", async () => {
   await renderBin();
 });
 $("prefs-save").addEventListener("click", savePrefs);
+$("profile-delete").addEventListener("click", deleteProfile);
 $("export-json").addEventListener("click", () => downloadExport("json"));
 $("export-csv").addEventListener("click", () => downloadExport("csv"));
 $("chat-model-apply").addEventListener("click", applyChatModel);

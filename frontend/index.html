@@ -43,6 +43,10 @@
     <aside class="card" id="sidebar">
       <h2>Categories</h2>
       <ul id="category-list"></ul>
+      <div id="most-used-box" class="hidden">
+        <h2>Most used</h2>
+        <ul id="most-used"></ul>
+      </div>
     </aside>
 
     <main>
@@ -145,6 +149,21 @@
           <button id="prefs-save" class="small">Save preferences</button>
           <span id="prefs-status" class="status" role="status"></span>
         </div>
+        <h3>About you (optional)</h3>
+        <label>
+          <input type="checkbox" id="pref-profile-enabled">
+          Let the AI use this profile for more personal answers
+        </label>
+        <textarea id="pref-profile" rows="3"
+          placeholder="e.g. I'm Brayden, in Brisbane. I run track and collect dad jokes."></textarea>
+        <div class="row">
+          <button id="profile-delete" class="ghost small">Delete my profile data</button>
+        </div>
+        <p class="muted">
+          Stays on this computer like everything else. Turn it off or delete it
+          any time — answers just get less personal.
+        </p>
+
         <h3>Your data</h3>
         <div class="row">
           <button id="export-json" class="ghost small">Export JSON</button>
@@ -176,6 +195,7 @@
             placeholder="e.g. What jokes have I saved?">
           <button id="ask-btn">Ask</button>
         </div>
+        <div id="recent-questions" class="recent hidden"></div>
         <p id="ask-status" class="status" role="status"></p>
         <div id="chat-results" class="chat-grid hidden">
           <div class="chat-half">
@@ -200,6 +220,7 @@
     </main>
   </div>
 
+  <div id="toast-box"></div>
   <script src="/app.js"></script>
 </body>
 </html>

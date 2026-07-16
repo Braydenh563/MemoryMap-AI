@@ -35,6 +35,7 @@ class EntryOut(BaseModel):
     category: str
     tags: list[str]
     ai_confidence: int
+    access_count: int = 0
     created_at: datetime
     deleted_at: datetime | None = None  # set only in the recycle-bin view
     links: list[LinkOut] = Field(default_factory=list)

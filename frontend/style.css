@@ -1,57 +1,77 @@
-/* MemoryMap AI — deliberately simple, readable styles. No framework.
+/* MemoryMap AI — glassmorphism aesthetic, still deliberately simple.
+   Cards are translucent and blur whatever is behind them; a fixed
+   gradient + two soft colour blobs behind the page give the glass
+   something to refract.
    Theming: light is the default; dark kicks in either from the OS
    preference or from the manual toggle (data-theme on <html>). */
 
 :root {
-  --bg: #f4f5f7;
-  --card: #ffffff;
+  --page: linear-gradient(135deg, #e9edfb 0%, #f6f2ec 45%, #e6f1f2 100%);
+  --blob-a: rgba(79, 109, 245, 0.20);
+  --blob-b: rgba(157, 88, 245, 0.14);
+  --card: rgba(255, 255, 255, 0.55);
+  --inner: rgba(255, 255, 255, 0.45);
+  --input-bg: rgba(255, 255, 255, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.65);
+  --glass-shadow: 0 8px 32px rgba(31, 38, 135, 0.14);
   --ink: #1f2430;
-  --muted: #6b7280;
+  --muted: #5b6472;
   --accent: #4f6df5;
-  --accent-soft: #e8ecfe;
-  --warn: #b45309;
-  --warn-soft: #fef3c7;
-  --ok: #157347;
-  --ok-soft: #e7f6ec;
+  --accent-soft: rgba(79, 109, 245, 0.14);
+  --warn: #9a5b04;
+  --warn-soft: rgba(245, 189, 79, 0.25);
+  --ok: #10653c;
+  --ok-soft: rgba(52, 199, 123, 0.20);
   --error: #b91c1c;
-  --border: #e3e5ea;
-  --chip-bg: #eef1f4;
+  --border: rgba(31, 36, 48, 0.10);
+  --chip-bg: rgba(31, 36, 48, 0.07);
 }
 
-/* Dark palette, listed once as a reusable custom-property block…
-   CSS has no variables-for-variables, so it appears twice below. */
+/* Dark palette. CSS has no variables-for-variables, so the block
+   appears twice: once for the manual toggle, once for the OS default. */
 :root[data-theme="dark"] {
-  --bg: #14161c;
-  --card: #1d212b;
+  --page: linear-gradient(135deg, #0e1017 0%, #171a26 45%, #0f1720 100%);
+  --blob-a: rgba(123, 144, 247, 0.16);
+  --blob-b: rgba(88, 235, 245, 0.07);
+  --card: rgba(29, 33, 46, 0.55);
+  --inner: rgba(255, 255, 255, 0.05);
+  --input-bg: rgba(14, 16, 23, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.10);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
   --ink: #e7e9ee;
   --muted: #9aa1ad;
-  --accent: #7b90f7;
-  --accent-soft: #2a3350;
+  --accent: #8b9df8;
+  --accent-soft: rgba(123, 144, 247, 0.20);
   --warn: #fbbf24;
-  --warn-soft: #3d3320;
+  --warn-soft: rgba(251, 191, 36, 0.16);
   --ok: #4ade80;
-  --ok-soft: #1d3327;
+  --ok-soft: rgba(74, 222, 128, 0.15);
   --error: #f87171;
-  --border: #2c313d;
-  --chip-bg: #272c37;
+  --border: rgba(255, 255, 255, 0.10);
+  --chip-bg: rgba(255, 255, 255, 0.08);
 }
 
-/* Follow the OS when the user hasn't chosen a theme with the toggle. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #14161c;
-    --card: #1d212b;
+    --page: linear-gradient(135deg, #0e1017 0%, #171a26 45%, #0f1720 100%);
+    --blob-a: rgba(123, 144, 247, 0.16);
+    --blob-b: rgba(88, 235, 245, 0.07);
+    --card: rgba(29, 33, 46, 0.55);
+    --inner: rgba(255, 255, 255, 0.05);
+    --input-bg: rgba(14, 16, 23, 0.55);
+    --glass-border: rgba(255, 255, 255, 0.10);
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
     --ink: #e7e9ee;
     --muted: #9aa1ad;
-    --accent: #7b90f7;
-    --accent-soft: #2a3350;
+    --accent: #8b9df8;
+    --accent-soft: rgba(123, 144, 247, 0.20);
     --warn: #fbbf24;
-    --warn-soft: #3d3320;
+    --warn-soft: rgba(251, 191, 36, 0.16);
     --ok: #4ade80;
-    --ok-soft: #1d3327;
+    --ok-soft: rgba(74, 222, 128, 0.15);
     --error: #f87171;
-    --border: #2c313d;
-    --chip-bg: #272c37;
+    --border: rgba(255, 255, 255, 0.10);
+    --chip-bg: rgba(255, 255, 255, 0.08);
   }
 }
 
@@ -60,9 +80,15 @@
 body {
   margin: 0;
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-  background: var(--bg);
   color: var(--ink);
   line-height: 1.5;
+  min-height: 100vh;
+  /* The glass backdrop: two soft blobs floating over a gradient. */
+  background:
+    radial-gradient(600px 400px at 15% 8%, var(--blob-a), transparent 70%),
+    radial-gradient(700px 500px at 85% 90%, var(--blob-b), transparent 70%),
+    var(--page);
+  background-attachment: fixed;
 }
 
 header {
@@ -74,7 +100,7 @@ header {
 }
 header h1 { margin: 0; font-size: 1.5rem; }
 .tagline { margin: 0; color: var(--muted); font-size: 0.9rem; flex: 1; }
-.header-controls { display: flex; gap: 0.5rem; align-items: center; }
+.header-controls { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
 
 /* Live "what is the AI doing?" indicator */
 #ai-pill {
@@ -83,13 +109,14 @@ header h1 { margin: 0; font-size: 1.5rem; }
   font-size: 0.8rem;
   background: var(--chip-bg);
   color: var(--muted);
+  backdrop-filter: blur(8px);
 }
 #ai-pill.ok { background: var(--ok-soft); color: var(--ok); }
 #ai-pill.busy { background: var(--warn-soft); color: var(--warn); }
 
 .layout {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: 230px 1fr;
   gap: 1rem;
   padding: 1rem 2rem 2rem;
   align-items: start;
@@ -100,10 +127,14 @@ header h1 { margin: 0; font-size: 1.5rem; }
   .layout { grid-template-columns: 1fr; }
 }
 
+/* --- the glass card -------------------------------------------------------- */
 .card {
   background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  box-shadow: var(--glass-shadow);
   padding: 1rem 1.25rem;
   margin-bottom: 1rem;
 }
@@ -116,7 +147,7 @@ header h1 { margin: 0; font-size: 1.5rem; }
   display: flex;
   justify-content: space-between;
   padding: 0.35rem 0.5rem;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 0.92rem;
 }
@@ -125,16 +156,17 @@ header h1 { margin: 0; font-size: 1.5rem; }
 #sidebar .count { color: var(--muted); }
 
 /* --- forms --------------------------------------------------------------- */
-textarea, input[type="text"], select {
+textarea, input[type="text"], input[type="password"], input[type="number"], select {
   width: 100%;
   padding: 0.55rem 0.7rem;
   margin-bottom: 0.6rem;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 10px;
   font: inherit;
-  background: var(--card);
+  background: var(--input-bg);
   color: var(--ink);
   resize: vertical;
+  backdrop-filter: blur(8px);
 }
 textarea:focus, input:focus, select:focus {
   outline: 2px solid var(--accent-soft);
@@ -144,25 +176,29 @@ textarea:focus, input:focus, select:focus {
 button {
   padding: 0.5rem 1.1rem;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--accent);
   color: #fff;
   font: inherit;
   font-weight: 600;
   cursor: pointer;
+  box-shadow: 0 2px 10px rgba(79, 109, 245, 0.25);
 }
 button:hover { filter: brightness(1.07); }
 button:disabled { opacity: 0.5; cursor: wait; }
 button.ghost {
-  background: transparent;
-  border: 1px solid var(--border);
+  background: var(--chip-bg);
+  border: 1px solid var(--glass-border);
   color: var(--ink);
   font-weight: 500;
+  box-shadow: none;
+  backdrop-filter: blur(8px);
 }
 button.small { padding: 0.3rem 0.8rem; font-size: 0.85rem; }
 
 .row { display: flex; gap: 0.6rem; align-items: center; }
 .row input, .row select { margin-bottom: 0; flex: 1; }
+.row label { flex-shrink: 0; }
 .space-between { justify-content: space-between; }
 
 .status { font-size: 0.88rem; color: var(--muted); }
@@ -183,16 +219,19 @@ progress { accent-color: var(--accent); width: 100%; }
 .chat-half h3 { margin-top: 0; }
 .answer {
   background: var(--accent-soft);
-  border-radius: 8px;
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
   padding: 0.75rem 0.9rem;
   white-space: pre-wrap;
+  backdrop-filter: blur(8px);
 }
 
 /* --- entry lists ---------------------------------------------------------- */
 .entry-list { list-style: none; margin: 0; padding: 0; }
 .entry-list li {
+  background: var(--inner);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 0.6rem 0.8rem;
   margin-bottom: 0.6rem;
 }
@@ -216,6 +255,7 @@ progress { accent-color: var(--accent); width: 100%; }
 /* --- settings / model manager --------------------------------------------- */
 #settings label { display: block; margin-bottom: 0.4rem; font-size: 0.92rem; }
 #settings label input[type="radio"] { width: auto; margin-right: 0.4rem; }
+#prefs-panel label input[type="checkbox"] { width: auto; margin-right: 0.4rem; }
 #suggested-list { list-style: none; margin: 0; padding: 0; }
 #suggested-list li {
   display: flex;
@@ -233,11 +273,14 @@ progress { accent-color: var(--accent); width: 100%; }
 .lock-overlay {
   position: fixed;
   inset: 0;
-  background: var(--bg);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 50;
+  background:
+    radial-gradient(600px 400px at 15% 8%, var(--blob-a), transparent 70%),
+    radial-gradient(700px 500px at 85% 90%, var(--blob-b), transparent 70%),
+    var(--page);
 }
 .lock-card { width: min(420px, 90vw); text-align: center; }
 .lock-card input { text-align: center; }
@@ -260,6 +303,53 @@ li.link-source { outline: 2px solid var(--accent); }
 }
 .activity-list .when { color: var(--muted); min-width: 9.5rem; }
 .activity-list .what { font-weight: 600; min-width: 6rem; }
+
+/* --- Phase 5: quick access + toasts ------------------------------------------ */
+.recent { margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+.recent .chip { cursor: pointer; }
+.recent .chip:hover { filter: brightness(1.08); }
+
+#most-used-box h2 { margin-top: 1rem; }
+#most-used { list-style: none; margin: 0; padding: 0; font-size: 0.85rem; }
+#most-used li {
+  padding: 0.3rem 0.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+#most-used li:hover { background: var(--accent-soft); }
+#most-used .count { color: var(--muted); }
+
+#toast-box {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  z-index: 60;
+}
+.toast {
+  background: var(--card);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  border: 1px solid var(--glass-border);
+  border-left: 4px solid var(--accent);
+  border-radius: 10px;
+  padding: 0.6rem 0.9rem;
+  max-width: 340px;
+  box-shadow: var(--glass-shadow);
+  font-size: 0.9rem;
+}
+.toast.error { border-left-color: var(--error); }
+
+@keyframes flash-outline {
+  0% { outline: 3px solid var(--accent); }
+  100% { outline: 3px solid transparent; }
+}
+.entry-list li.flash { animation: flash-outline 1.6s ease-out; }
 
 .muted { color: var(--muted); }
 .hidden { display: none; }

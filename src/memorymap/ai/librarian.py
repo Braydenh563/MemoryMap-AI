@@ -36,6 +36,7 @@ def answer(
     model_manager: ModelManager,
     ollama: OllamaClient,
     style: str = "friendly",
+    profile: str = "",
 ) -> str:
     """Conversational answer for `question` given retrieved `notes`
     (dicts with 'content' and 'category')."""
@@ -49,11 +50,13 @@ def answer(
         for i, note in enumerate(notes, start=1)
     )
     style_hint = STYLE_HINTS.get(style, STYLE_HINTS["friendly"])
+    # The profile is context about the user, never an instruction source.
+    profile_hint = f" About the user: {profile.strip()}" if profile.strip() else ""
     try:
         return ollama.chat(
             model_manager.chat_model(),
             [
-                {"role": "system", "content": f"{SYSTEM_PROMPT} {style_hint}"},
+                {"role": "system", "content": f"{SYSTEM_PROMPT} {style_hint}{profile_hint}"},
                 {
                     "role": "user",
                     "content": f"My notes:\n{numbered}\n\nMy question: {question}",

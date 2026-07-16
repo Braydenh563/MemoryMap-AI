@@ -19,9 +19,24 @@
     <div class="header-controls">
       <span id="ai-pill" title="What the AI is doing right now">checking…</span>
       <button id="models-btn" class="ghost small">⚙ Models</button>
+      <button id="prefs-btn" class="ghost small">Preferences</button>
+      <button id="bin-btn" class="ghost small">🗑 Bin</button>
+      <button id="activity-btn" class="ghost small">📜 Activity</button>
+      <button id="lock-btn" class="ghost small hidden" title="Lock the app">🔒 Lock</button>
       <button id="theme-btn" class="ghost small" title="Toggle light/dark">🌓</button>
     </div>
   </header>
+
+  <!-- Unlock / first-run setup gate (Phase 4) -->
+  <div id="lock-overlay" class="lock-overlay hidden">
+    <div class="card lock-card">
+      <h2 id="lock-title">Unlock MemoryMap</h2>
+      <p id="lock-message" class="muted"></p>
+      <input id="lock-password" type="password" placeholder="Password or PIN">
+      <button id="lock-submit">Unlock</button>
+      <p id="lock-error" class="status error" role="alert"></p>
+    </div>
+  </div>
 
   <div class="layout">
     <!-- Category sidebar: built from the loaded entries, click to filter -->
@@ -85,6 +100,59 @@
         </div>
       </section>
 
+      <!-- Recycle bin (Phase 4) -->
+      <section class="card hidden panel" id="bin-panel">
+        <div class="row space-between">
+          <h2>Recycle bin</h2>
+          <div class="row">
+            <button id="bin-empty" class="ghost small">Empty now</button>
+            <button class="ghost small panel-close">Close</button>
+          </div>
+        </div>
+        <p class="muted" id="bin-note"></p>
+        <ul id="bin-list" class="entry-list"></ul>
+        <p id="bin-empty-message" class="muted hidden">The bin is empty.</p>
+      </section>
+
+      <!-- Activity log (Phase 4) -->
+      <section class="card hidden panel" id="activity-panel">
+        <div class="row space-between">
+          <h2>Activity log</h2>
+          <button class="ghost small panel-close">Close</button>
+        </div>
+        <ul id="activity-list" class="activity-list"></ul>
+      </section>
+
+      <!-- Preferences + export (Phase 4) -->
+      <section class="card hidden panel" id="prefs-panel">
+        <div class="row space-between">
+          <h2>Preferences</h2>
+          <button class="ghost small panel-close">Close</button>
+        </div>
+        <h3>Recycle bin</h3>
+        <div class="row">
+          <label for="pref-bin-days" class="muted">Auto-clear binned entries after</label>
+          <input id="pref-bin-days" type="number" min="1" max="365" style="width:5rem">
+          <span class="muted">days</span>
+        </div>
+        <h3>AI answer style</h3>
+        <select id="pref-style">
+          <option value="friendly">Friendly (default)</option>
+          <option value="concise">Concise</option>
+          <option value="detailed">Detailed</option>
+        </select>
+        <div class="row">
+          <button id="prefs-save" class="small">Save preferences</button>
+          <span id="prefs-status" class="status" role="status"></span>
+        </div>
+        <h3>Your data</h3>
+        <div class="row">
+          <button id="export-json" class="ghost small">Export JSON</button>
+          <button id="export-csv" class="ghost small">Export CSV</button>
+        </div>
+        <p class="muted">Exports include everything, even binned entries.</p>
+      </section>
+
       <!-- Capture: the start of the core loop -->
       <section class="card" id="capture">
         <h2>Capture a thought</h2>
@@ -93,9 +161,11 @@
         <input id="entry-tags" type="text"
           placeholder="Optional tags, comma separated (e.g. joke, work)">
         <div class="row">
+          <label for="entry-category" class="muted">File under</label>
+          <select id="entry-category"></select>
           <button id="save-btn">Save</button>
-          <span id="save-status" class="status" role="status"></span>
         </div>
+        <p><span id="save-status" class="status" role="status"></span></p>
       </section>
 
       <!-- Ask: conversational answer and raw records side by side -->
@@ -109,7 +179,7 @@
         <p id="ask-status" class="status" role="status"></p>
         <div id="chat-results" class="chat-grid hidden">
           <div class="chat-half">
-            <h3>AI answer</h3>
+            <h3>AI answer <span id="answered-by" class="chip"></span></h3>
             <div id="ai-answer" class="answer"></div>
           </div>
           <div class="chat-half">

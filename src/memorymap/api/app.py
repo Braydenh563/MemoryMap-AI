@@ -12,10 +12,20 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+from fastapi import Depends
+
 from memorymap import __version__
-from memorymap.api import routes_chat, routes_entries, routes_models
+from memorymap.api import (
+    routes_auth,
+    routes_chat,
+    routes_entries,
+    routes_models,
+    routes_settings,
+)
+from memorymap.api.routes_auth import require_unlock
 from memorymap.core import deps
 from memorymap.core.deps import init_app_state
+from memorymap.entry import manager
 
 # repo-root/frontend — three levels up from src/memorymap/api/app.py.
 FRONTEND_DIR = Path(__file__).resolve().parents[3] / "frontend"
@@ -34,16 +44,37 @@ def _warm_up_embeddings() -> None:
         pass
 
 
+def _purge_expired_bin_entries() -> None:
+    """Recycle-bin auto-clear (plan Phase 4): permanently drop entries
+    binned longer than the user's configured number of days."""
+    try:
+        session = deps.get_db().session()
+        try:
+            days = int(deps.get_config().get_preference("recycle_bin_days", 30))
+            manager.purge_expired_deleted(session, days)
+        finally:
+            session.close()
+    except Exception:
+        pass  # a failed purge must never stop the app from starting
+
+
 def create_app() -> FastAPI:
     init_app_state()
+    _purge_expired_bin_entries()
     threading.Thread(
         target=_warm_up_embeddings, name="embedding-warmup", daemon=True
     ).start()
 
     app = FastAPI(title="MemoryMap AI", version=__version__)
-    app.include_router(routes_entries.router)
-    app.include_router(routes_chat.router)
-    app.include_router(routes_models.router)
+
+    # Everything that touches the user's data sits behind the unlock
+    # gate; /auth itself and /health stay open.
+    locked = [Depends(require_unlock)]
+    app.include_router(routes_auth.router)
+    app.include_router(routes_entries.router, dependencies=locked)
+    app.include_router(routes_chat.router, dependencies=locked)
+    app.include_router(routes_models.router, dependencies=locked)
+    app.include_router(routes_settings.router, dependencies=locked)
 
     @app.get("/health", tags=["system"])
     def health() -> dict[str, str]:

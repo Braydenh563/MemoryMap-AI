@@ -29,6 +29,9 @@ class ChatResponse(BaseModel):
     raw_results: list[EntryOut]
     # 'semantic' or 'keyword' — the UI shows which kind of search ran.
     search_mode: str
+    # Which chat model wrote the answer, or None when Ollama was offline
+    # — part of showing the user what actually happened.
+    answered_by: str | None = None
 
 
 @router.post("", response_model=ChatResponse)
@@ -44,8 +47,10 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         }
         for entry in entries
     ]
+    style = deps.get_config().get_preference("communication_style", "friendly")
+    chat_available = bool(notes) and deps.get_ollama().is_running()
     ai_response = librarian.answer(
-        body.question, notes, deps.get_model_manager(), deps.get_ollama()
+        body.question, notes, deps.get_model_manager(), deps.get_ollama(), style=style
     )
 
     manager.log_action(session, "queried", "chat", detail=body.question)
@@ -65,4 +70,5 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
             for entry in entries
         ],
         search_mode=mode,
+        answered_by=deps.get_model_manager().chat_model() if chat_available else None,
     )

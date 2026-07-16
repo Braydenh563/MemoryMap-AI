@@ -229,5 +229,37 @@ progress { accent-color: var(--accent); width: 100%; }
 #suggested-list .model-name { font-weight: 600; }
 #suggested-list .model-info { color: var(--muted); flex: 1; }
 
+/* --- lock screen (Phase 4) ------------------------------------------------- */
+.lock-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+.lock-card { width: min(420px, 90vw); text-align: center; }
+.lock-card input { text-align: center; }
+
+/* --- entry actions + links (Phase 4) --------------------------------------- */
+.entry-actions { display: flex; gap: 0.35rem; margin-left: auto; }
+.entry-actions button { padding: 0.15rem 0.5rem; font-size: 0.78rem; }
+.entry-links { margin-top: 0.35rem; display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.chip.link { cursor: default; }
+.chip.link .unlink { cursor: pointer; margin-left: 0.3rem; font-weight: 700; }
+li.link-source { outline: 2px solid var(--accent); }
+
+/* --- activity log ----------------------------------------------------------- */
+.activity-list { list-style: none; margin: 0; padding: 0; font-size: 0.88rem; }
+.activity-list li {
+  display: flex;
+  gap: 0.6rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.activity-list .when { color: var(--muted); min-width: 9.5rem; }
+.activity-list .what { font-weight: 600; min-width: 6rem; }
+
 .muted { color: var(--muted); }
 .hidden { display: none; }

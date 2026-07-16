@@ -49,41 +49,42 @@ def test_janitor_uses_centroid_match_without_llm(session, app_state):
     model_manager = deps.get_model_manager()
     _store(session, embeddings, "Why did the scarecrow win an award?", "Dad Jokes")
 
-    category, confidence = janitor.categorise(
+    category, confidence, method = janitor.categorise(
         session, "another funny pun about cheese", embeddings, model_manager, ollama
     )
 
     assert category == "Dad Jokes"
     assert confidence >= 60
+    assert method == "semantic-match"
     assert ollama.chat_calls == []  # clear match → the LLM was never asked
 
 
 def test_janitor_asks_llm_when_no_match(session, app_state):
     embeddings = FakeEmbeddingService()
     ollama = FakeOllama()
-    category, confidence = janitor.categorise(
+    category, confidence, method = janitor.categorise(
         session, "buy milk and eggs", embeddings, deps.get_model_manager(), ollama
     )
-    assert (category, confidence) == ("Shopping", 85)
+    assert (category, confidence, method) == ("Shopping", 85, "llm")
     assert len(ollama.chat_calls) == 1
 
 
 def test_janitor_falls_back_when_all_ai_down(session, app_state):
     embeddings = FakeEmbeddingService(available=False)
     ollama = FakeOllama(running=False)
-    category, confidence = janitor.categorise(
+    category, confidence, method = janitor.categorise(
         session, "anything at all", embeddings, deps.get_model_manager(), ollama
     )
-    assert (category, confidence) == (manager.UNCATEGORISED, 0)
+    assert (category, confidence, method) == (manager.UNCATEGORISED, 0, "none")
 
 
 def test_janitor_survives_garbage_llm_reply(session, app_state):
     embeddings = FakeEmbeddingService(available=False)
     ollama = GarbageOllama()
-    category, confidence = janitor.categorise(
+    category, confidence, method = janitor.categorise(
         session, "buy milk", embeddings, deps.get_model_manager(), ollama
     )
-    assert (category, confidence) == (manager.UNCATEGORISED, 0)
+    assert (category, confidence, method) == (manager.UNCATEGORISED, 0, "none")
 
 
 def test_extract_json_from_chatty_reply():

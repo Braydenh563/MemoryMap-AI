@@ -50,11 +50,15 @@ def categorise(
     embeddings: EmbeddingService,
     model_manager: ModelManager,
     ollama: OllamaClient,
-) -> tuple[str, int]:
-    """Decide (category_name, confidence 0-100) for a new note."""
+) -> tuple[str, int, str]:
+    """Decide (category_name, confidence 0-100, method) for a new note.
+
+    `method` tells the UI how the decision was made: 'semantic-match'
+    (embedding centroid, no LLM), 'llm' (asked the chat model), or
+    'none' (no AI available)."""
     match = _best_centroid_match(session, content, embeddings)
     if match is not None and match.similarity >= CONFIDENT_MATCH:
-        return match.name, min(100, round(match.similarity * 100))
+        return match.name, min(100, round(match.similarity * 100)), "semantic-match"
     return _ask_llm(session, content, model_manager, ollama)
 
 
@@ -98,9 +102,9 @@ def _ask_llm(
     content: str,
     model_manager: ModelManager,
     ollama: OllamaClient,
-) -> tuple[str, int]:
+) -> tuple[str, int, str]:
     if not ollama.is_running():
-        return UNCATEGORISED, 0
+        return UNCATEGORISED, 0, "none"
 
     existing = [
         name
@@ -124,10 +128,10 @@ def _ask_llm(
         if not category:
             raise ValueError("empty category")
         confidence = int(data.get("confidence", 50))
-        return category, max(0, min(100, confidence))
+        return category, max(0, min(100, confidence)), "llm"
     except (OllamaError, ValueError, KeyError, TypeError):
         # A confused model must never block a save.
-        return UNCATEGORISED, 0
+        return UNCATEGORISED, 0, "none"
 
 
 def _extract_json(text: str) -> dict:

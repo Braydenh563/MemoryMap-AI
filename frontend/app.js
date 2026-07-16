@@ -7,19 +7,107 @@ const REVIEW_THRESHOLD = 50;
 
 let allEntries = []; // latest GET /entries result, newest first
 let activeCategory = null; // sidebar filter; null = All
+let linkSource = null; // entry id waiting for its link partner
+let editingId = null; // entry id currently in inline-edit mode
+
+const $ = (id) => document.getElementById(id);
 
 // --- tiny API helper --------------------------------------------------------
 
+function authToken() {
+  return localStorage.getItem("token") || "";
+}
+
 async function api(path, options = {}) {
   const response = await fetch(path, {
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() },
     ...options,
   });
+  if (response.status === 401) {
+    showLockScreen(false); // token expired (e.g. app restarted) — re-lock
+    throw new Error("Locked");
+  }
   if (!response.ok) {
     const detail = await response.json().catch(() => ({}));
     throw new Error(detail.detail || `Request failed (${response.status})`);
   }
-  return response.json();
+  return response;
+}
+
+async function apiJson(path, options = {}) {
+  return (await api(path, options)).json();
+}
+
+// --- auth gate (Phase 4) -----------------------------------------------------
+
+function showLockScreen(setupMode) {
+  $("lock-overlay").classList.remove("hidden");
+  $("lock-title").textContent = setupMode ? "Welcome to MemoryMap" : "Unlock MemoryMap";
+  $("lock-message").textContent = setupMode
+    ? "First run: choose a password (or PIN) to protect your notebook. You'll need it every time the app starts."
+    : "Enter your password to unlock your notebook.";
+  $("lock-submit").textContent = setupMode ? "Set password & start" : "Unlock";
+  $("lock-overlay").dataset.mode = setupMode ? "setup" : "unlock";
+  $("lock-password").focus();
+}
+
+async function submitLockForm() {
+  const password = $("lock-password").value;
+  const errorLine = $("lock-error");
+  errorLine.textContent = "";
+  if (password.length < 4) {
+    errorLine.textContent = "Use at least 4 characters.";
+    return;
+  }
+  const mode = $("lock-overlay").dataset.mode;
+  try {
+    const body = await apiJson(`/auth/${mode === "setup" ? "setup" : "unlock"}`, {
+      method: "POST",
+      body: JSON.stringify({ password }),
+    });
+    localStorage.setItem("token", body.token);
+    $("lock-password").value = "";
+    $("lock-overlay").classList.add("hidden");
+    $("lock-btn").classList.remove("hidden");
+    startApp();
+  } catch (error) {
+    errorLine.textContent = error.message;
+  }
+}
+
+async function lockNow() {
+  try {
+    await api("/auth/lock", { method: "POST" });
+  } catch {
+    /* locking locally regardless */
+  }
+  localStorage.removeItem("token");
+  showLockScreen(false);
+}
+
+async function initAuth() {
+  const status = await apiJson("/auth/status").catch(() => null);
+  if (!status) {
+    $("save-status").textContent = "Can't reach the MemoryMap server.";
+    return;
+  }
+  if (status.setup_required) {
+    showLockScreen(true);
+    return;
+  }
+  $("lock-btn").classList.remove("hidden");
+  if (!authToken()) {
+    showLockScreen(false);
+    return;
+  }
+  // Token might be stale after a server restart — startApp()'s first
+  // request will bounce us to the lock screen if so.
+  startApp();
+}
+
+function startApp() {
+  loadEntries().catch(() => {});
+  refreshModelStatus();
 }
 
 // --- rendering ---------------------------------------------------------------
@@ -31,9 +119,25 @@ function chip(text, extraClass = "") {
   return span;
 }
 
-// One entry card, shared by the browse list and the chat raw results.
-function entryItem(entry) {
+function smallButton(label, title, onClick, ghost = true) {
+  const button = document.createElement("button");
+  button.className = ghost ? "ghost small" : "small";
+  button.textContent = label;
+  button.title = title;
+  button.addEventListener("click", onClick);
+  return button;
+}
+
+// One entry card, shared by the browse list, chat results, and the bin.
+function entryItem(entry, options = {}) {
   const li = document.createElement("li");
+  li.dataset.id = entry.id;
+  if (entry.id === linkSource) li.classList.add("link-source");
+
+  if (editingId === entry.id && options.actions) {
+    renderEditForm(li, entry);
+    return li;
+  }
 
   const content = document.createElement("p");
   content.className = "entry-content";
@@ -43,7 +147,6 @@ function entryItem(entry) {
   const meta = document.createElement("div");
   meta.className = "entry-meta";
   meta.appendChild(chip(entry.category));
-
   for (const tag of entry.tags) meta.appendChild(chip(tag, "tag"));
 
   if (entry.ai_confidence >= REVIEW_THRESHOLD) {
@@ -55,26 +158,190 @@ function entryItem(entry) {
 
   const date = document.createElement("span");
   date.className = "entry-date";
-  date.textContent = new Date(entry.created_at).toLocaleString();
+  date.textContent = new Date(
+    options.bin ? entry.deleted_at : entry.created_at
+  ).toLocaleString();
   meta.appendChild(date);
 
+  if (options.bin) {
+    const actions = document.createElement("span");
+    actions.className = "entry-actions";
+    actions.appendChild(
+      smallButton("Restore", "Take this entry out of the bin", async () => {
+        await api(`/entries/${entry.id}/restore`, { method: "POST" });
+        await Promise.all([loadEntries(), renderBin()]);
+      })
+    );
+    meta.appendChild(actions);
+  } else if (options.actions) {
+    const actions = document.createElement("span");
+    actions.className = "entry-actions";
+    actions.appendChild(
+      smallButton("✎", "Edit this entry", () => {
+        editingId = entry.id;
+        renderEntries();
+      })
+    );
+    actions.appendChild(
+      smallButton("🔗", "Link this entry to another", () => beginOrCompleteLink(entry))
+    );
+    actions.appendChild(
+      smallButton("🗑", "Move to the recycle bin", async () => {
+        if (!confirm("Move this entry to the recycle bin?")) return;
+        await api(`/entries/${entry.id}`, { method: "DELETE" });
+        toast("Moved to bin — restore it any time from 🗑 Bin.");
+        await loadEntries();
+      })
+    );
+    meta.appendChild(actions);
+  }
   li.appendChild(meta);
+
+  if (entry.links.length > 0) {
+    const linkRow = document.createElement("div");
+    linkRow.className = "entry-links";
+    for (const link of entry.links) {
+      const linkChip = chip(`↔ ${link.preview}`, "link");
+      if (options.actions) {
+        const unlink = document.createElement("span");
+        unlink.className = "unlink";
+        unlink.textContent = "×";
+        unlink.title = "Remove this link";
+        unlink.addEventListener("click", async () => {
+          await api(`/entries/${entry.id}/links/${link.link_id}`, { method: "DELETE" });
+          await loadEntries();
+        });
+        linkChip.appendChild(unlink);
+      }
+      linkRow.appendChild(linkChip);
+    }
+    li.appendChild(linkRow);
+  }
   return li;
 }
 
+function renderEditForm(li, entry) {
+  const textarea = document.createElement("textarea");
+  textarea.rows = 3;
+  textarea.value = entry.content;
+
+  const tagsInput = document.createElement("input");
+  tagsInput.type = "text";
+  tagsInput.placeholder = "Tags, comma separated";
+  tagsInput.value = entry.tags.join(", ");
+
+  const categorySelect = document.createElement("select");
+  fillCategoryOptions(categorySelect, entry.category);
+
+  const row = document.createElement("div");
+  row.className = "row";
+  row.appendChild(
+    smallButton(
+      "Save changes",
+      "Save your corrections",
+      async () => {
+        const category = await resolveCategoryChoice(categorySelect);
+        if (category === undefined) return; // user cancelled the prompt
+        await api(`/entries/${entry.id}`, {
+          method: "PUT",
+          body: JSON.stringify({
+            content: textarea.value.trim() || entry.content,
+            category,
+            tags: tagsInput.value.split(",").map((t) => t.trim()).filter(Boolean),
+          }),
+        });
+        editingId = null;
+        toast("Entry updated.");
+        await loadEntries();
+      },
+      false
+    )
+  );
+  row.appendChild(
+    smallButton("Cancel", "Discard changes", () => {
+      editingId = null;
+      renderEntries();
+    })
+  );
+
+  li.append(textarea, tagsInput, categorySelect, row);
+}
+
+// Category <select> shared by capture (guided mode) and the edit form.
+function fillCategoryOptions(select, selected) {
+  select.replaceChildren();
+  const names = [...new Set(allEntries.map((e) => e.category))].sort();
+  if (selected === null) {
+    const auto = document.createElement("option");
+    auto.value = "";
+    auto.textContent = "Let the AI decide";
+    select.appendChild(auto);
+  }
+  for (const name of names) {
+    const option = document.createElement("option");
+    option.value = name;
+    option.textContent = name;
+    if (name === selected) option.selected = true;
+    select.appendChild(option);
+  }
+  const custom = document.createElement("option");
+  custom.value = "__new__";
+  custom.textContent = "+ New category…";
+  select.appendChild(custom);
+}
+
+// "" → null (AI decides); "__new__" → ask for a name; else the value.
+// Returns undefined when the user cancels the prompt.
+async function resolveCategoryChoice(select) {
+  if (select.value === "") return null;
+  if (select.value !== "__new__") return select.value;
+  const name = prompt("Name for the new category:");
+  if (name === null) return undefined;
+  return name.trim() || undefined;
+}
+
+function beginOrCompleteLink(entry) {
+  if (linkSource === null) {
+    linkSource = entry.id;
+    toast("Now click 🔗 on the entry you want to connect it to (Esc cancels).");
+    renderEntries();
+    return;
+  }
+  if (linkSource === entry.id) {
+    linkSource = null; // clicked the same one again = cancel
+    renderEntries();
+    return;
+  }
+  const source = linkSource;
+  linkSource = null;
+  api(`/entries/${source}/links`, {
+    method: "POST",
+    body: JSON.stringify({ target_id: entry.id }),
+  })
+    .then(() => {
+      toast("Linked!");
+      return loadEntries();
+    })
+    .catch((error) => {
+      toast(error.message, true);
+      renderEntries();
+    });
+}
+
 function renderEntries() {
-  const list = document.getElementById("entry-list");
-  const empty = document.getElementById("empty-message");
-  const heading = document.getElementById("entries-heading");
+  const list = $("entry-list");
+  const empty = $("empty-message");
   list.replaceChildren();
 
   const visible = activeCategory
     ? allEntries.filter((e) => e.category === activeCategory)
     : allEntries;
 
-  heading.textContent = activeCategory ? `${activeCategory} entries` : "All entries";
+  $("entries-heading").textContent = activeCategory
+    ? `${activeCategory} entries`
+    : "All entries";
   empty.classList.toggle("hidden", visible.length > 0);
-  for (const entry of visible) list.appendChild(entryItem(entry));
+  for (const entry of visible) list.appendChild(entryItem(entry, { actions: true }));
 }
 
 function renderSidebar() {
@@ -85,7 +352,7 @@ function renderSidebar() {
     counts.set(entry.category, (counts.get(entry.category) || 0) + 1);
   }
 
-  const ul = document.getElementById("category-list");
+  const ul = $("category-list");
   ul.replaceChildren();
 
   const addRow = (label, count, category) => {
@@ -112,18 +379,34 @@ function renderSidebar() {
 }
 
 async function loadEntries() {
-  allEntries = await api("/entries");
+  allEntries = await apiJson("/entries");
   renderSidebar();
   renderEntries();
+  fillCategoryOptions($("entry-category"), null);
 }
 
 // --- capture -----------------------------------------------------------------
 
+// Human explanations of how a note was filed ("visuals of what happened").
+function filedByText(saved) {
+  switch (saved.filed_by) {
+    case "semantic-match":
+      return `Filed under “${saved.category}” (${saved.ai_confidence}% sure) — matched by meaning, no AI call needed`;
+    case "llm":
+      return `Filed under “${saved.category}” (${saved.ai_confidence}% sure) — decided by ${
+        (modelStatus && modelStatus.chat_model) || "the chat model"
+      }`;
+    case "user":
+      return `Filed under “${saved.category}” — your choice, the AI stayed out of it`;
+    default:
+      return `Saved as “${saved.category}” — the AI wasn't available to file it`;
+  }
+}
+
 async function saveEntry() {
-  const contentBox = document.getElementById("entry-content");
-  const tagsBox = document.getElementById("entry-tags");
-  const status = document.getElementById("save-status");
-  const button = document.getElementById("save-btn");
+  const contentBox = $("entry-content");
+  const status = $("save-status");
+  const button = $("save-btn");
 
   const content = contentBox.value.trim();
   if (!content) {
@@ -131,22 +414,26 @@ async function saveEntry() {
     status.classList.add("error");
     return;
   }
-  const tags = tagsBox.value.split(",").map((t) => t.trim()).filter(Boolean);
+  const tags = $("entry-tags").value.split(",").map((t) => t.trim()).filter(Boolean);
+  const category = await resolveCategoryChoice($("entry-category"));
+  if (category === undefined) return;
 
   button.disabled = true;
   status.classList.remove("error");
-  status.textContent = "Filing…";
+  status.textContent = category
+    ? "Saving…"
+    : modelStatus && !modelStatus.embedding_ready
+      ? "Filing… (the search AI is still warming up, this first one can take longer)"
+      : "Filing… (the AI is reading and categorising your note)";
   try {
-    const saved = await api("/entries", {
+    const saved = await apiJson("/entries", {
       method: "POST",
-      body: JSON.stringify({ content, tags }),
+      body: JSON.stringify({ content, tags, category }),
     });
-    status.textContent =
-      saved.ai_confidence > 0
-        ? `Filed under “${saved.category}” (${saved.ai_confidence}% sure)`
-        : `Saved as “${saved.category}” — the AI wasn't available to file it`;
+    status.textContent = filedByText(saved);
     contentBox.value = "";
-    tagsBox.value = "";
+    $("entry-tags").value = "";
+    $("entry-category").value = "";
     await loadEntries();
   } catch (error) {
     status.textContent = error.message;
@@ -159,12 +446,10 @@ async function saveEntry() {
 // --- ask ----------------------------------------------------------------------
 
 async function askQuestion() {
-  const questionBox = document.getElementById("question");
-  const status = document.getElementById("ask-status");
-  const button = document.getElementById("ask-btn");
-  const results = document.getElementById("chat-results");
+  const status = $("ask-status");
+  const button = $("ask-btn");
 
-  const question = questionBox.value.trim();
+  const question = $("question").value.trim();
   if (!question) {
     status.textContent = "Type a question first!";
     status.classList.add("error");
@@ -173,17 +458,23 @@ async function askQuestion() {
 
   button.disabled = true;
   status.classList.remove("error");
-  status.textContent = "Thinking…";
+  status.textContent =
+    modelStatus && modelStatus.embedding_ready
+      ? "Searching your notes by meaning, then writing an answer…"
+      : "Searching your notes…";
   try {
-    const reply = await api("/chat", {
+    const reply = await apiJson("/chat", {
       method: "POST",
       body: JSON.stringify({ question }),
     });
 
-    document.getElementById("ai-answer").textContent = reply.ai_response;
-    document.getElementById("search-mode").textContent = `${reply.search_mode} search`;
+    $("ai-answer").textContent = reply.ai_response;
+    $("search-mode").textContent = `${reply.search_mode} search`;
+    $("answered-by").textContent = reply.answered_by
+      ? `answered by ${reply.answered_by}`
+      : "chat model offline";
 
-    const rawList = document.getElementById("raw-results");
+    const rawList = $("raw-results");
     rawList.replaceChildren();
     if (reply.raw_results.length === 0) {
       const li = document.createElement("li");
@@ -193,7 +484,7 @@ async function askQuestion() {
     }
     for (const entry of reply.raw_results) rawList.appendChild(entryItem(entry));
 
-    results.classList.remove("hidden");
+    $("chat-results").classList.remove("hidden");
     status.textContent = "";
   } catch (error) {
     status.textContent = error.message;
@@ -203,6 +494,101 @@ async function askQuestion() {
   }
 }
 
+// --- panels (models / bin / activity / preferences) ------------------------------
+
+const PANELS = ["settings", "bin-panel", "activity-panel", "prefs-panel"];
+
+function showPanel(id) {
+  for (const panel of PANELS) {
+    $(panel).classList.toggle("hidden", panel !== id);
+  }
+}
+
+async function renderBin() {
+  const entries = await apiJson("/entries?deleted=true");
+  const list = $("bin-list");
+  list.replaceChildren();
+  $("bin-empty-message").classList.toggle("hidden", entries.length > 0);
+  const days = prefsCache ? prefsCache.recycle_bin_days : 30;
+  $("bin-note").textContent =
+    `Deleted entries are kept for ${days} days (change this in Preferences), ` +
+    "then cleared automatically.";
+  for (const entry of entries) list.appendChild(entryItem(entry, { bin: true }));
+}
+
+async function renderActivity() {
+  const rows = await apiJson("/audit?limit=100");
+  const list = $("activity-list");
+  list.replaceChildren();
+  for (const row of rows) {
+    const li = document.createElement("li");
+    const when = document.createElement("span");
+    when.className = "when";
+    when.textContent = new Date(row.created_at).toLocaleString();
+    const what = document.createElement("span");
+    what.className = "what";
+    what.textContent = row.action;
+    const detail = document.createElement("span");
+    detail.className = "muted";
+    detail.textContent =
+      `${row.entity_type}${row.entity_id ? " #" + row.entity_id : ""}` +
+      (row.detail ? ` — ${row.detail}` : "");
+    li.append(when, what, detail);
+    list.appendChild(li);
+  }
+}
+
+let prefsCache = null;
+
+async function renderPrefs() {
+  prefsCache = await apiJson("/preferences");
+  $("pref-bin-days").value = prefsCache.recycle_bin_days;
+  $("pref-style").value = prefsCache.communication_style;
+  $("prefs-status").textContent = "";
+}
+
+async function savePrefs() {
+  try {
+    prefsCache = await apiJson("/preferences", {
+      method: "PUT",
+      body: JSON.stringify({
+        recycle_bin_days: Number($("pref-bin-days").value),
+        communication_style: $("pref-style").value,
+      }),
+    });
+    $("prefs-status").textContent = "Saved.";
+  } catch (error) {
+    $("prefs-status").textContent = error.message;
+  }
+}
+
+// Downloads need the auth header, so plain <a href> won't do — fetch the
+// bytes and hand the browser a blob instead.
+async function downloadExport(kind) {
+  const response = await api(`/export/${kind}`);
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `memorymap-export.${kind}`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// --- toasts -----------------------------------------------------------------------
+
+let toastTimer = null;
+
+function toast(message, isError = false) {
+  const status = $("save-status");
+  status.textContent = message;
+  status.classList.toggle("error", isError);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    if (status.textContent === message) status.textContent = "";
+  }, 6000);
+}
+
 // --- model manager (Phase 3.5) ---------------------------------------------------
 
 let modelStatus = null; // latest /models/status payload
@@ -210,7 +596,7 @@ let suggestedCatalog = null; // loaded once, it never changes
 let statusTimer = null;
 
 function settingsOpen() {
-  return !document.getElementById("settings").classList.contains("hidden");
+  return !$("settings").classList.contains("hidden");
 }
 
 function jobsRunning() {
@@ -226,9 +612,9 @@ function jobsRunning() {
 // download/re-index is running or the settings panel is open.
 async function refreshModelStatus() {
   try {
-    modelStatus = await api("/models/status");
+    modelStatus = await apiJson("/models/status");
   } catch {
-    modelStatus = null; // server unreachable — pill shows the worst case
+    modelStatus = null; // locked or unreachable — pill shows the worst case
   }
   renderAiPill();
   if (settingsOpen()) renderSettings();
@@ -239,10 +625,10 @@ async function refreshModelStatus() {
 }
 
 function renderAiPill() {
-  const pill = document.getElementById("ai-pill");
+  const pill = $("ai-pill");
   pill.className = "";
   if (!modelStatus) {
-    pill.textContent = "server offline";
+    pill.textContent = "status unknown";
     return;
   }
   const chatReady = modelStatus.ollama_running;
@@ -266,10 +652,7 @@ function renderAiPill() {
 
 function renderSettings() {
   const status = modelStatus;
-  const ollamaLine = document.getElementById("ollama-status");
-  const help = document.getElementById("ollama-help");
-  const config = document.getElementById("models-config");
-  const suggestedBox = document.getElementById("suggested-box");
+  const ollamaLine = $("ollama-status");
 
   if (!status) {
     ollamaLine.textContent = "Can't reach the MemoryMap server.";
@@ -279,9 +662,9 @@ function renderSettings() {
   ollamaLine.textContent = status.ollama_running
     ? "● Ollama is running"
     : "○ Ollama not detected";
-  help.classList.toggle("hidden", status.ollama_running);
-  config.classList.toggle("hidden", !status.ollama_running);
-  suggestedBox.classList.toggle("hidden", !status.ollama_running);
+  $("ollama-help").classList.toggle("hidden", status.ollama_running);
+  $("models-config").classList.toggle("hidden", !status.ollama_running);
+  $("suggested-box").classList.toggle("hidden", !status.ollama_running);
 
   if (status.ollama_running) {
     renderChatModelPicker(status);
@@ -292,8 +675,8 @@ function renderSettings() {
 }
 
 function renderChatModelPicker(status) {
-  const select = document.getElementById("chat-model-select");
-  const note = document.getElementById("chat-model-note");
+  const select = $("chat-model-select");
+  const note = $("chat-model-note");
   // Don't rebuild the list under the user's cursor mid-choice.
   if (document.activeElement !== select) {
     select.replaceChildren();
@@ -317,11 +700,10 @@ function renderChatModelPicker(status) {
 }
 
 function renderEmbeddingPicker(status) {
-  const radios = document.querySelectorAll('input[name="emb-backend"]');
-  for (const radio of radios) {
+  for (const radio of document.querySelectorAll('input[name="emb-backend"]')) {
     radio.checked = radio.value === status.embedding_backend;
   }
-  const select = document.getElementById("embedding-model-select");
+  const select = $("embedding-model-select");
   if (document.activeElement !== select) {
     select.replaceChildren();
     for (const model of status.installed_models) {
@@ -340,20 +722,19 @@ function renderEmbeddingPicker(status) {
 }
 
 function renderReindex(status) {
-  const box = document.getElementById("reindex-box");
+  const box = $("reindex-box");
   const job = status.reindex;
   const running = job && job.status === "running";
   box.classList.toggle("hidden", !running);
   if (running) {
-    document.getElementById("reindex-progress").value = job.done;
-    document.getElementById("reindex-progress").max = Math.max(job.total, 1);
-    document.getElementById("reindex-label").textContent =
-      `${job.done} of ${job.total} notes re-indexed`;
+    $("reindex-progress").value = job.done;
+    $("reindex-progress").max = Math.max(job.total, 1);
+    $("reindex-label").textContent = `${job.done} of ${job.total} notes re-indexed`;
   }
 }
 
 function renderSuggested(status) {
-  const list = document.getElementById("suggested-list");
+  const list = $("suggested-list");
   if (!suggestedCatalog) return;
   list.replaceChildren();
   const installedNames = new Set(
@@ -384,23 +765,26 @@ function renderSuggested(status) {
         if (pull && pull.status === "error") {
           li.appendChild(chip("failed — retry?", "review"));
         }
-        const button = document.createElement("button");
-        button.className = "small";
-        button.textContent = "Download";
-        button.addEventListener("click", async () => {
-          button.disabled = true;
-          try {
-            await api("/models/pull", {
-              method: "POST",
-              body: JSON.stringify({ name: model.name }),
-            });
-            refreshModelStatus();
-          } catch (error) {
-            alert(error.message);
-            button.disabled = false;
-          }
-        });
-        li.appendChild(button);
+        li.appendChild(
+          smallButton(
+            "Download",
+            `Download ${model.name} with Ollama`,
+            async (event) => {
+              event.target.disabled = true;
+              try {
+                await api("/models/pull", {
+                  method: "POST",
+                  body: JSON.stringify({ name: model.name }),
+                });
+                refreshModelStatus();
+              } catch (error) {
+                toast(error.message, true);
+                event.target.disabled = false;
+              }
+            },
+            false
+          )
+        );
       }
       list.appendChild(li);
     }
@@ -408,16 +792,16 @@ function renderSuggested(status) {
 }
 
 async function openSettings() {
-  document.getElementById("settings").classList.remove("hidden");
+  showPanel("settings");
   if (!suggestedCatalog) {
-    suggestedCatalog = await api("/models/suggested").catch(() => null);
+    suggestedCatalog = await apiJson("/models/suggested").catch(() => null);
   }
   refreshModelStatus();
 }
 
 async function applyChatModel() {
-  const select = document.getElementById("chat-model-select");
-  const note = document.getElementById("chat-model-note");
+  const select = $("chat-model-select");
+  const note = $("chat-model-note");
   try {
     await api("/models/chat-model", {
       method: "POST",
@@ -432,7 +816,7 @@ async function applyChatModel() {
 
 async function applyEmbeddingBackend() {
   const backend = document.querySelector('input[name="emb-backend"]:checked')?.value;
-  const model = document.getElementById("embedding-model-select").value || null;
+  const model = $("embedding-model-select").value || null;
   if (!backend) return;
   const ok = confirm(
     `Switching the search engine re-indexes all ${allEntries.length} of your ` +
@@ -447,7 +831,7 @@ async function applyEmbeddingBackend() {
     });
     refreshModelStatus();
   } catch (error) {
-    alert(error.message);
+    toast(error.message, true);
   }
 }
 
@@ -466,24 +850,54 @@ function toggleTheme() {
 
 // --- wiring --------------------------------------------------------------------
 
-document.getElementById("theme-btn").addEventListener("click", toggleTheme);
-document.getElementById("models-btn").addEventListener("click", openSettings);
-document.getElementById("settings-close").addEventListener("click", () => {
-  document.getElementById("settings").classList.add("hidden");
+$("theme-btn").addEventListener("click", toggleTheme);
+$("models-btn").addEventListener("click", openSettings);
+$("bin-btn").addEventListener("click", async () => {
+  showPanel("bin-panel");
+  await renderBin();
 });
-document.getElementById("chat-model-apply").addEventListener("click", applyChatModel);
-document.getElementById("embedding-apply").addEventListener("click", applyEmbeddingBackend);
-document.getElementById("save-btn").addEventListener("click", saveEntry);
-document.getElementById("ask-btn").addEventListener("click", askQuestion);
+$("activity-btn").addEventListener("click", async () => {
+  showPanel("activity-panel");
+  await renderActivity();
+});
+$("prefs-btn").addEventListener("click", async () => {
+  showPanel("prefs-panel");
+  await renderPrefs();
+});
+for (const button of document.querySelectorAll(".panel-close")) {
+  button.addEventListener("click", () => showPanel(null));
+}
+$("settings-close").addEventListener("click", () => showPanel(null));
+$("bin-empty").addEventListener("click", async () => {
+  if (!confirm("Permanently delete everything in the bin? This cannot be undone.")) return;
+  const result = await apiJson("/recycle-bin/empty", { method: "POST" });
+  toast(`${result.removed} entr${result.removed === 1 ? "y" : "ies"} permanently deleted.`);
+  await renderBin();
+});
+$("prefs-save").addEventListener("click", savePrefs);
+$("export-json").addEventListener("click", () => downloadExport("json"));
+$("export-csv").addEventListener("click", () => downloadExport("csv"));
+$("chat-model-apply").addEventListener("click", applyChatModel);
+$("embedding-apply").addEventListener("click", applyEmbeddingBackend);
+$("save-btn").addEventListener("click", saveEntry);
+$("ask-btn").addEventListener("click", askQuestion);
+$("lock-btn").addEventListener("click", lockNow);
+$("lock-submit").addEventListener("click", submitLockForm);
+$("lock-password").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") submitLockForm();
+});
 // Enter in the question box asks; Ctrl+Enter in the note box saves.
-document.getElementById("question").addEventListener("keydown", (e) => {
+$("question").addEventListener("keydown", (e) => {
   if (e.key === "Enter") askQuestion();
 });
-document.getElementById("entry-content").addEventListener("keydown", (e) => {
+$("entry-content").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && e.ctrlKey) saveEntry();
 });
-
-loadEntries().catch((error) => {
-  document.getElementById("save-status").textContent = error.message;
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && linkSource !== null) {
+    linkSource = null;
+    renderEntries();
+  }
 });
-refreshModelStatus();
+
+initAuth();

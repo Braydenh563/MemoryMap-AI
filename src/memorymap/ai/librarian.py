@@ -18,9 +18,16 @@ NO_RESULTS_MESSAGE = "I couldn't find any saved notes matching that question."
 
 SYSTEM_PROMPT = (
     "You are the librarian of the user's personal notebook. Answer their "
-    "question in a friendly, plain-English way using ONLY the notes provided. "
-    "If the notes don't answer the question, say so honestly. Keep it brief."
+    "question in plain English using ONLY the notes provided. "
+    "If the notes don't answer the question, say so honestly."
 )
+
+# The user's communication-style preference (Phase 4) tweaks the tone.
+STYLE_HINTS = {
+    "friendly": "Be warm and conversational. Keep it brief.",
+    "concise": "Be as brief as possible — bullet points are fine.",
+    "detailed": "Be thorough: mention every relevant note and add context.",
+}
 
 
 def answer(
@@ -28,6 +35,7 @@ def answer(
     notes: list[dict],
     model_manager: ModelManager,
     ollama: OllamaClient,
+    style: str = "friendly",
 ) -> str:
     """Conversational answer for `question` given retrieved `notes`
     (dicts with 'content' and 'category')."""
@@ -40,11 +48,12 @@ def answer(
         f"{i}. [{note['category']}] {note['content']}"
         for i, note in enumerate(notes, start=1)
     )
+    style_hint = STYLE_HINTS.get(style, STYLE_HINTS["friendly"])
     try:
         return ollama.chat(
             model_manager.chat_model(),
             [
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": f"{SYSTEM_PROMPT} {style_hint}"},
                 {
                     "role": "user",
                     "content": f"My notes:\n{numbered}\n\nMy question: {question}",

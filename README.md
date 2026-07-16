@@ -50,8 +50,9 @@ cp .env.example .env             # Windows: copy .env.example .env
 python -m memorymap
 ```
 
-Then open <http://localhost:8000/docs> — an interactive API page where you can
-try every endpoint (Phase 3 adds a real web UI at `/`).
+Then open <http://localhost:8000> — the web UI: capture thoughts, browse by
+category, and ask questions with the AI answer and raw records side by side.
+(The interactive API explorer still lives at <http://localhost:8000/docs>.)
 
 - `GET /health` — is the server alive?
 - `POST /entries` — store a thought (the AI janitor files it into a category)
@@ -102,6 +103,6 @@ tests/                   # pytest suite
 - [x] **Phase 1 — Walking skeleton:** server starts, entries stored in SQLite, tests green
 - [x] **Phase 2 — Make the AI real:** auto-categorising janitor + question-answering librarian + semantic search
   *(code + offline tests done — run the real dad-joke test on a machine with Ollama installed)*
-- [ ] **Phase 3 — Web interface**
+- [x] **Phase 3 — Web interface:** capture box, category sidebar, chat panel with answer + raw results, confidence flags
 - [ ] **Phase 3.5 — Model Manager** (pick & download Ollama models in-app)
 - [ ] **Phase 4 — Core MVP:** login, recycle bin, manual overrides, export

@@ -33,5 +33,13 @@ def test_missing_entry_is_404(client):
     assert client.get("/entries/9999").status_code == 404
 
 
+def test_frontend_served_at_root(client):
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "MemoryMap AI" in response.text
+    assert client.get("/app.js").status_code == 200
+    assert client.get("/style.css").status_code == 200
+
+
 def test_empty_content_rejected(client):
     assert client.post("/entries", json={"content": ""}).status_code == 422

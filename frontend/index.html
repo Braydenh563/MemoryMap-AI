@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MemoryMap AI</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <h1>MemoryMap AI</h1>
+    <p class="tagline">Your offline, self-filing notebook</p>
+  </header>
+
+  <div class="layout">
+    <!-- Category sidebar: built from the loaded entries, click to filter -->
+    <aside class="card" id="sidebar">
+      <h2>Categories</h2>
+      <ul id="category-list"></ul>
+    </aside>
+
+    <main>
+      <!-- Capture: the start of the core loop -->
+      <section class="card" id="capture">
+        <h2>Capture a thought</h2>
+        <textarea id="entry-content" rows="3"
+          placeholder="Type anything — a joke, a shopping list, a race result…"></textarea>
+        <input id="entry-tags" type="text"
+          placeholder="Optional tags, comma separated (e.g. joke, work)">
+        <div class="row">
+          <button id="save-btn">Save</button>
+          <span id="save-status" class="status" role="status"></span>
+        </div>
+      </section>
+
+      <!-- Ask: conversational answer and raw records side by side -->
+      <section class="card" id="ask">
+        <h2>Ask your notebook</h2>
+        <div class="row">
+          <input id="question" type="text"
+            placeholder="e.g. What jokes have I saved?">
+          <button id="ask-btn">Ask</button>
+        </div>
+        <p id="ask-status" class="status" role="status"></p>
+        <div id="chat-results" class="chat-grid hidden">
+          <div class="chat-half">
+            <h3>AI answer</h3>
+            <div id="ai-answer" class="answer"></div>
+          </div>
+          <div class="chat-half">
+            <h3>Matching records <span id="search-mode" class="chip"></span></h3>
+            <ul id="raw-results" class="entry-list"></ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Browse: everything you've saved -->
+      <section class="card" id="browse">
+        <h2 id="entries-heading">All entries</h2>
+        <ul id="entry-list" class="entry-list"></ul>
+        <p id="empty-message" class="muted hidden">
+          Nothing here yet — save your first thought above.
+        </p>
+      </section>
+    </main>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

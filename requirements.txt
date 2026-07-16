@@ -1,0 +1,13 @@
+# Web server
+fastapi>=0.110
+uvicorn[standard]>=0.29
+
+# Database (SQLite via ORM)
+SQLAlchemy>=2.0
+
+# Config
+python-dotenv>=1.0
+
+# Tests
+pytest>=8.0
+httpx>=0.27  # FastAPI's TestClient needs this

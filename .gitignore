@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+
+# Secrets / local config — copy .env.example to .env instead
+.env
+
+# User data lives outside version control (build plan §7)
+data/
+uploads/
+*.db
+
+# Tooling caches
+.pytest_cache/

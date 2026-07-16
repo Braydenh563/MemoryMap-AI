@@ -189,17 +189,31 @@
 
       <!-- Ask: conversational answer and raw records side by side -->
       <section class="card" id="ask">
-        <h2>Ask your notebook</h2>
+        <div class="row space-between">
+          <h2>Ask your notebook</h2>
+          <button id="new-chat-btn" class="ghost small hidden"
+            title="Clear this conversation and start fresh">New chat</button>
+        </div>
         <div class="row">
           <input id="question" type="text"
             placeholder="e.g. What jokes have I saved?">
           <button id="ask-btn">Ask</button>
+          <button id="stop-btn" class="ghost hidden" title="Stop the answer">Stop</button>
         </div>
+        <div id="suggested-questions" class="recent hidden"></div>
         <div id="recent-questions" class="recent hidden"></div>
         <p id="ask-status" class="status" role="status"></p>
         <div id="chat-results" class="chat-grid hidden">
           <div class="chat-half">
-            <h3>AI answer <span id="answered-by" class="chip"></span></h3>
+            <h3>
+              AI answer <span id="answered-by" class="chip"></span>
+              <span class="answer-actions">
+                <button id="retry-btn" class="ghost small hidden"
+                  title="Ask this question again">↻ Retry</button>
+                <button id="copy-btn" class="ghost small hidden"
+                  title="Copy the answer">⧉ Copy</button>
+              </span>
+            </h3>
             <details id="thinking-box" class="hidden">
               <summary>Model's thinking</summary>
               <div id="ai-thinking" class="thinking"></div>

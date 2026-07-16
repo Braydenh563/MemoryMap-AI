@@ -11,6 +11,8 @@ let linkSource = null; // entry id waiting for its link partner
 let editingId = null; // entry id currently in inline-edit mode
 
 const $ = (id) => document.getElementById(id);
+const show = (...ids) => ids.forEach((id) => $(id).classList.remove("hidden"));
+const hide = (...ids) => ids.forEach((id) => $(id).classList.add("hidden"));
 
 // --- tiny API helper --------------------------------------------------------
 
@@ -109,6 +111,7 @@ function startApp() {
   // A failed load must be visible, not a silently empty page.
   loadEntries().catch((error) => toast(`Couldn't load entries: ${error.message}`, true));
   loadRecentQuestions();
+  loadSuggestions();
   loadMostUsed();
   refreshModelStatus();
 }
@@ -438,6 +441,7 @@ async function saveEntry() {
     $("entry-tags").value = "";
     $("entry-category").value = "";
     await loadEntries();
+    loadSuggestions(); // new categories → fresher recommended questions
   } catch (error) {
     status.textContent = error.message;
     status.classList.add("error");
@@ -448,11 +452,29 @@ async function saveEntry() {
 
 // --- ask ----------------------------------------------------------------------
 
+// Follow-up memory (Round 1): the running conversation, sent back so the
+// model can handle "and what about…". Capped so requests stay small.
+let conversation = [];
+const MAX_CLIENT_HISTORY = 4;
+let askController = null; // AbortController for the in-flight stream
+let lastQuestion = ""; // powers the Retry button
+
+// Honest label for how the matching notes were found.
+const SEARCH_MODE_LABELS = {
+  semantic: "semantic search",
+  keyword: "keyword search",
+  recent: "recent notes", // broad question → showing recent entries
+};
+
 function renderChatMeta(meta) {
-  $("search-mode").textContent = `${meta.search_mode} search`;
+  $("search-mode").textContent = SEARCH_MODE_LABELS[meta.search_mode] || meta.search_mode;
+  // "offline" only when Ollama is genuinely down — not merely because a
+  // question found nothing to answer from.
   $("answered-by").textContent = meta.answered_by
     ? `answered by ${meta.answered_by}`
-    : "chat model offline";
+    : meta.ollama_running === false
+      ? "chat model offline"
+      : "";
   const rawList = $("raw-results");
   rawList.replaceChildren();
   if (meta.raw_results.length === 0) {
@@ -465,25 +487,51 @@ function renderChatMeta(meta) {
   $("chat-results").classList.remove("hidden");
 }
 
-async function askQuestion() {
-  const status = $("ask-status");
-  const button = $("ask-btn");
+// Ask ⇄ Stop while a stream is in flight.
+function setAsking(active) {
+  $("ask-btn").classList.toggle("hidden", active);
+  $("stop-btn").classList.toggle("hidden", !active);
+  $("question").disabled = active;
+}
 
-  const question = $("question").value.trim();
+function stopAnswer() {
+  if (askController) askController.abort();
+}
+
+function newChat() {
+  conversation = [];
+  lastQuestion = "";
+  $("chat-results").classList.add("hidden");
+  $("new-chat-btn").classList.add("hidden");
+  $("ask-status").textContent = "";
+  $("question").value = "";
+  loadSuggestions();
+}
+
+async function askQuestion(preset) {
+  const status = $("ask-status");
+  const questionBox = $("question");
+
+  const question = (preset ?? questionBox.value).trim();
   if (!question) {
     status.textContent = "Type a question first!";
     status.classList.add("error");
     return;
   }
+  lastQuestion = question;
 
-  button.disabled = true;
+  // A new answer is coming — hide the suggestion/recent chips and the
+  // per-answer action buttons until it lands.
+  $("suggested-questions").classList.add("hidden");
+  hide("retry-btn", "copy-btn");
+  setAsking(true);
   status.classList.remove("error");
   status.textContent =
     modelStatus && modelStatus.embedding_ready
       ? "Searching your notes by meaning…"
       : "Searching your notes…";
 
-  // Reset both output areas for the new answer.
+  // Reset the output areas for the new answer.
   const answerBox = $("ai-answer");
   const thinkingBox = $("thinking-box");
   const thinkingText = $("ai-thinking");
@@ -492,12 +540,19 @@ async function askQuestion() {
   thinkingBox.classList.add("hidden");
   thinkingBox.open = false;
 
+  let answerRaw = "";
+  let stopped = false;
+  askController = new AbortController();
   try {
     // Stream: raw results arrive first, then thinking/answer tokens live.
     const response = await fetch("/chat/stream", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() },
-      body: JSON.stringify({ question }),
+      body: JSON.stringify({
+        question,
+        history: conversation.slice(-MAX_CLIENT_HISTORY),
+      }),
+      signal: askController.signal,
     });
     if (response.status === 401) {
       showLockScreen(false);
@@ -528,21 +583,199 @@ async function askQuestion() {
           thinkingText.textContent += event.delta;
           status.textContent = "The model is thinking…";
         } else if (event.type === "answer") {
-          answerBox.textContent += event.delta;
+          // Stream as plain text (fast); format once it's complete.
+          answerRaw += event.delta;
+          answerBox.textContent = answerRaw;
           status.textContent = "The model is writing…";
         }
       }
     }
 
+    // Render the finished answer as markdown, and remember the turn.
+    renderMarkdown(answerBox, answerRaw);
+    conversation.push({ question, answer: answerRaw });
     status.textContent = "";
+    show("retry-btn", "copy-btn", "new-chat-btn");
     // Asking changes both quick-access lists.
     loadRecentQuestions();
     loadMostUsed();
   } catch (error) {
-    status.textContent = error.message;
-    status.classList.add("error");
+    if (error.name === "AbortError") {
+      stopped = true;
+      renderMarkdown(answerBox, answerRaw); // keep what streamed so far
+      status.textContent = "Stopped.";
+      show("retry-btn", "copy-btn");
+    } else {
+      status.textContent = error.message;
+      status.classList.add("error");
+    }
   } finally {
-    button.disabled = false;
+    askController = null;
+    setAsking(false);
+    if (!stopped) questionBox.value = "";
+  }
+}
+
+function retryAnswer() {
+  if (lastQuestion) askQuestion(lastQuestion);
+}
+
+async function copyAnswer() {
+  try {
+    await navigator.clipboard.writeText($("ai-answer").textContent);
+    toast("Answer copied.");
+  } catch {
+    toast("Couldn't copy — your browser blocked clipboard access.", true);
+  }
+}
+
+// --- suggested questions (Round 1) ----------------------------------------------
+
+async function loadSuggestions() {
+  const box = $("suggested-questions");
+  // Only meaningful before the first answer of a conversation.
+  if (!$("chat-results").classList.contains("hidden")) return;
+  const picks = await apiJson("/chat/suggestions").catch(() => []);
+  box.replaceChildren();
+  box.classList.toggle("hidden", picks.length === 0);
+  if (picks.length === 0) return;
+  const label = document.createElement("span");
+  label.className = "muted";
+  label.textContent = "Try asking:";
+  box.appendChild(label);
+  for (const question of picks) {
+    const chipEl = chip(question);
+    chipEl.addEventListener("click", () => askQuestion(question));
+    box.appendChild(chipEl);
+  }
+}
+
+// --- tiny markdown renderer (Round 1) -------------------------------------------
+// Safe by construction: builds DOM with createElement/textContent, never
+// innerHTML, so note/answer text can never inject markup. Supports the
+// subset small local models actually emit: headings, bullet/numbered
+// lists, fenced code, and inline **bold**/*italic*/`code`/[links].
+
+function renderMarkdown(container, text) {
+  container.replaceChildren();
+  const lines = text.replace(/\r\n/g, "\n").split("\n");
+  let i = 0;
+  let list = null; // the <ul>/<ol> currently being filled, or null
+
+  const closeList = () => {
+    if (list) container.appendChild(list);
+    list = null;
+  };
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Fenced code block.
+    if (line.trim().startsWith("```")) {
+      closeList();
+      const code = [];
+      i++;
+      while (i < lines.length && !lines[i].trim().startsWith("```")) {
+        code.push(lines[i]);
+        i++;
+      }
+      i++; // skip the closing fence
+      const pre = document.createElement("pre");
+      const codeEl = document.createElement("code");
+      codeEl.textContent = code.join("\n");
+      pre.appendChild(codeEl);
+      container.appendChild(pre);
+      continue;
+    }
+
+    const heading = line.match(/^(#{1,3})\s+(.*)$/);
+    if (heading) {
+      closeList();
+      const el = document.createElement(`h${heading[1].length + 2}`); // h3–h5
+      appendInline(el, heading[2]);
+      container.appendChild(el);
+      i++;
+      continue;
+    }
+
+    const bullet = line.match(/^\s*[-*+]\s+(.*)$/);
+    const numbered = line.match(/^\s*\d+\.\s+(.*)$/);
+    if (bullet || numbered) {
+      const wantOrdered = Boolean(numbered);
+      if (!list || (list.tagName === "OL") !== wantOrdered) {
+        closeList();
+        list = document.createElement(wantOrdered ? "ol" : "ul");
+      }
+      const li = document.createElement("li");
+      appendInline(li, (bullet || numbered)[1]);
+      list.appendChild(li);
+      i++;
+      continue;
+    }
+
+    if (line.trim() === "") {
+      closeList();
+      i++;
+      continue;
+    }
+
+    // Plain paragraph — gather consecutive non-blank, non-special lines.
+    closeList();
+    const para = [line];
+    i++;
+    while (
+      i < lines.length &&
+      lines[i].trim() !== "" &&
+      !lines[i].trim().startsWith("```") &&
+      !lines[i].match(/^(#{1,3})\s+/) &&
+      !lines[i].match(/^\s*[-*+]\s+/) &&
+      !lines[i].match(/^\s*\d+\.\s+/)
+    ) {
+      para.push(lines[i]);
+      i++;
+    }
+    const p = document.createElement("p");
+    appendInline(p, para.join(" "));
+    container.appendChild(p);
+  }
+  closeList();
+}
+
+// Inline formatting: **bold**, *italic*, `code`, [text](http…url).
+function appendInline(parent, text) {
+  const pattern = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[[^\]]+\]\((https?:\/\/[^)]+)\))/g;
+  let last = 0;
+  let match;
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > last) {
+      parent.appendChild(document.createTextNode(text.slice(last, match.index)));
+    }
+    const token = match[0];
+    if (token.startsWith("**")) {
+      const el = document.createElement("strong");
+      el.textContent = token.slice(2, -2);
+      parent.appendChild(el);
+    } else if (token.startsWith("`")) {
+      const el = document.createElement("code");
+      el.textContent = token.slice(1, -1);
+      parent.appendChild(el);
+    } else if (token.startsWith("[")) {
+      const linkText = token.slice(1, token.indexOf("]"));
+      const el = document.createElement("a");
+      el.href = match[2]; // only http(s) matched — safe to use as href
+      el.target = "_blank";
+      el.rel = "noopener";
+      el.textContent = linkText;
+      parent.appendChild(el);
+    } else {
+      const el = document.createElement("em");
+      el.textContent = token.slice(1, -1);
+      parent.appendChild(el);
+    }
+    last = pattern.lastIndex;
+  }
+  if (last < text.length) {
+    parent.appendChild(document.createTextNode(text.slice(last)));
   }
 }
 
@@ -999,7 +1232,11 @@ $("export-csv").addEventListener("click", () => downloadExport("csv"));
 $("chat-model-apply").addEventListener("click", applyChatModel);
 $("embedding-apply").addEventListener("click", applyEmbeddingBackend);
 $("save-btn").addEventListener("click", saveEntry);
-$("ask-btn").addEventListener("click", askQuestion);
+$("ask-btn").addEventListener("click", () => askQuestion()); // no event as preset
+$("stop-btn").addEventListener("click", stopAnswer);
+$("retry-btn").addEventListener("click", retryAnswer);
+$("copy-btn").addEventListener("click", copyAnswer);
+$("new-chat-btn").addEventListener("click", newChat);
 $("lock-btn").addEventListener("click", lockNow);
 $("lock-submit").addEventListener("click", submitLockForm);
 $("lock-password").addEventListener("keydown", (e) => {

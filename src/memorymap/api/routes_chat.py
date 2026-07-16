@@ -24,10 +24,12 @@ from memorymap.ai import librarian
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.api.schemas import EntryOut
 from memorymap.core import deps
-from memorymap.core.database import AuditLog
+from memorymap.core.database import AuditLog, Category, Entry
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
+from memorymap.entry.manager import UNCATEGORISED
 from memorymap.search import search_manager
+from sqlalchemy import func
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -51,8 +53,49 @@ def recent_questions(session: Session = Depends(get_session)) -> list[str]:
     return questions
 
 
+# Shown when the chat is empty, to teach the feature (Round 1).
+STARTER_SUGGESTIONS = [
+    "What have I saved so far?",
+    "Summarise my notes.",
+    "What are my most common topics?",
+]
+
+
+@router.get("/suggestions", response_model=list[str])
+def suggestions(session: Session = Depends(get_session)) -> list[str]:
+    """Recommended questions: content-aware ones built from the user's own
+    categories, falling back to generic starters for an empty notebook."""
+    rows = session.execute(
+        select(Category.name, func.count(Entry.id))
+        .join(Entry, Entry.category_id == Category.id)
+        .where(Entry.is_deleted == False)  # noqa: E712
+        .group_by(Category.name)
+        .order_by(func.count(Entry.id).desc())
+    ).all()
+    categories = [name for name, _count in rows if name != UNCATEGORISED]
+
+    if not categories:
+        return STARTER_SUGGESTIONS
+
+    picks: list[str] = []
+    for name in categories[:2]:
+        picks.append(f"What have I saved about {name.lower()}?")
+    picks.append(f"Summarise my {categories[0].lower()}.")
+    picks.append("What have I saved recently?")
+    # De-dupe while preserving order, cap at 5.
+    seen: set[str] = set()
+    return [p for p in picks if not (p in seen or seen.add(p))][:5]
+
+
+class ChatTurn(BaseModel):
+    question: str
+    answer: str
+
+
 class ChatRequest(BaseModel):
     question: str = Field(min_length=1)
+    # Prior turns for follow-up context (Round 1); the server clips this.
+    history: list[ChatTurn] = Field(default_factory=list)
 
 
 class ChatResponse(BaseModel):
@@ -60,11 +103,13 @@ class ChatResponse(BaseModel):
     # A thinking model's reasoning, when it produced any.
     ai_thinking: str | None = None
     raw_results: list[EntryOut]
-    # 'semantic' or 'keyword' — the UI shows which kind of search ran.
+    # 'semantic', 'keyword', or 'recent' — how the notes were found.
     search_mode: str
-    # Which chat model wrote the answer, or None when Ollama was offline
-    # — part of showing the user what actually happened.
+    # Which chat model wrote the answer, or None when it didn't answer.
     answered_by: str | None = None
+    # Whether Ollama is reachable — lets the UI distinguish "offline"
+    # from "nothing to answer" honestly.
+    ollama_running: bool = False
 
 
 def _prepare(session: Session, question: str) -> dict:
@@ -107,7 +152,8 @@ def _prepare(session: Session, question: str) -> dict:
 @router.post("", response_model=ChatResponse)
 def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResponse:
     prepared = _prepare(session, body.question)
-    chat_available = bool(prepared["notes"]) and deps.get_ollama().is_running()
+    ollama_running = deps.get_ollama().is_running()
+    answered = bool(prepared["notes"]) and ollama_running
     ai_response, ai_thinking = librarian.answer(
         body.question,
         prepared["notes"],
@@ -115,13 +161,15 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         deps.get_ollama(),
         style=prepared["style"],
         profile=prepared["profile"],
+        history=[turn.model_dump() for turn in body.history],
     )
     return ChatResponse(
         ai_response=ai_response,
         ai_thinking=ai_thinking,
         raw_results=prepared["raw_results"],
         search_mode=prepared["search_mode"],
-        answered_by=deps.get_model_manager().chat_model() if chat_available else None,
+        answered_by=deps.get_model_manager().chat_model() if answered else None,
+        ollama_running=ollama_running,
     )
 
 
@@ -136,7 +184,8 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     prepared = _prepare(session, body.question)
     ollama = deps.get_ollama()
     model_manager = deps.get_model_manager()
-    chat_available = bool(prepared["notes"]) and ollama.is_running()
+    ollama_running = ollama.is_running()
+    chat_available = bool(prepared["notes"]) and ollama_running
 
     def lines() -> Iterator[str]:
         def event(payload: dict) -> str:
@@ -148,6 +197,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                 "raw_results": [r.model_dump(mode="json") for r in prepared["raw_results"]],
                 "search_mode": prepared["search_mode"],
                 "answered_by": model_manager.chat_model() if chat_available else None,
+                "ollama_running": ollama_running,
             }
         )
 
@@ -161,6 +211,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                 prepared["notes"],
                 style=prepared["style"],
                 profile=prepared["profile"],
+                history=[turn.model_dump() for turn in body.history],
             )
             try:
                 for piece in ollama.chat_stream(model_manager.chat_model(), messages):

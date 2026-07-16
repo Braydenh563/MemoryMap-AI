@@ -237,6 +237,31 @@ progress { accent-color: var(--accent); width: 100%; }
   white-space: pre-wrap;
   backdrop-filter: blur(8px);
 }
+/* Markdown-rendered answer: tighten the default block spacing so the
+   formatted output reads as one panel, not a stack of gaps. */
+.answer p { margin: 0 0 0.6rem; }
+.answer p:last-child { margin-bottom: 0; }
+.answer h3, .answer h4, .answer h5 { margin: 0.6rem 0 0.3rem; }
+.answer ul, .answer ol { margin: 0 0 0.6rem; padding-left: 1.4rem; }
+.answer li { margin-bottom: 0.2rem; }
+.answer code {
+  background: var(--chip-bg);
+  padding: 0.05rem 0.3rem;
+  border-radius: 5px;
+  font-size: 0.9em;
+}
+.answer pre {
+  background: var(--chip-bg);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  overflow-x: auto;
+  white-space: pre;
+}
+.answer pre code { background: none; padding: 0; }
+.answer a { color: var(--accent); }
+
+.answer-actions { float: right; display: inline-flex; gap: 0.35rem; }
+.answer-actions button { padding: 0.15rem 0.5rem; font-size: 0.78rem; }
 
 /* --- entry lists ---------------------------------------------------------- */
 .entry-list { list-style: none; margin: 0; padding: 0; }

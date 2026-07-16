@@ -150,3 +150,40 @@ def test_retrieve_falls_back_to_keyword(session):
     )
     assert mode == "keyword"
     assert [e.content for e in entries] == ["remember the milk"]
+
+
+def test_retrieve_recent_fallback_for_broad_question(session):
+    # Broad "overview" questions match nothing by keyword or meaning, so
+    # the notebook must not look empty — recent entries come back instead.
+    manager.create_entry(session, "a note about cheese")
+    manager.create_entry(session, "a note about racing")
+    entries, mode = search_manager.retrieve(
+        session, "what have I saved so far?", FakeEmbeddingService(available=False)
+    )
+    assert mode == "recent"
+    assert len(entries) == 2
+
+
+def test_retrieve_recent_fallback_empty_notebook(session):
+    # Truly empty notebook → still empty (nothing to fall back to).
+    entries, mode = search_manager.retrieve(
+        session, "anything", FakeEmbeddingService(available=False)
+    )
+    assert entries == []
+    assert mode == "keyword"
+
+
+def test_chat_broad_question_answers_from_recent(ai_client, fake_ollama):
+    # Reproduces the reported bug: entries exist but a broad question with
+    # no semantic/keyword match returned "no saved notes". These two notes
+    # sit on distinct topics, so an overview question matches neither and
+    # the recent fallback must kick in.
+    ai_client.post("/entries", json={"content": "a funny scarecrow joke"})
+    ai_client.post("/entries", json={"content": "buy milk and eggs"})
+
+    body = ai_client.post("/chat", json={"question": "what entries have I done so far?"}).json()
+    assert body["search_mode"] == "recent"
+    assert len(body["raw_results"]) == 2
+    assert body["ai_response"] == fake_ollama.librarian_reply  # the model answered
+    assert body["answered_by"] == "llama3.2"
+    assert body["ollama_running"] is True

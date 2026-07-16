@@ -23,6 +23,22 @@ from memorymap.core.database import EmbeddingRecord, Entry
 # Below this cosine similarity a match is probably noise — hide it.
 MIN_SIMILARITY = 0.25
 
+# When nothing matches, hand the assistant this many recent entries so
+# broad/overview questions ("what have I saved?") still get answered.
+RECENT_FALLBACK_LIMIT = 10
+
+
+def recent_entries(session: Session, limit: int = RECENT_FALLBACK_LIMIT) -> list[Entry]:
+    """Most recent non-deleted entries, newest first."""
+    return list(
+        session.scalars(
+            select(Entry)
+            .where(Entry.is_deleted == False)  # noqa: E712
+            .order_by(Entry.created_at.desc(), Entry.id.desc())
+            .limit(limit)
+        )
+    )
+
 
 def keyword_search(session: Session, query: str, limit: int = 10) -> list[Entry]:
     like = f"%{query}%"
@@ -80,13 +96,27 @@ def retrieve(
     embeddings: EmbeddingService,
     limit: int = 5,
 ) -> tuple[list[Entry], str]:
-    """Entries for a question + which mode found them ('semantic' or
-    'keyword'), so the UI can be honest about search quality."""
+    """Entries for a question + which mode found them ('semantic',
+    'keyword', or 'recent'), so the UI can be honest about how it looked.
+
+    Broad questions like "what have I saved?" match nothing specific by
+    meaning or keyword, so as a last resort we return the most recent
+    entries — the notebook must never look empty when it isn't."""
     results = semantic_search(session, query, embeddings, limit=limit)
     if results is None:
-        return keyword_search(session, query, limit=limit), "keyword"
-    if not results:
-        # Semantic found nothing above the noise floor — literal keyword
-        # matches are still better than an empty screen.
-        return keyword_search(session, query, limit=limit), "keyword"
-    return [entry for entry, _score in results], "semantic"
+        entries = keyword_search(session, query, limit=limit)
+        mode = "keyword"
+    elif not results:
+        # Semantic found nothing above the noise floor — try literal
+        # keyword matches before giving up.
+        entries = keyword_search(session, query, limit=limit)
+        mode = "keyword"
+    else:
+        entries = [entry for entry, _score in results]
+        mode = "semantic"
+
+    if not entries:
+        recent = recent_entries(session, limit=RECENT_FALLBACK_LIMIT)
+        if recent:
+            return recent, "recent"
+    return entries, mode

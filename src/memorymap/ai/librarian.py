@@ -29,26 +29,48 @@ STYLE_HINTS = {
     "detailed": "Be thorough: mention every relevant note and add context.",
 }
 
+# Follow-up memory (Round 1): keep the conversation short enough that a
+# small local model never runs out of context. Only recent turns matter,
+# and a long past answer gets clipped.
+MAX_HISTORY_TURNS = 4
+MAX_HISTORY_ANSWER_CHARS = 600
+
 
 def build_messages(
-    question: str, notes: list[dict], style: str = "friendly", profile: str = ""
+    question: str,
+    notes: list[dict],
+    style: str = "friendly",
+    profile: str = "",
+    history: list[dict] | None = None,
 ) -> list[dict]:
     """The librarian's prompt — shared by the blocking and streaming
-    chat endpoints so they can never drift apart."""
+    chat endpoints so they can never drift apart.
+
+    `history` is prior [{"question", "answer"}] turns, replayed as
+    user/assistant messages so follow-ups ("and what about…") keep
+    context. The freshly retrieved `notes` still ground the current
+    answer, so a follow-up searches the notebook anew."""
     style_hint = STYLE_HINTS.get(style, STYLE_HINTS["friendly"])
     # The profile is context about the user, never an instruction source.
     profile_hint = f" About the user: {profile.strip()}" if profile.strip() else ""
+    messages = [
+        {"role": "system", "content": f"{SYSTEM_PROMPT} {style_hint}{profile_hint}"}
+    ]
+    for turn in (history or [])[-MAX_HISTORY_TURNS:]:
+        past_question = str(turn.get("question", "")).strip()
+        past_answer = str(turn.get("answer", "")).strip()[:MAX_HISTORY_ANSWER_CHARS]
+        if past_question and past_answer:
+            messages.append({"role": "user", "content": past_question})
+            messages.append({"role": "assistant", "content": past_answer})
+
     numbered = "\n".join(
         f"{i}. [{note['category']}] {note['content']}"
         for i, note in enumerate(notes, start=1)
     )
-    return [
-        {"role": "system", "content": f"{SYSTEM_PROMPT} {style_hint}{profile_hint}"},
-        {
-            "role": "user",
-            "content": f"My notes:\n{numbered}\n\nMy question: {question}",
-        },
-    ]
+    messages.append(
+        {"role": "user", "content": f"My notes:\n{numbered}\n\nMy question: {question}"}
+    )
+    return messages
 
 
 def answer(
@@ -58,6 +80,7 @@ def answer(
     ollama: OllamaClient,
     style: str = "friendly",
     profile: str = "",
+    history: list[dict] | None = None,
 ) -> tuple[str, str | None]:
     """(answer text, model's thinking or None) for `question` given
     retrieved `notes` (dicts with 'content' and 'category')."""
@@ -69,7 +92,7 @@ def answer(
     try:
         reply = ollama.chat(
             model_manager.chat_model(),
-            build_messages(question, notes, style=style, profile=profile),
+            build_messages(question, notes, style=style, profile=profile, history=history),
         )
         return reply["content"].strip(), reply["thinking"]
     except OllamaError:

@@ -19,8 +19,10 @@ from memorymap.api import (
     routes_auth,
     routes_chat,
     routes_entries,
+    routes_files,
     routes_models,
     routes_settings,
+    routes_tags,
 )
 from memorymap.api.routes_auth import require_unlock
 from memorymap.core import deps, logbuffer
@@ -50,8 +52,9 @@ def _purge_expired_bin_entries() -> None:
     try:
         session = deps.get_db().session()
         try:
-            days = int(deps.get_config().get_preference("recycle_bin_days", 30))
-            manager.purge_expired_deleted(session, days)
+            config = deps.get_config()
+            days = int(config.get_preference("recycle_bin_days", 30))
+            manager.purge_expired_deleted(session, days, uploads_dir=config.uploads_dir)
         finally:
             session.close()
     except Exception:
@@ -76,6 +79,8 @@ def create_app() -> FastAPI:
     app.include_router(routes_chat.router, dependencies=locked)
     app.include_router(routes_models.router, dependencies=locked)
     app.include_router(routes_settings.router, dependencies=locked)
+    app.include_router(routes_files.router, dependencies=locked)
+    app.include_router(routes_tags.router, dependencies=locked)
 
     @app.get("/health", tags=["system"])
     def health() -> dict[str, str]:

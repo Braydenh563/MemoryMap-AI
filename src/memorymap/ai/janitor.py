@@ -54,13 +54,20 @@ def categorise(
     embeddings: EmbeddingService,
     model_manager: ModelManager,
     ollama: OllamaClient,
+    exclude_entry_id: int | None = None,
 ) -> tuple[str, int, str]:
     """Decide (category_name, confidence 0-100, method) for a new note.
 
     `method` tells the UI how the decision was made: 'semantic-match'
     (embedding centroid, no LLM), 'llm' (asked the chat model), or
-    'none' (no AI available)."""
-    match = _best_centroid_match(session, content, embeddings)
+    'none' (no AI available).
+
+    When RE-categorising an existing note (add-context, Wave B), pass
+    `exclude_entry_id` — otherwise the note's own stored vector anchors
+    it to its old category and it can never move."""
+    match = _best_centroid_match(
+        session, content, embeddings, exclude_entry_id=exclude_entry_id
+    )
     if match is not None and match.similarity >= CONFIDENT_MATCH:
         confidence = min(100, round(match.similarity * 100))
         logger.info(
@@ -73,7 +80,10 @@ def categorise(
 
 
 def _best_centroid_match(
-    session: Session, content: str, embeddings: EmbeddingService
+    session: Session,
+    content: str,
+    embeddings: EmbeddingService,
+    exclude_entry_id: int | None = None,
 ) -> CentroidMatch | None:
     """Compare the note's vector to the average vector (centroid) of each
     existing category. Only vectors from the current backend count."""
@@ -81,7 +91,7 @@ def _best_centroid_match(
     if note_vector is None:
         return None
 
-    rows = session.execute(
+    query = (
         select(Category.name, EmbeddingRecord.embedding)
         .join(Entry, Entry.category_id == Category.id)
         .join(EmbeddingRecord, EmbeddingRecord.entry_id == Entry.id)
@@ -90,7 +100,10 @@ def _best_centroid_match(
             EmbeddingRecord.model_version == embeddings.backend_id(),
             Category.name != UNCATEGORISED,  # never gravitate INTO the junk drawer
         )
-    ).all()
+    )
+    if exclude_entry_id is not None:
+        query = query.where(Entry.id != exclude_entry_id)
+    rows = session.execute(query).all()
     if not rows:
         return None
 

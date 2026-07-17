@@ -48,6 +48,7 @@ let allEntries = []; // latest GET /entries result, newest first
 let activeCategory = null; // sidebar filter; null = All
 let linkSource = null; // entry id waiting for its link partner
 let editingId = null; // entry id currently in inline-edit mode
+let inlineAction = null; // {id, kind: "context"|"continue"} open on a card
 
 const $ = (id) => document.getElementById(id);
 const show = (...ids) => ids.forEach((id) => $(id).classList.remove("hidden"));
@@ -152,7 +153,59 @@ function startApp() {
   loadRecentQuestions();
   loadSuggestions();
   loadMostUsed();
+  loadTemplates();
   refreshModelStatus();
+}
+
+// --- capture templates (Wave B) ---------------------------------------------------
+
+const BUILTIN_TEMPLATES = [
+  { name: "Journal", content: "Journal — {date}\n\nToday I " },
+  { name: "Recipe", content: "Recipe: \n\nIngredients:\n- \n\nSteps:\n1. " },
+  { name: "Contact", content: "Contact: \nPhone/email: \nWhere we met: \nNotes: " },
+  { name: "Meeting", content: "Meeting about \nWho: \nDecisions: \nTo do: " },
+];
+
+async function loadTemplates() {
+  // Built-ins + the user's own (kept in preferences).
+  prefsCache = await apiJson("/preferences").catch(() => prefsCache);
+  const custom = (prefsCache && prefsCache.custom_templates) || [];
+  const select = $("entry-template");
+  select.replaceChildren();
+  const none = document.createElement("option");
+  none.value = "";
+  none.textContent = "No template";
+  select.appendChild(none);
+  for (const template of [...BUILTIN_TEMPLATES, ...custom]) {
+    const option = document.createElement("option");
+    option.value = template.name;
+    option.textContent = template.name;
+    option.dataset.content = template.content;
+    select.appendChild(option);
+  }
+}
+
+function applyTemplate() {
+  const select = $("entry-template");
+  const option = select.selectedOptions[0];
+  if (!option || !option.dataset.content) return;
+  $("entry-content").value = option.dataset.content.replace(
+    "{date}",
+    new Date().toLocaleDateString()
+  );
+  $("entry-content").focus();
+}
+
+function refreshTagSuggestions() {
+  // Autocomplete for the tags box, from tags already in use.
+  const tags = [...new Set(allEntries.flatMap((e) => e.tags))].sort();
+  const datalist = $("tag-suggestions");
+  datalist.replaceChildren();
+  for (const tag of tags) {
+    const option = document.createElement("option");
+    option.value = tag;
+    datalist.appendChild(option);
+  }
 }
 
 // --- rendering ---------------------------------------------------------------
@@ -222,6 +275,33 @@ function entryItem(entry, options = {}) {
     const actions = document.createElement("span");
     actions.className = "entry-actions";
     actions.appendChild(
+      smallButton(entry.pinned ? "📌" : "📍", entry.pinned ? "Unpin" : "Pin to top", async () => {
+        await api(`/entries/${entry.id}`, {
+          method: "PUT",
+          body: JSON.stringify({ pinned: !entry.pinned }),
+        });
+        await loadEntries();
+      })
+    );
+    actions.appendChild(
+      smallButton("➕", "Add context — the AI may refile it", () => {
+        inlineAction = inlineActionIs(entry.id, "context") ? null : { id: entry.id, kind: "context" };
+        renderEntries();
+      })
+    );
+    actions.appendChild(
+      smallButton("⤵", "Continue this thought (start/extend a thread)", () => {
+        inlineAction = inlineActionIs(entry.id, "continue") ? null : { id: entry.id, kind: "continue" };
+        renderEntries();
+      })
+    );
+    actions.appendChild(
+      smallButton("📎", "Attach a file", () => attachFileTo(entry))
+    );
+    actions.appendChild(
+      smallButton("≈", "Show similar notes", () => toggleRelated(entry))
+    );
+    actions.appendChild(
       smallButton("✎", "Edit this entry", () => {
         editingId = entry.id;
         renderEntries();
@@ -240,7 +320,41 @@ function entryItem(entry, options = {}) {
     );
     meta.appendChild(actions);
   }
+  if (entry.pinned) meta.insertBefore(chip("📌 pinned"), meta.firstChild);
   li.appendChild(meta);
+
+  // Attachments (Wave B): chips that download on click.
+  if (entry.attachments.length > 0) {
+    const fileRow = document.createElement("div");
+    fileRow.className = "entry-links";
+    for (const attachment of entry.attachments) {
+      const icon = attachment.is_image ? "🖼" : "📄";
+      const fileChip = chip(`${icon} ${attachment.filename}`, "link");
+      fileChip.style.cursor = "pointer";
+      fileChip.title = `Download (${Math.max(1, Math.round(attachment.size / 1024))} KB)`;
+      fileChip.addEventListener("click", () => downloadAttachment(attachment));
+      if (options.actions) {
+        const remove = document.createElement("span");
+        remove.className = "unlink";
+        remove.textContent = "×";
+        remove.title = "Remove this file";
+        remove.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          if (!confirm(`Remove ${attachment.filename}?`)) return;
+          await api(`/files/${attachment.id}`, { method: "DELETE" });
+          await loadEntries();
+        });
+        fileChip.appendChild(remove);
+      }
+      fileRow.appendChild(fileChip);
+    }
+    li.appendChild(fileRow);
+  }
+
+  // Inline add-context / continue-thought forms (Wave B).
+  if (options.actions && inlineAction && inlineAction.id === entry.id) {
+    li.appendChild(renderInlineAction(entry));
+  }
 
   if (entry.links.length > 0) {
     const linkRow = document.createElement("div");
@@ -263,6 +377,138 @@ function entryItem(entry, options = {}) {
     li.appendChild(linkRow);
   }
   return li;
+}
+
+function inlineActionIs(id, kind) {
+  return inlineAction && inlineAction.id === id && inlineAction.kind === kind;
+}
+
+// The ➕ context / ⤵ continue boxes that appear inside an entry card.
+function renderInlineAction(entry) {
+  const wrap = document.createElement("div");
+  wrap.className = "inline-action";
+  const isContext = inlineAction.kind === "context";
+
+  const textarea = document.createElement("textarea");
+  textarea.rows = 2;
+  textarea.placeholder = isContext
+    ? "Add detail — the AI re-reads the whole note and may refile it…"
+    : "Continue this train of thought…";
+  wrap.appendChild(textarea);
+
+  const row = document.createElement("div");
+  row.className = "row";
+  row.appendChild(
+    smallButton(
+      isContext ? "Add context" : "Add to thread",
+      "",
+      async () => {
+        const text = textarea.value.trim();
+        if (!text) return;
+        try {
+          if (isContext) {
+            const updated = await apiJson(`/entries/${entry.id}/context`, {
+              method: "POST",
+              body: JSON.stringify({ text }),
+            });
+            toast(
+              updated.category === entry.category
+                ? `Context added — still filed under “${updated.category}”.`
+                : `Context added — refiled under “${updated.category}”.`
+            );
+          } else {
+            await apiJson("/entries", {
+              method: "POST",
+              body: JSON.stringify({ content: text, parent_id: entry.id }),
+            });
+            toast("Thread continued.");
+          }
+          inlineAction = null;
+          await loadEntries();
+        } catch (error) {
+          toast(error.message, true);
+        }
+      },
+      false
+    )
+  );
+  row.appendChild(
+    smallButton("Cancel", "", () => {
+      inlineAction = null;
+      renderEntries();
+    })
+  );
+  wrap.appendChild(row);
+  setTimeout(() => textarea.focus(), 0);
+  return wrap;
+}
+
+function attachFileTo(entry) {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.addEventListener("change", async () => {
+    const file = input.files[0];
+    if (!file) return;
+    const form = new FormData();
+    form.append("file", file);
+    // Raw fetch: multipart must NOT get the JSON content-type header.
+    const response = await fetch(`/entries/${entry.id}/files`, {
+      method: "POST",
+      headers: { "X-Auth-Token": authToken() },
+      body: form,
+    });
+    if (!response.ok) {
+      const detail = await response.json().catch(() => ({}));
+      toast(detail.detail || `Upload failed (${response.status})`, true);
+      return;
+    }
+    toast(`Attached ${file.name}.`);
+    await loadEntries();
+  });
+  input.click();
+}
+
+async function downloadAttachment(attachment) {
+  const response = await api(`/files/${attachment.id}`);
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = attachment.filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+let relatedOpenId = null; // entry currently showing its similar notes
+
+async function toggleRelated(entry) {
+  relatedOpenId = relatedOpenId === entry.id ? null : entry.id;
+  renderEntries();
+  if (relatedOpenId !== entry.id) return;
+  const related = await apiJson(`/entries/${entry.id}/related`).catch(() => []);
+  const card = document.querySelector(`#entry-list li[data-id="${entry.id}"]`);
+  if (!card || relatedOpenId !== entry.id) return;
+  const row = document.createElement("div");
+  row.className = "entry-links";
+  const label = document.createElement("span");
+  label.className = "muted";
+  label.textContent = related.length ? "Similar:" : "No similar notes found.";
+  row.appendChild(label);
+  for (const other of related) {
+    const preview = other.content.length > 50 ? other.content.slice(0, 49) + "…" : other.content;
+    const relChip = chip(`≈ ${preview}`, "link");
+    relChip.style.cursor = "pointer";
+    relChip.addEventListener("click", () => {
+      const target = document.querySelector(`#entry-list li[data-id="${other.id}"]`);
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+        target.classList.add("flash");
+        setTimeout(() => target.classList.remove("flash"), 1700);
+      }
+    });
+    row.appendChild(relChip);
+  }
+  card.appendChild(row);
 }
 
 function renderEditForm(li, entry) {
@@ -386,7 +632,34 @@ function renderEntries() {
     ? `${activeCategory} entries`
     : "All entries";
   empty.classList.toggle("hidden", visible.length > 0);
-  for (const entry of visible) list.appendChild(entryItem(entry, { actions: true }));
+
+  // Threads (Wave B): children render indented under their parent. A
+  // child whose parent isn't visible (filtered out) shows at top level.
+  const visibleIds = new Set(visible.map((e) => e.id));
+  const childrenOf = new Map();
+  for (const entry of visible) {
+    if (entry.parent_id && visibleIds.has(entry.parent_id)) {
+      if (!childrenOf.has(entry.parent_id)) childrenOf.set(entry.parent_id, []);
+      childrenOf.get(entry.parent_id).push(entry);
+    }
+  }
+
+  const addWithChildren = (entry, depth) => {
+    const li = entryItem(entry, { actions: true });
+    if (depth > 0) {
+      li.classList.add("thread-child");
+      li.style.marginLeft = `${Math.min(depth, 4) * 1.4}rem`;
+    }
+    list.appendChild(li);
+    // Oldest continuation first — a thread reads top to bottom.
+    const children = (childrenOf.get(entry.id) || []).slice().reverse();
+    for (const child of children) addWithChildren(child, depth + 1);
+  };
+
+  for (const entry of visible) {
+    const parentVisible = entry.parent_id && visibleIds.has(entry.parent_id);
+    if (!parentVisible) addWithChildren(entry, 0);
+  }
 }
 
 function renderSidebar() {
@@ -428,6 +701,7 @@ async function loadEntries() {
   renderSidebar();
   renderEntries();
   fillCategoryOptions($("entry-category"), null);
+  refreshTagSuggestions();
 }
 
 // --- capture -----------------------------------------------------------------
@@ -476,9 +750,17 @@ async function saveEntry() {
       body: JSON.stringify({ content, tags, category }),
     });
     status.textContent = filedByText(saved);
+    if (saved.similar) {
+      // Duplicate detection (Wave B) — informational, never blocking.
+      toast(
+        `Heads up: this is ${Math.round(saved.similar.similarity * 100)}% similar ` +
+          `to an existing note — “${saved.similar.preview}”`
+      );
+    }
     contentBox.value = "";
     $("entry-tags").value = "";
     $("entry-category").value = "";
+    $("entry-template").value = "";
     await loadEntries();
     loadSuggestions(); // new categories → fresher recommended questions
   } catch (error) {
@@ -834,7 +1116,7 @@ function switchTab(name) {
 
 // --- panels inside the Notes tab (bin / activity) ---------------------------------
 
-const PANELS = ["bin-panel", "activity-panel"];
+const PANELS = ["bin-panel", "activity-panel", "tags-panel"];
 
 function showPanel(id) {
   for (const panel of PANELS) {
@@ -964,6 +1246,49 @@ async function renderActivity() {
       `${row.entity_type}${row.entity_id ? " #" + row.entity_id : ""}` +
       (row.detail ? ` — ${row.detail}` : "");
     li.append(when, what, detail);
+    list.appendChild(li);
+  }
+}
+
+// Tag manager panel (Wave B).
+async function renderTags() {
+  const tags = await apiJson("/tags").catch(() => ({}));
+  const list = $("tags-list");
+  list.replaceChildren();
+  const names = Object.keys(tags);
+  $("tags-empty").classList.toggle("hidden", names.length > 0);
+  for (const name of names) {
+    const li = document.createElement("li");
+    const row = document.createElement("div");
+    row.className = "entry-meta";
+    row.appendChild(chip(name, "tag"));
+    const count = document.createElement("span");
+    count.className = "muted";
+    count.textContent = `${tags[name]} entr${tags[name] === 1 ? "y" : "ies"}`;
+    row.appendChild(count);
+    const actions = document.createElement("span");
+    actions.className = "entry-actions";
+    actions.appendChild(
+      smallButton("Rename", "Rename this tag everywhere (merge if the name exists)", async () => {
+        const next = prompt(`Rename tag “${name}” to:`, name);
+        if (!next || next.trim() === name) return;
+        const result = await apiJson("/tags/rename", {
+          method: "POST",
+          body: JSON.stringify({ old: name, new: next.trim() }),
+        });
+        toast(`Updated ${result.changed} entr${result.changed === 1 ? "y" : "ies"}.`);
+        await Promise.all([renderTags(), loadEntries()]);
+      })
+    );
+    actions.appendChild(
+      smallButton("Delete", "Remove this tag from every entry", async () => {
+        if (!confirm(`Remove the tag “${name}” from all entries?`)) return;
+        await apiJson("/tags/delete", { method: "POST", body: JSON.stringify({ name }) });
+        await Promise.all([renderTags(), loadEntries()]);
+      })
+    );
+    row.appendChild(actions);
+    li.appendChild(row);
     list.appendChild(li);
   }
 }
@@ -1369,6 +1694,11 @@ $("activity-btn").addEventListener("click", async () => {
   showPanel("activity-panel");
   await renderActivity();
 });
+$("tags-btn").addEventListener("click", async () => {
+  showPanel("tags-panel");
+  await renderTags();
+});
+$("entry-template").addEventListener("change", applyTemplate);
 for (const button of document.querySelectorAll(".panel-close")) {
   button.addEventListener("click", () => showPanel(null));
 }

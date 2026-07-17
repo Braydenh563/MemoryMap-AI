@@ -38,6 +38,10 @@ class ConfigManager:
 
         self.db_path = self.data_dir / "memorymap.db"
         self.preferences_path = self.data_dir / "preferences.json"
+        # Attached files live next to the data dir (Wave B), so wiping
+        # one without the other can't happen by accident.
+        self.uploads_dir = self.data_dir / "uploads"
+        self.uploads_dir.mkdir(parents=True, exist_ok=True)
         self.ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
 
         self._preferences = self._load_preferences()

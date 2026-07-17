@@ -80,6 +80,17 @@ class Entry(Base):
     # Bumped every time this entry is opened or returned by a chat
     # question — feeds the "most used" dashboard (Phase 5).
     access_count: Mapped[int] = mapped_column(Integer, default=0)
+    # Train-of-thought threads (Wave B): a child continues its parent.
+    # (Added by the auto-migrator as a plain column on old DBs — the FK
+    # constraint only exists on freshly created databases.)
+    parent_id: Mapped[int | None] = mapped_column(
+        ForeignKey("entries.id"), default=None
+    )
+    # Pinned entries float to the top of lists and the dashboard.
+    pinned: Mapped[bool] = mapped_column(Boolean, default=False)
+    # True when the USER chose the category (guided mode or a manual
+    # move) — the janitor then keeps its hands off during re-filing.
+    user_filed: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=utcnow, onupdate=utcnow
@@ -112,6 +123,22 @@ class EmbeddingRecord(Base):
     embedding: Mapped[bytes] = mapped_column(LargeBinary)
     dim: Mapped[int] = mapped_column(Integer)
     model_version: Mapped[str] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class Attachment(Base):
+    """A file the user attached to an entry (Wave B). The bytes live in
+    the uploads/ folder under a random stored_name; the original
+    filename is kept for downloads."""
+
+    __tablename__ = "attachments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entry_id: Mapped[int] = mapped_column(ForeignKey("entries.id"))
+    filename: Mapped[str] = mapped_column(String(255))
+    stored_name: Mapped[str] = mapped_column(String(80), unique=True)
+    mime: Mapped[str] = mapped_column(String(100), default="application/octet-stream")
+    size: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 

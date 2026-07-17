@@ -499,5 +499,17 @@ li.link-source { outline: 2px solid var(--accent); }
 .log-list .what { font-weight: 700; flex-shrink: 0; min-width: 3.6rem; }
 .log-list li.log-warn .what { color: var(--warn); }
 
+/* --- Wave B: threads, inline actions, templates ------------------------------ */
+.entry-list li.thread-child { border-left: 3px solid var(--accent-soft); }
+.inline-action {
+  margin-top: 0.5rem;
+  padding: 0.6rem;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+}
+.inline-action textarea { margin-bottom: 0.4rem; }
+.small-select { max-width: 11rem; margin-bottom: 0; }
+.row .small-select { flex: 0 1 auto; }
+
 .muted { color: var(--muted); }
 .hidden { display: none; }

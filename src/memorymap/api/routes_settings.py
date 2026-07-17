@@ -25,6 +25,11 @@ router = APIRouter(tags=["settings"])
 # Preferences the user may change from the UI — a deliberate allowlist
 # so a stray request can't scribble on model settings (those have their
 # own validated endpoints in routes_models).
+class TemplateItem(BaseModel):
+    name: str = Field(min_length=1, max_length=40)
+    content: str = Field(max_length=2000)
+
+
 class PreferencesBody(BaseModel):
     recycle_bin_days: int | None = Field(default=None, ge=1, le=365)
     communication_style: Literal["friendly", "concise", "detailed"] | None = None
@@ -33,6 +38,8 @@ class PreferencesBody(BaseModel):
     # simply saves an empty string.
     user_profile: str | None = Field(default=None, max_length=2000)
     profile_enabled: bool | None = None
+    # Capture templates (Wave B): user-defined prefills for the note box.
+    custom_templates: list[TemplateItem] | None = Field(default=None, max_length=20)
 
 
 @router.get("/preferences")
@@ -43,6 +50,7 @@ def get_preferences() -> dict:
         "communication_style": config.get_preference("communication_style", "friendly"),
         "user_profile": config.get_preference("user_profile", ""),
         "profile_enabled": config.get_preference("profile_enabled", False),
+        "custom_templates": config.get_preference("custom_templates", []),
     }
 
 
@@ -81,7 +89,10 @@ def audit_log(limit: int = 100, session: Session = Depends(get_session)) -> list
 
 @router.post("/recycle-bin/empty")
 def empty_recycle_bin(session: Session = Depends(get_session)) -> dict:
-    return {"removed": manager.empty_recycle_bin(session)}
+    removed = manager.empty_recycle_bin(
+        session, uploads_dir=deps.get_config().uploads_dir
+    )
+    return {"removed": removed}
 
 
 @router.get("/logs")

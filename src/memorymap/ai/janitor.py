@@ -13,6 +13,7 @@ cheap embedding shortcut (plan §2, resolution 2). Order of attempts:
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 
 import numpy as np
@@ -44,6 +45,9 @@ class CentroidMatch:
     similarity: float
 
 
+logger = logging.getLogger("memorymap.janitor")
+
+
 def categorise(
     session: Session,
     content: str,
@@ -58,8 +62,14 @@ def categorise(
     'none' (no AI available)."""
     match = _best_centroid_match(session, content, embeddings)
     if match is not None and match.similarity >= CONFIDENT_MATCH:
-        return match.name, min(100, round(match.similarity * 100)), "semantic-match"
-    return _ask_llm(session, content, model_manager, ollama)
+        confidence = min(100, round(match.similarity * 100))
+        logger.info(
+            "janitor: filed by semantic match -> '%s' (%d%%)", match.name, confidence
+        )
+        return match.name, confidence, "semantic-match"
+    category, confidence, method = _ask_llm(session, content, model_manager, ollama)
+    logger.info("janitor: filed by %s -> '%s' (%d%%)", method, category, confidence)
+    return category, confidence, method
 
 
 def _best_centroid_match(

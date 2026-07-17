@@ -12,6 +12,7 @@ Plain `def` so the blocking LLM call runs in FastAPI's threadpool.
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Iterator
 
 from fastapi import APIRouter, Depends
@@ -139,6 +140,9 @@ def _prepare(session: Session, question: str) -> dict:
         entry.access_count += 1
     manager.log_action(session, "queried", "chat", detail=question)
     session.commit()
+    logging.getLogger("memorymap.chat").info(
+        "chat: %d note(s) via %s search for %r", len(entries), mode, question[:80]
+    )
 
     return {
         "notes": notes,

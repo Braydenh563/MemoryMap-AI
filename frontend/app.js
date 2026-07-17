@@ -2,6 +2,45 @@
 // All DOM nodes are built with createElement/textContent, never innerHTML,
 // so a note containing <script> is just text, not code.
 
+// --- browser log capture (Wave A) -----------------------------------------------
+// Installed before anything else runs so no message is missed. Shown in
+// Settings → Logs alongside the server's records.
+
+const browserLogs = [];
+const MAX_BROWSER_LOGS = 500;
+
+function recordBrowserLog(level, parts) {
+  browserLogs.push({
+    time: new Date().toISOString(),
+    level,
+    message: parts
+      .map((p) => {
+        if (typeof p === "string") return p;
+        try {
+          return JSON.stringify(p);
+        } catch {
+          return String(p);
+        }
+      })
+      .join(" "),
+  });
+  if (browserLogs.length > MAX_BROWSER_LOGS) browserLogs.shift();
+}
+
+for (const level of ["log", "info", "warn", "error"]) {
+  const original = console[level].bind(console);
+  console[level] = (...parts) => {
+    recordBrowserLog(level.toUpperCase(), parts);
+    original(...parts);
+  };
+}
+window.addEventListener("error", (e) =>
+  recordBrowserLog("ERROR", [`${e.message} (${e.filename}:${e.lineno})`])
+);
+window.addEventListener("unhandledrejection", (e) =>
+  recordBrowserLog("ERROR", ["Unhandled promise rejection:", String(e.reason)])
+);
+
 // Below this confidence an entry gets a "check this" flag (plan Phase 3).
 const REVIEW_THRESHOLD = 50;
 
@@ -779,14 +818,120 @@ function appendInline(parent, text) {
   }
 }
 
-// --- panels (models / bin / activity / preferences) ------------------------------
+// --- tabs (Wave A) ----------------------------------------------------------------
 
-const PANELS = ["settings", "bin-panel", "activity-panel", "prefs-panel"];
+const TABS = ["dashboard", "notes", "chat", "graph", "reminders"];
+
+function switchTab(name) {
+  for (const tab of TABS) {
+    $(`tab-${tab}`).classList.toggle("hidden", tab !== name);
+  }
+  for (const button of document.querySelectorAll("#tab-bar button")) {
+    button.classList.toggle("active", button.dataset.tab === name);
+  }
+  localStorage.setItem("activeTab", name); // reopen where you left off
+}
+
+// --- panels inside the Notes tab (bin / activity) ---------------------------------
+
+const PANELS = ["bin-panel", "activity-panel"];
 
 function showPanel(id) {
   for (const panel of PANELS) {
     $(panel).classList.toggle("hidden", panel !== id);
   }
+}
+
+// --- settings modal (Wave A) ------------------------------------------------------
+
+const SETTINGS_SECTIONS = ["models", "preferences", "data", "logs", "about"];
+
+function settingsModalOpen() {
+  return !$("settings-modal").classList.contains("hidden");
+}
+
+function showSettingsSection(name) {
+  for (const section of SETTINGS_SECTIONS) {
+    $(`settings-${section}`).classList.toggle("hidden", section !== name);
+  }
+  for (const button of document.querySelectorAll("#settings-nav button")) {
+    button.classList.toggle("active", button.dataset.section === name);
+  }
+  if (name === "logs") renderLogs();
+  if (name === "preferences") renderPrefs().catch(() => {});
+}
+
+async function openSettingsModal(section = "models") {
+  $("settings-modal").classList.remove("hidden");
+  $("about-version").textContent = `Version ${
+    (await apiJson("/health").catch(() => ({ version: "?" }))).version
+  } · ${allEntries.length} entries loaded`;
+  showSettingsSection(section);
+  if (!suggestedCatalog) {
+    suggestedCatalog = await apiJson("/models/suggested").catch(() => null);
+  }
+  refreshModelStatus();
+}
+
+function closeSettingsModal() {
+  $("settings-modal").classList.add("hidden");
+}
+
+// --- logs viewer (Wave A) ---------------------------------------------------------
+
+async function renderLogs() {
+  const source = $("log-source").value;
+  const records =
+    source === "server"
+      ? await apiJson("/logs?limit=200").catch(() => [])
+      : browserLogs.slice(-200);
+
+  const list = $("log-list");
+  list.replaceChildren();
+  $("logs-empty").classList.toggle("hidden", records.length > 0);
+  for (const record of records) {
+    const li = document.createElement("li");
+    if (record.level === "ERROR" || record.level === "WARNING" || record.level === "WARN") {
+      li.classList.add("log-warn");
+    }
+    const when = document.createElement("span");
+    when.className = "when";
+    when.textContent = new Date(record.time).toLocaleTimeString();
+    const level = document.createElement("span");
+    level.className = "what";
+    level.textContent = record.level;
+    const message = document.createElement("span");
+    message.textContent = record.logger
+      ? `${record.logger} — ${record.message}`
+      : record.message;
+    li.append(when, level, message);
+    list.appendChild(li);
+  }
+  list.scrollTop = list.scrollHeight; // newest are at the bottom
+}
+
+async function copyLogs() {
+  const source = $("log-source").value;
+  const records =
+    source === "server" ? await apiJson("/logs?limit=500").catch(() => []) : browserLogs;
+  const text = records
+    .map((r) => `${r.time} ${r.level} ${r.logger || ""} ${r.message}`)
+    .join("\n");
+  try {
+    await navigator.clipboard.writeText(text);
+    toast("Logs copied.");
+  } catch {
+    toast("Couldn't copy — clipboard blocked.", true);
+  }
+}
+
+async function clearLogs() {
+  if ($("log-source").value === "server") {
+    await api("/logs", { method: "DELETE" }).catch(() => {});
+  } else {
+    browserLogs.length = 0;
+  }
+  renderLogs();
 }
 
 async function renderBin() {
@@ -947,7 +1092,8 @@ let suggestedCatalog = null; // loaded once, it never changes
 let statusTimer = null;
 
 function settingsOpen() {
-  return !$("settings").classList.contains("hidden");
+  // The Models section lives inside the settings modal now (Wave A).
+  return settingsModalOpen();
 }
 
 function jobsRunning() {
@@ -1142,14 +1288,6 @@ function renderSuggested(status) {
   }
 }
 
-async function openSettings() {
-  showPanel("settings");
-  if (!suggestedCatalog) {
-    suggestedCatalog = await apiJson("/models/suggested").catch(() => null);
-  }
-  refreshModelStatus();
-}
-
 async function applyChatModel() {
   const select = $("chat-model-select");
   const note = $("chat-model-note");
@@ -1202,7 +1340,27 @@ function toggleTheme() {
 // --- wiring --------------------------------------------------------------------
 
 $("theme-btn").addEventListener("click", toggleTheme);
-$("models-btn").addEventListener("click", openSettings);
+
+// Tabs (Wave A): switch pages, restore the last one used.
+for (const button of document.querySelectorAll("#tab-bar button")) {
+  button.addEventListener("click", () => switchTab(button.dataset.tab));
+}
+switchTab(localStorage.getItem("activeTab") || "notes");
+
+// Settings modal (Wave A).
+$("settings-btn").addEventListener("click", () => openSettingsModal());
+$("settings-close").addEventListener("click", closeSettingsModal);
+$("settings-modal").addEventListener("click", (e) => {
+  if (e.target === $("settings-modal")) closeSettingsModal(); // backdrop click
+});
+for (const button of document.querySelectorAll("#settings-nav button")) {
+  button.addEventListener("click", () => showSettingsSection(button.dataset.section));
+}
+$("log-source").addEventListener("change", renderLogs);
+$("logs-refresh").addEventListener("click", renderLogs);
+$("logs-copy").addEventListener("click", copyLogs);
+$("logs-clear").addEventListener("click", clearLogs);
+
 $("bin-btn").addEventListener("click", async () => {
   showPanel("bin-panel");
   await renderBin();
@@ -1211,14 +1369,9 @@ $("activity-btn").addEventListener("click", async () => {
   showPanel("activity-panel");
   await renderActivity();
 });
-$("prefs-btn").addEventListener("click", async () => {
-  showPanel("prefs-panel");
-  await renderPrefs();
-});
 for (const button of document.querySelectorAll(".panel-close")) {
   button.addEventListener("click", () => showPanel(null));
 }
-$("settings-close").addEventListener("click", () => showPanel(null));
 $("bin-empty").addEventListener("click", async () => {
   if (!confirm("Permanently delete everything in the bin? This cannot be undone.")) return;
   const result = await apiJson("/recycle-bin/empty", { method: "POST" });
@@ -1250,6 +1403,7 @@ $("entry-content").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && e.ctrlKey) saveEntry();
 });
 document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && settingsModalOpen()) closeSettingsModal();
   if (e.key === "Escape" && linkSource !== null) {
     linkSource = null;
     renderEntries();

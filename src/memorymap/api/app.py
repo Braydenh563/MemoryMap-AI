@@ -23,7 +23,7 @@ from memorymap.api import (
     routes_settings,
 )
 from memorymap.api.routes_auth import require_unlock
-from memorymap.core import deps
+from memorymap.core import deps, logbuffer
 from memorymap.core.deps import init_app_state
 from memorymap.entry import manager
 
@@ -59,6 +59,7 @@ def _purge_expired_bin_entries() -> None:
 
 
 def create_app() -> FastAPI:
+    logbuffer.install()  # start capturing logs for the Settings viewer
     init_app_state()
     _purge_expired_bin_entries()
     threading.Thread(

@@ -13,6 +13,7 @@
   --inner: rgba(255, 255, 255, 0.45);
   --input-bg: rgba(255, 255, 255, 0.55);
   --glass-border: rgba(255, 255, 255, 0.65);
+  --modal-bg: rgba(252, 253, 255, 0.96);
   --glass-shadow: 0 8px 32px rgba(31, 38, 135, 0.14);
   --ink: #1f2430;
   --muted: #5b6472;
@@ -38,6 +39,7 @@
   --input-bg: rgba(14, 16, 23, 0.55);
   --glass-border: rgba(255, 255, 255, 0.10);
   --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  --modal-bg: rgba(24, 27, 37, 0.97);
   --ink: #e7e9ee;
   --muted: #9aa1ad;
   --accent: #8b9df8;
@@ -61,6 +63,7 @@
     --input-bg: rgba(14, 16, 23, 0.55);
     --glass-border: rgba(255, 255, 255, 0.10);
     --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+    --modal-bg: rgba(24, 27, 37, 0.97);
     --ink: #e7e9ee;
     --muted: #9aa1ad;
     --accent: #8b9df8;
@@ -113,6 +116,40 @@ header h1 { margin: 0; font-size: 1.5rem; }
 }
 #ai-pill.ok { background: var(--ok-soft); color: var(--ok); }
 #ai-pill.busy { background: var(--warn-soft); color: var(--warn); }
+
+/* --- tab navigation (Wave A) ----------------------------------------------- */
+#tab-bar {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0 2rem;
+  flex-wrap: wrap;
+}
+#tab-bar button {
+  background: var(--chip-bg);
+  border: 1px solid var(--glass-border);
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  color: var(--muted);
+  font-weight: 500;
+  padding: 0.45rem 1.1rem;
+  box-shadow: none;
+  backdrop-filter: blur(8px);
+}
+#tab-bar button.active {
+  background: var(--card);
+  color: var(--ink);
+  font-weight: 600;
+}
+.tab-page { padding-top: 0.75rem; }
+.tab-page > .card.placeholder { margin: 0.25rem 2rem; }
+
+.sidebar-tools {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.sidebar-tools button { text-align: left; }
 
 .layout {
   display: grid;
@@ -387,6 +424,80 @@ li.link-source { outline: 2px solid var(--accent); }
   100% { outline: 3px solid transparent; }
 }
 .entry-list li.flash { animation: flash-outline 1.6s ease-out; }
+
+/* --- settings modal + logs (Wave A) ----------------------------------------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 12, 18, 0.45);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 55;
+  padding: 1.5rem;
+}
+.modal-card {
+  width: min(880px, 96vw);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0;
+  /* Nearly opaque: unlike page cards, a settings dialog floats over busy
+     content — full glass here makes it unreadable. */
+  background: var(--modal-bg);
+}
+.modal-body {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 1rem;
+  overflow: hidden;
+  flex: 1;
+}
+@media (max-width: 640px) {
+  .modal-body { grid-template-columns: 1fr; }
+}
+.modal-nav { display: flex; flex-direction: column; gap: 0.3rem; }
+.modal-nav button {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--muted);
+  text-align: left;
+  padding: 0.45rem 0.7rem;
+  border-radius: 8px;
+  font-weight: 500;
+}
+.modal-nav button:hover { background: var(--accent-soft); }
+.modal-nav button.active {
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-weight: 600;
+}
+.modal-content { overflow-y: auto; padding-right: 0.4rem; min-height: 320px; }
+.settings-section h3:first-child { margin-top: 0; }
+
+.log-list {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0.5rem;
+  max-height: 46vh;
+  overflow-y: auto;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.78rem;
+  background: var(--chip-bg);
+  border-radius: 8px;
+}
+.log-list li {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.12rem 0;
+  border-bottom: 1px dotted var(--border);
+}
+.log-list li:last-child { border-bottom: none; }
+.log-list .when { color: var(--muted); flex-shrink: 0; }
+.log-list .what { font-weight: 700; flex-shrink: 0; min-width: 3.6rem; }
+.log-list li.log-warn .what { color: var(--warn); }
 
 .muted { color: var(--muted); }
 .hidden { display: none; }

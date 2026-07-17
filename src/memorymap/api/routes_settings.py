@@ -15,8 +15,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from memorymap import __version__
+from memorymap.core import deps, logbuffer
 from memorymap.core.database import AuditLog, Category, Entry, EntryLink, utcnow
-from memorymap.core import deps
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
 
@@ -82,6 +82,18 @@ def audit_log(limit: int = 100, session: Session = Depends(get_session)) -> list
 @router.post("/recycle-bin/empty")
 def empty_recycle_bin(session: Session = Depends(get_session)) -> dict:
     return {"removed": manager.empty_recycle_bin(session)}
+
+
+@router.get("/logs")
+def server_logs(limit: int = 200) -> list[dict]:
+    """Recent server-side log records for the Settings → Logs viewer."""
+    return logbuffer.recent(limit=min(limit, logbuffer.MAX_RECORDS))
+
+
+@router.delete("/logs")
+def clear_server_logs() -> dict:
+    logbuffer.clear()
+    return {"cleared": True}
 
 
 def _export_rows(session: Session) -> tuple[list[Category], list[Entry], list[EntryLink]]:

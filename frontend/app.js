@@ -2244,6 +2244,133 @@ function appendInline(parent, text) {
   }
 }
 
+// --- graph view (Wave E) ----------------------------------------------------------
+// An Obsidian-style force-directed map. D3 is vendored locally
+// (frontend/vendor) — the offline rule allows no CDN.
+
+let graphSimulation = null; // stopped before every rebuild
+
+function graphNodeRadius(node) {
+  // Much-used notes draw the eye: base size + a gentle access bonus.
+  return 7 + Math.min(9, Math.sqrt(node.access_count || 0) * 2);
+}
+
+async function renderGraph() {
+  const wantSimilarity = $("graph-similarity").checked;
+  const data = await apiJson(
+    `/graph${wantSimilarity ? "?similarity=true" : ""}`
+  ).catch(() => null);
+  if (!data) return;
+
+  if (graphSimulation) graphSimulation.stop();
+  const svg = d3.select("#graph-svg");
+  svg.selectAll("*").remove();
+  $("graph-empty").classList.toggle("hidden", data.nodes.length > 0);
+
+  // Colour legend: one dot per category, same scale as the nodes.
+  const color = d3.scaleOrdinal(
+    data.categories,
+    d3.schemeTableau10.concat(d3.schemeSet3)
+  );
+  const legend = $("graph-legend");
+  legend.replaceChildren();
+  for (const category of data.categories) {
+    const item = document.createElement("span");
+    item.className = "legend-item";
+    const dot = document.createElement("span");
+    dot.className = "legend-dot";
+    dot.style.background = color(category);
+    item.append(dot, document.createTextNode(category));
+    legend.appendChild(item);
+  }
+  if (!data.nodes.length) return;
+
+  const box = $("graph-box");
+  const width = box.clientWidth || 800;
+  const height = box.clientHeight || 540;
+  svg.attr("viewBox", [0, 0, width, height]);
+
+  // One zoomable/pannable group holds everything.
+  const canvas = svg.append("g");
+  svg.call(
+    d3
+      .zoom()
+      .scaleExtent([0.2, 5])
+      .on("zoom", (event) => canvas.attr("transform", event.transform))
+  );
+
+  // D3 mutates these (x/y/vx/vy), so work on copies.
+  const nodes = data.nodes.map((n) => ({ ...n }));
+  const edges = data.edges.map((e) => ({ ...e }));
+
+  graphSimulation = d3
+    .forceSimulation(nodes)
+    .force(
+      "link",
+      d3
+        .forceLink(edges)
+        .id((d) => d.id)
+        .distance((d) => (d.kind === "similar" ? 130 : 80))
+    )
+    .force("charge", d3.forceManyBody().strength(-220))
+    .force("center", d3.forceCenter(width / 2, height / 2))
+    .force("collide", d3.forceCollide().radius((d) => graphNodeRadius(d) + 16));
+
+  const edgeLines = canvas
+    .append("g")
+    .selectAll("line")
+    .data(edges)
+    .join("line")
+    .attr("class", (d) => `graph-edge graph-edge-${d.kind}`);
+
+  const nodeGroups = canvas
+    .append("g")
+    .selectAll("g")
+    .data(nodes)
+    .join("g")
+    .attr("class", "graph-node")
+    .call(
+      d3
+        .drag()
+        .on("start", (event, d) => {
+          if (!event.active) graphSimulation.alphaTarget(0.3).restart();
+          d.fx = d.x;
+          d.fy = d.y;
+        })
+        .on("drag", (event, d) => {
+          d.fx = event.x;
+          d.fy = event.y;
+        })
+        .on("end", (event, d) => {
+          if (!event.active) graphSimulation.alphaTarget(0);
+          d.fx = null;
+          d.fy = null;
+        })
+    )
+    .on("click", (_event, d) => flashEntry(d.id));
+
+  nodeGroups
+    .append("circle")
+    .attr("r", graphNodeRadius)
+    .attr("fill", (d) => color(d.category))
+    .classed("graph-pinned", (d) => d.pinned);
+  // Native tooltip: full preview + category on hover.
+  nodeGroups.append("title").text((d) => `${d.preview}\n[${d.category}]`);
+  nodeGroups
+    .append("text")
+    .attr("dy", (d) => graphNodeRadius(d) + 12)
+    .text((d) => (d.preview.length > 20 ? d.preview.slice(0, 19) + "…" : d.preview));
+
+  graphSimulation.on("tick", () => {
+    edgeLines
+      .attr("x1", (d) => d.source.x)
+      .attr("y1", (d) => d.source.y)
+      .attr("x2", (d) => d.target.x)
+      .attr("y2", (d) => d.target.y);
+    nodeGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
+  });
+}
+
 // --- tabs (Wave A) ----------------------------------------------------------------
 
 const TABS = ["dashboard", "notes", "chat", "graph", "reminders"];
@@ -2261,6 +2388,7 @@ function switchTab(name) {
     $("chat-input").focus();
   }
   if (name === "dashboard") renderDashboard();
+  if (name === "graph") renderGraph();
   if (name === "reminders") {
     if (!$("reminder-due").value) $("reminder-due").value = defaultDueValue();
     loadReminders();
@@ -2878,6 +3006,8 @@ $("persona-select").addEventListener("change", async () => {
 });
 $("persona-add").addEventListener("click", addPersona);
 $("skill-add").addEventListener("click", addSkill);
+$("graph-refresh").addEventListener("click", renderGraph);
+$("graph-similarity").addEventListener("change", renderGraph);
 $("tools-toggle").addEventListener("change", async () => {
   // Remember the choice so it survives restarts.
   await apiJson("/preferences", {

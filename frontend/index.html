@@ -218,12 +218,29 @@
 
   <!-- ======================= GRAPH TAB (Wave E fills this) ================ -->
   <div class="tab-page hidden" id="tab-graph">
-    <section class="card placeholder">
-      <h2>Graph</h2>
+    <section class="card" id="graph-card">
+      <div class="row space-between">
+        <h2>Graph</h2>
+        <div class="row">
+          <label class="muted tools-toggle" title="Draw dotted lines between notes that mean similar things (needs semantic search)">
+            <input type="checkbox" id="graph-similarity"> Similarity lines
+          </label>
+          <button id="graph-refresh" class="ghost small">Refresh</button>
+        </div>
+      </div>
       <p class="muted">
-        Coming in Wave E: an Obsidian-style map of your notes and their
-        connections. Link notes now (🔗 on any entry) and they'll appear here.
+        Your notes as a map: solid lines are links you made, dashed lines are
+        trains of thought, dotted lines are notes that mean similar things.
+        Drag to arrange, scroll to zoom, click a note to open it.
       </p>
+      <div id="graph-legend" class="recent"></div>
+      <div id="graph-box">
+        <svg id="graph-svg"></svg>
+        <p id="graph-empty" class="muted hidden">
+          Nothing to map yet — save a few notes and link some together
+          (🔗 on any entry) and they'll appear here.
+        </p>
+      </div>
     </section>
   </div>
 
@@ -422,6 +439,8 @@
   </div>
 
   <div id="toast-box"></div>
+  <!-- D3 v7, vendored locally — the offline rule: no CDNs, ever -->
+  <script src="/vendor/d3.v7.min.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

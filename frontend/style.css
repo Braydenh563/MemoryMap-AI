@@ -672,3 +672,55 @@ li.link-source { outline: 2px solid var(--accent); }
   background: var(--warn-soft);
 }
 .tool-confirm p { margin: 0 0 0.5rem; font-size: 0.9rem; }
+
+/* --- Wave E: graph view ------------------------------------------------------- */
+#graph-box {
+  position: relative;
+  height: min(65vh, 620px);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+#graph-svg { width: 100%; height: 100%; display: block; cursor: grab; }
+#graph-svg:active { cursor: grabbing; }
+#graph-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  padding: 1rem;
+}
+/* The id rule above outranks the generic .hidden helper — restate it. */
+#graph-empty.hidden { display: none; }
+
+.graph-edge { stroke: var(--muted); stroke-opacity: 0.55; stroke-width: 1.6; }
+.graph-edge-thread { stroke-dasharray: 7 4; stroke-width: 1.4; }
+.graph-edge-similar { stroke-dasharray: 2 5; stroke-width: 1.2; stroke: var(--accent); }
+
+.graph-node { cursor: pointer; }
+.graph-node circle { stroke: transparent; stroke-width: 2px; }
+.graph-node circle.graph-pinned { stroke: var(--warn); }
+.graph-node:hover circle { stroke: var(--accent); }
+.graph-node text {
+  font-size: 0.62rem;
+  fill: var(--muted);
+  text-anchor: middle;
+  pointer-events: none;
+  user-select: none;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-right: 0.7rem;
+}
+.legend-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  display: inline-block;
+}

@@ -17,6 +17,11 @@ class OllamaError(RuntimeError):
     """Ollama unreachable, or it returned something unusable."""
 
 
+class ToolsUnsupportedError(OllamaError):
+    """The active model can't do tool calls — the caller should fall
+    back to plain Q&A, never fail the whole chat (Wave G)."""
+
+
 class _ThinkTagSplitter:
     """Routes streamed content into thinking vs answer pieces when a
     model reasons inline with <think>…</think> — the tags themselves can
@@ -180,6 +185,55 @@ class OllamaClient:
                         yield from splitter.flush()
         except (requests.RequestException, KeyError, TypeError, ValueError) as exc:
             raise OllamaError(f"Chat with '{model}' failed: {exc}") from exc
+
+    def chat_tools(self, model: str, messages: list[dict], tools: list[dict]) -> dict:
+        """One non-streamed chat turn with tools offered (Wave G).
+
+        Returns {"content", "thinking", "tool_calls", "raw_tool_calls"}.
+        tool_calls is normalised to [{"name": str, "arguments": dict}];
+        raw_tool_calls is Ollama's own shape, for replaying back into the
+        conversation. Non-streamed on purpose: tool-call rounds are short
+        and this works on every Ollama version that supports tools."""
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/chat",
+                json={
+                    "model": model,
+                    "messages": messages,
+                    "stream": False,
+                    "tools": tools,
+                },
+                timeout=self.timeout,
+            )
+            # Ollama answers 400 with a "...does not support tools" body
+            # for models without tool support — that's a capability gap,
+            # not an outage, so signal it distinctly.
+            if response.status_code == 400 and "tool" in response.text.lower():
+                raise ToolsUnsupportedError(f"'{model}' can't use tools")
+            response.raise_for_status()
+            message = response.json()["message"]
+            content, inline_thinking = split_thinking(message.get("content") or "")
+            raw_calls = message.get("tool_calls") or []
+            calls = []
+            for item in raw_calls:
+                function = item.get("function") or {}
+                arguments = function.get("arguments") or {}
+                if isinstance(arguments, str):  # some models emit JSON text
+                    try:
+                        arguments = json.loads(arguments)
+                    except ValueError:
+                        arguments = {}
+                calls.append({"name": function.get("name", ""), "arguments": arguments})
+            return {
+                "content": content,
+                "thinking": message.get("thinking") or inline_thinking,
+                "tool_calls": calls,
+                "raw_tool_calls": raw_calls,
+            }
+        except ToolsUnsupportedError:
+            raise
+        except (requests.RequestException, KeyError, TypeError, ValueError) as exc:
+            raise OllamaError(f"Tool chat with '{model}' failed: {exc}") from exc
 
     def embed(self, model: str, text: str) -> list[float]:
         """Embed one text with an Ollama embedding model (only used when

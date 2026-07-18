@@ -35,6 +35,13 @@ class PersonaItem(BaseModel):
     prompt: str = Field(min_length=1, max_length=2000)
 
 
+class SkillItem(BaseModel):
+    """A saved prompt shortcut for the chat tab (Wave G)."""
+
+    name: str = Field(min_length=1, max_length=40)
+    prompt: str = Field(min_length=1, max_length=2000)
+
+
 class PreferencesBody(BaseModel):
     recycle_bin_days: int | None = Field(default=None, ge=1, le=365)
     communication_style: Literal["friendly", "concise", "detailed"] | None = None
@@ -50,6 +57,9 @@ class PreferencesBody(BaseModel):
     active_persona: str | None = Field(default=None, max_length=40)
     # Dashboard layout (Wave D): widget order + hidden widgets.
     dashboard_layout: "DashboardLayout | None" = None
+    # Wave G: user-defined skills, and whether the chat AI may use tools.
+    skills: list[SkillItem] | None = Field(default=None, max_length=30)
+    tools_enabled: bool | None = None
 
 
 class DashboardLayout(BaseModel):
@@ -71,6 +81,8 @@ def get_preferences() -> dict:
         "dashboard_layout": config.get_preference(
             "dashboard_layout", {"order": [], "hidden": []}
         ),
+        "skills": config.get_preference("skills", []),
+        "tools_enabled": config.get_preference("tools_enabled", True),
     }
 
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 import numpy as np
 
 from memorymap.ai.embeddings import EmbeddingService
-from memorymap.ai.ollama_client import OllamaError
+from memorymap.ai.ollama_client import OllamaError, ToolsUnsupportedError
 
 # Three "topics" the fake embedder understands, one axis each. The 4th
 # axis is a catch-all so no vector is ever all-zero.
@@ -56,6 +56,12 @@ class FakeOllama:
         self.librarian_reply = "Here's what I found in your notebook!"
         self.librarian_thinking: str | None = None  # set to fake a thinking model
         self.installed = [{"name": "llama3.2:latest", "size": 2_000_000_000}]
+        # Agent mode (Wave G). tool_script is a queue: each item is the
+        # list of tool calls "the model" makes on one chat_tools round;
+        # when it runs dry the fake gives its final text answer.
+        self.supports_tools = True
+        self.tool_script: list[list[dict]] = []
+        self.tool_rounds: list[list[dict]] = []  # messages seen per round
 
     def is_running(self) -> bool:
         return self.running
@@ -71,6 +77,31 @@ class FakeOllama:
         middle = max(1, len(text) // 2)
         yield {"content_delta": text[:middle]}
         yield {"content_delta": text[middle:]}
+
+    def chat_tools(self, model: str, messages: list[dict], tools: list[dict]) -> dict:
+        """Plays back tool_script one round at a time (Wave G)."""
+        if not self.running:
+            raise OllamaError("Ollama is not running (fake)")
+        if not self.supports_tools:
+            raise ToolsUnsupportedError(f"'{model}' can't use tools (fake)")
+        self.tool_rounds.append(messages)
+        if self.tool_script:
+            calls = self.tool_script.pop(0)
+            return {
+                "content": "",
+                "thinking": None,
+                "tool_calls": calls,
+                "raw_tool_calls": [
+                    {"function": {"name": c["name"], "arguments": c["arguments"]}}
+                    for c in calls
+                ],
+            }
+        return {
+            "content": self.librarian_reply,
+            "thinking": self.librarian_thinking,
+            "tool_calls": [],
+            "raw_tool_calls": [],
+        }
 
     def _reply_text(self, messages: list[dict]) -> str:
         if not self.running:

@@ -640,3 +640,35 @@ li.link-source { outline: 2px solid var(--accent); }
 
 .muted { color: var(--muted); }
 .hidden { display: none; }
+
+/* --- Wave G: agentic tools + skills ------------------------------------------ */
+.tools-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tools-toggle input { accent-color: var(--accent); }
+
+.tool-activity:empty { display: none; }
+.tool-chip {
+  display: block;
+  font-size: 0.85rem;
+  margin: 0.2rem 0;
+  padding: 0.3rem 0.6rem;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.tool-chip.tool-chip-error { background: var(--warn-soft); color: var(--warn); }
+
+.tool-confirm {
+  margin: 0.3rem 0;
+  padding: 0.6rem;
+  border: 1px solid var(--warn);
+  border-radius: 10px;
+  background: var(--warn-soft);
+}
+.tool-confirm p { margin: 0 0 0.5rem; font-size: 0.9rem; }

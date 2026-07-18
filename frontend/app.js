@@ -153,7 +153,13 @@ function startApp() {
   loadRecentQuestions();
   loadSuggestions();
   loadMostUsed();
-  loadTemplates().then(personaOptions);
+  loadTemplates().then(() => {
+    personaOptions();
+    // Wave G: skills chips + the "AI can make changes" toggle read the
+    // same prefsCache that loadTemplates just filled.
+    loadChatSkills();
+    $("tools-toggle").checked = !prefsCache || prefsCache.tools_enabled !== false;
+  });
   loadConversationList();
   refreshModelStatus();
 }
@@ -865,9 +871,21 @@ function renderChatMeta(meta) {
 
 // The one NDJSON stream reader, shared by the Notes quick-ask and the
 // Chat tab (Wave C). Callers own all rendering via the handlers.
-async function streamChat({ question, history, persona, signal, onMeta, onThinking, onAnswer }) {
+async function streamChat({
+  question,
+  history,
+  persona,
+  useTools,
+  signal,
+  onMeta,
+  onThinking,
+  onAnswer,
+  onTool,
+  onConfirm,
+}) {
   const body = { question, history: history || [] };
   if (persona) body.persona = persona;
+  if (typeof useTools === "boolean") body.use_tools = useTools;
   const response = await fetch("/chat/stream", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() },
@@ -898,6 +916,8 @@ async function streamChat({ question, history, persona, signal, onMeta, onThinki
       if (event.type === "meta") onMeta(event);
       else if (event.type === "thinking") onThinking(event.delta);
       else if (event.type === "answer") onAnswer(event.delta);
+      else if (event.type === "tool" && onTool) onTool(event);
+      else if (event.type === "confirm" && onConfirm) onConfirm(event);
     }
   }
 }
@@ -981,6 +1001,7 @@ async function askQuestion(preset) {
     await streamChat({
       question,
       history: conversation.slice(-MAX_CLIENT_HISTORY),
+      useTools: false, // the quick-ask box is pure Q&A; actions live in the Chat tab
       signal: askController.signal,
       onMeta: (meta) => {
         renderChatMeta(meta);
@@ -1120,15 +1141,73 @@ function addAssistantBubble() {
   thinkingText.className = "thinking";
   thinkingBox.append(summary, thinkingText);
 
+  // Tool activity (Wave G): "✏️ created note…" chips + confirm cards.
+  const toolsHolder = document.createElement("div");
+  toolsHolder.className = "tool-activity";
+
   const answerBox = document.createElement("div");
   answerBox.className = "bubble-answer";
 
   const recordsHolder = document.createElement("div");
 
-  bubble.append(thinkingBox, answerBox, recordsHolder);
+  bubble.append(thinkingBox, toolsHolder, answerBox, recordsHolder);
   $("chat-messages").appendChild(bubble);
   chatScrollToEnd();
-  return { bubble, thinkingBox, thinkingText, answerBox, recordsHolder };
+  return { bubble, thinkingBox, thinkingText, answerBox, toolsHolder, recordsHolder };
+}
+
+// One "the AI did something" chip in a bubble (Wave G).
+function toolChip(label, ok = true) {
+  const item = document.createElement("div");
+  item.className = `tool-chip ${ok ? "" : "tool-chip-error"}`.trim();
+  item.textContent = label;
+  return item;
+}
+
+// A destructive tool call parked for approval (Wave G). Nothing has
+// happened yet — Confirm actually runs it via /chat/tools/execute.
+function renderToolConfirm(holder, event) {
+  const card = document.createElement("div");
+  card.className = "tool-confirm";
+  const text = document.createElement("p");
+  text.textContent = `⚠️ The AI wants to: ${event.label}`;
+  const row = document.createElement("div");
+  row.className = "row";
+  row.appendChild(
+    smallButton(
+      "Confirm",
+      "Run this action",
+      async () => {
+        try {
+          const result = await apiJson("/chat/tools/execute", {
+            method: "POST",
+            body: JSON.stringify({ name: event.name, arguments: event.arguments }),
+          });
+          card.replaceWith(toolChip(`✅ ${result.label || event.label}`));
+          toast("Done — check Activity for the audit trail.");
+          refreshAfterToolChanges();
+        } catch (error) {
+          toast(error.message, true);
+        }
+      },
+      false
+    )
+  );
+  row.appendChild(
+    smallButton("Cancel", "Don't do this", () => {
+      card.replaceWith(toolChip("✖ Cancelled — nothing was changed."));
+    })
+  );
+  card.append(text, row);
+  holder.appendChild(card);
+  chatScrollToEnd();
+}
+
+// After the AI changes data, every list on screen may be stale.
+function refreshAfterToolChanges() {
+  loadEntries().catch(() => {});
+  loadReminders().catch(() => {});
+  loadMostUsed();
 }
 
 function renderRecordsDetails(holder, meta) {
@@ -1163,12 +1242,14 @@ async function sendChatMessage(preset) {
   status.textContent = "Searching your notes…";
 
   addBubble("user", question);
-  const { thinkingBox, thinkingText, answerBox, recordsHolder } = addAssistantBubble();
+  const { thinkingBox, thinkingText, answerBox, toolsHolder, recordsHolder } =
+    addAssistantBubble();
   answerBox.appendChild(typingDots()); // until the first token arrives
   const renderLive = liveMarkdownRenderer(answerBox);
   let answerRaw = "";
   let thinkingRaw = "";
   let meta = null;
+  let toolsActed = false;
   chatController = new AbortController();
 
   try {
@@ -1176,6 +1257,7 @@ async function sendChatMessage(preset) {
       question,
       history: chatConv.turns.slice(-MAX_CLIENT_HISTORY),
       persona: $("persona-select").value || null,
+      useTools: $("tools-toggle").checked,
       signal: chatController.signal,
       onMeta: (m) => {
         meta = m;
@@ -1197,6 +1279,20 @@ async function sendChatMessage(preset) {
         status.textContent = "The model is writing…";
         chatScrollToEnd();
       },
+      onTool: (event) => {
+        answerBox.querySelector(".typing-dots")?.remove();
+        toolsHolder.appendChild(
+          toolChip(event.ok ? event.label : `⚠️ ${event.error || event.label}`, event.ok)
+        );
+        if (event.ok) toolsActed = true;
+        status.textContent = "The model is making changes…";
+        chatScrollToEnd();
+      },
+      onConfirm: (event) => {
+        answerBox.querySelector(".typing-dots")?.remove();
+        renderToolConfirm(toolsHolder, event);
+        status.textContent = "Waiting for your confirmation…";
+      },
     });
     status.textContent = "";
   } catch (error) {
@@ -1217,6 +1313,7 @@ async function sendChatMessage(preset) {
   renderMarkdown(answerBox, answerRaw);
   if (meta) renderRecordsDetails(recordsHolder, meta);
   chatScrollToEnd();
+  if (toolsActed) refreshAfterToolChanges(); // the AI changed real data
   if (!answerRaw) return; // nothing to remember (failed before any token)
 
   chatConv.turns.push({ question, answer: answerRaw });
@@ -1477,6 +1574,134 @@ async function addPersona() {
   status.textContent = `Added “${name}”.`;
   await renderPersonas();
   personaOptions();
+}
+
+// --- skills (Wave G): one-click saved requests for the chat tab -------------------
+
+// Built-ins ship with the app; the user's own live in preferences.
+// "Tidy suggestions" is the self-organising librarian: it proposes
+// merges/renames/links and asks — it never changes anything silently.
+const BUILTIN_SKILLS = [
+  {
+    name: "📋 Summarise my week",
+    prompt:
+      "Summarise what I've saved in the last 7 days: the main topics, " +
+      "anything that looks important, and one thing worth revisiting.",
+  },
+  {
+    name: "🧹 Find loose ends",
+    prompt:
+      "Look through my notes for loose ends — unfinished tasks, open " +
+      "questions, or things I said I'd do. List each one with its note id.",
+  },
+  {
+    name: "🗂 Tidy suggestions",
+    prompt:
+      "Review my categories and tags (use list_categories and count_notes). " +
+      "Suggest merges, renames, or links between related notes that would " +
+      "tidy the notebook. Don't change anything yet — list your suggestions " +
+      "and ask which ones I'd like you to apply.",
+  },
+];
+
+function allSkills() {
+  const custom = (prefsCache && prefsCache.skills) || [];
+  return [...BUILTIN_SKILLS, ...custom];
+}
+
+function loadChatSkills() {
+  const box = $("chat-skills");
+  box.replaceChildren();
+  const label = document.createElement("span");
+  label.className = "muted";
+  label.textContent = "⚡ Skills:";
+  box.appendChild(label);
+  for (const skill of allSkills()) {
+    const chipEl = chip(skill.name);
+    chipEl.title = skill.prompt;
+    chipEl.addEventListener("click", () => sendChatMessage(skill.prompt));
+    box.appendChild(chipEl);
+  }
+  const manage = chip("＋ manage");
+  manage.title = "Add or edit skills in Settings";
+  manage.addEventListener("click", () => openSettingsModal("skills"));
+  box.appendChild(manage);
+  box.classList.remove("hidden");
+}
+
+async function saveSkillList(skills) {
+  prefsCache = await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ skills }),
+  });
+  renderSkillSettings();
+  loadChatSkills();
+}
+
+function renderSkillSettings() {
+  const custom = (prefsCache && prefsCache.skills) || [];
+  const list = $("skill-list");
+  list.replaceChildren();
+
+  for (const skill of BUILTIN_SKILLS) {
+    const li = document.createElement("li");
+    const row = document.createElement("div");
+    row.className = "entry-meta";
+    row.append(chip(skill.name), chip("built-in", "tag"));
+    const note = document.createElement("span");
+    note.className = "muted persona-preview";
+    note.textContent = skill.prompt.slice(0, 70);
+    row.appendChild(note);
+    li.appendChild(row);
+    list.appendChild(li);
+  }
+
+  for (const skill of custom) {
+    const li = document.createElement("li");
+    const row = document.createElement("div");
+    row.className = "entry-meta";
+    row.appendChild(chip(skill.name));
+    const note = document.createElement("span");
+    note.className = "muted persona-preview";
+    note.textContent = skill.prompt.slice(0, 70);
+    row.appendChild(note);
+    const actions = document.createElement("span");
+    actions.className = "entry-actions";
+    actions.appendChild(
+      smallButton("Edit", "Edit this skill", () => {
+        $("skill-name").value = skill.name;
+        $("skill-prompt").value = skill.prompt;
+        $("skill-prompt").focus();
+      })
+    );
+    actions.appendChild(
+      smallButton("Delete", "Remove this skill", async () => {
+        if (!confirm(`Delete the “${skill.name}” skill?`)) return;
+        await saveSkillList(custom.filter((s) => s.name !== skill.name));
+      })
+    );
+    row.appendChild(actions);
+    li.appendChild(row);
+    list.appendChild(li);
+  }
+}
+
+async function addSkill() {
+  const name = $("skill-name").value.trim();
+  const promptText = $("skill-prompt").value.trim();
+  const status = $("skill-status");
+  if (!name || !promptText) {
+    status.textContent = "Both a name and a request are needed.";
+    return;
+  }
+  const custom = ((prefsCache && prefsCache.skills) || []).filter(
+    (s) => s.name !== name
+  );
+  custom.push({ name, prompt: promptText });
+  await saveSkillList(custom);
+  $("skill-name").value = "";
+  $("skill-prompt").value = "";
+  status.textContent = `Saved “${name}”.`;
 }
 
 // --- dashboard (Wave D) -----------------------------------------------------------
@@ -2054,7 +2279,7 @@ function showPanel(id) {
 
 // --- settings modal (Wave A) ------------------------------------------------------
 
-const SETTINGS_SECTIONS = ["models", "personas", "preferences", "data", "logs", "about"];
+const SETTINGS_SECTIONS = ["models", "personas", "skills", "preferences", "data", "logs", "about"];
 
 function settingsModalOpen() {
   return !$("settings-modal").classList.contains("hidden");
@@ -2070,6 +2295,7 @@ function showSettingsSection(name) {
   if (name === "logs") renderLogs();
   if (name === "preferences") renderPrefs().catch(() => {});
   if (name === "personas") renderPersonas().catch(() => {});
+  if (name === "skills") renderSkillSettings();
 }
 
 async function openSettingsModal(section = "models") {
@@ -2651,6 +2877,14 @@ $("persona-select").addEventListener("change", async () => {
   }).catch(() => {});
 });
 $("persona-add").addEventListener("click", addPersona);
+$("skill-add").addEventListener("click", addSkill);
+$("tools-toggle").addEventListener("change", async () => {
+  // Remember the choice so it survives restarts.
+  await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ tools_enabled: $("tools-toggle").checked }),
+  }).catch(() => {});
+});
 
 // Dashboard + reminders (Wave D).
 $("dash-edit").addEventListener("click", () => {

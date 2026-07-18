@@ -195,12 +195,16 @@
           <div class="row space-between">
             <h2 id="chat-title">New chat</h2>
             <div class="row">
+              <label class="muted tools-toggle" title="When on, the AI can create, tag, pin, link, and (with your confirmation) delete notes for you">
+                <input type="checkbox" id="tools-toggle"> AI can make changes
+              </label>
               <label for="persona-select" class="muted">Persona</label>
               <select id="persona-select" class="small-select"></select>
             </div>
           </div>
           <div id="chat-messages"></div>
           <div id="chat-suggest" class="recent hidden"></div>
+          <div id="chat-skills" class="recent hidden"></div>
           <div class="row">
             <input id="chat-input" type="text" placeholder="Ask your notebook anything…">
             <button id="chat-send">Send</button>
@@ -253,6 +257,7 @@
         <nav class="modal-nav" id="settings-nav">
           <button data-section="models" class="active">Models</button>
           <button data-section="personas">Personas</button>
+          <button data-section="skills">Skills</button>
           <button data-section="preferences">Preferences</button>
           <button data-section="data">Data</button>
           <button data-section="logs">Logs</button>
@@ -321,6 +326,25 @@
             <div class="row">
               <button id="persona-add" class="small">Add persona</button>
               <span id="persona-status" class="status"></span>
+            </div>
+          </section>
+
+          <!-- Skills (Wave G): saved prompt shortcuts for the chat tab -->
+          <section class="settings-section hidden" id="settings-skills">
+            <p class="muted">
+              A skill is a saved request you can fire with one click from the
+              Chat tab — and skills can use the AI's tools, so "tidy my tags"
+              actually tidies your tags (with your approval for anything
+              destructive).
+            </p>
+            <ul id="skill-list" class="entry-list"></ul>
+            <h3>Add your own</h3>
+            <input id="skill-name" type="text" maxlength="40" placeholder="Name (e.g. Weekly review)">
+            <textarea id="skill-prompt" rows="2" maxlength="2000"
+              placeholder="The request to send, e.g. Summarise everything I saved this week."></textarea>
+            <div class="row">
+              <button id="skill-add" class="small">Add skill</button>
+              <span id="skill-status" class="status"></span>
             </div>
           </section>
 

@@ -14,14 +14,15 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Iterator
+from itertools import chain
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import librarian
+from memorymap.ai import agent, librarian, tools
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.api.schemas import EntryOut
 from memorymap.core import deps
@@ -99,6 +100,9 @@ class ChatRequest(BaseModel):
     history: list[ChatTurn] = Field(default_factory=list)
     # Persona name (Wave C); None → the active persona preference.
     persona: str | None = None
+    # Agent mode (Wave G): may the model call tools to change things?
+    # None → the saved "tools_enabled" preference (default on).
+    use_tools: bool | None = None
 
 
 def _resolve_persona(name: str | None) -> str | None:
@@ -138,6 +142,9 @@ def _prepare(session: Session, question: str) -> dict:
     )
     notes = [
         {
+            # id lets agent-mode tool calls target these notes (Wave G);
+            # the plain librarian prompt simply ignores it.
+            "id": entry.id,
             "content": entry.content,
             "category": manager.category_name_for(session, entry),
         }
@@ -205,7 +212,42 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     ollama = deps.get_ollama()
     model_manager = deps.get_model_manager()
     ollama_running = ollama.is_running()
-    chat_available = bool(prepared["notes"]) and ollama_running
+    history = [turn.model_dump() for turn in body.history]
+    persona_prompt = _resolve_persona(body.persona)
+    use_tools = (
+        body.use_tools
+        if body.use_tools is not None
+        else bool(deps.get_config().get_preference("tools_enabled", True))
+    )
+    # In agent mode the model can act even when nothing matched — "save a
+    # note about X" must work on an empty notebook.
+    will_answer = ollama_running and (bool(prepared["notes"]) or use_tools)
+
+    def plain_events() -> Iterator[dict]:
+        """The pre-Wave-G behaviour: stream a grounded answer, no tools."""
+        if not prepared["notes"]:
+            yield {"type": "answer", "delta": librarian.NO_RESULTS_MESSAGE}
+            return
+        if not ollama_running:
+            yield {"type": "answer", "delta": librarian.OFFLINE_MESSAGE}
+            return
+        messages = librarian.build_messages(
+            body.question,
+            prepared["notes"],
+            style=prepared["style"],
+            profile=prepared["profile"],
+            history=history,
+            persona_prompt=persona_prompt,
+        )
+        try:
+            for piece in ollama.chat_stream(model_manager.chat_model(), messages):
+                if "thinking_delta" in piece:
+                    yield {"type": "thinking", "delta": piece["thinking_delta"]}
+                else:
+                    yield {"type": "answer", "delta": piece["content_delta"]}
+        except OllamaError:
+            # The model died mid-answer — tell the user, keep the results.
+            yield {"type": "answer", "delta": f"\n\n{librarian.OFFLINE_MESSAGE}"}
 
     def lines() -> Iterator[str]:
         def event(payload: dict) -> str:
@@ -216,33 +258,55 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                 "type": "meta",
                 "raw_results": [r.model_dump(mode="json") for r in prepared["raw_results"]],
                 "search_mode": prepared["search_mode"],
-                "answered_by": model_manager.chat_model() if chat_available else None,
+                "answered_by": model_manager.chat_model() if will_answer else None,
                 "ollama_running": ollama_running,
             }
         )
 
-        if not prepared["notes"]:
-            yield event({"type": "answer", "delta": librarian.NO_RESULTS_MESSAGE})
-        elif not chat_available:
-            yield event({"type": "answer", "delta": librarian.OFFLINE_MESSAGE})
-        else:
-            messages = librarian.build_messages(
+        events: Iterator[dict] = plain_events()
+        if ollama_running and use_tools:
+            agent_events = agent.run_agent(
+                session,
                 body.question,
                 prepared["notes"],
+                model_manager,
+                ollama,
                 style=prepared["style"],
                 profile=prepared["profile"],
-                history=[turn.model_dump() for turn in body.history],
-                persona_prompt=_resolve_persona(body.persona),
+                history=history,
+                persona_prompt=persona_prompt,
             )
-            try:
-                for piece in ollama.chat_stream(model_manager.chat_model(), messages):
-                    if "thinking_delta" in piece:
-                        yield event({"type": "thinking", "delta": piece["thinking_delta"]})
-                    else:
-                        yield event({"type": "answer", "delta": piece["content_delta"]})
-            except OllamaError:
-                # The model died mid-answer — tell the user, keep the results.
-                yield event({"type": "answer", "delta": f"\n\n{librarian.OFFLINE_MESSAGE}"})
+            first = next(agent_events, None)
+            if first is None or first.get("type") == "unsupported":
+                # The active model can't do tool calls — plain Q&A, never
+                # a hard dependency (Wave G gate).
+                pass
+            else:
+                events = chain([first], agent_events)
+        for payload in events:
+            yield event(payload)
         yield event({"type": "done"})
 
     return StreamingResponse(lines(), media_type="application/x-ndjson")
+
+
+class ToolExecuteBody(BaseModel):
+    """A tool call the user approved in the UI (Wave G confirm step)."""
+
+    name: str
+    arguments: dict = Field(default_factory=dict)
+
+
+@router.post("/tools/execute")
+def execute_confirmed_tool(
+    body: ToolExecuteBody, session: Session = Depends(get_session)
+) -> dict:
+    """Run one registry tool — how the UI executes a destructive call
+    after the user clicks Confirm. Only registry tools can run, and the
+    result carries the same human label shown in chat."""
+    if body.name not in tools.TOOLS:
+        raise HTTPException(status_code=404, detail=f"Unknown tool '{body.name}'")
+    result = tools.execute_tool(session, body.name, body.arguments)
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result

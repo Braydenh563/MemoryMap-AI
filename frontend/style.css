@@ -1,15 +1,81 @@
-/* MemoryMap AI — deliberately simple, readable styles. No framework. */
+/* MemoryMap AI — glassmorphism aesthetic, still deliberately simple.
+   Cards are translucent and blur whatever is behind them; a fixed
+   gradient + two soft colour blobs behind the page give the glass
+   something to refract.
+   Theming: light is the default; dark kicks in either from the OS
+   preference or from the manual toggle (data-theme on <html>). */
 
 :root {
-  --bg: #f4f5f7;
-  --card: #ffffff;
+  --page: linear-gradient(135deg, #e9edfb 0%, #f6f2ec 45%, #e6f1f2 100%);
+  --blob-a: rgba(79, 109, 245, 0.20);
+  --blob-b: rgba(157, 88, 245, 0.14);
+  --card: rgba(255, 255, 255, 0.55);
+  --inner: rgba(255, 255, 255, 0.45);
+  --input-bg: rgba(255, 255, 255, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.65);
+  --modal-bg: rgba(252, 253, 255, 0.96);
+  --glass-shadow: 0 8px 32px rgba(31, 38, 135, 0.14);
   --ink: #1f2430;
-  --muted: #6b7280;
+  --muted: #5b6472;
   --accent: #4f6df5;
-  --accent-soft: #e8ecfe;
-  --warn: #b45309;
-  --warn-soft: #fef3c7;
-  --border: #e3e5ea;
+  --accent-soft: rgba(79, 109, 245, 0.14);
+  --warn: #9a5b04;
+  --warn-soft: rgba(245, 189, 79, 0.25);
+  --ok: #10653c;
+  --ok-soft: rgba(52, 199, 123, 0.20);
+  --error: #b91c1c;
+  --border: rgba(31, 36, 48, 0.10);
+  --chip-bg: rgba(31, 36, 48, 0.07);
+}
+
+/* Dark palette. CSS has no variables-for-variables, so the block
+   appears twice: once for the manual toggle, once for the OS default. */
+:root[data-theme="dark"] {
+  --page: linear-gradient(135deg, #0e1017 0%, #171a26 45%, #0f1720 100%);
+  --blob-a: rgba(123, 144, 247, 0.16);
+  --blob-b: rgba(88, 235, 245, 0.07);
+  --card: rgba(29, 33, 46, 0.55);
+  --inner: rgba(255, 255, 255, 0.05);
+  --input-bg: rgba(14, 16, 23, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.10);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  --modal-bg: rgba(24, 27, 37, 0.97);
+  --ink: #e7e9ee;
+  --muted: #9aa1ad;
+  --accent: #8b9df8;
+  --accent-soft: rgba(123, 144, 247, 0.20);
+  --warn: #fbbf24;
+  --warn-soft: rgba(251, 191, 36, 0.16);
+  --ok: #4ade80;
+  --ok-soft: rgba(74, 222, 128, 0.15);
+  --error: #f87171;
+  --border: rgba(255, 255, 255, 0.10);
+  --chip-bg: rgba(255, 255, 255, 0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page: linear-gradient(135deg, #0e1017 0%, #171a26 45%, #0f1720 100%);
+    --blob-a: rgba(123, 144, 247, 0.16);
+    --blob-b: rgba(88, 235, 245, 0.07);
+    --card: rgba(29, 33, 46, 0.55);
+    --inner: rgba(255, 255, 255, 0.05);
+    --input-bg: rgba(14, 16, 23, 0.55);
+    --glass-border: rgba(255, 255, 255, 0.10);
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+    --modal-bg: rgba(24, 27, 37, 0.97);
+    --ink: #e7e9ee;
+    --muted: #9aa1ad;
+    --accent: #8b9df8;
+    --accent-soft: rgba(123, 144, 247, 0.20);
+    --warn: #fbbf24;
+    --warn-soft: rgba(251, 191, 36, 0.16);
+    --ok: #4ade80;
+    --ok-soft: rgba(74, 222, 128, 0.15);
+    --error: #f87171;
+    --border: rgba(255, 255, 255, 0.10);
+    --chip-bg: rgba(255, 255, 255, 0.08);
+  }
 }
 
 * { box-sizing: border-box; }
@@ -17,20 +83,77 @@
 body {
   margin: 0;
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-  background: var(--bg);
   color: var(--ink);
   line-height: 1.5;
+  min-height: 100vh;
+  /* The glass backdrop: two soft blobs floating over a gradient. */
+  background:
+    radial-gradient(600px 400px at 15% 8%, var(--blob-a), transparent 70%),
+    radial-gradient(700px 500px at 85% 90%, var(--blob-b), transparent 70%),
+    var(--page);
+  background-attachment: fixed;
 }
 
 header {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  flex-wrap: wrap;
   padding: 1.25rem 2rem 0.75rem;
 }
 header h1 { margin: 0; font-size: 1.5rem; }
-.tagline { margin: 0.15rem 0 0; color: var(--muted); font-size: 0.9rem; }
+.tagline { margin: 0; color: var(--muted); font-size: 0.9rem; flex: 1; }
+.header-controls { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+
+/* Live "what is the AI doing?" indicator */
+#ai-pill {
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  background: var(--chip-bg);
+  color: var(--muted);
+  backdrop-filter: blur(8px);
+}
+#ai-pill.ok { background: var(--ok-soft); color: var(--ok); }
+#ai-pill.busy { background: var(--warn-soft); color: var(--warn); }
+
+/* --- tab navigation (Wave A) ----------------------------------------------- */
+#tab-bar {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0 2rem;
+  flex-wrap: wrap;
+}
+#tab-bar button {
+  background: var(--chip-bg);
+  border: 1px solid var(--glass-border);
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  color: var(--muted);
+  font-weight: 500;
+  padding: 0.45rem 1.1rem;
+  box-shadow: none;
+  backdrop-filter: blur(8px);
+}
+#tab-bar button.active {
+  background: var(--card);
+  color: var(--ink);
+  font-weight: 600;
+}
+.tab-page { padding-top: 0.75rem; }
+.tab-page > .card.placeholder { margin: 0.25rem 2rem; }
+
+.sidebar-tools {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.sidebar-tools button { text-align: left; }
 
 .layout {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: 230px 1fr;
   gap: 1rem;
   padding: 1rem 2rem 2rem;
   align-items: start;
@@ -41,15 +164,19 @@ header h1 { margin: 0; font-size: 1.5rem; }
   .layout { grid-template-columns: 1fr; }
 }
 
+/* --- the glass card -------------------------------------------------------- */
 .card {
   background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  box-shadow: var(--glass-shadow);
   padding: 1rem 1.25rem;
   margin-bottom: 1rem;
 }
 .card h2 { margin: 0 0 0.75rem; font-size: 1.05rem; }
-.card h3 { margin: 0 0 0.5rem; font-size: 0.9rem; color: var(--muted); }
+.card h3 { margin: 1rem 0 0.5rem; font-size: 0.9rem; color: var(--muted); }
 
 /* --- sidebar ------------------------------------------------------------ */
 #sidebar ul { list-style: none; margin: 0; padding: 0; }
@@ -57,7 +184,7 @@ header h1 { margin: 0; font-size: 1.5rem; }
   display: flex;
   justify-content: space-between;
   padding: 0.35rem 0.5rem;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 0.92rem;
 }
@@ -66,35 +193,55 @@ header h1 { margin: 0; font-size: 1.5rem; }
 #sidebar .count { color: var(--muted); }
 
 /* --- forms --------------------------------------------------------------- */
-textarea, input[type="text"] {
+textarea, input[type="text"], input[type="password"], input[type="number"], select {
   width: 100%;
   padding: 0.55rem 0.7rem;
   margin-bottom: 0.6rem;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 10px;
   font: inherit;
+  background: var(--input-bg);
+  color: var(--ink);
   resize: vertical;
+  backdrop-filter: blur(8px);
 }
-textarea:focus, input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+textarea:focus, input:focus, select:focus {
+  outline: 2px solid var(--accent-soft);
+  border-color: var(--accent);
+}
 
 button {
   padding: 0.5rem 1.1rem;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--accent);
   color: #fff;
   font: inherit;
   font-weight: 600;
   cursor: pointer;
+  box-shadow: 0 2px 10px rgba(79, 109, 245, 0.25);
 }
 button:hover { filter: brightness(1.07); }
 button:disabled { opacity: 0.5; cursor: wait; }
+button.ghost {
+  background: var(--chip-bg);
+  border: 1px solid var(--glass-border);
+  color: var(--ink);
+  font-weight: 500;
+  box-shadow: none;
+  backdrop-filter: blur(8px);
+}
+button.small { padding: 0.3rem 0.8rem; font-size: 0.85rem; }
 
 .row { display: flex; gap: 0.6rem; align-items: center; }
-.row input { margin-bottom: 0; flex: 1; }
+.row input, .row select { margin-bottom: 0; flex: 1; }
+.row label { flex-shrink: 0; }
+.space-between { justify-content: space-between; }
 
 .status { font-size: 0.88rem; color: var(--muted); }
-.status.error { color: #b91c1c; }
+.status.error { color: var(--error); }
+
+progress { accent-color: var(--accent); width: 100%; }
 
 /* --- chat panel: answer and raw records side by side --------------------- */
 .chat-grid {
@@ -106,18 +253,59 @@ button:disabled { opacity: 0.5; cursor: wait; }
 @media (max-width: 900px) {
   .chat-grid { grid-template-columns: 1fr; }
 }
+.chat-half h3 { margin-top: 0; }
+#thinking-box { margin-bottom: 0.6rem; font-size: 0.85rem; }
+#thinking-box summary { cursor: pointer; color: var(--muted); }
+.thinking {
+  margin-top: 0.4rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  color: var(--muted);
+  white-space: pre-wrap;
+  max-height: 14rem;
+  overflow-y: auto;
+}
 .answer {
   background: var(--accent-soft);
-  border-radius: 8px;
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
   padding: 0.75rem 0.9rem;
   white-space: pre-wrap;
+  backdrop-filter: blur(8px);
 }
+/* Markdown-rendered answer: tighten the default block spacing so the
+   formatted output reads as one panel, not a stack of gaps. */
+.answer p { margin: 0 0 0.6rem; }
+.answer p:last-child { margin-bottom: 0; }
+.answer h3, .answer h4, .answer h5 { margin: 0.6rem 0 0.3rem; }
+.answer ul, .answer ol { margin: 0 0 0.6rem; padding-left: 1.4rem; }
+.answer li { margin-bottom: 0.2rem; }
+.answer code {
+  background: var(--chip-bg);
+  padding: 0.05rem 0.3rem;
+  border-radius: 5px;
+  font-size: 0.9em;
+}
+.answer pre {
+  background: var(--chip-bg);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  overflow-x: auto;
+  white-space: pre;
+}
+.answer pre code { background: none; padding: 0; }
+.answer a { color: var(--accent); }
+
+.answer-actions { float: right; display: inline-flex; gap: 0.35rem; }
+.answer-actions button { padding: 0.15rem 0.5rem; font-size: 0.78rem; }
 
 /* --- entry lists ---------------------------------------------------------- */
 .entry-list { list-style: none; margin: 0; padding: 0; }
 .entry-list li {
+  background: var(--inner);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 0.6rem 0.8rem;
   margin-bottom: 0.6rem;
 }
@@ -133,10 +321,406 @@ button:disabled { opacity: 0.5; cursor: wait; }
   color: var(--accent);
   font-weight: 600;
 }
-.chip.tag { background: #eef1f4; color: var(--muted); font-weight: 400; }
-.chip.confidence { background: #e7f6ec; color: #157347; }
+.chip.tag { background: var(--chip-bg); color: var(--muted); font-weight: 400; }
+.chip.confidence { background: var(--ok-soft); color: var(--ok); }
 .chip.review { background: var(--warn-soft); color: var(--warn); }
 .entry-date { margin-left: auto; color: var(--muted); font-size: 0.78rem; }
 
+/* --- settings / model manager --------------------------------------------- */
+#settings label { display: block; margin-bottom: 0.4rem; font-size: 0.92rem; }
+#settings label input[type="radio"] { width: auto; margin-right: 0.4rem; }
+#prefs-panel label input[type="checkbox"] { width: auto; margin-right: 0.4rem; }
+#suggested-list { list-style: none; margin: 0; padding: 0; }
+#suggested-list li {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.92rem;
+}
+#suggested-list li:last-child { border-bottom: none; }
+#suggested-list .model-name { font-weight: 600; }
+#suggested-list .model-info { color: var(--muted); flex: 1; }
+
+/* --- lock screen (Phase 4) ------------------------------------------------- */
+.lock-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  background:
+    radial-gradient(600px 400px at 15% 8%, var(--blob-a), transparent 70%),
+    radial-gradient(700px 500px at 85% 90%, var(--blob-b), transparent 70%),
+    var(--page);
+}
+.lock-card { width: min(420px, 90vw); text-align: center; }
+.lock-card input { text-align: center; }
+
+/* --- entry actions + links (Phase 4) --------------------------------------- */
+.entry-actions { display: flex; gap: 0.35rem; margin-left: auto; }
+.entry-actions button { padding: 0.15rem 0.5rem; font-size: 0.78rem; }
+.entry-links { margin-top: 0.35rem; display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.chip.link { cursor: default; }
+.chip.link .unlink { cursor: pointer; margin-left: 0.3rem; font-weight: 700; }
+li.link-source { outline: 2px solid var(--accent); }
+
+/* --- activity log ----------------------------------------------------------- */
+.activity-list { list-style: none; margin: 0; padding: 0; font-size: 0.88rem; }
+.activity-list li {
+  display: flex;
+  gap: 0.6rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.activity-list .when { color: var(--muted); min-width: 9.5rem; }
+.activity-list .what { font-weight: 600; min-width: 6rem; }
+
+/* --- Phase 5: quick access + toasts ------------------------------------------ */
+.recent { margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+.recent .chip { cursor: pointer; }
+.recent .chip:hover { filter: brightness(1.08); }
+
+#most-used-box h2 { margin-top: 1rem; }
+#most-used { list-style: none; margin: 0; padding: 0; font-size: 0.85rem; }
+#most-used li {
+  padding: 0.3rem 0.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+#most-used li:hover { background: var(--accent-soft); }
+#most-used .count { color: var(--muted); }
+
+#toast-box {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  z-index: 60;
+}
+.toast {
+  background: var(--card);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  border: 1px solid var(--glass-border);
+  border-left: 4px solid var(--accent);
+  border-radius: 10px;
+  padding: 0.6rem 0.9rem;
+  max-width: 340px;
+  box-shadow: var(--glass-shadow);
+  font-size: 0.9rem;
+}
+.toast.error { border-left-color: var(--error); }
+
+@keyframes flash-outline {
+  0% { outline: 3px solid var(--accent); }
+  100% { outline: 3px solid transparent; }
+}
+.entry-list li.flash { animation: flash-outline 1.6s ease-out; }
+
+/* --- settings modal + logs (Wave A) ----------------------------------------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 12, 18, 0.45);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 55;
+  padding: 1.5rem;
+}
+.modal-card {
+  width: min(880px, 96vw);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0;
+  /* Nearly opaque: unlike page cards, a settings dialog floats over busy
+     content — full glass here makes it unreadable. */
+  background: var(--modal-bg);
+}
+.modal-body {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 1rem;
+  overflow: hidden;
+  flex: 1;
+}
+@media (max-width: 640px) {
+  .modal-body { grid-template-columns: 1fr; }
+}
+.modal-nav { display: flex; flex-direction: column; gap: 0.3rem; }
+.modal-nav button {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--muted);
+  text-align: left;
+  padding: 0.45rem 0.7rem;
+  border-radius: 8px;
+  font-weight: 500;
+}
+.modal-nav button:hover { background: var(--accent-soft); }
+.modal-nav button.active {
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-weight: 600;
+}
+.modal-content { overflow-y: auto; padding-right: 0.4rem; min-height: 320px; }
+.settings-section h3:first-child { margin-top: 0; }
+
+.log-list {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0.5rem;
+  max-height: 46vh;
+  overflow-y: auto;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.78rem;
+  background: var(--chip-bg);
+  border-radius: 8px;
+}
+.log-list li {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.12rem 0;
+  border-bottom: 1px dotted var(--border);
+}
+.log-list li:last-child { border-bottom: none; }
+.log-list .when { color: var(--muted); flex-shrink: 0; }
+.log-list .what { font-weight: 700; flex-shrink: 0; min-width: 3.6rem; }
+.log-list li.log-warn .what { color: var(--warn); }
+
+/* --- dashboard + reminders (Wave D) ------------------------------------------ */
+.dash-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0 2rem 0.5rem;
+}
+#dash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1rem;
+  padding: 0 2rem 2rem;
+  align-items: start;
+}
+.dash-widget { margin-bottom: 0; }
+.dash-widget.dash-hidden { opacity: 0.45; }
+.dash-widget.dragging { opacity: 0.5; outline: 2px dashed var(--accent); }
+.drag-handle { cursor: grab; color: var(--muted); font-size: 0.8rem; }
+.dash-big { font-size: 1.6rem; font-weight: 700; margin: 0 0 0.5rem; }
+.dash-list { list-style: none; margin: 0; padding: 0; font-size: 0.9rem; }
+.dash-list li {
+  padding: 0.3rem 0.4rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.dash-list li:hover { background: var(--accent-soft); }
+.dash-list li.overdue { color: var(--warn); }
+.activity-strip {
+  display: flex;
+  gap: 3px;
+  align-items: flex-end;
+  height: 38px;
+  margin-bottom: 0.6rem;
+}
+.activity-strip span {
+  flex: 1;
+  border-radius: 3px 3px 0 0;
+  background: var(--accent);
+  opacity: 0.85;
+}
+.activity-strip span.empty { background: var(--chip-bg); }
+.reminders-card { margin: 0.25rem 2rem; }
+.reminders-card .row input[type="datetime-local"] { flex: 0 1 auto; }
+.entry-list li.overdue { border-color: var(--warn); }
+
+/* Typing indicator (Wave D): three bouncing dots until the first token */
+.typing-dots { display: inline-flex; gap: 0.25rem; padding: 0.2rem 0; }
+.typing-dots span {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--muted);
+  animation: dot-bounce 1.2s infinite ease-in-out;
+}
+.typing-dots span:nth-child(2) { animation-delay: 0.15s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes dot-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-0.3rem); opacity: 1; }
+}
+
+.persona-preview { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* --- chat tab (Wave C) -------------------------------------------------------- */
+#chat-messages {
+  min-height: 300px;
+  max-height: 56vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.5rem 0.2rem;
+}
+.msg {
+  max-width: 82%;
+  padding: 0.6rem 0.85rem;
+  border-radius: 14px;
+  white-space: pre-wrap;
+}
+.msg.user {
+  align-self: flex-end;
+  background: var(--accent);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.msg.assistant {
+  align-self: flex-start;
+  background: var(--inner);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 4px;
+  white-space: normal;
+  width: 82%;
+}
+.msg.assistant .bubble-answer { white-space: pre-wrap; }
+.msg.assistant .bubble-answer p { margin: 0 0 0.5rem; }
+.msg.assistant .bubble-answer p:last-child { margin-bottom: 0; }
+.msg.assistant details { font-size: 0.85rem; margin: 0.3rem 0; }
+.msg.assistant details summary { cursor: pointer; color: var(--muted); }
+.msg.assistant .entry-list { margin-top: 0.4rem; }
+#conversation-list { list-style: none; margin: 0; padding: 0; }
+#conversation-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+#conversation-list li:hover { background: var(--accent-soft); }
+#conversation-list li.active-conv { background: var(--accent-soft); font-weight: 600; }
+#conversation-list .conv-title {
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+/* Clickable search results (Wave C) */
+.entry-list li.clickable-result { cursor: pointer; }
+.entry-list li.clickable-result:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* --- Wave B: threads, inline actions, templates ------------------------------ */
+.entry-list li.thread-child { border-left: 3px solid var(--accent-soft); }
+.inline-action {
+  margin-top: 0.5rem;
+  padding: 0.6rem;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+}
+.inline-action textarea { margin-bottom: 0.4rem; }
+.small-select { max-width: 11rem; margin-bottom: 0; }
+.row .small-select { flex: 0 1 auto; }
+
 .muted { color: var(--muted); }
 .hidden { display: none; }
+
+/* --- Wave G: agentic tools + skills ------------------------------------------ */
+.tools-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tools-toggle input { accent-color: var(--accent); }
+
+.tool-activity:empty { display: none; }
+.tool-chip {
+  display: block;
+  font-size: 0.85rem;
+  margin: 0.2rem 0;
+  padding: 0.3rem 0.6rem;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.tool-chip.tool-chip-error { background: var(--warn-soft); color: var(--warn); }
+
+.tool-confirm {
+  margin: 0.3rem 0;
+  padding: 0.6rem;
+  border: 1px solid var(--warn);
+  border-radius: 10px;
+  background: var(--warn-soft);
+}
+.tool-confirm p { margin: 0 0 0.5rem; font-size: 0.9rem; }
+
+/* --- Wave E: graph view ------------------------------------------------------- */
+#graph-box {
+  position: relative;
+  height: min(65vh, 620px);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+#graph-svg { width: 100%; height: 100%; display: block; cursor: grab; }
+#graph-svg:active { cursor: grabbing; }
+#graph-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  padding: 1rem;
+}
+/* The id rule above outranks the generic .hidden helper — restate it. */
+#graph-empty.hidden { display: none; }
+
+.graph-edge { stroke: var(--muted); stroke-opacity: 0.55; stroke-width: 1.6; }
+.graph-edge-thread { stroke-dasharray: 7 4; stroke-width: 1.4; }
+.graph-edge-similar { stroke-dasharray: 2 5; stroke-width: 1.2; stroke: var(--accent); }
+
+.graph-node { cursor: pointer; }
+.graph-node circle { stroke: transparent; stroke-width: 2px; }
+.graph-node circle.graph-pinned { stroke: var(--warn); }
+.graph-node:hover circle { stroke: var(--accent); }
+.graph-node text {
+  font-size: 0.62rem;
+  fill: var(--muted);
+  text-anchor: middle;
+  pointer-events: none;
+  user-select: none;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-right: 0.7rem;
+}
+.legend-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  display: inline-block;
+}

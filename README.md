@@ -39,6 +39,7 @@ source .venv/bin/activate        # Windows: .venv\Scripts\activate
 # 2. Install dependencies + the app itself (editable mode)
 pip install -r requirements.txt
 pip install -e .
+# ^ don't forget the dot — it means "install the app in THIS folder"
 
 # 3. Optional: copy the example env file and tweak it
 cp .env.example .env             # Windows: copy .env.example .env
@@ -50,19 +51,29 @@ cp .env.example .env             # Windows: copy .env.example .env
 python -m memorymap
 ```
 
-Then open <http://localhost:8000> — the web UI: capture thoughts, browse by
-category, and ask questions with the AI answer and raw records side by side.
-(The interactive API explorer still lives at <http://localhost:8000/docs>.)
+Then open <http://localhost:8000> — on first run you'll be asked to choose a
+password (bcrypt-hashed, stays on your machine), and after that the app is:
 
-- `GET /health` — is the server alive?
-- `POST /entries` — store a thought (the AI janitor files it into a category)
-- `GET /entries` — read your thoughts back
-- `POST /chat` — ask a question in plain English; you get back both a
-  conversational answer *and* the raw matching entries
+- **Capture** — type a thought; the AI janitor files it and tells you *how*
+  (matched by meaning, decided by the chat model, or your own choice in
+  guided mode). Low-confidence filings are flagged for review.
+- **Ask** — plain-English questions return a conversational answer *and* the
+  raw matching records side by side, with recent questions one click away.
+- **Correct anything** — edit content/category/tags, link related entries,
+  soft-delete to a recycle bin (auto-clears after 30 days, configurable).
+- **⚙ Models** — see whether Ollama is running, switch the chat model
+  instantly, download suggested models with progress bars, or switch the
+  embedding backend (your notes re-index automatically with progress).
+- **Preferences** — answer style, recycle-bin days, an optional profile the
+  AI can use for personal answers (opt-out + delete any time), and JSON/CSV
+  export of everything.
+- **Activity** — the audit log of every meaningful action.
+
+The interactive API explorer still lives at <http://localhost:8000/docs>.
 
 If Ollama isn't running, everything still works — new entries are filed as
-`Uncategorised` and `/chat` politely says the AI answer is unavailable while
-still returning matching notes.
+`Uncategorised`, search falls back to keywords, and the header pill tells you
+what the AI is doing (ready / warming up / rebuilding index / off).
 
 ## Run the tests
 
@@ -80,9 +91,9 @@ Everything is stored in the `data/` folder (gitignored):
 - `data/memorymap.db` — the SQLite database
 - `data/preferences.json` — your settings
 
-**Note on schema changes (MVP):** there are no database migrations yet. If the
-schema changes between versions, delete `data/memorymap.db` and restart — the
-app recreates it. (Real migrations arrive once there's real data to preserve.)
+**Schema upgrades:** the app upgrades your database automatically at startup
+(new columns are added in place — your notes are never touched). You do NOT
+need to delete `data/memorymap.db` when updating.
 
 ## Project layout
 
@@ -102,7 +113,9 @@ tests/                   # pytest suite
 
 - [x] **Phase 1 — Walking skeleton:** server starts, entries stored in SQLite, tests green
 - [x] **Phase 2 — Make the AI real:** auto-categorising janitor + question-answering librarian + semantic search
-  *(code + offline tests done — run the real dad-joke test on a machine with Ollama installed)*
+  *(verified end-to-end with a real Ollama model)*
 - [x] **Phase 3 — Web interface:** capture box, category sidebar, chat panel with answer + raw results, confidence flags
-- [ ] **Phase 3.5 — Model Manager** (pick & download Ollama models in-app)
-- [ ] **Phase 4 — Core MVP:** login, recycle bin, manual overrides, export
+- [x] **Phase 3.5 — Model Manager:** pick & download Ollama models in-app, embedding switch with safe re-index
+- [x] **Phase 4 — Core MVP:** single-user unlock, manual overrides, recycle bin, entry linking, guided mode, audit viewer, export, preferences
+- [x] **Phase 5 — Quick access + polish:** recent questions, most-used dashboard, optional AI profile, glassmorphism UI with dark mode
+- [ ] **Phase 6 — Desktop shell** (pywebview window) + optional extras — after 1–5 feel solid in daily use

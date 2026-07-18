@@ -2,8 +2,13 @@
 
 The full MVP schema (build plan §5) is created up front — tables the
 AI needs later (embeddings, entry_links) are cheap to have from day
-one and painful to retrofit. For the MVP it is acceptable to delete
-data/memorymap.db and restart when the schema changes (noted in README).
+one and painful to retrofit.
+
+Schema upgrades: once real user data exists, "delete the db" stops
+being acceptable, so DatabaseManager does additive auto-migration —
+any column that exists in the models but not in the on-disk database
+is added with ALTER TABLE at startup. Renames/removals would still
+need a real migration tool, so don't do those casually.
 """
 
 from __future__ import annotations
@@ -72,6 +77,20 @@ class Entry(Base):
     tags: Mapped[str] = mapped_column(Text, default="[]")
     # 0–100. How sure the AI was when it filed this (0 = no AI involved).
     ai_confidence: Mapped[int] = mapped_column(Integer, default=0)
+    # Bumped every time this entry is opened or returned by a chat
+    # question — feeds the "most used" dashboard (Phase 5).
+    access_count: Mapped[int] = mapped_column(Integer, default=0)
+    # Train-of-thought threads (Wave B): a child continues its parent.
+    # (Added by the auto-migrator as a plain column on old DBs — the FK
+    # constraint only exists on freshly created databases.)
+    parent_id: Mapped[int | None] = mapped_column(
+        ForeignKey("entries.id"), default=None
+    )
+    # Pinned entries float to the top of lists and the dashboard.
+    pinned: Mapped[bool] = mapped_column(Boolean, default=False)
+    # True when the USER chose the category (guided mode or a manual
+    # move) — the janitor then keeps its hands off during re-filing.
+    user_filed: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=utcnow, onupdate=utcnow
@@ -107,6 +126,52 @@ class EmbeddingRecord(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class Attachment(Base):
+    """A file the user attached to an entry (Wave B). The bytes live in
+    the uploads/ folder under a random stored_name; the original
+    filename is kept for downloads."""
+
+    __tablename__ = "attachments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entry_id: Mapped[int] = mapped_column(ForeignKey("entries.id"))
+    filename: Mapped[str] = mapped_column(String(255))
+    stored_name: Mapped[str] = mapped_column(String(80), unique=True)
+    mime: Mapped[str] = mapped_column(String(100), default="application/octet-stream")
+    size: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class Conversation(Base):
+    """A saved chat (Wave C). Turns are a JSON list of
+    {"role": "user"|"assistant", "content": str, "thinking": str|None}
+    — one blob per conversation is the boring right size for a
+    single-user app."""
+
+    __tablename__ = "conversations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(120))
+    messages: Mapped[str] = mapped_column(Text, default="[]")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=utcnow, onupdate=utcnow
+    )
+
+
+class Reminder(Base):
+    """A reminder, optionally attached to an entry (Wave D)."""
+
+    __tablename__ = "reminders"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entry_id: Mapped[int | None] = mapped_column(ForeignKey("entries.id"), default=None)
+    text: Mapped[str] = mapped_column(String(500))
+    due_at: Mapped[datetime] = mapped_column(DateTime)
+    done: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 class AuditLog(Base):
     """Every meaningful action, from Phase 1 onward (plan §4)."""
 
@@ -135,10 +200,46 @@ class DatabaseManager:
         def _enable_foreign_keys(dbapi_connection, _record):  # noqa: ANN001
             dbapi_connection.execute("PRAGMA foreign_keys=ON")
 
-        Base.metadata.create_all(self.engine)
+        Base.metadata.create_all(self.engine)  # creates missing tables only
+        self._add_missing_columns()
         self._session_factory = sessionmaker(
             bind=self.engine, expire_on_commit=False
         )
+
+    def _add_missing_columns(self) -> None:
+        """Additive auto-migration for existing databases.
+
+        create_all() never touches tables that already exist, so a
+        database made by an older version lacks newly added columns and
+        every query on that table would 500. Add them here instead of
+        making the user delete their data."""
+        with self.engine.begin() as connection:
+            for table in Base.metadata.tables.values():
+                rows = connection.exec_driver_sql(
+                    f'PRAGMA table_info("{table.name}")'
+                ).fetchall()
+                if not rows:
+                    continue  # brand-new table — create_all just made it
+                existing = {row[1] for row in rows}
+                for column in table.columns:
+                    if column.name in existing:
+                        continue
+                    ddl = (
+                        f'ALTER TABLE "{table.name}" ADD COLUMN "{column.name}" '
+                        f"{column.type.compile(self.engine.dialect)}"
+                    )
+                    # Backfill old rows with the model's default when it's a
+                    # plain value (callables like utcnow can't run in DDL —
+                    # those columns stay NULL for pre-existing rows).
+                    if column.default is not None and column.default.is_scalar:
+                        value = column.default.arg
+                        if isinstance(value, bool):
+                            value = int(value)
+                        if isinstance(value, str):
+                            ddl += f" DEFAULT '{value}'"
+                        else:
+                            ddl += f" DEFAULT {value}"
+                    connection.exec_driver_sql(ddl)
 
     def session(self) -> Session:
         """A fresh session; caller is responsible for closing it."""

@@ -8,7 +8,7 @@ from __future__ import annotations
 import numpy as np
 
 from memorymap.ai.embeddings import EmbeddingService
-from memorymap.ai.ollama_client import OllamaError
+from memorymap.ai.ollama_client import OllamaError, ToolsUnsupportedError
 
 # Three "topics" the fake embedder understands, one axis each. The 4th
 # axis is a catch-all so no vector is ever all-zero.
@@ -31,6 +31,9 @@ class FakeEmbeddingService(EmbeddingService):
     def backend_id(self) -> str:
         return "fake:keywords-v1"
 
+    def is_ready(self) -> bool:
+        return self.available
+
     def embed_text(self, text: str) -> np.ndarray | None:
         if not self.available:
             return None
@@ -51,11 +54,56 @@ class FakeOllama:
         self.running = running
         self.chat_calls: list[list[dict]] = []
         self.librarian_reply = "Here's what I found in your notebook!"
+        self.librarian_thinking: str | None = None  # set to fake a thinking model
+        self.installed = [{"name": "llama3.2:latest", "size": 2_000_000_000}]
+        # Agent mode (Wave G). tool_script is a queue: each item is the
+        # list of tool calls "the model" makes on one chat_tools round;
+        # when it runs dry the fake gives its final text answer.
+        self.supports_tools = True
+        self.tool_script: list[list[dict]] = []
+        self.tool_rounds: list[list[dict]] = []  # messages seen per round
 
     def is_running(self) -> bool:
         return self.running
 
-    def chat(self, model: str, messages: list[dict]) -> str:
+    def chat(self, model: str, messages: list[dict]) -> dict:
+        return {"content": self._reply_text(messages), "thinking": self.librarian_thinking}
+
+    def chat_stream(self, model: str, messages: list[dict]):
+        """Chunks the canned reply like real streaming would."""
+        text = self._reply_text(messages)
+        if self.librarian_thinking:
+            yield {"thinking_delta": self.librarian_thinking}
+        middle = max(1, len(text) // 2)
+        yield {"content_delta": text[:middle]}
+        yield {"content_delta": text[middle:]}
+
+    def chat_tools(self, model: str, messages: list[dict], tools: list[dict]) -> dict:
+        """Plays back tool_script one round at a time (Wave G)."""
+        if not self.running:
+            raise OllamaError("Ollama is not running (fake)")
+        if not self.supports_tools:
+            raise ToolsUnsupportedError(f"'{model}' can't use tools (fake)")
+        self.tool_rounds.append(messages)
+        if self.tool_script:
+            calls = self.tool_script.pop(0)
+            return {
+                "content": "",
+                "thinking": None,
+                "tool_calls": calls,
+                "raw_tool_calls": [
+                    {"function": {"name": c["name"], "arguments": c["arguments"]}}
+                    for c in calls
+                ],
+            }
+        return {
+            "content": self.librarian_reply,
+            "thinking": self.librarian_thinking,
+            "tool_calls": [],
+            "raw_tool_calls": [],
+        }
+
+    def _reply_text(self, messages: list[dict]) -> str:
         if not self.running:
             raise OllamaError("Ollama is not running (fake)")
         self.chat_calls.append(messages)
@@ -81,13 +129,26 @@ class FakeOllama:
         raise OllamaError("fake has no embedding models")
 
     def list_models(self) -> list[dict]:
-        return [{"name": "llama3.2"}] if self.running else []
+        if not self.running:
+            raise OllamaError("Ollama is not running (fake)")
+        return list(self.installed)
+
+    def pull(self, name: str):
+        """Streams a few progress updates like the real API, then
+        'installs' the model."""
+        if not self.running:
+            raise OllamaError("Ollama is not running (fake)")
+        total = 1_000
+        for completed in (250, 600, 1_000):
+            yield {"status": "pulling", "completed": completed, "total": total}
+        yield {"status": "success"}
+        self.installed.append({"name": name, "size": total})
 
 
 class GarbageOllama(FakeOllama):
     """A model having a bad day — replies with no JSON at all."""
 
-    def chat(self, model: str, messages: list[dict]) -> str:
+    def _reply_text(self, messages: list[dict]) -> str:
         if not self.running:
             raise OllamaError("Ollama is not running (fake)")
         self.chat_calls.append(messages)

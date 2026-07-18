@@ -13,6 +13,7 @@ cheap embedding shortcut (plan §2, resolution 2). Order of attempts:
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 
 import numpy as np
@@ -44,22 +45,45 @@ class CentroidMatch:
     similarity: float
 
 
+logger = logging.getLogger("memorymap.janitor")
+
+
 def categorise(
     session: Session,
     content: str,
     embeddings: EmbeddingService,
     model_manager: ModelManager,
     ollama: OllamaClient,
-) -> tuple[str, int]:
-    """Decide (category_name, confidence 0-100) for a new note."""
-    match = _best_centroid_match(session, content, embeddings)
+    exclude_entry_id: int | None = None,
+) -> tuple[str, int, str]:
+    """Decide (category_name, confidence 0-100, method) for a new note.
+
+    `method` tells the UI how the decision was made: 'semantic-match'
+    (embedding centroid, no LLM), 'llm' (asked the chat model), or
+    'none' (no AI available).
+
+    When RE-categorising an existing note (add-context, Wave B), pass
+    `exclude_entry_id` — otherwise the note's own stored vector anchors
+    it to its old category and it can never move."""
+    match = _best_centroid_match(
+        session, content, embeddings, exclude_entry_id=exclude_entry_id
+    )
     if match is not None and match.similarity >= CONFIDENT_MATCH:
-        return match.name, min(100, round(match.similarity * 100))
-    return _ask_llm(session, content, model_manager, ollama)
+        confidence = min(100, round(match.similarity * 100))
+        logger.info(
+            "janitor: filed by semantic match -> '%s' (%d%%)", match.name, confidence
+        )
+        return match.name, confidence, "semantic-match"
+    category, confidence, method = _ask_llm(session, content, model_manager, ollama)
+    logger.info("janitor: filed by %s -> '%s' (%d%%)", method, category, confidence)
+    return category, confidence, method
 
 
 def _best_centroid_match(
-    session: Session, content: str, embeddings: EmbeddingService
+    session: Session,
+    content: str,
+    embeddings: EmbeddingService,
+    exclude_entry_id: int | None = None,
 ) -> CentroidMatch | None:
     """Compare the note's vector to the average vector (centroid) of each
     existing category. Only vectors from the current backend count."""
@@ -67,7 +91,7 @@ def _best_centroid_match(
     if note_vector is None:
         return None
 
-    rows = session.execute(
+    query = (
         select(Category.name, EmbeddingRecord.embedding)
         .join(Entry, Entry.category_id == Category.id)
         .join(EmbeddingRecord, EmbeddingRecord.entry_id == Entry.id)
@@ -76,7 +100,10 @@ def _best_centroid_match(
             EmbeddingRecord.model_version == embeddings.backend_id(),
             Category.name != UNCATEGORISED,  # never gravitate INTO the junk drawer
         )
-    ).all()
+    )
+    if exclude_entry_id is not None:
+        query = query.where(Entry.id != exclude_entry_id)
+    rows = session.execute(query).all()
     if not rows:
         return None
 
@@ -98,9 +125,9 @@ def _ask_llm(
     content: str,
     model_manager: ModelManager,
     ollama: OllamaClient,
-) -> tuple[str, int]:
+) -> tuple[str, int, str]:
     if not ollama.is_running():
-        return UNCATEGORISED, 0
+        return UNCATEGORISED, 0, "none"
 
     existing = [
         name
@@ -119,15 +146,17 @@ def _ask_llm(
                 {"role": "user", "content": user_prompt},
             ],
         )
-        data = _extract_json(reply)
+        # Thinking models reason before answering; only the answer part
+        # can contain the JSON we asked for.
+        data = _extract_json(reply["content"])
         category = str(data["category"]).strip()
         if not category:
             raise ValueError("empty category")
         confidence = int(data.get("confidence", 50))
-        return category, max(0, min(100, confidence))
+        return category, max(0, min(100, confidence)), "llm"
     except (OllamaError, ValueError, KeyError, TypeError):
         # A confused model must never block a save.
-        return UNCATEGORISED, 0
+        return UNCATEGORISED, 0, "none"
 
 
 def _extract_json(text: str) -> dict:

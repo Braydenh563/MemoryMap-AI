@@ -4,67 +4,443 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>MemoryMap AI</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/style.css">
+  <script>
+    // Apply the saved theme before first paint to avoid a flash.
+    const saved = localStorage.getItem("theme");
+    if (saved) document.documentElement.dataset.theme = saved;
+  </script>
 </head>
 <body>
   <header>
     <h1>MemoryMap AI</h1>
     <p class="tagline">Your offline, self-filing notebook</p>
+    <div class="header-controls">
+      <span id="ai-pill" title="What the AI is doing right now">checking…</span>
+      <button id="settings-btn" class="ghost small" title="Settings">⚙ Settings</button>
+      <button id="lock-btn" class="ghost small hidden" title="Lock the app">🔒</button>
+      <button id="theme-btn" class="ghost small" title="Toggle light/dark">🌓</button>
+    </div>
   </header>
 
-  <div class="layout">
-    <!-- Category sidebar: built from the loaded entries, click to filter -->
-    <aside class="card" id="sidebar">
-      <h2>Categories</h2>
-      <ul id="category-list"></ul>
-    </aside>
+  <!-- Tab navigation (Wave A): each button shows one .tab-page below -->
+  <nav id="tab-bar">
+    <button data-tab="dashboard">Dashboard</button>
+    <button data-tab="notes" class="active">Notes</button>
+    <button data-tab="chat">Chat</button>
+    <button data-tab="graph">Graph</button>
+    <button data-tab="reminders">Reminders</button>
+  </nav>
 
-    <main>
-      <!-- Capture: the start of the core loop -->
-      <section class="card" id="capture">
-        <h2>Capture a thought</h2>
-        <textarea id="entry-content" rows="3"
-          placeholder="Type anything — a joke, a shopping list, a race result…"></textarea>
-        <input id="entry-tags" type="text"
-          placeholder="Optional tags, comma separated (e.g. joke, work)">
-        <div class="row">
-          <button id="save-btn">Save</button>
-          <span id="save-status" class="status" role="status"></span>
-        </div>
-      </section>
-
-      <!-- Ask: conversational answer and raw records side by side -->
-      <section class="card" id="ask">
-        <h2>Ask your notebook</h2>
-        <div class="row">
-          <input id="question" type="text"
-            placeholder="e.g. What jokes have I saved?">
-          <button id="ask-btn">Ask</button>
-        </div>
-        <p id="ask-status" class="status" role="status"></p>
-        <div id="chat-results" class="chat-grid hidden">
-          <div class="chat-half">
-            <h3>AI answer</h3>
-            <div id="ai-answer" class="answer"></div>
-          </div>
-          <div class="chat-half">
-            <h3>Matching records <span id="search-mode" class="chip"></span></h3>
-            <ul id="raw-results" class="entry-list"></ul>
-          </div>
-        </div>
-      </section>
-
-      <!-- Browse: everything you've saved -->
-      <section class="card" id="browse">
-        <h2 id="entries-heading">All entries</h2>
-        <ul id="entry-list" class="entry-list"></ul>
-        <p id="empty-message" class="muted hidden">
-          Nothing here yet — save your first thought above.
-        </p>
-      </section>
-    </main>
+  <!-- Unlock / first-run setup gate (Phase 4) -->
+  <div id="lock-overlay" class="lock-overlay hidden">
+    <div class="card lock-card">
+      <h2 id="lock-title">Unlock MemoryMap</h2>
+      <p id="lock-message" class="muted"></p>
+      <input id="lock-password" type="password" placeholder="Password or PIN">
+      <button id="lock-submit">Unlock</button>
+      <p id="lock-error" class="status error" role="alert"></p>
+    </div>
   </div>
 
+  <!-- ======================= DASHBOARD TAB (Wave D) ======================= -->
+  <div class="tab-page hidden" id="tab-dashboard">
+    <div class="dash-toolbar">
+      <span class="muted">Drag widgets to rearrange — your layout is remembered.</span>
+      <button id="dash-edit" class="ghost small">Edit layout</button>
+    </div>
+    <div id="dash-grid"></div>
+  </div>
+
+  <!-- ======================= NOTES TAB (the current app) ================== -->
+  <div class="tab-page" id="tab-notes">
+    <div class="layout">
+      <!-- Category sidebar: built from the loaded entries, click to filter -->
+      <aside class="card" id="sidebar">
+        <h2>Categories</h2>
+        <ul id="category-list"></ul>
+        <div id="most-used-box" class="hidden">
+          <h2>Most used</h2>
+          <ul id="most-used"></ul>
+        </div>
+        <div class="sidebar-tools">
+          <button id="tags-btn" class="ghost small">🏷 Tags</button>
+          <button id="bin-btn" class="ghost small">🗑 Recycle bin</button>
+          <button id="activity-btn" class="ghost small">📜 Activity</button>
+        </div>
+      </aside>
+
+      <main>
+        <!-- Recycle bin (Phase 4) -->
+        <section class="card hidden panel" id="bin-panel">
+          <div class="row space-between">
+            <h2>Recycle bin</h2>
+            <div class="row">
+              <button id="bin-empty" class="ghost small">Empty now</button>
+              <button class="ghost small panel-close">Close</button>
+            </div>
+          </div>
+          <p class="muted" id="bin-note"></p>
+          <ul id="bin-list" class="entry-list"></ul>
+          <p id="bin-empty-message" class="muted hidden">The bin is empty.</p>
+        </section>
+
+        <!-- Activity log (Phase 4) -->
+        <section class="card hidden panel" id="activity-panel">
+          <div class="row space-between">
+            <h2>Activity log</h2>
+            <button class="ghost small panel-close">Close</button>
+          </div>
+          <ul id="activity-list" class="activity-list"></ul>
+        </section>
+
+        <!-- Tag manager (Wave B) -->
+        <section class="card hidden panel" id="tags-panel">
+          <div class="row space-between">
+            <h2>Tags</h2>
+            <button class="ghost small panel-close">Close</button>
+          </div>
+          <p class="muted">Rename a tag onto an existing one to merge them.</p>
+          <ul id="tags-list" class="entry-list"></ul>
+          <p id="tags-empty" class="muted hidden">No tags yet — add some when you capture a note.</p>
+        </section>
+
+        <!-- Capture: the start of the core loop -->
+        <section class="card" id="capture">
+          <div class="row space-between">
+            <h2>Capture a thought</h2>
+            <select id="entry-template" class="small-select" title="Start from a template">
+              <option value="">No template</option>
+            </select>
+          </div>
+          <textarea id="entry-content" rows="3"
+            placeholder="Type anything — a joke, a shopping list, a race result…"></textarea>
+          <input id="entry-tags" type="text" list="tag-suggestions"
+            placeholder="Optional tags, comma separated (e.g. joke, work)">
+          <datalist id="tag-suggestions"></datalist>
+          <div class="row">
+            <label for="entry-category" class="muted">File under</label>
+            <select id="entry-category"></select>
+            <button id="save-btn">Save</button>
+          </div>
+          <p><span id="save-status" class="status" role="status"></span></p>
+        </section>
+
+        <!-- Ask: conversational answer and raw records side by side -->
+        <section class="card" id="ask">
+          <div class="row space-between">
+            <h2>Ask your notebook</h2>
+            <button id="new-chat-btn" class="ghost small hidden"
+              title="Clear this conversation and start fresh">New chat</button>
+          </div>
+          <div class="row">
+            <input id="question" type="text"
+              placeholder="e.g. What jokes have I saved?">
+            <button id="ask-btn">Ask</button>
+            <button id="stop-btn" class="ghost hidden" title="Stop the answer">Stop</button>
+          </div>
+          <div id="suggested-questions" class="recent hidden"></div>
+          <div id="recent-questions" class="recent hidden"></div>
+          <p id="ask-status" class="status" role="status"></p>
+          <div id="chat-results" class="chat-grid hidden">
+            <div class="chat-half">
+              <h3>
+                AI answer <span id="answered-by" class="chip"></span>
+                <span class="answer-actions">
+                  <button id="retry-btn" class="ghost small hidden"
+                    title="Ask this question again">↻ Retry</button>
+                  <button id="copy-btn" class="ghost small hidden"
+                    title="Copy the answer">⧉ Copy</button>
+                </span>
+              </h3>
+              <details id="thinking-box" class="hidden">
+                <summary>Model's thinking</summary>
+                <div id="ai-thinking" class="thinking"></div>
+              </details>
+              <div id="ai-answer" class="answer"></div>
+            </div>
+            <div class="chat-half">
+              <h3>Matching records <span id="search-mode" class="chip"></span></h3>
+              <ul id="raw-results" class="entry-list"></ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- Browse: everything you've saved -->
+        <section class="card" id="browse">
+          <h2 id="entries-heading">All entries</h2>
+          <ul id="entry-list" class="entry-list"></ul>
+          <p id="empty-message" class="muted hidden">
+            Nothing here yet — save your first thought above.
+          </p>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- ======================= CHAT TAB (Wave C) ============================ -->
+  <div class="tab-page hidden" id="tab-chat">
+    <div class="layout">
+      <aside class="card" id="chat-sidebar">
+        <div class="row space-between">
+          <h2>Chats</h2>
+          <button id="chat-new" class="ghost small" title="Start a fresh conversation">+ New</button>
+        </div>
+        <ul id="conversation-list"></ul>
+        <p id="conv-empty" class="muted">No saved chats yet — ask something!</p>
+      </aside>
+      <main>
+        <section class="card" id="chat-main">
+          <div class="row space-between">
+            <h2 id="chat-title">New chat</h2>
+            <div class="row">
+              <label class="muted tools-toggle" title="When on, the AI can create, tag, pin, link, and (with your confirmation) delete notes for you">
+                <input type="checkbox" id="tools-toggle"> AI can make changes
+              </label>
+              <label for="persona-select" class="muted">Persona</label>
+              <select id="persona-select" class="small-select"></select>
+            </div>
+          </div>
+          <div id="chat-messages"></div>
+          <div id="chat-suggest" class="recent hidden"></div>
+          <div id="chat-skills" class="recent hidden"></div>
+          <div class="row">
+            <input id="chat-input" type="text" placeholder="Ask your notebook anything…">
+            <button id="chat-send">Send</button>
+            <button id="chat-stop" class="ghost hidden" title="Stop the answer">Stop</button>
+          </div>
+          <p id="chat-status" class="status" role="status"></p>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- ======================= GRAPH TAB (Wave E fills this) ================ -->
+  <div class="tab-page hidden" id="tab-graph">
+    <section class="card" id="graph-card">
+      <div class="row space-between">
+        <h2>Graph</h2>
+        <div class="row">
+          <label class="muted tools-toggle" title="Draw dotted lines between notes that mean similar things (needs semantic search)">
+            <input type="checkbox" id="graph-similarity"> Similarity lines
+          </label>
+          <button id="graph-refresh" class="ghost small">Refresh</button>
+        </div>
+      </div>
+      <p class="muted">
+        Your notes as a map: solid lines are links you made, dashed lines are
+        trains of thought, dotted lines are notes that mean similar things.
+        Drag to arrange, scroll to zoom, click a note to open it.
+      </p>
+      <div id="graph-legend" class="recent"></div>
+      <div id="graph-box">
+        <svg id="graph-svg"></svg>
+        <p id="graph-empty" class="muted hidden">
+          Nothing to map yet — save a few notes and link some together
+          (🔗 on any entry) and they'll appear here.
+        </p>
+      </div>
+    </section>
+  </div>
+
+  <!-- ======================= REMINDERS TAB (Wave D) ======================= -->
+  <div class="tab-page hidden" id="tab-reminders">
+    <section class="card reminders-card">
+      <h2>Reminders</h2>
+      <div class="row">
+        <input id="reminder-text" type="text" maxlength="500"
+          placeholder="Remind me to…">
+        <input id="reminder-due" type="datetime-local" style="max-width: 14rem">
+        <button id="reminder-add">Add</button>
+      </div>
+      <p class="muted">
+        Notifications fire while the app is open. Attach a reminder to a note
+        with the ⏰ button on any entry.
+      </p>
+      <div id="reminder-groups"></div>
+      <p id="reminders-empty" class="muted hidden">No reminders yet.</p>
+    </section>
+  </div>
+
+  <!-- ======================= SETTINGS MODAL (Wave A) ====================== -->
+  <div id="settings-modal" class="modal-overlay hidden">
+    <div class="card modal-card">
+      <div class="row space-between">
+        <h2>Settings</h2>
+        <button id="settings-close" class="ghost small">Close</button>
+      </div>
+      <div class="modal-body">
+        <nav class="modal-nav" id="settings-nav">
+          <button data-section="models" class="active">Models</button>
+          <button data-section="personas">Personas</button>
+          <button data-section="skills">Skills</button>
+          <button data-section="preferences">Preferences</button>
+          <button data-section="data">Data</button>
+          <button data-section="logs">Logs</button>
+          <button data-section="about">About</button>
+        </nav>
+        <div class="modal-content">
+
+          <!-- Models (Phase 3.5, moved here in Wave A) -->
+          <section class="settings-section" id="settings-models">
+            <p id="ollama-status" class="status"></p>
+            <p id="embedding-error" class="status error hidden"></p>
+            <p id="ollama-help" class="muted hidden">
+              Ollama powers the chat answers and auto-filing.
+              <a href="https://ollama.com" target="_blank" rel="noopener">Install it from ollama.com</a>,
+              start it, and this screen will light up. Capturing notes and keyword
+              search work fine without it.
+            </p>
+            <div id="models-config" class="hidden">
+              <h3>Chat model (answers &amp; filing — switches instantly)</h3>
+              <div class="row">
+                <select id="chat-model-select"></select>
+                <button id="chat-model-apply" class="small">Use this model</button>
+              </div>
+              <p id="chat-model-note" class="status"></p>
+              <h3>Search engine (how your notes are understood)</h3>
+              <label>
+                <input type="radio" name="emb-backend" value="sentence-transformers">
+                Built-in (recommended — works out of the box, no download)
+              </label>
+              <label>
+                <input type="radio" name="emb-backend" value="ollama">
+                Ollama embedding model:
+              </label>
+              <div class="row">
+                <select id="embedding-model-select"></select>
+                <button id="embedding-apply" class="small">Apply &amp; re-index</button>
+              </div>
+              <p class="muted">
+                Changing this re-reads every note so search keeps making sense —
+                it runs in the background and search falls back to keywords until
+                it finishes.
+              </p>
+            </div>
+            <div id="reindex-box" class="hidden">
+              <h3>Re-indexing your notes…</h3>
+              <progress id="reindex-progress" value="0" max="1"></progress>
+              <p id="reindex-label" class="status"></p>
+            </div>
+            <div id="suggested-box" class="hidden">
+              <h3>Suggested downloads</h3>
+              <ul id="suggested-list"></ul>
+            </div>
+          </section>
+
+          <!-- Personas (Wave C): who the AI is when it answers -->
+          <section class="settings-section hidden" id="settings-personas">
+            <p class="muted">
+              A persona changes the AI's voice — answers always stay grounded
+              in your notes. Pick the active one in the Chat tab.
+            </p>
+            <ul id="persona-list" class="entry-list"></ul>
+            <h3>Add your own</h3>
+            <input id="persona-name" type="text" maxlength="40" placeholder="Name (e.g. Pirate)">
+            <textarea id="persona-prompt" rows="2" maxlength="2000"
+              placeholder="System prompt, e.g. You are a cheerful pirate captain."></textarea>
+            <div class="row">
+              <button id="persona-add" class="small">Add persona</button>
+              <span id="persona-status" class="status"></span>
+            </div>
+          </section>
+
+          <!-- Skills (Wave G): saved prompt shortcuts for the chat tab -->
+          <section class="settings-section hidden" id="settings-skills">
+            <p class="muted">
+              A skill is a saved request you can fire with one click from the
+              Chat tab — and skills can use the AI's tools, so "tidy my tags"
+              actually tidies your tags (with your approval for anything
+              destructive).
+            </p>
+            <ul id="skill-list" class="entry-list"></ul>
+            <h3>Add your own</h3>
+            <input id="skill-name" type="text" maxlength="40" placeholder="Name (e.g. Weekly review)">
+            <textarea id="skill-prompt" rows="2" maxlength="2000"
+              placeholder="The request to send, e.g. Summarise everything I saved this week."></textarea>
+            <div class="row">
+              <button id="skill-add" class="small">Add skill</button>
+              <span id="skill-status" class="status"></span>
+            </div>
+          </section>
+
+          <!-- Preferences (Phase 4/5, moved here in Wave A) -->
+          <section class="settings-section hidden" id="settings-preferences">
+            <h3>Recycle bin</h3>
+            <div class="row">
+              <label for="pref-bin-days" class="muted">Auto-clear binned entries after</label>
+              <input id="pref-bin-days" type="number" min="1" max="365" style="width:5rem">
+              <span class="muted">days</span>
+            </div>
+            <h3>AI answer style</h3>
+            <select id="pref-style">
+              <option value="friendly">Friendly (default)</option>
+              <option value="concise">Concise</option>
+              <option value="detailed">Detailed</option>
+            </select>
+            <h3>About you (optional)</h3>
+            <label>
+              <input type="checkbox" id="pref-profile-enabled">
+              Let the AI use this profile for more personal answers
+            </label>
+            <textarea id="pref-profile" rows="3"
+              placeholder="e.g. I'm Brayden, in Brisbane. I run track and collect dad jokes."></textarea>
+            <div class="row">
+              <button id="prefs-save" class="small">Save preferences</button>
+              <button id="profile-delete" class="ghost small">Delete my profile data</button>
+              <span id="prefs-status" class="status" role="status"></span>
+            </div>
+            <p class="muted">
+              Stays on this computer like everything else. Turn it off or delete
+              it any time — answers just get less personal.
+            </p>
+          </section>
+
+          <!-- Data (export now; import/backup arrive in Wave F) -->
+          <section class="settings-section hidden" id="settings-data">
+            <h3>Export your data</h3>
+            <div class="row">
+              <button id="export-json" class="ghost small">Export JSON</button>
+              <button id="export-csv" class="ghost small">Export CSV</button>
+            </div>
+            <p class="muted">Exports include everything, even binned entries.</p>
+          </section>
+
+          <!-- Logs (Wave A) -->
+          <section class="settings-section hidden" id="settings-logs">
+            <div class="row">
+              <select id="log-source" style="max-width:11rem">
+                <option value="server">Server logs</option>
+                <option value="browser">Browser logs</option>
+              </select>
+              <button id="logs-refresh" class="ghost small">Refresh</button>
+              <button id="logs-copy" class="ghost small">Copy all</button>
+              <button id="logs-clear" class="ghost small">Clear</button>
+            </div>
+            <ul id="log-list" class="log-list"></ul>
+            <p id="logs-empty" class="muted hidden">No log records yet.</p>
+          </section>
+
+          <!-- About -->
+          <section class="settings-section hidden" id="settings-about">
+            <h3>MemoryMap AI</h3>
+            <p class="muted">
+              A 100% offline, local-first notebook where a local AI files your
+              thoughts and answers questions about them. Your data never leaves
+              this computer.
+            </p>
+            <p class="muted" id="about-version"></p>
+          </section>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-box"></div>
+  <!-- D3 v7, vendored locally — the offline rule: no CDNs, ever -->
+  <script src="/vendor/d3.v7.min.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

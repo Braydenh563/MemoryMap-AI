@@ -49,41 +49,42 @@ def test_janitor_uses_centroid_match_without_llm(session, app_state):
     model_manager = deps.get_model_manager()
     _store(session, embeddings, "Why did the scarecrow win an award?", "Dad Jokes")
 
-    category, confidence = janitor.categorise(
+    category, confidence, method = janitor.categorise(
         session, "another funny pun about cheese", embeddings, model_manager, ollama
     )
 
     assert category == "Dad Jokes"
     assert confidence >= 60
+    assert method == "semantic-match"
     assert ollama.chat_calls == []  # clear match → the LLM was never asked
 
 
 def test_janitor_asks_llm_when_no_match(session, app_state):
     embeddings = FakeEmbeddingService()
     ollama = FakeOllama()
-    category, confidence = janitor.categorise(
+    category, confidence, method = janitor.categorise(
         session, "buy milk and eggs", embeddings, deps.get_model_manager(), ollama
     )
-    assert (category, confidence) == ("Shopping", 85)
+    assert (category, confidence, method) == ("Shopping", 85, "llm")
     assert len(ollama.chat_calls) == 1
 
 
 def test_janitor_falls_back_when_all_ai_down(session, app_state):
     embeddings = FakeEmbeddingService(available=False)
     ollama = FakeOllama(running=False)
-    category, confidence = janitor.categorise(
+    category, confidence, method = janitor.categorise(
         session, "anything at all", embeddings, deps.get_model_manager(), ollama
     )
-    assert (category, confidence) == (manager.UNCATEGORISED, 0)
+    assert (category, confidence, method) == (manager.UNCATEGORISED, 0, "none")
 
 
 def test_janitor_survives_garbage_llm_reply(session, app_state):
     embeddings = FakeEmbeddingService(available=False)
     ollama = GarbageOllama()
-    category, confidence = janitor.categorise(
+    category, confidence, method = janitor.categorise(
         session, "buy milk", embeddings, deps.get_model_manager(), ollama
     )
-    assert (category, confidence) == (manager.UNCATEGORISED, 0)
+    assert (category, confidence, method) == (manager.UNCATEGORISED, 0, "none")
 
 
 def test_extract_json_from_chatty_reply():
@@ -97,13 +98,16 @@ def test_extract_json_from_chatty_reply():
 
 
 def test_librarian_no_results_message(app_state):
-    text = librarian.answer("anything?", [], deps.get_model_manager(), FakeOllama())
+    text, thinking = librarian.answer(
+        "anything?", [], deps.get_model_manager(), FakeOllama()
+    )
     assert text == librarian.NO_RESULTS_MESSAGE
+    assert thinking is None
 
 
 def test_librarian_offline_message(app_state):
     notes = [{"content": "a joke", "category": "Dad Jokes"}]
-    text = librarian.answer(
+    text, _thinking = librarian.answer(
         "jokes?", notes, deps.get_model_manager(), FakeOllama(running=False)
     )
     assert text == librarian.OFFLINE_MESSAGE
@@ -112,7 +116,7 @@ def test_librarian_offline_message(app_state):
 def test_librarian_answers_with_notes_in_prompt(app_state):
     ollama = FakeOllama()
     notes = [{"content": "the cheese joke", "category": "Dad Jokes"}]
-    text = librarian.answer("jokes?", notes, deps.get_model_manager(), ollama)
+    text, _thinking = librarian.answer("jokes?", notes, deps.get_model_manager(), ollama)
     assert text == ollama.librarian_reply
     prompt = ollama.chat_calls[0][-1]["content"]
     assert "the cheese joke" in prompt  # answers come from the user's notes
@@ -146,3 +150,40 @@ def test_retrieve_falls_back_to_keyword(session):
     )
     assert mode == "keyword"
     assert [e.content for e in entries] == ["remember the milk"]
+
+
+def test_retrieve_recent_fallback_for_broad_question(session):
+    # Broad "overview" questions match nothing by keyword or meaning, so
+    # the notebook must not look empty — recent entries come back instead.
+    manager.create_entry(session, "a note about cheese")
+    manager.create_entry(session, "a note about racing")
+    entries, mode = search_manager.retrieve(
+        session, "what have I saved so far?", FakeEmbeddingService(available=False)
+    )
+    assert mode == "recent"
+    assert len(entries) == 2
+
+
+def test_retrieve_recent_fallback_empty_notebook(session):
+    # Truly empty notebook → still empty (nothing to fall back to).
+    entries, mode = search_manager.retrieve(
+        session, "anything", FakeEmbeddingService(available=False)
+    )
+    assert entries == []
+    assert mode == "keyword"
+
+
+def test_chat_broad_question_answers_from_recent(ai_client, fake_ollama):
+    # Reproduces the reported bug: entries exist but a broad question with
+    # no semantic/keyword match returned "no saved notes". These two notes
+    # sit on distinct topics, so an overview question matches neither and
+    # the recent fallback must kick in.
+    ai_client.post("/entries", json={"content": "a funny scarecrow joke"})
+    ai_client.post("/entries", json={"content": "buy milk and eggs"})
+
+    body = ai_client.post("/chat", json={"question": "what entries have I done so far?"}).json()
+    assert body["search_mode"] == "recent"
+    assert len(body["raw_results"]) == 2
+    assert body["ai_response"] == fake_ollama.librarian_reply  # the model answered
+    assert body["answered_by"] == "llama3.2"
+    assert body["ollama_running"] is True

@@ -8,23 +8,74 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from memorymap import __version__
-from memorymap.api import routes_chat, routes_entries
+from memorymap.ai import embeddings
+from memorymap.api import (
+    routes_auth,
+    routes_chat,
+    routes_conversations,
+    routes_entries,
+    routes_files,
+    routes_graph,
+    routes_insights,
+    routes_models,
+    routes_reminders,
+    routes_settings,
+    routes_tags,
+)
+from memorymap.api.routes_auth import require_unlock
+from memorymap.core import deps, logbuffer
 from memorymap.core.deps import init_app_state
+from memorymap.entry import manager
 
 # repo-root/frontend — three levels up from src/memorymap/api/app.py.
 FRONTEND_DIR = Path(__file__).resolve().parents[3] / "frontend"
 
 
+# (Embedding warm-up now lives in ai/embeddings.start_warmup, which also
+# tracks running/failed state for the status pill.)
+
+
+def _purge_expired_bin_entries() -> None:
+    """Recycle-bin auto-clear (plan Phase 4): permanently drop entries
+    binned longer than the user's configured number of days."""
+    try:
+        session = deps.get_db().session()
+        try:
+            config = deps.get_config()
+            days = int(config.get_preference("recycle_bin_days", 30))
+            manager.purge_expired_deleted(session, days, uploads_dir=config.uploads_dir)
+        finally:
+            session.close()
+    except Exception:
+        pass  # a failed purge must never stop the app from starting
+
+
 def create_app() -> FastAPI:
+    logbuffer.install()  # start capturing logs for the Settings viewer
     init_app_state()
+    _purge_expired_bin_entries()
+    embeddings.start_warmup(deps.get_embeddings())
 
     app = FastAPI(title="MemoryMap AI", version=__version__)
-    app.include_router(routes_entries.router)
-    app.include_router(routes_chat.router)
+
+    # Everything that touches the user's data sits behind the unlock
+    # gate; /auth itself and /health stay open.
+    locked = [Depends(require_unlock)]
+    app.include_router(routes_auth.router)
+    app.include_router(routes_entries.router, dependencies=locked)
+    app.include_router(routes_chat.router, dependencies=locked)
+    app.include_router(routes_models.router, dependencies=locked)
+    app.include_router(routes_settings.router, dependencies=locked)
+    app.include_router(routes_files.router, dependencies=locked)
+    app.include_router(routes_tags.router, dependencies=locked)
+    app.include_router(routes_conversations.router, dependencies=locked)
+    app.include_router(routes_insights.router, dependencies=locked)
+    app.include_router(routes_graph.router, dependencies=locked)
+    app.include_router(routes_reminders.router, dependencies=locked)
 
     @app.get("/health", tags=["system"])
     def health() -> dict[str, str]:

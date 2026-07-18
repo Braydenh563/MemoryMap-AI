@@ -159,6 +159,19 @@ class Conversation(Base):
     )
 
 
+class Reminder(Base):
+    """A reminder, optionally attached to an entry (Wave D)."""
+
+    __tablename__ = "reminders"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entry_id: Mapped[int | None] = mapped_column(ForeignKey("entries.id"), default=None)
+    text: Mapped[str] = mapped_column(String(500))
+    due_at: Mapped[datetime] = mapped_column(DateTime)
+    done: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 class AuditLog(Base):
     """Every meaningful action, from Phase 1 onward (plan §4)."""
 

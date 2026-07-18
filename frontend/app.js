@@ -303,6 +303,12 @@ function entryItem(entry, options = {}) {
       smallButton("≈", "Show similar notes", () => toggleRelated(entry))
     );
     actions.appendChild(
+      smallButton("⏰", "Set a reminder about this note", () => {
+        inlineAction = inlineActionIs(entry.id, "remind") ? null : { id: entry.id, kind: "remind" };
+        renderEntries();
+      })
+    );
+    actions.appendChild(
       smallButton("✎", "Edit this entry", () => {
         editingId = entry.id;
         renderEntries();
@@ -384,10 +390,40 @@ function inlineActionIs(id, kind) {
   return inlineAction && inlineAction.id === id && inlineAction.kind === kind;
 }
 
-// The ➕ context / ⤵ continue boxes that appear inside an entry card.
+// The ➕ context / ⤵ continue / ⏰ remind boxes inside an entry card.
 function renderInlineAction(entry) {
   const wrap = document.createElement("div");
   wrap.className = "inline-action";
+
+  if (inlineAction.kind === "remind") {
+    const preview = entry.content.length > 40 ? entry.content.slice(0, 39) + "…" : entry.content;
+    const textInput = document.createElement("input");
+    textInput.type = "text";
+    textInput.value = `Follow up: ${preview}`;
+    const dueInput = document.createElement("input");
+    dueInput.type = "datetime-local";
+    dueInput.value = defaultDueValue();
+    const row = document.createElement("div");
+    row.className = "row";
+    row.appendChild(
+      smallButton("Set reminder", "", async () => {
+        if (await addReminder(textInput.value.trim(), dueInput.value, entry.id)) {
+          inlineAction = null;
+          renderEntries();
+        }
+      }, false)
+    );
+    row.appendChild(
+      smallButton("Cancel", "", () => {
+        inlineAction = null;
+        renderEntries();
+      })
+    );
+    wrap.append(textInput, dueInput, row);
+    setTimeout(() => textInput.focus(), 0);
+    return wrap;
+  }
+
   const isContext = inlineAction.kind === "context";
 
   const textarea = document.createElement("textarea");
@@ -931,6 +967,7 @@ async function askQuestion(preset) {
   const thinkingBox = $("thinking-box");
   const thinkingText = $("ai-thinking");
   answerBox.textContent = "";
+  answerBox.appendChild(typingDots()); // until the first token arrives
   thinkingText.textContent = "";
   thinkingBox.classList.add("hidden");
   thinkingBox.open = false;
@@ -950,6 +987,7 @@ async function askQuestion(preset) {
         status.textContent = "The model is writing…";
       },
       onThinking: (delta) => {
+        answerBox.querySelector(".typing-dots")?.remove();
         // Auto-expand while the model reasons (user request).
         thinkingBox.classList.remove("hidden");
         thinkingBox.open = true;
@@ -1029,23 +1067,30 @@ let chatConv = { id: null, turns: [] }; // the open conversation
 let chatController = null;
 
 function personaOptions() {
-  // Built-ins + the user's custom personas; the active one pre-selected.
+  // Built-ins + the user's custom personas (deduped — an edited built-in
+  // is stored under the same name); the active one pre-selected.
   const select = $("persona-select");
   const custom = (prefsCache && prefsCache.personas) || [];
   const active = (prefsCache && prefsCache.active_persona) || "Librarian";
+  const names = [
+    ...new Set(["Librarian", "Coach", "Analyst", ...custom.map((p) => p.name)]),
+  ];
   select.replaceChildren();
-  for (const persona of [
-    { name: "Librarian" },
-    { name: "Coach" },
-    { name: "Analyst" },
-    ...custom,
-  ]) {
+  for (const name of names) {
     const option = document.createElement("option");
-    option.value = persona.name;
-    option.textContent = persona.name;
-    if (persona.name === active) option.selected = true;
+    option.value = name;
+    option.textContent = name;
+    if (name === active) option.selected = true;
     select.appendChild(option);
   }
+}
+
+// Three-dot "the model is about to speak" indicator (Wave D).
+function typingDots() {
+  const dots = document.createElement("span");
+  dots.className = "typing-dots";
+  for (let i = 0; i < 3; i++) dots.appendChild(document.createElement("span"));
+  return dots;
 }
 
 function chatScrollToEnd() {
@@ -1119,6 +1164,7 @@ async function sendChatMessage(preset) {
 
   addBubble("user", question);
   const { thinkingBox, thinkingText, answerBox, recordsHolder } = addAssistantBubble();
+  answerBox.appendChild(typingDots()); // until the first token arrives
   const renderLive = liveMarkdownRenderer(answerBox);
   let answerRaw = "";
   let thinkingRaw = "";
@@ -1136,6 +1182,7 @@ async function sendChatMessage(preset) {
         status.textContent = "The model is writing…";
       },
       onThinking: (delta) => {
+        answerBox.querySelector(".typing-dots")?.remove();
         thinkingBox.classList.remove("hidden");
         thinkingBox.open = true; // expanded while reasoning (user request)
         thinkingRaw += delta;
@@ -1146,7 +1193,7 @@ async function sendChatMessage(preset) {
       onAnswer: (delta) => {
         if (thinkingBox.open) thinkingBox.open = false; // collapse when answering
         answerRaw += delta;
-        renderLive(answerRaw); // live markdown (user request)
+        renderLive(answerRaw); // live markdown (user request; replaces the dots)
         status.textContent = "The model is writing…";
         chatScrollToEnd();
       },
@@ -1289,42 +1336,121 @@ async function loadChatSuggestions() {
   }
 }
 
-// Personas section in Settings (Wave C).
+// Personas section in Settings (Wave C, editing + reset in Wave D).
+// Mirrors the backend's built-ins: editing one saves an override with the
+// same name (the saved list wins), and Reset deletes the override.
+const BUILTIN_PERSONAS = {
+  Librarian: "You are the librarian of the user's personal notebook.",
+  Coach:
+    "You are an encouraging personal coach reviewing the user's notes. " +
+    "Spot patterns, celebrate progress, and suggest one concrete next step.",
+  Analyst:
+    "You are a precise analyst. Extract the facts, numbers, and patterns " +
+    "from the notes and organise your answer clearly.",
+};
+
+let personaEditing = null; // name currently in inline-edit mode
+
+async function savePersonaList(personas) {
+  await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ personas }),
+  });
+  await renderPersonas();
+  personaOptions();
+}
+
 async function renderPersonas() {
   prefsCache = await apiJson("/preferences").catch(() => prefsCache);
   const custom = (prefsCache && prefsCache.personas) || [];
+  const overrides = new Map(custom.map((p) => [p.name, p]));
   const list = $("persona-list");
   list.replaceChildren();
-  for (const persona of [
-    { name: "Librarian", builtin: true },
-    { name: "Coach", builtin: true },
-    { name: "Analyst", builtin: true },
-    ...custom,
-  ]) {
+
+  const rows = [
+    ...Object.keys(BUILTIN_PERSONAS).map((name) => ({
+      name,
+      builtin: true,
+      overridden: overrides.has(name),
+      prompt: overrides.has(name) ? overrides.get(name).prompt : BUILTIN_PERSONAS[name],
+    })),
+    ...custom
+      .filter((p) => !(p.name in BUILTIN_PERSONAS))
+      .map((p) => ({ ...p, builtin: false, overridden: false })),
+  ];
+
+  for (const persona of rows) {
     const li = document.createElement("li");
+
+    if (personaEditing === persona.name) {
+      // Inline editor: textarea + save/cancel.
+      const textarea = document.createElement("textarea");
+      textarea.rows = 3;
+      textarea.value = persona.prompt;
+      const row = document.createElement("div");
+      row.className = "row";
+      row.appendChild(
+        smallButton(
+          "Save",
+          "",
+          async () => {
+            const prompt = textarea.value.trim();
+            if (!prompt) return;
+            const updated = custom.filter((p) => p.name !== persona.name);
+            updated.push({ name: persona.name, prompt });
+            personaEditing = null;
+            await savePersonaList(updated);
+          },
+          false
+        )
+      );
+      row.appendChild(
+        smallButton("Cancel", "", () => {
+          personaEditing = null;
+          renderPersonas();
+        })
+      );
+      li.append(chip(persona.name), textarea, row);
+      list.appendChild(li);
+      setTimeout(() => textarea.focus(), 0);
+      continue;
+    }
+
     const row = document.createElement("div");
     row.className = "entry-meta";
     row.appendChild(chip(persona.name));
+    if (persona.builtin) {
+      row.appendChild(chip(persona.overridden ? "edited" : "built-in", "tag"));
+    }
     const note = document.createElement("span");
-    note.className = "muted";
-    note.textContent = persona.builtin ? "built-in" : persona.prompt.slice(0, 60);
+    note.className = "muted persona-preview";
+    note.textContent = persona.prompt.slice(0, 70);
     row.appendChild(note);
-    if (!persona.builtin) {
-      const actions = document.createElement("span");
-      actions.className = "entry-actions";
+
+    const actions = document.createElement("span");
+    actions.className = "entry-actions";
+    actions.appendChild(
+      smallButton("Edit", "Edit this persona's prompt", () => {
+        personaEditing = persona.name;
+        renderPersonas();
+      })
+    );
+    if (persona.builtin && persona.overridden) {
       actions.appendChild(
-        smallButton("Delete", "Remove this persona", async () => {
-          const remaining = custom.filter((p) => p.name !== persona.name);
-          await apiJson("/preferences", {
-            method: "PUT",
-            body: JSON.stringify({ personas: remaining }),
-          });
-          await renderPersonas();
-          personaOptions();
+        smallButton("Reset", "Restore the default prompt", async () => {
+          await savePersonaList(custom.filter((p) => p.name !== persona.name));
         })
       );
-      row.appendChild(actions);
     }
+    if (!persona.builtin) {
+      actions.appendChild(
+        smallButton("Delete", "Remove this persona", async () => {
+          if (!confirm(`Delete the “${persona.name}” persona?`)) return;
+          await savePersonaList(custom.filter((p) => p.name !== persona.name));
+        })
+      );
+    }
+    row.appendChild(actions);
     li.appendChild(row);
     list.appendChild(li);
   }
@@ -1351,6 +1477,417 @@ async function addPersona() {
   status.textContent = `Added “${name}”.`;
   await renderPersonas();
   personaOptions();
+}
+
+// --- dashboard (Wave D) -----------------------------------------------------------
+
+let dashEditMode = false;
+let dragWidget = null; // widget name being dragged
+
+// Widget registry: name → title + async renderer that fills a body div.
+const DASH_WIDGETS = {
+  stats: { title: "📊 Stats", render: renderStatsWidget },
+  pinned: { title: "📌 Pinned notes", render: renderPinnedWidget },
+  "most-used": { title: "🔥 Most used", render: renderMostUsedWidget },
+  questions: { title: "💬 Recent questions", render: renderQuestionsWidget },
+  "on-this-day": { title: "📅 On this day", render: renderOnThisDayWidget },
+  digest: { title: "📰 Weekly digest", render: renderDigestWidget },
+  capture: { title: "✏️ Quick capture", render: renderQuickCaptureWidget },
+  reminders: { title: "⏰ Reminders", render: renderRemindersWidget },
+};
+
+function dashLayout() {
+  const saved = (prefsCache && prefsCache.dashboard_layout) || {};
+  const order = [...(saved.order || [])];
+  for (const name of Object.keys(DASH_WIDGETS)) {
+    if (!order.includes(name)) order.push(name); // new widgets append
+  }
+  return { order: order.filter((n) => DASH_WIDGETS[n]), hidden: saved.hidden || [] };
+}
+
+async function saveDashLayout(layout) {
+  prefsCache = await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ dashboard_layout: layout }),
+  }).catch(() => prefsCache);
+}
+
+async function renderDashboard() {
+  // The saved layout lives in preferences — after a page reload this can
+  // run before startApp has fetched them, so fetch here if needed.
+  if (!prefsCache) {
+    prefsCache = await apiJson("/preferences").catch(() => null);
+  }
+  const grid = $("dash-grid");
+  grid.replaceChildren();
+  const layout = dashLayout();
+
+  for (const name of layout.order) {
+    const hidden = layout.hidden.includes(name);
+    if (hidden && !dashEditMode) continue;
+
+    const widget = DASH_WIDGETS[name];
+    const card = document.createElement("section");
+    card.className = "card dash-widget" + (hidden ? " dash-hidden" : "");
+    card.dataset.widget = name;
+
+    const header = document.createElement("div");
+    header.className = "row space-between";
+    const title = document.createElement("h2");
+    title.textContent = widget.title;
+    header.appendChild(title);
+    if (dashEditMode) {
+      const controls = document.createElement("span");
+      controls.className = "entry-actions";
+      controls.appendChild(
+        smallButton(hidden ? "Show" : "Hide", "", async () => {
+          const next = dashLayout();
+          next.hidden = hidden
+            ? next.hidden.filter((n) => n !== name)
+            : [...next.hidden, name];
+          await saveDashLayout(next);
+          renderDashboard();
+        })
+      );
+      const handle = document.createElement("span");
+      handle.className = "drag-handle";
+      handle.textContent = "≡ drag";
+      controls.appendChild(handle);
+      header.appendChild(controls);
+    }
+    card.appendChild(header);
+
+    const body = document.createElement("div");
+    body.className = "dash-body";
+    card.appendChild(body);
+    if (!hidden) {
+      widget.render(body).catch(() => {
+        body.textContent = "Couldn't load this widget.";
+      });
+    }
+
+    // Drag to reorder (edit mode only).
+    if (dashEditMode) {
+      card.draggable = true;
+      card.addEventListener("dragstart", () => {
+        dragWidget = name;
+        card.classList.add("dragging");
+      });
+      card.addEventListener("dragend", async () => {
+        card.classList.remove("dragging");
+        dragWidget = null;
+        // Persist whatever order the DOM ended up in.
+        const order = [...grid.querySelectorAll(".dash-widget")].map(
+          (el) => el.dataset.widget
+        );
+        await saveDashLayout({ ...dashLayout(), order });
+      });
+      card.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        if (!dragWidget || dragWidget === name) return;
+        const dragged = grid.querySelector(`[data-widget="${dragWidget}"]`);
+        if (!dragged) return;
+        const after = [...grid.children].indexOf(card) > [...grid.children].indexOf(dragged);
+        grid.insertBefore(dragged, after ? card.nextSibling : card);
+      });
+    }
+    grid.appendChild(card);
+  }
+}
+
+async function renderStatsWidget(body) {
+  const stats = await apiJson("/insights/stats");
+  const total = document.createElement("p");
+  total.className = "dash-big";
+  total.textContent = `${stats.total_entries} note${stats.total_entries === 1 ? "" : "s"}`;
+  body.appendChild(total);
+
+  // Last-14-days activity strip (theme colours, height = volume).
+  const strip = document.createElement("div");
+  strip.className = "activity-strip";
+  strip.title = "Notes captured per day, last 14 days";
+  const peak = Math.max(1, ...stats.per_day);
+  for (const count of stats.per_day) {
+    const bar = document.createElement("span");
+    bar.style.height = `${Math.max(8, (count / peak) * 34)}px`;
+    bar.classList.toggle("empty", count === 0);
+    bar.title = `${count} note${count === 1 ? "" : "s"}`;
+    strip.appendChild(bar);
+  }
+  body.appendChild(strip);
+
+  const cats = document.createElement("div");
+  cats.className = "entry-meta";
+  for (const category of stats.categories.slice(0, 5)) {
+    cats.appendChild(chip(`${category.name} · ${category.count}`));
+  }
+  body.appendChild(cats);
+}
+
+function miniEntryList(body, entries, emptyText) {
+  if (!entries.length) {
+    const p = document.createElement("p");
+    p.className = "muted";
+    p.textContent = emptyText;
+    body.appendChild(p);
+    return;
+  }
+  const ul = document.createElement("ul");
+  ul.className = "dash-list";
+  for (const entry of entries) {
+    const li = document.createElement("li");
+    li.textContent =
+      entry.content.length > 70 ? entry.content.slice(0, 69) + "…" : entry.content;
+    li.title = "Open this note";
+    li.addEventListener("click", () => flashEntry(entry.id));
+    ul.appendChild(li);
+  }
+  body.appendChild(ul);
+}
+
+async function renderPinnedWidget(body) {
+  const entries = (await apiJson("/entries")).filter((e) => e.pinned);
+  miniEntryList(body, entries.slice(0, 5), "Pin a note (📌) and it shows up here.");
+}
+
+async function renderMostUsedWidget(body) {
+  const entries = await apiJson("/entries/most-accessed");
+  miniEntryList(body, entries, "Ask questions and your most-used notes appear here.");
+}
+
+async function renderQuestionsWidget(body) {
+  const questions = await apiJson("/chat/recent");
+  if (!questions.length) {
+    body.textContent = "Your recent questions will appear here.";
+    body.className += " muted";
+    return;
+  }
+  const box = document.createElement("div");
+  box.className = "recent";
+  for (const question of questions) {
+    const chipEl = chip(question.length > 40 ? question.slice(0, 39) + "…" : question);
+    chipEl.title = question;
+    chipEl.addEventListener("click", () => {
+      switchTab("chat");
+      sendChatMessage(question);
+    });
+    box.appendChild(chipEl);
+  }
+  body.appendChild(box);
+}
+
+async function renderOnThisDayWidget(body) {
+  const matches = await apiJson("/insights/on-this-day");
+  miniEntryList(
+    body,
+    matches,
+    "Notes you captured on this date in past months will resurface here."
+  );
+}
+
+async function renderDigestWidget(body) {
+  const button = smallButton("Generate this week's digest", "", async () => {
+    button.disabled = true;
+    button.textContent = "Thinking…";
+    try {
+      const result = await apiJson("/insights/digest", { method: "POST" });
+      const out = document.createElement("div");
+      renderMarkdown(out, result.digest);
+      body.replaceChildren(out);
+    } catch (error) {
+      toast(error.message, true);
+      button.disabled = false;
+      button.textContent = "Generate this week's digest";
+    }
+  }, false);
+  body.appendChild(button);
+}
+
+async function renderQuickCaptureWidget(body) {
+  const textarea = document.createElement("textarea");
+  textarea.rows = 2;
+  textarea.placeholder = "Type a thought and press Save — the AI files it.";
+  const row = document.createElement("div");
+  row.className = "row";
+  const status = document.createElement("span");
+  status.className = "status";
+  row.appendChild(
+    smallButton("Save", "", async () => {
+      const content = textarea.value.trim();
+      if (!content) return;
+      status.textContent = "Filing…";
+      try {
+        const saved = await apiJson("/entries", {
+          method: "POST",
+          body: JSON.stringify({ content, tags: [] }),
+        });
+        status.textContent = `Filed under “${saved.category}”.`;
+        textarea.value = "";
+        loadEntries();
+      } catch (error) {
+        status.textContent = error.message;
+      }
+    }, false)
+  );
+  row.appendChild(status);
+  body.append(textarea, row);
+}
+
+async function renderRemindersWidget(body) {
+  const reminders = (await apiJson("/reminders")).filter((r) => !r.done).slice(0, 4);
+  if (!reminders.length) {
+    body.textContent = "No open reminders — add one in the Reminders tab.";
+    body.className += " muted";
+    return;
+  }
+  const ul = document.createElement("ul");
+  ul.className = "dash-list";
+  for (const reminder of reminders) {
+    const li = document.createElement("li");
+    const due = new Date(reminder.due_at);
+    li.textContent = `${reminder.text} — ${due.toLocaleString()}`;
+    if (due < new Date()) li.classList.add("overdue");
+    li.addEventListener("click", () => switchTab("reminders"));
+    ul.appendChild(li);
+  }
+  body.appendChild(ul);
+}
+
+// --- reminders tab (Wave D) --------------------------------------------------------
+
+const notifiedReminderIds = new Set(); // don't re-notify within a session
+
+async function loadReminders() {
+  const reminders = await apiJson("/reminders").catch(() => []);
+  const groupsBox = $("reminder-groups");
+  groupsBox.replaceChildren();
+  $("reminders-empty").classList.toggle("hidden", reminders.length > 0);
+
+  const now = new Date();
+  const endOfToday = new Date(now);
+  endOfToday.setHours(23, 59, 59, 999);
+  const groups = { Overdue: [], Today: [], Upcoming: [], Done: [] };
+  for (const reminder of reminders) {
+    const due = new Date(reminder.due_at);
+    if (reminder.done) groups.Done.push(reminder);
+    else if (due < now) groups.Overdue.push(reminder);
+    else if (due <= endOfToday) groups.Today.push(reminder);
+    else groups.Upcoming.push(reminder);
+  }
+
+  for (const [label, items] of Object.entries(groups)) {
+    if (!items.length) continue;
+    const heading = document.createElement("h3");
+    heading.textContent = label;
+    groupsBox.appendChild(heading);
+    const ul = document.createElement("ul");
+    ul.className = "entry-list";
+    for (const reminder of items) {
+      const li = document.createElement("li");
+      if (label === "Overdue") li.classList.add("overdue");
+      const row = document.createElement("div");
+      row.className = "entry-meta";
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = reminder.done;
+      checkbox.title = reminder.done ? "Reopen" : "Mark done";
+      checkbox.style.width = "auto";
+      checkbox.addEventListener("change", async () => {
+        await apiJson(`/reminders/${reminder.id}`, {
+          method: "PUT",
+          body: JSON.stringify({ done: checkbox.checked }),
+        });
+        loadReminders();
+      });
+      row.appendChild(checkbox);
+
+      const text = document.createElement("span");
+      text.textContent = reminder.text;
+      if (reminder.done) text.style.textDecoration = "line-through";
+      row.appendChild(text);
+
+      const due = document.createElement("span");
+      due.className = "entry-date";
+      due.textContent = new Date(reminder.due_at).toLocaleString();
+      row.appendChild(due);
+
+      const actions = document.createElement("span");
+      actions.className = "entry-actions";
+      actions.appendChild(
+        smallButton("×", "Delete this reminder", async () => {
+          await apiJson(`/reminders/${reminder.id}`, { method: "DELETE" });
+          loadReminders();
+        })
+      );
+      row.appendChild(actions);
+      li.appendChild(row);
+
+      if (reminder.entry_preview) {
+        const linkRow = document.createElement("div");
+        linkRow.className = "entry-links";
+        const noteChip = chip(`📝 ${reminder.entry_preview}`, "link");
+        noteChip.style.cursor = "pointer";
+        noteChip.addEventListener("click", () => flashEntry(reminder.entry_id));
+        linkRow.appendChild(noteChip);
+        li.appendChild(linkRow);
+      }
+      ul.appendChild(li);
+    }
+    groupsBox.appendChild(ul);
+  }
+}
+
+async function addReminder(text, dueValue, entryId = null) {
+  if (!text || !dueValue) {
+    toast("A reminder needs text and a due time.", true);
+    return false;
+  }
+  await apiJson("/reminders", {
+    method: "POST",
+    body: JSON.stringify({
+      text,
+      due_at: new Date(dueValue).toISOString(),
+      entry_id: entryId,
+    }),
+  });
+  // Ask once for notification permission, when the first reminder lands.
+  if ("Notification" in window && Notification.permission === "default") {
+    Notification.requestPermission();
+  }
+  toast("Reminder set.");
+  loadReminders();
+  return true;
+}
+
+// Fire browser notifications for reminders that come due while the app
+// is open (checked every 30s).
+async function checkDueReminders() {
+  if (!authToken()) return;
+  const reminders = await apiJson("/reminders").catch(() => []);
+  const now = new Date();
+  for (const reminder of reminders) {
+    if (reminder.done || notifiedReminderIds.has(reminder.id)) continue;
+    const due = new Date(reminder.due_at);
+    if (due <= now && now - due < 12 * 60 * 60 * 1000) {
+      notifiedReminderIds.add(reminder.id);
+      toast(`⏰ Reminder: ${reminder.text}`);
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification("MemoryMap reminder", { body: reminder.text });
+      }
+    }
+  }
+}
+setInterval(checkDueReminders, 30_000);
+
+// Default due time for new reminders: tomorrow morning, 9am.
+function defaultDueValue() {
+  const due = new Date();
+  due.setDate(due.getDate() + 1);
+  due.setHours(9, 0, 0, 0);
+  // datetime-local wants "YYYY-MM-DDTHH:MM" in local time.
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${due.getFullYear()}-${pad(due.getMonth() + 1)}-${pad(due.getDate())}T${pad(due.getHours())}:${pad(due.getMinutes())}`;
 }
 
 // --- tiny markdown renderer (Round 1) -------------------------------------------
@@ -1497,6 +2034,11 @@ function switchTab(name) {
   if (name === "chat") {
     loadChatSuggestions();
     $("chat-input").focus();
+  }
+  if (name === "dashboard") renderDashboard();
+  if (name === "reminders") {
+    if (!$("reminder-due").value) $("reminder-due").value = defaultDueValue();
+    loadReminders();
   }
 }
 
@@ -1874,7 +2416,9 @@ function renderSettings() {
   if (status.embedding_error) {
     embeddingError.textContent =
       `Search engine problem: ${status.embedding_error} — semantic search is ` +
-      "falling back to keywords. Full details in Settings → Logs.";
+      "falling back to keywords. Quick fix: switch the search engine below to " +
+      "an Ollama embedding model (download nomic-embed-text from the list) — " +
+      "it runs fully offline. Full details in Settings → Logs.";
   }
   $("ollama-help").classList.toggle("hidden", status.ollama_running);
   $("models-config").classList.toggle("hidden", !status.ollama_running);
@@ -2107,6 +2651,18 @@ $("persona-select").addEventListener("change", async () => {
   }).catch(() => {});
 });
 $("persona-add").addEventListener("click", addPersona);
+
+// Dashboard + reminders (Wave D).
+$("dash-edit").addEventListener("click", () => {
+  dashEditMode = !dashEditMode;
+  $("dash-edit").textContent = dashEditMode ? "Done" : "Edit layout";
+  renderDashboard();
+});
+$("reminder-add").addEventListener("click", async () => {
+  if (await addReminder($("reminder-text").value.trim(), $("reminder-due").value)) {
+    $("reminder-text").value = "";
+  }
+});
 for (const button of document.querySelectorAll(".panel-close")) {
   button.addEventListener("click", () => showPanel(null));
 }

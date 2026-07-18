@@ -44,16 +44,13 @@
     </div>
   </div>
 
-  <!-- ======================= DASHBOARD TAB (Wave D fills this) ============ -->
+  <!-- ======================= DASHBOARD TAB (Wave D) ======================= -->
   <div class="tab-page hidden" id="tab-dashboard">
-    <section class="card placeholder">
-      <h2>Dashboard</h2>
-      <p class="muted">
-        Coming in Wave D: stats, pinned notes, “on this day”, weekly digest,
-        quick capture, and drag-and-drop widgets. For now, everything lives in
-        the <strong>Notes</strong> tab.
-      </p>
-    </section>
+    <div class="dash-toolbar">
+      <span class="muted">Drag widgets to rearrange — your layout is remembered.</span>
+      <button id="dash-edit" class="ghost small">Edit layout</button>
+    </div>
+    <div id="dash-grid"></div>
   </div>
 
   <!-- ======================= NOTES TAB (the current app) ================== -->
@@ -226,14 +223,22 @@
     </section>
   </div>
 
-  <!-- ======================= REMINDERS TAB (Wave D fills this) ============ -->
+  <!-- ======================= REMINDERS TAB (Wave D) ======================= -->
   <div class="tab-page hidden" id="tab-reminders">
-    <section class="card placeholder">
+    <section class="card reminders-card">
       <h2>Reminders</h2>
+      <div class="row">
+        <input id="reminder-text" type="text" maxlength="500"
+          placeholder="Remind me to…">
+        <input id="reminder-due" type="datetime-local" style="max-width: 14rem">
+        <button id="reminder-add">Add</button>
+      </div>
       <p class="muted">
-        Coming in Wave D: reminders you can attach to notes, with due dates
-        and notifications.
+        Notifications fire while the app is open. Attach a reminder to a note
+        with the ⏰ button on any entry.
       </p>
+      <div id="reminder-groups"></div>
+      <p id="reminders-empty" class="muted hidden">No reminders yet.</p>
     </section>
   </div>
 

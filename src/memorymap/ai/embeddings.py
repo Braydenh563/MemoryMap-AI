@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 
 import numpy as np
 from sqlalchemy.orm import Session
@@ -68,10 +69,15 @@ def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
 
 
 class EmbeddingService:
+    # After a failed model load, wait this long before trying again —
+    # each attempt can hit the network and stall a save otherwise.
+    RETRY_AFTER_SECONDS = 300
+
     def __init__(self, model_manager: ModelManager, ollama_client: OllamaClient) -> None:
         self._models = model_manager
         self._ollama = ollama_client
         self._st_model = None  # loaded lazily, exactly once
+        self._load_failed_at: float | None = None
         # Why the last embed failed, for the Models screen — None = fine.
         self.last_error: str | None = None
 
@@ -102,14 +108,33 @@ class EmbeddingService:
                 return None
         return self._embed_with_sentence_transformers(text)
 
+    def _load_st_model(self):  # noqa: ANN202
+        """Load the sentence-transformers model, working offline when the
+        HuggingFace hub is unreachable (user-reported failure: 'not a
+        valid model identifier' with no internet — the local cache still
+        has the model, so ask for it explicitly)."""
+        from sentence_transformers import SentenceTransformer
+
+        try:
+            return SentenceTransformer(DEFAULT_ST_MODEL)
+        except Exception as online_exc:
+            try:
+                model = SentenceTransformer(DEFAULT_ST_MODEL, local_files_only=True)
+                logger.info("embedding model loaded from local cache (hub unreachable)")
+                return model
+            except Exception:
+                raise online_exc  # the original error names the real problem
+
     def _embed_with_sentence_transformers(self, text: str) -> np.ndarray | None:
+        if self._st_model is None and self._load_failed_at is not None:
+            if time.monotonic() - self._load_failed_at < self.RETRY_AFTER_SECONDS:
+                return None  # don't re-stall every save while it's broken
         try:
             if self._st_model is None:
                 # Heavy import (pulls in torch) — deferred so the app
                 # starts fast and still runs if the package is missing.
-                from sentence_transformers import SentenceTransformer
-
-                self._st_model = SentenceTransformer(DEFAULT_ST_MODEL)
+                self._st_model = self._load_st_model()
+                self._load_failed_at = None
             result = np.asarray(self._st_model.encode(text), dtype="float32")
             self.last_error = None
             return result
@@ -118,6 +143,7 @@ class EmbeddingService:
             # keep working — but record and LOG why, or a broken install
             # looks like it's "warming up" forever (user-reported bug).
             self.last_error = f"{type(exc).__name__}: {exc}"
+            self._load_failed_at = time.monotonic()
             logger.exception("embedding backend failed")
             return None
 

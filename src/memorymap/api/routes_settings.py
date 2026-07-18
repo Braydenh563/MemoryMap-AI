@@ -48,6 +48,13 @@ class PreferencesBody(BaseModel):
     # Personas (Wave C): custom system prompts + which one is active.
     personas: list[PersonaItem] | None = Field(default=None, max_length=20)
     active_persona: str | None = Field(default=None, max_length=40)
+    # Dashboard layout (Wave D): widget order + hidden widgets.
+    dashboard_layout: "DashboardLayout | None" = None
+
+
+class DashboardLayout(BaseModel):
+    order: list[str] = Field(default_factory=list, max_length=20)
+    hidden: list[str] = Field(default_factory=list, max_length=20)
 
 
 @router.get("/preferences")
@@ -61,6 +68,9 @@ def get_preferences() -> dict:
         "custom_templates": config.get_preference("custom_templates", []),
         "personas": config.get_preference("personas", []),
         "active_persona": config.get_preference("active_persona", "Librarian"),
+        "dashboard_layout": config.get_preference(
+            "dashboard_layout", {"order": [], "hidden": []}
+        ),
     }
 
 

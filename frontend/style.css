@@ -499,6 +499,70 @@ li.link-source { outline: 2px solid var(--accent); }
 .log-list .what { font-weight: 700; flex-shrink: 0; min-width: 3.6rem; }
 .log-list li.log-warn .what { color: var(--warn); }
 
+/* --- dashboard + reminders (Wave D) ------------------------------------------ */
+.dash-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0 2rem 0.5rem;
+}
+#dash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1rem;
+  padding: 0 2rem 2rem;
+  align-items: start;
+}
+.dash-widget { margin-bottom: 0; }
+.dash-widget.dash-hidden { opacity: 0.45; }
+.dash-widget.dragging { opacity: 0.5; outline: 2px dashed var(--accent); }
+.drag-handle { cursor: grab; color: var(--muted); font-size: 0.8rem; }
+.dash-big { font-size: 1.6rem; font-weight: 700; margin: 0 0 0.5rem; }
+.dash-list { list-style: none; margin: 0; padding: 0; font-size: 0.9rem; }
+.dash-list li {
+  padding: 0.3rem 0.4rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.dash-list li:hover { background: var(--accent-soft); }
+.dash-list li.overdue { color: var(--warn); }
+.activity-strip {
+  display: flex;
+  gap: 3px;
+  align-items: flex-end;
+  height: 38px;
+  margin-bottom: 0.6rem;
+}
+.activity-strip span {
+  flex: 1;
+  border-radius: 3px 3px 0 0;
+  background: var(--accent);
+  opacity: 0.85;
+}
+.activity-strip span.empty { background: var(--chip-bg); }
+.reminders-card { margin: 0.25rem 2rem; }
+.reminders-card .row input[type="datetime-local"] { flex: 0 1 auto; }
+.entry-list li.overdue { border-color: var(--warn); }
+
+/* Typing indicator (Wave D): three bouncing dots until the first token */
+.typing-dots { display: inline-flex; gap: 0.25rem; padding: 0.2rem 0; }
+.typing-dots span {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--muted);
+  animation: dot-bounce 1.2s infinite ease-in-out;
+}
+.typing-dots span:nth-child(2) { animation-delay: 0.15s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes dot-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-0.3rem); opacity: 1; }
+}
+
+.persona-preview { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* --- chat tab (Wave C) -------------------------------------------------------- */
 #chat-messages {
   min-height: 300px;

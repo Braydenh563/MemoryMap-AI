@@ -1,0 +1,106 @@
+"""Reminders (Wave D): create, list, tick off, delete.
+
+Local-only — the browser fires the notification while the app is open;
+nothing runs in the cloud.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from memorymap.core.database import Entry, Reminder
+from memorymap.core.deps import get_session
+from memorymap.entry.manager import log_action
+
+router = APIRouter(prefix="/reminders", tags=["reminders"])
+
+
+class ReminderCreate(BaseModel):
+    text: str = Field(min_length=1, max_length=500)
+    due_at: datetime
+    entry_id: int | None = None
+
+
+class ReminderUpdate(BaseModel):
+    text: str | None = Field(default=None, min_length=1, max_length=500)
+    due_at: datetime | None = None
+    done: bool | None = None
+
+
+def _to_out(session: Session, reminder: Reminder) -> dict:
+    entry_preview = None
+    if reminder.entry_id is not None:
+        entry = session.get(Entry, reminder.entry_id)
+        if entry is not None and not entry.is_deleted:
+            content = entry.content
+            entry_preview = content if len(content) <= 60 else content[:59] + "…"
+    return {
+        "id": reminder.id,
+        "text": reminder.text,
+        "due_at": reminder.due_at.isoformat(),
+        "done": reminder.done,
+        "entry_id": reminder.entry_id,
+        "entry_preview": entry_preview,
+    }
+
+
+def _existing(session: Session, reminder_id: int) -> Reminder:
+    reminder = session.get(Reminder, reminder_id)
+    if reminder is None:
+        raise HTTPException(status_code=404, detail="Reminder not found")
+    return reminder
+
+
+@router.get("")
+def list_reminders(session: Session = Depends(get_session)) -> list[dict]:
+    """All reminders, soonest first; the frontend groups them."""
+    rows = session.scalars(select(Reminder).order_by(Reminder.due_at))
+    return [_to_out(session, r) for r in rows]
+
+
+@router.post("", status_code=201)
+def create_reminder(body: ReminderCreate, session: Session = Depends(get_session)) -> dict:
+    if body.entry_id is not None and session.get(Entry, body.entry_id) is None:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    reminder = Reminder(text=body.text, due_at=body.due_at, entry_id=body.entry_id)
+    session.add(reminder)
+    session.flush()
+    log_action(session, "created", "reminder", reminder.id, body.text[:80])
+    session.commit()
+    return _to_out(session, reminder)
+
+
+@router.put("/{reminder_id}")
+def update_reminder(
+    reminder_id: int, body: ReminderUpdate, session: Session = Depends(get_session)
+) -> dict:
+    reminder = _existing(session, reminder_id)
+    if body.text is not None:
+        reminder.text = body.text
+    if body.due_at is not None:
+        reminder.due_at = body.due_at
+    if body.done is not None and body.done != reminder.done:
+        reminder.done = body.done
+        log_action(
+            session,
+            "edited",
+            "reminder",
+            reminder.id,
+            "done" if body.done else "reopened",
+        )
+    session.commit()
+    return _to_out(session, reminder)
+
+
+@router.delete("/{reminder_id}")
+def delete_reminder(reminder_id: int, session: Session = Depends(get_session)) -> dict:
+    reminder = _existing(session, reminder_id)
+    log_action(session, "deleted", "reminder", reminder.id)
+    session.delete(reminder)
+    session.commit()
+    return {"deleted": True}

@@ -88,6 +88,24 @@ def test_chat_uses_selected_persona(ai_client, fake_ollama):
     assert "librarian" in fake_ollama.chat_calls[-1][0]["content"].lower()
 
 
+def test_edited_builtin_persona_overrides_and_resets(ai_client, fake_ollama):
+    _save(ai_client, "a funny scarecrow joke")
+    # Editing a built-in stores an override under the same name…
+    ai_client.put(
+        "/preferences",
+        json={"personas": [{"name": "Librarian", "prompt": "You are a grumpy archivist."}]},
+    )
+    ai_client.post("/chat", json={"question": "any jokes?", "persona": "Librarian"})
+    assert "grumpy archivist" in fake_ollama.chat_calls[-1][0]["content"].lower()
+
+    # …and removing the override resets to the default prompt.
+    ai_client.put("/preferences", json={"personas": []})
+    ai_client.post("/chat", json={"question": "any jokes?", "persona": "Librarian"})
+    assert "librarian of the user's personal notebook" in fake_ollama.chat_calls[-1][0][
+        "content"
+    ].lower()
+
+
 def test_active_persona_preference_is_default(ai_client, fake_ollama):
     _save(ai_client, "a funny scarecrow joke")
     ai_client.put(

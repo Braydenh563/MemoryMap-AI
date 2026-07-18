@@ -6,18 +6,17 @@ API, so none is needed (plan §4).
 
 from __future__ import annotations
 
-import threading
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from fastapi import Depends
-
 from memorymap import __version__
+from memorymap.ai import embeddings
 from memorymap.api import (
     routes_auth,
     routes_chat,
+    routes_conversations,
     routes_entries,
     routes_files,
     routes_models,
@@ -33,17 +32,8 @@ from memorymap.entry import manager
 FRONTEND_DIR = Path(__file__).resolve().parents[3] / "frontend"
 
 
-def _warm_up_embeddings() -> None:
-    """Load the embedding model in the background at startup.
-
-    The first embed call loads the model weights (several seconds), which
-    used to land on the user's very first save. Warming up here makes
-    that first save fast. Any failure just means embeddings are
-    unavailable — the app runs fine without them."""
-    try:
-        deps.get_embeddings().embed_text("warm up")
-    except Exception:
-        pass
+# (Embedding warm-up now lives in ai/embeddings.start_warmup, which also
+# tracks running/failed state for the status pill.)
 
 
 def _purge_expired_bin_entries() -> None:
@@ -65,9 +55,7 @@ def create_app() -> FastAPI:
     logbuffer.install()  # start capturing logs for the Settings viewer
     init_app_state()
     _purge_expired_bin_entries()
-    threading.Thread(
-        target=_warm_up_embeddings, name="embedding-warmup", daemon=True
-    ).start()
+    embeddings.start_warmup(deps.get_embeddings())
 
     app = FastAPI(title="MemoryMap AI", version=__version__)
 
@@ -81,6 +69,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_settings.router, dependencies=locked)
     app.include_router(routes_files.router, dependencies=locked)
     app.include_router(routes_tags.router, dependencies=locked)
+    app.include_router(routes_conversations.router, dependencies=locked)
 
     @app.get("/health", tags=["system"])
     def health() -> dict[str, str]:

@@ -97,6 +97,19 @@ class ChatRequest(BaseModel):
     question: str = Field(min_length=1)
     # Prior turns for follow-up context (Round 1); the server clips this.
     history: list[ChatTurn] = Field(default_factory=list)
+    # Persona name (Wave C); None → the active persona preference.
+    persona: str | None = None
+
+
+def _resolve_persona(name: str | None) -> str | None:
+    """Persona name → its system prompt. Unknown names fall back to the
+    default persona so a stale preference can't break chat."""
+    wanted = name or deps.get_config().get_preference("active_persona", "Librarian")
+    custom = deps.get_config().get_preference("personas", [])
+    for persona in librarian.BUILTIN_PERSONAS + list(custom):
+        if persona.get("name") == wanted and persona.get("prompt"):
+            return persona["prompt"]
+    return None
 
 
 class ChatResponse(BaseModel):
@@ -166,6 +179,7 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         style=prepared["style"],
         profile=prepared["profile"],
         history=[turn.model_dump() for turn in body.history],
+        persona_prompt=_resolve_persona(body.persona),
     )
     return ChatResponse(
         ai_response=ai_response,
@@ -216,6 +230,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                 style=prepared["style"],
                 profile=prepared["profile"],
                 history=[turn.model_dump() for turn in body.history],
+                persona_prompt=_resolve_persona(body.persona),
             )
             try:
                 for piece in ollama.chat_stream(model_manager.chat_model(), messages):

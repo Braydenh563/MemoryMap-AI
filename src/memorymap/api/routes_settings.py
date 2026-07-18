@@ -30,6 +30,11 @@ class TemplateItem(BaseModel):
     content: str = Field(max_length=2000)
 
 
+class PersonaItem(BaseModel):
+    name: str = Field(min_length=1, max_length=40)
+    prompt: str = Field(min_length=1, max_length=2000)
+
+
 class PreferencesBody(BaseModel):
     recycle_bin_days: int | None = Field(default=None, ge=1, le=365)
     communication_style: Literal["friendly", "concise", "detailed"] | None = None
@@ -40,6 +45,9 @@ class PreferencesBody(BaseModel):
     profile_enabled: bool | None = None
     # Capture templates (Wave B): user-defined prefills for the note box.
     custom_templates: list[TemplateItem] | None = Field(default=None, max_length=20)
+    # Personas (Wave C): custom system prompts + which one is active.
+    personas: list[PersonaItem] | None = Field(default=None, max_length=20)
+    active_persona: str | None = Field(default=None, max_length=40)
 
 
 @router.get("/preferences")
@@ -51,6 +59,8 @@ def get_preferences() -> dict:
         "user_profile": config.get_preference("user_profile", ""),
         "profile_enabled": config.get_preference("profile_enabled", False),
         "custom_templates": config.get_preference("custom_templates", []),
+        "personas": config.get_preference("personas", []),
+        "active_persona": config.get_preference("active_persona", "Librarian"),
     }
 
 

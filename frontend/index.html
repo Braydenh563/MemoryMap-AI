@@ -182,16 +182,37 @@
     </div>
   </div>
 
-  <!-- ======================= CHAT TAB (Wave C fills this) ================= -->
+  <!-- ======================= CHAT TAB (Wave C) ============================ -->
   <div class="tab-page hidden" id="tab-chat">
-    <section class="card placeholder">
-      <h2>Chat</h2>
-      <p class="muted">
-        Coming in Wave C: a full conversation view with personas and saved
-        chats. Until then, use “Ask your notebook” in the
-        <strong>Notes</strong> tab — it has the same brain.
-      </p>
-    </section>
+    <div class="layout">
+      <aside class="card" id="chat-sidebar">
+        <div class="row space-between">
+          <h2>Chats</h2>
+          <button id="chat-new" class="ghost small" title="Start a fresh conversation">+ New</button>
+        </div>
+        <ul id="conversation-list"></ul>
+        <p id="conv-empty" class="muted">No saved chats yet — ask something!</p>
+      </aside>
+      <main>
+        <section class="card" id="chat-main">
+          <div class="row space-between">
+            <h2 id="chat-title">New chat</h2>
+            <div class="row">
+              <label for="persona-select" class="muted">Persona</label>
+              <select id="persona-select" class="small-select"></select>
+            </div>
+          </div>
+          <div id="chat-messages"></div>
+          <div id="chat-suggest" class="recent hidden"></div>
+          <div class="row">
+            <input id="chat-input" type="text" placeholder="Ask your notebook anything…">
+            <button id="chat-send">Send</button>
+            <button id="chat-stop" class="ghost hidden" title="Stop the answer">Stop</button>
+          </div>
+          <p id="chat-status" class="status" role="status"></p>
+        </section>
+      </main>
+    </div>
   </div>
 
   <!-- ======================= GRAPH TAB (Wave E fills this) ================ -->
@@ -226,6 +247,7 @@
       <div class="modal-body">
         <nav class="modal-nav" id="settings-nav">
           <button data-section="models" class="active">Models</button>
+          <button data-section="personas">Personas</button>
           <button data-section="preferences">Preferences</button>
           <button data-section="data">Data</button>
           <button data-section="logs">Logs</button>
@@ -236,6 +258,7 @@
           <!-- Models (Phase 3.5, moved here in Wave A) -->
           <section class="settings-section" id="settings-models">
             <p id="ollama-status" class="status"></p>
+            <p id="embedding-error" class="status error hidden"></p>
             <p id="ollama-help" class="muted hidden">
               Ollama powers the chat answers and auto-filing.
               <a href="https://ollama.com" target="_blank" rel="noopener">Install it from ollama.com</a>,
@@ -276,6 +299,23 @@
             <div id="suggested-box" class="hidden">
               <h3>Suggested downloads</h3>
               <ul id="suggested-list"></ul>
+            </div>
+          </section>
+
+          <!-- Personas (Wave C): who the AI is when it answers -->
+          <section class="settings-section hidden" id="settings-personas">
+            <p class="muted">
+              A persona changes the AI's voice — answers always stay grounded
+              in your notes. Pick the active one in the Chat tab.
+            </p>
+            <ul id="persona-list" class="entry-list"></ul>
+            <h3>Add your own</h3>
+            <input id="persona-name" type="text" maxlength="40" placeholder="Name (e.g. Pirate)">
+            <textarea id="persona-prompt" rows="2" maxlength="2000"
+              placeholder="System prompt, e.g. You are a cheerful pirate captain."></textarea>
+            <div class="row">
+              <button id="persona-add" class="small">Add persona</button>
+              <span id="persona-status" class="status"></span>
             </div>
           </section>
 

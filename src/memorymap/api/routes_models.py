@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from memorymap.ai import embeddings as embeddings_module
 from memorymap.ai import model_manager as jobs
 from memorymap.ai.model_manager import SUGGESTED_MODELS
 from memorymap.ai.ollama_client import OllamaError
@@ -75,6 +76,9 @@ def status() -> dict:
         "embedding_backend": manager.embedding_backend(),
         "embedding_model": manager.embedding_model(),
         "embedding_ready": embeddings.is_ready(),
+        # Lets the UI tell "still loading" from "failed" (pill fix).
+        "embedding_warming": embeddings_module.warmup_running(),
+        "embedding_error": embeddings.last_error,
         "reindex": jobs.reindex_status(),
         "pulls": jobs.pull_statuses(),
     }

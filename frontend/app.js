@@ -153,7 +153,8 @@ function startApp() {
   loadRecentQuestions();
   loadSuggestions();
   loadMostUsed();
-  loadTemplates();
+  loadTemplates().then(personaOptions);
+  loadConversationList();
   refreshModelStatus();
 }
 
@@ -498,14 +499,7 @@ async function toggleRelated(entry) {
     const preview = other.content.length > 50 ? other.content.slice(0, 49) + "…" : other.content;
     const relChip = chip(`≈ ${preview}`, "link");
     relChip.style.cursor = "pointer";
-    relChip.addEventListener("click", () => {
-      const target = document.querySelector(`#entry-list li[data-id="${other.id}"]`);
-      if (target) {
-        target.scrollIntoView({ behavior: "smooth", block: "center" });
-        target.classList.add("flash");
-        setTimeout(() => target.classList.remove("flash"), 1700);
-      }
-    });
+    relChip.addEventListener("click", () => flashEntry(other.id));
     row.appendChild(relChip);
   }
   card.appendChild(row);
@@ -787,6 +781,31 @@ const SEARCH_MODE_LABELS = {
   recent: "recent notes", // broad question → showing recent entries
 };
 
+// Jump to an entry in the Notes tab and flash it — shared by search
+// results, most-used, and related-notes chips.
+function flashEntry(id) {
+  switchTab("notes");
+  activeCategory = null;
+  renderSidebar();
+  renderEntries();
+  requestAnimationFrame(() => {
+    const card = document.querySelector(`#entry-list li[data-id="${id}"]`);
+    if (!card) return;
+    card.scrollIntoView({ behavior: "smooth", block: "center" });
+    card.classList.add("flash");
+    setTimeout(() => card.classList.remove("flash"), 1700);
+  });
+}
+
+// A raw search result the user can click to open the note (Wave C).
+function clickableResult(entry) {
+  const li = entryItem(entry);
+  li.classList.add("clickable-result");
+  li.title = "Open this note in the Notes tab";
+  li.addEventListener("click", () => flashEntry(entry.id));
+  return li;
+}
+
 function renderChatMeta(meta) {
   $("search-mode").textContent = SEARCH_MODE_LABELS[meta.search_mode] || meta.search_mode;
   // "offline" only when Ollama is genuinely down — not merely because a
@@ -804,8 +823,63 @@ function renderChatMeta(meta) {
     li.textContent = "No matching records.";
     rawList.appendChild(li);
   }
-  for (const entry of meta.raw_results) rawList.appendChild(entryItem(entry));
+  for (const entry of meta.raw_results) rawList.appendChild(clickableResult(entry));
   $("chat-results").classList.remove("hidden");
+}
+
+// The one NDJSON stream reader, shared by the Notes quick-ask and the
+// Chat tab (Wave C). Callers own all rendering via the handlers.
+async function streamChat({ question, history, persona, signal, onMeta, onThinking, onAnswer }) {
+  const body = { question, history: history || [] };
+  if (persona) body.persona = persona;
+  const response = await fetch("/chat/stream", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() },
+    body: JSON.stringify(body),
+    signal,
+  });
+  if (response.status === 401) {
+    showLockScreen(false);
+    throw new Error("Locked");
+  }
+  if (!response.ok) {
+    const detail = await response.json().catch(() => ({}));
+    throw new Error(detail.detail || `Request failed (${response.status})`);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffered = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffered += decoder.decode(value, { stream: true });
+    const lines = buffered.split("\n");
+    buffered = lines.pop(); // last piece may be a partial line
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      const event = JSON.parse(line);
+      if (event.type === "meta") onMeta(event);
+      else if (event.type === "thinking") onThinking(event.delta);
+      else if (event.type === "answer") onAnswer(event.delta);
+    }
+  }
+}
+
+// Live markdown while streaming: re-render the accumulated text at most
+// once per animation frame — smooth, and cheap at personal-notebook scale.
+function liveMarkdownRenderer(box) {
+  let queued = false;
+  let latest = "";
+  return (text) => {
+    latest = text;
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => {
+      queued = false;
+      renderMarkdown(box, latest);
+    });
+  };
 }
 
 // Ask ⇄ Stop while a stream is in flight.
@@ -863,56 +937,34 @@ async function askQuestion(preset) {
 
   let answerRaw = "";
   let stopped = false;
+  const renderLive = liveMarkdownRenderer(answerBox);
   askController = new AbortController();
   try {
     // Stream: raw results arrive first, then thinking/answer tokens live.
-    const response = await fetch("/chat/stream", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() },
-      body: JSON.stringify({
-        question,
-        history: conversation.slice(-MAX_CLIENT_HISTORY),
-      }),
+    await streamChat({
+      question,
+      history: conversation.slice(-MAX_CLIENT_HISTORY),
       signal: askController.signal,
+      onMeta: (meta) => {
+        renderChatMeta(meta);
+        status.textContent = "The model is writing…";
+      },
+      onThinking: (delta) => {
+        // Auto-expand while the model reasons (user request).
+        thinkingBox.classList.remove("hidden");
+        thinkingBox.open = true;
+        thinkingText.textContent += delta;
+        status.textContent = "The model is thinking…";
+      },
+      onAnswer: (delta) => {
+        if (thinkingBox.open) thinkingBox.open = false; // reasoning done → tuck away
+        answerRaw += delta;
+        renderLive(answerRaw); // markdown renders AS it streams (user request)
+        status.textContent = "The model is writing…";
+      },
     });
-    if (response.status === 401) {
-      showLockScreen(false);
-      throw new Error("Locked");
-    }
-    if (!response.ok) {
-      const detail = await response.json().catch(() => ({}));
-      throw new Error(detail.detail || `Request failed (${response.status})`);
-    }
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffered = "";
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffered += decoder.decode(value, { stream: true });
-      const lines = buffered.split("\n");
-      buffered = lines.pop(); // last piece may be a partial line
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        const event = JSON.parse(line);
-        if (event.type === "meta") {
-          renderChatMeta(event);
-          status.textContent = "The model is writing…";
-        } else if (event.type === "thinking") {
-          thinkingBox.classList.remove("hidden");
-          thinkingText.textContent += event.delta;
-          status.textContent = "The model is thinking…";
-        } else if (event.type === "answer") {
-          // Stream as plain text (fast); format once it's complete.
-          answerRaw += event.delta;
-          answerBox.textContent = answerRaw;
-          status.textContent = "The model is writing…";
-        }
-      }
-    }
-
-    // Render the finished answer as markdown, and remember the turn.
+    // Final render (catches anything after the last animation frame).
     renderMarkdown(answerBox, answerRaw);
     conversation.push({ question, answer: answerRaw });
     status.textContent = "";
@@ -969,6 +1021,336 @@ async function loadSuggestions() {
     chipEl.addEventListener("click", () => askQuestion(question));
     box.appendChild(chipEl);
   }
+}
+
+// --- chat tab (Wave C) ------------------------------------------------------------
+
+let chatConv = { id: null, turns: [] }; // the open conversation
+let chatController = null;
+
+function personaOptions() {
+  // Built-ins + the user's custom personas; the active one pre-selected.
+  const select = $("persona-select");
+  const custom = (prefsCache && prefsCache.personas) || [];
+  const active = (prefsCache && prefsCache.active_persona) || "Librarian";
+  select.replaceChildren();
+  for (const persona of [
+    { name: "Librarian" },
+    { name: "Coach" },
+    { name: "Analyst" },
+    ...custom,
+  ]) {
+    const option = document.createElement("option");
+    option.value = persona.name;
+    option.textContent = persona.name;
+    if (persona.name === active) option.selected = true;
+    select.appendChild(option);
+  }
+}
+
+function chatScrollToEnd() {
+  const box = $("chat-messages");
+  box.scrollTop = box.scrollHeight;
+}
+
+function addBubble(role, text) {
+  const bubble = document.createElement("div");
+  bubble.className = `msg ${role}`;
+  bubble.textContent = text;
+  $("chat-messages").appendChild(bubble);
+  chatScrollToEnd();
+  return bubble;
+}
+
+// An assistant bubble with its thinking box and matching-records slot.
+function addAssistantBubble() {
+  const bubble = document.createElement("div");
+  bubble.className = "msg assistant";
+
+  const thinkingBox = document.createElement("details");
+  thinkingBox.className = "hidden";
+  const summary = document.createElement("summary");
+  summary.textContent = "Model's thinking";
+  const thinkingText = document.createElement("div");
+  thinkingText.className = "thinking";
+  thinkingBox.append(summary, thinkingText);
+
+  const answerBox = document.createElement("div");
+  answerBox.className = "bubble-answer";
+
+  const recordsHolder = document.createElement("div");
+
+  bubble.append(thinkingBox, answerBox, recordsHolder);
+  $("chat-messages").appendChild(bubble);
+  chatScrollToEnd();
+  return { bubble, thinkingBox, thinkingText, answerBox, recordsHolder };
+}
+
+function renderRecordsDetails(holder, meta) {
+  if (!meta.raw_results.length) return;
+  const details = document.createElement("details");
+  const summary = document.createElement("summary");
+  summary.className = "muted";
+  const label = SEARCH_MODE_LABELS[meta.search_mode] || meta.search_mode;
+  summary.textContent = `${meta.raw_results.length} matching note${
+    meta.raw_results.length === 1 ? "" : "s"
+  } (${label}) — click one to open it`;
+  details.appendChild(summary);
+  const list = document.createElement("ul");
+  list.className = "entry-list";
+  for (const entry of meta.raw_results) list.appendChild(clickableResult(entry));
+  details.appendChild(list);
+  holder.appendChild(details);
+}
+
+async function sendChatMessage(preset) {
+  const input = $("chat-input");
+  const status = $("chat-status");
+  const question = (preset ?? input.value).trim();
+  if (!question) return;
+
+  $("chat-suggest").classList.add("hidden");
+  input.value = "";
+  input.disabled = true;
+  hide("chat-send");
+  show("chat-stop");
+  status.classList.remove("error");
+  status.textContent = "Searching your notes…";
+
+  addBubble("user", question);
+  const { thinkingBox, thinkingText, answerBox, recordsHolder } = addAssistantBubble();
+  const renderLive = liveMarkdownRenderer(answerBox);
+  let answerRaw = "";
+  let thinkingRaw = "";
+  let meta = null;
+  chatController = new AbortController();
+
+  try {
+    await streamChat({
+      question,
+      history: chatConv.turns.slice(-MAX_CLIENT_HISTORY),
+      persona: $("persona-select").value || null,
+      signal: chatController.signal,
+      onMeta: (m) => {
+        meta = m;
+        status.textContent = "The model is writing…";
+      },
+      onThinking: (delta) => {
+        thinkingBox.classList.remove("hidden");
+        thinkingBox.open = true; // expanded while reasoning (user request)
+        thinkingRaw += delta;
+        thinkingText.textContent = thinkingRaw;
+        status.textContent = "The model is thinking…";
+        chatScrollToEnd();
+      },
+      onAnswer: (delta) => {
+        if (thinkingBox.open) thinkingBox.open = false; // collapse when answering
+        answerRaw += delta;
+        renderLive(answerRaw); // live markdown (user request)
+        status.textContent = "The model is writing…";
+        chatScrollToEnd();
+      },
+    });
+    status.textContent = "";
+  } catch (error) {
+    if (error.name === "AbortError") {
+      status.textContent = "Stopped.";
+    } else {
+      status.textContent = error.message;
+      status.classList.add("error");
+    }
+  } finally {
+    chatController = null;
+    input.disabled = false;
+    show("chat-send");
+    hide("chat-stop");
+    input.focus();
+  }
+
+  renderMarkdown(answerBox, answerRaw);
+  if (meta) renderRecordsDetails(recordsHolder, meta);
+  chatScrollToEnd();
+  if (!answerRaw) return; // nothing to remember (failed before any token)
+
+  chatConv.turns.push({ question, answer: answerRaw });
+  // Persist the finished turn so the chat survives restarts.
+  try {
+    const payload = { question, answer: answerRaw, thinking: thinkingRaw || null };
+    if (chatConv.id === null) {
+      const created = await apiJson("/conversations", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      chatConv.id = created.id;
+      $("chat-title").textContent = created.title;
+    } else {
+      await apiJson(`/conversations/${chatConv.id}/turns`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    }
+    loadConversationList();
+  } catch {
+    toast("Couldn't save this chat turn.", true);
+  }
+  loadRecentQuestions();
+  loadMostUsed();
+}
+
+function newChatConversation() {
+  chatConv = { id: null, turns: [] };
+  $("chat-messages").replaceChildren();
+  $("chat-title").textContent = "New chat";
+  loadChatSuggestions();
+}
+
+async function loadConversationList() {
+  const conversations = await apiJson("/conversations").catch(() => []);
+  const list = $("conversation-list");
+  list.replaceChildren();
+  $("conv-empty").classList.toggle("hidden", conversations.length > 0);
+  for (const conversation of conversations) {
+    const li = document.createElement("li");
+    if (conversation.id === chatConv.id) li.classList.add("active-conv");
+    const title = document.createElement("span");
+    title.className = "conv-title";
+    title.textContent = conversation.title;
+    title.title = "Open this chat";
+    title.addEventListener("click", () => openConversation(conversation.id));
+    const actions = document.createElement("span");
+    actions.className = "entry-actions";
+    actions.appendChild(
+      smallButton("✎", "Rename", async () => {
+        const next = prompt("Rename this chat:", conversation.title);
+        if (!next || !next.trim()) return;
+        await apiJson(`/conversations/${conversation.id}`, {
+          method: "PUT",
+          body: JSON.stringify({ title: next.trim() }),
+        });
+        loadConversationList();
+      })
+    );
+    actions.appendChild(
+      smallButton("×", "Delete this chat", async () => {
+        if (!confirm("Delete this saved chat?")) return;
+        await apiJson(`/conversations/${conversation.id}`, { method: "DELETE" });
+        if (chatConv.id === conversation.id) newChatConversation();
+        loadConversationList();
+      })
+    );
+    li.append(title, actions);
+    list.appendChild(li);
+  }
+}
+
+async function openConversation(id) {
+  const full = await apiJson(`/conversations/${id}`).catch(() => null);
+  if (!full) return;
+  chatConv = { id: full.id, turns: [] };
+  $("chat-title").textContent = full.title;
+  $("chat-messages").replaceChildren();
+  $("chat-suggest").classList.add("hidden");
+  let lastQuestionText = null;
+  for (const message of full.messages) {
+    if (message.role === "user") {
+      lastQuestionText = message.content;
+      addBubble("user", message.content);
+    } else {
+      const handles = addAssistantBubble();
+      renderMarkdown(handles.answerBox, message.content);
+      if (message.thinking) {
+        handles.thinkingBox.classList.remove("hidden");
+        handles.thinkingText.textContent = message.thinking;
+      }
+      if (lastQuestionText !== null) {
+        chatConv.turns.push({ question: lastQuestionText, answer: message.content });
+      }
+    }
+  }
+  loadConversationList();
+  chatScrollToEnd();
+}
+
+async function loadChatSuggestions() {
+  if ($("chat-messages").children.length > 0) return;
+  const picks = await apiJson("/chat/suggestions").catch(() => []);
+  const box = $("chat-suggest");
+  box.replaceChildren();
+  box.classList.toggle("hidden", picks.length === 0);
+  if (!picks.length) return;
+  const label = document.createElement("span");
+  label.className = "muted";
+  label.textContent = "Try asking:";
+  box.appendChild(label);
+  for (const question of picks) {
+    const chipEl = chip(question);
+    chipEl.addEventListener("click", () => sendChatMessage(question));
+    box.appendChild(chipEl);
+  }
+}
+
+// Personas section in Settings (Wave C).
+async function renderPersonas() {
+  prefsCache = await apiJson("/preferences").catch(() => prefsCache);
+  const custom = (prefsCache && prefsCache.personas) || [];
+  const list = $("persona-list");
+  list.replaceChildren();
+  for (const persona of [
+    { name: "Librarian", builtin: true },
+    { name: "Coach", builtin: true },
+    { name: "Analyst", builtin: true },
+    ...custom,
+  ]) {
+    const li = document.createElement("li");
+    const row = document.createElement("div");
+    row.className = "entry-meta";
+    row.appendChild(chip(persona.name));
+    const note = document.createElement("span");
+    note.className = "muted";
+    note.textContent = persona.builtin ? "built-in" : persona.prompt.slice(0, 60);
+    row.appendChild(note);
+    if (!persona.builtin) {
+      const actions = document.createElement("span");
+      actions.className = "entry-actions";
+      actions.appendChild(
+        smallButton("Delete", "Remove this persona", async () => {
+          const remaining = custom.filter((p) => p.name !== persona.name);
+          await apiJson("/preferences", {
+            method: "PUT",
+            body: JSON.stringify({ personas: remaining }),
+          });
+          await renderPersonas();
+          personaOptions();
+        })
+      );
+      row.appendChild(actions);
+    }
+    li.appendChild(row);
+    list.appendChild(li);
+  }
+}
+
+async function addPersona() {
+  const name = $("persona-name").value.trim();
+  const promptText = $("persona-prompt").value.trim();
+  const status = $("persona-status");
+  if (!name || !promptText) {
+    status.textContent = "Both a name and a prompt are needed.";
+    return;
+  }
+  const custom = ((prefsCache && prefsCache.personas) || []).filter(
+    (p) => p.name !== name
+  );
+  custom.push({ name, prompt: promptText });
+  await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ personas: custom }),
+  });
+  $("persona-name").value = "";
+  $("persona-prompt").value = "";
+  status.textContent = `Added “${name}”.`;
+  await renderPersonas();
+  personaOptions();
 }
 
 // --- tiny markdown renderer (Round 1) -------------------------------------------
@@ -1112,6 +1494,10 @@ function switchTab(name) {
     button.classList.toggle("active", button.dataset.tab === name);
   }
   localStorage.setItem("activeTab", name); // reopen where you left off
+  if (name === "chat") {
+    loadChatSuggestions();
+    $("chat-input").focus();
+  }
 }
 
 // --- panels inside the Notes tab (bin / activity) ---------------------------------
@@ -1126,7 +1512,7 @@ function showPanel(id) {
 
 // --- settings modal (Wave A) ------------------------------------------------------
 
-const SETTINGS_SECTIONS = ["models", "preferences", "data", "logs", "about"];
+const SETTINGS_SECTIONS = ["models", "personas", "preferences", "data", "logs", "about"];
 
 function settingsModalOpen() {
   return !$("settings-modal").classList.contains("hidden");
@@ -1141,6 +1527,7 @@ function showSettingsSection(name) {
   }
   if (name === "logs") renderLogs();
   if (name === "preferences") renderPrefs().catch(() => {});
+  if (name === "personas") renderPersonas().catch(() => {});
 }
 
 async function openSettingsModal(section = "models") {
@@ -1394,18 +1781,7 @@ async function loadMostUsed() {
     count.className = "count";
     count.textContent = `×${entry.access_count}`;
     li.append(text, count);
-    li.addEventListener("click", () => {
-      // Jump to the entry in the main list and flash it.
-      activeCategory = null;
-      renderSidebar();
-      renderEntries();
-      const card = document.querySelector(`#entry-list li[data-id="${entry.id}"]`);
-      if (card) {
-        card.scrollIntoView({ behavior: "smooth", block: "center" });
-        card.classList.add("flash");
-        setTimeout(() => card.classList.remove("flash"), 1700);
-      }
-    });
+    li.addEventListener("click", () => flashEntry(entry.id));
     list.appendChild(li);
   }
 }
@@ -1458,6 +1834,15 @@ function renderAiPill() {
   if (modelStatus.reindex && modelStatus.reindex.status === "running") {
     pill.classList.add("busy");
     pill.textContent = "rebuilding search index…";
+  } else if (!searchReady && modelStatus.embedding_warming) {
+    pill.classList.add("busy");
+    pill.textContent = "search AI warming up…";
+  } else if (!searchReady && modelStatus.embedding_error) {
+    // Distinguish "broken" from "loading" — the old pill said
+    // "warming up…" forever when the model failed to load.
+    pill.classList.add("busy");
+    pill.textContent = "search AI unavailable — see Settings → Logs";
+    pill.title = modelStatus.embedding_error;
   } else if (chatReady && searchReady) {
     pill.classList.add("ok");
     pill.textContent = "AI ready";
@@ -1466,7 +1851,7 @@ function renderAiPill() {
     pill.textContent = "chat AI off — notes still save";
   } else if (chatReady && !searchReady) {
     pill.classList.add("busy");
-    pill.textContent = "search AI warming up…";
+    pill.textContent = "search AI not ready — check Settings → Models";
   } else {
     pill.textContent = "AI off — notes still save";
   }
@@ -1484,6 +1869,13 @@ function renderSettings() {
   ollamaLine.textContent = status.ollama_running
     ? "● Ollama is running"
     : "○ Ollama not detected";
+  const embeddingError = $("embedding-error");
+  embeddingError.classList.toggle("hidden", !status.embedding_error);
+  if (status.embedding_error) {
+    embeddingError.textContent =
+      `Search engine problem: ${status.embedding_error} — semantic search is ` +
+      "falling back to keywords. Full details in Settings → Logs.";
+  }
   $("ollama-help").classList.toggle("hidden", status.ollama_running);
   $("models-config").classList.toggle("hidden", !status.ollama_running);
   $("suggested-box").classList.toggle("hidden", !status.ollama_running);
@@ -1699,6 +2091,22 @@ $("tags-btn").addEventListener("click", async () => {
   await renderTags();
 });
 $("entry-template").addEventListener("change", applyTemplate);
+
+// Chat tab (Wave C).
+$("chat-send").addEventListener("click", () => sendChatMessage());
+$("chat-stop").addEventListener("click", () => chatController && chatController.abort());
+$("chat-new").addEventListener("click", newChatConversation);
+$("chat-input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") sendChatMessage();
+});
+$("persona-select").addEventListener("change", async () => {
+  // Remember the choice so the Notes quick-ask uses the same persona.
+  await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ active_persona: $("persona-select").value }),
+  }).catch(() => {});
+});
+$("persona-add").addEventListener("click", addPersona);
 for (const button of document.querySelectorAll(".panel-close")) {
   button.addEventListener("click", () => showPanel(null));
 }

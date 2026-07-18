@@ -10,6 +10,9 @@ never as an error — capture and keyword search keep working (plan §4).
 
 from __future__ import annotations
 
+import logging
+import threading
+
 import numpy as np
 from sqlalchemy.orm import Session
 
@@ -18,6 +21,33 @@ from memorymap.ai.ollama_client import OllamaClient, OllamaError
 from memorymap.core.database import EmbeddingRecord, Entry
 
 DEFAULT_ST_MODEL = "all-MiniLM-L6-v2"
+
+logger = logging.getLogger("memorymap.embeddings")
+
+# Warm-up bookkeeping so the UI can tell "still loading" from "failed"
+# (a silently failed load used to look like eternal "warming up…").
+_warmup = {"running": False, "started": False}
+
+
+def start_warmup(service: "EmbeddingService") -> None:
+    """Load the embedding model in a background thread at startup, so the
+    user's first save doesn't stall. Idempotent per process."""
+    if _warmup["started"]:
+        return
+    _warmup["started"] = True
+
+    def run() -> None:
+        _warmup["running"] = True
+        try:
+            service.embed_text("warm up")
+        finally:
+            _warmup["running"] = False
+
+    threading.Thread(target=run, name="embedding-warmup", daemon=True).start()
+
+
+def warmup_running() -> bool:
+    return _warmup["running"]
 
 
 def vector_to_bytes(vector: np.ndarray) -> bytes:
@@ -42,6 +72,8 @@ class EmbeddingService:
         self._models = model_manager
         self._ollama = ollama_client
         self._st_model = None  # loaded lazily, exactly once
+        # Why the last embed failed, for the Models screen — None = fine.
+        self.last_error: str | None = None
 
     def backend_id(self) -> str:
         """Stored as model_version next to every vector, so a backend
@@ -63,8 +95,10 @@ class EmbeddingService:
         if self._models.embedding_backend() == "ollama":
             try:
                 vector = self._ollama.embed(self._models.embedding_model(), text)
+                self.last_error = None
                 return np.asarray(vector, dtype="float32")
-            except OllamaError:
+            except OllamaError as exc:
+                self.last_error = str(exc)
                 return None
         return self._embed_with_sentence_transformers(text)
 
@@ -76,10 +110,15 @@ class EmbeddingService:
                 from sentence_transformers import SentenceTransformer
 
                 self._st_model = SentenceTransformer(DEFAULT_ST_MODEL)
-            return np.asarray(self._st_model.encode(text), dtype="float32")
-        except Exception:
-            # Missing package, failed model load, etc. → no semantic
-            # features right now; the rest of the app must keep working.
+            result = np.asarray(self._st_model.encode(text), dtype="float32")
+            self.last_error = None
+            return result
+        except Exception as exc:
+            # No semantic features right now; the rest of the app must
+            # keep working — but record and LOG why, or a broken install
+            # looks like it's "warming up" forever (user-reported bug).
+            self.last_error = f"{type(exc).__name__}: {exc}"
+            logger.exception("embedding backend failed")
             return None
 
     def store_for_entry(self, session: Session, entry: Entry) -> bool:

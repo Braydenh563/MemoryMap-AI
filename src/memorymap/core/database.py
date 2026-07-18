@@ -142,6 +142,23 @@ class Attachment(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class Conversation(Base):
+    """A saved chat (Wave C). Turns are a JSON list of
+    {"role": "user"|"assistant", "content": str, "thinking": str|None}
+    — one blob per conversation is the boring right size for a
+    single-user app."""
+
+    __tablename__ = "conversations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(120))
+    messages: Mapped[str] = mapped_column(Text, default="[]")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=utcnow, onupdate=utcnow
+    )
+
+
 class AuditLog(Base):
     """Every meaningful action, from Phase 1 onward (plan §4)."""
 

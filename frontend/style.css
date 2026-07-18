@@ -499,6 +499,69 @@ li.link-source { outline: 2px solid var(--accent); }
 .log-list .what { font-weight: 700; flex-shrink: 0; min-width: 3.6rem; }
 .log-list li.log-warn .what { color: var(--warn); }
 
+/* --- chat tab (Wave C) -------------------------------------------------------- */
+#chat-messages {
+  min-height: 300px;
+  max-height: 56vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.5rem 0.2rem;
+}
+.msg {
+  max-width: 82%;
+  padding: 0.6rem 0.85rem;
+  border-radius: 14px;
+  white-space: pre-wrap;
+}
+.msg.user {
+  align-self: flex-end;
+  background: var(--accent);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.msg.assistant {
+  align-self: flex-start;
+  background: var(--inner);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 4px;
+  white-space: normal;
+  width: 82%;
+}
+.msg.assistant .bubble-answer { white-space: pre-wrap; }
+.msg.assistant .bubble-answer p { margin: 0 0 0.5rem; }
+.msg.assistant .bubble-answer p:last-child { margin-bottom: 0; }
+.msg.assistant details { font-size: 0.85rem; margin: 0.3rem 0; }
+.msg.assistant details summary { cursor: pointer; color: var(--muted); }
+.msg.assistant .entry-list { margin-top: 0.4rem; }
+#conversation-list { list-style: none; margin: 0; padding: 0; }
+#conversation-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+#conversation-list li:hover { background: var(--accent-soft); }
+#conversation-list li.active-conv { background: var(--accent-soft); font-weight: 600; }
+#conversation-list .conv-title {
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+/* Clickable search results (Wave C) */
+.entry-list li.clickable-result { cursor: pointer; }
+.entry-list li.clickable-result:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
 /* --- Wave B: threads, inline actions, templates ------------------------------ */
 .entry-list li.thread-child { border-left: 3px solid var(--accent-soft); }
 .inline-action {

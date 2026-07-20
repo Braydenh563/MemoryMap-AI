@@ -80,18 +80,34 @@
 
 * { box-sizing: border-box; }
 
+/* The glass backdrop lives on <html>, not <body>, so the optional
+   generative-art canvas (a fixed, z-index:-1 child of <body>) can sit
+   between the gradient and the app content (Wave J). */
+html {
+  min-height: 100%;
+  background:
+    radial-gradient(600px 400px at 15% 8%, var(--blob-a), transparent 70%),
+    radial-gradient(700px 500px at 85% 90%, var(--blob-b), transparent 70%),
+    var(--page);
+  background-attachment: fixed;
+}
+
 body {
   margin: 0;
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   color: var(--ink);
   line-height: 1.5;
   min-height: 100vh;
-  /* The glass backdrop: two soft blobs floating over a gradient. */
-  background:
-    radial-gradient(600px 400px at 15% 8%, var(--blob-a), transparent 70%),
-    radial-gradient(700px 500px at 85% 90%, var(--blob-b), transparent 70%),
-    var(--page);
-  background-attachment: fixed;
+}
+
+/* Ambient background art: behind everything, ignores clicks (Wave J). */
+.bg-art-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  width: 100vw !important;
+  height: 100vh !important;
 }
 
 header {
@@ -876,4 +892,68 @@ kbd {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* --- Wave J: generative art + note tools + undo toast --------------------------- */
+.art-holder {
+  border-radius: 10px;
+  overflow: hidden;
+  line-height: 0; /* no stray gap under the canvas */
+}
+.art-holder canvas { width: 100%; height: auto; display: block; border-radius: 10px; }
+.art-controls { margin-top: 0.5rem; line-height: 1.5; }
+
+.browse-header { align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.browse-tools { gap: 0.4rem; flex: 0 1 auto; }
+#note-search { margin-bottom: 0; min-width: 8rem; }
+#note-sort { margin-bottom: 0; max-width: 10rem; }
+
+.char-count { font-size: 0.75rem; text-align: right; margin: -0.4rem 0 0.5rem; }
+
+.toast-action {
+  margin-left: 0.75rem;
+  padding: 0.15rem 0.6rem;
+  font-size: 0.8rem;
+  background: rgba(255, 255, 255, 0.25);
+}
+.toast { display: flex; align-items: center; justify-content: space-between; }
+
+@media (max-width: 720px) {
+  .browse-tools { width: 100%; }
+  #note-sort { max-width: none; }
+}
+
+/* --- Wave J: accent presets + appearance picker --------------------------------- */
+/* Each preset overrides just the accent + its soft tint + the primary
+   background blob; --page and text stay theme-driven, so every accent
+   works in both light and dark. */
+:root[data-accent="emerald"] {
+  --accent: #0e9f6e; --accent-soft: rgba(14, 159, 110, 0.16); --blob-a: rgba(14, 159, 110, 0.18);
+}
+:root[data-accent="rose"] {
+  --accent: #ec4899; --accent-soft: rgba(236, 72, 153, 0.16); --blob-a: rgba(236, 72, 153, 0.18);
+}
+:root[data-accent="amber"] {
+  --accent: #d97706; --accent-soft: rgba(217, 119, 6, 0.16); --blob-a: rgba(217, 119, 6, 0.18);
+}
+:root[data-accent="violet"] {
+  --accent: #7c3aed; --accent-soft: rgba(124, 58, 237, 0.16); --blob-a: rgba(124, 58, 237, 0.18);
+}
+:root[data-accent="slate"] {
+  --accent: #64748b; --accent-soft: rgba(100, 116, 139, 0.18); --blob-a: rgba(100, 116, 139, 0.20);
+}
+
+.accent-swatches { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+.accent-swatch {
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  padding: 0;
+  cursor: pointer;
+  box-shadow: none;
+}
+.accent-swatch.active {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }

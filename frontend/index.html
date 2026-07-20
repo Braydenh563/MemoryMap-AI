@@ -10,9 +10,11 @@
   <meta name="theme-color" content="#4f6df5">
   <link rel="stylesheet" href="/style.css">
   <script>
-    // Apply the saved theme before first paint to avoid a flash.
+    // Apply the saved theme + accent before first paint to avoid a flash.
     const saved = localStorage.getItem("theme");
     if (saved) document.documentElement.dataset.theme = saved;
+    const accent = localStorage.getItem("accent");
+    if (accent && accent !== "indigo") document.documentElement.dataset.accent = accent;
   </script>
 </head>
 <body>
@@ -119,6 +121,7 @@
           </div>
           <textarea id="entry-content" rows="3"
             placeholder="Type anything — a joke, a shopping list, a race result…"></textarea>
+          <div class="char-count muted" id="entry-count" aria-live="polite">0 characters</div>
           <input id="entry-tags" type="text" list="tag-suggestions"
             placeholder="Optional tags, comma separated (e.g. joke, work)">
           <datalist id="tag-suggestions"></datalist>
@@ -176,10 +179,25 @@
 
         <!-- Browse: everything you've saved -->
         <section class="card" id="browse">
-          <h2 id="entries-heading">All entries</h2>
+          <div class="row space-between browse-header">
+            <h2 id="entries-heading">All entries</h2>
+            <div class="row browse-tools">
+              <input id="note-search" type="search" placeholder="🔎 Filter notes…"
+                aria-label="Filter notes by text or tag">
+              <select id="note-sort" aria-label="Sort notes" title="Sort notes">
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+                <option value="az">A → Z</option>
+                <option value="most-used">Most used</option>
+              </select>
+            </div>
+          </div>
           <ul id="entry-list" class="entry-list"></ul>
           <p id="empty-message" class="muted hidden">
             Nothing here yet — save your first thought above.
+          </p>
+          <p id="no-match-message" class="muted hidden">
+            No notes match your filter.
           </p>
         </section>
       </main>
@@ -283,6 +301,7 @@
           <button data-section="models" class="active">Models</button>
           <button data-section="personas">Personas</button>
           <button data-section="skills">Skills</button>
+          <button data-section="appearance">Appearance</button>
           <button data-section="preferences">Preferences</button>
           <button data-section="data">Data</button>
           <button data-section="logs">Logs</button>
@@ -371,6 +390,22 @@
               <button id="skill-add" class="small">Add skill</button>
               <span id="skill-status" class="status"></span>
             </div>
+          </section>
+
+          <!-- Appearance (Wave J): accent themes + background art -->
+          <section class="settings-section hidden" id="settings-appearance">
+            <h3>Accent colour</h3>
+            <p class="muted">Recolours buttons, highlights, and the glow behind the page.</p>
+            <div id="accent-swatches" class="accent-swatches"></div>
+            <h3>Animated background</h3>
+            <label>
+              <input type="checkbox" id="bg-art-toggle">
+              Show a gentle generative-art background
+            </label>
+            <p class="muted">
+              Purely decorative and 100% offline. It automatically stays still
+              if your system prefers reduced motion.
+            </p>
           </section>
 
           <!-- Preferences (Phase 4/5, moved here in Wave A) -->
@@ -526,8 +561,9 @@
     </div>
   </div>
 
-  <!-- D3 v7, vendored locally — the offline rule: no CDNs, ever -->
+  <!-- D3 v7 + p5.js, both vendored locally — the offline rule: no CDNs, ever -->
   <script src="/vendor/d3.v7.min.js"></script>
+  <script src="/vendor/p5.min.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

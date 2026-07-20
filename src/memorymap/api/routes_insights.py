@@ -92,13 +92,22 @@ def weekly_digest(session: Session = Depends(get_session)) -> dict:
         )
     )
     if not entries:
-        return {"digest": "Nothing was saved in the last 7 days.", "thinking": None}
+        # A real, stable fact — safe for the UI to cache for the day.
+        return {
+            "digest": "Nothing was saved in the last 7 days.",
+            "thinking": None,
+            "cacheable": True,
+        }
 
     notes = [
         {"content": e.content, "category": manager.category_name_for(session, e)}
         for e in entries
     ]
     config = deps.get_config()
+    # Only a genuine AI answer is worth caching — if Ollama is down the
+    # digest is just the offline notice, which should be retried, not
+    # frozen for the day (Wave J follow-up).
+    ollama_running = deps.get_ollama().is_running()
     digest, thinking = librarian.answer(
         "Give me a short digest of what I saved this week — group by topic and "
         "call out anything that looks important or unfinished.",
@@ -108,4 +117,4 @@ def weekly_digest(session: Session = Depends(get_session)) -> dict:
         style=config.get_preference("communication_style", "friendly"),
         persona_prompt=None,
     )
-    return {"digest": digest, "thinking": thinking}
+    return {"digest": digest, "thinking": thinking, "cacheable": ollama_running}

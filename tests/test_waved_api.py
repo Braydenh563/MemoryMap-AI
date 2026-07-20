@@ -87,6 +87,23 @@ def test_digest_uses_recent_notes(ai_client, fake_ollama):
     assert "scarecrow" in prompt  # the digest reads this week's notes
 
 
+def test_digest_empty_week_is_cacheable(client):
+    # An empty week is a stable fact → safe to cache (Wave J follow-up).
+    assert client.post("/insights/digest").json()["cacheable"] is True
+
+
+def test_digest_real_answer_is_cacheable(ai_client):
+    _save(ai_client, "a funny scarecrow joke")
+    assert ai_client.post("/insights/digest").json()["cacheable"] is True
+
+
+def test_digest_offline_is_not_cacheable(client):
+    # `client` has Ollama unavailable — the digest is the offline notice,
+    # which must NOT be frozen for the day.
+    _save(client, "a note from this week")
+    assert client.post("/insights/digest").json()["cacheable"] is False
+
+
 # --- dashboard layout preference ----------------------------------------------------
 
 

@@ -49,6 +49,8 @@ let activeCategory = null; // sidebar filter; null = All
 let linkSource = null; // entry id waiting for its link partner
 let editingId = null; // entry id currently in inline-edit mode
 let inlineAction = null; // {id, kind: "context"|"continue"} open on a card
+let noteSearch = ""; // Notes-tab text filter (Wave J)
+let noteSort = "newest"; // newest | oldest | az | most-used (Wave J)
 
 const $ = (id) => document.getElementById(id);
 const show = (...ids) => ids.forEach((id) => $(id).classList.remove("hidden"));
@@ -237,6 +239,34 @@ function smallButton(label, title, onClick, ghost = true) {
 }
 
 // One entry card, shared by the browse list, chat results, and the bin.
+// "2 hours ago" style, with the exact date kept for the hover tooltip
+// (Wave J). Anything older than a week just shows the date.
+function relativeTime(iso) {
+  const then = new Date(iso);
+  const seconds = Math.round((Date.now() - then.getTime()) / 1000);
+  if (seconds < 45) return "just now";
+  const units = [
+    ["minute", 60],
+    ["hour", 60],
+    ["day", 24],
+  ];
+  let value = seconds / 60; // start in minutes
+  let unit = "minute";
+  if (value < 60) {
+    // minutes
+  } else if (value / 60 < 24) {
+    value /= 60;
+    unit = "hour";
+  } else if (value / 60 / 24 < 7) {
+    value = value / 60 / 24;
+    unit = "day";
+  } else {
+    return then.toLocaleDateString();
+  }
+  const rounded = Math.round(value);
+  return `${rounded} ${unit}${rounded === 1 ? "" : "s"} ago`;
+}
+
 function entryItem(entry, options = {}) {
   const li = document.createElement("li");
   li.dataset.id = entry.id;
@@ -266,9 +296,9 @@ function entryItem(entry, options = {}) {
 
   const date = document.createElement("span");
   date.className = "entry-date";
-  date.textContent = new Date(
-    options.bin ? entry.deleted_at : entry.created_at
-  ).toLocaleString();
+  const stamp = options.bin ? entry.deleted_at : entry.created_at;
+  date.textContent = relativeTime(stamp);
+  date.title = new Date(stamp).toLocaleString(); // exact on hover
   meta.appendChild(date);
 
   if (options.bin) {
@@ -318,6 +348,16 @@ function entryItem(entry, options = {}) {
       })
     );
     actions.appendChild(
+      smallButton("📋", "Copy this note's text", async () => {
+        try {
+          await navigator.clipboard.writeText(entry.content);
+          toast("Note copied.");
+        } catch {
+          toast("Couldn't copy — your browser blocked clipboard access.", true);
+        }
+      })
+    );
+    actions.appendChild(
       smallButton("✎", "Edit this entry", () => {
         editingId = entry.id;
         renderEntries();
@@ -327,11 +367,16 @@ function entryItem(entry, options = {}) {
       smallButton("🔗", "Link this entry to another", () => beginOrCompleteLink(entry))
     );
     actions.appendChild(
+      // No confirm dialog: deleting is instant but a one-click Undo makes
+      // it safe (and less annoying) — the entry is only soft-deleted (Wave J).
       smallButton("🗑", "Move to the recycle bin", async () => {
-        if (!confirm("Move this entry to the recycle bin?")) return;
         await api(`/entries/${entry.id}`, { method: "DELETE" });
-        toast("Moved to bin — restore it any time from 🗑 Bin.");
         await loadEntries();
+        toastAction("Moved to the recycle bin.", "Undo", async () => {
+          await api(`/entries/${entry.id}/restore`, { method: "POST" });
+          await loadEntries();
+          toast("Note restored.");
+        });
       })
     );
     meta.appendChild(actions);
@@ -658,19 +703,58 @@ function beginOrCompleteLink(entry) {
     });
 }
 
+// Text filter (Wave J): match note content or any tag, case-insensitive.
+function matchesSearch(entry) {
+  if (!noteSearch) return true;
+  const needle = noteSearch.toLowerCase();
+  return (
+    entry.content.toLowerCase().includes(needle) ||
+    entry.tags.some((tag) => tag.toLowerCase().includes(needle))
+  );
+}
+
+// Sort comparator for the chosen mode (Wave J). Pinned always floats to
+// the top first, matching the server's own ordering.
+function sortEntries(entries) {
+  const byPinned = (a, b) => Number(b.pinned) - Number(a.pinned);
+  const modes = {
+    newest: (a, b) => b.id - a.id,
+    oldest: (a, b) => a.id - b.id,
+    az: (a, b) => a.content.localeCompare(b.content),
+    "most-used": (a, b) => b.access_count - a.access_count || b.id - a.id,
+  };
+  const cmp = modes[noteSort] || modes.newest;
+  return [...entries].sort((a, b) => byPinned(a, b) || cmp(a, b));
+}
+
 function renderEntries() {
   const list = $("entry-list");
   const empty = $("empty-message");
+  const noMatch = $("no-match-message");
   list.replaceChildren();
 
-  const visible = activeCategory
+  let visible = activeCategory
     ? allEntries.filter((e) => e.category === activeCategory)
     : allEntries;
+  visible = visible.filter(matchesSearch);
 
   $("entries-heading").textContent = activeCategory
     ? `${activeCategory} entries`
     : "All entries";
-  empty.classList.toggle("hidden", visible.length > 0);
+  // Distinguish "empty notebook" from "filter matched nothing".
+  const notebookEmpty = allEntries.length === 0;
+  empty.classList.toggle("hidden", !notebookEmpty);
+  noMatch.classList.toggle("hidden", notebookEmpty || visible.length > 0);
+
+  // A search or a non-default sort means the user wants a flat, ordered
+  // list — thread nesting only applies to the default newest view.
+  const flat = Boolean(noteSearch) || noteSort !== "newest";
+  if (flat) {
+    for (const entry of sortEntries(visible)) {
+      list.appendChild(entryItem(entry, { actions: true }));
+    }
+    return;
+  }
 
   // Threads (Wave B): children render indented under their parent. A
   // child whose parent isn't visible (filtered out) shows at top level.
@@ -1730,6 +1814,7 @@ let dragWidget = null; // widget name being dragged
 // Widget registry: name → title + async renderer that fills a body div.
 const DASH_WIDGETS = {
   stats: { title: "📊 Stats", render: renderStatsWidget },
+  art: { title: "🎨 Notebook constellation", render: renderArtWidget },
   pinned: { title: "📌 Pinned notes", render: renderPinnedWidget },
   "most-used": { title: "🔥 Most used", render: renderMostUsedWidget },
   questions: { title: "💬 Recent questions", render: renderQuestionsWidget },
@@ -1838,6 +1923,159 @@ async function renderDashboard() {
   }
 }
 
+// --- Wave J: generative art (p5.js, vendored locally) -------------------------------
+// A living "constellation" of the notebook: each category becomes a
+// cluster of drifting stars — more notes, more stars — connected by
+// faint lines in the category's own colour. It's seeded from the real
+// note counts, so the same notebook always grows the same sky (until
+// you hit Regenerate). Purely decorative; nothing depends on it.
+
+let artInstance = null; // the one live p5 instance, if any
+let artNonce = 0; // bumped by "Regenerate" for a fresh arrangement
+
+// Stable 0–359 hue from a category name, so a category keeps its colour.
+function hueFor(name) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash * 31 + name.charCodeAt(i)) % 360;
+  }
+  return hash;
+}
+
+// A deterministic seed from the category names + counts: the sky is
+// stable for a given notebook, and shifts only as the notebook changes.
+function artSeed(categories) {
+  let seed = 1;
+  for (const c of categories) {
+    seed = (seed * 31 + hueFor(c.name) + c.count) % 1_000_000;
+  }
+  return seed;
+}
+
+function stopArt() {
+  if (artInstance) {
+    artInstance.remove(); // tears down the canvas + draw loop
+    artInstance = null;
+  }
+}
+
+function buildArtParticles(p, categories, total, width, height) {
+  const groups = categories.length ? categories : [{ name: "Notes", count: 1 }];
+  const particles = [];
+  for (const group of groups) {
+    const hue = hueFor(group.name);
+    // 3 base stars, plus more for a bigger share of the notebook (capped).
+    const count = Math.max(3, Math.min(16, Math.round((group.count / total) * 70) + 3));
+    const cx = p.random(width * 0.15, width * 0.85);
+    const cy = p.random(height * 0.2, height * 0.8);
+    for (let i = 0; i < count; i++) {
+      particles.push({
+        baseX: cx + p.random(-46, 46),
+        baseY: cy + p.random(-34, 34),
+        x: 0,
+        y: 0,
+        phase: p.random(p.TWO_PI),
+        amp: p.random(2, 9),
+        size: p.random(2, 5),
+        hue,
+      });
+    }
+  }
+  return particles;
+}
+
+function renderArtWidget(body) {
+  const holder = document.createElement("div");
+  holder.className = "art-holder";
+  body.appendChild(holder);
+
+  const controls = document.createElement("div");
+  controls.className = "row art-controls";
+  controls.appendChild(
+    smallButton("🎲 Regenerate", "A fresh arrangement of the same notes", () => {
+      artNonce += 1;
+      startArt(holder);
+    })
+  );
+  controls.appendChild(
+    smallButton("💾 Save PNG", "Save this artwork as an image", () => {
+      if (artInstance) artInstance.saveCanvas("memorymap-constellation", "png");
+    })
+  );
+  body.appendChild(controls);
+
+  return startArt(holder);
+}
+
+async function startArt(holder) {
+  stopArt();
+  if (typeof p5 === "undefined") {
+    holder.textContent = "The art library didn't load.";
+    return;
+  }
+  const stats = await apiJson("/insights/stats").catch(() => ({
+    categories: [],
+    total_entries: 0,
+  }));
+  const categories = (stats.categories || []).slice(0, 8);
+  const total = Math.max(1, stats.total_entries || 0);
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const dark =
+    document.documentElement.dataset.theme === "dark" ||
+    (!document.documentElement.dataset.theme &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches);
+
+  const sketch = (p) => {
+    let particles = [];
+    let width = 0;
+    const height = 220;
+
+    const scene = (t) => {
+      p.background(dark ? 18 : 246);
+      for (const dot of particles) {
+        dot.x = dot.baseX + Math.cos(t + dot.phase) * dot.amp;
+        dot.y = dot.baseY + Math.sin(t * 1.3 + dot.phase) * dot.amp;
+      }
+      // Faint connecting lines between nearby stars (O(n²), but n is
+      // capped low enough that it stays cheap at 60fps).
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const a = particles[i];
+          const b = particles[j];
+          const d = p.dist(a.x, a.y, b.x, b.y);
+          if (d < 62) {
+            p.stroke(a.hue, 60, dark ? 70 : 55, p.map(d, 0, 62, 0.5, 0));
+            p.strokeWeight(1);
+            p.line(a.x, a.y, b.x, b.y);
+          }
+        }
+      }
+      // The stars themselves, with a soft twinkle.
+      p.noStroke();
+      for (const dot of particles) {
+        const twinkle = 0.6 + 0.4 * Math.sin(t * 2 + dot.phase);
+        p.fill(dot.hue, 70, dark ? 75 : 45, twinkle);
+        p.circle(dot.x, dot.y, dot.size);
+      }
+    };
+
+    p.setup = () => {
+      width = holder.clientWidth || 300;
+      p.createCanvas(width, height);
+      p.colorMode(p.HSL, 360, 100, 100, 1);
+      p.randomSeed(artSeed(categories) + artNonce * 997);
+      particles = buildArtParticles(p, categories, total, width, height);
+      if (reduceMotion) {
+        scene(0); // one still frame — no animation for reduced-motion users
+        p.noLoop();
+      }
+    };
+    p.draw = () => scene(p.frameCount * 0.005);
+  };
+
+  artInstance = new p5(sketch, holder);
+}
+
 async function renderStatsWidget(body) {
   const stats = await apiJson("/insights/stats");
   const total = document.createElement("p");
@@ -1928,22 +2166,98 @@ async function renderOnThisDayWidget(body) {
   );
 }
 
+// Weekly digest caching (Wave J follow-up). The AI digest is expensive,
+// so once it's generated it STAYS until you regenerate, and it resets
+// itself each day. Generation is a module-level promise, so switching
+// away from the dashboard never cancels it — whenever it finishes, the
+// result is cached and shown next time the widget is on screen.
+const DIGEST_KEY = "digestCache";
+let digestPromise = null; // the in-flight generation, shared across renders
+
+function todayStamp() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function loadDigestCache() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(DIGEST_KEY) || "null");
+    if (cached && cached.date === todayStamp()) return cached.text; // fresh today
+  } catch {
+    /* corrupt cache — ignore and regenerate */
+  }
+  return null;
+}
+
+// Kicks off (or reuses) one generation. Caches the result for today,
+// unless the server says it isn't cacheable (e.g. Ollama was offline).
+function generateDigest() {
+  if (!digestPromise) {
+    digestPromise = apiJson("/insights/digest", { method: "POST" })
+      .then((result) => {
+        if (result.cacheable !== false) {
+          localStorage.setItem(
+            DIGEST_KEY,
+            JSON.stringify({ text: result.digest, date: todayStamp() })
+          );
+        }
+        return result.digest;
+      })
+      .finally(() => {
+        digestPromise = null;
+      });
+  }
+  return digestPromise;
+}
+
 async function renderDigestWidget(body) {
-  const button = smallButton("Generate this week's digest", "", async () => {
-    button.disabled = true;
-    button.textContent = "Thinking…";
-    try {
-      const result = await apiJson("/insights/digest", { method: "POST" });
-      const out = document.createElement("div");
-      renderMarkdown(out, result.digest);
-      body.replaceChildren(out);
-    } catch (error) {
-      toast(error.message, true);
-      button.disabled = false;
-      button.textContent = "Generate this week's digest";
-    }
-  }, false);
-  body.appendChild(button);
+  const showDigest = (text) => {
+    const out = document.createElement("div");
+    renderMarkdown(out, text);
+    const controls = document.createElement("div");
+    controls.className = "row";
+    controls.appendChild(
+      smallButton("🔄 Regenerate", "Rebuild this week's digest now", () => {
+        localStorage.removeItem(DIGEST_KEY);
+        runGeneration();
+      })
+    );
+    body.replaceChildren(out, controls);
+  };
+
+  const runGeneration = () => {
+    const thinking = document.createElement("p");
+    thinking.className = "muted";
+    thinking.append(typingDots(), " Thinking about your week…");
+    body.replaceChildren(thinking);
+    generateDigest()
+      .then((text) => {
+        // The widget may have been left/re-rendered while we waited —
+        // only paint if this exact body is still on screen.
+        if (body.isConnected) showDigest(text);
+      })
+      .catch((error) => {
+        if (!body.isConnected) return;
+        const retry = smallButton(
+          "Generate this week's digest",
+          "",
+          runGeneration,
+          false
+        );
+        body.replaceChildren(retry);
+        toast(error.message, true);
+      });
+  };
+
+  const cached = loadDigestCache();
+  if (cached !== null) {
+    showDigest(cached); // today's digest, kept until you regenerate
+  } else if (digestPromise) {
+    runGeneration(); // one is already running (from before a tab switch)
+  } else {
+    body.appendChild(
+      smallButton("Generate this week's digest", "", runGeneration, false)
+    );
+  }
 }
 
 async function renderQuickCaptureWidget(body) {
@@ -2401,6 +2715,8 @@ function switchTab(name) {
     button.classList.toggle("active", button.dataset.tab === name);
   }
   localStorage.setItem("activeTab", name); // reopen where you left off
+  // The generative-art animation only needs to run while it's on screen.
+  if (name !== "dashboard") stopArt();
   if (name === "chat") {
     loadChatSuggestions();
     $("chat-input").focus();
@@ -2425,7 +2741,7 @@ function showPanel(id) {
 
 // --- settings modal (Wave A) ------------------------------------------------------
 
-const SETTINGS_SECTIONS = ["models", "personas", "skills", "preferences", "data", "logs", "about"];
+const SETTINGS_SECTIONS = ["models", "personas", "skills", "appearance", "preferences", "data", "logs", "about"];
 
 function settingsModalOpen() {
   return !$("settings-modal").classList.contains("hidden");
@@ -2442,6 +2758,7 @@ function showSettingsSection(name) {
   if (name === "preferences") renderPrefs().catch(() => {});
   if (name === "personas") renderPersonas().catch(() => {});
   if (name === "skills") renderSkillSettings();
+  if (name === "appearance") renderAppearance();
   if (name === "data") renderBackups();
 }
 
@@ -3029,6 +3346,27 @@ function toast(message, isError = false) {
   setTimeout(() => note.remove(), 5500);
 }
 
+// A toast with one action button — used for Undo (Wave J). The button
+// stays until clicked or the toast times out (a bit longer than usual,
+// since the user has to react to it).
+function toastAction(message, actionLabel, onAction) {
+  const box = $("toast-box");
+  const note = document.createElement("div");
+  note.className = "toast";
+  const text = document.createElement("span");
+  text.textContent = message;
+  const button = document.createElement("button");
+  button.className = "small toast-action";
+  button.textContent = actionLabel;
+  button.addEventListener("click", async () => {
+    note.remove();
+    await onAction();
+  });
+  note.append(text, button);
+  box.appendChild(note);
+  setTimeout(() => note.remove(), 8000);
+}
+
 // --- quick access: recent questions + most-used entries (Phase 5) -------------------
 
 async function loadRecentQuestions() {
@@ -3341,11 +3679,136 @@ function toggleTheme() {
   const next = current === "dark" ? "light" : "dark";
   root.dataset.theme = next;
   localStorage.setItem("theme", next); // remembered across restarts
+  if (bgArtOn()) startBgArt(); // recolour the background for the new theme
+}
+
+// --- Wave J: accent themes + generative background --------------------------------
+
+// Simple accent presets. The colours themselves live in the CSS
+// (:root[data-accent="…"]); this list just drives the swatch picker and
+// gives the background art a hue to paint with.
+const ACCENTS = [
+  { name: "indigo", label: "Indigo", swatch: "#4f6df5" },
+  { name: "emerald", label: "Emerald", swatch: "#0e9f6e" },
+  { name: "rose", label: "Rose", swatch: "#ec4899" },
+  { name: "amber", label: "Amber", swatch: "#d97706" },
+  { name: "violet", label: "Violet", swatch: "#7c3aed" },
+  { name: "slate", label: "Slate", swatch: "#475569" },
+];
+
+function activeAccent() {
+  return localStorage.getItem("accent") || "indigo";
+}
+
+function applyAccent(name) {
+  if (name === "indigo") delete document.documentElement.dataset.accent;
+  else document.documentElement.dataset.accent = name;
+  localStorage.setItem("accent", name);
+  if (bgArtOn()) startBgArt(); // repaint the background in the new accent
+}
+
+function renderAppearance() {
+  const holder = $("accent-swatches");
+  holder.replaceChildren();
+  for (const accent of ACCENTS) {
+    const button = document.createElement("button");
+    button.className = "accent-swatch";
+    button.style.background = accent.swatch;
+    button.title = accent.label;
+    button.setAttribute("aria-label", `${accent.label} accent`);
+    button.classList.toggle("active", accent.name === activeAccent());
+    button.addEventListener("click", () => {
+      applyAccent(accent.name);
+      renderAppearance();
+    });
+    holder.appendChild(button);
+  }
+  $("bg-art-toggle").checked = bgArtOn();
+}
+
+// --- generative background (a second, ambient p5 instance) --------------------------
+
+let bgArtInstance = null;
+
+function bgArtOn() {
+  return localStorage.getItem("bgArt") === "on";
+}
+
+function stopBgArt() {
+  if (bgArtInstance) {
+    bgArtInstance.remove();
+    bgArtInstance = null;
+  }
+  const canvas = document.getElementById("bg-art-canvas");
+  if (canvas) canvas.remove();
+}
+
+function startBgArt() {
+  stopBgArt();
+  if (typeof p5 === "undefined") return;
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const accentHex =
+    (ACCENTS.find((a) => a.name === activeAccent()) || ACCENTS[0]).swatch;
+
+  const sketch = (p) => {
+    let blobs = [];
+    const draw = () => {
+      p.clear();
+      for (const blob of blobs) {
+        blob.x += blob.vx;
+        blob.y += blob.vy;
+        if (blob.x < -blob.r) blob.x = p.width + blob.r;
+        if (blob.x > p.width + blob.r) blob.x = -blob.r;
+        if (blob.y < -blob.r) blob.y = p.height + blob.r;
+        if (blob.y > p.height + blob.r) blob.y = -blob.r;
+        p.fill(blob.hue, 60, 60, 0.06);
+        p.circle(blob.x, blob.y, blob.r * 2);
+      }
+    };
+    p.setup = () => {
+      const c = p.createCanvas(window.innerWidth, window.innerHeight);
+      c.id("bg-art-canvas");
+      p.colorMode(p.HSL, 360, 100, 100, 1);
+      p.noStroke();
+      const baseHue = p.hue(p.color(accentHex));
+      // A handful of big, soft, slow-drifting blobs — cheap and calm.
+      for (let i = 0; i < 6; i++) {
+        blobs.push({
+          x: p.random(p.width),
+          y: p.random(p.height),
+          r: p.random(120, 260),
+          vx: p.random(-0.25, 0.25),
+          vy: p.random(-0.25, 0.25),
+          hue: (baseHue + p.random(-30, 30) + 360) % 360,
+        });
+      }
+      p.frameRate(30); // a background never needs 60fps
+      if (reduceMotion) {
+        draw();
+        p.noLoop();
+      }
+    };
+    p.draw = draw;
+    p.windowResized = () => p.resizeCanvas(window.innerWidth, window.innerHeight);
+  };
+  bgArtInstance = new p5(sketch);
+  // p5 appends the canvas to <body>; style it as a fixed backdrop.
+  const canvas = document.getElementById("bg-art-canvas");
+  if (canvas) canvas.className = "bg-art-canvas";
+}
+
+function toggleBgArt(on) {
+  localStorage.setItem("bgArt", on ? "on" : "off");
+  if (on) startBgArt();
+  else stopBgArt();
 }
 
 // --- wiring --------------------------------------------------------------------
 
 $("theme-btn").addEventListener("click", toggleTheme);
+$("bg-art-toggle").addEventListener("change", (e) => toggleBgArt(e.target.checked));
+// Start the ambient background if the user left it on last time.
+if (bgArtOn()) startBgArt();
 
 // Tabs (Wave A): switch pages, restore the last one used.
 for (const button of document.querySelectorAll("#tab-bar button")) {
@@ -3467,6 +3930,27 @@ document.addEventListener("keydown", (e) => {
     closeSketch();
     return;
   }
+  // "/" focuses search — but only when you're not already typing somewhere
+  // and no overlay is open, so it never steals a literal slash (Wave J).
+  const typing = ["INPUT", "TEXTAREA", "SELECT"].includes(
+    document.activeElement && document.activeElement.tagName
+  );
+  const overlayOpen =
+    settingsModalOpen() ||
+    !$("palette-overlay").classList.contains("hidden") ||
+    !$("sketch-overlay").classList.contains("hidden");
+  if (e.key === "/" && !typing && !overlayOpen) {
+    e.preventDefault();
+    // On the Chat tab the natural target is the chat box; elsewhere the
+    // Notes filter (switching to Notes if needed).
+    if (localStorage.getItem("activeTab") === "chat") {
+      $("chat-input").focus();
+    } else {
+      switchTab("notes");
+      $("note-search").focus();
+    }
+    return;
+  }
   if (e.key === "Escape" && settingsModalOpen()) closeSettingsModal();
   if (e.key === "Escape" && linkSource !== null) {
     linkSource = null;
@@ -3475,6 +3959,20 @@ document.addEventListener("keydown", (e) => {
 });
 
 // --- Wave F wiring ------------------------------------------------------------------
+
+// Wave J: note search + sort, capture char count.
+$("note-search").addEventListener("input", (e) => {
+  noteSearch = e.target.value.trim();
+  renderEntries();
+});
+$("note-sort").addEventListener("change", (e) => {
+  noteSort = e.target.value;
+  renderEntries();
+});
+$("entry-content").addEventListener("input", (e) => {
+  const n = e.target.value.length;
+  $("entry-count").textContent = `${n} character${n === 1 ? "" : "s"}`;
+});
 
 $("export-md").addEventListener("click", () => downloadExport("markdown"));
 $("import-md").addEventListener("click", importMarkdown);

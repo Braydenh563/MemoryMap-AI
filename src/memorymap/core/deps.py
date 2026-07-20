@@ -41,6 +41,16 @@ def init_app_state(data_dir: str | Path | None = None) -> None:
         _embeddings = EmbeddingService(_model_manager, _ollama)
 
 
+def reload_db() -> None:
+    """Close every connection and reopen the database file — needed
+    after a backup restore replaces the file underneath us (Wave F)."""
+    global _db
+    assert _config is not None
+    if _db is not None:
+        _db.engine.dispose()
+    _db = DatabaseManager(_config.db_path)
+
+
 def reset_app_state() -> None:
     """Throw the singletons away — used between tests, never in the app."""
     global _config, _db, _ollama, _model_manager, _embeddings

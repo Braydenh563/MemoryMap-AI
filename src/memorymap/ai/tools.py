@@ -308,6 +308,24 @@ def _rename_tag(session: Session, args: dict) -> dict:
     }
 
 
+def _web_search(session: Session, args: dict) -> dict:
+    """Only offered to the model when the user has opted in (the agent
+    loop filters it out otherwise) — but check again anyway, because a
+    stale conversation could still name it."""
+    from memorymap.search import websearch
+
+    if not deps.get_config().get_preference("web_search_enabled", False):
+        raise ValueError("Web search is disabled in Settings → Preferences")
+    try:
+        results = websearch.search_web(str(args["query"]), limit=5)
+    except websearch.WebSearchError as exc:
+        raise ValueError(str(exc)) from exc
+    return {
+        "results": results,
+        "label": f"🌐 Searched the web for “{_clip(str(args['query']), 40)}”",
+    }
+
+
 def _delete_tag(session: Session, args: dict) -> dict:
     changed = manager.delete_tag(session, str(args["name"]))
     return {
@@ -500,6 +518,18 @@ TOOLS: dict[str, ToolSpec] = {
             _rename_tag,
         ),
         ToolSpec(
+            "web_search",
+            "Search the internet (DuckDuckGo) for current information the "
+            "notebook doesn't have. Only available when the user enabled "
+            "web search in their preferences.",
+            {
+                "type": "object",
+                "properties": {"query": {"type": "string"}},
+                "required": ["query"],
+            },
+            _web_search,
+        ),
+        ToolSpec(
             "delete_tag",
             "Remove a tag from every note. The app asks the user to confirm "
             "before this runs.",
@@ -516,7 +546,10 @@ TOOLS: dict[str, ToolSpec] = {
 
 
 def ollama_tools() -> list[dict]:
-    """The registry in the shape Ollama's /api/chat 'tools' field wants."""
+    """The registry in the shape Ollama's /api/chat 'tools' field wants.
+    web_search is only offered when the user has opted in — a model
+    can't be tempted by a tool it never hears about."""
+    online_allowed = deps.get_config().get_preference("web_search_enabled", False)
     return [
         {
             "type": "function",
@@ -527,6 +560,7 @@ def ollama_tools() -> list[dict]:
             },
         }
         for spec in TOOLS.values()
+        if spec.name != "web_search" or online_allowed
     ]
 
 

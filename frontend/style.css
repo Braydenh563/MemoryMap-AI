@@ -80,18 +80,34 @@
 
 * { box-sizing: border-box; }
 
+/* The glass backdrop lives on <html>, not <body>, so the optional
+   generative-art canvas (a fixed, z-index:-1 child of <body>) can sit
+   between the gradient and the app content (Wave J). */
+html {
+  min-height: 100%;
+  background:
+    radial-gradient(600px 400px at 15% 8%, var(--blob-a), transparent 70%),
+    radial-gradient(700px 500px at 85% 90%, var(--blob-b), transparent 70%),
+    var(--page);
+  background-attachment: fixed;
+}
+
 body {
   margin: 0;
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   color: var(--ink);
   line-height: 1.5;
   min-height: 100vh;
-  /* The glass backdrop: two soft blobs floating over a gradient. */
-  background:
-    radial-gradient(600px 400px at 15% 8%, var(--blob-a), transparent 70%),
-    radial-gradient(700px 500px at 85% 90%, var(--blob-b), transparent 70%),
-    var(--page);
-  background-attachment: fixed;
+}
+
+/* Ambient background art: behind everything, ignores clicks (Wave J). */
+.bg-art-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  width: 100vw !important;
+  height: 100vh !important;
 }
 
 header {
@@ -159,9 +175,11 @@ header h1 { margin: 0; font-size: 1.5rem; }
   align-items: start;
 }
 
-/* Stack the sidebar on small screens */
+/* Stack the sidebar on small screens. minmax(0,…) + min-width let the
+   column actually shrink below its content's natural width. */
 @media (max-width: 720px) {
-  .layout { grid-template-columns: 1fr; }
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .layout > * { min-width: 0; }
 }
 
 /* --- the glass card -------------------------------------------------------- */
@@ -724,3 +742,264 @@ li.link-source { outline: 2px solid var(--accent); }
   border-radius: 50%;
   display: inline-block;
 }
+
+/* --- Wave F: command palette --------------------------------------------------- */
+#palette-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 12, 24, 0.45);
+  backdrop-filter: blur(3px);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 12vh;
+  z-index: 60;
+}
+#palette-card {
+  width: min(560px, 92vw);
+  padding: 0.8rem;
+  background: var(--modal-bg);
+}
+/* These id rules outrank the generic .hidden helper — restate it. */
+#palette-overlay.hidden,
+#sketch-overlay.hidden { display: none; }
+#palette-input { width: 100%; margin-bottom: 0.5rem; font-size: 1rem; }
+#palette-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 46vh;
+  overflow-y: auto;
+}
+#palette-list li {
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+#palette-list li:hover,
+#palette-list li.active { background: var(--accent-soft); }
+.palette-hint { font-size: 0.75rem; margin: 0.5rem 0 0; }
+
+/* --- Wave F: whiteboard-lite ---------------------------------------------------- */
+#sketch-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 12, 24, 0.45);
+  backdrop-filter: blur(3px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem;
+  z-index: 60;
+}
+#sketch-card {
+  width: min(900px, 96vw);
+  max-height: 94vh;
+  overflow-y: auto;
+  background: var(--modal-bg);
+}
+#sketch-canvas {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  touch-action: none; /* the pen, not the page, gets touch moves */
+  cursor: crosshair;
+}
+.sketch-color {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+.sketch-color.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+#sketch-eraser.active { background: var(--accent-soft); }
+#sketch-tools { flex-wrap: wrap; }
+
+/* --- Wave F: mobile / PWA responsive pass --------------------------------------- */
+@media (max-width: 720px) {
+  header { padding: 0.9rem 1rem 0.5rem; }
+  #tab-bar {
+    padding: 0 1rem;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  #tab-bar button { white-space: nowrap; }
+  .layout { padding: 0.8rem 1rem 1.2rem; }
+  #dash-grid { padding: 0 1rem 1.2rem; grid-template-columns: 1fr; }
+  .dash-toolbar { padding: 0.4rem 1rem; }
+  .row { flex-wrap: wrap; }
+  #chat-messages { max-height: 50vh; }
+  .msg { max-width: 92%; }
+  #graph-box { height: 55vh; }
+  .modal-card { max-height: 96vh; width: 96vw; }
+}
+
+/* --- Wave H: voice + read-aloud -------------------------------------------------- */
+button.recording {
+  background: var(--warn-soft);
+  color: var(--warn);
+  animation: pulse-rec 1.2s ease-in-out infinite;
+}
+@keyframes pulse-rec {
+  0%, 100% { box-shadow: 0 0 0 0 var(--warn-soft); }
+  50% { box-shadow: 0 0 0 6px var(--warn-soft); }
+}
+.bubble-speak { margin-top: 0.4rem; }
+
+/* --- Wave I: skeletons, focus, reduced motion ------------------------------------ */
+.entry-list li.skeleton {
+  height: 3.2rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: linear-gradient(90deg, var(--chip-bg) 25%, var(--inner) 50%, var(--chip-bg) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s linear infinite;
+  margin-bottom: 0.5rem;
+}
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+/* Keyboard users get an unmistakable focus ring everywhere. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+kbd {
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  background: var(--chip-bg);
+  font-size: 0.82rem;
+  font-family: inherit;
+}
+.shortcut-list { list-style: none; padding: 0; }
+.shortcut-list li { margin-bottom: 0.4rem; color: var(--muted); font-size: 0.9rem; }
+
+/* Vestibular safety: kill every animation when the OS asks for calm. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* --- Wave J: generative art + note tools + undo toast --------------------------- */
+.art-holder {
+  border-radius: 10px;
+  overflow: hidden;
+  line-height: 0; /* no stray gap under the canvas */
+}
+.art-holder canvas { width: 100%; height: auto; display: block; border-radius: 10px; }
+.art-controls { margin-top: 0.5rem; line-height: 1.5; }
+
+.browse-header { align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.browse-tools { gap: 0.4rem; flex: 0 1 auto; }
+#note-search { margin-bottom: 0; min-width: 8rem; }
+#note-sort { margin-bottom: 0; max-width: 10rem; }
+
+.char-count { font-size: 0.75rem; text-align: right; margin: -0.4rem 0 0.5rem; }
+
+.toast-action {
+  margin-left: 0.75rem;
+  padding: 0.15rem 0.6rem;
+  font-size: 0.8rem;
+  background: rgba(255, 255, 255, 0.25);
+}
+.toast { display: flex; align-items: center; justify-content: space-between; }
+
+@media (max-width: 720px) {
+  .browse-tools { width: 100%; }
+  #note-sort { max-width: none; }
+}
+
+/* --- Wave J: accent presets + appearance picker --------------------------------- */
+/* Each preset overrides just the accent + its soft tint + the primary
+   background blob; --page and text stay theme-driven, so every accent
+   works in both light and dark. */
+:root[data-accent="emerald"] {
+  --accent: #0e9f6e; --accent-soft: rgba(14, 159, 110, 0.16); --blob-a: rgba(14, 159, 110, 0.18);
+}
+:root[data-accent="rose"] {
+  --accent: #ec4899; --accent-soft: rgba(236, 72, 153, 0.16); --blob-a: rgba(236, 72, 153, 0.18);
+}
+:root[data-accent="amber"] {
+  --accent: #d97706; --accent-soft: rgba(217, 119, 6, 0.16); --blob-a: rgba(217, 119, 6, 0.18);
+}
+:root[data-accent="violet"] {
+  --accent: #7c3aed; --accent-soft: rgba(124, 58, 237, 0.16); --blob-a: rgba(124, 58, 237, 0.18);
+}
+:root[data-accent="slate"] {
+  --accent: #64748b; --accent-soft: rgba(100, 116, 139, 0.18); --blob-a: rgba(100, 116, 139, 0.20);
+}
+
+.accent-swatches { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+.accent-swatch {
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  padding: 0;
+  cursor: pointer;
+  box-shadow: none;
+}
+.accent-swatch.active {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* --- Wave K: empty states, mobile tap targets, high-contrast -------------------- */
+.empty-state {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: var(--muted);
+}
+.empty-state.hidden { display: none; }
+.empty-icon { font-size: 2.6rem; display: block; margin-bottom: 0.5rem; opacity: 0.85; }
+.empty-title { margin: 0 0 0.25rem; font-weight: 600; color: var(--ink); }
+.empty-state p { margin: 0.15rem 0; }
+/* The graph empty-state is absolutely centred inside its box. */
+#graph-empty.empty-state { position: absolute; inset: 0; display: grid; place-content: center; }
+
+/* Bigger touch targets for the small action buttons on phones — a 44px
+   min is the accessibility guideline for finger taps. */
+@media (max-width: 720px) {
+  .entry-actions button,
+  .entry-actions .unlink,
+  button.small {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .entry-actions { gap: 0.35rem; flex-wrap: wrap; }
+}
+
+/* High-contrast mode: stronger ink, solid panels, no glass blur — layered
+   on top of whatever theme/accent is active. */
+:root[data-contrast="on"] {
+  --card: var(--modal-bg);
+  --inner: var(--modal-bg);
+  --muted: var(--ink);
+  --border: currentColor;
+  --glass-border: var(--ink);
+}
+:root[data-contrast="on"] .card,
+:root[data-contrast="on"] #tab-bar button,
+:root[data-contrast="on"] #ai-pill,
+:root[data-contrast="on"] input,
+:root[data-contrast="on"] textarea,
+:root[data-contrast="on"] select {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+:root[data-contrast="on"] .card { border-width: 2px; }
+:root[data-contrast="on"] .muted { opacity: 0.9; }

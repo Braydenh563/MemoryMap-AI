@@ -25,9 +25,10 @@ from memorymap.api import (
     routes_reminders,
     routes_settings,
     routes_tags,
+    routes_voice,
 )
 from memorymap.api.routes_auth import require_unlock
-from memorymap.core import deps, logbuffer
+from memorymap.core import backup, deps, logbuffer
 from memorymap.core.deps import init_app_state
 from memorymap.entry import manager
 
@@ -54,10 +55,21 @@ def _purge_expired_bin_entries() -> None:
         pass  # a failed purge must never stop the app from starting
 
 
+def _backup_if_due() -> None:
+    """Scheduled local backups (Wave F): one consistent snapshot per day,
+    taken at startup. Failure must never stop the app."""
+    try:
+        config = deps.get_config()
+        backup.backup_if_due(config.db_path, config.data_dir)
+    except Exception:
+        pass
+
+
 def create_app() -> FastAPI:
     logbuffer.install()  # start capturing logs for the Settings viewer
     init_app_state()
     _purge_expired_bin_entries()
+    _backup_if_due()
     embeddings.start_warmup(deps.get_embeddings())
 
     app = FastAPI(title="MemoryMap AI", version=__version__)
@@ -76,6 +88,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_insights.router, dependencies=locked)
     app.include_router(routes_graph.router, dependencies=locked)
     app.include_router(routes_reminders.router, dependencies=locked)
+    app.include_router(routes_voice.router, dependencies=locked)
 
     @app.get("/health", tags=["system"])
     def health() -> dict[str, str]:

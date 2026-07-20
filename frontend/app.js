@@ -49,6 +49,8 @@ let activeCategory = null; // sidebar filter; null = All
 let linkSource = null; // entry id waiting for its link partner
 let editingId = null; // entry id currently in inline-edit mode
 let inlineAction = null; // {id, kind: "context"|"continue"} open on a card
+let noteSearch = ""; // Notes-tab text filter (Wave J)
+let noteSort = "newest"; // newest | oldest | az | most-used (Wave J)
 
 const $ = (id) => document.getElementById(id);
 const show = (...ids) => ids.forEach((id) => $(id).classList.remove("hidden"));
@@ -225,15 +227,46 @@ function chip(text, extraClass = "") {
 }
 
 function smallButton(label, title, onClick, ghost = true) {
+  // (Wave I) icon-only buttons need a name for screen readers — the
+  // title doubles as one.
   const button = document.createElement("button");
   button.className = ghost ? "ghost small" : "small";
   button.textContent = label;
   button.title = title;
+  if (title) button.setAttribute("aria-label", title);
   button.addEventListener("click", onClick);
   return button;
 }
 
 // One entry card, shared by the browse list, chat results, and the bin.
+// "2 hours ago" style, with the exact date kept for the hover tooltip
+// (Wave J). Anything older than a week just shows the date.
+function relativeTime(iso) {
+  const then = new Date(iso);
+  const seconds = Math.round((Date.now() - then.getTime()) / 1000);
+  if (seconds < 45) return "just now";
+  const units = [
+    ["minute", 60],
+    ["hour", 60],
+    ["day", 24],
+  ];
+  let value = seconds / 60; // start in minutes
+  let unit = "minute";
+  if (value < 60) {
+    // minutes
+  } else if (value / 60 < 24) {
+    value /= 60;
+    unit = "hour";
+  } else if (value / 60 / 24 < 7) {
+    value = value / 60 / 24;
+    unit = "day";
+  } else {
+    return then.toLocaleDateString();
+  }
+  const rounded = Math.round(value);
+  return `${rounded} ${unit}${rounded === 1 ? "" : "s"} ago`;
+}
+
 function entryItem(entry, options = {}) {
   const li = document.createElement("li");
   li.dataset.id = entry.id;
@@ -263,9 +296,9 @@ function entryItem(entry, options = {}) {
 
   const date = document.createElement("span");
   date.className = "entry-date";
-  date.textContent = new Date(
-    options.bin ? entry.deleted_at : entry.created_at
-  ).toLocaleString();
+  const stamp = options.bin ? entry.deleted_at : entry.created_at;
+  date.textContent = relativeTime(stamp);
+  date.title = new Date(stamp).toLocaleString(); // exact on hover
   meta.appendChild(date);
 
   if (options.bin) {
@@ -315,6 +348,16 @@ function entryItem(entry, options = {}) {
       })
     );
     actions.appendChild(
+      smallButton("📋", "Copy this note's text", async () => {
+        try {
+          await navigator.clipboard.writeText(entry.content);
+          toast("Note copied.");
+        } catch {
+          toast("Couldn't copy — your browser blocked clipboard access.", true);
+        }
+      })
+    );
+    actions.appendChild(
       smallButton("✎", "Edit this entry", () => {
         editingId = entry.id;
         renderEntries();
@@ -324,11 +367,16 @@ function entryItem(entry, options = {}) {
       smallButton("🔗", "Link this entry to another", () => beginOrCompleteLink(entry))
     );
     actions.appendChild(
+      // No confirm dialog: deleting is instant but a one-click Undo makes
+      // it safe (and less annoying) — the entry is only soft-deleted (Wave J).
       smallButton("🗑", "Move to the recycle bin", async () => {
-        if (!confirm("Move this entry to the recycle bin?")) return;
         await api(`/entries/${entry.id}`, { method: "DELETE" });
-        toast("Moved to bin — restore it any time from 🗑 Bin.");
         await loadEntries();
+        toastAction("Moved to the recycle bin.", "Undo", async () => {
+          await api(`/entries/${entry.id}/restore`, { method: "POST" });
+          await loadEntries();
+          toast("Note restored.");
+        });
       })
     );
     meta.appendChild(actions);
@@ -655,19 +703,58 @@ function beginOrCompleteLink(entry) {
     });
 }
 
+// Text filter (Wave J): match note content or any tag, case-insensitive.
+function matchesSearch(entry) {
+  if (!noteSearch) return true;
+  const needle = noteSearch.toLowerCase();
+  return (
+    entry.content.toLowerCase().includes(needle) ||
+    entry.tags.some((tag) => tag.toLowerCase().includes(needle))
+  );
+}
+
+// Sort comparator for the chosen mode (Wave J). Pinned always floats to
+// the top first, matching the server's own ordering.
+function sortEntries(entries) {
+  const byPinned = (a, b) => Number(b.pinned) - Number(a.pinned);
+  const modes = {
+    newest: (a, b) => b.id - a.id,
+    oldest: (a, b) => a.id - b.id,
+    az: (a, b) => a.content.localeCompare(b.content),
+    "most-used": (a, b) => b.access_count - a.access_count || b.id - a.id,
+  };
+  const cmp = modes[noteSort] || modes.newest;
+  return [...entries].sort((a, b) => byPinned(a, b) || cmp(a, b));
+}
+
 function renderEntries() {
   const list = $("entry-list");
   const empty = $("empty-message");
+  const noMatch = $("no-match-message");
   list.replaceChildren();
 
-  const visible = activeCategory
+  let visible = activeCategory
     ? allEntries.filter((e) => e.category === activeCategory)
     : allEntries;
+  visible = visible.filter(matchesSearch);
 
   $("entries-heading").textContent = activeCategory
     ? `${activeCategory} entries`
     : "All entries";
-  empty.classList.toggle("hidden", visible.length > 0);
+  // Distinguish "empty notebook" from "filter matched nothing".
+  const notebookEmpty = allEntries.length === 0;
+  empty.classList.toggle("hidden", !notebookEmpty);
+  noMatch.classList.toggle("hidden", notebookEmpty || visible.length > 0);
+
+  // A search or a non-default sort means the user wants a flat, ordered
+  // list — thread nesting only applies to the default newest view.
+  const flat = Boolean(noteSearch) || noteSort !== "newest";
+  if (flat) {
+    for (const entry of sortEntries(visible)) {
+      list.appendChild(entryItem(entry, { actions: true }));
+    }
+    return;
+  }
 
   // Threads (Wave B): children render indented under their parent. A
   // child whose parent isn't visible (filtered out) shows at top level.
@@ -732,7 +819,21 @@ function renderSidebar() {
   }
 }
 
+// Loading skeletons (Wave I): shimmer placeholders instead of a blank
+// list on the very first load, so a slow disk never looks broken.
+function showEntrySkeletons() {
+  const list = $("entry-list");
+  if (list.children.length > 0) return; // only ever on a truly empty list
+  for (let i = 0; i < 3; i++) {
+    const li = document.createElement("li");
+    li.className = "skeleton";
+    li.setAttribute("aria-hidden", "true");
+    list.appendChild(li);
+  }
+}
+
 async function loadEntries() {
+  showEntrySkeletons();
   allEntries = await apiJson("/entries");
   renderSidebar();
   renderEntries();
@@ -974,7 +1075,7 @@ async function askQuestion(preset) {
   // A new answer is coming — hide the suggestion/recent chips and the
   // per-answer action buttons until it lands.
   $("suggested-questions").classList.add("hidden");
-  hide("retry-btn", "copy-btn");
+  hide("retry-btn", "copy-btn", "speak-btn");
   setAsking(true);
   status.classList.remove("error");
   status.textContent =
@@ -1027,7 +1128,7 @@ async function askQuestion(preset) {
     renderMarkdown(answerBox, answerRaw);
     conversation.push({ question, answer: answerRaw });
     status.textContent = "";
-    show("retry-btn", "copy-btn", "new-chat-btn");
+    show("retry-btn", "copy-btn", "speak-btn", "new-chat-btn");
     // Asking changes both quick-access lists.
     loadRecentQuestions();
     loadMostUsed();
@@ -1036,7 +1137,7 @@ async function askQuestion(preset) {
       stopped = true;
       renderMarkdown(answerBox, answerRaw); // keep what streamed so far
       status.textContent = "Stopped.";
-      show("retry-btn", "copy-btn");
+      show("retry-btn", "copy-btn", "speak-btn");
     } else {
       status.textContent = error.message;
       status.classList.add("error");
@@ -1315,6 +1416,7 @@ async function sendChatMessage(preset) {
   chatScrollToEnd();
   if (toolsActed) refreshAfterToolChanges(); // the AI changed real data
   if (!answerRaw) return; // nothing to remember (failed before any token)
+  addSpeakButton(recordsHolder.parentElement, answerBox); // 🔊 read-aloud (Wave H)
 
   chatConv.turns.push({ question, answer: answerRaw });
   // Persist the finished turn so the chat survives restarts.
@@ -1712,6 +1814,8 @@ let dragWidget = null; // widget name being dragged
 // Widget registry: name → title + async renderer that fills a body div.
 const DASH_WIDGETS = {
   stats: { title: "📊 Stats", render: renderStatsWidget },
+  streak: { title: "🔥 Streak", render: renderStreakWidget },
+  art: { title: "🎨 Notebook constellation", render: renderArtWidget },
   pinned: { title: "📌 Pinned notes", render: renderPinnedWidget },
   "most-used": { title: "🔥 Most used", render: renderMostUsedWidget },
   questions: { title: "💬 Recent questions", render: renderQuestionsWidget },
@@ -1820,6 +1924,194 @@ async function renderDashboard() {
   }
 }
 
+// --- Wave J: generative art (p5.js, vendored locally) -------------------------------
+// A living "constellation" of the notebook: each category becomes a
+// cluster of drifting stars — more notes, more stars — connected by
+// faint lines in the category's own colour. It's seeded from the real
+// note counts, so the same notebook always grows the same sky (until
+// you hit Regenerate). Purely decorative; nothing depends on it.
+
+let artInstance = null; // the one live p5 instance, if any
+let artNonce = 0; // bumped by "Regenerate" for a fresh arrangement
+
+// Stable 0–359 hue from a category name, so a category keeps its colour.
+function hueFor(name) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash * 31 + name.charCodeAt(i)) % 360;
+  }
+  return hash;
+}
+
+// A deterministic seed from the category names + counts: the sky is
+// stable for a given notebook, and shifts only as the notebook changes.
+function artSeed(categories) {
+  let seed = 1;
+  for (const c of categories) {
+    seed = (seed * 31 + hueFor(c.name) + c.count) % 1_000_000;
+  }
+  return seed;
+}
+
+function stopArt() {
+  if (artInstance) {
+    artInstance.remove(); // tears down the canvas + draw loop
+    artInstance = null;
+  }
+}
+
+function buildArtParticles(p, categories, total, width, height) {
+  const groups = categories.length ? categories : [{ name: "Notes", count: 1 }];
+  const particles = [];
+  for (const group of groups) {
+    const hue = hueFor(group.name);
+    // 3 base stars, plus more for a bigger share of the notebook (capped).
+    const count = Math.max(3, Math.min(16, Math.round((group.count / total) * 70) + 3));
+    const cx = p.random(width * 0.15, width * 0.85);
+    const cy = p.random(height * 0.2, height * 0.8);
+    for (let i = 0; i < count; i++) {
+      particles.push({
+        baseX: cx + p.random(-46, 46),
+        baseY: cy + p.random(-34, 34),
+        x: 0,
+        y: 0,
+        phase: p.random(p.TWO_PI),
+        amp: p.random(2, 9),
+        size: p.random(2, 5),
+        hue,
+      });
+    }
+  }
+  return particles;
+}
+
+function renderArtWidget(body) {
+  const holder = document.createElement("div");
+  holder.className = "art-holder";
+  body.appendChild(holder);
+
+  const controls = document.createElement("div");
+  controls.className = "row art-controls";
+  controls.appendChild(
+    smallButton("🎲 Regenerate", "A fresh arrangement of the same notes", () => {
+      artNonce += 1;
+      startArt(holder);
+    })
+  );
+  controls.appendChild(
+    smallButton("💾 Save PNG", "Save this artwork as an image", () => {
+      if (artInstance) artInstance.saveCanvas("memorymap-constellation", "png");
+    })
+  );
+  body.appendChild(controls);
+
+  return startArt(holder);
+}
+
+async function startArt(holder) {
+  stopArt();
+  if (typeof p5 === "undefined") {
+    holder.textContent = "The art library didn't load.";
+    return;
+  }
+  const stats = await apiJson("/insights/stats").catch(() => ({
+    categories: [],
+    total_entries: 0,
+  }));
+  const categories = (stats.categories || []).slice(0, 8);
+  const total = Math.max(1, stats.total_entries || 0);
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const dark =
+    document.documentElement.dataset.theme === "dark" ||
+    (!document.documentElement.dataset.theme &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches);
+
+  const sketch = (p) => {
+    let particles = [];
+    let width = 0;
+    const height = 220;
+
+    const scene = (t) => {
+      p.background(dark ? 18 : 246);
+      for (const dot of particles) {
+        dot.x = dot.baseX + Math.cos(t + dot.phase) * dot.amp;
+        dot.y = dot.baseY + Math.sin(t * 1.3 + dot.phase) * dot.amp;
+      }
+      // Faint connecting lines between nearby stars (O(n²), but n is
+      // capped low enough that it stays cheap at 60fps).
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const a = particles[i];
+          const b = particles[j];
+          const d = p.dist(a.x, a.y, b.x, b.y);
+          if (d < 62) {
+            p.stroke(a.hue, 60, dark ? 70 : 55, p.map(d, 0, 62, 0.5, 0));
+            p.strokeWeight(1);
+            p.line(a.x, a.y, b.x, b.y);
+          }
+        }
+      }
+      // The stars themselves, with a soft twinkle.
+      p.noStroke();
+      for (const dot of particles) {
+        const twinkle = 0.6 + 0.4 * Math.sin(t * 2 + dot.phase);
+        p.fill(dot.hue, 70, dark ? 75 : 45, twinkle);
+        p.circle(dot.x, dot.y, dot.size);
+      }
+    };
+
+    p.setup = () => {
+      width = holder.clientWidth || 300;
+      p.createCanvas(width, height);
+      p.colorMode(p.HSL, 360, 100, 100, 1);
+      p.randomSeed(artSeed(categories) + artNonce * 997);
+      particles = buildArtParticles(p, categories, total, width, height);
+      if (reduceMotion) {
+        scene(0); // one still frame — no animation for reduced-motion users
+        p.noLoop();
+      }
+    };
+    p.draw = () => scene(p.frameCount * 0.005);
+  };
+
+  artInstance = new p5(sketch, holder);
+}
+
+// Capture streak (Wave K): consecutive days up to today with at least
+// one note, read from the same per-day series the stats strip uses.
+async function renderStreakWidget(body) {
+  const stats = await apiJson("/insights/stats");
+  const perDay = stats.per_day || []; // oldest → newest, last = today
+
+  let current = 0;
+  for (let i = perDay.length - 1; i >= 0; i--) {
+    if (perDay[i] > 0) current += 1;
+    else break;
+  }
+  let longest = 0;
+  let run = 0;
+  for (const count of perDay) {
+    run = count > 0 ? run + 1 : 0;
+    longest = Math.max(longest, run);
+  }
+
+  const big = document.createElement("p");
+  big.className = "dash-big";
+  big.textContent = current > 0 ? `🔥 ${current}-day streak` : "No streak yet";
+  body.appendChild(big);
+
+  const sub = document.createElement("p");
+  sub.className = "muted";
+  if (current > 0) {
+    sub.textContent =
+      `You've captured ${current} day${current === 1 ? "" : "s"} running` +
+      (longest > current ? ` · best in the last fortnight: ${longest}` : "");
+  } else {
+    sub.textContent = "Save a note today to start one.";
+  }
+  body.appendChild(sub);
+}
+
 async function renderStatsWidget(body) {
   const stats = await apiJson("/insights/stats");
   const total = document.createElement("p");
@@ -1910,22 +2202,98 @@ async function renderOnThisDayWidget(body) {
   );
 }
 
+// Weekly digest caching (Wave J follow-up). The AI digest is expensive,
+// so once it's generated it STAYS until you regenerate, and it resets
+// itself each day. Generation is a module-level promise, so switching
+// away from the dashboard never cancels it — whenever it finishes, the
+// result is cached and shown next time the widget is on screen.
+const DIGEST_KEY = "digestCache";
+let digestPromise = null; // the in-flight generation, shared across renders
+
+function todayStamp() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function loadDigestCache() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(DIGEST_KEY) || "null");
+    if (cached && cached.date === todayStamp()) return cached.text; // fresh today
+  } catch {
+    /* corrupt cache — ignore and regenerate */
+  }
+  return null;
+}
+
+// Kicks off (or reuses) one generation. Caches the result for today,
+// unless the server says it isn't cacheable (e.g. Ollama was offline).
+function generateDigest() {
+  if (!digestPromise) {
+    digestPromise = apiJson("/insights/digest", { method: "POST" })
+      .then((result) => {
+        if (result.cacheable !== false) {
+          localStorage.setItem(
+            DIGEST_KEY,
+            JSON.stringify({ text: result.digest, date: todayStamp() })
+          );
+        }
+        return result.digest;
+      })
+      .finally(() => {
+        digestPromise = null;
+      });
+  }
+  return digestPromise;
+}
+
 async function renderDigestWidget(body) {
-  const button = smallButton("Generate this week's digest", "", async () => {
-    button.disabled = true;
-    button.textContent = "Thinking…";
-    try {
-      const result = await apiJson("/insights/digest", { method: "POST" });
-      const out = document.createElement("div");
-      renderMarkdown(out, result.digest);
-      body.replaceChildren(out);
-    } catch (error) {
-      toast(error.message, true);
-      button.disabled = false;
-      button.textContent = "Generate this week's digest";
-    }
-  }, false);
-  body.appendChild(button);
+  const showDigest = (text) => {
+    const out = document.createElement("div");
+    renderMarkdown(out, text);
+    const controls = document.createElement("div");
+    controls.className = "row";
+    controls.appendChild(
+      smallButton("🔄 Regenerate", "Rebuild this week's digest now", () => {
+        localStorage.removeItem(DIGEST_KEY);
+        runGeneration();
+      })
+    );
+    body.replaceChildren(out, controls);
+  };
+
+  const runGeneration = () => {
+    const thinking = document.createElement("p");
+    thinking.className = "muted";
+    thinking.append(typingDots(), " Thinking about your week…");
+    body.replaceChildren(thinking);
+    generateDigest()
+      .then((text) => {
+        // The widget may have been left/re-rendered while we waited —
+        // only paint if this exact body is still on screen.
+        if (body.isConnected) showDigest(text);
+      })
+      .catch((error) => {
+        if (!body.isConnected) return;
+        const retry = smallButton(
+          "Generate this week's digest",
+          "",
+          runGeneration,
+          false
+        );
+        body.replaceChildren(retry);
+        toast(error.message, true);
+      });
+  };
+
+  const cached = loadDigestCache();
+  if (cached !== null) {
+    showDigest(cached); // today's digest, kept until you regenerate
+  } else if (digestPromise) {
+    runGeneration(); // one is already running (from before a tab switch)
+  } else {
+    body.appendChild(
+      smallButton("Generate this week's digest", "", runGeneration, false)
+    );
+  }
 }
 
 async function renderQuickCaptureWidget(body) {
@@ -2383,6 +2751,8 @@ function switchTab(name) {
     button.classList.toggle("active", button.dataset.tab === name);
   }
   localStorage.setItem("activeTab", name); // reopen where you left off
+  // The generative-art animation only needs to run while it's on screen.
+  if (name !== "dashboard") stopArt();
   if (name === "chat") {
     loadChatSuggestions();
     $("chat-input").focus();
@@ -2407,7 +2777,7 @@ function showPanel(id) {
 
 // --- settings modal (Wave A) ------------------------------------------------------
 
-const SETTINGS_SECTIONS = ["models", "personas", "skills", "preferences", "data", "logs", "about"];
+const SETTINGS_SECTIONS = ["models", "personas", "skills", "appearance", "preferences", "data", "logs", "about"];
 
 function settingsModalOpen() {
   return !$("settings-modal").classList.contains("hidden");
@@ -2424,6 +2794,8 @@ function showSettingsSection(name) {
   if (name === "preferences") renderPrefs().catch(() => {});
   if (name === "personas") renderPersonas().catch(() => {});
   if (name === "skills") renderSkillSettings();
+  if (name === "appearance") renderAppearance();
+  if (name === "data") renderBackups();
 }
 
 async function openSettingsModal(section = "models") {
@@ -2584,6 +2956,7 @@ async function renderPrefs() {
   $("pref-style").value = prefsCache.communication_style;
   $("pref-profile").value = prefsCache.user_profile;
   $("pref-profile-enabled").checked = prefsCache.profile_enabled;
+  $("pref-web-search").checked = Boolean(prefsCache.web_search_enabled);
   $("prefs-status").textContent = "";
 }
 
@@ -2596,6 +2969,7 @@ async function savePrefs() {
         communication_style: $("pref-style").value,
         user_profile: $("pref-profile").value,
         profile_enabled: $("pref-profile-enabled").checked,
+        web_search_enabled: $("pref-web-search").checked,
       }),
     });
     $("prefs-status").textContent = "Saved.";
@@ -2622,9 +2996,379 @@ async function downloadExport(kind) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `memorymap-export.${kind}`;
+  // Markdown arrives as a zip of .md files; the rest are single files.
+  a.download = kind === "markdown" ? "memorymap-markdown.zip" : `memorymap-export.${kind}`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// --- Wave F: backups UI -------------------------------------------------------------
+
+async function renderBackups() {
+  const list = $("backup-list");
+  const backups = await apiJson("/backups").catch(() => []);
+  list.replaceChildren();
+  for (const item of backups) {
+    const li = document.createElement("li");
+    const row = document.createElement("div");
+    row.className = "entry-meta";
+    const name = document.createElement("span");
+    name.textContent = item.name;
+    const size = document.createElement("span");
+    size.className = "muted";
+    size.textContent = `${(item.size / 1024).toFixed(0)} KB`;
+    const actions = document.createElement("span");
+    actions.className = "entry-actions";
+    actions.appendChild(
+      smallButton("Restore", "Roll the notebook back to this backup", async () => {
+        if (
+          !confirm(
+            "Restore this backup? Your current notebook is snapshotted first, " +
+              "then replaced by the backup."
+          )
+        )
+          return;
+        try {
+          await apiJson("/backups/restore", {
+            method: "POST",
+            body: JSON.stringify({ name: item.name }),
+          });
+          toast("Backup restored.");
+          loadEntries().catch(() => {});
+          renderBackups();
+        } catch (error) {
+          toast(error.message, true);
+        }
+      })
+    );
+    actions.appendChild(
+      smallButton("×", "Delete this backup", async () => {
+        if (!confirm("Delete this backup file?")) return;
+        await apiJson(`/backups/${item.name}`, { method: "DELETE" }).catch(() => {});
+        renderBackups();
+      })
+    );
+    row.append(name, size, actions);
+    li.appendChild(row);
+    list.appendChild(li);
+  }
+}
+
+async function backupNow() {
+  const status = $("backup-status");
+  try {
+    const made = await apiJson("/backups", { method: "POST" });
+    status.textContent = `Saved ${made.name}.`;
+    renderBackups();
+  } catch (error) {
+    status.textContent = error.message;
+  }
+}
+
+async function importMarkdown() {
+  const input = $("import-md-files");
+  const status = $("import-md-status");
+  if (!input.files.length) {
+    status.textContent = "Choose one or more .md files first.";
+    return;
+  }
+  const form = new FormData();
+  for (const file of input.files) form.append("files", file);
+  try {
+    const response = await fetch("/import/markdown", {
+      method: "POST",
+      headers: { "X-Auth-Token": authToken() }, // browser sets the multipart type
+      body: form,
+    });
+    if (!response.ok) throw new Error(`Import failed (${response.status})`);
+    const result = await response.json();
+    status.textContent =
+      `Imported ${result.imported} note${result.imported === 1 ? "" : "s"}.` +
+      (result.skipped.length ? ` Skipped: ${result.skipped.join("; ")}` : "");
+    input.value = "";
+    loadEntries().catch(() => {});
+  } catch (error) {
+    status.textContent = error.message;
+  }
+}
+
+// --- Wave F: command palette (Ctrl/Cmd-K) -------------------------------------------
+
+let paletteIndex = 0;
+
+// Static commands; note search results are appended live as you type.
+function paletteCommands() {
+  return [
+    { label: "📋 Go to Dashboard", run: () => switchTab("dashboard") },
+    { label: "📝 Go to Notes", run: () => switchTab("notes") },
+    { label: "💬 Go to Chat", run: () => switchTab("chat") },
+    { label: "🕸 Go to Graph", run: () => switchTab("graph") },
+    { label: "⏰ Go to Reminders", run: () => switchTab("reminders") },
+    {
+      label: "✏️ New note",
+      run: () => {
+        switchTab("notes");
+        $("entry-content").focus();
+      },
+    },
+    { label: "🆕 New chat", run: () => { switchTab("chat"); newChatConversation(); } },
+    { label: "🎨 New sketch", run: openSketch },
+    { label: "⚙️ Settings → Models", run: () => openSettingsModal("models") },
+    { label: "🎭 Settings → Personas", run: () => openSettingsModal("personas") },
+    { label: "⚡ Settings → Skills", run: () => openSettingsModal("skills") },
+    { label: "🎛 Settings → Preferences", run: () => openSettingsModal("preferences") },
+    { label: "💾 Settings → Data & backups", run: () => openSettingsModal("data") },
+    { label: "🪵 Settings → Logs", run: () => openSettingsModal("logs") },
+    { label: "🗄 Back up now", run: () => { openSettingsModal("data"); backupNow(); } },
+    { label: "📤 Export markdown", run: () => downloadExport("markdown") },
+    { label: "🌓 Toggle light/dark", run: toggleTheme },
+    { label: "⌨️ Keyboard shortcuts", run: () => openSettingsModal("about") },
+    { label: "🔒 Lock MemoryMap", run: lockNow },
+  ];
+}
+
+function openPalette() {
+  $("palette-overlay").classList.remove("hidden");
+  $("palette-input").value = "";
+  paletteIndex = 0;
+  renderPalette("");
+  $("palette-input").focus();
+}
+
+function closePalette() {
+  $("palette-overlay").classList.add("hidden");
+}
+
+function paletteMatches(query) {
+  const lowered = query.trim().toLowerCase();
+  const commands = paletteCommands().filter((c) =>
+    c.label.toLowerCase().includes(lowered)
+  );
+  // With a query, matching notes join the list (jump straight to one).
+  const notes = lowered
+    ? allEntries
+        .filter((e) => e.content.toLowerCase().includes(lowered))
+        .slice(0, 6)
+        .map((e) => ({
+          label: `📄 ${e.content.slice(0, 60)}${e.content.length > 60 ? "…" : ""}`,
+          run: () => flashEntry(e.id),
+        }))
+    : [];
+  return [...commands, ...notes];
+}
+
+function renderPalette(query) {
+  const list = $("palette-list");
+  const matches = paletteMatches(query);
+  paletteIndex = Math.min(paletteIndex, Math.max(0, matches.length - 1));
+  list.replaceChildren();
+  matches.forEach((match, index) => {
+    const li = document.createElement("li");
+    li.textContent = match.label;
+    if (index === paletteIndex) li.classList.add("active");
+    li.addEventListener("click", () => {
+      closePalette();
+      match.run();
+    });
+    list.appendChild(li);
+  });
+  if (!matches.length) {
+    const li = document.createElement("li");
+    li.className = "muted";
+    li.textContent = "No matching command or note.";
+    list.appendChild(li);
+  }
+}
+
+function paletteKeydown(event) {
+  const matches = paletteMatches($("palette-input").value);
+  if (event.key === "Escape") closePalette();
+  else if (event.key === "ArrowDown") {
+    event.preventDefault();
+    paletteIndex = Math.min(paletteIndex + 1, matches.length - 1);
+    renderPalette($("palette-input").value);
+  } else if (event.key === "ArrowUp") {
+    event.preventDefault();
+    paletteIndex = Math.max(paletteIndex - 1, 0);
+    renderPalette($("palette-input").value);
+  } else if (event.key === "Enter" && matches[paletteIndex]) {
+    closePalette();
+    matches[paletteIndex].run();
+  }
+}
+
+// --- Wave F: whiteboard-lite --------------------------------------------------------
+
+let sketchPen = { color: "#4f6df5", size: 4, eraser: false };
+let sketchDrawing = false;
+let sketchDirty = false;
+
+function sketchContext() {
+  return $("sketch-canvas").getContext("2d");
+}
+
+function openSketch() {
+  $("sketch-overlay").classList.remove("hidden");
+  const canvas = $("sketch-canvas");
+  const context = canvas.getContext("2d");
+  context.fillStyle = "#ffffff"; // a white page in both themes
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  sketchDirty = false;
+  $("sketch-status").textContent = "";
+}
+
+function closeSketch() {
+  if (sketchDirty && !confirm("Close without saving your sketch?")) return;
+  $("sketch-overlay").classList.add("hidden");
+}
+
+function sketchPointer(event) {
+  const canvas = $("sketch-canvas");
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: ((event.clientX - rect.left) / rect.width) * canvas.width,
+    y: ((event.clientY - rect.top) / rect.height) * canvas.height,
+  };
+}
+
+function sketchStart(event) {
+  sketchDrawing = true;
+  sketchDirty = true;
+  const { x, y } = sketchPointer(event);
+  const context = sketchContext();
+  context.beginPath();
+  context.moveTo(x, y);
+  event.target.setPointerCapture(event.pointerId);
+}
+
+function sketchMove(event) {
+  if (!sketchDrawing) return;
+  const { x, y } = sketchPointer(event);
+  const context = sketchContext();
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  context.strokeStyle = sketchPen.eraser ? "#ffffff" : sketchPen.color;
+  context.lineWidth = sketchPen.eraser ? sketchPen.size * 4 : sketchPen.size;
+  context.lineTo(x, y);
+  context.stroke();
+}
+
+function sketchEnd() {
+  sketchDrawing = false;
+}
+
+async function saveSketch() {
+  const status = $("sketch-status");
+  status.textContent = "Saving…";
+  const caption =
+    $("sketch-caption").value.trim() ||
+    `Sketch — ${new Date().toLocaleDateString()}`;
+  try {
+    // The sketch is a note (searchable caption) + a PNG attachment.
+    const entry = await apiJson("/entries", {
+      method: "POST",
+      body: JSON.stringify({ content: caption, category: "Sketches" }),
+    });
+    const blob = await new Promise((resolve) =>
+      $("sketch-canvas").toBlob(resolve, "image/png")
+    );
+    const form = new FormData();
+    form.append("file", blob, "sketch.png");
+    const response = await fetch(`/entries/${entry.id}/files`, {
+      method: "POST",
+      headers: { "X-Auth-Token": authToken() },
+      body: form,
+    });
+    if (!response.ok) throw new Error(`Upload failed (${response.status})`);
+    sketchDirty = false;
+    $("sketch-overlay").classList.add("hidden");
+    $("sketch-caption").value = "";
+    toast("Sketch saved to your notebook.");
+    loadEntries().catch(() => {});
+  } catch (error) {
+    status.textContent = error.message;
+  }
+}
+
+// --- Wave H: voice capture (local Whisper) ------------------------------------------
+
+let voiceStatus = null; // cached /voice/status
+let recorder = null; // the active MediaRecorder, if any
+let recorderTarget = null; // which input gets the transcript
+
+async function toggleDictation(button, targetInput) {
+  if (recorder) {
+    recorder.stop(); // second press = stop → transcribe
+    return;
+  }
+  if (voiceStatus === null) {
+    voiceStatus = await apiJson("/voice/status").catch(() => ({ available: false }));
+  }
+  if (!voiceStatus.available) {
+    toast(voiceStatus.hint || "Voice capture isn't available.", true);
+    return;
+  }
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch {
+    toast("Microphone access was blocked — allow it in your browser.", true);
+    return;
+  }
+  const chunks = [];
+  recorder = new MediaRecorder(stream);
+  recorderTarget = targetInput;
+  recorder.addEventListener("dataavailable", (e) => chunks.push(e.data));
+  recorder.addEventListener("stop", async () => {
+    stream.getTracks().forEach((t) => t.stop());
+    button.classList.remove("recording");
+    button.textContent = "🎙";
+    recorder = null;
+    const blob = new Blob(chunks, { type: chunks[0]?.type || "audio/webm" });
+    const form = new FormData();
+    form.append("file", blob, "clip.webm");
+    toast("Transcribing…");
+    try {
+      const response = await fetch("/voice/transcribe", {
+        method: "POST",
+        headers: { "X-Auth-Token": authToken() },
+        body: form,
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.detail || "Transcription failed");
+      const box = recorderTarget;
+      box.value = box.value ? `${box.value.trimEnd()} ${body.text}` : body.text;
+      box.focus();
+    } catch (error) {
+      toast(error.message, true);
+    }
+  });
+  recorder.start();
+  button.classList.add("recording");
+  button.textContent = "⏹";
+}
+
+// --- Wave H: read-aloud (the browser's local voices) --------------------------------
+
+function speakText(text) {
+  if (!("speechSynthesis" in window)) {
+    toast("This browser has no text-to-speech voices.", true);
+    return;
+  }
+  if (speechSynthesis.speaking) {
+    speechSynthesis.cancel(); // acting as a stop button
+    return;
+  }
+  if (text.trim()) speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+}
+
+// A per-bubble 🔊 for the chat tab (added once its answer is final).
+function addSpeakButton(bubble, answerBox) {
+  const button = smallButton("🔊", "Read this answer aloud", () =>
+    speakText(answerBox.textContent)
+  );
+  button.classList.add("bubble-speak");
+  bubble.appendChild(button);
 }
 
 // --- toasts (Phase 5) ---------------------------------------------------------------
@@ -2636,6 +3380,27 @@ function toast(message, isError = false) {
   note.textContent = message;
   box.appendChild(note);
   setTimeout(() => note.remove(), 5500);
+}
+
+// A toast with one action button — used for Undo (Wave J). The button
+// stays until clicked or the toast times out (a bit longer than usual,
+// since the user has to react to it).
+function toastAction(message, actionLabel, onAction) {
+  const box = $("toast-box");
+  const note = document.createElement("div");
+  note.className = "toast";
+  const text = document.createElement("span");
+  text.textContent = message;
+  const button = document.createElement("button");
+  button.className = "small toast-action";
+  button.textContent = actionLabel;
+  button.addEventListener("click", async () => {
+    note.remove();
+    await onAction();
+  });
+  note.append(text, button);
+  box.appendChild(note);
+  setTimeout(() => note.remove(), 8000);
 }
 
 // --- quick access: recent questions + most-used entries (Phase 5) -------------------
@@ -2950,11 +3715,148 @@ function toggleTheme() {
   const next = current === "dark" ? "light" : "dark";
   root.dataset.theme = next;
   localStorage.setItem("theme", next); // remembered across restarts
+  if (bgArtOn()) startBgArt(); // recolour the background for the new theme
+}
+
+// --- Wave J: accent themes + generative background --------------------------------
+
+// Simple accent presets. The colours themselves live in the CSS
+// (:root[data-accent="…"]); this list just drives the swatch picker and
+// gives the background art a hue to paint with.
+const ACCENTS = [
+  { name: "indigo", label: "Indigo", swatch: "#4f6df5" },
+  { name: "emerald", label: "Emerald", swatch: "#0e9f6e" },
+  { name: "rose", label: "Rose", swatch: "#ec4899" },
+  { name: "amber", label: "Amber", swatch: "#d97706" },
+  { name: "violet", label: "Violet", swatch: "#7c3aed" },
+  { name: "slate", label: "Slate", swatch: "#475569" },
+];
+
+function activeAccent() {
+  return localStorage.getItem("accent") || "indigo";
+}
+
+function applyAccent(name) {
+  if (name === "indigo") delete document.documentElement.dataset.accent;
+  else document.documentElement.dataset.accent = name;
+  localStorage.setItem("accent", name);
+  if (bgArtOn()) startBgArt(); // repaint the background in the new accent
+}
+
+function contrastOn() {
+  return localStorage.getItem("contrast") === "on";
+}
+
+function applyContrast(on) {
+  if (on) document.documentElement.dataset.contrast = "on";
+  else delete document.documentElement.dataset.contrast;
+  localStorage.setItem("contrast", on ? "on" : "off");
+}
+
+function renderAppearance() {
+  const holder = $("accent-swatches");
+  $("contrast-toggle").checked = contrastOn();
+  holder.replaceChildren();
+  for (const accent of ACCENTS) {
+    const button = document.createElement("button");
+    button.className = "accent-swatch";
+    button.style.background = accent.swatch;
+    button.title = accent.label;
+    button.setAttribute("aria-label", `${accent.label} accent`);
+    button.classList.toggle("active", accent.name === activeAccent());
+    button.addEventListener("click", () => {
+      applyAccent(accent.name);
+      renderAppearance();
+    });
+    holder.appendChild(button);
+  }
+  $("bg-art-toggle").checked = bgArtOn();
+}
+
+// --- generative background (a second, ambient p5 instance) --------------------------
+
+let bgArtInstance = null;
+
+function bgArtOn() {
+  return localStorage.getItem("bgArt") === "on";
+}
+
+function stopBgArt() {
+  if (bgArtInstance) {
+    bgArtInstance.remove();
+    bgArtInstance = null;
+  }
+  const canvas = document.getElementById("bg-art-canvas");
+  if (canvas) canvas.remove();
+}
+
+function startBgArt() {
+  stopBgArt();
+  if (typeof p5 === "undefined") return;
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const accentHex =
+    (ACCENTS.find((a) => a.name === activeAccent()) || ACCENTS[0]).swatch;
+
+  const sketch = (p) => {
+    let blobs = [];
+    const draw = () => {
+      p.clear();
+      for (const blob of blobs) {
+        blob.x += blob.vx;
+        blob.y += blob.vy;
+        if (blob.x < -blob.r) blob.x = p.width + blob.r;
+        if (blob.x > p.width + blob.r) blob.x = -blob.r;
+        if (blob.y < -blob.r) blob.y = p.height + blob.r;
+        if (blob.y > p.height + blob.r) blob.y = -blob.r;
+        p.fill(blob.hue, 60, 60, 0.06);
+        p.circle(blob.x, blob.y, blob.r * 2);
+      }
+    };
+    p.setup = () => {
+      const c = p.createCanvas(window.innerWidth, window.innerHeight);
+      c.id("bg-art-canvas");
+      p.colorMode(p.HSL, 360, 100, 100, 1);
+      p.noStroke();
+      const baseHue = p.hue(p.color(accentHex));
+      // A handful of big, soft, slow-drifting blobs — cheap and calm.
+      for (let i = 0; i < 6; i++) {
+        blobs.push({
+          x: p.random(p.width),
+          y: p.random(p.height),
+          r: p.random(120, 260),
+          vx: p.random(-0.25, 0.25),
+          vy: p.random(-0.25, 0.25),
+          hue: (baseHue + p.random(-30, 30) + 360) % 360,
+        });
+      }
+      p.frameRate(30); // a background never needs 60fps
+      if (reduceMotion) {
+        draw();
+        p.noLoop();
+      }
+    };
+    p.draw = draw;
+    p.windowResized = () => p.resizeCanvas(window.innerWidth, window.innerHeight);
+  };
+  bgArtInstance = new p5(sketch);
+  // p5 appends the canvas to <body>; style it as a fixed backdrop.
+  const canvas = document.getElementById("bg-art-canvas");
+  if (canvas) canvas.className = "bg-art-canvas";
+}
+
+function toggleBgArt(on) {
+  localStorage.setItem("bgArt", on ? "on" : "off");
+  if (on) startBgArt();
+  else stopBgArt();
 }
 
 // --- wiring --------------------------------------------------------------------
 
 $("theme-btn").addEventListener("click", toggleTheme);
+$("bg-art-toggle").addEventListener("change", (e) => toggleBgArt(e.target.checked));
+$("contrast-toggle").addEventListener("change", (e) => applyContrast(e.target.checked));
+// Start the ambient background if the user left it on last time.
+if (bgArtOn()) startBgArt();
 
 // Tabs (Wave A): switch pages, restore the last one used.
 for (const button of document.querySelectorAll("#tab-bar button")) {
@@ -3061,11 +3963,122 @@ $("entry-content").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && e.ctrlKey) saveEntry();
 });
 document.addEventListener("keydown", (e) => {
+  // Ctrl/Cmd-K: the command palette, from anywhere (Wave F).
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+    e.preventDefault();
+    if ($("palette-overlay").classList.contains("hidden")) openPalette();
+    else closePalette();
+    return;
+  }
+  if (e.key === "Escape" && !$("palette-overlay").classList.contains("hidden")) {
+    closePalette();
+    return;
+  }
+  if (e.key === "Escape" && !$("sketch-overlay").classList.contains("hidden")) {
+    closeSketch();
+    return;
+  }
+  // "/" focuses search — but only when you're not already typing somewhere
+  // and no overlay is open, so it never steals a literal slash (Wave J).
+  const typing = ["INPUT", "TEXTAREA", "SELECT"].includes(
+    document.activeElement && document.activeElement.tagName
+  );
+  const overlayOpen =
+    settingsModalOpen() ||
+    !$("palette-overlay").classList.contains("hidden") ||
+    !$("sketch-overlay").classList.contains("hidden");
+  if (e.key === "/" && !typing && !overlayOpen) {
+    e.preventDefault();
+    // On the Chat tab the natural target is the chat box; elsewhere the
+    // Notes filter (switching to Notes if needed).
+    if (localStorage.getItem("activeTab") === "chat") {
+      $("chat-input").focus();
+    } else {
+      switchTab("notes");
+      $("note-search").focus();
+    }
+    return;
+  }
   if (e.key === "Escape" && settingsModalOpen()) closeSettingsModal();
   if (e.key === "Escape" && linkSource !== null) {
     linkSource = null;
     renderEntries();
   }
 });
+
+// --- Wave F wiring ------------------------------------------------------------------
+
+// Wave J: note search + sort, capture char count.
+$("note-search").addEventListener("input", (e) => {
+  noteSearch = e.target.value.trim();
+  renderEntries();
+});
+$("note-sort").addEventListener("change", (e) => {
+  noteSort = e.target.value;
+  renderEntries();
+});
+$("entry-content").addEventListener("input", (e) => {
+  const n = e.target.value.length;
+  $("entry-count").textContent = `${n} character${n === 1 ? "" : "s"}`;
+});
+
+$("export-md").addEventListener("click", () => downloadExport("markdown"));
+$("import-md").addEventListener("click", importMarkdown);
+$("backup-now").addEventListener("click", backupNow);
+
+$("palette-input").addEventListener("input", () => {
+  paletteIndex = 0;
+  renderPalette($("palette-input").value);
+});
+$("palette-input").addEventListener("keydown", paletteKeydown);
+$("palette-overlay").addEventListener("click", (e) => {
+  if (e.target === $("palette-overlay")) closePalette();
+});
+
+$("sketch-btn").addEventListener("click", openSketch);
+$("sketch-close").addEventListener("click", closeSketch);
+$("sketch-save").addEventListener("click", saveSketch);
+$("sketch-clear").addEventListener("click", () => {
+  const canvas = $("sketch-canvas");
+  const context = canvas.getContext("2d");
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+});
+$("sketch-eraser").addEventListener("click", () => {
+  sketchPen.eraser = !sketchPen.eraser;
+  $("sketch-eraser").classList.toggle("active", sketchPen.eraser);
+});
+$("sketch-size").addEventListener("input", () => {
+  sketchPen.size = Number($("sketch-size").value);
+});
+for (const button of document.querySelectorAll(".sketch-color")) {
+  button.addEventListener("click", () => {
+    sketchPen.color = button.dataset.color;
+    sketchPen.eraser = false;
+    $("sketch-eraser").classList.remove("active");
+    document
+      .querySelectorAll(".sketch-color")
+      .forEach((b) => b.classList.toggle("active", b === button));
+  });
+}
+const sketchCanvas = $("sketch-canvas");
+sketchCanvas.addEventListener("pointerdown", sketchStart);
+sketchCanvas.addEventListener("pointermove", sketchMove);
+sketchCanvas.addEventListener("pointerup", sketchEnd);
+sketchCanvas.addEventListener("pointerleave", sketchEnd);
+
+// Wave H: dictation + read-aloud.
+$("mic-note").addEventListener("click", () =>
+  toggleDictation($("mic-note"), $("entry-content"))
+);
+$("mic-chat").addEventListener("click", () =>
+  toggleDictation($("mic-chat"), $("chat-input"))
+);
+$("speak-btn").addEventListener("click", () => speakText($("ai-answer").textContent));
+
+// PWA: the shell caches itself so the app opens instantly (Wave F).
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").catch(() => {});
+}
 
 initAuth();

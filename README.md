@@ -118,4 +118,24 @@ tests/                   # pytest suite
 - [x] **Phase 3.5 — Model Manager:** pick & download Ollama models in-app, embedding switch with safe re-index
 - [x] **Phase 4 — Core MVP:** single-user unlock, manual overrides, recycle bin, entry linking, guided mode, audit viewer, export, preferences
 - [x] **Phase 5 — Quick access + polish:** recent questions, most-used dashboard, optional AI profile, glassmorphism UI with dark mode
-- [ ] **Phase 6 — Desktop shell** (pywebview window) + optional extras — after 1–5 feel solid in daily use
+- [x] **Waves A–D — App shell & power features:** tabbed UI, settings modal, log viewer, note threads/files/pins/tags, chat tab with personas and saved conversations, dashboard, reminders
+- [x] **Wave G — Agentic tools + skills:** the chat AI can create/tag/pin/link/delete notes and set reminders for you (destructive actions always confirmed), plus one-click skills
+- [x] **Wave E — Graph view:** Obsidian-style force-directed map (D3 vendored locally)
+- [x] **Wave F — Platform:** command palette (Ctrl/Cmd-K), markdown import/export, daily local backups + restore, PWA + mobile pass, opt-in web search, sketch pad
+- [x] **Wave H — Voice & desktop:** local Whisper dictation (optional), read-aloud, `python -m memorymap --desktop` window (optional pywebview)
+- [x] **Wave I — Hardening:** GitHub Actions CI (offline test suite), accessibility + keyboard + loading polish
+
+## Operations notes (Wave I decisions)
+
+- **Schema migrations:** the additive auto-migrator in `core/database.py`
+  covers everything so far (new columns are added to old databases at
+  startup; users never delete their data). **Alembic is deliberately
+  deferred** until a column rename/removal is actually needed — don't do
+  renames/removals casually.
+- **Encryption at rest:** **SQLCipher is deferred** — it needs a native
+  dependency on every platform for a single-user local file. If your
+  notes are sensitive, use your OS's disk encryption (BitLocker /
+  FileVault) which protects the whole data folder today.
+- **CI:** `.github/workflows/ci.yml` runs the full pytest suite on every
+  push/PR. The suite mocks Ollama and embeddings, so CI needs no GPU, no
+  models, and no network beyond pip.

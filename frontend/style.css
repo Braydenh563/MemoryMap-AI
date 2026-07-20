@@ -159,9 +159,11 @@ header h1 { margin: 0; font-size: 1.5rem; }
   align-items: start;
 }
 
-/* Stack the sidebar on small screens */
+/* Stack the sidebar on small screens. minmax(0,…) + min-width let the
+   column actually shrink below its content's natural width. */
 @media (max-width: 720px) {
-  .layout { grid-template-columns: 1fr; }
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .layout > * { min-width: 0; }
 }
 
 /* --- the glass card -------------------------------------------------------- */
@@ -723,4 +725,100 @@ li.link-source { outline: 2px solid var(--accent); }
   height: 0.65rem;
   border-radius: 50%;
   display: inline-block;
+}
+
+/* --- Wave F: command palette --------------------------------------------------- */
+#palette-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 12, 24, 0.45);
+  backdrop-filter: blur(3px);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 12vh;
+  z-index: 60;
+}
+#palette-card {
+  width: min(560px, 92vw);
+  padding: 0.8rem;
+  background: var(--modal-bg);
+}
+/* These id rules outrank the generic .hidden helper — restate it. */
+#palette-overlay.hidden,
+#sketch-overlay.hidden { display: none; }
+#palette-input { width: 100%; margin-bottom: 0.5rem; font-size: 1rem; }
+#palette-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 46vh;
+  overflow-y: auto;
+}
+#palette-list li {
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+#palette-list li:hover,
+#palette-list li.active { background: var(--accent-soft); }
+.palette-hint { font-size: 0.75rem; margin: 0.5rem 0 0; }
+
+/* --- Wave F: whiteboard-lite ---------------------------------------------------- */
+#sketch-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 12, 24, 0.45);
+  backdrop-filter: blur(3px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem;
+  z-index: 60;
+}
+#sketch-card {
+  width: min(900px, 96vw);
+  max-height: 94vh;
+  overflow-y: auto;
+  background: var(--modal-bg);
+}
+#sketch-canvas {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  touch-action: none; /* the pen, not the page, gets touch moves */
+  cursor: crosshair;
+}
+.sketch-color {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+.sketch-color.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+#sketch-eraser.active { background: var(--accent-soft); }
+#sketch-tools { flex-wrap: wrap; }
+
+/* --- Wave F: mobile / PWA responsive pass --------------------------------------- */
+@media (max-width: 720px) {
+  header { padding: 0.9rem 1rem 0.5rem; }
+  #tab-bar {
+    padding: 0 1rem;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  #tab-bar button { white-space: nowrap; }
+  .layout { padding: 0.8rem 1rem 1.2rem; }
+  #dash-grid { padding: 0 1rem 1.2rem; grid-template-columns: 1fr; }
+  .dash-toolbar { padding: 0.4rem 1rem; }
+  .row { flex-wrap: wrap; }
+  #chat-messages { max-height: 50vh; }
+  .msg { max-width: 92%; }
+  #graph-box { height: 55vh; }
+  .modal-card { max-height: 96vh; width: 96vw; }
 }

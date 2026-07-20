@@ -2424,6 +2424,7 @@ function showSettingsSection(name) {
   if (name === "preferences") renderPrefs().catch(() => {});
   if (name === "personas") renderPersonas().catch(() => {});
   if (name === "skills") renderSkillSettings();
+  if (name === "data") renderBackups();
 }
 
 async function openSettingsModal(section = "models") {
@@ -2584,6 +2585,7 @@ async function renderPrefs() {
   $("pref-style").value = prefsCache.communication_style;
   $("pref-profile").value = prefsCache.user_profile;
   $("pref-profile-enabled").checked = prefsCache.profile_enabled;
+  $("pref-web-search").checked = Boolean(prefsCache.web_search_enabled);
   $("prefs-status").textContent = "";
 }
 
@@ -2596,6 +2598,7 @@ async function savePrefs() {
         communication_style: $("pref-style").value,
         user_profile: $("pref-profile").value,
         profile_enabled: $("pref-profile-enabled").checked,
+        web_search_enabled: $("pref-web-search").checked,
       }),
     });
     $("prefs-status").textContent = "Saved.";
@@ -2622,9 +2625,297 @@ async function downloadExport(kind) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `memorymap-export.${kind}`;
+  // Markdown arrives as a zip of .md files; the rest are single files.
+  a.download = kind === "markdown" ? "memorymap-markdown.zip" : `memorymap-export.${kind}`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// --- Wave F: backups UI -------------------------------------------------------------
+
+async function renderBackups() {
+  const list = $("backup-list");
+  const backups = await apiJson("/backups").catch(() => []);
+  list.replaceChildren();
+  for (const item of backups) {
+    const li = document.createElement("li");
+    const row = document.createElement("div");
+    row.className = "entry-meta";
+    const name = document.createElement("span");
+    name.textContent = item.name;
+    const size = document.createElement("span");
+    size.className = "muted";
+    size.textContent = `${(item.size / 1024).toFixed(0)} KB`;
+    const actions = document.createElement("span");
+    actions.className = "entry-actions";
+    actions.appendChild(
+      smallButton("Restore", "Roll the notebook back to this backup", async () => {
+        if (
+          !confirm(
+            "Restore this backup? Your current notebook is snapshotted first, " +
+              "then replaced by the backup."
+          )
+        )
+          return;
+        try {
+          await apiJson("/backups/restore", {
+            method: "POST",
+            body: JSON.stringify({ name: item.name }),
+          });
+          toast("Backup restored.");
+          loadEntries().catch(() => {});
+          renderBackups();
+        } catch (error) {
+          toast(error.message, true);
+        }
+      })
+    );
+    actions.appendChild(
+      smallButton("×", "Delete this backup", async () => {
+        if (!confirm("Delete this backup file?")) return;
+        await apiJson(`/backups/${item.name}`, { method: "DELETE" }).catch(() => {});
+        renderBackups();
+      })
+    );
+    row.append(name, size, actions);
+    li.appendChild(row);
+    list.appendChild(li);
+  }
+}
+
+async function backupNow() {
+  const status = $("backup-status");
+  try {
+    const made = await apiJson("/backups", { method: "POST" });
+    status.textContent = `Saved ${made.name}.`;
+    renderBackups();
+  } catch (error) {
+    status.textContent = error.message;
+  }
+}
+
+async function importMarkdown() {
+  const input = $("import-md-files");
+  const status = $("import-md-status");
+  if (!input.files.length) {
+    status.textContent = "Choose one or more .md files first.";
+    return;
+  }
+  const form = new FormData();
+  for (const file of input.files) form.append("files", file);
+  try {
+    const response = await fetch("/import/markdown", {
+      method: "POST",
+      headers: { "X-Auth-Token": authToken() }, // browser sets the multipart type
+      body: form,
+    });
+    if (!response.ok) throw new Error(`Import failed (${response.status})`);
+    const result = await response.json();
+    status.textContent =
+      `Imported ${result.imported} note${result.imported === 1 ? "" : "s"}.` +
+      (result.skipped.length ? ` Skipped: ${result.skipped.join("; ")}` : "");
+    input.value = "";
+    loadEntries().catch(() => {});
+  } catch (error) {
+    status.textContent = error.message;
+  }
+}
+
+// --- Wave F: command palette (Ctrl/Cmd-K) -------------------------------------------
+
+let paletteIndex = 0;
+
+// Static commands; note search results are appended live as you type.
+function paletteCommands() {
+  return [
+    { label: "📋 Go to Dashboard", run: () => switchTab("dashboard") },
+    { label: "📝 Go to Notes", run: () => switchTab("notes") },
+    { label: "💬 Go to Chat", run: () => switchTab("chat") },
+    { label: "🕸 Go to Graph", run: () => switchTab("graph") },
+    { label: "⏰ Go to Reminders", run: () => switchTab("reminders") },
+    {
+      label: "✏️ New note",
+      run: () => {
+        switchTab("notes");
+        $("entry-content").focus();
+      },
+    },
+    { label: "🆕 New chat", run: () => { switchTab("chat"); newChatConversation(); } },
+    { label: "🎨 New sketch", run: openSketch },
+    { label: "⚙️ Settings → Models", run: () => openSettingsModal("models") },
+    { label: "🎭 Settings → Personas", run: () => openSettingsModal("personas") },
+    { label: "⚡ Settings → Skills", run: () => openSettingsModal("skills") },
+    { label: "🎛 Settings → Preferences", run: () => openSettingsModal("preferences") },
+    { label: "💾 Settings → Data & backups", run: () => openSettingsModal("data") },
+    { label: "🪵 Settings → Logs", run: () => openSettingsModal("logs") },
+    { label: "🗄 Back up now", run: () => { openSettingsModal("data"); backupNow(); } },
+    { label: "📤 Export markdown", run: () => downloadExport("markdown") },
+    { label: "🌓 Toggle light/dark", run: toggleTheme },
+    { label: "🔒 Lock MemoryMap", run: lockNow },
+  ];
+}
+
+function openPalette() {
+  $("palette-overlay").classList.remove("hidden");
+  $("palette-input").value = "";
+  paletteIndex = 0;
+  renderPalette("");
+  $("palette-input").focus();
+}
+
+function closePalette() {
+  $("palette-overlay").classList.add("hidden");
+}
+
+function paletteMatches(query) {
+  const lowered = query.trim().toLowerCase();
+  const commands = paletteCommands().filter((c) =>
+    c.label.toLowerCase().includes(lowered)
+  );
+  // With a query, matching notes join the list (jump straight to one).
+  const notes = lowered
+    ? allEntries
+        .filter((e) => e.content.toLowerCase().includes(lowered))
+        .slice(0, 6)
+        .map((e) => ({
+          label: `📄 ${e.content.slice(0, 60)}${e.content.length > 60 ? "…" : ""}`,
+          run: () => flashEntry(e.id),
+        }))
+    : [];
+  return [...commands, ...notes];
+}
+
+function renderPalette(query) {
+  const list = $("palette-list");
+  const matches = paletteMatches(query);
+  paletteIndex = Math.min(paletteIndex, Math.max(0, matches.length - 1));
+  list.replaceChildren();
+  matches.forEach((match, index) => {
+    const li = document.createElement("li");
+    li.textContent = match.label;
+    if (index === paletteIndex) li.classList.add("active");
+    li.addEventListener("click", () => {
+      closePalette();
+      match.run();
+    });
+    list.appendChild(li);
+  });
+  if (!matches.length) {
+    const li = document.createElement("li");
+    li.className = "muted";
+    li.textContent = "No matching command or note.";
+    list.appendChild(li);
+  }
+}
+
+function paletteKeydown(event) {
+  const matches = paletteMatches($("palette-input").value);
+  if (event.key === "Escape") closePalette();
+  else if (event.key === "ArrowDown") {
+    event.preventDefault();
+    paletteIndex = Math.min(paletteIndex + 1, matches.length - 1);
+    renderPalette($("palette-input").value);
+  } else if (event.key === "ArrowUp") {
+    event.preventDefault();
+    paletteIndex = Math.max(paletteIndex - 1, 0);
+    renderPalette($("palette-input").value);
+  } else if (event.key === "Enter" && matches[paletteIndex]) {
+    closePalette();
+    matches[paletteIndex].run();
+  }
+}
+
+// --- Wave F: whiteboard-lite --------------------------------------------------------
+
+let sketchPen = { color: "#4f6df5", size: 4, eraser: false };
+let sketchDrawing = false;
+let sketchDirty = false;
+
+function sketchContext() {
+  return $("sketch-canvas").getContext("2d");
+}
+
+function openSketch() {
+  $("sketch-overlay").classList.remove("hidden");
+  const canvas = $("sketch-canvas");
+  const context = canvas.getContext("2d");
+  context.fillStyle = "#ffffff"; // a white page in both themes
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  sketchDirty = false;
+  $("sketch-status").textContent = "";
+}
+
+function closeSketch() {
+  if (sketchDirty && !confirm("Close without saving your sketch?")) return;
+  $("sketch-overlay").classList.add("hidden");
+}
+
+function sketchPointer(event) {
+  const canvas = $("sketch-canvas");
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: ((event.clientX - rect.left) / rect.width) * canvas.width,
+    y: ((event.clientY - rect.top) / rect.height) * canvas.height,
+  };
+}
+
+function sketchStart(event) {
+  sketchDrawing = true;
+  sketchDirty = true;
+  const { x, y } = sketchPointer(event);
+  const context = sketchContext();
+  context.beginPath();
+  context.moveTo(x, y);
+  event.target.setPointerCapture(event.pointerId);
+}
+
+function sketchMove(event) {
+  if (!sketchDrawing) return;
+  const { x, y } = sketchPointer(event);
+  const context = sketchContext();
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  context.strokeStyle = sketchPen.eraser ? "#ffffff" : sketchPen.color;
+  context.lineWidth = sketchPen.eraser ? sketchPen.size * 4 : sketchPen.size;
+  context.lineTo(x, y);
+  context.stroke();
+}
+
+function sketchEnd() {
+  sketchDrawing = false;
+}
+
+async function saveSketch() {
+  const status = $("sketch-status");
+  status.textContent = "Saving…";
+  const caption =
+    $("sketch-caption").value.trim() ||
+    `Sketch — ${new Date().toLocaleDateString()}`;
+  try {
+    // The sketch is a note (searchable caption) + a PNG attachment.
+    const entry = await apiJson("/entries", {
+      method: "POST",
+      body: JSON.stringify({ content: caption, category: "Sketches" }),
+    });
+    const blob = await new Promise((resolve) =>
+      $("sketch-canvas").toBlob(resolve, "image/png")
+    );
+    const form = new FormData();
+    form.append("file", blob, "sketch.png");
+    const response = await fetch(`/entries/${entry.id}/files`, {
+      method: "POST",
+      headers: { "X-Auth-Token": authToken() },
+      body: form,
+    });
+    if (!response.ok) throw new Error(`Upload failed (${response.status})`);
+    sketchDirty = false;
+    $("sketch-overlay").classList.add("hidden");
+    $("sketch-caption").value = "";
+    toast("Sketch saved to your notebook.");
+    loadEntries().catch(() => {});
+  } catch (error) {
+    status.textContent = error.message;
+  }
 }
 
 // --- toasts (Phase 5) ---------------------------------------------------------------
@@ -3061,11 +3352,78 @@ $("entry-content").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && e.ctrlKey) saveEntry();
 });
 document.addEventListener("keydown", (e) => {
+  // Ctrl/Cmd-K: the command palette, from anywhere (Wave F).
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+    e.preventDefault();
+    if ($("palette-overlay").classList.contains("hidden")) openPalette();
+    else closePalette();
+    return;
+  }
+  if (e.key === "Escape" && !$("palette-overlay").classList.contains("hidden")) {
+    closePalette();
+    return;
+  }
+  if (e.key === "Escape" && !$("sketch-overlay").classList.contains("hidden")) {
+    closeSketch();
+    return;
+  }
   if (e.key === "Escape" && settingsModalOpen()) closeSettingsModal();
   if (e.key === "Escape" && linkSource !== null) {
     linkSource = null;
     renderEntries();
   }
 });
+
+// --- Wave F wiring ------------------------------------------------------------------
+
+$("export-md").addEventListener("click", () => downloadExport("markdown"));
+$("import-md").addEventListener("click", importMarkdown);
+$("backup-now").addEventListener("click", backupNow);
+
+$("palette-input").addEventListener("input", () => {
+  paletteIndex = 0;
+  renderPalette($("palette-input").value);
+});
+$("palette-input").addEventListener("keydown", paletteKeydown);
+$("palette-overlay").addEventListener("click", (e) => {
+  if (e.target === $("palette-overlay")) closePalette();
+});
+
+$("sketch-btn").addEventListener("click", openSketch);
+$("sketch-close").addEventListener("click", closeSketch);
+$("sketch-save").addEventListener("click", saveSketch);
+$("sketch-clear").addEventListener("click", () => {
+  const canvas = $("sketch-canvas");
+  const context = canvas.getContext("2d");
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+});
+$("sketch-eraser").addEventListener("click", () => {
+  sketchPen.eraser = !sketchPen.eraser;
+  $("sketch-eraser").classList.toggle("active", sketchPen.eraser);
+});
+$("sketch-size").addEventListener("input", () => {
+  sketchPen.size = Number($("sketch-size").value);
+});
+for (const button of document.querySelectorAll(".sketch-color")) {
+  button.addEventListener("click", () => {
+    sketchPen.color = button.dataset.color;
+    sketchPen.eraser = false;
+    $("sketch-eraser").classList.remove("active");
+    document
+      .querySelectorAll(".sketch-color")
+      .forEach((b) => b.classList.toggle("active", b === button));
+  });
+}
+const sketchCanvas = $("sketch-canvas");
+sketchCanvas.addEventListener("pointerdown", sketchStart);
+sketchCanvas.addEventListener("pointermove", sketchMove);
+sketchCanvas.addEventListener("pointerup", sketchEnd);
+sketchCanvas.addEventListener("pointerleave", sketchEnd);
+
+// PWA: the shell caches itself so the app opens instantly (Wave F).
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").catch(() => {});
+}
 
 initAuth();

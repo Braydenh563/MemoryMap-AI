@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>MemoryMap AI</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <!-- PWA (Wave F): installable, and the shell loads from cache -->
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#4f6df5">
   <link rel="stylesheet" href="/style.css">
   <script>
     // Apply the saved theme before first paint to avoid a flash.
@@ -123,6 +126,7 @@
             <label for="entry-category" class="muted">File under</label>
             <select id="entry-category"></select>
             <button id="save-btn">Save</button>
+            <button id="sketch-btn" class="ghost" title="Draw a quick sketch and save it as a note">🎨 Sketch</button>
           </div>
           <p><span id="save-status" class="status" role="status"></span></p>
         </section>
@@ -379,6 +383,15 @@
               <option value="concise">Concise</option>
               <option value="detailed">Detailed</option>
             </select>
+            <h3>Web search (optional — this one goes online)</h3>
+            <label>
+              <input type="checkbox" id="pref-web-search">
+              Let the AI search the web (DuckDuckGo) when you ask it to
+            </label>
+            <p class="muted">
+              Off by default. When on, only your search words leave this
+              computer — never your notes.
+            </p>
             <h3>About you (optional)</h3>
             <label>
               <input type="checkbox" id="pref-profile-enabled">
@@ -397,14 +410,39 @@
             </p>
           </section>
 
-          <!-- Data (export now; import/backup arrive in Wave F) -->
+          <!-- Data (Wave F: markdown + backups join the exports) -->
           <section class="settings-section hidden" id="settings-data">
             <h3>Export your data</h3>
             <div class="row">
               <button id="export-json" class="ghost small">Export JSON</button>
               <button id="export-csv" class="ghost small">Export CSV</button>
+              <button id="export-md" class="ghost small" title="A zip of .md files you can drop into Obsidian">Export Markdown</button>
             </div>
             <p class="muted">Exports include everything, even binned entries.</p>
+
+            <h3>Import markdown</h3>
+            <div class="row">
+              <input id="import-md-files" type="file" accept=".md,.markdown,.txt" multiple>
+              <button id="import-md" class="small">Import</button>
+            </div>
+            <p id="import-md-status" class="status" role="status"></p>
+            <p class="muted">
+              Each file becomes a note. Obsidian-style frontmatter
+              (category, tags) is understood.
+            </p>
+
+            <h3>Backups</h3>
+            <div class="row">
+              <button id="backup-now" class="small">Back up now</button>
+              <span id="backup-status" class="status" role="status"></span>
+            </div>
+            <ul id="backup-list" class="entry-list"></ul>
+            <p class="muted">
+              A backup is also taken automatically once a day when the app
+              starts. Restoring first snapshots the current state, so even a
+              restore can be undone. Backups live in your data folder —
+              they never leave this computer.
+            </p>
           </section>
 
           <!-- Logs (Wave A) -->
@@ -439,6 +477,44 @@
   </div>
 
   <div id="toast-box"></div>
+  <!-- Command palette (Wave F): Ctrl/Cmd-K anywhere -->
+  <div id="palette-overlay" class="hidden" role="dialog" aria-label="Command palette">
+    <div class="card" id="palette-card">
+      <input id="palette-input" type="text" placeholder="Type a command or search your notes…"
+        autocomplete="off" aria-label="Command or search">
+      <ul id="palette-list"></ul>
+      <p class="muted palette-hint">↑↓ to choose · Enter to run · Esc to close</p>
+    </div>
+  </div>
+
+  <!-- Whiteboard-lite (Wave F): sketch → PNG attached to a new note -->
+  <div id="sketch-overlay" class="hidden" role="dialog" aria-label="Sketch pad">
+    <div class="card" id="sketch-card">
+      <div class="row space-between">
+        <h2>Quick sketch</h2>
+        <button id="sketch-close" class="ghost small">Close</button>
+      </div>
+      <div class="row" id="sketch-tools">
+        <span class="muted">Pen</span>
+        <button class="sketch-color active" data-color="#4f6df5" style="background:#4f6df5" aria-label="Blue pen"></button>
+        <button class="sketch-color" data-color="#e2534b" style="background:#e2534b" aria-label="Red pen"></button>
+        <button class="sketch-color" data-color="#3a9e56" style="background:#3a9e56" aria-label="Green pen"></button>
+        <button class="sketch-color" data-color="#1c1e26" style="background:#1c1e26" aria-label="Black pen"></button>
+        <label class="muted">Size
+          <input id="sketch-size" type="range" min="2" max="14" value="4">
+        </label>
+        <button id="sketch-eraser" class="ghost small">Eraser</button>
+        <button id="sketch-clear" class="ghost small">Clear</button>
+      </div>
+      <canvas id="sketch-canvas" width="820" height="480"></canvas>
+      <div class="row">
+        <input id="sketch-caption" type="text" maxlength="200" placeholder="Caption (becomes the note text)">
+        <button id="sketch-save">Save as note</button>
+        <span id="sketch-status" class="status" role="status"></span>
+      </div>
+    </div>
+  </div>
+
   <!-- D3 v7, vendored locally — the offline rule: no CDNs, ever -->
   <script src="/vendor/d3.v7.min.js"></script>
   <script src="/app.js"></script>

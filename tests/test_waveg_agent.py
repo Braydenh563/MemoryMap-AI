@@ -26,9 +26,10 @@ def _stream_events(client, question, **body):
 # --- the registry ---------------------------------------------------------------
 
 
-def test_registry_shapes_are_valid_for_ollama():
+def test_registry_shapes_are_valid_for_ollama(app_state):
     offered = tools.ollama_tools()
-    assert len(offered) == len(tools.TOOLS)
+    # web_search stays hidden until the user opts in (Wave F).
+    assert len(offered) == len(tools.TOOLS) - 1
     for item in offered:
         assert item["type"] == "function"
         fn = item["function"]

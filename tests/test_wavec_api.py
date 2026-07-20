@@ -23,10 +23,18 @@ def test_status_reports_embedding_error(client):
     assert "embedding_error" in body
 
 
-def test_embedding_failure_is_recorded_not_swallowed(app_state):
-    # The real service in this sandbox has no sentence-transformers →
-    # embed fails; before the fix it failed silently ("warming up…" forever).
+def test_embedding_failure_is_recorded_not_swallowed(app_state, monkeypatch):
+    # Force the model load to fail deterministically. An offline machine
+    # fails because the model isn't cached, but a networked CI runner would
+    # download the real model and succeed — which isn't what this test is
+    # about. We're checking that a genuine failure is RECORDED (last_error)
+    # and not swallowed into a forever "warming up…" state (user-reported bug).
     service = EmbeddingService(deps.get_model_manager(), FakeOllama(running=False))
+
+    def boom():
+        raise RuntimeError("no embedding model available (forced for test)")
+
+    monkeypatch.setattr(service, "_load_st_model", boom)
     assert service.embed_text("hello") is None
     assert service.last_error is not None
     assert service.is_ready() is False

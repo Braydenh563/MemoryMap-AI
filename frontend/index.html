@@ -127,6 +127,7 @@
             <select id="entry-category"></select>
             <button id="save-btn">Save</button>
             <button id="sketch-btn" class="ghost" title="Draw a quick sketch and save it as a note">🎨 Sketch</button>
+            <button id="mic-note" class="ghost" title="Dictate a note (local Whisper)">🎙</button>
           </div>
           <p><span id="save-status" class="status" role="status"></span></p>
         </section>
@@ -156,6 +157,8 @@
                     title="Ask this question again">↻ Retry</button>
                   <button id="copy-btn" class="ghost small hidden"
                     title="Copy the answer">⧉ Copy</button>
+                  <button id="speak-btn" class="ghost small hidden"
+                    title="Read the answer aloud (uses your computer's voices)">🔊</button>
                 </span>
               </h3>
               <details id="thinking-box" class="hidden">
@@ -211,6 +214,7 @@
           <div id="chat-skills" class="recent hidden"></div>
           <div class="row">
             <input id="chat-input" type="text" placeholder="Ask your notebook anything…">
+            <button id="mic-chat" class="ghost" title="Dictate your question (local Whisper)">🎙</button>
             <button id="chat-send">Send</button>
             <button id="chat-stop" class="ghost hidden" title="Stop the answer">Stop</button>
           </div>

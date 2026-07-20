@@ -974,7 +974,7 @@ async function askQuestion(preset) {
   // A new answer is coming — hide the suggestion/recent chips and the
   // per-answer action buttons until it lands.
   $("suggested-questions").classList.add("hidden");
-  hide("retry-btn", "copy-btn");
+  hide("retry-btn", "copy-btn", "speak-btn");
   setAsking(true);
   status.classList.remove("error");
   status.textContent =
@@ -1027,7 +1027,7 @@ async function askQuestion(preset) {
     renderMarkdown(answerBox, answerRaw);
     conversation.push({ question, answer: answerRaw });
     status.textContent = "";
-    show("retry-btn", "copy-btn", "new-chat-btn");
+    show("retry-btn", "copy-btn", "speak-btn", "new-chat-btn");
     // Asking changes both quick-access lists.
     loadRecentQuestions();
     loadMostUsed();
@@ -1036,7 +1036,7 @@ async function askQuestion(preset) {
       stopped = true;
       renderMarkdown(answerBox, answerRaw); // keep what streamed so far
       status.textContent = "Stopped.";
-      show("retry-btn", "copy-btn");
+      show("retry-btn", "copy-btn", "speak-btn");
     } else {
       status.textContent = error.message;
       status.classList.add("error");
@@ -1315,6 +1315,7 @@ async function sendChatMessage(preset) {
   chatScrollToEnd();
   if (toolsActed) refreshAfterToolChanges(); // the AI changed real data
   if (!answerRaw) return; // nothing to remember (failed before any token)
+  addSpeakButton(recordsHolder.parentElement, answerBox); // 🔊 read-aloud (Wave H)
 
   chatConv.turns.push({ question, answer: answerRaw });
   // Persist the finished turn so the chat survives restarts.
@@ -2918,6 +2919,87 @@ async function saveSketch() {
   }
 }
 
+// --- Wave H: voice capture (local Whisper) ------------------------------------------
+
+let voiceStatus = null; // cached /voice/status
+let recorder = null; // the active MediaRecorder, if any
+let recorderTarget = null; // which input gets the transcript
+
+async function toggleDictation(button, targetInput) {
+  if (recorder) {
+    recorder.stop(); // second press = stop → transcribe
+    return;
+  }
+  if (voiceStatus === null) {
+    voiceStatus = await apiJson("/voice/status").catch(() => ({ available: false }));
+  }
+  if (!voiceStatus.available) {
+    toast(voiceStatus.hint || "Voice capture isn't available.", true);
+    return;
+  }
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch {
+    toast("Microphone access was blocked — allow it in your browser.", true);
+    return;
+  }
+  const chunks = [];
+  recorder = new MediaRecorder(stream);
+  recorderTarget = targetInput;
+  recorder.addEventListener("dataavailable", (e) => chunks.push(e.data));
+  recorder.addEventListener("stop", async () => {
+    stream.getTracks().forEach((t) => t.stop());
+    button.classList.remove("recording");
+    button.textContent = "🎙";
+    recorder = null;
+    const blob = new Blob(chunks, { type: chunks[0]?.type || "audio/webm" });
+    const form = new FormData();
+    form.append("file", blob, "clip.webm");
+    toast("Transcribing…");
+    try {
+      const response = await fetch("/voice/transcribe", {
+        method: "POST",
+        headers: { "X-Auth-Token": authToken() },
+        body: form,
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.detail || "Transcription failed");
+      const box = recorderTarget;
+      box.value = box.value ? `${box.value.trimEnd()} ${body.text}` : body.text;
+      box.focus();
+    } catch (error) {
+      toast(error.message, true);
+    }
+  });
+  recorder.start();
+  button.classList.add("recording");
+  button.textContent = "⏹";
+}
+
+// --- Wave H: read-aloud (the browser's local voices) --------------------------------
+
+function speakText(text) {
+  if (!("speechSynthesis" in window)) {
+    toast("This browser has no text-to-speech voices.", true);
+    return;
+  }
+  if (speechSynthesis.speaking) {
+    speechSynthesis.cancel(); // acting as a stop button
+    return;
+  }
+  if (text.trim()) speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+}
+
+// A per-bubble 🔊 for the chat tab (added once its answer is final).
+function addSpeakButton(bubble, answerBox) {
+  const button = smallButton("🔊", "Read this answer aloud", () =>
+    speakText(answerBox.textContent)
+  );
+  button.classList.add("bubble-speak");
+  bubble.appendChild(button);
+}
+
 // --- toasts (Phase 5) ---------------------------------------------------------------
 
 function toast(message, isError = false) {
@@ -3420,6 +3502,15 @@ sketchCanvas.addEventListener("pointerdown", sketchStart);
 sketchCanvas.addEventListener("pointermove", sketchMove);
 sketchCanvas.addEventListener("pointerup", sketchEnd);
 sketchCanvas.addEventListener("pointerleave", sketchEnd);
+
+// Wave H: dictation + read-aloud.
+$("mic-note").addEventListener("click", () =>
+  toggleDictation($("mic-note"), $("entry-content"))
+);
+$("mic-chat").addEventListener("click", () =>
+  toggleDictation($("mic-chat"), $("chat-input"))
+);
+$("speak-btn").addEventListener("click", () => speakText($("ai-answer").textContent));
 
 // PWA: the shell caches itself so the app opens instantly (Wave F).
 if ("serviceWorker" in navigator) {

@@ -822,3 +822,15 @@ li.link-source { outline: 2px solid var(--accent); }
   #graph-box { height: 55vh; }
   .modal-card { max-height: 96vh; width: 96vw; }
 }
+
+/* --- Wave H: voice + read-aloud -------------------------------------------------- */
+button.recording {
+  background: var(--warn-soft);
+  color: var(--warn);
+  animation: pulse-rec 1.2s ease-in-out infinite;
+}
+@keyframes pulse-rec {
+  0%, 100% { box-shadow: 0 0 0 0 var(--warn-soft); }
+  50% { box-shadow: 0 0 0 6px var(--warn-soft); }
+}
+.bubble-speak { margin-top: 0.4rem; }

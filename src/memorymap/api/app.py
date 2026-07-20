@@ -25,6 +25,7 @@ from memorymap.api import (
     routes_reminders,
     routes_settings,
     routes_tags,
+    routes_voice,
 )
 from memorymap.api.routes_auth import require_unlock
 from memorymap.core import backup, deps, logbuffer
@@ -87,6 +88,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_insights.router, dependencies=locked)
     app.include_router(routes_graph.router, dependencies=locked)
     app.include_router(routes_reminders.router, dependencies=locked)
+    app.include_router(routes_voice.router, dependencies=locked)
 
     @app.get("/health", tags=["system"])
     def health() -> dict[str, str]:

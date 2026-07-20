@@ -834,3 +834,46 @@ button.recording {
   50% { box-shadow: 0 0 0 6px var(--warn-soft); }
 }
 .bubble-speak { margin-top: 0.4rem; }
+
+/* --- Wave I: skeletons, focus, reduced motion ------------------------------------ */
+.entry-list li.skeleton {
+  height: 3.2rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: linear-gradient(90deg, var(--chip-bg) 25%, var(--inner) 50%, var(--chip-bg) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s linear infinite;
+  margin-bottom: 0.5rem;
+}
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+/* Keyboard users get an unmistakable focus ring everywhere. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+kbd {
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  background: var(--chip-bg);
+  font-size: 0.82rem;
+  font-family: inherit;
+}
+.shortcut-list { list-style: none; padding: 0; }
+.shortcut-list li { margin-bottom: 0.4rem; color: var(--muted); font-size: 0.9rem; }
+
+/* Vestibular safety: kill every animation when the OS asks for calm. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

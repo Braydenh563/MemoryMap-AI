@@ -225,10 +225,13 @@ function chip(text, extraClass = "") {
 }
 
 function smallButton(label, title, onClick, ghost = true) {
+  // (Wave I) icon-only buttons need a name for screen readers — the
+  // title doubles as one.
   const button = document.createElement("button");
   button.className = ghost ? "ghost small" : "small";
   button.textContent = label;
   button.title = title;
+  if (title) button.setAttribute("aria-label", title);
   button.addEventListener("click", onClick);
   return button;
 }
@@ -732,7 +735,21 @@ function renderSidebar() {
   }
 }
 
+// Loading skeletons (Wave I): shimmer placeholders instead of a blank
+// list on the very first load, so a slow disk never looks broken.
+function showEntrySkeletons() {
+  const list = $("entry-list");
+  if (list.children.length > 0) return; // only ever on a truly empty list
+  for (let i = 0; i < 3; i++) {
+    const li = document.createElement("li");
+    li.className = "skeleton";
+    li.setAttribute("aria-hidden", "true");
+    list.appendChild(li);
+  }
+}
+
 async function loadEntries() {
+  showEntrySkeletons();
   allEntries = await apiJson("/entries");
   renderSidebar();
   renderEntries();
@@ -2752,6 +2769,7 @@ function paletteCommands() {
     { label: "🗄 Back up now", run: () => { openSettingsModal("data"); backupNow(); } },
     { label: "📤 Export markdown", run: () => downloadExport("markdown") },
     { label: "🌓 Toggle light/dark", run: toggleTheme },
+    { label: "⌨️ Keyboard shortcuts", run: () => openSettingsModal("about") },
     { label: "🔒 Lock MemoryMap", run: lockNow },
   ];
 }

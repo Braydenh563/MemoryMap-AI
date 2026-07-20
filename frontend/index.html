@@ -22,8 +22,8 @@
     <div class="header-controls">
       <span id="ai-pill" title="What the AI is doing right now">checking…</span>
       <button id="settings-btn" class="ghost small" title="Settings">⚙ Settings</button>
-      <button id="lock-btn" class="ghost small hidden" title="Lock the app">🔒</button>
-      <button id="theme-btn" class="ghost small" title="Toggle light/dark">🌓</button>
+      <button id="lock-btn" class="ghost small hidden" title="Lock the app" aria-label="Lock the app">🔒</button>
+      <button id="theme-btn" class="ghost small" title="Toggle light/dark" aria-label="Toggle light or dark theme">🌓</button>
     </div>
   </header>
 
@@ -126,8 +126,8 @@
             <label for="entry-category" class="muted">File under</label>
             <select id="entry-category"></select>
             <button id="save-btn">Save</button>
-            <button id="sketch-btn" class="ghost" title="Draw a quick sketch and save it as a note">🎨 Sketch</button>
-            <button id="mic-note" class="ghost" title="Dictate a note (local Whisper)">🎙</button>
+            <button id="sketch-btn" class="ghost" title="Draw a quick sketch and save it as a note" aria-label="Open the sketch pad">🎨 Sketch</button>
+            <button id="mic-note" class="ghost" title="Dictate a note (local Whisper)" aria-label="Dictate a note">🎙</button>
           </div>
           <p><span id="save-status" class="status" role="status"></span></p>
         </section>
@@ -158,7 +158,7 @@
                   <button id="copy-btn" class="ghost small hidden"
                     title="Copy the answer">⧉ Copy</button>
                   <button id="speak-btn" class="ghost small hidden"
-                    title="Read the answer aloud (uses your computer's voices)">🔊</button>
+                    title="Read the answer aloud (uses your computer's voices)" aria-label="Read the answer aloud">🔊</button>
                 </span>
               </h3>
               <details id="thinking-box" class="hidden">
@@ -214,7 +214,7 @@
           <div id="chat-skills" class="recent hidden"></div>
           <div class="row">
             <input id="chat-input" type="text" placeholder="Ask your notebook anything…">
-            <button id="mic-chat" class="ghost" title="Dictate your question (local Whisper)">🎙</button>
+            <button id="mic-chat" class="ghost" title="Dictate your question (local Whisper)" aria-label="Dictate your question">🎙</button>
             <button id="chat-send">Send</button>
             <button id="chat-stop" class="ghost hidden" title="Stop the answer">Stop</button>
           </div>
@@ -473,6 +473,13 @@
               this computer.
             </p>
             <p class="muted" id="about-version"></p>
+            <h3>Keyboard shortcuts</h3>
+            <ul class="shortcut-list">
+              <li><kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>K</kbd> — command palette (go anywhere, search notes)</li>
+              <li><kbd>Ctrl</kbd> + <kbd>Enter</kbd> — save the note you're typing</li>
+              <li><kbd>Enter</kbd> — ask / send in the question and chat boxes</li>
+              <li><kbd>Esc</kbd> — close the palette, sketch pad, or settings</li>
+            </ul>
           </section>
 
         </div>

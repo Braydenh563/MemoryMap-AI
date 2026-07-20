@@ -1814,6 +1814,7 @@ let dragWidget = null; // widget name being dragged
 // Widget registry: name → title + async renderer that fills a body div.
 const DASH_WIDGETS = {
   stats: { title: "📊 Stats", render: renderStatsWidget },
+  streak: { title: "🔥 Streak", render: renderStreakWidget },
   art: { title: "🎨 Notebook constellation", render: renderArtWidget },
   pinned: { title: "📌 Pinned notes", render: renderPinnedWidget },
   "most-used": { title: "🔥 Most used", render: renderMostUsedWidget },
@@ -2074,6 +2075,41 @@ async function startArt(holder) {
   };
 
   artInstance = new p5(sketch, holder);
+}
+
+// Capture streak (Wave K): consecutive days up to today with at least
+// one note, read from the same per-day series the stats strip uses.
+async function renderStreakWidget(body) {
+  const stats = await apiJson("/insights/stats");
+  const perDay = stats.per_day || []; // oldest → newest, last = today
+
+  let current = 0;
+  for (let i = perDay.length - 1; i >= 0; i--) {
+    if (perDay[i] > 0) current += 1;
+    else break;
+  }
+  let longest = 0;
+  let run = 0;
+  for (const count of perDay) {
+    run = count > 0 ? run + 1 : 0;
+    longest = Math.max(longest, run);
+  }
+
+  const big = document.createElement("p");
+  big.className = "dash-big";
+  big.textContent = current > 0 ? `🔥 ${current}-day streak` : "No streak yet";
+  body.appendChild(big);
+
+  const sub = document.createElement("p");
+  sub.className = "muted";
+  if (current > 0) {
+    sub.textContent =
+      `You've captured ${current} day${current === 1 ? "" : "s"} running` +
+      (longest > current ? ` · best in the last fortnight: ${longest}` : "");
+  } else {
+    sub.textContent = "Save a note today to start one.";
+  }
+  body.appendChild(sub);
 }
 
 async function renderStatsWidget(body) {
@@ -3707,8 +3743,19 @@ function applyAccent(name) {
   if (bgArtOn()) startBgArt(); // repaint the background in the new accent
 }
 
+function contrastOn() {
+  return localStorage.getItem("contrast") === "on";
+}
+
+function applyContrast(on) {
+  if (on) document.documentElement.dataset.contrast = "on";
+  else delete document.documentElement.dataset.contrast;
+  localStorage.setItem("contrast", on ? "on" : "off");
+}
+
 function renderAppearance() {
   const holder = $("accent-swatches");
+  $("contrast-toggle").checked = contrastOn();
   holder.replaceChildren();
   for (const accent of ACCENTS) {
     const button = document.createElement("button");
@@ -3807,6 +3854,7 @@ function toggleBgArt(on) {
 
 $("theme-btn").addEventListener("click", toggleTheme);
 $("bg-art-toggle").addEventListener("change", (e) => toggleBgArt(e.target.checked));
+$("contrast-toggle").addEventListener("change", (e) => applyContrast(e.target.checked));
 // Start the ambient background if the user left it on last time.
 if (bgArtOn()) startBgArt();
 

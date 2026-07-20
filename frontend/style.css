@@ -957,3 +957,49 @@ kbd {
   border-color: var(--ink);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
+
+/* --- Wave K: empty states, mobile tap targets, high-contrast -------------------- */
+.empty-state {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: var(--muted);
+}
+.empty-state.hidden { display: none; }
+.empty-icon { font-size: 2.6rem; display: block; margin-bottom: 0.5rem; opacity: 0.85; }
+.empty-title { margin: 0 0 0.25rem; font-weight: 600; color: var(--ink); }
+.empty-state p { margin: 0.15rem 0; }
+/* The graph empty-state is absolutely centred inside its box. */
+#graph-empty.empty-state { position: absolute; inset: 0; display: grid; place-content: center; }
+
+/* Bigger touch targets for the small action buttons on phones — a 44px
+   min is the accessibility guideline for finger taps. */
+@media (max-width: 720px) {
+  .entry-actions button,
+  .entry-actions .unlink,
+  button.small {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .entry-actions { gap: 0.35rem; flex-wrap: wrap; }
+}
+
+/* High-contrast mode: stronger ink, solid panels, no glass blur — layered
+   on top of whatever theme/accent is active. */
+:root[data-contrast="on"] {
+  --card: var(--modal-bg);
+  --inner: var(--modal-bg);
+  --muted: var(--ink);
+  --border: currentColor;
+  --glass-border: var(--ink);
+}
+:root[data-contrast="on"] .card,
+:root[data-contrast="on"] #tab-bar button,
+:root[data-contrast="on"] #ai-pill,
+:root[data-contrast="on"] input,
+:root[data-contrast="on"] textarea,
+:root[data-contrast="on"] select {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+:root[data-contrast="on"] .card { border-width: 2px; }
+:root[data-contrast="on"] .muted { opacity: 0.9; }

@@ -15,6 +15,8 @@
     if (saved) document.documentElement.dataset.theme = saved;
     const accent = localStorage.getItem("accent");
     if (accent && accent !== "indigo") document.documentElement.dataset.accent = accent;
+    if (localStorage.getItem("contrast") === "on")
+      document.documentElement.dataset.contrast = "on";
   </script>
 </head>
 <body>
@@ -193,12 +195,16 @@
             </div>
           </div>
           <ul id="entry-list" class="entry-list"></ul>
-          <p id="empty-message" class="muted hidden">
-            Nothing here yet — save your first thought above.
-          </p>
-          <p id="no-match-message" class="muted hidden">
-            No notes match your filter.
-          </p>
+          <div id="empty-message" class="empty-state hidden">
+            <span class="empty-icon" aria-hidden="true">📝</span>
+            <p class="empty-title">Your notebook is empty</p>
+            <p class="muted">Type a thought above and the AI files it for you.</p>
+          </div>
+          <div id="no-match-message" class="empty-state hidden">
+            <span class="empty-icon" aria-hidden="true">🔍</span>
+            <p class="empty-title">No notes match your filter</p>
+            <p class="muted">Try a different word, or clear the search box.</p>
+          </div>
         </section>
       </main>
     </div>
@@ -262,10 +268,14 @@
       <div id="graph-legend" class="recent"></div>
       <div id="graph-box">
         <svg id="graph-svg"></svg>
-        <p id="graph-empty" class="muted hidden">
-          Nothing to map yet — save a few notes and link some together
-          (🔗 on any entry) and they'll appear here.
-        </p>
+        <div id="graph-empty" class="empty-state hidden">
+          <span class="empty-icon" aria-hidden="true">🕸️</span>
+          <p class="empty-title">Nothing to map yet</p>
+          <p class="muted">
+            Save a few notes and link some together (🔗 on any entry) —
+            they'll appear here as a constellation.
+          </p>
+        </div>
       </div>
     </section>
   </div>
@@ -285,7 +295,11 @@
         with the ⏰ button on any entry.
       </p>
       <div id="reminder-groups"></div>
-      <p id="reminders-empty" class="muted hidden">No reminders yet.</p>
+      <div id="reminders-empty" class="empty-state hidden">
+        <span class="empty-icon" aria-hidden="true">⏰</span>
+        <p class="empty-title">No reminders yet</p>
+        <p class="muted">Add one above, or hit ⏰ on any note.</p>
+      </div>
     </section>
   </div>
 
@@ -397,6 +411,12 @@
             <h3>Accent colour</h3>
             <p class="muted">Recolours buttons, highlights, and the glow behind the page.</p>
             <div id="accent-swatches" class="accent-swatches"></div>
+            <h3>Contrast</h3>
+            <label>
+              <input type="checkbox" id="contrast-toggle">
+              High-contrast mode (stronger text, solid panels, no blur)
+            </label>
+            <p class="muted">Boosts legibility — pairs with any accent or theme.</p>
             <h3>Animated background</h3>
             <label>
               <input type="checkbox" id="bg-art-toggle">

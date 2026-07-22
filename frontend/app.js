@@ -312,6 +312,8 @@ function entryItem(entry, options = {}) {
     );
     meta.appendChild(actions);
   } else if (options.actions) {
+    // Wave L rework: two everyday actions stay visible; the rest live in
+    // one ⋯ menu — the old row of nine icons was unscannable noise.
     const actions = document.createElement("span");
     actions.className = "entry-actions";
     actions.appendChild(
@@ -324,61 +326,12 @@ function entryItem(entry, options = {}) {
       })
     );
     actions.appendChild(
-      smallButton("➕", "Add context — the AI may refile it", () => {
-        inlineAction = inlineActionIs(entry.id, "context") ? null : { id: entry.id, kind: "context" };
-        renderEntries();
-      })
-    );
-    actions.appendChild(
-      smallButton("⤵", "Continue this thought (start/extend a thread)", () => {
-        inlineAction = inlineActionIs(entry.id, "continue") ? null : { id: entry.id, kind: "continue" };
-        renderEntries();
-      })
-    );
-    actions.appendChild(
-      smallButton("📎", "Attach a file", () => attachFileTo(entry))
-    );
-    actions.appendChild(
-      smallButton("≈", "Show similar notes", () => toggleRelated(entry))
-    );
-    actions.appendChild(
-      smallButton("⏰", "Set a reminder about this note", () => {
-        inlineAction = inlineActionIs(entry.id, "remind") ? null : { id: entry.id, kind: "remind" };
-        renderEntries();
-      })
-    );
-    actions.appendChild(
-      smallButton("📋", "Copy this note's text", async () => {
-        try {
-          await navigator.clipboard.writeText(entry.content);
-          toast("Note copied.");
-        } catch {
-          toast("Couldn't copy — your browser blocked clipboard access.", true);
-        }
-      })
-    );
-    actions.appendChild(
       smallButton("✎", "Edit this entry", () => {
         editingId = entry.id;
         renderEntries();
       })
     );
-    actions.appendChild(
-      smallButton("🔗", "Link this entry to another", () => beginOrCompleteLink(entry))
-    );
-    actions.appendChild(
-      // No confirm dialog: deleting is instant but a one-click Undo makes
-      // it safe (and less annoying) — the entry is only soft-deleted (Wave J).
-      smallButton("🗑", "Move to the recycle bin", async () => {
-        await api(`/entries/${entry.id}`, { method: "DELETE" });
-        await loadEntries();
-        toastAction("Moved to the recycle bin.", "Undo", async () => {
-          await api(`/entries/${entry.id}/restore`, { method: "POST" });
-          await loadEntries();
-          toast("Note restored.");
-        });
-      })
-    );
+    actions.appendChild(entryOverflowMenu(entry));
     meta.appendChild(actions);
   }
   if (entry.pinned) meta.insertBefore(chip("📌 pinned"), meta.firstChild);
@@ -442,6 +395,106 @@ function entryItem(entry, options = {}) {
 
 function inlineActionIs(id, kind) {
   return inlineAction && inlineAction.id === id && inlineAction.kind === kind;
+}
+
+// Close every open ⋯ menu (shared by outside-click and Esc, Wave L).
+function closeActionMenus() {
+  for (const menu of document.querySelectorAll(".action-menu:not(.hidden)")) {
+    menu.classList.add("hidden");
+    const opener = menu.parentElement.querySelector("[aria-haspopup]");
+    if (opener) opener.setAttribute("aria-expanded", "false");
+  }
+}
+
+// The ⋯ overflow menu on each note card (Wave L rework).
+function entryOverflowMenu(entry) {
+  const wrap = document.createElement("span");
+  wrap.className = "menu-wrap";
+
+  const menu = document.createElement("div");
+  menu.className = "action-menu hidden";
+  menu.setAttribute("role", "menu");
+
+  const opener = smallButton("⋯", "More actions", () => {
+    const willOpen = menu.classList.contains("hidden");
+    closeActionMenus(); // only one menu open at a time
+    if (willOpen) {
+      menu.classList.remove("hidden");
+      opener.setAttribute("aria-expanded", "true");
+      menu.querySelector("button")?.focus();
+    }
+  });
+  opener.setAttribute("aria-haspopup", "menu");
+  opener.setAttribute("aria-expanded", "false");
+
+  const items = [
+    {
+      label: "📋 Copy text",
+      run: async () => {
+        try {
+          await navigator.clipboard.writeText(entry.content);
+          toast("Note copied.");
+        } catch {
+          toast("Couldn't copy — your browser blocked clipboard access.", true);
+        }
+      },
+    },
+    {
+      label: "➕ Add context",
+      title: "Append detail — the AI may refile it",
+      run: () => {
+        inlineAction = inlineActionIs(entry.id, "context") ? null : { id: entry.id, kind: "context" };
+        renderEntries();
+      },
+    },
+    {
+      label: "⤵ Continue thought",
+      title: "Start or extend a thread from this note",
+      run: () => {
+        inlineAction = inlineActionIs(entry.id, "continue") ? null : { id: entry.id, kind: "continue" };
+        renderEntries();
+      },
+    },
+    { label: "📎 Attach a file", run: () => attachFileTo(entry) },
+    { label: "≈ Similar notes", run: () => toggleRelated(entry) },
+    {
+      label: "⏰ Remind me",
+      run: () => {
+        inlineAction = inlineActionIs(entry.id, "remind") ? null : { id: entry.id, kind: "remind" };
+        renderEntries();
+      },
+    },
+    { label: "🔗 Link to another", run: () => beginOrCompleteLink(entry) },
+    {
+      label: "🗑 Move to bin",
+      danger: true,
+      // Instant + one-click Undo, soft delete underneath (Wave J).
+      run: async () => {
+        await api(`/entries/${entry.id}`, { method: "DELETE" });
+        await loadEntries();
+        toastAction("Moved to the recycle bin.", "Undo", async () => {
+          await api(`/entries/${entry.id}/restore`, { method: "POST" });
+          await loadEntries();
+          toast("Note restored.");
+        });
+      },
+    },
+  ];
+  for (const item of items) {
+    const button = document.createElement("button");
+    button.setAttribute("role", "menuitem");
+    button.className = "menu-item" + (item.danger ? " menu-danger" : "");
+    button.textContent = item.label;
+    if (item.title) button.title = item.title;
+    button.addEventListener("click", () => {
+      closeActionMenus();
+      item.run();
+    });
+    menu.appendChild(button);
+  }
+
+  wrap.append(opener, menu);
+  return wrap;
 }
 
 // The ➕ context / ⤵ continue / ⏰ remind boxes inside an entry card.
@@ -2748,7 +2801,12 @@ function switchTab(name) {
     $(`tab-${tab}`).classList.toggle("hidden", tab !== name);
   }
   for (const button of document.querySelectorAll("#tab-bar button")) {
-    button.classList.toggle("active", button.dataset.tab === name);
+    const active = button.dataset.tab === name;
+    button.classList.toggle("active", active);
+    // Real tab semantics (Wave L): one tab stop for the whole list
+    // (roving tabindex), arrow keys move between tabs.
+    button.setAttribute("aria-selected", String(active));
+    button.tabIndex = active ? 0 : -1;
   }
   localStorage.setItem("activeTab", name); // reopen where you left off
   // The generative-art animation only needs to run while it's on screen.
@@ -2779,6 +2837,9 @@ function showPanel(id) {
 
 const SETTINGS_SECTIONS = ["models", "personas", "skills", "appearance", "preferences", "data", "logs", "about"];
 
+// Where to send focus back when a dialog closes (Wave L).
+let overlayReturnFocus = null;
+
 function settingsModalOpen() {
   return !$("settings-modal").classList.contains("hidden");
 }
@@ -2799,7 +2860,9 @@ function showSettingsSection(name) {
 }
 
 async function openSettingsModal(section = "models") {
+  overlayReturnFocus = document.activeElement;
   $("settings-modal").classList.remove("hidden");
+  $("settings-close").focus();
   $("about-version").textContent = `Version ${
     (await apiJson("/health").catch(() => ({ version: "?" }))).version
   } · ${allEntries.length} entries loaded`;
@@ -2812,6 +2875,8 @@ async function openSettingsModal(section = "models") {
 
 function closeSettingsModal() {
   $("settings-modal").classList.add("hidden");
+  overlayReturnFocus?.focus?.();
+  overlayReturnFocus = null;
 }
 
 // --- logs viewer (Wave A) ---------------------------------------------------------
@@ -3128,6 +3193,7 @@ function paletteCommands() {
 }
 
 function openPalette() {
+  overlayReturnFocus = document.activeElement;
   $("palette-overlay").classList.remove("hidden");
   $("palette-input").value = "";
   paletteIndex = 0;
@@ -3137,6 +3203,8 @@ function openPalette() {
 
 function closePalette() {
   $("palette-overlay").classList.add("hidden");
+  overlayReturnFocus?.focus?.();
+  overlayReturnFocus = null;
 }
 
 function paletteMatches(query) {
@@ -3208,7 +3276,9 @@ function sketchContext() {
 }
 
 function openSketch() {
+  overlayReturnFocus = document.activeElement;
   $("sketch-overlay").classList.remove("hidden");
+  $("sketch-close").focus();
   const canvas = $("sketch-canvas");
   const context = canvas.getContext("2d");
   context.fillStyle = "#ffffff"; // a white page in both themes
@@ -3220,6 +3290,8 @@ function openSketch() {
 function closeSketch() {
   if (sketchDirty && !confirm("Close without saving your sketch?")) return;
   $("sketch-overlay").classList.add("hidden");
+  overlayReturnFocus?.focus?.();
+  overlayReturnFocus = null;
 }
 
 function sketchPointer(event) {
@@ -3862,6 +3934,24 @@ if (bgArtOn()) startBgArt();
 for (const button of document.querySelectorAll("#tab-bar button")) {
   button.addEventListener("click", () => switchTab(button.dataset.tab));
 }
+// Arrow keys walk the tablist; Home/End jump to the ends (Wave L).
+$("tab-bar").addEventListener("keydown", (e) => {
+  const keys = { ArrowRight: 1, ArrowLeft: -1, Home: 0, End: 0 };
+  if (!(e.key in keys)) return;
+  e.preventDefault();
+  const index = TABS.indexOf(localStorage.getItem("activeTab") || "notes");
+  let next;
+  if (e.key === "Home") next = 0;
+  else if (e.key === "End") next = TABS.length - 1;
+  else next = (index + keys[e.key] + TABS.length) % TABS.length;
+  switchTab(TABS[next]);
+  document.querySelector(`#tab-bar [data-tab="${TABS[next]}"]`).focus();
+});
+// Skip link (Wave L): jump keyboard focus straight into the open panel.
+$("skip-link").addEventListener("click", (e) => {
+  e.preventDefault();
+  $(`tab-${localStorage.getItem("activeTab") || "notes"}`).focus();
+});
 switchTab(localStorage.getItem("activeTab") || "notes");
 
 // Settings modal (Wave A).
@@ -4000,9 +4090,44 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   if (e.key === "Escape" && settingsModalOpen()) closeSettingsModal();
+  if (e.key === "Escape") closeActionMenus();
   if (e.key === "Escape" && linkSource !== null) {
     linkSource = null;
     renderEntries();
+  }
+});
+
+// Clicking anywhere outside an open ⋯ menu closes it (Wave L).
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".menu-wrap")) closeActionMenus();
+});
+
+// Focus trapping (Wave L): while a dialog is open, Tab cycles inside it
+// instead of wandering into the page behind — a WCAG dialog basic.
+function activeOverlay() {
+  for (const id of ["palette-overlay", "sketch-overlay", "settings-modal"]) {
+    if (!$(id).classList.contains("hidden")) return $(id);
+  }
+  return null;
+}
+
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Tab") return;
+  const overlay = activeOverlay();
+  if (!overlay) return;
+  const focusables = [
+    ...overlay.querySelectorAll("button, [href], input, select, textarea"),
+  ].filter((el) => !el.disabled && el.offsetParent !== null);
+  if (!focusables.length) return;
+  const first = focusables[0];
+  const last = focusables[focusables.length - 1];
+  const outside = !overlay.contains(document.activeElement);
+  if (e.shiftKey && (document.activeElement === first || outside)) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && (document.activeElement === last || outside)) {
+    e.preventDefault();
+    first.focus();
   }
 });
 

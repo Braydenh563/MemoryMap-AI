@@ -20,9 +20,24 @@
   </script>
 </head>
 <body>
-  <header>
-    <h1>MemoryMap AI</h1>
-    <p class="tagline">Your offline, self-filing notebook</p>
+  <!-- Keyboard users can jump straight past the chrome (Wave L). -->
+  <a href="#" id="skip-link" class="skip-link">Skip to content</a>
+
+  <!-- One compact, sticky top bar: brand · tabs · controls (Wave L). -->
+  <header id="top-bar">
+    <h1 title="Your offline, self-filing notebook">MemoryMap&nbsp;AI</h1>
+    <nav id="tab-bar" role="tablist" aria-label="App sections">
+      <button role="tab" id="tab-btn-dashboard" data-tab="dashboard"
+        aria-selected="false" aria-controls="tab-dashboard" tabindex="-1">Dashboard</button>
+      <button role="tab" id="tab-btn-notes" data-tab="notes" class="active"
+        aria-selected="true" aria-controls="tab-notes">Notes</button>
+      <button role="tab" id="tab-btn-chat" data-tab="chat"
+        aria-selected="false" aria-controls="tab-chat" tabindex="-1">Chat</button>
+      <button role="tab" id="tab-btn-graph" data-tab="graph"
+        aria-selected="false" aria-controls="tab-graph" tabindex="-1">Graph</button>
+      <button role="tab" id="tab-btn-reminders" data-tab="reminders"
+        aria-selected="false" aria-controls="tab-reminders" tabindex="-1">Reminders</button>
+    </nav>
     <div class="header-controls">
       <span id="ai-pill" title="What the AI is doing right now">checking…</span>
       <button id="settings-btn" class="ghost small" title="Settings">⚙ Settings</button>
@@ -30,15 +45,6 @@
       <button id="theme-btn" class="ghost small" title="Toggle light/dark" aria-label="Toggle light or dark theme">🌓</button>
     </div>
   </header>
-
-  <!-- Tab navigation (Wave A): each button shows one .tab-page below -->
-  <nav id="tab-bar">
-    <button data-tab="dashboard">Dashboard</button>
-    <button data-tab="notes" class="active">Notes</button>
-    <button data-tab="chat">Chat</button>
-    <button data-tab="graph">Graph</button>
-    <button data-tab="reminders">Reminders</button>
-  </nav>
 
   <!-- Unlock / first-run setup gate (Phase 4) -->
   <div id="lock-overlay" class="lock-overlay hidden">
@@ -52,7 +58,7 @@
   </div>
 
   <!-- ======================= DASHBOARD TAB (Wave D) ======================= -->
-  <div class="tab-page hidden" id="tab-dashboard">
+  <div class="tab-page hidden" id="tab-dashboard" role="tabpanel" aria-labelledby="tab-btn-dashboard" tabindex="-1">
     <div class="dash-toolbar">
       <span class="muted">Drag widgets to rearrange — your layout is remembered.</span>
       <button id="dash-edit" class="ghost small">Edit layout</button>
@@ -61,7 +67,7 @@
   </div>
 
   <!-- ======================= NOTES TAB (the current app) ================== -->
-  <div class="tab-page" id="tab-notes">
+  <div class="tab-page" id="tab-notes" role="tabpanel" aria-labelledby="tab-btn-notes" tabindex="-1">
     <div class="layout">
       <!-- Category sidebar: built from the loaded entries, click to filter -->
       <aside class="card" id="sidebar">
@@ -211,7 +217,7 @@
   </div>
 
   <!-- ======================= CHAT TAB (Wave C) ============================ -->
-  <div class="tab-page hidden" id="tab-chat">
+  <div class="tab-page hidden" id="tab-chat" role="tabpanel" aria-labelledby="tab-btn-chat" tabindex="-1">
     <div class="layout">
       <aside class="card" id="chat-sidebar">
         <div class="row space-between">
@@ -249,7 +255,7 @@
   </div>
 
   <!-- ======================= GRAPH TAB (Wave E fills this) ================ -->
-  <div class="tab-page hidden" id="tab-graph">
+  <div class="tab-page hidden" id="tab-graph" role="tabpanel" aria-labelledby="tab-btn-graph" tabindex="-1">
     <section class="card" id="graph-card">
       <div class="row space-between">
         <h2>Graph</h2>
@@ -281,7 +287,7 @@
   </div>
 
   <!-- ======================= REMINDERS TAB (Wave D) ======================= -->
-  <div class="tab-page hidden" id="tab-reminders">
+  <div class="tab-page hidden" id="tab-reminders" role="tabpanel" aria-labelledby="tab-btn-reminders" tabindex="-1">
     <section class="card reminders-card">
       <h2>Reminders</h2>
       <div class="row">
@@ -304,7 +310,8 @@
   </div>
 
   <!-- ======================= SETTINGS MODAL (Wave A) ====================== -->
-  <div id="settings-modal" class="modal-overlay hidden">
+  <div id="settings-modal" class="modal-overlay hidden" role="dialog"
+    aria-modal="true" aria-label="Settings">
     <div class="card modal-card">
       <div class="row space-between">
         <h2>Settings</h2>
@@ -542,7 +549,8 @@
     </div>
   </div>
 
-  <div id="toast-box"></div>
+  <!-- aria-live so screen readers hear saves, undos, and errors (Wave L) -->
+  <div id="toast-box" aria-live="polite"></div>
   <!-- Command palette (Wave F): Ctrl/Cmd-K anywhere -->
   <div id="palette-overlay" class="hidden" role="dialog" aria-label="Command palette">
     <div class="card" id="palette-card">

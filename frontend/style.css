@@ -580,6 +580,13 @@ li.link-source { outline: 2px solid var(--accent); }
 .dash-widget h2 { margin: 0; }
 .dash-body { display: flex; flex-direction: column; gap: 0.5rem; }
 .dash-body > * { margin: 0; }
+/* Keep one very tall widget (e.g. the weekly digest) from ballooning the row
+   and leaving big gaps under its neighbours — cap the body and scroll inside.
+   Widgets that need their natural height opt out below. */
+.dash-body { max-height: 320px; overflow-y: auto; }
+.dash-widget[data-widget="art"] .dash-body,
+.dash-widget[data-widget="capture"] .dash-body,
+.dash-widget[data-widget="stats"] .dash-body { max-height: none; overflow: visible; }
 .dash-body:empty::after {
   content: "Loading…";
   color: var(--muted);

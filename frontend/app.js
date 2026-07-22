@@ -2502,6 +2502,7 @@ async function renderDashboard() {
   }
   const grid = $("dash-grid");
   grid.replaceChildren();
+  $("dash-hint").classList.toggle("hidden", !dashEditMode); // hint only in edit mode
   const layout = dashLayout();
 
   for (const name of layout.order) {

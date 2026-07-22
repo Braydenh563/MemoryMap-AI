@@ -21,7 +21,8 @@ from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient, OllamaError
 from memorymap.core.database import EmbeddingRecord, Entry
 
-DEFAULT_ST_MODEL = "all-MiniLM-L6-v2"
+# DEFAULT_ST_MODEL = "all-MiniLM-L6-v2"
+DEFAULT_ST_MODEL = "BAAI/bge-small-en-v1.5"
 
 logger = logging.getLogger("memorymap.embeddings")
 

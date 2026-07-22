@@ -1,5 +1,5 @@
 # Web server
-fastapi>=0.110
+fastapi>=0.139.2
 uvicorn[standard]>=0.29
 
 # Database (SQLite via ORM)

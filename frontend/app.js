@@ -2470,6 +2470,7 @@ const DASH_WIDGETS = {
   art: { title: "🎨 Notebook constellation", render: renderArtWidget },
   pinned: { title: "📌 Pinned notes", render: renderPinnedWidget },
   "most-used": { title: "🔥 Most used", render: renderMostUsedWidget },
+  "top-tags": { title: "🏷 Top tags", render: renderTopTagsWidget },
   questions: { title: "💬 Recent questions", render: renderQuestionsWidget },
   "on-this-day": { title: "📅 On this day", render: renderOnThisDayWidget },
   digest: { title: "📰 Weekly digest", render: renderDigestWidget },
@@ -2830,6 +2831,37 @@ async function renderPinnedWidget(body) {
 async function renderMostUsedWidget(body) {
   const entries = await apiJson("/entries/most-accessed");
   miniEntryList(body, entries, "Ask questions and your most-used notes appear here.");
+}
+
+async function renderTopTagsWidget(body) {
+  const entries = await apiJson("/entries");
+  const counts = new Map();
+  for (const entry of entries) {
+    for (const tag of entry.tags || []) counts.set(tag, (counts.get(tag) || 0) + 1);
+  }
+  if (!counts.size) {
+    const p = document.createElement("p");
+    p.className = "muted";
+    p.textContent = "Tag some notes and your top tags show up here.";
+    body.appendChild(p);
+    return;
+  }
+  const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12);
+  const cloud = document.createElement("div");
+  cloud.className = "entry-meta";
+  for (const [tag, count] of top) {
+    const tagChip = chip(`${tag} · ${count}`, "tag");
+    tagChip.style.cursor = "pointer";
+    tagChip.title = `Show notes tagged “${tag}”`;
+    tagChip.addEventListener("click", () => {
+      $("note-search").value = tag;
+      noteSearch = tag;
+      switchTab("notes");
+      renderEntries();
+    });
+    cloud.appendChild(tagChip);
+  }
+  body.appendChild(cloud);
 }
 
 async function renderQuestionsWidget(body) {

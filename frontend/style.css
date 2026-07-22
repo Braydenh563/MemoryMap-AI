@@ -566,6 +566,18 @@ li.link-source { outline: 2px solid var(--accent); }
 .dash-widget.dash-hidden { opacity: 0.45; }
 .dash-widget.dragging { opacity: 0.5; outline: 2px dashed var(--accent); }
 .drag-handle { cursor: grab; color: var(--muted); font-size: 0.8rem; }
+/* Consistent internal rhythm so every widget spaces the same, whatever it
+   renders: the title row sits a fixed gap above a flex-column body, and the
+   body's own children lose their ad-hoc margins in favour of one gap. */
+.dash-widget > .row { margin-bottom: 0.65rem; }
+.dash-widget h2 { margin: 0; }
+.dash-body { display: flex; flex-direction: column; gap: 0.5rem; }
+.dash-body > * { margin: 0; }
+.dash-body:empty::after {
+  content: "Loading…";
+  color: var(--muted);
+  font-size: 0.85rem;
+}
 .dash-big { font-size: 1.6rem; font-weight: 700; margin: 0 0 0.5rem; }
 .dash-list { list-style: none; margin: 0; padding: 0; font-size: 0.9rem; }
 .dash-list li {

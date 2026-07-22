@@ -94,11 +94,14 @@ html {
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--ui-font, system-ui, -apple-system, "Segoe UI", sans-serif);
   color: var(--ink);
   line-height: 1.5;
   min-height: 100vh;
 }
+/* Appearance → Font. Default (system) leaves --ui-font unset → the fallback. */
+:root[data-font="serif"] { --ui-font: Georgia, "Iowan Old Style", "Times New Roman", serif; }
+:root[data-font="mono"] { --ui-font: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace; }
 
 /* Ambient background art: behind everything, ignores clicks (Wave J). */
 .bg-art-canvas {

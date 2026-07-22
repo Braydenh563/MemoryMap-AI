@@ -20,6 +20,7 @@
     // Layout prefs before first paint, so there's no flash (Wave O).
     const _r = document.documentElement;
     _r.dataset.fontsize = localStorage.getItem("fontsize") || "normal";
+    _r.dataset.font = localStorage.getItem("font") || "system";
     _r.dataset.density = localStorage.getItem("density") || "comfortable";
     _r.dataset.glass = localStorage.getItem("glass") || "on";
     _r.dataset.motion = localStorage.getItem("motion") || "auto";
@@ -517,6 +518,13 @@
               <button data-fontsize="small">Small</button>
               <button data-fontsize="normal">Normal</button>
               <button data-fontsize="large">Large</button>
+            </div>
+
+            <h3>Font</h3>
+            <div class="seg" id="font-seg" role="group" aria-label="Font">
+              <button data-font="system">System</button>
+              <button data-font="serif">Serif</button>
+              <button data-font="mono">Mono</button>
             </div>
 
             <h3>Density</h3>

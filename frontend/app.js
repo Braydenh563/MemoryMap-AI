@@ -5010,6 +5010,7 @@ function applyContrast(on) {
 // applied before first paint by applyAppearance() so there's no flash.
 const APPEARANCE_DEFAULTS = {
   fontsize: "normal",
+  font: "system", // system | serif | mono
   density: "comfortable",
   glass: "on",
   motion: "auto", // "auto" = follow the OS; "reduced" = force-still
@@ -5024,6 +5025,7 @@ function appearancePref(key) {
 function applyAppearance() {
   const root = document.documentElement;
   root.dataset.fontsize = appearancePref("fontsize");
+  root.dataset.font = appearancePref("font");
   root.dataset.density = appearancePref("density");
   root.dataset.glass = appearancePref("glass");
   root.dataset.motion = appearancePref("motion");
@@ -5075,11 +5077,12 @@ function renderAppearance() {
   $("bg-intensity").value = appearancePref("bg-intensity");
   _segActive("theme-seg", "themeChoice", effectiveTheme());
   _segActive("fontsize-seg", "fontsize", appearancePref("fontsize"));
+  _segActive("font-seg", "font", appearancePref("font"));
   _segActive("density-seg", "density", appearancePref("density"));
 }
 
 function resetAppearance() {
-  for (const key of ["fontsize", "density", "glass", "motion", "bg-intensity", "accent", "contrast", "bgArt", "theme"]) {
+  for (const key of ["fontsize", "font", "density", "glass", "motion", "bg-intensity", "accent", "contrast", "bgArt", "theme"]) {
     localStorage.removeItem(key);
   }
   delete document.documentElement.dataset.accent;
@@ -5299,6 +5302,13 @@ for (const b of document.querySelectorAll("#theme-seg button")) {
 for (const b of document.querySelectorAll("#fontsize-seg button")) {
   b.addEventListener("click", () => {
     localStorage.setItem("fontsize", b.dataset.fontsize);
+    applyAppearance();
+    renderAppearance();
+  });
+}
+for (const b of document.querySelectorAll("#font-seg button")) {
+  b.addEventListener("click", () => {
+    localStorage.setItem("font", b.dataset.font);
     applyAppearance();
     renderAppearance();
   });

@@ -342,6 +342,16 @@ function entryItem(entry, options = {}) {
       })
     );
     actions.appendChild(
+      smallButton("📋", "Copy this note's text", async () => {
+        try {
+          await navigator.clipboard.writeText(entry.content);
+          toast("Note copied.");
+        } catch {
+          toast("Couldn't copy — your browser blocked clipboard access.", true);
+        }
+      })
+    );
+    actions.appendChild(
       smallButton("✎", "Edit this entry", () => {
         editingId = entry.id;
         renderEntries();
@@ -465,14 +475,14 @@ function entryOverflowMenu(entry) {
 
   const items = [
     {
-      label: "📋 Copy text",
-      run: async () => {
-        try {
-          await navigator.clipboard.writeText(entry.content);
-          toast("Note copied.");
-        } catch {
-          toast("Couldn't copy — your browser blocked clipboard access.", true);
-        }
+      label: "✨ Improve writing",
+      title: "Proofread or rewrite this note with AI",
+      run: () => {
+        editingId = entry.id;
+        renderEntries();
+        // The edit textarea now exists — improve it in place.
+        const box = document.querySelector(`#entry-list li[data-id="${entry.id}"] textarea`);
+        if (box) openImprove(box);
       },
     },
     {
@@ -2305,7 +2315,13 @@ async function startArt(holder) {
     const height = 220;
 
     const scene = (t) => {
-      p.background(dark ? 18 : 246);
+      // A soft vertical wash instead of a flat fill — more depth (Wave N).
+      p.noStroke();
+      for (let y = 0; y < height; y += 4) {
+        const shade = dark ? 14 + (y / height) * 10 : 250 - (y / height) * 10;
+        p.fill(230, 30, shade, 1);
+        p.rect(0, y, width, 4);
+      }
       for (const dot of particles) {
         dot.x = dot.baseX + Math.cos(t + dot.phase) * dot.amp;
         dot.y = dot.baseY + Math.sin(t * 1.3 + dot.phase) * dot.amp;
@@ -2317,19 +2333,21 @@ async function startArt(holder) {
           const a = particles[i];
           const b = particles[j];
           const d = p.dist(a.x, a.y, b.x, b.y);
-          if (d < 62) {
-            p.stroke(a.hue, 60, dark ? 70 : 55, p.map(d, 0, 62, 0.5, 0));
+          if (d < 70) {
+            p.stroke(a.hue, 65, dark ? 72 : 55, p.map(d, 0, 70, 0.45, 0));
             p.strokeWeight(1);
             p.line(a.x, a.y, b.x, b.y);
           }
         }
       }
-      // The stars themselves, with a soft twinkle.
+      // The stars themselves: a soft glow halo + a bright core, twinkling.
       p.noStroke();
       for (const dot of particles) {
         const twinkle = 0.6 + 0.4 * Math.sin(t * 2 + dot.phase);
-        p.fill(dot.hue, 70, dark ? 75 : 45, twinkle);
-        p.circle(dot.x, dot.y, dot.size);
+        p.fill(dot.hue, 75, dark ? 65 : 55, 0.14 * twinkle);
+        p.circle(dot.x, dot.y, dot.size * 4); // glow
+        p.fill(dot.hue, 80, dark ? 78 : 48, twinkle);
+        p.circle(dot.x, dot.y, dot.size); // core
       }
     };
 
@@ -2896,7 +2914,7 @@ let graphEdgeSelection = null;
 
 function graphNodeRadius(node) {
   // Much-used notes draw the eye: base size + a gentle access bonus.
-  return 7 + Math.min(9, Math.sqrt(node.access_count || 0) * 2);
+  return 9 + Math.min(9, Math.sqrt(node.access_count || 0) * 2);
 }
 
 async function renderGraph() {
@@ -2956,12 +2974,11 @@ async function renderGraph() {
 
   // One zoomable/pannable group holds everything.
   const canvas = svg.append("g");
-  svg.call(
-    d3
-      .zoom()
-      .scaleExtent([0.2, 5])
-      .on("zoom", (event) => canvas.attr("transform", event.transform))
-  );
+  const zoomBehavior = d3
+    .zoom()
+    .scaleExtent([0.2, 5])
+    .on("zoom", (event) => canvas.attr("transform", event.transform));
+  svg.call(zoomBehavior).on("dblclick.zoom", null); // dblclick pins, not zooms
 
   // D3 mutates these (x/y/vx/vy), so work on copies.
   const nodes = visibleNodes.map((n) => ({ ...n }));
@@ -2976,9 +2993,13 @@ async function renderGraph() {
         .id((d) => d.id)
         .distance((d) => (d.kind === "similar" ? 130 : 80))
     )
-    .force("charge", d3.forceManyBody().strength(-220))
+    // More repulsion + a mild centring pull → notes spread out and fill
+    // the space instead of clumping in the middle (Wave N polish).
+    .force("charge", d3.forceManyBody().strength(-340))
     .force("center", d3.forceCenter(width / 2, height / 2))
-    .force("collide", d3.forceCollide().radius((d) => graphNodeRadius(d) + 16));
+    .force("x", d3.forceX(width / 2).strength(0.04))
+    .force("y", d3.forceY(height / 2).strength(0.06))
+    .force("collide", d3.forceCollide().radius((d) => graphNodeRadius(d) + 24));
 
   const edgeLines = canvas
     .append("g")
@@ -3038,6 +3059,7 @@ async function renderGraph() {
     .attr("dy", (d) => graphNodeRadius(d) + 12)
     .text((d) => (d.preview.length > 20 ? d.preview.slice(0, 19) + "…" : d.preview));
 
+  let fitted = false;
   graphSimulation.on("tick", () => {
     edgeLines
       .attr("x1", (d) => d.source.x)
@@ -3045,6 +3067,12 @@ async function renderGraph() {
       .attr("x2", (d) => d.target.x)
       .attr("y2", (d) => d.target.y);
     nodeGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
+    // Once the layout settles, frame all the notes so nothing sits off
+    // the edge (Wave N — the old view often had nodes half-cropped).
+    if (!fitted && graphSimulation.alpha() < 0.08) {
+      fitted = true;
+      fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height);
+    }
   });
 
   // Search-highlight (Wave M): remember the selections and re-apply any
@@ -3052,6 +3080,33 @@ async function renderGraph() {
   graphNodeSelection = nodeGroups;
   graphEdgeSelection = edgeLines;
   applyGraphHighlight();
+}
+
+// Zoom/pan so every node fits with a margin (Wave N).
+function fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height) {
+  const xs = nodes.map((n) => n.x);
+  const ys = nodes.map((n) => n.y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const spanX = Math.max(maxX - minX, 1);
+  const spanY = Math.max(maxY - minY, 1);
+  const margin = 60;
+  const scale = Math.min(
+    3,
+    (width - margin * 2) / spanX,
+    (height - margin * 2) / spanY
+  );
+  const tx = width / 2 - scale * (minX + maxX) / 2;
+  const ty = height / 2 - scale * (minY + maxY) / 2;
+  svg
+    .transition()
+    .duration(500)
+    .call(
+      zoomBehavior.transform,
+      d3.zoomIdentity.translate(tx, ty).scale(scale)
+    );
 }
 
 // Dim everything except nodes whose text matches the search box; edges
@@ -3110,7 +3165,7 @@ function showPanel(id) {
 
 // --- settings modal (Wave A) ------------------------------------------------------
 
-const SETTINGS_SECTIONS = ["models", "personas", "skills", "appearance", "preferences", "data", "logs", "about"];
+const SETTINGS_SECTIONS = ["models", "personas", "skills", "appearance", "preferences", "tasks", "data", "logs", "about"];
 
 // Where to send focus back when a dialog closes (Wave L).
 let overlayReturnFocus = null;
@@ -3132,6 +3187,7 @@ function showSettingsSection(name) {
   if (name === "skills") renderSkillSettings();
   if (name === "appearance") renderAppearance();
   if (name === "data") renderBackups();
+  if (name === "tasks") refreshModelStatus(); // populate the tasks list now
 }
 
 async function openSettingsModal(section = "models") {
@@ -3892,57 +3948,132 @@ function renderSettings() {
 
   if (status.ollama_running) {
     renderChatModelPicker(status);
+    renderUtilityModelPicker(status);
     renderEmbeddingPicker(status);
     renderSuggested(status);
   }
   renderReindex(status);
+  if (settingsModalOpen()) renderTasks(status); // Wave N tasks manager
+}
+
+// --- Wave N: tasks manager (see and quit background jobs) ---------------------------
+
+function renderTasks(status) {
+  const list = $("task-list");
+  const jobs = [];
+  if (status.reindex && status.reindex.status === "running") {
+    jobs.push({
+      kind: "reindex",
+      label: `Re-indexing notes — ${status.reindex.done} of ${status.reindex.total}`,
+    });
+  }
+  for (const [name, job] of Object.entries(status.pulls || {})) {
+    if (job.status === "running") {
+      const pct = job.total ? Math.round((job.done / job.total) * 100) : 0;
+      jobs.push({ kind: "pull", name, label: `Downloading ${name} — ${pct}%` });
+    }
+  }
+  list.replaceChildren();
+  $("tasks-empty").classList.toggle("hidden", jobs.length > 0);
+  for (const job of jobs) {
+    const li = document.createElement("li");
+    const row = document.createElement("div");
+    row.className = "entry-meta";
+    const label = document.createElement("span");
+    label.textContent = job.label;
+    const actions = document.createElement("span");
+    actions.className = "entry-actions";
+    actions.appendChild(
+      smallButton("Quit", "Stop this job", async () => {
+        const q = new URLSearchParams({ kind: job.kind, name: job.name || "" });
+        await api(`/models/jobs/cancel?${q}`, { method: "POST" }).catch((e) =>
+          toast(e.message, true)
+        );
+        toast("Asked the job to stop.");
+        refreshModelStatus();
+      })
+    );
+    row.append(label, actions);
+    li.appendChild(row);
+    list.appendChild(li);
+  }
+}
+
+// Model pickers (bug fix, Wave N): the status poll used to rebuild these
+// selects every couple of seconds and re-select the SAVED model — wiping
+// out a choice the user had made but not yet applied. Now a select the
+// user has touched is left alone until they hit Apply, and the option
+// list only rebuilds when the installed models actually changed.
+function fillModelSelect(select, installed, savedName) {
+  const names = installed.map((m) => m.name);
+  const current = [...select.options].map((o) => o.value);
+  const listChanged = names.join("|") !== current.join("|");
+  if (!listChanged && select.dataset.userChosen === "1") return;
+  if (listChanged) {
+    const keep = select.dataset.userChosen === "1" ? select.value : null;
+    select.replaceChildren();
+    for (const name of names) {
+      const option = document.createElement("option");
+      option.value = name;
+      option.textContent = name;
+      select.appendChild(option);
+    }
+    if (keep && names.includes(keep)) {
+      select.value = keep;
+      return;
+    }
+  }
+  // No pending user choice — reflect the saved preference.
+  const match =
+    names.find((n) => n === savedName) ||
+    names.find((n) => n.split(":")[0] === savedName);
+  if (match) select.value = match;
 }
 
 function renderChatModelPicker(status) {
   const select = $("chat-model-select");
-  const note = $("chat-model-note");
-  // Don't rebuild the list under the user's cursor mid-choice.
-  if (document.activeElement !== select) {
-    select.replaceChildren();
-    for (const model of status.installed_models) {
-      const option = document.createElement("option");
-      option.value = model.name;
-      option.textContent = model.name;
-      if (
-        model.name === status.chat_model ||
-        model.name.split(":")[0] === status.chat_model
-      ) {
-        option.selected = true;
-      }
-      select.appendChild(option);
-    }
-  }
-  note.textContent =
+  fillModelSelect(select, status.installed_models, status.chat_model);
+  $("chat-model-note").textContent =
     status.chat_model_installed === false
       ? `Active model “${status.chat_model}” is not installed any more — pick another or download it below.`
       : `Active: ${status.chat_model}`;
 }
 
-function renderEmbeddingPicker(status) {
-  for (const radio of document.querySelectorAll('input[name="emb-backend"]')) {
-    radio.checked = radio.value === status.embedding_backend;
-  }
-  const select = $("embedding-model-select");
-  if (document.activeElement !== select) {
+function renderUtilityModelPicker(status) {
+  const select = $("utility-model-select");
+  if (select.dataset.userChosen === "1") return; // don't fight a pending choice
+  const names = status.installed_models.map((m) => m.name);
+  const current = [...select.options].map((o) => o.value);
+  // "" first option = same as chat model.
+  const wanted = ["", ...names];
+  if (wanted.join("|") !== current.join("|")) {
     select.replaceChildren();
-    for (const model of status.installed_models) {
+    const same = document.createElement("option");
+    same.value = "";
+    same.textContent = "Same as chat model";
+    select.appendChild(same);
+    for (const name of names) {
       const option = document.createElement("option");
-      option.value = model.name;
-      option.textContent = model.name;
-      if (
-        model.name === status.embedding_model ||
-        model.name.split(":")[0] === status.embedding_model
-      ) {
-        option.selected = true;
-      }
+      option.value = name;
+      option.textContent = name;
       select.appendChild(option);
     }
   }
+  select.value = status.utility_model || "";
+}
+
+function renderEmbeddingPicker(status) {
+  for (const radio of document.querySelectorAll('input[name="emb-backend"]')) {
+    // Same protection for the backend radios: don't fight the user.
+    if ($("embedding-model-select").dataset.userChosen !== "1") {
+      radio.checked = radio.value === status.embedding_backend;
+    }
+  }
+  fillModelSelect(
+    $("embedding-model-select"),
+    status.installed_models,
+    status.embedding_model
+  );
 }
 
 function renderReindex(status) {
@@ -4023,10 +4154,131 @@ async function applyChatModel() {
       method: "POST",
       body: JSON.stringify({ name: select.value }),
     });
+    delete select.dataset.userChosen; // applied — polling may reflect it now
     note.textContent = `Active: ${select.value} — switched instantly, no re-index needed.`;
     refreshModelStatus();
   } catch (error) {
     note.textContent = error.message;
+  }
+}
+
+async function applyUtilityModel() {
+  const select = $("utility-model-select");
+  try {
+    await api("/models/utility-model", {
+      method: "POST",
+      body: JSON.stringify({ name: select.value }),
+    });
+    delete select.dataset.userChosen;
+    toast(
+      select.value
+        ? `Background jobs now use ${select.value}.`
+        : "Background jobs now use the chat model."
+    );
+    refreshModelStatus();
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
+// --- Wave N: AI improve-writing (before/after, user approves) -----------------------
+
+let improveMode = "proofread";
+let improveTarget = null; // the textarea to write the accepted result into
+
+function openImprove(targetTextarea) {
+  const text = targetTextarea.value.trim();
+  if (!text) {
+    toast("Write something first, then improve it.", true);
+    return;
+  }
+  improveTarget = targetTextarea;
+  improveMode = "proofread";
+  for (const b of document.querySelectorAll(".improve-mode"))
+    b.classList.toggle("active", b.dataset.mode === "proofread");
+  $("improve-original").textContent = text;
+  overlayReturnFocus = document.activeElement;
+  $("improve-overlay").classList.remove("hidden");
+  $("improve-close").focus();
+  runImprove();
+}
+
+function closeImprove() {
+  $("improve-overlay").classList.add("hidden");
+  overlayReturnFocus?.focus?.();
+  overlayReturnFocus = null;
+}
+
+async function runImprove() {
+  const status = $("improve-status");
+  const result = $("improve-result");
+  result.textContent = "";
+  status.textContent = "The AI is editing…";
+  $("improve-apply").disabled = true;
+  try {
+    const body = await apiJson("/entries/improve", {
+      method: "POST",
+      body: JSON.stringify({
+        text: $("improve-original").textContent,
+        mode: improveMode,
+      }),
+    });
+    result.textContent = body.improved;
+    status.textContent = "";
+    $("improve-apply").disabled = false;
+  } catch (error) {
+    status.textContent = error.message;
+    status.classList.add("error");
+  }
+}
+
+function applyImprove() {
+  if (improveTarget) {
+    improveTarget.value = $("improve-result").textContent;
+    improveTarget.dispatchEvent(new Event("input")); // refresh char count
+  }
+  closeImprove();
+  toast("Applied the AI's suggestion.");
+}
+
+// --- Wave N: AI link suggestions (auto-linker, approve each) -------------------------
+
+async function loadLinkSuggestions() {
+  const box = $("link-suggestions");
+  box.classList.remove("hidden");
+  box.textContent = "Looking for notes worth connecting…";
+  const suggestions = await apiJson("/entries/link-suggestions").catch(() => []);
+  box.replaceChildren();
+  if (!suggestions.length) {
+    box.textContent =
+      "No new links to suggest — either everything related is already linked, or semantic search is off.";
+    return;
+  }
+  const heading = document.createElement("p");
+  heading.className = "muted";
+  heading.textContent = "Notes that look related — link the ones you agree with:";
+  box.appendChild(heading);
+  for (const s of suggestions) {
+    const row = document.createElement("div");
+    row.className = "link-suggestion";
+    const text = document.createElement("span");
+    text.innerHTML = "";
+    text.append(
+      document.createTextNode(`“${s.source_preview}” ↔ “${s.target_preview}” `)
+    );
+    const score = chip(`${Math.round(s.similarity * 100)}%`, "confidence");
+    const link = smallButton("🔗 Link", "Connect these two notes", async () => {
+      await apiJson(`/entries/${s.source_id}/links`, {
+        method: "POST",
+        body: JSON.stringify({ target_id: s.target_id }),
+      }).catch((e) => toast(e.message, true));
+      row.remove();
+      toast("Linked.");
+      loadEntries().catch(() => {});
+    });
+    const dismiss = smallButton("✕", "Dismiss this suggestion", () => row.remove());
+    row.append(text, score, link, dismiss);
+    box.appendChild(row);
   }
 }
 
@@ -4045,6 +4297,7 @@ async function applyEmbeddingBackend() {
       method: "POST",
       body: JSON.stringify({ backend, model: backend === "ollama" ? model : null }),
     });
+    delete $("embedding-model-select").dataset.userChosen; // applied
     refreshModelStatus();
   } catch (error) {
     toast(error.message, true);
@@ -4348,7 +4601,38 @@ $("profile-delete").addEventListener("click", deleteProfile);
 $("export-json").addEventListener("click", () => downloadExport("json"));
 $("export-csv").addEventListener("click", () => downloadExport("csv"));
 $("chat-model-apply").addEventListener("click", applyChatModel);
+$("utility-model-apply").addEventListener("click", applyUtilityModel);
 $("embedding-apply").addEventListener("click", applyEmbeddingBackend);
+$("utility-model-select").addEventListener(
+  "change",
+  () => ($("utility-model-select").dataset.userChosen = "1")
+);
+
+// Wave N: improve-writing, link suggestions.
+$("improve-btn").addEventListener("click", () => openImprove($("entry-content")));
+$("improve-close").addEventListener("click", closeImprove);
+$("improve-apply").addEventListener("click", applyImprove);
+$("improve-retry").addEventListener("click", runImprove);
+for (const button of document.querySelectorAll(".improve-mode")) {
+  button.addEventListener("click", () => {
+    improveMode = button.dataset.mode;
+    for (const b of document.querySelectorAll(".improve-mode"))
+      b.classList.toggle("active", b === button);
+    runImprove();
+  });
+}
+$("link-suggest-btn").addEventListener("click", loadLinkSuggestions);
+// Mark a picker as "user has a pending choice" so the status poll stops
+// resetting it (Wave N bug fix).
+for (const id of ["chat-model-select", "embedding-model-select"]) {
+  $(id).addEventListener("change", () => ($(id).dataset.userChosen = "1"));
+}
+for (const radio of document.querySelectorAll('input[name="emb-backend"]')) {
+  radio.addEventListener(
+    "change",
+    () => ($("embedding-model-select").dataset.userChosen = "1")
+  );
+}
 $("save-btn").addEventListener("click", saveEntry);
 $("ask-btn").addEventListener("click", () => askQuestion()); // no event as preset
 $("stop-btn").addEventListener("click", stopAnswer);
@@ -4381,6 +4665,10 @@ document.addEventListener("keydown", (e) => {
   }
   if (e.key === "Escape" && !$("sketch-overlay").classList.contains("hidden")) {
     closeSketch();
+    return;
+  }
+  if (e.key === "Escape" && !$("improve-overlay").classList.contains("hidden")) {
+    closeImprove();
     return;
   }
   // "/" focuses search — but only when you're not already typing somewhere
@@ -4420,7 +4708,7 @@ document.addEventListener("click", (e) => {
 // Focus trapping (Wave L): while a dialog is open, Tab cycles inside it
 // instead of wandering into the page behind — a WCAG dialog basic.
 function activeOverlay() {
-  for (const id of ["palette-overlay", "sketch-overlay", "settings-modal"]) {
+  for (const id of ["palette-overlay", "sketch-overlay", "improve-overlay", "settings-modal"]) {
     if (!$(id).classList.contains("hidden")) return $(id);
   }
   return null;

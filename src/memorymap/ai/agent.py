@@ -32,8 +32,11 @@ TOOLS_GUIDE = (
     "link, or delete notes, and manage reminders. Only make changes the "
     "user actually asked for; when they just ask a question, answer it "
     "without tools. Notes are referenced by their id number — use "
-    "search_notes first if you don't know the id. After acting, tell the "
-    "user briefly what you did."
+    "search_notes first if you don't know the id. When the user mentions "
+    "needing to do something at a time (\"remind me to… in 10 minutes\", "
+    "\"…tomorrow at 9\", \"…tonight\"), call set_reminder with the due_at "
+    "computed from the current time given below, as an ISO 8601 datetime. "
+    "After acting, tell the user briefly what you did."
 )
 
 # Agent-mode grounding: tool results are a legitimate second source.
@@ -56,10 +59,14 @@ def build_agent_messages(
     style_hint = librarian.STYLE_HINTS.get(style, librarian.STYLE_HINTS["friendly"])
     profile_hint = f" About the user: {profile.strip()}" if profile.strip() else ""
     persona = (persona_prompt or librarian.DEFAULT_PERSONA).strip()
+    # The model needs "now" to turn "in 10 minutes" into a real time.
+    from memorymap.core.database import utcnow
+
+    now_hint = f" The current date and time is {utcnow().astimezone().isoformat()}."
     messages = [
         {
             "role": "system",
-            "content": f"{persona} {AGENT_GROUNDING} {TOOLS_GUIDE} "
+            "content": f"{persona} {AGENT_GROUNDING} {TOOLS_GUIDE}{now_hint} "
             f"{style_hint}{profile_hint}",
         }
     ]

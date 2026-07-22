@@ -116,5 +116,6 @@ def weekly_digest(session: Session = Depends(get_session)) -> dict:
         deps.get_ollama(),
         style=config.get_preference("communication_style", "friendly"),
         persona_prompt=None,
+        use_utility_model=True,  # a background job — keep the chat model free
     )
     return {"digest": digest, "thinking": thinking, "cacheable": ollama_running}

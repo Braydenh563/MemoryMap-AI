@@ -731,15 +731,24 @@ li.link-source { outline: 2px solid var(--accent); }
 .graph-edge-similar { stroke-dasharray: 2 5; stroke-width: 1.2; stroke: var(--accent); }
 
 .graph-node { cursor: pointer; }
-.graph-node circle { stroke: transparent; stroke-width: 2px; }
+.graph-node circle {
+  stroke: var(--card);
+  stroke-width: 2px;
+  transition: r 0.12s ease;
+}
 .graph-node circle.graph-pinned { stroke: var(--warn); }
-.graph-node:hover circle { stroke: var(--accent); }
+.graph-node:hover circle { stroke: var(--accent); stroke-width: 3px; }
 .graph-node text {
-  font-size: 0.62rem;
-  fill: var(--muted);
+  font-size: 0.68rem;
+  fill: var(--ink);
   text-anchor: middle;
   pointer-events: none;
   user-select: none;
+  /* A halo so labels stay legible over edges and other nodes (Wave N). */
+  paint-order: stroke;
+  stroke: var(--card);
+  stroke-width: 3px;
+  stroke-linejoin: round;
 }
 
 .legend-item {
@@ -984,6 +993,10 @@ kbd {
 .empty-state p { margin: 0.15rem 0; }
 /* The graph empty-state is absolutely centred inside its box. */
 #graph-empty.empty-state { position: absolute; inset: 0; display: grid; place-content: center; }
+/* Same-specificity rule above would otherwise win over the earlier
+   #graph-empty.hidden — the bug where "Nothing to map yet" floated over
+   a full graph (user report, Wave N). Last rule wins, so restate it. */
+#graph-empty.empty-state.hidden { display: none; }
 
 /* Bigger touch targets for the small action buttons on phones — a 44px
    min is the accessibility guideline for finger taps. */
@@ -1167,3 +1180,46 @@ html { font-size: 16px; }
   accent-color: var(--accent);
 }
 .entry-list li.selectable { border-left: 3px solid var(--accent-soft); }
+
+/* --- Wave N: improve-writing, link suggestions, tasks --------------------------- */
+#improve-overlay, #sketch-overlay { /* shared modal backdrop already styled */ }
+#improve-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(10, 12, 24, 0.45);
+  backdrop-filter: blur(3px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem;
+}
+#improve-overlay.hidden { display: none; }
+#improve-card { width: min(760px, 96vw); max-height: 92vh; overflow-y: auto; background: var(--modal-bg); }
+.improve-mode.active { background: var(--accent); color: #fff; }
+.improve-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+@media (max-width: 640px) { .improve-cols { grid-template-columns: 1fr; } }
+.improve-box {
+  min-height: 6rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--input-bg);
+  white-space: pre-wrap;
+  font-size: 0.92rem;
+}
+#improve-result { border-color: var(--accent); }
+
+.link-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 0.6rem;
+  margin-bottom: 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 0.9rem;
+}
+.link-suggestion span:first-child { flex: 1; min-width: 12rem; }
+#link-suggestions { margin: 0.5rem 0; }

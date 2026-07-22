@@ -47,6 +47,17 @@ class ModelManager:
     def chat_model(self) -> str:
         return self._config.get_preference("chat_model", "llama3.2")
 
+    def utility_model(self) -> str:
+        """The model for quick background jobs — filing (janitor), the
+        weekly digest, tidy suggestions, writing fixes (Wave N). Defaults
+        to the chat model, but the user can point it at a small fast model
+        so the big chat model isn't tied up categorising every note."""
+        return self._config.get_preference("utility_model", "") or self.chat_model()
+
+    def set_utility_model(self, name: str) -> None:
+        # Empty string means "same as chat model".
+        self._config.set_preference("utility_model", name or "")
+
     def embedding_backend(self) -> str:
         """'sentence-transformers' (built-in default) or 'ollama'."""
         return self._config.get_preference("embedding_backend", "sentence-transformers")
@@ -77,8 +88,9 @@ class Job:
     name: str = ""  # model name for pulls
     total: int = 0  # entries (reindex) or bytes (pull)
     done: int = 0
-    status: str = "running"  # running | success | error
+    status: str = "running"  # running | success | error | cancelled
     error: str = ""
+    cancel_requested: bool = False  # cooperative stop (Wave N tasks manager)
 
     def as_dict(self) -> dict:
         return {
@@ -114,6 +126,26 @@ def pull_statuses() -> dict[str, dict]:
         return {name: job.as_dict() for name, job in _pull_jobs.items()}
 
 
+def cancel_reindex() -> bool:
+    """Ask a running re-index to stop (Wave N). Cooperative: the worker
+    checks the flag between entries. Returns True if one was running."""
+    with _lock:
+        if _reindex_job is not None and _reindex_job.status == "running":
+            _reindex_job.cancel_requested = True
+            return True
+    return False
+
+
+def cancel_pull(name: str) -> bool:
+    """Ask a running download to stop (Wave N)."""
+    with _lock:
+        job = _pull_jobs.get(name)
+        if job is not None and job.status == "running":
+            job.cancel_requested = True
+            return True
+    return False
+
+
 def start_reindex(db: DatabaseManager, embeddings: "EmbeddingService") -> bool:
     """Regenerate every non-deleted entry's embedding with the current
     backend, in a background thread. Returns False if one is already
@@ -140,6 +172,9 @@ def _run_reindex(db: DatabaseManager, embeddings: "EmbeddingService", job: Job) 
         )
         job.total = len(entries)
         for entry in entries:
+            if job.cancel_requested:  # user quit it from the tasks manager
+                job.status = "cancelled"
+                return
             # Drop the stale vector first so a failed re-embed never
             # leaves an old-model vector looking current.
             session.execute(
@@ -182,6 +217,9 @@ def _run_pull(client: OllamaClient, name: str, job: Job) -> None:
     try:
         # Ollama streams progress lines with completed/total bytes (§6.5).
         for update in client.pull(name):
+            if job.cancel_requested:  # user quit it from the tasks manager
+                job.status = "cancelled"
+                return
             if update.get("error"):
                 raise OllamaError(update["error"])
             if update.get("total"):

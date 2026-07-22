@@ -12,7 +12,8 @@ from pydantic import BaseModel
 from sqlalchemy import delete as sa_delete
 from sqlalchemy.orm import Session
 
-from memorymap.ai import janitor
+from memorymap.ai import janitor, librarian
+from memorymap.ai.ollama_client import OllamaError
 from memorymap.api.schemas import (
     AttachmentOut,
     ContextBody,
@@ -23,7 +24,7 @@ from memorymap.api.schemas import (
     SimilarOut,
 )
 from memorymap.core import deps
-from memorymap.core.database import EmbeddingRecord, EntryLink
+from memorymap.core.database import EmbeddingRecord, EntryLink  # noqa: F401 (used in link_suggestions)
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
 from memorymap.search import search_manager
@@ -194,6 +195,81 @@ def add_context(
             filed_by = None  # AI down — the note keeps its old category
 
     return _to_out(session, entry, filed_by=filed_by)
+
+
+class ImproveBody(BaseModel):
+    text: str
+    mode: str = "proofread"  # proofread | rewrite | concise
+
+
+@router.post("/improve")
+def improve_writing(body: ImproveBody) -> dict:
+    """Return an AI-polished version of some note text without saving it —
+    the UI shows a before/after and the user decides (Wave N). Never
+    touches the note itself; the AI is a servant, not a gatekeeper."""
+    text = body.text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="There's no text to improve.")
+    if not deps.get_ollama().is_running():
+        raise HTTPException(
+            status_code=503,
+            detail="The AI isn't available right now (Ollama doesn't seem to be running).",
+        )
+    try:
+        improved = librarian.improve_writing(
+            text, body.mode, deps.get_model_manager(), deps.get_ollama()
+        )
+    except OllamaError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {"original": text, "improved": improved, "mode": body.mode}
+
+
+# Notes this similar are almost certainly worth connecting.
+LINK_SUGGESTION_THRESHOLD = 0.55
+
+
+@router.get("/link-suggestions")
+def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
+    """Pairs of notes that mean similar things but aren't linked yet —
+    the auto-linker (Wave N). Suggestion-only: it never links anything on
+    its own, it hands the pairs to the UI to approve. Empty when the
+    embedding backend is unavailable (semantic search off)."""
+    from sqlalchemy import select
+
+    entries = manager.list_entries(session)
+    already_linked: set[frozenset[int]] = set()
+    for link in session.scalars(select(EntryLink)):
+        already_linked.add(frozenset((link.source_entry_id, link.target_entry_id)))
+    # Threads are already a connection — don't re-suggest parent/child.
+    for entry in entries:
+        if entry.parent_id is not None:
+            already_linked.add(frozenset((entry.parent_id, entry.id)))
+
+    suggestions: dict[frozenset[int], dict] = {}
+    for entry in entries:
+        try:
+            results = search_manager.semantic_search(
+                session, entry.content, deps.get_embeddings(), limit=4
+            )
+        except Exception:
+            results = None
+        if not results:
+            continue
+        for other, score in results:
+            if other.id == entry.id or score < LINK_SUGGESTION_THRESHOLD:
+                continue
+            pair = frozenset((entry.id, other.id))
+            if pair in already_linked or pair in suggestions:
+                continue
+            suggestions[pair] = {
+                "source_id": entry.id,
+                "target_id": other.id,
+                "source_preview": _preview(entry.content),
+                "target_preview": _preview(other.content),
+                "similarity": round(score, 2),
+            }
+    ranked = sorted(suggestions.values(), key=lambda s: s["similarity"], reverse=True)
+    return ranked[:12]
 
 
 @router.get("/{entry_id}/related", response_model=list[EntryOut])

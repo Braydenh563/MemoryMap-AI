@@ -137,6 +137,7 @@
             <label for="entry-category" class="muted">File under</label>
             <select id="entry-category"></select>
             <button id="save-btn">Save</button>
+            <button id="improve-btn" class="ghost" title="Let the AI proofread or rewrite this before you save" aria-label="Improve writing with AI">✨ Improve</button>
             <button id="sketch-btn" class="ghost" title="Draw a quick sketch and save it as a note" aria-label="Open the sketch pad">🎨 Sketch</button>
             <button id="mic-note" class="ghost" title="Dictate a note (local Whisper)" aria-label="Dictate a note">🎙</button>
           </div>
@@ -286,6 +287,11 @@
         double-click to pin it in place, and click a legend colour to
         hide that category.
       </p>
+      <div class="row">
+        <button id="link-suggest-btn" class="ghost small"
+          title="Let the AI suggest links between notes that mean similar things">🔗 Suggest links</button>
+      </div>
+      <div id="link-suggestions" class="hidden"></div>
       <div id="graph-legend" class="recent"></div>
       <div id="graph-box">
         <svg id="graph-svg"></svg>
@@ -339,6 +345,7 @@
           <button data-section="skills">Skills</button>
           <button data-section="appearance">Appearance</button>
           <button data-section="preferences">Preferences</button>
+          <button data-section="tasks">Tasks</button>
           <button data-section="data">Data</button>
           <button data-section="logs">Logs</button>
           <button data-section="about">About</button>
@@ -356,12 +363,23 @@
               search work fine without it.
             </p>
             <div id="models-config" class="hidden">
-              <h3>Chat model (answers &amp; filing — switches instantly)</h3>
+              <h3>Chat model (answers your questions — switches instantly)</h3>
               <div class="row">
                 <select id="chat-model-select"></select>
                 <button id="chat-model-apply" class="small">Use this model</button>
               </div>
               <p id="chat-model-note" class="status"></p>
+              <h3>Utility model (filing, digest &amp; writing fixes)</h3>
+              <div class="row">
+                <select id="utility-model-select"></select>
+                <button id="utility-model-apply" class="small">Use this model</button>
+              </div>
+              <p class="muted">
+                Quick background jobs run on this model, so a big slow chat
+                model isn't tied up categorising every note. Point it at a
+                small fast model (e.g. llama3.2) and let a bigger one answer
+                your questions. Leave as “Same as chat model” to keep it simple.
+              </p>
               <h3>Search engine (how your notes are understood)</h3>
               <label>
                 <input type="radio" name="emb-backend" value="sentence-transformers">
@@ -503,6 +521,16 @@
             </p>
           </section>
 
+          <!-- Tasks (Wave N): see and quit background jobs -->
+          <section class="settings-section hidden" id="settings-tasks">
+            <p class="muted">
+              Background jobs — re-indexing your notes and model downloads.
+              If one is stuck or taking too long, you can quit it here.
+            </p>
+            <ul id="task-list" class="entry-list"></ul>
+            <p id="tasks-empty" class="muted">Nothing running right now.</p>
+          </section>
+
           <!-- Data (Wave F: markdown + backups join the exports) -->
           <section class="settings-section hidden" id="settings-data">
             <h3>Export your data</h3>
@@ -589,6 +617,36 @@
   </div>
 
   <!-- Whiteboard-lite (Wave F): sketch → PNG attached to a new note -->
+  <!-- AI improve-writing (Wave N): before/after, user approves -->
+  <div id="improve-overlay" class="hidden" role="dialog" aria-label="Improve writing">
+    <div class="card" id="improve-card">
+      <div class="row space-between">
+        <h2>Improve writing</h2>
+        <button id="improve-close" class="ghost small">Close</button>
+      </div>
+      <div class="row" id="improve-modes">
+        <button class="ghost small improve-mode active" data-mode="proofread">Proofread</button>
+        <button class="ghost small improve-mode" data-mode="rewrite">Rewrite</button>
+        <button class="ghost small improve-mode" data-mode="concise">Make concise</button>
+      </div>
+      <div class="improve-cols">
+        <div>
+          <h3>Your text</h3>
+          <div id="improve-original" class="improve-box"></div>
+        </div>
+        <div>
+          <h3>AI suggestion</h3>
+          <div id="improve-result" class="improve-box"></div>
+        </div>
+      </div>
+      <p id="improve-status" class="status" role="status"></p>
+      <div class="row">
+        <button id="improve-apply">Use the suggestion</button>
+        <button id="improve-retry" class="ghost small">Try again</button>
+      </div>
+    </div>
+  </div>
+
   <div id="sketch-overlay" class="hidden" role="dialog" aria-label="Sketch pad">
     <div class="card" id="sketch-card">
       <div class="row space-between">

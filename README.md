@@ -63,7 +63,15 @@ To set up the AI after installing Ollama:
 
 ```bash
 ollama pull llama3.2     # the default chat model (~2 GB)
+
+or use the following recommended models:
+- ollama pull granite4.1:3b
+- ollama pull lfm2.5 -> *Specifically LFM2.5-8B-A1B in pulling from Hugging Face*
+- ollama pull gemma4:e2b
+- ollama pull qwen3.5:2b
 ```
+
+See my Hugging Face Profile: https://huggingface.co/braydenh563
 
 The default *embedding* model (`all-MiniLM-L6-v2`, for semantic search)
 downloads itself automatically (~90 MB) the first time it's needed — no

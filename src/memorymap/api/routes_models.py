@@ -167,7 +167,13 @@ def set_embedding_backend(
     )
     session.commit()
 
-    jobs.start_reindex(deps.get_db(), deps.get_embeddings())
+    # Switching backend is a fresh start: drop any cached failure so the
+    # re-index retries right away and the stale error banner clears at once
+    # instead of lingering for the retry-cooldown (bug: a fixed torch/Ollama
+    # still showed the old "search engine problem" until the cooldown lapsed).
+    embeddings = deps.get_embeddings()
+    embeddings.reset_failure_state()
+    jobs.start_reindex(deps.get_db(), embeddings)
     return {"reindex_started": True}
 
 

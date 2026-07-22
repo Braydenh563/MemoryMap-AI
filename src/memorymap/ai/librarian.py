@@ -110,17 +110,24 @@ def answer(
     profile: str = "",
     history: list[dict] | None = None,
     persona_prompt: str | None = None,
+    use_utility_model: bool = False,
 ) -> tuple[str, str | None]:
     """(answer text, model's thinking or None) for `question` given
-    retrieved `notes` (dicts with 'content' and 'category')."""
+    retrieved `notes` (dicts with 'content' and 'category').
+
+    `use_utility_model` routes background jobs (the weekly digest) to the
+    small fast model instead of the main chat model (Wave N)."""
     if not notes:
         return NO_RESULTS_MESSAGE, None
     if not ollama.is_running():
         return OFFLINE_MESSAGE, None
 
+    model = (
+        model_manager.utility_model() if use_utility_model else model_manager.chat_model()
+    )
     try:
         reply = ollama.chat(
-            model_manager.chat_model(),
+            model,
             build_messages(
                 question,
                 notes,
@@ -133,3 +140,48 @@ def answer(
         return reply["content"].strip(), reply["thinking"]
     except OllamaError:
         return OFFLINE_MESSAGE, None
+
+
+# --- AI writing help (Wave N) -----------------------------------------------------
+
+IMPROVE_MODES = {
+    "proofread": (
+        "Fix spelling, grammar, and punctuation in the user's note. Keep "
+        "their wording and meaning as close to the original as possible — "
+        "correct mistakes, don't rewrite."
+    ),
+    "rewrite": (
+        "Rewrite the user's note so it reads clearly and well, keeping the "
+        "same meaning, facts, and rough length. Keep their voice."
+    ),
+    "concise": (
+        "Tighten the user's note: remove filler and repetition so it says "
+        "the same thing in fewer words. Keep every fact."
+    ),
+}
+
+
+def improve_writing(
+    text: str,
+    mode: str,
+    model_manager: ModelManager,
+    ollama: OllamaClient,
+) -> str:
+    """Return an improved version of `text` (proofread / rewrite / concise).
+    Raises OllamaError if the model is unavailable — the caller decides
+    what to tell the user. Uses the utility model: this is a quick fix,
+    not a conversation (Wave N)."""
+    instruction = IMPROVE_MODES.get(mode, IMPROVE_MODES["proofread"])
+    system = (
+        f"You are a careful copy-editor. {instruction} Reply with ONLY the "
+        "edited note text — no preamble, no quotes, no explanation."
+    )
+    reply = ollama.chat(
+        model_manager.utility_model(),
+        [
+            {"role": "system", "content": system},
+            {"role": "user", "content": text},
+        ],
+    )
+    # Thinking models may reason first; content already has think-tags split.
+    return reply["content"].strip()

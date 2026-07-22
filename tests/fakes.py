@@ -53,6 +53,7 @@ class FakeOllama:
     def __init__(self, running: bool = True) -> None:
         self.running = running
         self.chat_calls: list[list[dict]] = []
+        self.chat_models: list[str] = []  # which model each chat() used (Wave N)
         self.librarian_reply = "Here's what I found in your notebook!"
         self.librarian_thinking: str | None = None  # set to fake a thinking model
         self.installed = [{"name": "llama3.2:latest", "size": 2_000_000_000}]
@@ -67,6 +68,7 @@ class FakeOllama:
         return self.running
 
     def chat(self, model: str, messages: list[dict]) -> dict:
+        self.chat_models.append(model)
         return {"content": self._reply_text(messages), "thinking": self.librarian_thinking}
 
     def chat_stream(self, model: str, messages: list[dict]):

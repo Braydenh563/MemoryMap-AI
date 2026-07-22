@@ -110,16 +110,30 @@ body {
   height: 100vh !important;
 }
 
-header {
+/* Wave L rework: one compact, sticky top bar — brand · tabs · controls.
+   The old two-row header + tab strip spent ~120px before any content. */
+header#top-bar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
   display: flex;
-  align-items: baseline;
-  gap: 1rem;
+  align-items: center;
+  gap: 1.25rem;
   flex-wrap: wrap;
-  padding: 1.25rem 2rem 0.75rem;
+  padding: 0.55rem 1.5rem;
+  background: var(--card);
+  border-bottom: 1px solid var(--glass-border);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
 }
-header h1 { margin: 0; font-size: 1.5rem; }
-.tagline { margin: 0; color: var(--muted); font-size: 0.9rem; flex: 1; }
-.header-controls { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+header#top-bar h1 { margin: 0; font-size: 1.1rem; letter-spacing: 0.01em; }
+.header-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
 
 /* Live "what is the AI doing?" indicator */
 #ai-pill {
@@ -133,29 +147,29 @@ header h1 { margin: 0; font-size: 1.5rem; }
 #ai-pill.ok { background: var(--ok-soft); color: var(--ok); }
 #ai-pill.busy { background: var(--warn-soft); color: var(--warn); }
 
-/* --- tab navigation (Wave A) ----------------------------------------------- */
+/* --- tab navigation (Wave A; pill style inside the top bar in Wave L) ------- */
 #tab-bar {
   display: flex;
-  gap: 0.35rem;
-  padding: 0 2rem;
-  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.2rem;
+  border-radius: 12px;
+  background: var(--chip-bg);
 }
 #tab-bar button {
-  background: var(--chip-bg);
-  border: 1px solid var(--glass-border);
-  border-bottom: none;
-  border-radius: 10px 10px 0 0;
+  background: transparent;
+  border: none;
+  border-radius: 9px;
   color: var(--muted);
   font-weight: 500;
-  padding: 0.45rem 1.1rem;
+  padding: 0.35rem 0.95rem;
   box-shadow: none;
-  backdrop-filter: blur(8px);
 }
 #tab-bar button.active {
-  background: var(--card);
-  color: var(--ink);
+  background: var(--accent);
+  color: #fff;
   font-weight: 600;
 }
+:root[data-theme="dark"] #tab-bar button.active { color: #0e1017; }
 .tab-page { padding-top: 0.75rem; }
 .tab-page > .card.placeholder { margin: 0.25rem 2rem; }
 
@@ -717,15 +731,24 @@ li.link-source { outline: 2px solid var(--accent); }
 .graph-edge-similar { stroke-dasharray: 2 5; stroke-width: 1.2; stroke: var(--accent); }
 
 .graph-node { cursor: pointer; }
-.graph-node circle { stroke: transparent; stroke-width: 2px; }
+.graph-node circle {
+  stroke: var(--card);
+  stroke-width: 2px;
+  transition: r 0.12s ease;
+}
 .graph-node circle.graph-pinned { stroke: var(--warn); }
-.graph-node:hover circle { stroke: var(--accent); }
+.graph-node:hover circle { stroke: var(--accent); stroke-width: 3px; }
 .graph-node text {
-  font-size: 0.62rem;
-  fill: var(--muted);
+  font-size: 0.68rem;
+  fill: var(--ink);
   text-anchor: middle;
   pointer-events: none;
   user-select: none;
+  /* A halo so labels stay legible over edges and other nodes (Wave N). */
+  paint-order: stroke;
+  stroke: var(--card);
+  stroke-width: 3px;
+  stroke-linejoin: round;
 }
 
 .legend-item {
@@ -970,6 +993,10 @@ kbd {
 .empty-state p { margin: 0.15rem 0; }
 /* The graph empty-state is absolutely centred inside its box. */
 #graph-empty.empty-state { position: absolute; inset: 0; display: grid; place-content: center; }
+/* Same-specificity rule above would otherwise win over the earlier
+   #graph-empty.hidden — the bug where "Nothing to map yet" floated over
+   a full graph (user report, Wave N). Last rule wins, so restate it. */
+#graph-empty.empty-state.hidden { display: none; }
 
 /* Bigger touch targets for the small action buttons on phones — a 44px
    min is the accessibility guideline for finger taps. */
@@ -1003,3 +1030,216 @@ kbd {
 }
 :root[data-contrast="on"] .card { border-width: 2px; }
 :root[data-contrast="on"] .muted { opacity: 0.9; }
+
+/* --- Wave L: skip link, action menus, contrast + type polish -------------------- */
+/* Off-screen until focused. left:-9999px is more reliable than a
+   negative top (some layouts let a negative top peek through) — Wave O. */
+.skip-link {
+  position: fixed;
+  left: -9999px;
+  top: 0.5rem;
+  z-index: 100;
+  padding: 0.5rem 1rem;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+}
+.skip-link:focus { left: 0.5rem; }
+
+/* Slightly darker muted text — the old values sat under the 4.5:1
+   contrast guideline on the glass backgrounds. */
+:root { --muted: #4c5563; }
+:root[data-theme="dark"] { --muted: #a8b0bd; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --muted: #a8b0bd; }
+}
+
+/* The ⋯ overflow menu on note cards. */
+.menu-wrap { position: relative; display: inline-block; }
+.action-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 30;
+  min-width: 12.5rem;
+  display: flex;
+  flex-direction: column;
+  padding: 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--modal-bg);
+  box-shadow: var(--glass-shadow);
+}
+.action-menu.hidden { display: none; }
+.menu-item {
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: var(--ink);
+  font-weight: 500;
+  text-align: left;
+  padding: 0.5rem 0.7rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.menu-item:hover, .menu-item:focus-visible { background: var(--accent-soft); }
+.menu-item.menu-danger { color: var(--error); }
+.menu-item.menu-danger:hover { background: rgba(185, 28, 28, 0.10); }
+
+/* Type polish: a touch more base size + calmer headings. */
+html { font-size: 16px; }
+.card h2 { font-size: 1rem; font-weight: 650; }
+
+/* Inputs at 16px on touch screens so iOS doesn't zoom the page. */
+@media (max-width: 720px) {
+  textarea, input, select { font-size: 16px; }
+  header#top-bar { padding: 0.5rem 0.75rem; gap: 0.6rem; }
+  #tab-bar { order: 3; width: 100%; overflow-x: auto; }
+  /* Categories become a wrapping chip row instead of a tall list. */
+  #sidebar ul#category-list { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+  #sidebar ul#category-list li {
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.25rem 0.7rem;
+    gap: 0.4rem;
+  }
+}
+
+/* --- Wave M: graph filters, thumbnails, lightbox, batch bar ---------------------- */
+.legend-toggle {
+  border: none;
+  background: none;
+  box-shadow: none;
+  padding: 0.15rem 0.4rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+}
+.legend-toggle:hover { background: var(--accent-soft); }
+.legend-toggle.legend-off { opacity: 0.4; text-decoration: line-through; }
+
+.graph-node.graph-dim { opacity: 0.15; }
+.graph-edge.graph-dim { opacity: 0.06; }
+.graph-node.graph-held circle { stroke: var(--ink); stroke-dasharray: 3 2; }
+#graph-search { max-width: 13rem; margin-bottom: 0; }
+
+.thumb-wrap { position: relative; display: inline-block; }
+.attachment-thumb {
+  max-height: 110px;
+  max-width: 180px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  cursor: zoom-in;
+  display: block;
+}
+.thumb-wrap .unlink {
+  position: absolute;
+  top: 0.2rem;
+  right: 0.2rem;
+  background: var(--modal-bg);
+  border-radius: 50%;
+  width: 1.3rem;
+  height: 1.3rem;
+  display: grid;
+  place-content: center;
+  cursor: pointer;
+}
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(8, 10, 18, 0.82);
+  display: grid;
+  place-content: center;
+  cursor: zoom-out;
+}
+.lightbox img {
+  max-width: 92vw;
+  max-height: 92vh;
+  border-radius: 12px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+}
+
+#batch-bar {
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  background: var(--accent-soft);
+  flex-wrap: wrap;
+}
+#batch-bar select { max-width: 11rem; margin-bottom: 0; }
+#select-btn.active { background: var(--accent); color: #fff; }
+.select-check {
+  width: 1.15rem;
+  height: 1.15rem;
+  margin: 0 0 0.4rem;
+  accent-color: var(--accent);
+}
+.entry-list li.selectable { border-left: 3px solid var(--accent-soft); }
+
+/* --- Wave N: improve-writing, link suggestions, tasks --------------------------- */
+#improve-overlay, #sketch-overlay { /* shared modal backdrop already styled */ }
+#improve-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(10, 12, 24, 0.45);
+  backdrop-filter: blur(3px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem;
+}
+#improve-overlay.hidden { display: none; }
+#improve-card { width: min(760px, 96vw); max-height: 92vh; overflow-y: auto; background: var(--modal-bg); }
+.improve-mode.active { background: var(--accent); color: #fff; }
+.improve-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+@media (max-width: 640px) { .improve-cols { grid-template-columns: 1fr; } }
+.improve-box {
+  min-height: 6rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--input-bg);
+  white-space: pre-wrap;
+  font-size: 0.92rem;
+}
+#improve-result { border-color: var(--accent); }
+
+.link-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 0.6rem;
+  margin-bottom: 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 0.9rem;
+}
+.link-suggestion span:first-child { flex: 1; min-width: 12rem; }
+#link-suggestions { margin: 0.5rem 0; }
+
+/* --- Wave O: brand logo + a more present background ------------------------------ */
+#brand-logo {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+#brand-logo canvas { width: 34px !important; height: 34px !important; }
+
+/* The ambient background reads on every tab; nudge it a touch more
+   visible than the old faint blobs (still well behind text). */
+.bg-art-canvas { opacity: 0.9; }
+
+/* --- Wave O: AI Tools toggles --------------------------------------------------- */
+#tool-list li { padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+.tool-row { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: 500; }
+.tool-row input { width: 1.15rem; height: 1.15rem; margin: 0; accent-color: var(--accent); }
+.tool-desc { display: block; margin: 0.2rem 0 0 1.65rem; font-size: 0.82rem; }

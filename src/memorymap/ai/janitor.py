@@ -140,7 +140,9 @@ def _ask_llm(
     )
     try:
         reply = ollama.chat(
-            model_manager.chat_model(),
+            # Filing is a quick background job — use the utility model so a
+            # big slow chat model isn't tied up on every save (Wave N).
+            model_manager.utility_model(),
             [
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_prompt},

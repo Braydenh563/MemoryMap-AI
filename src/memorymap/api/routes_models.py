@@ -36,6 +36,11 @@ class PullBody(BaseModel):
     name: str
 
 
+class UtilityModelBody(BaseModel):
+    # "" means "use the chat model" (Wave N).
+    name: str = ""
+
+
 def _installed_models(running: bool) -> list[dict]:
     if not running:
         return []
@@ -73,6 +78,8 @@ def status() -> dict:
         "chat_model": chat_model,
         # None = unknown because Ollama is off (don't warn about nothing)
         "chat_model_installed": _name_matches(chat_model, installed) if running else None,
+        # "" means "same as chat model" (Wave N utility model).
+        "utility_model": manager._config.get_preference("utility_model", ""),
         "embedding_backend": manager.embedding_backend(),
         "embedding_model": manager.embedding_model(),
         "embedding_ready": embeddings.is_ready(),
@@ -104,6 +111,39 @@ def set_chat_model(body: ChatModelBody, session: Session = Depends(get_session))
     log_action(session, "edited", "preferences", detail=f"chat_model={body.name}")
     session.commit()
     return {"chat_model": body.name}
+
+
+@router.post("/utility-model")
+def set_utility_model(body: UtilityModelBody, session: Session = Depends(get_session)) -> dict:
+    """Point background jobs (filing, digest, writing fixes) at a small
+    fast model, separate from the chat model (Wave N). Empty name = use
+    the chat model."""
+    name = body.name.strip()
+    if name and deps.get_ollama().is_running():
+        if not _name_matches(name, _installed_models(True)):
+            raise HTTPException(
+                status_code=400,
+                detail=f"'{name}' isn't installed in Ollama — download it first",
+            )
+    deps.get_model_manager().set_utility_model(name)
+    log_action(session, "edited", "preferences", detail=f"utility_model={name or '(chat)'}")
+    session.commit()
+    return {"utility_model": name}
+
+
+@router.post("/jobs/cancel")
+def cancel_job(kind: str, name: str = "") -> dict:
+    """Quit a stuck or slow background job from Settings → Tasks (Wave N).
+    kind is 'reindex' or 'pull' (with the model name for a pull)."""
+    if kind == "reindex":
+        stopped = jobs.cancel_reindex()
+    elif kind == "pull":
+        stopped = jobs.cancel_pull(name)
+    else:
+        raise HTTPException(status_code=400, detail=f"Unknown job kind '{kind}'")
+    if not stopped:
+        raise HTTPException(status_code=404, detail="No such job is running")
+    return {"cancelling": True, "kind": kind, "name": name}
 
 
 @router.post("/embedding-backend")

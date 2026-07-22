@@ -290,6 +290,12 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     return StreamingResponse(lines(), media_type="application/x-ndjson")
 
 
+@router.get("/tools")
+def list_tools() -> list[dict]:
+    """The agent-tool catalog for Settings → Tools toggles (Wave O)."""
+    return tools.tool_catalog()
+
+
 class ToolExecuteBody(BaseModel):
     """A tool call the user approved in the UI (Wave G confirm step)."""
 

@@ -63,12 +63,17 @@ function authToken() {
 }
 
 async function api(path, options = {}) {
+  // `silent`: a background poll (model status, reminders) — a 401 must not
+  // yank the user to the lock screen mid-session (Wave O fix for a
+  // long-standing intermittent re-lock). Only an explicit user action
+  // shows the lock screen on 401.
+  const { silent, ...fetchOptions } = options;
   const response = await fetch(path, {
     headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() },
-    ...options,
+    ...fetchOptions,
   });
   if (response.status === 401) {
-    showLockScreen(false); // token expired (e.g. app restarted) — re-lock
+    if (!silent) showLockScreen(false); // token expired (e.g. app restarted)
     throw new Error("Locked");
   }
   if (!response.ok) {
@@ -277,6 +282,22 @@ function entryItem(entry, options = {}) {
     return li;
   }
 
+  // Batch select mode (Wave M): a checkbox leads each card.
+  if (options.actions && selectMode) {
+    const check = document.createElement("input");
+    check.type = "checkbox";
+    check.className = "select-check";
+    check.checked = selectedIds.has(entry.id);
+    check.setAttribute("aria-label", "Select this note");
+    check.addEventListener("change", () => {
+      if (check.checked) selectedIds.add(entry.id);
+      else selectedIds.delete(entry.id);
+      updateBatchCount();
+    });
+    li.appendChild(check);
+    li.classList.add("selectable");
+  }
+
   const content = document.createElement("p");
   content.className = "entry-content";
   content.textContent = entry.content;
@@ -312,6 +333,8 @@ function entryItem(entry, options = {}) {
     );
     meta.appendChild(actions);
   } else if (options.actions) {
+    // Wave L rework: two everyday actions stay visible; the rest live in
+    // one ⋯ menu — the old row of nine icons was unscannable noise.
     const actions = document.createElement("span");
     actions.className = "entry-actions";
     actions.appendChild(
@@ -321,30 +344,6 @@ function entryItem(entry, options = {}) {
           body: JSON.stringify({ pinned: !entry.pinned }),
         });
         await loadEntries();
-      })
-    );
-    actions.appendChild(
-      smallButton("➕", "Add context — the AI may refile it", () => {
-        inlineAction = inlineActionIs(entry.id, "context") ? null : { id: entry.id, kind: "context" };
-        renderEntries();
-      })
-    );
-    actions.appendChild(
-      smallButton("⤵", "Continue this thought (start/extend a thread)", () => {
-        inlineAction = inlineActionIs(entry.id, "continue") ? null : { id: entry.id, kind: "continue" };
-        renderEntries();
-      })
-    );
-    actions.appendChild(
-      smallButton("📎", "Attach a file", () => attachFileTo(entry))
-    );
-    actions.appendChild(
-      smallButton("≈", "Show similar notes", () => toggleRelated(entry))
-    );
-    actions.appendChild(
-      smallButton("⏰", "Set a reminder about this note", () => {
-        inlineAction = inlineActionIs(entry.id, "remind") ? null : { id: entry.id, kind: "remind" };
-        renderEntries();
       })
     );
     actions.appendChild(
@@ -363,38 +362,18 @@ function entryItem(entry, options = {}) {
         renderEntries();
       })
     );
-    actions.appendChild(
-      smallButton("🔗", "Link this entry to another", () => beginOrCompleteLink(entry))
-    );
-    actions.appendChild(
-      // No confirm dialog: deleting is instant but a one-click Undo makes
-      // it safe (and less annoying) — the entry is only soft-deleted (Wave J).
-      smallButton("🗑", "Move to the recycle bin", async () => {
-        await api(`/entries/${entry.id}`, { method: "DELETE" });
-        await loadEntries();
-        toastAction("Moved to the recycle bin.", "Undo", async () => {
-          await api(`/entries/${entry.id}/restore`, { method: "POST" });
-          await loadEntries();
-          toast("Note restored.");
-        });
-      })
-    );
+    actions.appendChild(entryOverflowMenu(entry));
     meta.appendChild(actions);
   }
   if (entry.pinned) meta.insertBefore(chip("📌 pinned"), meta.firstChild);
   li.appendChild(meta);
 
-  // Attachments (Wave B): chips that download on click.
+  // Attachments (Wave B; images become thumbnails in Wave M).
   if (entry.attachments.length > 0) {
     const fileRow = document.createElement("div");
     fileRow.className = "entry-links";
     for (const attachment of entry.attachments) {
-      const icon = attachment.is_image ? "🖼" : "📄";
-      const fileChip = chip(`${icon} ${attachment.filename}`, "link");
-      fileChip.style.cursor = "pointer";
-      fileChip.title = `Download (${Math.max(1, Math.round(attachment.size / 1024))} KB)`;
-      fileChip.addEventListener("click", () => downloadAttachment(attachment));
-      if (options.actions) {
+      const removeButton = () => {
         const remove = document.createElement("span");
         remove.className = "unlink";
         remove.textContent = "×";
@@ -405,9 +384,34 @@ function entryItem(entry, options = {}) {
           await api(`/files/${attachment.id}`, { method: "DELETE" });
           await loadEntries();
         });
-        fileChip.appendChild(remove);
+        return remove;
+      };
+
+      if (attachment.is_image) {
+        // Show the picture itself, not a chip — click for full size.
+        const wrap = document.createElement("span");
+        wrap.className = "thumb-wrap";
+        const img = document.createElement("img");
+        img.className = "attachment-thumb";
+        img.alt = attachment.filename;
+        img.title = `${attachment.filename} — click to view full size`;
+        attachmentObjectUrl(attachment)
+          .then((url) => (img.src = url))
+          .catch(() => wrap.remove());
+        img.addEventListener("click", async () =>
+          openLightbox(await attachmentObjectUrl(attachment), attachment.filename)
+        );
+        wrap.appendChild(img);
+        if (options.actions) wrap.appendChild(removeButton());
+        fileRow.appendChild(wrap);
+      } else {
+        const fileChip = chip(`📄 ${attachment.filename}`, "link");
+        fileChip.style.cursor = "pointer";
+        fileChip.title = `Download (${Math.max(1, Math.round(attachment.size / 1024))} KB)`;
+        fileChip.addEventListener("click", () => downloadAttachment(attachment));
+        if (options.actions) fileChip.appendChild(removeButton());
+        fileRow.appendChild(fileChip);
       }
-      fileRow.appendChild(fileChip);
     }
     li.appendChild(fileRow);
   }
@@ -442,6 +446,106 @@ function entryItem(entry, options = {}) {
 
 function inlineActionIs(id, kind) {
   return inlineAction && inlineAction.id === id && inlineAction.kind === kind;
+}
+
+// Close every open ⋯ menu (shared by outside-click and Esc, Wave L).
+function closeActionMenus() {
+  for (const menu of document.querySelectorAll(".action-menu:not(.hidden)")) {
+    menu.classList.add("hidden");
+    const opener = menu.parentElement.querySelector("[aria-haspopup]");
+    if (opener) opener.setAttribute("aria-expanded", "false");
+  }
+}
+
+// The ⋯ overflow menu on each note card (Wave L rework).
+function entryOverflowMenu(entry) {
+  const wrap = document.createElement("span");
+  wrap.className = "menu-wrap";
+
+  const menu = document.createElement("div");
+  menu.className = "action-menu hidden";
+  menu.setAttribute("role", "menu");
+
+  const opener = smallButton("⋯", "More actions", () => {
+    const willOpen = menu.classList.contains("hidden");
+    closeActionMenus(); // only one menu open at a time
+    if (willOpen) {
+      menu.classList.remove("hidden");
+      opener.setAttribute("aria-expanded", "true");
+      menu.querySelector("button")?.focus();
+    }
+  });
+  opener.setAttribute("aria-haspopup", "menu");
+  opener.setAttribute("aria-expanded", "false");
+
+  const items = [
+    {
+      label: "✨ Improve writing",
+      title: "Proofread or rewrite this note with AI",
+      run: () => {
+        editingId = entry.id;
+        renderEntries();
+        // The edit textarea now exists — improve it in place.
+        const box = document.querySelector(`#entry-list li[data-id="${entry.id}"] textarea`);
+        if (box) openImprove(box);
+      },
+    },
+    {
+      label: "➕ Add context",
+      title: "Append detail — the AI may refile it",
+      run: () => {
+        inlineAction = inlineActionIs(entry.id, "context") ? null : { id: entry.id, kind: "context" };
+        renderEntries();
+      },
+    },
+    {
+      label: "⤵ Continue thought",
+      title: "Start or extend a thread from this note",
+      run: () => {
+        inlineAction = inlineActionIs(entry.id, "continue") ? null : { id: entry.id, kind: "continue" };
+        renderEntries();
+      },
+    },
+    { label: "📎 Attach a file", run: () => attachFileTo(entry) },
+    { label: "≈ Similar notes", run: () => toggleRelated(entry) },
+    {
+      label: "⏰ Remind me",
+      run: () => {
+        inlineAction = inlineActionIs(entry.id, "remind") ? null : { id: entry.id, kind: "remind" };
+        renderEntries();
+      },
+    },
+    { label: "🔗 Link to another", run: () => beginOrCompleteLink(entry) },
+    {
+      label: "🗑 Move to bin",
+      danger: true,
+      // Instant + one-click Undo, soft delete underneath (Wave J).
+      run: async () => {
+        await api(`/entries/${entry.id}`, { method: "DELETE" });
+        await loadEntries();
+        toastAction("Moved to the recycle bin.", "Undo", async () => {
+          await api(`/entries/${entry.id}/restore`, { method: "POST" });
+          await loadEntries();
+          toast("Note restored.");
+        });
+      },
+    },
+  ];
+  for (const item of items) {
+    const button = document.createElement("button");
+    button.setAttribute("role", "menuitem");
+    button.className = "menu-item" + (item.danger ? " menu-danger" : "");
+    button.textContent = item.label;
+    if (item.title) button.title = item.title;
+    button.addEventListener("click", () => {
+      closeActionMenus();
+      item.run();
+    });
+    menu.appendChild(button);
+  }
+
+  wrap.append(opener, menu);
+  return wrap;
 }
 
 // The ➕ context / ⤵ continue / ⏰ remind boxes inside an entry card.
@@ -557,6 +661,40 @@ function attachFileTo(entry) {
     await loadEntries();
   });
   input.click();
+}
+
+// Thumbnails need the auth header, which <img src> can't send — fetch
+// the bytes once per attachment and cache an object URL (Wave M).
+const thumbUrlCache = new Map();
+
+async function attachmentObjectUrl(attachment) {
+  if (thumbUrlCache.has(attachment.id)) return thumbUrlCache.get(attachment.id);
+  const response = await api(`/files/${attachment.id}`);
+  const url = URL.createObjectURL(await response.blob());
+  thumbUrlCache.set(attachment.id, url);
+  return url;
+}
+
+// Full-size image viewer: click anywhere or press Esc to close (Wave M).
+function openLightbox(url, alt) {
+  const overlay = document.createElement("div");
+  overlay.className = "lightbox";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-label", alt || "Image preview");
+  const img = document.createElement("img");
+  img.src = url;
+  img.alt = alt || "";
+  overlay.appendChild(img);
+  const close = () => {
+    overlay.remove();
+    document.removeEventListener("keydown", onKey);
+  };
+  const onKey = (e) => {
+    if (e.key === "Escape") close();
+  };
+  overlay.addEventListener("click", close);
+  document.addEventListener("keydown", onKey);
+  document.body.appendChild(overlay);
 }
 
 async function downloadAttachment(attachment) {
@@ -1806,6 +1944,204 @@ async function addSkill() {
   status.textContent = `Saved “${name}”.`;
 }
 
+// --- Wave O: agent-tools toggles ----------------------------------------------------
+
+async function renderToolSettings() {
+  const list = $("tool-list");
+  const [catalog, prefs] = await Promise.all([
+    apiJson("/chat/tools").catch(() => []),
+    apiJson("/preferences").catch(() => ({ disabled_tools: [] })),
+  ]);
+  prefsCache = prefs;
+  const disabled = new Set(prefs.disabled_tools || []);
+  list.replaceChildren();
+  for (const tool of catalog) {
+    const li = document.createElement("li");
+    const label = document.createElement("label");
+    label.className = "tool-row";
+    const check = document.createElement("input");
+    check.type = "checkbox";
+    check.checked = !disabled.has(tool.name);
+    // web_search is gated by the separate online opt-in — show why it's off.
+    if (tool.online && !tool.enabled && !disabled.has(tool.name)) {
+      check.checked = false;
+      check.disabled = true;
+      check.title = "Enable web search in Preferences first";
+    }
+    check.addEventListener("change", async () => {
+      const next = new Set(prefsCache.disabled_tools || []);
+      if (check.checked) next.delete(tool.name);
+      else next.add(tool.name);
+      prefsCache = await apiJson("/preferences", {
+        method: "PUT",
+        body: JSON.stringify({ disabled_tools: [...next] }),
+      });
+    });
+    const text = document.createElement("span");
+    const name = document.createElement("strong");
+    name.textContent = tool.name.replace(/_/g, " ");
+    text.append(name);
+    if (tool.destructive) text.append(" ", chip("confirms first", "review"));
+    if (tool.online) text.append(" ", chip("online", "tag"));
+    const desc = document.createElement("span");
+    desc.className = "muted tool-desc";
+    desc.textContent = tool.description;
+    label.append(check, text);
+    li.append(label, desc);
+    list.appendChild(li);
+  }
+}
+
+// --- Wave M: share skills/personas as JSON ------------------------------------------
+
+function downloadJson(filename, payload) {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Open a picker, parse the chosen file, hand the object to `apply`.
+function pickJsonFile(inputId, apply) {
+  const input = $(inputId);
+  input.onchange = async () => {
+    const file = input.files[0];
+    input.value = "";
+    if (!file) return;
+    try {
+      apply(JSON.parse(await file.text()));
+    } catch {
+      toast("That file isn't valid JSON.", true);
+    }
+  };
+  input.click();
+}
+
+// Merge imported {name, prompt} items over existing ones (imports win
+// on a name clash) — used by both skills and personas.
+function mergeNamedPrompts(existing, imported) {
+  const cleaned = (imported || []).filter(
+    (item) => item && typeof item.name === "string" && typeof item.prompt === "string"
+  );
+  if (!cleaned.length) return null;
+  const names = new Set(cleaned.map((item) => item.name));
+  return [...existing.filter((item) => !names.has(item.name)), ...cleaned];
+}
+
+// --- Wave M: batch operations on notes ----------------------------------------------
+
+let selectMode = false;
+const selectedIds = new Set();
+
+function updateBatchCount() {
+  const n = selectedIds.size;
+  $("batch-count").textContent = `${n} selected`;
+}
+
+function fillBatchCategories() {
+  const select = $("batch-category");
+  select.replaceChildren();
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "Move to…";
+  select.appendChild(placeholder);
+  for (const name of [...new Set(allEntries.map((e) => e.category))].sort()) {
+    const option = document.createElement("option");
+    option.value = name;
+    option.textContent = name;
+    select.appendChild(option);
+  }
+  const fresh = document.createElement("option");
+  fresh.value = "__new__";
+  fresh.textContent = "＋ New category…";
+  select.appendChild(fresh);
+}
+
+function enterSelectMode() {
+  selectMode = true;
+  selectedIds.clear();
+  fillBatchCategories();
+  updateBatchCount();
+  show("batch-bar");
+  $("select-btn").classList.add("active");
+  renderEntries();
+}
+
+function exitSelectMode() {
+  selectMode = false;
+  selectedIds.clear();
+  hide("batch-bar");
+  $("select-btn").classList.remove("active");
+  renderEntries();
+}
+
+function batchSelection() {
+  const ids = [...selectedIds];
+  if (!ids.length) toast("Tick some notes first.", true);
+  return ids;
+}
+
+async function batchMove() {
+  const ids = batchSelection();
+  if (!ids.length) return;
+  let category = $("batch-category").value;
+  if (!category) {
+    toast("Pick a category to move them to.", true);
+    return;
+  }
+  if (category === "__new__") {
+    category = (prompt("New category name:") || "").trim();
+    if (!category) return;
+  }
+  for (const id of ids) {
+    await apiJson(`/entries/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ category }),
+    });
+  }
+  toast(`Moved ${ids.length} note${ids.length === 1 ? "" : "s"} to ${category}.`);
+  exitSelectMode();
+  await loadEntries();
+}
+
+async function batchTag() {
+  const ids = batchSelection();
+  if (!ids.length) return;
+  const tag = (prompt("Tag to add to the selected notes:") || "").trim();
+  if (!tag) return;
+  for (const id of ids) {
+    const entry = allEntries.find((e) => e.id === id);
+    if (!entry) continue;
+    await apiJson(`/entries/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ tags: [...new Set([...entry.tags, tag])] }),
+    });
+  }
+  toast(`Tagged ${ids.length} note${ids.length === 1 ? "" : "s"} with “${tag}”.`);
+  exitSelectMode();
+  await loadEntries();
+}
+
+async function batchDelete() {
+  const ids = batchSelection();
+  if (!ids.length) return;
+  if (!confirm(`Move ${ids.length} note${ids.length === 1 ? "" : "s"} to the recycle bin?`))
+    return;
+  for (const id of ids) await api(`/entries/${id}`, { method: "DELETE" });
+  exitSelectMode();
+  await loadEntries();
+  toastAction(`Moved ${ids.length} to the recycle bin.`, "Undo", async () => {
+    for (const id of ids) await api(`/entries/${id}/restore`, { method: "POST" });
+    await loadEntries();
+    toast("Notes restored.");
+  });
+}
+
 // --- dashboard (Wave D) -----------------------------------------------------------
 
 let dashEditMode = false;
@@ -2032,7 +2368,13 @@ async function startArt(holder) {
     const height = 220;
 
     const scene = (t) => {
-      p.background(dark ? 18 : 246);
+      // A soft vertical wash instead of a flat fill — more depth (Wave N).
+      p.noStroke();
+      for (let y = 0; y < height; y += 4) {
+        const shade = dark ? 14 + (y / height) * 10 : 250 - (y / height) * 10;
+        p.fill(230, 30, shade, 1);
+        p.rect(0, y, width, 4);
+      }
       for (const dot of particles) {
         dot.x = dot.baseX + Math.cos(t + dot.phase) * dot.amp;
         dot.y = dot.baseY + Math.sin(t * 1.3 + dot.phase) * dot.amp;
@@ -2044,19 +2386,21 @@ async function startArt(holder) {
           const a = particles[i];
           const b = particles[j];
           const d = p.dist(a.x, a.y, b.x, b.y);
-          if (d < 62) {
-            p.stroke(a.hue, 60, dark ? 70 : 55, p.map(d, 0, 62, 0.5, 0));
+          if (d < 70) {
+            p.stroke(a.hue, 65, dark ? 72 : 55, p.map(d, 0, 70, 0.45, 0));
             p.strokeWeight(1);
             p.line(a.x, a.y, b.x, b.y);
           }
         }
       }
-      // The stars themselves, with a soft twinkle.
+      // The stars themselves: a soft glow halo + a bright core, twinkling.
       p.noStroke();
       for (const dot of particles) {
         const twinkle = 0.6 + 0.4 * Math.sin(t * 2 + dot.phase);
-        p.fill(dot.hue, 70, dark ? 75 : 45, twinkle);
-        p.circle(dot.x, dot.y, dot.size);
+        p.fill(dot.hue, 75, dark ? 65 : 55, 0.14 * twinkle);
+        p.circle(dot.x, dot.y, dot.size * 4); // glow
+        p.fill(dot.hue, 80, dark ? 78 : 48, twinkle);
+        p.circle(dot.x, dot.y, dot.size); // core
       }
     };
 
@@ -2457,7 +2801,8 @@ async function addReminder(text, dueValue, entryId = null) {
 // is open (checked every 30s).
 async function checkDueReminders() {
   if (!authToken()) return;
-  const reminders = await apiJson("/reminders").catch(() => []);
+  // silent: a background reminder poll must not pop the lock screen (Wave O).
+  const reminders = await apiJson("/reminders", { silent: true }).catch(() => []);
   const now = new Date();
   for (const reminder of reminders) {
     if (reminder.done || notifiedReminderIds.has(reminder.id)) continue;
@@ -2617,10 +2962,13 @@ function appendInline(parent, text) {
 // (frontend/vendor) — the offline rule allows no CDN.
 
 let graphSimulation = null; // stopped before every rebuild
+let graphHiddenCategories = new Set(); // legend toggles (Wave M)
+let graphNodeSelection = null; // live d3 selections, for search-highlight
+let graphEdgeSelection = null;
 
 function graphNodeRadius(node) {
   // Much-used notes draw the eye: base size + a gentle access bonus.
-  return 7 + Math.min(9, Math.sqrt(node.access_count || 0) * 2);
+  return 9 + Math.min(9, Math.sqrt(node.access_count || 0) * 2);
 }
 
 async function renderGraph() {
@@ -2633,7 +2981,11 @@ async function renderGraph() {
   if (graphSimulation) graphSimulation.stop();
   const svg = d3.select("#graph-svg");
   svg.selectAll("*").remove();
-  $("graph-empty").classList.toggle("hidden", data.nodes.length > 0);
+  // Inline display beats every stylesheet rule — the overlay can never
+  // float over a populated graph again (user-reported, Wave O).
+  const empty = $("graph-empty");
+  empty.style.display = data.nodes.length > 0 ? "none" : "grid";
+  empty.classList.toggle("hidden", data.nodes.length > 0);
 
   // Colour legend: one dot per category, same scale as the nodes.
   const color = d3.scaleOrdinal(
@@ -2643,15 +2995,35 @@ async function renderGraph() {
   const legend = $("graph-legend");
   legend.replaceChildren();
   for (const category of data.categories) {
-    const item = document.createElement("span");
-    item.className = "legend-item";
+    // Legend entries double as filters (Wave M): click to hide/show.
+    const item = document.createElement("button");
+    item.className = "legend-item legend-toggle";
+    item.classList.toggle("legend-off", graphHiddenCategories.has(category));
+    item.title = graphHiddenCategories.has(category)
+      ? `Show ${category} again`
+      : `Hide ${category} from the map`;
+    item.setAttribute("aria-pressed", String(!graphHiddenCategories.has(category)));
     const dot = document.createElement("span");
     dot.className = "legend-dot";
     dot.style.background = color(category);
     item.append(dot, document.createTextNode(category));
+    item.addEventListener("click", () => {
+      if (graphHiddenCategories.has(category)) graphHiddenCategories.delete(category);
+      else graphHiddenCategories.add(category);
+      renderGraph();
+    });
     legend.appendChild(item);
   }
-  if (!data.nodes.length) return;
+
+  // Apply the legend filter: drop hidden categories and their edges.
+  const visibleNodes = data.nodes.filter(
+    (n) => !graphHiddenCategories.has(n.category)
+  );
+  const keptIds = new Set(visibleNodes.map((n) => n.id));
+  const visibleEdges = data.edges.filter(
+    (e) => keptIds.has(e.source) && keptIds.has(e.target)
+  );
+  if (!visibleNodes.length) return;
 
   const box = $("graph-box");
   const width = box.clientWidth || 800;
@@ -2660,16 +3032,15 @@ async function renderGraph() {
 
   // One zoomable/pannable group holds everything.
   const canvas = svg.append("g");
-  svg.call(
-    d3
-      .zoom()
-      .scaleExtent([0.2, 5])
-      .on("zoom", (event) => canvas.attr("transform", event.transform))
-  );
+  const zoomBehavior = d3
+    .zoom()
+    .scaleExtent([0.2, 5])
+    .on("zoom", (event) => canvas.attr("transform", event.transform));
+  svg.call(zoomBehavior).on("dblclick.zoom", null); // dblclick pins, not zooms
 
   // D3 mutates these (x/y/vx/vy), so work on copies.
-  const nodes = data.nodes.map((n) => ({ ...n }));
-  const edges = data.edges.map((e) => ({ ...e }));
+  const nodes = visibleNodes.map((n) => ({ ...n }));
+  const edges = visibleEdges.map((e) => ({ ...e }));
 
   graphSimulation = d3
     .forceSimulation(nodes)
@@ -2680,9 +3051,13 @@ async function renderGraph() {
         .id((d) => d.id)
         .distance((d) => (d.kind === "similar" ? 130 : 80))
     )
-    .force("charge", d3.forceManyBody().strength(-220))
+    // More repulsion + a mild centring pull → notes spread out and fill
+    // the space instead of clumping in the middle (Wave N polish).
+    .force("charge", d3.forceManyBody().strength(-340))
     .force("center", d3.forceCenter(width / 2, height / 2))
-    .force("collide", d3.forceCollide().radius((d) => graphNodeRadius(d) + 16));
+    .force("x", d3.forceX(width / 2).strength(0.04))
+    .force("y", d3.forceY(height / 2).strength(0.06))
+    .force("collide", d3.forceCollide().radius((d) => graphNodeRadius(d) + 24));
 
   const edgeLines = canvas
     .append("g")
@@ -2715,7 +3090,20 @@ async function renderGraph() {
           d.fy = null;
         })
     )
-    .on("click", (_event, d) => flashEntry(d.id));
+    .on("click", (_event, d) => flashEntry(d.id))
+    // Double-click pins a node where it is; again releases it (Wave M).
+    .on("dblclick", function (event, d) {
+      event.stopPropagation(); // don't also zoom
+      if (d.fx != null) {
+        d.fx = null;
+        d.fy = null;
+        d3.select(this).classed("graph-held", false);
+      } else {
+        d.fx = d.x;
+        d.fy = d.y;
+        d3.select(this).classed("graph-held", true);
+      }
+    });
 
   nodeGroups
     .append("circle")
@@ -2729,6 +3117,7 @@ async function renderGraph() {
     .attr("dy", (d) => graphNodeRadius(d) + 12)
     .text((d) => (d.preview.length > 20 ? d.preview.slice(0, 19) + "…" : d.preview));
 
+  let fitted = false;
   graphSimulation.on("tick", () => {
     edgeLines
       .attr("x1", (d) => d.source.x)
@@ -2736,7 +3125,59 @@ async function renderGraph() {
       .attr("x2", (d) => d.target.x)
       .attr("y2", (d) => d.target.y);
     nodeGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
+    // Once the layout settles, frame all the notes so nothing sits off
+    // the edge (Wave N — the old view often had nodes half-cropped).
+    if (!fitted && graphSimulation.alpha() < 0.08) {
+      fitted = true;
+      fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height);
+    }
   });
+
+  // Search-highlight (Wave M): remember the selections and re-apply any
+  // query that's already typed.
+  graphNodeSelection = nodeGroups;
+  graphEdgeSelection = edgeLines;
+  applyGraphHighlight();
+}
+
+// Zoom/pan so every node fits with a margin (Wave N).
+function fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height) {
+  const xs = nodes.map((n) => n.x);
+  const ys = nodes.map((n) => n.y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const spanX = Math.max(maxX - minX, 1);
+  const spanY = Math.max(maxY - minY, 1);
+  const margin = 60;
+  const scale = Math.min(
+    3,
+    (width - margin * 2) / spanX,
+    (height - margin * 2) / spanY
+  );
+  const tx = width / 2 - scale * (minX + maxX) / 2;
+  const ty = height / 2 - scale * (minY + maxY) / 2;
+  svg
+    .transition()
+    .duration(500)
+    .call(
+      zoomBehavior.transform,
+      d3.zoomIdentity.translate(tx, ty).scale(scale)
+    );
+}
+
+// Dim everything except nodes whose text matches the search box; edges
+// stay bright only when both ends match (Wave M).
+function applyGraphHighlight() {
+  if (!graphNodeSelection) return;
+  const query = $("graph-search").value.trim().toLowerCase();
+  const matches = (d) => !query || d.preview.toLowerCase().includes(query);
+  graphNodeSelection.classed("graph-dim", (d) => !matches(d));
+  graphEdgeSelection.classed(
+    "graph-dim",
+    (d) => query && !(matches(d.source) && matches(d.target))
+  );
 }
 
 // --- tabs (Wave A) ----------------------------------------------------------------
@@ -2748,7 +3189,12 @@ function switchTab(name) {
     $(`tab-${tab}`).classList.toggle("hidden", tab !== name);
   }
   for (const button of document.querySelectorAll("#tab-bar button")) {
-    button.classList.toggle("active", button.dataset.tab === name);
+    const active = button.dataset.tab === name;
+    button.classList.toggle("active", active);
+    // Real tab semantics (Wave L): one tab stop for the whole list
+    // (roving tabindex), arrow keys move between tabs.
+    button.setAttribute("aria-selected", String(active));
+    button.tabIndex = active ? 0 : -1;
   }
   localStorage.setItem("activeTab", name); // reopen where you left off
   // The generative-art animation only needs to run while it's on screen.
@@ -2777,7 +3223,10 @@ function showPanel(id) {
 
 // --- settings modal (Wave A) ------------------------------------------------------
 
-const SETTINGS_SECTIONS = ["models", "personas", "skills", "appearance", "preferences", "data", "logs", "about"];
+const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "appearance", "preferences", "tasks", "data", "logs", "about"];
+
+// Where to send focus back when a dialog closes (Wave L).
+let overlayReturnFocus = null;
 
 function settingsModalOpen() {
   return !$("settings-modal").classList.contains("hidden");
@@ -2794,12 +3243,16 @@ function showSettingsSection(name) {
   if (name === "preferences") renderPrefs().catch(() => {});
   if (name === "personas") renderPersonas().catch(() => {});
   if (name === "skills") renderSkillSettings();
+  if (name === "tools") renderToolSettings();
   if (name === "appearance") renderAppearance();
   if (name === "data") renderBackups();
+  if (name === "tasks") refreshModelStatus(); // populate the tasks list now
 }
 
 async function openSettingsModal(section = "models") {
+  overlayReturnFocus = document.activeElement;
   $("settings-modal").classList.remove("hidden");
+  $("settings-close").focus();
   $("about-version").textContent = `Version ${
     (await apiJson("/health").catch(() => ({ version: "?" }))).version
   } · ${allEntries.length} entries loaded`;
@@ -2812,6 +3265,8 @@ async function openSettingsModal(section = "models") {
 
 function closeSettingsModal() {
   $("settings-modal").classList.add("hidden");
+  overlayReturnFocus?.focus?.();
+  overlayReturnFocus = null;
 }
 
 // --- logs viewer (Wave A) ---------------------------------------------------------
@@ -3128,6 +3583,7 @@ function paletteCommands() {
 }
 
 function openPalette() {
+  overlayReturnFocus = document.activeElement;
   $("palette-overlay").classList.remove("hidden");
   $("palette-input").value = "";
   paletteIndex = 0;
@@ -3137,6 +3593,8 @@ function openPalette() {
 
 function closePalette() {
   $("palette-overlay").classList.add("hidden");
+  overlayReturnFocus?.focus?.();
+  overlayReturnFocus = null;
 }
 
 function paletteMatches(query) {
@@ -3208,7 +3666,9 @@ function sketchContext() {
 }
 
 function openSketch() {
+  overlayReturnFocus = document.activeElement;
   $("sketch-overlay").classList.remove("hidden");
+  $("sketch-close").focus();
   const canvas = $("sketch-canvas");
   const context = canvas.getContext("2d");
   context.fillStyle = "#ffffff"; // a white page in both themes
@@ -3220,6 +3680,8 @@ function openSketch() {
 function closeSketch() {
   if (sketchDirty && !confirm("Close without saving your sketch?")) return;
   $("sketch-overlay").classList.add("hidden");
+  overlayReturnFocus?.focus?.();
+  overlayReturnFocus = null;
 }
 
 function sketchPointer(event) {
@@ -3471,7 +3933,8 @@ function jobsRunning() {
 // download/re-index is running or the settings panel is open.
 async function refreshModelStatus() {
   try {
-    modelStatus = await apiJson("/models/status");
+    // silent: a poll must never trigger the lock screen (Wave O fix).
+    modelStatus = await apiJson("/models/status", { silent: true });
   } catch {
     modelStatus = null; // locked or unreachable — pill shows the worst case
   }
@@ -3545,57 +4008,134 @@ function renderSettings() {
 
   if (status.ollama_running) {
     renderChatModelPicker(status);
+    renderUtilityModelPicker(status);
     renderEmbeddingPicker(status);
     renderSuggested(status);
   }
   renderReindex(status);
+  if (settingsModalOpen()) renderTasks(status); // Wave N tasks manager
+}
+
+// --- Wave N: tasks manager (see and quit background jobs) ---------------------------
+
+function renderTasks(status) {
+  const list = $("task-list");
+  const jobs = [];
+  if (status.reindex && status.reindex.status === "running") {
+    jobs.push({
+      kind: "reindex",
+      label: `Re-indexing notes — ${status.reindex.done} of ${status.reindex.total}`,
+    });
+  }
+  for (const [name, job] of Object.entries(status.pulls || {})) {
+    if (job.status === "running") {
+      const pct = job.total ? Math.round((job.done / job.total) * 100) : 0;
+      jobs.push({ kind: "pull", name, label: `Downloading ${name} — ${pct}%` });
+    }
+  }
+  list.replaceChildren();
+  $("tasks-empty").classList.toggle("hidden", jobs.length > 0);
+  for (const job of jobs) {
+    const li = document.createElement("li");
+    const row = document.createElement("div");
+    row.className = "entry-meta";
+    const label = document.createElement("span");
+    label.textContent = job.label;
+    const actions = document.createElement("span");
+    actions.className = "entry-actions";
+    actions.appendChild(
+      smallButton("Quit", "Stop this job", async () => {
+        const q = new URLSearchParams({ kind: job.kind, name: job.name || "" });
+        await api(`/models/jobs/cancel?${q}`, { method: "POST" }).catch((e) =>
+          toast(e.message, true)
+        );
+        toast("Asked the job to stop.");
+        refreshModelStatus();
+      })
+    );
+    row.append(label, actions);
+    li.appendChild(row);
+    list.appendChild(li);
+  }
+}
+
+// Model pickers (rewritten, Wave O). The old version let the status poll
+// (every ~3s while Settings is open) reset the dropdown to the SAVED
+// model, so a selection would "switch back after a few seconds".
+//
+// New rule, dead simple: the option list is (re)built ONLY when the SET
+// of installed model names actually changes (order-independent — Ollama
+// doesn't return a stable order). The selected value is set once, when
+// the list is first built; after that a poll never touches `.value`, so
+// your choice stays put until you Apply (which re-syncs to the new saved
+// value). No timing-sensitive "userChosen" flag to get wrong.
+function _namesSignature(names) {
+  return [...names].sort().join("|");
+}
+
+function fillModelSelect(select, names, extraFirst, savedValue) {
+  const wanted = extraFirst ? [extraFirst.value, ...names] : names;
+  const signature = _namesSignature(wanted);
+  if (select.dataset.sig === signature) return; // same options → leave it alone
+  select.dataset.sig = signature;
+  const previous = select.value; // preserve a live selection across a rebuild
+  select.replaceChildren();
+  if (extraFirst) {
+    const option = document.createElement("option");
+    option.value = extraFirst.value;
+    option.textContent = extraFirst.label;
+    select.appendChild(option);
+  }
+  for (const name of names) {
+    const option = document.createElement("option");
+    option.value = name;
+    option.textContent = name;
+    select.appendChild(option);
+  }
+  // Prefer the value already showing; else the saved preference.
+  const values = [...select.options].map((o) => o.value);
+  const match =
+    (previous && values.includes(previous) && previous) ||
+    values.find((v) => v === savedValue) ||
+    values.find((v) => v.split(":")[0] === savedValue);
+  if (match !== undefined) select.value = match;
 }
 
 function renderChatModelPicker(status) {
-  const select = $("chat-model-select");
-  const note = $("chat-model-note");
-  // Don't rebuild the list under the user's cursor mid-choice.
-  if (document.activeElement !== select) {
-    select.replaceChildren();
-    for (const model of status.installed_models) {
-      const option = document.createElement("option");
-      option.value = model.name;
-      option.textContent = model.name;
-      if (
-        model.name === status.chat_model ||
-        model.name.split(":")[0] === status.chat_model
-      ) {
-        option.selected = true;
-      }
-      select.appendChild(option);
-    }
-  }
-  note.textContent =
+  const names = status.installed_models.map((m) => m.name);
+  fillModelSelect($("chat-model-select"), names, null, status.chat_model);
+  $("chat-model-note").textContent =
     status.chat_model_installed === false
       ? `Active model “${status.chat_model}” is not installed any more — pick another or download it below.`
       : `Active: ${status.chat_model}`;
 }
 
+function renderUtilityModelPicker(status) {
+  const names = status.installed_models.map((m) => m.name);
+  fillModelSelect(
+    $("utility-model-select"),
+    names,
+    { value: "", label: "Same as chat model" },
+    status.utility_model || ""
+  );
+}
+
 function renderEmbeddingPicker(status) {
-  for (const radio of document.querySelectorAll('input[name="emb-backend"]')) {
-    radio.checked = radio.value === status.embedding_backend;
-  }
-  const select = $("embedding-model-select");
-  if (document.activeElement !== select) {
-    select.replaceChildren();
-    for (const model of status.installed_models) {
-      const option = document.createElement("option");
-      option.value = model.name;
-      option.textContent = model.name;
-      if (
-        model.name === status.embedding_model ||
-        model.name.split(":")[0] === status.embedding_model
-      ) {
-        option.selected = true;
-      }
-      select.appendChild(option);
+  // The backend radios only reflect the saved value when the user isn't
+  // mid-change (they have no rebuild, so a simple focus check is enough).
+  const touching = document.activeElement?.name === "emb-backend";
+  if (!touching) {
+    for (const radio of document.querySelectorAll('input[name="emb-backend"]')) {
+      radio.checked = radio.value === status.embedding_backend;
     }
   }
+  const names = status.installed_models.map((m) => m.name);
+  fillModelSelect(
+    $("embedding-model-select"),
+    names,
+    null,
+    status.embedding_model
+  );
 }
 
 function renderReindex(status) {
@@ -3676,10 +4216,131 @@ async function applyChatModel() {
       method: "POST",
       body: JSON.stringify({ name: select.value }),
     });
+    delete select.dataset.userChosen; // applied — polling may reflect it now
     note.textContent = `Active: ${select.value} — switched instantly, no re-index needed.`;
     refreshModelStatus();
   } catch (error) {
     note.textContent = error.message;
+  }
+}
+
+async function applyUtilityModel() {
+  const select = $("utility-model-select");
+  try {
+    await api("/models/utility-model", {
+      method: "POST",
+      body: JSON.stringify({ name: select.value }),
+    });
+    delete select.dataset.userChosen;
+    toast(
+      select.value
+        ? `Background jobs now use ${select.value}.`
+        : "Background jobs now use the chat model."
+    );
+    refreshModelStatus();
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
+// --- Wave N: AI improve-writing (before/after, user approves) -----------------------
+
+let improveMode = "proofread";
+let improveTarget = null; // the textarea to write the accepted result into
+
+function openImprove(targetTextarea) {
+  const text = targetTextarea.value.trim();
+  if (!text) {
+    toast("Write something first, then improve it.", true);
+    return;
+  }
+  improveTarget = targetTextarea;
+  improveMode = "proofread";
+  for (const b of document.querySelectorAll(".improve-mode"))
+    b.classList.toggle("active", b.dataset.mode === "proofread");
+  $("improve-original").textContent = text;
+  overlayReturnFocus = document.activeElement;
+  $("improve-overlay").classList.remove("hidden");
+  $("improve-close").focus();
+  runImprove();
+}
+
+function closeImprove() {
+  $("improve-overlay").classList.add("hidden");
+  overlayReturnFocus?.focus?.();
+  overlayReturnFocus = null;
+}
+
+async function runImprove() {
+  const status = $("improve-status");
+  const result = $("improve-result");
+  result.textContent = "";
+  status.textContent = "The AI is editing…";
+  $("improve-apply").disabled = true;
+  try {
+    const body = await apiJson("/entries/improve", {
+      method: "POST",
+      body: JSON.stringify({
+        text: $("improve-original").textContent,
+        mode: improveMode,
+      }),
+    });
+    result.textContent = body.improved;
+    status.textContent = "";
+    $("improve-apply").disabled = false;
+  } catch (error) {
+    status.textContent = error.message;
+    status.classList.add("error");
+  }
+}
+
+function applyImprove() {
+  if (improveTarget) {
+    improveTarget.value = $("improve-result").textContent;
+    improveTarget.dispatchEvent(new Event("input")); // refresh char count
+  }
+  closeImprove();
+  toast("Applied the AI's suggestion.");
+}
+
+// --- Wave N: AI link suggestions (auto-linker, approve each) -------------------------
+
+async function loadLinkSuggestions() {
+  const box = $("link-suggestions");
+  box.classList.remove("hidden");
+  box.textContent = "Looking for notes worth connecting…";
+  const suggestions = await apiJson("/entries/link-suggestions").catch(() => []);
+  box.replaceChildren();
+  if (!suggestions.length) {
+    box.textContent =
+      "No new links to suggest — either everything related is already linked, or semantic search is off.";
+    return;
+  }
+  const heading = document.createElement("p");
+  heading.className = "muted";
+  heading.textContent = "Notes that look related — link the ones you agree with:";
+  box.appendChild(heading);
+  for (const s of suggestions) {
+    const row = document.createElement("div");
+    row.className = "link-suggestion";
+    const text = document.createElement("span");
+    text.innerHTML = "";
+    text.append(
+      document.createTextNode(`“${s.source_preview}” ↔ “${s.target_preview}” `)
+    );
+    const score = chip(`${Math.round(s.similarity * 100)}%`, "confidence");
+    const link = smallButton("🔗 Link", "Connect these two notes", async () => {
+      await apiJson(`/entries/${s.source_id}/links`, {
+        method: "POST",
+        body: JSON.stringify({ target_id: s.target_id }),
+      }).catch((e) => toast(e.message, true));
+      row.remove();
+      toast("Linked.");
+      loadEntries().catch(() => {});
+    });
+    const dismiss = smallButton("✕", "Dismiss this suggestion", () => row.remove());
+    row.append(text, score, link, dismiss);
+    box.appendChild(row);
   }
 }
 
@@ -3698,6 +4359,7 @@ async function applyEmbeddingBackend() {
       method: "POST",
       body: JSON.stringify({ backend, model: backend === "ollama" ? model : null }),
     });
+    delete $("embedding-model-select").dataset.userChosen; // applied
     refreshModelStatus();
   } catch (error) {
     toast(error.message, true);
@@ -3741,6 +4403,7 @@ function applyAccent(name) {
   else document.documentElement.dataset.accent = name;
   localStorage.setItem("accent", name);
   if (bgArtOn()) startBgArt(); // repaint the background in the new accent
+  renderBrandLogo(); // recolour the emblem too
 }
 
 function contrastOn() {
@@ -3796,42 +4459,93 @@ function startBgArt() {
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const accentHex =
     (ACCENTS.find((a) => a.name === activeAccent()) || ACCENTS[0]).swatch;
+  const dark =
+    document.documentElement.dataset.theme === "dark" ||
+    (!document.documentElement.dataset.theme &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches);
 
+  // A flowing "aurora": particles drift along a Perlin flow field and
+  // leave faint trails, over a giant slow-turning constellation emblem —
+  // the same node-and-link motif as the logo, blown up (Wave O rework).
   const sketch = (p) => {
-    let blobs = [];
+    let particles = [];
+    let baseHue = 230;
+    let emblem = [];
+
+    const drawEmblem = (t) => {
+      // A large, very faint ring of linked nodes, slowly rotating.
+      const cx = p.width / 2;
+      const cy = p.height / 2;
+      const radius = Math.min(p.width, p.height) * 0.32;
+      p.push();
+      p.translate(cx, cy);
+      p.rotate(t * 0.02);
+      p.stroke(baseHue, 50, dark ? 70 : 45, 0.05);
+      p.strokeWeight(1.5);
+      for (let i = 0; i < emblem.length; i++) {
+        for (let j = i + 1; j < emblem.length; j++) {
+          if ((i + j) % 3 === 0) {
+            p.line(
+              Math.cos(emblem[i]) * radius,
+              Math.sin(emblem[i]) * radius,
+              Math.cos(emblem[j]) * radius,
+              Math.sin(emblem[j]) * radius
+            );
+          }
+        }
+      }
+      p.noStroke();
+      for (const a of emblem) {
+        p.fill(baseHue, 55, dark ? 72 : 42, 0.07);
+        p.circle(Math.cos(a) * radius, Math.sin(a) * radius, 16);
+      }
+      p.pop();
+    };
+
     const draw = () => {
-      p.clear();
-      for (const blob of blobs) {
-        blob.x += blob.vx;
-        blob.y += blob.vy;
-        if (blob.x < -blob.r) blob.x = p.width + blob.r;
-        if (blob.x > p.width + blob.r) blob.x = -blob.r;
-        if (blob.y < -blob.r) blob.y = p.height + blob.r;
-        if (blob.y > p.height + blob.r) blob.y = -blob.r;
-        p.fill(blob.hue, 60, 60, 0.06);
-        p.circle(blob.x, blob.y, blob.r * 2);
+      const t = p.frameCount * 0.01;
+      // Translucent wash instead of clear → the particles leave trails.
+      p.noStroke();
+      p.fill(dark ? 12 : 250, dark ? 0.14 : 0.16);
+      p.rect(0, 0, p.width, p.height);
+      drawEmblem(t);
+      for (const dot of particles) {
+        const angle =
+          p.noise(dot.x * 0.0016, dot.y * 0.0016, t * 0.15) * Math.PI * 4;
+        dot.x += Math.cos(angle) * dot.speed;
+        dot.y += Math.sin(angle) * dot.speed;
+        if (dot.x < 0) dot.x = p.width;
+        if (dot.x > p.width) dot.x = 0;
+        if (dot.y < 0) dot.y = p.height;
+        if (dot.y > p.height) dot.y = 0;
+        p.fill(dot.hue, 65, dark ? 68 : 55, 0.5);
+        p.circle(dot.x, dot.y, dot.size);
       }
     };
+
     p.setup = () => {
       const c = p.createCanvas(window.innerWidth, window.innerHeight);
       c.id("bg-art-canvas");
+      // RGB for the wash rect, HSL for the coloured marks — p5 lets us
+      // switch, but simplest to keep one mode; use HSL and a grey wash.
       p.colorMode(p.HSL, 360, 100, 100, 1);
       p.noStroke();
-      const baseHue = p.hue(p.color(accentHex));
-      // A handful of big, soft, slow-drifting blobs — cheap and calm.
-      for (let i = 0; i < 6; i++) {
-        blobs.push({
+      baseHue = p.hue(p.color(accentHex));
+      for (let i = 0; i < 70; i++) {
+        particles.push({
           x: p.random(p.width),
           y: p.random(p.height),
-          r: p.random(120, 260),
-          vx: p.random(-0.25, 0.25),
-          vy: p.random(-0.25, 0.25),
-          hue: (baseHue + p.random(-30, 30) + 360) % 360,
+          speed: p.random(0.3, 1.1),
+          size: p.random(1.5, 3.5),
+          hue: (baseHue + p.random(-24, 24) + 360) % 360,
         });
       }
-      p.frameRate(30); // a background never needs 60fps
+      emblem = Array.from({ length: 9 }, (_, i) => (i / 9) * Math.PI * 2);
+      p.frameRate(30);
       if (reduceMotion) {
-        draw();
+        // One calm static frame — no motion for reduced-motion users.
+        p.background(dark ? 12 : 250);
+        drawEmblem(0);
         p.noLoop();
       }
     };
@@ -3839,9 +4553,72 @@ function startBgArt() {
     p.windowResized = () => p.resizeCanvas(window.innerWidth, window.innerHeight);
   };
   bgArtInstance = new p5(sketch);
-  // p5 appends the canvas to <body>; style it as a fixed backdrop.
   const canvas = document.getElementById("bg-art-canvas");
   if (canvas) canvas.className = "bg-art-canvas";
+}
+
+// --- Wave O: the p5 brand logo (unique each load) -----------------------------------
+
+let brandLogoInstance = null;
+
+// A tiny generative emblem next to the title: a ring of linked nodes (the
+// MemoryMap motif), coloured in the accent, seeded randomly each visit so
+// it's one-of-a-kind, with a slow rotation.
+function renderBrandLogo() {
+  if (typeof p5 === "undefined") return;
+  const holder = $("brand-logo");
+  if (!holder) return;
+  if (brandLogoInstance) {
+    brandLogoInstance.remove();
+    brandLogoInstance = null;
+  }
+  const accentHex =
+    (ACCENTS.find((a) => a.name === activeAccent()) || ACCENTS[0]).swatch;
+  const seed = Math.floor(Math.random() * 1e6);
+  const SIZE = 34;
+
+  const sketch = (p) => {
+    let nodes = [];
+    let baseHue = 230;
+    p.setup = () => {
+      p.createCanvas(SIZE, SIZE);
+      p.colorMode(p.HSL, 360, 100, 100, 1);
+      p.randomSeed(seed);
+      baseHue = p.hue(p.color(accentHex));
+      const count = 4 + Math.floor(p.random(3)); // 4-6 nodes
+      nodes = Array.from({ length: count }, (_, i) => ({
+        angle: (i / count) * p.TWO_PI + p.random(-0.3, 0.3),
+        hue: (baseHue + p.random(-40, 40) + 360) % 360,
+      }));
+      p.frameRate(24);
+    };
+    p.draw = () => {
+      p.clear();
+      p.translate(SIZE / 2, SIZE / 2);
+      p.rotate(p.frameCount * 0.006);
+      const r = SIZE * 0.32;
+      p.stroke(baseHue, 60, 60, 0.6);
+      p.strokeWeight(1);
+      for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+          p.line(
+            Math.cos(nodes[i].angle) * r,
+            Math.sin(nodes[i].angle) * r,
+            Math.cos(nodes[j].angle) * r,
+            Math.sin(nodes[j].angle) * r
+          );
+        }
+      }
+      p.noStroke();
+      for (const n of nodes) {
+        p.fill(n.hue, 75, 60, 1);
+        p.circle(Math.cos(n.angle) * r, Math.sin(n.angle) * r, 6);
+      }
+      p.fill(baseHue, 70, 62, 1);
+      p.circle(0, 0, 5); // a bright hub
+    };
+  };
+  brandLogoInstance = new p5(sketch, holder);
 }
 
 function toggleBgArt(on) {
@@ -3862,6 +4639,24 @@ if (bgArtOn()) startBgArt();
 for (const button of document.querySelectorAll("#tab-bar button")) {
   button.addEventListener("click", () => switchTab(button.dataset.tab));
 }
+// Arrow keys walk the tablist; Home/End jump to the ends (Wave L).
+$("tab-bar").addEventListener("keydown", (e) => {
+  const keys = { ArrowRight: 1, ArrowLeft: -1, Home: 0, End: 0 };
+  if (!(e.key in keys)) return;
+  e.preventDefault();
+  const index = TABS.indexOf(localStorage.getItem("activeTab") || "notes");
+  let next;
+  if (e.key === "Home") next = 0;
+  else if (e.key === "End") next = TABS.length - 1;
+  else next = (index + keys[e.key] + TABS.length) % TABS.length;
+  switchTab(TABS[next]);
+  document.querySelector(`#tab-bar [data-tab="${TABS[next]}"]`).focus();
+});
+// Skip link (Wave L): jump keyboard focus straight into the open panel.
+$("skip-link").addEventListener("click", (e) => {
+  e.preventDefault();
+  $(`tab-${localStorage.getItem("activeTab") || "notes"}`).focus();
+});
 switchTab(localStorage.getItem("activeTab") || "notes");
 
 // Settings modal (Wave A).
@@ -3910,6 +4705,46 @@ $("persona-add").addEventListener("click", addPersona);
 $("skill-add").addEventListener("click", addSkill);
 $("graph-refresh").addEventListener("click", renderGraph);
 $("graph-similarity").addEventListener("change", renderGraph);
+$("graph-search").addEventListener("input", applyGraphHighlight);
+
+// Wave M: batch operations + skill/persona sharing.
+$("select-btn").addEventListener("click", () =>
+  selectMode ? exitSelectMode() : enterSelectMode()
+);
+$("batch-move").addEventListener("click", batchMove);
+$("batch-tag").addEventListener("click", batchTag);
+$("batch-delete").addEventListener("click", batchDelete);
+$("batch-cancel").addEventListener("click", exitSelectMode);
+
+$("skill-export").addEventListener("click", () =>
+  downloadJson("memorymap-skills.json", {
+    skills: (prefsCache && prefsCache.skills) || [],
+  })
+);
+$("skill-import").addEventListener("click", () =>
+  pickJsonFile("skill-import-file", async (data) => {
+    const merged = mergeNamedPrompts((prefsCache && prefsCache.skills) || [], data.skills);
+    if (!merged) return toast("No skills found in that file.", true);
+    await saveSkillList(merged);
+    toast("Skills imported.");
+  })
+);
+$("persona-export").addEventListener("click", () =>
+  downloadJson("memorymap-personas.json", {
+    personas: (prefsCache && prefsCache.personas) || [],
+  })
+);
+$("persona-import").addEventListener("click", () =>
+  pickJsonFile("persona-import-file", async (data) => {
+    const merged = mergeNamedPrompts(
+      (prefsCache && prefsCache.personas) || [],
+      data.personas
+    );
+    if (!merged) return toast("No personas found in that file.", true);
+    await savePersonaList(merged);
+    toast("Personas imported.");
+  })
+);
 $("tools-toggle").addEventListener("change", async () => {
   // Remember the choice so it survives restarts.
   await apiJson("/preferences", {
@@ -3943,7 +4778,38 @@ $("profile-delete").addEventListener("click", deleteProfile);
 $("export-json").addEventListener("click", () => downloadExport("json"));
 $("export-csv").addEventListener("click", () => downloadExport("csv"));
 $("chat-model-apply").addEventListener("click", applyChatModel);
+$("utility-model-apply").addEventListener("click", applyUtilityModel);
 $("embedding-apply").addEventListener("click", applyEmbeddingBackend);
+$("utility-model-select").addEventListener(
+  "change",
+  () => ($("utility-model-select").dataset.userChosen = "1")
+);
+
+// Wave N: improve-writing, link suggestions.
+$("improve-btn").addEventListener("click", () => openImprove($("entry-content")));
+$("improve-close").addEventListener("click", closeImprove);
+$("improve-apply").addEventListener("click", applyImprove);
+$("improve-retry").addEventListener("click", runImprove);
+for (const button of document.querySelectorAll(".improve-mode")) {
+  button.addEventListener("click", () => {
+    improveMode = button.dataset.mode;
+    for (const b of document.querySelectorAll(".improve-mode"))
+      b.classList.toggle("active", b === button);
+    runImprove();
+  });
+}
+$("link-suggest-btn").addEventListener("click", loadLinkSuggestions);
+// Mark a picker as "user has a pending choice" so the status poll stops
+// resetting it (Wave N bug fix).
+for (const id of ["chat-model-select", "embedding-model-select"]) {
+  $(id).addEventListener("change", () => ($(id).dataset.userChosen = "1"));
+}
+for (const radio of document.querySelectorAll('input[name="emb-backend"]')) {
+  radio.addEventListener(
+    "change",
+    () => ($("embedding-model-select").dataset.userChosen = "1")
+  );
+}
 $("save-btn").addEventListener("click", saveEntry);
 $("ask-btn").addEventListener("click", () => askQuestion()); // no event as preset
 $("stop-btn").addEventListener("click", stopAnswer);
@@ -3978,6 +4844,10 @@ document.addEventListener("keydown", (e) => {
     closeSketch();
     return;
   }
+  if (e.key === "Escape" && !$("improve-overlay").classList.contains("hidden")) {
+    closeImprove();
+    return;
+  }
   // "/" focuses search — but only when you're not already typing somewhere
   // and no overlay is open, so it never steals a literal slash (Wave J).
   const typing = ["INPUT", "TEXTAREA", "SELECT"].includes(
@@ -4000,9 +4870,44 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   if (e.key === "Escape" && settingsModalOpen()) closeSettingsModal();
+  if (e.key === "Escape") closeActionMenus();
   if (e.key === "Escape" && linkSource !== null) {
     linkSource = null;
     renderEntries();
+  }
+});
+
+// Clicking anywhere outside an open ⋯ menu closes it (Wave L).
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".menu-wrap")) closeActionMenus();
+});
+
+// Focus trapping (Wave L): while a dialog is open, Tab cycles inside it
+// instead of wandering into the page behind — a WCAG dialog basic.
+function activeOverlay() {
+  for (const id of ["palette-overlay", "sketch-overlay", "improve-overlay", "settings-modal"]) {
+    if (!$(id).classList.contains("hidden")) return $(id);
+  }
+  return null;
+}
+
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Tab") return;
+  const overlay = activeOverlay();
+  if (!overlay) return;
+  const focusables = [
+    ...overlay.querySelectorAll("button, [href], input, select, textarea"),
+  ].filter((el) => !el.disabled && el.offsetParent !== null);
+  if (!focusables.length) return;
+  const first = focusables[0];
+  const last = focusables[focusables.length - 1];
+  const outside = !overlay.contains(document.activeElement);
+  if (e.shiftKey && (document.activeElement === first || outside)) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && (document.activeElement === last || outside)) {
+    e.preventDefault();
+    first.focus();
   }
 });
 
@@ -4077,8 +4982,24 @@ $("mic-chat").addEventListener("click", () =>
 $("speak-btn").addEventListener("click", () => speakText($("ai-answer").textContent));
 
 // PWA: the shell caches itself so the app opens instantly (Wave F).
+// When a new service worker takes over (after an update), reload once so
+// the page never runs new HTML against stale cached CSS/JS (Wave O fix).
 if ("serviceWorker" in navigator) {
+  // Only reload when an EXISTING worker is replaced (a real update) — not
+  // on the first install, whose clients.claim() also fires controllerchange
+  // and would reload the page mid-setup (Wave O fix).
+  const hadController = Boolean(navigator.serviceWorker.controller);
   navigator.serviceWorker.register("/sw.js").catch(() => {});
+  let swReloaded = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!hadController || swReloaded) return;
+    swReloaded = true;
+    location.reload();
+  });
 }
+
+// The generative brand emblem, unique each visit (Wave O). p5 is loaded
+// by now; draw once the page is ready.
+renderBrandLogo();
 
 initAuth();

@@ -4139,9 +4139,23 @@ async function refreshModelStatus() {
   if (settingsOpen()) renderSettings();
 
   clearTimeout(statusTimer);
-  const delay = jobsRunning() ? 1000 : settingsOpen() ? 3000 : 20000;
+  // Back right off when the tab is hidden — no point polling a page nobody's
+  // looking at (visibilitychange below refreshes the moment it's shown again).
+  const delay = jobsRunning()
+    ? 1000
+    : document.hidden
+      ? 120000
+      : settingsOpen()
+        ? 3000
+        : 20000;
   statusTimer = setTimeout(refreshModelStatus, delay);
 }
+
+// Refresh immediately when the user returns to the tab, so a status that went
+// stale while hidden snaps up to date instead of waiting out the long delay.
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) refreshModelStatus();
+});
 
 function renderAiPill() {
   const pill = $("ai-pill");

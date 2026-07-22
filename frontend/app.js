@@ -2469,6 +2469,7 @@ const DASH_WIDGETS = {
   streak: { title: "🔥 Streak", render: renderStreakWidget },
   art: { title: "🎨 Notebook constellation", render: renderArtWidget },
   pinned: { title: "📌 Pinned notes", render: renderPinnedWidget },
+  "recent-notes": { title: "🕐 Recently added", render: renderRecentNotesWidget },
   "most-used": { title: "🔥 Most used", render: renderMostUsedWidget },
   "top-tags": { title: "🏷 Top tags", render: renderTopTagsWidget },
   questions: { title: "💬 Recent questions", render: renderQuestionsWidget },
@@ -2832,6 +2833,14 @@ async function renderPinnedWidget(body) {
 async function renderMostUsedWidget(body) {
   const entries = await apiJson("/entries/most-accessed");
   miniEntryList(body, entries, "Ask questions and your most-used notes appear here.");
+}
+
+async function renderRecentNotesWidget(body) {
+  const entries = await apiJson("/entries");
+  const newest = [...entries].sort(
+    (a, b) => new Date(b.created_at) - new Date(a.created_at)
+  );
+  miniEntryList(body, newest.slice(0, 6), "Your newest notes will appear here.");
 }
 
 async function renderTopTagsWidget(body) {

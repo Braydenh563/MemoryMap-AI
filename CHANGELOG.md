@@ -19,6 +19,22 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- **Uninstall Ollama models from the app.** Settings → Models lists installed
+  models with their size and a Remove button; the models in use (chat, utility,
+  embeddings) are protected. Backed by a new `/models/delete` endpoint.
+- **Keyboard-shortcuts cheat-sheet.** Press `?` (or use the command palette) for
+  a dialog of all shortcuts.
+- **Dashboard: more widgets & cleaner layout.** New "Top tags" and "Recently
+  added" widgets; the "Drag widgets" hint now shows only in edit mode; widget
+  bodies are height-capped so one tall widget no longer leaves big gaps; and all
+  widgets share one consistent internal spacing.
+- **Reminders: snooze, edit, presets.** Snooze (+1h / tomorrow), inline edit,
+  quick-due presets, group counts, and bidirectional relative times.
+- **Editable skills, persona tooltips.** Edit a saved skill in place (rename and
+  all), and hover a persona in the chat picker to see what it does.
+- **More appearance options.** Nine accent colours, a Font choice
+  (System / Serif / Mono), and a Reduce-motion toggle; subtle button press
+  feedback throughout.
 - **Action skills — skills that actually *do* things.** Skills can now be
   marked "can make changes": running one turns on the AI's tools for that
   message, so it uses them instead of only answering (destructive steps still

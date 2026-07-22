@@ -272,6 +272,8 @@ button.small { padding: 0.3rem 0.8rem; font-size: 0.85rem; }
 
 .status { font-size: 0.88rem; color: var(--muted); }
 .status.error { color: var(--error); }
+.status.ok { color: var(--ok); }
+.status.busy { color: var(--warn); }
 
 progress { accent-color: var(--accent); width: 100%; }
 

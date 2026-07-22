@@ -4178,6 +4178,29 @@ function renderAiPill() {
   }
 }
 
+// One plain-English line: which search engine is active and whether it works.
+// The built-in engine runs without Ollama, so this shows in every state.
+function renderSearchEngineHealth(status) {
+  const el = $("search-engine-health");
+  const engine =
+    status.embedding_backend === "ollama"
+      ? `Ollama · ${status.embedding_model}`
+      : "Built-in (all-MiniLM)";
+  let state = "not ready";
+  let cls = "busy";
+  if (status.embedding_ready) {
+    state = "✓ ready";
+    cls = "ok";
+  } else if (status.embedding_warming) {
+    state = "… warming up";
+  } else if (status.embedding_error) {
+    state = "⚠ unavailable — using keyword search (details below)";
+    cls = "error";
+  }
+  el.textContent = `Search engine: ${engine} — ${state}`;
+  el.className = `status ${cls}`;
+}
+
 function renderSettings() {
   const status = modelStatus;
   const ollamaLine = $("ollama-status");
@@ -4199,6 +4222,7 @@ function renderSettings() {
       "an Ollama embedding model (download nomic-embed-text from the list) — " +
       "it runs fully offline. Full details in Settings → Logs.";
   }
+  renderSearchEngineHealth(status);
   $("ollama-help").classList.toggle("hidden", status.ollama_running);
   $("models-config").classList.toggle("hidden", !status.ollama_running);
   $("suggested-box").classList.toggle("hidden", !status.ollama_running);

@@ -263,3 +263,46 @@ def test_tools_enabled_preference_roundtrip(client):
     assert client.get("/preferences").json()["tools_enabled"] is True
     updated = client.put("/preferences", json={"tools_enabled": False}).json()
     assert updated["tools_enabled"] is False
+
+
+# --- Wave O: hallucinated-write recovery + honesty safety net -----------------------
+
+
+def test_extract_text_tool_calls_from_wrapper():
+    from memorymap.ai.ollama_client import extract_text_tool_calls
+
+    content = (
+        'Sure! <tool_call>{"name": "create_note", "arguments": '
+        '{"content": "buy milk"}}</tool_call> done.'
+    )
+    calls, cleaned = extract_text_tool_calls(content, {"create_note", "delete_note"})
+    assert calls == [{"name": "create_note", "arguments": {"content": "buy milk"}}]
+    assert "<tool_call>" not in cleaned
+
+
+def test_extract_text_tool_calls_ignores_unknown_tool():
+    from memorymap.ai.ollama_client import extract_text_tool_calls
+
+    calls, _ = extract_text_tool_calls('{"name": "not_a_tool"}', {"create_note"})
+    assert calls == []
+
+
+def test_agent_recovers_text_emitted_tool_call(ai_client, fake_ollama):
+    # The model "narrates" a create as text instead of a structured call —
+    # the client recovers it, so the note is really made (Wave O).
+    fake_ollama.text_tool_reply = (
+        '<tool_call>{"name": "create_note", "arguments": '
+        '{"content": "recovered note"}}</tool_call>'
+    )
+    _stream_events(ai_client, "save a note that says recovered note")
+    entries = ai_client.get("/entries").json()
+    assert any(e["content"] == "recovered note" for e in entries)
+
+
+def test_agent_warns_on_hallucinated_write(ai_client, fake_ollama):
+    # No tool call at all, but the model claims it created a note → the
+    # safety net appends an honest warning (Wave O).
+    fake_ollama.librarian_reply = "I created a new note titled “Jokes”. Enjoy!"
+    events = _stream_events(ai_client, "add a note of jokes")
+    answer = "".join(e["delta"] for e in events if e["type"] == "answer")
+    assert "didn't actually save" in answer

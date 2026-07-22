@@ -8,6 +8,7 @@ one object.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Iterator
 
 import requests
@@ -74,6 +75,54 @@ class _ThinkTagSplitter:
             return []
         key = "thinking_delta" if self._mode == "thinking" else "content_delta"
         return [{key: leftover}]
+
+
+def extract_text_tool_calls(
+    content: str, tool_names: set[str]
+) -> tuple[list[dict], str]:
+    """Recover tool calls that a model wrote as TEXT instead of using the
+    structured tool_calls field (Wave O bug: small models narrate/emit
+    calls in prose, so notes the AI 'creates' never actually get made).
+
+    Handles both an explicit ``<tool_call>{...}</tool_call>`` wrapper and a
+    bare JSON object that names a known tool. Returns (calls, cleaned_text)
+    where cleaned_text has the recovered JSON removed so it isn't shown to
+    the user."""
+    calls: list[dict] = []
+    cleaned = content
+
+    def _consume(blob: str, whole: str) -> None:
+        try:
+            data = json.loads(blob)
+        except ValueError:
+            return
+        candidates = data if isinstance(data, list) else [data]
+        for item in candidates:
+            if not isinstance(item, dict):
+                continue
+            # Accept {"name","arguments"} and OpenAI-ish {"function":{...}}.
+            fn = item.get("function") if isinstance(item.get("function"), dict) else item
+            name = fn.get("name") if isinstance(fn, dict) else None
+            if name in tool_names:
+                args = fn.get("arguments") or fn.get("parameters") or {}
+                if isinstance(args, str):
+                    try:
+                        args = json.loads(args)
+                    except ValueError:
+                        args = {}
+                calls.append({"name": name, "arguments": args if isinstance(args, dict) else {}})
+                nonlocal cleaned
+                cleaned = cleaned.replace(whole, "")
+
+    # 1) explicit <tool_call>…</tool_call> blocks (Qwen/Hermes style).
+    for match in re.finditer(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", content, re.S):
+        _consume(match.group(1), match.group(0))
+    # 2) a bare top-level JSON object naming a known tool.
+    if not calls:
+        for match in re.finditer(r"\{[^{}]*\"name\"[^{}]*\}", content, re.S):
+            _consume(match.group(0), match.group(0))
+
+    return calls, cleaned.strip()
 
 
 def split_thinking(text: str) -> tuple[str, str | None]:
@@ -224,6 +273,24 @@ class OllamaClient:
                     except ValueError:
                         arguments = {}
                 calls.append({"name": function.get("name", ""), "arguments": arguments})
+
+            # Fallback: some models write the call as TEXT instead of using
+            # the structured field, so the note they "create" never actually
+            # gets made. Recover those and strip them from the shown text.
+            if not calls:
+                offered = {
+                    t.get("function", {}).get("name")
+                    for t in tools
+                    if isinstance(t, dict)
+                }
+                recovered, content = extract_text_tool_calls(content, offered)
+                if recovered:
+                    calls = recovered
+                    raw_calls = [
+                        {"function": {"name": c["name"], "arguments": c["arguments"]}}
+                        for c in recovered
+                    ]
+
             return {
                 "content": content,
                 "thinking": message.get("thinking") or inline_thinking,

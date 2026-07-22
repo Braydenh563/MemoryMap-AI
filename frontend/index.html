@@ -17,6 +17,12 @@
     if (accent && accent !== "indigo") document.documentElement.dataset.accent = accent;
     if (localStorage.getItem("contrast") === "on")
       document.documentElement.dataset.contrast = "on";
+    // Layout prefs before first paint, so there's no flash (Wave O).
+    const _r = document.documentElement;
+    _r.dataset.fontsize = localStorage.getItem("fontsize") || "normal";
+    _r.dataset.density = localStorage.getItem("density") || "comfortable";
+    _r.dataset.glass = localStorage.getItem("glass") || "on";
+    _r.style.setProperty("--bg-art-opacity", (Number(localStorage.getItem("bg-intensity") || 90)) / 100);
   </script>
 </head>
 <body>
@@ -472,24 +478,57 @@
 
           <!-- Appearance (Wave J): accent themes + background art -->
           <section class="settings-section hidden" id="settings-appearance">
+            <h3>Theme</h3>
+            <div class="seg" id="theme-seg" role="group" aria-label="Theme">
+              <button data-theme-choice="light">☀️ Light</button>
+              <button data-theme-choice="dark">🌙 Dark</button>
+              <button data-theme-choice="system">🖥 System</button>
+            </div>
+
             <h3>Accent colour</h3>
             <p class="muted">Recolours buttons, highlights, and the glow behind the page.</p>
             <div id="accent-swatches" class="accent-swatches"></div>
-            <h3>Contrast</h3>
+
+            <h3>Text size</h3>
+            <div class="seg" id="fontsize-seg" role="group" aria-label="Text size">
+              <button data-fontsize="small">Small</button>
+              <button data-fontsize="normal">Normal</button>
+              <button data-fontsize="large">Large</button>
+            </div>
+
+            <h3>Density</h3>
+            <div class="seg" id="density-seg" role="group" aria-label="Density">
+              <button data-density="comfortable">Comfortable</button>
+              <button data-density="compact">Compact</button>
+            </div>
+
+            <h3>Glass &amp; effects</h3>
+            <label>
+              <input type="checkbox" id="glass-toggle" checked>
+              Frosted-glass blur on cards (off = flat, faster on old machines)
+            </label>
             <label>
               <input type="checkbox" id="contrast-toggle">
               High-contrast mode (stronger text, solid panels, no blur)
             </label>
-            <p class="muted">Boosts legibility — pairs with any accent or theme.</p>
+
             <h3>Animated background</h3>
             <label>
               <input type="checkbox" id="bg-art-toggle">
-              Show a gentle generative-art background
+              Show a gentle generative-art background (on every tab)
             </label>
+            <div class="row" id="bg-intensity-row">
+              <label for="bg-intensity" class="muted">Intensity</label>
+              <input id="bg-intensity" type="range" min="20" max="100" value="90" style="max-width:12rem">
+            </div>
             <p class="muted">
               Purely decorative and 100% offline. It automatically stays still
               if your system prefers reduced motion.
             </p>
+
+            <div class="row">
+              <button id="appearance-reset" class="ghost small">Reset appearance to defaults</button>
+            </div>
           </section>
 
           <!-- Preferences (Phase 4/5, moved here in Wave A) -->

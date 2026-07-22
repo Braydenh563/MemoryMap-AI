@@ -4416,9 +4416,53 @@ function applyContrast(on) {
   localStorage.setItem("contrast", on ? "on" : "off");
 }
 
+// --- Wave O: expanded appearance controls -------------------------------------------
+// Each preference is a data-attribute on <html> + a localStorage key, all
+// applied before first paint by applyAppearance() so there's no flash.
+const APPEARANCE_DEFAULTS = {
+  fontsize: "normal",
+  density: "comfortable",
+  glass: "on",
+  "bg-intensity": "90",
+};
+
+function appearancePref(key) {
+  return localStorage.getItem(key) || APPEARANCE_DEFAULTS[key];
+}
+
+// Applied once at startup (called from the pre-paint path) and on change.
+function applyAppearance() {
+  const root = document.documentElement;
+  root.dataset.fontsize = appearancePref("fontsize");
+  root.dataset.density = appearancePref("density");
+  root.dataset.glass = appearancePref("glass");
+  root.style.setProperty("--bg-art-opacity", Number(appearancePref("bg-intensity")) / 100);
+}
+
+function effectiveTheme() {
+  return localStorage.getItem("theme") || "system";
+}
+
+function applyThemeChoice(choice) {
+  if (choice === "system") {
+    delete document.documentElement.dataset.theme;
+    localStorage.removeItem("theme");
+  } else {
+    document.documentElement.dataset.theme = choice;
+    localStorage.setItem("theme", choice);
+  }
+  if (bgArtOn()) startBgArt();
+  renderBrandLogo();
+}
+
+function _segActive(groupId, attr, value) {
+  for (const b of document.querySelectorAll(`#${groupId} button`)) {
+    b.classList.toggle("active", b.dataset[attr] === value);
+  }
+}
+
 function renderAppearance() {
   const holder = $("accent-swatches");
-  $("contrast-toggle").checked = contrastOn();
   holder.replaceChildren();
   for (const accent of ACCENTS) {
     const button = document.createElement("button");
@@ -4433,7 +4477,27 @@ function renderAppearance() {
     });
     holder.appendChild(button);
   }
+  $("contrast-toggle").checked = contrastOn();
   $("bg-art-toggle").checked = bgArtOn();
+  $("glass-toggle").checked = appearancePref("glass") === "on";
+  $("bg-intensity").value = appearancePref("bg-intensity");
+  _segActive("theme-seg", "themeChoice", effectiveTheme());
+  _segActive("fontsize-seg", "fontsize", appearancePref("fontsize"));
+  _segActive("density-seg", "density", appearancePref("density"));
+}
+
+function resetAppearance() {
+  for (const key of ["fontsize", "density", "glass", "bg-intensity", "accent", "contrast", "bgArt", "theme"]) {
+    localStorage.removeItem(key);
+  }
+  delete document.documentElement.dataset.accent;
+  delete document.documentElement.dataset.contrast;
+  delete document.documentElement.dataset.theme;
+  stopBgArt();
+  applyAppearance();
+  renderBrandLogo();
+  renderAppearance();
+  toast("Appearance reset to defaults.");
 }
 
 // --- generative background (a second, ambient p5 instance) --------------------------
@@ -4632,7 +4696,40 @@ function toggleBgArt(on) {
 $("theme-btn").addEventListener("click", toggleTheme);
 $("bg-art-toggle").addEventListener("change", (e) => toggleBgArt(e.target.checked));
 $("contrast-toggle").addEventListener("change", (e) => applyContrast(e.target.checked));
-// Start the ambient background if the user left it on last time.
+
+// Wave O: expanded appearance controls.
+for (const b of document.querySelectorAll("#theme-seg button")) {
+  b.addEventListener("click", () => {
+    applyThemeChoice(b.dataset.themeChoice);
+    renderAppearance();
+  });
+}
+for (const b of document.querySelectorAll("#fontsize-seg button")) {
+  b.addEventListener("click", () => {
+    localStorage.setItem("fontsize", b.dataset.fontsize);
+    applyAppearance();
+    renderAppearance();
+  });
+}
+for (const b of document.querySelectorAll("#density-seg button")) {
+  b.addEventListener("click", () => {
+    localStorage.setItem("density", b.dataset.density);
+    applyAppearance();
+    renderAppearance();
+  });
+}
+$("glass-toggle").addEventListener("change", (e) => {
+  localStorage.setItem("glass", e.target.checked ? "on" : "off");
+  applyAppearance();
+});
+$("bg-intensity").addEventListener("input", (e) => {
+  localStorage.setItem("bg-intensity", e.target.value);
+  applyAppearance();
+});
+$("appearance-reset").addEventListener("click", resetAppearance);
+
+// Apply saved appearance prefs immediately, then start the background.
+applyAppearance();
 if (bgArtOn()) startBgArt();
 
 // Tabs (Wave A): switch pages, restore the last one used.

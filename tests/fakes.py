@@ -63,6 +63,7 @@ class FakeOllama:
         self.supports_tools = True
         self.tool_script: list[list[dict]] = []
         self.tool_rounds: list[list[dict]] = []  # messages seen per round
+        self.text_tool_reply: str | None = None  # a call the model wrote as text
 
     def is_running(self) -> bool:
         return self.running
@@ -96,6 +97,23 @@ class FakeOllama:
                 "raw_tool_calls": [
                     {"function": {"name": c["name"], "arguments": c["arguments"]}}
                     for c in calls
+                ],
+            }
+        # Mimic the real client recovering a tool call the model wrote as
+        # text (Wave O) — one-shot, so the second round returns the answer.
+        if self.text_tool_reply:
+            from memorymap.ai.ollama_client import extract_text_tool_calls
+
+            offered = {t.get("function", {}).get("name") for t in tools}
+            recovered, cleaned = extract_text_tool_calls(self.text_tool_reply, offered)
+            self.text_tool_reply = None
+            return {
+                "content": cleaned,
+                "thinking": None,
+                "tool_calls": recovered,
+                "raw_tool_calls": [
+                    {"function": {"name": c["name"], "arguments": c["arguments"]}}
+                    for c in recovered
                 ],
             }
         return {

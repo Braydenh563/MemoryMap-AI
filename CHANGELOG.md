@@ -19,6 +19,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- **Per-note "Re-evaluate with AI".** A ⋯-menu action on every note that
+  re-runs the AI to refresh its confidence (and category, unless you filed it
+  yourself) and suggests topic tags and links to related notes — each applied
+  with a click, inline on the card. Backed by `POST /entries/{id}/reevaluate`
+  and a new `librarian.suggest_tags`; every step is best-effort so it still
+  works (with empty suggestions) when the AI is offline.
 - **Chat enhancements.** Per-message actions revealed on hover — copy any
   message, **edit & resend** your last question, **regenerate** the last answer
   (re-runs it without a duplicate prompt bubble), and read-aloud; **export a

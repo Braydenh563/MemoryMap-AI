@@ -480,6 +480,11 @@ function entryOverflowMenu(entry) {
 
   const items = [
     {
+      label: "🔄 Re-evaluate",
+      title: "Refresh this note's AI confidence and suggest tags & links",
+      run: () => reevaluateEntry(entry),
+    },
+    {
       label: "✨ Improve writing",
       title: "Proofread or rewrite this note with AI",
       run: () => {
@@ -549,9 +554,120 @@ function entryOverflowMenu(entry) {
 }
 
 // The ➕ context / ⤵ continue / ⏰ remind boxes inside an entry card.
+// Ask the AI to re-evaluate one note, then show its suggestions inline.
+async function reevaluateEntry(entry) {
+  closeActionMenus();
+  toast("Re-evaluating with AI…");
+  try {
+    const result = await apiJson(`/entries/${entry.id}/reevaluate`, { method: "POST" });
+    inlineAction = { id: entry.id, kind: "reevaluate", data: result };
+    await loadEntries(); // reflect the refreshed confidence/category, then show suggestions
+  } catch (error) {
+    toast(error.message || "Re-evaluate failed.", true);
+  }
+}
+
+// The inline result of a re-evaluate: new confidence, plus tag and link
+// suggestions the user applies with a click (nothing is applied on its own).
+function renderReevaluateResult(entry, wrap) {
+  const data = inlineAction.data;
+  const confidence = data.entry ? data.entry.ai_confidence : entry.ai_confidence;
+
+  const head = document.createElement("p");
+  head.className = "muted";
+  head.textContent = data.recategorised_to
+    ? `Re-evaluated — confidence ${confidence}%, moved to “${data.recategorised_to}”.`
+    : `Re-evaluated — confidence now ${confidence}%.`;
+  wrap.appendChild(head);
+
+  // Drop suggestions the user already applied (the card re-renders after each).
+  const haveTags = new Set(entry.tags);
+  const linkedIds = new Set((entry.links || []).map((l) => l.entry_id));
+  const tags = (data.suggested_tags || []).filter((t) => !haveTags.has(t));
+  const links = (data.suggested_links || []).filter((l) => !linkedIds.has(l.id));
+
+  if (tags.length) {
+    const tagRow = document.createElement("div");
+    tagRow.className = "recent";
+    const label = document.createElement("span");
+    label.className = "muted";
+    label.textContent = "Add tags:";
+    tagRow.appendChild(label);
+    for (const tag of tags) {
+      const tagChip = chip(`＋ ${tag}`, "tag");
+      tagChip.style.cursor = "pointer";
+      tagChip.title = `Add the “${tag}” tag`;
+      tagChip.addEventListener("click", async () => {
+        try {
+          await api(`/entries/${entry.id}`, {
+            method: "PUT",
+            body: JSON.stringify({ tags: [...entry.tags, tag] }),
+          });
+          tagChip.remove();
+          toast(`Tagged “${tag}”.`);
+          loadEntries();
+        } catch (error) {
+          toast(error.message, true);
+        }
+      });
+      tagRow.appendChild(tagChip);
+    }
+    wrap.appendChild(tagRow);
+  }
+
+  if (links.length) {
+    const label = document.createElement("p");
+    label.className = "muted";
+    label.textContent = "Link to related notes:";
+    wrap.appendChild(label);
+    for (const link of links) {
+      const row = document.createElement("div");
+      row.className = "row space-between reevaluate-link";
+      const preview = document.createElement("span");
+      preview.textContent = link.preview;
+      row.appendChild(preview);
+      row.appendChild(
+        smallButton("🔗 Link", "Link these two notes", async () => {
+          try {
+            await api(`/entries/${entry.id}/links`, {
+              method: "POST",
+              body: JSON.stringify({ target_id: link.id }),
+            });
+            row.remove();
+            toast("Notes linked.");
+            loadEntries();
+          } catch (error) {
+            toast(error.message, true);
+          }
+        })
+      );
+      wrap.appendChild(row);
+    }
+  }
+
+  if (!tags.length && !links.length) {
+    const none = document.createElement("p");
+    none.className = "muted";
+    none.textContent = "No new tags or links to suggest right now.";
+    wrap.appendChild(none);
+  }
+
+  wrap.appendChild(
+    smallButton("Done", "Close", () => {
+      inlineAction = null;
+      renderEntries();
+    })
+  );
+}
+
 function renderInlineAction(entry) {
   const wrap = document.createElement("div");
   wrap.className = "inline-action";
+
+  if (inlineAction.kind === "reevaluate") {
+    renderReevaluateResult(entry, wrap);
+    return wrap;
+  }
 
   if (inlineAction.kind === "remind") {
     const preview = entry.content.length > 40 ? entry.content.slice(0, 39) + "…" : entry.content;

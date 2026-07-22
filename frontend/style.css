@@ -737,6 +737,18 @@ li.link-source { outline: 2px solid var(--accent); }
   border-radius: 10px;
 }
 .inline-action textarea { margin-bottom: 0.4rem; }
+.inline-action p { margin: 0.3rem 0; }
+.reevaluate-link {
+  gap: 0.5rem;
+  padding: 0.3rem 0.4rem;
+  border-radius: 8px;
+}
+.reevaluate-link:hover { background: var(--accent-soft); }
+.reevaluate-link span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .small-select { max-width: 11rem; margin-bottom: 0; }
 .row .small-select { flex: 0 1 auto; }
 

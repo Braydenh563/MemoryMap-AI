@@ -4576,7 +4576,10 @@ function renderSettings() {
     renderChatModelPicker(status);
     renderUtilityModelPicker(status);
     renderEmbeddingPicker(status);
+    renderInstalledModels(status);
     renderSuggested(status);
+  } else {
+    $("installed-box").classList.add("hidden");
   }
   renderReindex(status);
   if (settingsModalOpen()) renderTasks(status); // Wave N tasks manager
@@ -4713,6 +4716,61 @@ function renderReindex(status) {
     $("reindex-progress").value = job.done;
     $("reindex-progress").max = Math.max(job.total, 1);
     $("reindex-label").textContent = `${job.done} of ${job.total} notes re-indexed`;
+  }
+}
+
+function renderInstalledModels(status) {
+  const box = $("installed-box");
+  const list = $("installed-list");
+  const models = status.installed_models || [];
+  box.classList.toggle("hidden", models.length === 0);
+  list.replaceChildren();
+
+  // Models the app is actively pointing at can't be removed (would break it).
+  const inUse = new Set([status.chat_model]);
+  if (status.utility_model) inUse.add(status.utility_model);
+  if (status.embedding_backend === "ollama") inUse.add(status.embedding_model);
+  const usedBases = new Set([...inUse].map((n) => (n || "").split(":")[0]));
+
+  for (const model of models) {
+    const li = document.createElement("li");
+    const name = document.createElement("span");
+    name.className = "model-name";
+    name.textContent = model.name;
+    const info = document.createElement("span");
+    info.className = "model-info";
+    info.textContent = model.size ? `${(model.size / 1e9).toFixed(1)} GB` : "";
+    li.append(name, info);
+
+    const used = inUse.has(model.name) || usedBases.has(model.name.split(":")[0]);
+    if (used) {
+      li.appendChild(chip("in use", "tag"));
+    } else {
+      li.appendChild(
+        smallButton("Remove", `Uninstall ${model.name}`, async (event) => {
+          if (
+            !confirm(
+              `Remove “${model.name}” from Ollama? This frees its disk space — ` +
+                "you can re-download it any time."
+            )
+          )
+            return;
+          event.target.disabled = true;
+          try {
+            await api("/models/delete", {
+              method: "POST",
+              body: JSON.stringify({ name: model.name }),
+            });
+            toast(`Removed ${model.name}.`);
+            refreshModelStatus();
+          } catch (error) {
+            toast(error.message, true);
+            event.target.disabled = false;
+          }
+        })
+      );
+    }
+    list.appendChild(li);
   }
 }
 

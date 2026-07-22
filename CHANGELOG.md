@@ -17,6 +17,49 @@ below). Versioning is `0.x` while the app stabilises.
 - CodeQL static security analysis workflow (push / PR / weekly).
 - Dependabot config for weekly pip and GitHub Actions updates.
 
+### Added
+
+- **Uninstall Ollama models from the app.** Settings → Models lists installed
+  models with their size and a Remove button; the models in use (chat, utility,
+  embeddings) are protected. Backed by a new `/models/delete` endpoint.
+- **Keyboard-shortcuts cheat-sheet.** Press `?` (or use the command palette) for
+  a dialog of all shortcuts.
+- **Dashboard: more widgets & cleaner layout.** New "Top tags" and "Recently
+  added" widgets; the "Drag widgets" hint now shows only in edit mode; widget
+  bodies are height-capped so one tall widget no longer leaves big gaps; and all
+  widgets share one consistent internal spacing.
+- **Reminders: snooze, edit, presets.** Snooze (+1h / tomorrow), inline edit,
+  quick-due presets, group counts, and bidirectional relative times.
+- **Editable skills, persona tooltips.** Edit a saved skill in place (rename and
+  all), and hover a persona in the chat picker to see what it does.
+- **More appearance options.** Nine accent colours, a Font choice
+  (System / Serif / Mono), and a Reduce-motion toggle; subtle button press
+  feedback throughout.
+- **Action skills — skills that actually *do* things.** Skills can now be
+  marked "can make changes": running one turns on the AI's tools for that
+  message, so it uses them instead of only answering (destructive steps still
+  ask first). Two new tool-using built-ins — 🏷 Auto-tag my notes and
+  🔗 Link related notes — and a "can make changes" checkbox when you create
+  your own. Action skills are marked with a ⚙ in the chip row.
+- **Per-note "Re-evaluate with AI".** A ⋯-menu action on every note that
+  re-runs the AI to refresh its confidence (and category, unless you filed it
+  yourself) and suggests topic tags and links to related notes — each applied
+  with a click, inline on the card. Backed by `POST /entries/{id}/reevaluate`
+  and a new `librarian.suggest_tags`; every step is best-effort so it still
+  works (with empty suggestions) when the AI is offline.
+- **Chat enhancements.** Per-message actions revealed on hover — copy any
+  message, **edit & resend** your last question, **regenerate** the last answer
+  (re-runs it without a duplicate prompt bubble), and read-aloud; **export a
+  conversation to Markdown**; role labels on every bubble; and a friendly
+  empty-state welcome so the chat page isn't a blank rectangle.
+- **Graph view enhancements.** On-screen zoom controls (＋ / － / fit-to-view)
+  so zooming no longer depends on discovering scroll/pinch; hover-spotlight —
+  pointing at a note dims everything except it and its directly-linked
+  neighbours (shares one dimming pass with search so they never conflict); a
+  "Hide unlinked" toggle to declutter the map to just the connected web; and a
+  visual pass (accent focus ring + glow on the hovered node, a soft radial
+  background wash, smoother node transitions).
+
 ### Fixed
 
 - **"Ask your notebook": Retry/Copy/read-aloud buttons overlapped the answer.**

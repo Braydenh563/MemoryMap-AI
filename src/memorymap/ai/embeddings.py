@@ -21,7 +21,8 @@ from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient, OllamaError
 from memorymap.core.database import EmbeddingRecord, Entry
 
-DEFAULT_ST_MODEL = "all-MiniLM-L6-v2"
+# DEFAULT_ST_MODEL = "all-MiniLM-L6-v2"
+DEFAULT_ST_MODEL = "BAAI/bge-small-en-v1.5"
 
 logger = logging.getLogger("memorymap.embeddings")
 
@@ -80,6 +81,16 @@ class EmbeddingService:
         self._load_failed_at: float | None = None
         # Why the last embed failed, for the Models screen — None = fine.
         self.last_error: str | None = None
+
+    def reset_failure_state(self) -> None:
+        """Forget a cached load/embed failure so the very next attempt
+        retries immediately, and clear the stale error the Models screen
+        shows. Called when the user switches search engine — they've
+        usually just fixed whatever was wrong (e.g. a broken torch), and
+        shouldn't have to wait out the 5-minute retry cooldown or stare at
+        an out-of-date banner."""
+        self.last_error = None
+        self._load_failed_at = None
 
     def backend_id(self) -> str:
         """Stored as model_version next to every vector, so a backend

@@ -167,8 +167,43 @@ def set_embedding_backend(
     )
     session.commit()
 
-    jobs.start_reindex(deps.get_db(), deps.get_embeddings())
+    # Switching backend is a fresh start: drop any cached failure so the
+    # re-index retries right away and the stale error banner clears at once
+    # instead of lingering for the retry-cooldown (bug: a fixed torch/Ollama
+    # still showed the old "search engine problem" until the cooldown lapsed).
+    embeddings = deps.get_embeddings()
+    embeddings.reset_failure_state()
+    jobs.start_reindex(deps.get_db(), embeddings)
     return {"reindex_started": True}
+
+
+@router.post("/delete")
+def delete_model(body: PullBody, session: Session = Depends(get_session)) -> dict:
+    """Uninstall a model from Ollama to reclaim disk. Refuses to remove a
+    model that's currently in use (chat, utility, or Ollama embeddings), so
+    the app can't be left pointing at a model that no longer exists."""
+    ollama = deps.get_ollama()
+    if not ollama.is_running():
+        raise HTTPException(status_code=409, detail="Ollama isn't running")
+    manager = deps.get_model_manager()
+    in_use = {manager.chat_model()}
+    if manager._config.get_preference("utility_model", ""):
+        in_use.add(manager.utility_model())
+    if manager.embedding_backend() == "ollama":
+        in_use.add(manager.embedding_model())
+    base = body.name.split(":")[0]
+    if body.name in in_use or base in {m.split(":")[0] for m in in_use}:
+        raise HTTPException(
+            status_code=409,
+            detail=f"'{body.name}' is in use — switch to another model first, then remove it.",
+        )
+    try:
+        ollama.delete(body.name)
+    except OllamaError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    log_action(session, "deleted", "model", detail=body.name)
+    session.commit()
+    return {"deleted": True, "name": body.name}
 
 
 @router.post("/pull")

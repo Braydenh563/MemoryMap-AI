@@ -185,3 +185,37 @@ def improve_writing(
     )
     # Thinking models may reason first; content already has think-tags split.
     return reply["content"].strip()
+
+
+def suggest_tags(
+    text: str,
+    existing: list[str],
+    model_manager: ModelManager,
+    ollama: OllamaClient,
+    limit: int = 5,
+) -> list[str]:
+    """Suggest a few short topic tags for a note (Wave: re-evaluate). Uses
+    the utility model. Raises OllamaError if the model is unavailable —
+    the caller decides what to do. Returns lowercased, de-duplicated tags,
+    excluding any already on the note."""
+    have = ", ".join(existing) if existing else "none"
+    system = (
+        "You label notes with short topic tags. Reply with ONLY a comma-separated "
+        f"list of {limit} or fewer tags, each one or two lowercase words, no "
+        "hashtags, no explanation. Tags already on the note (don't repeat): " + have
+    )
+    reply = ollama.chat(
+        model_manager.utility_model(),
+        [
+            {"role": "system", "content": system},
+            {"role": "user", "content": text},
+        ],
+    )
+    seen = {t.lower() for t in existing}
+    tags: list[str] = []
+    for raw in reply["content"].replace("\n", ",").split(","):
+        tag = raw.strip().lstrip("#").lower()
+        if tag and tag not in seen and len(tag) <= 30:
+            seen.add(tag)
+            tags.append(tag)
+    return tags[:limit]

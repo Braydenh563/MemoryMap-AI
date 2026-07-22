@@ -480,6 +480,11 @@ function entryOverflowMenu(entry) {
 
   const items = [
     {
+      label: "🔄 Re-evaluate",
+      title: "Refresh this note's AI confidence and suggest tags & links",
+      run: () => reevaluateEntry(entry),
+    },
+    {
       label: "✨ Improve writing",
       title: "Proofread or rewrite this note with AI",
       run: () => {
@@ -549,9 +554,120 @@ function entryOverflowMenu(entry) {
 }
 
 // The ➕ context / ⤵ continue / ⏰ remind boxes inside an entry card.
+// Ask the AI to re-evaluate one note, then show its suggestions inline.
+async function reevaluateEntry(entry) {
+  closeActionMenus();
+  toast("Re-evaluating with AI…");
+  try {
+    const result = await apiJson(`/entries/${entry.id}/reevaluate`, { method: "POST" });
+    inlineAction = { id: entry.id, kind: "reevaluate", data: result };
+    await loadEntries(); // reflect the refreshed confidence/category, then show suggestions
+  } catch (error) {
+    toast(error.message || "Re-evaluate failed.", true);
+  }
+}
+
+// The inline result of a re-evaluate: new confidence, plus tag and link
+// suggestions the user applies with a click (nothing is applied on its own).
+function renderReevaluateResult(entry, wrap) {
+  const data = inlineAction.data;
+  const confidence = data.entry ? data.entry.ai_confidence : entry.ai_confidence;
+
+  const head = document.createElement("p");
+  head.className = "muted";
+  head.textContent = data.recategorised_to
+    ? `Re-evaluated — confidence ${confidence}%, moved to “${data.recategorised_to}”.`
+    : `Re-evaluated — confidence now ${confidence}%.`;
+  wrap.appendChild(head);
+
+  // Drop suggestions the user already applied (the card re-renders after each).
+  const haveTags = new Set(entry.tags);
+  const linkedIds = new Set((entry.links || []).map((l) => l.entry_id));
+  const tags = (data.suggested_tags || []).filter((t) => !haveTags.has(t));
+  const links = (data.suggested_links || []).filter((l) => !linkedIds.has(l.id));
+
+  if (tags.length) {
+    const tagRow = document.createElement("div");
+    tagRow.className = "recent";
+    const label = document.createElement("span");
+    label.className = "muted";
+    label.textContent = "Add tags:";
+    tagRow.appendChild(label);
+    for (const tag of tags) {
+      const tagChip = chip(`＋ ${tag}`, "tag");
+      tagChip.style.cursor = "pointer";
+      tagChip.title = `Add the “${tag}” tag`;
+      tagChip.addEventListener("click", async () => {
+        try {
+          await api(`/entries/${entry.id}`, {
+            method: "PUT",
+            body: JSON.stringify({ tags: [...entry.tags, tag] }),
+          });
+          tagChip.remove();
+          toast(`Tagged “${tag}”.`);
+          loadEntries();
+        } catch (error) {
+          toast(error.message, true);
+        }
+      });
+      tagRow.appendChild(tagChip);
+    }
+    wrap.appendChild(tagRow);
+  }
+
+  if (links.length) {
+    const label = document.createElement("p");
+    label.className = "muted";
+    label.textContent = "Link to related notes:";
+    wrap.appendChild(label);
+    for (const link of links) {
+      const row = document.createElement("div");
+      row.className = "row space-between reevaluate-link";
+      const preview = document.createElement("span");
+      preview.textContent = link.preview;
+      row.appendChild(preview);
+      row.appendChild(
+        smallButton("🔗 Link", "Link these two notes", async () => {
+          try {
+            await api(`/entries/${entry.id}/links`, {
+              method: "POST",
+              body: JSON.stringify({ target_id: link.id }),
+            });
+            row.remove();
+            toast("Notes linked.");
+            loadEntries();
+          } catch (error) {
+            toast(error.message, true);
+          }
+        })
+      );
+      wrap.appendChild(row);
+    }
+  }
+
+  if (!tags.length && !links.length) {
+    const none = document.createElement("p");
+    none.className = "muted";
+    none.textContent = "No new tags or links to suggest right now.";
+    wrap.appendChild(none);
+  }
+
+  wrap.appendChild(
+    smallButton("Done", "Close", () => {
+      inlineAction = null;
+      renderEntries();
+    })
+  );
+}
+
 function renderInlineAction(entry) {
   const wrap = document.createElement("div");
   wrap.className = "inline-action";
+
+  if (inlineAction.kind === "reevaluate") {
+    renderReevaluateResult(entry, wrap);
+    return wrap;
+  }
 
   if (inlineAction.kind === "remind") {
     const preview = entry.content.length > 40 ? entry.content.slice(0, 39) + "…" : entry.content;
@@ -1325,6 +1441,79 @@ async function loadSuggestions() {
 
 let chatConv = { id: null, turns: [] }; // the open conversation
 let chatController = null;
+let lastChatQuestion = ""; // powers Regenerate / Edit & resend
+
+// The persona name to label assistant bubbles with (falls back to "Assistant").
+function assistantLabel() {
+  const select = $("persona-select");
+  return (select && select.value) || "Assistant";
+}
+
+// A hover-reveal row of small actions under a chat bubble. Each action is
+// { label, title, onClick }. onClick gets the click event so buttons can
+// give inline feedback (e.g. a copy tick).
+function chatMessageActions(actions) {
+  const row = document.createElement("div");
+  row.className = "msg-actions";
+  for (const action of actions) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "msg-action";
+    button.textContent = action.label;
+    button.title = action.title;
+    button.setAttribute("aria-label", action.title);
+    button.addEventListener("click", action.onClick);
+    row.appendChild(button);
+  }
+  return row;
+}
+
+async function copyToClipboard(text, button) {
+  try {
+    await navigator.clipboard.writeText(text);
+    if (button) {
+      const original = button.textContent;
+      button.textContent = "✓";
+      setTimeout(() => (button.textContent = original), 1200);
+    }
+  } catch {
+    toast("Couldn't copy to the clipboard.", true);
+  }
+}
+
+// Put a question back in the input so it can be tweaked and re-sent.
+function editAndResend(text) {
+  const input = $("chat-input");
+  input.value = text;
+  input.focus();
+  input.setSelectionRange(text.length, text.length);
+}
+
+// Re-run the most recent question, appending a fresh answer (no duplicate
+// "you" bubble) so you can get another take after switching model/persona.
+function regenerateLastAnswer() {
+  if (!lastChatQuestion || chatController) return;
+  sendChatMessage(lastChatQuestion, { skipUserBubble: true });
+}
+
+// The welcome shown in an empty chat so the page isn't a blank box.
+function renderChatEmptyState() {
+  const box = $("chat-messages");
+  if (box.querySelector(".msg") || box.querySelector(".chat-empty")) return;
+  const empty = document.createElement("div");
+  empty.className = "chat-empty";
+  empty.innerHTML =
+    '<span class="chat-empty-icon" aria-hidden="true">💬</span>' +
+    '<p class="empty-title">Chat with your notebook</p>' +
+    '<p class="muted">Ask a question and the AI answers from your saved notes. ' +
+    "Turn on “AI can make changes” and it can create, tag, link, and organise " +
+    "notes for you too.</p>";
+  box.appendChild(empty);
+}
+
+function clearChatEmptyState() {
+  $("chat-messages").querySelector(".chat-empty")?.remove();
+}
 
 function personaOptions() {
   // Built-ins + the user's custom personas (deduped — an edited built-in
@@ -1335,14 +1524,24 @@ function personaOptions() {
   const names = [
     ...new Set(["Librarian", "Coach", "Analyst", ...custom.map((p) => p.name)]),
   ];
+  // name -> its prompt, so the dropdown can describe each persona on hover.
+  const overrides = new Map(custom.map((p) => [p.name, p]));
+  const describe = (name) => {
+    const prompt = (overrides.get(name) || {}).prompt || BUILTIN_PERSONAS[name] || "";
+    return prompt.length > 200 ? prompt.slice(0, 199) + "…" : prompt;
+  };
   select.replaceChildren();
   for (const name of names) {
     const option = document.createElement("option");
     option.value = name;
     option.textContent = name;
+    option.title = describe(name); // hover shows what this persona does
     if (name === active) option.selected = true;
     select.appendChild(option);
   }
+  // Also surface the active persona's description on the closed select itself.
+  select.title = describe(active);
+  select.onchange = () => (select.title = describe(select.value));
 }
 
 // Three-dot "the model is about to speak" indicator (Wave D).
@@ -1359,9 +1558,26 @@ function chatScrollToEnd() {
 }
 
 function addBubble(role, text) {
+  clearChatEmptyState();
   const bubble = document.createElement("div");
   bubble.className = `msg ${role}`;
-  bubble.textContent = text;
+
+  const label = document.createElement("div");
+  label.className = "msg-role";
+  label.textContent = role === "user" ? "You" : assistantLabel();
+  const body = document.createElement("div");
+  body.className = "msg-body";
+  body.textContent = text;
+  bubble.append(label, body);
+
+  if (role === "user") {
+    bubble.appendChild(
+      chatMessageActions([
+        { label: "⧉", title: "Copy", onClick: (e) => copyToClipboard(text, e.currentTarget) },
+        { label: "✎", title: "Edit & resend", onClick: () => editAndResend(text) },
+      ])
+    );
+  }
   $("chat-messages").appendChild(bubble);
   chatScrollToEnd();
   return bubble;
@@ -1369,8 +1585,14 @@ function addBubble(role, text) {
 
 // An assistant bubble with its thinking box and matching-records slot.
 function addAssistantBubble() {
+  clearChatEmptyState();
   const bubble = document.createElement("div");
   bubble.className = "msg assistant";
+
+  const label = document.createElement("div");
+  label.className = "msg-role";
+  label.textContent = assistantLabel();
+  bubble.appendChild(label);
 
   const thinkingBox = document.createElement("details");
   thinkingBox.className = "hidden";
@@ -1466,11 +1688,12 @@ function renderRecordsDetails(holder, meta) {
   holder.appendChild(details);
 }
 
-async function sendChatMessage(preset) {
+async function sendChatMessage(preset, opts = {}) {
   const input = $("chat-input");
   const status = $("chat-status");
   const question = (preset ?? input.value).trim();
   if (!question) return;
+  lastChatQuestion = question;
 
   $("chat-suggest").classList.add("hidden");
   input.value = "";
@@ -1480,8 +1703,9 @@ async function sendChatMessage(preset) {
   status.classList.remove("error");
   status.textContent = "Searching your notes…";
 
-  addBubble("user", question);
-  const { thinkingBox, thinkingText, answerBox, toolsHolder, recordsHolder } =
+  // Regenerate re-runs the same question without adding a duplicate "you".
+  if (!opts.skipUserBubble) addBubble("user", question);
+  const { bubble, thinkingBox, thinkingText, answerBox, toolsHolder, recordsHolder } =
     addAssistantBubble();
   answerBox.appendChild(typingDots()); // until the first token arrives
   const renderLive = liveMarkdownRenderer(answerBox);
@@ -1496,7 +1720,7 @@ async function sendChatMessage(preset) {
       question,
       history: chatConv.turns.slice(-MAX_CLIENT_HISTORY),
       persona: $("persona-select").value || null,
-      useTools: $("tools-toggle").checked,
+      useTools: opts.useTools ?? $("tools-toggle").checked,
       signal: chatController.signal,
       onMeta: (m) => {
         meta = m;
@@ -1554,7 +1778,14 @@ async function sendChatMessage(preset) {
   chatScrollToEnd();
   if (toolsActed) refreshAfterToolChanges(); // the AI changed real data
   if (!answerRaw) return; // nothing to remember (failed before any token)
-  addSpeakButton(recordsHolder.parentElement, answerBox); // 🔊 read-aloud (Wave H)
+  // Per-message actions: copy, regenerate, read-aloud (Wave H voices).
+  bubble.appendChild(
+    chatMessageActions([
+      { label: "⧉", title: "Copy answer", onClick: (e) => copyToClipboard(answerRaw, e.currentTarget) },
+      { label: "↻", title: "Regenerate", onClick: () => regenerateLastAnswer() },
+      { label: "🔊", title: "Read aloud", onClick: () => speakText(answerBox.textContent) },
+    ])
+  );
 
   chatConv.turns.push({ question, answer: answerRaw });
   // Persist the finished turn so the chat survives restarts.
@@ -1583,9 +1814,34 @@ async function sendChatMessage(preset) {
 
 function newChatConversation() {
   chatConv = { id: null, turns: [] };
+  lastChatQuestion = "";
   $("chat-messages").replaceChildren();
   $("chat-title").textContent = "New chat";
+  renderChatEmptyState();
   loadChatSuggestions();
+}
+
+// Download the open conversation as clean Markdown (questions + answers).
+function exportChatMarkdown() {
+  if (!chatConv.turns.length) {
+    toast("Nothing to export yet — ask something first.");
+    return;
+  }
+  const title = $("chat-title").textContent || "Chat";
+  let md = `# ${title}\n\n`;
+  for (const turn of chatConv.turns) {
+    md += `**You:** ${turn.question}\n\n${turn.answer}\n\n---\n\n`;
+  }
+  const slug =
+    title.toLowerCase().replace(/[^\w]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) ||
+    "chat";
+  const blob = new Blob([md], { type: "text/markdown" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${slug}.md`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 async function loadConversationList() {
@@ -1646,17 +1902,25 @@ async function openConversation(id) {
         handles.thinkingBox.classList.remove("hidden");
         handles.thinkingText.textContent = message.thinking;
       }
+      handles.bubble.appendChild(
+        chatMessageActions([
+          { label: "⧉", title: "Copy answer", onClick: (e) => copyToClipboard(message.content, e.currentTarget) },
+          { label: "🔊", title: "Read aloud", onClick: () => speakText(handles.answerBox.textContent) },
+        ])
+      );
       if (lastQuestionText !== null) {
         chatConv.turns.push({ question: lastQuestionText, answer: message.content });
       }
     }
   }
+  if (lastQuestionText) lastChatQuestion = lastQuestionText;
   loadConversationList();
   chatScrollToEnd();
 }
 
 async function loadChatSuggestions() {
-  if ($("chat-messages").children.length > 0) return;
+  // Only the welcome placeholder may be present — real messages hide the chips.
+  if ($("chat-messages").querySelector(".msg")) return;
   const picks = await apiJson("/chat/suggestions").catch(() => []);
   const box = $("chat-suggest");
   box.replaceChildren();
@@ -1821,6 +2085,9 @@ async function addPersona() {
 // Built-ins ship with the app; the user's own live in preferences.
 // "Tidy suggestions" is the self-organising librarian: it proposes
 // merges/renames/links and asks — it never changes anything silently.
+// `useTools: true` marks a skill that DOES things (via the AI's tools) rather
+// than just answering — running it turns on "AI can make changes" for that
+// message, so an action skill actually acts. Destructive steps still confirm.
 const BUILTIN_SKILLS = [
   {
     name: "📋 Summarise my week",
@@ -1833,6 +2100,22 @@ const BUILTIN_SKILLS = [
     prompt:
       "Look through my notes for loose ends — unfinished tasks, open " +
       "questions, or things I said I'd do. List each one with its note id.",
+  },
+  {
+    name: "🏷 Auto-tag my notes",
+    useTools: true,
+    prompt:
+      "Find my notes that have no tags or very few tags. For each one, add 2–3 " +
+      "relevant short tags using the tag_note tool. When you're done, tell me " +
+      "which notes you tagged and with what.",
+  },
+  {
+    name: "🔗 Link related notes",
+    useTools: true,
+    prompt:
+      "Find pairs of my notes that are clearly about the same thing but aren't " +
+      "linked yet. Link each pair with the link_notes tool, then give me a short " +
+      "summary of what you connected.",
   },
   {
     name: "🗂 Tidy suggestions",
@@ -1849,6 +2132,39 @@ function allSkills() {
   return [...BUILTIN_SKILLS, ...custom];
 }
 
+// Which custom skill (by name) the editor is currently editing, if any.
+// Tracking it lets Edit rename a skill instead of leaving a duplicate.
+let editingSkillName = null;
+
+function startEditingSkill(skill) {
+  editingSkillName = skill.name;
+  $("skill-name").value = skill.name;
+  $("skill-prompt").value = skill.prompt;
+  $("skill-tools").checked = !!skill.useTools;
+  $("skill-add").textContent = "Save changes";
+  $("skill-cancel").classList.remove("hidden");
+  $("skill-status").textContent = `Editing “${skill.name}”…`;
+  $("skill-prompt").focus();
+}
+
+function stopEditingSkill() {
+  editingSkillName = null;
+  $("skill-name").value = "";
+  $("skill-prompt").value = "";
+  $("skill-tools").checked = false;
+  $("skill-add").textContent = "Add skill";
+  $("skill-cancel").classList.add("hidden");
+  $("skill-status").textContent = "";
+}
+
+// Run a skill. An action skill (useTools) turns on "AI can make changes" for
+// this run — and leaves it on, visibly, so the user sees the AI is acting —
+// so it can actually use its tools instead of only answering.
+function runSkill(skill) {
+  if (skill.useTools) $("tools-toggle").checked = true;
+  sendChatMessage(skill.prompt, { useTools: skill.useTools || undefined });
+}
+
 function loadChatSkills() {
   const box = $("chat-skills");
   box.replaceChildren();
@@ -1857,9 +2173,11 @@ function loadChatSkills() {
   label.textContent = "⚡ Skills:";
   box.appendChild(label);
   for (const skill of allSkills()) {
-    const chipEl = chip(skill.name);
-    chipEl.title = skill.prompt;
-    chipEl.addEventListener("click", () => sendChatMessage(skill.prompt));
+    const chipEl = chip(skill.name + (skill.useTools ? " ⚙" : ""));
+    chipEl.title = skill.useTools
+      ? `${skill.prompt}\n\n(This skill makes changes for you — destructive steps still ask first.)`
+      : skill.prompt;
+    chipEl.addEventListener("click", () => runSkill(skill));
     box.appendChild(chipEl);
   }
   const manage = chip("＋ manage");
@@ -1908,11 +2226,7 @@ function renderSkillSettings() {
     const actions = document.createElement("span");
     actions.className = "entry-actions";
     actions.appendChild(
-      smallButton("Edit", "Edit this skill", () => {
-        $("skill-name").value = skill.name;
-        $("skill-prompt").value = skill.prompt;
-        $("skill-prompt").focus();
-      })
+      smallButton("Edit", "Edit this skill", () => startEditingSkill(skill))
     );
     actions.appendChild(
       smallButton("Delete", "Remove this skill", async () => {
@@ -1934,14 +2248,16 @@ async function addSkill() {
     status.textContent = "Both a name and a request are needed.";
     return;
   }
+  // Drop any skill with the new name AND (when editing) the one being edited,
+  // so saving updates in place and even a rename doesn't leave a duplicate.
   const custom = ((prefsCache && prefsCache.skills) || []).filter(
-    (s) => s.name !== name
+    (s) => s.name !== name && s.name !== editingSkillName
   );
-  custom.push({ name, prompt: promptText });
+  custom.push({ name, prompt: promptText, useTools: $("skill-tools").checked || undefined });
+  const wasEditing = editingSkillName;
   await saveSkillList(custom);
-  $("skill-name").value = "";
-  $("skill-prompt").value = "";
-  status.textContent = `Saved “${name}”.`;
+  stopEditingSkill();
+  status.textContent = wasEditing ? `Updated “${name}”.` : `Saved “${name}”.`;
 }
 
 // --- Wave O: agent-tools toggles ----------------------------------------------------
@@ -2153,7 +2469,9 @@ const DASH_WIDGETS = {
   streak: { title: "🔥 Streak", render: renderStreakWidget },
   art: { title: "🎨 Notebook constellation", render: renderArtWidget },
   pinned: { title: "📌 Pinned notes", render: renderPinnedWidget },
+  "recent-notes": { title: "🕐 Recently added", render: renderRecentNotesWidget },
   "most-used": { title: "🔥 Most used", render: renderMostUsedWidget },
+  "top-tags": { title: "🏷 Top tags", render: renderTopTagsWidget },
   questions: { title: "💬 Recent questions", render: renderQuestionsWidget },
   "on-this-day": { title: "📅 On this day", render: renderOnThisDayWidget },
   digest: { title: "📰 Weekly digest", render: renderDigestWidget },
@@ -2185,6 +2503,7 @@ async function renderDashboard() {
   }
   const grid = $("dash-grid");
   grid.replaceChildren();
+  $("dash-hint").classList.toggle("hidden", !dashEditMode); // hint only in edit mode
   const layout = dashLayout();
 
   for (const name of layout.order) {
@@ -2516,6 +2835,45 @@ async function renderMostUsedWidget(body) {
   miniEntryList(body, entries, "Ask questions and your most-used notes appear here.");
 }
 
+async function renderRecentNotesWidget(body) {
+  const entries = await apiJson("/entries");
+  const newest = [...entries].sort(
+    (a, b) => new Date(b.created_at) - new Date(a.created_at)
+  );
+  miniEntryList(body, newest.slice(0, 6), "Your newest notes will appear here.");
+}
+
+async function renderTopTagsWidget(body) {
+  const entries = await apiJson("/entries");
+  const counts = new Map();
+  for (const entry of entries) {
+    for (const tag of entry.tags || []) counts.set(tag, (counts.get(tag) || 0) + 1);
+  }
+  if (!counts.size) {
+    const p = document.createElement("p");
+    p.className = "muted";
+    p.textContent = "Tag some notes and your top tags show up here.";
+    body.appendChild(p);
+    return;
+  }
+  const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12);
+  const cloud = document.createElement("div");
+  cloud.className = "entry-meta";
+  for (const [tag, count] of top) {
+    const tagChip = chip(`${tag} · ${count}`, "tag");
+    tagChip.style.cursor = "pointer";
+    tagChip.title = `Show notes tagged “${tag}”`;
+    tagChip.addEventListener("click", () => {
+      $("note-search").value = tag;
+      noteSearch = tag;
+      switchTab("notes");
+      renderEntries();
+    });
+    cloud.appendChild(tagChip);
+  }
+  body.appendChild(cloud);
+}
+
 async function renderQuestionsWidget(body) {
   const questions = await apiJson("/chat/recent");
   if (!questions.length) {
@@ -2712,67 +3070,187 @@ async function loadReminders() {
     else groups.Upcoming.push(reminder);
   }
 
-  for (const [label, items] of Object.entries(groups)) {
+  for (const label of ["Overdue", "Today", "Upcoming", "Done"]) {
+    const items = groups[label];
     if (!items.length) continue;
     const heading = document.createElement("h3");
-    heading.textContent = label;
+    heading.className = "reminder-group-head";
+    heading.textContent = `${label} (${items.length})`;
     groupsBox.appendChild(heading);
     const ul = document.createElement("ul");
     ul.className = "entry-list";
-    for (const reminder of items) {
-      const li = document.createElement("li");
-      if (label === "Overdue") li.classList.add("overdue");
-      const row = document.createElement("div");
-      row.className = "entry-meta";
-
-      const checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.checked = reminder.done;
-      checkbox.title = reminder.done ? "Reopen" : "Mark done";
-      checkbox.style.width = "auto";
-      checkbox.addEventListener("change", async () => {
-        await apiJson(`/reminders/${reminder.id}`, {
-          method: "PUT",
-          body: JSON.stringify({ done: checkbox.checked }),
-        });
-        loadReminders();
-      });
-      row.appendChild(checkbox);
-
-      const text = document.createElement("span");
-      text.textContent = reminder.text;
-      if (reminder.done) text.style.textDecoration = "line-through";
-      row.appendChild(text);
-
-      const due = document.createElement("span");
-      due.className = "entry-date";
-      due.textContent = new Date(reminder.due_at).toLocaleString();
-      row.appendChild(due);
-
-      const actions = document.createElement("span");
-      actions.className = "entry-actions";
-      actions.appendChild(
-        smallButton("×", "Delete this reminder", async () => {
-          await apiJson(`/reminders/${reminder.id}`, { method: "DELETE" });
-          loadReminders();
-        })
-      );
-      row.appendChild(actions);
-      li.appendChild(row);
-
-      if (reminder.entry_preview) {
-        const linkRow = document.createElement("div");
-        linkRow.className = "entry-links";
-        const noteChip = chip(`📝 ${reminder.entry_preview}`, "link");
-        noteChip.style.cursor = "pointer";
-        noteChip.addEventListener("click", () => flashEntry(reminder.entry_id));
-        linkRow.appendChild(noteChip);
-        li.appendChild(linkRow);
-      }
-      ul.appendChild(li);
-    }
+    for (const reminder of items) ul.appendChild(reminderItem(reminder, label));
     groupsBox.appendChild(ul);
   }
+}
+
+let editingReminderId = null;
+
+function reminderItem(reminder, label) {
+  const li = document.createElement("li");
+  if (label === "Overdue") li.classList.add("overdue");
+
+  if (editingReminderId === reminder.id) {
+    li.appendChild(reminderEditForm(reminder));
+    return li;
+  }
+
+  const row = document.createElement("div");
+  row.className = "entry-meta";
+
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.checked = reminder.done;
+  checkbox.title = reminder.done ? "Reopen" : "Mark done";
+  checkbox.style.width = "auto";
+  checkbox.addEventListener("change", async () => {
+    await apiJson(`/reminders/${reminder.id}`, {
+      method: "PUT",
+      body: JSON.stringify({ done: checkbox.checked }),
+    });
+    loadReminders();
+  });
+  row.appendChild(checkbox);
+
+  const text = document.createElement("span");
+  text.className = "reminder-text";
+  text.textContent = reminder.text;
+  if (reminder.done) text.style.textDecoration = "line-through";
+  row.appendChild(text);
+
+  const due = document.createElement("span");
+  due.className = "entry-date";
+  due.textContent = relativeWhen(reminder.due_at); // "in 2 hours" / "3 days ago"
+  due.title = new Date(reminder.due_at).toLocaleString(); // exact on hover
+  row.appendChild(due);
+
+  const actions = document.createElement("span");
+  actions.className = "entry-actions";
+  if (!reminder.done) {
+    actions.appendChild(
+      smallButton("+1h", "Snooze one hour", () =>
+        snoozeReminderTo(reminder, new Date(Date.now() + 60 * 60 * 1000))
+      )
+    );
+    actions.appendChild(
+      smallButton("→ tmrw", "Snooze to tomorrow 9am", () =>
+        snoozeReminderTo(reminder, presetDate("tomorrow"))
+      )
+    );
+  }
+  actions.appendChild(
+    smallButton("✎", "Edit this reminder", () => {
+      editingReminderId = reminder.id;
+      loadReminders();
+    })
+  );
+  actions.appendChild(
+    smallButton("×", "Delete this reminder", async () => {
+      await apiJson(`/reminders/${reminder.id}`, { method: "DELETE" });
+      loadReminders();
+    })
+  );
+  row.appendChild(actions);
+  li.appendChild(row);
+
+  if (reminder.entry_preview) {
+    const linkRow = document.createElement("div");
+    linkRow.className = "entry-links";
+    const noteChip = chip(`📝 ${reminder.entry_preview}`, "link");
+    noteChip.style.cursor = "pointer";
+    noteChip.addEventListener("click", () => flashEntry(reminder.entry_id));
+    linkRow.appendChild(noteChip);
+    li.appendChild(linkRow);
+  }
+  return li;
+}
+
+// Relative time that works both ways: "in 2 hours" (future) and "3 days ago"
+// (past). relativeTime() only handles the past, which is wrong for reminders.
+function relativeWhen(iso) {
+  const diff = new Date(iso).getTime() - Date.now();
+  const future = diff >= 0;
+  const mins = Math.abs(diff) / 60000;
+  if (mins < 0.75) return future ? "now" : "just now";
+  let value;
+  let unit;
+  if (mins < 60) {
+    value = Math.round(mins);
+    unit = "minute";
+  } else if (mins / 60 < 24) {
+    value = Math.round(mins / 60);
+    unit = "hour";
+  } else if (mins / 60 / 24 < 7) {
+    value = Math.round(mins / 60 / 24);
+    unit = "day";
+  } else {
+    return new Date(iso).toLocaleDateString();
+  }
+  const label = `${value} ${unit}${value === 1 ? "" : "s"}`;
+  return future ? `in ${label}` : `${label} ago`;
+}
+
+// Convert an ISO timestamp to the value a <input type=datetime-local> wants.
+function toLocalInputValue(iso) {
+  const d = new Date(iso);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// A named quick-due preset -> a concrete Date.
+function presetDate(preset) {
+  const d = new Date();
+  if (preset === "3h") d.setHours(d.getHours() + 3);
+  else if (preset === "tomorrow") (d.setDate(d.getDate() + 1), d.setHours(9, 0, 0, 0));
+  else if (preset === "nextweek") (d.setDate(d.getDate() + 7), d.setHours(9, 0, 0, 0));
+  return d;
+}
+
+async function snoozeReminderTo(reminder, when) {
+  await apiJson(`/reminders/${reminder.id}`, {
+    method: "PUT",
+    body: JSON.stringify({ due_at: when.toISOString(), done: false }),
+  });
+  toast(`Snoozed to ${when.toLocaleString()}.`);
+  loadReminders();
+}
+
+function reminderEditForm(reminder) {
+  const wrap = document.createElement("div");
+  wrap.className = "inline-action";
+  const textInput = document.createElement("input");
+  textInput.type = "text";
+  textInput.maxLength = 500;
+  textInput.value = reminder.text;
+  const dueInput = document.createElement("input");
+  dueInput.type = "datetime-local";
+  dueInput.value = toLocalInputValue(reminder.due_at);
+  const row = document.createElement("div");
+  row.className = "row";
+  row.appendChild(
+    smallButton("Save", "", async () => {
+      const text = textInput.value.trim();
+      if (!text || !dueInput.value) {
+        toast("A reminder needs text and a time.", true);
+        return;
+      }
+      await apiJson(`/reminders/${reminder.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ text, due_at: new Date(dueInput.value).toISOString() }),
+      });
+      editingReminderId = null;
+      loadReminders();
+    }, false)
+  );
+  row.appendChild(
+    smallButton("Cancel", "", () => {
+      editingReminderId = null;
+      loadReminders();
+    })
+  );
+  wrap.append(textInput, dueInput, row);
+  setTimeout(() => textInput.focus(), 0);
+  return wrap;
 }
 
 async function addReminder(text, dueValue, entryId = null) {
@@ -2965,6 +3443,15 @@ let graphSimulation = null; // stopped before every rebuild
 let graphHiddenCategories = new Set(); // legend toggles (Wave M)
 let graphNodeSelection = null; // live d3 selections, for search-highlight
 let graphEdgeSelection = null;
+// Refs kept so the on-screen zoom buttons can drive the same behaviour as
+// scroll-zoom, and hover-highlight can look up a node's neighbours.
+let graphSvg = null;
+let graphZoom = null;
+let graphCanvas = null;
+let graphNodesRef = null;
+let graphDims = { w: 0, h: 0 };
+let graphHoveredId = null; // node the pointer is over (spotlight its links)
+let graphAdjacency = null; // Map<id, Set<neighbourId>>
 
 function graphNodeRadius(node) {
   // Much-used notes draw the eye: base size + a gentle access bonus.
@@ -3016,14 +3503,27 @@ async function renderGraph() {
   }
 
   // Apply the legend filter: drop hidden categories and their edges.
-  const visibleNodes = data.nodes.filter(
+  let visibleNodes = data.nodes.filter(
     (n) => !graphHiddenCategories.has(n.category)
   );
   const keptIds = new Set(visibleNodes.map((n) => n.id));
   const visibleEdges = data.edges.filter(
     (e) => keptIds.has(e.source) && keptIds.has(e.target)
   );
-  if (!visibleNodes.length) return;
+  // "Hide unlinked" (declutter): keep only notes that appear in an edge.
+  if ($("graph-hide-orphans") && $("graph-hide-orphans").checked) {
+    const connected = new Set();
+    for (const e of visibleEdges) {
+      connected.add(e.source);
+      connected.add(e.target);
+    }
+    visibleNodes = visibleNodes.filter((n) => connected.has(n.id));
+  }
+  if (!visibleNodes.length) {
+    empty.style.display = "grid";
+    empty.classList.remove("hidden");
+    return;
+  }
 
   const box = $("graph-box");
   const width = box.clientWidth || 800;
@@ -3038,9 +3538,22 @@ async function renderGraph() {
     .on("zoom", (event) => canvas.attr("transform", event.transform));
   svg.call(zoomBehavior).on("dblclick.zoom", null); // dblclick pins, not zooms
 
+  // Keep refs so the +/−/fit buttons drive this same zoom behaviour.
+  graphSvg = svg;
+  graphZoom = zoomBehavior;
+  graphCanvas = canvas;
+  graphDims = { w: width, h: height };
+
   // D3 mutates these (x/y/vx/vy), so work on copies.
   const nodes = visibleNodes.map((n) => ({ ...n }));
   const edges = visibleEdges.map((e) => ({ ...e }));
+  graphNodesRef = nodes;
+  // Adjacency for hover-highlight: which notes each note is linked to.
+  graphAdjacency = new Map(nodes.map((n) => [n.id, new Set()]));
+  for (const e of edges) {
+    graphAdjacency.get(e.source)?.add(e.target);
+    graphAdjacency.get(e.target)?.add(e.source);
+  }
 
   graphSimulation = d3
     .forceSimulation(nodes)
@@ -3117,6 +3630,18 @@ async function renderGraph() {
     .attr("dy", (d) => graphNodeRadius(d) + 12)
     .text((d) => (d.preview.length > 20 ? d.preview.slice(0, 19) + "…" : d.preview));
 
+  // Hover-highlight (spotlight a note's connections). Uses the same dimming
+  // pipeline as search so the two never fight each other.
+  nodeGroups
+    .on("mouseenter", (_event, d) => {
+      graphHoveredId = d.id;
+      applyGraphHighlight();
+    })
+    .on("mouseleave", () => {
+      graphHoveredId = null;
+      applyGraphHighlight();
+    });
+
   let fitted = false;
   graphSimulation.on("tick", () => {
     edgeLines
@@ -3167,17 +3692,37 @@ function fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height) {
     );
 }
 
-// Dim everything except nodes whose text matches the search box; edges
-// stay bright only when both ends match (Wave M).
+// Dim everything except nodes that match the search box AND (when hovering)
+// the hovered note plus its direct neighbours; edges stay bright only when
+// both ends survive. Search (Wave M) and hover-spotlight share one pass so
+// they can't contradict each other.
 function applyGraphHighlight() {
   if (!graphNodeSelection) return;
   const query = $("graph-search").value.trim().toLowerCase();
-  const matches = (d) => !query || d.preview.toLowerCase().includes(query);
-  graphNodeSelection.classed("graph-dim", (d) => !matches(d));
-  graphEdgeSelection.classed(
+  const searchOk = (d) => !query || d.preview.toLowerCase().includes(query);
+
+  const neighbours =
+    graphHoveredId != null && graphAdjacency
+      ? graphAdjacency.get(graphHoveredId)
+      : null;
+  const hoverOk = (id) =>
+    neighbours == null || id === graphHoveredId || neighbours.has(id);
+  // After forceLink binds, edge.source/target are node objects, not ids.
+  const idOf = (end) => (end && end.id != null ? end.id : end);
+
+  graphNodeSelection.classed(
     "graph-dim",
-    (d) => query && !(matches(d.source) && matches(d.target))
+    (d) => !(searchOk(d) && hoverOk(d.id))
   );
+  graphNodeSelection.classed("graph-focus", (d) => d.id === graphHoveredId);
+  graphEdgeSelection.classed("graph-dim", (d) => {
+    const s = idOf(d.source);
+    const t = idOf(d.target);
+    const bySearch = !query || (searchOk(d.source) && searchOk(d.target));
+    const byHover =
+      neighbours == null || s === graphHoveredId || t === graphHoveredId;
+    return !(bySearch && byHover);
+  });
 }
 
 // --- tabs (Wave A) ----------------------------------------------------------------
@@ -3200,6 +3745,7 @@ function switchTab(name) {
   // The generative-art animation only needs to run while it's on screen.
   if (name !== "dashboard") stopArt();
   if (name === "chat") {
+    renderChatEmptyState(); // welcome placeholder when the thread is empty
     loadChatSuggestions();
     $("chat-input").focus();
   }
@@ -3577,7 +4123,7 @@ function paletteCommands() {
     { label: "🗄 Back up now", run: () => { openSettingsModal("data"); backupNow(); } },
     { label: "📤 Export markdown", run: () => downloadExport("markdown") },
     { label: "🌓 Toggle light/dark", run: toggleTheme },
-    { label: "⌨️ Keyboard shortcuts", run: () => openSettingsModal("about") },
+    { label: "⌨️ Keyboard shortcuts", run: () => { closePalette(); openShortcuts(); } },
     { label: "🔒 Lock MemoryMap", run: lockNow },
   ];
 }
@@ -3824,15 +4370,6 @@ function speakText(text) {
   if (text.trim()) speechSynthesis.speak(new SpeechSynthesisUtterance(text));
 }
 
-// A per-bubble 🔊 for the chat tab (added once its answer is final).
-function addSpeakButton(bubble, answerBox) {
-  const button = smallButton("🔊", "Read this answer aloud", () =>
-    speakText(answerBox.textContent)
-  );
-  button.classList.add("bubble-speak");
-  bubble.appendChild(button);
-}
-
 // --- toasts (Phase 5) ---------------------------------------------------------------
 
 function toast(message, isError = false) {
@@ -3942,9 +4479,23 @@ async function refreshModelStatus() {
   if (settingsOpen()) renderSettings();
 
   clearTimeout(statusTimer);
-  const delay = jobsRunning() ? 1000 : settingsOpen() ? 3000 : 20000;
+  // Back right off when the tab is hidden — no point polling a page nobody's
+  // looking at (visibilitychange below refreshes the moment it's shown again).
+  const delay = jobsRunning()
+    ? 1000
+    : document.hidden
+      ? 120000
+      : settingsOpen()
+        ? 3000
+        : 20000;
   statusTimer = setTimeout(refreshModelStatus, delay);
 }
+
+// Refresh immediately when the user returns to the tab, so a status that went
+// stale while hidden snaps up to date instead of waiting out the long delay.
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) refreshModelStatus();
+});
 
 function renderAiPill() {
   const pill = $("ai-pill");
@@ -3981,6 +4532,29 @@ function renderAiPill() {
   }
 }
 
+// One plain-English line: which search engine is active and whether it works.
+// The built-in engine runs without Ollama, so this shows in every state.
+function renderSearchEngineHealth(status) {
+  const el = $("search-engine-health");
+  const engine =
+    status.embedding_backend === "ollama"
+      ? `Ollama · ${status.embedding_model}`
+      : "Built-in (all-MiniLM)";
+  let state = "not ready";
+  let cls = "busy";
+  if (status.embedding_ready) {
+    state = "✓ ready";
+    cls = "ok";
+  } else if (status.embedding_warming) {
+    state = "… warming up";
+  } else if (status.embedding_error) {
+    state = "⚠ unavailable — using keyword search (details below)";
+    cls = "error";
+  }
+  el.textContent = `Search engine: ${engine} — ${state}`;
+  el.className = `status ${cls}`;
+}
+
 function renderSettings() {
   const status = modelStatus;
   const ollamaLine = $("ollama-status");
@@ -4002,6 +4576,7 @@ function renderSettings() {
       "an Ollama embedding model (download nomic-embed-text from the list) — " +
       "it runs fully offline. Full details in Settings → Logs.";
   }
+  renderSearchEngineHealth(status);
   $("ollama-help").classList.toggle("hidden", status.ollama_running);
   $("models-config").classList.toggle("hidden", !status.ollama_running);
   $("suggested-box").classList.toggle("hidden", !status.ollama_running);
@@ -4010,7 +4585,10 @@ function renderSettings() {
     renderChatModelPicker(status);
     renderUtilityModelPicker(status);
     renderEmbeddingPicker(status);
+    renderInstalledModels(status);
     renderSuggested(status);
+  } else {
+    $("installed-box").classList.add("hidden");
   }
   renderReindex(status);
   if (settingsModalOpen()) renderTasks(status); // Wave N tasks manager
@@ -4147,6 +4725,61 @@ function renderReindex(status) {
     $("reindex-progress").value = job.done;
     $("reindex-progress").max = Math.max(job.total, 1);
     $("reindex-label").textContent = `${job.done} of ${job.total} notes re-indexed`;
+  }
+}
+
+function renderInstalledModels(status) {
+  const box = $("installed-box");
+  const list = $("installed-list");
+  const models = status.installed_models || [];
+  box.classList.toggle("hidden", models.length === 0);
+  list.replaceChildren();
+
+  // Models the app is actively pointing at can't be removed (would break it).
+  const inUse = new Set([status.chat_model]);
+  if (status.utility_model) inUse.add(status.utility_model);
+  if (status.embedding_backend === "ollama") inUse.add(status.embedding_model);
+  const usedBases = new Set([...inUse].map((n) => (n || "").split(":")[0]));
+
+  for (const model of models) {
+    const li = document.createElement("li");
+    const name = document.createElement("span");
+    name.className = "model-name";
+    name.textContent = model.name;
+    const info = document.createElement("span");
+    info.className = "model-info";
+    info.textContent = model.size ? `${(model.size / 1e9).toFixed(1)} GB` : "";
+    li.append(name, info);
+
+    const used = inUse.has(model.name) || usedBases.has(model.name.split(":")[0]);
+    if (used) {
+      li.appendChild(chip("in use", "tag"));
+    } else {
+      li.appendChild(
+        smallButton("Remove", `Uninstall ${model.name}`, async (event) => {
+          if (
+            !confirm(
+              `Remove “${model.name}” from Ollama? This frees its disk space — ` +
+                "you can re-download it any time."
+            )
+          )
+            return;
+          event.target.disabled = true;
+          try {
+            await api("/models/delete", {
+              method: "POST",
+              body: JSON.stringify({ name: model.name }),
+            });
+            toast(`Removed ${model.name}.`);
+            refreshModelStatus();
+          } catch (error) {
+            toast(error.message, true);
+            event.target.disabled = false;
+          }
+        })
+      );
+    }
+    list.appendChild(li);
   }
 }
 
@@ -4344,10 +4977,32 @@ async function loadLinkSuggestions() {
   }
 }
 
+// Heuristic: does this Ollama model look like it can produce embeddings?
+// Chat/generation models can't — Ollama answers /api/embed with 501 — and
+// picking one by mistake is the #1 way people break the search engine.
+function looksLikeEmbeddingModel(name) {
+  return /embed|minilm|bge|gte|e5|arctic/i.test(name || "");
+}
+
 async function applyEmbeddingBackend() {
   const backend = document.querySelector('input[name="emb-backend"]:checked')?.value;
   const model = $("embedding-model-select").value || null;
   if (!backend) return;
+  // Guard the #1 misconfiguration: a chat model chosen as the search engine.
+  if (backend === "ollama") {
+    if (!model) {
+      toast("Pick an embedding model first — e.g. nomic-embed-text.", true);
+      return;
+    }
+    if (!looksLikeEmbeddingModel(model)) {
+      const proceed = confirm(
+        `"${model}" doesn't look like an embedding model. Chat models can't create ` +
+          "embeddings, so semantic search will fail (Ollama returns 501). Download and " +
+          "pick a dedicated embedding model like nomic-embed-text instead.\n\nApply anyway?"
+      );
+      if (!proceed) return;
+    }
+  }
   const ok = confirm(
     `Switching the search engine re-indexes all ${allEntries.length} of your ` +
       "notes so search keeps making sense. Notes and keyword search stay " +
@@ -4391,6 +5046,11 @@ const ACCENTS = [
   { name: "rose", label: "Rose", swatch: "#ec4899" },
   { name: "amber", label: "Amber", swatch: "#d97706" },
   { name: "violet", label: "Violet", swatch: "#7c3aed" },
+  { name: "teal", label: "Teal", swatch: "#0d9488" },
+  { name: "sky", label: "Sky", swatch: "#0ea5e9" },
+  { name: "lime", label: "Lime", swatch: "#65a30d" },
+  { name: "crimson", label: "Crimson", swatch: "#dc2626" },
+  { name: "fuchsia", label: "Fuchsia", swatch: "#c026d3" },
   { name: "slate", label: "Slate", swatch: "#475569" },
 ];
 
@@ -4421,8 +5081,10 @@ function applyContrast(on) {
 // applied before first paint by applyAppearance() so there's no flash.
 const APPEARANCE_DEFAULTS = {
   fontsize: "normal",
+  font: "system", // system | serif | mono
   density: "comfortable",
   glass: "on",
+  motion: "auto", // "auto" = follow the OS; "reduced" = force-still
   "bg-intensity": "90",
 };
 
@@ -4434,8 +5096,10 @@ function appearancePref(key) {
 function applyAppearance() {
   const root = document.documentElement;
   root.dataset.fontsize = appearancePref("fontsize");
+  root.dataset.font = appearancePref("font");
   root.dataset.density = appearancePref("density");
   root.dataset.glass = appearancePref("glass");
+  root.dataset.motion = appearancePref("motion");
   root.style.setProperty("--bg-art-opacity", Number(appearancePref("bg-intensity")) / 100);
 }
 
@@ -4478,16 +5142,18 @@ function renderAppearance() {
     holder.appendChild(button);
   }
   $("contrast-toggle").checked = contrastOn();
+  $("reduce-motion-toggle").checked = appearancePref("motion") === "reduced";
   $("bg-art-toggle").checked = bgArtOn();
   $("glass-toggle").checked = appearancePref("glass") === "on";
   $("bg-intensity").value = appearancePref("bg-intensity");
   _segActive("theme-seg", "themeChoice", effectiveTheme());
   _segActive("fontsize-seg", "fontsize", appearancePref("fontsize"));
+  _segActive("font-seg", "font", appearancePref("font"));
   _segActive("density-seg", "density", appearancePref("density"));
 }
 
 function resetAppearance() {
-  for (const key of ["fontsize", "density", "glass", "bg-intensity", "accent", "contrast", "bgArt", "theme"]) {
+  for (const key of ["fontsize", "font", "density", "glass", "motion", "bg-intensity", "accent", "contrast", "bgArt", "theme"]) {
     localStorage.removeItem(key);
   }
   delete document.documentElement.dataset.accent;
@@ -4711,6 +5377,13 @@ for (const b of document.querySelectorAll("#fontsize-seg button")) {
     renderAppearance();
   });
 }
+for (const b of document.querySelectorAll("#font-seg button")) {
+  b.addEventListener("click", () => {
+    localStorage.setItem("font", b.dataset.font);
+    applyAppearance();
+    renderAppearance();
+  });
+}
 for (const b of document.querySelectorAll("#density-seg button")) {
   b.addEventListener("click", () => {
     localStorage.setItem("density", b.dataset.density);
@@ -4721,6 +5394,12 @@ for (const b of document.querySelectorAll("#density-seg button")) {
 $("glass-toggle").addEventListener("change", (e) => {
   localStorage.setItem("glass", e.target.checked ? "on" : "off");
   applyAppearance();
+});
+$("reduce-motion-toggle").addEventListener("change", (e) => {
+  localStorage.setItem("motion", e.target.checked ? "reduced" : "auto");
+  applyAppearance();
+  if (e.target.checked) stopBgArt(); // a still UI shouldn't keep the art running
+  else if (bgArtOn()) startBgArt();
 });
 $("bg-intensity").addEventListener("input", (e) => {
   localStorage.setItem("bg-intensity", e.target.value);
@@ -4788,6 +5467,7 @@ $("entry-template").addEventListener("change", applyTemplate);
 $("chat-send").addEventListener("click", () => sendChatMessage());
 $("chat-stop").addEventListener("click", () => chatController && chatController.abort());
 $("chat-new").addEventListener("click", newChatConversation);
+$("chat-export").addEventListener("click", exportChatMarkdown);
 $("chat-input").addEventListener("keydown", (e) => {
   if (e.key === "Enter") sendChatMessage();
 });
@@ -4800,9 +5480,24 @@ $("persona-select").addEventListener("change", async () => {
 });
 $("persona-add").addEventListener("click", addPersona);
 $("skill-add").addEventListener("click", addSkill);
+$("skill-cancel").addEventListener("click", stopEditingSkill);
 $("graph-refresh").addEventListener("click", renderGraph);
 $("graph-similarity").addEventListener("change", renderGraph);
+$("graph-hide-orphans").addEventListener("change", renderGraph);
 $("graph-search").addEventListener("input", applyGraphHighlight);
+
+// On-screen zoom controls drive the same d3 zoom behaviour as scroll/pinch.
+function graphZoomBy(factor) {
+  if (!graphZoom || !graphSvg) return;
+  graphSvg.transition().duration(200).call(graphZoom.scaleBy, factor);
+}
+$("graph-zoom-in").addEventListener("click", () => graphZoomBy(1.3));
+$("graph-zoom-out").addEventListener("click", () => graphZoomBy(1 / 1.3));
+$("graph-zoom-fit").addEventListener("click", () => {
+  if (graphNodesRef && graphNodesRef.length) {
+    fitGraphToView(graphSvg, graphCanvas, graphZoom, graphNodesRef, graphDims.w, graphDims.h);
+  }
+});
 
 // Wave M: batch operations + skill/persona sharing.
 $("select-btn").addEventListener("click", () =>
@@ -4861,6 +5556,12 @@ $("reminder-add").addEventListener("click", async () => {
     $("reminder-text").value = "";
   }
 });
+for (const button of document.querySelectorAll("#reminder-presets button")) {
+  button.addEventListener("click", () => {
+    $("reminder-due").value = toLocalInputValue(presetDate(button.dataset.preset).toISOString());
+    if (!$("reminder-text").value.trim()) $("reminder-text").focus();
+  });
+}
 for (const button of document.querySelectorAll(".panel-close")) {
   button.addEventListener("click", () => showPanel(null));
 }
@@ -4945,6 +5646,10 @@ document.addEventListener("keydown", (e) => {
     closeImprove();
     return;
   }
+  if (e.key === "Escape" && !$("shortcuts-overlay").classList.contains("hidden")) {
+    closeShortcuts();
+    return;
+  }
   // "/" focuses search — but only when you're not already typing somewhere
   // and no overlay is open, so it never steals a literal slash (Wave J).
   const typing = ["INPUT", "TEXTAREA", "SELECT"].includes(
@@ -4954,6 +5659,12 @@ document.addEventListener("keydown", (e) => {
     settingsModalOpen() ||
     !$("palette-overlay").classList.contains("hidden") ||
     !$("sketch-overlay").classList.contains("hidden");
+  // "?" (Shift-/) opens the keyboard-shortcuts cheat-sheet.
+  if (e.key === "?" && !typing && !overlayOpen) {
+    e.preventDefault();
+    openShortcuts();
+    return;
+  }
   if (e.key === "/" && !typing && !overlayOpen) {
     e.preventDefault();
     // On the Chat tab the natural target is the chat box; elsewhere the
@@ -4982,11 +5693,30 @@ document.addEventListener("click", (e) => {
 // Focus trapping (Wave L): while a dialog is open, Tab cycles inside it
 // instead of wandering into the page behind — a WCAG dialog basic.
 function activeOverlay() {
-  for (const id of ["palette-overlay", "sketch-overlay", "improve-overlay", "settings-modal"]) {
+  for (const id of [
+    "palette-overlay",
+    "sketch-overlay",
+    "improve-overlay",
+    "shortcuts-overlay",
+    "settings-modal",
+  ]) {
     if (!$(id).classList.contains("hidden")) return $(id);
   }
   return null;
 }
+
+// Keyboard-shortcuts cheat-sheet (press ?), a learnability aid.
+function openShortcuts() {
+  $("shortcuts-overlay").classList.remove("hidden");
+  $("shortcuts-close").focus();
+}
+function closeShortcuts() {
+  $("shortcuts-overlay").classList.add("hidden");
+}
+$("shortcuts-close").addEventListener("click", closeShortcuts);
+$("shortcuts-overlay").addEventListener("click", (e) => {
+  if (e.target === $("shortcuts-overlay")) closeShortcuts();
+});
 
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Tab") return;

@@ -20,8 +20,10 @@
     // Layout prefs before first paint, so there's no flash (Wave O).
     const _r = document.documentElement;
     _r.dataset.fontsize = localStorage.getItem("fontsize") || "normal";
+    _r.dataset.font = localStorage.getItem("font") || "system";
     _r.dataset.density = localStorage.getItem("density") || "comfortable";
     _r.dataset.glass = localStorage.getItem("glass") || "on";
+    _r.dataset.motion = localStorage.getItem("motion") || "auto";
     _r.style.setProperty("--bg-art-opacity", (Number(localStorage.getItem("bg-intensity") || 90)) / 100);
   </script>
 </head>
@@ -67,7 +69,8 @@
   <!-- ======================= DASHBOARD TAB (Wave D) ======================= -->
   <div class="tab-page hidden" id="tab-dashboard" role="tabpanel" aria-labelledby="tab-btn-dashboard" tabindex="-1">
     <div class="dash-toolbar">
-      <span class="muted">Drag widgets to rearrange — your layout is remembered.</span>
+      <span class="muted hidden" id="dash-hint">Drag widgets to rearrange, or Hide/Show them — your layout is remembered.</span>
+      <span id="dash-hint-spacer"></span>
       <button id="dash-edit" class="ghost small">Edit layout</button>
     </div>
     <div id="dash-grid"></div>
@@ -256,6 +259,7 @@
               </label>
               <label for="persona-select" class="muted">Persona</label>
               <select id="persona-select" class="small-select"></select>
+              <button id="chat-export" class="ghost small" title="Download this chat as a Markdown file">⭳ Export</button>
             </div>
           </div>
           <div id="chat-messages"></div>
@@ -284,15 +288,18 @@
           <label class="muted tools-toggle" title="Draw dotted lines between notes that mean similar things (needs semantic search)">
             <input type="checkbox" id="graph-similarity"> Similarity lines
           </label>
+          <label class="muted tools-toggle" title="Hide notes that aren't linked to anything, to declutter the map">
+            <input type="checkbox" id="graph-hide-orphans"> Hide unlinked
+          </label>
           <button id="graph-refresh" class="ghost small">Refresh</button>
         </div>
       </div>
       <p class="muted">
         Your notes as a map: solid lines are links you made, dashed lines are
         trains of thought, dotted lines are notes that mean similar things.
-        Drag to arrange, scroll to zoom, click a note to open it,
-        double-click to pin it in place, and click a legend colour to
-        hide that category.
+        Hover a note to spotlight its connections, drag to arrange, scroll or
+        use the buttons to zoom, click a note to open it, double-click to pin
+        it in place, and click a legend colour to hide that category.
       </p>
       <div class="row">
         <button id="link-suggest-btn" class="ghost small"
@@ -302,6 +309,11 @@
       <div id="graph-legend" class="recent"></div>
       <div id="graph-box">
         <svg id="graph-svg"></svg>
+        <div id="graph-zoom" class="graph-zoom" role="group" aria-label="Zoom the map">
+          <button id="graph-zoom-in" class="graph-zoom-btn" title="Zoom in" aria-label="Zoom in">＋</button>
+          <button id="graph-zoom-out" class="graph-zoom-btn" title="Zoom out" aria-label="Zoom out">－</button>
+          <button id="graph-zoom-fit" class="graph-zoom-btn" title="Fit the whole map to view" aria-label="Fit map to view">⤢</button>
+        </div>
         <div id="graph-empty" class="empty-state hidden">
           <span class="empty-icon" aria-hidden="true">🕸️</span>
           <p class="empty-title">Nothing to map yet</p>
@@ -323,6 +335,12 @@
           placeholder="Remind me to…">
         <input id="reminder-due" type="datetime-local" style="max-width: 14rem">
         <button id="reminder-add">Add</button>
+      </div>
+      <div class="row" id="reminder-presets">
+        <span class="muted">Quick set:</span>
+        <button class="ghost small" data-preset="3h">In 3 hours</button>
+        <button class="ghost small" data-preset="tomorrow">Tomorrow 9am</button>
+        <button class="ghost small" data-preset="nextweek">Next week</button>
       </div>
       <p class="muted">
         Notifications fire while the app is open. Attach a reminder to a note
@@ -363,6 +381,7 @@
           <!-- Models (Phase 3.5, moved here in Wave A) -->
           <section class="settings-section" id="settings-models">
             <p id="ollama-status" class="status"></p>
+            <p id="search-engine-health" class="status"></p>
             <p id="embedding-error" class="status error hidden"></p>
             <p id="ollama-help" class="muted hidden">
               Ollama powers the chat answers and auto-filing.
@@ -402,6 +421,8 @@
                 <button id="embedding-apply" class="small">Apply &amp; re-index</button>
               </div>
               <p class="muted">
+                Pick a dedicated <strong>embedding</strong> model (e.g.
+                nomic-embed-text) — chat models can't create embeddings.
                 Changing this re-reads every note so search keeps making sense —
                 it runs in the background and search falls back to keywords until
                 it finishes.
@@ -411,6 +432,11 @@
               <h3>Re-indexing your notes…</h3>
               <progress id="reindex-progress" value="0" max="1"></progress>
               <p id="reindex-label" class="status"></p>
+            </div>
+            <div id="installed-box" class="hidden">
+              <h3>Installed models</h3>
+              <p class="muted">Remove a model you no longer use to free up disk. The models in use can't be removed.</p>
+              <ul id="installed-list"></ul>
             </div>
             <div id="suggested-box" class="hidden">
               <h3>Suggested downloads</h3>
@@ -454,8 +480,12 @@
             <input id="skill-name" type="text" maxlength="40" placeholder="Name (e.g. Weekly review)">
             <textarea id="skill-prompt" rows="2" maxlength="2000"
               placeholder="The request to send, e.g. Summarise everything I saved this week."></textarea>
+            <label class="muted tools-toggle" title="Let this skill create, tag, pin, link, and (with your confirmation) delete notes">
+              <input type="checkbox" id="skill-tools"> This skill can make changes (use the AI's tools)
+            </label>
             <div class="row">
               <button id="skill-add" class="small">Add skill</button>
+              <button id="skill-cancel" class="ghost small hidden">Cancel edit</button>
               <span id="skill-status" class="status"></span>
             </div>
             <h3>Share</h3>
@@ -496,6 +526,13 @@
               <button data-fontsize="large">Large</button>
             </div>
 
+            <h3>Font</h3>
+            <div class="seg" id="font-seg" role="group" aria-label="Font">
+              <button data-font="system">System</button>
+              <button data-font="serif">Serif</button>
+              <button data-font="mono">Mono</button>
+            </div>
+
             <h3>Density</h3>
             <div class="seg" id="density-seg" role="group" aria-label="Density">
               <button data-density="comfortable">Comfortable</button>
@@ -510,6 +547,10 @@
             <label>
               <input type="checkbox" id="contrast-toggle">
               High-contrast mode (stronger text, solid panels, no blur)
+            </label>
+            <label>
+              <input type="checkbox" id="reduce-motion-toggle">
+              Reduce motion (turn off animations and transitions)
             </label>
 
             <h3>Animated background</h3>
@@ -663,7 +704,28 @@
       <input id="palette-input" type="text" placeholder="Type a command or search your notes…"
         autocomplete="off" aria-label="Command or search">
       <ul id="palette-list"></ul>
-      <p class="muted palette-hint">↑↓ to choose · Enter to run · Esc to close</p>
+      <p class="muted palette-hint">↑↓ to choose · Enter to run · Esc to close · ? for shortcuts</p>
+    </div>
+  </div>
+
+  <!-- Keyboard shortcuts cheat-sheet (press ? anywhere) -->
+  <div id="shortcuts-overlay" class="modal-overlay hidden" role="dialog"
+    aria-modal="true" aria-label="Keyboard shortcuts">
+    <div class="card modal-card" id="shortcuts-card">
+      <div class="row space-between">
+        <h2>⌨ Keyboard shortcuts</h2>
+        <button id="shortcuts-close" class="ghost small">Close</button>
+      </div>
+      <ul class="shortcut-list">
+        <li><kbd>Ctrl</kbd>/<kbd>⌘</kbd> <kbd>K</kbd><span>Open the command palette</span></li>
+        <li><kbd>/</kbd><span>Jump to search (or the chat box on the Chat tab)</span></li>
+        <li><kbd>?</kbd><span>Show this shortcuts list</span></li>
+        <li><kbd>Esc</kbd><span>Close any dialog, menu, or overlay</span></li>
+        <li><kbd>←</kbd> <kbd>→</kbd><span>Move between tabs (when a tab is focused)</span></li>
+        <li><kbd>Enter</kbd><span>Send a chat message, or run the selected command</span></li>
+        <li><kbd>Tab</kbd><span>Move focus; cycles inside an open dialog</span></li>
+      </ul>
+      <p class="muted">Tip: most actions also live in the command palette (<kbd>Ctrl</kbd>/<kbd>⌘</kbd> <kbd>K</kbd>).</p>
     </div>
   </div>
 

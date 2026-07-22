@@ -37,14 +37,27 @@ pytest              # the full test suite
 ruff check .        # lint
 ```
 
+Or use the Makefile shortcut, which runs both:
+
+```bash
+make check          # lint + tests — the pre-push gate
+```
+
 Optional, to keep formatting tidy:
 
 ```bash
-ruff format .       # auto-format
+ruff format .       # auto-format (make format)
+```
+
+Prefer to catch problems automatically? Install the pre-commit hooks once and
+the lint + hygiene checks run on every commit:
+
+```bash
+pip install pre-commit && pre-commit install
 ```
 
 CI runs `ruff check` and `pytest` on Python 3.11, 3.12, and 3.13. Keep both
-green.
+green. Run `make help` to see all the available tasks.
 
 ## Writing code that fits in
 

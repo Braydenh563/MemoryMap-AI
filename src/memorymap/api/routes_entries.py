@@ -197,6 +197,90 @@ def add_context(
     return _to_out(session, entry, filed_by=filed_by)
 
 
+def _linked_entry_ids(session: Session, entry) -> set[int]:  # noqa: ANN001
+    """Ids this note is already connected to — explicit links plus its
+    thread parent/children — so re-evaluate never re-suggests them."""
+    linked = {other.id for _link, other in manager.links_for_entry(session, entry)}
+    if entry.parent_id is not None:
+        linked.add(entry.parent_id)
+    for child in manager.list_entries(session):
+        if child.parent_id == entry.id:
+            linked.add(child.id)
+    return linked
+
+
+@router.post("/{entry_id}/reevaluate")
+def reevaluate_entry(entry_id: int, session: Session = Depends(get_session)) -> dict:
+    """Re-run the AI on one note (Wave: re-evaluate). Refreshes its
+    confidence — and its category, unless the user filed it themselves —
+    and suggests tags and links for the user to apply. Tags and links are
+    suggestion-only: nothing is tagged or linked without the user's click."""
+    entry = _existing_entry(session, entry_id)
+
+    # 1. Re-file: refresh confidence, and the category if the AI owns it.
+    filed_by = None
+    recategorised_to = None
+    try:
+        category, confidence, filed_by = janitor.categorise(
+            session,
+            entry.content,
+            deps.get_embeddings(),
+            deps.get_model_manager(),
+            deps.get_ollama(),
+            exclude_entry_id=entry.id,  # don't let the note anchor to itself
+        )
+        if filed_by != "none":
+            entry.ai_confidence = confidence
+            if not entry.user_filed:
+                category_row = manager.get_or_create_category(session, category)
+                if category_row.id != entry.category_id:
+                    recategorised_to = category
+                    manager.log_action(
+                        session, "edited", "entry", entry.id, f"re-evaluated -> {category}"
+                    )
+                entry.category_id = category_row.id
+            session.commit()
+    except Exception:
+        filed_by = None  # AI down — keep the note exactly as it was
+
+    # 2. Suggest tags (best effort — never blocks the re-evaluation).
+    suggested_tags: list[str] = []
+    try:
+        suggested_tags = librarian.suggest_tags(
+            entry.content,
+            manager.entry_tags(entry),
+            deps.get_model_manager(),
+            deps.get_ollama(),
+        )
+    except Exception:
+        suggested_tags = []
+
+    # 3. Suggest links: semantic neighbours that aren't connected yet.
+    suggested_links: list[dict] = []
+    try:
+        already = _linked_entry_ids(session, entry)
+        results = search_manager.semantic_search(
+            session, entry.content, deps.get_embeddings(), limit=6
+        )
+        for other, score in results or []:
+            if other.id == entry.id or other.id in already or score < 0.4:
+                continue
+            suggested_links.append(
+                {"id": other.id, "preview": _preview(other.content), "similarity": round(score, 2)}
+            )
+            if len(suggested_links) >= 4:
+                break
+    except Exception:
+        suggested_links = []
+
+    return {
+        "entry": _to_out(session, entry, filed_by=filed_by).model_dump(),
+        "recategorised_to": recategorised_to,
+        "suggested_tags": suggested_tags,
+        "suggested_links": suggested_links,
+    }
+
+
 class ImproveBody(BaseModel):
     text: str
     mode: str = "proofread"  # proofread | rewrite | concise

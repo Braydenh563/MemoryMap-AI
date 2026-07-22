@@ -131,3 +131,39 @@ def test_agent_prompt_includes_current_time_and_reminder_hint():
     system = messages[0]["content"]
     assert "current date and time is" in system
     assert "set_reminder" in system
+
+
+# --- Wave O: agent-tool toggles -----------------------------------------------------
+
+
+def test_tool_catalog_lists_tools(client):
+    catalog = client.get("/chat/tools").json()
+    names = {t["name"] for t in catalog}
+    assert {"create_note", "delete_note", "set_reminder"} <= names
+    delete = next(t for t in catalog if t["name"] == "delete_note")
+    assert delete["destructive"] is True
+
+
+def test_disabled_tool_is_hidden_and_refused(ai_client):
+    from memorymap.ai import tools
+
+    # Disable create_note via the preference.
+    ai_client.put("/preferences", json={"disabled_tools": ["create_note"]})
+    offered = [t["function"]["name"] for t in tools.ollama_tools()]
+    assert "create_note" not in offered
+
+    # And the execute endpoint refuses it too.
+    from memorymap.core import deps
+
+    session = deps.get_db().session()
+    try:
+        result = tools.execute_tool(session, "create_note", {"content": "x"})
+        assert "error" in result and "turned off" in result["error"]
+    finally:
+        session.close()
+
+
+def test_disabled_tools_preference_roundtrips(client):
+    body = client.put("/preferences", json={"disabled_tools": ["delete_tag"]}).json()
+    assert body["disabled_tools"] == ["delete_tag"]
+    assert client.get("/preferences").json()["disabled_tools"] == ["delete_tag"]

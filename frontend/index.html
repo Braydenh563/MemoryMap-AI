@@ -25,6 +25,7 @@
 
   <!-- One compact, sticky top bar: brand · tabs · controls (Wave L). -->
   <header id="top-bar">
+    <span id="brand-logo" title="A one-of-a-kind emblem, generated fresh each visit" aria-hidden="true"></span>
     <h1 title="Your offline, self-filing notebook">MemoryMap&nbsp;AI</h1>
     <nav id="tab-bar" role="tablist" aria-label="App sections">
       <button role="tab" id="tab-btn-dashboard" data-tab="dashboard"
@@ -343,6 +344,7 @@
           <button data-section="models" class="active">Models</button>
           <button data-section="personas">Personas</button>
           <button data-section="skills">Skills</button>
+          <button data-section="tools">AI Tools</button>
           <button data-section="appearance">Appearance</button>
           <button data-section="preferences">Preferences</button>
           <button data-section="tasks">Tasks</button>
@@ -456,6 +458,16 @@
               <button id="skill-import" class="ghost small">Import JSON</button>
               <input id="skill-import-file" type="file" accept=".json" class="hidden">
             </div>
+          </section>
+
+          <!-- AI Tools (Wave O): toggle what the chat AI is allowed to do -->
+          <section class="settings-section hidden" id="settings-tools">
+            <p class="muted">
+              When “AI can make changes” is on in the Chat tab, these are the
+              actions it may take. Turn any of them off and the AI won't be
+              offered it. Destructive actions always ask you to confirm first.
+            </p>
+            <ul id="tool-list" class="entry-list"></ul>
           </section>
 
           <!-- Appearance (Wave J): accent themes + background art -->

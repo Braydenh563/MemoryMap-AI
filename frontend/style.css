@@ -1032,20 +1032,21 @@ kbd {
 :root[data-contrast="on"] .muted { opacity: 0.9; }
 
 /* --- Wave L: skip link, action menus, contrast + type polish -------------------- */
+/* Off-screen until focused. left:-9999px is more reliable than a
+   negative top (some layouts let a negative top peek through) — Wave O. */
 .skip-link {
-  position: absolute;
-  left: 0.75rem;
-  top: -3rem;
+  position: fixed;
+  left: -9999px;
+  top: 0.5rem;
   z-index: 100;
   padding: 0.5rem 1rem;
-  border-radius: 0 0 10px 10px;
+  border-radius: 10px;
   background: var(--accent);
   color: #fff;
   font-weight: 600;
   text-decoration: none;
-  transition: top 0.15s ease;
 }
-.skip-link:focus { top: 0; }
+.skip-link:focus { left: 0.5rem; }
 
 /* Slightly darker muted text — the old values sat under the 4.5:1
    contrast guideline on the glass backgrounds. */
@@ -1223,3 +1224,22 @@ html { font-size: 16px; }
 }
 .link-suggestion span:first-child { flex: 1; min-width: 12rem; }
 #link-suggestions { margin: 0.5rem 0; }
+
+/* --- Wave O: brand logo + a more present background ------------------------------ */
+#brand-logo {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+#brand-logo canvas { width: 34px !important; height: 34px !important; }
+
+/* The ambient background reads on every tab; nudge it a touch more
+   visible than the old faint blobs (still well behind text). */
+.bg-art-canvas { opacity: 0.9; }
+
+/* --- Wave O: AI Tools toggles --------------------------------------------------- */
+#tool-list li { padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+.tool-row { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: 500; }
+.tool-row input { width: 1.15rem; height: 1.15rem; margin: 0; accent-color: var(--accent); }
+.tool-desc { display: block; margin: 0.2rem 0 0 1.65rem; font-size: 0.82rem; }

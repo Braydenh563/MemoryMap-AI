@@ -64,6 +64,8 @@ class PreferencesBody(BaseModel):
     tools_enabled: bool | None = None
     # Wave F: the ONE feature that goes online — off unless the user opts in.
     web_search_enabled: bool | None = None
+    # Wave O: agent tools the user has switched off (by tool name).
+    disabled_tools: list[str] | None = Field(default=None, max_length=50)
 
 
 class DashboardLayout(BaseModel):
@@ -88,6 +90,7 @@ def get_preferences() -> dict:
         "skills": config.get_preference("skills", []),
         "tools_enabled": config.get_preference("tools_enabled", True),
         "web_search_enabled": config.get_preference("web_search_enabled", False),
+        "disabled_tools": config.get_preference("disabled_tools", []),
     }
 
 

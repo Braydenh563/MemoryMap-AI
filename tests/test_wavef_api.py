@@ -167,5 +167,7 @@ def test_websearch_tool_hidden_until_opted_in(client):
 
 
 def test_websearch_tool_refuses_when_disabled(client, session):
+    # web_search is gated off until the online opt-in (Wave O routes this
+    # through the shared tool_enabled check → "turned off" message).
     result = tools.execute_tool(session, "web_search", {"query": "x"})
-    assert "error" in result and "disabled" in result["error"]
+    assert "error" in result and "turned off" in result["error"]

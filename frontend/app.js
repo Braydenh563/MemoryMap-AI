@@ -63,12 +63,17 @@ function authToken() {
 }
 
 async function api(path, options = {}) {
+  // `silent`: a background poll (model status, reminders) — a 401 must not
+  // yank the user to the lock screen mid-session (Wave O fix for a
+  // long-standing intermittent re-lock). Only an explicit user action
+  // shows the lock screen on 401.
+  const { silent, ...fetchOptions } = options;
   const response = await fetch(path, {
     headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() },
-    ...options,
+    ...fetchOptions,
   });
   if (response.status === 401) {
-    showLockScreen(false); // token expired (e.g. app restarted) — re-lock
+    if (!silent) showLockScreen(false); // token expired (e.g. app restarted)
     throw new Error("Locked");
   }
   if (!response.ok) {
@@ -1939,6 +1944,54 @@ async function addSkill() {
   status.textContent = `Saved “${name}”.`;
 }
 
+// --- Wave O: agent-tools toggles ----------------------------------------------------
+
+async function renderToolSettings() {
+  const list = $("tool-list");
+  const [catalog, prefs] = await Promise.all([
+    apiJson("/chat/tools").catch(() => []),
+    apiJson("/preferences").catch(() => ({ disabled_tools: [] })),
+  ]);
+  prefsCache = prefs;
+  const disabled = new Set(prefs.disabled_tools || []);
+  list.replaceChildren();
+  for (const tool of catalog) {
+    const li = document.createElement("li");
+    const label = document.createElement("label");
+    label.className = "tool-row";
+    const check = document.createElement("input");
+    check.type = "checkbox";
+    check.checked = !disabled.has(tool.name);
+    // web_search is gated by the separate online opt-in — show why it's off.
+    if (tool.online && !tool.enabled && !disabled.has(tool.name)) {
+      check.checked = false;
+      check.disabled = true;
+      check.title = "Enable web search in Preferences first";
+    }
+    check.addEventListener("change", async () => {
+      const next = new Set(prefsCache.disabled_tools || []);
+      if (check.checked) next.delete(tool.name);
+      else next.add(tool.name);
+      prefsCache = await apiJson("/preferences", {
+        method: "PUT",
+        body: JSON.stringify({ disabled_tools: [...next] }),
+      });
+    });
+    const text = document.createElement("span");
+    const name = document.createElement("strong");
+    name.textContent = tool.name.replace(/_/g, " ");
+    text.append(name);
+    if (tool.destructive) text.append(" ", chip("confirms first", "review"));
+    if (tool.online) text.append(" ", chip("online", "tag"));
+    const desc = document.createElement("span");
+    desc.className = "muted tool-desc";
+    desc.textContent = tool.description;
+    label.append(check, text);
+    li.append(label, desc);
+    list.appendChild(li);
+  }
+}
+
 // --- Wave M: share skills/personas as JSON ------------------------------------------
 
 function downloadJson(filename, payload) {
@@ -2748,7 +2801,8 @@ async function addReminder(text, dueValue, entryId = null) {
 // is open (checked every 30s).
 async function checkDueReminders() {
   if (!authToken()) return;
-  const reminders = await apiJson("/reminders").catch(() => []);
+  // silent: a background reminder poll must not pop the lock screen (Wave O).
+  const reminders = await apiJson("/reminders", { silent: true }).catch(() => []);
   const now = new Date();
   for (const reminder of reminders) {
     if (reminder.done || notifiedReminderIds.has(reminder.id)) continue;
@@ -2927,7 +2981,11 @@ async function renderGraph() {
   if (graphSimulation) graphSimulation.stop();
   const svg = d3.select("#graph-svg");
   svg.selectAll("*").remove();
-  $("graph-empty").classList.toggle("hidden", data.nodes.length > 0);
+  // Inline display beats every stylesheet rule — the overlay can never
+  // float over a populated graph again (user-reported, Wave O).
+  const empty = $("graph-empty");
+  empty.style.display = data.nodes.length > 0 ? "none" : "grid";
+  empty.classList.toggle("hidden", data.nodes.length > 0);
 
   // Colour legend: one dot per category, same scale as the nodes.
   const color = d3.scaleOrdinal(
@@ -3165,7 +3223,7 @@ function showPanel(id) {
 
 // --- settings modal (Wave A) ------------------------------------------------------
 
-const SETTINGS_SECTIONS = ["models", "personas", "skills", "appearance", "preferences", "tasks", "data", "logs", "about"];
+const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "appearance", "preferences", "tasks", "data", "logs", "about"];
 
 // Where to send focus back when a dialog closes (Wave L).
 let overlayReturnFocus = null;
@@ -3185,6 +3243,7 @@ function showSettingsSection(name) {
   if (name === "preferences") renderPrefs().catch(() => {});
   if (name === "personas") renderPersonas().catch(() => {});
   if (name === "skills") renderSkillSettings();
+  if (name === "tools") renderToolSettings();
   if (name === "appearance") renderAppearance();
   if (name === "data") renderBackups();
   if (name === "tasks") refreshModelStatus(); // populate the tasks list now
@@ -3874,7 +3933,8 @@ function jobsRunning() {
 // download/re-index is running or the settings panel is open.
 async function refreshModelStatus() {
   try {
-    modelStatus = await apiJson("/models/status");
+    // silent: a poll must never trigger the lock screen (Wave O fix).
+    modelStatus = await apiJson("/models/status", { silent: true });
   } catch {
     modelStatus = null; // locked or unreachable — pill shows the worst case
   }
@@ -3999,40 +4059,51 @@ function renderTasks(status) {
   }
 }
 
-// Model pickers (bug fix, Wave N): the status poll used to rebuild these
-// selects every couple of seconds and re-select the SAVED model — wiping
-// out a choice the user had made but not yet applied. Now a select the
-// user has touched is left alone until they hit Apply, and the option
-// list only rebuilds when the installed models actually changed.
-function fillModelSelect(select, installed, savedName) {
-  const names = installed.map((m) => m.name);
-  const current = [...select.options].map((o) => o.value);
-  const listChanged = names.join("|") !== current.join("|");
-  if (!listChanged && select.dataset.userChosen === "1") return;
-  if (listChanged) {
-    const keep = select.dataset.userChosen === "1" ? select.value : null;
-    select.replaceChildren();
-    for (const name of names) {
-      const option = document.createElement("option");
-      option.value = name;
-      option.textContent = name;
-      select.appendChild(option);
-    }
-    if (keep && names.includes(keep)) {
-      select.value = keep;
-      return;
-    }
+// Model pickers (rewritten, Wave O). The old version let the status poll
+// (every ~3s while Settings is open) reset the dropdown to the SAVED
+// model, so a selection would "switch back after a few seconds".
+//
+// New rule, dead simple: the option list is (re)built ONLY when the SET
+// of installed model names actually changes (order-independent — Ollama
+// doesn't return a stable order). The selected value is set once, when
+// the list is first built; after that a poll never touches `.value`, so
+// your choice stays put until you Apply (which re-syncs to the new saved
+// value). No timing-sensitive "userChosen" flag to get wrong.
+function _namesSignature(names) {
+  return [...names].sort().join("|");
+}
+
+function fillModelSelect(select, names, extraFirst, savedValue) {
+  const wanted = extraFirst ? [extraFirst.value, ...names] : names;
+  const signature = _namesSignature(wanted);
+  if (select.dataset.sig === signature) return; // same options → leave it alone
+  select.dataset.sig = signature;
+  const previous = select.value; // preserve a live selection across a rebuild
+  select.replaceChildren();
+  if (extraFirst) {
+    const option = document.createElement("option");
+    option.value = extraFirst.value;
+    option.textContent = extraFirst.label;
+    select.appendChild(option);
   }
-  // No pending user choice — reflect the saved preference.
+  for (const name of names) {
+    const option = document.createElement("option");
+    option.value = name;
+    option.textContent = name;
+    select.appendChild(option);
+  }
+  // Prefer the value already showing; else the saved preference.
+  const values = [...select.options].map((o) => o.value);
   const match =
-    names.find((n) => n === savedName) ||
-    names.find((n) => n.split(":")[0] === savedName);
-  if (match) select.value = match;
+    (previous && values.includes(previous) && previous) ||
+    values.find((v) => v === savedValue) ||
+    values.find((v) => v.split(":")[0] === savedValue);
+  if (match !== undefined) select.value = match;
 }
 
 function renderChatModelPicker(status) {
-  const select = $("chat-model-select");
-  fillModelSelect(select, status.installed_models, status.chat_model);
+  const names = status.installed_models.map((m) => m.name);
+  fillModelSelect($("chat-model-select"), names, null, status.chat_model);
   $("chat-model-note").textContent =
     status.chat_model_installed === false
       ? `Active model “${status.chat_model}” is not installed any more — pick another or download it below.`
@@ -4040,38 +4111,29 @@ function renderChatModelPicker(status) {
 }
 
 function renderUtilityModelPicker(status) {
-  const select = $("utility-model-select");
-  if (select.dataset.userChosen === "1") return; // don't fight a pending choice
   const names = status.installed_models.map((m) => m.name);
-  const current = [...select.options].map((o) => o.value);
-  // "" first option = same as chat model.
-  const wanted = ["", ...names];
-  if (wanted.join("|") !== current.join("|")) {
-    select.replaceChildren();
-    const same = document.createElement("option");
-    same.value = "";
-    same.textContent = "Same as chat model";
-    select.appendChild(same);
-    for (const name of names) {
-      const option = document.createElement("option");
-      option.value = name;
-      option.textContent = name;
-      select.appendChild(option);
-    }
-  }
-  select.value = status.utility_model || "";
+  fillModelSelect(
+    $("utility-model-select"),
+    names,
+    { value: "", label: "Same as chat model" },
+    status.utility_model || ""
+  );
 }
 
 function renderEmbeddingPicker(status) {
-  for (const radio of document.querySelectorAll('input[name="emb-backend"]')) {
-    // Same protection for the backend radios: don't fight the user.
-    if ($("embedding-model-select").dataset.userChosen !== "1") {
+  // The backend radios only reflect the saved value when the user isn't
+  // mid-change (they have no rebuild, so a simple focus check is enough).
+  const touching = document.activeElement?.name === "emb-backend";
+  if (!touching) {
+    for (const radio of document.querySelectorAll('input[name="emb-backend"]')) {
       radio.checked = radio.value === status.embedding_backend;
     }
   }
+  const names = status.installed_models.map((m) => m.name);
   fillModelSelect(
     $("embedding-model-select"),
-    status.installed_models,
+    names,
+    null,
     status.embedding_model
   );
 }
@@ -4341,6 +4403,7 @@ function applyAccent(name) {
   else document.documentElement.dataset.accent = name;
   localStorage.setItem("accent", name);
   if (bgArtOn()) startBgArt(); // repaint the background in the new accent
+  renderBrandLogo(); // recolour the emblem too
 }
 
 function contrastOn() {
@@ -4396,42 +4459,93 @@ function startBgArt() {
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const accentHex =
     (ACCENTS.find((a) => a.name === activeAccent()) || ACCENTS[0]).swatch;
+  const dark =
+    document.documentElement.dataset.theme === "dark" ||
+    (!document.documentElement.dataset.theme &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches);
 
+  // A flowing "aurora": particles drift along a Perlin flow field and
+  // leave faint trails, over a giant slow-turning constellation emblem —
+  // the same node-and-link motif as the logo, blown up (Wave O rework).
   const sketch = (p) => {
-    let blobs = [];
+    let particles = [];
+    let baseHue = 230;
+    let emblem = [];
+
+    const drawEmblem = (t) => {
+      // A large, very faint ring of linked nodes, slowly rotating.
+      const cx = p.width / 2;
+      const cy = p.height / 2;
+      const radius = Math.min(p.width, p.height) * 0.32;
+      p.push();
+      p.translate(cx, cy);
+      p.rotate(t * 0.02);
+      p.stroke(baseHue, 50, dark ? 70 : 45, 0.05);
+      p.strokeWeight(1.5);
+      for (let i = 0; i < emblem.length; i++) {
+        for (let j = i + 1; j < emblem.length; j++) {
+          if ((i + j) % 3 === 0) {
+            p.line(
+              Math.cos(emblem[i]) * radius,
+              Math.sin(emblem[i]) * radius,
+              Math.cos(emblem[j]) * radius,
+              Math.sin(emblem[j]) * radius
+            );
+          }
+        }
+      }
+      p.noStroke();
+      for (const a of emblem) {
+        p.fill(baseHue, 55, dark ? 72 : 42, 0.07);
+        p.circle(Math.cos(a) * radius, Math.sin(a) * radius, 16);
+      }
+      p.pop();
+    };
+
     const draw = () => {
-      p.clear();
-      for (const blob of blobs) {
-        blob.x += blob.vx;
-        blob.y += blob.vy;
-        if (blob.x < -blob.r) blob.x = p.width + blob.r;
-        if (blob.x > p.width + blob.r) blob.x = -blob.r;
-        if (blob.y < -blob.r) blob.y = p.height + blob.r;
-        if (blob.y > p.height + blob.r) blob.y = -blob.r;
-        p.fill(blob.hue, 60, 60, 0.06);
-        p.circle(blob.x, blob.y, blob.r * 2);
+      const t = p.frameCount * 0.01;
+      // Translucent wash instead of clear → the particles leave trails.
+      p.noStroke();
+      p.fill(dark ? 12 : 250, dark ? 0.14 : 0.16);
+      p.rect(0, 0, p.width, p.height);
+      drawEmblem(t);
+      for (const dot of particles) {
+        const angle =
+          p.noise(dot.x * 0.0016, dot.y * 0.0016, t * 0.15) * Math.PI * 4;
+        dot.x += Math.cos(angle) * dot.speed;
+        dot.y += Math.sin(angle) * dot.speed;
+        if (dot.x < 0) dot.x = p.width;
+        if (dot.x > p.width) dot.x = 0;
+        if (dot.y < 0) dot.y = p.height;
+        if (dot.y > p.height) dot.y = 0;
+        p.fill(dot.hue, 65, dark ? 68 : 55, 0.5);
+        p.circle(dot.x, dot.y, dot.size);
       }
     };
+
     p.setup = () => {
       const c = p.createCanvas(window.innerWidth, window.innerHeight);
       c.id("bg-art-canvas");
+      // RGB for the wash rect, HSL for the coloured marks — p5 lets us
+      // switch, but simplest to keep one mode; use HSL and a grey wash.
       p.colorMode(p.HSL, 360, 100, 100, 1);
       p.noStroke();
-      const baseHue = p.hue(p.color(accentHex));
-      // A handful of big, soft, slow-drifting blobs — cheap and calm.
-      for (let i = 0; i < 6; i++) {
-        blobs.push({
+      baseHue = p.hue(p.color(accentHex));
+      for (let i = 0; i < 70; i++) {
+        particles.push({
           x: p.random(p.width),
           y: p.random(p.height),
-          r: p.random(120, 260),
-          vx: p.random(-0.25, 0.25),
-          vy: p.random(-0.25, 0.25),
-          hue: (baseHue + p.random(-30, 30) + 360) % 360,
+          speed: p.random(0.3, 1.1),
+          size: p.random(1.5, 3.5),
+          hue: (baseHue + p.random(-24, 24) + 360) % 360,
         });
       }
-      p.frameRate(30); // a background never needs 60fps
+      emblem = Array.from({ length: 9 }, (_, i) => (i / 9) * Math.PI * 2);
+      p.frameRate(30);
       if (reduceMotion) {
-        draw();
+        // One calm static frame — no motion for reduced-motion users.
+        p.background(dark ? 12 : 250);
+        drawEmblem(0);
         p.noLoop();
       }
     };
@@ -4439,9 +4553,72 @@ function startBgArt() {
     p.windowResized = () => p.resizeCanvas(window.innerWidth, window.innerHeight);
   };
   bgArtInstance = new p5(sketch);
-  // p5 appends the canvas to <body>; style it as a fixed backdrop.
   const canvas = document.getElementById("bg-art-canvas");
   if (canvas) canvas.className = "bg-art-canvas";
+}
+
+// --- Wave O: the p5 brand logo (unique each load) -----------------------------------
+
+let brandLogoInstance = null;
+
+// A tiny generative emblem next to the title: a ring of linked nodes (the
+// MemoryMap motif), coloured in the accent, seeded randomly each visit so
+// it's one-of-a-kind, with a slow rotation.
+function renderBrandLogo() {
+  if (typeof p5 === "undefined") return;
+  const holder = $("brand-logo");
+  if (!holder) return;
+  if (brandLogoInstance) {
+    brandLogoInstance.remove();
+    brandLogoInstance = null;
+  }
+  const accentHex =
+    (ACCENTS.find((a) => a.name === activeAccent()) || ACCENTS[0]).swatch;
+  const seed = Math.floor(Math.random() * 1e6);
+  const SIZE = 34;
+
+  const sketch = (p) => {
+    let nodes = [];
+    let baseHue = 230;
+    p.setup = () => {
+      p.createCanvas(SIZE, SIZE);
+      p.colorMode(p.HSL, 360, 100, 100, 1);
+      p.randomSeed(seed);
+      baseHue = p.hue(p.color(accentHex));
+      const count = 4 + Math.floor(p.random(3)); // 4-6 nodes
+      nodes = Array.from({ length: count }, (_, i) => ({
+        angle: (i / count) * p.TWO_PI + p.random(-0.3, 0.3),
+        hue: (baseHue + p.random(-40, 40) + 360) % 360,
+      }));
+      p.frameRate(24);
+    };
+    p.draw = () => {
+      p.clear();
+      p.translate(SIZE / 2, SIZE / 2);
+      p.rotate(p.frameCount * 0.006);
+      const r = SIZE * 0.32;
+      p.stroke(baseHue, 60, 60, 0.6);
+      p.strokeWeight(1);
+      for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+          p.line(
+            Math.cos(nodes[i].angle) * r,
+            Math.sin(nodes[i].angle) * r,
+            Math.cos(nodes[j].angle) * r,
+            Math.sin(nodes[j].angle) * r
+          );
+        }
+      }
+      p.noStroke();
+      for (const n of nodes) {
+        p.fill(n.hue, 75, 60, 1);
+        p.circle(Math.cos(n.angle) * r, Math.sin(n.angle) * r, 6);
+      }
+      p.fill(baseHue, 70, 62, 1);
+      p.circle(0, 0, 5); // a bright hub
+    };
+  };
+  brandLogoInstance = new p5(sketch, holder);
 }
 
 function toggleBgArt(on) {
@@ -4805,8 +4982,24 @@ $("mic-chat").addEventListener("click", () =>
 $("speak-btn").addEventListener("click", () => speakText($("ai-answer").textContent));
 
 // PWA: the shell caches itself so the app opens instantly (Wave F).
+// When a new service worker takes over (after an update), reload once so
+// the page never runs new HTML against stale cached CSS/JS (Wave O fix).
 if ("serviceWorker" in navigator) {
+  // Only reload when an EXISTING worker is replaced (a real update) — not
+  // on the first install, whose clients.claim() also fires controllerchange
+  // and would reload the page mid-setup (Wave O fix).
+  const hadController = Boolean(navigator.serviceWorker.controller);
   navigator.serviceWorker.register("/sw.js").catch(() => {});
+  let swReloaded = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!hadController || swReloaded) return;
+    swReloaded = true;
+    location.reload();
+  });
 }
+
+// The generative brand emblem, unique each visit (Wave O). p5 is loaded
+// by now; draw once the page is ready.
+renderBrandLogo();
 
 initAuth();

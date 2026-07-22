@@ -545,11 +545,19 @@ TOOLS: dict[str, ToolSpec] = {
 }
 
 
+def tool_enabled(name: str) -> bool:
+    """A tool is offered unless the user turned it off in Settings → Tools
+    (Wave O). web_search additionally requires the online opt-in."""
+    config = deps.get_config()
+    if name == "web_search" and not config.get_preference("web_search_enabled", False):
+        return False
+    return name not in set(config.get_preference("disabled_tools", []))
+
+
 def ollama_tools() -> list[dict]:
-    """The registry in the shape Ollama's /api/chat 'tools' field wants.
-    web_search is only offered when the user has opted in — a model
-    can't be tempted by a tool it never hears about."""
-    online_allowed = deps.get_config().get_preference("web_search_enabled", False)
+    """The registry in the shape Ollama's /api/chat 'tools' field wants,
+    minus any the user disabled — a model can't be tempted by a tool it
+    never hears about."""
     return [
         {
             "type": "function",
@@ -560,7 +568,21 @@ def ollama_tools() -> list[dict]:
             },
         }
         for spec in TOOLS.values()
-        if spec.name != "web_search" or online_allowed
+        if tool_enabled(spec.name)
+    ]
+
+
+def tool_catalog() -> list[dict]:
+    """Metadata for the Settings → Tools toggles (Wave O)."""
+    return [
+        {
+            "name": spec.name,
+            "description": spec.description,
+            "destructive": spec.destructive,
+            "enabled": tool_enabled(spec.name),
+            "online": spec.name == "web_search",
+        }
+        for spec in TOOLS.values()
     ]
 
 
@@ -579,6 +601,8 @@ def execute_tool(session: Session, name: str, arguments: dict) -> dict:
     spec = TOOLS.get(name)
     if spec is None:
         return {"error": f"Unknown tool '{name}'"}
+    if not tool_enabled(name):
+        return {"error": f"The '{name}' tool is turned off in Settings → Tools"}
     try:
         result = spec.handler(session, dict(arguments or {}))
     except (KeyError, TypeError, ValueError) as exc:

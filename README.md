@@ -123,6 +123,13 @@ If Ollama isn't running, everything still works — new entries are filed as
 `Uncategorised`, search falls back to keywords, and the header pill tells you
 what the AI is doing (ready / warming up / rebuilding index / off).
 
+#### Install Faster-Whisper for Speech-To-Text
+```
+cd [MemoryMap-AI Directory]
+.venv\Scripts\activate
+pip install faster-whisper
+```
+
 ## Troubleshooting
 
 ### "Search engine problem … torch_xpu.dll … WinError 127" (Windows)

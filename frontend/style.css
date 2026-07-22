@@ -645,6 +645,60 @@ li.link-source { outline: 2px solid var(--accent); }
 .msg.assistant details { font-size: 0.85rem; margin: 0.3rem 0; }
 .msg.assistant details summary { cursor: pointer; color: var(--muted); }
 .msg.assistant .entry-list { margin-top: 0.4rem; }
+
+/* Role label above each bubble — makes the thread readable at a glance. */
+.msg-role {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.25rem;
+}
+.msg.user .msg-role { color: rgba(255, 255, 255, 0.85); text-align: right; }
+.msg-body { white-space: pre-wrap; }
+
+/* Hover-reveal per-message actions (copy / edit / regenerate / read-aloud). */
+.msg-actions {
+  display: flex;
+  gap: 0.25rem;
+  margin-top: 0.45rem;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.msg:hover .msg-actions,
+.msg:focus-within .msg-actions { opacity: 1; }
+.msg.user .msg-actions { justify-content: flex-end; }
+.msg-action {
+  border: 1px solid var(--glass-border);
+  background: var(--card);
+  color: var(--ink);
+  border-radius: 7px;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.msg.user .msg-action {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+.msg-action:hover { background: var(--accent-soft); }
+.msg.user .msg-action:hover { background: rgba(255, 255, 255, 0.32); }
+/* Touch devices can't hover — keep the actions visible there. */
+@media (hover: none) { .msg-actions { opacity: 1; } }
+
+/* Welcome shown in an empty chat so the page isn't a blank rectangle. */
+.chat-empty {
+  margin: auto;
+  text-align: center;
+  max-width: 34ch;
+  padding: 1.75rem 1rem;
+}
+.chat-empty .empty-title { margin: 0.4rem 0 0.3rem; }
+.chat-empty-icon { font-size: 2.2rem; }
 #conversation-list { list-style: none; margin: 0; padding: 0; }
 #conversation-list li {
   display: flex;

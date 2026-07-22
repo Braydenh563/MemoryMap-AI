@@ -1325,6 +1325,79 @@ async function loadSuggestions() {
 
 let chatConv = { id: null, turns: [] }; // the open conversation
 let chatController = null;
+let lastChatQuestion = ""; // powers Regenerate / Edit & resend
+
+// The persona name to label assistant bubbles with (falls back to "Assistant").
+function assistantLabel() {
+  const select = $("persona-select");
+  return (select && select.value) || "Assistant";
+}
+
+// A hover-reveal row of small actions under a chat bubble. Each action is
+// { label, title, onClick }. onClick gets the click event so buttons can
+// give inline feedback (e.g. a copy tick).
+function chatMessageActions(actions) {
+  const row = document.createElement("div");
+  row.className = "msg-actions";
+  for (const action of actions) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "msg-action";
+    button.textContent = action.label;
+    button.title = action.title;
+    button.setAttribute("aria-label", action.title);
+    button.addEventListener("click", action.onClick);
+    row.appendChild(button);
+  }
+  return row;
+}
+
+async function copyToClipboard(text, button) {
+  try {
+    await navigator.clipboard.writeText(text);
+    if (button) {
+      const original = button.textContent;
+      button.textContent = "✓";
+      setTimeout(() => (button.textContent = original), 1200);
+    }
+  } catch {
+    toast("Couldn't copy to the clipboard.", true);
+  }
+}
+
+// Put a question back in the input so it can be tweaked and re-sent.
+function editAndResend(text) {
+  const input = $("chat-input");
+  input.value = text;
+  input.focus();
+  input.setSelectionRange(text.length, text.length);
+}
+
+// Re-run the most recent question, appending a fresh answer (no duplicate
+// "you" bubble) so you can get another take after switching model/persona.
+function regenerateLastAnswer() {
+  if (!lastChatQuestion || chatController) return;
+  sendChatMessage(lastChatQuestion, { skipUserBubble: true });
+}
+
+// The welcome shown in an empty chat so the page isn't a blank box.
+function renderChatEmptyState() {
+  const box = $("chat-messages");
+  if (box.querySelector(".msg") || box.querySelector(".chat-empty")) return;
+  const empty = document.createElement("div");
+  empty.className = "chat-empty";
+  empty.innerHTML =
+    '<span class="chat-empty-icon" aria-hidden="true">💬</span>' +
+    '<p class="empty-title">Chat with your notebook</p>' +
+    '<p class="muted">Ask a question and the AI answers from your saved notes. ' +
+    "Turn on “AI can make changes” and it can create, tag, link, and organise " +
+    "notes for you too.</p>";
+  box.appendChild(empty);
+}
+
+function clearChatEmptyState() {
+  $("chat-messages").querySelector(".chat-empty")?.remove();
+}
 
 function personaOptions() {
   // Built-ins + the user's custom personas (deduped — an edited built-in
@@ -1359,9 +1432,26 @@ function chatScrollToEnd() {
 }
 
 function addBubble(role, text) {
+  clearChatEmptyState();
   const bubble = document.createElement("div");
   bubble.className = `msg ${role}`;
-  bubble.textContent = text;
+
+  const label = document.createElement("div");
+  label.className = "msg-role";
+  label.textContent = role === "user" ? "You" : assistantLabel();
+  const body = document.createElement("div");
+  body.className = "msg-body";
+  body.textContent = text;
+  bubble.append(label, body);
+
+  if (role === "user") {
+    bubble.appendChild(
+      chatMessageActions([
+        { label: "⧉", title: "Copy", onClick: (e) => copyToClipboard(text, e.currentTarget) },
+        { label: "✎", title: "Edit & resend", onClick: () => editAndResend(text) },
+      ])
+    );
+  }
   $("chat-messages").appendChild(bubble);
   chatScrollToEnd();
   return bubble;
@@ -1369,8 +1459,14 @@ function addBubble(role, text) {
 
 // An assistant bubble with its thinking box and matching-records slot.
 function addAssistantBubble() {
+  clearChatEmptyState();
   const bubble = document.createElement("div");
   bubble.className = "msg assistant";
+
+  const label = document.createElement("div");
+  label.className = "msg-role";
+  label.textContent = assistantLabel();
+  bubble.appendChild(label);
 
   const thinkingBox = document.createElement("details");
   thinkingBox.className = "hidden";
@@ -1466,11 +1562,12 @@ function renderRecordsDetails(holder, meta) {
   holder.appendChild(details);
 }
 
-async function sendChatMessage(preset) {
+async function sendChatMessage(preset, opts = {}) {
   const input = $("chat-input");
   const status = $("chat-status");
   const question = (preset ?? input.value).trim();
   if (!question) return;
+  lastChatQuestion = question;
 
   $("chat-suggest").classList.add("hidden");
   input.value = "";
@@ -1480,8 +1577,9 @@ async function sendChatMessage(preset) {
   status.classList.remove("error");
   status.textContent = "Searching your notes…";
 
-  addBubble("user", question);
-  const { thinkingBox, thinkingText, answerBox, toolsHolder, recordsHolder } =
+  // Regenerate re-runs the same question without adding a duplicate "you".
+  if (!opts.skipUserBubble) addBubble("user", question);
+  const { bubble, thinkingBox, thinkingText, answerBox, toolsHolder, recordsHolder } =
     addAssistantBubble();
   answerBox.appendChild(typingDots()); // until the first token arrives
   const renderLive = liveMarkdownRenderer(answerBox);
@@ -1554,7 +1652,14 @@ async function sendChatMessage(preset) {
   chatScrollToEnd();
   if (toolsActed) refreshAfterToolChanges(); // the AI changed real data
   if (!answerRaw) return; // nothing to remember (failed before any token)
-  addSpeakButton(recordsHolder.parentElement, answerBox); // 🔊 read-aloud (Wave H)
+  // Per-message actions: copy, regenerate, read-aloud (Wave H voices).
+  bubble.appendChild(
+    chatMessageActions([
+      { label: "⧉", title: "Copy answer", onClick: (e) => copyToClipboard(answerRaw, e.currentTarget) },
+      { label: "↻", title: "Regenerate", onClick: () => regenerateLastAnswer() },
+      { label: "🔊", title: "Read aloud", onClick: () => speakText(answerBox.textContent) },
+    ])
+  );
 
   chatConv.turns.push({ question, answer: answerRaw });
   // Persist the finished turn so the chat survives restarts.
@@ -1583,9 +1688,34 @@ async function sendChatMessage(preset) {
 
 function newChatConversation() {
   chatConv = { id: null, turns: [] };
+  lastChatQuestion = "";
   $("chat-messages").replaceChildren();
   $("chat-title").textContent = "New chat";
+  renderChatEmptyState();
   loadChatSuggestions();
+}
+
+// Download the open conversation as clean Markdown (questions + answers).
+function exportChatMarkdown() {
+  if (!chatConv.turns.length) {
+    toast("Nothing to export yet — ask something first.");
+    return;
+  }
+  const title = $("chat-title").textContent || "Chat";
+  let md = `# ${title}\n\n`;
+  for (const turn of chatConv.turns) {
+    md += `**You:** ${turn.question}\n\n${turn.answer}\n\n---\n\n`;
+  }
+  const slug =
+    title.toLowerCase().replace(/[^\w]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) ||
+    "chat";
+  const blob = new Blob([md], { type: "text/markdown" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${slug}.md`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 async function loadConversationList() {
@@ -1646,17 +1776,25 @@ async function openConversation(id) {
         handles.thinkingBox.classList.remove("hidden");
         handles.thinkingText.textContent = message.thinking;
       }
+      handles.bubble.appendChild(
+        chatMessageActions([
+          { label: "⧉", title: "Copy answer", onClick: (e) => copyToClipboard(message.content, e.currentTarget) },
+          { label: "🔊", title: "Read aloud", onClick: () => speakText(handles.answerBox.textContent) },
+        ])
+      );
       if (lastQuestionText !== null) {
         chatConv.turns.push({ question: lastQuestionText, answer: message.content });
       }
     }
   }
+  if (lastQuestionText) lastChatQuestion = lastQuestionText;
   loadConversationList();
   chatScrollToEnd();
 }
 
 async function loadChatSuggestions() {
-  if ($("chat-messages").children.length > 0) return;
+  // Only the welcome placeholder may be present — real messages hide the chips.
+  if ($("chat-messages").querySelector(".msg")) return;
   const picks = await apiJson("/chat/suggestions").catch(() => []);
   const box = $("chat-suggest");
   box.replaceChildren();
@@ -3267,6 +3405,7 @@ function switchTab(name) {
   // The generative-art animation only needs to run while it's on screen.
   if (name !== "dashboard") stopArt();
   if (name === "chat") {
+    renderChatEmptyState(); // welcome placeholder when the thread is empty
     loadChatSuggestions();
     $("chat-input").focus();
   }
@@ -3889,15 +4028,6 @@ function speakText(text) {
     return;
   }
   if (text.trim()) speechSynthesis.speak(new SpeechSynthesisUtterance(text));
-}
-
-// A per-bubble 🔊 for the chat tab (added once its answer is final).
-function addSpeakButton(bubble, answerBox) {
-  const button = smallButton("🔊", "Read this answer aloud", () =>
-    speakText(answerBox.textContent)
-  );
-  button.classList.add("bubble-speak");
-  bubble.appendChild(button);
 }
 
 // --- toasts (Phase 5) ---------------------------------------------------------------
@@ -4855,6 +4985,7 @@ $("entry-template").addEventListener("change", applyTemplate);
 $("chat-send").addEventListener("click", () => sendChatMessage());
 $("chat-stop").addEventListener("click", () => chatController && chatController.abort());
 $("chat-new").addEventListener("click", newChatConversation);
+$("chat-export").addEventListener("click", exportChatMarkdown);
 $("chat-input").addEventListener("keydown", (e) => {
   if (e.key === "Enter") sendChatMessage();
 });

@@ -19,6 +19,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- **Chat enhancements.** Per-message actions revealed on hover — copy any
+  message, **edit & resend** your last question, **regenerate** the last answer
+  (re-runs it without a duplicate prompt bubble), and read-aloud; **export a
+  conversation to Markdown**; role labels on every bubble; and a friendly
+  empty-state welcome so the chat page isn't a blank rectangle.
 - **Graph view enhancements.** On-screen zoom controls (＋ / － / fit-to-view)
   so zooming no longer depends on discovering scroll/pinch; hover-spotlight —
   pointing at a note dims everything except it and its directly-linked

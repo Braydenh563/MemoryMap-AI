@@ -19,6 +19,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- **"Ask your notebook": Retry/Copy/read-aloud buttons overlapped the answer.**
+  The answer heading's action buttons used `float: right`, which escaped the
+  heading and rendered on top of the answer box whenever the "answered by …"
+  chip was long. The heading is now a flex row; the buttons sit inline on the
+  right and wrap onto their own line when space is tight.
 - **Clearer error when a chat model is picked as the Ollama embedding model.**
   Selecting a generation model as the search engine made Ollama answer
   `/api/embed` with a raw `501 Not Implemented` that gave no hint what was

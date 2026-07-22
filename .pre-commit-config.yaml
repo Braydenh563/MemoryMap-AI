@@ -1,0 +1,22 @@
+# Optional but recommended: run the same checks CI runs, before you commit.
+#   pip install pre-commit && pre-commit install
+# After that these run automatically on `git commit`; run on everything with
+#   pre-commit run --all-files
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '\.md$' # two trailing spaces are a Markdown line break
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: check-merge-conflict
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.8
+    hooks:
+      # Lint (matches CI: `ruff check .`). Add `ruff-format` locally with
+      # `ruff format` when you want to tidy formatting — it isn't enforced.
+      - id: ruff
+        args: [--fix]

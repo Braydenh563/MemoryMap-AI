@@ -2132,6 +2132,31 @@ function allSkills() {
   return [...BUILTIN_SKILLS, ...custom];
 }
 
+// Which custom skill (by name) the editor is currently editing, if any.
+// Tracking it lets Edit rename a skill instead of leaving a duplicate.
+let editingSkillName = null;
+
+function startEditingSkill(skill) {
+  editingSkillName = skill.name;
+  $("skill-name").value = skill.name;
+  $("skill-prompt").value = skill.prompt;
+  $("skill-tools").checked = !!skill.useTools;
+  $("skill-add").textContent = "Save changes";
+  $("skill-cancel").classList.remove("hidden");
+  $("skill-status").textContent = `Editing “${skill.name}”…`;
+  $("skill-prompt").focus();
+}
+
+function stopEditingSkill() {
+  editingSkillName = null;
+  $("skill-name").value = "";
+  $("skill-prompt").value = "";
+  $("skill-tools").checked = false;
+  $("skill-add").textContent = "Add skill";
+  $("skill-cancel").classList.add("hidden");
+  $("skill-status").textContent = "";
+}
+
 // Run a skill. An action skill (useTools) turns on "AI can make changes" for
 // this run — and leaves it on, visibly, so the user sees the AI is acting —
 // so it can actually use its tools instead of only answering.
@@ -2201,12 +2226,7 @@ function renderSkillSettings() {
     const actions = document.createElement("span");
     actions.className = "entry-actions";
     actions.appendChild(
-      smallButton("Edit", "Edit this skill", () => {
-        $("skill-name").value = skill.name;
-        $("skill-prompt").value = skill.prompt;
-        $("skill-tools").checked = !!skill.useTools;
-        $("skill-prompt").focus();
-      })
+      smallButton("Edit", "Edit this skill", () => startEditingSkill(skill))
     );
     actions.appendChild(
       smallButton("Delete", "Remove this skill", async () => {
@@ -2228,15 +2248,16 @@ async function addSkill() {
     status.textContent = "Both a name and a request are needed.";
     return;
   }
+  // Drop any skill with the new name AND (when editing) the one being edited,
+  // so saving updates in place and even a rename doesn't leave a duplicate.
   const custom = ((prefsCache && prefsCache.skills) || []).filter(
-    (s) => s.name !== name
+    (s) => s.name !== name && s.name !== editingSkillName
   );
   custom.push({ name, prompt: promptText, useTools: $("skill-tools").checked || undefined });
+  const wasEditing = editingSkillName;
   await saveSkillList(custom);
-  $("skill-name").value = "";
-  $("skill-prompt").value = "";
-  $("skill-tools").checked = false;
-  status.textContent = `Saved “${name}”.`;
+  stopEditingSkill();
+  status.textContent = wasEditing ? `Updated “${name}”.` : `Saved “${name}”.`;
 }
 
 // --- Wave O: agent-tools toggles ----------------------------------------------------
@@ -5226,6 +5247,7 @@ $("persona-select").addEventListener("change", async () => {
 });
 $("persona-add").addEventListener("click", addPersona);
 $("skill-add").addEventListener("click", addSkill);
+$("skill-cancel").addEventListener("click", stopEditingSkill);
 $("graph-refresh").addEventListener("click", renderGraph);
 $("graph-similarity").addEventListener("change", renderGraph);
 $("graph-hide-orphans").addEventListener("change", renderGraph);

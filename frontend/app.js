@@ -2469,6 +2469,7 @@ const DASH_WIDGETS = {
   streak: { title: "🔥 Streak", render: renderStreakWidget },
   art: { title: "🎨 Notebook constellation", render: renderArtWidget },
   pinned: { title: "📌 Pinned notes", render: renderPinnedWidget },
+  "recent-notes": { title: "🕐 Recently added", render: renderRecentNotesWidget },
   "most-used": { title: "🔥 Most used", render: renderMostUsedWidget },
   "top-tags": { title: "🏷 Top tags", render: renderTopTagsWidget },
   questions: { title: "💬 Recent questions", render: renderQuestionsWidget },
@@ -2502,6 +2503,7 @@ async function renderDashboard() {
   }
   const grid = $("dash-grid");
   grid.replaceChildren();
+  $("dash-hint").classList.toggle("hidden", !dashEditMode); // hint only in edit mode
   const layout = dashLayout();
 
   for (const name of layout.order) {
@@ -2831,6 +2833,14 @@ async function renderPinnedWidget(body) {
 async function renderMostUsedWidget(body) {
   const entries = await apiJson("/entries/most-accessed");
   miniEntryList(body, entries, "Ask questions and your most-used notes appear here.");
+}
+
+async function renderRecentNotesWidget(body) {
+  const entries = await apiJson("/entries");
+  const newest = [...entries].sort(
+    (a, b) => new Date(b.created_at) - new Date(a.created_at)
+  );
+  miniEntryList(body, newest.slice(0, 6), "Your newest notes will appear here.");
 }
 
 async function renderTopTagsWidget(body) {
@@ -4113,7 +4123,7 @@ function paletteCommands() {
     { label: "🗄 Back up now", run: () => { openSettingsModal("data"); backupNow(); } },
     { label: "📤 Export markdown", run: () => downloadExport("markdown") },
     { label: "🌓 Toggle light/dark", run: toggleTheme },
-    { label: "⌨️ Keyboard shortcuts", run: () => openSettingsModal("about") },
+    { label: "⌨️ Keyboard shortcuts", run: () => { closePalette(); openShortcuts(); } },
     { label: "🔒 Lock MemoryMap", run: lockNow },
   ];
 }
@@ -4575,7 +4585,10 @@ function renderSettings() {
     renderChatModelPicker(status);
     renderUtilityModelPicker(status);
     renderEmbeddingPicker(status);
+    renderInstalledModels(status);
     renderSuggested(status);
+  } else {
+    $("installed-box").classList.add("hidden");
   }
   renderReindex(status);
   if (settingsModalOpen()) renderTasks(status); // Wave N tasks manager
@@ -4712,6 +4725,61 @@ function renderReindex(status) {
     $("reindex-progress").value = job.done;
     $("reindex-progress").max = Math.max(job.total, 1);
     $("reindex-label").textContent = `${job.done} of ${job.total} notes re-indexed`;
+  }
+}
+
+function renderInstalledModels(status) {
+  const box = $("installed-box");
+  const list = $("installed-list");
+  const models = status.installed_models || [];
+  box.classList.toggle("hidden", models.length === 0);
+  list.replaceChildren();
+
+  // Models the app is actively pointing at can't be removed (would break it).
+  const inUse = new Set([status.chat_model]);
+  if (status.utility_model) inUse.add(status.utility_model);
+  if (status.embedding_backend === "ollama") inUse.add(status.embedding_model);
+  const usedBases = new Set([...inUse].map((n) => (n || "").split(":")[0]));
+
+  for (const model of models) {
+    const li = document.createElement("li");
+    const name = document.createElement("span");
+    name.className = "model-name";
+    name.textContent = model.name;
+    const info = document.createElement("span");
+    info.className = "model-info";
+    info.textContent = model.size ? `${(model.size / 1e9).toFixed(1)} GB` : "";
+    li.append(name, info);
+
+    const used = inUse.has(model.name) || usedBases.has(model.name.split(":")[0]);
+    if (used) {
+      li.appendChild(chip("in use", "tag"));
+    } else {
+      li.appendChild(
+        smallButton("Remove", `Uninstall ${model.name}`, async (event) => {
+          if (
+            !confirm(
+              `Remove “${model.name}” from Ollama? This frees its disk space — ` +
+                "you can re-download it any time."
+            )
+          )
+            return;
+          event.target.disabled = true;
+          try {
+            await api("/models/delete", {
+              method: "POST",
+              body: JSON.stringify({ name: model.name }),
+            });
+            toast(`Removed ${model.name}.`);
+            refreshModelStatus();
+          } catch (error) {
+            toast(error.message, true);
+            event.target.disabled = false;
+          }
+        })
+      );
+    }
+    list.appendChild(li);
   }
 }
 
@@ -4979,7 +5047,10 @@ const ACCENTS = [
   { name: "amber", label: "Amber", swatch: "#d97706" },
   { name: "violet", label: "Violet", swatch: "#7c3aed" },
   { name: "teal", label: "Teal", swatch: "#0d9488" },
+  { name: "sky", label: "Sky", swatch: "#0ea5e9" },
+  { name: "lime", label: "Lime", swatch: "#65a30d" },
   { name: "crimson", label: "Crimson", swatch: "#dc2626" },
+  { name: "fuchsia", label: "Fuchsia", swatch: "#c026d3" },
   { name: "slate", label: "Slate", swatch: "#475569" },
 ];
 
@@ -5575,6 +5646,10 @@ document.addEventListener("keydown", (e) => {
     closeImprove();
     return;
   }
+  if (e.key === "Escape" && !$("shortcuts-overlay").classList.contains("hidden")) {
+    closeShortcuts();
+    return;
+  }
   // "/" focuses search — but only when you're not already typing somewhere
   // and no overlay is open, so it never steals a literal slash (Wave J).
   const typing = ["INPUT", "TEXTAREA", "SELECT"].includes(
@@ -5584,6 +5659,12 @@ document.addEventListener("keydown", (e) => {
     settingsModalOpen() ||
     !$("palette-overlay").classList.contains("hidden") ||
     !$("sketch-overlay").classList.contains("hidden");
+  // "?" (Shift-/) opens the keyboard-shortcuts cheat-sheet.
+  if (e.key === "?" && !typing && !overlayOpen) {
+    e.preventDefault();
+    openShortcuts();
+    return;
+  }
   if (e.key === "/" && !typing && !overlayOpen) {
     e.preventDefault();
     // On the Chat tab the natural target is the chat box; elsewhere the
@@ -5612,11 +5693,30 @@ document.addEventListener("click", (e) => {
 // Focus trapping (Wave L): while a dialog is open, Tab cycles inside it
 // instead of wandering into the page behind — a WCAG dialog basic.
 function activeOverlay() {
-  for (const id of ["palette-overlay", "sketch-overlay", "improve-overlay", "settings-modal"]) {
+  for (const id of [
+    "palette-overlay",
+    "sketch-overlay",
+    "improve-overlay",
+    "shortcuts-overlay",
+    "settings-modal",
+  ]) {
     if (!$(id).classList.contains("hidden")) return $(id);
   }
   return null;
 }
+
+// Keyboard-shortcuts cheat-sheet (press ?), a learnability aid.
+function openShortcuts() {
+  $("shortcuts-overlay").classList.remove("hidden");
+  $("shortcuts-close").focus();
+}
+function closeShortcuts() {
+  $("shortcuts-overlay").classList.add("hidden");
+}
+$("shortcuts-close").addEventListener("click", closeShortcuts);
+$("shortcuts-overlay").addEventListener("click", (e) => {
+  if (e.target === $("shortcuts-overlay")) closeShortcuts();
+});
 
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Tab") return;

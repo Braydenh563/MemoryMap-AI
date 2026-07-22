@@ -185,6 +185,17 @@ class OllamaClient:
         except (requests.RequestException, ValueError) as exc:
             raise OllamaError(f"Downloading '{name}' failed: {exc}") from exc
 
+    def delete(self, name: str) -> None:
+        """Uninstall a model from Ollama (frees the disk it used). Raises
+        OllamaError if it isn't installed or the call fails."""
+        try:
+            response = requests.delete(
+                f"{self.base_url}/api/delete", json={"name": name}, timeout=30
+            )
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            raise OllamaError(f"Removing '{name}' failed: {exc}") from exc
+
     def chat(self, model: str, messages: list[dict]) -> dict:
         """One non-streamed chat turn.
 

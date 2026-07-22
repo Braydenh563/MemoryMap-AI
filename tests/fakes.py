@@ -164,6 +164,14 @@ class FakeOllama:
         yield {"status": "success"}
         self.installed.append({"name": name, "size": total})
 
+    def delete(self, name: str) -> None:
+        if not self.running:
+            raise OllamaError("Ollama is not running (fake)")
+        before = len(self.installed)
+        self.installed = [m for m in self.installed if m["name"] != name]
+        if len(self.installed) == before:
+            raise OllamaError(f"model '{name}' not found (fake)")
+
 
 class GarbageOllama(FakeOllama):
     """A model having a bad day — replies with no JSON at all."""

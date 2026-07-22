@@ -1092,3 +1092,78 @@ html { font-size: 16px; }
     gap: 0.4rem;
   }
 }
+
+/* --- Wave M: graph filters, thumbnails, lightbox, batch bar ---------------------- */
+.legend-toggle {
+  border: none;
+  background: none;
+  box-shadow: none;
+  padding: 0.15rem 0.4rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+}
+.legend-toggle:hover { background: var(--accent-soft); }
+.legend-toggle.legend-off { opacity: 0.4; text-decoration: line-through; }
+
+.graph-node.graph-dim { opacity: 0.15; }
+.graph-edge.graph-dim { opacity: 0.06; }
+.graph-node.graph-held circle { stroke: var(--ink); stroke-dasharray: 3 2; }
+#graph-search { max-width: 13rem; margin-bottom: 0; }
+
+.thumb-wrap { position: relative; display: inline-block; }
+.attachment-thumb {
+  max-height: 110px;
+  max-width: 180px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  cursor: zoom-in;
+  display: block;
+}
+.thumb-wrap .unlink {
+  position: absolute;
+  top: 0.2rem;
+  right: 0.2rem;
+  background: var(--modal-bg);
+  border-radius: 50%;
+  width: 1.3rem;
+  height: 1.3rem;
+  display: grid;
+  place-content: center;
+  cursor: pointer;
+}
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(8, 10, 18, 0.82);
+  display: grid;
+  place-content: center;
+  cursor: zoom-out;
+}
+.lightbox img {
+  max-width: 92vw;
+  max-height: 92vh;
+  border-radius: 12px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+}
+
+#batch-bar {
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  background: var(--accent-soft);
+  flex-wrap: wrap;
+}
+#batch-bar select { max-width: 11rem; margin-bottom: 0; }
+#select-btn.active { background: var(--accent); color: #fff; }
+.select-check {
+  width: 1.15rem;
+  height: 1.15rem;
+  margin: 0 0 0.4rem;
+  accent-color: var(--accent);
+}
+.entry-list li.selectable { border-left: 3px solid var(--accent-soft); }

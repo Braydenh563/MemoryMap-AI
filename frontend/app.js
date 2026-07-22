@@ -277,6 +277,22 @@ function entryItem(entry, options = {}) {
     return li;
   }
 
+  // Batch select mode (Wave M): a checkbox leads each card.
+  if (options.actions && selectMode) {
+    const check = document.createElement("input");
+    check.type = "checkbox";
+    check.className = "select-check";
+    check.checked = selectedIds.has(entry.id);
+    check.setAttribute("aria-label", "Select this note");
+    check.addEventListener("change", () => {
+      if (check.checked) selectedIds.add(entry.id);
+      else selectedIds.delete(entry.id);
+      updateBatchCount();
+    });
+    li.appendChild(check);
+    li.classList.add("selectable");
+  }
+
   const content = document.createElement("p");
   content.className = "entry-content";
   content.textContent = entry.content;
@@ -337,17 +353,12 @@ function entryItem(entry, options = {}) {
   if (entry.pinned) meta.insertBefore(chip("📌 pinned"), meta.firstChild);
   li.appendChild(meta);
 
-  // Attachments (Wave B): chips that download on click.
+  // Attachments (Wave B; images become thumbnails in Wave M).
   if (entry.attachments.length > 0) {
     const fileRow = document.createElement("div");
     fileRow.className = "entry-links";
     for (const attachment of entry.attachments) {
-      const icon = attachment.is_image ? "🖼" : "📄";
-      const fileChip = chip(`${icon} ${attachment.filename}`, "link");
-      fileChip.style.cursor = "pointer";
-      fileChip.title = `Download (${Math.max(1, Math.round(attachment.size / 1024))} KB)`;
-      fileChip.addEventListener("click", () => downloadAttachment(attachment));
-      if (options.actions) {
+      const removeButton = () => {
         const remove = document.createElement("span");
         remove.className = "unlink";
         remove.textContent = "×";
@@ -358,9 +369,34 @@ function entryItem(entry, options = {}) {
           await api(`/files/${attachment.id}`, { method: "DELETE" });
           await loadEntries();
         });
-        fileChip.appendChild(remove);
+        return remove;
+      };
+
+      if (attachment.is_image) {
+        // Show the picture itself, not a chip — click for full size.
+        const wrap = document.createElement("span");
+        wrap.className = "thumb-wrap";
+        const img = document.createElement("img");
+        img.className = "attachment-thumb";
+        img.alt = attachment.filename;
+        img.title = `${attachment.filename} — click to view full size`;
+        attachmentObjectUrl(attachment)
+          .then((url) => (img.src = url))
+          .catch(() => wrap.remove());
+        img.addEventListener("click", async () =>
+          openLightbox(await attachmentObjectUrl(attachment), attachment.filename)
+        );
+        wrap.appendChild(img);
+        if (options.actions) wrap.appendChild(removeButton());
+        fileRow.appendChild(wrap);
+      } else {
+        const fileChip = chip(`📄 ${attachment.filename}`, "link");
+        fileChip.style.cursor = "pointer";
+        fileChip.title = `Download (${Math.max(1, Math.round(attachment.size / 1024))} KB)`;
+        fileChip.addEventListener("click", () => downloadAttachment(attachment));
+        if (options.actions) fileChip.appendChild(removeButton());
+        fileRow.appendChild(fileChip);
       }
-      fileRow.appendChild(fileChip);
     }
     li.appendChild(fileRow);
   }
@@ -610,6 +646,40 @@ function attachFileTo(entry) {
     await loadEntries();
   });
   input.click();
+}
+
+// Thumbnails need the auth header, which <img src> can't send — fetch
+// the bytes once per attachment and cache an object URL (Wave M).
+const thumbUrlCache = new Map();
+
+async function attachmentObjectUrl(attachment) {
+  if (thumbUrlCache.has(attachment.id)) return thumbUrlCache.get(attachment.id);
+  const response = await api(`/files/${attachment.id}`);
+  const url = URL.createObjectURL(await response.blob());
+  thumbUrlCache.set(attachment.id, url);
+  return url;
+}
+
+// Full-size image viewer: click anywhere or press Esc to close (Wave M).
+function openLightbox(url, alt) {
+  const overlay = document.createElement("div");
+  overlay.className = "lightbox";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-label", alt || "Image preview");
+  const img = document.createElement("img");
+  img.src = url;
+  img.alt = alt || "";
+  overlay.appendChild(img);
+  const close = () => {
+    overlay.remove();
+    document.removeEventListener("keydown", onKey);
+  };
+  const onKey = (e) => {
+    if (e.key === "Escape") close();
+  };
+  overlay.addEventListener("click", close);
+  document.addEventListener("keydown", onKey);
+  document.body.appendChild(overlay);
 }
 
 async function downloadAttachment(attachment) {
@@ -1859,6 +1929,156 @@ async function addSkill() {
   status.textContent = `Saved “${name}”.`;
 }
 
+// --- Wave M: share skills/personas as JSON ------------------------------------------
+
+function downloadJson(filename, payload) {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Open a picker, parse the chosen file, hand the object to `apply`.
+function pickJsonFile(inputId, apply) {
+  const input = $(inputId);
+  input.onchange = async () => {
+    const file = input.files[0];
+    input.value = "";
+    if (!file) return;
+    try {
+      apply(JSON.parse(await file.text()));
+    } catch {
+      toast("That file isn't valid JSON.", true);
+    }
+  };
+  input.click();
+}
+
+// Merge imported {name, prompt} items over existing ones (imports win
+// on a name clash) — used by both skills and personas.
+function mergeNamedPrompts(existing, imported) {
+  const cleaned = (imported || []).filter(
+    (item) => item && typeof item.name === "string" && typeof item.prompt === "string"
+  );
+  if (!cleaned.length) return null;
+  const names = new Set(cleaned.map((item) => item.name));
+  return [...existing.filter((item) => !names.has(item.name)), ...cleaned];
+}
+
+// --- Wave M: batch operations on notes ----------------------------------------------
+
+let selectMode = false;
+const selectedIds = new Set();
+
+function updateBatchCount() {
+  const n = selectedIds.size;
+  $("batch-count").textContent = `${n} selected`;
+}
+
+function fillBatchCategories() {
+  const select = $("batch-category");
+  select.replaceChildren();
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "Move to…";
+  select.appendChild(placeholder);
+  for (const name of [...new Set(allEntries.map((e) => e.category))].sort()) {
+    const option = document.createElement("option");
+    option.value = name;
+    option.textContent = name;
+    select.appendChild(option);
+  }
+  const fresh = document.createElement("option");
+  fresh.value = "__new__";
+  fresh.textContent = "＋ New category…";
+  select.appendChild(fresh);
+}
+
+function enterSelectMode() {
+  selectMode = true;
+  selectedIds.clear();
+  fillBatchCategories();
+  updateBatchCount();
+  show("batch-bar");
+  $("select-btn").classList.add("active");
+  renderEntries();
+}
+
+function exitSelectMode() {
+  selectMode = false;
+  selectedIds.clear();
+  hide("batch-bar");
+  $("select-btn").classList.remove("active");
+  renderEntries();
+}
+
+function batchSelection() {
+  const ids = [...selectedIds];
+  if (!ids.length) toast("Tick some notes first.", true);
+  return ids;
+}
+
+async function batchMove() {
+  const ids = batchSelection();
+  if (!ids.length) return;
+  let category = $("batch-category").value;
+  if (!category) {
+    toast("Pick a category to move them to.", true);
+    return;
+  }
+  if (category === "__new__") {
+    category = (prompt("New category name:") || "").trim();
+    if (!category) return;
+  }
+  for (const id of ids) {
+    await apiJson(`/entries/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ category }),
+    });
+  }
+  toast(`Moved ${ids.length} note${ids.length === 1 ? "" : "s"} to ${category}.`);
+  exitSelectMode();
+  await loadEntries();
+}
+
+async function batchTag() {
+  const ids = batchSelection();
+  if (!ids.length) return;
+  const tag = (prompt("Tag to add to the selected notes:") || "").trim();
+  if (!tag) return;
+  for (const id of ids) {
+    const entry = allEntries.find((e) => e.id === id);
+    if (!entry) continue;
+    await apiJson(`/entries/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ tags: [...new Set([...entry.tags, tag])] }),
+    });
+  }
+  toast(`Tagged ${ids.length} note${ids.length === 1 ? "" : "s"} with “${tag}”.`);
+  exitSelectMode();
+  await loadEntries();
+}
+
+async function batchDelete() {
+  const ids = batchSelection();
+  if (!ids.length) return;
+  if (!confirm(`Move ${ids.length} note${ids.length === 1 ? "" : "s"} to the recycle bin?`))
+    return;
+  for (const id of ids) await api(`/entries/${id}`, { method: "DELETE" });
+  exitSelectMode();
+  await loadEntries();
+  toastAction(`Moved ${ids.length} to the recycle bin.`, "Undo", async () => {
+    for (const id of ids) await api(`/entries/${id}/restore`, { method: "POST" });
+    await loadEntries();
+    toast("Notes restored.");
+  });
+}
+
 // --- dashboard (Wave D) -----------------------------------------------------------
 
 let dashEditMode = false;
@@ -2670,6 +2890,9 @@ function appendInline(parent, text) {
 // (frontend/vendor) — the offline rule allows no CDN.
 
 let graphSimulation = null; // stopped before every rebuild
+let graphHiddenCategories = new Set(); // legend toggles (Wave M)
+let graphNodeSelection = null; // live d3 selections, for search-highlight
+let graphEdgeSelection = null;
 
 function graphNodeRadius(node) {
   // Much-used notes draw the eye: base size + a gentle access bonus.
@@ -2696,15 +2919,35 @@ async function renderGraph() {
   const legend = $("graph-legend");
   legend.replaceChildren();
   for (const category of data.categories) {
-    const item = document.createElement("span");
-    item.className = "legend-item";
+    // Legend entries double as filters (Wave M): click to hide/show.
+    const item = document.createElement("button");
+    item.className = "legend-item legend-toggle";
+    item.classList.toggle("legend-off", graphHiddenCategories.has(category));
+    item.title = graphHiddenCategories.has(category)
+      ? `Show ${category} again`
+      : `Hide ${category} from the map`;
+    item.setAttribute("aria-pressed", String(!graphHiddenCategories.has(category)));
     const dot = document.createElement("span");
     dot.className = "legend-dot";
     dot.style.background = color(category);
     item.append(dot, document.createTextNode(category));
+    item.addEventListener("click", () => {
+      if (graphHiddenCategories.has(category)) graphHiddenCategories.delete(category);
+      else graphHiddenCategories.add(category);
+      renderGraph();
+    });
     legend.appendChild(item);
   }
-  if (!data.nodes.length) return;
+
+  // Apply the legend filter: drop hidden categories and their edges.
+  const visibleNodes = data.nodes.filter(
+    (n) => !graphHiddenCategories.has(n.category)
+  );
+  const keptIds = new Set(visibleNodes.map((n) => n.id));
+  const visibleEdges = data.edges.filter(
+    (e) => keptIds.has(e.source) && keptIds.has(e.target)
+  );
+  if (!visibleNodes.length) return;
 
   const box = $("graph-box");
   const width = box.clientWidth || 800;
@@ -2721,8 +2964,8 @@ async function renderGraph() {
   );
 
   // D3 mutates these (x/y/vx/vy), so work on copies.
-  const nodes = data.nodes.map((n) => ({ ...n }));
-  const edges = data.edges.map((e) => ({ ...e }));
+  const nodes = visibleNodes.map((n) => ({ ...n }));
+  const edges = visibleEdges.map((e) => ({ ...e }));
 
   graphSimulation = d3
     .forceSimulation(nodes)
@@ -2768,7 +3011,20 @@ async function renderGraph() {
           d.fy = null;
         })
     )
-    .on("click", (_event, d) => flashEntry(d.id));
+    .on("click", (_event, d) => flashEntry(d.id))
+    // Double-click pins a node where it is; again releases it (Wave M).
+    .on("dblclick", function (event, d) {
+      event.stopPropagation(); // don't also zoom
+      if (d.fx != null) {
+        d.fx = null;
+        d.fy = null;
+        d3.select(this).classed("graph-held", false);
+      } else {
+        d.fx = d.x;
+        d.fy = d.y;
+        d3.select(this).classed("graph-held", true);
+      }
+    });
 
   nodeGroups
     .append("circle")
@@ -2790,6 +3046,25 @@ async function renderGraph() {
       .attr("y2", (d) => d.target.y);
     nodeGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
   });
+
+  // Search-highlight (Wave M): remember the selections and re-apply any
+  // query that's already typed.
+  graphNodeSelection = nodeGroups;
+  graphEdgeSelection = edgeLines;
+  applyGraphHighlight();
+}
+
+// Dim everything except nodes whose text matches the search box; edges
+// stay bright only when both ends match (Wave M).
+function applyGraphHighlight() {
+  if (!graphNodeSelection) return;
+  const query = $("graph-search").value.trim().toLowerCase();
+  const matches = (d) => !query || d.preview.toLowerCase().includes(query);
+  graphNodeSelection.classed("graph-dim", (d) => !matches(d));
+  graphEdgeSelection.classed(
+    "graph-dim",
+    (d) => query && !(matches(d.source) && matches(d.target))
+  );
 }
 
 // --- tabs (Wave A) ----------------------------------------------------------------
@@ -4000,6 +4275,46 @@ $("persona-add").addEventListener("click", addPersona);
 $("skill-add").addEventListener("click", addSkill);
 $("graph-refresh").addEventListener("click", renderGraph);
 $("graph-similarity").addEventListener("change", renderGraph);
+$("graph-search").addEventListener("input", applyGraphHighlight);
+
+// Wave M: batch operations + skill/persona sharing.
+$("select-btn").addEventListener("click", () =>
+  selectMode ? exitSelectMode() : enterSelectMode()
+);
+$("batch-move").addEventListener("click", batchMove);
+$("batch-tag").addEventListener("click", batchTag);
+$("batch-delete").addEventListener("click", batchDelete);
+$("batch-cancel").addEventListener("click", exitSelectMode);
+
+$("skill-export").addEventListener("click", () =>
+  downloadJson("memorymap-skills.json", {
+    skills: (prefsCache && prefsCache.skills) || [],
+  })
+);
+$("skill-import").addEventListener("click", () =>
+  pickJsonFile("skill-import-file", async (data) => {
+    const merged = mergeNamedPrompts((prefsCache && prefsCache.skills) || [], data.skills);
+    if (!merged) return toast("No skills found in that file.", true);
+    await saveSkillList(merged);
+    toast("Skills imported.");
+  })
+);
+$("persona-export").addEventListener("click", () =>
+  downloadJson("memorymap-personas.json", {
+    personas: (prefsCache && prefsCache.personas) || [],
+  })
+);
+$("persona-import").addEventListener("click", () =>
+  pickJsonFile("persona-import-file", async (data) => {
+    const merged = mergeNamedPrompts(
+      (prefsCache && prefsCache.personas) || [],
+      data.personas
+    );
+    if (!merged) return toast("No personas found in that file.", true);
+    await savePersonaList(merged);
+    toast("Personas imported.");
+  })
+);
 $("tools-toggle").addEventListener("change", async () => {
   // Remember the choice so it survives restarts.
   await apiJson("/preferences", {

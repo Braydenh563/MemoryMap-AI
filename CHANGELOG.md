@@ -19,6 +19,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- **Windows: `torch_xpu.dll` load failure (WinError 127).** After the
+  `sentence-transformers` bump pulled a newer torch, the default Windows wheel's
+  Intel GPU library failed to load and semantic search silently fell back to
+  keywords. `requirements.txt` now installs the CPU-only torch build on Windows
+  (all this app needs, and ~10× smaller); other platforms are unaffected. Added
+  a README Troubleshooting section for anyone who already installed the broken
+  wheel.
 - Cleaned up lint issues flagged by ruff (ambiguous variable name, unused
   imports) so `ruff check` is clean.
 

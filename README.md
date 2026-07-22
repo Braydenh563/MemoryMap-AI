@@ -25,6 +25,7 @@ Everything runs on your machine — nothing is ever sent to the cloud.
 - [Requirements](#requirements)
 - [Setup](#setup)
 - [Run it](#run-it)
+- [Troubleshooting](#troubleshooting)
 - [Run the tests](#run-the-tests)
 - [Where your data lives](#where-your-data-lives)
 - [Project layout](#project-layout)
@@ -121,6 +122,36 @@ The interactive API explorer still lives at <http://localhost:8000/docs>.
 If Ollama isn't running, everything still works — new entries are filed as
 `Uncategorised`, search falls back to keywords, and the header pill tells you
 what the AI is doing (ready / warming up / rebuilding index / off).
+
+## Troubleshooting
+
+### "Search engine problem … torch_xpu.dll … WinError 127" (Windows)
+
+You'll see a banner like *"The specified procedure could not be found. Error
+loading …\torch\lib\torch_xpu.dll"* and semantic search quietly falls back to
+keywords. The app is fine — this is torch's default Windows wheel shipping an
+Intel GPU library (`torch_xpu.dll`) that can't load on your machine. This app
+only needs the **CPU** build of torch.
+
+**Fresh installs are already handled:** `requirements.txt` now installs the
+CPU-only torch on Windows, so a clean `pip install -r requirements.txt` won't
+hit this.
+
+**Already installed the broken wheel?** Swap it for the CPU build (either of
+these works):
+
+```powershell
+# Option A — reinstall the CPU-only torch (keeps the built-in engine)
+pip uninstall -y torch
+pip install torch --index-url https://download.pytorch.org/whl/cpu
+```
+
+Then restart the app — semantic search comes back.
+
+**Or go torch-free:** in **Settings → Models**, download **`nomic-embed-text`**
+and set it as the embedding backend. It runs entirely through Ollama, needs no
+torch at all, and your notes re-index automatically. Full details are always in
+**Settings → Logs**.
 
 ## Run the tests
 

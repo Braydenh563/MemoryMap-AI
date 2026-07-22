@@ -5038,7 +5038,10 @@ const ACCENTS = [
   { name: "amber", label: "Amber", swatch: "#d97706" },
   { name: "violet", label: "Violet", swatch: "#7c3aed" },
   { name: "teal", label: "Teal", swatch: "#0d9488" },
+  { name: "sky", label: "Sky", swatch: "#0ea5e9" },
+  { name: "lime", label: "Lime", swatch: "#65a30d" },
   { name: "crimson", label: "Crimson", swatch: "#dc2626" },
+  { name: "fuchsia", label: "Fuchsia", swatch: "#c026d3" },
   { name: "slate", label: "Slate", swatch: "#475569" },
 ];
 

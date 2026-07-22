@@ -284,15 +284,18 @@
           <label class="muted tools-toggle" title="Draw dotted lines between notes that mean similar things (needs semantic search)">
             <input type="checkbox" id="graph-similarity"> Similarity lines
           </label>
+          <label class="muted tools-toggle" title="Hide notes that aren't linked to anything, to declutter the map">
+            <input type="checkbox" id="graph-hide-orphans"> Hide unlinked
+          </label>
           <button id="graph-refresh" class="ghost small">Refresh</button>
         </div>
       </div>
       <p class="muted">
         Your notes as a map: solid lines are links you made, dashed lines are
         trains of thought, dotted lines are notes that mean similar things.
-        Drag to arrange, scroll to zoom, click a note to open it,
-        double-click to pin it in place, and click a legend colour to
-        hide that category.
+        Hover a note to spotlight its connections, drag to arrange, scroll or
+        use the buttons to zoom, click a note to open it, double-click to pin
+        it in place, and click a legend colour to hide that category.
       </p>
       <div class="row">
         <button id="link-suggest-btn" class="ghost small"
@@ -302,6 +305,11 @@
       <div id="graph-legend" class="recent"></div>
       <div id="graph-box">
         <svg id="graph-svg"></svg>
+        <div id="graph-zoom" class="graph-zoom" role="group" aria-label="Zoom the map">
+          <button id="graph-zoom-in" class="graph-zoom-btn" title="Zoom in" aria-label="Zoom in">＋</button>
+          <button id="graph-zoom-out" class="graph-zoom-btn" title="Zoom out" aria-label="Zoom out">－</button>
+          <button id="graph-zoom-fit" class="graph-zoom-btn" title="Fit the whole map to view" aria-label="Fit map to view">⤢</button>
+        </div>
         <div id="graph-empty" class="empty-state hidden">
           <span class="empty-icon" aria-hidden="true">🕸️</span>
           <p class="empty-title">Nothing to map yet</p>

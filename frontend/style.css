@@ -726,9 +726,42 @@ li.link-source { outline: 2px solid var(--accent); }
   border: 1px solid var(--border);
   border-radius: 12px;
   overflow: hidden;
+  /* A soft radial wash gives the map depth without competing with nodes. */
+  background:
+    radial-gradient(120% 120% at 50% 0%, var(--accent-soft), transparent 60%),
+    var(--card);
 }
 #graph-svg { width: 100%; height: 100%; display: block; cursor: grab; }
 #graph-svg:active { cursor: grabbing; }
+
+/* On-screen zoom controls, bottom-right of the map. */
+.graph-zoom {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 2;
+}
+.graph-zoom-btn {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-content: center;
+  font-size: 1rem;
+  line-height: 1;
+  border: 1px solid var(--glass-border);
+  border-radius: 9px;
+  background: var(--card);
+  color: var(--ink);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(6px);
+  transition: background 0.12s ease, transform 0.12s ease;
+}
+.graph-zoom-btn:hover { background: var(--accent-soft); }
+.graph-zoom-btn:active { transform: scale(0.94); }
 #graph-empty {
   position: absolute;
   inset: 0;
@@ -748,10 +781,16 @@ li.link-source { outline: 2px solid var(--accent); }
 .graph-node circle {
   stroke: var(--card);
   stroke-width: 2px;
-  transition: r 0.12s ease;
+  transition: r 0.12s ease, stroke-width 0.12s ease, filter 0.12s ease;
 }
 .graph-node circle.graph-pinned { stroke: var(--warn); }
 .graph-node:hover circle { stroke: var(--accent); stroke-width: 3px; }
+/* The node the pointer is over: a bright accent ring + glow (hover-spotlight). */
+.graph-node.graph-focus circle {
+  stroke: var(--accent);
+  stroke-width: 3.5px;
+  filter: drop-shadow(0 0 6px var(--accent));
+}
 .graph-node text {
   font-size: 0.68rem;
   fill: var(--ink);

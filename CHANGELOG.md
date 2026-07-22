@@ -17,6 +17,16 @@ below). Versioning is `0.x` while the app stabilises.
 - CodeQL static security analysis workflow (push / PR / weekly).
 - Dependabot config for weekly pip and GitHub Actions updates.
 
+### Added
+
+- **Graph view enhancements.** On-screen zoom controls (＋ / － / fit-to-view)
+  so zooming no longer depends on discovering scroll/pinch; hover-spotlight —
+  pointing at a note dims everything except it and its directly-linked
+  neighbours (shares one dimming pass with search so they never conflict); a
+  "Hide unlinked" toggle to declutter the map to just the connected web; and a
+  visual pass (accent focus ring + glow on the hovered node, a soft radial
+  background wash, smoother node transitions).
+
 ### Fixed
 
 - **"Ask your notebook": Retry/Copy/read-aloud buttons overlapped the answer.**

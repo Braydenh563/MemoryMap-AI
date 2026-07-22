@@ -2965,6 +2965,15 @@ let graphSimulation = null; // stopped before every rebuild
 let graphHiddenCategories = new Set(); // legend toggles (Wave M)
 let graphNodeSelection = null; // live d3 selections, for search-highlight
 let graphEdgeSelection = null;
+// Refs kept so the on-screen zoom buttons can drive the same behaviour as
+// scroll-zoom, and hover-highlight can look up a node's neighbours.
+let graphSvg = null;
+let graphZoom = null;
+let graphCanvas = null;
+let graphNodesRef = null;
+let graphDims = { w: 0, h: 0 };
+let graphHoveredId = null; // node the pointer is over (spotlight its links)
+let graphAdjacency = null; // Map<id, Set<neighbourId>>
 
 function graphNodeRadius(node) {
   // Much-used notes draw the eye: base size + a gentle access bonus.
@@ -3016,14 +3025,27 @@ async function renderGraph() {
   }
 
   // Apply the legend filter: drop hidden categories and their edges.
-  const visibleNodes = data.nodes.filter(
+  let visibleNodes = data.nodes.filter(
     (n) => !graphHiddenCategories.has(n.category)
   );
   const keptIds = new Set(visibleNodes.map((n) => n.id));
   const visibleEdges = data.edges.filter(
     (e) => keptIds.has(e.source) && keptIds.has(e.target)
   );
-  if (!visibleNodes.length) return;
+  // "Hide unlinked" (declutter): keep only notes that appear in an edge.
+  if ($("graph-hide-orphans") && $("graph-hide-orphans").checked) {
+    const connected = new Set();
+    for (const e of visibleEdges) {
+      connected.add(e.source);
+      connected.add(e.target);
+    }
+    visibleNodes = visibleNodes.filter((n) => connected.has(n.id));
+  }
+  if (!visibleNodes.length) {
+    empty.style.display = "grid";
+    empty.classList.remove("hidden");
+    return;
+  }
 
   const box = $("graph-box");
   const width = box.clientWidth || 800;
@@ -3038,9 +3060,22 @@ async function renderGraph() {
     .on("zoom", (event) => canvas.attr("transform", event.transform));
   svg.call(zoomBehavior).on("dblclick.zoom", null); // dblclick pins, not zooms
 
+  // Keep refs so the +/−/fit buttons drive this same zoom behaviour.
+  graphSvg = svg;
+  graphZoom = zoomBehavior;
+  graphCanvas = canvas;
+  graphDims = { w: width, h: height };
+
   // D3 mutates these (x/y/vx/vy), so work on copies.
   const nodes = visibleNodes.map((n) => ({ ...n }));
   const edges = visibleEdges.map((e) => ({ ...e }));
+  graphNodesRef = nodes;
+  // Adjacency for hover-highlight: which notes each note is linked to.
+  graphAdjacency = new Map(nodes.map((n) => [n.id, new Set()]));
+  for (const e of edges) {
+    graphAdjacency.get(e.source)?.add(e.target);
+    graphAdjacency.get(e.target)?.add(e.source);
+  }
 
   graphSimulation = d3
     .forceSimulation(nodes)
@@ -3117,6 +3152,18 @@ async function renderGraph() {
     .attr("dy", (d) => graphNodeRadius(d) + 12)
     .text((d) => (d.preview.length > 20 ? d.preview.slice(0, 19) + "…" : d.preview));
 
+  // Hover-highlight (spotlight a note's connections). Uses the same dimming
+  // pipeline as search so the two never fight each other.
+  nodeGroups
+    .on("mouseenter", (_event, d) => {
+      graphHoveredId = d.id;
+      applyGraphHighlight();
+    })
+    .on("mouseleave", () => {
+      graphHoveredId = null;
+      applyGraphHighlight();
+    });
+
   let fitted = false;
   graphSimulation.on("tick", () => {
     edgeLines
@@ -3167,17 +3214,37 @@ function fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height) {
     );
 }
 
-// Dim everything except nodes whose text matches the search box; edges
-// stay bright only when both ends match (Wave M).
+// Dim everything except nodes that match the search box AND (when hovering)
+// the hovered note plus its direct neighbours; edges stay bright only when
+// both ends survive. Search (Wave M) and hover-spotlight share one pass so
+// they can't contradict each other.
 function applyGraphHighlight() {
   if (!graphNodeSelection) return;
   const query = $("graph-search").value.trim().toLowerCase();
-  const matches = (d) => !query || d.preview.toLowerCase().includes(query);
-  graphNodeSelection.classed("graph-dim", (d) => !matches(d));
-  graphEdgeSelection.classed(
+  const searchOk = (d) => !query || d.preview.toLowerCase().includes(query);
+
+  const neighbours =
+    graphHoveredId != null && graphAdjacency
+      ? graphAdjacency.get(graphHoveredId)
+      : null;
+  const hoverOk = (id) =>
+    neighbours == null || id === graphHoveredId || neighbours.has(id);
+  // After forceLink binds, edge.source/target are node objects, not ids.
+  const idOf = (end) => (end && end.id != null ? end.id : end);
+
+  graphNodeSelection.classed(
     "graph-dim",
-    (d) => query && !(matches(d.source) && matches(d.target))
+    (d) => !(searchOk(d) && hoverOk(d.id))
   );
+  graphNodeSelection.classed("graph-focus", (d) => d.id === graphHoveredId);
+  graphEdgeSelection.classed("graph-dim", (d) => {
+    const s = idOf(d.source);
+    const t = idOf(d.target);
+    const bySearch = !query || (searchOk(d.source) && searchOk(d.target));
+    const byHover =
+      neighbours == null || s === graphHoveredId || t === graphHoveredId;
+    return !(bySearch && byHover);
+  });
 }
 
 // --- tabs (Wave A) ----------------------------------------------------------------
@@ -4802,7 +4869,21 @@ $("persona-add").addEventListener("click", addPersona);
 $("skill-add").addEventListener("click", addSkill);
 $("graph-refresh").addEventListener("click", renderGraph);
 $("graph-similarity").addEventListener("change", renderGraph);
+$("graph-hide-orphans").addEventListener("change", renderGraph);
 $("graph-search").addEventListener("input", applyGraphHighlight);
+
+// On-screen zoom controls drive the same d3 zoom behaviour as scroll/pinch.
+function graphZoomBy(factor) {
+  if (!graphZoom || !graphSvg) return;
+  graphSvg.transition().duration(200).call(graphZoom.scaleBy, factor);
+}
+$("graph-zoom-in").addEventListener("click", () => graphZoomBy(1.3));
+$("graph-zoom-out").addEventListener("click", () => graphZoomBy(1 / 1.3));
+$("graph-zoom-fit").addEventListener("click", () => {
+  if (graphNodesRef && graphNodesRef.length) {
+    fitGraphToView(graphSvg, graphCanvas, graphZoom, graphNodesRef, graphDims.w, graphDims.h);
+  }
+});
 
 // Wave M: batch operations + skill/persona sharing.
 $("select-btn").addEventListener("click", () =>

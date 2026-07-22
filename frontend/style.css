@@ -737,6 +737,11 @@ li.link-source { outline: 2px solid var(--accent); }
   border-radius: 10px;
 }
 .inline-action textarea { margin-bottom: 0.4rem; }
+.inline-action input { margin-bottom: 0.4rem; }
+.reminder-group-head { margin: 0.9rem 0 0.35rem; font-size: 0.95rem; }
+.reminder-group-head:first-child { margin-top: 0.3rem; }
+.reminder-text { flex: 1 1 auto; min-width: 8rem; }
+#reminder-presets { gap: 0.4rem; margin: 0.1rem 0 0.2rem; flex-wrap: wrap; }
 .inline-action p { margin: 0.3rem 0; }
 .reevaluate-link {
   gap: 0.5rem;

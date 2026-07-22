@@ -3028,67 +3028,187 @@ async function loadReminders() {
     else groups.Upcoming.push(reminder);
   }
 
-  for (const [label, items] of Object.entries(groups)) {
+  for (const label of ["Overdue", "Today", "Upcoming", "Done"]) {
+    const items = groups[label];
     if (!items.length) continue;
     const heading = document.createElement("h3");
-    heading.textContent = label;
+    heading.className = "reminder-group-head";
+    heading.textContent = `${label} (${items.length})`;
     groupsBox.appendChild(heading);
     const ul = document.createElement("ul");
     ul.className = "entry-list";
-    for (const reminder of items) {
-      const li = document.createElement("li");
-      if (label === "Overdue") li.classList.add("overdue");
-      const row = document.createElement("div");
-      row.className = "entry-meta";
-
-      const checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.checked = reminder.done;
-      checkbox.title = reminder.done ? "Reopen" : "Mark done";
-      checkbox.style.width = "auto";
-      checkbox.addEventListener("change", async () => {
-        await apiJson(`/reminders/${reminder.id}`, {
-          method: "PUT",
-          body: JSON.stringify({ done: checkbox.checked }),
-        });
-        loadReminders();
-      });
-      row.appendChild(checkbox);
-
-      const text = document.createElement("span");
-      text.textContent = reminder.text;
-      if (reminder.done) text.style.textDecoration = "line-through";
-      row.appendChild(text);
-
-      const due = document.createElement("span");
-      due.className = "entry-date";
-      due.textContent = new Date(reminder.due_at).toLocaleString();
-      row.appendChild(due);
-
-      const actions = document.createElement("span");
-      actions.className = "entry-actions";
-      actions.appendChild(
-        smallButton("×", "Delete this reminder", async () => {
-          await apiJson(`/reminders/${reminder.id}`, { method: "DELETE" });
-          loadReminders();
-        })
-      );
-      row.appendChild(actions);
-      li.appendChild(row);
-
-      if (reminder.entry_preview) {
-        const linkRow = document.createElement("div");
-        linkRow.className = "entry-links";
-        const noteChip = chip(`📝 ${reminder.entry_preview}`, "link");
-        noteChip.style.cursor = "pointer";
-        noteChip.addEventListener("click", () => flashEntry(reminder.entry_id));
-        linkRow.appendChild(noteChip);
-        li.appendChild(linkRow);
-      }
-      ul.appendChild(li);
-    }
+    for (const reminder of items) ul.appendChild(reminderItem(reminder, label));
     groupsBox.appendChild(ul);
   }
+}
+
+let editingReminderId = null;
+
+function reminderItem(reminder, label) {
+  const li = document.createElement("li");
+  if (label === "Overdue") li.classList.add("overdue");
+
+  if (editingReminderId === reminder.id) {
+    li.appendChild(reminderEditForm(reminder));
+    return li;
+  }
+
+  const row = document.createElement("div");
+  row.className = "entry-meta";
+
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.checked = reminder.done;
+  checkbox.title = reminder.done ? "Reopen" : "Mark done";
+  checkbox.style.width = "auto";
+  checkbox.addEventListener("change", async () => {
+    await apiJson(`/reminders/${reminder.id}`, {
+      method: "PUT",
+      body: JSON.stringify({ done: checkbox.checked }),
+    });
+    loadReminders();
+  });
+  row.appendChild(checkbox);
+
+  const text = document.createElement("span");
+  text.className = "reminder-text";
+  text.textContent = reminder.text;
+  if (reminder.done) text.style.textDecoration = "line-through";
+  row.appendChild(text);
+
+  const due = document.createElement("span");
+  due.className = "entry-date";
+  due.textContent = relativeWhen(reminder.due_at); // "in 2 hours" / "3 days ago"
+  due.title = new Date(reminder.due_at).toLocaleString(); // exact on hover
+  row.appendChild(due);
+
+  const actions = document.createElement("span");
+  actions.className = "entry-actions";
+  if (!reminder.done) {
+    actions.appendChild(
+      smallButton("+1h", "Snooze one hour", () =>
+        snoozeReminderTo(reminder, new Date(Date.now() + 60 * 60 * 1000))
+      )
+    );
+    actions.appendChild(
+      smallButton("→ tmrw", "Snooze to tomorrow 9am", () =>
+        snoozeReminderTo(reminder, presetDate("tomorrow"))
+      )
+    );
+  }
+  actions.appendChild(
+    smallButton("✎", "Edit this reminder", () => {
+      editingReminderId = reminder.id;
+      loadReminders();
+    })
+  );
+  actions.appendChild(
+    smallButton("×", "Delete this reminder", async () => {
+      await apiJson(`/reminders/${reminder.id}`, { method: "DELETE" });
+      loadReminders();
+    })
+  );
+  row.appendChild(actions);
+  li.appendChild(row);
+
+  if (reminder.entry_preview) {
+    const linkRow = document.createElement("div");
+    linkRow.className = "entry-links";
+    const noteChip = chip(`📝 ${reminder.entry_preview}`, "link");
+    noteChip.style.cursor = "pointer";
+    noteChip.addEventListener("click", () => flashEntry(reminder.entry_id));
+    linkRow.appendChild(noteChip);
+    li.appendChild(linkRow);
+  }
+  return li;
+}
+
+// Relative time that works both ways: "in 2 hours" (future) and "3 days ago"
+// (past). relativeTime() only handles the past, which is wrong for reminders.
+function relativeWhen(iso) {
+  const diff = new Date(iso).getTime() - Date.now();
+  const future = diff >= 0;
+  const mins = Math.abs(diff) / 60000;
+  if (mins < 0.75) return future ? "now" : "just now";
+  let value;
+  let unit;
+  if (mins < 60) {
+    value = Math.round(mins);
+    unit = "minute";
+  } else if (mins / 60 < 24) {
+    value = Math.round(mins / 60);
+    unit = "hour";
+  } else if (mins / 60 / 24 < 7) {
+    value = Math.round(mins / 60 / 24);
+    unit = "day";
+  } else {
+    return new Date(iso).toLocaleDateString();
+  }
+  const label = `${value} ${unit}${value === 1 ? "" : "s"}`;
+  return future ? `in ${label}` : `${label} ago`;
+}
+
+// Convert an ISO timestamp to the value a <input type=datetime-local> wants.
+function toLocalInputValue(iso) {
+  const d = new Date(iso);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// A named quick-due preset -> a concrete Date.
+function presetDate(preset) {
+  const d = new Date();
+  if (preset === "3h") d.setHours(d.getHours() + 3);
+  else if (preset === "tomorrow") (d.setDate(d.getDate() + 1), d.setHours(9, 0, 0, 0));
+  else if (preset === "nextweek") (d.setDate(d.getDate() + 7), d.setHours(9, 0, 0, 0));
+  return d;
+}
+
+async function snoozeReminderTo(reminder, when) {
+  await apiJson(`/reminders/${reminder.id}`, {
+    method: "PUT",
+    body: JSON.stringify({ due_at: when.toISOString(), done: false }),
+  });
+  toast(`Snoozed to ${when.toLocaleString()}.`);
+  loadReminders();
+}
+
+function reminderEditForm(reminder) {
+  const wrap = document.createElement("div");
+  wrap.className = "inline-action";
+  const textInput = document.createElement("input");
+  textInput.type = "text";
+  textInput.maxLength = 500;
+  textInput.value = reminder.text;
+  const dueInput = document.createElement("input");
+  dueInput.type = "datetime-local";
+  dueInput.value = toLocalInputValue(reminder.due_at);
+  const row = document.createElement("div");
+  row.className = "row";
+  row.appendChild(
+    smallButton("Save", "", async () => {
+      const text = textInput.value.trim();
+      if (!text || !dueInput.value) {
+        toast("A reminder needs text and a time.", true);
+        return;
+      }
+      await apiJson(`/reminders/${reminder.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ text, due_at: new Date(dueInput.value).toISOString() }),
+      });
+      editingReminderId = null;
+      loadReminders();
+    }, false)
+  );
+  row.appendChild(
+    smallButton("Cancel", "", () => {
+      editingReminderId = null;
+      loadReminders();
+    })
+  );
+  wrap.append(textInput, dueInput, row);
+  setTimeout(() => textInput.focus(), 0);
+  return wrap;
 }
 
 async function addReminder(text, dueValue, entryId = null) {
@@ -5323,6 +5443,12 @@ $("reminder-add").addEventListener("click", async () => {
     $("reminder-text").value = "";
   }
 });
+for (const button of document.querySelectorAll("#reminder-presets button")) {
+  button.addEventListener("click", () => {
+    $("reminder-due").value = toLocalInputValue(presetDate(button.dataset.preset).toISOString());
+    if (!$("reminder-text").value.trim()) $("reminder-text").focus();
+  });
+}
 for (const button of document.querySelectorAll(".panel-close")) {
   button.addEventListener("click", () => showPanel(null));
 }

@@ -9,7 +9,49 @@ build-backend = "setuptools.build_meta"
 name = "memorymap"
 version = "0.1.0"
 description = "MemoryMap AI — a 100% offline, local-first AI notebook"
+readme = "README.md"
 requires-python = ">=3.11"
+license = { file = "LICENSE" }
+keywords = ["notes", "notebook", "ai", "offline", "local-first", "ollama", "rag"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Web Environment",
+    "Framework :: FastAPI",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Office/Business :: News/Diary",
+]
+
+[project.urls]
+Homepage = "https://github.com/Braydenh563/MemoryMap-AI-v0"
+Repository = "https://github.com/Braydenh563/MemoryMap-AI-v0"
+Issues = "https://github.com/Braydenh563/MemoryMap-AI-v0/issues"
+Changelog = "https://github.com/Braydenh563/MemoryMap-AI-v0/blob/main/CHANGELOG.md"
+
+[project.scripts]
+memorymap = "memorymap.__main__:main"
+
+# Optional extras — install only the ones whose feature you want, e.g.
+#   pip install -e ".[voice]"     # local Whisper dictation for the 🎙 buttons
+#   pip install -e ".[desktop]"   # `python -m memorymap --desktop` app window
+[project.optional-dependencies]
+voice = ["faster-whisper"]
+desktop = ["pywebview"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+# Ruff's default rules: pyflakes (F) + a curated pycodestyle subset (E). This
+# is what CI enforces and the code is already clean under it. Line-length (E501)
+# is intentionally left out — long strings/URLs in tests would flag noisily; run
+# `ruff format` locally if you want wrapping.
+select = ["E4", "E7", "E9", "F"]

@@ -1,0 +1,28 @@
+# Keep dependencies fresh without any manual polling. Dependabot opens a
+# small PR whenever a pinned dependency or a pinned Action has an update;
+# CI runs on that PR so you see immediately whether the bump is safe.
+version: 2
+updates:
+  # Python dependencies (requirements.txt).
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    commit-message:
+      prefix: "deps"
+
+  # The versions pinned in .github/workflows/*.yml (actions/checkout, etc.).
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: "ci"

@@ -1,0 +1,73 @@
+name: Bug report
+description: Something isn't working the way it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug! MemoryMap AI runs entirely
+        on your machine, so the details below help a lot in reproducing it.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, and what went wrong?
+      placeholder: I typed a note and clicked Save, but…
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open http://localhost:8000
+        2. …
+    validations:
+      required: true
+
+  - type: dropdown
+    id: ai-running
+    attributes:
+      label: Was Ollama running?
+      description: The app works without it — this just helps narrow things down.
+      options:
+        - "Yes — Ollama was running"
+        - "No — running without the AI"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: macOS 15 / Windows 11 / Ubuntu 24.04
+    validations:
+      required: true
+
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      description: Output of `python --version`
+      placeholder: Python 3.12.3
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: >
+        Anything from the terminal, or from Settings → Activity / log viewer.
+        This is automatically formatted as code, so no backticks needed.
+      render: shell

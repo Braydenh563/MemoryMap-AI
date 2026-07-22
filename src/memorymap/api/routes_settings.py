@@ -179,8 +179,12 @@ def export_json(session: Session = Depends(get_session)) -> Response:
             for e in entries
         ],
         "links": [
-            {"id": l.id, "source_entry_id": l.source_entry_id, "target_entry_id": l.target_entry_id}
-            for l in links
+            {
+                "id": link.id,
+                "source_entry_id": link.source_entry_id,
+                "target_entry_id": link.target_entry_id,
+            }
+            for link in links
         ],
     }
     manager.log_action(session, "exported", "data", detail="json")

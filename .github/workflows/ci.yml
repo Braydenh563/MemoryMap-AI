@@ -1,22 +1,54 @@
 # CI (Wave I): the whole test suite runs offline — every AI piece is
-# faked in tests/ — so this needs nothing but Python and pip.
-name: tests
+# faked in tests/ — so this needs nothing but Python and pip. No GPU,
+# no Ollama, no models, no network beyond installing dependencies.
+name: CI
 
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch: # lets you run it by hand from the Actions tab
+
+# Cancel superseded runs on the same branch/PR so pushes don't pile up.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
-  pytest:
+  lint:
+    name: Lint (ruff)
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
+
+      - name: Install ruff
+        run: python -m pip install --upgrade pip ruff
+
+      - name: Lint
+        run: ruff check .
+
+  test:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
           cache: pip
 
       - name: Install dependencies

@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 
 from memorymap.ai import tools
-from memorymap.core import deps
 from memorymap.core.database import Reminder
 
 

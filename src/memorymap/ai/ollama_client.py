@@ -313,6 +313,23 @@ class OllamaClient:
             )
             response.raise_for_status()
             return response.json()["embeddings"][0]
+        except requests.HTTPError as exc:
+            # A chat/generation model can't embed: Ollama answers /api/embed
+            # with 501 Not Implemented (older builds: 400 "does not support
+            # embeddings"). Surface a message the user can act on instead of a
+            # raw HTTP error — this is the #1 way people misconfigure the
+            # Ollama search engine (they pick their chat model by mistake).
+            resp = exc.response
+            body = (resp.text if resp is not None else "") or ""
+            status = resp.status_code if resp is not None else None
+            if status in (400, 501) or "does not support" in body.lower():
+                raise OllamaError(
+                    f"'{model}' can't create embeddings — it looks like a chat "
+                    "model, not an embedding model. Download and select a "
+                    "dedicated embedding model such as 'nomic-embed-text' as the "
+                    "search engine."
+                ) from exc
+            raise OllamaError(f"Embedding with '{model}' failed: {exc}") from exc
         except (
             requests.RequestException,
             KeyError,

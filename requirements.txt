@@ -6,7 +6,7 @@ uvicorn[standard]>=0.29
 SQLAlchemy>=2.0
 
 # Config
-python-dotenv>=1.0
+python-dotenv>=1.2.2
 
 # AI (Phase 2)
 requests>=2.31            # talks to the local Ollama REST API

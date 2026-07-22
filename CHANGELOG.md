@@ -19,6 +19,23 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- **"Ask your notebook": Retry/Copy/read-aloud buttons overlapped the answer.**
+  The answer heading's action buttons used `float: right`, which escaped the
+  heading and rendered on top of the answer box whenever the "answered by …"
+  chip was long. The heading is now a flex row; the buttons sit inline on the
+  right and wrap onto their own line when space is tight.
+- **Clearer error when a chat model is picked as the Ollama embedding model.**
+  Selecting a generation model as the search engine made Ollama answer
+  `/api/embed` with a raw `501 Not Implemented` that gave no hint what was
+  wrong. The app now detects this (501 / 400 / "does not support embeddings")
+  and tells the user to pick a real embedding model such as `nomic-embed-text`.
+- **Windows: `torch_xpu.dll` load failure (WinError 127).** After the
+  `sentence-transformers` bump pulled a newer torch, the default Windows wheel's
+  Intel GPU library failed to load and semantic search silently fell back to
+  keywords. `requirements.txt` now installs the CPU-only torch build on Windows
+  (all this app needs, and ~10× smaller); other platforms are unaffected. Added
+  a README Troubleshooting section for anyone who already installed the broken
+  wheel.
 - Cleaned up lint issues flagged by ruff (ambiguous variable name, unused
   imports) so `ruff check` is clean.
 

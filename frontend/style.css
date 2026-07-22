@@ -285,7 +285,18 @@ progress { accent-color: var(--accent); width: 100%; }
 @media (max-width: 900px) {
   .chat-grid { grid-template-columns: 1fr; }
 }
-.chat-half h3 { margin-top: 0; }
+.chat-half h3 {
+  margin-top: 0;
+  /* Flex row so the answer's action buttons sit inline on the right. The
+     old `float: right` escaped the heading and overlapped the answer box
+     below whenever the "answered by …" chip was long. */
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+/* A long Ollama model id (e.g. hf.co/…) must wrap, not force the row wider. */
+#answered-by { max-width: 100%; overflow-wrap: anywhere; }
 #thinking-box { margin-bottom: 0.6rem; font-size: 0.85rem; }
 #thinking-box summary { cursor: pointer; color: var(--muted); }
 .thinking {
@@ -329,7 +340,10 @@ progress { accent-color: var(--accent); width: 100%; }
 .answer pre code { background: none; padding: 0; }
 .answer a { color: var(--accent); }
 
-.answer-actions { float: right; display: inline-flex; gap: 0.35rem; }
+/* margin-left:auto pushes the buttons to the right edge of the heading;
+   they wrap onto their own line when the title/chip get long, and never
+   overlap the answer box the way the old float did. */
+.answer-actions { margin-left: auto; display: inline-flex; gap: 0.35rem; }
 .answer-actions button { padding: 0.15rem 0.5rem; font-size: 0.78rem; }
 
 /* --- entry lists ---------------------------------------------------------- */

@@ -4764,6 +4764,8 @@ const ACCENTS = [
   { name: "rose", label: "Rose", swatch: "#ec4899" },
   { name: "amber", label: "Amber", swatch: "#d97706" },
   { name: "violet", label: "Violet", swatch: "#7c3aed" },
+  { name: "teal", label: "Teal", swatch: "#0d9488" },
+  { name: "crimson", label: "Crimson", swatch: "#dc2626" },
   { name: "slate", label: "Slate", swatch: "#475569" },
 ];
 
@@ -4796,6 +4798,7 @@ const APPEARANCE_DEFAULTS = {
   fontsize: "normal",
   density: "comfortable",
   glass: "on",
+  motion: "auto", // "auto" = follow the OS; "reduced" = force-still
   "bg-intensity": "90",
 };
 
@@ -4809,6 +4812,7 @@ function applyAppearance() {
   root.dataset.fontsize = appearancePref("fontsize");
   root.dataset.density = appearancePref("density");
   root.dataset.glass = appearancePref("glass");
+  root.dataset.motion = appearancePref("motion");
   root.style.setProperty("--bg-art-opacity", Number(appearancePref("bg-intensity")) / 100);
 }
 
@@ -4851,6 +4855,7 @@ function renderAppearance() {
     holder.appendChild(button);
   }
   $("contrast-toggle").checked = contrastOn();
+  $("reduce-motion-toggle").checked = appearancePref("motion") === "reduced";
   $("bg-art-toggle").checked = bgArtOn();
   $("glass-toggle").checked = appearancePref("glass") === "on";
   $("bg-intensity").value = appearancePref("bg-intensity");
@@ -4860,7 +4865,7 @@ function renderAppearance() {
 }
 
 function resetAppearance() {
-  for (const key of ["fontsize", "density", "glass", "bg-intensity", "accent", "contrast", "bgArt", "theme"]) {
+  for (const key of ["fontsize", "density", "glass", "motion", "bg-intensity", "accent", "contrast", "bgArt", "theme"]) {
     localStorage.removeItem(key);
   }
   delete document.documentElement.dataset.accent;
@@ -5094,6 +5099,12 @@ for (const b of document.querySelectorAll("#density-seg button")) {
 $("glass-toggle").addEventListener("change", (e) => {
   localStorage.setItem("glass", e.target.checked ? "on" : "off");
   applyAppearance();
+});
+$("reduce-motion-toggle").addEventListener("change", (e) => {
+  localStorage.setItem("motion", e.target.checked ? "reduced" : "auto");
+  applyAppearance();
+  if (e.target.checked) stopBgArt(); // a still UI shouldn't keep the art running
+  else if (bgArtOn()) startBgArt();
 });
 $("bg-intensity").addEventListener("input", (e) => {
   localStorage.setItem("bg-intensity", e.target.value);

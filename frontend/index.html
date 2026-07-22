@@ -22,6 +22,7 @@
     _r.dataset.fontsize = localStorage.getItem("fontsize") || "normal";
     _r.dataset.density = localStorage.getItem("density") || "comfortable";
     _r.dataset.glass = localStorage.getItem("glass") || "on";
+    _r.dataset.motion = localStorage.getItem("motion") || "auto";
     _r.style.setProperty("--bg-art-opacity", (Number(localStorage.getItem("bg-intensity") || 90)) / 100);
   </script>
 </head>
@@ -522,6 +523,10 @@
             <label>
               <input type="checkbox" id="contrast-toggle">
               High-contrast mode (stronger text, solid panels, no blur)
+            </label>
+            <label>
+              <input type="checkbox" id="reduce-motion-toggle">
+              Reduce motion (turn off animations and transitions)
             </label>
 
             <h3>Animated background</h3>

@@ -1524,14 +1524,24 @@ function personaOptions() {
   const names = [
     ...new Set(["Librarian", "Coach", "Analyst", ...custom.map((p) => p.name)]),
   ];
+  // name -> its prompt, so the dropdown can describe each persona on hover.
+  const overrides = new Map(custom.map((p) => [p.name, p]));
+  const describe = (name) => {
+    const prompt = (overrides.get(name) || {}).prompt || BUILTIN_PERSONAS[name] || "";
+    return prompt.length > 200 ? prompt.slice(0, 199) + "…" : prompt;
+  };
   select.replaceChildren();
   for (const name of names) {
     const option = document.createElement("option");
     option.value = name;
     option.textContent = name;
+    option.title = describe(name); // hover shows what this persona does
     if (name === active) option.selected = true;
     select.appendChild(option);
   }
+  // Also surface the active persona's description on the closed select itself.
+  select.title = describe(active);
+  select.onchange = () => (select.title = describe(select.value));
 }
 
 // Three-dot "the model is about to speak" indicator (Wave D).

@@ -19,6 +19,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- **Action skills — skills that actually *do* things.** Skills can now be
+  marked "can make changes": running one turns on the AI's tools for that
+  message, so it uses them instead of only answering (destructive steps still
+  ask first). Two new tool-using built-ins — 🏷 Auto-tag my notes and
+  🔗 Link related notes — and a "can make changes" checkbox when you create
+  your own. Action skills are marked with a ⚙ in the chip row.
 - **Per-note "Re-evaluate with AI".** A ⋯-menu action on every note that
   re-runs the AI to refresh its confidence (and category, unless you filed it
   yourself) and suggests topic tags and links to related notes — each applied

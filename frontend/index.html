@@ -467,6 +467,9 @@
             <input id="skill-name" type="text" maxlength="40" placeholder="Name (e.g. Weekly review)">
             <textarea id="skill-prompt" rows="2" maxlength="2000"
               placeholder="The request to send, e.g. Summarise everything I saved this week."></textarea>
+            <label class="muted tools-toggle" title="Let this skill create, tag, pin, link, and (with your confirmation) delete notes">
+              <input type="checkbox" id="skill-tools"> This skill can make changes (use the AI's tools)
+            </label>
             <div class="row">
               <button id="skill-add" class="small">Add skill</button>
               <span id="skill-status" class="status"></span>

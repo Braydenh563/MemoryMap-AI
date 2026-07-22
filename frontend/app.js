@@ -1710,7 +1710,7 @@ async function sendChatMessage(preset, opts = {}) {
       question,
       history: chatConv.turns.slice(-MAX_CLIENT_HISTORY),
       persona: $("persona-select").value || null,
-      useTools: $("tools-toggle").checked,
+      useTools: opts.useTools ?? $("tools-toggle").checked,
       signal: chatController.signal,
       onMeta: (m) => {
         meta = m;
@@ -2075,6 +2075,9 @@ async function addPersona() {
 // Built-ins ship with the app; the user's own live in preferences.
 // "Tidy suggestions" is the self-organising librarian: it proposes
 // merges/renames/links and asks — it never changes anything silently.
+// `useTools: true` marks a skill that DOES things (via the AI's tools) rather
+// than just answering — running it turns on "AI can make changes" for that
+// message, so an action skill actually acts. Destructive steps still confirm.
 const BUILTIN_SKILLS = [
   {
     name: "📋 Summarise my week",
@@ -2087,6 +2090,22 @@ const BUILTIN_SKILLS = [
     prompt:
       "Look through my notes for loose ends — unfinished tasks, open " +
       "questions, or things I said I'd do. List each one with its note id.",
+  },
+  {
+    name: "🏷 Auto-tag my notes",
+    useTools: true,
+    prompt:
+      "Find my notes that have no tags or very few tags. For each one, add 2–3 " +
+      "relevant short tags using the tag_note tool. When you're done, tell me " +
+      "which notes you tagged and with what.",
+  },
+  {
+    name: "🔗 Link related notes",
+    useTools: true,
+    prompt:
+      "Find pairs of my notes that are clearly about the same thing but aren't " +
+      "linked yet. Link each pair with the link_notes tool, then give me a short " +
+      "summary of what you connected.",
   },
   {
     name: "🗂 Tidy suggestions",
@@ -2103,6 +2122,14 @@ function allSkills() {
   return [...BUILTIN_SKILLS, ...custom];
 }
 
+// Run a skill. An action skill (useTools) turns on "AI can make changes" for
+// this run — and leaves it on, visibly, so the user sees the AI is acting —
+// so it can actually use its tools instead of only answering.
+function runSkill(skill) {
+  if (skill.useTools) $("tools-toggle").checked = true;
+  sendChatMessage(skill.prompt, { useTools: skill.useTools || undefined });
+}
+
 function loadChatSkills() {
   const box = $("chat-skills");
   box.replaceChildren();
@@ -2111,9 +2138,11 @@ function loadChatSkills() {
   label.textContent = "⚡ Skills:";
   box.appendChild(label);
   for (const skill of allSkills()) {
-    const chipEl = chip(skill.name);
-    chipEl.title = skill.prompt;
-    chipEl.addEventListener("click", () => sendChatMessage(skill.prompt));
+    const chipEl = chip(skill.name + (skill.useTools ? " ⚙" : ""));
+    chipEl.title = skill.useTools
+      ? `${skill.prompt}\n\n(This skill makes changes for you — destructive steps still ask first.)`
+      : skill.prompt;
+    chipEl.addEventListener("click", () => runSkill(skill));
     box.appendChild(chipEl);
   }
   const manage = chip("＋ manage");
@@ -2165,6 +2194,7 @@ function renderSkillSettings() {
       smallButton("Edit", "Edit this skill", () => {
         $("skill-name").value = skill.name;
         $("skill-prompt").value = skill.prompt;
+        $("skill-tools").checked = !!skill.useTools;
         $("skill-prompt").focus();
       })
     );
@@ -2191,10 +2221,11 @@ async function addSkill() {
   const custom = ((prefsCache && prefsCache.skills) || []).filter(
     (s) => s.name !== name
   );
-  custom.push({ name, prompt: promptText });
+  custom.push({ name, prompt: promptText, useTools: $("skill-tools").checked || undefined });
   await saveSkillList(custom);
   $("skill-name").value = "";
   $("skill-prompt").value = "";
+  $("skill-tools").checked = false;
   status.textContent = `Saved “${name}”.`;
 }
 

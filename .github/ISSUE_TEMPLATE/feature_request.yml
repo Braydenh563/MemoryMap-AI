@@ -1,0 +1,40 @@
+name: Feature request
+description: Suggest an idea for MemoryMap AI
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea? Great. One guiding rule for this project: **everything
+        stays 100% offline and local-first.** Features that would require
+        sending user data to the cloud are out of scope by design.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: What are you trying to do that's hard or impossible today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like to see?
+      description: Describe the feature or change you have in mind.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered
+      description: Any workarounds you're using now, or other approaches.
+
+  - type: checkboxes
+    id: offline
+    attributes:
+      label: Offline-first check
+      options:
+        - label: This can work entirely on the user's machine (no cloud services)
+          required: true

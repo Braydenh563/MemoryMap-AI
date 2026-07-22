@@ -1,5 +1,12 @@
 # MemoryMap AI
 
+> **Your thoughts, mapped by a local AI — 100% offline, on your machine.**
+
+[![CI](https://github.com/Braydenh563/MemoryMap-AI-v0/actions/workflows/ci.yml/badge.svg)](https://github.com/Braydenh563/MemoryMap-AI-v0/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/Braydenh563/MemoryMap-AI-v0/actions/workflows/codeql.yml/badge.svg)](https://github.com/Braydenh563/MemoryMap-AI-v0/actions/workflows/codeql.yml)
+[![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue)](pyproject.toml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 A **100% offline, local-first** personal notebook: type a thought, a local AI
 files it automatically, and later you ask a question in plain English and get
 back *both* a conversational answer *and* the raw matching records.
@@ -11,6 +18,39 @@ capture text → AI categorises it → store it → ask a question → chat answ
 ```
 
 Everything runs on your machine — nothing is ever sent to the cloud.
+
+## Contents
+
+- [Why MemoryMap AI?](#why-memorymap-ai)
+- [Requirements](#requirements)
+- [Setup](#setup)
+- [Run it](#run-it)
+- [Run the tests](#run-the-tests)
+- [Where your data lives](#where-your-data-lives)
+- [Project layout](#project-layout)
+- [Documentation](#documentation)
+- [Build status](#build-status)
+- [Operations notes](#operations-notes-wave-i-decisions)
+- [License](#license)
+
+## Why MemoryMap AI?
+
+Note apps make *you* do the filing. MemoryMap AI flips that around:
+
+- **Just capture.** Type a thought and a local AI files it into the right
+  category for you — matched by meaning, decided by the chat model, or your own
+  choice in guided mode.
+- **Ask, don't dig.** Plain-English questions return a conversational answer
+  *and* the raw notes that back it up, side by side.
+- **It's genuinely yours.** No account, no cloud, no telemetry. Your notes are a
+  plain SQLite file in a folder you control, with one-click JSON/CSV/Markdown
+  export. The app binds to localhost only and never phones home.
+- **It still works when the AI is off.** No Ollama? Notes are filed as
+  `Uncategorised`, search falls back to keywords, and a header pill tells you
+  what the AI is doing. Saving a note never fails.
+
+New here and want the full tour of how it's built? See
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Requirements
 
@@ -109,6 +149,19 @@ frontend/                # (Phase 3) HTML/CSS/JS, no framework
 tests/                   # pytest suite
 ```
 
+For a full walkthrough — the request lifecycle, the data model, the AI stack,
+and where to look to change any given thing — see
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+## Documentation
+
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — the whole project explained:
+  design principles, how a request flows, the data model, the AI stack, and a
+  "where do I look to change X?" map.
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** — how to set up, test, and open a PR.
+- **[SECURITY.md](SECURITY.md)** — the security model and how to report issues.
+- **[CHANGELOG.md](CHANGELOG.md)** — what changed, wave by wave.
+
 ## Build status
 
 - [x] **Phase 1 — Walking skeleton:** server starts, entries stored in SQLite, tests green
@@ -136,6 +189,12 @@ tests/                   # pytest suite
   dependency on every platform for a single-user local file. If your
   notes are sensitive, use your OS's disk encryption (BitLocker /
   FileVault) which protects the whole data folder today.
-- **CI:** `.github/workflows/ci.yml` runs the full pytest suite on every
-  push/PR. The suite mocks Ollama and embeddings, so CI needs no GPU, no
-  models, and no network beyond pip.
+- **CI:** `.github/workflows/ci.yml` lints with ruff and runs the full pytest
+  suite on Python 3.11/3.12/3.13 on every push/PR. The suite mocks Ollama and
+  embeddings, so CI needs no GPU, no models, and no network beyond pip.
+  `.github/workflows/codeql.yml` adds static security analysis, and Dependabot
+  keeps dependencies and Actions current.
+
+## License
+
+Released under the [MIT License](LICENSE).

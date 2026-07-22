@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from memorymap.ai import librarian
-from memorymap.core import deps
 
 
 def _save(client, content, **extra):

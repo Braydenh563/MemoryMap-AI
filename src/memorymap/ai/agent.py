@@ -12,6 +12,7 @@ is told the action is waiting on the user.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Iterator
 
 from sqlalchemy.orm import Session
@@ -36,7 +37,32 @@ TOOLS_GUIDE = (
     "needing to do something at a time (\"remind me to… in 10 minutes\", "
     "\"…tomorrow at 9\", \"…tonight\"), call set_reminder with the due_at "
     "computed from the current time given below, as an ISO 8601 datetime. "
-    "After acting, tell the user briefly what you did."
+    "After acting, tell the user briefly what you did. NEVER claim you "
+    "created, added, saved, edited, deleted, or tagged a note unless you "
+    "actually called the tool to do it — describing a note in text does "
+    "NOT save it. To save a note you MUST call create_note."
+)
+
+# Write tools whose absence makes a "I saved it" claim a lie (safety net).
+_WRITE_TOOLS = {
+    "create_note",
+    "edit_note",
+    "tag_note",
+    "pin_note",
+    "link_notes",
+    "delete_note",
+    "restore_note",
+    "set_reminder",
+    "complete_reminder",
+    "rename_tag",
+    "delete_tag",
+}
+
+# Phrases that mean the model thinks it performed a write action.
+_CLAIM_PATTERN = re.compile(
+    r"\b(i\s+(?:have\s+|just\s+)?(?:created|added|saved|made|updated|edited|"
+    r"deleted|tagged|pinned|linked)|new note titled|created a? ?note)\b",
+    re.IGNORECASE,
 )
 
 # Agent-mode grounding: tool results are a legitimate second source.
@@ -128,6 +154,7 @@ def run_agent(
     )
     offered = tools.ollama_tools()
     model = model_manager.chat_model()
+    did_write = False  # did any real write tool run this turn?
 
     for _round in range(MAX_ROUNDS):
         try:
@@ -144,8 +171,19 @@ def run_agent(
 
         calls = reply.get("tool_calls") or []
         if not calls:
-            # No tools wanted → this text IS the final answer.
-            yield {"type": "answer", "delta": reply.get("content", "").strip()}
+            # No tools wanted → this text IS the final answer. Safety net:
+            # if the model claims it saved/created something but no write
+            # tool actually ran, it hallucinated — say so instead of
+            # letting the user believe a note exists that doesn't (Wave O).
+            answer = reply.get("content", "").strip()
+            if not did_write and _CLAIM_PATTERN.search(answer):
+                answer += (
+                    "\n\n⚠️ Heads up: I described that, but it looks like I "
+                    "didn't actually save it (my model didn't run the tool). "
+                    "Nothing was changed — try again, or paste the text into "
+                    "a new note yourself."
+                )
+            yield {"type": "answer", "delta": answer}
             return
 
         # Replay the assistant turn (with its calls) so the model keeps
@@ -162,6 +200,9 @@ def run_agent(
             spec = tools.TOOLS.get(name)
             if spec is not None and spec.destructive:
                 # Park it for the user — never auto-run a destructive tool.
+                # The confirm card is the honest signal, so count it as an
+                # action (don't fire the "nothing happened" safety net).
+                did_write = True
                 yield {
                     "type": "confirm",
                     "name": name,
@@ -171,6 +212,8 @@ def run_agent(
                 result = AWAITING_CONFIRMATION
             else:
                 result = tools.execute_tool(session, name, arguments)
+                if "error" not in result and name in _WRITE_TOOLS:
+                    did_write = True
                 yield {
                     "type": "tool",
                     "label": result.get("label") or name,

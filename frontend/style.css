@@ -1234,9 +1234,53 @@ html { font-size: 16px; }
 }
 #brand-logo canvas { width: 34px !important; height: 34px !important; }
 
-/* The ambient background reads on every tab; nudge it a touch more
-   visible than the old faint blobs (still well behind text). */
-.bg-art-canvas { opacity: 0.9; }
+/* The ambient background reads on every tab; its strength follows the
+   Appearance → Intensity slider (Wave O). */
+.bg-art-canvas { opacity: var(--bg-art-opacity, 0.9); }
+
+/* --- Wave O: expanded appearance (theme/size/density/glass) ---------------------- */
+.seg {
+  display: inline-flex;
+  gap: 0.15rem;
+  padding: 0.2rem;
+  border-radius: 10px;
+  background: var(--chip-bg);
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+.seg button {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--muted);
+  font-weight: 500;
+  padding: 0.3rem 0.8rem;
+  border-radius: 8px;
+}
+.seg button.active { background: var(--accent); color: #fff; }
+
+/* Text size scales the root font (rem-based layout follows). */
+:root[data-fontsize="small"] { font-size: 14.5px; }
+:root[data-fontsize="large"] { font-size: 18px; }
+
+/* Compact density trims padding on cards and list rows. */
+:root[data-density="compact"] .card { padding: 0.6rem 0.8rem; margin-bottom: 0.6rem; }
+:root[data-density="compact"] .entry-list li { padding: 0.5rem 0.7rem; }
+:root[data-density="compact"] .layout { gap: 0.6rem; padding-top: 0.5rem; }
+
+/* Glass off → flat solid surfaces (cheaper to render). */
+:root[data-glass="off"] .card,
+:root[data-glass="off"] header#top-bar,
+:root[data-glass="off"] input,
+:root[data-glass="off"] textarea,
+:root[data-glass="off"] select,
+:root[data-glass="off"] #ai-pill,
+:root[data-glass="off"] button.ghost,
+:root[data-glass="off"] #tab-bar button {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+:root[data-glass="off"] { --card: var(--modal-bg); }
 
 /* --- Wave O: AI Tools toggles --------------------------------------------------- */
 #tool-list li { padding: 0.5rem 0; border-bottom: 1px solid var(--border); }

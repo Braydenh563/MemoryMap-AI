@@ -4541,10 +4541,32 @@ async function loadLinkSuggestions() {
   }
 }
 
+// Heuristic: does this Ollama model look like it can produce embeddings?
+// Chat/generation models can't — Ollama answers /api/embed with 501 — and
+// picking one by mistake is the #1 way people break the search engine.
+function looksLikeEmbeddingModel(name) {
+  return /embed|minilm|bge|gte|e5|arctic/i.test(name || "");
+}
+
 async function applyEmbeddingBackend() {
   const backend = document.querySelector('input[name="emb-backend"]:checked')?.value;
   const model = $("embedding-model-select").value || null;
   if (!backend) return;
+  // Guard the #1 misconfiguration: a chat model chosen as the search engine.
+  if (backend === "ollama") {
+    if (!model) {
+      toast("Pick an embedding model first — e.g. nomic-embed-text.", true);
+      return;
+    }
+    if (!looksLikeEmbeddingModel(model)) {
+      const proceed = confirm(
+        `"${model}" doesn't look like an embedding model. Chat models can't create ` +
+          "embeddings, so semantic search will fail (Ollama returns 501). Download and " +
+          "pick a dedicated embedding model like nomic-embed-text instead.\n\nApply anyway?"
+      );
+      if (!proceed) return;
+    }
+  }
   const ok = confirm(
     `Switching the search engine re-indexes all ${allEntries.length} of your ` +
       "notes so search keeps making sense. Notes and keyword search stay " +

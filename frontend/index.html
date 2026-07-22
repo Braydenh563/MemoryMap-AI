@@ -704,7 +704,28 @@
       <input id="palette-input" type="text" placeholder="Type a command or search your notes…"
         autocomplete="off" aria-label="Command or search">
       <ul id="palette-list"></ul>
-      <p class="muted palette-hint">↑↓ to choose · Enter to run · Esc to close</p>
+      <p class="muted palette-hint">↑↓ to choose · Enter to run · Esc to close · ? for shortcuts</p>
+    </div>
+  </div>
+
+  <!-- Keyboard shortcuts cheat-sheet (press ? anywhere) -->
+  <div id="shortcuts-overlay" class="modal-overlay hidden" role="dialog"
+    aria-modal="true" aria-label="Keyboard shortcuts">
+    <div class="card modal-card" id="shortcuts-card">
+      <div class="row space-between">
+        <h2>⌨ Keyboard shortcuts</h2>
+        <button id="shortcuts-close" class="ghost small">Close</button>
+      </div>
+      <ul class="shortcut-list">
+        <li><kbd>Ctrl</kbd>/<kbd>⌘</kbd> <kbd>K</kbd><span>Open the command palette</span></li>
+        <li><kbd>/</kbd><span>Jump to search (or the chat box on the Chat tab)</span></li>
+        <li><kbd>?</kbd><span>Show this shortcuts list</span></li>
+        <li><kbd>Esc</kbd><span>Close any dialog, menu, or overlay</span></li>
+        <li><kbd>←</kbd> <kbd>→</kbd><span>Move between tabs (when a tab is focused)</span></li>
+        <li><kbd>Enter</kbd><span>Send a chat message, or run the selected command</span></li>
+        <li><kbd>Tab</kbd><span>Move focus; cycles inside an open dialog</span></li>
+      </ul>
+      <p class="muted">Tip: most actions also live in the command palette (<kbd>Ctrl</kbd>/<kbd>⌘</kbd> <kbd>K</kbd>).</p>
     </div>
   </div>
 

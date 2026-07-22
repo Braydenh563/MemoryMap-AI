@@ -4123,7 +4123,7 @@ function paletteCommands() {
     { label: "🗄 Back up now", run: () => { openSettingsModal("data"); backupNow(); } },
     { label: "📤 Export markdown", run: () => downloadExport("markdown") },
     { label: "🌓 Toggle light/dark", run: toggleTheme },
-    { label: "⌨️ Keyboard shortcuts", run: () => openSettingsModal("about") },
+    { label: "⌨️ Keyboard shortcuts", run: () => { closePalette(); openShortcuts(); } },
     { label: "🔒 Lock MemoryMap", run: lockNow },
   ];
 }
@@ -5646,6 +5646,10 @@ document.addEventListener("keydown", (e) => {
     closeImprove();
     return;
   }
+  if (e.key === "Escape" && !$("shortcuts-overlay").classList.contains("hidden")) {
+    closeShortcuts();
+    return;
+  }
   // "/" focuses search — but only when you're not already typing somewhere
   // and no overlay is open, so it never steals a literal slash (Wave J).
   const typing = ["INPUT", "TEXTAREA", "SELECT"].includes(
@@ -5655,6 +5659,12 @@ document.addEventListener("keydown", (e) => {
     settingsModalOpen() ||
     !$("palette-overlay").classList.contains("hidden") ||
     !$("sketch-overlay").classList.contains("hidden");
+  // "?" (Shift-/) opens the keyboard-shortcuts cheat-sheet.
+  if (e.key === "?" && !typing && !overlayOpen) {
+    e.preventDefault();
+    openShortcuts();
+    return;
+  }
   if (e.key === "/" && !typing && !overlayOpen) {
     e.preventDefault();
     // On the Chat tab the natural target is the chat box; elsewhere the
@@ -5683,11 +5693,30 @@ document.addEventListener("click", (e) => {
 // Focus trapping (Wave L): while a dialog is open, Tab cycles inside it
 // instead of wandering into the page behind — a WCAG dialog basic.
 function activeOverlay() {
-  for (const id of ["palette-overlay", "sketch-overlay", "improve-overlay", "settings-modal"]) {
+  for (const id of [
+    "palette-overlay",
+    "sketch-overlay",
+    "improve-overlay",
+    "shortcuts-overlay",
+    "settings-modal",
+  ]) {
     if (!$(id).classList.contains("hidden")) return $(id);
   }
   return null;
 }
+
+// Keyboard-shortcuts cheat-sheet (press ?), a learnability aid.
+function openShortcuts() {
+  $("shortcuts-overlay").classList.remove("hidden");
+  $("shortcuts-close").focus();
+}
+function closeShortcuts() {
+  $("shortcuts-overlay").classList.add("hidden");
+}
+$("shortcuts-close").addEventListener("click", closeShortcuts);
+$("shortcuts-overlay").addEventListener("click", (e) => {
+  if (e.target === $("shortcuts-overlay")) closeShortcuts();
+});
 
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Tab") return;

@@ -277,6 +277,29 @@ button.small { padding: 0.3rem 0.8rem; font-size: 0.85rem; }
 .row label { flex-shrink: 0; }
 .space-between { justify-content: space-between; }
 
+#shortcuts-card { width: min(520px, 94vw); }
+.shortcut-list { list-style: none; margin: 0.4rem 0; padding: 0; }
+.shortcut-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.shortcut-list li:last-child { border-bottom: none; }
+.shortcut-list span { color: var(--muted); font-size: 0.9rem; }
+kbd {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.78rem;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--glass-border);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  background: var(--chip-bg);
+  color: var(--ink);
+  white-space: nowrap;
+}
+
 .status { font-size: 0.88rem; color: var(--muted); }
 .status.error { color: var(--error); }
 .status.ok { color: var(--ok); }

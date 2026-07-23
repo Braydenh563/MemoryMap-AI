@@ -110,4 +110,11 @@ def test_digest_offline_is_not_cacheable(client):
 def test_dashboard_layout_roundtrip(client):
     layout = {"order": ["stats", "pinned"], "hidden": ["digest"]}
     updated = client.put("/preferences", json={"dashboard_layout": layout}).json()
-    assert updated["dashboard_layout"] == layout
+    # `sizes` (per-widget width) defaults to {} and rounds through too.
+    assert updated["dashboard_layout"] == {**layout, "sizes": {}}
+
+
+def test_dashboard_layout_persists_widget_sizes(client):
+    layout = {"order": ["stats"], "hidden": [], "sizes": {"stats": "wide"}}
+    updated = client.put("/preferences", json={"dashboard_layout": layout}).json()
+    assert updated["dashboard_layout"]["sizes"] == {"stats": "wide"}

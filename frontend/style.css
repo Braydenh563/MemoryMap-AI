@@ -778,6 +778,12 @@ li.link-source { outline: 2px solid var(--accent); }
   align-items: start;
 }
 .dash-widget { margin-bottom: 0; }
+/* A "wide" widget spans two grid columns to act as a larger section. The
+   grid auto-packs the remaining normal-size widgets around it. */
+.dash-widget.dash-wide { grid-column: span 2; }
+@media (max-width: 720px) {
+  .dash-widget.dash-wide { grid-column: span 1; } /* single column on mobile */
+}
 .dash-widget.dash-hidden { opacity: 0.45; }
 .dash-widget.dragging { opacity: 0.5; outline: 2px dashed var(--accent); }
 .drag-handle { cursor: grab; color: var(--muted); font-size: 0.8rem; }
@@ -835,12 +841,18 @@ li.link-source { outline: 2px solid var(--accent); }
   border-radius: 50%;
   background: var(--muted);
   animation: dot-bounce 1.2s infinite ease-in-out;
+  /* Promote each dot to its own compositor layer so the bounce runs on the
+     GPU thread. Without this it animated on the main thread and stuttered
+     whenever the background art or a streaming answer kept that thread
+     busy (user-reported "glitchy thinking dots"). */
+  will-change: transform, opacity;
+  transform: translateZ(0);
 }
 .typing-dots span:nth-child(2) { animation-delay: 0.15s; }
 .typing-dots span:nth-child(3) { animation-delay: 0.3s; }
 @keyframes dot-bounce {
-  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-  30% { transform: translateY(-0.3rem); opacity: 1; }
+  0%, 60%, 100% { transform: translate3d(0, 0, 0); opacity: 0.4; }
+  30% { transform: translate3d(0, -0.3rem, 0); opacity: 1; }
 }
 
 .persona-preview { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

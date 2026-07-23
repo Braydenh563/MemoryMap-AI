@@ -1568,9 +1568,18 @@ function typingDots() {
   return dots;
 }
 
+// Coalesce scroll-to-end into one write per animation frame. It used to run
+// on every streamed token, forcing a synchronous reflow each time — a big
+// source of jank on long answers.
+let chatScrollQueued = false;
 function chatScrollToEnd() {
-  const box = $("chat-messages");
-  box.scrollTop = box.scrollHeight;
+  if (chatScrollQueued) return;
+  chatScrollQueued = true;
+  requestAnimationFrame(() => {
+    chatScrollQueued = false;
+    const box = $("chat-messages");
+    box.scrollTop = box.scrollHeight;
+  });
 }
 
 function addBubble(role, text) {
@@ -2562,7 +2571,12 @@ function dashLayout() {
   for (const name of Object.keys(DASH_WIDGETS)) {
     if (!order.includes(name)) order.push(name); // new widgets append
   }
-  return { order: order.filter((n) => DASH_WIDGETS[n]), hidden: saved.hidden || [] };
+  return {
+    order: order.filter((n) => DASH_WIDGETS[n]),
+    hidden: saved.hidden || [],
+    // Per-widget width: "wide" spans two columns to make a larger section.
+    sizes: saved.sizes || {},
+  };
 }
 
 async function saveDashLayout(layout) {
@@ -2660,8 +2674,10 @@ async function renderDashboard() {
     if (hidden && !dashEditMode) continue;
 
     const widget = DASH_WIDGETS[name];
+    const isWide = layout.sizes[name] === "wide";
     const card = document.createElement("section");
-    card.className = "card dash-widget" + (hidden ? " dash-hidden" : "");
+    card.className =
+      "card dash-widget" + (hidden ? " dash-hidden" : "") + (isWide ? " dash-wide" : "");
     card.dataset.widget = name;
 
     const header = document.createElement("div");
@@ -2672,8 +2688,26 @@ async function renderDashboard() {
     if (dashEditMode) {
       const controls = document.createElement("span");
       controls.className = "entry-actions";
+      // Wide ⇄ Normal: a widget can span two columns to become a bigger
+      // "section" (user request). Hidden widgets don't need a size toggle.
+      if (!hidden) {
+        controls.appendChild(
+          smallButton(
+            isWide ? "▤ Normal" : "▭ Wide",
+            isWide ? "Shrink back to one column" : "Make this a full-width section",
+            async () => {
+              const next = dashLayout();
+              next.sizes = { ...next.sizes };
+              if (isWide) delete next.sizes[name];
+              else next.sizes[name] = "wide";
+              await saveDashLayout(next);
+              renderDashboard();
+            }
+          )
+        );
+      }
       controls.appendChild(
-        smallButton(hidden ? "Show" : "Hide", "", async () => {
+        smallButton(hidden ? "＋ Add" : "✕ Remove", hidden ? "Add this widget to the dashboard" : "Remove this widget from the dashboard", async () => {
           const next = dashLayout();
           next.hidden = hidden
             ? next.hidden.filter((n) => n !== name)
@@ -5605,7 +5639,7 @@ const BG_ART_BUILDERS = {
       p.push();
       p.translate(p.width / 2, p.height / 2);
       p.rotate(t * 0.02);
-      p.stroke(ctx.baseHue, 50, ctx.dark ? 70 : 45, 0.05);
+      p.stroke(ctx.baseHue, 50, ctx.dark ? 72 : 42, 0.09);
       p.strokeWeight(1.5);
       for (let i = 0; i < emblem.length; i++) {
         for (let j = i + 1; j < emblem.length; j++) {
@@ -5619,7 +5653,7 @@ const BG_ART_BUILDERS = {
       }
       p.noStroke();
       for (const a of emblem) {
-        p.fill(ctx.baseHue, 55, ctx.dark ? 72 : 42, 0.07);
+        p.fill(ctx.baseHue, 58, ctx.dark ? 74 : 40, 0.12);
         p.circle(Math.cos(a) * radius, Math.sin(a) * radius, 16);
       }
       p.pop();
@@ -5645,7 +5679,7 @@ const BG_ART_BUILDERS = {
           if (dot.x > p.width) dot.x = 0;
           if (dot.y < 0) dot.y = p.height;
           if (dot.y > p.height) dot.y = 0;
-          p.fill(dot.hue, 65, ctx.dark ? 68 : 55, 0.5);
+          p.fill(dot.hue, 70, ctx.dark ? 70 : 52, 0.78);
           p.circle(dot.x, dot.y, dot.size);
         }
       },
@@ -5658,12 +5692,12 @@ const BG_ART_BUILDERS = {
     let stars = [];
     return {
       init() {
-        const n = Math.min(90, Math.round((p.width * p.height) / 26000));
+        const n = Math.min(140, Math.round((p.width * p.height) / 17000));
         for (let i = 0; i < n; i++) {
           stars.push({
             x: p.random(p.width), y: p.random(p.height),
             vx: p.random(-0.25, 0.25), vy: p.random(-0.25, 0.25),
-            size: p.random(1.5, 3.5),
+            size: p.random(1.8, 4),
             hue: (ctx.baseHue + p.random(-30, 30) + 360) % 360,
           });
         }
@@ -5677,8 +5711,8 @@ const BG_ART_BUILDERS = {
           for (let j = i + 1; j < stars.length; j++) {
             const a = stars[i], b = stars[j];
             const d = p.dist(a.x, a.y, b.x, b.y);
-            if (d < 120) {
-              p.stroke(ctx.baseHue, 60, ctx.dark ? 70 : 50, p.map(d, 0, 120, 0.28, 0));
+            if (d < 130) {
+              p.stroke(ctx.baseHue, 60, ctx.dark ? 72 : 48, p.map(d, 0, 130, 0.45, 0));
               p.strokeWeight(1);
               p.line(a.x, a.y, b.x, b.y);
             }
@@ -5686,7 +5720,7 @@ const BG_ART_BUILDERS = {
         }
         p.noStroke();
         for (const s of stars) {
-          p.fill(s.hue, 70, ctx.dark ? 72 : 52, 0.85);
+          p.fill(s.hue, 72, ctx.dark ? 74 : 50, 0.95);
           p.circle(s.x, s.y, s.size);
         }
       },
@@ -5704,7 +5738,7 @@ const BG_ART_BUILDERS = {
           const amp = 26 + l * 10;
           const hue = (ctx.baseHue + l * 12) % 360;
           p.noStroke();
-          p.fill(hue, 60, ctx.dark ? 55 : 60, 0.10);
+          p.fill(hue, 62, ctx.dark ? 55 : 58, 0.16);
           p.beginShape();
           p.vertex(0, p.height);
           for (let x = 0; x <= p.width; x += 14) {
@@ -5745,9 +5779,9 @@ const BG_ART_BUILDERS = {
           o.y -= o.speed;
           o.x += o.drift;
           if (o.y < -o.r) orbs[i] = spawn();
-          p.fill(o.hue, 65, ctx.dark ? 60 : 62, 0.12);
+          p.fill(o.hue, 68, ctx.dark ? 60 : 60, 0.17);
           p.circle(o.x, o.y, o.r * 2);
-          p.fill(o.hue, 70, ctx.dark ? 70 : 55, 0.16);
+          p.fill(o.hue, 72, ctx.dark ? 70 : 52, 0.22);
           p.circle(o.x, o.y, o.r);
         }
       },
@@ -5774,7 +5808,7 @@ const BG_ART_BUILDERS = {
           const y = p.noise(b.seedY, t * 0.05) * p.height;
           // Concentric fades approximate a soft radial glow (no blur cost).
           for (let k = 6; k >= 1; k--) {
-            p.fill(b.hue, 60, ctx.dark ? 45 : 65, 0.03);
+            p.fill(b.hue, 62, ctx.dark ? 48 : 62, 0.05);
             p.circle(x, y, b.r * (k / 6));
           }
         }
@@ -5817,8 +5851,10 @@ function startBgArt() {
     p.draw = () => {
       const t = p.frameCount * 0.01;
       // Translucent wash → marks leave gentle trails instead of hard clears.
+      // Kept light so the art reads clearly on every tab (and the page
+      // gradient shows through) rather than flattening to near-solid.
       p.noStroke();
-      p.fill(dark ? 12 : 250, dark ? 0.14 : 0.16);
+      p.fill(dark ? 12 : 250, dark ? 0.10 : 0.12);
       p.rect(0, 0, p.width, p.height);
       style.frame(t);
     };

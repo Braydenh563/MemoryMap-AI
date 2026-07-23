@@ -23,6 +23,15 @@ echo "  MemoryMap AI - starting up"
 echo " =========================================="
 echo
 
+# --- 0. Self-update --------------------------------------------------
+# Pull the latest code if this is a git checkout. --ff-only never rewrites
+# your work: with local changes it just skips and keeps going. This is why
+# "the launcher ran an old version" no longer happens.
+if command -v git >/dev/null 2>&1 && [ -d .git ]; then
+  echo " [0/4] Checking for updates..."
+  git pull --ff-only || echo "       (skipped update - staying on the current version)"
+fi
+
 # --- 1. Find a Python ------------------------------------------------
 if command -v python3 >/dev/null 2>&1; then
   PYTHON=python3

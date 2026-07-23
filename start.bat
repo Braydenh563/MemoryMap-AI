@@ -28,6 +28,19 @@ echo   MemoryMap AI - starting up
 echo  ==========================================
 echo.
 
+REM --- 0. Self-update ---------------------------------------------------
+REM  Pull the latest code if this is a git checkout. --ff-only never
+REM  rewrites your work: if you have local changes it just skips and keeps
+REM  going on the current version. This is why "the bat ran an old version"
+REM  no longer happens - each launch grabs the newest code first.
+where git >nul 2>nul
+if not errorlevel 1 (
+  if exist ".git" (
+    echo  [0/4] Checking for updates...
+    git pull --ff-only
+  )
+)
+
 REM --- 1. Find a Python -------------------------------------------------
 set "PYTHON="
 where py >nul 2>nul && set "PYTHON=py -3"

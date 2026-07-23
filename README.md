@@ -77,6 +77,21 @@ The default *embedding* model (`all-MiniLM-L6-v2`, for semantic search)
 downloads itself automatically (~90 MB) the first time it's needed — no
 Ollama pull required.
 
+## Quick start (one click)
+
+Don't want to remember the commands? Use the bundled launcher — it creates
+the virtual environment, installs everything, and starts the app for you,
+then just runs it on every launch after that:
+
+- **Windows:** double-click **`start.bat`** (or run `start.bat` in a terminal).
+- **macOS / Linux:** run **`./start.sh`**.
+
+The first run installs dependencies (a few minutes); after that it skips
+straight to launching and opens <http://localhost:8000> in your browser.
+It re-installs automatically only when `requirements.txt` changes.
+
+Prefer to do it by hand? The manual steps are below.
+
 ## Setup
 
 ```bash

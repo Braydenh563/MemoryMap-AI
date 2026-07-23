@@ -214,6 +214,34 @@ header#top-bar h1 { margin: 0; font-size: 1.1rem; letter-spacing: 0.01em; }
 .card h3 { margin: 1rem 0 0.5rem; font-size: 0.9rem; color: var(--muted); }
 
 /* --- sidebar ------------------------------------------------------------ */
+/* Keep the Notes category sidebar pinned to the left while the notes
+   scroll (user request). It sits just below the sticky top bar; a long
+   category list scrolls within the pinned column instead of running off
+   the screen. Only on wide layouts — on mobile the sidebar stacks on top. */
+@media (min-width: 721px) {
+  #tab-notes #sidebar {
+    position: sticky;
+    top: 4.25rem;
+    max-height: calc(100vh - 5.5rem);
+    overflow-y: auto;
+  }
+}
+
+/* Collapsible cards (Notes tab): a chevron in the heading folds the card
+   down to just its title. Everything after the header row is hidden. */
+.card.collapsed > :not(:first-child) { display: none; }
+.card.collapsed { padding-bottom: 0.6rem; }
+.collapse-chevron {
+  display: inline-block;
+  width: 1.1em;
+  margin-right: 0.15rem;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+  font-size: 0.85em;
+}
+h2.collapsible-title { cursor: pointer; user-select: none; }
+h2.collapsible-title:hover .collapse-chevron { color: var(--accent); }
+
 #sidebar ul { list-style: none; margin: 0; padding: 0; }
 #sidebar li {
   display: flex;
@@ -372,6 +400,79 @@ progress { accent-color: var(--accent); width: 100%; }
 .answer pre code { background: none; padding: 0; }
 .answer a { color: var(--accent); }
 
+/* --- rich markdown blocks (tables, quotes, rules, task lists) ------------- */
+/* Shared by every markdown surface: the Ask answer, chat bubbles, and the
+   dashboard digest. Kept scoped to these containers so they never touch
+   the app's own chrome. */
+.answer .md-table-wrap,
+.bubble-answer .md-table-wrap,
+.dash-body .md-table-wrap {
+  overflow-x: auto;
+  margin: 0 0 0.6rem;
+  border-radius: 8px;
+}
+.md-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.88em;
+}
+.md-table th,
+.md-table td {
+  border: 1px solid var(--border);
+  padding: 0.35rem 0.6rem;
+  text-align: left;
+  vertical-align: top;
+}
+.md-table thead th {
+  background: var(--chip-bg);
+  font-weight: 700;
+}
+.md-table tbody tr:nth-child(even) td { background: var(--accent-soft); }
+
+.answer blockquote,
+.bubble-answer blockquote,
+.dash-body blockquote {
+  margin: 0 0 0.6rem;
+  padding: 0.3rem 0.9rem;
+  border-left: 3px solid var(--accent);
+  color: var(--muted);
+  background: var(--chip-bg);
+  border-radius: 0 8px 8px 0;
+}
+.answer hr,
+.bubble-answer hr,
+.dash-body hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0.8rem 0;
+}
+.answer del,
+.bubble-answer del,
+.dash-body del { opacity: 0.7; }
+.md-task { list-style: none; margin-left: -1.1rem; }
+.md-task input { width: auto; margin-right: 0.35rem; vertical-align: middle; }
+
+/* The chat bubble reuses the same block treatments. */
+.bubble-answer h3, .bubble-answer h4, .bubble-answer h5, .bubble-answer h6 {
+  margin: 0.5rem 0 0.3rem;
+}
+.bubble-answer ul, .bubble-answer ol { margin: 0 0 0.5rem; padding-left: 1.4rem; }
+.bubble-answer code {
+  background: var(--chip-bg);
+  padding: 0.05rem 0.3rem;
+  border-radius: 5px;
+  font-size: 0.9em;
+}
+.bubble-answer pre {
+  background: var(--chip-bg);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  overflow-x: auto;
+  white-space: pre;
+}
+.bubble-answer pre code { background: none; padding: 0; }
+.bubble-answer a { color: var(--accent); }
+
 /* margin-left:auto pushes the buttons to the right edge of the heading;
    they wrap onto their own line when the title/chip get long, and never
    overlap the answer box the way the old float did. */
@@ -405,9 +506,26 @@ progress { accent-color: var(--accent); width: 100%; }
 .entry-date { margin-left: auto; color: var(--muted); font-size: 0.78rem; }
 
 /* --- settings / model manager --------------------------------------------- */
-#settings label { display: block; margin-bottom: 0.4rem; font-size: 0.92rem; }
-#settings label input[type="radio"] { width: auto; margin-right: 0.4rem; }
-#prefs-panel label input[type="checkbox"] { width: auto; margin-right: 0.4rem; }
+/* Each settings label sits on its own line, with the control and its text
+   aligned on one row. (The old #settings / #prefs-panel selectors targeted
+   IDs that no longer exist, so checkboxes were flowing inline — this is the
+   fix for the "Glass & effects" boxes stacking on one line.) */
+.settings-section label {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.92rem;
+}
+.settings-section label input[type="radio"],
+.settings-section label input[type="checkbox"] {
+  width: auto;
+  flex: 0 0 auto;
+  margin: 0;
+}
+/* Labels that are just a caption for a following control (e.g. the accent
+   picker, the intensity slider row) shouldn't force the flex row. */
+.settings-section .row label { display: inline-flex; margin-bottom: 0; }
 #suggested-list { list-style: none; margin: 0; padding: 0; }
 #suggested-list li {
   display: flex;
@@ -578,6 +696,73 @@ li.link-source { outline: 2px solid var(--accent); }
 .log-list li.log-warn .what { color: var(--warn); }
 
 /* --- dashboard + reminders (Wave D) ------------------------------------------ */
+/* --- live clock (reminders tab + dashboard) ------------------------------- */
+.live-clock { text-align: right; line-height: 1.2; }
+.live-clock .clock-time {
+  display: block;
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+.live-clock .clock-date { display: block; font-size: 0.78rem; }
+.reminders-head { align-items: flex-start; }
+
+/* --- dashboard welcome hero + quick actions ------------------------------- */
+.dash-welcome {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin: 0.5rem 2rem 0.75rem;
+  padding: 1.1rem 1.4rem;
+  border-radius: 16px;
+  border: 1px solid var(--glass-border);
+  background:
+    radial-gradient(120% 140% at 0% 0%, var(--accent-soft), transparent 60%),
+    var(--card);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  box-shadow: var(--glass-shadow);
+}
+.dash-welcome-text h2 { margin: 0 0 0.2rem; font-size: 1.5rem; }
+.dash-welcome-text p { margin: 0; max-width: 46ch; }
+.dash-welcome-clock .clock-time { font-size: 1.9rem; }
+
+.dash-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  padding: 0 2rem 0.75rem;
+}
+.dash-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  background: var(--card);
+  color: var(--ink);
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+}
+.dash-action:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+.dash-action-icon { font-size: 1.05rem; }
+
+@media (max-width: 720px) {
+  .dash-welcome { margin: 0.5rem 1rem 0.6rem; }
+  .dash-actions { padding: 0 1rem 0.6rem; }
+  .dash-welcome-clock { text-align: left; }
+}
+
 .dash-toolbar {
   display: flex;
   justify-content: space-between;
@@ -900,19 +1085,37 @@ li.link-source { outline: 2px solid var(--accent); }
 .graph-edge-similar { stroke-dasharray: 2 5; stroke-width: 1.2; stroke: var(--accent); }
 
 .graph-node { cursor: pointer; }
-.graph-node circle {
+/* Soft coloured halo behind each node → depth, and hubs read brighter. */
+.graph-node .graph-halo {
+  opacity: 0.18;
+  filter: blur(2px);
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+.graph-node:hover .graph-halo { opacity: 0.4; }
+.graph-node .graph-core {
   stroke: var(--card);
   stroke-width: 2px;
   transition: r 0.12s ease, stroke-width 0.12s ease, filter 0.12s ease;
 }
-.graph-node circle.graph-pinned { stroke: var(--warn); }
-.graph-node:hover circle { stroke: var(--accent); stroke-width: 3px; }
+.graph-node .graph-core.graph-pinned { stroke: var(--warn); }
+/* Well-connected "hub" notes get a bright ring so structure is visible. */
+.graph-node .graph-core.graph-hub {
+  stroke: var(--accent);
+  stroke-width: 2.5px;
+}
+.graph-node:hover .graph-core { stroke: var(--accent); stroke-width: 3px; }
 /* The node the pointer is over: a bright accent ring + glow (hover-spotlight). */
-.graph-node.graph-focus circle {
+.graph-node.graph-focus .graph-core {
   stroke: var(--accent);
   stroke-width: 3.5px;
   filter: drop-shadow(0 0 6px var(--accent));
 }
+/* Labels-off mode: hide labels until a node is hovered/spotlit. */
+.graph-labels-hidden .graph-node text { opacity: 0; transition: opacity 0.1s ease; }
+.graph-labels-hidden .graph-node:hover text,
+.graph-labels-hidden .graph-node.graph-focus text { opacity: 1; }
+.graph-stats { margin: 0.2rem 0 0.4rem; font-size: 0.82rem; }
 .graph-node text {
   font-size: 0.68rem;
   fill: var(--ink);
@@ -1100,6 +1303,27 @@ kbd {
 }
 .art-holder canvas { width: 100%; height: auto; display: block; border-radius: 10px; }
 .art-controls { margin-top: 0.5rem; line-height: 1.5; }
+.art-caption { margin: 0.5rem 0 0.2rem; font-size: 0.8rem; line-height: 1.4; }
+.art-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.8rem;
+  margin-top: 0.5rem;
+}
+.art-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.art-legend-dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
 
 .browse-header { align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 .browse-tools { gap: 0.4rem; flex: 0 1 auto; }
@@ -1154,6 +1378,18 @@ kbd {
 }
 :root[data-accent="slate"] {
   --accent: #64748b; --accent-soft: rgba(100, 116, 139, 0.18); --blob-a: rgba(100, 116, 139, 0.20);
+}
+:root[data-accent="sunset"] {
+  --accent: #f97316; --accent-soft: rgba(249, 115, 22, 0.16); --blob-a: rgba(249, 115, 22, 0.20);
+}
+:root[data-accent="ocean"] {
+  --accent: #2563eb; --accent-soft: rgba(37, 99, 235, 0.16); --blob-a: rgba(37, 99, 235, 0.18);
+}
+:root[data-accent="mint"] {
+  --accent: #10b981; --accent-soft: rgba(16, 185, 129, 0.16); --blob-a: rgba(16, 185, 129, 0.18);
+}
+:root[data-accent="grape"] {
+  --accent: #9333ea; --accent-soft: rgba(147, 51, 234, 0.16); --blob-a: rgba(147, 51, 234, 0.20);
 }
 
 /* Manual "reduce motion" override (Appearance): kill transitions/animations
@@ -1324,7 +1560,7 @@ html { font-size: 16px; }
 
 .graph-node.graph-dim { opacity: 0.15; }
 .graph-edge.graph-dim { opacity: 0.06; }
-.graph-node.graph-held circle { stroke: var(--ink); stroke-dasharray: 3 2; }
+.graph-node.graph-held .graph-core { stroke: var(--ink); stroke-dasharray: 3 2; }
 #graph-search { max-width: 13rem; margin-bottom: 0; }
 
 .thumb-wrap { position: relative; display: inline-block; }

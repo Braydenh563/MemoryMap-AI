@@ -684,6 +684,22 @@ li.link-source { outline: 2px solid var(--accent); }
 .reminders-card { margin: 0.25rem 2rem; }
 .reminders-card .row input[type="datetime-local"] { flex: 0 1 auto; }
 .entry-list li.overdue { border-color: var(--warn); }
+/* Priority colour-coding for reminders — a coloured left edge, calm but clear. */
+.entry-list li.priority-high { border-left: 3px solid var(--error); }
+.entry-list li.priority-high .reminder-text { font-weight: 650; }
+.entry-list li.priority-low .reminder-text { color: var(--muted); }
+#reminder-magic { flex: 1; }
+
+/* Focus timer widget */
+.focus-timer-display {
+  font-size: 2.4rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  margin: 0.2rem 0 0.4rem;
+}
+.focus-presets { flex-wrap: wrap; align-items: center; }
+.focus-custom { width: 4.5rem; }
 
 /* Typing indicator (Wave D): three bouncing dots until the first token */
 .typing-dots { display: inline-flex; gap: 0.25rem; padding: 0.2rem 0; }

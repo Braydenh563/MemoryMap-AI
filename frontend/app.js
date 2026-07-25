@@ -286,6 +286,20 @@ function chip(text, extraClass = "", onClick = null) {
   return span;
 }
 
+// A <select> from [value, label] pairs, with one option preselected.
+function buildSelect(options, selected) {
+  const select = document.createElement("select");
+  select.className = "small-select";
+  for (const [value, label] of options) {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = label;
+    if (value === selected) option.selected = true;
+    select.appendChild(option);
+  }
+  return select;
+}
+
 function smallButton(label, title, onClick, ghost = true) {
   // (Wave I) icon-only buttons need a name for screen readers — the
   // title doubles as one.
@@ -2565,6 +2579,7 @@ const DASH_WIDGETS = {
   digest: { title: "📰 Weekly digest", render: renderDigestWidget },
   capture: { title: "✏️ Quick capture", render: renderQuickCaptureWidget },
   reminders: { title: "⏰ Reminders", render: renderRemindersWidget },
+  focus: { title: "⏱ Focus timer", render: renderFocusTimerWidget },
 };
 
 function dashLayout() {
@@ -3145,6 +3160,108 @@ async function renderRemindersWidget(body) {
   body.appendChild(ul);
 }
 
+// --- focus timer (dashboard widget) -----------------------------------------
+// State lives at module level so it keeps running while the widget re-renders
+// (e.g. when you switch away and back to the dashboard).
+let focusTimer = { remaining: 0, total: 25 * 60, running: false, handle: null };
+
+function focusTimeLabel(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+function paintFocusTimer() {
+  const display = $("focus-timer-display");
+  if (display) {
+    const shown = focusTimer.remaining || focusTimer.total;
+    display.textContent = focusTimeLabel(shown);
+  }
+  const toggle = $("focus-timer-toggle");
+  if (toggle) toggle.textContent = focusTimer.running ? "Pause" : "Start";
+}
+
+function focusTimerTick() {
+  if (focusTimer.remaining > 0) {
+    focusTimer.remaining -= 1;
+    paintFocusTimer();
+    if (focusTimer.remaining === 0) {
+      stopFocusTimer();
+      toast("⏱ Focus session complete — nice work!");
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification("MemoryMap", { body: "Focus session complete — nice work!" });
+      }
+    }
+  }
+}
+
+function startFocusTimer() {
+  if (focusTimer.running) return;
+  if (focusTimer.remaining <= 0) focusTimer.remaining = focusTimer.total;
+  focusTimer.running = true;
+  if ("Notification" in window && Notification.permission === "default") {
+    Notification.requestPermission();
+  }
+  focusTimer.handle = setInterval(focusTimerTick, 1000);
+  paintFocusTimer();
+}
+
+function stopFocusTimer() {
+  focusTimer.running = false;
+  if (focusTimer.handle) clearInterval(focusTimer.handle);
+  focusTimer.handle = null;
+  paintFocusTimer();
+}
+
+function setFocusTimer(minutes) {
+  stopFocusTimer();
+  focusTimer.total = Math.max(1, Math.round(minutes)) * 60;
+  focusTimer.remaining = 0;
+  paintFocusTimer();
+}
+
+function renderFocusTimerWidget(body) {
+  const display = document.createElement("div");
+  display.id = "focus-timer-display";
+  display.className = "focus-timer-display";
+  body.appendChild(display);
+
+  const presets = document.createElement("div");
+  presets.className = "row focus-presets";
+  for (const mins of [5, 15, 25]) {
+    presets.appendChild(smallButton(`${mins}m`, `${mins} minutes`, () => setFocusTimer(mins)));
+  }
+  const custom = document.createElement("input");
+  custom.type = "number";
+  custom.min = "1";
+  custom.max = "180";
+  custom.placeholder = "min";
+  custom.className = "focus-custom";
+  custom.setAttribute("aria-label", "Custom minutes");
+  custom.addEventListener("change", () => {
+    const value = Number(custom.value);
+    if (value >= 1) setFocusTimer(value);
+  });
+  presets.appendChild(custom);
+  body.appendChild(presets);
+
+  const controls = document.createElement("div");
+  controls.className = "row";
+  const toggle = smallButton("Start", "Start or pause the timer", () => {
+    if (focusTimer.running) stopFocusTimer();
+    else startFocusTimer();
+  }, false);
+  toggle.id = "focus-timer-toggle";
+  const reset = smallButton("Reset", "Reset the timer", () => {
+    focusTimer.remaining = 0;
+    stopFocusTimer();
+  });
+  controls.append(toggle, reset);
+  body.appendChild(controls);
+
+  paintFocusTimer();
+}
+
 // --- reminders tab (Wave D) --------------------------------------------------------
 
 const notifiedReminderIds = new Set(); // don't re-notify within a session
@@ -3186,6 +3303,10 @@ let editingReminderId = null;
 function reminderItem(reminder, label) {
   const li = document.createElement("li");
   if (label === "Overdue") li.classList.add("overdue");
+  // Colour-code by priority (styled in CSS: a coloured left border).
+  if (reminder.priority && reminder.priority !== "normal") {
+    li.classList.add(`priority-${reminder.priority}`);
+  }
 
   if (editingReminderId === reminder.id) {
     li.appendChild(reminderEditForm(reminder));
@@ -3201,6 +3322,18 @@ function reminderItem(reminder, label) {
   checkbox.title = reminder.done ? "Reopen" : "Mark done";
   checkbox.style.width = "auto";
   checkbox.addEventListener("change", async () => {
+    // Completing a recurring reminder rolls it forward to the next interval
+    // instead of closing it permanently.
+    if (checkbox.checked && reminder.recurring && reminder.recurring !== "none") {
+      const next = nextRecurringDate(reminder.due_at, reminder.recurring);
+      await apiJson(`/reminders/${reminder.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ due_at: next.toISOString(), done: false }),
+      });
+      toast(`🔁 Rescheduled to ${next.toLocaleString()}.`);
+      loadReminders();
+      return;
+    }
     await apiJson(`/reminders/${reminder.id}`, {
       method: "PUT",
       body: JSON.stringify({ done: checkbox.checked }),
@@ -3214,6 +3347,12 @@ function reminderItem(reminder, label) {
   text.textContent = reminder.text;
   if (reminder.done) text.style.textDecoration = "line-through";
   row.appendChild(text);
+
+  if (reminder.recurring && reminder.recurring !== "none") {
+    const repeat = chip(`🔁 ${reminder.recurring}`, "tag");
+    repeat.title = `Repeats ${reminder.recurring}`;
+    row.appendChild(repeat);
+  }
 
   const due = document.createElement("span");
   due.className = "entry-date";
@@ -3294,6 +3433,27 @@ function toLocalInputValue(iso) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+// The next occurrence of a recurring reminder. Steps forward from the due
+// time until it lands in the future, so completing a long-overdue daily
+// reminder doesn't just move it one day into the past.
+function nextRecurringDate(fromIso, recurring) {
+  const next = new Date(fromIso);
+  const step = () => {
+    if (recurring === "daily") next.setDate(next.getDate() + 1);
+    else if (recurring === "weekly") next.setDate(next.getDate() + 7);
+    else if (recurring === "monthly") next.setMonth(next.getMonth() + 1);
+    else next.setDate(next.getDate() + 1); // safety fallback
+  };
+  step();
+  const now = Date.now();
+  let guard = 0;
+  while (next.getTime() <= now && guard < 600) {
+    step();
+    guard += 1;
+  }
+  return next;
+}
+
 // A named quick-due preset -> a concrete Date.
 function presetDate(preset) {
   const d = new Date();
@@ -3322,6 +3482,25 @@ function reminderEditForm(reminder) {
   const dueInput = document.createElement("input");
   dueInput.type = "datetime-local";
   dueInput.value = toLocalInputValue(reminder.due_at);
+  const prioritySelect = buildSelect(
+    [
+      ["normal", "Normal"],
+      ["low", "Low priority"],
+      ["high", "High priority"],
+    ],
+    reminder.priority || "normal"
+  );
+  prioritySelect.title = "Priority";
+  const recurringSelect = buildSelect(
+    [
+      ["none", "Once"],
+      ["daily", "Daily"],
+      ["weekly", "Weekly"],
+      ["monthly", "Monthly"],
+    ],
+    reminder.recurring || "none"
+  );
+  recurringSelect.title = "Repeat";
   const row = document.createElement("div");
   row.className = "row";
   row.appendChild(
@@ -3333,7 +3512,12 @@ function reminderEditForm(reminder) {
       }
       await apiJson(`/reminders/${reminder.id}`, {
         method: "PUT",
-        body: JSON.stringify({ text, due_at: new Date(dueInput.value).toISOString() }),
+        body: JSON.stringify({
+          text,
+          due_at: new Date(dueInput.value).toISOString(),
+          priority: prioritySelect.value,
+          recurring: recurringSelect.value,
+        }),
       });
       editingReminderId = null;
       loadReminders();
@@ -3345,12 +3529,12 @@ function reminderEditForm(reminder) {
       loadReminders();
     })
   );
-  wrap.append(textInput, dueInput, row);
+  wrap.append(textInput, dueInput, prioritySelect, recurringSelect, row);
   setTimeout(() => textInput.focus(), 0);
   return wrap;
 }
 
-async function addReminder(text, dueValue, entryId = null) {
+async function addReminder(text, dueValue, entryId = null, opts = {}) {
   if (!text || !dueValue) {
     toast("A reminder needs text and a due time.", true);
     return false;
@@ -3361,6 +3545,8 @@ async function addReminder(text, dueValue, entryId = null) {
       text,
       due_at: new Date(dueValue).toISOString(),
       entry_id: entryId,
+      priority: opts.priority || "normal",
+      recurring: opts.recurring || "none",
     }),
   });
   // Ask once for notification permission, when the first reminder lands.
@@ -3370,6 +3556,31 @@ async function addReminder(text, dueValue, entryId = null) {
   toast("Reminder set.");
   loadReminders();
   return true;
+}
+
+// Magic Add: send natural language to the AI, which parses it into a reminder.
+async function magicAddReminder() {
+  const input = $("reminder-magic");
+  const status = $("reminder-magic-status");
+  const text = input.value.trim();
+  if (!text) return;
+  status.classList.remove("error");
+  status.textContent = "✨ Parsing…";
+  try {
+    const reminder = await apiJson("/reminders/parse", {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    });
+    input.value = "";
+    status.textContent = `Added “${reminder.text}” — ${relativeWhen(reminder.due_at)}. Edit it below if needed.`;
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+    loadReminders();
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+  }
 }
 
 // Fire browser notifications for reminders that come due while the app
@@ -5652,9 +5863,19 @@ $("dash-edit").addEventListener("click", () => {
   renderDashboard();
 });
 $("reminder-add").addEventListener("click", async () => {
-  if (await addReminder($("reminder-text").value.trim(), $("reminder-due").value)) {
+  const ok = await addReminder($("reminder-text").value.trim(), $("reminder-due").value, null, {
+    priority: $("reminder-priority").value,
+    recurring: $("reminder-recurring").value,
+  });
+  if (ok) {
     $("reminder-text").value = "";
+    $("reminder-priority").value = "normal";
+    $("reminder-recurring").value = "none";
   }
+});
+$("reminder-magic-add").addEventListener("click", magicAddReminder);
+$("reminder-magic").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") magicAddReminder();
 });
 for (const button of document.querySelectorAll("#reminder-presets button")) {
   button.addEventListener("click", () => {

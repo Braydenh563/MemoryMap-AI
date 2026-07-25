@@ -14,7 +14,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from typing import Literal
 
-from memorymap.core.database import Entry, Reminder
+from memorymap.core import deps
+from memorymap.core.database import Entry, Reminder, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry.manager import log_action
 
@@ -30,6 +31,10 @@ class ReminderCreate(BaseModel):
     entry_id: int | None = None
     priority: Priority = "normal"
     recurring: Recurring = "none"
+
+
+class MagicAddBody(BaseModel):
+    text: str = Field(min_length=1, max_length=300)
 
 
 class ReminderUpdate(BaseModel):
@@ -87,6 +92,34 @@ def create_reminder(body: ReminderCreate, session: Session = Depends(get_session
     session.add(reminder)
     session.flush()
     log_action(session, "created", "reminder", reminder.id, body.text[:80])
+    session.commit()
+    return _to_out(session, reminder)
+
+
+@router.post("/parse", status_code=201)
+def magic_add_reminder(body: MagicAddBody, session: Session = Depends(get_session)) -> dict:
+    """Magic Add: parse natural language into a reminder and create it.
+
+    Needs the local model running; returns 503 otherwise so the UI can point
+    the user at the manual form.
+    """
+    from memorymap.ai import reminder_parser
+
+    ollama = deps.get_ollama()
+    if not ollama.is_running():
+        raise HTTPException(
+            status_code=503,
+            detail="The local AI isn't running — add the reminder with the form instead.",
+        )
+    parsed = reminder_parser.parse_reminder(
+        body.text, ollama, deps.get_model_manager(), utcnow()
+    )
+    reminder = Reminder(
+        text=parsed["text"], due_at=parsed["due_at"], priority=parsed["priority"]
+    )
+    session.add(reminder)
+    session.flush()
+    log_action(session, "created", "reminder", reminder.id, parsed["text"][:80])
     session.commit()
     return _to_out(session, reminder)
 

@@ -75,6 +75,30 @@ def test_reminder_priority_and_recurring(client):
     assert bad.status_code == 422
 
 
+def test_magic_add_parses_and_creates(ai_client, fake_ollama):
+    fake_ollama.librarian_reply = (
+        '{"text": "call mum", "due_at": "2030-01-02T18:00", "priority": "high"}'
+    )
+    created = ai_client.post("/reminders/parse", json={"text": "call mum tomorrow evening"}).json()
+    assert created["text"] == "call mum"
+    assert created["priority"] == "high"
+    assert created["due_at"].startswith("2030-01-02T18:00")
+    assert len(ai_client.get("/reminders").json()) == 1
+
+
+def test_magic_add_falls_back_on_unparseable_reply(ai_client, fake_ollama):
+    fake_ollama.librarian_reply = "sorry, I can't help with that"
+    created = ai_client.post("/reminders/parse", json={"text": "buy milk"}).json()
+    # Falls back to the raw text + a default future due time, still created.
+    assert created["text"] == "buy milk"
+    assert created["priority"] == "normal"
+
+
+def test_magic_add_needs_ai_running(ai_client, fake_ollama):
+    fake_ollama.running = False
+    assert ai_client.post("/reminders/parse", json={"text": "x"}).status_code == 503
+
+
 # --- insights ----------------------------------------------------------------------
 
 

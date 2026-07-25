@@ -5863,6 +5863,47 @@ if ("serviceWorker" in navigator) {
   });
 }
 
+// Collapsible Notes-tab section cards: click a section heading to fold the
+// card down to just its title row. State persists per-section in
+// localStorage so a user's collapsed layout survives reloads. Additive —
+// cards start expanded, exactly as before, unless the user collapses one.
+function initCollapsibleCards() {
+  let collapsed = {};
+  try {
+    collapsed = JSON.parse(localStorage.getItem("collapsedCards") || "{}");
+  } catch {
+    collapsed = {};
+  }
+  for (const cardId of ["capture", "ask", "browse"]) {
+    const cardEl = $(cardId);
+    if (!cardEl) continue;
+    const heading = cardEl.querySelector("h2");
+    if (!heading) continue;
+    heading.classList.add("collapsible");
+    heading.setAttribute("role", "button");
+    heading.setAttribute("tabindex", "0");
+    const setState = (isCollapsed) => {
+      cardEl.classList.toggle("collapsed", isCollapsed);
+      heading.setAttribute("aria-expanded", isCollapsed ? "false" : "true");
+    };
+    setState(Boolean(collapsed[cardId]));
+    const toggle = () => {
+      const isCollapsed = !cardEl.classList.contains("collapsed");
+      setState(isCollapsed);
+      collapsed[cardId] = isCollapsed;
+      localStorage.setItem("collapsedCards", JSON.stringify(collapsed));
+    };
+    heading.addEventListener("click", toggle);
+    heading.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        toggle();
+      }
+    });
+  }
+}
+initCollapsibleCards();
+
 // The generative brand emblem, unique each visit (Wave O). p5 is loaded
 // by now; draw once the page is ready.
 renderBrandLogo();

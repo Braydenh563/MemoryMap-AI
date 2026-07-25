@@ -227,6 +227,38 @@ header#top-bar h1 { margin: 0; font-size: 1.1rem; letter-spacing: 0.01em; }
 #sidebar li.active { background: var(--accent-soft); font-weight: 600; }
 #sidebar .count { color: var(--muted); }
 
+/* Keep the category sidebar in view while the notes column scrolls (desktop
+   only — on narrow screens it's stacked above the content, per the max-width
+   rule above). top clears the sticky topbar; it scrolls independently if the
+   category list gets long. */
+@media (min-width: 721px) {
+  #tab-notes #sidebar {
+    position: sticky;
+    top: 4.25rem;
+    max-height: calc(100vh - 5.5rem);
+    overflow-y: auto;
+  }
+}
+
+/* --- collapsible section cards (Notes tab) ------------------------------- */
+/* A heading marked .collapsible folds its card down to just the title row.
+   The card's header row is always the first child, so hiding every later
+   child leaves the title (and its chevron) visible. */
+.card h2.collapsible {
+  cursor: pointer;
+  user-select: none;
+}
+.card h2.collapsible::before {
+  content: "▾";
+  display: inline-block;
+  margin-right: 0.4rem;
+  font-size: 0.8em;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+.card.collapsed h2.collapsible::before { transform: rotate(-90deg); }
+.card.collapsed > :not(:first-child) { display: none; }
+
 /* --- forms --------------------------------------------------------------- */
 textarea, input[type="text"], input[type="password"], input[type="number"], select {
   width: 100%;

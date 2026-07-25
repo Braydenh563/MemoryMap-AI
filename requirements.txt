@@ -38,6 +38,7 @@ python-multipart>=0.0.9
 pytest>=8.0
 httpx>=0.27  # FastAPI's TestClient needs this
 
-# Optional extras (Wave H) — install only if you want the feature:
-# pip install faster-whisper   # local voice-to-text for the 🎙 buttons
-# pip install pywebview        # `python -m memorymap --desktop` app window
+# Optional extras (Wave H) — NOT installed automatically. These are plain
+# comments so pip skips them; install by hand only if you want the feature:
+#   pip install faster-whisper   # local voice-to-text for the 🎙 buttons
+#   pip install pywebview        # `python -m memorymap --desktop` app window

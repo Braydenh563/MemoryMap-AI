@@ -9,6 +9,45 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- **One-click launchers.** `start.bat` (Windows) and `start.sh` (macOS/Linux)
+  create the virtualenv, install/update dependencies, copy `.env`, and start
+  the app — no more typing the command sequence. Re-installs only when
+  `requirements.txt` changes.
+- **Richer markdown rendering.** The answer/chat renderer now handles GFM
+  pipe tables, blockquotes, horizontal rules, headings up to `######`,
+  `~~strikethrough~~`, task-list checkboxes, and bare URLs.
+- **Delete chat messages.** Each chat exchange has a 🗑 action that removes it
+  from the screen and the saved conversation (new `DELETE
+  /conversations/{id}/turns/{n}` endpoint).
+- **Regenerate replaces the answer in place** instead of stacking a second
+  answer below the old one (new `PUT /conversations/{id}/turns/last`).
+- **Tool-activity chips persist across reloads.** The "✏️ created note…" chips
+  are saved with the turn and re-drawn when a conversation is reopened.
+- **Collapsible Notes sections** (Capture / Ask / Browse) with remembered
+  state, and the Notes category sidebar now stays pinned while you scroll.
+- **More appearance options.** Four new accent colours (Sunset, Ocean, Mint,
+  Grape) and a background-art **style** picker: Aurora, Constellation, Waves,
+  Floating orbs, and Mesh gradient.
+- **Dashboard welcome hero.** A greeting, a live clock, one-tap quick actions,
+  and a tidier layout. The Reminders tab also shows a live clock so "now" is
+  always visible.
+- **Clearer graph & constellation.** The dashboard constellation now has a
+  caption and a category colour key; the graph gains a Labels toggle, a
+  plain-language stats line, connection-count tooltips, node halos, and
+  highlighted "hub" notes.
+
+### Changed / Fixed
+
+- **Lower chat latency & smoother typing indicator.** The `/chat/stream`
+  response now flushes a first byte immediately and runs retrieval inside the
+  stream, so the UI no longer appears frozen during a cold-start search;
+  live-markdown re-rendering is throttled to cut main-thread jank on long
+  answers; anti-buffering headers added.
+- **Fixed `requirements.txt`** — two optional extras were written as literal
+  `pip install …` lines, which made pip reject the whole file.
+- **Fixed the Appearance "Glass & effects" toggles** stacking on one line
+  (stale `#settings` / `#prefs-panel` selectors that matched nothing).
+
 - Repository documentation & tooling pass: `docs/ARCHITECTURE.md` (a full
   project overview), `CONTRIBUTING.md`, `SECURITY.md`, this changelog, GitHub
   issue/PR templates, and a rewritten README.

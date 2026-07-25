@@ -49,6 +49,8 @@ let activeCategory = null; // sidebar filter; null = All
 let linkSource = null; // entry id waiting for its link partner
 let editingId = null; // entry id currently in inline-edit mode
 let inlineAction = null; // {id, kind: "context"|"continue"} open on a card
+let busyEntryId = null; // entry the AI is currently working on (spinner shown)
+let flashConfidenceId = null; // entry whose confidence badge just changed (flash once)
 let noteSearch = ""; // Notes-tab text filter (Wave J)
 let noteSort = "newest"; // newest | oldest | az | most-used (Wave J)
 
@@ -308,11 +310,26 @@ function entryItem(entry, options = {}) {
   meta.appendChild(chip(entry.category));
   for (const tag of entry.tags) meta.appendChild(chip(tag, "tag"));
 
-  if (entry.ai_confidence >= REVIEW_THRESHOLD) {
-    meta.appendChild(chip(`AI ${entry.ai_confidence}%`, "confidence"));
-  } else {
-    // Low or zero confidence — worth a human look (plan Phase 3).
-    meta.appendChild(chip(`AI ${entry.ai_confidence}% — check this`, "review"));
+  const confidenceChip =
+    entry.ai_confidence >= REVIEW_THRESHOLD
+      ? chip(`AI ${entry.ai_confidence}%`, "confidence")
+      : // Low or zero confidence — worth a human look (plan Phase 3).
+        chip(`AI ${entry.ai_confidence}% — check this`, "review");
+  // Flash the badge once when this note's confidence just changed, so the
+  // update after a re-evaluation is actually noticeable (user request).
+  if (entry.id === flashConfidenceId) {
+    confidenceChip.classList.add("badge-flash");
+    flashConfidenceId = null;
+  }
+  meta.appendChild(confidenceChip);
+
+  // While the AI is re-evaluating this note, show a live spinner chip so
+  // it's obvious something is running on this specific card.
+  if (entry.id === busyEntryId) {
+    li.classList.add("entry-busy");
+    const busy = chip("⟳ Re-evaluating…", "busy");
+    busy.classList.add("chip-busy");
+    meta.appendChild(busy);
   }
 
   const date = document.createElement("span");
@@ -558,11 +575,22 @@ function entryOverflowMenu(entry) {
 async function reevaluateEntry(entry) {
   closeActionMenus();
   toast("Re-evaluating with AI…");
+  // Show a spinner on this exact card while the AI works.
+  busyEntryId = entry.id;
+  renderEntries();
   try {
     const result = await apiJson(`/entries/${entry.id}/reevaluate`, { method: "POST" });
+    // If the confidence actually changed, flash the badge on the next render.
+    const newConfidence = result.entry ? result.entry.ai_confidence : null;
+    if (newConfidence !== null && newConfidence !== entry.ai_confidence) {
+      flashConfidenceId = entry.id;
+    }
     inlineAction = { id: entry.id, kind: "reevaluate", data: result };
+    busyEntryId = null;
     await loadEntries(); // reflect the refreshed confidence/category, then show suggestions
   } catch (error) {
+    busyEntryId = null;
+    renderEntries();
     toast(error.message || "Re-evaluate failed.", true);
   }
 }
@@ -1277,19 +1305,31 @@ async function streamChat({
   }
 }
 
-// Live markdown while streaming: re-render the accumulated text at most
-// once per animation frame — smooth, and cheap at personal-notebook scale.
+// Live markdown while streaming. Re-parsing the WHOLE accumulated answer on
+// every animation frame is what made long answers feel laggy (each frame
+// rebuilt the entire DOM). We now coalesce updates to ~15fps and skip the
+// work entirely when the text hasn't changed — smooth, and far less main-
+// thread churn, so other animations (the typing dots) don't stutter.
+const LIVE_RENDER_INTERVAL_MS = 66;
 function liveMarkdownRenderer(box) {
-  let queued = false;
   let latest = "";
+  let rendered = null;
+  let timer = null;
+  let lastRun = 0;
+
+  const flush = () => {
+    timer = null;
+    lastRun = performance.now();
+    if (latest === rendered) return; // nothing new since last paint
+    rendered = latest;
+    renderMarkdown(box, latest);
+  };
+
   return (text) => {
     latest = text;
-    if (queued) return;
-    queued = true;
-    requestAnimationFrame(() => {
-      queued = false;
-      renderMarkdown(box, latest);
-    });
+    if (timer) return;
+    const wait = Math.max(0, LIVE_RENDER_INTERVAL_MS - (performance.now() - lastRun));
+    timer = setTimeout(flush, wait);
   };
 }
 
@@ -1489,11 +1529,15 @@ function editAndResend(text) {
   input.setSelectionRange(text.length, text.length);
 }
 
-// Re-run the most recent question, appending a fresh answer (no duplicate
-// "you" bubble) so you can get another take after switching model/persona.
+// Re-run the most recent question and REPLACE the previous answer in place
+// (user request: a redo shouldn't stack a second answer below the old one).
+// The original "you" bubble stays; only the assistant bubble is swapped.
 function regenerateLastAnswer() {
   if (!lastChatQuestion || chatController) return;
-  sendChatMessage(lastChatQuestion, { skipUserBubble: true });
+  const assistantBubbles = $("chat-messages").querySelectorAll(".msg.assistant");
+  const lastAssistant = assistantBubbles[assistantBubbles.length - 1];
+  if (lastAssistant) lastAssistant.remove(); // clear the old answer first
+  sendChatMessage(lastChatQuestion, { skipUserBubble: true, replaceLast: true });
 }
 
 // The welcome shown in an empty chat so the page isn't a blank box.
@@ -1552,9 +1596,18 @@ function typingDots() {
   return dots;
 }
 
+// Coalesce scroll-to-end into one write per animation frame. It used to run
+// on every streamed token, forcing a synchronous reflow each time — a big
+// source of jank on long answers.
+let chatScrollQueued = false;
 function chatScrollToEnd() {
-  const box = $("chat-messages");
-  box.scrollTop = box.scrollHeight;
+  if (chatScrollQueued) return;
+  chatScrollQueued = true;
+  requestAnimationFrame(() => {
+    chatScrollQueued = false;
+    const box = $("chat-messages");
+    box.scrollTop = box.scrollHeight;
+  });
 }
 
 function addBubble(role, text) {
@@ -1713,6 +1766,7 @@ async function sendChatMessage(preset, opts = {}) {
   let thinkingRaw = "";
   let meta = null;
   let toolsActed = false;
+  const toolEvents = []; // {label, ok} — persisted so chips survive a reload
   chatController = new AbortController();
 
   try {
@@ -1744,9 +1798,9 @@ async function sendChatMessage(preset, opts = {}) {
       },
       onTool: (event) => {
         answerBox.querySelector(".typing-dots")?.remove();
-        toolsHolder.appendChild(
-          toolChip(event.ok ? event.label : `⚠️ ${event.error || event.label}`, event.ok)
-        );
+        const label = event.ok ? event.label : `⚠️ ${event.error || event.label}`;
+        toolsHolder.appendChild(toolChip(label, event.ok));
+        toolEvents.push({ label, ok: event.ok }); // remember for persistence
         if (event.ok) toolsActed = true;
         status.textContent = "The model is making changes…";
         chatScrollToEnd();
@@ -1777,20 +1831,36 @@ async function sendChatMessage(preset, opts = {}) {
   if (meta) renderRecordsDetails(recordsHolder, meta);
   chatScrollToEnd();
   if (toolsActed) refreshAfterToolChanges(); // the AI changed real data
-  if (!answerRaw) return; // nothing to remember (failed before any token)
-  // Per-message actions: copy, regenerate, read-aloud (Wave H voices).
+  if (!answerRaw) {
+    // Nothing to remember (failed/aborted before any token). If this was a
+    // regenerate that already removed the old bubble, drop the empty one too.
+    if (opts.replaceLast) bubble.remove();
+    return;
+  }
+  // Per-message actions: copy, regenerate, read-aloud, delete (Wave H voices).
   bubble.appendChild(
     chatMessageActions([
       { label: "⧉", title: "Copy answer", onClick: (e) => copyToClipboard(answerRaw, e.currentTarget) },
-      { label: "↻", title: "Regenerate", onClick: () => regenerateLastAnswer() },
+      { label: "↻", title: "Regenerate (replaces this answer)", onClick: () => regenerateLastAnswer() },
       { label: "🔊", title: "Read aloud", onClick: () => speakText(answerBox.textContent) },
+      { label: "🗑", title: "Delete this message", onClick: () => deleteChatTurn(bubble) },
     ])
   );
 
-  chatConv.turns.push({ question, answer: answerRaw });
+  // Regenerate replaces the last turn; a normal send appends a new one.
+  if (opts.replaceLast && chatConv.turns.length) {
+    chatConv.turns[chatConv.turns.length - 1] = { question, answer: answerRaw };
+  } else {
+    chatConv.turns.push({ question, answer: answerRaw });
+  }
   // Persist the finished turn so the chat survives restarts.
   try {
-    const payload = { question, answer: answerRaw, thinking: thinkingRaw || null };
+    const payload = {
+      question,
+      answer: answerRaw,
+      thinking: thinkingRaw || null,
+      tools: toolEvents.length ? toolEvents : null,
+    };
     if (chatConv.id === null) {
       const created = await apiJson("/conversations", {
         method: "POST",
@@ -1798,6 +1868,11 @@ async function sendChatMessage(preset, opts = {}) {
       });
       chatConv.id = created.id;
       $("chat-title").textContent = created.title;
+    } else if (opts.replaceLast) {
+      await apiJson(`/conversations/${chatConv.id}/turns/last`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
     } else {
       await apiJson(`/conversations/${chatConv.id}/turns`, {
         method: "POST",
@@ -1810,6 +1885,39 @@ async function sendChatMessage(preset, opts = {}) {
   }
   loadRecentQuestions();
   loadMostUsed();
+}
+
+// Delete one Q&A exchange: its assistant bubble AND the user bubble just
+// above it, from the screen, memory, and the saved conversation.
+async function deleteChatTurn(assistantBubble) {
+  if (chatController) return; // don't edit a chat mid-stream
+  const bubbles = [...$("chat-messages").querySelectorAll(".msg.assistant")];
+  const index = bubbles.indexOf(assistantBubble);
+  if (index === -1) return;
+  if (!confirm("Delete this message?")) return;
+
+  if (chatConv.id !== null) {
+    try {
+      const result = await apiJson(`/conversations/${chatConv.id}/turns/${index}`, {
+        method: "DELETE",
+      });
+      if (result.conversation_deleted) {
+        newChatConversation();
+        loadConversationList();
+        return;
+      }
+    } catch {
+      toast("Couldn't delete that message.", true);
+      return;
+    }
+  }
+  // The user bubble is the one immediately before this assistant bubble.
+  const userBubble = assistantBubble.previousElementSibling;
+  if (userBubble && userBubble.classList.contains("user")) userBubble.remove();
+  assistantBubble.remove();
+  chatConv.turns.splice(index, 1);
+  if (!$("chat-messages").querySelector(".msg")) renderChatEmptyState();
+  loadConversationList();
 }
 
 function newChatConversation() {
@@ -1897,6 +2005,11 @@ async function openConversation(id) {
       addBubble("user", message.content);
     } else {
       const handles = addAssistantBubble();
+      // Re-draw the tool-activity chips (Wave G) so they don't vanish on
+      // reload the way they used to (user-reported).
+      for (const t of message.tools || []) {
+        handles.toolsHolder.appendChild(toolChip(t.label, t.ok !== false));
+      }
       renderMarkdown(handles.answerBox, message.content);
       if (message.thinking) {
         handles.thinkingBox.classList.remove("hidden");
@@ -1906,6 +2019,7 @@ async function openConversation(id) {
         chatMessageActions([
           { label: "⧉", title: "Copy answer", onClick: (e) => copyToClipboard(message.content, e.currentTarget) },
           { label: "🔊", title: "Read aloud", onClick: () => speakText(handles.answerBox.textContent) },
+          { label: "🗑", title: "Delete this message", onClick: () => deleteChatTurn(handles.bubble) },
         ])
       );
       if (lastQuestionText !== null) {
@@ -2485,7 +2599,12 @@ function dashLayout() {
   for (const name of Object.keys(DASH_WIDGETS)) {
     if (!order.includes(name)) order.push(name); // new widgets append
   }
-  return { order: order.filter((n) => DASH_WIDGETS[n]), hidden: saved.hidden || [] };
+  return {
+    order: order.filter((n) => DASH_WIDGETS[n]),
+    hidden: saved.hidden || [],
+    // Per-widget width: "wide" spans two columns to make a larger section.
+    sizes: saved.sizes || {},
+  };
 }
 
 async function saveDashLayout(layout) {
@@ -2495,12 +2614,84 @@ async function saveDashLayout(layout) {
   }).catch(() => prefsCache);
 }
 
+// --- live clock + dashboard welcome ------------------------------------------------
+// One ticker updates every visible .live-clock (reminders tab + dashboard),
+// so the current time is always on screen — the reminders tab used to give
+// no sense of "now" at all (user-reported).
+function tickClocks() {
+  const now = new Date();
+  const time = now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const date = now.toLocaleDateString([], {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+  for (const el of document.querySelectorAll(".live-clock")) {
+    const t = el.querySelector(".clock-time");
+    const d = el.querySelector(".clock-date");
+    if (t) t.textContent = time;
+    if (d) d.textContent = date;
+  }
+}
+setInterval(tickClocks, 1000);
+tickClocks();
+
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 5) return "Still up?";
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  if (h < 22) return "Good evening";
+  return "Winding down?";
+}
+
+// A few one-tap actions on the dashboard so it's a launchpad, not just a
+// read-out (user request to expand the dashboard).
+const DASH_ACTIONS = [
+  { icon: "✏️", label: "Capture a note", run: () => { switchTab("notes"); $("entry-content").focus(); } },
+  { icon: "💬", label: "Ask a question", run: () => { switchTab("chat"); $("chat-input").focus(); } },
+  { icon: "🕸️", label: "Open the graph", run: () => switchTab("graph") },
+  { icon: "⏰", label: "Add a reminder", run: () => { switchTab("reminders"); $("reminder-text").focus(); } },
+  { icon: "🔎", label: "Search notes", run: () => openPalette && openPalette() },
+];
+
+function renderDashWelcome() {
+  const greet = $("dash-greeting");
+  if (greet) greet.textContent = greeting();
+  const subtitle = $("dash-subtitle");
+  if (subtitle) {
+    const count = allEntries.length;
+    subtitle.textContent = count
+      ? `You have ${count} note${count === 1 ? "" : "s"} in your notebook. Here's your day at a glance.`
+      : "Your notebook is empty — capture a first thought to get started.";
+  }
+  const actions = $("dash-actions");
+  if (actions && !actions.dataset.ready) {
+    actions.dataset.ready = "1";
+    for (const action of DASH_ACTIONS) {
+      const btn = document.createElement("button");
+      btn.className = "dash-action";
+      btn.type = "button";
+      btn.innerHTML = "";
+      const icon = document.createElement("span");
+      icon.className = "dash-action-icon";
+      icon.textContent = action.icon;
+      icon.setAttribute("aria-hidden", "true");
+      btn.append(icon, document.createTextNode(action.label));
+      btn.addEventListener("click", action.run);
+      actions.appendChild(btn);
+    }
+  }
+  tickClocks();
+}
+
 async function renderDashboard() {
   // The saved layout lives in preferences — after a page reload this can
   // run before startApp has fetched them, so fetch here if needed.
   if (!prefsCache) {
     prefsCache = await apiJson("/preferences").catch(() => null);
   }
+  renderDashWelcome();
   const grid = $("dash-grid");
   grid.replaceChildren();
   $("dash-hint").classList.toggle("hidden", !dashEditMode); // hint only in edit mode
@@ -2511,8 +2702,10 @@ async function renderDashboard() {
     if (hidden && !dashEditMode) continue;
 
     const widget = DASH_WIDGETS[name];
+    const isWide = layout.sizes[name] === "wide";
     const card = document.createElement("section");
-    card.className = "card dash-widget" + (hidden ? " dash-hidden" : "");
+    card.className =
+      "card dash-widget" + (hidden ? " dash-hidden" : "") + (isWide ? " dash-wide" : "");
     card.dataset.widget = name;
 
     const header = document.createElement("div");
@@ -2523,8 +2716,26 @@ async function renderDashboard() {
     if (dashEditMode) {
       const controls = document.createElement("span");
       controls.className = "entry-actions";
+      // Wide ⇄ Normal: a widget can span two columns to become a bigger
+      // "section" (user request). Hidden widgets don't need a size toggle.
+      if (!hidden) {
+        controls.appendChild(
+          smallButton(
+            isWide ? "▤ Normal" : "▭ Wide",
+            isWide ? "Shrink back to one column" : "Make this a full-width section",
+            async () => {
+              const next = dashLayout();
+              next.sizes = { ...next.sizes };
+              if (isWide) delete next.sizes[name];
+              else next.sizes[name] = "wide";
+              await saveDashLayout(next);
+              renderDashboard();
+            }
+          )
+        );
+      }
       controls.appendChild(
-        smallButton(hidden ? "Show" : "Hide", "", async () => {
+        smallButton(hidden ? "＋ Add" : "✕ Remove", hidden ? "Add this widget to the dashboard" : "Remove this widget from the dashboard", async () => {
           const next = dashLayout();
           next.hidden = hidden
             ? next.hidden.filter((n) => n !== name)
@@ -2640,10 +2851,19 @@ function buildArtParticles(p, categories, total, width, height) {
   return particles;
 }
 
-function renderArtWidget(body) {
+async function renderArtWidget(body) {
   const holder = document.createElement("div");
   holder.className = "art-holder";
   body.appendChild(holder);
+
+  // Say what the picture actually means — until now it was pretty but
+  // unlabelled (user asked what the nodes represent).
+  const caption = document.createElement("p");
+  caption.className = "muted art-caption";
+  caption.textContent =
+    "Each cluster of stars is one category; the more notes it holds, the more " +
+    "stars it gets. Lines link stars that drift close together.";
+  body.appendChild(caption);
 
   const controls = document.createElement("div");
   controls.className = "row art-controls";
@@ -2659,6 +2879,27 @@ function renderArtWidget(body) {
     })
   );
   body.appendChild(controls);
+
+  // A colour key so each cluster is identifiable, matching the hue the
+  // canvas paints each category with.
+  const legend = document.createElement("div");
+  legend.className = "art-legend";
+  body.appendChild(legend);
+  apiJson("/insights/stats")
+    .then((stats) => {
+      const cats = (stats.categories || []).slice(0, 8);
+      legend.replaceChildren();
+      for (const cat of cats) {
+        const item = document.createElement("span");
+        item.className = "art-legend-item";
+        const dot = document.createElement("span");
+        dot.className = "art-legend-dot";
+        dot.style.background = `hsl(${hueFor(cat.name)}, 70%, 55%)`;
+        item.append(dot, document.createTextNode(`${cat.name} · ${cat.count}`));
+        legend.appendChild(item);
+      }
+    })
+    .catch(() => {});
 
   return startArt(holder);
 }
@@ -3312,6 +3553,51 @@ function defaultDueValue() {
 // subset small local models actually emit: headings, bullet/numbered
 // lists, fenced code, and inline **bold**/*italic*/`code`/[links].
 
+// True when `line` looks like a GFM table separator row, e.g.
+// "| --- | :---: |" — the row that turns the line above it into a header.
+function isTableSeparator(line) {
+  const trimmed = line.trim();
+  if (!trimmed.includes("-") || !/\|/.test(trimmed)) return false;
+  const cells = splitTableRow(trimmed);
+  return cells.length > 0 && cells.every((c) => /^:?-{1,}:?$/.test(c.trim()));
+}
+
+// Split one "| a | b |" row into its cell strings, tolerating (and
+// stripping) the optional leading/trailing pipes. Escaped \| stays literal.
+function splitTableRow(line) {
+  const cells = [];
+  let current = "";
+  for (let k = 0; k < line.length; k++) {
+    const ch = line[k];
+    if (ch === "\\" && line[k + 1] === "|") {
+      current += "|";
+      k++;
+    } else if (ch === "|") {
+      cells.push(current);
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+  cells.push(current);
+  // Drop the empty cells created by leading/trailing pipes.
+  if (cells.length && cells[0].trim() === "") cells.shift();
+  if (cells.length && cells[cells.length - 1].trim() === "") cells.pop();
+  return cells;
+}
+
+// Column alignment from the separator row: ":--" left, "--:" right,
+// ":-:" centre, else none.
+function columnAlign(spec) {
+  const s = spec.trim();
+  const left = s.startsWith(":");
+  const right = s.endsWith(":");
+  if (left && right) return "center";
+  if (right) return "right";
+  if (left) return "left";
+  return "";
+}
+
 function renderMarkdown(container, text) {
   container.replaceChildren();
   const lines = text.replace(/\r\n/g, "\n").split("\n");
@@ -3344,13 +3630,85 @@ function renderMarkdown(container, text) {
       continue;
     }
 
-    const heading = line.match(/^(#{1,3})\s+(.*)$/);
+    // GFM pipe table: a row of "| … |" immediately followed by a
+    // "| --- | --- |" separator turns into a real <table>.
+    if (
+      line.includes("|") &&
+      i + 1 < lines.length &&
+      isTableSeparator(lines[i + 1])
+    ) {
+      closeList();
+      const headers = splitTableRow(line);
+      const aligns = splitTableRow(lines[i + 1]).map(columnAlign);
+      i += 2; // consume header + separator
+      const bodyRows = [];
+      while (i < lines.length && lines[i].includes("|") && lines[i].trim() !== "") {
+        bodyRows.push(splitTableRow(lines[i]));
+        i++;
+      }
+      const table = document.createElement("table");
+      table.className = "md-table";
+      const thead = document.createElement("thead");
+      const headTr = document.createElement("tr");
+      headers.forEach((cell, c) => {
+        const th = document.createElement("th");
+        if (aligns[c]) th.style.textAlign = aligns[c];
+        appendInline(th, cell.trim());
+        headTr.appendChild(th);
+      });
+      thead.appendChild(headTr);
+      table.appendChild(thead);
+      const tbody = document.createElement("tbody");
+      for (const row of bodyRows) {
+        const tr = document.createElement("tr");
+        for (let c = 0; c < headers.length; c++) {
+          const td = document.createElement("td");
+          if (aligns[c]) td.style.textAlign = aligns[c];
+          appendInline(td, (row[c] || "").trim());
+          tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+      }
+      table.appendChild(tbody);
+      // Let wide tables scroll sideways instead of breaking the layout.
+      const scroller = document.createElement("div");
+      scroller.className = "md-table-wrap";
+      scroller.appendChild(table);
+      container.appendChild(scroller);
+      continue;
+    }
+
+    // Horizontal rule: ---, ***, or ___ on their own line.
+    if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(line)) {
+      closeList();
+      container.appendChild(document.createElement("hr"));
+      i++;
+      continue;
+    }
+
+    const heading = line.match(/^(#{1,6})\s+(.*)$/);
     if (heading) {
       closeList();
-      const el = document.createElement(`h${heading[1].length + 2}`); // h3–h5
+      // Map #→h3 … ######→h6 (the app reserves h1/h2 for its own chrome).
+      const level = Math.min(6, heading[1].length + 2);
+      const el = document.createElement(`h${level}`);
       appendInline(el, heading[2]);
       container.appendChild(el);
       i++;
+      continue;
+    }
+
+    // Blockquote: gather consecutive "> …" lines into one <blockquote>.
+    if (/^\s*>\s?/.test(line)) {
+      closeList();
+      const quoted = [];
+      while (i < lines.length && /^\s*>\s?/.test(lines[i])) {
+        quoted.push(lines[i].replace(/^\s*>\s?/, ""));
+        i++;
+      }
+      const bq = document.createElement("blockquote");
+      appendInline(bq, quoted.join(" "));
+      container.appendChild(bq);
       continue;
     }
 
@@ -3363,7 +3721,19 @@ function renderMarkdown(container, text) {
         list = document.createElement(wantOrdered ? "ol" : "ul");
       }
       const li = document.createElement("li");
-      appendInline(li, (bullet || numbered)[1]);
+      let itemText = (bullet || numbered)[1];
+      // GFM task list: "- [ ] todo" / "- [x] done" → a real checkbox.
+      const task = itemText.match(/^\[([ xX])\]\s+(.*)$/);
+      if (task) {
+        li.className = "md-task";
+        const box = document.createElement("input");
+        box.type = "checkbox";
+        box.disabled = true;
+        box.checked = task[1].toLowerCase() === "x";
+        li.appendChild(box);
+        itemText = task[2];
+      }
+      appendInline(li, itemText);
       list.appendChild(li);
       i++;
       continue;
@@ -3383,9 +3753,12 @@ function renderMarkdown(container, text) {
       i < lines.length &&
       lines[i].trim() !== "" &&
       !lines[i].trim().startsWith("```") &&
-      !lines[i].match(/^(#{1,3})\s+/) &&
+      !lines[i].match(/^(#{1,6})\s+/) &&
+      !lines[i].match(/^\s*>\s?/) &&
+      !/^\s*([-*_])(\s*\1){2,}\s*$/.test(lines[i]) &&
       !lines[i].match(/^\s*[-*+]\s+/) &&
-      !lines[i].match(/^\s*\d+\.\s+/)
+      !lines[i].match(/^\s*\d+\.\s+/) &&
+      !(lines[i].includes("|") && i + 1 < lines.length && isTableSeparator(lines[i + 1]))
     ) {
       para.push(lines[i]);
       i++;
@@ -3397,9 +3770,12 @@ function renderMarkdown(container, text) {
   closeList();
 }
 
-// Inline formatting: **bold**, *italic*, `code`, [text](http…url).
+// Inline formatting: **bold**, *italic*, `code`, ~~strike~~,
+// [text](http…url), and bare http(s) URLs. Built with textContent only —
+// note/answer text can never inject markup.
 function appendInline(parent, text) {
-  const pattern = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[[^\]]+\]\((https?:\/\/[^)]+)\))/g;
+  const pattern =
+    /(\*\*[^*]+\*\*|__[^_]+__|~~[^~]+~~|\*[^*]+\*|(?<![\w])_[^_]+_(?![\w])|`[^`]+`|\[[^\]]+\]\((https?:\/\/[^)]+)\)|https?:\/\/[^\s)]+)/g;
   let last = 0;
   let match;
   while ((match = pattern.exec(text)) !== null) {
@@ -3407,8 +3783,12 @@ function appendInline(parent, text) {
       parent.appendChild(document.createTextNode(text.slice(last, match.index)));
     }
     const token = match[0];
-    if (token.startsWith("**")) {
+    if (token.startsWith("**") || token.startsWith("__")) {
       const el = document.createElement("strong");
+      el.textContent = token.slice(2, -2);
+      parent.appendChild(el);
+    } else if (token.startsWith("~~")) {
+      const el = document.createElement("del");
       el.textContent = token.slice(2, -2);
       parent.appendChild(el);
     } else if (token.startsWith("`")) {
@@ -3422,6 +3802,13 @@ function appendInline(parent, text) {
       el.target = "_blank";
       el.rel = "noopener";
       el.textContent = linkText;
+      parent.appendChild(el);
+    } else if (token.startsWith("http")) {
+      const el = document.createElement("a");
+      el.href = token;
+      el.target = "_blank";
+      el.rel = "noopener";
+      el.textContent = token;
       parent.appendChild(el);
     } else {
       const el = document.createElement("em");
@@ -3618,17 +4005,50 @@ async function renderGraph() {
       }
     });
 
+  // A soft outer halo behind each node — gives the map more depth and makes
+  // busy hub notes read as brighter (visual polish, user request).
   nodeGroups
     .append("circle")
+    .attr("class", "graph-halo")
+    .attr("r", (d) => graphNodeRadius(d) + 6)
+    .attr("fill", (d) => color(d.category));
+
+  nodeGroups
+    .append("circle")
+    .attr("class", "graph-core")
     .attr("r", graphNodeRadius)
     .attr("fill", (d) => color(d.category))
-    .classed("graph-pinned", (d) => d.pinned);
-  // Native tooltip: full preview + category on hover.
-  nodeGroups.append("title").text((d) => `${d.preview}\n[${d.category}]`);
+    .classed("graph-pinned", (d) => d.pinned)
+    // Well-connected notes get a highlighted ring so the "hubs" of your
+    // notebook stand out at a glance.
+    .classed("graph-hub", (d) => (graphAdjacency.get(d.id)?.size || 0) >= 3);
+  // Native tooltip: full preview + category + how connected it is.
+  nodeGroups.append("title").text((d) => {
+    const links = graphAdjacency.get(d.id)?.size || 0;
+    return (
+      `${d.preview}\n[${d.category}] · ${links} connection${links === 1 ? "" : "s"}` +
+      `${d.access_count ? ` · used ${d.access_count}×` : ""}`
+    );
+  });
   nodeGroups
     .append("text")
-    .attr("dy", (d) => graphNodeRadius(d) + 12)
-    .text((d) => (d.preview.length > 20 ? d.preview.slice(0, 19) + "…" : d.preview));
+    .attr("dy", (d) => graphNodeRadius(d) + 13)
+    .text((d) => (d.preview.length > 22 ? d.preview.slice(0, 21) + "…" : d.preview));
+
+  // Labels toggle: when off, labels only appear on hover (declutters a big
+  // map). Driven by a class so toggling never rebuilds the simulation.
+  $("graph-box").classList.toggle("graph-labels-hidden", !$("graph-labels").checked);
+
+  // A plain-language readout of what's on screen, so the map isn't a
+  // mystery: how many notes and what kinds of connections link them.
+  const counts = { link: 0, thread: 0, similar: 0 };
+  for (const e of edges) counts[e.kind] = (counts[e.kind] || 0) + 1;
+  const parts = [`${nodes.length} note${nodes.length === 1 ? "" : "s"}`];
+  if (counts.link) parts.push(`${counts.link} link${counts.link === 1 ? "" : "s"}`);
+  if (counts.thread) parts.push(`${counts.thread} thread${counts.thread === 1 ? "" : "s"}`);
+  if (counts.similar) parts.push(`${counts.similar} similarity line${counts.similar === 1 ? "" : "s"}`);
+  $("graph-stats").textContent =
+    parts.join(" · ") + " — bigger, brighter notes are the ones you use most.";
 
   // Hover-highlight (spotlight a note's connections). Uses the same dimming
   // pipeline as search so the two never fight each other.
@@ -3754,6 +4174,42 @@ function switchTab(name) {
   if (name === "reminders") {
     if (!$("reminder-due").value) $("reminder-due").value = defaultDueValue();
     loadReminders();
+  }
+}
+
+// --- collapsible Notes-tab sections -----------------------------------------------
+// Each of these cards gets a fold/unfold chevron in its heading; the state
+// is remembered per section (user request). Nothing structural changes —
+// a `.collapsed` class hides everything after the header row via CSS.
+const COLLAPSIBLE_SECTIONS = ["capture", "ask", "browse"];
+
+function initCollapsibleSections() {
+  for (const id of COLLAPSIBLE_SECTIONS) {
+    const card = $(id);
+    if (!card || card.dataset.collapsibleReady) continue;
+    const h2 = card.querySelector(":scope > .row h2, :scope > h2");
+    if (!h2) continue;
+    card.dataset.collapsibleReady = "1";
+    h2.classList.add("collapsible-title");
+
+    const chevron = document.createElement("span");
+    chevron.className = "collapse-chevron";
+    chevron.setAttribute("aria-hidden", "true");
+    h2.insertBefore(chevron, h2.firstChild);
+
+    const key = `collapse:${id}`;
+    const apply = (collapsed) => {
+      card.classList.toggle("collapsed", collapsed);
+      chevron.textContent = collapsed ? "▸" : "▾";
+      h2.setAttribute("aria-expanded", String(!collapsed));
+      h2.title = collapsed ? "Expand this section" : "Collapse this section";
+    };
+    h2.addEventListener("click", () => {
+      const collapsed = !card.classList.contains("collapsed");
+      localStorage.setItem(key, collapsed ? "1" : "0");
+      apply(collapsed);
+    });
+    apply(localStorage.getItem(key) === "1");
   }
 }
 
@@ -5052,6 +5508,10 @@ const ACCENTS = [
   { name: "crimson", label: "Crimson", swatch: "#dc2626" },
   { name: "fuchsia", label: "Fuchsia", swatch: "#c026d3" },
   { name: "slate", label: "Slate", swatch: "#475569" },
+  { name: "sunset", label: "Sunset", swatch: "#f97316" },
+  { name: "ocean", label: "Ocean", swatch: "#2563eb" },
+  { name: "mint", label: "Mint", swatch: "#10b981" },
+  { name: "grape", label: "Grape", swatch: "#9333ea" },
 ];
 
 function activeAccent() {
@@ -5144,6 +5604,9 @@ function renderAppearance() {
   $("contrast-toggle").checked = contrastOn();
   $("reduce-motion-toggle").checked = appearancePref("motion") === "reduced";
   $("bg-art-toggle").checked = bgArtOn();
+  $("bg-style").value = bgArtStyle();
+  $("bg-style-row").classList.toggle("hidden", !bgArtOn());
+  $("bg-intensity-row").classList.toggle("hidden", !bgArtOn());
   $("glass-toggle").checked = appearancePref("glass") === "on";
   $("bg-intensity").value = appearancePref("bg-intensity");
   _segActive("theme-seg", "themeChoice", effectiveTheme());
@@ -5153,7 +5616,7 @@ function renderAppearance() {
 }
 
 function resetAppearance() {
-  for (const key of ["fontsize", "font", "density", "glass", "motion", "bg-intensity", "accent", "contrast", "bgArt", "theme"]) {
+  for (const key of ["fontsize", "font", "density", "glass", "motion", "bg-intensity", "bgArtStyle", "accent", "contrast", "bgArt", "theme"]) {
     localStorage.removeItem(key);
   }
   delete document.documentElement.dataset.accent;
@@ -5183,6 +5646,205 @@ function stopBgArt() {
   if (canvas) canvas.remove();
 }
 
+// Which generative background to paint. Persisted like the other
+// appearance prefs (user asked for more variety of art).
+const BG_ART_STYLES = ["aurora", "constellation", "waves", "bubbles", "mesh"];
+function bgArtStyle() {
+  const saved = localStorage.getItem("bgArtStyle");
+  return BG_ART_STYLES.includes(saved) ? saved : "aurora";
+}
+
+// Each style is a small factory: given the p5 instance + shared context it
+// returns { init, frame(t) }. startBgArt wires up the canvas, colour mode,
+// trail wash, and reduced-motion handling once, around whichever it picks.
+const BG_ART_BUILDERS = {
+  // A flowing aurora: particles drift along a Perlin flow field, trailing.
+  aurora(p, ctx) {
+    let particles = [];
+    let emblem = [];
+    const drawEmblem = (t) => {
+      const radius = Math.min(p.width, p.height) * 0.32;
+      p.push();
+      p.translate(p.width / 2, p.height / 2);
+      p.rotate(t * 0.02);
+      p.stroke(ctx.baseHue, 50, ctx.dark ? 72 : 42, 0.09);
+      p.strokeWeight(1.5);
+      for (let i = 0; i < emblem.length; i++) {
+        for (let j = i + 1; j < emblem.length; j++) {
+          if ((i + j) % 3 === 0) {
+            p.line(
+              Math.cos(emblem[i]) * radius, Math.sin(emblem[i]) * radius,
+              Math.cos(emblem[j]) * radius, Math.sin(emblem[j]) * radius
+            );
+          }
+        }
+      }
+      p.noStroke();
+      for (const a of emblem) {
+        p.fill(ctx.baseHue, 58, ctx.dark ? 74 : 40, 0.12);
+        p.circle(Math.cos(a) * radius, Math.sin(a) * radius, 16);
+      }
+      p.pop();
+    };
+    return {
+      init() {
+        for (let i = 0; i < 70; i++) {
+          particles.push({
+            x: p.random(p.width), y: p.random(p.height),
+            speed: p.random(0.3, 1.1), size: p.random(1.5, 3.5),
+            hue: (ctx.baseHue + p.random(-24, 24) + 360) % 360,
+          });
+        }
+        emblem = Array.from({ length: 9 }, (_, i) => (i / 9) * Math.PI * 2);
+      },
+      frame(t) {
+        drawEmblem(t);
+        for (const dot of particles) {
+          const angle = p.noise(dot.x * 0.0016, dot.y * 0.0016, t * 0.15) * Math.PI * 4;
+          dot.x += Math.cos(angle) * dot.speed;
+          dot.y += Math.sin(angle) * dot.speed;
+          if (dot.x < 0) dot.x = p.width;
+          if (dot.x > p.width) dot.x = 0;
+          if (dot.y < 0) dot.y = p.height;
+          if (dot.y > p.height) dot.y = 0;
+          p.fill(dot.hue, 70, ctx.dark ? 70 : 52, 0.78);
+          p.circle(dot.x, dot.y, dot.size);
+        }
+      },
+    };
+  },
+
+  // Drifting stars joined by faint lines when they wander close — the same
+  // motif as the dashboard "constellation", full-screen.
+  constellation(p, ctx) {
+    let stars = [];
+    return {
+      init() {
+        const n = Math.min(140, Math.round((p.width * p.height) / 17000));
+        for (let i = 0; i < n; i++) {
+          stars.push({
+            x: p.random(p.width), y: p.random(p.height),
+            vx: p.random(-0.25, 0.25), vy: p.random(-0.25, 0.25),
+            size: p.random(1.8, 4),
+            hue: (ctx.baseHue + p.random(-30, 30) + 360) % 360,
+          });
+        }
+      },
+      frame() {
+        for (const s of stars) {
+          s.x = (s.x + s.vx + p.width) % p.width;
+          s.y = (s.y + s.vy + p.height) % p.height;
+        }
+        for (let i = 0; i < stars.length; i++) {
+          for (let j = i + 1; j < stars.length; j++) {
+            const a = stars[i], b = stars[j];
+            const d = p.dist(a.x, a.y, b.x, b.y);
+            if (d < 130) {
+              p.stroke(ctx.baseHue, 60, ctx.dark ? 72 : 48, p.map(d, 0, 130, 0.45, 0));
+              p.strokeWeight(1);
+              p.line(a.x, a.y, b.x, b.y);
+            }
+          }
+        }
+        p.noStroke();
+        for (const s of stars) {
+          p.fill(s.hue, 72, ctx.dark ? 74 : 50, 0.95);
+          p.circle(s.x, s.y, s.size);
+        }
+      },
+    };
+  },
+
+  // Layered scrolling sine waves.
+  waves(p, ctx) {
+    return {
+      init() {},
+      frame(t) {
+        const layers = 5;
+        for (let l = 0; l < layers; l++) {
+          const yBase = p.height * (0.35 + l * 0.13);
+          const amp = 26 + l * 10;
+          const hue = (ctx.baseHue + l * 12) % 360;
+          p.noStroke();
+          p.fill(hue, 62, ctx.dark ? 55 : 58, 0.16);
+          p.beginShape();
+          p.vertex(0, p.height);
+          for (let x = 0; x <= p.width; x += 14) {
+            const y = yBase + Math.sin(x * 0.006 + t * (0.6 + l * 0.18) + l) * amp
+              + Math.sin(x * 0.013 - t * 0.4) * (amp * 0.35);
+            p.vertex(x, y);
+          }
+          p.vertex(p.width, p.height);
+          p.endShape(p.CLOSE);
+        }
+      },
+    };
+  },
+
+  // Slow translucent orbs rising like a lava lamp.
+  bubbles(p, ctx) {
+    let orbs = [];
+    const spawn = () => ({
+      x: p.random(p.width),
+      y: p.height + p.random(20, 160),
+      r: p.random(24, 90),
+      speed: p.random(0.2, 0.7),
+      hue: (ctx.baseHue + p.random(-40, 40) + 360) % 360,
+      drift: p.random(-0.3, 0.3),
+    });
+    return {
+      init() {
+        for (let i = 0; i < 16; i++) {
+          const o = spawn();
+          o.y = p.random(p.height);
+          orbs.push(o);
+        }
+      },
+      frame() {
+        p.noStroke();
+        for (let i = 0; i < orbs.length; i++) {
+          const o = orbs[i];
+          o.y -= o.speed;
+          o.x += o.drift;
+          if (o.y < -o.r) orbs[i] = spawn();
+          p.fill(o.hue, 68, ctx.dark ? 60 : 60, 0.17);
+          p.circle(o.x, o.y, o.r * 2);
+          p.fill(o.hue, 72, ctx.dark ? 70 : 52, 0.22);
+          p.circle(o.x, o.y, o.r);
+        }
+      },
+    };
+  },
+
+  // A soft "mesh gradient": a handful of big blurred blobs wandering.
+  mesh(p, ctx) {
+    let blobs = [];
+    return {
+      init() {
+        for (let i = 0; i < 5; i++) {
+          blobs.push({
+            seedX: p.random(1000), seedY: p.random(1000),
+            r: p.random(p.width * 0.25, p.width * 0.45),
+            hue: (ctx.baseHue + i * 28) % 360,
+          });
+        }
+      },
+      frame(t) {
+        p.noStroke();
+        for (const b of blobs) {
+          const x = p.noise(b.seedX, t * 0.05) * p.width;
+          const y = p.noise(b.seedY, t * 0.05) * p.height;
+          // Concentric fades approximate a soft radial glow (no blur cost).
+          for (let k = 6; k >= 1; k--) {
+            p.fill(b.hue, 62, ctx.dark ? 48 : 62, 0.05);
+            p.circle(x, y, b.r * (k / 6));
+          }
+        }
+      },
+    };
+  },
+};
+
 function startBgArt() {
   stopBgArt();
   if (typeof p5 === "undefined") return;
@@ -5193,93 +5855,37 @@ function startBgArt() {
     document.documentElement.dataset.theme === "dark" ||
     (!document.documentElement.dataset.theme &&
       window.matchMedia("(prefers-color-scheme: dark)").matches);
+  const build = BG_ART_BUILDERS[bgArtStyle()] || BG_ART_BUILDERS.aurora;
 
-  // A flowing "aurora": particles drift along a Perlin flow field and
-  // leave faint trails, over a giant slow-turning constellation emblem —
-  // the same node-and-link motif as the logo, blown up (Wave O rework).
   const sketch = (p) => {
-    let particles = [];
-    let baseHue = 230;
-    let emblem = [];
-
-    const drawEmblem = (t) => {
-      // A large, very faint ring of linked nodes, slowly rotating.
-      const cx = p.width / 2;
-      const cy = p.height / 2;
-      const radius = Math.min(p.width, p.height) * 0.32;
-      p.push();
-      p.translate(cx, cy);
-      p.rotate(t * 0.02);
-      p.stroke(baseHue, 50, dark ? 70 : 45, 0.05);
-      p.strokeWeight(1.5);
-      for (let i = 0; i < emblem.length; i++) {
-        for (let j = i + 1; j < emblem.length; j++) {
-          if ((i + j) % 3 === 0) {
-            p.line(
-              Math.cos(emblem[i]) * radius,
-              Math.sin(emblem[i]) * radius,
-              Math.cos(emblem[j]) * radius,
-              Math.sin(emblem[j]) * radius
-            );
-          }
-        }
-      }
-      p.noStroke();
-      for (const a of emblem) {
-        p.fill(baseHue, 55, dark ? 72 : 42, 0.07);
-        p.circle(Math.cos(a) * radius, Math.sin(a) * radius, 16);
-      }
-      p.pop();
-    };
-
-    const draw = () => {
-      const t = p.frameCount * 0.01;
-      // Translucent wash instead of clear → the particles leave trails.
-      p.noStroke();
-      p.fill(dark ? 12 : 250, dark ? 0.14 : 0.16);
-      p.rect(0, 0, p.width, p.height);
-      drawEmblem(t);
-      for (const dot of particles) {
-        const angle =
-          p.noise(dot.x * 0.0016, dot.y * 0.0016, t * 0.15) * Math.PI * 4;
-        dot.x += Math.cos(angle) * dot.speed;
-        dot.y += Math.sin(angle) * dot.speed;
-        if (dot.x < 0) dot.x = p.width;
-        if (dot.x > p.width) dot.x = 0;
-        if (dot.y < 0) dot.y = p.height;
-        if (dot.y > p.height) dot.y = 0;
-        p.fill(dot.hue, 65, dark ? 68 : 55, 0.5);
-        p.circle(dot.x, dot.y, dot.size);
-      }
-    };
-
+    const ctx = { dark, baseHue: 230 };
+    let style = null;
     p.setup = () => {
       const c = p.createCanvas(window.innerWidth, window.innerHeight);
       c.id("bg-art-canvas");
-      // RGB for the wash rect, HSL for the coloured marks — p5 lets us
-      // switch, but simplest to keep one mode; use HSL and a grey wash.
       p.colorMode(p.HSL, 360, 100, 100, 1);
       p.noStroke();
-      baseHue = p.hue(p.color(accentHex));
-      for (let i = 0; i < 70; i++) {
-        particles.push({
-          x: p.random(p.width),
-          y: p.random(p.height),
-          speed: p.random(0.3, 1.1),
-          size: p.random(1.5, 3.5),
-          hue: (baseHue + p.random(-24, 24) + 360) % 360,
-        });
-      }
-      emblem = Array.from({ length: 9 }, (_, i) => (i / 9) * Math.PI * 2);
+      ctx.baseHue = p.hue(p.color(accentHex));
+      style = build(p, ctx);
+      style.init();
       p.frameRate(30);
       if (reduceMotion) {
         // One calm static frame — no motion for reduced-motion users.
         p.background(dark ? 12 : 250);
-        drawEmblem(0);
+        style.frame(0);
         p.noLoop();
       }
     };
-    p.draw = draw;
+    p.draw = () => {
+      const t = p.frameCount * 0.01;
+      // Translucent wash → marks leave gentle trails instead of hard clears.
+      // Kept light so the art reads clearly on every tab (and the page
+      // gradient shows through) rather than flattening to near-solid.
+      p.noStroke();
+      p.fill(dark ? 12 : 250, dark ? 0.10 : 0.12);
+      p.rect(0, 0, p.width, p.height);
+      style.frame(t);
+    };
     p.windowResized = () => p.resizeCanvas(window.innerWidth, window.innerHeight);
   };
   bgArtInstance = new p5(sketch);
@@ -5360,7 +5966,15 @@ function toggleBgArt(on) {
 // --- wiring --------------------------------------------------------------------
 
 $("theme-btn").addEventListener("click", toggleTheme);
-$("bg-art-toggle").addEventListener("change", (e) => toggleBgArt(e.target.checked));
+$("bg-art-toggle").addEventListener("change", (e) => {
+  toggleBgArt(e.target.checked);
+  $("bg-style-row").classList.toggle("hidden", !e.target.checked);
+  $("bg-intensity-row").classList.toggle("hidden", !e.target.checked);
+});
+$("bg-style").addEventListener("change", (e) => {
+  localStorage.setItem("bgArtStyle", e.target.value);
+  if (bgArtOn()) startBgArt(); // repaint with the newly chosen style
+});
 $("contrast-toggle").addEventListener("change", (e) => applyContrast(e.target.checked));
 
 // Wave O: expanded appearance controls.
@@ -5433,6 +6047,7 @@ $("skip-link").addEventListener("click", (e) => {
   e.preventDefault();
   $(`tab-${localStorage.getItem("activeTab") || "notes"}`).focus();
 });
+initCollapsibleSections();
 switchTab(localStorage.getItem("activeTab") || "notes");
 
 // Settings modal (Wave A).
@@ -5484,6 +6099,10 @@ $("skill-cancel").addEventListener("click", stopEditingSkill);
 $("graph-refresh").addEventListener("click", renderGraph);
 $("graph-similarity").addEventListener("change", renderGraph);
 $("graph-hide-orphans").addEventListener("change", renderGraph);
+// Labels toggle just flips a class — no need to rebuild the whole map.
+$("graph-labels").addEventListener("change", (e) => {
+  $("graph-box").classList.toggle("graph-labels-hidden", !e.target.checked);
+});
 $("graph-search").addEventListener("input", applyGraphHighlight);
 
 // On-screen zoom controls drive the same d3 zoom behaviour as scroll/pinch.

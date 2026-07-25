@@ -71,6 +71,9 @@ class PreferencesBody(BaseModel):
 class DashboardLayout(BaseModel):
     order: list[str] = Field(default_factory=list, max_length=20)
     hidden: list[str] = Field(default_factory=list, max_length=20)
+    # Per-widget width, e.g. {"stats": "wide"} spans two columns (Wave — UI
+    # request). Only the widgets that differ from the default are stored.
+    sizes: dict[str, str] = Field(default_factory=dict)
 
 
 @router.get("/preferences")

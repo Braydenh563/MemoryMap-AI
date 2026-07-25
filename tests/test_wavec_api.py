@@ -67,6 +67,61 @@ def test_conversation_lifecycle(client):
     assert client.get("/conversations").json() == []
 
 
+def test_conversation_persists_tool_chips(client):
+    """Tool-activity chips are saved on the turn so they survive a reload."""
+    created = client.post(
+        "/conversations",
+        json={
+            "question": "tidy my tags",
+            "answer": "Done.",
+            "tools": [{"label": "🏷 Merged 2 tags", "ok": True}],
+        },
+    ).json()
+    full = client.get(f"/conversations/{created['id']}").json()
+    assert full["messages"][1]["tools"][0]["label"] == "🏷 Merged 2 tags"
+    assert full["messages"][1]["tools"][0]["ok"] is True
+
+
+def test_replace_last_turn_swaps_answer_in_place(client):
+    """Regenerate replaces the last answer instead of appending a new one."""
+    created = client.post(
+        "/conversations",
+        json={"question": "sum up my week", "answer": "first take"},
+    ).json()
+    cid = created["id"]
+    client.post(f"/conversations/{cid}/turns", json={"question": "again", "answer": "v1"})
+
+    resp = client.put(
+        f"/conversations/{cid}/turns/last",
+        json={"question": "again", "answer": "v2 (better)"},
+    )
+    assert resp.status_code == 200
+    full = client.get(f"/conversations/{cid}").json()
+    assert full["turns"] == 2  # not 3 — the last pair was replaced, not added
+    assert full["messages"][-1]["content"] == "v2 (better)"
+
+
+def test_delete_turn_removes_one_exchange(client):
+    created = client.post(
+        "/conversations",
+        json={"question": "q1", "answer": "a1"},
+    ).json()
+    cid = created["id"]
+    client.post(f"/conversations/{cid}/turns", json={"question": "q2", "answer": "a2"})
+
+    # Delete the first exchange (index 0) — the second should remain and shift up.
+    resp = client.delete(f"/conversations/{cid}/turns/0")
+    assert resp.status_code == 200
+    full = client.get(f"/conversations/{cid}").json()
+    assert full["turns"] == 1
+    assert full["messages"][0]["content"] == "q2"
+
+    # Deleting the last remaining exchange removes the whole conversation.
+    resp = client.delete(f"/conversations/{cid}/turns/0")
+    assert resp.json().get("conversation_deleted") is True
+    assert client.get("/conversations").json() == []
+
+
 # --- personas ---------------------------------------------------------------------
 
 

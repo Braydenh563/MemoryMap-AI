@@ -67,6 +67,32 @@ def test_conversation_lifecycle(client):
     assert client.get("/conversations").json() == []
 
 
+def test_delete_conversation_turn(client):
+    created = client.post(
+        "/conversations",
+        json={"question": "first?", "answer": "one"},
+    ).json()
+    client.post(
+        f"/conversations/{created['id']}/turns",
+        json={"question": "second?", "answer": "two"},
+    )
+    client.post(
+        f"/conversations/{created['id']}/turns",
+        json={"question": "third?", "answer": "three"},
+    )
+
+    # Drop the middle exchange (turn index 1).
+    summary = client.delete(f"/conversations/{created['id']}/turns/1").json()
+    assert summary["turns"] == 2
+
+    full = client.get(f"/conversations/{created['id']}").json()
+    contents = [m["content"] for m in full["messages"]]
+    assert contents == ["first?", "one", "third?", "three"]
+
+    # Out-of-range index is a clean 404, not a crash.
+    assert client.delete(f"/conversations/{created['id']}/turns/9").status_code == 404
+
+
 # --- personas ---------------------------------------------------------------------
 
 

@@ -1940,10 +1940,12 @@ async function openConversation(id) {
         handles.thinkingBox.classList.remove("hidden");
         handles.thinkingText.textContent = message.thinking;
       }
+      const turnIndex = chatConv.turns.length; // index this pair will occupy
       handles.bubble.appendChild(
         chatMessageActions([
           { label: "⧉", title: "Copy answer", onClick: (e) => copyToClipboard(message.content, e.currentTarget) },
           { label: "🔊", title: "Read aloud", onClick: () => speakText(handles.answerBox.textContent) },
+          { label: "🗑", title: "Delete this exchange", onClick: () => deleteConversationTurn(full.id, turnIndex) },
         ])
       );
       if (lastQuestionText !== null) {
@@ -1951,9 +1953,23 @@ async function openConversation(id) {
       }
     }
   }
+  if (!full.messages.length) renderChatEmptyState();
   if (lastQuestionText) lastChatQuestion = lastQuestionText;
   loadConversationList();
   chatScrollToEnd();
+}
+
+// Delete one saved question/answer exchange, then re-render the conversation
+// from the server so the on-screen state can never drift from what's stored.
+async function deleteConversationTurn(id, index) {
+  if (!confirm("Delete this question and answer from the chat?")) return;
+  try {
+    await api(`/conversations/${id}/turns/${index}`, { method: "DELETE" });
+  } catch (error) {
+    toast(`Couldn't delete: ${error.message}`, true);
+    return;
+  }
+  openConversation(id);
 }
 
 async function loadChatSuggestions() {

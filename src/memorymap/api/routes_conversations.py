@@ -97,6 +97,27 @@ def append_turn(
     return _summary(conversation)
 
 
+@router.delete("/{conversation_id}/turns/{index}")
+def delete_turn(
+    conversation_id: int, index: int, session: Session = Depends(get_session)
+) -> dict:
+    """Remove a single question/answer exchange (a turn) from a saved chat.
+
+    Messages are stored as flat user/assistant pairs, so turn `index` maps to
+    messages[2*index : 2*index+2].
+    """
+    conversation = _existing(session, conversation_id)
+    messages = json.loads(conversation.messages)
+    start = index * 2
+    if index < 0 or start >= len(messages):
+        raise HTTPException(status_code=404, detail="Turn not found")
+    del messages[start : start + 2]
+    conversation.messages = json.dumps(messages)
+    conversation.updated_at = utcnow()
+    session.commit()
+    return _summary(conversation)
+
+
 @router.put("/{conversation_id}")
 def rename_conversation(
     conversation_id: int, body: RenameBody, session: Session = Depends(get_session)

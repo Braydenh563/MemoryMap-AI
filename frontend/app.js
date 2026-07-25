@@ -262,10 +262,24 @@ function refreshTagSuggestions() {
 
 // --- rendering ---------------------------------------------------------------
 
-function chip(text, extraClass = "") {
+function chip(text, extraClass = "", onClick = null) {
   const span = document.createElement("span");
   span.className = `chip ${extraClass}`.trim();
   span.textContent = text;
+  // An interactive chip must be reachable and operable by keyboard, not just
+  // the mouse. Passing onClick makes it a real button in the a11y tree.
+  if (onClick) {
+    span.classList.add("chip-interactive");
+    span.setAttribute("role", "button");
+    span.setAttribute("tabindex", "0");
+    span.addEventListener("click", onClick);
+    span.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        onClick(event);
+      }
+    });
+  }
   return span;
 }
 
@@ -443,10 +457,10 @@ function entryItem(entry, options = {}) {
         if (options.actions) wrap.appendChild(removeButton());
         fileRow.appendChild(wrap);
       } else {
-        const fileChip = chip(`📄 ${attachment.filename}`, "link");
-        fileChip.style.cursor = "pointer";
+        const fileChip = chip(`📄 ${attachment.filename}`, "link", () =>
+          downloadAttachment(attachment)
+        );
         fileChip.title = `Download (${Math.max(1, Math.round(attachment.size / 1024))} KB)`;
-        fileChip.addEventListener("click", () => downloadAttachment(attachment));
         if (options.actions) fileChip.appendChild(removeButton());
         fileRow.appendChild(fileChip);
       }
@@ -632,10 +646,7 @@ function renderReevaluateResult(entry, wrap) {
     label.textContent = "Add tags:";
     tagRow.appendChild(label);
     for (const tag of tags) {
-      const tagChip = chip(`＋ ${tag}`, "tag");
-      tagChip.style.cursor = "pointer";
-      tagChip.title = `Add the “${tag}” tag`;
-      tagChip.addEventListener("click", async () => {
+      const tagChip = chip(`＋ ${tag}`, "tag", async () => {
         try {
           await api(`/entries/${entry.id}`, {
             method: "PUT",
@@ -648,6 +659,7 @@ function renderReevaluateResult(entry, wrap) {
           toast(error.message, true);
         }
       });
+      tagChip.title = `Add the “${tag}” tag`;
       tagRow.appendChild(tagChip);
     }
     wrap.appendChild(tagRow);
@@ -879,9 +891,7 @@ async function toggleRelated(entry) {
   row.appendChild(label);
   for (const other of related) {
     const preview = other.content.length > 50 ? other.content.slice(0, 49) + "…" : other.content;
-    const relChip = chip(`≈ ${preview}`, "link");
-    relChip.style.cursor = "pointer";
-    relChip.addEventListener("click", () => flashEntry(other.id));
+    const relChip = chip(`≈ ${preview}`, "link", () => flashEntry(other.id));
     row.appendChild(relChip);
   }
   card.appendChild(row);
@@ -1469,8 +1479,7 @@ async function loadSuggestions() {
   label.textContent = "Try asking:";
   box.appendChild(label);
   for (const question of picks) {
-    const chipEl = chip(question);
-    chipEl.addEventListener("click", () => askQuestion(question));
+    const chipEl = chip(question, "", () => askQuestion(question));
     box.appendChild(chipEl);
   }
 }
@@ -1985,8 +1994,7 @@ async function loadChatSuggestions() {
   label.textContent = "Try asking:";
   box.appendChild(label);
   for (const question of picks) {
-    const chipEl = chip(question);
-    chipEl.addEventListener("click", () => sendChatMessage(question));
+    const chipEl = chip(question, "", () => sendChatMessage(question));
     box.appendChild(chipEl);
   }
 }
@@ -2227,16 +2235,14 @@ function loadChatSkills() {
   label.textContent = "⚡ Skills:";
   box.appendChild(label);
   for (const skill of allSkills()) {
-    const chipEl = chip(skill.name + (skill.useTools ? " ⚙" : ""));
+    const chipEl = chip(skill.name + (skill.useTools ? " ⚙" : ""), "", () => runSkill(skill));
     chipEl.title = skill.useTools
       ? `${skill.prompt}\n\n(This skill makes changes for you — destructive steps still ask first.)`
       : skill.prompt;
-    chipEl.addEventListener("click", () => runSkill(skill));
     box.appendChild(chipEl);
   }
-  const manage = chip("＋ manage");
+  const manage = chip("＋ manage", "", () => openSettingsModal("skills"));
   manage.title = "Add or edit skills in Settings";
-  manage.addEventListener("click", () => openSettingsModal("skills"));
   box.appendChild(manage);
   box.classList.remove("hidden");
 }
@@ -2926,15 +2932,13 @@ async function renderTopTagsWidget(body) {
   const cloud = document.createElement("div");
   cloud.className = "entry-meta";
   for (const [tag, count] of top) {
-    const tagChip = chip(`${tag} · ${count}`, "tag");
-    tagChip.style.cursor = "pointer";
-    tagChip.title = `Show notes tagged “${tag}”`;
-    tagChip.addEventListener("click", () => {
+    const tagChip = chip(`${tag} · ${count}`, "tag", () => {
       $("note-search").value = tag;
       noteSearch = tag;
       switchTab("notes");
       renderEntries();
     });
+    tagChip.title = `Show notes tagged “${tag}”`;
     cloud.appendChild(tagChip);
   }
   body.appendChild(cloud);
@@ -2950,12 +2954,11 @@ async function renderQuestionsWidget(body) {
   const box = document.createElement("div");
   box.className = "recent";
   for (const question of questions) {
-    const chipEl = chip(question.length > 40 ? question.slice(0, 39) + "…" : question);
-    chipEl.title = question;
-    chipEl.addEventListener("click", () => {
+    const chipEl = chip(question.length > 40 ? question.slice(0, 39) + "…" : question, "", () => {
       switchTab("chat");
       sendChatMessage(question);
     });
+    chipEl.title = question;
     box.appendChild(chipEl);
   }
   body.appendChild(box);
@@ -3222,9 +3225,9 @@ function reminderItem(reminder, label) {
   if (reminder.entry_preview) {
     const linkRow = document.createElement("div");
     linkRow.className = "entry-links";
-    const noteChip = chip(`📝 ${reminder.entry_preview}`, "link");
-    noteChip.style.cursor = "pointer";
-    noteChip.addEventListener("click", () => flashEntry(reminder.entry_id));
+    const noteChip = chip(`📝 ${reminder.entry_preview}`, "link", () =>
+      flashEntry(reminder.entry_id)
+    );
     linkRow.appendChild(noteChip);
     li.appendChild(linkRow);
   }
@@ -4485,12 +4488,11 @@ async function loadRecentQuestions() {
   label.textContent = "Ask again:";
   box.appendChild(label);
   for (const question of questions) {
-    const again = chip(question.length > 48 ? question.slice(0, 47) + "…" : question);
-    again.title = question;
-    again.addEventListener("click", () => {
+    const again = chip(question.length > 48 ? question.slice(0, 47) + "…" : question, "", () => {
       $("question").value = question;
       askQuestion();
     });
+    again.title = question;
     box.appendChild(again);
   }
 }

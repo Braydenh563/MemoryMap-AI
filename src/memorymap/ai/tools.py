@@ -253,7 +253,10 @@ def _set_reminder(session: Session, args: dict) -> dict:
     if entry_id is not None:
         _get_note(session, {"note_id": entry_id})  # validates it exists
         entry_id = int(entry_id)
-    reminder = Reminder(text=text, due_at=due_at, entry_id=entry_id)
+    priority = str(args.get("priority") or "normal").lower()
+    if priority not in ("low", "normal", "high"):
+        priority = "normal"
+    reminder = Reminder(text=text, due_at=due_at, entry_id=entry_id, priority=priority)
     session.add(reminder)
     session.flush()
     manager.log_action(session, "created", "reminder", reminder.id, text[:80])
@@ -477,6 +480,11 @@ TOOLS: dict[str, ToolSpec] = {
                     "note_id": {
                         "type": "integer",
                         "description": "Attach to this note (optional)",
+                    },
+                    "priority": {
+                        "type": "string",
+                        "enum": ["low", "normal", "high"],
+                        "description": "Priority (optional, defaults to normal)",
                     },
                 },
                 "required": ["text", "due_at"],

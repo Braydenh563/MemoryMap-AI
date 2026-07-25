@@ -45,6 +45,36 @@ def test_reminder_for_missing_entry_404s(client):
     assert response.status_code == 404
 
 
+def test_reminder_priority_and_recurring(client):
+    due = (utcnow() + timedelta(hours=2)).isoformat()
+
+    # Defaults when omitted.
+    created = client.post("/reminders", json={"text": "water plants", "due_at": due}).json()
+    assert created["priority"] == "normal"
+    assert created["recurring"] == "none"
+
+    # Explicit values round-trip.
+    made = client.post(
+        "/reminders",
+        json={"text": "pay rent", "due_at": due, "priority": "high", "recurring": "monthly"},
+    ).json()
+    assert made["priority"] == "high"
+    assert made["recurring"] == "monthly"
+
+    # Updatable.
+    updated = client.put(
+        f"/reminders/{created['id']}", json={"priority": "low", "recurring": "weekly"}
+    ).json()
+    assert updated["priority"] == "low"
+    assert updated["recurring"] == "weekly"
+
+    # Invalid values are rejected by the schema.
+    bad = client.post(
+        "/reminders", json={"text": "x", "due_at": due, "priority": "urgent"}
+    )
+    assert bad.status_code == 422
+
+
 # --- insights ----------------------------------------------------------------------
 
 

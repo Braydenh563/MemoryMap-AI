@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from typing import Literal
 
 from memorymap.core.database import Entry, Reminder
 from memorymap.core.deps import get_session
@@ -19,17 +20,24 @@ from memorymap.entry.manager import log_action
 
 router = APIRouter(prefix="/reminders", tags=["reminders"])
 
+Priority = Literal["low", "normal", "high"]
+Recurring = Literal["none", "daily", "weekly", "monthly"]
+
 
 class ReminderCreate(BaseModel):
     text: str = Field(min_length=1, max_length=500)
     due_at: datetime
     entry_id: int | None = None
+    priority: Priority = "normal"
+    recurring: Recurring = "none"
 
 
 class ReminderUpdate(BaseModel):
     text: str | None = Field(default=None, min_length=1, max_length=500)
     due_at: datetime | None = None
     done: bool | None = None
+    priority: Priority | None = None
+    recurring: Recurring | None = None
 
 
 def _to_out(session: Session, reminder: Reminder) -> dict:
@@ -46,6 +54,8 @@ def _to_out(session: Session, reminder: Reminder) -> dict:
         "done": reminder.done,
         "entry_id": reminder.entry_id,
         "entry_preview": entry_preview,
+        "priority": reminder.priority,
+        "recurring": reminder.recurring,
     }
 
 
@@ -67,7 +77,13 @@ def list_reminders(session: Session = Depends(get_session)) -> list[dict]:
 def create_reminder(body: ReminderCreate, session: Session = Depends(get_session)) -> dict:
     if body.entry_id is not None and session.get(Entry, body.entry_id) is None:
         raise HTTPException(status_code=404, detail="Entry not found")
-    reminder = Reminder(text=body.text, due_at=body.due_at, entry_id=body.entry_id)
+    reminder = Reminder(
+        text=body.text,
+        due_at=body.due_at,
+        entry_id=body.entry_id,
+        priority=body.priority,
+        recurring=body.recurring,
+    )
     session.add(reminder)
     session.flush()
     log_action(session, "created", "reminder", reminder.id, body.text[:80])
@@ -84,6 +100,10 @@ def update_reminder(
         reminder.text = body.text
     if body.due_at is not None:
         reminder.due_at = body.due_at
+    if body.priority is not None:
+        reminder.priority = body.priority
+    if body.recurring is not None:
+        reminder.recurring = body.recurring
     if body.done is not None and body.done != reminder.done:
         reminder.done = body.done
         log_action(

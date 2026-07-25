@@ -67,11 +67,25 @@ async function api(path, options = {}) {
   // yank the user to the lock screen mid-session (Wave O fix for a
   // long-standing intermittent re-lock). Only an explicit user action
   // shows the lock screen on 401.
-  const { silent, ...fetchOptions } = options;
-  const response = await fetch(path, {
-    headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() },
-    ...fetchOptions,
-  });
+  // `timeoutMs`: opt-in abort so a call can't hang the UI forever (used by the
+  // startup probe). Off by default, so long-running requests — model pulls,
+  // blocking chat — are unaffected.
+  const { silent, timeoutMs, ...fetchOptions } = options;
+  let timer = null;
+  if (timeoutMs) {
+    const controller = new AbortController();
+    timer = setTimeout(() => controller.abort(), timeoutMs);
+    fetchOptions.signal = fetchOptions.signal || controller.signal;
+  }
+  let response;
+  try {
+    response = await fetch(path, {
+      headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() },
+      ...fetchOptions,
+    });
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
   if (response.status === 401) {
     if (!silent) showLockScreen(false); // token expired (e.g. app restarted)
     throw new Error("Locked");
@@ -135,9 +149,13 @@ async function lockNow() {
 }
 
 async function initAuth() {
-  const status = await apiJson("/auth/status").catch(() => null);
+  // Bounded probe: if the server is unreachable or hangs, fail fast with a
+  // clear message instead of an indefinite blank/"connecting" screen.
+  const status = await apiJson("/auth/status", { timeoutMs: 8000 }).catch(() => null);
   if (!status) {
-    $("save-status").textContent = "Can't reach the MemoryMap server.";
+    $("save-status").textContent =
+      "Can't reach the MemoryMap server — check it's running, then refresh.";
+    toast("Can't reach the MemoryMap server. Is it running?", true);
     return;
   }
   if (status.setup_required) {
@@ -155,20 +173,40 @@ async function initAuth() {
 }
 
 function startApp() {
-  // A failed load must be visible, not a silently empty page.
-  loadEntries().catch((error) => toast(`Couldn't load entries: ${error.message}`, true));
-  loadRecentQuestions();
-  loadSuggestions();
-  loadMostUsed();
-  loadTemplates().then(() => {
-    personaOptions();
-    // Wave G: skills chips + the "AI can make changes" toggle read the
-    // same prefsCache that loadTemplates just filled.
-    loadChatSkills();
-    $("tools-toggle").checked = !prefsCache || prefsCache.tools_enabled !== false;
-  });
-  loadConversationList();
-  refreshModelStatus();
+  // A failed load must be visible, not a silently empty page — and one
+  // broken endpoint must never stop the rest of the app from coming up.
+  // Every bootstrap step is isolated so a single rejection surfaces a toast
+  // instead of leaving the user staring at a half-loaded (or blank) app.
+  const step = (label, fn) => {
+    try {
+      const result = fn();
+      if (result && typeof result.catch === "function") {
+        return result.catch((error) => {
+          toast(`Couldn't ${label}: ${error.message}`, true);
+        });
+      }
+      return Promise.resolve(result);
+    } catch (error) {
+      toast(`Couldn't ${label}: ${error.message}`, true);
+      return Promise.resolve();
+    }
+  };
+
+  step("load entries", loadEntries);
+  step("load recent questions", loadRecentQuestions);
+  step("load suggestions", loadSuggestions);
+  step("load your most-used items", loadMostUsed);
+  step("load templates", loadTemplates).then(() =>
+    step("set up chat options", () => {
+      personaOptions();
+      // Wave G: skills chips + the "AI can make changes" toggle read the
+      // same prefsCache that loadTemplates just filled.
+      loadChatSkills();
+      $("tools-toggle").checked = !prefsCache || prefsCache.tools_enabled !== false;
+    })
+  );
+  step("load conversations", loadConversationList);
+  step("check the AI model status", refreshModelStatus);
 }
 
 // --- capture templates (Wave B) ---------------------------------------------------

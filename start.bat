@@ -2,25 +2,37 @@
 REM ===================================================================
 REM  MemoryMap AI - one-click launcher for Windows
 REM
-REM  Double-click this file, or run "start.bat" in a terminal, and it
-REM  sets everything up the first time, then just runs the app on every
-REM  launch after that:
+REM  Double-click this file, or run "start.bat" in a terminal. It sets
+REM  everything up the first time, then just runs the app after that:
 REM
-REM    1. create a virtual environment .venv if one isn't there yet
-REM    2. install / update the Python dependencies + the app itself
+REM    1. use the app's own .venv Python (only needs a system Python the
+REM       very first time, to build that .venv)
+REM    2. install / update dependencies + the app itself
 REM    3. copy .env.example to .env the first time
 REM    4. start the server and open your browser at localhost:8000
 REM
-REM  Nothing here talks to the cloud - same offline app, no typing.
-REM
-REM  IMPORTANT for editors: never put ( or ) inside an ECHO line that
-REM  sits within an IF ( ... ) block - cmd reads the ) as the end of the
-REM  block and the whole script dies instantly. That was the original
-REM  "window flashes and closes" bug. Keep echoed text paren-free.
+REM  Editors beware: never put ( or ) inside an ECHO that sits within an
+REM  IF ( ... ) block - cmd reads the ) as the end of the block and the
+REM  script dies. Keep echoed text paren-free.
 REM ===================================================================
 
 setlocal enabledelayedexpansion
 cd /d "%~dp0"
+
+REM --- 0. Self-update, then re-launch a FRESH copy --------------------
+REM  A running .bat is read from disk by byte offset, so a git pull that
+REM  rewrites this file mid-run would corrupt it. To stay safe we pull,
+REM  then re-launch the (possibly updated) script in a child process and
+REM  stop this one. The MM_CHILD guard prevents an endless loop.
+if not defined MM_CHILD (
+  where git >nul 2>nul && if exist ".git" (
+    set "MM_CHILD=1"
+    echo  Checking for updates...
+    git pull --ff-only
+    call "%~f0"
+    exit /b !errorlevel!
+  )
+)
 
 echo.
 echo  ==========================================
@@ -28,59 +40,51 @@ echo   MemoryMap AI - starting up
 echo  ==========================================
 echo.
 
-REM --- 0. Self-update ---------------------------------------------------
-REM  Pull the latest code if this is a git checkout. --ff-only never
-REM  rewrites your work: if you have local changes it just skips and keeps
-REM  going on the current version. This is why "the bat ran an old version"
-REM  no longer happens - each launch grabs the newest code first.
-where git >nul 2>nul
-if not errorlevel 1 (
-  if exist ".git" (
-    echo  [0/4] Checking for updates...
-    git pull --ff-only
+set "VENV_PY=.venv\Scripts\python.exe"
+
+REM --- 1. Build the venv if it doesn't exist yet ----------------------
+REM  Only the FIRST run needs a system Python; after that the app uses
+REM  its own .venv, so a flaky PATH can't stop later launches.
+if not exist "%VENV_PY%" (
+  echo  [1/4] First-time setup - looking for Python to build the environment...
+  set "PYTHON="
+  py -3 --version >nul 2>nul && set "PYTHON=py -3"
+  if not defined PYTHON (
+    python --version >nul 2>nul && set "PYTHON=python"
   )
-)
-
-REM --- 1. Find a Python -------------------------------------------------
-set "PYTHON="
-where py >nul 2>nul && set "PYTHON=py -3"
-if not defined PYTHON (
-  where python >nul 2>nul && set "PYTHON=python"
-)
-if not defined PYTHON (
-  echo  [X] Python was not found on your PATH.
-  echo      Install Python 3.11 or newer from https://www.python.org/downloads/
-  echo      and tick "Add python.exe to PATH" during setup, then run this again.
-  echo.
-  pause
-  exit /b 1
-)
-echo  [1/4] Using Python: %PYTHON%
-
-REM --- 2. Create the virtual environment if it's missing ---------------
-if not exist ".venv\Scripts\python.exe" (
-  echo  [2/4] Creating virtual environment .venv - one-time setup...
-  %PYTHON% -m venv .venv
+  if not defined PYTHON (
+    python3 --version >nul 2>nul && set "PYTHON=python3"
+  )
+  if not defined PYTHON (
+    echo.
+    echo  [X] No Python was found. Install Python 3.11 or newer from
+    echo      https://www.python.org/downloads/ and tick
+    echo      "Add python.exe to PATH" during setup, then run this again.
+    echo.
+    pause
+    exit /b 1
+  )
+  echo        Using !PYTHON! to create the virtual environment...
+  !PYTHON! -m venv .venv
   if errorlevel 1 (
     echo  [X] Could not create the virtual environment.
     pause
     exit /b 1
   )
 ) else (
-  echo  [2/4] Virtual environment found.
+  echo  [1/4] Using the app's virtual environment.
 )
 
-set "VENV_PY=.venv\Scripts\python.exe"
 if not exist "%VENV_PY%" (
-  echo  [X] The virtual environment looks incomplete - delete the .venv folder
-  echo      and run this script again.
+  echo  [X] The virtual environment looks incomplete - delete the .venv
+  echo      folder and run this script again.
   pause
   exit /b 1
 )
 
-REM --- 3. Install / update dependencies -------------------------------
-REM  A tiny marker file lets us skip the slow reinstall on every launch
-REM  unless requirements.txt has changed since the last good install.
+REM --- 2. Install / update dependencies -------------------------------
+REM  A marker file skips the slow reinstall unless requirements.txt has
+REM  changed since the last good install.
 set "NEED_INSTALL=1"
 if exist ".venv\.mm_installed" (
   for %%A in ("requirements.txt") do set "REQ_TIME=%%~tA"
@@ -89,7 +93,7 @@ if exist ".venv\.mm_installed" (
 )
 
 if "!NEED_INSTALL!"=="1" (
-  echo  [3/4] Installing dependencies - this can take a few minutes the first time...
+  echo  [2/4] Installing dependencies - this can take a few minutes the first time...
   "%VENV_PY%" -m pip install --upgrade pip
   "%VENV_PY%" -m pip install -r requirements.txt
   if errorlevel 1 (
@@ -105,24 +109,25 @@ if "!NEED_INSTALL!"=="1" (
   )
   for %%A in ("requirements.txt") do echo %%~tA>".venv\.mm_installed"
 ) else (
-  echo  [3/4] Dependencies already up to date - skipping install.
+  echo  [2/4] Dependencies already up to date - skipping install.
 )
 
-REM --- 4. First-run .env ----------------------------------------------
+REM --- 3. First-run .env ----------------------------------------------
 if not exist ".env" (
   if exist ".env.example" (
     copy /y ".env.example" ".env" >nul
-    echo        Created .env from .env.example.
+    echo  [3/4] Created .env from .env.example.
   )
+) else (
+  echo  [3/4] Configuration found.
 )
 
-REM --- 5. Launch -------------------------------------------------------
+REM --- 4. Launch -------------------------------------------------------
 echo  [4/4] Starting MemoryMap AI at http://localhost:8000
 echo        A browser tab opens in a moment. Close THIS window, or press
 echo        Ctrl+C in it, to stop the app.
 echo.
 
-REM  Give the server a moment to bind, then open the browser.
 start "" /b cmd /c "timeout /t 3 >nul & start http://localhost:8000"
 
 "%VENV_PY%" -m memorymap

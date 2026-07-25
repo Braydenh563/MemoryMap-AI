@@ -207,6 +207,9 @@ function startApp() {
   );
   step("load conversations", loadConversationList);
   step("check the AI model status", refreshModelStatus);
+
+  // First-run welcome tour (guarded by localStorage; re-runnable from Help).
+  maybeShowOnboarding();
 }
 
 // --- capture templates (Wave B) ---------------------------------------------------
@@ -3863,7 +3866,7 @@ function showPanel(id) {
 
 // --- settings modal (Wave A) ------------------------------------------------------
 
-const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "appearance", "preferences", "tasks", "data", "logs", "about"];
+const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "appearance", "preferences", "tasks", "data", "logs", "help", "about"];
 
 // Where to send focus back when a dialog closes (Wave L).
 let overlayReturnFocus = null;
@@ -5731,6 +5734,10 @@ document.addEventListener("keydown", (e) => {
     else closePalette();
     return;
   }
+  if (e.key === "Escape" && !$("onboarding-overlay").classList.contains("hidden")) {
+    closeOnboarding();
+    return;
+  }
   if (e.key === "Escape" && !$("palette-overlay").classList.contains("hidden")) {
     closePalette();
     return;
@@ -5791,6 +5798,7 @@ document.addEventListener("click", (e) => {
 // instead of wandering into the page behind — a WCAG dialog basic.
 function activeOverlay() {
   for (const id of [
+    "onboarding-overlay",
     "palette-overlay",
     "sketch-overlay",
     "improve-overlay",
@@ -5801,6 +5809,98 @@ function activeOverlay() {
   }
   return null;
 }
+
+// --- first-run onboarding tour (learnability) -------------------------------
+
+const ONBOARDING_SLIDES = [
+  {
+    icon: "🧠",
+    title: "Welcome to MemoryMap",
+    text: "A 100% offline notebook where a local AI files your thoughts and answers questions about them. Nothing ever leaves this computer.",
+  },
+  {
+    icon: "📝",
+    title: "Capture your thoughts",
+    text: "Jot anything into the Notes tab and hit Save — the AI files it into a category and suggests tags. No folders to fuss over.",
+  },
+  {
+    icon: "💬",
+    title: "Ask your notebook",
+    text: "Ask questions in plain English and get answers grounded in your own notes. Switch on “AI can make changes” and it can organise them for you too.",
+  },
+  {
+    icon: "🕸",
+    title: "Explore your graph",
+    text: "The Graph tab shows how your notes connect. Search, drag, and zoom to rediscover things you'd forgotten you saved.",
+  },
+  {
+    icon: "🎨",
+    title: "Make it yours",
+    text: "Settings → Appearance has themes, accent colours, fonts, and more. Press ? any time for keyboard shortcuts. Enjoy!",
+  },
+];
+
+let onboardingIndex = 0;
+
+function renderOnboardingSlide() {
+  const slide = ONBOARDING_SLIDES[onboardingIndex];
+  $("onboarding-icon").textContent = slide.icon;
+  $("onboarding-title").textContent = slide.title;
+  $("onboarding-text").textContent = slide.text;
+  const dots = $("onboarding-dots");
+  dots.replaceChildren();
+  ONBOARDING_SLIDES.forEach((_, i) => {
+    const dot = document.createElement("span");
+    dot.className = "onboarding-dot" + (i === onboardingIndex ? " active" : "");
+    dots.appendChild(dot);
+  });
+  $("onboarding-back").classList.toggle("hidden", onboardingIndex === 0);
+  const last = onboardingIndex === ONBOARDING_SLIDES.length - 1;
+  $("onboarding-next").textContent = last ? "Get started" : "Next";
+}
+
+function openOnboarding() {
+  onboardingIndex = 0;
+  overlayReturnFocus = document.activeElement;
+  renderOnboardingSlide();
+  $("onboarding-overlay").classList.remove("hidden");
+  $("onboarding-next").focus();
+}
+
+function closeOnboarding() {
+  $("onboarding-overlay").classList.add("hidden");
+  localStorage.setItem("onboardingDone", "1");
+  overlayReturnFocus?.focus?.();
+  overlayReturnFocus = null;
+}
+
+function onboardingNext() {
+  if (onboardingIndex >= ONBOARDING_SLIDES.length - 1) {
+    closeOnboarding();
+    return;
+  }
+  onboardingIndex += 1;
+  renderOnboardingSlide();
+}
+
+function onboardingBack() {
+  if (onboardingIndex === 0) return;
+  onboardingIndex -= 1;
+  renderOnboardingSlide();
+}
+
+// Show the tour once, after the app is unlocked and running.
+function maybeShowOnboarding() {
+  if (!localStorage.getItem("onboardingDone")) openOnboarding();
+}
+
+$("onboarding-next").addEventListener("click", onboardingNext);
+$("onboarding-back").addEventListener("click", onboardingBack);
+$("onboarding-skip").addEventListener("click", closeOnboarding);
+$("show-guide-btn").addEventListener("click", () => {
+  closeSettingsModal();
+  openOnboarding();
+});
 
 // Keyboard-shortcuts cheat-sheet (press ?), a learnability aid.
 function openShortcuts() {

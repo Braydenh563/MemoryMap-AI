@@ -1531,3 +1531,24 @@ html { font-size: 16px; }
 .tool-row { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: 500; }
 .tool-row input { width: 1.15rem; height: 1.15rem; margin: 0; accent-color: var(--accent); }
 .tool-desc { display: block; margin: 0.2rem 0 0 1.65rem; font-size: 0.82rem; }
+
+/* --- first-run onboarding tour ------------------------------------------------- */
+#onboarding-card { max-width: 30rem; text-align: center; }
+.onboarding-slide { padding: 1rem 0.5rem 0.25rem; min-height: 8.5rem; }
+.onboarding-icon { font-size: 2.8rem; line-height: 1; margin-bottom: 0.6rem; }
+#onboarding-title { margin: 0 0 0.5rem; }
+#onboarding-text { margin: 0 auto; max-width: 24rem; }
+.onboarding-dots { display: flex; justify-content: center; gap: 0.4rem; margin: 1rem 0; }
+.onboarding-dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--border); transition: background 0.2s ease; }
+.onboarding-dot.active { background: var(--accent); }
+
+/* --- help guide accordion ------------------------------------------------------ */
+.help-accordion details {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem 0.75rem;
+}
+.help-accordion summary { cursor: pointer; font-weight: 600; }
+.help-accordion details[open] summary { margin-bottom: 0.4rem; }
+.help-accordion p { margin: 0; font-size: 0.9rem; }

@@ -375,6 +375,7 @@
           <button data-section="tasks">Tasks</button>
           <button data-section="data">Data</button>
           <button data-section="logs">Logs</button>
+          <button data-section="help">Help</button>
           <button data-section="about">About</button>
         </nav>
         <div class="modal-content">
@@ -681,6 +682,49 @@
           </section>
 
           <!-- About -->
+          <!-- Help guide (learnability): a feature reference + re-run the tour -->
+          <section class="settings-section hidden" id="settings-help">
+            <div class="row space-between">
+              <h3 style="margin:0">Help &amp; guide</h3>
+              <button id="show-guide-btn" class="small">▶ Replay welcome tour</button>
+            </div>
+            <p class="muted">A quick reference to what each part of MemoryMap does. Click a topic to expand it.</p>
+            <div class="help-accordion">
+              <details>
+                <summary>📝 Capturing notes</summary>
+                <p>In the <strong>Notes</strong> tab, type anything into “Capture a thought” and Save. A local AI files it into a category and suggests tags — you can always re-file or edit. Use a template, dictate with 🎙, sketch with 🎨, or let ✨ Improve proofread it first.</p>
+              </details>
+              <details>
+                <summary>💬 Asking &amp; chatting</summary>
+                <p>“Ask your notebook” (Notes tab) and the <strong>Chat</strong> tab both answer from your saved notes. Turn on “AI can make changes” to let the assistant create, tag, link, and organise notes — destructive actions always ask first. Save, rename, and switch between conversations in the sidebar.</p>
+              </details>
+              <details>
+                <summary>⚡ Skills</summary>
+                <p>Skills are one-click requests above the chat box (e.g. “Summarise my week”). Add your own in <em>Settings → Skills</em>; a skill can use the AI’s tools so it actually does the work, not just describes it.</p>
+              </details>
+              <details>
+                <summary>🕸 Graph</summary>
+                <p>The <strong>Graph</strong> tab shows your notes as a network — links, threads, and (optionally) AI similarity lines. Search to highlight, drag to rearrange, toggle categories in the legend, and use the zoom controls to explore.</p>
+              </details>
+              <details>
+                <summary>⏰ Reminders</summary>
+                <p>The <strong>Reminders</strong> tab groups items by Overdue / Today / Upcoming / Done. Set a priority, snooze, edit inline, or make one recurring. Notifications fire while the app is open.</p>
+              </details>
+              <details>
+                <summary>📊 Dashboard</summary>
+                <p>The <strong>Dashboard</strong> is your at-a-glance home: streaks, stats, pinned notes, reminders, a weekly digest, and more. Click “Edit layout” to show/hide and rearrange widgets — your layout is remembered.</p>
+              </details>
+              <details>
+                <summary>🎨 Appearance</summary>
+                <p><em>Settings → Appearance</em> controls theme (light/dark/system), accent colour, fonts, density, glass effects, and the animated background. High-contrast and reduce-motion options are there for comfort and accessibility.</p>
+              </details>
+              <details>
+                <summary>⌨ Keyboard shortcuts</summary>
+                <p>Press <kbd>?</kbd> any time for the full list, or <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd> to open the command palette and jump anywhere or search your notes.</p>
+              </details>
+            </div>
+          </section>
+
           <section class="settings-section hidden" id="settings-about">
             <h3>MemoryMap AI</h3>
             <p class="muted">
@@ -790,6 +834,26 @@
         <input id="sketch-caption" type="text" maxlength="200" placeholder="Caption (becomes the note text)">
         <button id="sketch-save">Save as note</button>
         <span id="sketch-status" class="status" role="status"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- First-run welcome tour (learnability). Re-runnable from Settings → Help. -->
+  <div id="onboarding-overlay" class="modal-overlay hidden" role="dialog"
+    aria-modal="true" aria-label="Welcome to MemoryMap">
+    <div class="card modal-card" id="onboarding-card">
+      <div class="onboarding-slide" id="onboarding-slide">
+        <div class="onboarding-icon" id="onboarding-icon" aria-hidden="true"></div>
+        <h2 id="onboarding-title"></h2>
+        <p id="onboarding-text" class="muted"></p>
+      </div>
+      <div class="onboarding-dots" id="onboarding-dots" aria-hidden="true"></div>
+      <div class="row space-between">
+        <button id="onboarding-skip" class="ghost small">Skip</button>
+        <div class="row">
+          <button id="onboarding-back" class="ghost small">Back</button>
+          <button id="onboarding-next">Next</button>
+        </div>
       </div>
     </div>
   </div>

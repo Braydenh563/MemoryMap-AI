@@ -610,6 +610,12 @@ li.link-source { outline: 2px solid var(--accent); }
 .log-list li.log-warn .what { color: var(--warn); }
 
 /* --- dashboard + reminders (Wave D) ------------------------------------------ */
+.dash-greeting {
+  margin: 0.25rem 0 0;
+  padding: 0.5rem 2rem 0;
+  font-size: 1.4rem;
+}
+.dash-greeting:empty { display: none; }
 .dash-toolbar {
   display: flex;
   justify-content: space-between;

@@ -47,6 +47,8 @@ class SkillItem(BaseModel):
 class PreferencesBody(BaseModel):
     recycle_bin_days: int | None = Field(default=None, ge=1, le=365)
     communication_style: Literal["friendly", "concise", "detailed"] | None = None
+    # Display name for the dashboard greeting (empty string clears it).
+    display_name: str | None = Field(default=None, max_length=60)
     # Optional context about the user for the librarian (Phase 5).
     # profile_enabled is the opt-out switch; the delete button in the UI
     # simply saves an empty string.
@@ -79,6 +81,7 @@ def get_preferences() -> dict:
     return {
         "recycle_bin_days": config.get_preference("recycle_bin_days", 30),
         "communication_style": config.get_preference("communication_style", "friendly"),
+        "display_name": config.get_preference("display_name", ""),
         "user_profile": config.get_preference("user_profile", ""),
         "profile_enabled": config.get_preference("profile_enabled", False),
         "custom_templates": config.get_preference("custom_templates", []),

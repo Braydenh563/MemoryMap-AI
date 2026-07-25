@@ -2549,12 +2549,24 @@ async function saveDashLayout(layout) {
   }).catch(() => prefsCache);
 }
 
+// Time-of-day greeting, personalised with the saved display name if set.
+function renderDashboardGreeting() {
+  const el = $("dash-greeting");
+  if (!el) return;
+  const hour = new Date().getHours();
+  const part =
+    hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const name = ((prefsCache && prefsCache.display_name) || "").trim();
+  el.textContent = name ? `${part}, ${name}` : part;
+}
+
 async function renderDashboard() {
   // The saved layout lives in preferences — after a page reload this can
   // run before startApp has fetched them, so fetch here if needed.
   if (!prefsCache) {
     prefsCache = await apiJson("/preferences").catch(() => null);
   }
+  renderDashboardGreeting();
   const grid = $("dash-grid");
   grid.replaceChildren();
   $("dash-hint").classList.toggle("hidden", !dashEditMode); // hint only in edit mode
@@ -4007,6 +4019,7 @@ let prefsCache = null;
 
 async function renderPrefs() {
   prefsCache = await apiJson("/preferences");
+  $("pref-display-name").value = prefsCache.display_name || "";
   $("pref-bin-days").value = prefsCache.recycle_bin_days;
   $("pref-style").value = prefsCache.communication_style;
   $("pref-profile").value = prefsCache.user_profile;
@@ -4020,6 +4033,7 @@ async function savePrefs() {
     prefsCache = await apiJson("/preferences", {
       method: "PUT",
       body: JSON.stringify({
+        display_name: $("pref-display-name").value.trim(),
         recycle_bin_days: Number($("pref-bin-days").value),
         communication_style: $("pref-style").value,
         user_profile: $("pref-profile").value,
@@ -4028,6 +4042,8 @@ async function savePrefs() {
       }),
     });
     $("prefs-status").textContent = "Saved.";
+    // Reflect a name change immediately if the dashboard is showing.
+    if (typeof renderDashboardGreeting === "function") renderDashboardGreeting();
   } catch (error) {
     $("prefs-status").textContent = error.message;
   }

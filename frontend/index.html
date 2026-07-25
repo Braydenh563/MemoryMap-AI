@@ -68,6 +68,7 @@
 
   <!-- ======================= DASHBOARD TAB (Wave D) ======================= -->
   <div class="tab-page hidden" id="tab-dashboard" role="tabpanel" aria-labelledby="tab-btn-dashboard" tabindex="-1">
+    <h2 id="dash-greeting" class="dash-greeting"></h2>
     <div class="dash-toolbar">
       <span class="muted hidden" id="dash-hint">Drag widgets to rearrange, or Hide/Show them — your layout is remembered.</span>
       <span id="dash-hint-spacer"></span>
@@ -574,6 +575,12 @@
 
           <!-- Preferences (Phase 4/5, moved here in Wave A) -->
           <section class="settings-section hidden" id="settings-preferences">
+            <h3>Your name</h3>
+            <div class="row">
+              <label for="pref-display-name" class="muted">Name for the dashboard greeting</label>
+              <input id="pref-display-name" type="text" maxlength="60" style="width:12rem"
+                placeholder="e.g. Brayden">
+            </div>
             <h3>Recycle bin</h3>
             <div class="row">
               <label for="pref-bin-days" class="muted">Auto-clear binned entries after</label>

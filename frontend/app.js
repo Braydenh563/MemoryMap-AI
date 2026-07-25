@@ -601,6 +601,31 @@ function entryOverflowMenu(entry) {
     menu.appendChild(button);
   }
 
+  // Arrow-key navigation, as the role="menu" contract implies. ↑/↓ move between
+  // items (wrapping), Home/End jump to the ends, Esc closes and returns focus
+  // to the opener.
+  menu.addEventListener("keydown", (event) => {
+    const menuItems = [...menu.querySelectorAll('[role="menuitem"]')];
+    const current = menuItems.indexOf(document.activeElement);
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      menuItems[(current + 1) % menuItems.length]?.focus();
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      menuItems[(current - 1 + menuItems.length) % menuItems.length]?.focus();
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      menuItems[0]?.focus();
+    } else if (event.key === "End") {
+      event.preventDefault();
+      menuItems[menuItems.length - 1]?.focus();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      closeActionMenus();
+      opener.focus();
+    }
+  });
+
   wrap.append(opener, menu);
   return wrap;
 }

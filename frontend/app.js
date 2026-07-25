@@ -49,6 +49,8 @@ let activeCategory = null; // sidebar filter; null = All
 let linkSource = null; // entry id waiting for its link partner
 let editingId = null; // entry id currently in inline-edit mode
 let inlineAction = null; // {id, kind: "context"|"continue"} open on a card
+let busyEntryId = null; // entry the AI is currently working on (spinner shown)
+let flashConfidenceId = null; // entry whose confidence badge just changed (flash once)
 let noteSearch = ""; // Notes-tab text filter (Wave J)
 let noteSort = "newest"; // newest | oldest | az | most-used (Wave J)
 
@@ -308,11 +310,26 @@ function entryItem(entry, options = {}) {
   meta.appendChild(chip(entry.category));
   for (const tag of entry.tags) meta.appendChild(chip(tag, "tag"));
 
-  if (entry.ai_confidence >= REVIEW_THRESHOLD) {
-    meta.appendChild(chip(`AI ${entry.ai_confidence}%`, "confidence"));
-  } else {
-    // Low or zero confidence — worth a human look (plan Phase 3).
-    meta.appendChild(chip(`AI ${entry.ai_confidence}% — check this`, "review"));
+  const confidenceChip =
+    entry.ai_confidence >= REVIEW_THRESHOLD
+      ? chip(`AI ${entry.ai_confidence}%`, "confidence")
+      : // Low or zero confidence — worth a human look (plan Phase 3).
+        chip(`AI ${entry.ai_confidence}% — check this`, "review");
+  // Flash the badge once when this note's confidence just changed, so the
+  // update after a re-evaluation is actually noticeable (user request).
+  if (entry.id === flashConfidenceId) {
+    confidenceChip.classList.add("badge-flash");
+    flashConfidenceId = null;
+  }
+  meta.appendChild(confidenceChip);
+
+  // While the AI is re-evaluating this note, show a live spinner chip so
+  // it's obvious something is running on this specific card.
+  if (entry.id === busyEntryId) {
+    li.classList.add("entry-busy");
+    const busy = chip("⟳ Re-evaluating…", "busy");
+    busy.classList.add("chip-busy");
+    meta.appendChild(busy);
   }
 
   const date = document.createElement("span");
@@ -558,11 +575,22 @@ function entryOverflowMenu(entry) {
 async function reevaluateEntry(entry) {
   closeActionMenus();
   toast("Re-evaluating with AI…");
+  // Show a spinner on this exact card while the AI works.
+  busyEntryId = entry.id;
+  renderEntries();
   try {
     const result = await apiJson(`/entries/${entry.id}/reevaluate`, { method: "POST" });
+    // If the confidence actually changed, flash the badge on the next render.
+    const newConfidence = result.entry ? result.entry.ai_confidence : null;
+    if (newConfidence !== null && newConfidence !== entry.ai_confidence) {
+      flashConfidenceId = entry.id;
+    }
     inlineAction = { id: entry.id, kind: "reevaluate", data: result };
+    busyEntryId = null;
     await loadEntries(); // reflect the refreshed confidence/category, then show suggestions
   } catch (error) {
+    busyEntryId = null;
+    renderEntries();
     toast(error.message || "Re-evaluate failed.", true);
   }
 }

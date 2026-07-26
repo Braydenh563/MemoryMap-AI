@@ -325,8 +325,8 @@ button {
   padding: 0.5rem 1.1rem;
   border: none;
   border-radius: 10px;
-  background: var(--accent);
-  color: #fff;
+  background: var(--accent-surface);
+  color: var(--on-accent);
   font: inherit;
   font-weight: 600;
   cursor: pointer;
@@ -1662,8 +1662,8 @@ kbd {
   z-index: 100;
   padding: 0.5rem 1rem;
   border-radius: 10px;
-  background: var(--accent);
-  color: #fff;
+  background: var(--accent-surface);
+  color: var(--on-accent);
   font-weight: 600;
   text-decoration: none;
 }
@@ -3917,3 +3917,34 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   .entry-actions button { min-height: 38px; min-width: 38px; }
   #tab-bar button { min-height: 40px; }
 }
+
+/* ================================================================================
+   Text on accent-coloured surfaces (roadmap §7 — colour contrast was listed as
+   unverified; measured, and this was the one real failure).
+
+   Every solid button, the active tab and the skip link paint white on
+   var(--accent). In light mode that measured 4.34:1 against the default
+   indigo — just under the 4.5 AA needs. In dark mode the accent is a *light*
+   colour by design, so white-on-accent came out at 2.54:1, which is a genuine
+   readability problem rather than a near miss.
+
+   Two different fixes because they're two different problems: in light mode
+   the accent is darkened slightly for surfaces that carry text; in dark mode
+   the accent stays and the text on it goes dark, which is the normal way to
+   put text on a light block. Both are expressed against var(--accent), so all
+   thirteen accent presets and any custom colour are covered — a paired
+   "strong" shade per accent would be thirteen chances to get one wrong.
+   ============================================================================= */
+:root {
+  --accent-surface: color-mix(in oklab, var(--accent) 88%, #000 12%);
+  --on-accent: #fff;
+}
+:root[data-mode="dark"] {
+  /* The accent is light here, so lighten it further and use dark ink on it. */
+  --accent-surface: var(--accent);
+  --on-accent: #0d1017;
+}
+
+/* Chips carry 12px text, where AA is least forgiving, and were using the
+   muted ink: 3.54:1. Chips are labels, not secondary prose. */
+.chip { color: var(--ink); }

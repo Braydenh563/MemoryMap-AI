@@ -3703,10 +3703,49 @@ function renderMarkdown(container, text) {
       continue;
     }
 
-    const heading = line.match(/^(#{1,3})\s+(.*)$/);
+    // Pipe table: a header row, a |---|---| separator, then body rows.
+    if (isTableSeparator(lines[i + 1]) && line.includes("|")) {
+      closeList();
+      const table = document.createElement("table");
+      table.className = "md-table";
+      const thead = document.createElement("thead");
+      const headRow = document.createElement("tr");
+      for (const cell of splitTableRow(line)) {
+        const th = document.createElement("th");
+        appendInline(th, cell);
+        headRow.appendChild(th);
+      }
+      thead.appendChild(headRow);
+      table.appendChild(thead);
+
+      const tbody = document.createElement("tbody");
+      i += 2; // past the header and the separator
+      while (i < lines.length && lines[i].includes("|") && lines[i].trim() !== "") {
+        const tr = document.createElement("tr");
+        for (const cell of splitTableRow(lines[i])) {
+          const td = document.createElement("td");
+          appendInline(td, cell);
+          tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+        i++;
+      }
+      table.appendChild(tbody);
+      // Wrapped so a wide table scrolls itself instead of the page.
+      const scroller = document.createElement("div");
+      scroller.className = "md-table-wrap";
+      scroller.appendChild(table);
+      container.appendChild(scroller);
+      continue;
+    }
+
+    const heading = line.match(/^(#{1,6})\s+(.*)$/);
     if (heading) {
       closeList();
-      const el = document.createElement(`h${heading[1].length + 2}`); // h3–h5
+      // # → h3 so note headings never outrank the page's own headings; the
+      // deeper levels clamp at h6.
+      const level = Math.min(heading[1].length + 2, 6);
+      const el = document.createElement(`h${level}`);
       appendInline(el, heading[2]);
       container.appendChild(el);
       i++;
@@ -3742,9 +3781,10 @@ function renderMarkdown(container, text) {
       i < lines.length &&
       lines[i].trim() !== "" &&
       !lines[i].trim().startsWith("```") &&
-      !lines[i].match(/^(#{1,3})\s+/) &&
+      !lines[i].match(/^(#{1,6})\s+/) &&
       !lines[i].match(/^\s*[-*+]\s+/) &&
-      !lines[i].match(/^\s*\d+\.\s+/)
+      !lines[i].match(/^\s*\d+\.\s+/) &&
+      !isTableSeparator(lines[i + 1])
     ) {
       para.push(lines[i]);
       i++;
@@ -3754,6 +3794,22 @@ function renderMarkdown(container, text) {
     container.appendChild(p);
   }
   closeList();
+}
+
+// "| --- | :--: |" — the row that marks the line above as a table header.
+function isTableSeparator(line) {
+  if (typeof line !== "string" || !line.includes("-") || !line.includes("|")) return false;
+  return /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(line);
+}
+
+// Split "| a | b |" into ["a", "b"] (outer pipes optional).
+function splitTableRow(line) {
+  return line
+    .trim()
+    .replace(/^\|/, "")
+    .replace(/\|$/, "")
+    .split("|")
+    .map((cell) => cell.trim());
 }
 
 // Inline formatting: **bold**, *italic*, `code`, [text](http…url).

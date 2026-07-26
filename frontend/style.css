@@ -1570,6 +1570,18 @@ html { font-size: 16px; }
 .tool-row input { width: 1.15rem; height: 1.15rem; margin: 0; accent-color: var(--accent); }
 .tool-desc { display: block; margin: 0.2rem 0 0 1.65rem; font-size: 0.82rem; }
 
+/* --- markdown tables ------------------------------------------------------- */
+.md-table-wrap { overflow-x: auto; margin: 0.5rem 0; }
+.md-table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+.md-table th, .md-table td {
+  border: 1px solid var(--border);
+  padding: 0.35rem 0.6rem;
+  text-align: left;
+  vertical-align: top;
+}
+.md-table th { background: var(--chip-bg); font-weight: 650; }
+.md-table tbody tr:nth-child(even) { background: rgba(127, 127, 127, 0.04); }
+
 /* --- user-tunable corner rounding ----------------------------------------------
    Scoped to the surfaces the eye actually reads as "the shape of the UI".
    Smaller controls use a proportional radius so nothing looks lopsided. */

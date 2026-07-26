@@ -17,6 +17,7 @@ from memorymap.entry import manager
 router = APIRouter(prefix="/insights", tags=["insights"])
 
 ACTIVITY_DAYS = 14  # the dashboard's little activity strip
+HEATMAP_DAYS = 371  # 53 whole weeks — the contribution-style heatmap
 
 
 @router.get("/stats")
@@ -53,6 +54,48 @@ def stats(session: Session = Depends(get_session)) -> dict:
         "per_day": per_day,
         "days": ACTIVITY_DAYS,
     }
+
+
+@router.get("/heatmap")
+def heatmap(session: Session = Depends(get_session)) -> dict:
+    """Daily note counts for the last ~year, for the activity heatmap.
+
+    Returned oldest-first with the ISO date of the first day so the frontend
+    can lay the weeks out without guessing.
+    """
+    today = utcnow().date()
+    start = today - timedelta(days=HEATMAP_DAYS - 1)
+    counts = [0] * HEATMAP_DAYS
+    rows = session.scalars(
+        select(Entry).where(
+            Entry.is_deleted == False,  # noqa: E712
+            Entry.created_at >= utcnow() - timedelta(days=HEATMAP_DAYS),
+        )
+    )
+    for entry in rows:
+        offset = (entry.created_at.date() - start).days
+        if 0 <= offset < HEATMAP_DAYS:
+            counts[offset] += 1
+    return {
+        "start": start.isoformat(),
+        "days": HEATMAP_DAYS,
+        "counts": counts,
+        "total": sum(counts),
+        "busiest": max(counts) if counts else 0,
+    }
+
+
+@router.get("/tag-cloud")
+def tag_cloud(session: Session = Depends(get_session)) -> list[dict]:
+    """Every tag with its frequency, most-used first — for a weighted cloud."""
+    counts: dict[str, int] = {}
+    for entry in session.scalars(
+        select(Entry).where(Entry.is_deleted == False)  # noqa: E712
+    ):
+        for tag in manager.entry_tags(entry):
+            counts[tag] = counts.get(tag, 0) + 1
+    ordered = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    return [{"tag": tag, "count": count} for tag, count in ordered[:60]]
 
 
 @router.get("/on-this-day")

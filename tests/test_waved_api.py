@@ -161,6 +161,25 @@ def test_digest_offline_is_not_cacheable(client):
 # --- dashboard layout preference ----------------------------------------------------
 
 
+def test_heatmap_counts_recent_notes(client):
+    _save(client, "first note")
+    _save(client, "second note")
+    body = client.get("/insights/heatmap").json()
+    assert body["days"] == len(body["counts"]) == 371
+    assert body["total"] == 2
+    # Today is the last bucket.
+    assert body["counts"][-1] == 2
+    assert body["busiest"] == 2
+
+
+def test_tag_cloud_weights_by_frequency(client):
+    _save(client, "note one", tags=["work", "ideas"])
+    _save(client, "note two", tags=["work"])
+    cloud = client.get("/insights/tag-cloud").json()
+    assert cloud[0] == {"tag": "work", "count": 2}
+    assert {"tag": "ideas", "count": 1} in cloud
+
+
 def test_dashboard_layout_roundtrip(client):
     layout = {"order": ["stats", "pinned"], "hidden": ["digest"]}
     updated = client.put("/preferences", json={"dashboard_layout": layout}).json()

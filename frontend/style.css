@@ -1570,6 +1570,40 @@ html { font-size: 16px; }
 .tool-row input { width: 1.15rem; height: 1.15rem; margin: 0; accent-color: var(--accent); }
 .tool-desc { display: block; margin: 0.2rem 0 0 1.65rem; font-size: 0.82rem; }
 
+/* --- activity heatmap + tag cloud widgets ---------------------------------- */
+.heatmap {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(7, 10px);
+  grid-auto-columns: 10px;
+  gap: 3px;
+  overflow-x: auto;
+  padding-bottom: 0.3rem;
+}
+.heat-cell { width: 10px; height: 10px; border-radius: 2px; background: var(--chip-bg); }
+.heat-blank { background: none; }
+.heat-0 { background: var(--chip-bg); }
+.heat-1 { background: var(--accent); opacity: 0.30; }
+.heat-2 { background: var(--accent); opacity: 0.52; }
+.heat-3 { background: var(--accent); opacity: 0.76; }
+.heat-4 { background: var(--accent); opacity: 1; }
+.heat-legend {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.75rem;
+  margin-top: 0.4rem;
+}
+.heat-legend span:first-child { margin-right: 0.2rem; }
+.heat-legend span:last-child { margin-left: 0.2rem; }
+.tag-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  line-height: 1.6;
+}
+
 /* --- graph: physics sliders + node popup ----------------------------------- */
 .graph-physics { display: inline-flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
 .graph-physics input[type="range"] { width: 6.5rem; margin: 0; }

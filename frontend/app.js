@@ -2605,6 +2605,8 @@ const DASH_WIDGETS = {
   capture: { title: "✏️ Quick capture", render: renderQuickCaptureWidget },
   reminders: { title: "⏰ Reminders", render: renderRemindersWidget },
   focus: { title: "⏱ Focus timer", render: renderFocusTimerWidget },
+  heatmap: { title: "📆 Activity heatmap", render: renderHeatmapWidget },
+  "tag-cloud": { title: "☁️ Tag cloud", render: renderTagCloudWidget },
 };
 
 function dashLayout() {
@@ -3207,6 +3209,94 @@ async function renderRemindersWidget(body) {
     ul.appendChild(li);
   }
   body.appendChild(ul);
+}
+
+// --- activity heatmap (a year of capture activity, GitHub-style) ------------
+
+async function renderHeatmapWidget(body) {
+  const data = await apiJson("/insights/heatmap").catch(() => null);
+  if (!data) {
+    body.textContent = "Couldn't load your activity.";
+    body.className += " muted";
+    return;
+  }
+  if (!data.total) {
+    body.textContent = "Save some notes and your activity shows up here.";
+    body.className += " muted";
+    return;
+  }
+
+  const grid = document.createElement("div");
+  grid.className = "heatmap";
+  const start = new Date(`${data.start}T00:00:00`);
+  // Pad so each column is a whole week starting on Sunday.
+  const lead = start.getDay();
+  for (let i = 0; i < lead; i++) {
+    const blank = document.createElement("span");
+    blank.className = "heat-cell heat-blank";
+    grid.appendChild(blank);
+  }
+  data.counts.forEach((count, index) => {
+    const cell = document.createElement("span");
+    // Five buckets, scaled against the busiest day so quiet notebooks
+    // still show contrast.
+    const level = count === 0 ? 0 : Math.min(4, Math.ceil((count / data.busiest) * 4));
+    cell.className = `heat-cell heat-${level}`;
+    const day = new Date(start);
+    day.setDate(day.getDate() + index);
+    cell.title = `${day.toLocaleDateString()} — ${count} note${count === 1 ? "" : "s"}`;
+    grid.appendChild(cell);
+  });
+  body.appendChild(grid);
+
+  const legend = document.createElement("div");
+  legend.className = "heat-legend muted";
+  const less = document.createElement("span");
+  less.textContent = "Less";
+  legend.appendChild(less);
+  for (let level = 0; level <= 4; level++) {
+    const swatch = document.createElement("span");
+    swatch.className = `heat-cell heat-${level}`;
+    legend.appendChild(swatch);
+  }
+  const more = document.createElement("span");
+  more.textContent = "More";
+  legend.appendChild(more);
+  body.appendChild(legend);
+
+  const summary = document.createElement("p");
+  summary.className = "muted";
+  summary.textContent = `${data.total} notes in the last year · busiest day ${data.busiest}`;
+  body.appendChild(summary);
+}
+
+// --- weighted tag cloud ------------------------------------------------------
+
+async function renderTagCloudWidget(body) {
+  const tags = await apiJson("/insights/tag-cloud").catch(() => []);
+  if (!tags.length) {
+    body.textContent = "Tag some notes and your cloud grows here.";
+    body.className += " muted";
+    return;
+  }
+  const max = tags[0].count || 1;
+  const cloud = document.createElement("div");
+  cloud.className = "tag-cloud";
+  for (const { tag, count } of tags) {
+    // Font size scales with frequency (0.8rem – 1.7rem).
+    const weight = count / max;
+    const item = chip(tag, "tag", () => {
+      $("note-search").value = tag;
+      noteSearch = tag;
+      switchTab("notes");
+      renderEntries();
+    });
+    item.style.fontSize = `${(0.8 + weight * 0.9).toFixed(2)}rem`;
+    item.style.opacity = String(0.55 + weight * 0.45);
+    item.title = `${count} note${count === 1 ? "" : "s"} tagged “${tag}”`;
+    cloud.appendChild(item);
+  }
+  body.appendChild(cloud);
 }
 
 // --- focus timer (dashboard widget) -----------------------------------------

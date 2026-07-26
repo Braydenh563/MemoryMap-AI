@@ -859,13 +859,33 @@
               <label for="pref-searxng" class="muted">SearXNG URL (optional)</label>
               <input id="pref-searxng" type="text" maxlength="200"
                 placeholder="http://localhost:8888">
+              <button id="searxng-detect" class="ghost small"
+                title="Look for a SearXNG on the usual local ports">🔍 Auto-detect</button>
             </div>
+            <p id="searxng-status" class="status" role="status"></p>
             <p class="muted">
-              Point this at your own <strong>SearXNG</strong> instance to search
-              through it instead of DuckDuckGo — better results, no scraping, and
-              the query stays inside your network. Leave blank to use DuckDuckGo.
-              If your instance is unreachable, MemoryMap falls back automatically.
+              <strong>SearXNG</strong> is an optional, self-hosted search engine.
+              Point MemoryMap at one and it searches through that instead of
+              DuckDuckGo — better results, no page scraping, and the query stays
+              inside your own network. Leave it blank to use DuckDuckGo; if your
+              instance is unreachable MemoryMap falls back automatically.
             </p>
+            <details class="help-accordion">
+              <summary>How do I get a SearXNG instance?</summary>
+              <p class="muted">
+                MemoryMap can't host it for you — SearXNG is a separate service —
+                but running one locally is a single command if you have Docker:
+              </p>
+              <pre class="setup-snippet">docker run -d --name searxng -p 8888:8080 \
+  -e "SEARXNG_BASE_URL=http://localhost:8888/" \
+  -v searxng:/etc/searxng searxng/searxng</pre>
+              <p class="muted">
+                It must return JSON, so add <code>- json</code> under
+                <code>search.formats</code> in its <code>settings.yml</code>, then
+                restart it. Come back here and hit <strong>Auto-detect</strong> —
+                MemoryMap checks the usual ports and fills this in for you.
+              </p>
+            </details>
             <h3>About you (optional)</h3>
             <label>
               <input type="checkbox" id="pref-profile-enabled">

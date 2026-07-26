@@ -349,6 +349,33 @@ def web_search(q: str, limit: int = 5, session: Session = Depends(get_session)) 
     }
 
 
+@router.post("/websearch/detect-searxng")
+def detect_searxng(url: str = "", session: Session = Depends(get_session)) -> dict:
+    """Test a SearXNG URL, or scan the usual local ports for one.
+
+    Saves the working URL to preferences so the user never has to know how the
+    connection is wired up — if they have an instance running, this finds it.
+    """
+    from memorymap.search import websearch
+
+    config = deps.get_config()
+    if url:
+        found = url.rstrip("/") if websearch.probe_searxng(url) else None
+    else:
+        found = websearch.discover_searxng()
+
+    if not found:
+        return {
+            "found": False,
+            "detail": "No SearXNG found. Start one (see the setup note) and try again.",
+        }
+    config.set_preference("searxng_url", found)
+    websearch.clear_cache()  # results from the old provider are stale now
+    manager.log_action(session, "edited", "preferences", detail=f"searxng_url={found}")
+    session.commit()
+    return {"found": True, "url": found}
+
+
 @router.get("/websearch/read")
 def web_read(url: str, session: Session = Depends(get_session)) -> dict:
     """Fetch a page as plain readable text.

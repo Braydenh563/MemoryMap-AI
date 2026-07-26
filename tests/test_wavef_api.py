@@ -260,6 +260,69 @@ def test_reader_strips_scripts_and_markup():
     assert websearch._page_title(page) == "A Page"
 
 
+def test_reader_returns_structured_blocks():
+    """Headings, paragraphs and list items come back separately so the reader
+    can lay a page out instead of dumping one wall of text."""
+    page = """
+    <html><head><title>Doc</title></head><body>
+      <nav>Home Login Subscribe</nav>
+      <article>
+        <h2>Getting started</h2>
+        <p>First paragraph of the article.</p>
+        <ul><li>Point one</li><li>Point two</li></ul>
+        <p>Closing thoughts.</p>
+      </article>
+      <footer>Cookie notice</footer>
+    </body></html>
+    """
+    blocks = websearch._readable_blocks(page)
+    kinds = [b["type"] for b in blocks]
+    texts = [b["text"] for b in blocks]
+    assert "heading" in kinds and "li" in kinds
+    assert "Getting started" in texts
+    assert "Point one" in texts
+    # Nav and footer furniture is dropped.
+    assert not any("Login" in t or "Cookie" in t for t in texts)
+
+
+def test_searxng_detection_saves_the_url(client, monkeypatch):
+    client.put("/preferences", json={"web_search_enabled": True})
+    monkeypatch.setattr(
+        websearch, "discover_searxng", lambda: "http://localhost:8888"
+    )
+    body = client.post("/websearch/detect-searxng").json()
+    assert body == {"found": True, "url": "http://localhost:8888"}
+    assert client.get("/preferences").json()["searxng_url"] == "http://localhost:8888"
+
+
+def test_searxng_detection_reports_when_absent(client, monkeypatch):
+    client.put("/preferences", json={"web_search_enabled": True})
+    monkeypatch.setattr(websearch, "discover_searxng", lambda: None)
+    body = client.post("/websearch/detect-searxng").json()
+    assert body["found"] is False
+    assert "No SearXNG" in body["detail"]
+
+
+def test_log_noise_filter_drops_windows_proactor_chatter():
+    """The Windows asyncio Proactor error is benign and must not reach the
+    log viewer, but real errors still must."""
+    import logging
+
+    from memorymap.core import logbuffer
+
+    noise = logging.LogRecord(
+        "asyncio", logging.ERROR, __file__, 1,
+        "Exception in callback _ProactorBasePipeTransport._call_connection_lost(None)",
+        None, None,
+    )
+    real = logging.LogRecord(
+        "memorymap", logging.ERROR, __file__, 1, "Something actually broke", None, None
+    )
+    log_filter = logbuffer.NoiseFilter()
+    assert log_filter.filter(noise) is False
+    assert log_filter.filter(real) is True
+
+
 def test_reader_endpoint_requires_opt_in_and_http(client, monkeypatch):
     assert client.get("/websearch/read?url=https://example.com").status_code == 403
     client.put("/preferences", json={"web_search_enabled": True})

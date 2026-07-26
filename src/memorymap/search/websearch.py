@@ -62,6 +62,43 @@ def clear_cache() -> None:
     _CACHE.clear()
 
 
+# Where a self-hosted SearXNG usually listens. Checked in order, once, so a
+# user who has one running never has to type a URL.
+SEARXNG_CANDIDATES = (
+    "http://localhost:8888",
+    "http://127.0.0.1:8888",
+    "http://localhost:8080",
+    "http://localhost:8081",
+    "http://searxng:8080",
+)
+DISCOVERY_TIMEOUT = 1.5
+
+
+def probe_searxng(base_url: str) -> bool:
+    """True if a SearXNG instance answers JSON search at this URL."""
+    try:
+        response = requests.get(
+            base_url.rstrip("/") + "/search",
+            params={"q": "memorymap ping", "format": "json"},
+            headers={"User-Agent": USER_AGENT},
+            timeout=DISCOVERY_TIMEOUT,
+        )
+        if response.status_code != 200:
+            return False
+        payload = response.json()
+    except (requests.RequestException, ValueError):
+        return False
+    return isinstance(payload, dict) and isinstance(payload.get("results"), list)
+
+
+def discover_searxng() -> str | None:
+    """Find a SearXNG on the usual local ports, or None."""
+    for candidate in SEARXNG_CANDIDATES:
+        if probe_searxng(candidate):
+            return candidate
+    return None
+
+
 def domain_of(url: str) -> str:
     """'https://en.wikipedia.org/wiki/X' -> 'en.wikipedia.org' (for display)."""
     try:
@@ -250,7 +287,60 @@ def fetch_readable(url: str) -> dict:
         "domain": domain_of(url),
         "title": _page_title(page) or domain_of(url),
         "text": _readable_text(page)[:_READER_MAX_CHARS],
+        "blocks": _readable_blocks(page),
     }
+
+
+# Keep the article, drop the furniture. Nav bars, cookie banners and menus are
+# what make a stripped page unreadable, so they go before the text is taken.
+_STRIP_TAGS = (
+    "script|style|noscript|svg|nav|footer|header|aside|form|iframe|button|select"
+)
+_JUNK_PATTERNS = re.compile(
+    r"(cookie|subscribe|newsletter|advertisement|sign in|log in|skip to)",
+    re.I,
+)
+
+
+def _readable_blocks(page: str) -> list[dict]:
+    """Structured [{type, text}] so the reader can lay the page out properly.
+
+    Returning headings and paragraphs separately is what turns a wall of text
+    into something you can actually read.
+    """
+    body = re.sub(rf"(?is)<({_STRIP_TAGS})[^>]*>.*?</\1>", " ", page)
+    # Prefer the main article when the page marks one up.
+    article = re.search(r"(?is)<(article|main)[^>]*>(.*?)</\1>", body)
+    if article:
+        body = article.group(2)
+
+    blocks: list[dict] = []
+    pattern = re.compile(
+        r"(?is)<(h[1-6]|p|li|blockquote|pre)[^>]*>(.*?)</\1>"
+    )
+    for match in pattern.finditer(body):
+        tag = match.group(1).lower()
+        text = _strip_tags(match.group(2))
+        text = re.sub(r"[ \t ]+", " ", text).strip()
+        if not text or len(text) < 2:
+            continue
+        # Short lines that look like chrome rather than content.
+        if len(text) < 40 and _JUNK_PATTERNS.search(text):
+            continue
+        kind = "heading" if tag.startswith("h") else tag
+        blocks.append({"type": kind, "text": text[:2000]})
+        if len(blocks) >= 300:
+            break
+
+    # Nothing structured? Fall back to paragraphs of plain text.
+    if not blocks:
+        plain = _readable_text(page)[:_READER_MAX_CHARS]
+        blocks = [
+            {"type": "p", "text": para.strip()}
+            for para in plain.split("\n\n")
+            if para.strip()
+        ]
+    return blocks
 
 
 def _page_title(page: str) -> str:

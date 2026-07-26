@@ -1744,15 +1744,50 @@ async function openWebReader(url) {
   status.textContent = "";
   $("web-reader-title").textContent = page.title || page.domain;
   $("web-reader-source").textContent = page.domain;
-  // textContent, never innerHTML — the page is untrusted by definition.
-  $("web-reader-text").textContent = page.text || "(Nothing readable on that page.)";
-  $("web-reader-text").scrollTop = 0;
+
+  // Lay the page out as headings, paragraphs and lists rather than one wall
+  // of text. Built with createElement/textContent — never innerHTML, since
+  // the page is untrusted by definition.
+  const box = $("web-reader-text");
+  box.replaceChildren();
+  const blocks = page.blocks && page.blocks.length ? page.blocks : null;
+  if (!blocks) {
+    const fallback = document.createElement("p");
+    fallback.textContent = page.text || "(Nothing readable on that page.)";
+    box.appendChild(fallback);
+  } else {
+    let list = null;
+    for (const block of blocks) {
+      if (block.type === "li") {
+        if (!list) {
+          list = document.createElement("ul");
+          box.appendChild(list);
+        }
+        const li = document.createElement("li");
+        li.textContent = block.text;
+        list.appendChild(li);
+        continue;
+      }
+      list = null;
+      const tag =
+        block.type === "heading" ? "h4" : block.type === "pre" ? "pre" : block.type === "blockquote" ? "blockquote" : "p";
+      const el = document.createElement(tag);
+      el.textContent = block.text;
+      box.appendChild(el);
+    }
+  }
+  box.scrollTop = 0;
   $("web-reader").classList.remove("hidden");
 }
 
 async function saveWebPageAsNote() {
   if (!webReaderPage) return;
-  const excerpt = (webReaderPage.text || "").slice(0, 1200);
+  // Prefer the structured read — it drops the nav/cookie chrome.
+  const readable = (webReaderPage.blocks || [])
+    .map((b) => (b.type === "heading" ? `\n## ${b.text}` : b.type === "li" ? `- ${b.text}` : b.text))
+    .join("\n")
+    .trim();
+  const excerpt = (readable || webReaderPage.text || "").slice(0, 1200);
   const content = `${webReaderPage.title}\n${webReaderPage.url}\n\n${excerpt}`;
   try {
     await apiJson("/entries", {
@@ -7316,6 +7351,25 @@ $("bin-empty").addEventListener("click", async () => {
   await renderBin();
 });
 $("prefs-save").addEventListener("click", savePrefs);
+// Find a running SearXNG so the user never has to work out the wiring.
+$("searxng-detect").addEventListener("click", async () => {
+  const status = $("searxng-status");
+  const typed = $("pref-searxng").value.trim();
+  status.classList.remove("error");
+  status.textContent = typed ? "Testing that URL…" : "Looking for a local SearXNG…";
+  const query = typed ? `?url=${encodeURIComponent(typed)}` : "";
+  const body = await apiJson(`/websearch/detect-searxng${query}`, {
+    method: "POST",
+  }).catch((error) => ({ found: false, detail: error.message }));
+  if (body.found) {
+    $("pref-searxng").value = body.url;
+    prefsCache = await apiJson("/preferences").catch(() => prefsCache);
+    status.textContent = `Connected to ${body.url}`;
+  } else {
+    status.classList.add("error");
+    status.textContent = body.detail || "No SearXNG found.";
+  }
+});
 $("profile-delete").addEventListener("click", deleteProfile);
 $("export-json").addEventListener("click", () => downloadExport("json"));
 $("export-csv").addEventListener("click", () => downloadExport("csv"));

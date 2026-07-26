@@ -8201,13 +8201,37 @@ async function refreshSearxngHost() {
     badge.textContent = "Unknown";
     return;
   }
-  if (!info.docker) {
-    badge.textContent = "Docker not found";
+  // No Docker AND no git: nothing we can drive, so say so plainly.
+  if (!info.backend) {
+    badge.textContent = "Not available";
     badge.title = info.detail || "";
     start.disabled = true;
     stop.disabled = true;
     $("searxng-host-status").textContent = info.detail || "";
     return;
+  }
+  // Which way it'll be run, so "a few minutes" isn't a surprise.
+  $("searxng-backend").textContent =
+    info.backend === "docker"
+      ? "Docker is installed, so it runs as a container."
+      : "Docker isn't installed, so it runs from its own virtualenv instead. " +
+        "The first start takes a few minutes to download and install.";
+
+  // An install is minutes long and runs in the background — poll it so the
+  // step text keeps moving instead of the screen looking stuck.
+  if (info.installing) {
+    badge.textContent = "Installing…";
+    badge.className = "chip";
+    start.disabled = true;
+    stop.disabled = true;
+    $("searxng-host-status").textContent = info.install_step || "Setting SearXNG up…";
+    clearTimeout(refreshSearxngHost.timer);
+    refreshSearxngHost.timer = setTimeout(refreshSearxngHost, 3000);
+    return;
+  }
+  if (info.install_error) {
+    $("searxng-host-status").classList.add("error");
+    $("searxng-host-status").textContent = info.install_error;
   }
   const running = info.state === "running" && info.responding;
   badge.textContent = running

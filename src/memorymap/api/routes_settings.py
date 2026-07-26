@@ -413,7 +413,7 @@ def searxng_stop(session: Session = Depends(get_session)) -> dict:
 
     config = deps.get_config()
     try:
-        result = searxng_manager.stop()
+        result = searxng_manager.stop(config.data_dir)
     except searxng_manager.SearxngError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 

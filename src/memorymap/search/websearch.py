@@ -91,8 +91,10 @@ def probe_searxng(base_url: str) -> bool:
     if not addresses or not all(_is_internal(address) for address in addresses):
         return False
     try:
-        # codeql[py/full-ssrf] Pointing this at your own SearXNG is the feature;
-        # the address is constrained to this machine or the local network above.
+        # CodeQL reports this as SSRF and always will: the URL is a user
+        # preference. Pointing this at your own SearXNG is the whole feature —
+        # the address check above constrains it as far as it can be without
+        # removing it. Tracked as an accepted alert rather than silenced.
         response = requests.get(
             base_url.rstrip("/") + "/search",
             params={"q": "memorymap ping", "format": "json"},
@@ -167,7 +169,7 @@ def _search_searxng(query: str, limit: int, base_url: str) -> list[dict]:
         raise WebSearchError("The SearXNG address must be on this machine or your network")
     url = base_url.rstrip("/") + "/search"
     try:
-        # codeql[py/full-ssrf] Same as probe_searxng: a user-configured local
+        # Same accepted CodeQL SSRF alert as probe_searxng: a user-configured
         # instance, address-checked immediately above.
         response = requests.get(
             url,
@@ -344,8 +346,9 @@ def _get_external(url: str) -> requests.Response:
     """
     for _ in range(_MAX_REDIRECTS):
         _assert_external(url)
-        # codeql[py/full-ssrf] Fetching a link the user picked is the feature;
-        # every hop is checked against _assert_external immediately above.
+        # CodeQL reports this as SSRF and always will: opening a link the user
+        # picked is the feature. _assert_external runs on every hop, including
+        # each redirect target, which is as far as this can be constrained.
         response = requests.get(
             url,
             headers={"User-Agent": USER_AGENT},

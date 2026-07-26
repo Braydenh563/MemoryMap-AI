@@ -287,22 +287,72 @@ def test_reader_returns_structured_blocks():
     assert not any("Login" in t or "Cookie" in t for t in texts)
 
 
-def test_searxng_status_without_docker(client, monkeypatch):
+def test_searxng_status_without_docker_falls_back_to_source(client, monkeypatch):
+    """No Docker isn't a dead end — SearXNG also runs from a virtualenv."""
     from memorymap.search import searxng_manager
 
     monkeypatch.setattr(searxng_manager, "docker_available", lambda: False)
+    monkeypatch.setattr(searxng_manager, "source_available", lambda: True)
     body = client.get("/websearch/searxng/status").json()
     assert body["docker"] is False
-    assert "Docker isn't installed" in body["detail"]
+    assert body["source"] is True
+    assert body["backend"] == "source"
 
 
-def test_searxng_start_without_docker_is_a_clear_503(client, monkeypatch):
+def test_searxng_status_with_no_backend_at_all(client, monkeypatch):
     from memorymap.search import searxng_manager
 
     monkeypatch.setattr(searxng_manager, "docker_available", lambda: False)
+    monkeypatch.setattr(searxng_manager, "source_available", lambda: False)
+    body = client.get("/websearch/searxng/status").json()
+    assert body["backend"] is None
+    assert "either Docker or git" in body["detail"]
+
+
+def test_searxng_start_without_any_backend_is_a_clear_503(client, monkeypatch):
+    from memorymap.search import searxng_manager
+
+    monkeypatch.setattr(searxng_manager, "docker_available", lambda: False)
+    monkeypatch.setattr(searxng_manager, "source_available", lambda: False)
     response = client.post("/websearch/searxng/start")
     assert response.status_code == 503
-    assert "Docker" in response.json()["detail"]
+    assert "either Docker or git" in response.json()["detail"]
+
+
+def test_searxng_start_from_source_installs_first(client, monkeypatch):
+    """The first Start kicks off the install and says so, rather than hanging."""
+    from memorymap.search import searxng_manager
+
+    calls = []
+    monkeypatch.setattr(searxng_manager, "docker_available", lambda: False)
+    monkeypatch.setattr(searxng_manager, "source_available", lambda: True)
+    monkeypatch.setattr(searxng_manager, "source_installed", lambda data_dir: False)
+    monkeypatch.setattr(searxng_manager, "install_source", lambda data_dir: calls.append(data_dir))
+
+    response = client.post("/websearch/searxng/start")
+    assert response.status_code == 503
+    assert "few minutes" in response.json()["detail"]
+    assert len(calls) == 1  # the install really was kicked off
+
+
+def test_searxng_start_from_source_spawns_the_process(client, monkeypatch):
+    from memorymap.search import searxng_manager
+
+    monkeypatch.setattr(searxng_manager, "docker_available", lambda: False)
+    monkeypatch.setattr(searxng_manager, "source_available", lambda: True)
+    monkeypatch.setattr(searxng_manager, "source_installed", lambda data_dir: True)
+    monkeypatch.setattr(searxng_manager, "_source_state", lambda data_dir: "stopped")
+    monkeypatch.setattr(
+        searxng_manager,
+        "_start_source",
+        lambda data_dir: {"url": searxng_manager.BASE_URL, "started": True, "backend": "source"},
+    )
+    monkeypatch.setattr(searxng_manager, "_wait_until_ready", lambda *a, **k: True)
+
+    body = client.post("/websearch/searxng/start").json()
+    assert body["running"] is True
+    assert body["backend"] == "source"
+    assert client.get("/preferences").json()["searxng_url"] == searxng_manager.BASE_URL
 
 
 def test_searxng_start_saves_the_url(client, monkeypatch):
@@ -320,7 +370,7 @@ def test_searxng_stop_reverts_to_duckduckgo(client, monkeypatch):
     from memorymap.search import searxng_manager
 
     client.put("/preferences", json={"searxng_url": "http://localhost:8888"})
-    monkeypatch.setattr(searxng_manager, "stop", lambda: {"stopped": True})
+    monkeypatch.setattr(searxng_manager, "stop", lambda data_dir=None: {"stopped": True})
     body = client.post("/websearch/searxng/stop").json()
     assert body["running"] is False
     # The dead instance must not stay configured.

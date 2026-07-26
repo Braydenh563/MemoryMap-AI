@@ -888,10 +888,11 @@
                 <span id="searxng-host-state" class="chip">Checking…</span>
               </div>
               <p class="muted">
-                If Docker is installed, MemoryMap can start and stop a SearXNG
-                container for you — settings and the JSON API are configured
-                automatically, so there's nothing to edit.
+                MemoryMap can start and stop SearXNG for you — settings and the
+                JSON API are configured automatically, so there's nothing to
+                edit.
               </p>
+              <p class="muted" id="searxng-backend"></p>
               <div class="row">
                 <button id="searxng-start" class="small">▶ Start SearXNG</button>
                 <button id="searxng-stop" class="ghost small">■ Stop</button>
@@ -901,8 +902,9 @@
             <details class="help-accordion">
               <summary>Prefer to run it yourself?</summary>
               <p class="muted">
-                MemoryMap can't host it for you — SearXNG is a separate service —
-                but running one locally is a single command if you have Docker:
+                SearXNG is a separate service, so MemoryMap runs it beside
+                itself rather than inside itself. If you'd rather drive it
+                yourself, it's a single command with Docker:
               </p>
               <pre class="setup-snippet">docker run -d --name searxng -p 8888:8080 \
   -e "SEARXNG_BASE_URL=http://localhost:8888/" \

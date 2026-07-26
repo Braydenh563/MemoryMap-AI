@@ -1,20 +1,33 @@
-"""Run a SearXNG instance for the user (optional, Docker-backed).
+"""Run a SearXNG instance for the user (optional).
 
 SearXNG is a separate service — it can't be imported into this process — but
 the app can still own its lifecycle so "use SearXNG" is a button rather than a
 setup guide. We generate a settings file that enables the JSON API (the one
-step people always miss), start a container, wait for it to answer, and hand
-back the URL.
+step people always miss), start it, wait for it to answer, and hand back the
+URL.
 
-Everything degrades: no Docker, no container, or a failed start all return a
-plain reason and leave web search on DuckDuckGo.
+There are two ways to run it, and Docker is only the tidier one:
+
+- **docker** — pull the official image and run a container. Preferred when
+  Docker is installed, because upgrades and isolation come for free.
+- **source** — SearXNG is a Python app, so it also runs in a virtualenv of its
+  own under the data directory, started as a child process. Slower to set up
+  (a pip install from git) and it needs `git`, but it needs no Docker at all.
+
+Everything degrades: no backend available, or a failed start, returns a plain
+reason and leaves web search on DuckDuckGo.
 """
 
 from __future__ import annotations
 
+import json
+import os
 import secrets
 import shutil
+import signal
 import subprocess
+import sys
+import threading
 import time
 from pathlib import Path
 
@@ -26,6 +39,9 @@ HOST_PORT = 8888
 BASE_URL = f"http://localhost:{HOST_PORT}"
 START_TIMEOUT = 90  # image pulls can be slow the first time
 COMMAND_TIMEOUT = 20
+
+SOURCE_REPO = "https://github.com/searxng/searxng.git"
+INSTALL_TIMEOUT = 900  # a cold pip install from git builds a few wheels
 
 # use_default_settings keeps SearXNG's own defaults and layers ours on top —
 # the important bit being the json format, without which the API returns 403.
@@ -51,8 +67,163 @@ def docker_available() -> bool:
     return shutil.which("docker") is not None
 
 
+def source_available() -> bool:
+    """True if we could build a virtualenv and fetch SearXNG into it."""
+    return shutil.which("git") is not None
+
+
+def preferred_backend() -> str | None:
+    """Which way we'd run it: docker if present, else from source."""
+    if docker_available():
+        return "docker"
+    if source_available():
+        return "source"
+    return None
+
+
+# --- running from source ------------------------------------------------------
+
+# Progress for the one install that can be running at a time. The install is
+# minutes long, so it happens on a worker thread and the settings screen polls
+# status() rather than holding a request open.
+_install_lock = threading.Lock()
+_install_state: dict = {"running": False, "step": "", "error": ""}
+
+
+def _source_dir(data_dir: Path) -> Path:
+    return Path(data_dir) / "searxng" / "src"
+
+
+def _venv_dir(data_dir: Path) -> Path:
+    return Path(data_dir) / "searxng" / "venv"
+
+
+def _venv_python(data_dir: Path) -> Path:
+    venv = _venv_dir(data_dir)
+    return venv / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+
+
+def _pid_file(data_dir: Path) -> Path:
+    return Path(data_dir) / "searxng" / "run.json"
+
+
+def source_installed(data_dir: Path) -> bool:
+    return _venv_python(data_dir).exists() and _source_dir(data_dir).exists()
+
+
+def _read_pid(data_dir: Path) -> int | None:
+    try:
+        record = json.loads(_pid_file(data_dir).read_text(encoding="utf-8"))
+        return int(record.get("pid")) or None
+    except (OSError, ValueError, TypeError):
+        return None
+
+
+def _alive(pid: int) -> bool:
+    """Is this PID still around? Signal 0 checks without touching the process."""
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
+
+
+def _source_state(data_dir: Path) -> str:
+    """'running', 'stopped', or 'absent' for the from-source instance."""
+    if not source_installed(data_dir):
+        return "absent"
+    pid = _read_pid(data_dir)
+    return "running" if pid and _alive(pid) else "stopped"
+
+
+def install_source(data_dir: Path) -> None:
+    """Clone SearXNG into a virtualenv of its own. Minutes, not seconds."""
+    with _install_lock:
+        if _install_state["running"]:
+            raise SearxngError("An install is already running.")
+        _install_state.update({"running": True, "step": "Creating a virtualenv…", "error": ""})
+
+    def work() -> None:
+        try:
+            src = _source_dir(data_dir)
+            src.parent.mkdir(parents=True, exist_ok=True)
+            venv = _venv_dir(data_dir)
+            if not _venv_python(data_dir).exists():
+                _run([sys.executable, "-m", "venv", str(venv)], timeout=180)
+            _install_state["step"] = "Downloading SearXNG…"
+            if not src.exists():
+                result = _run(
+                    ["git", "clone", "--depth", "1", SOURCE_REPO, str(src)],
+                    timeout=INSTALL_TIMEOUT,
+                )
+                if result.returncode != 0:
+                    raise SearxngError(_reason(result, "Couldn't download SearXNG"))
+            _install_state["step"] = "Installing dependencies (this takes a few minutes)…"
+            result = _run(
+                [str(_venv_python(data_dir)), "-m", "pip", "install", "-e", str(src)],
+                timeout=INSTALL_TIMEOUT,
+            )
+            if result.returncode != 0:
+                raise SearxngError(_reason(result, "Couldn't install SearXNG"))
+            _install_state["step"] = ""
+        except SearxngError as exc:
+            _install_state["error"] = str(exc)
+        except Exception as exc:  # noqa: BLE001 — a worker thread must not die silently
+            _install_state["error"] = f"Install failed: {exc}"
+        finally:
+            _install_state["running"] = False
+
+    threading.Thread(target=work, name="searxng-install", daemon=True).start()
+
+
+def _start_source(data_dir: Path) -> dict:
+    """Spawn SearXNG from its virtualenv and remember the PID."""
+    if not source_installed(data_dir):
+        raise SearxngError("SearXNG isn't installed yet.")
+    settings = ensure_settings(data_dir)
+    env = {
+        **os.environ,
+        "SEARXNG_SETTINGS_PATH": str(settings),
+        "SEARXNG_PORT": str(HOST_PORT),
+        "SEARXNG_BIND_ADDRESS": "127.0.0.1",
+        "SEARXNG_BASE_URL": f"{BASE_URL}/",
+    }
+    try:
+        process = subprocess.Popen(  # noqa: S603 — fixed args, no shell
+            [str(_venv_python(data_dir)), "-m", "searx.webapp"],
+            cwd=str(_source_dir(data_dir)),
+            env=env,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise SearxngError(f"Couldn't start SearXNG: {exc}") from exc
+    _pid_file(data_dir).write_text(
+        json.dumps({"pid": process.pid, "backend": "source"}), encoding="utf-8"
+    )
+    return {"url": BASE_URL, "started": True, "backend": "source"}
+
+
+def _stop_source(data_dir: Path) -> dict:
+    pid = _read_pid(data_dir)
+    _pid_file(data_dir).unlink(missing_ok=True)
+    if not pid or not _alive(pid):
+        return {"stopped": False}
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except OSError as exc:
+        raise SearxngError(f"Couldn't stop SearXNG: {exc}") from exc
+    # Give it a moment to close its socket before anything rebinds the port.
+    for _ in range(20):
+        if not _alive(pid):
+            break
+        time.sleep(0.25)
+    return {"stopped": True}
+
+
 def _run(args: list[str], timeout: int = COMMAND_TIMEOUT) -> subprocess.CompletedProcess:
-    """Run a docker command. Fixed argument lists only — never a shell."""
+    """Run a setup command. Fixed argument lists only — never a shell."""
     try:
         return subprocess.run(  # noqa: S603 — fixed args, no shell
             args,
@@ -62,7 +233,7 @@ def _run(args: list[str], timeout: int = COMMAND_TIMEOUT) -> subprocess.Complete
             check=False,
         )
     except (OSError, subprocess.SubprocessError) as exc:
-        raise SearxngError(f"Couldn't run docker: {exc}") from exc
+        raise SearxngError(f"Couldn't run {args[0]}: {exc}") from exc
 
 
 def _docker_state() -> str:
@@ -94,32 +265,84 @@ def ensure_settings(data_dir: Path) -> Path:
 
 def status(data_dir: Path | None = None) -> dict:
     """Everything the settings screen needs to describe the instance."""
-    if not docker_available():
+    backend = preferred_backend()
+    base = {
+        "docker": docker_available(),
+        "source": source_available(),
+        "backend": backend,
+        "url": BASE_URL,
+        "installing": _install_state["running"],
+        "install_step": _install_state["step"],
+        "install_error": _install_state["error"],
+        "detail": "",
+    }
+    if backend is None:
         return {
-            "docker": False,
+            **base,
             "state": "absent",
             "responding": False,
-            "url": BASE_URL,
-            "detail": "Docker isn't installed, so MemoryMap can't run SearXNG for you.",
+            "detail": (
+                "SearXNG needs either Docker or git installed. Install one of "
+                "them, or point MemoryMap at a SearXNG you run yourself."
+            ),
         }
-    state = _docker_state()
+    if backend == "docker":
+        state = _docker_state()
+    else:
+        state = _source_state(Path(data_dir)) if data_dir else "absent"
+        if state == "absent" and not base["installing"]:
+            base["detail"] = (
+                "Docker isn't installed, so SearXNG will be set up in a "
+                "virtualenv of its own. The first start takes a few minutes."
+            )
     return {
-        "docker": True,
+        **base,
         "state": state,
         "responding": websearch.probe_searxng(BASE_URL) if state == "running" else False,
-        "url": BASE_URL,
-        "detail": "",
     }
 
 
 def start(data_dir: Path) -> dict:
-    """Start (or create) the container and wait until it answers JSON."""
-    if not docker_available():
+    """Start SearXNG whichever way this machine can, and wait for JSON."""
+    backend = preferred_backend()
+    if backend is None:
         raise SearxngError(
-            "Docker isn't installed. Install Docker Desktop, or point MemoryMap "
-            "at a SearXNG you run yourself."
+            "SearXNG needs either Docker or git installed. Install one of them, "
+            "or point MemoryMap at a SearXNG you run yourself."
         )
+    if backend == "source":
+        return _start_from_source(data_dir)
+    return _start_docker(data_dir)
 
+
+def _start_from_source(data_dir: Path) -> dict:
+    """Install on first use (in the background), then spawn the process."""
+    if _install_state["error"]:
+        error = _install_state["error"]
+        _install_state["error"] = ""
+        raise SearxngError(error)
+    if _install_state["running"]:
+        raise SearxngError(
+            f"Still setting SearXNG up — {_install_state['step']} "
+            "Press Start again when it finishes."
+        )
+    if not source_installed(data_dir):
+        install_source(data_dir)
+        raise SearxngError(
+            "Setting SearXNG up in its own virtualenv. This takes a few minutes "
+            "the first time; press Start again when it's done."
+        )
+    if _source_state(data_dir) == "running" and websearch.probe_searxng(BASE_URL):
+        return {"url": BASE_URL, "started": False, "backend": "source"}
+    result = _start_source(data_dir)
+    if not _wait_until_ready():
+        _stop_source(data_dir)
+        raise SearxngError("SearXNG started but never answered. Check the port isn't in use.")
+    return result
+
+
+def _start_docker(data_dir: Path) -> dict:
+    """Start (or create) the container and wait until it answers JSON."""
     state = _docker_state()
     if state == "running":
         if websearch.probe_searxng(BASE_URL):
@@ -153,10 +376,15 @@ def start(data_dir: Path) -> dict:
     return {"url": BASE_URL, "started": True}
 
 
-def stop() -> dict:
-    """Stop the container but keep it (and its settings) for next time."""
-    if not docker_available():
-        raise SearxngError("Docker isn't installed.")
+def stop(data_dir: Path | None = None) -> dict:
+    """Stop the instance but keep it (and its settings) for next time."""
+    backend = preferred_backend()
+    if backend is None:
+        raise SearxngError("Neither Docker nor git is installed.")
+    if backend == "source":
+        if data_dir is None:
+            raise SearxngError("Couldn't find the SearXNG install.")
+        return _stop_source(Path(data_dir))
     if _docker_state() == "absent":
         return {"stopped": False}
     result = _run(["docker", "stop", CONTAINER_NAME], timeout=40)

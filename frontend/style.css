@@ -1791,6 +1791,125 @@ html { font-size: 16px; }
   line-height: 1.6;
 }
 
+/* --- the app emblem, reused across the UI ---------------------------------- */
+.emblem { line-height: 0; }
+.emblem canvas { display: block; }
+.emblem-centred { display: flex; justify-content: center; margin-bottom: 0.5rem; }
+.emblem-lock { display: flex; justify-content: center; margin-bottom: 0.6rem; }
+#about-emblem { margin-bottom: 0.6rem; }
+.msg-avatar {
+  display: inline-flex;
+  line-height: 0;
+  vertical-align: middle;
+}
+.msg-role-assistant {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* --- chat polish ------------------------------------------------------------ */
+#chat-messages {
+  max-height: none; /* the flex layout owns the height now */
+  gap: 0.85rem;
+  padding: 0.6rem 0.4rem 0.2rem;
+  scroll-behavior: smooth;
+}
+.msg {
+  box-shadow: 0 1px 3px rgba(31, 38, 135, 0.06);
+  line-height: 1.55;
+}
+.msg.user {
+  border-radius: var(--radius) var(--radius) 5px var(--radius);
+}
+.msg.assistant {
+  border-radius: var(--radius) var(--radius) var(--radius) 5px;
+  background: var(--card);
+}
+.msg.assistant .msg-role { letter-spacing: 0.01em; }
+/* The composer reads as one control rather than three loose boxes. */
+.chat-composer {
+  gap: 0.45rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--border);
+}
+.chat-composer #chat-input {
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  border-radius: calc(var(--radius) * 0.8);
+}
+.chat-composer button { padding: 0.6rem 1.1rem; }
+/* Conversation list: a clear active row with an accent spine. */
+#chat-sidebar h2 { margin-bottom: 0.5rem; }
+#conversation-list li {
+  padding: 0.45rem 0.55rem;
+  margin-bottom: 0.15rem;
+  border-left: 3px solid transparent;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+#conversation-list li.active-conv {
+  border-left-color: var(--accent);
+  background: var(--accent-soft);
+}
+#conversation-list li .entry-actions { opacity: 0; transition: opacity 0.12s ease; }
+#conversation-list li:hover .entry-actions,
+#conversation-list li:focus-within .entry-actions { opacity: 1; }
+.chat-toolbar {
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid var(--border);
+}
+.chat-empty { padding: 1.5rem 1rem; }
+
+/* --- graph polish ----------------------------------------------------------- */
+#graph-box {
+  border-radius: var(--radius);
+  overflow: hidden;
+  background:
+    radial-gradient(120% 90% at 50% 0%, var(--accent-soft), transparent 60%),
+    var(--inner);
+}
+/* Zoom controls as one floating pill. */
+.graph-zoom {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+  border-radius: calc(var(--radius) * 0.8);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(var(--glass-blur));
+}
+.graph-zoom .graph-zoom-btn {
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+  margin: 0;
+}
+.graph-zoom .graph-zoom-btn + .graph-zoom-btn { border-top: 1px solid var(--border); }
+/* Legend entries read as toggle pills. */
+#graph-legend { gap: 0.35rem; margin-bottom: 0.45rem; }
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--chip-bg);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  box-shadow: none;
+}
+.legend-item:hover { border-color: var(--accent); }
+.legend-item.legend-off { opacity: 0.4; text-decoration: line-through; }
+/* Toolbar clusters, separated rather than crowded. */
+.graph-toolbar .graph-physics {
+  padding: 0 0.6rem;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+
 /* --- graph page layout ------------------------------------------------------
    One toolbar row instead of three stacked ones, and a canvas that fills the
    window so the map never runs off the bottom of the page. */

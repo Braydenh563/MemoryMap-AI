@@ -58,6 +58,7 @@
   <!-- Unlock / first-run setup gate (Phase 4) -->
   <div id="lock-overlay" class="lock-overlay hidden">
     <div class="card lock-card">
+      <div id="lock-emblem" class="emblem emblem-lock" aria-hidden="true"></div>
       <h2 id="lock-title">Unlock MemoryMap</h2>
       <p id="lock-message" class="muted"></p>
       <input id="lock-password" type="password" placeholder="Password or PIN">
@@ -405,7 +406,7 @@
           <button id="graph-zoom-fit" class="graph-zoom-btn" title="Fit the whole map to view" aria-label="Fit map to view">⤢</button>
         </div>
         <div id="graph-empty" class="empty-state hidden">
-          <span class="empty-icon" aria-hidden="true">🕸️</span>
+          <div id="graph-empty-emblem" class="emblem emblem-centred" aria-hidden="true"></div>
           <p class="empty-title">Nothing to map yet</p>
           <p class="muted">
             Save a few notes and link some together (🔗 on any entry) —
@@ -976,6 +977,7 @@
           </section>
 
           <section class="settings-section hidden" id="settings-about">
+            <div id="about-emblem" class="emblem" aria-hidden="true"></div>
             <h3>MemoryMap AI</h3>
             <p class="muted">
               A 100% offline, local-first notebook where a local AI files your
@@ -1108,6 +1110,7 @@
     aria-modal="true" aria-label="Welcome to MemoryMap">
     <div class="card modal-card" id="onboarding-card">
       <div class="onboarding-slide" id="onboarding-slide">
+        <div id="onboarding-emblem" class="emblem emblem-centred" aria-hidden="true"></div>
         <div class="onboarding-icon" id="onboarding-icon" aria-hidden="true"></div>
         <h2 id="onboarding-title"></h2>
         <p id="onboarding-text" class="muted"></p>

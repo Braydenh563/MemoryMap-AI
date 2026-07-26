@@ -1620,13 +1620,21 @@ function renderChatEmptyState() {
   if (box.querySelector(".msg") || box.querySelector(".chat-empty")) return;
   const empty = document.createElement("div");
   empty.className = "chat-empty";
-  empty.innerHTML =
-    '<span class="chat-empty-icon" aria-hidden="true">💬</span>' +
-    '<p class="empty-title">Chat with your notebook</p>' +
-    '<p class="muted">Ask a question and the AI answers from your saved notes. ' +
-    "Turn on “AI can make changes” and it can create, tag, link, and organise " +
-    "notes for you too.</p>";
+  const emblem = document.createElement("div");
+  emblem.id = "chat-empty-emblem";
+  emblem.className = "emblem emblem-centred";
+  emblem.setAttribute("aria-hidden", "true");
+  const title = document.createElement("p");
+  title.className = "empty-title";
+  title.textContent = "Chat with your notebook";
+  const blurb = document.createElement("p");
+  blurb.className = "muted";
+  blurb.textContent =
+    "Ask a question and the AI answers from your saved notes. Turn on “AI can " +
+    "make changes” and it can create, tag, link, and organise notes for you too.";
+  empty.append(emblem, title, blurb);
   box.appendChild(empty);
+  renderEmblem(emblem, 52);
 }
 
 function clearChatEmptyState() {
@@ -1830,10 +1838,17 @@ function addAssistantBubble() {
   const bubble = document.createElement("div");
   bubble.className = "msg assistant";
 
+  // The app's own emblem stands in as the assistant's avatar.
   const label = document.createElement("div");
-  label.className = "msg-role";
-  label.textContent = assistantLabel();
+  label.className = "msg-role msg-role-assistant";
+  const avatar = document.createElement("span");
+  avatar.className = "msg-avatar";
+  avatar.setAttribute("aria-hidden", "true");
+  const name = document.createElement("span");
+  name.textContent = assistantLabel();
+  label.append(avatar, name);
   bubble.appendChild(label);
+  renderEmblem(avatar, 20);
 
   const thinkingBox = document.createElement("details");
   thinkingBox.className = "hidden";
@@ -6742,48 +6757,58 @@ function startBgArt() {
   if (canvas) canvas.className = "bg-art-canvas";
 }
 
-// --- Wave O: the p5 brand logo (unique each load) -----------------------------------
-
-let brandLogoInstance = null;
+// --- Wave O: the p5 brand emblem (unique each load, reused app-wide) ----------
 
 // A tiny generative emblem next to the title: a ring of linked nodes (the
 // MemoryMap motif), coloured in the accent, seeded randomly each visit so
 // it's one-of-a-kind, with a slow rotation.
-function renderBrandLogo() {
-  if (typeof p5 === "undefined") return;
-  const holder = $("brand-logo");
-  if (!holder) return;
-  if (brandLogoInstance) {
-    brandLogoInstance.remove();
-    brandLogoInstance = null;
+// One identity per visit: every emblem in the app draws from the same seed, so
+// the logo in the top bar, on the lock screen and in the empty states is
+// recognisably the *same* mark rather than five unrelated doodles.
+const emblemSeed = Math.floor(Math.random() * 1e6);
+const emblemInstances = new Map(); // element -> p5 instance
+
+// The shared emblem sketch: a small ring of linked nodes — the MemoryMap motif
+// — in the current accent. Animated only where it's worth the frames.
+function renderEmblem(holder, size = 34, { animate = false } = {}) {
+  if (typeof p5 === "undefined" || !holder) return;
+  const existing = emblemInstances.get(holder);
+  if (existing) {
+    existing.remove();
+    emblemInstances.delete(holder);
   }
   const accentHex =
+    localStorage.getItem("accent-custom") ||
     (ACCENTS.find((a) => a.name === activeAccent()) || ACCENTS[0]).swatch;
-  const seed = Math.floor(Math.random() * 1e6);
-  const SIZE = 34;
+  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const sketch = (p) => {
     let nodes = [];
     let baseHue = 230;
     p.setup = () => {
-      p.createCanvas(SIZE, SIZE);
+      p.createCanvas(size, size);
       p.colorMode(p.HSL, 360, 100, 100, 1);
-      p.randomSeed(seed);
+      p.randomSeed(emblemSeed);
       baseHue = p.hue(p.color(accentHex));
       const count = 4 + Math.floor(p.random(3)); // 4-6 nodes
       nodes = Array.from({ length: count }, (_, i) => ({
         angle: (i / count) * p.TWO_PI + p.random(-0.3, 0.3),
         hue: (baseHue + p.random(-40, 40) + 360) % 360,
       }));
-      p.frameRate(24);
+      if (animate && !still) p.frameRate(24);
+      else {
+        p.draw();
+        p.noLoop(); // a single crisp frame where motion adds nothing
+      }
     };
     p.draw = () => {
       p.clear();
-      p.translate(SIZE / 2, SIZE / 2);
-      p.rotate(p.frameCount * 0.006);
-      const r = SIZE * 0.32;
+      p.translate(size / 2, size / 2);
+      if (animate && !still) p.rotate(p.frameCount * 0.006);
+      const r = size * 0.32;
+      const dot = Math.max(4, size * 0.18);
       p.stroke(baseHue, 60, 60, 0.6);
-      p.strokeWeight(1);
+      p.strokeWeight(Math.max(1, size / 34));
       for (let i = 0; i < nodes.length; i++) {
         for (let j = i + 1; j < nodes.length; j++) {
           p.line(
@@ -6797,13 +6822,30 @@ function renderBrandLogo() {
       p.noStroke();
       for (const n of nodes) {
         p.fill(n.hue, 75, 60, 1);
-        p.circle(Math.cos(n.angle) * r, Math.sin(n.angle) * r, 6);
+        p.circle(Math.cos(n.angle) * r, Math.sin(n.angle) * r, dot);
       }
       p.fill(baseHue, 70, 62, 1);
-      p.circle(0, 0, 5); // a bright hub
+      p.circle(0, 0, dot * 0.85); // a bright hub
     };
   };
-  brandLogoInstance = new p5(sketch, holder);
+  emblemInstances.set(holder, new p5(sketch, holder));
+}
+
+// Every emblem currently on the page, keyed by element id and size.
+const EMBLEM_SLOTS = [
+  ["brand-logo", 34, true],
+  ["lock-emblem", 76, true],
+  ["onboarding-emblem", 64, false],
+  ["chat-empty-emblem", 52, false],
+  ["graph-empty-emblem", 52, false],
+  ["about-emblem", 44, false],
+];
+
+function renderBrandLogo() {
+  for (const [id, size, animate] of EMBLEM_SLOTS) {
+    const holder = document.getElementById(id);
+    if (holder) renderEmblem(holder, size, { animate });
+  }
 }
 
 function toggleBgArt(on) {

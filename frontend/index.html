@@ -419,8 +419,9 @@
 
   <!-- ======================= REMINDERS TAB (Wave D) ======================= -->
   <div class="tab-page hidden" id="tab-reminders" role="tabpanel" aria-labelledby="tab-btn-reminders" tabindex="-1">
-    <section class="card reminders-card">
-      <h2>Reminders</h2>
+    <!-- Compose: the two ways to add a reminder, kept apart from the list -->
+    <section class="card reminders-card" id="reminder-compose">
+      <h2>Add a reminder</h2>
       <!-- Magic Add: type natural language, the AI turns it into a reminder -->
       <div class="row" id="reminder-magic-row">
         <input id="reminder-magic" type="text" maxlength="300"
@@ -428,16 +429,16 @@
         <button id="reminder-magic-add" class="ghost">✨ Add</button>
       </div>
       <p id="reminder-magic-status" class="status" role="status"></p>
-      <div class="row">
+      <div class="reminder-form">
         <input id="reminder-text" type="text" maxlength="500"
-          placeholder="Remind me to…">
-        <input id="reminder-due" type="datetime-local" style="max-width: 14rem">
-        <select id="reminder-priority" class="small-select" title="Priority">
+          placeholder="Remind me to…" aria-label="Reminder text">
+        <input id="reminder-due" type="datetime-local" aria-label="Due date and time">
+        <select id="reminder-priority" class="small-select" title="Priority" aria-label="Priority">
           <option value="normal">Normal</option>
           <option value="low">Low priority</option>
           <option value="high">High priority</option>
         </select>
-        <select id="reminder-recurring" class="small-select" title="Repeat">
+        <select id="reminder-recurring" class="small-select" title="Repeat" aria-label="Repeat">
           <option value="none">Once</option>
           <option value="daily">Daily</option>
           <option value="weekly">Weekly</option>
@@ -450,11 +451,22 @@
         <button class="ghost small" data-preset="3h">In 3 hours</button>
         <button class="ghost small" data-preset="tomorrow">Tomorrow 9am</button>
         <button class="ghost small" data-preset="nextweek">Next week</button>
+        <span class="muted reminder-hint">Notifications fire while the app is open — or hit ⏰ on any note.</span>
       </div>
-      <p class="muted">
-        Notifications fire while the app is open. Attach a reminder to a note
-        with the ⏰ button on any entry.
-      </p>
+    </section>
+
+    <!-- The list, with its own toolbar -->
+    <section class="card reminders-card" id="reminder-list-card">
+      <div class="reminder-listbar">
+        <h2>Your reminders</h2>
+        <div class="seg" id="reminder-filter" role="group" aria-label="Filter reminders">
+          <button data-filter="open" class="active">Open</button>
+          <button data-filter="all">All</button>
+          <button data-filter="done">Done</button>
+        </div>
+        <button id="reminder-clear-done" class="ghost small"
+          title="Delete every completed reminder">🧹 Clear done</button>
+      </div>
       <div id="reminder-groups"></div>
       <div id="reminders-empty" class="empty-state hidden">
         <span class="empty-icon" aria-hidden="true">⏰</span>

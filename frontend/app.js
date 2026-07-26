@@ -1240,6 +1240,8 @@ async function saveEntry() {
       );
     }
     contentBox.value = "";
+    localStorage.removeItem("captureDraft"); // it's saved for real now
+    $("entry-count").textContent = "0 characters";
     $("entry-tags").value = "";
     $("entry-category").value = "";
     $("entry-template").value = "";
@@ -3923,11 +3925,20 @@ async function renderFocusTimerWidget(body) {
 
 const notifiedReminderIds = new Set(); // don't re-notify within a session
 
+let reminderFilter = "open"; // open | all | done
+
 async function loadReminders() {
-  const reminders = await apiJson("/reminders").catch(() => []);
+  const all = await apiJson("/reminders").catch(() => []);
   const groupsBox = $("reminder-groups");
   groupsBox.replaceChildren();
-  $("reminders-empty").classList.toggle("hidden", reminders.length > 0);
+
+  const reminders = all.filter((r) =>
+    reminderFilter === "all" ? true : reminderFilter === "done" ? r.done : !r.done
+  );
+  $("reminders-empty").classList.toggle("hidden", all.length > 0);
+  $("reminder-clear-done").classList.toggle("hidden", !all.some((r) => r.done));
+  // Surface anything due on the tab itself, from wherever you are.
+  updateReminderBadge(all);
 
   const now = new Date();
   const endOfToday = new Date(now);
@@ -3941,18 +3952,71 @@ async function loadReminders() {
     else groups.Upcoming.push(reminder);
   }
 
+  // Nothing in this filter, but reminders do exist elsewhere.
+  if (all.length && !reminders.length) {
+    const none = document.createElement("p");
+    none.className = "muted";
+    none.textContent =
+      reminderFilter === "done"
+        ? "Nothing completed yet."
+        : "All clear — nothing open.";
+    groupsBox.appendChild(none);
+  }
+
   for (const label of ["Overdue", "Today", "Upcoming", "Done"]) {
     const items = groups[label];
     if (!items.length) continue;
     const heading = document.createElement("h3");
-    heading.className = "reminder-group-head";
-    heading.textContent = `${label} (${items.length})`;
+    heading.className = `reminder-group-head group-${label.toLowerCase()}`;
+    const text = document.createElement("span");
+    text.textContent = label;
+    const count = document.createElement("span");
+    count.className = "group-count";
+    count.textContent = items.length;
+    heading.append(text, count);
     groupsBox.appendChild(heading);
     const ul = document.createElement("ul");
     ul.className = "entry-list";
     for (const reminder of items) ul.appendChild(reminderItem(reminder, label));
     groupsBox.appendChild(ul);
   }
+}
+
+// A count of due-or-overdue reminders on the Reminders tab button, so you
+// notice them from any tab.
+function updateReminderBadge(reminders) {
+  const button = $("tab-btn-reminders");
+  if (!button) return;
+  const now = new Date();
+  const due = (reminders || []).filter(
+    (r) => !r.done && new Date(r.due_at) <= now
+  ).length;
+  let badge = button.querySelector(".tab-badge");
+  if (!due) {
+    badge?.remove();
+    return;
+  }
+  if (!badge) {
+    badge = document.createElement("span");
+    badge.className = "tab-badge";
+    button.appendChild(badge);
+  }
+  badge.textContent = due;
+  badge.title = `${due} reminder${due === 1 ? "" : "s"} due`;
+}
+
+async function clearDoneReminders() {
+  const all = await apiJson("/reminders").catch(() => []);
+  const done = all.filter((r) => r.done);
+  if (!done.length) return;
+  if (!confirm(`Delete ${done.length} completed reminder${done.length === 1 ? "" : "s"}?`)) {
+    return;
+  }
+  await Promise.all(
+    done.map((r) => api(`/reminders/${r.id}`, { method: "DELETE" }).catch(() => {}))
+  );
+  toast(`Cleared ${done.length} completed reminder${done.length === 1 ? "" : "s"}.`);
+  loadReminders();
 }
 
 let editingReminderId = null;
@@ -4041,6 +4105,21 @@ function reminderItem(reminder, label) {
     smallButton("×", "Delete this reminder", async () => {
       await apiJson(`/reminders/${reminder.id}`, { method: "DELETE" });
       loadReminders();
+      // Deleting a reminder is as undo-able as binning a note.
+      toastAction("Reminder deleted.", "Undo", async () => {
+        await apiJson("/reminders", {
+          method: "POST",
+          body: JSON.stringify({
+            text: reminder.text,
+            due_at: reminder.due_at,
+            entry_id: reminder.entry_id,
+            priority: reminder.priority || "normal",
+            recurring: reminder.recurring || "none",
+          }),
+        }).catch((e) => toast(e.message, true));
+        loadReminders();
+        toast("Reminder restored.");
+      });
     })
   );
   row.appendChild(actions);
@@ -7186,6 +7265,16 @@ $("reminder-add").addEventListener("click", async () => {
     $("reminder-recurring").value = "none";
   }
 });
+$("reminder-clear-done").addEventListener("click", clearDoneReminders);
+for (const button of document.querySelectorAll("#reminder-filter button")) {
+  button.addEventListener("click", () => {
+    reminderFilter = button.dataset.filter;
+    for (const b of document.querySelectorAll("#reminder-filter button")) {
+      b.classList.toggle("active", b === button);
+    }
+    loadReminders();
+  });
+}
 $("reminder-magic-add").addEventListener("click", magicAddReminder);
 $("reminder-magic").addEventListener("keydown", (e) => {
   if (e.key === "Enter") magicAddReminder();
@@ -7503,7 +7592,22 @@ $("note-sort").addEventListener("change", (e) => {
 $("entry-content").addEventListener("input", (e) => {
   const n = e.target.value.length;
   $("entry-count").textContent = `${n} character${n === 1 ? "" : "s"}`;
+  // Keep a draft so a half-typed thought survives a reload or a stray tab
+  // switch — losing one is the most annoying thing this app could do.
+  if (n) localStorage.setItem("captureDraft", e.target.value);
+  else localStorage.removeItem("captureDraft");
 });
+
+// Restore an unsaved draft on load.
+(() => {
+  const draft = localStorage.getItem("captureDraft");
+  if (!draft) return;
+  const box = $("entry-content");
+  box.value = draft;
+  $("entry-count").textContent = `${draft.length} character${draft.length === 1 ? "" : "s"}`;
+  const status = $("save-status");
+  if (status) status.textContent = "Restored your unsaved draft.";
+})();
 
 $("export-md").addEventListener("click", () => downloadExport("markdown"));
 $("import-md").addEventListener("click", importMarkdown);

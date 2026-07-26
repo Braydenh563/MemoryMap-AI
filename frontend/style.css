@@ -1570,6 +1570,26 @@ html { font-size: 16px; }
 .tool-row input { width: 1.15rem; height: 1.15rem; margin: 0; accent-color: var(--accent); }
 .tool-desc { display: block; margin: 0.2rem 0 0 1.65rem; font-size: 0.82rem; }
 
+/* --- graph: physics sliders + node popup ----------------------------------- */
+.graph-physics { display: inline-flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+.graph-physics input[type="range"] { width: 6.5rem; margin: 0; }
+.graph-physics label { font-size: 0.82rem; }
+.graph-popup {
+  position: absolute;
+  z-index: 40;
+  width: 19rem;
+  max-width: calc(100% - 1rem);
+  padding: 0.7rem 0.85rem;
+  background: var(--modal-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(var(--glass-blur));
+}
+.graph-popup.hidden { display: none; }
+.graph-popup textarea, .graph-popup input { margin-bottom: 0.5rem; }
+.graph-popup .row { margin: 0; align-items: center; }
+
 /* --- markdown tables ------------------------------------------------------- */
 .md-table-wrap { overflow-x: auto; margin: 0.5rem 0; }
 .md-table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }

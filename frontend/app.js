@@ -3970,6 +3970,13 @@ async function renderGraph() {
     graphAdjacency.get(e.target)?.add(e.source);
   }
 
+  // Physics sliders (0–100, default 50) scale the tuned defaults so the
+  // out-of-the-box layout is unchanged at 50.
+  const gravity = Number(localStorage.getItem("graph-gravity") ?? 50);
+  const spread = Number(localStorage.getItem("graph-spread") ?? 50);
+  const spreadScale = 0.5 + spread / 50; // 0.5×–2.5× the base link distance
+  const gravityScale = 0.4 + gravity / 41.7; // stronger pull → tighter clusters
+
   graphSimulation = d3
     .forceSimulation(nodes)
     .force(
@@ -3977,11 +3984,11 @@ async function renderGraph() {
       d3
         .forceLink(edges)
         .id((d) => d.id)
-        .distance((d) => (d.kind === "similar" ? 130 : 80))
+        .distance((d) => (d.kind === "similar" ? 130 : 80) * spreadScale)
     )
     // More repulsion + a mild centring pull → notes spread out and fill
     // the space instead of clumping in the middle (Wave N polish).
-    .force("charge", d3.forceManyBody().strength(-340))
+    .force("charge", d3.forceManyBody().strength(-340 / gravityScale))
     .force("center", d3.forceCenter(width / 2, height / 2))
     .force("x", d3.forceX(width / 2).strength(0.04))
     .force("y", d3.forceY(height / 2).strength(0.06))
@@ -4018,7 +4025,7 @@ async function renderGraph() {
           d.fy = null;
         })
     )
-    .on("click", (_event, d) => flashEntry(d.id))
+    .on("click", (event, d) => openGraphPopup(event, d))
     // Double-click pins a node where it is; again releases it (Wave M).
     .on("dblclick", function (event, d) {
       event.stopPropagation(); // don't also zoom
@@ -4138,6 +4145,80 @@ function applyGraphHighlight() {
       neighbours == null || s === graphHoveredId || t === graphHoveredId;
     return !(bySearch && byHover);
   });
+}
+
+// --- graph node popup: edit a note without leaving the map -------------------
+
+let graphPopupId = null;
+
+async function openGraphPopup(event, node) {
+  event.stopPropagation();
+  graphPopupId = node.id;
+  const popup = $("graph-popup");
+  const status = $("graph-popup-status");
+  status.textContent = "";
+  status.classList.remove("error");
+  $("graph-popup-title").textContent = node.category || "Note";
+  $("graph-popup-content").value = "Loading…";
+  $("graph-popup-tags").value = "";
+  popup.classList.remove("hidden");
+
+  // Position near the click, kept inside the graph box (measured after it's
+  // visible so the real height is used and it never hangs off the edge).
+  const box = $("graph-box").getBoundingClientRect();
+  const size = popup.getBoundingClientRect();
+  const left = Math.min(
+    Math.max(event.clientX - box.left + 12, 8),
+    Math.max(8, box.width - size.width - 8)
+  );
+  const top = Math.min(
+    Math.max(event.clientY - box.top + 12, 8),
+    Math.max(8, box.height - size.height - 8)
+  );
+  popup.style.left = `${left}px`;
+  popup.style.top = `${top}px`;
+
+  const entry = await apiJson(`/entries/${node.id}`).catch(() => null);
+  if (!entry || graphPopupId !== node.id) {
+    if (graphPopupId === node.id) {
+      $("graph-popup-content").value = "";
+      status.textContent = "Couldn't load this note.";
+      status.classList.add("error");
+    }
+    return;
+  }
+  $("graph-popup-content").value = entry.content;
+  $("graph-popup-tags").value = (entry.tags || []).join(", ");
+  $("graph-popup-content").focus();
+}
+
+function closeGraphPopup() {
+  graphPopupId = null;
+  $("graph-popup").classList.add("hidden");
+}
+
+async function saveGraphPopup() {
+  if (graphPopupId === null) return;
+  const status = $("graph-popup-status");
+  const tags = $("graph-popup-tags")
+    .value.split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
+  status.classList.remove("error");
+  status.textContent = "Saving…";
+  try {
+    await apiJson(`/entries/${graphPopupId}`, {
+      method: "PUT",
+      body: JSON.stringify({ content: $("graph-popup-content").value, tags }),
+    });
+    status.textContent = "Saved.";
+    await loadEntries().catch(() => {});
+    renderGraph(); // content/tags may change what the map shows
+    setTimeout(closeGraphPopup, 600);
+  } catch (error) {
+    status.textContent = error.message;
+    status.classList.add("error");
+  }
 }
 
 // --- tabs (Wave A) ----------------------------------------------------------------
@@ -6121,6 +6202,27 @@ $("graph-similarity").addEventListener("change", renderGraph);
 $("graph-hide-orphans").addEventListener("change", renderGraph);
 $("graph-search").addEventListener("input", applyGraphHighlight);
 
+// Physics sliders: persist, then rebuild the simulation with the new forces.
+for (const key of ["gravity", "spread"]) {
+  const input = $(`graph-${key}`);
+  input.value = localStorage.getItem(`graph-${key}`) ?? 50;
+  input.addEventListener("change", () => {
+    localStorage.setItem(`graph-${key}`, input.value);
+    renderGraph();
+  });
+}
+
+// Node popup: edit a note in place on the map.
+$("graph-popup-close").addEventListener("click", closeGraphPopup);
+$("graph-popup-save").addEventListener("click", saveGraphPopup);
+$("graph-popup-open").addEventListener("click", () => {
+  const id = graphPopupId;
+  closeGraphPopup();
+  if (id !== null) flashEntry(id);
+});
+// Clicking empty canvas dismisses the popup.
+$("graph-svg").addEventListener("click", closeGraphPopup);
+
 // On-screen zoom controls drive the same d3 zoom behaviour as scroll/pinch.
 function graphZoomBy(factor) {
   if (!graphZoom || !graphSvg) return;
@@ -6300,6 +6402,10 @@ document.addEventListener("keydown", (e) => {
   }
   if (e.key === "Escape" && !$("onboarding-overlay").classList.contains("hidden")) {
     closeOnboarding();
+    return;
+  }
+  if (e.key === "Escape" && !$("graph-popup").classList.contains("hidden")) {
+    closeGraphPopup();
     return;
   }
   if (e.key === "Escape" && !$("palette-overlay").classList.contains("hidden")) {

@@ -301,17 +301,42 @@
         Your notes as a map: solid lines are links you made, dashed lines are
         trains of thought, dotted lines are notes that mean similar things.
         Hover a note to spotlight its connections, drag to arrange, scroll or
-        use the buttons to zoom, click a note to open it, double-click to pin
-        it in place, and click a legend colour to hide that category.
+        use the buttons to zoom, click a note to edit it right here,
+        double-click to pin it in place, and click a legend colour to hide that
+        category. Gravity and Spread reshape the layout.
       </p>
       <div class="row">
         <button id="link-suggest-btn" class="ghost small"
           title="Let the AI suggest links between notes that mean similar things">🔗 Suggest links</button>
+        <span class="graph-physics">
+          <label for="graph-gravity" class="muted">Gravity</label>
+          <input id="graph-gravity" type="range" min="0" max="100" value="50"
+            title="How strongly notes pull together">
+          <label for="graph-spread" class="muted">Spread</label>
+          <input id="graph-spread" type="range" min="0" max="100" value="50"
+            title="How far apart linked notes sit">
+        </span>
       </div>
       <div id="link-suggestions" class="hidden"></div>
       <div id="graph-legend" class="recent"></div>
       <div id="graph-box">
         <svg id="graph-svg"></svg>
+        <!-- Click a node: edit it in place without leaving the map -->
+        <div id="graph-popup" class="graph-popup hidden" role="dialog"
+          aria-label="Edit note">
+          <div class="row space-between">
+            <strong id="graph-popup-title">Note</strong>
+            <button id="graph-popup-close" class="ghost small" aria-label="Close">✕</button>
+          </div>
+          <textarea id="graph-popup-content" rows="4" aria-label="Note content"></textarea>
+          <input id="graph-popup-tags" type="text" placeholder="Tags, comma separated"
+            aria-label="Tags">
+          <div class="row">
+            <button id="graph-popup-save" class="small">Save</button>
+            <button id="graph-popup-open" class="ghost small">Open in Notes</button>
+            <span id="graph-popup-status" class="status" role="status"></span>
+          </div>
+        </div>
         <div id="graph-zoom" class="graph-zoom" role="group" aria-label="Zoom the map">
           <button id="graph-zoom-in" class="graph-zoom-btn" title="Zoom in" aria-label="Zoom in">＋</button>
           <button id="graph-zoom-out" class="graph-zoom-btn" title="Zoom out" aria-label="Zoom out">－</button>

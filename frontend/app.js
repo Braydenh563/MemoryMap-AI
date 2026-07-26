@@ -2174,6 +2174,276 @@ function renderRecordsDetails(holder, meta) {
   holder.appendChild(details);
 }
 
+// --- documents: long-form writing -----------------------------------------------
+// Documents are separate from notes on purpose. A note is a captured thought;
+// a document is something you sit down and write. Sharing storage would put
+// every half-finished draft into note search and the graph.
+
+let docs = [];
+let currentDoc = null;   // {id, title, content, ...}
+let docDirty = false;
+let docSaveTimer = null;
+
+async function loadDocuments(selectId = null) {
+  docs = await apiJson("/documents").catch(() => []);
+  renderDocList();
+  if (selectId) return openDocument(selectId);
+  if (!currentDoc && docs.length) return openDocument(docs[0].id);
+  if (!docs.length) showNoDocument();
+}
+
+function renderDocList() {
+  const filter = $("doc-filter").value.trim().toLowerCase();
+  const list = $("doc-list");
+  list.replaceChildren();
+  const shown = docs.filter((d) => !filter || d.title.toLowerCase().includes(filter));
+  $("doc-empty").classList.toggle("hidden", docs.length > 0);
+
+  for (const doc of shown) {
+    const li = document.createElement("li");
+    li.className = "doc-item";
+    if (currentDoc && doc.id === currentDoc.id) li.classList.add("active");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "doc-item-button";
+    const title = document.createElement("span");
+    title.className = "doc-item-title";
+    title.textContent = doc.title;
+    const meta = document.createElement("span");
+    meta.className = "muted doc-item-meta";
+    meta.textContent = `${doc.words} word${doc.words === 1 ? "" : "s"} · ${relativeTime(doc.updated_at)}`;
+    button.append(title, meta);
+    button.addEventListener("click", () => openDocument(doc.id));
+    li.appendChild(button);
+    list.appendChild(li);
+  }
+}
+
+function showNoDocument() {
+  currentDoc = null;
+  $("doc-title").value = "";
+  $("doc-content").value = "";
+  $("doc-title").disabled = true;
+  $("doc-content").disabled = true;
+  $("doc-saved").textContent = "";
+  renderDocPreview();
+}
+
+async function openDocument(id) {
+  // Never lose unsaved work by switching away from it.
+  if (docDirty) await saveDocument({ silent: true });
+  const doc = await apiJson(`/documents/${id}`).catch(() => null);
+  if (!doc) return;
+  currentDoc = doc;
+  $("doc-title").disabled = false;
+  $("doc-content").disabled = false;
+  $("doc-title").value = doc.title;
+  $("doc-content").value = doc.content;
+  docDirty = false;
+  $("doc-saved").textContent = "Saved";
+  renderDocPreview();
+  renderDocList();
+}
+
+async function createDocument() {
+  const doc = await apiJson("/documents", {
+    method: "POST",
+    body: JSON.stringify({ title: "Untitled", content: "" }),
+  });
+  await loadDocuments(doc.id);
+  $("doc-title").focus();
+  $("doc-title").select();
+}
+
+function markDocDirty() {
+  if (!currentDoc) return;
+  docDirty = true;
+  $("doc-saved").textContent = "Unsaved…";
+  clearTimeout(docSaveTimer);
+  // Autosave, but not on every keystroke — a pause is the natural moment.
+  docSaveTimer = setTimeout(() => saveDocument({ silent: true }), 1200);
+}
+
+async function saveDocument({ silent = false } = {}) {
+  if (!currentDoc) return;
+  clearTimeout(docSaveTimer);
+  const title = $("doc-title").value.trim() || "Untitled";
+  const content = $("doc-content").value;
+  try {
+    const saved = await apiJson(`/documents/${currentDoc.id}`, {
+      method: "PUT",
+      body: JSON.stringify({ title, content }),
+    });
+    currentDoc = saved;
+    docDirty = false;
+    $("doc-saved").textContent = "Saved";
+    if (!silent) toast("Document saved.");
+    docs = docs.map((d) => (d.id === saved.id ? { ...d, ...saved } : d));
+    renderDocList();
+  } catch (error) {
+    $("doc-saved").textContent = "Not saved";
+    $("doc-status").classList.add("error");
+    $("doc-status").textContent = error.message;
+  }
+}
+
+function renderDocPreview() {
+  const preview = $("doc-preview");
+  if (preview.classList.contains("hidden")) return;
+  preview.replaceChildren();
+  const title = ($("doc-title").value || "").trim();
+  renderMarkdown(preview, title ? `# ${title}\n\n${$("doc-content").value}` : $("doc-content").value);
+}
+
+function toggleDocPreview() {
+  const preview = $("doc-preview");
+  const showing = preview.classList.toggle("hidden");
+  $("doc-panes").classList.toggle("split", !showing);
+  $("doc-preview-toggle").setAttribute("aria-pressed", String(!showing));
+  renderDocPreview();
+}
+
+// Wrap the selection in markdown syntax (Ctrl+B / Ctrl+I).
+function wrapDocSelection(marker) {
+  const box = $("doc-content");
+  const { selectionStart: start, selectionEnd: end, value } = box;
+  const selected = value.slice(start, end);
+  box.value = value.slice(0, start) + marker + selected + marker + value.slice(end);
+  // Keep the same text selected, so the shortcut can be toggled or stacked.
+  box.selectionStart = start + marker.length;
+  box.selectionEnd = end + marker.length;
+  box.focus();
+  markDocDirty();
+  renderDocPreview();
+}
+
+async function exportDocumentMarkdown() {
+  if (!currentDoc) return;
+  // Fetched rather than navigated to. A plain link carries no X-Auth-Token, so
+  // the server answers 401 and the browser renders that error *in place of the
+  // app* — it navigates away instead of downloading.
+  try {
+    const response = await fetch(`/documents/${currentDoc.id}/export.md`, {
+      headers: { "X-Auth-Token": authToken() },
+    });
+    if (!response.ok) throw new Error(`Export failed (${response.status})`);
+    // The filename is decided server-side, so read it back off the header.
+    const disposition = response.headers.get("content-disposition") || "";
+    const match = disposition.match(/filename="([^"]+)"/);
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = match ? match[1] : "document.md";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    $("doc-status").classList.add("error");
+    $("doc-status").textContent = error.message;
+  }
+}
+
+// PDF via the browser's own print dialog: it renders the preview exactly as
+// shown and every platform already has "Save as PDF" there. Bundling a PDF
+// engine would add a heavy dependency to produce a worse-looking result.
+function exportDocumentPdf() {
+  if (!currentDoc) return;
+  const wasHidden = $("doc-preview").classList.contains("hidden");
+  if (wasHidden) toggleDocPreview(); // print the rendered version, not the source
+  renderDocPreview();
+  document.body.classList.add("printing-doc");
+  const cleanup = () => {
+    document.body.classList.remove("printing-doc");
+    if (wasHidden) toggleDocPreview();
+    window.removeEventListener("afterprint", cleanup);
+  };
+  window.addEventListener("afterprint", cleanup);
+  setTimeout(() => window.print(), 150);
+}
+
+async function deleteCurrentDocument() {
+  if (!currentDoc) return;
+  if (!confirm(`Delete "${currentDoc.title}"? This can't be undone.`)) return;
+  await apiJson(`/documents/${currentDoc.id}`, { method: "DELETE" });
+  toast("Document deleted.");
+  currentDoc = null;
+  await loadDocuments();
+}
+
+// --- AI editing ---
+// Always a proposal. Writing straight into the document would be the most
+// destructive thing in the app.
+function openDocAiPanel() {
+  if (!currentDoc) return;
+  const box = $("doc-content");
+  const selection = box.value.slice(box.selectionStart, box.selectionEnd);
+  $("doc-ai-panel").dataset.selection = selection;
+  $("doc-ai-scope").textContent = selection.trim()
+    ? `Rewriting the ${selection.trim().split(/\s+/).length} selected word(s).`
+    : "Rewriting the whole document. Select some text first to work on just that.";
+  $("doc-ai-result").value = "";
+  $("doc-ai-status").textContent = "";
+  $("doc-ai-panel").classList.remove("hidden");
+  $("doc-ai-instruction").focus();
+}
+
+function closeDocAiPanel() {
+  $("doc-ai-panel").classList.add("hidden");
+}
+
+async function runDocAiEdit() {
+  const instruction = $("doc-ai-instruction").value.trim();
+  const status = $("doc-ai-status");
+  if (!instruction) {
+    status.classList.add("error");
+    status.textContent = "Say what you'd like changed.";
+    return;
+  }
+  status.classList.remove("error");
+  status.textContent = "✨ Thinking…";
+  $("doc-ai-run").disabled = true;
+  try {
+    const body = await apiJson(`/documents/${currentDoc.id}/ai-edit`, {
+      method: "POST",
+      body: JSON.stringify({
+        instruction,
+        selection: $("doc-ai-panel").dataset.selection || "",
+      }),
+    });
+    $("doc-ai-result").value = body.revised;
+    status.textContent = body.message || "Read it over, then accept or cancel.";
+    if (body.message) status.classList.add("error");
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+  } finally {
+    $("doc-ai-run").disabled = false;
+  }
+}
+
+function acceptDocAiEdit() {
+  const revised = $("doc-ai-result").value;
+  if (!revised.trim()) return;
+  const selection = $("doc-ai-panel").dataset.selection || "";
+  const box = $("doc-content");
+  if (selection) {
+    const at = box.value.indexOf(selection);
+    box.value =
+      at === -1
+        ? box.value
+        : box.value.slice(0, at) + revised + box.value.slice(at + selection.length);
+  } else {
+    box.value = revised;
+  }
+  closeDocAiPanel();
+  markDocDirty();
+  renderDocPreview();
+  saveDocument({ silent: true });
+  toast("Applied the AI's edit.");
+}
+
 // --- the writing room: thoughts in, a note out -----------------------------------
 // The draft is deliberately kept in the browser (and localStorage) rather than
 // in the database. A half-finished draft isn't a note, and quietly filling the
@@ -6150,7 +6420,7 @@ async function saveGraphNewNote() {
 
 // --- tabs (Wave A) ----------------------------------------------------------------
 
-const TABS = ["dashboard", "notes", "chat", "graph", "reminders"];
+const TABS = ["dashboard", "notes", "chat", "graph", "documents", "reminders"];
 
 function switchTab(name) {
   for (const tab of TABS) {
@@ -6178,6 +6448,7 @@ function switchTab(name) {
   }
   if (name === "dashboard") renderDashboard();
   if (name === "graph") renderGraph();
+  if (name === "documents") loadDocuments();
   if (name === "reminders") {
     if (!$("reminder-due").value) $("reminder-due").value = defaultDueValue();
     loadReminders();
@@ -8468,6 +8739,37 @@ $("entry-template").addEventListener("change", applyTemplate);
 
 // Chat tab (Wave C).
 $("chat-send").addEventListener("click", () => sendChatMessage());
+
+// --- documents wiring ---
+$("doc-new").addEventListener("click", createDocument);
+$("doc-filter").addEventListener("input", renderDocList);
+$("doc-title").addEventListener("input", () => { markDocDirty(); renderDocPreview(); });
+$("doc-content").addEventListener("input", () => { markDocDirty(); renderDocPreview(); });
+$("doc-preview-toggle").addEventListener("click", toggleDocPreview);
+$("doc-export-md").addEventListener("click", exportDocumentMarkdown);
+$("doc-export-pdf").addEventListener("click", exportDocumentPdf);
+$("doc-delete").addEventListener("click", deleteCurrentDocument);
+$("doc-ai").addEventListener("click", openDocAiPanel);
+$("doc-ai-close").addEventListener("click", closeDocAiPanel);
+$("doc-ai-cancel").addEventListener("click", closeDocAiPanel);
+$("doc-ai-run").addEventListener("click", runDocAiEdit);
+$("doc-ai-accept").addEventListener("click", acceptDocAiEdit);
+$("doc-ai-instruction").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); runDocAiEdit(); }
+});
+$("doc-content").addEventListener("keydown", (event) => {
+  if (!(event.ctrlKey || event.metaKey)) return;
+  const key = event.key.toLowerCase();
+  if (key === "s") { event.preventDefault(); saveDocument(); }
+  else if (key === "b") { event.preventDefault(); wrapDocSelection("**"); }
+  else if (key === "i") { event.preventDefault(); wrapDocSelection("*"); }
+});
+// Leaving with unsaved edits would lose them; autosave hasn't fired yet.
+window.addEventListener("beforeunload", (event) => {
+  if (!docDirty) return;
+  event.preventDefault();
+  event.returnValue = "";
+});
 
 // --- writing room wiring ---
 $("draft-compose").addEventListener("click", composeDraft);

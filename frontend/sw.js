@@ -7,7 +7,7 @@
 // "broken" because the HTML was new but the CSS/JS were old). The cache
 // name is now versioned, the worker takes over immediately, and it tells
 // open pages to reload once so fresh assets always win.
-const CACHE = "memorymap-shell-v3";
+const CACHE = "memorymap-shell-v4";
 const SHELL = [
   "/",
   "/app.js",

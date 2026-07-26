@@ -44,6 +44,8 @@
         aria-selected="false" aria-controls="tab-chat" tabindex="-1">Chat</button>
       <button role="tab" id="tab-btn-graph" data-tab="graph"
         aria-selected="false" aria-controls="tab-graph" tabindex="-1">Graph</button>
+      <button role="tab" id="tab-btn-documents" data-tab="documents"
+        aria-selected="false" aria-controls="tab-documents" tabindex="-1">Documents</button>
       <button role="tab" id="tab-btn-reminders" data-tab="reminders"
         aria-selected="false" aria-controls="tab-reminders" tabindex="-1">Reminders</button>
     </nav>
@@ -494,6 +496,82 @@
         </div>
       </div>
     </section>
+  </div>
+
+  <!-- ======================= DOCUMENTS TAB ======================= -->
+  <!-- Long-form writing. Documents are deliberately separate from notes: a
+       note is a captured thought, a document is something you sit down and
+       write, and mixing them would put every half-finished draft into search
+       results and the graph. -->
+  <div class="tab-page hidden" id="tab-documents" role="tabpanel" aria-labelledby="tab-btn-documents" tabindex="-1">
+    <div class="doc-layout">
+      <aside class="card doc-sidebar">
+        <div class="row space-between">
+          <h2>Documents</h2>
+          <button id="doc-new" class="small" type="button" title="Start a new document">＋ New</button>
+        </div>
+        <input id="doc-filter" type="search" placeholder="🔎 Filter documents…"
+          aria-label="Filter documents by title">
+        <ul id="doc-list" class="doc-list"></ul>
+        <p id="doc-empty" class="muted hidden">No documents yet. Press ＋ New to start one.</p>
+      </aside>
+
+      <section class="card doc-main">
+        <div class="row space-between doc-toolbar">
+          <input id="doc-title" type="text" maxlength="200" placeholder="Untitled"
+            aria-label="Document title" class="doc-title-input">
+          <span class="row doc-actions">
+            <span id="doc-saved" class="muted" role="status"></span>
+            <button id="doc-preview-toggle" class="ghost small" type="button"
+              aria-pressed="false" title="Show a rendered preview beside the editor">👁 Preview</button>
+            <button id="doc-ai" class="ghost small" type="button"
+              title="Ask the AI to rewrite this document, or the text you've selected">✨ AI edit</button>
+            <button id="doc-export-md" class="ghost small" type="button"
+              title="Download as a .md file">⬇ .md</button>
+            <button id="doc-export-pdf" class="ghost small" type="button"
+              title="Print or save as PDF">⬇ PDF</button>
+            <button id="doc-delete" class="ghost small" type="button"
+              title="Delete this document">🗑</button>
+          </span>
+        </div>
+        <div class="doc-panes" id="doc-panes">
+          <textarea id="doc-content" spellcheck="true"
+            placeholder="# Start writing&#10;&#10;Markdown works here — headings, **bold**, lists, tables, links."
+            aria-label="Document content"></textarea>
+          <div id="doc-preview" class="doc-preview markdown-body hidden" aria-live="off"></div>
+        </div>
+        <p id="doc-status" class="status" role="status"></p>
+        <p class="muted doc-hint">
+          Saves automatically. <kbd>Ctrl</kbd>+<kbd>S</kbd> saves now,
+          <kbd>Ctrl</kbd>+<kbd>B</kbd>/<kbd>I</kbd> wrap the selection in bold or italics.
+        </p>
+      </section>
+    </div>
+
+    <!-- AI edit: shown as a proposal, never written straight into the file. -->
+    <div id="doc-ai-panel" class="modal-overlay hidden" role="dialog"
+      aria-modal="true" aria-label="AI edit">
+      <div class="card modal-card doc-ai-card">
+        <div class="row space-between">
+          <h2>AI edit</h2>
+          <button id="doc-ai-close" class="ghost small" aria-label="Close">✕</button>
+        </div>
+        <p class="muted" id="doc-ai-scope"></p>
+        <input id="doc-ai-instruction" type="text" maxlength="500"
+          placeholder="e.g. “tighten this”, “make it more formal”, “add a conclusion”"
+          aria-label="What should the AI do?">
+        <div class="row">
+          <button id="doc-ai-run">✨ Suggest an edit</button>
+          <span id="doc-ai-status" class="status" role="status"></span>
+        </div>
+        <label for="doc-ai-result" class="muted">The AI's version — edit it before accepting if you like</label>
+        <textarea id="doc-ai-result" rows="12" aria-label="The AI's suggested text"></textarea>
+        <div class="row">
+          <button id="doc-ai-accept">Replace with this</button>
+          <button id="doc-ai-cancel" class="ghost">Cancel</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ======================= REMINDERS TAB (Wave D) ======================= -->

@@ -175,6 +175,24 @@ class Reminder(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class Document(Base):
+    """A long-form document (the editor tab).
+
+    Kept separate from Entry on purpose. A note is a captured thought — short,
+    auto-categorised, embedded for semantic search, and surfaced by the AI. A
+    document is something you sit down and write. Sharing one table would mean
+    every half-written document turning up in search results and in the graph.
+    """
+
+    __tablename__ = "documents"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(200), default="Untitled")
+    content: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 class AuditLog(Base):
     """Every meaningful action, from Phase 1 onward (plan §4)."""
 

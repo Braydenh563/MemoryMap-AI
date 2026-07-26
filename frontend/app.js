@@ -227,6 +227,8 @@ const BUILTIN_TEMPLATES = [
 async function loadTemplates() {
   // Built-ins + the user's own (kept in preferences).
   prefsCache = await apiJson("/preferences").catch(() => prefsCache);
+  // Saved filters live in the same payload, so draw them while it's fresh.
+  renderSavedSearches();
   const custom = (prefsCache && prefsCache.custom_templates) || [];
   const select = $("entry-template");
   select.replaceChildren();
@@ -9248,6 +9250,73 @@ $("bin-empty").addEventListener("click", async () => {
   toast(`${result.removed} entr${result.removed === 1 ? "y" : "ies"} permanently deleted.`);
   await renderBin();
 });
+// --- saved filters ---------------------------------------------------------------
+// Once the filter box understands operators, the useful ones are worth
+// keeping. "tag:work is:untagged" is a thing you want on a button, not
+// something to retype — and it works with no AI at all.
+
+function savedSearches() {
+  return (prefsCache && prefsCache.saved_searches) || [];
+}
+
+function renderSavedSearches() {
+  const box = $("saved-searches");
+  const saved = savedSearches();
+  box.replaceChildren();
+  box.classList.toggle("hidden", saved.length === 0);
+  for (const item of saved) {
+    const chipEl = document.createElement("span");
+    chipEl.className = "chip saved-search";
+    const apply = document.createElement("button");
+    apply.type = "button";
+    apply.className = "saved-search-apply";
+    apply.textContent = `☆ ${item.name}`;
+    apply.title = `Filter: ${item.query}`;
+    apply.addEventListener("click", () => {
+      $("note-search").value = item.query;
+      noteSearch = item.query;
+      renderEntries();
+      announce(`Applied the saved filter "${item.name}".`);
+    });
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "saved-search-remove";
+    remove.textContent = "✕";
+    remove.title = `Forget "${item.name}"`;
+    remove.setAttribute("aria-label", remove.title);
+    remove.addEventListener("click", async () => {
+      const next = savedSearches().filter((s) => s.name !== item.name);
+      await persistSavedSearches(next);
+      toast(`Forgot "${item.name}".`);
+    });
+    chipEl.append(apply, remove);
+    box.appendChild(chipEl);
+  }
+}
+
+async function persistSavedSearches(next) {
+  prefsCache = await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ saved_searches: next }),
+  });
+  renderSavedSearches();
+}
+
+async function saveCurrentSearch() {
+  const query = $("note-search").value.trim();
+  if (!query) return;
+  const name = (prompt("Name this filter:", query.slice(0, 40)) || "").trim();
+  if (!name) return;
+  // Re-saving an existing name updates it rather than adding a duplicate you
+  // then have to hunt down and remove.
+  const next = savedSearches().filter((s) => s.name !== name);
+  next.push({ name, query });
+  await persistSavedSearches(next);
+  toast(`Saved "${name}".`);
+}
+
+$("save-search").addEventListener("click", saveCurrentSearch);
+
 $("search-help").addEventListener("click", () => {
   const panel = $("search-help-hint");
   const showing = panel.classList.toggle("hidden");
@@ -9653,6 +9722,8 @@ document.addEventListener("keydown", (e) => {
 // Wave J: note search + sort, capture char count.
 $("note-search").addEventListener("input", (e) => {
   noteSearch = e.target.value.trim();
+  // Nothing to save when the box is empty; the button appears when it isn't.
+  $("save-search").classList.toggle("hidden", !noteSearch);
   renderEntries();
 });
 $("note-sort").addEventListener("change", (e) => {

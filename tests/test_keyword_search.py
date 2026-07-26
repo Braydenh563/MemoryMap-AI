@@ -114,3 +114,27 @@ def test_stopwords_are_ignored_but_real_words_still_count(notes):
 
 def test_short_words_do_not_match_everything(notes):
     assert search_manager.keyword_search(notes, "a") == []
+
+
+# --- saved filters -------------------------------------------------------------
+
+
+def test_saved_searches_round_trip(client):
+    """A named filter is just a preference, so it survives a restart."""
+    saved = [{"name": "Work, untagged", "query": "tag:work is:untagged"}]
+    body = client.put("/preferences", json={"saved_searches": saved}).json()
+    assert body["saved_searches"] == saved
+
+    # And it comes back on a fresh read, not just in the write response.
+    assert client.get("/preferences").json()["saved_searches"] == saved
+
+
+def test_saved_searches_default_to_empty(client):
+    assert client.get("/preferences").json()["saved_searches"] == []
+
+
+def test_a_saved_search_needs_a_name_and_a_query(client):
+    too_short = client.put("/preferences", json={"saved_searches": [{"name": "", "query": "x"}]})
+    assert too_short.status_code == 422
+    no_query = client.put("/preferences", json={"saved_searches": [{"name": "x", "query": ""}]})
+    assert no_query.status_code == 422

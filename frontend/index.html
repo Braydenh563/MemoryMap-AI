@@ -276,6 +276,8 @@
                 placeholder="🔎 Filter — try tag:work or &quot;exact phrase&quot;"
                 aria-label="Filter notes. Supports tag:, cat:, is:pinned, -exclude and quoted phrases"
                 aria-describedby="search-help-hint">
+              <button id="save-search" class="ghost small hidden" type="button"
+                title="Save this filter so you can come back to it">☆ Save filter</button>
               <button id="search-help" class="ghost small" type="button"
                 aria-expanded="false" aria-controls="search-help-hint"
                 title="What can I type here?">?</button>
@@ -298,6 +300,9 @@
             <button id="batch-delete" class="ghost small">🗑 Delete</button>
             <button id="batch-cancel" class="ghost small">Done</button>
           </div>
+          <!-- Filters you've named and kept. -->
+          <div id="saved-searches" class="saved-searches hidden"
+            role="group" aria-label="Saved filters"></div>
           <!-- Search operators are useless if nobody knows they exist. -->
           <div id="search-help-hint" class="search-help hidden">
             <p class="muted">The filter understands a few shortcuts — all of these work without any AI:</p>

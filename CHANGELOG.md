@@ -9,6 +9,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- **Search operators in the notes filter**: `tag:work`, `cat:recipes`,
+  `is:pinned` / `private` / `linked` / `untagged`, `"exact phrase"`, and
+  `-exclude`. Plain words now match in any order rather than as one substring.
+  The heading shows "3 of 6" while a filter is active, matched words are
+  highlighted in the results, and a ? button explains the syntax. All of it
+  works with no AI running.
+- **Saved filters**: name a filter and keep it as a chip above the notes list.
+  Stored as a preference, so it survives a restart.
 - **Private notes**: mark any note private and its text is encrypted at rest
   with AES-GCM. The design is an envelope — a random data key encrypts the
   notes, and your password only encrypts that key — so changing your password
@@ -40,6 +48,22 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- **Keyword search only matched contiguous substrings.** "bread proving" found
+  a note that "proving bread" did not — word order was something you had to
+  guess. It now matches every word in any order across content and tags, and
+  ranks results (exact phrase, then tags, then the opening of a note) rather
+  than listing them newest-first. With no AI running this is the whole of
+  search, not a fallback.
+- **AI-only buttons looked usable with no AI.** Improve, Magic Add, Draft it
+  and AI edit stayed enabled, so you'd type a note, press the button, wait, and
+  get an apology. They're disabled with the reason in the tooltip. Save, Ask,
+  search, tags, categories, reminders, documents and the graph are unaffected —
+  they work fully without AI.
+- **The status pill announced faults instead of capability.** "search AI
+  unavailable — see Settings → Logs" pointed at a log viewer; it now reads
+  "word search on · AI search unavailable" with the detail in the tooltip.
+- **The command palette had gone stale** — it knew nothing about Documents, the
+  writing room, or the newer settings screens.
 - **The chat answered "hey" with a summary of your notebook.** Every message
   was retrieved-for and then answered "using ONLY the notes provided"; on an
   empty notebook a greeting got "I couldn't find any saved notes matching that

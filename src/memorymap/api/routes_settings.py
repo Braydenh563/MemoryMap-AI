@@ -71,6 +71,15 @@ class PreferencesBody(BaseModel):
     searxng_url: str | None = Field(default=None, max_length=200)
     # Wave O: agent tools the user has switched off (by tool name).
     disabled_tools: list[str] | None = Field(default=None, max_length=50)
+    # Named filters the user has saved from the Notes tab.
+    saved_searches: list["SavedSearch"] | None = Field(default=None, max_length=30)
+
+
+class SavedSearch(BaseModel):
+    """A named filter, e.g. {"name": "This week's work", "query": "tag:work"}."""
+
+    name: str = Field(min_length=1, max_length=40)
+    query: str = Field(min_length=1, max_length=200)
 
 
 class DashboardLayout(BaseModel):
@@ -104,6 +113,7 @@ def get_preferences() -> dict:
         "web_search_enabled": config.get_preference("web_search_enabled", False),
         "searxng_url": config.get_preference("searxng_url", ""),
         "disabled_tools": config.get_preference("disabled_tools", []),
+        "saved_searches": config.get_preference("saved_searches", []),
     }
 
 

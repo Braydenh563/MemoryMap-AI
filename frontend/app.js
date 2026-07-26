@@ -203,6 +203,7 @@ function startApp() {
       // same prefsCache that loadTemplates just filled.
       loadChatSkills();
       $("tools-toggle").checked = !prefsCache || prefsCache.tools_enabled !== false;
+      renderWebSearchToggle();
     })
   );
   step("load conversations", loadConversationList);
@@ -2229,6 +2230,30 @@ const BUILTIN_SKILLS = [
       "tidy the notebook. Don't change anything yet — list your suggestions " +
       "and ask which ones I'd like you to apply.",
   },
+  {
+    name: "✉️ Draft an email",
+    prompt:
+      "Help me draft an email. Ask me who it's to and what it's about if I " +
+      "haven't said, then write a clear, friendly draft I can edit.",
+  },
+  {
+    name: "💡 Brainstorm ideas",
+    prompt:
+      "Brainstorm ideas with me. Ask what topic if I haven't given one, then " +
+      "offer a varied list of ideas, drawing on anything relevant in my notes.",
+  },
+  {
+    name: "📖 Explain a concept",
+    prompt:
+      "Explain a concept to me clearly and simply. Ask which concept if I " +
+      "haven't named one, then explain it with a short example.",
+  },
+  {
+    name: "🗓 Create a study plan",
+    prompt:
+      "Help me create a study or action plan. Ask about the goal and timeframe " +
+      "if I haven't said, then lay out a realistic step-by-step plan.",
+  },
 ];
 
 function allSkills() {
@@ -2660,9 +2685,13 @@ async function renderDashboard() {
     body.className = "dash-body";
     card.appendChild(body);
     if (!hidden) {
-      widget.render(body).catch(() => {
-        body.textContent = "Couldn't load this widget.";
-      });
+      // Promise.resolve() so a synchronous renderer can't break the whole
+      // dashboard loop, and a throwing one only spoils its own card.
+      Promise.resolve()
+        .then(() => widget.render(body))
+        .catch(() => {
+          body.textContent = "Couldn't load this widget.";
+        });
     }
 
     // Drag to reorder (edit mode only).
@@ -3220,7 +3249,9 @@ function setFocusTimer(minutes) {
   paintFocusTimer();
 }
 
-function renderFocusTimerWidget(body) {
+// async to match the widget contract in renderDashboard (render() must
+// return a promise).
+async function renderFocusTimerWidget(body) {
   const display = document.createElement("div");
   display.id = "focus-timer-display";
   display.className = "focus-timer-display";
@@ -5854,6 +5885,25 @@ $("tools-toggle").addEventListener("change", async () => {
     method: "PUT",
     body: JSON.stringify({ tools_enabled: $("tools-toggle").checked }),
   }).catch(() => {});
+});
+
+// In-chat web-search toggle: reflects and flips the web_search_enabled pref,
+// with a clear active state (it's the same setting as Settings → Preferences).
+function renderWebSearchToggle() {
+  const on = Boolean(prefsCache && prefsCache.web_search_enabled);
+  const button = $("web-search-toggle");
+  button.classList.toggle("active", on);
+  button.setAttribute("aria-pressed", on ? "true" : "false");
+}
+$("web-search-toggle").addEventListener("click", async () => {
+  const next = !(prefsCache && prefsCache.web_search_enabled);
+  prefsCache = await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ web_search_enabled: next }),
+  }).catch(() => prefsCache);
+  renderWebSearchToggle();
+  $("pref-web-search").checked = next; // keep the Settings checkbox in sync
+  toast(next ? "Web search on — the AI can search when you ask." : "Web search off.");
 });
 
 // Dashboard + reminders (Wave D).

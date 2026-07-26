@@ -123,6 +123,46 @@ def _list_categories(session: Session, args: dict) -> dict:
     }
 
 
+def _get_current_time(session: Session, args: dict) -> dict:
+    """Time-aware answers: the model can ask what 'now' is."""
+    now = datetime.now().astimezone()
+    return {
+        "iso": now.isoformat(),
+        "human": now.strftime("%A %d %B %Y, %H:%M"),
+        "label": "🕐 Checked the current time",
+    }
+
+
+def _summarize_notes(session: Session, args: dict) -> dict:
+    """Gather recent notes (optionally by category / time window) so the model
+    can summarise them in its answer. Read-only."""
+    from datetime import timedelta
+
+    from memorymap.core.database import utcnow
+
+    query = select(Entry).where(Entry.is_deleted == False)  # noqa: E712
+    period = "all time"
+    days = args.get("days")
+    if days:
+        try:
+            days_int = int(days)
+            query = query.where(Entry.created_at >= utcnow() - timedelta(days=days_int))
+            period = f"last {days_int} days"
+        except (ValueError, TypeError):
+            pass
+    rows = list(session.scalars(query.order_by(Entry.created_at.desc()).limit(40)))
+    wanted = args.get("category")
+    if wanted:
+        rows = [e for e in rows if manager.category_name_for(session, e) == str(wanted)]
+        period = f"{period}, {wanted}"
+    return {
+        "period": period,
+        "count": len(rows),
+        "notes": [_note_summary(session, e) for e in rows],
+        "label": "📝 Gathered notes to summarise",
+    }
+
+
 def _create_note(session: Session, args: dict) -> dict:
     content = str(args["content"]).strip()
     if not content:
@@ -371,6 +411,32 @@ TOOLS: dict[str, ToolSpec] = {
                 },
             },
             _count_notes,
+        ),
+        ToolSpec(
+            "get_current_time",
+            "Get the current local date and time. Use this for time-aware "
+            "answers and to compute reminder times.",
+            {"type": "object", "properties": {}},
+            _get_current_time,
+        ),
+        ToolSpec(
+            "summarize_notes",
+            "Gather the user's recent notes (optionally from the last N days or a "
+            "category) so you can summarise them. Read-only.",
+            {
+                "type": "object",
+                "properties": {
+                    "days": {
+                        "type": "integer",
+                        "description": "Only include notes from the last N days (optional)",
+                    },
+                    "category": {
+                        "type": "string",
+                        "description": "Only include this category (optional)",
+                    },
+                },
+            },
+            _summarize_notes,
         ),
         ToolSpec(
             "list_categories",

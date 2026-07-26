@@ -701,6 +701,13 @@ li.link-source { outline: 2px solid var(--accent); }
 .focus-presets { flex-wrap: wrap; align-items: center; }
 .focus-custom { width: 4.5rem; }
 
+/* In-chat web-search toggle active state */
+#web-search-toggle.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
 /* Typing indicator (Wave D): three bouncing dots until the first token */
 .typing-dots { display: inline-flex; gap: 0.25rem; padding: 0.2rem 0; }
 .typing-dots span {

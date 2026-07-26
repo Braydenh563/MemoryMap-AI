@@ -61,6 +61,28 @@ def test_execute_search_and_count(ai_client, session):
     assert one["count"] == 1
 
 
+def test_get_current_time_tool(session):
+    result = tools.execute_tool(session, "get_current_time", {})
+    assert "iso" in result and "human" in result
+    # A parseable ISO timestamp.
+    from datetime import datetime
+
+    datetime.fromisoformat(result["iso"])
+
+
+def test_summarize_notes_tool(ai_client, session):
+    _save(ai_client, "buy milk and eggs", category="Shopping")
+    _save(ai_client, "a funny scarecrow joke", category="Jokes")
+
+    everything = tools.execute_tool(session, "summarize_notes", {})
+    assert everything["count"] == 2
+    assert len(everything["notes"]) == 2
+
+    just_jokes = tools.execute_tool(session, "summarize_notes", {"category": "Jokes"})
+    assert just_jokes["count"] == 1
+    assert "Jokes" in just_jokes["period"]
+
+
 def test_execute_create_edit_tag_pin_link(ai_client, session):
     created = tools.execute_tool(
         session, "create_note", {"content": "call the dentist", "category": "Tasks"}

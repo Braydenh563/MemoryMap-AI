@@ -4810,7 +4810,9 @@ async function magicAddReminder() {
   try {
     const reminder = await apiJson("/reminders/parse", {
       method: "POST",
-      body: JSON.stringify({ text }),
+      // Send our clock, so "tomorrow evening" is resolved against the time
+      // the user can see rather than the server's UTC.
+      body: JSON.stringify({ text, tz_offset_minutes: -new Date().getTimezoneOffset() }),
     });
     input.value = "";
     status.textContent = `Added “${reminder.text}” — ${relativeWhen(reminder.due_at)}. Edit it below if needed.`;
@@ -4846,13 +4848,16 @@ async function checkDueReminders() {
 setInterval(checkDueReminders, 30_000);
 
 // Default due time for new reminders: tomorrow morning, 9am.
+// The field starts at today's date and the current time, so the common case
+// is a small nudge rather than re-typing the whole thing. It used to jump to
+// 9am tomorrow, which was wrong far more often than it was right. Rounded up
+// to the next five minutes so the default isn't already in the past by the
+// time you press Add.
 function defaultDueValue() {
   const due = new Date();
-  due.setDate(due.getDate() + 1);
-  due.setHours(9, 0, 0, 0);
-  // datetime-local wants "YYYY-MM-DDTHH:MM" in local time.
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${due.getFullYear()}-${pad(due.getMonth() + 1)}-${pad(due.getDate())}T${pad(due.getHours())}:${pad(due.getMinutes())}`;
+  due.setSeconds(0, 0);
+  due.setMinutes(Math.ceil((due.getMinutes() + 1) / 5) * 5);
+  return toLocalInputValue(due.toISOString());
 }
 
 // --- tiny markdown renderer (Round 1) -------------------------------------------

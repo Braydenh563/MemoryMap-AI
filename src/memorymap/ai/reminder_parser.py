@@ -4,6 +4,10 @@ Reuses the local utility model — the same one the digest/janitor use — so
 nothing leaves the machine. Parsing is best-effort: if the model is unavailable
 or returns something unusable, callers get a sensible fallback (the raw text,
 due tomorrow at 9am, normal priority) rather than an error.
+
+The `now` handed in is the user's local wall-clock time, not the server's UTC:
+"this evening" is meaningless against the wrong clock, and getting it wrong put
+every relative reminder hours out.
 """
 
 from __future__ import annotations
@@ -19,9 +23,12 @@ _SYSTEM = (
     'Reply with ONLY a JSON object of the form '
     '{{"text": string, "due_at": ISO-8601 date-time, "priority": one of '
     '"low"/"normal"/"high"}}. '
-    "Resolve relative times (tomorrow, this evening, next week, in 2 hours) "
-    "against the current time. If no time is given, use 9am. If no priority is "
-    "given, use normal. Keep the reminder text short and imperative."
+    "That time is the user's own local clock — answer on the same clock, and "
+    "resolve relative times (tomorrow, this evening, next week, in 2 hours) "
+    "against it. If a time of day is given but no date, choose the next time "
+    "that is still in the future. If no time at all is given, use 9am the "
+    "following morning. If no priority is given, use normal. Keep the reminder "
+    "text short and imperative."
 )
 
 

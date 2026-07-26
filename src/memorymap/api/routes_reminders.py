@@ -6,7 +6,7 @@ nothing runs in the cloud.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -35,6 +35,10 @@ class ReminderCreate(BaseModel):
 
 class MagicAddBody(BaseModel):
     text: str = Field(min_length=1, max_length=300)
+    # Minutes east of UTC, as the browser reports it. "Tomorrow evening" has to
+    # be resolved against the user's clock, not the server's — without this the
+    # model was told the time in UTC and every relative time landed hours out.
+    tz_offset_minutes: int | None = Field(default=None, ge=-840, le=840)
 
 
 class ReminderUpdate(BaseModel):
@@ -111,11 +115,22 @@ def magic_add_reminder(body: MagicAddBody, session: Session = Depends(get_sessio
             status_code=503,
             detail="The local AI isn't running — add the reminder with the form instead.",
         )
+    offset = timedelta(minutes=body.tz_offset_minutes or 0)
+    # Give the model the wall-clock time the user sees, then put the answer
+    # back on the UTC clock everything else is stored in.
+    local_now = utcnow() + offset
     parsed = reminder_parser.parse_reminder(
-        body.text, ollama, deps.get_model_manager(), utcnow()
+        body.text, ollama, deps.get_model_manager(), local_now
     )
+    due_at = parsed["due_at"]
+    if due_at.tzinfo is None:
+        # The model answered in local wall-clock time, as it was asked to.
+        due_at = due_at.replace(tzinfo=timezone.utc) - offset
+    else:
+        # It volunteered an offset. Trust it, but store UTC like everything else.
+        due_at = due_at.astimezone(timezone.utc)
     reminder = Reminder(
-        text=parsed["text"], due_at=parsed["due_at"], priority=parsed["priority"]
+        text=parsed["text"], due_at=due_at, priority=parsed["priority"]
     )
     session.add(reminder)
     session.flush()

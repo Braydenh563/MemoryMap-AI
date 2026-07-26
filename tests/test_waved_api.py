@@ -96,6 +96,34 @@ def test_magic_add_falls_back_on_unparseable_reply(ai_client, fake_ollama):
     assert created["priority"] == "normal"
 
 
+def test_magic_add_resolves_times_on_the_users_clock(ai_client, fake_ollama):
+    """The model is told the local time and answers on it; storage is UTC."""
+    fake_ollama.librarian_reply = (
+        '{"text": "call mum", "due_at": "2030-01-02T18:00", "priority": "normal"}'
+    )
+    # UTC+13 (New Zealand in summer): 6pm local is 05:00 UTC the same day.
+    created = ai_client.post(
+        "/reminders/parse",
+        json={"text": "call mum tomorrow evening", "tz_offset_minutes": 780},
+    ).json()
+    assert created["due_at"].startswith("2030-01-02T05:00")
+
+    # And the prompt carried the local wall clock, not the server's UTC.
+    system = fake_ollama.chat_calls[-1][0]["content"]
+    assert "The current date and time is" in system
+
+
+def test_magic_add_honours_an_offset_the_model_supplies(ai_client, fake_ollama):
+    """An explicit offset in the reply is trusted rather than shifted again."""
+    fake_ollama.librarian_reply = (
+        '{"text": "standup", "due_at": "2030-01-02T18:00+02:00", "priority": "normal"}'
+    )
+    created = ai_client.post(
+        "/reminders/parse", json={"text": "standup", "tz_offset_minutes": 780}
+    ).json()
+    assert created["due_at"].startswith("2030-01-02T16:00")
+
+
 def test_magic_add_needs_ai_running(ai_client, fake_ollama):
     fake_ollama.running = False
     assert ai_client.post("/reminders/parse", json={"text": "x"}).status_code == 503

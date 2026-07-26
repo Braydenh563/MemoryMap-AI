@@ -433,7 +433,9 @@ def test_log_noise_filter_drops_windows_proactor_chatter():
 def test_reader_endpoint_requires_opt_in_and_http(client, monkeypatch):
     assert client.get("/websearch/read?url=https://example.com").status_code == 403
     client.put("/preferences", json={"web_search_enabled": True})
-    assert client.get("/websearch/read?url=file:///etc/passwd").status_code == 502
+    # Not a fetchable URL at all, so it's rejected as a bad request rather than
+    # attempted and reported as a bad gateway.
+    assert client.get("/websearch/read?url=file:///etc/passwd").status_code == 400
 
 
 def test_websearch_tool_hidden_until_opted_in(client):
@@ -542,3 +544,22 @@ def test_reader_refuses_a_redirect_into_the_local_network(client, monkeypatch):
     assert "local address" in response.json()["detail"]
     # The first hop was fetched; the redirect target never was.
     assert seen == ["https://example.com/post"]
+
+
+def test_reader_opens_an_ordinary_result_page(client, monkeypatch):
+    """The reader's whole job is opening results, which live on any site.
+
+    Guards this against the host allowlist that briefly shipped and rejected
+    every real page, since the engines it allowed are never where results are.
+    """
+    from memorymap.search import websearch
+
+    monkeypatch.setattr(
+        websearch,
+        "fetch_readable",
+        lambda url: {"title": "A post", "url": url, "blocks": [], "text": "hello"},
+    )
+    client.put("/preferences", json={"web_search_enabled": True})
+    response = client.get("/websearch/read?url=https://en.wikipedia.org/wiki/Cat")
+    assert response.status_code == 200
+    assert response.json()["title"] == "A post"

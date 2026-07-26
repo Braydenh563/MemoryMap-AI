@@ -402,12 +402,20 @@ function entryItem(entry, options = {}) {
     meta.appendChild(busy);
   }
 
+  // The date and the action buttons share one right-aligned group. They used
+  // to carry a `margin-left: auto` each, and two auto margins in a flex row
+  // split the free space between them — which put the timestamp at a
+  // different x on every card, depending on how wide its chips were.
+  const metaEnd = document.createElement("span");
+  metaEnd.className = "entry-meta-end";
+
   const date = document.createElement("span");
   date.className = "entry-date";
   const stamp = options.bin ? entry.deleted_at : entry.created_at;
   date.textContent = relativeTime(stamp);
   date.title = new Date(stamp).toLocaleString(); // exact on hover
-  meta.appendChild(date);
+  metaEnd.appendChild(date);
+  meta.appendChild(metaEnd);
 
   if (options.bin) {
     const actions = document.createElement("span");
@@ -418,7 +426,7 @@ function entryItem(entry, options = {}) {
         await Promise.all([loadEntries(), renderBin()]);
       })
     );
-    meta.appendChild(actions);
+    metaEnd.appendChild(actions);
   } else if (options.actions) {
     // Wave L rework: two everyday actions stay visible; the rest live in
     // one ⋯ menu — the old row of nine icons was unscannable noise.
@@ -450,7 +458,7 @@ function entryItem(entry, options = {}) {
       })
     );
     actions.appendChild(entryOverflowMenu(entry));
-    meta.appendChild(actions);
+    metaEnd.appendChild(actions);
   }
   if (entry.pinned) meta.insertBefore(chip("📌 pinned"), meta.firstChild);
   li.appendChild(meta);
@@ -1299,6 +1307,17 @@ const SEARCH_MODE_LABELS = {
   recent: "recent notes", // broad question → showing recent entries
 };
 
+// Say something to a screen reader without putting anything on screen. Used
+// for changes whose only visible signal is colour or position.
+function announce(message) {
+  const region = $("live-region");
+  if (!region) return;
+  // Clearing first guarantees the change is seen as new even when the same
+  // message is announced twice in a row.
+  region.textContent = "";
+  requestAnimationFrame(() => (region.textContent = message));
+}
+
 // Jump to an entry in the Notes tab and flash it — shared by search
 // results, most-used, and related-notes chips.
 function flashEntry(id) {
@@ -1309,9 +1328,21 @@ function flashEntry(id) {
   requestAnimationFrame(() => {
     const card = document.querySelector(`#entry-list li[data-id="${id}"]`);
     if (!card) return;
-    card.scrollIntoView({ behavior: "smooth", block: "center" });
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    card.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+    // Restart the animation even when the same note is jumped to twice in a
+    // row — without the reflow the class is already there and nothing replays.
+    card.classList.remove("flash");
+    void card.offsetWidth;
     card.classList.add("flash");
-    setTimeout(() => card.classList.remove("flash"), 1700);
+    // Announce it too: a colour change alone tells a screen-reader user
+    // nothing about where they've just been sent.
+    // Just the note's own text — card.textContent would drag in the category
+    // chip, every tag, and the confidence badge.
+    const body = card.querySelector(".entry-content")?.textContent || "";
+    announce(`Showing note: ${body.trim().slice(0, 80)}`);
+    clearTimeout(flashEntry.timer);
+    flashEntry.timer = setTimeout(() => card.classList.remove("flash"), 2700);
   });
 }
 
@@ -5485,6 +5516,7 @@ function applyGraphHighlight() {
 // --- graph node popup: edit a note without leaving the map -------------------
 
 let graphPopupId = null;
+let graphPopupAnchor = null;
 
 async function openGraphPopup(event, node) {
   event.stopPropagation();
@@ -5498,20 +5530,12 @@ async function openGraphPopup(event, node) {
   $("graph-popup-tags").value = "";
   popup.classList.remove("hidden");
 
-  // Position near the click, kept inside the graph box (measured after it's
-  // visible so the real height is used and it never hangs off the edge).
-  const box = $("graph-box").getBoundingClientRect();
-  const size = popup.getBoundingClientRect();
-  const left = Math.min(
-    Math.max(event.clientX - box.left + 12, 8),
-    Math.max(8, box.width - size.width - 8)
-  );
-  const top = Math.min(
-    Math.max(event.clientY - box.top + 12, 8),
-    Math.max(8, box.height - size.height - 8)
-  );
-  popup.style.left = `${left}px`;
-  popup.style.top = `${top}px`;
+  // Remember where the click was: the popup has to be placed again once the
+  // note arrives, because the info chips and action buttons render afterwards
+  // and grow it. Positioning only on open is what let a tall note hang off
+  // the bottom of the map.
+  graphPopupAnchor = { x: event.clientX, y: event.clientY };
+  placeGraphPopup();
 
   const entry = await apiJson(`/entries/${node.id}`).catch(() => null);
   if (!entry || graphPopupId !== node.id) {
@@ -5526,7 +5550,30 @@ async function openGraphPopup(event, node) {
   $("graph-popup-tags").value = (entry.tags || []).join(", ");
   renderGraphPopupInfo(entry, node);
   renderGraphPopupActions(entry);
+  placeGraphPopup(); // now that it's at its real height
   $("graph-popup-content").focus();
+}
+
+// Clamp the popup inside the graph box. Called on open and again once the
+// note has loaded, since the popup is taller by then.
+function placeGraphPopup() {
+  const popup = $("graph-popup");
+  if (!graphPopupAnchor || popup.classList.contains("hidden")) return;
+  const box = $("graph-box").getBoundingClientRect();
+  // Never taller than the map it sits in — beyond that the popup scrolls
+  // itself rather than growing off the edge.
+  popup.style.maxHeight = `${Math.max(120, box.height - 16)}px`;
+  const size = popup.getBoundingClientRect();
+  const left = Math.min(
+    Math.max(graphPopupAnchor.x - box.left + 12, 8),
+    Math.max(8, box.width - size.width - 8)
+  );
+  const top = Math.min(
+    Math.max(graphPopupAnchor.y - box.top + 12, 8),
+    Math.max(8, box.height - size.height - 8)
+  );
+  popup.style.left = `${left}px`;
+  popup.style.top = `${top}px`;
 }
 
 // The facts about a note, as small chips.
@@ -5753,6 +5800,10 @@ function switchTab(name) {
     button.tabIndex = active ? 0 : -1;
   }
   localStorage.setItem("activeTab", name); // reopen where you left off
+  // A new tab starts at its own top, and the back-to-top button re-evaluates
+  // (it stays off the graph).
+  window.scrollTo({ top: 0, behavior: "auto" });
+  scrollTopUpdate?.();
   // The generative-art animation only needs to run while it's on screen.
   if (name !== "dashboard") stopArt();
   if (name === "chat") {
@@ -5812,6 +5863,50 @@ function showPanel(id) {
   for (const panel of PANELS) {
     $(panel).classList.toggle("hidden", panel !== id);
   }
+  // These open above the note list, so opening one from halfway down the page
+  // used to leave you looking at the notes you'd scrolled to instead of the
+  // panel you just asked for.
+  if (id) scrollPageToTop();
+}
+
+// Honour "prefers reduced motion" — a long smooth scroll is exactly the kind
+// of movement that setting exists to stop.
+function scrollPageToTop() {
+  const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  window.scrollTo({ top: 0, behavior: smooth ? "smooth" : "auto" });
+}
+
+// --- back-to-top button -----------------------------------------------------------
+// Shown on every tab except the graph, where the page itself doesn't scroll
+// and the button would just sit on top of the map.
+const NO_SCROLL_TOP_TABS = new Set(["graph"]);
+let scrollTopUpdate = null;
+
+function initScrollTopButton() {
+  const button = document.createElement("button");
+  button.id = "scroll-top";
+  button.className = "scroll-top";
+  button.type = "button";
+  button.textContent = "↑";
+  button.title = "Back to top";
+  button.setAttribute("aria-label", "Back to top");
+  button.addEventListener("click", () => {
+    scrollPageToTop();
+    // Send focus somewhere sensible rather than leaving it on a button that
+    // is about to hide itself.
+    document.querySelector(".tab-page:not(.hidden)")?.focus();
+  });
+  document.body.appendChild(button);
+
+  const update = () => {
+    const tab = localStorage.getItem("activeTab") || "dashboard";
+    const show = window.scrollY > 400 && !NO_SCROLL_TOP_TABS.has(tab);
+    button.classList.toggle("visible", show);
+  };
+  window.addEventListener("scroll", update, { passive: true });
+  window.addEventListener("resize", update, { passive: true });
+  update();
+  return update;
 }
 
 // --- settings modal (Wave A) ------------------------------------------------------
@@ -7965,6 +8060,7 @@ $("skip-link").addEventListener("click", (e) => {
   $(`tab-${localStorage.getItem("activeTab") || "notes"}`).focus();
 });
 initCollapsibleSections();
+scrollTopUpdate = initScrollTopButton();
 switchTab(localStorage.getItem("activeTab") || "notes");
 
 // Settings modal (Wave A).
@@ -8037,6 +8133,8 @@ for (const key of ["gravity", "spread"]) {
 
 // Node popup: edit a note in place on the map.
 $("graph-popup-close").addEventListener("click", closeGraphPopup);
+// Resizing the window changes the map's size, so an open popup needs re-clamping.
+window.addEventListener("resize", placeGraphPopup, { passive: true });
 $("graph-popup-save").addEventListener("click", saveGraphPopup);
 // "Open in Notes" now lives in the popup's action row (renderGraphPopupActions).
 // Clicking empty canvas dismisses the popups.

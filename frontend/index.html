@@ -1063,6 +1063,9 @@
 
   <!-- aria-live so screen readers hear saves, undos, and errors (Wave L) -->
   <div id="toast-box" aria-live="polite"></div>
+  <!-- Off-screen announcements for things with no visible message of their
+       own — jumping to a note, for instance, is only a colour change. -->
+  <div id="live-region" class="visually-hidden" role="status" aria-live="polite"></div>
   <!-- Command palette (Wave F): Ctrl/Cmd-K anywhere -->
   <div id="palette-overlay" class="hidden" role="dialog" aria-label="Command palette">
     <div class="card" id="palette-card">

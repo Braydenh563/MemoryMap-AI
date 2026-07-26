@@ -6543,6 +6543,9 @@ function applyAppearance() {
   root.dataset.glass = appearancePref("glass");
   root.dataset.motion = appearancePref("motion");
   root.style.setProperty("--bg-art-opacity", Number(appearancePref("bg-intensity")) / 100);
+  // Cards thin out slightly while the art is on, so it reads through the page
+  // rather than only in the margins.
+  root.dataset.bgArt = bgArtOn() ? "on" : "off";
   root.style.setProperty("--radius", `${appearancePref("radius")}px`);
   root.style.setProperty("--glass-blur", `${appearancePref("glass-blur")}px`);
   applyCustomAccent(localStorage.getItem("accent-custom"));
@@ -6711,10 +6714,11 @@ function startBgArt() {
       p.pop();
     };
 
-    // The original flow-field aurora (unchanged).
+    // The flow-field aurora. A lighter wash lets trails linger, so the
+    // ribbons actually read behind the app's translucent cards.
     const drawAurora = (t) => {
       p.noStroke();
-      p.fill(dark ? 12 : 250, dark ? 0.14 : 0.16);
+      p.fill(dark ? 12 : 250, dark ? 0.09 : 0.10);
       p.rect(0, 0, p.width, p.height);
       drawEmblem(t);
       for (const dot of particles) {
@@ -6726,7 +6730,7 @@ function startBgArt() {
         if (dot.x > p.width) dot.x = 0;
         if (dot.y < 0) dot.y = p.height;
         if (dot.y > p.height) dot.y = 0;
-        p.fill(dot.hue, 65, dark ? 68 : 55, 0.5);
+        p.fill(dot.hue, 78, dark ? 70 : 48, 0.8);
         p.circle(dot.x, dot.y, dot.size);
       }
     };
@@ -6742,8 +6746,8 @@ function startBgArt() {
         if (dot.y < 0) dot.y = p.height;
         if (dot.y > p.height) dot.y = 0;
       }
-      p.stroke(baseHue, 55, dark ? 70 : 45, 0.16);
-      p.strokeWeight(1);
+      p.stroke(baseHue, 60, dark ? 72 : 42, 0.3);
+      p.strokeWeight(1.2);
       for (let i = 0; i < particles.length; i++) {
         for (let j = i + 1; j < particles.length; j++) {
           const a = particles[i];
@@ -6754,7 +6758,7 @@ function startBgArt() {
       }
       p.noStroke();
       for (const dot of particles) {
-        p.fill(dot.hue, 65, dark ? 75 : 50, 0.65);
+        p.fill(dot.hue, 72, dark ? 78 : 46, 0.85);
         p.circle(dot.x, dot.y, dot.size + 1);
       }
     };
@@ -6768,7 +6772,7 @@ function startBgArt() {
         const y = blob.baseY + Math.sin(t * 0.24 + blob.phase) * blob.amp;
         // A few stacked translucent circles fake a soft gradient edge.
         for (let ring = 3; ring >= 1; ring--) {
-          p.fill(blob.hue, 62, dark ? 55 : 62, 0.05);
+          p.fill(blob.hue, 70, dark ? 58 : 60, 0.09);
           p.circle(x, y, blob.size * ring * 0.8);
         }
       }
@@ -6785,7 +6789,7 @@ function startBgArt() {
           dot.y = p.height + 5;
           dot.x = p.random(p.width);
         }
-        p.fill(dot.hue, 60, dark ? 72 : 52, 0.45);
+        p.fill(dot.hue, 70, dark ? 76 : 48, 0.7);
         p.circle(dot.x, dot.y, dot.size);
       }
     };
@@ -6801,6 +6805,11 @@ function startBgArt() {
     p.setup = () => {
       const c = p.createCanvas(window.innerWidth, window.innerHeight);
       c.id("bg-art-canvas");
+      // p5 parents new canvases to the first <main> it finds — which is the
+      // one inside the Notes tab. That hid the background art on every other
+      // tab (the whole panel is display:none). Pin it to <body> so it really
+      // is a global background.
+      c.parent(document.body);
       // RGB for the wash rect, HSL for the coloured marks — p5 lets us
       // switch, but simplest to keep one mode; use HSL and a grey wash.
       p.colorMode(p.HSL, 360, 100, 100, 1);
@@ -6820,7 +6829,7 @@ function startBgArt() {
           phase: p.random(Math.PI * 2),
           amp: p.random(40, 140),
           speed: p.random(0.3, 1.1),
-          size: bgStyle === "blobs" ? p.random(160, 340) : p.random(1.5, 3.5),
+          size: bgStyle === "blobs" ? p.random(180, 380) : p.random(2.5, 5.5),
           hue: (baseHue + p.random(-24, 24) + 360) % 360,
         });
       }
@@ -6939,6 +6948,7 @@ function renderBrandLogo() {
 
 function toggleBgArt(on) {
   localStorage.setItem("bgArt", on ? "on" : "off");
+  applyAppearance(); // updates data-bg-art so the cards adjust with it
   if (on) startBgArt();
   else stopBgArt();
 }

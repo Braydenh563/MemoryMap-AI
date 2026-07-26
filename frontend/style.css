@@ -1909,6 +1909,24 @@ html { font-size: 16px; }
   vertical-align: middle;
 }
 
+/* When the generative background is on, let a little more of it read through
+   the cards — otherwise the art only shows in the page margins. Glass-off and
+   high-contrast keep their solid panels: legibility wins over decoration. */
+:root[data-bg-art="on"]:not([data-glass="off"]):not([data-contrast="on"]) {
+  --card: rgba(255, 255, 255, 0.42);
+  --inner: rgba(255, 255, 255, 0.34);
+}
+:root[data-bg-art="on"][data-theme="dark"]:not([data-glass="off"]):not([data-contrast="on"]) {
+  --card: rgba(29, 33, 46, 0.44);
+  --inner: rgba(29, 33, 46, 0.34);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-bg-art="on"]:not([data-theme="light"]):not([data-glass="off"]):not([data-contrast="on"]) {
+    --card: rgba(29, 33, 46, 0.44);
+    --inner: rgba(29, 33, 46, 0.34);
+  }
+}
+
 /* --- the app emblem, reused across the UI ---------------------------------- */
 .emblem { line-height: 0; }
 .emblem canvas { display: block; }

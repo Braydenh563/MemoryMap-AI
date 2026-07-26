@@ -3070,6 +3070,64 @@ function renderDashboardGreeting() {
   renderDashSubmessage().catch(() => {});
 }
 
+// --- masonry packing for the dashboard ---------------------------------------
+// CSS grid can't size rows to content per-column, so each card is given a row
+// span matching its measured height. Short widgets then stack vertically
+// inside a row instead of being stretched to match the tallest one.
+
+let dashResizeObserver = null;
+
+function sizeDashWidget(card, rowUnit, gap) {
+  // Measure the card's natural height, not its current grid-constrained one.
+  const previous = card.style.gridRowEnd;
+  card.style.gridRowEnd = "span 1";
+  const height = card.getBoundingClientRect().height;
+  const span = Math.max(1, Math.ceil((height + gap) / (rowUnit + gap)));
+  const next = `span ${span}`;
+  if (next !== previous) card.style.gridRowEnd = next;
+  else card.style.gridRowEnd = previous;
+}
+
+function sizeDashWidgets() {
+  const grid = $("dash-grid");
+  if (!grid) return;
+  const styles = getComputedStyle(grid);
+  const rowUnit = Number.parseFloat(styles.getPropertyValue("grid-auto-rows")) || 8;
+  const gap = Number.parseFloat(styles.rowGap) || 16;
+  for (const card of grid.querySelectorAll(".dash-widget")) {
+    sizeDashWidget(card, rowUnit, gap);
+  }
+  grid.classList.add("spans-ready");
+}
+
+// Widget bodies fill in asynchronously, so re-measure whenever one changes
+// size rather than only once at render time.
+function watchDashWidgets() {
+  const grid = $("dash-grid");
+  if (!grid || typeof ResizeObserver === "undefined") {
+    sizeDashWidgets();
+    return;
+  }
+  dashResizeObserver?.disconnect();
+  let queued = false;
+  dashResizeObserver = new ResizeObserver(() => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => {
+      queued = false;
+      sizeDashWidgets();
+    });
+  });
+  for (const card of grid.querySelectorAll(".dash-widget")) {
+    dashResizeObserver.observe(card);
+  }
+  sizeDashWidgets();
+}
+
+window.addEventListener("resize", () => {
+  if ($("dash-grid")) sizeDashWidgets();
+});
+
 // --- at-a-glance strip (page furniture, not a hideable widget) ---------------
 
 async function renderDashStats() {
@@ -3410,6 +3468,10 @@ async function renderDashboard() {
     }
     grid.appendChild(card);
   }
+  // Pack them once the cards exist; the observer keeps it right as the
+  // async widget bodies fill in.
+  grid.classList.remove("spans-ready");
+  watchDashWidgets();
 }
 
 // --- Wave J: generative art (p5.js, vendored locally) -------------------------------
@@ -5631,6 +5693,7 @@ async function renderPrefs() {
   $("pref-profile-enabled").checked = prefsCache.profile_enabled;
   $("pref-web-search").checked = Boolean(prefsCache.web_search_enabled);
   $("pref-searxng").value = prefsCache.searxng_url || "";
+  refreshSearxngHost().catch(() => {});
   $("prefs-status").textContent = "";
 }
 
@@ -7601,6 +7664,72 @@ $("bin-empty").addEventListener("click", async () => {
   await renderBin();
 });
 $("prefs-save").addEventListener("click", savePrefs);
+// Managed SearXNG: show what's there, and start/stop it on request.
+async function refreshSearxngHost() {
+  const badge = $("searxng-host-state");
+  const start = $("searxng-start");
+  const stop = $("searxng-stop");
+  const info = await apiJson("/websearch/searxng/status").catch(() => null);
+  if (!info) {
+    badge.textContent = "Unknown";
+    return;
+  }
+  if (!info.docker) {
+    badge.textContent = "Docker not found";
+    badge.title = info.detail || "";
+    start.disabled = true;
+    stop.disabled = true;
+    $("searxng-host-status").textContent = info.detail || "";
+    return;
+  }
+  const running = info.state === "running" && info.responding;
+  badge.textContent = running
+    ? "Running"
+    : info.state === "running"
+      ? "Starting…"
+      : info.state === "stopped"
+        ? "Stopped"
+        : "Not installed";
+  badge.className = `chip ${running ? "confidence" : ""}`.trim();
+  start.disabled = running;
+  stop.disabled = info.state === "absent";
+  start.textContent = info.state === "absent" ? "▶ Install & start" : "▶ Start SearXNG";
+}
+
+$("searxng-start").addEventListener("click", async () => {
+  const status = $("searxng-host-status");
+  status.classList.remove("error");
+  status.textContent = "Starting SearXNG… the first run pulls the image, so give it a minute.";
+  $("searxng-start").disabled = true;
+  try {
+    const body = await apiJson("/websearch/searxng/start", { method: "POST" });
+    $("pref-searxng").value = body.url;
+    prefsCache = await apiJson("/preferences").catch(() => prefsCache);
+    status.textContent = `Running at ${body.url} — web search now uses it.`;
+    toast("SearXNG is running.");
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+  }
+  refreshSearxngHost();
+});
+
+$("searxng-stop").addEventListener("click", async () => {
+  const status = $("searxng-host-status");
+  status.classList.remove("error");
+  status.textContent = "Stopping…";
+  try {
+    await apiJson("/websearch/searxng/stop", { method: "POST" });
+    $("pref-searxng").value = "";
+    prefsCache = await apiJson("/preferences").catch(() => prefsCache);
+    status.textContent = "Stopped — web search is back on DuckDuckGo.";
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+  }
+  refreshSearxngHost();
+});
+
 // Find a running SearXNG so the user never has to work out the wiring.
 $("searxng-detect").addEventListener("click", async () => {
   const status = $("searxng-status");

@@ -376,6 +376,51 @@ def detect_searxng(url: str = "", session: Session = Depends(get_session)) -> di
     return {"found": True, "url": found}
 
 
+@router.get("/websearch/searxng/status")
+def searxng_status() -> dict:
+    """Is a MemoryMap-managed SearXNG installed, running, and answering?"""
+    from memorymap.search import searxng_manager
+
+    return searxng_manager.status(deps.get_config().data_dir)
+
+
+@router.post("/websearch/searxng/start")
+def searxng_start(session: Session = Depends(get_session)) -> dict:
+    """Run SearXNG for the user and switch web search over to it."""
+    from memorymap.search import searxng_manager, websearch
+
+    config = deps.get_config()
+    try:
+        result = searxng_manager.start(config.data_dir)
+    except searxng_manager.SearxngError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    config.set_preference("searxng_url", result["url"])
+    websearch.clear_cache()
+    manager.log_action(session, "edited", "preferences", detail="searxng started")
+    session.commit()
+    return {"running": True, **result}
+
+
+@router.post("/websearch/searxng/stop")
+def searxng_stop(session: Session = Depends(get_session)) -> dict:
+    """Stop the managed instance and fall back to DuckDuckGo."""
+    from memorymap.search import searxng_manager, websearch
+
+    config = deps.get_config()
+    try:
+        result = searxng_manager.stop()
+    except searxng_manager.SearxngError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    # Point search back at DuckDuckGo so nothing tries the dead instance.
+    config.set_preference("searxng_url", "")
+    websearch.clear_cache()
+    manager.log_action(session, "edited", "preferences", detail="searxng stopped")
+    session.commit()
+    return {"running": False, **result}
+
+
 @router.get("/websearch/read")
 def web_read(url: str, session: Session = Depends(get_session)) -> dict:
     """Fetch a page as plain readable text.

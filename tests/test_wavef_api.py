@@ -285,6 +285,61 @@ def test_reader_returns_structured_blocks():
     assert not any("Login" in t or "Cookie" in t for t in texts)
 
 
+def test_searxng_status_without_docker(client, monkeypatch):
+    from memorymap.search import searxng_manager
+
+    monkeypatch.setattr(searxng_manager, "docker_available", lambda: False)
+    body = client.get("/websearch/searxng/status").json()
+    assert body["docker"] is False
+    assert "Docker isn't installed" in body["detail"]
+
+
+def test_searxng_start_without_docker_is_a_clear_503(client, monkeypatch):
+    from memorymap.search import searxng_manager
+
+    monkeypatch.setattr(searxng_manager, "docker_available", lambda: False)
+    response = client.post("/websearch/searxng/start")
+    assert response.status_code == 503
+    assert "Docker" in response.json()["detail"]
+
+
+def test_searxng_start_saves_the_url(client, monkeypatch):
+    from memorymap.search import searxng_manager
+
+    monkeypatch.setattr(
+        searxng_manager, "start", lambda data_dir: {"url": "http://localhost:8888", "started": True}
+    )
+    body = client.post("/websearch/searxng/start").json()
+    assert body["running"] is True
+    assert client.get("/preferences").json()["searxng_url"] == "http://localhost:8888"
+
+
+def test_searxng_stop_reverts_to_duckduckgo(client, monkeypatch):
+    from memorymap.search import searxng_manager
+
+    client.put("/preferences", json={"searxng_url": "http://localhost:8888"})
+    monkeypatch.setattr(searxng_manager, "stop", lambda: {"stopped": True})
+    body = client.post("/websearch/searxng/stop").json()
+    assert body["running"] is False
+    # The dead instance must not stay configured.
+    assert client.get("/preferences").json()["searxng_url"] == ""
+
+
+def test_searxng_settings_enable_the_json_api(tmp_path):
+    """The JSON format is the step people miss — we must always write it."""
+    from memorymap.search import searxng_manager
+
+    path = searxng_manager.ensure_settings(tmp_path)
+    text = path.read_text()
+    assert "json" in text
+    assert "use_default_settings: true" in text
+
+    # Written once, then left alone so user edits survive.
+    path.write_text("# edited by hand\n")
+    searxng_manager.ensure_settings(tmp_path)
+    assert path.read_text() == "# edited by hand\n"
+
+
 def test_searxng_detection_saves_the_url(client, monkeypatch):
     client.put("/preferences", json={"web_search_enabled": True})
     monkeypatch.setattr(

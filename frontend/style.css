@@ -684,19 +684,25 @@ li.link-source { outline: 2px solid var(--accent); }
   gap: 1rem;
   padding: 0 2rem 0.5rem;
 }
+/* Masonry-style packing: a fine row unit plus a JS-measured row span per card
+   means each widget takes only the height it needs, and short ones stack
+   within a column instead of leaving dead space beside a tall neighbour.
+   --dash-row and --dash-gap are read back by the JS that sets the spans. */
 #dash-grid {
+  --dash-row: 8px;
+  --dash-gap: 1rem;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-auto-rows: var(--dash-row);
   grid-auto-flow: row dense; /* pack short widgets into the gaps */
-  gap: 1rem;
+  gap: var(--dash-gap);
   padding: 0 2rem 2rem;
-  /* stretch (the default) makes every card in a row the same height, so the
-     grid reads as neat rows instead of a ragged staircase. */
-  align-items: stretch;
+  align-items: start;
 }
-/* Cards are columns so their body can absorb the leftover height. */
 .dash-widget { display: flex; flex-direction: column; }
-.dash-widget > .dash-body { flex: 1 1 auto; }
+/* Until the spans are measured, cards flow at natural height rather than
+   collapsing to one 8px row. */
+#dash-grid:not(.spans-ready) .dash-widget { grid-row: span 40; }
 /* Widgets can span two columns ("wide") — toggled in Edit layout. */
 .dash-widget.wide { grid-column: span 2; }
 @media (max-width: 720px) {
@@ -2452,6 +2458,14 @@ button { border-radius: calc(var(--radius) * 0.7); }
 .help-accordion summary { cursor: pointer; font-weight: 600; }
 .help-accordion details[open] summary { margin-bottom: 0.4rem; }
 .help-accordion p { margin: 0 0 0.5rem; font-size: 0.9rem; }
+.searxng-host {
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 0.7);
+  padding: 0.7rem 0.85rem;
+  margin-bottom: 0.6rem;
+}
+.searxng-host .row { margin: 0.4rem 0 0; align-items: center; }
+.searxng-host p { margin: 0.35rem 0 0; font-size: 0.86rem; }
 .setup-snippet {
   background: var(--chip-bg);
   padding: 0.6rem 0.7rem;

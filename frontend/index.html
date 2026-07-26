@@ -872,8 +872,24 @@
               inside your own network. Leave it blank to use DuckDuckGo; if your
               instance is unreachable MemoryMap falls back automatically.
             </p>
+            <div class="searxng-host">
+              <div class="row space-between">
+                <strong>Let MemoryMap run SearXNG</strong>
+                <span id="searxng-host-state" class="chip">Checking…</span>
+              </div>
+              <p class="muted">
+                If Docker is installed, MemoryMap can start and stop a SearXNG
+                container for you — settings and the JSON API are configured
+                automatically, so there's nothing to edit.
+              </p>
+              <div class="row">
+                <button id="searxng-start" class="small">▶ Start SearXNG</button>
+                <button id="searxng-stop" class="ghost small">■ Stop</button>
+                <span id="searxng-host-status" class="status" role="status"></span>
+              </div>
+            </div>
             <details class="help-accordion">
-              <summary>How do I get a SearXNG instance?</summary>
+              <summary>Prefer to run it yourself?</summary>
               <p class="muted">
                 MemoryMap can't host it for you — SearXNG is a separate service —
                 but running one locally is a single command if you have Docker:

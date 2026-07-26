@@ -2284,7 +2284,10 @@ async function openWebReader(url) {
   webReaderPage = page;
   status.textContent = "";
   $("web-reader-title").textContent = page.title || page.domain;
-  $("web-reader-source").textContent = page.domain;
+  const length = page.read_minutes
+    ? ` · ${page.words.toLocaleString()} words, about ${page.read_minutes} min`
+    : "";
+  $("web-reader-source").textContent = `${page.domain}${length}`;
 
   // Lay the page out as headings, paragraphs and lists rather than one wall
   // of text. Built with createElement/textContent — never innerHTML, since
@@ -2310,9 +2313,19 @@ async function openWebReader(url) {
         continue;
       }
       list = null;
+      // Headings keep the page's own depth. Rendering every h1..h6 as one
+      // size threw away the outline, which is what tells you where you are
+      // in a long article.
       const tag =
-        block.type === "heading" ? "h4" : block.type === "pre" ? "pre" : block.type === "blockquote" ? "blockquote" : "p";
+        block.type === "heading"
+          ? `h${Math.min(6, Math.max(3, (block.level || 2) + 1))}`
+          : block.type === "pre"
+            ? "pre"
+            : block.type === "blockquote"
+              ? "blockquote"
+              : "p";
       const el = document.createElement(tag);
+      if (block.type === "heading") el.className = "reader-heading";
       el.textContent = block.text;
       box.appendChild(el);
     }
@@ -2325,7 +2338,13 @@ async function saveWebPageAsNote() {
   if (!webReaderPage) return;
   // Prefer the structured read — it drops the nav/cookie chrome.
   const readable = (webReaderPage.blocks || [])
-    .map((b) => (b.type === "heading" ? `\n## ${b.text}` : b.type === "li" ? `- ${b.text}` : b.text))
+    .map((b) =>
+      b.type === "heading"
+        ? `\n${"#".repeat(Math.min(6, (b.level || 2) + 1))} ${b.text}`
+        : b.type === "li"
+          ? `- ${b.text}`
+          : b.text
+    )
     .join("\n")
     .trim();
   const excerpt = (readable || webReaderPage.text || "").slice(0, 1200);

@@ -180,7 +180,11 @@ def export_json(session: Session = Depends(get_session)) -> Response:
         "entries": [
             {
                 "id": e.id,
-                "content": e.content,
+                # Exports decrypt while the app is unlocked. An export is for
+                # taking your notes elsewhere, and ciphertext with no key is
+                # not your notes. (The app's own backups keep the database
+                # file as-is, so those stay encrypted.)
+                "content": manager.readable_content(e),
                 "category": manager.category_name_for(session, e),
                 "tags": manager.entry_tags(e),
                 "ai_confidence": e.ai_confidence,
@@ -240,8 +244,9 @@ def export_markdown(session: Session = Depends(get_session)) -> Response:
             if entry.pinned:
                 front.append("pinned: true")
             front.append("---")
-            body = "\n".join(front) + f"\n\n{entry.content}\n"
-            archive.writestr(f"{folder}/{entry.id}-{_slug(entry.content)}.md", body)
+            readable = manager.readable_content(entry)
+            body = "\n".join(front) + f"\n\n{readable}\n"
+            archive.writestr(f"{folder}/{entry.id}-{_slug(readable)}.md", body)
     manager.log_action(session, "exported", "data", detail="markdown")
     session.commit()
     return Response(
@@ -523,7 +528,7 @@ def export_csv(session: Session = Depends(get_session)) -> Response:
         writer.writerow(
             [
                 e.id,
-                e.content,
+                manager.readable_content(e),
                 manager.category_name_for(session, e),
                 "|".join(manager.entry_tags(e)),
                 e.ai_confidence,

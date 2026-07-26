@@ -137,3 +137,26 @@ def test_a_locked_vault_shows_a_placeholder_rather_than_breaking(client, session
     assert "🔒" in private["content"]
     # Everything else still lists normally.
     assert isinstance(listed, list)
+
+
+def test_exports_decrypt_while_unlocked(client, session):
+    """An export is for taking notes elsewhere; ciphertext isn't your notes."""
+    secret = "ELDERFLOWER export check"
+    _make_private(client, session, secret)
+
+    as_json = client.get("/export/json").json()
+    assert any(secret in e["content"] for e in as_json["entries"])
+
+    as_csv = client.get("/export/csv").text
+    assert secret in as_csv
+
+
+def test_exports_do_not_leak_when_locked(client, session):
+    """With no key there is nothing to decrypt with — say so, don't guess."""
+    secret = "ELDERFLOWER locked export"
+    _make_private(client, session, secret)
+    vault.close()
+
+    as_json = client.get("/export/json").json()
+    assert all(secret not in e["content"] for e in as_json["entries"])
+    assert any("🔒" in e["content"] for e in as_json["entries"])

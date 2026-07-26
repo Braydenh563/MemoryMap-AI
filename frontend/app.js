@@ -7148,6 +7148,7 @@ function paletteCommands() {
     { label: "📝 Go to Notes", run: () => switchTab("notes") },
     { label: "💬 Go to Chat", run: () => switchTab("chat") },
     { label: "🕸 Go to Graph", run: () => switchTab("graph") },
+    { label: "📄 Go to Documents", run: () => switchTab("documents") },
     { label: "⏰ Go to Reminders", run: () => switchTab("reminders") },
     {
       label: "✏️ New note",
@@ -7156,11 +7157,57 @@ function paletteCommands() {
         $("entry-content").focus();
       },
     },
+    {
+      label: "📄 New document",
+      run: () => {
+        switchTab("documents");
+        createDocument();
+      },
+    },
+    {
+      label: "✨ Write a note from rough thoughts",
+      run: () => {
+        switchTab("notes");
+        // The writing room starts folded, so open it before jumping there.
+        const card = $("writing-room");
+        if (card?.classList.contains("collapsed")) {
+          card.querySelector(".collapsible-title")?.click();
+        }
+        $("draft-thoughts")?.focus();
+      },
+    },
     { label: "🆕 New chat", run: () => { switchTab("chat"); newChatConversation(); } },
     { label: "🎨 New sketch", run: openSketch },
+    // Filters as commands: the fastest route to "the notes I mean" without
+    // remembering the operator syntax.
+    ...[
+      ["📌 Show pinned notes", "is:pinned"],
+      ["🏷 Show untagged notes", "is:untagged"],
+      ["🔒 Show private notes", "is:private"],
+      ["🔗 Show linked notes", "is:linked"],
+    ].map(([label, query]) => ({
+      label,
+      run: () => {
+        switchTab("notes");
+        $("note-search").value = query;
+        $("note-search").dispatchEvent(new Event("input"));
+        $("note-search").focus();
+      },
+    })),
+    {
+      label: "🔎 What can I type in the filter?",
+      run: () => {
+        switchTab("notes");
+        $("search-help-hint").classList.remove("hidden");
+        $("search-help").setAttribute("aria-expanded", "true");
+        $("note-search").focus();
+      },
+    },
     { label: "⚙️ Settings → Models", run: () => openSettingsModal("models") },
     { label: "🎭 Settings → Personas", run: () => openSettingsModal("personas") },
     { label: "⚡ Settings → Skills", run: () => openSettingsModal("skills") },
+    { label: "🧰 Settings → Tools it can use", run: () => openSettingsModal("tools") },
+    { label: "🎨 Settings → Appearance", run: () => openSettingsModal("appearance") },
     { label: "🎛 Settings → Preferences", run: () => openSettingsModal("preferences") },
     { label: "💾 Settings → Data & backups", run: () => openSettingsModal("data") },
     { label: "🪵 Settings → Logs", run: () => openSettingsModal("logs") },

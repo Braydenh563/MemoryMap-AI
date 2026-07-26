@@ -189,7 +189,10 @@ header#top-bar h1 { margin: 0; font-size: 1.1rem; letter-spacing: 0.01em; }
 
 .layout {
   display: grid;
-  grid-template-columns: 230px 1fr;
+  /* A starting point only — each sidebar remembers its own width, set on the
+     grid by initResizableSidebars. 230px left about four characters of a chat
+     title visible, which is no title at all. */
+  grid-template-columns: 260px 1fr;
   gap: 1rem;
   padding: 1rem 2rem 2rem;
   align-items: start;
@@ -3166,3 +3169,53 @@ button.ai-unavailable {
 .history-current { border-color: var(--accent); background: var(--accent-soft); }
 .history-entry > p:first-child { margin: 0 0 0.2rem; font-size: 0.76rem; }
 .history-entry > p:nth-child(2) { margin: 0 0 0.4rem; font-size: 0.88rem; white-space: pre-wrap; }
+
+/* --- resizable sidebars ------------------------------------------------------- */
+#sidebar, #chat-sidebar, #doc-sidebar { position: relative; }
+.sidebar-resize {
+  position: absolute;
+  top: 0;
+  right: -0.55rem;
+  width: 0.7rem;
+  height: 100%;
+  cursor: col-resize;
+  /* Invisible until reached for, so it isn't furniture. */
+  background: transparent;
+  border-radius: 3px;
+  transition: background 0.12s ease;
+  touch-action: none;
+}
+.sidebar-resize:hover,
+.sidebar-resize:focus-visible { background: var(--accent); opacity: 0.5; }
+.sidebar-resize:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* While dragging, stop the pointer selecting text across the whole page. */
+body.resizing-sidebar { cursor: col-resize; user-select: none; }
+
+/* Long titles get room now, so let them wrap to two lines instead of clipping. */
+.conv-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  cursor: pointer;
+}
+#conversation-list li { display: flex; align-items: flex-start; gap: 0.35rem; }
+
+/* No dragging on a stacked single-column layout — there's no column to size. */
+@media (max-width: 720px) {
+  .sidebar-resize { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-resize { transition: none; }
+}
+
+/* The reduced-motion stand-in for the typing dots: a word, not a gesture. */
+.typing-label {
+  display: inline-block;
+  padding: 0.2rem 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-style: italic;
+}

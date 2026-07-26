@@ -1883,7 +1883,7 @@ async function askQuestion(preset) {
         status.textContent = "The model is writing…";
       },
       onThinking: (delta) => {
-        answerBox.querySelector(".typing-dots")?.remove();
+        answerBox.querySelector(".typing-dots, .typing-label")?.remove();
         // Auto-expand while the model reasons (user request).
         thinkingBox.classList.remove("hidden");
         thinkingBox.open = true;
@@ -2361,9 +2361,30 @@ function personaOptions() {
 }
 
 // Three-dot "the model is about to speak" indicator (Wave D).
+// "The model is working." Under reduced motion the bouncing dots are frozen by
+// the blanket animation rules — three motionless dots say nothing at all, and
+// read as a rendering fault rather than as progress. So when motion is off,
+// this becomes a word instead of a gesture. Silence is not an acceptable
+// substitute for either.
+function reducedMotionWanted() {
+  return (
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+    document.documentElement.dataset.motion === "reduced"
+  );
+}
+
 function typingDots() {
+  if (reducedMotionWanted()) {
+    const label = document.createElement("span");
+    label.className = "typing-label";
+    label.textContent = "Thinking…";
+    label.setAttribute("role", "status");
+    return label;
+  }
   const dots = document.createElement("span");
   dots.className = "typing-dots";
+  dots.setAttribute("role", "status");
+  dots.setAttribute("aria-label", "The model is writing");
   for (let i = 0; i < 3; i++) dots.appendChild(document.createElement("span"));
   return dots;
 }
@@ -2573,8 +2594,14 @@ function showNoDocument() {
   currentDoc = null;
   $("doc-title").value = "";
   $("doc-content").value = "";
-  $("doc-title").disabled = true;
-  $("doc-content").disabled = true;
+  // Deliberately NOT disabled. Disabling them meant that on a notebook with no
+  // documents yet, clicking the editor did nothing and typing did nothing —
+  // a dead end whose only way out was noticing a small "+ New" button. Typing
+  // now creates the document, which is what every editor does.
+  $("doc-title").disabled = false;
+  $("doc-content").disabled = false;
+  $("doc-content").placeholder =
+    "Start typing and a new document is created for you.\n\nMarkdown works here — headings, **bold**, lists, tables, links.";
   $("doc-saved").textContent = "";
   renderDocPreview();
 }
@@ -2582,6 +2609,8 @@ function showNoDocument() {
 async function openDocument(id) {
   // Never lose unsaved work by switching away from it.
   if (docDirty) await saveDocument({ silent: true });
+  $("doc-content").placeholder =
+    "# Start writing\n\nMarkdown works here — headings, **bold**, lists, tables, links.";
   const doc = await apiJson(`/documents/${id}`).catch(() => null);
   if (!doc) return;
   currentDoc = doc;
@@ -2605,8 +2634,36 @@ async function createDocument() {
   $("doc-title").select();
 }
 
+// Guards against creating several documents from one fast burst of typing.
+let creatingDocument = null;
+
+async function ensureDocumentExists() {
+  if (currentDoc) return currentDoc;
+  if (creatingDocument) return creatingDocument;
+  creatingDocument = (async () => {
+    const doc = await apiJson("/documents", {
+      method: "POST",
+      body: JSON.stringify({ title: "Untitled", content: "" }),
+    });
+    currentDoc = doc;
+    docs.unshift({ ...doc });
+    renderDocList();
+    $("doc-empty").classList.add("hidden");
+    return doc;
+  })();
+  try {
+    return await creatingDocument;
+  } finally {
+    creatingDocument = null;
+  }
+}
+
 function markDocDirty() {
-  if (!currentDoc) return;
+  // No document yet? Typing makes one, then this save proceeds normally.
+  if (!currentDoc) {
+    ensureDocumentExists().then(() => markDocDirty());
+    return;
+  }
   docDirty = true;
   $("doc-saved").textContent = "Unsaved…";
   clearTimeout(docSaveTimer);
@@ -3082,6 +3139,9 @@ async function sendChatMessage(preset, opts = {}) {
   let meta = null;
   let toolsActed = false;
   let stats = null;
+  // Whether the user pressed Stop. An empty answer they asked for needs no
+  // explanation; one they didn't ask for does.
+  let stopped = false;
   const startedAt = performance.now();
   const toolEvents = []; // {label, ok} — persisted so chips survive a reload
   chatController = new AbortController();
@@ -3099,7 +3159,7 @@ async function sendChatMessage(preset, opts = {}) {
         status.textContent = "The model is writing…";
       },
       onThinking: (delta) => {
-        answerBox.querySelector(".typing-dots")?.remove();
+        answerBox.querySelector(".typing-dots, .typing-label")?.remove();
         thinkingBox.classList.remove("hidden");
         thinkingBox.open = true; // expanded while reasoning (user request)
         thinkingRaw += delta;
@@ -3115,7 +3175,7 @@ async function sendChatMessage(preset, opts = {}) {
         chatScrollToEnd();
       },
       onTool: (event) => {
-        answerBox.querySelector(".typing-dots")?.remove();
+        answerBox.querySelector(".typing-dots, .typing-label")?.remove();
         const label = event.ok ? event.label : `⚠️ ${event.error || event.label}`;
         toolsHolder.appendChild(toolChip(label, event.ok));
         toolEvents.push({ label, ok: event.ok }); // remember for persistence
@@ -3124,7 +3184,7 @@ async function sendChatMessage(preset, opts = {}) {
         chatScrollToEnd();
       },
       onConfirm: (event) => {
-        answerBox.querySelector(".typing-dots")?.remove();
+        answerBox.querySelector(".typing-dots, .typing-label")?.remove();
         renderToolConfirm(toolsHolder, event);
         status.textContent = "Waiting for your confirmation…";
       },
@@ -3145,6 +3205,7 @@ async function sendChatMessage(preset, opts = {}) {
     status.textContent = "";
   } catch (error) {
     if (error.name === "AbortError") {
+      stopped = true;
       status.textContent = "Stopped.";
     } else {
       status.textContent = error.message;
@@ -3174,9 +3235,33 @@ async function sendChatMessage(preset, opts = {}) {
   chatScrollToEnd();
   if (toolsActed) refreshAfterToolChanges(); // the AI changed real data
   if (!answerRaw) {
-    // Nothing to remember (failed/aborted before any token). If this was a
-    // regenerate that already removed the old bubble, drop the empty one too.
-    if (opts.replaceLast) bubble.remove();
+    // The model returned nothing. This used to return early and leave the
+    // bubble sitting there with the notes disclosure, no answer, no error and
+    // no buttons — a dead end with nothing to click and nothing explaining it.
+    if (opts.replaceLast) {
+      // A regenerate already removed the old answer; don't leave a blank in
+      // its place, since the previous one is gone either way.
+      bubble.remove();
+      toast("The model returned nothing that time. Try again.", true);
+      return;
+    }
+    if (!stopped) {
+      const note = document.createElement("p");
+      note.className = "muted";
+      note.textContent =
+        "The model finished without writing anything. That usually means it ran " +
+        "out of context or the model is struggling with this question — try again, " +
+        "or rephrase it.";
+      answerBox.replaceChildren(note);
+      // Retry and delete at minimum, so there's always a way forward.
+      bubble.appendChild(
+        chatMessageActions([
+          { label: "↻", title: "Try again", onClick: () => regenerateLastAnswer() },
+          { label: "🗑", title: "Delete this message", onClick: () => removeChatBubble(bubble) },
+        ])
+      );
+      chatScrollToEnd();
+    }
     return;
   }
   // Per-message actions: copy, regenerate, read-aloud, delete (Wave H voices).
@@ -3302,6 +3387,132 @@ function exportChatMarkdown() {
   URL.revokeObjectURL(url);
 }
 
+// --- resizable sidebars ----------------------------------------------------------
+// Both sidebars were a fixed 230px. In the chat list that left about four
+// characters of a conversation's name visible, which is no name at all — and
+// how much room a sidebar deserves depends on your screen and your titles,
+// not on a number picked once.
+//
+// Drag the edge to resize. The width is remembered per sidebar, and there's a
+// keyboard path because a mouse-only control is one that some people simply
+// cannot use.
+
+const SIDEBAR_MIN = 170;
+const SIDEBAR_MAX = 520;
+
+function sidebarWidth(id, fallback = 260) {
+  const saved = Number(localStorage.getItem(`sidebarWidth:${id}`));
+  return Number.isFinite(saved) && saved >= SIDEBAR_MIN ? saved : fallback;
+}
+
+function applySidebarWidth(aside, width) {
+  const clamped = Math.min(Math.max(Math.round(width), SIDEBAR_MIN), SIDEBAR_MAX);
+  // The grid column is what actually sizes it; the aside just fills the column.
+  aside.parentElement.style.gridTemplateColumns = `${clamped}px 1fr`;
+  localStorage.setItem(`sidebarWidth:${aside.id}`, String(clamped));
+  return clamped;
+}
+
+function makeSidebarResizable(aside) {
+  if (!aside || aside.dataset.resizable) return;
+  aside.dataset.resizable = "1";
+  applySidebarWidth(aside, sidebarWidth(aside.id));
+
+  const handle = document.createElement("div");
+  handle.className = "sidebar-resize";
+  // A real slider: screen readers announce it, and arrows resize it.
+  handle.setAttribute("role", "separator");
+  handle.setAttribute("aria-orientation", "vertical");
+  handle.setAttribute("tabindex", "0");
+  handle.setAttribute("aria-label", "Resize the sidebar — arrow keys, or drag");
+  aside.appendChild(handle);
+
+  const startDrag = (event) => {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = aside.getBoundingClientRect().width;
+    document.body.classList.add("resizing-sidebar");
+
+    const move = (e) => applySidebarWidth(aside, startWidth + (e.clientX - startX));
+    const stop = () => {
+      document.body.classList.remove("resizing-sidebar");
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop);
+  };
+  handle.addEventListener("pointerdown", startDrag);
+
+  handle.addEventListener("keydown", (event) => {
+    const step = event.shiftKey ? 40 : 12;
+    const current = aside.getBoundingClientRect().width;
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      applySidebarWidth(aside, current - step);
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      applySidebarWidth(aside, current + step);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      applySidebarWidth(aside, 260); // back to the default
+    }
+  });
+  // Double-click the handle to reset, the convention everywhere else.
+  handle.addEventListener("dblclick", () => applySidebarWidth(aside, 260));
+}
+
+function initResizableSidebars() {
+  for (const id of ["sidebar", "chat-sidebar", "doc-sidebar"]) {
+    const aside = document.getElementById(id);
+    if (aside) makeSidebarResizable(aside);
+  }
+}
+
+// A ⋯ button that opens a small menu. Built from the same pieces as the note
+// overflow menu so the two behave identically — one open at a time, click away
+// or Escape to close, arrow keys to move.
+function makeMenuItem(label, title, run) {
+  return { label, title, run };
+}
+
+function kebabMenu(items, ariaLabel) {
+  const wrap = document.createElement("span");
+  wrap.className = "menu-wrap";
+
+  const menu = document.createElement("div");
+  menu.className = "action-menu hidden";
+  menu.setAttribute("role", "menu");
+
+  const opener = smallButton("⋯", ariaLabel, () => {
+    const willOpen = menu.classList.contains("hidden");
+    closeActionMenus();
+    if (willOpen) {
+      menu.classList.remove("hidden");
+      opener.setAttribute("aria-expanded", "true");
+      menu.querySelector("button")?.focus();
+    }
+  });
+  opener.setAttribute("aria-haspopup", "menu");
+  opener.setAttribute("aria-expanded", "false");
+
+  for (const item of items) {
+    const button = document.createElement("button");
+    button.className = "menu-item";
+    button.setAttribute("role", "menuitem");
+    button.textContent = item.label;
+    button.title = item.title;
+    button.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      closeActionMenus();
+      await item.run();
+    });
+    menu.appendChild(button);
+  }
+  wrap.append(opener, menu);
+  return wrap;
+}
+
 async function loadConversationList() {
   const conversations = await apiJson("/conversations").catch(() => []);
   const list = $("conversation-list");
@@ -3315,10 +3526,13 @@ async function loadConversationList() {
     title.textContent = conversation.title;
     title.title = "Open this chat";
     title.addEventListener("click", () => openConversation(conversation.id));
+    // One ⋯ instead of three buttons. In a sidebar this narrow they were
+    // taking most of the row, leaving a few characters of the chat's name.
     const actions = document.createElement("span");
     actions.className = "entry-actions";
-    actions.appendChild(
-      smallButton("✎", "Rename", async () => {
+    const items = [];
+    items.push(
+      makeMenuItem("✎ Rename", "Rename this chat", async () => {
         const next = prompt("Rename this chat:", conversation.title);
         if (!next || !next.trim()) return;
         await apiJson(`/conversations/${conversation.id}`, {
@@ -3328,8 +3542,8 @@ async function loadConversationList() {
         loadConversationList();
       })
     );
-    actions.appendChild(
-      smallButton("✨", "Let the AI name this chat", async () => {
+    items.push(
+      makeMenuItem("✨ Name with AI", "Let the AI name this chat", async () => {
         const named = await apiJson(`/conversations/${conversation.id}/retitle`, {
           method: "POST",
         }).catch((e) => {
@@ -3342,14 +3556,15 @@ async function loadConversationList() {
         loadConversationList();
       })
     );
-    actions.appendChild(
-      smallButton("×", "Delete this chat", async () => {
+    items.push(
+      makeMenuItem("🗑 Delete", "Delete this chat", async () => {
         if (!confirm("Delete this saved chat?")) return;
         await apiJson(`/conversations/${conversation.id}`, { method: "DELETE" });
         if (chatConv.id === conversation.id) newChatConversation();
         loadConversationList();
       })
     );
+    actions.appendChild(kebabMenu(items, `Actions for ${conversation.title}`));
     li.append(title, actions);
     list.appendChild(li);
   }
@@ -9048,6 +9263,7 @@ $("skip-link").addEventListener("click", (e) => {
 });
 initCollapsibleSections();
 scrollTopUpdate = initScrollTopButton();
+initResizableSidebars();
 switchTab(localStorage.getItem("activeTab") || "notes");
 
 // Settings modal (Wave A).

@@ -2240,7 +2240,17 @@ async function sendChatMessage(preset, opts = {}) {
         status.textContent = "Waiting for your confirmation…";
       },
       onStats: (event) => {
-        stats = event;
+        // An agent turn reports once per round, so these accumulate: output
+        // tokens and generation time add up, while the prompt size is the
+        // largest context the model was given rather than the sum.
+        if (!stats) {
+          stats = { ...event };
+          return;
+        }
+        stats.model = event.model || stats.model;
+        stats.prompt_tokens = Math.max(stats.prompt_tokens || 0, event.prompt_tokens || 0);
+        stats.output_tokens = (stats.output_tokens || 0) + (event.output_tokens || 0);
+        stats.eval_ms = (stats.eval_ms || 0) + (event.eval_ms || 0);
       },
     });
     status.textContent = "";

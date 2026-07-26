@@ -2543,6 +2543,9 @@ html { font-size: 16px; }
   box-shadow: var(--glass-shadow);
   backdrop-filter: blur(var(--glass-blur));
 }
+/* A long note makes this tall; it scrolls itself rather than overflowing the
+   map. max-height is set in JS from the real box height. */
+.graph-popup { overflow-y: auto; overscroll-behavior: contain; }
 .graph-popup.hidden { display: none; }
 .graph-popup textarea, .graph-popup input { margin-bottom: 0.5rem; }
 .graph-popup .row { margin: 0; align-items: center; }
@@ -2687,4 +2690,42 @@ button { border-radius: calc(var(--radius) * 0.7); }
   font-size: 0.8rem;
   overflow-x: auto;
   margin: 0 0 0.5rem;
+}
+
+/* --- back-to-top button ---------------------------------------------------- */
+/* Sits clear of the bottom-right corner on every tab except the graph, which
+   has its own zoom controls there. */
+.scroll-top {
+  position: fixed;
+  right: 1.5rem;
+  bottom: 1.5rem;
+  z-index: 40;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--glass-border);
+  background: var(--card);
+  color: var(--ink);
+  font-size: 1.1rem;
+  line-height: 1;
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  cursor: pointer;
+  /* Kept out of the layout and off the a11y tree until it's actually offered. */
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(0.5rem);
+  transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
+}
+.scroll-top.visible { opacity: 1; visibility: visible; transform: none; }
+.scroll-top:hover { background: var(--accent-soft); border-color: var(--accent); }
+.scroll-top:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+@media (max-width: 720px) {
+  .scroll-top { right: 1rem; bottom: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scroll-top { transition: none; }
 }

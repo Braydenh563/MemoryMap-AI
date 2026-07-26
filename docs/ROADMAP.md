@@ -70,6 +70,18 @@ will not fit in a local model's window. Decisions needed:
 as they're excluded from retrieval today. There are tests for this pattern in
 `tests/test_private_notes.py` — copy the approach.
 
+### Agent quality, once it can reach things
+
+The loop in `src/memorymap/ai/agent.py` already runs several rounds and several
+tools per round, so "do a string of tasks" is structurally there. What's weak:
+
+- No plan/progress shown for a multi-step job — you see tool chips appear with
+  no sense of how many steps remain
+- No way to stop an agent turn mid-way and keep what it already did
+- A tool that fails is reported but the model isn't told how to recover
+- `_CLAIM_PATTERN` catches the model claiming it saved something when no write
+  tool ran — a good safety net, and worth extending to other claim types
+
 ---
 
 ## 2. Chat UI
@@ -129,7 +141,22 @@ missing:
 
 ---
 
-## 6. Accessibility audit
+## 6. First-run and empty states
+
+A brand-new notebook shows twelve "nothing here yet" widgets on the dashboard
+and empty lists everywhere else. Each individual message is fine; together they
+make a working app look broken on the day someone starts using it.
+
+- Dashboard should show a compact getting-started card instead of a grid of
+  empty widgets until there's something to show
+- The graph, duplicates and history screens all need a first-run state that
+  explains what will appear there rather than just saying it's empty
+- (Checked: the welcome tour *is* already replayable, from Settings → Help and
+  from the features browser. Nothing to do there.)
+
+---
+
+## 7. Accessibility audit
 
 I've added live regions, focus management and keyboard paths piecemeal. It
 deserves one deliberate pass rather than more ad-hoc fixes:
@@ -144,7 +171,7 @@ deserves one deliberate pass rather than more ad-hoc fixes:
 
 ---
 
-## 7. Mobile
+## 8. Mobile
 
 Never tested. Everything this session was driven at 1440px. The layout has
 breakpoints but they're unverified — the sidebars, the document editor's split
@@ -152,7 +179,7 @@ panes, and the graph are the likely problems.
 
 ---
 
-## 8. Backend
+## 9. Backend
 
 - **Async httpx Ollama client.** The one large refactor left. It touches the
   streaming path, which is what makes chat feel responsive, so a subtle
@@ -168,7 +195,7 @@ panes, and the graph are the likely problems.
 
 ---
 
-## 9. Notes tab structure
+## 10. Notes tab structure
 
 Still four stacked cards (Capture, Write with AI, Ask, Browse). The writing room
 folds by default so it doesn't add weight, and sections are collapsible — but
@@ -190,6 +217,8 @@ timestamps · jump-to-note highlight invisible · markdown export navigating the
 app away · document editor that couldn't be typed in · empty AI replies with no
 error or buttons · frozen typing dots under reduced motion · SearXNG choosing
 Docker when the daemon was stopped · writing room destroying your original text
+· every note saved without AI being labelled "AI 0% — check this", which
+accused perfectly good notes of being suspect
 
 **Features:** documents tab · writing room · note attachments in chat · category
 rename/delete · private notes (AES-GCM, envelope design) · note edit history ·

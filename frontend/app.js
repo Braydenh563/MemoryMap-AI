@@ -385,18 +385,24 @@ function entryItem(entry, options = {}) {
   meta.appendChild(chip(entry.category));
   for (const tag of entry.tags) meta.appendChild(chip(tag, "tag"));
 
-  const confidenceChip =
-    entry.ai_confidence >= REVIEW_THRESHOLD
+  // "AI 0% — check this" is a warning about the AI's filing, and it only makes
+  // sense when the AI actually did some. On a note you filed yourself, or one
+  // saved while no AI was running, it accused a perfectly good note of being
+  // suspect — which is most notes if you don't run Ollama.
+  const aiDidFile = entry.ai_confidence > 0 && !entry.user_filed;
+  const confidenceChip = aiDidFile
+    ? entry.ai_confidence >= REVIEW_THRESHOLD
       ? chip(`AI ${entry.ai_confidence}%`, "confidence")
-      : // Low or zero confidence — worth a human look (plan Phase 3).
-        chip(`AI ${entry.ai_confidence}% — check this`, "review");
+      : // Low confidence from a real attempt — worth a human look (Phase 3).
+        chip(`AI ${entry.ai_confidence}% — check this`, "review")
+    : null;
   // Flash the badge once when this note's confidence just changed, so the
   // update after a re-evaluation is actually noticeable (user request).
-  if (entry.id === flashConfidenceId) {
+  if (confidenceChip && entry.id === flashConfidenceId) {
     confidenceChip.classList.add("badge-flash");
     flashConfidenceId = null;
   }
-  meta.appendChild(confidenceChip);
+  if (confidenceChip) meta.appendChild(confidenceChip);
 
   // While the AI is re-evaluating this note, show a live spinner chip so
   // it's obvious something is running on this specific card.

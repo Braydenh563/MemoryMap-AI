@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+import json
 import random
 import re
+from collections.abc import Iterator
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from memorymap.ai import librarian
+from memorymap.ai.ollama_client import OllamaError
 from memorymap.core import deps
 from memorymap.core.database import Category, Entry, utcnow
 from memorymap.core.deps import get_session
@@ -251,6 +255,75 @@ def on_this_day(session: Session = Depends(get_session)) -> list[dict]:
                 }
             )
     return matches[:5]
+
+
+DIGEST_QUESTION = (
+    "Give me a short digest of what I saved this week — group by topic and "
+    "call out anything that looks important or unfinished."
+)
+
+
+def _digest_notes(session: Session) -> list[dict]:
+    cutoff = utcnow() - timedelta(days=7)
+    entries = list(
+        session.scalars(
+            select(Entry)
+            .where(Entry.is_deleted == False, Entry.created_at >= cutoff)  # noqa: E712
+            .order_by(Entry.created_at)
+            .limit(30)
+        )
+    )
+    return [
+        {"content": e.content, "category": manager.category_name_for(session, e)}
+        for e in entries
+    ]
+
+
+@router.post("/digest/stream")
+def weekly_digest_stream(session: Session = Depends(get_session)) -> StreamingResponse:
+    """The weekly digest, streamed token by token (NDJSON).
+
+    Same content as POST /digest — this one just arrives progressively, so a
+    slow local model shows words instead of a spinner.
+    """
+    notes = _digest_notes(session)
+    config = deps.get_config()
+    ollama = deps.get_ollama()
+    model_manager = deps.get_model_manager()
+
+    def lines() -> Iterator[str]:
+        def event(payload: dict) -> str:
+            return json.dumps(payload) + "\n"
+
+        if not notes:
+            yield event({"type": "answer", "delta": "Nothing was saved in the last 7 days."})
+            yield event({"type": "done", "cacheable": True})
+            return
+        if not ollama.is_running():
+            yield event({"type": "answer", "delta": librarian.OFFLINE_MESSAGE})
+            yield event({"type": "done", "cacheable": False})
+            return
+
+        messages = librarian.build_messages(
+            DIGEST_QUESTION,
+            notes,
+            style=config.get_preference("communication_style", "friendly"),
+            profile="",
+            persona_prompt=librarian.resolve_persona_prompt(None, config),
+        )
+        try:
+            for piece in ollama.chat_stream(model_manager.utility_model(), messages):
+                if "content_delta" in piece:
+                    yield event({"type": "answer", "delta": piece["content_delta"]})
+                elif "thinking_delta" in piece:
+                    yield event({"type": "thinking", "delta": piece["thinking_delta"]})
+        except OllamaError:
+            yield event({"type": "answer", "delta": f"\n\n{librarian.OFFLINE_MESSAGE}"})
+            yield event({"type": "done", "cacheable": False})
+            return
+        yield event({"type": "done", "cacheable": True})
+
+    return StreamingResponse(lines(), media_type="application/x-ndjson")
 
 
 @router.post("/digest")

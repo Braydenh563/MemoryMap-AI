@@ -2848,6 +2848,8 @@ const DASH_WIDGETS = {
   focus: { title: "⏱ Focus timer", render: renderFocusTimerWidget },
   heatmap: { title: "📆 Activity heatmap", render: renderHeatmapWidget },
   "tag-cloud": { title: "☁️ Tag cloud", render: renderTagCloudWidget },
+  categories: { title: "🗂 Categories", render: renderCategoriesWidget },
+  random: { title: "🎲 Rediscover", render: renderRandomNoteWidget },
 };
 
 function dashLayout() {
@@ -3668,23 +3670,58 @@ function loadDigestCache() {
 
 // Kicks off (or reuses) one generation. Caches the result for today,
 // unless the server says it isn't cacheable (e.g. Ollama was offline).
-function generateDigest() {
+// Streams the digest, calling onDelta with each chunk so the widget can show
+// words as they arrive rather than a spinner. Resolves with the full text.
+function generateDigest(onDelta) {
   if (!digestPromise) {
-    digestPromise = apiJson("/insights/digest", { method: "POST" })
+    digestPromise = streamDigest(onDelta)
       .then((result) => {
         if (result.cacheable !== false) {
           localStorage.setItem(
             DIGEST_KEY,
-            JSON.stringify({ text: result.digest, date: todayStamp() })
+            JSON.stringify({ text: result.text, date: todayStamp() })
           );
         }
-        return result.digest;
+        return result.text;
       })
       .finally(() => {
         digestPromise = null;
       });
   }
   return digestPromise;
+}
+
+async function streamDigest(onDelta) {
+  const response = await api("/insights/digest/stream", { method: "POST" });
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let text = "";
+  let cacheable = true;
+  // NDJSON: one JSON object per line, same shape as the chat stream.
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      let event;
+      try {
+        event = JSON.parse(line);
+      } catch {
+        continue; // a partial line — the next chunk completes it
+      }
+      if (event.type === "answer") {
+        text += event.delta;
+        if (onDelta) onDelta(text);
+      } else if (event.type === "done") {
+        cacheable = event.cacheable !== false;
+      }
+    }
+  }
+  return { text, cacheable };
 }
 
 async function renderDigestWidget(body) {
@@ -3707,7 +3744,19 @@ async function renderDigestWidget(body) {
     thinking.className = "muted";
     thinking.append(typingDots(), " Thinking about your week…");
     body.replaceChildren(thinking);
-    generateDigest()
+    // Live-render the text as it streams in; the dots stay until the first
+    // token arrives, then the words take over.
+    const live = document.createElement("div");
+    let started = false;
+    generateDigest((soFar) => {
+      if (!body.isConnected) return;
+      if (!started) {
+        started = true;
+        body.replaceChildren(live);
+      }
+      renderMarkdown(live, soFar);
+      body.scrollTop = body.scrollHeight;
+    })
       .then((text) => {
         // The widget may have been left/re-rendered while we waited —
         // only paint if this exact body is still on screen.
@@ -3825,6 +3874,12 @@ async function renderHeatmapWidget(body) {
     grid.appendChild(cell);
   });
   body.appendChild(grid);
+  // The grid runs oldest → newest, so the interesting end is the right one.
+  // Start scrolled there instead of making the user drag across a year of
+  // empty squares to find today.
+  requestAnimationFrame(() => {
+    grid.scrollLeft = grid.scrollWidth;
+  });
 
   const legend = document.createElement("div");
   legend.className = "heat-legend muted";
@@ -3845,6 +3900,89 @@ async function renderHeatmapWidget(body) {
   summary.className = "muted";
   summary.textContent = `${data.total} notes in the last year · busiest day ${data.busiest}`;
   body.appendChild(summary);
+}
+
+// --- category breakdown ------------------------------------------------------
+
+async function renderCategoriesWidget(body) {
+  const stats = await apiJson("/insights/stats").catch(() => null);
+  const categories = (stats && stats.categories) || [];
+  if (!categories.length) {
+    body.textContent = "Save a few notes and your categories appear here.";
+    body.className += " muted";
+    return;
+  }
+  const max = categories[0].count || 1;
+  const list = document.createElement("div");
+  list.className = "cat-bars";
+  for (const { name, count } of categories.slice(0, 8)) {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "cat-row";
+    row.title = `Show the ${name} notes`;
+    const label = document.createElement("span");
+    label.className = "cat-name";
+    label.textContent = name;
+    const track = document.createElement("span");
+    track.className = "cat-track";
+    const fill = document.createElement("span");
+    fill.className = "cat-fill";
+    fill.style.width = `${Math.max(6, (count / max) * 100)}%`;
+    track.appendChild(fill);
+    const num = document.createElement("span");
+    num.className = "cat-count";
+    num.textContent = count;
+    row.append(label, track, num);
+    row.addEventListener("click", () => {
+      activeCategory = name;
+      switchTab("notes");
+      renderEntries();
+      renderSidebar();
+    });
+    list.appendChild(row);
+  }
+  body.appendChild(list);
+}
+
+// --- rediscover a random note ------------------------------------------------
+
+async function renderRandomNoteWidget(body) {
+  const entries = allEntries.length
+    ? allEntries
+    : await apiJson("/entries").catch(() => []);
+  if (!entries.length) {
+    body.textContent = "Save some notes and one will resurface here.";
+    body.className += " muted";
+    return;
+  }
+
+  const paint = () => {
+    body.replaceChildren();
+    const note = entries[Math.floor(Math.random() * entries.length)];
+    const text = document.createElement("p");
+    text.className = "random-note";
+    text.textContent =
+      note.content.length > 240 ? note.content.slice(0, 239) + "…" : note.content;
+    body.appendChild(text);
+
+    const meta = document.createElement("div");
+    meta.className = "entry-meta";
+    meta.appendChild(chip(note.category || "Uncategorised", "tag"));
+    const when = document.createElement("span");
+    when.className = "entry-date";
+    when.textContent = new Date(note.created_at).toLocaleDateString();
+    meta.appendChild(when);
+    body.appendChild(meta);
+
+    const row = document.createElement("div");
+    row.className = "row";
+    row.appendChild(smallButton("🎲 Another", "Show a different note", paint));
+    row.appendChild(
+      smallButton("📝 Open", "Open this note in the Notes tab", () => flashEntry(note.id))
+    );
+    body.appendChild(row);
+  };
+  paint();
 }
 
 // --- weighted tag cloud ------------------------------------------------------
@@ -6858,6 +6996,12 @@ function startBgArt() {
     p.setup = () => {
       const c = p.createCanvas(window.innerWidth, window.innerHeight);
       c.id("bg-art-canvas");
+      // Style it here, inside setup, where the element definitely exists.
+      // Applying the class after `new p5()` returned was a race: when p5
+      // deferred setup the lookup found nothing, the canvas kept default
+      // static positioning, and the art rendered as a block *below* the whole
+      // UI instead of fixed behind it.
+      c.elt.className = "bg-art-canvas";
       // p5 parents new canvases to the first <main> it finds — which is the
       // one inside the Notes tab. That hid the background art on every other
       // tab (the whole panel is display:none). Pin it to <body> so it really

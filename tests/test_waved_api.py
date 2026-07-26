@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import timedelta
 
 from memorymap.core import deps
@@ -283,6 +284,38 @@ def test_greeting_never_contains_a_name(ai_client, fake_ollama):
     fake_ollama.librarian_reply = "Good morning"
     body = ai_client.get("/insights/greeting?block=morning").json()
     assert "Brayden" not in body["greeting"]
+
+
+def _ndjson(response):
+    return [json.loads(line) for line in response.text.splitlines() if line.strip()]
+
+
+def test_digest_streams_in_chunks(ai_client, fake_ollama):
+    _save(ai_client, "bought milk")
+    fake_ollama.librarian_reply = "You saved a shopping note."
+    response = ai_client.post("/insights/digest/stream")
+    assert response.status_code == 200
+    events = _ndjson(response)
+    answer = "".join(e["delta"] for e in events if e["type"] == "answer")
+    assert answer == "You saved a shopping note."
+    # Streamed, not delivered in one lump.
+    assert len([e for e in events if e["type"] == "answer"]) > 1
+    assert events[-1] == {"type": "done", "cacheable": True}
+
+
+def test_digest_stream_handles_an_empty_week(ai_client):
+    events = _ndjson(ai_client.post("/insights/digest/stream"))
+    answer = "".join(e["delta"] for e in events if e["type"] == "answer")
+    assert "Nothing was saved" in answer
+    assert events[-1]["cacheable"] is True
+
+
+def test_digest_stream_degrades_when_ai_is_down(ai_client, fake_ollama):
+    _save(ai_client, "bought milk")
+    fake_ollama.running = False
+    events = _ndjson(ai_client.post("/insights/digest/stream"))
+    # An offline notice must never be cached as if it were a real digest.
+    assert events[-1]["cacheable"] is False
 
 
 def test_heatmap_counts_recent_notes(client):

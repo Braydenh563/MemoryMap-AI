@@ -1826,6 +1826,44 @@ html { font-size: 16px; }
 }
 .heat-legend span:first-child { margin-right: 0.2rem; }
 .heat-legend span:last-child { margin-left: 0.2rem; }
+/* Category breakdown bars */
+.cat-bars { display: flex; flex-direction: column; gap: 0.3rem; }
+.cat-row {
+  display: grid;
+  grid-template-columns: minmax(4rem, 7rem) 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.25rem 0.3rem;
+  background: none;
+  border: none;
+  box-shadow: none;
+  border-radius: calc(var(--radius) * 0.5);
+  color: var(--ink);
+  font-weight: 500;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+}
+.cat-row:hover { background: var(--accent-soft); }
+.cat-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cat-track {
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--chip-bg);
+  overflow: hidden;
+}
+.cat-fill { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+.cat-count { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 0.8rem; }
+
+/* Rediscover widget */
+.random-note {
+  margin: 0 0 0.5rem;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
 .tag-cloud {
   display: flex;
   flex-wrap: wrap;

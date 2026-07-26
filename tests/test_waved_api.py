@@ -164,7 +164,32 @@ def test_digest_offline_is_not_cacheable(client):
 def test_greeting_uses_ai_when_available(ai_client, fake_ollama):
     fake_ollama.librarian_reply = "Rise and shine"
     body = ai_client.get("/insights/greeting?block=morning").json()
-    assert body == {"greeting": "Rise and shine", "source": "ai"}
+    assert body["greeting"] == "Rise and shine"
+    assert body["source"] == "ai"
+    assert body["punctuation"] == "."
+
+
+def test_greeting_keeps_its_terminal_mark_separate(ai_client, fake_ollama):
+    """The mark is returned apart from the phrase so a name can slot in
+    before it — "Rise and shine, Sam!" rather than "Rise and shine!, Sam"."""
+    fake_ollama.librarian_reply = "Rise and shine!"
+    body = ai_client.get("/insights/greeting?block=morning").json()
+    assert body["greeting"] == "Rise and shine"
+    assert body["punctuation"] == "!"
+
+
+def test_greeting_uses_the_active_persona(ai_client, fake_ollama):
+    ai_client.put(
+        "/preferences",
+        json={
+            "personas": [{"name": "Pirate", "prompt": "You are a pirate captain."}],
+            "active_persona": "Pirate",
+        },
+    )
+    fake_ollama.librarian_reply = "Ahoy there"
+    ai_client.get("/insights/greeting?block=morning")
+    system = fake_ollama.chat_calls[-1][0]["content"]
+    assert "pirate captain" in system.lower()
 
 
 def test_greeting_falls_back_when_ai_is_down(ai_client, fake_ollama):
@@ -192,7 +217,8 @@ def test_greeting_rejects_a_rambling_model_reply(ai_client, fake_ollama):
 def test_greeting_strips_quotes_and_trailing_punctuation(ai_client, fake_ollama):
     fake_ollama.librarian_reply = '"Welcome back!"'
     body = ai_client.get("/insights/greeting?block=morning").json()
-    assert body == {"greeting": "Welcome back", "source": "ai"}
+    # Quotes gone, phrase clean, and the "!" preserved for the sentence end.
+    assert body == {"greeting": "Welcome back", "punctuation": "!", "source": "ai"}
 
 
 def test_greeting_never_contains_a_name(ai_client, fake_ollama):

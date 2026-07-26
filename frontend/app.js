@@ -2863,14 +2863,17 @@ function fallbackGreetingPhrase(now = new Date()) {
 }
 
 // The name always comes from preferences — never from the model, so it can't
-// be mangled or hallucinated, and editing it takes effect immediately.
-function withDisplayName(phrase) {
+// be mangled or hallucinated, and editing it takes effect immediately. The
+// terminal mark goes on last so the result reads as a proper sentence:
+// "Rise and shine" + ", Sam" + "!" → "Rise and shine, Sam!"
+function withDisplayName(phrase, punctuation = ".") {
   const name = ((prefsCache && prefsCache.display_name) || "").trim();
-  return name ? `${phrase}, ${name}` : phrase;
+  const mark = ".!?".includes(punctuation) ? punctuation : ".";
+  return name ? `${phrase}, ${name}${mark}` : `${phrase}${mark}`;
 }
 
 function dashboardGreetingText(now = new Date()) {
-  return withDisplayName(fallbackGreetingPhrase(now));
+  return withDisplayName(fallbackGreetingPhrase(now), ".");
 }
 
 // A cached AI greeting, refreshed once per time-block per day so it changes
@@ -2883,7 +2886,7 @@ function cachedGreetingPhrase(now = new Date()) {
   try {
     const cached = JSON.parse(localStorage.getItem("greetingCache") || "null");
     if (cached && cached.slot === greetingCacheSlot(now) && cached.phrase) {
-      return cached.phrase;
+      return { phrase: cached.phrase, punctuation: cached.punctuation || "." };
     }
   } catch {
     /* a corrupt cache just means we fetch a fresh one */
@@ -2902,12 +2905,13 @@ async function refreshAiGreeting() {
   );
   const phrase = body && body.greeting;
   if (!phrase) return;
+  const punctuation = (body && body.punctuation) || ".";
   localStorage.setItem(
     "greetingCache",
-    JSON.stringify({ slot: greetingCacheSlot(now), phrase })
+    JSON.stringify({ slot: greetingCacheSlot(now), phrase, punctuation })
   );
   const el = $("dash-greeting");
-  if (el) el.textContent = withDisplayName(phrase);
+  if (el) el.textContent = withDisplayName(phrase, punctuation);
 }
 
 let dashClockTimer = null;
@@ -2965,7 +2969,9 @@ function renderDashboardGreeting() {
   // Paint instantly from the cache (or the handwritten fallback), then let an
   // AI-written phrase replace it in the background if one arrives.
   const cached = cachedGreetingPhrase();
-  el.textContent = cached ? withDisplayName(cached) : dashboardGreetingText();
+  el.textContent = cached
+    ? withDisplayName(cached.phrase, cached.punctuation)
+    : dashboardGreetingText();
   refreshAiGreeting().catch(() => {});
   paintDashClock();
   // One ticking clock, however many times the dashboard re-renders.

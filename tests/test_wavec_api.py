@@ -77,6 +77,23 @@ def test_retitle_uses_ai(ai_client, fake_ollama):
     assert named["ai_named"] is True
 
 
+def test_retitle_uses_the_active_persona(ai_client, fake_ollama):
+    ai_client.put(
+        "/preferences",
+        json={
+            "personas": [{"name": "Pirate", "prompt": "You are a pirate captain."}],
+            "active_persona": "Pirate",
+        },
+    )
+    created = ai_client.post(
+        "/conversations", json={"question": "where is the treasure?", "answer": "Here."}
+    ).json()
+    fake_ollama.librarian_reply = "Treasure hunt"
+    ai_client.post(f"/conversations/{created['id']}/retitle")
+    system = fake_ollama.chat_calls[-1][0]["content"]
+    assert "pirate captain" in system.lower()
+
+
 def test_retitle_falls_back_without_ai(ai_client, fake_ollama):
     created = ai_client.post(
         "/conversations", json={"question": "how do I bake bread?", "answer": "Slowly."}

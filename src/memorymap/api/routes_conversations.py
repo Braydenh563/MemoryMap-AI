@@ -120,6 +120,7 @@ def retitle_conversation(
     Best-effort by design: if the model is down or answers with something
     unusable, the conversation simply keeps a sensible non-AI title.
     """
+    from memorymap.ai import librarian
     from memorymap.core import deps
 
     conversation = _existing(session, conversation_id)
@@ -136,11 +137,15 @@ def retitle_conversation(
         transcript = "\n".join(
             f"{m.get('role')}: {str(m.get('content'))[:400]}" for m in messages[:4]
         )
+        # Name it in the active persona's voice, so titles match the
+        # assistant the user actually chose.
+        persona = librarian.resolve_persona_prompt(None, deps.get_config())
+        system = f"{persona.strip()} {TITLE_PROMPT}" if persona else TITLE_PROMPT
         try:
             reply = ollama.chat(
                 deps.get_model_manager().utility_model(),
                 [
-                    {"role": "system", "content": TITLE_PROMPT},
+                    {"role": "system", "content": system},
                     {"role": "user", "content": transcript},
                 ],
             )

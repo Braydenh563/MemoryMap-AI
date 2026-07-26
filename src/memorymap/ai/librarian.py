@@ -45,6 +45,23 @@ BUILTIN_PERSONAS = [
     },
 ]
 
+def resolve_persona_prompt(name: str | None, config) -> str | None:
+    """Persona name → its system prompt.
+
+    The user's saved list wins over the built-ins (that's how editing a
+    built-in works — the edit is stored as an override; deleting the override
+    resets it). Unknown names fall back to the default persona. Shared by the
+    chat routes, the dashboard greeting, and chat auto-naming, so the voice the
+    user picked is used consistently everywhere.
+    """
+    wanted = name or config.get_preference("active_persona", "Librarian")
+    custom = config.get_preference("personas", [])
+    for persona in list(custom) + BUILTIN_PERSONAS:
+        if persona.get("name") == wanted and persona.get("prompt"):
+            return persona["prompt"]
+    return None
+
+
 # The user's communication-style preference (Phase 4) tweaks the tone.
 STYLE_HINTS = {
     "friendly": "Be warm and conversational. Keep it brief.",

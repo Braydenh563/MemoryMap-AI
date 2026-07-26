@@ -69,18 +69,30 @@ GREETING_FALLBACKS = {
 GREETING_PROMPT = (
     "Write ONE short, warm greeting for someone opening their personal "
     "notebook app. It is currently {block}. Rules: 2 to 6 words, no name, no "
-    "quotation marks, no emoji, no trailing punctuation, and do not mention "
-    "the app. Reply with the greeting only."
+    "quotation marks, no emoji, and do not mention the app. End it with a "
+    "full stop or an exclamation mark. Reply with the greeting only."
 )
 
+# The greeting is stored without its final mark so the display name can be
+# appended cleanly ("Good morning" + ", Sam" + "!"). The mark travels
+# separately in `punctuation`.
+_TERMINAL_MARKS = ".!?"
 
-def _clean_greeting(raw: str) -> str | None:
-    """Keep the model honest: one short, punctuation-free line or nothing."""
+
+def _clean_greeting(raw: str) -> tuple[str, str] | None:
+    """Return (phrase, terminal mark) — or None if the reply is unusable."""
     text = (raw or "").strip().splitlines()[0] if (raw or "").strip() else ""
-    text = text.strip().strip("\"'`*").rstrip(".!,;:").strip()
+    text = text.strip().strip("\"'`*").strip()
+    mark = "."
+    # Remember an exclamation/question so the greeting keeps its tone, then
+    # strip trailing punctuation so a name can be appended after it.
+    while text and text[-1] in _TERMINAL_MARKS + ",;:":
+        if text[-1] in _TERMINAL_MARKS:
+            mark = text[-1]
+        text = text[:-1].rstrip()
     if not text or len(text) > 48 or len(text.split()) > 8:
         return None
-    return text
+    return text, mark
 
 
 @router.get("/greeting")
@@ -91,17 +103,29 @@ def greeting(block: str = "morning") -> dict:
     the banner must never depend on Ollama being available. The phrase never
     contains a name; the frontend adds one from preferences.
     """
+    config = deps.get_config()
     options = GREETING_FALLBACKS.get(block) or GREETING_FALLBACKS["morning"]
-    fallback = {"greeting": random.choice(options), "source": "fallback"}
+    fallback = {
+        "greeting": random.choice(options),
+        "punctuation": ".",
+        "source": "fallback",
+    }
 
     ollama = deps.get_ollama()
     if not ollama.is_running():
         return fallback
+
+    # The active persona voices the greeting, so a Coach sounds like a coach
+    # and a custom persona sounds like itself.
+    persona = librarian.resolve_persona_prompt(None, config)
+    system = GREETING_PROMPT.format(block=block)
+    if persona:
+        system = f"{persona.strip()} {system}"
     try:
         reply = ollama.chat(
             deps.get_model_manager().utility_model(),
             [
-                {"role": "system", "content": GREETING_PROMPT.format(block=block)},
+                {"role": "system", "content": system},
                 {"role": "user", "content": f"It is {block}. Greet me."},
             ],
         )
@@ -111,7 +135,8 @@ def greeting(block: str = "morning") -> dict:
     cleaned = _clean_greeting(reply.get("content", "") if isinstance(reply, dict) else "")
     if not cleaned:
         return fallback
-    return {"greeting": cleaned, "source": "ai"}
+    phrase, mark = cleaned
+    return {"greeting": phrase, "punctuation": mark, "source": "ai"}
 
 
 @router.get("/heatmap")

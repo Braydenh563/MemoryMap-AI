@@ -103,6 +103,10 @@ class ChatRequest(BaseModel):
     # Agent mode (Wave G): may the model call tools to change things?
     # None → the saved "tools_enabled" preference (default on).
     use_tools: bool | None = None
+    # Notes the user attached by hand. These are always given to the model,
+    # ahead of anything retrieval finds — "this note, specifically" is a
+    # stronger signal than any similarity score.
+    note_ids: list[int] = Field(default_factory=list, max_length=20)
 
 
 def _resolve_persona(name: str | None) -> str | None:
@@ -124,7 +128,22 @@ class ChatResponse(BaseModel):
     ollama_running: bool = False
 
 
-def _prepare(session: Session, question: str) -> dict:
+def _attached_notes(session: Session, note_ids: list[int]) -> list[dict]:
+    """The notes the user picked, in the order they picked them.
+
+    Binned notes are skipped: attaching one would quietly resurrect content the
+    user has already thrown away.
+    """
+    found = []
+    for note_id in dict.fromkeys(note_ids):  # de-duplicate, keep order
+        entry = session.get(Entry, note_id)
+        if entry is None or entry.is_deleted:
+            continue
+        found.append(entry)
+    return found
+
+
+def _prepare(session: Session, question: str, note_ids: list[int] | None = None) -> dict:
     """The shared first half of both chat endpoints: retrieve entries,
     bump their usage counters, log the question, gather AI settings.
 
@@ -135,22 +154,38 @@ def _prepare(session: Session, question: str) -> dict:
     from memorymap.api.routes_entries import _to_out  # avoids a route-module cycle
 
     detected = intent.classify(question)
+    # Attaching a note is itself a statement that this is about the notebook,
+    # so it overrides the classifier — "what do you think?" with three notes
+    # clipped to it is a question about those notes.
+    attached = _attached_notes(session, note_ids or [])
+    if attached:
+        detected = intent.NOTES
     if intent.needs_retrieval(detected):
         entries, mode = search_manager.retrieve(
             session, question, deps.get_embeddings(), limit=5
         )
     else:
         entries, mode = [], "none"
-    notes = [
-        {
+
+    # Attached notes come first and are never dropped by the retrieval limit.
+    # Anything retrieval also found is de-duplicated against them.
+    attached_ids = {entry.id for entry in attached}
+    entries = attached + [e for e in entries if e.id not in attached_ids]
+    if attached:
+        mode = "attached" if mode == "none" else f"attached + {mode}"
+
+    def as_note(entry) -> dict:
+        return {
             # id lets agent-mode tool calls target these notes (Wave G);
             # the plain librarian prompt simply ignores it.
             "id": entry.id,
             "content": entry.content,
             "category": manager.category_name_for(session, entry),
+            # Marked so the prompt can say which notes the user chose.
+            "attached": entry.id in attached_ids,
         }
-        for entry in entries
-    ]
+
+    notes = [as_note(entry) for entry in entries]
     config = deps.get_config()
     profile = (
         config.get_preference("user_profile", "")
@@ -179,7 +214,7 @@ def _prepare(session: Session, question: str) -> dict:
 
 @router.post("", response_model=ChatResponse)
 def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResponse:
-    prepared = _prepare(session, body.question)
+    prepared = _prepare(session, body.question, body.note_ids)
     ollama_running = deps.get_ollama().is_running()
     conversational = not intent.needs_retrieval(prepared["intent"])
     answered = (conversational or bool(prepared["notes"])) and ollama_running
@@ -300,7 +335,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
 
         # Retrieval happens INSIDE the stream now, not before it — that's the
         # whole latency win. Nothing before this line touches the model.
-        prepared = _prepare(session, body.question)
+        prepared = _prepare(session, body.question, body.note_ids)
         ollama_running = ollama.is_running()
         # In agent mode the model can act even when nothing matched — "save a
         # note about X" must work on an empty notebook.

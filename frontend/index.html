@@ -311,7 +311,29 @@
           <div id="chat-messages"></div>
           <div id="chat-suggest" class="recent hidden"></div>
           <div id="chat-skills" class="recent hidden"></div>
+          <!-- Notes clipped to the next message, as removable chips. -->
+          <div id="chat-attachments" class="chat-attachments hidden"
+            role="group" aria-label="Notes attached to your next message"></div>
           <div class="row chat-composer">
+            <div class="note-picker">
+              <button id="attach-note" class="ghost" type="button"
+                aria-haspopup="dialog" aria-expanded="false"
+                title="Attach notes as references for this question"
+                aria-label="Attach notes">📎</button>
+              <div id="note-picker-panel" class="note-picker-panel hidden"
+                role="dialog" aria-label="Choose notes to reference">
+                <input id="note-picker-search" type="search"
+                  placeholder="🔎 Search your notes…" aria-label="Search notes to attach">
+                <ul id="note-picker-list" class="note-picker-list"></ul>
+                <div class="row space-between note-picker-foot">
+                  <span id="note-picker-count" class="muted"></span>
+                  <span class="row">
+                    <button id="note-picker-clear" class="ghost small" type="button">Clear</button>
+                    <button id="note-picker-done" class="small" type="button">Done</button>
+                  </span>
+                </div>
+              </div>
+            </div>
             <input id="chat-input" type="text" placeholder="Ask your notebook anything…">
             <button id="mic-chat" class="ghost" title="Dictate your question (local Whisper)" aria-label="Dictate your question">🎙</button>
             <button id="chat-send">Send</button>

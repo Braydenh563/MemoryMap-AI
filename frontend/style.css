@@ -2802,3 +2802,71 @@ button { border-radius: calc(var(--radius) * 0.7); }
 @media (prefers-reduced-motion: reduce) {
   .category-actions { transition: none; }
 }
+
+/* --- attaching notes to a chat message --------------------------------------- */
+.note-picker { position: relative; flex: 0 0 auto; }
+#attach-note.has-attachments {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.note-picker-panel {
+  position: absolute;
+  bottom: calc(100% + 0.5rem);
+  left: 0;
+  z-index: 45;
+  width: min(30rem, 80vw);
+  max-height: 24rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.7rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+  background: var(--modal-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(var(--glass-blur));
+}
+.note-picker-panel.hidden { display: none; }
+.note-picker-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  /* Scrolls itself so the panel can't grow past the composer. */
+  flex: 1 1 auto;
+  min-height: 4rem;
+}
+.note-picker-list li { border-radius: 6px; }
+.note-picker-list li:hover { background: var(--accent-soft); }
+.note-picker-list label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.4rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.note-picker-list input[type="checkbox"] { width: auto; margin: 0; flex: 0 0 auto; }
+.note-picker-text { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-picker-empty { padding: 0.6rem 0.4rem; font-size: 0.85rem; }
+.note-picker-foot { gap: 0.5rem; font-size: 0.8rem; }
+
+.chat-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0 0 0.4rem;
+}
+.chat-attachments.hidden { display: none; }
+.attachment-chip { display: inline-flex; align-items: center; gap: 0.35rem; max-width: 22rem; }
+.attachment-chip > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attachment-remove {
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  font-weight: 700;
+  line-height: 1;
+}
+.attachment-remove:hover { color: var(--danger, #e2534b); }

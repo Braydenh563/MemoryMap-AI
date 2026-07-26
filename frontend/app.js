@@ -1469,6 +1469,7 @@ async function streamChat({
   history,
   persona,
   useTools,
+  noteIds,
   signal,
   onMeta,
   onThinking,
@@ -1480,6 +1481,7 @@ async function streamChat({
   const body = { question, history: history || [] };
   if (persona) body.persona = persona;
   if (typeof useTools === "boolean") body.use_tools = useTools;
+  if (noteIds && noteIds.length) body.note_ids = noteIds;
   const response = await fetch("/chat/stream", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() },
@@ -1787,7 +1789,11 @@ function regenerateLastAnswer() {
   const assistantBubbles = $("chat-messages").querySelectorAll(".msg.assistant");
   const lastAssistant = assistantBubbles[assistantBubbles.length - 1];
   if (lastAssistant) lastAssistant.remove(); // clear the old answer first
-  sendChatMessage(lastChatQuestion, { skipUserBubble: true, replaceLast: true });
+  sendChatMessage(lastChatQuestion, {
+    skipUserBubble: true,
+    replaceLast: true,
+    noteIds: lastChatAttachments,
+  });
 }
 
 // The welcome shown in an empty chat so the page isn't a blank box.
@@ -2168,12 +2174,152 @@ function renderRecordsDetails(holder, meta) {
   holder.appendChild(details);
 }
 
+// --- attaching notes to a chat message ------------------------------------------
+// "Use this note, specifically" is a stronger signal than any similarity
+// score, so attached notes are sent to the model ahead of whatever retrieval
+// finds. The picker searches the notes already loaded in memory — no request
+// per keystroke, and it works the moment it's opened.
+
+let attachedNoteIds = [];
+// The set sent with the most recent message, so regenerate can reuse it.
+let lastChatAttachments = [];
+
+function attachedNotes() {
+  return attachedNoteIds
+    .map((id) => allEntries.find((e) => e.id === id))
+    .filter(Boolean);
+}
+
+function noteLabel(entry, length = 40) {
+  const text = (entry.content || "").replace(/\s+/g, " ").trim();
+  return text.length > length ? `${text.slice(0, length - 1)}…` : text || "(empty note)";
+}
+
+function renderAttachments() {
+  const box = $("chat-attachments");
+  box.replaceChildren();
+  const notes = attachedNotes();
+  box.classList.toggle("hidden", notes.length === 0);
+  $("attach-note").classList.toggle("has-attachments", notes.length > 0);
+  for (const entry of notes) {
+    const chipEl = document.createElement("span");
+    chipEl.className = "chip attachment-chip";
+    chipEl.title = entry.content;
+    const label = document.createElement("span");
+    label.textContent = `📎 ${noteLabel(entry)}`;
+    const remove = document.createElement("button");
+    remove.className = "attachment-remove";
+    remove.type = "button";
+    remove.textContent = "✕";
+    remove.title = `Remove "${noteLabel(entry, 24)}"`;
+    remove.setAttribute("aria-label", remove.title);
+    remove.addEventListener("click", () => {
+      attachedNoteIds = attachedNoteIds.filter((id) => id !== entry.id);
+      renderAttachments();
+      renderNotePickerList();
+      announce(`Removed attachment. ${attachedNoteIds.length} note(s) attached.`);
+    });
+    chipEl.append(label, remove);
+    box.appendChild(chipEl);
+  }
+}
+
+function renderNotePickerList() {
+  const query = $("note-picker-search").value.trim().toLowerCase();
+  const list = $("note-picker-list");
+  list.replaceChildren();
+
+  // Attached notes stay at the top even when the search wouldn't match them,
+  // so ticking one never makes it vanish from under the pointer.
+  const matches = allEntries.filter((entry) => {
+    if (attachedNoteIds.includes(entry.id)) return true;
+    if (!query) return true;
+    const haystack = `${entry.content} ${(entry.tags || []).join(" ")} ${entry.category}`;
+    return haystack.toLowerCase().includes(query);
+  });
+  matches.sort((a, b) => {
+    const aSel = attachedNoteIds.includes(a.id) ? 0 : 1;
+    const bSel = attachedNoteIds.includes(b.id) ? 0 : 1;
+    return aSel - bSel;
+  });
+
+  if (!matches.length) {
+    const empty = document.createElement("li");
+    empty.className = "muted note-picker-empty";
+    empty.textContent = query ? "No notes match that." : "No notes yet.";
+    list.appendChild(empty);
+  }
+
+  for (const entry of matches.slice(0, 50)) {
+    const li = document.createElement("li");
+    const label = document.createElement("label");
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = attachedNoteIds.includes(entry.id);
+    box.addEventListener("change", () => {
+      if (box.checked) {
+        if (!attachedNoteIds.includes(entry.id)) attachedNoteIds.push(entry.id);
+      } else {
+        attachedNoteIds = attachedNoteIds.filter((id) => id !== entry.id);
+      }
+      renderAttachments();
+      updateNotePickerCount();
+    });
+    const text = document.createElement("span");
+    text.className = "note-picker-text";
+    text.textContent = noteLabel(entry, 70);
+    const cat = document.createElement("span");
+    cat.className = "chip";
+    cat.textContent = entry.category;
+    label.append(box, text, cat);
+    li.appendChild(label);
+    list.appendChild(li);
+  }
+  updateNotePickerCount();
+}
+
+function updateNotePickerCount() {
+  const n = attachedNoteIds.length;
+  $("note-picker-count").textContent = n
+    ? `${n} note${n === 1 ? "" : "s"} attached`
+    : "Nothing attached yet";
+}
+
+function openNotePicker() {
+  $("note-picker-panel").classList.remove("hidden");
+  $("attach-note").setAttribute("aria-expanded", "true");
+  renderNotePickerList();
+  $("note-picker-search").focus();
+}
+
+function closeNotePicker() {
+  $("note-picker-panel").classList.add("hidden");
+  $("attach-note").setAttribute("aria-expanded", "false");
+}
+
+function notePickerOpen() {
+  return !$("note-picker-panel").classList.contains("hidden");
+}
+
 async function sendChatMessage(preset, opts = {}) {
   const input = $("chat-input");
   const status = $("chat-status");
   const question = (preset ?? input.value).trim();
   if (!question) return;
   lastChatQuestion = question;
+
+  // Snapshot the attachments for this message. A regenerate re-uses the same
+  // ones; a fresh send clears them, so they don't silently ride along on
+  // every later question.
+  const sentAttachments = opts.noteIds || attachedNoteIds.slice();
+  if (!opts.replaceLast) {
+    // Remembered so a regenerate re-runs with the same references — by then
+    // the picker has been cleared.
+    lastChatAttachments = sentAttachments;
+    attachedNoteIds = [];
+    renderAttachments();
+    closeNotePicker();
+  }
 
   $("chat-suggest").classList.add("hidden");
   input.value = "";
@@ -2204,6 +2350,7 @@ async function sendChatMessage(preset, opts = {}) {
       history: chatConv.turns.slice(-MAX_CLIENT_HISTORY),
       persona: $("persona-select").value || null,
       useTools: opts.useTools ?? $("tools-toggle").checked,
+      noteIds: sentAttachments,
       signal: chatController.signal,
       onMeta: (m) => {
         meta = m;
@@ -8199,6 +8346,35 @@ $("entry-template").addEventListener("change", applyTemplate);
 
 // Chat tab (Wave C).
 $("chat-send").addEventListener("click", () => sendChatMessage());
+
+// --- note picker wiring ---
+$("attach-note").addEventListener("click", () => {
+  if (notePickerOpen()) closeNotePicker();
+  else openNotePicker();
+});
+$("note-picker-search").addEventListener("input", renderNotePickerList);
+$("note-picker-done").addEventListener("click", () => {
+  closeNotePicker();
+  $("chat-input").focus();
+});
+$("note-picker-clear").addEventListener("click", () => {
+  attachedNoteIds = [];
+  renderAttachments();
+  renderNotePickerList();
+});
+// Click-away and Escape close it, like every other popover in the app.
+document.addEventListener("click", (event) => {
+  if (!notePickerOpen()) return;
+  if (event.target.closest(".note-picker")) return;
+  closeNotePicker();
+});
+$("note-picker-panel").addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    event.stopPropagation();
+    closeNotePicker();
+    $("attach-note").focus();
+  }
+});
 $("chat-stop").addEventListener("click", () => chatController && chatController.abort());
 $("chat-new").addEventListener("click", newChatConversation);
 $("chat-export").addEventListener("click", exportChatMarkdown);

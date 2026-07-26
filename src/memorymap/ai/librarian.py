@@ -171,11 +171,23 @@ def build_messages(
             messages.append({"role": "assistant", "content": past_answer})
 
     numbered = "\n".join(
-        f"{i}. [{note['category']}] {note['content']}"
+        # A note the user attached by hand is flagged, so the model treats it
+        # as the subject rather than as one more search hit.
+        f"{i}. [{note['category']}]{' (attached by me)' if note.get('attached') else ''} "
+        f"{note['content']}"
         for i, note in enumerate(notes, start=1)
     )
+    attached_hint = (
+        " The notes marked \"attached by me\" are the ones I specifically chose "
+        "for this question — focus on those."
+        if any(note.get("attached") for note in notes)
+        else ""
+    )
     messages.append(
-        {"role": "user", "content": f"My notes:\n{numbered}\n\nMy question: {question}"}
+        {
+            "role": "user",
+            "content": f"My notes:\n{numbered}\n\nMy question: {question}{attached_hint}",
+        }
     )
     return messages
 

@@ -9,6 +9,7 @@ import io
 import json
 import re
 import zipfile
+from pathlib import Path
 from typing import Literal
 from urllib.parse import urlparse
 
@@ -473,6 +474,26 @@ def web_read(url: str, session: Session = Depends(get_session)) -> dict:
 
 
 # --- backups (Wave F) --------------------------------------------------------------
+
+
+@router.get("/storage")
+def storage_location() -> dict:
+    """Where everything actually lives on disk.
+
+    "Where are my documents stored?" was asked outright, and the app had no
+    answer anywhere in its interface. For a local-first app that is close to
+    the whole promise: a notebook you can't locate is not obviously yours,
+    and someone who can't see the file has no reason to believe a document
+    they wrote is still there.
+    """
+    config = deps.get_config()
+    db_path = Path(config.db_path)
+    return {
+        "data_dir": str(Path(config.data_dir).resolve()),
+        "database": str(db_path.resolve()),
+        "database_bytes": db_path.stat().st_size if db_path.exists() else 0,
+        "backups_dir": str(backup.backups_dir(config.data_dir).resolve()),
+    }
 
 
 @router.get("/backups")

@@ -566,6 +566,30 @@ Link to another note with [[its first few words]]."></textarea>
           aria-label="Filter documents by title">
         <ul id="doc-list" class="doc-list"></ul>
         <p id="doc-empty" class="muted hidden">No documents yet — start typing on the right, or press ＋ New.</p>
+
+        <!-- Built from the document's own headings: past two screens of text
+             the scrollbar stops being a way to navigate. -->
+        <div id="doc-outline-wrap" class="doc-outline-wrap hidden">
+          <h3>Outline</h3>
+          <ul id="doc-outline" class="doc-outline"></ul>
+        </div>
+
+        <!-- "Where are they stored?" was asked outright, and the app had no
+             answer anywhere. For a local-first app that's most of the promise. -->
+        <details id="doc-storage" class="doc-storage">
+          <summary class="muted">Where are my documents kept?</summary>
+          <p class="muted">
+            Every document is saved automatically as you type — there's no
+            save button to forget. They live in your notebook's database file
+            on this machine, along with your notes:
+          </p>
+          <code id="doc-storage-path" class="storage-path">…</code>
+          <p class="muted">
+            Nothing is ever uploaded. Use <strong>⬇ .md</strong> to keep a copy
+            as an ordinary file anywhere you like, or Settings → Import &amp;
+            export to back up or export everything at once.
+          </p>
+        </details>
       </aside>
 
       <section class="card doc-main">
@@ -573,6 +597,8 @@ Link to another note with [[its first few words]]."></textarea>
           <input id="doc-title" type="text" maxlength="200" placeholder="Untitled"
             aria-label="Document title" class="doc-title-input">
           <span class="row doc-actions">
+            <span id="doc-stats" class="muted doc-stats"
+              title="Words, and roughly how long this takes to read"></span>
             <span id="doc-saved" class="muted" role="status"></span>
             <button id="doc-preview-toggle" class="ghost small" type="button"
               aria-pressed="false" title="Show a rendered preview beside the editor">👁 Preview</button>

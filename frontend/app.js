@@ -686,6 +686,11 @@ function entryOverflowMenu(entry) {
       run: () => openEntryHistory(entry),
     },
     {
+      label: "📄 Expand into a document",
+      title: "Start a document from this note — the note stays where it is",
+      run: () => expandNoteIntoDocument(entry),
+    },
+    {
       label: "🔄 Re-evaluate",
       title: "Refresh this note's AI confidence and suggest tags & links",
       run: () => reevaluateEntry(entry),
@@ -2640,6 +2645,8 @@ function showNoDocument() {
     "Start typing and a new document is created for you.\n\nMarkdown works here — headings, **bold**, lists, tables, links.";
   $("doc-saved").textContent = "";
   renderDocPreview();
+  renderDocStats();
+  renderDocOutline();
 }
 
 async function openDocument(id) {
@@ -2657,6 +2664,8 @@ async function openDocument(id) {
   docDirty = false;
   $("doc-saved").textContent = "Saved";
   renderDocPreview();
+  renderDocStats();
+  renderDocOutline();
   renderDocList();
 }
 
@@ -2683,6 +2692,10 @@ async function ensureDocumentExists() {
     });
     currentDoc = doc;
     docs.unshift({ ...doc });
+    // The list gains an "Untitled" row the moment this returns, so show the
+    // same name in the title box — otherwise the document you're typing into
+    // appears to have no name while the sidebar says it has one.
+    if (!$("doc-title").value.trim()) $("doc-title").value = doc.title;
     renderDocList();
     $("doc-empty").classList.add("hidden");
     return doc;
@@ -2695,6 +2708,10 @@ async function ensureDocumentExists() {
 }
 
 function markDocDirty() {
+  // These are read off the textarea, so they're right even before the save
+  // lands — the point of them is live feedback while writing.
+  renderDocStats();
+  renderDocOutline();
   // No document yet? Typing makes one, then this save proceeds normally.
   if (!currentDoc) {
     ensureDocumentExists().then(() => markDocDirty());
@@ -2728,6 +2745,118 @@ async function saveDocument({ silent = false } = {}) {
     $("doc-status").classList.add("error");
     $("doc-status").textContent = error.message;
   }
+}
+
+// A note that outgrew itself becomes a document. Notes and documents were
+// two islands: the only way across was copy and paste, which loses the link
+// between them. The note is deliberately left alone — this is a promotion,
+// not a move, and quietly deleting someone's note to "convert" it is the
+// kind of helpfulness nobody asks for twice.
+async function expandNoteIntoDocument(entry) {
+  const text = entry.content || "";
+  // The first line makes a reasonable title; the rest is the body.
+  const [firstLine, ...rest] = text.split("\n");
+  const title = (firstLine || "Untitled").replace(/^#+\s*/, "").slice(0, 120).trim();
+  const body = rest.join("\n").trim() || text;
+  try {
+    const doc = await apiJson("/documents", {
+      method: "POST",
+      body: JSON.stringify({
+        title: title || "Untitled",
+        // A line back to where it came from, so the pair stay findable.
+        content: `${body}\n\n---\n\nExpanded from note #${entry.id}.\n`,
+      }),
+    });
+    switchTab("documents");
+    await loadDocuments(doc.id);
+    toast(`Started a document from this note — the note itself is untouched.`);
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
+// Words and reading time. Both are cheap to compute and are the two numbers
+// anyone writing long-form actually wants on screen.
+const READING_WORDS_PER_MINUTE = 220;
+
+function renderDocStats() {
+  const el = $("doc-stats");
+  if (!el) return;
+  const text = $("doc-content").value || "";
+  const words = (text.match(/\S+/g) || []).length;
+  if (!words) {
+    el.textContent = "";
+    return;
+  }
+  const minutes = words / READING_WORDS_PER_MINUTE;
+  // Under a minute, "1 min read" overstates it; over an hour, minutes stop
+  // meaning anything.
+  const readTime =
+    minutes < 1
+      ? "under a min"
+      : minutes < 60
+        ? `${Math.round(minutes)} min read`
+        : `${(minutes / 60).toFixed(1)}h read`;
+  el.textContent = `${words.toLocaleString()} word${words === 1 ? "" : "s"} · ${readTime}`;
+}
+
+// A table of contents built from the document's own headings. Past a couple
+// of screens the scrollbar stops being a way to navigate a document.
+function renderDocOutline() {
+  const list = $("doc-outline");
+  const wrap = $("doc-outline-wrap");
+  if (!list || !wrap) return;
+  const text = $("doc-content").value || "";
+  const headings = [];
+  let inFence = false;
+  const lines = text.split("\n");
+  lines.forEach((line, index) => {
+    // A "# " inside a code fence is code, not a heading.
+    if (line.trim().startsWith("```")) inFence = !inFence;
+    if (inFence) return;
+    const match = /^(#{1,4})\s+(.*\S)\s*$/.exec(line);
+    if (match) headings.push({ level: match[1].length, text: match[2], line: index });
+  });
+
+  wrap.classList.toggle("hidden", headings.length < 2);
+  list.replaceChildren();
+  for (const heading of headings) {
+    const li = document.createElement("li");
+    li.className = `outline-h${heading.level}`;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "outline-link";
+    button.textContent = heading.text;
+    button.title = `Jump to “${heading.text}”`;
+    button.addEventListener("click", () => jumpToDocLine(heading.line));
+    li.appendChild(button);
+    list.appendChild(li);
+  }
+}
+
+// Put the caret at the start of a line and scroll it into view. A textarea
+// has no anchors, so this is done by character offset.
+function jumpToDocLine(lineIndex) {
+  const box = $("doc-content");
+  const lines = box.value.split("\n");
+  const offset = lines.slice(0, lineIndex).reduce((n, l) => n + l.length + 1, 0);
+  box.focus();
+  box.setSelectionRange(offset, offset + (lines[lineIndex] || "").length);
+  // Approximate: scroll proportionally to where the line sits in the text.
+  const ratio = lineIndex / Math.max(1, lines.length);
+  box.scrollTop = Math.max(0, ratio * box.scrollHeight - box.clientHeight / 3);
+}
+
+// Answers "where is this actually kept?" with the real path, once.
+let storageInfo = null;
+
+async function renderDocStorage() {
+  const el = $("doc-storage-path");
+  if (!el) return;
+  if (!storageInfo) {
+    storageInfo = await apiJson("/storage").catch(() => null);
+  }
+  el.textContent = storageInfo ? storageInfo.database : "(couldn't read the path)";
 }
 
 function renderDocPreview() {
@@ -7436,7 +7565,10 @@ function switchTab(name) {
   }
   if (name === "dashboard") renderDashboard();
   if (name === "graph") renderGraph();
-  if (name === "documents") loadDocuments();
+  if (name === "documents") {
+    loadDocuments();
+    renderDocStorage();
+  }
   if (name === "reminders") {
     if (!$("reminder-due").value) $("reminder-due").value = defaultDueValue();
     loadReminders();

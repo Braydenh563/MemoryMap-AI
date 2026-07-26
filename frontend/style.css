@@ -3434,3 +3434,44 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   color: var(--warn);
   margin-top: 0.35rem;
 }
+
+/* --- documents: outline, live stats, and where the file actually is ---------- */
+
+.doc-outline-wrap { margin-top: 0.9rem; border-top: 1px solid var(--border); padding-top: 0.6rem; }
+.doc-outline-wrap h3 { margin: 0 0 0.35rem; }
+.doc-outline { list-style: none; margin: 0; padding: 0; }
+.outline-link {
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  padding: 0.16rem 0.3rem;
+  width: 100%;
+  border-radius: 6px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.outline-link:hover { background: var(--accent-soft); color: var(--ink); }
+/* Indentation is the whole point of an outline — it shows the shape. */
+.outline-h2 .outline-link { padding-left: 1rem; }
+.outline-h3 .outline-link { padding-left: 1.7rem; font-size: 0.82rem; }
+.outline-h4 .outline-link { padding-left: 2.4rem; font-size: 0.8rem; }
+
+.doc-stats { font-size: 0.78rem; white-space: nowrap; }
+
+.doc-storage { margin-top: 0.9rem; font-size: 0.85rem; }
+.doc-storage summary { cursor: pointer; }
+.doc-storage p { margin: 0.45rem 0; font-size: 0.82rem; }
+.storage-path {
+  display: block;
+  padding: 0.4rem 0.5rem;
+  background: var(--chip-bg);
+  border-radius: 6px;
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}

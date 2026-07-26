@@ -40,6 +40,21 @@ that navigated the app away.
 
 ---
 
+More user notes: 
+- The background art still wont move
+- The keybinds section for keyboard shortcuts is missing. 
+- When I click on the notes tab, there is a visual flicker at the bottom of the top menu bar for a second or two
+- Improve and remake the chat page ui to be impressive and the best it can be??
+- I want to improve the document preview md formatting
+- I want the web search to be as private as possible. make it untraceable/untrackable
+- Make sure that the ai in the chat can read documents and chat history. 
+- allow the at to view, manage and create skills.
+- Fix the chat page. it is barebones, things like the sidebar arent even the right matching height, there are barely any features and it looks bland. 
+- The write with ai function in notes still deletes my original text in the "your thoughts" text box
+- a betetr way to manage widgets. also more widgets pls
+- Expand the appearences tab and implement an option to sleect from preset and curated visual themes
+- Expand on the capabilities of the graph
+
 ## 1. The AI can't reach your notes (highest priority)
 
 **The problem.** The model only ever sees what semantic search hands it — five

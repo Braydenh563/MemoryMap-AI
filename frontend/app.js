@@ -7302,6 +7302,160 @@ async function renderGraph() {
   graphNodeSelection = nodeGroups;
   graphEdgeSelection = edgeLines;
   applyGraphHighlight();
+  initGraphKeyboard();
+}
+
+// --- driving the graph from the keyboard ------------------------------------------
+// The graph was the one tab that failed a keyboard-first test outright: every
+// way of reaching a note was a mouse gesture, so the whole map — and the notes
+// only reachable through it — was unusable without a pointer.
+//
+// A tab stop per node is not the answer; a big map would be hundreds of stops
+// to get past. The map takes one stop, and inside it the arrow keys move to
+// the nearest note in that direction, which is the way you already think about
+// a map. Tab out again in one press.
+
+let graphKeyboardId = null; // the note the keyboard is "on", or null
+
+function graphNodeById(id) {
+  return (graphNodesRef || []).find((n) => n.id === id) || null;
+}
+
+// The nearest node roughly in `direction` from the current one. Scored by
+// distance, penalised by how far off the axis it sits — so "right" prefers a
+// node to the right over a nearer one that happens to be below.
+function graphNeighbourInDirection(from, direction) {
+  const vectors = { right: [1, 0], left: [-1, 0], up: [0, -1], down: [0, 1] };
+  const [dirX, dirY] = vectors[direction] || vectors.right;
+  let best = null;
+  let bestScore = Infinity;
+  for (const node of graphNodesRef || []) {
+    if (node === from) continue;
+    const dx = node.x - from.x;
+    const dy = node.y - from.y;
+    const along = dx * dirX + dy * dirY;
+    if (along <= 0) continue; // behind us
+    const across = Math.abs(dx * dirY - dy * dirX);
+    const score = along + across * 2.5;
+    if (score < bestScore) {
+      bestScore = score;
+      best = node;
+    }
+  }
+  return best;
+}
+
+function focusGraphNode(node, { announceIt = true } = {}) {
+  if (!node) return;
+  graphKeyboardId = node.id;
+  // Reuse the hover spotlight: keyboard focus and pointer hover mean the same
+  // thing here, and two highlight systems would fight each other.
+  graphHoveredId = node.id;
+  applyGraphHighlight();
+  if (graphNodeSelection) {
+    graphNodeSelection.classed("graph-keyfocus", (d) => d.id === node.id);
+  }
+  if (announceIt) {
+    const links = graphAdjacency?.get(node.id)?.size || 0;
+    announce(
+      `${node.preview}. ${node.category}. ` +
+        `${links} connection${links === 1 ? "" : "s"}. Press Enter to open.`
+    );
+  }
+}
+
+// The popup positions itself from a click's coordinates, so a keyboard open
+// has to supply the equivalent point: where the node actually is on screen.
+function graphNodeScreenPoint(node) {
+  const box = document.getElementById("graph-box");
+  const rect = box ? box.getBoundingClientRect() : { left: 0, top: 0, width: 0, height: 0 };
+  const transform = graphCanvas ? graphCanvas.attr("transform") : null;
+  let scale = 1;
+  let tx = 0;
+  let ty = 0;
+  if (transform) {
+    const move = /translate\(([-\d.]+)[ ,]([-\d.]+)\)/.exec(transform);
+    const zoom = /scale\(([-\d.]+)\)/.exec(transform);
+    if (move) {
+      tx = Number(move[1]);
+      ty = Number(move[2]);
+    }
+    if (zoom) scale = Number(zoom[1]);
+  }
+  return {
+    clientX: rect.left + tx + node.x * scale,
+    clientY: rect.top + ty + node.y * scale,
+  };
+}
+
+function initGraphKeyboard() {
+  const box = document.getElementById("graph-box");
+  if (!box || box.dataset.keyboardReady) return;
+  box.dataset.keyboardReady = "1";
+  box.tabIndex = 0;
+  box.setAttribute("role", "application");
+  box.setAttribute(
+    "aria-label",
+    "Map of your notes. Arrow keys move between notes, Enter opens one, " +
+      "Escape leaves the map."
+  );
+
+  box.addEventListener("focus", () => {
+    if (!graphNodesRef?.length) return;
+    const current = graphNodeById(graphKeyboardId) || graphNodesRef[0];
+    focusGraphNode(current);
+  });
+  box.addEventListener("blur", () => {
+    if (graphNodeSelection) graphNodeSelection.classed("graph-keyfocus", false);
+    graphHoveredId = null;
+    applyGraphHighlight();
+  });
+
+  box.addEventListener("keydown", (event) => {
+    if (!graphNodesRef?.length) return;
+    const current = graphNodeById(graphKeyboardId) || graphNodesRef[0];
+    const directions = {
+      ArrowRight: "right",
+      ArrowLeft: "left",
+      ArrowUp: "up",
+      ArrowDown: "down",
+    };
+    if (directions[event.key]) {
+      event.preventDefault();
+      const next = graphNeighbourInDirection(current, directions[event.key]);
+      // No node that way is not an error — say so rather than silently
+      // doing nothing, which reads as the keys not working.
+      if (next) focusGraphNode(next);
+      else announce("No note in that direction.");
+      return;
+    }
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      openGraphPopup(
+        { ...graphNodeScreenPoint(current), stopPropagation() {} },
+        current
+      );
+      return;
+    }
+    // Step through this note's own connections — the relationship the map is
+    // actually for, which "nearest in a direction" doesn't follow.
+    if (event.key === "n" || event.key === "N") {
+      event.preventDefault();
+      const linked = [...(graphAdjacency?.get(current.id) || [])];
+      if (!linked.length) {
+        announce("This note has no connections.");
+        return;
+      }
+      const seen = graphNodeById(graphKeyboardId);
+      const position = linked.indexOf(seen?.id);
+      const nextId = linked[(position + 1) % linked.length];
+      focusGraphNode(graphNodeById(nextId));
+      return;
+    }
+    if (event.key === "Escape") {
+      box.blur();
+    }
+  });
 }
 
 // Zoom/pan so every node fits with a margin (Wave N).

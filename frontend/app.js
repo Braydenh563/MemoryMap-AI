@@ -6859,7 +6859,11 @@ function renderEmblem(holder, size = 34, { animate = false } = {}) {
   const accentHex =
     localStorage.getItem("accent-custom") ||
     (ACCENTS.find((a) => a.name === activeAccent()) || ACCENTS[0]).swatch;
-  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // The emblem spins unless the user has explicitly asked for a still UI in
+  // Settings → Appearance. We deliberately don't freeze it on the OS-level
+  // prefers-reduced-motion hint alone: this mark has always turned, the app
+  // ships its own motion switch, and that switch is the one to obey.
+  const still = appearancePref("motion") === "reduced";
 
   const sketch = (p) => {
     let nodes = [];
@@ -6980,6 +6984,7 @@ $("reduce-motion-toggle").addEventListener("change", (e) => {
   applyAppearance();
   if (e.target.checked) stopBgArt(); // a still UI shouldn't keep the art running
   else if (bgArtOn()) startBgArt();
+  renderBrandLogo(); // start/stop the emblem's rotation to match
 });
 $("bg-intensity").addEventListener("input", (e) => {
   localStorage.setItem("bg-intensity", e.target.value);

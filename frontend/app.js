@@ -385,18 +385,24 @@ function entryItem(entry, options = {}) {
   meta.appendChild(chip(entry.category));
   for (const tag of entry.tags) meta.appendChild(chip(tag, "tag"));
 
-  const confidenceChip =
-    entry.ai_confidence >= REVIEW_THRESHOLD
+  // "AI 0% — check this" is a warning about the AI's filing, and it only makes
+  // sense when the AI actually did some. On a note you filed yourself, or one
+  // saved while no AI was running, it accused a perfectly good note of being
+  // suspect — which is most notes if you don't run Ollama.
+  const aiDidFile = entry.ai_confidence > 0 && !entry.user_filed;
+  const confidenceChip = aiDidFile
+    ? entry.ai_confidence >= REVIEW_THRESHOLD
       ? chip(`AI ${entry.ai_confidence}%`, "confidence")
-      : // Low or zero confidence — worth a human look (plan Phase 3).
-        chip(`AI ${entry.ai_confidence}% — check this`, "review");
+      : // Low confidence from a real attempt — worth a human look (Phase 3).
+        chip(`AI ${entry.ai_confidence}% — check this`, "review")
+    : null;
   // Flash the badge once when this note's confidence just changed, so the
   // update after a re-evaluation is actually noticeable (user request).
-  if (entry.id === flashConfidenceId) {
+  if (confidenceChip && entry.id === flashConfidenceId) {
     confidenceChip.classList.add("badge-flash");
     flashConfidenceId = null;
   }
-  meta.appendChild(confidenceChip);
+  if (confidenceChip) meta.appendChild(confidenceChip);
 
   // While the AI is re-evaluating this note, show a live spinner chip so
   // it's obvious something is running on this specific card.
@@ -559,6 +565,68 @@ function closeActionMenus() {
 }
 
 // The ⋯ overflow menu on each note card (Wave L rework).
+// Earlier versions of one note, with a way back to any of them.
+async function openEntryHistory(entry) {
+  const overlay = $("history-overlay");
+  const list = $("history-list");
+  $("history-status").textContent = "";
+  list.replaceChildren();
+  overlay.classList.remove("hidden");
+  $("history-close").focus();
+
+  let history;
+  try {
+    history = await apiJson(`/entries/${entry.id}/history`);
+  } catch (error) {
+    $("history-status").classList.add("error");
+    $("history-status").textContent = error.message;
+    return;
+  }
+  if (!history.length) {
+    const p = document.createElement("p");
+    p.className = "muted";
+    p.textContent = "This note hasn't been edited yet, so there's nothing to go back to.";
+    list.appendChild(p);
+    return;
+  }
+
+  // The current text first, so you can see what you'd be replacing.
+  const current = document.createElement("div");
+  current.className = "history-entry history-current";
+  const currentHead = document.createElement("p");
+  currentHead.className = "muted";
+  currentHead.textContent = "Now";
+  const currentBody = document.createElement("p");
+  currentBody.textContent = notePreviewText(entry.content);
+  current.append(currentHead, currentBody);
+  list.appendChild(current);
+
+  for (const revision of history) {
+    const item = document.createElement("div");
+    item.className = "history-entry";
+    const head = document.createElement("p");
+    head.className = "muted";
+    head.textContent = `Before ${new Date(revision.created_at).toLocaleString()}`;
+    const body = document.createElement("p");
+    body.textContent = notePreviewText(revision.content);
+    const restore = smallButton("↩ Put this back", "Restore this version", async () => {
+      if (!confirm("Replace the note with this version?\n\nThe current text is kept in the history, so this is undoable.")) return;
+      try {
+        await apiJson(`/entries/${entry.id}/history/${revision.id}/restore`, { method: "POST" });
+        overlay.classList.add("hidden");
+        toast("Earlier version restored.");
+        await loadEntries();
+        flashEntry(entry.id);
+      } catch (error) {
+        $("history-status").classList.add("error");
+        $("history-status").textContent = error.message;
+      }
+    });
+    item.append(head, body, restore);
+    list.appendChild(item);
+  }
+}
+
 async function toggleEntryPrivacy(entry) {
   const makingPrivate = !entry.is_private;
   if (makingPrivate) {
@@ -611,6 +679,11 @@ function entryOverflowMenu(entry) {
         ? "Decrypt this note so search and the AI can use it again"
         : "Encrypt this note at rest, and keep it out of search and the AI",
       run: () => toggleEntryPrivacy(entry),
+    },
+    {
+      label: "🕘 History",
+      title: "See earlier versions of this note, and put one back",
+      run: () => openEntryHistory(entry),
     },
     {
       label: "🔄 Re-evaluate",
@@ -1816,7 +1889,7 @@ async function askQuestion(preset) {
         status.textContent = "The model is writing…";
       },
       onThinking: (delta) => {
-        answerBox.querySelector(".typing-dots")?.remove();
+        answerBox.querySelector(".typing-dots, .typing-label")?.remove();
         // Auto-expand while the model reasons (user request).
         thinkingBox.classList.remove("hidden");
         thinkingBox.open = true;
@@ -2294,9 +2367,30 @@ function personaOptions() {
 }
 
 // Three-dot "the model is about to speak" indicator (Wave D).
+// "The model is working." Under reduced motion the bouncing dots are frozen by
+// the blanket animation rules — three motionless dots say nothing at all, and
+// read as a rendering fault rather than as progress. So when motion is off,
+// this becomes a word instead of a gesture. Silence is not an acceptable
+// substitute for either.
+function reducedMotionWanted() {
+  return (
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+    document.documentElement.dataset.motion === "reduced"
+  );
+}
+
 function typingDots() {
+  if (reducedMotionWanted()) {
+    const label = document.createElement("span");
+    label.className = "typing-label";
+    label.textContent = "Thinking…";
+    label.setAttribute("role", "status");
+    return label;
+  }
   const dots = document.createElement("span");
   dots.className = "typing-dots";
+  dots.setAttribute("role", "status");
+  dots.setAttribute("aria-label", "The model is writing");
   for (let i = 0; i < 3; i++) dots.appendChild(document.createElement("span"));
   return dots;
 }
@@ -2506,8 +2600,14 @@ function showNoDocument() {
   currentDoc = null;
   $("doc-title").value = "";
   $("doc-content").value = "";
-  $("doc-title").disabled = true;
-  $("doc-content").disabled = true;
+  // Deliberately NOT disabled. Disabling them meant that on a notebook with no
+  // documents yet, clicking the editor did nothing and typing did nothing —
+  // a dead end whose only way out was noticing a small "+ New" button. Typing
+  // now creates the document, which is what every editor does.
+  $("doc-title").disabled = false;
+  $("doc-content").disabled = false;
+  $("doc-content").placeholder =
+    "Start typing and a new document is created for you.\n\nMarkdown works here — headings, **bold**, lists, tables, links.";
   $("doc-saved").textContent = "";
   renderDocPreview();
 }
@@ -2515,6 +2615,8 @@ function showNoDocument() {
 async function openDocument(id) {
   // Never lose unsaved work by switching away from it.
   if (docDirty) await saveDocument({ silent: true });
+  $("doc-content").placeholder =
+    "# Start writing\n\nMarkdown works here — headings, **bold**, lists, tables, links.";
   const doc = await apiJson(`/documents/${id}`).catch(() => null);
   if (!doc) return;
   currentDoc = doc;
@@ -2538,8 +2640,36 @@ async function createDocument() {
   $("doc-title").select();
 }
 
+// Guards against creating several documents from one fast burst of typing.
+let creatingDocument = null;
+
+async function ensureDocumentExists() {
+  if (currentDoc) return currentDoc;
+  if (creatingDocument) return creatingDocument;
+  creatingDocument = (async () => {
+    const doc = await apiJson("/documents", {
+      method: "POST",
+      body: JSON.stringify({ title: "Untitled", content: "" }),
+    });
+    currentDoc = doc;
+    docs.unshift({ ...doc });
+    renderDocList();
+    $("doc-empty").classList.add("hidden");
+    return doc;
+  })();
+  try {
+    return await creatingDocument;
+  } finally {
+    creatingDocument = null;
+  }
+}
+
 function markDocDirty() {
-  if (!currentDoc) return;
+  // No document yet? Typing makes one, then this save proceeds normally.
+  if (!currentDoc) {
+    ensureDocumentExists().then(() => markDocDirty());
+    return;
+  }
   docDirty = true;
   $("doc-saved").textContent = "Unsaved…";
   clearTimeout(docSaveTimer);
@@ -2586,15 +2716,86 @@ function toggleDocPreview() {
   renderDocPreview();
 }
 
-// Wrap the selection in markdown syntax (Ctrl+B / Ctrl+I).
-function wrapDocSelection(marker) {
+// Markdown formatting from a toolbar, so you don't have to remember the
+// syntax. Everything it inserts is plain markdown — the file stays portable
+// and the source stays readable, which is the point of using markdown at all.
+const MD_ACTIONS = {
+  h1: { line: "# " },
+  h2: { line: "## " },
+  h3: { line: "### " },
+  bold: { wrap: "**", placeholder: "bold text" },
+  italic: { wrap: "*", placeholder: "italic text" },
+  strike: { wrap: "~~", placeholder: "struck through" },
+  code: { wrap: "`", placeholder: "code" },
+  ul: { line: "- " },
+  ol: { line: "1. " },
+  task: { line: "- [ ] " },
+  quote: { line: "> " },
+  link: { custom: "link" },
+  codeblock: { block: "```\n", suffix: "\n```", placeholder: "your code" },
+  table: {
+    insert: "\n| Column | Column |\n| --- | --- |\n| | |\n",
+  },
+  hr: { insert: "\n---\n" },
+};
+
+function applyMarkdown(kind) {
+  const action = MD_ACTIONS[kind];
   const box = $("doc-content");
+  if (!action) return;
   const { selectionStart: start, selectionEnd: end, value } = box;
   const selected = value.slice(start, end);
+
+  if (action.wrap) {
+    wrapDocSelection(action.wrap, action.placeholder);
+    return;
+  }
+  if (action.line) {
+    // Prefix every selected line, or the current one when nothing is selected.
+    const lineStart = value.lastIndexOf("\n", start - 1) + 1;
+    const lineEnd = end + (value.slice(end).indexOf("\n") === -1 ? 0 : value.slice(end).indexOf("\n"));
+    const target = value.slice(lineStart, Math.max(lineEnd, end)) || "";
+    const prefixed = target
+      .split("\n")
+      .map((line) => (line.startsWith(action.line) ? line : action.line + line))
+      .join("\n");
+    box.value = value.slice(0, lineStart) + prefixed + value.slice(Math.max(lineEnd, end));
+    box.setSelectionRange(lineStart, lineStart + prefixed.length);
+  } else if (action.custom === "link") {
+    const label = selected || "link text";
+    const inserted = `[${label}](https://)`;
+    box.value = value.slice(0, start) + inserted + value.slice(end);
+    // Land the caret in the URL, which is the part you still have to type.
+    const at = start + label.length + 3;
+    box.setSelectionRange(at, at + 8);
+  } else if (action.block) {
+    const body = selected || action.placeholder;
+    const inserted = action.block + body + action.suffix;
+    box.value = value.slice(0, start) + inserted + value.slice(end);
+    const at = start + action.block.length;
+    box.setSelectionRange(at, at + body.length);
+  } else if (action.insert) {
+    box.value = value.slice(0, start) + action.insert + value.slice(end);
+    const at = start + action.insert.length;
+    box.setSelectionRange(at, at);
+  }
+  box.focus();
+  markDocDirty();
+  renderDocPreview();
+}
+
+// Wrap the selection in markdown syntax (Ctrl+B / Ctrl+I).
+function wrapDocSelection(marker, placeholder = "") {
+  const box = $("doc-content");
+  const { selectionStart: start, selectionEnd: end, value } = box;
+  // With nothing selected, insert the placeholder and select it, so the next
+  // keystroke replaces it — pressing Bold on an empty line should give you
+  // somewhere to type, not two markers and a caret between them.
+  const selected = value.slice(start, end) || placeholder;
   box.value = value.slice(0, start) + marker + selected + marker + value.slice(end);
   // Keep the same text selected, so the shortcut can be toggled or stacked.
   box.selectionStart = start + marker.length;
-  box.selectionEnd = end + marker.length;
+  box.selectionEnd = start + marker.length + selected.length;
   box.focus();
   markDocDirty();
   renderDocPreview();
@@ -2658,6 +2859,8 @@ async function deleteCurrentDocument() {
 // --- AI editing ---
 // Always a proposal. Writing straight into the document would be the most
 // destructive thing in the app.
+let docAiController = null;
+
 function openDocAiPanel() {
   if (!currentDoc) return;
   const box = $("doc-content");
@@ -2686,10 +2889,13 @@ async function runDocAiEdit() {
   }
   status.classList.remove("error");
   status.textContent = "✨ Thinking…";
-  $("doc-ai-run").disabled = true;
+  docAiController = new AbortController();
+  $("doc-ai-run").classList.add("hidden");
+  $("doc-ai-cancel-run").classList.remove("hidden");
   try {
     const body = await apiJson(`/documents/${currentDoc.id}/ai-edit`, {
       method: "POST",
+      signal: docAiController.signal,
       body: JSON.stringify({
         instruction,
         selection: $("doc-ai-panel").dataset.selection || "",
@@ -2699,10 +2905,16 @@ async function runDocAiEdit() {
     status.textContent = body.message || "Read it over, then accept or cancel.";
     if (body.message) status.classList.add("error");
   } catch (error) {
-    status.classList.add("error");
-    status.textContent = error.message;
+    if (error.name === "AbortError") {
+      status.textContent = "Stopped. The document is untouched.";
+    } else {
+      status.classList.add("error");
+      status.textContent = error.message;
+    }
   } finally {
-    $("doc-ai-run").disabled = false;
+    docAiController = null;
+    $("doc-ai-run").classList.remove("hidden");
+    $("doc-ai-cancel-run").classList.add("hidden");
   }
 }
 
@@ -2768,6 +2980,59 @@ function updateDraftCount() {
   $("draft-count").textContent = words ? `${words} word${words === 1 ? "" : "s"}` : "";
 }
 
+// Every AI pass is undoable. "Draft it" replaces the draft AND clears the
+// thoughts box, so without this a revision you didn't like destroyed both your
+// previous wording and the notes you wrote it from — with nothing to go back
+// to. Handing your writing to the AI should never be a one-way door.
+const draftUndoStack = [];
+const MAX_DRAFT_UNDO = 20;
+
+function pushDraftUndo() {
+  draftUndoStack.push({
+    thoughts: $("draft-thoughts").value,
+    draft: $("draft-text").value,
+  });
+  if (draftUndoStack.length > MAX_DRAFT_UNDO) draftUndoStack.shift();
+  updateDraftUndoButton();
+}
+
+function updateDraftUndoButton() {
+  const button = $("draft-undo");
+  button.disabled = draftUndoStack.length === 0;
+  button.title = draftUndoStack.length
+    ? `Go back to the version before the last AI pass (${draftUndoStack.length} available)`
+    : "Nothing to undo yet";
+}
+
+function undoDraft() {
+  const previous = draftUndoStack.pop();
+  if (!previous) return;
+  $("draft-thoughts").value = previous.thoughts;
+  $("draft-text").value = previous.draft;
+  updateDraftCount();
+  updateDraftUndoButton();
+  saveDraftLocally();
+  $("draft-status").classList.remove("error");
+  $("draft-status").textContent = "Went back to the previous version.";
+  announce("Restored the draft from before the last AI pass.");
+}
+
+// One-shot AI calls (drafting, document edits) had no way out: press the
+// button by mistake or watch it stall, and the only options were waiting or
+// reloading the page. Each now runs against an AbortController so it can be
+// cancelled, and shows that it's working while it does.
+let draftController = null;
+
+function setDraftBusy(busy) {
+  $("draft-compose").classList.toggle("hidden", busy);
+  $("draft-cancel").classList.toggle("hidden", !busy);
+  $("draft-undo").disabled = busy || draftUndoStack.length === 0;
+}
+
+function cancelDraft() {
+  draftController?.abort();
+}
+
 async function composeDraft() {
   const thoughts = $("draft-thoughts").value.trim();
   const draft = $("draft-text").value;
@@ -2779,16 +3044,21 @@ async function composeDraft() {
   }
   status.classList.remove("error");
   status.textContent = draft.trim() ? "✨ Revising…" : "✨ Drafting…";
-  $("draft-compose").disabled = true;
+  draftController = new AbortController();
+  setDraftBusy(true);
   try {
     const body = await apiJson("/drafts/compose", {
       method: "POST",
+      signal: draftController.signal,
       body: JSON.stringify({
         thoughts,
         draft,
         instruction: $("draft-instruction").value.trim(),
       }),
     });
+    // Only record an undo point once the model has actually returned
+    // something — a failed call shouldn't add a step that changes nothing.
+    if (body.draft !== draft) pushDraftUndo();
     $("draft-text").value = body.draft;
     updateDraftCount();
     // The thoughts have been folded in, so clear the box for the next round
@@ -2807,10 +3077,17 @@ async function composeDraft() {
     }
     saveDraftLocally();
   } catch (error) {
-    status.classList.add("error");
-    status.textContent = error.message;
+    if (error.name === "AbortError") {
+      // Nothing was written, so nothing is lost — say so rather than
+      // showing it as a failure.
+      status.textContent = "Stopped. Your thoughts and draft are untouched.";
+    } else {
+      status.classList.add("error");
+      status.textContent = error.message;
+    }
   } finally {
-    $("draft-compose").disabled = false;
+    draftController = null;
+    setDraftBusy(false);
   }
 }
 
@@ -3015,6 +3292,9 @@ async function sendChatMessage(preset, opts = {}) {
   let meta = null;
   let toolsActed = false;
   let stats = null;
+  // Whether the user pressed Stop. An empty answer they asked for needs no
+  // explanation; one they didn't ask for does.
+  let stopped = false;
   const startedAt = performance.now();
   const toolEvents = []; // {label, ok} — persisted so chips survive a reload
   chatController = new AbortController();
@@ -3032,7 +3312,7 @@ async function sendChatMessage(preset, opts = {}) {
         status.textContent = "The model is writing…";
       },
       onThinking: (delta) => {
-        answerBox.querySelector(".typing-dots")?.remove();
+        answerBox.querySelector(".typing-dots, .typing-label")?.remove();
         thinkingBox.classList.remove("hidden");
         thinkingBox.open = true; // expanded while reasoning (user request)
         thinkingRaw += delta;
@@ -3048,7 +3328,7 @@ async function sendChatMessage(preset, opts = {}) {
         chatScrollToEnd();
       },
       onTool: (event) => {
-        answerBox.querySelector(".typing-dots")?.remove();
+        answerBox.querySelector(".typing-dots, .typing-label")?.remove();
         const label = event.ok ? event.label : `⚠️ ${event.error || event.label}`;
         toolsHolder.appendChild(toolChip(label, event.ok));
         toolEvents.push({ label, ok: event.ok }); // remember for persistence
@@ -3057,7 +3337,7 @@ async function sendChatMessage(preset, opts = {}) {
         chatScrollToEnd();
       },
       onConfirm: (event) => {
-        answerBox.querySelector(".typing-dots")?.remove();
+        answerBox.querySelector(".typing-dots, .typing-label")?.remove();
         renderToolConfirm(toolsHolder, event);
         status.textContent = "Waiting for your confirmation…";
       },
@@ -3078,6 +3358,7 @@ async function sendChatMessage(preset, opts = {}) {
     status.textContent = "";
   } catch (error) {
     if (error.name === "AbortError") {
+      stopped = true;
       status.textContent = "Stopped.";
     } else {
       status.textContent = error.message;
@@ -3107,9 +3388,33 @@ async function sendChatMessage(preset, opts = {}) {
   chatScrollToEnd();
   if (toolsActed) refreshAfterToolChanges(); // the AI changed real data
   if (!answerRaw) {
-    // Nothing to remember (failed/aborted before any token). If this was a
-    // regenerate that already removed the old bubble, drop the empty one too.
-    if (opts.replaceLast) bubble.remove();
+    // The model returned nothing. This used to return early and leave the
+    // bubble sitting there with the notes disclosure, no answer, no error and
+    // no buttons — a dead end with nothing to click and nothing explaining it.
+    if (opts.replaceLast) {
+      // A regenerate already removed the old answer; don't leave a blank in
+      // its place, since the previous one is gone either way.
+      bubble.remove();
+      toast("The model returned nothing that time. Try again.", true);
+      return;
+    }
+    if (!stopped) {
+      const note = document.createElement("p");
+      note.className = "muted";
+      note.textContent =
+        "The model finished without writing anything. That usually means it ran " +
+        "out of context or the model is struggling with this question — try again, " +
+        "or rephrase it.";
+      answerBox.replaceChildren(note);
+      // Retry and delete at minimum, so there's always a way forward.
+      bubble.appendChild(
+        chatMessageActions([
+          { label: "↻", title: "Try again", onClick: () => regenerateLastAnswer() },
+          { label: "🗑", title: "Delete this message", onClick: () => removeChatBubble(bubble) },
+        ])
+      );
+      chatScrollToEnd();
+    }
     return;
   }
   // Per-message actions: copy, regenerate, read-aloud, delete (Wave H voices).
@@ -3235,6 +3540,132 @@ function exportChatMarkdown() {
   URL.revokeObjectURL(url);
 }
 
+// --- resizable sidebars ----------------------------------------------------------
+// Both sidebars were a fixed 230px. In the chat list that left about four
+// characters of a conversation's name visible, which is no name at all — and
+// how much room a sidebar deserves depends on your screen and your titles,
+// not on a number picked once.
+//
+// Drag the edge to resize. The width is remembered per sidebar, and there's a
+// keyboard path because a mouse-only control is one that some people simply
+// cannot use.
+
+const SIDEBAR_MIN = 170;
+const SIDEBAR_MAX = 520;
+
+function sidebarWidth(id, fallback = 260) {
+  const saved = Number(localStorage.getItem(`sidebarWidth:${id}`));
+  return Number.isFinite(saved) && saved >= SIDEBAR_MIN ? saved : fallback;
+}
+
+function applySidebarWidth(aside, width) {
+  const clamped = Math.min(Math.max(Math.round(width), SIDEBAR_MIN), SIDEBAR_MAX);
+  // The grid column is what actually sizes it; the aside just fills the column.
+  aside.parentElement.style.gridTemplateColumns = `${clamped}px 1fr`;
+  localStorage.setItem(`sidebarWidth:${aside.id}`, String(clamped));
+  return clamped;
+}
+
+function makeSidebarResizable(aside) {
+  if (!aside || aside.dataset.resizable) return;
+  aside.dataset.resizable = "1";
+  applySidebarWidth(aside, sidebarWidth(aside.id));
+
+  const handle = document.createElement("div");
+  handle.className = "sidebar-resize";
+  // A real slider: screen readers announce it, and arrows resize it.
+  handle.setAttribute("role", "separator");
+  handle.setAttribute("aria-orientation", "vertical");
+  handle.setAttribute("tabindex", "0");
+  handle.setAttribute("aria-label", "Resize the sidebar — arrow keys, or drag");
+  aside.appendChild(handle);
+
+  const startDrag = (event) => {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = aside.getBoundingClientRect().width;
+    document.body.classList.add("resizing-sidebar");
+
+    const move = (e) => applySidebarWidth(aside, startWidth + (e.clientX - startX));
+    const stop = () => {
+      document.body.classList.remove("resizing-sidebar");
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop);
+  };
+  handle.addEventListener("pointerdown", startDrag);
+
+  handle.addEventListener("keydown", (event) => {
+    const step = event.shiftKey ? 40 : 12;
+    const current = aside.getBoundingClientRect().width;
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      applySidebarWidth(aside, current - step);
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      applySidebarWidth(aside, current + step);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      applySidebarWidth(aside, 260); // back to the default
+    }
+  });
+  // Double-click the handle to reset, the convention everywhere else.
+  handle.addEventListener("dblclick", () => applySidebarWidth(aside, 260));
+}
+
+function initResizableSidebars() {
+  for (const id of ["sidebar", "chat-sidebar", "doc-sidebar"]) {
+    const aside = document.getElementById(id);
+    if (aside) makeSidebarResizable(aside);
+  }
+}
+
+// A ⋯ button that opens a small menu. Built from the same pieces as the note
+// overflow menu so the two behave identically — one open at a time, click away
+// or Escape to close, arrow keys to move.
+function makeMenuItem(label, title, run) {
+  return { label, title, run };
+}
+
+function kebabMenu(items, ariaLabel) {
+  const wrap = document.createElement("span");
+  wrap.className = "menu-wrap";
+
+  const menu = document.createElement("div");
+  menu.className = "action-menu hidden";
+  menu.setAttribute("role", "menu");
+
+  const opener = smallButton("⋯", ariaLabel, () => {
+    const willOpen = menu.classList.contains("hidden");
+    closeActionMenus();
+    if (willOpen) {
+      menu.classList.remove("hidden");
+      opener.setAttribute("aria-expanded", "true");
+      menu.querySelector("button")?.focus();
+    }
+  });
+  opener.setAttribute("aria-haspopup", "menu");
+  opener.setAttribute("aria-expanded", "false");
+
+  for (const item of items) {
+    const button = document.createElement("button");
+    button.className = "menu-item";
+    button.setAttribute("role", "menuitem");
+    button.textContent = item.label;
+    button.title = item.title;
+    button.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      closeActionMenus();
+      await item.run();
+    });
+    menu.appendChild(button);
+  }
+  wrap.append(opener, menu);
+  return wrap;
+}
+
 async function loadConversationList() {
   const conversations = await apiJson("/conversations").catch(() => []);
   const list = $("conversation-list");
@@ -3248,10 +3679,13 @@ async function loadConversationList() {
     title.textContent = conversation.title;
     title.title = "Open this chat";
     title.addEventListener("click", () => openConversation(conversation.id));
+    // One ⋯ instead of three buttons. In a sidebar this narrow they were
+    // taking most of the row, leaving a few characters of the chat's name.
     const actions = document.createElement("span");
     actions.className = "entry-actions";
-    actions.appendChild(
-      smallButton("✎", "Rename", async () => {
+    const items = [];
+    items.push(
+      makeMenuItem("✎ Rename", "Rename this chat", async () => {
         const next = prompt("Rename this chat:", conversation.title);
         if (!next || !next.trim()) return;
         await apiJson(`/conversations/${conversation.id}`, {
@@ -3261,8 +3695,8 @@ async function loadConversationList() {
         loadConversationList();
       })
     );
-    actions.appendChild(
-      smallButton("✨", "Let the AI name this chat", async () => {
+    items.push(
+      makeMenuItem("✨ Name with AI", "Let the AI name this chat", async () => {
         const named = await apiJson(`/conversations/${conversation.id}/retitle`, {
           method: "POST",
         }).catch((e) => {
@@ -3275,14 +3709,15 @@ async function loadConversationList() {
         loadConversationList();
       })
     );
-    actions.appendChild(
-      smallButton("×", "Delete this chat", async () => {
+    items.push(
+      makeMenuItem("🗑 Delete", "Delete this chat", async () => {
         if (!confirm("Delete this saved chat?")) return;
         await apiJson(`/conversations/${conversation.id}`, { method: "DELETE" });
         if (chatConv.id === conversation.id) newChatConversation();
         loadConversationList();
       })
     );
+    actions.appendChild(kebabMenu(items, `Actions for ${conversation.title}`));
     li.append(title, actions);
     list.appendChild(li);
   }
@@ -8396,6 +8831,8 @@ function renderAppearance() {
   $("bg-art-toggle").checked = bgArtOn();
   $("bg-style-row").classList.toggle("hidden", !bgArtOn());
   $("bg-intensity-row").classList.toggle("hidden", !bgArtOn());
+  $("bg-motion").value = appearancePref("bg-motion");
+  $("bg-motion-row").classList.toggle("hidden", !bgArtOn());
   $("glass-toggle").checked = appearancePref("glass") === "on";
   $("bg-intensity").value = appearancePref("bg-intensity");
   $("bg-intensity-value").textContent = `${appearancePref("bg-intensity")}%`;
@@ -8662,7 +9099,12 @@ const BG_ART_BUILDERS = {
 function startBgArt() {
   stopBgArt();
   if (typeof p5 === "undefined") return;
-  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // Still if the OS asks, if the interface-wide reduce-motion is on, or if the
+  // background is simply set to Still — three different reasons, one outcome.
+  // Wanting a calm background isn't the same as wanting a calm interface, and
+  // previously the only way to still the art was to still everything.
+  const reduceMotion =
+    reducedMotionWanted() || appearancePref("bg-motion") === "still";
   // A custom accent colour, if set, drives the art too.
   const accentHex =
     localStorage.getItem("accent-custom") ||
@@ -8938,6 +9380,11 @@ $("bg-art-style").addEventListener("change", (e) => {
   localStorage.setItem("bg-style", e.target.value);
   if (bgArtOn()) startBgArt();
 });
+$("bg-motion").addEventListener("change", (e) => {
+  localStorage.setItem("bg-motion", e.target.value);
+  // Still vs moving is decided in setup, so the sketch has to be rebuilt.
+  if (bgArtOn()) startBgArt();
+});
 // Custom CSS (advanced).
 $("custom-css-apply").addEventListener("click", () => {
   const css = $("custom-css").value;
@@ -8981,6 +9428,7 @@ $("skip-link").addEventListener("click", (e) => {
 });
 initCollapsibleSections();
 scrollTopUpdate = initScrollTopButton();
+initResizableSidebars();
 switchTab(localStorage.getItem("activeTab") || "notes");
 
 // Settings modal (Wave A).
@@ -9019,6 +9467,9 @@ $("doc-new").addEventListener("click", createDocument);
 $("doc-filter").addEventListener("input", renderDocList);
 $("doc-title").addEventListener("input", () => { markDocDirty(); renderDocPreview(); });
 $("doc-content").addEventListener("input", () => { markDocDirty(); renderDocPreview(); });
+for (const button of document.querySelectorAll("#doc-toolbar button")) {
+  button.addEventListener("click", () => applyMarkdown(button.dataset.md));
+}
 $("doc-preview-toggle").addEventListener("click", toggleDocPreview);
 $("doc-export-md").addEventListener("click", exportDocumentMarkdown);
 $("doc-export-pdf").addEventListener("click", exportDocumentPdf);
@@ -9027,6 +9478,7 @@ $("doc-ai").addEventListener("click", openDocAiPanel);
 $("doc-ai-close").addEventListener("click", closeDocAiPanel);
 $("doc-ai-cancel").addEventListener("click", closeDocAiPanel);
 $("doc-ai-run").addEventListener("click", runDocAiEdit);
+$("doc-ai-cancel-run").addEventListener("click", () => docAiController?.abort());
 $("doc-ai-accept").addEventListener("click", acceptDocAiEdit);
 $("doc-ai-instruction").addEventListener("keydown", (e) => {
   if (e.key === "Enter") { e.preventDefault(); runDocAiEdit(); }
@@ -9047,6 +9499,8 @@ window.addEventListener("beforeunload", (event) => {
 
 // --- writing room wiring ---
 $("draft-compose").addEventListener("click", composeDraft);
+$("draft-undo").addEventListener("click", undoDraft);
+$("draft-cancel").addEventListener("click", cancelDraft);
 $("draft-save").addEventListener("click", saveDraftAsNote);
 $("draft-text").addEventListener("input", () => {
   updateDraftCount();
@@ -9412,6 +9866,130 @@ function wikiSuggestKeydown(event, textarea) {
   return false;
 }
 
+// --- duplicate tidy-up -----------------------------------------------------------
+// Finding is arithmetic and always available. Merging offers the AI when it's
+// running and a plain join when it isn't — the join reads worse but cannot
+// lose anything, which is the property that matters when tidying.
+
+async function findDuplicates() {
+  const status = $("duplicate-status");
+  const box = $("duplicate-groups");
+  const threshold = Number($("duplicate-threshold").value) / 100;
+  status.classList.remove("error");
+  status.textContent = "Comparing your notes…";
+  box.replaceChildren();
+  try {
+    const body = await apiJson(`/duplicates?threshold=${threshold}`);
+    renderDuplicateGroups(body.groups);
+    status.textContent = body.groups.length
+      ? `${body.groups.length} group${body.groups.length === 1 ? "" : "s"} of similar notes.`
+      : "No duplicates at that similarity — try lowering the slider.";
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+  }
+}
+
+function renderDuplicateGroups(groups) {
+  const box = $("duplicate-groups");
+  box.replaceChildren();
+  for (const group of groups) {
+    const card = document.createElement("div");
+    card.className = "duplicate-group";
+
+    const head = document.createElement("p");
+    head.className = "muted";
+    head.textContent = `${group.entries.length} notes · ${Math.round(group.similarity * 100)}% alike`;
+    card.appendChild(head);
+
+    // Every note ticked by default: the whole point is merging the group.
+    const chosen = new Set(group.entries.map((e) => e.id));
+    for (const entry of group.entries) {
+      const label = document.createElement("label");
+      label.className = "duplicate-note";
+      const box2 = document.createElement("input");
+      box2.type = "checkbox";
+      box2.checked = true;
+      box2.addEventListener("change", () => {
+        if (box2.checked) chosen.add(entry.id);
+        else chosen.delete(entry.id);
+        merge.disabled = chosen.size < 2;
+      });
+      const text = document.createElement("span");
+      text.textContent = notePreviewText(entry.content).slice(0, 160);
+      label.append(box2, text);
+      card.appendChild(label);
+    }
+
+    const row = document.createElement("div");
+    row.className = "row";
+    const merge = smallButton("⤵ Merge these", "Combine them into one note", async () => {
+      await mergeDuplicateGroup([...chosen], card);
+    }, false);
+    const useAi = document.createElement("label");
+    useAi.className = "muted";
+    const aiBox = document.createElement("input");
+    aiBox.type = "checkbox";
+    aiBox.id = `merge-ai-${group.entries[0].id}`;
+    // Only offer the AI when it can actually do the job.
+    const aiReady = !modelStatus || modelStatus.ollama_running !== false;
+    aiBox.checked = aiReady;
+    aiBox.disabled = !aiReady;
+    useAi.append(aiBox, document.createTextNode(
+      aiReady ? " let the AI write the merged note" : " AI not running — notes will be joined"
+    ));
+    card.dataset.aiBoxId = aiBox.id;
+    row.append(merge, useAi);
+    card.appendChild(row);
+    box.appendChild(card);
+  }
+}
+
+async function mergeDuplicateGroup(ids, card) {
+  if (ids.length < 2) return;
+  const aiBox = document.getElementById(card.dataset.aiBoxId);
+  const useAi = !!(aiBox && aiBox.checked);
+  const status = $("duplicate-status");
+
+  // Show what it will say BEFORE anything changes — merging is the one action
+  // here that can quietly lose writing, so it shouldn't be a leap of faith.
+  status.classList.remove("error");
+  status.textContent = "Working out the merged note…";
+  let preview;
+  try {
+    preview = await apiJson("/duplicates/preview", {
+      method: "POST",
+      body: JSON.stringify({ ids, use_ai: useAi }),
+    });
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+    return;
+  }
+  status.textContent = "";
+
+  const ok = confirm(
+    `Merge ${ids.length} notes into one?\n\n` +
+      `The merged note will read:\n\n${preview.merged.slice(0, 400)}` +
+      `${preview.merged.length > 400 ? "…" : ""}\n\n` +
+      `The other ${ids.length - 1} go to the recycle bin, so this is undoable.`
+  );
+  if (!ok) return;
+
+  try {
+    const result = await apiJson("/duplicates/merge", {
+      method: "POST",
+      body: JSON.stringify({ ids, use_ai: useAi }),
+    });
+    card.remove();
+    toast(`Merged ${result.merged_count} notes${result.used_ai ? " with the AI" : ""}.`);
+    await loadEntries();
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+  }
+}
+
 // --- saved filters ---------------------------------------------------------------
 // Once the filter box understands operators, the useful ones are worth
 // keeping. "tag:work is:untagged" is a thing you want on a button, not
@@ -9479,6 +10057,19 @@ async function saveCurrentSearch() {
 
 $("save-search").addEventListener("click", saveCurrentSearch);
 
+$("history-close").addEventListener("click", () =>
+  $("history-overlay").classList.add("hidden")
+);
+
+$("find-duplicates").addEventListener("click", findDuplicates);
+$("duplicate-threshold").addEventListener("input", (e) => {
+  $("duplicate-threshold-value").textContent = `${e.target.value}%`;
+});
+
+$("about-shortcuts").addEventListener("click", () => {
+  closeSettingsModal();
+  openShortcuts();
+});
 $("shortcuts-reset").addEventListener("click", resetShortcuts);
 
 $("search-help").addEventListener("click", () => {
@@ -9499,12 +10090,15 @@ async function refreshSearxngHost() {
     badge.textContent = "Unknown";
     return;
   }
-  // No Docker AND no git: nothing we can drive, so say so plainly.
+  // No usable backend: nothing we can drive, so say so plainly. "Docker is
+  // installed but not started" is a different problem from "Docker isn't
+  // installed", and the detail from the server distinguishes them.
   if (!info.backend) {
-    badge.textContent = "Not available";
+    badge.textContent = info.docker_installed ? "Docker not started" : "Not available";
     badge.title = info.detail || "";
     start.disabled = true;
     stop.disabled = true;
+    $("searxng-host-status").classList.remove("error");
     $("searxng-host-status").textContent = info.detail || "";
     return;
   }
@@ -9530,6 +10124,11 @@ async function refreshSearxngHost() {
   if (info.install_error) {
     $("searxng-host-status").classList.add("error");
     $("searxng-host-status").textContent = info.install_error;
+  } else if (info.detail) {
+    // e.g. "Docker isn't running, so it'll be set up in a virtualenv" — an
+    // explanation of what will happen, not a failure.
+    $("searxng-host-status").classList.remove("error");
+    $("searxng-host-status").textContent = info.detail;
   }
   const running = info.state === "running" && info.responding;
   badge.textContent = running
@@ -9543,6 +10142,12 @@ async function refreshSearxngHost() {
   start.disabled = running;
   stop.disabled = info.state === "absent";
   start.textContent = info.state === "absent" ? "▶ Install & start" : "▶ Start SearXNG";
+  // Keep polling while it's starting, so "Starting…" can't stick forever with
+  // no way to tell whether anything is still happening.
+  if (info.state === "running" && !info.responding) {
+    clearTimeout(refreshSearxngHost.timer);
+    refreshSearxngHost.timer = setTimeout(refreshSearxngHost, 3000);
+  }
 }
 
 $("searxng-start").addEventListener("click", async () => {
@@ -9705,6 +10310,10 @@ document.addEventListener("keydown", (e) => {
   }
   if (e.key === "Escape" && !$("improve-overlay").classList.contains("hidden")) {
     closeImprove();
+    return;
+  }
+  if (e.key === "Escape" && !$("history-overlay").classList.contains("hidden")) {
+    $("history-overlay").classList.add("hidden");
     return;
   }
   if (e.key === "Escape" && !$("shortcuts-overlay").classList.contains("hidden")) {

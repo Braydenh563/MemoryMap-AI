@@ -7,6 +7,8 @@ calls run (plan §4).
 
 from __future__ import annotations
 
+import json
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import delete as sa_delete
@@ -24,7 +26,11 @@ from memorymap.api.schemas import (
     SimilarOut,
 )
 from memorymap.core import deps
-from memorymap.core.database import EmbeddingRecord, EntryLink  # noqa: F401 (used in link_suggestions)
+from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_suggestions)
+    EmbeddingRecord,
+    EntryLink,
+    EntryRevision,
+)
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
 from memorymap.search import search_manager
@@ -435,6 +441,11 @@ def update_entry(
     (plan §4 — the AI is a servant, not a gatekeeper)."""
     entry = _existing_entry(session, entry_id)
     content_changed = body.content is not None and body.content != entry.content
+    tags_changed = body.tags is not None and body.tags != manager.entry_tags(entry)
+    # Snapshot BEFORE the change, so the newest revision is always the version
+    # being replaced rather than the one replacing it.
+    if content_changed or tags_changed:
+        manager.record_revision(session, entry)
     manager.update_entry(
         session,
         entry,
@@ -490,6 +501,46 @@ class LinkBody(BaseModel):
 
 class PrivacyBody(BaseModel):
     private: bool
+
+
+@router.get("/{entry_id}/history")
+def entry_history(entry_id: int, session: Session = Depends(get_session)) -> list[dict]:
+    """Past versions of this note, newest first."""
+    entry = _existing_entry(session, entry_id)
+    return [
+        {
+            "id": revision.id,
+            # Decrypted for display exactly like the note itself, so a private
+            # note's history is readable while unlocked and not otherwise.
+            "content": manager.readable_content(revision),
+            "tags": json.loads(revision.tags or "[]"),
+            "created_at": revision.created_at.isoformat(),
+        }
+        for revision in manager.revisions_for(session, entry)
+    ]
+
+
+@router.post("/{entry_id}/history/{revision_id}/restore", response_model=EntryOut)
+def restore_revision(
+    entry_id: int, revision_id: int, session: Session = Depends(get_session)
+) -> EntryOut:
+    """Put a past version back.
+
+    Restoring is itself an edit, so the current text is saved first — undoing
+    an undo has to work, or this is a trap rather than a safety net.
+    """
+    entry = _existing_entry(session, entry_id)
+    revision = session.get(EntryRevision, revision_id)
+    if revision is None or revision.entry_id != entry.id:
+        raise HTTPException(status_code=404, detail="That version no longer exists")
+
+    manager.record_revision(session, entry)
+    entry.content = revision.content
+    entry.tags = revision.tags
+    manager.log_action(session, "edited", "entry", entry.id, "restored an earlier version")
+    session.commit()
+    session.refresh(entry)
+    return _to_out(session, entry)
 
 
 @router.post("/{entry_id}/privacy", response_model=EntryOut)

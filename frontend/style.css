@@ -189,10 +189,16 @@ header#top-bar h1 { margin: 0; font-size: 1.1rem; letter-spacing: 0.01em; }
 
 .layout {
   display: grid;
-  grid-template-columns: 230px 1fr;
+  /* A starting point only — each sidebar remembers its own width, set on the
+     grid by initResizableSidebars. 230px left about four characters of a chat
+     title visible, which is no title at all. */
+  grid-template-columns: 260px 1fr;
   gap: 1rem;
   padding: 1rem 2rem 2rem;
-  align-items: start;
+  /* stretch, not start: with `start` the sidebar shrank to its content and sat
+     visibly shorter than the panel beside it, which reads as a broken layout
+     rather than a deliberate one. */
+  align-items: stretch;
 }
 
 /* Stack the sidebar on small screens. minmax(0,…) + min-width let the
@@ -3129,3 +3135,121 @@ button.ai-unavailable {
 }
 .wiki-suggest li.active,
 .wiki-suggest li:hover { background: var(--accent-soft); }
+
+/* --- duplicate tidy-up -------------------------------------------------------- */
+.duplicate-group {
+  margin: 0.6rem 0;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+.duplicate-group > p { margin: 0 0 0.4rem; font-size: 0.8rem; }
+.duplicate-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.duplicate-note input { width: auto; margin: 0.2rem 0 0; flex: 0 0 auto; }
+.duplicate-group .row { margin-top: 0.5rem; align-items: center; gap: 0.6rem; }
+.duplicate-group .row label { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.82rem; }
+.duplicate-group .row label input { width: auto; margin: 0; }
+#duplicate-threshold { width: 8rem; }
+
+/* --- note history ------------------------------------------------------------- */
+#history-card { width: min(44rem, 92vw); }
+#history-list { display: flex; flex-direction: column; gap: 0.5rem; max-height: 60vh; overflow-y: auto; }
+.history-entry {
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+/* The current text, so you can see what you'd be replacing. */
+.history-current { border-color: var(--accent); background: var(--accent-soft); }
+.history-entry > p:first-child { margin: 0 0 0.2rem; font-size: 0.76rem; }
+.history-entry > p:nth-child(2) { margin: 0 0 0.4rem; font-size: 0.88rem; white-space: pre-wrap; }
+
+/* --- resizable sidebars ------------------------------------------------------- */
+#sidebar, #chat-sidebar, #doc-sidebar { position: relative; }
+.sidebar-resize {
+  position: absolute;
+  top: 0;
+  right: -0.55rem;
+  width: 0.7rem;
+  height: 100%;
+  cursor: col-resize;
+  /* Invisible until reached for, so it isn't furniture. */
+  background: transparent;
+  border-radius: 3px;
+  transition: background 0.12s ease;
+  touch-action: none;
+}
+.sidebar-resize:hover,
+.sidebar-resize:focus-visible { background: var(--accent); opacity: 0.5; }
+.sidebar-resize:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* While dragging, stop the pointer selecting text across the whole page. */
+body.resizing-sidebar { cursor: col-resize; user-select: none; }
+
+/* Long titles get room now, so let them wrap to two lines instead of clipping. */
+.conv-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  cursor: pointer;
+}
+#conversation-list li { display: flex; align-items: flex-start; gap: 0.35rem; }
+
+/* No dragging on a stacked single-column layout — there's no column to size. */
+@media (max-width: 720px) {
+  .sidebar-resize { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-resize { transition: none; }
+}
+
+/* The reduced-motion stand-in for the typing dots: a word, not a gesture. */
+.typing-label {
+  display: inline-block;
+  padding: 0.2rem 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+/* --- document formatting toolbar ---------------------------------------------- */
+.doc-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.35rem 0.4rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+.doc-toolbar button {
+  min-width: 2rem;
+  padding: 0.2rem 0.45rem;
+  font-size: 0.82rem;
+  background: none;
+  border: 1px solid transparent;
+  box-shadow: none;
+  color: var(--ink);
+  cursor: pointer;
+  border-radius: 6px;
+}
+.doc-toolbar button:hover { background: var(--accent-soft); border-color: var(--accent); }
+.doc-toolbar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.doc-toolbar-sep {
+  width: 1px;
+  height: 1.1rem;
+  margin: 0 0.25rem;
+  background: var(--border);
+}

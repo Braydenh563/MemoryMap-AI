@@ -198,6 +198,10 @@ Link to another note with [[its first few words]]."></textarea>
                 placeholder="Just get it down — order doesn't matter…"></textarea>
               <div class="row draft-controls">
                 <button id="draft-compose">✨ Draft it</button>
+                <button id="draft-cancel" class="ghost hidden" type="button"
+                  title="Stop the AI — nothing you've written is changed">■ Stop</button>
+                <button id="draft-undo" class="ghost" type="button" disabled
+                  title="Nothing to undo yet">↩ Undo</button>
                 <input id="draft-instruction" type="text" maxlength="300"
                   placeholder="Optional: “make it shorter”, “add a summary”…"
                   aria-label="An instruction for this revision">
@@ -531,7 +535,7 @@ Link to another note with [[its first few words]]."></textarea>
        results and the graph. -->
   <div class="tab-page hidden" id="tab-documents" role="tabpanel" aria-labelledby="tab-btn-documents" tabindex="-1">
     <div class="doc-layout">
-      <aside class="card doc-sidebar">
+      <aside class="card doc-sidebar" id="doc-sidebar">
         <div class="row space-between">
           <h2>Documents</h2>
           <button id="doc-new" class="small" type="button" title="Start a new document">＋ New</button>
@@ -539,7 +543,7 @@ Link to another note with [[its first few words]]."></textarea>
         <input id="doc-filter" type="search" placeholder="🔎 Filter documents…"
           aria-label="Filter documents by title">
         <ul id="doc-list" class="doc-list"></ul>
-        <p id="doc-empty" class="muted hidden">No documents yet. Press ＋ New to start one.</p>
+        <p id="doc-empty" class="muted hidden">No documents yet — start typing on the right, or press ＋ New.</p>
       </aside>
 
       <section class="card doc-main">
@@ -559,6 +563,28 @@ Link to another note with [[its first few words]]."></textarea>
             <button id="doc-delete" class="ghost small" type="button"
               title="Delete this document">🗑</button>
           </span>
+        </div>
+        <!-- Formatting without remembering the syntax. Everything here is
+             plain markdown, so the file stays portable. -->
+        <div class="doc-toolbar" id="doc-toolbar" role="toolbar" aria-label="Formatting">
+          <button type="button" data-md="h1" title="Heading 1">H1</button>
+          <button type="button" data-md="h2" title="Heading 2">H2</button>
+          <button type="button" data-md="h3" title="Heading 3">H3</button>
+          <span class="doc-toolbar-sep" aria-hidden="true"></span>
+          <button type="button" data-md="bold" title="Bold (Ctrl+B)"><strong>B</strong></button>
+          <button type="button" data-md="italic" title="Italic (Ctrl+I)"><em>I</em></button>
+          <button type="button" data-md="strike" title="Strikethrough"><s>S</s></button>
+          <button type="button" data-md="code" title="Inline code">&lt;/&gt;</button>
+          <span class="doc-toolbar-sep" aria-hidden="true"></span>
+          <button type="button" data-md="ul" title="Bulleted list">• List</button>
+          <button type="button" data-md="ol" title="Numbered list">1. List</button>
+          <button type="button" data-md="task" title="Task list">☑ Task</button>
+          <button type="button" data-md="quote" title="Quote">❝</button>
+          <span class="doc-toolbar-sep" aria-hidden="true"></span>
+          <button type="button" data-md="link" title="Link">🔗</button>
+          <button type="button" data-md="codeblock" title="Code block">▤</button>
+          <button type="button" data-md="table" title="Table">▦</button>
+          <button type="button" data-md="hr" title="Divider">—</button>
         </div>
         <div class="doc-panes" id="doc-panes">
           <textarea id="doc-content" spellcheck="true"
@@ -588,6 +614,8 @@ Link to another note with [[its first few words]]."></textarea>
           aria-label="What should the AI do?">
         <div class="row">
           <button id="doc-ai-run">✨ Suggest an edit</button>
+          <button id="doc-ai-cancel-run" class="ghost hidden" type="button"
+            title="Stop the AI — the document is untouched">■ Stop</button>
           <span id="doc-ai-status" class="status" role="status"></span>
         </div>
         <label for="doc-ai-result" class="muted">The AI's version — edit it before accepting if you like</label>
@@ -1000,6 +1028,21 @@ Link to another note with [[its first few words]]."></textarea>
                 </select>
               </div>
 
+              <div class="setting-row" id="bg-motion-row">
+                <div class="setting-label">
+                  <span>Movement</span>
+                  <small class="muted">
+                    Still draws one frame and stops — the same look without the
+                    motion, and no CPU spent on it.
+                  </small>
+                </div>
+                <select id="bg-motion" class="small-select setting-control"
+                  aria-label="Background movement">
+                  <option value="moving">Moving</option>
+                  <option value="still">Still</option>
+                </select>
+              </div>
+
               <div class="setting-row" id="bg-intensity-row">
                 <div class="setting-label">
                   <span>Intensity</span>
@@ -1155,6 +1198,22 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
             <p class="muted">Exports include everything, even binned entries.</p>
 
+            <h3>Tidy up duplicates</h3>
+            <p class="muted">
+              Finds notes that say much the same thing, by comparing their
+              words — no AI needed. Merging keeps every tag, and the notes it
+              replaces go to the recycle bin, so nothing is destroyed.
+            </p>
+            <div class="row">
+              <button id="find-duplicates" class="small">🔍 Find duplicates</button>
+              <label for="duplicate-threshold" class="muted">How alike</label>
+              <input id="duplicate-threshold" type="range" min="50" max="100" value="72"
+                aria-label="How similar two notes must be to count as duplicates">
+              <span id="duplicate-threshold-value" class="muted">72%</span>
+            </div>
+            <p id="duplicate-status" class="status" role="status"></p>
+            <div id="duplicate-groups"></div>
+
             <h3>Import markdown</h3>
             <div class="row">
               <input id="import-md-files" type="file" accept=".md,.markdown,.txt" multiple>
@@ -1249,12 +1308,16 @@ Link to another note with [[its first few words]]."></textarea>
             </p>
             <p class="muted" id="about-version"></p>
             <h3>Keyboard shortcuts</h3>
-            <ul class="shortcut-list">
-              <li><kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>K</kbd> — command palette (go anywhere, search notes)</li>
-              <li><kbd>Ctrl</kbd> + <kbd>Enter</kbd> — save the note you're typing</li>
-              <li><kbd>Enter</kbd> — ask / send in the question and chat boxes</li>
-              <li><kbd>Esc</kbd> — close the palette, sketch pad, or settings</li>
-            </ul>
+            <!-- This used to be a second, static list. Someone looking for
+                 "how do I change a shortcut?" naturally opens Settings, so the
+                 one place they look was the one place it couldn't be done. -->
+            <p class="muted">
+              Shortcuts can be changed and reset — press <kbd>?</kbd> any time,
+              or open the list here.
+            </p>
+            <div class="row">
+              <button id="about-shortcuts" class="small" type="button">⌨ Change keyboard shortcuts</button>
+            </div>
           </section>
 
         </div>
@@ -1278,6 +1341,20 @@ Link to another note with [[its first few words]]."></textarea>
   </div>
 
   <!-- Keyboard shortcuts cheat-sheet (press ? anywhere) -->
+  <!-- A note's earlier versions. The recycle bin covers deletion; this
+       covers editing. -->
+  <div id="history-overlay" class="modal-overlay hidden" role="dialog"
+    aria-modal="true" aria-label="Note history">
+    <div class="card modal-card" id="history-card">
+      <div class="row space-between">
+        <h2>🕘 Earlier versions</h2>
+        <button id="history-close" class="ghost small">Close</button>
+      </div>
+      <p id="history-status" class="status" role="status"></p>
+      <div id="history-list"></div>
+    </div>
+  </div>
+
   <div id="shortcuts-overlay" class="modal-overlay hidden" role="dialog"
     aria-modal="true" aria-label="Keyboard shortcuts">
     <div class="card modal-card" id="shortcuts-card">

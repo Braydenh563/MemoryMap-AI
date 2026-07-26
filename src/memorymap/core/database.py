@@ -194,6 +194,24 @@ class Reminder(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class EntryRevision(Base):
+    """A note's text as it was before an edit.
+
+    The recycle bin covers deletion; nothing covered editing, so rewriting a
+    note destroyed what it used to say with no way back. Revisions are written
+    before the change lands, so the newest one is always the version being
+    replaced.
+    """
+
+    __tablename__ = "entry_revisions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entry_id: Mapped[int] = mapped_column(ForeignKey("entries.id"), index=True)
+    content: Mapped[str] = mapped_column(Text)
+    tags: Mapped[str] = mapped_column(Text, default="[]")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 class Document(Base):
     """A long-form document (the editor tab).
 

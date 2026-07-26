@@ -599,3 +599,51 @@ def sync_wiki_links(session: Session, entry: Entry) -> list[str]:
             continue
         create_link(session, entry, target)
     return unresolved
+
+
+# --- edit history ------------------------------------------------------------
+# The recycle bin covers deletion. Nothing covered editing, so rewriting a note
+# destroyed what it used to say with no way back — and the AI can rewrite notes
+# too, which makes an undo more than a nicety.
+
+# Per note. Enough to walk back a bad session, few enough that a note edited
+# hundreds of times doesn't quietly become the largest thing in the database.
+MAX_REVISIONS = 20
+
+
+def record_revision(session: Session, entry: Entry) -> None:
+    """Save the note as it is now, before it's changed.
+
+    Private notes store their ciphertext, which is what's in the column — a
+    revision must never be the one place a private note sits in the clear.
+    """
+    from memorymap.core.database import EntryRevision
+
+    session.add(
+        EntryRevision(entry_id=entry.id, content=entry.content, tags=entry.tags or "[]")
+    )
+    session.flush()
+
+    stale = list(
+        session.scalars(
+            select(EntryRevision)
+            .where(EntryRevision.entry_id == entry.id)
+            .order_by(EntryRevision.id.desc())
+            .offset(MAX_REVISIONS)
+        )
+    )
+    for revision in stale:
+        session.delete(revision)
+
+
+def revisions_for(session: Session, entry: Entry) -> list:
+    """This note's past versions, newest first."""
+    from memorymap.core.database import EntryRevision
+
+    return list(
+        session.scalars(
+            select(EntryRevision)
+            .where(EntryRevision.entry_id == entry.id)
+            .order_by(EntryRevision.id.desc())
+        )
+    )

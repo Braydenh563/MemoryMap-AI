@@ -43,6 +43,8 @@ that navigated the app away.
 More user notes + requests (not in order): 
 - The background art still wont move
 - Improve and expand on the dashboard even more.
+- The "What's this" button on the "write with the ai" section does nothing when clicked (at least when the ai is not running)
+- the offline semantic search only covers keyword search and doesnt use keywords for car
 - Add the logo in more places and make sure it stays animated. 
 - The keybinds section for keyboard shortcuts is missing. 
 - When I click on the notes tab, there is a visual flicker at the bottom of the top menu bar for a second or two

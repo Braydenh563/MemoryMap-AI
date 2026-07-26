@@ -5212,6 +5212,92 @@ function renderFeatures(query) {
   }
 }
 
+// The day-one dashboard. Deliberately a small number of real actions rather
+// than a tour of everything: the widgets appear on their own as soon as there
+// is something for them to hold, and that is a better demonstration than a
+// description of them.
+function gettingStartedCard() {
+  const card = document.createElement("section");
+  card.className = "card dash-widget dash-getting-started";
+
+  const emblem = document.createElement("div");
+  emblem.className = "emblem emblem-centred";
+  emblem.setAttribute("aria-hidden", "true");
+
+  const title = document.createElement("h2");
+  title.textContent = "Your notebook is empty — here's the whole idea";
+
+  const blurb = document.createElement("p");
+  blurb.className = "muted";
+  blurb.textContent =
+    "Type a thought, and it gets filed for you. Later, ask a question in " +
+    "plain English and get an answer plus the notes behind it. Everything " +
+    "stays on this machine.";
+
+  const steps = document.createElement("div");
+  steps.className = "start-steps";
+  const actions = [
+    {
+      icon: "✏️",
+      label: "Write your first note",
+      note: "Anything at all — a half sentence is fine.",
+      run: () => {
+        switchTab("notes");
+        $("entry-content")?.focus();
+      },
+    },
+    {
+      icon: "💬",
+      label: "Ask your notebook",
+      note: "Works on keywords even with no AI running.",
+      run: () => {
+        switchTab("chat");
+        $("chat-input")?.focus();
+      },
+    },
+    {
+      icon: "🎒",
+      label: "Bring notes in",
+      note: "Import from a file in Settings → Import & export.",
+      run: () => openSettingsModal("data"),
+    },
+    {
+      icon: "🧭",
+      label: "Take the tour",
+      note: "Two minutes through what's here.",
+      run: () => openOnboarding(),
+    },
+  ];
+  for (const action of actions) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "start-step";
+    const icon = document.createElement("span");
+    icon.className = "start-step-icon";
+    icon.textContent = action.icon;
+    icon.setAttribute("aria-hidden", "true");
+    const text = document.createElement("span");
+    const label = document.createElement("strong");
+    label.textContent = action.label;
+    const note = document.createElement("span");
+    note.className = "muted";
+    note.textContent = action.note;
+    text.append(label, note);
+    button.append(icon, text);
+    button.addEventListener("click", action.run);
+    steps.appendChild(button);
+  }
+
+  const footer = document.createElement("p");
+  footer.className = "muted start-footer";
+  footer.textContent =
+    "Your dashboard fills itself in as you go — streaks, tags, a map of your " +
+    "notes and a dozen other panels appear once there's something to put in them.";
+
+  card.append(emblem, title, blurb, steps, footer);
+  return { card, mount: () => renderEmblem(emblem, 56) };
+}
+
 async function renderDashboard() {
   // The saved layout lives in preferences — after a page reload this can
   // run before startApp has fetched them, so fetch here if needed.
@@ -5225,6 +5311,21 @@ async function renderDashboard() {
   grid.replaceChildren();
   $("dash-hint").classList.toggle("hidden", !dashEditMode); // hint only in edit mode
   const layout = dashLayout();
+
+  // A brand-new notebook filled this grid with a dozen cards each politely
+  // saying it had nothing to show. Every message was fine on its own; together
+  // they made a working app look broken on the day someone starts using it.
+  // One card that says what to do instead — and only until there's anything
+  // to show, which is the first note.
+  if (!allEntries.length && !dashEditMode) {
+    // The emblem draws into a canvas, which p5 can only size once the element
+    // is actually in the document — rendering it while the card is still
+    // detached leaves a blank gap where the mark should be.
+    const { card, mount } = gettingStartedCard();
+    grid.appendChild(card);
+    mount();
+    return;
+  }
 
   for (const name of layout.order) {
     const hidden = layout.hidden.includes(name);
@@ -5245,24 +5346,12 @@ async function renderDashboard() {
     if (dashEditMode) {
       const controls = document.createElement("span");
       controls.className = "entry-actions";
-      // Wide ⇄ Normal: a widget can span two columns to become a bigger
-      // "section" (user request). Hidden widgets don't need a size toggle.
-      if (!hidden) {
-        controls.appendChild(
-          smallButton(
-            isWide ? "▤ Normal" : "▭ Wide",
-            isWide ? "Shrink back to one column" : "Make this a full-width section",
-            async () => {
-              const next = dashLayout();
-              next.sizes = { ...next.sizes };
-              if (isWide) delete next.sizes[name];
-              else next.sizes[name] = "wide";
-              await saveDashLayout(next);
-              renderDashboard();
-            }
-          )
-        );
-      }
+      // There used to be two width buttons here, side by side: this one and
+      // the "▭ Wide" below, writing to `wide` and the legacy `sizes` map
+      // respectively. dashLayout() only falls back to `sizes` when `wide` is
+      // empty, so the legacy button appeared to work exactly once and then
+      // silently stopped — and until then the row showed two controls doing
+      // the same job. One control, one place it's stored.
       controls.appendChild(
         smallButton(hidden ? "＋ Add" : "✕ Remove", hidden ? "Add this widget to the dashboard" : "Remove this widget from the dashboard", async () => {
           const next = dashLayout();
@@ -5273,9 +5362,9 @@ async function renderDashboard() {
           renderDashboard();
         })
       );
-      controls.appendChild(
+      if (!hidden) controls.appendChild(
         smallButton(
-          isWide ? "Narrow" : "Wide",
+          isWide ? "▤ Narrow" : "▭ Wide",
           isWide ? "Show in one column" : "Span two columns",
           async () => {
             const next = dashLayout();

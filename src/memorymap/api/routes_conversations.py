@@ -24,6 +24,9 @@ class TurnBody(BaseModel):
     question: str = Field(min_length=1)
     answer: str
     thinking: str | None = None
+    # Tool-activity chips shown in the bubble (Wave G) — persisted so they
+    # survive a reload instead of vanishing. Each item is {label, ok}.
+    tools: list[dict] | None = None
 
 
 class RenameBody(BaseModel):
@@ -31,9 +34,12 @@ class RenameBody(BaseModel):
 
 
 def _turn_messages(turn: TurnBody) -> list[dict]:
+    assistant = {"role": "assistant", "content": turn.answer, "thinking": turn.thinking}
+    if turn.tools:
+        assistant["tools"] = turn.tools
     return [
         {"role": "user", "content": turn.question},
-        {"role": "assistant", "content": turn.answer, "thinking": turn.thinking},
+        assistant,
     ]
 
 
@@ -160,6 +166,23 @@ def retitle_conversation(
     return {**_summary(conversation), "ai_named": bool(title)}
 
 
+@router.put("/{conversation_id}/turns/last")
+def replace_last_turn(
+    conversation_id: int, body: TurnBody, session: Session = Depends(get_session)
+) -> dict:
+    """Regenerate: swap the most recent Q&A pair for a fresh answer, in
+    place, instead of appending a duplicate below it (user request)."""
+    conversation = _existing(session, conversation_id)
+    messages = json.loads(conversation.messages)
+    if len(messages) >= 2:
+        messages = messages[:-2]  # drop the last user+assistant pair
+    messages.extend(_turn_messages(body))
+    conversation.messages = json.dumps(messages)
+    conversation.updated_at = utcnow()
+    session.commit()
+    return _summary(conversation)
+
+
 @router.delete("/{conversation_id}/turns/{index}")
 def delete_turn(
     conversation_id: int, index: int, session: Session = Depends(get_session)
@@ -167,7 +190,8 @@ def delete_turn(
     """Remove a single question/answer exchange (a turn) from a saved chat.
 
     Messages are stored as flat user/assistant pairs, so turn `index` maps to
-    messages[2*index : 2*index+2].
+    messages[2*index : 2*index+2]. Deleting the last remaining turn removes the
+    conversation itself, since an empty chat is only clutter.
     """
     conversation = _existing(session, conversation_id)
     messages = json.loads(conversation.messages)
@@ -175,10 +199,15 @@ def delete_turn(
     if index < 0 or start >= len(messages):
         raise HTTPException(status_code=404, detail="Turn not found")
     del messages[start : start + 2]
+    if not messages:
+        log_action(session, "deleted", "conversation", conversation.id)
+        session.delete(conversation)
+        session.commit()
+        return {"deleted": True, "conversation_deleted": True, "turns": 0}
     conversation.messages = json.dumps(messages)
     conversation.updated_at = utcnow()
     session.commit()
-    return _summary(conversation)
+    return {**_summary(conversation), "deleted": True, "conversation_deleted": False}
 
 
 @router.put("/{conversation_id}")

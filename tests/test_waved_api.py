@@ -360,10 +360,19 @@ def test_dashboard_layout_roundtrip(client):
     saved = updated["dashboard_layout"]
     assert saved["order"] == layout["order"]
     assert saved["hidden"] == layout["hidden"]
-    assert saved["wide"] == []  # new field defaults to empty
+    # Both width encodings default to empty and round-trip.
+    assert saved["wide"] == []
+    assert saved["sizes"] == {}
 
 
 def test_dashboard_layout_wide_widgets_persist(client):
     layout = {"order": ["stats"], "hidden": [], "wide": ["digest", "art"]}
     updated = client.put("/preferences", json={"dashboard_layout": layout}).json()
     assert updated["dashboard_layout"]["wide"] == ["digest", "art"]
+
+
+def test_dashboard_layout_persists_legacy_widget_sizes(client):
+    """Layouts saved before the switch to `wide` still round-trip."""
+    layout = {"order": ["stats"], "hidden": [], "sizes": {"stats": "wide"}}
+    updated = client.put("/preferences", json={"dashboard_layout": layout}).json()
+    assert updated["dashboard_layout"]["sizes"] == {"stats": "wide"}

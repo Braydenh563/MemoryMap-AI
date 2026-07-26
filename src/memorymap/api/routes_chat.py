@@ -195,15 +195,17 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
 @router.post("/stream")
 def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     """NDJSON stream. Line types, in order:
+    {"type":"status", "stage": "searching"}   (sent immediately, so the
+        browser gets a first byte at once instead of waiting on the — often
+        cold-start — semantic search; this is what keeps the UI's typing
+        indicator alive instead of appearing frozen)
     {"type":"meta", raw_results, search_mode, answered_by}
     {"type":"thinking", "delta": "..."}   (zero or more)
     {"type":"answer", "delta": "..."}     (one or more)
     {"type":"done"}
     """
-    prepared = _prepare(session, body.question)
     ollama = deps.get_ollama()
     model_manager = deps.get_model_manager()
-    ollama_running = ollama.is_running()
     history = [turn.model_dump() for turn in body.history]
     persona_prompt = _resolve_persona(body.persona)
     use_tools = (
@@ -211,11 +213,8 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
         if body.use_tools is not None
         else bool(deps.get_config().get_preference("tools_enabled", True))
     )
-    # In agent mode the model can act even when nothing matched — "save a
-    # note about X" must work on an empty notebook.
-    will_answer = ollama_running and (bool(prepared["notes"]) or use_tools)
 
-    def plain_events() -> Iterator[dict]:
+    def plain_events(prepared: dict, ollama_running: bool) -> Iterator[dict]:
         """The pre-Wave-G behaviour: stream a grounded answer, no tools."""
         if not prepared["notes"]:
             yield {"type": "answer", "delta": librarian.NO_RESULTS_MESSAGE}
@@ -248,6 +247,21 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
         def event(payload: dict) -> str:
             return json.dumps(payload) + "\n"
 
+        # Flush a first byte immediately. The semantic search below can be a
+        # slow cold start (loading the embedding model, warming the index);
+        # emitting this now means the browser's stream opens right away and
+        # its "typing…" indicator keeps animating instead of looking frozen
+        # while the whole request blocks (user-reported lag).
+        yield event({"type": "status", "stage": "searching"})
+
+        # Retrieval happens INSIDE the stream now, not before it — that's the
+        # whole latency win. Nothing before this line touches the model.
+        prepared = _prepare(session, body.question)
+        ollama_running = ollama.is_running()
+        # In agent mode the model can act even when nothing matched — "save a
+        # note about X" must work on an empty notebook.
+        will_answer = ollama_running and (bool(prepared["notes"]) or use_tools)
+
         yield event(
             {
                 "type": "meta",
@@ -258,7 +272,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
             }
         )
 
-        events: Iterator[dict] = plain_events()
+        events: Iterator[dict] = plain_events(prepared, ollama_running)
         if ollama_running and use_tools:
             agent_events = agent.run_agent(
                 session,
@@ -282,7 +296,13 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
             yield event(payload)
         yield event({"type": "done"})
 
-    return StreamingResponse(lines(), media_type="application/x-ndjson")
+    # X-Accel-Buffering: no tells reverse proxies (nginx) not to buffer the
+    # stream, so tokens reach the browser as they're produced.
+    return StreamingResponse(
+        lines(),
+        media_type="application/x-ndjson",
+        headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
+    )
 
 
 @router.get("/tools")

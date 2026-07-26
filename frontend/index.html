@@ -87,7 +87,7 @@
     <!-- At-a-glance numbers: part of the page, not a widget you can hide -->
     <div class="dash-stats" id="dash-stats" role="group" aria-label="At a glance"></div>
     <div class="dash-toolbar">
-      <span class="muted hidden" id="dash-hint">Drag widgets to rearrange, or Hide/Show them — your layout is remembered.</span>
+      <span class="muted hidden" id="dash-hint">Drag to rearrange · ＋Add / ✕Remove widgets · ▭Wide makes a full-width section — your layout is remembered.</span>
       <span id="dash-hint-spacer"></span>
       <button id="dash-edit" class="ghost small">Edit layout</button>
     </div>
@@ -344,10 +344,14 @@
         <label class="muted tools-toggle" title="Hide notes that aren't linked to anything, to declutter the map">
           <input type="checkbox" id="graph-hide-orphans"> Hide unlinked
         </label>
+        <label class="muted tools-toggle" title="Show a short label under every note (off = labels only when you hover)">
+          <input type="checkbox" id="graph-labels" checked> Labels
+        </label>
         <button id="link-suggest-btn" class="ghost small"
           title="Let the AI suggest links between notes that mean similar things">🔗 Suggest links</button>
         <button id="graph-refresh" class="ghost small">↻ Refresh</button>
       </div>
+      <p id="graph-stats" class="muted graph-stats" role="status"></p>
       <!-- Tucked away so it doesn't eat the map on every visit -->
       <details class="graph-help">
         <summary class="muted">How to use this map</summary>
@@ -423,7 +427,13 @@
   <div class="tab-page hidden" id="tab-reminders" role="tabpanel" aria-labelledby="tab-btn-reminders" tabindex="-1">
     <!-- Compose: the two ways to add a reminder, kept apart from the list -->
     <section class="card reminders-card" id="reminder-compose">
-      <h2>Add a reminder</h2>
+      <div class="row space-between reminders-head">
+        <h2>Add a reminder</h2>
+        <div id="reminder-clock" class="live-clock" title="Your computer's current date and time">
+          <span class="clock-time"></span>
+          <span class="clock-date muted"></span>
+        </div>
+      </div>
       <!-- Magic Add: type natural language, the AI turns it into a reminder -->
       <div class="row" id="reminder-magic-row">
         <input id="reminder-magic" type="text" maxlength="300"

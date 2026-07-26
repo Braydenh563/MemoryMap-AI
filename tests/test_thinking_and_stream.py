@@ -67,10 +67,13 @@ def test_chat_stream_order_and_content(ai_client, fake_ollama):
         assert response.status_code == 200
         events = [json.loads(line) for line in response.iter_lines() if line]
 
-    assert events[0]["type"] == "meta"
-    assert events[0]["search_mode"] == "semantic"
-    assert events[0]["answered_by"] == "llama3.2"
-    assert [r["content"] for r in events[0]["raw_results"]] == ["a funny scarecrow joke"]
+    # A "status" heartbeat is flushed first so the browser gets a byte
+    # immediately; the meta line follows once retrieval completes.
+    assert events[0]["type"] == "status"
+    meta = next(e for e in events if e["type"] == "meta")
+    assert meta["search_mode"] == "semantic"
+    assert meta["answered_by"] == "llama3.2"
+    assert [r["content"] for r in meta["raw_results"]] == ["a funny scarecrow joke"]
 
     thinking = "".join(e["delta"] for e in events if e["type"] == "thinking")
     answer = "".join(e["delta"] for e in events if e["type"] == "answer")
@@ -84,8 +87,9 @@ def test_chat_stream_offline_still_sends_results(client):
     with client.stream("POST", "/chat/stream", json={"question": "cheese"}) as response:
         events = [json.loads(line) for line in response.iter_lines() if line]
 
-    assert events[0]["type"] == "meta"
-    assert events[0]["answered_by"] is None
-    assert len(events[0]["raw_results"]) == 1
+    assert events[0]["type"] == "status"
+    meta = next(e for e in events if e["type"] == "meta")
+    assert meta["answered_by"] is None
+    assert len(meta["raw_results"]) == 1
     answer = "".join(e["delta"] for e in events if e["type"] == "answer")
     assert "Ollama" in answer  # the friendly offline message

@@ -77,6 +77,10 @@ class DashboardLayout(BaseModel):
     hidden: list[str] = Field(default_factory=list, max_length=20)
     # Widgets the user has set to span two grid columns.
     wide: list[str] = Field(default_factory=list, max_length=20)
+    # Older layouts stored the same thing as {"stats": "wide"}. Kept so a
+    # layout saved before the switch still loads; the frontend folds it into
+    # `wide` and writes the list form back on the next save.
+    sizes: dict[str, str] = Field(default_factory=dict)
 
 
 @router.get("/preferences")

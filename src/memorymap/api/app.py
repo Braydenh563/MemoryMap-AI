@@ -73,7 +73,9 @@ def create_app() -> FastAPI:
     init_app_state()
     _purge_expired_bin_entries()
     _backup_if_due()
-    embeddings.start_warmup(deps.get_embeddings())
+    # The session factory is handed in so embeddings never has to import the
+    # dependency container that imports it.
+    embeddings.start_warmup(deps.get_embeddings(), deps.get_db().session)
 
     app = FastAPI(title="MemoryMap AI", version=__version__)
 

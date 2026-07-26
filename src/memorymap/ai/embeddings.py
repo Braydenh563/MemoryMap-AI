@@ -31,9 +31,14 @@ logger = logging.getLogger("memorymap.embeddings")
 _warmup = {"running": False, "started": False}
 
 
-def start_warmup(service: "EmbeddingService") -> None:
+def start_warmup(service: "EmbeddingService", session_factory=None) -> None:  # noqa: ANN001
     """Load the embedding model in a background thread at startup, so the
-    user's first save doesn't stall. Idempotent per process."""
+    user's first save doesn't stall. Idempotent per process.
+
+    The session factory is passed in rather than looked up. This module is
+    imported by the dependency container, so reaching back into it would make
+    the import cycle real instead of merely deferred.
+    """
     if _warmup["started"]:
         return
     _warmup["started"] = True
@@ -45,7 +50,8 @@ def start_warmup(service: "EmbeddingService") -> None:
         finally:
             _warmup["running"] = False
         # Now that the model is up, catch any notes that missed out.
-        backfill_missing(service)
+        if session_factory is not None:
+            backfill_missing(service, session_factory)
 
     threading.Thread(target=run, name="embedding-warmup", daemon=True).start()
 
@@ -54,8 +60,15 @@ def start_warmup(service: "EmbeddingService") -> None:
 # minutes embedding on every launch; the next start picks up where this stopped.
 BACKFILL_LIMIT = 200
 
+# Enough to cover the repeated embeds within a single save, with headroom.
+_EMBED_CACHE_MAX = 32
 
-def backfill_missing(service: "EmbeddingService", limit: int = BACKFILL_LIMIT) -> int:
+
+def backfill_missing(
+    service: "EmbeddingService",
+    session_factory,  # noqa: ANN001 — a callable returning a Session
+    limit: int = BACKFILL_LIMIT,
+) -> int:
     """Embed notes that have no vector, and report how many were fixed.
 
     Notes saved while the model was still warming up got no embedding, and
@@ -68,14 +81,13 @@ def backfill_missing(service: "EmbeddingService", limit: int = BACKFILL_LIMIT) -
     """
     from sqlalchemy import select
 
-    from memorymap.core import deps
     from memorymap.core.database import EmbeddingRecord, Entry
 
     if not service.is_ready():
         return 0
     fixed = 0
     try:
-        session = deps.get_db().session()
+        session = session_factory()
     except Exception:  # noqa: BLE001 — startup helper, never fatal
         return 0
     try:
@@ -137,6 +149,13 @@ class EmbeddingService:
         self._load_failed_at: float | None = None
         # Why the last embed failed, for the Models screen — None = fine.
         self.last_error: str | None = None
+        # text -> vector, bounded and FIFO. See embed_text for why.
+        self._embed_cache: dict[str, np.ndarray] = {}
+
+    def clear_embed_cache(self) -> None:
+        """Drop cached vectors — used when the embedding backend changes,
+        since the same text then maps to a different vector."""
+        self._embed_cache.clear()
 
     def reset_failure_state(self) -> None:
         """Forget a cached load/embed failure so the very next attempt
@@ -164,7 +183,27 @@ class EmbeddingService:
         return self._st_model is not None
 
     def embed_text(self, text: str) -> np.ndarray | None:
-        """Vector for one text, or None if the backend is unavailable."""
+        """Vector for one text, or None if the backend is unavailable.
+
+        Recent results are cached by exact text. Saving a note embeds it twice
+        within milliseconds — once to store the vector, once by the
+        near-duplicate check that runs straight afterwards — and embedding is
+        the slowest part of a save. Keying on the exact string means a cached
+        vector can never be stale: different text is simply a different key.
+        """
+        cached = self._embed_cache.get(text)
+        if cached is not None:
+            return cached
+        vector = self._embed_uncached(text)
+        if vector is not None:
+            # Small and FIFO: this exists to collapse duplicate work inside one
+            # request, not to be a general-purpose store.
+            if len(self._embed_cache) >= _EMBED_CACHE_MAX:
+                self._embed_cache.pop(next(iter(self._embed_cache)))
+            self._embed_cache[text] = vector
+        return vector
+
+    def _embed_uncached(self, text: str) -> np.ndarray | None:
         if self._models.embedding_backend() == "ollama":
             try:
                 vector = self._ollama.embed(self._models.embedding_model(), text)

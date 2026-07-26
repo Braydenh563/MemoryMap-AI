@@ -28,12 +28,42 @@ from memorymap.ai.ollama_client import (
 # A runaway model must not loop forever on a local machine.
 MAX_ROUNDS = 6
 
+# How much tool output one turn may add to the conversation, in characters.
+# Local models run in small windows, and tool results accumulate: six rounds
+# of paging through a large notebook will push the question itself out of
+# context, and the model then answers something nobody asked. The per-call
+# caps in tools.py bound one result; this bounds the whole turn.
+#
+# Characters, not tokens, on purpose — a real tokeniser would mean loading one
+# per model just to count, and ~4 chars/token is close enough for a stop rule.
+TOOL_RESULT_BUDGET_CHARS = 24_000
+
+BUDGET_EXHAUSTED = {
+    "error": "context_budget_reached",
+    "note": (
+        "You have read as much of the notebook as fits in this conversation. "
+        "No more tool results will be added. Answer now using what you already "
+        "have, and tell the user plainly that you looked at part of their "
+        "notes rather than all of them."
+    ),
+}
+
 TOOLS_GUIDE = (
     "You can use tools to act on the notebook — create, edit, tag, pin, "
     "link, or delete notes, and manage reminders. Only make changes the "
     "user actually asked for; when they just ask a question, answer it "
     "without tools. Notes are referenced by their id number — use "
-    "search_notes first if you don't know the id. When the user mentions "
+    "search_notes first if you don't know the id. "
+    "The notes quoted below are only what search found for this question — "
+    "they are NOT the whole notebook. To see more, use the reading tools: "
+    "count_notes to answer 'how many', list_categories / list_tags to see "
+    "what exists, list_notes to walk through notes (paging with next_offset "
+    "while has_more is true), and get_note to read one note in full. "
+    "search_notes and list_notes return clipped previews, so read a note with "
+    "get_note before quoting it. Never state a total from a page of results — "
+    "count_notes is the only thing that knows the real number. "
+    "Private notes are not available to you at all; if one is asked about, "
+    "say you can't see private notes. When the user mentions "
     "needing to do something at a time (\"remind me to… in 10 minutes\", "
     "\"…tomorrow at 9\", \"…tonight\"), call set_reminder with the due_at "
     "computed from the current time given below, as an ISO 8601 datetime. "
@@ -155,6 +185,7 @@ def run_agent(
     offered = tools.ollama_tools()
     model = model_manager.chat_model()
     did_write = False  # did any real write tool run this turn?
+    spent = 0  # characters of tool output added to the conversation so far
 
     for _round in range(MAX_ROUNDS):
         try:
@@ -225,8 +256,18 @@ def run_agent(
                     "ok": "error" not in result,
                     "error": result.get("error"),
                 }
+            payload = json.dumps(result)
+            if spent + len(payload) > TOOL_RESULT_BUDGET_CHARS:
+                # Over budget. Hand back the notice instead of the result and
+                # withdraw the tools, so the next round has to be an answer.
+                # Dropping the result rather than truncating it is deliberate:
+                # half a JSON object is worse than none — the model reads it
+                # as data and answers from a note that got cut mid-sentence.
+                payload = json.dumps(BUDGET_EXHAUSTED)
+                offered = []
+            spent += len(payload)
             messages.append(
-                {"role": "tool", "tool_name": name, "content": json.dumps(result)}
+                {"role": "tool", "tool_name": name, "content": payload}
             )
 
     yield {

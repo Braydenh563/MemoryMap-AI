@@ -5,8 +5,12 @@ cheap embedding shortcut (plan §2, resolution 2). Order of attempts:
 
 1. Embedding vs. category centroids — free, no LLM call needed when the
    match is clear.
-2. Borderline or unknown → ONE call to the chat model, JSON answer.
-3. No AI available at all → 'Uncategorised' with confidence 0. Saving
+2. Nearest neighbours: the k most similar individual notes vote for their
+   own category. Catches what a centroid can't — a category holding more
+   than one kind of thing has an average resembling none of them — and it
+   is the path that files notes properly with no chat model running.
+3. Still borderline → ONE call to the chat model, JSON answer.
+4. No AI available at all → 'Uncategorised' with confidence 0. Saving
    an entry must never fail because the AI is down (plan §4).
 """
 
@@ -30,6 +34,18 @@ from memorymap.entry.manager import UNCATEGORISED
 # the LLM entirely. Below it, the call is worth its cost.
 CONFIDENT_MATCH = 0.60
 
+# Nearest-neighbour filing, tried after the centroid and before the model.
+# k is small because a personal notebook's categories are small: with twenty
+# notes in a category, twenty neighbours is the whole category and the vote
+# stops meaning anything.
+KNN_NEIGHBOURS = 7
+# A neighbour further away than this has no useful opinion about where a note
+# belongs; below it, everything looks equally unrelated.
+KNN_MIN_SIMILARITY = 0.42
+# The winner needs a clear majority of the weighted vote. A split is exactly
+# the case where asking the model earns its cost.
+KNN_MIN_SHARE = 0.55
+
 SYSTEM_PROMPT = (
     "You are the filing assistant of a personal notebook. Given a note, "
     "choose the single best category for it. Prefer one of the existing "
@@ -43,6 +59,12 @@ SYSTEM_PROMPT = (
 class CentroidMatch:
     name: str
     similarity: float
+
+
+@dataclass
+class NeighbourMatch:
+    name: str
+    confidence: int
 
 
 logger = logging.getLogger("memorymap.janitor")
@@ -74,6 +96,26 @@ def categorise(
             "janitor: filed by semantic match -> '%s' (%d%%)", match.name, confidence
         )
         return match.name, confidence, "semantic-match"
+
+    # Nearest neighbours, before falling back to the chat model. A centroid is
+    # the average of a whole category, which is a poor description of any
+    # category holding more than one kind of thing: "Work" containing both
+    # meeting notes and code snippets has a centroid sitting between them,
+    # resembling neither, so a new meeting note matches it weakly and gets
+    # sent to the model unnecessarily. Individual neighbours don't average
+    # away like that. This is also the path that matters most with no chat
+    # model running at all, where the alternative is Uncategorised.
+    neighbours = _knn_match(
+        session, content, embeddings, exclude_entry_id=exclude_entry_id
+    )
+    if neighbours is not None:
+        logger.info(
+            "janitor: filed by nearest neighbours -> '%s' (%d%%)",
+            neighbours.name,
+            neighbours.confidence,
+        )
+        return neighbours.name, neighbours.confidence, "semantic-neighbours"
+
     category, confidence, method = _ask_llm(session, content, model_manager, ollama)
     logger.info("janitor: filed by %s -> '%s' (%d%%)", method, category, confidence)
     return category, confidence, method
@@ -118,6 +160,75 @@ def _best_centroid_match(
         if best is None or similarity > best.similarity:
             best = CentroidMatch(name=name, similarity=similarity)
     return best
+
+
+def _knn_match(
+    session: Session,
+    content: str,
+    embeddings: EmbeddingService,
+    exclude_entry_id: int | None = None,
+) -> NeighbourMatch | None:
+    """Vote among the k most similar individual notes.
+
+    Each neighbour votes for its own category, weighted by how similar it is,
+    so one very close note outweighs three vague ones. Returns None unless the
+    nearest note is genuinely close *and* the winner takes a clear majority —
+    a split vote is the case where asking the model is worth its cost.
+    """
+    note_vector = embeddings.embed_text(content)
+    if note_vector is None:
+        return None
+
+    query = (
+        select(Category.name, EmbeddingRecord.embedding)
+        .join(Entry, Entry.category_id == Category.id)
+        .join(EmbeddingRecord, EmbeddingRecord.entry_id == Entry.id)
+        .where(
+            Entry.is_deleted == False,  # noqa: E712
+            # Private notes are excluded from everything the AI touches, and
+            # filing is no exception: a category chosen by a private note's
+            # neighbours would leak what that note is about.
+            Entry.is_private == False,  # noqa: E712
+            EmbeddingRecord.model_version == embeddings.backend_id(),
+            Category.name != UNCATEGORISED,
+        )
+    )
+    if exclude_entry_id is not None:
+        query = query.where(Entry.id != exclude_entry_id)
+    rows = session.execute(query).all()
+    if not rows:
+        return None
+
+    scored = sorted(
+        (
+            (cosine_similarity(note_vector, bytes_to_vector(blob)), name)
+            for name, blob in rows
+        ),
+        key=lambda pair: pair[0],
+        reverse=True,
+    )[:KNN_NEIGHBOURS]
+
+    if not scored or scored[0][0] < KNN_MIN_SIMILARITY:
+        return None
+
+    votes: dict[str, float] = {}
+    for similarity, name in scored:
+        if similarity < KNN_MIN_SIMILARITY:
+            continue  # too far away to have an opinion
+        votes[name] = votes.get(name, 0.0) + similarity
+    if not votes:
+        return None
+
+    total = sum(votes.values())
+    name, weight = max(votes.items(), key=lambda pair: pair[1])
+    share = weight / total
+    if share < KNN_MIN_SHARE:
+        return None
+
+    # Confidence reflects both how close the neighbours are and how much they
+    # agree — a unanimous vote among distant notes shouldn't read as certain.
+    confidence = round(min(1.0, scored[0][0]) * share * 100)
+    return NeighbourMatch(name=name, confidence=max(1, min(100, confidence)))
 
 
 def _ask_llm(

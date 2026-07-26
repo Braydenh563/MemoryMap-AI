@@ -108,7 +108,8 @@ def _clean_title(raw: str) -> str | None:
     text = text.strip().strip("\"'`*#").rstrip(".!,;:").strip()
     if not text or len(text) > 60 or len(text.split()) > 8:
         return None
-    return text
+    # Models frequently reply in lowercase — a title should start capitalised.
+    return text[0].upper() + text[1:]
 
 
 @router.post("/{conversation_id}/retitle")

@@ -77,6 +77,15 @@ def test_retitle_uses_ai(ai_client, fake_ollama):
     assert named["ai_named"] is True
 
 
+def test_retitle_is_sentence_cased(ai_client, fake_ollama):
+    created = ai_client.post(
+        "/conversations", json={"question": "any jokes?", "answer": "One."}
+    ).json()
+    fake_ollama.librarian_reply = "saved jokes"
+    named = ai_client.post(f"/conversations/{created['id']}/retitle").json()
+    assert named["title"] == "Saved jokes"
+
+
 def test_retitle_uses_the_active_persona(ai_client, fake_ollama):
     ai_client.put(
         "/preferences",

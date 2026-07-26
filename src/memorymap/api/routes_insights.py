@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import random
+import re
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends
@@ -73,6 +74,17 @@ GREETING_PROMPT = (
     "full stop or an exclamation mark. Reply with the greeting only."
 )
 
+# When the user has set a display name we ask the model to weave it in, so the
+# greeting reads naturally ("Morning, Sam!") instead of always being a phrase
+# with a name bolted on. The name comes from preferences — never hardcoded.
+GREETING_PROMPT_NAMED = (
+    "Write ONE short, warm greeting for {name}, who is opening their personal "
+    "notebook app. It is currently {block}. Rules: 2 to 7 words, use the name "
+    "{name} exactly once and spell it exactly as given, no quotation marks, no "
+    "emoji, and do not mention the app. End it with a full stop or an "
+    "exclamation mark. Reply with the greeting only."
+)
+
 # The greeting is stored without its final mark so the display name can be
 # appended cleanly ("Good morning" + ", Sam" + "!"). The mark travels
 # separately in `punctuation`.
@@ -90,9 +102,18 @@ def _clean_greeting(raw: str) -> tuple[str, str] | None:
         if text[-1] in _TERMINAL_MARKS:
             mark = text[-1]
         text = text[:-1].rstrip()
-    if not text or len(text) > 48 or len(text.split()) > 8:
+    # A little headroom over the prompt's word limit, since a woven-in name
+    # costs a word or two.
+    if not text or len(text) > 56 or len(text.split()) > 9:
         return None
-    return text, mark
+    # Small local models often answer in lowercase; the banner is a sentence,
+    # so open it with a capital. Only the first character is touched, leaving
+    # any legitimately capitalised words alone.
+    return _sentence_case(text), mark
+
+
+def _sentence_case(text: str) -> str:
+    return text[0].upper() + text[1:] if text else text
 
 
 @router.get("/greeting")
@@ -108,6 +129,7 @@ def greeting(block: str = "morning") -> dict:
     fallback = {
         "greeting": random.choice(options),
         "punctuation": ".",
+        "includes_name": False,
         "source": "fallback",
     }
 
@@ -115,18 +137,26 @@ def greeting(block: str = "morning") -> dict:
     if not ollama.is_running():
         return fallback
 
+    # The name is read from preferences here rather than trusted from the
+    # client, so there is exactly one source of truth for it.
+    name = str(config.get_preference("display_name", "") or "").strip()
     # The active persona voices the greeting, so a Coach sounds like a coach
     # and a custom persona sounds like itself.
     persona = librarian.resolve_persona_prompt(None, config)
-    system = GREETING_PROMPT.format(block=block)
+    system = (
+        GREETING_PROMPT_NAMED.format(block=block, name=name)
+        if name
+        else GREETING_PROMPT.format(block=block)
+    )
     if persona:
         system = f"{persona.strip()} {system}"
+    ask = f"It is {block}. Greet {name}." if name else f"It is {block}. Greet me."
     try:
         reply = ollama.chat(
             deps.get_model_manager().utility_model(),
             [
                 {"role": "system", "content": system},
-                {"role": "user", "content": f"It is {block}. Greet me."},
+                {"role": "user", "content": ask},
             ],
         )
     except Exception:  # noqa: BLE001 — any model failure degrades to fallback
@@ -136,7 +166,25 @@ def greeting(block: str = "morning") -> dict:
     if not cleaned:
         return fallback
     phrase, mark = cleaned
-    return {"greeting": phrase, "punctuation": mark, "source": "ai"}
+
+    # Did the model actually use the name? If so the frontend must not append
+    # it again; if not, we fall back to appending, so the name always appears
+    # exactly once however the model behaves.
+    includes_name = False
+    if name:
+        match = re.search(re.escape(name), phrase, re.IGNORECASE)
+        if match:
+            # Normalise to the spelling the user saved, in case the model
+            # lower-cased it.
+            phrase = phrase[: match.start()] + name + phrase[match.end() :]
+            includes_name = True
+
+    return {
+        "greeting": phrase,
+        "punctuation": mark,
+        "includes_name": includes_name,
+        "source": "ai",
+    }
 
 
 @router.get("/heatmap")

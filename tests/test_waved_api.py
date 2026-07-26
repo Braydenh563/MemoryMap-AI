@@ -178,6 +178,56 @@ def test_greeting_keeps_its_terminal_mark_separate(ai_client, fake_ollama):
     assert body["punctuation"] == "!"
 
 
+def test_greeting_is_sentence_cased(ai_client, fake_ollama):
+    """Local models often answer in lowercase; the banner is a sentence."""
+    fake_ollama.librarian_reply = "good morning"
+    body = ai_client.get("/insights/greeting?block=morning").json()
+    assert body["greeting"] == "Good morning"
+
+
+def test_greeting_keeps_interior_capitals(ai_client, fake_ollama):
+    fake_ollama.librarian_reply = "welcome back to Brisbane"
+    body = ai_client.get("/insights/greeting?block=morning").json()
+    assert body["greeting"] == "Welcome back to Brisbane"
+
+
+def test_greeting_weaves_in_the_saved_name(ai_client, fake_ollama):
+    """With a display name set, the model is asked to use it — and when it
+    does, the response says so, so the frontend won't append it again."""
+    ai_client.put("/preferences", json={"display_name": "Brayden"})
+    fake_ollama.librarian_reply = "Morning, Brayden!"
+    body = ai_client.get("/insights/greeting?block=morning").json()
+    assert body["greeting"] == "Morning, Brayden"
+    assert body["punctuation"] == "!"
+    assert body["includes_name"] is True
+    # The name reached the prompt from preferences, not from the client.
+    assert "Brayden" in fake_ollama.chat_calls[-1][0]["content"]
+
+
+def test_greeting_normalises_the_name_casing(ai_client, fake_ollama):
+    ai_client.put("/preferences", json={"display_name": "Brayden"})
+    fake_ollama.librarian_reply = "welcome back, brayden"
+    body = ai_client.get("/insights/greeting?block=morning").json()
+    assert body["greeting"] == "Welcome back, Brayden"  # saved spelling wins
+    assert body["includes_name"] is True
+
+
+def test_greeting_flags_when_the_model_ignores_the_name(ai_client, fake_ollama):
+    """The model dropping the name must not lose it — includes_name stays
+    false so the frontend appends it as before."""
+    ai_client.put("/preferences", json={"display_name": "Brayden"})
+    fake_ollama.librarian_reply = "Good morning"
+    body = ai_client.get("/insights/greeting?block=morning").json()
+    assert body["includes_name"] is False
+    assert body["greeting"] == "Good morning"
+
+
+def test_greeting_without_a_name_is_unchanged(ai_client, fake_ollama):
+    fake_ollama.librarian_reply = "Good morning"
+    body = ai_client.get("/insights/greeting?block=morning").json()
+    assert body["includes_name"] is False
+
+
 def test_greeting_uses_the_active_persona(ai_client, fake_ollama):
     ai_client.put(
         "/preferences",
@@ -218,7 +268,12 @@ def test_greeting_strips_quotes_and_trailing_punctuation(ai_client, fake_ollama)
     fake_ollama.librarian_reply = '"Welcome back!"'
     body = ai_client.get("/insights/greeting?block=morning").json()
     # Quotes gone, phrase clean, and the "!" preserved for the sentence end.
-    assert body == {"greeting": "Welcome back", "punctuation": "!", "source": "ai"}
+    assert body == {
+        "greeting": "Welcome back",
+        "punctuation": "!",
+        "includes_name": False,
+        "source": "ai",
+    }
 
 
 def test_greeting_never_contains_a_name(ai_client, fake_ollama):

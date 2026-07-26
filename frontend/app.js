@@ -2901,10 +2901,20 @@ function fallbackGreetingPhrase(now = new Date()) {
 // be mangled or hallucinated, and editing it takes effect immediately. The
 // terminal mark goes on last so the result reads as a proper sentence:
 // "Rise and shine" + ", Sam" + "!" → "Rise and shine, Sam!"
-function withDisplayName(phrase, punctuation = ".") {
+function withDisplayName(phrase, punctuation = ".", includesName = false) {
   const name = ((prefsCache && prefsCache.display_name) || "").trim();
   const mark = ".!?".includes(punctuation) ? punctuation : ".";
-  return name ? `${phrase}, ${name}${mark}` : `${phrase}${mark}`;
+  // Also sentence-cased here, so an older cached greeting written by the model
+  // in lowercase corrects itself on the next render.
+  const opener = phrase ? phrase.charAt(0).toUpperCase() + phrase.slice(1) : phrase;
+  // The model may have woven the name in itself — appending again would give
+  // "Morning, Sam, Sam." A belt-and-braces check on the text covers a stale
+  // cache written before the server started reporting this.
+  const already =
+    includesName ||
+    (name && new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(opener));
+  if (!name || already) return `${opener}${mark}`;
+  return `${opener}, ${name}${mark}`;
 }
 
 function dashboardGreetingText(now = new Date()) {
@@ -2914,14 +2924,21 @@ function dashboardGreetingText(now = new Date()) {
 // A cached AI greeting, refreshed once per time-block per day so it changes
 // occasionally rather than on every render (and doesn't hammer the model).
 function greetingCacheSlot(now = new Date()) {
-  return `${now.toDateString()}|${greetingBlock(now.getHours())}`;
+  // The name is part of the slot: changing it in Settings invalidates the
+  // cached greeting so the AI writes a fresh one addressed to the new name.
+  const name = ((prefsCache && prefsCache.display_name) || "").trim();
+  return `${now.toDateString()}|${greetingBlock(now.getHours())}|${name}`;
 }
 
 function cachedGreetingPhrase(now = new Date()) {
   try {
     const cached = JSON.parse(localStorage.getItem("greetingCache") || "null");
     if (cached && cached.slot === greetingCacheSlot(now) && cached.phrase) {
-      return { phrase: cached.phrase, punctuation: cached.punctuation || "." };
+      return {
+        phrase: cached.phrase,
+        punctuation: cached.punctuation || ".",
+        includesName: Boolean(cached.includesName),
+      };
     }
   } catch {
     /* a corrupt cache just means we fetch a fresh one */
@@ -2941,12 +2958,13 @@ async function refreshAiGreeting() {
   const phrase = body && body.greeting;
   if (!phrase) return;
   const punctuation = (body && body.punctuation) || ".";
+  const includesName = Boolean(body && body.includes_name);
   localStorage.setItem(
     "greetingCache",
-    JSON.stringify({ slot: greetingCacheSlot(now), phrase, punctuation })
+    JSON.stringify({ slot: greetingCacheSlot(now), phrase, punctuation, includesName })
   );
   const el = $("dash-greeting");
-  if (el) el.textContent = withDisplayName(phrase, punctuation);
+  if (el) el.textContent = withDisplayName(phrase, punctuation, includesName);
 }
 
 let dashClockTimer = null;
@@ -3005,7 +3023,7 @@ function renderDashboardGreeting() {
   // AI-written phrase replace it in the background if one arrives.
   const cached = cachedGreetingPhrase();
   el.textContent = cached
-    ? withDisplayName(cached.phrase, cached.punctuation)
+    ? withDisplayName(cached.phrase, cached.punctuation, cached.includesName)
     : dashboardGreetingText();
   refreshAiGreeting().catch(() => {});
   paintDashClock();

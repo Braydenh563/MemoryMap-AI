@@ -648,18 +648,36 @@
         <button id="settings-close" class="ghost small">Close</button>
       </div>
       <div class="modal-body">
-        <nav class="modal-nav" id="settings-nav">
-          <button data-section="models" class="active">Models</button>
-          <button data-section="personas">Personas</button>
-          <button data-section="skills">Skills</button>
-          <button data-section="tools">AI Tools</button>
-          <button data-section="appearance">Appearance</button>
-          <button data-section="preferences">Preferences</button>
-          <button data-section="tasks">Tasks</button>
-          <button data-section="data">Data</button>
-          <button data-section="logs">Logs</button>
-          <button data-section="help">Help</button>
-          <button data-section="about">About</button>
+        <!-- Grouped rather than a flat list of eleven. The old nav gave no
+             clue which screen held what, so finding anything meant reading
+             every label. The groups answer "what am I changing?" first. -->
+        <nav class="modal-nav" id="settings-nav" aria-label="Settings sections">
+          <p class="nav-group-label" id="nav-group-ai">The AI</p>
+          <div role="group" aria-labelledby="nav-group-ai">
+            <button data-section="models" class="active">Models</button>
+            <button data-section="personas">Personas</button>
+            <button data-section="skills">Skills</button>
+            <button data-section="tools">Tools it can use</button>
+          </div>
+
+          <p class="nav-group-label" id="nav-group-you">Your notebook</p>
+          <div role="group" aria-labelledby="nav-group-you">
+            <button data-section="appearance">Appearance</button>
+            <button data-section="preferences">Preferences</button>
+            <button data-section="data">Import &amp; export</button>
+          </div>
+
+          <p class="nav-group-label" id="nav-group-system">System</p>
+          <div role="group" aria-labelledby="nav-group-system">
+            <button data-section="tasks">Background tasks</button>
+            <button data-section="logs">Logs</button>
+          </div>
+
+          <p class="nav-group-label" id="nav-group-about">Getting help</p>
+          <div role="group" aria-labelledby="nav-group-about">
+            <button data-section="help">Help</button>
+            <button data-section="about">About</button>
+          </div>
         </nav>
         <div class="modal-content">
 
@@ -942,11 +960,17 @@
 
               <div class="setting-row" id="bg-style-row">
                 <div class="setting-label"><span>Style</span></div>
+                <!-- These values MUST match BG_ART_BUILDERS in app.js. They
+                     didn't: the list offered "constellations", "blobs" and
+                     "particles" while the code implements "constellation",
+                     "bubbles", "waves" and "mesh", so every option except
+                     Aurora failed the name check and silently fell back. -->
                 <select id="bg-art-style" class="small-select setting-control">
                   <option value="aurora">Aurora — flowing ribbons</option>
-                  <option value="constellations">Constellations — linked stars</option>
-                  <option value="blobs">Blobs — drifting shapes</option>
-                  <option value="particles">Particles — floating dust</option>
+                  <option value="constellation">Constellation — linked stars</option>
+                  <option value="waves">Waves — rolling lines</option>
+                  <option value="bubbles">Floating orbs — drifting shapes</option>
+                  <option value="mesh">Mesh gradient — soft colour wash</option>
                 </select>
               </div>
 

@@ -8083,7 +8083,6 @@ function renderAppearance() {
   $("contrast-toggle").checked = contrastOn();
   $("reduce-motion-toggle").checked = appearancePref("motion") === "reduced";
   $("bg-art-toggle").checked = bgArtOn();
-  $("bg-style").value = bgArtStyle();
   $("bg-style-row").classList.toggle("hidden", !bgArtOn());
   $("bg-intensity-row").classList.toggle("hidden", !bgArtOn());
   $("glass-toggle").checked = appearancePref("glass") === "on";
@@ -8150,8 +8149,11 @@ function stopBgArt() {
 // Which generative background to paint. Persisted like the other
 // appearance prefs (user asked for more variety of art).
 const BG_ART_STYLES = ["aurora", "constellation", "waves", "bubbles", "mesh"];
+// One source of truth for the chosen style. This used to read a "bgArtStyle"
+// key that nothing writes any more (the picker saves "bg-style"), so the
+// builder always fell back to aurora no matter what was selected.
 function bgArtStyle() {
-  const saved = localStorage.getItem("bgArtStyle");
+  const saved = appearancePref("bg-style");
   return BG_ART_STYLES.includes(saved) ? saved : "aurora";
 }
 
@@ -8189,7 +8191,7 @@ const BG_ART_BUILDERS = {
     };
     return {
       init() {
-        for (let i = 0; i < 70; i++) {
+        for (let i = 0; i < Math.max(3, Math.round(70 * ctx.density)); i++) {
           particles.push({
             x: p.random(p.width), y: p.random(p.height),
             speed: p.random(0.3, 1.1), size: p.random(1.5, 3.5),
@@ -8295,7 +8297,7 @@ const BG_ART_BUILDERS = {
     });
     return {
       init() {
-        for (let i = 0; i < 16; i++) {
+        for (let i = 0; i < Math.max(3, Math.round(16 * ctx.density)); i++) {
           const o = spawn();
           o.y = p.random(p.height);
           orbs.push(o);
@@ -8322,7 +8324,7 @@ const BG_ART_BUILDERS = {
     let blobs = [];
     return {
       init() {
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < Math.max(3, Math.round(5 * ctx.density)); i++) {
           blobs.push({
             seedX: p.random(1000), seedY: p.random(1000),
             r: p.random(p.width * 0.25, p.width * 0.45),
@@ -8354,7 +8356,7 @@ function startBgArt() {
   const accentHex =
     localStorage.getItem("accent-custom") ||
     (ACCENTS.find((a) => a.name === activeAccent()) || ACCENTS[0]).swatch;
-  const bgStyle = appearancePref("bg-style");
+  const bgStyle = bgArtStyle();
   // Intensity drives how much is on screen, not just the CSS opacity.
   const intensity = Number(appearancePref("bg-intensity")) || 90;
   const densityScale = Math.max(0.25, intensity / 90);
@@ -8362,130 +8364,16 @@ function startBgArt() {
     document.documentElement.dataset.theme === "dark" ||
     (!document.documentElement.dataset.theme &&
       window.matchMedia("(prefers-color-scheme: dark)").matches);
-  const build = BG_ART_BUILDERS[bgArtStyle()] || BG_ART_BUILDERS.aurora;
+  const build = BG_ART_BUILDERS[bgStyle] || BG_ART_BUILDERS.aurora;
 
   const sketch = (p) => {
-    let particles = [];
-    let baseHue = 230;
-    let emblem = [];
-
-    const drawEmblem = (t) => {
-      // A large, very faint ring of linked nodes, slowly rotating.
-      const cx = p.width / 2;
-      const cy = p.height / 2;
-      const radius = Math.min(p.width, p.height) * 0.32;
-      p.push();
-      p.translate(cx, cy);
-      p.rotate(t * 0.02);
-      p.stroke(baseHue, 50, dark ? 70 : 45, 0.05);
-      p.strokeWeight(1.5);
-      for (let i = 0; i < emblem.length; i++) {
-        for (let j = i + 1; j < emblem.length; j++) {
-          if ((i + j) % 3 === 0) {
-            p.line(
-              Math.cos(emblem[i]) * radius,
-              Math.sin(emblem[i]) * radius,
-              Math.cos(emblem[j]) * radius,
-              Math.sin(emblem[j]) * radius
-            );
-          }
-        }
-      }
-      p.noStroke();
-      for (const a of emblem) {
-        p.fill(baseHue, 55, dark ? 72 : 42, 0.07);
-        p.circle(Math.cos(a) * radius, Math.sin(a) * radius, 16);
-      }
-      p.pop();
-    };
-
-    // The flow-field aurora. A lighter wash lets trails linger, so the
-    // ribbons actually read behind the app's translucent cards.
-    const drawAurora = (t) => {
-      p.noStroke();
-      p.fill(dark ? 12 : 250, dark ? 0.09 : 0.10);
-      p.rect(0, 0, p.width, p.height);
-      drawEmblem(t);
-      for (const dot of particles) {
-        const angle =
-          p.noise(dot.x * 0.0016, dot.y * 0.0016, t * 0.15) * Math.PI * 4;
-        dot.x += Math.cos(angle) * dot.speed;
-        dot.y += Math.sin(angle) * dot.speed;
-        if (dot.x < 0) dot.x = p.width;
-        if (dot.x > p.width) dot.x = 0;
-        if (dot.y < 0) dot.y = p.height;
-        if (dot.y > p.height) dot.y = 0;
-        p.fill(dot.hue, 78, dark ? 70 : 48, 0.8);
-        p.circle(dot.x, dot.y, dot.size);
-      }
-    };
-
-    // Drifting stars joined by faint lines when they come close.
-    const drawConstellations = (t) => {
-      p.background(dark ? 12 : 250);
-      for (const dot of particles) {
-        dot.x += Math.cos(dot.phase + t * 0.25) * dot.speed * 0.6;
-        dot.y += Math.sin(dot.phase + t * 0.2) * dot.speed * 0.6;
-        if (dot.x < 0) dot.x = p.width;
-        if (dot.x > p.width) dot.x = 0;
-        if (dot.y < 0) dot.y = p.height;
-        if (dot.y > p.height) dot.y = 0;
-      }
-      p.stroke(baseHue, 60, dark ? 72 : 42, 0.3);
-      p.strokeWeight(1.2);
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const a = particles[i];
-          const b = particles[j];
-          const d = Math.hypot(a.x - b.x, a.y - b.y);
-          if (d < 110) p.line(a.x, a.y, b.x, b.y);
-        }
-      }
-      p.noStroke();
-      for (const dot of particles) {
-        p.fill(dot.hue, 72, dark ? 78 : 46, 0.85);
-        p.circle(dot.x, dot.y, dot.size + 1);
-      }
-    };
-
-    // Big soft organic shapes drifting slowly behind everything.
-    const drawBlobs = (t) => {
-      p.background(dark ? 12 : 250);
-      p.noStroke();
-      for (const blob of particles) {
-        const x = blob.baseX + Math.cos(t * 0.3 + blob.phase) * blob.amp;
-        const y = blob.baseY + Math.sin(t * 0.24 + blob.phase) * blob.amp;
-        // A few stacked translucent circles fake a soft gradient edge.
-        for (let ring = 3; ring >= 1; ring--) {
-          p.fill(blob.hue, 70, dark ? 58 : 60, 0.09);
-          p.circle(x, y, blob.size * ring * 0.8);
-        }
-      }
-    };
-
-    // A calm field of floating dust motes.
-    const drawParticles = (t) => {
-      p.background(dark ? 12 : 250);
-      p.noStroke();
-      for (const dot of particles) {
-        dot.y -= dot.speed * 0.4;
-        dot.x += Math.cos(t + dot.phase) * 0.3;
-        if (dot.y < -5) {
-          dot.y = p.height + 5;
-          dot.x = p.random(p.width);
-        }
-        p.fill(dot.hue, 70, dark ? 76 : 48, 0.7);
-        p.circle(dot.x, dot.y, dot.size);
-      }
-    };
-
-    const draw = () => {
-      const t = p.frameCount * 0.01;
-      if (bgStyle === "constellations") drawConstellations(t);
-      else if (bgStyle === "blobs") drawBlobs(t);
-      else if (bgStyle === "particles") drawParticles(t);
-      else drawAurora(t);
-    };
+    // Each style is a self-contained builder returning {init, frame}. The
+    // merge in #20 left this function holding pieces of two implementations
+    // at once — one branch's builders alongside the other's inline draw
+    // functions, with the `const style = build(...)` line lost between them.
+    // So p.draw called `style.frame(t)` on an undefined `style`, and every
+    // non-aurora background threw on its first frame.
+    let style = null;
 
     p.setup = () => {
       const c = p.createCanvas(window.innerWidth, window.innerHeight);
@@ -8505,35 +8393,25 @@ function startBgArt() {
       // switch, but simplest to keep one mode; use HSL and a grey wash.
       p.colorMode(p.HSL, 360, 100, 100, 1);
       p.noStroke();
-      baseHue = p.hue(p.color(accentHex));
-      // Each style wants a different population; intensity scales it.
-      const counts = { aurora: 70, constellations: 34, blobs: 7, particles: 90 };
-      const count = Math.max(3, Math.round((counts[bgStyle] ?? 70) * densityScale));
-      for (let i = 0; i < count; i++) {
-        const x = p.random(p.width);
-        const y = p.random(p.height);
-        particles.push({
-          x,
-          y,
-          baseX: x,
-          baseY: y,
-          phase: p.random(Math.PI * 2),
-          amp: p.random(40, 140),
-          speed: p.random(0.3, 1.1),
-          size: bgStyle === "blobs" ? p.random(180, 380) : p.random(2.5, 5.5),
-          hue: (baseHue + p.random(-24, 24) + 360) % 360,
-        });
-      }
-      emblem = Array.from({ length: 9 }, (_, i) => (i / 9) * Math.PI * 2);
       p.frameRate(30);
+
+      style = build(p, {
+        dark,
+        baseHue: p.hue(p.color(accentHex)),
+        // The intensity slider scales how much is actually on screen, so each
+        // style decides its own population from one number.
+        density: densityScale,
+      });
+      style.init();
+
       if (reduceMotion) {
         // One calm static frame — no motion for reduced-motion users.
         p.background(dark ? 12 : 250);
-        if (bgStyle === "aurora") drawEmblem(0);
-        else draw();
+        style.frame(0);
         p.noLoop();
       }
     };
+
     p.draw = () => {
       const t = p.frameCount * 0.01;
       // Translucent wash → marks leave gentle trails instead of hard clears.
@@ -8544,6 +8422,7 @@ function startBgArt() {
       p.rect(0, 0, p.width, p.height);
       style.frame(t);
     };
+
     p.windowResized = () => p.resizeCanvas(window.innerWidth, window.innerHeight);
   };
   bgArtInstance = new p5(sketch);

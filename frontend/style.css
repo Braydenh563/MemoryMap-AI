@@ -749,7 +749,20 @@ li.link-source { outline: 2px solid var(--accent); }
 @media (max-width: 640px) {
   .modal-body { grid-template-columns: 1fr; }
 }
-.modal-nav { display: flex; flex-direction: column; gap: 0.3rem; }
+.modal-nav { display: flex; flex-direction: column; gap: 0.15rem; }
+.modal-nav > div { display: flex; flex-direction: column; gap: 0.15rem; }
+/* Group labels: quiet enough to scan past, clear enough to orient by. */
+.nav-group-label {
+  margin: 0.7rem 0 0.15rem;
+  padding: 0 0.7rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  opacity: 0.75;
+}
+.nav-group-label:first-child { margin-top: 0; }
 .modal-nav button {
   background: transparent;
   border: none;

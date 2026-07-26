@@ -5604,10 +5604,13 @@ async function startArt(holder) {
   const categories = (stats.categories || []).slice(0, 8);
   const total = Math.max(1, stats.total_entries || 0);
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const dark =
-    document.documentElement.dataset.theme === "dark" ||
-    (!document.documentElement.dataset.theme &&
-      window.matchMedia("(prefers-color-scheme: dark)").matches);
+  // data-mode is always resolved to light or dark, including under "System",
+  // so this no longer has to re-derive it from two sources.
+  const dark = resolvedTheme() === "dark";
+  // The wash used a hardcoded indigo hue, so on any palette that isn't
+  // indigo — Sage, Ocean, Ember — the one generative panel on the dashboard
+  // was the only thing on screen still wearing the old theme's colour.
+  const accentHex = currentAccentHex();
 
   const sketch = (p) => {
     let particles = [];
@@ -5617,9 +5620,10 @@ async function startArt(holder) {
     const scene = (t) => {
       // A soft vertical wash instead of a flat fill — more depth (Wave N).
       p.noStroke();
+      const washHue = p.hue(p.color(accentHex));
       for (let y = 0; y < height; y += 4) {
         const shade = dark ? 14 + (y / height) * 10 : 250 - (y / height) * 10;
-        p.fill(230, 30, shade, 1);
+        p.fill(washHue, 30, shade, 1);
         p.rect(0, y, width, 4);
       }
       for (const dot of particles) {
@@ -9366,6 +9370,22 @@ function activeAccent() {
   return localStorage.getItem("accent") || "indigo";
 }
 
+// The colour the app is *actually* wearing right now. The generative art used
+// to look this up from the ACCENTS list via localStorage, which only knows
+// about the accent picker — so a curated palette changed every surface in the
+// app except the two canvases, leaving them wearing the previous theme. The
+// computed variable is the one source of truth once palettes can set it too.
+function currentAccentHex() {
+  const computed = getComputedStyle(document.documentElement)
+    .getPropertyValue("--accent")
+    .trim();
+  if (computed) return computed;
+  return (
+    localStorage.getItem("accent-custom") ||
+    (ACCENTS.find((a) => a.name === activeAccent()) || ACCENTS[0]).swatch
+  );
+}
+
 function applyAccent(name) {
   if (name === "indigo") delete document.documentElement.dataset.accent;
   else document.documentElement.dataset.accent = name;
@@ -9970,10 +9990,8 @@ function startBgArt() {
   const bgMotion = appearancePref("bg-motion");
   const reduceMotion =
     bgMotion === "still" || (bgMotion !== "moving" && reducedMotionWanted());
-  // A custom accent colour, if set, drives the art too.
-  const accentHex =
-    localStorage.getItem("accent-custom") ||
-    (ACCENTS.find((a) => a.name === activeAccent()) || ACCENTS[0]).swatch;
+  // Whatever colour the app is wearing — accent picker or curated palette.
+  const accentHex = currentAccentHex();
   const bgStyle = bgArtStyle();
   // Intensity drives how much is on screen, not just the CSS opacity.
   const intensity = Number(appearancePref("bg-intensity")) || 90;

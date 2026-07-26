@@ -2718,6 +2718,189 @@ function renderDashboardGreeting() {
   renderDashSubmessage().catch(() => {});
 }
 
+// --- dashboard quick links ---------------------------------------------------
+
+const QUICK_LINKS = [
+  { icon: "✏️", label: "New note", run: () => { switchTab("notes"); $("entry-content").focus(); } },
+  { icon: "💬", label: "Ask AI", run: () => { switchTab("chat"); $("chat-input").focus(); } },
+  { icon: "🕸", label: "Graph", run: () => switchTab("graph") },
+  { icon: "⏰", label: "Reminders", run: () => switchTab("reminders") },
+  { icon: "🎨", label: "Sketch", run: () => openSketch() },
+  { icon: "🔍", label: "Search notes", run: () => { switchTab("notes"); $("note-search").focus(); } },
+  { icon: "🧰", label: "Tools & features", run: () => openFeatures(), primary: true },
+];
+
+function renderQuickLinks() {
+  const box = $("dash-quicklinks");
+  if (!box) return;
+  box.replaceChildren();
+  for (const link of QUICK_LINKS) {
+    const button = document.createElement("button");
+    button.className = "quick-link" + (link.primary ? " quick-link-primary" : "");
+    button.type = "button";
+    const icon = document.createElement("span");
+    icon.className = "quick-link-icon";
+    icon.textContent = link.icon;
+    icon.setAttribute("aria-hidden", "true");
+    const label = document.createElement("span");
+    label.textContent = link.label;
+    button.append(icon, label);
+    button.addEventListener("click", link.run);
+    box.appendChild(button);
+  }
+}
+
+// --- the "everything this app does" browser ----------------------------------
+// Grouped, searchable, and every entry either jumps you there or explains
+// itself — the fastest way to discover features you didn't know existed.
+function featureCatalog() {
+  return [
+    { group: "Capture & notes", items: [
+      { name: "Capture a thought", desc: "Save anything; the AI files it into a category and suggests tags.", run: () => { switchTab("notes"); $("entry-content").focus(); } },
+      { name: "Templates", desc: "Start a note from a prefilled shape (journal, recipe, meeting…).", run: () => switchTab("notes") },
+      { name: "Improve writing", desc: "Proofread, rewrite, or condense a note with AI before saving.", run: () => switchTab("notes") },
+      { name: "Sketch pad", desc: "Draw something and save it as a note with a caption.", run: () => openSketch() },
+      { name: "Dictation", desc: "Speak a note; transcribed locally with Whisper.", run: () => switchTab("notes") },
+      { name: "Attachments", desc: "Attach files and images to any note.", run: () => switchTab("notes") },
+      { name: "Threads", desc: "Continue a thought to build a train of related notes.", run: () => switchTab("notes") },
+      { name: "Pins & tags", desc: "Pin important notes and organise with tags.", run: () => switchTab("notes") },
+      { name: "Recycle bin", desc: "Deleted notes are recoverable until the bin is cleared.", run: () => switchTab("notes") },
+    ]},
+    { group: "Ask & chat", items: [
+      { name: "Ask your notebook", desc: "Questions answered strictly from your own notes.", run: () => { switchTab("notes"); $("question").focus(); } },
+      { name: "Chat", desc: "A full conversation with your notebook, saved and resumable.", run: () => { switchTab("chat"); $("chat-input").focus(); } },
+      { name: "Personas", desc: "Change the assistant's voice — Librarian, Coach, Analyst, or your own.", run: () => openSettingsModal("personas") },
+      { name: "Skills", desc: "One-click requests like “Summarise my week”; can act on your notes.", run: () => openSettingsModal("skills") },
+      { name: "AI can make changes", desc: "Let the assistant create, tag, link and organise notes for you.", run: () => switchTab("chat") },
+      { name: "Web search", desc: "Optional, opt-in: the one feature that goes online.", run: () => switchTab("chat") },
+      { name: "Export chat", desc: "Download a conversation as Markdown.", run: () => switchTab("chat") },
+    ]},
+    { group: "Map & discovery", items: [
+      { name: "Graph view", desc: "Your notes as a network of links, threads and similarity.", run: () => switchTab("graph") },
+      { name: "Edit on the map", desc: "Click any node to edit its content and tags in place.", run: () => switchTab("graph") },
+      { name: "Physics controls", desc: "Gravity and Spread sliders reshape the layout.", run: () => switchTab("graph") },
+      { name: "Suggested links", desc: "The AI proposes connections between related notes.", run: () => switchTab("graph") },
+      { name: "On this day", desc: "Notes you captured on this date in past months resurface.", run: () => switchTab("dashboard") },
+      { name: "Related notes", desc: "See notes that mean something similar to the one you're reading.", run: () => switchTab("notes") },
+    ]},
+    { group: "Plan & focus", items: [
+      { name: "Reminders", desc: "Due dates with priority, repeats, snooze and notifications.", run: () => switchTab("reminders") },
+      { name: "Magic add", desc: "Type “call mum tomorrow evening” and the AI schedules it.", run: () => { switchTab("reminders"); $("reminder-magic").focus(); } },
+      { name: "Focus timer", desc: "Pomodoro-style timer with presets or your own minutes.", run: () => switchTab("dashboard") },
+      { name: "Weekly digest", desc: "An AI recap of everything you saved this week.", run: () => switchTab("dashboard") },
+      { name: "Activity heatmap", desc: "A year of capture activity at a glance.", run: () => switchTab("dashboard") },
+      { name: "Streaks", desc: "How many days in a row you've captured something.", run: () => switchTab("dashboard") },
+    ]},
+    { group: "Make it yours", items: [
+      { name: "Theme", desc: "Light, dark, or follow your system.", run: () => openSettingsModal("appearance") },
+      { name: "Accent colour", desc: "Presets or any custom colour you like.", run: () => openSettingsModal("appearance") },
+      { name: "Typography & density", desc: "Font, text size, and how roomy the layout feels.", run: () => openSettingsModal("appearance") },
+      { name: "Corner rounding & glass", desc: "Tune the shape and blur of every surface.", run: () => openSettingsModal("appearance") },
+      { name: "Animated background", desc: "Aurora, constellations, blobs or particles behind the app.", run: () => openSettingsModal("appearance") },
+      { name: "Accessibility", desc: "High-contrast mode and reduce-motion.", run: () => openSettingsModal("appearance") },
+      { name: "Custom CSS", desc: "For tinkerers: your own style overrides.", run: () => openSettingsModal("appearance") },
+      { name: "Dashboard layout", desc: "Show, hide, reorder and widen widgets.", run: () => { switchTab("dashboard"); $("dash-edit").click(); } },
+    ]},
+    { group: "Data & control", items: [
+      { name: "Export", desc: "Download everything as JSON, Markdown or CSV.", run: () => openSettingsModal("data") },
+      { name: "Import markdown", desc: "Bring in notes from an Obsidian-style vault.", run: () => openSettingsModal("data") },
+      { name: "Backups", desc: "Snapshot your notebook and restore it later.", run: () => openSettingsModal("data") },
+      { name: "Models", desc: "Choose the chat, utility and embedding models.", run: () => openSettingsModal("models") },
+      { name: "AI tool permissions", desc: "Decide exactly what the assistant is allowed to do.", run: () => openSettingsModal("tools") },
+      { name: "Lock", desc: "Password-protect the app on shared devices.", run: () => lockNow() },
+      { name: "Command palette", desc: "Ctrl/⌘-K to jump anywhere or search your notes.", run: () => { closeFeatures(); openPalette(); } },
+      { name: "Keyboard shortcuts", desc: "Press ? any time for the full list.", run: () => { closeFeatures(); openShortcuts(); } },
+      { name: "Welcome tour", desc: "Replay the introduction to MemoryMap.", run: () => { closeFeatures(); openOnboarding(); } },
+    ]},
+  ];
+}
+
+let featureAiTools = null; // fetched once per session
+
+async function openFeatures() {
+  overlayReturnFocus = document.activeElement;
+  $("features-overlay").classList.remove("hidden");
+  $("features-search").value = "";
+  renderFeatures("");
+  $("features-search").focus();
+  if (featureAiTools === null) {
+    featureAiTools = await apiJson("/chat/tools").catch(() => []);
+    if (!$("features-overlay").classList.contains("hidden")) {
+      renderFeatures($("features-search").value);
+    }
+  }
+}
+
+function closeFeatures() {
+  $("features-overlay").classList.add("hidden");
+  overlayReturnFocus?.focus?.();
+  overlayReturnFocus = null;
+}
+
+function renderFeatures(query) {
+  const list = $("features-list");
+  list.replaceChildren();
+  const q = (query || "").trim().toLowerCase();
+  const groups = featureCatalog();
+  // The AI's own tools, straight from the backend registry.
+  if (featureAiTools && featureAiTools.length) {
+    groups.push({
+      group: "What the AI can do for you",
+      items: featureAiTools.map((tool) => ({
+        name: tool.name.replace(/_/g, " "),
+        desc: tool.description + (tool.destructive ? " (asks you to confirm first)" : ""),
+        run: () => openSettingsModal("tools"),
+      })),
+    });
+  }
+
+  let shown = 0;
+  for (const group of groups) {
+    const matches = group.items.filter(
+      (item) =>
+        !q ||
+        item.name.toLowerCase().includes(q) ||
+        item.desc.toLowerCase().includes(q) ||
+        group.group.toLowerCase().includes(q)
+    );
+    if (!matches.length) continue;
+    shown += matches.length;
+
+    const heading = document.createElement("h3");
+    heading.className = "features-group";
+    heading.textContent = group.group;
+    list.appendChild(heading);
+
+    for (const item of matches) {
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "feature-row";
+      const name = document.createElement("span");
+      name.className = "feature-name";
+      name.textContent = item.name;
+      const desc = document.createElement("span");
+      desc.className = "feature-desc muted";
+      desc.textContent = item.desc;
+      row.append(name, desc);
+      row.addEventListener("click", () => {
+        closeFeatures();
+        item.run();
+      });
+      list.appendChild(row);
+    }
+  }
+
+  $("features-count").textContent = q
+    ? `${shown} match${shown === 1 ? "" : "es"}`
+    : `${shown} things MemoryMap can do`;
+  if (!shown) {
+    const none = document.createElement("p");
+    none.className = "muted";
+    none.textContent = "Nothing matches that — try another word.";
+    list.appendChild(none);
+  }
+}
+
 async function renderDashboard() {
   // The saved layout lives in preferences — after a page reload this can
   // run before startApp has fetched them, so fetch here if needed.
@@ -2725,6 +2908,7 @@ async function renderDashboard() {
     prefsCache = await apiJson("/preferences").catch(() => null);
   }
   renderDashboardGreeting();
+  renderQuickLinks();
   const grid = $("dash-grid");
   grid.replaceChildren();
   $("dash-hint").classList.toggle("hidden", !dashEditMode); // hint only in edit mode
@@ -6572,6 +6756,10 @@ document.addEventListener("keydown", (e) => {
     closeOnboarding();
     return;
   }
+  if (e.key === "Escape" && !$("features-overlay").classList.contains("hidden")) {
+    closeFeatures();
+    return;
+  }
   if (e.key === "Escape" && !$("graph-popup").classList.contains("hidden")) {
     closeGraphPopup();
     return;
@@ -6637,6 +6825,7 @@ document.addEventListener("click", (e) => {
 function activeOverlay() {
   for (const id of [
     "onboarding-overlay",
+    "features-overlay",
     "palette-overlay",
     "sketch-overlay",
     "improve-overlay",
@@ -6748,6 +6937,13 @@ function openShortcuts() {
 function closeShortcuts() {
   $("shortcuts-overlay").classList.add("hidden");
 }
+// Tools & features browser (opened from the dashboard quick links).
+$("features-close").addEventListener("click", closeFeatures);
+$("features-search").addEventListener("input", (e) => renderFeatures(e.target.value));
+$("features-overlay").addEventListener("click", (e) => {
+  if (e.target === $("features-overlay")) closeFeatures();
+});
+
 $("shortcuts-close").addEventListener("click", closeShortcuts);
 $("shortcuts-overlay").addEventListener("click", (e) => {
   if (e.target === $("shortcuts-overlay")) closeShortcuts();

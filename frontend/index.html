@@ -80,6 +80,9 @@
         <span id="dash-clock-date" class="dash-clock-date"></span>
       </div>
     </section>
+    <!-- One-tap shortcuts to the things people do most -->
+    <div class="dash-quicklinks" id="dash-quicklinks" role="group"
+      aria-label="Quick actions"></div>
     <div class="dash-toolbar">
       <span class="muted hidden" id="dash-hint">Drag widgets to rearrange, or Hide/Show them — your layout is remembered.</span>
       <span id="dash-hint-spacer"></span>
@@ -1023,6 +1026,21 @@
         <button id="sketch-save">Save as note</button>
         <span id="sketch-status" class="status" role="status"></span>
       </div>
+    </div>
+  </div>
+
+  <!-- Everything the app can do, searchable — opened from the dashboard -->
+  <div id="features-overlay" class="modal-overlay hidden" role="dialog"
+    aria-modal="true" aria-label="Tools and features">
+    <div class="card modal-card" id="features-card">
+      <div class="row space-between">
+        <h2>🧰 Tools &amp; features</h2>
+        <button id="features-close" class="ghost small">Close</button>
+      </div>
+      <input id="features-search" type="text" autocomplete="off"
+        placeholder="Search everything MemoryMap can do…" aria-label="Search features">
+      <p class="muted" id="features-count" aria-live="polite"></p>
+      <div id="features-list" class="features-list"></div>
     </div>
   </div>
 

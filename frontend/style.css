@@ -687,12 +687,16 @@ li.link-source { outline: 2px solid var(--accent); }
 #dash-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  grid-auto-rows: min-content;
   grid-auto-flow: row dense; /* pack short widgets into the gaps */
   gap: 1rem;
   padding: 0 2rem 2rem;
-  align-items: start;
+  /* stretch (the default) makes every card in a row the same height, so the
+     grid reads as neat rows instead of a ragged staircase. */
+  align-items: stretch;
 }
+/* Cards are columns so their body can absorb the leftover height. */
+.dash-widget { display: flex; flex-direction: column; }
+.dash-widget > .dash-body { flex: 1 1 auto; }
 /* Widgets can span two columns ("wide") — toggled in Edit layout. */
 .dash-widget.wide { grid-column: span 2; }
 @media (max-width: 720px) {
@@ -1617,6 +1621,74 @@ html { font-size: 16px; }
 .tool-row { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: 500; }
 .tool-row input { width: 1.15rem; height: 1.15rem; margin: 0; accent-color: var(--accent); }
 .tool-desc { display: block; margin: 0.2rem 0 0 1.65rem; font-size: 0.82rem; }
+
+/* --- dashboard quick links ------------------------------------------------- */
+.dash-quicklinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin: 0.9rem 2rem 0.2rem;
+}
+.quick-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.9rem;
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--glass-border);
+  border-radius: calc(var(--radius) * 0.7);
+  box-shadow: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  backdrop-filter: blur(var(--glass-blur));
+}
+.quick-link:hover { background: var(--accent-soft); border-color: var(--accent); }
+.quick-link-icon { font-size: 1.05rem; }
+.quick-link-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.quick-link-primary:hover { background: var(--accent); filter: brightness(1.08); }
+@media (max-width: 720px) {
+  .dash-quicklinks { margin: 0.7rem 1rem 0.2rem; }
+  .quick-link { font-size: 0.85rem; padding: 0.45rem 0.7rem; }
+}
+
+/* --- tools & features browser ---------------------------------------------- */
+#features-card { max-width: 46rem; width: 100%; }
+#features-card > input { margin-bottom: 0.35rem; }
+.features-list {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 0.3rem;
+}
+.features-group {
+  margin: 1rem 0 0.4rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.features-group:first-child { margin-top: 0.2rem; }
+.feature-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.55rem 0.7rem;
+  margin-bottom: 0.25rem;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius) * 0.6);
+  box-shadow: none;
+  color: var(--ink);
+  font-weight: 400;
+}
+.feature-row:hover, .feature-row:focus-visible {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.feature-name { font-weight: 650; font-size: 0.93rem; }
+.feature-desc { font-size: 0.83rem; line-height: 1.4; }
 
 /* --- activity heatmap + tag cloud widgets ---------------------------------- */
 .heatmap {

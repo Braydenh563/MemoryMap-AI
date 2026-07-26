@@ -33,7 +33,14 @@ router = APIRouter(prefix="/entries", tags=["entries"])
 
 
 def _preview(text: str, length: int = 60) -> str:
-    return text if len(text) <= length else text[: length - 1] + "…"
+    """A short, readable version of a note for link chips and lists.
+
+    The [[link]] syntax is scaffolding rather than content, so a preview shows
+    the words without the brackets — seeing "[[bread proving]]" on a link chip
+    that already means "linked to bread proving" is just noise.
+    """
+    plain = manager.WIKI_LINK.sub(r"\1", text or "")
+    return plain if len(plain) <= length else plain[: length - 1] + "…"
 
 
 def _to_out(

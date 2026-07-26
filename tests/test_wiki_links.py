@@ -102,3 +102,12 @@ def test_nested_brackets_resolve_to_the_inner_name():
 def test_a_name_is_capped_so_a_whole_note_cannot_become_one():
     long_name = "x" * 200
     assert manager.wiki_link_targets(f"[[{long_name}]]") == []
+
+
+def test_link_previews_do_not_show_the_bracket_syntax(client):
+    """The [[ ]] is scaffolding; a link chip reading "[[bread]]" is just noise."""
+    _make(client, "bread proving times vary")
+    source = _make(client, "check [[bread proving]] before baking")
+
+    preview = client.get(f"/entries/{source['id']}").json()["links"][0]["preview"]
+    assert "[[" not in preview and "]]" not in preview

@@ -2866,7 +2866,7 @@ function attachedNotes() {
 }
 
 function noteLabel(entry, length = 40) {
-  const text = (entry.content || "").replace(/\s+/g, " ").trim();
+  const text = notePreviewText(entry.content).replace(/\s+/g, " ").trim();
   return text.length > length ? `${text.slice(0, length - 1)}…` : text || "(empty note)";
 }
 
@@ -4806,6 +4806,13 @@ async function renderStatsWidget(body) {
   body.appendChild(cats);
 }
 
+// A note's text as it should read in a preview: the [[link]] syntax is
+// scaffolding, not content, so previews show the words without the brackets.
+// Full note bodies get real clickable chips instead (renderNoteText).
+function notePreviewText(content) {
+  return (content || "").replace(/\[\[([^[\]]{1,120})\]\]/g, "$1");
+}
+
 function miniEntryList(body, entries, emptyText) {
   if (!entries.length) {
     const p = document.createElement("p");
@@ -4818,8 +4825,8 @@ function miniEntryList(body, entries, emptyText) {
   ul.className = "dash-list";
   for (const entry of entries) {
     const li = document.createElement("li");
-    li.textContent =
-      entry.content.length > 70 ? entry.content.slice(0, 69) + "…" : entry.content;
+    const preview = notePreviewText(entry.content);
+    li.textContent = preview.length > 70 ? preview.slice(0, 69) + "…" : preview;
     li.title = "Open this note";
     li.addEventListener("click", () => flashEntry(entry.id));
     ul.appendChild(li);
@@ -5038,16 +5045,27 @@ async function renderDigestWidget(body) {
   } else if (digestPromise) {
     runGeneration(); // one is already running (from before a tab switch)
   } else {
-    body.appendChild(
-      smallButton("Generate this week's digest", "", runGeneration, false)
-    );
+    const generate = smallButton("Generate this week's digest", "", runGeneration, false);
+    // Built dynamically, so it can't live in AI_ONLY_CONTROLS — mark it here
+    // instead. A dashboard button that only fails once you press it is exactly
+    // the thing that makes the app feel broken when the AI simply isn't on.
+    if (modelStatus && modelStatus.ollama_running === false) {
+      generate.disabled = true;
+      generate.classList.add("ai-unavailable");
+      generate.title = "The weekly digest is written by the local AI — start Ollama to generate one.";
+    }
+    body.appendChild(generate);
   }
 }
 
 async function renderQuickCaptureWidget(body) {
   const textarea = document.createElement("textarea");
   textarea.rows = 2;
-  textarea.placeholder = "Type a thought and press Save — the AI files it.";
+  // Don't promise AI filing when there's no AI to do it; the note still saves.
+  textarea.placeholder =
+    modelStatus && modelStatus.ollama_running === false
+      ? "Type a thought and press Save."
+      : "Type a thought and press Save — the AI files it.";
   const row = document.createElement("div");
   row.className = "row";
   const status = document.createElement("span");

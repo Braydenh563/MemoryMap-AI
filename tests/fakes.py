@@ -64,6 +64,13 @@ class FakeOllama:
         self.tool_script: list[list[dict]] = []
         self.tool_rounds: list[list[dict]] = []  # messages seen per round
         self.text_tool_reply: str | None = None  # a call the model wrote as text
+        # Token counts, as both chat_stream and chat_tools report them.
+        self.stats = {
+            "prompt_tokens": 120,
+            "output_tokens": 40,
+            "total_ms": 900,
+            "eval_ms": 800,
+        }
 
     def is_running(self) -> bool:
         return self.running
@@ -80,6 +87,9 @@ class FakeOllama:
         middle = max(1, len(text) // 2)
         yield {"content_delta": text[:middle]}
         yield {"content_delta": text[middle:]}
+        # The real client's final chunk carries token counts; the message
+        # metadata line is built from these.
+        yield {"stats": dict(self.stats, model=model)}
 
     def chat_tools(self, model: str, messages: list[dict], tools: list[dict]) -> dict:
         """Plays back tool_script one round at a time (Wave G)."""
@@ -92,12 +102,13 @@ class FakeOllama:
             calls = self.tool_script.pop(0)
             return {
                 "content": "",
-                "thinking": None,
+                "thinking": self.librarian_thinking,
                 "tool_calls": calls,
                 "raw_tool_calls": [
                     {"function": {"name": c["name"], "arguments": c["arguments"]}}
                     for c in calls
                 ],
+                "stats": dict(self.stats, model=model),
             }
         # Mimic the real client recovering a tool call the model wrote as
         # text (Wave O) — one-shot, so the second round returns the answer.
@@ -115,12 +126,14 @@ class FakeOllama:
                     {"function": {"name": c["name"], "arguments": c["arguments"]}}
                     for c in recovered
                 ],
+                "stats": dict(self.stats, model=model),
             }
         return {
             "content": self.librarian_reply,
             "thinking": self.librarian_thinking,
             "tool_calls": [],
             "raw_tool_calls": [],
+            "stats": dict(self.stats, model=model),
         }
 
     def _reply_text(self, messages: list[dict]) -> str:

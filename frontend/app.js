@@ -227,6 +227,8 @@ const BUILTIN_TEMPLATES = [
 async function loadTemplates() {
   // Built-ins + the user's own (kept in preferences).
   prefsCache = await apiJson("/preferences").catch(() => prefsCache);
+  // Saved filters live in the same payload, so draw them while it's fresh.
+  renderSavedSearches();
   const custom = (prefsCache && prefsCache.custom_templates) || [];
   const select = $("entry-template");
   select.replaceChildren();
@@ -372,7 +374,10 @@ function entryItem(entry, options = {}) {
 
   const content = document.createElement("p");
   content.className = "entry-content";
-  content.textContent = entry.content;
+  // Mark the matched words while filtering, so it's obvious WHY a note is in
+  // the list. Built with createElement/textContent rather than innerHTML —
+  // note text is user content and must never be parsed as markup.
+  renderNoteText(content, entry.content, searchHighlightTerms());
   li.appendChild(content);
 
   const meta = document.createElement("div");
@@ -460,6 +465,7 @@ function entryItem(entry, options = {}) {
     actions.appendChild(entryOverflowMenu(entry));
     metaEnd.appendChild(actions);
   }
+  if (entry.is_private) meta.insertBefore(chip("🔒 private"), meta.firstChild);
   if (entry.pinned) meta.insertBefore(chip("📌 pinned"), meta.firstChild);
   li.appendChild(meta);
 
@@ -553,6 +559,31 @@ function closeActionMenus() {
 }
 
 // The ⋯ overflow menu on each note card (Wave L rework).
+async function toggleEntryPrivacy(entry) {
+  const makingPrivate = !entry.is_private;
+  if (makingPrivate) {
+    const ok = confirm(
+      "Make this note private?\n\n" +
+        "It gets encrypted with a key derived from your password, so it stays " +
+        "unreadable in the database, in backups, and to anyone without that " +
+        "password.\n\n" +
+        "It also stops appearing in search and stops being given to the AI.\n\n" +
+        "There is no recovery: if you forget your password this note is gone."
+    );
+    if (!ok) return;
+  }
+  try {
+    await apiJson(`/entries/${entry.id}/privacy`, {
+      method: "POST",
+      body: JSON.stringify({ private: makingPrivate }),
+    });
+    toast(makingPrivate ? "Note encrypted." : "Note is readable again.");
+    await loadEntries();
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
 function entryOverflowMenu(entry) {
   const wrap = document.createElement("span");
   wrap.className = "menu-wrap";
@@ -574,6 +605,13 @@ function entryOverflowMenu(entry) {
   opener.setAttribute("aria-expanded", "false");
 
   const items = [
+    {
+      label: entry.is_private ? "🔓 Make readable" : "🔒 Make private",
+      title: entry.is_private
+        ? "Decrypt this note so search and the AI can use it again"
+        : "Encrypt this note at rest, and keep it out of search and the AI",
+      run: () => toggleEntryPrivacy(entry),
+    },
     {
       label: "🔄 Re-evaluate",
       title: "Refresh this note's AI confidence and suggest tags & links",
@@ -1085,13 +1123,166 @@ function beginOrCompleteLink(entry) {
 }
 
 // Text filter (Wave J): match note content or any tag, case-insensitive.
+// --- the notes filter ------------------------------------------------------------
+// Same lesson as the server's keyword search: a single substring match means
+// the words have to be typed in the order they appear, which nobody can guess.
+// This one also understands a few operators, because narrowing by tag or
+// category is the thing you actually want once you have more than a few
+// hundred notes — and it needs no AI whatsoever.
+//
+//   tag:work            only notes tagged "work"
+//   cat:recipes         only notes in that category (category: also works)
+//   is:pinned           pinned / private / linked / untagged
+//   -picnic             notes that do NOT mention "picnic"
+//   "exact phrase"      that phrase, verbatim
+//
+// Anything else is a plain word: all of them must appear, in any order.
+
+function parseNoteQuery(raw) {
+  const query = {
+    words: [],
+    phrases: [],
+    exclude: [],
+    tags: [],
+    categories: [],
+    flags: [],
+  };
+  // Pull quoted phrases out first so their spaces don't become word breaks.
+  const remainder = (raw || "").replace(/"([^"]+)"/g, (_, phrase) => {
+    query.phrases.push(phrase.toLowerCase().trim());
+    return " ";
+  });
+  for (const token of remainder.split(/\s+/)) {
+    if (!token) continue;
+    const lower = token.toLowerCase();
+    if (lower.startsWith("tag:")) query.tags.push(lower.slice(4));
+    else if (lower.startsWith("category:")) query.categories.push(lower.slice(9));
+    else if (lower.startsWith("cat:")) query.categories.push(lower.slice(4));
+    else if (lower.startsWith("is:")) query.flags.push(lower.slice(3));
+    else if (lower.startsWith("-") && lower.length > 1) query.exclude.push(lower.slice(1));
+    else query.words.push(lower);
+  }
+  return query;
+}
+
+function noteQueryIsEmpty(query) {
+  return (
+    !query.words.length &&
+    !query.phrases.length &&
+    !query.exclude.length &&
+    !query.tags.length &&
+    !query.categories.length &&
+    !query.flags.length
+  );
+}
+
 function matchesSearch(entry) {
   if (!noteSearch) return true;
-  const needle = noteSearch.toLowerCase();
-  return (
-    entry.content.toLowerCase().includes(needle) ||
-    entry.tags.some((tag) => tag.toLowerCase().includes(needle))
-  );
+  const query = parseNoteQuery(noteSearch);
+  if (noteQueryIsEmpty(query)) return true;
+
+  const content = (entry.content || "").toLowerCase();
+  const tags = (entry.tags || []).map((t) => t.toLowerCase());
+  const category = (entry.category || "").toLowerCase();
+  const haystack = `${content} ${tags.join(" ")}`;
+
+  // A tag: or cat: filter is a statement about which notes count at all.
+  if (query.tags.length && !query.tags.every((t) => tags.some((tag) => tag.includes(t)))) {
+    return false;
+  }
+  if (query.categories.length && !query.categories.some((c) => category.includes(c))) {
+    return false;
+  }
+  for (const flag of query.flags) {
+    if (flag === "pinned" && !entry.pinned) return false;
+    if (flag === "private" && !entry.is_private) return false;
+    if (flag === "linked" && !(entry.links || []).length) return false;
+    if (flag === "untagged" && tags.length) return false;
+  }
+  if (query.exclude.some((word) => haystack.includes(word))) return false;
+  if (!query.phrases.every((phrase) => content.includes(phrase))) return false;
+  // Every word must appear somewhere, in any order.
+  return query.words.every((word) => haystack.includes(word));
+}
+
+// Write `text` into `element`, wrapping each matched term in a <mark>.
+// Never uses innerHTML: a note containing "<script>" is text, not markup.
+// Render note text with [[wiki links]] as clickable chips and search terms
+// marked. Splits on the links first so a highlight can't land inside one.
+function renderNoteText(element, text, terms) {
+  element.replaceChildren();
+  const pattern = /\[\[([^[\]]{1,120})\]\]/g;
+  let cursor = 0;
+  let match;
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > cursor) {
+      const span = document.createElement("span");
+      highlightInto(span, text.slice(cursor, match.index), terms);
+      element.appendChild(span);
+    }
+    const name = match[1].trim();
+    const link = document.createElement("button");
+    link.type = "button";
+    link.className = "wiki-link";
+    link.textContent = name;
+    link.title = `Go to the note starting "${name}"`;
+    link.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const target = allEntries.find((e) =>
+        (e.content || "").toLowerCase().startsWith(name.toLowerCase())
+      );
+      if (target) flashEntry(target.id);
+      else toast(`No note starts with "${name}" yet.`, true);
+    });
+    element.appendChild(link);
+    cursor = pattern.lastIndex;
+  }
+  if (cursor < text.length) {
+    const span = document.createElement("span");
+    highlightInto(span, text.slice(cursor), terms);
+    element.appendChild(span);
+  }
+}
+
+function highlightInto(element, text, terms) {
+  element.replaceChildren();
+  if (!terms.length) {
+    element.textContent = text;
+    return;
+  }
+  // One pass, longest terms first so "bread rolls" wins over "bread".
+  const ordered = [...terms].sort((a, b) => b.length - a.length);
+  const lower = text.toLowerCase();
+  let cursor = 0;
+  while (cursor < text.length) {
+    let bestAt = -1;
+    let bestTerm = "";
+    for (const term of ordered) {
+      const at = lower.indexOf(term, cursor);
+      if (at !== -1 && (bestAt === -1 || at < bestAt)) {
+        bestAt = at;
+        bestTerm = term;
+      }
+    }
+    if (bestAt === -1) {
+      element.appendChild(document.createTextNode(text.slice(cursor)));
+      return;
+    }
+    if (bestAt > cursor) {
+      element.appendChild(document.createTextNode(text.slice(cursor, bestAt)));
+    }
+    const mark = document.createElement("mark");
+    mark.textContent = text.slice(bestAt, bestAt + bestTerm.length);
+    element.appendChild(mark);
+    cursor = bestAt + bestTerm.length;
+  }
+}
+
+// The words worth highlighting in a result — operators aren't text to find.
+function searchHighlightTerms() {
+  if (!noteSearch) return [];
+  const query = parseNoteQuery(noteSearch);
+  return [...query.phrases, ...query.words].filter((t) => t.length > 1);
 }
 
 // Sort comparator for the chosen mode (Wave J). Pinned always floats to
@@ -1119,9 +1310,17 @@ function renderEntries() {
     : allEntries;
   visible = visible.filter(matchesSearch);
 
-  $("entries-heading").textContent = activeCategory
-    ? `${activeCategory} entries`
-    : "All entries";
+  const scope = activeCategory ? `${activeCategory} entries` : "All entries";
+  // Say how many matched out of how many there are. Without it a filter that
+  // hides most of the notebook looks identical to a notebook that's nearly
+  // empty, and there's no signal that a filter is even active.
+  const total = activeCategory
+    ? allEntries.filter((e) => e.category === activeCategory).length
+    : allEntries.length;
+  $("entries-heading-label").textContent =
+    noteSearch && visible.length !== total
+      ? `${scope} — ${visible.length} of ${total}`
+      : scope;
   // Distinguish "empty notebook" from "filter matched nothing".
   const notebookEmpty = allEntries.length === 0;
   empty.classList.toggle("hidden", !notebookEmpty);
@@ -1166,6 +1365,16 @@ function renderEntries() {
   }
 }
 
+// name -> {id, count}. Needed because renaming and deleting work on ids,
+// while the sidebar itself is built from the entries already in memory.
+let categoryMeta = new Map();
+
+async function loadCategories() {
+  const rows = await apiJson("/categories", { silent: true }).catch(() => []);
+  categoryMeta = new Map(rows.map((c) => [c.name, c]));
+  renderSidebar();
+}
+
 function renderSidebar() {
   // Categories + counts are derived from the loaded entries — the
   // simplest thing that works; no extra endpoint needed yet.
@@ -1181,6 +1390,7 @@ function renderSidebar() {
     const li = document.createElement("li");
     if (category === activeCategory) li.classList.add("active");
     const name = document.createElement("span");
+    name.className = "category-name";
     name.textContent = label;
     const badge = document.createElement("span");
     badge.className = "count";
@@ -1191,12 +1401,83 @@ function renderSidebar() {
       renderSidebar();
       renderEntries();
     });
+
+    // Rename/delete for real categories only — "All" is a filter, and
+    // Uncategorised is where notes land when a category goes away.
+    const meta = category ? categoryMeta.get(category) : null;
+    if (meta && category !== "Uncategorised") {
+      const actions = document.createElement("span");
+      actions.className = "category-actions";
+      actions.append(
+        smallButton("✎", `Rename ${category}`, (event) => {
+          event.stopPropagation();
+          renameCategory(meta, category);
+        }),
+        smallButton("🗑", `Delete ${category}`, (event) => {
+          event.stopPropagation();
+          deleteCategory(meta, category, count);
+        })
+      );
+      li.appendChild(actions);
+    }
     ul.appendChild(li);
   };
 
   addRow("All", allEntries.length, null);
   for (const [category, count] of [...counts.entries()].sort()) {
     addRow(category, count, category);
+  }
+}
+
+async function renameCategory(meta, currentName) {
+  const next = prompt(`Rename "${currentName}" to:`, currentName);
+  if (next === null) return;
+  const name = next.trim();
+  if (!name || name === currentName) return;
+
+  // Renaming onto a category that already exists merges them, which is
+  // usually the point — but it's destructive-looking, so it's confirmed.
+  if (categoryMeta.has(name)) {
+    const target = categoryMeta.get(name);
+    const ok = confirm(
+      `"${name}" already exists. Merge "${currentName}" into it?\n\n` +
+        `Its notes move across — nothing is deleted. "${name}" would then ` +
+        `hold ${target.count + meta.count} notes.`
+    );
+    if (!ok) return;
+  }
+
+  try {
+    const result = await apiJson(`/categories/${meta.id}`, {
+      method: "PUT",
+      body: JSON.stringify({ name }),
+    });
+    if (activeCategory === currentName) activeCategory = name;
+    toast(result.merged ? `Merged into "${name}".` : `Renamed to "${name}".`);
+    await loadEntries();
+    await loadCategories();
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
+async function deleteCategory(meta, name, count) {
+  const ok = confirm(
+    `Delete the category "${name}"?\n\n` +
+      (count
+        ? `Its ${count} note${count === 1 ? "" : "s"} are kept and become ` +
+          `Uncategorised — deleting a category never deletes notes.`
+        : "It has no notes in it.")
+  );
+  if (!ok) return;
+  try {
+    await apiJson(`/categories/${meta.id}`, { method: "DELETE" });
+    if (activeCategory === name) activeCategory = null;
+    toast(`Deleted "${name}". Its notes are in Uncategorised.`);
+    await loadEntries();
+    await loadCategories();
+  } catch (error) {
+    toast(error.message, true);
   }
 }
 
@@ -1217,6 +1498,10 @@ async function loadEntries() {
   showEntrySkeletons();
   allEntries = await apiJson("/entries");
   renderSidebar();
+  // Categories the AI has filed notes into since the last load need their ids
+  // fetched before rename/delete can work on them. Deliberately not awaited:
+  // the list renders now and the controls light up a moment later.
+  loadCategories();
   renderEntries();
   fillCategoryOptions($("entry-category"), null);
   refreshTagSuggestions();
@@ -1383,6 +1668,7 @@ async function streamChat({
   history,
   persona,
   useTools,
+  noteIds,
   signal,
   onMeta,
   onThinking,
@@ -1394,6 +1680,7 @@ async function streamChat({
   const body = { question, history: history || [] };
   if (persona) body.persona = persona;
   if (typeof useTools === "boolean") body.use_tools = useTools;
+  if (noteIds && noteIds.length) body.note_ids = noteIds;
   const response = await fetch("/chat/stream", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() },
@@ -1686,11 +1973,95 @@ async function copyToClipboard(text, button) {
 }
 
 // Put a question back in the input so it can be tweaked and re-sent.
-function editAndResend(text) {
-  const input = $("chat-input");
-  input.value = text;
-  input.focus();
-  input.setSelectionRange(text.length, text.length);
+// Edit a question in place, the way you'd expect a chat to work.
+//
+// The old version just copied the text into the input box: the original
+// question and its answer stayed put, and re-sending appended a second
+// exchange below them. So a small correction left the thread showing the typo,
+// the answer to the typo, and then the fix — which is the opposite of editing.
+//
+// Now the bubble itself becomes a textarea. Saving rewrites that question,
+// drops every exchange after it (they were answers to the old wording), and
+// asks again from that point.
+function editAndResend(bubble, text) {
+  if (chatController) return; // not mid-stream
+  if (bubble.querySelector(".msg-edit")) return; // already editing
+  const body = bubble.querySelector(".msg-body");
+  const actions = bubble.querySelector(".msg-actions");
+  const original = text;
+
+  const editor = document.createElement("div");
+  editor.className = "msg-edit";
+  const box = document.createElement("textarea");
+  box.value = original;
+  box.rows = Math.min(8, Math.max(2, original.split("\n").length + 1));
+  box.setAttribute("aria-label", "Edit your question");
+
+  const hint = document.createElement("p");
+  hint.className = "muted msg-edit-hint";
+  hint.textContent =
+    "Saving replaces this question and clears the replies that came after it.";
+
+  const row = document.createElement("div");
+  row.className = "row msg-edit-actions";
+  const save = document.createElement("button");
+  save.className = "small";
+  save.textContent = "Save & resend";
+  const cancel = document.createElement("button");
+  cancel.className = "ghost small";
+  cancel.textContent = "Cancel";
+  row.append(save, cancel);
+  editor.append(box, hint, row);
+
+  const close = () => {
+    editor.remove();
+    body.classList.remove("hidden");
+    actions?.classList.remove("hidden");
+  };
+  cancel.addEventListener("click", close);
+  box.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      close();
+    } else if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+      event.preventDefault();
+      save.click();
+    }
+  });
+  save.addEventListener("click", async () => {
+    const edited = box.value.trim();
+    if (!edited) return;
+    if (edited === original) return close();
+
+    const bubbles = [...$("chat-messages").querySelectorAll(".msg")];
+    const turnIndex = Math.floor(bubbles.indexOf(bubble) / 2);
+
+    // Server first: if this fails, nothing on screen has been thrown away yet.
+    if (chatConv.id !== null) {
+      try {
+        const result = await apiJson(`/conversations/${chatConv.id}/truncate`, {
+          method: "POST",
+          body: JSON.stringify({ from_turn: turnIndex }),
+        });
+        if (result.conversation_deleted) chatConv.id = null;
+      } catch (error) {
+        toast(`Couldn't edit that: ${error.message}`, true);
+        return;
+      }
+    }
+    // Drop this bubble and everything after it, then ask again.
+    for (const later of bubbles.slice(bubbles.indexOf(bubble))) later.remove();
+    chatConv.turns = chatConv.turns.slice(0, turnIndex);
+    close();
+    loadConversationList();
+    sendChatMessage(edited);
+  });
+
+  body.classList.add("hidden");
+  actions?.classList.add("hidden");
+  bubble.appendChild(editor);
+  box.focus();
+  box.setSelectionRange(box.value.length, box.value.length);
 }
 
 // Re-run the most recent question and REPLACE the previous answer in place
@@ -1701,7 +2072,11 @@ function regenerateLastAnswer() {
   const assistantBubbles = $("chat-messages").querySelectorAll(".msg.assistant");
   const lastAssistant = assistantBubbles[assistantBubbles.length - 1];
   if (lastAssistant) lastAssistant.remove(); // clear the old answer first
-  sendChatMessage(lastChatQuestion, { skipUserBubble: true, replaceLast: true });
+  sendChatMessage(lastChatQuestion, {
+    skipUserBubble: true,
+    replaceLast: true,
+    noteIds: lastChatAttachments,
+  });
 }
 
 // The welcome shown in an empty chat so the page isn't a blank box.
@@ -1957,7 +2332,7 @@ function addBubble(role, text) {
     bubble.appendChild(
       chatMessageActions([
         { label: "⧉", title: "Copy", onClick: (e) => copyToClipboard(text, e.currentTarget) },
-        { label: "✎", title: "Edit & resend", onClick: () => editAndResend(text) },
+        { label: "✎", title: "Edit this question", onClick: () => editAndResend(bubble, text) },
         { label: "🗑", title: "Delete this message", onClick: () => removeChatBubble(bubble) },
       ])
     );
@@ -2082,12 +2457,544 @@ function renderRecordsDetails(holder, meta) {
   holder.appendChild(details);
 }
 
+// --- documents: long-form writing -----------------------------------------------
+// Documents are separate from notes on purpose. A note is a captured thought;
+// a document is something you sit down and write. Sharing storage would put
+// every half-finished draft into note search and the graph.
+
+let docs = [];
+let currentDoc = null;   // {id, title, content, ...}
+let docDirty = false;
+let docSaveTimer = null;
+
+async function loadDocuments(selectId = null) {
+  docs = await apiJson("/documents").catch(() => []);
+  renderDocList();
+  if (selectId) return openDocument(selectId);
+  if (!currentDoc && docs.length) return openDocument(docs[0].id);
+  if (!docs.length) showNoDocument();
+}
+
+function renderDocList() {
+  const filter = $("doc-filter").value.trim().toLowerCase();
+  const list = $("doc-list");
+  list.replaceChildren();
+  const shown = docs.filter((d) => !filter || d.title.toLowerCase().includes(filter));
+  $("doc-empty").classList.toggle("hidden", docs.length > 0);
+
+  for (const doc of shown) {
+    const li = document.createElement("li");
+    li.className = "doc-item";
+    if (currentDoc && doc.id === currentDoc.id) li.classList.add("active");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "doc-item-button";
+    const title = document.createElement("span");
+    title.className = "doc-item-title";
+    title.textContent = doc.title;
+    const meta = document.createElement("span");
+    meta.className = "muted doc-item-meta";
+    meta.textContent = `${doc.words} word${doc.words === 1 ? "" : "s"} · ${relativeTime(doc.updated_at)}`;
+    button.append(title, meta);
+    button.addEventListener("click", () => openDocument(doc.id));
+    li.appendChild(button);
+    list.appendChild(li);
+  }
+}
+
+function showNoDocument() {
+  currentDoc = null;
+  $("doc-title").value = "";
+  $("doc-content").value = "";
+  $("doc-title").disabled = true;
+  $("doc-content").disabled = true;
+  $("doc-saved").textContent = "";
+  renderDocPreview();
+}
+
+async function openDocument(id) {
+  // Never lose unsaved work by switching away from it.
+  if (docDirty) await saveDocument({ silent: true });
+  const doc = await apiJson(`/documents/${id}`).catch(() => null);
+  if (!doc) return;
+  currentDoc = doc;
+  $("doc-title").disabled = false;
+  $("doc-content").disabled = false;
+  $("doc-title").value = doc.title;
+  $("doc-content").value = doc.content;
+  docDirty = false;
+  $("doc-saved").textContent = "Saved";
+  renderDocPreview();
+  renderDocList();
+}
+
+async function createDocument() {
+  const doc = await apiJson("/documents", {
+    method: "POST",
+    body: JSON.stringify({ title: "Untitled", content: "" }),
+  });
+  await loadDocuments(doc.id);
+  $("doc-title").focus();
+  $("doc-title").select();
+}
+
+function markDocDirty() {
+  if (!currentDoc) return;
+  docDirty = true;
+  $("doc-saved").textContent = "Unsaved…";
+  clearTimeout(docSaveTimer);
+  // Autosave, but not on every keystroke — a pause is the natural moment.
+  docSaveTimer = setTimeout(() => saveDocument({ silent: true }), 1200);
+}
+
+async function saveDocument({ silent = false } = {}) {
+  if (!currentDoc) return;
+  clearTimeout(docSaveTimer);
+  const title = $("doc-title").value.trim() || "Untitled";
+  const content = $("doc-content").value;
+  try {
+    const saved = await apiJson(`/documents/${currentDoc.id}`, {
+      method: "PUT",
+      body: JSON.stringify({ title, content }),
+    });
+    currentDoc = saved;
+    docDirty = false;
+    $("doc-saved").textContent = "Saved";
+    if (!silent) toast("Document saved.");
+    docs = docs.map((d) => (d.id === saved.id ? { ...d, ...saved } : d));
+    renderDocList();
+  } catch (error) {
+    $("doc-saved").textContent = "Not saved";
+    $("doc-status").classList.add("error");
+    $("doc-status").textContent = error.message;
+  }
+}
+
+function renderDocPreview() {
+  const preview = $("doc-preview");
+  if (preview.classList.contains("hidden")) return;
+  preview.replaceChildren();
+  const title = ($("doc-title").value || "").trim();
+  renderMarkdown(preview, title ? `# ${title}\n\n${$("doc-content").value}` : $("doc-content").value);
+}
+
+function toggleDocPreview() {
+  const preview = $("doc-preview");
+  const showing = preview.classList.toggle("hidden");
+  $("doc-panes").classList.toggle("split", !showing);
+  $("doc-preview-toggle").setAttribute("aria-pressed", String(!showing));
+  renderDocPreview();
+}
+
+// Wrap the selection in markdown syntax (Ctrl+B / Ctrl+I).
+function wrapDocSelection(marker) {
+  const box = $("doc-content");
+  const { selectionStart: start, selectionEnd: end, value } = box;
+  const selected = value.slice(start, end);
+  box.value = value.slice(0, start) + marker + selected + marker + value.slice(end);
+  // Keep the same text selected, so the shortcut can be toggled or stacked.
+  box.selectionStart = start + marker.length;
+  box.selectionEnd = end + marker.length;
+  box.focus();
+  markDocDirty();
+  renderDocPreview();
+}
+
+async function exportDocumentMarkdown() {
+  if (!currentDoc) return;
+  // Fetched rather than navigated to. A plain link carries no X-Auth-Token, so
+  // the server answers 401 and the browser renders that error *in place of the
+  // app* — it navigates away instead of downloading.
+  try {
+    const response = await fetch(`/documents/${currentDoc.id}/export.md`, {
+      headers: { "X-Auth-Token": authToken() },
+    });
+    if (!response.ok) throw new Error(`Export failed (${response.status})`);
+    // The filename is decided server-side, so read it back off the header.
+    const disposition = response.headers.get("content-disposition") || "";
+    const match = disposition.match(/filename="([^"]+)"/);
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = match ? match[1] : "document.md";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    $("doc-status").classList.add("error");
+    $("doc-status").textContent = error.message;
+  }
+}
+
+// PDF via the browser's own print dialog: it renders the preview exactly as
+// shown and every platform already has "Save as PDF" there. Bundling a PDF
+// engine would add a heavy dependency to produce a worse-looking result.
+function exportDocumentPdf() {
+  if (!currentDoc) return;
+  const wasHidden = $("doc-preview").classList.contains("hidden");
+  if (wasHidden) toggleDocPreview(); // print the rendered version, not the source
+  renderDocPreview();
+  document.body.classList.add("printing-doc");
+  const cleanup = () => {
+    document.body.classList.remove("printing-doc");
+    if (wasHidden) toggleDocPreview();
+    window.removeEventListener("afterprint", cleanup);
+  };
+  window.addEventListener("afterprint", cleanup);
+  setTimeout(() => window.print(), 150);
+}
+
+async function deleteCurrentDocument() {
+  if (!currentDoc) return;
+  if (!confirm(`Delete "${currentDoc.title}"? This can't be undone.`)) return;
+  await apiJson(`/documents/${currentDoc.id}`, { method: "DELETE" });
+  toast("Document deleted.");
+  currentDoc = null;
+  await loadDocuments();
+}
+
+// --- AI editing ---
+// Always a proposal. Writing straight into the document would be the most
+// destructive thing in the app.
+function openDocAiPanel() {
+  if (!currentDoc) return;
+  const box = $("doc-content");
+  const selection = box.value.slice(box.selectionStart, box.selectionEnd);
+  $("doc-ai-panel").dataset.selection = selection;
+  $("doc-ai-scope").textContent = selection.trim()
+    ? `Rewriting the ${selection.trim().split(/\s+/).length} selected word(s).`
+    : "Rewriting the whole document. Select some text first to work on just that.";
+  $("doc-ai-result").value = "";
+  $("doc-ai-status").textContent = "";
+  $("doc-ai-panel").classList.remove("hidden");
+  $("doc-ai-instruction").focus();
+}
+
+function closeDocAiPanel() {
+  $("doc-ai-panel").classList.add("hidden");
+}
+
+async function runDocAiEdit() {
+  const instruction = $("doc-ai-instruction").value.trim();
+  const status = $("doc-ai-status");
+  if (!instruction) {
+    status.classList.add("error");
+    status.textContent = "Say what you'd like changed.";
+    return;
+  }
+  status.classList.remove("error");
+  status.textContent = "✨ Thinking…";
+  $("doc-ai-run").disabled = true;
+  try {
+    const body = await apiJson(`/documents/${currentDoc.id}/ai-edit`, {
+      method: "POST",
+      body: JSON.stringify({
+        instruction,
+        selection: $("doc-ai-panel").dataset.selection || "",
+      }),
+    });
+    $("doc-ai-result").value = body.revised;
+    status.textContent = body.message || "Read it over, then accept or cancel.";
+    if (body.message) status.classList.add("error");
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+  } finally {
+    $("doc-ai-run").disabled = false;
+  }
+}
+
+function acceptDocAiEdit() {
+  const revised = $("doc-ai-result").value;
+  if (!revised.trim()) return;
+  const selection = $("doc-ai-panel").dataset.selection || "";
+  const box = $("doc-content");
+  if (selection) {
+    const at = box.value.indexOf(selection);
+    box.value =
+      at === -1
+        ? box.value
+        : box.value.slice(0, at) + revised + box.value.slice(at + selection.length);
+  } else {
+    box.value = revised;
+  }
+  closeDocAiPanel();
+  markDocDirty();
+  renderDocPreview();
+  saveDocument({ silent: true });
+  toast("Applied the AI's edit.");
+}
+
+// --- the writing room: thoughts in, a note out -----------------------------------
+// The draft is deliberately kept in the browser (and localStorage) rather than
+// in the database. A half-finished draft isn't a note, and quietly filling the
+// notebook with them would be worse than occasionally losing one.
+
+const DRAFT_STORE = "writingRoomDraft";
+
+function saveDraftLocally() {
+  try {
+    localStorage.setItem(
+      DRAFT_STORE,
+      JSON.stringify({
+        thoughts: $("draft-thoughts").value,
+        draft: $("draft-text").value,
+        tags: $("draft-tags").value,
+      })
+    );
+  } catch {
+    /* storage full or blocked — the draft is still on screen */
+  }
+}
+
+function restoreDraftLocally() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(DRAFT_STORE) || "null");
+    if (!saved) return;
+    $("draft-thoughts").value = saved.thoughts || "";
+    $("draft-text").value = saved.draft || "";
+    $("draft-tags").value = saved.tags || "";
+    updateDraftCount();
+  } catch {
+    /* unreadable — start clean rather than throwing on load */
+  }
+}
+
+function updateDraftCount() {
+  const text = $("draft-text").value.trim();
+  const words = text ? text.split(/\s+/).length : 0;
+  $("draft-count").textContent = words ? `${words} word${words === 1 ? "" : "s"}` : "";
+}
+
+async function composeDraft() {
+  const thoughts = $("draft-thoughts").value.trim();
+  const draft = $("draft-text").value;
+  const status = $("draft-status");
+  if (!thoughts && !draft.trim()) {
+    status.classList.add("error");
+    status.textContent = "Write a thought first.";
+    return;
+  }
+  status.classList.remove("error");
+  status.textContent = draft.trim() ? "✨ Revising…" : "✨ Drafting…";
+  $("draft-compose").disabled = true;
+  try {
+    const body = await apiJson("/drafts/compose", {
+      method: "POST",
+      body: JSON.stringify({
+        thoughts,
+        draft,
+        instruction: $("draft-instruction").value.trim(),
+      }),
+    });
+    $("draft-text").value = body.draft;
+    updateDraftCount();
+    // The thoughts have been folded in, so clear the box for the next round
+    // rather than resending them and having the model repeat itself.
+    if (body.ollama_running && thoughts) $("draft-thoughts").value = "";
+    $("draft-instruction").value = "";
+    const thinking = $("draft-thinking");
+    thinking.classList.toggle("hidden", !body.thinking);
+    $("draft-thinking-text").textContent = body.thinking || "";
+    if (body.message) {
+      status.classList.add("error");
+      status.textContent = body.message;
+    } else {
+      status.textContent = "Draft updated — edit it, or add more thoughts.";
+      announce("The draft has been updated.");
+    }
+    saveDraftLocally();
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+  } finally {
+    $("draft-compose").disabled = false;
+  }
+}
+
+async function saveDraftAsNote() {
+  const content = $("draft-text").value.trim();
+  const status = $("draft-status");
+  if (!content) {
+    status.classList.add("error");
+    status.textContent = "There's no draft to save yet.";
+    return;
+  }
+  status.classList.remove("error");
+  status.textContent = "Saving…";
+  const tags = $("draft-tags")
+    .value.split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
+  try {
+    const entry = await apiJson("/entries", {
+      method: "POST",
+      body: JSON.stringify({ content, tags }),
+    });
+    $("draft-thoughts").value = "";
+    $("draft-text").value = "";
+    $("draft-tags").value = "";
+    $("draft-thinking").classList.add("hidden");
+    updateDraftCount();
+    saveDraftLocally();
+    status.textContent = "Saved as a note.";
+    toast("Draft saved as a note.");
+    await loadEntries();
+    flashEntry(entry.id); // show them where it landed
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+  }
+}
+
+// --- attaching notes to a chat message ------------------------------------------
+// "Use this note, specifically" is a stronger signal than any similarity
+// score, so attached notes are sent to the model ahead of whatever retrieval
+// finds. The picker searches the notes already loaded in memory — no request
+// per keystroke, and it works the moment it's opened.
+
+let attachedNoteIds = [];
+// The set sent with the most recent message, so regenerate can reuse it.
+let lastChatAttachments = [];
+
+function attachedNotes() {
+  return attachedNoteIds
+    .map((id) => allEntries.find((e) => e.id === id))
+    .filter(Boolean);
+}
+
+function noteLabel(entry, length = 40) {
+  const text = notePreviewText(entry.content).replace(/\s+/g, " ").trim();
+  return text.length > length ? `${text.slice(0, length - 1)}…` : text || "(empty note)";
+}
+
+function renderAttachments() {
+  const box = $("chat-attachments");
+  box.replaceChildren();
+  const notes = attachedNotes();
+  box.classList.toggle("hidden", notes.length === 0);
+  $("attach-note").classList.toggle("has-attachments", notes.length > 0);
+  for (const entry of notes) {
+    const chipEl = document.createElement("span");
+    chipEl.className = "chip attachment-chip";
+    chipEl.title = entry.content;
+    const label = document.createElement("span");
+    label.textContent = `📎 ${noteLabel(entry)}`;
+    const remove = document.createElement("button");
+    remove.className = "attachment-remove";
+    remove.type = "button";
+    remove.textContent = "✕";
+    remove.title = `Remove "${noteLabel(entry, 24)}"`;
+    remove.setAttribute("aria-label", remove.title);
+    remove.addEventListener("click", () => {
+      attachedNoteIds = attachedNoteIds.filter((id) => id !== entry.id);
+      renderAttachments();
+      renderNotePickerList();
+      announce(`Removed attachment. ${attachedNoteIds.length} note(s) attached.`);
+    });
+    chipEl.append(label, remove);
+    box.appendChild(chipEl);
+  }
+}
+
+function renderNotePickerList() {
+  const query = $("note-picker-search").value.trim().toLowerCase();
+  const list = $("note-picker-list");
+  list.replaceChildren();
+
+  // Attached notes stay at the top even when the search wouldn't match them,
+  // so ticking one never makes it vanish from under the pointer.
+  const matches = allEntries.filter((entry) => {
+    if (attachedNoteIds.includes(entry.id)) return true;
+    if (!query) return true;
+    const haystack = `${entry.content} ${(entry.tags || []).join(" ")} ${entry.category}`;
+    return haystack.toLowerCase().includes(query);
+  });
+  matches.sort((a, b) => {
+    const aSel = attachedNoteIds.includes(a.id) ? 0 : 1;
+    const bSel = attachedNoteIds.includes(b.id) ? 0 : 1;
+    return aSel - bSel;
+  });
+
+  if (!matches.length) {
+    const empty = document.createElement("li");
+    empty.className = "muted note-picker-empty";
+    empty.textContent = query ? "No notes match that." : "No notes yet.";
+    list.appendChild(empty);
+  }
+
+  for (const entry of matches.slice(0, 50)) {
+    const li = document.createElement("li");
+    const label = document.createElement("label");
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = attachedNoteIds.includes(entry.id);
+    box.addEventListener("change", () => {
+      if (box.checked) {
+        if (!attachedNoteIds.includes(entry.id)) attachedNoteIds.push(entry.id);
+      } else {
+        attachedNoteIds = attachedNoteIds.filter((id) => id !== entry.id);
+      }
+      renderAttachments();
+      updateNotePickerCount();
+    });
+    const text = document.createElement("span");
+    text.className = "note-picker-text";
+    text.textContent = noteLabel(entry, 70);
+    const cat = document.createElement("span");
+    cat.className = "chip";
+    cat.textContent = entry.category;
+    label.append(box, text, cat);
+    li.appendChild(label);
+    list.appendChild(li);
+  }
+  updateNotePickerCount();
+}
+
+function updateNotePickerCount() {
+  const n = attachedNoteIds.length;
+  $("note-picker-count").textContent = n
+    ? `${n} note${n === 1 ? "" : "s"} attached`
+    : "Nothing attached yet";
+}
+
+function openNotePicker() {
+  $("note-picker-panel").classList.remove("hidden");
+  $("attach-note").setAttribute("aria-expanded", "true");
+  renderNotePickerList();
+  $("note-picker-search").focus();
+}
+
+function closeNotePicker() {
+  $("note-picker-panel").classList.add("hidden");
+  $("attach-note").setAttribute("aria-expanded", "false");
+}
+
+function notePickerOpen() {
+  return !$("note-picker-panel").classList.contains("hidden");
+}
+
 async function sendChatMessage(preset, opts = {}) {
   const input = $("chat-input");
   const status = $("chat-status");
   const question = (preset ?? input.value).trim();
   if (!question) return;
   lastChatQuestion = question;
+
+  // Snapshot the attachments for this message. A regenerate re-uses the same
+  // ones; a fresh send clears them, so they don't silently ride along on
+  // every later question.
+  const sentAttachments = opts.noteIds || attachedNoteIds.slice();
+  if (!opts.replaceLast) {
+    // Remembered so a regenerate re-runs with the same references — by then
+    // the picker has been cleared.
+    lastChatAttachments = sentAttachments;
+    attachedNoteIds = [];
+    renderAttachments();
+    closeNotePicker();
+  }
 
   $("chat-suggest").classList.add("hidden");
   input.value = "";
@@ -2118,6 +3025,7 @@ async function sendChatMessage(preset, opts = {}) {
       history: chatConv.turns.slice(-MAX_CLIENT_HISTORY),
       persona: $("persona-select").value || null,
       useTools: opts.useTools ?? $("tools-toggle").checked,
+      noteIds: sentAttachments,
       signal: chatController.signal,
       onMeta: (m) => {
         meta = m;
@@ -2154,7 +3062,17 @@ async function sendChatMessage(preset, opts = {}) {
         status.textContent = "Waiting for your confirmation…";
       },
       onStats: (event) => {
-        stats = event;
+        // An agent turn reports once per round, so these accumulate: output
+        // tokens and generation time add up, while the prompt size is the
+        // largest context the model was given rather than the sum.
+        if (!stats) {
+          stats = { ...event };
+          return;
+        }
+        stats.model = event.model || stats.model;
+        stats.prompt_tokens = Math.max(stats.prompt_tokens || 0, event.prompt_tokens || 0);
+        stats.output_tokens = (stats.output_tokens || 0) + (event.output_tokens || 0);
+        stats.eval_ms = (stats.eval_ms || 0) + (event.eval_ms || 0);
       },
     });
     status.textContent = "";
@@ -3888,6 +4806,13 @@ async function renderStatsWidget(body) {
   body.appendChild(cats);
 }
 
+// A note's text as it should read in a preview: the [[link]] syntax is
+// scaffolding, not content, so previews show the words without the brackets.
+// Full note bodies get real clickable chips instead (renderNoteText).
+function notePreviewText(content) {
+  return (content || "").replace(/\[\[([^[\]]{1,120})\]\]/g, "$1");
+}
+
 function miniEntryList(body, entries, emptyText) {
   if (!entries.length) {
     const p = document.createElement("p");
@@ -3900,8 +4825,8 @@ function miniEntryList(body, entries, emptyText) {
   ul.className = "dash-list";
   for (const entry of entries) {
     const li = document.createElement("li");
-    li.textContent =
-      entry.content.length > 70 ? entry.content.slice(0, 69) + "…" : entry.content;
+    const preview = notePreviewText(entry.content);
+    li.textContent = preview.length > 70 ? preview.slice(0, 69) + "…" : preview;
     li.title = "Open this note";
     li.addEventListener("click", () => flashEntry(entry.id));
     ul.appendChild(li);
@@ -4120,16 +5045,27 @@ async function renderDigestWidget(body) {
   } else if (digestPromise) {
     runGeneration(); // one is already running (from before a tab switch)
   } else {
-    body.appendChild(
-      smallButton("Generate this week's digest", "", runGeneration, false)
-    );
+    const generate = smallButton("Generate this week's digest", "", runGeneration, false);
+    // Built dynamically, so it can't live in AI_ONLY_CONTROLS — mark it here
+    // instead. A dashboard button that only fails once you press it is exactly
+    // the thing that makes the app feel broken when the AI simply isn't on.
+    if (modelStatus && modelStatus.ollama_running === false) {
+      generate.disabled = true;
+      generate.classList.add("ai-unavailable");
+      generate.title = "The weekly digest is written by the local AI — start Ollama to generate one.";
+    }
+    body.appendChild(generate);
   }
 }
 
 async function renderQuickCaptureWidget(body) {
   const textarea = document.createElement("textarea");
   textarea.rows = 2;
-  textarea.placeholder = "Type a thought and press Save — the AI files it.";
+  // Don't promise AI filing when there's no AI to do it; the note still saves.
+  textarea.placeholder =
+    modelStatus && modelStatus.ollama_running === false
+      ? "Type a thought and press Save."
+      : "Type a thought and press Save — the AI files it.";
   const row = document.createElement("div");
   row.className = "row";
   const status = document.createElement("span");
@@ -5785,7 +6721,7 @@ async function saveGraphNewNote() {
 
 // --- tabs (Wave A) ----------------------------------------------------------------
 
-const TABS = ["dashboard", "notes", "chat", "graph", "reminders"];
+const TABS = ["dashboard", "notes", "chat", "graph", "documents", "reminders"];
 
 function switchTab(name) {
   for (const tab of TABS) {
@@ -5813,6 +6749,7 @@ function switchTab(name) {
   }
   if (name === "dashboard") renderDashboard();
   if (name === "graph") renderGraph();
+  if (name === "documents") loadDocuments();
   if (name === "reminders") {
     if (!$("reminder-due").value) $("reminder-due").value = defaultDueValue();
     loadReminders();
@@ -5823,7 +6760,11 @@ function switchTab(name) {
 // Each of these cards gets a fold/unfold chevron in its heading; the state
 // is remembered per section (user request). Nothing structural changes —
 // a `.collapsed` class hides everything after the header row via CSS.
-const COLLAPSIBLE_SECTIONS = ["capture", "ask", "browse"];
+const COLLAPSIBLE_SECTIONS = ["capture", "writing-room", "ask", "browse"];
+// Sections that start folded. The writing room is a whole workspace; leaving
+// it open by default would make the Notes tab heavier, which is the opposite
+// of what it needs. It opens with one click and remembers that you did.
+const COLLAPSED_BY_DEFAULT = new Set(["writing-room"]);
 
 function initCollapsibleSections() {
   for (const id of COLLAPSIBLE_SECTIONS) {
@@ -5833,6 +6774,9 @@ function initCollapsibleSections() {
     if (!h2) continue;
     card.dataset.collapsibleReady = "1";
     h2.classList.add("collapsible-title");
+    // A clickable heading has to be operable from the keyboard too.
+    h2.setAttribute("role", "button");
+    h2.setAttribute("tabindex", "0");
 
     const chevron = document.createElement("span");
     chevron.className = "collapse-chevron";
@@ -5846,12 +6790,20 @@ function initCollapsibleSections() {
       h2.setAttribute("aria-expanded", String(!collapsed));
       h2.title = collapsed ? "Expand this section" : "Collapse this section";
     };
-    h2.addEventListener("click", () => {
+    const toggle = () => {
       const collapsed = !card.classList.contains("collapsed");
       localStorage.setItem(key, collapsed ? "1" : "0");
       apply(collapsed);
+    };
+    h2.addEventListener("click", toggle);
+    h2.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        toggle();
+      }
     });
-    apply(localStorage.getItem(key) === "1");
+    const stored = localStorage.getItem(key);
+    apply(stored === null ? COLLAPSED_BY_DEFAULT.has(id) : stored === "1");
   }
 }
 
@@ -6253,6 +7205,7 @@ function paletteCommands() {
     { label: "📝 Go to Notes", run: () => switchTab("notes") },
     { label: "💬 Go to Chat", run: () => switchTab("chat") },
     { label: "🕸 Go to Graph", run: () => switchTab("graph") },
+    { label: "📄 Go to Documents", run: () => switchTab("documents") },
     { label: "⏰ Go to Reminders", run: () => switchTab("reminders") },
     {
       label: "✏️ New note",
@@ -6261,11 +7214,57 @@ function paletteCommands() {
         $("entry-content").focus();
       },
     },
+    {
+      label: "📄 New document",
+      run: () => {
+        switchTab("documents");
+        createDocument();
+      },
+    },
+    {
+      label: "✨ Write a note from rough thoughts",
+      run: () => {
+        switchTab("notes");
+        // The writing room starts folded, so open it before jumping there.
+        const card = $("writing-room");
+        if (card?.classList.contains("collapsed")) {
+          card.querySelector(".collapsible-title")?.click();
+        }
+        $("draft-thoughts")?.focus();
+      },
+    },
     { label: "🆕 New chat", run: () => { switchTab("chat"); newChatConversation(); } },
     { label: "🎨 New sketch", run: openSketch },
+    // Filters as commands: the fastest route to "the notes I mean" without
+    // remembering the operator syntax.
+    ...[
+      ["📌 Show pinned notes", "is:pinned"],
+      ["🏷 Show untagged notes", "is:untagged"],
+      ["🔒 Show private notes", "is:private"],
+      ["🔗 Show linked notes", "is:linked"],
+    ].map(([label, query]) => ({
+      label,
+      run: () => {
+        switchTab("notes");
+        $("note-search").value = query;
+        $("note-search").dispatchEvent(new Event("input"));
+        $("note-search").focus();
+      },
+    })),
+    {
+      label: "🔎 What can I type in the filter?",
+      run: () => {
+        switchTab("notes");
+        $("search-help-hint").classList.remove("hidden");
+        $("search-help").setAttribute("aria-expanded", "true");
+        $("note-search").focus();
+      },
+    },
     { label: "⚙️ Settings → Models", run: () => openSettingsModal("models") },
     { label: "🎭 Settings → Personas", run: () => openSettingsModal("personas") },
     { label: "⚡ Settings → Skills", run: () => openSettingsModal("skills") },
+    { label: "🧰 Settings → Tools it can use", run: () => openSettingsModal("tools") },
+    { label: "🎨 Settings → Appearance", run: () => openSettingsModal("appearance") },
     { label: "🎛 Settings → Preferences", run: () => openSettingsModal("preferences") },
     { label: "💾 Settings → Data & backups", run: () => openSettingsModal("data") },
     { label: "🪵 Settings → Logs", run: () => openSettingsModal("logs") },
@@ -6624,6 +7623,7 @@ async function refreshModelStatus() {
     modelStatus = null; // locked or unreachable — pill shows the worst case
   }
   renderAiPill();
+  syncAiOnlyControls();
   if (settingsOpen()) renderSettings();
 
   clearTimeout(statusTimer);
@@ -6645,6 +7645,39 @@ document.addEventListener("visibilitychange", () => {
   if (!document.hidden) refreshModelStatus();
 });
 
+// Controls that can only do their job with a chat model running. Left
+// enabled, they look available and only fail once you've committed to them —
+// you type a note, press ✨ Improve, wait, and get an apology. Disabling them
+// with a reason attached says the same thing before you spend the effort.
+//
+// Deliberately NOT in here: Save, Ask, search, tags, categories, the graph,
+// reminders, documents. Those work fully without any AI and must never look
+// diminished by its absence — the notebook is the point, the AI is a helper.
+const AI_ONLY_CONTROLS = [
+  ["improve-btn", "Proofreading needs the local AI"],
+  ["reminder-magic-add", "Reading a reminder from a sentence needs the local AI"],
+  ["draft-compose", "Drafting needs the local AI"],
+  ["doc-ai", "AI editing needs the local AI"],
+];
+
+function syncAiOnlyControls() {
+  // Unknown status (locked, still loading) is treated as available: better to
+  // let a click fail than to grey out a working button on a slow start.
+  const off = modelStatus ? modelStatus.ollama_running === false : false;
+  for (const [id, reason] of AI_ONLY_CONTROLS) {
+    const button = $(id);
+    if (!button) continue;
+    button.disabled = off;
+    button.classList.toggle("ai-unavailable", off);
+    if (off) {
+      if (!button.dataset.enabledTitle) button.dataset.enabledTitle = button.title || "";
+      button.title = `${reason} — start Ollama to use this.`;
+    } else if (button.dataset.enabledTitle !== undefined) {
+      button.title = button.dataset.enabledTitle;
+    }
+  }
+}
+
 function renderAiPill() {
   const pill = $("ai-pill");
   pill.className = "";
@@ -6663,20 +7696,28 @@ function renderAiPill() {
   } else if (!searchReady && modelStatus.embedding_error) {
     // Distinguish "broken" from "loading" — the old pill said
     // "warming up…" forever when the model failed to load.
+    //
+    // These messages lead with what still WORKS, not with what's broken. The
+    // old wording ("search AI unavailable — see Settings → Logs") announced a
+    // fault and sent you to a log viewer, which reads as "the app is broken"
+    // when in fact everything except meaning-based search is fine.
     pill.classList.add("busy");
-    pill.textContent = "search AI unavailable — see Settings → Logs";
-    pill.title = modelStatus.embedding_error;
+    pill.textContent = "word search on · AI search unavailable";
+    pill.title = `${modelStatus.embedding_error}\n\nSearching by word still works, and notes, tags, reminders and the graph are unaffected. Settings → Logs has the details.`;
   } else if (chatReady && searchReady) {
     pill.classList.add("ok");
     pill.textContent = "AI ready";
   } else if (!chatReady && searchReady) {
     pill.classList.add("busy");
-    pill.textContent = "chat AI off — notes still save";
+    pill.textContent = "everything works · chat AI off";
+    pill.title = "Notes, search, tags, reminders and the graph all work. Start Ollama to add chat and auto-filing.";
   } else if (chatReady && !searchReady) {
     pill.classList.add("busy");
-    pill.textContent = "search AI not ready — check Settings → Models";
+    pill.textContent = "word search on · AI search warming";
+    pill.title = "Searching by word works now; searching by meaning becomes available once the embedding model has loaded.";
   } else {
-    pill.textContent = "AI off — notes still save";
+    pill.textContent = "everything works · AI off";
+    pill.title = "Writing, searching, tagging, reminders, documents and the graph all work without any AI. Start Ollama to add chat, auto-filing and search by meaning.";
   }
 }
 
@@ -7353,7 +8394,6 @@ function renderAppearance() {
   $("contrast-toggle").checked = contrastOn();
   $("reduce-motion-toggle").checked = appearancePref("motion") === "reduced";
   $("bg-art-toggle").checked = bgArtOn();
-  $("bg-style").value = bgArtStyle();
   $("bg-style-row").classList.toggle("hidden", !bgArtOn());
   $("bg-intensity-row").classList.toggle("hidden", !bgArtOn());
   $("glass-toggle").checked = appearancePref("glass") === "on";
@@ -7420,8 +8460,11 @@ function stopBgArt() {
 // Which generative background to paint. Persisted like the other
 // appearance prefs (user asked for more variety of art).
 const BG_ART_STYLES = ["aurora", "constellation", "waves", "bubbles", "mesh"];
+// One source of truth for the chosen style. This used to read a "bgArtStyle"
+// key that nothing writes any more (the picker saves "bg-style"), so the
+// builder always fell back to aurora no matter what was selected.
 function bgArtStyle() {
-  const saved = localStorage.getItem("bgArtStyle");
+  const saved = appearancePref("bg-style");
   return BG_ART_STYLES.includes(saved) ? saved : "aurora";
 }
 
@@ -7459,7 +8502,7 @@ const BG_ART_BUILDERS = {
     };
     return {
       init() {
-        for (let i = 0; i < 70; i++) {
+        for (let i = 0; i < Math.max(3, Math.round(70 * ctx.density)); i++) {
           particles.push({
             x: p.random(p.width), y: p.random(p.height),
             speed: p.random(0.3, 1.1), size: p.random(1.5, 3.5),
@@ -7565,7 +8608,7 @@ const BG_ART_BUILDERS = {
     });
     return {
       init() {
-        for (let i = 0; i < 16; i++) {
+        for (let i = 0; i < Math.max(3, Math.round(16 * ctx.density)); i++) {
           const o = spawn();
           o.y = p.random(p.height);
           orbs.push(o);
@@ -7592,7 +8635,7 @@ const BG_ART_BUILDERS = {
     let blobs = [];
     return {
       init() {
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < Math.max(3, Math.round(5 * ctx.density)); i++) {
           blobs.push({
             seedX: p.random(1000), seedY: p.random(1000),
             r: p.random(p.width * 0.25, p.width * 0.45),
@@ -7624,7 +8667,7 @@ function startBgArt() {
   const accentHex =
     localStorage.getItem("accent-custom") ||
     (ACCENTS.find((a) => a.name === activeAccent()) || ACCENTS[0]).swatch;
-  const bgStyle = appearancePref("bg-style");
+  const bgStyle = bgArtStyle();
   // Intensity drives how much is on screen, not just the CSS opacity.
   const intensity = Number(appearancePref("bg-intensity")) || 90;
   const densityScale = Math.max(0.25, intensity / 90);
@@ -7632,130 +8675,16 @@ function startBgArt() {
     document.documentElement.dataset.theme === "dark" ||
     (!document.documentElement.dataset.theme &&
       window.matchMedia("(prefers-color-scheme: dark)").matches);
-  const build = BG_ART_BUILDERS[bgArtStyle()] || BG_ART_BUILDERS.aurora;
+  const build = BG_ART_BUILDERS[bgStyle] || BG_ART_BUILDERS.aurora;
 
   const sketch = (p) => {
-    let particles = [];
-    let baseHue = 230;
-    let emblem = [];
-
-    const drawEmblem = (t) => {
-      // A large, very faint ring of linked nodes, slowly rotating.
-      const cx = p.width / 2;
-      const cy = p.height / 2;
-      const radius = Math.min(p.width, p.height) * 0.32;
-      p.push();
-      p.translate(cx, cy);
-      p.rotate(t * 0.02);
-      p.stroke(baseHue, 50, dark ? 70 : 45, 0.05);
-      p.strokeWeight(1.5);
-      for (let i = 0; i < emblem.length; i++) {
-        for (let j = i + 1; j < emblem.length; j++) {
-          if ((i + j) % 3 === 0) {
-            p.line(
-              Math.cos(emblem[i]) * radius,
-              Math.sin(emblem[i]) * radius,
-              Math.cos(emblem[j]) * radius,
-              Math.sin(emblem[j]) * radius
-            );
-          }
-        }
-      }
-      p.noStroke();
-      for (const a of emblem) {
-        p.fill(baseHue, 55, dark ? 72 : 42, 0.07);
-        p.circle(Math.cos(a) * radius, Math.sin(a) * radius, 16);
-      }
-      p.pop();
-    };
-
-    // The flow-field aurora. A lighter wash lets trails linger, so the
-    // ribbons actually read behind the app's translucent cards.
-    const drawAurora = (t) => {
-      p.noStroke();
-      p.fill(dark ? 12 : 250, dark ? 0.09 : 0.10);
-      p.rect(0, 0, p.width, p.height);
-      drawEmblem(t);
-      for (const dot of particles) {
-        const angle =
-          p.noise(dot.x * 0.0016, dot.y * 0.0016, t * 0.15) * Math.PI * 4;
-        dot.x += Math.cos(angle) * dot.speed;
-        dot.y += Math.sin(angle) * dot.speed;
-        if (dot.x < 0) dot.x = p.width;
-        if (dot.x > p.width) dot.x = 0;
-        if (dot.y < 0) dot.y = p.height;
-        if (dot.y > p.height) dot.y = 0;
-        p.fill(dot.hue, 78, dark ? 70 : 48, 0.8);
-        p.circle(dot.x, dot.y, dot.size);
-      }
-    };
-
-    // Drifting stars joined by faint lines when they come close.
-    const drawConstellations = (t) => {
-      p.background(dark ? 12 : 250);
-      for (const dot of particles) {
-        dot.x += Math.cos(dot.phase + t * 0.25) * dot.speed * 0.6;
-        dot.y += Math.sin(dot.phase + t * 0.2) * dot.speed * 0.6;
-        if (dot.x < 0) dot.x = p.width;
-        if (dot.x > p.width) dot.x = 0;
-        if (dot.y < 0) dot.y = p.height;
-        if (dot.y > p.height) dot.y = 0;
-      }
-      p.stroke(baseHue, 60, dark ? 72 : 42, 0.3);
-      p.strokeWeight(1.2);
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const a = particles[i];
-          const b = particles[j];
-          const d = Math.hypot(a.x - b.x, a.y - b.y);
-          if (d < 110) p.line(a.x, a.y, b.x, b.y);
-        }
-      }
-      p.noStroke();
-      for (const dot of particles) {
-        p.fill(dot.hue, 72, dark ? 78 : 46, 0.85);
-        p.circle(dot.x, dot.y, dot.size + 1);
-      }
-    };
-
-    // Big soft organic shapes drifting slowly behind everything.
-    const drawBlobs = (t) => {
-      p.background(dark ? 12 : 250);
-      p.noStroke();
-      for (const blob of particles) {
-        const x = blob.baseX + Math.cos(t * 0.3 + blob.phase) * blob.amp;
-        const y = blob.baseY + Math.sin(t * 0.24 + blob.phase) * blob.amp;
-        // A few stacked translucent circles fake a soft gradient edge.
-        for (let ring = 3; ring >= 1; ring--) {
-          p.fill(blob.hue, 70, dark ? 58 : 60, 0.09);
-          p.circle(x, y, blob.size * ring * 0.8);
-        }
-      }
-    };
-
-    // A calm field of floating dust motes.
-    const drawParticles = (t) => {
-      p.background(dark ? 12 : 250);
-      p.noStroke();
-      for (const dot of particles) {
-        dot.y -= dot.speed * 0.4;
-        dot.x += Math.cos(t + dot.phase) * 0.3;
-        if (dot.y < -5) {
-          dot.y = p.height + 5;
-          dot.x = p.random(p.width);
-        }
-        p.fill(dot.hue, 70, dark ? 76 : 48, 0.7);
-        p.circle(dot.x, dot.y, dot.size);
-      }
-    };
-
-    const draw = () => {
-      const t = p.frameCount * 0.01;
-      if (bgStyle === "constellations") drawConstellations(t);
-      else if (bgStyle === "blobs") drawBlobs(t);
-      else if (bgStyle === "particles") drawParticles(t);
-      else drawAurora(t);
-    };
+    // Each style is a self-contained builder returning {init, frame}. The
+    // merge in #20 left this function holding pieces of two implementations
+    // at once — one branch's builders alongside the other's inline draw
+    // functions, with the `const style = build(...)` line lost between them.
+    // So p.draw called `style.frame(t)` on an undefined `style`, and every
+    // non-aurora background threw on its first frame.
+    let style = null;
 
     p.setup = () => {
       const c = p.createCanvas(window.innerWidth, window.innerHeight);
@@ -7775,35 +8704,25 @@ function startBgArt() {
       // switch, but simplest to keep one mode; use HSL and a grey wash.
       p.colorMode(p.HSL, 360, 100, 100, 1);
       p.noStroke();
-      baseHue = p.hue(p.color(accentHex));
-      // Each style wants a different population; intensity scales it.
-      const counts = { aurora: 70, constellations: 34, blobs: 7, particles: 90 };
-      const count = Math.max(3, Math.round((counts[bgStyle] ?? 70) * densityScale));
-      for (let i = 0; i < count; i++) {
-        const x = p.random(p.width);
-        const y = p.random(p.height);
-        particles.push({
-          x,
-          y,
-          baseX: x,
-          baseY: y,
-          phase: p.random(Math.PI * 2),
-          amp: p.random(40, 140),
-          speed: p.random(0.3, 1.1),
-          size: bgStyle === "blobs" ? p.random(180, 380) : p.random(2.5, 5.5),
-          hue: (baseHue + p.random(-24, 24) + 360) % 360,
-        });
-      }
-      emblem = Array.from({ length: 9 }, (_, i) => (i / 9) * Math.PI * 2);
       p.frameRate(30);
+
+      style = build(p, {
+        dark,
+        baseHue: p.hue(p.color(accentHex)),
+        // The intensity slider scales how much is actually on screen, so each
+        // style decides its own population from one number.
+        density: densityScale,
+      });
+      style.init();
+
       if (reduceMotion) {
         // One calm static frame — no motion for reduced-motion users.
         p.background(dark ? 12 : 250);
-        if (bgStyle === "aurora") drawEmblem(0);
-        else draw();
+        style.frame(0);
         p.noLoop();
       }
     };
+
     p.draw = () => {
       const t = p.frameCount * 0.01;
       // Translucent wash → marks leave gentle trails instead of hard clears.
@@ -7814,6 +8733,7 @@ function startBgArt() {
       p.rect(0, 0, p.width, p.height);
       style.frame(t);
     };
+
     p.windowResized = () => p.resizeCanvas(window.innerWidth, window.innerHeight);
   };
   bgArtInstance = new p5(sketch);
@@ -8093,6 +9013,98 @@ $("entry-template").addEventListener("change", applyTemplate);
 
 // Chat tab (Wave C).
 $("chat-send").addEventListener("click", () => sendChatMessage());
+
+// --- documents wiring ---
+$("doc-new").addEventListener("click", createDocument);
+$("doc-filter").addEventListener("input", renderDocList);
+$("doc-title").addEventListener("input", () => { markDocDirty(); renderDocPreview(); });
+$("doc-content").addEventListener("input", () => { markDocDirty(); renderDocPreview(); });
+$("doc-preview-toggle").addEventListener("click", toggleDocPreview);
+$("doc-export-md").addEventListener("click", exportDocumentMarkdown);
+$("doc-export-pdf").addEventListener("click", exportDocumentPdf);
+$("doc-delete").addEventListener("click", deleteCurrentDocument);
+$("doc-ai").addEventListener("click", openDocAiPanel);
+$("doc-ai-close").addEventListener("click", closeDocAiPanel);
+$("doc-ai-cancel").addEventListener("click", closeDocAiPanel);
+$("doc-ai-run").addEventListener("click", runDocAiEdit);
+$("doc-ai-accept").addEventListener("click", acceptDocAiEdit);
+$("doc-ai-instruction").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); runDocAiEdit(); }
+});
+$("doc-content").addEventListener("keydown", (event) => {
+  if (!(event.ctrlKey || event.metaKey)) return;
+  const key = event.key.toLowerCase();
+  if (key === "s") { event.preventDefault(); saveDocument(); }
+  else if (key === "b") { event.preventDefault(); wrapDocSelection("**"); }
+  else if (key === "i") { event.preventDefault(); wrapDocSelection("*"); }
+});
+// Leaving with unsaved edits would lose them; autosave hasn't fired yet.
+window.addEventListener("beforeunload", (event) => {
+  if (!docDirty) return;
+  event.preventDefault();
+  event.returnValue = "";
+});
+
+// --- writing room wiring ---
+$("draft-compose").addEventListener("click", composeDraft);
+$("draft-save").addEventListener("click", saveDraftAsNote);
+$("draft-text").addEventListener("input", () => {
+  updateDraftCount();
+  saveDraftLocally();
+});
+$("draft-thoughts").addEventListener("input", saveDraftLocally);
+$("draft-tags").addEventListener("input", saveDraftLocally);
+// Ctrl/Cmd+Enter from the thoughts box drafts, matching the capture box.
+$("draft-thoughts").addEventListener("keydown", (event) => {
+  if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+    event.preventDefault();
+    composeDraft();
+  }
+});
+$("draft-discard").addEventListener("click", () => {
+  if (!$("draft-text").value.trim() && !$("draft-thoughts").value.trim()) return;
+  if (!confirm("Discard this draft? It hasn't been saved as a note.")) return;
+  $("draft-thoughts").value = "";
+  $("draft-text").value = "";
+  $("draft-tags").value = "";
+  $("draft-thinking").classList.add("hidden");
+  $("draft-status").textContent = "";
+  updateDraftCount();
+  saveDraftLocally();
+});
+$("draft-help").addEventListener("click", () => {
+  $("draft-intro").classList.toggle("hidden");
+});
+restoreDraftLocally();
+
+// --- note picker wiring ---
+$("attach-note").addEventListener("click", () => {
+  if (notePickerOpen()) closeNotePicker();
+  else openNotePicker();
+});
+$("note-picker-search").addEventListener("input", renderNotePickerList);
+$("note-picker-done").addEventListener("click", () => {
+  closeNotePicker();
+  $("chat-input").focus();
+});
+$("note-picker-clear").addEventListener("click", () => {
+  attachedNoteIds = [];
+  renderAttachments();
+  renderNotePickerList();
+});
+// Click-away and Escape close it, like every other popover in the app.
+document.addEventListener("click", (event) => {
+  if (!notePickerOpen()) return;
+  if (event.target.closest(".note-picker")) return;
+  closeNotePicker();
+});
+$("note-picker-panel").addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    event.stopPropagation();
+    closeNotePicker();
+    $("attach-note").focus();
+  }
+});
 $("chat-stop").addEventListener("click", () => chatController && chatController.abort());
 $("chat-new").addEventListener("click", newChatConversation);
 $("chat-export").addEventListener("click", exportChatMarkdown);
@@ -8293,6 +9305,189 @@ $("bin-empty").addEventListener("click", async () => {
   toast(`${result.removed} entr${result.removed === 1 ? "y" : "ies"} permanently deleted.`);
   await renderBin();
 });
+// --- [[ autocomplete ------------------------------------------------------------
+// The links work, but only if you remember how a note starts. Typing "[[" now
+// offers the notes you could mean, so linking is a thing you do while writing
+// rather than something you go and look up first.
+
+let wikiSuggestIndex = 0;
+let wikiSuggestMatches = [];
+
+// The half-typed "[[..." immediately before the cursor, or null.
+function wikiFragmentAt(textarea) {
+  const upto = textarea.value.slice(0, textarea.selectionStart);
+  const open = upto.lastIndexOf("[[");
+  if (open === -1) return null;
+  // Already closed, so the cursor is past a finished link.
+  if (upto.slice(open).includes("]]")) return null;
+  const fragment = upto.slice(open + 2);
+  // A newline means they moved on and left the brackets behind.
+  if (fragment.includes("\n")) return null;
+  return { start: open, fragment };
+}
+
+function hideWikiSuggest() {
+  $("wiki-suggest").classList.add("hidden");
+  wikiSuggestMatches = [];
+}
+
+function renderWikiSuggest(textarea) {
+  const at = wikiFragmentAt(textarea);
+  const box = $("wiki-suggest");
+  if (!at) return hideWikiSuggest();
+
+  const needle = at.fragment.trim().toLowerCase();
+  // Everything when they've only typed "[[", narrowing as they go. Private
+  // notes are excluded: they can't be link targets, so offering one would be
+  // a dead end that also reveals it exists.
+  wikiSuggestMatches = allEntries
+    .filter((e) => !e.is_private && (!needle || e.content.toLowerCase().includes(needle)))
+    .slice(0, 8);
+  if (!wikiSuggestMatches.length) return hideWikiSuggest();
+
+  wikiSuggestIndex = Math.min(wikiSuggestIndex, wikiSuggestMatches.length - 1);
+  box.replaceChildren();
+  wikiSuggestMatches.forEach((entry, index) => {
+    const li = document.createElement("li");
+    li.setAttribute("role", "option");
+    li.setAttribute("aria-selected", String(index === wikiSuggestIndex));
+    if (index === wikiSuggestIndex) li.classList.add("active");
+    li.textContent = noteLabel(entry, 64);
+    li.addEventListener("mousedown", (event) => {
+      // mousedown, not click: the textarea must not lose focus first.
+      event.preventDefault();
+      applyWikiSuggestion(textarea, entry);
+    });
+    box.appendChild(li);
+  });
+  box.classList.remove("hidden");
+}
+
+function applyWikiSuggestion(textarea, entry) {
+  const at = wikiFragmentAt(textarea);
+  if (!at) return;
+  // Link by the note's opening words — that's what resolution matches on.
+  //
+  // Brackets are stripped first. A note that itself contains [[a link]] would
+  // otherwise be inserted verbatim, producing [[outer [[inner]] text]] — and
+  // the parser, which won't match brackets inside a name, would then find the
+  // INNER one and silently resolve to the wrong note.
+  const name = (entry.content || "")
+    .split("\n")[0]
+    .replace(/\[\[|\]\]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 60);
+  if (!name) return hideWikiSuggest();
+  const before = textarea.value.slice(0, at.start);
+  const after = textarea.value.slice(textarea.selectionStart);
+  textarea.value = `${before}[[${name}]]${after}`;
+  const caret = before.length + name.length + 4;
+  textarea.setSelectionRange(caret, caret);
+  textarea.dispatchEvent(new Event("input")); // refresh the character count
+  hideWikiSuggest();
+  textarea.focus();
+}
+
+function wikiSuggestKeydown(event, textarea) {
+  if ($("wiki-suggest").classList.contains("hidden")) return false;
+  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    event.preventDefault();
+    const step = event.key === "ArrowDown" ? 1 : -1;
+    wikiSuggestIndex =
+      (wikiSuggestIndex + step + wikiSuggestMatches.length) % wikiSuggestMatches.length;
+    renderWikiSuggest(textarea);
+    return true;
+  }
+  if (event.key === "Enter" || event.key === "Tab") {
+    event.preventDefault();
+    applyWikiSuggestion(textarea, wikiSuggestMatches[wikiSuggestIndex]);
+    return true;
+  }
+  if (event.key === "Escape") {
+    event.preventDefault();
+    hideWikiSuggest();
+    return true;
+  }
+  return false;
+}
+
+// --- saved filters ---------------------------------------------------------------
+// Once the filter box understands operators, the useful ones are worth
+// keeping. "tag:work is:untagged" is a thing you want on a button, not
+// something to retype — and it works with no AI at all.
+
+function savedSearches() {
+  return (prefsCache && prefsCache.saved_searches) || [];
+}
+
+function renderSavedSearches() {
+  const box = $("saved-searches");
+  const saved = savedSearches();
+  box.replaceChildren();
+  box.classList.toggle("hidden", saved.length === 0);
+  for (const item of saved) {
+    const chipEl = document.createElement("span");
+    chipEl.className = "chip saved-search";
+    const apply = document.createElement("button");
+    apply.type = "button";
+    apply.className = "saved-search-apply";
+    apply.textContent = `☆ ${item.name}`;
+    apply.title = `Filter: ${item.query}`;
+    apply.addEventListener("click", () => {
+      $("note-search").value = item.query;
+      noteSearch = item.query;
+      renderEntries();
+      announce(`Applied the saved filter "${item.name}".`);
+    });
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "saved-search-remove";
+    remove.textContent = "✕";
+    remove.title = `Forget "${item.name}"`;
+    remove.setAttribute("aria-label", remove.title);
+    remove.addEventListener("click", async () => {
+      const next = savedSearches().filter((s) => s.name !== item.name);
+      await persistSavedSearches(next);
+      toast(`Forgot "${item.name}".`);
+    });
+    chipEl.append(apply, remove);
+    box.appendChild(chipEl);
+  }
+}
+
+async function persistSavedSearches(next) {
+  prefsCache = await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ saved_searches: next }),
+  });
+  renderSavedSearches();
+}
+
+async function saveCurrentSearch() {
+  const query = $("note-search").value.trim();
+  if (!query) return;
+  const name = (prompt("Name this filter:", query.slice(0, 40)) || "").trim();
+  if (!name) return;
+  // Re-saving an existing name updates it rather than adding a duplicate you
+  // then have to hunt down and remove.
+  const next = savedSearches().filter((s) => s.name !== name);
+  next.push({ name, query });
+  await persistSavedSearches(next);
+  toast(`Saved "${name}".`);
+}
+
+$("save-search").addEventListener("click", saveCurrentSearch);
+
+$("shortcuts-reset").addEventListener("click", resetShortcuts);
+
+$("search-help").addEventListener("click", () => {
+  const panel = $("search-help-hint");
+  const showing = panel.classList.toggle("hidden");
+  $("search-help").setAttribute("aria-expanded", String(!showing));
+  if (!showing) $("note-search").focus();
+});
+
 $("prefs-save").addEventListener("click", savePrefs);
 // Managed SearXNG: show what's there, and start/stop it on request.
 async function refreshSearxngHost() {
@@ -8455,15 +9650,34 @@ $("question").addEventListener("keydown", (e) => {
   if (e.key === "Enter") askQuestion();
 });
 $("entry-content").addEventListener("keydown", (e) => {
+  // The suggestion list owns the arrows, Enter, Tab and Escape while it's up.
+  if (wikiSuggestKeydown(e, $("entry-content"))) return;
   if (e.key === "Enter" && e.ctrlKey) saveEntry();
 });
+$("entry-content").addEventListener("input", () => {
+  wikiSuggestIndex = 0;
+  renderWikiSuggest($("entry-content"));
+});
+// Moving the caret with the mouse or arrows can leave the fragment behind.
+$("entry-content").addEventListener("click", () => renderWikiSuggest($("entry-content")));
+$("entry-content").addEventListener("blur", () => setTimeout(hideWikiSuggest, 120));
 document.addEventListener("keydown", (e) => {
-  // Ctrl/Cmd-K: the command palette, from anywhere (Wave F).
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+  // Rebinding swallows everything while it's listening.
+  if (captureShortcutKey(e)) {
     e.preventDefault();
-    if ($("palette-overlay").classList.contains("hidden")) openPalette();
-    else closePalette();
     return;
+  }
+  // Chorded shortcuts (anything with a modifier) work even while typing —
+  // Ctrl+K from inside the note box should still open the palette.
+  const chorded = e.ctrlKey || e.metaKey || e.altKey;
+  if (chorded) {
+    for (const [id, def] of Object.entries(shortcuts)) {
+      if (matchesShortcut(e, def.keys)) {
+        e.preventDefault();
+        runShortcut(id);
+        return;
+      }
+    }
   }
   if (e.key === "Escape" && !$("onboarding-overlay").classList.contains("hidden")) {
     closeOnboarding();
@@ -8506,23 +9720,17 @@ document.addEventListener("keydown", (e) => {
     settingsModalOpen() ||
     !$("palette-overlay").classList.contains("hidden") ||
     !$("sketch-overlay").classList.contains("hidden");
-  // "?" (Shift-/) opens the keyboard-shortcuts cheat-sheet.
-  if (e.key === "?" && !typing && !overlayOpen) {
-    e.preventDefault();
-    openShortcuts();
-    return;
-  }
-  if (e.key === "/" && !typing && !overlayOpen) {
-    e.preventDefault();
-    // On the Chat tab the natural target is the chat box; elsewhere the
-    // Notes filter (switching to Notes if needed).
-    if (localStorage.getItem("activeTab") === "chat") {
-      $("chat-input").focus();
-    } else {
-      switchTab("notes");
-      $("note-search").focus();
+  // Unchorded shortcuts ("/", "?") only fire when you're not typing and no
+  // overlay is open, so they never steal a literal slash mid-sentence.
+  if (!typing && !overlayOpen) {
+    for (const [id, def] of Object.entries(shortcuts)) {
+      const bare = !/\+/.test(def.keys);
+      if (bare && matchesShortcut(e, def.keys)) {
+        e.preventDefault();
+        runShortcut(id);
+        return;
+      }
     }
-    return;
   }
   if (e.key === "Escape" && settingsModalOpen()) closeSettingsModal();
   if (e.key === "Escape") closeActionMenus();
@@ -8647,11 +9855,205 @@ $("show-guide-btn").addEventListener("click", () => {
 });
 
 // Keyboard-shortcuts cheat-sheet (press ?), a learnability aid.
+// --- rebindable keyboard shortcuts -----------------------------------------------
+// The shortcuts used to be hardcoded in the keydown handler, which meant they
+// were whatever we'd guessed — no help if one clashes with your OS, your
+// browser, or a habit from another app.
+//
+// Only shortcuts that trigger an *action* are rebindable. Escape (close),
+// Tab (move focus) and the arrow keys (move between tabs) deliberately are
+// not: they're the conventions every app shares, and letting someone rebind
+// Escape is how you end up unable to close the dialog you rebound it in.
+
+const DEFAULT_SHORTCUTS = {
+  palette: { keys: "Ctrl+K", label: "Open the command palette" },
+  search: { keys: "/", label: "Jump to search (or the chat box on Chat)" },
+  help: { keys: "?", label: "Show this shortcuts list" },
+  newNote: { keys: "Ctrl+Shift+N", label: "Start a new note" },
+  newDocument: { keys: "Ctrl+Shift+D", label: "Start a new document" },
+  toggleTheme: { keys: "Ctrl+Shift+L", label: "Switch light / dark" },
+};
+
+const SHORTCUT_STORE = "keyboardShortcuts";
+
+function loadShortcuts() {
+  let saved = {};
+  try {
+    saved = JSON.parse(localStorage.getItem(SHORTCUT_STORE) || "{}");
+  } catch {
+    saved = {}; // unreadable — fall back to defaults rather than throwing
+  }
+  const merged = {};
+  for (const [id, def] of Object.entries(DEFAULT_SHORTCUTS)) {
+    merged[id] = { ...def, keys: saved[id] || def.keys };
+  }
+  return merged;
+}
+
+let shortcuts = loadShortcuts();
+
+function saveShortcutOverrides() {
+  // Only store what differs from the defaults, so improving a default later
+  // reaches everyone who never changed it.
+  const overrides = {};
+  for (const [id, def] of Object.entries(DEFAULT_SHORTCUTS)) {
+    if (shortcuts[id].keys !== def.keys) overrides[id] = shortcuts[id].keys;
+  }
+  localStorage.setItem(SHORTCUT_STORE, JSON.stringify(overrides));
+}
+
+// A keyboard event -> the canonical string we compare against, e.g. "Ctrl+K".
+function comboFromEvent(event) {
+  const parts = [];
+  if (event.ctrlKey || event.metaKey) parts.push("Ctrl");
+  if (event.altKey) parts.push("Alt");
+  if (event.shiftKey) parts.push("Shift");
+  let key = event.key;
+  if (key === " ") key = "Space";
+  // Single letters normalise to uppercase so "Ctrl+k" and "Ctrl+K" are one
+  // shortcut; longer names (Enter, ArrowUp) keep their own capitalisation.
+  if (key.length === 1) key = key.toUpperCase();
+  // A bare modifier isn't a shortcut yet — the user is still mid-chord.
+  if (["Control", "Meta", "Alt", "Shift"].includes(event.key)) return null;
+  parts.push(key);
+  return parts.join("+");
+}
+
+// "?" is Shift+/ on most layouts; treat the typed character as the shortcut so
+// a user who binds "?" doesn't have to know that.
+function matchesShortcut(event, combo) {
+  if (comboFromEvent(event) === combo) return true;
+  return combo.length === 1 && event.key === combo && !event.ctrlKey && !event.metaKey;
+}
+
+function runShortcut(id) {
+  const actions = {
+    palette: () => {
+      if ($("palette-overlay").classList.contains("hidden")) openPalette();
+      else closePalette();
+    },
+    search: () => {
+      if (localStorage.getItem("activeTab") === "chat") {
+        $("chat-input").focus();
+      } else {
+        switchTab("notes");
+        $("note-search").focus();
+      }
+    },
+    help: openShortcuts,
+    newNote: () => {
+      switchTab("notes");
+      $("entry-content").focus();
+    },
+    newDocument: () => {
+      switchTab("documents");
+      createDocument();
+    },
+    toggleTheme,
+  };
+  actions[id]?.();
+}
+
+function resetShortcuts() {
+  localStorage.removeItem(SHORTCUT_STORE);
+  shortcuts = loadShortcuts();
+  renderShortcutList();
+  toast("Shortcuts reset to their defaults.");
+}
+
+let capturingShortcut = null; // the id being rebound, or null
+
+function renderShortcutList() {
+  const list = $("shortcut-list");
+  list.replaceChildren();
+  for (const [id, def] of Object.entries(shortcuts)) {
+    const li = document.createElement("li");
+    const combo = document.createElement("kbd");
+    combo.textContent = capturingShortcut === id ? "Press keys…" : def.keys;
+    if (capturingShortcut === id) combo.classList.add("capturing");
+
+    const label = document.createElement("span");
+    label.textContent = def.label;
+
+    const change = document.createElement("button");
+    change.className = "ghost small";
+    change.type = "button";
+    change.textContent = capturingShortcut === id ? "Cancel" : "Change";
+    change.setAttribute("aria-label", `Change the shortcut for: ${def.label}`);
+    change.addEventListener("click", () => {
+      capturingShortcut = capturingShortcut === id ? null : id;
+      $("shortcut-status").textContent = capturingShortcut
+        ? "Press the keys you want, or Escape to cancel."
+        : "";
+      renderShortcutList();
+    });
+
+    // Only offer "default" when it isn't already the default.
+    const changed = def.keys !== DEFAULT_SHORTCUTS[id].keys;
+    li.append(combo, label, change);
+    if (changed) {
+      const revert = document.createElement("button");
+      revert.className = "ghost small";
+      revert.type = "button";
+      revert.textContent = "↺";
+      revert.title = `Back to ${DEFAULT_SHORTCUTS[id].keys}`;
+      revert.setAttribute("aria-label", revert.title);
+      revert.addEventListener("click", () => {
+        shortcuts[id].keys = DEFAULT_SHORTCUTS[id].keys;
+        saveShortcutOverrides();
+        renderShortcutList();
+      });
+      li.appendChild(revert);
+    }
+    list.appendChild(li);
+  }
+}
+
+// While rebinding, this handler runs before everything else and swallows the
+// keypress — otherwise pressing Ctrl+K to rebind it would also open the
+// palette you're trying to move.
+function captureShortcutKey(event) {
+  if (!capturingShortcut) return false;
+  if (event.key === "Escape") {
+    capturingShortcut = null;
+    $("shortcut-status").textContent = "";
+    renderShortcutList();
+    return true;
+  }
+  const combo = comboFromEvent(event);
+  if (!combo) return true; // still holding modifiers
+
+  const clash = Object.entries(shortcuts).find(
+    ([otherId, def]) => otherId !== capturingShortcut && def.keys === combo
+  );
+  if (clash) {
+    // Refuse rather than silently stealing it — two actions on one key means
+    // one of them quietly stops working.
+    $("shortcut-status").classList.add("error");
+    $("shortcut-status").textContent = `${combo} is already used for "${clash[1].label}".`;
+    return true;
+  }
+  shortcuts[capturingShortcut].keys = combo;
+  saveShortcutOverrides();
+  capturingShortcut = null;
+  $("shortcut-status").classList.remove("error");
+  $("shortcut-status").textContent = `Set to ${combo}.`;
+  renderShortcutList();
+  return true;
+}
+
 function openShortcuts() {
+  capturingShortcut = null;
+  $("shortcut-status").textContent = "";
+  renderShortcutList();
   $("shortcuts-overlay").classList.remove("hidden");
   $("shortcuts-close").focus();
 }
 function closeShortcuts() {
+  // Stop listening for a rebind. Without this, closing the dialog mid-capture
+  // leaves the handler swallowing every keypress in the app — the shortcut you
+  // just set appears dead, and so does everything else.
+  capturingShortcut = null;
   $("shortcuts-overlay").classList.add("hidden");
 }
 // Tools & features browser (opened from the dashboard quick links).
@@ -8691,6 +10093,8 @@ document.addEventListener("keydown", (e) => {
 // Wave J: note search + sort, capture char count.
 $("note-search").addEventListener("input", (e) => {
   noteSearch = e.target.value.trim();
+  // Nothing to save when the box is empty; the button appears when it isn't.
+  $("save-search").classList.toggle("hidden", !noteSearch);
   renderEntries();
 });
 $("note-sort").addEventListener("change", (e) => {
@@ -8788,46 +10192,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 
-// Collapsible Notes-tab section cards: click a section heading to fold the
-// card down to just its title row. State persists per-section in
-// localStorage so a user's collapsed layout survives reloads. Additive —
-// cards start expanded, exactly as before, unless the user collapses one.
-function initCollapsibleCards() {
-  let collapsed = {};
-  try {
-    collapsed = JSON.parse(localStorage.getItem("collapsedCards") || "{}");
-  } catch {
-    collapsed = {};
-  }
-  for (const cardId of ["capture", "ask", "browse"]) {
-    const cardEl = $(cardId);
-    if (!cardEl) continue;
-    const heading = cardEl.querySelector("h2");
-    if (!heading) continue;
-    heading.classList.add("collapsible");
-    heading.setAttribute("role", "button");
-    heading.setAttribute("tabindex", "0");
-    const setState = (isCollapsed) => {
-      cardEl.classList.toggle("collapsed", isCollapsed);
-      heading.setAttribute("aria-expanded", isCollapsed ? "false" : "true");
-    };
-    setState(Boolean(collapsed[cardId]));
-    const toggle = () => {
-      const isCollapsed = !cardEl.classList.contains("collapsed");
-      setState(isCollapsed);
-      collapsed[cardId] = isCollapsed;
-      localStorage.setItem("collapsedCards", JSON.stringify(collapsed));
-    };
-    heading.addEventListener("click", toggle);
-    heading.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        toggle();
-      }
-    });
-  }
-}
-initCollapsibleCards();
 
 // The generative brand emblem, unique each visit (Wave O). p5 is loaded
 // by now; draw once the page is ready.

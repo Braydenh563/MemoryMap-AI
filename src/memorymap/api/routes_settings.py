@@ -71,6 +71,15 @@ class PreferencesBody(BaseModel):
     searxng_url: str | None = Field(default=None, max_length=200)
     # Wave O: agent tools the user has switched off (by tool name).
     disabled_tools: list[str] | None = Field(default=None, max_length=50)
+    # Named filters the user has saved from the Notes tab.
+    saved_searches: list["SavedSearch"] | None = Field(default=None, max_length=30)
+
+
+class SavedSearch(BaseModel):
+    """A named filter, e.g. {"name": "This week's work", "query": "tag:work"}."""
+
+    name: str = Field(min_length=1, max_length=40)
+    query: str = Field(min_length=1, max_length=200)
 
 
 class DashboardLayout(BaseModel):
@@ -104,6 +113,7 @@ def get_preferences() -> dict:
         "web_search_enabled": config.get_preference("web_search_enabled", False),
         "searxng_url": config.get_preference("searxng_url", ""),
         "disabled_tools": config.get_preference("disabled_tools", []),
+        "saved_searches": config.get_preference("saved_searches", []),
     }
 
 
@@ -180,7 +190,11 @@ def export_json(session: Session = Depends(get_session)) -> Response:
         "entries": [
             {
                 "id": e.id,
-                "content": e.content,
+                # Exports decrypt while the app is unlocked. An export is for
+                # taking your notes elsewhere, and ciphertext with no key is
+                # not your notes. (The app's own backups keep the database
+                # file as-is, so those stay encrypted.)
+                "content": manager.readable_content(e),
                 "category": manager.category_name_for(session, e),
                 "tags": manager.entry_tags(e),
                 "ai_confidence": e.ai_confidence,
@@ -240,8 +254,9 @@ def export_markdown(session: Session = Depends(get_session)) -> Response:
             if entry.pinned:
                 front.append("pinned: true")
             front.append("---")
-            body = "\n".join(front) + f"\n\n{entry.content}\n"
-            archive.writestr(f"{folder}/{entry.id}-{_slug(entry.content)}.md", body)
+            readable = manager.readable_content(entry)
+            body = "\n".join(front) + f"\n\n{readable}\n"
+            archive.writestr(f"{folder}/{entry.id}-{_slug(readable)}.md", body)
     manager.log_action(session, "exported", "data", detail="markdown")
     session.commit()
     return Response(
@@ -523,7 +538,7 @@ def export_csv(session: Session = Depends(get_session)) -> Response:
         writer.writerow(
             [
                 e.id,
-                e.content,
+                manager.readable_content(e),
                 manager.category_name_for(session, e),
                 "|".join(manager.entry_tags(e)),
                 e.ai_confidence,

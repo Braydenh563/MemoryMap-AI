@@ -8,9 +8,10 @@ keeps capture working even when every AI piece is down (plan §4).
 from __future__ import annotations
 
 import json
+import re
 from datetime import timedelta
 
-from sqlalchemy import delete, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
 from pathlib import Path
@@ -395,3 +396,206 @@ def entry_tags(entry: Entry) -> list[str]:
         return loaded if isinstance(loaded, list) else []
     except json.JSONDecodeError:
         return []
+
+
+# --- category management (rename / delete) -----------------------------------
+
+
+def all_categories(session: Session) -> list[dict]:
+    """Every category with how many live entries sit in it, biggest first.
+
+    Binned entries aren't counted — the number should match what the sidebar
+    shows, and the sidebar only ever lists notes you can still see.
+    """
+    rows = list(session.scalars(select(Category).order_by(Category.name)))
+    counts = {
+        category_id: total
+        for category_id, total in session.execute(
+            select(Entry.category_id, func.count(Entry.id))
+            .where(Entry.is_deleted == False)  # noqa: E712
+            .group_by(Entry.category_id)
+        )
+    }
+    out = [
+        {"id": c.id, "name": c.name, "count": counts.get(c.id, 0)}
+        for c in rows
+    ]
+    out.sort(key=lambda c: (-c["count"], c["name"].lower()))
+    return out
+
+
+def rename_category(session: Session, category_id: int, new_name: str) -> dict:
+    """Rename a category; renaming onto an existing name merges the two.
+
+    Merging is the useful behaviour rather than an error — "Work" and "work"
+    turning up as separate categories is exactly the mess this is here to fix.
+    """
+    category = session.get(Category, category_id)
+    if category is None:
+        raise ValueError("That category no longer exists")
+    new_name = new_name.strip()
+    if not new_name:
+        raise ValueError("A category needs a name")
+    if new_name == category.name:
+        return {"renamed": False, "merged": False, "moved": 0}
+
+    existing = session.scalar(select(Category).where(Category.name == new_name))
+    if existing is not None and existing.id != category.id:
+        # Merge: move the entries across, then drop the now-empty category.
+        moved = _reassign(session, category.id, existing.id)
+        log_action(session, "edited", "category", existing.id, f"merged {category.name} → {new_name}")
+        session.delete(category)
+        session.commit()
+        return {"renamed": True, "merged": True, "moved": moved}
+
+    old = category.name
+    category.name = new_name
+    log_action(session, "edited", "category", category.id, f"{old} → {new_name}")
+    session.commit()
+    return {"renamed": True, "merged": False, "moved": 0}
+
+
+def delete_category(session: Session, category_id: int) -> dict:
+    """Remove a category. Its notes are kept and become Uncategorised.
+
+    Deleting a category must never delete notes — that would make an organising
+    action destructive, which is never what anyone means by "delete category".
+    """
+    category = session.get(Category, category_id)
+    if category is None:
+        raise ValueError("That category no longer exists")
+    if category.name == UNCATEGORISED:
+        raise ValueError("Uncategorised is where notes go; it can't be removed")
+
+    fallback = get_or_create_category(session, UNCATEGORISED)
+    moved = _reassign(session, category.id, fallback.id)
+    log_action(session, "deleted", "category", category.id, category.name)
+    session.delete(category)
+    session.commit()
+    return {"deleted": True, "moved": moved}
+
+
+def _reassign(session: Session, from_id: int, to_id: int) -> int:
+    """Point every entry in one category at another. Returns how many moved."""
+    entries = list(session.scalars(select(Entry).where(Entry.category_id == from_id)))
+    for entry in entries:
+        entry.category_id = to_id
+    return len(entries)
+
+
+# --- private notes -----------------------------------------------------------
+# Encryption lives behind these two helpers so every read and write goes
+# through the same place. Scattering encrypt/decrypt calls across the routes is
+# how a path gets missed and a note is stored in the clear.
+
+
+def readable_content(entry: Entry) -> str:
+    """The note's text, decrypting it if it's private and the vault is open.
+
+    A locked vault returns a placeholder rather than raising: a private note
+    must not break the notes list, the graph, or an export for everything else.
+    """
+    from memorymap.core import crypto, vault
+
+    if not crypto.is_encrypted(entry.content):
+        return entry.content
+    key = vault.key()
+    if key is None:
+        return "🔒 Private note — unlock to read it."
+    try:
+        return crypto.decrypt(key, entry.content)
+    except crypto.DecryptionError:
+        # Kept deliberately non-fatal. The stored bytes are still there, so a
+        # key problem is recoverable; crashing the list is not.
+        return "🔒 This private note couldn't be decrypted."
+
+
+def set_private(session: Session, entry: Entry, private: bool) -> bool:
+    """Encrypt or decrypt one note in place. False if the vault is locked.
+
+    Making a note private also drops its embedding: a vector derived from the
+    text would leak what the note is about, which defeats the point.
+    """
+    from memorymap.core import crypto, vault
+    from memorymap.core.database import EmbeddingRecord
+
+    key = vault.key()
+    if key is None:
+        return False
+
+    if private:
+        if not crypto.is_encrypted(entry.content):
+            entry.content = crypto.encrypt(key, entry.content)
+        entry.is_private = True
+        session.execute(delete(EmbeddingRecord).where(EmbeddingRecord.entry_id == entry.id))
+    else:
+        if crypto.is_encrypted(entry.content):
+            entry.content = crypto.decrypt(key, entry.content)
+        entry.is_private = False
+    log_action(session, "edited", "entry", entry.id, f"private={private}")
+    return True
+
+
+# --- [[wiki links]] ----------------------------------------------------------
+# Typing [[something]] in a note links it to the note that starts with that
+# text. It's the cheapest way to build a real web of notes: no AI, no dialog,
+# no leaving the keyboard — and it's what makes the graph fill itself instead
+# of waiting for someone to link things by hand.
+
+WIKI_LINK = re.compile(r"\[\[([^\[\]]{1,120})\]\]")
+
+
+def wiki_link_targets(content: str) -> list[str]:
+    """The [[names]] mentioned in some text, de-duplicated, in order."""
+    seen = {}
+    for match in WIKI_LINK.finditer(content or ""):
+        name = match.group(1).strip()
+        if name:
+            seen.setdefault(name.lower(), name)
+    return list(seen.values())
+
+
+def find_by_wiki_name(session: Session, name: str) -> Entry | None:
+    """The note a [[name]] refers to, or None.
+
+    Matched against the start of the note, because a note has no title — its
+    opening words are what a person would call it. An exact opening beats a
+    partial one, and among equals the oldest wins so a link doesn't silently
+    change meaning when a newer note happens to start the same way.
+    """
+    wanted = (name or "").strip().lower()
+    if not wanted:
+        return None
+    candidates = session.scalars(
+        select(Entry)
+        .where(
+            Entry.is_deleted == False,  # noqa: E712
+            Entry.is_private == False,  # noqa: E712
+            Entry.content.ilike(f"{wanted}%"),
+        )
+        .order_by(Entry.id)
+    ).all()
+    if not candidates:
+        return None
+    for entry in candidates:
+        if entry.content.strip().lower() == wanted:
+            return entry  # the whole note is exactly that name
+    return candidates[0]
+
+
+def sync_wiki_links(session: Session, entry: Entry) -> list[str]:
+    """Create links for the [[names]] in this note. Returns the unresolved ones.
+
+    Only ever adds. A [[name]] that matches nothing is left alone rather than
+    reported as an error — you often write the link before the note it points
+    at, and having that fail the save would be worse than useless.
+    """
+    unresolved = []
+    for name in wiki_link_targets(entry.content):
+        target = find_by_wiki_name(session, name)
+        if target is None or target.id == entry.id:
+            if target is None:
+                unresolved.append(name)
+            continue
+        create_link(session, entry, target)
+    return unresolved

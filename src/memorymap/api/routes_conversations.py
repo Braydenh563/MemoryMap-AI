@@ -210,6 +210,41 @@ def delete_turn(
     return {**_summary(conversation), "deleted": True, "conversation_deleted": False}
 
 
+class TruncateBody(BaseModel):
+    """Drop this turn and everything after it."""
+
+    from_turn: int = Field(ge=0)
+
+
+@router.post("/{conversation_id}/truncate")
+def truncate_conversation(
+    conversation_id: int, body: TruncateBody, session: Session = Depends(get_session)
+) -> dict:
+    """Cut the conversation back to just before `from_turn`.
+
+    This is what editing a question needs: the answers that followed it were
+    replies to the old wording, so leaving them would make the thread read as
+    though the assistant answered a question nobody asked.
+    """
+    conversation = _existing(session, conversation_id)
+    messages = json.loads(conversation.messages)
+    keep = messages[: body.from_turn * 2]
+    if len(keep) == len(messages):
+        return {**_summary(conversation), "removed": 0}
+
+    removed = (len(messages) - len(keep)) // 2
+    if not keep:
+        log_action(session, "deleted", "conversation", conversation.id)
+        session.delete(conversation)
+        session.commit()
+        return {"removed": removed, "conversation_deleted": True, "turns": 0}
+
+    conversation.messages = json.dumps(keep)
+    conversation.updated_at = utcnow()
+    session.commit()
+    return {**_summary(conversation), "removed": removed, "conversation_deleted": False}
+
+
 @router.put("/{conversation_id}")
 def rename_conversation(
     conversation_id: int, body: RenameBody, session: Session = Depends(get_session)

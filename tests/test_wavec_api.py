@@ -266,3 +266,41 @@ def test_active_persona_preference_is_default(ai_client, fake_ollama):
     )
     ai_client.post("/chat", json={"question": "any jokes?"})  # no persona sent
     assert "terse robot" in fake_ollama.chat_calls[-1][0]["content"].lower()
+
+
+def test_truncate_drops_a_turn_and_everything_after_it(client):
+    """Editing a question must clear the replies to the old wording."""
+    created = client.post(
+        "/conversations", json={"question": "q1", "answer": "a1"}
+    ).json()
+    cid = created["id"]
+    client.post(f"/conversations/{cid}/turns", json={"question": "q2", "answer": "a2"})
+    client.post(f"/conversations/{cid}/turns", json={"question": "q3", "answer": "a3"})
+
+    result = client.post(f"/conversations/{cid}/truncate", json={"from_turn": 1}).json()
+    assert result["removed"] == 2
+    assert result["conversation_deleted"] is False
+
+    full = client.get(f"/conversations/{cid}").json()
+    assert [m["content"] for m in full["messages"]] == ["q1", "a1"]
+
+
+def test_truncating_from_the_first_turn_removes_the_conversation(client):
+    created = client.post(
+        "/conversations", json={"question": "only", "answer": "one"}
+    ).json()
+    result = client.post(
+        f"/conversations/{created['id']}/truncate", json={"from_turn": 0}
+    ).json()
+    assert result["conversation_deleted"] is True
+    assert client.get("/conversations").json() == []
+
+
+def test_truncating_past_the_end_changes_nothing(client):
+    created = client.post("/conversations", json={"question": "q", "answer": "a"}).json()
+    result = client.post(
+        f"/conversations/{created['id']}/truncate", json={"from_turn": 9}
+    ).json()
+    assert result["removed"] == 0
+    full = client.get(f"/conversations/{created['id']}").json()
+    assert len(full["messages"]) == 2

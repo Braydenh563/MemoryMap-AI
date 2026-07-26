@@ -168,6 +168,11 @@ def run_agent(
 
         if reply.get("thinking"):
             yield {"type": "thinking", "delta": reply["thinking"]}
+        # Report what this round cost. Agent turns used to emit nothing here,
+        # so switching tools on — the default — silently stripped the token
+        # counts out of the message metadata line.
+        if reply.get("stats"):
+            yield {"type": "stats", **reply["stats"]}
 
         calls = reply.get("tool_calls") or []
         if not calls:

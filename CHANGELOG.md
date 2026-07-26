@@ -9,6 +9,99 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- **Search operators in the notes filter**: `tag:work`, `cat:recipes`,
+  `is:pinned` / `private` / `linked` / `untagged`, `"exact phrase"`, and
+  `-exclude`. Plain words now match in any order rather than as one substring.
+  The heading shows "3 of 6" while a filter is active, matched words are
+  highlighted in the results, and a ? button explains the syntax. All of it
+  works with no AI running.
+- **Saved filters**: name a filter and keep it as a chip above the notes list.
+  Stored as a preference, so it survives a restart.
+- **Private notes**: mark any note private and its text is encrypted at rest
+  with AES-GCM. The design is an envelope — a random data key encrypts the
+  notes, and your password only encrypts that key — so changing your password
+  re-wraps 32 bytes instead of re-encrypting every note, which is where an
+  interruption could otherwise lose data. Private notes are kept out of search
+  and are never given to the AI, and their embeddings are deleted (a vector
+  encodes what a note is about, so keeping one would leak the point). The key
+  exists in memory only while the app is unlocked. There is no recovery if you
+  forget your password — that is inherent to encryption, not a shortcut here.
+- **Documents tab**: a markdown editor for long-form writing, with a live
+  preview, autosave, `Ctrl+S`/`B`/`I`, `.md` and PDF export, and AI editing.
+  Documents are a separate table from notes on purpose — a note is a captured
+  thought, a document is something you sit down and write — so they never
+  appear in note search or the graph. AI edits are always shown as a proposal
+  to accept or reject, never written straight into the file.
+- **Writing room** (Notes tab): write loose thoughts, get a drafted note back,
+  then edit the draft or add more thoughts and it folds them in without undoing
+  your changes. Starts folded so it doesn't add weight to the Notes tab.
+- **Attach notes to a chat message**: a 📎 picker with search and multi-select.
+  Attached notes go to the model ahead of retrieval and are flagged as chosen
+  by you. Binned notes can't be attached.
+- **Rename and delete categories**, from the Notes sidebar. Renaming onto an
+  existing name merges the two; deleting keeps the notes and moves them to
+  Uncategorised. Neither can lose a note.
+- **Back-to-top button** on every tab except the graph, and the Notes panels
+  (Activity / Tags / Recycle bin) return to the top when opened.
+- **Settings navigation is grouped** — the AI, your notebook, system, getting
+  help — instead of eleven flat buttons. Appearance is unchanged.
+
+### Fixed
+
+- **Keyword search only matched contiguous substrings.** "bread proving" found
+  a note that "proving bread" did not — word order was something you had to
+  guess. It now matches every word in any order across content and tags, and
+  ranks results (exact phrase, then tags, then the opening of a note) rather
+  than listing them newest-first. With no AI running this is the whole of
+  search, not a fallback.
+- **AI-only buttons looked usable with no AI.** Improve, Magic Add, Draft it
+  and AI edit stayed enabled, so you'd type a note, press the button, wait, and
+  get an apology. They're disabled with the reason in the tooltip. Save, Ask,
+  search, tags, categories, reminders, documents and the graph are unaffected —
+  they work fully without AI.
+- **The status pill announced faults instead of capability.** "search AI
+  unavailable — see Settings → Logs" pointed at a log viewer; it now reads
+  "word search on · AI search unavailable" with the detail in the tooltip.
+- **The command palette had gone stale** — it knew nothing about Documents, the
+  writing room, or the newer settings screens.
+- **The chat answered "hey" with a summary of your notebook.** Every message
+  was retrieved-for and then answered "using ONLY the notes provided"; on an
+  empty notebook a greeting got "I couldn't find any saved notes matching that
+  question". Messages are now routed first, and small talk skips retrieval and
+  the agent entirely. Anything the router isn't sure about falls through to the
+  previous behaviour.
+- **Message metadata was missing whenever tools were on** (the default). The
+  agent path never read the token counts out of Ollama's response, so the line
+  under each answer lost everything but the model name and elapsed time.
+- **Editing a chat message didn't edit anything** — it copied the text into the
+  input box and left the original exchange in place, so a one-word correction
+  left the typo, the answer to the typo, and the fix all in the thread. The
+  bubble is now the editor, and saving clears the replies that followed.
+- **Only one of the five background-art styles ever ran.** The dropdown's
+  values didn't match the implemented styles, the chosen style was read from a
+  key nothing writes, and the draw loop called a method on an undefined
+  variable. Two styles had no way to be selected at all. The intensity slider
+  now scales the art itself, not just its opacity.
+- **The Notes sections wouldn't collapse** and showed two chevrons each: two
+  implementations of the feature were both live, so every click toggled twice.
+- **Reminders landed at the wrong time.** The due field opened at 9am tomorrow
+  rather than now, and Magic Add was given the time in UTC, so every relative
+  phrase ("tomorrow evening") resolved against the wrong clock.
+- **The graph node popup could hang off the bottom of the map** — it was
+  positioned before the note loaded, then grew as its chips and buttons
+  rendered.
+- **Note timestamps were misaligned** from card to card: two `margin-left:auto`
+  in one flex row split the free space between them.
+- **Jumping to a note looked like nothing happened** — the highlight started
+  fading as the scroll began, so it was gone by the time the note arrived.
+- **The markdown export navigated the app away** instead of downloading: a
+  plain link carries no auth header, so the server's 401 was rendered in place
+  of the app.
+- Dependency versions are capped, so an upstream major release can no longer
+  break a clean install.
+
+### Added
+
 - **Learnability**: a first-run welcome tour (5 slides, re-runnable), a new
   Settings → Help section, and a searchable "Tools & features" directory of
   everything the app can do (reached from the dashboard quick links).

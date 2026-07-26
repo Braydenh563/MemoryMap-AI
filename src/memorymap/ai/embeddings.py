@@ -31,9 +31,14 @@ logger = logging.getLogger("memorymap.embeddings")
 _warmup = {"running": False, "started": False}
 
 
-def start_warmup(service: "EmbeddingService") -> None:
+def start_warmup(service: "EmbeddingService", session_factory=None) -> None:  # noqa: ANN001
     """Load the embedding model in a background thread at startup, so the
-    user's first save doesn't stall. Idempotent per process."""
+    user's first save doesn't stall. Idempotent per process.
+
+    The session factory is passed in rather than looked up. This module is
+    imported by the dependency container, so reaching back into it would make
+    the import cycle real instead of merely deferred.
+    """
     if _warmup["started"]:
         return
     _warmup["started"] = True
@@ -44,8 +49,71 @@ def start_warmup(service: "EmbeddingService") -> None:
             service.embed_text("warm up")
         finally:
             _warmup["running"] = False
+        # Now that the model is up, catch any notes that missed out.
+        if session_factory is not None:
+            backfill_missing(service, session_factory)
 
     threading.Thread(target=run, name="embedding-warmup", daemon=True).start()
+
+
+# How many gaps to close per startup. Bounded so a huge notebook doesn't spend
+# minutes embedding on every launch; the next start picks up where this stopped.
+BACKFILL_LIMIT = 200
+
+# Enough to cover the repeated embeds within a single save, with headroom.
+_EMBED_CACHE_MAX = 32
+
+
+def backfill_missing(
+    service: "EmbeddingService",
+    session_factory,  # noqa: ANN001 — a callable returning a Session
+    limit: int = BACKFILL_LIMIT,
+) -> int:
+    """Embed notes that have no vector, and report how many were fixed.
+
+    Notes saved while the model was still warming up got no embedding, and
+    nothing ever went back for them — so they stayed invisible to semantic
+    search permanently, while looking perfectly normal in the list. The gap
+    closes itself on the next start instead.
+
+    Private notes are skipped, deliberately: store_for_entry refuses them, and
+    a vector would leak what the note is about.
+    """
+    from sqlalchemy import select
+
+    from memorymap.core.database import EmbeddingRecord, Entry
+
+    if not service.is_ready():
+        return 0
+    fixed = 0
+    try:
+        session = session_factory()
+    except Exception:  # noqa: BLE001 — startup helper, never fatal
+        return 0
+    try:
+        missing = session.scalars(
+            select(Entry)
+            .outerjoin(EmbeddingRecord, EmbeddingRecord.entry_id == Entry.id)
+            .where(
+                Entry.is_deleted == False,  # noqa: E712
+                Entry.is_private == False,  # noqa: E712
+                EmbeddingRecord.id.is_(None),
+            )
+            .limit(limit)
+        ).all()
+        for entry in missing:
+            if service.store_for_entry(session, entry):
+                fixed += 1
+        if fixed:
+            session.commit()
+            logging.getLogger("memorymap.embeddings").info(
+                "backfilled %d note(s) that had no embedding", fixed
+            )
+    except Exception:  # noqa: BLE001 — a failed backfill must not stop startup
+        session.rollback()
+    finally:
+        session.close()
+    return fixed
 
 
 def warmup_running() -> bool:
@@ -81,6 +149,13 @@ class EmbeddingService:
         self._load_failed_at: float | None = None
         # Why the last embed failed, for the Models screen — None = fine.
         self.last_error: str | None = None
+        # text -> vector, bounded and FIFO. See embed_text for why.
+        self._embed_cache: dict[str, np.ndarray] = {}
+
+    def clear_embed_cache(self) -> None:
+        """Drop cached vectors — used when the embedding backend changes,
+        since the same text then maps to a different vector."""
+        self._embed_cache.clear()
 
     def reset_failure_state(self) -> None:
         """Forget a cached load/embed failure so the very next attempt
@@ -108,7 +183,27 @@ class EmbeddingService:
         return self._st_model is not None
 
     def embed_text(self, text: str) -> np.ndarray | None:
-        """Vector for one text, or None if the backend is unavailable."""
+        """Vector for one text, or None if the backend is unavailable.
+
+        Recent results are cached by exact text. Saving a note embeds it twice
+        within milliseconds — once to store the vector, once by the
+        near-duplicate check that runs straight afterwards — and embedding is
+        the slowest part of a save. Keying on the exact string means a cached
+        vector can never be stale: different text is simply a different key.
+        """
+        cached = self._embed_cache.get(text)
+        if cached is not None:
+            return cached
+        vector = self._embed_uncached(text)
+        if vector is not None:
+            # Small and FIFO: this exists to collapse duplicate work inside one
+            # request, not to be a general-purpose store.
+            if len(self._embed_cache) >= _EMBED_CACHE_MAX:
+                self._embed_cache.pop(next(iter(self._embed_cache)))
+            self._embed_cache[text] = vector
+        return vector
+
+    def _embed_uncached(self, text: str) -> np.ndarray | None:
         if self._models.embedding_backend() == "ollama":
             try:
                 vector = self._ollama.embed(self._models.embedding_model(), text)
@@ -161,7 +256,13 @@ class EmbeddingService:
     def store_for_entry(self, session: Session, entry: Entry) -> bool:
         """Save an entry's vector. Returns False on failure — which only
         means no semantic search for this entry; it never blocks the
-        entry save itself (plan Phase 2)."""
+        entry save itself (plan Phase 2).
+
+        Private notes are never embedded. A vector derived from the text
+        encodes what the note is about, so storing one beside the ciphertext
+        would leak exactly what the encryption is there to hide."""
+        if getattr(entry, "is_private", False):
+            return False
         vector = self.embed_text(entry.content)
         if vector is None:
             return False

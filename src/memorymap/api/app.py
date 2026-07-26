@@ -15,8 +15,12 @@ from memorymap import __version__
 from memorymap.ai import embeddings
 from memorymap.api import (
     routes_auth,
+    routes_categories,
     routes_chat,
     routes_conversations,
+    routes_documents,
+    routes_duplicates,
+    routes_drafts,
     routes_entries,
     routes_files,
     routes_graph,
@@ -70,7 +74,9 @@ def create_app() -> FastAPI:
     init_app_state()
     _purge_expired_bin_entries()
     _backup_if_due()
-    embeddings.start_warmup(deps.get_embeddings())
+    # The session factory is handed in so embeddings never has to import the
+    # dependency container that imports it.
+    embeddings.start_warmup(deps.get_embeddings(), deps.get_db().session)
 
     app = FastAPI(title="MemoryMap AI", version=__version__)
 
@@ -84,7 +90,11 @@ def create_app() -> FastAPI:
     app.include_router(routes_settings.router, dependencies=locked)
     app.include_router(routes_files.router, dependencies=locked)
     app.include_router(routes_tags.router, dependencies=locked)
+    app.include_router(routes_categories.router, dependencies=locked)
     app.include_router(routes_conversations.router, dependencies=locked)
+    app.include_router(routes_documents.router, dependencies=locked)
+    app.include_router(routes_duplicates.router, dependencies=locked)
+    app.include_router(routes_drafts.router, dependencies=locked)
     app.include_router(routes_insights.router, dependencies=locked)
     app.include_router(routes_graph.router, dependencies=locked)
     app.include_router(routes_reminders.router, dependencies=locked)

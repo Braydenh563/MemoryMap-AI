@@ -56,6 +56,22 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class Vault(Base):
+    """The wrapped data key for private notes (one row).
+
+    Only the *wrapped* key is stored. Unwrapping needs the password, so this
+    row on its own reveals nothing — which is the whole point of keeping it
+    next to the notes it protects.
+    """
+
+    __tablename__ = "vault"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    kdf_salt: Mapped[bytes] = mapped_column(LargeBinary(32))
+    wrapped_dek: Mapped[bytes] = mapped_column(LargeBinary(128))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 class Category(Base):
     __tablename__ = "categories"
 
@@ -97,6 +113,9 @@ class Entry(Base):
     )
     # Soft delete = recycle bin (Phase 4 adds restore/auto-clear).
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Private notes have their content encrypted at rest. Scalar default so
+    # the additive auto-migrator backfills every existing row as not-private.
+    is_private: Mapped[bool] = mapped_column(Boolean, default=False)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
 
 
@@ -175,6 +194,24 @@ class Reminder(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class Document(Base):
+    """A long-form document (the editor tab).
+
+    Kept separate from Entry on purpose. A note is a captured thought — short,
+    auto-categorised, embedded for semantic search, and surfaced by the AI. A
+    document is something you sit down and write. Sharing one table would mean
+    every half-written document turning up in search results and in the graph.
+    """
+
+    __tablename__ = "documents"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(200), default="Untitled")
+    content: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 class AuditLog(Base):
     """Every meaningful action, from Phase 1 onward (plan §4)."""
 
@@ -198,10 +235,26 @@ class DatabaseManager:
             f"sqlite:///{db_path}", connect_args={"check_same_thread": False}
         )
 
-        # SQLite ignores foreign keys unless told otherwise, per connection.
+        # Per-connection SQLite settings. All of these are per-connection
+        # rather than per-database, so they have to be set on every connect.
         @event.listens_for(self.engine, "connect")
-        def _enable_foreign_keys(dbapi_connection, _record):  # noqa: ANN001
+        def _configure_connection(dbapi_connection, _record):  # noqa: ANN001
+            # SQLite ignores foreign keys unless told otherwise.
             dbapi_connection.execute("PRAGMA foreign_keys=ON")
+            # WAL lets readers carry on while a write is in progress. Without
+            # it, saving a note blocks every concurrent read — and FastAPI
+            # serves from a threadpool, so a background job (the janitor, an
+            # embedding write) overlapping a page load is routine rather than
+            # rare. WAL persists on the file, but setting it per connection is
+            # harmless and covers a database created by an older version.
+            dbapi_connection.execute("PRAGMA journal_mode=WAL")
+            # When two writers do collide, wait rather than failing instantly.
+            # The default is 0, which turns a millisecond of contention into a
+            # "database is locked" error the user sees as a broken save.
+            dbapi_connection.execute("PRAGMA busy_timeout=5000")
+            # NORMAL is the recommended durability level under WAL: still
+            # crash-safe, without an fsync on every single commit.
+            dbapi_connection.execute("PRAGMA synchronous=NORMAL")
 
         Base.metadata.create_all(self.engine)  # creates missing tables only
         self._add_missing_columns()

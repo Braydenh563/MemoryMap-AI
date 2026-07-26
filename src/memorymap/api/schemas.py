@@ -63,6 +63,8 @@ class EntryOut(BaseModel):
     parent_id: int | None = None
     pinned: bool = False
     user_filed: bool = False
+    # Private notes are encrypted at rest and kept out of search and the AI.
+    is_private: bool = False
     created_at: datetime
     deleted_at: datetime | None = None  # set only in the recycle-bin view
     links: list[LinkOut] = Field(default_factory=list)

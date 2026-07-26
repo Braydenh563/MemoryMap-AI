@@ -244,6 +244,15 @@ header#top-bar h1 { margin: 0; font-size: 1.1rem; letter-spacing: 0.01em; }
 }
 h2.collapsible-title { cursor: pointer; user-select: none; }
 h2.collapsible-title:hover .collapse-chevron { color: var(--accent); }
+/* It's focusable now, so it needs a visible focus ring. */
+h2.collapsible-title:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .collapse-chevron { transition: none; }
+}
 
 #sidebar ul { list-style: none; margin: 0; padding: 0; }
 #sidebar li {
@@ -270,25 +279,6 @@ h2.collapsible-title:hover .collapse-chevron { color: var(--accent); }
     overflow-y: auto;
   }
 }
-
-/* --- collapsible section cards (Notes tab) ------------------------------- */
-/* A heading marked .collapsible folds its card down to just the title row.
-   The card's header row is always the first child, so hiding every later
-   child leaves the title (and its chevron) visible. */
-.card h2.collapsible {
-  cursor: pointer;
-  user-select: none;
-}
-.card h2.collapsible::before {
-  content: "▾";
-  display: inline-block;
-  margin-right: 0.4rem;
-  font-size: 0.8em;
-  color: var(--muted);
-  transition: transform 0.15s ease;
-}
-.card.collapsed h2.collapsible::before { transform: rotate(-90deg); }
-.card.collapsed > :not(:first-child) { display: none; }
 
 /* --- forms --------------------------------------------------------------- */
 textarea, input[type="text"], input[type="password"], input[type="number"], select {
@@ -759,7 +749,20 @@ li.link-source { outline: 2px solid var(--accent); }
 @media (max-width: 640px) {
   .modal-body { grid-template-columns: 1fr; }
 }
-.modal-nav { display: flex; flex-direction: column; gap: 0.3rem; }
+.modal-nav { display: flex; flex-direction: column; gap: 0.15rem; }
+.modal-nav > div { display: flex; flex-direction: column; gap: 0.15rem; }
+/* Group labels: quiet enough to scan past, clear enough to orient by. */
+.nav-group-label {
+  margin: 0.7rem 0 0.15rem;
+  padding: 0 0.7rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  opacity: 0.75;
+}
+.nav-group-label:first-child { margin-top: 0; }
 .modal-nav button {
   background: transparent;
   border: none;
@@ -2188,8 +2191,6 @@ html { font-size: 16px; }
 #entry-list .entry-date { font-size: 0.76rem; }
 /* A quieter "check this" flag — informative, not alarming. */
 .chip.review { font-weight: 500; }
-/* Collapsible headings: room between the chevron and the words. */
-.card h2.collapsible::before { margin-right: 0.5rem; opacity: 0.7; }
 #sidebar { align-self: flex-start; }
 #sidebar h2 { font-size: 0.95rem; }
 #sidebar #most-used li { font-size: 0.85rem; line-height: 1.35; }
@@ -2786,3 +2787,345 @@ button { border-radius: calc(var(--radius) * 0.7); }
   white-space: nowrap;
   border: 0;
 }
+
+/* --- category rename / delete ------------------------------------------------ */
+/* The controls stay out of the way until you reach for them — the sidebar is a
+   filter first, and a row of icons on every category would be noise. They
+   appear on hover and, importantly, on keyboard focus. */
+#category-list li { position: relative; }
+.category-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.category-actions {
+  display: flex;
+  gap: 0.15rem;
+  margin-left: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.category-actions button {
+  padding: 0 0.3rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+#category-list li:hover .category-actions,
+#category-list li:focus-within .category-actions { opacity: 1; }
+/* Touch has no hover, so the controls are simply always there. */
+@media (hover: none) {
+  .category-actions { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .category-actions { transition: none; }
+}
+
+/* --- attaching notes to a chat message --------------------------------------- */
+.note-picker { position: relative; flex: 0 0 auto; }
+#attach-note.has-attachments {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.note-picker-panel {
+  position: absolute;
+  bottom: calc(100% + 0.5rem);
+  left: 0;
+  z-index: 45;
+  width: min(30rem, 80vw);
+  max-height: 24rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.7rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+  background: var(--modal-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(var(--glass-blur));
+}
+.note-picker-panel.hidden { display: none; }
+.note-picker-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  /* Scrolls itself so the panel can't grow past the composer. */
+  flex: 1 1 auto;
+  min-height: 4rem;
+}
+.note-picker-list li { border-radius: 6px; }
+.note-picker-list li:hover { background: var(--accent-soft); }
+.note-picker-list label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.4rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.note-picker-list input[type="checkbox"] { width: auto; margin: 0; flex: 0 0 auto; }
+.note-picker-text { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-picker-empty { padding: 0.6rem 0.4rem; font-size: 0.85rem; }
+.note-picker-foot { gap: 0.5rem; font-size: 0.8rem; }
+
+.chat-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0 0 0.4rem;
+}
+.chat-attachments.hidden { display: none; }
+.attachment-chip { display: inline-flex; align-items: center; gap: 0.35rem; max-width: 22rem; }
+.attachment-chip > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attachment-remove {
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  font-weight: 700;
+  line-height: 1;
+}
+.attachment-remove:hover { color: var(--danger, #e2534b); }
+
+/* --- the writing room -------------------------------------------------------- */
+/* Thoughts on the left, the draft on the right, so you can see the raw material
+   and what the AI made of it at the same time. */
+.draft-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+.draft-column { display: flex; flex-direction: column; gap: 0.4rem; min-width: 0; }
+.draft-column textarea { resize: vertical; }
+.draft-controls { gap: 0.4rem; flex-wrap: wrap; }
+.draft-controls input { flex: 1 1 10rem; min-width: 0; }
+#draft-text { font-family: var(--mono, ui-monospace, monospace); font-size: 0.9rem; line-height: 1.5; }
+#draft-count { font-size: 0.78rem; }
+
+/* One column on narrow screens — side-by-side textareas become unusable
+   well before the phone breakpoint. */
+@media (max-width: 900px) {
+  .draft-columns { grid-template-columns: 1fr; }
+}
+
+/* --- documents tab ----------------------------------------------------------- */
+.doc-layout {
+  display: grid;
+  grid-template-columns: minmax(14rem, 18rem) 1fr;
+  gap: 1rem;
+  align-items: start;
+  padding: 0 2rem 1.5rem;
+}
+.doc-sidebar { position: sticky; top: 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
+.doc-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.2rem; max-height: 60vh; overflow-y: auto; }
+.doc-item-button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+.doc-item-button:hover { background: var(--accent-soft); }
+.doc-item.active .doc-item-button { background: var(--accent-soft); border-color: var(--accent); }
+.doc-item-title { font-weight: 600; font-size: 0.9rem; }
+.doc-item-meta { font-size: 0.75rem; }
+
+.doc-main { display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; }
+.doc-toolbar { gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+.doc-title-input {
+  flex: 1 1 12rem;
+  min-width: 0;
+  font-size: 1.15rem;
+  font-weight: 650;
+  border: 1px solid transparent;
+  background: none;
+}
+.doc-title-input:focus { border-color: var(--glass-border); background: var(--card); }
+.doc-actions { gap: 0.3rem; flex-wrap: wrap; align-items: center; }
+.doc-actions .muted { font-size: 0.78rem; min-width: 4.5rem; text-align: right; }
+
+/* One pane by default; two side by side when the preview is on. */
+.doc-panes { display: grid; grid-template-columns: 1fr; gap: 0.75rem; min-height: 60vh; }
+.doc-panes.split { grid-template-columns: 1fr 1fr; }
+#doc-content {
+  min-height: 60vh;
+  resize: vertical;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+.doc-preview {
+  overflow-y: auto;
+  max-height: 75vh;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+.doc-preview.hidden { display: none; }
+.doc-hint { font-size: 0.78rem; }
+.doc-hint kbd {
+  padding: 0.05rem 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+.doc-ai-card { width: min(46rem, 92vw); display: flex; flex-direction: column; gap: 0.5rem; }
+
+@media (max-width: 900px) {
+  .doc-layout { grid-template-columns: 1fr; padding: 0 1rem 1.5rem; }
+  .doc-sidebar { position: static; }
+  .doc-panes.split { grid-template-columns: 1fr; }
+}
+
+/* PDF export prints the rendered preview and nothing else — the browser's own
+   "Save as PDF" then produces the file, which beats bundling a PDF engine. */
+@media print {
+  body.printing-doc > *:not(#tab-documents),
+  body.printing-doc #tab-bar,
+  body.printing-doc .doc-sidebar,
+  body.printing-doc .doc-toolbar,
+  body.printing-doc .doc-hint,
+  body.printing-doc #doc-content,
+  body.printing-doc #doc-status,
+  body.printing-doc .scroll-top,
+  body.printing-doc #bg-art { display: none !important; }
+  body.printing-doc .doc-layout { display: block; padding: 0; }
+  body.printing-doc .doc-main { border: 0; box-shadow: none; background: none; padding: 0; }
+  body.printing-doc .doc-preview {
+    display: block !important;
+    max-height: none;
+    overflow: visible;
+    border: 0;
+    background: none;
+    padding: 0;
+    color: #000;
+  }
+}
+
+/* --- editing a question in place --------------------------------------------- */
+.msg-edit { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.35rem; }
+.msg-edit textarea {
+  width: 100%;
+  resize: vertical;
+  font: inherit;
+  line-height: 1.5;
+}
+.msg-edit-hint { font-size: 0.76rem; margin: 0; }
+.msg-edit-actions { gap: 0.4rem; }
+.msg-body.hidden, .msg-actions.hidden { display: none; }
+
+/* A control that needs the AI, while the AI isn't running. Reads as
+   unavailable rather than broken — the cursor and tooltip explain why. */
+button.ai-unavailable {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* --- search match highlighting ------------------------------------------------ */
+/* Shows why a note matched. Uses the accent tint rather than the browser's
+   default yellow, which fights every theme and is unreadable in dark mode. */
+.entry-content mark {
+  background: var(--accent-soft);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 0.12em;
+  font-weight: 600;
+}
+
+/* --- filter help ------------------------------------------------------------- */
+.search-help {
+  margin: 0 0 0.6rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--chip-bg, var(--accent-soft));
+  font-size: 0.85rem;
+}
+.search-help.hidden { display: none; }
+.search-help p { margin: 0 0 0.4rem; }
+.search-help-list { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.15rem; }
+.search-help-list code {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 0.3em;
+}
+
+/* --- saved filters ----------------------------------------------------------- */
+.saved-searches { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0 0 0.6rem; }
+.saved-searches.hidden { display: none; }
+.chip.saved-search { display: inline-flex; align-items: center; gap: 0.3rem; padding-right: 0.35rem; }
+.saved-search-apply,
+.saved-search-remove {
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+}
+.saved-search-apply { font-weight: 600; }
+.saved-search-remove { font-weight: 700; opacity: 0.6; }
+.saved-search-remove:hover { opacity: 1; color: var(--danger, #e2534b); }
+.saved-search-apply:focus-visible,
+.saved-search-remove:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* --- rebindable shortcuts ----------------------------------------------------- */
+.shortcut-list li { display: flex; align-items: center; gap: 0.5rem; }
+.shortcut-list li > span { flex: 1 1 auto; }
+.shortcut-list kbd.capturing {
+  background: var(--accent);
+  color: #fff;
+  animation: pulse-capture 1s ease-in-out infinite;
+}
+@keyframes pulse-capture { 50% { opacity: 0.55; } }
+@media (prefers-reduced-motion: reduce) {
+  .shortcut-list kbd.capturing { animation: none; }
+}
+
+/* --- [[wiki links]] ----------------------------------------------------------- */
+.wiki-link {
+  border: 0;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  padding: 0 0.3em;
+  border-radius: 4px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.wiki-link:hover { background: var(--accent); color: #fff; }
+.wiki-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* --- [[ autocomplete ---------------------------------------------------------- */
+.wiki-suggest {
+  list-style: none;
+  margin: 0.2rem 0 0;
+  padding: 0.25rem;
+  max-height: 14rem;
+  overflow-y: auto;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--modal-bg, var(--card));
+  box-shadow: var(--glass-shadow);
+}
+.wiki-suggest.hidden { display: none; }
+.wiki-suggest li {
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.86rem;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wiki-suggest li.active,
+.wiki-suggest li:hover { background: var(--accent-soft); }

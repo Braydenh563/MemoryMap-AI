@@ -44,6 +44,8 @@
         aria-selected="false" aria-controls="tab-chat" tabindex="-1">Chat</button>
       <button role="tab" id="tab-btn-graph" data-tab="graph"
         aria-selected="false" aria-controls="tab-graph" tabindex="-1">Graph</button>
+      <button role="tab" id="tab-btn-documents" data-tab="documents"
+        aria-selected="false" aria-controls="tab-documents" tabindex="-1">Documents</button>
       <button role="tab" id="tab-btn-reminders" data-tab="reminders"
         aria-selected="false" aria-controls="tab-reminders" tabindex="-1">Reminders</button>
     </nav>
@@ -156,7 +158,11 @@
             </select>
           </div>
           <textarea id="entry-content" rows="3"
-            placeholder="Type anything — a joke, a shopping list, a race result…"></textarea>
+            placeholder="Type anything — a joke, a shopping list, a race result…
+Link to another note with [[its first few words]]."></textarea>
+          <!-- Autocomplete for [[wiki links]], anchored under the note box. -->
+          <ul id="wiki-suggest" class="wiki-suggest hidden" role="listbox"
+            aria-label="Notes you can link to"></ul>
           <div class="char-count muted" id="entry-count" aria-live="polite">0 characters</div>
           <input id="entry-tags" type="text" list="tag-suggestions"
             placeholder="Optional tags, comma separated (e.g. joke, work)">
@@ -170,6 +176,54 @@
             <button id="mic-note" class="ghost" title="Dictate a note (local Whisper)" aria-label="Dictate a note">🎙</button>
           </div>
           <p><span id="save-status" class="status" role="status"></span></p>
+        </section>
+
+        <!-- Writing room: loose thoughts in, a real note out, revised until
+             it's right. The draft lives in the browser until you save it. -->
+        <section class="card" id="writing-room">
+          <div class="row space-between">
+            <h2>Write with the AI</h2>
+            <button id="draft-help" class="ghost small" type="button"
+              title="What is this?">?</button>
+          </div>
+          <p class="muted" id="draft-intro">
+            Type whatever's in your head — half sentences are fine. The AI turns
+            it into a note. Edit the draft, add more thoughts, and it folds them
+            in without undoing your changes.
+          </p>
+          <div class="draft-columns">
+            <div class="draft-column">
+              <label for="draft-thoughts" class="muted">Your thoughts</label>
+              <textarea id="draft-thoughts" rows="7"
+                placeholder="Just get it down — order doesn't matter…"></textarea>
+              <div class="row draft-controls">
+                <button id="draft-compose">✨ Draft it</button>
+                <input id="draft-instruction" type="text" maxlength="300"
+                  placeholder="Optional: “make it shorter”, “add a summary”…"
+                  aria-label="An instruction for this revision">
+              </div>
+              <p id="draft-status" class="status" role="status"></p>
+            </div>
+            <div class="draft-column">
+              <div class="row space-between">
+                <label for="draft-text" class="muted">The draft</label>
+                <span id="draft-count" class="muted"></span>
+              </div>
+              <textarea id="draft-text" rows="14"
+                placeholder="Your draft will appear here. You can edit it directly."></textarea>
+              <div class="row draft-controls">
+                <button id="draft-save">💾 Save as note</button>
+                <input id="draft-tags" type="text" maxlength="200"
+                  placeholder="Optional tags, comma separated"
+                  aria-label="Tags for the saved note">
+                <button id="draft-discard" class="ghost small" type="button">Discard</button>
+              </div>
+            </div>
+          </div>
+          <details id="draft-thinking" class="hidden">
+            <summary class="muted">What the model was thinking</summary>
+            <pre id="draft-thinking-text" class="thinking-text"></pre>
+          </details>
         </section>
 
         <!-- Ask: conversational answer and raw records side by side -->
@@ -217,10 +271,20 @@
         <!-- Browse: everything you've saved -->
         <section class="card" id="browse">
           <div class="row space-between browse-header">
-            <h2 id="entries-heading">All entries</h2>
+            <!-- The label lives in its own span: the heading also carries the
+                 collapse chevron, and writing textContent on the h2 would
+                 delete it on every re-render. -->
+            <h2 id="entries-heading"><span id="entries-heading-label">All entries</span></h2>
             <div class="row browse-tools">
-              <input id="note-search" type="search" placeholder="🔎 Filter notes…"
-                aria-label="Filter notes by text or tag">
+              <input id="note-search" type="search"
+                placeholder="🔎 Filter — try tag:work or &quot;exact phrase&quot;"
+                aria-label="Filter notes. Supports tag:, cat:, is:pinned, -exclude and quoted phrases"
+                aria-describedby="search-help-hint">
+              <button id="save-search" class="ghost small hidden" type="button"
+                title="Save this filter so you can come back to it">☆ Save filter</button>
+              <button id="search-help" class="ghost small" type="button"
+                aria-expanded="false" aria-controls="search-help-hint"
+                title="What can I type here?">?</button>
               <select id="note-sort" aria-label="Sort notes" title="Sort notes">
                 <option value="newest">Newest first</option>
                 <option value="oldest">Oldest first</option>
@@ -239,6 +303,21 @@
             <button id="batch-tag" class="ghost small">＋ Tag</button>
             <button id="batch-delete" class="ghost small">🗑 Delete</button>
             <button id="batch-cancel" class="ghost small">Done</button>
+          </div>
+          <!-- Filters you've named and kept. -->
+          <div id="saved-searches" class="saved-searches hidden"
+            role="group" aria-label="Saved filters"></div>
+          <!-- Search operators are useless if nobody knows they exist. -->
+          <div id="search-help-hint" class="search-help hidden">
+            <p class="muted">The filter understands a few shortcuts — all of these work without any AI:</p>
+            <ul class="search-help-list">
+              <li><code>bread proving</code> — both words, in any order</li>
+              <li><code>"proving times"</code> — that exact phrase</li>
+              <li><code>tag:work</code> — only notes carrying that tag</li>
+              <li><code>cat:recipes</code> — only that category</li>
+              <li><code>is:pinned</code> — also <code>is:private</code>, <code>is:linked</code>, <code>is:untagged</code></li>
+              <li><code>-picnic</code> — notes that do <em>not</em> mention it</li>
+            </ul>
           </div>
           <ul id="entry-list" class="entry-list"></ul>
           <div id="empty-message" class="empty-state hidden">
@@ -308,7 +387,29 @@
           <div id="chat-messages"></div>
           <div id="chat-suggest" class="recent hidden"></div>
           <div id="chat-skills" class="recent hidden"></div>
+          <!-- Notes clipped to the next message, as removable chips. -->
+          <div id="chat-attachments" class="chat-attachments hidden"
+            role="group" aria-label="Notes attached to your next message"></div>
           <div class="row chat-composer">
+            <div class="note-picker">
+              <button id="attach-note" class="ghost" type="button"
+                aria-haspopup="dialog" aria-expanded="false"
+                title="Attach notes as references for this question"
+                aria-label="Attach notes">📎</button>
+              <div id="note-picker-panel" class="note-picker-panel hidden"
+                role="dialog" aria-label="Choose notes to reference">
+                <input id="note-picker-search" type="search"
+                  placeholder="🔎 Search your notes…" aria-label="Search notes to attach">
+                <ul id="note-picker-list" class="note-picker-list"></ul>
+                <div class="row space-between note-picker-foot">
+                  <span id="note-picker-count" class="muted"></span>
+                  <span class="row">
+                    <button id="note-picker-clear" class="ghost small" type="button">Clear</button>
+                    <button id="note-picker-done" class="small" type="button">Done</button>
+                  </span>
+                </div>
+              </div>
+            </div>
             <input id="chat-input" type="text" placeholder="Ask your notebook anything…">
             <button id="mic-chat" class="ghost" title="Dictate your question (local Whisper)" aria-label="Dictate your question">🎙</button>
             <button id="chat-send">Send</button>
@@ -423,6 +524,82 @@
     </section>
   </div>
 
+  <!-- ======================= DOCUMENTS TAB ======================= -->
+  <!-- Long-form writing. Documents are deliberately separate from notes: a
+       note is a captured thought, a document is something you sit down and
+       write, and mixing them would put every half-finished draft into search
+       results and the graph. -->
+  <div class="tab-page hidden" id="tab-documents" role="tabpanel" aria-labelledby="tab-btn-documents" tabindex="-1">
+    <div class="doc-layout">
+      <aside class="card doc-sidebar">
+        <div class="row space-between">
+          <h2>Documents</h2>
+          <button id="doc-new" class="small" type="button" title="Start a new document">＋ New</button>
+        </div>
+        <input id="doc-filter" type="search" placeholder="🔎 Filter documents…"
+          aria-label="Filter documents by title">
+        <ul id="doc-list" class="doc-list"></ul>
+        <p id="doc-empty" class="muted hidden">No documents yet. Press ＋ New to start one.</p>
+      </aside>
+
+      <section class="card doc-main">
+        <div class="row space-between doc-toolbar">
+          <input id="doc-title" type="text" maxlength="200" placeholder="Untitled"
+            aria-label="Document title" class="doc-title-input">
+          <span class="row doc-actions">
+            <span id="doc-saved" class="muted" role="status"></span>
+            <button id="doc-preview-toggle" class="ghost small" type="button"
+              aria-pressed="false" title="Show a rendered preview beside the editor">👁 Preview</button>
+            <button id="doc-ai" class="ghost small" type="button"
+              title="Ask the AI to rewrite this document, or the text you've selected">✨ AI edit</button>
+            <button id="doc-export-md" class="ghost small" type="button"
+              title="Download as a .md file">⬇ .md</button>
+            <button id="doc-export-pdf" class="ghost small" type="button"
+              title="Print or save as PDF">⬇ PDF</button>
+            <button id="doc-delete" class="ghost small" type="button"
+              title="Delete this document">🗑</button>
+          </span>
+        </div>
+        <div class="doc-panes" id="doc-panes">
+          <textarea id="doc-content" spellcheck="true"
+            placeholder="# Start writing&#10;&#10;Markdown works here — headings, **bold**, lists, tables, links."
+            aria-label="Document content"></textarea>
+          <div id="doc-preview" class="doc-preview markdown-body hidden" aria-live="off"></div>
+        </div>
+        <p id="doc-status" class="status" role="status"></p>
+        <p class="muted doc-hint">
+          Saves automatically. <kbd>Ctrl</kbd>+<kbd>S</kbd> saves now,
+          <kbd>Ctrl</kbd>+<kbd>B</kbd>/<kbd>I</kbd> wrap the selection in bold or italics.
+        </p>
+      </section>
+    </div>
+
+    <!-- AI edit: shown as a proposal, never written straight into the file. -->
+    <div id="doc-ai-panel" class="modal-overlay hidden" role="dialog"
+      aria-modal="true" aria-label="AI edit">
+      <div class="card modal-card doc-ai-card">
+        <div class="row space-between">
+          <h2>AI edit</h2>
+          <button id="doc-ai-close" class="ghost small" aria-label="Close">✕</button>
+        </div>
+        <p class="muted" id="doc-ai-scope"></p>
+        <input id="doc-ai-instruction" type="text" maxlength="500"
+          placeholder="e.g. “tighten this”, “make it more formal”, “add a conclusion”"
+          aria-label="What should the AI do?">
+        <div class="row">
+          <button id="doc-ai-run">✨ Suggest an edit</button>
+          <span id="doc-ai-status" class="status" role="status"></span>
+        </div>
+        <label for="doc-ai-result" class="muted">The AI's version — edit it before accepting if you like</label>
+        <textarea id="doc-ai-result" rows="12" aria-label="The AI's suggested text"></textarea>
+        <div class="row">
+          <button id="doc-ai-accept">Replace with this</button>
+          <button id="doc-ai-cancel" class="ghost">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ======================= REMINDERS TAB (Wave D) ======================= -->
   <div class="tab-page hidden" id="tab-reminders" role="tabpanel" aria-labelledby="tab-btn-reminders" tabindex="-1">
     <!-- Compose: the two ways to add a reminder, kept apart from the list -->
@@ -497,18 +674,36 @@
         <button id="settings-close" class="ghost small">Close</button>
       </div>
       <div class="modal-body">
-        <nav class="modal-nav" id="settings-nav">
-          <button data-section="models" class="active">Models</button>
-          <button data-section="personas">Personas</button>
-          <button data-section="skills">Skills</button>
-          <button data-section="tools">AI Tools</button>
-          <button data-section="appearance">Appearance</button>
-          <button data-section="preferences">Preferences</button>
-          <button data-section="tasks">Tasks</button>
-          <button data-section="data">Data</button>
-          <button data-section="logs">Logs</button>
-          <button data-section="help">Help</button>
-          <button data-section="about">About</button>
+        <!-- Grouped rather than a flat list of eleven. The old nav gave no
+             clue which screen held what, so finding anything meant reading
+             every label. The groups answer "what am I changing?" first. -->
+        <nav class="modal-nav" id="settings-nav" aria-label="Settings sections">
+          <p class="nav-group-label" id="nav-group-ai">The AI</p>
+          <div role="group" aria-labelledby="nav-group-ai">
+            <button data-section="models" class="active">Models</button>
+            <button data-section="personas">Personas</button>
+            <button data-section="skills">Skills</button>
+            <button data-section="tools">Tools it can use</button>
+          </div>
+
+          <p class="nav-group-label" id="nav-group-you">Your notebook</p>
+          <div role="group" aria-labelledby="nav-group-you">
+            <button data-section="appearance">Appearance</button>
+            <button data-section="preferences">Preferences</button>
+            <button data-section="data">Import &amp; export</button>
+          </div>
+
+          <p class="nav-group-label" id="nav-group-system">System</p>
+          <div role="group" aria-labelledby="nav-group-system">
+            <button data-section="tasks">Background tasks</button>
+            <button data-section="logs">Logs</button>
+          </div>
+
+          <p class="nav-group-label" id="nav-group-about">Getting help</p>
+          <div role="group" aria-labelledby="nav-group-about">
+            <button data-section="help">Help</button>
+            <button data-section="about">About</button>
+          </div>
         </nav>
         <div class="modal-content">
 
@@ -791,11 +986,17 @@
 
               <div class="setting-row" id="bg-style-row">
                 <div class="setting-label"><span>Style</span></div>
+                <!-- These values MUST match BG_ART_BUILDERS in app.js. They
+                     didn't: the list offered "constellations", "blobs" and
+                     "particles" while the code implements "constellation",
+                     "bubbles", "waves" and "mesh", so every option except
+                     Aurora failed the name check and silently fell back. -->
                 <select id="bg-art-style" class="small-select setting-control">
                   <option value="aurora">Aurora — flowing ribbons</option>
-                  <option value="constellations">Constellations — linked stars</option>
-                  <option value="blobs">Blobs — drifting shapes</option>
-                  <option value="particles">Particles — floating dust</option>
+                  <option value="constellation">Constellation — linked stars</option>
+                  <option value="waves">Waves — rolling lines</option>
+                  <option value="bubbles">Floating orbs — drifting shapes</option>
+                  <option value="mesh">Mesh gradient — soft colour wash</option>
                 </select>
               </div>
 
@@ -1084,16 +1285,26 @@
         <h2>⌨ Keyboard shortcuts</h2>
         <button id="shortcuts-close" class="ghost small">Close</button>
       </div>
+      <p class="muted">Click <strong>Change</strong> and press the keys you want.</p>
+      <ul class="shortcut-list" id="shortcut-list"></ul>
+      <p id="shortcut-status" class="status" role="status"></p>
+      <div class="row">
+        <button id="shortcuts-reset" class="ghost small" type="button">↺ Reset to defaults</button>
+      </div>
+
+      <h3>Always available</h3>
+      <p class="muted">
+        These follow the conventions every app shares, so they aren't
+        rebindable — being unable to press Escape in the dialog you rebound it
+        in is not a state worth allowing.
+      </p>
       <ul class="shortcut-list">
-        <li><kbd>Ctrl</kbd>/<kbd>⌘</kbd> <kbd>K</kbd><span>Open the command palette</span></li>
-        <li><kbd>/</kbd><span>Jump to search (or the chat box on the Chat tab)</span></li>
-        <li><kbd>?</kbd><span>Show this shortcuts list</span></li>
         <li><kbd>Esc</kbd><span>Close any dialog, menu, or overlay</span></li>
         <li><kbd>←</kbd> <kbd>→</kbd><span>Move between tabs (when a tab is focused)</span></li>
         <li><kbd>Enter</kbd><span>Send a chat message, or run the selected command</span></li>
         <li><kbd>Tab</kbd><span>Move focus; cycles inside an open dialog</span></li>
       </ul>
-      <p class="muted">Tip: most actions also live in the command palette (<kbd>Ctrl</kbd>/<kbd>⌘</kbd> <kbd>K</kbd>).</p>
+      <p class="muted">Tip: most actions also live in the command palette.</p>
     </div>
   </div>
 

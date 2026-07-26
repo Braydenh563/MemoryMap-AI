@@ -291,7 +291,8 @@ class OllamaClient:
             if response.status_code == 400 and "tool" in response.text.lower():
                 raise ToolsUnsupportedError(f"'{model}' can't use tools")
             response.raise_for_status()
-            message = response.json()["message"]
+            payload = response.json()
+            message = payload["message"]
             content, inline_thinking = split_thinking(message.get("content") or "")
             raw_calls = message.get("tool_calls") or []
             calls = []
@@ -327,6 +328,16 @@ class OllamaClient:
                 "thinking": message.get("thinking") or inline_thinking,
                 "tool_calls": calls,
                 "raw_tool_calls": raw_calls,
+                # Same shape chat_stream reports, so the message metadata line
+                # can be filled in from an agent turn too. Without this, using
+                # tools (the default) silently dropped the token counts.
+                "stats": {
+                    "model": payload.get("model") or model,
+                    "prompt_tokens": payload.get("prompt_eval_count"),
+                    "output_tokens": payload.get("eval_count"),
+                    "total_ms": _ns_to_ms(payload.get("total_duration")),
+                    "eval_ms": _ns_to_ms(payload.get("eval_duration")),
+                },
             }
         except ToolsUnsupportedError:
             raise

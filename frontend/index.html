@@ -198,6 +198,8 @@ Link to another note with [[its first few words]]."></textarea>
                 placeholder="Just get it down — order doesn't matter…"></textarea>
               <div class="row draft-controls">
                 <button id="draft-compose">✨ Draft it</button>
+                <button id="draft-cancel" class="ghost hidden" type="button"
+                  title="Stop the AI — nothing you've written is changed">■ Stop</button>
                 <button id="draft-undo" class="ghost" type="button" disabled
                   title="Nothing to undo yet">↩ Undo</button>
                 <input id="draft-instruction" type="text" maxlength="300"
@@ -562,6 +564,28 @@ Link to another note with [[its first few words]]."></textarea>
               title="Delete this document">🗑</button>
           </span>
         </div>
+        <!-- Formatting without remembering the syntax. Everything here is
+             plain markdown, so the file stays portable. -->
+        <div class="doc-toolbar" id="doc-toolbar" role="toolbar" aria-label="Formatting">
+          <button type="button" data-md="h1" title="Heading 1">H1</button>
+          <button type="button" data-md="h2" title="Heading 2">H2</button>
+          <button type="button" data-md="h3" title="Heading 3">H3</button>
+          <span class="doc-toolbar-sep" aria-hidden="true"></span>
+          <button type="button" data-md="bold" title="Bold (Ctrl+B)"><strong>B</strong></button>
+          <button type="button" data-md="italic" title="Italic (Ctrl+I)"><em>I</em></button>
+          <button type="button" data-md="strike" title="Strikethrough"><s>S</s></button>
+          <button type="button" data-md="code" title="Inline code">&lt;/&gt;</button>
+          <span class="doc-toolbar-sep" aria-hidden="true"></span>
+          <button type="button" data-md="ul" title="Bulleted list">• List</button>
+          <button type="button" data-md="ol" title="Numbered list">1. List</button>
+          <button type="button" data-md="task" title="Task list">☑ Task</button>
+          <button type="button" data-md="quote" title="Quote">❝</button>
+          <span class="doc-toolbar-sep" aria-hidden="true"></span>
+          <button type="button" data-md="link" title="Link">🔗</button>
+          <button type="button" data-md="codeblock" title="Code block">▤</button>
+          <button type="button" data-md="table" title="Table">▦</button>
+          <button type="button" data-md="hr" title="Divider">—</button>
+        </div>
         <div class="doc-panes" id="doc-panes">
           <textarea id="doc-content" spellcheck="true"
             placeholder="# Start writing&#10;&#10;Markdown works here — headings, **bold**, lists, tables, links."
@@ -590,6 +614,8 @@ Link to another note with [[its first few words]]."></textarea>
           aria-label="What should the AI do?">
         <div class="row">
           <button id="doc-ai-run">✨ Suggest an edit</button>
+          <button id="doc-ai-cancel-run" class="ghost hidden" type="button"
+            title="Stop the AI — the document is untouched">■ Stop</button>
           <span id="doc-ai-status" class="status" role="status"></span>
         </div>
         <label for="doc-ai-result" class="muted">The AI's version — edit it before accepting if you like</label>

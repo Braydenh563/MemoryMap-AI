@@ -2710,15 +2710,86 @@ function toggleDocPreview() {
   renderDocPreview();
 }
 
-// Wrap the selection in markdown syntax (Ctrl+B / Ctrl+I).
-function wrapDocSelection(marker) {
+// Markdown formatting from a toolbar, so you don't have to remember the
+// syntax. Everything it inserts is plain markdown — the file stays portable
+// and the source stays readable, which is the point of using markdown at all.
+const MD_ACTIONS = {
+  h1: { line: "# " },
+  h2: { line: "## " },
+  h3: { line: "### " },
+  bold: { wrap: "**", placeholder: "bold text" },
+  italic: { wrap: "*", placeholder: "italic text" },
+  strike: { wrap: "~~", placeholder: "struck through" },
+  code: { wrap: "`", placeholder: "code" },
+  ul: { line: "- " },
+  ol: { line: "1. " },
+  task: { line: "- [ ] " },
+  quote: { line: "> " },
+  link: { custom: "link" },
+  codeblock: { block: "```\n", suffix: "\n```", placeholder: "your code" },
+  table: {
+    insert: "\n| Column | Column |\n| --- | --- |\n| | |\n",
+  },
+  hr: { insert: "\n---\n" },
+};
+
+function applyMarkdown(kind) {
+  const action = MD_ACTIONS[kind];
   const box = $("doc-content");
+  if (!action) return;
   const { selectionStart: start, selectionEnd: end, value } = box;
   const selected = value.slice(start, end);
+
+  if (action.wrap) {
+    wrapDocSelection(action.wrap, action.placeholder);
+    return;
+  }
+  if (action.line) {
+    // Prefix every selected line, or the current one when nothing is selected.
+    const lineStart = value.lastIndexOf("\n", start - 1) + 1;
+    const lineEnd = end + (value.slice(end).indexOf("\n") === -1 ? 0 : value.slice(end).indexOf("\n"));
+    const target = value.slice(lineStart, Math.max(lineEnd, end)) || "";
+    const prefixed = target
+      .split("\n")
+      .map((line) => (line.startsWith(action.line) ? line : action.line + line))
+      .join("\n");
+    box.value = value.slice(0, lineStart) + prefixed + value.slice(Math.max(lineEnd, end));
+    box.setSelectionRange(lineStart, lineStart + prefixed.length);
+  } else if (action.custom === "link") {
+    const label = selected || "link text";
+    const inserted = `[${label}](https://)`;
+    box.value = value.slice(0, start) + inserted + value.slice(end);
+    // Land the caret in the URL, which is the part you still have to type.
+    const at = start + label.length + 3;
+    box.setSelectionRange(at, at + 8);
+  } else if (action.block) {
+    const body = selected || action.placeholder;
+    const inserted = action.block + body + action.suffix;
+    box.value = value.slice(0, start) + inserted + value.slice(end);
+    const at = start + action.block.length;
+    box.setSelectionRange(at, at + body.length);
+  } else if (action.insert) {
+    box.value = value.slice(0, start) + action.insert + value.slice(end);
+    const at = start + action.insert.length;
+    box.setSelectionRange(at, at);
+  }
+  box.focus();
+  markDocDirty();
+  renderDocPreview();
+}
+
+// Wrap the selection in markdown syntax (Ctrl+B / Ctrl+I).
+function wrapDocSelection(marker, placeholder = "") {
+  const box = $("doc-content");
+  const { selectionStart: start, selectionEnd: end, value } = box;
+  // With nothing selected, insert the placeholder and select it, so the next
+  // keystroke replaces it — pressing Bold on an empty line should give you
+  // somewhere to type, not two markers and a caret between them.
+  const selected = value.slice(start, end) || placeholder;
   box.value = value.slice(0, start) + marker + selected + marker + value.slice(end);
   // Keep the same text selected, so the shortcut can be toggled or stacked.
   box.selectionStart = start + marker.length;
-  box.selectionEnd = end + marker.length;
+  box.selectionEnd = start + marker.length + selected.length;
   box.focus();
   markDocDirty();
   renderDocPreview();
@@ -2782,6 +2853,8 @@ async function deleteCurrentDocument() {
 // --- AI editing ---
 // Always a proposal. Writing straight into the document would be the most
 // destructive thing in the app.
+let docAiController = null;
+
 function openDocAiPanel() {
   if (!currentDoc) return;
   const box = $("doc-content");
@@ -2810,10 +2883,13 @@ async function runDocAiEdit() {
   }
   status.classList.remove("error");
   status.textContent = "✨ Thinking…";
-  $("doc-ai-run").disabled = true;
+  docAiController = new AbortController();
+  $("doc-ai-run").classList.add("hidden");
+  $("doc-ai-cancel-run").classList.remove("hidden");
   try {
     const body = await apiJson(`/documents/${currentDoc.id}/ai-edit`, {
       method: "POST",
+      signal: docAiController.signal,
       body: JSON.stringify({
         instruction,
         selection: $("doc-ai-panel").dataset.selection || "",
@@ -2823,10 +2899,16 @@ async function runDocAiEdit() {
     status.textContent = body.message || "Read it over, then accept or cancel.";
     if (body.message) status.classList.add("error");
   } catch (error) {
-    status.classList.add("error");
-    status.textContent = error.message;
+    if (error.name === "AbortError") {
+      status.textContent = "Stopped. The document is untouched.";
+    } else {
+      status.classList.add("error");
+      status.textContent = error.message;
+    }
   } finally {
-    $("doc-ai-run").disabled = false;
+    docAiController = null;
+    $("doc-ai-run").classList.remove("hidden");
+    $("doc-ai-cancel-run").classList.add("hidden");
   }
 }
 
@@ -2929,6 +3011,22 @@ function undoDraft() {
   announce("Restored the draft from before the last AI pass.");
 }
 
+// One-shot AI calls (drafting, document edits) had no way out: press the
+// button by mistake or watch it stall, and the only options were waiting or
+// reloading the page. Each now runs against an AbortController so it can be
+// cancelled, and shows that it's working while it does.
+let draftController = null;
+
+function setDraftBusy(busy) {
+  $("draft-compose").classList.toggle("hidden", busy);
+  $("draft-cancel").classList.toggle("hidden", !busy);
+  $("draft-undo").disabled = busy || draftUndoStack.length === 0;
+}
+
+function cancelDraft() {
+  draftController?.abort();
+}
+
 async function composeDraft() {
   const thoughts = $("draft-thoughts").value.trim();
   const draft = $("draft-text").value;
@@ -2940,10 +3038,12 @@ async function composeDraft() {
   }
   status.classList.remove("error");
   status.textContent = draft.trim() ? "✨ Revising…" : "✨ Drafting…";
-  $("draft-compose").disabled = true;
+  draftController = new AbortController();
+  setDraftBusy(true);
   try {
     const body = await apiJson("/drafts/compose", {
       method: "POST",
+      signal: draftController.signal,
       body: JSON.stringify({
         thoughts,
         draft,
@@ -2971,10 +3071,17 @@ async function composeDraft() {
     }
     saveDraftLocally();
   } catch (error) {
-    status.classList.add("error");
-    status.textContent = error.message;
+    if (error.name === "AbortError") {
+      // Nothing was written, so nothing is lost — say so rather than
+      // showing it as a failure.
+      status.textContent = "Stopped. Your thoughts and draft are untouched.";
+    } else {
+      status.classList.add("error");
+      status.textContent = error.message;
+    }
   } finally {
-    $("draft-compose").disabled = false;
+    draftController = null;
+    setDraftBusy(false);
   }
 }
 
@@ -9354,6 +9461,9 @@ $("doc-new").addEventListener("click", createDocument);
 $("doc-filter").addEventListener("input", renderDocList);
 $("doc-title").addEventListener("input", () => { markDocDirty(); renderDocPreview(); });
 $("doc-content").addEventListener("input", () => { markDocDirty(); renderDocPreview(); });
+for (const button of document.querySelectorAll("#doc-toolbar button")) {
+  button.addEventListener("click", () => applyMarkdown(button.dataset.md));
+}
 $("doc-preview-toggle").addEventListener("click", toggleDocPreview);
 $("doc-export-md").addEventListener("click", exportDocumentMarkdown);
 $("doc-export-pdf").addEventListener("click", exportDocumentPdf);
@@ -9362,6 +9472,7 @@ $("doc-ai").addEventListener("click", openDocAiPanel);
 $("doc-ai-close").addEventListener("click", closeDocAiPanel);
 $("doc-ai-cancel").addEventListener("click", closeDocAiPanel);
 $("doc-ai-run").addEventListener("click", runDocAiEdit);
+$("doc-ai-cancel-run").addEventListener("click", () => docAiController?.abort());
 $("doc-ai-accept").addEventListener("click", acceptDocAiEdit);
 $("doc-ai-instruction").addEventListener("keydown", (e) => {
   if (e.key === "Enter") { e.preventDefault(); runDocAiEdit(); }
@@ -9383,6 +9494,7 @@ window.addEventListener("beforeunload", (event) => {
 // --- writing room wiring ---
 $("draft-compose").addEventListener("click", composeDraft);
 $("draft-undo").addEventListener("click", undoDraft);
+$("draft-cancel").addEventListener("click", cancelDraft);
 $("draft-save").addEventListener("click", saveDraftAsNote);
 $("draft-text").addEventListener("input", () => {
   updateDraftCount();

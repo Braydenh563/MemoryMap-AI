@@ -195,7 +195,10 @@ header#top-bar h1 { margin: 0; font-size: 1.1rem; letter-spacing: 0.01em; }
   grid-template-columns: 260px 1fr;
   gap: 1rem;
   padding: 1rem 2rem 2rem;
-  align-items: start;
+  /* stretch, not start: with `start` the sidebar shrank to its content and sat
+     visibly shorter than the panel beside it, which reads as a broken layout
+     rather than a deliberate one. */
+  align-items: stretch;
 }
 
 /* Stack the sidebar on small screens. minmax(0,…) + min-width let the
@@ -3218,4 +3221,35 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   color: var(--muted);
   font-size: 0.9rem;
   font-style: italic;
+}
+
+/* --- document formatting toolbar ---------------------------------------------- */
+.doc-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.35rem 0.4rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+.doc-toolbar button {
+  min-width: 2rem;
+  padding: 0.2rem 0.45rem;
+  font-size: 0.82rem;
+  background: none;
+  border: 1px solid transparent;
+  box-shadow: none;
+  color: var(--ink);
+  cursor: pointer;
+  border-radius: 6px;
+}
+.doc-toolbar button:hover { background: var(--accent-soft); border-color: var(--accent); }
+.doc-toolbar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.doc-toolbar-sep {
+  width: 1px;
+  height: 1.1rem;
+  margin: 0 0.25rem;
+  background: var(--border);
 }

@@ -437,21 +437,16 @@ def web_read(url: str, session: Session = Depends(get_session)) -> dict:
 
     _require_web_search()
 
+    # A cheap shape check for a clean 400; the security check that matters is
+    # in fetch_readable, which re-runs it on every redirect hop.
+    #
+    # There is deliberately NO host allowlist here. One was added briefly and
+    # it only permitted the search engines themselves — but the reader exists
+    # to open the *results*, which live on whatever site published them, so it
+    # rejected every real page with "URL host is not allowed".
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https") or not parsed.hostname:
         raise HTTPException(status_code=400, detail="Only http(s) URLs are allowed")
-
-    config = deps.get_config()
-    allowed_hosts: set[str] = {urlparse(websearch.DDG_URL).hostname or ""}
-    searxng_url = (config.get_preference("searxng_url") or "").strip()
-    if searxng_url:
-        searx_host = urlparse(searxng_url).hostname or ""
-        if searx_host:
-            allowed_hosts.add(searx_host)
-
-    host = parsed.hostname.lower()
-    if not any(host == allowed or host.endswith(f".{allowed}") for allowed in allowed_hosts if allowed):
-        raise HTTPException(status_code=400, detail="URL host is not allowed")
 
     try:
         page = websearch.fetch_readable(url)

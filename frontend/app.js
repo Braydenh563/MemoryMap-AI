@@ -2892,6 +2892,43 @@ function updateDraftCount() {
   $("draft-count").textContent = words ? `${words} word${words === 1 ? "" : "s"}` : "";
 }
 
+// Every AI pass is undoable. "Draft it" replaces the draft AND clears the
+// thoughts box, so without this a revision you didn't like destroyed both your
+// previous wording and the notes you wrote it from — with nothing to go back
+// to. Handing your writing to the AI should never be a one-way door.
+const draftUndoStack = [];
+const MAX_DRAFT_UNDO = 20;
+
+function pushDraftUndo() {
+  draftUndoStack.push({
+    thoughts: $("draft-thoughts").value,
+    draft: $("draft-text").value,
+  });
+  if (draftUndoStack.length > MAX_DRAFT_UNDO) draftUndoStack.shift();
+  updateDraftUndoButton();
+}
+
+function updateDraftUndoButton() {
+  const button = $("draft-undo");
+  button.disabled = draftUndoStack.length === 0;
+  button.title = draftUndoStack.length
+    ? `Go back to the version before the last AI pass (${draftUndoStack.length} available)`
+    : "Nothing to undo yet";
+}
+
+function undoDraft() {
+  const previous = draftUndoStack.pop();
+  if (!previous) return;
+  $("draft-thoughts").value = previous.thoughts;
+  $("draft-text").value = previous.draft;
+  updateDraftCount();
+  updateDraftUndoButton();
+  saveDraftLocally();
+  $("draft-status").classList.remove("error");
+  $("draft-status").textContent = "Went back to the previous version.";
+  announce("Restored the draft from before the last AI pass.");
+}
+
 async function composeDraft() {
   const thoughts = $("draft-thoughts").value.trim();
   const draft = $("draft-text").value;
@@ -2913,6 +2950,9 @@ async function composeDraft() {
         instruction: $("draft-instruction").value.trim(),
       }),
     });
+    // Only record an undo point once the model has actually returned
+    // something — a failed call shouldn't add a step that changes nothing.
+    if (body.draft !== draft) pushDraftUndo();
     $("draft-text").value = body.draft;
     updateDraftCount();
     // The thoughts have been folded in, so clear the box for the next round
@@ -9342,6 +9382,7 @@ window.addEventListener("beforeunload", (event) => {
 
 // --- writing room wiring ---
 $("draft-compose").addEventListener("click", composeDraft);
+$("draft-undo").addEventListener("click", undoDraft);
 $("draft-save").addEventListener("click", saveDraftAsNote);
 $("draft-text").addEventListener("input", () => {
   updateDraftCount();

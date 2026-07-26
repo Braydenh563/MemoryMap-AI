@@ -272,8 +272,13 @@
                  delete it on every re-render. -->
             <h2 id="entries-heading"><span id="entries-heading-label">All entries</span></h2>
             <div class="row browse-tools">
-              <input id="note-search" type="search" placeholder="🔎 Filter notes…"
-                aria-label="Filter notes by text or tag">
+              <input id="note-search" type="search"
+                placeholder="🔎 Filter — try tag:work or &quot;exact phrase&quot;"
+                aria-label="Filter notes. Supports tag:, cat:, is:pinned, -exclude and quoted phrases"
+                aria-describedby="search-help-hint">
+              <button id="search-help" class="ghost small" type="button"
+                aria-expanded="false" aria-controls="search-help-hint"
+                title="What can I type here?">?</button>
               <select id="note-sort" aria-label="Sort notes" title="Sort notes">
                 <option value="newest">Newest first</option>
                 <option value="oldest">Oldest first</option>
@@ -292,6 +297,18 @@
             <button id="batch-tag" class="ghost small">＋ Tag</button>
             <button id="batch-delete" class="ghost small">🗑 Delete</button>
             <button id="batch-cancel" class="ghost small">Done</button>
+          </div>
+          <!-- Search operators are useless if nobody knows they exist. -->
+          <div id="search-help-hint" class="search-help hidden">
+            <p class="muted">The filter understands a few shortcuts — all of these work without any AI:</p>
+            <ul class="search-help-list">
+              <li><code>bread proving</code> — both words, in any order</li>
+              <li><code>"proving times"</code> — that exact phrase</li>
+              <li><code>tag:work</code> — only notes carrying that tag</li>
+              <li><code>cat:recipes</code> — only that category</li>
+              <li><code>is:pinned</code> — also <code>is:private</code>, <code>is:linked</code>, <code>is:untagged</code></li>
+              <li><code>-picnic</code> — notes that do <em>not</em> mention it</li>
+            </ul>
           </div>
           <ul id="entry-list" class="entry-list"></ul>
           <div id="empty-message" class="empty-state hidden">

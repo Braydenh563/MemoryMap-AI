@@ -3026,3 +3026,33 @@ button.ai-unavailable {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* --- search match highlighting ------------------------------------------------ */
+/* Shows why a note matched. Uses the accent tint rather than the browser's
+   default yellow, which fights every theme and is unreadable in dark mode. */
+.entry-content mark {
+  background: var(--accent-soft);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 0.12em;
+  font-weight: 600;
+}
+
+/* --- filter help ------------------------------------------------------------- */
+.search-help {
+  margin: 0 0 0.6rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--chip-bg, var(--accent-soft));
+  font-size: 0.85rem;
+}
+.search-help.hidden { display: none; }
+.search-help p { margin: 0 0 0.4rem; }
+.search-help-list { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.15rem; }
+.search-help-list code {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 0.3em;
+}

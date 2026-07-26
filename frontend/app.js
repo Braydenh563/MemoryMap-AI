@@ -372,7 +372,10 @@ function entryItem(entry, options = {}) {
 
   const content = document.createElement("p");
   content.className = "entry-content";
-  content.textContent = entry.content;
+  // Mark the matched words while filtering, so it's obvious WHY a note is in
+  // the list. Built with createElement/textContent rather than innerHTML —
+  // note text is user content and must never be parsed as markup.
+  highlightInto(content, entry.content, searchHighlightTerms());
   li.appendChild(content);
 
   const meta = document.createElement("div");
@@ -1118,13 +1121,129 @@ function beginOrCompleteLink(entry) {
 }
 
 // Text filter (Wave J): match note content or any tag, case-insensitive.
+// --- the notes filter ------------------------------------------------------------
+// Same lesson as the server's keyword search: a single substring match means
+// the words have to be typed in the order they appear, which nobody can guess.
+// This one also understands a few operators, because narrowing by tag or
+// category is the thing you actually want once you have more than a few
+// hundred notes — and it needs no AI whatsoever.
+//
+//   tag:work            only notes tagged "work"
+//   cat:recipes         only notes in that category (category: also works)
+//   is:pinned           pinned / private / linked / untagged
+//   -picnic             notes that do NOT mention "picnic"
+//   "exact phrase"      that phrase, verbatim
+//
+// Anything else is a plain word: all of them must appear, in any order.
+
+function parseNoteQuery(raw) {
+  const query = {
+    words: [],
+    phrases: [],
+    exclude: [],
+    tags: [],
+    categories: [],
+    flags: [],
+  };
+  // Pull quoted phrases out first so their spaces don't become word breaks.
+  const remainder = (raw || "").replace(/"([^"]+)"/g, (_, phrase) => {
+    query.phrases.push(phrase.toLowerCase().trim());
+    return " ";
+  });
+  for (const token of remainder.split(/\s+/)) {
+    if (!token) continue;
+    const lower = token.toLowerCase();
+    if (lower.startsWith("tag:")) query.tags.push(lower.slice(4));
+    else if (lower.startsWith("category:")) query.categories.push(lower.slice(9));
+    else if (lower.startsWith("cat:")) query.categories.push(lower.slice(4));
+    else if (lower.startsWith("is:")) query.flags.push(lower.slice(3));
+    else if (lower.startsWith("-") && lower.length > 1) query.exclude.push(lower.slice(1));
+    else query.words.push(lower);
+  }
+  return query;
+}
+
+function noteQueryIsEmpty(query) {
+  return (
+    !query.words.length &&
+    !query.phrases.length &&
+    !query.exclude.length &&
+    !query.tags.length &&
+    !query.categories.length &&
+    !query.flags.length
+  );
+}
+
 function matchesSearch(entry) {
   if (!noteSearch) return true;
-  const needle = noteSearch.toLowerCase();
-  return (
-    entry.content.toLowerCase().includes(needle) ||
-    entry.tags.some((tag) => tag.toLowerCase().includes(needle))
-  );
+  const query = parseNoteQuery(noteSearch);
+  if (noteQueryIsEmpty(query)) return true;
+
+  const content = (entry.content || "").toLowerCase();
+  const tags = (entry.tags || []).map((t) => t.toLowerCase());
+  const category = (entry.category || "").toLowerCase();
+  const haystack = `${content} ${tags.join(" ")}`;
+
+  // A tag: or cat: filter is a statement about which notes count at all.
+  if (query.tags.length && !query.tags.every((t) => tags.some((tag) => tag.includes(t)))) {
+    return false;
+  }
+  if (query.categories.length && !query.categories.some((c) => category.includes(c))) {
+    return false;
+  }
+  for (const flag of query.flags) {
+    if (flag === "pinned" && !entry.pinned) return false;
+    if (flag === "private" && !entry.is_private) return false;
+    if (flag === "linked" && !(entry.links || []).length) return false;
+    if (flag === "untagged" && tags.length) return false;
+  }
+  if (query.exclude.some((word) => haystack.includes(word))) return false;
+  if (!query.phrases.every((phrase) => content.includes(phrase))) return false;
+  // Every word must appear somewhere, in any order.
+  return query.words.every((word) => haystack.includes(word));
+}
+
+// Write `text` into `element`, wrapping each matched term in a <mark>.
+// Never uses innerHTML: a note containing "<script>" is text, not markup.
+function highlightInto(element, text, terms) {
+  element.replaceChildren();
+  if (!terms.length) {
+    element.textContent = text;
+    return;
+  }
+  // One pass, longest terms first so "bread rolls" wins over "bread".
+  const ordered = [...terms].sort((a, b) => b.length - a.length);
+  const lower = text.toLowerCase();
+  let cursor = 0;
+  while (cursor < text.length) {
+    let bestAt = -1;
+    let bestTerm = "";
+    for (const term of ordered) {
+      const at = lower.indexOf(term, cursor);
+      if (at !== -1 && (bestAt === -1 || at < bestAt)) {
+        bestAt = at;
+        bestTerm = term;
+      }
+    }
+    if (bestAt === -1) {
+      element.appendChild(document.createTextNode(text.slice(cursor)));
+      return;
+    }
+    if (bestAt > cursor) {
+      element.appendChild(document.createTextNode(text.slice(cursor, bestAt)));
+    }
+    const mark = document.createElement("mark");
+    mark.textContent = text.slice(bestAt, bestAt + bestTerm.length);
+    element.appendChild(mark);
+    cursor = bestAt + bestTerm.length;
+  }
+}
+
+// The words worth highlighting in a result — operators aren't text to find.
+function searchHighlightTerms() {
+  if (!noteSearch) return [];
+  const query = parseNoteQuery(noteSearch);
+  return [...query.phrases, ...query.words].filter((t) => t.length > 1);
 }
 
 // Sort comparator for the chosen mode (Wave J). Pinned always floats to
@@ -1152,9 +1271,17 @@ function renderEntries() {
     : allEntries;
   visible = visible.filter(matchesSearch);
 
-  $("entries-heading-label").textContent = activeCategory
-    ? `${activeCategory} entries`
-    : "All entries";
+  const scope = activeCategory ? `${activeCategory} entries` : "All entries";
+  // Say how many matched out of how many there are. Without it a filter that
+  // hides most of the notebook looks identical to a notebook that's nearly
+  // empty, and there's no signal that a filter is even active.
+  const total = activeCategory
+    ? allEntries.filter((e) => e.category === activeCategory).length
+    : allEntries.length;
+  $("entries-heading-label").textContent =
+    noteSearch && visible.length !== total
+      ? `${scope} — ${visible.length} of ${total}`
+      : scope;
   // Distinguish "empty notebook" from "filter matched nothing".
   const notebookEmpty = allEntries.length === 0;
   empty.classList.toggle("hidden", !notebookEmpty);
@@ -9074,6 +9201,13 @@ $("bin-empty").addEventListener("click", async () => {
   toast(`${result.removed} entr${result.removed === 1 ? "y" : "ies"} permanently deleted.`);
   await renderBin();
 });
+$("search-help").addEventListener("click", () => {
+  const panel = $("search-help-hint");
+  const showing = panel.classList.toggle("hidden");
+  $("search-help").setAttribute("aria-expanded", String(!showing));
+  if (!showing) $("note-search").focus();
+});
+
 $("prefs-save").addEventListener("click", savePrefs);
 // Managed SearXNG: show what's there, and start/stop it on request.
 async function refreshSearxngHost() {

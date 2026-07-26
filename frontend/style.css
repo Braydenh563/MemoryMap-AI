@@ -1791,14 +1791,49 @@ html { font-size: 16px; }
   line-height: 1.6;
 }
 
+/* --- graph: depth, halos and legible labels -------------------------------- */
+/* These come after the base .graph-node rules so they win the specificity tie
+   and the halo never picks up the node's stroke. */
+.graph-node circle.graph-halo {
+  stroke: none;
+  opacity: 0.16;
+  pointer-events: none;
+  transition: opacity 0.15s ease, r 0.15s ease;
+}
+.graph-node:hover circle.graph-halo,
+.graph-node.graph-focus circle.graph-halo { opacity: 0.34; }
+.graph-node text.graph-pin-badge {
+  font-size: 0.6rem;
+  stroke: none;
+  pointer-events: none;
+}
+.graph-node text.graph-label { font-weight: 500; }
+/* Dimmed nodes fade rather than vanish, so context is never lost. */
+.graph-node.graph-dim { opacity: 0.18; }
+
 /* --- graph: physics sliders + node popup ----------------------------------- */
+.graph-popup-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin: 0.15rem 0 0.5rem;
+}
+.graph-popup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+.graph-popup-actions button { font-size: 0.78rem; padding: 0.25rem 0.5rem; }
 .graph-physics { display: inline-flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
 .graph-physics input[type="range"] { width: 6.5rem; margin: 0; }
 .graph-physics label { font-size: 0.82rem; }
 .graph-popup {
   position: absolute;
   z-index: 40;
-  width: 19rem;
+  width: 22rem;
   max-width: calc(100% - 1rem);
   padding: 0.7rem 0.85rem;
   background: var(--modal-bg);

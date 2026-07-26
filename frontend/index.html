@@ -368,14 +368,17 @@
             <strong id="graph-popup-title">Note</strong>
             <button id="graph-popup-close" class="ghost small" aria-label="Close">✕</button>
           </div>
+          <!-- At-a-glance facts about this note -->
+          <div id="graph-popup-info" class="graph-popup-info"></div>
           <textarea id="graph-popup-content" rows="4" aria-label="Note content"></textarea>
           <input id="graph-popup-tags" type="text" placeholder="Tags, comma separated"
             aria-label="Tags">
           <div class="row">
             <button id="graph-popup-save" class="small">Save</button>
-            <button id="graph-popup-open" class="ghost small">Open in Notes</button>
             <span id="graph-popup-status" class="status" role="status"></span>
           </div>
+          <!-- Everything you can do with this note, without leaving the map -->
+          <div class="graph-popup-actions" id="graph-popup-actions"></div>
         </div>
         <div id="graph-zoom" class="graph-zoom" role="group" aria-label="Zoom the map">
           <button id="graph-zoom-in" class="graph-zoom-btn" title="Zoom in" aria-label="Zoom in">＋</button>

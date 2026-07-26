@@ -4631,16 +4631,32 @@ async function renderGraph() {
       }
     });
 
+  // A soft halo behind each node gives the map depth and makes a node read
+  // as an object rather than a flat dot.
   nodeGroups
     .append("circle")
+    .attr("class", "graph-halo")
+    .attr("r", (d) => graphNodeRadius(d) + 7)
+    .attr("fill", (d) => color(d.category));
+  nodeGroups
+    .append("circle")
+    .attr("class", "graph-dot")
     .attr("r", graphNodeRadius)
     .attr("fill", (d) => color(d.category))
     .classed("graph-pinned", (d) => d.pinned);
+  // A pin badge, so pinned notes are identifiable at a glance.
+  nodeGroups
+    .filter((d) => d.pinned)
+    .append("text")
+    .attr("class", "graph-pin-badge")
+    .attr("dy", (d) => -graphNodeRadius(d) - 4)
+    .text("📌");
   // Native tooltip: full preview + category on hover.
   nodeGroups.append("title").text((d) => `${d.preview}\n[${d.category}]`);
   nodeGroups
     .append("text")
-    .attr("dy", (d) => graphNodeRadius(d) + 12)
+    .attr("class", "graph-label")
+    .attr("dy", (d) => graphNodeRadius(d) + 13)
     .text((d) => (d.preview.length > 20 ? d.preview.slice(0, 19) + "…" : d.preview));
 
   // Hover-highlight (spotlight a note's connections). Uses the same dimming
@@ -4709,10 +4725,18 @@ function fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height) {
 // the hovered note plus its direct neighbours; edges stay bright only when
 // both ends survive. Search (Wave M) and hover-spotlight share one pass so
 // they can't contradict each other.
+// Set by "≈ Similar" to spotlight an explicit set of notes; cleared by the
+// next search or refresh.
+let graphHighlightIds = null;
+
 function applyGraphHighlight() {
   if (!graphNodeSelection) return;
   const query = $("graph-search").value.trim().toLowerCase();
-  const searchOk = (d) => !query || d.preview.toLowerCase().includes(query);
+  if (query) graphHighlightIds = null; // typing takes over the spotlight
+  const searchOk = (d) =>
+    graphHighlightIds
+      ? graphHighlightIds.has(d.id)
+      : !query || d.preview.toLowerCase().includes(query);
 
   const neighbours =
     graphHoveredId != null && graphAdjacency
@@ -4731,7 +4755,8 @@ function applyGraphHighlight() {
   graphEdgeSelection.classed("graph-dim", (d) => {
     const s = idOf(d.source);
     const t = idOf(d.target);
-    const bySearch = !query || (searchOk(d.source) && searchOk(d.target));
+    const bySearch =
+      !(query || graphHighlightIds) || (searchOk(d.source) && searchOk(d.target));
     const byHover =
       neighbours == null || s === graphHoveredId || t === graphHoveredId;
     return !(bySearch && byHover);
@@ -4780,7 +4805,104 @@ async function openGraphPopup(event, node) {
   }
   $("graph-popup-content").value = entry.content;
   $("graph-popup-tags").value = (entry.tags || []).join(", ");
+  renderGraphPopupInfo(entry, node);
+  renderGraphPopupActions(entry);
   $("graph-popup-content").focus();
+}
+
+// The facts about a note, as small chips.
+function renderGraphPopupInfo(entry, node) {
+  const box = $("graph-popup-info");
+  box.replaceChildren();
+  const facts = [
+    ["🗂", entry.category || node.category || "Uncategorised"],
+    ["🕐", new Date(entry.created_at).toLocaleDateString()],
+    ["🔗", `${(entry.links || []).length} link${(entry.links || []).length === 1 ? "" : "s"}`],
+    ["👁", `${entry.access_count || 0} view${entry.access_count === 1 ? "" : "s"}`],
+  ];
+  if (entry.pinned) facts.push(["📌", "Pinned"]);
+  if (typeof entry.ai_confidence === "number") {
+    facts.push(["🎯", `${entry.ai_confidence}% confident`]);
+  }
+  for (const [icon, text] of facts) {
+    const item = chip(`${icon} ${text}`, "tag");
+    box.appendChild(item);
+  }
+  const tags = entry.tags || [];
+  for (const tag of tags.slice(0, 6)) box.appendChild(chip(tag, "tag"));
+}
+
+// Everything you can do to this note from the map.
+function renderGraphPopupActions(entry) {
+  const box = $("graph-popup-actions");
+  box.replaceChildren();
+
+  box.appendChild(
+    smallButton(entry.pinned ? "📌 Unpin" : "📌 Pin", "Pin or unpin this note", async () => {
+      await apiJson(`/entries/${entry.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ pinned: !entry.pinned }),
+      }).catch((e) => toast(e.message, true));
+      toast(entry.pinned ? "Unpinned." : "Pinned.");
+      closeGraphPopup();
+      await loadEntries().catch(() => {});
+      renderGraph();
+    })
+  );
+  box.appendChild(
+    smallButton("≈ Similar", "Highlight notes that mean something similar", async () => {
+      const related = await apiJson(`/entries/${entry.id}/related`).catch(() => []);
+      if (!related.length) {
+        toast("No similar notes found.");
+        return;
+      }
+      // Reuse the existing highlight pass by searching for these ids.
+      graphHighlightIds = new Set(related.map((r) => r.id).concat(entry.id));
+      applyGraphHighlight();
+      closeGraphPopup();
+      toast(`Highlighted ${related.length} similar note${related.length === 1 ? "" : "s"}.`);
+    })
+  );
+  box.appendChild(
+    smallButton("🔗 Link", "Start linking this note to another", () => {
+      closeGraphPopup();
+      beginOrCompleteLink(entry);
+      toast("Now click another note on the map to link them.");
+    })
+  );
+  box.appendChild(
+    smallButton("⏰ Remind", "Set a reminder about this note", () => {
+      closeGraphPopup();
+      switchTab("reminders");
+      $("reminder-text").value = `Follow up: ${entry.content.slice(0, 60)}`;
+      $("reminder-due").value = defaultDueValue();
+      $("reminder-text").focus();
+    })
+  );
+  box.appendChild(
+    smallButton("📝 Open", "Open this note in the Notes tab", () => {
+      const id = entry.id;
+      closeGraphPopup();
+      flashEntry(id);
+    })
+  );
+  box.appendChild(
+    smallButton("🗑 Bin", "Move this note to the recycle bin", async () => {
+      if (!confirm("Move this note to the recycle bin?")) return;
+      await api(`/entries/${entry.id}`, { method: "DELETE" }).catch((e) =>
+        toast(e.message, true)
+      );
+      closeGraphPopup();
+      await loadEntries().catch(() => {});
+      renderGraph();
+      toastAction("Moved to the recycle bin.", "Undo", async () => {
+        await api(`/entries/${entry.id}/restore`, { method: "POST" });
+        await loadEntries();
+        renderGraph();
+        toast("Note restored.");
+      });
+    })
+  );
 }
 
 function closeGraphPopup() {
@@ -6790,7 +6912,10 @@ $("persona-select").addEventListener("change", async () => {
 $("persona-add").addEventListener("click", addPersona);
 $("skill-add").addEventListener("click", addSkill);
 $("skill-cancel").addEventListener("click", stopEditingSkill);
-$("graph-refresh").addEventListener("click", renderGraph);
+$("graph-refresh").addEventListener("click", () => {
+  graphHighlightIds = null; // a refresh clears any "similar notes" spotlight
+  renderGraph();
+});
 $("graph-similarity").addEventListener("change", renderGraph);
 $("graph-hide-orphans").addEventListener("change", renderGraph);
 $("graph-search").addEventListener("input", applyGraphHighlight);
@@ -6808,11 +6933,7 @@ for (const key of ["gravity", "spread"]) {
 // Node popup: edit a note in place on the map.
 $("graph-popup-close").addEventListener("click", closeGraphPopup);
 $("graph-popup-save").addEventListener("click", saveGraphPopup);
-$("graph-popup-open").addEventListener("click", () => {
-  const id = graphPopupId;
-  closeGraphPopup();
-  if (id !== null) flashEntry(id);
-});
+// "Open in Notes" now lives in the popup's action row (renderGraphPopupActions).
 // Clicking empty canvas dismisses the popup.
 $("graph-svg").addEventListener("click", closeGraphPopup);
 

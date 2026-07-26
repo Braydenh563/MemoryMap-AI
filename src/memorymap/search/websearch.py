@@ -1,34 +1,154 @@
 """Opt-in web search (Wave F) — the ONE feature that leaves the machine.
 
-It's off by default, gated behind the "web_search_enabled" preference,
-and the UI labels results clearly as coming from the internet. Uses
-DuckDuckGo's plain-HTML endpoint: no API key, no account, and the
-request carries only the query text.
+It's off by default, gated behind the "web_search_enabled" preference, and the
+UI labels results clearly as coming from the internet.
+
+Two providers:
+
+- **SearXNG** (recommended) — a self-hosted metasearch engine. If the user
+  points `searxng_url` at their own instance we use its JSON API: no scraping,
+  no API key, aggregated results, and the query never leaves their network
+  beyond whatever SearXNG itself federates.
+- **DuckDuckGo HTML** (default) — no setup at all. The request carries only
+  the query text. Parsed defensively, since it's markup we don't control.
+
+Whatever the provider, a failure degrades: SearXNG errors fall back to
+DuckDuckGo rather than breaking search entirely.
 """
 
 from __future__ import annotations
 
 import html
 import re
+import time
 from urllib.parse import parse_qs, unquote, urlparse
 
 import requests
 
 DDG_URL = "https://html.duckduckgo.com/html/"
 REQUEST_TIMEOUT = 10
+USER_AGENT = "MemoryMapAI/0.1 (personal notebook)"
+
+# Small in-process cache so repeating a search (or an agent retrying one)
+# doesn't hit the network again within the same minute or two.
+_CACHE: dict[tuple[str, int], tuple[float, list[dict]]] = {}
+CACHE_TTL_SECONDS = 180
+CACHE_MAX_ENTRIES = 64
 
 
 class WebSearchError(RuntimeError):
     """The web couldn't be reached or the response wasn't usable."""
 
 
-def search_web(query: str, limit: int = 5) -> list[dict]:
-    """[{title, url, snippet}] for a query, best results first."""
+def _cache_get(key: tuple[str, int]) -> list[dict] | None:
+    hit = _CACHE.get(key)
+    if not hit:
+        return None
+    stored_at, results = hit
+    if time.time() - stored_at > CACHE_TTL_SECONDS:
+        _CACHE.pop(key, None)
+        return None
+    return results
+
+
+def _cache_put(key: tuple[str, int], results: list[dict]) -> None:
+    if len(_CACHE) >= CACHE_MAX_ENTRIES:
+        _CACHE.clear()  # tiny cache; simplest correct eviction
+    _CACHE[key] = (time.time(), results)
+
+
+def clear_cache() -> None:
+    """Used by tests and when the provider settings change."""
+    _CACHE.clear()
+
+
+def domain_of(url: str) -> str:
+    """'https://en.wikipedia.org/wiki/X' -> 'en.wikipedia.org' (for display)."""
+    try:
+        return urlparse(url).netloc.removeprefix("www.")
+    except ValueError:
+        return ""
+
+
+def search_web(
+    query: str,
+    limit: int = 5,
+    searxng_url: str | None = None,
+) -> list[dict]:
+    """[{title, url, snippet, domain, engine}] for a query, best first."""
+    query = (query or "").strip()
+    if not query:
+        return []
+
+    cache_key = (f"{searxng_url or 'ddg'}::{query.lower()}", limit)
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        return cached
+
+    results: list[dict] = []
+    if searxng_url:
+        try:
+            results = _search_searxng(query, limit, searxng_url)
+        except WebSearchError:
+            results = []  # fall through to DuckDuckGo rather than failing
+
+    if not results:
+        results = _search_duckduckgo(query, limit)
+
+    _cache_put(cache_key, results)
+    return results
+
+
+# --- SearXNG ------------------------------------------------------------------
+
+
+def _search_searxng(query: str, limit: int, base_url: str) -> list[dict]:
+    """Query a self-hosted SearXNG instance via its JSON API."""
+    url = base_url.rstrip("/") + "/search"
+    try:
+        response = requests.get(
+            url,
+            params={"q": query, "format": "json"},
+            headers={"User-Agent": USER_AGENT},
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except (requests.RequestException, ValueError) as exc:
+        raise WebSearchError(f"SearXNG search failed: {exc}") from exc
+
+    rows = payload.get("results") if isinstance(payload, dict) else None
+    if not isinstance(rows, list):
+        raise WebSearchError("SearXNG returned an unexpected response")
+
+    results = []
+    for row in rows[:limit]:
+        if not isinstance(row, dict):
+            continue
+        link = str(row.get("url") or "").strip()
+        if not link:
+            continue
+        results.append(
+            {
+                "title": str(row.get("title") or link).strip(),
+                "url": link,
+                "snippet": str(row.get("content") or "").strip(),
+                "domain": domain_of(link),
+                "engine": "searxng",
+            }
+        )
+    return results
+
+
+# --- DuckDuckGo ---------------------------------------------------------------
+
+
+def _search_duckduckgo(query: str, limit: int) -> list[dict]:
     try:
         response = requests.post(
             DDG_URL,
             data={"q": query},
-            headers={"User-Agent": "MemoryMapAI/0.1 (personal notebook)"},
+            headers={"User-Agent": USER_AGENT},
             timeout=REQUEST_TIMEOUT,
         )
         response.raise_for_status()
@@ -44,6 +164,8 @@ def _strip_tags(fragment: str) -> str:
 def _real_url(href: str) -> str:
     """DuckDuckGo wraps results in a redirect (…/l/?uddg=<real-url>);
     unwrap it so the user sees where a link actually goes."""
+    if href.startswith("//"):
+        href = "https:" + href
     parsed = urlparse(href)
     if parsed.path.startswith("/l/"):
         wrapped = parse_qs(parsed.query).get("uddg", [""])[0]
@@ -52,23 +174,103 @@ def _real_url(href: str) -> str:
     return href
 
 
+# Two ways of finding results: the long-standing `result__a` markup, and a
+# looser anchor-based pass. If DDG changes one, the other usually still works;
+# if both fail we return [] and the UI says "no results" instead of crashing.
+_TITLE_PATTERNS = (
+    r'<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>(.*?)</a>',
+    r'<a[^>]*href="(/l/\?[^"]+)"[^>]*class="[^"]*result[^"]*"[^>]*>(.*?)</a>',
+)
+_SNIPPET_PATTERNS = (
+    r'<a[^>]*class="[^"]*result__snippet[^"]*"[^>]*>(.*?)</a>',
+    r'<td[^>]*class="[^"]*result-snippet[^"]*"[^>]*>(.*?)</td>',
+)
+
+
+def _first_matches(patterns: tuple[str, ...], page: str) -> list:
+    for pattern in patterns:
+        found = re.findall(pattern, page, re.S)
+        if found:
+            return found
+    return []
+
+
 def _parse_results(page: str, limit: int) -> list[dict]:
-    """A deliberately small regex parse of the results page. If DDG ever
-    changes its markup this returns [] rather than crashing — the UI
-    treats that as 'no results'."""
-    titles = re.findall(
-        r'<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>(.*?)</a>', page, re.S
-    )
-    snippets = re.findall(
-        r'<a[^>]*class="result__snippet"[^>]*>(.*?)</a>', page, re.S
-    )
+    """A deliberately small parse of the results page, with a backup pattern."""
+    titles = _first_matches(_TITLE_PATTERNS, page)
+    snippets = _first_matches(_SNIPPET_PATTERNS, page)
     results = []
     for index, (href, title) in enumerate(titles[:limit]):
+        link = _real_url(html.unescape(href))
         results.append(
             {
                 "title": _strip_tags(title),
-                "url": _real_url(html.unescape(href)),
+                "url": link,
                 "snippet": _strip_tags(snippets[index]) if index < len(snippets) else "",
+                "domain": domain_of(link),
+                "engine": "duckduckgo",
             }
         )
     return results
+
+
+# --- reader view --------------------------------------------------------------
+
+_READER_MAX_BYTES = 400_000
+_READER_MAX_CHARS = 20_000
+
+
+def fetch_readable(url: str) -> dict:
+    """Fetch a page and return its readable text.
+
+    This is what makes "open a result" useful without embedding a browser:
+    scripts, styles and chrome are stripped and only text comes back, so
+    nothing from the page can execute in the app.
+    """
+    if not url.startswith(("http://", "https://")):
+        raise WebSearchError("Only http(s) links can be opened")
+    try:
+        response = requests.get(
+            url,
+            headers={"User-Agent": USER_AGENT},
+            timeout=REQUEST_TIMEOUT,
+            stream=True,
+        )
+        response.raise_for_status()
+        content_type = response.headers.get("content-type", "")
+        if "html" not in content_type and "text" not in content_type:
+            raise WebSearchError("That link isn't a readable page")
+        raw = response.raw.read(_READER_MAX_BYTES, decode_content=True) or b""
+    except requests.RequestException as exc:
+        raise WebSearchError(f"Couldn't open that page: {exc}") from exc
+
+    page = raw.decode(response.encoding or "utf-8", errors="replace")
+    return {
+        "url": url,
+        "domain": domain_of(url),
+        "title": _page_title(page) or domain_of(url),
+        "text": _readable_text(page)[:_READER_MAX_CHARS],
+    }
+
+
+def _page_title(page: str) -> str:
+    match = re.search(r"<title[^>]*>(.*?)</title>", page, re.S | re.I)
+    return _strip_tags(match.group(1)) if match else ""
+
+
+def _readable_text(page: str) -> str:
+    """Strip scripts/styles/markup and collapse whitespace into paragraphs."""
+    body = re.sub(r"(?is)<(script|style|noscript|svg|nav|footer|header)[^>]*>.*?</\1>", " ", page)
+    # Block-level tags become paragraph breaks so the text stays readable.
+    body = re.sub(r"(?i)</(p|div|section|article|li|h[1-6]|tr)\s*>", "\n\n", body)
+    body = re.sub(r"(?i)<br\s*/?>", "\n", body)
+    text = html.unescape(re.sub(r"<[^>]+>", " ", body))
+    lines = [re.sub(r"[ \t ]+", " ", line).strip() for line in text.split("\n")]
+    kept: list[str] = []
+    for line in lines:
+        if not line:
+            if kept and kept[-1] != "":
+                kept.append("")
+            continue
+        kept.append(line)
+    return "\n".join(kept).strip()

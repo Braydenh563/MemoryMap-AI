@@ -145,7 +145,7 @@ def test_websearch_enabled_returns_parsed_results(client, monkeypatch):
     monkeypatch.setattr(
         websearch,
         "search_web",
-        lambda q, limit=5: websearch._parse_results(FAKE_DDG_PAGE, limit),
+        lambda q, limit=5, searxng_url=None: websearch._parse_results(FAKE_DDG_PAGE, limit),
     )
     body = client.get("/websearch?q=brisbane weather").json()
     assert body["results"] == [
@@ -153,8 +153,117 @@ def test_websearch_enabled_returns_parsed_results(client, monkeypatch):
             "title": "Brisbane & weather",
             "url": "https://example.com/brisbane",
             "snippet": "It is sunny today.",
+            "domain": "example.com",
+            "engine": "duckduckgo",
         }
     ]
+    assert body["provider"] == "duckduckgo"
+
+
+def test_ddg_parser_has_a_backup_pattern():
+    """If the primary result markup disappears, the looser pattern still works."""
+    websearch.clear_cache()
+    changed_markup = """
+    <div class="results">
+      <a href="/l/?uddg=https%3A%2F%2Fexample.org%2Fdocs" class="result-link">Docs</a>
+      <td class="result-snippet">Some helpful text.</td>
+    </div>
+    """
+    parsed = websearch._parse_results(changed_markup, 5)
+    assert parsed[0]["url"] == "https://example.org/docs"
+    assert parsed[0]["snippet"] == "Some helpful text."
+
+
+def test_searxng_is_used_when_configured(client, monkeypatch):
+    websearch.clear_cache()
+    client.put(
+        "/preferences",
+        json={"web_search_enabled": True, "searxng_url": "http://localhost:8888"},
+    )
+
+    class FakeResponse:
+        status_code = 200
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "results": [
+                    {
+                        "title": "Self-hosted result",
+                        "url": "https://example.net/page",
+                        "content": "From my own instance.",
+                    }
+                ]
+            }
+
+    captured = {}
+
+    def fake_get(url, params=None, headers=None, timeout=None):
+        captured["url"] = url
+        captured["params"] = params
+        return FakeResponse()
+
+    monkeypatch.setattr(websearch.requests, "get", fake_get)
+    body = client.get("/websearch?q=hello").json()
+    assert captured["url"] == "http://localhost:8888/search"
+    assert captured["params"]["format"] == "json"
+    assert body["provider"] == "searxng"
+    assert body["results"][0]["domain"] == "example.net"
+    assert body["results"][0]["engine"] == "searxng"
+
+
+def test_searxng_failure_falls_back_to_duckduckgo(client, monkeypatch):
+    websearch.clear_cache()
+    client.put(
+        "/preferences",
+        json={"web_search_enabled": True, "searxng_url": "http://localhost:8888"},
+    )
+
+    def boom(*args, **kwargs):
+        raise websearch.requests.RequestException("instance is down")
+
+    monkeypatch.setattr(websearch.requests, "get", boom)
+    monkeypatch.setattr(
+        websearch, "_search_duckduckgo", lambda q, limit: websearch._parse_results(FAKE_DDG_PAGE, limit)
+    )
+    body = client.get("/websearch?q=anything").json()
+    # SearXNG failing must not break search — DuckDuckGo answers instead.
+    assert body["results"][0]["engine"] == "duckduckgo"
+
+
+def test_websearch_results_are_cached_briefly(monkeypatch):
+    websearch.clear_cache()
+    calls = []
+
+    def counted(query, limit):
+        calls.append(query)
+        return websearch._parse_results(FAKE_DDG_PAGE, limit)
+
+    monkeypatch.setattr(websearch, "_search_duckduckgo", counted)
+    websearch.search_web("same query")
+    websearch.search_web("same query")
+    assert len(calls) == 1  # second one served from cache
+    websearch.clear_cache()
+
+
+def test_reader_strips_scripts_and_markup():
+    page = """
+    <html><head><title>A Page</title></head>
+    <body><script>alert('x')</script><style>p{color:red}</style>
+    <h1>Heading</h1><p>First para.</p><p>Second para.</p></body></html>
+    """
+    text = websearch._readable_text(page)
+    assert "alert" not in text and "color:red" not in text
+    assert "Heading" in text and "First para." in text
+    assert websearch._page_title(page) == "A Page"
+
+
+def test_reader_endpoint_requires_opt_in_and_http(client, monkeypatch):
+    assert client.get("/websearch/read?url=https://example.com").status_code == 403
+    client.put("/preferences", json={"web_search_enabled": True})
+    assert client.get("/websearch/read?url=file:///etc/passwd").status_code == 502
 
 
 def test_websearch_tool_hidden_until_opted_in(client):

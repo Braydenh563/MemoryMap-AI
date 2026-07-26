@@ -357,10 +357,15 @@ def _web_search(session: Session, args: dict) -> dict:
     stale conversation could still name it."""
     from memorymap.search import websearch
 
-    if not deps.get_config().get_preference("web_search_enabled", False):
+    config = deps.get_config()
+    if not config.get_preference("web_search_enabled", False):
         raise ValueError("Web search is disabled in Settings → Preferences")
     try:
-        results = websearch.search_web(str(args["query"]), limit=5)
+        results = websearch.search_web(
+            str(args["query"]),
+            limit=5,
+            searxng_url=str(config.get_preference("searxng_url", "") or "") or None,
+        )
     except websearch.WebSearchError as exc:
         raise ValueError(str(exc)) from exc
     return {

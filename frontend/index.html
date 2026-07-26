@@ -279,6 +279,32 @@
               <button id="chat-export" class="ghost small" title="Download this chat as a Markdown file">⭳ Export</button>
             </div>
           </div>
+          <!-- Web panel: search the web and read a page as clean text,
+               without embedding a browser. -->
+          <div id="web-panel" class="web-panel hidden">
+            <div class="row space-between">
+              <strong id="web-panel-title">🌐 Web</strong>
+              <button id="web-panel-close" class="ghost small" aria-label="Close web panel">✕</button>
+            </div>
+            <div class="row">
+              <input id="web-query" type="text" placeholder="Search the web…"
+                aria-label="Search the web">
+              <button id="web-go" class="small">Search</button>
+            </div>
+            <p id="web-status" class="status" role="status"></p>
+            <div id="web-results" class="web-results"></div>
+            <div id="web-reader" class="web-reader hidden">
+              <div class="row space-between">
+                <strong id="web-reader-title"></strong>
+                <span class="row">
+                  <button id="web-reader-save" class="ghost small">＋ Save as note</button>
+                  <button id="web-reader-back" class="ghost small">← Results</button>
+                </span>
+              </div>
+              <p class="muted" id="web-reader-source"></p>
+              <div id="web-reader-text" class="web-reader-text"></div>
+            </div>
+          </div>
           <div id="chat-messages"></div>
           <div id="chat-suggest" class="recent hidden"></div>
           <div id="chat-skills" class="recent hidden"></div>
@@ -793,6 +819,17 @@
             <p class="muted">
               Off by default. When on, only your search words leave this
               computer — never your notes.
+            </p>
+            <div class="row">
+              <label for="pref-searxng" class="muted">SearXNG URL (optional)</label>
+              <input id="pref-searxng" type="text" maxlength="200"
+                placeholder="http://localhost:8888">
+            </div>
+            <p class="muted">
+              Point this at your own <strong>SearXNG</strong> instance to search
+              through it instead of DuckDuckGo — better results, no scraping, and
+              the query stays inside your network. Leave blank to use DuckDuckGo.
+              If your instance is unreachable, MemoryMap falls back automatically.
             </p>
             <h3>About you (optional)</h3>
             <label>

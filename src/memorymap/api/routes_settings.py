@@ -66,6 +66,8 @@ class PreferencesBody(BaseModel):
     tools_enabled: bool | None = None
     # Wave F: the ONE feature that goes online — off unless the user opts in.
     web_search_enabled: bool | None = None
+    # Optional self-hosted SearXNG instance; empty string = use DuckDuckGo.
+    searxng_url: str | None = Field(default=None, max_length=200)
     # Wave O: agent tools the user has switched off (by tool name).
     disabled_tools: list[str] | None = Field(default=None, max_length=50)
 
@@ -95,6 +97,7 @@ def get_preferences() -> dict:
         "skills": config.get_preference("skills", []),
         "tools_enabled": config.get_preference("tools_enabled", True),
         "web_search_enabled": config.get_preference("web_search_enabled", False),
+        "searxng_url": config.get_preference("searxng_url", ""),
         "disabled_tools": config.get_preference("disabled_tools", []),
     }
 
@@ -314,25 +317,55 @@ def import_markdown(
 # --- web search (Wave F) -----------------------------------------------------------
 
 
-@router.get("/websearch")
-def web_search(q: str, session: Session = Depends(get_session)) -> dict:
-    """Opt-in DuckDuckGo lookup. 403 while the preference is off so
-    nothing can quietly go online."""
-    from memorymap.search import websearch
-
-    if not deps.get_config().get_preference("web_search_enabled", False):
+def _require_web_search() -> str:
+    """403 while the preference is off so nothing can quietly go online.
+    Returns the configured SearXNG URL ('' = use DuckDuckGo)."""
+    config = deps.get_config()
+    if not config.get_preference("web_search_enabled", False):
         raise HTTPException(
             status_code=403,
             detail="Web search is turned off. Enable it in Settings → Preferences "
             "(this is the one feature that goes online).",
         )
+    return str(config.get_preference("searxng_url", "") or "")
+
+
+@router.get("/websearch")
+def web_search(q: str, limit: int = 5, session: Session = Depends(get_session)) -> dict:
+    """Opt-in web lookup via SearXNG (if configured) or DuckDuckGo."""
+    from memorymap.search import websearch
+
+    searxng = _require_web_search()
     try:
-        results = websearch.search_web(q, limit=5)
+        results = websearch.search_web(q, limit=max(1, min(limit, 10)), searxng_url=searxng or None)
     except websearch.WebSearchError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     manager.log_action(session, "web_searched", "chat", detail=q[:120])
     session.commit()
-    return {"query": q, "results": results}
+    return {
+        "query": q,
+        "results": results,
+        "provider": results[0]["engine"] if results else ("searxng" if searxng else "duckduckgo"),
+    }
+
+
+@router.get("/websearch/read")
+def web_read(url: str, session: Session = Depends(get_session)) -> dict:
+    """Fetch a page as plain readable text.
+
+    Deliberately not an embedded browser: the page is stripped to text on the
+    server, so no third-party script, tracker, or iframe ever runs in the app.
+    """
+    from memorymap.search import websearch
+
+    _require_web_search()
+    try:
+        page = websearch.fetch_readable(url)
+    except websearch.WebSearchError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    manager.log_action(session, "web_read", "chat", detail=url[:120])
+    session.commit()
+    return page
 
 
 # --- backups (Wave F) --------------------------------------------------------------

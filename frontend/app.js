@@ -1605,6 +1605,129 @@ function clearChatEmptyState() {
   $("chat-messages").querySelector(".chat-empty")?.remove();
 }
 
+// --- web panel: search + reader view ----------------------------------------
+// Deliberately not an embedded browser. Pages are fetched and stripped to
+// text by the backend, so nothing from a third-party site ever executes here.
+
+let webReaderPage = null; // the page currently open in the reader
+
+function toggleWebPanel(force) {
+  const panel = $("web-panel");
+  const show = force ?? panel.classList.contains("hidden");
+  panel.classList.toggle("hidden", !show);
+  if (show) {
+    $("web-reader").classList.add("hidden");
+    $("web-query").focus();
+  }
+}
+
+async function runWebSearch() {
+  const query = $("web-query").value.trim();
+  if (!query) return;
+  const status = $("web-status");
+  const box = $("web-results");
+  $("web-reader").classList.add("hidden");
+  box.replaceChildren();
+  status.classList.remove("error");
+  status.textContent = "Searching the web…";
+  let body;
+  try {
+    body = await apiJson(`/websearch?q=${encodeURIComponent(query)}&limit=8`);
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+    return;
+  }
+  const results = body.results || [];
+  status.textContent = results.length
+    ? `${results.length} results via ${body.provider}`
+    : "No results — try different words.";
+  for (const result of results) {
+    const row = document.createElement("div");
+    row.className = "web-result";
+
+    const title = document.createElement("button");
+    title.type = "button";
+    title.className = "web-result-title";
+    title.textContent = result.title || result.url;
+    title.addEventListener("click", () => openWebReader(result.url));
+    row.appendChild(title);
+
+    const meta = document.createElement("div");
+    meta.className = "web-result-meta muted";
+    meta.textContent = result.domain || "";
+    row.appendChild(meta);
+
+    if (result.snippet) {
+      const snippet = document.createElement("div");
+      snippet.className = "web-result-snippet muted";
+      snippet.textContent = result.snippet;
+      row.appendChild(snippet);
+    }
+
+    const actions = document.createElement("div");
+    actions.className = "row";
+    actions.appendChild(
+      smallButton("📖 Read here", "Open this page as clean text", () =>
+        openWebReader(result.url)
+      )
+    );
+    const open = document.createElement("a");
+    open.href = result.url;
+    open.target = "_blank";
+    open.rel = "noopener noreferrer";
+    open.className = "ghost small web-open-link";
+    open.textContent = "↗ Open in browser";
+    actions.appendChild(open);
+    actions.appendChild(
+      smallButton("💬 Ask about this", "Send this link to the chat", () => {
+        $("chat-input").value = `About ${result.url} — `;
+        $("chat-input").focus();
+      })
+    );
+    row.appendChild(actions);
+    box.appendChild(row);
+  }
+}
+
+async function openWebReader(url) {
+  const status = $("web-status");
+  status.classList.remove("error");
+  status.textContent = "Opening…";
+  let page;
+  try {
+    page = await apiJson(`/websearch/read?url=${encodeURIComponent(url)}`);
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+    return;
+  }
+  webReaderPage = page;
+  status.textContent = "";
+  $("web-reader-title").textContent = page.title || page.domain;
+  $("web-reader-source").textContent = page.domain;
+  // textContent, never innerHTML — the page is untrusted by definition.
+  $("web-reader-text").textContent = page.text || "(Nothing readable on that page.)";
+  $("web-reader-text").scrollTop = 0;
+  $("web-reader").classList.remove("hidden");
+}
+
+async function saveWebPageAsNote() {
+  if (!webReaderPage) return;
+  const excerpt = (webReaderPage.text || "").slice(0, 1200);
+  const content = `${webReaderPage.title}\n${webReaderPage.url}\n\n${excerpt}`;
+  try {
+    await apiJson("/entries", {
+      method: "POST",
+      body: JSON.stringify({ content, tags: ["web"] }),
+    });
+    toast("Saved as a note.");
+    loadEntries().catch(() => {});
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
 function personaOptions() {
   // Built-ins + the user's custom personas (deduped — an edited built-in
   // is stored under the same name); the active one pre-selected.
@@ -4857,6 +4980,7 @@ async function renderPrefs() {
   $("pref-profile").value = prefsCache.user_profile;
   $("pref-profile-enabled").checked = prefsCache.profile_enabled;
   $("pref-web-search").checked = Boolean(prefsCache.web_search_enabled);
+  $("pref-searxng").value = prefsCache.searxng_url || "";
   $("prefs-status").textContent = "";
 }
 
@@ -4871,6 +4995,7 @@ async function savePrefs() {
         user_profile: $("pref-profile").value,
         profile_enabled: $("pref-profile-enabled").checked,
         web_search_enabled: $("pref-web-search").checked,
+        searxng_url: $("pref-searxng").value.trim(),
       }),
     });
     $("prefs-status").textContent = "Saved.";
@@ -6700,8 +6825,23 @@ $("web-search-toggle").addEventListener("click", async () => {
   }).catch(() => prefsCache);
   renderWebSearchToggle();
   $("pref-web-search").checked = next; // keep the Settings checkbox in sync
-  toast(next ? "Web search on — the AI can search when you ask." : "Web search off.");
+  if (next) {
+    toggleWebPanel(true); // turning it on reveals the search panel
+    toast("Web search on — the AI can search, and you can browse here.");
+  } else {
+    toggleWebPanel(false);
+    toast("Web search off.");
+  }
 });
+$("web-panel-close").addEventListener("click", () => toggleWebPanel(false));
+$("web-go").addEventListener("click", runWebSearch);
+$("web-query").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") runWebSearch();
+});
+$("web-reader-back").addEventListener("click", () =>
+  $("web-reader").classList.add("hidden")
+);
+$("web-reader-save").addEventListener("click", saveWebPageAsNote);
 
 // Dashboard + reminders (Wave D).
 $("dash-edit").addEventListener("click", () => {

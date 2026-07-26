@@ -76,6 +76,38 @@ SEARXNG_CANDIDATES = (
 DISCOVERY_TIMEOUT = 1.5
 
 
+def _build_pinned_probe_target(base_url: str) -> tuple[str, dict[str, str]] | None:
+    parsed = urlparse(base_url)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        return None
+
+    host = parsed.hostname
+    addresses = _host_addresses(host)
+    internal_addresses = [address for address in addresses if _is_internal(address)]
+    if not internal_addresses:
+        return None
+
+    pinned_ip = internal_addresses[0]
+    try:
+        ip_obj = ipaddress.ip_address(pinned_ip)
+    except ValueError:
+        return None
+
+    port = parsed.port
+    if port is None:
+        port = 443 if parsed.scheme == "https" else 80
+
+    if ip_obj.version == 6:
+        netloc = f"[{pinned_ip}]:{port}"
+    else:
+        netloc = f"{pinned_ip}:{port}"
+
+    probe_url = f"{parsed.scheme}://{netloc}/search"
+    host_header = host if parsed.port is None else f"{host}:{parsed.port}"
+    headers = {"User-Agent": USER_AGENT, "Host": host_header}
+    return probe_url, headers
+
+
 def probe_searxng(base_url: str) -> bool:
     """True if a SearXNG instance answers JSON search at this URL.
 
@@ -84,21 +116,16 @@ def probe_searxng(base_url: str) -> bool:
     That keeps a mistyped or hostile preference from turning the probe into a
     request against an arbitrary internet host.
     """
-    scheme, host = _split_url(base_url)
-    if not scheme:
+    target = _build_pinned_probe_target(base_url)
+    if not target:
         return False
-    addresses = _host_addresses(host)
-    if not addresses or not all(_is_internal(address) for address in addresses):
-        return False
+    probe_url, headers = target
+
     try:
-        # CodeQL reports this as SSRF and always will: the URL is a user
-        # preference. Pointing this at your own SearXNG is the whole feature —
-        # the address check above constrains it as far as it can be without
-        # removing it. Tracked as an accepted alert rather than silenced.
         response = requests.get(
-            base_url.rstrip("/") + "/search",
+            probe_url,
             params={"q": "memorymap ping", "format": "json"},
-            headers={"User-Agent": USER_AGENT},
+            headers=headers,
             timeout=DISCOVERY_TIMEOUT,
         )
         if response.status_code != 200:

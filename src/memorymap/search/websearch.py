@@ -91,6 +91,8 @@ def probe_searxng(base_url: str) -> bool:
     if not addresses or not all(_is_internal(address) for address in addresses):
         return False
     try:
+        # codeql[py/full-ssrf] Pointing this at your own SearXNG is the feature;
+        # the address is constrained to this machine or the local network above.
         response = requests.get(
             base_url.rstrip("/") + "/search",
             params={"q": "memorymap ping", "format": "json"},
@@ -165,6 +167,8 @@ def _search_searxng(query: str, limit: int, base_url: str) -> list[dict]:
         raise WebSearchError("The SearXNG address must be on this machine or your network")
     url = base_url.rstrip("/") + "/search"
     try:
+        # codeql[py/full-ssrf] Same as probe_searxng: a user-configured local
+        # instance, address-checked immediately above.
         response = requests.get(
             url,
             params={"q": query, "format": "json"},
@@ -310,6 +314,58 @@ def _is_internal(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool
     )
 
 
+_MAX_REDIRECTS = 5
+
+
+def _assert_external(url: str) -> None:
+    """Refuse a URL that isn't plain http(s) out to the public internet.
+
+    A search result is untrusted input, so it must never make the app fetch
+    something on this machine or the local network — that would turn "open a
+    result" into a probe of the user's own services.
+    """
+    scheme, host = _split_url(url)
+    if not scheme:
+        raise WebSearchError("Only http(s) links can be opened")
+    addresses = _host_addresses(host)
+    if not addresses:
+        raise WebSearchError("Couldn't look up that address")
+    if any(_is_internal(address) for address in addresses):
+        raise WebSearchError("That link points at a local address, so it wasn't opened")
+
+
+def _get_external(url: str) -> requests.Response:
+    """GET a public URL, checking every redirect hop rather than only the first.
+
+    Redirects are followed by hand precisely because `allow_redirects=True`
+    would resolve the next hop inside requests, where the address check can't
+    see it — a public page answering "302 → http://127.0.0.1/" would otherwise
+    walk straight past the guard above.
+    """
+    for _ in range(_MAX_REDIRECTS):
+        _assert_external(url)
+        # codeql[py/full-ssrf] Fetching a link the user picked is the feature;
+        # every hop is checked against _assert_external immediately above.
+        response = requests.get(
+            url,
+            headers={"User-Agent": USER_AGENT},
+            timeout=REQUEST_TIMEOUT,
+            stream=True,
+            allow_redirects=False,
+        )
+        if response.is_redirect or response.is_permanent_redirect:
+            location = response.headers.get("location", "")
+            response.close()
+            if not location:
+                raise WebSearchError("That page redirected to nowhere")
+            # A relative Location is resolved against the hop it came from.
+            url = requests.compat.urljoin(url, location)
+            continue
+        response.raise_for_status()
+        return response
+    raise WebSearchError("That page redirected too many times")
+
+
 def _split_url(url: str) -> tuple[str, str]:
     """(scheme, host) for an http(s) URL, or ("", "") if it isn't one.
 
@@ -332,25 +388,8 @@ def fetch_readable(url: str) -> dict:
     scripts, styles and chrome are stripped and only text comes back, so
     nothing from the page can execute in the app.
     """
-    scheme, host = _split_url(url)
-    if not scheme:
-        raise WebSearchError("Only http(s) links can be opened")
-    # A search result is untrusted input, so it must never be able to make the
-    # app fetch something on this machine or the local network — that would
-    # turn "open a result" into a probe of the user's own services.
-    addresses = _host_addresses(host)
-    if not addresses:
-        raise WebSearchError("Couldn't look up that address")
-    if any(_is_internal(address) for address in addresses):
-        raise WebSearchError("That link points at a local address, so it wasn't opened")
     try:
-        response = requests.get(
-            url,
-            headers={"User-Agent": USER_AGENT},
-            timeout=REQUEST_TIMEOUT,
-            stream=True,
-        )
-        response.raise_for_status()
+        response = _get_external(url)
         content_type = response.headers.get("content-type", "")
         if "html" not in content_type and "text" not in content_type:
             raise WebSearchError("That link isn't a readable page")

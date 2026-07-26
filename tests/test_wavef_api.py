@@ -463,3 +463,32 @@ def test_searxng_probe_still_allows_localhost(monkeypatch):
 
     monkeypatch.setattr(websearch.requests, "get", lambda *a, **k: FakeResponse())
     assert websearch.probe_searxng("http://localhost:8888") is True
+
+
+def test_reader_refuses_a_redirect_into_the_local_network(client, monkeypatch):
+    """A public page must not be able to 302 the app onto localhost."""
+    from memorymap.search import websearch
+
+    seen = []
+
+    class FakeResponse:
+        def __init__(self, url):
+            self.is_redirect = True
+            self.is_permanent_redirect = False
+            self.headers = {"location": "http://127.0.0.1:11434/api/tags"}
+            self.url = url
+
+        def close(self):
+            pass
+
+    def fake_get(url, **kwargs):
+        seen.append(url)
+        return FakeResponse(url)
+
+    monkeypatch.setattr(websearch.requests, "get", fake_get)
+    client.put("/preferences", json={"web_search_enabled": True})
+    response = client.get("/websearch/read?url=https://example.com/post")
+    assert response.status_code == 502
+    assert "local address" in response.json()["detail"]
+    # The first hop was fetched; the redirect target never was.
+    assert seen == ["https://example.com/post"]

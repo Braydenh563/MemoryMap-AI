@@ -1622,6 +1622,15 @@ html { font-size: 16px; }
 .tool-row input { width: 1.15rem; height: 1.15rem; margin: 0; accent-color: var(--accent); }
 .tool-desc { display: block; margin: 0.2rem 0 0 1.65rem; font-size: 0.82rem; }
 
+/* Per-message metadata: model · time · tokens · speed */
+.msg-meta {
+  margin-top: 0.35rem;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+.msg-meta:empty { display: none; }
+
 /* --- web panel (search + reader) ------------------------------------------- */
 .web-panel {
   border: 1px solid var(--border);

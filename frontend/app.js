@@ -1328,6 +1328,7 @@ async function streamChat({
   onAnswer,
   onTool,
   onConfirm,
+  onStats,
 }) {
   const body = { question, history: history || [] };
   if (persona) body.persona = persona;
@@ -1364,6 +1365,7 @@ async function streamChat({
       else if (event.type === "answer") onAnswer(event.delta);
       else if (event.type === "tool" && onTool) onTool(event);
       else if (event.type === "confirm" && onConfirm) onConfirm(event);
+      else if (event.type === "stats" && onStats) onStats(event);
     }
   }
 }
@@ -1555,6 +1557,32 @@ function chatMessageActions(actions) {
     button.addEventListener("click", action.onClick);
     row.appendChild(button);
   }
+  return row;
+}
+
+// A small "what this answer cost" line under an assistant bubble: which model
+// answered, how long it took, and — when Ollama reports them — token counts
+// and generation speed.
+function messageMetaLine({ model, elapsedMs, stats }) {
+  const row = document.createElement("div");
+  row.className = "msg-meta muted";
+  const bits = [];
+  if (model) bits.push(model);
+  if (elapsedMs != null) {
+    bits.push(elapsedMs < 1000 ? `${elapsedMs} ms` : `${(elapsedMs / 1000).toFixed(1)}s`);
+  }
+  if (stats) {
+    const inTok = stats.prompt_tokens;
+    const outTok = stats.output_tokens;
+    if (inTok != null || outTok != null) {
+      bits.push(`${inTok ?? "?"}→${outTok ?? "?"} tokens`);
+    }
+    if (outTok && stats.eval_ms) {
+      bits.push(`${(outTok / (stats.eval_ms / 1000)).toFixed(1)} tok/s`);
+    }
+  }
+  row.textContent = bits.join(" · ");
+  row.title = "Model · response time · prompt→output tokens · generation speed";
   return row;
 }
 
@@ -1926,6 +1954,8 @@ async function sendChatMessage(preset, opts = {}) {
   let thinkingRaw = "";
   let meta = null;
   let toolsActed = false;
+  let stats = null;
+  const startedAt = performance.now();
   chatController = new AbortController();
 
   try {
@@ -1969,6 +1999,9 @@ async function sendChatMessage(preset, opts = {}) {
         renderToolConfirm(toolsHolder, event);
         status.textContent = "Waiting for your confirmation…";
       },
+      onStats: (event) => {
+        stats = event;
+      },
     });
     status.textContent = "";
   } catch (error) {
@@ -1988,6 +2021,17 @@ async function sendChatMessage(preset, opts = {}) {
 
   renderMarkdown(answerBox, answerRaw);
   if (meta) renderRecordsDetails(recordsHolder, meta);
+  // What this answer cost: model, wall-clock time, tokens, speed.
+  const elapsedMs = Math.round(performance.now() - startedAt);
+  if (answerRaw) {
+    bubble.appendChild(
+      messageMetaLine({
+        model: (stats && stats.model) || (meta && meta.answered_by),
+        elapsedMs,
+        stats,
+      })
+    );
+  }
   chatScrollToEnd();
   if (toolsActed) refreshAfterToolChanges(); // the AI changed real data
   if (!answerRaw) return; // nothing to remember (failed before any token)
@@ -2011,6 +2055,14 @@ async function sendChatMessage(preset, opts = {}) {
       });
       chatConv.id = created.id;
       $("chat-title").textContent = created.title;
+      // Let the AI name the thread once there's something to name. Silent
+      // best-effort: the question-derived title stays if the model can't.
+      apiJson(`/conversations/${created.id}/retitle`, { method: "POST", silent: true })
+        .then((named) => {
+          if (chatConv.id === created.id) $("chat-title").textContent = named.title;
+          loadConversationList();
+        })
+        .catch(() => {});
     } else {
       await apiJson(`/conversations/${chatConv.id}/turns`, {
         method: "POST",
@@ -2080,6 +2132,20 @@ async function loadConversationList() {
           method: "PUT",
           body: JSON.stringify({ title: next.trim() }),
         });
+        loadConversationList();
+      })
+    );
+    actions.appendChild(
+      smallButton("✨", "Let the AI name this chat", async () => {
+        const named = await apiJson(`/conversations/${conversation.id}/retitle`, {
+          method: "POST",
+        }).catch((e) => {
+          toast(e.message, true);
+          return null;
+        });
+        if (!named) return;
+        if (chatConv.id === conversation.id) $("chat-title").textContent = named.title;
+        toast(named.ai_named ? `Renamed to “${named.title}”.` : "Used the first question as the title.");
         loadConversationList();
       })
     );

@@ -97,6 +97,63 @@ def append_turn(
     return _summary(conversation)
 
 
+TITLE_PROMPT = (
+    "Write a very short title (2 to 5 words) for this conversation. Reply with "
+    "the title only: no quotes, no punctuation at the end, no explanation."
+)
+
+
+def _clean_title(raw: str) -> str | None:
+    text = (raw or "").strip().splitlines()[0] if (raw or "").strip() else ""
+    text = text.strip().strip("\"'`*#").rstrip(".!,;:").strip()
+    if not text or len(text) > 60 or len(text.split()) > 8:
+        return None
+    return text
+
+
+@router.post("/{conversation_id}/retitle")
+def retitle_conversation(
+    conversation_id: int, session: Session = Depends(get_session)
+) -> dict:
+    """Name a chat with the local model, falling back to the first question.
+
+    Best-effort by design: if the model is down or answers with something
+    unusable, the conversation simply keeps a sensible non-AI title.
+    """
+    from memorymap.core import deps
+
+    conversation = _existing(session, conversation_id)
+    messages = json.loads(conversation.messages)
+    first_question = next(
+        (m["content"] for m in messages if m.get("role") == "user"), ""
+    )
+    fallback = first_question if len(first_question) <= 60 else first_question[:59] + "…"
+
+    title = None
+    ollama = deps.get_ollama()
+    if ollama.is_running():
+        # A short transcript is plenty to name the thread.
+        transcript = "\n".join(
+            f"{m.get('role')}: {str(m.get('content'))[:400]}" for m in messages[:4]
+        )
+        try:
+            reply = ollama.chat(
+                deps.get_model_manager().utility_model(),
+                [
+                    {"role": "system", "content": TITLE_PROMPT},
+                    {"role": "user", "content": transcript},
+                ],
+            )
+            title = _clean_title(reply.get("content", "") if isinstance(reply, dict) else "")
+        except Exception:  # noqa: BLE001 — a failed rename is never fatal
+            title = None
+
+    conversation.title = title or fallback or conversation.title
+    conversation.updated_at = utcnow()
+    session.commit()
+    return {**_summary(conversation), "ai_named": bool(title)}
+
+
 @router.delete("/{conversation_id}/turns/{index}")
 def delete_turn(
     conversation_id: int, index: int, session: Session = Depends(get_session)

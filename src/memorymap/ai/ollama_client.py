@@ -125,6 +125,14 @@ def extract_text_tool_calls(
     return calls, cleaned.strip()
 
 
+def _ns_to_ms(value) -> int | None:
+    """Ollama reports durations in nanoseconds; milliseconds read better."""
+    try:
+        return round(int(value) / 1_000_000)
+    except (TypeError, ValueError):
+        return None
+
+
 def split_thinking(text: str) -> tuple[str, str | None]:
     """Separate a thinking model's <think>…</think> block from its answer.
 
@@ -243,6 +251,18 @@ class OllamaClient:
                         yield from splitter.feed(message["content"])
                     if data.get("done"):
                         yield from splitter.flush()
+                        # Ollama's final chunk carries token counts and
+                        # timings — worth surfacing, so the UI can show
+                        # what the answer actually cost.
+                        yield {
+                            "stats": {
+                                "model": data.get("model") or model,
+                                "prompt_tokens": data.get("prompt_eval_count"),
+                                "output_tokens": data.get("eval_count"),
+                                "total_ms": _ns_to_ms(data.get("total_duration")),
+                                "eval_ms": _ns_to_ms(data.get("eval_duration")),
+                            }
+                        }
         except (requests.RequestException, KeyError, TypeError, ValueError) as exc:
             raise OllamaError(f"Chat with '{model}' failed: {exc}") from exc
 

@@ -67,6 +67,38 @@ def test_conversation_lifecycle(client):
     assert client.get("/conversations").json() == []
 
 
+def test_retitle_uses_ai(ai_client, fake_ollama):
+    created = ai_client.post(
+        "/conversations", json={"question": "what jokes have I saved?", "answer": "A few."}
+    ).json()
+    fake_ollama.librarian_reply = "Saved jokes"
+    named = ai_client.post(f"/conversations/{created['id']}/retitle").json()
+    assert named["title"] == "Saved jokes"
+    assert named["ai_named"] is True
+
+
+def test_retitle_falls_back_without_ai(ai_client, fake_ollama):
+    created = ai_client.post(
+        "/conversations", json={"question": "how do I bake bread?", "answer": "Slowly."}
+    ).json()
+    fake_ollama.running = False
+    named = ai_client.post(f"/conversations/{created['id']}/retitle").json()
+    assert named["ai_named"] is False
+    assert named["title"].startswith("how do I bake bread")
+
+
+def test_retitle_rejects_a_rambling_title(ai_client, fake_ollama):
+    created = ai_client.post(
+        "/conversations", json={"question": "tell me about pasta", "answer": "Sure."}
+    ).json()
+    fake_ollama.librarian_reply = (
+        "Of course! Here is a great title for this particular conversation about food."
+    )
+    named = ai_client.post(f"/conversations/{created['id']}/retitle").json()
+    assert named["ai_named"] is False
+    assert named["title"].startswith("tell me about pasta")
+
+
 def test_delete_conversation_turn(client):
     created = client.post(
         "/conversations",

@@ -243,6 +243,9 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
             for piece in ollama.chat_stream(model_manager.chat_model(), messages):
                 if "thinking_delta" in piece:
                     yield {"type": "thinking", "delta": piece["thinking_delta"]}
+                elif "stats" in piece:
+                    # Token counts + timings for the message metadata line.
+                    yield {"type": "stats", **piece["stats"]}
                 else:
                     yield {"type": "answer", "delta": piece["content_delta"]}
         except OllamaError:

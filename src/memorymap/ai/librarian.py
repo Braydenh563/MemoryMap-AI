@@ -25,6 +25,34 @@ GROUNDING = (
 )
 SYSTEM_PROMPT = f"{DEFAULT_PERSONA} {GROUNDING}"
 
+# GROUNDING is right for a question about the notebook and wrong for anything
+# else — it's what turned "hey" into a summary of your notes. Conversational
+# messages get their own brief instead, and never see retrieved notes.
+CONVERSATIONAL = (
+    "This message is small talk, not a question about the notebook. Reply the "
+    "way a helpful assistant would: one or two short sentences, warm and "
+    "natural. Do NOT list, summarise, or mention the user's notes unless they "
+    "ask. Don't offer a menu of features. If a nudge fits, at most one short "
+    "question about what they'd like to do."
+)
+
+# What the app can actually do, for "what can you do?". Kept as prose the model
+# puts in its own words rather than a list it recites verbatim.
+CAPABILITIES = (
+    "You help the user work with their personal notebook. You can: find and "
+    "summarise notes they've written; create, edit, tag, categorise and delete "
+    "notes; set and list reminders; look at their tags and categories; and "
+    "search the web when they've turned that on. The app also has a graph view "
+    "of how notes connect, a dashboard, and a chat that remembers the "
+    "conversation."
+)
+ABOUT_APP_BRIEF = (
+    "The user is asking what you can do, not asking about their notes. Answer "
+    "from the capability description below, in your own words, in a few short "
+    "sentences. Don't recite it as a list of every item, and don't mention any "
+    "of their actual notes."
+)
+
 # Built-in personas (Wave C). Users add their own in Settings → Personas.
 BUILTIN_PERSONAS = [
     {"name": "Librarian", "prompt": DEFAULT_PERSONA},
@@ -74,6 +102,40 @@ STYLE_HINTS = {
 # and a long past answer gets clipped.
 MAX_HISTORY_TURNS = 4
 MAX_HISTORY_ANSWER_CHARS = 600
+
+
+def build_conversational_messages(
+    question: str,
+    intent: str,
+    style: str = "friendly",
+    profile: str = "",
+    history: list[dict] | None = None,
+    persona_prompt: str | None = None,
+) -> list[dict]:
+    """Prompt for a message that isn't about the notebook.
+
+    Same persona and history as a normal answer, so it still sounds like the
+    assistant the user chose — but no notes, and no instruction to ground the
+    reply in them.
+    """
+    persona = (persona_prompt or DEFAULT_PERSONA).strip()
+    style_hint = STYLE_HINTS.get(style, STYLE_HINTS["friendly"])
+    profile_hint = f" About the user: {profile.strip()}" if profile.strip() else ""
+    if intent == "about_app":
+        brief = f"{ABOUT_APP_BRIEF}\n\nWhat you can do: {CAPABILITIES}"
+    else:
+        brief = CONVERSATIONAL
+    messages = [
+        {"role": "system", "content": f"{persona} {brief} {style_hint}{profile_hint}"}
+    ]
+    for turn in (history or [])[-MAX_HISTORY_TURNS:]:
+        past_question = str(turn.get("question", "")).strip()
+        past_answer = str(turn.get("answer", "")).strip()[:MAX_HISTORY_ANSWER_CHARS]
+        if past_question and past_answer:
+            messages.append({"role": "user", "content": past_question})
+            messages.append({"role": "assistant", "content": past_answer})
+    messages.append({"role": "user", "content": question})
+    return messages
 
 
 def build_messages(
@@ -157,6 +219,50 @@ def answer(
         return reply["content"].strip(), reply["thinking"]
     except OllamaError:
         return OFFLINE_MESSAGE, None
+
+
+# Said without the model, when Ollama isn't up. A greeting shouldn't produce an
+# error message — the assistant can still say hello.
+OFFLINE_SMALLTALK = "Hello. The AI model isn't running, but your notes are all still here."
+OFFLINE_ABOUT_APP = (
+    "I help you work with your notebook — finding, writing, tagging and "
+    "summarising notes, and setting reminders. The AI model isn't running "
+    "right now, so start it to ask me anything."
+)
+
+
+def converse(
+    question: str,
+    intent: str,
+    model_manager: ModelManager,
+    ollama: OllamaClient,
+    style: str = "friendly",
+    profile: str = "",
+    history: list[dict] | None = None,
+    persona_prompt: str | None = None,
+) -> tuple[str, str | None]:
+    """Reply to a message that isn't a question about the notebook.
+
+    Deliberately never touches retrieved notes: this is the path that stops
+    "hey" being answered with a summary of the user's notebook.
+    """
+    if not ollama.is_running():
+        return (OFFLINE_ABOUT_APP if intent == "about_app" else OFFLINE_SMALLTALK), None
+    try:
+        reply = ollama.chat(
+            model_manager.chat_model(),
+            build_conversational_messages(
+                question,
+                intent,
+                style=style,
+                profile=profile,
+                history=history,
+                persona_prompt=persona_prompt,
+            ),
+        )
+        return reply["content"].strip(), reply["thinking"]
+    except OllamaError:
+        return (OFFLINE_ABOUT_APP if intent == "about_app" else OFFLINE_SMALLTALK), None
 
 
 # --- AI writing help (Wave N) -----------------------------------------------------

@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import agent, librarian, tools
+from memorymap.ai import agent, intent, librarian, tools
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.api.schemas import EntryOut
 from memorymap.core import deps
@@ -126,12 +126,21 @@ class ChatResponse(BaseModel):
 
 def _prepare(session: Session, question: str) -> dict:
     """The shared first half of both chat endpoints: retrieve entries,
-    bump their usage counters, log the question, gather AI settings."""
+    bump their usage counters, log the question, gather AI settings.
+
+    A message that isn't about the notebook skips retrieval entirely — there's
+    nothing to search for, and searching anyway is what made "hey" come back
+    with a list of notes.
+    """
     from memorymap.api.routes_entries import _to_out  # avoids a route-module cycle
 
-    entries, mode = search_manager.retrieve(
-        session, question, deps.get_embeddings(), limit=5
-    )
+    detected = intent.classify(question)
+    if intent.needs_retrieval(detected):
+        entries, mode = search_manager.retrieve(
+            session, question, deps.get_embeddings(), limit=5
+        )
+    else:
+        entries, mode = [], "none"
     notes = [
         {
             # id lets agent-mode tool calls target these notes (Wave G);
@@ -160,6 +169,7 @@ def _prepare(session: Session, question: str) -> dict:
 
     return {
         "notes": notes,
+        "intent": detected,
         "raw_results": [_to_out(session, entry) for entry in entries],
         "search_mode": mode,
         "style": config.get_preference("communication_style", "friendly"),
@@ -171,17 +181,30 @@ def _prepare(session: Session, question: str) -> dict:
 def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResponse:
     prepared = _prepare(session, body.question)
     ollama_running = deps.get_ollama().is_running()
-    answered = bool(prepared["notes"]) and ollama_running
-    ai_response, ai_thinking = librarian.answer(
-        body.question,
-        prepared["notes"],
-        deps.get_model_manager(),
-        deps.get_ollama(),
-        style=prepared["style"],
-        profile=prepared["profile"],
-        history=[turn.model_dump() for turn in body.history],
-        persona_prompt=_resolve_persona(body.persona),
-    )
+    conversational = not intent.needs_retrieval(prepared["intent"])
+    answered = (conversational or bool(prepared["notes"])) and ollama_running
+    shared = {
+        "style": prepared["style"],
+        "profile": prepared["profile"],
+        "history": [turn.model_dump() for turn in body.history],
+        "persona_prompt": _resolve_persona(body.persona),
+    }
+    if conversational:
+        ai_response, ai_thinking = librarian.converse(
+            body.question,
+            prepared["intent"],
+            deps.get_model_manager(),
+            deps.get_ollama(),
+            **shared,
+        )
+    else:
+        ai_response, ai_thinking = librarian.answer(
+            body.question,
+            prepared["notes"],
+            deps.get_model_manager(),
+            deps.get_ollama(),
+            **shared,
+        )
     return ChatResponse(
         ai_response=ai_response,
         ai_thinking=ai_thinking,
@@ -216,20 +239,41 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
 
     def plain_events(prepared: dict, ollama_running: bool) -> Iterator[dict]:
         """The pre-Wave-G behaviour: stream a grounded answer, no tools."""
-        if not prepared["notes"]:
+        conversational = not intent.needs_retrieval(prepared["intent"])
+        if conversational:
+            # Small talk: no notes, no grounding, no "I couldn't find any
+            # notes matching that" in reply to "hey".
+            if not ollama_running:
+                offline = (
+                    librarian.OFFLINE_ABOUT_APP
+                    if prepared["intent"] == "about_app"
+                    else librarian.OFFLINE_SMALLTALK
+                )
+                yield {"type": "answer", "delta": offline}
+                return
+            messages = librarian.build_conversational_messages(
+                body.question,
+                prepared["intent"],
+                style=prepared["style"],
+                profile=prepared["profile"],
+                history=history,
+                persona_prompt=persona_prompt,
+            )
+        elif not prepared["notes"]:
             yield {"type": "answer", "delta": librarian.NO_RESULTS_MESSAGE}
             return
-        if not ollama_running:
+        elif not ollama_running:
             yield {"type": "answer", "delta": librarian.OFFLINE_MESSAGE}
             return
-        messages = librarian.build_messages(
-            body.question,
-            prepared["notes"],
-            style=prepared["style"],
-            profile=prepared["profile"],
-            history=history,
-            persona_prompt=persona_prompt,
-        )
+        else:
+            messages = librarian.build_messages(
+                body.question,
+                prepared["notes"],
+                style=prepared["style"],
+                profile=prepared["profile"],
+                history=history,
+                persona_prompt=persona_prompt,
+            )
         try:
             for piece in ollama.chat_stream(model_manager.chat_model(), messages):
                 if "thinking_delta" in piece:
@@ -260,7 +304,11 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
         ollama_running = ollama.is_running()
         # In agent mode the model can act even when nothing matched — "save a
         # note about X" must work on an empty notebook.
-        will_answer = ollama_running and (bool(prepared["notes"]) or use_tools)
+        will_answer = ollama_running and (
+            bool(prepared["notes"])
+            or use_tools
+            or not intent.needs_retrieval(prepared["intent"])
+        )
 
         yield event(
             {
@@ -273,7 +321,9 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
         )
 
         events: Iterator[dict] = plain_events(prepared, ollama_running)
-        if ollama_running and use_tools:
+        # Small talk never goes near the agent: "hey" is not a request to do
+        # anything, and handing it a toolbox invites it to invent an errand.
+        if ollama_running and use_tools and intent.needs_retrieval(prepared["intent"]):
             agent_events = agent.run_agent(
                 session,
                 body.question,

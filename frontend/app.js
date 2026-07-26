@@ -9287,6 +9287,113 @@ $("bin-empty").addEventListener("click", async () => {
   toast(`${result.removed} entr${result.removed === 1 ? "y" : "ies"} permanently deleted.`);
   await renderBin();
 });
+// --- [[ autocomplete ------------------------------------------------------------
+// The links work, but only if you remember how a note starts. Typing "[[" now
+// offers the notes you could mean, so linking is a thing you do while writing
+// rather than something you go and look up first.
+
+let wikiSuggestIndex = 0;
+let wikiSuggestMatches = [];
+
+// The half-typed "[[..." immediately before the cursor, or null.
+function wikiFragmentAt(textarea) {
+  const upto = textarea.value.slice(0, textarea.selectionStart);
+  const open = upto.lastIndexOf("[[");
+  if (open === -1) return null;
+  // Already closed, so the cursor is past a finished link.
+  if (upto.slice(open).includes("]]")) return null;
+  const fragment = upto.slice(open + 2);
+  // A newline means they moved on and left the brackets behind.
+  if (fragment.includes("\n")) return null;
+  return { start: open, fragment };
+}
+
+function hideWikiSuggest() {
+  $("wiki-suggest").classList.add("hidden");
+  wikiSuggestMatches = [];
+}
+
+function renderWikiSuggest(textarea) {
+  const at = wikiFragmentAt(textarea);
+  const box = $("wiki-suggest");
+  if (!at) return hideWikiSuggest();
+
+  const needle = at.fragment.trim().toLowerCase();
+  // Everything when they've only typed "[[", narrowing as they go. Private
+  // notes are excluded: they can't be link targets, so offering one would be
+  // a dead end that also reveals it exists.
+  wikiSuggestMatches = allEntries
+    .filter((e) => !e.is_private && (!needle || e.content.toLowerCase().includes(needle)))
+    .slice(0, 8);
+  if (!wikiSuggestMatches.length) return hideWikiSuggest();
+
+  wikiSuggestIndex = Math.min(wikiSuggestIndex, wikiSuggestMatches.length - 1);
+  box.replaceChildren();
+  wikiSuggestMatches.forEach((entry, index) => {
+    const li = document.createElement("li");
+    li.setAttribute("role", "option");
+    li.setAttribute("aria-selected", String(index === wikiSuggestIndex));
+    if (index === wikiSuggestIndex) li.classList.add("active");
+    li.textContent = noteLabel(entry, 64);
+    li.addEventListener("mousedown", (event) => {
+      // mousedown, not click: the textarea must not lose focus first.
+      event.preventDefault();
+      applyWikiSuggestion(textarea, entry);
+    });
+    box.appendChild(li);
+  });
+  box.classList.remove("hidden");
+}
+
+function applyWikiSuggestion(textarea, entry) {
+  const at = wikiFragmentAt(textarea);
+  if (!at) return;
+  // Link by the note's opening words — that's what resolution matches on.
+  //
+  // Brackets are stripped first. A note that itself contains [[a link]] would
+  // otherwise be inserted verbatim, producing [[outer [[inner]] text]] — and
+  // the parser, which won't match brackets inside a name, would then find the
+  // INNER one and silently resolve to the wrong note.
+  const name = (entry.content || "")
+    .split("\n")[0]
+    .replace(/\[\[|\]\]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 60);
+  if (!name) return hideWikiSuggest();
+  const before = textarea.value.slice(0, at.start);
+  const after = textarea.value.slice(textarea.selectionStart);
+  textarea.value = `${before}[[${name}]]${after}`;
+  const caret = before.length + name.length + 4;
+  textarea.setSelectionRange(caret, caret);
+  textarea.dispatchEvent(new Event("input")); // refresh the character count
+  hideWikiSuggest();
+  textarea.focus();
+}
+
+function wikiSuggestKeydown(event, textarea) {
+  if ($("wiki-suggest").classList.contains("hidden")) return false;
+  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    event.preventDefault();
+    const step = event.key === "ArrowDown" ? 1 : -1;
+    wikiSuggestIndex =
+      (wikiSuggestIndex + step + wikiSuggestMatches.length) % wikiSuggestMatches.length;
+    renderWikiSuggest(textarea);
+    return true;
+  }
+  if (event.key === "Enter" || event.key === "Tab") {
+    event.preventDefault();
+    applyWikiSuggestion(textarea, wikiSuggestMatches[wikiSuggestIndex]);
+    return true;
+  }
+  if (event.key === "Escape") {
+    event.preventDefault();
+    hideWikiSuggest();
+    return true;
+  }
+  return false;
+}
+
 // --- saved filters ---------------------------------------------------------------
 // Once the filter box understands operators, the useful ones are worth
 // keeping. "tag:work is:untagged" is a thing you want on a button, not
@@ -9525,8 +9632,17 @@ $("question").addEventListener("keydown", (e) => {
   if (e.key === "Enter") askQuestion();
 });
 $("entry-content").addEventListener("keydown", (e) => {
+  // The suggestion list owns the arrows, Enter, Tab and Escape while it's up.
+  if (wikiSuggestKeydown(e, $("entry-content"))) return;
   if (e.key === "Enter" && e.ctrlKey) saveEntry();
 });
+$("entry-content").addEventListener("input", () => {
+  wikiSuggestIndex = 0;
+  renderWikiSuggest($("entry-content"));
+});
+// Moving the caret with the mouse or arrows can leave the fragment behind.
+$("entry-content").addEventListener("click", () => renderWikiSuggest($("entry-content")));
+$("entry-content").addEventListener("blur", () => setTimeout(hideWikiSuggest, 120));
 document.addEventListener("keydown", (e) => {
   // Rebinding swallows everything while it's listening.
   if (captureShortcutKey(e)) {

@@ -86,3 +86,19 @@ def test_binned_notes_are_not_link_targets(client):
     client.delete(f"/entries/{target['id']}")
     source = _make(client, "see [[an old note]]")
     assert client.get(f"/entries/{source['id']}").json()["links"] == []
+
+
+def test_nested_brackets_resolve_to_the_inner_name():
+    """Documents the parser's behaviour, which the UI is built to avoid hitting.
+
+    A name can't contain brackets, so "[[outer [[inner]] text]]" matches the
+    inner one. That's why the autocomplete strips brackets out of a note's text
+    before inserting it as a link name — otherwise picking a note that itself
+    contains a link would silently point somewhere else entirely.
+    """
+    assert manager.wiki_link_targets("[[outer [[inner]] text]]") == ["inner"]
+
+
+def test_a_name_is_capped_so_a_whole_note_cannot_become_one():
+    long_name = "x" * 200
+    assert manager.wiki_link_targets(f"[[{long_name}]]") == []

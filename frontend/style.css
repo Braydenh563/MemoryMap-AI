@@ -1732,6 +1732,39 @@ html { font-size: 16px; }
 .web-reader .row { flex-wrap: wrap; min-width: 0; }
 #web-reader-title { overflow-wrap: anywhere; }
 
+/* --- at-a-glance strip ------------------------------------------------------ */
+.dash-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 0.9rem 2rem 0;
+}
+.stat-tile {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  padding: 0.55rem 0.95rem;
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--glass-border);
+  border-radius: calc(var(--radius) * 0.8);
+  box-shadow: none;
+  backdrop-filter: blur(var(--glass-blur));
+  cursor: pointer;
+  font-weight: 500;
+}
+.stat-tile:hover { border-color: var(--accent); background: var(--accent-soft); }
+.stat-icon { font-size: 0.95rem; align-self: center; }
+.stat-value { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stat-label { font-size: 0.82rem; color: var(--muted); }
+.stat-tile.stat-alert { border-color: var(--warn); }
+.stat-tile.stat-alert .stat-value { color: var(--warn); }
+@media (max-width: 720px) {
+  .dash-stats { margin: 0.7rem 1rem 0; gap: 0.45rem; }
+  .stat-tile { padding: 0.45rem 0.7rem; }
+  .stat-value { font-size: 1.05rem; }
+}
+
 /* --- dashboard quick links ------------------------------------------------- */
 .dash-quicklinks {
   display: flex;
@@ -2043,7 +2076,39 @@ html { font-size: 16px; }
   border-radius: var(--radius) var(--radius) var(--radius) 5px;
   background: var(--card);
 }
-.msg.assistant .msg-role { letter-spacing: 0.01em; }
+/* Give the two voices real visual identity rather than two grey boxes. */
+.msg.user {
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 78%, #7c3aed));
+  box-shadow: 0 2px 12px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+.msg.assistant {
+  border-left: 3px solid var(--accent-soft);
+}
+.msg.assistant .msg-role {
+  letter-spacing: 0.01em;
+  color: var(--accent);
+  font-weight: 650;
+}
+/* A quiet entrance so replies feel like they arrive. */
+@keyframes msg-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.msg { animation: msg-in 0.18s ease-out; }
+.msg.assistant .bubble-answer { font-size: 0.95rem; }
+.msg.assistant .bubble-answer h3,
+.msg.assistant .bubble-answer h4,
+.msg.assistant .bubble-answer h5 { margin: 0.8rem 0 0.35rem; font-size: 0.95rem; }
+.msg.assistant .bubble-answer ul,
+.msg.assistant .bubble-answer ol { margin: 0 0 0.6rem; padding-left: 1.2rem; }
+.msg.assistant .bubble-answer code {
+  background: var(--chip-bg);
+  padding: 0.05rem 0.3rem;
+  border-radius: 5px;
+  font-size: 0.86em;
+}
+/* Tool activity reads as a distinct strip of "things it did". */
+.tool-activity:not(:empty) { margin: 0.35rem 0 0.5rem; display: flex; flex-wrap: wrap; gap: 0.3rem; }
 /* The composer reads as one control rather than three loose boxes. */
 .chat-composer {
   gap: 0.45rem;

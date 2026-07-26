@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from datetime import timedelta
 
+from memorymap.api import routes_insights
 from memorymap.core import deps
 from memorymap.core.database import Entry, utcnow
 
@@ -192,15 +193,17 @@ def test_greeting_keeps_interior_capitals(ai_client, fake_ollama):
     assert body["greeting"] == "Welcome back to Brisbane"
 
 
-def test_greeting_weaves_in_the_saved_name(ai_client, fake_ollama):
+def test_greeting_weaves_in_the_saved_name(ai_client, fake_ollama, monkeypatch):
     """With a display name set, the model is asked to use it — and when it
     does, the response says so, so the frontend won't append it again."""
+    # Name use is deliberately probabilistic; pin it so the test is stable.
+    monkeypatch.setattr(routes_insights, "NAME_USE_CHANCE", 1.0)
     ai_client.put("/preferences", json={"display_name": "Brayden"})
     fake_ollama.librarian_reply = "Morning, Brayden!"
     body = ai_client.get("/insights/greeting?block=morning").json()
     assert body["greeting"] == "Morning, Brayden"
     assert body["punctuation"] == "!"
-    assert body["includes_name"] is True
+    assert body["append_name"] is False  # model handled it; don't add it twice
     # The name reached the prompt from preferences, not from the client.
     assert "Brayden" in fake_ollama.chat_calls[-1][0]["content"]
 
@@ -210,23 +213,37 @@ def test_greeting_normalises_the_name_casing(ai_client, fake_ollama):
     fake_ollama.librarian_reply = "welcome back, brayden"
     body = ai_client.get("/insights/greeting?block=morning").json()
     assert body["greeting"] == "Welcome back, Brayden"  # saved spelling wins
-    assert body["includes_name"] is True
+    assert body["append_name"] is False
 
 
-def test_greeting_flags_when_the_model_ignores_the_name(ai_client, fake_ollama):
-    """The model dropping the name must not lose it — includes_name stays
-    false so the frontend appends it as before."""
+def test_greeting_flags_when_the_model_ignores_the_name(ai_client, fake_ollama, monkeypatch):
+    """The model dropping the name must not lose it — append_name stays
+    true so the frontend appends it as before."""
+    monkeypatch.setattr(routes_insights, "NAME_USE_CHANCE", 1.0)
     ai_client.put("/preferences", json={"display_name": "Brayden"})
     fake_ollama.librarian_reply = "Good morning"
     body = ai_client.get("/insights/greeting?block=morning").json()
-    assert body["includes_name"] is False
+    assert body["append_name"] is True  # model dropped it, so we add it
     assert body["greeting"] == "Good morning"
 
 
 def test_greeting_without_a_name_is_unchanged(ai_client, fake_ollama):
     fake_ollama.librarian_reply = "Good morning"
     body = ai_client.get("/insights/greeting?block=morning").json()
-    assert body["includes_name"] is False
+    assert body["append_name"] is False  # no name saved, nothing to add
+
+
+def test_greeting_sometimes_skips_the_name(ai_client, fake_ollama, monkeypatch):
+    """Not every greeting uses the name — when we skip it, the frontend must
+    not bolt it on, or the variety is lost."""
+    monkeypatch.setattr(routes_insights, "NAME_USE_CHANCE", 0.0)
+    ai_client.put("/preferences", json={"display_name": "Brayden"})
+    fake_ollama.librarian_reply = "Late night?"
+    body = ai_client.get("/insights/greeting?block=night").json()
+    assert body["greeting"] == "Late night"
+    assert body["punctuation"] == "?"
+    assert body["append_name"] is False
+    assert "Brayden" not in fake_ollama.chat_calls[-1][0]["content"]
 
 
 def test_greeting_uses_the_active_persona(ai_client, fake_ollama):
@@ -272,7 +289,7 @@ def test_greeting_strips_quotes_and_trailing_punctuation(ai_client, fake_ollama)
     assert body == {
         "greeting": "Welcome back",
         "punctuation": "!",
-        "includes_name": False,
+        "append_name": False,
         "source": "ai",
     }
 

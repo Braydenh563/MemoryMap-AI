@@ -1588,6 +1588,34 @@ function messageMetaLine({ model, elapsedMs, stats }) {
   return row;
 }
 
+// Remove a message from the live transcript. A saved conversation stores
+// question/answer pairs, so deleting either half drops the whole exchange —
+// otherwise the missing half would reappear on reopening the chat.
+async function removeChatBubble(bubble) {
+  const box = $("chat-messages");
+  const bubbles = [...box.querySelectorAll(".msg")];
+  const index = bubbles.indexOf(bubble);
+  if (index === -1) return;
+
+  // Which stored turn does this bubble belong to? Bubbles alternate
+  // user/assistant, so the turn is the pair index.
+  const turnIndex = Math.floor(index / 2);
+  const partner = bubbles[bubble.classList.contains("user") ? index + 1 : index - 1];
+
+  bubble.remove();
+  partner?.remove();
+  chatConv.turns.splice(turnIndex, 1);
+
+  if (chatConv.id !== null) {
+    await api(`/conversations/${chatConv.id}/turns/${turnIndex}`, {
+      method: "DELETE",
+    }).catch(() => {}); // already gone server-side is fine
+    loadConversationList();
+  }
+  if (!box.querySelector(".msg")) renderChatEmptyState();
+  toast("Message deleted.");
+}
+
 async function copyToClipboard(text, button) {
   try {
     await navigator.clipboard.writeText(text);
@@ -1636,7 +1664,7 @@ function renderChatEmptyState() {
     "make changes” and it can create, tag, link, and organise notes for you too.";
   empty.append(emblem, title, blurb);
   box.appendChild(empty);
-  renderEmblem(emblem, 52);
+  renderEmblem(emblem, 52); // after insertion — see addAssistantBubble
 }
 
 function clearChatEmptyState() {
@@ -1861,6 +1889,7 @@ function addBubble(role, text) {
       chatMessageActions([
         { label: "⧉", title: "Copy", onClick: (e) => copyToClipboard(text, e.currentTarget) },
         { label: "✎", title: "Edit & resend", onClick: () => editAndResend(text) },
+        { label: "🗑", title: "Delete this message", onClick: () => removeChatBubble(bubble) },
       ])
     );
   }
@@ -1885,7 +1914,9 @@ function addAssistantBubble() {
   name.textContent = assistantLabel();
   label.append(avatar, name);
   bubble.appendChild(label);
-  renderEmblem(avatar, 20);
+  // NB: the emblem is drawn after the bubble is in the DOM — p5 can't size a
+  // canvas inside a detached element, which left the avatar blank until some
+  // later render happened to redraw it.
 
   const thinkingBox = document.createElement("details");
   thinkingBox.className = "hidden";
@@ -1906,6 +1937,7 @@ function addAssistantBubble() {
 
   bubble.append(thinkingBox, toolsHolder, answerBox, recordsHolder);
   $("chat-messages").appendChild(bubble);
+  renderEmblem(avatar, 20); // now attached, so p5 can measure and draw
   chatScrollToEnd();
   return { bubble, thinkingBox, thinkingText, answerBox, toolsHolder, recordsHolder };
 }
@@ -2093,6 +2125,7 @@ async function sendChatMessage(preset, opts = {}) {
       { label: "⧉", title: "Copy answer", onClick: (e) => copyToClipboard(answerRaw, e.currentTarget) },
       { label: "↻", title: "Regenerate", onClick: () => regenerateLastAnswer() },
       { label: "🔊", title: "Read aloud", onClick: () => speakText(answerBox.textContent) },
+      { label: "🗑", title: "Delete this message", onClick: () => removeChatBubble(bubble) },
     ])
   );
 
@@ -2903,17 +2936,17 @@ function fallbackGreetingPhrase(now = new Date()) {
 // be mangled or hallucinated, and editing it takes effect immediately. The
 // terminal mark goes on last so the result reads as a proper sentence:
 // "Rise and shine" + ", Sam" + "!" → "Rise and shine, Sam!"
-function withDisplayName(phrase, punctuation = ".", includesName = false) {
+function withDisplayName(phrase, punctuation = ".", appendName = true) {
   const name = ((prefsCache && prefsCache.display_name) || "").trim();
   const mark = ".!?".includes(punctuation) ? punctuation : ".";
   // Also sentence-cased here, so an older cached greeting written by the model
   // in lowercase corrects itself on the next render.
   const opener = phrase ? phrase.charAt(0).toUpperCase() + phrase.slice(1) : phrase;
-  // The model may have woven the name in itself — appending again would give
-  // "Morning, Sam, Sam." A belt-and-braces check on the text covers a stale
-  // cache written before the server started reporting this.
+  // Don't append when the server says the greeting already handles the name —
+  // either the model wove it in, or this one is deliberately nameless. The
+  // text check is a belt-and-braces guard against a stale cache.
   const already =
-    includesName ||
+    !appendName ||
     (name && new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(opener));
   if (!name || already) return `${opener}${mark}`;
   return `${opener}, ${name}${mark}`;
@@ -2926,10 +2959,12 @@ function dashboardGreetingText(now = new Date()) {
 // A cached AI greeting, refreshed once per time-block per day so it changes
 // occasionally rather than on every render (and doesn't hammer the model).
 function greetingCacheSlot(now = new Date()) {
-  // The name is part of the slot: changing it in Settings invalidates the
-  // cached greeting so the AI writes a fresh one addressed to the new name.
+  // Refreshed hourly, so the banner keeps changing through the day instead of
+  // repeating the same line for a whole morning. The name is part of the slot
+  // too: renaming yourself in Settings invalidates the cached greeting so the
+  // AI writes a fresh one addressed to the new name.
   const name = ((prefsCache && prefsCache.display_name) || "").trim();
-  return `${now.toDateString()}|${greetingBlock(now.getHours())}|${name}`;
+  return `${now.toDateString()}|${now.getHours()}|${name}`;
 }
 
 function cachedGreetingPhrase(now = new Date()) {
@@ -2939,7 +2974,7 @@ function cachedGreetingPhrase(now = new Date()) {
       return {
         phrase: cached.phrase,
         punctuation: cached.punctuation || ".",
-        includesName: Boolean(cached.includesName),
+        appendName: cached.appendName !== false,
       };
     }
   } catch {
@@ -2960,13 +2995,13 @@ async function refreshAiGreeting() {
   const phrase = body && body.greeting;
   if (!phrase) return;
   const punctuation = (body && body.punctuation) || ".";
-  const includesName = Boolean(body && body.includes_name);
+  const appendName = !(body && body.append_name === false);
   localStorage.setItem(
     "greetingCache",
-    JSON.stringify({ slot: greetingCacheSlot(now), phrase, punctuation, includesName })
+    JSON.stringify({ slot: greetingCacheSlot(now), phrase, punctuation, appendName })
   );
   const el = $("dash-greeting");
-  if (el) el.textContent = withDisplayName(phrase, punctuation, includesName);
+  if (el) el.textContent = withDisplayName(phrase, punctuation, appendName);
 }
 
 let dashClockTimer = null;
@@ -3025,7 +3060,7 @@ function renderDashboardGreeting() {
   // AI-written phrase replace it in the background if one arrives.
   const cached = cachedGreetingPhrase();
   el.textContent = cached
-    ? withDisplayName(cached.phrase, cached.punctuation, cached.includesName)
+    ? withDisplayName(cached.phrase, cached.punctuation, cached.appendName)
     : dashboardGreetingText();
   refreshAiGreeting().catch(() => {});
   paintDashClock();
@@ -3033,6 +3068,58 @@ function renderDashboardGreeting() {
   if (dashClockTimer) clearInterval(dashClockTimer);
   dashClockTimer = setInterval(paintDashClock, 1000);
   renderDashSubmessage().catch(() => {});
+}
+
+// --- at-a-glance strip (page furniture, not a hideable widget) ---------------
+
+async function renderDashStats() {
+  const box = $("dash-stats");
+  if (!box) return;
+  const [stats, reminders] = await Promise.all([
+    apiJson("/insights/stats").catch(() => null),
+    apiJson("/reminders").catch(() => []),
+  ]);
+
+  const now = new Date();
+  const perDay = (stats && stats.per_day) || [];
+  let streak = 0;
+  for (let i = perDay.length - 1; i >= 0 && perDay[i] > 0; i--) streak++;
+  const thisWeek = perDay.slice(-7).reduce((sum, n) => sum + n, 0);
+  const open = (reminders || []).filter((r) => !r.done);
+  const due = open.filter((r) => new Date(r.due_at) <= now).length;
+
+  const tiles = [
+    { icon: "📝", value: stats ? stats.total_entries : "–", label: "notes", go: () => switchTab("notes") },
+    { icon: "🗓", value: thisWeek, label: "this week", go: () => switchTab("notes") },
+    { icon: "🔥", value: streak, label: streak === 1 ? "day streak" : "day streak", go: () => switchTab("dashboard") },
+    {
+      icon: due ? "⏰" : "✅",
+      value: due || open.length,
+      label: due ? "due now" : "reminders",
+      go: () => switchTab("reminders"),
+      alert: Boolean(due),
+    },
+  ];
+
+  box.replaceChildren();
+  for (const tile of tiles) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "stat-tile" + (tile.alert ? " stat-alert" : "");
+    const icon = document.createElement("span");
+    icon.className = "stat-icon";
+    icon.textContent = tile.icon;
+    icon.setAttribute("aria-hidden", "true");
+    const value = document.createElement("span");
+    value.className = "stat-value";
+    value.textContent = tile.value;
+    const label = document.createElement("span");
+    label.className = "stat-label";
+    label.textContent = tile.label;
+    button.append(icon, value, label);
+    button.addEventListener("click", tile.go);
+    box.appendChild(button);
+  }
 }
 
 // --- dashboard quick links ---------------------------------------------------
@@ -3225,6 +3312,7 @@ async function renderDashboard() {
     prefsCache = await apiJson("/preferences").catch(() => null);
   }
   renderDashboardGreeting();
+  renderDashStats().catch(() => {});
   renderQuickLinks();
   const grid = $("dash-grid");
   grid.replaceChildren();

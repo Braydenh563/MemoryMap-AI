@@ -71,23 +71,42 @@ GREETING_FALLBACKS = {
     "night": ["Still up", "Working late", "Burning the midnight oil"],
 }
 
-GREETING_PROMPT = (
-    "Write ONE short, warm greeting for someone opening their personal "
-    "notebook app. It is currently {block}. Rules: 2 to 6 words, no name, no "
-    "quotation marks, no emoji, and do not mention the app. End it with a "
-    "full stop or an exclamation mark. Reply with the greeting only."
+# Keep the greeting from settling into one rut: each generation is nudged
+# toward a different flavour, so the banner feels like it's paying attention
+# rather than replaying the same line.
+GREETING_FLAVOURS = (
+    "a plain warm hello",
+    "a curious question about what they are working on",
+    "a light remark about the time of day",
+    "a gentle nudge to capture a thought",
+    "a short welcome back",
+    "an encouraging line about their notes",
+    "a relaxed, casual aside",
 )
 
-# When the user has set a display name we ask the model to weave it in, so the
-# greeting reads naturally ("Morning, Sam!") instead of always being a phrase
-# with a name bolted on. The name comes from preferences — never hardcoded.
-GREETING_PROMPT_NAMED = (
-    "Write ONE short, warm greeting for {name}, who is opening their personal "
-    "notebook app. It is currently {block}. Rules: 2 to 7 words, use the name "
-    "{name} exactly once and spell it exactly as given, no quotation marks, no "
-    "emoji, and do not mention the app. End it with a full stop or an "
-    "exclamation mark. Reply with the greeting only."
+GREETING_PROMPT = (
+    "Write ONE short greeting for someone opening their personal notebook app. "
+    "It is currently {block}. Make it {flavour}. Rules: 2 to 7 words, no name, "
+    "no quotation marks, no emoji, and do not mention the app by name. It may "
+    "be a question. End it with a full stop, question mark or exclamation "
+    "mark. Reply with the greeting only."
 )
+
+# When the user has set a display name we usually ask the model to weave it in,
+# so the greeting reads naturally ("Morning, Sam!") instead of always being a
+# phrase with a name bolted on. The name comes from preferences — never
+# hardcoded. Not every greeting uses it, so it doesn't get repetitive.
+GREETING_PROMPT_NAMED = (
+    "Write ONE short greeting for {name}, who is opening their personal "
+    "notebook app. It is currently {block}. Make it {flavour}. Rules: 2 to 8 "
+    "words, use the name {name} exactly once and spell it exactly as given, no "
+    "quotation marks, no emoji, and do not mention the app by name. It may be a "
+    "question. End it with a full stop, question mark or exclamation mark. "
+    "Reply with the greeting only."
+)
+
+# How often a greeting addresses the user by name when one is set.
+NAME_USE_CHANCE = 0.75
 
 # The greeting is stored without its final mark so the display name can be
 # appended cleanly ("Good morning" + ", Sam" + "!"). The mark travels
@@ -133,7 +152,7 @@ def greeting(block: str = "morning") -> dict:
     fallback = {
         "greeting": random.choice(options),
         "punctuation": ".",
-        "includes_name": False,
+        "append_name": True,  # handwritten phrases are name-free
         "source": "fallback",
     }
 
@@ -144,17 +163,21 @@ def greeting(block: str = "morning") -> dict:
     # The name is read from preferences here rather than trusted from the
     # client, so there is exactly one source of truth for it.
     name = str(config.get_preference("display_name", "") or "").strip()
+    # Most greetings use the name, but not all — variety matters more than
+    # rigid consistency here.
+    use_name = bool(name) and random.random() < NAME_USE_CHANCE
+    flavour = random.choice(GREETING_FLAVOURS)
     # The active persona voices the greeting, so a Coach sounds like a coach
     # and a custom persona sounds like itself.
     persona = librarian.resolve_persona_prompt(None, config)
     system = (
-        GREETING_PROMPT_NAMED.format(block=block, name=name)
-        if name
-        else GREETING_PROMPT.format(block=block)
+        GREETING_PROMPT_NAMED.format(block=block, name=name, flavour=flavour)
+        if use_name
+        else GREETING_PROMPT.format(block=block, flavour=flavour)
     )
     if persona:
         system = f"{persona.strip()} {system}"
-    ask = f"It is {block}. Greet {name}." if name else f"It is {block}. Greet me."
+    ask = f"It is {block}. Greet {name}." if use_name else f"It is {block}. Greet me."
     try:
         reply = ollama.chat(
             deps.get_model_manager().utility_model(),
@@ -171,22 +194,23 @@ def greeting(block: str = "morning") -> dict:
         return fallback
     phrase, mark = cleaned
 
-    # Did the model actually use the name? If so the frontend must not append
-    # it again; if not, we fall back to appending, so the name always appears
-    # exactly once however the model behaves.
-    includes_name = False
+    # `append_name` tells the frontend whether to add the name itself. It only
+    # does so when we asked for a named greeting and the model failed to use
+    # one — so the name appears exactly once when wanted, and not at all on the
+    # deliberately nameless ones.
+    append_name = use_name
     if name:
         match = re.search(re.escape(name), phrase, re.IGNORECASE)
         if match:
             # Normalise to the spelling the user saved, in case the model
             # lower-cased it.
             phrase = phrase[: match.start()] + name + phrase[match.end() :]
-            includes_name = True
+            append_name = False
 
     return {
         "greeting": phrase,
         "punctuation": mark,
-        "includes_name": includes_name,
+        "append_name": append_name,
         "source": "ai",
     }
 

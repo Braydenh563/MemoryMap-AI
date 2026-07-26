@@ -3088,3 +3088,19 @@ button.ai-unavailable {
 @media (prefers-reduced-motion: reduce) {
   .shortcut-list kbd.capturing { animation: none; }
 }
+
+/* --- [[wiki links]] ----------------------------------------------------------- */
+.wiki-link {
+  border: 0;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  padding: 0 0.3em;
+  border-radius: 4px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.wiki-link:hover { background: var(--accent); color: #fff; }
+.wiki-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

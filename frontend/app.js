@@ -377,7 +377,7 @@ function entryItem(entry, options = {}) {
   // Mark the matched words while filtering, so it's obvious WHY a note is in
   // the list. Built with createElement/textContent rather than innerHTML —
   // note text is user content and must never be parsed as markup.
-  highlightInto(content, entry.content, searchHighlightTerms());
+  renderNoteText(content, entry.content, searchHighlightTerms());
   li.appendChild(content);
 
   const meta = document.createElement("div");
@@ -1207,6 +1207,43 @@ function matchesSearch(entry) {
 
 // Write `text` into `element`, wrapping each matched term in a <mark>.
 // Never uses innerHTML: a note containing "<script>" is text, not markup.
+// Render note text with [[wiki links]] as clickable chips and search terms
+// marked. Splits on the links first so a highlight can't land inside one.
+function renderNoteText(element, text, terms) {
+  element.replaceChildren();
+  const pattern = /\[\[([^[\]]{1,120})\]\]/g;
+  let cursor = 0;
+  let match;
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > cursor) {
+      const span = document.createElement("span");
+      highlightInto(span, text.slice(cursor, match.index), terms);
+      element.appendChild(span);
+    }
+    const name = match[1].trim();
+    const link = document.createElement("button");
+    link.type = "button";
+    link.className = "wiki-link";
+    link.textContent = name;
+    link.title = `Go to the note starting "${name}"`;
+    link.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const target = allEntries.find((e) =>
+        (e.content || "").toLowerCase().startsWith(name.toLowerCase())
+      );
+      if (target) flashEntry(target.id);
+      else toast(`No note starts with "${name}" yet.`, true);
+    });
+    element.appendChild(link);
+    cursor = pattern.lastIndex;
+  }
+  if (cursor < text.length) {
+    const span = document.createElement("span");
+    highlightInto(span, text.slice(cursor), terms);
+    element.appendChild(span);
+  }
+}
+
 function highlightInto(element, text, terms) {
   element.replaceChildren();
   if (!terms.length) {

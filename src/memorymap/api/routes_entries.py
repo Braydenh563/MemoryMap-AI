@@ -151,6 +151,14 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
     except Exception:
         pass
 
+    # [[wiki links]] become real links. Best effort for the same reason: a
+    # link that can't be resolved must never cost someone their note.
+    try:
+        manager.sync_wiki_links(session, entry)
+        session.commit()
+    except Exception:
+        session.rollback()
+
     return _to_out(
         session, entry, filed_by=filed_by, similar=_find_near_duplicate(session, entry)
     )
@@ -443,6 +451,12 @@ def update_entry(
             deps.get_embeddings().store_for_entry(session, entry)
         except Exception:
             pass
+        # Editing a note can introduce new [[links]]; resolve those too.
+        try:
+            manager.sync_wiki_links(session, entry)
+            session.commit()
+        except Exception:
+            session.rollback()
     return _to_out(session, entry)
 
 

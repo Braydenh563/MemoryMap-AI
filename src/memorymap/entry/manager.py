@@ -8,6 +8,7 @@ keeps capture working even when every AI piece is down (plan §4).
 from __future__ import annotations
 
 import json
+import re
 from datetime import timedelta
 
 from sqlalchemy import delete, func, or_, select
@@ -533,3 +534,68 @@ def set_private(session: Session, entry: Entry, private: bool) -> bool:
         entry.is_private = False
     log_action(session, "edited", "entry", entry.id, f"private={private}")
     return True
+
+
+# --- [[wiki links]] ----------------------------------------------------------
+# Typing [[something]] in a note links it to the note that starts with that
+# text. It's the cheapest way to build a real web of notes: no AI, no dialog,
+# no leaving the keyboard — and it's what makes the graph fill itself instead
+# of waiting for someone to link things by hand.
+
+WIKI_LINK = re.compile(r"\[\[([^\[\]]{1,120})\]\]")
+
+
+def wiki_link_targets(content: str) -> list[str]:
+    """The [[names]] mentioned in some text, de-duplicated, in order."""
+    seen = {}
+    for match in WIKI_LINK.finditer(content or ""):
+        name = match.group(1).strip()
+        if name:
+            seen.setdefault(name.lower(), name)
+    return list(seen.values())
+
+
+def find_by_wiki_name(session: Session, name: str) -> Entry | None:
+    """The note a [[name]] refers to, or None.
+
+    Matched against the start of the note, because a note has no title — its
+    opening words are what a person would call it. An exact opening beats a
+    partial one, and among equals the oldest wins so a link doesn't silently
+    change meaning when a newer note happens to start the same way.
+    """
+    wanted = (name or "").strip().lower()
+    if not wanted:
+        return None
+    candidates = session.scalars(
+        select(Entry)
+        .where(
+            Entry.is_deleted == False,  # noqa: E712
+            Entry.is_private == False,  # noqa: E712
+            Entry.content.ilike(f"{wanted}%"),
+        )
+        .order_by(Entry.id)
+    ).all()
+    if not candidates:
+        return None
+    for entry in candidates:
+        if entry.content.strip().lower() == wanted:
+            return entry  # the whole note is exactly that name
+    return candidates[0]
+
+
+def sync_wiki_links(session: Session, entry: Entry) -> list[str]:
+    """Create links for the [[names]] in this note. Returns the unresolved ones.
+
+    Only ever adds. A [[name]] that matches nothing is left alone rather than
+    reported as an error — you often write the link before the note it points
+    at, and having that fail the save would be worse than useless.
+    """
+    unresolved = []
+    for name in wiki_link_targets(entry.content):
+        target = find_by_wiki_name(session, name)
+        if target is None or target.id == entry.id:
+            if target is None:
+                unresolved.append(name)
+            continue
+        create_link(session, entry, target)
+    return unresolved

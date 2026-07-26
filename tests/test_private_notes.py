@@ -160,3 +160,39 @@ def test_exports_do_not_leak_when_locked(client, session):
     as_json = client.get("/export/json").json()
     assert all(secret not in e["content"] for e in as_json["entries"])
     assert any("🔒" in e["content"] for e in as_json["entries"])
+
+
+def test_an_existing_notebook_upgrades_without_a_reset(tmp_path):
+    """Adding encryption must not ask anyone to rebuild their database.
+
+    Simulates a database made before this feature existed: notes and a user,
+    but no vault row and no is_private column.
+    """
+    import bcrypt
+    from memorymap.core.database import DatabaseManager, Entry, User, Vault
+
+    db_path = tmp_path / "existing.db"
+    manager = DatabaseManager(db_path)
+    old = manager.session()
+    old.add(
+        User(
+            username="owner",
+            password_hash=bcrypt.hashpw(b"their-password", bcrypt.gensalt()).decode(),
+        )
+    )
+    old.add(Entry(content="a note written months ago", ai_confidence=0))
+    old.commit()
+    old.close()
+
+    # The app restarts on the new code against the same file.
+    upgraded = DatabaseManager(db_path).session()
+    vault.close()
+    assert vault.open_with(upgraded, "their-password") is True
+    upgraded.commit()
+
+    assert len(upgraded.scalars(select(Vault)).all()) == 1
+    surviving = upgraded.scalars(select(Entry)).all()
+    assert [e.content for e in surviving] == ["a note written months ago"]
+    assert all(e.is_private is False for e in surviving)  # backfilled, not null
+    upgraded.close()
+    vault.close()

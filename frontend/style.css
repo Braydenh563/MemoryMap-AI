@@ -3019,3 +3019,10 @@ button { border-radius: calc(var(--radius) * 0.7); }
 .msg-edit-hint { font-size: 0.76rem; margin: 0; }
 .msg-edit-actions { gap: 0.4rem; }
 .msg-body.hidden, .msg-actions.hidden { display: none; }
+
+/* A control that needs the AI, while the AI isn't running. Reads as
+   unavailable rather than broken — the cursor and tooltip explain why. */
+button.ai-unavailable {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

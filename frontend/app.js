@@ -7392,6 +7392,7 @@ async function refreshModelStatus() {
     modelStatus = null; // locked or unreachable — pill shows the worst case
   }
   renderAiPill();
+  syncAiOnlyControls();
   if (settingsOpen()) renderSettings();
 
   clearTimeout(statusTimer);
@@ -7413,6 +7414,39 @@ document.addEventListener("visibilitychange", () => {
   if (!document.hidden) refreshModelStatus();
 });
 
+// Controls that can only do their job with a chat model running. Left
+// enabled, they look available and only fail once you've committed to them —
+// you type a note, press ✨ Improve, wait, and get an apology. Disabling them
+// with a reason attached says the same thing before you spend the effort.
+//
+// Deliberately NOT in here: Save, Ask, search, tags, categories, the graph,
+// reminders, documents. Those work fully without any AI and must never look
+// diminished by its absence — the notebook is the point, the AI is a helper.
+const AI_ONLY_CONTROLS = [
+  ["improve-btn", "Proofreading needs the local AI"],
+  ["reminder-magic-add", "Reading a reminder from a sentence needs the local AI"],
+  ["draft-compose", "Drafting needs the local AI"],
+  ["doc-ai", "AI editing needs the local AI"],
+];
+
+function syncAiOnlyControls() {
+  // Unknown status (locked, still loading) is treated as available: better to
+  // let a click fail than to grey out a working button on a slow start.
+  const off = modelStatus ? modelStatus.ollama_running === false : false;
+  for (const [id, reason] of AI_ONLY_CONTROLS) {
+    const button = $(id);
+    if (!button) continue;
+    button.disabled = off;
+    button.classList.toggle("ai-unavailable", off);
+    if (off) {
+      if (!button.dataset.enabledTitle) button.dataset.enabledTitle = button.title || "";
+      button.title = `${reason} — start Ollama to use this.`;
+    } else if (button.dataset.enabledTitle !== undefined) {
+      button.title = button.dataset.enabledTitle;
+    }
+  }
+}
+
 function renderAiPill() {
   const pill = $("ai-pill");
   pill.className = "";
@@ -7431,20 +7465,28 @@ function renderAiPill() {
   } else if (!searchReady && modelStatus.embedding_error) {
     // Distinguish "broken" from "loading" — the old pill said
     // "warming up…" forever when the model failed to load.
+    //
+    // These messages lead with what still WORKS, not with what's broken. The
+    // old wording ("search AI unavailable — see Settings → Logs") announced a
+    // fault and sent you to a log viewer, which reads as "the app is broken"
+    // when in fact everything except meaning-based search is fine.
     pill.classList.add("busy");
-    pill.textContent = "search AI unavailable — see Settings → Logs";
-    pill.title = modelStatus.embedding_error;
+    pill.textContent = "word search on · AI search unavailable";
+    pill.title = `${modelStatus.embedding_error}\n\nSearching by word still works, and notes, tags, reminders and the graph are unaffected. Settings → Logs has the details.`;
   } else if (chatReady && searchReady) {
     pill.classList.add("ok");
     pill.textContent = "AI ready";
   } else if (!chatReady && searchReady) {
     pill.classList.add("busy");
-    pill.textContent = "chat AI off — notes still save";
+    pill.textContent = "everything works · chat AI off";
+    pill.title = "Notes, search, tags, reminders and the graph all work. Start Ollama to add chat and auto-filing.";
   } else if (chatReady && !searchReady) {
     pill.classList.add("busy");
-    pill.textContent = "search AI not ready — check Settings → Models";
+    pill.textContent = "word search on · AI search warming";
+    pill.title = "Searching by word works now; searching by meaning becomes available once the embedding model has loaded.";
   } else {
-    pill.textContent = "AI off — notes still save";
+    pill.textContent = "everything works · AI off";
+    pill.title = "Writing, searching, tagging, reminders, documents and the graph all work without any AI. Start Ollama to add chat, auto-filing and search by meaning.";
   }
 }
 

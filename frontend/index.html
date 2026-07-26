@@ -217,7 +217,10 @@
         <!-- Browse: everything you've saved -->
         <section class="card" id="browse">
           <div class="row space-between browse-header">
-            <h2 id="entries-heading">All entries</h2>
+            <!-- The label lives in its own span: the heading also carries the
+                 collapse chevron, and writing textContent on the h2 would
+                 delete it on every re-render. -->
+            <h2 id="entries-heading"><span id="entries-heading-label">All entries</span></h2>
             <div class="row browse-tools">
               <input id="note-search" type="search" placeholder="🔎 Filter notes…"
                 aria-label="Filter notes by text or tag">

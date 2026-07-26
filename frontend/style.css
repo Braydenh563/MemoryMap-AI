@@ -244,6 +244,15 @@ header#top-bar h1 { margin: 0; font-size: 1.1rem; letter-spacing: 0.01em; }
 }
 h2.collapsible-title { cursor: pointer; user-select: none; }
 h2.collapsible-title:hover .collapse-chevron { color: var(--accent); }
+/* It's focusable now, so it needs a visible focus ring. */
+h2.collapsible-title:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .collapse-chevron { transition: none; }
+}
 
 #sidebar ul { list-style: none; margin: 0; padding: 0; }
 #sidebar li {
@@ -270,25 +279,6 @@ h2.collapsible-title:hover .collapse-chevron { color: var(--accent); }
     overflow-y: auto;
   }
 }
-
-/* --- collapsible section cards (Notes tab) ------------------------------- */
-/* A heading marked .collapsible folds its card down to just the title row.
-   The card's header row is always the first child, so hiding every later
-   child leaves the title (and its chevron) visible. */
-.card h2.collapsible {
-  cursor: pointer;
-  user-select: none;
-}
-.card h2.collapsible::before {
-  content: "▾";
-  display: inline-block;
-  margin-right: 0.4rem;
-  font-size: 0.8em;
-  color: var(--muted);
-  transition: transform 0.15s ease;
-}
-.card.collapsed h2.collapsible::before { transform: rotate(-90deg); }
-.card.collapsed > :not(:first-child) { display: none; }
 
 /* --- forms --------------------------------------------------------------- */
 textarea, input[type="text"], input[type="password"], input[type="number"], select {
@@ -2188,8 +2178,6 @@ html { font-size: 16px; }
 #entry-list .entry-date { font-size: 0.76rem; }
 /* A quieter "check this" flag — informative, not alarming. */
 .chip.review { font-weight: 500; }
-/* Collapsible headings: room between the chevron and the words. */
-.card h2.collapsible::before { margin-right: 0.5rem; opacity: 0.7; }
 #sidebar { align-self: flex-start; }
 #sidebar h2 { font-size: 0.95rem; }
 #sidebar #most-used li { font-size: 0.85rem; line-height: 1.35; }

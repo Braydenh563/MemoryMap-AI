@@ -2,7 +2,7 @@
 # (Uses whatever `python`/`pip` are on your PATH — activate your venv first.)
 
 .DEFAULT_GOAL := help
-.PHONY: help install run desktop test lint format check
+.PHONY: help install install-locked lock run desktop test lint format check
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -11,6 +11,15 @@ help: ## Show this help
 install: ## Install dependencies + the app (editable)
 	python -m pip install --upgrade pip
 	pip install -r requirements.txt
+	pip install -e .
+
+lock: ## Pin exact versions into requirements.lock.txt (needs pip-tools)
+	python -m pip install --upgrade pip-tools
+	pip-compile --output-file=requirements.lock.txt requirements.txt
+
+install-locked: ## Install the exact versions from the lockfile
+	python -m pip install --upgrade pip
+	pip install -r requirements.lock.txt
 	pip install -e .
 
 run: ## Start the app at http://localhost:8000

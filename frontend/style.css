@@ -2524,12 +2524,36 @@ html { font-size: 16px; }
 /* --- chat page layout -------------------------------------------------------
    The conversation should own the window: header and composer pinned, the
    transcript scrolling between them. */
-#tab-chat:not(.hidden) > .layout { align-items: stretch; }
+#tab-chat:not(.hidden) > .layout {
+  align-items: stretch;
+  /* Fill the window rather than growing with the transcript: the composer
+     belongs at the bottom of the screen, not wherever the conversation
+     happens to end. */
+  height: calc(100vh - 4.5rem);
+  min-height: 32rem;
+}
+/* Both columns are .card, and .card carries `margin-bottom: 1rem`. On a
+   stretched grid row that made the sidebar end exactly 16px above the panel
+   beside it — the mismatched heights that were reported. Neither column
+   needs the margin here; the grid's own padding does that job. */
+#tab-chat .layout > aside.card,
+#tab-chat .layout > main > .card { margin-bottom: 0; }
+#tab-chat .layout > main { display: flex; min-height: 0; }
+#chat-sidebar {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  /* The chat list is the one that grows without bound, so it scrolls inside
+     the card instead of stretching the page. */
+  overflow: hidden;
+}
+#conversation-list { flex: 1 1 auto; overflow-y: auto; min-height: 0; }
 #chat-main {
   display: flex;
   flex-direction: column;
   min-height: 0;
   height: 100%;
+  flex: 1 1 auto;
 }
 #chat-messages {
   flex: 1 1 auto;
@@ -3292,4 +3316,121 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   padding-left: 0.5rem;
   border-left: 2px solid var(--accent);
   opacity: 0.85;
+}
+
+/* --- chat: an organised sidebar, readable code, correctable answers -------------
+   The list was flat and grew forever, code blocks had to be selected by hand,
+   and an answer once written could never be fixed. */
+
+.conv-search {
+  margin: 0 0 0.5rem;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.88rem;
+}
+#conversation-list li { gap: 0.35rem; align-items: center; }
+/* min-width: 0 is what lets a flex child actually shrink below its content.
+   Without it the title column keeps its natural width and the text is cut
+   off by the sidebar's edge instead of ellipsising inside it. */
+.conv-title { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+.conv-name {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: 0.9rem;
+  line-height: 1.3;
+}
+/* Date · turns · tokens, small enough to scan past and there when wanted.
+   One line, ellipsised — it's context, never worth stealing a second row. */
+.conv-meta {
+  font-size: 0.74rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#conversation-list .entry-actions { flex: 0 0 auto; }
+#conversation-list li.pinned-conv { background: var(--accent-soft); }
+#conversation-list li.pinned-conv.active-conv { border-left-color: var(--accent); }
+/* One rule between the pinned block and the rest, so pinning reads as a
+   section rather than an unexplained reordering. */
+.conv-divider {
+  height: 1px;
+  padding: 0;
+  margin: 0.45rem 0.2rem;
+  background: var(--border);
+  border: 0;
+  cursor: default;
+}
+.conv-divider:hover { background: var(--border); }
+
+/* The conversation's running total, beside the persona picker. */
+.chat-usage {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: var(--chip-bg);
+  white-space: nowrap;
+}
+
+/* The persona's actual system prompt, on demand. */
+.persona-prompt {
+  margin: 0 0 0.6rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: calc(var(--radius) * 0.7);
+  background: var(--chip-bg);
+  border-left: 3px solid var(--accent);
+  font-size: 0.85rem;
+}
+.persona-prompt p { margin: 0.3rem 0 0; white-space: pre-wrap; color: var(--muted); }
+
+/* Code blocks: a header strip naming the language, with a copy button. */
+.code-block {
+  margin: 0.6rem 0;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 0.7);
+  overflow: hidden;
+  background: var(--chip-bg);
+}
+.code-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.25rem 0.4rem 0.25rem 0.7rem;
+  border-bottom: 1px solid var(--border);
+}
+.code-lang {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.code-copy { padding: 0.15rem 0.5rem; font-size: 0.75rem; }
+.code-block pre {
+  margin: 0;
+  padding: 0.7rem 0.85rem;
+  overflow-x: auto;
+  background: transparent;
+}
+.code-block pre code { background: none; padding: 0; font-size: 0.84rem; }
+
+/* Editing an answer in place. */
+.answer-editor { margin-top: 0.4rem; }
+.answer-editor textarea {
+  width: 100%;
+  font-family: inherit;
+  font-size: 0.9rem;
+  margin-bottom: 0.4rem;
+}
+/* Never let an edited answer pass as the model's own words. */
+.edited-marker {
+  display: inline-block;
+  font-size: 0.72rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: var(--warn-soft);
+  color: var(--warn);
+  margin-top: 0.35rem;
 }

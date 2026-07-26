@@ -353,6 +353,11 @@ Link to another note with [[its first few words]]."></textarea>
           <h2>Chats</h2>
           <button id="chat-new" class="ghost small" title="Start a fresh conversation">+ New</button>
         </div>
+        <!-- Searches what was said, not just titles: you remember the
+             subject long after you've forgotten what the chat was called. -->
+        <input id="conv-search" type="search" class="conv-search"
+          placeholder="🔎 Search your chats…"
+          aria-label="Search your chats by title or by what was said">
         <ul id="conversation-list"></ul>
         <p id="conv-empty" class="muted">No saved chats yet — ask something!</p>
       </aside>
@@ -366,7 +371,18 @@ Link to another note with [[its first few words]]."></textarea>
             <button id="web-search-toggle" class="ghost small" aria-pressed="false"
               title="Search the web here, and let the AI search when you ask it to">🌐 Web</button>
             <select id="persona-select" class="small-select" aria-label="Persona"></select>
+            <!-- You could pick a persona but never see what it actually told
+                 the model to do. -->
+            <button id="persona-peek" class="ghost small" type="button"
+              aria-expanded="false"
+              title="Show the instructions this persona gives the AI">👁</button>
+            <span id="chat-usage" class="chat-usage muted" hidden
+              title="Everything this conversation has sent to the model so far"></span>
             <button id="chat-export" class="ghost small" title="Download this chat as a Markdown file">⭳ Export</button>
+          </div>
+          <div id="persona-prompt" class="persona-prompt hidden">
+            <strong>What this persona tells the AI</strong>
+            <p id="persona-prompt-text"></p>
           </div>
           <!-- Web panel: search the web and read a page as clean text,
                without embedding a browser. -->

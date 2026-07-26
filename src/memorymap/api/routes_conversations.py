@@ -10,7 +10,7 @@ import json
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from memorymap.core.database import Conversation, utcnow
@@ -27,16 +27,27 @@ class TurnBody(BaseModel):
     # Tool-activity chips shown in the bubble (Wave G) — persisted so they
     # survive a reload instead of vanishing. Each item is {label, ok}.
     tools: list[dict] | None = None
+    # What this answer cost, as the model reported it. Stored per turn so a
+    # conversation can show its running total: "how much context am I
+    # carrying?" is only answerable per-message today, which is the wrong
+    # granularity — the total is what decides whether to start a new chat.
+    tokens: int | None = None
 
 
 class RenameBody(BaseModel):
     title: str = Field(min_length=1, max_length=120)
 
 
+class PinBody(BaseModel):
+    pinned: bool
+
+
 def _turn_messages(turn: TurnBody) -> list[dict]:
     assistant = {"role": "assistant", "content": turn.answer, "thinking": turn.thinking}
     if turn.tools:
         assistant["tools"] = turn.tools
+    if turn.tokens:
+        assistant["tokens"] = turn.tokens
     return [
         {"role": "user", "content": turn.question},
         assistant,
@@ -45,11 +56,19 @@ def _turn_messages(turn: TurnBody) -> list[dict]:
 
 def _summary(conversation: Conversation) -> dict:
     messages = json.loads(conversation.messages)
+    first_question = next(
+        (m.get("content", "") for m in messages if m.get("role") == "user"), ""
+    )
     return {
         "id": conversation.id,
         "title": conversation.title,
         "updated_at": conversation.updated_at.isoformat(),
         "turns": len(messages) // 2,
+        "pinned": bool(conversation.pinned),
+        # A line of the first question, so the list says what a chat was
+        # about when its title doesn't.
+        "preview": first_question[:120],
+        "tokens": sum(int(m.get("tokens") or 0) for m in messages),
     }
 
 
@@ -61,11 +80,49 @@ def _existing(session: Session, conversation_id: int) -> Conversation:
 
 
 @router.get("")
-def list_conversations(session: Session = Depends(get_session)) -> list[dict]:
+def list_conversations(
+    q: str = "", session: Session = Depends(get_session)
+) -> list[dict]:
+    """Pinned first, then most recently used.
+
+    `q` searches titles *and* message text: you remember what you asked
+    about far more often than what the chat ended up being called, and
+    title-only search can't find that. The whole transcript is already in
+    one column, so this stays a single LIKE rather than a new index.
+    """
+    query = select(Conversation)
+    term = (q or "").strip()
+    if term:
+        like = f"%{term}%"
+        query = query.where(
+            Conversation.title.ilike(like) | Conversation.messages.ilike(like)
+        )
     rows = session.scalars(
-        select(Conversation).order_by(Conversation.updated_at.desc()).limit(50)
+        query.order_by(
+            Conversation.pinned.desc(), Conversation.updated_at.desc()
+        ).limit(200 if term else 50)
     )
     return [_summary(c) for c in rows]
+
+
+@router.put("/{conversation_id}/pin")
+def pin_conversation(
+    conversation_id: int, body: PinBody, session: Session = Depends(get_session)
+) -> dict:
+    conversation = _existing(session, conversation_id)
+    # updated_at carries `onupdate=utcnow`, which fires on *any* write to the
+    # row — so the obvious `conversation.pinned = …; commit()` also marks the
+    # chat as just-used, and unpinning would leave it at the top of the list
+    # it was meant to drop back down. Passing the current value explicitly is
+    # what suppresses the default: pinning is organising, not using.
+    session.execute(
+        update(Conversation)
+        .where(Conversation.id == conversation.id)
+        .values(pinned=body.pinned, updated_at=conversation.updated_at)
+    )
+    session.commit()
+    session.refresh(conversation)
+    return _summary(conversation)
 
 
 @router.post("", status_code=201)
@@ -243,6 +300,37 @@ def truncate_conversation(
     conversation.updated_at = utcnow()
     session.commit()
     return {**_summary(conversation), "removed": removed, "conversation_deleted": False}
+
+
+class AnswerBody(BaseModel):
+    content: str = Field(min_length=1)
+
+
+@router.put("/{conversation_id}/turns/{index}/answer")
+def edit_answer(
+    conversation_id: int,
+    index: int,
+    body: AnswerBody,
+    session: Session = Depends(get_session),
+) -> dict:
+    """Edit the assistant's text of one turn, keeping everything else.
+
+    Questions have been editable for a while; answers weren't, so the only
+    way to fix a model's near-miss was to regenerate and hope. An edited
+    answer is marked so the transcript never passes your words off as the
+    model's — that distinction is the whole point of keeping a transcript.
+    """
+    conversation = _existing(session, conversation_id)
+    messages = json.loads(conversation.messages)
+    position = index * 2 + 1  # user, assistant, user, assistant, …
+    if index < 0 or position >= len(messages):
+        raise HTTPException(status_code=404, detail="Turn not found")
+    messages[position]["content"] = body.content
+    messages[position]["edited"] = True
+    conversation.messages = json.dumps(messages)
+    conversation.updated_at = utcnow()
+    session.commit()
+    return {**_summary(conversation), "edited_turn": index}
 
 
 @router.put("/{conversation_id}")

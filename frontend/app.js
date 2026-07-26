@@ -2363,7 +2363,37 @@ function personaOptions() {
   }
   // Also surface the active persona's description on the closed select itself.
   select.title = describe(active);
-  select.onchange = () => (select.title = describe(select.value));
+  // The full prompt, not the hover excerpt: the 👁 panel exists precisely so
+  // the instructions the model is given aren't a 200-character preview.
+  const fullPrompt = (name) =>
+    (overrides.get(name) || {}).prompt || BUILTIN_PERSONAS[name] || "";
+  const showPrompt = (name) => {
+    $("persona-prompt-text").textContent =
+      fullPrompt(name) || "This persona adds no instructions of its own.";
+  };
+  showPrompt(active);
+  select.onchange = () => {
+    select.title = describe(select.value);
+    showPrompt(select.value);
+  };
+}
+
+// You could choose a persona but never read what it told the model to do —
+// which makes the choice a guess. This shows the actual system prompt.
+function togglePersonaPrompt() {
+  const panel = $("persona-prompt");
+  const showing = panel.classList.toggle("hidden");
+  $("persona-peek").setAttribute("aria-expanded", String(!showing));
+}
+
+// A running total for the whole conversation. Per-message counts can't tell
+// you when a thread has grown heavy enough to be worth starting over.
+function renderChatUsage(tokens) {
+  const el = $("chat-usage");
+  if (!el) return;
+  const total = Number(tokens) || 0;
+  el.hidden = total === 0;
+  el.textContent = total ? `${formatTokens(total)} tokens` : "";
 }
 
 // Three-dot "the model is about to speak" indicator (Wave D).
@@ -3459,6 +3489,11 @@ async function sendChatMessage(preset, opts = {}) {
       answer: answerRaw,
       thinking: thinkingRaw || null,
       tools: toolEvents.length ? toolEvents : null,
+      // What this turn cost, so the conversation can show a running total.
+      // Prompt + output, because both were sent through the model.
+      tokens: stats
+        ? (stats.prompt_tokens || 0) + (stats.output_tokens || 0)
+        : null,
     };
     if (chatConv.id === null) {
       const created = await apiJson("/conversations", {
@@ -3467,6 +3502,7 @@ async function sendChatMessage(preset, opts = {}) {
       });
       chatConv.id = created.id;
       $("chat-title").textContent = created.title;
+      renderChatUsage(created.tokens);
       // Let the AI name the thread once there's something to name. Silent
       // best-effort: the question-derived title stays if the model can't.
       apiJson(`/conversations/${created.id}/retitle`, { method: "POST", silent: true })
@@ -3476,15 +3512,17 @@ async function sendChatMessage(preset, opts = {}) {
         })
         .catch(() => {});
     } else if (opts.replaceLast) {
-      await apiJson(`/conversations/${chatConv.id}/turns/last`, {
+      const saved = await apiJson(`/conversations/${chatConv.id}/turns/last`, {
         method: "PUT",
         body: JSON.stringify(payload),
       });
+      renderChatUsage(saved.tokens);
     } else {
-      await apiJson(`/conversations/${chatConv.id}/turns`, {
+      const saved = await apiJson(`/conversations/${chatConv.id}/turns`, {
         method: "POST",
         body: JSON.stringify(payload),
       });
+      renderChatUsage(saved.tokens);
     }
     loadConversationList();
   } catch {
@@ -3532,6 +3570,7 @@ function newChatConversation() {
   lastChatQuestion = "";
   $("chat-messages").replaceChildren();
   $("chat-title").textContent = "New chat";
+  renderChatUsage(0);
   renderChatEmptyState();
   loadChatSuggestions();
 }
@@ -3571,6 +3610,11 @@ function exportChatMarkdown() {
 
 const SIDEBAR_MIN = 170;
 const SIDEBAR_MAX = 520;
+// Per-sidebar starting widths. The chat list carries the most text per row —
+// a title, then a date/turns/tokens line — so it starts wider than a list of
+// one-word category names.
+const SIDEBAR_DEFAULTS = { "chat-sidebar": 300, sidebar: 260, "doc-sidebar": 260 };
+const sidebarDefault = (id) => SIDEBAR_DEFAULTS[id] || 260;
 
 function sidebarWidth(id, fallback = 260) {
   const saved = Number(localStorage.getItem(`sidebarWidth:${id}`));
@@ -3588,7 +3632,7 @@ function applySidebarWidth(aside, width) {
 function makeSidebarResizable(aside) {
   if (!aside || aside.dataset.resizable) return;
   aside.dataset.resizable = "1";
-  applySidebarWidth(aside, sidebarWidth(aside.id));
+  applySidebarWidth(aside, sidebarWidth(aside.id, sidebarDefault(aside.id)));
 
   const handle = document.createElement("div");
   handle.className = "sidebar-resize";
@@ -3627,11 +3671,13 @@ function makeSidebarResizable(aside) {
       applySidebarWidth(aside, current + step);
     } else if (event.key === "Home") {
       event.preventDefault();
-      applySidebarWidth(aside, 260); // back to the default
+      applySidebarWidth(aside, sidebarDefault(aside.id)); // back to the default
     }
   });
   // Double-click the handle to reset, the convention everywhere else.
-  handle.addEventListener("dblclick", () => applySidebarWidth(aside, 260));
+  handle.addEventListener("dblclick", () =>
+    applySidebarWidth(aside, sidebarDefault(aside.id))
+  );
 }
 
 function initResizableSidebars() {
@@ -3685,24 +3731,103 @@ function kebabMenu(items, ariaLabel) {
   return wrap;
 }
 
+// "12.4k" beats "12417" when the number is a rough sense of scale, which is
+// all a token count ever is.
+function formatTokens(n) {
+  const count = Number(n) || 0;
+  if (count < 1000) return String(count);
+  return `${(count / 1000).toFixed(count < 10000 ? 1 : 0)}k`;
+}
+
+// How long ago, in words. A wall of identical timestamps tells you nothing;
+// "yesterday" and "3 weeks ago" are what you actually navigate by.
+function relativeTime(iso) {
+  const then = new Date(iso + (iso.endsWith("Z") ? "" : "Z"));
+  const seconds = Math.max(0, (Date.now() - then.getTime()) / 1000);
+  if (seconds < 90) return "just now";
+  const minutes = seconds / 60;
+  if (minutes < 60) return `${Math.round(minutes)} min ago`;
+  const hours = minutes / 60;
+  if (hours < 24) return `${Math.round(hours)}h ago`;
+  const days = Math.round(hours / 24);
+  if (days === 1) return "yesterday";
+  if (days < 7) return `${days} days ago`;
+  if (days < 30) return `${Math.round(days / 7)} weeks ago`;
+  return then.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}
+
+let conversationQuery = "";
+
 async function loadConversationList() {
-  const conversations = await apiJson("/conversations").catch(() => []);
+  const params = conversationQuery ? `?q=${encodeURIComponent(conversationQuery)}` : "";
+  const conversations = await apiJson(`/conversations${params}`).catch(() => []);
   const list = $("conversation-list");
   list.replaceChildren();
-  $("conv-empty").classList.toggle("hidden", conversations.length > 0);
+  const empty = $("conv-empty");
+  empty.classList.toggle("hidden", conversations.length > 0);
+  empty.textContent = conversationQuery
+    ? `No chats mention “${conversationQuery}”.`
+    : "No saved chats yet — ask something!";
+
+  let sawUnpinned = false;
   for (const conversation of conversations) {
+    // One divider between the pinned block and the rest, so "pinned" reads as
+    // a section rather than as an unexplained reordering.
+    if (!conversation.pinned && !sawUnpinned && list.children.length) {
+      const rule = document.createElement("li");
+      rule.className = "conv-divider";
+      rule.setAttribute("aria-hidden", "true");
+      list.appendChild(rule);
+    }
+    if (!conversation.pinned) sawUnpinned = true;
+
     const li = document.createElement("li");
     if (conversation.id === chatConv.id) li.classList.add("active-conv");
+    if (conversation.pinned) li.classList.add("pinned-conv");
+
     const title = document.createElement("span");
     title.className = "conv-title";
-    title.textContent = conversation.title;
     title.title = "Open this chat";
     title.addEventListener("click", () => openConversation(conversation.id));
+
+    const name = document.createElement("span");
+    name.className = "conv-name";
+    name.textContent = `${conversation.pinned ? "📌 " : ""}${conversation.title}`;
+    const meta = document.createElement("span");
+    meta.className = "conv-meta muted";
+    const bits = [relativeTime(conversation.updated_at)];
+    if (conversation.turns) {
+      bits.push(`${conversation.turns} ${conversation.turns === 1 ? "turn" : "turns"}`);
+    }
+    // "tok" rather than "tokens": the row is one line by design, and the
+    // number is the useful part — spelling out the unit is what pushed it
+    // into an ellipsis at the default sidebar width.
+    if (conversation.tokens) bits.push(`${formatTokens(conversation.tokens)} tok`);
+    meta.textContent = bits.join(" · ");
+    meta.title = bits.join(" · "); // in full, if the row still has to clip
+    title.append(name, meta);
+    // The title often isn't the subject — show what was actually asked.
+    if (conversation.preview && conversation.preview !== conversation.title) {
+      title.title = conversation.preview;
+    }
     // One ⋯ instead of three buttons. In a sidebar this narrow they were
     // taking most of the row, leaving a few characters of the chat's name.
     const actions = document.createElement("span");
     actions.className = "entry-actions";
     const items = [];
+    items.push(
+      makeMenuItem(
+        conversation.pinned ? "📌 Unpin" : "📌 Pin",
+        conversation.pinned ? "Let this chat sort by date again" : "Keep this chat at the top",
+        async () => {
+          await apiJson(`/conversations/${conversation.id}/pin`, {
+            method: "PUT",
+            body: JSON.stringify({ pinned: !conversation.pinned }),
+          });
+          loadConversationList();
+        }
+      )
+    );
     items.push(
       makeMenuItem("✎ Rename", "Rename this chat", async () => {
         const next = prompt("Rename this chat:", conversation.title);
@@ -3742,11 +3867,87 @@ async function loadConversationList() {
   }
 }
 
+// An edited answer is labelled, always. A transcript that silently presents
+// your words as the model's is worse than no transcript.
+function editedMarker() {
+  const tag = document.createElement("span");
+  tag.className = "edited-marker muted";
+  tag.textContent = "edited by you";
+  tag.title = "You changed this answer after the model wrote it";
+  return tag;
+}
+
+// Editing questions has worked for a while; answers were fixed forever, so a
+// model that got one detail wrong left you regenerating the whole thing and
+// hoping. Editing in place keeps the rest of the thread intact.
+function editChatAnswer(handles, turnIndex, current) {
+  if (handles.bubble.querySelector(".answer-editor")) return; // already open
+  const editor = document.createElement("div");
+  editor.className = "answer-editor";
+  const box = document.createElement("textarea");
+  box.value = current;
+  box.rows = Math.min(20, Math.max(4, current.split("\n").length + 1));
+  box.setAttribute("aria-label", "Edit this answer");
+
+  const finish = (markdown) => {
+    editor.remove();
+    handles.answerBox.classList.remove("hidden");
+    if (markdown !== null) renderMarkdown(handles.answerBox, markdown);
+  };
+
+  const save = document.createElement("button");
+  save.className = "small";
+  save.type = "button";
+  save.textContent = "Save";
+  save.addEventListener("click", async () => {
+    const next = box.value.trim();
+    if (!next) {
+      toast("An empty answer isn't a correction — delete the message instead.", true);
+      return;
+    }
+    if (chatConv.id) {
+      try {
+        await apiJson(`/conversations/${chatConv.id}/turns/${turnIndex}/answer`, {
+          method: "PUT",
+          body: JSON.stringify({ content: next }),
+        });
+      } catch (error) {
+        toast(error.message, true);
+        return; // leave the editor open rather than losing the edit
+      }
+    }
+    if (chatConv.turns[turnIndex]) chatConv.turns[turnIndex].answer = next;
+    finish(next);
+    if (!handles.bubble.querySelector(".edited-marker")) {
+      handles.bubble.insertBefore(
+        editedMarker(),
+        handles.bubble.querySelector(".msg-actions")
+      );
+    }
+    toast("Answer updated.");
+  });
+
+  const cancel = document.createElement("button");
+  cancel.className = "ghost small";
+  cancel.type = "button";
+  cancel.textContent = "Cancel";
+  cancel.addEventListener("click", () => finish(null));
+
+  const row = document.createElement("div");
+  row.className = "row";
+  row.append(save, cancel);
+  editor.append(box, row);
+  handles.answerBox.classList.add("hidden");
+  handles.answerBox.after(editor);
+  box.focus();
+}
+
 async function openConversation(id) {
   const full = await apiJson(`/conversations/${id}`).catch(() => null);
   if (!full) return;
   chatConv = { id: full.id, turns: [] };
   $("chat-title").textContent = full.title;
+  renderChatUsage(full.tokens);
   $("chat-messages").replaceChildren();
   $("chat-suggest").classList.add("hidden");
   let lastQuestionText = null;
@@ -3767,9 +3968,15 @@ async function openConversation(id) {
         handles.thinkingText.textContent = message.thinking;
       }
       const turnIndex = chatConv.turns.length; // index this pair will occupy
+      if (message.edited) handles.bubble.appendChild(editedMarker());
       handles.bubble.appendChild(
         chatMessageActions([
           { label: "⧉", title: "Copy answer", onClick: (e) => copyToClipboard(message.content, e.currentTarget) },
+          {
+            label: "✎",
+            title: "Edit this answer",
+            onClick: () => editChatAnswer(handles, turnIndex, message.content),
+          },
           { label: "🔊", title: "Read aloud", onClick: () => speakText(handles.answerBox.textContent) },
           { label: "🗑", title: "Delete this message", onClick: () => deleteChatTurn(handles.bubble) },
         ])
@@ -6346,9 +6553,14 @@ function renderMarkdown(container, text) {
   while (i < lines.length) {
     const line = lines[i];
 
-    // Fenced code block.
+    // Fenced code block. Gets a header strip with the language (when the
+    // fence names one) and a copy button: selecting a code block by hand is
+    // the one thing every other chat interface saves you from, and getting
+    // it slightly wrong — a stray line, a missing last character — is the
+    // kind of mistake you only notice after pasting it somewhere.
     if (line.trim().startsWith("```")) {
       closeList();
+      const language = line.trim().slice(3).trim().split(/\s+/)[0] || "";
       const code = [];
       i++;
       while (i < lines.length && !lines[i].trim().startsWith("```")) {
@@ -6356,11 +6568,32 @@ function renderMarkdown(container, text) {
         i++;
       }
       i++; // skip the closing fence
+      const text = code.join("\n");
+
+      const block = document.createElement("div");
+      block.className = "code-block";
+      const bar = document.createElement("div");
+      bar.className = "code-bar";
+      const label = document.createElement("span");
+      label.className = "code-lang";
+      label.textContent = language || "code";
+      const copy = document.createElement("button");
+      copy.type = "button";
+      copy.className = "ghost small code-copy";
+      copy.textContent = "⧉ Copy";
+      copy.title = "Copy this code block";
+      copy.addEventListener("click", (event) =>
+        copyToClipboard(text, event.currentTarget)
+      );
+      bar.append(label, copy);
+
       const pre = document.createElement("pre");
       const codeEl = document.createElement("code");
-      codeEl.textContent = code.join("\n");
+      if (language) codeEl.dataset.lang = language;
+      codeEl.textContent = text;
       pre.appendChild(codeEl);
-      container.appendChild(pre);
+      block.append(bar, pre);
+      container.appendChild(block);
       continue;
     }
 
@@ -9630,6 +9863,15 @@ $("note-picker-panel").addEventListener("keydown", (event) => {
 });
 $("chat-stop").addEventListener("click", () => chatController && chatController.abort());
 $("chat-new").addEventListener("click", newChatConversation);
+$("persona-peek").addEventListener("click", togglePersonaPrompt);
+// Debounced: this hits the server, and searching as you type shouldn't mean
+// a request per keystroke.
+let convSearchTimer = null;
+$("conv-search").addEventListener("input", (event) => {
+  conversationQuery = event.target.value.trim();
+  clearTimeout(convSearchTimer);
+  convSearchTimer = setTimeout(loadConversationList, 180);
+});
 $("chat-export").addEventListener("click", exportChatMarkdown);
 $("chat-input").addEventListener("keydown", (e) => {
   if (e.key === "Enter") sendChatMessage();

@@ -402,12 +402,20 @@ function entryItem(entry, options = {}) {
     meta.appendChild(busy);
   }
 
+  // The date and the action buttons share one right-aligned group. They used
+  // to carry a `margin-left: auto` each, and two auto margins in a flex row
+  // split the free space between them — which put the timestamp at a
+  // different x on every card, depending on how wide its chips were.
+  const metaEnd = document.createElement("span");
+  metaEnd.className = "entry-meta-end";
+
   const date = document.createElement("span");
   date.className = "entry-date";
   const stamp = options.bin ? entry.deleted_at : entry.created_at;
   date.textContent = relativeTime(stamp);
   date.title = new Date(stamp).toLocaleString(); // exact on hover
-  meta.appendChild(date);
+  metaEnd.appendChild(date);
+  meta.appendChild(metaEnd);
 
   if (options.bin) {
     const actions = document.createElement("span");
@@ -418,7 +426,7 @@ function entryItem(entry, options = {}) {
         await Promise.all([loadEntries(), renderBin()]);
       })
     );
-    meta.appendChild(actions);
+    metaEnd.appendChild(actions);
   } else if (options.actions) {
     // Wave L rework: two everyday actions stay visible; the rest live in
     // one ⋯ menu — the old row of nine icons was unscannable noise.
@@ -450,7 +458,7 @@ function entryItem(entry, options = {}) {
       })
     );
     actions.appendChild(entryOverflowMenu(entry));
-    meta.appendChild(actions);
+    metaEnd.appendChild(actions);
   }
   if (entry.pinned) meta.insertBefore(chip("📌 pinned"), meta.firstChild);
   li.appendChild(meta);
@@ -1299,6 +1307,17 @@ const SEARCH_MODE_LABELS = {
   recent: "recent notes", // broad question → showing recent entries
 };
 
+// Say something to a screen reader without putting anything on screen. Used
+// for changes whose only visible signal is colour or position.
+function announce(message) {
+  const region = $("live-region");
+  if (!region) return;
+  // Clearing first guarantees the change is seen as new even when the same
+  // message is announced twice in a row.
+  region.textContent = "";
+  requestAnimationFrame(() => (region.textContent = message));
+}
+
 // Jump to an entry in the Notes tab and flash it — shared by search
 // results, most-used, and related-notes chips.
 function flashEntry(id) {
@@ -1309,9 +1328,21 @@ function flashEntry(id) {
   requestAnimationFrame(() => {
     const card = document.querySelector(`#entry-list li[data-id="${id}"]`);
     if (!card) return;
-    card.scrollIntoView({ behavior: "smooth", block: "center" });
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    card.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+    // Restart the animation even when the same note is jumped to twice in a
+    // row — without the reflow the class is already there and nothing replays.
+    card.classList.remove("flash");
+    void card.offsetWidth;
     card.classList.add("flash");
-    setTimeout(() => card.classList.remove("flash"), 1700);
+    // Announce it too: a colour change alone tells a screen-reader user
+    // nothing about where they've just been sent.
+    // Just the note's own text — card.textContent would drag in the category
+    // chip, every tag, and the confidence badge.
+    const body = card.querySelector(".entry-content")?.textContent || "";
+    announce(`Showing note: ${body.trim().slice(0, 80)}`);
+    clearTimeout(flashEntry.timer);
+    flashEntry.timer = setTimeout(() => card.classList.remove("flash"), 2700);
   });
 }
 

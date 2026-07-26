@@ -543,7 +543,24 @@ progress { accent-color: var(--accent); width: 100%; }
 .chip-interactive { cursor: pointer; }
 .chip-interactive:hover { filter: brightness(1.05); }
 .chip-interactive:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.entry-date { margin-left: auto; color: var(--muted); font-size: 0.78rem; }
+/* One right-aligned group at the end of the meta row: timestamp, then the
+   action buttons. A fixed min-width on the date keeps timestamps lining up
+   with each other from card to card even when the text length differs
+   ("2 days ago" vs "just now"). */
+.entry-meta-end {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+.entry-date {
+  color: var(--muted);
+  font-size: 0.78rem;
+  min-width: 7ch;
+  text-align: right;
+  white-space: nowrap;
+}
 
 /* A note the AI is working on right now (e.g. re-evaluating). */
 .chip.chip-busy { background: var(--accent-soft); color: var(--accent); }
@@ -621,7 +638,8 @@ progress { accent-color: var(--accent); width: 100%; }
 .lock-card input { text-align: center; }
 
 /* --- entry actions + links (Phase 4) --------------------------------------- */
-.entry-actions { display: flex; gap: 0.35rem; margin-left: auto; }
+/* No auto margin here — .entry-meta-end already owns the alignment. */
+.entry-actions { display: flex; gap: 0.35rem; }
 .entry-actions button { padding: 0.15rem 0.5rem; font-size: 0.78rem; }
 .entry-links { margin-top: 0.35rem; display: flex; flex-wrap: wrap; gap: 0.35rem; }
 .chip.link { cursor: default; }
@@ -680,11 +698,34 @@ li.link-source { outline: 2px solid var(--accent); }
 }
 .toast.error { border-left-color: var(--error); }
 
+/* Jumping to a note used to fade a thin outline over 1.6s starting the moment
+   the scroll began — so it was mostly gone by the time the note arrived on
+   screen. It now holds at full strength while the page settles, then fades,
+   and tints the whole card so it reads as "this one" rather than a hairline. */
 @keyframes flash-outline {
-  0% { outline: 3px solid var(--accent); }
-  100% { outline: 3px solid transparent; }
+  0%, 45% {
+    outline-color: var(--accent);
+    background: var(--accent-soft);
+  }
+  100% {
+    outline-color: transparent;
+    background: transparent;
+  }
 }
-.entry-list li.flash { animation: flash-outline 1.6s ease-out; }
+.entry-list li.flash {
+  outline: 3px solid transparent;
+  outline-offset: 2px;
+  border-radius: var(--radius);
+  animation: flash-outline 2.6s ease-out;
+}
+/* Reduced motion still gets the highlight — it just doesn't animate away. */
+@media (prefers-reduced-motion: reduce) {
+  .entry-list li.flash {
+    animation: none;
+    outline-color: var(--accent);
+    background: var(--accent-soft);
+  }
+}
 
 /* --- settings modal + logs (Wave A) ----------------------------------------- */
 .modal-overlay {
@@ -2728,4 +2769,20 @@ button { border-radius: calc(var(--radius) * 0.7); }
 }
 @media (prefers-reduced-motion: reduce) {
   .scroll-top { transition: none; }
+}
+
+/* --- screen-reader-only announcements --------------------------------------- */
+/* Present to assistive tech, invisible on screen. Clipped rather than
+   display:none, which would take it out of the accessibility tree entirely. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }

@@ -149,6 +149,8 @@ def _summarize_notes(session: Session, args: dict) -> dict:
             query = query.where(Entry.created_at >= utcnow() - timedelta(days=days_int))
             period = f"last {days_int} days"
         except (ValueError, TypeError):
+            # The model wrote something that isn't a number of days. Summarise
+            # everything rather than failing the tool call over it.
             pass
     rows = list(session.scalars(query.order_by(Entry.created_at.desc()).limit(40)))
     wanted = args.get("category")

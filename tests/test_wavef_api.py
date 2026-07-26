@@ -5,6 +5,8 @@ from __future__ import annotations
 import io
 import zipfile
 
+import pytest
+
 from memorymap.ai import tools
 from memorymap.core import backup, deps
 from memorymap.search import websearch
@@ -398,3 +400,66 @@ def test_websearch_tool_refuses_when_disabled(client, session):
     # through the shared tool_enabled check → "turned off" message).
     result = tools.execute_tool(session, "web_search", {"query": "x"})
     assert "error" in result and "turned off" in result["error"]
+
+
+# --- outbound-request guards (CodeQL SSRF findings) ---------------------------
+
+
+def test_reader_refuses_a_link_that_points_at_this_machine(client, monkeypatch):
+    """A search result must not be able to make the app fetch localhost."""
+    from memorymap.search import websearch
+
+    def boom(*args, **kwargs):  # pragma: no cover — must never be reached
+        raise AssertionError("the guard should have stopped this request")
+
+    monkeypatch.setattr(websearch.requests, "get", boom)
+    client.put("/preferences", json={"web_search_enabled": True})
+    response = client.get("/websearch/read?url=http://127.0.0.1:8080/admin")
+    assert response.status_code == 502
+    assert "local address" in response.json()["detail"]
+
+
+def test_reader_refuses_a_url_carrying_credentials(client, monkeypatch):
+    """"http://ok.example@evil.example/" reads as one host and resolves to another."""
+    from memorymap.search import websearch
+
+    def boom(*args, **kwargs):  # pragma: no cover — must never be reached
+        raise AssertionError("the guard should have stopped this request")
+
+    monkeypatch.setattr(websearch.requests, "get", boom)
+    client.put("/preferences", json={"web_search_enabled": True})
+    response = client.get("/websearch/read?url=http://example.com@127.0.0.1/")
+    assert response.status_code == 502
+
+
+def test_searxng_probe_rejects_a_public_address(monkeypatch):
+    """SearXNG is self-hosted, so a public URL is refused rather than probed."""
+    from memorymap.search import websearch
+
+    def boom(*args, **kwargs):  # pragma: no cover — must never be reached
+        raise AssertionError("the guard should have stopped this request")
+
+    monkeypatch.setattr(websearch.requests, "get", boom)
+    assert websearch.probe_searxng("https://searx.example.com") is False
+    assert websearch.probe_searxng("not-a-url") is False
+
+
+def test_searxng_search_rejects_a_public_address():
+    from memorymap.search import websearch
+
+    with pytest.raises(websearch.WebSearchError, match="this machine or your network"):
+        websearch._search_searxng("anything", 5, "https://searx.example.com")
+
+
+def test_searxng_probe_still_allows_localhost(monkeypatch):
+    """The guard must not break the instance the app itself starts."""
+    from memorymap.search import websearch
+
+    class FakeResponse:
+        status_code = 200
+
+        def json(self):
+            return {"results": []}
+
+    monkeypatch.setattr(websearch.requests, "get", lambda *a, **k: FakeResponse())
+    assert websearch.probe_searxng("http://localhost:8888") is True

@@ -19,7 +19,9 @@ DuckDuckGo rather than breaking search entirely.
 from __future__ import annotations
 
 import html
+import ipaddress
 import re
+import socket
 import time
 from urllib.parse import parse_qs, unquote, urlparse
 
@@ -75,7 +77,19 @@ DISCOVERY_TIMEOUT = 1.5
 
 
 def probe_searxng(base_url: str) -> bool:
-    """True if a SearXNG instance answers JSON search at this URL."""
+    """True if a SearXNG instance answers JSON search at this URL.
+
+    SearXNG is documented as self-hosted — the app can even run it for you —
+    so the URL is required to resolve to this machine or the local network.
+    That keeps a mistyped or hostile preference from turning the probe into a
+    request against an arbitrary internet host.
+    """
+    scheme, host = _split_url(base_url)
+    if not scheme:
+        return False
+    addresses = _host_addresses(host)
+    if not addresses or not all(_is_internal(address) for address in addresses):
+        return False
     try:
         response = requests.get(
             base_url.rstrip("/") + "/search",
@@ -141,6 +155,14 @@ def search_web(
 
 def _search_searxng(query: str, limit: int, base_url: str) -> list[dict]:
     """Query a self-hosted SearXNG instance via its JSON API."""
+    # Same local-only rule as probe_searxng: the configured instance is meant
+    # to be yours, so it can't be used to aim requests at the wider internet.
+    scheme, host = _split_url(base_url)
+    if not scheme:
+        raise WebSearchError("The SearXNG address isn't a valid http(s) URL")
+    addresses = _host_addresses(host)
+    if not addresses or not all(_is_internal(address) for address in addresses):
+        raise WebSearchError("The SearXNG address must be on this machine or your network")
     url = base_url.rstrip("/") + "/search"
     try:
         response = requests.get(
@@ -195,7 +217,7 @@ def _search_duckduckgo(query: str, limit: int) -> list[dict]:
 
 
 def _strip_tags(fragment: str) -> str:
-    return html.unescape(re.sub(r"<[^>]+>", "", fragment)).strip()
+    return html.unescape(re.sub(r"<[^>]{0,2000}>", "", fragment)).strip()
 
 
 def _real_url(href: str) -> str:
@@ -257,6 +279,52 @@ _READER_MAX_BYTES = 400_000
 _READER_MAX_CHARS = 20_000
 
 
+def _host_addresses(host: str) -> list[ipaddress.IPv4Address | ipaddress.IPv6Address]:
+    """Every IP a hostname resolves to, so a check can't be dodged by a name.
+
+    An empty list means the name doesn't resolve — callers treat that as a
+    failed check rather than a pass, so a lookup failure can never open a hole.
+    """
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except (socket.gaierror, UnicodeError):
+        return []
+    found = []
+    for info in infos:
+        try:
+            found.append(ipaddress.ip_address(info[4][0]))
+        except ValueError:  # a non-IP sockaddr; nothing to check against
+            continue
+    return found
+
+
+def _is_internal(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    """True for anything on this machine or the local network."""
+    return (
+        address.is_private
+        or address.is_loopback
+        or address.is_link_local
+        or address.is_reserved
+        or address.is_multicast
+        or address.is_unspecified
+    )
+
+
+def _split_url(url: str) -> tuple[str, str]:
+    """(scheme, host) for an http(s) URL, or ("", "") if it isn't one.
+
+    Credentials in the URL are rejected outright: they're never needed here and
+    "http://trusted.example@evil.example/" is a classic way to make a URL read
+    as one host while resolving to another.
+    """
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        return "", ""
+    if parsed.username or parsed.password:
+        return "", ""
+    return parsed.scheme, parsed.hostname
+
+
 def fetch_readable(url: str) -> dict:
     """Fetch a page and return its readable text.
 
@@ -264,8 +332,17 @@ def fetch_readable(url: str) -> dict:
     scripts, styles and chrome are stripped and only text comes back, so
     nothing from the page can execute in the app.
     """
-    if not url.startswith(("http://", "https://")):
+    scheme, host = _split_url(url)
+    if not scheme:
         raise WebSearchError("Only http(s) links can be opened")
+    # A search result is untrusted input, so it must never be able to make the
+    # app fetch something on this machine or the local network — that would
+    # turn "open a result" into a probe of the user's own services.
+    addresses = _host_addresses(host)
+    if not addresses:
+        raise WebSearchError("Couldn't look up that address")
+    if any(_is_internal(address) for address in addresses):
+        raise WebSearchError("That link points at a local address, so it wasn't opened")
     try:
         response = requests.get(
             url,
@@ -308,15 +385,15 @@ def _readable_blocks(page: str) -> list[dict]:
     Returning headings and paragraphs separately is what turns a wall of text
     into something you can actually read.
     """
-    body = re.sub(rf"(?is)<({_STRIP_TAGS})[^>]*>.*?</\1>", " ", page)
+    body = re.sub(rf"(?is)<({_STRIP_TAGS})[^>]{{0,400}}>.{{0,200000}}?</\1>", " ", page)
     # Prefer the main article when the page marks one up.
-    article = re.search(r"(?is)<(article|main)[^>]*>(.*?)</\1>", body)
+    article = re.search(r"(?is)<(article|main)[^>]{0,400}>(.{0,500000}?)</\1>", body)
     if article:
         body = article.group(2)
 
     blocks: list[dict] = []
     pattern = re.compile(
-        r"(?is)<(h[1-6]|p|li|blockquote|pre)[^>]*>(.*?)</\1>"
+        r"(?is)<(h[1-6]|p|li|blockquote|pre)[^>]{0,400}>(.{0,50000}?)</\1>"
     )
     for match in pattern.finditer(body):
         tag = match.group(1).lower()
@@ -344,17 +421,21 @@ def _readable_blocks(page: str) -> list[dict]:
 
 
 def _page_title(page: str) -> str:
-    match = re.search(r"<title[^>]*>(.*?)</title>", page, re.S | re.I)
+    match = re.search(r"<title[^>]{0,400}>(.{0,2000}?)</title>", page, re.S | re.I)
     return _strip_tags(match.group(1)) if match else ""
 
 
 def _readable_text(page: str) -> str:
     """Strip scripts/styles/markup and collapse whitespace into paragraphs."""
-    body = re.sub(r"(?is)<(script|style|noscript|svg|nav|footer|header)[^>]*>.*?</\1>", " ", page)
+    body = re.sub(
+        r"(?is)<(script|style|noscript|svg|nav|footer|header)[^>]{0,400}>.{0,200000}?</\1>",
+        " ",
+        page,
+    )
     # Block-level tags become paragraph breaks so the text stays readable.
     body = re.sub(r"(?i)</(p|div|section|article|li|h[1-6]|tr)\s*>", "\n\n", body)
     body = re.sub(r"(?i)<br\s*/?>", "\n", body)
-    text = html.unescape(re.sub(r"<[^>]+>", " ", body))
+    text = html.unescape(re.sub(r"<[^>]{0,2000}>", " ", body))
     lines = [re.sub(r"[ \t ]+", " ", line).strip() for line in text.split("\n")]
     kept: list[str] = []
     for line in lines:

@@ -147,8 +147,10 @@ def test_delete_conversation_turn(client):
     contents = [m["content"] for m in full["messages"]]
     assert contents == ["first?", "one", "third?", "three"]
 
-    # Out-of-range index is a clean 404, not a crash.
-    assert client.delete(f"/conversations/{created['id']}/turns/9").status_code == 404
+    # Out-of-range index is a clean 404, not a crash. The request is made
+    # outside the assert so it still runs under `python -O`.
+    missing = client.delete(f"/conversations/{created['id']}/turns/9")
+    assert missing.status_code == 404
 
 
 def test_conversation_persists_tool_chips(client):

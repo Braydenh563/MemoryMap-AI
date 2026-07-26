@@ -2174,6 +2174,128 @@ function renderRecordsDetails(holder, meta) {
   holder.appendChild(details);
 }
 
+// --- the writing room: thoughts in, a note out -----------------------------------
+// The draft is deliberately kept in the browser (and localStorage) rather than
+// in the database. A half-finished draft isn't a note, and quietly filling the
+// notebook with them would be worse than occasionally losing one.
+
+const DRAFT_STORE = "writingRoomDraft";
+
+function saveDraftLocally() {
+  try {
+    localStorage.setItem(
+      DRAFT_STORE,
+      JSON.stringify({
+        thoughts: $("draft-thoughts").value,
+        draft: $("draft-text").value,
+        tags: $("draft-tags").value,
+      })
+    );
+  } catch {
+    /* storage full or blocked — the draft is still on screen */
+  }
+}
+
+function restoreDraftLocally() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(DRAFT_STORE) || "null");
+    if (!saved) return;
+    $("draft-thoughts").value = saved.thoughts || "";
+    $("draft-text").value = saved.draft || "";
+    $("draft-tags").value = saved.tags || "";
+    updateDraftCount();
+  } catch {
+    /* unreadable — start clean rather than throwing on load */
+  }
+}
+
+function updateDraftCount() {
+  const text = $("draft-text").value.trim();
+  const words = text ? text.split(/\s+/).length : 0;
+  $("draft-count").textContent = words ? `${words} word${words === 1 ? "" : "s"}` : "";
+}
+
+async function composeDraft() {
+  const thoughts = $("draft-thoughts").value.trim();
+  const draft = $("draft-text").value;
+  const status = $("draft-status");
+  if (!thoughts && !draft.trim()) {
+    status.classList.add("error");
+    status.textContent = "Write a thought first.";
+    return;
+  }
+  status.classList.remove("error");
+  status.textContent = draft.trim() ? "✨ Revising…" : "✨ Drafting…";
+  $("draft-compose").disabled = true;
+  try {
+    const body = await apiJson("/drafts/compose", {
+      method: "POST",
+      body: JSON.stringify({
+        thoughts,
+        draft,
+        instruction: $("draft-instruction").value.trim(),
+      }),
+    });
+    $("draft-text").value = body.draft;
+    updateDraftCount();
+    // The thoughts have been folded in, so clear the box for the next round
+    // rather than resending them and having the model repeat itself.
+    if (body.ollama_running && thoughts) $("draft-thoughts").value = "";
+    $("draft-instruction").value = "";
+    const thinking = $("draft-thinking");
+    thinking.classList.toggle("hidden", !body.thinking);
+    $("draft-thinking-text").textContent = body.thinking || "";
+    if (body.message) {
+      status.classList.add("error");
+      status.textContent = body.message;
+    } else {
+      status.textContent = "Draft updated — edit it, or add more thoughts.";
+      announce("The draft has been updated.");
+    }
+    saveDraftLocally();
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+  } finally {
+    $("draft-compose").disabled = false;
+  }
+}
+
+async function saveDraftAsNote() {
+  const content = $("draft-text").value.trim();
+  const status = $("draft-status");
+  if (!content) {
+    status.classList.add("error");
+    status.textContent = "There's no draft to save yet.";
+    return;
+  }
+  status.classList.remove("error");
+  status.textContent = "Saving…";
+  const tags = $("draft-tags")
+    .value.split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
+  try {
+    const entry = await apiJson("/entries", {
+      method: "POST",
+      body: JSON.stringify({ content, tags }),
+    });
+    $("draft-thoughts").value = "";
+    $("draft-text").value = "";
+    $("draft-tags").value = "";
+    $("draft-thinking").classList.add("hidden");
+    updateDraftCount();
+    saveDraftLocally();
+    status.textContent = "Saved as a note.";
+    toast("Draft saved as a note.");
+    await loadEntries();
+    flashEntry(entry.id); // show them where it landed
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+  }
+}
+
 // --- attaching notes to a chat message ------------------------------------------
 // "Use this note, specifically" is a stronger signal than any similarity
 // score, so attached notes are sent to the model ahead of whatever retrieval
@@ -8346,6 +8468,38 @@ $("entry-template").addEventListener("change", applyTemplate);
 
 // Chat tab (Wave C).
 $("chat-send").addEventListener("click", () => sendChatMessage());
+
+// --- writing room wiring ---
+$("draft-compose").addEventListener("click", composeDraft);
+$("draft-save").addEventListener("click", saveDraftAsNote);
+$("draft-text").addEventListener("input", () => {
+  updateDraftCount();
+  saveDraftLocally();
+});
+$("draft-thoughts").addEventListener("input", saveDraftLocally);
+$("draft-tags").addEventListener("input", saveDraftLocally);
+// Ctrl/Cmd+Enter from the thoughts box drafts, matching the capture box.
+$("draft-thoughts").addEventListener("keydown", (event) => {
+  if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+    event.preventDefault();
+    composeDraft();
+  }
+});
+$("draft-discard").addEventListener("click", () => {
+  if (!$("draft-text").value.trim() && !$("draft-thoughts").value.trim()) return;
+  if (!confirm("Discard this draft? It hasn't been saved as a note.")) return;
+  $("draft-thoughts").value = "";
+  $("draft-text").value = "";
+  $("draft-tags").value = "";
+  $("draft-thinking").classList.add("hidden");
+  $("draft-status").textContent = "";
+  updateDraftCount();
+  saveDraftLocally();
+});
+$("draft-help").addEventListener("click", () => {
+  $("draft-intro").classList.toggle("hidden");
+});
+restoreDraftLocally();
 
 // --- note picker wiring ---
 $("attach-note").addEventListener("click", () => {

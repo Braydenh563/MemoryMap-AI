@@ -172,6 +172,54 @@
           <p><span id="save-status" class="status" role="status"></span></p>
         </section>
 
+        <!-- Writing room: loose thoughts in, a real note out, revised until
+             it's right. The draft lives in the browser until you save it. -->
+        <section class="card" id="writing-room">
+          <div class="row space-between">
+            <h2>Write with the AI</h2>
+            <button id="draft-help" class="ghost small" type="button"
+              title="What is this?">?</button>
+          </div>
+          <p class="muted" id="draft-intro">
+            Type whatever's in your head — half sentences are fine. The AI turns
+            it into a note. Edit the draft, add more thoughts, and it folds them
+            in without undoing your changes.
+          </p>
+          <div class="draft-columns">
+            <div class="draft-column">
+              <label for="draft-thoughts" class="muted">Your thoughts</label>
+              <textarea id="draft-thoughts" rows="7"
+                placeholder="Just get it down — order doesn't matter…"></textarea>
+              <div class="row draft-controls">
+                <button id="draft-compose">✨ Draft it</button>
+                <input id="draft-instruction" type="text" maxlength="300"
+                  placeholder="Optional: “make it shorter”, “add a summary”…"
+                  aria-label="An instruction for this revision">
+              </div>
+              <p id="draft-status" class="status" role="status"></p>
+            </div>
+            <div class="draft-column">
+              <div class="row space-between">
+                <label for="draft-text" class="muted">The draft</label>
+                <span id="draft-count" class="muted"></span>
+              </div>
+              <textarea id="draft-text" rows="14"
+                placeholder="Your draft will appear here. You can edit it directly."></textarea>
+              <div class="row draft-controls">
+                <button id="draft-save">💾 Save as note</button>
+                <input id="draft-tags" type="text" maxlength="200"
+                  placeholder="Optional tags, comma separated"
+                  aria-label="Tags for the saved note">
+                <button id="draft-discard" class="ghost small" type="button">Discard</button>
+              </div>
+            </div>
+          </div>
+          <details id="draft-thinking" class="hidden">
+            <summary class="muted">What the model was thinking</summary>
+            <pre id="draft-thinking-text" class="thinking-text"></pre>
+          </details>
+        </section>
+
         <!-- Ask: conversational answer and raw records side by side -->
         <section class="card" id="ask">
           <div class="row space-between">

@@ -2870,3 +2870,25 @@ button { border-radius: calc(var(--radius) * 0.7); }
   line-height: 1;
 }
 .attachment-remove:hover { color: var(--danger, #e2534b); }
+
+/* --- the writing room -------------------------------------------------------- */
+/* Thoughts on the left, the draft on the right, so you can see the raw material
+   and what the AI made of it at the same time. */
+.draft-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+.draft-column { display: flex; flex-direction: column; gap: 0.4rem; min-width: 0; }
+.draft-column textarea { resize: vertical; }
+.draft-controls { gap: 0.4rem; flex-wrap: wrap; }
+.draft-controls input { flex: 1 1 10rem; min-width: 0; }
+#draft-text { font-family: var(--mono, ui-monospace, monospace); font-size: 0.9rem; line-height: 1.5; }
+#draft-count { font-size: 0.78rem; }
+
+/* One column on narrow screens — side-by-side textareas become unusable
+   well before the phone breakpoint. */
+@media (max-width: 900px) {
+  .draft-columns { grid-template-columns: 1fr; }
+}

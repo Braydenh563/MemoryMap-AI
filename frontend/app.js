@@ -3769,13 +3769,41 @@ function sidebarWidth(id, fallback = 260) {
   return Number.isFinite(saved) && saved >= SIDEBAR_MIN ? saved : fallback;
 }
 
+// Below this the layout stacks into one column and there is no column to size.
+const STACKED_LAYOUT = "(max-width: 720px)";
+
+function layoutIsStacked() {
+  return window.matchMedia(STACKED_LAYOUT).matches;
+}
+
 function applySidebarWidth(aside, width) {
   const clamped = Math.min(Math.max(Math.round(width), SIDEBAR_MIN), SIDEBAR_MAX);
-  // The grid column is what actually sizes it; the aside just fills the column.
-  aside.parentElement.style.gridTemplateColumns = `${clamped}px 1fr`;
+  // The remembered width is still saved on a phone — it belongs to the
+  // desktop layout and should survive being looked at on a small screen.
   localStorage.setItem(`sidebarWidth:${aside.id}`, String(clamped));
+  // But it is not applied there. This writes an inline grid-template-columns,
+  // and an inline style beats any stylesheet rule — so a 300px sidebar
+  // remembered from a desktop session kept the Notes and Chat tabs two
+  // columns wide on a phone, pushing the whole page sideways no matter what
+  // the media query said.
+  if (layoutIsStacked()) {
+    aside.parentElement.style.removeProperty("grid-template-columns");
+    return clamped;
+  }
+  aside.parentElement.style.gridTemplateColumns = `${clamped}px 1fr`;
   return clamped;
 }
+
+// Rotating a phone, or dragging a desktop window narrow, crosses the
+// threshold without reloading — so re-decide then too.
+window.matchMedia(STACKED_LAYOUT).addEventListener("change", () => {
+  for (const id of ["sidebar", "chat-sidebar", "doc-sidebar"]) {
+    const aside = document.getElementById(id);
+    if (aside?.dataset.resizable) {
+      applySidebarWidth(aside, sidebarWidth(id, sidebarDefault(id)));
+    }
+  }
+});
 
 function makeSidebarResizable(aside) {
   if (!aside || aside.dataset.resizable) return;

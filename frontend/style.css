@@ -3853,3 +3853,67 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   font-weight: 700;
   fill: var(--ink);
 }
+
+/* ================================================================================
+   Phones (roadmap §8 — the layout had breakpoints but had never been driven at
+   phone width, and at a true 390px viewport every single tab overflowed
+   sideways. On a real phone Chrome hides that by shrinking the whole app to
+   fit, so it doesn't look broken, it just renders unusably small.)
+
+   The main offender was the top bar: six tab buttons on a row that neither
+   wrapped nor scrolled, so the header alone demanded ~640px before any
+   content. A tab strip you can swipe is the right answer — wrapping it costs
+   two rows of height on the smallest screens, where height is the scarce one.
+   ============================================================================= */
+@media (max-width: 720px) {
+  header#top-bar {
+    padding: 0.45rem 0.8rem;
+    gap: 0.6rem;
+  }
+  header#top-bar h1 { font-size: 1rem; }
+  #tab-bar {
+    order: 3;
+    width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    /* Momentum scrolling, and no scrollbar eating a row of pixels. */
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  #tab-bar::-webkit-scrollbar { display: none; }
+  #tab-bar button { flex: 0 0 auto; padding: 0.35rem 0.75rem; }
+  .header-controls { margin-left: auto; gap: 0.35rem; }
+  /* The reserved pill slot is 17.5rem — most of a phone's width. The header
+     wraps here anyway, so the reflow it was preventing can't happen. */
+  .ai-pill-slot { width: auto; max-width: 45vw; }
+
+  /* Give content the screen back: 2rem of side padding is a tenth of a phone. */
+  .layout, .doc-layout { padding-left: 0.75rem; padding-right: 0.75rem; }
+  #dash-grid { padding-left: 0.75rem; padding-right: 0.75rem; }
+  #dash-grid { grid-template-columns: minmax(0, 1fr); }
+  .dash-hero { margin-left: 0.75rem; margin-right: 0.75rem; padding: 1rem; }
+  .card { padding: 0.85rem 0.9rem; }
+
+  /* Rows of controls wrap instead of pushing the page sideways. */
+  .doc-actions, .chat-toolbar, .graph-toolbar { flex-wrap: wrap; }
+  .doc-toolbar { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
+  .doc-toolbar::-webkit-scrollbar { display: none; }
+
+  /* The chat page pins itself to the window on desktop; on a phone the
+     on-screen keyboard makes that a losing fight, so let it flow. */
+  #tab-chat:not(.hidden) > .layout { height: auto; min-height: 0; }
+  #chat-sidebar { overflow: visible; }
+  #conversation-list { max-height: 40vh; }
+
+  .start-steps { grid-template-columns: minmax(0, 1fr); }
+  .theme-grid { grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr)); }
+}
+
+/* Touch targets. A 28px button is a miss waiting to happen on a phone; the
+   usual floor is around 44px, and these are the rows people tap most. */
+@media (pointer: coarse) {
+  .doc-toolbar button,
+  .msg-action,
+  .entry-actions button { min-height: 38px; min-width: 38px; }
+  #tab-bar button { min-height: 40px; }
+}

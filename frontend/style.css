@@ -26,6 +26,9 @@
   --error: #b91c1c;
   --border: rgba(31, 36, 48, 0.10);
   --chip-bg: rgba(31, 36, 48, 0.07);
+  /* User-tunable in Settings → Appearance (set inline on <html> by JS). */
+  --radius: 14px;
+  --glass-blur: 18px;
 }
 
 /* Dark palette. CSS has no variables-for-variables, so the block
@@ -202,10 +205,10 @@ header#top-bar h1 { margin: 0; font-size: 1.1rem; letter-spacing: 0.01em; }
 /* --- the glass card -------------------------------------------------------- */
 .card {
   background: var(--card);
-  backdrop-filter: blur(18px) saturate(150%);
-  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   border: 1px solid var(--glass-border);
-  border-radius: 14px;
+  border-radius: var(--radius);
   box-shadow: var(--glass-shadow);
   padding: 1rem 1.25rem;
   margin-bottom: 1rem;
@@ -444,6 +447,11 @@ progress { accent-color: var(--accent); width: 100%; }
 /* --- settings / model manager --------------------------------------------- */
 #settings label { display: block; margin-bottom: 0.4rem; font-size: 0.92rem; }
 #settings label input[type="radio"] { width: auto; margin-right: 0.4rem; }
+/* The settings modal renders its sections under #settings-modal, not
+   #settings — without this, checkbox labels run together into a paragraph. */
+.settings-section > label { display: block; margin-bottom: 0.45rem; font-size: 0.92rem; }
+.settings-section > label input[type="radio"],
+.settings-section > label input[type="checkbox"] { width: auto; margin-right: 0.45rem; }
 #prefs-panel label input[type="checkbox"] { width: auto; margin-right: 0.4rem; }
 #suggested-list { list-style: none; margin: 0; padding: 0; }
 #suggested-list li {
@@ -631,9 +639,16 @@ li.link-source { outline: 2px solid var(--accent); }
 #dash-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-auto-rows: min-content;
+  grid-auto-flow: row dense; /* pack short widgets into the gaps */
   gap: 1rem;
   padding: 0 2rem 2rem;
   align-items: start;
+}
+/* Widgets can span two columns ("wide") — toggled in Edit layout. */
+.dash-widget.wide { grid-column: span 2; }
+@media (max-width: 720px) {
+  .dash-widget.wide { grid-column: span 1; }
 }
 .dash-widget { margin-bottom: 0; }
 .dash-widget.dash-hidden { opacity: 0.45; }
@@ -1554,6 +1569,99 @@ html { font-size: 16px; }
 .tool-row { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: 500; }
 .tool-row input { width: 1.15rem; height: 1.15rem; margin: 0; accent-color: var(--accent); }
 .tool-desc { display: block; margin: 0.2rem 0 0 1.65rem; font-size: 0.82rem; }
+
+/* --- user-tunable corner rounding ----------------------------------------------
+   Scoped to the surfaces the eye actually reads as "the shape of the UI".
+   Smaller controls use a proportional radius so nothing looks lopsided. */
+.modal-card,
+.dash-widget,
+#graph-box,
+.entry-list li { border-radius: var(--radius); }
+textarea,
+input[type="text"],
+input[type="password"],
+input[type="number"],
+input[type="datetime-local"],
+select,
+button { border-radius: calc(var(--radius) * 0.7); }
+.chip, .seg, .seg button { border-radius: calc(var(--radius) * 0.5 + 6px); }
+
+/* --- spacious density (third option alongside comfortable/compact) --------- */
+:root[data-density="spacious"] .card { padding: 1.4rem 1.7rem; margin-bottom: 1.4rem; }
+:root[data-density="spacious"] .layout { gap: 1.4rem; padding-top: 1.3rem; }
+:root[data-density="spacious"] #dash-grid { gap: 1.4rem; }
+:root[data-density="spacious"] .entry-list li { padding: 0.85rem 1rem; }
+
+/* --- appearance settings: grouped, scannable rows -------------------------- */
+.settings-group {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.9rem 1.1rem 1rem;
+  margin-bottom: 1rem;
+}
+.settings-group > h3:first-child { margin-top: 0; }
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.55rem 0;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.settings-group > .setting-row:first-of-type { border-top: none; }
+.setting-row-stack { align-items: flex-start; }
+.setting-label { display: flex; flex-direction: column; gap: 0.1rem; min-width: 9rem; }
+.setting-label > span { font-weight: 600; font-size: 0.92rem; }
+.setting-label small { font-size: 0.8rem; line-height: 1.35; }
+.setting-control { flex: 0 0 auto; margin: 0; }
+.setting-row .row { margin: 0; align-items: center; }
+.setting-row select { margin-bottom: 0; width: auto; }
+.setting-row input[type="range"] { width: 9rem; margin-bottom: 0; }
+.setting-row input[type="color"] {
+  width: 2.6rem;
+  height: 2rem;
+  padding: 2px;
+  margin-bottom: 0;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  cursor: pointer;
+}
+.slider-value {
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 2.8rem;
+}
+/* Checkbox settings: box left, label + hint stacked right. */
+.setting-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--border);
+  cursor: pointer;
+  margin: 0;
+}
+.settings-group > .setting-check:first-of-type { border-top: none; }
+.setting-check input[type="checkbox"] {
+  width: 1.1rem;
+  height: 1.1rem;
+  margin: 0.15rem 0 0;
+  flex: 0 0 auto;
+  accent-color: var(--accent);
+}
+.setting-check > span { display: flex; flex-direction: column; gap: 0.1rem; font-size: 0.92rem; font-weight: 600; }
+.setting-check small { font-weight: 400; font-size: 0.8rem; line-height: 1.35; }
+/* A row whose parent control is switched off. */
+.disabled-row { opacity: 0.45; pointer-events: none; }
+.advanced-css summary { cursor: pointer; font-weight: 600; font-size: 0.92rem; }
+.advanced-css textarea { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem; }
+
+@media (max-width: 640px) {
+  .setting-row { flex-direction: column; align-items: stretch; }
+  .setting-control, .setting-row .row { width: 100%; }
+}
 
 /* --- first-run onboarding tour ------------------------------------------------- */
 #onboarding-card { max-width: 30rem; text-align: center; }

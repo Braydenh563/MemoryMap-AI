@@ -2613,7 +2613,11 @@ function dashLayout() {
   for (const name of Object.keys(DASH_WIDGETS)) {
     if (!order.includes(name)) order.push(name); // new widgets append
   }
-  return { order: order.filter((n) => DASH_WIDGETS[n]), hidden: saved.hidden || [] };
+  return {
+    order: order.filter((n) => DASH_WIDGETS[n]),
+    hidden: saved.hidden || [],
+    wide: saved.wide || [],
+  };
 }
 
 async function saveDashLayout(layout) {
@@ -2651,8 +2655,10 @@ async function renderDashboard() {
     if (hidden && !dashEditMode) continue;
 
     const widget = DASH_WIDGETS[name];
+    const isWide = layout.wide.includes(name);
     const card = document.createElement("section");
-    card.className = "card dash-widget" + (hidden ? " dash-hidden" : "");
+    card.className =
+      "card dash-widget" + (hidden ? " dash-hidden" : "") + (isWide ? " wide" : "");
     card.dataset.widget = name;
 
     const header = document.createElement("div");
@@ -2672,6 +2678,20 @@ async function renderDashboard() {
           await saveDashLayout(next);
           renderDashboard();
         })
+      );
+      controls.appendChild(
+        smallButton(
+          isWide ? "Narrow" : "Wide",
+          isWide ? "Show in one column" : "Span two columns",
+          async () => {
+            const next = dashLayout();
+            next.wide = isWide
+              ? next.wide.filter((n) => n !== name)
+              : [...next.wide, name];
+            await saveDashLayout(next);
+            renderDashboard();
+          }
+        )
       );
       const handle = document.createElement("span");
       handle.className = "drag-handle";
@@ -5424,14 +5444,59 @@ function applyContrast(on) {
 const APPEARANCE_DEFAULTS = {
   fontsize: "normal",
   font: "system", // system | serif | mono
-  density: "comfortable",
+  density: "comfortable", // comfortable | compact | spacious
   glass: "on",
   motion: "auto", // "auto" = follow the OS; "reduced" = force-still
   "bg-intensity": "90",
+  radius: "14", // global corner rounding, px
+  "glass-blur": "18", // frosted-glass blur strength, px
+  "bg-style": "aurora", // aurora | constellations | blobs | particles
 };
 
 function appearancePref(key) {
   return localStorage.getItem(key) || APPEARANCE_DEFAULTS[key];
+}
+
+// "#rrggbb" -> "r, g, b" so a custom colour can drive rgba() softs.
+function hexToRgbParts(hex) {
+  const clean = String(hex || "").replace("#", "");
+  if (clean.length !== 6) return null;
+  const n = Number.parseInt(clean, 16);
+  if (Number.isNaN(n)) return null;
+  return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`;
+}
+
+// A user-chosen accent overrides the preset palette via inline custom
+// properties; clearing it falls back to the data-accent presets.
+function applyCustomAccent(hex) {
+  const root = document.documentElement;
+  const parts = hex ? hexToRgbParts(hex) : null;
+  if (!parts) {
+    root.style.removeProperty("--accent");
+    root.style.removeProperty("--accent-soft");
+    root.style.removeProperty("--blob-a");
+    return;
+  }
+  root.style.setProperty("--accent", hex);
+  root.style.setProperty("--accent-soft", `rgba(${parts}, 0.14)`);
+  root.style.setProperty("--blob-a", `rgba(${parts}, 0.30)`);
+}
+
+function applyPageBackground(hex) {
+  const root = document.documentElement;
+  if (hex) root.style.setProperty("--page", hex);
+  else root.style.removeProperty("--page");
+}
+
+// User CSS lives in one <style> we own, so applying and clearing is clean.
+function applyCustomCss(css) {
+  let tag = document.getElementById("user-css");
+  if (!tag) {
+    tag = document.createElement("style");
+    tag.id = "user-css";
+    document.head.appendChild(tag);
+  }
+  tag.textContent = css || "";
 }
 
 // Applied once at startup (called from the pre-paint path) and on change.
@@ -5443,6 +5508,11 @@ function applyAppearance() {
   root.dataset.glass = appearancePref("glass");
   root.dataset.motion = appearancePref("motion");
   root.style.setProperty("--bg-art-opacity", Number(appearancePref("bg-intensity")) / 100);
+  root.style.setProperty("--radius", `${appearancePref("radius")}px`);
+  root.style.setProperty("--glass-blur", `${appearancePref("glass-blur")}px`);
+  applyCustomAccent(localStorage.getItem("accent-custom"));
+  applyPageBackground(localStorage.getItem("page-bg"));
+  applyCustomCss(localStorage.getItem("custom-css"));
 }
 
 function effectiveTheme() {
@@ -5476,8 +5546,12 @@ function renderAppearance() {
     button.style.background = accent.swatch;
     button.title = accent.label;
     button.setAttribute("aria-label", `${accent.label} accent`);
-    button.classList.toggle("active", accent.name === activeAccent());
+    // A custom colour wins, so no preset shows as active while it's set.
+    const customSet = Boolean(localStorage.getItem("accent-custom"));
+    button.classList.toggle("active", !customSet && accent.name === activeAccent());
     button.addEventListener("click", () => {
+      localStorage.removeItem("accent-custom"); // presets clear a custom colour
+      applyCustomAccent(null);
       applyAccent(accent.name);
       renderAppearance();
     });
@@ -5488,6 +5562,21 @@ function renderAppearance() {
   $("bg-art-toggle").checked = bgArtOn();
   $("glass-toggle").checked = appearancePref("glass") === "on";
   $("bg-intensity").value = appearancePref("bg-intensity");
+  $("bg-intensity-value").textContent = `${appearancePref("bg-intensity")}%`;
+  $("bg-art-style").value = appearancePref("bg-style");
+  $("radius-slider").value = appearancePref("radius");
+  $("radius-value").textContent = `${appearancePref("radius")}px`;
+  $("glass-blur").value = appearancePref("glass-blur");
+  $("glass-blur-value").textContent = `${appearancePref("glass-blur")}px`;
+  $("accent-custom").value = localStorage.getItem("accent-custom") || "#4f6df5";
+  $("page-bg-custom").value = localStorage.getItem("page-bg") || "#f5f7fb";
+  $("custom-css").value = localStorage.getItem("custom-css") || "";
+  // Blur strength only matters while glass is on.
+  $("glass-blur-row").classList.toggle("disabled-row", appearancePref("glass") !== "on");
+  // Style/intensity only matter while the background art is on.
+  const artOff = !bgArtOn();
+  $("bg-style-row").classList.toggle("disabled-row", artOff);
+  $("bg-intensity-row").classList.toggle("disabled-row", artOff);
   _segActive("theme-seg", "themeChoice", effectiveTheme());
   _segActive("fontsize-seg", "fontsize", appearancePref("fontsize"));
   _segActive("font-seg", "font", appearancePref("font"));
@@ -5495,12 +5584,19 @@ function renderAppearance() {
 }
 
 function resetAppearance() {
-  for (const key of ["fontsize", "font", "density", "glass", "motion", "bg-intensity", "accent", "contrast", "bgArt", "theme"]) {
+  for (const key of [
+    "fontsize", "font", "density", "glass", "motion", "bg-intensity", "accent",
+    "contrast", "bgArt", "theme", "radius", "glass-blur", "bg-style",
+    "accent-custom", "page-bg", "custom-css",
+  ]) {
     localStorage.removeItem(key);
   }
   delete document.documentElement.dataset.accent;
   delete document.documentElement.dataset.contrast;
   delete document.documentElement.dataset.theme;
+  applyCustomAccent(null);
+  applyPageBackground(null);
+  applyCustomCss("");
   stopBgArt();
   applyAppearance();
   renderBrandLogo();
@@ -5529,8 +5625,14 @@ function startBgArt() {
   stopBgArt();
   if (typeof p5 === "undefined") return;
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // A custom accent colour, if set, drives the art too.
   const accentHex =
+    localStorage.getItem("accent-custom") ||
     (ACCENTS.find((a) => a.name === activeAccent()) || ACCENTS[0]).swatch;
+  const bgStyle = appearancePref("bg-style");
+  // Intensity drives how much is on screen, not just the CSS opacity.
+  const intensity = Number(appearancePref("bg-intensity")) || 90;
+  const densityScale = Math.max(0.25, intensity / 90);
   const dark =
     document.documentElement.dataset.theme === "dark" ||
     (!document.documentElement.dataset.theme &&
@@ -5574,9 +5676,8 @@ function startBgArt() {
       p.pop();
     };
 
-    const draw = () => {
-      const t = p.frameCount * 0.01;
-      // Translucent wash instead of clear → the particles leave trails.
+    // The original flow-field aurora (unchanged).
+    const drawAurora = (t) => {
       p.noStroke();
       p.fill(dark ? 12 : 250, dark ? 0.14 : 0.16);
       p.rect(0, 0, p.width, p.height);
@@ -5595,6 +5696,73 @@ function startBgArt() {
       }
     };
 
+    // Drifting stars joined by faint lines when they come close.
+    const drawConstellations = (t) => {
+      p.background(dark ? 12 : 250);
+      for (const dot of particles) {
+        dot.x += Math.cos(dot.phase + t * 0.25) * dot.speed * 0.6;
+        dot.y += Math.sin(dot.phase + t * 0.2) * dot.speed * 0.6;
+        if (dot.x < 0) dot.x = p.width;
+        if (dot.x > p.width) dot.x = 0;
+        if (dot.y < 0) dot.y = p.height;
+        if (dot.y > p.height) dot.y = 0;
+      }
+      p.stroke(baseHue, 55, dark ? 70 : 45, 0.16);
+      p.strokeWeight(1);
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const a = particles[i];
+          const b = particles[j];
+          const d = Math.hypot(a.x - b.x, a.y - b.y);
+          if (d < 110) p.line(a.x, a.y, b.x, b.y);
+        }
+      }
+      p.noStroke();
+      for (const dot of particles) {
+        p.fill(dot.hue, 65, dark ? 75 : 50, 0.65);
+        p.circle(dot.x, dot.y, dot.size + 1);
+      }
+    };
+
+    // Big soft organic shapes drifting slowly behind everything.
+    const drawBlobs = (t) => {
+      p.background(dark ? 12 : 250);
+      p.noStroke();
+      for (const blob of particles) {
+        const x = blob.baseX + Math.cos(t * 0.3 + blob.phase) * blob.amp;
+        const y = blob.baseY + Math.sin(t * 0.24 + blob.phase) * blob.amp;
+        // A few stacked translucent circles fake a soft gradient edge.
+        for (let ring = 3; ring >= 1; ring--) {
+          p.fill(blob.hue, 62, dark ? 55 : 62, 0.05);
+          p.circle(x, y, blob.size * ring * 0.8);
+        }
+      }
+    };
+
+    // A calm field of floating dust motes.
+    const drawParticles = (t) => {
+      p.background(dark ? 12 : 250);
+      p.noStroke();
+      for (const dot of particles) {
+        dot.y -= dot.speed * 0.4;
+        dot.x += Math.cos(t + dot.phase) * 0.3;
+        if (dot.y < -5) {
+          dot.y = p.height + 5;
+          dot.x = p.random(p.width);
+        }
+        p.fill(dot.hue, 60, dark ? 72 : 52, 0.45);
+        p.circle(dot.x, dot.y, dot.size);
+      }
+    };
+
+    const draw = () => {
+      const t = p.frameCount * 0.01;
+      if (bgStyle === "constellations") drawConstellations(t);
+      else if (bgStyle === "blobs") drawBlobs(t);
+      else if (bgStyle === "particles") drawParticles(t);
+      else drawAurora(t);
+    };
+
     p.setup = () => {
       const c = p.createCanvas(window.innerWidth, window.innerHeight);
       c.id("bg-art-canvas");
@@ -5603,12 +5771,21 @@ function startBgArt() {
       p.colorMode(p.HSL, 360, 100, 100, 1);
       p.noStroke();
       baseHue = p.hue(p.color(accentHex));
-      for (let i = 0; i < 70; i++) {
+      // Each style wants a different population; intensity scales it.
+      const counts = { aurora: 70, constellations: 34, blobs: 7, particles: 90 };
+      const count = Math.max(3, Math.round((counts[bgStyle] ?? 70) * densityScale));
+      for (let i = 0; i < count; i++) {
+        const x = p.random(p.width);
+        const y = p.random(p.height);
         particles.push({
-          x: p.random(p.width),
-          y: p.random(p.height),
+          x,
+          y,
+          baseX: x,
+          baseY: y,
+          phase: p.random(Math.PI * 2),
+          amp: p.random(40, 140),
           speed: p.random(0.3, 1.1),
-          size: p.random(1.5, 3.5),
+          size: bgStyle === "blobs" ? p.random(160, 340) : p.random(1.5, 3.5),
           hue: (baseHue + p.random(-24, 24) + 360) % 360,
         });
       }
@@ -5617,7 +5794,8 @@ function startBgArt() {
       if (reduceMotion) {
         // One calm static frame — no motion for reduced-motion users.
         p.background(dark ? 12 : 250);
-        drawEmblem(0);
+        if (bgStyle === "aurora") drawEmblem(0);
+        else draw();
         p.noLoop();
       }
     };
@@ -5702,7 +5880,10 @@ function toggleBgArt(on) {
 // --- wiring --------------------------------------------------------------------
 
 $("theme-btn").addEventListener("click", toggleTheme);
-$("bg-art-toggle").addEventListener("change", (e) => toggleBgArt(e.target.checked));
+$("bg-art-toggle").addEventListener("change", (e) => {
+  toggleBgArt(e.target.checked);
+  renderAppearance(); // enable/disable the style + intensity rows
+});
 $("contrast-toggle").addEventListener("change", (e) => applyContrast(e.target.checked));
 
 // Wave O: expanded appearance controls.
@@ -5736,6 +5917,7 @@ for (const b of document.querySelectorAll("#density-seg button")) {
 $("glass-toggle").addEventListener("change", (e) => {
   localStorage.setItem("glass", e.target.checked ? "on" : "off");
   applyAppearance();
+  renderAppearance();
 });
 $("reduce-motion-toggle").addEventListener("change", (e) => {
   localStorage.setItem("motion", e.target.checked ? "reduced" : "auto");
@@ -5745,7 +5927,62 @@ $("reduce-motion-toggle").addEventListener("change", (e) => {
 });
 $("bg-intensity").addEventListener("input", (e) => {
   localStorage.setItem("bg-intensity", e.target.value);
+  $("bg-intensity-value").textContent = `${e.target.value}%`;
   applyAppearance();
+  if (bgArtOn()) startBgArt(); // intensity also drives particle density
+});
+// Corner rounding + glass blur: live sliders over CSS custom properties.
+$("radius-slider").addEventListener("input", (e) => {
+  localStorage.setItem("radius", e.target.value);
+  $("radius-value").textContent = `${e.target.value}px`;
+  applyAppearance();
+});
+$("glass-blur").addEventListener("input", (e) => {
+  localStorage.setItem("glass-blur", e.target.value);
+  $("glass-blur-value").textContent = `${e.target.value}px`;
+  applyAppearance();
+});
+// Custom accent + page background.
+$("accent-custom").addEventListener("input", (e) => {
+  localStorage.setItem("accent-custom", e.target.value);
+  applyCustomAccent(e.target.value);
+  renderAppearance();
+  if (bgArtOn()) startBgArt();
+  renderBrandLogo();
+});
+$("accent-custom-clear").addEventListener("click", () => {
+  localStorage.removeItem("accent-custom");
+  applyCustomAccent(null);
+  renderAppearance();
+  if (bgArtOn()) startBgArt();
+  renderBrandLogo();
+});
+$("page-bg-custom").addEventListener("input", (e) => {
+  localStorage.setItem("page-bg", e.target.value);
+  applyPageBackground(e.target.value);
+});
+$("page-bg-clear").addEventListener("click", () => {
+  localStorage.removeItem("page-bg");
+  applyPageBackground(null);
+  renderAppearance();
+});
+// Background art style.
+$("bg-art-style").addEventListener("change", (e) => {
+  localStorage.setItem("bg-style", e.target.value);
+  if (bgArtOn()) startBgArt();
+});
+// Custom CSS (advanced).
+$("custom-css-apply").addEventListener("click", () => {
+  const css = $("custom-css").value;
+  localStorage.setItem("custom-css", css);
+  applyCustomCss(css);
+  $("custom-css-status").textContent = "Applied.";
+});
+$("custom-css-clear").addEventListener("click", () => {
+  localStorage.removeItem("custom-css");
+  $("custom-css").value = "";
+  applyCustomCss("");
+  $("custom-css-status").textContent = "Cleared.";
 });
 $("appearance-reset").addEventListener("click", resetAppearance);
 

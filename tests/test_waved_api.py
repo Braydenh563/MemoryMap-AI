@@ -164,4 +164,13 @@ def test_digest_offline_is_not_cacheable(client):
 def test_dashboard_layout_roundtrip(client):
     layout = {"order": ["stats", "pinned"], "hidden": ["digest"]}
     updated = client.put("/preferences", json={"dashboard_layout": layout}).json()
-    assert updated["dashboard_layout"] == layout
+    saved = updated["dashboard_layout"]
+    assert saved["order"] == layout["order"]
+    assert saved["hidden"] == layout["hidden"]
+    assert saved["wide"] == []  # new field defaults to empty
+
+
+def test_dashboard_layout_wide_widgets_persist(client):
+    layout = {"order": ["stats"], "hidden": [], "wide": ["digest", "art"]}
+    updated = client.put("/preferences", json={"dashboard_layout": layout}).json()
+    assert updated["dashboard_layout"]["wide"] == ["digest", "art"]

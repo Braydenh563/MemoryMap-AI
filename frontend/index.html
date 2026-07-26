@@ -528,66 +528,198 @@
             <ul id="tool-list" class="entry-list"></ul>
           </section>
 
-          <!-- Appearance (Wave J): accent themes + background art -->
+          <!-- Appearance (Wave J): grouped into scannable setting rows -->
           <section class="settings-section hidden" id="settings-appearance">
-            <h3>Theme</h3>
-            <div class="seg" id="theme-seg" role="group" aria-label="Theme">
-              <button data-theme-choice="light">☀️ Light</button>
-              <button data-theme-choice="dark">🌙 Dark</button>
-              <button data-theme-choice="system">🖥 System</button>
+
+            <!-- ---------- Theme & colour ---------- -->
+            <div class="settings-group">
+              <h3>Theme &amp; colour</h3>
+
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Mode</span>
+                  <small class="muted">System follows your device's light/dark setting.</small>
+                </div>
+                <div class="seg" id="theme-seg" role="group" aria-label="Theme">
+                  <button data-theme-choice="light">☀️ Light</button>
+                  <button data-theme-choice="dark">🌙 Dark</button>
+                  <button data-theme-choice="system">🖥 System</button>
+                </div>
+              </div>
+
+              <div class="setting-row setting-row-stack">
+                <div class="setting-label">
+                  <span>Accent colour</span>
+                  <small class="muted">Recolours buttons, highlights, and the glow behind the page.</small>
+                </div>
+                <div id="accent-swatches" class="accent-swatches"></div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Custom accent</span>
+                  <small class="muted">Pick any colour you like.</small>
+                </div>
+                <div class="row setting-control">
+                  <input id="accent-custom" type="color" aria-label="Custom accent colour">
+                  <button id="accent-custom-clear" class="ghost small">Clear</button>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Page background</span>
+                  <small class="muted">Override the default gradient with a flat colour.</small>
+                </div>
+                <div class="row setting-control">
+                  <input id="page-bg-custom" type="color" aria-label="Page background colour">
+                  <button id="page-bg-clear" class="ghost small">Clear</button>
+                </div>
+              </div>
             </div>
 
-            <h3>Accent colour</h3>
-            <p class="muted">Recolours buttons, highlights, and the glow behind the page.</p>
-            <div id="accent-swatches" class="accent-swatches"></div>
+            <!-- ---------- Typography & layout ---------- -->
+            <div class="settings-group">
+              <h3>Typography &amp; layout</h3>
 
-            <h3>Text size</h3>
-            <div class="seg" id="fontsize-seg" role="group" aria-label="Text size">
-              <button data-fontsize="small">Small</button>
-              <button data-fontsize="normal">Normal</button>
-              <button data-fontsize="large">Large</button>
+              <div class="setting-row">
+                <div class="setting-label"><span>Text size</span></div>
+                <div class="seg" id="fontsize-seg" role="group" aria-label="Text size">
+                  <button data-fontsize="small">Small</button>
+                  <button data-fontsize="normal">Normal</button>
+                  <button data-fontsize="large">Large</button>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label"><span>Font</span></div>
+                <div class="seg" id="font-seg" role="group" aria-label="Font">
+                  <button data-font="system">System</button>
+                  <button data-font="serif">Serif</button>
+                  <button data-font="mono">Mono</button>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Density</span>
+                  <small class="muted">How much breathing room between elements.</small>
+                </div>
+                <div class="seg" id="density-seg" role="group" aria-label="Density">
+                  <button data-density="comfortable">Comfortable</button>
+                  <button data-density="compact">Compact</button>
+                  <button data-density="spacious">Spacious</button>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Corner rounding</span>
+                  <small class="muted">From sharp edges to fully rounded.</small>
+                </div>
+                <div class="row setting-control">
+                  <input id="radius-slider" type="range" min="0" max="22" value="14"
+                    aria-label="Corner rounding">
+                  <span class="slider-value" id="radius-value">14px</span>
+                </div>
+              </div>
             </div>
 
-            <h3>Font</h3>
-            <div class="seg" id="font-seg" role="group" aria-label="Font">
-              <button data-font="system">System</button>
-              <button data-font="serif">Serif</button>
-              <button data-font="mono">Mono</button>
+            <!-- ---------- Effects & accessibility ---------- -->
+            <div class="settings-group">
+              <h3>Effects &amp; accessibility</h3>
+
+              <label class="setting-check">
+                <input type="checkbox" id="glass-toggle" checked>
+                <span>
+                  Frosted-glass blur on cards
+                  <small class="muted">Off = flat panels, faster on older machines.</small>
+                </span>
+              </label>
+
+              <div class="setting-row" id="glass-blur-row">
+                <div class="setting-label">
+                  <span>Blur strength</span>
+                </div>
+                <div class="row setting-control">
+                  <input id="glass-blur" type="range" min="2" max="30" value="18"
+                    aria-label="Glass blur strength">
+                  <span class="slider-value" id="glass-blur-value">18px</span>
+                </div>
+              </div>
+
+              <label class="setting-check">
+                <input type="checkbox" id="contrast-toggle">
+                <span>
+                  High-contrast mode
+                  <small class="muted">Stronger text and solid panels, no blur.</small>
+                </span>
+              </label>
+
+              <label class="setting-check">
+                <input type="checkbox" id="reduce-motion-toggle">
+                <span>
+                  Reduce motion
+                  <small class="muted">Turns off animations and transitions.</small>
+                </span>
+              </label>
             </div>
 
-            <h3>Density</h3>
-            <div class="seg" id="density-seg" role="group" aria-label="Density">
-              <button data-density="comfortable">Comfortable</button>
-              <button data-density="compact">Compact</button>
+            <!-- ---------- Animated background ---------- -->
+            <div class="settings-group">
+              <h3>Animated background</h3>
+
+              <label class="setting-check">
+                <input type="checkbox" id="bg-art-toggle">
+                <span>
+                  Show a generative-art background
+                  <small class="muted">Appears behind every tab. Purely decorative and 100% offline.</small>
+                </span>
+              </label>
+
+              <div class="setting-row" id="bg-style-row">
+                <div class="setting-label"><span>Style</span></div>
+                <select id="bg-art-style" class="small-select setting-control">
+                  <option value="aurora">Aurora — flowing ribbons</option>
+                  <option value="constellations">Constellations — linked stars</option>
+                  <option value="blobs">Blobs — drifting shapes</option>
+                  <option value="particles">Particles — floating dust</option>
+                </select>
+              </div>
+
+              <div class="setting-row" id="bg-intensity-row">
+                <div class="setting-label">
+                  <span>Intensity</span>
+                  <small class="muted">Density and visibility of the effect.</small>
+                </div>
+                <div class="row setting-control">
+                  <input id="bg-intensity" type="range" min="20" max="100" value="90"
+                    aria-label="Background intensity">
+                  <span class="slider-value" id="bg-intensity-value">90%</span>
+                </div>
+              </div>
+              <p class="muted">It automatically stays still if your system prefers reduced motion.</p>
             </div>
 
-            <h3>Glass &amp; effects</h3>
-            <label>
-              <input type="checkbox" id="glass-toggle" checked>
-              Frosted-glass blur on cards (off = flat, faster on old machines)
-            </label>
-            <label>
-              <input type="checkbox" id="contrast-toggle">
-              High-contrast mode (stronger text, solid panels, no blur)
-            </label>
-            <label>
-              <input type="checkbox" id="reduce-motion-toggle">
-              Reduce motion (turn off animations and transitions)
-            </label>
-
-            <h3>Animated background</h3>
-            <label>
-              <input type="checkbox" id="bg-art-toggle">
-              Show a gentle generative-art background (on every tab)
-            </label>
-            <div class="row" id="bg-intensity-row">
-              <label for="bg-intensity" class="muted">Intensity</label>
-              <input id="bg-intensity" type="range" min="20" max="100" value="90" style="max-width:12rem">
+            <!-- ---------- Advanced ---------- -->
+            <div class="settings-group">
+              <h3>Advanced</h3>
+              <details class="advanced-css">
+                <summary>Custom CSS</summary>
+                <p class="muted">
+                  For tinkerers: these rules are applied on top of the app's own
+                  styles. Bad CSS only affects how things look — clear the box to
+                  undo.
+                </p>
+                <textarea id="custom-css" rows="5" spellcheck="false"
+                  placeholder=".card { border-width: 2px; }"></textarea>
+                <div class="row">
+                  <button id="custom-css-apply" class="small">Apply CSS</button>
+                  <button id="custom-css-clear" class="ghost small">Clear</button>
+                  <span id="custom-css-status" class="status" role="status"></span>
+                </div>
+              </details>
             </div>
-            <p class="muted">
-              Purely decorative and 100% offline. It automatically stays still
-              if your system prefers reduced motion.
-            </p>
 
             <div class="row">
               <button id="appearance-reset" class="ghost small">Reset appearance to defaults</button>

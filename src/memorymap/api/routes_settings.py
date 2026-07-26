@@ -73,6 +73,8 @@ class PreferencesBody(BaseModel):
 class DashboardLayout(BaseModel):
     order: list[str] = Field(default_factory=list, max_length=20)
     hidden: list[str] = Field(default_factory=list, max_length=20)
+    # Widgets the user has set to span two grid columns.
+    wide: list[str] = Field(default_factory=list, max_length=20)
 
 
 @router.get("/preferences")

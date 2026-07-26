@@ -9,6 +9,40 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- **Learnability**: a first-run welcome tour (5 slides, re-runnable) and a new
+  Settings → Help section explaining every part of the app.
+- **Accessibility**: interactive chips are now real buttons (focusable,
+  Enter/Space), and the note-card ⋯ menu supports ↑/↓/Home/End/Esc.
+- **Reminders**: priority (low/normal/high) and recurring
+  (daily/weekly/monthly) fields, priority colour-coding, automatic rescheduling
+  when a recurring reminder is completed, and a "Magic Add ✨" box that turns
+  natural language into a reminder via `POST /reminders/parse`.
+- **Dashboard**: focus-timer widget (presets + custom minutes), activity
+  heatmap (`GET /insights/heatmap`), weighted tag cloud
+  (`GET /insights/tag-cloud`), a personalised greeting with a `display_name`
+  preference, dense grid packing, and a per-widget Wide/Narrow toggle.
+- **Appearance**: regrouped into scannable sections, plus a custom accent
+  colour, custom page background, corner-rounding slider (`--radius`), glass
+  blur-strength slider (`--glass-blur`), a Spacious density, four background-art
+  styles, and an advanced custom-CSS box.
+- **Chat/AI**: an in-chat web-search toggle, per-exchange delete
+  (`DELETE /conversations/{id}/turns/{index}`), four more built-in skills, and
+  the `get_current_time` + `summarize_notes` tools.
+- **Graph**: Gravity/Spread physics sliders and a click-to-edit node popup.
+- **Notes**: sticky category sidebar, collapsible section cards, and markdown
+  tables plus `####`–`######` headings.
+
+### Fixed
+
+- The dashboard no longer breaks when a widget renderer is synchronous — one
+  failing widget can only spoil its own card.
+- Settings checkboxes stacked correctly instead of running together (the
+  `display: block` rule targeted the wrong container).
+- A failed startup call no longer stops the rest of the app from loading, and
+  an unreachable server fails fast with a clear message instead of hanging.
+
+### Added
+
 - Repository documentation & tooling pass: `docs/ARCHITECTURE.md` (a full
   project overview), `CONTRIBUTING.md`, `SECURITY.md`, this changelog, GitHub
   issue/PR templates, and a rewritten README.

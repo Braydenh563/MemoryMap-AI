@@ -3008,6 +3008,9 @@ function undoDraft() {
   const previous = draftUndoStack.pop();
   if (!previous) return;
   $("draft-thoughts").value = previous.thoughts;
+  // Stepping back past a pass means those thoughts were not folded in after
+  // all — otherwise the next Draft would skip them and silently drop an idea.
+  foldedThoughts = "";
   $("draft-text").value = previous.draft;
   updateDraftCount();
   updateDraftUndoButton();
@@ -3033,8 +3036,19 @@ function cancelDraft() {
   draftController?.abort();
 }
 
+// What was last folded into the draft. Kept so a second pass doesn't resend
+// thoughts the model has already used — which is the problem clearing the box
+// was solving, at the cost of destroying the user's own writing.
+let foldedThoughts = "";
+
 async function composeDraft() {
-  const thoughts = $("draft-thoughts").value.trim();
+  const written = $("draft-thoughts").value;
+  // Only the part they've added since the last pass. If they edited earlier
+  // text, the prefix no longer matches and everything is sent again — the
+  // safe direction: the model repeats itself rather than losing a thought.
+  const thoughts = written.startsWith(foldedThoughts)
+    ? written.slice(foldedThoughts.length).trim()
+    : written.trim();
   const draft = $("draft-text").value;
   const status = $("draft-status");
   if (!thoughts && !draft.trim()) {
@@ -3061,9 +3075,11 @@ async function composeDraft() {
     if (body.draft !== draft) pushDraftUndo();
     $("draft-text").value = body.draft;
     updateDraftCount();
-    // The thoughts have been folded in, so clear the box for the next round
-    // rather than resending them and having the model repeat itself.
-    if (body.ollama_running && thoughts) $("draft-thoughts").value = "";
+    // The thoughts have been folded in — remember that, but never delete what
+    // they wrote. Clearing the box was reported twice as the app eating the
+    // user's text, and it is: the raw thoughts are often the only copy of an
+    // idea, and the draft is a rewrite of them, not a replacement.
+    if (body.ollama_running && thoughts) foldedThoughts = written;
     $("draft-instruction").value = "";
     const thinking = $("draft-thinking");
     thinking.classList.toggle("hidden", !body.thinking);
@@ -3072,7 +3088,9 @@ async function composeDraft() {
       status.classList.add("error");
       status.textContent = body.message;
     } else {
-      status.textContent = "Draft updated — edit it, or add more thoughts.";
+      status.textContent = thoughts
+        ? "Folded your thoughts into the draft — your notes above are untouched."
+        : "Draft updated — edit it, or add more thoughts.";
       announce("The draft has been updated.");
     }
     saveDraftLocally();
@@ -3110,6 +3128,7 @@ async function saveDraftAsNote() {
       method: "POST",
       body: JSON.stringify({ content, tags }),
     });
+    foldedThoughts = "";
     $("draft-thoughts").value = "";
     $("draft-text").value = "";
     $("draft-tags").value = "";
@@ -7298,7 +7317,7 @@ function initScrollTopButton() {
 
 // --- settings modal (Wave A) ------------------------------------------------------
 
-const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "appearance", "preferences", "tasks", "data", "logs", "help", "about"];
+const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "appearance", "shortcuts", "preferences", "tasks", "data", "logs", "help", "about"];
 
 // Where to send focus back when a dialog closes (Wave L).
 let overlayReturnFocus = null;
@@ -7320,6 +7339,7 @@ function showSettingsSection(name) {
   if (name === "skills") renderSkillSettings();
   if (name === "tools") renderToolSettings();
   if (name === "appearance") renderAppearance();
+  if (name === "shortcuts") renderShortcutList();
   if (name === "data") renderBackups();
   if (name === "tasks") refreshModelStatus(); // populate the tasks list now
 }
@@ -8713,6 +8733,13 @@ const APPEARANCE_DEFAULTS = {
   density: "comfortable", // comfortable | compact | spacious
   glass: "on",
   motion: "auto", // "auto" = follow the OS; "reduced" = force-still
+  // Background movement, separate from the interface-wide motion setting.
+  // "auto" follows reduced-motion; "moving" is an explicit request that
+  // overrides it; "still" never moves. This key was missing entirely, which
+  // left the picker rendering blank (selectedIndex -1) — so choosing "Moving"
+  // looked like it did nothing, and there was no way at all to get the art
+  // moving on a machine with reduced motion turned on.
+  "bg-motion": "auto",
   "bg-intensity": "90",
   radius: "14", // global corner rounding, px
   "glass-blur": "18", // frosted-glass blur strength, px
@@ -8833,6 +8860,7 @@ function renderAppearance() {
   $("bg-intensity-row").classList.toggle("hidden", !bgArtOn());
   $("bg-motion").value = appearancePref("bg-motion");
   $("bg-motion-row").classList.toggle("hidden", !bgArtOn());
+  renderBgMotionHint();
   $("glass-toggle").checked = appearancePref("glass") === "on";
   $("bg-intensity").value = appearancePref("bg-intensity");
   $("bg-intensity-value").textContent = `${appearancePref("bg-intensity")}%`;
@@ -8856,10 +8884,30 @@ function renderAppearance() {
   _segActive("density-seg", "density", appearancePref("density"));
 }
 
+// A frozen background with no explanation reads as a broken app — which is
+// how it was reported. Say which setting is holding it still, and that
+// "Moving" will override it.
+function renderBgMotionHint() {
+  const hint = $("bg-motion-hint");
+  if (!hint) return;
+  const choice = appearancePref("bg-motion");
+  const osReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const appReduced = appearancePref("motion") === "reduced";
+  let text = "";
+  if (choice === "auto" && (osReduced || appReduced)) {
+    text = osReduced
+      ? "Held still because your system asks for reduced motion. Choose Moving to override it here."
+      : "Held still because Reduce motion is on above. Choose Moving to override it just for the background.";
+  }
+  hint.textContent = text;
+  hint.classList.toggle("hidden", !text);
+}
+
 function resetAppearance() {
   for (const key of [
     "fontsize", "font", "density", "glass", "motion", "bg-intensity", "accent",
     "contrast", "bgArt", "theme", "radius", "glass-blur", "bg-style",
+    "bg-motion",
     "accent-custom", "page-bg", "custom-css",
   ]) {
     localStorage.removeItem(key);
@@ -9099,12 +9147,16 @@ const BG_ART_BUILDERS = {
 function startBgArt() {
   stopBgArt();
   if (typeof p5 === "undefined") return;
-  // Still if the OS asks, if the interface-wide reduce-motion is on, or if the
-  // background is simply set to Still — three different reasons, one outcome.
-  // Wanting a calm background isn't the same as wanting a calm interface, and
-  // previously the only way to still the art was to still everything.
+  // Wanting a calm background isn't the same as wanting a calm interface, so
+  // the art has its own setting. "Moving" is an explicit request and wins over
+  // the reduced-motion hint: the hint exists to protect people from motion
+  // they didn't ask for, and this is someone asking for it, in a control that
+  // does nothing else. Without that override there was no way to get the art
+  // moving at all on a machine with reduced motion on — which is exactly what
+  // was reported.
+  const bgMotion = appearancePref("bg-motion");
   const reduceMotion =
-    reducedMotionWanted() || appearancePref("bg-motion") === "still";
+    bgMotion === "still" || (bgMotion !== "moving" && reducedMotionWanted());
   // A custom accent colour, if set, drives the art too.
   const accentHex =
     localStorage.getItem("accent-custom") ||
@@ -9518,6 +9570,7 @@ $("draft-thoughts").addEventListener("keydown", (event) => {
 $("draft-discard").addEventListener("click", () => {
   if (!$("draft-text").value.trim() && !$("draft-thoughts").value.trim()) return;
   if (!confirm("Discard this draft? It hasn't been saved as a note.")) return;
+  foldedThoughts = "";
   $("draft-thoughts").value = "";
   $("draft-text").value = "";
   $("draft-tags").value = "";
@@ -9526,8 +9579,24 @@ $("draft-discard").addEventListener("click", () => {
   updateDraftCount();
   saveDraftLocally();
 });
-$("draft-help").addEventListener("click", () => {
-  $("draft-intro").classList.toggle("hidden");
+// "What is this?" — it toggled `hidden` on the intro paragraph, which is a
+// child of a card that starts *collapsed*. So the paragraph was already not
+// displayed, the click changed nothing anyone could see, and the button read
+// as dead. It now opens the section and explains what the writing room is,
+// including what happens when there's no AI running — which is when someone
+// is most likely to press it.
+$("draft-help").addEventListener("click", (event) => {
+  event.stopPropagation(); // the heading beside it toggles the card
+  const card = $("writing-room");
+  const intro = $("draft-intro");
+  if (card.classList.contains("collapsed")) {
+    // Expand through the heading so the chevron, aria-expanded and the
+    // remembered state all stay in step with the card.
+    card.querySelector("h2.collapsible-title")?.click();
+    intro.classList.remove("hidden");
+    return;
+  }
+  intro.classList.toggle("hidden");
 });
 restoreDraftLocally();
 
@@ -10066,11 +10135,12 @@ $("duplicate-threshold").addEventListener("input", (e) => {
   $("duplicate-threshold-value").textContent = `${e.target.value}%`;
 });
 
-$("about-shortcuts").addEventListener("click", () => {
-  closeSettingsModal();
-  openShortcuts();
-});
+// From Help, go to the Settings section rather than swapping one dialog for
+// another — "how do I change a shortcut?" should end somewhere you can find
+// again, not in an overlay with no address.
+$("about-shortcuts").addEventListener("click", () => showSettingsSection("shortcuts"));
 $("shortcuts-reset").addEventListener("click", resetShortcuts);
+$("shortcuts-reset-settings").addEventListener("click", resetShortcuts);
 
 $("search-help").addEventListener("click", () => {
   const panel = $("search-help-hint");
@@ -10572,8 +10642,33 @@ function resetShortcuts() {
 
 let capturingShortcut = null; // the id being rebound, or null
 
+// The same list is mounted twice — in the ? overlay and in Settings →
+// Keyboard shortcuts. Rendering both from one function is what keeps them
+// from drifting apart; two copies of this logic is how one of them goes stale.
+const SHORTCUT_LIST_IDS = ["shortcut-list", "shortcut-list-settings"];
+const SHORTCUT_STATUS_IDS = ["shortcut-status", "shortcut-status-settings"];
+
+function setShortcutStatus(text) {
+  for (const id of SHORTCUT_STATUS_IDS) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  }
+}
+
+function setShortcutStatusError(isError) {
+  for (const id of SHORTCUT_STATUS_IDS) {
+    document.getElementById(id)?.classList.toggle("error", isError);
+  }
+}
+
 function renderShortcutList() {
-  const list = $("shortcut-list");
+  for (const listId of SHORTCUT_LIST_IDS) {
+    const list = document.getElementById(listId);
+    if (list) buildShortcutList(list);
+  }
+}
+
+function buildShortcutList(list) {
   list.replaceChildren();
   for (const [id, def] of Object.entries(shortcuts)) {
     const li = document.createElement("li");
@@ -10591,9 +10686,9 @@ function renderShortcutList() {
     change.setAttribute("aria-label", `Change the shortcut for: ${def.label}`);
     change.addEventListener("click", () => {
       capturingShortcut = capturingShortcut === id ? null : id;
-      $("shortcut-status").textContent = capturingShortcut
-        ? "Press the keys you want, or Escape to cancel."
-        : "";
+      setShortcutStatus(
+        capturingShortcut ? "Press the keys you want, or Escape to cancel." : ""
+      );
       renderShortcutList();
     });
 
@@ -10625,7 +10720,7 @@ function captureShortcutKey(event) {
   if (!capturingShortcut) return false;
   if (event.key === "Escape") {
     capturingShortcut = null;
-    $("shortcut-status").textContent = "";
+    setShortcutStatus("");
     renderShortcutList();
     return true;
   }
@@ -10638,22 +10733,22 @@ function captureShortcutKey(event) {
   if (clash) {
     // Refuse rather than silently stealing it — two actions on one key means
     // one of them quietly stops working.
-    $("shortcut-status").classList.add("error");
-    $("shortcut-status").textContent = `${combo} is already used for "${clash[1].label}".`;
+    setShortcutStatusError(true);
+    setShortcutStatus(`${combo} is already used for "${clash[1].label}".`);
     return true;
   }
   shortcuts[capturingShortcut].keys = combo;
   saveShortcutOverrides();
   capturingShortcut = null;
-  $("shortcut-status").classList.remove("error");
-  $("shortcut-status").textContent = `Set to ${combo}.`;
+  setShortcutStatusError(false);
+  setShortcutStatus(`Set to ${combo}.`);
   renderShortcutList();
   return true;
 }
 
 function openShortcuts() {
   capturingShortcut = null;
-  $("shortcut-status").textContent = "";
+  setShortcutStatus("");
   renderShortcutList();
   $("shortcuts-overlay").classList.remove("hidden");
   $("shortcuts-close").focus();

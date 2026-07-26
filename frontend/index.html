@@ -50,7 +50,9 @@
         aria-selected="false" aria-controls="tab-reminders" tabindex="-1">Reminders</button>
     </nav>
     <div class="header-controls">
-      <span id="ai-pill" title="What the AI is doing right now">checking…</span>
+      <!-- Fixed-width slot: the pill's text changes as status polls land, and
+           without a reserved box every change nudged the buttons beside it. -->
+      <span class="ai-pill-slot"><span id="ai-pill" title="What the AI is doing right now">checking…</span></span>
       <button id="settings-btn" class="ghost small" title="Settings">⚙ Settings</button>
       <button id="lock-btn" class="ghost small hidden" title="Lock the app" aria-label="Lock the app">🔒</button>
       <button id="theme-btn" class="ghost small" title="Toggle light/dark" aria-label="Toggle light or dark theme">🌓</button>
@@ -189,7 +191,11 @@ Link to another note with [[its first few words]]."></textarea>
           <p class="muted" id="draft-intro">
             Type whatever's in your head — half sentences are fine. The AI turns
             it into a note. Edit the draft, add more thoughts, and it folds them
-            in without undoing your changes.
+            in without undoing your changes. Your own words stay in the box:
+            nothing here overwrites what you typed, and ↩ Undo steps back
+            through every AI pass. This is the one part of the app that needs
+            the local AI running — with it off, the Draft button is disabled
+            and everything else on this tab still works.
           </p>
           <div class="draft-columns">
             <div class="draft-column">
@@ -717,6 +723,7 @@ Link to another note with [[its first few words]]."></textarea>
           <p class="nav-group-label" id="nav-group-you">Your notebook</p>
           <div role="group" aria-labelledby="nav-group-you">
             <button data-section="appearance">Appearance</button>
+            <button data-section="shortcuts">Keyboard shortcuts</button>
             <button data-section="preferences">Preferences</button>
             <button data-section="data">Import &amp; export</button>
           </div>
@@ -1035,9 +1042,11 @@ Link to another note with [[its first few words]]."></textarea>
                     Still draws one frame and stops — the same look without the
                     motion, and no CPU spent on it.
                   </small>
+                  <small class="muted hint-inline hidden" id="bg-motion-hint"></small>
                 </div>
                 <select id="bg-motion" class="small-select setting-control"
                   aria-label="Background movement">
+                  <option value="auto">Auto — follow reduced motion</option>
                   <option value="moving">Moving</option>
                   <option value="still">Still</option>
                 </select>
@@ -1080,6 +1089,37 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="row">
               <button id="appearance-reset" class="ghost small">Reset appearance to defaults</button>
             </div>
+          </section>
+
+          <!-- Keyboard shortcuts. The rebinding UI existed only behind the ?
+               overlay, so anyone looking for it in Settings — where every
+               other preference lives — found nothing and reported it missing.
+               Same list, same code, a second place to reach it. -->
+          <section class="settings-section hidden" id="settings-shortcuts">
+            <p class="muted">
+              Click <strong>Change</strong> and press the keys you want. Press
+              <kbd>?</kbd> anywhere in the app for the same list as an overlay.
+            </p>
+            <ul class="shortcut-list" id="shortcut-list-settings"></ul>
+            <p id="shortcut-status-settings" class="status" role="status"></p>
+            <div class="row">
+              <button id="shortcuts-reset-settings" class="ghost small" type="button">
+                ↺ Reset to defaults
+              </button>
+            </div>
+
+            <h3>Always available</h3>
+            <p class="muted">
+              These follow the conventions every app shares, so they aren't
+              rebindable — being unable to press Escape in the dialog you
+              rebound it in is not a state worth allowing.
+            </p>
+            <ul class="shortcut-list">
+              <li><kbd>Esc</kbd><span>Close any dialog, menu, or overlay</span></li>
+              <li><kbd>←</kbd> <kbd>→</kbd><span>Move between tabs (when a tab is focused)</span></li>
+              <li><kbd>Enter</kbd><span>Send a chat message, or run the selected command</span></li>
+              <li><kbd>Tab</kbd><span>Move focus; cycles inside an open dialog</span></li>
+            </ul>
           </section>
 
           <!-- Preferences (Phase 4/5, moved here in Wave A) -->

@@ -559,6 +559,68 @@ function closeActionMenus() {
 }
 
 // The ⋯ overflow menu on each note card (Wave L rework).
+// Earlier versions of one note, with a way back to any of them.
+async function openEntryHistory(entry) {
+  const overlay = $("history-overlay");
+  const list = $("history-list");
+  $("history-status").textContent = "";
+  list.replaceChildren();
+  overlay.classList.remove("hidden");
+  $("history-close").focus();
+
+  let history;
+  try {
+    history = await apiJson(`/entries/${entry.id}/history`);
+  } catch (error) {
+    $("history-status").classList.add("error");
+    $("history-status").textContent = error.message;
+    return;
+  }
+  if (!history.length) {
+    const p = document.createElement("p");
+    p.className = "muted";
+    p.textContent = "This note hasn't been edited yet, so there's nothing to go back to.";
+    list.appendChild(p);
+    return;
+  }
+
+  // The current text first, so you can see what you'd be replacing.
+  const current = document.createElement("div");
+  current.className = "history-entry history-current";
+  const currentHead = document.createElement("p");
+  currentHead.className = "muted";
+  currentHead.textContent = "Now";
+  const currentBody = document.createElement("p");
+  currentBody.textContent = notePreviewText(entry.content);
+  current.append(currentHead, currentBody);
+  list.appendChild(current);
+
+  for (const revision of history) {
+    const item = document.createElement("div");
+    item.className = "history-entry";
+    const head = document.createElement("p");
+    head.className = "muted";
+    head.textContent = `Before ${new Date(revision.created_at).toLocaleString()}`;
+    const body = document.createElement("p");
+    body.textContent = notePreviewText(revision.content);
+    const restore = smallButton("↩ Put this back", "Restore this version", async () => {
+      if (!confirm("Replace the note with this version?\n\nThe current text is kept in the history, so this is undoable.")) return;
+      try {
+        await apiJson(`/entries/${entry.id}/history/${revision.id}/restore`, { method: "POST" });
+        overlay.classList.add("hidden");
+        toast("Earlier version restored.");
+        await loadEntries();
+        flashEntry(entry.id);
+      } catch (error) {
+        $("history-status").classList.add("error");
+        $("history-status").textContent = error.message;
+      }
+    });
+    item.append(head, body, restore);
+    list.appendChild(item);
+  }
+}
+
 async function toggleEntryPrivacy(entry) {
   const makingPrivate = !entry.is_private;
   if (makingPrivate) {
@@ -611,6 +673,11 @@ function entryOverflowMenu(entry) {
         ? "Decrypt this note so search and the AI can use it again"
         : "Encrypt this note at rest, and keep it out of search and the AI",
       run: () => toggleEntryPrivacy(entry),
+    },
+    {
+      label: "🕘 History",
+      title: "See earlier versions of this note, and put one back",
+      run: () => openEntryHistory(entry),
     },
     {
       label: "🔄 Re-evaluate",
@@ -9603,6 +9670,10 @@ async function saveCurrentSearch() {
 
 $("save-search").addEventListener("click", saveCurrentSearch);
 
+$("history-close").addEventListener("click", () =>
+  $("history-overlay").classList.add("hidden")
+);
+
 $("find-duplicates").addEventListener("click", findDuplicates);
 $("duplicate-threshold").addEventListener("input", (e) => {
   $("duplicate-threshold-value").textContent = `${e.target.value}%`;
@@ -9834,6 +9905,10 @@ document.addEventListener("keydown", (e) => {
   }
   if (e.key === "Escape" && !$("improve-overlay").classList.contains("hidden")) {
     closeImprove();
+    return;
+  }
+  if (e.key === "Escape" && !$("history-overlay").classList.contains("hidden")) {
+    $("history-overlay").classList.add("hidden");
     return;
   }
   if (e.key === "Escape" && !$("shortcuts-overlay").classList.contains("hidden")) {

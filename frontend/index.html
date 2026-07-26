@@ -1294,6 +1294,20 @@ Link to another note with [[its first few words]]."></textarea>
   </div>
 
   <!-- Keyboard shortcuts cheat-sheet (press ? anywhere) -->
+  <!-- A note's earlier versions. The recycle bin covers deletion; this
+       covers editing. -->
+  <div id="history-overlay" class="modal-overlay hidden" role="dialog"
+    aria-modal="true" aria-label="Note history">
+    <div class="card modal-card" id="history-card">
+      <div class="row space-between">
+        <h2>🕘 Earlier versions</h2>
+        <button id="history-close" class="ghost small">Close</button>
+      </div>
+      <p id="history-status" class="status" role="status"></p>
+      <div id="history-list"></div>
+    </div>
+  </div>
+
   <div id="shortcuts-overlay" class="modal-overlay hidden" role="dialog"
     aria-modal="true" aria-label="Keyboard shortcuts">
     <div class="card modal-card" id="shortcuts-card">

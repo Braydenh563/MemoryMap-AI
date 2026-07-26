@@ -10,6 +10,7 @@ import json
 import re
 import zipfile
 from typing import Literal
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile
 from pydantic import BaseModel, Field
@@ -47,6 +48,8 @@ class SkillItem(BaseModel):
 class PreferencesBody(BaseModel):
     recycle_bin_days: int | None = Field(default=None, ge=1, le=365)
     communication_style: Literal["friendly", "concise", "detailed"] | None = None
+    # Display name for the dashboard greeting (empty string clears it).
+    display_name: str | None = Field(default=None, max_length=60)
     # Optional context about the user for the librarian (Phase 5).
     # profile_enabled is the opt-out switch; the delete button in the UI
     # simply saves an empty string.
@@ -64,6 +67,8 @@ class PreferencesBody(BaseModel):
     tools_enabled: bool | None = None
     # Wave F: the ONE feature that goes online — off unless the user opts in.
     web_search_enabled: bool | None = None
+    # Optional self-hosted SearXNG instance; empty string = use DuckDuckGo.
+    searxng_url: str | None = Field(default=None, max_length=200)
     # Wave O: agent tools the user has switched off (by tool name).
     disabled_tools: list[str] | None = Field(default=None, max_length=50)
 
@@ -71,8 +76,11 @@ class PreferencesBody(BaseModel):
 class DashboardLayout(BaseModel):
     order: list[str] = Field(default_factory=list, max_length=20)
     hidden: list[str] = Field(default_factory=list, max_length=20)
-    # Per-widget width, e.g. {"stats": "wide"} spans two columns (Wave — UI
-    # request). Only the widgets that differ from the default are stored.
+    # Widgets the user has set to span two grid columns.
+    wide: list[str] = Field(default_factory=list, max_length=20)
+    # Older layouts stored the same thing as {"stats": "wide"}. Kept so a
+    # layout saved before the switch still loads; the frontend folds it into
+    # `wide` and writes the list form back on the next save.
     sizes: dict[str, str] = Field(default_factory=dict)
 
 
@@ -82,6 +90,7 @@ def get_preferences() -> dict:
     return {
         "recycle_bin_days": config.get_preference("recycle_bin_days", 30),
         "communication_style": config.get_preference("communication_style", "friendly"),
+        "display_name": config.get_preference("display_name", ""),
         "user_profile": config.get_preference("user_profile", ""),
         "profile_enabled": config.get_preference("profile_enabled", False),
         "custom_templates": config.get_preference("custom_templates", []),
@@ -93,6 +102,7 @@ def get_preferences() -> dict:
         "skills": config.get_preference("skills", []),
         "tools_enabled": config.get_preference("tools_enabled", True),
         "web_search_enabled": config.get_preference("web_search_enabled", False),
+        "searxng_url": config.get_preference("searxng_url", ""),
         "disabled_tools": config.get_preference("disabled_tools", []),
     }
 
@@ -312,25 +322,144 @@ def import_markdown(
 # --- web search (Wave F) -----------------------------------------------------------
 
 
-@router.get("/websearch")
-def web_search(q: str, session: Session = Depends(get_session)) -> dict:
-    """Opt-in DuckDuckGo lookup. 403 while the preference is off so
-    nothing can quietly go online."""
-    from memorymap.search import websearch
-
-    if not deps.get_config().get_preference("web_search_enabled", False):
+def _require_web_search() -> str:
+    """403 while the preference is off so nothing can quietly go online.
+    Returns the configured SearXNG URL ('' = use DuckDuckGo)."""
+    config = deps.get_config()
+    if not config.get_preference("web_search_enabled", False):
         raise HTTPException(
             status_code=403,
             detail="Web search is turned off. Enable it in Settings → Preferences "
             "(this is the one feature that goes online).",
         )
+    return str(config.get_preference("searxng_url", "") or "")
+
+
+@router.get("/websearch")
+def web_search(q: str, limit: int = 5, session: Session = Depends(get_session)) -> dict:
+    """Opt-in web lookup via SearXNG (if configured) or DuckDuckGo."""
+    from memorymap.search import websearch
+
+    searxng = _require_web_search()
     try:
-        results = websearch.search_web(q, limit=5)
+        results = websearch.search_web(q, limit=max(1, min(limit, 10)), searxng_url=searxng or None)
     except websearch.WebSearchError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     manager.log_action(session, "web_searched", "chat", detail=q[:120])
     session.commit()
-    return {"query": q, "results": results}
+    return {
+        "query": q,
+        "results": results,
+        "provider": results[0]["engine"] if results else ("searxng" if searxng else "duckduckgo"),
+    }
+
+
+@router.post("/websearch/detect-searxng")
+def detect_searxng(url: str = "", session: Session = Depends(get_session)) -> dict:
+    """Test a SearXNG URL, or scan the usual local ports for one.
+
+    Saves the working URL to preferences so the user never has to know how the
+    connection is wired up — if they have an instance running, this finds it.
+    """
+    from memorymap.search import websearch
+
+    config = deps.get_config()
+    if url:
+        found = url.rstrip("/") if websearch.probe_searxng(url) else None
+    else:
+        found = websearch.discover_searxng()
+
+    if not found:
+        return {
+            "found": False,
+            "detail": "No SearXNG found. Start one (see the setup note) and try again.",
+        }
+    config.set_preference("searxng_url", found)
+    websearch.clear_cache()  # results from the old provider are stale now
+    manager.log_action(session, "edited", "preferences", detail=f"searxng_url={found}")
+    session.commit()
+    return {"found": True, "url": found}
+
+
+@router.get("/websearch/searxng/status")
+def searxng_status() -> dict:
+    """Is a MemoryMap-managed SearXNG installed, running, and answering?"""
+    from memorymap.search import searxng_manager
+
+    return searxng_manager.status(deps.get_config().data_dir)
+
+
+@router.post("/websearch/searxng/start")
+def searxng_start(session: Session = Depends(get_session)) -> dict:
+    """Run SearXNG for the user and switch web search over to it."""
+    from memorymap.search import searxng_manager, websearch
+
+    config = deps.get_config()
+    try:
+        result = searxng_manager.start(config.data_dir)
+    except searxng_manager.SearxngError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    config.set_preference("searxng_url", result["url"])
+    websearch.clear_cache()
+    manager.log_action(session, "edited", "preferences", detail="searxng started")
+    session.commit()
+    return {"running": True, **result}
+
+
+@router.post("/websearch/searxng/stop")
+def searxng_stop(session: Session = Depends(get_session)) -> dict:
+    """Stop the managed instance and fall back to DuckDuckGo."""
+    from memorymap.search import searxng_manager, websearch
+
+    config = deps.get_config()
+    try:
+        result = searxng_manager.stop(config.data_dir)
+    except searxng_manager.SearxngError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    # Point search back at DuckDuckGo so nothing tries the dead instance.
+    config.set_preference("searxng_url", "")
+    websearch.clear_cache()
+    manager.log_action(session, "edited", "preferences", detail="searxng stopped")
+    session.commit()
+    return {"running": False, **result}
+
+
+@router.get("/websearch/read")
+def web_read(url: str, session: Session = Depends(get_session)) -> dict:
+    """Fetch a page as plain readable text.
+
+    Deliberately not an embedded browser: the page is stripped to text on the
+    server, so no third-party script, tracker, or iframe ever runs in the app.
+    """
+    from memorymap.search import websearch
+
+    _require_web_search()
+
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        raise HTTPException(status_code=400, detail="Only http(s) URLs are allowed")
+
+    config = deps.get_config()
+    allowed_hosts: set[str] = {urlparse(websearch.DDG_URL).hostname or ""}
+    searxng_url = (config.get_preference("searxng_url") or "").strip()
+    if searxng_url:
+        searx_host = urlparse(searxng_url).hostname or ""
+        if searx_host:
+            allowed_hosts.add(searx_host)
+
+    host = parsed.hostname.lower()
+    if not any(host == allowed or host.endswith(f".{allowed}") for allowed in allowed_hosts if allowed):
+        raise HTTPException(status_code=400, detail="URL host is not allowed")
+
+    try:
+        page = websearch.fetch_readable(url)
+    except websearch.WebSearchError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    manager.log_action(session, "web_read", "chat", detail=url[:120])
+    session.commit()
+    return page
 
 
 # --- backups (Wave F) --------------------------------------------------------------

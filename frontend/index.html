@@ -58,6 +58,7 @@
   <!-- Unlock / first-run setup gate (Phase 4) -->
   <div id="lock-overlay" class="lock-overlay hidden">
     <div class="card lock-card">
+      <div id="lock-emblem" class="emblem emblem-lock" aria-hidden="true"></div>
       <h2 id="lock-title">Unlock MemoryMap</h2>
       <p id="lock-message" class="muted"></p>
       <input id="lock-password" type="password" placeholder="Password or PIN">
@@ -68,17 +69,23 @@
 
   <!-- ======================= DASHBOARD TAB (Wave D) ======================= -->
   <div class="tab-page hidden" id="tab-dashboard" role="tabpanel" aria-labelledby="tab-btn-dashboard" tabindex="-1">
-    <div id="dash-welcome" class="dash-welcome">
-      <div class="dash-welcome-text">
-        <h2 id="dash-greeting">Welcome back</h2>
-        <p class="muted" id="dash-subtitle"></p>
+    <!-- Full-width welcome banner: greeting + a line about your notebook,
+         with a live clock on the right. -->
+    <section class="dash-hero" id="dash-hero">
+      <div class="dash-hero-text">
+        <h2 id="dash-greeting" class="dash-greeting"></h2>
+        <p id="dash-submessage" class="dash-submessage"></p>
       </div>
-      <div class="dash-welcome-clock live-clock" title="Your computer's current date and time">
-        <span class="clock-time" id="dash-clock-time"></span>
-        <span class="clock-date muted" id="dash-clock-date"></span>
+      <div class="dash-clock" aria-hidden="true">
+        <span id="dash-clock-time" class="dash-clock-time"></span>
+        <span id="dash-clock-date" class="dash-clock-date"></span>
       </div>
-    </div>
-    <div id="dash-actions" class="dash-actions"></div>
+    </section>
+    <!-- One-tap shortcuts to the things people do most -->
+    <div class="dash-quicklinks" id="dash-quicklinks" role="group"
+      aria-label="Quick actions"></div>
+    <!-- At-a-glance numbers: part of the page, not a widget you can hide -->
+    <div class="dash-stats" id="dash-stats" role="group" aria-label="At a glance"></div>
     <div class="dash-toolbar">
       <span class="muted hidden" id="dash-hint">Drag to rearrange · ＋Add / ✕Remove widgets · ▭Wide makes a full-width section — your layout is remembered.</span>
       <span id="dash-hint-spacer"></span>
@@ -262,21 +269,46 @@
       </aside>
       <main>
         <section class="card" id="chat-main">
-          <div class="row space-between">
+          <div class="chat-toolbar">
             <h2 id="chat-title">New chat</h2>
+            <label class="muted tools-toggle" title="When on, the AI can create, tag, pin, link, and (with your confirmation) delete notes for you">
+              <input type="checkbox" id="tools-toggle"> AI can make changes
+            </label>
+            <button id="web-search-toggle" class="ghost small" aria-pressed="false"
+              title="Search the web here, and let the AI search when you ask it to">🌐 Web</button>
+            <select id="persona-select" class="small-select" aria-label="Persona"></select>
+            <button id="chat-export" class="ghost small" title="Download this chat as a Markdown file">⭳ Export</button>
+          </div>
+          <!-- Web panel: search the web and read a page as clean text,
+               without embedding a browser. -->
+          <div id="web-panel" class="web-panel hidden">
+            <div class="row space-between">
+              <strong id="web-panel-title">🌐 Web</strong>
+              <button id="web-panel-close" class="ghost small" aria-label="Close web panel">✕</button>
+            </div>
             <div class="row">
-              <label class="muted tools-toggle" title="When on, the AI can create, tag, pin, link, and (with your confirmation) delete notes for you">
-                <input type="checkbox" id="tools-toggle"> AI can make changes
-              </label>
-              <label for="persona-select" class="muted">Persona</label>
-              <select id="persona-select" class="small-select"></select>
-              <button id="chat-export" class="ghost small" title="Download this chat as a Markdown file">⭳ Export</button>
+              <input id="web-query" type="text" placeholder="Search the web…"
+                aria-label="Search the web">
+              <button id="web-go" class="small">Search</button>
+            </div>
+            <p id="web-status" class="status" role="status"></p>
+            <div id="web-results" class="web-results"></div>
+            <div id="web-reader" class="web-reader hidden">
+              <div class="row space-between">
+                <strong id="web-reader-title"></strong>
+                <span class="row">
+                  <button id="web-reader-save" class="ghost small">＋ Save as note</button>
+                  <button id="web-reader-back" class="ghost small">← Results</button>
+                </span>
+              </div>
+              <p class="muted" id="web-reader-source"></p>
+              <div id="web-reader-text" class="web-reader-text"></div>
             </div>
           </div>
           <div id="chat-messages"></div>
           <div id="chat-suggest" class="recent hidden"></div>
           <div id="chat-skills" class="recent hidden"></div>
-          <div class="row">
+          <div class="row chat-composer">
             <input id="chat-input" type="text" placeholder="Ask your notebook anything…">
             <button id="mic-chat" class="ghost" title="Dictate your question (local Whisper)" aria-label="Dictate your question">🎙</button>
             <button id="chat-send">Send</button>
@@ -291,46 +323,96 @@
   <!-- ======================= GRAPH TAB (Wave E fills this) ================ -->
   <div class="tab-page hidden" id="tab-graph" role="tabpanel" aria-labelledby="tab-btn-graph" tabindex="-1">
     <section class="card" id="graph-card">
-      <div class="row space-between">
+      <!-- One toolbar instead of three stacked rows -->
+      <div class="graph-toolbar">
         <h2>Graph</h2>
-        <div class="row">
-          <input id="graph-search" type="search" placeholder="🔎 Highlight notes…"
-            aria-label="Highlight matching notes in the graph">
-          <label class="muted tools-toggle" title="Draw dotted lines between notes that mean similar things (needs semantic search)">
-            <input type="checkbox" id="graph-similarity"> Similarity lines
-          </label>
-          <label class="muted tools-toggle" title="Hide notes that aren't linked to anything, to declutter the map">
-            <input type="checkbox" id="graph-hide-orphans"> Hide unlinked
-          </label>
-          <label class="muted tools-toggle" title="Show a short label under every note (off = labels only when you hover)">
-            <input type="checkbox" id="graph-labels" checked> Labels
-          </label>
-          <button id="graph-refresh" class="ghost small">Refresh</button>
-        </div>
-      </div>
-      <p id="graph-stats" class="muted graph-stats" role="status"></p>
-      <p class="muted">
-        Your notes as a map: solid lines are links you made, dashed lines are
-        trains of thought, dotted lines are notes that mean similar things.
-        Hover a note to spotlight its connections, drag to arrange, scroll or
-        use the buttons to zoom, click a note to open it, double-click to pin
-        it in place, and click a legend colour to hide that category.
-      </p>
-      <div class="row">
+        <input id="graph-search" type="search" placeholder="🔎 Highlight notes…"
+          aria-label="Highlight matching notes in the graph">
+        <button id="graph-add-node" class="small"
+          title="Add a new note straight onto the map">＋ New note</button>
+        <span class="graph-physics">
+          <label for="graph-gravity" class="muted">Gravity</label>
+          <input id="graph-gravity" type="range" min="0" max="100" value="50"
+            title="How strongly notes pull together">
+          <label for="graph-spread" class="muted">Spread</label>
+          <input id="graph-spread" type="range" min="0" max="100" value="50"
+            title="How far apart linked notes sit">
+        </span>
+        <label class="muted tools-toggle" title="Draw dotted lines between notes that mean similar things (needs semantic search)">
+          <input type="checkbox" id="graph-similarity"> Similarity
+        </label>
+        <label class="muted tools-toggle" title="Hide notes that aren't linked to anything, to declutter the map">
+          <input type="checkbox" id="graph-hide-orphans"> Hide unlinked
+        </label>
+        <label class="muted tools-toggle" title="Show a short label under every note (off = labels only when you hover)">
+          <input type="checkbox" id="graph-labels" checked> Labels
+        </label>
         <button id="link-suggest-btn" class="ghost small"
           title="Let the AI suggest links between notes that mean similar things">🔗 Suggest links</button>
+        <button id="graph-refresh" class="ghost small">↻ Refresh</button>
       </div>
+      <p id="graph-stats" class="muted graph-stats" role="status"></p>
+      <!-- Tucked away so it doesn't eat the map on every visit -->
+      <details class="graph-help">
+        <summary class="muted">How to use this map</summary>
+        <p class="muted">
+          Solid lines are links you made, dashed lines are trains of thought,
+          dotted lines are notes that mean similar things. Hover a note to
+          spotlight its connections, drag to arrange, scroll or use the buttons
+          to zoom, click a note to edit it right here, double-click to pin it in
+          place, and click a legend colour to hide that category. Double-click
+          empty space to add a note there. Gravity and Spread reshape the layout.
+        </p>
+      </details>
       <div id="link-suggestions" class="hidden"></div>
       <div id="graph-legend" class="recent"></div>
       <div id="graph-box">
         <svg id="graph-svg"></svg>
+        <!-- Click a node: edit it in place without leaving the map -->
+        <div id="graph-popup" class="graph-popup hidden" role="dialog"
+          aria-label="Edit note">
+          <div class="row space-between">
+            <strong id="graph-popup-title">Note</strong>
+            <button id="graph-popup-close" class="ghost small" aria-label="Close">✕</button>
+          </div>
+          <!-- At-a-glance facts about this note -->
+          <div id="graph-popup-info" class="graph-popup-info"></div>
+          <textarea id="graph-popup-content" rows="4" aria-label="Note content"></textarea>
+          <input id="graph-popup-tags" type="text" placeholder="Tags, comma separated"
+            aria-label="Tags">
+          <div class="row">
+            <button id="graph-popup-save" class="small">Save</button>
+            <span id="graph-popup-status" class="status" role="status"></span>
+          </div>
+          <!-- Everything you can do with this note, without leaving the map -->
+          <div class="graph-popup-actions" id="graph-popup-actions"></div>
+        </div>
+
+        <!-- Grow the map: type a note and it appears as a new node, optionally
+             linked to the note you grew it from. -->
+        <div id="graph-new" class="graph-popup hidden" role="dialog"
+          aria-label="Add a note to the map">
+          <div class="row space-between">
+            <strong id="graph-new-title">＋ New note</strong>
+            <button id="graph-new-close" class="ghost small" aria-label="Close">✕</button>
+          </div>
+          <p class="muted" id="graph-new-hint"></p>
+          <textarea id="graph-new-content" rows="3"
+            placeholder="Type the thought — the AI will file it…" aria-label="Note content"></textarea>
+          <input id="graph-new-tags" type="text" placeholder="Tags, comma separated"
+            aria-label="Tags">
+          <div class="row">
+            <button id="graph-new-save" class="small">Add to map</button>
+            <span id="graph-new-status" class="status" role="status"></span>
+          </div>
+        </div>
         <div id="graph-zoom" class="graph-zoom" role="group" aria-label="Zoom the map">
           <button id="graph-zoom-in" class="graph-zoom-btn" title="Zoom in" aria-label="Zoom in">＋</button>
           <button id="graph-zoom-out" class="graph-zoom-btn" title="Zoom out" aria-label="Zoom out">－</button>
           <button id="graph-zoom-fit" class="graph-zoom-btn" title="Fit the whole map to view" aria-label="Fit map to view">⤢</button>
         </div>
         <div id="graph-empty" class="empty-state hidden">
-          <span class="empty-icon" aria-hidden="true">🕸️</span>
+          <div id="graph-empty-emblem" class="emblem emblem-centred" aria-hidden="true"></div>
           <p class="empty-title">Nothing to map yet</p>
           <p class="muted">
             Save a few notes and link some together (🔗 on any entry) —
@@ -343,18 +425,37 @@
 
   <!-- ======================= REMINDERS TAB (Wave D) ======================= -->
   <div class="tab-page hidden" id="tab-reminders" role="tabpanel" aria-labelledby="tab-btn-reminders" tabindex="-1">
-    <section class="card reminders-card">
+    <!-- Compose: the two ways to add a reminder, kept apart from the list -->
+    <section class="card reminders-card" id="reminder-compose">
       <div class="row space-between reminders-head">
-        <h2>Reminders</h2>
+        <h2>Add a reminder</h2>
         <div id="reminder-clock" class="live-clock" title="Your computer's current date and time">
           <span class="clock-time"></span>
           <span class="clock-date muted"></span>
         </div>
       </div>
-      <div class="row">
+      <!-- Magic Add: type natural language, the AI turns it into a reminder -->
+      <div class="row" id="reminder-magic-row">
+        <input id="reminder-magic" type="text" maxlength="300"
+          placeholder="✨ Magic add — e.g. “Call mum tomorrow evening, high priority”">
+        <button id="reminder-magic-add" class="ghost">✨ Add</button>
+      </div>
+      <p id="reminder-magic-status" class="status" role="status"></p>
+      <div class="reminder-form">
         <input id="reminder-text" type="text" maxlength="500"
-          placeholder="Remind me to…">
-        <input id="reminder-due" type="datetime-local" style="max-width: 14rem">
+          placeholder="Remind me to…" aria-label="Reminder text">
+        <input id="reminder-due" type="datetime-local" aria-label="Due date and time">
+        <select id="reminder-priority" class="small-select" title="Priority" aria-label="Priority">
+          <option value="normal">Normal</option>
+          <option value="low">Low priority</option>
+          <option value="high">High priority</option>
+        </select>
+        <select id="reminder-recurring" class="small-select" title="Repeat" aria-label="Repeat">
+          <option value="none">Once</option>
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly</option>
+        </select>
         <button id="reminder-add">Add</button>
       </div>
       <div class="row" id="reminder-presets">
@@ -362,11 +463,22 @@
         <button class="ghost small" data-preset="3h">In 3 hours</button>
         <button class="ghost small" data-preset="tomorrow">Tomorrow 9am</button>
         <button class="ghost small" data-preset="nextweek">Next week</button>
+        <span class="muted reminder-hint">Notifications fire while the app is open — or hit ⏰ on any note.</span>
       </div>
-      <p class="muted">
-        Notifications fire while the app is open. Attach a reminder to a note
-        with the ⏰ button on any entry.
-      </p>
+    </section>
+
+    <!-- The list, with its own toolbar -->
+    <section class="card reminders-card" id="reminder-list-card">
+      <div class="reminder-listbar">
+        <h2>Your reminders</h2>
+        <div class="seg" id="reminder-filter" role="group" aria-label="Filter reminders">
+          <button data-filter="open" class="active">Open</button>
+          <button data-filter="all">All</button>
+          <button data-filter="done">Done</button>
+        </div>
+        <button id="reminder-clear-done" class="ghost small"
+          title="Delete every completed reminder">🧹 Clear done</button>
+      </div>
       <div id="reminder-groups"></div>
       <div id="reminders-empty" class="empty-state hidden">
         <span class="empty-icon" aria-hidden="true">⏰</span>
@@ -395,6 +507,7 @@
           <button data-section="tasks">Tasks</button>
           <button data-section="data">Data</button>
           <button data-section="logs">Logs</button>
+          <button data-section="help">Help</button>
           <button data-section="about">About</button>
         </nav>
         <div class="modal-content">
@@ -527,76 +640,198 @@
             <ul id="tool-list" class="entry-list"></ul>
           </section>
 
-          <!-- Appearance (Wave J): accent themes + background art -->
+          <!-- Appearance (Wave J): grouped into scannable setting rows -->
           <section class="settings-section hidden" id="settings-appearance">
-            <h3>Theme</h3>
-            <div class="seg" id="theme-seg" role="group" aria-label="Theme">
-              <button data-theme-choice="light">☀️ Light</button>
-              <button data-theme-choice="dark">🌙 Dark</button>
-              <button data-theme-choice="system">🖥 System</button>
+
+            <!-- ---------- Theme & colour ---------- -->
+            <div class="settings-group">
+              <h3>Theme &amp; colour</h3>
+
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Mode</span>
+                  <small class="muted">System follows your device's light/dark setting.</small>
+                </div>
+                <div class="seg" id="theme-seg" role="group" aria-label="Theme">
+                  <button data-theme-choice="light">☀️ Light</button>
+                  <button data-theme-choice="dark">🌙 Dark</button>
+                  <button data-theme-choice="system">🖥 System</button>
+                </div>
+              </div>
+
+              <div class="setting-row setting-row-stack">
+                <div class="setting-label">
+                  <span>Accent colour</span>
+                  <small class="muted">Recolours buttons, highlights, and the glow behind the page.</small>
+                </div>
+                <div id="accent-swatches" class="accent-swatches"></div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Custom accent</span>
+                  <small class="muted">Pick any colour you like.</small>
+                </div>
+                <div class="row setting-control">
+                  <input id="accent-custom" type="color" aria-label="Custom accent colour">
+                  <button id="accent-custom-clear" class="ghost small">Clear</button>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Page background</span>
+                  <small class="muted">Override the default gradient with a flat colour.</small>
+                </div>
+                <div class="row setting-control">
+                  <input id="page-bg-custom" type="color" aria-label="Page background colour">
+                  <button id="page-bg-clear" class="ghost small">Clear</button>
+                </div>
+              </div>
             </div>
 
-            <h3>Accent colour</h3>
-            <p class="muted">Recolours buttons, highlights, and the glow behind the page.</p>
-            <div id="accent-swatches" class="accent-swatches"></div>
+            <!-- ---------- Typography & layout ---------- -->
+            <div class="settings-group">
+              <h3>Typography &amp; layout</h3>
 
-            <h3>Text size</h3>
-            <div class="seg" id="fontsize-seg" role="group" aria-label="Text size">
-              <button data-fontsize="small">Small</button>
-              <button data-fontsize="normal">Normal</button>
-              <button data-fontsize="large">Large</button>
+              <div class="setting-row">
+                <div class="setting-label"><span>Text size</span></div>
+                <div class="seg" id="fontsize-seg" role="group" aria-label="Text size">
+                  <button data-fontsize="small">Small</button>
+                  <button data-fontsize="normal">Normal</button>
+                  <button data-fontsize="large">Large</button>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label"><span>Font</span></div>
+                <div class="seg" id="font-seg" role="group" aria-label="Font">
+                  <button data-font="system">System</button>
+                  <button data-font="serif">Serif</button>
+                  <button data-font="mono">Mono</button>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Density</span>
+                  <small class="muted">How much breathing room between elements.</small>
+                </div>
+                <div class="seg" id="density-seg" role="group" aria-label="Density">
+                  <button data-density="comfortable">Comfortable</button>
+                  <button data-density="compact">Compact</button>
+                  <button data-density="spacious">Spacious</button>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Corner rounding</span>
+                  <small class="muted">From sharp edges to fully rounded.</small>
+                </div>
+                <div class="row setting-control">
+                  <input id="radius-slider" type="range" min="0" max="22" value="14"
+                    aria-label="Corner rounding">
+                  <span class="slider-value" id="radius-value">14px</span>
+                </div>
+              </div>
             </div>
 
-            <h3>Font</h3>
-            <div class="seg" id="font-seg" role="group" aria-label="Font">
-              <button data-font="system">System</button>
-              <button data-font="serif">Serif</button>
-              <button data-font="mono">Mono</button>
+            <!-- ---------- Effects & accessibility ---------- -->
+            <div class="settings-group">
+              <h3>Effects &amp; accessibility</h3>
+
+              <label class="setting-check">
+                <input type="checkbox" id="glass-toggle" checked>
+                <span>
+                  Frosted-glass blur on cards
+                  <small class="muted">Off = flat panels, faster on older machines.</small>
+                </span>
+              </label>
+
+              <div class="setting-row" id="glass-blur-row">
+                <div class="setting-label">
+                  <span>Blur strength</span>
+                </div>
+                <div class="row setting-control">
+                  <input id="glass-blur" type="range" min="2" max="30" value="18"
+                    aria-label="Glass blur strength">
+                  <span class="slider-value" id="glass-blur-value">18px</span>
+                </div>
+              </div>
+
+              <label class="setting-check">
+                <input type="checkbox" id="contrast-toggle">
+                <span>
+                  High-contrast mode
+                  <small class="muted">Stronger text and solid panels, no blur.</small>
+                </span>
+              </label>
+
+              <label class="setting-check">
+                <input type="checkbox" id="reduce-motion-toggle">
+                <span>
+                  Reduce motion
+                  <small class="muted">Turns off animations and transitions.</small>
+                </span>
+              </label>
             </div>
 
-            <h3>Density</h3>
-            <div class="seg" id="density-seg" role="group" aria-label="Density">
-              <button data-density="comfortable">Comfortable</button>
-              <button data-density="compact">Compact</button>
+            <!-- ---------- Animated background ---------- -->
+            <div class="settings-group">
+              <h3>Animated background</h3>
+
+              <label class="setting-check">
+                <input type="checkbox" id="bg-art-toggle">
+                <span>
+                  Show a generative-art background
+                  <small class="muted">Appears behind every tab. Purely decorative and 100% offline.</small>
+                </span>
+              </label>
+
+              <div class="setting-row" id="bg-style-row">
+                <div class="setting-label"><span>Style</span></div>
+                <select id="bg-art-style" class="small-select setting-control">
+                  <option value="aurora">Aurora — flowing ribbons</option>
+                  <option value="constellations">Constellations — linked stars</option>
+                  <option value="blobs">Blobs — drifting shapes</option>
+                  <option value="particles">Particles — floating dust</option>
+                </select>
+              </div>
+
+              <div class="setting-row" id="bg-intensity-row">
+                <div class="setting-label">
+                  <span>Intensity</span>
+                  <small class="muted">Density and visibility of the effect.</small>
+                </div>
+                <div class="row setting-control">
+                  <input id="bg-intensity" type="range" min="20" max="100" value="90"
+                    aria-label="Background intensity">
+                  <span class="slider-value" id="bg-intensity-value">90%</span>
+                </div>
+              </div>
+              <p class="muted">It automatically stays still if your system prefers reduced motion.</p>
             </div>
 
-            <h3>Glass &amp; effects</h3>
-            <label>
-              <input type="checkbox" id="glass-toggle" checked>
-              Frosted-glass blur on cards (off = flat, faster on old machines)
-            </label>
-            <label>
-              <input type="checkbox" id="contrast-toggle">
-              High-contrast mode (stronger text, solid panels, no blur)
-            </label>
-            <label>
-              <input type="checkbox" id="reduce-motion-toggle">
-              Reduce motion (turn off animations and transitions)
-            </label>
-
-            <h3>Animated background</h3>
-            <label>
-              <input type="checkbox" id="bg-art-toggle">
-              Show a gentle generative-art background (on every tab)
-            </label>
-            <div class="row" id="bg-style-row">
-              <label for="bg-style" class="muted">Style</label>
-              <select id="bg-style" style="max-width:12rem">
-                <option value="aurora">Aurora flow</option>
-                <option value="constellation">Constellation</option>
-                <option value="waves">Waves</option>
-                <option value="bubbles">Floating orbs</option>
-                <option value="mesh">Mesh gradient</option>
-              </select>
+            <!-- ---------- Advanced ---------- -->
+            <div class="settings-group">
+              <h3>Advanced</h3>
+              <details class="advanced-css">
+                <summary>Custom CSS</summary>
+                <p class="muted">
+                  For tinkerers: these rules are applied on top of the app's own
+                  styles. Bad CSS only affects how things look — clear the box to
+                  undo.
+                </p>
+                <textarea id="custom-css" rows="5" spellcheck="false"
+                  placeholder=".card { border-width: 2px; }"></textarea>
+                <div class="row">
+                  <button id="custom-css-apply" class="small">Apply CSS</button>
+                  <button id="custom-css-clear" class="ghost small">Clear</button>
+                  <span id="custom-css-status" class="status" role="status"></span>
+                </div>
+              </details>
             </div>
-            <div class="row" id="bg-intensity-row">
-              <label for="bg-intensity" class="muted">Intensity</label>
-              <input id="bg-intensity" type="range" min="20" max="100" value="90" style="max-width:12rem">
-            </div>
-            <p class="muted">
-              Purely decorative and 100% offline. It automatically stays still
-              if your system prefers reduced motion.
-            </p>
 
             <div class="row">
               <button id="appearance-reset" class="ghost small">Reset appearance to defaults</button>
@@ -605,6 +840,12 @@
 
           <!-- Preferences (Phase 4/5, moved here in Wave A) -->
           <section class="settings-section hidden" id="settings-preferences">
+            <h3>Your name</h3>
+            <div class="row">
+              <label for="pref-display-name" class="muted">Name for the dashboard greeting</label>
+              <input id="pref-display-name" type="text" maxlength="60" style="width:12rem"
+                placeholder="e.g. Brayden">
+            </div>
             <h3>Recycle bin</h3>
             <div class="row">
               <label for="pref-bin-days" class="muted">Auto-clear binned entries after</label>
@@ -626,6 +867,55 @@
               Off by default. When on, only your search words leave this
               computer — never your notes.
             </p>
+            <div class="row">
+              <label for="pref-searxng" class="muted">SearXNG URL (optional)</label>
+              <input id="pref-searxng" type="text" maxlength="200"
+                placeholder="http://localhost:8888">
+              <button id="searxng-detect" class="ghost small"
+                title="Look for a SearXNG on the usual local ports">🔍 Auto-detect</button>
+            </div>
+            <p id="searxng-status" class="status" role="status"></p>
+            <p class="muted">
+              <strong>SearXNG</strong> is an optional, self-hosted search engine.
+              Point MemoryMap at one and it searches through that instead of
+              DuckDuckGo — better results, no page scraping, and the query stays
+              inside your own network. Leave it blank to use DuckDuckGo; if your
+              instance is unreachable MemoryMap falls back automatically.
+            </p>
+            <div class="searxng-host">
+              <div class="row space-between">
+                <strong>Let MemoryMap run SearXNG</strong>
+                <span id="searxng-host-state" class="chip">Checking…</span>
+              </div>
+              <p class="muted">
+                MemoryMap can start and stop SearXNG for you — settings and the
+                JSON API are configured automatically, so there's nothing to
+                edit.
+              </p>
+              <p class="muted" id="searxng-backend"></p>
+              <div class="row">
+                <button id="searxng-start" class="small">▶ Start SearXNG</button>
+                <button id="searxng-stop" class="ghost small">■ Stop</button>
+                <span id="searxng-host-status" class="status" role="status"></span>
+              </div>
+            </div>
+            <details class="help-accordion">
+              <summary>Prefer to run it yourself?</summary>
+              <p class="muted">
+                SearXNG is a separate service, so MemoryMap runs it beside
+                itself rather than inside itself. If you'd rather drive it
+                yourself, it's a single command with Docker:
+              </p>
+              <pre class="setup-snippet">docker run -d --name searxng -p 8888:8080 \
+  -e "SEARXNG_BASE_URL=http://localhost:8888/" \
+  -v searxng:/etc/searxng searxng/searxng</pre>
+              <p class="muted">
+                It must return JSON, so add <code>- json</code> under
+                <code>search.formats</code> in its <code>settings.yml</code>, then
+                restart it. Come back here and hit <strong>Auto-detect</strong> —
+                MemoryMap checks the usual ports and fills this in for you.
+              </p>
+            </details>
             <h3>About you (optional)</h3>
             <label>
               <input type="checkbox" id="pref-profile-enabled">
@@ -705,7 +995,51 @@
           </section>
 
           <!-- About -->
+          <!-- Help guide (learnability): a feature reference + re-run the tour -->
+          <section class="settings-section hidden" id="settings-help">
+            <div class="row space-between">
+              <h3 style="margin:0">Help &amp; guide</h3>
+              <button id="show-guide-btn" class="small">▶ Replay welcome tour</button>
+            </div>
+            <p class="muted">A quick reference to what each part of MemoryMap does. Click a topic to expand it.</p>
+            <div class="help-accordion">
+              <details>
+                <summary>📝 Capturing notes</summary>
+                <p>In the <strong>Notes</strong> tab, type anything into “Capture a thought” and Save. A local AI files it into a category and suggests tags — you can always re-file or edit. Use a template, dictate with 🎙, sketch with 🎨, or let ✨ Improve proofread it first.</p>
+              </details>
+              <details>
+                <summary>💬 Asking &amp; chatting</summary>
+                <p>“Ask your notebook” (Notes tab) and the <strong>Chat</strong> tab both answer from your saved notes. Turn on “AI can make changes” to let the assistant create, tag, link, and organise notes — destructive actions always ask first. Save, rename, and switch between conversations in the sidebar.</p>
+              </details>
+              <details>
+                <summary>⚡ Skills</summary>
+                <p>Skills are one-click requests above the chat box (e.g. “Summarise my week”). Add your own in <em>Settings → Skills</em>; a skill can use the AI’s tools so it actually does the work, not just describes it.</p>
+              </details>
+              <details>
+                <summary>🕸 Graph</summary>
+                <p>The <strong>Graph</strong> tab shows your notes as a network — links, threads, and (optionally) AI similarity lines. Search to highlight, drag to rearrange, toggle categories in the legend, and use the zoom controls to explore.</p>
+              </details>
+              <details>
+                <summary>⏰ Reminders</summary>
+                <p>The <strong>Reminders</strong> tab groups items by Overdue / Today / Upcoming / Done. Set a priority, snooze, edit inline, or make one recurring. Notifications fire while the app is open.</p>
+              </details>
+              <details>
+                <summary>📊 Dashboard</summary>
+                <p>The <strong>Dashboard</strong> is your at-a-glance home: streaks, stats, pinned notes, reminders, a weekly digest, and more. Click “Edit layout” to show/hide and rearrange widgets — your layout is remembered.</p>
+              </details>
+              <details>
+                <summary>🎨 Appearance</summary>
+                <p><em>Settings → Appearance</em> controls theme (light/dark/system), accent colour, fonts, density, glass effects, and the animated background. High-contrast and reduce-motion options are there for comfort and accessibility.</p>
+              </details>
+              <details>
+                <summary>⌨ Keyboard shortcuts</summary>
+                <p>Press <kbd>?</kbd> any time for the full list, or <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd> to open the command palette and jump anywhere or search your notes.</p>
+              </details>
+            </div>
+          </section>
+
           <section class="settings-section hidden" id="settings-about">
+            <div id="about-emblem" class="emblem" aria-hidden="true"></div>
             <h3>MemoryMap AI</h3>
             <p class="muted">
               A 100% offline, local-first notebook where a local AI files your
@@ -814,6 +1148,42 @@
         <input id="sketch-caption" type="text" maxlength="200" placeholder="Caption (becomes the note text)">
         <button id="sketch-save">Save as note</button>
         <span id="sketch-status" class="status" role="status"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Everything the app can do, searchable — opened from the dashboard -->
+  <div id="features-overlay" class="modal-overlay hidden" role="dialog"
+    aria-modal="true" aria-label="Tools and features">
+    <div class="card modal-card" id="features-card">
+      <div class="row space-between">
+        <h2>🧰 Tools &amp; features</h2>
+        <button id="features-close" class="ghost small">Close</button>
+      </div>
+      <input id="features-search" type="text" autocomplete="off"
+        placeholder="Search everything MemoryMap can do…" aria-label="Search features">
+      <p class="muted" id="features-count" aria-live="polite"></p>
+      <div id="features-list" class="features-list"></div>
+    </div>
+  </div>
+
+  <!-- First-run welcome tour (learnability). Re-runnable from Settings → Help. -->
+  <div id="onboarding-overlay" class="modal-overlay hidden" role="dialog"
+    aria-modal="true" aria-label="Welcome to MemoryMap">
+    <div class="card modal-card" id="onboarding-card">
+      <div class="onboarding-slide" id="onboarding-slide">
+        <div id="onboarding-emblem" class="emblem emblem-centred" aria-hidden="true"></div>
+        <div class="onboarding-icon" id="onboarding-icon" aria-hidden="true"></div>
+        <h2 id="onboarding-title"></h2>
+        <p id="onboarding-text" class="muted"></p>
+      </div>
+      <div class="onboarding-dots" id="onboarding-dots" aria-hidden="true"></div>
+      <div class="row space-between">
+        <button id="onboarding-skip" class="ghost small">Skip</button>
+        <div class="row">
+          <button id="onboarding-back" class="ghost small">Back</button>
+          <button id="onboarding-next">Next</button>
+        </div>
       </div>
     </div>
   </div>

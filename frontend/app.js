@@ -69,11 +69,25 @@ async function api(path, options = {}) {
   // yank the user to the lock screen mid-session (Wave O fix for a
   // long-standing intermittent re-lock). Only an explicit user action
   // shows the lock screen on 401.
-  const { silent, ...fetchOptions } = options;
-  const response = await fetch(path, {
-    headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() },
-    ...fetchOptions,
-  });
+  // `timeoutMs`: opt-in abort so a call can't hang the UI forever (used by the
+  // startup probe). Off by default, so long-running requests — model pulls,
+  // blocking chat — are unaffected.
+  const { silent, timeoutMs, ...fetchOptions } = options;
+  let timer = null;
+  if (timeoutMs) {
+    const controller = new AbortController();
+    timer = setTimeout(() => controller.abort(), timeoutMs);
+    fetchOptions.signal = fetchOptions.signal || controller.signal;
+  }
+  let response;
+  try {
+    response = await fetch(path, {
+      headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() },
+      ...fetchOptions,
+    });
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
   if (response.status === 401) {
     if (!silent) showLockScreen(false); // token expired (e.g. app restarted)
     throw new Error("Locked");
@@ -137,9 +151,13 @@ async function lockNow() {
 }
 
 async function initAuth() {
-  const status = await apiJson("/auth/status").catch(() => null);
+  // Bounded probe: if the server is unreachable or hangs, fail fast with a
+  // clear message instead of an indefinite blank/"connecting" screen.
+  const status = await apiJson("/auth/status", { timeoutMs: 8000 }).catch(() => null);
   if (!status) {
-    $("save-status").textContent = "Can't reach the MemoryMap server.";
+    $("save-status").textContent =
+      "Can't reach the MemoryMap server — check it's running, then refresh.";
+    toast("Can't reach the MemoryMap server. Is it running?", true);
     return;
   }
   if (status.setup_required) {
@@ -157,20 +175,44 @@ async function initAuth() {
 }
 
 function startApp() {
-  // A failed load must be visible, not a silently empty page.
-  loadEntries().catch((error) => toast(`Couldn't load entries: ${error.message}`, true));
-  loadRecentQuestions();
-  loadSuggestions();
-  loadMostUsed();
-  loadTemplates().then(() => {
-    personaOptions();
-    // Wave G: skills chips + the "AI can make changes" toggle read the
-    // same prefsCache that loadTemplates just filled.
-    loadChatSkills();
-    $("tools-toggle").checked = !prefsCache || prefsCache.tools_enabled !== false;
-  });
-  loadConversationList();
-  refreshModelStatus();
+  // A failed load must be visible, not a silently empty page — and one
+  // broken endpoint must never stop the rest of the app from coming up.
+  // Every bootstrap step is isolated so a single rejection surfaces a toast
+  // instead of leaving the user staring at a half-loaded (or blank) app.
+  const step = (label, fn) => {
+    try {
+      const result = fn();
+      if (result && typeof result.catch === "function") {
+        return result.catch((error) => {
+          toast(`Couldn't ${label}: ${error.message}`, true);
+        });
+      }
+      return Promise.resolve(result);
+    } catch (error) {
+      toast(`Couldn't ${label}: ${error.message}`, true);
+      return Promise.resolve();
+    }
+  };
+
+  step("load entries", loadEntries);
+  step("load recent questions", loadRecentQuestions);
+  step("load suggestions", loadSuggestions);
+  step("load your most-used items", loadMostUsed);
+  step("load templates", loadTemplates).then(() =>
+    step("set up chat options", () => {
+      personaOptions();
+      // Wave G: skills chips + the "AI can make changes" toggle read the
+      // same prefsCache that loadTemplates just filled.
+      loadChatSkills();
+      $("tools-toggle").checked = !prefsCache || prefsCache.tools_enabled !== false;
+      renderWebSearchToggle();
+    })
+  );
+  step("load conversations", loadConversationList);
+  step("check the AI model status", refreshModelStatus);
+
+  // First-run welcome tour (guarded by localStorage; re-runnable from Help).
+  maybeShowOnboarding();
 }
 
 // --- capture templates (Wave B) ---------------------------------------------------
@@ -226,11 +268,39 @@ function refreshTagSuggestions() {
 
 // --- rendering ---------------------------------------------------------------
 
-function chip(text, extraClass = "") {
+function chip(text, extraClass = "", onClick = null) {
   const span = document.createElement("span");
   span.className = `chip ${extraClass}`.trim();
   span.textContent = text;
+  // An interactive chip must be reachable and operable by keyboard, not just
+  // the mouse. Passing onClick makes it a real button in the a11y tree.
+  if (onClick) {
+    span.classList.add("chip-interactive");
+    span.setAttribute("role", "button");
+    span.setAttribute("tabindex", "0");
+    span.addEventListener("click", onClick);
+    span.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        onClick(event);
+      }
+    });
+  }
   return span;
+}
+
+// A <select> from [value, label] pairs, with one option preselected.
+function buildSelect(options, selected) {
+  const select = document.createElement("select");
+  select.className = "small-select";
+  for (const [value, label] of options) {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = label;
+    if (value === selected) option.selected = true;
+    select.appendChild(option);
+  }
+  return select;
 }
 
 function smallButton(label, title, onClick, ghost = true) {
@@ -422,10 +492,10 @@ function entryItem(entry, options = {}) {
         if (options.actions) wrap.appendChild(removeButton());
         fileRow.appendChild(wrap);
       } else {
-        const fileChip = chip(`📄 ${attachment.filename}`, "link");
-        fileChip.style.cursor = "pointer";
+        const fileChip = chip(`📄 ${attachment.filename}`, "link", () =>
+          downloadAttachment(attachment)
+        );
         fileChip.title = `Download (${Math.max(1, Math.round(attachment.size / 1024))} KB)`;
-        fileChip.addEventListener("click", () => downloadAttachment(attachment));
         if (options.actions) fileChip.appendChild(removeButton());
         fileRow.appendChild(fileChip);
       }
@@ -566,6 +636,31 @@ function entryOverflowMenu(entry) {
     menu.appendChild(button);
   }
 
+  // Arrow-key navigation, as the role="menu" contract implies. ↑/↓ move between
+  // items (wrapping), Home/End jump to the ends, Esc closes and returns focus
+  // to the opener.
+  menu.addEventListener("keydown", (event) => {
+    const menuItems = [...menu.querySelectorAll('[role="menuitem"]')];
+    const current = menuItems.indexOf(document.activeElement);
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      menuItems[(current + 1) % menuItems.length]?.focus();
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      menuItems[(current - 1 + menuItems.length) % menuItems.length]?.focus();
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      menuItems[0]?.focus();
+    } else if (event.key === "End") {
+      event.preventDefault();
+      menuItems[menuItems.length - 1]?.focus();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      closeActionMenus();
+      opener.focus();
+    }
+  });
+
   wrap.append(opener, menu);
   return wrap;
 }
@@ -622,10 +717,7 @@ function renderReevaluateResult(entry, wrap) {
     label.textContent = "Add tags:";
     tagRow.appendChild(label);
     for (const tag of tags) {
-      const tagChip = chip(`＋ ${tag}`, "tag");
-      tagChip.style.cursor = "pointer";
-      tagChip.title = `Add the “${tag}” tag`;
-      tagChip.addEventListener("click", async () => {
+      const tagChip = chip(`＋ ${tag}`, "tag", async () => {
         try {
           await api(`/entries/${entry.id}`, {
             method: "PUT",
@@ -638,6 +730,7 @@ function renderReevaluateResult(entry, wrap) {
           toast(error.message, true);
         }
       });
+      tagChip.title = `Add the “${tag}” tag`;
       tagRow.appendChild(tagChip);
     }
     wrap.appendChild(tagRow);
@@ -869,9 +962,7 @@ async function toggleRelated(entry) {
   row.appendChild(label);
   for (const other of related) {
     const preview = other.content.length > 50 ? other.content.slice(0, 49) + "…" : other.content;
-    const relChip = chip(`≈ ${preview}`, "link");
-    relChip.style.cursor = "pointer";
-    relChip.addEventListener("click", () => flashEntry(other.id));
+    const relChip = chip(`≈ ${preview}`, "link", () => flashEntry(other.id));
     row.appendChild(relChip);
   }
   card.appendChild(row);
@@ -1177,6 +1268,8 @@ async function saveEntry() {
       );
     }
     contentBox.value = "";
+    localStorage.removeItem("captureDraft"); // it's saved for real now
+    $("entry-count").textContent = "0 characters";
     $("entry-tags").value = "";
     $("entry-category").value = "";
     $("entry-template").value = "";
@@ -1265,6 +1358,7 @@ async function streamChat({
   onAnswer,
   onTool,
   onConfirm,
+  onStats,
 }) {
   const body = { question, history: history || [] };
   if (persona) body.persona = persona;
@@ -1301,6 +1395,7 @@ async function streamChat({
       else if (event.type === "answer") onAnswer(event.delta);
       else if (event.type === "tool" && onTool) onTool(event);
       else if (event.type === "confirm" && onConfirm) onConfirm(event);
+      else if (event.type === "stats" && onStats) onStats(event);
     }
   }
 }
@@ -1471,8 +1566,7 @@ async function loadSuggestions() {
   label.textContent = "Try asking:";
   box.appendChild(label);
   for (const question of picks) {
-    const chipEl = chip(question);
-    chipEl.addEventListener("click", () => askQuestion(question));
+    const chipEl = chip(question, "", () => askQuestion(question));
     box.appendChild(chipEl);
   }
 }
@@ -1506,6 +1600,45 @@ function chatMessageActions(actions) {
     row.appendChild(button);
   }
   return row;
+}
+
+// A small "what this answer cost" line under an assistant bubble: which model
+// answered, how long it took, and — when Ollama reports them — token counts
+// and generation speed.
+function messageMetaLine({ model, elapsedMs, stats }) {
+  const row = document.createElement("div");
+  row.className = "msg-meta muted";
+  const bits = [];
+  if (model) bits.push(model);
+  if (elapsedMs != null) {
+    bits.push(elapsedMs < 1000 ? `${elapsedMs} ms` : `${(elapsedMs / 1000).toFixed(1)}s`);
+  }
+  if (stats) {
+    const inTok = stats.prompt_tokens;
+    const outTok = stats.output_tokens;
+    if (inTok != null || outTok != null) {
+      bits.push(`${inTok ?? "?"}→${outTok ?? "?"} tokens`);
+    }
+    if (outTok && stats.eval_ms) {
+      bits.push(`${(outTok / (stats.eval_ms / 1000)).toFixed(1)} tok/s`);
+    }
+  }
+  row.textContent = bits.join(" · ");
+  row.title = "Model · response time · prompt→output tokens · generation speed";
+  return row;
+}
+
+// Remove a message from the live transcript. A saved conversation stores
+// question/answer pairs, so deleting either half drops the whole exchange —
+// otherwise the missing half would reappear on reopening the chat.
+// Deleting from a user bubble drops the same exchange as deleting from the
+// answer below it, so both buttons route through one implementation.
+function removeChatBubble(bubble) {
+  const assistant = bubble.classList.contains("user")
+    ? bubble.nextElementSibling
+    : bubble;
+  if (!assistant?.classList.contains("assistant")) return;
+  return deleteChatTurn(assistant);
 }
 
 async function copyToClipboard(text, button) {
@@ -1546,17 +1679,183 @@ function renderChatEmptyState() {
   if (box.querySelector(".msg") || box.querySelector(".chat-empty")) return;
   const empty = document.createElement("div");
   empty.className = "chat-empty";
-  empty.innerHTML =
-    '<span class="chat-empty-icon" aria-hidden="true">💬</span>' +
-    '<p class="empty-title">Chat with your notebook</p>' +
-    '<p class="muted">Ask a question and the AI answers from your saved notes. ' +
-    "Turn on “AI can make changes” and it can create, tag, link, and organise " +
-    "notes for you too.</p>";
+  const emblem = document.createElement("div");
+  emblem.id = "chat-empty-emblem";
+  emblem.className = "emblem emblem-centred";
+  emblem.setAttribute("aria-hidden", "true");
+  const title = document.createElement("p");
+  title.className = "empty-title";
+  title.textContent = "Chat with your notebook";
+  const blurb = document.createElement("p");
+  blurb.className = "muted";
+  blurb.textContent =
+    "Ask a question and the AI answers from your saved notes. Turn on “AI can " +
+    "make changes” and it can create, tag, link, and organise notes for you too.";
+  empty.append(emblem, title, blurb);
   box.appendChild(empty);
+  renderEmblem(emblem, 52); // after insertion — see addAssistantBubble
 }
 
 function clearChatEmptyState() {
   $("chat-messages").querySelector(".chat-empty")?.remove();
+}
+
+// --- web panel: search + reader view ----------------------------------------
+// Deliberately not an embedded browser. Pages are fetched and stripped to
+// text by the backend, so nothing from a third-party site ever executes here.
+
+let webReaderPage = null; // the page currently open in the reader
+
+function toggleWebPanel(force) {
+  const panel = $("web-panel");
+  const show = force ?? panel.classList.contains("hidden");
+  panel.classList.toggle("hidden", !show);
+  if (show) {
+    $("web-reader").classList.add("hidden");
+    $("web-query").focus();
+  }
+}
+
+async function runWebSearch() {
+  const query = $("web-query").value.trim();
+  if (!query) return;
+  const status = $("web-status");
+  const box = $("web-results");
+  $("web-reader").classList.add("hidden");
+  box.replaceChildren();
+  status.classList.remove("error");
+  status.textContent = "Searching the web…";
+  let body;
+  try {
+    body = await apiJson(`/websearch?q=${encodeURIComponent(query)}&limit=8`);
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+    return;
+  }
+  const results = body.results || [];
+  status.textContent = results.length
+    ? `${results.length} results via ${body.provider}`
+    : "No results — try different words.";
+  for (const result of results) {
+    const row = document.createElement("div");
+    row.className = "web-result";
+
+    const title = document.createElement("button");
+    title.type = "button";
+    title.className = "web-result-title";
+    title.textContent = result.title || result.url;
+    title.addEventListener("click", () => openWebReader(result.url));
+    row.appendChild(title);
+
+    const meta = document.createElement("div");
+    meta.className = "web-result-meta muted";
+    meta.textContent = result.domain || "";
+    row.appendChild(meta);
+
+    if (result.snippet) {
+      const snippet = document.createElement("div");
+      snippet.className = "web-result-snippet muted";
+      snippet.textContent = result.snippet;
+      row.appendChild(snippet);
+    }
+
+    const actions = document.createElement("div");
+    actions.className = "row";
+    actions.appendChild(
+      smallButton("📖 Read here", "Open this page as clean text", () =>
+        openWebReader(result.url)
+      )
+    );
+    const open = document.createElement("a");
+    open.href = result.url;
+    open.target = "_blank";
+    open.rel = "noopener noreferrer";
+    open.className = "ghost small web-open-link";
+    open.textContent = "↗ Open in browser";
+    actions.appendChild(open);
+    actions.appendChild(
+      smallButton("💬 Ask about this", "Send this link to the chat", () => {
+        $("chat-input").value = `About ${result.url} — `;
+        $("chat-input").focus();
+      })
+    );
+    row.appendChild(actions);
+    box.appendChild(row);
+  }
+}
+
+async function openWebReader(url) {
+  const status = $("web-status");
+  status.classList.remove("error");
+  status.textContent = "Opening…";
+  let page;
+  try {
+    page = await apiJson(`/websearch/read?url=${encodeURIComponent(url)}`);
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+    return;
+  }
+  webReaderPage = page;
+  status.textContent = "";
+  $("web-reader-title").textContent = page.title || page.domain;
+  $("web-reader-source").textContent = page.domain;
+
+  // Lay the page out as headings, paragraphs and lists rather than one wall
+  // of text. Built with createElement/textContent — never innerHTML, since
+  // the page is untrusted by definition.
+  const box = $("web-reader-text");
+  box.replaceChildren();
+  const blocks = page.blocks && page.blocks.length ? page.blocks : null;
+  if (!blocks) {
+    const fallback = document.createElement("p");
+    fallback.textContent = page.text || "(Nothing readable on that page.)";
+    box.appendChild(fallback);
+  } else {
+    let list = null;
+    for (const block of blocks) {
+      if (block.type === "li") {
+        if (!list) {
+          list = document.createElement("ul");
+          box.appendChild(list);
+        }
+        const li = document.createElement("li");
+        li.textContent = block.text;
+        list.appendChild(li);
+        continue;
+      }
+      list = null;
+      const tag =
+        block.type === "heading" ? "h4" : block.type === "pre" ? "pre" : block.type === "blockquote" ? "blockquote" : "p";
+      const el = document.createElement(tag);
+      el.textContent = block.text;
+      box.appendChild(el);
+    }
+  }
+  box.scrollTop = 0;
+  $("web-reader").classList.remove("hidden");
+}
+
+async function saveWebPageAsNote() {
+  if (!webReaderPage) return;
+  // Prefer the structured read — it drops the nav/cookie chrome.
+  const readable = (webReaderPage.blocks || [])
+    .map((b) => (b.type === "heading" ? `\n## ${b.text}` : b.type === "li" ? `- ${b.text}` : b.text))
+    .join("\n")
+    .trim();
+  const excerpt = (readable || webReaderPage.text || "").slice(0, 1200);
+  const content = `${webReaderPage.title}\n${webReaderPage.url}\n\n${excerpt}`;
+  try {
+    await apiJson("/entries", {
+      method: "POST",
+      body: JSON.stringify({ content, tags: ["web"] }),
+    });
+    toast("Saved as a note.");
+    loadEntries().catch(() => {});
+  } catch (error) {
+    toast(error.message, true);
+  }
 }
 
 function personaOptions() {
@@ -1628,6 +1927,7 @@ function addBubble(role, text) {
       chatMessageActions([
         { label: "⧉", title: "Copy", onClick: (e) => copyToClipboard(text, e.currentTarget) },
         { label: "✎", title: "Edit & resend", onClick: () => editAndResend(text) },
+        { label: "🗑", title: "Delete this message", onClick: () => removeChatBubble(bubble) },
       ])
     );
   }
@@ -1642,10 +1942,19 @@ function addAssistantBubble() {
   const bubble = document.createElement("div");
   bubble.className = "msg assistant";
 
+  // The app's own emblem stands in as the assistant's avatar.
   const label = document.createElement("div");
-  label.className = "msg-role";
-  label.textContent = assistantLabel();
+  label.className = "msg-role msg-role-assistant";
+  const avatar = document.createElement("span");
+  avatar.className = "msg-avatar";
+  avatar.setAttribute("aria-hidden", "true");
+  const name = document.createElement("span");
+  name.textContent = assistantLabel();
+  label.append(avatar, name);
   bubble.appendChild(label);
+  // NB: the emblem is drawn after the bubble is in the DOM — p5 can't size a
+  // canvas inside a detached element, which left the avatar blank until some
+  // later render happened to redraw it.
 
   const thinkingBox = document.createElement("details");
   thinkingBox.className = "hidden";
@@ -1666,6 +1975,7 @@ function addAssistantBubble() {
 
   bubble.append(thinkingBox, toolsHolder, answerBox, recordsHolder);
   $("chat-messages").appendChild(bubble);
+  renderEmblem(avatar, 20); // now attached, so p5 can measure and draw
   chatScrollToEnd();
   return { bubble, thinkingBox, thinkingText, answerBox, toolsHolder, recordsHolder };
 }
@@ -1766,6 +2076,8 @@ async function sendChatMessage(preset, opts = {}) {
   let thinkingRaw = "";
   let meta = null;
   let toolsActed = false;
+  let stats = null;
+  const startedAt = performance.now();
   const toolEvents = []; // {label, ok} — persisted so chips survive a reload
   chatController = new AbortController();
 
@@ -1810,6 +2122,9 @@ async function sendChatMessage(preset, opts = {}) {
         renderToolConfirm(toolsHolder, event);
         status.textContent = "Waiting for your confirmation…";
       },
+      onStats: (event) => {
+        stats = event;
+      },
     });
     status.textContent = "";
   } catch (error) {
@@ -1829,6 +2144,17 @@ async function sendChatMessage(preset, opts = {}) {
 
   renderMarkdown(answerBox, answerRaw);
   if (meta) renderRecordsDetails(recordsHolder, meta);
+  // What this answer cost: model, wall-clock time, tokens, speed.
+  const elapsedMs = Math.round(performance.now() - startedAt);
+  if (answerRaw) {
+    bubble.appendChild(
+      messageMetaLine({
+        model: (stats && stats.model) || (meta && meta.answered_by),
+        elapsedMs,
+        stats,
+      })
+    );
+  }
   chatScrollToEnd();
   if (toolsActed) refreshAfterToolChanges(); // the AI changed real data
   if (!answerRaw) {
@@ -1868,6 +2194,14 @@ async function sendChatMessage(preset, opts = {}) {
       });
       chatConv.id = created.id;
       $("chat-title").textContent = created.title;
+      // Let the AI name the thread once there's something to name. Silent
+      // best-effort: the question-derived title stays if the model can't.
+      apiJson(`/conversations/${created.id}/retitle`, { method: "POST", silent: true })
+        .then((named) => {
+          if (chatConv.id === created.id) $("chat-title").textContent = named.title;
+          loadConversationList();
+        })
+        .catch(() => {});
     } else if (opts.replaceLast) {
       await apiJson(`/conversations/${chatConv.id}/turns/last`, {
         method: "PUT",
@@ -1979,6 +2313,20 @@ async function loadConversationList() {
       })
     );
     actions.appendChild(
+      smallButton("✨", "Let the AI name this chat", async () => {
+        const named = await apiJson(`/conversations/${conversation.id}/retitle`, {
+          method: "POST",
+        }).catch((e) => {
+          toast(e.message, true);
+          return null;
+        });
+        if (!named) return;
+        if (chatConv.id === conversation.id) $("chat-title").textContent = named.title;
+        toast(named.ai_named ? `Renamed to “${named.title}”.` : "Used the first question as the title.");
+        loadConversationList();
+      })
+    );
+    actions.appendChild(
       smallButton("×", "Delete this chat", async () => {
         if (!confirm("Delete this saved chat?")) return;
         await apiJson(`/conversations/${conversation.id}`, { method: "DELETE" });
@@ -2015,6 +2363,7 @@ async function openConversation(id) {
         handles.thinkingBox.classList.remove("hidden");
         handles.thinkingText.textContent = message.thinking;
       }
+      const turnIndex = chatConv.turns.length; // index this pair will occupy
       handles.bubble.appendChild(
         chatMessageActions([
           { label: "⧉", title: "Copy answer", onClick: (e) => copyToClipboard(message.content, e.currentTarget) },
@@ -2027,6 +2376,7 @@ async function openConversation(id) {
       }
     }
   }
+  if (!full.messages.length) renderChatEmptyState();
   if (lastQuestionText) lastChatQuestion = lastQuestionText;
   loadConversationList();
   chatScrollToEnd();
@@ -2045,8 +2395,7 @@ async function loadChatSuggestions() {
   label.textContent = "Try asking:";
   box.appendChild(label);
   for (const question of picks) {
-    const chipEl = chip(question);
-    chipEl.addEventListener("click", () => sendChatMessage(question));
+    const chipEl = chip(question, "", () => sendChatMessage(question));
     box.appendChild(chipEl);
   }
 }
@@ -2239,6 +2588,30 @@ const BUILTIN_SKILLS = [
       "tidy the notebook. Don't change anything yet — list your suggestions " +
       "and ask which ones I'd like you to apply.",
   },
+  {
+    name: "✉️ Draft an email",
+    prompt:
+      "Help me draft an email. Ask me who it's to and what it's about if I " +
+      "haven't said, then write a clear, friendly draft I can edit.",
+  },
+  {
+    name: "💡 Brainstorm ideas",
+    prompt:
+      "Brainstorm ideas with me. Ask what topic if I haven't given one, then " +
+      "offer a varied list of ideas, drawing on anything relevant in my notes.",
+  },
+  {
+    name: "📖 Explain a concept",
+    prompt:
+      "Explain a concept to me clearly and simply. Ask which concept if I " +
+      "haven't named one, then explain it with a short example.",
+  },
+  {
+    name: "🗓 Create a study plan",
+    prompt:
+      "Help me create a study or action plan. Ask about the goal and timeframe " +
+      "if I haven't said, then lay out a realistic step-by-step plan.",
+  },
 ];
 
 function allSkills() {
@@ -2287,16 +2660,14 @@ function loadChatSkills() {
   label.textContent = "⚡ Skills:";
   box.appendChild(label);
   for (const skill of allSkills()) {
-    const chipEl = chip(skill.name + (skill.useTools ? " ⚙" : ""));
+    const chipEl = chip(skill.name + (skill.useTools ? " ⚙" : ""), "", () => runSkill(skill));
     chipEl.title = skill.useTools
       ? `${skill.prompt}\n\n(This skill makes changes for you — destructive steps still ask first.)`
       : skill.prompt;
-    chipEl.addEventListener("click", () => runSkill(skill));
     box.appendChild(chipEl);
   }
-  const manage = chip("＋ manage");
+  const manage = chip("＋ manage", "", () => openSettingsModal("skills"));
   manage.title = "Add or edit skills in Settings";
-  manage.addEventListener("click", () => openSettingsModal("skills"));
   box.appendChild(manage);
   box.classList.remove("hidden");
 }
@@ -2591,6 +2962,11 @@ const DASH_WIDGETS = {
   digest: { title: "📰 Weekly digest", render: renderDigestWidget },
   capture: { title: "✏️ Quick capture", render: renderQuickCaptureWidget },
   reminders: { title: "⏰ Reminders", render: renderRemindersWidget },
+  focus: { title: "⏱ Focus timer", render: renderFocusTimerWidget },
+  heatmap: { title: "📆 Activity heatmap", render: renderHeatmapWidget },
+  "tag-cloud": { title: "☁️ Tag cloud", render: renderTagCloudWidget },
+  categories: { title: "🗂 Categories", render: renderCategoriesWidget },
+  random: { title: "🎲 Rediscover", render: renderRandomNoteWidget },
 };
 
 function dashLayout() {
@@ -2602,8 +2978,11 @@ function dashLayout() {
   return {
     order: order.filter((n) => DASH_WIDGETS[n]),
     hidden: saved.hidden || [],
-    // Per-widget width: "wide" spans two columns to make a larger section.
-    sizes: saved.sizes || {},
+    // Widgets set to span two columns. Older layouts stored this as
+    // {name: "wide"} — fold those in so a saved layout still works.
+    wide: saved.wide?.length
+      ? saved.wide
+      : Object.keys(saved.sizes || {}).filter((n) => saved.sizes[n] === "wide"),
   };
 }
 
@@ -2636,53 +3015,462 @@ function tickClocks() {
 setInterval(tickClocks, 1000);
 tickClocks();
 
-function greeting() {
-  const h = new Date().getHours();
-  if (h < 5) return "Still up?";
-  if (h < 12) return "Good morning";
-  if (h < 17) return "Good afternoon";
-  if (h < 22) return "Good evening";
-  return "Winding down?";
+// --- dashboard welcome banner ------------------------------------------------
+// A few phrasings per time of day so the greeting feels alive. The choice is
+// keyed to the day + time-block, so it changes occasionally rather than
+// flickering on every re-render.
+const GREETINGS = {
+  morning: ["Good morning", "Morning", "Rise and shine", "A fresh start"],
+  afternoon: ["Good afternoon", "Afternoon", "Hope today's going well"],
+  evening: ["Good evening", "Evening", "Winding down"],
+  night: ["Still up", "Working late", "Burning the midnight oil"],
+};
+
+function greetingBlock(hour) {
+  if (hour < 5) return "night";
+  if (hour < 12) return "morning";
+  if (hour < 18) return "afternoon";
+  if (hour < 23) return "evening";
+  return "night";
 }
 
-// A few one-tap actions on the dashboard so it's a launchpad, not just a
-// read-out (user request to expand the dashboard).
-const DASH_ACTIONS = [
-  { icon: "✏️", label: "Capture a note", run: () => { switchTab("notes"); $("entry-content").focus(); } },
-  { icon: "💬", label: "Ask a question", run: () => { switchTab("chat"); $("chat-input").focus(); } },
-  { icon: "🕸️", label: "Open the graph", run: () => switchTab("graph") },
-  { icon: "⏰", label: "Add a reminder", run: () => { switchTab("reminders"); $("reminder-text").focus(); } },
-  { icon: "🔎", label: "Search notes", run: () => openPalette && openPalette() },
+// The local fallback phrase, used until (or instead of) an AI-written one.
+function fallbackGreetingPhrase(now = new Date()) {
+  const options = GREETINGS[greetingBlock(now.getHours())];
+  // Same greeting for a whole block on a given day, then it moves on.
+  const daySlot = Math.floor(now.getTime() / 86400000) + now.getHours();
+  return options[daySlot % options.length];
+}
+
+// The name always comes from preferences — never from the model, so it can't
+// be mangled or hallucinated, and editing it takes effect immediately. The
+// terminal mark goes on last so the result reads as a proper sentence:
+// "Rise and shine" + ", Sam" + "!" → "Rise and shine, Sam!"
+function withDisplayName(phrase, punctuation = ".", appendName = true) {
+  const name = ((prefsCache && prefsCache.display_name) || "").trim();
+  const mark = ".!?".includes(punctuation) ? punctuation : ".";
+  // Also sentence-cased here, so an older cached greeting written by the model
+  // in lowercase corrects itself on the next render.
+  const opener = phrase ? phrase.charAt(0).toUpperCase() + phrase.slice(1) : phrase;
+  // Don't append when the server says the greeting already handles the name —
+  // either the model wove it in, or this one is deliberately nameless. The
+  // text check is a belt-and-braces guard against a stale cache.
+  const already =
+    !appendName ||
+    (name && new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(opener));
+  if (!name || already) return `${opener}${mark}`;
+  return `${opener}, ${name}${mark}`;
+}
+
+function dashboardGreetingText(now = new Date()) {
+  return withDisplayName(fallbackGreetingPhrase(now), ".");
+}
+
+// A cached AI greeting, refreshed once per time-block per day so it changes
+// occasionally rather than on every render (and doesn't hammer the model).
+function greetingCacheSlot(now = new Date()) {
+  // Refreshed hourly, so the banner keeps changing through the day instead of
+  // repeating the same line for a whole morning. The name is part of the slot
+  // too: renaming yourself in Settings invalidates the cached greeting so the
+  // AI writes a fresh one addressed to the new name.
+  const name = ((prefsCache && prefsCache.display_name) || "").trim();
+  return `${now.toDateString()}|${now.getHours()}|${name}`;
+}
+
+function cachedGreetingPhrase(now = new Date()) {
+  try {
+    const cached = JSON.parse(localStorage.getItem("greetingCache") || "null");
+    if (cached && cached.slot === greetingCacheSlot(now) && cached.phrase) {
+      return {
+        phrase: cached.phrase,
+        punctuation: cached.punctuation || ".",
+        appendName: cached.appendName !== false,
+      };
+    }
+  } catch {
+    /* a corrupt cache just means we fetch a fresh one */
+  }
+  return null;
+}
+
+// Ask the AI for this block's greeting. Silent by design: any failure simply
+// leaves the handwritten fallback on screen.
+async function refreshAiGreeting() {
+  const now = new Date();
+  if (cachedGreetingPhrase(now)) return; // still fresh for this block
+  const block = greetingBlock(now.getHours());
+  const body = await apiJson(`/insights/greeting?block=${block}`, { silent: true }).catch(
+    () => null
+  );
+  const phrase = body && body.greeting;
+  if (!phrase) return;
+  const punctuation = (body && body.punctuation) || ".";
+  const appendName = !(body && body.append_name === false);
+  localStorage.setItem(
+    "greetingCache",
+    JSON.stringify({ slot: greetingCacheSlot(now), phrase, punctuation, appendName })
+  );
+  const el = $("dash-greeting");
+  if (el) el.textContent = withDisplayName(phrase, punctuation, appendName);
+}
+
+let dashClockTimer = null;
+
+function paintDashClock() {
+  const timeEl = $("dash-clock-time");
+  const dateEl = $("dash-clock-date");
+  if (!timeEl || !dateEl) return;
+  const now = new Date();
+  timeEl.textContent = now.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  dateEl.textContent = now.toLocaleDateString([], {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+}
+
+// A short line about the notebook — note count, plus whatever's most
+// worth surfacing right now (due reminders, then a capture streak).
+async function renderDashSubmessage() {
+  const el = $("dash-submessage");
+  if (!el) return;
+  const [stats, reminders] = await Promise.all([
+    apiJson("/insights/stats").catch(() => null),
+    apiJson("/reminders").catch(() => []),
+  ]);
+  const bits = [];
+  if (stats) {
+    const n = stats.total_entries;
+    bits.push(n === 0 ? "Your notebook is empty — capture a thought to begin" : `You have ${n} note${n === 1 ? "" : "s"}`);
+  }
+  const due = (reminders || []).filter(
+    (r) => !r.done && new Date(r.due_at) <= new Date()
+  ).length;
+  if (due) bits.push(`${due} reminder${due === 1 ? "" : "s"} due`);
+  else {
+    const open = (reminders || []).filter((r) => !r.done).length;
+    if (open) bits.push(`${open} reminder${open === 1 ? "" : "s"} coming up`);
+  }
+  if (stats && stats.per_day) {
+    // Current capture streak, counting back from today.
+    let streak = 0;
+    for (let i = stats.per_day.length - 1; i >= 0 && stats.per_day[i] > 0; i--) streak++;
+    if (streak > 1) bits.push(`${streak}-day capture streak`);
+  }
+  el.textContent = bits.join(" · ");
+}
+
+function renderDashboardGreeting() {
+  const el = $("dash-greeting");
+  if (!el) return;
+  // Paint instantly from the cache (or the handwritten fallback), then let an
+  // AI-written phrase replace it in the background if one arrives.
+  const cached = cachedGreetingPhrase();
+  el.textContent = cached
+    ? withDisplayName(cached.phrase, cached.punctuation, cached.appendName)
+    : dashboardGreetingText();
+  refreshAiGreeting().catch(() => {});
+  paintDashClock();
+  // One ticking clock, however many times the dashboard re-renders.
+  if (dashClockTimer) clearInterval(dashClockTimer);
+  dashClockTimer = setInterval(paintDashClock, 1000);
+  renderDashSubmessage().catch(() => {});
+}
+
+// --- masonry packing for the dashboard ---------------------------------------
+// CSS grid can't size rows to content per-column, so each card is given a row
+// span matching its measured height. Short widgets then stack vertically
+// inside a row instead of being stretched to match the tallest one.
+
+let dashResizeObserver = null;
+
+function sizeDashWidget(card, rowUnit, gap) {
+  // Measure the card's natural height, not its current grid-constrained one.
+  const previous = card.style.gridRowEnd;
+  card.style.gridRowEnd = "span 1";
+  const height = card.getBoundingClientRect().height;
+  const span = Math.max(1, Math.ceil((height + gap) / (rowUnit + gap)));
+  const next = `span ${span}`;
+  if (next !== previous) card.style.gridRowEnd = next;
+  else card.style.gridRowEnd = previous;
+}
+
+function sizeDashWidgets() {
+  const grid = $("dash-grid");
+  if (!grid) return;
+  const styles = getComputedStyle(grid);
+  const rowUnit = Number.parseFloat(styles.getPropertyValue("grid-auto-rows")) || 8;
+  const gap = Number.parseFloat(styles.rowGap) || 16;
+  for (const card of grid.querySelectorAll(".dash-widget")) {
+    sizeDashWidget(card, rowUnit, gap);
+  }
+  grid.classList.add("spans-ready");
+}
+
+// Widget bodies fill in asynchronously, so re-measure whenever one changes
+// size rather than only once at render time.
+function watchDashWidgets() {
+  const grid = $("dash-grid");
+  if (!grid || typeof ResizeObserver === "undefined") {
+    sizeDashWidgets();
+    return;
+  }
+  dashResizeObserver?.disconnect();
+  let queued = false;
+  dashResizeObserver = new ResizeObserver(() => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => {
+      queued = false;
+      sizeDashWidgets();
+    });
+  });
+  for (const card of grid.querySelectorAll(".dash-widget")) {
+    dashResizeObserver.observe(card);
+  }
+  sizeDashWidgets();
+}
+
+window.addEventListener("resize", () => {
+  if ($("dash-grid")) sizeDashWidgets();
+});
+
+// --- at-a-glance strip (page furniture, not a hideable widget) ---------------
+
+async function renderDashStats() {
+  const box = $("dash-stats");
+  if (!box) return;
+  const [stats, reminders] = await Promise.all([
+    apiJson("/insights/stats").catch(() => null),
+    apiJson("/reminders").catch(() => []),
+  ]);
+
+  const now = new Date();
+  const perDay = (stats && stats.per_day) || [];
+  let streak = 0;
+  for (let i = perDay.length - 1; i >= 0 && perDay[i] > 0; i--) streak++;
+  const thisWeek = perDay.slice(-7).reduce((sum, n) => sum + n, 0);
+  const open = (reminders || []).filter((r) => !r.done);
+  const due = open.filter((r) => new Date(r.due_at) <= now).length;
+
+  const tiles = [
+    { icon: "📝", value: stats ? stats.total_entries : "–", label: "notes", go: () => switchTab("notes") },
+    { icon: "🗓", value: thisWeek, label: "this week", go: () => switchTab("notes") },
+    { icon: "🔥", value: streak, label: streak === 1 ? "day streak" : "day streak", go: () => switchTab("dashboard") },
+    {
+      icon: due ? "⏰" : "✅",
+      value: due || open.length,
+      label: due ? "due now" : "reminders",
+      go: () => switchTab("reminders"),
+      alert: Boolean(due),
+    },
+  ];
+
+  box.replaceChildren();
+  for (const tile of tiles) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "stat-tile" + (tile.alert ? " stat-alert" : "");
+    const icon = document.createElement("span");
+    icon.className = "stat-icon";
+    icon.textContent = tile.icon;
+    icon.setAttribute("aria-hidden", "true");
+    const value = document.createElement("span");
+    value.className = "stat-value";
+    value.textContent = tile.value;
+    const label = document.createElement("span");
+    label.className = "stat-label";
+    label.textContent = tile.label;
+    button.append(icon, value, label);
+    button.addEventListener("click", tile.go);
+    box.appendChild(button);
+  }
+}
+
+// --- dashboard quick links ---------------------------------------------------
+
+const QUICK_LINKS = [
+  { icon: "✏️", label: "New note", run: () => { switchTab("notes"); $("entry-content").focus(); } },
+  { icon: "💬", label: "Ask AI", run: () => { switchTab("chat"); $("chat-input").focus(); } },
+  { icon: "🕸", label: "Graph", run: () => switchTab("graph") },
+  { icon: "⏰", label: "Reminders", run: () => switchTab("reminders") },
+  { icon: "🎨", label: "Sketch", run: () => openSketch() },
+  { icon: "🔍", label: "Search notes", run: () => { switchTab("notes"); $("note-search").focus(); } },
+  { icon: "🧰", label: "Tools & features", run: () => openFeatures(), primary: true },
 ];
 
-function renderDashWelcome() {
-  const greet = $("dash-greeting");
-  if (greet) greet.textContent = greeting();
-  const subtitle = $("dash-subtitle");
-  if (subtitle) {
-    const count = allEntries.length;
-    subtitle.textContent = count
-      ? `You have ${count} note${count === 1 ? "" : "s"} in your notebook. Here's your day at a glance.`
-      : "Your notebook is empty — capture a first thought to get started.";
+function renderQuickLinks() {
+  const box = $("dash-quicklinks");
+  if (!box) return;
+  box.replaceChildren();
+  for (const link of QUICK_LINKS) {
+    const button = document.createElement("button");
+    button.className = "quick-link" + (link.primary ? " quick-link-primary" : "");
+    button.type = "button";
+    const icon = document.createElement("span");
+    icon.className = "quick-link-icon";
+    icon.textContent = link.icon;
+    icon.setAttribute("aria-hidden", "true");
+    const label = document.createElement("span");
+    label.textContent = link.label;
+    button.append(icon, label);
+    button.addEventListener("click", link.run);
+    box.appendChild(button);
   }
-  const actions = $("dash-actions");
-  if (actions && !actions.dataset.ready) {
-    actions.dataset.ready = "1";
-    for (const action of DASH_ACTIONS) {
-      const btn = document.createElement("button");
-      btn.className = "dash-action";
-      btn.type = "button";
-      btn.innerHTML = "";
-      const icon = document.createElement("span");
-      icon.className = "dash-action-icon";
-      icon.textContent = action.icon;
-      icon.setAttribute("aria-hidden", "true");
-      btn.append(icon, document.createTextNode(action.label));
-      btn.addEventListener("click", action.run);
-      actions.appendChild(btn);
+}
+
+// --- the "everything this app does" browser ----------------------------------
+// Grouped, searchable, and every entry either jumps you there or explains
+// itself — the fastest way to discover features you didn't know existed.
+function featureCatalog() {
+  return [
+    { group: "Capture & notes", items: [
+      { name: "Capture a thought", desc: "Save anything; the AI files it into a category and suggests tags.", run: () => { switchTab("notes"); $("entry-content").focus(); } },
+      { name: "Templates", desc: "Start a note from a prefilled shape (journal, recipe, meeting…).", run: () => switchTab("notes") },
+      { name: "Improve writing", desc: "Proofread, rewrite, or condense a note with AI before saving.", run: () => switchTab("notes") },
+      { name: "Sketch pad", desc: "Draw something and save it as a note with a caption.", run: () => openSketch() },
+      { name: "Dictation", desc: "Speak a note; transcribed locally with Whisper.", run: () => switchTab("notes") },
+      { name: "Attachments", desc: "Attach files and images to any note.", run: () => switchTab("notes") },
+      { name: "Threads", desc: "Continue a thought to build a train of related notes.", run: () => switchTab("notes") },
+      { name: "Pins & tags", desc: "Pin important notes and organise with tags.", run: () => switchTab("notes") },
+      { name: "Recycle bin", desc: "Deleted notes are recoverable until the bin is cleared.", run: () => switchTab("notes") },
+    ]},
+    { group: "Ask & chat", items: [
+      { name: "Ask your notebook", desc: "Questions answered strictly from your own notes.", run: () => { switchTab("notes"); $("question").focus(); } },
+      { name: "Chat", desc: "A full conversation with your notebook, saved and resumable.", run: () => { switchTab("chat"); $("chat-input").focus(); } },
+      { name: "Personas", desc: "Change the assistant's voice — Librarian, Coach, Analyst, or your own.", run: () => openSettingsModal("personas") },
+      { name: "Skills", desc: "One-click requests like “Summarise my week”; can act on your notes.", run: () => openSettingsModal("skills") },
+      { name: "AI can make changes", desc: "Let the assistant create, tag, link and organise notes for you.", run: () => switchTab("chat") },
+      { name: "Web search", desc: "Optional, opt-in: the one feature that goes online.", run: () => switchTab("chat") },
+      { name: "Export chat", desc: "Download a conversation as Markdown.", run: () => switchTab("chat") },
+    ]},
+    { group: "Map & discovery", items: [
+      { name: "Graph view", desc: "Your notes as a network of links, threads and similarity.", run: () => switchTab("graph") },
+      { name: "Edit on the map", desc: "Click any node to edit its content and tags in place.", run: () => switchTab("graph") },
+      { name: "Physics controls", desc: "Gravity and Spread sliders reshape the layout.", run: () => switchTab("graph") },
+      { name: "Suggested links", desc: "The AI proposes connections between related notes.", run: () => switchTab("graph") },
+      { name: "On this day", desc: "Notes you captured on this date in past months resurface.", run: () => switchTab("dashboard") },
+      { name: "Related notes", desc: "See notes that mean something similar to the one you're reading.", run: () => switchTab("notes") },
+    ]},
+    { group: "Plan & focus", items: [
+      { name: "Reminders", desc: "Due dates with priority, repeats, snooze and notifications.", run: () => switchTab("reminders") },
+      { name: "Magic add", desc: "Type “call mum tomorrow evening” and the AI schedules it.", run: () => { switchTab("reminders"); $("reminder-magic").focus(); } },
+      { name: "Focus timer", desc: "Pomodoro-style timer with presets or your own minutes.", run: () => switchTab("dashboard") },
+      { name: "Weekly digest", desc: "An AI recap of everything you saved this week.", run: () => switchTab("dashboard") },
+      { name: "Activity heatmap", desc: "A year of capture activity at a glance.", run: () => switchTab("dashboard") },
+      { name: "Streaks", desc: "How many days in a row you've captured something.", run: () => switchTab("dashboard") },
+    ]},
+    { group: "Make it yours", items: [
+      { name: "Theme", desc: "Light, dark, or follow your system.", run: () => openSettingsModal("appearance") },
+      { name: "Accent colour", desc: "Presets or any custom colour you like.", run: () => openSettingsModal("appearance") },
+      { name: "Typography & density", desc: "Font, text size, and how roomy the layout feels.", run: () => openSettingsModal("appearance") },
+      { name: "Corner rounding & glass", desc: "Tune the shape and blur of every surface.", run: () => openSettingsModal("appearance") },
+      { name: "Animated background", desc: "Aurora, constellations, blobs or particles behind the app.", run: () => openSettingsModal("appearance") },
+      { name: "Accessibility", desc: "High-contrast mode and reduce-motion.", run: () => openSettingsModal("appearance") },
+      { name: "Custom CSS", desc: "For tinkerers: your own style overrides.", run: () => openSettingsModal("appearance") },
+      { name: "Dashboard layout", desc: "Show, hide, reorder and widen widgets.", run: () => { switchTab("dashboard"); $("dash-edit").click(); } },
+    ]},
+    { group: "Data & control", items: [
+      { name: "Export", desc: "Download everything as JSON, Markdown or CSV.", run: () => openSettingsModal("data") },
+      { name: "Import markdown", desc: "Bring in notes from an Obsidian-style vault.", run: () => openSettingsModal("data") },
+      { name: "Backups", desc: "Snapshot your notebook and restore it later.", run: () => openSettingsModal("data") },
+      { name: "Models", desc: "Choose the chat, utility and embedding models.", run: () => openSettingsModal("models") },
+      { name: "AI tool permissions", desc: "Decide exactly what the assistant is allowed to do.", run: () => openSettingsModal("tools") },
+      { name: "Lock", desc: "Password-protect the app on shared devices.", run: () => lockNow() },
+      { name: "Command palette", desc: "Ctrl/⌘-K to jump anywhere or search your notes.", run: () => { closeFeatures(); openPalette(); } },
+      { name: "Keyboard shortcuts", desc: "Press ? any time for the full list.", run: () => { closeFeatures(); openShortcuts(); } },
+      { name: "Welcome tour", desc: "Replay the introduction to MemoryMap.", run: () => { closeFeatures(); openOnboarding(); } },
+    ]},
+  ];
+}
+
+let featureAiTools = null; // fetched once per session
+
+async function openFeatures() {
+  overlayReturnFocus = document.activeElement;
+  $("features-overlay").classList.remove("hidden");
+  $("features-search").value = "";
+  renderFeatures("");
+  $("features-search").focus();
+  if (featureAiTools === null) {
+    featureAiTools = await apiJson("/chat/tools").catch(() => []);
+    if (!$("features-overlay").classList.contains("hidden")) {
+      renderFeatures($("features-search").value);
     }
   }
-  tickClocks();
+}
+
+function closeFeatures() {
+  $("features-overlay").classList.add("hidden");
+  overlayReturnFocus?.focus?.();
+  overlayReturnFocus = null;
+}
+
+function renderFeatures(query) {
+  const list = $("features-list");
+  list.replaceChildren();
+  const q = (query || "").trim().toLowerCase();
+  const groups = featureCatalog();
+  // The AI's own tools, straight from the backend registry.
+  if (featureAiTools && featureAiTools.length) {
+    groups.push({
+      group: "What the AI can do for you",
+      items: featureAiTools.map((tool) => ({
+        name: tool.name.replace(/_/g, " "),
+        desc: tool.description + (tool.destructive ? " (asks you to confirm first)" : ""),
+        run: () => openSettingsModal("tools"),
+      })),
+    });
+  }
+
+  let shown = 0;
+  for (const group of groups) {
+    const matches = group.items.filter(
+      (item) =>
+        !q ||
+        item.name.toLowerCase().includes(q) ||
+        item.desc.toLowerCase().includes(q) ||
+        group.group.toLowerCase().includes(q)
+    );
+    if (!matches.length) continue;
+    shown += matches.length;
+
+    const heading = document.createElement("h3");
+    heading.className = "features-group";
+    heading.textContent = group.group;
+    list.appendChild(heading);
+
+    for (const item of matches) {
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "feature-row";
+      const name = document.createElement("span");
+      name.className = "feature-name";
+      name.textContent = item.name;
+      const desc = document.createElement("span");
+      desc.className = "feature-desc muted";
+      desc.textContent = item.desc;
+      row.append(name, desc);
+      row.addEventListener("click", () => {
+        closeFeatures();
+        item.run();
+      });
+      list.appendChild(row);
+    }
+  }
+
+  $("features-count").textContent = q
+    ? `${shown} match${shown === 1 ? "" : "es"}`
+    : `${shown} things MemoryMap can do`;
+  if (!shown) {
+    const none = document.createElement("p");
+    none.className = "muted";
+    none.textContent = "Nothing matches that — try another word.";
+    list.appendChild(none);
+  }
 }
 
 async function renderDashboard() {
@@ -2691,7 +3479,9 @@ async function renderDashboard() {
   if (!prefsCache) {
     prefsCache = await apiJson("/preferences").catch(() => null);
   }
-  renderDashWelcome();
+  renderDashboardGreeting();
+  renderDashStats().catch(() => {});
+  renderQuickLinks();
   const grid = $("dash-grid");
   grid.replaceChildren();
   $("dash-hint").classList.toggle("hidden", !dashEditMode); // hint only in edit mode
@@ -2702,10 +3492,10 @@ async function renderDashboard() {
     if (hidden && !dashEditMode) continue;
 
     const widget = DASH_WIDGETS[name];
-    const isWide = layout.sizes[name] === "wide";
+    const isWide = layout.wide.includes(name);
     const card = document.createElement("section");
     card.className =
-      "card dash-widget" + (hidden ? " dash-hidden" : "") + (isWide ? " dash-wide" : "");
+      "card dash-widget" + (hidden ? " dash-hidden" : "") + (isWide ? " wide" : "");
     card.dataset.widget = name;
 
     const header = document.createElement("div");
@@ -2744,6 +3534,20 @@ async function renderDashboard() {
           renderDashboard();
         })
       );
+      controls.appendChild(
+        smallButton(
+          isWide ? "Narrow" : "Wide",
+          isWide ? "Show in one column" : "Span two columns",
+          async () => {
+            const next = dashLayout();
+            next.wide = isWide
+              ? next.wide.filter((n) => n !== name)
+              : [...next.wide, name];
+            await saveDashLayout(next);
+            renderDashboard();
+          }
+        )
+      );
       const handle = document.createElement("span");
       handle.className = "drag-handle";
       handle.textContent = "≡ drag";
@@ -2756,9 +3560,13 @@ async function renderDashboard() {
     body.className = "dash-body";
     card.appendChild(body);
     if (!hidden) {
-      widget.render(body).catch(() => {
-        body.textContent = "Couldn't load this widget.";
-      });
+      // Promise.resolve() so a synchronous renderer can't break the whole
+      // dashboard loop, and a throwing one only spoils its own card.
+      Promise.resolve()
+        .then(() => widget.render(body))
+        .catch(() => {
+          body.textContent = "Couldn't load this widget.";
+        });
     }
 
     // Drag to reorder (edit mode only).
@@ -2788,6 +3596,10 @@ async function renderDashboard() {
     }
     grid.appendChild(card);
   }
+  // Pack them once the cards exist; the observer keeps it right as the
+  // async widget bodies fill in.
+  grid.classList.remove("spans-ready");
+  watchDashWidgets();
 }
 
 // --- Wave J: generative art (p5.js, vendored locally) -------------------------------
@@ -3101,15 +3913,13 @@ async function renderTopTagsWidget(body) {
   const cloud = document.createElement("div");
   cloud.className = "entry-meta";
   for (const [tag, count] of top) {
-    const tagChip = chip(`${tag} · ${count}`, "tag");
-    tagChip.style.cursor = "pointer";
-    tagChip.title = `Show notes tagged “${tag}”`;
-    tagChip.addEventListener("click", () => {
+    const tagChip = chip(`${tag} · ${count}`, "tag", () => {
       $("note-search").value = tag;
       noteSearch = tag;
       switchTab("notes");
       renderEntries();
     });
+    tagChip.title = `Show notes tagged “${tag}”`;
     cloud.appendChild(tagChip);
   }
   body.appendChild(cloud);
@@ -3125,12 +3935,11 @@ async function renderQuestionsWidget(body) {
   const box = document.createElement("div");
   box.className = "recent";
   for (const question of questions) {
-    const chipEl = chip(question.length > 40 ? question.slice(0, 39) + "…" : question);
-    chipEl.title = question;
-    chipEl.addEventListener("click", () => {
+    const chipEl = chip(question.length > 40 ? question.slice(0, 39) + "…" : question, "", () => {
       switchTab("chat");
       sendChatMessage(question);
     });
+    chipEl.title = question;
     box.appendChild(chipEl);
   }
   body.appendChild(box);
@@ -3169,23 +3978,58 @@ function loadDigestCache() {
 
 // Kicks off (or reuses) one generation. Caches the result for today,
 // unless the server says it isn't cacheable (e.g. Ollama was offline).
-function generateDigest() {
+// Streams the digest, calling onDelta with each chunk so the widget can show
+// words as they arrive rather than a spinner. Resolves with the full text.
+function generateDigest(onDelta) {
   if (!digestPromise) {
-    digestPromise = apiJson("/insights/digest", { method: "POST" })
+    digestPromise = streamDigest(onDelta)
       .then((result) => {
         if (result.cacheable !== false) {
           localStorage.setItem(
             DIGEST_KEY,
-            JSON.stringify({ text: result.digest, date: todayStamp() })
+            JSON.stringify({ text: result.text, date: todayStamp() })
           );
         }
-        return result.digest;
+        return result.text;
       })
       .finally(() => {
         digestPromise = null;
       });
   }
   return digestPromise;
+}
+
+async function streamDigest(onDelta) {
+  const response = await api("/insights/digest/stream", { method: "POST" });
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let text = "";
+  let cacheable = true;
+  // NDJSON: one JSON object per line, same shape as the chat stream.
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      let event;
+      try {
+        event = JSON.parse(line);
+      } catch {
+        continue; // a partial line — the next chunk completes it
+      }
+      if (event.type === "answer") {
+        text += event.delta;
+        if (onDelta) onDelta(text);
+      } else if (event.type === "done") {
+        cacheable = event.cacheable !== false;
+      }
+    }
+  }
+  return { text, cacheable };
 }
 
 async function renderDigestWidget(body) {
@@ -3208,7 +4052,19 @@ async function renderDigestWidget(body) {
     thinking.className = "muted";
     thinking.append(typingDots(), " Thinking about your week…");
     body.replaceChildren(thinking);
-    generateDigest()
+    // Live-render the text as it streams in; the dots stay until the first
+    // token arrives, then the words take over.
+    const live = document.createElement("div");
+    let started = false;
+    generateDigest((soFar) => {
+      if (!body.isConnected) return;
+      if (!started) {
+        started = true;
+        body.replaceChildren(live);
+      }
+      renderMarkdown(live, soFar);
+      body.scrollTop = body.scrollHeight;
+    })
       .then((text) => {
         // The widget may have been left/re-rendered while we waited —
         // only paint if this exact body is still on screen.
@@ -3289,15 +4145,305 @@ async function renderRemindersWidget(body) {
   body.appendChild(ul);
 }
 
+// --- activity heatmap (a year of capture activity, GitHub-style) ------------
+
+async function renderHeatmapWidget(body) {
+  const data = await apiJson("/insights/heatmap").catch(() => null);
+  if (!data) {
+    body.textContent = "Couldn't load your activity.";
+    body.className += " muted";
+    return;
+  }
+  if (!data.total) {
+    body.textContent = "Save some notes and your activity shows up here.";
+    body.className += " muted";
+    return;
+  }
+
+  const grid = document.createElement("div");
+  grid.className = "heatmap";
+  const start = new Date(`${data.start}T00:00:00`);
+  // Pad so each column is a whole week starting on Sunday.
+  const lead = start.getDay();
+  for (let i = 0; i < lead; i++) {
+    const blank = document.createElement("span");
+    blank.className = "heat-cell heat-blank";
+    grid.appendChild(blank);
+  }
+  data.counts.forEach((count, index) => {
+    const cell = document.createElement("span");
+    // Five buckets, scaled against the busiest day so quiet notebooks
+    // still show contrast.
+    const level = count === 0 ? 0 : Math.min(4, Math.ceil((count / data.busiest) * 4));
+    cell.className = `heat-cell heat-${level}`;
+    const day = new Date(start);
+    day.setDate(day.getDate() + index);
+    cell.title = `${day.toLocaleDateString()} — ${count} note${count === 1 ? "" : "s"}`;
+    grid.appendChild(cell);
+  });
+  body.appendChild(grid);
+  // The grid runs oldest → newest, so the interesting end is the right one.
+  // Start scrolled there instead of making the user drag across a year of
+  // empty squares to find today.
+  requestAnimationFrame(() => {
+    grid.scrollLeft = grid.scrollWidth;
+  });
+
+  const legend = document.createElement("div");
+  legend.className = "heat-legend muted";
+  const less = document.createElement("span");
+  less.textContent = "Less";
+  legend.appendChild(less);
+  for (let level = 0; level <= 4; level++) {
+    const swatch = document.createElement("span");
+    swatch.className = `heat-cell heat-${level}`;
+    legend.appendChild(swatch);
+  }
+  const more = document.createElement("span");
+  more.textContent = "More";
+  legend.appendChild(more);
+  body.appendChild(legend);
+
+  const summary = document.createElement("p");
+  summary.className = "muted";
+  summary.textContent = `${data.total} notes in the last year · busiest day ${data.busiest}`;
+  body.appendChild(summary);
+}
+
+// --- category breakdown ------------------------------------------------------
+
+async function renderCategoriesWidget(body) {
+  const stats = await apiJson("/insights/stats").catch(() => null);
+  const categories = (stats && stats.categories) || [];
+  if (!categories.length) {
+    body.textContent = "Save a few notes and your categories appear here.";
+    body.className += " muted";
+    return;
+  }
+  const max = categories[0].count || 1;
+  const list = document.createElement("div");
+  list.className = "cat-bars";
+  for (const { name, count } of categories.slice(0, 8)) {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "cat-row";
+    row.title = `Show the ${name} notes`;
+    const label = document.createElement("span");
+    label.className = "cat-name";
+    label.textContent = name;
+    const track = document.createElement("span");
+    track.className = "cat-track";
+    const fill = document.createElement("span");
+    fill.className = "cat-fill";
+    fill.style.width = `${Math.max(6, (count / max) * 100)}%`;
+    track.appendChild(fill);
+    const num = document.createElement("span");
+    num.className = "cat-count";
+    num.textContent = count;
+    row.append(label, track, num);
+    row.addEventListener("click", () => {
+      activeCategory = name;
+      switchTab("notes");
+      renderEntries();
+      renderSidebar();
+    });
+    list.appendChild(row);
+  }
+  body.appendChild(list);
+}
+
+// --- rediscover a random note ------------------------------------------------
+
+async function renderRandomNoteWidget(body) {
+  const entries = allEntries.length
+    ? allEntries
+    : await apiJson("/entries").catch(() => []);
+  if (!entries.length) {
+    body.textContent = "Save some notes and one will resurface here.";
+    body.className += " muted";
+    return;
+  }
+
+  const paint = () => {
+    body.replaceChildren();
+    const note = entries[Math.floor(Math.random() * entries.length)];
+    const text = document.createElement("p");
+    text.className = "random-note";
+    text.textContent =
+      note.content.length > 240 ? note.content.slice(0, 239) + "…" : note.content;
+    body.appendChild(text);
+
+    const meta = document.createElement("div");
+    meta.className = "entry-meta";
+    meta.appendChild(chip(note.category || "Uncategorised", "tag"));
+    const when = document.createElement("span");
+    when.className = "entry-date";
+    when.textContent = new Date(note.created_at).toLocaleDateString();
+    meta.appendChild(when);
+    body.appendChild(meta);
+
+    const row = document.createElement("div");
+    row.className = "row";
+    row.appendChild(smallButton("🎲 Another", "Show a different note", paint));
+    row.appendChild(
+      smallButton("📝 Open", "Open this note in the Notes tab", () => flashEntry(note.id))
+    );
+    body.appendChild(row);
+  };
+  paint();
+}
+
+// --- weighted tag cloud ------------------------------------------------------
+
+async function renderTagCloudWidget(body) {
+  const tags = await apiJson("/insights/tag-cloud").catch(() => []);
+  if (!tags.length) {
+    body.textContent = "Tag some notes and your cloud grows here.";
+    body.className += " muted";
+    return;
+  }
+  const max = tags[0].count || 1;
+  const cloud = document.createElement("div");
+  cloud.className = "tag-cloud";
+  for (const { tag, count } of tags) {
+    // Font size scales with frequency (0.8rem – 1.7rem).
+    const weight = count / max;
+    const item = chip(tag, "tag", () => {
+      $("note-search").value = tag;
+      noteSearch = tag;
+      switchTab("notes");
+      renderEntries();
+    });
+    item.style.fontSize = `${(0.8 + weight * 0.9).toFixed(2)}rem`;
+    item.style.opacity = String(0.55 + weight * 0.45);
+    item.title = `${count} note${count === 1 ? "" : "s"} tagged “${tag}”`;
+    cloud.appendChild(item);
+  }
+  body.appendChild(cloud);
+}
+
+// --- focus timer (dashboard widget) -----------------------------------------
+// State lives at module level so it keeps running while the widget re-renders
+// (e.g. when you switch away and back to the dashboard).
+let focusTimer = { remaining: 0, total: 25 * 60, running: false, handle: null };
+
+function focusTimeLabel(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+function paintFocusTimer() {
+  const display = $("focus-timer-display");
+  if (display) {
+    const shown = focusTimer.remaining || focusTimer.total;
+    display.textContent = focusTimeLabel(shown);
+  }
+  const toggle = $("focus-timer-toggle");
+  if (toggle) toggle.textContent = focusTimer.running ? "Pause" : "Start";
+}
+
+function focusTimerTick() {
+  if (focusTimer.remaining > 0) {
+    focusTimer.remaining -= 1;
+    paintFocusTimer();
+    if (focusTimer.remaining === 0) {
+      stopFocusTimer();
+      toast("⏱ Focus session complete — nice work!");
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification("MemoryMap", { body: "Focus session complete — nice work!" });
+      }
+    }
+  }
+}
+
+function startFocusTimer() {
+  if (focusTimer.running) return;
+  if (focusTimer.remaining <= 0) focusTimer.remaining = focusTimer.total;
+  focusTimer.running = true;
+  if ("Notification" in window && Notification.permission === "default") {
+    Notification.requestPermission();
+  }
+  focusTimer.handle = setInterval(focusTimerTick, 1000);
+  paintFocusTimer();
+}
+
+function stopFocusTimer() {
+  focusTimer.running = false;
+  if (focusTimer.handle) clearInterval(focusTimer.handle);
+  focusTimer.handle = null;
+  paintFocusTimer();
+}
+
+function setFocusTimer(minutes) {
+  stopFocusTimer();
+  focusTimer.total = Math.max(1, Math.round(minutes)) * 60;
+  focusTimer.remaining = 0;
+  paintFocusTimer();
+}
+
+// async to match the widget contract in renderDashboard (render() must
+// return a promise).
+async function renderFocusTimerWidget(body) {
+  const display = document.createElement("div");
+  display.id = "focus-timer-display";
+  display.className = "focus-timer-display";
+  body.appendChild(display);
+
+  const presets = document.createElement("div");
+  presets.className = "row focus-presets";
+  for (const mins of [5, 15, 25]) {
+    presets.appendChild(smallButton(`${mins}m`, `${mins} minutes`, () => setFocusTimer(mins)));
+  }
+  const custom = document.createElement("input");
+  custom.type = "number";
+  custom.min = "1";
+  custom.max = "180";
+  custom.placeholder = "min";
+  custom.className = "focus-custom";
+  custom.setAttribute("aria-label", "Custom minutes");
+  custom.addEventListener("change", () => {
+    const value = Number(custom.value);
+    if (value >= 1) setFocusTimer(value);
+  });
+  presets.appendChild(custom);
+  body.appendChild(presets);
+
+  const controls = document.createElement("div");
+  controls.className = "row";
+  const toggle = smallButton("Start", "Start or pause the timer", () => {
+    if (focusTimer.running) stopFocusTimer();
+    else startFocusTimer();
+  }, false);
+  toggle.id = "focus-timer-toggle";
+  const reset = smallButton("Reset", "Reset the timer", () => {
+    focusTimer.remaining = 0;
+    stopFocusTimer();
+  });
+  controls.append(toggle, reset);
+  body.appendChild(controls);
+
+  paintFocusTimer();
+}
+
 // --- reminders tab (Wave D) --------------------------------------------------------
 
 const notifiedReminderIds = new Set(); // don't re-notify within a session
 
+let reminderFilter = "open"; // open | all | done
+
 async function loadReminders() {
-  const reminders = await apiJson("/reminders").catch(() => []);
+  const all = await apiJson("/reminders").catch(() => []);
   const groupsBox = $("reminder-groups");
   groupsBox.replaceChildren();
-  $("reminders-empty").classList.toggle("hidden", reminders.length > 0);
+
+  const reminders = all.filter((r) =>
+    reminderFilter === "all" ? true : reminderFilter === "done" ? r.done : !r.done
+  );
+  $("reminders-empty").classList.toggle("hidden", all.length > 0);
+  $("reminder-clear-done").classList.toggle("hidden", !all.some((r) => r.done));
+  // Surface anything due on the tab itself, from wherever you are.
+  updateReminderBadge(all);
 
   const now = new Date();
   const endOfToday = new Date(now);
@@ -3311,12 +4457,28 @@ async function loadReminders() {
     else groups.Upcoming.push(reminder);
   }
 
+  // Nothing in this filter, but reminders do exist elsewhere.
+  if (all.length && !reminders.length) {
+    const none = document.createElement("p");
+    none.className = "muted";
+    none.textContent =
+      reminderFilter === "done"
+        ? "Nothing completed yet."
+        : "All clear — nothing open.";
+    groupsBox.appendChild(none);
+  }
+
   for (const label of ["Overdue", "Today", "Upcoming", "Done"]) {
     const items = groups[label];
     if (!items.length) continue;
     const heading = document.createElement("h3");
-    heading.className = "reminder-group-head";
-    heading.textContent = `${label} (${items.length})`;
+    heading.className = `reminder-group-head group-${label.toLowerCase()}`;
+    const text = document.createElement("span");
+    text.textContent = label;
+    const count = document.createElement("span");
+    count.className = "group-count";
+    count.textContent = items.length;
+    heading.append(text, count);
     groupsBox.appendChild(heading);
     const ul = document.createElement("ul");
     ul.className = "entry-list";
@@ -3325,11 +4487,52 @@ async function loadReminders() {
   }
 }
 
+// A count of due-or-overdue reminders on the Reminders tab button, so you
+// notice them from any tab.
+function updateReminderBadge(reminders) {
+  const button = $("tab-btn-reminders");
+  if (!button) return;
+  const now = new Date();
+  const due = (reminders || []).filter(
+    (r) => !r.done && new Date(r.due_at) <= now
+  ).length;
+  let badge = button.querySelector(".tab-badge");
+  if (!due) {
+    badge?.remove();
+    return;
+  }
+  if (!badge) {
+    badge = document.createElement("span");
+    badge.className = "tab-badge";
+    button.appendChild(badge);
+  }
+  badge.textContent = due;
+  badge.title = `${due} reminder${due === 1 ? "" : "s"} due`;
+}
+
+async function clearDoneReminders() {
+  const all = await apiJson("/reminders").catch(() => []);
+  const done = all.filter((r) => r.done);
+  if (!done.length) return;
+  if (!confirm(`Delete ${done.length} completed reminder${done.length === 1 ? "" : "s"}?`)) {
+    return;
+  }
+  await Promise.all(
+    done.map((r) => api(`/reminders/${r.id}`, { method: "DELETE" }).catch(() => {}))
+  );
+  toast(`Cleared ${done.length} completed reminder${done.length === 1 ? "" : "s"}.`);
+  loadReminders();
+}
+
 let editingReminderId = null;
 
 function reminderItem(reminder, label) {
   const li = document.createElement("li");
   if (label === "Overdue") li.classList.add("overdue");
+  // Colour-code by priority (styled in CSS: a coloured left border).
+  if (reminder.priority && reminder.priority !== "normal") {
+    li.classList.add(`priority-${reminder.priority}`);
+  }
 
   if (editingReminderId === reminder.id) {
     li.appendChild(reminderEditForm(reminder));
@@ -3345,6 +4548,18 @@ function reminderItem(reminder, label) {
   checkbox.title = reminder.done ? "Reopen" : "Mark done";
   checkbox.style.width = "auto";
   checkbox.addEventListener("change", async () => {
+    // Completing a recurring reminder rolls it forward to the next interval
+    // instead of closing it permanently.
+    if (checkbox.checked && reminder.recurring && reminder.recurring !== "none") {
+      const next = nextRecurringDate(reminder.due_at, reminder.recurring);
+      await apiJson(`/reminders/${reminder.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ due_at: next.toISOString(), done: false }),
+      });
+      toast(`🔁 Rescheduled to ${next.toLocaleString()}.`);
+      loadReminders();
+      return;
+    }
     await apiJson(`/reminders/${reminder.id}`, {
       method: "PUT",
       body: JSON.stringify({ done: checkbox.checked }),
@@ -3358,6 +4573,12 @@ function reminderItem(reminder, label) {
   text.textContent = reminder.text;
   if (reminder.done) text.style.textDecoration = "line-through";
   row.appendChild(text);
+
+  if (reminder.recurring && reminder.recurring !== "none") {
+    const repeat = chip(`🔁 ${reminder.recurring}`, "tag");
+    repeat.title = `Repeats ${reminder.recurring}`;
+    row.appendChild(repeat);
+  }
 
   const due = document.createElement("span");
   due.className = "entry-date";
@@ -3389,6 +4610,21 @@ function reminderItem(reminder, label) {
     smallButton("×", "Delete this reminder", async () => {
       await apiJson(`/reminders/${reminder.id}`, { method: "DELETE" });
       loadReminders();
+      // Deleting a reminder is as undo-able as binning a note.
+      toastAction("Reminder deleted.", "Undo", async () => {
+        await apiJson("/reminders", {
+          method: "POST",
+          body: JSON.stringify({
+            text: reminder.text,
+            due_at: reminder.due_at,
+            entry_id: reminder.entry_id,
+            priority: reminder.priority || "normal",
+            recurring: reminder.recurring || "none",
+          }),
+        }).catch((e) => toast(e.message, true));
+        loadReminders();
+        toast("Reminder restored.");
+      });
     })
   );
   row.appendChild(actions);
@@ -3397,9 +4633,9 @@ function reminderItem(reminder, label) {
   if (reminder.entry_preview) {
     const linkRow = document.createElement("div");
     linkRow.className = "entry-links";
-    const noteChip = chip(`📝 ${reminder.entry_preview}`, "link");
-    noteChip.style.cursor = "pointer";
-    noteChip.addEventListener("click", () => flashEntry(reminder.entry_id));
+    const noteChip = chip(`📝 ${reminder.entry_preview}`, "link", () =>
+      flashEntry(reminder.entry_id)
+    );
     linkRow.appendChild(noteChip);
     li.appendChild(linkRow);
   }
@@ -3438,6 +4674,27 @@ function toLocalInputValue(iso) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+// The next occurrence of a recurring reminder. Steps forward from the due
+// time until it lands in the future, so completing a long-overdue daily
+// reminder doesn't just move it one day into the past.
+function nextRecurringDate(fromIso, recurring) {
+  const next = new Date(fromIso);
+  const step = () => {
+    if (recurring === "daily") next.setDate(next.getDate() + 1);
+    else if (recurring === "weekly") next.setDate(next.getDate() + 7);
+    else if (recurring === "monthly") next.setMonth(next.getMonth() + 1);
+    else next.setDate(next.getDate() + 1); // safety fallback
+  };
+  step();
+  const now = Date.now();
+  let guard = 0;
+  while (next.getTime() <= now && guard < 600) {
+    step();
+    guard += 1;
+  }
+  return next;
+}
+
 // A named quick-due preset -> a concrete Date.
 function presetDate(preset) {
   const d = new Date();
@@ -3466,6 +4723,25 @@ function reminderEditForm(reminder) {
   const dueInput = document.createElement("input");
   dueInput.type = "datetime-local";
   dueInput.value = toLocalInputValue(reminder.due_at);
+  const prioritySelect = buildSelect(
+    [
+      ["normal", "Normal"],
+      ["low", "Low priority"],
+      ["high", "High priority"],
+    ],
+    reminder.priority || "normal"
+  );
+  prioritySelect.title = "Priority";
+  const recurringSelect = buildSelect(
+    [
+      ["none", "Once"],
+      ["daily", "Daily"],
+      ["weekly", "Weekly"],
+      ["monthly", "Monthly"],
+    ],
+    reminder.recurring || "none"
+  );
+  recurringSelect.title = "Repeat";
   const row = document.createElement("div");
   row.className = "row";
   row.appendChild(
@@ -3477,7 +4753,12 @@ function reminderEditForm(reminder) {
       }
       await apiJson(`/reminders/${reminder.id}`, {
         method: "PUT",
-        body: JSON.stringify({ text, due_at: new Date(dueInput.value).toISOString() }),
+        body: JSON.stringify({
+          text,
+          due_at: new Date(dueInput.value).toISOString(),
+          priority: prioritySelect.value,
+          recurring: recurringSelect.value,
+        }),
       });
       editingReminderId = null;
       loadReminders();
@@ -3489,12 +4770,12 @@ function reminderEditForm(reminder) {
       loadReminders();
     })
   );
-  wrap.append(textInput, dueInput, row);
+  wrap.append(textInput, dueInput, prioritySelect, recurringSelect, row);
   setTimeout(() => textInput.focus(), 0);
   return wrap;
 }
 
-async function addReminder(text, dueValue, entryId = null) {
+async function addReminder(text, dueValue, entryId = null, opts = {}) {
   if (!text || !dueValue) {
     toast("A reminder needs text and a due time.", true);
     return false;
@@ -3505,6 +4786,8 @@ async function addReminder(text, dueValue, entryId = null) {
       text,
       due_at: new Date(dueValue).toISOString(),
       entry_id: entryId,
+      priority: opts.priority || "normal",
+      recurring: opts.recurring || "none",
     }),
   });
   // Ask once for notification permission, when the first reminder lands.
@@ -3514,6 +4797,33 @@ async function addReminder(text, dueValue, entryId = null) {
   toast("Reminder set.");
   loadReminders();
   return true;
+}
+
+// Magic Add: send natural language to the AI, which parses it into a reminder.
+async function magicAddReminder() {
+  const input = $("reminder-magic");
+  const status = $("reminder-magic-status");
+  const text = input.value.trim();
+  if (!text) return;
+  status.classList.remove("error");
+  status.textContent = "✨ Parsing…";
+  try {
+    const reminder = await apiJson("/reminders/parse", {
+      method: "POST",
+      // Send our clock, so "tomorrow evening" is resolved against the time
+      // the user can see rather than the server's UTC.
+      body: JSON.stringify({ text, tz_offset_minutes: -new Date().getTimezoneOffset() }),
+    });
+    input.value = "";
+    status.textContent = `Added “${reminder.text}” — ${relativeWhen(reminder.due_at)}. Edit it below if needed.`;
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+    loadReminders();
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+  }
 }
 
 // Fire browser notifications for reminders that come due while the app
@@ -3538,13 +4848,16 @@ async function checkDueReminders() {
 setInterval(checkDueReminders, 30_000);
 
 // Default due time for new reminders: tomorrow morning, 9am.
+// The field starts at today's date and the current time, so the common case
+// is a small nudge rather than re-typing the whole thing. It used to jump to
+// 9am tomorrow, which was wrong far more often than it was right. Rounded up
+// to the next five minutes so the default isn't already in the past by the
+// time you press Add.
 function defaultDueValue() {
   const due = new Date();
-  due.setDate(due.getDate() + 1);
-  due.setHours(9, 0, 0, 0);
-  // datetime-local wants "YYYY-MM-DDTHH:MM" in local time.
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${due.getFullYear()}-${pad(due.getMonth() + 1)}-${pad(due.getDate())}T${pad(due.getHours())}:${pad(due.getMinutes())}`;
+  due.setSeconds(0, 0);
+  due.setMinutes(Math.ceil((due.getMinutes() + 1) / 5) * 5);
+  return toLocalInputValue(due.toISOString());
 }
 
 // --- tiny markdown renderer (Round 1) -------------------------------------------
@@ -3942,6 +5255,13 @@ async function renderGraph() {
     graphAdjacency.get(e.target)?.add(e.source);
   }
 
+  // Physics sliders (0–100, default 50) scale the tuned defaults so the
+  // out-of-the-box layout is unchanged at 50.
+  const gravity = Number(localStorage.getItem("graph-gravity") ?? 50);
+  const spread = Number(localStorage.getItem("graph-spread") ?? 50);
+  const spreadScale = 0.5 + spread / 50; // 0.5×–2.5× the base link distance
+  const gravityScale = 0.4 + gravity / 41.7; // stronger pull → tighter clusters
+
   graphSimulation = d3
     .forceSimulation(nodes)
     .force(
@@ -3949,11 +5269,11 @@ async function renderGraph() {
       d3
         .forceLink(edges)
         .id((d) => d.id)
-        .distance((d) => (d.kind === "similar" ? 130 : 80))
+        .distance((d) => (d.kind === "similar" ? 130 : 80) * spreadScale)
     )
     // More repulsion + a mild centring pull → notes spread out and fill
     // the space instead of clumping in the middle (Wave N polish).
-    .force("charge", d3.forceManyBody().strength(-340))
+    .force("charge", d3.forceManyBody().strength(-340 / gravityScale))
     .force("center", d3.forceCenter(width / 2, height / 2))
     .force("x", d3.forceX(width / 2).strength(0.04))
     .force("y", d3.forceY(height / 2).strength(0.06))
@@ -3990,7 +5310,7 @@ async function renderGraph() {
           d.fy = null;
         })
     )
-    .on("click", (_event, d) => flashEntry(d.id))
+    .on("click", (event, d) => openGraphPopup(event, d))
     // Double-click pins a node where it is; again releases it (Wave M).
     .on("dblclick", function (event, d) {
       event.stopPropagation(); // don't also zoom
@@ -4022,6 +5342,13 @@ async function renderGraph() {
     // Well-connected notes get a highlighted ring so the "hubs" of your
     // notebook stand out at a glance.
     .classed("graph-hub", (d) => (graphAdjacency.get(d.id)?.size || 0) >= 3);
+  // A pin badge, so pinned notes are identifiable at a glance.
+  nodeGroups
+    .filter((d) => d.pinned)
+    .append("text")
+    .attr("class", "graph-pin-badge")
+    .attr("dy", (d) => -graphNodeRadius(d) - 4)
+    .text("📌");
   // Native tooltip: full preview + category + how connected it is.
   nodeGroups.append("title").text((d) => {
     const links = graphAdjacency.get(d.id)?.size || 0;
@@ -4032,6 +5359,7 @@ async function renderGraph() {
   });
   nodeGroups
     .append("text")
+    .attr("class", "graph-label")
     .attr("dy", (d) => graphNodeRadius(d) + 13)
     .text((d) => (d.preview.length > 22 ? d.preview.slice(0, 21) + "…" : d.preview));
 
@@ -4116,10 +5444,18 @@ function fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height) {
 // the hovered note plus its direct neighbours; edges stay bright only when
 // both ends survive. Search (Wave M) and hover-spotlight share one pass so
 // they can't contradict each other.
+// Set by "≈ Similar" to spotlight an explicit set of notes; cleared by the
+// next search or refresh.
+let graphHighlightIds = null;
+
 function applyGraphHighlight() {
   if (!graphNodeSelection) return;
   const query = $("graph-search").value.trim().toLowerCase();
-  const searchOk = (d) => !query || d.preview.toLowerCase().includes(query);
+  if (query) graphHighlightIds = null; // typing takes over the spotlight
+  const searchOk = (d) =>
+    graphHighlightIds
+      ? graphHighlightIds.has(d.id)
+      : !query || d.preview.toLowerCase().includes(query);
 
   const neighbours =
     graphHoveredId != null && graphAdjacency
@@ -4138,11 +5474,266 @@ function applyGraphHighlight() {
   graphEdgeSelection.classed("graph-dim", (d) => {
     const s = idOf(d.source);
     const t = idOf(d.target);
-    const bySearch = !query || (searchOk(d.source) && searchOk(d.target));
+    const bySearch =
+      !(query || graphHighlightIds) || (searchOk(d.source) && searchOk(d.target));
     const byHover =
       neighbours == null || s === graphHoveredId || t === graphHoveredId;
     return !(bySearch && byHover);
   });
+}
+
+// --- graph node popup: edit a note without leaving the map -------------------
+
+let graphPopupId = null;
+
+async function openGraphPopup(event, node) {
+  event.stopPropagation();
+  graphPopupId = node.id;
+  const popup = $("graph-popup");
+  const status = $("graph-popup-status");
+  status.textContent = "";
+  status.classList.remove("error");
+  $("graph-popup-title").textContent = node.category || "Note";
+  $("graph-popup-content").value = "Loading…";
+  $("graph-popup-tags").value = "";
+  popup.classList.remove("hidden");
+
+  // Position near the click, kept inside the graph box (measured after it's
+  // visible so the real height is used and it never hangs off the edge).
+  const box = $("graph-box").getBoundingClientRect();
+  const size = popup.getBoundingClientRect();
+  const left = Math.min(
+    Math.max(event.clientX - box.left + 12, 8),
+    Math.max(8, box.width - size.width - 8)
+  );
+  const top = Math.min(
+    Math.max(event.clientY - box.top + 12, 8),
+    Math.max(8, box.height - size.height - 8)
+  );
+  popup.style.left = `${left}px`;
+  popup.style.top = `${top}px`;
+
+  const entry = await apiJson(`/entries/${node.id}`).catch(() => null);
+  if (!entry || graphPopupId !== node.id) {
+    if (graphPopupId === node.id) {
+      $("graph-popup-content").value = "";
+      status.textContent = "Couldn't load this note.";
+      status.classList.add("error");
+    }
+    return;
+  }
+  $("graph-popup-content").value = entry.content;
+  $("graph-popup-tags").value = (entry.tags || []).join(", ");
+  renderGraphPopupInfo(entry, node);
+  renderGraphPopupActions(entry);
+  $("graph-popup-content").focus();
+}
+
+// The facts about a note, as small chips.
+function renderGraphPopupInfo(entry, node) {
+  const box = $("graph-popup-info");
+  box.replaceChildren();
+  const facts = [
+    ["🗂", entry.category || node.category || "Uncategorised"],
+    ["🕐", new Date(entry.created_at).toLocaleDateString()],
+    ["🔗", `${(entry.links || []).length} link${(entry.links || []).length === 1 ? "" : "s"}`],
+    ["👁", `${entry.access_count || 0} view${entry.access_count === 1 ? "" : "s"}`],
+  ];
+  if (entry.pinned) facts.push(["📌", "Pinned"]);
+  if (typeof entry.ai_confidence === "number") {
+    facts.push(["🎯", `${entry.ai_confidence}% confident`]);
+  }
+  for (const [icon, text] of facts) {
+    const item = chip(`${icon} ${text}`, "tag");
+    box.appendChild(item);
+  }
+  const tags = entry.tags || [];
+  for (const tag of tags.slice(0, 6)) box.appendChild(chip(tag, "tag"));
+}
+
+// Everything you can do to this note from the map.
+function renderGraphPopupActions(entry) {
+  const box = $("graph-popup-actions");
+  box.replaceChildren();
+
+  box.appendChild(
+    smallButton(entry.pinned ? "📌 Unpin" : "📌 Pin", "Pin or unpin this note", async () => {
+      await apiJson(`/entries/${entry.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ pinned: !entry.pinned }),
+      }).catch((e) => toast(e.message, true));
+      toast(entry.pinned ? "Unpinned." : "Pinned.");
+      closeGraphPopup();
+      await loadEntries().catch(() => {});
+      renderGraph();
+    })
+  );
+  box.appendChild(
+    smallButton("🌱 Grow", "Add a new note linked to this one", (event) =>
+      openGraphNewNote(event, entry.id)
+    )
+  );
+  box.appendChild(
+    smallButton("≈ Similar", "Highlight notes that mean something similar", async () => {
+      const related = await apiJson(`/entries/${entry.id}/related`).catch(() => []);
+      if (!related.length) {
+        toast("No similar notes found.");
+        return;
+      }
+      // Reuse the existing highlight pass by searching for these ids.
+      graphHighlightIds = new Set(related.map((r) => r.id).concat(entry.id));
+      applyGraphHighlight();
+      closeGraphPopup();
+      toast(`Highlighted ${related.length} similar note${related.length === 1 ? "" : "s"}.`);
+    })
+  );
+  box.appendChild(
+    smallButton("🔗 Link", "Start linking this note to another", () => {
+      closeGraphPopup();
+      beginOrCompleteLink(entry);
+      toast("Now click another note on the map to link them.");
+    })
+  );
+  box.appendChild(
+    smallButton("⏰ Remind", "Set a reminder about this note", () => {
+      closeGraphPopup();
+      switchTab("reminders");
+      $("reminder-text").value = `Follow up: ${entry.content.slice(0, 60)}`;
+      $("reminder-due").value = defaultDueValue();
+      $("reminder-text").focus();
+    })
+  );
+  box.appendChild(
+    smallButton("📝 Open", "Open this note in the Notes tab", () => {
+      const id = entry.id;
+      closeGraphPopup();
+      flashEntry(id);
+    })
+  );
+  box.appendChild(
+    smallButton("🗑 Bin", "Move this note to the recycle bin", async () => {
+      if (!confirm("Move this note to the recycle bin?")) return;
+      await api(`/entries/${entry.id}`, { method: "DELETE" }).catch((e) =>
+        toast(e.message, true)
+      );
+      closeGraphPopup();
+      await loadEntries().catch(() => {});
+      renderGraph();
+      toastAction("Moved to the recycle bin.", "Undo", async () => {
+        await api(`/entries/${entry.id}/restore`, { method: "POST" });
+        await loadEntries();
+        renderGraph();
+        toast("Note restored.");
+      });
+    })
+  );
+}
+
+function closeGraphPopup() {
+  graphPopupId = null;
+  $("graph-popup").classList.add("hidden");
+}
+
+async function saveGraphPopup() {
+  if (graphPopupId === null) return;
+  const status = $("graph-popup-status");
+  const tags = $("graph-popup-tags")
+    .value.split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
+  status.classList.remove("error");
+  status.textContent = "Saving…";
+  try {
+    await apiJson(`/entries/${graphPopupId}`, {
+      method: "PUT",
+      body: JSON.stringify({ content: $("graph-popup-content").value, tags }),
+    });
+    status.textContent = "Saved.";
+    await loadEntries().catch(() => {});
+    renderGraph(); // content/tags may change what the map shows
+    setTimeout(closeGraphPopup, 600);
+  } catch (error) {
+    status.textContent = error.message;
+    status.classList.add("error");
+  }
+}
+
+// --- grow the map: add a note as a new node ----------------------------------
+// The graph stops being read-only here — you can extend your notebook from the
+// map itself, and a note grown from an existing one is linked to it, so the
+// new node appears already connected.
+
+let graphNewLinkFrom = null; // note id the new one should link to, if any
+
+function openGraphNewNote(event, linkFrom = null) {
+  closeGraphPopup();
+  graphNewLinkFrom = linkFrom;
+  const popup = $("graph-new");
+  $("graph-new-content").value = "";
+  $("graph-new-tags").value = "";
+  $("graph-new-status").textContent = "";
+  $("graph-new-status").classList.remove("error");
+  $("graph-new-title").textContent = linkFrom ? "＋ Connected note" : "＋ New note";
+  $("graph-new-hint").textContent = linkFrom
+    ? "This note will be linked to the one you grew it from."
+    : "It joins the map as soon as you add it.";
+  popup.classList.remove("hidden");
+
+  const box = $("graph-box").getBoundingClientRect();
+  const size = popup.getBoundingClientRect();
+  // Centre it when there's no click position (toolbar button).
+  const rawX = event ? event.clientX - box.left + 12 : (box.width - size.width) / 2;
+  const rawY = event ? event.clientY - box.top + 12 : 60;
+  popup.style.left = `${Math.min(Math.max(rawX, 8), Math.max(8, box.width - size.width - 8))}px`;
+  popup.style.top = `${Math.min(Math.max(rawY, 8), Math.max(8, box.height - size.height - 8))}px`;
+  $("graph-new-content").focus();
+}
+
+function closeGraphNewNote() {
+  graphNewLinkFrom = null;
+  $("graph-new").classList.add("hidden");
+}
+
+async function saveGraphNewNote() {
+  const content = $("graph-new-content").value.trim();
+  const status = $("graph-new-status");
+  if (!content) {
+    status.textContent = "Type something first.";
+    status.classList.add("error");
+    return;
+  }
+  const tags = $("graph-new-tags")
+    .value.split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
+  status.classList.remove("error");
+  status.textContent = "Adding…";
+  try {
+    const created = await apiJson("/entries", {
+      method: "POST",
+      body: JSON.stringify({ content, tags }),
+    });
+    if (graphNewLinkFrom !== null) {
+      await apiJson(`/entries/${graphNewLinkFrom}/links`, {
+        method: "POST",
+        body: JSON.stringify({ target_id: created.id }),
+      }).catch(() => {}); // the note still exists even if linking fails
+    }
+    closeGraphNewNote();
+    toast(graphNewLinkFrom !== null ? "Added and linked." : "Added to the map.");
+    await loadEntries().catch(() => {});
+    await renderGraph();
+    // Land the eye on the note that was just created.
+    graphHighlightIds = new Set([created.id]);
+    applyGraphHighlight();
+    setTimeout(() => {
+      graphHighlightIds = null;
+      applyGraphHighlight();
+    }, 2500);
+  } catch (error) {
+    status.textContent = error.message;
+    status.classList.add("error");
+  }
 }
 
 // --- tabs (Wave A) ----------------------------------------------------------------
@@ -4225,7 +5816,7 @@ function showPanel(id) {
 
 // --- settings modal (Wave A) ------------------------------------------------------
 
-const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "appearance", "preferences", "tasks", "data", "logs", "about"];
+const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "appearance", "preferences", "tasks", "data", "logs", "help", "about"];
 
 // Where to send focus back when a dialog closes (Wave L).
 let overlayReturnFocus = null;
@@ -4409,11 +6000,14 @@ let prefsCache = null;
 
 async function renderPrefs() {
   prefsCache = await apiJson("/preferences");
+  $("pref-display-name").value = prefsCache.display_name || "";
   $("pref-bin-days").value = prefsCache.recycle_bin_days;
   $("pref-style").value = prefsCache.communication_style;
   $("pref-profile").value = prefsCache.user_profile;
   $("pref-profile-enabled").checked = prefsCache.profile_enabled;
   $("pref-web-search").checked = Boolean(prefsCache.web_search_enabled);
+  $("pref-searxng").value = prefsCache.searxng_url || "";
+  refreshSearxngHost().catch(() => {});
   $("prefs-status").textContent = "";
 }
 
@@ -4422,14 +6016,18 @@ async function savePrefs() {
     prefsCache = await apiJson("/preferences", {
       method: "PUT",
       body: JSON.stringify({
+        display_name: $("pref-display-name").value.trim(),
         recycle_bin_days: Number($("pref-bin-days").value),
         communication_style: $("pref-style").value,
         user_profile: $("pref-profile").value,
         profile_enabled: $("pref-profile-enabled").checked,
         web_search_enabled: $("pref-web-search").checked,
+        searxng_url: $("pref-searxng").value.trim(),
       }),
     });
     $("prefs-status").textContent = "Saved.";
+    // Reflect a name change immediately if the dashboard is showing.
+    if (typeof renderDashboardGreeting === "function") renderDashboardGreeting();
   } catch (error) {
     $("prefs-status").textContent = error.message;
   }
@@ -4871,12 +6469,11 @@ async function loadRecentQuestions() {
   label.textContent = "Ask again:";
   box.appendChild(label);
   for (const question of questions) {
-    const again = chip(question.length > 48 ? question.slice(0, 47) + "…" : question);
-    again.title = question;
-    again.addEventListener("click", () => {
+    const again = chip(question.length > 48 ? question.slice(0, 47) + "…" : question, "", () => {
       $("question").value = question;
       askQuestion();
     });
+    again.title = question;
     box.appendChild(again);
   }
 }
@@ -5542,14 +7139,59 @@ function applyContrast(on) {
 const APPEARANCE_DEFAULTS = {
   fontsize: "normal",
   font: "system", // system | serif | mono
-  density: "comfortable",
+  density: "comfortable", // comfortable | compact | spacious
   glass: "on",
   motion: "auto", // "auto" = follow the OS; "reduced" = force-still
   "bg-intensity": "90",
+  radius: "14", // global corner rounding, px
+  "glass-blur": "18", // frosted-glass blur strength, px
+  "bg-style": "aurora", // aurora | constellations | blobs | particles
 };
 
 function appearancePref(key) {
   return localStorage.getItem(key) || APPEARANCE_DEFAULTS[key];
+}
+
+// "#rrggbb" -> "r, g, b" so a custom colour can drive rgba() softs.
+function hexToRgbParts(hex) {
+  const clean = String(hex || "").replace("#", "");
+  if (clean.length !== 6) return null;
+  const n = Number.parseInt(clean, 16);
+  if (Number.isNaN(n)) return null;
+  return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`;
+}
+
+// A user-chosen accent overrides the preset palette via inline custom
+// properties; clearing it falls back to the data-accent presets.
+function applyCustomAccent(hex) {
+  const root = document.documentElement;
+  const parts = hex ? hexToRgbParts(hex) : null;
+  if (!parts) {
+    root.style.removeProperty("--accent");
+    root.style.removeProperty("--accent-soft");
+    root.style.removeProperty("--blob-a");
+    return;
+  }
+  root.style.setProperty("--accent", hex);
+  root.style.setProperty("--accent-soft", `rgba(${parts}, 0.14)`);
+  root.style.setProperty("--blob-a", `rgba(${parts}, 0.30)`);
+}
+
+function applyPageBackground(hex) {
+  const root = document.documentElement;
+  if (hex) root.style.setProperty("--page", hex);
+  else root.style.removeProperty("--page");
+}
+
+// User CSS lives in one <style> we own, so applying and clearing is clean.
+function applyCustomCss(css) {
+  let tag = document.getElementById("user-css");
+  if (!tag) {
+    tag = document.createElement("style");
+    tag.id = "user-css";
+    document.head.appendChild(tag);
+  }
+  tag.textContent = css || "";
 }
 
 // Applied once at startup (called from the pre-paint path) and on change.
@@ -5561,6 +7203,14 @@ function applyAppearance() {
   root.dataset.glass = appearancePref("glass");
   root.dataset.motion = appearancePref("motion");
   root.style.setProperty("--bg-art-opacity", Number(appearancePref("bg-intensity")) / 100);
+  // Cards thin out slightly while the art is on, so it reads through the page
+  // rather than only in the margins.
+  root.dataset.bgArt = bgArtOn() ? "on" : "off";
+  root.style.setProperty("--radius", `${appearancePref("radius")}px`);
+  root.style.setProperty("--glass-blur", `${appearancePref("glass-blur")}px`);
+  applyCustomAccent(localStorage.getItem("accent-custom"));
+  applyPageBackground(localStorage.getItem("page-bg"));
+  applyCustomCss(localStorage.getItem("custom-css"));
 }
 
 function effectiveTheme() {
@@ -5594,8 +7244,12 @@ function renderAppearance() {
     button.style.background = accent.swatch;
     button.title = accent.label;
     button.setAttribute("aria-label", `${accent.label} accent`);
-    button.classList.toggle("active", accent.name === activeAccent());
+    // A custom colour wins, so no preset shows as active while it's set.
+    const customSet = Boolean(localStorage.getItem("accent-custom"));
+    button.classList.toggle("active", !customSet && accent.name === activeAccent());
     button.addEventListener("click", () => {
+      localStorage.removeItem("accent-custom"); // presets clear a custom colour
+      applyCustomAccent(null);
       applyAccent(accent.name);
       renderAppearance();
     });
@@ -5609,6 +7263,21 @@ function renderAppearance() {
   $("bg-intensity-row").classList.toggle("hidden", !bgArtOn());
   $("glass-toggle").checked = appearancePref("glass") === "on";
   $("bg-intensity").value = appearancePref("bg-intensity");
+  $("bg-intensity-value").textContent = `${appearancePref("bg-intensity")}%`;
+  $("bg-art-style").value = appearancePref("bg-style");
+  $("radius-slider").value = appearancePref("radius");
+  $("radius-value").textContent = `${appearancePref("radius")}px`;
+  $("glass-blur").value = appearancePref("glass-blur");
+  $("glass-blur-value").textContent = `${appearancePref("glass-blur")}px`;
+  $("accent-custom").value = localStorage.getItem("accent-custom") || "#4f6df5";
+  $("page-bg-custom").value = localStorage.getItem("page-bg") || "#f5f7fb";
+  $("custom-css").value = localStorage.getItem("custom-css") || "";
+  // Blur strength only matters while glass is on.
+  $("glass-blur-row").classList.toggle("disabled-row", appearancePref("glass") !== "on");
+  // Style/intensity only matter while the background art is on.
+  const artOff = !bgArtOn();
+  $("bg-style-row").classList.toggle("disabled-row", artOff);
+  $("bg-intensity-row").classList.toggle("disabled-row", artOff);
   _segActive("theme-seg", "themeChoice", effectiveTheme());
   _segActive("fontsize-seg", "fontsize", appearancePref("fontsize"));
   _segActive("font-seg", "font", appearancePref("font"));
@@ -5616,12 +7285,19 @@ function renderAppearance() {
 }
 
 function resetAppearance() {
-  for (const key of ["fontsize", "font", "density", "glass", "motion", "bg-intensity", "bgArtStyle", "accent", "contrast", "bgArt", "theme"]) {
+  for (const key of [
+    "fontsize", "font", "density", "glass", "motion", "bg-intensity", "accent",
+    "contrast", "bgArt", "theme", "radius", "glass-blur", "bg-style",
+    "accent-custom", "page-bg", "custom-css",
+  ]) {
     localStorage.removeItem(key);
   }
   delete document.documentElement.dataset.accent;
   delete document.documentElement.dataset.contrast;
   delete document.documentElement.dataset.theme;
+  applyCustomAccent(null);
+  applyPageBackground(null);
+  applyCustomCss("");
   stopBgArt();
   applyAppearance();
   renderBrandLogo();
@@ -5849,8 +7525,14 @@ function startBgArt() {
   stopBgArt();
   if (typeof p5 === "undefined") return;
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // A custom accent colour, if set, drives the art too.
   const accentHex =
+    localStorage.getItem("accent-custom") ||
     (ACCENTS.find((a) => a.name === activeAccent()) || ACCENTS[0]).swatch;
+  const bgStyle = appearancePref("bg-style");
+  // Intensity drives how much is on screen, not just the CSS opacity.
+  const intensity = Number(appearancePref("bg-intensity")) || 90;
+  const densityScale = Math.max(0.25, intensity / 90);
   const dark =
     document.documentElement.dataset.theme === "dark" ||
     (!document.documentElement.dataset.theme &&
@@ -5858,21 +7540,172 @@ function startBgArt() {
   const build = BG_ART_BUILDERS[bgArtStyle()] || BG_ART_BUILDERS.aurora;
 
   const sketch = (p) => {
-    const ctx = { dark, baseHue: 230 };
-    let style = null;
+    let particles = [];
+    let baseHue = 230;
+    let emblem = [];
+
+    const drawEmblem = (t) => {
+      // A large, very faint ring of linked nodes, slowly rotating.
+      const cx = p.width / 2;
+      const cy = p.height / 2;
+      const radius = Math.min(p.width, p.height) * 0.32;
+      p.push();
+      p.translate(cx, cy);
+      p.rotate(t * 0.02);
+      p.stroke(baseHue, 50, dark ? 70 : 45, 0.05);
+      p.strokeWeight(1.5);
+      for (let i = 0; i < emblem.length; i++) {
+        for (let j = i + 1; j < emblem.length; j++) {
+          if ((i + j) % 3 === 0) {
+            p.line(
+              Math.cos(emblem[i]) * radius,
+              Math.sin(emblem[i]) * radius,
+              Math.cos(emblem[j]) * radius,
+              Math.sin(emblem[j]) * radius
+            );
+          }
+        }
+      }
+      p.noStroke();
+      for (const a of emblem) {
+        p.fill(baseHue, 55, dark ? 72 : 42, 0.07);
+        p.circle(Math.cos(a) * radius, Math.sin(a) * radius, 16);
+      }
+      p.pop();
+    };
+
+    // The flow-field aurora. A lighter wash lets trails linger, so the
+    // ribbons actually read behind the app's translucent cards.
+    const drawAurora = (t) => {
+      p.noStroke();
+      p.fill(dark ? 12 : 250, dark ? 0.09 : 0.10);
+      p.rect(0, 0, p.width, p.height);
+      drawEmblem(t);
+      for (const dot of particles) {
+        const angle =
+          p.noise(dot.x * 0.0016, dot.y * 0.0016, t * 0.15) * Math.PI * 4;
+        dot.x += Math.cos(angle) * dot.speed;
+        dot.y += Math.sin(angle) * dot.speed;
+        if (dot.x < 0) dot.x = p.width;
+        if (dot.x > p.width) dot.x = 0;
+        if (dot.y < 0) dot.y = p.height;
+        if (dot.y > p.height) dot.y = 0;
+        p.fill(dot.hue, 78, dark ? 70 : 48, 0.8);
+        p.circle(dot.x, dot.y, dot.size);
+      }
+    };
+
+    // Drifting stars joined by faint lines when they come close.
+    const drawConstellations = (t) => {
+      p.background(dark ? 12 : 250);
+      for (const dot of particles) {
+        dot.x += Math.cos(dot.phase + t * 0.25) * dot.speed * 0.6;
+        dot.y += Math.sin(dot.phase + t * 0.2) * dot.speed * 0.6;
+        if (dot.x < 0) dot.x = p.width;
+        if (dot.x > p.width) dot.x = 0;
+        if (dot.y < 0) dot.y = p.height;
+        if (dot.y > p.height) dot.y = 0;
+      }
+      p.stroke(baseHue, 60, dark ? 72 : 42, 0.3);
+      p.strokeWeight(1.2);
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const a = particles[i];
+          const b = particles[j];
+          const d = Math.hypot(a.x - b.x, a.y - b.y);
+          if (d < 110) p.line(a.x, a.y, b.x, b.y);
+        }
+      }
+      p.noStroke();
+      for (const dot of particles) {
+        p.fill(dot.hue, 72, dark ? 78 : 46, 0.85);
+        p.circle(dot.x, dot.y, dot.size + 1);
+      }
+    };
+
+    // Big soft organic shapes drifting slowly behind everything.
+    const drawBlobs = (t) => {
+      p.background(dark ? 12 : 250);
+      p.noStroke();
+      for (const blob of particles) {
+        const x = blob.baseX + Math.cos(t * 0.3 + blob.phase) * blob.amp;
+        const y = blob.baseY + Math.sin(t * 0.24 + blob.phase) * blob.amp;
+        // A few stacked translucent circles fake a soft gradient edge.
+        for (let ring = 3; ring >= 1; ring--) {
+          p.fill(blob.hue, 70, dark ? 58 : 60, 0.09);
+          p.circle(x, y, blob.size * ring * 0.8);
+        }
+      }
+    };
+
+    // A calm field of floating dust motes.
+    const drawParticles = (t) => {
+      p.background(dark ? 12 : 250);
+      p.noStroke();
+      for (const dot of particles) {
+        dot.y -= dot.speed * 0.4;
+        dot.x += Math.cos(t + dot.phase) * 0.3;
+        if (dot.y < -5) {
+          dot.y = p.height + 5;
+          dot.x = p.random(p.width);
+        }
+        p.fill(dot.hue, 70, dark ? 76 : 48, 0.7);
+        p.circle(dot.x, dot.y, dot.size);
+      }
+    };
+
+    const draw = () => {
+      const t = p.frameCount * 0.01;
+      if (bgStyle === "constellations") drawConstellations(t);
+      else if (bgStyle === "blobs") drawBlobs(t);
+      else if (bgStyle === "particles") drawParticles(t);
+      else drawAurora(t);
+    };
+
     p.setup = () => {
       const c = p.createCanvas(window.innerWidth, window.innerHeight);
       c.id("bg-art-canvas");
+      // Style it here, inside setup, where the element definitely exists.
+      // Applying the class after `new p5()` returned was a race: when p5
+      // deferred setup the lookup found nothing, the canvas kept default
+      // static positioning, and the art rendered as a block *below* the whole
+      // UI instead of fixed behind it.
+      c.elt.className = "bg-art-canvas";
+      // p5 parents new canvases to the first <main> it finds — which is the
+      // one inside the Notes tab. That hid the background art on every other
+      // tab (the whole panel is display:none). Pin it to <body> so it really
+      // is a global background.
+      c.parent(document.body);
+      // RGB for the wash rect, HSL for the coloured marks — p5 lets us
+      // switch, but simplest to keep one mode; use HSL and a grey wash.
       p.colorMode(p.HSL, 360, 100, 100, 1);
       p.noStroke();
-      ctx.baseHue = p.hue(p.color(accentHex));
-      style = build(p, ctx);
-      style.init();
+      baseHue = p.hue(p.color(accentHex));
+      // Each style wants a different population; intensity scales it.
+      const counts = { aurora: 70, constellations: 34, blobs: 7, particles: 90 };
+      const count = Math.max(3, Math.round((counts[bgStyle] ?? 70) * densityScale));
+      for (let i = 0; i < count; i++) {
+        const x = p.random(p.width);
+        const y = p.random(p.height);
+        particles.push({
+          x,
+          y,
+          baseX: x,
+          baseY: y,
+          phase: p.random(Math.PI * 2),
+          amp: p.random(40, 140),
+          speed: p.random(0.3, 1.1),
+          size: bgStyle === "blobs" ? p.random(180, 380) : p.random(2.5, 5.5),
+          hue: (baseHue + p.random(-24, 24) + 360) % 360,
+        });
+      }
+      emblem = Array.from({ length: 9 }, (_, i) => (i / 9) * Math.PI * 2);
       p.frameRate(30);
       if (reduceMotion) {
         // One calm static frame — no motion for reduced-motion users.
         p.background(dark ? 12 : 250);
-        style.frame(0);
+        if (bgStyle === "aurora") drawEmblem(0);
+        else draw();
         p.noLoop();
       }
     };
@@ -5893,48 +7726,62 @@ function startBgArt() {
   if (canvas) canvas.className = "bg-art-canvas";
 }
 
-// --- Wave O: the p5 brand logo (unique each load) -----------------------------------
-
-let brandLogoInstance = null;
+// --- Wave O: the p5 brand emblem (unique each load, reused app-wide) ----------
 
 // A tiny generative emblem next to the title: a ring of linked nodes (the
 // MemoryMap motif), coloured in the accent, seeded randomly each visit so
 // it's one-of-a-kind, with a slow rotation.
-function renderBrandLogo() {
-  if (typeof p5 === "undefined") return;
-  const holder = $("brand-logo");
-  if (!holder) return;
-  if (brandLogoInstance) {
-    brandLogoInstance.remove();
-    brandLogoInstance = null;
+// One identity per visit: every emblem in the app draws from the same seed, so
+// the logo in the top bar, on the lock screen and in the empty states is
+// recognisably the *same* mark rather than five unrelated doodles.
+const emblemSeed = Math.floor(Math.random() * 1e6);
+const emblemInstances = new Map(); // element -> p5 instance
+
+// The shared emblem sketch: a small ring of linked nodes — the MemoryMap motif
+// — in the current accent. Animated only where it's worth the frames.
+function renderEmblem(holder, size = 34, { animate = false } = {}) {
+  if (typeof p5 === "undefined" || !holder) return;
+  const existing = emblemInstances.get(holder);
+  if (existing) {
+    existing.remove();
+    emblemInstances.delete(holder);
   }
   const accentHex =
+    localStorage.getItem("accent-custom") ||
     (ACCENTS.find((a) => a.name === activeAccent()) || ACCENTS[0]).swatch;
-  const seed = Math.floor(Math.random() * 1e6);
-  const SIZE = 34;
+  // The emblem spins unless the user has explicitly asked for a still UI in
+  // Settings → Appearance. We deliberately don't freeze it on the OS-level
+  // prefers-reduced-motion hint alone: this mark has always turned, the app
+  // ships its own motion switch, and that switch is the one to obey.
+  const still = appearancePref("motion") === "reduced";
 
   const sketch = (p) => {
     let nodes = [];
     let baseHue = 230;
     p.setup = () => {
-      p.createCanvas(SIZE, SIZE);
+      p.createCanvas(size, size);
       p.colorMode(p.HSL, 360, 100, 100, 1);
-      p.randomSeed(seed);
+      p.randomSeed(emblemSeed);
       baseHue = p.hue(p.color(accentHex));
       const count = 4 + Math.floor(p.random(3)); // 4-6 nodes
       nodes = Array.from({ length: count }, (_, i) => ({
         angle: (i / count) * p.TWO_PI + p.random(-0.3, 0.3),
         hue: (baseHue + p.random(-40, 40) + 360) % 360,
       }));
-      p.frameRate(24);
+      if (animate && !still) p.frameRate(24);
+      else {
+        p.draw();
+        p.noLoop(); // a single crisp frame where motion adds nothing
+      }
     };
     p.draw = () => {
       p.clear();
-      p.translate(SIZE / 2, SIZE / 2);
-      p.rotate(p.frameCount * 0.006);
-      const r = SIZE * 0.32;
+      p.translate(size / 2, size / 2);
+      if (animate && !still) p.rotate(p.frameCount * 0.006);
+      const r = size * 0.32;
+      const dot = Math.max(4, size * 0.18);
       p.stroke(baseHue, 60, 60, 0.6);
-      p.strokeWeight(1);
+      p.strokeWeight(Math.max(1, size / 34));
       for (let i = 0; i < nodes.length; i++) {
         for (let j = i + 1; j < nodes.length; j++) {
           p.line(
@@ -5948,17 +7795,35 @@ function renderBrandLogo() {
       p.noStroke();
       for (const n of nodes) {
         p.fill(n.hue, 75, 60, 1);
-        p.circle(Math.cos(n.angle) * r, Math.sin(n.angle) * r, 6);
+        p.circle(Math.cos(n.angle) * r, Math.sin(n.angle) * r, dot);
       }
       p.fill(baseHue, 70, 62, 1);
-      p.circle(0, 0, 5); // a bright hub
+      p.circle(0, 0, dot * 0.85); // a bright hub
     };
   };
-  brandLogoInstance = new p5(sketch, holder);
+  emblemInstances.set(holder, new p5(sketch, holder));
+}
+
+// Every emblem currently on the page, keyed by element id and size.
+const EMBLEM_SLOTS = [
+  ["brand-logo", 34, true],
+  ["lock-emblem", 76, true],
+  ["onboarding-emblem", 64, false],
+  ["chat-empty-emblem", 52, false],
+  ["graph-empty-emblem", 52, false],
+  ["about-emblem", 44, false],
+];
+
+function renderBrandLogo() {
+  for (const [id, size, animate] of EMBLEM_SLOTS) {
+    const holder = document.getElementById(id);
+    if (holder) renderEmblem(holder, size, { animate });
+  }
 }
 
 function toggleBgArt(on) {
   localStorage.setItem("bgArt", on ? "on" : "off");
+  applyAppearance(); // updates data-bg-art so the cards adjust with it
   if (on) startBgArt();
   else stopBgArt();
 }
@@ -5968,12 +7833,7 @@ function toggleBgArt(on) {
 $("theme-btn").addEventListener("click", toggleTheme);
 $("bg-art-toggle").addEventListener("change", (e) => {
   toggleBgArt(e.target.checked);
-  $("bg-style-row").classList.toggle("hidden", !e.target.checked);
-  $("bg-intensity-row").classList.toggle("hidden", !e.target.checked);
-});
-$("bg-style").addEventListener("change", (e) => {
-  localStorage.setItem("bgArtStyle", e.target.value);
-  if (bgArtOn()) startBgArt(); // repaint with the newly chosen style
+  renderAppearance(); // enable/disable the style + intensity rows
 });
 $("contrast-toggle").addEventListener("change", (e) => applyContrast(e.target.checked));
 
@@ -6008,16 +7868,73 @@ for (const b of document.querySelectorAll("#density-seg button")) {
 $("glass-toggle").addEventListener("change", (e) => {
   localStorage.setItem("glass", e.target.checked ? "on" : "off");
   applyAppearance();
+  renderAppearance();
 });
 $("reduce-motion-toggle").addEventListener("change", (e) => {
   localStorage.setItem("motion", e.target.checked ? "reduced" : "auto");
   applyAppearance();
   if (e.target.checked) stopBgArt(); // a still UI shouldn't keep the art running
   else if (bgArtOn()) startBgArt();
+  renderBrandLogo(); // start/stop the emblem's rotation to match
 });
 $("bg-intensity").addEventListener("input", (e) => {
   localStorage.setItem("bg-intensity", e.target.value);
+  $("bg-intensity-value").textContent = `${e.target.value}%`;
   applyAppearance();
+  if (bgArtOn()) startBgArt(); // intensity also drives particle density
+});
+// Corner rounding + glass blur: live sliders over CSS custom properties.
+$("radius-slider").addEventListener("input", (e) => {
+  localStorage.setItem("radius", e.target.value);
+  $("radius-value").textContent = `${e.target.value}px`;
+  applyAppearance();
+});
+$("glass-blur").addEventListener("input", (e) => {
+  localStorage.setItem("glass-blur", e.target.value);
+  $("glass-blur-value").textContent = `${e.target.value}px`;
+  applyAppearance();
+});
+// Custom accent + page background.
+$("accent-custom").addEventListener("input", (e) => {
+  localStorage.setItem("accent-custom", e.target.value);
+  applyCustomAccent(e.target.value);
+  renderAppearance();
+  if (bgArtOn()) startBgArt();
+  renderBrandLogo();
+});
+$("accent-custom-clear").addEventListener("click", () => {
+  localStorage.removeItem("accent-custom");
+  applyCustomAccent(null);
+  renderAppearance();
+  if (bgArtOn()) startBgArt();
+  renderBrandLogo();
+});
+$("page-bg-custom").addEventListener("input", (e) => {
+  localStorage.setItem("page-bg", e.target.value);
+  applyPageBackground(e.target.value);
+});
+$("page-bg-clear").addEventListener("click", () => {
+  localStorage.removeItem("page-bg");
+  applyPageBackground(null);
+  renderAppearance();
+});
+// Background art style.
+$("bg-art-style").addEventListener("change", (e) => {
+  localStorage.setItem("bg-style", e.target.value);
+  if (bgArtOn()) startBgArt();
+});
+// Custom CSS (advanced).
+$("custom-css-apply").addEventListener("click", () => {
+  const css = $("custom-css").value;
+  localStorage.setItem("custom-css", css);
+  applyCustomCss(css);
+  $("custom-css-status").textContent = "Applied.";
+});
+$("custom-css-clear").addEventListener("click", () => {
+  localStorage.removeItem("custom-css");
+  $("custom-css").value = "";
+  applyCustomCss("");
+  $("custom-css-status").textContent = "Cleared.";
 });
 $("appearance-reset").addEventListener("click", resetAppearance);
 
@@ -6096,7 +8013,10 @@ $("persona-select").addEventListener("change", async () => {
 $("persona-add").addEventListener("click", addPersona);
 $("skill-add").addEventListener("click", addSkill);
 $("skill-cancel").addEventListener("click", stopEditingSkill);
-$("graph-refresh").addEventListener("click", renderGraph);
+$("graph-refresh").addEventListener("click", () => {
+  graphHighlightIds = null; // a refresh clears any "similar notes" spotlight
+  renderGraph();
+});
 $("graph-similarity").addEventListener("change", renderGraph);
 $("graph-hide-orphans").addEventListener("change", renderGraph);
 // Labels toggle just flips a class — no need to rebuild the whole map.
@@ -6104,6 +8024,37 @@ $("graph-labels").addEventListener("change", (e) => {
   $("graph-box").classList.toggle("graph-labels-hidden", !e.target.checked);
 });
 $("graph-search").addEventListener("input", applyGraphHighlight);
+
+// Physics sliders: persist, then rebuild the simulation with the new forces.
+for (const key of ["gravity", "spread"]) {
+  const input = $(`graph-${key}`);
+  input.value = localStorage.getItem(`graph-${key}`) ?? 50;
+  input.addEventListener("change", () => {
+    localStorage.setItem(`graph-${key}`, input.value);
+    renderGraph();
+  });
+}
+
+// Node popup: edit a note in place on the map.
+$("graph-popup-close").addEventListener("click", closeGraphPopup);
+$("graph-popup-save").addEventListener("click", saveGraphPopup);
+// "Open in Notes" now lives in the popup's action row (renderGraphPopupActions).
+// Clicking empty canvas dismisses the popups.
+$("graph-svg").addEventListener("click", () => {
+  closeGraphPopup();
+  closeGraphNewNote();
+});
+// Grow the map: double-click empty space to add a note right there.
+$("graph-svg").addEventListener("dblclick", (event) => {
+  if (event.target.closest(".graph-node")) return; // node dblclick pins it
+  openGraphNewNote(event);
+});
+$("graph-add-node").addEventListener("click", () => openGraphNewNote(null));
+$("graph-new-close").addEventListener("click", closeGraphNewNote);
+$("graph-new-save").addEventListener("click", saveGraphNewNote);
+$("graph-new-content").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) saveGraphNewNote();
+});
 
 // On-screen zoom controls drive the same d3 zoom behaviour as scroll/pinch.
 function graphZoomBy(factor) {
@@ -6164,6 +8115,40 @@ $("tools-toggle").addEventListener("change", async () => {
   }).catch(() => {});
 });
 
+// In-chat web-search toggle: reflects and flips the web_search_enabled pref,
+// with a clear active state (it's the same setting as Settings → Preferences).
+function renderWebSearchToggle() {
+  const on = Boolean(prefsCache && prefsCache.web_search_enabled);
+  const button = $("web-search-toggle");
+  button.classList.toggle("active", on);
+  button.setAttribute("aria-pressed", on ? "true" : "false");
+}
+$("web-search-toggle").addEventListener("click", async () => {
+  const next = !(prefsCache && prefsCache.web_search_enabled);
+  prefsCache = await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ web_search_enabled: next }),
+  }).catch(() => prefsCache);
+  renderWebSearchToggle();
+  $("pref-web-search").checked = next; // keep the Settings checkbox in sync
+  if (next) {
+    toggleWebPanel(true); // turning it on reveals the search panel
+    toast("Web search on — the AI can search, and you can browse here.");
+  } else {
+    toggleWebPanel(false);
+    toast("Web search off.");
+  }
+});
+$("web-panel-close").addEventListener("click", () => toggleWebPanel(false));
+$("web-go").addEventListener("click", runWebSearch);
+$("web-query").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") runWebSearch();
+});
+$("web-reader-back").addEventListener("click", () =>
+  $("web-reader").classList.add("hidden")
+);
+$("web-reader-save").addEventListener("click", saveWebPageAsNote);
+
 // Dashboard + reminders (Wave D).
 $("dash-edit").addEventListener("click", () => {
   dashEditMode = !dashEditMode;
@@ -6171,9 +8156,29 @@ $("dash-edit").addEventListener("click", () => {
   renderDashboard();
 });
 $("reminder-add").addEventListener("click", async () => {
-  if (await addReminder($("reminder-text").value.trim(), $("reminder-due").value)) {
+  const ok = await addReminder($("reminder-text").value.trim(), $("reminder-due").value, null, {
+    priority: $("reminder-priority").value,
+    recurring: $("reminder-recurring").value,
+  });
+  if (ok) {
     $("reminder-text").value = "";
+    $("reminder-priority").value = "normal";
+    $("reminder-recurring").value = "none";
   }
+});
+$("reminder-clear-done").addEventListener("click", clearDoneReminders);
+for (const button of document.querySelectorAll("#reminder-filter button")) {
+  button.addEventListener("click", () => {
+    reminderFilter = button.dataset.filter;
+    for (const b of document.querySelectorAll("#reminder-filter button")) {
+      b.classList.toggle("active", b === button);
+    }
+    loadReminders();
+  });
+}
+$("reminder-magic-add").addEventListener("click", magicAddReminder);
+$("reminder-magic").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") magicAddReminder();
 });
 for (const button of document.querySelectorAll("#reminder-presets button")) {
   button.addEventListener("click", () => {
@@ -6191,6 +8196,115 @@ $("bin-empty").addEventListener("click", async () => {
   await renderBin();
 });
 $("prefs-save").addEventListener("click", savePrefs);
+// Managed SearXNG: show what's there, and start/stop it on request.
+async function refreshSearxngHost() {
+  const badge = $("searxng-host-state");
+  const start = $("searxng-start");
+  const stop = $("searxng-stop");
+  const info = await apiJson("/websearch/searxng/status").catch(() => null);
+  if (!info) {
+    badge.textContent = "Unknown";
+    return;
+  }
+  // No Docker AND no git: nothing we can drive, so say so plainly.
+  if (!info.backend) {
+    badge.textContent = "Not available";
+    badge.title = info.detail || "";
+    start.disabled = true;
+    stop.disabled = true;
+    $("searxng-host-status").textContent = info.detail || "";
+    return;
+  }
+  // Which way it'll be run, so "a few minutes" isn't a surprise.
+  $("searxng-backend").textContent =
+    info.backend === "docker"
+      ? "Docker is installed, so it runs as a container."
+      : "Docker isn't installed, so it runs from its own virtualenv instead. " +
+        "The first start takes a few minutes to download and install.";
+
+  // An install is minutes long and runs in the background — poll it so the
+  // step text keeps moving instead of the screen looking stuck.
+  if (info.installing) {
+    badge.textContent = "Installing…";
+    badge.className = "chip";
+    start.disabled = true;
+    stop.disabled = true;
+    $("searxng-host-status").textContent = info.install_step || "Setting SearXNG up…";
+    clearTimeout(refreshSearxngHost.timer);
+    refreshSearxngHost.timer = setTimeout(refreshSearxngHost, 3000);
+    return;
+  }
+  if (info.install_error) {
+    $("searxng-host-status").classList.add("error");
+    $("searxng-host-status").textContent = info.install_error;
+  }
+  const running = info.state === "running" && info.responding;
+  badge.textContent = running
+    ? "Running"
+    : info.state === "running"
+      ? "Starting…"
+      : info.state === "stopped"
+        ? "Stopped"
+        : "Not installed";
+  badge.className = `chip ${running ? "confidence" : ""}`.trim();
+  start.disabled = running;
+  stop.disabled = info.state === "absent";
+  start.textContent = info.state === "absent" ? "▶ Install & start" : "▶ Start SearXNG";
+}
+
+$("searxng-start").addEventListener("click", async () => {
+  const status = $("searxng-host-status");
+  status.classList.remove("error");
+  status.textContent = "Starting SearXNG… the first run pulls the image, so give it a minute.";
+  $("searxng-start").disabled = true;
+  try {
+    const body = await apiJson("/websearch/searxng/start", { method: "POST" });
+    $("pref-searxng").value = body.url;
+    prefsCache = await apiJson("/preferences").catch(() => prefsCache);
+    status.textContent = `Running at ${body.url} — web search now uses it.`;
+    toast("SearXNG is running.");
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+  }
+  refreshSearxngHost();
+});
+
+$("searxng-stop").addEventListener("click", async () => {
+  const status = $("searxng-host-status");
+  status.classList.remove("error");
+  status.textContent = "Stopping…";
+  try {
+    await apiJson("/websearch/searxng/stop", { method: "POST" });
+    $("pref-searxng").value = "";
+    prefsCache = await apiJson("/preferences").catch(() => prefsCache);
+    status.textContent = "Stopped — web search is back on DuckDuckGo.";
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+  }
+  refreshSearxngHost();
+});
+
+// Find a running SearXNG so the user never has to work out the wiring.
+$("searxng-detect").addEventListener("click", async () => {
+  const status = $("searxng-status");
+  const typed = $("pref-searxng").value.trim();
+  status.classList.remove("error");
+  status.textContent = typed ? "Testing that URL…" : "Looking for a local SearXNG…";
+  const query = typed ? `?url=${encodeURIComponent(typed)}` : "";
+  const body = await apiJson(`/websearch/detect-searxng${query}`, {
+    method: "POST",
+  }).catch((error) => ({ found: false, detail: error.message }));
+  if (body.found) {
+    $("pref-searxng").value = body.url;
+    prefsCache = await apiJson("/preferences").catch(() => prefsCache);
+    status.textContent = `Connected to ${body.url}`;
+  } else {
+    status.classList.add("error");
+    status.textContent = body.detail || "No SearXNG found.";
+  }
+});
 $("profile-delete").addEventListener("click", deleteProfile);
 $("export-json").addEventListener("click", () => downloadExport("json"));
 $("export-csv").addEventListener("click", () => downloadExport("csv"));
@@ -6253,6 +8367,22 @@ document.addEventListener("keydown", (e) => {
     else closePalette();
     return;
   }
+  if (e.key === "Escape" && !$("onboarding-overlay").classList.contains("hidden")) {
+    closeOnboarding();
+    return;
+  }
+  if (e.key === "Escape" && !$("features-overlay").classList.contains("hidden")) {
+    closeFeatures();
+    return;
+  }
+  if (e.key === "Escape" && !$("graph-new").classList.contains("hidden")) {
+    closeGraphNewNote();
+    return;
+  }
+  if (e.key === "Escape" && !$("graph-popup").classList.contains("hidden")) {
+    closeGraphPopup();
+    return;
+  }
   if (e.key === "Escape" && !$("palette-overlay").classList.contains("hidden")) {
     closePalette();
     return;
@@ -6313,6 +8443,8 @@ document.addEventListener("click", (e) => {
 // instead of wandering into the page behind — a WCAG dialog basic.
 function activeOverlay() {
   for (const id of [
+    "onboarding-overlay",
+    "features-overlay",
     "palette-overlay",
     "sketch-overlay",
     "improve-overlay",
@@ -6324,6 +8456,98 @@ function activeOverlay() {
   return null;
 }
 
+// --- first-run onboarding tour (learnability) -------------------------------
+
+const ONBOARDING_SLIDES = [
+  {
+    icon: "🧠",
+    title: "Welcome to MemoryMap",
+    text: "A 100% offline notebook where a local AI files your thoughts and answers questions about them. Nothing ever leaves this computer.",
+  },
+  {
+    icon: "📝",
+    title: "Capture your thoughts",
+    text: "Jot anything into the Notes tab and hit Save — the AI files it into a category and suggests tags. No folders to fuss over.",
+  },
+  {
+    icon: "💬",
+    title: "Ask your notebook",
+    text: "Ask questions in plain English and get answers grounded in your own notes. Switch on “AI can make changes” and it can organise them for you too.",
+  },
+  {
+    icon: "🕸",
+    title: "Explore your graph",
+    text: "The Graph tab shows how your notes connect. Search, drag, and zoom to rediscover things you'd forgotten you saved.",
+  },
+  {
+    icon: "🎨",
+    title: "Make it yours",
+    text: "Settings → Appearance has themes, accent colours, fonts, and more. Press ? any time for keyboard shortcuts. Enjoy!",
+  },
+];
+
+let onboardingIndex = 0;
+
+function renderOnboardingSlide() {
+  const slide = ONBOARDING_SLIDES[onboardingIndex];
+  $("onboarding-icon").textContent = slide.icon;
+  $("onboarding-title").textContent = slide.title;
+  $("onboarding-text").textContent = slide.text;
+  const dots = $("onboarding-dots");
+  dots.replaceChildren();
+  ONBOARDING_SLIDES.forEach((_, i) => {
+    const dot = document.createElement("span");
+    dot.className = "onboarding-dot" + (i === onboardingIndex ? " active" : "");
+    dots.appendChild(dot);
+  });
+  $("onboarding-back").classList.toggle("hidden", onboardingIndex === 0);
+  const last = onboardingIndex === ONBOARDING_SLIDES.length - 1;
+  $("onboarding-next").textContent = last ? "Get started" : "Next";
+}
+
+function openOnboarding() {
+  onboardingIndex = 0;
+  overlayReturnFocus = document.activeElement;
+  renderOnboardingSlide();
+  $("onboarding-overlay").classList.remove("hidden");
+  $("onboarding-next").focus();
+}
+
+function closeOnboarding() {
+  $("onboarding-overlay").classList.add("hidden");
+  localStorage.setItem("onboardingDone", "1");
+  overlayReturnFocus?.focus?.();
+  overlayReturnFocus = null;
+}
+
+function onboardingNext() {
+  if (onboardingIndex >= ONBOARDING_SLIDES.length - 1) {
+    closeOnboarding();
+    return;
+  }
+  onboardingIndex += 1;
+  renderOnboardingSlide();
+}
+
+function onboardingBack() {
+  if (onboardingIndex === 0) return;
+  onboardingIndex -= 1;
+  renderOnboardingSlide();
+}
+
+// Show the tour once, after the app is unlocked and running.
+function maybeShowOnboarding() {
+  if (!localStorage.getItem("onboardingDone")) openOnboarding();
+}
+
+$("onboarding-next").addEventListener("click", onboardingNext);
+$("onboarding-back").addEventListener("click", onboardingBack);
+$("onboarding-skip").addEventListener("click", closeOnboarding);
+$("show-guide-btn").addEventListener("click", () => {
+  closeSettingsModal();
+  openOnboarding();
+});
+
 // Keyboard-shortcuts cheat-sheet (press ?), a learnability aid.
 function openShortcuts() {
   $("shortcuts-overlay").classList.remove("hidden");
@@ -6332,6 +8556,13 @@ function openShortcuts() {
 function closeShortcuts() {
   $("shortcuts-overlay").classList.add("hidden");
 }
+// Tools & features browser (opened from the dashboard quick links).
+$("features-close").addEventListener("click", closeFeatures);
+$("features-search").addEventListener("input", (e) => renderFeatures(e.target.value));
+$("features-overlay").addEventListener("click", (e) => {
+  if (e.target === $("features-overlay")) closeFeatures();
+});
+
 $("shortcuts-close").addEventListener("click", closeShortcuts);
 $("shortcuts-overlay").addEventListener("click", (e) => {
   if (e.target === $("shortcuts-overlay")) closeShortcuts();
@@ -6371,7 +8602,22 @@ $("note-sort").addEventListener("change", (e) => {
 $("entry-content").addEventListener("input", (e) => {
   const n = e.target.value.length;
   $("entry-count").textContent = `${n} character${n === 1 ? "" : "s"}`;
+  // Keep a draft so a half-typed thought survives a reload or a stray tab
+  // switch — losing one is the most annoying thing this app could do.
+  if (n) localStorage.setItem("captureDraft", e.target.value);
+  else localStorage.removeItem("captureDraft");
 });
+
+// Restore an unsaved draft on load.
+(() => {
+  const draft = localStorage.getItem("captureDraft");
+  if (!draft) return;
+  const box = $("entry-content");
+  box.value = draft;
+  $("entry-count").textContent = `${draft.length} character${draft.length === 1 ? "" : "s"}`;
+  const status = $("save-status");
+  if (status) status.textContent = "Restored your unsaved draft.";
+})();
 
 $("export-md").addEventListener("click", () => downloadExport("markdown"));
 $("import-md").addEventListener("click", importMarkdown);
@@ -6443,6 +8689,47 @@ if ("serviceWorker" in navigator) {
     location.reload();
   });
 }
+
+// Collapsible Notes-tab section cards: click a section heading to fold the
+// card down to just its title row. State persists per-section in
+// localStorage so a user's collapsed layout survives reloads. Additive —
+// cards start expanded, exactly as before, unless the user collapses one.
+function initCollapsibleCards() {
+  let collapsed = {};
+  try {
+    collapsed = JSON.parse(localStorage.getItem("collapsedCards") || "{}");
+  } catch {
+    collapsed = {};
+  }
+  for (const cardId of ["capture", "ask", "browse"]) {
+    const cardEl = $(cardId);
+    if (!cardEl) continue;
+    const heading = cardEl.querySelector("h2");
+    if (!heading) continue;
+    heading.classList.add("collapsible");
+    heading.setAttribute("role", "button");
+    heading.setAttribute("tabindex", "0");
+    const setState = (isCollapsed) => {
+      cardEl.classList.toggle("collapsed", isCollapsed);
+      heading.setAttribute("aria-expanded", isCollapsed ? "false" : "true");
+    };
+    setState(Boolean(collapsed[cardId]));
+    const toggle = () => {
+      const isCollapsed = !cardEl.classList.contains("collapsed");
+      setState(isCollapsed);
+      collapsed[cardId] = isCollapsed;
+      localStorage.setItem("collapsedCards", JSON.stringify(collapsed));
+    };
+    heading.addEventListener("click", toggle);
+    heading.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        toggle();
+      }
+    });
+  }
+}
+initCollapsibleCards();
 
 // The generative brand emblem, unique each visit (Wave O). p5 is loaded
 // by now; draw once the page is ready.

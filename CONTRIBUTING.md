@@ -69,6 +69,23 @@ green. Run `make help` to see all the available tasks.
   `docs/ARCHITECTURE.md` in the same PR.
 - Add a bullet to `CHANGELOG.md` under "Unreleased".
 
+## Working with an AI assistant
+
+AI coding tools are welcome here, but this codebase is mature — most obvious
+features already exist — and the common failure mode is an assistant "adding"
+something that's already there and gutting the working version in the process.
+Three rules keep that from happening:
+
+- **Reconcile before building.** Search for the feature first. If it exists,
+  extend it; don't reimplement it. (Snooze, chat export, theming, the command
+  palette, the skills bar and much more are already built.)
+- **Additive only.** Extend functions rather than replacing them, and never
+  delete a feature, widget, or CSS rule to make room for a new one without
+  asking. `frontend/app.js` is one large script — make small, targeted edits.
+- **One feature per commit.** After each commit, `git diff --stat` should list
+  only the files that feature touches. An unexpectedly wide diff is the early
+  warning sign of a regression.
+
 ## Commit & PR conventions
 
 - Write clear, descriptive commit messages that explain the *why*.

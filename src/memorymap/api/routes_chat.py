@@ -106,16 +106,8 @@ class ChatRequest(BaseModel):
 
 
 def _resolve_persona(name: str | None) -> str | None:
-    """Persona name → its system prompt. The user's saved list wins over
-    the built-ins (that's how editing a built-in works — the edit is
-    stored as an override; deleting the override resets it). Unknown
-    names fall back to the default persona."""
-    wanted = name or deps.get_config().get_preference("active_persona", "Librarian")
-    custom = deps.get_config().get_preference("personas", [])
-    for persona in list(custom) + librarian.BUILTIN_PERSONAS:
-        if persona.get("name") == wanted and persona.get("prompt"):
-            return persona["prompt"]
-    return None
+    """Persona name → its system prompt (shared with greetings and titles)."""
+    return librarian.resolve_persona_prompt(name, deps.get_config())
 
 
 class ChatResponse(BaseModel):
@@ -242,6 +234,9 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
             for piece in ollama.chat_stream(model_manager.chat_model(), messages):
                 if "thinking_delta" in piece:
                     yield {"type": "thinking", "delta": piece["thinking_delta"]}
+                elif "stats" in piece:
+                    # Token counts + timings for the message metadata line.
+                    yield {"type": "stats", **piece["stats"]}
                 else:
                     yield {"type": "answer", "delta": piece["content_delta"]}
         except OllamaError:

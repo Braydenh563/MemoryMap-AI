@@ -180,6 +180,17 @@ def test_preferences_roundtrip(client):
     assert deps.get_config().get_preference("recycle_bin_days") == 7
 
 
+def test_display_name_preference_roundtrip(client):
+    assert client.get("/preferences").json()["display_name"] == ""
+    updated = client.put("/preferences", json={"display_name": "Brayden"}).json()
+    assert updated["display_name"] == "Brayden"
+    assert deps.get_config().get_preference("display_name") == "Brayden"
+    # An empty string clears it (not excluded like None).
+    assert client.put("/preferences", json={"display_name": ""}).json()["display_name"] == ""
+    # Over-long names are rejected.
+    assert client.put("/preferences", json={"display_name": "x" * 61}).status_code == 422
+
+
 def test_preferences_validated(client):
     assert client.put("/preferences", json={"recycle_bin_days": 0}).status_code == 422
     assert (

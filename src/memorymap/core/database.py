@@ -169,6 +169,9 @@ class Reminder(Base):
     text: Mapped[str] = mapped_column(String(500))
     due_at: Mapped[datetime] = mapped_column(DateTime)
     done: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Scalar defaults so the additive auto-migrator backfills existing rows.
+    priority: Mapped[str] = mapped_column(String(10), default="normal")  # low|normal|high
+    recurring: Mapped[str] = mapped_column(String(10), default="none")  # none|daily|weekly|monthly
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 

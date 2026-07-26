@@ -26,6 +26,9 @@
   --error: #b91c1c;
   --border: rgba(31, 36, 48, 0.10);
   --chip-bg: rgba(31, 36, 48, 0.07);
+  /* User-tunable in Settings → Appearance (set inline on <html> by JS). */
+  --radius: 14px;
+  --glass-blur: 18px;
 }
 
 /* Dark palette. CSS has no variables-for-variables, so the block
@@ -202,10 +205,10 @@ header#top-bar h1 { margin: 0; font-size: 1.1rem; letter-spacing: 0.01em; }
 /* --- the glass card -------------------------------------------------------- */
 .card {
   background: var(--card);
-  backdrop-filter: blur(18px) saturate(150%);
-  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   border: 1px solid var(--glass-border);
-  border-radius: 14px;
+  border-radius: var(--radius);
   box-shadow: var(--glass-shadow);
   padding: 1rem 1.25rem;
   margin-bottom: 1rem;
@@ -254,6 +257,38 @@ h2.collapsible-title:hover .collapse-chevron { color: var(--accent); }
 #sidebar li:hover { background: var(--accent-soft); }
 #sidebar li.active { background: var(--accent-soft); font-weight: 600; }
 #sidebar .count { color: var(--muted); }
+
+/* Keep the category sidebar in view while the notes column scrolls (desktop
+   only — on narrow screens it's stacked above the content, per the max-width
+   rule above). top clears the sticky topbar; it scrolls independently if the
+   category list gets long. */
+@media (min-width: 721px) {
+  #tab-notes #sidebar {
+    position: sticky;
+    top: 4.25rem;
+    max-height: calc(100vh - 5.5rem);
+    overflow-y: auto;
+  }
+}
+
+/* --- collapsible section cards (Notes tab) ------------------------------- */
+/* A heading marked .collapsible folds its card down to just the title row.
+   The card's header row is always the first child, so hiding every later
+   child leaves the title (and its chevron) visible. */
+.card h2.collapsible {
+  cursor: pointer;
+  user-select: none;
+}
+.card h2.collapsible::before {
+  content: "▾";
+  display: inline-block;
+  margin-right: 0.4rem;
+  font-size: 0.8em;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+.card.collapsed h2.collapsible::before { transform: rotate(-90deg); }
+.card.collapsed > :not(:first-child) { display: none; }
 
 /* --- forms --------------------------------------------------------------- */
 textarea, input[type="text"], input[type="password"], input[type="number"], select {
@@ -503,6 +538,11 @@ progress { accent-color: var(--accent); width: 100%; }
 .chip.tag { background: var(--chip-bg); color: var(--muted); font-weight: 400; }
 .chip.confidence { background: var(--ok-soft); color: var(--ok); }
 .chip.review { background: var(--warn-soft); color: var(--warn); }
+/* Chips that carry a click handler are real buttons — show it and give them a
+   visible keyboard focus ring. */
+.chip-interactive { cursor: pointer; }
+.chip-interactive:hover { filter: brightness(1.05); }
+.chip-interactive:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .entry-date { margin-left: auto; color: var(--muted); font-size: 0.78rem; }
 
 /* A note the AI is working on right now (e.g. re-evaluating). */
@@ -721,7 +761,7 @@ li.link-source { outline: 2px solid var(--accent); }
 .log-list li.log-warn .what { color: var(--warn); }
 
 /* --- dashboard + reminders (Wave D) ------------------------------------------ */
-/* --- live clock (reminders tab + dashboard) ------------------------------- */
+/* --- live clock (reminders tab) ------------------------------------------ */
 .live-clock { text-align: right; line-height: 1.2; }
 .live-clock .clock-time {
   display: block;
@@ -733,61 +773,60 @@ li.link-source { outline: 2px solid var(--accent); }
 .live-clock .clock-date { display: block; font-size: 0.78rem; }
 .reminders-head { align-items: flex-start; }
 
-/* --- dashboard welcome hero + quick actions ------------------------------- */
-.dash-welcome {
+/* Full-width welcome banner across the top of the dashboard. */
+.dash-hero {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 1rem;
+  justify-content: space-between;
+  gap: 1.5rem;
   flex-wrap: wrap;
-  margin: 0.5rem 2rem 0.75rem;
-  padding: 1.1rem 1.4rem;
-  border-radius: 16px;
+  margin: 0.75rem 2rem 0.25rem;
+  padding: 1.25rem 1.6rem;
+  border-radius: var(--radius);
   border: 1px solid var(--glass-border);
   background:
-    radial-gradient(120% 140% at 0% 0%, var(--accent-soft), transparent 60%),
+    linear-gradient(120deg, var(--accent-soft) 0%, transparent 55%),
     var(--card);
-  backdrop-filter: blur(18px) saturate(150%);
-  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   box-shadow: var(--glass-shadow);
 }
-.dash-welcome-text h2 { margin: 0 0 0.2rem; font-size: 1.5rem; }
-.dash-welcome-text p { margin: 0; max-width: 46ch; }
-.dash-welcome-clock .clock-time { font-size: 1.9rem; }
-
-.dash-actions {
+.dash-hero-text { min-width: 0; }
+.dash-greeting {
+  margin: 0;
+  font-size: 1.7rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.dash-submessage {
+  margin: 0.3rem 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+.dash-submessage:empty { display: none; }
+.dash-clock {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-  padding: 0 2rem 0.75rem;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.15;
+  flex: 0 0 auto;
 }
-.dash-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.5rem 0.9rem;
-  border-radius: 999px;
-  border: 1px solid var(--glass-border);
-  background: var(--card);
-  color: var(--ink);
-  font-size: 0.88rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+.dash-clock-time {
+  font-size: 2.1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
 }
-.dash-action:hover {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  transform: translateY(-1px);
-}
-.dash-action-icon { font-size: 1.05rem; }
+.dash-clock-date { font-size: 0.82rem; color: var(--muted); }
 
 @media (max-width: 720px) {
-  .dash-welcome { margin: 0.5rem 1rem 0.6rem; }
-  .dash-actions { padding: 0 1rem 0.6rem; }
-  .dash-welcome-clock { text-align: left; }
+  .dash-hero { margin: 0.5rem 1rem 0.25rem; padding: 1rem 1.1rem; }
+  .dash-greeting { font-size: 1.35rem; }
+  .dash-clock { align-items: flex-start; }
+  .dash-clock-time { font-size: 1.7rem; }
 }
-
+:root[data-density="compact"] .dash-hero { padding: 0.85rem 1.2rem; }
+:root[data-density="spacious"] .dash-hero { padding: 1.7rem 2rem; }
 .dash-toolbar {
   display: flex;
   justify-content: space-between;
@@ -795,12 +834,29 @@ li.link-source { outline: 2px solid var(--accent); }
   gap: 1rem;
   padding: 0 2rem 0.5rem;
 }
+/* Masonry-style packing: a fine row unit plus a JS-measured row span per card
+   means each widget takes only the height it needs, and short ones stack
+   within a column instead of leaving dead space beside a tall neighbour.
+   --dash-row and --dash-gap are read back by the JS that sets the spans. */
 #dash-grid {
+  --dash-row: 8px;
+  --dash-gap: 1rem;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 1rem;
+  grid-auto-rows: var(--dash-row);
+  grid-auto-flow: row dense; /* pack short widgets into the gaps */
+  gap: var(--dash-gap);
   padding: 0 2rem 2rem;
   align-items: start;
+}
+.dash-widget { display: flex; flex-direction: column; }
+/* Until the spans are measured, cards flow at natural height rather than
+   collapsing to one 8px row. */
+#dash-grid:not(.spans-ready) .dash-widget { grid-row: span 40; }
+/* Widgets can span two columns ("wide") — toggled in Edit layout. */
+.dash-widget.wide { grid-column: span 2; }
+@media (max-width: 720px) {
+  .dash-widget.wide { grid-column: span 1; }
 }
 .dash-widget { margin-bottom: 0; }
 /* A "wide" widget spans two grid columns to act as a larger section. The
@@ -857,6 +913,29 @@ li.link-source { outline: 2px solid var(--accent); }
 .reminders-card { margin: 0.25rem 2rem; }
 .reminders-card .row input[type="datetime-local"] { flex: 0 1 auto; }
 .entry-list li.overdue { border-color: var(--warn); }
+/* Priority colour-coding for reminders — a coloured left edge, calm but clear. */
+.entry-list li.priority-high { border-left: 3px solid var(--error); }
+.entry-list li.priority-high .reminder-text { font-weight: 650; }
+.entry-list li.priority-low .reminder-text { color: var(--muted); }
+#reminder-magic { flex: 1; }
+
+/* Focus timer widget */
+.focus-timer-display {
+  font-size: 2.4rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  margin: 0.2rem 0 0.4rem;
+}
+.focus-presets { flex-wrap: wrap; align-items: center; }
+.focus-custom { width: 4.5rem; }
+
+/* In-chat web-search toggle active state */
+#web-search-toggle.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
 
 /* Typing indicator (Wave D): three bouncing dots until the first token */
 .typing-dots { display: inline-flex; gap: 0.25rem; padding: 0.2rem 0; }
@@ -1149,9 +1228,10 @@ li.link-source { outline: 2px solid var(--accent); }
   filter: drop-shadow(0 0 6px var(--accent));
 }
 /* Labels-off mode: hide labels until a node is hovered/spotlit. */
-.graph-labels-hidden .graph-node text { opacity: 0; transition: opacity 0.1s ease; }
-.graph-labels-hidden .graph-node:hover text,
-.graph-labels-hidden .graph-node.graph-focus text { opacity: 1; }
+/* Scoped to .graph-label so turning labels off doesn't also hide the 📌 badge. */
+.graph-labels-hidden .graph-node .graph-label { opacity: 0; transition: opacity 0.1s ease; }
+.graph-labels-hidden .graph-node:hover .graph-label,
+.graph-labels-hidden .graph-node.graph-focus .graph-label { opacity: 1; }
 .graph-stats { margin: 0.2rem 0 0.4rem; font-size: 0.82rem; }
 .graph-node text {
   font-size: 0.68rem;
@@ -1761,3 +1841,850 @@ html { font-size: 16px; }
 .tool-row { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: 500; }
 .tool-row input { width: 1.15rem; height: 1.15rem; margin: 0; accent-color: var(--accent); }
 .tool-desc { display: block; margin: 0.2rem 0 0 1.65rem; font-size: 0.82rem; }
+
+/* Per-message metadata: model · time · tokens · speed */
+.msg-meta {
+  margin-top: 0.35rem;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+.msg-meta:empty { display: none; }
+
+/* --- web panel (search + reader) ------------------------------------------- */
+.web-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem 0.9rem;
+  margin-bottom: 0.8rem;
+  background: var(--inner);
+  /* Long URLs and unbroken strings must never widen the page. */
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+.web-panel.hidden { display: none; }
+.web-panel .row { margin: 0 0 0.4rem; min-width: 0; flex-wrap: wrap; }
+.web-panel #web-query { min-width: 0; flex: 1; }
+.web-results {
+  max-height: 20rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-width: 0;
+}
+.web-result {
+  padding: 0.55rem 0;
+  border-top: 1px solid var(--border);
+  min-width: 0;
+  overflow-wrap: anywhere; /* wrap long URLs instead of stretching */
+  word-break: break-word;
+}
+.web-result:first-child { border-top: none; }
+.web-result-title {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0;
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: var(--accent);
+  font-weight: 650;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+.web-result-title:hover { text-decoration: underline; }
+.web-result-meta { font-size: 0.78rem; }
+.web-result-snippet { font-size: 0.85rem; margin: 0.2rem 0 0.35rem; line-height: 1.4; }
+.web-open-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.6rem;
+  border-radius: calc(var(--radius) * 0.5);
+  border: 1px solid var(--border);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--ink);
+}
+.web-open-link:hover { background: var(--accent-soft); }
+.web-reader { margin-top: 0.5rem; }
+.web-reader.hidden { display: none; }
+/* Reader view: article typography, constrained so it never widens the page. */
+.web-reader-text {
+  max-height: 26rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-width: 0;
+  font-size: 0.92rem;
+  line-height: 1.65;
+  padding: 0.9rem 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 0.6);
+  background: var(--card);
+  overflow-wrap: anywhere;
+}
+.web-reader-text > * { max-width: 42rem; }
+.web-reader-text p { margin: 0 0 0.85rem; }
+.web-reader-text h4 {
+  margin: 1.2rem 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.web-reader-text h4:first-child { margin-top: 0; }
+.web-reader-text ul { margin: 0 0 0.85rem; padding-left: 1.2rem; }
+.web-reader-text li { margin-bottom: 0.3rem; }
+.web-reader-text blockquote {
+  margin: 0 0 0.85rem;
+  padding-left: 0.8rem;
+  border-left: 3px solid var(--accent-soft);
+  color: var(--muted);
+}
+.web-reader-text pre {
+  white-space: pre-wrap;
+  background: var(--chip-bg);
+  padding: 0.6rem 0.7rem;
+  border-radius: calc(var(--radius) * 0.5);
+  font-size: 0.85rem;
+  overflow-x: auto;
+}
+.web-reader .row { flex-wrap: wrap; min-width: 0; }
+#web-reader-title { overflow-wrap: anywhere; }
+
+/* --- at-a-glance strip ------------------------------------------------------ */
+.dash-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 0.9rem 2rem 0;
+}
+.stat-tile {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  padding: 0.55rem 0.95rem;
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--glass-border);
+  border-radius: calc(var(--radius) * 0.8);
+  box-shadow: none;
+  backdrop-filter: blur(var(--glass-blur));
+  cursor: pointer;
+  font-weight: 500;
+}
+.stat-tile:hover { border-color: var(--accent); background: var(--accent-soft); }
+.stat-icon { font-size: 0.95rem; align-self: center; }
+.stat-value { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stat-label { font-size: 0.82rem; color: var(--muted); }
+.stat-tile.stat-alert { border-color: var(--warn); }
+.stat-tile.stat-alert .stat-value { color: var(--warn); }
+@media (max-width: 720px) {
+  .dash-stats { margin: 0.7rem 1rem 0; gap: 0.45rem; }
+  .stat-tile { padding: 0.45rem 0.7rem; }
+  .stat-value { font-size: 1.05rem; }
+}
+
+/* --- dashboard quick links ------------------------------------------------- */
+.dash-quicklinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin: 0.9rem 2rem 0.2rem;
+}
+.quick-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.9rem;
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--glass-border);
+  border-radius: calc(var(--radius) * 0.7);
+  box-shadow: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  backdrop-filter: blur(var(--glass-blur));
+}
+.quick-link:hover { background: var(--accent-soft); border-color: var(--accent); }
+.quick-link-icon { font-size: 1.05rem; }
+.quick-link-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.quick-link-primary:hover { background: var(--accent); filter: brightness(1.08); }
+@media (max-width: 720px) {
+  .dash-quicklinks { margin: 0.7rem 1rem 0.2rem; }
+  .quick-link { font-size: 0.85rem; padding: 0.45rem 0.7rem; }
+}
+
+/* --- tools & features browser ---------------------------------------------- */
+#features-card { max-width: 46rem; width: 100%; }
+#features-card > input { margin-bottom: 0.35rem; }
+.features-list {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 0.3rem;
+}
+.features-group {
+  margin: 1rem 0 0.4rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.features-group:first-child { margin-top: 0.2rem; }
+.feature-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.55rem 0.7rem;
+  margin-bottom: 0.25rem;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius) * 0.6);
+  box-shadow: none;
+  color: var(--ink);
+  font-weight: 400;
+}
+.feature-row:hover, .feature-row:focus-visible {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.feature-name { font-weight: 650; font-size: 0.93rem; }
+.feature-desc { font-size: 0.83rem; line-height: 1.4; }
+
+/* --- activity heatmap + tag cloud widgets ---------------------------------- */
+.heatmap {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(7, 10px);
+  grid-auto-columns: 10px;
+  gap: 3px;
+  overflow-x: auto;
+  padding-bottom: 0.3rem;
+}
+.heat-cell { width: 10px; height: 10px; border-radius: 2px; background: var(--chip-bg); }
+.heat-blank { background: none; }
+.heat-0 { background: var(--chip-bg); }
+.heat-1 { background: var(--accent); opacity: 0.30; }
+.heat-2 { background: var(--accent); opacity: 0.52; }
+.heat-3 { background: var(--accent); opacity: 0.76; }
+.heat-4 { background: var(--accent); opacity: 1; }
+.heat-legend {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.75rem;
+  margin-top: 0.4rem;
+}
+.heat-legend span:first-child { margin-right: 0.2rem; }
+.heat-legend span:last-child { margin-left: 0.2rem; }
+/* Category breakdown bars */
+.cat-bars { display: flex; flex-direction: column; gap: 0.3rem; }
+.cat-row {
+  display: grid;
+  grid-template-columns: minmax(4rem, 7rem) 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.25rem 0.3rem;
+  background: none;
+  border: none;
+  box-shadow: none;
+  border-radius: calc(var(--radius) * 0.5);
+  color: var(--ink);
+  font-weight: 500;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+}
+.cat-row:hover { background: var(--accent-soft); }
+.cat-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cat-track {
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--chip-bg);
+  overflow: hidden;
+}
+.cat-fill { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+.cat-count { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 0.8rem; }
+
+/* Rediscover widget */
+.random-note {
+  margin: 0 0 0.5rem;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.tag-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  line-height: 1.6;
+}
+
+/* --- notes page polish ------------------------------------------------------ */
+/* Card actions stay out of the way until you're looking at a note. */
+.entry-list li .entry-actions { opacity: 0; transition: opacity 0.12s ease; }
+.entry-list li:hover .entry-actions,
+.entry-list li:focus-within .entry-actions { opacity: 1; }
+@media (hover: none) {
+  .entry-list li .entry-actions { opacity: 1; } /* touch has no hover */
+}
+#entry-list li {
+  padding: 0.75rem 0.9rem;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+#entry-list li:hover {
+  border-color: var(--accent);
+  box-shadow: 0 2px 10px rgba(31, 38, 135, 0.07);
+}
+/* The note itself should read first; its metadata second. */
+#entry-list .entry-content { font-size: 0.97rem; line-height: 1.55; }
+#entry-list .entry-meta { margin-top: 0.45rem; gap: 0.4rem; align-items: center; }
+#entry-list .entry-date { font-size: 0.76rem; }
+/* A quieter "check this" flag — informative, not alarming. */
+.chip.review { font-weight: 500; }
+/* Collapsible headings: room between the chevron and the words. */
+.card h2.collapsible::before { margin-right: 0.5rem; opacity: 0.7; }
+#sidebar { align-self: flex-start; }
+#sidebar h2 { font-size: 0.95rem; }
+#sidebar #most-used li { font-size: 0.85rem; line-height: 1.35; }
+
+/* --- reminders page polish -------------------------------------------------- */
+.reminders-card { margin: 0.75rem 2rem; }
+#reminder-compose { margin-bottom: 0.75rem; }
+@media (max-width: 720px) { .reminders-card { margin: 0.5rem 1rem; } }
+/* The add form as a grid, so the fields line up instead of drifting. */
+.reminder-form {
+  display: grid;
+  grid-template-columns: minmax(10rem, 1fr) auto auto auto auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+.reminder-form > * { margin: 0; }
+.reminder-form input[type="datetime-local"] {
+  width: auto;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 0.7);
+  background: var(--input-bg);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.9rem;
+}
+@media (max-width: 860px) {
+  .reminder-form { grid-template-columns: 1fr 1fr; }
+  .reminder-form #reminder-text { grid-column: 1 / -1; }
+}
+#reminder-presets { align-items: center; flex-wrap: wrap; }
+.reminder-hint { margin-left: auto; font-size: 0.82rem; }
+.reminder-listbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid var(--border);
+}
+.reminder-listbar h2 { margin: 0; margin-right: auto; }
+/* Group headings read as section labels with a count pill. */
+.reminder-group-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0.9rem 0 0.4rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.reminder-group-head:first-child { margin-top: 0.2rem; }
+.reminder-group-head .group-count {
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: var(--chip-bg);
+  font-size: 0.72rem;
+  letter-spacing: 0;
+}
+.reminder-group-head.group-overdue { color: var(--warn); }
+.reminder-group-head.group-overdue .group-count {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+#reminder-groups .entry-list li {
+  display: block;
+  padding: 0.6rem 0.8rem;
+  border-left-width: 3px;
+}
+#reminder-groups .entry-meta { gap: 0.55rem; align-items: center; }
+.reminder-text { flex: 1; min-width: 0; }
+#tab-reminders .entry-actions { opacity: 0; transition: opacity 0.12s ease; }
+#tab-reminders li:hover .entry-actions,
+#tab-reminders li:focus-within .entry-actions { opacity: 1; }
+@media (hover: none) { #tab-reminders .entry-actions { opacity: 1; } }
+
+/* A count of due reminders, on the tab itself. */
+.tab-badge {
+  display: inline-block;
+  min-width: 1.15rem;
+  margin-left: 0.4rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: var(--error);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.15rem;
+  text-align: center;
+  vertical-align: middle;
+}
+
+/* When the generative background is on, let a little more of it read through
+   the cards — otherwise the art only shows in the page margins. Glass-off and
+   high-contrast keep their solid panels: legibility wins over decoration. */
+:root[data-bg-art="on"]:not([data-glass="off"]):not([data-contrast="on"]) {
+  --card: rgba(255, 255, 255, 0.42);
+  --inner: rgba(255, 255, 255, 0.34);
+}
+:root[data-bg-art="on"][data-theme="dark"]:not([data-glass="off"]):not([data-contrast="on"]) {
+  --card: rgba(29, 33, 46, 0.44);
+  --inner: rgba(29, 33, 46, 0.34);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-bg-art="on"]:not([data-theme="light"]):not([data-glass="off"]):not([data-contrast="on"]) {
+    --card: rgba(29, 33, 46, 0.44);
+    --inner: rgba(29, 33, 46, 0.34);
+  }
+}
+
+/* --- the app emblem, reused across the UI ---------------------------------- */
+.emblem { line-height: 0; }
+.emblem canvas { display: block; }
+.emblem-centred { display: flex; justify-content: center; margin-bottom: 0.5rem; }
+.emblem-lock { display: flex; justify-content: center; margin-bottom: 0.6rem; }
+#about-emblem { margin-bottom: 0.6rem; }
+.msg-avatar {
+  display: inline-flex;
+  line-height: 0;
+  vertical-align: middle;
+}
+.msg-role-assistant {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* --- chat polish ------------------------------------------------------------ */
+#chat-messages {
+  max-height: none; /* the flex layout owns the height now */
+  gap: 0.85rem;
+  padding: 0.6rem 0.4rem 0.2rem;
+  scroll-behavior: smooth;
+}
+.msg {
+  box-shadow: 0 1px 3px rgba(31, 38, 135, 0.06);
+  line-height: 1.55;
+}
+.msg.user {
+  border-radius: var(--radius) var(--radius) 5px var(--radius);
+}
+.msg.assistant {
+  border-radius: var(--radius) var(--radius) var(--radius) 5px;
+  background: var(--card);
+}
+/* Give the two voices real visual identity rather than two grey boxes. */
+.msg.user {
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 78%, #7c3aed));
+  box-shadow: 0 2px 12px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+.msg.assistant {
+  border-left: 3px solid var(--accent-soft);
+}
+.msg.assistant .msg-role {
+  letter-spacing: 0.01em;
+  color: var(--accent);
+  font-weight: 650;
+}
+/* A quiet entrance so replies feel like they arrive. */
+@keyframes msg-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.msg { animation: msg-in 0.18s ease-out; }
+.msg.assistant .bubble-answer { font-size: 0.95rem; }
+.msg.assistant .bubble-answer h3,
+.msg.assistant .bubble-answer h4,
+.msg.assistant .bubble-answer h5 { margin: 0.8rem 0 0.35rem; font-size: 0.95rem; }
+.msg.assistant .bubble-answer ul,
+.msg.assistant .bubble-answer ol { margin: 0 0 0.6rem; padding-left: 1.2rem; }
+.msg.assistant .bubble-answer code {
+  background: var(--chip-bg);
+  padding: 0.05rem 0.3rem;
+  border-radius: 5px;
+  font-size: 0.86em;
+}
+/* Tool activity reads as a distinct strip of "things it did". */
+.tool-activity:not(:empty) { margin: 0.35rem 0 0.5rem; display: flex; flex-wrap: wrap; gap: 0.3rem; }
+/* The composer reads as one control rather than three loose boxes. */
+.chat-composer {
+  gap: 0.45rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--border);
+}
+.chat-composer #chat-input {
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  border-radius: calc(var(--radius) * 0.8);
+}
+.chat-composer button { padding: 0.6rem 1.1rem; }
+/* Conversation list: a clear active row with an accent spine. */
+#chat-sidebar h2 { margin-bottom: 0.5rem; }
+#conversation-list li {
+  padding: 0.45rem 0.55rem;
+  margin-bottom: 0.15rem;
+  border-left: 3px solid transparent;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+#conversation-list li.active-conv {
+  border-left-color: var(--accent);
+  background: var(--accent-soft);
+}
+#conversation-list li .entry-actions { opacity: 0; transition: opacity 0.12s ease; }
+#conversation-list li:hover .entry-actions,
+#conversation-list li:focus-within .entry-actions { opacity: 1; }
+.chat-toolbar {
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid var(--border);
+}
+.chat-empty { padding: 1.5rem 1rem; }
+
+/* --- graph polish ----------------------------------------------------------- */
+#graph-box {
+  border-radius: var(--radius);
+  overflow: hidden;
+  background:
+    radial-gradient(120% 90% at 50% 0%, var(--accent-soft), transparent 60%),
+    var(--inner);
+}
+/* Zoom controls as one floating pill. */
+.graph-zoom {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+  border-radius: calc(var(--radius) * 0.8);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(var(--glass-blur));
+}
+.graph-zoom .graph-zoom-btn {
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+  margin: 0;
+}
+.graph-zoom .graph-zoom-btn + .graph-zoom-btn { border-top: 1px solid var(--border); }
+/* Legend entries read as toggle pills. */
+#graph-legend { gap: 0.35rem; margin-bottom: 0.45rem; }
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--chip-bg);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  box-shadow: none;
+}
+.legend-item:hover { border-color: var(--accent); }
+.legend-item.legend-off { opacity: 0.4; text-decoration: line-through; }
+/* Toolbar clusters, separated rather than crowded. */
+.graph-toolbar .graph-physics {
+  padding: 0 0.6rem;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+
+/* --- graph page layout ------------------------------------------------------
+   One toolbar row instead of three stacked ones, and a canvas that fills the
+   window so the map never runs off the bottom of the page. */
+.graph-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+.graph-toolbar h2 { margin: 0; margin-right: 0.2rem; }
+.graph-toolbar #graph-search { width: 11rem; margin: 0; }
+.graph-toolbar .tools-toggle { white-space: nowrap; margin: 0; }
+.graph-toolbar button { white-space: nowrap; }
+.graph-toolbar .graph-physics input[type="range"] { width: 5rem; }
+/* The two action buttons group on the right; everything else packs left. */
+.graph-toolbar #link-suggest-btn { margin-left: auto; }
+.graph-help { margin-bottom: 0.5rem; }
+.graph-help summary { cursor: pointer; font-size: 0.85rem; }
+.graph-help p { margin: 0.4rem 0 0; font-size: 0.86rem; line-height: 1.5; }
+
+/* :not(.hidden) so these never override the hide rule — an ID selector would
+   otherwise beat .hidden and leave every tab visible at once. */
+#tab-graph:not(.hidden),
+#tab-chat:not(.hidden) {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 9rem);
+}
+#tab-chat:not(.hidden) > .layout { flex: 1; min-height: 0; }
+#graph-card {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  margin: 0.75rem 2rem 1rem;
+}
+#graph-card #graph-box { flex: 1; min-height: 22rem; }
+@media (max-width: 720px) {
+  #graph-card { margin: 0.5rem 1rem 0.75rem; }
+  .graph-toolbar #graph-search { width: 100%; }
+  .graph-toolbar #graph-add-node { margin-left: 0; }
+}
+
+/* --- chat page layout -------------------------------------------------------
+   The conversation should own the window: header and composer pinned, the
+   transcript scrolling between them. */
+#tab-chat:not(.hidden) > .layout { align-items: stretch; }
+#chat-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+#chat-messages {
+  flex: 1 1 auto;
+  min-height: 12rem;
+  overflow-y: auto;
+}
+.chat-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+.chat-toolbar #chat-title {
+  margin: 0;
+  margin-right: auto;
+  max-width: 16rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-toolbar .tools-toggle { white-space: nowrap; margin: 0; }
+.chat-toolbar button { white-space: nowrap; }
+.chat-toolbar select { margin: 0; width: auto; }
+.chat-composer { margin-top: 0.5rem; }
+#chat-sidebar { align-self: stretch; }
+
+/* --- graph: depth, halos and legible labels -------------------------------- */
+/* These come after the base .graph-node rules so they win the specificity tie
+   and the halo never picks up the node's stroke. */
+.graph-node circle.graph-halo {
+  stroke: none;
+  opacity: 0.16;
+  pointer-events: none;
+  transition: opacity 0.15s ease, r 0.15s ease;
+}
+.graph-node:hover circle.graph-halo,
+.graph-node.graph-focus circle.graph-halo { opacity: 0.34; }
+.graph-node text.graph-pin-badge {
+  font-size: 0.6rem;
+  stroke: none;
+  pointer-events: none;
+}
+.graph-node text.graph-label { font-weight: 500; }
+/* Dimmed nodes fade rather than vanish, so context is never lost. */
+.graph-node.graph-dim { opacity: 0.18; }
+
+/* --- graph: physics sliders + node popup ----------------------------------- */
+.graph-popup-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin: 0.15rem 0 0.5rem;
+}
+.graph-popup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+.graph-popup-actions button { font-size: 0.78rem; padding: 0.25rem 0.5rem; }
+.graph-physics { display: inline-flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+.graph-physics input[type="range"] { width: 6.5rem; margin: 0; }
+.graph-physics label { font-size: 0.82rem; }
+.graph-popup {
+  position: absolute;
+  z-index: 40;
+  width: 22rem;
+  max-width: calc(100% - 1rem);
+  padding: 0.7rem 0.85rem;
+  background: var(--modal-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(var(--glass-blur));
+}
+.graph-popup.hidden { display: none; }
+.graph-popup textarea, .graph-popup input { margin-bottom: 0.5rem; }
+.graph-popup .row { margin: 0; align-items: center; }
+
+/* --- markdown tables ------------------------------------------------------- */
+.md-table-wrap { overflow-x: auto; margin: 0.5rem 0; }
+.md-table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+.md-table th, .md-table td {
+  border: 1px solid var(--border);
+  padding: 0.35rem 0.6rem;
+  text-align: left;
+  vertical-align: top;
+}
+.md-table th { background: var(--chip-bg); font-weight: 650; }
+.md-table tbody tr:nth-child(even) { background: rgba(127, 127, 127, 0.04); }
+
+/* --- user-tunable corner rounding ----------------------------------------------
+   Scoped to the surfaces the eye actually reads as "the shape of the UI".
+   Smaller controls use a proportional radius so nothing looks lopsided. */
+.modal-card,
+.dash-widget,
+#graph-box,
+.entry-list li { border-radius: var(--radius); }
+textarea,
+input[type="text"],
+input[type="password"],
+input[type="number"],
+input[type="datetime-local"],
+select,
+button { border-radius: calc(var(--radius) * 0.7); }
+.chip, .seg, .seg button { border-radius: calc(var(--radius) * 0.5 + 6px); }
+
+/* --- spacious density (third option alongside comfortable/compact) --------- */
+:root[data-density="spacious"] .card { padding: 1.4rem 1.7rem; margin-bottom: 1.4rem; }
+:root[data-density="spacious"] .layout { gap: 1.4rem; padding-top: 1.3rem; }
+:root[data-density="spacious"] #dash-grid { gap: 1.4rem; }
+:root[data-density="spacious"] .entry-list li { padding: 0.85rem 1rem; }
+
+/* --- appearance settings: grouped, scannable rows -------------------------- */
+.settings-group {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.9rem 1.1rem 1rem;
+  margin-bottom: 1rem;
+}
+.settings-group > h3:first-child { margin-top: 0; }
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.55rem 0;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.settings-group > .setting-row:first-of-type { border-top: none; }
+.setting-row-stack { align-items: flex-start; }
+.setting-label { display: flex; flex-direction: column; gap: 0.1rem; min-width: 9rem; }
+.setting-label > span { font-weight: 600; font-size: 0.92rem; }
+.setting-label small { font-size: 0.8rem; line-height: 1.35; }
+.setting-control { flex: 0 0 auto; margin: 0; }
+.setting-row .row { margin: 0; align-items: center; }
+.setting-row select { margin-bottom: 0; width: auto; }
+.setting-row input[type="range"] { width: 9rem; margin-bottom: 0; }
+.setting-row input[type="color"] {
+  width: 2.6rem;
+  height: 2rem;
+  padding: 2px;
+  margin-bottom: 0;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  cursor: pointer;
+}
+.slider-value {
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 2.8rem;
+}
+/* Checkbox settings: box left, label + hint stacked right. */
+.setting-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--border);
+  cursor: pointer;
+  margin: 0;
+}
+.settings-group > .setting-check:first-of-type { border-top: none; }
+.setting-check input[type="checkbox"] {
+  width: 1.1rem;
+  height: 1.1rem;
+  margin: 0.15rem 0 0;
+  flex: 0 0 auto;
+  accent-color: var(--accent);
+}
+.setting-check > span { display: flex; flex-direction: column; gap: 0.1rem; font-size: 0.92rem; font-weight: 600; }
+.setting-check small { font-weight: 400; font-size: 0.8rem; line-height: 1.35; }
+/* A row whose parent control is switched off. */
+.disabled-row { opacity: 0.45; pointer-events: none; }
+.advanced-css summary { cursor: pointer; font-weight: 600; font-size: 0.92rem; }
+.advanced-css textarea { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem; }
+
+@media (max-width: 640px) {
+  .setting-row { flex-direction: column; align-items: stretch; }
+  .setting-control, .setting-row .row { width: 100%; }
+}
+
+/* --- first-run onboarding tour ------------------------------------------------- */
+#onboarding-card { max-width: 30rem; text-align: center; }
+.onboarding-slide { padding: 1rem 0.5rem 0.25rem; min-height: 8.5rem; }
+.onboarding-icon { font-size: 2.8rem; line-height: 1; margin-bottom: 0.6rem; }
+#onboarding-title { margin: 0 0 0.5rem; }
+#onboarding-text { margin: 0 auto; max-width: 24rem; }
+.onboarding-dots { display: flex; justify-content: center; gap: 0.4rem; margin: 1rem 0; }
+.onboarding-dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--border); transition: background 0.2s ease; }
+.onboarding-dot.active { background: var(--accent); }
+
+/* --- help guide accordion ------------------------------------------------------ */
+.help-accordion details {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem 0.75rem;
+}
+.help-accordion summary { cursor: pointer; font-weight: 600; }
+.help-accordion details[open] summary { margin-bottom: 0.4rem; }
+.help-accordion p { margin: 0 0 0.5rem; font-size: 0.9rem; }
+.searxng-host {
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 0.7);
+  padding: 0.7rem 0.85rem;
+  margin-bottom: 0.6rem;
+}
+.searxng-host .row { margin: 0.4rem 0 0; align-items: center; }
+.searxng-host p { margin: 0.35rem 0 0; font-size: 0.86rem; }
+.setup-snippet {
+  background: var(--chip-bg);
+  padding: 0.6rem 0.7rem;
+  border-radius: calc(var(--radius) * 0.5);
+  font-size: 0.8rem;
+  overflow-x: auto;
+  margin: 0 0 0.5rem;
+}

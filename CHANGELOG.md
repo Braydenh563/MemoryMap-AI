@@ -9,44 +9,67 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
-- **One-click launchers.** `start.bat` (Windows) and `start.sh` (macOS/Linux)
+- **Learnability**: a first-run welcome tour (5 slides, re-runnable), a new
+  Settings → Help section, and a searchable "Tools & features" directory of
+  everything the app can do (reached from the dashboard quick links).
+- **Dashboard welcome banner**: an AI-written greeting (`GET
+  /insights/greeting`, cached per time-block, with handwritten fallbacks
+  whenever the local model is unavailable), a line summarising your notebook,
+  a live clock, and one-tap quick actions. The greeting phrase never contains a
+  name — the display name is added from preferences. The Reminders tab shows a
+  live clock too, so "now" is always visible.
+- **One-click launchers**: `start.bat` (Windows) and `start.sh` (macOS/Linux)
   create the virtualenv, install/update dependencies, copy `.env`, and start
-  the app — no more typing the command sequence. Re-installs only when
-  `requirements.txt` changes.
-- **Richer markdown rendering.** The answer/chat renderer now handles GFM
-  pipe tables, blockquotes, horizontal rules, headings up to `######`,
+  the app. They re-install only when `requirements.txt` changes.
+- **Accessibility**: interactive chips are now real buttons (focusable,
+  Enter/Space), and the note-card ⋯ menu supports ↑/↓/Home/End/Esc.
+- **Reminders**: priority (low/normal/high) and recurring
+  (daily/weekly/monthly) fields, priority colour-coding, automatic rescheduling
+  when a recurring reminder is completed, and a "Magic Add ✨" box that turns
+  natural language into a reminder via `POST /reminders/parse`.
+- **Dashboard**: focus-timer widget (presets + custom minutes), activity
+  heatmap (`GET /insights/heatmap`), weighted tag cloud
+  (`GET /insights/tag-cloud`), a personalised greeting with a `display_name`
+  preference, dense grid packing, and a per-widget Wide/Narrow toggle.
+- **Appearance**: regrouped into scannable sections, plus a custom accent
+  colour, four new accent presets (Sunset, Ocean, Mint, Grape), a custom page
+  background, corner-rounding slider (`--radius`), glass blur-strength slider
+  (`--glass-blur`), a Spacious density, five background-art styles (Aurora,
+  Constellation, Waves, Floating orbs, Mesh gradient), and an advanced
+  custom-CSS box.
+- **Chat/AI**: an in-chat web-search toggle, per-exchange delete
+  (`DELETE /conversations/{id}/turns/{index}`), in-place regenerate
+  (`PUT /conversations/{id}/turns/last`) instead of stacking a second answer,
+  tool-activity chips that persist across reloads, four more built-in skills,
+  and the `get_current_time` + `summarize_notes` tools.
+- **Graph**: Gravity/Spread physics sliders, a click-to-edit node popup, a
+  Labels toggle, a plain-language stats line, connection-count tooltips, node
+  halos, and highlighted "hub" notes. The dashboard constellation gains a
+  caption and a category colour key.
+- **Notes**: sticky category sidebar, collapsible Capture / Ask / Browse
+  section cards with remembered state, and a richer markdown renderer — GFM
+  pipe tables, blockquotes, horizontal rules, `####`–`######` headings,
   `~~strikethrough~~`, task-list checkboxes, and bare URLs.
-- **Delete chat messages.** Each chat exchange has a 🗑 action that removes it
-  from the screen and the saved conversation (new `DELETE
-  /conversations/{id}/turns/{n}` endpoint).
-- **Regenerate replaces the answer in place** instead of stacking a second
-  answer below the old one (new `PUT /conversations/{id}/turns/last`).
-- **Tool-activity chips persist across reloads.** The "✏️ created note…" chips
-  are saved with the turn and re-drawn when a conversation is reopened.
-- **Collapsible Notes sections** (Capture / Ask / Browse) with remembered
-  state, and the Notes category sidebar now stays pinned while you scroll.
-- **More appearance options.** Four new accent colours (Sunset, Ocean, Mint,
-  Grape) and a background-art **style** picker: Aurora, Constellation, Waves,
-  Floating orbs, and Mesh gradient.
-- **Dashboard welcome hero.** A greeting, a live clock, one-tap quick actions,
-  and a tidier layout. The Reminders tab also shows a live clock so "now" is
-  always visible.
-- **Clearer graph & constellation.** The dashboard constellation now has a
-  caption and a category colour key; the graph gains a Labels toggle, a
-  plain-language stats line, connection-count tooltips, node halos, and
-  highlighted "hub" notes.
 
-### Changed / Fixed
+### Fixed
 
-- **Lower chat latency & smoother typing indicator.** The `/chat/stream`
-  response now flushes a first byte immediately and runs retrieval inside the
-  stream, so the UI no longer appears frozen during a cold-start search;
-  live-markdown re-rendering is throttled to cut main-thread jank on long
-  answers; anti-buffering headers added.
-- **Fixed `requirements.txt`** — two optional extras were written as literal
+- **Lower chat latency and a smoother typing indicator.** `/chat/stream` now
+  flushes a first byte immediately and runs retrieval inside the stream, so the
+  UI no longer appears frozen during a cold-start search. Live-markdown
+  re-rendering is throttled to cut main-thread jank on long answers, and
+  anti-buffering headers were added.
+- The dashboard no longer breaks when a widget renderer is synchronous — one
+  failing widget can only spoil its own card.
+- Settings checkboxes stacked correctly instead of running together (the
+  `display: block` rule targeted the wrong container).
+- The Appearance "Glass & effects" toggles no longer stack on one line (stale
+  `#settings` / `#prefs-panel` selectors that matched nothing).
+- A failed startup call no longer stops the rest of the app from loading, and
+  an unreachable server fails fast with a clear message instead of hanging.
+- `requirements.txt` — two optional extras were written as literal
   `pip install …` lines, which made pip reject the whole file.
-- **Fixed the Appearance "Glass & effects" toggles** stacking on one line
-  (stale `#settings` / `#prefs-panel` selectors that matched nothing).
+
+### Added
 
 - Repository documentation & tooling pass: `docs/ARCHITECTURE.md` (a full
   project overview), `CONTRIBUTING.md`, `SECURITY.md`, this changelog, GitHub

@@ -9,8 +9,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
-- **Learnability**: a first-run welcome tour (5 slides, re-runnable) and a new
-  Settings → Help section explaining every part of the app.
+- **Learnability**: a first-run welcome tour (5 slides, re-runnable), a new
+  Settings → Help section, and a searchable "Tools & features" directory of
+  everything the app can do (reached from the dashboard quick links).
+- **Dashboard welcome banner**: an AI-written greeting (`GET
+  /insights/greeting`, cached per time-block, with handwritten fallbacks
+  whenever the local model is unavailable), a line summarising your notebook,
+  and a live clock. The greeting phrase never contains a name — the display
+  name is added from preferences.
 - **Accessibility**: interactive chips are now real buttons (focusable,
   Enter/Space), and the note-card ⋯ menu supports ↑/↓/Home/End/Esc.
 - **Reminders**: priority (low/normal/high) and recurring

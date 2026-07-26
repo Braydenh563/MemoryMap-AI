@@ -161,6 +161,49 @@ def test_digest_offline_is_not_cacheable(client):
 # --- dashboard layout preference ----------------------------------------------------
 
 
+def test_greeting_uses_ai_when_available(ai_client, fake_ollama):
+    fake_ollama.librarian_reply = "Rise and shine"
+    body = ai_client.get("/insights/greeting?block=morning").json()
+    assert body == {"greeting": "Rise and shine", "source": "ai"}
+
+
+def test_greeting_falls_back_when_ai_is_down(ai_client, fake_ollama):
+    fake_ollama.running = False
+    body = ai_client.get("/insights/greeting?block=evening").json()
+    assert body["source"] == "fallback"
+    assert body["greeting"] in [
+        "Good evening",
+        "Evening",
+        "Winding down",
+    ]
+
+
+def test_greeting_rejects_a_rambling_model_reply(ai_client, fake_ollama):
+    # Too long / multi-sentence → the handwritten fallback wins.
+    fake_ollama.librarian_reply = (
+        "Certainly! Here is a lovely greeting for you to use today: "
+        "Good morning and welcome back to your wonderful notebook."
+    )
+    body = ai_client.get("/insights/greeting?block=night").json()
+    assert body["source"] == "fallback"
+    assert body["greeting"] in ["Still up", "Working late", "Burning the midnight oil"]
+
+
+def test_greeting_strips_quotes_and_trailing_punctuation(ai_client, fake_ollama):
+    fake_ollama.librarian_reply = '"Welcome back!"'
+    body = ai_client.get("/insights/greeting?block=morning").json()
+    assert body == {"greeting": "Welcome back", "source": "ai"}
+
+
+def test_greeting_never_contains_a_name(ai_client, fake_ollama):
+    # The endpoint returns a phrase only — the frontend adds the display name,
+    # so a stored name must not leak into the API response.
+    ai_client.put("/preferences", json={"display_name": "Brayden"})
+    fake_ollama.librarian_reply = "Good morning"
+    body = ai_client.get("/insights/greeting?block=morning").json()
+    assert "Brayden" not in body["greeting"]
+
+
 def test_heatmap_counts_recent_notes(client):
     _save(client, "first note")
     _save(client, "second note")

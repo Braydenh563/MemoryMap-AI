@@ -2648,14 +2648,60 @@ function greetingBlock(hour) {
   return "night";
 }
 
-function dashboardGreetingText(now = new Date()) {
-  const block = greetingBlock(now.getHours());
-  const options = GREETINGS[block];
+// The local fallback phrase, used until (or instead of) an AI-written one.
+function fallbackGreetingPhrase(now = new Date()) {
+  const options = GREETINGS[greetingBlock(now.getHours())];
   // Same greeting for a whole block on a given day, then it moves on.
   const daySlot = Math.floor(now.getTime() / 86400000) + now.getHours();
-  const phrase = options[daySlot % options.length];
+  return options[daySlot % options.length];
+}
+
+// The name always comes from preferences — never from the model, so it can't
+// be mangled or hallucinated, and editing it takes effect immediately.
+function withDisplayName(phrase) {
   const name = ((prefsCache && prefsCache.display_name) || "").trim();
   return name ? `${phrase}, ${name}` : phrase;
+}
+
+function dashboardGreetingText(now = new Date()) {
+  return withDisplayName(fallbackGreetingPhrase(now));
+}
+
+// A cached AI greeting, refreshed once per time-block per day so it changes
+// occasionally rather than on every render (and doesn't hammer the model).
+function greetingCacheSlot(now = new Date()) {
+  return `${now.toDateString()}|${greetingBlock(now.getHours())}`;
+}
+
+function cachedGreetingPhrase(now = new Date()) {
+  try {
+    const cached = JSON.parse(localStorage.getItem("greetingCache") || "null");
+    if (cached && cached.slot === greetingCacheSlot(now) && cached.phrase) {
+      return cached.phrase;
+    }
+  } catch {
+    /* a corrupt cache just means we fetch a fresh one */
+  }
+  return null;
+}
+
+// Ask the AI for this block's greeting. Silent by design: any failure simply
+// leaves the handwritten fallback on screen.
+async function refreshAiGreeting() {
+  const now = new Date();
+  if (cachedGreetingPhrase(now)) return; // still fresh for this block
+  const block = greetingBlock(now.getHours());
+  const body = await apiJson(`/insights/greeting?block=${block}`, { silent: true }).catch(
+    () => null
+  );
+  const phrase = body && body.greeting;
+  if (!phrase) return;
+  localStorage.setItem(
+    "greetingCache",
+    JSON.stringify({ slot: greetingCacheSlot(now), phrase })
+  );
+  const el = $("dash-greeting");
+  if (el) el.textContent = withDisplayName(phrase);
 }
 
 let dashClockTimer = null;
@@ -2710,7 +2756,11 @@ async function renderDashSubmessage() {
 function renderDashboardGreeting() {
   const el = $("dash-greeting");
   if (!el) return;
-  el.textContent = dashboardGreetingText();
+  // Paint instantly from the cache (or the handwritten fallback), then let an
+  // AI-written phrase replace it in the background if one arrives.
+  const cached = cachedGreetingPhrase();
+  el.textContent = cached ? withDisplayName(cached) : dashboardGreetingText();
+  refreshAiGreeting().catch(() => {});
   paintDashClock();
   // One ticking clock, however many times the dashboard re-renders.
   if (dashClockTimer) clearInterval(dashClockTimer);

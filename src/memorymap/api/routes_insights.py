@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import random
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends
@@ -54,6 +55,63 @@ def stats(session: Session = Depends(get_session)) -> dict:
         "per_day": per_day,
         "days": ACTIVITY_DAYS,
     }
+
+
+# Time-of-day greeting phrases used when the local model isn't available.
+# Deliberately name-free: the frontend appends the user's preferred name.
+GREETING_FALLBACKS = {
+    "morning": ["Good morning", "Morning", "Rise and shine", "A fresh start"],
+    "afternoon": ["Good afternoon", "Afternoon", "Hope today's going well"],
+    "evening": ["Good evening", "Evening", "Winding down"],
+    "night": ["Still up", "Working late", "Burning the midnight oil"],
+}
+
+GREETING_PROMPT = (
+    "Write ONE short, warm greeting for someone opening their personal "
+    "notebook app. It is currently {block}. Rules: 2 to 6 words, no name, no "
+    "quotation marks, no emoji, no trailing punctuation, and do not mention "
+    "the app. Reply with the greeting only."
+)
+
+
+def _clean_greeting(raw: str) -> str | None:
+    """Keep the model honest: one short, punctuation-free line or nothing."""
+    text = (raw or "").strip().splitlines()[0] if (raw or "").strip() else ""
+    text = text.strip().strip("\"'`*").rstrip(".!,;:").strip()
+    if not text or len(text) > 48 or len(text.split()) > 8:
+        return None
+    return text
+
+
+@router.get("/greeting")
+def greeting(block: str = "morning") -> dict:
+    """A short greeting phrase for the dashboard banner.
+
+    AI-written when the local model is up, otherwise a handwritten fallback —
+    the banner must never depend on Ollama being available. The phrase never
+    contains a name; the frontend adds one from preferences.
+    """
+    options = GREETING_FALLBACKS.get(block) or GREETING_FALLBACKS["morning"]
+    fallback = {"greeting": random.choice(options), "source": "fallback"}
+
+    ollama = deps.get_ollama()
+    if not ollama.is_running():
+        return fallback
+    try:
+        reply = ollama.chat(
+            deps.get_model_manager().utility_model(),
+            [
+                {"role": "system", "content": GREETING_PROMPT.format(block=block)},
+                {"role": "user", "content": f"It is {block}. Greet me."},
+            ],
+        )
+    except Exception:  # noqa: BLE001 — any model failure degrades to fallback
+        return fallback
+
+    cleaned = _clean_greeting(reply.get("content", "") if isinstance(reply, dict) else "")
+    if not cleaned:
+        return fallback
+    return {"greeting": cleaned, "source": "ai"}
 
 
 @router.get("/heatmap")

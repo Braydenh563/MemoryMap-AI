@@ -40,10 +40,18 @@ that navigated the app away.
 
 ---
 
-More user notes: 
+More user notes + requests (not in order): 
 - The background art still wont move
+- Improve and expand on the dashboard even more.
+- The "What's this" button on the "write with the ai" section does nothing when clicked (at least when the ai is not running)
+- the offline semantic search only covers keyword search and doesnt use keywords for car
+- Add the logo in more places and make sure it stays animated. 
 - The keybinds section for keyboard shortcuts is missing. 
 - When I click on the notes tab, there is a visual flicker at the bottom of the top menu bar for a second or two
+- The notes tab sidebar cant be expanded or shortened in width and it also has scroll bars on some of the appearance settings
+- better structure and visualise the opened page text from web search
+- Just refine the chat functionality and agent stuff and everything both frunt and backend. 
+- Created documents disappear. where are htey stored and how do I save them or put it places?? expand the documents tab and make it more integrated with the rest of the program and its features
 - Improve and remake the chat page ui to be impressive and the best it can be??
 - I want to improve the document preview md formatting
 - I want the web search to be as private as possible. make it untraceable/untrackable
@@ -51,8 +59,8 @@ More user notes:
 - allow the at to view, manage and create skills.
 - Fix the chat page. it is barebones, things like the sidebar arent even the right matching height, there are barely any features and it looks bland. 
 - The write with ai function in notes still deletes my original text in the "your thoughts" text box
-- a betetr way to manage widgets. also more widgets pls
-- Expand the appearences tab and implement an option to sleect from preset and curated visual themes
+- a better way to manage widgets. also more widgets pls
+- Expand the appearences tab and implement an option to sleect from preset and curated visual themes. make lots of cool themes.
 - Expand on the capabilities of the graph
 
 ## 1. The AI can't reach your notes (highest priority)

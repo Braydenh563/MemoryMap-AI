@@ -480,3 +480,56 @@ def _reassign(session: Session, from_id: int, to_id: int) -> int:
     for entry in entries:
         entry.category_id = to_id
     return len(entries)
+
+
+# --- private notes -----------------------------------------------------------
+# Encryption lives behind these two helpers so every read and write goes
+# through the same place. Scattering encrypt/decrypt calls across the routes is
+# how a path gets missed and a note is stored in the clear.
+
+
+def readable_content(entry: Entry) -> str:
+    """The note's text, decrypting it if it's private and the vault is open.
+
+    A locked vault returns a placeholder rather than raising: a private note
+    must not break the notes list, the graph, or an export for everything else.
+    """
+    from memorymap.core import crypto, vault
+
+    if not crypto.is_encrypted(entry.content):
+        return entry.content
+    key = vault.key()
+    if key is None:
+        return "🔒 Private note — unlock to read it."
+    try:
+        return crypto.decrypt(key, entry.content)
+    except crypto.DecryptionError:
+        # Kept deliberately non-fatal. The stored bytes are still there, so a
+        # key problem is recoverable; crashing the list is not.
+        return "🔒 This private note couldn't be decrypted."
+
+
+def set_private(session: Session, entry: Entry, private: bool) -> bool:
+    """Encrypt or decrypt one note in place. False if the vault is locked.
+
+    Making a note private also drops its embedding: a vector derived from the
+    text would leak what the note is about, which defeats the point.
+    """
+    from memorymap.core import crypto, vault
+    from memorymap.core.database import EmbeddingRecord
+
+    key = vault.key()
+    if key is None:
+        return False
+
+    if private:
+        if not crypto.is_encrypted(entry.content):
+            entry.content = crypto.encrypt(key, entry.content)
+        entry.is_private = True
+        session.execute(delete(EmbeddingRecord).where(EmbeddingRecord.entry_id == entry.id))
+    else:
+        if crypto.is_encrypted(entry.content):
+            entry.content = crypto.decrypt(key, entry.content)
+        entry.is_private = False
+    log_action(session, "edited", "entry", entry.id, f"private={private}")
+    return True

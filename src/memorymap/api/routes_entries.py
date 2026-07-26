@@ -44,7 +44,9 @@ def _to_out(
 ) -> EntryOut:
     return EntryOut(
         id=entry.id,
-        content=entry.content,
+        # Decrypted here if private and the vault is open — every read of a
+        # note's text goes through this one helper.
+        content=manager.readable_content(entry),
         category=manager.category_name_for(session, entry),
         tags=manager.entry_tags(entry),
         ai_confidence=entry.ai_confidence,
@@ -52,10 +54,15 @@ def _to_out(
         parent_id=entry.parent_id,
         pinned=entry.pinned,
         user_filed=entry.user_filed,
+        is_private=bool(getattr(entry, "is_private", False)),
         created_at=entry.created_at,
         deleted_at=entry.deleted_at if entry.is_deleted else None,
         links=[
-            LinkOut(link_id=link.id, entry_id=other.id, preview=_preview(other.content))
+            LinkOut(
+                link_id=link.id,
+                entry_id=other.id,
+                preview=_preview(manager.readable_content(other)),
+            )
             for link, other in manager.links_for_entry(session, entry)
         ],
         attachments=[
@@ -458,6 +465,30 @@ def restore_entry(entry_id: int, session: Session = Depends(get_session)) -> Ent
 
 class LinkBody(BaseModel):
     target_id: int
+
+
+class PrivacyBody(BaseModel):
+    private: bool
+
+
+@router.post("/{entry_id}/privacy", response_model=EntryOut)
+def set_entry_privacy(
+    entry_id: int, body: PrivacyBody, session: Session = Depends(get_session)
+) -> EntryOut:
+    """Encrypt this note at rest, or decrypt it again.
+
+    Needs the vault open, which means the app must be unlocked — the data key
+    only exists in memory while it is.
+    """
+    entry = _existing_entry(session, entry_id)
+    if not manager.set_private(session, entry, body.private):
+        raise HTTPException(
+            status_code=409,
+            detail="Unlock the app first — the encryption key isn't loaded.",
+        )
+    session.commit()
+    session.refresh(entry)
+    return _to_out(session, entry)
 
 
 @router.post("/{entry_id}/links", response_model=EntryOut)

@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from memorymap.core import vault
 from memorymap.core.deps import get_session
 from memorymap.core.database import User
 from memorymap.entry.manager import log_action
@@ -66,6 +67,9 @@ def setup(body: PasswordBody, session: Session = Depends(get_session)) -> dict:
         raise HTTPException(status_code=400, detail="A password is already set")
     password_hash = bcrypt.hashpw(body.password.encode(), bcrypt.gensalt()).decode()
     session.add(User(username="owner", password_hash=password_hash))
+    # Create the vault now, while the password is in hand. Deferring it would
+    # mean a second prompt later, and a second chance to lose access.
+    vault.create(session, body.password)
     log_action(session, "created", "user", detail="password set")
     session.commit()
     return {"token": _issue_token()}
@@ -78,13 +82,18 @@ def unlock(body: PasswordBody, session: Session = Depends(get_session)) -> dict:
         raise HTTPException(status_code=400, detail="No password set yet — use setup")
     if not bcrypt.checkpw(body.password.encode(), user.password_hash.encode()):
         raise HTTPException(status_code=401, detail="Wrong password")
+    # Unwrap the data key so private notes are readable for this session.
+    vault_open = vault.open_with(session, body.password)
     log_action(session, "unlocked", "user", user.id)
     session.commit()
-    return {"token": _issue_token()}
+    return {"token": _issue_token(), "vault_open": vault_open}
 
 
 @router.post("/lock")
 def lock(x_auth_token: str | None = Header(default=None)) -> dict:
     """Log out: the token stops working immediately."""
     _active_tokens.discard(x_auth_token or "")
+    # Forget the data key too, or "lock" would leave private notes readable.
+    if not _active_tokens:
+        vault.close()
     return {"locked": True}

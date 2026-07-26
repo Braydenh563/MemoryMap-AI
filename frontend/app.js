@@ -460,6 +460,7 @@ function entryItem(entry, options = {}) {
     actions.appendChild(entryOverflowMenu(entry));
     metaEnd.appendChild(actions);
   }
+  if (entry.is_private) meta.insertBefore(chip("🔒 private"), meta.firstChild);
   if (entry.pinned) meta.insertBefore(chip("📌 pinned"), meta.firstChild);
   li.appendChild(meta);
 
@@ -553,6 +554,31 @@ function closeActionMenus() {
 }
 
 // The ⋯ overflow menu on each note card (Wave L rework).
+async function toggleEntryPrivacy(entry) {
+  const makingPrivate = !entry.is_private;
+  if (makingPrivate) {
+    const ok = confirm(
+      "Make this note private?\n\n" +
+        "It gets encrypted with a key derived from your password, so it stays " +
+        "unreadable in the database, in backups, and to anyone without that " +
+        "password.\n\n" +
+        "It also stops appearing in search and stops being given to the AI.\n\n" +
+        "There is no recovery: if you forget your password this note is gone."
+    );
+    if (!ok) return;
+  }
+  try {
+    await apiJson(`/entries/${entry.id}/privacy`, {
+      method: "POST",
+      body: JSON.stringify({ private: makingPrivate }),
+    });
+    toast(makingPrivate ? "Note encrypted." : "Note is readable again.");
+    await loadEntries();
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
 function entryOverflowMenu(entry) {
   const wrap = document.createElement("span");
   wrap.className = "menu-wrap";
@@ -574,6 +600,13 @@ function entryOverflowMenu(entry) {
   opener.setAttribute("aria-expanded", "false");
 
   const items = [
+    {
+      label: entry.is_private ? "🔓 Make readable" : "🔒 Make private",
+      title: entry.is_private
+        ? "Decrypt this note so search and the AI can use it again"
+        : "Encrypt this note at rest, and keep it out of search and the AI",
+      run: () => toggleEntryPrivacy(entry),
+    },
     {
       label: "🔄 Re-evaluate",
       title: "Refresh this note's AI confidence and suggest tags & links",

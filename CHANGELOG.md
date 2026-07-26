@@ -9,6 +9,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- **Private notes**: mark any note private and its text is encrypted at rest
+  with AES-GCM. The design is an envelope — a random data key encrypts the
+  notes, and your password only encrypts that key — so changing your password
+  re-wraps 32 bytes instead of re-encrypting every note, which is where an
+  interruption could otherwise lose data. Private notes are kept out of search
+  and are never given to the AI, and their embeddings are deleted (a vector
+  encodes what a note is about, so keeping one would leak the point). The key
+  exists in memory only while the app is unlocked. There is no recovery if you
+  forget your password — that is inherent to encryption, not a shortcut here.
 - **Documents tab**: a markdown editor for long-form writing, with a live
   preview, autosave, `Ctrl+S`/`B`/`I`, `.md` and PDF export, and AI editing.
   Documents are a separate table from notes on purpose — a note is a captured

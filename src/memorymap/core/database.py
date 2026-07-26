@@ -56,6 +56,22 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class Vault(Base):
+    """The wrapped data key for private notes (one row).
+
+    Only the *wrapped* key is stored. Unwrapping needs the password, so this
+    row on its own reveals nothing — which is the whole point of keeping it
+    next to the notes it protects.
+    """
+
+    __tablename__ = "vault"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    kdf_salt: Mapped[bytes] = mapped_column(LargeBinary(32))
+    wrapped_dek: Mapped[bytes] = mapped_column(LargeBinary(128))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 class Category(Base):
     __tablename__ = "categories"
 
@@ -97,6 +113,9 @@ class Entry(Base):
     )
     # Soft delete = recycle bin (Phase 4 adds restore/auto-clear).
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Private notes have their content encrypted at rest. Scalar default so
+    # the additive auto-migrator backfills every existing row as not-private.
+    is_private: Mapped[bool] = mapped_column(Boolean, default=False)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
 
 

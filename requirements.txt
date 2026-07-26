@@ -46,6 +46,10 @@ fsspec[http]>=2024.2.0,<=2026.2.0
 # Auth (Phase 4) — single-user unlock
 bcrypt>=4.0,<6.0
 
+# Encryption at rest for notes marked private (AES-GCM). scrypt comes from
+# the stdlib; this is only needed for the cipher itself.
+cryptography>=41.0,<47.0
+
 # File attachments (Wave B) — multipart form parsing
 python-multipart>=0.0.9,<1.0
 

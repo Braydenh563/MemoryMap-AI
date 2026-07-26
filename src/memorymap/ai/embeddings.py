@@ -161,7 +161,13 @@ class EmbeddingService:
     def store_for_entry(self, session: Session, entry: Entry) -> bool:
         """Save an entry's vector. Returns False on failure — which only
         means no semantic search for this entry; it never blocks the
-        entry save itself (plan Phase 2)."""
+        entry save itself (plan Phase 2).
+
+        Private notes are never embedded. A vector derived from the text
+        encodes what the note is about, so storing one beside the ciphertext
+        would leak exactly what the encryption is there to hide."""
+        if getattr(entry, "is_private", False):
+            return False
         vector = self.embed_text(entry.content)
         if vector is None:
             return False

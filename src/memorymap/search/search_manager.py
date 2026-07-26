@@ -29,11 +29,14 @@ RECENT_FALLBACK_LIMIT = 10
 
 
 def recent_entries(session: Session, limit: int = RECENT_FALLBACK_LIMIT) -> list[Entry]:
-    """Most recent non-deleted entries, newest first."""
+    """Most recent non-deleted, non-private entries, newest first."""
     return list(
         session.scalars(
             select(Entry)
-            .where(Entry.is_deleted == False)  # noqa: E712
+            .where(
+                Entry.is_deleted == False,  # noqa: E712
+                Entry.is_private == False,  # noqa: E712
+            )
             .order_by(Entry.created_at.desc(), Entry.id.desc())
             .limit(limit)
         )
@@ -47,6 +50,7 @@ def keyword_search(session: Session, query: str, limit: int = 10) -> list[Entry]
             select(Entry)
             .where(
                 Entry.is_deleted == False,  # noqa: E712
+                Entry.is_private == False,  # noqa: E712
                 or_(Entry.content.ilike(like), Entry.tags.ilike(like)),
             )
             .order_by(Entry.created_at.desc(), Entry.id.desc())
@@ -118,5 +122,13 @@ def retrieve(
     if not entries:
         recent = recent_entries(session, limit=RECENT_FALLBACK_LIMIT)
         if recent:
-            return recent, "recent"
-    return entries, mode
+            return _without_private(recent), "recent"
+    # One final filter covering every mode. Private notes are also excluded by
+    # the individual queries and have no embeddings to match on, but retrieval
+    # feeds the AI's context — a single missed path would hand a private note
+    # to the model, so it's checked once more here where every route converges.
+    return _without_private(entries), mode
+
+
+def _without_private(entries: list[Entry]) -> list[Entry]:
+    return [entry for entry in entries if not getattr(entry, "is_private", False)]

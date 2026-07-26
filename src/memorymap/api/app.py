@@ -15,6 +15,7 @@ from memorymap import __version__
 from memorymap.ai import embeddings
 from memorymap.api import (
     routes_auth,
+    routes_categories,
     routes_chat,
     routes_conversations,
     routes_entries,
@@ -84,6 +85,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_settings.router, dependencies=locked)
     app.include_router(routes_files.router, dependencies=locked)
     app.include_router(routes_tags.router, dependencies=locked)
+    app.include_router(routes_categories.router, dependencies=locked)
     app.include_router(routes_conversations.router, dependencies=locked)
     app.include_router(routes_insights.router, dependencies=locked)
     app.include_router(routes_graph.router, dependencies=locked)

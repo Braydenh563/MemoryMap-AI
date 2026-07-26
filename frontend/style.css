@@ -2786,3 +2786,31 @@ button { border-radius: calc(var(--radius) * 0.7); }
   white-space: nowrap;
   border: 0;
 }
+
+/* --- category rename / delete ------------------------------------------------ */
+/* The controls stay out of the way until you reach for them — the sidebar is a
+   filter first, and a row of icons on every category would be noise. They
+   appear on hover and, importantly, on keyboard focus. */
+#category-list li { position: relative; }
+.category-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.category-actions {
+  display: flex;
+  gap: 0.15rem;
+  margin-left: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.category-actions button {
+  padding: 0 0.3rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+#category-list li:hover .category-actions,
+#category-list li:focus-within .category-actions { opacity: 1; }
+/* Touch has no hover, so the controls are simply always there. */
+@media (hover: none) {
+  .category-actions { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .category-actions { transition: none; }
+}

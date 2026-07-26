@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from datetime import timedelta
 
-from sqlalchemy import delete, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
 from pathlib import Path
@@ -395,3 +395,88 @@ def entry_tags(entry: Entry) -> list[str]:
         return loaded if isinstance(loaded, list) else []
     except json.JSONDecodeError:
         return []
+
+
+# --- category management (rename / delete) -----------------------------------
+
+
+def all_categories(session: Session) -> list[dict]:
+    """Every category with how many live entries sit in it, biggest first.
+
+    Binned entries aren't counted — the number should match what the sidebar
+    shows, and the sidebar only ever lists notes you can still see.
+    """
+    rows = list(session.scalars(select(Category).order_by(Category.name)))
+    counts = {
+        category_id: total
+        for category_id, total in session.execute(
+            select(Entry.category_id, func.count(Entry.id))
+            .where(Entry.is_deleted == False)  # noqa: E712
+            .group_by(Entry.category_id)
+        )
+    }
+    out = [
+        {"id": c.id, "name": c.name, "count": counts.get(c.id, 0)}
+        for c in rows
+    ]
+    out.sort(key=lambda c: (-c["count"], c["name"].lower()))
+    return out
+
+
+def rename_category(session: Session, category_id: int, new_name: str) -> dict:
+    """Rename a category; renaming onto an existing name merges the two.
+
+    Merging is the useful behaviour rather than an error — "Work" and "work"
+    turning up as separate categories is exactly the mess this is here to fix.
+    """
+    category = session.get(Category, category_id)
+    if category is None:
+        raise ValueError("That category no longer exists")
+    new_name = new_name.strip()
+    if not new_name:
+        raise ValueError("A category needs a name")
+    if new_name == category.name:
+        return {"renamed": False, "merged": False, "moved": 0}
+
+    existing = session.scalar(select(Category).where(Category.name == new_name))
+    if existing is not None and existing.id != category.id:
+        # Merge: move the entries across, then drop the now-empty category.
+        moved = _reassign(session, category.id, existing.id)
+        log_action(session, "edited", "category", existing.id, f"merged {category.name} → {new_name}")
+        session.delete(category)
+        session.commit()
+        return {"renamed": True, "merged": True, "moved": moved}
+
+    old = category.name
+    category.name = new_name
+    log_action(session, "edited", "category", category.id, f"{old} → {new_name}")
+    session.commit()
+    return {"renamed": True, "merged": False, "moved": 0}
+
+
+def delete_category(session: Session, category_id: int) -> dict:
+    """Remove a category. Its notes are kept and become Uncategorised.
+
+    Deleting a category must never delete notes — that would make an organising
+    action destructive, which is never what anyone means by "delete category".
+    """
+    category = session.get(Category, category_id)
+    if category is None:
+        raise ValueError("That category no longer exists")
+    if category.name == UNCATEGORISED:
+        raise ValueError("Uncategorised is where notes go; it can't be removed")
+
+    fallback = get_or_create_category(session, UNCATEGORISED)
+    moved = _reassign(session, category.id, fallback.id)
+    log_action(session, "deleted", "category", category.id, category.name)
+    session.delete(category)
+    session.commit()
+    return {"deleted": True, "moved": moved}
+
+
+def _reassign(session: Session, from_id: int, to_id: int) -> int:
+    """Point every entry in one category at another. Returns how many moved."""
+    entries = list(session.scalars(select(Entry).where(Entry.category_id == from_id)))
+    for entry in entries:
+        entry.category_id = to_id
+    return len(entries)

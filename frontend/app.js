@@ -1166,6 +1166,16 @@ function renderEntries() {
   }
 }
 
+// name -> {id, count}. Needed because renaming and deleting work on ids,
+// while the sidebar itself is built from the entries already in memory.
+let categoryMeta = new Map();
+
+async function loadCategories() {
+  const rows = await apiJson("/categories", { silent: true }).catch(() => []);
+  categoryMeta = new Map(rows.map((c) => [c.name, c]));
+  renderSidebar();
+}
+
 function renderSidebar() {
   // Categories + counts are derived from the loaded entries — the
   // simplest thing that works; no extra endpoint needed yet.
@@ -1181,6 +1191,7 @@ function renderSidebar() {
     const li = document.createElement("li");
     if (category === activeCategory) li.classList.add("active");
     const name = document.createElement("span");
+    name.className = "category-name";
     name.textContent = label;
     const badge = document.createElement("span");
     badge.className = "count";
@@ -1191,12 +1202,83 @@ function renderSidebar() {
       renderSidebar();
       renderEntries();
     });
+
+    // Rename/delete for real categories only — "All" is a filter, and
+    // Uncategorised is where notes land when a category goes away.
+    const meta = category ? categoryMeta.get(category) : null;
+    if (meta && category !== "Uncategorised") {
+      const actions = document.createElement("span");
+      actions.className = "category-actions";
+      actions.append(
+        smallButton("✎", `Rename ${category}`, (event) => {
+          event.stopPropagation();
+          renameCategory(meta, category);
+        }),
+        smallButton("🗑", `Delete ${category}`, (event) => {
+          event.stopPropagation();
+          deleteCategory(meta, category, count);
+        })
+      );
+      li.appendChild(actions);
+    }
     ul.appendChild(li);
   };
 
   addRow("All", allEntries.length, null);
   for (const [category, count] of [...counts.entries()].sort()) {
     addRow(category, count, category);
+  }
+}
+
+async function renameCategory(meta, currentName) {
+  const next = prompt(`Rename "${currentName}" to:`, currentName);
+  if (next === null) return;
+  const name = next.trim();
+  if (!name || name === currentName) return;
+
+  // Renaming onto a category that already exists merges them, which is
+  // usually the point — but it's destructive-looking, so it's confirmed.
+  if (categoryMeta.has(name)) {
+    const target = categoryMeta.get(name);
+    const ok = confirm(
+      `"${name}" already exists. Merge "${currentName}" into it?\n\n` +
+        `Its notes move across — nothing is deleted. "${name}" would then ` +
+        `hold ${target.count + meta.count} notes.`
+    );
+    if (!ok) return;
+  }
+
+  try {
+    const result = await apiJson(`/categories/${meta.id}`, {
+      method: "PUT",
+      body: JSON.stringify({ name }),
+    });
+    if (activeCategory === currentName) activeCategory = name;
+    toast(result.merged ? `Merged into "${name}".` : `Renamed to "${name}".`);
+    await loadEntries();
+    await loadCategories();
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
+async function deleteCategory(meta, name, count) {
+  const ok = confirm(
+    `Delete the category "${name}"?\n\n` +
+      (count
+        ? `Its ${count} note${count === 1 ? "" : "s"} are kept and become ` +
+          `Uncategorised — deleting a category never deletes notes.`
+        : "It has no notes in it.")
+  );
+  if (!ok) return;
+  try {
+    await apiJson(`/categories/${meta.id}`, { method: "DELETE" });
+    if (activeCategory === name) activeCategory = null;
+    toast(`Deleted "${name}". Its notes are in Uncategorised.`);
+    await loadEntries();
+    await loadCategories();
+  } catch (error) {
+    toast(error.message, true);
   }
 }
 
@@ -1217,6 +1299,10 @@ async function loadEntries() {
   showEntrySkeletons();
   allEntries = await apiJson("/entries");
   renderSidebar();
+  // Categories the AI has filed notes into since the last load need their ids
+  // fetched before rename/delete can work on them. Deliberately not awaited:
+  // the list renders now and the controls light up a moment later.
+  loadCategories();
   renderEntries();
   fillCategoryOptions($("entry-category"), null);
   refreshTagSuggestions();

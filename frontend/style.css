@@ -3948,3 +3948,31 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 /* Chips carry 12px text, where AA is least forgiving, and were using the
    muted ink: 3.54:1. Chips are labels, not secondary prose. */
 .chip { color: var(--ink); }
+
+/* --- Notes sub-tabs ------------------------------------------------------------
+   Four full-height cards on one page meant scrolling past three forms you
+   weren't using to reach your notes. One section at a time, remembered. */
+.notes-subtabs {
+  margin-bottom: 0.75rem;
+  width: 100%;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  scrollbar-width: none;
+}
+.notes-subtabs::-webkit-scrollbar { display: none; }
+.notes-subtabs button {
+  flex: 0 0 auto;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--muted);
+  font-weight: 500;
+  padding: 0.4rem 0.9rem;
+  border-radius: 9px;
+}
+.notes-subtabs button.active {
+  background: var(--accent-surface);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+.notes-subtabs button:not(.active):hover { background: var(--accent-soft); color: var(--ink); }

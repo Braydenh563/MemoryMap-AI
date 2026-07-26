@@ -7865,55 +7865,62 @@ function switchTab(name) {
   }
 }
 
-// --- collapsible Notes-tab sections -----------------------------------------------
-// Each of these cards gets a fold/unfold chevron in its heading; the state
-// is remembered per section (user request). Nothing structural changes —
-// a `.collapsed` class hides everything after the header row via CSS.
-const COLLAPSIBLE_SECTIONS = ["capture", "writing-room", "ask", "browse"];
-// Sections that start folded. The writing room is a whole workspace; leaving
-// it open by default would make the Notes tab heavier, which is the opposite
-// of what it needs. It opens with one click and remembers that you did.
-const COLLAPSED_BY_DEFAULT = new Set(["writing-room"]);
+// --- Notes sub-tabs ---------------------------------------------------------------
+// Four full-height cards stacked on one page meant scrolling past three forms
+// you weren't using to reach your notes (roadmap §10). Folding each card
+// helped, but it was mitigation: you still had four things to manage.
+//
+// The per-card collapse chevrons are retired here rather than kept alongside.
+// Two mechanisms for hiding the same card is exactly the trap that had the
+// Notes sections not collapsing at all a few sessions ago — one implementation
+// quietly undoing the other.
 
-function initCollapsibleSections() {
-  for (const id of COLLAPSIBLE_SECTIONS) {
-    const card = $(id);
-    if (!card || card.dataset.collapsibleReady) continue;
-    const h2 = card.querySelector(":scope > .row h2, :scope > h2");
-    if (!h2) continue;
-    card.dataset.collapsibleReady = "1";
-    h2.classList.add("collapsible-title");
-    // A clickable heading has to be operable from the keyboard too.
-    h2.setAttribute("role", "button");
-    h2.setAttribute("tabindex", "0");
+const NOTES_SECTIONS = ["browse", "capture", "writing-room", "ask"];
+const NOTES_SECTION_STORE = "notesSection";
 
-    const chevron = document.createElement("span");
-    chevron.className = "collapse-chevron";
-    chevron.setAttribute("aria-hidden", "true");
-    h2.insertBefore(chevron, h2.firstChild);
+function activeNotesSection() {
+  const saved = localStorage.getItem(NOTES_SECTION_STORE);
+  return NOTES_SECTIONS.includes(saved) ? saved : "browse";
+}
 
-    const key = `collapse:${id}`;
-    const apply = (collapsed) => {
-      card.classList.toggle("collapsed", collapsed);
-      chevron.textContent = collapsed ? "▸" : "▾";
-      h2.setAttribute("aria-expanded", String(!collapsed));
-      h2.title = collapsed ? "Expand this section" : "Collapse this section";
-    };
-    const toggle = () => {
-      const collapsed = !card.classList.contains("collapsed");
-      localStorage.setItem(key, collapsed ? "1" : "0");
-      apply(collapsed);
-    };
-    h2.addEventListener("click", toggle);
-    h2.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        toggle();
-      }
-    });
-    const stored = localStorage.getItem(key);
-    apply(stored === null ? COLLAPSED_BY_DEFAULT.has(id) : stored === "1");
+function showNotesSection(name, { focus = false } = {}) {
+  const wanted = NOTES_SECTIONS.includes(name) ? name : "browse";
+  for (const id of NOTES_SECTIONS) {
+    const card = document.getElementById(id);
+    if (card) card.classList.toggle("hidden", id !== wanted);
   }
+  for (const button of document.querySelectorAll("#notes-subtabs button")) {
+    const active = button.dataset.section === wanted;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", String(active));
+    // Roving tabindex: the strip is one tab stop, arrows move within it.
+    button.tabIndex = active ? 0 : -1;
+    if (active && focus) button.focus();
+  }
+  localStorage.setItem(NOTES_SECTION_STORE, wanted);
+}
+
+function initNotesSubtabs() {
+  const strip = document.getElementById("notes-subtabs");
+  if (!strip || strip.dataset.ready) return;
+  strip.dataset.ready = "1";
+  strip.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-section]");
+    if (button) showNotesSection(button.dataset.section);
+  });
+  strip.addEventListener("keydown", (event) => {
+    const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
+    if (!step) return;
+    event.preventDefault();
+    const order = [...strip.querySelectorAll("button[data-section]")].map(
+      (b) => b.dataset.section
+    );
+    const index = order.indexOf(activeNotesSection());
+    showNotesSection(order[(index + step + order.length) % order.length], {
+      focus: true,
+    });
+  });
+  showNotesSection(activeNotesSection());
 }
 
 // --- panels inside the Notes tab (bin / activity) ---------------------------------
@@ -8335,11 +8342,8 @@ function paletteCommands() {
       label: "✨ Write a note from rough thoughts",
       run: () => {
         switchTab("notes");
-        // The writing room starts folded, so open it before jumping there.
-        const card = $("writing-room");
-        if (card?.classList.contains("collapsed")) {
-          card.querySelector(".collapsible-title")?.click();
-        }
+        // It's a sub-tab now, so select it rather than unfolding a card.
+        showNotesSection("writing-room");
         $("draft-thoughts")?.focus();
       },
     },
@@ -10287,7 +10291,7 @@ $("skip-link").addEventListener("click", (e) => {
   e.preventDefault();
   $(`tab-${localStorage.getItem("activeTab") || "notes"}`).focus();
 });
-initCollapsibleSections();
+initNotesSubtabs();
 scrollTopUpdate = initScrollTopButton();
 initResizableSidebars();
 switchTab(localStorage.getItem("activeTab") || "notes");
@@ -10394,18 +10398,12 @@ $("draft-discard").addEventListener("click", () => {
 // as dead. It now opens the section and explains what the writing room is,
 // including what happens when there's no AI running — which is when someone
 // is most likely to press it.
-$("draft-help").addEventListener("click", (event) => {
-  event.stopPropagation(); // the heading beside it toggles the card
-  const card = $("writing-room");
-  const intro = $("draft-intro");
-  if (card.classList.contains("collapsed")) {
-    // Expand through the heading so the chevron, aria-expanded and the
-    // remembered state all stay in step with the card.
-    card.querySelector("h2.collapsible-title")?.click();
-    intro.classList.remove("hidden");
-    return;
-  }
-  intro.classList.toggle("hidden");
+// "What is this?" — it used to toggle `hidden` on a paragraph inside a card
+// that started collapsed, so the paragraph was already not displayed and the
+// click changed nothing anyone could see. The section is always open when you
+// can press this now, so it's a plain show/hide of the explanation.
+$("draft-help").addEventListener("click", () => {
+  $("draft-intro").classList.toggle("hidden");
 });
 restoreDraftLocally();
 

@@ -151,6 +151,21 @@
           <p id="tags-empty" class="muted hidden">No tags yet — add some when you capture a note.</p>
         </section>
 
+        <!-- Sub-tabs. The Notes tab was four full-height cards stacked on one
+             page, so reaching your notes meant scrolling past three forms you
+             weren't using. One at a time, remembered. -->
+        <div class="notes-subtabs seg" id="notes-subtabs" role="tablist"
+          aria-label="Notes sections">
+          <button role="tab" data-section="browse" aria-selected="true"
+            aria-controls="browse">📚 Your notes</button>
+          <button role="tab" data-section="capture" aria-selected="false"
+            aria-controls="capture" tabindex="-1">✏️ Capture</button>
+          <button role="tab" data-section="writing-room" aria-selected="false"
+            aria-controls="writing-room" tabindex="-1">✨ Write with AI</button>
+          <button role="tab" data-section="ask" aria-selected="false"
+            aria-controls="ask" tabindex="-1">💬 Ask</button>
+        </div>
+
         <!-- Capture: the start of the core loop -->
         <section class="card" id="capture">
           <div class="row space-between">

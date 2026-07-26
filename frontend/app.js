@@ -1774,11 +1774,95 @@ async function copyToClipboard(text, button) {
 }
 
 // Put a question back in the input so it can be tweaked and re-sent.
-function editAndResend(text) {
-  const input = $("chat-input");
-  input.value = text;
-  input.focus();
-  input.setSelectionRange(text.length, text.length);
+// Edit a question in place, the way you'd expect a chat to work.
+//
+// The old version just copied the text into the input box: the original
+// question and its answer stayed put, and re-sending appended a second
+// exchange below them. So a small correction left the thread showing the typo,
+// the answer to the typo, and then the fix — which is the opposite of editing.
+//
+// Now the bubble itself becomes a textarea. Saving rewrites that question,
+// drops every exchange after it (they were answers to the old wording), and
+// asks again from that point.
+function editAndResend(bubble, text) {
+  if (chatController) return; // not mid-stream
+  if (bubble.querySelector(".msg-edit")) return; // already editing
+  const body = bubble.querySelector(".msg-body");
+  const actions = bubble.querySelector(".msg-actions");
+  const original = text;
+
+  const editor = document.createElement("div");
+  editor.className = "msg-edit";
+  const box = document.createElement("textarea");
+  box.value = original;
+  box.rows = Math.min(8, Math.max(2, original.split("\n").length + 1));
+  box.setAttribute("aria-label", "Edit your question");
+
+  const hint = document.createElement("p");
+  hint.className = "muted msg-edit-hint";
+  hint.textContent =
+    "Saving replaces this question and clears the replies that came after it.";
+
+  const row = document.createElement("div");
+  row.className = "row msg-edit-actions";
+  const save = document.createElement("button");
+  save.className = "small";
+  save.textContent = "Save & resend";
+  const cancel = document.createElement("button");
+  cancel.className = "ghost small";
+  cancel.textContent = "Cancel";
+  row.append(save, cancel);
+  editor.append(box, hint, row);
+
+  const close = () => {
+    editor.remove();
+    body.classList.remove("hidden");
+    actions?.classList.remove("hidden");
+  };
+  cancel.addEventListener("click", close);
+  box.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      close();
+    } else if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+      event.preventDefault();
+      save.click();
+    }
+  });
+  save.addEventListener("click", async () => {
+    const edited = box.value.trim();
+    if (!edited) return;
+    if (edited === original) return close();
+
+    const bubbles = [...$("chat-messages").querySelectorAll(".msg")];
+    const turnIndex = Math.floor(bubbles.indexOf(bubble) / 2);
+
+    // Server first: if this fails, nothing on screen has been thrown away yet.
+    if (chatConv.id !== null) {
+      try {
+        const result = await apiJson(`/conversations/${chatConv.id}/truncate`, {
+          method: "POST",
+          body: JSON.stringify({ from_turn: turnIndex }),
+        });
+        if (result.conversation_deleted) chatConv.id = null;
+      } catch (error) {
+        toast(`Couldn't edit that: ${error.message}`, true);
+        return;
+      }
+    }
+    // Drop this bubble and everything after it, then ask again.
+    for (const later of bubbles.slice(bubbles.indexOf(bubble))) later.remove();
+    chatConv.turns = chatConv.turns.slice(0, turnIndex);
+    close();
+    loadConversationList();
+    sendChatMessage(edited);
+  });
+
+  body.classList.add("hidden");
+  actions?.classList.add("hidden");
+  bubble.appendChild(editor);
+  box.focus();
+  box.setSelectionRange(box.value.length, box.value.length);
 }
 
 // Re-run the most recent question and REPLACE the previous answer in place
@@ -2049,7 +2133,7 @@ function addBubble(role, text) {
     bubble.appendChild(
       chatMessageActions([
         { label: "⧉", title: "Copy", onClick: (e) => copyToClipboard(text, e.currentTarget) },
-        { label: "✎", title: "Edit & resend", onClick: () => editAndResend(text) },
+        { label: "✎", title: "Edit this question", onClick: () => editAndResend(bubble, text) },
         { label: "🗑", title: "Delete this message", onClick: () => removeChatBubble(bubble) },
       ])
     );

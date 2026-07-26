@@ -22,8 +22,11 @@ def test_create_read_update_delete(client):
     assert "More text now" in updated["content"]
     assert updated["title"] == "My essay"  # untouched fields stay put
 
-    assert client.delete(f"/documents/{created['id']}").json()["deleted"] is True
-    assert client.get(f"/documents/{created['id']}").status_code == 404
+    # Requests happen outside the asserts so they still run under `python -O`.
+    deleted = client.delete(f"/documents/{created['id']}")
+    assert deleted.json()["deleted"] is True
+    gone = client.get(f"/documents/{created['id']}")
+    assert gone.status_code == 404
 
 
 def test_documents_are_listed_most_recently_edited_first(client):
@@ -38,7 +41,8 @@ def test_documents_are_listed_most_recently_edited_first(client):
 def test_documents_never_show_up_as_notes(client):
     """A document is not a captured thought; it must stay out of note search."""
     client.post("/documents", json={"title": "Essay", "content": "carbonara guanciale"})
-    assert client.get("/entries").json() == []
+    entries = client.get("/entries").json()
+    assert entries == []
 
 
 def test_markdown_export_includes_the_title_and_a_filename(client):
@@ -80,7 +84,8 @@ def test_ai_edit_returns_a_revision_without_saving_it(ai_client, fake_ollama):
     assert body["revised"] == "The rewritten text."
     assert body["replaced_selection"] is False
     # The stored document is untouched until the user accepts.
-    assert ai_client.get(f"/documents/{created['id']}").json()["content"] == "The original text."
+    stored = ai_client.get(f"/documents/{created['id']}").json()
+    assert stored["content"] == "The original text."
 
 
 def test_ai_edit_of_a_selection_only_sees_that_passage(ai_client, fake_ollama):
@@ -123,6 +128,9 @@ def test_ai_edit_of_an_empty_document_is_a_clean_400(ai_client):
 
 
 def test_missing_documents_are_404(client):
-    assert client.get("/documents/9999").status_code == 404
-    assert client.put("/documents/9999", json={"title": "x"}).status_code == 404
-    assert client.delete("/documents/9999").status_code == 404
+    fetched = client.get("/documents/9999")
+    assert fetched.status_code == 404
+    updated = client.put("/documents/9999", json={"title": "x"})
+    assert updated.status_code == 404
+    deleted = client.delete("/documents/9999")
+    assert deleted.status_code == 404

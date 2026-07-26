@@ -2994,3 +2994,15 @@ button { border-radius: calc(var(--radius) * 0.7); }
     color: #000;
   }
 }
+
+/* --- editing a question in place --------------------------------------------- */
+.msg-edit { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.35rem; }
+.msg-edit textarea {
+  width: 100%;
+  resize: vertical;
+  font: inherit;
+  line-height: 1.5;
+}
+.msg-edit-hint { font-size: 0.76rem; margin: 0; }
+.msg-edit-actions { gap: 0.4rem; }
+.msg-body.hidden, .msg-actions.hidden { display: none; }

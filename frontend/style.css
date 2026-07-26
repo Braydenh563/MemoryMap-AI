@@ -623,12 +623,60 @@ li.link-source { outline: 2px solid var(--accent); }
 .log-list li.log-warn .what { color: var(--warn); }
 
 /* --- dashboard + reminders (Wave D) ------------------------------------------ */
-.dash-greeting {
-  margin: 0.25rem 0 0;
-  padding: 0.5rem 2rem 0;
-  font-size: 1.4rem;
+/* Full-width welcome banner across the top of the dashboard. */
+.dash-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin: 0.75rem 2rem 0.25rem;
+  padding: 1.25rem 1.6rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+  background:
+    linear-gradient(120deg, var(--accent-soft) 0%, transparent 55%),
+    var(--card);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  box-shadow: var(--glass-shadow);
 }
-.dash-greeting:empty { display: none; }
+.dash-hero-text { min-width: 0; }
+.dash-greeting {
+  margin: 0;
+  font-size: 1.7rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.dash-submessage {
+  margin: 0.3rem 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+.dash-submessage:empty { display: none; }
+.dash-clock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.15;
+  flex: 0 0 auto;
+}
+.dash-clock-time {
+  font-size: 2.1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+.dash-clock-date { font-size: 0.82rem; color: var(--muted); }
+
+@media (max-width: 720px) {
+  .dash-hero { margin: 0.5rem 1rem 0.25rem; padding: 1rem 1.1rem; }
+  .dash-greeting { font-size: 1.35rem; }
+  .dash-clock { align-items: flex-start; }
+  .dash-clock-time { font-size: 1.7rem; }
+}
+:root[data-density="compact"] .dash-hero { padding: 0.85rem 1.2rem; }
+:root[data-density="spacious"] .dash-hero { padding: 1.7rem 2rem; }
 .dash-toolbar {
   display: flex;
   justify-content: space-between;

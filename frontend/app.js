@@ -2629,15 +2629,93 @@ async function saveDashLayout(layout) {
   }).catch(() => prefsCache);
 }
 
-// Time-of-day greeting, personalised with the saved display name if set.
+// --- dashboard welcome banner ------------------------------------------------
+// A few phrasings per time of day so the greeting feels alive. The choice is
+// keyed to the day + time-block, so it changes occasionally rather than
+// flickering on every re-render.
+const GREETINGS = {
+  morning: ["Good morning", "Morning", "Rise and shine", "A fresh start"],
+  afternoon: ["Good afternoon", "Afternoon", "Hope today's going well"],
+  evening: ["Good evening", "Evening", "Winding down"],
+  night: ["Still up", "Working late", "Burning the midnight oil"],
+};
+
+function greetingBlock(hour) {
+  if (hour < 5) return "night";
+  if (hour < 12) return "morning";
+  if (hour < 18) return "afternoon";
+  if (hour < 23) return "evening";
+  return "night";
+}
+
+function dashboardGreetingText(now = new Date()) {
+  const block = greetingBlock(now.getHours());
+  const options = GREETINGS[block];
+  // Same greeting for a whole block on a given day, then it moves on.
+  const daySlot = Math.floor(now.getTime() / 86400000) + now.getHours();
+  const phrase = options[daySlot % options.length];
+  const name = ((prefsCache && prefsCache.display_name) || "").trim();
+  return name ? `${phrase}, ${name}` : phrase;
+}
+
+let dashClockTimer = null;
+
+function paintDashClock() {
+  const timeEl = $("dash-clock-time");
+  const dateEl = $("dash-clock-date");
+  if (!timeEl || !dateEl) return;
+  const now = new Date();
+  timeEl.textContent = now.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  dateEl.textContent = now.toLocaleDateString([], {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+}
+
+// A short line about the notebook — note count, plus whatever's most
+// worth surfacing right now (due reminders, then a capture streak).
+async function renderDashSubmessage() {
+  const el = $("dash-submessage");
+  if (!el) return;
+  const [stats, reminders] = await Promise.all([
+    apiJson("/insights/stats").catch(() => null),
+    apiJson("/reminders").catch(() => []),
+  ]);
+  const bits = [];
+  if (stats) {
+    const n = stats.total_entries;
+    bits.push(n === 0 ? "Your notebook is empty — capture a thought to begin" : `You have ${n} note${n === 1 ? "" : "s"}`);
+  }
+  const due = (reminders || []).filter(
+    (r) => !r.done && new Date(r.due_at) <= new Date()
+  ).length;
+  if (due) bits.push(`${due} reminder${due === 1 ? "" : "s"} due`);
+  else {
+    const open = (reminders || []).filter((r) => !r.done).length;
+    if (open) bits.push(`${open} reminder${open === 1 ? "" : "s"} coming up`);
+  }
+  if (stats && stats.per_day) {
+    // Current capture streak, counting back from today.
+    let streak = 0;
+    for (let i = stats.per_day.length - 1; i >= 0 && stats.per_day[i] > 0; i--) streak++;
+    if (streak > 1) bits.push(`${streak}-day capture streak`);
+  }
+  el.textContent = bits.join(" · ");
+}
+
 function renderDashboardGreeting() {
   const el = $("dash-greeting");
   if (!el) return;
-  const hour = new Date().getHours();
-  const part =
-    hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-  const name = ((prefsCache && prefsCache.display_name) || "").trim();
-  el.textContent = name ? `${part}, ${name}` : part;
+  el.textContent = dashboardGreetingText();
+  paintDashClock();
+  // One ticking clock, however many times the dashboard re-renders.
+  if (dashClockTimer) clearInterval(dashClockTimer);
+  dashClockTimer = setInterval(paintDashClock, 1000);
+  renderDashSubmessage().catch(() => {});
 }
 
 async function renderDashboard() {

@@ -68,7 +68,18 @@
 
   <!-- ======================= DASHBOARD TAB (Wave D) ======================= -->
   <div class="tab-page hidden" id="tab-dashboard" role="tabpanel" aria-labelledby="tab-btn-dashboard" tabindex="-1">
-    <h2 id="dash-greeting" class="dash-greeting"></h2>
+    <!-- Full-width welcome banner: greeting + a line about your notebook,
+         with a live clock on the right. -->
+    <section class="dash-hero" id="dash-hero">
+      <div class="dash-hero-text">
+        <h2 id="dash-greeting" class="dash-greeting"></h2>
+        <p id="dash-submessage" class="dash-submessage"></p>
+      </div>
+      <div class="dash-clock" aria-hidden="true">
+        <span id="dash-clock-time" class="dash-clock-time"></span>
+        <span id="dash-clock-date" class="dash-clock-date"></span>
+      </div>
+    </section>
     <div class="dash-toolbar">
       <span class="muted hidden" id="dash-hint">Drag widgets to rearrange, or Hide/Show them — your layout is remembered.</span>
       <span id="dash-hint-spacer"></span>

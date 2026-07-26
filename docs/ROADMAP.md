@@ -44,6 +44,8 @@ More user notes:
 - The background art still wont move
 - The keybinds section for keyboard shortcuts is missing. 
 - When I click on the notes tab, there is a visual flicker at the bottom of the top menu bar for a second or two
+- better structure and visualise the opened page text from web search
+
 - Improve and remake the chat page ui to be impressive and the best it can be??
 - I want to improve the document preview md formatting
 - I want the web search to be as private as possible. make it untraceable/untrackable

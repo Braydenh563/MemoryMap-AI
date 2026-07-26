@@ -31,7 +31,8 @@ def test_binned_notes_are_not_counted(client):
     b = _make(client, "binned", "Work")
     client.delete(f"/entries/{b['id']}")
     assert _categories(client)["Work"]["count"] == 1
-    assert client.get(f"/entries/{a['id']}").status_code == 200
+    survivor = client.get(f"/entries/{a['id']}")
+    assert survivor.status_code == 200
 
 
 def test_rename_category(client):
@@ -86,9 +87,13 @@ def test_uncategorised_cannot_be_deleted(client):
 def test_rename_rejects_a_blank_name(client):
     _make(client, "a note", "Work")
     cats = _categories(client)
-    assert client.put(f"/categories/{cats['Work']['id']}", json={"name": "   "}).status_code == 400
+    # The request is made outside the assert so it still runs under `python -O`.
+    response = client.put(f"/categories/{cats['Work']['id']}", json={"name": "   "})
+    assert response.status_code == 400
 
 
 def test_operations_on_a_missing_category_are_400(client):
-    assert client.put("/categories/9999", json={"name": "Nope"}).status_code == 400
-    assert client.delete("/categories/9999").status_code == 400
+    renamed = client.put("/categories/9999", json={"name": "Nope"})
+    assert renamed.status_code == 400
+    deleted = client.delete("/categories/9999")
+    assert deleted.status_code == 400

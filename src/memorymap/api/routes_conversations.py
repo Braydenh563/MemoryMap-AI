@@ -79,6 +79,24 @@ def _existing(session: Session, conversation_id: int) -> Conversation:
     return conversation
 
 
+def conversation_matches(conversation: Conversation, term: str) -> bool:
+    """Does this chat actually mention `term`?
+
+    Not a LIKE against the `messages` column. That column holds JSON, so its
+    own keys are searchable text: "tent" is a substring of "content", which
+    made every single conversation match. The decoded message text is the
+    only thing a user means by "what was said".
+    """
+    lowered = term.lower()
+    if lowered in conversation.title.lower():
+        return True
+    try:
+        messages = json.loads(conversation.messages)
+    except ValueError:
+        return False
+    return any(lowered in str(m.get("content", "")).lower() for m in messages)
+
+
 @router.get("")
 def list_conversations(
     q: str = "", session: Session = Depends(get_session)
@@ -87,21 +105,26 @@ def list_conversations(
 
     `q` searches titles *and* message text: you remember what you asked
     about far more often than what the chat ended up being called, and
-    title-only search can't find that. The whole transcript is already in
-    one column, so this stays a single LIKE rather than a new index.
+    title-only search can't find that.
     """
-    query = select(Conversation)
     term = (q or "").strip()
+    query = select(Conversation)
     if term:
+        # A cheap SQL prefilter — it over-matches (JSON keys count as text),
+        # so everything it returns is then checked properly below.
         like = f"%{term}%"
         query = query.where(
             Conversation.title.ilike(like) | Conversation.messages.ilike(like)
         )
-    rows = session.scalars(
-        query.order_by(
-            Conversation.pinned.desc(), Conversation.updated_at.desc()
-        ).limit(200 if term else 50)
+    rows = list(
+        session.scalars(
+            query.order_by(
+                Conversation.pinned.desc(), Conversation.updated_at.desc()
+            ).limit(200 if term else 50)
+        )
     )
+    if term:
+        rows = [c for c in rows if conversation_matches(c, term)]
     return [_summary(c) for c in rows]
 
 

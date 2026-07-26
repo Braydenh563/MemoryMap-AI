@@ -52,6 +52,9 @@ FULL_NOTE_CHARS = 4_000
 DEFAULT_LIST_LIMIT = 10
 MAX_LIST_LIMIT = 25
 SUMMARY_NOTE_LIMIT = 40
+# Documents are long-form by definition, so they get a larger ceiling than a
+# note — but still a ceiling: one document must not fill the whole window.
+DOCUMENT_CHARS = 12_000
 
 
 def _clip(text: str, length: int = 300) -> str:
@@ -411,6 +414,211 @@ def _summarize_notes(session: Session, args: dict) -> dict:
     return result
 
 
+# --- documents, past chats, and skills ------------------------------------------
+# Documents are deliberately kept out of retrieval: a note is a captured
+# thought, a document is something you sat down and write, and mixing them
+# would put every half-finished draft into every search result. That decision
+# also meant the model could not read a document even when explicitly asked
+# to. These tools are the "unless you ask for it by name" half of that rule —
+# nothing arrives in context unless the model goes and gets it.
+
+
+def _list_documents(session: Session, args: dict) -> dict:
+    from memorymap.core.database import Document
+
+    limit = _limit_arg(args, default=DEFAULT_LIST_LIMIT)
+    offset = max(0, int(args.get("offset") or 0))
+    term = str(args.get("query") or "").strip()
+    # One list of filters, applied to both the page and the count, so the
+    # total can never describe a different set than the rows.
+    filters = []
+    if term:
+        like = f"%{term}%"
+        filters.append(Document.title.ilike(like) | Document.content.ilike(like))
+    total = session.scalar(select(func.count(Document.id)).where(*filters)) or 0
+    rows = list(
+        session.scalars(
+            select(Document)
+            .where(*filters)
+            .order_by(Document.updated_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+    )
+    return {
+        "documents": [
+            {
+                "id": d.id,
+                "title": d.title,
+                "words": len(d.content.split()),
+                "updated_at": d.updated_at.isoformat(),
+                "preview": _clip(d.content, PREVIEW_CHARS),
+            }
+            for d in rows
+        ],
+        "returned": len(rows),
+        "total_matching": total,
+        "offset": offset,
+        "has_more": offset + len(rows) < total,
+        "how_to_read_more": (
+            "Previews only. Call get_document with an id to read one in full."
+        ),
+        "label": f"📚 Listed documents{f' matching “{_clip(term, 30)}”' if term else ''}",
+    }
+
+
+def _get_document(session: Session, args: dict) -> dict:
+    from memorymap.core.database import Document
+
+    document = session.get(Document, int(args["document_id"]))
+    if document is None:
+        raise ValueError(f"No document with id {args.get('document_id')}")
+    text = document.content
+    clipped = _clip(text, DOCUMENT_CHARS)
+    return {
+        "id": document.id,
+        "title": document.title,
+        "content": clipped,
+        "truncated": len(clipped) < len(text),
+        "words": len(text.split()),
+        "label": f"📄 Read the document “{_clip(document.title, 40)}”",
+    }
+
+
+def _search_chat_history(session: Session, args: dict) -> dict:
+    """Past conversations. "What did we decide last week?" was unanswerable:
+    each turn only ever saw its own thread, so the assistant had no memory of
+    anything said in a different chat."""
+    from memorymap.api.routes_conversations import conversation_matches
+    from memorymap.core.database import Conversation
+
+    limit = _limit_arg(args, default=5)
+    term = str(args.get("query") or "").strip()
+    query = select(Conversation)
+    if term:
+        # Prefilter in SQL, then confirm in Python: `messages` is a JSON
+        # column, so a raw LIKE also matches its keys — "tent" is inside
+        # "content", which matched every conversation ever saved.
+        like = f"%{term}%"
+        query = query.where(
+            Conversation.title.ilike(like) | Conversation.messages.ilike(like)
+        )
+    rows = list(
+        session.scalars(
+            query.order_by(Conversation.updated_at.desc()).limit(limit * 4 if term else limit)
+        )
+    )
+    if term:
+        rows = [c for c in rows if conversation_matches(c, term)][:limit]
+    found = []
+    for conversation in rows:
+        try:
+            messages = json.loads(conversation.messages)
+        except ValueError:
+            messages = []
+        # The matching exchanges, not the whole thread: a long conversation
+        # would spend the entire budget on one tool call. Whole turns, though
+        # — a question that matched without the answer that followed it is
+        # useless for "what did we decide?", which is the question this tool
+        # exists to answer.
+        wanted_indexes: set[int] = set()
+        for index, message in enumerate(messages):
+            content = str(message.get("content", ""))
+            if not term or term.lower() in content.lower():
+                turn_start = index - (index % 2)
+                wanted_indexes.update({turn_start, turn_start + 1})
+            if len(wanted_indexes) >= 6:
+                break
+        excerpts = [
+            {
+                "role": messages[i].get("role"),
+                "text": _clip(str(messages[i].get("content", "")), PREVIEW_CHARS),
+            }
+            for i in sorted(wanted_indexes)
+            if i < len(messages)
+        ]
+        found.append(
+            {
+                "id": conversation.id,
+                "title": conversation.title,
+                "updated_at": conversation.updated_at.isoformat(),
+                "turns": len(messages) // 2,
+                "excerpts": excerpts or [
+                    {"role": m.get("role"), "text": _clip(str(m.get("content", "")), PREVIEW_CHARS)}
+                    for m in messages[:2]
+                ],
+            }
+        )
+    return {
+        "conversations": found,
+        "found": len(found),
+        "note_to_model": (
+            "These are excerpts from earlier chats, including possibly this "
+            "one. Say when you're relying on something said in a past "
+            "conversation rather than presenting it as the user's notes."
+        ),
+        "label": f"💬 Searched past chats{f' for “{_clip(term, 30)}”' if term else ''}",
+    }
+
+
+def _skill_list(config) -> list[dict]:
+    return list(config.get_preference("skills", []) or [])
+
+
+def _list_skills(session: Session, args: dict) -> dict:
+    skills = _skill_list(deps.get_config())
+    return {
+        "skills": [
+            {"name": s.get("name"), "prompt": _clip(str(s.get("prompt", "")), 300)}
+            for s in skills
+        ],
+        "count": len(skills),
+        "note_to_model": (
+            "These are the user's own saved skills. The app also ships "
+            "built-in ones that live in the interface and can't be edited here."
+        ),
+        "label": "⚡ Listed your saved skills",
+    }
+
+
+def _save_skill(session: Session, args: dict) -> dict:
+    """Create or update one skill. Same tool for both, because from the
+    model's side "make me a skill that does X" is one intent, and a separate
+    update tool just adds a way to get it wrong."""
+    config = deps.get_config()
+    name = str(args["name"]).strip()
+    prompt = str(args["prompt"]).strip()
+    if not name or not prompt:
+        raise ValueError("A skill needs both a name and a prompt")
+    if len(name) > 40:
+        raise ValueError("Skill names are limited to 40 characters")
+    if len(prompt) > 2000:
+        raise ValueError("Skill prompts are limited to 2000 characters")
+    skills = _skill_list(config)
+    existed = any(s.get("name") == name for s in skills)
+    if len(skills) >= 30 and not existed:
+        raise ValueError("There are already 30 saved skills — delete one first")
+    skills = [s for s in skills if s.get("name") != name]
+    skills.append({"name": name, "prompt": prompt})
+    config.set_preference("skills", skills)
+    return {
+        "name": name,
+        "updated": existed,
+        "label": f"⚡ {'Updated' if existed else 'Created'} the “{name}” skill",
+    }
+
+
+def _delete_skill(session: Session, args: dict) -> dict:
+    config = deps.get_config()
+    name = str(args["name"]).strip()
+    skills = _skill_list(config)
+    remaining = [s for s in skills if s.get("name") != name]
+    if len(remaining) == len(skills):
+        raise ValueError(f"There's no saved skill called “{name}”")
+    config.set_preference("skills", remaining)
+    return {"name": name, "label": f"⚡ Deleted the “{name}” skill"}
+
+
 def _create_note(session: Session, args: dict) -> dict:
     content = str(args["content"]).strip()
     if not content:
@@ -725,6 +933,92 @@ TOOLS: dict[str, ToolSpec] = {
             _list_tags,
         ),
         ToolSpec(
+            "list_documents",
+            "List the user's long-form documents, newest first, optionally "
+            "filtered by a word in the title or body. Documents are separate "
+            "from notes and are never searched automatically, so use this "
+            "whenever the question is about something they wrote up properly.",
+            {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Only documents containing this text (optional)",
+                    },
+                    "limit": {"type": "integer", "description": "Per page"},
+                    "offset": {"type": "integer", "description": "Skip this many"},
+                },
+            },
+            _list_documents,
+        ),
+        ToolSpec(
+            "get_document",
+            "Read one document in full, by id. Use after list_documents, "
+            "whose results are only previews.",
+            {
+                "type": "object",
+                "properties": {
+                    "document_id": {"type": "integer", "description": "The document's id"}
+                },
+                "required": ["document_id"],
+            },
+            _get_document,
+        ),
+        ToolSpec(
+            "search_chat_history",
+            "Look through earlier conversations with the user, including "
+            "ones from other days. Use this when they refer to something "
+            "'we talked about' that isn't in the current thread.",
+            {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Words to look for (leave empty for the most recent chats)",
+                    },
+                    "limit": {"type": "integer", "description": "How many chats"},
+                },
+            },
+            _search_chat_history,
+        ),
+        ToolSpec(
+            "list_skills",
+            "List the user's saved skills — their own one-click requests for "
+            "this chat.",
+            {"type": "object", "properties": {}},
+            _list_skills,
+        ),
+        ToolSpec(
+            "save_skill",
+            "Create a saved skill, or update one that already exists by using "
+            "the same name. A skill is a reusable request the user can run "
+            "with one click.",
+            {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Short name, up to 40 characters"},
+                    "prompt": {
+                        "type": "string",
+                        "description": "What the skill asks for, written as an instruction",
+                    },
+                },
+                "required": ["name", "prompt"],
+            },
+            _save_skill,
+        ),
+        ToolSpec(
+            "delete_skill",
+            "Delete one of the user's saved skills. The app asks the user to "
+            "confirm before this runs.",
+            {
+                "type": "object",
+                "properties": {"name": {"type": "string"}},
+                "required": ["name"],
+            },
+            _delete_skill,
+            destructive=True,
+        ),
+        ToolSpec(
             "get_current_time",
             "Get the current local date and time. Use this for time-aware "
             "answers and to compute reminder times.",
@@ -978,6 +1272,8 @@ def confirm_label(name: str, arguments: dict) -> str:
         return f"Move note #{arguments.get('note_id', '?')} to the recycle bin"
     if name == "delete_tag":
         return f"Remove the tag “{arguments.get('name', '?')}” from every note"
+    if name == "delete_skill":
+        return f"Delete the saved skill “{arguments.get('name', '?')}”"
     return f"Run {name}"
 
 

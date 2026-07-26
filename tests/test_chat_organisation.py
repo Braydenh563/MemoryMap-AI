@@ -171,3 +171,22 @@ def test_an_existing_database_gains_pinning_without_a_reset(tmp_path):
     assert [c.title for c in surviving] == ["from before pinning existed"]
     assert all(c.pinned is False for c in surviving)  # backfilled, not null
     upgraded.close()
+
+
+def test_search_does_not_match_the_json_keys_of_the_transcript(client):
+    """Messages are stored as JSON, so a naive LIKE over that column also
+    searches its own keys: "tent" is a substring of "content", which matched
+    every conversation ever saved. What was *said* is the only thing anyone
+    means by searching a chat."""
+    wanted = _chat(client, "which tent did we settle on?", "The two-person one.")
+    _chat(client, "what's for dinner?", "Pasta.")
+
+    for key_fragment in ["tent", "role", "assistan", "think"]:
+        hits = client.get("/conversations", params={"q": key_fragment}).json()
+        assert all(c["id"] == wanted["id"] for c in hits), (
+            f"'{key_fragment}' matched a chat that never mentions it"
+        )
+
+    assert [c["id"] for c in client.get("/conversations", params={"q": "tent"}).json()] == [
+        wanted["id"]
+    ]

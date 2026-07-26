@@ -1281,16 +1281,26 @@
         <h2>⌨ Keyboard shortcuts</h2>
         <button id="shortcuts-close" class="ghost small">Close</button>
       </div>
+      <p class="muted">Click <strong>Change</strong> and press the keys you want.</p>
+      <ul class="shortcut-list" id="shortcut-list"></ul>
+      <p id="shortcut-status" class="status" role="status"></p>
+      <div class="row">
+        <button id="shortcuts-reset" class="ghost small" type="button">↺ Reset to defaults</button>
+      </div>
+
+      <h3>Always available</h3>
+      <p class="muted">
+        These follow the conventions every app shares, so they aren't
+        rebindable — being unable to press Escape in the dialog you rebound it
+        in is not a state worth allowing.
+      </p>
       <ul class="shortcut-list">
-        <li><kbd>Ctrl</kbd>/<kbd>⌘</kbd> <kbd>K</kbd><span>Open the command palette</span></li>
-        <li><kbd>/</kbd><span>Jump to search (or the chat box on the Chat tab)</span></li>
-        <li><kbd>?</kbd><span>Show this shortcuts list</span></li>
         <li><kbd>Esc</kbd><span>Close any dialog, menu, or overlay</span></li>
         <li><kbd>←</kbd> <kbd>→</kbd><span>Move between tabs (when a tab is focused)</span></li>
         <li><kbd>Enter</kbd><span>Send a chat message, or run the selected command</span></li>
         <li><kbd>Tab</kbd><span>Move focus; cycles inside an open dialog</span></li>
       </ul>
-      <p class="muted">Tip: most actions also live in the command palette (<kbd>Ctrl</kbd>/<kbd>⌘</kbd> <kbd>K</kbd>).</p>
+      <p class="muted">Tip: most actions also live in the command palette.</p>
     </div>
   </div>
 

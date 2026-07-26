@@ -9317,6 +9317,8 @@ async function saveCurrentSearch() {
 
 $("save-search").addEventListener("click", saveCurrentSearch);
 
+$("shortcuts-reset").addEventListener("click", resetShortcuts);
+
 $("search-help").addEventListener("click", () => {
   const panel = $("search-help-hint");
   const showing = panel.classList.toggle("hidden");
@@ -9489,12 +9491,22 @@ $("entry-content").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && e.ctrlKey) saveEntry();
 });
 document.addEventListener("keydown", (e) => {
-  // Ctrl/Cmd-K: the command palette, from anywhere (Wave F).
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+  // Rebinding swallows everything while it's listening.
+  if (captureShortcutKey(e)) {
     e.preventDefault();
-    if ($("palette-overlay").classList.contains("hidden")) openPalette();
-    else closePalette();
     return;
+  }
+  // Chorded shortcuts (anything with a modifier) work even while typing —
+  // Ctrl+K from inside the note box should still open the palette.
+  const chorded = e.ctrlKey || e.metaKey || e.altKey;
+  if (chorded) {
+    for (const [id, def] of Object.entries(shortcuts)) {
+      if (matchesShortcut(e, def.keys)) {
+        e.preventDefault();
+        runShortcut(id);
+        return;
+      }
+    }
   }
   if (e.key === "Escape" && !$("onboarding-overlay").classList.contains("hidden")) {
     closeOnboarding();
@@ -9537,23 +9549,17 @@ document.addEventListener("keydown", (e) => {
     settingsModalOpen() ||
     !$("palette-overlay").classList.contains("hidden") ||
     !$("sketch-overlay").classList.contains("hidden");
-  // "?" (Shift-/) opens the keyboard-shortcuts cheat-sheet.
-  if (e.key === "?" && !typing && !overlayOpen) {
-    e.preventDefault();
-    openShortcuts();
-    return;
-  }
-  if (e.key === "/" && !typing && !overlayOpen) {
-    e.preventDefault();
-    // On the Chat tab the natural target is the chat box; elsewhere the
-    // Notes filter (switching to Notes if needed).
-    if (localStorage.getItem("activeTab") === "chat") {
-      $("chat-input").focus();
-    } else {
-      switchTab("notes");
-      $("note-search").focus();
+  // Unchorded shortcuts ("/", "?") only fire when you're not typing and no
+  // overlay is open, so they never steal a literal slash mid-sentence.
+  if (!typing && !overlayOpen) {
+    for (const [id, def] of Object.entries(shortcuts)) {
+      const bare = !/\+/.test(def.keys);
+      if (bare && matchesShortcut(e, def.keys)) {
+        e.preventDefault();
+        runShortcut(id);
+        return;
+      }
     }
-    return;
   }
   if (e.key === "Escape" && settingsModalOpen()) closeSettingsModal();
   if (e.key === "Escape") closeActionMenus();
@@ -9678,11 +9684,205 @@ $("show-guide-btn").addEventListener("click", () => {
 });
 
 // Keyboard-shortcuts cheat-sheet (press ?), a learnability aid.
+// --- rebindable keyboard shortcuts -----------------------------------------------
+// The shortcuts used to be hardcoded in the keydown handler, which meant they
+// were whatever we'd guessed — no help if one clashes with your OS, your
+// browser, or a habit from another app.
+//
+// Only shortcuts that trigger an *action* are rebindable. Escape (close),
+// Tab (move focus) and the arrow keys (move between tabs) deliberately are
+// not: they're the conventions every app shares, and letting someone rebind
+// Escape is how you end up unable to close the dialog you rebound it in.
+
+const DEFAULT_SHORTCUTS = {
+  palette: { keys: "Ctrl+K", label: "Open the command palette" },
+  search: { keys: "/", label: "Jump to search (or the chat box on Chat)" },
+  help: { keys: "?", label: "Show this shortcuts list" },
+  newNote: { keys: "Ctrl+Shift+N", label: "Start a new note" },
+  newDocument: { keys: "Ctrl+Shift+D", label: "Start a new document" },
+  toggleTheme: { keys: "Ctrl+Shift+L", label: "Switch light / dark" },
+};
+
+const SHORTCUT_STORE = "keyboardShortcuts";
+
+function loadShortcuts() {
+  let saved = {};
+  try {
+    saved = JSON.parse(localStorage.getItem(SHORTCUT_STORE) || "{}");
+  } catch {
+    saved = {}; // unreadable — fall back to defaults rather than throwing
+  }
+  const merged = {};
+  for (const [id, def] of Object.entries(DEFAULT_SHORTCUTS)) {
+    merged[id] = { ...def, keys: saved[id] || def.keys };
+  }
+  return merged;
+}
+
+let shortcuts = loadShortcuts();
+
+function saveShortcutOverrides() {
+  // Only store what differs from the defaults, so improving a default later
+  // reaches everyone who never changed it.
+  const overrides = {};
+  for (const [id, def] of Object.entries(DEFAULT_SHORTCUTS)) {
+    if (shortcuts[id].keys !== def.keys) overrides[id] = shortcuts[id].keys;
+  }
+  localStorage.setItem(SHORTCUT_STORE, JSON.stringify(overrides));
+}
+
+// A keyboard event -> the canonical string we compare against, e.g. "Ctrl+K".
+function comboFromEvent(event) {
+  const parts = [];
+  if (event.ctrlKey || event.metaKey) parts.push("Ctrl");
+  if (event.altKey) parts.push("Alt");
+  if (event.shiftKey) parts.push("Shift");
+  let key = event.key;
+  if (key === " ") key = "Space";
+  // Single letters normalise to uppercase so "Ctrl+k" and "Ctrl+K" are one
+  // shortcut; longer names (Enter, ArrowUp) keep their own capitalisation.
+  if (key.length === 1) key = key.toUpperCase();
+  // A bare modifier isn't a shortcut yet — the user is still mid-chord.
+  if (["Control", "Meta", "Alt", "Shift"].includes(event.key)) return null;
+  parts.push(key);
+  return parts.join("+");
+}
+
+// "?" is Shift+/ on most layouts; treat the typed character as the shortcut so
+// a user who binds "?" doesn't have to know that.
+function matchesShortcut(event, combo) {
+  if (comboFromEvent(event) === combo) return true;
+  return combo.length === 1 && event.key === combo && !event.ctrlKey && !event.metaKey;
+}
+
+function runShortcut(id) {
+  const actions = {
+    palette: () => {
+      if ($("palette-overlay").classList.contains("hidden")) openPalette();
+      else closePalette();
+    },
+    search: () => {
+      if (localStorage.getItem("activeTab") === "chat") {
+        $("chat-input").focus();
+      } else {
+        switchTab("notes");
+        $("note-search").focus();
+      }
+    },
+    help: openShortcuts,
+    newNote: () => {
+      switchTab("notes");
+      $("entry-content").focus();
+    },
+    newDocument: () => {
+      switchTab("documents");
+      createDocument();
+    },
+    toggleTheme,
+  };
+  actions[id]?.();
+}
+
+function resetShortcuts() {
+  localStorage.removeItem(SHORTCUT_STORE);
+  shortcuts = loadShortcuts();
+  renderShortcutList();
+  toast("Shortcuts reset to their defaults.");
+}
+
+let capturingShortcut = null; // the id being rebound, or null
+
+function renderShortcutList() {
+  const list = $("shortcut-list");
+  list.replaceChildren();
+  for (const [id, def] of Object.entries(shortcuts)) {
+    const li = document.createElement("li");
+    const combo = document.createElement("kbd");
+    combo.textContent = capturingShortcut === id ? "Press keys…" : def.keys;
+    if (capturingShortcut === id) combo.classList.add("capturing");
+
+    const label = document.createElement("span");
+    label.textContent = def.label;
+
+    const change = document.createElement("button");
+    change.className = "ghost small";
+    change.type = "button";
+    change.textContent = capturingShortcut === id ? "Cancel" : "Change";
+    change.setAttribute("aria-label", `Change the shortcut for: ${def.label}`);
+    change.addEventListener("click", () => {
+      capturingShortcut = capturingShortcut === id ? null : id;
+      $("shortcut-status").textContent = capturingShortcut
+        ? "Press the keys you want, or Escape to cancel."
+        : "";
+      renderShortcutList();
+    });
+
+    // Only offer "default" when it isn't already the default.
+    const changed = def.keys !== DEFAULT_SHORTCUTS[id].keys;
+    li.append(combo, label, change);
+    if (changed) {
+      const revert = document.createElement("button");
+      revert.className = "ghost small";
+      revert.type = "button";
+      revert.textContent = "↺";
+      revert.title = `Back to ${DEFAULT_SHORTCUTS[id].keys}`;
+      revert.setAttribute("aria-label", revert.title);
+      revert.addEventListener("click", () => {
+        shortcuts[id].keys = DEFAULT_SHORTCUTS[id].keys;
+        saveShortcutOverrides();
+        renderShortcutList();
+      });
+      li.appendChild(revert);
+    }
+    list.appendChild(li);
+  }
+}
+
+// While rebinding, this handler runs before everything else and swallows the
+// keypress — otherwise pressing Ctrl+K to rebind it would also open the
+// palette you're trying to move.
+function captureShortcutKey(event) {
+  if (!capturingShortcut) return false;
+  if (event.key === "Escape") {
+    capturingShortcut = null;
+    $("shortcut-status").textContent = "";
+    renderShortcutList();
+    return true;
+  }
+  const combo = comboFromEvent(event);
+  if (!combo) return true; // still holding modifiers
+
+  const clash = Object.entries(shortcuts).find(
+    ([otherId, def]) => otherId !== capturingShortcut && def.keys === combo
+  );
+  if (clash) {
+    // Refuse rather than silently stealing it — two actions on one key means
+    // one of them quietly stops working.
+    $("shortcut-status").classList.add("error");
+    $("shortcut-status").textContent = `${combo} is already used for "${clash[1].label}".`;
+    return true;
+  }
+  shortcuts[capturingShortcut].keys = combo;
+  saveShortcutOverrides();
+  capturingShortcut = null;
+  $("shortcut-status").classList.remove("error");
+  $("shortcut-status").textContent = `Set to ${combo}.`;
+  renderShortcutList();
+  return true;
+}
+
 function openShortcuts() {
+  capturingShortcut = null;
+  $("shortcut-status").textContent = "";
+  renderShortcutList();
   $("shortcuts-overlay").classList.remove("hidden");
   $("shortcuts-close").focus();
 }
 function closeShortcuts() {
+  // Stop listening for a rebind. Without this, closing the dialog mid-capture
+  // leaves the handler swallowing every keypress in the app — the shortcut you
+  // just set appears dead, and so does everything else.
+  capturingShortcut = null;
   $("shortcuts-overlay").classList.add("hidden");
 }
 // Tools & features browser (opened from the dashboard quick links).

@@ -3129,3 +3129,26 @@ button.ai-unavailable {
 }
 .wiki-suggest li.active,
 .wiki-suggest li:hover { background: var(--accent-soft); }
+
+/* --- duplicate tidy-up -------------------------------------------------------- */
+.duplicate-group {
+  margin: 0.6rem 0;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+.duplicate-group > p { margin: 0 0 0.4rem; font-size: 0.8rem; }
+.duplicate-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.duplicate-note input { width: auto; margin: 0.2rem 0 0; flex: 0 0 auto; }
+.duplicate-group .row { margin-top: 0.5rem; align-items: center; gap: 0.6rem; }
+.duplicate-group .row label { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.82rem; }
+.duplicate-group .row label input { width: auto; margin: 0; }
+#duplicate-threshold { width: 8rem; }

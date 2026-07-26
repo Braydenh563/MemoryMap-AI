@@ -1155,6 +1155,22 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
             <p class="muted">Exports include everything, even binned entries.</p>
 
+            <h3>Tidy up duplicates</h3>
+            <p class="muted">
+              Finds notes that say much the same thing, by comparing their
+              words — no AI needed. Merging keeps every tag, and the notes it
+              replaces go to the recycle bin, so nothing is destroyed.
+            </p>
+            <div class="row">
+              <button id="find-duplicates" class="small">🔍 Find duplicates</button>
+              <label for="duplicate-threshold" class="muted">How alike</label>
+              <input id="duplicate-threshold" type="range" min="50" max="100" value="72"
+                aria-label="How similar two notes must be to count as duplicates">
+              <span id="duplicate-threshold-value" class="muted">72%</span>
+            </div>
+            <p id="duplicate-status" class="status" role="status"></p>
+            <div id="duplicate-groups"></div>
+
             <h3>Import markdown</h3>
             <div class="row">
               <input id="import-md-files" type="file" accept=".md,.markdown,.txt" multiple>

@@ -9412,6 +9412,130 @@ function wikiSuggestKeydown(event, textarea) {
   return false;
 }
 
+// --- duplicate tidy-up -----------------------------------------------------------
+// Finding is arithmetic and always available. Merging offers the AI when it's
+// running and a plain join when it isn't — the join reads worse but cannot
+// lose anything, which is the property that matters when tidying.
+
+async function findDuplicates() {
+  const status = $("duplicate-status");
+  const box = $("duplicate-groups");
+  const threshold = Number($("duplicate-threshold").value) / 100;
+  status.classList.remove("error");
+  status.textContent = "Comparing your notes…";
+  box.replaceChildren();
+  try {
+    const body = await apiJson(`/duplicates?threshold=${threshold}`);
+    renderDuplicateGroups(body.groups);
+    status.textContent = body.groups.length
+      ? `${body.groups.length} group${body.groups.length === 1 ? "" : "s"} of similar notes.`
+      : "No duplicates at that similarity — try lowering the slider.";
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+  }
+}
+
+function renderDuplicateGroups(groups) {
+  const box = $("duplicate-groups");
+  box.replaceChildren();
+  for (const group of groups) {
+    const card = document.createElement("div");
+    card.className = "duplicate-group";
+
+    const head = document.createElement("p");
+    head.className = "muted";
+    head.textContent = `${group.entries.length} notes · ${Math.round(group.similarity * 100)}% alike`;
+    card.appendChild(head);
+
+    // Every note ticked by default: the whole point is merging the group.
+    const chosen = new Set(group.entries.map((e) => e.id));
+    for (const entry of group.entries) {
+      const label = document.createElement("label");
+      label.className = "duplicate-note";
+      const box2 = document.createElement("input");
+      box2.type = "checkbox";
+      box2.checked = true;
+      box2.addEventListener("change", () => {
+        if (box2.checked) chosen.add(entry.id);
+        else chosen.delete(entry.id);
+        merge.disabled = chosen.size < 2;
+      });
+      const text = document.createElement("span");
+      text.textContent = notePreviewText(entry.content).slice(0, 160);
+      label.append(box2, text);
+      card.appendChild(label);
+    }
+
+    const row = document.createElement("div");
+    row.className = "row";
+    const merge = smallButton("⤵ Merge these", "Combine them into one note", async () => {
+      await mergeDuplicateGroup([...chosen], card);
+    }, false);
+    const useAi = document.createElement("label");
+    useAi.className = "muted";
+    const aiBox = document.createElement("input");
+    aiBox.type = "checkbox";
+    aiBox.id = `merge-ai-${group.entries[0].id}`;
+    // Only offer the AI when it can actually do the job.
+    const aiReady = !modelStatus || modelStatus.ollama_running !== false;
+    aiBox.checked = aiReady;
+    aiBox.disabled = !aiReady;
+    useAi.append(aiBox, document.createTextNode(
+      aiReady ? " let the AI write the merged note" : " AI not running — notes will be joined"
+    ));
+    card.dataset.aiBoxId = aiBox.id;
+    row.append(merge, useAi);
+    card.appendChild(row);
+    box.appendChild(card);
+  }
+}
+
+async function mergeDuplicateGroup(ids, card) {
+  if (ids.length < 2) return;
+  const aiBox = document.getElementById(card.dataset.aiBoxId);
+  const useAi = !!(aiBox && aiBox.checked);
+  const status = $("duplicate-status");
+
+  // Show what it will say BEFORE anything changes — merging is the one action
+  // here that can quietly lose writing, so it shouldn't be a leap of faith.
+  status.classList.remove("error");
+  status.textContent = "Working out the merged note…";
+  let preview;
+  try {
+    preview = await apiJson("/duplicates/preview", {
+      method: "POST",
+      body: JSON.stringify({ ids, use_ai: useAi }),
+    });
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+    return;
+  }
+  status.textContent = "";
+
+  const ok = confirm(
+    `Merge ${ids.length} notes into one?\n\n` +
+      `The merged note will read:\n\n${preview.merged.slice(0, 400)}` +
+      `${preview.merged.length > 400 ? "…" : ""}\n\n` +
+      `The other ${ids.length - 1} go to the recycle bin, so this is undoable.`
+  );
+  if (!ok) return;
+
+  try {
+    const result = await apiJson("/duplicates/merge", {
+      method: "POST",
+      body: JSON.stringify({ ids, use_ai: useAi }),
+    });
+    card.remove();
+    toast(`Merged ${result.merged_count} notes${result.used_ai ? " with the AI" : ""}.`);
+    await loadEntries();
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+  }
+}
+
 // --- saved filters ---------------------------------------------------------------
 // Once the filter box understands operators, the useful ones are worth
 // keeping. "tag:work is:untagged" is a thing you want on a button, not
@@ -9478,6 +9602,11 @@ async function saveCurrentSearch() {
 }
 
 $("save-search").addEventListener("click", saveCurrentSearch);
+
+$("find-duplicates").addEventListener("click", findDuplicates);
+$("duplicate-threshold").addEventListener("input", (e) => {
+  $("duplicate-threshold-value").textContent = `${e.target.value}%`;
+});
 
 $("shortcuts-reset").addEventListener("click", resetShortcuts);
 

@@ -1791,6 +1791,86 @@ html { font-size: 16px; }
   line-height: 1.6;
 }
 
+/* --- graph page layout ------------------------------------------------------
+   One toolbar row instead of three stacked ones, and a canvas that fills the
+   window so the map never runs off the bottom of the page. */
+.graph-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+.graph-toolbar h2 { margin: 0; margin-right: 0.2rem; }
+.graph-toolbar #graph-search { width: 11rem; margin: 0; }
+.graph-toolbar .tools-toggle { white-space: nowrap; margin: 0; }
+.graph-toolbar button { white-space: nowrap; }
+.graph-toolbar .graph-physics input[type="range"] { width: 5rem; }
+/* The two action buttons group on the right; everything else packs left. */
+.graph-toolbar #link-suggest-btn { margin-left: auto; }
+.graph-help { margin-bottom: 0.5rem; }
+.graph-help summary { cursor: pointer; font-size: 0.85rem; }
+.graph-help p { margin: 0.4rem 0 0; font-size: 0.86rem; line-height: 1.5; }
+
+/* :not(.hidden) so these never override the hide rule — an ID selector would
+   otherwise beat .hidden and leave every tab visible at once. */
+#tab-graph:not(.hidden),
+#tab-chat:not(.hidden) {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 9rem);
+}
+#tab-chat:not(.hidden) > .layout { flex: 1; min-height: 0; }
+#graph-card {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  margin: 0.75rem 2rem 1rem;
+}
+#graph-card #graph-box { flex: 1; min-height: 22rem; }
+@media (max-width: 720px) {
+  #graph-card { margin: 0.5rem 1rem 0.75rem; }
+  .graph-toolbar #graph-search { width: 100%; }
+  .graph-toolbar #graph-add-node { margin-left: 0; }
+}
+
+/* --- chat page layout -------------------------------------------------------
+   The conversation should own the window: header and composer pinned, the
+   transcript scrolling between them. */
+#tab-chat:not(.hidden) > .layout { align-items: stretch; }
+#chat-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+#chat-messages {
+  flex: 1 1 auto;
+  min-height: 12rem;
+  overflow-y: auto;
+}
+.chat-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+.chat-toolbar #chat-title {
+  margin: 0;
+  margin-right: auto;
+  max-width: 16rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-toolbar .tools-toggle { white-space: nowrap; margin: 0; }
+.chat-toolbar button { white-space: nowrap; }
+.chat-toolbar select { margin: 0; width: auto; }
+.chat-composer { margin-top: 0.5rem; }
+#chat-sidebar { align-self: stretch; }
+
 /* --- graph: depth, halos and legible labels -------------------------------- */
 /* These come after the base .graph-node rules so they win the specificity tie
    and the halo never picks up the node's stroke. */

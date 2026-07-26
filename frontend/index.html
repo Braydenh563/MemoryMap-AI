@@ -266,18 +266,15 @@
       </aside>
       <main>
         <section class="card" id="chat-main">
-          <div class="row space-between">
+          <div class="chat-toolbar">
             <h2 id="chat-title">New chat</h2>
-            <div class="row">
-              <label class="muted tools-toggle" title="When on, the AI can create, tag, pin, link, and (with your confirmation) delete notes for you">
-                <input type="checkbox" id="tools-toggle"> AI can make changes
-              </label>
-              <button id="web-search-toggle" class="ghost small" aria-pressed="false"
-                title="Let the AI search the web (DuckDuckGo) when you ask it to">🌐 Web</button>
-              <label for="persona-select" class="muted">Persona</label>
-              <select id="persona-select" class="small-select"></select>
-              <button id="chat-export" class="ghost small" title="Download this chat as a Markdown file">⭳ Export</button>
-            </div>
+            <label class="muted tools-toggle" title="When on, the AI can create, tag, pin, link, and (with your confirmation) delete notes for you">
+              <input type="checkbox" id="tools-toggle"> AI can make changes
+            </label>
+            <button id="web-search-toggle" class="ghost small" aria-pressed="false"
+              title="Search the web here, and let the AI search when you ask it to">🌐 Web</button>
+            <select id="persona-select" class="small-select" aria-label="Persona"></select>
+            <button id="chat-export" class="ghost small" title="Download this chat as a Markdown file">⭳ Export</button>
           </div>
           <!-- Web panel: search the web and read a page as clean text,
                without embedding a browser. -->
@@ -308,7 +305,7 @@
           <div id="chat-messages"></div>
           <div id="chat-suggest" class="recent hidden"></div>
           <div id="chat-skills" class="recent hidden"></div>
-          <div class="row">
+          <div class="row chat-composer">
             <input id="chat-input" type="text" placeholder="Ask your notebook anything…">
             <button id="mic-chat" class="ghost" title="Dictate your question (local Whisper)" aria-label="Dictate your question">🎙</button>
             <button id="chat-send">Send</button>
@@ -323,31 +320,13 @@
   <!-- ======================= GRAPH TAB (Wave E fills this) ================ -->
   <div class="tab-page hidden" id="tab-graph" role="tabpanel" aria-labelledby="tab-btn-graph" tabindex="-1">
     <section class="card" id="graph-card">
-      <div class="row space-between">
+      <!-- One toolbar instead of three stacked rows -->
+      <div class="graph-toolbar">
         <h2>Graph</h2>
-        <div class="row">
-          <input id="graph-search" type="search" placeholder="🔎 Highlight notes…"
-            aria-label="Highlight matching notes in the graph">
-          <label class="muted tools-toggle" title="Draw dotted lines between notes that mean similar things (needs semantic search)">
-            <input type="checkbox" id="graph-similarity"> Similarity lines
-          </label>
-          <label class="muted tools-toggle" title="Hide notes that aren't linked to anything, to declutter the map">
-            <input type="checkbox" id="graph-hide-orphans"> Hide unlinked
-          </label>
-          <button id="graph-refresh" class="ghost small">Refresh</button>
-        </div>
-      </div>
-      <p class="muted">
-        Your notes as a map: solid lines are links you made, dashed lines are
-        trains of thought, dotted lines are notes that mean similar things.
-        Hover a note to spotlight its connections, drag to arrange, scroll or
-        use the buttons to zoom, click a note to edit it right here,
-        double-click to pin it in place, and click a legend colour to hide that
-        category. Gravity and Spread reshape the layout.
-      </p>
-      <div class="row">
-        <button id="link-suggest-btn" class="ghost small"
-          title="Let the AI suggest links between notes that mean similar things">🔗 Suggest links</button>
+        <input id="graph-search" type="search" placeholder="🔎 Highlight notes…"
+          aria-label="Highlight matching notes in the graph">
+        <button id="graph-add-node" class="small"
+          title="Add a new note straight onto the map">＋ New note</button>
         <span class="graph-physics">
           <label for="graph-gravity" class="muted">Gravity</label>
           <input id="graph-gravity" type="range" min="0" max="100" value="50"
@@ -356,7 +335,28 @@
           <input id="graph-spread" type="range" min="0" max="100" value="50"
             title="How far apart linked notes sit">
         </span>
+        <label class="muted tools-toggle" title="Draw dotted lines between notes that mean similar things (needs semantic search)">
+          <input type="checkbox" id="graph-similarity"> Similarity
+        </label>
+        <label class="muted tools-toggle" title="Hide notes that aren't linked to anything, to declutter the map">
+          <input type="checkbox" id="graph-hide-orphans"> Hide unlinked
+        </label>
+        <button id="link-suggest-btn" class="ghost small"
+          title="Let the AI suggest links between notes that mean similar things">🔗 Suggest links</button>
+        <button id="graph-refresh" class="ghost small">↻ Refresh</button>
       </div>
+      <!-- Tucked away so it doesn't eat the map on every visit -->
+      <details class="graph-help">
+        <summary class="muted">How to use this map</summary>
+        <p class="muted">
+          Solid lines are links you made, dashed lines are trains of thought,
+          dotted lines are notes that mean similar things. Hover a note to
+          spotlight its connections, drag to arrange, scroll or use the buttons
+          to zoom, click a note to edit it right here, double-click to pin it in
+          place, and click a legend colour to hide that category. Double-click
+          empty space to add a note there. Gravity and Spread reshape the layout.
+        </p>
+      </details>
       <div id="link-suggestions" class="hidden"></div>
       <div id="graph-legend" class="recent"></div>
       <div id="graph-box">
@@ -379,6 +379,25 @@
           </div>
           <!-- Everything you can do with this note, without leaving the map -->
           <div class="graph-popup-actions" id="graph-popup-actions"></div>
+        </div>
+
+        <!-- Grow the map: type a note and it appears as a new node, optionally
+             linked to the note you grew it from. -->
+        <div id="graph-new" class="graph-popup hidden" role="dialog"
+          aria-label="Add a note to the map">
+          <div class="row space-between">
+            <strong id="graph-new-title">＋ New note</strong>
+            <button id="graph-new-close" class="ghost small" aria-label="Close">✕</button>
+          </div>
+          <p class="muted" id="graph-new-hint"></p>
+          <textarea id="graph-new-content" rows="3"
+            placeholder="Type the thought — the AI will file it…" aria-label="Note content"></textarea>
+          <input id="graph-new-tags" type="text" placeholder="Tags, comma separated"
+            aria-label="Tags">
+          <div class="row">
+            <button id="graph-new-save" class="small">Add to map</button>
+            <span id="graph-new-status" class="status" role="status"></span>
+          </div>
         </div>
         <div id="graph-zoom" class="graph-zoom" role="group" aria-label="Zoom the map">
           <button id="graph-zoom-in" class="graph-zoom-btn" title="Zoom in" aria-label="Zoom in">＋</button>

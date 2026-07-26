@@ -4850,6 +4850,11 @@ function renderGraphPopupActions(entry) {
     })
   );
   box.appendChild(
+    smallButton("🌱 Grow", "Add a new note linked to this one", (event) =>
+      openGraphNewNote(event, entry.id)
+    )
+  );
+  box.appendChild(
     smallButton("≈ Similar", "Highlight notes that mean something similar", async () => {
       const related = await apiJson(`/entries/${entry.id}/related`).catch(() => []);
       if (!related.length) {
@@ -4928,6 +4933,84 @@ async function saveGraphPopup() {
     await loadEntries().catch(() => {});
     renderGraph(); // content/tags may change what the map shows
     setTimeout(closeGraphPopup, 600);
+  } catch (error) {
+    status.textContent = error.message;
+    status.classList.add("error");
+  }
+}
+
+// --- grow the map: add a note as a new node ----------------------------------
+// The graph stops being read-only here — you can extend your notebook from the
+// map itself, and a note grown from an existing one is linked to it, so the
+// new node appears already connected.
+
+let graphNewLinkFrom = null; // note id the new one should link to, if any
+
+function openGraphNewNote(event, linkFrom = null) {
+  closeGraphPopup();
+  graphNewLinkFrom = linkFrom;
+  const popup = $("graph-new");
+  $("graph-new-content").value = "";
+  $("graph-new-tags").value = "";
+  $("graph-new-status").textContent = "";
+  $("graph-new-status").classList.remove("error");
+  $("graph-new-title").textContent = linkFrom ? "＋ Connected note" : "＋ New note";
+  $("graph-new-hint").textContent = linkFrom
+    ? "This note will be linked to the one you grew it from."
+    : "It joins the map as soon as you add it.";
+  popup.classList.remove("hidden");
+
+  const box = $("graph-box").getBoundingClientRect();
+  const size = popup.getBoundingClientRect();
+  // Centre it when there's no click position (toolbar button).
+  const rawX = event ? event.clientX - box.left + 12 : (box.width - size.width) / 2;
+  const rawY = event ? event.clientY - box.top + 12 : 60;
+  popup.style.left = `${Math.min(Math.max(rawX, 8), Math.max(8, box.width - size.width - 8))}px`;
+  popup.style.top = `${Math.min(Math.max(rawY, 8), Math.max(8, box.height - size.height - 8))}px`;
+  $("graph-new-content").focus();
+}
+
+function closeGraphNewNote() {
+  graphNewLinkFrom = null;
+  $("graph-new").classList.add("hidden");
+}
+
+async function saveGraphNewNote() {
+  const content = $("graph-new-content").value.trim();
+  const status = $("graph-new-status");
+  if (!content) {
+    status.textContent = "Type something first.";
+    status.classList.add("error");
+    return;
+  }
+  const tags = $("graph-new-tags")
+    .value.split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
+  status.classList.remove("error");
+  status.textContent = "Adding…";
+  try {
+    const created = await apiJson("/entries", {
+      method: "POST",
+      body: JSON.stringify({ content, tags }),
+    });
+    if (graphNewLinkFrom !== null) {
+      await apiJson(`/entries/${graphNewLinkFrom}/links`, {
+        method: "POST",
+        body: JSON.stringify({ target_id: created.id }),
+      }).catch(() => {}); // the note still exists even if linking fails
+    }
+    closeGraphNewNote();
+    toast(graphNewLinkFrom !== null ? "Added and linked." : "Added to the map.");
+    await loadEntries().catch(() => {});
+    await renderGraph();
+    // Land the eye on the note that was just created.
+    graphHighlightIds = new Set([created.id]);
+    applyGraphHighlight();
+    setTimeout(() => {
+      graphHighlightIds = null;
+      applyGraphHighlight();
+    }, 2500);
   } catch (error) {
     status.textContent = error.message;
     status.classList.add("error");
@@ -6934,8 +7017,22 @@ for (const key of ["gravity", "spread"]) {
 $("graph-popup-close").addEventListener("click", closeGraphPopup);
 $("graph-popup-save").addEventListener("click", saveGraphPopup);
 // "Open in Notes" now lives in the popup's action row (renderGraphPopupActions).
-// Clicking empty canvas dismisses the popup.
-$("graph-svg").addEventListener("click", closeGraphPopup);
+// Clicking empty canvas dismisses the popups.
+$("graph-svg").addEventListener("click", () => {
+  closeGraphPopup();
+  closeGraphNewNote();
+});
+// Grow the map: double-click empty space to add a note right there.
+$("graph-svg").addEventListener("dblclick", (event) => {
+  if (event.target.closest(".graph-node")) return; // node dblclick pins it
+  openGraphNewNote(event);
+});
+$("graph-add-node").addEventListener("click", () => openGraphNewNote(null));
+$("graph-new-close").addEventListener("click", closeGraphNewNote);
+$("graph-new-save").addEventListener("click", saveGraphNewNote);
+$("graph-new-content").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) saveGraphNewNote();
+});
 
 // On-screen zoom controls drive the same d3 zoom behaviour as scroll/pinch.
 function graphZoomBy(factor) {
@@ -7135,6 +7232,10 @@ document.addEventListener("keydown", (e) => {
   }
   if (e.key === "Escape" && !$("features-overlay").classList.contains("hidden")) {
     closeFeatures();
+    return;
+  }
+  if (e.key === "Escape" && !$("graph-new").classList.contains("hidden")) {
+    closeGraphNewNote();
     return;
   }
   if (e.key === "Escape" && !$("graph-popup").classList.contains("hidden")) {

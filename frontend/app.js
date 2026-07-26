@@ -9041,6 +9041,7 @@ function toggleTheme() {
   const next = current === "dark" ? "light" : "dark";
   root.dataset.theme = next;
   localStorage.setItem("theme", next); // remembered across restarts
+  applyResolvedMode();
   if (bgArtOn()) startBgArt(); // recolour the background for the new theme
 }
 
@@ -9171,6 +9172,8 @@ function applyAppearance() {
   root.dataset.bgArt = bgArtOn() ? "on" : "off";
   root.style.setProperty("--radius", `${appearancePref("radius")}px`);
   root.style.setProperty("--glass-blur", `${appearancePref("glass-blur")}px`);
+  applyResolvedMode();
+  applyPalette(activePalette());
   applyCustomAccent(localStorage.getItem("accent-custom"));
   applyPageBackground(localStorage.getItem("page-bg"));
   applyCustomCss(localStorage.getItem("custom-css"));
@@ -9180,6 +9183,29 @@ function effectiveTheme() {
   return localStorage.getItem("theme") || "system";
 }
 
+// What the app is *actually* showing right now: "system" is a choice, not a
+// colour. The curated palettes need the resolved answer, because under
+// "System" there is no data-theme attribute for CSS to match on — and writing
+// each palette twice, once in a prefers-color-scheme block, is exactly how two
+// copies of a palette drift apart.
+function resolvedTheme() {
+  const choice = effectiveTheme();
+  if (choice === "light" || choice === "dark") return choice;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function applyResolvedMode() {
+  document.documentElement.dataset.mode = resolvedTheme();
+}
+
+// Follow the OS while the choice is "System", without a reload.
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+  if (effectiveTheme() === "system") {
+    applyResolvedMode();
+    if (bgArtOn()) startBgArt();
+  }
+});
+
 function applyThemeChoice(choice) {
   if (choice === "system") {
     delete document.documentElement.dataset.theme;
@@ -9188,6 +9214,7 @@ function applyThemeChoice(choice) {
     document.documentElement.dataset.theme = choice;
     localStorage.setItem("theme", choice);
   }
+  applyResolvedMode();
   if (bgArtOn()) startBgArt();
   renderBrandLogo();
 }
@@ -9243,6 +9270,7 @@ function renderAppearance() {
   const artOff = !bgArtOn();
   $("bg-style-row").classList.toggle("disabled-row", artOff);
   $("bg-intensity-row").classList.toggle("disabled-row", artOff);
+  renderPaletteGrid();
   _segActive("theme-seg", "themeChoice", effectiveTheme());
   _segActive("fontsize-seg", "fontsize", appearancePref("fontsize"));
   _segActive("font-seg", "font", appearancePref("font"));
@@ -9268,11 +9296,137 @@ function renderBgMotionHint() {
   hint.classList.toggle("hidden", !text);
 }
 
+// --- curated palettes -------------------------------------------------------------
+// The palette is a look; Mode (light/dark/system) is a separate axis. Every
+// palette defines both, so picking "Parchment" never also decides whether
+// it's night. Swatch colours are duplicated here from the CSS on purpose: the
+// preview has to show a palette that isn't currently applied, and a variable
+// can only ever report the active one.
+const PALETTES = [
+  {
+    id: "default",
+    name: "Aurora",
+    note: "The original: indigo glass over a soft gradient.",
+    light: { page: "linear-gradient(135deg,#e9edfb,#f6f2ec 45%,#e6f1f2)", card: "rgba(255,255,255,0.75)", accent: "#4f6df5", border: "rgba(31,36,48,0.12)" },
+    dark: { page: "linear-gradient(135deg,#0e1017,#171a26 45%,#0f1720)", card: "rgba(29,33,46,0.85)", accent: "#8b9df8", border: "rgba(255,255,255,0.14)" },
+  },
+  {
+    id: "parchment",
+    name: "Parchment",
+    note: "Paper, ink and a little gold. Made for long writing.",
+    light: { page: "linear-gradient(135deg,#f6efe2,#f3e9d8 45%,#efe4d2)", card: "rgba(255,252,245,0.85)", accent: "#9a6b1f", border: "rgba(63,51,30,0.16)" },
+    dark: { page: "linear-gradient(135deg,#1b1710,#221c13 45%,#1a1611)", card: "rgba(43,36,25,0.85)", accent: "#e0b458", border: "rgba(238,224,196,0.16)" },
+  },
+  {
+    id: "sage",
+    name: "Sage",
+    note: "Quiet greens. The calmest of the set.",
+    light: { page: "linear-gradient(135deg,#eaf1e9,#f2f5ee 45%,#e4eeea)", card: "rgba(253,255,252,0.85)", accent: "#2f7d54", border: "rgba(30,43,35,0.14)" },
+    dark: { page: "linear-gradient(135deg,#0d1512,#121d17 45%,#0e1a16)", card: "rgba(25,38,31,0.85)", accent: "#5fd39a", border: "rgba(210,240,224,0.15)" },
+  },
+  {
+    id: "ocean",
+    name: "Ocean",
+    note: "Cool teal and deep blue. Crisp rather than cosy.",
+    light: { page: "linear-gradient(135deg,#e4f0f6,#eef6f8 45%,#dfeef2)", card: "rgba(252,254,255,0.85)", accent: "#0f7d99", border: "rgba(20,38,46,0.14)" },
+    dark: { page: "linear-gradient(135deg,#08131a,#0d1e28 45%,#091a22)", card: "rgba(21,36,45,0.85)", accent: "#46c9e6", border: "rgba(200,238,250,0.15)" },
+  },
+  {
+    id: "ember",
+    name: "Ember",
+    note: "Warm oranges. Best in the evening.",
+    light: { page: "linear-gradient(135deg,#fbeee4,#f9efe6 45%,#f6e6e0)", card: "rgba(255,252,249,0.85)", accent: "#bc5622", border: "rgba(46,30,22,0.15)" },
+    dark: { page: "linear-gradient(135deg,#17100c,#1f1511 45%,#1a0f0e)", card: "rgba(41,29,23,0.85)", accent: "#f5924f", border: "rgba(246,220,204,0.16)" },
+  },
+  {
+    id: "plum",
+    name: "Plum",
+    note: "Deep violet and magenta. The most saturated.",
+    light: { page: "linear-gradient(135deg,#f1e9f7,#f6eef8 45%,#ece6f6)", card: "rgba(254,252,255,0.85)", accent: "#8332ad", border: "rgba(38,26,46,0.14)" },
+    dark: { page: "linear-gradient(135deg,#130d1a,#1c1226 45%,#170f20)", card: "rgba(35,26,45,0.85)", accent: "#c07df5", border: "rgba(232,212,250,0.16)" },
+  },
+  {
+    id: "carbon",
+    name: "Carbon",
+    note: "Near-monochrome. Colour only where it means something.",
+    light: { page: "linear-gradient(135deg,#f2f3f5,#eceef1 45%,#e7e9ed)", card: "rgba(255,255,255,0.9)", accent: "#2b3441", border: "rgba(20,24,31,0.18)" },
+    dark: { page: "linear-gradient(135deg,#0a0b0d,#101216 45%,#0c0e11)", card: "rgba(24,27,33,0.9)", accent: "#cdd5e0", border: "rgba(255,255,255,0.14)" },
+  },
+];
+
+function activePalette() {
+  const saved = localStorage.getItem("palette");
+  return PALETTES.some((p) => p.id === saved) ? saved : "default";
+}
+
+function applyPalette(id) {
+  const root = document.documentElement;
+  // "default" means "no palette overrides" — leave the attribute off rather
+  // than shipping a block that restates the base :root values.
+  if (id && id !== "default") root.dataset.palette = id;
+  else delete root.dataset.palette;
+  localStorage.setItem("palette", id || "default");
+  // The generative background paints from the accent, so it has to be rebuilt.
+  if (bgArtOn()) startBgArt();
+}
+
+function renderPaletteGrid() {
+  const grid = $("palette-grid");
+  if (!grid) return;
+  const current = activePalette();
+  const dark = resolvedTheme() === "dark";
+  grid.replaceChildren();
+  for (const palette of PALETTES) {
+    const swatch = dark ? palette.dark : palette.light;
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "theme-card";
+    card.setAttribute("aria-pressed", String(palette.id === current));
+    card.title = palette.note;
+
+    const preview = document.createElement("span");
+    preview.className = "theme-preview";
+    // The preview must show *its own* palette, so these are inline.
+    preview.style.background = swatch.page;
+    preview.style.setProperty("--sw-card", swatch.card);
+    preview.style.setProperty("--sw-accent", swatch.accent);
+    preview.style.setProperty("--sw-border", swatch.border);
+
+    const name = document.createElement("span");
+    name.className = "theme-name";
+    name.textContent = palette.name;
+    const note = document.createElement("span");
+    note.className = "theme-note";
+    note.textContent = palette.note;
+
+    card.append(preview, name, note);
+    card.addEventListener("click", () => {
+      // A palette brings its own accent, and an accent chosen earlier sits at
+      // higher specificity — leaving it would make every palette come out the
+      // same colour, which reads as the picker not working. The accent row
+      // below is still there to deviate from the palette afterwards.
+      const hadAccent =
+        activeAccent() !== "indigo" || localStorage.getItem("accent-custom");
+      localStorage.removeItem("accent-custom");
+      applyCustomAccent(null);
+      applyAccent("indigo");
+      applyPalette(palette.id);
+      renderAppearance();
+      toast(
+        hadAccent
+          ? `Palette: ${palette.name}. Its own accent is back — pick another below if you'd rather.`
+          : `Palette: ${palette.name}.`
+      );
+    });
+    grid.appendChild(card);
+  }
+}
+
 function resetAppearance() {
   for (const key of [
     "fontsize", "font", "density", "glass", "motion", "bg-intensity", "accent",
     "contrast", "bgArt", "theme", "radius", "glass-blur", "bg-style",
-    "bg-motion",
+    "bg-motion", "palette",
     "accent-custom", "page-bg", "custom-css",
   ]) {
     localStorage.removeItem(key);

@@ -3475,3 +3475,294 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   font-size: 0.75rem;
   overflow-wrap: anywhere;
 }
+
+/* ================================================================================
+   Curated palettes (Settings → Appearance → Theme)
+
+   Each palette is a point of view, not a hue rotation: a paper-and-ink one for
+   writing, a cool clinical one, a warm one for evenings. Every palette ships
+   BOTH a light and a dark set, so choosing one is orthogonal to the light/dark
+   toggle — picking "Parchment" shouldn't silently decide whether it's night.
+
+   Only the palette variables are redefined here; every component keeps reading
+   the same names, which is what stops a new theme from needing new rules.
+   ============================================================================= */
+
+/* --- Parchment: paper, ink and a little gold. Made for long writing. --------- */
+:root[data-palette="parchment"] {
+  --page: linear-gradient(135deg, #f6efe2 0%, #f3e9d8 45%, #efe4d2 100%);
+  --blob-a: rgba(181, 138, 62, 0.16);
+  --blob-b: rgba(140, 106, 74, 0.10);
+  --card: rgba(255, 252, 245, 0.62);
+  --inner: rgba(255, 253, 247, 0.5);
+  --input-bg: rgba(255, 253, 247, 0.62);
+  --glass-border: rgba(255, 250, 236, 0.7);
+  --modal-bg: rgba(252, 246, 235, 0.97);
+  --glass-shadow: 0 8px 32px rgba(96, 72, 38, 0.14);
+  --ink: #2f2718;
+  --muted: #6d6151;
+  --accent: #9a6b1f;
+  --accent-soft: rgba(154, 107, 31, 0.16);
+  --border: rgba(63, 51, 30, 0.13);
+  --chip-bg: rgba(63, 51, 30, 0.08);
+}
+:root[data-palette="parchment"][data-mode="dark"] {
+  --page: linear-gradient(135deg, #1b1710 0%, #221c13 45%, #1a1611 100%);
+  --blob-a: rgba(214, 173, 96, 0.13);
+  --blob-b: rgba(160, 122, 78, 0.09);
+  --card: rgba(43, 36, 25, 0.58);
+  --inner: rgba(255, 245, 224, 0.05);
+  --input-bg: rgba(24, 20, 14, 0.6);
+  --glass-border: rgba(226, 205, 165, 0.12);
+  --modal-bg: rgba(34, 28, 19, 0.97);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --ink: #efe6d4;
+  --muted: #ad9f89;
+  --accent: #e0b458;
+  --accent-soft: rgba(224, 180, 88, 0.18);
+  --border: rgba(238, 224, 196, 0.12);
+  --chip-bg: rgba(238, 224, 196, 0.09);
+}
+
+/* --- Sage: quiet greens. The calmest of the set. ----------------------------- */
+:root[data-palette="sage"] {
+  --page: linear-gradient(135deg, #eaf1e9 0%, #f2f5ee 45%, #e4eeea 100%);
+  --blob-a: rgba(76, 141, 104, 0.17);
+  --blob-b: rgba(122, 168, 140, 0.12);
+  --card: rgba(253, 255, 252, 0.58);
+  --inner: rgba(253, 255, 252, 0.46);
+  --input-bg: rgba(253, 255, 252, 0.58);
+  --glass-border: rgba(244, 252, 245, 0.68);
+  --modal-bg: rgba(248, 252, 248, 0.97);
+  --glass-shadow: 0 8px 32px rgba(35, 74, 52, 0.13);
+  --ink: #1e2b23;
+  --muted: #566a5e;
+  --accent: #2f7d54;
+  --accent-soft: rgba(47, 125, 84, 0.15);
+  --border: rgba(30, 43, 35, 0.11);
+  --chip-bg: rgba(30, 43, 35, 0.07);
+}
+:root[data-palette="sage"][data-mode="dark"] {
+  --page: linear-gradient(135deg, #0d1512 0%, #121d17 45%, #0e1a16 100%);
+  --blob-a: rgba(94, 196, 138, 0.14);
+  --blob-b: rgba(70, 158, 140, 0.09);
+  --card: rgba(25, 38, 31, 0.58);
+  --inner: rgba(224, 255, 238, 0.05);
+  --input-bg: rgba(11, 20, 16, 0.6);
+  --glass-border: rgba(190, 240, 212, 0.11);
+  --modal-bg: rgba(20, 31, 25, 0.97);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --ink: #e2efe7;
+  --muted: #93a99c;
+  --accent: #5fd39a;
+  --accent-soft: rgba(95, 211, 154, 0.18);
+  --border: rgba(210, 240, 224, 0.11);
+  --chip-bg: rgba(210, 240, 224, 0.08);
+}
+
+/* --- Ocean: cool teal and deep blue. Crisp rather than cosy. ------------------ */
+:root[data-palette="ocean"] {
+  --page: linear-gradient(135deg, #e4f0f6 0%, #eef6f8 45%, #dfeef2 100%);
+  --blob-a: rgba(20, 132, 168, 0.18);
+  --blob-b: rgba(64, 176, 190, 0.12);
+  --card: rgba(252, 254, 255, 0.58);
+  --inner: rgba(252, 254, 255, 0.46);
+  --input-bg: rgba(252, 254, 255, 0.58);
+  --glass-border: rgba(240, 251, 255, 0.68);
+  --modal-bg: rgba(246, 252, 254, 0.97);
+  --glass-shadow: 0 8px 32px rgba(16, 62, 82, 0.14);
+  --ink: #14262e;
+  --muted: #4d6672;
+  --accent: #0f7d99;
+  --accent-soft: rgba(15, 125, 153, 0.15);
+  --border: rgba(20, 38, 46, 0.11);
+  --chip-bg: rgba(20, 38, 46, 0.07);
+}
+:root[data-palette="ocean"][data-mode="dark"] {
+  --page: linear-gradient(135deg, #08131a 0%, #0d1e28 45%, #091a22 100%);
+  --blob-a: rgba(56, 189, 220, 0.15);
+  --blob-b: rgba(45, 130, 200, 0.10);
+  --card: rgba(21, 36, 45, 0.58);
+  --inner: rgba(220, 248, 255, 0.05);
+  --input-bg: rgba(7, 16, 22, 0.6);
+  --glass-border: rgba(180, 236, 250, 0.11);
+  --modal-bg: rgba(16, 29, 37, 0.97);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --ink: #dff0f6;
+  --muted: #8ba7b4;
+  --accent: #46c9e6;
+  --accent-soft: rgba(70, 201, 230, 0.18);
+  --border: rgba(200, 238, 250, 0.11);
+  --chip-bg: rgba(200, 238, 250, 0.08);
+}
+
+/* --- Ember: warm oranges over a dim ground. Best in the evening. ------------- */
+:root[data-palette="ember"] {
+  --page: linear-gradient(135deg, #fbeee4 0%, #f9efe6 45%, #f6e6e0 100%);
+  --blob-a: rgba(214, 106, 42, 0.17);
+  --blob-b: rgba(198, 76, 88, 0.11);
+  --card: rgba(255, 252, 249, 0.6);
+  --inner: rgba(255, 252, 249, 0.47);
+  --input-bg: rgba(255, 252, 249, 0.6);
+  --glass-border: rgba(255, 246, 238, 0.7);
+  --modal-bg: rgba(253, 247, 242, 0.97);
+  --glass-shadow: 0 8px 32px rgba(120, 55, 25, 0.14);
+  --ink: #2e1e16;
+  --muted: #6d574c;
+  --accent: #bc5622;
+  --accent-soft: rgba(188, 86, 34, 0.15);
+  --border: rgba(46, 30, 22, 0.12);
+  --chip-bg: rgba(46, 30, 22, 0.07);
+}
+:root[data-palette="ember"][data-mode="dark"] {
+  --page: linear-gradient(135deg, #17100c 0%, #1f1511 45%, #1a0f0e 100%);
+  --blob-a: rgba(247, 145, 74, 0.14);
+  --blob-b: rgba(226, 90, 106, 0.09);
+  --card: rgba(41, 29, 23, 0.58);
+  --inner: rgba(255, 238, 226, 0.05);
+  --input-bg: rgba(20, 13, 10, 0.6);
+  --glass-border: rgba(250, 214, 190, 0.12);
+  --modal-bg: rgba(32, 22, 18, 0.97);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --ink: #f4e3d8;
+  --muted: #b39687;
+  --accent: #f5924f;
+  --accent-soft: rgba(245, 146, 79, 0.18);
+  --border: rgba(246, 220, 204, 0.12);
+  --chip-bg: rgba(246, 220, 204, 0.08);
+}
+
+/* --- Plum: deep violet and magenta. The most saturated. ---------------------- */
+:root[data-palette="plum"] {
+  --page: linear-gradient(135deg, #f1e9f7 0%, #f6eef8 45%, #ece6f6 100%);
+  --blob-a: rgba(140, 62, 186, 0.17);
+  --blob-b: rgba(206, 74, 154, 0.11);
+  --card: rgba(254, 252, 255, 0.58);
+  --inner: rgba(254, 252, 255, 0.46);
+  --input-bg: rgba(254, 252, 255, 0.58);
+  --glass-border: rgba(250, 244, 255, 0.68);
+  --modal-bg: rgba(250, 246, 253, 0.97);
+  --glass-shadow: 0 8px 32px rgba(76, 32, 104, 0.14);
+  --ink: #261a2e;
+  --muted: #61526c;
+  --accent: #8332ad;
+  --accent-soft: rgba(131, 50, 173, 0.14);
+  --border: rgba(38, 26, 46, 0.11);
+  --chip-bg: rgba(38, 26, 46, 0.07);
+}
+:root[data-palette="plum"][data-mode="dark"] {
+  --page: linear-gradient(135deg, #130d1a 0%, #1c1226 45%, #170f20 100%);
+  --blob-a: rgba(188, 116, 245, 0.15);
+  --blob-b: rgba(238, 108, 186, 0.10);
+  --card: rgba(35, 26, 45, 0.58);
+  --inner: rgba(243, 230, 255, 0.05);
+  --input-bg: rgba(16, 11, 22, 0.6);
+  --glass-border: rgba(230, 205, 250, 0.12);
+  --modal-bg: rgba(28, 20, 37, 0.97);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --ink: #eee2f6;
+  --muted: #a795b3;
+  --accent: #c07df5;
+  --accent-soft: rgba(192, 125, 245, 0.19);
+  --border: rgba(232, 212, 250, 0.12);
+  --chip-bg: rgba(232, 212, 250, 0.08);
+}
+
+/* --- Carbon: near-monochrome, minimal colour, maximum text contrast. --------- */
+:root[data-palette="carbon"] {
+  --page: linear-gradient(135deg, #f2f3f5 0%, #eceef1 45%, #e7e9ed 100%);
+  --blob-a: rgba(90, 100, 115, 0.13);
+  --blob-b: rgba(140, 148, 160, 0.09);
+  --card: rgba(255, 255, 255, 0.66);
+  --inner: rgba(255, 255, 255, 0.5);
+  --input-bg: rgba(255, 255, 255, 0.66);
+  --glass-border: rgba(255, 255, 255, 0.75);
+  --modal-bg: rgba(250, 251, 252, 0.98);
+  --glass-shadow: 0 8px 28px rgba(20, 24, 31, 0.12);
+  --ink: #14181f;
+  --muted: #59616d;
+  --accent: #2b3441;
+  --accent-soft: rgba(43, 52, 65, 0.11);
+  --border: rgba(20, 24, 31, 0.14);
+  --chip-bg: rgba(20, 24, 31, 0.07);
+}
+:root[data-palette="carbon"][data-mode="dark"] {
+  --page: linear-gradient(135deg, #0a0b0d 0%, #101216 45%, #0c0e11 100%);
+  --blob-a: rgba(150, 160, 175, 0.10);
+  --blob-b: rgba(110, 120, 135, 0.07);
+  --card: rgba(24, 27, 33, 0.62);
+  --inner: rgba(255, 255, 255, 0.04);
+  --input-bg: rgba(9, 10, 13, 0.62);
+  --glass-border: rgba(255, 255, 255, 0.09);
+  --modal-bg: rgba(19, 21, 26, 0.98);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  --ink: #f0f2f5;
+  --muted: #9ba3af;
+  --accent: #cdd5e0;
+  --accent-soft: rgba(205, 213, 224, 0.13);
+  --border: rgba(255, 255, 255, 0.11);
+  --chip-bg: rgba(255, 255, 255, 0.07);
+}
+
+/* --- the picker itself ------------------------------------------------------- */
+/* Swatches, not a dropdown: a palette is a look, and a list of names asks you
+   to imagine it. Each card previews its own colours. */
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  gap: 0.6rem;
+  margin: 0.4rem 0 0.9rem;
+}
+.theme-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 0.8);
+  background: var(--inner);
+  cursor: pointer;
+  text-align: left;
+  box-shadow: none;
+  color: var(--ink);
+  transition: border-color 0.14s ease, transform 0.14s ease;
+}
+.theme-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+.theme-card[aria-pressed="true"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.theme-preview {
+  height: 3.1rem;
+  border-radius: calc(var(--radius) * 0.55);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(128, 128, 128, 0.18);
+}
+/* A miniature of the real thing: page wash, a card, an accent mark. */
+.theme-preview::after {
+  content: "";
+  position: absolute;
+  left: 12%;
+  top: 30%;
+  width: 52%;
+  height: 42%;
+  border-radius: 4px;
+  background: var(--sw-card);
+  border: 1px solid var(--sw-border);
+}
+.theme-preview::before {
+  content: "";
+  position: absolute;
+  right: 11%;
+  top: 36%;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  background: var(--sw-accent);
+}
+.theme-name { font-size: 0.82rem; font-weight: 600; }
+.theme-note { font-size: 0.72rem; color: var(--muted); line-height: 1.25; }
+@media (prefers-reduced-motion: reduce) {
+  .theme-card, .theme-card:hover { transition: none; transform: none; }
+}

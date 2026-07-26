@@ -6543,7 +6543,11 @@ function switchTab(name) {
 // Each of these cards gets a fold/unfold chevron in its heading; the state
 // is remembered per section (user request). Nothing structural changes —
 // a `.collapsed` class hides everything after the header row via CSS.
-const COLLAPSIBLE_SECTIONS = ["capture", "ask", "browse"];
+const COLLAPSIBLE_SECTIONS = ["capture", "writing-room", "ask", "browse"];
+// Sections that start folded. The writing room is a whole workspace; leaving
+// it open by default would make the Notes tab heavier, which is the opposite
+// of what it needs. It opens with one click and remembers that you did.
+const COLLAPSED_BY_DEFAULT = new Set(["writing-room"]);
 
 function initCollapsibleSections() {
   for (const id of COLLAPSIBLE_SECTIONS) {
@@ -6581,7 +6585,8 @@ function initCollapsibleSections() {
         toggle();
       }
     });
-    apply(localStorage.getItem(key) === "1");
+    const stored = localStorage.getItem(key);
+    apply(stored === null ? COLLAPSED_BY_DEFAULT.has(id) : stored === "1");
   }
 }
 

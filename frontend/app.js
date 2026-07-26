@@ -8678,6 +8678,8 @@ function renderAppearance() {
   $("bg-art-toggle").checked = bgArtOn();
   $("bg-style-row").classList.toggle("hidden", !bgArtOn());
   $("bg-intensity-row").classList.toggle("hidden", !bgArtOn());
+  $("bg-motion").value = appearancePref("bg-motion");
+  $("bg-motion-row").classList.toggle("hidden", !bgArtOn());
   $("glass-toggle").checked = appearancePref("glass") === "on";
   $("bg-intensity").value = appearancePref("bg-intensity");
   $("bg-intensity-value").textContent = `${appearancePref("bg-intensity")}%`;
@@ -8944,7 +8946,12 @@ const BG_ART_BUILDERS = {
 function startBgArt() {
   stopBgArt();
   if (typeof p5 === "undefined") return;
-  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // Still if the OS asks, if the interface-wide reduce-motion is on, or if the
+  // background is simply set to Still — three different reasons, one outcome.
+  // Wanting a calm background isn't the same as wanting a calm interface, and
+  // previously the only way to still the art was to still everything.
+  const reduceMotion =
+    reducedMotionWanted() || appearancePref("bg-motion") === "still";
   // A custom accent colour, if set, drives the art too.
   const accentHex =
     localStorage.getItem("accent-custom") ||
@@ -9218,6 +9225,11 @@ $("page-bg-clear").addEventListener("click", () => {
 // Background art style.
 $("bg-art-style").addEventListener("change", (e) => {
   localStorage.setItem("bg-style", e.target.value);
+  if (bgArtOn()) startBgArt();
+});
+$("bg-motion").addEventListener("change", (e) => {
+  localStorage.setItem("bg-motion", e.target.value);
+  // Still vs moving is decided in setup, so the sketch has to be rebuilt.
   if (bgArtOn()) startBgArt();
 });
 // Custom CSS (advanced).
@@ -9895,6 +9907,10 @@ $("duplicate-threshold").addEventListener("input", (e) => {
   $("duplicate-threshold-value").textContent = `${e.target.value}%`;
 });
 
+$("about-shortcuts").addEventListener("click", () => {
+  closeSettingsModal();
+  openShortcuts();
+});
 $("shortcuts-reset").addEventListener("click", resetShortcuts);
 
 $("search-help").addEventListener("click", () => {
@@ -9915,12 +9931,15 @@ async function refreshSearxngHost() {
     badge.textContent = "Unknown";
     return;
   }
-  // No Docker AND no git: nothing we can drive, so say so plainly.
+  // No usable backend: nothing we can drive, so say so plainly. "Docker is
+  // installed but not started" is a different problem from "Docker isn't
+  // installed", and the detail from the server distinguishes them.
   if (!info.backend) {
-    badge.textContent = "Not available";
+    badge.textContent = info.docker_installed ? "Docker not started" : "Not available";
     badge.title = info.detail || "";
     start.disabled = true;
     stop.disabled = true;
+    $("searxng-host-status").classList.remove("error");
     $("searxng-host-status").textContent = info.detail || "";
     return;
   }
@@ -9946,6 +9965,11 @@ async function refreshSearxngHost() {
   if (info.install_error) {
     $("searxng-host-status").classList.add("error");
     $("searxng-host-status").textContent = info.install_error;
+  } else if (info.detail) {
+    // e.g. "Docker isn't running, so it'll be set up in a virtualenv" — an
+    // explanation of what will happen, not a failure.
+    $("searxng-host-status").classList.remove("error");
+    $("searxng-host-status").textContent = info.detail;
   }
   const running = info.state === "running" && info.responding;
   badge.textContent = running
@@ -9959,6 +9983,12 @@ async function refreshSearxngHost() {
   start.disabled = running;
   stop.disabled = info.state === "absent";
   start.textContent = info.state === "absent" ? "▶ Install & start" : "▶ Start SearXNG";
+  // Keep polling while it's starting, so "Starting…" can't stick forever with
+  // no way to tell whether anything is still happening.
+  if (info.state === "running" && !info.responding) {
+    clearTimeout(refreshSearxngHost.timer);
+    refreshSearxngHost.timer = setTimeout(refreshSearxngHost, 3000);
+  }
 }
 
 $("searxng-start").addEventListener("click", async () => {

@@ -303,10 +303,55 @@ def test_searxng_status_with_no_backend_at_all(client, monkeypatch):
     from memorymap.search import searxng_manager
 
     monkeypatch.setattr(searxng_manager, "docker_available", lambda: False)
+    monkeypatch.setattr(searxng_manager, "docker_installed", lambda: False)
     monkeypatch.setattr(searxng_manager, "source_available", lambda: False)
     body = client.get("/websearch/searxng/status").json()
     assert body["backend"] is None
     assert "either Docker or git" in body["detail"]
+
+
+def test_docker_installed_but_not_running_is_not_treated_as_available(client, monkeypatch):
+    """The reported failure: Docker Desktop installed but never started.
+
+    Only checking that the binary exists made the app choose the Docker
+    backend, fail to reach the daemon, and never consider the from-source
+    backend that would have worked.
+    """
+    from memorymap.search import searxng_manager
+
+    monkeypatch.setattr(searxng_manager, "docker_installed", lambda: True)
+    monkeypatch.setattr(searxng_manager, "docker_available", lambda: False)
+    monkeypatch.setattr(searxng_manager, "source_available", lambda: True)
+
+    body = client.get("/websearch/searxng/status").json()
+    assert body["backend"] == "source"  # fell through instead of failing
+    assert "not running" in body["detail"]
+
+
+def test_docker_installed_but_stopped_and_no_git_says_which_problem(client, monkeypatch):
+    """"Docker isn't installed" and "Docker isn't started" need different fixes."""
+    from memorymap.search import searxng_manager
+
+    monkeypatch.setattr(searxng_manager, "docker_installed", lambda: True)
+    monkeypatch.setattr(searxng_manager, "docker_available", lambda: False)
+    monkeypatch.setattr(searxng_manager, "source_available", lambda: False)
+
+    detail = client.get("/websearch/searxng/status").json()["detail"]
+    assert "daemon isn't running" in detail
+    assert "Docker Desktop" in detail
+
+
+def test_docker_availability_checks_the_daemon_not_just_the_binary(monkeypatch):
+    from memorymap.search import searxng_manager
+
+    monkeypatch.setattr(searxng_manager.shutil, "which", lambda name: "/usr/bin/docker")
+
+    class Failed:
+        returncode = 1
+
+    monkeypatch.setattr(searxng_manager.subprocess, "run", lambda *a, **k: Failed())
+    assert searxng_manager.docker_installed() is True
+    assert searxng_manager.docker_available() is False
 
 
 def test_searxng_start_without_any_backend_is_a_clear_503(client, monkeypatch):

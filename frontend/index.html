@@ -1000,6 +1000,21 @@ Link to another note with [[its first few words]]."></textarea>
                 </select>
               </div>
 
+              <div class="setting-row" id="bg-motion-row">
+                <div class="setting-label">
+                  <span>Movement</span>
+                  <small class="muted">
+                    Still draws one frame and stops — the same look without the
+                    motion, and no CPU spent on it.
+                  </small>
+                </div>
+                <select id="bg-motion" class="small-select setting-control"
+                  aria-label="Background movement">
+                  <option value="moving">Moving</option>
+                  <option value="still">Still</option>
+                </select>
+              </div>
+
               <div class="setting-row" id="bg-intensity-row">
                 <div class="setting-label">
                   <span>Intensity</span>
@@ -1265,12 +1280,16 @@ Link to another note with [[its first few words]]."></textarea>
             </p>
             <p class="muted" id="about-version"></p>
             <h3>Keyboard shortcuts</h3>
-            <ul class="shortcut-list">
-              <li><kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>K</kbd> — command palette (go anywhere, search notes)</li>
-              <li><kbd>Ctrl</kbd> + <kbd>Enter</kbd> — save the note you're typing</li>
-              <li><kbd>Enter</kbd> — ask / send in the question and chat boxes</li>
-              <li><kbd>Esc</kbd> — close the palette, sketch pad, or settings</li>
-            </ul>
+            <!-- This used to be a second, static list. Someone looking for
+                 "how do I change a shortcut?" naturally opens Settings, so the
+                 one place they look was the one place it couldn't be done. -->
+            <p class="muted">
+              Shortcuts can be changed and reset — press <kbd>?</kbd> any time,
+              or open the list here.
+            </p>
+            <div class="row">
+              <button id="about-shortcuts" class="small" type="button">⌨ Change keyboard shortcuts</button>
+            </div>
           </section>
 
         </div>

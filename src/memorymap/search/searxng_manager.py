@@ -63,8 +63,40 @@ class SearxngError(RuntimeError):
     """Something stopped us managing the instance."""
 
 
-def docker_available() -> bool:
+# `docker info` against a stopped daemon is quick to fail, but give it room on
+# a cold Docker Desktop rather than calling a slow start "not running".
+DAEMON_PROBE_TIMEOUT = 8
+
+
+def docker_installed() -> bool:
+    """Is the docker command on PATH? Says nothing about the daemon."""
     return shutil.which("docker") is not None
+
+
+def docker_available() -> bool:
+    """Can we actually run a container right now?
+
+    Checking only that the binary exists was wrong, and produced exactly the
+    failure it should have prevented: with Docker Desktop installed but not
+    started, the app picked the Docker backend, tried to create a container,
+    and reported "failed to connect to the docker API at npipe:..." — while
+    the from-source backend that would have worked was never considered.
+
+    `docker info` is the cheapest question that means "is the daemon up".
+    """
+    if not docker_installed():
+        return False
+    try:
+        result = subprocess.run(  # noqa: S603 — fixed args, no shell
+            ["docker", "info", "--format", "{{.ServerVersion}}"],
+            capture_output=True,
+            text=True,
+            timeout=DAEMON_PROBE_TIMEOUT,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return result.returncode == 0
 
 
 def source_available() -> bool:
@@ -268,6 +300,7 @@ def status(data_dir: Path | None = None) -> dict:
     backend = preferred_backend()
     base = {
         "docker": docker_available(),
+        "docker_installed": docker_installed(),
         "source": source_available(),
         "backend": backend,
         "url": BASE_URL,
@@ -277,14 +310,23 @@ def status(data_dir: Path | None = None) -> dict:
         "detail": "",
     }
     if backend is None:
+        # "Docker is installed but not started" is a different problem from
+        # "Docker isn't installed", and only one of them is fixed by starting
+        # Docker Desktop. Saying which saves a pointless install.
+        detail = (
+            "Docker is installed but its daemon isn't running — start Docker "
+            "Desktop, or install git and MemoryMap will set SearXNG up in a "
+            "virtualenv instead."
+            if docker_installed()
+            else "SearXNG needs either Docker or git installed. Install one of "
+            "them, or point MemoryMap at a SearXNG you run yourself."
+        )
         return {
             **base,
             "state": "absent",
             "responding": False,
-            "detail": (
-                "SearXNG needs either Docker or git installed. Install one of "
-                "them, or point MemoryMap at a SearXNG you run yourself."
-            ),
+            "docker_installed": docker_installed(),
+            "detail": detail,
         }
     if backend == "docker":
         state = _docker_state()
@@ -292,7 +334,11 @@ def status(data_dir: Path | None = None) -> dict:
         state = _source_state(Path(data_dir)) if data_dir else "absent"
         if state == "absent" and not base["installing"]:
             base["detail"] = (
-                "Docker isn't installed, so SearXNG will be set up in a "
+                "Docker is installed but not running, so SearXNG will be set "
+                "up in a virtualenv of its own instead. The first start takes "
+                "a few minutes — or start Docker Desktop and try again."
+                if docker_installed()
+                else "Docker isn't installed, so SearXNG will be set up in a "
                 "virtualenv of its own. The first start takes a few minutes."
             )
     return {

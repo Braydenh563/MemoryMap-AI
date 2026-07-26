@@ -235,10 +235,26 @@ class DatabaseManager:
             f"sqlite:///{db_path}", connect_args={"check_same_thread": False}
         )
 
-        # SQLite ignores foreign keys unless told otherwise, per connection.
+        # Per-connection SQLite settings. All of these are per-connection
+        # rather than per-database, so they have to be set on every connect.
         @event.listens_for(self.engine, "connect")
-        def _enable_foreign_keys(dbapi_connection, _record):  # noqa: ANN001
+        def _configure_connection(dbapi_connection, _record):  # noqa: ANN001
+            # SQLite ignores foreign keys unless told otherwise.
             dbapi_connection.execute("PRAGMA foreign_keys=ON")
+            # WAL lets readers carry on while a write is in progress. Without
+            # it, saving a note blocks every concurrent read — and FastAPI
+            # serves from a threadpool, so a background job (the janitor, an
+            # embedding write) overlapping a page load is routine rather than
+            # rare. WAL persists on the file, but setting it per connection is
+            # harmless and covers a database created by an older version.
+            dbapi_connection.execute("PRAGMA journal_mode=WAL")
+            # When two writers do collide, wait rather than failing instantly.
+            # The default is 0, which turns a millisecond of contention into a
+            # "database is locked" error the user sees as a broken save.
+            dbapi_connection.execute("PRAGMA busy_timeout=5000")
+            # NORMAL is the recommended durability level under WAL: still
+            # crash-safe, without an fsync on every single commit.
+            dbapi_connection.execute("PRAGMA synchronous=NORMAL")
 
         Base.metadata.create_all(self.engine)  # creates missing tables only
         self._add_missing_columns()

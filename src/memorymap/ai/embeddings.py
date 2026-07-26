@@ -44,8 +44,64 @@ def start_warmup(service: "EmbeddingService") -> None:
             service.embed_text("warm up")
         finally:
             _warmup["running"] = False
+        # Now that the model is up, catch any notes that missed out.
+        backfill_missing(service)
 
     threading.Thread(target=run, name="embedding-warmup", daemon=True).start()
+
+
+# How many gaps to close per startup. Bounded so a huge notebook doesn't spend
+# minutes embedding on every launch; the next start picks up where this stopped.
+BACKFILL_LIMIT = 200
+
+
+def backfill_missing(service: "EmbeddingService", limit: int = BACKFILL_LIMIT) -> int:
+    """Embed notes that have no vector, and report how many were fixed.
+
+    Notes saved while the model was still warming up got no embedding, and
+    nothing ever went back for them — so they stayed invisible to semantic
+    search permanently, while looking perfectly normal in the list. The gap
+    closes itself on the next start instead.
+
+    Private notes are skipped, deliberately: store_for_entry refuses them, and
+    a vector would leak what the note is about.
+    """
+    from sqlalchemy import select
+
+    from memorymap.core import deps
+    from memorymap.core.database import EmbeddingRecord, Entry
+
+    if not service.is_ready():
+        return 0
+    fixed = 0
+    try:
+        session = deps.get_db().session()
+    except Exception:  # noqa: BLE001 — startup helper, never fatal
+        return 0
+    try:
+        missing = session.scalars(
+            select(Entry)
+            .outerjoin(EmbeddingRecord, EmbeddingRecord.entry_id == Entry.id)
+            .where(
+                Entry.is_deleted == False,  # noqa: E712
+                Entry.is_private == False,  # noqa: E712
+                EmbeddingRecord.id.is_(None),
+            )
+            .limit(limit)
+        ).all()
+        for entry in missing:
+            if service.store_for_entry(session, entry):
+                fixed += 1
+        if fixed:
+            session.commit()
+            logging.getLogger("memorymap.embeddings").info(
+                "backfilled %d note(s) that had no embedding", fixed
+            )
+    except Exception:  # noqa: BLE001 — a failed backfill must not stop startup
+        session.rollback()
+    finally:
+        session.close()
+    return fixed
 
 
 def warmup_running() -> bool:

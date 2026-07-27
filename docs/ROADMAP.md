@@ -18,11 +18,13 @@ the way*, not by how interesting it is to build.
    tools." This is the biggest gap between what the app claims and what it
    does, and it blocks the agent being useful at all. **Still the top item,
    and nothing below it should jump the queue.**
-2. **Web search still returns nothing** (§8b). Partly addressed — see below —
-   but the underlying "SearXNG starts and never answers" is still open, and
-   it is now *debuggable* rather than a guess: the instance's own output is
-   captured to `data/searxng/searxng.log` and shown in Settings → Web search.
-   The next session should read that log rather than theorising.
+2. **Web search still returns nothing** (§8b). **Two causes found and fixed
+   this session, both Windows-only, both reported by the user rather than
+   found in the log** — see §8b. The install error (`does not appear to be a
+   Python project`) and "started but never answered" were the same class of
+   mistake: a POSIX idiom that does something else on Windows. Unverified on
+   Windows itself — the sandbox is Linux — so the next session should confirm
+   with the user before assuming this one is closed.
 3. **Token usage in chats** (§11a). Asked directly: "is there a way to reduce
    excessive token usage in the chats?" A 3-turn chat is showing 8.7k tokens.
    The history and the retrieved notes are resent whole on every turn.
@@ -155,7 +157,13 @@ thing. Don't ship one you couldn't test.
     their content. `overflow-x: auto` on the child does nothing until every
     ancestor has an explicit floor. This one bug produced three separate
     reports before it was understood.
-11. **A control that "does nothing" is usually working.** Four reported cases,
+11. **A POSIX idiom can mean something else on Windows, silently.** Two bugs
+    in one module: `os.kill(pid, 0)` terminates the process on Windows rather
+    than asking about it, and `shutil.rmtree(ignore_errors=True)` cannot
+    delete a read-only file there, so it half-deletes the tree and reports
+    success. Both ran on every settings-screen poll. The user runs Windows;
+    the sandbox does not, so nothing here reproduces either one.
+12. **A control that "does nothing" is usually working.** Four reported cases,
     three of which wrote correctly and were then overridden — by CSS source
     order, by a status poll repainting from the server, or by living in a
     hidden section. Check the *computed* result, not the handler.
@@ -166,6 +174,14 @@ thing. Don't ship one you couldn't test.
 
 Newest at the top. Everything here is on `main` (or the branch merging into
 it), verified, and must not be rebuilt.
+
+**Two Windows-only SearXNG bugs, both ours.** The install error the user kept
+hitting (`…/data/searxng/src does not appear to be a Python project`) and the
+long-standing "started but never answered" turned out to be the same kind of
+mistake, in the same module: `os.kill(pid, 0)` terminates a process on
+Windows instead of checking it, and `rmtree(ignore_errors=True)` can't delete
+git's read-only objects there, so it half-deletes and claims success. Full
+write-up in §8b. **Not verified on Windows** — ask the user.
 
 **Web search has its own settings screen now.** It was four controls two
 thirds of the way down Preferences, which is why every error message saying
@@ -523,27 +539,61 @@ recurring causes are now written up as invariants in `docs/ARCHITECTURE.md` §10
 
 ---
 
-## 8b. Web search — diagnosed, not yet fixed
+## 8b. Web search — two Windows bugs found, and what is left
 
 The diagnosis from §8 shipped and is working: the app now says "DuckDuckGo is
 rate-limiting this app rather than returning results" instead of showing an
 empty panel, which is confirmed in use. That was the whole point — the failure
-is now legible. It is not, however, fixed.
+is now legible.
 
-**The fix is SearXNG, and SearXNG still doesn't start.** The installer no
-longer needs Docker or git, and the process does start, but the health check
-times out.
+**The fix is SearXNG, and this session found two reasons it couldn't work on
+Windows.** Neither was in the log, which is why reading the log first did not
+find them. Both are the same mistake: a POSIX idiom that means something
+different on Windows.
 
-**The debugging groundwork is done — go and read the log.** `_start_source`
-used to send stdout and stderr to `DEVNULL`, which is why the message was a
-guess about the port. It is now captured to `data/searxng/searxng.log`,
-truncated per start, quoted in the failure message, and shown in a fold on
-Settings → Web search. There is also a `↻ Reinstall` button (wipes the venv
+**1. "SearXNG started but never answered" — we were killing it.** `_alive()`
+asked `os.kill(pid, 0)`, the POSIX way to check a process exists without
+touching it. On Windows every signal except `CTRL_C_EVENT`/`CTRL_BREAK_EVENT`
+is handed to `TerminateProcess`, so that call *ended* the process (exit code
+0) and then returned True. `status()` asks `_source_state()`, which asks
+`_alive()`, and the settings screen polls `status()` every three seconds — so
+a freshly started SearXNG was shot within seconds of starting, every time,
+and the app reported that it started and never answered. That is exactly the
+symptom this section was named after. `_alive` now uses
+`OpenProcess`/`GetExitCodeProcess` on Windows; `_terminate` is the only thing
+that signals.
+
+**2. "does not appear to be a Python project" — reported directly:**
+
+    Couldn't install SearXNG: ERROR: file:///C:/Projects/MemoryMap-AI-v0/
+    data/searxng/src does not appear to be a Python project: neither
+    'setup.py' nor 'pyproject.toml' found.
+
+`install_source` skipped the download when `data/searxng/src` *existed* and
+handed the folder to `pip install -e`. Reinstalling didn't help because
+`uninstall_source` used `shutil.rmtree(..., ignore_errors=True)`, and git
+marks `.git/objects` read-only, which Windows enforces — so the wipe deleted
+the writable files, left the folder standing, and said it had removed it. The
+next install then found the folder, skipped the clone, and reproduced the
+error exactly. Fixed at all three points: `is_checkout()` asks what is *in*
+the folder, `_remove_tree()` clears the read-only bit (and moves the tree
+aside if it still can't delete it) and reports what survived, and the
+installer verifies `import searx` in the new venv before calling it done.
+
+**Neither fix is verified on Windows** — this sandbox is Linux, and the
+behaviour that was wrong is precisely the behaviour that can't be reproduced
+here. The tests pin the logic (`tests/test_searxng_install.py`), but the next
+session should ask the user whether SearXNG now installs and stays up before
+treating §8b as closed.
+
+**What is still unknown.** Whether SearXNG answers once it survives being
+started. If it still doesn't, the log at `data/searxng/searxng.log` is now the
+place to look and it will, for the first time, contain the output of a process
+that wasn't killed mid-boot. Do not theorise ahead of it.
+
+Also present, from earlier sessions: a `↻ Reinstall` button (wipes the venv
 and checkout, keeps `settings.yml` and its secret key) and a port line saying
 whether 8888 is free, held by a working SearXNG, or held by something else.
-
-**So the next step is no longer speculative.** Start it, read what it printed,
-fix that. Do not theorise ahead of the log.
 
 The one thing already ruled out: the generated `settings.yml` *does* include
 `- json` under `search.formats`, so the 403-from-a-missing-format theory is
@@ -938,9 +988,10 @@ Small, concrete, each seen in the running app:
   drawn in the dashboard's own render, not at startup: p5 measures a canvas
   as zero inside a `display: none` tab, and it has to be redrawn anyway when
   a theme change moves the accent.
-- ~~**SearXNG starts but never answers** — capture its output.~~ The
-  *capture* is done (see §8b); the underlying start failure is not. Read
-  `data/searxng/searxng.log`.
+- ~~**SearXNG starts but never answers** — capture its output.~~ The capture
+  was done first; the cause was found this session and it was us — the status
+  poll's liveness check terminated the process on Windows. See §8b, and
+  confirm with the user before calling it closed.
 
 ---
 

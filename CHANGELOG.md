@@ -48,6 +48,24 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- **SearXNG couldn't be installed on Windows, and couldn't stay running
+  there either.** Two separate bugs, both a POSIX idiom that means something
+  else on Windows.
+  - *"…\data\searxng\src does not appear to be a Python project: neither
+    'setup.py' nor 'pyproject.toml' found."* The installer skipped the
+    download whenever that folder existed, then handed it to pip. Reinstalling
+    made it permanent rather than fixing it: the wipe used
+    `rmtree(ignore_errors=True)`, git marks `.git/objects` read-only, Windows
+    enforces that — so the writable files went, the folder stayed, and the
+    wipe reported success. Now the question asked is whether the folder
+    *contains a project*, the wipe clears the read-only bit (moving the tree
+    aside if it still can't delete it) and says what survived, and an install
+    isn't called done until `import searx` works in the new virtualenv.
+  - *"SearXNG started but never answered."* The liveness check was
+    `os.kill(pid, 0)` — on Windows any signal but CTRL_C/CTRL_BREAK goes to
+    `TerminateProcess`, so checking whether the instance was alive killed it.
+    The Web search screen polls status every three seconds, so it was killed
+    seconds after every start.
 - **One wide code block widened the whole page.** "Ask about this" renders a
   fetched page into the chat, and a wide code block, a nine-column table or a
   long URL pushed the layout sideways: a horizontal scrollbar, and text that

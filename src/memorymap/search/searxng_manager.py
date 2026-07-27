@@ -20,6 +20,7 @@ reason and leaves web search on DuckDuckGo.
 
 from __future__ import annotations
 
+import ctypes
 import json
 import logging
 import os
@@ -27,6 +28,7 @@ import secrets
 import shutil
 import signal
 import socket
+import stat
 import subprocess
 import sys
 import threading
@@ -163,6 +165,25 @@ def _pid_file(data_dir: Path) -> Path:
     return Path(data_dir) / "searxng" / "run.json"
 
 
+def is_checkout(path: Path) -> bool:
+    """Does this directory hold a Python project pip could install?
+
+    A directory being *there* was the test, and it is not the same question.
+    Reported: "Couldn't install SearXNG: ERROR: file:///…/data/searxng/src does
+    not appear to be a Python project: neither 'setup.py' nor 'pyproject.toml'
+    found." — a leftover `src` that no longer contained a checkout, handed
+    straight to `pip install -e` because it existed.
+    """
+    path = Path(path)
+    return (path / "setup.py").exists() or (path / "pyproject.toml").exists()
+
+
+# `import searx` costs a Python interpreter start, and the settings screen
+# polls status() every few seconds. Once it has succeeded it stays true until
+# something removes the install, so only the affirmative answer is kept.
+_import_ok: set[str] = set()
+
+
 def source_installed(data_dir: Path) -> bool:
     """Is SearXNG present in its own virtualenv?
 
@@ -170,14 +191,24 @@ def source_installed(data_dir: Path) -> bool:
     puts `searx` straight into the venv's site-packages and never creates
     one. So the question that actually matters is whether the venv can
     import `searx`, not whether a source folder is sitting there.
+
+    And a folder that is there but empty is *worse* than one that is missing:
+    it used to answer "installed" for both this question and the one
+    `install_source` asks, so the app tried to start something that was never
+    built and reinstalling skipped the download.
     """
     python = _venv_python(data_dir)
     if not python.exists():
         return False
-    if _source_dir(data_dir).exists():
+    if str(Path(data_dir)) in _import_ok:
+        return True
+    if is_checkout(_source_dir(data_dir)):
         return True
     result = _run([str(python), "-c", "import searx"], timeout=COMMAND_TIMEOUT)
-    return result.returncode == 0
+    if result.returncode == 0:
+        _import_ok.add(str(Path(data_dir)))
+        return True
+    return False
 
 
 def _read_pid(data_dir: Path) -> int | None:
@@ -188,13 +219,57 @@ def _read_pid(data_dir: Path) -> int | None:
         return None
 
 
-def _alive(pid: int) -> bool:
-    """Is this PID still around? Signal 0 checks without touching the process."""
+_STILL_ACTIVE = 259
+_PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+
+
+def _alive_windows(pid: int) -> bool:
+    """Ask Windows whether the process is still running, without signalling it.
+
+    `os.kill(pid, 0)` is the POSIX idiom and it is actively destructive here:
+    on Windows any signal that isn't CTRL_C_EVENT or CTRL_BREAK_EVENT is
+    handed to `TerminateProcess`, so "is it alive?" *killed the instance*,
+    with exit code 0, and then answered yes. The settings screen polls
+    status(), status() asks `_source_state`, and `_source_state` asked this —
+    so a SearXNG that had just started was shot within a couple of seconds of
+    starting, every time, and the app then reported that it "started but never
+    answered". That is the §8b symptom.
+    """
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    handle = kernel32.OpenProcess(_PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+    if not handle:
+        # Access denied means something is there; anything else means it isn't.
+        return ctypes.get_last_error() == 5  # ERROR_ACCESS_DENIED
     try:
-        os.kill(pid, 0)
+        code = ctypes.c_ulong()
+        if not kernel32.GetExitCodeProcess(handle, ctypes.byref(code)):
+            return False
+        # A process that genuinely exited with 259 reads as alive. That is the
+        # documented cost of this check and it beats terminating the process.
+        return code.value == _STILL_ACTIVE
+    finally:
+        kernel32.CloseHandle(handle)
+
+
+def _alive(pid: int) -> bool:
+    """Is this PID still around, without disturbing it?"""
+    if os.name == "nt":
+        try:
+            return _alive_windows(pid)
+        except (OSError, AttributeError, ValueError):
+            return False
+    try:
+        os.kill(pid, 0)  # POSIX only: signal 0 checks, it does not deliver
     except OSError:
         return False
     return True
+
+
+def _terminate(pid: int) -> None:
+    """End the process. Raises OSError if it can't be reached."""
+    # On Windows os.kill hands the signal number to TerminateProcess, which is
+    # what we want *here* — abrupt, but SearXNG has nothing to flush.
+    os.kill(pid, signal.SIGTERM)
 
 
 def _source_state(data_dir: Path) -> str:
@@ -203,6 +278,29 @@ def _source_state(data_dir: Path) -> str:
         return "absent"
     pid = _read_pid(data_dir)
     return "running" if pid and _alive(pid) else "stopped"
+
+
+def _prepare_checkout_dir(src: Path) -> None:
+    """Make sure `src` is either a usable checkout or not there at all.
+
+    The state in between is the one that broke: a `src` folder with no
+    `setup.py` and no `pyproject.toml` in it. `install_source` skipped the
+    clone because the folder existed, then handed the folder to
+    `pip install -e`, which said exactly what it found — *"does not appear to
+    be a Python project"* — and every reinstall reproduced it, because
+    `uninstall_source` could not delete a git checkout on Windows either.
+
+    Anything that isn't a checkout is moved aside rather than insisted upon,
+    so a folder we can't delete still can't stop an install.
+    """
+    if not src.exists() or is_checkout(src):
+        return
+    logging.getLogger("memorymap.searxng").warning(
+        "SearXNG's source folder %s has no setup.py or pyproject.toml — "
+        "clearing it before downloading again.",
+        src,
+    )
+    _remove_tree(src)
 
 
 def install_source(data_dir: Path) -> None:
@@ -216,9 +314,16 @@ def install_source(data_dir: Path) -> None:
         try:
             src = _source_dir(data_dir)
             src.parent.mkdir(parents=True, exist_ok=True)
+            _import_ok.discard(str(Path(data_dir)))
             venv = _venv_dir(data_dir)
             if not _venv_python(data_dir).exists():
                 _run([sys.executable, "-m", "venv", str(venv)], timeout=180)
+                if not _venv_python(data_dir).exists():
+                    raise SearxngError(
+                        "Couldn't create a virtualenv for SearXNG at "
+                        f"{venv} — check there is space and that the folder "
+                        "is writable."
+                    )
             _install_state["step"] = "Downloading SearXNG…"
             # With git, clone and install editable: the checkout can be
             # updated later without redownloading. Without git, pip fetches
@@ -226,6 +331,7 @@ def install_source(data_dir: Path) -> None:
             # machine that has neither Docker nor git, which previously had
             # no way to install SearXNG at all.
             if git_installed():
+                _prepare_checkout_dir(src)
                 if not src.exists():
                     result = _run(
                         ["git", "clone", "--depth", "1", SOURCE_REPO, str(src)],
@@ -233,8 +339,18 @@ def install_source(data_dir: Path) -> None:
                     )
                     if result.returncode != 0:
                         raise SearxngError(_reason(result, "Couldn't download SearXNG"))
+                if not is_checkout(src):
+                    # Say this here rather than letting pip say it about a path
+                    # the user has no reason to recognise.
+                    raise SearxngError(
+                        "SearXNG downloaded, but no setup.py or pyproject.toml "
+                        f"turned up in {src}. Delete that folder and try again."
+                    )
                 target = ["-e", str(src)]
             else:
+                # No git, so no checkout to install from — and a stale one
+                # would only confuse `_start_source`, which runs from it.
+                _prepare_checkout_dir(src)
                 target = [SOURCE_TARBALL]
             _install_state["step"] = "Installing dependencies (this takes a few minutes)…"
             result = _run(
@@ -243,6 +359,18 @@ def install_source(data_dir: Path) -> None:
             )
             if result.returncode != 0:
                 raise SearxngError(_reason(result, "Couldn't install SearXNG"))
+            # pip exiting 0 is not the same as `searx` being importable — a
+            # half-installed venv otherwise reads as installed and dies at
+            # start, which is the state the reinstall button exists to escape.
+            _install_state["step"] = "Checking the install…"
+            check = _run(
+                [str(_venv_python(data_dir)), "-c", "import searx"], timeout=COMMAND_TIMEOUT
+            )
+            if check.returncode != 0:
+                raise SearxngError(
+                    _reason(check, "SearXNG installed but can't be imported")
+                )
+            _import_ok.add(str(Path(data_dir)))
             _install_state["step"] = ""
         except SearxngError as exc:
             _install_state["error"] = str(exc)
@@ -297,6 +425,59 @@ def port_report() -> dict:
     }
 
 
+def _drop_readonly(func, path, _exc) -> None:
+    """rmtree's retry hook: clear the read-only bit and go again.
+
+    git marks everything under `.git/objects` read-only, and Windows refuses
+    to delete a read-only file however the permissions read elsewhere. With
+    `ignore_errors=True` that silently produced the half-deleted tree behind
+    the reported error — the loose files went, `.git` stayed, and `src` was
+    still *there* with nothing installable in it.
+    """
+    try:
+        os.chmod(path, stat.S_IWRITE)
+        func(path)
+    except OSError:
+        pass  # reported by the caller, which checks whether the path survived
+
+
+def _remove_tree(path: Path) -> str:
+    """Delete a directory. Returns "" on success, else why it is still around.
+
+    A tree we cannot delete is moved aside instead. Being unable to remove an
+    old install is not a reason to be unable to make a new one, and "go and
+    delete this folder by hand" is the advice this whole module exists to
+    stop giving.
+    """
+    path = Path(path)
+    if not path.exists():
+        return ""
+    if not path.is_dir():
+        try:
+            path.unlink()
+        except OSError as exc:
+            return f"{path} is a file and couldn't be removed ({exc})"
+        return ""
+    # onexc replaced onerror in 3.12; both call the same hook here.
+    if sys.version_info >= (3, 12):
+        shutil.rmtree(path, onexc=_drop_readonly)
+    else:  # pragma: no cover - 3.11 only
+        shutil.rmtree(path, onerror=_drop_readonly)
+    if not path.exists():
+        return ""
+    aside = path.with_name(f"{path.name}.old-{int(time.time())}")
+    try:
+        path.rename(aside)
+    except OSError as exc:
+        return f"{path} could not be removed ({exc})"
+    logging.getLogger("memorymap.searxng").warning(
+        "Couldn't delete %s, so it was moved to %s. It can be deleted by hand.",
+        path,
+        aside,
+    )
+    return ""
+
+
 def uninstall_source(data_dir: Path) -> dict:
     """Delete the virtualenv and checkout so the next start installs fresh.
 
@@ -315,13 +496,24 @@ def uninstall_source(data_dir: Path) -> dict:
     except SearxngError:
         pass  # nothing to stop, or it was already gone — either way, carry on
     _pid_file(data_dir).unlink(missing_ok=True)
+    _import_ok.discard(str(data_dir))
 
-    removed = []
+    removed, failed = [], []
     for path in (_venv_dir(data_dir), _source_dir(data_dir)):
-        if path.exists():
-            shutil.rmtree(path, ignore_errors=True)
-            removed.append(path.name)
+        if not path.exists():
+            continue
+        problem = _remove_tree(path)
+        (failed if problem else removed).append(problem or path.name)
     log_path(data_dir).unlink(missing_ok=True)
+    if failed:
+        # Reporting a wipe that didn't happen is what let the next install
+        # walk into the same broken folder and blame pip for it.
+        raise SearxngError(
+            "Couldn't clear the old SearXNG install: "
+            + "; ".join(failed)
+            + ". Close anything using those folders (a file explorer counts) "
+            "and try again."
+        )
     return {"removed": removed}
 
 
@@ -385,8 +577,9 @@ def _start_source(data_dir: Path) -> dict:
             # Only the git path has a checkout to run from; a tarball install
             # lives in site-packages, and passing a directory that isn't there
             # makes Popen fail with a FileNotFoundError that reads as "SearXNG
-            # is missing" rather than "that folder is".
-            cwd=str(src) if (src := _source_dir(data_dir)).exists() else None,
+            # is missing" rather than "that folder is". A leftover folder that
+            # is no longer a checkout is not somewhere to run from either.
+            cwd=str(src) if is_checkout(src := _source_dir(data_dir)) else None,
             env=env,
             # Both streams into one file, in the order they were written —
             # SearXNG's startup errors go to whichever it feels like.
@@ -413,7 +606,7 @@ def _stop_source(data_dir: Path) -> dict:
     if not pid or not _alive(pid):
         return {"stopped": False}
     try:
-        os.kill(pid, signal.SIGTERM)
+        _terminate(pid)
     except OSError as exc:
         raise SearxngError(f"Couldn't stop SearXNG: {exc}") from exc
     # Give it a moment to close its socket before anything rebinds the port.
@@ -618,7 +811,7 @@ def stop(data_dir: Path | None = None) -> dict:
     """Stop the instance but keep it (and its settings) for next time."""
     backend = preferred_backend()
     if backend is None:
-        raise SearxngError("Neither Docker nor git is installed.")
+        raise SearxngError("There is no SearXNG here that MemoryMap started.")
     if backend == "source":
         if data_dir is None:
             raise SearxngError("Couldn't find the SearXNG install.")

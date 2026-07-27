@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import pathlib
 import time
 import zipfile
 
@@ -747,6 +748,13 @@ def test_source_install_prefers_a_clone_when_git_is_present(app_state, tmp_path,
 
     def fake_run(cmd, timeout=None):
         calls.append(list(cmd))
+        if cmd[0] == "git" and cmd[1] == "clone":
+            # A real clone leaves a project behind, and the installer now
+            # checks: a `src` with no setup.py or pyproject.toml is what pip
+            # refused to install, in the reported bug.
+            checkout = pathlib.Path(cmd[-1])
+            checkout.mkdir(parents=True, exist_ok=True)
+            (checkout / "setup.py").write_text("")
         return _Ok()
 
     monkeypatch.setattr(searxng_manager, "_run", fake_run)

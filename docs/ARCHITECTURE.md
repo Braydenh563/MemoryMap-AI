@@ -327,6 +327,32 @@ output goes to `data/searxng/searxng.log` — never `DEVNULL`, which is what
 made a failed start unexplainable and reduced the error message to a guess
 about the port.
 
+Two things in there are Windows-specific and both were wrong in the same way
+— a POSIX idiom that means something else entirely on Windows:
+
+- **`os.kill(pid, 0)` does not ask a question on Windows, it terminates the
+  process.** Any signal other than `CTRL_C_EVENT`/`CTRL_BREAK_EVENT` is passed
+  to `TerminateProcess`, so the liveness check inside `_source_state` — which
+  `status()` calls, which the settings screen polls every three seconds —
+  killed the instance seconds after starting it and then reported that it
+  "started but never answered". `_alive` now goes through
+  `OpenProcess`/`GetExitCodeProcess` on Windows and only signals on POSIX.
+- **`shutil.rmtree(..., ignore_errors=True)` cannot delete a git checkout on
+  Windows**, because git marks `.git/objects` read-only. It deleted everything
+  writable, left the folder standing, and reported success — after which
+  `data/searxng/src` existed but was no longer a Python project, the installer
+  skipped the download because the folder was there, and pip said *"does not
+  appear to be a Python project"* about a path the user had never heard of.
+  `_remove_tree` clears the read-only bit and retries, moves the tree aside if
+  it still can't delete it, and reports what survived instead of pretending.
+
+The rule underneath both: **a folder existing is not the question.**
+`is_checkout()` asks whether there is a `setup.py` or a `pyproject.toml` in
+it, and installing, starting and `source_installed()` all ask that rather than
+`.exists()`. `install_source` also verifies `import searx` in the new venv
+before calling the install done, because pip exiting 0 and SearXNG being
+runnable are different claims.
+
 ## 9. AI stack
 
 - **Chat model:** any model installed in **[Ollama](https://ollama.com)**

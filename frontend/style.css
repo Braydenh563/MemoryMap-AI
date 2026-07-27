@@ -4320,17 +4320,25 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 .dash-getting-started > p.muted { max-width: 46rem; margin: 0 auto; }
 .start-steps {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  /* min(13rem, 100%) rather than a bare 13rem: a fixed track minimum cannot
+     shrink, so on a container narrower than one column the grid overflowed
+     its card and took the page with it. */
+  grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr));
   gap: 0.6rem;
   margin: 1.4rem auto 0.8rem;
   max-width: 58rem;
   text-align: left;
+  min-width: 0;
 }
 .start-step {
   display: flex;
   align-items: flex-start;
   gap: 0.6rem;
   padding: 0.75rem 0.85rem;
+  /* A grid item's automatic minimum is its content, so a long step label
+     widened its track past the 1fr it was given — the same cause as the
+     chat-bubble overflow, in a different grid. */
+  min-width: 0;
   border: 1px solid var(--border);
   border-radius: calc(var(--radius) * 0.8);
   background: var(--inner);

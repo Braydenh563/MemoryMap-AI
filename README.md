@@ -22,6 +22,7 @@ Everything runs on your machine — nothing is ever sent to the cloud.
 ## Contents
 
 - [Why MemoryMap AI?](#why-memorymap-ai)
+- [What's in it](#whats-in-it)
 - [Requirements](#requirements)
 - [Setup](#setup)
 - [Run it](#run-it)
@@ -52,6 +53,24 @@ Note apps make *you* do the filing. MemoryMap AI flips that around:
 
 New here and want the full tour of how it's built? See
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+## What's in it
+
+Six tabs, all offline:
+
+| | |
+| --- | --- |
+| **Dashboard** | Greeting, capture streak, at-a-glance counts, an AI digest of your week, activity heatmap, on-this-day, focus timer, and a layout you can rearrange |
+| **Notes** | Capture, browse and ask, as three sub-tabs. Auto-filing, tags, pins, threads, attachments, private notes (encrypted at rest), a recycle bin, revision history, and a search box that understands `tag:work`, `cat:recipes`, `is:pinned`, `"exact phrase"` and `-exclude` |
+| **Chat** | A full conversation with your notebook, saved and resumable. **Agent mode** lets it use 28 tools — search and read your notes, create, tag, link and organise, set reminders, open a web page — with destructive actions always confirmed. Personas change its voice; the run is shown as a step timeline of thinking, tool calls and prose in the order they happened |
+| **Graph** | Your notes as a force-directed map. Click a node to edit it in place, see its images, link it to another, or ask for related notes. The AI can suggest connections |
+| **Documents** | A markdown editor for long-form writing: live preview, autosave, table of contents, word count and reading time, `.md` and PDF export, and AI editing shown as a proposal you accept or reject |
+| **Reminders** | Due dates with priority, repeats, snooze and notifications — or type "call mum tomorrow evening" and let the AI schedule it |
+
+Plus: a command palette (<kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>K</kbd>), a sketch
+pad, local Whisper dictation, read-aloud, opt-in web search with a reader view,
+12 themes over 8 colour palettes with per-setting overrides, daily local
+backups, and a desktop window (`--desktop`).
 
 ## Requirements
 
@@ -285,6 +304,13 @@ and where to look to change any given thing — see
 - [x] **Wave F — Platform:** command palette (Ctrl/Cmd-K), markdown import/export, daily local backups + restore, PWA + mobile pass, opt-in web search, sketch pad
 - [x] **Wave H — Voice & desktop:** local Whisper dictation (optional), read-aloud, `python -m memorymap --desktop` window (optional pywebview)
 - [x] **Wave I — Hardening:** GitHub Actions CI (offline test suite), accessibility + keyboard + loading polish
+- [x] **Waves J–P — Depth:** documents, private notes, search operators, saved
+  filters, the writing room, agent step timeline, curated themes and palettes,
+  password change, UTC-correct reminders, desktop launchers
+- [ ] **Next:** a real skill system (skills are still just saved prompts),
+  SearXNG-backed web search, lower per-turn token cost, markdown rendering in
+  the note list, and a grouped note timeline — see
+  [`docs/ROADMAP.md`](docs/ROADMAP.md), which opens with the current order
 
 ## Operations notes (Wave I decisions)
 

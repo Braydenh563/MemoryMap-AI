@@ -48,6 +48,57 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- **One wide code block widened the whole page.** "Ask about this" renders a
+  fetched page into the chat, and a wide code block, a nine-column table or a
+  long URL pushed the layout sideways: a horizontal scrollbar, and text that
+  read as scaled up because every paragraph had been stretched to the width of
+  the widest thing on screen. Measured at 1280px, the document was 3425px
+  wide. The cause was CSS automatic minimum sizing in two places — a `1fr`
+  grid track and a flex item with `min-width: auto` — which is what stopped
+  the `overflow-x: auto` already set on code blocks and tables from taking
+  effect. Now 0 overflow across six tabs at four widths.
+- **The top bar overflowed itself by up to 215px.** The block meant to let the
+  tab strip scroll declared `flex`, but so did the base rule ~70 lines later
+  at equal specificity, so the tabs stayed rigid at 579px and the header
+  controls were squeezed to 76px around 201px of buttons — Settings, the lock
+  and the theme toggle pushed out of the window. Worst in the desktop shell,
+  whose 1200x800 window lands at 800–960 CSS pixels on a scaled display. The
+  documented degradation ladder (wordmark → status pill → tab padding → tabs
+  scroll) now actually happens, and the scroll fade is measured rather than
+  guessed from a breakpoint.
+- **Accent swatches did nothing while any theme was selected.** `[data-accent]`
+  rules sit near the top of the stylesheet and `[data-palette]` rules near the
+  bottom, both the same specificity — so the palette won on source order, and
+  every theme selects a palette. An explicit pick is now an inline custom
+  property, which beats both. Clearing an accent also left it applied, because
+  `applyAppearance` re-applied every setting except that one.
+- **The search-engine radios reset themselves.** Picking one saves nothing —
+  "Apply & re-index" does — and the guard against the status poll was a focus
+  check, so the moment focus moved the poll put the saved backend back and the
+  setting looked stuck.
+- **Editing an answer reverted when the chat was reopened.** The edit updated
+  the message text, but a reopened chat replays the saved step timeline, which
+  kept its own copy of the model's original wording.
+- **Sketches couldn't be opened from the graph.** A sketch is a note plus a
+  PNG, so its node showed the caption and nothing else — the drawing was
+  unreachable from the map. Image attachments now preview in the popup and
+  open full size on click.
+- **"New note" on the dashboard did nothing** unless you had left the Notes tab
+  on the capture section. Focusing an element inside a hidden sub-tab silently
+  fails; an audit of every quick link from all three starting sections found
+  this one and ten feature-catalog entries with the same fault.
+- **Uploads failed with a 500** if the uploads folder had gone missing. For a
+  sketch that lost the drawing while keeping the caption.
+- **`bg-motion` had two conflicting defaults** in `APPEARANCE_DEFAULTS` after
+  two sessions fixed the same blank-picker bug independently; the later one
+  silently won, so the documented default was not the one anyone got.
+- **Web search reported all its failures the same way.** No egress, a
+  rate-limit challenge page, and a genuine no-results page all arrived as an
+  empty list, which is why this was repeatedly investigated as a parser bug.
+  Status and body length are now logged for every search (never the query),
+  and the first two are named for what they are.
+- **`pytest` didn't work in a fresh clone** without an editable install, though
+  the README and CONTRIBUTING both say to run exactly that.
 - **Keyword search only matched contiguous substrings.** "bread proving" found
   a note that "proving bread" did not — word order was something you had to
   guess. It now matches every word in any order across content and tags, and

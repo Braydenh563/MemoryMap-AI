@@ -220,11 +220,17 @@ torch at all, and your notes re-index automatically. Full details are always in
 ## Run the tests
 
 ```bash
-pytest
+pytest          # ~500 tests, about a minute
+ruff check .    # what CI lints with
 ```
 
-Tests use a throwaway database and (from Phase 2) mock all AI calls, so they
-run fast and fully offline.
+Tests use a throwaway database and mock every AI call, so they run fast and
+fully offline — no GPU, no models, no network.
+
+They also cannot see the interface. Everything they cover is Python; the
+frontend is one large plain-JS file with no test harness, so a change there is
+only verified by running the app and looking at it. `docs/ARCHITECTURE.md` §10
+describes how, and lists the layout traps that keep catching people out.
 
 ## Where your data lives
 

@@ -10,18 +10,30 @@ the part that's expensive to reconstruct.
 
 ## How to work on this repo
 
-- `PYTHONPATH=src python -m pytest` — 486 tests, fully offline, no Ollama needed
+- `pytest` — 500 tests, fully offline, no Ollama needed (`pytest.ini` now sets
+  `pythonpath = src`, so this works without an editable install)
 - `ruff check .` — matches CI
 - `node --check frontend/app.js` — the frontend is one large plain-JS file, so a
   syntax check is worth running after every edit
 
 **Drive the app in a browser before claiming anything works.** Chromium is
 preinstalled at `/opt/pw-browsers/chromium-1194/chrome-linux/chrome`, but the
-Python package is not — `pip install playwright` first. Most of the bugs fixed
-in the last session were invisible to the test suite and obvious in ten seconds
-of clicking: a header that wrapped on every laptop-sized window, a dropdown that
-rendered blank, jump-to-note doing nothing, four different control heights in
-one row.
+Python package is not — `pip install playwright` first (do *not* run
+`playwright install`; the browser is already there). Launch the context with
+`service_workers="block"`, or `sw.js` serves a cached `app.js`/`style.css` and
+you will be looking at a page that does not contain your change.
+
+Two things make this much faster than it sounds:
+
+- Top-level functions in `app.js` are plain globals, so `page.evaluate` can
+  call `switchTab`, `applyThemePreset` or `renderEmbeddingPicker` directly.
+  That turns "does this picker stick?" into a five-line test.
+- **Assert on measured geometry, not screenshots.** `scrollWidth - clientWidth`
+  found a 2145px overflow and then proved it gone; sweeping widths in 20px
+  steps found a header that overflowed itself at every size between 740 and
+  1400px. A screenshot shows one width and invites you to squint at it.
+
+Every UI bug in §8 passed a fully green 500-test run.
 
 **Installing dependencies in a fresh sandbox:** `download.pytorch.org` is blocked
 by the network policy, so `pip install -r requirements.txt` stalls on torch.
@@ -59,6 +71,15 @@ test files fail to collect without it.
    more than coordinating would have.
 9. **The test suite cannot see any of the above.** Every UI bug listed below
    passed 480+ green tests.
+10. **CSS automatic minimum sizing is the usual cause of a wide page.** A `1fr`
+    grid track and a `min-width: auto` flex item both refuse to shrink below
+    their content. `overflow-x: auto` on the child does nothing until every
+    ancestor has an explicit floor. This one bug produced three separate
+    reports before it was understood.
+11. **A control that "does nothing" is usually working.** Four reported cases,
+    three of which wrote correctly and were then overridden — by CSS source
+    order, by a status poll repainting from the server, or by living in a
+    hidden section. Check the *computed* result, not the handler.
 
 ---
 
@@ -83,6 +104,9 @@ test files fail to collect without it.
 | Reminder controls misaligned | Four different heights (44/42/41/40px), so "centred" gave four different tops |
 | Chat + document sidebars scrolled away | A later ID rule set `position: relative`, outranking the sticky rule |
 | **Reminder 5 min ahead read as 10 hours overdue** | SQLite drops the timezone; JS parses naive date-times as *local*. Fixed with a UTC-aware column type covering every table |
+
+The whole of §8's reported bug list has since been closed as well — see that
+section for what each one turned out to be.
 
 **Features added:** 10 curated themes layered over `main`'s 7 palettes
 (`your change → theme → default`, with separate "reset theme" and "clear my
@@ -248,79 +272,59 @@ where the genuine embedded browser from §3 becomes possible.
 
 ---
 
-## 8. Open bug list (reported, not yet fixed)
+## 8. Open bug list — now empty
 
-Every one of these was seen in the running app. Reproduce before fixing —
-several earlier "bugs" turned out to be a different component moving underneath
-the one being blamed.
+Every reported bug in this section has been reproduced in Chromium and fixed.
+What follows is kept as a record of *what each one actually was*, because in
+most cases the stated symptom pointed at the wrong component and the wasted
+effort is the expensive part to repeat.
 
-**Chat rendering**
+**Fixed, with the real cause**
 
-- ~~**Numbered lists always render `1.`**~~ FIXED. A blank line between items
-  closed the `<ol>`, and models write "1.\n\n2.\n\n3." far more often than
-  they write it tightly, so every item started a new list at 1. A blank line now
-  only ends a list if what follows isn't another item of the same kind, and an
-  `<ol>` keeps its starting number.
-- ~~**Assistant content too far right / rail overlap**~~ FIXED. The rail padded
-  each step's own box, so the `<details>` marker and the tool chips sat on top
-  of the circles; the container now has a gutter of its own. Long URLs get
-  `overflow-wrap: anywhere` so they stay inside the bubble.
-- **The thinking disclosure arrow and the tool-use boxes overlap the agent
-  timeline's circles and connector line.** The rail was added with
-  `padding-left: 1.15rem` on step children; `<details>` draws its own marker in
-  that space. Give the rail its own gutter rather than padding the children.
-- **Thinking boxes vanish on reload.** NOT yet fixed — reading the code did not
-  reveal it, so reproduce first. They *are* saved (`steps` carries
-  `{kind:"thinking"}`, and `timeline.replay` handles that kind). Suspects, in
-  order: turns saved before `steps` existed fall back to `message.thinking`;
-  `serialise()` reads `holder.children` and could miss a step; or the turn is
-  never persisted because `chatConv.id` was still null. Log what
-  `GET /conversations/{id}` actually returns before changing anything.
-- **A long URL breaks out of the chat bubble on the right.** Needs
-  `overflow-wrap: anywhere` on bubble content.
+| Reported as | What it actually was |
+| --- | --- |
+| Numbered lists always render `1.` | A blank line between items closed the `<ol>`, and models write `1.\n\n2.` far more often than tightly |
+| Assistant content too far right | The rail padded each step's own box instead of the container |
+| Thinking arrow sits on the timeline circles | `list-style-position: outside` draws the marker *outside* the summary's box — exactly where the rail's gutter is, so no gutter width could clear it. Native marker removed and redrawn inside |
+| Thinking boxes vanish on reload | Not reproducible. Verified in a browser: live, three-round, and after a real reload the steps round-trip intact. The report predates the step-timeline work that fixed it |
+| A long URL escapes the chat bubble | `overflow-wrap: anywhere` on bubble content |
+| Documents show "Invalid Date" | A regression from the UTC fix: `relativeTime` appended `"Z"` to a timestamp already carrying `+00:00`. Two definitions existed, one shadowing the other |
+| Dashboard "Search notes" goes nowhere | Focused a box inside the hidden `browse` sub-tab |
+| Capture textbox short until clicked | `autoGrow` measured `scrollHeight` while the section was `display: none` |
+| "Ask about this" wrecks the layout | CSS automatic minimum sizing: a `1fr` grid track and a `min-width: auto` flex item both refuse to shrink below their content, so one wide code block widened the column, the page and every paragraph beside it. 3425px wide at a 1280px viewport |
+| Desktop menu-bar buttons overlap the title | The tab strip was pinned at a rigid 579px because a base rule 70 lines below the media query redeclared `flex` at equal specificity. Nothing could yield, so the header overflowed itself by up to 215px |
+| Can't switch search engines | The status poll reset the radios as soon as focus moved, because picking one saves nothing until "Apply & re-index" |
+| Colour/font controls stuck under a theme | Two causes. `[data-palette]` rules sit below `[data-accent]` rules at equal specificity, so a palette always won and the swatches were dead under every theme; and `applyAppearance` re-applied every setting *except* the accent, so clearing one left it showing |
+| Sketches don't open from the graph | A sketch is a note plus a PNG, and the graph popup showed the caption but never the image — the drawing was unreachable from the map |
+| Web search returns nothing | Not a parser bug. Three different failures (no egress, a rate-limit challenge page, a genuine empty result) all surfaced as an empty list. Now logged and named separately |
 
-**Web search / reader**
+**Found while fixing the above, also fixed**
 
-- **Web search returns nothing in some environments** — pages won't show up.
-  Reported as working under the hosted Python desktop environment, which
-  strongly suggests egress/proxy differences rather than parser breakage.
-  Diagnose by logging the actual HTTP status and body length from
-  `_search_duckduckgo` before assuming the parse failed. DuckDuckGo also
-  rate-limits and occasionally serves a challenge page to non-browser clients;
-  if that is what's happening, SearXNG (§2) is the real fix, not a parser tweak.
-- **"Ask about this" wrecks the layout**: the page renders very wide, forces a
-  long horizontal scrollbar, and scales everything up. Almost certainly the
-  reader's `<pre>` blocks and long unbroken strings escaping their container.
-  Constrain the reader/answer width and let code blocks scroll inside
-  themselves.
-- **Improve the extracted page's visual rendering** generally — it now carries
-  heading levels, so it can be laid out as a real document (typographic scale,
-  measure capped around 70ch, blockquotes, lists, code).
+- Editing an answer reverted when the chat was reopened — the edit updated
+  `content`, but replay renders `steps`, which kept the model's original wording.
+- Uploading a file 500'd if the uploads folder had gone missing, losing a
+  sketch's drawing while keeping its caption.
+- `APPEARANCE_DEFAULTS` declared `bg-motion` twice with different values.
+- "New note" on the dashboard did nothing unless the Notes tab happened to be
+  left on the capture section — the same hidden-sub-tab trap, on the most-used
+  button there. Ten feature-catalog entries had it too.
+- `.entry-content` used `pre-wrap`, which keeps typed line breaks but cannot
+  break inside a word, so one pasted URL widened the note list and the page.
+- `pytest` didn't work in a fresh clone without an editable install.
 
-**Appearance**
+**Still open here**
 
-- **Switch search engines at will.** Still reported as not freely switchable.
-- **With a theme or palette selected, the individual colour/font controls below
-  sometimes can't be changed.** Suspect the layering: a manual write may be
-  landing but being immediately re-derived from the theme. Reproduce by picking
-  a theme, then a font, then checking `localStorage` and the computed value.
+- **Improve the extracted page's visual rendering.** Not a bug — the reader now
+  carries heading levels, so it can be laid out as a real document (typographic
+  scale, measure capped around 70ch, blockquotes, lists, code). Grouped with
+  §13.
 
-**Elsewhere**
-
-- ~~**Documents show "Invalid Date"**~~ FIXED, and it was a regression from the
-  UTC timestamp fix: `relativeTime` did `iso + "Z"` unconditionally, so once
-  timestamps carried `+00:00` it built `"…+00:00Z"`. There were also *two*
-  `relativeTime` definitions, one shadowing the other — the dead one is gone and
-  parsing now lives in a single `parseServerTime`.
-- ~~**Dashboard "Search notes" goes to the wrong place**~~ FIXED — it focused a
-  box inside the hidden "browse" sub-tab, the same trap `flashEntry` hit.
-  **Still to do:** audit the remaining quick-access buttons the same way.
-- ~~**Capture textbox short until clicked**~~ FIXED. `autoGrow` measured
-  `scrollHeight` while the section was `display:none` (always 0);
-  `showNotesSection` now re-measures once the section is visible.
-- **Desktop app: the menu-bar buttons overlap the "MemoryMap AI" title.** The
-  pywebview window is narrower than the breakpoint that hides the wordmark.
-- **Sketches don't open from the graph** when their node is clicked.
+**The lesson worth keeping.** Four of these were "this control does nothing",
+and in three of the four the control was working perfectly — the write landed
+and was then overridden by CSS source order, a status poll, or a hidden
+section. Reading the handler will not show you that. Reproduce in a browser and
+measure the *computed* result; it is faster than reading, not slower. The
+recurring causes are now written up as invariants in `docs/ARCHITECTURE.md` §10.
 
 ---
 
@@ -481,8 +485,9 @@ palettes."
 - **More themes and palettes**, and a "surprise me" that generates a coherent
   one
 - **Live preview** while hovering a theme, before committing
-- Fix the reported bug where individual controls resist change under a theme
-  (§8)
+- ~~Fix the reported bug where individual controls resist change under a
+  theme~~ done (§8): a palette always beat an accent on CSS source order, and
+  clearing an accent never un-applied it
 
 ---
 
@@ -497,8 +502,9 @@ palettes."
 - **"What changed" after an AI action** — chips say what ran, not what it did
 - **Confirm on close** with unsaved text
 - **Relative timestamps** everywhere, absolute on hover
-- **Dashboard**: audit every quick-access button actually lands where it says,
-  and add the ones that are missing (§8 has one confirmed wrong)
+- ~~**Dashboard**: audit every quick-access button actually lands where it
+  says~~ done (§8) — every quick link now checked from all three Notes
+  sub-tabs. Still worth doing: **add the ones that are missing**
 
 ---
 

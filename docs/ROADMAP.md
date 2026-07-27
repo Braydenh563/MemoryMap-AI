@@ -11,13 +11,14 @@ the part that's expensive to reconstruct.
 Re-prioritised after a round of use. The ordering is by *how often it gets in
 the way*, not by how interesting it is to build.
 
-1. **Skills are not skills** (§21). Reported as: "the way skills are used
-   currently, and what the skills are at the moment, are incorrect and are
-   closer to just presaved mini prompts. I keep trying to get the AI to make
-   me some skills in the chat but it doesn't recognise that it needs to use
-   tools." This is the biggest gap between what the app claims and what it
-   does, and it blocks the agent being useful at all. **Still the top item,
-   and nothing below it should jump the queue.**
+1. ~~**Skills are not skills** (§21)~~ **rebuilt.** A skill is now a job —
+   prompt, ordered steps, a tool allowlist, declared inputs — and
+   `save_skill` accepts steps and tools, so "make me a skill that files my
+   inbox notes" has somewhere to put them. The allowlist is both the safety
+   property and the §11a win: a skill's run offers its own tools instead of
+   all 28 (measured: 1,963 characters of schema instead of 10,215). What is
+   left is in §21 and is smaller than what was done: a runner that shows
+   progress *against* the steps, and a result you can undo.
 2. **Web search still returns nothing** (§8b). **Two causes found and fixed
    this session, both Windows-only, both reported by the user rather than
    found in the log** — see §8b. The install error (`does not appear to be a
@@ -31,8 +32,11 @@ the way*, not by how interesting it is to build.
    *Measured since:* the fixed overhead alone — system prompt plus all 28 tool
    schemas — is ~3,050 tokens per round, and 77% of that is the schemas, not
    the prose. `agent.PROMPT_BUDGET_CHARS` now caps it and a test enforces the
-   cap. **The remaining win is offering fewer tools per turn, not more
-   trimming of words.**
+   cap. **Half of the remaining win is now delivered**: a skill run offers only
+   the tools it declared, which is 1,963 characters of schema rather than
+   10,215. The other half is doing the same for an ordinary chat turn, where
+   nothing declares anything — a relevance filter, or a small always-on core
+   with the rest opt-in.
 4. ~~**Markdown rendering for notes** (§22)~~ **done.** Inline only — bold,
    italic, `code`, strike — because `renderMarkdown`'s block elements make a
    note list enormous, which is the problem §22 itself flagged. Wiki links and
@@ -174,6 +178,15 @@ thing. Don't ship one you couldn't test.
 
 Newest at the top. Everything here is on `main` (or the branch merging into
 it), verified, and must not be rebuilt.
+
+**Skills are jobs now, not saved sentences (§21, the top item).** Steps, a
+tool allowlist, declared inputs, and a plan drawn in the timeline before
+anything runs. `save_skill` takes steps and tools, so the AI can write a real
+one. The built-ins moved from `app.js` to `ai/skills.py` and are served from
+`GET /skills`. Driven in Chromium: the chips load from the server, the editor
+saves and refuses a bad skill by name, running one asks for its input and
+draws its plan, 0px of horizontal overflow, no page errors. **Don't redo:**
+the skill schema, the allowlist plumbing, the editor, the plan step.
 
 **SearXNG installs and runs.** Five separate bugs, three of them fatal on
 every OS and none of them visible in the log, because they all happened
@@ -957,7 +970,7 @@ Deserves one deliberate pass rather than more ad-hoc fixes:
 
 ---
 
-## 21. Skills — a rebuild, not a tweak
+## 21. Skills — rebuilt; what is left
 
 **Why.** Reported directly: "the skill system also needs a remake. The way
 skills are used currently, and what the skills are at the moment, are
@@ -965,48 +978,51 @@ incorrect and are closer to just presaved mini prompts. I keep on trying to
 get the AI to make me some skills in the chat but it doesn't recognise that it
 needs to use tools and how to properly utilise the workspace."
 
-**That description is accurate.** A skill today is `{name, prompt}` in
-preferences. Clicking one drops its prompt into the chat box. `save_skill`
-stores a name and a string. There is no notion of what a skill *does*, no
-tools it is allowed to use, no steps, no inputs, no way to tell whether
-running one worked. It is a text snippet with a button.
+**That description was accurate**, and the shape has changed. A skill was
+`{name, prompt}`; clicking one dropped its prompt into the chat box, and
+`save_skill` stored a name and a string — so "make me a skill that files my
+inbox notes" could only produce another sentence, because the storage had
+nowhere to put the steps. Fixing the prompt alone would not have helped.
 
-**What a skill should be.** A named, repeatable job over the notebook:
+**What a skill is now** (`ai/skills.py`, one validator for every way in):
 
-- **Inputs** — declared, so a skill can be "file everything tagged `inbox`"
-  rather than a sentence hoping the model guesses the tag.
-- **Tools it may use** — an explicit allowlist. Both a safety property and a
-  prompt: naming the three tools a skill needs is what makes a small model
-  reach for them, which is the reported failure.
-- **Steps** — ordered, each one a tool call or a model call, so a skill can be
-  replayed and its progress shown against the plan (this is also §18's missing
-  plan/progress, and the two should be built together).
-- **A result** — what changed, as a list the user can undo, rather than prose
-  claiming something happened.
+- **prompt** — what it should do. A skill with only this behaves exactly as it
+  did before, which is why nothing was lost.
+- **steps** — ordered instructions, numbered into the run instruction and
+  drawn as a plan at the top of the step timeline before anything runs.
+- **tools** — an explicit allowlist. Only those schemas go on the wire and
+  anything outside the list is refused at execution, so it is a safety
+  property and not just a prompt. It is also §11a: the full registry is 10,215
+  characters of schema on *every round*; "🏷 Auto-tag my notes" ships 1,963.
+- **inputs** — declared `{{placeholders}}`, asked for before the run. A
+  placeholder with no input behind it is refused on save, in the editor and in
+  `save_skill` alike, because the alternative is a model handed a literal
+  `{{tag}}` inventing a value.
 
-**Why the AI can't currently make one.** `save_skill` takes a prompt string,
-so "make me a skill that files my inbox notes" can only produce another
-sentence. It cannot express the steps because the storage has nowhere to put
-them. Fixing the prompt alone will not help — the shape has to change first.
+Two decisions worth keeping:
 
-**Order.** Schema for a skill (additive), then `save_skill` accepting steps,
-then a runner that executes them with progress, then the UI. The existing
-prompt-only skills should keep working as a one-step skill so nothing is lost.
+**The built-in skills moved out of `app.js`** and are served from
+`GET /skills` with the user's own. The server could not previously resolve a
+skill the user clicked, `list_skills` answered "you have none" while ten were
+on screen, and every field added to a skill had to be added twice.
 
-**Read §11a before starting.** A skill's declared tool allowlist is the thing
-that makes a small model reach for tools — that is the reported failure — but
-every tool schema costs the same per-round budget that
-`agent.PROMPT_BUDGET_CHARS` now caps, and `tests/test_prompt_budget.py` will
-fail if this work pushes it over. That is a feature, not an obstacle: **a
-skill naming its three tools is an argument for offering only those three
-during the skill's run**, which is simultaneously the §11a win and the thing
-that makes the skill work on a 3B model. Build them together; the allowlist is
-the same data structure either way.
+**The declared tools are named in the instruction text as well as narrowed on
+the wire.** Not redundancy: the reported failure was a model that *had* tools
+and did not know it was meant to act, and telling a 3B model "use `tag_note`"
+is what makes it reach for one.
 
-Where the code is today: skills are `{name, prompt}` (plus a `useTools` flag
-the frontend adds) in the `skills` preference, validated by `SkillItem` in
-`routes_settings.py`, with `_list_skills` / `_save_skill` / `_delete_skill` in
-`ai/tools.py` and `BUILTIN_SKILLS` + `runSkill` in `app.js`.
+**Still to do, in order:**
+
+- **Progress against the plan.** The plan is drawn; the steps are not ticked
+  off as they happen. Doing that properly means the runner knowing which step
+  it is on, which is the same structure §18 wants for the agent generally.
+- **A result you can undo.** A skill still ends in prose. It should end in a
+  list of what changed, with an undo — the audit log already records every
+  tool action, so the data is there.
+- **Replay.** Once a run is a list of steps with outcomes, running the same
+  skill again over yesterday's notes is a re-run rather than a retype.
+- **A skill that fails halfway** should say which step it stopped at. Today it
+  is asked to, in the run instruction, which is not the same as being made to.
 
 ---
 

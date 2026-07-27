@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import agent, intent, librarian, tools
+from memorymap.ai import agent, intent, librarian, skills, tools
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.api.schemas import EntryOut
 from memorymap.core import deps
@@ -108,11 +108,43 @@ class ChatRequest(BaseModel):
     # ahead of anything retrieval finds — "this note, specifically" is a
     # stronger signal than any similarity score.
     note_ids: list[int] = Field(default_factory=list, max_length=20)
+    # Running a saved skill (§21). The name of one — built-in or the user's
+    # own — plus values for whatever inputs it declares. The server builds the
+    # instruction, so what a skill *is* lives in one place rather than being
+    # assembled in `app.js` and hoped for here.
+    skill: str | None = Field(default=None, max_length=skills.MAX_NAME)
+    skill_inputs: dict[str, str] | None = None
 
 
 def _resolve_persona(name: str | None) -> str | None:
     """Persona name → its system prompt (shared with greetings and titles)."""
     return librarian.resolve_persona_prompt(name, deps.get_config())
+
+
+def _resolve_skill(body: ChatRequest) -> dict | None:
+    """Turn "run this skill" into the request the model actually receives.
+
+    404 for a skill that isn't there and 422 for one missing a required input:
+    a skill that quietly ran with a blank `{{topic}}` would search the whole
+    notebook for nothing and read as the model ignoring the user.
+    """
+    if not body.skill:
+        return None
+    found = skills.find(deps.get_config(), body.skill, set(tools.TOOLS))
+    if found is None:
+        raise HTTPException(status_code=404, detail=f"No skill called “{body.skill}”")
+    missing = skills.missing_inputs(found, body.skill_inputs or {})
+    if missing:
+        raise HTTPException(
+            status_code=422,
+            detail=f"“{found['name']}” needs {', '.join(missing)} before it can run",
+        )
+    return {
+        "skill": found,
+        "question": skills.run_instruction(found, body.skill_inputs or {}),
+        "tools": found["tools"] or None,
+        "acts": skills.is_action(found),
+    }
 
 
 class ChatResponse(BaseModel):
@@ -277,6 +309,19 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
         if body.use_tools is not None
         else bool(deps.get_config().get_preference("tools_enabled", True))
     )
+    # A skill run replaces the question with the skill's own instruction —
+    # steps, values and declared tools included — and narrows the toolbox to
+    # what it declared. Retrieval runs on that instruction too, so a skill
+    # gets the notes its own words find rather than the ones the chip's label
+    # happens to match.
+    skill = _resolve_skill(body)
+    question = skill["question"] if skill else body.question
+    allowed_tools = skill["tools"] if skill else None
+    if skill and skill["acts"]:
+        # An action skill without tools is just a paragraph. This is what the
+        # frontend used to do by ticking the agent-mode box on the user's
+        # behalf, which left the box ticked afterwards.
+        use_tools = True
 
     def plain_events(prepared: dict, ollama_running: bool) -> Iterator[dict]:
         """The pre-Wave-G behaviour: stream a grounded answer, no tools."""
@@ -293,7 +338,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                 yield {"type": "answer", "delta": offline}
                 return
             messages = librarian.build_conversational_messages(
-                body.question,
+                question,
                 prepared["intent"],
                 style=prepared["style"],
                 profile=prepared["profile"],
@@ -308,7 +353,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
             return
         else:
             messages = librarian.build_messages(
-                body.question,
+                question,
                 prepared["notes"],
                 style=prepared["style"],
                 profile=prepared["profile"],
@@ -341,7 +386,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
 
         # Retrieval happens INSIDE the stream now, not before it — that's the
         # whole latency win. Nothing before this line touches the model.
-        prepared = _prepare(session, body.question, body.note_ids)
+        prepared = _prepare(session, question, body.note_ids)
         ollama_running = ollama.is_running()
         # In agent mode the model can act even when nothing matched — "save a
         # note about X" must work on an empty notebook.
@@ -361,13 +406,26 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
             }
         )
 
+        # The plan, before anything runs. The step timeline has always shown
+        # what happened; a skill is the first thing here that knows what is
+        # *meant* to happen, so it says so up front (roadmap §18).
+        if skill:
+            yield event(
+                {
+                    "type": "plan",
+                    "skill": skill["skill"]["name"],
+                    "steps": skill["skill"]["steps"],
+                    "tools": skill["skill"]["tools"],
+                }
+            )
+
         events: Iterator[dict] = plain_events(prepared, ollama_running)
         # Small talk never goes near the agent: "hey" is not a request to do
         # anything, and handing it a toolbox invites it to invent an errand.
         if ollama_running and use_tools and intent.needs_retrieval(prepared["intent"]):
             agent_events = agent.run_agent(
                 session,
-                body.question,
+                question,
                 prepared["notes"],
                 model_manager,
                 ollama,
@@ -375,6 +433,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                 profile=prepared["profile"],
                 history=history,
                 persona_prompt=persona_prompt,
+                allowed_tools=allowed_tools,
             )
             first = next(agent_events, None)
             if first is None or first.get("type") == "unsupported":

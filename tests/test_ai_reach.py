@@ -105,16 +105,23 @@ def test_chat_excerpts_are_clipped(client, session):
 # --- skills -------------------------------------------------------------------------
 
 
+def _own(listed: dict) -> list[dict]:
+    """The user's own skills — list_skills also returns the built-in ones now,
+    because the model used to answer "you have no skills" while the interface
+    showed ten."""
+    return [skill for skill in listed["skills"] if not skill["builtin"]]
+
+
 def test_the_model_can_list_create_update_and_delete_skills(client, session, app_state):
-    assert tools.execute_tool(session, "list_skills", {})["count"] == 0
+    assert _own(tools.execute_tool(session, "list_skills", {})) == []
 
     created = tools.execute_tool(
         session, "save_skill", {"name": "Weekly review", "prompt": "Summarise my week."}
     )
     assert created["updated"] is False
-    listed = tools.execute_tool(session, "list_skills", {})
-    assert listed["count"] == 1
-    assert listed["skills"][0]["name"] == "Weekly review"
+    listed = _own(tools.execute_tool(session, "list_skills", {}))
+    assert len(listed) == 1
+    assert listed[0]["name"] == "Weekly review"
 
     # Same name = update, not a duplicate.
     updated = tools.execute_tool(
@@ -123,19 +130,28 @@ def test_the_model_can_list_create_update_and_delete_skills(client, session, app
         {"name": "Weekly review", "prompt": "Summarise my week, with next steps."},
     )
     assert updated["updated"] is True
-    again = tools.execute_tool(session, "list_skills", {})
-    assert again["count"] == 1
-    assert "next steps" in again["skills"][0]["prompt"]
+    again = _own(tools.execute_tool(session, "list_skills", {}))
+    assert len(again) == 1
+    assert "next steps" in again[0]["prompt"]
 
     tools.execute_tool(session, "delete_skill", {"name": "Weekly review"})
-    assert tools.execute_tool(session, "list_skills", {})["count"] == 0
+    assert _own(tools.execute_tool(session, "list_skills", {})) == []
+
+
+def test_the_model_sees_the_built_in_skills_too(client, session, app_state):
+    """They lived in app.js, so "what skills do I have?" was answered without
+    the ten the user could see on screen."""
+    listed = tools.execute_tool(session, "list_skills", {})
+    names = [skill["name"] for skill in listed["skills"]]
+    assert any("Summarise my week" in name for name in names)
+    assert all(skill["builtin"] for skill in listed["skills"])
 
 
 def test_skills_survive_into_the_users_preferences(client, session, app_state):
     """The model writes to the same place the Settings UI reads."""
     tools.execute_tool(session, "save_skill", {"name": "Tidy", "prompt": "Tidy up."})
     saved = deps.get_config().get_preference("skills", [])
-    assert {"name": "Tidy", "prompt": "Tidy up."} in saved
+    assert [s for s in saved if s["name"] == "Tidy" and s["prompt"] == "Tidy up."]
     assert client.get("/preferences").json()["skills"][0]["name"] == "Tidy"
 
 

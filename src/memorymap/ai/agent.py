@@ -162,12 +162,18 @@ _RECOVERY_HINTS = {
         "different arguments, try a different tool, or tell the user plainly "
         "what failed and answer with what you already have."
     ),
+    "not_in_skill": (
+        "This skill does not include that tool. Use only the tools listed for "
+        "the run, or finish and tell the user what the skill could not do."
+    ),
 }
 
 
 def _recovery_hint(name: str, message: str) -> str:
     """Pick the advice that fits this failure."""
     lowered = message.lower()
+    if "not part of this skill" in lowered:
+        return _RECOVERY_HINTS["not_in_skill"]
     if lowered.startswith("unknown tool"):
         return _RECOVERY_HINTS["unknown_tool"]
     if "turned off in settings" in lowered:
@@ -191,19 +197,9 @@ REPEATED_CALL_NOTE = (
 
 
 # Write tools whose absence makes a "I saved it" claim a lie (safety net).
-_WRITE_TOOLS = {
-    "create_note",
-    "edit_note",
-    "tag_note",
-    "pin_note",
-    "link_notes",
-    "delete_note",
-    "restore_note",
-    "set_reminder",
-    "complete_reminder",
-    "rename_tag",
-    "delete_tag",
-}
+# Defined in the registry, so the settings screen and the skill list can mark
+# "this one changes things" from the same list rather than a second copy.
+_WRITE_TOOLS = tools.WRITE_TOOLS
 
 # Phrases that mean the model thinks it performed a write action.
 _CLAIM_PATTERN = re.compile(
@@ -289,6 +285,7 @@ def run_agent(
     profile: str = "",
     history: list[dict] | None = None,
     persona_prompt: str | None = None,
+    allowed_tools: list[str] | None = None,
 ) -> Iterator[dict]:
     """Yields event dicts:
     {"type": "unsupported"}                    — model can't do tools; caller
@@ -307,7 +304,10 @@ def run_agent(
         history=history,
         persona_prompt=persona_prompt,
     )
-    offered = tools.ollama_tools()
+    # A skill's declared tools are the only ones offered for its run: fewer
+    # schemas on the wire (roadmap §11a) and a narrower thing to go wrong.
+    offered = tools.ollama_tools(allowed_tools)
+    permitted = set(allowed_tools) if allowed_tools else None
     model = model_manager.chat_model()
     did_write = False  # did any real write tool run this turn?
     spent = 0  # characters of tool output added to the conversation so far
@@ -380,7 +380,25 @@ def run_agent(
         for call in calls:
             name, arguments = call["name"], call.get("arguments") or {}
             spec = tools.TOOLS.get(name)
-            if spec is not None and spec.destructive:
+            if permitted is not None and name not in permitted:
+                # The allowlist is a safety property, not only a prompt: a
+                # model that calls a tool it was never offered does not get to
+                # run it just because the registry has one by that name.
+                result = {"error": f"{name} is not part of this skill's tools"}
+                signature = (name, json.dumps(arguments, sort_keys=True))
+                result["what_to_do"] = (
+                    REPEATED_CALL_NOTE
+                    if signature in failed_calls
+                    else _RECOVERY_HINTS["not_in_skill"]
+                )
+                failed_calls.add(signature)
+                yield {
+                    "type": "tool",
+                    "label": f"⚠️ {name} isn't part of this skill",
+                    "ok": False,
+                    "error": result["error"],
+                }
+            elif spec is not None and spec.destructive:
                 # Park it for the user — never auto-run a destructive tool.
                 # The confirm card is the honest signal, so count it as an
                 # action (don't fire the "nothing happened" safety net).

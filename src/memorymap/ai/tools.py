@@ -23,6 +23,7 @@ from datetime import timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from memorymap.ai import skills
 from memorymap.core import deps
 from memorymap.core.database import EmbeddingRecord, Entry, Reminder
 from memorymap.core.logbuffer import safe_value
@@ -592,59 +593,88 @@ def _search_chat_history(session: Session, args: dict) -> dict:
     }
 
 
-def _skill_list(config) -> list[dict]:
-    return list(config.get_preference("skills", []) or [])
-
-
 def _list_skills(session: Session, args: dict) -> dict:
-    skills = _skill_list(deps.get_config())
+    """Everything runnable, built-ins included.
+
+    The built-ins used to live only in `app.js`, so a model asked "what skills
+    do I have?" answered with the user's own and nothing else — while the
+    interface showed ten more.
+    """
+    config = deps.get_config()
+    catalog = skills.catalog(config, set(TOOLS))
     return {
         "skills": [
-            {"name": s.get("name"), "prompt": _clip(str(s.get("prompt", "")), 300)}
-            for s in skills
+            {
+                "name": skill["name"],
+                "prompt": _clip(skill["prompt"], 200),
+                "steps": skill["steps"],
+                "tools": skill["tools"],
+                "inputs": [item["name"] for item in skill["inputs"]],
+                "builtin": skill["builtin"],
+            }
+            for skill in catalog
         ],
-        "count": len(skills),
+        "count": len(catalog),
         "note_to_model": (
-            "These are the user's own saved skills. The app also ships "
-            "built-in ones that live in the interface and can't be edited here."
+            "Built-in skills can be run but not edited. A skill's steps and "
+            "tools are what it does — copy that shape when you make one."
         ),
-        "label": "⚡ Listed your saved skills",
+        "label": "⚡ Listed the saved skills",
     }
 
 
 def _save_skill(session: Session, args: dict) -> dict:
     """Create or update one skill. Same tool for both, because from the
     model's side "make me a skill that does X" is one intent, and a separate
-    update tool just adds a way to get it wrong."""
+    update tool just adds a way to get it wrong.
+
+    `steps` and `tools` are the rebuild (roadmap §21): without somewhere to
+    put them, "make me a skill that files my inbox notes" could only ever
+    save another sentence.
+    """
     config = deps.get_config()
-    name = str(args["name"]).strip()
-    prompt = str(args["prompt"]).strip()
-    if not name or not prompt:
-        raise ToolError("A skill needs both a name and a prompt")
-    if len(name) > 40:
-        raise ToolError("Skill names are limited to 40 characters")
-    if len(prompt) > 2000:
-        raise ToolError("Skill prompts are limited to 2000 characters")
-    skills = _skill_list(config)
-    existed = any(s.get("name") == name for s in skills)
-    if len(skills) >= 30 and not existed:
-        raise ToolError("There are already 30 saved skills — delete one first")
-    skills = [s for s in skills if s.get("name") != name]
-    skills.append({"name": name, "prompt": prompt})
-    config.set_preference("skills", skills)
+    try:
+        skill = skills.normalise(
+            {
+                "name": args.get("name"),
+                "prompt": args.get("prompt"),
+                "steps": args.get("steps"),
+                "tools": args.get("tools"),
+            },
+            set(TOOLS),
+        )
+    except skills.SkillError as exc:
+        raise ToolError(str(exc)) from exc
+    if any(skill["name"] == shipped["name"] for shipped in skills.builtins()):
+        raise ToolError(
+            f"“{skill['name']}” is a built-in skill — pick a different name"
+        )
+    stored = skills.stored(config)
+    existed = any(s.get("name") == skill["name"] for s in stored)
+    if len(stored) >= skills.MAX_SKILLS and not existed:
+        raise ToolError(
+            f"There are already {skills.MAX_SKILLS} saved skills — delete one first"
+        )
+    config.set_preference(
+        "skills", [s for s in stored if s.get("name") != skill["name"]] + [skill]
+    )
     return {
-        "name": name,
+        "name": skill["name"],
         "updated": existed,
-        "label": f"⚡ {'Updated' if existed else 'Created'} the “{name}” skill",
+        "steps": len(skill["steps"]),
+        "tools": skill["tools"],
+        "label": f"⚡ {'Updated' if existed else 'Created'} the “{skill['name']}” skill",
     }
 
 
 def _delete_skill(session: Session, args: dict) -> dict:
     config = deps.get_config()
     name = str(args["name"]).strip()
-    skills = _skill_list(config)
-    remaining = [s for s in skills if s.get("name") != name]
-    if len(remaining) == len(skills):
+    stored = skills.stored(config)
+    remaining = [s for s in stored if s.get("name") != name]
+    if len(remaining) == len(stored):
+        if any(name == shipped["name"] for shipped in skills.builtins()):
+            raise ToolError(f"“{name}” is a built-in skill and can't be deleted")
         raise ToolError(f"There's no saved skill called “{name}”")
     config.set_preference("skills", remaining)
     return {"name": name, "label": f"⚡ Deleted the “{name}” skill"}
@@ -1074,16 +1104,26 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             "save_skill",
-            "Create a saved skill, or update one that already exists by using "
-            "the same name. A skill is a reusable request the user can run "
-            "with one click.",
+            "Create a saved skill, or update one by using the same name. A "
+            "skill is a repeatable job the user runs with one click: what to "
+            "do, the steps to do it in, and the tools it needs.",
             {
                 "type": "object",
                 "properties": {
                     "name": {"type": "string", "description": "Short name, up to 40 characters"},
                     "prompt": {
                         "type": "string",
-                        "description": "What the skill asks for, written as an instruction",
+                        "description": "What the skill should do, in one instruction",
+                    },
+                    "steps": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "The steps to follow, in order",
+                    },
+                    "tools": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Names of the tools the skill needs, e.g. tag_note",
                     },
                 },
                 "required": ["name", "prompt"],
@@ -1324,6 +1364,26 @@ TOOLS: dict[str, ToolSpec] = {
 }
 
 
+# The tools that change something. Used by the agent's "you claimed you saved
+# it but never called a write tool" safety net, and by the skill list to say
+# which skills act rather than answer — one list, so the two can't disagree.
+WRITE_TOOLS = {
+    "create_note",
+    "edit_note",
+    "tag_note",
+    "pin_note",
+    "link_notes",
+    "delete_note",
+    "restore_note",
+    "set_reminder",
+    "complete_reminder",
+    "rename_tag",
+    "delete_tag",
+    "save_skill",
+    "delete_skill",
+}
+
+
 def tool_enabled(name: str) -> bool:
     """A tool is offered unless the user turned it off in Settings → Tools
     (Wave O). web_search additionally requires the online opt-in."""
@@ -1335,10 +1395,18 @@ def tool_enabled(name: str) -> bool:
     return name not in set(config.get_preference("disabled_tools", []))
 
 
-def ollama_tools() -> list[dict]:
+def ollama_tools(allowed: list[str] | None = None) -> list[dict]:
     """The registry in the shape Ollama's /api/chat 'tools' field wants,
     minus any the user disabled — a model can't be tempted by a tool it
-    never hears about."""
+    never hears about.
+
+    `allowed` narrows it further, to the tools a skill declared. That is
+    roadmap §11a in one line: 28 schemas are ~77% of the fixed per-round
+    overhead, and a skill that needs three of them should pay for three. The
+    user's own switches still win — a skill cannot re-enable something turned
+    off in Settings → Tools.
+    """
+    wanted = set(allowed) if allowed else None
     return [
         {
             "type": "function",
@@ -1349,7 +1417,7 @@ def ollama_tools() -> list[dict]:
             },
         }
         for spec in TOOLS.values()
-        if tool_enabled(spec.name)
+        if tool_enabled(spec.name) and (wanted is None or spec.name in wanted)
     ]
 
 

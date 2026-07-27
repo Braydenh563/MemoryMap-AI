@@ -46,6 +46,26 @@ below). Versioning is `0.x` while the app stabilises.
 - **Settings navigation is grouped** — the AI, your notebook, system, getting
   help — instead of eleven flat buttons. Appearance is unchanged.
 
+### Changed
+
+- **Skills are jobs now, not saved prompts.** A skill was a name and a string,
+  and clicking one dropped that string into the chat box — which is why asking
+  the AI to make one only ever produced another sentence. A skill now carries
+  ordered **steps**, an explicit **tool allowlist**, and declared **inputs**
+  it asks you for before it runs, and `save_skill` accepts all of them so the
+  AI can write a real one. Skills with only a prompt keep working exactly as
+  before.
+  - **Naming a skill's tools makes it work on a small model.** Only those
+    tools are offered for the run — 1,963 characters of schema for "Auto-tag
+    my notes" instead of the full registry's 10,215 — and calling anything
+    outside the list is refused rather than merely discouraged. That leaves
+    far more of a 4k context window for the actual question.
+  - **The plan is shown before the run.** A skill's steps are drawn at the top
+    of the agent timeline, so you can see what it is about to do.
+  - The ten built-in skills moved out of the frontend and are served by the
+    API, so the AI can list and run them too — it used to answer "you have no
+    skills" while ten were on screen.
+
 ### Fixed
 
 - **SearXNG now installs, starts and answers.** Five separate bugs, none of

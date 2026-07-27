@@ -1846,8 +1846,11 @@ async function streamChat({
   persona,
   useTools,
   noteIds,
+  skill,
+  skillInputs,
   signal,
   onMeta,
+  onPlan,
   onThinking,
   onAnswer,
   onTool,
@@ -1858,6 +1861,13 @@ async function streamChat({
   if (persona) body.persona = persona;
   if (typeof useTools === "boolean") body.use_tools = useTools;
   if (noteIds && noteIds.length) body.note_ids = noteIds;
+  // Running a skill sends its name, not its prompt: the server owns what a
+  // skill is — the steps, the values, the tools it may use — so the two
+  // definitions can't drift apart.
+  if (skill) {
+    body.skill = skill;
+    if (skillInputs && Object.keys(skillInputs).length) body.skill_inputs = skillInputs;
+  }
   const response = await fetch("/chat/stream", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() },
@@ -1886,6 +1896,7 @@ async function streamChat({
       if (!line.trim()) continue;
       const event = JSON.parse(line);
       if (event.type === "meta") onMeta(event);
+      else if (event.type === "plan" && onPlan) onPlan(event);
       else if (event.type === "thinking") onThinking(event.delta);
       else if (event.type === "answer") onAnswer(event.delta);
       else if (event.type === "tool" && onTool) onTool(event);
@@ -2715,8 +2726,44 @@ function agentTimeline(holder) {
     return current;
   };
 
+  // The plan a skill declared, drawn before anything runs. The timeline has
+  // always shown what happened; a skill is the first thing that knows what is
+  // *meant* to happen, so it says so up front (roadmap §18).
+  const plans = [];
+  const startPlan = (plan) => {
+    const el = document.createElement("details");
+    el.className = "agent-step step-plan";
+    el.open = true;
+    const summary = document.createElement("summary");
+    summary.textContent = `⚡ ${plan.skill}`;
+    el.appendChild(summary);
+    if (plan.steps && plan.steps.length) {
+      const list = document.createElement("ol");
+      list.className = "plan-steps";
+      for (const step of plan.steps) {
+        const item = document.createElement("li");
+        item.textContent = step;
+        list.appendChild(item);
+      }
+      el.appendChild(list);
+    }
+    if (plan.tools && plan.tools.length) {
+      const line = document.createElement("div");
+      line.className = "plan-tools";
+      line.textContent = `Tools for this run: ${plan.tools.join(", ")}`;
+      el.appendChild(line);
+    }
+    holder.appendChild(el);
+    plans.push({ el, plan });
+    current = null;
+    return el;
+  };
+
   return {
     holder,
+    plan(event) {
+      startPlan(event);
+    },
     thinking(delta) {
       const step = current?.kind === "thinking" ? current : startThinking();
       step.raw += delta;
@@ -2736,7 +2783,10 @@ function agentTimeline(holder) {
     // Replay a saved run (reopening a conversation).
     replay(steps) {
       for (const step of steps || []) {
-        if (step.kind === "thinking" && step.text) {
+        if (step.kind === "plan") {
+          startPlan(step);
+          if (plans.at(-1)) plans.at(-1).el.open = false;
+        } else if (step.kind === "thinking" && step.text) {
           this.thinking(step.text);
           if (current) current.el.open = false;
           current = null;
@@ -2794,7 +2844,10 @@ function agentTimeline(holder) {
     serialise() {
       const out = [];
       for (const node of holder.children) {
-        if (node.classList.contains("step-thinking")) {
+        if (node.classList.contains("step-plan")) {
+          const entry = plans.find((p) => p.el === node);
+          if (entry) out.push({ kind: "plan", ...entry.plan });
+        } else if (node.classList.contains("step-thinking")) {
           const step = thinkingSteps.find((s) => s.el === node);
           if (step?.raw) out.push({ kind: "thinking", text: step.raw });
         } else if (node.classList.contains("step-answer")) {
@@ -3817,10 +3870,18 @@ async function sendChatMessage(preset, opts = {}) {
       persona: $("persona-select").value || null,
       useTools: opts.useTools ?? $("tools-toggle").checked,
       noteIds: sentAttachments,
+      skill: opts.skill,
+      skillInputs: opts.skillInputs,
       signal: chatController.signal,
       onMeta: (m) => {
         meta = m;
         status.textContent = "The model is writing…";
+      },
+      onPlan: (event) => {
+        clearPending();
+        timeline.plan(event);
+        status.textContent = `Running “${event.skill}”…`;
+        chatScrollToEnd();
       },
       onThinking: (delta) => {
         clearPending();
@@ -4684,91 +4745,70 @@ async function addPersona() {
   personaOptions();
 }
 
-// --- skills (Wave G): one-click saved requests for the chat tab -------------------
+// --- skills (§21): named, repeatable jobs over the notebook ----------------------
 
-// Built-ins ship with the app; the user's own live in preferences.
-// "Tidy suggestions" is the self-organising librarian: it proposes
-// merges/renames/links and asks — it never changes anything silently.
-// `useTools: true` marks a skill that DOES things (via the AI's tools) rather
-// than just answering — running it turns on agent mode for that
-// message, so an action skill actually acts. Destructive steps still confirm.
-const BUILTIN_SKILLS = [
-  {
-    name: "📋 Summarise my week",
-    prompt:
-      "Summarise what I've saved in the last 7 days: the main topics, " +
-      "anything that looks important, and one thing worth revisiting.",
-  },
-  {
-    name: "🧹 Find loose ends",
-    prompt:
-      "Look through my notes for loose ends — unfinished tasks, open " +
-      "questions, or things I said I'd do. List each one with its note id.",
-  },
-  {
-    name: "🏷 Auto-tag my notes",
-    useTools: true,
-    prompt:
-      "Find my notes that have no tags or very few tags. For each one, add 2–3 " +
-      "relevant short tags using the tag_note tool. When you're done, tell me " +
-      "which notes you tagged and with what.",
-  },
-  {
-    name: "🔗 Link related notes",
-    useTools: true,
-    prompt:
-      "Find pairs of my notes that are clearly about the same thing but aren't " +
-      "linked yet. Link each pair with the link_notes tool, then give me a short " +
-      "summary of what you connected.",
-  },
-  {
-    name: "🗂 Tidy suggestions",
-    prompt:
-      "Review my categories and tags (use list_categories and count_notes). " +
-      "Suggest merges, renames, or links between related notes that would " +
-      "tidy the notebook. Don't change anything yet — list your suggestions " +
-      "and ask which ones I'd like you to apply.",
-  },
-  {
-    name: "✉️ Draft an email",
-    prompt:
-      "Help me draft an email. Ask me who it's to and what it's about if I " +
-      "haven't said, then write a clear, friendly draft I can edit.",
-  },
-  {
-    name: "💡 Brainstorm ideas",
-    prompt:
-      "Brainstorm ideas with me. Ask what topic if I haven't given one, then " +
-      "offer a varied list of ideas, drawing on anything relevant in my notes.",
-  },
-  {
-    name: "📖 Explain a concept",
-    prompt:
-      "Explain a concept to me clearly and simply. Ask which concept if I " +
-      "haven't named one, then explain it with a short example.",
-  },
-  {
-    name: "🗓 Create a study plan",
-    prompt:
-      "Help me create a study or action plan. Ask about the goal and timeframe " +
-      "if I haven't said, then lay out a realistic step-by-step plan.",
-  },
-];
+// A skill used to be {name, prompt} and clicking one dropped its prompt into
+// the chat box. It is now a job: what to do, the steps to do it in, the tools
+// it may use, and the values it asks for first. The built-in ones used to be
+// a list right here, which meant the server could not resolve a skill the
+// user clicked; they are served from GET /skills now, alongside the user's own.
+let skillsCache = [];
+let skillLimits = { steps: 10, tools: 12, inputs: 5 };
+
+async function loadSkills() {
+  const body = await apiJson("/skills").catch(() => null);
+  if (!body) return skillsCache;
+  skillsCache = body.skills || [];
+  if (body.limits) skillLimits = body.limits;
+  return skillsCache;
+}
 
 function allSkills() {
-  const custom = (prefsCache && prefsCache.skills) || [];
-  return [...BUILTIN_SKILLS, ...custom];
+  return skillsCache;
+}
+
+function customSkills() {
+  return skillsCache.filter((skill) => !skill.builtin);
 }
 
 // Which custom skill (by name) the editor is currently editing, if any.
 // Tracking it lets Edit rename a skill instead of leaving a duplicate.
 let editingSkillName = null;
 
+// Steps and inputs are edited as one-per-line text, which is the shape people
+// already write a list in. An input is "name" or "name: the question to ask".
+function stepsToText(steps) {
+  return (steps || []).join("\n");
+}
+
+function textToSteps(text) {
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function inputsToText(inputs) {
+  return (inputs || [])
+    .map((item) => (item.label && item.label !== `${item.name}?` ? `${item.name}: ${item.label}` : item.name))
+    .join("\n");
+}
+
+function textToInputs(text) {
+  return textToSteps(text).map((line) => {
+    const [name, ...rest] = line.split(":");
+    return { name: name.trim(), label: rest.join(":").trim(), required: true };
+  });
+}
+
 function startEditingSkill(skill) {
   editingSkillName = skill.name;
   $("skill-name").value = skill.name;
   $("skill-prompt").value = skill.prompt;
-  $("skill-tools").checked = !!skill.useTools;
+  $("skill-description").value = skill.description || "";
+  $("skill-steps").value = stepsToText(skill.steps);
+  $("skill-inputs").value = inputsToText(skill.inputs);
+  renderSkillToolPicker(skill.tools || []);
   $("skill-add").textContent = "Save changes";
   $("skill-cancel").classList.remove("hidden");
   $("skill-status").textContent = `Editing “${skill.name}”…`;
@@ -4777,23 +4817,68 @@ function startEditingSkill(skill) {
 
 function stopEditingSkill() {
   editingSkillName = null;
-  $("skill-name").value = "";
-  $("skill-prompt").value = "";
-  $("skill-tools").checked = false;
+  for (const id of ["skill-name", "skill-prompt", "skill-description", "skill-steps", "skill-inputs"]) {
+    $(id).value = "";
+  }
+  renderSkillToolPicker([]);
   $("skill-add").textContent = "Add skill";
   $("skill-cancel").classList.add("hidden");
   $("skill-status").textContent = "";
 }
 
-// Run a skill. An action skill (useTools) turns on agent mode for
-// this run — and leaves it on, visibly, so the user sees the AI is acting —
-// so it can actually use its tools instead of only answering.
-function runSkill(skill) {
-  if (skill.useTools) $("tools-toggle").checked = true;
-  sendChatMessage(skill.prompt, { useTools: skill.useTools || undefined });
+// The tools a skill may use, as checkboxes over the real registry — so a
+// skill cannot name a tool that doesn't exist, and picking them is a matter
+// of reading rather than remembering.
+async function renderSkillToolPicker(selected = []) {
+  const box = $("skill-tool-list");
+  if (!box) return;
+  const chosen = new Set(selected);
+  const catalog = await apiJson("/chat/tools").catch(() => []);
+  box.replaceChildren();
+  for (const tool of catalog) {
+    const label = document.createElement("label");
+    label.className = "check-row";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.value = tool.name;
+    input.checked = chosen.has(tool.name);
+    const text = document.createElement("span");
+    text.textContent = tool.name;
+    text.title = tool.description;
+    label.append(input, text);
+    box.appendChild(label);
+  }
 }
 
-function loadChatSkills() {
+function chosenSkillTools() {
+  const box = $("skill-tool-list");
+  if (!box) return [];
+  return [...box.querySelectorAll("input:checked")].map((input) => input.value);
+}
+
+// Run a skill. The server owns what a skill is, so this sends its name and
+// the values it asked for — not a prompt assembled here. An action skill
+// brings its own permission to act, so agent mode is not switched on behind
+// the user's back and left on afterwards.
+function runSkill(skill) {
+  const values = {};
+  for (const item of skill.inputs || []) {
+    const answer = prompt(`${skill.name}\n\n${item.label || item.name}`, item.default || "");
+    if (answer === null) return; // cancelled
+    values[item.name] = answer.trim();
+    if (!values[item.name] && item.required && !item.default) {
+      toast(`“${skill.name}” needs ${item.name}.`);
+      return;
+    }
+  }
+  const shown = skill.inputs && skill.inputs.length
+    ? `⚡ ${skill.name} — ${Object.values(values).filter(Boolean).join(", ")}`
+    : `⚡ ${skill.name}`;
+  sendChatMessage(shown, { skill: skill.name, skillInputs: values });
+}
+
+async function loadChatSkills() {
+  await loadSkills();
   const box = $("chat-skills");
   box.replaceChildren();
   const label = document.createElement("span");
@@ -4801,10 +4886,10 @@ function loadChatSkills() {
   label.textContent = "⚡ Skills:";
   box.appendChild(label);
   for (const skill of allSkills()) {
-    const chipEl = chip(skill.name + (skill.useTools ? " ⚙" : ""), "", () => runSkill(skill));
-    chipEl.title = skill.useTools
-      ? `${skill.prompt}\n\n(This skill makes changes for you — destructive steps still ask first.)`
-      : skill.prompt;
+    // ⚙ means "this one changes your notebook", not "this one uses tools" —
+    // nearly every skill uses tools, and a marker on all of them says nothing.
+    const chipEl = chip(skill.name + (skill.changes ? " ⚙" : ""), "", () => runSkill(skill));
+    chipEl.title = skillSummary(skill);
     box.appendChild(chipEl);
   }
   const manage = chip("＋ manage", "", () => openSettingsModal("skills"));
@@ -4813,42 +4898,48 @@ function loadChatSkills() {
   box.classList.remove("hidden");
 }
 
+function skillSummary(skill) {
+  const lines = [skill.description || skill.prompt];
+  if (skill.changes) lines.push("(This one changes your notes — deletes still ask first.)");
+  if ((skill.steps || []).length) {
+    lines.push("", ...skill.steps.map((step, i) => `${i + 1}. ${step}`));
+  }
+  if ((skill.tools || []).length) lines.push("", `Tools: ${skill.tools.join(", ")}`);
+  if ((skill.inputs || []).length) {
+    lines.push("", `Asks you for: ${skill.inputs.map((i) => i.name).join(", ")}`);
+  }
+  return lines.join("\n");
+}
+
 async function saveSkillList(skills) {
   prefsCache = await apiJson("/preferences", {
     method: "PUT",
     body: JSON.stringify({ skills }),
   });
+  await loadSkills();
   renderSkillSettings();
   loadChatSkills();
 }
 
-function renderSkillSettings() {
-  const custom = (prefsCache && prefsCache.skills) || [];
-  const list = $("skill-list");
-  list.replaceChildren();
-
-  for (const skill of BUILTIN_SKILLS) {
-    const li = document.createElement("li");
-    const row = document.createElement("div");
-    row.className = "entry-meta";
-    row.append(chip(skill.name), chip("built-in", "tag"));
-    const note = document.createElement("span");
-    note.className = "muted persona-preview";
-    note.textContent = skill.prompt.slice(0, 70);
-    row.appendChild(note);
-    li.appendChild(row);
-    list.appendChild(li);
+function skillRow(skill) {
+  const li = document.createElement("li");
+  const row = document.createElement("div");
+  row.className = "entry-meta";
+  row.appendChild(chip(skill.name));
+  if (skill.builtin) row.appendChild(chip("built-in", "tag"));
+  if (skill.changes) row.appendChild(chip("changes notes", "tag"));
+  if ((skill.steps || []).length) {
+    row.appendChild(chip(`${skill.steps.length} steps`, "tag"));
   }
-
-  for (const skill of custom) {
-    const li = document.createElement("li");
-    const row = document.createElement("div");
-    row.className = "entry-meta";
-    row.appendChild(chip(skill.name));
-    const note = document.createElement("span");
-    note.className = "muted persona-preview";
-    note.textContent = skill.prompt.slice(0, 70);
-    row.appendChild(note);
+  if ((skill.tools || []).length) {
+    row.appendChild(chip(`${skill.tools.length} tools`, "tag"));
+  }
+  for (const item of skill.inputs || []) row.appendChild(chip(`asks: ${item.name}`, "tag"));
+  const note = document.createElement("span");
+  note.className = "muted persona-preview";
+  note.textContent = (skill.description || skill.prompt).slice(0, 70);
+  row.appendChild(note);
+  if (!skill.builtin) {
     const actions = document.createElement("span");
     actions.className = "entry-actions";
     actions.appendChild(
@@ -4857,31 +4948,55 @@ function renderSkillSettings() {
     actions.appendChild(
       smallButton("Delete", "Remove this skill", async () => {
         if (!confirm(`Delete the “${skill.name}” skill?`)) return;
-        await saveSkillList(custom.filter((s) => s.name !== skill.name));
+        await saveSkillList(customSkills().filter((s) => s.name !== skill.name));
       })
     );
     row.appendChild(actions);
-    li.appendChild(row);
-    list.appendChild(li);
   }
+  li.appendChild(row);
+  return li;
+}
+
+async function renderSkillSettings() {
+  await loadSkills();
+  const list = $("skill-list");
+  list.replaceChildren();
+  for (const skill of allSkills()) list.appendChild(skillRow(skill));
+  if (!$("skill-tool-list").children.length) renderSkillToolPicker([]);
 }
 
 async function addSkill() {
   const name = $("skill-name").value.trim();
   const promptText = $("skill-prompt").value.trim();
   const status = $("skill-status");
+  status.classList.remove("error");
   if (!name || !promptText) {
     status.textContent = "Both a name and a request are needed.";
     return;
   }
   // Drop any skill with the new name AND (when editing) the one being edited,
   // so saving updates in place and even a rename doesn't leave a duplicate.
-  const custom = ((prefsCache && prefsCache.skills) || []).filter(
+  const custom = customSkills().filter(
     (s) => s.name !== name && s.name !== editingSkillName
   );
-  custom.push({ name, prompt: promptText, useTools: $("skill-tools").checked || undefined });
+  custom.push({
+    name,
+    prompt: promptText,
+    description: $("skill-description").value.trim(),
+    steps: textToSteps($("skill-steps").value),
+    tools: chosenSkillTools(),
+    inputs: textToInputs($("skill-inputs").value),
+  });
   const wasEditing = editingSkillName;
-  await saveSkillList(custom);
+  try {
+    await saveSkillList(custom);
+  } catch (error) {
+    // The server validates both ways in, so this is the same message the AI
+    // would get for the same mistake — an undeclared {{placeholder}}, say.
+    status.classList.add("error");
+    status.textContent = error.message;
+    return;
+  }
   stopEditingSkill();
   status.textContent = wasEditing ? `Updated “${name}”.` : `Saved “${name}”.`;
 }
@@ -11934,7 +12049,13 @@ $("skill-import").addEventListener("click", () =>
   pickJsonFile("skill-import-file", async (data) => {
     const merged = mergeNamedPrompts((prefsCache && prefsCache.skills) || [], data.skills);
     if (!merged) return toast("No skills found in that file.", true);
-    await saveSkillList(merged);
+    try {
+      await saveSkillList(merged);
+    } catch (error) {
+      // The server validates imports the same way it validates the editor —
+      // a skill naming a tool that no longer exists is refused by name.
+      return toast(error.message, true);
+    }
     toast("Skills imported.");
   })
 );

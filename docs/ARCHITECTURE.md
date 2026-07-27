@@ -140,6 +140,7 @@ MemoryMap-AI-v0/
 │   │   ├── librarian.py     # LLM prompt #2: answer from retrieved notes
 │   │   ├── agent.py         # tool-calling loop (Wave G)
 │   │   ├── tools.py         # the agent's tool registry (see §7)
+│   │   ├── skills.py        # what a skill is: steps, tools, inputs (§7b)
 │   │   └── voice.py         # optional local Whisper dictation
 │   ├── search/
 │   │   ├── search_manager.py# semantic + keyword search, with fallback
@@ -173,7 +174,7 @@ are grouped by feature area:
 | `routes_chat` | `/chat` | ask questions, streaming answers, agentic tools, suggestions |
 | `routes_conversations` | `/conversations` | saved chat threads |
 | `routes_models` | `/models` | Ollama status, pull models, switch chat/embedding/utility model |
-| `routes_settings` | `/` | preferences, audit log, JSON/CSV/Markdown export & import, backups, logs, web search + SearXNG lifecycle |
+| `routes_settings` | `/` | preferences, skills (`GET /skills`), audit log, JSON/CSV/Markdown export & import, backups, logs, web search + SearXNG lifecycle |
 | `routes_documents` | `/documents` | long-form markdown documents, export, AI edit |
 | `routes_duplicates` | `/duplicates` | near-duplicate finder + AI merge |
 | `routes_drafts` | `/drafts` | the writing room's compose/rewrite calls |
@@ -241,6 +242,39 @@ tools" rather than as anything to do with length. Settings → Tools
 
 **Adding a tool is not free.** If the budget test fails, that is the design
 working; either trim, or raise the constant deliberately and say why.
+
+## 7b. Skills
+
+A skill (`ai/skills.py`) is a **named, repeatable job over the notebook**, not
+a saved sentence. It has a `prompt`, and optionally `steps` (ordered
+instructions), `tools` (an allowlist), `inputs` (declared `{{placeholders}}`)
+and a `description`. A skill with only a prompt is exactly what skills used to
+be, so nothing was lost in the rebuild.
+
+Three things are worth knowing before changing anything here:
+
+1. **The declared tools are the only ones offered for the run.**
+   `ollama_tools(allowed)` narrows the wire and `run_agent(allowed_tools=…)`
+   refuses execution of anything outside the list — it is a safety property,
+   not only a prompt. It is also §11a's win: the full registry is ~10,200
+   characters of schema on *every round*; "Auto-tag my notes" ships 1,963.
+   The user's own switches still win, so a skill can't re-enable a tool turned
+   off in Settings → Tools.
+2. **Naming the tools in the instruction text is deliberate**, on top of
+   narrowing the wire. The reported failure was a model that had tools and
+   didn't know it was meant to act; telling a 3B model "use `tag_note`" is
+   what makes it reach for one.
+3. **The built-ins live in Python, not `app.js`.** They are served from
+   `GET /skills` with the user's own, for the same reason the web-search
+   providers are: the server has to be able to resolve a skill the user just
+   clicked, and a field added to a skill should not need adding twice.
+
+Running one is `POST /chat/stream` with `skill` and `skill_inputs` — the
+server builds the instruction (`skills.run_instruction`), so what a skill *is*
+lives in one place. It emits a `plan` event before anything runs, which the UI
+draws at the top of the step timeline. `skills.normalise` validates both ways
+in — the editor and `save_skill` — so a skill the AI can write is one the UI
+can write, and neither can store one that won't run.
 
 The agent loop (`ai/agent.py`) streams: it calls `chat_tools_stream`, so the
 model's prose reaches the user as it is written rather than arriving in one
@@ -525,6 +559,8 @@ On first run you choose a password (bcrypt-hashed, stays local). See the
 | Add a Settings screen | §10 invariant 9 — three places, all three needed |
 | Change which search engine answers | `websearch.PROVIDERS` + `settings_from()`; never read the preference directly |
 | Add an agent tool | `ai/tools.py`, then run `tests/test_prompt_budget.py` — schemas are 77% of the per-round cost |
+| Change what a skill can be | `ai/skills.py` — `normalise` is the one validator both the editor and `save_skill` go through |
+| Add a built-in skill | `skills.BUILTIN_SKILLS`, not `app.js`; name its tools (§7b) |
 | Log something a user or a website typed | `logbuffer.safe_value()` at the call site; `sanitise` only protects the in-app viewer |
 | Work out why SearXNG won't start | `data/searxng/searxng.log`, surfaced in Settings → Web search |
 | Add a test | `tests/` — copy an existing `test_*.py` and reuse the fakes |

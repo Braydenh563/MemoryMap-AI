@@ -1022,22 +1022,39 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
           </section>
 
-          <!-- Skills (Wave G): saved prompt shortcuts for the chat tab -->
+          <!-- Skills (§21): named, repeatable jobs over the notebook -->
           <section class="settings-section hidden" id="settings-skills">
             <p class="muted">
-              A skill is a saved request you can fire with one click from the
-              Chat tab — and skills can use the AI's tools, so "tidy my tags"
-              actually tidies your tags (with your approval for anything
-              destructive).
+              A skill is a job you can run with one click from the Chat tab:
+              what to do, the steps to do it in, the tools it's allowed to
+              use, and anything it should ask you for first. Naming its tools
+              is what makes a small model actually reach for them — and only
+              those tools are offered while it runs. Destructive steps still
+              ask for your approval.
             </p>
             <ul id="skill-list" class="entry-list"></ul>
             <h3>Add your own</h3>
             <input id="skill-name" type="text" maxlength="40" placeholder="Name (e.g. Weekly review)">
+            <input id="skill-description" type="text" maxlength="200"
+              placeholder="One line about what it does (optional)">
             <textarea id="skill-prompt" rows="2" maxlength="2000"
-              placeholder="The request to send, e.g. Summarise everything I saved this week."></textarea>
-            <label class="muted tools-toggle" title="Run this skill in agent mode, so it can use the AI's tools">
-              <input type="checkbox" id="skill-tools"> Run this skill in agent mode
-            </label>
+              placeholder="What it should do, e.g. Summarise everything I saved this week."></textarea>
+            <label class="muted" for="skill-steps">Steps — one per line, in order (optional)</label>
+            <textarea id="skill-steps" rows="3"
+              placeholder="Find my notes tagged {{tag}}&#10;Give each one a category&#10;Tell me what you filed"></textarea>
+            <label class="muted" for="skill-inputs">Ask me for — one per line, as <code>name</code> or <code>name: question</code> (optional)</label>
+            <textarea id="skill-inputs" rows="2"
+              placeholder="tag: Which tag should I file?"></textarea>
+            <details class="settings-fold">
+              <summary>Tools this skill may use (optional)</summary>
+              <p class="muted">
+                Leave everything unticked to let it use whatever is switched on
+                in Settings → Tools. Ticking a few is both safer and more
+                reliable: they're the only ones offered for the run, which
+                leaves far more room in a small model's context.
+              </p>
+              <div id="skill-tool-list" class="tool-picker"></div>
+            </details>
             <div class="row">
               <button id="skill-add" class="small">Add skill</button>
               <button id="skill-cancel" class="ghost small hidden">Cancel edit</button>

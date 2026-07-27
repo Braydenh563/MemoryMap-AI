@@ -282,8 +282,13 @@ def test_agent_round_limit_is_bounded(ai_client, fake_ollama):
 def test_skills_preference_roundtrip(client):
     body = {"skills": [{"name": "Weekly review", "prompt": "Summarise my week."}]}
     updated = client.put("/preferences", json=body).json()
-    assert updated["skills"] == body["skills"]
-    assert client.get("/preferences").json()["skills"] == body["skills"]
+    # Stored normalised (§21): a prompt-only skill still round-trips, it just
+    # comes back with the empty steps/tools/inputs a skill now has.
+    saved = updated["skills"][0]
+    assert saved["name"] == "Weekly review"
+    assert saved["prompt"] == "Summarise my week."
+    assert saved["steps"] == [] and saved["tools"] == []
+    assert client.get("/preferences").json()["skills"] == updated["skills"]
 
 
 def test_tools_enabled_preference_roundtrip(client):

@@ -44,7 +44,7 @@ torch>=2.2,<3.0 ; sys_platform == "win32"
 fsspec[http]>=2024.2.0,<=2026.2.0
 
 # Auth (Phase 4) — single-user unlock
-bcrypt>=4.0,<6.0
+bcrypt>=5.0.0,<6.0
 
 # Encryption at rest for notes marked private (AES-GCM). scrypt comes from
 # the stdlib; this is only needed for the cipher itself.

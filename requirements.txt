@@ -55,7 +55,7 @@ python-multipart>=0.0.9,<1.0
 
 # Tests
 pytest>=9.1.1,<10.0
-httpx>=0.27,<1.0  # FastAPI's TestClient needs this
+httpx>=0.28.1,<1.0  # FastAPI's TestClient needs this
 
 # Optional extras (Wave H) — NOT installed automatically. These are plain
 # comments so pip skips them; install by hand only if you want the feature:

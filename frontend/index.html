@@ -215,7 +215,7 @@
               <option value="">No template</option>
             </select>
           </div>
-          <textarea id="entry-content" rows="3"
+          <textarea id="entry-content" rows="3" class="autogrow"
             placeholder="Type anything — a joke, a shopping list, a race result…
 Link to another note with [[its first few words]]."></textarea>
           <!-- Autocomplete for [[wiki links]], anchored under the note box. -->
@@ -321,6 +321,8 @@ Link to another note with [[its first few words]]."></textarea>
                     title="Read the answer aloud (uses your computer's voices)" aria-label="Read the answer aloud">🔊</button>
                 </span>
               </h3>
+              <!-- What was asked, echoed above the answer it produced. -->
+              <p id="asked-question" class="asked-question hidden"></p>
               <details id="thinking-box" class="hidden">
                 <summary>Model's thinking</summary>
                 <div id="ai-thinking" class="thinking"></div>
@@ -753,15 +755,28 @@ Link to another note with [[its first few words]]."></textarea>
       </div>
       <!-- Magic Add: type natural language, the AI turns it into a reminder -->
       <div class="row" id="reminder-magic-row">
-        <input id="reminder-magic" type="text" maxlength="300"
-          placeholder="✨ Magic add — e.g. “Call mum tomorrow evening, high priority”">
+        <!-- A textarea, not an input: "remind me about the three things from
+             today's meeting…" is a perfectly ordinary thing to type here, and
+             a single-line box hides all but the last few words of it. Grows
+             with the text, and Enter still submits (Shift+Enter for a line
+             break) so the quick path stays quick. -->
+        <textarea id="reminder-magic" maxlength="1000" rows="1" class="autogrow"
+          placeholder="✨ Magic add — e.g. “Call mum tomorrow evening, high priority”"></textarea>
         <button id="reminder-magic-add" class="ghost">✨ Add</button>
       </div>
       <p id="reminder-magic-status" class="status" role="status"></p>
       <div class="reminder-form">
         <input id="reminder-text" type="text" maxlength="500"
           placeholder="Remind me to…" aria-label="Reminder text">
-        <input id="reminder-due" type="datetime-local" aria-label="Due date and time">
+        <!-- Split deliberately. One datetime-local field means tabbing through
+             six segments in a fixed order to change a time, and its picker is
+             the worst of the native controls. Two plain fields are each easy,
+             and a <time> input offers the OS clock picker. #reminder-due stays
+             as the single hidden source of truth so every existing caller
+             (presets, nudges, the note ⏰ button) keeps working unchanged. -->
+        <input id="reminder-date" type="date" aria-label="Due date">
+        <input id="reminder-time" type="time" aria-label="Due time" step="300">
+        <input id="reminder-due" type="hidden">
         <select id="reminder-priority" class="small-select" title="Priority" aria-label="Priority">
           <option value="normal">Normal</option>
           <option value="low">Low priority</option>

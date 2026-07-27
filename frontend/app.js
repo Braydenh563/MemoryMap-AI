@@ -1711,7 +1711,17 @@ function announce(message) {
 // results, most-used, and related-notes chips.
 function flashEntry(id) {
   switchTab("notes");
+  // The Notes tab is split into sub-tabs, and the note list lives in "browse".
+  // Without this the card is found and scrolled to while its whole section is
+  // display:none — so jumping to a note from a search result, the graph, or a
+  // wiki link silently did nothing (user-reported).
+  showNotesSection("browse");
   activeCategory = null;
+  // Clear any active filter too: a note that doesn't match the current search
+  // is filtered out of the list, so there'd be nothing to scroll to.
+  noteSearch = "";
+  const searchBox = $("note-search");
+  if (searchBox) searchBox.value = "";
   renderSidebar();
   renderEntries();
   requestAnimationFrame(() => {
@@ -1871,6 +1881,27 @@ function newChat() {
   loadSuggestions();
 }
 
+// Echo the question above its answer. Without it, an answer that has been on
+// screen a while — or one you scrolled back to — is a paragraph with no
+// subject.
+function renderAskedQuestion(question) {
+  const holder = $("asked-question");
+  if (!holder) return;
+  holder.replaceChildren();
+  if (!question) {
+    holder.classList.add("hidden");
+    return;
+  }
+  const label = document.createElement("span");
+  label.className = "asked-label";
+  label.textContent = "You asked";
+  const text = document.createElement("span");
+  text.className = "asked-text";
+  text.textContent = question;
+  holder.append(label, text);
+  holder.classList.remove("hidden");
+}
+
 async function askQuestion(preset) {
   const status = $("ask-status");
   const questionBox = $("question");
@@ -1898,6 +1929,7 @@ async function askQuestion(preset) {
   const answerBox = $("ai-answer");
   const thinkingBox = $("thinking-box");
   const thinkingText = $("ai-thinking");
+  renderAskedQuestion(question);
   answerBox.textContent = "";
   answerBox.appendChild(typingDots()); // until the first token arrives
   thinkingText.textContent = "";
@@ -1956,7 +1988,11 @@ async function askQuestion(preset) {
   } finally {
     askController = null;
     setAsking(false);
-    if (!stopped) questionBox.value = "";
+    // The question used to be cleared here, which left an answer on screen with
+    // nothing saying what it answered (user-reported). It stays in the box —
+    // ready to refine and re-ask — and is echoed above the answer so the pair
+    // reads together even after you start typing the next one.
+    if (!stopped) questionBox.select();
   }
 }
 
@@ -5195,11 +5231,51 @@ function renderDashboardGreeting() {
     ? withDisplayName(cached.phrase, cached.punctuation, cached.appendName)
     : dashboardGreetingText();
   refreshAiGreeting().catch(() => {});
+  renderNameNudge(el);
   paintDashClock();
   // One ticking clock, however many times the dashboard re-renders.
   if (dashClockTimer) clearInterval(dashClockTimer);
   dashClockTimer = setInterval(paintDashClock, 1000);
   renderDashSubmessage().catch(() => {});
+}
+
+// The greeting can address you by name, but the setting for it is one field
+// among a dozen in Preferences — so for most people it is simply never found,
+// and the greeting looks like it just doesn't do that (user-reported). One
+// quiet offer beside the greeting, only while no name is set, and it stops
+// asking the moment you either set one or dismiss it.
+function renderNameNudge(greetingEl) {
+  const existing = document.getElementById("dash-name-nudge");
+  if (existing) existing.remove();
+  const name = ((prefsCache && prefsCache.display_name) || "").trim();
+  if (name || localStorage.getItem("nameNudgeDismissed") === "1") return;
+
+  const wrap = document.createElement("span");
+  wrap.id = "dash-name-nudge";
+  wrap.className = "name-nudge";
+  const add = document.createElement("button");
+  add.type = "button";
+  add.className = "ghost small";
+  add.textContent = "👋 Add your name";
+  add.title = "Let the greeting call you by name";
+  add.addEventListener("click", async () => {
+    await openSettingsModal("preferences");
+    const field = $("pref-display-name");
+    field.focus();
+    field.select();
+  });
+  const dismiss = document.createElement("button");
+  dismiss.type = "button";
+  dismiss.className = "ghost small";
+  dismiss.textContent = "✕";
+  dismiss.title = "Don't ask again";
+  dismiss.setAttribute("aria-label", "Dismiss the name suggestion");
+  dismiss.addEventListener("click", () => {
+    localStorage.setItem("nameNudgeDismissed", "1");
+    wrap.remove();
+  });
+  wrap.append(add, dismiss);
+  greetingEl.after(wrap);
 }
 
 // --- masonry packing for the dashboard ---------------------------------------
@@ -6873,6 +6949,35 @@ function presetDate(preset) {
   return d;
 }
 
+// --- the due time, split across two fields ------------------------------------
+// #reminder-due stays the single source of truth (every caller already writes
+// it), and these two keep the visible date/time inputs in step with it. Going
+// through one setter is what stops the hidden value and the fields drifting
+// apart, which would show one time and save another.
+
+function setDue(localValue) {
+  $("reminder-due").value = localValue || "";
+  syncPartsFromDue();
+  updateDueReadout();
+}
+
+function syncPartsFromDue() {
+  const raw = $("reminder-due").value;
+  const [date, time] = raw.split("T");
+  $("reminder-date").value = date || "";
+  // datetime-local may carry seconds; the time field wants HH:MM.
+  $("reminder-time").value = (time || "").slice(0, 5);
+}
+
+function syncDueFromParts() {
+  const date = $("reminder-date").value;
+  const time = $("reminder-time").value || "09:00";
+  // A date with no time is still a usable intention; a time with no date
+  // isn't, so that combination is left alone until a date is picked.
+  $("reminder-due").value = date ? `${date}T${time}` : "";
+  updateDueReadout();
+}
+
 // A plain-English echo of whatever is in the datetime field. The raw
 // "27/07/2026 11:20 AM" is hard to sanity-check at a glance; "in about 3
 // hours — Monday 27 July, 11:20" is not (user-reported).
@@ -6916,8 +7021,7 @@ function nudgeDue(minutes) {
   const raw = $("reminder-due").value;
   const base = raw && !Number.isNaN(new Date(raw).getTime()) ? new Date(raw) : new Date();
   base.setMinutes(base.getMinutes() + minutes);
-  $("reminder-due").value = toLocalInputValue(base.toISOString());
-  updateDueReadout();
+  setDue(toLocalInputValue(base.toISOString()));
 }
 
 // True when the compose form is untouched — nothing typed anywhere. Only then
@@ -6936,9 +7040,11 @@ function reminderComposeIsPristine() {
 // (user request). A half-written reminder is never disturbed.
 function refreshReminderDefaults() {
   if (!$("reminder-due").value || reminderComposeIsPristine()) {
-    $("reminder-due").value = defaultDueValue();
+    setDue(defaultDueValue());
+  } else {
+    syncPartsFromDue();
+    updateDueReadout();
   }
-  updateDueReadout();
 }
 
 async function snoozeReminderTo(reminder, when) {
@@ -8032,7 +8138,7 @@ function renderGraphPopupActions(entry) {
       closeGraphPopup();
       switchTab("reminders");
       $("reminder-text").value = `Follow up: ${entry.content.slice(0, 60)}`;
-      $("reminder-due").value = defaultDueValue();
+      setDue(defaultDueValue()); // keeps the visible date/time fields in step
       $("reminder-text").focus();
     })
   );
@@ -8345,6 +8451,34 @@ function syncScrollLock() {
     (el) => !el.classList.contains("hidden") && el.isConnected
   );
   document.documentElement.classList.toggle("modal-open", anyOpen);
+}
+
+// --- textareas that grow with what you type -----------------------------------
+// A fixed-height box for "capture a thought" or "magic add" hides everything
+// but the last couple of lines the moment a note runs long, which is exactly
+// when you most want to see it (user request). Height follows content, up to a
+// cap so the page never gets pushed around; past that it scrolls.
+const AUTOGROW_MAX_PX = 340;
+
+function autoGrow(el) {
+  if (!el) return;
+  // Reset first: without it the height only ever ratchets upwards, because
+  // scrollHeight is measured against the height already set.
+  el.style.height = "auto";
+  const next = Math.min(el.scrollHeight, AUTOGROW_MAX_PX);
+  el.style.height = `${next}px`;
+  el.style.overflowY = el.scrollHeight > AUTOGROW_MAX_PX ? "auto" : "hidden";
+}
+
+function initAutoGrow() {
+  for (const el of document.querySelectorAll("textarea.autogrow")) {
+    if (el.dataset.autogrowReady) continue;
+    el.dataset.autogrowReady = "1";
+    el.addEventListener("input", () => autoGrow(el));
+    // Also on programmatic changes — templates, the ⏰ button, a cleared form.
+    el.addEventListener("focus", () => autoGrow(el));
+    autoGrow(el);
+  }
 }
 
 function watchOverlays() {
@@ -11040,6 +11174,7 @@ initNotesSubtabs();
 scrollTopUpdate = initScrollTopButton();
 initResizableSidebars();
 watchOverlays(); // page behind a dialog must not scroll
+initAutoGrow(); // capture + magic-add boxes follow their content
 switchTab(localStorage.getItem("activeTab") || "notes");
 
 // Settings modal (Wave A).
@@ -11363,8 +11498,7 @@ $("reminder-add").addEventListener("click", async () => {
     $("reminder-priority").value = "normal";
     $("reminder-recurring").value = "none";
     // A fresh default for the next one, measured from now.
-    $("reminder-due").value = defaultDueValue();
-    updateDueReadout();
+    setDue(defaultDueValue());
   }
 });
 $("reminder-clear-done").addEventListener("click", clearDoneReminders);
@@ -11379,12 +11513,16 @@ for (const button of document.querySelectorAll("#reminder-filter button")) {
 }
 $("reminder-magic-add").addEventListener("click", magicAddReminder);
 $("reminder-magic").addEventListener("keydown", (e) => {
-  if (e.key === "Enter") magicAddReminder();
+  // Now a textarea, so Enter has to be claimed explicitly to keep the
+  // one-line-and-go path. Shift+Enter is the escape hatch for a real newline.
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    magicAddReminder();
+  }
 });
 for (const button of document.querySelectorAll("#reminder-presets button")) {
   button.addEventListener("click", () => {
-    $("reminder-due").value = toLocalInputValue(presetDate(button.dataset.preset).toISOString());
-    updateDueReadout();
+    setDue(toLocalInputValue(presetDate(button.dataset.preset).toISOString()));
     if (!$("reminder-text").value.trim()) $("reminder-text").focus();
   });
 }
@@ -11393,7 +11531,9 @@ $("reminder-due-nudge-down").addEventListener("click", () => nudgeDue(-15));
 $("reminder-due-nudge-up").addEventListener("click", () => nudgeDue(15));
 $("reminder-due-day-down").addEventListener("click", () => nudgeDue(-60 * 24));
 $("reminder-due-day-up").addEventListener("click", () => nudgeDue(60 * 24));
-$("reminder-due").addEventListener("input", updateDueReadout);
+// The two visible fields drive the hidden value.
+$("reminder-date").addEventListener("input", syncDueFromParts);
+$("reminder-time").addEventListener("input", syncDueFromParts);
 for (const button of document.querySelectorAll(".panel-close")) {
   button.addEventListener("click", () => showPanel(null));
 }

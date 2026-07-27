@@ -292,7 +292,13 @@ header#top-bar h1 {
   /* A starting point only — each sidebar remembers its own width, set on the
      grid by initResizableSidebars. 230px left about four characters of a chat
      title visible, which is no title at all. */
-  grid-template-columns: 260px 1fr;
+  /* minmax(0, …) rather than a bare `1fr`: an auto-minimum track refuses to
+     shrink below its content's min-content width, so a single wide code
+     block or table in a chat answer widened the track, the page, and every
+     paragraph beside it — a long horizontal scrollbar and text that looked
+     scaled up. The content column must be allowed to be narrower than its
+     widest child so `overflow-x: auto` on that child can do its job. */
+  grid-template-columns: 260px minmax(0, 1fr);
   gap: 1rem;
   padding: 1rem 2rem 2rem;
   /* stretch, not start: with `start` the sidebar shrank to its content and sat
@@ -300,6 +306,9 @@ header#top-bar h1 {
      rather than a deliberate one. */
   align-items: stretch;
 }
+/* Grid *items* have the same auto-minimum, so the floor has to be repeated
+   here or the track's minmax(0, …) is undone by the item inside it. */
+.layout > * { min-width: 0; }
 
 /* Stack the sidebar on small screens. minmax(0,…) + min-width let the
    column actually shrink below its content's natural width. */
@@ -318,6 +327,12 @@ header#top-bar h1 {
   box-shadow: var(--glass-shadow);
   padding: 1rem 1.25rem;
   margin-bottom: 1rem;
+  /* Cards are flex/grid items nearly everywhere they appear, and a flex item's
+     automatic minimum is its content — so a card holding one wide code block
+     grew past the column that was supposed to contain it, taking the page
+     with it. Fixing the `.layout` track alone was not enough: the item inside
+     the track carries the same auto-minimum and has to be floored too. */
+  min-width: 0;
 }
 .card h2 { margin: 0 0 0.75rem; font-size: 1.05rem; }
 .card h3 { margin: 1rem 0 0.5rem; font-size: 0.9rem; color: var(--muted); }
@@ -531,7 +546,23 @@ progress { accent-color: var(--accent); width: 100%; }
   overflow-x: auto;
   margin: 0 0 0.6rem;
   border-radius: 8px;
+  /* Without a cap the wrapper grows to the table instead of scrolling it. */
+  max-width: 100%;
 }
+/* The wrapper is what gets capped; the table is what scrolls inside it.
+   `min-width: max-content` is what makes that happen — with `width: 100%`
+   alone a nine-column table stayed inside the wrapper and squeezed itself to
+   about one character per line, which is unreadable in a different way from
+   overflowing. Narrow tables are unaffected: their max-content width is less
+   than 100%, so `width` still wins and they fill the bubble as before. */
+.answer .md-table-wrap > .md-table,
+.bubble-answer .md-table-wrap > .md-table,
+.dash-body .md-table-wrap > .md-table { min-width: max-content; }
+/* Chat bubbles set `overflow-wrap: anywhere` so long URLs wrap; inside a
+   table that turned every heading into a vertical stack of letters. Cells
+   break between words, like ordinary prose. */
+.md-table th,
+.md-table td { overflow-wrap: normal; word-break: normal; }
 .md-table {
   border-collapse: collapse;
   width: 100%;
@@ -590,7 +621,13 @@ progress { accent-color: var(--accent); width: 100%; }
   padding: 0.6rem 0.8rem;
   overflow-x: auto;
   white-space: pre;
+  /* `overflow-x: auto` only scrolls once the box is stopped from growing. */
+  max-width: 100%;
+  box-sizing: border-box;
 }
+/* `code` inside a scrolling `pre` must not itself be measured as min-content
+   by an ancestor — the pre scrolls, the code does not wrap. */
+.bubble-answer pre code { white-space: pre; }
 .bubble-answer pre code { background: none; padding: 0; }
 .bubble-answer a { color: var(--accent); }
 
@@ -1186,13 +1223,22 @@ html.modal-open body {
   flex-direction: column;
   gap: 0.6rem;
   padding: 0.5rem 0.2rem;
+  min-width: 0;
 }
 .msg {
   max-width: 82%;
   padding: 0.6rem 0.85rem;
   border-radius: 14px;
   white-space: pre-wrap;
+  /* A flex item's automatic minimum is its content, which is how a pasted
+     URL or a wide table stretched the bubble past the column. */
+  min-width: 0;
 }
+/* Nothing inside a bubble may be wider than the bubble. Blocks that genuinely
+   need the room (code, tables) scroll inside themselves — set alongside their
+   own `overflow-x: auto`, which cannot take effect without this cap. */
+.msg > *,
+.bubble-answer > * { max-width: 100%; }
 .msg.user {
   align-self: flex-end;
   background: var(--accent);
@@ -1206,7 +1252,14 @@ html.modal-open body {
   border-bottom-left-radius: 4px;
   white-space: normal;
   width: 82%;
+  /* box-sizing so the padding above doesn't push 82% over the column, and a
+     hard cap because `width` alone is only a preference to a flex item. */
+  box-sizing: border-box;
+  max-width: 82%;
 }
+/* The step timeline is the bubble's real content column. */
+.agent-steps { min-width: 0; max-width: 100%; }
+.agent-steps > * { max-width: 100%; }
 .msg.assistant .bubble-answer { white-space: pre-wrap; }
 .msg.assistant .bubble-answer p { margin: 0 0 0.5rem; }
 .msg.assistant .bubble-answer p:last-child { margin-bottom: 0; }
@@ -1421,10 +1474,40 @@ html.modal-open body {
   font-size: 0.85rem;
   margin: 0;
 }
+/* The disclosure triangle is drawn by the browser *outside* the summary's
+   content box, which is precisely where the rail's gutter — and its circles —
+   are. `list-style-position: outside` put the marker straight on top of the
+   node every time (user-reported: "the arrow clashes with the chain
+   circles"). Padding the gutter wider can't fix it, because the marker moves
+   with the box. So the native marker is removed and replaced by one drawn
+   inside the summary, where it belongs to the text rather than to the rail. */
 .agent-step.step-thinking summary {
   cursor: pointer;
   color: var(--muted);
-  list-style-position: outside;
+  list-style: none; /* Firefox */
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.agent-step.step-thinking summary::-webkit-details-marker {
+  display: none; /* Safari and older Chrome */
+}
+.agent-step.step-thinking summary::before {
+  content: "";
+  flex: none;
+  width: 0;
+  height: 0;
+  /* A triangle from borders, so it needs no font support and inherits colour. */
+  border-left: 0.32rem solid currentColor;
+  border-top: 0.24rem solid transparent;
+  border-bottom: 0.24rem solid transparent;
+  transform: rotate(0deg);
+  transform-origin: 40% 50%;
+  transition: transform 0.15s ease;
+}
+.agent-step.step-thinking[open] summary::before { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) {
+  .agent-step.step-thinking summary::before { transition: none; }
 }
 .agent-step.step-thinking[open] summary { margin-bottom: 0.3rem; }
 .agent-steps > .tool-chip { margin: 0; }

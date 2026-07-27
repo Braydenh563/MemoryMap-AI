@@ -337,6 +337,40 @@ class AnswerBody(BaseModel):
     content: str = Field(min_length=1)
 
 
+def _rewrite_answer_steps(steps: list[dict] | None, content: str) -> list[dict] | None:
+    """Point a saved step timeline at an edited answer.
+
+    `steps` carries its own copy of the prose, and it is the copy the client
+    actually renders when reopening a chat — `content` is only used for the
+    copy button. So editing `content` alone left the edit invisible the moment
+    the chat was reopened: replay redrew the model's original wording and the
+    correction looked like it had never been saved.
+
+    The reasoning and tool steps are deliberately left alone. They record what
+    the model actually did, which the user's correction doesn't change. Only
+    the prose is theirs to rewrite, so the answer steps collapse into the one
+    block they typed — the same shape the frontend produces when it edits a
+    timeline in place.
+    """
+    if not steps:
+        return steps
+    out: list[dict] = []
+    written = False
+    for step in steps:
+        if step.get("kind") != "answer":
+            out.append(step)
+            continue
+        if written:
+            continue  # a second prose block would duplicate the correction
+        out.append({**step, "text": content})
+        written = True
+    if not written:
+        # A turn whose timeline held only reasoning and tools still needs the
+        # edited prose, or replay would render no answer at all.
+        out.append({"kind": "answer", "text": content})
+    return out
+
+
 @router.put("/{conversation_id}/turns/{index}/answer")
 def edit_answer(
     conversation_id: int,
@@ -358,6 +392,9 @@ def edit_answer(
         raise HTTPException(status_code=404, detail="Turn not found")
     messages[position]["content"] = body.content
     messages[position]["edited"] = True
+    steps = _rewrite_answer_steps(messages[position].get("steps"), body.content)
+    if steps:
+        messages[position]["steps"] = steps
     conversation.messages = json.dumps(messages)
     conversation.updated_at = utcnow()
     session.commit()

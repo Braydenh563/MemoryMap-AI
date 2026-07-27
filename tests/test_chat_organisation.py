@@ -137,6 +137,82 @@ def test_an_answer_can_be_edited_in_place(client):
     assert messages[3]["content"] == "No idea."
 
 
+def test_editing_an_answer_also_updates_the_step_timeline(client):
+    """The edit has to land in `steps`, because `steps` is what gets rendered.
+
+    Reopening a chat replays the saved timeline; `content` only feeds the copy
+    button. Updating one without the other made a correction disappear as soon
+    as the chat was reopened, with the model's original wording back in place.
+    """
+    chat = client.post(
+        "/conversations",
+        json={
+            "question": "what's the wifi password?",
+            "answer": "I think it's 'guest'.",
+            "steps": [
+                {"kind": "thinking", "text": "Checking the notes."},
+                {"kind": "tool", "label": "search_notes", "ok": True},
+                {"kind": "answer", "text": "I think it's 'guest'."},
+            ],
+        },
+    ).json()
+
+    client.put(
+        f"/conversations/{chat['id']}/turns/0/answer",
+        json={"content": "It's 'sunflower-42'."},
+    )
+
+    steps = client.get(f"/conversations/{chat['id']}").json()["messages"][1]["steps"]
+    assert [s["kind"] for s in steps] == ["thinking", "tool", "answer"]
+    assert steps[-1]["text"] == "It's 'sunflower-42'."
+    # What the model actually did is not the user's to rewrite.
+    assert steps[0]["text"] == "Checking the notes."
+    assert steps[1]["label"] == "search_notes"
+
+
+def test_editing_collapses_several_prose_steps_into_the_correction(client):
+    """Two prose blocks must not both become the edited text."""
+    chat = client.post(
+        "/conversations",
+        json={
+            "question": "q",
+            "answer": "part one\n\npart two",
+            "steps": [
+                {"kind": "answer", "text": "part one"},
+                {"kind": "tool", "label": "read_url", "ok": True},
+                {"kind": "answer", "text": "part two"},
+            ],
+        },
+    ).json()
+
+    client.put(
+        f"/conversations/{chat['id']}/turns/0/answer", json={"content": "my version"}
+    )
+
+    steps = client.get(f"/conversations/{chat['id']}").json()["messages"][1]["steps"]
+    assert [s["kind"] for s in steps] == ["answer", "tool"]
+    assert steps[0]["text"] == "my version"
+
+
+def test_editing_a_tool_only_turn_gains_an_answer_step(client):
+    """A turn that only ran tools still has to show the prose it was given."""
+    chat = client.post(
+        "/conversations",
+        json={
+            "question": "file that away",
+            "answer": "",
+            "steps": [{"kind": "tool", "label": "create_note", "ok": True}],
+        },
+    ).json()
+
+    client.put(
+        f"/conversations/{chat['id']}/turns/0/answer", json={"content": "Filed it."}
+    )
+
+    steps = client.get(f"/conversations/{chat['id']}").json()["messages"][1]["steps"]
+    assert steps[-1] == {"kind": "answer", "text": "Filed it."}
+
+
 def test_editing_a_turn_that_does_not_exist_is_a_404(client):
     chat = _chat(client, "q", "a")
     assert (

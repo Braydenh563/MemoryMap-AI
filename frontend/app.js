@@ -4070,7 +4070,11 @@ function applySidebarWidth(aside, width) {
     aside.parentElement.style.removeProperty("grid-template-columns");
     return clamped;
   }
-  aside.parentElement.style.gridTemplateColumns = `${clamped}px 1fr`;
+  // minmax(0, 1fr), never plain 1fr: a bare `1fr` track refuses to shrink
+  // below its content's min-content width, so one wide code block or table in
+  // a chat answer pushed the whole page sideways. This inline style overrides
+  // the stylesheet, so it has to carry the same floor the stylesheet does.
+  aside.parentElement.style.gridTemplateColumns = `${clamped}px minmax(0, 1fr)`;
   return clamped;
 }
 

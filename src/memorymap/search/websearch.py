@@ -183,52 +183,79 @@ SEARXNG_CANDIDATES = (
 DISCOVERY_TIMEOUT = 1.5
 
 
-def _build_pinned_probe_target(base_url: str) -> tuple[str, dict[str, str]] | None:
+# A hostname, and nothing that could be smuggled into a request line or a
+# header. `urlparse` will happily hand back a "hostname" containing characters
+# no resolver would accept, and a Host header is a header like any other.
+_HOSTNAME_RE = re.compile(r"^[A-Za-z0-9._~\-\[\]:]{1,253}$")
+
+
+def _searxng_target(
+    base_url: str, path: str = "/search"
+) -> tuple[str, dict[str, str]] | None:
+    """Turn a configured SearXNG address into a request that can only reach it.
+
+    SearXNG is documented as self-hosted — the app can even install it for you
+    — so the address is required to resolve to this machine or the local
+    network, and *every* address it resolves to must, not merely one of them.
+    Anything else and this becomes a way for a mistyped or hostile preference
+    to aim the app at an arbitrary host.
+
+    The connection is then pinned to the address that passed the check, for the
+    same reason `_pin_url` exists on the reader path: resolving once to check
+    and again to connect leaves a DNS-rebinding window between the two, and a
+    nameserver that answers differently the second time walks straight through
+    it. Returns None — never a partly-checked target — when anything fails.
+    """
     parsed = urlparse(base_url)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         return None
+    # Credentials in the URL are never needed here, and
+    # "http://localhost@evil.example/" is the classic way to make an address
+    # read as one host while resolving to another.
+    if parsed.username or parsed.password:
+        return None
 
     host = parsed.hostname
-    addresses = _host_addresses(host)
-    internal_addresses = [address for address in addresses if _is_internal(address)]
-    if not internal_addresses:
+    if not _HOSTNAME_RE.match(host):
         return None
 
-    pinned_ip = internal_addresses[0]
     try:
-        ip_obj = ipaddress.ip_address(pinned_ip)
+        # A port outside 0–65535 makes this raise rather than return None,
+        # which would otherwise escape as a 500 from the settings screen.
+        port = parsed.port
     except ValueError:
         return None
+    if port is not None and not (0 < port <= 65535):
+        return None
 
-    port = parsed.port
+    addresses = _host_addresses(host)
+    if not addresses or not all(_is_internal(address) for address in addresses):
+        return None
+
+    pinned_ip = addresses[0]
     if port is None:
         port = 443 if parsed.scheme == "https" else 80
 
-    if ip_obj.version == 6:
-        netloc = f"[{pinned_ip}]:{port}"
-    else:
-        netloc = f"{pinned_ip}:{port}"
-
-    probe_url = f"{parsed.scheme}://{netloc}/search"
+    literal = f"[{pinned_ip}]" if pinned_ip.version == 6 else str(pinned_ip)
+    url = f"{parsed.scheme}://{literal}:{port}{path}"
     host_header = host if parsed.port is None else f"{host}:{parsed.port}"
-    headers = {**PRIVACY_HEADERS, "Host": host_header}
-    return probe_url, headers
+    return url, {**PRIVACY_HEADERS, "Host": host_header}
 
 
 def probe_searxng(base_url: str) -> bool:
     """True if a SearXNG instance answers JSON search at this URL.
 
-    SearXNG is documented as self-hosted — the app can even run it for you —
-    so the URL is required to resolve to this machine or the local network.
-    That keeps a mistyped or hostile preference from turning the probe into a
-    request against an arbitrary internet host.
+    `_searxng_target` is what makes that safe — see it for why the address has
+    to be local and why the connection is pinned to it.
     """
-    target = _build_pinned_probe_target(base_url)
+    target = _searxng_target(base_url)
     if not target:
         return False
     probe_url, headers = target
 
     try:
+        # Not user-reachable as an SSRF: `probe_url` is an IP literal this
+        # module built, from an address it resolved and checked itself.
         response = requests.get(
             probe_url,
             params={"q": "memorymap ping", "format": "json"},
@@ -293,25 +320,29 @@ def search_web(
 
 def _search_searxng(query: str, limit: int, base_url: str) -> list[dict]:
     """Query a self-hosted SearXNG instance via its JSON API."""
-    # Same local-only rule as probe_searxng: the configured instance is meant
-    # to be yours, so it can't be used to aim requests at the wider internet.
-    scheme, host = _split_url(base_url)
-    if not scheme:
-        raise WebSearchError("The SearXNG address isn't a valid http(s) URL")
-    addresses = _host_addresses(host)
-    if not addresses or not all(_is_internal(address) for address in addresses):
-        raise WebSearchError("The SearXNG address must be on this machine or your network")
-    url = base_url.rstrip("/") + "/search"
+    # One shared check with probe_searxng, rather than two that can drift.
+    # This path used to do its own looser version and then hand the *hostname*
+    # to requests, which resolved it a second time — so the address that was
+    # checked and the address that was connected to were not guaranteed to be
+    # the same one. The probe pinned; the search that followed it did not.
+    target = _searxng_target(base_url)
+    if not target:
+        raise WebSearchError(
+            "The SearXNG address must be a plain http(s) URL on this machine "
+            "or your own network"
+        )
+    url, headers = target
     session = _private_session()
     try:
-        # Same accepted CodeQL SSRF alert as probe_searxng: a user-configured
-        # instance, address-checked immediately above.
+        # Not user-reachable as an SSRF: `url` is an IP literal built here from
+        # an address this module resolved and checked itself.
         # POST rather than GET so the query never appears in a request line —
         # request lines are what end up in access logs and proxy history. The
         # instance is local, but "local" is not the same as "not written down".
         response = session.post(
             url,
             data={"q": query, "format": "json"},
+            headers=headers,
             timeout=REQUEST_TIMEOUT,
         )
         response.raise_for_status()

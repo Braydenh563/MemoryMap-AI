@@ -28,6 +28,7 @@ from memorymap.api.schemas import EntryOut
 from memorymap.core import deps
 from memorymap.core.database import AuditLog, Category, Entry
 from memorymap.core.deps import get_session
+from memorymap.core.logbuffer import safe_value
 from memorymap.entry import manager
 from memorymap.entry.manager import UNCATEGORISED
 from memorymap.search import search_manager
@@ -199,7 +200,12 @@ def _prepare(session: Session, question: str, note_ids: list[int] | None = None)
     manager.log_action(session, "queried", "chat", detail=question)
     session.commit()
     logging.getLogger("memorymap.chat").info(
-        "chat: %d note(s) via %s search for %r", len(entries), mode, question[:80]
+        "chat: %d note(s) via %s search for %r",
+        len(entries),
+        mode,
+        # The question is the user's own text, and it reaches the terminal as
+        # well as the in-app viewer — a bare %r of it can forge a log line.
+        safe_value(question, 80),
     )
 
     return {

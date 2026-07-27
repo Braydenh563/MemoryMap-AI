@@ -6,6 +6,7 @@ API, so none is needed (plan §4).
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from fastapi import Depends, FastAPI
@@ -55,8 +56,12 @@ def _purge_expired_bin_entries() -> None:
             manager.purge_expired_deleted(session, days, uploads_dir=config.uploads_dir)
         finally:
             session.close()
-    except Exception:
-        pass  # a failed purge must never stop the app from starting
+    except Exception:  # noqa: BLE001 — a failed purge must never block startup
+        # Swallowing the failure is right; swallowing the reason is not. A bin
+        # that has quietly stopped clearing is invisible until the disk fills.
+        logging.getLogger("memorymap.startup").warning(
+            "the recycle-bin auto-clear didn't run this start", exc_info=True
+        )
 
 
 def _backup_if_due() -> None:
@@ -65,8 +70,14 @@ def _backup_if_due() -> None:
     try:
         config = deps.get_config()
         backup.backup_if_due(config.db_path, config.data_dir)
-    except Exception:
-        pass
+    except Exception:  # noqa: BLE001 — a failed backup must never block startup
+        # This one matters more than it looks: the user believes they have
+        # daily local backups, and without this line a backup that has been
+        # failing for months looks exactly like one that has been working.
+        logging.getLogger("memorymap.startup").warning(
+            "today's local backup didn't run — check Settings → Logs",
+            exc_info=True,
+        )
 
 
 def create_app() -> FastAPI:

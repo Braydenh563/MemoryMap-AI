@@ -23,11 +23,27 @@ from datetime import timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import embeddings
 from memorymap.core import deps
 from memorymap.core.database import EmbeddingRecord, Entry, Reminder
+from memorymap.core.logbuffer import safe_value
 from memorymap.entry import manager
 from memorymap.search import search_manager
+
+
+class ToolError(ValueError):
+    """A failure a tool means to explain, in words written for a reader.
+
+    Every handler below raises this for the cases it anticipates — "there's no
+    note with that id", "that tag is already in use". Those strings are safe to
+    hand to the model and to show in the UI, because somebody wrote them for
+    exactly that.
+
+    A bare `ValueError` from somewhere inside a handler is the opposite: it is
+    whatever `int("abc")` or a SQLAlchemy coercion happened to say, and its text
+    is an internal detail. `execute_tool` distinguishes the two, which a single
+    `except ValueError` could not. Subclassing `ValueError` keeps every existing
+    caller that catches the base class working unchanged.
+    """
 
 
 @dataclass(frozen=True)
@@ -104,12 +120,12 @@ def _note_summary(session: Session, entry: Entry, chars: int = PREVIEW_CHARS) ->
 def _require_note(session: Session, args: dict, field: str = "note_id") -> Entry:
     entry = manager.get_entry(session, int(args[field]))
     if entry is None or entry.is_deleted:
-        raise ValueError(f"No note with id {args.get(field)}")
+        raise ToolError(f"No note with id {args.get(field)}")
     if entry.is_private:
         # Deliberately the same wording as a missing note in spirit, but
         # honest about why: the model should tell the user it can't see it,
         # not invent contents for it.
-        raise ValueError(
+        raise ToolError(
             f"Note #{entry.id} is private, so it isn't available to the AI"
         )
     return entry
@@ -191,7 +207,7 @@ def _refresh_embedding(session: Session, entry: Entry) -> None:
         )
         session.rollback()
         return
-    embeddings.store_quietly(session, entry)
+    deps.store_quietly(session, entry)
 
 
 # --- handlers (session, args) -> result dict -----------------------------------
@@ -487,7 +503,7 @@ def _get_document(session: Session, args: dict) -> dict:
 
     document = session.get(Document, int(args["document_id"]))
     if document is None:
-        raise ValueError(f"No document with id {args.get('document_id')}")
+        raise ToolError(f"No document with id {args.get('document_id')}")
     text = document.content
     clipped = _clip(text, DOCUMENT_CHARS)
     return {
@@ -604,15 +620,15 @@ def _save_skill(session: Session, args: dict) -> dict:
     name = str(args["name"]).strip()
     prompt = str(args["prompt"]).strip()
     if not name or not prompt:
-        raise ValueError("A skill needs both a name and a prompt")
+        raise ToolError("A skill needs both a name and a prompt")
     if len(name) > 40:
-        raise ValueError("Skill names are limited to 40 characters")
+        raise ToolError("Skill names are limited to 40 characters")
     if len(prompt) > 2000:
-        raise ValueError("Skill prompts are limited to 2000 characters")
+        raise ToolError("Skill prompts are limited to 2000 characters")
     skills = _skill_list(config)
     existed = any(s.get("name") == name for s in skills)
     if len(skills) >= 30 and not existed:
-        raise ValueError("There are already 30 saved skills — delete one first")
+        raise ToolError("There are already 30 saved skills — delete one first")
     skills = [s for s in skills if s.get("name") != name]
     skills.append({"name": name, "prompt": prompt})
     config.set_preference("skills", skills)
@@ -629,7 +645,7 @@ def _delete_skill(session: Session, args: dict) -> dict:
     skills = _skill_list(config)
     remaining = [s for s in skills if s.get("name") != name]
     if len(remaining) == len(skills):
-        raise ValueError(f"There's no saved skill called “{name}”")
+        raise ToolError(f"There's no saved skill called “{name}”")
     config.set_preference("skills", remaining)
     return {"name": name, "label": f"⚡ Deleted the “{name}” skill"}
 
@@ -637,7 +653,7 @@ def _delete_skill(session: Session, args: dict) -> dict:
 def _create_note(session: Session, args: dict) -> dict:
     content = str(args["content"]).strip()
     if not content:
-        raise ValueError("The note content is empty")
+        raise ToolError("The note content is empty")
     category = str(args.get("category") or "").strip()
     tags = [str(t) for t in args.get("tags") or []]
     if category:
@@ -661,7 +677,7 @@ def _create_note(session: Session, args: dict) -> dict:
         entry = manager.create_entry(
             session, content, category_name=category, tags=tags, ai_confidence=confidence
         )
-    embeddings.store_quietly(session, entry)
+    deps.store_quietly(session, entry)
     result = _note_summary(session, entry)
     result["label"] = f"✏️ Created note #{entry.id} in {result['category']}"
     return result
@@ -716,10 +732,10 @@ def _link_notes(session: Session, args: dict) -> dict:
     source = _require_note(session, args)
     target = manager.get_entry(session, int(args["other_note_id"]))
     if target is None or target.is_deleted:
-        raise ValueError(f"No note with id {args.get('other_note_id')}")
+        raise ToolError(f"No note with id {args.get('other_note_id')}")
     link = manager.create_link(session, source, target)
     if link is None:
-        raise ValueError("Those notes are already linked (or are the same note)")
+        raise ToolError("Those notes are already linked (or are the same note)")
     return {
         "linked": [source.id, target.id],
         "label": f"🔗 Linked note #{source.id} to note #{target.id}",
@@ -739,7 +755,7 @@ def _delete_note(session: Session, args: dict) -> dict:
 def _restore_note(session: Session, args: dict) -> dict:
     entry = manager.get_entry(session, int(args["note_id"]))
     if entry is None:
-        raise ValueError(f"No note with id {args.get('note_id')}")
+        raise ToolError(f"No note with id {args.get('note_id')}")
     if entry.is_deleted:
         manager.restore_entry(session, entry)
     result = _note_summary(session, entry)
@@ -750,11 +766,11 @@ def _restore_note(session: Session, args: dict) -> dict:
 def _set_reminder(session: Session, args: dict) -> dict:
     text = str(args["text"]).strip()
     if not text:
-        raise ValueError("The reminder text is empty")
+        raise ToolError("The reminder text is empty")
     try:
         due_at = datetime.fromisoformat(str(args["due_at"]))
     except ValueError as exc:
-        raise ValueError(
+        raise ToolError(
             "due_at must be an ISO date-time like 2026-07-19T09:00"
         ) from exc
     entry_id = args.get("note_id")
@@ -796,7 +812,7 @@ def _list_reminders(session: Session, args: dict) -> dict:
 def _complete_reminder(session: Session, args: dict) -> dict:
     reminder = session.get(Reminder, int(args["reminder_id"]))
     if reminder is None:
-        raise ValueError(f"No reminder with id {args.get('reminder_id')}")
+        raise ToolError(f"No reminder with id {args.get('reminder_id')}")
     done = bool(args.get("done", True))
     if reminder.done != done:
         reminder.done = done
@@ -827,7 +843,7 @@ def _web_search(session: Session, args: dict) -> dict:
 
     config = deps.get_config()
     if not config.get_preference("web_search_enabled", False):
-        raise ValueError("Web search is disabled in Settings → Preferences")
+        raise ToolError("Web search is disabled in Settings → Preferences")
     try:
         results = websearch.search_web(
             str(args["query"]),
@@ -835,7 +851,7 @@ def _web_search(session: Session, args: dict) -> dict:
             searxng_url=str(config.get_preference("searxng_url", "") or "") or None,
         )
     except websearch.WebSearchError as exc:
-        raise ValueError(str(exc)) from exc
+        raise ToolError(str(exc)) from exc
     return {
         "results": results,
         "label": f"🌐 Searched the web for “{_clip(str(args['query']), 40)}”",
@@ -863,14 +879,14 @@ def _read_url(session: Session, args: dict) -> dict:
 
     config = deps.get_config()
     if not config.get_preference("web_search_enabled", False):
-        raise ValueError("Web search is disabled in Settings → Preferences")
+        raise ToolError("Web search is disabled in Settings → Preferences")
     url = str(args.get("url") or "").strip()
     if not url:
-        raise ValueError("No URL was given")
+        raise ToolError("No URL was given")
     try:
         page = websearch.fetch_readable(url)
     except websearch.WebSearchError as exc:
-        raise ValueError(str(exc)) from exc
+        raise ToolError(str(exc)) from exc
 
     text = page.get("text") or ""
     truncated = len(text) > READ_URL_MAX_CHARS
@@ -1358,7 +1374,15 @@ def confirm_label(name: str, arguments: dict) -> str:
 
 def execute_tool(session: Session, name: str, arguments: dict) -> dict:
     """Run one tool call. Errors come back as {"error": ...} so the
-    agent loop can hand them to the model instead of crashing."""
+    agent loop can hand them to the model instead of crashing.
+
+    Only `ToolError` text is passed on — see that class. A `KeyError`, a
+    `TypeError`, or a plain `ValueError` from inside a handler is something
+    else: a missing argument the model didn't send, or a genuine bug. Its text
+    is an internal detail — a key name, a function signature, sometimes a
+    fragment of a row — so it goes to the log, and the caller gets a
+    description of the *shape* of the problem, which is all a retry needs.
+    """
     spec = TOOLS.get(name)
     if spec is None:
         return {"error": f"Unknown tool '{name}'"}
@@ -1366,10 +1390,25 @@ def execute_tool(session: Session, name: str, arguments: dict) -> dict:
         return {"error": f"The '{name}' tool is turned off in Settings → Tools"}
     try:
         result = spec.handler(session, dict(arguments or {}))
-    except (KeyError, TypeError, ValueError) as exc:
-        # Bad or missing arguments — tell the model so it can retry.
+    except ToolError as exc:
+        # An explanation the handler wrote on purpose — safe to hand back.
         session.rollback()
         return {"error": f"{name}: {exc}"}
+    except (KeyError, TypeError, ValueError) as exc:
+        # A missing or wrong-typed argument, or a bug. Keep the detail here.
+        session.rollback()
+        logging.getLogger("memorymap.tools").warning(
+            "tool %s failed on its arguments (%s)",
+            safe_value(name, 40),
+            type(exc).__name__,
+            exc_info=True,
+        )
+        return {
+            "error": (
+                f"{name}: the arguments were missing something or were the "
+                f"wrong type. Re-read the tool's schema and try once more."
+            )
+        }
     manager.log_action(
         session,
         "ai_tool",

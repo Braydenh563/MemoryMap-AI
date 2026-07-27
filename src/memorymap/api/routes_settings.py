@@ -20,7 +20,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from memorymap import __version__
-from memorymap.ai import embeddings
 from memorymap.core import backup, deps, logbuffer
 from memorymap.core.database import AuditLog, Category, Entry, EntryLink, utcnow
 from memorymap.core.deps import get_session
@@ -348,7 +347,7 @@ def import_markdown(
         if meta.get("category"):
             entry.user_filed = True  # the file said where it belongs
             session.commit()
-        embeddings.store_quietly(session, entry)
+        deps.store_quietly(session, entry)
         imported += 1
     manager.log_action(session, "imported", "data", detail=f"markdown x{imported}")
     session.commit()

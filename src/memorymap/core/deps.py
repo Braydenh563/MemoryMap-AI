@@ -7,6 +7,7 @@ NEVER build their own DatabaseManager.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -16,7 +17,7 @@ from memorymap.ai.embeddings import EmbeddingService
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient
 from memorymap.core.config import ConfigManager
-from memorymap.core.database import DatabaseManager
+from memorymap.core.database import DatabaseManager, Entry
 
 _config: ConfigManager | None = None
 _db: DatabaseManager | None = None
@@ -112,3 +113,31 @@ def get_session() -> Iterator[Session]:
         yield session
     finally:
         session.close()
+
+
+def store_quietly(session: Session, entry: Entry) -> bool:
+    """Best-effort embedding refresh for a note that was just written.
+
+    Every caller wants the same two things: never fail the user's save because
+    the embedding backend is unhappy, and never lose the reason it was unhappy.
+    The bare ``except Exception: pass`` this replaces delivered only the first —
+    so a backend that had stopped working produced notes that quietly dropped
+    out of semantic search with nothing anywhere to say why.
+
+    It lives here, and not in `ai/embeddings.py` where it reads like it
+    belongs, for one reason: it needs the shared `EmbeddingService`, and this
+    module is the only thing allowed to hand that out. From inside `embeddings`
+    it could only be reached by importing this module back — a real cycle,
+    which a function-local import defers rather than removes.
+
+    Returns True if a vector was stored.
+    """
+    try:
+        return get_embeddings().store_for_entry(session, entry)
+    except Exception:  # noqa: BLE001 — the whole point is that nothing escapes
+        logging.getLogger("memorymap.embeddings").warning(
+            "couldn't embed entry %s; it stays keyword-searchable only",
+            getattr(entry, "id", "?"),
+            exc_info=True,
+        )
+        return False

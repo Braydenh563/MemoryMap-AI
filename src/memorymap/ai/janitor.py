@@ -28,6 +28,7 @@ from memorymap.ai.embeddings import EmbeddingService, bytes_to_vector, cosine_si
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient, OllamaError
 from memorymap.core.database import Category, EmbeddingRecord, Entry
+from memorymap.core.logbuffer import safe_value
 from memorymap.entry.manager import UNCATEGORISED
 
 # Above this cosine similarity we trust the embedding match and skip
@@ -93,7 +94,9 @@ def categorise(
     if match is not None and match.similarity >= CONFIDENT_MATCH:
         confidence = min(100, round(match.similarity * 100))
         logger.info(
-            "janitor: filed by semantic match -> '%s' (%d%%)", match.name, confidence
+            "janitor: filed by semantic match -> '%s' (%d%%)",
+            safe_value(match.name, 60),
+            confidence,
         )
         return match.name, confidence, "semantic-match"
 
@@ -111,13 +114,20 @@ def categorise(
     if neighbours is not None:
         logger.info(
             "janitor: filed by nearest neighbours -> '%s' (%d%%)",
-            neighbours.name,
+            safe_value(neighbours.name, 60),
             neighbours.confidence,
         )
         return neighbours.name, neighbours.confidence, "semantic-neighbours"
 
     category, confidence, method = _ask_llm(session, content, model_manager, ollama)
-    logger.info("janitor: filed by %s -> '%s' (%d%%)", method, category, confidence)
+    # The category can come straight from the chat model, so it is
+    # untrusted text on the way to a log line like any other.
+    logger.info(
+        "janitor: filed by %s -> '%s' (%d%%)",
+        method,
+        safe_value(category, 60),
+        confidence,
+    )
     return category, confidence, method
 
 

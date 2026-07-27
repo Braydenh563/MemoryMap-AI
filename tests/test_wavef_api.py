@@ -213,9 +213,10 @@ def test_searxng_is_used_when_configured(client, monkeypatch):
     # request line, so the fake stands in for the session rather than for
     # requests.get.
     class FakeSession:
-        def post(self, url, data=None, timeout=None):
+        def post(self, url, data=None, headers=None, timeout=None):
             captured["url"] = url
             captured["data"] = data
+            captured["headers"] = headers or {}
             return FakeResponse()
 
         def close(self):
@@ -223,7 +224,19 @@ def test_searxng_is_used_when_configured(client, monkeypatch):
 
     monkeypatch.setattr(websearch, "_private_session", FakeSession)
     body = client.get("/websearch?q=hello").json()
-    assert captured["url"] == "http://localhost:8888/search"
+    # The request goes to the address the guard checked, not to the name —
+    # re-resolving between the check and the connection is the rebinding hole
+    # the reader path already closed. `localhost` can be 127.0.0.1 or ::1
+    # depending on the machine, so assert the shape rather than one of them.
+    import ipaddress
+    from urllib.parse import urlparse
+
+    pinned = urlparse(captured["url"])
+    assert pinned.path == "/search"
+    assert pinned.port == 8888
+    assert ipaddress.ip_address(pinned.hostname).is_loopback
+    # …and TLS/vhost routing still sees the name the user configured.
+    assert captured["headers"]["Host"] == "localhost:8888"
     assert captured["data"]["format"] == "json"
     assert captured["closed"] is True  # the session must not be kept around
     assert body["provider"] == "searxng"
@@ -583,7 +596,7 @@ def test_searxng_probe_rejects_a_public_address(monkeypatch):
 def test_searxng_search_rejects_a_public_address():
     from memorymap.search import websearch
 
-    with pytest.raises(websearch.WebSearchError, match="this machine or your network"):
+    with pytest.raises(websearch.WebSearchError, match="this machine or your own network"):
         websearch._search_searxng("anything", 5, "https://searx.example.com")
 
 

@@ -4277,3 +4277,6 @@ textarea.autogrow {
     max-height: 50vh;
   }
 }
+
+/* "Go to it" beside the save confirmation. */
+.jump-to-note { font-size: 0.78rem; padding: 0.15rem 0.5rem; }

@@ -1614,6 +1614,19 @@ async function loadEntries() {
 // --- capture -----------------------------------------------------------------
 
 // Human explanations of how a note was filed ("visuals of what happened").
+// A "go to it" link beside the save confirmation. Replaced each save, and
+// cleared as soon as you start typing the next note.
+function offerJumpToNewNote(saved, status) {
+  if (!saved || !saved.id) return;
+  const jump = document.createElement("button");
+  jump.type = "button";
+  jump.className = "ghost small jump-to-note";
+  jump.textContent = "↦ Go to it";
+  jump.title = "Open this note in your list";
+  jump.addEventListener("click", () => flashEntry(saved.id));
+  status.append(" ", jump);
+}
+
 function filedByText(saved) {
   switch (saved.filed_by) {
     case "semantic-match":
@@ -1665,6 +1678,7 @@ async function saveEntry() {
       );
     }
     contentBox.value = "";
+    autoGrow(contentBox); // the box shrinks back with its content
     localStorage.removeItem("captureDraft"); // it's saved for real now
     $("entry-count").textContent = "0 characters";
     $("entry-tags").value = "";
@@ -1672,6 +1686,12 @@ async function saveEntry() {
     $("entry-template").value = "";
     await loadEntries();
     loadSuggestions(); // new categories → fresher recommended questions
+    // Saving from Capture leaves you on Capture, with the note you just wrote
+    // now somewhere in a list on another sub-tab. Offer to go to it rather
+    // than making you switch tabs and hunt (user request). An offer, not a
+    // jump: capturing several thoughts in a row is the common case, and
+    // teleporting away after each one would fight that.
+    offerJumpToNewNote(saved, status);
   } catch (error) {
     status.textContent = error.message;
     status.classList.add("error");
@@ -12527,6 +12547,9 @@ $("entry-content").addEventListener("input", (e) => {
   // switch — losing one is the most annoying thing this app could do.
   if (n) localStorage.setItem("captureDraft", e.target.value);
   else localStorage.removeItem("captureDraft");
+  // The "go to it" link belongs to the note you just saved, not the one you
+  // are now writing — drop it as soon as typing starts.
+  $("save-status").querySelector(".jump-to-note")?.remove();
 });
 
 // Restore an unsaved draft on load.
@@ -12535,6 +12558,7 @@ $("entry-content").addEventListener("input", (e) => {
   if (!draft) return;
   const box = $("entry-content");
   box.value = draft;
+  autoGrow(box); // a long restored draft shouldn't arrive in a one-line box
   $("entry-count").textContent = `${draft.length} character${draft.length === 1 ? "" : "s"}`;
   const status = $("save-status");
   if (status) status.textContent = "Restored your unsaved draft.";

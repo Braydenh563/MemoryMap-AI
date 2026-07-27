@@ -6,6 +6,32 @@ pick up without re-deriving context.
 Each item says **why** it matters, not just what to build — the reasoning is
 the part that's expensive to reconstruct.
 
+## Do these next, in this order
+
+Re-prioritised after a round of use. The ordering is by *how often it gets in
+the way*, not by how interesting it is to build.
+
+1. **Skills are not skills** (§21). Reported as: "the way skills are used
+   currently, and what the skills are at the moment, are incorrect and are
+   closer to just presaved mini prompts. I keep trying to get the AI to make
+   me some skills in the chat but it doesn't recognise that it needs to use
+   tools." This is the biggest gap between what the app claims and what it
+   does, and it blocks the agent being useful at all.
+2. **Web search still returns nothing** (§8b). The diagnosis landed — the app
+   now correctly says "DuckDuckGo is rate-limiting this app" instead of
+   failing silently — but the *fix* hasn't. SearXNG is the fix and its
+   installer now runs without Docker or git, yet starting it reports "started
+   but never answered". That is the next thing to debug.
+3. **Token usage in chats** (§11a). Asked directly: "is there a way to reduce
+   excessive token usage in the chats?" A 3-turn chat is showing 8.7k tokens.
+   The history and the retrieved notes are resent whole on every turn.
+4. **Markdown rendering for notes** (§22). Notes render as plain text while
+   chat answers, documents and the dashboard all render markdown.
+5. **Note timeline** (§10). Asked for repeatedly, now with more shape: see
+   notes on a time axis, grouped by event, place or theme.
+6. **A hero header on the dashboard** (§22) — the logo and wordmark at the top
+   of the dashboard, not only in the top bar.
+
 > **Check the running app before building anything here.** This document
 > describes intent, and it drifts. An audit of §2 found four of its six "quick
 > wins" already built — the sticky sidebar, the per-code-block copy button,
@@ -361,6 +387,30 @@ recurring causes are now written up as invariants in `docs/ARCHITECTURE.md` §10
 
 ---
 
+## 8b. Web search — diagnosed, not yet fixed
+
+The diagnosis from §8 shipped and is working: the app now says "DuckDuckGo is
+rate-limiting this app rather than returning results" instead of showing an
+empty panel, which is confirmed in use. That was the whole point — the failure
+is now legible. It is not, however, fixed.
+
+**The fix is SearXNG, and SearXNG doesn't start.** The installer no longer
+needs Docker or git, and the process does start, but the health check times
+out: "SearXNG started but never answered. Check the port isn't in use."
+
+**Debug it in this order.** `_start_source` sends stdout and stderr to
+`DEVNULL`, so a process that dies on startup — a missing dependency, a
+settings file it won't parse, a port already bound — leaves no trace at all.
+That is why the current message is a guess about the port. Capture both
+streams to a file under the data dir first, then read what it actually said.
+Everything after that is speculation until then.
+
+Worth checking once it starts: the generated `settings.yml` must include
+`- json` under `search.formats`, or the API returns 403 and "started but never
+answered" would be exactly the symptom.
+
+---
+
 ## 9. The graph — make it a tool, and give it a look
 
 **Why.** Asked repeatedly: "expand on the capabilities of the graph", "more
@@ -424,6 +474,13 @@ works with Ollama off.
 will happen:
 
 - Notes place themselves on it by their resolved dates, not just creation date
+- **Grouped, not just sequential.** Asked again with more shape: "I want a note
+  timeline where I can see notes visually by what time they were made. Maybe I
+  can even group them by events or related places etc." So the axis is time,
+  but the *bands* are events, places or themes — which is what makes it a map
+  of what happened rather than a sorted list. Places and themes can be derived
+  from what is already stored (categories, tags, embeddings); events need §10's
+  `events` table.
 - Reminders and their completion appear as events
 - The AI can add events, and link notes to them
 - Past / present / future as one continuous view, zoomable from days to years
@@ -457,6 +514,23 @@ spends its time is currently a guess.
   `renderEntries` rebuilds the entire list on any change.
 - **Context warning** as the window fills — the per-turn cost is already shown.
 
+**§11a — token usage in chats.** Asked directly: "is there a way to reduce
+excessive token usage in the chats?" A three-turn conversation showed 8.7k
+tokens. Where it goes, cheapest fix first:
+
+- Retrieved notes are re-sent in full on every turn, including turns that are
+  a follow-up to the previous answer and need no new retrieval at all.
+- `MAX_CLIENT_HISTORY` turns of prior Q&A go up each time, whole.
+- Tool results accumulate within a turn (already capped by
+  `TOOL_RESULT_BUDGET_CHARS`, but the cap is generous at 24k characters).
+- The system prompt is long and grew again this session; it is re-sent every
+  round of every turn, which is where Ollama's prompt-prefix reuse and
+  `keep_alive` would actually pay.
+
+Measure before cutting: log the prompt-token count per round and see which of
+these dominates. Summarising older history is the usual answer, but it costs a
+model call, so it should be the last resort rather than the first.
+
 ---
 
 ## 12. Does the AI know it is an agent?
@@ -476,9 +550,27 @@ told:
 - That a search snippet is rarely enough and `read_url` exists
 - What the user can already see (the step timeline), so it stops re-narrating
 
-**Add:** an explicit `plan` step rendered at the top of the timeline; a
-"required tools" hint for requests that clearly need one; and a nudge when the
-model answers a notebook question without having searched.
+**Done since.** `TOOLS_GUIDE` now says that taking several turns is expected
+("look something up, read what you found, look up anything still missing, then
+answer"), that a search result is a clipped sentence and `read_url` exists,
+and that the user can already see the tool timeline so it should stop
+narrating its process back to them.
+
+Failed tool calls now carry a `what_to_do` field matched to the failure — a
+missing id says to search rather than guess another, a disabled tool says to
+stop calling it, bad arguments say to re-read the schema and retry once — and
+an identical call that fails twice is told so explicitly. Previously a failure
+was a bare `{"error": …}`, and small models either apologised and stopped or
+looped on it until the round limit ran out.
+
+**Still to add:** an explicit `plan` step rendered at the top of the timeline
+(build it with §21, which needs the same structure); a "required tools" hint
+for requests that clearly need one; and a nudge when the model answers a
+notebook question without having searched.
+
+**Note the ordering.** None of this fixes "the AI won't make me a skill" —
+that fails because `save_skill` can only store a prompt string, so there is
+nothing for a better-instructed model to call. §21 first.
 
 ---
 
@@ -596,6 +688,63 @@ Deserves one deliberate pass rather than more ad-hoc fixes:
 - **Alembic migrations** — the additive auto-migrator cannot rename or drop, and
   won't survive a real schema change
 - **Session TTL** — tokens live in memory and never expire
+
+---
+
+## 21. Skills — a rebuild, not a tweak
+
+**Why.** Reported directly: "the skill system also needs a remake. The way
+skills are used currently, and what the skills are at the moment, are
+incorrect and are closer to just presaved mini prompts. I keep on trying to
+get the AI to make me some skills in the chat but it doesn't recognise that it
+needs to use tools and how to properly utilise the workspace."
+
+**That description is accurate.** A skill today is `{name, prompt}` in
+preferences. Clicking one drops its prompt into the chat box. `save_skill`
+stores a name and a string. There is no notion of what a skill *does*, no
+tools it is allowed to use, no steps, no inputs, no way to tell whether
+running one worked. It is a text snippet with a button.
+
+**What a skill should be.** A named, repeatable job over the notebook:
+
+- **Inputs** — declared, so a skill can be "file everything tagged `inbox`"
+  rather than a sentence hoping the model guesses the tag.
+- **Tools it may use** — an explicit allowlist. Both a safety property and a
+  prompt: naming the three tools a skill needs is what makes a small model
+  reach for them, which is the reported failure.
+- **Steps** — ordered, each one a tool call or a model call, so a skill can be
+  replayed and its progress shown against the plan (this is also §18's missing
+  plan/progress, and the two should be built together).
+- **A result** — what changed, as a list the user can undo, rather than prose
+  claiming something happened.
+
+**Why the AI can't currently make one.** `save_skill` takes a prompt string,
+so "make me a skill that files my inbox notes" can only produce another
+sentence. It cannot express the steps because the storage has nowhere to put
+them. Fixing the prompt alone will not help — the shape has to change first.
+
+**Order.** Schema for a skill (additive), then `save_skill` accepting steps,
+then a runner that executes them with progress, then the UI. The existing
+prompt-only skills should keep working as a one-step skill so nothing is lost.
+
+---
+
+## 22. Reported in use, not yet done
+
+Small, concrete, each seen in the running app:
+
+- **Notes don't render markdown.** Chat answers, documents and the dashboard
+  digest all render it; the note list shows raw `**text**`. `renderMarkdown`
+  already exists and is used by three other surfaces, so this is mostly
+  deciding whether the note *list* renders it or only the expanded note —
+  a list of fully-rendered notes with headings and tables gets very tall.
+- **A hero header on the dashboard.** The emblem and wordmark at the top of
+  the dashboard, not only in the top bar. Worth doing with the greeting card
+  that is already there ("Welcome back Brayden!") rather than above it.
+- **SearXNG starts but never answers.** The installer now works without Docker
+  or git, and the process starts, but the health check times out. Next step is
+  to capture its stdout/stderr instead of sending them to DEVNULL — right now
+  a failed start is completely silent, which is why this is a guess.
 
 ---
 

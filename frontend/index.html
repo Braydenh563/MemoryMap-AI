@@ -10,21 +10,53 @@
   <meta name="theme-color" content="#4f6df5">
   <link rel="stylesheet" href="/style.css">
   <script>
-    // Apply the saved theme + accent before first paint to avoid a flash.
-    const saved = localStorage.getItem("theme");
-    if (saved) document.documentElement.dataset.theme = saved;
-    const accent = localStorage.getItem("accent");
-    if (accent && accent !== "indigo") document.documentElement.dataset.accent = accent;
-    if (localStorage.getItem("contrast") === "on")
-      document.documentElement.dataset.contrast = "on";
-    // Layout prefs before first paint, so there's no flash (Wave O).
-    const _r = document.documentElement;
-    _r.dataset.fontsize = localStorage.getItem("fontsize") || "normal";
-    _r.dataset.font = localStorage.getItem("font") || "system";
-    _r.dataset.density = localStorage.getItem("density") || "comfortable";
-    _r.dataset.glass = localStorage.getItem("glass") || "on";
-    _r.dataset.motion = localStorage.getItem("motion") || "auto";
-    _r.style.setProperty("--bg-art-opacity", (Number(localStorage.getItem("bg-intensity") || 90)) / 100);
+    // Everything visual is applied before first paint, so the app never
+    // flashes the default look and then corrects itself.
+    //
+    // The lookup order matches appearancePref() in app.js exactly:
+    //     your manual change  →  the selected theme  →  the app default
+    // It is duplicated here rather than imported because app.js loads at the
+    // end of the body, which is far too late to prevent the flash. The theme
+    // VALUES are the only thing repeated; keep them in step with
+    // THEME_PRESETS, or a themed reload will flicker.
+    (function () {
+      const _r = document.documentElement;
+      const THEMES = {
+        midnight: { theme: "dark", accent: "indigo", glass: "on", "glass-blur": "18", radius: "14" },
+        paper: { theme: "light", accent: "slate", font: "serif", glass: "off", radius: "6", "page-bg": "#faf9f6" },
+        forest: { theme: "dark", accent: "emerald", glass: "on", radius: "16" },
+        ember: { theme: "dark", accent: "sunset", glass: "on", radius: "12" },
+        nord: { theme: "dark", accent: "sky", glass: "on", radius: "10", "page-bg": "#2e3440" },
+        quartz: { theme: "light", accent: "rose", glass: "on", radius: "18" },
+        terminal: { theme: "dark", accent: "lime", font: "mono", glass: "off", radius: "2", density: "compact", "page-bg": "#0a0e0a" },
+        sepia: { theme: "light", accent: "amber", font: "serif", glass: "off", radius: "8", "page-bg": "#f4ecd8" },
+        abyss: { theme: "dark", accent: "ocean", glass: "on", "glass-blur": "26", radius: "14" },
+        orchid: { theme: "dark", accent: "grape", glass: "on", radius: "16" },
+        daylight: { theme: "light", accent: "teal", glass: "on", radius: "14" },
+        graphite: { theme: "dark", accent: "slate", glass: "off", radius: "4", density: "compact", "page-bg": "#18181b" },
+      };
+      const preset = THEMES[localStorage.getItem("themePreset")] || {};
+      const pref = (key, fallback) =>
+        localStorage.getItem(key) ?? preset[key] ?? fallback;
+
+      const theme = pref("theme", null);
+      if (theme && theme !== "system") _r.dataset.theme = theme;
+      const accent = pref("accent", "indigo");
+      if (accent && accent !== "indigo") _r.dataset.accent = accent;
+      if (localStorage.getItem("contrast") === "on") _r.dataset.contrast = "on";
+
+      _r.dataset.fontsize = pref("fontsize", "normal");
+      _r.dataset.font = pref("font", "system");
+      _r.dataset.density = pref("density", "comfortable");
+      _r.dataset.glass = pref("glass", "on");
+      _r.dataset.motion = pref("motion", "auto");
+      _r.dataset.themePreset = localStorage.getItem("themePreset") || "";
+      _r.style.setProperty("--radius", pref("radius", "14") + "px");
+      _r.style.setProperty("--glass-blur", pref("glass-blur", "18") + "px");
+      _r.style.setProperty("--bg-art-opacity", Number(pref("bg-intensity", "90")) / 100);
+      const page = pref("page-bg", null);
+      if (page) _r.style.setProperty("--page", page);
+    })();
   </script>
 </head>
 <body>
@@ -896,6 +928,26 @@ Link to another note with [[its first few words]]."></textarea>
 
           <!-- Appearance (Wave J): grouped into scannable setting rows -->
           <section class="settings-section hidden" id="settings-appearance">
+
+            <!-- ---------- Curated themes ---------- -->
+            <div class="settings-group">
+              <h3>Themes</h3>
+              <p class="muted">
+                A theme sets everything below in one go. Anything you then
+                change by hand sits on top of it and wins — so you can pick a
+                theme and still choose your own accent colour.
+              </p>
+              <div id="theme-presets" class="theme-presets"></div>
+              <p class="muted" id="theme-override-note"></p>
+              <div class="row">
+                <button id="theme-reset" class="ghost small"
+                  title="Go back to the app's default look, keeping your own changes">
+                  Reset theme to default</button>
+                <button id="theme-clear-overrides" class="ghost small"
+                  title="Drop your manual changes and show the theme on its own">
+                  Clear my changes, keep the theme</button>
+              </div>
+            </div>
 
             <!-- ---------- Theme & colour ---------- -->
             <div class="settings-group">

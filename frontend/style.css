@@ -815,6 +815,42 @@ li.link-source { outline: 2px solid var(--accent); }
 }
 .settings-section h3:first-child { margin-top: 0; }
 
+/* --- curated themes ---------------------------------------------------------- */
+.theme-presets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+.theme-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.35rem;
+  padding: 0.4rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--ink);
+  cursor: pointer;
+  box-shadow: none;
+}
+.theme-card:hover { border-color: var(--accent); }
+.theme-card.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+  font-weight: 700;
+}
+/* The two bands show the theme's page colour and the accent it pairs with,
+   which is the pair that actually decides whether you'll like it. */
+.theme-swatch {
+  height: 38px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
 /* Scroll lock: while any overlay is open the page behind must not move.
    Applied to <html> as well as <body> because the app scrolls the window
    (switchTab calls window.scrollTo), which body-only overflow doesn't catch. */

@@ -9042,13 +9042,18 @@ const ACCENTS = [
 ];
 
 function activeAccent() {
-  return localStorage.getItem("accent") || "indigo";
+  // Goes through appearancePref so a theme's accent applies until you pick
+  // one yourself, at which point yours wins.
+  return appearancePref("accent");
 }
 
-function applyAccent(name) {
+function applyAccent(name, remember = true) {
   if (name === "indigo") delete document.documentElement.dataset.accent;
   else document.documentElement.dataset.accent = name;
-  localStorage.setItem("accent", name);
+  // applyThemePreset re-applies the theme's accent without recording it as a
+  // manual choice — otherwise merely picking a theme would pin its colour as
+  // an override and the next theme couldn't change it.
+  if (remember) localStorage.setItem("accent", name);
   if (bgArtOn()) startBgArt(); // repaint the background in the new accent
   renderBrandLogo(); // recolour the emblem too
 }
@@ -9082,8 +9087,151 @@ const APPEARANCE_DEFAULTS = {
   "bg-motion": "moving", // moving | still
 };
 
+// --- curated visual themes ---------------------------------------------------------
+// A theme is just a bundle of the same settings the individual controls write,
+// so nothing here is a separate system that could drift from them. It sits as a
+// LAYER between the app defaults and your own choices:
+//
+//     your manual change  →  the selected theme  →  the app default
+//
+// which is what makes "apply manual colour changes over a selected theme" work
+// (user request). Picking a theme never erases a manual setting, and clearing a
+// manual setting falls back to the theme rather than to the app default.
+const THEME_PRESETS = {
+  midnight: {
+    label: "Midnight",
+    swatch: ["#0d1117", "#4f6df5"],
+    values: { theme: "dark", accent: "indigo", glass: "on", "glass-blur": "18", radius: "14" },
+  },
+  paper: {
+    label: "Paper",
+    swatch: ["#faf9f6", "#475569"],
+    values: {
+      theme: "light", accent: "slate", font: "serif", glass: "off",
+      radius: "6", "page-bg": "#faf9f6",
+    },
+  },
+  forest: {
+    label: "Forest",
+    swatch: ["#0f1a14", "#0e9f6e"],
+    values: { theme: "dark", accent: "emerald", glass: "on", radius: "16" },
+  },
+  ember: {
+    label: "Ember",
+    swatch: ["#1a1210", "#f97316"],
+    values: { theme: "dark", accent: "sunset", glass: "on", radius: "12" },
+  },
+  nord: {
+    label: "Nord",
+    swatch: ["#2e3440", "#0ea5e9"],
+    values: { theme: "dark", accent: "sky", glass: "on", radius: "10", "page-bg": "#2e3440" },
+  },
+  quartz: {
+    label: "Rose Quartz",
+    swatch: ["#fdf2f8", "#ec4899"],
+    values: { theme: "light", accent: "rose", glass: "on", radius: "18" },
+  },
+  terminal: {
+    label: "Terminal",
+    swatch: ["#0a0e0a", "#65a30d"],
+    values: {
+      theme: "dark", accent: "lime", font: "mono", glass: "off",
+      radius: "2", density: "compact", "page-bg": "#0a0e0a",
+    },
+  },
+  sepia: {
+    label: "Sepia",
+    swatch: ["#f4ecd8", "#d97706"],
+    values: {
+      theme: "light", accent: "amber", font: "serif", glass: "off",
+      radius: "8", "page-bg": "#f4ecd8",
+    },
+  },
+  abyss: {
+    label: "Abyss",
+    swatch: ["#0b1220", "#2563eb"],
+    values: { theme: "dark", accent: "ocean", glass: "on", "glass-blur": "26", radius: "14" },
+  },
+  orchid: {
+    label: "Orchid",
+    swatch: ["#171021", "#9333ea"],
+    values: { theme: "dark", accent: "grape", glass: "on", radius: "16" },
+  },
+  daylight: {
+    label: "Daylight",
+    swatch: ["#f5f7fb", "#0d9488"],
+    values: { theme: "light", accent: "teal", glass: "on", radius: "14" },
+  },
+  graphite: {
+    label: "Graphite",
+    swatch: ["#18181b", "#71717a"],
+    values: {
+      theme: "dark", accent: "slate", glass: "off", radius: "4",
+      density: "compact", "page-bg": "#18181b",
+    },
+  },
+};
+
+function activeThemePreset() {
+  const name = localStorage.getItem("themePreset");
+  return THEME_PRESETS[name] ? name : "";
+}
+
+// What the selected theme says about one setting, or undefined.
+function themeValue(key) {
+  const preset = THEME_PRESETS[activeThemePreset()];
+  return preset ? preset.values[key] : undefined;
+}
+
+// The three layers, in order. `??` rather than `||` so a legitimate "0"
+// (corner rounding) isn't treated as unset.
 function appearancePref(key) {
-  return localStorage.getItem(key) || APPEARANCE_DEFAULTS[key];
+  return localStorage.getItem(key) ?? themeValue(key) ?? APPEARANCE_DEFAULTS[key];
+}
+
+// Applying a theme only records WHICH theme. Because every read goes through
+// appearancePref, that is enough to change everything the theme covers while
+// leaving your manual choices sitting on top of it, untouched.
+function applyThemePreset(name) {
+  if (THEME_PRESETS[name]) localStorage.setItem("themePreset", name);
+  else localStorage.removeItem("themePreset");
+  applyAppearance();
+  applyThemeChoice(appearancePref("theme"), false);
+  applyAccent(appearancePref("accent"), false);
+  renderBrandLogo();
+  if (bgArtOn()) startBgArt();
+}
+
+// Which manual overrides are currently sitting on top of the theme. Shown in
+// the UI so "why isn't the theme's colour showing?" has a visible answer.
+const OVERRIDABLE_KEYS = [
+  "theme", "accent", "accent-custom", "page-bg", "font", "fontsize", "density",
+  "radius", "glass", "glass-blur", "bg-style", "bg-motion", "bg-intensity",
+];
+
+function manualOverrides() {
+  return OVERRIDABLE_KEYS.filter((key) => localStorage.getItem(key) !== null);
+}
+
+// Drop the manual layer, keeping the chosen theme — the counterpart to
+// "reset the theme" below.
+function clearManualOverrides() {
+  for (const key of manualOverrides()) localStorage.removeItem(key);
+  applyCustomAccent(null);
+  applyPageBackground(null);
+  applyThemePreset(activeThemePreset());
+  renderAppearance();
+  toast("Your manual changes are cleared — the theme is showing on its own.");
+}
+
+// Drop the theme, keeping every manual change — so "reset the theme to
+// default because I want my own colours instead" does exactly that, rather
+// than wiping the colours too (user request).
+function resetThemeOnly() {
+  localStorage.removeItem("themePreset");
+  applyThemePreset("");
+  renderAppearance();
+  toast("Theme reset to the app default. Your own changes are still applied.");
 }
 
 // "#rrggbb" -> "r, g, b" so a custom colour can drive rgba() softs.
@@ -9135,6 +9283,7 @@ function applyAppearance() {
   root.dataset.font = appearancePref("font");
   root.dataset.density = appearancePref("density");
   root.dataset.glass = appearancePref("glass");
+  root.dataset.themePreset = activeThemePreset();
   root.dataset.motion = appearancePref("motion");
   root.style.setProperty("--bg-art-opacity", Number(appearancePref("bg-intensity")) / 100);
   // Cards thin out slightly while the art is on, so it reads through the page
@@ -9143,21 +9292,24 @@ function applyAppearance() {
   root.style.setProperty("--radius", `${appearancePref("radius")}px`);
   root.style.setProperty("--glass-blur", `${appearancePref("glass-blur")}px`);
   applyCustomAccent(localStorage.getItem("accent-custom"));
-  applyPageBackground(localStorage.getItem("page-bg"));
+  // A theme may set the page colour; your own pick overrides it.
+  applyPageBackground(appearancePref("page-bg"));
   applyCustomCss(localStorage.getItem("custom-css"));
 }
 
 function effectiveTheme() {
-  return localStorage.getItem("theme") || "system";
+  // "system" is a real choice, so an explicit one is only overridden by a
+  // manual pick; a theme supplies it when you haven't made one.
+  return localStorage.getItem("theme") ?? themeValue("theme") ?? "system";
 }
 
-function applyThemeChoice(choice) {
+function applyThemeChoice(choice, remember = true) {
   if (choice === "system") {
     delete document.documentElement.dataset.theme;
-    localStorage.removeItem("theme");
+    if (remember) localStorage.removeItem("theme");
   } else {
     document.documentElement.dataset.theme = choice;
-    localStorage.setItem("theme", choice);
+    if (remember) localStorage.setItem("theme", choice);
   }
   if (bgArtOn()) startBgArt();
   renderBrandLogo();
@@ -9169,7 +9321,53 @@ function _segActive(groupId, attr, value) {
   }
 }
 
+function renderThemePresets() {
+  const holder = $("theme-presets");
+  if (!holder) return;
+  holder.replaceChildren();
+  const active = activeThemePreset();
+  for (const [name, preset] of Object.entries(THEME_PRESETS)) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "theme-card" + (name === active ? " active" : "");
+    button.title = `Apply the ${preset.label} theme`;
+    button.setAttribute("aria-pressed", String(name === active));
+    const swatch = document.createElement("span");
+    swatch.className = "theme-swatch";
+    // Two bands: the page colour and the accent it pairs with.
+    swatch.style.background = `linear-gradient(135deg, ${preset.swatch[0]} 0 60%, ${preset.swatch[1]} 60% 100%)`;
+    const caption = document.createElement("span");
+    caption.textContent = preset.label;
+    button.append(swatch, caption);
+    button.addEventListener("click", () => {
+      // Clicking the active theme turns it off, so the control is a toggle
+      // rather than a one-way door.
+      applyThemePreset(name === active ? "" : name);
+      renderAppearance();
+    });
+    holder.appendChild(button);
+  }
+
+  // Say plainly which manual settings are covering the theme, so a theme that
+  // "isn't working" has a visible cause and a one-click fix beside it.
+  const overrides = manualOverrides();
+  const note = $("theme-override-note");
+  if (!active && !overrides.length) {
+    note.textContent = "No theme selected — the app's default look.";
+  } else if (!overrides.length) {
+    note.textContent = `${THEME_PRESETS[active].label} is showing exactly as designed.`;
+  } else {
+    note.textContent =
+      `${overrides.length} setting${overrides.length === 1 ? "" : "s"} you changed ` +
+      `(${overrides.join(", ")}) ${overrides.length === 1 ? "is" : "are"} on top of ` +
+      (active ? `the ${THEME_PRESETS[active].label} theme.` : "the default look.");
+  }
+  $("theme-clear-overrides").disabled = overrides.length === 0;
+  $("theme-reset").disabled = !active;
+}
+
 function renderAppearance() {
+  renderThemePresets();
   const holder = $("accent-swatches");
   holder.replaceChildren();
   for (const accent of ACCENTS) {
@@ -9223,7 +9421,7 @@ function resetAppearance() {
   for (const key of [
     "fontsize", "font", "density", "glass", "motion", "bg-intensity", "accent",
     "contrast", "bgArt", "theme", "radius", "glass-blur", "bg-style",
-    "accent-custom", "page-bg", "custom-css",
+    "bg-motion", "accent-custom", "page-bg", "custom-css", "themePreset",
   ]) {
     localStorage.removeItem(key);
   }
@@ -9762,6 +9960,8 @@ $("custom-css-clear").addEventListener("click", () => {
   $("custom-css-status").textContent = "Cleared.";
 });
 $("appearance-reset").addEventListener("click", resetAppearance);
+$("theme-reset").addEventListener("click", resetThemeOnly);
+$("theme-clear-overrides").addEventListener("click", clearManualOverrides);
 
 // Apply saved appearance prefs immediately, then start the background.
 applyAppearance();

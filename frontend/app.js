@@ -5375,6 +5375,37 @@ window.addEventListener("resize", () => {
   if ($("dash-grid")) sizeDashWidgets();
 });
 
+// Fade the tab strip's right edge only while it is genuinely scrolling.
+//
+// This was a media query, which is the wrong test: whether the tabs overflow
+// depends on how long the AI status pill's text currently is and whether the
+// wordmark is showing, not only on the window width. So a fixed breakpoint
+// faded a tab bar that fitted perfectly, and left a scrolling one at other
+// widths looking as though "Reminders" had been clipped — which is exactly
+// the complaint the fade exists to prevent. Measuring is both simpler and
+// correct at every width.
+function syncTabOverflowFade() {
+  const bar = $("tab-bar");
+  if (!bar) return;
+  // 1px of slack: sub-pixel layout makes scrollWidth exceed clientWidth by a
+  // fraction on plenty of widths where nothing is actually cut off.
+  bar.classList.toggle("is-scrolling", bar.scrollWidth - bar.clientWidth > 1);
+}
+
+window.addEventListener("resize", syncTabOverflowFade, { passive: true });
+// The pill's text arrives with the status polls, long after first paint, and
+// changes width when it does — so remeasure whenever the header changes size
+// rather than only on window resize.
+if (typeof ResizeObserver !== "undefined") {
+  const headerObserver = new ResizeObserver(syncTabOverflowFade);
+  const bar = $("tab-bar");
+  if (bar) {
+    headerObserver.observe(bar);
+    if (bar.parentElement) headerObserver.observe(bar.parentElement);
+  }
+}
+syncTabOverflowFade();
+
 // --- at-a-glance strip (page furniture, not a hideable widget) ---------------
 
 async function renderDashStats() {

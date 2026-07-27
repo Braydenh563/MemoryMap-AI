@@ -5425,8 +5425,12 @@ async function renderDashStats() {
   const due = open.filter((r) => new Date(r.due_at) <= now).length;
 
   const tiles = [
-    { icon: "📝", value: stats ? stats.total_entries : "–", label: "notes", go: () => switchTab("notes") },
-    { icon: "🗓", value: thisWeek, label: "this week", go: () => switchTab("notes") },
+    // Both of these are counts of notes, so they belong on the list that
+    // shows them — not on whichever Notes sub-tab happened to be open last.
+    { icon: "📝", value: stats ? stats.total_entries : "–", label: "notes",
+      go: () => { switchTab("notes"); showNotesSection("browse"); } },
+    { icon: "🗓", value: thisWeek, label: "this week",
+      go: () => { switchTab("notes"); showNotesSection("browse"); } },
     { icon: "🔥", value: streak, label: streak === 1 ? "day streak" : "day streak", go: () => switchTab("dashboard") },
     {
       icon: due ? "⏰" : "✅",
@@ -5460,8 +5464,25 @@ async function renderDashStats() {
 
 // --- dashboard quick links ---------------------------------------------------
 
+// Anything targeting the Notes tab must name its sub-tab.
+//
+// The tab is split into capture / ask / browse and *remembers the last one
+// used*, so "switchTab('notes') then focus" only works if you happened to
+// leave it on the right section. "Search notes" was fixed after being
+// reported; an audit of every button here — clicking each one from all three
+// starting sections — found "New note" failing in exactly the same way from
+// two of the three, with the capture box hidden and nothing focused. It is
+// the most-used button on the dashboard.
 const QUICK_LINKS = [
-  { icon: "✏️", label: "New note", run: () => { switchTab("notes"); $("entry-content").focus(); } },
+  {
+    icon: "✏️",
+    label: "New note",
+    run: () => {
+      switchTab("notes");
+      showNotesSection("capture"); // or the box you're about to focus is hidden
+      $("entry-content").focus();
+    },
+  },
   { icon: "💬", label: "Ask AI", run: () => { switchTab("chat"); $("chat-input").focus(); } },
   { icon: "🕸", label: "Graph", run: () => switchTab("graph") },
   { icon: "⏰", label: "Reminders", run: () => switchTab("reminders") },
@@ -5506,18 +5527,18 @@ function renderQuickLinks() {
 function featureCatalog() {
   return [
     { group: "Capture & notes", items: [
-      { name: "Capture a thought", desc: "Save anything; the AI files it into a category and suggests tags.", run: () => { switchTab("notes"); $("entry-content").focus(); } },
-      { name: "Templates", desc: "Start a note from a prefilled shape (journal, recipe, meeting…).", run: () => switchTab("notes") },
-      { name: "Improve writing", desc: "Proofread, rewrite, or condense a note with AI before saving.", run: () => switchTab("notes") },
+      { name: "Capture a thought", desc: "Save anything; the AI files it into a category and suggests tags.", run: () => { switchTab("notes"); showNotesSection("capture"); $("entry-content").focus(); } },
+      { name: "Templates", desc: "Start a note from a prefilled shape (journal, recipe, meeting…).", run: () => { switchTab("notes"); showNotesSection("capture"); } },
+      { name: "Improve writing", desc: "Proofread, rewrite, or condense a note with AI before saving.", run: () => { switchTab("notes"); showNotesSection("capture"); } },
       { name: "Sketch pad", desc: "Draw something and save it as a note with a caption.", run: () => openSketch() },
-      { name: "Dictation", desc: "Speak a note; transcribed locally with Whisper.", run: () => switchTab("notes") },
-      { name: "Attachments", desc: "Attach files and images to any note.", run: () => switchTab("notes") },
-      { name: "Threads", desc: "Continue a thought to build a train of related notes.", run: () => switchTab("notes") },
-      { name: "Pins & tags", desc: "Pin important notes and organise with tags.", run: () => switchTab("notes") },
-      { name: "Recycle bin", desc: "Deleted notes are recoverable until the bin is cleared.", run: () => switchTab("notes") },
+      { name: "Dictation", desc: "Speak a note; transcribed locally with Whisper.", run: () => { switchTab("notes"); showNotesSection("capture"); } },
+      { name: "Attachments", desc: "Attach files and images to any note.", run: () => { switchTab("notes"); showNotesSection("browse"); } },
+      { name: "Threads", desc: "Continue a thought to build a train of related notes.", run: () => { switchTab("notes"); showNotesSection("browse"); } },
+      { name: "Pins & tags", desc: "Pin important notes and organise with tags.", run: () => { switchTab("notes"); showNotesSection("browse"); } },
+      { name: "Recycle bin", desc: "Deleted notes are recoverable until the bin is cleared.", run: () => { switchTab("notes"); showNotesSection("browse"); } },
     ]},
     { group: "Ask & chat", items: [
-      { name: "Ask your notebook", desc: "Questions answered strictly from your own notes.", run: () => { switchTab("notes"); $("question").focus(); } },
+      { name: "Ask your notebook", desc: "Questions answered strictly from your own notes.", run: () => { switchTab("notes"); showNotesSection("ask"); $("question").focus(); } },
       { name: "Chat", desc: "A full conversation with your notebook, saved and resumable.", run: () => { switchTab("chat"); $("chat-input").focus(); } },
       { name: "Personas", desc: "Change the assistant's voice — Librarian, Coach, Analyst, or your own.", run: () => openSettingsModal("personas") },
       { name: "Skills", desc: "One-click requests like “Summarise my week”; can act on your notes.", run: () => openSettingsModal("skills") },
@@ -5531,7 +5552,7 @@ function featureCatalog() {
       { name: "Physics controls", desc: "Gravity and Spread sliders reshape the layout.", run: () => switchTab("graph") },
       { name: "Suggested links", desc: "The AI proposes connections between related notes.", run: () => switchTab("graph") },
       { name: "On this day", desc: "Notes you captured on this date in past months resurface.", run: () => switchTab("dashboard") },
-      { name: "Related notes", desc: "See notes that mean something similar to the one you're reading.", run: () => switchTab("notes") },
+      { name: "Related notes", desc: "See notes that mean something similar to the one you're reading.", run: () => { switchTab("notes"); showNotesSection("browse"); } },
     ]},
     { group: "Plan & focus", items: [
       { name: "Reminders", desc: "Due dates with priority, repeats, snooze and notifications.", run: () => switchTab("reminders") },

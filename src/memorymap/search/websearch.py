@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import html
 import ipaddress
+import logging
 import re
 import socket
 import time
@@ -34,8 +35,26 @@ from urllib.parse import (
 
 import requests
 
+logger = logging.getLogger(__name__)
+
 DDG_URL = "https://html.duckduckgo.com/html/"
 REQUEST_TIMEOUT = 10
+
+# Phrases DuckDuckGo serves to clients it has decided are not browsers. When
+# one of these comes back the response is a 200 with no results in it, which
+# is indistinguishable from "nothing matched" unless it is looked for. That
+# ambiguity is why "web search returns nothing" was reported as a parser bug
+# for so long: the parser was working perfectly on a page that never contained
+# any results.
+_CHALLENGE_MARKERS = (
+    "anomaly",
+    "unusual traffic",
+    "detected unusual",
+    "are you a robot",
+    "captcha",
+    "blocked",
+    "rate limit",
+)
 
 # The User-Agent used to be "MemoryMapAI/0.1 (personal notebook)", which is a
 # near-unique fingerprint: it announces the exact app on every site visited and
@@ -329,6 +348,22 @@ def _search_searxng(query: str, limit: int, base_url: str) -> list[dict]:
 
 
 def _search_duckduckgo(query: str, limit: int) -> list[dict]:
+    """Scrape the HTML endpoint, and say which of the three failures happened.
+
+    "Web search returns nothing" had been filed against the parser, but the
+    parser has three quite different ways of ending up with an empty list and
+    only one of them is its own fault:
+
+    1. The request never arrived — no egress, a proxy refusing CONNECT, DNS.
+    2. It arrived and was refused: a 202/403 challenge page, or a rate limit.
+    3. It arrived, was a real results page, and genuinely had no results.
+
+    All three used to reach the caller as an empty list or one generic
+    message, so the obvious conclusion was that the markup had changed. The
+    status and body length are logged for every search — that is what the
+    Logs screen needs in order to answer this without a debugger — and cases
+    1 and 2 now raise with a description of what actually happened.
+    """
     session = _private_session()
     try:
         response = session.post(
@@ -338,10 +373,46 @@ def _search_duckduckgo(query: str, limit: int) -> list[dict]:
         )
         response.raise_for_status()
     except requests.RequestException as exc:
+        # The query itself is deliberately not logged: this is the one feature
+        # that leaves the machine, and the log is a file on disk.
+        logger.warning("Web search request failed (%s): %s", type(exc).__name__, exc)
         raise WebSearchError(f"Web search failed: {exc}") from exc
     finally:
         session.close()  # no cookies carried into the next search
-    return _parse_results(response.text, limit)
+
+    body = response.text
+    results = _parse_results(body, limit)
+    logger.info(
+        "Web search via DuckDuckGo: HTTP %s, %d bytes, %d results parsed",
+        response.status_code,
+        len(body),
+        len(results),
+    )
+    if not results:
+        lowered = body[:20_000].lower()
+        hit = next((m for m in _CHALLENGE_MARKERS if m in lowered), None)
+        if hit:
+            logger.warning(
+                "DuckDuckGo served a challenge page (matched %r), not results", hit
+            )
+            raise WebSearchError(
+                "DuckDuckGo is rate-limiting this app rather than returning "
+                "results. Waiting a few minutes usually clears it; running your "
+                "own SearXNG instance avoids it entirely (Settings → Web search)."
+            )
+        if len(body) < 2000:
+            # A real results page is tens of kilobytes even when it finds
+            # nothing. Something this short is an error or an interstitial.
+            logger.warning(
+                "DuckDuckGo returned a %d-byte body with no results — "
+                "probably not a results page at all",
+                len(body),
+            )
+            raise WebSearchError(
+                "The search engine returned an unexpected page instead of "
+                "results. If this keeps happening, try SearXNG in Settings."
+            )
+    return results
 
 
 def _strip_tags(fragment: str) -> str:

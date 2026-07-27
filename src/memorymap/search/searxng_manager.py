@@ -44,12 +44,32 @@ BASE_URL = f"http://localhost:{HOST_PORT}"
 START_TIMEOUT = 90  # image pulls can be slow the first time
 COMMAND_TIMEOUT = 20
 
-SOURCE_REPO = "https://github.com/searxng/searxng.git"
-# The same code as a tarball, for machines without the git binary. pip can
-# download and unpack this itself, which is what makes a no-Docker-no-git
-# install possible at all.
+# The source, as an archive we download and unpack ourselves.
+#
+# Not a `git clone`, and not `pip install <tarball-url>` either, because
+# **SearXNG's repository cannot be written to a Windows filesystem**. Four of
+# its files carry a colon in the name:
+#
+#     utils/templates/etc/nginx/default.apps-available/searxng.conf:socket
+#     utils/templates/etc/httpd/sites-available/searxng.conf:socket
+#     utils/templates/etc/uwsgi/apps-available/searxng.ini:socket
+#     utils/templates/etc/uwsgi/apps-archlinux/searxng.ini:socket
+#
+# A colon separates a drive letter (and names an alternate data stream), so
+# Windows refuses those names outright. git fetches every object happily and
+# then dies at the last step — *"error: invalid path …searxng.conf:socket /
+# fatal: unable to checkout working tree"*, which is what the user reported —
+# leaving a half-written checkout behind, which is where the earlier "does
+# not appear to be a Python project" came from. Retrying could never work:
+# nothing about it is transient. Unpacking the tarball with pip fails the same
+# way for the same reason, so "install without git" was equally broken there.
+#
+# We therefore unpack it ourselves and skip the handful of members Windows
+# can't represent. They are nginx and uwsgi deployment templates for
+# installing SearXNG on a server — nothing the app runs.
 SOURCE_TARBALL = "https://github.com/searxng/searxng/archive/refs/heads/master.tar.gz"
-INSTALL_TIMEOUT = 900  # a cold pip install from git builds a few wheels
+DOWNLOAD_TIMEOUT = 300
+INSTALL_TIMEOUT = 900  # a cold pip install builds a few wheels
 
 # use_default_settings keeps SearXNG's own defaults and layers ours on top —
 # the important bit being the json format, without which the API returns 403.
@@ -64,6 +84,16 @@ search:
   formats:
     - html
     - json
+plugins:
+  # Off deliberately. This plugin downloads a rules file from
+  # rules1.clearurls.xyz *during startup*, and a failure there is not caught:
+  # the fetch raises, `searx.plugins.initialize` propagates it, and the
+  # process exits before it ever binds the port. Any machine that is offline,
+  # behind a proxy, or merely slow gets "SearXNG started but never answered".
+  # MemoryMap strips tracking parameters from result URLs itself
+  # (`websearch.strip_tracking`), so nothing is lost by leaving it off.
+  searx.plugins.tracker_url_remover.SXNGPlugin:
+    active: false
 """
 
 
@@ -107,20 +137,15 @@ def docker_available() -> bool:
     return result.returncode == 0
 
 
-def git_installed() -> bool:
-    """Is the git binary on PATH? Only decides *how* we fetch, not whether."""
-    return shutil.which("git") is not None
-
-
 def source_available() -> bool:
     """True if we could build a virtualenv and fetch SearXNG into it.
 
-    Always true now. It used to require the `git` binary, which meant a
-    machine with neither Docker nor git could not install SearXNG at all —
-    "I can't download searxng", with the UI offering a button that could
-    never work. pip fetches and unpacks a source tarball over HTTPS without
-    git's help, so the only real requirements are Python (we are running on
-    it) and a network connection, which any install needs anyway.
+    Always true. It used to require the `git` binary, which meant a machine
+    with neither Docker nor git could not install SearXNG at all — "I can't
+    download searxng", with the UI offering a button that could never work.
+    The only real requirements are Python (we are running on it) and a network
+    connection, which any install needs anyway. git is not used at all now;
+    see SOURCE_TARBALL for why cloning cannot work on Windows.
 
     Deliberately not a `pip install searxng` from PyPI: SearXNG does not
     publish itself there, so that name is somebody else's package, and
@@ -280,31 +305,140 @@ def _source_state(data_dir: Path) -> str:
     return "running" if pid and _alive(pid) else "stopped"
 
 
-def _prepare_checkout_dir(src: Path) -> None:
-    """Make sure `src` is either a usable checkout or not there at all.
+# Characters Windows will not accept in a filename, plus the control range.
+# Filtered on every platform, not only Windows: an install should contain the
+# same files everywhere, and a path we would refuse on one OS is not one to
+# rely on from another.
+_UNSAFE_CHARS = set('<>:"|?*') | {chr(c) for c in range(32)}
 
-    The state in between is the one that broke: a `src` folder with no
-    `setup.py` and no `pyproject.toml` in it. `install_source` skipped the
-    clone because the folder existed, then handed the folder to
-    `pip install -e`, which said exactly what it found — *"does not appear to
-    be a Python project"* — and every reinstall reproduced it, because
-    `uninstall_source` could not delete a git checkout on Windows either.
 
-    Anything that isn't a checkout is moved aside rather than insisted upon,
-    so a folder we can't delete still can't stop an install.
+def _unsafe_member(name: str) -> bool:
+    """Is this archive member one we refuse to write?
+
+    Two separate concerns, both fatal in their own way:
+    - **path traversal** — an absolute path or a `..` hop writes outside the
+      directory we were asked to fill;
+    - **names Windows cannot represent** — see SOURCE_TARBALL. Skipping these
+      is what makes the install possible there at all.
     """
-    if not src.exists() or is_checkout(src):
-        return
-    logging.getLogger("memorymap.searxng").warning(
-        "SearXNG's source folder %s has no setup.py or pyproject.toml — "
-        "clearing it before downloading again.",
-        src,
-    )
-    _remove_tree(src)
+    if name.startswith("/") or name.startswith("\\") or ":" in name.split("/")[0]:
+        return True
+    parts = name.split("/")
+    if any(part == ".." for part in parts):
+        return True
+    return any(char in _UNSAFE_CHARS for part in parts for char in part)
+
+
+def _download(url: str, destination: Path) -> None:
+    """Fetch the archive to disk. Streamed — it is tens of megabytes."""
+    import requests  # local: the module is importable without a network stack
+
+    try:
+        with requests.get(url, stream=True, timeout=DOWNLOAD_TIMEOUT) as response:
+            response.raise_for_status()
+            with destination.open("wb") as handle:
+                for chunk in response.iter_content(chunk_size=1 << 16):
+                    handle.write(chunk)
+    except requests.RequestException as exc:
+        raise SearxngError(f"Couldn't download SearXNG: {exc}") from exc
+
+
+def _unpack(archive: Path, into: Path) -> list[str]:
+    """Unpack the archive into `into`, dropping its single top-level folder.
+
+    Returns the names that were skipped, so the install can say so rather than
+    quietly shipping a different set of files than the archive held.
+    """
+    import tarfile
+
+    skipped: list[str] = []
+    into.mkdir(parents=True, exist_ok=True)
+    try:
+        with tarfile.open(archive, "r:gz") as tar:
+            members = []
+            for member in tar.getmembers():
+                # A GitHub archive wraps everything in "searxng-master/".
+                relative = member.name.split("/", 1)[1] if "/" in member.name else ""
+                if not relative:
+                    continue
+                if not (member.isfile() or member.isdir()) or _unsafe_member(relative):
+                    skipped.append(relative)
+                    continue
+                member.name = relative
+                members.append(member)
+            # filter="data" refuses absolute paths, links and device nodes in
+            # 3.12+; the check above is what covers 3.11 and Windows names.
+            if sys.version_info >= (3, 12):
+                tar.extractall(into, members=members, filter="data")
+            else:  # pragma: no cover - 3.11 only
+                tar.extractall(into, members=members)  # noqa: S202 — members vetted above
+    except (tarfile.TarError, OSError) as exc:
+        raise SearxngError(f"Couldn't unpack SearXNG: {exc}") from exc
+    return skipped
+
+
+def _fetch_source(src: Path, state: dict) -> None:
+    """Download and unpack SearXNG into `src`, replacing whatever was there."""
+    problem = _remove_tree(src)
+    if problem:
+        raise SearxngError(f"Couldn't clear the old copy of SearXNG: {problem}")
+    archive = src.parent / "searxng-source.tar.gz"
+    try:
+        state["step"] = "Downloading SearXNG…"
+        _download(SOURCE_TARBALL, archive)
+        state["step"] = "Unpacking SearXNG…"
+        skipped = _unpack(archive, src)
+        if skipped:
+            logging.getLogger("memorymap.searxng").info(
+                "Skipped %d file(s) this filesystem can't hold: %s",
+                len(skipped),
+                ", ".join(skipped[:4]),
+            )
+    finally:
+        archive.unlink(missing_ok=True)
+    if not is_checkout(src):
+        raise SearxngError(
+            "SearXNG downloaded, but no setup.py or pyproject.toml turned up "
+            f"in {src}. Try again, or reinstall."
+        )
+
+
+def _install_steps(python: str, src: Path) -> list[tuple[str, list[str]]]:
+    """The pip commands that install SearXNG, in the order they must run.
+
+    `pip install -e .` on its own **cannot work**, and never could: SearXNG's
+    `setup.py` imports `searx` to read its version, `searx/__init__.py`
+    imports `msgspec`, and pip builds in an isolated environment where no
+    runtime dependency exists yet. It fails with `ModuleNotFoundError: No
+    module named 'msgspec'` before it can declare anything — reproduced here,
+    not deduced.
+
+    So the requirements go in first and the package is then built against the
+    virtualenv rather than an isolated one. This is what SearXNG's own
+    `manage` script does (`pip install --use-pep517 --no-build-isolation
+    -e .`), and following it is the whole reason it works.
+    """
+    return [
+        (
+            "Preparing the virtualenv…",
+            [python, "-m", "pip", "install", "-U", "pip", "setuptools", "wheel"],
+        ),
+        (
+            "Installing dependencies (this takes a few minutes)…",
+            [python, "-m", "pip", "install", "-r", str(src / "requirements.txt")],
+        ),
+        (
+            "Installing SearXNG…",
+            [
+                python, "-m", "pip", "install",
+                "--use-pep517", "--no-build-isolation", "-e", str(src),
+            ],
+        ),
+    ]
 
 
 def install_source(data_dir: Path) -> None:
-    """Clone SearXNG into a virtualenv of its own. Minutes, not seconds."""
+    """Fetch SearXNG into a virtualenv of its own. Minutes, not seconds."""
     with _install_lock:
         if _install_state["running"]:
             raise SearxngError("An install is already running.")
@@ -324,41 +458,17 @@ def install_source(data_dir: Path) -> None:
                         f"{venv} — check there is space and that the folder "
                         "is writable."
                     )
-            _install_state["step"] = "Downloading SearXNG…"
-            # With git, clone and install editable: the checkout can be
-            # updated later without redownloading. Without git, pip fetches
-            # the tarball itself — slower to update, but it works on a
-            # machine that has neither Docker nor git, which previously had
-            # no way to install SearXNG at all.
-            if git_installed():
-                _prepare_checkout_dir(src)
-                if not src.exists():
-                    result = _run(
-                        ["git", "clone", "--depth", "1", SOURCE_REPO, str(src)],
-                        timeout=INSTALL_TIMEOUT,
-                    )
-                    if result.returncode != 0:
-                        raise SearxngError(_reason(result, "Couldn't download SearXNG"))
-                if not is_checkout(src):
-                    # Say this here rather than letting pip say it about a path
-                    # the user has no reason to recognise.
-                    raise SearxngError(
-                        "SearXNG downloaded, but no setup.py or pyproject.toml "
-                        f"turned up in {src}. Delete that folder and try again."
-                    )
-                target = ["-e", str(src)]
-            else:
-                # No git, so no checkout to install from — and a stale one
-                # would only confuse `_start_source`, which runs from it.
-                _prepare_checkout_dir(src)
-                target = [SOURCE_TARBALL]
-            _install_state["step"] = "Installing dependencies (this takes a few minutes)…"
-            result = _run(
-                [str(_venv_python(data_dir)), "-m", "pip", "install", *target],
-                timeout=INSTALL_TIMEOUT,
-            )
-            if result.returncode != 0:
-                raise SearxngError(_reason(result, "Couldn't install SearXNG"))
+            # One path for everyone, git or no git: fetch the archive and
+            # unpack it ourselves. Both of the old paths — `git clone` and
+            # `pip install <tarball-url>` — write every file in the archive,
+            # and four of them cannot exist on Windows.
+            _fetch_source(src, _install_state)
+            python = str(_venv_python(data_dir))
+            for step, args in _install_steps(python, src):
+                _install_state["step"] = step
+                result = _run(args, timeout=INSTALL_TIMEOUT)
+                if result.returncode != 0:
+                    raise SearxngError(_reason(result, "Couldn't install SearXNG"))
             # pip exiting 0 is not the same as `searx` being importable — a
             # half-installed venv otherwise reads as installed and dies at
             # start, which is the state the reinstall button exists to escape.

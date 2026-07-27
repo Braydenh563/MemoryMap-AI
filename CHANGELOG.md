@@ -48,9 +48,27 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
-- **SearXNG couldn't be installed on Windows, and couldn't stay running
-  there either.** Two separate bugs, both a POSIX idiom that means something
-  else on Windows.
+- **SearXNG now installs, starts and answers.** Five separate bugs, none of
+  them in its log, because three of them happened before it wrote a line.
+  - *`git clone` can never work on Windows.* Four files in the SearXNG
+    repository have a colon in the name (`…/searxng.conf:socket`), which
+    Windows refuses — git fetches everything and then dies at the checkout,
+    leaving a half-written folder behind. `pip install <tarball-url>` unpacks
+    the same files, so the no-git path was broken there too. The archive is
+    now downloaded and unpacked by the app, skipping the handful of members a
+    filesystem can't hold (nginx/uwsgi deployment templates) and any that
+    would escape the folder. git is no longer used.
+  - *`pip install -e .` can never work anywhere.* SearXNG's setup.py imports
+    `searx`, which imports `msgspec`, which pip's isolated build environment
+    does not have. The requirements go in first now and the package is built
+    with `--no-build-isolation`, as SearXNG's own tooling does.
+  - *A plugin killed it at boot.* `tracker_url_remover` downloads a rules file
+    from clearurls.xyz during startup and doesn't catch a failure, so an
+    offline or proxied machine lost the process before it bound the port. The
+    generated settings turn it off; MemoryMap strips tracking parameters
+    itself.
+- **…and two Windows-only bugs, both a POSIX idiom that means something else
+  on Windows.**
   - *"…\data\searxng\src does not appear to be a Python project: neither
     'setup.py' nor 'pyproject.toml' found."* The installer skipped the
     download whenever that folder existed, then handed it to pip. Reinstalling

@@ -14,9 +14,11 @@ the wipe couldn't delete a git checkout on Windows and said it had.
 from __future__ import annotations
 
 import os
+import shutil
 import signal
 import stat
 import subprocess
+import tarfile
 import time
 from pathlib import Path
 
@@ -44,30 +46,33 @@ def _fake_venv(data_dir: Path) -> None:
 class _Commands:
     """Stands in for `_run`, recording what the installer tried to do."""
 
-    def __init__(self, *, clone_produces_project: bool = True):
+    def __init__(self):
         self.calls: list[list[str]] = []
-        self.clone_produces_project = clone_produces_project
 
     def __call__(self, args, timeout=None):
         self.calls.append(list(args))
-        if args[0] == "git" and args[1] == "clone":
-            src = Path(args[-1])
-            src.mkdir(parents=True, exist_ok=True)
-            (src / ".git").mkdir(exist_ok=True)
-            if self.clone_produces_project:
-                (src / "setup.py").write_text("")
         return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
 
     @property
-    def cloned(self) -> bool:
-        return any(call[0] == "git" for call in self.calls)
-
-    @property
     def pip_target(self) -> list[str]:
+        """What the *package* install was pointed at, if it got that far."""
         for call in self.calls:
-            if "pip" in call and "install" in call:
-                return call[call.index("install") + 1 :]
+            if "-e" in call:
+                return call[call.index("-e") :]
         return []
+
+
+def _archive(tmp_path: Path, names: list[str]) -> Path:
+    """A GitHub-shaped source archive: everything inside searxng-master/."""
+    root = tmp_path / "build" / "searxng-master"
+    for name in names:
+        target = root / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("x")
+    path = tmp_path / "searxng.tar.gz"
+    with tarfile.open(path, "w:gz") as tar:
+        tar.add(root, arcname="searxng-master")
+    return path
 
 
 def _install_and_wait(data_dir: Path, timeout: float = 5.0) -> None:
@@ -89,69 +94,148 @@ def test_a_source_folder_with_no_project_in_it_is_not_a_checkout(tmp_path):
     assert searxng_manager.is_checkout(empty) is True
 
 
-def test_a_leftover_source_folder_is_cleared_and_downloaded_again(app_state, monkeypatch):
-    """The bug itself: `src` was there, so nothing was downloaded, and pip was
-    asked to install a folder with no Python project in it."""
+# The four real ones, verbatim from the repository. A colon separates a drive
+# letter on Windows, so git fetches every object and then dies at the checkout
+# — "fatal: unable to checkout working tree", which is what was reported —
+# leaving a half-written folder behind for pip to refuse.
+WINDOWS_HOSTILE = [
+    "utils/templates/etc/nginx/default.apps-available/searxng.conf:socket",
+    "utils/templates/etc/httpd/sites-available/searxng.conf:socket",
+    "utils/templates/etc/uwsgi/apps-available/searxng.ini:socket",
+    "utils/templates/etc/uwsgi/apps-archlinux/searxng.ini:socket",
+]
+
+
+def test_the_names_windows_cannot_hold_are_left_out_of_the_unpack(tmp_path):
+    """The whole reason we unpack the archive ourselves."""
+    archive = _archive(tmp_path, ["setup.py", "searx/webapp.py", *WINDOWS_HOSTILE])
+    into = tmp_path / "src"
+
+    skipped = searxng_manager._unpack(archive, into)
+
+    assert sorted(skipped) == sorted(WINDOWS_HOSTILE)
+    assert (into / "setup.py").exists()
+    assert (into / "searx" / "webapp.py").exists()
+    assert searxng_manager.is_checkout(into)
+
+
+def test_the_archives_own_top_level_folder_is_stripped(tmp_path):
+    """GitHub wraps everything in searxng-master/; pip needs setup.py at the
+    root of what it is given."""
+    archive = _archive(tmp_path, ["setup.py"])
+    into = tmp_path / "src"
+
+    searxng_manager._unpack(archive, into)
+
+    assert (into / "setup.py").exists()
+    assert not (into / "searxng-master").exists()
+
+
+@pytest.mark.parametrize("name", ["../escaped.py", "/etc/passwd", "a/../../out.py"])
+def test_a_member_that_escapes_the_folder_is_skipped(tmp_path, name):
+    archive = tmp_path / "evil.tar.gz"
+    payload = tmp_path / "payload"
+    payload.write_text("x")
+    with tarfile.open(archive, "w:gz") as tar:
+        tar.add(payload, arcname="searxng-master/setup.py")
+        tar.add(payload, arcname=f"searxng-master/{name}")
+    into = tmp_path / "src"
+
+    skipped = searxng_manager._unpack(archive, into)
+
+    assert skipped, f"{name} should not have been written"
+    assert not (tmp_path / "escaped.py").exists()
+    assert not (tmp_path / "out.py").exists()
+
+
+def test_the_install_downloads_an_archive_and_never_shells_out_to_git(
+    app_state, tmp_path, monkeypatch
+):
+    data_dir = app_state.data_dir
+    _fake_venv(data_dir)
+    archive = _archive(tmp_path, ["setup.py", "searx/webapp.py", *WINDOWS_HOSTILE])
+    commands = _Commands()
+    monkeypatch.setattr(searxng_manager, "_run", commands)
+    monkeypatch.setattr(
+        searxng_manager, "_download", lambda url, dest: shutil.copy(archive, dest)
+    )
+
+    _install_and_wait(data_dir)
+
+    src = searxng_manager._source_dir(data_dir)
+    assert searxng_manager._install_state["error"] == ""
+    assert not any(call[0] == "git" for call in commands.calls)
+    assert commands.pip_target == ["-e", str(src)]
+    assert (src / "setup.py").exists()
+    # The archive itself is not left behind in the user's data directory.
+    assert not list(src.parent.glob("*.tar.gz"))
+
+
+def test_a_leftover_source_folder_is_replaced_rather_than_installed(
+    app_state, tmp_path, monkeypatch
+):
+    """The reported bug: `src` was there, so nothing was downloaded, and pip
+    was asked to install a folder with no Python project in it."""
     data_dir = app_state.data_dir
     _fake_venv(data_dir)
     src = searxng_manager._source_dir(data_dir)
     src.mkdir(parents=True)
-    (src / ".git").mkdir()  # what a half-deleted checkout leaves behind
-
+    (src / ".git").mkdir()  # what a failed checkout leaves behind
+    archive = _archive(tmp_path, ["setup.py"])
     commands = _Commands()
-    monkeypatch.setattr(searxng_manager, "git_installed", lambda: True)
     monkeypatch.setattr(searxng_manager, "_run", commands)
+    monkeypatch.setattr(
+        searxng_manager, "_download", lambda url, dest: shutil.copy(archive, dest)
+    )
 
     _install_and_wait(data_dir)
 
     assert searxng_manager._install_state["error"] == ""
-    assert commands.cloned, "the stale folder stopped the download"
-    assert commands.pip_target == ["-e", str(src)]
     assert (src / "setup.py").exists()
+    assert not (src / ".git").exists(), "the broken copy survived the reinstall"
 
 
 def test_a_download_that_produces_no_project_is_named_before_pip_sees_it(
-    app_state, monkeypatch
+    app_state, tmp_path, monkeypatch
 ):
     data_dir = app_state.data_dir
     _fake_venv(data_dir)
-    commands = _Commands(clone_produces_project=False)
-    monkeypatch.setattr(searxng_manager, "git_installed", lambda: True)
+    archive = _archive(tmp_path, ["README.rst"])
+    commands = _Commands()
     monkeypatch.setattr(searxng_manager, "_run", commands)
+    monkeypatch.setattr(
+        searxng_manager, "_download", lambda url, dest: shutil.copy(archive, dest)
+    )
 
     _install_and_wait(data_dir)
 
-    error = searxng_manager._install_state["error"]
-    assert "no setup.py or pyproject.toml" in error
+    assert "no setup.py or pyproject.toml" in searxng_manager._install_state["error"]
     assert commands.pip_target == [], "pip should never be asked to install that"
 
 
-def test_without_git_a_stale_checkout_is_cleared_and_the_tarball_used(
-    app_state, monkeypatch
-):
-    """`_start_source` runs from the checkout when there is one, so a folder
-    left over from a git install must not survive a tarball install."""
+def test_a_download_that_fails_says_so(app_state, monkeypatch):
     data_dir = app_state.data_dir
     _fake_venv(data_dir)
-    src = searxng_manager._source_dir(data_dir)
-    src.mkdir(parents=True)
-    (src / "stray.txt").write_text("")
+    monkeypatch.setattr(searxng_manager, "_run", _Commands())
 
-    commands = _Commands()
-    monkeypatch.setattr(searxng_manager, "git_installed", lambda: False)
-    monkeypatch.setattr(searxng_manager, "_run", commands)
+    def boom(url, dest):
+        raise searxng_manager.SearxngError("Couldn't download SearXNG: no route to host")
+
+    monkeypatch.setattr(searxng_manager, "_download", boom)
 
     _install_and_wait(data_dir)
 
-    assert not src.exists()
-    assert commands.pip_target == [searxng_manager.SOURCE_TARBALL]
+    assert "no route to host" in searxng_manager._install_state["error"]
 
 
-def test_pip_succeeding_is_not_taken_as_searxng_being_importable(app_state, monkeypatch):
+def test_pip_succeeding_is_not_taken_as_searxng_being_importable(
+    app_state, tmp_path, monkeypatch
+):
     """A venv that installs cleanly and still can't import `searx` used to
     read as installed, and then died at start with no explanation."""
     data_dir = app_state.data_dir
     _fake_venv(data_dir)
+    archive = _archive(tmp_path, ["setup.py"])
 
     def run(args, timeout=None):
         if args[-1] == "import searx":
@@ -160,12 +244,51 @@ def test_pip_succeeding_is_not_taken_as_searxng_being_importable(app_state, monk
             )
         return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
 
-    monkeypatch.setattr(searxng_manager, "git_installed", lambda: False)
     monkeypatch.setattr(searxng_manager, "_run", run)
+    monkeypatch.setattr(
+        searxng_manager, "_download", lambda url, dest: shutil.copy(archive, dest)
+    )
 
     _install_and_wait(data_dir)
 
     assert "No module named 'searx'" in searxng_manager._install_state["error"]
+
+
+def test_the_requirements_go_in_before_the_package(app_state, tmp_path, monkeypatch):
+    """`pip install -e .` alone cannot work and never could: SearXNG's
+    setup.py imports `searx`, which imports `msgspec`, and pip's isolated
+    build environment has neither. Reproduced, not deduced — it fails with
+    ModuleNotFoundError before setup.py can declare a single requirement."""
+    data_dir = app_state.data_dir
+    _fake_venv(data_dir)
+    src = searxng_manager._source_dir(data_dir)
+    archive = _archive(tmp_path, ["setup.py", "requirements.txt"])
+    commands = _Commands()
+    monkeypatch.setattr(searxng_manager, "_run", commands)
+    monkeypatch.setattr(
+        searxng_manager, "_download", lambda url, dest: shutil.copy(archive, dest)
+    )
+
+    _install_and_wait(data_dir)
+
+    pips = [call for call in commands.calls if "pip" in call and "install" in call]
+    requirements = next(i for i, call in enumerate(pips) if "-r" in call)
+    package = next(i for i, call in enumerate(pips) if "-e" in call)
+    assert requirements < package, "the package builds against the requirements"
+    assert str(src / "requirements.txt") in pips[requirements]
+    # Building against the virtualenv rather than an isolated one is the whole
+    # point; it is what SearXNG's own `manage` script does.
+    assert "--no-build-isolation" in pips[package]
+
+
+def test_the_generated_settings_dont_download_anything_at_boot(app_state):
+    """The tracker-URL plugin fetches a rules file from clearurls.xyz during
+    startup and an error there is not caught — the process exits before it
+    binds the port, which reads as "started but never answered"."""
+    text = searxng_manager.ensure_settings(app_state.data_dir).read_text()
+    assert "tracker_url_remover" in text
+    assert "active: false" in text
+    assert "- json" in text  # the API format, without which /search returns 403
 
 
 def test_an_empty_source_folder_no_longer_counts_as_installed(app_state, monkeypatch):

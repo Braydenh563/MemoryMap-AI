@@ -175,13 +175,17 @@ thing. Don't ship one you couldn't test.
 Newest at the top. Everything here is on `main` (or the branch merging into
 it), verified, and must not be rebuilt.
 
-**Two Windows-only SearXNG bugs, both ours.** The install error the user kept
-hitting (`…/data/searxng/src does not appear to be a Python project`) and the
-long-standing "started but never answered" turned out to be the same kind of
-mistake, in the same module: `os.kill(pid, 0)` terminates a process on
-Windows instead of checking it, and `rmtree(ignore_errors=True)` can't delete
-git's read-only objects there, so it half-deletes and claims success. Full
-write-up in §8b. **Not verified on Windows** — ask the user.
+**SearXNG installs and runs.** Five separate bugs, three of them fatal on
+every OS and none of them visible in the log, because they all happened
+before SearXNG wrote a line: the repository cannot be checked out on Windows
+(four filenames contain a colon), `pip install -e .` cannot build it at all
+(its setup.py imports a runtime dependency), a plugin downloads a file at boot
+and kills the process if that fails, `os.kill(pid, 0)` terminates the process
+on Windows instead of checking it, and `rmtree(ignore_errors=True)` leaves a
+git checkout half-deleted there while reporting success. Verified end to end
+here — installed, started, answered its JSON API, passed the app's own probe.
+Full write-up in §8b. **The two Windows-specific fixes are unverified on
+Windows** — ask the user.
 
 **Web search has its own settings screen now.** It was four controls two
 thirds of the way down Preferences, which is why every error message saying
@@ -546,10 +550,47 @@ rate-limiting this app rather than returning results" instead of showing an
 empty panel, which is confirmed in use. That was the whole point — the failure
 is now legible.
 
-**The fix is SearXNG, and this session found two reasons it couldn't work on
-Windows.** Neither was in the log, which is why reading the log first did not
-find them. Both are the same mistake: a POSIX idiom that means something
-different on Windows.
+**The fix is SearXNG, and this session found five reasons it couldn't work.**
+None was in the log, which is why reading the log first did not find them —
+three of the five happen before SearXNG writes a line, and the other two are
+Windows-only.
+
+**Read this first: SearXNG now installs, starts, answers its JSON API, and
+passes `websearch.probe_searxng`, verified in this sandbox.** Everything below
+was reproduced rather than deduced. The one part still unverified is the
+download itself, because the sandbox proxy blocks the archive URL.
+
+**3. `git clone` can never work on Windows.** Reported mid-session:
+*"Couldn't download SearXNG: fatal: unable to checkout working tree"*. Four
+files in the repository have a colon in the name —
+`utils/templates/etc/nginx/default.apps-available/searxng.conf:socket` and
+three like it. A colon separates a drive letter, so Windows refuses the name,
+git fetches every object and then dies at the checkout, **leaving the
+half-written folder that produced bug 2 above**. Nothing about it is
+transient; retrying could never help. `pip install <tarball-url>` — the
+"install without git" path — unpacks the same files and fails the same way, so
+both paths were broken there. Fixed by downloading the archive and unpacking
+it ourselves, skipping members this filesystem can't hold (they are nginx and
+uwsgi deployment templates) and any that would escape the folder. git is no
+longer used at all.
+
+**4. `pip install -e .` can never work, on any OS.** SearXNG's `setup.py`
+imports `searx` for its version, `searx/__init__.py` imports `msgspec`, and
+pip builds in an isolated environment that has neither —
+`ModuleNotFoundError: No module named 'msgspec'`, before setup.py can declare
+a requirement. `requirements.txt` now goes in first and the package is built
+with `--no-build-isolation`, which is exactly what SearXNG's own `manage`
+script does.
+
+**5. The `tracker_url_remover` plugin kills the process at boot.** It
+downloads a rules file from `rules1.clearurls.xyz` during `init` and does not
+catch a failure, so SearXNG exits before binding the port on any machine that
+is offline, proxied or slow. Confirmed here: with the plugin on, the process
+died in init; with it off (in the generated `settings.yml`) it booted and
+answered. MemoryMap strips tracking parameters itself, so nothing is lost.
+
+**And the two Windows-only ones, from earlier in the session** — the same
+mistake twice: a POSIX idiom that means something different on Windows.
 
 **1. "SearXNG started but never answered" — we were killing it.** `_alive()`
 asked `os.kill(pid, 0)`, the POSIX way to check a process exists without
@@ -580,16 +621,18 @@ the folder, `_remove_tree()` clears the read-only bit (and moves the tree
 aside if it still can't delete it) and reports what survived, and the
 installer verifies `import searx` in the new venv before calling it done.
 
-**Neither fix is verified on Windows** — this sandbox is Linux, and the
-behaviour that was wrong is precisely the behaviour that can't be reproduced
-here. The tests pin the logic (`tests/test_searxng_install.py`), but the next
-session should ask the user whether SearXNG now installs and stays up before
-treating §8b as closed.
+**The two Windows-only fixes are not verified on Windows** — this sandbox is
+Linux, and the behaviour that was wrong is precisely the behaviour that
+cannot be reproduced here. The tests pin the logic
+(`tests/test_searxng_install.py`), but ask the user whether SearXNG now
+installs and stays up before treating §8b as closed.
 
-**What is still unknown.** Whether SearXNG answers once it survives being
-started. If it still doesn't, the log at `data/searxng/searxng.log` is now the
-place to look and it will, for the first time, contain the output of a process
-that wasn't killed mid-boot. Do not theorise ahead of it.
+**What is still unknown.** Whether search *results* come back on the user's
+machine. Every engine returned "access denied" in the sandbox because the
+proxy blocks them, so the one thing this session could not test is the one
+thing the feature is for. If results are empty on a real network, the log at
+`data/searxng/searxng.log` will now say why — it finally contains the output
+of a process that booted properly. Do not theorise ahead of it.
 
 Also present, from earlier sessions: a `↻ Reinstall` button (wipes the venv
 and checkout, keeps `settings.yml` and its secret key) and a port line saying

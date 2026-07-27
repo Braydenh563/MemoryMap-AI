@@ -353,6 +353,35 @@ it, and installing, starting and `source_installed()` all ask that rather than
 before calling the install done, because pip exiting 0 and SearXNG being
 runnable are different claims.
 
+**How SearXNG is installed, and why it looks so indirect.** Three separate
+things each rule out the obvious approach, and all three were found by running
+it rather than by reading:
+
+1. **`git clone` cannot work on Windows, ever.** Four files in the repository
+   have a colon in the name (`…/searxng.conf:socket` and three like it). A
+   colon separates a drive letter, so git fetches every object and then dies —
+   *"fatal: unable to checkout working tree"* — leaving the half-written
+   folder that caused the error above. `pip install <tarball-url>` fails the
+   same way, because pip unpacks the same files. So the archive is downloaded
+   and unpacked *here*, skipping members this filesystem can't hold (they are
+   nginx/uwsgi deployment templates — nothing the app runs) and members that
+   would escape the directory.
+2. **`pip install -e .` cannot work anywhere.** SearXNG's `setup.py` imports
+   `searx` to read its version, and `searx/__init__.py` imports `msgspec` —
+   which does not exist in pip's isolated build environment. It fails with
+   `ModuleNotFoundError` before declaring a single requirement. So
+   `requirements.txt` is installed first and the package is then built with
+   `--no-build-isolation`, which is what SearXNG's own `manage` script does.
+3. **The generated `settings.yml` turns off `tracker_url_remover`.** That
+   plugin downloads a rules file from `rules1.clearurls.xyz` *during startup*
+   and does not catch a failure, so an offline or proxied machine loses the
+   process before it binds the port — "started but never answered" again.
+   `websearch.strip_tracking` already does that job locally.
+
+Verified end to end in this sandbox except the download itself (the proxy
+blocks the URL): the archive unpacks to a real tree, installs, starts, serves
+its JSON API, and `websearch.probe_searxng` returns True against it.
+
 ## 9. AI stack
 
 - **Chat model:** any model installed in **[Ollama](https://ollama.com)**

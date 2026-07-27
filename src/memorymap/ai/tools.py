@@ -375,8 +375,15 @@ def _list_tags(session: Session, args: dict) -> dict:
 
 
 def _get_current_time(session: Session, args: dict) -> dict:
-    """Time-aware answers: the model can ask what 'now' is."""
-    now = datetime.now().astimezone()
+    """Time-aware answers: the model can ask what 'now' is.
+
+    The user's clock, not the server's. They are the same on a laptop running
+    both, and hours apart the moment the server sits in UTC — at which point
+    every "tomorrow at 9" the model computes is wrong.
+    """
+    from memorymap.core.config import user_now
+
+    now = user_now(deps.get_config())
     return {
         "iso": now.isoformat(),
         "human": now.strftime("%A %d %B %Y, %H:%M"),

@@ -12,9 +12,10 @@ import zipfile
 from pathlib import Path
 from typing import Literal
 from urllib.parse import urlparse
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -73,6 +74,23 @@ class PreferencesBody(BaseModel):
     searxng_url: str | None = Field(default=None, max_length=200)
     # Wave O: agent tools the user has switched off (by tool name).
     disabled_tools: list[str] | None = Field(default=None, max_length=50)
+    # The user's IANA timezone, reported by the browser at startup. Anything
+    # the AI reasons about in time ("in 10 minutes", "tomorrow at 9") is
+    # resolved against this, because the server may be running in UTC while
+    # the person is not. Validated on the way in — an unknown zone name would
+    # otherwise sit in preferences and silently fall back forever.
+    timezone: str | None = Field(default=None, max_length=64)
+
+    @field_validator("timezone")
+    @classmethod
+    def _known_timezone(cls, value: str | None) -> str | None:
+        if not value:
+            return value
+        try:
+            ZoneInfo(value)
+        except (ZoneInfoNotFoundError, ValueError) as exc:
+            raise ValueError(f"Unknown timezone {value!r}") from exc
+        return value
     # Named filters the user has saved from the Notes tab.
     saved_searches: list["SavedSearch"] | None = Field(default=None, max_length=30)
 
@@ -116,6 +134,10 @@ def get_preferences() -> dict:
         "searxng_url": config.get_preference("searxng_url", ""),
         "disabled_tools": config.get_preference("disabled_tools", []),
         "saved_searches": config.get_preference("saved_searches", []),
+        # Echoed back so the browser can tell whether the zone it just
+        # detected is already the stored one, and skip a pointless write on
+        # every startup.
+        "timezone": config.get_preference("timezone", ""),
     }
 
 

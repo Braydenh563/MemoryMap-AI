@@ -212,6 +212,7 @@ function startApp() {
       renderWebSearchToggle();
     })
   );
+  step("tell the server your timezone", reportTimezone);
   step("load conversations", loadConversationList);
   step("check the AI model status", refreshModelStatus);
 
@@ -224,6 +225,29 @@ function startApp() {
 
   // First-run welcome tour (guarded by localStorage; re-runnable from Help).
   maybeShowOnboarding();
+}
+
+// The browser is the only thing that knows where the user actually is. The
+// server may be running in UTC — a container, a NAS, a machine whose clock was
+// never set — and every relative time the AI computes ("in 10 minutes",
+// "tomorrow at 9") is resolved against that. So the zone is reported once at
+// startup, and again whenever it changes (travel, or a DST shift).
+//
+// Only the IANA NAME is sent, never coordinates: "Australia/Brisbane" is what
+// makes the arithmetic right, and it is far less identifying than a location.
+async function reportTimezone() {
+  let zone = "";
+  try {
+    zone = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+  } catch {
+    return; // an environment without Intl still works, just on server time
+  }
+  if (!zone || (prefsCache && prefsCache.timezone === zone)) return;
+  prefsCache = await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ timezone: zone }),
+    silent: true,
+  }).catch(() => prefsCache);
 }
 
 // The per-tab data loads switchTab performs, without the tab-switching itself.

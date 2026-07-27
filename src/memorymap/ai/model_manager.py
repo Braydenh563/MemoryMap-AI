@@ -32,9 +32,11 @@ class Embedder(Protocol):
     can embed an entry and name its backend, which is what the tests pass.
     """
 
-    def store_for_entry(self, session, entry: Entry) -> bool: ...
+    def store_for_entry(self, session, entry: Entry) -> bool:
+        pass
 
-    def backend_id(self) -> str: ...
+    def backend_id(self) -> str:
+        pass
 
 # Curated catalog, stored as data so it's trivial to edit (plan §6.5).
 # There's no Ollama API to browse the online library, hence hardcoded.

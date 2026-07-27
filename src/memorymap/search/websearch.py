@@ -23,13 +23,81 @@ import ipaddress
 import re
 import socket
 import time
-from urllib.parse import parse_qs, unquote, urlparse
+from urllib.parse import (
+    parse_qs,
+    parse_qsl,
+    unquote,
+    urlencode,
+    urlparse,
+    urlunparse,
+)
 
 import requests
 
 DDG_URL = "https://html.duckduckgo.com/html/"
 REQUEST_TIMEOUT = 10
-USER_AGENT = "MemoryMapAI/0.1 (personal notebook)"
+
+# The User-Agent used to be "MemoryMapAI/0.1 (personal notebook)", which is a
+# near-unique fingerprint: it announces the exact app on every site visited and
+# links those visits together across unrelated domains. That is the opposite of
+# what someone asking for private search wants. A plain, extremely common
+# browser string is the quiet choice — the aim is to look like everyone else,
+# not to be identifiable and polite about it.
+USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0"
+)
+
+# Sent on every outbound request. None of these are a guarantee — a header is a
+# request, not a control — but they cost nothing and they are what a browser in
+# a privacy mode sends.
+PRIVACY_HEADERS = {
+    "User-Agent": USER_AGENT,
+    # Generic, so the header doesn't narrow anyone down by locale.
+    "Accept-Language": "en-US,en;q=0.9",
+    "DNT": "1",
+    "Sec-GPC": "1",
+    # No Referer, ever: where you came from is nobody's business, and on a
+    # manually-followed redirect chain we are the ones who decide.
+    "Referer": "",
+}
+
+# Analytics parameters that exist only to identify the click that brought you.
+# Stripped from every result link and from anything opened in the reader, so
+# the request the site receives carries no campaign or click identifier.
+_TRACKING_PARAMS = frozenset(
+    """utm_source utm_medium utm_campaign utm_term utm_content utm_id utm_name
+    utm_reader utm_place utm_brand utm_social utm_social-type
+    gclid gclsrc dclid gbraid wbraid fbclid msclkid twclid igshid ttclid
+    yclid _openstat mc_cid mc_eid vero_id vero_conv oly_anon_id oly_enc_id
+    hsa_acc hsa_cam hsa_grp hsa_ad hsa_src hsa_tgt hsa_kw hsa_mt hsa_net
+    hsa_ver ref_src ref_url spm scm cmpid campaign_id ad_id adset_id
+    s_kwcid ei sca_esv usg ved""".split()
+)
+
+
+def strip_tracking(url: str) -> str:
+    """Remove click-tracking parameters from a URL, keeping everything else.
+
+    Deliberately an allowlist-of-removals rather than a blanket "drop the
+    query string": plenty of URLs need their query to resolve at all (a search
+    result, an article id), and silently breaking links would be a worse
+    failure than a leaked campaign tag.
+    """
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return url
+    if not parsed.query:
+        return url
+    kept = [
+        (key, value)
+        for key, value in parse_qsl(parsed.query, keep_blank_values=True)
+        if key.lower() not in _TRACKING_PARAMS
+    ]
+    if len(kept) == len(parse_qsl(parsed.query, keep_blank_values=True)):
+        return url
+    return urlunparse(parsed._replace(query=urlencode(kept)))
+
 
 # Small in-process cache so repeating a search (or an agent retrying one)
 # doesn't hit the network again within the same minute or two.
@@ -104,7 +172,7 @@ def _build_pinned_probe_target(base_url: str) -> tuple[str, dict[str, str]] | No
 
     probe_url = f"{parsed.scheme}://{netloc}/search"
     host_header = host if parsed.port is None else f"{host}:{parsed.port}"
-    headers = {"User-Agent": USER_AGENT, "Host": host_header}
+    headers = {**PRIVACY_HEADERS, "Host": host_header}
     return probe_url, headers
 
 
@@ -201,7 +269,7 @@ def _search_searxng(query: str, limit: int, base_url: str) -> list[dict]:
         response = requests.get(
             url,
             params={"q": query, "format": "json"},
-            headers={"User-Agent": USER_AGENT},
+            headers=PRIVACY_HEADERS,
             timeout=REQUEST_TIMEOUT,
         )
         response.raise_for_status()
@@ -240,7 +308,7 @@ def _search_duckduckgo(query: str, limit: int) -> list[dict]:
         response = requests.post(
             DDG_URL,
             data={"q": query},
-            headers={"User-Agent": USER_AGENT},
+            headers=PRIVACY_HEADERS,
             timeout=REQUEST_TIMEOUT,
         )
         response.raise_for_status()
@@ -262,8 +330,8 @@ def _real_url(href: str) -> str:
     if parsed.path.startswith("/l/"):
         wrapped = parse_qs(parsed.query).get("uddg", [""])[0]
         if wrapped:
-            return unquote(wrapped)
-    return href
+            return strip_tracking(unquote(wrapped))
+    return strip_tracking(href)
 
 
 # Two ways of finding results: the long-standing `result__a` markup, and a
@@ -378,7 +446,7 @@ def _get_external(url: str) -> requests.Response:
         # each redirect target, which is as far as this can be constrained.
         response = requests.get(
             url,
-            headers={"User-Agent": USER_AGENT},
+            headers=PRIVACY_HEADERS,
             timeout=REQUEST_TIMEOUT,
             stream=True,
             allow_redirects=False,
@@ -418,6 +486,10 @@ def fetch_readable(url: str) -> dict:
     scripts, styles and chrome are stripped and only text comes back, so
     nothing from the page can execute in the app.
     """
+    # The link may have come from somewhere other than our own results
+    # (an agent, a pasted URL), so clean it here as well rather than trusting
+    # that it was cleaned upstream.
+    url = strip_tracking(url)
     try:
         response = _get_external(url)
         content_type = response.headers.get("content-type", "")
@@ -428,12 +500,18 @@ def fetch_readable(url: str) -> dict:
         raise WebSearchError(f"Couldn't open that page: {exc}") from exc
 
     page = raw.decode(response.encoding or "utf-8", errors="replace")
+    blocks = _readable_blocks(page)
+    words = sum(len(block["text"].split()) for block in blocks)
     return {
         "url": url,
         "domain": domain_of(url),
         "title": _page_title(page) or domain_of(url),
         "text": _readable_text(page)[:_READER_MAX_CHARS],
-        "blocks": _readable_blocks(page),
+        "blocks": blocks,
+        "words": words,
+        # Roughly how long this is, so you can decide whether to read it here
+        # or save it for later before scrolling to find out.
+        "read_minutes": max(1, round(words / 220)) if words else 0,
     }
 
 
@@ -474,7 +552,13 @@ def _readable_blocks(page: str) -> list[dict]:
         if len(text) < 40 and _JUNK_PATTERNS.search(text):
             continue
         kind = "heading" if tag.startswith("h") else tag
-        blocks.append({"type": kind, "text": text[:2000]})
+        block = {"type": kind, "text": text[:2000]}
+        # Keep the heading's depth. Flattening h1..h6 to one "heading" threw
+        # away the page's own outline — which is the thing that makes a
+        # stripped article navigable rather than a long ribbon of text.
+        if kind == "heading":
+            block["level"] = int(tag[1])
+        blocks.append(block)
         if len(blocks) >= 300:
             break
 

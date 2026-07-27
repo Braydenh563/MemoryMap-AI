@@ -686,6 +686,11 @@ function entryOverflowMenu(entry) {
       run: () => openEntryHistory(entry),
     },
     {
+      label: "📄 Expand into a document",
+      title: "Start a document from this note — the note stays where it is",
+      run: () => expandNoteIntoDocument(entry),
+    },
+    {
       label: "🔄 Re-evaluate",
       title: "Refresh this note's AI confidence and suggest tags & links",
       run: () => reevaluateEntry(entry),
@@ -2279,7 +2284,10 @@ async function openWebReader(url) {
   webReaderPage = page;
   status.textContent = "";
   $("web-reader-title").textContent = page.title || page.domain;
-  $("web-reader-source").textContent = page.domain;
+  const length = page.read_minutes
+    ? ` · ${page.words.toLocaleString()} words, about ${page.read_minutes} min`
+    : "";
+  $("web-reader-source").textContent = `${page.domain}${length}`;
 
   // Lay the page out as headings, paragraphs and lists rather than one wall
   // of text. Built with createElement/textContent — never innerHTML, since
@@ -2305,9 +2313,19 @@ async function openWebReader(url) {
         continue;
       }
       list = null;
+      // Headings keep the page's own depth. Rendering every h1..h6 as one
+      // size threw away the outline, which is what tells you where you are
+      // in a long article.
       const tag =
-        block.type === "heading" ? "h4" : block.type === "pre" ? "pre" : block.type === "blockquote" ? "blockquote" : "p";
+        block.type === "heading"
+          ? `h${Math.min(6, Math.max(3, (block.level || 2) + 1))}`
+          : block.type === "pre"
+            ? "pre"
+            : block.type === "blockquote"
+              ? "blockquote"
+              : "p";
       const el = document.createElement(tag);
+      if (block.type === "heading") el.className = "reader-heading";
       el.textContent = block.text;
       box.appendChild(el);
     }
@@ -2320,7 +2338,13 @@ async function saveWebPageAsNote() {
   if (!webReaderPage) return;
   // Prefer the structured read — it drops the nav/cookie chrome.
   const readable = (webReaderPage.blocks || [])
-    .map((b) => (b.type === "heading" ? `\n## ${b.text}` : b.type === "li" ? `- ${b.text}` : b.text))
+    .map((b) =>
+      b.type === "heading"
+        ? `\n${"#".repeat(Math.min(6, (b.level || 2) + 1))} ${b.text}`
+        : b.type === "li"
+          ? `- ${b.text}`
+          : b.text
+    )
     .join("\n")
     .trim();
   const excerpt = (readable || webReaderPage.text || "").slice(0, 1200);
@@ -2363,7 +2387,37 @@ function personaOptions() {
   }
   // Also surface the active persona's description on the closed select itself.
   select.title = describe(active);
-  select.onchange = () => (select.title = describe(select.value));
+  // The full prompt, not the hover excerpt: the 👁 panel exists precisely so
+  // the instructions the model is given aren't a 200-character preview.
+  const fullPrompt = (name) =>
+    (overrides.get(name) || {}).prompt || BUILTIN_PERSONAS[name] || "";
+  const showPrompt = (name) => {
+    $("persona-prompt-text").textContent =
+      fullPrompt(name) || "This persona adds no instructions of its own.";
+  };
+  showPrompt(active);
+  select.onchange = () => {
+    select.title = describe(select.value);
+    showPrompt(select.value);
+  };
+}
+
+// You could choose a persona but never read what it told the model to do —
+// which makes the choice a guess. This shows the actual system prompt.
+function togglePersonaPrompt() {
+  const panel = $("persona-prompt");
+  const showing = panel.classList.toggle("hidden");
+  $("persona-peek").setAttribute("aria-expanded", String(!showing));
+}
+
+// A running total for the whole conversation. Per-message counts can't tell
+// you when a thread has grown heavy enough to be worth starting over.
+function renderChatUsage(tokens) {
+  const el = $("chat-usage");
+  if (!el) return;
+  const total = Number(tokens) || 0;
+  el.hidden = total === 0;
+  el.textContent = total ? `${formatTokens(total)} tokens` : "";
 }
 
 // Three-dot "the model is about to speak" indicator (Wave D).
@@ -2610,6 +2664,8 @@ function showNoDocument() {
     "Start typing and a new document is created for you.\n\nMarkdown works here — headings, **bold**, lists, tables, links.";
   $("doc-saved").textContent = "";
   renderDocPreview();
+  renderDocStats();
+  renderDocOutline();
 }
 
 async function openDocument(id) {
@@ -2627,6 +2683,8 @@ async function openDocument(id) {
   docDirty = false;
   $("doc-saved").textContent = "Saved";
   renderDocPreview();
+  renderDocStats();
+  renderDocOutline();
   renderDocList();
 }
 
@@ -2653,6 +2711,10 @@ async function ensureDocumentExists() {
     });
     currentDoc = doc;
     docs.unshift({ ...doc });
+    // The list gains an "Untitled" row the moment this returns, so show the
+    // same name in the title box — otherwise the document you're typing into
+    // appears to have no name while the sidebar says it has one.
+    if (!$("doc-title").value.trim()) $("doc-title").value = doc.title;
     renderDocList();
     $("doc-empty").classList.add("hidden");
     return doc;
@@ -2665,6 +2727,10 @@ async function ensureDocumentExists() {
 }
 
 function markDocDirty() {
+  // These are read off the textarea, so they're right even before the save
+  // lands — the point of them is live feedback while writing.
+  renderDocStats();
+  renderDocOutline();
   // No document yet? Typing makes one, then this save proceeds normally.
   if (!currentDoc) {
     ensureDocumentExists().then(() => markDocDirty());
@@ -2698,6 +2764,118 @@ async function saveDocument({ silent = false } = {}) {
     $("doc-status").classList.add("error");
     $("doc-status").textContent = error.message;
   }
+}
+
+// A note that outgrew itself becomes a document. Notes and documents were
+// two islands: the only way across was copy and paste, which loses the link
+// between them. The note is deliberately left alone — this is a promotion,
+// not a move, and quietly deleting someone's note to "convert" it is the
+// kind of helpfulness nobody asks for twice.
+async function expandNoteIntoDocument(entry) {
+  const text = entry.content || "";
+  // The first line makes a reasonable title; the rest is the body.
+  const [firstLine, ...rest] = text.split("\n");
+  const title = (firstLine || "Untitled").replace(/^#+\s*/, "").slice(0, 120).trim();
+  const body = rest.join("\n").trim() || text;
+  try {
+    const doc = await apiJson("/documents", {
+      method: "POST",
+      body: JSON.stringify({
+        title: title || "Untitled",
+        // A line back to where it came from, so the pair stay findable.
+        content: `${body}\n\n---\n\nExpanded from note #${entry.id}.\n`,
+      }),
+    });
+    switchTab("documents");
+    await loadDocuments(doc.id);
+    toast(`Started a document from this note — the note itself is untouched.`);
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
+// Words and reading time. Both are cheap to compute and are the two numbers
+// anyone writing long-form actually wants on screen.
+const READING_WORDS_PER_MINUTE = 220;
+
+function renderDocStats() {
+  const el = $("doc-stats");
+  if (!el) return;
+  const text = $("doc-content").value || "";
+  const words = (text.match(/\S+/g) || []).length;
+  if (!words) {
+    el.textContent = "";
+    return;
+  }
+  const minutes = words / READING_WORDS_PER_MINUTE;
+  // Under a minute, "1 min read" overstates it; over an hour, minutes stop
+  // meaning anything.
+  const readTime =
+    minutes < 1
+      ? "under a min"
+      : minutes < 60
+        ? `${Math.round(minutes)} min read`
+        : `${(minutes / 60).toFixed(1)}h read`;
+  el.textContent = `${words.toLocaleString()} word${words === 1 ? "" : "s"} · ${readTime}`;
+}
+
+// A table of contents built from the document's own headings. Past a couple
+// of screens the scrollbar stops being a way to navigate a document.
+function renderDocOutline() {
+  const list = $("doc-outline");
+  const wrap = $("doc-outline-wrap");
+  if (!list || !wrap) return;
+  const text = $("doc-content").value || "";
+  const headings = [];
+  let inFence = false;
+  const lines = text.split("\n");
+  lines.forEach((line, index) => {
+    // A "# " inside a code fence is code, not a heading.
+    if (line.trim().startsWith("```")) inFence = !inFence;
+    if (inFence) return;
+    const match = /^(#{1,4})\s+(.*\S)\s*$/.exec(line);
+    if (match) headings.push({ level: match[1].length, text: match[2], line: index });
+  });
+
+  wrap.classList.toggle("hidden", headings.length < 2);
+  list.replaceChildren();
+  for (const heading of headings) {
+    const li = document.createElement("li");
+    li.className = `outline-h${heading.level}`;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "outline-link";
+    button.textContent = heading.text;
+    button.title = `Jump to “${heading.text}”`;
+    button.addEventListener("click", () => jumpToDocLine(heading.line));
+    li.appendChild(button);
+    list.appendChild(li);
+  }
+}
+
+// Put the caret at the start of a line and scroll it into view. A textarea
+// has no anchors, so this is done by character offset.
+function jumpToDocLine(lineIndex) {
+  const box = $("doc-content");
+  const lines = box.value.split("\n");
+  const offset = lines.slice(0, lineIndex).reduce((n, l) => n + l.length + 1, 0);
+  box.focus();
+  box.setSelectionRange(offset, offset + (lines[lineIndex] || "").length);
+  // Approximate: scroll proportionally to where the line sits in the text.
+  const ratio = lineIndex / Math.max(1, lines.length);
+  box.scrollTop = Math.max(0, ratio * box.scrollHeight - box.clientHeight / 3);
+}
+
+// Answers "where is this actually kept?" with the real path, once.
+let storageInfo = null;
+
+async function renderDocStorage() {
+  const el = $("doc-storage-path");
+  if (!el) return;
+  if (!storageInfo) {
+    storageInfo = await apiJson("/storage").catch(() => null);
+  }
+  el.textContent = storageInfo ? storageInfo.database : "(couldn't read the path)";
 }
 
 function renderDocPreview() {
@@ -3008,6 +3186,9 @@ function undoDraft() {
   const previous = draftUndoStack.pop();
   if (!previous) return;
   $("draft-thoughts").value = previous.thoughts;
+  // Stepping back past a pass means those thoughts were not folded in after
+  // all — otherwise the next Draft would skip them and silently drop an idea.
+  foldedThoughts = "";
   $("draft-text").value = previous.draft;
   updateDraftCount();
   updateDraftUndoButton();
@@ -3033,8 +3214,19 @@ function cancelDraft() {
   draftController?.abort();
 }
 
+// What was last folded into the draft. Kept so a second pass doesn't resend
+// thoughts the model has already used — which is the problem clearing the box
+// was solving, at the cost of destroying the user's own writing.
+let foldedThoughts = "";
+
 async function composeDraft() {
-  const thoughts = $("draft-thoughts").value.trim();
+  const written = $("draft-thoughts").value;
+  // Only the part they've added since the last pass. If they edited earlier
+  // text, the prefix no longer matches and everything is sent again — the
+  // safe direction: the model repeats itself rather than losing a thought.
+  const thoughts = written.startsWith(foldedThoughts)
+    ? written.slice(foldedThoughts.length).trim()
+    : written.trim();
   const draft = $("draft-text").value;
   const status = $("draft-status");
   if (!thoughts && !draft.trim()) {
@@ -3061,9 +3253,11 @@ async function composeDraft() {
     if (body.draft !== draft) pushDraftUndo();
     $("draft-text").value = body.draft;
     updateDraftCount();
-    // The thoughts have been folded in, so clear the box for the next round
-    // rather than resending them and having the model repeat itself.
-    if (body.ollama_running && thoughts) $("draft-thoughts").value = "";
+    // The thoughts have been folded in — remember that, but never delete what
+    // they wrote. Clearing the box was reported twice as the app eating the
+    // user's text, and it is: the raw thoughts are often the only copy of an
+    // idea, and the draft is a rewrite of them, not a replacement.
+    if (body.ollama_running && thoughts) foldedThoughts = written;
     $("draft-instruction").value = "";
     const thinking = $("draft-thinking");
     thinking.classList.toggle("hidden", !body.thinking);
@@ -3072,7 +3266,9 @@ async function composeDraft() {
       status.classList.add("error");
       status.textContent = body.message;
     } else {
-      status.textContent = "Draft updated — edit it, or add more thoughts.";
+      status.textContent = thoughts
+        ? "Folded your thoughts into the draft — your notes above are untouched."
+        : "Draft updated — edit it, or add more thoughts.";
       announce("The draft has been updated.");
     }
     saveDraftLocally();
@@ -3110,6 +3306,7 @@ async function saveDraftAsNote() {
       method: "POST",
       body: JSON.stringify({ content, tags }),
     });
+    foldedThoughts = "";
     $("draft-thoughts").value = "";
     $("draft-text").value = "";
     $("draft-tags").value = "";
@@ -3440,6 +3637,11 @@ async function sendChatMessage(preset, opts = {}) {
       answer: answerRaw,
       thinking: thinkingRaw || null,
       tools: toolEvents.length ? toolEvents : null,
+      // What this turn cost, so the conversation can show a running total.
+      // Prompt + output, because both were sent through the model.
+      tokens: stats
+        ? (stats.prompt_tokens || 0) + (stats.output_tokens || 0)
+        : null,
     };
     if (chatConv.id === null) {
       const created = await apiJson("/conversations", {
@@ -3448,6 +3650,7 @@ async function sendChatMessage(preset, opts = {}) {
       });
       chatConv.id = created.id;
       $("chat-title").textContent = created.title;
+      renderChatUsage(created.tokens);
       // Let the AI name the thread once there's something to name. Silent
       // best-effort: the question-derived title stays if the model can't.
       apiJson(`/conversations/${created.id}/retitle`, { method: "POST", silent: true })
@@ -3457,15 +3660,17 @@ async function sendChatMessage(preset, opts = {}) {
         })
         .catch(() => {});
     } else if (opts.replaceLast) {
-      await apiJson(`/conversations/${chatConv.id}/turns/last`, {
+      const saved = await apiJson(`/conversations/${chatConv.id}/turns/last`, {
         method: "PUT",
         body: JSON.stringify(payload),
       });
+      renderChatUsage(saved.tokens);
     } else {
-      await apiJson(`/conversations/${chatConv.id}/turns`, {
+      const saved = await apiJson(`/conversations/${chatConv.id}/turns`, {
         method: "POST",
         body: JSON.stringify(payload),
       });
+      renderChatUsage(saved.tokens);
     }
     loadConversationList();
   } catch {
@@ -3513,6 +3718,7 @@ function newChatConversation() {
   lastChatQuestion = "";
   $("chat-messages").replaceChildren();
   $("chat-title").textContent = "New chat";
+  renderChatUsage(0);
   renderChatEmptyState();
   loadChatSuggestions();
 }
@@ -3552,24 +3758,57 @@ function exportChatMarkdown() {
 
 const SIDEBAR_MIN = 170;
 const SIDEBAR_MAX = 520;
+// Per-sidebar starting widths. The chat list carries the most text per row —
+// a title, then a date/turns/tokens line — so it starts wider than a list of
+// one-word category names.
+const SIDEBAR_DEFAULTS = { "chat-sidebar": 300, sidebar: 260, "doc-sidebar": 260 };
+const sidebarDefault = (id) => SIDEBAR_DEFAULTS[id] || 260;
 
 function sidebarWidth(id, fallback = 260) {
   const saved = Number(localStorage.getItem(`sidebarWidth:${id}`));
   return Number.isFinite(saved) && saved >= SIDEBAR_MIN ? saved : fallback;
 }
 
+// Below this the layout stacks into one column and there is no column to size.
+const STACKED_LAYOUT = "(max-width: 720px)";
+
+function layoutIsStacked() {
+  return window.matchMedia(STACKED_LAYOUT).matches;
+}
+
 function applySidebarWidth(aside, width) {
   const clamped = Math.min(Math.max(Math.round(width), SIDEBAR_MIN), SIDEBAR_MAX);
-  // The grid column is what actually sizes it; the aside just fills the column.
-  aside.parentElement.style.gridTemplateColumns = `${clamped}px 1fr`;
+  // The remembered width is still saved on a phone — it belongs to the
+  // desktop layout and should survive being looked at on a small screen.
   localStorage.setItem(`sidebarWidth:${aside.id}`, String(clamped));
+  // But it is not applied there. This writes an inline grid-template-columns,
+  // and an inline style beats any stylesheet rule — so a 300px sidebar
+  // remembered from a desktop session kept the Notes and Chat tabs two
+  // columns wide on a phone, pushing the whole page sideways no matter what
+  // the media query said.
+  if (layoutIsStacked()) {
+    aside.parentElement.style.removeProperty("grid-template-columns");
+    return clamped;
+  }
+  aside.parentElement.style.gridTemplateColumns = `${clamped}px 1fr`;
   return clamped;
 }
+
+// Rotating a phone, or dragging a desktop window narrow, crosses the
+// threshold without reloading — so re-decide then too.
+window.matchMedia(STACKED_LAYOUT).addEventListener("change", () => {
+  for (const id of ["sidebar", "chat-sidebar", "doc-sidebar"]) {
+    const aside = document.getElementById(id);
+    if (aside?.dataset.resizable) {
+      applySidebarWidth(aside, sidebarWidth(id, sidebarDefault(id)));
+    }
+  }
+});
 
 function makeSidebarResizable(aside) {
   if (!aside || aside.dataset.resizable) return;
   aside.dataset.resizable = "1";
-  applySidebarWidth(aside, sidebarWidth(aside.id));
+  applySidebarWidth(aside, sidebarWidth(aside.id, sidebarDefault(aside.id)));
 
   const handle = document.createElement("div");
   handle.className = "sidebar-resize";
@@ -3608,11 +3847,13 @@ function makeSidebarResizable(aside) {
       applySidebarWidth(aside, current + step);
     } else if (event.key === "Home") {
       event.preventDefault();
-      applySidebarWidth(aside, 260); // back to the default
+      applySidebarWidth(aside, sidebarDefault(aside.id)); // back to the default
     }
   });
   // Double-click the handle to reset, the convention everywhere else.
-  handle.addEventListener("dblclick", () => applySidebarWidth(aside, 260));
+  handle.addEventListener("dblclick", () =>
+    applySidebarWidth(aside, sidebarDefault(aside.id))
+  );
 }
 
 function initResizableSidebars() {
@@ -3666,24 +3907,103 @@ function kebabMenu(items, ariaLabel) {
   return wrap;
 }
 
+// "12.4k" beats "12417" when the number is a rough sense of scale, which is
+// all a token count ever is.
+function formatTokens(n) {
+  const count = Number(n) || 0;
+  if (count < 1000) return String(count);
+  return `${(count / 1000).toFixed(count < 10000 ? 1 : 0)}k`;
+}
+
+// How long ago, in words. A wall of identical timestamps tells you nothing;
+// "yesterday" and "3 weeks ago" are what you actually navigate by.
+function relativeTime(iso) {
+  const then = new Date(iso + (iso.endsWith("Z") ? "" : "Z"));
+  const seconds = Math.max(0, (Date.now() - then.getTime()) / 1000);
+  if (seconds < 90) return "just now";
+  const minutes = seconds / 60;
+  if (minutes < 60) return `${Math.round(minutes)} min ago`;
+  const hours = minutes / 60;
+  if (hours < 24) return `${Math.round(hours)}h ago`;
+  const days = Math.round(hours / 24);
+  if (days === 1) return "yesterday";
+  if (days < 7) return `${days} days ago`;
+  if (days < 30) return `${Math.round(days / 7)} weeks ago`;
+  return then.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}
+
+let conversationQuery = "";
+
 async function loadConversationList() {
-  const conversations = await apiJson("/conversations").catch(() => []);
+  const params = conversationQuery ? `?q=${encodeURIComponent(conversationQuery)}` : "";
+  const conversations = await apiJson(`/conversations${params}`).catch(() => []);
   const list = $("conversation-list");
   list.replaceChildren();
-  $("conv-empty").classList.toggle("hidden", conversations.length > 0);
+  const empty = $("conv-empty");
+  empty.classList.toggle("hidden", conversations.length > 0);
+  empty.textContent = conversationQuery
+    ? `No chats mention “${conversationQuery}”.`
+    : "No saved chats yet — ask something!";
+
+  let sawUnpinned = false;
   for (const conversation of conversations) {
+    // One divider between the pinned block and the rest, so "pinned" reads as
+    // a section rather than as an unexplained reordering.
+    if (!conversation.pinned && !sawUnpinned && list.children.length) {
+      const rule = document.createElement("li");
+      rule.className = "conv-divider";
+      rule.setAttribute("aria-hidden", "true");
+      list.appendChild(rule);
+    }
+    if (!conversation.pinned) sawUnpinned = true;
+
     const li = document.createElement("li");
     if (conversation.id === chatConv.id) li.classList.add("active-conv");
+    if (conversation.pinned) li.classList.add("pinned-conv");
+
     const title = document.createElement("span");
     title.className = "conv-title";
-    title.textContent = conversation.title;
     title.title = "Open this chat";
     title.addEventListener("click", () => openConversation(conversation.id));
+
+    const name = document.createElement("span");
+    name.className = "conv-name";
+    name.textContent = `${conversation.pinned ? "📌 " : ""}${conversation.title}`;
+    const meta = document.createElement("span");
+    meta.className = "conv-meta muted";
+    const bits = [relativeTime(conversation.updated_at)];
+    if (conversation.turns) {
+      bits.push(`${conversation.turns} ${conversation.turns === 1 ? "turn" : "turns"}`);
+    }
+    // "tok" rather than "tokens": the row is one line by design, and the
+    // number is the useful part — spelling out the unit is what pushed it
+    // into an ellipsis at the default sidebar width.
+    if (conversation.tokens) bits.push(`${formatTokens(conversation.tokens)} tok`);
+    meta.textContent = bits.join(" · ");
+    meta.title = bits.join(" · "); // in full, if the row still has to clip
+    title.append(name, meta);
+    // The title often isn't the subject — show what was actually asked.
+    if (conversation.preview && conversation.preview !== conversation.title) {
+      title.title = conversation.preview;
+    }
     // One ⋯ instead of three buttons. In a sidebar this narrow they were
     // taking most of the row, leaving a few characters of the chat's name.
     const actions = document.createElement("span");
     actions.className = "entry-actions";
     const items = [];
+    items.push(
+      makeMenuItem(
+        conversation.pinned ? "📌 Unpin" : "📌 Pin",
+        conversation.pinned ? "Let this chat sort by date again" : "Keep this chat at the top",
+        async () => {
+          await apiJson(`/conversations/${conversation.id}/pin`, {
+            method: "PUT",
+            body: JSON.stringify({ pinned: !conversation.pinned }),
+          });
+          loadConversationList();
+        }
+      )
+    );
     items.push(
       makeMenuItem("✎ Rename", "Rename this chat", async () => {
         const next = prompt("Rename this chat:", conversation.title);
@@ -3723,11 +4043,87 @@ async function loadConversationList() {
   }
 }
 
+// An edited answer is labelled, always. A transcript that silently presents
+// your words as the model's is worse than no transcript.
+function editedMarker() {
+  const tag = document.createElement("span");
+  tag.className = "edited-marker muted";
+  tag.textContent = "edited by you";
+  tag.title = "You changed this answer after the model wrote it";
+  return tag;
+}
+
+// Editing questions has worked for a while; answers were fixed forever, so a
+// model that got one detail wrong left you regenerating the whole thing and
+// hoping. Editing in place keeps the rest of the thread intact.
+function editChatAnswer(handles, turnIndex, current) {
+  if (handles.bubble.querySelector(".answer-editor")) return; // already open
+  const editor = document.createElement("div");
+  editor.className = "answer-editor";
+  const box = document.createElement("textarea");
+  box.value = current;
+  box.rows = Math.min(20, Math.max(4, current.split("\n").length + 1));
+  box.setAttribute("aria-label", "Edit this answer");
+
+  const finish = (markdown) => {
+    editor.remove();
+    handles.answerBox.classList.remove("hidden");
+    if (markdown !== null) renderMarkdown(handles.answerBox, markdown);
+  };
+
+  const save = document.createElement("button");
+  save.className = "small";
+  save.type = "button";
+  save.textContent = "Save";
+  save.addEventListener("click", async () => {
+    const next = box.value.trim();
+    if (!next) {
+      toast("An empty answer isn't a correction — delete the message instead.", true);
+      return;
+    }
+    if (chatConv.id) {
+      try {
+        await apiJson(`/conversations/${chatConv.id}/turns/${turnIndex}/answer`, {
+          method: "PUT",
+          body: JSON.stringify({ content: next }),
+        });
+      } catch (error) {
+        toast(error.message, true);
+        return; // leave the editor open rather than losing the edit
+      }
+    }
+    if (chatConv.turns[turnIndex]) chatConv.turns[turnIndex].answer = next;
+    finish(next);
+    if (!handles.bubble.querySelector(".edited-marker")) {
+      handles.bubble.insertBefore(
+        editedMarker(),
+        handles.bubble.querySelector(".msg-actions")
+      );
+    }
+    toast("Answer updated.");
+  });
+
+  const cancel = document.createElement("button");
+  cancel.className = "ghost small";
+  cancel.type = "button";
+  cancel.textContent = "Cancel";
+  cancel.addEventListener("click", () => finish(null));
+
+  const row = document.createElement("div");
+  row.className = "row";
+  row.append(save, cancel);
+  editor.append(box, row);
+  handles.answerBox.classList.add("hidden");
+  handles.answerBox.after(editor);
+  box.focus();
+}
+
 async function openConversation(id) {
   const full = await apiJson(`/conversations/${id}`).catch(() => null);
   if (!full) return;
   chatConv = { id: full.id, turns: [] };
   $("chat-title").textContent = full.title;
+  renderChatUsage(full.tokens);
   $("chat-messages").replaceChildren();
   $("chat-suggest").classList.add("hidden");
   let lastQuestionText = null;
@@ -3748,9 +4144,15 @@ async function openConversation(id) {
         handles.thinkingText.textContent = message.thinking;
       }
       const turnIndex = chatConv.turns.length; // index this pair will occupy
+      if (message.edited) handles.bubble.appendChild(editedMarker());
       handles.bubble.appendChild(
         chatMessageActions([
           { label: "⧉", title: "Copy answer", onClick: (e) => copyToClipboard(message.content, e.currentTarget) },
+          {
+            label: "✎",
+            title: "Edit this answer",
+            onClick: () => editChatAnswer(handles, turnIndex, message.content),
+          },
           { label: "🔊", title: "Read aloud", onClick: () => speakText(handles.answerBox.textContent) },
           { label: "🗑", title: "Delete this message", onClick: () => deleteChatTurn(handles.bubble) },
         ])
@@ -4857,6 +5259,92 @@ function renderFeatures(query) {
   }
 }
 
+// The day-one dashboard. Deliberately a small number of real actions rather
+// than a tour of everything: the widgets appear on their own as soon as there
+// is something for them to hold, and that is a better demonstration than a
+// description of them.
+function gettingStartedCard() {
+  const card = document.createElement("section");
+  card.className = "card dash-widget dash-getting-started";
+
+  const emblem = document.createElement("div");
+  emblem.className = "emblem emblem-centred";
+  emblem.setAttribute("aria-hidden", "true");
+
+  const title = document.createElement("h2");
+  title.textContent = "Your notebook is empty — here's the whole idea";
+
+  const blurb = document.createElement("p");
+  blurb.className = "muted";
+  blurb.textContent =
+    "Type a thought, and it gets filed for you. Later, ask a question in " +
+    "plain English and get an answer plus the notes behind it. Everything " +
+    "stays on this machine.";
+
+  const steps = document.createElement("div");
+  steps.className = "start-steps";
+  const actions = [
+    {
+      icon: "✏️",
+      label: "Write your first note",
+      note: "Anything at all — a half sentence is fine.",
+      run: () => {
+        switchTab("notes");
+        $("entry-content")?.focus();
+      },
+    },
+    {
+      icon: "💬",
+      label: "Ask your notebook",
+      note: "Works on keywords even with no AI running.",
+      run: () => {
+        switchTab("chat");
+        $("chat-input")?.focus();
+      },
+    },
+    {
+      icon: "🎒",
+      label: "Bring notes in",
+      note: "Import from a file in Settings → Import & export.",
+      run: () => openSettingsModal("data"),
+    },
+    {
+      icon: "🧭",
+      label: "Take the tour",
+      note: "Two minutes through what's here.",
+      run: () => openOnboarding(),
+    },
+  ];
+  for (const action of actions) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "start-step";
+    const icon = document.createElement("span");
+    icon.className = "start-step-icon";
+    icon.textContent = action.icon;
+    icon.setAttribute("aria-hidden", "true");
+    const text = document.createElement("span");
+    const label = document.createElement("strong");
+    label.textContent = action.label;
+    const note = document.createElement("span");
+    note.className = "muted";
+    note.textContent = action.note;
+    text.append(label, note);
+    button.append(icon, text);
+    button.addEventListener("click", action.run);
+    steps.appendChild(button);
+  }
+
+  const footer = document.createElement("p");
+  footer.className = "muted start-footer";
+  footer.textContent =
+    "Your dashboard fills itself in as you go — streaks, tags, a map of your " +
+    "notes and a dozen other panels appear once there's something to put in them.";
+
+  card.append(emblem, title, blurb, steps, footer);
+  return { card, mount: () => renderEmblem(emblem, 56) };
+}
+
 async function renderDashboard() {
   // The saved layout lives in preferences — after a page reload this can
   // run before startApp has fetched them, so fetch here if needed.
@@ -4870,6 +5358,21 @@ async function renderDashboard() {
   grid.replaceChildren();
   $("dash-hint").classList.toggle("hidden", !dashEditMode); // hint only in edit mode
   const layout = dashLayout();
+
+  // A brand-new notebook filled this grid with a dozen cards each politely
+  // saying it had nothing to show. Every message was fine on its own; together
+  // they made a working app look broken on the day someone starts using it.
+  // One card that says what to do instead — and only until there's anything
+  // to show, which is the first note.
+  if (!allEntries.length && !dashEditMode) {
+    // The emblem draws into a canvas, which p5 can only size once the element
+    // is actually in the document — rendering it while the card is still
+    // detached leaves a blank gap where the mark should be.
+    const { card, mount } = gettingStartedCard();
+    grid.appendChild(card);
+    mount();
+    return;
+  }
 
   for (const name of layout.order) {
     const hidden = layout.hidden.includes(name);
@@ -4890,24 +5393,12 @@ async function renderDashboard() {
     if (dashEditMode) {
       const controls = document.createElement("span");
       controls.className = "entry-actions";
-      // Wide ⇄ Normal: a widget can span two columns to become a bigger
-      // "section" (user request). Hidden widgets don't need a size toggle.
-      if (!hidden) {
-        controls.appendChild(
-          smallButton(
-            isWide ? "▤ Normal" : "▭ Wide",
-            isWide ? "Shrink back to one column" : "Make this a full-width section",
-            async () => {
-              const next = dashLayout();
-              next.sizes = { ...next.sizes };
-              if (isWide) delete next.sizes[name];
-              else next.sizes[name] = "wide";
-              await saveDashLayout(next);
-              renderDashboard();
-            }
-          )
-        );
-      }
+      // There used to be two width buttons here, side by side: this one and
+      // the "▭ Wide" below, writing to `wide` and the legacy `sizes` map
+      // respectively. dashLayout() only falls back to `sizes` when `wide` is
+      // empty, so the legacy button appeared to work exactly once and then
+      // silently stopped — and until then the row showed two controls doing
+      // the same job. One control, one place it's stored.
       controls.appendChild(
         smallButton(hidden ? "＋ Add" : "✕ Remove", hidden ? "Add this widget to the dashboard" : "Remove this widget from the dashboard", async () => {
           const next = dashLayout();
@@ -4918,9 +5409,9 @@ async function renderDashboard() {
           renderDashboard();
         })
       );
-      controls.appendChild(
+      if (!hidden) controls.appendChild(
         smallButton(
-          isWide ? "Narrow" : "Wide",
+          isWide ? "▤ Narrow" : "▭ Wide",
           isWide ? "Show in one column" : "Span two columns",
           async () => {
             const next = dashLayout();
@@ -5113,10 +5604,13 @@ async function startArt(holder) {
   const categories = (stats.categories || []).slice(0, 8);
   const total = Math.max(1, stats.total_entries || 0);
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const dark =
-    document.documentElement.dataset.theme === "dark" ||
-    (!document.documentElement.dataset.theme &&
-      window.matchMedia("(prefers-color-scheme: dark)").matches);
+  // data-mode is always resolved to light or dark, including under "System",
+  // so this no longer has to re-derive it from two sources.
+  const dark = resolvedTheme() === "dark";
+  // The wash used a hardcoded indigo hue, so on any palette that isn't
+  // indigo — Sage, Ocean, Ember — the one generative panel on the dashboard
+  // was the only thing on screen still wearing the old theme's colour.
+  const accentHex = currentAccentHex();
 
   const sketch = (p) => {
     let particles = [];
@@ -5126,9 +5620,10 @@ async function startArt(holder) {
     const scene = (t) => {
       // A soft vertical wash instead of a flat fill — more depth (Wave N).
       p.noStroke();
+      const washHue = p.hue(p.color(accentHex));
       for (let y = 0; y < height; y += 4) {
         const shade = dark ? 14 + (y / height) * 10 : 250 - (y / height) * 10;
-        p.fill(230, 30, shade, 1);
+        p.fill(washHue, 30, shade, 1);
         p.rect(0, y, width, 4);
       }
       for (const dot of particles) {
@@ -6327,9 +6822,14 @@ function renderMarkdown(container, text) {
   while (i < lines.length) {
     const line = lines[i];
 
-    // Fenced code block.
+    // Fenced code block. Gets a header strip with the language (when the
+    // fence names one) and a copy button: selecting a code block by hand is
+    // the one thing every other chat interface saves you from, and getting
+    // it slightly wrong — a stray line, a missing last character — is the
+    // kind of mistake you only notice after pasting it somewhere.
     if (line.trim().startsWith("```")) {
       closeList();
+      const language = line.trim().slice(3).trim().split(/\s+/)[0] || "";
       const code = [];
       i++;
       while (i < lines.length && !lines[i].trim().startsWith("```")) {
@@ -6337,11 +6837,32 @@ function renderMarkdown(container, text) {
         i++;
       }
       i++; // skip the closing fence
+      const text = code.join("\n");
+
+      const block = document.createElement("div");
+      block.className = "code-block";
+      const bar = document.createElement("div");
+      bar.className = "code-bar";
+      const label = document.createElement("span");
+      label.className = "code-lang";
+      label.textContent = language || "code";
+      const copy = document.createElement("button");
+      copy.type = "button";
+      copy.className = "ghost small code-copy";
+      copy.textContent = "⧉ Copy";
+      copy.title = "Copy this code block";
+      copy.addEventListener("click", (event) =>
+        copyToClipboard(text, event.currentTarget)
+      );
+      bar.append(label, copy);
+
       const pre = document.createElement("pre");
       const codeEl = document.createElement("code");
-      codeEl.textContent = code.join("\n");
+      if (language) codeEl.dataset.lang = language;
+      codeEl.textContent = text;
       pre.appendChild(codeEl);
-      container.appendChild(pre);
+      block.append(bar, pre);
+      container.appendChild(block);
       continue;
     }
 
@@ -6813,6 +7334,160 @@ async function renderGraph() {
   graphNodeSelection = nodeGroups;
   graphEdgeSelection = edgeLines;
   applyGraphHighlight();
+  initGraphKeyboard();
+}
+
+// --- driving the graph from the keyboard ------------------------------------------
+// The graph was the one tab that failed a keyboard-first test outright: every
+// way of reaching a note was a mouse gesture, so the whole map — and the notes
+// only reachable through it — was unusable without a pointer.
+//
+// A tab stop per node is not the answer; a big map would be hundreds of stops
+// to get past. The map takes one stop, and inside it the arrow keys move to
+// the nearest note in that direction, which is the way you already think about
+// a map. Tab out again in one press.
+
+let graphKeyboardId = null; // the note the keyboard is "on", or null
+
+function graphNodeById(id) {
+  return (graphNodesRef || []).find((n) => n.id === id) || null;
+}
+
+// The nearest node roughly in `direction` from the current one. Scored by
+// distance, penalised by how far off the axis it sits — so "right" prefers a
+// node to the right over a nearer one that happens to be below.
+function graphNeighbourInDirection(from, direction) {
+  const vectors = { right: [1, 0], left: [-1, 0], up: [0, -1], down: [0, 1] };
+  const [dirX, dirY] = vectors[direction] || vectors.right;
+  let best = null;
+  let bestScore = Infinity;
+  for (const node of graphNodesRef || []) {
+    if (node === from) continue;
+    const dx = node.x - from.x;
+    const dy = node.y - from.y;
+    const along = dx * dirX + dy * dirY;
+    if (along <= 0) continue; // behind us
+    const across = Math.abs(dx * dirY - dy * dirX);
+    const score = along + across * 2.5;
+    if (score < bestScore) {
+      bestScore = score;
+      best = node;
+    }
+  }
+  return best;
+}
+
+function focusGraphNode(node, { announceIt = true } = {}) {
+  if (!node) return;
+  graphKeyboardId = node.id;
+  // Reuse the hover spotlight: keyboard focus and pointer hover mean the same
+  // thing here, and two highlight systems would fight each other.
+  graphHoveredId = node.id;
+  applyGraphHighlight();
+  if (graphNodeSelection) {
+    graphNodeSelection.classed("graph-keyfocus", (d) => d.id === node.id);
+  }
+  if (announceIt) {
+    const links = graphAdjacency?.get(node.id)?.size || 0;
+    announce(
+      `${node.preview}. ${node.category}. ` +
+        `${links} connection${links === 1 ? "" : "s"}. Press Enter to open.`
+    );
+  }
+}
+
+// The popup positions itself from a click's coordinates, so a keyboard open
+// has to supply the equivalent point: where the node actually is on screen.
+function graphNodeScreenPoint(node) {
+  const box = document.getElementById("graph-box");
+  const rect = box ? box.getBoundingClientRect() : { left: 0, top: 0, width: 0, height: 0 };
+  const transform = graphCanvas ? graphCanvas.attr("transform") : null;
+  let scale = 1;
+  let tx = 0;
+  let ty = 0;
+  if (transform) {
+    const move = /translate\(([-\d.]+)[ ,]([-\d.]+)\)/.exec(transform);
+    const zoom = /scale\(([-\d.]+)\)/.exec(transform);
+    if (move) {
+      tx = Number(move[1]);
+      ty = Number(move[2]);
+    }
+    if (zoom) scale = Number(zoom[1]);
+  }
+  return {
+    clientX: rect.left + tx + node.x * scale,
+    clientY: rect.top + ty + node.y * scale,
+  };
+}
+
+function initGraphKeyboard() {
+  const box = document.getElementById("graph-box");
+  if (!box || box.dataset.keyboardReady) return;
+  box.dataset.keyboardReady = "1";
+  box.tabIndex = 0;
+  box.setAttribute("role", "application");
+  box.setAttribute(
+    "aria-label",
+    "Map of your notes. Arrow keys move between notes, Enter opens one, " +
+      "Escape leaves the map."
+  );
+
+  box.addEventListener("focus", () => {
+    if (!graphNodesRef?.length) return;
+    const current = graphNodeById(graphKeyboardId) || graphNodesRef[0];
+    focusGraphNode(current);
+  });
+  box.addEventListener("blur", () => {
+    if (graphNodeSelection) graphNodeSelection.classed("graph-keyfocus", false);
+    graphHoveredId = null;
+    applyGraphHighlight();
+  });
+
+  box.addEventListener("keydown", (event) => {
+    if (!graphNodesRef?.length) return;
+    const current = graphNodeById(graphKeyboardId) || graphNodesRef[0];
+    const directions = {
+      ArrowRight: "right",
+      ArrowLeft: "left",
+      ArrowUp: "up",
+      ArrowDown: "down",
+    };
+    if (directions[event.key]) {
+      event.preventDefault();
+      const next = graphNeighbourInDirection(current, directions[event.key]);
+      // No node that way is not an error — say so rather than silently
+      // doing nothing, which reads as the keys not working.
+      if (next) focusGraphNode(next);
+      else announce("No note in that direction.");
+      return;
+    }
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      openGraphPopup(
+        { ...graphNodeScreenPoint(current), stopPropagation() {} },
+        current
+      );
+      return;
+    }
+    // Step through this note's own connections — the relationship the map is
+    // actually for, which "nearest in a direction" doesn't follow.
+    if (event.key === "n" || event.key === "N") {
+      event.preventDefault();
+      const linked = [...(graphAdjacency?.get(current.id) || [])];
+      if (!linked.length) {
+        announce("This note has no connections.");
+        return;
+      }
+      const seen = graphNodeById(graphKeyboardId);
+      const position = linked.indexOf(seen?.id);
+      const nextId = linked[(position + 1) % linked.length];
+      focusGraphNode(graphNodeById(nextId));
+      return;
+    }
+    if (event.key === "Escape") {
+      box.blur();
+    }
+  });
 }
 
 // Zoom/pan so every node fits with a margin (Wave N).
@@ -7184,62 +7859,72 @@ function switchTab(name) {
   }
   if (name === "dashboard") renderDashboard();
   if (name === "graph") renderGraph();
-  if (name === "documents") loadDocuments();
+  if (name === "documents") {
+    loadDocuments();
+    renderDocStorage();
+  }
   if (name === "reminders") {
     if (!$("reminder-due").value) $("reminder-due").value = defaultDueValue();
     loadReminders();
   }
 }
 
-// --- collapsible Notes-tab sections -----------------------------------------------
-// Each of these cards gets a fold/unfold chevron in its heading; the state
-// is remembered per section (user request). Nothing structural changes —
-// a `.collapsed` class hides everything after the header row via CSS.
-const COLLAPSIBLE_SECTIONS = ["capture", "writing-room", "ask", "browse"];
-// Sections that start folded. The writing room is a whole workspace; leaving
-// it open by default would make the Notes tab heavier, which is the opposite
-// of what it needs. It opens with one click and remembers that you did.
-const COLLAPSED_BY_DEFAULT = new Set(["writing-room"]);
+// --- Notes sub-tabs ---------------------------------------------------------------
+// Four full-height cards stacked on one page meant scrolling past three forms
+// you weren't using to reach your notes (roadmap §10). Folding each card
+// helped, but it was mitigation: you still had four things to manage.
+//
+// The per-card collapse chevrons are retired here rather than kept alongside.
+// Two mechanisms for hiding the same card is exactly the trap that had the
+// Notes sections not collapsing at all a few sessions ago — one implementation
+// quietly undoing the other.
 
-function initCollapsibleSections() {
-  for (const id of COLLAPSIBLE_SECTIONS) {
-    const card = $(id);
-    if (!card || card.dataset.collapsibleReady) continue;
-    const h2 = card.querySelector(":scope > .row h2, :scope > h2");
-    if (!h2) continue;
-    card.dataset.collapsibleReady = "1";
-    h2.classList.add("collapsible-title");
-    // A clickable heading has to be operable from the keyboard too.
-    h2.setAttribute("role", "button");
-    h2.setAttribute("tabindex", "0");
+const NOTES_SECTIONS = ["browse", "capture", "writing-room", "ask"];
+const NOTES_SECTION_STORE = "notesSection";
 
-    const chevron = document.createElement("span");
-    chevron.className = "collapse-chevron";
-    chevron.setAttribute("aria-hidden", "true");
-    h2.insertBefore(chevron, h2.firstChild);
+function activeNotesSection() {
+  const saved = localStorage.getItem(NOTES_SECTION_STORE);
+  return NOTES_SECTIONS.includes(saved) ? saved : "browse";
+}
 
-    const key = `collapse:${id}`;
-    const apply = (collapsed) => {
-      card.classList.toggle("collapsed", collapsed);
-      chevron.textContent = collapsed ? "▸" : "▾";
-      h2.setAttribute("aria-expanded", String(!collapsed));
-      h2.title = collapsed ? "Expand this section" : "Collapse this section";
-    };
-    const toggle = () => {
-      const collapsed = !card.classList.contains("collapsed");
-      localStorage.setItem(key, collapsed ? "1" : "0");
-      apply(collapsed);
-    };
-    h2.addEventListener("click", toggle);
-    h2.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        toggle();
-      }
-    });
-    const stored = localStorage.getItem(key);
-    apply(stored === null ? COLLAPSED_BY_DEFAULT.has(id) : stored === "1");
+function showNotesSection(name, { focus = false } = {}) {
+  const wanted = NOTES_SECTIONS.includes(name) ? name : "browse";
+  for (const id of NOTES_SECTIONS) {
+    const card = document.getElementById(id);
+    if (card) card.classList.toggle("hidden", id !== wanted);
   }
+  for (const button of document.querySelectorAll("#notes-subtabs button")) {
+    const active = button.dataset.section === wanted;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", String(active));
+    // Roving tabindex: the strip is one tab stop, arrows move within it.
+    button.tabIndex = active ? 0 : -1;
+    if (active && focus) button.focus();
+  }
+  localStorage.setItem(NOTES_SECTION_STORE, wanted);
+}
+
+function initNotesSubtabs() {
+  const strip = document.getElementById("notes-subtabs");
+  if (!strip || strip.dataset.ready) return;
+  strip.dataset.ready = "1";
+  strip.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-section]");
+    if (button) showNotesSection(button.dataset.section);
+  });
+  strip.addEventListener("keydown", (event) => {
+    const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
+    if (!step) return;
+    event.preventDefault();
+    const order = [...strip.querySelectorAll("button[data-section]")].map(
+      (b) => b.dataset.section
+    );
+    const index = order.indexOf(activeNotesSection());
+    showNotesSection(order[(index + step + order.length) % order.length], {
+      focus: true,
+    });
+  });
+  showNotesSection(activeNotesSection());
 }
 
 // --- panels inside the Notes tab (bin / activity) ---------------------------------
@@ -7298,7 +7983,7 @@ function initScrollTopButton() {
 
 // --- settings modal (Wave A) ------------------------------------------------------
 
-const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "appearance", "preferences", "tasks", "data", "logs", "help", "about"];
+const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "appearance", "shortcuts", "preferences", "tasks", "data", "logs", "help", "about"];
 
 // Where to send focus back when a dialog closes (Wave L).
 let overlayReturnFocus = null;
@@ -7320,6 +8005,7 @@ function showSettingsSection(name) {
   if (name === "skills") renderSkillSettings();
   if (name === "tools") renderToolSettings();
   if (name === "appearance") renderAppearance();
+  if (name === "shortcuts") renderShortcutList();
   if (name === "data") renderBackups();
   if (name === "tasks") refreshModelStatus(); // populate the tasks list now
 }
@@ -7660,11 +8346,8 @@ function paletteCommands() {
       label: "✨ Write a note from rough thoughts",
       run: () => {
         switchTab("notes");
-        // The writing room starts folded, so open it before jumping there.
-        const card = $("writing-room");
-        if (card?.classList.contains("collapsed")) {
-          card.querySelector(".collapsible-title")?.click();
-        }
+        // It's a sub-tab now, so select it rather than unfolding a card.
+        showNotesSection("writing-room");
         $("draft-thoughts")?.focus();
       },
     },
@@ -8656,6 +9339,7 @@ function toggleTheme() {
   const next = current === "dark" ? "light" : "dark";
   root.dataset.theme = next;
   localStorage.setItem("theme", next); // remembered across restarts
+  applyResolvedMode();
   if (bgArtOn()) startBgArt(); // recolour the background for the new theme
 }
 
@@ -8686,6 +9370,22 @@ function activeAccent() {
   return localStorage.getItem("accent") || "indigo";
 }
 
+// The colour the app is *actually* wearing right now. The generative art used
+// to look this up from the ACCENTS list via localStorage, which only knows
+// about the accent picker — so a curated palette changed every surface in the
+// app except the two canvases, leaving them wearing the previous theme. The
+// computed variable is the one source of truth once palettes can set it too.
+function currentAccentHex() {
+  const computed = getComputedStyle(document.documentElement)
+    .getPropertyValue("--accent")
+    .trim();
+  if (computed) return computed;
+  return (
+    localStorage.getItem("accent-custom") ||
+    (ACCENTS.find((a) => a.name === activeAccent()) || ACCENTS[0]).swatch
+  );
+}
+
 function applyAccent(name) {
   if (name === "indigo") delete document.documentElement.dataset.accent;
   else document.documentElement.dataset.accent = name;
@@ -8713,6 +9413,13 @@ const APPEARANCE_DEFAULTS = {
   density: "comfortable", // comfortable | compact | spacious
   glass: "on",
   motion: "auto", // "auto" = follow the OS; "reduced" = force-still
+  // Background movement, separate from the interface-wide motion setting.
+  // "auto" follows reduced-motion; "moving" is an explicit request that
+  // overrides it; "still" never moves. This key was missing entirely, which
+  // left the picker rendering blank (selectedIndex -1) — so choosing "Moving"
+  // looked like it did nothing, and there was no way at all to get the art
+  // moving on a machine with reduced motion turned on.
+  "bg-motion": "auto",
   "bg-intensity": "90",
   radius: "14", // global corner rounding, px
   "glass-blur": "18", // frosted-glass blur strength, px
@@ -8779,6 +9486,8 @@ function applyAppearance() {
   root.dataset.bgArt = bgArtOn() ? "on" : "off";
   root.style.setProperty("--radius", `${appearancePref("radius")}px`);
   root.style.setProperty("--glass-blur", `${appearancePref("glass-blur")}px`);
+  applyResolvedMode();
+  applyPalette(activePalette());
   applyCustomAccent(localStorage.getItem("accent-custom"));
   applyPageBackground(localStorage.getItem("page-bg"));
   applyCustomCss(localStorage.getItem("custom-css"));
@@ -8788,6 +9497,29 @@ function effectiveTheme() {
   return localStorage.getItem("theme") || "system";
 }
 
+// What the app is *actually* showing right now: "system" is a choice, not a
+// colour. The curated palettes need the resolved answer, because under
+// "System" there is no data-theme attribute for CSS to match on — and writing
+// each palette twice, once in a prefers-color-scheme block, is exactly how two
+// copies of a palette drift apart.
+function resolvedTheme() {
+  const choice = effectiveTheme();
+  if (choice === "light" || choice === "dark") return choice;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function applyResolvedMode() {
+  document.documentElement.dataset.mode = resolvedTheme();
+}
+
+// Follow the OS while the choice is "System", without a reload.
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+  if (effectiveTheme() === "system") {
+    applyResolvedMode();
+    if (bgArtOn()) startBgArt();
+  }
+});
+
 function applyThemeChoice(choice) {
   if (choice === "system") {
     delete document.documentElement.dataset.theme;
@@ -8796,6 +9528,7 @@ function applyThemeChoice(choice) {
     document.documentElement.dataset.theme = choice;
     localStorage.setItem("theme", choice);
   }
+  applyResolvedMode();
   if (bgArtOn()) startBgArt();
   renderBrandLogo();
 }
@@ -8833,6 +9566,7 @@ function renderAppearance() {
   $("bg-intensity-row").classList.toggle("hidden", !bgArtOn());
   $("bg-motion").value = appearancePref("bg-motion");
   $("bg-motion-row").classList.toggle("hidden", !bgArtOn());
+  renderBgMotionHint();
   $("glass-toggle").checked = appearancePref("glass") === "on";
   $("bg-intensity").value = appearancePref("bg-intensity");
   $("bg-intensity-value").textContent = `${appearancePref("bg-intensity")}%`;
@@ -8850,16 +9584,163 @@ function renderAppearance() {
   const artOff = !bgArtOn();
   $("bg-style-row").classList.toggle("disabled-row", artOff);
   $("bg-intensity-row").classList.toggle("disabled-row", artOff);
+  renderPaletteGrid();
   _segActive("theme-seg", "themeChoice", effectiveTheme());
   _segActive("fontsize-seg", "fontsize", appearancePref("fontsize"));
   _segActive("font-seg", "font", appearancePref("font"));
   _segActive("density-seg", "density", appearancePref("density"));
 }
 
+// A frozen background with no explanation reads as a broken app — which is
+// how it was reported. Say which setting is holding it still, and that
+// "Moving" will override it.
+function renderBgMotionHint() {
+  const hint = $("bg-motion-hint");
+  if (!hint) return;
+  const choice = appearancePref("bg-motion");
+  const osReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const appReduced = appearancePref("motion") === "reduced";
+  let text = "";
+  if (choice === "auto" && (osReduced || appReduced)) {
+    text = osReduced
+      ? "Held still because your system asks for reduced motion. Choose Moving to override it here."
+      : "Held still because Reduce motion is on above. Choose Moving to override it just for the background.";
+  }
+  hint.textContent = text;
+  hint.classList.toggle("hidden", !text);
+}
+
+// --- curated palettes -------------------------------------------------------------
+// The palette is a look; Mode (light/dark/system) is a separate axis. Every
+// palette defines both, so picking "Parchment" never also decides whether
+// it's night. Swatch colours are duplicated here from the CSS on purpose: the
+// preview has to show a palette that isn't currently applied, and a variable
+// can only ever report the active one.
+const PALETTES = [
+  {
+    id: "default",
+    name: "Aurora",
+    note: "The original: indigo glass over a soft gradient.",
+    light: { page: "linear-gradient(135deg,#e9edfb,#f6f2ec 45%,#e6f1f2)", card: "rgba(255,255,255,0.75)", accent: "#4f6df5", border: "rgba(31,36,48,0.12)" },
+    dark: { page: "linear-gradient(135deg,#0e1017,#171a26 45%,#0f1720)", card: "rgba(29,33,46,0.85)", accent: "#8b9df8", border: "rgba(255,255,255,0.14)" },
+  },
+  {
+    id: "parchment",
+    name: "Parchment",
+    note: "Paper, ink and a little gold. Made for long writing.",
+    light: { page: "linear-gradient(135deg,#f6efe2,#f3e9d8 45%,#efe4d2)", card: "rgba(255,252,245,0.85)", accent: "#9a6b1f", border: "rgba(63,51,30,0.16)" },
+    dark: { page: "linear-gradient(135deg,#1b1710,#221c13 45%,#1a1611)", card: "rgba(43,36,25,0.85)", accent: "#e0b458", border: "rgba(238,224,196,0.16)" },
+  },
+  {
+    id: "sage",
+    name: "Sage",
+    note: "Quiet greens. The calmest of the set.",
+    light: { page: "linear-gradient(135deg,#eaf1e9,#f2f5ee 45%,#e4eeea)", card: "rgba(253,255,252,0.85)", accent: "#2f7d54", border: "rgba(30,43,35,0.14)" },
+    dark: { page: "linear-gradient(135deg,#0d1512,#121d17 45%,#0e1a16)", card: "rgba(25,38,31,0.85)", accent: "#5fd39a", border: "rgba(210,240,224,0.15)" },
+  },
+  {
+    id: "ocean",
+    name: "Ocean",
+    note: "Cool teal and deep blue. Crisp rather than cosy.",
+    light: { page: "linear-gradient(135deg,#e4f0f6,#eef6f8 45%,#dfeef2)", card: "rgba(252,254,255,0.85)", accent: "#0f7d99", border: "rgba(20,38,46,0.14)" },
+    dark: { page: "linear-gradient(135deg,#08131a,#0d1e28 45%,#091a22)", card: "rgba(21,36,45,0.85)", accent: "#46c9e6", border: "rgba(200,238,250,0.15)" },
+  },
+  {
+    id: "ember",
+    name: "Ember",
+    note: "Warm oranges. Best in the evening.",
+    light: { page: "linear-gradient(135deg,#fbeee4,#f9efe6 45%,#f6e6e0)", card: "rgba(255,252,249,0.85)", accent: "#bc5622", border: "rgba(46,30,22,0.15)" },
+    dark: { page: "linear-gradient(135deg,#17100c,#1f1511 45%,#1a0f0e)", card: "rgba(41,29,23,0.85)", accent: "#f5924f", border: "rgba(246,220,204,0.16)" },
+  },
+  {
+    id: "plum",
+    name: "Plum",
+    note: "Deep violet and magenta. The most saturated.",
+    light: { page: "linear-gradient(135deg,#f1e9f7,#f6eef8 45%,#ece6f6)", card: "rgba(254,252,255,0.85)", accent: "#8332ad", border: "rgba(38,26,46,0.14)" },
+    dark: { page: "linear-gradient(135deg,#130d1a,#1c1226 45%,#170f20)", card: "rgba(35,26,45,0.85)", accent: "#c07df5", border: "rgba(232,212,250,0.16)" },
+  },
+  {
+    id: "carbon",
+    name: "Carbon",
+    note: "Near-monochrome. Colour only where it means something.",
+    light: { page: "linear-gradient(135deg,#f2f3f5,#eceef1 45%,#e7e9ed)", card: "rgba(255,255,255,0.9)", accent: "#2b3441", border: "rgba(20,24,31,0.18)" },
+    dark: { page: "linear-gradient(135deg,#0a0b0d,#101216 45%,#0c0e11)", card: "rgba(24,27,33,0.9)", accent: "#cdd5e0", border: "rgba(255,255,255,0.14)" },
+  },
+];
+
+function activePalette() {
+  const saved = localStorage.getItem("palette");
+  return PALETTES.some((p) => p.id === saved) ? saved : "default";
+}
+
+function applyPalette(id) {
+  const root = document.documentElement;
+  // "default" means "no palette overrides" — leave the attribute off rather
+  // than shipping a block that restates the base :root values.
+  if (id && id !== "default") root.dataset.palette = id;
+  else delete root.dataset.palette;
+  localStorage.setItem("palette", id || "default");
+  // The generative background paints from the accent, so it has to be rebuilt.
+  if (bgArtOn()) startBgArt();
+}
+
+function renderPaletteGrid() {
+  const grid = $("palette-grid");
+  if (!grid) return;
+  const current = activePalette();
+  const dark = resolvedTheme() === "dark";
+  grid.replaceChildren();
+  for (const palette of PALETTES) {
+    const swatch = dark ? palette.dark : palette.light;
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "theme-card";
+    card.setAttribute("aria-pressed", String(palette.id === current));
+    card.title = palette.note;
+
+    const preview = document.createElement("span");
+    preview.className = "theme-preview";
+    // The preview must show *its own* palette, so these are inline.
+    preview.style.background = swatch.page;
+    preview.style.setProperty("--sw-card", swatch.card);
+    preview.style.setProperty("--sw-accent", swatch.accent);
+    preview.style.setProperty("--sw-border", swatch.border);
+
+    const name = document.createElement("span");
+    name.className = "theme-name";
+    name.textContent = palette.name;
+    const note = document.createElement("span");
+    note.className = "theme-note";
+    note.textContent = palette.note;
+
+    card.append(preview, name, note);
+    card.addEventListener("click", () => {
+      // A palette brings its own accent, and an accent chosen earlier sits at
+      // higher specificity — leaving it would make every palette come out the
+      // same colour, which reads as the picker not working. The accent row
+      // below is still there to deviate from the palette afterwards.
+      const hadAccent =
+        activeAccent() !== "indigo" || localStorage.getItem("accent-custom");
+      localStorage.removeItem("accent-custom");
+      applyCustomAccent(null);
+      applyAccent("indigo");
+      applyPalette(palette.id);
+      renderAppearance();
+      toast(
+        hadAccent
+          ? `Palette: ${palette.name}. Its own accent is back — pick another below if you'd rather.`
+          : `Palette: ${palette.name}.`
+      );
+    });
+    grid.appendChild(card);
+  }
+}
+
 function resetAppearance() {
   for (const key of [
     "fontsize", "font", "density", "glass", "motion", "bg-intensity", "accent",
     "contrast", "bgArt", "theme", "radius", "glass-blur", "bg-style",
+    "bg-motion", "palette",
     "accent-custom", "page-bg", "custom-css",
   ]) {
     localStorage.removeItem(key);
@@ -9099,16 +9980,18 @@ const BG_ART_BUILDERS = {
 function startBgArt() {
   stopBgArt();
   if (typeof p5 === "undefined") return;
-  // Still if the OS asks, if the interface-wide reduce-motion is on, or if the
-  // background is simply set to Still — three different reasons, one outcome.
-  // Wanting a calm background isn't the same as wanting a calm interface, and
-  // previously the only way to still the art was to still everything.
+  // Wanting a calm background isn't the same as wanting a calm interface, so
+  // the art has its own setting. "Moving" is an explicit request and wins over
+  // the reduced-motion hint: the hint exists to protect people from motion
+  // they didn't ask for, and this is someone asking for it, in a control that
+  // does nothing else. Without that override there was no way to get the art
+  // moving at all on a machine with reduced motion on — which is exactly what
+  // was reported.
+  const bgMotion = appearancePref("bg-motion");
   const reduceMotion =
-    reducedMotionWanted() || appearancePref("bg-motion") === "still";
-  // A custom accent colour, if set, drives the art too.
-  const accentHex =
-    localStorage.getItem("accent-custom") ||
-    (ACCENTS.find((a) => a.name === activeAccent()) || ACCENTS[0]).swatch;
+    bgMotion === "still" || (bgMotion !== "moving" && reducedMotionWanted());
+  // Whatever colour the app is wearing — accent picker or curated palette.
+  const accentHex = currentAccentHex();
   const bgStyle = bgArtStyle();
   // Intensity drives how much is on screen, not just the CSS opacity.
   const intensity = Number(appearancePref("bg-intensity")) || 90;
@@ -9426,7 +10309,7 @@ $("skip-link").addEventListener("click", (e) => {
   e.preventDefault();
   $(`tab-${localStorage.getItem("activeTab") || "notes"}`).focus();
 });
-initCollapsibleSections();
+initNotesSubtabs();
 scrollTopUpdate = initScrollTopButton();
 initResizableSidebars();
 switchTab(localStorage.getItem("activeTab") || "notes");
@@ -9518,6 +10401,7 @@ $("draft-thoughts").addEventListener("keydown", (event) => {
 $("draft-discard").addEventListener("click", () => {
   if (!$("draft-text").value.trim() && !$("draft-thoughts").value.trim()) return;
   if (!confirm("Discard this draft? It hasn't been saved as a note.")) return;
+  foldedThoughts = "";
   $("draft-thoughts").value = "";
   $("draft-text").value = "";
   $("draft-tags").value = "";
@@ -9526,6 +10410,16 @@ $("draft-discard").addEventListener("click", () => {
   updateDraftCount();
   saveDraftLocally();
 });
+// "What is this?" — it toggled `hidden` on the intro paragraph, which is a
+// child of a card that starts *collapsed*. So the paragraph was already not
+// displayed, the click changed nothing anyone could see, and the button read
+// as dead. It now opens the section and explains what the writing room is,
+// including what happens when there's no AI running — which is when someone
+// is most likely to press it.
+// "What is this?" — it used to toggle `hidden` on a paragraph inside a card
+// that started collapsed, so the paragraph was already not displayed and the
+// click changed nothing anyone could see. The section is always open when you
+// can press this now, so it's a plain show/hide of the explanation.
 $("draft-help").addEventListener("click", () => {
   $("draft-intro").classList.toggle("hidden");
 });
@@ -9561,6 +10455,15 @@ $("note-picker-panel").addEventListener("keydown", (event) => {
 });
 $("chat-stop").addEventListener("click", () => chatController && chatController.abort());
 $("chat-new").addEventListener("click", newChatConversation);
+$("persona-peek").addEventListener("click", togglePersonaPrompt);
+// Debounced: this hits the server, and searching as you type shouldn't mean
+// a request per keystroke.
+let convSearchTimer = null;
+$("conv-search").addEventListener("input", (event) => {
+  conversationQuery = event.target.value.trim();
+  clearTimeout(convSearchTimer);
+  convSearchTimer = setTimeout(loadConversationList, 180);
+});
 $("chat-export").addEventListener("click", exportChatMarkdown);
 $("chat-input").addEventListener("keydown", (e) => {
   if (e.key === "Enter") sendChatMessage();
@@ -10066,11 +10969,12 @@ $("duplicate-threshold").addEventListener("input", (e) => {
   $("duplicate-threshold-value").textContent = `${e.target.value}%`;
 });
 
-$("about-shortcuts").addEventListener("click", () => {
-  closeSettingsModal();
-  openShortcuts();
-});
+// From Help, go to the Settings section rather than swapping one dialog for
+// another — "how do I change a shortcut?" should end somewhere you can find
+// again, not in an overlay with no address.
+$("about-shortcuts").addEventListener("click", () => showSettingsSection("shortcuts"));
 $("shortcuts-reset").addEventListener("click", resetShortcuts);
+$("shortcuts-reset-settings").addEventListener("click", resetShortcuts);
 
 $("search-help").addEventListener("click", () => {
   const panel = $("search-help-hint");
@@ -10572,8 +11476,33 @@ function resetShortcuts() {
 
 let capturingShortcut = null; // the id being rebound, or null
 
+// The same list is mounted twice — in the ? overlay and in Settings →
+// Keyboard shortcuts. Rendering both from one function is what keeps them
+// from drifting apart; two copies of this logic is how one of them goes stale.
+const SHORTCUT_LIST_IDS = ["shortcut-list", "shortcut-list-settings"];
+const SHORTCUT_STATUS_IDS = ["shortcut-status", "shortcut-status-settings"];
+
+function setShortcutStatus(text) {
+  for (const id of SHORTCUT_STATUS_IDS) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  }
+}
+
+function setShortcutStatusError(isError) {
+  for (const id of SHORTCUT_STATUS_IDS) {
+    document.getElementById(id)?.classList.toggle("error", isError);
+  }
+}
+
 function renderShortcutList() {
-  const list = $("shortcut-list");
+  for (const listId of SHORTCUT_LIST_IDS) {
+    const list = document.getElementById(listId);
+    if (list) buildShortcutList(list);
+  }
+}
+
+function buildShortcutList(list) {
   list.replaceChildren();
   for (const [id, def] of Object.entries(shortcuts)) {
     const li = document.createElement("li");
@@ -10591,9 +11520,9 @@ function renderShortcutList() {
     change.setAttribute("aria-label", `Change the shortcut for: ${def.label}`);
     change.addEventListener("click", () => {
       capturingShortcut = capturingShortcut === id ? null : id;
-      $("shortcut-status").textContent = capturingShortcut
-        ? "Press the keys you want, or Escape to cancel."
-        : "";
+      setShortcutStatus(
+        capturingShortcut ? "Press the keys you want, or Escape to cancel." : ""
+      );
       renderShortcutList();
     });
 
@@ -10625,7 +11554,7 @@ function captureShortcutKey(event) {
   if (!capturingShortcut) return false;
   if (event.key === "Escape") {
     capturingShortcut = null;
-    $("shortcut-status").textContent = "";
+    setShortcutStatus("");
     renderShortcutList();
     return true;
   }
@@ -10638,22 +11567,22 @@ function captureShortcutKey(event) {
   if (clash) {
     // Refuse rather than silently stealing it — two actions on one key means
     // one of them quietly stops working.
-    $("shortcut-status").classList.add("error");
-    $("shortcut-status").textContent = `${combo} is already used for "${clash[1].label}".`;
+    setShortcutStatusError(true);
+    setShortcutStatus(`${combo} is already used for "${clash[1].label}".`);
     return true;
   }
   shortcuts[capturingShortcut].keys = combo;
   saveShortcutOverrides();
   capturingShortcut = null;
-  $("shortcut-status").classList.remove("error");
-  $("shortcut-status").textContent = `Set to ${combo}.`;
+  setShortcutStatusError(false);
+  setShortcutStatus(`Set to ${combo}.`);
   renderShortcutList();
   return true;
 }
 
 function openShortcuts() {
   capturingShortcut = null;
-  $("shortcut-status").textContent = "";
+  setShortcutStatus("");
   renderShortcutList();
   $("shortcuts-overlay").classList.remove("hidden");
   $("shortcuts-close").focus();

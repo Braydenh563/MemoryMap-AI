@@ -172,6 +172,10 @@ class Conversation(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String(120))
     messages: Mapped[str] = mapped_column(Text, default="[]")
+    # Pinned chats sort above the rest. The list is flat and grows forever,
+    # so the thread you keep coming back to sinks under a week of one-offs.
+    # (Added by the auto-migrator on existing databases, defaulting to false.)
+    pinned: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=utcnow, onupdate=utcnow

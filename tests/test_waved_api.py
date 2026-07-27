@@ -434,7 +434,7 @@ def test_reminder_times_come_back_marked_as_utc(client):
 
 def test_entry_timestamps_are_marked_as_utc_too(client):
     """The same column type backs every table, so the guarantee is app-wide."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     client.post("/entries", json={"content": "a note"})
     entry = client.get("/entries").json()[0]

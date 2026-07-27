@@ -1,7 +1,7 @@
 # MemoryMap AI — work plan
 
-Everything outstanding, in the order I'd do it. Written at the end of a long
-session so a fresh one can pick up without re-deriving context.
+Everything outstanding, in the order I'd do it. Written so a fresh session can
+pick up without re-deriving context.
 
 Each item says **why** it matters, not just what to build — the reasoning is
 the part that's expensive to reconstruct.
@@ -10,300 +10,308 @@ the part that's expensive to reconstruct.
 
 ## How to work on this repo
 
-- `PYTHONPATH=src python -m pytest` — 402 tests, fully offline, no Ollama needed
+- `PYTHONPATH=src python -m pytest` — 486 tests, fully offline, no Ollama needed
 - `ruff check .` — matches CI
 - `node --check frontend/app.js` — the frontend is one large plain-JS file, so a
   syntax check is worth running after every edit
 
-**Drive the app in a browser before claiming anything works.** Chromium and
-Playwright are preinstalled (`/opt/pw-browsers/chromium`). Several bugs this
-session were invisible to the test suite and obvious in ten seconds of clicking:
-the document editor you couldn't type in, the frozen typing dots, the export
-that navigated the app away.
+**Drive the app in a browser before claiming anything works.** Chromium is
+preinstalled at `/opt/pw-browsers/chromium-1194/chrome-linux/chrome`, but the
+Python package is not — `pip install playwright` first. Most of the bugs fixed
+in the last session were invisible to the test suite and obvious in ten seconds
+of clicking: a header that wrapped on every laptop-sized window, a dropdown that
+rendered blank, jump-to-note doing nothing, four different control heights in
+one row.
+
+**Installing dependencies in a fresh sandbox:** `download.pytorch.org` is blocked
+by the network policy, so `pip install -r requirements.txt` stalls on torch.
+Install the non-ML subset from PyPI instead (fastapi, uvicorn, SQLAlchemy,
+python-dotenv, requests, numpy, bcrypt, cryptography, python-multipart, pytest,
+httpx, ruff), plus `pip install --force-reinstall cffi` — the system
+`cryptography` needs a `_cffi_backend` that isn't present by default, and three
+test files fail to collect without it.
 
 ### Traps worth knowing about
 
-1. **Don't guess element ids.** I produced four false bug reports by querying
-   selectors that didn't exist and reading the empty result as "broken". Query
-   generically — "what became visible after this click?" — or check the id in
-   `index.html` first.
+1. **Don't guess element ids.** Query generically — "what became visible after
+   this click?" — or check the id in `index.html` first.
 2. **The test fakes override more than you expect.** `FakeEmbeddingService`
    overrides `embed_text` wholesale, so a test of the embedding cache passed
    while proving nothing. Check what the fake actually replaces.
-3. **Reduced motion kills every animation.** Two blanket rules set
-   `animation-iteration-count: 1` on everything. Any animation that carries
-   *meaning* (a progress indicator) must have a non-motion fallback, or it
-   freezes and reads as a rendering fault.
+3. **Reduced motion kills every animation.** Any animation that carries
+   *meaning* (a progress indicator) needs a non-motion fallback, or it freezes
+   and reads as a rendering fault.
 4. **`git checkout <file>` to undo a bad edit discards everything uncommitted in
-   that file.** I lost a finished change that way and only half-restored it.
-   Commit before experimenting.
+   that file.** Commit before experimenting.
+5. **A POST response can lie about stored state.** SQLAlchemy returns the object
+   still in memory, so a serialisation bug only appears on the next read from
+   disk. The UTC timestamp bug hid behind exactly this — assert on the LIST
+   response, not the create response.
+6. **Later CSS with equal specificity silently wins.** `position: relative` on
+   `#chat-sidebar`, declared 600 lines later for the resize handle, quietly
+   un-stuck a `position: sticky` rule. When a style "doesn't apply", grep for
+   the property rather than re-declaring it.
+7. **The Notes tab is sub-tabbed.** Anything that scrolls to a note must call
+   `showNotesSection("browse")` first, or it scrolls to an element inside a
+   `display: none` section and appears to do nothing.
+8. **Check `main` before building.** Two sessions independently built web-search
+   privacy, curated colour sets, and notebook-access tools. Merging them cost
+   more than coordinating would have.
+9. **The test suite cannot see any of the above.** Every UI bug listed below
+   passed 480+ green tests.
 
 ---
 
-More user notes + requests (not in order): 
-- The background art still wont move
-- Improve and expand on the dashboard even more.
-- The "What's this" button on the "write with the ai" section does nothing when clicked (at least when the ai is not running)
-- the offline semantic search only covers keyword search and doesnt use keywords for car
-- Add the logo in more places and make sure it stays animated. 
-- The keybinds section for keyboard shortcuts is missing. 
-- When I click on the notes tab, there is a visual flicker at the bottom of the top menu bar for a second or two
-- The notes tab sidebar cant be expanded or shortened in width and it also has scroll bars on some of the appearance settings
-- better structure and visualise the opened page text from web search
-- Just refine the chat functionality and agent stuff and everything both frunt and backend. 
-- Created documents disappear. where are htey stored and how do I save them or put it places?? expand the documents tab and make it more integrated with the rest of the program and its features
-- Improve and remake the chat page ui to be impressive and the best it can be??
-- I want to improve the document preview md formatting
-- I want the web search to be as private as possible. make it untraceable/untrackable
-- Make sure that the ai in the chat can read documents and chat history. 
-- allow the at to view, manage and create skills.
-- Fix the chat page. it is barebones, things like the sidebar arent even the right matching height, there are barely any features and it looks bland. 
-- The write with ai function in notes still deletes my original text in the "your thoughts" text box
-- a better way to manage widgets. also more widgets pls
-- Expand the appearences tab and implement an option to sleect from preset and curated visual themes. make lots of cool themes.
-- Expand on the capabilities of the graph
+## Done recently — don't redo
 
-## Done in the session of 26 July
+**Bugs fixed** (each reproduced and verified in a browser):
 
-Driven in a browser before and after, because most of it was invisible to
-the test suite. Test count went 402 → 465.
+| Symptom | Actual cause |
+| --- | --- |
+| Settings screens cut off, unscrollable | Modal grid row sized to content, so the scroll pane grew past the dialog and was clipped |
+| Page scrolled behind open dialogs | No scroll lock; now one observer derives it from whichever overlay is visible |
+| Dashboard empty until Edit layout was opened and cancelled | `switchTab` runs before auth, so widgets painted from 401s and never retried |
+| "Thinking… Thinking about your week…" | `typingDots()` renders its own label under reduced motion; the caller appended a second |
+| Agent answers arrived in one lump | The loop called the non-streamed `chat_tools` — the default chat path was the only one that didn't stream |
+| No metadata when tools were used | The meta line was gated on prose existing |
+| Couldn't switch search engines "early" | The picker lived inside the Ollama-only block, including the built-in option that needs no Ollama |
+| Movement dropdown blank | `bg-motion` missing from `APPEARANCE_DEFAULTS`, so the value was `undefined` |
+| "Ask about this" did nothing | It prefilled text for a model that cannot open a URL; now backed by a real `read_url` tool |
+| Top bar out of alignment | Header wrapped at every width 720–1400px; after the first fix, clipped "Reminders" from 900–1300px |
+| Jump-to-note dead from search, graph, wiki links | `flashEntry` scrolled to a card inside a `display:none` sub-tab |
+| Ask query disappeared | The box was cleared on submit, leaving an answer with nothing saying what it answered |
+| Reminder controls misaligned | Four different heights (44/42/41/40px), so "centred" gave four different tops |
+| Chat + document sidebars scrolled away | A later ID rule set `position: relative`, outranking the sticky rule |
+| **Reminder 5 min ahead read as 10 hours overdue** | SQLite drops the timezone; JS parses naive date-times as *local*. Fixed with a UTC-aware column type covering every table |
 
-- **§1 The AI can reach the notebook.** `get_note`, `list_notes` (filter +
-  paging), `count_notes` (now with tags), `list_tags`. The hard part was the
-  context budget, as predicted: previews in lists, full text only via
-  `get_note`, every limit clamped, and a turn-level budget in the agent loop
-  that stops adding tool output rather than overflowing. Closed a leak while
-  there: `count_notes`, `list_categories` and `summarize_notes` were counting
-  private notes and handing back their ciphertext.
-- **The AI can also reach documents, past chats and skills** —
-  `list_documents` / `get_document`, `search_chat_history` (whole turns, not
-  just the matching line), `list_skills` / `save_skill` / `delete_skill`.
-- **§2 Chat.** Sidebar height matched the panel (it was 16px — both are
-  `.card`, and `.card` has a bottom margin). Search across what was *said*,
-  pinning, per-row date/turns/tokens, code blocks with a language label and
-  copy button, editable answers (labelled as edited), the persona's real
-  system prompt viewable, a running token total.
-- **§3 Documents.** They never actually disappeared — the app just never said
-  where they were. It now shows the real database path, plus an outline from
-  the headings, live word count and reading time, and "expand a note into a
-  document".
-- **§6 First run.** One getting-started card instead of twelve widgets each
-  reporting they have nothing to show.
-- **§7 Accessibility.** The graph is fully keyboard-operable (one tab stop,
-  arrows move between notes, `n` follows connections, Enter opens). Contrast
-  measured against AA and fixed: text on accent surfaces was 4.34:1 light and
-  2.54:1 dark, now 5.80 and 7.50.
-- **§8 Mobile.** Was genuinely broken — every tab overflowed at 390px, hidden
-  on a real phone because Chrome shrinks the page to fit. Fixed; nothing
-  scrolls sideways now.
-- **§9 kNN filing**, before falling back to the chat model. Matters most with
-  no model running, where "inconclusive" used to mean Uncategorised.
-- **§10 Notes sub-tabs** instead of four stacked cards. The per-card collapse
-  chevrons are gone rather than kept alongside — two ways to hide one card is
-  the trap that broke them last time.
-- **Seven curated palettes**, each with a light and a dark set.
-- **Web search privacy**: the User-Agent no longer announces this exact app,
-  every request carries DNT/Sec-GPC/no-Referer, and click-tracking parameters
-  are stripped from result links and from anything opened in the reader.
-- **User-reported fixes**: background art wouldn't move (two stacked faults),
-  Notes sidebar couldn't be resized (handle clipped by an overflow container),
-  "What is this?" did nothing, Write-with-AI still deleted your thoughts, the
-  flicker under the top bar, the missing keyboard-shortcuts settings section.
+**Features added:** 10 curated themes layered over `main`'s 7 palettes
+(`your change → theme → default`, with separate "reset theme" and "clear my
+changes") · Settings → Account with password change (`vault.rewrap` existed and
+was called by nothing) · `--reset-password` CLI · agent step timeline
+(thinking → tool → tool → answer, persisted with the turn) · `read_url` tool ·
+Agent mode rename · split date/time reminder fields with presets, ±15m/±1d
+nudges and a plain-English readout · auto-growing capture and magic-add boxes ·
+jump-to-note after capture · name nudge on the dashboard ·
+`start-desktop.bat` / `./start.sh --desktop`
 
-### Still open from the list below
+**Security/privacy:** the User-Agent named the app to every site searched or
+read — now a common browser string, no cookie jar, no Referer, DNT/Sec-GPC,
+POST so queries stay out of request lines, tracking params stripped from result
+URLs. DNS-rebinding hole in the reader closed by pinning the validated IP on
+each redirect hop. Six `except: pass` blocks around embeddings now log, so a
+broken backend is visible instead of silently shrinking search.
 
-§4 images, §5 gallery and archive, the async httpx Ollama client, Alembic
-migrations, multi-user/session TTL, and the dashboard-widget and
-graph-capability expansions beyond keyboard access.
+**CodeQL triage** (from the alert list the user shared): the two Critical SSRF
+alerts are inherent to the reader feature and already guarded — the one real gap
+was the DNS-rebinding TOCTOU, now closed. Log injection is handled by sanitising
+at the buffer. The rest (cyclic imports, empty excepts, unused global) are code
+quality, and the assert-with-side-effect ones were real test bugs, now fixed.
 
 ---
 
-## 1. The AI can't reach your notes (highest priority)
+## 1. Live log console (started, not finished)
 
-**The problem.** The model only ever sees what semantic search hands it — five
-similarity hits. It cannot answer "how many notes do I have about X", can't work
-through a category, and can't be pointed at a specific note. Every other AI
-feature is limited by this, so it comes first.
+**Why.** Asked for directly: the Logs screen should read "like the terminal
+running in the background, with key errors flagged", not a list you refresh by
+hand.
 
-**What to build.** New agent tools in `src/memorymap/ai/tools.py`:
+**What exists.** `core/logbuffer.py` is a 500-record ring buffer attached to the
+root logger and uvicorn's. It now sanitises each message to one printable line
+(so a chat question or a page title can't forge a row) and keeps tracebacks in a
+separate `trace` field for a fold.
 
-- `get_note(id)` — one note in full
-- `list_notes(category=…, tag=…, since=…, limit=…, offset=…)` — paging, so a
-  large notebook is walkable rather than truncated
-- `search_notes(query)` — the existing keyword search, exposed to the model
-  (it's word-based and ranked now, so it's genuinely useful)
-- `count_notes(category=…, tag=…)` — cheap aggregate, no content in the response
-- `list_categories()` / `list_tags()` already exist; make sure they return counts
+**What's left.**
 
-**The hard part is context budget, not the tools.** A notebook of 5,000 notes
-will not fit in a local model's window. Decisions needed:
+- Stream `/logs` while the section is open — an EventSource endpoint is cleaner
+  than polling, and the app already streams NDJSON elsewhere
+- Follow/tail mode with autoscroll, pausing the moment the user scrolls up
+- Level filter (all / warnings / errors) and a text filter
+- Render the `trace` field in a fold under its record
+- Merge the browser-side `browserLogs` ring buffer into the same view, tagged by
+  source, so one screen answers "what just happened"
+- Count errors since the screen was last opened and badge the nav item
 
-- Cap what any one tool call can return, and tell the model the cap was hit so
-  it pages rather than silently seeing a truncated notebook
-- Return previews (first ~200 chars) for list calls, full text only for
-  `get_note`
-- Track approximate tokens across a turn and stop adding rather than overflow
+---
 
-**Non-negotiable:** private notes must stay out of every one of these, exactly
-as they're excluded from retrieval today. There are tests for this pattern in
-`tests/test_private_notes.py` — copy the approach.
+## 2. Quick wins
 
-### Agent quality, once it can reach things
+Small, self-contained, each removing a visible annoyance:
 
-The loop in `src/memorymap/ai/agent.py` already runs several rounds and several
-tools per round, so "do a string of tasks" is structurally there. What's weak:
+- **SearXNG install path.** `preferred_backend()` returns Docker if the binary
+  exists, else source (which needs `git`). With neither, "download SearXNG"
+  can't proceed at all — that is what "I can't download searxng" means. Add a
+  `pip install searxng` path so no-Docker-and-no-git still works, and show
+  install progress in the UI instead of raising it as an error toast.
+- **Notes sidebar sticky**, matching chat and documents (same pattern, same
+  `--header-h` offset).
+- **Empty chats can't be deleted** — a conversation with no turns has no delete
+  affordance.
+- **Copy button per code block** in chat answers.
+- **Conversation search** by content, not just title.
+- **Document outline / table of contents** from the headings, plus word-count
+  goal and reading time.
 
-- No plan/progress shown for a multi-step job — you see tool chips appear with
-  no sense of how many steps remain
+---
+
+## 3. Chat page: Chat / Agent / Browse sub-tabs
+
+**Why.** Asked for directly. The page mixes three activities in one column, and
+the web panel is bolted on top of the message list.
+
+**Shape.**
+
+- **Chat** — plain grounded Q&A
+- **Agent** — tool-calling with its own controls: which tools are allowed this
+  turn, max rounds, visible plan/progress, and a stop that keeps what it already
+  did
+- **Browse** — web search results, reader view, page history
+
+Cross-linking is the point: the agent hands a page to Browse, Browse hands a page
+to the chat. Web-search gating should be independent — a Browse-only mode where
+the section works even when the chat/agent `web_search` tool is off.
+
+**On the "in-built browser".** In the browser-served app this can only be an
+`<iframe>`, and most sites send `X-Frame-Options`/`frame-ancestors` that refuse
+to load in one — it would fail on exactly the sites worth opening. Proxying and
+rewriting pages server-side is effectively writing a browser, and re-introduces
+every tracker the privacy work removed. So the reader view stays the web path,
+and a genuine embedded browser belongs in the desktop shell, whose webview can
+navigate anywhere. **This ties §3 to §7.**
+
+---
+
+## 4. Library tab: chats, documents, images, archive
+
+**Why.** Asked for directly. Everything that isn't a note lives only in its own
+tab, and there is no archive at all.
+
+**Order matters — images first, since the gallery is a view over what they
+store:**
+
+1. **Image support.** Paste or drop an image into a note or document. The
+   `attachments` table and `routes_files.py` already store files, so this is
+   mostly a paste handler plus rendering. Decide inline markdown (`![](…)`) vs a
+   separate attachment list — inline keeps exports portable, the same reasoning
+   behind the markdown toolbar. Documents have no attachment support at all yet.
+2. **Archive.** A state between "active" and "binned", for things you want out
+   of the way but not deleted. Applies to notes, chats and documents: one
+   `archived_at` column per table, an additive migration.
+3. **Library tab.** One place showing stored images, documents, chats and
+   archived items, with previews, sorting and search.
+
+---
+
+## 5. Documents
+
+- **AI chat bar inside the document** — ask it to write or change things in
+  place, rather than through the edit dialog
+- **A real document browser** — the sidebar list is not a gallery
+- **Attach documents to notes**, and **expand a note into a document**
+- **Document history** — notes have `EntryRevision`; documents have none, and the
+  AI edit overwrites on accept
+- **Outline / table of contents**, word-count goal, reading time
+
+---
+
+## 6. OpenAI-compatible backends (LM Studio, llama.cpp, Jan, vLLM)
+
+**Why.** Asked for directly. LM Studio serves an OpenAI-compatible API on
+`http://localhost:1234/v1`, and so do llama.cpp's server, Jan, vLLM — and Ollama
+itself. **One provider gets all of them**, rather than an LM Studio special case.
+
+**Shape.** Generalise `ai/ollama_client.py` into a provider interface. This is
+real work, not a URL swap: the streaming shape and the tool-call shape both
+differ from Ollama's. Provider + base URL configurable in Settings → Models,
+with capability detection for tools and streaming, so a backend that can't do
+tool calls degrades to plain Q&A exactly as a tool-less Ollama model does today.
+
+Best done together with the async-httpx refactor in §10 — both rewrite the same
+client, and doing them separately means touching the streaming path twice.
+
+---
+
+## 7. Desktop packaging
+
+**Why.** Asked for: "run as a professional product".
+
+**Recommendation: not Electron.** The app is Python + static files; Electron
+would bundle a second runtime (~150 MB) and a Node toolchain to deliver what
+`--desktop` already does in-process via pywebview, and Python would still need
+shipping alongside it. Alternatives weighed: Tauri and Wails (Rust/Go shells,
+tiny binaries, but neither solves shipping Python), Neutralino (immature), plain
+PWA (already supported via `manifest.webmanifest` + `sw.js`).
+
+**Plan.** Harden the existing pywebview mode — single instance, native menus,
+tray, graceful port fallback when 8000 is taken, first-run flow — then
+PyInstaller one-file builds for Windows/macOS/Linux. pywebview's webview is also
+where the genuine embedded browser from §3 becomes possible.
+
+---
+
+## 8. Agent quality
+
+The registry is now 28 tools and reaches the whole notebook, documents and chat
+history. What's still weak:
+
+- No plan/progress for a multi-step job — the step timeline shows what happened,
+  not what remains
 - No way to stop an agent turn mid-way and keep what it already did
-- A tool that fails is reported but the model isn't told how to recover
-- `_CLAIM_PATTERN` catches the model claiming it saved something when no write
-  tool ran — a good safety net, and worth extending to other claim types
+- A tool that fails is reported, but the model isn't told how to recover
+- `_CLAIM_PATTERN` catches "I saved it" when no write tool ran — worth extending
+  to other claim types
 
 ---
 
-## 2. Chat UI
+## 9. Accessibility audit
 
-You said it's "very basic and bare bones" next to other AI interfaces. Concretely
-missing:
+Deserves one deliberate pass rather than more ad-hoc fixes:
 
-- **Streaming stop/regenerate parity** — Stop exists, but there's no "continue"
-  and no branching between regenerated answers
-- **Message-level editing of *answers*** (question editing now works)
-- **Copy code blocks** — no per-block copy button
-- **Conversation search** — no way to find a chat by content, only by title
-- **Conversation folders / pinning** — the list is flat and grows forever
-- **Token/context usage** shown per conversation, not just per message
-- **System-prompt visibility** — you can pick a persona but not see what it says
-- **Attachments in chat** beyond notes (images, documents — see §4 and §5)
-- **Empty chats can't be deleted** — you reported this; the empty-response fix
-  adds a Delete button, but a *conversation* with no turns still needs one
-
----
-
-## 3. Documents
-
-- **AI chat bar inside the document** — ask it to write or change things in the
-  current document, in place, rather than through the edit dialog
-- **A real document browser** — the sidebar list is not a gallery; no previews,
-  no sorting, no search
-- **Attach documents to notes**, and **expand a note into a document** (both
-  directions: a note that outgrew itself becomes a document; a document can be
-  referenced from a note)
-- **Document history** — notes have edit history now (`EntryRevision`);
-  documents have none, and the AI edit overwrites on accept
-- **Outline / table of contents** from the headings
-- **Word-count goal** and reading time
-
----
-
-## 4. Images
-
-- **Paste an image** into a note or document and have it stored and rendered
-- Attachments already exist for notes (`routes_files.py`) — this is mostly a
-  paste handler plus rendering, not new storage
-- Documents have no attachment support at all yet
-- Decide on inline markdown (`![](…)`) vs a separate attachment list; inline
-  keeps the export portable, which is the same reasoning behind the markdown
-  toolbar
-
----
-
-## 5. Gallery and archive
-
-- **Gallery** — one place showing stored images, documents and chats, with
-  previews. Currently each lives only in its own tab
-- **Archive** — a state between "active" and "binned", for things you want out
-  of the way but not deleted. Applies to notes, chats and documents
-- Worth doing *after* §4, since the gallery is mostly a view over what §4 stores
-
----
-
-## 6. First-run and empty states
-
-A brand-new notebook shows twelve "nothing here yet" widgets on the dashboard
-and empty lists everywhere else. Each individual message is fine; together they
-make a working app look broken on the day someone starts using it.
-
-- Dashboard should show a compact getting-started card instead of a grid of
-  empty widgets until there's something to show
-- The graph, duplicates and history screens all need a first-run state that
-  explains what will appear there rather than just saying it's empty
-- (Checked: the welcome tour *is* already replayable, from Settings → Help and
-  from the features browser. Nothing to do there.)
-
----
-
-## 7. Accessibility audit
-
-I've added live regions, focus management and keyboard paths piecemeal. It
-deserves one deliberate pass rather than more ad-hoc fixes:
-
-- **The graph is mouse-only** — the one tab that fails a keyboard-first test
 - Focus traps in overlays are inconsistent (some cycle, some don't)
-- Colour contrast unverified against WCAG AA, especially the glass surfaces
-- Screen-reader pass over the whole app; several dynamic regions announce
-  nothing
-- `prefers-reduced-motion` now has a real fallback for the typing indicator, but
-  other meaningful animations should be audited the same way
+- Colour contrast unverified against WCAG AA for the *new* palettes and themes,
+  particularly the glass surfaces
+- Screen-reader pass; several dynamic regions announce nothing
+- Audit remaining meaningful animations for `prefers-reduced-motion` fallbacks
 
 ---
 
-## 8. Mobile
+## 10. Backend
 
-Never tested. Everything this session was driven at 1440px. The layout has
-breakpoints but they're unverified — the sidebars, the document editor's split
-panes, and the graph are the likely problems.
-
----
-
-## 9. Backend
-
-- **Async httpx Ollama client.** The one large refactor left. It touches the
-  streaming path, which is what makes chat feel responsive, so a subtle
-  regression here wouldn't show up in tests. Deliberately not started at the end
-  of a long session — give it a fresh one.
-- **kNN-based janitor filing** — currently the janitor asks the model to pick a
-  category; nearest-neighbour over existing embeddings would be faster and work
-  offline
-- **Alembic migrations** — there's an additive auto-migrator that adds missing
-  columns. It cannot rename or drop, and won't survive a real schema change
-- **Multi-user / session TTL** — single-user by design today; tokens live in
-  memory and never expire
+- **Async httpx client** — touches the streaming path, which is what makes chat
+  feel responsive, so a subtle regression wouldn't show up in tests. Do it with
+  §6.
+- **Alembic migrations** — the additive auto-migrator cannot rename or drop, and
+  won't survive a real schema change
+- **Session TTL** — tokens live in memory and never expire
 
 ---
 
-## 10. Notes tab structure
+## Answers to questions already raised, so they aren't re-asked
 
-Still four stacked cards (Capture, Write with AI, Ask, Browse). The writing room
-folds by default so it doesn't add weight, and sections are collapsible — but
-sub-tabs would fix it properly rather than mitigating it.
+**Is it one user per app?** Yes. One `users` row, one bcrypt password, gating
+every route. Separate notebooks are separate `MEMORYMAP_DATA_DIR`s, not separate
+accounts.
 
----
+**Forgot password?** Two different answers. Ordinary notes are *not* encrypted by
+the password — they are plain SQLite rows and come back untouched, via
+`python -m memorymap --reset-password`. Private notes *are*: their key is derived
+from the password, so without it nobody can recover them, including that command.
+The UI and the command both say so before you commit. No backdoor was added, on
+purpose.
 
-## Already done — don't redo
+**Does the AI use my name in the greeting?** Yes, when `display_name` is set in
+Preferences. The AI-written path weaves it in about 75% of the time
+(`NAME_USE_CHANCE`); the handwritten fallback path always appends it. It was
+empty by default and buried among a dozen fields, which is why it looked like
+the feature didn't exist — the dashboard now offers to set it once, then stops
+asking.
 
-Merged to `main` (PRs #20, #21, #22) or on
-`claude/widget-stacking-searxng-lgwn2k`:
+**Themes vs palettes?** Palettes own colour only (7, each with a matched light
+and dark set). Themes own everything else — light/dark, font, density, radius,
+glass — and *select* a palette rather than carrying colours of their own. They
+had to be reconciled: both were writing the accent, and `[data-palette]` rules
+come later in the stylesheet, so a theme's colour silently lost.
 
-**Fixes:** branch merge and the CodeQL work · the reader broken by an autofix
-host allowlist · chat answering "hey" with a note dump · message metadata
-missing whenever tools were on · Notes sections not collapsing (two
-implementations fighting) · only one of five background art styles ever running
-· reminder times resolved against UTC · graph popup clipping · misaligned
-timestamps · jump-to-note highlight invisible · markdown export navigating the
-app away · document editor that couldn't be typed in · empty AI replies with no
-error or buttons · frozen typing dots under reduced motion · SearXNG choosing
-Docker when the daemon was stopped · writing room destroying your original text
-· every note saved without AI being labelled "AI 0% — check this", which
-accused perfectly good notes of being suspect
-
-**Features:** documents tab · writing room · note attachments in chat · category
-rename/delete · private notes (AES-GCM, envelope design) · note edit history ·
-duplicate finder with AI merge · `[[wiki links]]` + autocomplete · rebindable
-shortcuts · resizable sidebars · search operators + saved filters · markdown
-toolbar · AI cancellation · SearXNG without Docker · WAL + embedding backfill
-
-**Verified working with no AI at all:** all 17 dashboard widgets, all six tabs,
-all 11 settings sections. This property is worth protecting — check it after any
-AI-adjacent change.
+**Open question for the user:** two pickers on one screen may still be one too
+many. The alternative is folding them into ~15 complete looks. Left split,
+because "same layout, different colours" is a real thing to want — worth
+confirming.

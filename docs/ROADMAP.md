@@ -6,6 +6,16 @@ pick up without re-deriving context.
 Each item says **why** it matters, not just what to build — the reasoning is
 the part that's expensive to reconstruct.
 
+> **Check the running app before building anything here.** This document
+> describes intent, and it drifts. An audit of §2 found four of its six "quick
+> wins" already built — the sticky sidebar, the per-code-block copy button,
+> conversation search by content, and the whole document outline with word
+> count and reading time. §5 and §18 each had a completed item still listed as
+> outstanding. Three sessions have now independently rebuilt something that
+> already existed. Items verified against the code are marked ~~struck
+> through~~ with what was found; anything not marked is worth ten seconds of
+> grep first.
+
 ---
 
 ## How to work on this repo
@@ -159,21 +169,31 @@ separate `trace` field for a fold.
 
 ## 2. Quick wins
 
-Small, self-contained, each removing a visible annoyance:
+Small, self-contained, each removing a visible annoyance.
 
-- **SearXNG install path.** `preferred_backend()` returns Docker if the binary
-  exists, else source (which needs `git`). With neither, "download SearXNG"
-  can't proceed at all — that is what "I can't download searxng" means. Add a
-  `pip install searxng` path so no-Docker-and-no-git still works, and show
-  install progress in the UI instead of raising it as an error toast.
-- **Notes sidebar sticky**, matching chat and documents (same pattern, same
-  `--header-h` offset).
-- **Empty chats can't be deleted** — a conversation with no turns has no delete
-  affordance.
-- **Copy button per code block** in chat answers.
-- **Conversation search** by content, not just title.
+**Four of these were already done** — checked in the running app rather than
+assumed, since three sessions have now rebuilt something that already existed:
+
+- ~~**SearXNG install path**~~ done. Not the `pip install searxng` this section
+  suggested: SearXNG doesn't publish to PyPI, so that name is somebody else's
+  package. git is only needed to *fetch*, and pip can download and unpack the
+  source tarball itself — so it clones when git is there and uses the tarball
+  when it isn't. Install progress was already polled and shown inline.
+- ~~**Notes sidebar sticky**~~ done — the rule already exists, once, above the
+  section that used to duplicate it.
+- ~~**Copy button per code block**~~ done, in chat answers.
+- ~~**Conversation search** by content~~ done — `conversation_matches` decodes
+  the message JSON rather than LIKE-ing the column, so "tent" no longer matches
+  every chat by way of the word `content`.
+
+**Still open:**
+
+- **Empty chats can't be deleted.** Saved chats do have a delete action, and
+  deleting the last turn deletes the conversation — so this is only about the
+  *unsaved* chat in the main pane, which has no affordance but "+ New". Worth
+  confirming what was actually meant before building anything.
 - **Document outline / table of contents** from the headings, plus word-count
-  goal and reading time.
+  goal and reading time. The one genuinely unbuilt item here; see §5.
 
 ---
 
@@ -227,13 +247,26 @@ store:**
 
 ## 5. Documents
 
-- **AI chat bar inside the document** — ask it to write or change things in
-  place, rather than through the edit dialog
+Checked against the running app, not assumed:
+
+- ~~**Outline / table of contents**, reading time~~ **done.** `renderDocOutline`
+  builds a TOC from `#`–`####`, correctly ignoring a `#` inside a code fence,
+  hides itself under two headings, and each entry puts the caret on that line.
+  `renderDocStats` shows words and reading time at 220 wpm. Verified in a
+  browser: a 461-word document reads "461 words · 2 min read" with four
+  correctly-nested headings.
+- ~~**Expand a note into a document**~~ **done** — leaves the note untouched
+  and says so.
+- **Word-count goal** — the one unbuilt part of the outline item. A target you
+  set, with progress against it.
+- **AI chat bar inside the document** — partly there. `doc-ai-panel` already
+  edits a selection or the whole document and shows the result as a proposal.
+  What's missing is the *conversational* shape: ask a question about the
+  document without it proposing an edit.
 - **A real document browser** — the sidebar list is not a gallery
-- **Attach documents to notes**, and **expand a note into a document**
-- **Document history** — notes have `EntryRevision`; documents have none, and the
-  AI edit overwrites on accept
-- **Outline / table of contents**, word-count goal, reading time
+- **Attach documents to notes** — still nothing
+- **Document history** — notes have `EntryRevision`; documents have no
+  equivalent table, and the AI edit overwrites on accept
 
 ---
 
@@ -533,7 +566,10 @@ history. What's still weak:
 
 - No plan/progress for a multi-step job — the step timeline shows what happened,
   not what remains
-- No way to stop an agent turn mid-way and keep what it already did
+- ~~No way to stop an agent turn mid-way and keep what it already did~~ **done**
+  — `#chat-stop` aborts the stream, and a partial answer is kept, given its
+  action buttons and persisted like any other turn. A turn stopped before it
+  wrote anything is left silent deliberately: the user asked for that.
 - A tool that fails is reported, but the model isn't told how to recover
 - `_CLAIM_PATTERN` catches "I saved it" when no write tool ran — worth extending
   to other claim types

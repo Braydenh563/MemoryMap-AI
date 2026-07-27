@@ -77,6 +77,59 @@ class _ThinkTagSplitter:
         return [{key: leftover}]
 
 
+class _ToolTextGate:
+    """Holds back streamed text that might turn out to be a tool call in prose.
+
+    Some small models write ``<tool_call>{...}</tool_call>`` — or a bare JSON
+    object — instead of using the structured tool_calls field.
+    ``extract_text_tool_calls`` recovers those and strips them so they're
+    executed rather than shown, but a streaming UI would already have printed
+    the text by then. So content is gated until it's clearly *not* one of those
+    shapes, released in one go at that moment, and passed straight through from
+    then on.
+
+    The cap matters: an answer that genuinely opens with "{" must not be held
+    hostage forever, so past MAX_GATE characters the gate gives up and opens.
+    """
+
+    MAX_GATE = 1000
+    OPENER = "<tool_call>"
+
+    def __init__(self) -> None:
+        self._buffer = ""
+        self._open = False
+
+    def feed(self, text: str) -> str:
+        """Return whatever is safe to show now (possibly "")."""
+        if self._open:
+            return text
+        self._buffer += text
+        candidate = self._buffer.lstrip()
+        if not candidate:
+            return ""
+        looks_like_call = (
+            candidate.startswith("{")
+            or candidate.startswith(self.OPENER)
+            # A partially-arrived "<tool_call>" — wait for the rest.
+            or self.OPENER.startswith(candidate)
+        )
+        if looks_like_call and len(self._buffer) < self.MAX_GATE:
+            return ""
+        self._open = True
+        held, self._buffer = self._buffer, ""
+        return held
+
+    def flush(self) -> str:
+        """The stream ended while still gated — hand back what was held."""
+        held, self._buffer = self._buffer, ""
+        self._open = True
+        return held
+
+    @property
+    def gated(self) -> bool:
+        return not self._open
+
+
 def extract_text_tool_calls(
     content: str, tool_names: set[str]
 ) -> tuple[list[dict], str]:
@@ -265,6 +318,151 @@ class OllamaClient:
                         }
         except (requests.RequestException, KeyError, TypeError, ValueError) as exc:
             raise OllamaError(f"Chat with '{model}' failed: {exc}") from exc
+
+    @staticmethod
+    def _normalise_tool_calls(raw_calls: list[dict]) -> list[dict]:
+        """Ollama's tool_calls -> [{"name": str, "arguments": dict}]."""
+        calls = []
+        for item in raw_calls:
+            function = item.get("function") or {}
+            arguments = function.get("arguments") or {}
+            if isinstance(arguments, str):  # some models emit JSON text
+                try:
+                    arguments = json.loads(arguments)
+                except ValueError:
+                    arguments = {}
+            calls.append(
+                {"name": function.get("name", ""), "arguments": arguments if isinstance(arguments, dict) else {}}
+            )
+        return calls
+
+    @staticmethod
+    def _stats_from(payload: dict, model: str) -> dict:
+        """Token counts + timings, in the one shape the UI's metadata line wants."""
+        return {
+            "model": payload.get("model") or model,
+            "prompt_tokens": payload.get("prompt_eval_count"),
+            "output_tokens": payload.get("eval_count"),
+            "total_ms": _ns_to_ms(payload.get("total_duration")),
+            "eval_ms": _ns_to_ms(payload.get("eval_duration")),
+        }
+
+    @staticmethod
+    def _offered_names(tools: list[dict]) -> set[str]:
+        return {
+            t.get("function", {}).get("name") for t in tools if isinstance(t, dict)
+        }
+
+    def chat_tools_stream(
+        self, model: str, messages: list[dict], tools: list[dict]
+    ) -> Iterator[dict]:
+        """Streamed tool-calling turn — the agent loop's normal path.
+
+        Same decisions as chat_tools, but the assistant's prose arrives as it's
+        written instead of in one block at the end. That difference is the
+        whole point: with tools switched on (the default) the answer used to
+        appear all at once, which read as the model hanging and then dumping
+        (user-reported).
+
+        Yields, in order:
+          {"thinking_delta": str}   zero or more
+          {"content_delta": str}    zero or more
+          {"final": {...}}          exactly one, same shape chat_tools returns
+        """
+        splitter = _ThinkTagSplitter()
+        gate = _ToolTextGate()
+        content = ""       # everything the model wrote, gated or not
+        thinking = ""
+        shown = False      # did any prose actually reach the caller?
+        raw_calls: list[dict] = []
+        stats: dict = {}
+        try:
+            with requests.post(
+                f"{self.base_url}/api/chat",
+                json={
+                    "model": model,
+                    "messages": messages,
+                    "stream": True,
+                    "tools": tools,
+                },
+                stream=True,
+                timeout=self.timeout,
+            ) as response:
+                # Same capability probe as chat_tools: a model without tool
+                # support is a gap to fall back from, not an outage.
+                if response.status_code == 400 and "tool" in response.text.lower():
+                    raise ToolsUnsupportedError(f"'{model}' can't use tools")
+                response.raise_for_status()
+
+                def emit(piece: dict) -> Iterator[dict]:
+                    """Route one splitter piece, gating candidate tool-call text."""
+                    nonlocal content, thinking, shown
+                    if "thinking_delta" in piece:
+                        thinking += piece["thinking_delta"]
+                        yield piece
+                        return
+                    chunk = piece["content_delta"]
+                    content += chunk
+                    visible = gate.feed(chunk)
+                    if visible:
+                        shown = True
+                        yield {"content_delta": visible}
+
+                for line in response.iter_lines():
+                    if not line:
+                        continue
+                    data = json.loads(line)
+                    message = data.get("message", {})
+                    if message.get("thinking"):  # native thinking models
+                        thinking += message["thinking"]
+                        yield {"thinking_delta": message["thinking"]}
+                    if message.get("tool_calls"):
+                        raw_calls.extend(message["tool_calls"])
+                    if message.get("content"):
+                        for piece in splitter.feed(message["content"]):
+                            yield from emit(piece)
+                    if data.get("done"):
+                        for piece in splitter.flush():
+                            yield from emit(piece)
+                        stats = self._stats_from(data, model)
+        except ToolsUnsupportedError:
+            raise
+        except (requests.RequestException, KeyError, TypeError, ValueError) as exc:
+            raise OllamaError(f"Tool chat with '{model}' failed: {exc}") from exc
+
+        calls = self._normalise_tool_calls(raw_calls)
+        clean = content
+        if not calls:
+            # Nothing structured — the text may itself be the call. Anything
+            # still gated was never shown, so removing it costs the user
+            # nothing; if the gate had already opened, recovery still strips
+            # the JSON from what we hand back as the final answer.
+            recovered, clean = extract_text_tool_calls(content, self._offered_names(tools))
+            if recovered:
+                calls = recovered
+                raw_calls = [
+                    {"function": {"name": c["name"], "arguments": c["arguments"]}}
+                    for c in recovered
+                ]
+        held = gate.flush()
+        if held and not calls:
+            # Gated text that turned out to be ordinary prose (a short answer
+            # that merely started with "{"). Show it rather than lose it.
+            shown = True
+            yield {"content_delta": held}
+
+        yield {
+            "final": {
+                "content": clean.strip(),
+                "thinking": thinking or None,
+                "tool_calls": calls,
+                "raw_tool_calls": raw_calls,
+                "stats": stats,
+                # True when prose already reached the caller, so it must not
+                # send the final text again as a second copy.
+                "streamed": shown,
+            }
+        }
 
     def chat_tools(self, model: str, messages: list[dict], tools: list[dict]) -> dict:
         """One non-streamed chat turn with tools offered (Wave G).

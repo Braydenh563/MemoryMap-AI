@@ -156,39 +156,57 @@ def run_agent(
     model = model_manager.chat_model()
     did_write = False  # did any real write tool run this turn?
 
-    for _round in range(MAX_ROUNDS):
+    for round_number in range(MAX_ROUNDS):
+        # Streamed: the model's prose reaches the user as it's written. The
+        # non-streamed call this used to make is why an agent answer landed in
+        # one lump after a visible pause (user-reported) — every other chat
+        # path streamed, and the default path (tools on) didn't.
+        reply: dict = {}
+        streamed_any = False
         try:
-            reply = ollama.chat_tools(model, messages, offered)
+            for piece in ollama.chat_tools_stream(model, messages, offered):
+                if "thinking_delta" in piece:
+                    yield {"type": "thinking", "delta": piece["thinking_delta"]}
+                elif "content_delta" in piece:
+                    streamed_any = True
+                    yield {"type": "answer", "delta": piece["content_delta"]}
+                elif "final" in piece:
+                    reply = piece["final"]
         except ToolsUnsupportedError:
             yield {"type": "unsupported"}
             return
         except OllamaError:
-            yield {"type": "answer", "delta": librarian.OFFLINE_MESSAGE}
+            # Mid-answer death: say so, but don't wipe what already streamed.
+            prefix = "\n\n" if streamed_any else ""
+            yield {"type": "answer", "delta": f"{prefix}{librarian.OFFLINE_MESSAGE}"}
             return
 
-        if reply.get("thinking"):
-            yield {"type": "thinking", "delta": reply["thinking"]}
         # Report what this round cost. Agent turns used to emit nothing here,
         # so switching tools on — the default — silently stripped the token
         # counts out of the message metadata line.
         if reply.get("stats"):
-            yield {"type": "stats", **reply["stats"]}
+            yield {"type": "stats", **reply["stats"], "round": round_number + 1}
 
         calls = reply.get("tool_calls") or []
         if not calls:
-            # No tools wanted → this text IS the final answer. Safety net:
-            # if the model claims it saved/created something but no write
-            # tool actually ran, it hallucinated — say so instead of
-            # letting the user believe a note exists that doesn't (Wave O).
+            # No tools wanted → this text IS the final answer. It has usually
+            # already streamed; send it only if the tool-call gate held it back.
             answer = reply.get("content", "").strip()
+            if not reply.get("streamed") and answer:
+                yield {"type": "answer", "delta": answer}
+            # Safety net: if the model claims it saved/created something but no
+            # write tool actually ran, it hallucinated — say so instead of
+            # letting the user believe a note exists that doesn't (Wave O).
             if not did_write and _CLAIM_PATTERN.search(answer):
-                answer += (
-                    "\n\n⚠️ Heads up: I described that, but it looks like I "
-                    "didn't actually save it (my model didn't run the tool). "
-                    "Nothing was changed — try again, or paste the text into "
-                    "a new note yourself."
-                )
-            yield {"type": "answer", "delta": answer}
+                yield {
+                    "type": "answer",
+                    "delta": (
+                        "\n\n⚠️ Heads up: I described that, but it looks like I "
+                        "didn't actually save it (my model didn't run the tool). "
+                        "Nothing was changed — try again, or paste the text into "
+                        "a new note yourself."
+                    ),
+                }
             return
 
         # Replay the assistant turn (with its calls) so the model keeps

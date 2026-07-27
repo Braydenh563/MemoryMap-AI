@@ -211,8 +211,27 @@ function startApp() {
   step("load conversations", loadConversationList);
   step("check the AI model status", refreshModelStatus);
 
+  // Re-render whichever tab is on screen. switchTab() runs at module level —
+  // before initAuth() has a token — so a tab that fetches its own data painted
+  // itself from a pile of 401s and then never tried again. On the dashboard
+  // that meant an empty grid until you opened Edit layout and cancelled out of
+  // it, which re-ran renderDashboard by hand (user-reported).
+  step("load this tab", () => refreshActiveTab());
+
   // First-run welcome tour (guarded by localStorage; re-runnable from Help).
   maybeShowOnboarding();
+}
+
+// The per-tab data loads switchTab performs, without the tab-switching itself.
+// Kept beside switchTab's own dispatch so the two can't drift apart.
+function refreshActiveTab() {
+  const name = localStorage.getItem("activeTab") || "notes";
+  if (name === "dashboard") return renderDashboard();
+  if (name === "graph") return renderGraph();
+  if (name === "documents") return loadDocuments();
+  if (name === "reminders") return loadReminders();
+  if (name === "chat") return loadChatSuggestions();
+  return undefined; // the notes tab is covered by loadEntries above
 }
 
 // --- capture templates (Wave B) ---------------------------------------------------
@@ -1996,7 +2015,7 @@ function chatMessageActions(actions) {
 // A small "what this answer cost" line under an assistant bubble: which model
 // answered, how long it took, and — when Ollama reports them — token counts
 // and generation speed.
-function messageMetaLine({ model, elapsedMs, stats }) {
+function messageMetaLine({ model, elapsedMs, stats, toolCount = 0, rounds = 0 }) {
   const row = document.createElement("div");
   row.className = "msg-meta muted";
   const bits = [];
@@ -2014,8 +2033,13 @@ function messageMetaLine({ model, elapsedMs, stats }) {
       bits.push(`${(outTok / (stats.eval_ms / 1000)).toFixed(1)} tok/s`);
     }
   }
+  // What the agent actually did, so a turn that used tools says so rather
+  // than looking identical to one that didn't.
+  if (toolCount) bits.push(`${toolCount} tool${toolCount === 1 ? "" : "s"}`);
+  if (rounds > 1) bits.push(`${rounds} rounds`);
   row.textContent = bits.join(" · ");
-  row.title = "Model · response time · prompt→output tokens · generation speed";
+  row.title =
+    "Model · response time · prompt→output tokens · generation speed · tools used";
   return row;
 }
 
@@ -2379,20 +2403,39 @@ function reducedMotionWanted() {
   );
 }
 
-function typingDots() {
+// `label` is the reduced-motion fallback: with animations off the dots can't
+// convey "working", so a word has to. Callers that already print their own
+// sentence beside the indicator pass theirs in — the weekly digest used to
+// append " Thinking about your week…" next to the default, and it rendered as
+// "Thinking… Thinking about your week…" (user-reported).
+function typingDots(label = "Thinking…") {
   if (reducedMotionWanted()) {
-    const label = document.createElement("span");
-    label.className = "typing-label";
-    label.textContent = "Thinking…";
-    label.setAttribute("role", "status");
-    return label;
+    const text = document.createElement("span");
+    text.className = "typing-label";
+    text.textContent = label;
+    text.setAttribute("role", "status");
+    return text;
   }
   const dots = document.createElement("span");
   dots.className = "typing-dots";
   dots.setAttribute("role", "status");
-  dots.setAttribute("aria-label", "The model is writing");
+  dots.setAttribute("aria-label", label);
   for (let i = 0; i < 3; i++) dots.appendChild(document.createElement("span"));
   return dots;
+}
+
+// "⋯ Thinking about your week…" as one node: animated dots plus the sentence
+// when motion is allowed, and the sentence alone when it isn't — never both
+// the default label and a caller's, which is what produced the doubled
+// "Thinking… Thinking about your week…" in the digest widget.
+function typingLine(label) {
+  const wrap = document.createElement("span");
+  const indicator = typingDots(label);
+  wrap.appendChild(indicator);
+  if (!indicator.classList.contains("typing-label")) {
+    wrap.append(` ${label}`);
+  }
+  return wrap;
 }
 
 // Coalesce scroll-to-end into one write per animation frame. It used to run
@@ -3353,6 +3396,8 @@ async function sendChatMessage(preset, opts = {}) {
         stats.prompt_tokens = Math.max(stats.prompt_tokens || 0, event.prompt_tokens || 0);
         stats.output_tokens = (stats.output_tokens || 0) + (event.output_tokens || 0);
         stats.eval_ms = (stats.eval_ms || 0) + (event.eval_ms || 0);
+        // The agent tags each round; the highest is how many it took.
+        stats.round = Math.max(stats.round || 0, event.round || 0);
       },
     });
     status.textContent = "";
@@ -3376,12 +3421,16 @@ async function sendChatMessage(preset, opts = {}) {
   if (meta) renderRecordsDetails(recordsHolder, meta);
   // What this answer cost: model, wall-clock time, tokens, speed.
   const elapsedMs = Math.round(performance.now() - startedAt);
-  if (answerRaw) {
+  // A turn that only ran tools still cost time and tokens, so it gets a meta
+  // line too — previously an agent turn with no prose showed nothing at all.
+  if (answerRaw || toolEvents.length) {
     bubble.appendChild(
       messageMetaLine({
         model: (stats && stats.model) || (meta && meta.answered_by),
         elapsedMs,
         stats,
+        toolCount: toolEvents.length,
+        rounds: (stats && stats.round) || 0,
       })
     );
   }
@@ -5441,7 +5490,8 @@ async function renderDigestWidget(body) {
   const runGeneration = () => {
     const thinking = document.createElement("p");
     thinking.className = "muted";
-    thinking.append(typingDots(), " Thinking about your week…");
+    // One indicator, one sentence, in both motion modes.
+    thinking.append(typingLine("Thinking about your week…"));
     body.replaceChildren(thinking);
     // Live-render the text as it streams in; the dots stay until the first
     // token arrives, then the words take over.
@@ -7302,6 +7352,58 @@ const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "appearance"
 
 // Where to send focus back when a dialog closes (Wave L).
 let overlayReturnFocus = null;
+
+// --- page scroll lock while any overlay is open ---------------------------------
+// Every dialog in the app is a `.modal-overlay` toggled by the `hidden` class,
+// and the page behind kept scrolling under them — you'd reach for the settings
+// scrollbar and move the notebook instead (user-reported). Rather than pairing
+// a lock/unlock onto each of the seven open/close sites (and every one added
+// later), one observer watches the overlays and derives the lock from whatever
+// is actually visible. Overlays created on the fly — the image lightbox — are
+// picked up by the same observer watching <body> for added nodes.
+// `.lightbox` is the same idea under a different class (it's built at runtime
+// rather than living in index.html), so it locks the page too.
+const OVERLAY_SELECTOR = ".modal-overlay, .lightbox";
+
+function syncScrollLock() {
+  const anyOpen = [...document.querySelectorAll(OVERLAY_SELECTOR)].some(
+    (el) => !el.classList.contains("hidden") && el.isConnected
+  );
+  document.documentElement.classList.toggle("modal-open", anyOpen);
+}
+
+function watchOverlays() {
+  let queued = false;
+  // The app toggles classes constantly while streaming a chat answer, so this
+  // observer sees a lot of traffic it doesn't care about. Ignore anything that
+  // isn't an overlay, then coalesce the rest into one check per frame — the
+  // lock must never become a cost on the hot path.
+  const touchesOverlay = (record) => {
+    const target = record.target;
+    if (target instanceof Element && target.matches(OVERLAY_SELECTOR)) return true;
+    // An added/removed node may BE an overlay (the lightbox) or contain one.
+    const isOverlay = (node) =>
+      node instanceof Element &&
+      (node.matches(OVERLAY_SELECTOR) || node.querySelector(OVERLAY_SELECTOR) !== null);
+    return [...record.addedNodes, ...record.removedNodes].some(isOverlay);
+  };
+
+  const observer = new MutationObserver((records) => {
+    if (queued || !records.some(touchesOverlay)) return;
+    queued = true;
+    requestAnimationFrame(() => {
+      queued = false;
+      syncScrollLock();
+    });
+  });
+  observer.observe(document.body, {
+    subtree: true,
+    childList: true, // lightbox-style overlays appended at runtime
+    attributes: true,
+    attributeFilter: ["class"], // the `hidden` toggle on existing dialogs
+  });
+  syncScrollLock();
+}
 
 function settingsModalOpen() {
   return !$("settings-modal").classList.contains("hidden");
@@ -9429,6 +9531,7 @@ $("skip-link").addEventListener("click", (e) => {
 initCollapsibleSections();
 scrollTopUpdate = initScrollTopButton();
 initResizableSidebars();
+watchOverlays(); // page behind a dialog must not scroll
 switchTab(localStorage.getItem("activeTab") || "notes");
 
 // Settings modal (Wave A).

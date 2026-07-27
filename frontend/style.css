@@ -748,14 +748,32 @@ li.link-source { outline: 2px solid var(--accent); }
 .modal-body {
   display: grid;
   grid-template-columns: 160px 1fr;
+  /* An implicit `auto` row sizes to its CONTENT, so the scroll pane inside
+     grew past the dialog and .modal-body's overflow:hidden simply clipped it
+     — every settings screen lost its last inch and nothing scrolled. Pinning
+     the row to minmax(0, 1fr) gives the pane a real height to scroll within. */
+  grid-template-rows: minmax(0, 1fr);
   gap: 1rem;
   overflow: hidden;
   flex: 1;
+  min-height: 0; /* a flex item defaults to min-height:auto — it must shrink */
 }
 @media (max-width: 640px) {
-  .modal-body { grid-template-columns: 1fr; }
+  .modal-body {
+    grid-template-columns: 1fr;
+    /* Stacked: the nav takes its natural height, the pane scrolls. */
+    grid-template-rows: auto minmax(0, 1fr);
+  }
 }
-.modal-nav { display: flex; flex-direction: column; gap: 0.15rem; }
+.modal-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  /* Long nav on a short window scrolls on its own rather than pushing the
+     dialog taller than the viewport. */
+  overflow-y: auto;
+  min-height: 0;
+}
 .modal-nav > div { display: flex; flex-direction: column; gap: 0.15rem; }
 /* Group labels: quiet enough to scan past, clear enough to orient by. */
 .nav-group-label {
@@ -785,8 +803,27 @@ li.link-source { outline: 2px solid var(--accent); }
   color: var(--ink);
   font-weight: 600;
 }
-.modal-content { overflow-y: auto; padding-right: 0.4rem; min-height: 320px; }
+.modal-content {
+  overflow-y: auto;
+  padding-right: 0.4rem;
+  /* min-height:auto is the grid default and would defeat the row sizing
+     above; the dialog itself guarantees a usable height. The bottom padding
+     stops the final control sitting flush against the clipped edge. */
+  min-height: 0;
+  padding-bottom: 1.25rem;
+  overscroll-behavior: contain; /* don't hand the scroll on to the page behind */
+}
 .settings-section h3:first-child { margin-top: 0; }
+
+/* Scroll lock: while any overlay is open the page behind must not move.
+   Applied to <html> as well as <body> because the app scrolls the window
+   (switchTab calls window.scrollTo), which body-only overflow doesn't catch. */
+html.modal-open,
+html.modal-open body {
+  overflow: hidden;
+  /* Keeps the locked page from jumping when the scrollbar disappears. */
+  scrollbar-gutter: stable;
+}
 
 .log-list {
   list-style: none;

@@ -138,7 +138,12 @@
     <!-- Full-width welcome banner: greeting + a line about your notebook,
          with a live clock on the right. -->
     <section class="dash-hero" id="dash-hero">
+      <!-- The emblem and wordmark, asked for repeatedly: the mark lived only
+           in the top bar at 24px. It goes *in* the greeting card rather than
+           above it — a second banner over a banner is just two headers. -->
+      <div id="dash-hero-emblem" class="emblem dash-hero-emblem" aria-hidden="true"></div>
       <div class="dash-hero-text">
+        <p class="dash-wordmark">MemoryMap<span> AI</span></p>
         <h2 id="dash-greeting" class="dash-greeting"></h2>
         <p id="dash-submessage" class="dash-submessage"></p>
       </div>

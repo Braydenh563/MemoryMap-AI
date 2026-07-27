@@ -5315,6 +5315,11 @@ function renderDashboardGreeting() {
     : dashboardGreetingText();
   refreshAiGreeting().catch(() => {});
   renderNameNudge(el);
+  // Drawn here rather than at startup: renderEmblem reads the current accent,
+  // so it has to be redrawn when the dashboard repaints after a theme change.
+  // It also can't be sized while the tab is display:none — p5 measures zero —
+  // which is why this sits in the dashboard's own render and not in init.
+  renderEmblem($("dash-hero-emblem"), 46, { animate: true });
   paintDashClock();
   // One ticking clock, however many times the dashboard re-renders.
   if (dashClockTimer) clearInterval(dashClockTimer);
@@ -6196,8 +6201,16 @@ async function renderStatsWidget(body) {
 // A note's text as it should read in a preview: the [[link]] syntax is
 // scaffolding, not content, so previews show the words without the brackets.
 // Full note bodies get real clickable chips instead (renderNoteText).
+// One line of a note, as plain text, for the dashboard's little lists.
+//
+// Markers are stripped rather than rendered, unlike the note list — these are
+// clipped to about 70 characters and a clip that lands mid-`<strong>` is worse
+// than no emphasis at all. Same reasoning that already applied to `[[links]]`,
+// which this has always flattened.
 function notePreviewText(content) {
-  return (content || "").replace(/\[\[([^[\]]{1,120})\]\]/g, "$1");
+  return (content || "")
+    .replace(/\[\[([^[\]]{1,120})\]\]/g, "$1")
+    .replace(new RegExp(INLINE_MD.source, "g"), (...m) => m[1] ?? m[2] ?? m[3] ?? m[4]);
 }
 
 function miniEntryList(body, entries, emptyText) {

@@ -1199,7 +1199,29 @@ html.modal-open body {
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   box-shadow: var(--glass-shadow);
 }
-.dash-hero-text { min-width: 0; }
+/* The emblem and the greeting are one unit, so the clock still pushes to the
+   far end: without this they'd be two flex children and `space-between`
+   would strand the emblem on the left with a gap in the middle. */
+.dash-hero-emblem {
+  flex: 0 0 auto;
+  margin-right: -0.6rem; /* the emblem's canvas carries its own padding */
+}
+.dash-hero-text {
+  /* min-width: 0 or a long AI-written greeting refuses to shrink and pushes
+     the clock off the row — automatic minimum sizing again. */
+  min-width: 0;
+  flex: 1 1 12rem;
+}
+.dash-wordmark {
+  margin: 0 0 0.1rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+/* "AI" set apart, the way the top bar does it. */
+.dash-wordmark span { opacity: 0.6; }
 .dash-greeting {
   margin: 0;
   font-size: 1.7rem;
@@ -1228,10 +1250,13 @@ html.modal-open body {
 .dash-clock-date { font-size: 0.82rem; color: var(--muted); }
 
 @media (max-width: 720px) {
-  .dash-hero { margin: 0.5rem 1rem 0.25rem; padding: 1rem 1.1rem; }
+  .dash-hero { margin: 0.5rem 1rem 0.25rem; padding: 1rem 1.1rem; gap: 0.9rem; }
   .dash-greeting { font-size: 1.35rem; }
   .dash-clock { align-items: flex-start; }
   .dash-clock-time { font-size: 1.7rem; }
+  /* On a phone the emblem is decoration competing with the greeting for a
+     narrow row, and the greeting is the part that says something. */
+  .dash-hero-emblem { display: none; }
 }
 :root[data-density="compact"] .dash-hero { padding: 0.85rem 1.2rem; }
 :root[data-density="spacious"] .dash-hero { padding: 1.7rem 2rem; }

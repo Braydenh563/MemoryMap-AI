@@ -48,32 +48,38 @@ BUDGET_EXHAUSTED = {
     ),
 }
 
+# The system prompt is resent in full on every round of every turn, alongside
+# the tool schemas — see PROMPT_BUDGET_CHARS below for why that matters more
+# than it looks. Everything here earned its place by fixing an observed
+# failure, so it is not padding; but anything that is *also* said by a tool
+# schema or by a tool result is padding, and has been cut.
 TOOLS_GUIDE = (
     "You can use tools to act on the notebook — create, edit, tag, pin, "
     "link, or delete notes, and manage reminders. Only make changes the "
     "user actually asked for; when they just ask a question, answer it "
-    "without tools. Notes are referenced by their id number — use "
-    "search_notes first if you don't know the id. "
+    "without tools. "
     "The notes quoted below are only what search found for this question — "
-    "they are NOT the whole notebook. To see more, use the reading tools: "
-    "count_notes to answer 'how many', list_categories / list_tags to see "
-    "what exists, list_notes to walk through notes (paging with next_offset "
-    "while has_more is true), and get_note to read one note in full. "
-    "search_notes and list_notes return clipped previews, so read a note with "
-    "get_note before quoting it. Never state a total from a page of results — "
-    "count_notes is the only thing that knows the real number. "
+    "they are NOT the whole notebook. To see more: count_notes to answer "
+    "'how many', list_categories / list_tags to see what exists, list_notes "
+    "to walk through notes, get_note to read one in full. Never state a "
+    "total from a page of results — count_notes is the only thing that knows "
+    "the real number. "
     "Private notes are not available to you at all; if one is asked about, "
     "say you can't see private notes. "
-    "Beyond notes you can also reach the user's long-form documents "
-    "(list_documents / get_document — these are never searched automatically, "
-    "so go and look when a question is about something they wrote up), their "
-    "earlier conversations with you (search_chat_history, for when they refer "
-    "to something 'we talked about' that isn't in this thread — say when "
-    "you're relying on it), and their saved skills (list_skills, save_skill). "
-    "When the user mentions "
-    "needing to do something at a time (\"remind me to… in 10 minutes\", "
-    "\"…tomorrow at 9\", \"…tonight\"), call set_reminder with the due_at "
-    "computed from the current time given below, as an ISO 8601 datetime. "
+    "You can also reach the user's long-form documents (list_documents / "
+    "get_document — never searched automatically, so go and look when a "
+    "question is about something they wrote up), their earlier conversations "
+    "with you (search_chat_history, for when they refer to something 'we "
+    "talked about' that isn't in this thread — say when you're relying on "
+    "it), and their saved skills (list_skills, save_skill). "
+    # Kept, not trimmed: the schema says due_at is an ISO date-time, but not
+    # that it must be computed from the clock given below. Without that, a
+    # model resolves "in 10 minutes" against whatever it imagines the time is,
+    # which is how a reminder set for five minutes' time read as ten hours
+    # overdue the moment it was saved.
+    "For \"remind me… in 10 minutes / tomorrow at 9 / tonight\", call "
+    "set_reminder with due_at computed from the current time given below, as "
+    "an ISO 8601 datetime. "
     "After acting, tell the user briefly what you did. NEVER claim you "
     "created, added, saved, edited, deleted, or tagged a note unless you "
     "actually called the tool to do it — describing a note in text does "
@@ -85,21 +91,36 @@ TOOLS_GUIDE = (
     "Taking several turns is normal and expected: look something up, read "
     "what you found, look up anything still missing, then answer. Do not "
     "rush to an answer while something you were asked about is still "
-    "unchecked — an answer built on one search you never read is worse than "
-    "a slower one that is right. "
+    "unchecked. "
     # It under-used read_url badly: a result snippet is a sentence, and the
     # model treated it as the page.
-    "A web search result is a title and one clipped sentence, which is enough "
-    "to choose a page and never enough to answer from. When a search result "
-    "matters to the answer, call read_url on it before you rely on it, and "
-    "name the sites you actually read. "
+    "A web search result is a title and one clipped sentence — enough to "
+    "choose a page, never enough to answer from. Call read_url on a result "
+    "that matters before relying on it, and name the sites you actually read. "
     # It re-narrated the step timeline the user was already watching.
-    "The user can already see which tools you ran, in order, as you run them. "
-    "Do not narrate your process back to them ('let me search…', 'I will now "
-    "check…') — just do it, then give the answer. "
+    "The user can already see which tools you ran, in order. Do not narrate "
+    "your process back to them ('let me search…', 'I will now check…') — just "
+    "do it, then give the answer. "
     "If a tool fails, its result carries a 'what_to_do' field. Follow it. "
     "Never repeat a call that has just failed in exactly the same way."
 )
+
+# What the model is handed before a single word of the question, the notes or
+# the history — the system prompt plus every tool schema — resent on each of
+# up to MAX_ROUNDS rounds.
+#
+# This is the number that decides whether the agent is usable on the 3B-class
+# models people actually run here (granite4.1:3b, llama3.2:3b, qwen3.5:2b).
+# Ollama defaults to a 4096-token window unless a model says otherwise, so at
+# ~4 chars per token this overhead alone can be most of it, and everything
+# past the limit is silently dropped from the *front* — which is the system
+# prompt, so a model that overflows stops knowing it has tools at all.
+#
+# It is asserted rather than noted because it drifts upward invisibly: every
+# tool added and every sentence added to the guide costs the same budget, and
+# nothing else in the codebase would notice. When this needs raising, raise it
+# deliberately and say why here.
+PROMPT_BUDGET_CHARS = 13_000
 
 # What to do about a failed tool call.
 #

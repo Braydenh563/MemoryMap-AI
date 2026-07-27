@@ -168,3 +168,42 @@ def test_a_start_that_says_nothing_at_all_says_so(app_state, monkeypatch):
 
     with pytest.raises(searxng_manager.SearxngError, match="wrote nothing"):
         searxng_manager._start_from_source(app_state.data_dir)
+
+
+# --- the reason a command failed, not the last thing it printed -------------
+
+
+class _Result:
+    def __init__(self, stderr="", stdout=""):
+        self.stderr = stderr
+        self.stdout = stdout
+
+
+def test_pips_upgrade_notice_is_never_reported_as_the_failure():
+    """Reported with a screenshot: "Couldn't install SearXNG: [notice] To
+    update, run: …pip install --upgrade pip". pip prints that on almost every
+    run and it is always last, so the last line was the wrong line to take —
+    and it sent people off to fix pip, which was never the problem."""
+    result = _Result(
+        stdout=(
+            "Collecting searxng\n"
+            "ERROR: Could not find a version that satisfies the requirement searxng\n"
+            "\n"
+            "[notice] A new release of pip is available: 24.0 -> 25.2\n"
+            "[notice] To update, run: python.exe -m pip install --upgrade pip\n"
+        )
+    )
+    message = searxng_manager._reason(result, "Couldn't install SearXNG")
+    assert "upgrade pip" not in message
+    assert "Could not find a version" in message
+
+
+def test_the_error_line_beats_the_hints_printed_after_it():
+    result = _Result(stderr="ERROR: no space left on device\nhint: free some up\n")
+    assert "no space left" in searxng_manager._reason(result, "Couldn't install")
+
+
+def test_a_command_that_said_nothing_useful_gets_no_invented_reason():
+    assert searxng_manager._reason(_Result(), "Couldn't install") == "Couldn't install"
+    noise = _Result(stdout="[notice] To update, run: pip install --upgrade pip")
+    assert searxng_manager._reason(noise, "Couldn't install") == "Couldn't install"

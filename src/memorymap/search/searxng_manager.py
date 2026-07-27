@@ -640,6 +640,47 @@ def _wait_until_ready(timeout: int = START_TIMEOUT) -> bool:
     return False
 
 
+# Lines that are never the reason something failed, however last they are.
+#
+# Reported with a screenshot: "Couldn't install SearXNG: [notice] To update,
+# run: …python.exe -m pip install --upgrade pip". That notice is pip's parting
+# advice, it is printed on almost every run, and it is always the last line —
+# so taking the last line meant reporting it instead of the actual failure,
+# every single time an install went wrong. The user is then sent to fix pip,
+# which was never the problem.
+_NOT_A_REASON = (
+    "[notice]",
+    "to update, run",
+    "you should consider upgrading",
+    "warning: you are using pip version",
+)
+
+
 def _reason(result: subprocess.CompletedProcess, prefix: str) -> str:
-    detail = (result.stderr or result.stdout or "").strip().splitlines()
-    return f"{prefix}: {detail[-1]}" if detail else prefix
+    """`prefix`, plus the most useful line the command actually printed.
+
+    Prefers a line that names an error, falls back to the last line that isn't
+    boilerplate, and says nothing rather than something misleading.
+    """
+    lines = [
+        line.strip()
+        for line in (result.stderr or result.stdout or "").strip().splitlines()
+        if line.strip()
+    ]
+    useful = [
+        line
+        for line in lines
+        if not any(marker in line.lower() for marker in _NOT_A_REASON)
+    ]
+    if not useful:
+        return prefix
+
+    # A line that names the failure beats the last line — pip prints the real
+    # cause and then several lines of hint after it.
+    named = [
+        line
+        for line in useful
+        if line.lower().startswith(("error", "fatal", "exception"))
+        or "error:" in line.lower()
+    ]
+    return f"{prefix}: {(named or useful)[-1]}"

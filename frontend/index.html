@@ -95,7 +95,22 @@
     <div class="header-controls">
       <!-- Fixed-width slot: the pill's text changes as status polls land, and
            without a reserved box every change nudged the buttons beside it. -->
-      <span class="ai-pill-slot"><span id="ai-pill" title="What the AI is doing right now">checking…</span></span>
+      <!-- A dot, not a sentence. The pill reserved 17.5rem of header for a
+           message that is the same 99% of the time, which is most of what
+           squeezed the tabs and the wordmark. The state is now a colour and a
+           glyph; the sentence appears on hover, focus or click. The glyph
+           matters as much as the colour — colour alone is not a status. -->
+      <span class="ai-status-wrap">
+        <button id="ai-status" class="ai-status" type="button"
+          aria-expanded="false" aria-describedby="ai-status-popup">
+          <span class="ai-status-dot" aria-hidden="true"></span>
+          <span class="visually-hidden" id="ai-status-label">Checking what the AI is doing</span>
+        </button>
+        <span id="ai-status-popup" class="ai-status-popup" role="tooltip">
+          <strong id="ai-status-title"></strong>
+          <span id="ai-status-detail" class="ai-status-detail"></span>
+        </span>
+      </span>
       <button id="settings-btn" class="ghost small" title="Settings">⚙ Settings</button>
       <button id="lock-btn" class="ghost small hidden" title="Lock the app" aria-label="Lock the app">🔒</button>
       <button id="theme-btn" class="ghost small" title="Toggle light/dark" aria-label="Toggle light or dark theme">🌓</button>

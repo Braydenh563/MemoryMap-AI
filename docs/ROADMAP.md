@@ -154,6 +154,15 @@ section for what each one turned out to be.
 | The categories sidebar looks awkward | `.category-actions` was `opacity: 0` but still in the flow, so every category row reserved width for invisible buttons and the "All" row, which has none, did not — the counts marched in and out down the list |
 | Web search returns nothing, silently | Three different failures (no egress, a rate-limit challenge page, a genuine empty result) all surfaced as an empty list. Now logged and named separately — confirmed working in use |
 
+**Also added:** the AI status dot — the header pill that spelled the state out
+in words is now a coloured circle with a glyph (✓ green / ! amber / ✕ red) and
+the sentence on hover, focus or click. It reclaimed the 17.5rem the pill's slot
+reserved, which is why all six tabs now fit beside the wordmark at 1200px
+without scrolling. Amber, not red, is the state for "no AI at all": this app is
+built to degrade gracefully, so running without Ollama is supported rather than
+broken, and colouring it red would train you to ignore the indicator. Red is
+kept for a model that failed to load or a server that can't be reached.
+
 **Also added:** the Lagoon and Shallows themes (an indigo ground with a teal
 accent, dark and light), recovery advice on every failed tool call, and a
 prompt that tells the agent multiple rounds are expected. Guard tests now

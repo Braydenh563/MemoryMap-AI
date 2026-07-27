@@ -9576,47 +9576,131 @@ function syncAiOnlyControls() {
   }
 }
 
-function renderAiPill() {
-  const pill = $("ai-pill");
-  pill.className = "";
+// What the AI is doing, as one decision.
+//
+// Three levels, and the boundary between them is deliberate. This app is built
+// to degrade gracefully, so "no AI at all" is a supported way to run it, not a
+// fault — it is amber, not red. Red is reserved for something that is actually
+// broken: a model that failed to load, or a server we can't reach. Colouring a
+// normal offline setup red would train the user to ignore the indicator.
+//
+//   ok    ✓ green   everything the AI can do is available
+//   warn  ! amber   loading, switched off, or partly available — app works
+//   error ✕ red     something is broken and won't fix itself
+function aiStatusState() {
   if (!modelStatus) {
-    pill.textContent = "status unknown";
-    return;
+    return {
+      level: "error",
+      title: "Can't reach MemoryMap",
+      detail:
+        "The app can't read its own status, which usually means the server " +
+        "stopped. Your notes are safe on disk.",
+    };
   }
   const chatReady = modelStatus.ollama_running;
   const searchReady = modelStatus.embedding_ready;
+
   if (modelStatus.reindex && modelStatus.reindex.status === "running") {
-    pill.classList.add("busy");
-    pill.textContent = "rebuilding search index…";
-  } else if (!searchReady && modelStatus.embedding_warming) {
-    pill.classList.add("busy");
-    pill.textContent = "search AI warming up…";
-  } else if (!searchReady && modelStatus.embedding_error) {
-    // Distinguish "broken" from "loading" — the old pill said
-    // "warming up…" forever when the model failed to load.
-    //
-    // These messages lead with what still WORKS, not with what's broken. The
-    // old wording ("search AI unavailable — see Settings → Logs") announced a
-    // fault and sent you to a log viewer, which reads as "the app is broken"
-    // when in fact everything except meaning-based search is fine.
-    pill.classList.add("busy");
-    pill.textContent = "word search on · AI search unavailable";
-    pill.title = `${modelStatus.embedding_error}\n\nSearching by word still works, and notes, tags, reminders and the graph are unaffected. Settings → Logs has the details.`;
-  } else if (chatReady && searchReady) {
-    pill.classList.add("ok");
-    pill.textContent = "AI ready";
-  } else if (!chatReady && searchReady) {
-    pill.classList.add("busy");
-    pill.textContent = "everything works · chat AI off";
-    pill.title = "Notes, search, tags, reminders and the graph all work. Start Ollama to add chat and auto-filing.";
-  } else if (chatReady && !searchReady) {
-    pill.classList.add("busy");
-    pill.textContent = "word search on · AI search warming";
-    pill.title = "Searching by word works now; searching by meaning becomes available once the embedding model has loaded.";
-  } else {
-    pill.textContent = "everything works · AI off";
-    pill.title = "Writing, searching, tagging, reminders, documents and the graph all work without any AI. Start Ollama to add chat, auto-filing and search by meaning.";
+    return {
+      level: "warn",
+      title: "Rebuilding the search index",
+      detail:
+        "Searching by word works while this runs. Searching by meaning comes " +
+        "back when it finishes.",
+    };
   }
+  if (!searchReady && modelStatus.embedding_warming) {
+    return {
+      level: "warn",
+      title: "Search AI is warming up",
+      detail:
+        "Searching by word works now. Searching by meaning becomes available " +
+        "once the model has loaded.",
+    };
+  }
+  if (!searchReady && modelStatus.embedding_error) {
+    // "Broken" and "still loading" looked identical before: the old pill said
+    // "warming up…" forever when the model had actually failed.
+    return {
+      level: "error",
+      title: "Search AI didn't load",
+      detail:
+        `${modelStatus.embedding_error}\n\nSearching by word still works, and ` +
+        "notes, tags, reminders and the graph are unaffected. Settings → Logs " +
+        "has the details.",
+    };
+  }
+  if (chatReady && searchReady) {
+    return {
+      level: "ok",
+      title: "AI ready",
+      detail: "Chat, auto-filing and search by meaning are all available.",
+    };
+  }
+  // Everything below leads with what still WORKS. Announcing a fault and
+  // pointing at a log reads as "the app is broken" when in fact only the
+  // optional half is missing.
+  if (!chatReady && searchReady) {
+    return {
+      level: "warn",
+      title: "Everything works · chat AI off",
+      detail:
+        "Notes, search, tags, reminders and the graph all work. Start Ollama " +
+        "to add chat and auto-filing.",
+    };
+  }
+  if (chatReady && !searchReady) {
+    return {
+      level: "warn",
+      title: "Word search on · AI search warming",
+      detail:
+        "Searching by word works now; searching by meaning becomes available " +
+        "once the embedding model has loaded.",
+    };
+  }
+  return {
+    level: "warn",
+    title: "Everything works · AI off",
+    detail:
+      "Writing, searching, tagging, reminders, documents and the graph all " +
+      "work without any AI. Start Ollama to add chat, auto-filing and search " +
+      "by meaning.",
+  };
+}
+
+// The glyph is not decoration. Colour alone fails for the ~8% of men with a
+// colour vision deficiency, and fails everyone in high-contrast mode — so the
+// shape carries the same meaning the colour does.
+const AI_STATUS_GLYPH = { ok: "✓", warn: "!", error: "✕" };
+
+function renderAiPill() {
+  const button = $("ai-status");
+  if (!button) return;
+  const state = aiStatusState();
+  button.dataset.level = state.level;
+  button.querySelector(".ai-status-dot").textContent = AI_STATUS_GLYPH[state.level];
+  // The button's own name for screen readers and for the native tooltip, so
+  // the information is reachable without opening anything.
+  const summary = `AI status: ${state.title}`;
+  $("ai-status-label").textContent = summary;
+  button.title = `${state.title}\n\n${state.detail}`;
+  $("ai-status-title").textContent = state.title;
+  $("ai-status-detail").textContent = state.detail;
+}
+
+// Hover is handled in CSS. This is the click half — needed for touch, where
+// there is no hover, and for keyboards, where there is no pointer.
+function toggleAiStatusPopup(force) {
+  const button = $("ai-status");
+  const popup = $("ai-status-popup");
+  if (!button || !popup) return;
+  const open = force !== undefined ? force : !button.classList.contains("pinned");
+  button.classList.toggle("pinned", open);
+  button.setAttribute("aria-expanded", String(open));
+  // Visibility, not the `hidden` attribute: `hidden` is display:none, which
+  // the CSS hover rule would then have to fight. The stylesheet owns whether
+  // the popup is shown; this only records that it has been pinned open.
+  popup.classList.toggle("pinned", open);
 }
 
 // One plain-English line: which search engine is active and whether it works.
@@ -11593,6 +11677,20 @@ $("persona-select").addEventListener("change", async () => {
     body: JSON.stringify({ active_persona: $("persona-select").value }),
   }).catch(() => {});
 });
+// The AI status dot. Hover is CSS; these are the paths hover doesn't cover —
+// touch, where there is no hover at all, and keyboards.
+$("ai-status").addEventListener("click", () => toggleAiStatusPopup());
+document.addEventListener("click", (event) => {
+  // Anywhere outside closes it, the way every other popover here behaves.
+  if (!event.target.closest(".ai-status-wrap")) toggleAiStatusPopup(false);
+});
+$("ai-status").addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    toggleAiStatusPopup(false);
+    $("ai-status").focus();
+  }
+});
+
 $("persona-add").addEventListener("click", addPersona);
 $("skill-add").addEventListener("click", addSkill);
 $("skill-cancel").addEventListener("click", stopEditingSkill);

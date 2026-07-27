@@ -28,6 +28,9 @@
   --ok: #10653c;
   --ok-soft: rgba(52, 199, 123, 0.20);
   --error: #b91c1c;
+  /* Added with the AI status dot, which needs a soft ground the way ok and
+     warn already had one. */
+  --error-soft: rgba(220, 38, 38, 0.18);
   --border: rgba(31, 36, 48, 0.10);
   --chip-bg: rgba(31, 36, 48, 0.07);
   /* User-tunable in Settings → Appearance (set inline on <html> by JS). */
@@ -56,6 +59,7 @@
   --ok: #4ade80;
   --ok-soft: rgba(74, 222, 128, 0.15);
   --error: #f87171;
+  --error-soft: rgba(248, 113, 113, 0.16);
   --border: rgba(255, 255, 255, 0.10);
   --chip-bg: rgba(255, 255, 255, 0.08);
 }
@@ -165,7 +169,6 @@ header#top-bar h1 {
    Each step buys roughly a tab's worth of room. */
 @media (max-width: 1200px) {
   header#top-bar { gap: 0.9rem; padding-inline: 1rem; }
-  .ai-pill-slot { flex: 0 1 12rem; width: 12rem; min-width: 0; }
 }
 /* The wordmark stays until the layout stacks. 1390 was tried, then 1080; both
    were still hiding the app's own name on ordinary windows, which was
@@ -186,8 +189,6 @@ header#top-bar h1 {
 }
 @media (max-width: 940px) {
   header#top-bar { gap: 0.6rem; }
-  /* The pill can vanish entirely before a tab loses a letter. */
-  .ai-pill-slot { flex: 0 1 auto; width: auto; min-width: 0; }
   #tab-bar button { padding-inline: 0.55rem; font-size: 0.92rem; }
 }
 /* When the tabs really do scroll, say so with a fade at the edge instead of
@@ -224,14 +225,13 @@ header#top-bar h1 {
      reported. The pill shrinks instead; the buttons never move. */
   flex-wrap: nowrap;
   margin-left: auto;
-  /* This group may shrink — the status pill inside it is the second rung of
-     the ladder and is meant to give up space before the tabs do. What it must
-     not do is shrink around content that cannot: it was shrinking to 76px
-     while holding 201px of buttons, so Settings, the lock and the theme
-     toggle were pushed out of the header entirely. The buttons are pinned
-     below, which leaves the pill as the only thing here that can yield. */
-  flex: 0 1 auto;
-  min-width: 0;
+  /* Rigid. This used to shrink so the status pill inside it could collapse —
+     the pill was the second rung of the degradation ladder. The pill is now a
+     fixed-size dot, so nothing in here can yield, and letting the group shrink
+     anyway just crushed it around content that couldn't: 155px of box holding
+     226px of buttons, pushing the theme toggle out of the window.
+     The tab strip is what gives up space now, by scrolling. */
+  flex: 0 0 auto;
 }
 /* The buttons keep their size; only the pill beside them collapses. */
 .header-controls > button { flex: 0 0 auto; }
@@ -242,38 +242,91 @@ header#top-bar h1 {
    pill grew, `margin-left: auto` slid the buttons, and everything below
    twitched with it, for the second or two it takes the polls to settle.
    Reserving a stable box means the text can change without moving anything. */
-#ai-pill {
-  padding: 0.2rem 0.7rem;
-  border-radius: 999px;
-  font-size: 0.8rem;
+/* --- the AI status dot ------------------------------------------------------
+   Was a pill spelling the state out in words, in a slot reserving 17.5rem of
+   header for a message that reads "AI ready" almost all the time. That slot
+   was most of what squeezed the tabs and the wordmark. It is now a dot: a
+   colour AND a glyph, with the sentence on hover, focus or click.
+
+   The glyph is not decoration. Colour alone fails for anyone with a colour
+   vision deficiency and in high-contrast mode, so ✓ / ! / ✕ carries the same
+   meaning the green / amber / red does. */
+.ai-status-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+.ai-status {
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid transparent;
   background: var(--chip-bg);
   color: var(--muted);
-  backdrop-filter: blur(8px);
-  max-width: 100%;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  cursor: pointer;
+  line-height: 1;
+  box-shadow: none;
 }
+.ai-status-dot {
+  font-size: 0.82rem;
+  font-weight: 700;
+  /* The glyphs have different natural widths; centring the box keeps the dot
+     itself perfectly round whichever one is showing. */
+  display: block;
+}
+.ai-status[data-level="ok"] { background: var(--ok-soft); color: var(--ok); }
+.ai-status[data-level="warn"] { background: var(--warn-soft); color: var(--warn); }
+.ai-status[data-level="error"] { background: var(--error-soft); color: var(--error); }
+.ai-status:hover,
+.ai-status:focus-visible { border-color: currentColor; }
 
-/* The reserved box. The pill still hugs its own text — a fixed-width pill
-   reading "AI ready" would be mostly empty background — but the space it can
-   grow into is claimed up front, so nothing beside it ever moves. The full
-   message is on the pill's tooltip when it has to ellipsis. */
-.ai-pill-slot {
-  /* Reserved at its natural size so status text changing doesn't nudge the
-     buttons, but allowed to give the space back rather than forcing a wrap —
-     `0 0 17.5rem` was the difference between a stable header and a
-     two-row one. */
-  flex: 0 1 17.5rem;
-  width: 17.5rem;
-  min-width: 0;
+/* The message. Anchored under the dot and right-aligned to it, because the dot
+   sits near the right-hand edge of the header — a left-anchored popup would
+   run off the screen. */
+.ai-status-popup {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 60;
+  width: max-content;
+  max-width: min(22rem, 80vw);
   display: flex;
-  justify-content: flex-end;
-  overflow: hidden;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  background: var(--modal-bg);
+  border: 1px solid var(--border);
+  box-shadow: var(--glass-shadow);
+  font-size: 0.82rem;
+  font-weight: 400;
+  text-align: left;
+  /* visibility, not display: it keeps the box measurable and lets the fade
+     run. `hidden` would also fight the hover rule below. */
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.12s ease, visibility 0.12s;
 }
-#ai-pill.ok { background: var(--ok-soft); color: var(--ok); }
-#ai-pill.busy { background: var(--warn-soft); color: var(--warn); }
+.ai-status-wrap:hover .ai-status-popup,
+.ai-status:focus-visible + .ai-status-popup,
+.ai-status-popup.pinned {
+  visibility: visible;
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-status-popup { transition: none; }
+}
+.ai-status-popup strong { color: var(--ink); }
+.ai-status-detail {
+  color: var(--muted);
+  /* The embedding error is a real multi-line message. */
+  white-space: pre-line;
+  line-height: 1.45;
+}
 
 /* --- tab navigation (Wave A; pill style inside the top bar in Wave L) ------- */
 #tab-bar {
@@ -2029,7 +2082,7 @@ kbd {
 }
 :root[data-contrast="on"] .card,
 :root[data-contrast="on"] #tab-bar button,
-:root[data-contrast="on"] #ai-pill,
+:root[data-contrast="on"] .ai-status,
 :root[data-contrast="on"] input,
 :root[data-contrast="on"] textarea,
 :root[data-contrast="on"] select {
@@ -2306,7 +2359,7 @@ html { font-size: 16px; }
 :root[data-glass="off"] input,
 :root[data-glass="off"] textarea,
 :root[data-glass="off"] select,
-:root[data-glass="off"] #ai-pill,
+:root[data-glass="off"] .ai-status,
 :root[data-glass="off"] button.ghost,
 :root[data-glass="off"] #tab-bar button {
   backdrop-filter: none;
@@ -4438,10 +4491,6 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   #tab-bar::-webkit-scrollbar { display: none; }
   #tab-bar button { flex: 0 0 auto; padding: 0.35rem 0.75rem; }
   .header-controls { margin-left: auto; gap: 0.35rem; }
-  /* The reserved pill slot is 17.5rem — most of a phone's width. The header
-     wraps here anyway, so the reflow it was preventing can't happen. */
-  .ai-pill-slot { width: auto; max-width: 45vw; }
-
   /* Give content the screen back: 2rem of side padding is a tenth of a phone. */
   .layout, .doc-layout { padding-left: 0.75rem; padding-right: 0.75rem; }
   #dash-grid { padding-left: 0.75rem; padding-right: 0.75rem; }

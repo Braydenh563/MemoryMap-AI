@@ -123,9 +123,17 @@ def build_agent_messages(
     profile_hint = f" About the user: {profile.strip()}" if profile.strip() else ""
     persona = (persona_prompt or librarian.DEFAULT_PERSONA).strip()
     # The model needs "now" to turn "in 10 minutes" into a real time.
-    from memorymap.core.database import utcnow
+    from memorymap.core import deps
+    from memorymap.core.config import user_now
 
-    now_hint = f" The current date and time is {utcnow().astimezone().isoformat()}."
+    # The user's wall clock. This line is what "remind me in 10 minutes"
+    # is computed from, so resolving it against the server's zone instead
+    # puts every relative time out by the offset between them.
+    local = user_now(deps.get_config())
+    now_hint = (
+        f" The current date and time is {local.isoformat()}"
+        f" ({local.tzname() or 'local time'})."
+    )
     messages = [
         {
             "role": "system",

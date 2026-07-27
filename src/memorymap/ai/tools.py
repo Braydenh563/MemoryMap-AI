@@ -375,8 +375,15 @@ def _list_tags(session: Session, args: dict) -> dict:
 
 
 def _get_current_time(session: Session, args: dict) -> dict:
-    """Time-aware answers: the model can ask what 'now' is."""
-    now = datetime.now().astimezone()
+    """Time-aware answers: the model can ask what 'now' is.
+
+    The user's clock, not the server's. They are the same on a laptop running
+    both, and hours apart the moment the server sits in UTC — at which point
+    every "tomorrow at 9" the model computes is wrong.
+    """
+    from memorymap.core.config import user_now
+
+    now = user_now(deps.get_config())
     return {
         "iso": now.isoformat(),
         "human": now.strftime("%A %d %B %Y, %H:%M"),
@@ -835,6 +842,56 @@ def _web_search(session: Session, args: dict) -> dict:
     }
 
 
+# How much of a page the model is given. A long article would otherwise eat
+# the whole context window and push the user's own notes out of it.
+READ_URL_MAX_CHARS = 6000
+
+
+def _read_url(session: Session, args: dict) -> dict:
+    """Fetch one web page and hand back its readable text.
+
+    This is what makes "ask about this page" mean anything. Without it the
+    model receives a URL it cannot open and answers from the address alone —
+    which is exactly what the Ask about this button used to do.
+
+    Same opt-in as web_search, and the same fetch path: scripts, styles and
+    page chrome are stripped server-side, the address is checked and pinned on
+    every redirect hop, and only text comes back — so nothing from a
+    third-party page can execute anywhere.
+    """
+    from memorymap.search import websearch
+
+    config = deps.get_config()
+    if not config.get_preference("web_search_enabled", False):
+        raise ValueError("Web search is disabled in Settings → Preferences")
+    url = str(args.get("url") or "").strip()
+    if not url:
+        raise ValueError("No URL was given")
+    try:
+        page = websearch.fetch_readable(url)
+    except websearch.WebSearchError as exc:
+        raise ValueError(str(exc)) from exc
+
+    text = page.get("text") or ""
+    truncated = len(text) > READ_URL_MAX_CHARS
+    return {
+        "url": page.get("url", url),
+        "title": page.get("title", ""),
+        "domain": page.get("domain", ""),
+        "text": text[:READ_URL_MAX_CHARS],
+        # Said plainly, so the model reports a partial read rather than
+        # treating a truncated page as the whole thing.
+        "truncated": truncated,
+        "note": (
+            "Only the first part of this page is shown; say so if the answer "
+            "might be further down."
+            if truncated
+            else ""
+        ),
+        "label": f"📖 Read {page.get('domain') or url}",
+    }
+
+
 def _delete_tag(session: Session, args: dict) -> dict:
     changed = manager.delete_tag(session, str(args["name"]))
     return {
@@ -1215,6 +1272,21 @@ TOOLS: dict[str, ToolSpec] = {
             _web_search,
         ),
         ToolSpec(
+            "read_url",
+            "Open a web page and read its text. Use this whenever the user "
+            "gives you a link, or after web_search when a result looks like it "
+            "holds the answer — a search snippet is rarely enough. Only "
+            "available when the user enabled web search.",
+            {
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string", "description": "The full http(s) URL"}
+                },
+                "required": ["url"],
+            },
+            _read_url,
+        ),
+        ToolSpec(
             "delete_tag",
             "Remove a tag from every note. The app asks the user to confirm "
             "before this runs.",
@@ -1234,7 +1306,9 @@ def tool_enabled(name: str) -> bool:
     """A tool is offered unless the user turned it off in Settings → Tools
     (Wave O). web_search additionally requires the online opt-in."""
     config = deps.get_config()
-    if name == "web_search" and not config.get_preference("web_search_enabled", False):
+    if name in ("web_search", "read_url") and not config.get_preference(
+        "web_search_enabled", False
+    ):
         return False
     return name not in set(config.get_preference("disabled_tools", []))
 
@@ -1265,7 +1339,7 @@ def tool_catalog() -> list[dict]:
             "description": spec.description,
             "destructive": spec.destructive,
             "enabled": tool_enabled(spec.name),
-            "online": spec.name == "web_search",
+            "online": spec.name in ("web_search", "read_url"),
         }
         for spec in TOOLS.values()
     ]

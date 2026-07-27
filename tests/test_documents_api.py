@@ -134,3 +134,20 @@ def test_missing_documents_are_404(client):
     assert updated.status_code == 404
     deleted = client.delete("/documents/9999")
     assert deleted.status_code == 404
+
+
+def test_storage_says_where_the_notebook_actually_is(client, tmp_path):
+    """"Where are my documents stored?" was asked outright, and the app had
+    no answer anywhere in its interface. For a local-first notebook that is
+    most of the promise: a file you can't locate isn't obviously yours."""
+    body = client.get("/storage").json()
+
+    assert body["database"].endswith(".db")
+    # A real path to a file that exists, not a placeholder.
+    from pathlib import Path
+
+    assert Path(body["database"]).exists()
+    assert Path(body["data_dir"]).is_dir()
+    assert body["database_bytes"] > 0
+    # The backups folder is part of the answer to "how do I keep a copy?".
+    assert "backups" in body["backups_dir"].lower()

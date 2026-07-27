@@ -40,10 +40,18 @@ that navigated the app away.
 
 ---
 
-More user notes: 
+More user notes + requests (not in order): 
 - The background art still wont move
+- Improve and expand on the dashboard even more.
+- The "What's this" button on the "write with the ai" section does nothing when clicked (at least when the ai is not running)
+- the offline semantic search only covers keyword search and doesnt use keywords for car
+- Add the logo in more places and make sure it stays animated. 
 - The keybinds section for keyboard shortcuts is missing. 
 - When I click on the notes tab, there is a visual flicker at the bottom of the top menu bar for a second or two
+- The notes tab sidebar cant be expanded or shortened in width and it also has scroll bars on some of the appearance settings
+- better structure and visualise the opened page text from web search
+- Just refine the chat functionality and agent stuff and everything both frunt and backend. 
+- Created documents disappear. where are htey stored and how do I save them or put it places?? expand the documents tab and make it more integrated with the rest of the program and its features
 - Improve and remake the chat page ui to be impressive and the best it can be??
 - I want to improve the document preview md formatting
 - I want the web search to be as private as possible. make it untraceable/untrackable
@@ -51,9 +59,64 @@ More user notes:
 - allow the at to view, manage and create skills.
 - Fix the chat page. it is barebones, things like the sidebar arent even the right matching height, there are barely any features and it looks bland. 
 - The write with ai function in notes still deletes my original text in the "your thoughts" text box
-- a betetr way to manage widgets. also more widgets pls
-- Expand the appearences tab and implement an option to sleect from preset and curated visual themes
+- a better way to manage widgets. also more widgets pls
+- Expand the appearences tab and implement an option to sleect from preset and curated visual themes. make lots of cool themes.
 - Expand on the capabilities of the graph
+
+## Done in the session of 26 July
+
+Driven in a browser before and after, because most of it was invisible to
+the test suite. Test count went 402 → 465.
+
+- **§1 The AI can reach the notebook.** `get_note`, `list_notes` (filter +
+  paging), `count_notes` (now with tags), `list_tags`. The hard part was the
+  context budget, as predicted: previews in lists, full text only via
+  `get_note`, every limit clamped, and a turn-level budget in the agent loop
+  that stops adding tool output rather than overflowing. Closed a leak while
+  there: `count_notes`, `list_categories` and `summarize_notes` were counting
+  private notes and handing back their ciphertext.
+- **The AI can also reach documents, past chats and skills** —
+  `list_documents` / `get_document`, `search_chat_history` (whole turns, not
+  just the matching line), `list_skills` / `save_skill` / `delete_skill`.
+- **§2 Chat.** Sidebar height matched the panel (it was 16px — both are
+  `.card`, and `.card` has a bottom margin). Search across what was *said*,
+  pinning, per-row date/turns/tokens, code blocks with a language label and
+  copy button, editable answers (labelled as edited), the persona's real
+  system prompt viewable, a running token total.
+- **§3 Documents.** They never actually disappeared — the app just never said
+  where they were. It now shows the real database path, plus an outline from
+  the headings, live word count and reading time, and "expand a note into a
+  document".
+- **§6 First run.** One getting-started card instead of twelve widgets each
+  reporting they have nothing to show.
+- **§7 Accessibility.** The graph is fully keyboard-operable (one tab stop,
+  arrows move between notes, `n` follows connections, Enter opens). Contrast
+  measured against AA and fixed: text on accent surfaces was 4.34:1 light and
+  2.54:1 dark, now 5.80 and 7.50.
+- **§8 Mobile.** Was genuinely broken — every tab overflowed at 390px, hidden
+  on a real phone because Chrome shrinks the page to fit. Fixed; nothing
+  scrolls sideways now.
+- **§9 kNN filing**, before falling back to the chat model. Matters most with
+  no model running, where "inconclusive" used to mean Uncategorised.
+- **§10 Notes sub-tabs** instead of four stacked cards. The per-card collapse
+  chevrons are gone rather than kept alongside — two ways to hide one card is
+  the trap that broke them last time.
+- **Seven curated palettes**, each with a light and a dark set.
+- **Web search privacy**: the User-Agent no longer announces this exact app,
+  every request carries DNT/Sec-GPC/no-Referer, and click-tracking parameters
+  are stripped from result links and from anything opened in the reader.
+- **User-reported fixes**: background art wouldn't move (two stacked faults),
+  Notes sidebar couldn't be resized (handle clipped by an overflow container),
+  "What is this?" did nothing, Write-with-AI still deleted your thoughts, the
+  flicker under the top bar, the missing keyboard-shortcuts settings section.
+
+### Still open from the list below
+
+§4 images, §5 gallery and archive, the async httpx Ollama client, Alembic
+migrations, multi-user/session TTL, and the dashboard-widget and
+graph-capability expansions beyond keyboard access.
+
+---
 
 ## 1. The AI can't reach your notes (highest priority)
 

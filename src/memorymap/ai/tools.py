@@ -18,7 +18,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Callable
 
-from sqlalchemy import select
+from datetime import timedelta
+
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from memorymap.ai import embeddings
@@ -37,27 +39,138 @@ class ToolSpec:
     destructive: bool = False
 
 
+# --- context budget -------------------------------------------------------------
+# A local model's window is small and a notebook is not. These caps are the
+# whole reason the reading tools below are safe to hand to a model: without
+# them, one `list_notes` on a 5,000-note notebook would push everything else —
+# the question included — out of the window.
+#
+# The rule: list calls return *previews* and say when they were capped, so the
+# model pages deliberately instead of silently seeing a truncated notebook.
+# Full text costs a `get_note` call, one note at a time.
+
+PREVIEW_CHARS = 200
+FULL_NOTE_CHARS = 4_000
+DEFAULT_LIST_LIMIT = 10
+MAX_LIST_LIMIT = 25
+SUMMARY_NOTE_LIMIT = 40
+# Documents are long-form by definition, so they get a larger ceiling than a
+# note — but still a ceiling: one document must not fill the whole window.
+DOCUMENT_CHARS = 12_000
+
+
 def _clip(text: str, length: int = 300) -> str:
     return text if len(text) <= length else text[: length - 1] + "…"
 
 
-def _note_summary(session: Session, entry: Entry) -> dict:
+def _visible(*extra):
+    """The where-clause every reading tool starts from.
+
+    Private notes are excluded here, once, rather than in each handler —
+    the same reasoning as `manager.readable_content`: a rule applied in one
+    place can't be forgotten in the next path someone adds. A private note is
+    kept out of retrieval (`search_manager._without_private`), so it must be
+    kept out of the tools too, or the model reaches around the front door.
+    """
+    return (
+        Entry.is_deleted == False,  # noqa: E712
+        Entry.is_private == False,  # noqa: E712
+        *extra,
+    )
+
+
+def _readable(entry: Entry) -> str:
+    """Non-private notes are stored in the clear, but go through the manager
+    anyway so this can never be the path that hands back ciphertext."""
+    return manager.readable_content(entry)
+
+
+def _note_summary(session: Session, entry: Entry, chars: int = PREVIEW_CHARS) -> dict:
     """What the model gets back about a note — enough to talk about it
     and to reference it in follow-up tool calls."""
+    text = _readable(entry)
+    clipped = _clip(text, chars)
     return {
         "id": entry.id,
-        "content": _clip(entry.content),
+        "content": clipped,
+        "truncated": len(clipped) < len(text),
         "category": manager.category_name_for(session, entry),
         "tags": manager.entry_tags(entry),
         "pinned": entry.pinned,
+        "created_at": entry.created_at.isoformat() if entry.created_at else None,
     }
 
 
-def _get_note(session: Session, args: dict) -> Entry:
-    entry = manager.get_entry(session, int(args["note_id"]))
+def _require_note(session: Session, args: dict, field: str = "note_id") -> Entry:
+    entry = manager.get_entry(session, int(args[field]))
     if entry is None or entry.is_deleted:
-        raise ValueError(f"No note with id {args.get('note_id')}")
+        raise ValueError(f"No note with id {args.get(field)}")
+    if entry.is_private:
+        # Deliberately the same wording as a missing note in spirit, but
+        # honest about why: the model should tell the user it can't see it,
+        # not invent contents for it.
+        raise ValueError(
+            f"Note #{entry.id} is private, so it isn't available to the AI"
+        )
     return entry
+
+
+# Said on every list result. The model has no other way to know that what it
+# is looking at is an excerpt, and a model that doesn't know will answer from
+# half a note without hedging.
+_READ_MORE = (
+    f"These are previews, clipped to about {PREVIEW_CHARS} characters. "
+    "Call get_note with a note's id to read it in full before quoting it."
+)
+
+
+def _limit_arg(args: dict, default: int) -> int:
+    """Clamp whatever the model asked for into the budget. A model that asks
+    for 500 notes gets MAX_LIST_LIMIT and is told so by `has_more`."""
+    try:
+        wanted = int(args.get("limit") or default)
+    except (TypeError, ValueError):
+        wanted = default
+    return max(1, min(wanted, MAX_LIST_LIMIT))
+
+
+def _category_clause(session: Session, name: str):
+    """Match a category by name, case-insensitively, without a join.
+
+    An unknown name deliberately matches nothing rather than everything: the
+    honest answer to "notes in Recipes" when there is no Recipes is zero.
+    """
+    from memorymap.core.database import Category
+
+    category_id = session.scalar(
+        select(Category.id).where(func.lower(Category.name) == name.lower())
+    )
+    if category_id is None:
+        if name == manager.UNCATEGORISED:
+            return Entry.category_id.is_(None)
+        return Entry.id.is_(None)  # matches nothing
+    return Entry.category_id == category_id
+
+
+def _since_days(value) -> int | None:
+    """`since` accepts a number of days ("7") or an ISO date ("2026-07-01").
+
+    Models are inconsistent about which they send, and a tool that rejects one
+    of them just burns a round. Anything unparseable means "no time filter"
+    rather than an error — the same call, wider, beats no answer.
+    """
+    if value in (None, ""):
+        return None
+    try:
+        return max(0, int(value))
+    except (TypeError, ValueError):
+        pass
+    try:
+        when = datetime.fromisoformat(str(value))
+    except ValueError:
+        return None
+    days = (datetime.now(tz=when.tzinfo) - when).days
+    return max(0, days)
 
 
 def _refresh_embedding(session: Session, entry: Entry) -> None:
@@ -87,7 +200,7 @@ def _refresh_embedding(session: Session, entry: Entry) -> None:
 
 
 def _search_notes(session: Session, args: dict) -> dict:
-    limit = max(1, min(int(args.get("limit", 5)), 10))
+    limit = _limit_arg(args, default=5)
     entries, mode = search_manager.retrieve(
         session, str(args["query"]), deps.get_embeddings(), limit=limit
     )
@@ -95,39 +208,169 @@ def _search_notes(session: Session, args: dict) -> dict:
         "found": len(entries),
         "search_mode": mode,
         "notes": [_note_summary(session, e) for e in entries],
+        "how_to_read_more": _READ_MORE,
         "label": f"🔍 Searched notes for “{_clip(str(args['query']), 40)}”",
     }
 
 
+def _get_note_tool(session: Session, args: dict) -> dict:
+    """One note, in full. The only tool that returns whole text — which is
+    exactly why it takes an id and reads one note at a time."""
+    entry = _require_note(session, args)
+    result = _note_summary(session, entry, chars=FULL_NOTE_CHARS)
+    result["links"] = [
+        other.id for _link, other in manager.links_for_entry(session, entry)
+    ]
+    result["label"] = f"📄 Read note #{entry.id} in full"
+    return result
+
+
+def _list_notes(session: Session, args: dict) -> dict:
+    """Walk the notebook: filter, page, previews only.
+
+    This is what makes a large notebook answerable at all. It reports the
+    total against the filter and where the next page starts, so the model can
+    tell the difference between "that's all of them" and "there's more".
+    """
+    limit = _limit_arg(args, default=DEFAULT_LIST_LIMIT)
+    offset = max(0, int(args.get("offset") or 0))
+
+    filters = []
+    category = str(args.get("category") or "").strip()
+    if category:
+        filters.append(_category_clause(session, category))
+    tag = str(args.get("tag") or "").strip()
+    if tag:
+        # Tags are stored as a delimited string, so this over-matches
+        # ("work" would hit "homework"); the exact check happens below.
+        filters.append(Entry.tags.ilike(f"%{tag}%"))
+    since_days = _since_days(args.get("since"))
+    if since_days is not None:
+        from memorymap.core.database import utcnow
+
+        filters.append(Entry.created_at >= utcnow() - timedelta(days=since_days))
+
+    query = select(Entry).where(*_visible(*filters))
+    rows = list(
+        session.scalars(
+            query.order_by(Entry.created_at.desc(), Entry.id.desc())
+            # Over-fetch when a tag filter is on, because the exact tag match
+            # below can only remove rows, never add them.
+            .offset(offset).limit(limit + 1 if not tag else (limit + 1) * 4)
+        )
+    )
+    if tag:
+        wanted = tag.lower()
+        rows = [e for e in rows if wanted in {t.lower() for t in manager.entry_tags(e)}]
+
+    has_more = len(rows) > limit
+    rows = rows[:limit]
+
+    if tag:
+        # An exact count needs the same per-row check, so it can't be a
+        # SQL count(). Cheap enough: tags, not content.
+        total = sum(
+            1
+            for e in session.scalars(select(Entry).where(*_visible(*filters)))
+            if tag.lower() in {t.lower() for t in manager.entry_tags(e)}
+        )
+        has_more = offset + len(rows) < total
+    else:
+        total = session.scalar(
+            select(func.count(Entry.id)).where(*_visible(*filters))
+        ) or 0
+
+    described = ", ".join(
+        part
+        for part in (
+            category or "",
+            f"#{tag}" if tag else "",
+            f"last {since_days} days" if since_days is not None else "",
+        )
+        if part
+    )
+    result = {
+        "notes": [_note_summary(session, e) for e in rows],
+        "returned": len(rows),
+        "total_matching": total,
+        "offset": offset,
+        "has_more": has_more,
+        "previews_only": True,
+        "how_to_read_more": _READ_MORE,
+        "label": f"📚 Listed notes{f' ({described})' if described else ''}",
+    }
+    if has_more:
+        result["next_offset"] = offset + len(rows)
+        result["note_to_model"] = (
+            f"Showing {len(rows)} of {total}. Call list_notes again with "
+            f"offset={offset + len(rows)} for the next page — do not assume "
+            "these are all the notes."
+        )
+    return result
+
+
 def _count_notes(session: Session, args: dict) -> dict:
-    rows = session.scalars(select(Entry).where(Entry.is_deleted == False))  # noqa: E712
+    """Cheap aggregate: numbers only, never note content."""
+    tag = str(args.get("tag") or "").strip()
+    wanted = str(args.get("category") or "").strip()
+
+    if tag:
+        matching = [
+            e
+            for e in session.scalars(select(Entry).where(*_visible()))
+            if tag.lower() in {t.lower() for t in manager.entry_tags(e)}
+        ]
+        if wanted:
+            matching = [
+                e for e in matching if manager.category_name_for(session, e) == wanted
+            ]
+        return {
+            "tag": tag,
+            "category": wanted or None,
+            "count": len(matching),
+            "label": f"🔢 Counted notes tagged #{tag}",
+        }
+
     counts: dict[str, int] = {}
     total = 0
-    for entry in rows:
+    for entry in session.scalars(select(Entry).where(*_visible())):
         total += 1
         name = manager.category_name_for(session, entry)
         counts[name] = counts.get(name, 0) + 1
-    wanted = args.get("category")
     if wanted:
         return {
             "category": wanted,
-            "count": counts.get(str(wanted), 0),
+            "count": counts.get(wanted, 0),
             "label": f"🔢 Counted notes in {wanted}",
         }
     return {"total": total, "by_category": counts, "label": "🔢 Counted your notes"}
 
 
 def _list_categories(session: Session, args: dict) -> dict:
-    rows = session.scalars(select(Entry).where(Entry.is_deleted == False))  # noqa: E712
     counts: dict[str, int] = {}
-    for entry in rows:
+    for entry in session.scalars(select(Entry).where(*_visible())):
         name = manager.category_name_for(session, entry)
         counts[name] = counts.get(name, 0) + 1
     return {
         "categories": [
             {"name": name, "notes": count} for name, count in sorted(counts.items())
         ],
+        "total_notes": sum(counts.values()),
         "label": "🗂 Listed your categories",
+    }
+
+
+def _list_tags(session: Session, args: dict) -> dict:
+    """Every tag in use with its count, most-used first — the other half of
+    "what's in here?", and the way the model finds a tag worth listing by."""
+    counts: dict[str, int] = {}
+    for entry in session.scalars(select(Entry).where(*_visible())):
+        for tag in manager.entry_tags(entry):
+            counts[tag] = counts.get(tag, 0) + 1
+    ordered = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0].lower()))
+    return {
+        "tags": [{"name": name, "notes": count} for name, count in ordered],
+        "label": "🏷 Listed your tags",
     }
 
 
@@ -144,33 +387,244 @@ def _get_current_time(session: Session, args: dict) -> dict:
 def _summarize_notes(session: Session, args: dict) -> dict:
     """Gather recent notes (optionally by category / time window) so the model
     can summarise them in its answer. Read-only."""
-    from datetime import timedelta
-
     from memorymap.core.database import utcnow
 
-    query = select(Entry).where(Entry.is_deleted == False)  # noqa: E712
+    query = select(Entry).where(*_visible())
     period = "all time"
-    days = args.get("days")
-    if days:
-        try:
-            days_int = int(days)
-            query = query.where(Entry.created_at >= utcnow() - timedelta(days=days_int))
-            period = f"last {days_int} days"
-        except (ValueError, TypeError):
-            # The model wrote something that isn't a number of days. Summarise
-            # everything rather than failing the tool call over it.
-            pass
-    rows = list(session.scalars(query.order_by(Entry.created_at.desc()).limit(40)))
+    days = _since_days(args.get("days"))
+    if days is not None:
+        query = query.where(Entry.created_at >= utcnow() - timedelta(days=days))
+        period = f"last {days} days"
+    rows = list(
+        session.scalars(
+            query.order_by(Entry.created_at.desc()).limit(SUMMARY_NOTE_LIMIT + 1)
+        )
+    )
+    capped = len(rows) > SUMMARY_NOTE_LIMIT
+    rows = rows[:SUMMARY_NOTE_LIMIT]
     wanted = args.get("category")
     if wanted:
         rows = [e for e in rows if manager.category_name_for(session, e) == str(wanted)]
         period = f"{period}, {wanted}"
-    return {
+    result = {
         "period": period,
         "count": len(rows),
         "notes": [_note_summary(session, e) for e in rows],
+        "how_to_read_more": _READ_MORE,
         "label": "📝 Gathered notes to summarise",
     }
+    if capped:
+        result["note_to_model"] = (
+            f"Only the {SUMMARY_NOTE_LIMIT} most recent notes are here — there "
+            "are older ones. Say your summary covers the recent ones, or use "
+            "list_notes to page through the rest."
+        )
+    return result
+
+
+# --- documents, past chats, and skills ------------------------------------------
+# Documents are deliberately kept out of retrieval: a note is a captured
+# thought, a document is something you sat down and write, and mixing them
+# would put every half-finished draft into every search result. That decision
+# also meant the model could not read a document even when explicitly asked
+# to. These tools are the "unless you ask for it by name" half of that rule —
+# nothing arrives in context unless the model goes and gets it.
+
+
+def _list_documents(session: Session, args: dict) -> dict:
+    from memorymap.core.database import Document
+
+    limit = _limit_arg(args, default=DEFAULT_LIST_LIMIT)
+    offset = max(0, int(args.get("offset") or 0))
+    term = str(args.get("query") or "").strip()
+    # One list of filters, applied to both the page and the count, so the
+    # total can never describe a different set than the rows.
+    filters = []
+    if term:
+        like = f"%{term}%"
+        filters.append(Document.title.ilike(like) | Document.content.ilike(like))
+    total = session.scalar(select(func.count(Document.id)).where(*filters)) or 0
+    rows = list(
+        session.scalars(
+            select(Document)
+            .where(*filters)
+            .order_by(Document.updated_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+    )
+    return {
+        "documents": [
+            {
+                "id": d.id,
+                "title": d.title,
+                "words": len(d.content.split()),
+                "updated_at": d.updated_at.isoformat(),
+                "preview": _clip(d.content, PREVIEW_CHARS),
+            }
+            for d in rows
+        ],
+        "returned": len(rows),
+        "total_matching": total,
+        "offset": offset,
+        "has_more": offset + len(rows) < total,
+        "how_to_read_more": (
+            "Previews only. Call get_document with an id to read one in full."
+        ),
+        "label": f"📚 Listed documents{f' matching “{_clip(term, 30)}”' if term else ''}",
+    }
+
+
+def _get_document(session: Session, args: dict) -> dict:
+    from memorymap.core.database import Document
+
+    document = session.get(Document, int(args["document_id"]))
+    if document is None:
+        raise ValueError(f"No document with id {args.get('document_id')}")
+    text = document.content
+    clipped = _clip(text, DOCUMENT_CHARS)
+    return {
+        "id": document.id,
+        "title": document.title,
+        "content": clipped,
+        "truncated": len(clipped) < len(text),
+        "words": len(text.split()),
+        "label": f"📄 Read the document “{_clip(document.title, 40)}”",
+    }
+
+
+def _search_chat_history(session: Session, args: dict) -> dict:
+    """Past conversations. "What did we decide last week?" was unanswerable:
+    each turn only ever saw its own thread, so the assistant had no memory of
+    anything said in a different chat."""
+    from memorymap.api.routes_conversations import conversation_matches
+    from memorymap.core.database import Conversation
+
+    limit = _limit_arg(args, default=5)
+    term = str(args.get("query") or "").strip()
+    query = select(Conversation)
+    if term:
+        # Prefilter in SQL, then confirm in Python: `messages` is a JSON
+        # column, so a raw LIKE also matches its keys — "tent" is inside
+        # "content", which matched every conversation ever saved.
+        like = f"%{term}%"
+        query = query.where(
+            Conversation.title.ilike(like) | Conversation.messages.ilike(like)
+        )
+    rows = list(
+        session.scalars(
+            query.order_by(Conversation.updated_at.desc()).limit(limit * 4 if term else limit)
+        )
+    )
+    if term:
+        rows = [c for c in rows if conversation_matches(c, term)][:limit]
+    found = []
+    for conversation in rows:
+        try:
+            messages = json.loads(conversation.messages)
+        except ValueError:
+            messages = []
+        # The matching exchanges, not the whole thread: a long conversation
+        # would spend the entire budget on one tool call. Whole turns, though
+        # — a question that matched without the answer that followed it is
+        # useless for "what did we decide?", which is the question this tool
+        # exists to answer.
+        wanted_indexes: set[int] = set()
+        for index, message in enumerate(messages):
+            content = str(message.get("content", ""))
+            if not term or term.lower() in content.lower():
+                turn_start = index - (index % 2)
+                wanted_indexes.update({turn_start, turn_start + 1})
+            if len(wanted_indexes) >= 6:
+                break
+        excerpts = [
+            {
+                "role": messages[i].get("role"),
+                "text": _clip(str(messages[i].get("content", "")), PREVIEW_CHARS),
+            }
+            for i in sorted(wanted_indexes)
+            if i < len(messages)
+        ]
+        found.append(
+            {
+                "id": conversation.id,
+                "title": conversation.title,
+                "updated_at": conversation.updated_at.isoformat(),
+                "turns": len(messages) // 2,
+                "excerpts": excerpts or [
+                    {"role": m.get("role"), "text": _clip(str(m.get("content", "")), PREVIEW_CHARS)}
+                    for m in messages[:2]
+                ],
+            }
+        )
+    return {
+        "conversations": found,
+        "found": len(found),
+        "note_to_model": (
+            "These are excerpts from earlier chats, including possibly this "
+            "one. Say when you're relying on something said in a past "
+            "conversation rather than presenting it as the user's notes."
+        ),
+        "label": f"💬 Searched past chats{f' for “{_clip(term, 30)}”' if term else ''}",
+    }
+
+
+def _skill_list(config) -> list[dict]:
+    return list(config.get_preference("skills", []) or [])
+
+
+def _list_skills(session: Session, args: dict) -> dict:
+    skills = _skill_list(deps.get_config())
+    return {
+        "skills": [
+            {"name": s.get("name"), "prompt": _clip(str(s.get("prompt", "")), 300)}
+            for s in skills
+        ],
+        "count": len(skills),
+        "note_to_model": (
+            "These are the user's own saved skills. The app also ships "
+            "built-in ones that live in the interface and can't be edited here."
+        ),
+        "label": "⚡ Listed your saved skills",
+    }
+
+
+def _save_skill(session: Session, args: dict) -> dict:
+    """Create or update one skill. Same tool for both, because from the
+    model's side "make me a skill that does X" is one intent, and a separate
+    update tool just adds a way to get it wrong."""
+    config = deps.get_config()
+    name = str(args["name"]).strip()
+    prompt = str(args["prompt"]).strip()
+    if not name or not prompt:
+        raise ValueError("A skill needs both a name and a prompt")
+    if len(name) > 40:
+        raise ValueError("Skill names are limited to 40 characters")
+    if len(prompt) > 2000:
+        raise ValueError("Skill prompts are limited to 2000 characters")
+    skills = _skill_list(config)
+    existed = any(s.get("name") == name for s in skills)
+    if len(skills) >= 30 and not existed:
+        raise ValueError("There are already 30 saved skills — delete one first")
+    skills = [s for s in skills if s.get("name") != name]
+    skills.append({"name": name, "prompt": prompt})
+    config.set_preference("skills", skills)
+    return {
+        "name": name,
+        "updated": existed,
+        "label": f"⚡ {'Updated' if existed else 'Created'} the “{name}” skill",
+    }
+
+
+def _delete_skill(session: Session, args: dict) -> dict:
+    config = deps.get_config()
+    name = str(args["name"]).strip()
+    skills = _skill_list(config)
+    remaining = [s for s in skills if s.get("name") != name]
+    if len(remaining) == len(skills):
+        raise ValueError(f"There's no saved skill called “{name}”")
+    config.set_preference("skills", remaining)
+    return {"name": name, "label": f"⚡ Deleted the “{name}” skill"}
 
 
 def _create_note(session: Session, args: dict) -> dict:
@@ -207,7 +661,7 @@ def _create_note(session: Session, args: dict) -> dict:
 
 
 def _edit_note(session: Session, args: dict) -> dict:
-    entry = _get_note(session, args)
+    entry = _require_note(session, args)
     content = args.get("content")
     content_changed = content is not None and str(content) != entry.content
     manager.update_entry(
@@ -225,7 +679,7 @@ def _edit_note(session: Session, args: dict) -> dict:
 
 
 def _tag_note(session: Session, args: dict) -> dict:
-    entry = _get_note(session, args)
+    entry = _require_note(session, args)
     tags = manager.entry_tags(entry)
     for tag in args.get("add") or []:
         if str(tag) not in tags:
@@ -238,7 +692,7 @@ def _tag_note(session: Session, args: dict) -> dict:
 
 
 def _pin_note(session: Session, args: dict) -> dict:
-    entry = _get_note(session, args)
+    entry = _require_note(session, args)
     pinned = bool(args.get("pinned", True))
     if pinned != entry.pinned:
         entry.pinned = pinned
@@ -252,7 +706,7 @@ def _pin_note(session: Session, args: dict) -> dict:
 
 
 def _link_notes(session: Session, args: dict) -> dict:
-    source = _get_note(session, args)
+    source = _require_note(session, args)
     target = manager.get_entry(session, int(args["other_note_id"]))
     if target is None or target.is_deleted:
         raise ValueError(f"No note with id {args.get('other_note_id')}")
@@ -266,7 +720,7 @@ def _link_notes(session: Session, args: dict) -> dict:
 
 
 def _delete_note(session: Session, args: dict) -> dict:
-    entry = _get_note(session, args)
+    entry = _require_note(session, args)
     manager.soft_delete_entry(session, entry)
     return {
         "deleted": entry.id,
@@ -298,7 +752,7 @@ def _set_reminder(session: Session, args: dict) -> dict:
         ) from exc
     entry_id = args.get("note_id")
     if entry_id is not None:
-        _get_note(session, {"note_id": entry_id})  # validates it exists
+        _require_note(session, {"note_id": entry_id})  # validates it exists
         entry_id = int(entry_id)
     priority = str(args.get("priority") or "normal").lower()
     if priority not in ("low", "normal", "high"):
@@ -411,18 +865,163 @@ TOOLS: dict[str, ToolSpec] = {
             _search_notes,
         ),
         ToolSpec(
+            "get_note",
+            "Read one note in full, by id. Use this after search_notes or "
+            "list_notes, whose results are only short previews — read the note "
+            "before quoting it or answering a detailed question about it.",
+            {
+                "type": "object",
+                "properties": {"note_id": _NOTE_ID},
+                "required": ["note_id"],
+            },
+            _get_note_tool,
+        ),
+        ToolSpec(
+            "list_notes",
+            "Walk through the user's notes, newest first, optionally filtered "
+            "by category, tag, or age. Returns previews one page at a time — "
+            "check has_more and call again with next_offset to see the rest. "
+            "Use this for 'go through my X notes' style requests; use "
+            "search_notes when you're looking for something specific.",
+            {
+                "type": "object",
+                "properties": {
+                    "category": {
+                        "type": "string",
+                        "description": "Only this category (optional)",
+                    },
+                    "tag": {"type": "string", "description": "Only notes with this tag"},
+                    "since": {
+                        "type": "string",
+                        "description": "Only notes from the last N days, or since "
+                        "an ISO date like 2026-07-01 (optional)",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": f"Notes per page (1-{MAX_LIST_LIMIT}, "
+                        f"default {DEFAULT_LIST_LIMIT})",
+                    },
+                    "offset": {
+                        "type": "integer",
+                        "description": "Skip this many — use next_offset from the "
+                        "previous call to page",
+                    },
+                },
+            },
+            _list_notes,
+        ),
+        ToolSpec(
             "count_notes",
-            "Count the user's notes — in total, per category, or for one category.",
+            "Count the user's notes — in total, broken down per category, or "
+            "for one category and/or tag. Returns numbers only, so it's the "
+            "cheap way to answer 'how many…' without reading any notes.",
             {
                 "type": "object",
                 "properties": {
                     "category": {
                         "type": "string",
                         "description": "Only count this category (optional)",
-                    }
+                    },
+                    "tag": {
+                        "type": "string",
+                        "description": "Only count notes with this tag (optional)",
+                    },
                 },
             },
             _count_notes,
+        ),
+        ToolSpec(
+            "list_tags",
+            "List every tag in use with how many notes carry it, most-used "
+            "first. Use it to find the exact tag name before filtering by it.",
+            {"type": "object", "properties": {}},
+            _list_tags,
+        ),
+        ToolSpec(
+            "list_documents",
+            "List the user's long-form documents, newest first, optionally "
+            "filtered by a word in the title or body. Documents are separate "
+            "from notes and are never searched automatically, so use this "
+            "whenever the question is about something they wrote up properly.",
+            {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Only documents containing this text (optional)",
+                    },
+                    "limit": {"type": "integer", "description": "Per page"},
+                    "offset": {"type": "integer", "description": "Skip this many"},
+                },
+            },
+            _list_documents,
+        ),
+        ToolSpec(
+            "get_document",
+            "Read one document in full, by id. Use after list_documents, "
+            "whose results are only previews.",
+            {
+                "type": "object",
+                "properties": {
+                    "document_id": {"type": "integer", "description": "The document's id"}
+                },
+                "required": ["document_id"],
+            },
+            _get_document,
+        ),
+        ToolSpec(
+            "search_chat_history",
+            "Look through earlier conversations with the user, including "
+            "ones from other days. Use this when they refer to something "
+            "'we talked about' that isn't in the current thread.",
+            {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Words to look for (leave empty for the most recent chats)",
+                    },
+                    "limit": {"type": "integer", "description": "How many chats"},
+                },
+            },
+            _search_chat_history,
+        ),
+        ToolSpec(
+            "list_skills",
+            "List the user's saved skills — their own one-click requests for "
+            "this chat.",
+            {"type": "object", "properties": {}},
+            _list_skills,
+        ),
+        ToolSpec(
+            "save_skill",
+            "Create a saved skill, or update one that already exists by using "
+            "the same name. A skill is a reusable request the user can run "
+            "with one click.",
+            {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Short name, up to 40 characters"},
+                    "prompt": {
+                        "type": "string",
+                        "description": "What the skill asks for, written as an instruction",
+                    },
+                },
+                "required": ["name", "prompt"],
+            },
+            _save_skill,
+        ),
+        ToolSpec(
+            "delete_skill",
+            "Delete one of the user's saved skills. The app asks the user to "
+            "confirm before this runs.",
+            {
+                "type": "object",
+                "properties": {"name": {"type": "string"}},
+                "required": ["name"],
+            },
+            _delete_skill,
+            destructive=True,
         ),
         ToolSpec(
             "get_current_time",
@@ -678,6 +1277,8 @@ def confirm_label(name: str, arguments: dict) -> str:
         return f"Move note #{arguments.get('note_id', '?')} to the recycle bin"
     if name == "delete_tag":
         return f"Remove the tag “{arguments.get('name', '?')}” from every note"
+    if name == "delete_skill":
+        return f"Delete the saved skill “{arguments.get('name', '?')}”"
     return f"Run {name}"
 
 

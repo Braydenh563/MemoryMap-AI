@@ -23,74 +23,86 @@ import ipaddress
 import re
 import socket
 import time
-from urllib.parse import parse_qs, parse_qsl, unquote, urlencode, urlparse, urlunparse
+from urllib.parse import (
+    parse_qs,
+    parse_qsl,
+    unquote,
+    urlencode,
+    urlparse,
+    urlunparse,
+)
 
 import requests
 
 DDG_URL = "https://html.duckduckgo.com/html/"
 REQUEST_TIMEOUT = 10
 
-# Blend in, don't announce yourself. The old value — "MemoryMapAI/0.1 (personal
-# notebook)" — told DuckDuckGo and every page opened in the reader exactly which
-# app was asking, which is a unique fingerprint attached to every query the user
-# makes. A common browser string is the single biggest privacy win available
-# here: it puts these requests in the same bucket as everyone else's.
+# The User-Agent used to be "MemoryMapAI/0.1 (personal notebook)", which is a
+# near-unique fingerprint: it announces the exact app on every site visited and
+# links those visits together across unrelated domains. That is the opposite of
+# what someone asking for private search wants. A plain, extremely common
+# browser string is the quiet choice — the aim is to look like everyone else,
+# not to be identifiable and polite about it.
 USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0"
 )
 
-# Sent on every outbound request. The point of each one:
-#   Referer is omitted entirely — a search result URL in a Referer header tells
-#     the destination what you searched for.
-#   DNT/Sec-GPC are the two "do not track" signals that some jurisdictions make
-#     legally binding.
-#   Accept-Language is deliberately generic; a specific locale narrows a
-#     fingerprint considerably.
+# Sent on every outbound request. None of these are a guarantee — a header is a
+# request, not a control — but they cost nothing and they are what a browser in
+# a privacy mode sends.
 PRIVACY_HEADERS = {
     "User-Agent": USER_AGENT,
+    # Generic, so the header doesn't narrow anyone down by locale.
     "Accept-Language": "en-US,en;q=0.9",
     "DNT": "1",
     "Sec-GPC": "1",
-    "Referrer-Policy": "no-referrer",
+    # No Referer, ever: where you came from is nobody's business, and on a
+    # manually-followed redirect chain we are the ones who decide.
+    "Referer": "",
 }
+
+# Analytics parameters that exist only to identify the click that brought you.
+# Stripped from every result link and from anything opened in the reader, so
+# the request the site receives carries no campaign or click identifier.
+_TRACKING_PARAMS = frozenset(
+    """utm_source utm_medium utm_campaign utm_term utm_content utm_id utm_name
+    utm_reader utm_place utm_brand utm_social utm_social-type
+    gclid gclsrc dclid gbraid wbraid fbclid msclkid twclid igshid ttclid
+    yclid _openstat mc_cid mc_eid vero_id vero_conv oly_anon_id oly_enc_id
+    hsa_acc hsa_cam hsa_grp hsa_ad hsa_src hsa_tgt hsa_kw hsa_mt hsa_net
+    hsa_ver ref_src ref_url spm scm cmpid campaign_id ad_id adset_id
+    s_kwcid ei sca_esv usg ved""".split()
+)
 
 
 def _private_session() -> requests.Session:
-    """A one-shot session that keeps nothing.
+    """A one-shot session that keeps nothing between calls.
 
-    Cookies are the mechanism by which a search engine links one query to the
-    next, so the jar is cleared and the session is thrown away after the call —
-    nothing about a search survives to be correlated with the next one.
+    Headers alone don't stop the other half of the correlation problem:
+    cookies are how a search engine links one query to the next. The jar is
+    empty at the start and thrown away at the end, so nothing about a search
+    survives to be joined onto the one after it.
+
+    trust_env stays ON deliberately. Turning it off looks like a privacy win —
+    no ambient proxy, no netrc — but it also discards the system CA bundle and
+    the user's own proxy settings, and someone routing through Tor or a VPN
+    configures that through exactly those variables. Ignoring them would make
+    this less private, not more.
     """
     session = requests.Session()
     session.headers.update(PRIVACY_HEADERS)
     session.cookies.clear()
-    # trust_env stays ON deliberately. Turning it off looks like a privacy win
-    # — no ambient proxy, no netrc — but it also discards the system CA bundle
-    # and the user's proxy settings, which breaks TLS outright for anyone
-    # behind a corporate proxy. Someone routing through Tor or a VPN proxy
-    # configures it through exactly these variables, so ignoring them would
-    # make the app LESS private, not more.
     return session
 
 
-# Query/tracking parameters that identify the click rather than the page. They
-# are stripped from every result URL so opening one doesn't hand the destination
-# a campaign id tying the visit back to the search that produced it.
-_TRACKING_PARAMS = frozenset(
-    {
-        "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
-        "utm_id", "utm_source_platform", "gclid", "gclsrc", "dclid", "fbclid",
-        "msclkid", "mc_eid", "mc_cid", "igshid", "yclid", "twclid", "ttclid",
-        "vero_id", "wickedid", "_hsenc", "_hsmi", "oly_anon_id", "oly_enc_id",
-        "ref", "referrer", "spm", "scm",
-    }
-)
-
-
 def strip_tracking(url: str) -> str:
-    """Remove click-tracking parameters from a result URL."""
+    """Remove click-tracking parameters from a URL, keeping everything else.
+
+    Deliberately an allowlist-of-removals rather than a blanket "drop the
+    query string": plenty of URLs need their query to resolve at all (a search
+    result, an article id), and silently breaking links would be a worse
+    failure than a leaked campaign tag.
+    """
     try:
         parsed = urlparse(url)
     except ValueError:
@@ -102,7 +114,10 @@ def strip_tracking(url: str) -> str:
         for key, value in parse_qsl(parsed.query, keep_blank_values=True)
         if key.lower() not in _TRACKING_PARAMS
     ]
-    return urlunparse(parsed._replace(query=urlencode(kept, doseq=True)))
+    if len(kept) == len(parse_qsl(parsed.query, keep_blank_values=True)):
+        return url
+    return urlunparse(parsed._replace(query=urlencode(kept)))
+
 
 # Small in-process cache so repeating a search (or an agent retrying one)
 # doesn't hit the network again within the same minute or two.
@@ -177,7 +192,7 @@ def _build_pinned_probe_target(base_url: str) -> tuple[str, dict[str, str]] | No
 
     probe_url = f"{parsed.scheme}://{netloc}/search"
     host_header = host if parsed.port is None else f"{host}:{parsed.port}"
-    headers = {"User-Agent": USER_AGENT, "Host": host_header}
+    headers = {**PRIVACY_HEADERS, "Host": host_header}
     return probe_url, headers
 
 
@@ -272,7 +287,8 @@ def _search_searxng(query: str, limit: int, base_url: str) -> list[dict]:
     try:
         # Same accepted CodeQL SSRF alert as probe_searxng: a user-configured
         # instance, address-checked immediately above.
-        # POST keeps the query out of SearXNG's own access log too — the
+        # POST rather than GET so the query never appears in a request line —
+        # request lines are what end up in access logs and proxy history. The
         # instance is local, but "local" is not the same as "not written down".
         response = session.post(
             url,
@@ -284,7 +300,7 @@ def _search_searxng(query: str, limit: int, base_url: str) -> list[dict]:
     except (requests.RequestException, ValueError) as exc:
         raise WebSearchError(f"SearXNG search failed: {exc}") from exc
     finally:
-        session.close()
+        session.close()  # the cookie jar goes with it
 
     rows = payload.get("results") if isinstance(payload, dict) else None
     if not isinstance(rows, list):
@@ -294,7 +310,7 @@ def _search_searxng(query: str, limit: int, base_url: str) -> list[dict]:
     for row in rows[:limit]:
         if not isinstance(row, dict):
             continue
-        link = strip_tracking(str(row.get("url") or "").strip())
+        link = str(row.get("url") or "").strip()
         if not link:
             continue
         results.append(
@@ -313,8 +329,6 @@ def _search_searxng(query: str, limit: int, base_url: str) -> list[dict]:
 
 
 def _search_duckduckgo(query: str, limit: int) -> list[dict]:
-    # POST, not GET: the query stays out of the request line, so it never
-    # lands in an intermediary's access log or a proxy's history.
     session = _private_session()
     try:
         response = session.post(
@@ -326,7 +340,7 @@ def _search_duckduckgo(query: str, limit: int) -> list[dict]:
     except requests.RequestException as exc:
         raise WebSearchError(f"Web search failed: {exc}") from exc
     finally:
-        session.close()  # drop the cookie jar with the session
+        session.close()  # no cookies carried into the next search
     return _parse_results(response.text, limit)
 
 
@@ -343,8 +357,8 @@ def _real_url(href: str) -> str:
     if parsed.path.startswith("/l/"):
         wrapped = parse_qs(parsed.query).get("uddg", [""])[0]
         if wrapped:
-            return unquote(wrapped)
-    return href
+            return strip_tracking(unquote(wrapped))
+    return strip_tracking(href)
 
 
 # Two ways of finding results: the long-standing `result__a` markup, and a
@@ -374,7 +388,7 @@ def _parse_results(page: str, limit: int) -> list[dict]:
     snippets = _first_matches(_SNIPPET_PATTERNS, page)
     results = []
     for index, (href, title) in enumerate(titles[:limit]):
-        link = strip_tracking(_real_url(html.unescape(href)))
+        link = _real_url(html.unescape(href))
         results.append(
             {
                 "title": _strip_tags(title),
@@ -435,8 +449,7 @@ def _assert_external(url: str) -> list:
     result" into a probe of the user's own services.
 
     Returns the resolved addresses so the caller can connect to one it has
-    actually checked (see _pin_url) rather than resolving the name a second
-    time.
+    actually checked (see _pin_url) instead of resolving the name again.
     """
     scheme, host = _split_url(url)
     if not scheme:
@@ -452,19 +465,21 @@ def _assert_external(url: str) -> list:
 def _pin_url(url: str, address) -> tuple[str, str]:
     """Rewrite a URL to connect to one already-validated IP.
 
-    Without this the guard is checkable but not enforceable: _assert_external
-    resolves the hostname, then requests resolves it AGAIN when it connects.
-    A hostile name server can answer the first lookup with a public address and
-    the second with 127.0.0.1, and the fetch walks straight past the check
-    (DNS rebinding). Connecting to the exact address that passed — carrying the
-    original Host header so TLS and vhosts still work — closes that window.
+    Without this the guard above is checkable but not enforceable:
+    _assert_external resolves the hostname, then requests resolves it AGAIN to
+    open the connection. A hostile nameserver can answer the first lookup with
+    a public address and the second with 127.0.0.1 — DNS rebinding — and the
+    fetch walks straight past the check. Connecting to the exact address that
+    passed closes that window.
 
     Returns (pinned_url, host_header).
     """
     parsed = urlparse(url)
     port = parsed.port or (443 if parsed.scheme == "https" else 80)
     literal = f"[{address}]" if address.version == 6 else str(address)
-    host_header = parsed.hostname if parsed.port is None else f"{parsed.hostname}:{parsed.port}"
+    host_header = (
+        parsed.hostname if parsed.port is None else f"{parsed.hostname}:{parsed.port}"
+    )
     pinned = urlunparse(parsed._replace(netloc=f"{literal}:{port}"))
     return pinned, host_header
 
@@ -472,10 +487,10 @@ def _pin_url(url: str, address) -> tuple[str, str]:
 class _PinnedAdapter(requests.adapters.HTTPAdapter):
     """Connects to a pinned IP while still doing TLS against the real hostname.
 
-    Without server_hostname/assert_hostname, aiming a request at an IP literal
-    would send the wrong SNI and check the certificate against the IP, so every
-    HTTPS fetch would fail. These two put the hostname back where TLS needs it,
-    leaving verification fully intact.
+    Aiming a request at an IP literal would otherwise send the wrong SNI and
+    check the certificate against the address, so every HTTPS fetch would fail.
+    These two put the hostname back where TLS needs it, leaving verification
+    fully intact.
     """
 
     def __init__(self, hostname: str, **kwargs) -> None:
@@ -495,12 +510,6 @@ def _get_external(url: str) -> requests.Response:
     would resolve the next hop inside requests, where the address check can't
     see it — a public page answering "302 → http://127.0.0.1/" would otherwise
     walk straight past the guard above.
-
-    Each hop then connects to the exact address that passed the check. That
-    part matters more than it looks: resolving the name for the check and
-    letting requests resolve it again for the connection leaves a window where
-    a hostile nameserver answers the first lookup publicly and the second with
-    127.0.0.1 (DNS rebinding), which defeats the check entirely.
     """
     session = _private_session()
     try:
@@ -513,9 +522,9 @@ def _get_external(url: str) -> requests.Response:
                     f"https://{parsed.netloc}", _PinnedAdapter(urlparse(url).hostname)
                 )
             # CodeQL reports this as SSRF and always will: opening a link the
-            # user picked is the feature. Every hop is address-checked above and
-            # then pinned to the checked address, which is as far as this can be
-            # constrained without dropping the feature.
+            # user picked is the feature. Every hop is address-checked above
+            # and then pinned to the checked address, which is as far as this
+            # can be constrained without dropping the feature.
             response = session.get(
                 pinned,
                 headers={"Host": host_header},
@@ -535,9 +544,9 @@ def _get_external(url: str) -> requests.Response:
                 continue
             response.raise_for_status()
             # The body is still unread, so the session has to outlive this
-            # function — closing it here would shut the pool the caller is
-            # about to stream from. Tying it to the response hands that
-            # lifetime to the garbage collector.
+            # function; closing it here would shut the pool the caller is about
+            # to stream from. Tying it to the response hands that lifetime to
+            # the garbage collector.
             response._memorymap_session = session
             return response
     except BaseException:
@@ -569,6 +578,10 @@ def fetch_readable(url: str) -> dict:
     scripts, styles and chrome are stripped and only text comes back, so
     nothing from the page can execute in the app.
     """
+    # The link may have come from somewhere other than our own results
+    # (an agent, a pasted URL), so clean it here as well rather than trusting
+    # that it was cleaned upstream.
+    url = strip_tracking(url)
     try:
         response = _get_external(url)
         content_type = response.headers.get("content-type", "")
@@ -579,12 +592,18 @@ def fetch_readable(url: str) -> dict:
         raise WebSearchError(f"Couldn't open that page: {exc}") from exc
 
     page = raw.decode(response.encoding or "utf-8", errors="replace")
+    blocks = _readable_blocks(page)
+    words = sum(len(block["text"].split()) for block in blocks)
     return {
         "url": url,
         "domain": domain_of(url),
         "title": _page_title(page) or domain_of(url),
         "text": _readable_text(page)[:_READER_MAX_CHARS],
-        "blocks": _readable_blocks(page),
+        "blocks": blocks,
+        "words": words,
+        # Roughly how long this is, so you can decide whether to read it here
+        # or save it for later before scrolling to find out.
+        "read_minutes": max(1, round(words / 220)) if words else 0,
     }
 
 
@@ -625,7 +644,13 @@ def _readable_blocks(page: str) -> list[dict]:
         if len(text) < 40 and _JUNK_PATTERNS.search(text):
             continue
         kind = "heading" if tag.startswith("h") else tag
-        blocks.append({"type": kind, "text": text[:2000]})
+        block = {"type": kind, "text": text[:2000]}
+        # Keep the heading's depth. Flattening h1..h6 to one "heading" threw
+        # away the page's own outline — which is the thing that makes a
+        # stripped article navigable rather than a long ribbon of text.
+        if kind == "heading":
+            block["level"] = int(tag[1])
+        blocks.append(block)
         if len(blocks) >= 300:
             break
 

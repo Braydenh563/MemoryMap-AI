@@ -137,11 +137,21 @@ header#top-bar h1 { margin: 0; font-size: 1.1rem; letter-spacing: 0.01em; }
   display: flex;
   gap: 0.5rem;
   align-items: center;
-  flex-wrap: wrap;
+  /* The controls stay on one line. When this wrapped, a longer status message
+     could drop a button to a second row and change the header's height —
+     which is the flicker along the bottom edge of the top bar that was
+     reported. The pill shrinks instead; the buttons never move. */
+  flex-wrap: nowrap;
   margin-left: auto;
+  min-width: 0;
 }
 
-/* Live "what is the AI doing?" indicator */
+/* Live "what is the AI doing?" indicator.
+   Its text changes as status polls land ("checking…" → "word search on · AI
+   search unavailable"), and every change used to re-lay-out the header: the
+   pill grew, `margin-left: auto` slid the buttons, and everything below
+   twitched with it, for the second or two it takes the polls to settle.
+   Reserving a stable box means the text can change without moving anything. */
 #ai-pill {
   padding: 0.2rem 0.7rem;
   border-radius: 999px;
@@ -149,6 +159,23 @@ header#top-bar h1 { margin: 0; font-size: 1.1rem; letter-spacing: 0.01em; }
   background: var(--chip-bg);
   color: var(--muted);
   backdrop-filter: blur(8px);
+  max-width: 100%;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The reserved box. The pill still hugs its own text — a fixed-width pill
+   reading "AI ready" would be mostly empty background — but the space it can
+   grow into is claimed up front, so nothing beside it ever moves. The full
+   message is on the pill's tooltip when it has to ellipsis. */
+.ai-pill-slot {
+  flex: 0 0 auto;
+  width: 17.5rem;
+  display: flex;
+  justify-content: flex-end;
+  overflow: hidden;
 }
 #ai-pill.ok { background: var(--ok-soft); color: var(--ok); }
 #ai-pill.busy { background: var(--warn-soft); color: var(--warn); }
@@ -273,18 +300,8 @@ h2.collapsible-title:focus-visible {
 #sidebar li.active { background: var(--accent-soft); font-weight: 600; }
 #sidebar .count { color: var(--muted); }
 
-/* Keep the category sidebar in view while the notes column scrolls (desktop
-   only — on narrow screens it's stacked above the content, per the max-width
-   rule above). top clears the sticky topbar; it scrolls independently if the
-   category list gets long. */
-@media (min-width: 721px) {
-  #tab-notes #sidebar {
-    position: sticky;
-    top: 4.25rem;
-    max-height: calc(100vh - 5.5rem);
-    overflow-y: auto;
-  }
-}
+/* (The sticky rule for #tab-notes #sidebar lives once, above. It used to be
+   declared twice, identically, in the same file.) */
 
 /* --- forms --------------------------------------------------------------- */
 textarea, input[type="text"], input[type="password"], input[type="number"], select {
@@ -308,8 +325,8 @@ button {
   padding: 0.5rem 1.1rem;
   border: none;
   border-radius: 10px;
-  background: var(--accent);
-  color: #fff;
+  background: var(--accent-surface);
+  color: var(--on-accent);
   font: inherit;
   font-weight: 600;
   cursor: pointer;
@@ -835,40 +852,23 @@ li.link-source { outline: 2px solid var(--accent); }
 }
 .code-block code { background: none; padding: 0; }
 
-/* --- curated themes ---------------------------------------------------------- */
+/* --- curated themes ----------------------------------------------------------
+   Themes and palettes are siblings on the same screen, so theme cards reuse
+   .theme-card from the palette grid rather than defining a rival copy of it —
+   two definitions of one class is how the two grids drift apart visually.
+   Only the swatch differs, because a theme previews a page + accent pair
+   rather than a full palette. */
 .theme-presets {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
   gap: 0.5rem;
   margin: 0.5rem 0;
 }
-.theme-card {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.35rem;
-  padding: 0.4rem;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  font-size: 0.78rem;
-  font-weight: 500;
-  color: var(--ink);
-  cursor: pointer;
-  box-shadow: none;
-}
-.theme-card:hover { border-color: var(--accent); }
-.theme-card.active {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent-soft);
-  font-weight: 700;
-}
-/* The two bands show the theme's page colour and the accent it pairs with,
-   which is the pair that actually decides whether you'll like it. */
 .theme-swatch {
   height: 38px;
   border-radius: 6px;
   border: 1px solid var(--border);
+  box-sizing: border-box;
 }
 
 /* Scroll lock: while any overlay is open the page behind must not move.
@@ -1807,8 +1807,8 @@ kbd {
   z-index: 100;
   padding: 0.5rem 1rem;
   border-radius: 10px;
-  background: var(--accent);
-  color: #fff;
+  background: var(--accent-surface);
+  color: var(--on-accent);
   font-weight: 600;
   text-decoration: none;
 }
@@ -2677,12 +2677,36 @@ html { font-size: 16px; }
 /* --- chat page layout -------------------------------------------------------
    The conversation should own the window: header and composer pinned, the
    transcript scrolling between them. */
-#tab-chat:not(.hidden) > .layout { align-items: stretch; }
+#tab-chat:not(.hidden) > .layout {
+  align-items: stretch;
+  /* Fill the window rather than growing with the transcript: the composer
+     belongs at the bottom of the screen, not wherever the conversation
+     happens to end. */
+  height: calc(100vh - 4.5rem);
+  min-height: 32rem;
+}
+/* Both columns are .card, and .card carries `margin-bottom: 1rem`. On a
+   stretched grid row that made the sidebar end exactly 16px above the panel
+   beside it — the mismatched heights that were reported. Neither column
+   needs the margin here; the grid's own padding does that job. */
+#tab-chat .layout > aside.card,
+#tab-chat .layout > main > .card { margin-bottom: 0; }
+#tab-chat .layout > main { display: flex; min-height: 0; }
+#chat-sidebar {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  /* The chat list is the one that grows without bound, so it scrolls inside
+     the card instead of stretching the page. */
+  overflow: hidden;
+}
+#conversation-list { flex: 1 1 auto; overflow-y: auto; min-height: 0; }
 #chat-main {
   display: flex;
   flex-direction: column;
   min-height: 0;
   height: 100%;
+  flex: 1 1 auto;
 }
 #chat-messages {
   flex: 1 1 auto;
@@ -3348,14 +3372,26 @@ button.ai-unavailable {
 .sidebar-resize {
   position: absolute;
   top: 0;
-  right: -0.55rem;
+  /* Inside the box, not hanging off it. The Notes sidebar is a scroll
+     container (`overflow-y: auto`, so a long category list scrolls in place),
+     and overflow clips pointer events as well as paint — a handle at
+     `right: -0.55rem` was both invisible and unhittable there, which is why
+     that one sidebar couldn't be resized while the others could. */
+  right: 0;
   width: 0.7rem;
   height: 100%;
+  /* Above the list rows, so a category underneath doesn't take the drag. */
+  z-index: 2;
   cursor: col-resize;
-  /* Invisible until reached for, so it isn't furniture. */
-  background: transparent;
+  /* A faint grip, not a bar: enough to say "this edge does something"
+     without becoming furniture. It was fully invisible before, so nobody
+     had any way to discover the sidebar could be resized at all. */
+  background: linear-gradient(
+    to right, transparent 40%, var(--border) 40%, var(--border) 60%, transparent 60%
+  );
+  opacity: 0.5;
   border-radius: 3px;
-  transition: background 0.12s ease;
+  transition: background 0.12s ease, opacity 0.12s ease;
   touch-action: none;
 }
 .sidebar-resize:hover,
@@ -3423,3 +3459,673 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   margin: 0 0.25rem;
   background: var(--border);
 }
+
+/* An inline explanation under a setting, shown only when that setting is
+   being overridden by something else — so a control that looks like it did
+   nothing can say why. */
+.hint-inline {
+  display: block;
+  margin-top: 0.25rem;
+  padding-left: 0.5rem;
+  border-left: 2px solid var(--accent);
+  opacity: 0.85;
+}
+
+/* --- chat: an organised sidebar, readable code, correctable answers -------------
+   The list was flat and grew forever, code blocks had to be selected by hand,
+   and an answer once written could never be fixed. */
+
+.conv-search {
+  margin: 0 0 0.5rem;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.88rem;
+}
+#conversation-list li { gap: 0.35rem; align-items: center; }
+/* min-width: 0 is what lets a flex child actually shrink below its content.
+   Without it the title column keeps its natural width and the text is cut
+   off by the sidebar's edge instead of ellipsising inside it. */
+.conv-title { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+.conv-name {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: 0.9rem;
+  line-height: 1.3;
+}
+/* Date · turns · tokens, small enough to scan past and there when wanted.
+   One line, ellipsised — it's context, never worth stealing a second row. */
+.conv-meta {
+  font-size: 0.74rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#conversation-list .entry-actions { flex: 0 0 auto; }
+#conversation-list li.pinned-conv { background: var(--accent-soft); }
+#conversation-list li.pinned-conv.active-conv { border-left-color: var(--accent); }
+/* One rule between the pinned block and the rest, so pinning reads as a
+   section rather than an unexplained reordering. */
+.conv-divider {
+  height: 1px;
+  padding: 0;
+  margin: 0.45rem 0.2rem;
+  background: var(--border);
+  border: 0;
+  cursor: default;
+}
+.conv-divider:hover { background: var(--border); }
+
+/* The conversation's running total, beside the persona picker. */
+.chat-usage {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: var(--chip-bg);
+  white-space: nowrap;
+}
+
+/* The persona's actual system prompt, on demand. */
+.persona-prompt {
+  margin: 0 0 0.6rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: calc(var(--radius) * 0.7);
+  background: var(--chip-bg);
+  border-left: 3px solid var(--accent);
+  font-size: 0.85rem;
+}
+.persona-prompt p { margin: 0.3rem 0 0; white-space: pre-wrap; color: var(--muted); }
+
+/* Code blocks: a header strip naming the language, with a copy button. */
+.code-block {
+  margin: 0.6rem 0;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 0.7);
+  overflow: hidden;
+  background: var(--chip-bg);
+}
+.code-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.25rem 0.4rem 0.25rem 0.7rem;
+  border-bottom: 1px solid var(--border);
+}
+.code-lang {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.code-copy { padding: 0.15rem 0.5rem; font-size: 0.75rem; }
+.code-block pre {
+  margin: 0;
+  padding: 0.7rem 0.85rem;
+  overflow-x: auto;
+  background: transparent;
+}
+.code-block pre code { background: none; padding: 0; font-size: 0.84rem; }
+
+/* Editing an answer in place. */
+.answer-editor { margin-top: 0.4rem; }
+.answer-editor textarea {
+  width: 100%;
+  font-family: inherit;
+  font-size: 0.9rem;
+  margin-bottom: 0.4rem;
+}
+/* Never let an edited answer pass as the model's own words. */
+.edited-marker {
+  display: inline-block;
+  font-size: 0.72rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: var(--warn-soft);
+  color: var(--warn);
+  margin-top: 0.35rem;
+}
+
+/* --- documents: outline, live stats, and where the file actually is ---------- */
+
+.doc-outline-wrap { margin-top: 0.9rem; border-top: 1px solid var(--border); padding-top: 0.6rem; }
+.doc-outline-wrap h3 { margin: 0 0 0.35rem; }
+.doc-outline { list-style: none; margin: 0; padding: 0; }
+.outline-link {
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  padding: 0.16rem 0.3rem;
+  width: 100%;
+  border-radius: 6px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.outline-link:hover { background: var(--accent-soft); color: var(--ink); }
+/* Indentation is the whole point of an outline — it shows the shape. */
+.outline-h2 .outline-link { padding-left: 1rem; }
+.outline-h3 .outline-link { padding-left: 1.7rem; font-size: 0.82rem; }
+.outline-h4 .outline-link { padding-left: 2.4rem; font-size: 0.8rem; }
+
+.doc-stats { font-size: 0.78rem; white-space: nowrap; }
+
+.doc-storage { margin-top: 0.9rem; font-size: 0.85rem; }
+.doc-storage summary { cursor: pointer; }
+.doc-storage p { margin: 0.45rem 0; font-size: 0.82rem; }
+.storage-path {
+  display: block;
+  padding: 0.4rem 0.5rem;
+  background: var(--chip-bg);
+  border-radius: 6px;
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+/* ================================================================================
+   Curated palettes (Settings → Appearance → Theme)
+
+   Each palette is a point of view, not a hue rotation: a paper-and-ink one for
+   writing, a cool clinical one, a warm one for evenings. Every palette ships
+   BOTH a light and a dark set, so choosing one is orthogonal to the light/dark
+   toggle — picking "Parchment" shouldn't silently decide whether it's night.
+
+   Only the palette variables are redefined here; every component keeps reading
+   the same names, which is what stops a new theme from needing new rules.
+   ============================================================================= */
+
+/* --- Parchment: paper, ink and a little gold. Made for long writing. --------- */
+:root[data-palette="parchment"] {
+  --page: linear-gradient(135deg, #f6efe2 0%, #f3e9d8 45%, #efe4d2 100%);
+  --blob-a: rgba(181, 138, 62, 0.16);
+  --blob-b: rgba(140, 106, 74, 0.10);
+  --card: rgba(255, 252, 245, 0.62);
+  --inner: rgba(255, 253, 247, 0.5);
+  --input-bg: rgba(255, 253, 247, 0.62);
+  --glass-border: rgba(255, 250, 236, 0.7);
+  --modal-bg: rgba(252, 246, 235, 0.97);
+  --glass-shadow: 0 8px 32px rgba(96, 72, 38, 0.14);
+  --ink: #2f2718;
+  --muted: #6d6151;
+  --accent: #9a6b1f;
+  --accent-soft: rgba(154, 107, 31, 0.16);
+  --border: rgba(63, 51, 30, 0.13);
+  --chip-bg: rgba(63, 51, 30, 0.08);
+}
+:root[data-palette="parchment"][data-mode="dark"] {
+  --page: linear-gradient(135deg, #1b1710 0%, #221c13 45%, #1a1611 100%);
+  --blob-a: rgba(214, 173, 96, 0.13);
+  --blob-b: rgba(160, 122, 78, 0.09);
+  --card: rgba(43, 36, 25, 0.58);
+  --inner: rgba(255, 245, 224, 0.05);
+  --input-bg: rgba(24, 20, 14, 0.6);
+  --glass-border: rgba(226, 205, 165, 0.12);
+  --modal-bg: rgba(34, 28, 19, 0.97);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --ink: #efe6d4;
+  --muted: #ad9f89;
+  --accent: #e0b458;
+  --accent-soft: rgba(224, 180, 88, 0.18);
+  --border: rgba(238, 224, 196, 0.12);
+  --chip-bg: rgba(238, 224, 196, 0.09);
+}
+
+/* --- Sage: quiet greens. The calmest of the set. ----------------------------- */
+:root[data-palette="sage"] {
+  --page: linear-gradient(135deg, #eaf1e9 0%, #f2f5ee 45%, #e4eeea 100%);
+  --blob-a: rgba(76, 141, 104, 0.17);
+  --blob-b: rgba(122, 168, 140, 0.12);
+  --card: rgba(253, 255, 252, 0.58);
+  --inner: rgba(253, 255, 252, 0.46);
+  --input-bg: rgba(253, 255, 252, 0.58);
+  --glass-border: rgba(244, 252, 245, 0.68);
+  --modal-bg: rgba(248, 252, 248, 0.97);
+  --glass-shadow: 0 8px 32px rgba(35, 74, 52, 0.13);
+  --ink: #1e2b23;
+  --muted: #566a5e;
+  --accent: #2f7d54;
+  --accent-soft: rgba(47, 125, 84, 0.15);
+  --border: rgba(30, 43, 35, 0.11);
+  --chip-bg: rgba(30, 43, 35, 0.07);
+}
+:root[data-palette="sage"][data-mode="dark"] {
+  --page: linear-gradient(135deg, #0d1512 0%, #121d17 45%, #0e1a16 100%);
+  --blob-a: rgba(94, 196, 138, 0.14);
+  --blob-b: rgba(70, 158, 140, 0.09);
+  --card: rgba(25, 38, 31, 0.58);
+  --inner: rgba(224, 255, 238, 0.05);
+  --input-bg: rgba(11, 20, 16, 0.6);
+  --glass-border: rgba(190, 240, 212, 0.11);
+  --modal-bg: rgba(20, 31, 25, 0.97);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --ink: #e2efe7;
+  --muted: #93a99c;
+  --accent: #5fd39a;
+  --accent-soft: rgba(95, 211, 154, 0.18);
+  --border: rgba(210, 240, 224, 0.11);
+  --chip-bg: rgba(210, 240, 224, 0.08);
+}
+
+/* --- Ocean: cool teal and deep blue. Crisp rather than cosy. ------------------ */
+:root[data-palette="ocean"] {
+  --page: linear-gradient(135deg, #e4f0f6 0%, #eef6f8 45%, #dfeef2 100%);
+  --blob-a: rgba(20, 132, 168, 0.18);
+  --blob-b: rgba(64, 176, 190, 0.12);
+  --card: rgba(252, 254, 255, 0.58);
+  --inner: rgba(252, 254, 255, 0.46);
+  --input-bg: rgba(252, 254, 255, 0.58);
+  --glass-border: rgba(240, 251, 255, 0.68);
+  --modal-bg: rgba(246, 252, 254, 0.97);
+  --glass-shadow: 0 8px 32px rgba(16, 62, 82, 0.14);
+  --ink: #14262e;
+  --muted: #4d6672;
+  --accent: #0f7d99;
+  --accent-soft: rgba(15, 125, 153, 0.15);
+  --border: rgba(20, 38, 46, 0.11);
+  --chip-bg: rgba(20, 38, 46, 0.07);
+}
+:root[data-palette="ocean"][data-mode="dark"] {
+  --page: linear-gradient(135deg, #08131a 0%, #0d1e28 45%, #091a22 100%);
+  --blob-a: rgba(56, 189, 220, 0.15);
+  --blob-b: rgba(45, 130, 200, 0.10);
+  --card: rgba(21, 36, 45, 0.58);
+  --inner: rgba(220, 248, 255, 0.05);
+  --input-bg: rgba(7, 16, 22, 0.6);
+  --glass-border: rgba(180, 236, 250, 0.11);
+  --modal-bg: rgba(16, 29, 37, 0.97);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --ink: #dff0f6;
+  --muted: #8ba7b4;
+  --accent: #46c9e6;
+  --accent-soft: rgba(70, 201, 230, 0.18);
+  --border: rgba(200, 238, 250, 0.11);
+  --chip-bg: rgba(200, 238, 250, 0.08);
+}
+
+/* --- Ember: warm oranges over a dim ground. Best in the evening. ------------- */
+:root[data-palette="ember"] {
+  --page: linear-gradient(135deg, #fbeee4 0%, #f9efe6 45%, #f6e6e0 100%);
+  --blob-a: rgba(214, 106, 42, 0.17);
+  --blob-b: rgba(198, 76, 88, 0.11);
+  --card: rgba(255, 252, 249, 0.6);
+  --inner: rgba(255, 252, 249, 0.47);
+  --input-bg: rgba(255, 252, 249, 0.6);
+  --glass-border: rgba(255, 246, 238, 0.7);
+  --modal-bg: rgba(253, 247, 242, 0.97);
+  --glass-shadow: 0 8px 32px rgba(120, 55, 25, 0.14);
+  --ink: #2e1e16;
+  --muted: #6d574c;
+  --accent: #bc5622;
+  --accent-soft: rgba(188, 86, 34, 0.15);
+  --border: rgba(46, 30, 22, 0.12);
+  --chip-bg: rgba(46, 30, 22, 0.07);
+}
+:root[data-palette="ember"][data-mode="dark"] {
+  --page: linear-gradient(135deg, #17100c 0%, #1f1511 45%, #1a0f0e 100%);
+  --blob-a: rgba(247, 145, 74, 0.14);
+  --blob-b: rgba(226, 90, 106, 0.09);
+  --card: rgba(41, 29, 23, 0.58);
+  --inner: rgba(255, 238, 226, 0.05);
+  --input-bg: rgba(20, 13, 10, 0.6);
+  --glass-border: rgba(250, 214, 190, 0.12);
+  --modal-bg: rgba(32, 22, 18, 0.97);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --ink: #f4e3d8;
+  --muted: #b39687;
+  --accent: #f5924f;
+  --accent-soft: rgba(245, 146, 79, 0.18);
+  --border: rgba(246, 220, 204, 0.12);
+  --chip-bg: rgba(246, 220, 204, 0.08);
+}
+
+/* --- Plum: deep violet and magenta. The most saturated. ---------------------- */
+:root[data-palette="plum"] {
+  --page: linear-gradient(135deg, #f1e9f7 0%, #f6eef8 45%, #ece6f6 100%);
+  --blob-a: rgba(140, 62, 186, 0.17);
+  --blob-b: rgba(206, 74, 154, 0.11);
+  --card: rgba(254, 252, 255, 0.58);
+  --inner: rgba(254, 252, 255, 0.46);
+  --input-bg: rgba(254, 252, 255, 0.58);
+  --glass-border: rgba(250, 244, 255, 0.68);
+  --modal-bg: rgba(250, 246, 253, 0.97);
+  --glass-shadow: 0 8px 32px rgba(76, 32, 104, 0.14);
+  --ink: #261a2e;
+  --muted: #61526c;
+  --accent: #8332ad;
+  --accent-soft: rgba(131, 50, 173, 0.14);
+  --border: rgba(38, 26, 46, 0.11);
+  --chip-bg: rgba(38, 26, 46, 0.07);
+}
+:root[data-palette="plum"][data-mode="dark"] {
+  --page: linear-gradient(135deg, #130d1a 0%, #1c1226 45%, #170f20 100%);
+  --blob-a: rgba(188, 116, 245, 0.15);
+  --blob-b: rgba(238, 108, 186, 0.10);
+  --card: rgba(35, 26, 45, 0.58);
+  --inner: rgba(243, 230, 255, 0.05);
+  --input-bg: rgba(16, 11, 22, 0.6);
+  --glass-border: rgba(230, 205, 250, 0.12);
+  --modal-bg: rgba(28, 20, 37, 0.97);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --ink: #eee2f6;
+  --muted: #a795b3;
+  --accent: #c07df5;
+  --accent-soft: rgba(192, 125, 245, 0.19);
+  --border: rgba(232, 212, 250, 0.12);
+  --chip-bg: rgba(232, 212, 250, 0.08);
+}
+
+/* --- Carbon: near-monochrome, minimal colour, maximum text contrast. --------- */
+:root[data-palette="carbon"] {
+  --page: linear-gradient(135deg, #f2f3f5 0%, #eceef1 45%, #e7e9ed 100%);
+  --blob-a: rgba(90, 100, 115, 0.13);
+  --blob-b: rgba(140, 148, 160, 0.09);
+  --card: rgba(255, 255, 255, 0.66);
+  --inner: rgba(255, 255, 255, 0.5);
+  --input-bg: rgba(255, 255, 255, 0.66);
+  --glass-border: rgba(255, 255, 255, 0.75);
+  --modal-bg: rgba(250, 251, 252, 0.98);
+  --glass-shadow: 0 8px 28px rgba(20, 24, 31, 0.12);
+  --ink: #14181f;
+  --muted: #59616d;
+  --accent: #2b3441;
+  --accent-soft: rgba(43, 52, 65, 0.11);
+  --border: rgba(20, 24, 31, 0.14);
+  --chip-bg: rgba(20, 24, 31, 0.07);
+}
+:root[data-palette="carbon"][data-mode="dark"] {
+  --page: linear-gradient(135deg, #0a0b0d 0%, #101216 45%, #0c0e11 100%);
+  --blob-a: rgba(150, 160, 175, 0.10);
+  --blob-b: rgba(110, 120, 135, 0.07);
+  --card: rgba(24, 27, 33, 0.62);
+  --inner: rgba(255, 255, 255, 0.04);
+  --input-bg: rgba(9, 10, 13, 0.62);
+  --glass-border: rgba(255, 255, 255, 0.09);
+  --modal-bg: rgba(19, 21, 26, 0.98);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  --ink: #f0f2f5;
+  --muted: #9ba3af;
+  --accent: #cdd5e0;
+  --accent-soft: rgba(205, 213, 224, 0.13);
+  --border: rgba(255, 255, 255, 0.11);
+  --chip-bg: rgba(255, 255, 255, 0.07);
+}
+
+/* --- the picker itself ------------------------------------------------------- */
+/* Swatches, not a dropdown: a palette is a look, and a list of names asks you
+   to imagine it. Each card previews its own colours. */
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  gap: 0.6rem;
+  margin: 0.4rem 0 0.9rem;
+}
+.theme-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 0.8);
+  background: var(--inner);
+  cursor: pointer;
+  text-align: left;
+  box-shadow: none;
+  color: var(--ink);
+  transition: border-color 0.14s ease, transform 0.14s ease;
+}
+.theme-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+.theme-card[aria-pressed="true"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.theme-preview {
+  height: 3.1rem;
+  border-radius: calc(var(--radius) * 0.55);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(128, 128, 128, 0.18);
+}
+/* A miniature of the real thing: page wash, a card, an accent mark. */
+.theme-preview::after {
+  content: "";
+  position: absolute;
+  left: 12%;
+  top: 30%;
+  width: 52%;
+  height: 42%;
+  border-radius: 4px;
+  background: var(--sw-card);
+  border: 1px solid var(--sw-border);
+}
+.theme-preview::before {
+  content: "";
+  position: absolute;
+  right: 11%;
+  top: 36%;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  background: var(--sw-accent);
+}
+.theme-name { font-size: 0.82rem; font-weight: 600; }
+.theme-note { font-size: 0.72rem; color: var(--muted); line-height: 1.25; }
+@media (prefers-reduced-motion: reduce) {
+  .theme-card, .theme-card:hover { transition: none; transform: none; }
+}
+
+/* --- the day-one dashboard ------------------------------------------------------
+   A dozen widgets each saying "nothing here yet" made a working app look
+   broken on the day someone starts using it. One card, a few real actions,
+   and the widgets appear on their own as soon as they have something to hold. */
+.dash-widget.dash-getting-started {
+  /* The full width of the grid. Two classes deliberately, to out-specify
+     `.dash-widget.wide`'s `span 2`: at one column the inner grid of steps
+     spilled straight past the card's right edge. */
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 2rem 1.5rem;
+}
+.dash-getting-started h2 { margin: 0.6rem 0 0.4rem; font-size: 1.2rem; }
+.dash-getting-started > p.muted { max-width: 46rem; margin: 0 auto; }
+.start-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0.6rem;
+  margin: 1.4rem auto 0.8rem;
+  max-width: 58rem;
+  text-align: left;
+}
+.start-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 0.8);
+  background: var(--inner);
+  color: var(--ink);
+  box-shadow: none;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.14s ease, transform 0.14s ease;
+}
+.start-step:hover { border-color: var(--accent); transform: translateY(-2px); }
+.start-step-icon { font-size: 1.3rem; line-height: 1.2; }
+.start-step strong { display: block; font-size: 0.92rem; }
+.start-step .muted { font-size: 0.78rem; line-height: 1.3; }
+.start-footer { font-size: 0.82rem; max-width: 46rem; margin: 0.4rem auto 0; }
+@media (prefers-reduced-motion: reduce) {
+  .start-step, .start-step:hover { transition: none; transform: none; }
+}
+
+/* --- the web reader: an article, not a ribbon of text ------------------------- */
+/* A comfortable measure. Full-width lines are the single biggest thing that
+   makes stripped text unpleasant to read — the eye loses the line return. */
+.web-reader-text { max-width: 68ch; line-height: 1.65; }
+.web-reader-text p { margin: 0 0 0.85rem; }
+/* The page's own heading depth, preserved rather than flattened. */
+.web-reader-text .reader-heading { margin: 1.2rem 0 0.4rem; line-height: 1.3; }
+.web-reader-text h3.reader-heading { font-size: 1.12rem; }
+.web-reader-text h4.reader-heading { font-size: 1rem; }
+.web-reader-text h5.reader-heading,
+.web-reader-text h6.reader-heading { font-size: 0.92rem; color: var(--muted); }
+.web-reader-text blockquote {
+  margin: 0.8rem 0;
+  padding: 0.2rem 0 0.2rem 0.9rem;
+  border-left: 3px solid var(--accent);
+  color: var(--muted);
+}
+.web-reader-text pre {
+  background: var(--chip-bg);
+  padding: 0.7rem 0.85rem;
+  border-radius: calc(var(--radius) * 0.6);
+  overflow-x: auto;
+}
+.web-reader-text ul { margin: 0 0 0.85rem; padding-left: 1.3rem; }
+.web-reader-text li { margin-bottom: 0.25rem; }
+
+/* Keyboard focus on the map. The graph takes one tab stop and the arrows move
+   between notes inside it; without a visible ring there is no way to tell
+   which note you're on, which makes the whole thing unusable by keyboard even
+   once it technically works. */
+#graph-box:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.graph-node.graph-keyfocus .graph-core {
+  stroke: var(--accent);
+  stroke-width: 3px;
+  paint-order: stroke;
+}
+.graph-node.graph-keyfocus .graph-halo { opacity: 0.55; }
+.graph-node.graph-keyfocus .graph-label {
+  font-weight: 700;
+  fill: var(--ink);
+}
+
+/* ================================================================================
+   Phones (roadmap §8 — the layout had breakpoints but had never been driven at
+   phone width, and at a true 390px viewport every single tab overflowed
+   sideways. On a real phone Chrome hides that by shrinking the whole app to
+   fit, so it doesn't look broken, it just renders unusably small.)
+
+   The main offender was the top bar: six tab buttons on a row that neither
+   wrapped nor scrolled, so the header alone demanded ~640px before any
+   content. A tab strip you can swipe is the right answer — wrapping it costs
+   two rows of height on the smallest screens, where height is the scarce one.
+   ============================================================================= */
+@media (max-width: 720px) {
+  header#top-bar {
+    padding: 0.45rem 0.8rem;
+    gap: 0.6rem;
+  }
+  header#top-bar h1 { font-size: 1rem; }
+  #tab-bar {
+    order: 3;
+    width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    /* Momentum scrolling, and no scrollbar eating a row of pixels. */
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  #tab-bar::-webkit-scrollbar { display: none; }
+  #tab-bar button { flex: 0 0 auto; padding: 0.35rem 0.75rem; }
+  .header-controls { margin-left: auto; gap: 0.35rem; }
+  /* The reserved pill slot is 17.5rem — most of a phone's width. The header
+     wraps here anyway, so the reflow it was preventing can't happen. */
+  .ai-pill-slot { width: auto; max-width: 45vw; }
+
+  /* Give content the screen back: 2rem of side padding is a tenth of a phone. */
+  .layout, .doc-layout { padding-left: 0.75rem; padding-right: 0.75rem; }
+  #dash-grid { padding-left: 0.75rem; padding-right: 0.75rem; }
+  #dash-grid { grid-template-columns: minmax(0, 1fr); }
+  .dash-hero { margin-left: 0.75rem; margin-right: 0.75rem; padding: 1rem; }
+  .card { padding: 0.85rem 0.9rem; }
+
+  /* Rows of controls wrap instead of pushing the page sideways. */
+  .doc-actions, .chat-toolbar, .graph-toolbar { flex-wrap: wrap; }
+  .doc-toolbar { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
+  .doc-toolbar::-webkit-scrollbar { display: none; }
+
+  /* The chat page pins itself to the window on desktop; on a phone the
+     on-screen keyboard makes that a losing fight, so let it flow. */
+  #tab-chat:not(.hidden) > .layout { height: auto; min-height: 0; }
+  #chat-sidebar { overflow: visible; }
+  #conversation-list { max-height: 40vh; }
+
+  .start-steps { grid-template-columns: minmax(0, 1fr); }
+  .theme-grid { grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr)); }
+}
+
+/* Touch targets. A 28px button is a miss waiting to happen on a phone; the
+   usual floor is around 44px, and these are the rows people tap most. */
+@media (pointer: coarse) {
+  .doc-toolbar button,
+  .msg-action,
+  .entry-actions button { min-height: 38px; min-width: 38px; }
+  #tab-bar button { min-height: 40px; }
+}
+
+/* ================================================================================
+   Text on accent-coloured surfaces (roadmap §7 — colour contrast was listed as
+   unverified; measured, and this was the one real failure).
+
+   Every solid button, the active tab and the skip link paint white on
+   var(--accent). In light mode that measured 4.34:1 against the default
+   indigo — just under the 4.5 AA needs. In dark mode the accent is a *light*
+   colour by design, so white-on-accent came out at 2.54:1, which is a genuine
+   readability problem rather than a near miss.
+
+   Two different fixes because they're two different problems: in light mode
+   the accent is darkened slightly for surfaces that carry text; in dark mode
+   the accent stays and the text on it goes dark, which is the normal way to
+   put text on a light block. Both are expressed against var(--accent), so all
+   thirteen accent presets and any custom colour are covered — a paired
+   "strong" shade per accent would be thirteen chances to get one wrong.
+   ============================================================================= */
+:root {
+  --accent-surface: color-mix(in oklab, var(--accent) 88%, #000 12%);
+  --on-accent: #fff;
+}
+:root[data-mode="dark"] {
+  /* The accent is light here, so lighten it further and use dark ink on it. */
+  --accent-surface: var(--accent);
+  --on-accent: #0d1017;
+}
+
+/* Chips carry 12px text, where AA is least forgiving, and were using the
+   muted ink: 3.54:1. Chips are labels, not secondary prose. */
+.chip { color: var(--ink); }
+
+/* --- Notes sub-tabs ------------------------------------------------------------
+   Four full-height cards on one page meant scrolling past three forms you
+   weren't using to reach your notes. One section at a time, remembered. */
+.notes-subtabs {
+  margin-bottom: 0.75rem;
+  width: 100%;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  scrollbar-width: none;
+}
+.notes-subtabs::-webkit-scrollbar { display: none; }
+.notes-subtabs button {
+  flex: 0 0 auto;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--muted);
+  font-weight: 500;
+  padding: 0.4rem 0.9rem;
+  border-radius: 9px;
+}
+.notes-subtabs button.active {
+  background: var(--accent-surface);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+.notes-subtabs button:not(.active):hover { background: var(--accent-soft); color: var(--ink); }

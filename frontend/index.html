@@ -22,25 +22,34 @@
     (function () {
       const _r = document.documentElement;
       const THEMES = {
-        midnight: { theme: "dark", accent: "indigo", glass: "on", "glass-blur": "18", radius: "14" },
-        paper: { theme: "light", accent: "slate", font: "serif", glass: "off", radius: "6", "page-bg": "#faf9f6" },
-        forest: { theme: "dark", accent: "emerald", glass: "on", radius: "16" },
-        ember: { theme: "dark", accent: "sunset", glass: "on", radius: "12" },
-        nord: { theme: "dark", accent: "sky", glass: "on", radius: "10", "page-bg": "#2e3440" },
-        quartz: { theme: "light", accent: "rose", glass: "on", radius: "18" },
-        terminal: { theme: "dark", accent: "lime", font: "mono", glass: "off", radius: "2", density: "compact", "page-bg": "#0a0e0a" },
-        sepia: { theme: "light", accent: "amber", font: "serif", glass: "off", radius: "8", "page-bg": "#f4ecd8" },
-        abyss: { theme: "dark", accent: "ocean", glass: "on", "glass-blur": "26", radius: "14" },
-        orchid: { theme: "dark", accent: "grape", glass: "on", radius: "16" },
-        daylight: { theme: "light", accent: "teal", glass: "on", radius: "14" },
-        graphite: { theme: "dark", accent: "slate", glass: "off", radius: "4", density: "compact", "page-bg": "#18181b" },
+        midnight: { theme: "dark", palette: "default", glass: "on", radius: "14" },
+        daylight: { theme: "light", palette: "default", glass: "on", radius: "14" },
+        manuscript: { theme: "light", palette: "parchment", font: "serif", glass: "off", radius: "6", density: "spacious" },
+        terminal: { theme: "dark", palette: "carbon", font: "mono", glass: "off", radius: "2", density: "compact" },
+        study: { theme: "light", palette: "sage", font: "serif", glass: "on", radius: "16" },
+        abyss: { theme: "dark", palette: "ocean", glass: "on", "glass-blur": "26", radius: "14" },
+        evening: { theme: "dark", palette: "ember", glass: "on", radius: "12" },
+        orchid: { theme: "dark", palette: "plum", glass: "on", radius: "18" },
+        blueprint: { theme: "light", palette: "ocean", font: "mono", glass: "off", radius: "4", density: "compact" },
+        graphite: { theme: "dark", palette: "carbon", glass: "off", radius: "4" },
       };
       const preset = THEMES[localStorage.getItem("themePreset")] || {};
       const pref = (key, fallback) =>
         localStorage.getItem(key) ?? preset[key] ?? fallback;
 
-      const theme = pref("theme", null);
+      const theme = pref("theme", "system");
       if (theme && theme !== "system") _r.dataset.theme = theme;
+      // data-mode is the RESOLVED light/dark, which the palettes match on —
+      // under "System" there is no data-theme for CSS to hang off, so without
+      // this every palette would paint its light set on a dark desktop until
+      // app.js caught up.
+      _r.dataset.mode =
+        theme === "light" || theme === "dark"
+          ? theme
+          : window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+
+      const palette = pref("palette", "default");
+      if (palette && palette !== "default") _r.dataset.palette = palette;
       const accent = pref("accent", "indigo");
       if (accent && accent !== "indigo") _r.dataset.accent = accent;
       if (localStorage.getItem("contrast") === "on") _r.dataset.contrast = "on";
@@ -82,7 +91,9 @@
         aria-selected="false" aria-controls="tab-reminders" tabindex="-1">Reminders</button>
     </nav>
     <div class="header-controls">
-      <span id="ai-pill" title="What the AI is doing right now">checking…</span>
+      <!-- Fixed-width slot: the pill's text changes as status polls land, and
+           without a reserved box every change nudged the buttons beside it. -->
+      <span class="ai-pill-slot"><span id="ai-pill" title="What the AI is doing right now">checking…</span></span>
       <button id="settings-btn" class="ghost small" title="Settings">⚙ Settings</button>
       <button id="lock-btn" class="ghost small hidden" title="Lock the app" aria-label="Lock the app">🔒</button>
       <button id="theme-btn" class="ghost small" title="Toggle light/dark" aria-label="Toggle light or dark theme">🌓</button>
@@ -181,6 +192,21 @@
           <p id="tags-empty" class="muted hidden">No tags yet — add some when you capture a note.</p>
         </section>
 
+        <!-- Sub-tabs. The Notes tab was four full-height cards stacked on one
+             page, so reaching your notes meant scrolling past three forms you
+             weren't using. One at a time, remembered. -->
+        <div class="notes-subtabs seg" id="notes-subtabs" role="tablist"
+          aria-label="Notes sections">
+          <button role="tab" data-section="browse" aria-selected="true"
+            aria-controls="browse">📚 Your notes</button>
+          <button role="tab" data-section="capture" aria-selected="false"
+            aria-controls="capture" tabindex="-1">✏️ Capture</button>
+          <button role="tab" data-section="writing-room" aria-selected="false"
+            aria-controls="writing-room" tabindex="-1">✨ Write with AI</button>
+          <button role="tab" data-section="ask" aria-selected="false"
+            aria-controls="ask" tabindex="-1">💬 Ask</button>
+        </div>
+
         <!-- Capture: the start of the core loop -->
         <section class="card" id="capture">
           <div class="row space-between">
@@ -221,7 +247,11 @@ Link to another note with [[its first few words]]."></textarea>
           <p class="muted" id="draft-intro">
             Type whatever's in your head — half sentences are fine. The AI turns
             it into a note. Edit the draft, add more thoughts, and it folds them
-            in without undoing your changes.
+            in without undoing your changes. Your own words stay in the box:
+            nothing here overwrites what you typed, and ↩ Undo steps back
+            through every AI pass. This is the one part of the app that needs
+            the local AI running — with it off, the Draft button is disabled
+            and everything else on this tab still works.
           </p>
           <div class="draft-columns">
             <div class="draft-column">
@@ -379,6 +409,11 @@ Link to another note with [[its first few words]]."></textarea>
           <h2>Chats</h2>
           <button id="chat-new" class="ghost small" title="Start a fresh conversation">+ New</button>
         </div>
+        <!-- Searches what was said, not just titles: you remember the
+             subject long after you've forgotten what the chat was called. -->
+        <input id="conv-search" type="search" class="conv-search"
+          placeholder="🔎 Search your chats…"
+          aria-label="Search your chats by title or by what was said">
         <ul id="conversation-list"></ul>
         <p id="conv-empty" class="muted">No saved chats yet — ask something!</p>
       </aside>
@@ -392,7 +427,18 @@ Link to another note with [[its first few words]]."></textarea>
             <button id="web-search-toggle" class="ghost small" aria-pressed="false"
               title="Search the web here, and let the AI search when you ask it to">🌐 Web</button>
             <select id="persona-select" class="small-select" aria-label="Persona"></select>
+            <!-- You could pick a persona but never see what it actually told
+                 the model to do. -->
+            <button id="persona-peek" class="ghost small" type="button"
+              aria-expanded="false"
+              title="Show the instructions this persona gives the AI">👁</button>
+            <span id="chat-usage" class="chat-usage muted" hidden
+              title="Everything this conversation has sent to the model so far"></span>
             <button id="chat-export" class="ghost small" title="Download this chat as a Markdown file">⭳ Export</button>
+          </div>
+          <div id="persona-prompt" class="persona-prompt hidden">
+            <strong>What this persona tells the AI</strong>
+            <p id="persona-prompt-text"></p>
           </div>
           <!-- Web panel: search the web and read a page as clean text,
                without embedding a browser. -->
@@ -576,6 +622,30 @@ Link to another note with [[its first few words]]."></textarea>
           aria-label="Filter documents by title">
         <ul id="doc-list" class="doc-list"></ul>
         <p id="doc-empty" class="muted hidden">No documents yet — start typing on the right, or press ＋ New.</p>
+
+        <!-- Built from the document's own headings: past two screens of text
+             the scrollbar stops being a way to navigate. -->
+        <div id="doc-outline-wrap" class="doc-outline-wrap hidden">
+          <h3>Outline</h3>
+          <ul id="doc-outline" class="doc-outline"></ul>
+        </div>
+
+        <!-- "Where are they stored?" was asked outright, and the app had no
+             answer anywhere. For a local-first app that's most of the promise. -->
+        <details id="doc-storage" class="doc-storage">
+          <summary class="muted">Where are my documents kept?</summary>
+          <p class="muted">
+            Every document is saved automatically as you type — there's no
+            save button to forget. They live in your notebook's database file
+            on this machine, along with your notes:
+          </p>
+          <code id="doc-storage-path" class="storage-path">…</code>
+          <p class="muted">
+            Nothing is ever uploaded. Use <strong>⬇ .md</strong> to keep a copy
+            as an ordinary file anywhere you like, or Settings → Import &amp;
+            export to back up or export everything at once.
+          </p>
+        </details>
       </aside>
 
       <section class="card doc-main">
@@ -583,6 +653,8 @@ Link to another note with [[its first few words]]."></textarea>
           <input id="doc-title" type="text" maxlength="200" placeholder="Untitled"
             aria-label="Document title" class="doc-title-input">
           <span class="row doc-actions">
+            <span id="doc-stats" class="muted doc-stats"
+              title="Words, and roughly how long this takes to read"></span>
             <span id="doc-saved" class="muted" role="status"></span>
             <button id="doc-preview-toggle" class="ghost small" type="button"
               aria-pressed="false" title="Show a rendered preview beside the editor">👁 Preview</button>
@@ -768,6 +840,7 @@ Link to another note with [[its first few words]]."></textarea>
           <p class="nav-group-label" id="nav-group-you">Your notebook</p>
           <div role="group" aria-labelledby="nav-group-you">
             <button data-section="appearance">Appearance</button>
+            <button data-section="shortcuts">Keyboard shortcuts</button>
             <button data-section="preferences">Preferences</button>
             <button data-section="data">Import &amp; export</button>
           </div>
@@ -954,6 +1027,18 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="settings-group">
               <h3>Theme &amp; colour</h3>
 
+              <!-- Curated palettes. Each ships both a light and a dark set,
+                   so choosing one is independent of the Mode buttons below. -->
+              <div class="setting-label">
+                <span>Palette</span>
+                <small class="muted">
+                  A complete look. Each one has a light and a dark version, so
+                  this and Mode below are separate choices.
+                </small>
+              </div>
+              <div class="theme-grid" id="palette-grid" role="group"
+                aria-label="Curated palettes"></div>
+
               <div class="setting-row">
                 <div class="setting-label">
                   <span>Mode</span>
@@ -1119,9 +1204,11 @@ Link to another note with [[its first few words]]."></textarea>
                     Still draws one frame and stops — the same look without the
                     motion, and no CPU spent on it.
                   </small>
+                  <small class="muted hint-inline hidden" id="bg-motion-hint"></small>
                 </div>
                 <select id="bg-motion" class="small-select setting-control"
                   aria-label="Background movement">
+                  <option value="auto">Auto — follow reduced motion</option>
                   <option value="moving">Moving</option>
                   <option value="still">Still</option>
                 </select>
@@ -1164,6 +1251,37 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="row">
               <button id="appearance-reset" class="ghost small">Reset appearance to defaults</button>
             </div>
+          </section>
+
+          <!-- Keyboard shortcuts. The rebinding UI existed only behind the ?
+               overlay, so anyone looking for it in Settings — where every
+               other preference lives — found nothing and reported it missing.
+               Same list, same code, a second place to reach it. -->
+          <section class="settings-section hidden" id="settings-shortcuts">
+            <p class="muted">
+              Click <strong>Change</strong> and press the keys you want. Press
+              <kbd>?</kbd> anywhere in the app for the same list as an overlay.
+            </p>
+            <ul class="shortcut-list" id="shortcut-list-settings"></ul>
+            <p id="shortcut-status-settings" class="status" role="status"></p>
+            <div class="row">
+              <button id="shortcuts-reset-settings" class="ghost small" type="button">
+                ↺ Reset to defaults
+              </button>
+            </div>
+
+            <h3>Always available</h3>
+            <p class="muted">
+              These follow the conventions every app shares, so they aren't
+              rebindable — being unable to press Escape in the dialog you
+              rebound it in is not a state worth allowing.
+            </p>
+            <ul class="shortcut-list">
+              <li><kbd>Esc</kbd><span>Close any dialog, menu, or overlay</span></li>
+              <li><kbd>←</kbd> <kbd>→</kbd><span>Move between tabs (when a tab is focused)</span></li>
+              <li><kbd>Enter</kbd><span>Send a chat message, or run the selected command</span></li>
+              <li><kbd>Tab</kbd><span>Move focus; cycles inside an open dialog</span></li>
+            </ul>
           </section>
 
           <!-- Preferences (Phase 4/5, moved here in Wave A) -->

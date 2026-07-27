@@ -815,6 +815,26 @@ li.link-source { outline: 2px solid var(--accent); }
 }
 .settings-section h3:first-child { margin-top: 0; }
 
+/* --- account & security ------------------------------------------------------ */
+.stacked-label {
+  display: block;
+  margin: 0.6rem 0 0.2rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.code-block {
+  margin: 0.4rem 0;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  background: var(--chip-bg);
+  border: 1px solid var(--border);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.82rem;
+  overflow-x: auto; /* a long command scrolls rather than widening the dialog */
+}
+.code-block code { background: none; padding: 0; }
+
 /* --- curated themes ---------------------------------------------------------- */
 .theme-presets {
   display: grid;

@@ -26,6 +26,10 @@ These are the constraints that shaped every decision. When in doubt, they win.
 
 1. **Offline-first, always.** No feature may depend on a cloud service. The one
    opt-in exception is web search, which is off by default and clearly marked.
+   When it *is* on it is built to reveal as little as possible: an ordinary
+   browser User-Agent rather than one naming the app, no cookie jar, no
+   Referer, DNT/Sec-GPC set, POST so queries stay out of request lines, and
+   tracking parameters stripped from result URLs.
 2. **Degrade gracefully.** If the AI (Ollama) is down, the app still works:
    new notes are filed as `Uncategorised`, search falls back to keywords, and a
    status pill in the header says what the AI is doing. **Saving a note must
@@ -158,12 +162,15 @@ are grouped by feature area:
 
 | Router | Prefix | Responsibility |
 | --- | --- | --- |
-| `routes_auth` | `/auth` | first-run password setup, unlock, lock |
+| `routes_auth` | `/auth` | first-run password setup, unlock, lock, change password, account state |
 | `routes_entries` | `/entries` | create/read/edit/soft-delete notes, links, related, restore |
 | `routes_chat` | `/chat` | ask questions, streaming answers, agentic tools, suggestions |
 | `routes_conversations` | `/conversations` | saved chat threads |
 | `routes_models` | `/models` | Ollama status, pull models, switch chat/embedding/utility model |
 | `routes_settings` | `/` | preferences, audit log, JSON/CSV/Markdown export & import, backups, logs |
+| `routes_documents` | `/documents` | long-form markdown documents, export, AI edit |
+| `routes_duplicates` | `/duplicates` | near-duplicate finder + AI merge |
+| `routes_drafts` | `/drafts` | the writing room's compose/rewrite calls |
 | `routes_files` | `/` | attachments upload/download/delete |
 | `routes_tags` | `/tags` | list/rename/delete tags |
 | `routes_graph` | `/` | force-directed graph data + link suggestions |
@@ -181,16 +188,32 @@ running.
 inline; the two **destructive** ones (`delete_note`, `delete_tag`) emit a
 confirmation event to the UI instead of executing.
 
-`search_notes` · `count_notes` · `list_categories` · `create_note` ·
-`edit_note` · `tag_note` · `pin_note` · `link_notes` · `delete_note` ⚠️ ·
-`restore_note` · `set_reminder` · `list_reminders` · `complete_reminder` ·
-`rename_tag` · `web_search` (opt-in) · `delete_tag` ⚠️
+`search_notes` · `count_notes` · `list_categories` · `get_current_time` ·
+`summarize_notes` · `create_note` · `edit_note` · `tag_note` · `pin_note` ·
+`link_notes` · `delete_note` ⚠️ · `restore_note` · `set_reminder` ·
+`list_reminders` · `complete_reminder` · `rename_tag` · `web_search` (opt-in) ·
+`delete_tag` ⚠️
+
+The agent loop (`ai/agent.py`) streams: it calls `chat_tools_stream`, so the
+model's prose reaches the user as it is written rather than arriving in one
+block when the turn ends. Text that might turn out to be a tool call written
+as prose is gated until it is clearly not one, so it is executed rather than
+displayed. The UI renders the run as an ordered timeline — thinking, tool
+calls and prose in the order they happened — and persists it with the turn.
 
 ## 8. Data model
 
 SQLite via SQLAlchemy 2.0 (`core/database.py`). Main tables:
 
-- **users** — single-user unlock (one bcrypt-hashed password).
+- **users** — single-user unlock (one bcrypt-hashed password). Exactly one
+  row: separate notebooks are separate `MEMORYMAP_DATA_DIR`s, not separate
+  accounts. The password can be changed from Settings → Account, which
+  re-wraps the vault key onto the new password *before* replacing the hash —
+  the other order would strand every private note.
+- **vault** — the data key for private notes, wrapped with a key derived from
+  the password. This is why a forgotten password loses private notes and only
+  private notes: everything else is plain rows. `--reset-password` clears the
+  credential and says exactly what that costs before it does.
 - **categories** — named buckets; each has an embedding centroid used for the
   janitor's cheap-match path.
 - **entries** — the notes themselves: `content`, `category_id`, JSON `tags`,

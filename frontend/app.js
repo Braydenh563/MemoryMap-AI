@@ -72,7 +72,11 @@ async function api(path, options = {}) {
   // `timeoutMs`: opt-in abort so a call can't hang the UI forever (used by the
   // startup probe). Off by default, so long-running requests — model pulls,
   // blocking chat — are unaffected.
-  const { silent, timeoutMs, ...fetchOptions } = options;
+  // `ownsAuthErrors`: this call treats 401 as part of its own result rather
+  // than as an expired session. Change-password answers 401 for "that isn't
+  // your current password" — a typo there must show a message beside the
+  // field, not throw the user out to the lock screen.
+  const { silent, timeoutMs, ownsAuthErrors, ...fetchOptions } = options;
   let timer = null;
   if (timeoutMs) {
     const controller = new AbortController();
@@ -88,7 +92,7 @@ async function api(path, options = {}) {
   } finally {
     if (timer) clearTimeout(timer);
   }
-  if (response.status === 401) {
+  if (response.status === 401 && !ownsAuthErrors) {
     if (!silent) showLockScreen(false); // token expired (e.g. app restarted)
     throw new Error("Locked");
   }
@@ -7593,7 +7597,7 @@ function initScrollTopButton() {
 
 // --- settings modal (Wave A) ------------------------------------------------------
 
-const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "appearance", "preferences", "tasks", "data", "logs", "help", "about"];
+const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "appearance", "preferences", "account", "tasks", "data", "logs", "help", "about"];
 
 // Where to send focus back when a dialog closes (Wave L).
 let overlayReturnFocus = null;
@@ -7667,6 +7671,7 @@ function showSettingsSection(name) {
   if (name === "skills") renderSkillSettings();
   if (name === "tools") renderToolSettings();
   if (name === "appearance") renderAppearance();
+  if (name === "account") renderAccount().catch(() => {});
   if (name === "data") renderBackups();
   if (name === "tasks") refreshModelStatus(); // populate the tasks list now
 }
@@ -7689,6 +7694,97 @@ function closeSettingsModal() {
   $("settings-modal").classList.add("hidden");
   overlayReturnFocus?.focus?.();
   overlayReturnFocus = null;
+}
+
+// --- account & security ------------------------------------------------------------
+
+async function renderAccount() {
+  const facts = $("account-facts");
+  facts.replaceChildren();
+  const info = await apiJson("/auth/account").catch(() => null);
+  if (!info) {
+    const li = document.createElement("li");
+    li.className = "muted";
+    li.textContent = "Couldn't read the account state.";
+    facts.appendChild(li);
+    return;
+  }
+  const rows = [
+    ["Password", info.configured ? "Set" : "Not set yet"],
+    [
+      "Created",
+      info.created_at ? new Date(info.created_at).toLocaleDateString() : "—",
+    ],
+    [
+      "Private notes",
+      info.vault_exists
+        ? info.vault_open
+          ? "Encryption key loaded — private notes are readable"
+          : "Locked — unlock to read private notes"
+        : "No encrypted notes yet",
+    ],
+    ["Open sessions", String(info.active_sessions)],
+  ];
+  for (const [label, value] of rows) {
+    const li = document.createElement("li");
+    const name = document.createElement("strong");
+    name.textContent = `${label}: `;
+    li.append(name, document.createTextNode(value));
+    facts.appendChild(li);
+  }
+}
+
+async function changePassword() {
+  const status = $("account-status");
+  const current = $("account-current").value;
+  const next = $("account-new").value;
+  const confirmed = $("account-confirm").value;
+  status.classList.remove("error");
+
+  // Checked here as well as on the server, so a typo costs a moment rather
+  // than a password you didn't mean to set.
+  if (!current || !next) {
+    status.classList.add("error");
+    status.textContent = "Fill in your current and new password.";
+    return;
+  }
+  if (next !== confirmed) {
+    status.classList.add("error");
+    status.textContent = "The two new passwords don't match.";
+    return;
+  }
+  if (next.length < 4) {
+    status.classList.add("error");
+    status.textContent = "A password needs at least 4 characters.";
+    return;
+  }
+
+  status.textContent = "Changing…";
+  try {
+    const result = await apiJson("/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify({ current_password: current, new_password: next }),
+      // A 401 here means "wrong current password", not "your session died".
+      ownsAuthErrors: true,
+    });
+    // Changing the password invalidates every token, including this tab's.
+    // The server hands back a fresh one so the change doesn't log you out of
+    // the screen you just used to make it. Key must match authToken().
+    localStorage.setItem("token", result.token);
+    $("account-current").value = "";
+    $("account-new").value = "";
+    $("account-confirm").value = "";
+    status.textContent = "Password changed.";
+    toast(
+      result.other_sessions_ended
+        ? `Password changed. ${result.other_sessions_ended} other session(s) were signed out.`
+        : "Password changed."
+    );
+    renderAccount().catch(() => {});
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+  }
 }
 
 // --- logs viewer (Wave A) ---------------------------------------------------------
@@ -9961,6 +10057,19 @@ $("custom-css-clear").addEventListener("click", () => {
 });
 $("appearance-reset").addEventListener("click", resetAppearance);
 $("theme-reset").addEventListener("click", resetThemeOnly);
+$("account-change").addEventListener("click", changePassword);
+$("account-lock-all").addEventListener("click", async () => {
+  if (!confirm("End every session, including this one? You'll need your password to get back in.")) return;
+  await apiJson("/auth/lock-all", { method: "POST" }).catch(() => {});
+  localStorage.removeItem("token");
+  location.reload();
+});
+// Enter anywhere in the change-password form submits it.
+for (const id of ["account-current", "account-new", "account-confirm"]) {
+  $(id).addEventListener("keydown", (e) => {
+    if (e.key === "Enter") changePassword();
+  });
+}
 $("theme-clear-overrides").addEventListener("click", clearManualOverrides);
 
 // Apply saved appearance prefs immediately, then start the background.

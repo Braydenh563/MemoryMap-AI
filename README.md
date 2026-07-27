@@ -111,8 +111,15 @@ cp .env.example .env             # Windows: copy .env.example .env
 ## Run it
 
 ```bash
-python -m memorymap
+python -m memorymap             # browser tab at http://localhost:8000
+python -m memorymap --desktop   # the same app in its own window
 ```
+
+The desktop window needs the optional `pywebview` (`pip install pywebview`);
+without it the app falls back to a browser tab rather than failing. The
+one-click launchers cover both — `start.bat` / `./start.sh` for a tab, and
+`start-desktop.bat` / `./start.sh --desktop` for a window, which install
+`pywebview` on demand.
 
 Then open <http://localhost:8000> — on first run you'll be asked to choose a
 password (bcrypt-hashed, stays on your machine), and after that the app is:
@@ -131,6 +138,41 @@ password (bcrypt-hashed, stays on your machine), and after that the app is:
   AI can use for personal answers (opt-out + delete any time), and JSON/CSV
   export of everything.
 - **Activity** — the audit log of every meaningful action.
+- **Account & security** — change your password or PIN (private notes move
+  across automatically), see how many sessions are open, and lock everywhere.
+
+### One notebook, one password
+
+MemoryMap is single-user by design: one `users` row, one password, everything
+on this machine. To keep separate notebooks, point the app at a different data
+folder (`MEMORYMAP_DATA_DIR`) rather than creating a second account.
+
+**If you forget the password**, there is no reset link inside the app — one
+there would just be a way in for anyone at the keyboard. Run:
+
+```bash
+python -m memorymap --reset-password
+```
+
+It asks you to confirm, then clears the password so you can set a new one.
+Two very different things happen to your notes, and the command says which
+before you commit:
+
+- **Ordinary notes are not encrypted** by your password — they are plain rows
+  in SQLite and come back untouched.
+- **Private notes are.** Their key is derived from the password, so without it
+  they cannot be decrypted by anyone, including this command. The reset loses
+  them, and it tells you how many you have first.
+
+### Web search privacy
+
+Web search is off by default and is the only feature that leaves the machine.
+When it is on, it sends an ordinary browser User-Agent rather than one naming
+this app, keeps no cookies between searches, sends no `Referer`, sets the DNT
+and Sec-GPC signals, uses POST so queries stay out of request lines and logs,
+and strips tracking parameters (`utm_*`, `fbclid`, `gclid`, …) from result
+URLs. Pointing it at a local SearXNG instance keeps more of the query on your
+own network still.
 
 The interactive API explorer still lives at <http://localhost:8000/docs>.
 

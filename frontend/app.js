@@ -2479,7 +2479,141 @@ function addBubble(role, text) {
   return bubble;
 }
 
-// An assistant bubble with its thinking box and matching-records slot.
+// --- the agent's run, as an ordered timeline --------------------------------------
+// A turn used to render into three fixed slots — thinking, then every tool chip,
+// then the answer — regardless of when those things actually happened. For a
+// multi-step agent run that destroys the one thing worth seeing: the order. A
+// model that thought, searched, thought again and then answered looked
+// identical to one that answered immediately.
+//
+// So steps are appended as the events arrive. Consecutive deltas of the same
+// kind extend the current step; a different kind starts a new one, which is
+// what produces the thinking → tool → tool → answer chain the user follows.
+function agentTimeline(holder) {
+  let current = null; // the step still being written into
+  const answerSteps = []; // every prose step, in order
+  const thinkingSteps = [];
+  const record = []; // a serialisable copy, for persistence
+
+  const foldEarlierThinking = () => {
+    // Reasoning that has produced output is finished — collapse it so the
+    // answer isn't buried under it, but leave it there to reopen.
+    for (const step of thinkingSteps) step.el.open = false;
+  };
+
+  const startThinking = () => {
+    const el = document.createElement("details");
+    el.className = "agent-step step-thinking";
+    el.open = true;
+    const summary = document.createElement("summary");
+    summary.textContent = "Thinking";
+    const body = document.createElement("div");
+    body.className = "thinking";
+    el.append(summary, body);
+    holder.appendChild(el);
+    current = { kind: "thinking", el, body, raw: "" };
+    thinkingSteps.push(current);
+    return current;
+  };
+
+  const startAnswer = () => {
+    foldEarlierThinking();
+    const el = document.createElement("div");
+    el.className = "agent-step step-answer bubble-answer";
+    holder.appendChild(el);
+    current = {
+      kind: "answer",
+      el,
+      body: el,
+      raw: "",
+      render: liveMarkdownRenderer(el),
+    };
+    answerSteps.push(current);
+    return current;
+  };
+
+  return {
+    holder,
+    thinking(delta) {
+      const step = current?.kind === "thinking" ? current : startThinking();
+      step.raw += delta;
+      step.body.textContent = step.raw;
+    },
+    answer(delta) {
+      const step = current?.kind === "answer" ? current : startAnswer();
+      step.raw += delta;
+      step.render(step.raw);
+    },
+    // A tool call is its own small step between the prose around it.
+    tool(node) {
+      foldEarlierThinking();
+      holder.appendChild(node);
+      current = null; // whatever comes next begins a fresh step
+    },
+    // Replay a saved run (reopening a conversation).
+    replay(steps) {
+      for (const step of steps || []) {
+        if (step.kind === "thinking" && step.text) {
+          this.thinking(step.text);
+          if (current) current.el.open = false;
+          current = null;
+        } else if (step.kind === "answer" && step.text) {
+          const node = startAnswer();
+          node.raw = step.text;
+          renderMarkdown(node.body, step.text);
+          current = null;
+        } else if (step.kind === "tool") {
+          this.tool(toolChip(step.label, step.ok !== false));
+        }
+      }
+    },
+    noteStep(entry) {
+      record.push(entry);
+    },
+    // Everything the model actually said, for copying, reading aloud and the
+    // history sent with the next question.
+    text() {
+      return answerSteps.map((s) => s.raw).join("\n\n").trim();
+    },
+    thinkingText() {
+      return thinkingSteps.map((s) => s.raw).join("\n\n").trim();
+    },
+    // Re-render each prose step properly once streaming has finished.
+    finalise() {
+      for (const step of answerSteps) renderMarkdown(step.body, step.raw);
+      foldEarlierThinking();
+    },
+    // The box to put a message into when the model produced nothing at all.
+    ensureAnswerBox() {
+      return (answerSteps.at(-1) || startAnswer()).body;
+    },
+    hasAnswer() {
+      return answerSteps.some((s) => s.raw.trim());
+    },
+    // The timeline in the order it happened, for saving with the turn.
+    serialise() {
+      const out = [];
+      for (const node of holder.children) {
+        if (node.classList.contains("step-thinking")) {
+          const step = thinkingSteps.find((s) => s.el === node);
+          if (step?.raw) out.push({ kind: "thinking", text: step.raw });
+        } else if (node.classList.contains("step-answer")) {
+          const step = answerSteps.find((s) => s.el === node);
+          if (step?.raw) out.push({ kind: "answer", text: step.raw });
+        } else if (node.classList.contains("tool-chip")) {
+          out.push({
+            kind: "tool",
+            label: node.textContent,
+            ok: !node.classList.contains("tool-chip-error"),
+          });
+        }
+      }
+      return out;
+    },
+  };
+}
+
+// An assistant bubble: an avatar, the step timeline, and a matching-records slot.
 function addAssistantBubble() {
   clearChatEmptyState();
   const bubble = document.createElement("div");
@@ -2499,28 +2633,18 @@ function addAssistantBubble() {
   // canvas inside a detached element, which left the avatar blank until some
   // later render happened to redraw it.
 
-  const thinkingBox = document.createElement("details");
-  thinkingBox.className = "hidden";
-  const summary = document.createElement("summary");
-  summary.textContent = "Model's thinking";
-  const thinkingText = document.createElement("div");
-  thinkingText.className = "thinking";
-  thinkingBox.append(summary, thinkingText);
-
-  // Tool activity (Wave G): "✏️ created note…" chips + confirm cards.
-  const toolsHolder = document.createElement("div");
-  toolsHolder.className = "tool-activity";
-
-  const answerBox = document.createElement("div");
-  answerBox.className = "bubble-answer";
+  // Every step — reasoning, tool calls, prose — lands here in event order.
+  const stepsHolder = document.createElement("div");
+  stepsHolder.className = "agent-steps";
 
   const recordsHolder = document.createElement("div");
 
-  bubble.append(thinkingBox, toolsHolder, answerBox, recordsHolder);
+  bubble.append(stepsHolder, recordsHolder);
   $("chat-messages").appendChild(bubble);
   renderEmblem(avatar, 20); // now attached, so p5 can measure and draw
   chatScrollToEnd();
-  return { bubble, thinkingBox, thinkingText, answerBox, toolsHolder, recordsHolder };
+  const timeline = agentTimeline(stepsHolder);
+  return { bubble, stepsHolder, recordsHolder, timeline };
 }
 
 // One "the AI did something" chip in a bubble (Wave G).
@@ -3326,12 +3450,13 @@ async function sendChatMessage(preset, opts = {}) {
 
   // Regenerate re-runs the same question without adding a duplicate "you".
   if (!opts.skipUserBubble) addBubble("user", question);
-  const { bubble, thinkingBox, thinkingText, answerBox, toolsHolder, recordsHolder } =
-    addAssistantBubble();
-  answerBox.appendChild(typingDots()); // until the first token arrives
-  const renderLive = liveMarkdownRenderer(answerBox);
-  let answerRaw = "";
-  let thinkingRaw = "";
+  const { bubble, stepsHolder, recordsHolder, timeline } = addAssistantBubble();
+  // A placeholder until the first event arrives; the first real step evicts it.
+  const pending = document.createElement("div");
+  pending.className = "agent-step step-pending";
+  pending.appendChild(typingDots());
+  stepsHolder.appendChild(pending);
+  const clearPending = () => pending.remove();
   let meta = null;
   let toolsActed = false;
   let stats = null;
@@ -3355,33 +3480,31 @@ async function sendChatMessage(preset, opts = {}) {
         status.textContent = "The model is writing…";
       },
       onThinking: (delta) => {
-        answerBox.querySelector(".typing-dots, .typing-label")?.remove();
-        thinkingBox.classList.remove("hidden");
-        thinkingBox.open = true; // expanded while reasoning (user request)
-        thinkingRaw += delta;
-        thinkingText.textContent = thinkingRaw;
+        clearPending();
+        timeline.thinking(delta);
         status.textContent = "The model is thinking…";
         chatScrollToEnd();
       },
       onAnswer: (delta) => {
-        if (thinkingBox.open) thinkingBox.open = false; // collapse when answering
-        answerRaw += delta;
-        renderLive(answerRaw); // live markdown (user request; replaces the dots)
+        clearPending();
+        timeline.answer(delta);
         status.textContent = "The model is writing…";
         chatScrollToEnd();
       },
       onTool: (event) => {
-        answerBox.querySelector(".typing-dots, .typing-label")?.remove();
+        clearPending();
         const label = event.ok ? event.label : `⚠️ ${event.error || event.label}`;
-        toolsHolder.appendChild(toolChip(label, event.ok));
+        timeline.tool(toolChip(label, event.ok));
         toolEvents.push({ label, ok: event.ok }); // remember for persistence
         if (event.ok) toolsActed = true;
         status.textContent = "The model is making changes…";
         chatScrollToEnd();
       },
       onConfirm: (event) => {
-        answerBox.querySelector(".typing-dots, .typing-label")?.remove();
-        renderToolConfirm(toolsHolder, event);
+        clearPending();
+        const card = document.createElement("div");
+        renderToolConfirm(card, event);
+        timeline.tool(card.firstElementChild || card);
         status.textContent = "Waiting for your confirmation…";
       },
       onStats: (event) => {
@@ -3417,7 +3540,10 @@ async function sendChatMessage(preset, opts = {}) {
     input.focus();
   }
 
-  renderMarkdown(answerBox, answerRaw);
+  clearPending();
+  timeline.finalise();
+  const answerRaw = timeline.text();
+  const thinkingRaw = timeline.thinkingText();
   if (meta) renderRecordsDetails(recordsHolder, meta);
   // What this answer cost: model, wall-clock time, tokens, speed.
   const elapsedMs = Math.round(performance.now() - startedAt);
@@ -3454,7 +3580,7 @@ async function sendChatMessage(preset, opts = {}) {
         "The model finished without writing anything. That usually means it ran " +
         "out of context or the model is struggling with this question — try again, " +
         "or rephrase it.";
-      answerBox.replaceChildren(note);
+      timeline.ensureAnswerBox().replaceChildren(note);
       // Retry and delete at minimum, so there's always a way forward.
       bubble.appendChild(
         chatMessageActions([
@@ -3471,7 +3597,7 @@ async function sendChatMessage(preset, opts = {}) {
     chatMessageActions([
       { label: "⧉", title: "Copy answer", onClick: (e) => copyToClipboard(answerRaw, e.currentTarget) },
       { label: "↻", title: "Regenerate (replaces this answer)", onClick: () => regenerateLastAnswer() },
-      { label: "🔊", title: "Read aloud", onClick: () => speakText(answerBox.textContent) },
+      { label: "🔊", title: "Read aloud", onClick: () => speakText(answerRaw) },
       { label: "🗑", title: "Delete this message", onClick: () => deleteChatTurn(bubble) },
     ])
   );
@@ -3489,6 +3615,9 @@ async function sendChatMessage(preset, opts = {}) {
       answer: answerRaw,
       thinking: thinkingRaw || null,
       tools: toolEvents.length ? toolEvents : null,
+      // The run in the order it happened, so reopening the chat shows the
+      // same step-by-step process rather than a flattened summary.
+      steps: timeline.serialise(),
     };
     if (chatConv.id === null) {
       const created = await apiJson("/conversations", {
@@ -3786,21 +3915,31 @@ async function openConversation(id) {
       addBubble("user", message.content);
     } else {
       const handles = addAssistantBubble();
-      // Re-draw the tool-activity chips (Wave G) so they don't vanish on
-      // reload the way they used to (user-reported).
-      for (const t of message.tools || []) {
-        handles.toolsHolder.appendChild(toolChip(t.label, t.ok !== false));
+      // Replay the run in the order it happened when the turn recorded one.
+      // Older turns (saved before steps existed) only have the flattened
+      // thinking/tools/answer, so they're rebuilt in that fixed order —
+      // everything is still shown, just without the interleaving.
+      if (message.steps && message.steps.length) {
+        handles.timeline.replay(message.steps);
+      } else {
+        if (message.thinking) {
+          handles.timeline.thinking(message.thinking);
+        }
+        // Re-draw the tool-activity chips (Wave G) so they don't vanish on
+        // reload the way they used to (user-reported).
+        for (const t of message.tools || []) {
+          handles.timeline.tool(toolChip(t.label, t.ok !== false));
+        }
+        if (message.content) {
+          handles.timeline.answer(message.content);
+        }
       }
-      renderMarkdown(handles.answerBox, message.content);
-      if (message.thinking) {
-        handles.thinkingBox.classList.remove("hidden");
-        handles.thinkingText.textContent = message.thinking;
-      }
+      handles.timeline.finalise();
       const turnIndex = chatConv.turns.length; // index this pair will occupy
       handles.bubble.appendChild(
         chatMessageActions([
           { label: "⧉", title: "Copy answer", onClick: (e) => copyToClipboard(message.content, e.currentTarget) },
-          { label: "🔊", title: "Read aloud", onClick: () => speakText(handles.answerBox.textContent) },
+          { label: "🔊", title: "Read aloud", onClick: () => speakText(message.content) },
           { label: "🗑", title: "Delete this message", onClick: () => deleteChatTurn(handles.bubble) },
         ])
       );

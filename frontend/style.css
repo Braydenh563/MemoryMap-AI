@@ -1229,6 +1229,75 @@ html.modal-open body {
 }
 .tool-confirm p { margin: 0 0 0.5rem; font-size: 0.9rem; }
 
+/* --- the agent's run, as a timeline -------------------------------------------
+   A turn used to render into three fixed slots — all the thinking, then all the
+   tool chips, then the answer — which threw away the order the work actually
+   happened in. Steps are now appended as they arrive, and a rail down the left
+   ties them into one visible sequence: thought → searched → thought again →
+   answered. */
+.agent-steps {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+/* The rail. Drawn only when there's more than one step, so an ordinary
+   single-answer reply stays as plain as it was before. */
+.agent-steps:has(> :nth-child(2))::before {
+  content: "";
+  position: absolute;
+  left: 0.32rem;
+  top: 0.5rem;
+  bottom: 0.5rem;
+  width: 2px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to bottom,
+    var(--accent-soft),
+    var(--accent-soft) 70%,
+    transparent
+  );
+  pointer-events: none;
+}
+.agent-steps:has(> :nth-child(2)) > .agent-step,
+.agent-steps:has(> :nth-child(2)) > .tool-chip,
+.agent-steps:has(> :nth-child(2)) > .tool-confirm {
+  position: relative;
+  padding-left: 1.15rem;
+}
+/* The node on the rail. */
+.agent-steps:has(> :nth-child(2)) > .agent-step::before,
+.agent-steps:has(> :nth-child(2)) > .tool-chip::before,
+.agent-steps:has(> :nth-child(2)) > .tool-confirm::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.55rem;
+  width: 0.66rem;
+  height: 0.66rem;
+  border-radius: 50%;
+  background: var(--card);
+  border: 2px solid var(--accent);
+  box-sizing: border-box;
+}
+/* Reasoning is secondary to the answer, so it reads quieter and folds away
+   once it has produced something. */
+.agent-step.step-thinking {
+  font-size: 0.85rem;
+  margin: 0;
+}
+.agent-step.step-thinking summary {
+  cursor: pointer;
+  color: var(--muted);
+  list-style-position: outside;
+}
+.agent-step.step-thinking[open] summary { margin-bottom: 0.3rem; }
+.agent-steps > .tool-chip { margin: 0; }
+.agent-step.step-answer { margin: 0; }
+.agent-step.step-pending { min-height: 1.2rem; }
+/* A pending placeholder has no meaning of its own — no node on the rail. */
+.agent-steps > .step-pending::before { display: none; }
+
 /* --- Wave E: graph view ------------------------------------------------------- */
 #graph-box {
   position: relative;

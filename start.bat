@@ -19,6 +19,14 @@ REM ===================================================================
 setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
+REM --- Desktop mode ----------------------------------------------------
+REM  "start.bat desktop" runs the app in its own window instead of a
+REM  browser tab. start-desktop.bat is a double-clickable shortcut to it.
+REM  MM_DESKTOP survives the self-update relaunch below, so the child
+REM  process keeps the mode the user asked for.
+if /i "%~1"=="desktop" set "MM_DESKTOP=1"
+if /i "%~1"=="--desktop" set "MM_DESKTOP=1"
+
 REM --- 0. Self-update, then re-launch a FRESH copy --------------------
 REM  A running .bat is read from disk by byte offset, so a git pull that
 REM  rewrites this file mid-run would corrupt it. To stay safe we pull,
@@ -112,6 +120,18 @@ if "!NEED_INSTALL!"=="1" (
   echo  [2/4] Dependencies already up to date - skipping install.
 )
 
+REM  pywebview is optional and only needed for the app window, so it is
+REM  installed on demand rather than for everyone. Cheap after the first
+REM  time - pip exits immediately when it is already present.
+if defined MM_DESKTOP (
+  echo        Checking desktop window support...
+  "%VENV_PY%" -m pip install --quiet pywebview
+  if errorlevel 1 (
+    echo  [!] pywebview would not install - opening a browser tab instead.
+    set "MM_DESKTOP="
+  )
+)
+
 REM --- 3. First-run .env ----------------------------------------------
 if not exist ".env" (
   if exist ".env.example" (
@@ -123,14 +143,19 @@ if not exist ".env" (
 )
 
 REM --- 4. Launch -------------------------------------------------------
-echo  [4/4] Starting MemoryMap AI at http://localhost:8000
-echo        A browser tab opens in a moment. Close THIS window, or press
-echo        Ctrl+C in it, to stop the app.
-echo.
-
-start "" /b cmd /c "timeout /t 3 >nul & start http://localhost:8000"
-
-"%VENV_PY%" -m memorymap
+if defined MM_DESKTOP (
+  echo  [4/4] Starting MemoryMap AI in its own window.
+  echo        Close the app window to stop it.
+  echo.
+  "%VENV_PY%" -m memorymap --desktop
+) else (
+  echo  [4/4] Starting MemoryMap AI at http://localhost:8000
+  echo        A browser tab opens in a moment. Close THIS window, or press
+  echo        Ctrl+C in it, to stop the app.
+  echo.
+  start "" /b cmd /c "timeout /t 3 >nul & start http://localhost:8000"
+  "%VENV_PY%" -m memorymap
+)
 
 echo.
 echo  MemoryMap AI has stopped.

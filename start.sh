@@ -14,6 +14,15 @@
 set -e
 cd "$(dirname "$0")"
 
+# --- Desktop mode ---------------------------------------------------
+# "./start.sh --desktop" runs the app in its own window instead of a
+# browser tab. Exported so it survives the self-update re-exec below.
+for arg in "$@"; do
+  case "$arg" in
+    --desktop|desktop) export MM_DESKTOP=1 ;;
+  esac
+done
+
 # --- 0. Self-update, then re-exec a fresh copy ----------------------
 # Pull first so a launch always runs the latest code, then re-exec the
 # (possibly updated) script so a changed file can't corrupt this run.
@@ -74,6 +83,17 @@ else
   echo " [2/4] Dependencies already up to date - skipping install."
 fi
 
+# pywebview is optional and only the app window needs it, so it installs
+# on demand rather than for everyone. A failure is not fatal - the app
+# falls back to a browser tab.
+if [ -n "${MM_DESKTOP:-}" ]; then
+  echo "       Checking desktop window support..."
+  if ! "$VENV_PY" -m pip install --quiet pywebview; then
+    echo " [!] pywebview would not install - opening a browser tab instead."
+    unset MM_DESKTOP
+  fi
+fi
+
 # --- 3. First-run .env ----------------------------------------------
 if [ ! -f ".env" ] && [ -f ".env.example" ]; then
   cp ".env.example" ".env"
@@ -83,6 +103,13 @@ else
 fi
 
 # --- 4. Launch -------------------------------------------------------
+if [ -n "${MM_DESKTOP:-}" ]; then
+  echo " [4/4] Starting MemoryMap AI in its own window."
+  echo "       Close the window to stop it."
+  echo
+  exec "$VENV_PY" -m memorymap --desktop
+fi
+
 echo " [4/4] Starting MemoryMap AI at http://localhost:8000"
 echo "       A browser tab opens in a moment. Press Ctrl+C to stop."
 echo

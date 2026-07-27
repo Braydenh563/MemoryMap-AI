@@ -27,6 +27,12 @@ class TurnBody(BaseModel):
     # Tool-activity chips shown in the bubble (Wave G) — persisted so they
     # survive a reload instead of vanishing. Each item is {label, ok}.
     tools: list[dict] | None = None
+    # The agent's work in the order it happened: thinking, tool calls and
+    # prose interleaved, so reopening a chat shows the same step-by-step run
+    # the user watched live rather than a flattened summary of it. Kept
+    # alongside `answer`/`tools` rather than replacing them, so an older saved
+    # chat (and any other client) still renders.
+    steps: list[dict] | None = Field(default=None, max_length=200)
 
 
 class RenameBody(BaseModel):
@@ -37,6 +43,8 @@ def _turn_messages(turn: TurnBody) -> list[dict]:
     assistant = {"role": "assistant", "content": turn.answer, "thinking": turn.thinking}
     if turn.tools:
         assistant["tools"] = turn.tools
+    if turn.steps:
+        assistant["steps"] = turn.steps
     return [
         {"role": "user", "content": turn.question},
         assistant,

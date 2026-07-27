@@ -31,6 +31,12 @@ def upload_file(
 ) -> EntryOut:
     entry = _existing_entry(session, entry_id)
     uploads_dir: Path = deps.get_config().uploads_dir
+    # The folder is created at startup, but it only has to go missing once —
+    # a cleanup tool, a synced or unmounted data directory, a restore that
+    # didn't include an empty folder — and every upload fails with a 500 and a
+    # traceback instead of saving. Sketches are the usual casualty, since the
+    # note saves first and only the drawing is lost.
+    uploads_dir.mkdir(parents=True, exist_ok=True)
 
     # Random stored name, original extension kept for double-click opening.
     suffix = Path(file.filename or "file").suffix[:12]

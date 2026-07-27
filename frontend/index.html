@@ -32,6 +32,8 @@
         orchid: { theme: "dark", palette: "plum", glass: "on", radius: "18" },
         blueprint: { theme: "light", palette: "ocean", font: "mono", glass: "off", radius: "4", density: "compact" },
         graphite: { theme: "dark", palette: "carbon", glass: "off", radius: "4" },
+        lagoon: { theme: "dark", palette: "lagoon", glass: "on", radius: "14" },
+        shallows: { theme: "light", palette: "lagoon", glass: "on", radius: "14" },
       };
       const preset = THEMES[localStorage.getItem("themePreset")] || {};
       const pref = (key, fallback) =>
@@ -93,7 +95,22 @@
     <div class="header-controls">
       <!-- Fixed-width slot: the pill's text changes as status polls land, and
            without a reserved box every change nudged the buttons beside it. -->
-      <span class="ai-pill-slot"><span id="ai-pill" title="What the AI is doing right now">checking…</span></span>
+      <!-- A dot, not a sentence. The pill reserved 17.5rem of header for a
+           message that is the same 99% of the time, which is most of what
+           squeezed the tabs and the wordmark. The state is now a colour and a
+           glyph; the sentence appears on hover, focus or click. The glyph
+           matters as much as the colour — colour alone is not a status. -->
+      <span class="ai-status-wrap">
+        <button id="ai-status" class="ai-status" type="button"
+          aria-expanded="false" aria-describedby="ai-status-popup">
+          <span class="ai-status-dot" aria-hidden="true"></span>
+          <span class="visually-hidden" id="ai-status-label">Checking what the AI is doing</span>
+        </button>
+        <span id="ai-status-popup" class="ai-status-popup" role="tooltip">
+          <strong id="ai-status-title"></strong>
+          <span id="ai-status-detail" class="ai-status-detail"></span>
+        </span>
+      </span>
       <button id="settings-btn" class="ghost small" title="Settings">⚙ Settings</button>
       <button id="lock-btn" class="ghost small hidden" title="Lock the app" aria-label="Lock the app">🔒</button>
       <button id="theme-btn" class="ghost small" title="Toggle light/dark" aria-label="Toggle light or dark theme">🌓</button>
@@ -444,7 +461,13 @@ Link to another note with [[its first few words]]."></textarea>
               title="Everything this conversation has sent to the model so far"></span>
             <button id="chat-export" class="ghost small" title="Download this chat as a Markdown file">⭳ Export</button>
           </div>
-          <div id="persona-prompt" class="persona-prompt hidden">
+          <!-- id is persona-peek-panel, NOT persona-prompt: the Settings
+               screen has a <textarea id="persona-prompt"> for writing a new
+               persona, and two elements sharing an id is not a duplicate
+               that browsers complain about — getElementById simply returns
+               the first, which is this div. That made "Add persona" read
+               `.value` off a <div>, throw, and do nothing at all. -->
+          <div id="persona-peek-panel" class="persona-prompt hidden">
             <strong>What this persona tells the AI</strong>
             <p id="persona-prompt-text"></p>
           </div>
@@ -570,6 +593,11 @@ Link to another note with [[its first few words]]."></textarea>
           </div>
           <!-- At-a-glance facts about this note -->
           <div id="graph-popup-info" class="graph-popup-info"></div>
+          <!-- A sketch is a note plus a PNG, so its node on the map used to
+               show only the caption — the drawing itself was unreachable from
+               the graph entirely (user-reported: "sketches don't open from
+               the graph"). Any image attachment previews here. -->
+          <div id="graph-popup-media" class="graph-popup-media hidden"></div>
           <textarea id="graph-popup-content" rows="4" aria-label="Note content"></textarea>
           <input id="graph-popup-tags" type="text" placeholder="Tags, comma separated"
             aria-label="Tags">

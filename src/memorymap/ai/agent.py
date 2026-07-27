@@ -77,8 +77,97 @@ TOOLS_GUIDE = (
     "After acting, tell the user briefly what you did. NEVER claim you "
     "created, added, saved, edited, deleted, or tagged a note unless you "
     "actually called the tool to do it — describing a note in text does "
-    "NOT save it. To save a note you MUST call create_note."
+    "NOT save it. To save a note you MUST call create_note. "
+    # Asked for directly: "I need agents to use tools more and better if they
+    # are required." The loop already allows several rounds; nothing told the
+    # model that using them was expected rather than a failure to answer
+    # promptly, so it tended to answer from the first page of search results.
+    "Taking several turns is normal and expected: look something up, read "
+    "what you found, look up anything still missing, then answer. Do not "
+    "rush to an answer while something you were asked about is still "
+    "unchecked — an answer built on one search you never read is worse than "
+    "a slower one that is right. "
+    # It under-used read_url badly: a result snippet is a sentence, and the
+    # model treated it as the page.
+    "A web search result is a title and one clipped sentence, which is enough "
+    "to choose a page and never enough to answer from. When a search result "
+    "matters to the answer, call read_url on it before you rely on it, and "
+    "name the sites you actually read. "
+    # It re-narrated the step timeline the user was already watching.
+    "The user can already see which tools you ran, in order, as you run them. "
+    "Do not narrate your process back to them ('let me search…', 'I will now "
+    "check…') — just do it, then give the answer. "
+    "If a tool fails, its result carries a 'what_to_do' field. Follow it. "
+    "Never repeat a call that has just failed in exactly the same way."
 )
+
+# What to do about a failed tool call.
+#
+# A failure used to be handed to the model as a bare `{"error": "..."}` and
+# nothing else. Small models do one of two things with that: give up and
+# apologise, or call the identical thing again — and again, until MAX_ROUNDS
+# runs out and the user gets "I stopped after using several tools in a row"
+# having been told nothing. Neither is a reasonable response to, say, a
+# mistyped note id.
+#
+# The error now travels with a recovery instruction. The wording is
+# deliberately concrete about the *next call to make*, because "try something
+# else" is exactly the advice a small model cannot act on.
+_RECOVERY_HINTS = {
+    "unknown_tool": (
+        "That tool does not exist. Do not call it again. Use one of the tools "
+        "you were given, or answer without tools."
+    ),
+    "disabled": (
+        "The user has turned this tool off in Settings. Do not call it again. "
+        "Tell them it is off and what turning it on would let you do."
+    ),
+    "not_found": (
+        "Nothing exists with that id. Do not guess another id. Call "
+        "search_notes (or list_notes) to find the real one, then retry with "
+        "the id that search returned."
+    ),
+    "arguments": (
+        "The arguments were wrong. Read the tool's schema again and retry "
+        "once with corrected arguments. If you cannot work out what it wants, "
+        "stop calling it and tell the user what you were trying to do."
+    ),
+    "web_off": (
+        "Web access is off in Settings. Do not retry. Answer from the "
+        "notebook, and say that a web lookup would need turning on."
+    ),
+    "generic": (
+        "That call failed. Do not repeat it unchanged. Either retry once with "
+        "different arguments, try a different tool, or tell the user plainly "
+        "what failed and answer with what you already have."
+    ),
+}
+
+
+def _recovery_hint(name: str, message: str) -> str:
+    """Pick the advice that fits this failure."""
+    lowered = message.lower()
+    if lowered.startswith("unknown tool"):
+        return _RECOVERY_HINTS["unknown_tool"]
+    if "turned off in settings" in lowered:
+        return _RECOVERY_HINTS["disabled"]
+    if "web search is disabled" in lowered:
+        return _RECOVERY_HINTS["web_off"]
+    if "not found" in lowered or "no note" in lowered or "no such" in lowered:
+        return _RECOVERY_HINTS["not_found"]
+    # ValueError/KeyError/TypeError from a handler are argument problems, and
+    # execute_tool prefixes those with the tool's own name.
+    if lowered.startswith(f"{name}:"):
+        return _RECOVERY_HINTS["arguments"]
+    return _RECOVERY_HINTS["generic"]
+
+
+REPEATED_CALL_NOTE = (
+    "You have already made this exact call and it failed the same way. "
+    "Calling it a third time will not help. Change the arguments, use a "
+    "different tool, or stop and tell the user what you could not do."
+)
+
 
 # Write tools whose absence makes a "I saved it" claim a lie (safety net).
 _WRITE_TOOLS = {
@@ -201,6 +290,9 @@ def run_agent(
     model = model_manager.chat_model()
     did_write = False  # did any real write tool run this turn?
     spent = 0  # characters of tool output added to the conversation so far
+    # (tool, arguments) pairs that have already failed, so a model looping on
+    # the same broken call can be told so rather than burning every round.
+    failed_calls: set[tuple[str, str]] = set()
 
     for round_number in range(MAX_ROUNDS):
         # Streamed: the model's prose reaches the user as it's written. The
@@ -283,6 +375,19 @@ def run_agent(
                 result = tools.execute_tool(session, name, arguments)
                 if "error" not in result and name in _WRITE_TOOLS:
                     did_write = True
+                if "error" in result:
+                    # Hand back advice with the error, not just the error.
+                    signature = (name, json.dumps(arguments, sort_keys=True))
+                    repeated = signature in failed_calls
+                    failed_calls.add(signature)
+                    result = {
+                        **result,
+                        "what_to_do": (
+                            REPEATED_CALL_NOTE
+                            if repeated
+                            else _recovery_hint(name, str(result["error"]))
+                        ),
+                    }
                 yield {
                     "type": "tool",
                     "label": result.get("label") or name,

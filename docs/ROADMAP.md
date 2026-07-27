@@ -6,22 +6,70 @@ pick up without re-deriving context.
 Each item says **why** it matters, not just what to build — the reasoning is
 the part that's expensive to reconstruct.
 
+## Do these next, in this order
+
+Re-prioritised after a round of use. The ordering is by *how often it gets in
+the way*, not by how interesting it is to build.
+
+1. **Skills are not skills** (§21). Reported as: "the way skills are used
+   currently, and what the skills are at the moment, are incorrect and are
+   closer to just presaved mini prompts. I keep trying to get the AI to make
+   me some skills in the chat but it doesn't recognise that it needs to use
+   tools." This is the biggest gap between what the app claims and what it
+   does, and it blocks the agent being useful at all.
+2. **Web search still returns nothing** (§8b). The diagnosis landed — the app
+   now correctly says "DuckDuckGo is rate-limiting this app" instead of
+   failing silently — but the *fix* hasn't. SearXNG is the fix and its
+   installer now runs without Docker or git, yet starting it reports "started
+   but never answered". That is the next thing to debug.
+3. **Token usage in chats** (§11a). Asked directly: "is there a way to reduce
+   excessive token usage in the chats?" A 3-turn chat is showing 8.7k tokens.
+   The history and the retrieved notes are resent whole on every turn.
+4. **Markdown rendering for notes** (§22). Notes render as plain text while
+   chat answers, documents and the dashboard all render markdown.
+5. **Note timeline** (§10). Asked for repeatedly, now with more shape: see
+   notes on a time axis, grouped by event, place or theme.
+6. **A hero header on the dashboard** (§22) — the logo and wordmark at the top
+   of the dashboard, not only in the top bar.
+
+> **Check the running app before building anything here.** This document
+> describes intent, and it drifts. An audit of §2 found four of its six "quick
+> wins" already built — the sticky sidebar, the per-code-block copy button,
+> conversation search by content, and the whole document outline with word
+> count and reading time. §5 and §18 each had a completed item still listed as
+> outstanding. Three sessions have now independently rebuilt something that
+> already existed. Items verified against the code are marked ~~struck
+> through~~ with what was found; anything not marked is worth ten seconds of
+> grep first.
+
 ---
 
 ## How to work on this repo
 
-- `PYTHONPATH=src python -m pytest` — 486 tests, fully offline, no Ollama needed
+- `pytest` — 500 tests, fully offline, no Ollama needed (`pytest.ini` now sets
+  `pythonpath = src`, so this works without an editable install)
 - `ruff check .` — matches CI
 - `node --check frontend/app.js` — the frontend is one large plain-JS file, so a
   syntax check is worth running after every edit
 
 **Drive the app in a browser before claiming anything works.** Chromium is
 preinstalled at `/opt/pw-browsers/chromium-1194/chrome-linux/chrome`, but the
-Python package is not — `pip install playwright` first. Most of the bugs fixed
-in the last session were invisible to the test suite and obvious in ten seconds
-of clicking: a header that wrapped on every laptop-sized window, a dropdown that
-rendered blank, jump-to-note doing nothing, four different control heights in
-one row.
+Python package is not — `pip install playwright` first (do *not* run
+`playwright install`; the browser is already there). Launch the context with
+`service_workers="block"`, or `sw.js` serves a cached `app.js`/`style.css` and
+you will be looking at a page that does not contain your change.
+
+Two things make this much faster than it sounds:
+
+- Top-level functions in `app.js` are plain globals, so `page.evaluate` can
+  call `switchTab`, `applyThemePreset` or `renderEmbeddingPicker` directly.
+  That turns "does this picker stick?" into a five-line test.
+- **Assert on measured geometry, not screenshots.** `scrollWidth - clientWidth`
+  found a 2145px overflow and then proved it gone; sweeping widths in 20px
+  steps found a header that overflowed itself at every size between 740 and
+  1400px. A screenshot shows one width and invites you to squint at it.
+
+Every UI bug in §8 passed a fully green 500-test run.
 
 **Installing dependencies in a fresh sandbox:** `download.pytorch.org` is blocked
 by the network policy, so `pip install -r requirements.txt` stalls on torch.
@@ -59,6 +107,15 @@ test files fail to collect without it.
    more than coordinating would have.
 9. **The test suite cannot see any of the above.** Every UI bug listed below
    passed 480+ green tests.
+10. **CSS automatic minimum sizing is the usual cause of a wide page.** A `1fr`
+    grid track and a `min-width: auto` flex item both refuse to shrink below
+    their content. `overflow-x: auto` on the child does nothing until every
+    ancestor has an explicit floor. This one bug produced three separate
+    reports before it was understood.
+11. **A control that "does nothing" is usually working.** Four reported cases,
+    three of which wrote correctly and were then overridden — by CSS source
+    order, by a status poll repainting from the server, or by living in a
+    hidden section. Check the *computed* result, not the handler.
 
 ---
 
@@ -83,6 +140,35 @@ test files fail to collect without it.
 | Reminder controls misaligned | Four different heights (44/42/41/40px), so "centred" gave four different tops |
 | Chat + document sidebars scrolled away | A later ID rule set `position: relative`, outranking the sticky rule |
 | **Reminder 5 min ahead read as 10 hours overdue** | SQLite drops the timezone; JS parses naive date-times as *local*. Fixed with a UTC-aware column type covering every table |
+
+The whole of §8's reported bug list has since been closed as well — see that
+section for what each one turned out to be.
+
+**Fixed in the session after that**, each reproduced in Chromium first:
+
+| Reported as | What it actually was |
+| --- | --- |
+| The thinking arrow clashes with the chain circles | `list-style-position: outside` draws the `<details>` marker *outside* the summary's box — exactly where the rail's gutter is. No gutter width could clear it; the native marker is now removed and redrawn inside the summary |
+| "MemoryMap AI" is gone from the top bar | Twice my own doing: I moved the hide breakpoint (1390, then 1080) instead of fixing why it hid. `h1` had `flex: 0 1 auto` + `min-width: 0` with `white-space: nowrap`, so the box shrank below the text and the name printed over "Dashboard" — the original overlap report. Now `flex: 0 0 auto`, visible to the 720px mobile breakpoint |
+| "Add Persona" does nothing | Two elements shared the id `persona-prompt` — the Chat tab's peek panel `<div>` and the Settings `<textarea>`. `getElementById` returns the first without complaining, so the handler read `.value` off a div and threw |
+| The categories sidebar looks awkward | `.category-actions` was `opacity: 0` but still in the flow, so every category row reserved width for invisible buttons and the "All" row, which has none, did not — the counts marched in and out down the list |
+| Web search returns nothing, silently | Three different failures (no egress, a rate-limit challenge page, a genuine empty result) all surfaced as an empty list. Now logged and named separately — confirmed working in use |
+
+**Also added:** the AI status dot — four states now (… grey checking, ✓ green,
+! amber, ✕ red). The header pill that spelled the state out
+in words is now a coloured circle with a glyph (✓ green / ! amber / ✕ red) and
+the sentence on hover, focus or click. It reclaimed the 17.5rem the pill's slot
+reserved, which is why all six tabs now fit beside the wordmark at 1200px
+without scrolling. Amber, not red, is the state for "no AI at all": this app is
+built to degrade gracefully, so running without Ollama is supported rather than
+broken, and colouring it red would train you to ignore the indicator. Red is
+kept for a model that failed to load or a server that can't be reached.
+
+**Also added:** the Lagoon and Shallows themes (an indigo ground with a teal
+accent, dark and light), recovery advice on every failed tool call, and a
+prompt that tells the agent multiple rounds are expected. Guard tests now
+catch duplicate element ids, `$("…")` lookups with no matching element, and
+the pre-paint theme table drifting from `THEME_PRESETS`.
 
 **Features added:** 10 curated themes layered over `main`'s 7 palettes
 (`your change → theme → default`, with separate "reset theme" and "clear my
@@ -135,21 +221,31 @@ separate `trace` field for a fold.
 
 ## 2. Quick wins
 
-Small, self-contained, each removing a visible annoyance:
+Small, self-contained, each removing a visible annoyance.
 
-- **SearXNG install path.** `preferred_backend()` returns Docker if the binary
-  exists, else source (which needs `git`). With neither, "download SearXNG"
-  can't proceed at all — that is what "I can't download searxng" means. Add a
-  `pip install searxng` path so no-Docker-and-no-git still works, and show
-  install progress in the UI instead of raising it as an error toast.
-- **Notes sidebar sticky**, matching chat and documents (same pattern, same
-  `--header-h` offset).
-- **Empty chats can't be deleted** — a conversation with no turns has no delete
-  affordance.
-- **Copy button per code block** in chat answers.
-- **Conversation search** by content, not just title.
+**Four of these were already done** — checked in the running app rather than
+assumed, since three sessions have now rebuilt something that already existed:
+
+- ~~**SearXNG install path**~~ done. Not the `pip install searxng` this section
+  suggested: SearXNG doesn't publish to PyPI, so that name is somebody else's
+  package. git is only needed to *fetch*, and pip can download and unpack the
+  source tarball itself — so it clones when git is there and uses the tarball
+  when it isn't. Install progress was already polled and shown inline.
+- ~~**Notes sidebar sticky**~~ done — the rule already exists, once, above the
+  section that used to duplicate it.
+- ~~**Copy button per code block**~~ done, in chat answers.
+- ~~**Conversation search** by content~~ done — `conversation_matches` decodes
+  the message JSON rather than LIKE-ing the column, so "tent" no longer matches
+  every chat by way of the word `content`.
+
+**Still open:**
+
+- **Empty chats can't be deleted.** Saved chats do have a delete action, and
+  deleting the last turn deletes the conversation — so this is only about the
+  *unsaved* chat in the main pane, which has no affordance but "+ New". Worth
+  confirming what was actually meant before building anything.
 - **Document outline / table of contents** from the headings, plus word-count
-  goal and reading time.
+  goal and reading time. The one genuinely unbuilt item here; see §5.
 
 ---
 
@@ -203,13 +299,26 @@ store:**
 
 ## 5. Documents
 
-- **AI chat bar inside the document** — ask it to write or change things in
-  place, rather than through the edit dialog
+Checked against the running app, not assumed:
+
+- ~~**Outline / table of contents**, reading time~~ **done.** `renderDocOutline`
+  builds a TOC from `#`–`####`, correctly ignoring a `#` inside a code fence,
+  hides itself under two headings, and each entry puts the caret on that line.
+  `renderDocStats` shows words and reading time at 220 wpm. Verified in a
+  browser: a 461-word document reads "461 words · 2 min read" with four
+  correctly-nested headings.
+- ~~**Expand a note into a document**~~ **done** — leaves the note untouched
+  and says so.
+- **Word-count goal** — the one unbuilt part of the outline item. A target you
+  set, with progress against it.
+- **AI chat bar inside the document** — partly there. `doc-ai-panel` already
+  edits a selection or the whole document and shows the result as a proposal.
+  What's missing is the *conversational* shape: ask a question about the
+  document without it proposing an edit.
 - **A real document browser** — the sidebar list is not a gallery
-- **Attach documents to notes**, and **expand a note into a document**
-- **Document history** — notes have `EntryRevision`; documents have none, and the
-  AI edit overwrites on accept
-- **Outline / table of contents**, word-count goal, reading time
+- **Attach documents to notes** — still nothing
+- **Document history** — notes have `EntryRevision`; documents have no
+  equivalent table, and the AI edit overwrites on accept
 
 ---
 
@@ -248,79 +357,83 @@ where the genuine embedded browser from §3 becomes possible.
 
 ---
 
-## 8. Open bug list (reported, not yet fixed)
+## 8. Open bug list — now empty
 
-Every one of these was seen in the running app. Reproduce before fixing —
-several earlier "bugs" turned out to be a different component moving underneath
-the one being blamed.
+Every reported bug in this section has been reproduced in Chromium and fixed.
+What follows is kept as a record of *what each one actually was*, because in
+most cases the stated symptom pointed at the wrong component and the wasted
+effort is the expensive part to repeat.
 
-**Chat rendering**
+**Fixed, with the real cause**
 
-- ~~**Numbered lists always render `1.`**~~ FIXED. A blank line between items
-  closed the `<ol>`, and models write "1.\n\n2.\n\n3." far more often than
-  they write it tightly, so every item started a new list at 1. A blank line now
-  only ends a list if what follows isn't another item of the same kind, and an
-  `<ol>` keeps its starting number.
-- ~~**Assistant content too far right / rail overlap**~~ FIXED. The rail padded
-  each step's own box, so the `<details>` marker and the tool chips sat on top
-  of the circles; the container now has a gutter of its own. Long URLs get
-  `overflow-wrap: anywhere` so they stay inside the bubble.
-- **The thinking disclosure arrow and the tool-use boxes overlap the agent
-  timeline's circles and connector line.** The rail was added with
-  `padding-left: 1.15rem` on step children; `<details>` draws its own marker in
-  that space. Give the rail its own gutter rather than padding the children.
-- **Thinking boxes vanish on reload.** NOT yet fixed — reading the code did not
-  reveal it, so reproduce first. They *are* saved (`steps` carries
-  `{kind:"thinking"}`, and `timeline.replay` handles that kind). Suspects, in
-  order: turns saved before `steps` existed fall back to `message.thinking`;
-  `serialise()` reads `holder.children` and could miss a step; or the turn is
-  never persisted because `chatConv.id` was still null. Log what
-  `GET /conversations/{id}` actually returns before changing anything.
-- **A long URL breaks out of the chat bubble on the right.** Needs
-  `overflow-wrap: anywhere` on bubble content.
+| Reported as | What it actually was |
+| --- | --- |
+| Numbered lists always render `1.` | A blank line between items closed the `<ol>`, and models write `1.\n\n2.` far more often than tightly |
+| Assistant content too far right | The rail padded each step's own box instead of the container |
+| Thinking arrow sits on the timeline circles | `list-style-position: outside` draws the marker *outside* the summary's box — exactly where the rail's gutter is, so no gutter width could clear it. Native marker removed and redrawn inside |
+| Thinking boxes vanish on reload | Not reproducible. Verified in a browser: live, three-round, and after a real reload the steps round-trip intact. The report predates the step-timeline work that fixed it |
+| A long URL escapes the chat bubble | `overflow-wrap: anywhere` on bubble content |
+| Documents show "Invalid Date" | A regression from the UTC fix: `relativeTime` appended `"Z"` to a timestamp already carrying `+00:00`. Two definitions existed, one shadowing the other |
+| Dashboard "Search notes" goes nowhere | Focused a box inside the hidden `browse` sub-tab |
+| Capture textbox short until clicked | `autoGrow` measured `scrollHeight` while the section was `display: none` |
+| "Ask about this" wrecks the layout | CSS automatic minimum sizing: a `1fr` grid track and a `min-width: auto` flex item both refuse to shrink below their content, so one wide code block widened the column, the page and every paragraph beside it. 3425px wide at a 1280px viewport |
+| Desktop menu-bar buttons overlap the title | The tab strip was pinned at a rigid 579px because a base rule 70 lines below the media query redeclared `flex` at equal specificity. Nothing could yield, so the header overflowed itself by up to 215px |
+| Can't switch search engines | The status poll reset the radios as soon as focus moved, because picking one saves nothing until "Apply & re-index" |
+| Colour/font controls stuck under a theme | Two causes. `[data-palette]` rules sit below `[data-accent]` rules at equal specificity, so a palette always won and the swatches were dead under every theme; and `applyAppearance` re-applied every setting *except* the accent, so clearing one left it showing |
+| Sketches don't open from the graph | A sketch is a note plus a PNG, and the graph popup showed the caption but never the image — the drawing was unreachable from the map |
+| Web search returns nothing | Not a parser bug. Three different failures (no egress, a rate-limit challenge page, a genuine empty result) all surfaced as an empty list. Now logged and named separately |
 
-**Web search / reader**
+**Found while fixing the above, also fixed**
 
-- **Web search returns nothing in some environments** — pages won't show up.
-  Reported as working under the hosted Python desktop environment, which
-  strongly suggests egress/proxy differences rather than parser breakage.
-  Diagnose by logging the actual HTTP status and body length from
-  `_search_duckduckgo` before assuming the parse failed. DuckDuckGo also
-  rate-limits and occasionally serves a challenge page to non-browser clients;
-  if that is what's happening, SearXNG (§2) is the real fix, not a parser tweak.
-- **"Ask about this" wrecks the layout**: the page renders very wide, forces a
-  long horizontal scrollbar, and scales everything up. Almost certainly the
-  reader's `<pre>` blocks and long unbroken strings escaping their container.
-  Constrain the reader/answer width and let code blocks scroll inside
-  themselves.
-- **Improve the extracted page's visual rendering** generally — it now carries
-  heading levels, so it can be laid out as a real document (typographic scale,
-  measure capped around 70ch, blockquotes, lists, code).
+- Editing an answer reverted when the chat was reopened — the edit updated
+  `content`, but replay renders `steps`, which kept the model's original wording.
+- Uploading a file 500'd if the uploads folder had gone missing, losing a
+  sketch's drawing while keeping its caption.
+- `APPEARANCE_DEFAULTS` declared `bg-motion` twice with different values.
+- "New note" on the dashboard did nothing unless the Notes tab happened to be
+  left on the capture section — the same hidden-sub-tab trap, on the most-used
+  button there. Ten feature-catalog entries had it too.
+- `.entry-content` used `pre-wrap`, which keeps typed line breaks but cannot
+  break inside a word, so one pasted URL widened the note list and the page.
+- `pytest` didn't work in a fresh clone without an editable install.
 
-**Appearance**
+**Still open here**
 
-- **Switch search engines at will.** Still reported as not freely switchable.
-- **With a theme or palette selected, the individual colour/font controls below
-  sometimes can't be changed.** Suspect the layering: a manual write may be
-  landing but being immediately re-derived from the theme. Reproduce by picking
-  a theme, then a font, then checking `localStorage` and the computed value.
+- **Improve the extracted page's visual rendering.** Not a bug — the reader now
+  carries heading levels, so it can be laid out as a real document (typographic
+  scale, measure capped around 70ch, blockquotes, lists, code). Grouped with
+  §13.
 
-**Elsewhere**
+**The lesson worth keeping.** Four of these were "this control does nothing",
+and in three of the four the control was working perfectly — the write landed
+and was then overridden by CSS source order, a status poll, or a hidden
+section. Reading the handler will not show you that. Reproduce in a browser and
+measure the *computed* result; it is faster than reading, not slower. The
+recurring causes are now written up as invariants in `docs/ARCHITECTURE.md` §10.
 
-- ~~**Documents show "Invalid Date"**~~ FIXED, and it was a regression from the
-  UTC timestamp fix: `relativeTime` did `iso + "Z"` unconditionally, so once
-  timestamps carried `+00:00` it built `"…+00:00Z"`. There were also *two*
-  `relativeTime` definitions, one shadowing the other — the dead one is gone and
-  parsing now lives in a single `parseServerTime`.
-- ~~**Dashboard "Search notes" goes to the wrong place**~~ FIXED — it focused a
-  box inside the hidden "browse" sub-tab, the same trap `flashEntry` hit.
-  **Still to do:** audit the remaining quick-access buttons the same way.
-- ~~**Capture textbox short until clicked**~~ FIXED. `autoGrow` measured
-  `scrollHeight` while the section was `display:none` (always 0);
-  `showNotesSection` now re-measures once the section is visible.
-- **Desktop app: the menu-bar buttons overlap the "MemoryMap AI" title.** The
-  pywebview window is narrower than the breakpoint that hides the wordmark.
-- **Sketches don't open from the graph** when their node is clicked.
+---
+
+## 8b. Web search — diagnosed, not yet fixed
+
+The diagnosis from §8 shipped and is working: the app now says "DuckDuckGo is
+rate-limiting this app rather than returning results" instead of showing an
+empty panel, which is confirmed in use. That was the whole point — the failure
+is now legible. It is not, however, fixed.
+
+**The fix is SearXNG, and SearXNG doesn't start.** The installer no longer
+needs Docker or git, and the process does start, but the health check times
+out: "SearXNG started but never answered. Check the port isn't in use."
+
+**Debug it in this order.** `_start_source` sends stdout and stderr to
+`DEVNULL`, so a process that dies on startup — a missing dependency, a
+settings file it won't parse, a port already bound — leaves no trace at all.
+That is why the current message is a guess about the port. Capture both
+streams to a file under the data dir first, then read what it actually said.
+Everything after that is speculation until then.
+
+Worth checking once it starts: the generated `settings.yml` must include
+`- json` under `search.formats`, or the API returns 403 and "started but never
+answered" would be exactly the symptom.
 
 ---
 
@@ -387,6 +500,13 @@ works with Ollama off.
 will happen:
 
 - Notes place themselves on it by their resolved dates, not just creation date
+- **Grouped, not just sequential.** Asked again with more shape: "I want a note
+  timeline where I can see notes visually by what time they were made. Maybe I
+  can even group them by events or related places etc." So the axis is time,
+  but the *bands* are events, places or themes — which is what makes it a map
+  of what happened rather than a sorted list. Places and themes can be derived
+  from what is already stored (categories, tags, embeddings); events need §10's
+  `events` table.
 - Reminders and their completion appear as events
 - The AI can add events, and link notes to them
 - Past / present / future as one continuous view, zoomable from days to years
@@ -420,6 +540,23 @@ spends its time is currently a guess.
   `renderEntries` rebuilds the entire list on any change.
 - **Context warning** as the window fills — the per-turn cost is already shown.
 
+**§11a — token usage in chats.** Asked directly: "is there a way to reduce
+excessive token usage in the chats?" A three-turn conversation showed 8.7k
+tokens. Where it goes, cheapest fix first:
+
+- Retrieved notes are re-sent in full on every turn, including turns that are
+  a follow-up to the previous answer and need no new retrieval at all.
+- `MAX_CLIENT_HISTORY` turns of prior Q&A go up each time, whole.
+- Tool results accumulate within a turn (already capped by
+  `TOOL_RESULT_BUDGET_CHARS`, but the cap is generous at 24k characters).
+- The system prompt is long and grew again this session; it is re-sent every
+  round of every turn, which is where Ollama's prompt-prefix reuse and
+  `keep_alive` would actually pay.
+
+Measure before cutting: log the prompt-token count per round and see which of
+these dominates. Summarising older history is the usual answer, but it costs a
+model call, so it should be the last resort rather than the first.
+
 ---
 
 ## 12. Does the AI know it is an agent?
@@ -439,9 +576,27 @@ told:
 - That a search snippet is rarely enough and `read_url` exists
 - What the user can already see (the step timeline), so it stops re-narrating
 
-**Add:** an explicit `plan` step rendered at the top of the timeline; a
-"required tools" hint for requests that clearly need one; and a nudge when the
-model answers a notebook question without having searched.
+**Done since.** `TOOLS_GUIDE` now says that taking several turns is expected
+("look something up, read what you found, look up anything still missing, then
+answer"), that a search result is a clipped sentence and `read_url` exists,
+and that the user can already see the tool timeline so it should stop
+narrating its process back to them.
+
+Failed tool calls now carry a `what_to_do` field matched to the failure — a
+missing id says to search rather than guess another, a disabled tool says to
+stop calling it, bad arguments say to re-read the schema and retry once — and
+an identical call that fails twice is told so explicitly. Previously a failure
+was a bare `{"error": …}`, and small models either apologised and stopped or
+looped on it until the round limit ran out.
+
+**Still to add:** an explicit `plan` step rendered at the top of the timeline
+(build it with §21, which needs the same structure); a "required tools" hint
+for requests that clearly need one; and a nudge when the model answers a
+notebook question without having searched.
+
+**Note the ordering.** None of this fixes "the AI won't make me a skill" —
+that fails because `save_skill` can only store a prompt string, so there is
+nothing for a better-instructed model to call. §21 first.
 
 ---
 
@@ -481,8 +636,9 @@ palettes."
 - **More themes and palettes**, and a "surprise me" that generates a coherent
   one
 - **Live preview** while hovering a theme, before committing
-- Fix the reported bug where individual controls resist change under a theme
-  (§8)
+- ~~Fix the reported bug where individual controls resist change under a
+  theme~~ done (§8): a palette always beat an accent on CSS source order, and
+  clearing an accent never un-applied it
 
 ---
 
@@ -497,8 +653,9 @@ palettes."
 - **"What changed" after an AI action** — chips say what ran, not what it did
 - **Confirm on close** with unsaved text
 - **Relative timestamps** everywhere, absolute on hover
-- **Dashboard**: audit every quick-access button actually lands where it says,
-  and add the ones that are missing (§8 has one confirmed wrong)
+- ~~**Dashboard**: audit every quick-access button actually lands where it
+  says~~ done (§8) — every quick link now checked from all three Notes
+  sub-tabs. Still worth doing: **add the ones that are missing**
 
 ---
 
@@ -527,7 +684,10 @@ history. What's still weak:
 
 - No plan/progress for a multi-step job — the step timeline shows what happened,
   not what remains
-- No way to stop an agent turn mid-way and keep what it already did
+- ~~No way to stop an agent turn mid-way and keep what it already did~~ **done**
+  — `#chat-stop` aborts the stream, and a partial answer is kept, given its
+  action buttons and persisted like any other turn. A turn stopped before it
+  wrote anything is left silent deliberately: the user asked for that.
 - A tool that fails is reported, but the model isn't told how to recover
 - `_CLAIM_PATTERN` catches "I saved it" when no write tool ran — worth extending
   to other claim types
@@ -554,6 +714,63 @@ Deserves one deliberate pass rather than more ad-hoc fixes:
 - **Alembic migrations** — the additive auto-migrator cannot rename or drop, and
   won't survive a real schema change
 - **Session TTL** — tokens live in memory and never expire
+
+---
+
+## 21. Skills — a rebuild, not a tweak
+
+**Why.** Reported directly: "the skill system also needs a remake. The way
+skills are used currently, and what the skills are at the moment, are
+incorrect and are closer to just presaved mini prompts. I keep on trying to
+get the AI to make me some skills in the chat but it doesn't recognise that it
+needs to use tools and how to properly utilise the workspace."
+
+**That description is accurate.** A skill today is `{name, prompt}` in
+preferences. Clicking one drops its prompt into the chat box. `save_skill`
+stores a name and a string. There is no notion of what a skill *does*, no
+tools it is allowed to use, no steps, no inputs, no way to tell whether
+running one worked. It is a text snippet with a button.
+
+**What a skill should be.** A named, repeatable job over the notebook:
+
+- **Inputs** — declared, so a skill can be "file everything tagged `inbox`"
+  rather than a sentence hoping the model guesses the tag.
+- **Tools it may use** — an explicit allowlist. Both a safety property and a
+  prompt: naming the three tools a skill needs is what makes a small model
+  reach for them, which is the reported failure.
+- **Steps** — ordered, each one a tool call or a model call, so a skill can be
+  replayed and its progress shown against the plan (this is also §18's missing
+  plan/progress, and the two should be built together).
+- **A result** — what changed, as a list the user can undo, rather than prose
+  claiming something happened.
+
+**Why the AI can't currently make one.** `save_skill` takes a prompt string,
+so "make me a skill that files my inbox notes" can only produce another
+sentence. It cannot express the steps because the storage has nowhere to put
+them. Fixing the prompt alone will not help — the shape has to change first.
+
+**Order.** Schema for a skill (additive), then `save_skill` accepting steps,
+then a runner that executes them with progress, then the UI. The existing
+prompt-only skills should keep working as a one-step skill so nothing is lost.
+
+---
+
+## 22. Reported in use, not yet done
+
+Small, concrete, each seen in the running app:
+
+- **Notes don't render markdown.** Chat answers, documents and the dashboard
+  digest all render it; the note list shows raw `**text**`. `renderMarkdown`
+  already exists and is used by three other surfaces, so this is mostly
+  deciding whether the note *list* renders it or only the expanded note —
+  a list of fully-rendered notes with headings and tables gets very tall.
+- **A hero header on the dashboard.** The emblem and wordmark at the top of
+  the dashboard, not only in the top bar. Worth doing with the greeting card
+  that is already there ("Welcome back Brayden!") rather than above it.
+- **SearXNG starts but never answers.** The installer now works without Docker
+  or git, and the process starts, but the health check times out. Next step is
+  to capture its stdout/stderr instead of sending them to DEVNULL — right now
+  a failed start is completely silent, which is why this is a guess.
 
 ---
 

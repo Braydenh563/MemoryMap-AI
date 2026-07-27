@@ -41,6 +41,10 @@ START_TIMEOUT = 90  # image pulls can be slow the first time
 COMMAND_TIMEOUT = 20
 
 SOURCE_REPO = "https://github.com/searxng/searxng.git"
+# The same code as a tarball, for machines without the git binary. pip can
+# download and unpack this itself, which is what makes a no-Docker-no-git
+# install possible at all.
+SOURCE_TARBALL = "https://github.com/searxng/searxng/archive/refs/heads/master.tar.gz"
 INSTALL_TIMEOUT = 900  # a cold pip install from git builds a few wheels
 
 # use_default_settings keeps SearXNG's own defaults and layers ours on top —
@@ -99,9 +103,27 @@ def docker_available() -> bool:
     return result.returncode == 0
 
 
-def source_available() -> bool:
-    """True if we could build a virtualenv and fetch SearXNG into it."""
+def git_installed() -> bool:
+    """Is the git binary on PATH? Only decides *how* we fetch, not whether."""
     return shutil.which("git") is not None
+
+
+def source_available() -> bool:
+    """True if we could build a virtualenv and fetch SearXNG into it.
+
+    Always true now. It used to require the `git` binary, which meant a
+    machine with neither Docker nor git could not install SearXNG at all —
+    "I can't download searxng", with the UI offering a button that could
+    never work. pip fetches and unpacks a source tarball over HTTPS without
+    git's help, so the only real requirements are Python (we are running on
+    it) and a network connection, which any install needs anyway.
+
+    Deliberately not a `pip install searxng` from PyPI: SearXNG does not
+    publish itself there, so that name is somebody else's package, and
+    installing it would be running an unknown author's code because the name
+    looked right.
+    """
+    return True
 
 
 def preferred_backend() -> str | None:
@@ -140,7 +162,20 @@ def _pid_file(data_dir: Path) -> Path:
 
 
 def source_installed(data_dir: Path) -> bool:
-    return _venv_python(data_dir).exists() and _source_dir(data_dir).exists()
+    """Is SearXNG present in its own virtualenv?
+
+    The checkout directory only exists on the git path — a tarball install
+    puts `searx` straight into the venv's site-packages and never creates
+    one. So the question that actually matters is whether the venv can
+    import `searx`, not whether a source folder is sitting there.
+    """
+    python = _venv_python(data_dir)
+    if not python.exists():
+        return False
+    if _source_dir(data_dir).exists():
+        return True
+    result = _run([str(python), "-c", "import searx"], timeout=COMMAND_TIMEOUT)
+    return result.returncode == 0
 
 
 def _read_pid(data_dir: Path) -> int | None:
@@ -183,16 +218,25 @@ def install_source(data_dir: Path) -> None:
             if not _venv_python(data_dir).exists():
                 _run([sys.executable, "-m", "venv", str(venv)], timeout=180)
             _install_state["step"] = "Downloading SearXNG…"
-            if not src.exists():
-                result = _run(
-                    ["git", "clone", "--depth", "1", SOURCE_REPO, str(src)],
-                    timeout=INSTALL_TIMEOUT,
-                )
-                if result.returncode != 0:
-                    raise SearxngError(_reason(result, "Couldn't download SearXNG"))
+            # With git, clone and install editable: the checkout can be
+            # updated later without redownloading. Without git, pip fetches
+            # the tarball itself — slower to update, but it works on a
+            # machine that has neither Docker nor git, which previously had
+            # no way to install SearXNG at all.
+            if git_installed():
+                if not src.exists():
+                    result = _run(
+                        ["git", "clone", "--depth", "1", SOURCE_REPO, str(src)],
+                        timeout=INSTALL_TIMEOUT,
+                    )
+                    if result.returncode != 0:
+                        raise SearxngError(_reason(result, "Couldn't download SearXNG"))
+                target = ["-e", str(src)]
+            else:
+                target = [SOURCE_TARBALL]
             _install_state["step"] = "Installing dependencies (this takes a few minutes)…"
             result = _run(
-                [str(_venv_python(data_dir)), "-m", "pip", "install", "-e", str(src)],
+                [str(_venv_python(data_dir)), "-m", "pip", "install", *target],
                 timeout=INSTALL_TIMEOUT,
             )
             if result.returncode != 0:
@@ -223,7 +267,11 @@ def _start_source(data_dir: Path) -> dict:
     try:
         process = subprocess.Popen(  # noqa: S603 — fixed args, no shell
             [str(_venv_python(data_dir)), "-m", "searx.webapp"],
-            cwd=str(_source_dir(data_dir)),
+            # Only the git path has a checkout to run from; a tarball install
+            # lives in site-packages, and passing a directory that isn't there
+            # makes Popen fail with a FileNotFoundError that reads as "SearXNG
+            # is missing" rather than "that folder is".
+            cwd=str(src) if (src := _source_dir(data_dir)).exists() else None,
             env=env,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -313,13 +361,14 @@ def status(data_dir: Path | None = None) -> dict:
         # "Docker is installed but not started" is a different problem from
         # "Docker isn't installed", and only one of them is fixed by starting
         # Docker Desktop. Saying which saves a pointless install.
+        # Defensive: source installs no longer need anything beyond Python, so
+        # this is only reached if `source_available` has been overridden.
         detail = (
             "Docker is installed but its daemon isn't running — start Docker "
-            "Desktop, or install git and MemoryMap will set SearXNG up in a "
-            "virtualenv instead."
+            "Desktop, or MemoryMap will set SearXNG up in a virtualenv instead."
             if docker_installed()
-            else "SearXNG needs either Docker or git installed. Install one of "
-            "them, or point MemoryMap at a SearXNG you run yourself."
+            else "SearXNG can't be set up automatically here. Point MemoryMap "
+            "at a SearXNG you run yourself."
         )
         return {
             **base,
@@ -353,8 +402,8 @@ def start(data_dir: Path) -> dict:
     backend = preferred_backend()
     if backend is None:
         raise SearxngError(
-            "SearXNG needs either Docker or git installed. Install one of them, "
-            "or point MemoryMap at a SearXNG you run yourself."
+            "SearXNG can't be set up automatically here. Point MemoryMap at a "
+            "SearXNG you run yourself."
         )
     if backend == "source":
         return _start_from_source(data_dir)

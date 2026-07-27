@@ -184,15 +184,28 @@ running.
 
 ## 7. The agent's tools (Wave G)
 
-`ai/tools.py` defines a registry the chat model can call. Read-only tools run
-inline; the two **destructive** ones (`delete_note`, `delete_tag`) emit a
-confirmation event to the UI instead of executing.
+`ai/tools.py` defines a registry the chat model can call — **28 tools**. Read-only
+tools run inline; the two **destructive** ones (`delete_note`, `delete_tag`) emit
+a confirmation event to the UI instead of executing.
 
-`search_notes` · `count_notes` · `list_categories` · `get_current_time` ·
-`summarize_notes` · `create_note` · `edit_note` · `tag_note` · `pin_note` ·
-`link_notes` · `delete_note` ⚠️ · `restore_note` · `set_reminder` ·
-`list_reminders` · `complete_reminder` · `rename_tag` · `web_search` (opt-in) ·
-`delete_tag` ⚠️
+*Reading the notebook:* `search_notes` · `get_note` · `list_notes` ·
+`count_notes` · `list_tags` · `list_categories` · `summarize_notes`
+
+*Reading everything else:* `list_documents` · `get_document` ·
+`search_chat_history` · `get_current_time`
+
+*Writing:* `create_note` · `edit_note` · `tag_note` · `pin_note` · `link_notes` ·
+`restore_note` · `rename_tag` · `delete_note` ⚠️ · `delete_tag` ⚠️
+
+*Reminders:* `set_reminder` · `list_reminders` · `complete_reminder`
+
+*Skills:* `list_skills` · `save_skill` · `delete_skill`
+
+*Online (opt-in, off by default):* `web_search` · `read_url`
+
+`search_notes` and `list_notes` return **previews**, which is why `get_note`
+exists and its description says so — a model that quoted a note from a preview
+was quoting a truncation.
 
 The agent loop (`ai/agent.py`) streams: it calls `chat_tools_stream`, so the
 model's prose reaches the user as it is written rather than arriving in one
@@ -223,8 +236,19 @@ SQLite via SQLAlchemy 2.0 (`core/database.py`). Main tables:
 - **entry_links** — user- or AI-made connections between two entries (the graph).
 - **embeddings** — per-entry vectors, stored as raw `float32` bytes.
 - **attachments** — uploaded files, kept in `data/uploads/`.
-- **conversations** — saved chat threads.
-- **reminders** — lightweight reminders the agent can set.
+- **conversations** — saved chat threads. Messages are one JSON column of flat
+  user/assistant pairs. An assistant message carries `content` *and* `steps` —
+  the run as an ordered timeline (thinking, tool calls, prose). `steps` is what
+  the client replays when a chat is reopened; `content` is the flattened text
+  used for copying and for the history sent with the next question. **Anything
+  that edits an answer has to update both**, or the edit is invisible the
+  moment the chat is reopened.
+- **entry_revisions** — edit history for notes. Documents have no equivalent
+  yet, which is why the AI document edit overwrites on accept.
+- **documents** — long-form markdown, separate from notes.
+- **reminders** — lightweight reminders the agent can set. Stored UTC-aware:
+  SQLite drops timezones and JavaScript parses a naive date-time as *local*,
+  which read as a reminder being hours overdue the moment it was set.
 - **audit_log** — every meaningful action, shown in Settings → Activity.
 
 **Migrations:** `database.py` runs an additive auto-migrator at startup — new
@@ -256,6 +280,49 @@ palette (Ctrl/Cmd-K), an Obsidian-style force-directed graph (D3, vendored
 locally in `frontend/vendor/`), and a sketch pad (p5, also vendored). No asset
 is ever loaded from a CDN — consistent with the offline-first rule.
 
+### Driving it in a browser
+
+The test suite cannot see any of this, so verify UI work by running the app.
+Chromium is preinstalled at `/opt/pw-browsers/chromium-1194/chrome-linux/chrome`;
+`pip install playwright` (the browser is already there — do not run
+`playwright install`). Launch the context with `service_workers="block"`, or
+`sw.js` will serve a cached `app.js`/`style.css` and your change won't be in
+the page you are looking at.
+
+Top-level functions in `app.js` are plain globals, so a Playwright
+`page.evaluate` can call `switchTab`, `applyThemePreset` or `renderEmbeddingPicker`
+directly. Asserting on measured geometry — `scrollWidth - clientWidth`, a
+focused element's `offsetParent` — catches far more than a screenshot.
+
+### Invariants worth knowing
+
+1. **The Notes tab has sub-tabs** (`capture` / `ask` / `browse`) and remembers
+   the last one in `localStorage`. Anything that focuses or scrolls to an
+   element there must call `showNotesSection(...)` first: focusing inside a
+   `display: none` section silently does nothing, and the control reads as
+   dead. This has caused the same bug four separate times.
+2. **CSS automatic minimum sizing is the usual cause of a wide page.** A grid
+   track of `1fr` and a flex item of `min-width: auto` both refuse to shrink
+   below their content, so one wide code block or table widens its column, the
+   page, and every paragraph beside it. `overflow-x: auto` on the child cannot
+   take effect until every ancestor has an explicit floor — `minmax(0, 1fr)`
+   on the track *and* `min-width: 0` on the item.
+3. **Later CSS at equal specificity silently wins.** A media query that sets
+   `flex` is undone by a base rule declaring `flex` further down the file. The
+   header's tabs were pinned at a rigid 579px this way for a long time, and the
+   block that was supposed to free them looked perfectly correct.
+4. **Inline styles beat stylesheets, which is how colour layering works.** A
+   palette sets `--accent` from a `[data-palette]` rule; an explicitly chosen
+   accent is written as an inline custom property so it wins. Two rules of
+   equal specificity would otherwise be decided by source order.
+5. **The header degrades in a fixed order** as the window narrows: wordmark,
+   then the status pill, then tab padding, then the tabs scroll. Its buttons
+   never shrink. Breakpoints here are measured, not guessed — the desktop
+   shell's window is 1200x800, which is less viewport than it sounds on a
+   scaled display.
+6. **`prefers-reduced-motion` disables animation**, so any animation carrying
+   *meaning* needs a still fallback or it reads as a rendering fault.
+
 ## 11. Configuration
 
 Two knobs, both optional, via `.env` (copy from `.env.example`):
@@ -271,9 +338,14 @@ style, optional AI profile, …) live in `data/preferences.json`, managed by
 
 ## 12. Testing & CI
 
-- **Run locally:** `pytest` (≈160 tests). Uses a throwaway database and fakes
-  every AI call (`tests/fakes.py` + `tests/conftest.py`), so it's fast and
-  fully offline.
+- **Run locally:** `PYTHONPATH=src pytest` (≈500 tests, about a minute). Uses a
+  throwaway database and fakes every AI call (`tests/fakes.py` +
+  `tests/conftest.py`), so it's fast and fully offline.
+- **The suite cannot see the UI.** Every layout and wiring bug fixed so far
+  passed a fully green run — a header overflowing its own box by 215px, a
+  button focusing an element inside a hidden section, an accent picker with no
+  effect. Drive the app in a browser before believing a frontend change works;
+  §10 says how.
 - **Lint locally:** `ruff check .` (and, optionally, `ruff format` to tidy).
 - **CI** (`.github/workflows/ci.yml`): lint with ruff, then run the full test
   suite on Python 3.11 / 3.12 / 3.13. No GPU, no Ollama, no models required.
@@ -303,7 +375,9 @@ On first run you choose a password (bcrypt-hashed, stays local). See the
 | Add an API endpoint | the matching `src/memorymap/api/routes_*.py` |
 | Add a database column | `src/memorymap/core/database.py` (+ auto-migrator) |
 | Change search behaviour | `src/memorymap/search/search_manager.py` |
-| Change the UI | `frontend/app.js`, `frontend/style.css` |
+| Change the UI | `frontend/app.js`, `frontend/style.css` (read §10's invariants first) |
+| Work out why a page scrolls sideways | §10 invariant 2 — an ancestor with no `min-width: 0` |
+| Change what a saved chat replays | `steps` in `routes_conversations.py` — not just `content` |
 | Add a preference | `DEFAULT_PREFERENCES` in `core/config.py` |
 | Add a test | `tests/` — copy an existing `test_*.py` and reuse the fakes |
 

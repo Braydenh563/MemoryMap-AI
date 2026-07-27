@@ -2514,7 +2514,7 @@ function personaOptions() {
 // You could choose a persona but never read what it told the model to do —
 // which makes the choice a guess. This shows the actual system prompt.
 function togglePersonaPrompt() {
-  const panel = $("persona-prompt");
+  const panel = $("persona-peek-panel");
   const showing = panel.classList.toggle("hidden");
   $("persona-peek").setAttribute("aria-expanded", String(!showing));
 }
@@ -4070,7 +4070,11 @@ function applySidebarWidth(aside, width) {
     aside.parentElement.style.removeProperty("grid-template-columns");
     return clamped;
   }
-  aside.parentElement.style.gridTemplateColumns = `${clamped}px 1fr`;
+  // minmax(0, 1fr), never plain 1fr: a bare `1fr` track refuses to shrink
+  // below its content's min-content width, so one wide code block or table in
+  // a chat answer pushed the whole page sideways. This inline style overrides
+  // the stylesheet, so it has to carry the same floor the stylesheet does.
+  aside.parentElement.style.gridTemplateColumns = `${clamped}px minmax(0, 1fr)`;
   return clamped;
 }
 
@@ -5371,6 +5375,37 @@ window.addEventListener("resize", () => {
   if ($("dash-grid")) sizeDashWidgets();
 });
 
+// Fade the tab strip's right edge only while it is genuinely scrolling.
+//
+// This was a media query, which is the wrong test: whether the tabs overflow
+// depends on how long the AI status pill's text currently is and whether the
+// wordmark is showing, not only on the window width. So a fixed breakpoint
+// faded a tab bar that fitted perfectly, and left a scrolling one at other
+// widths looking as though "Reminders" had been clipped — which is exactly
+// the complaint the fade exists to prevent. Measuring is both simpler and
+// correct at every width.
+function syncTabOverflowFade() {
+  const bar = $("tab-bar");
+  if (!bar) return;
+  // 1px of slack: sub-pixel layout makes scrollWidth exceed clientWidth by a
+  // fraction on plenty of widths where nothing is actually cut off.
+  bar.classList.toggle("is-scrolling", bar.scrollWidth - bar.clientWidth > 1);
+}
+
+window.addEventListener("resize", syncTabOverflowFade, { passive: true });
+// The pill's text arrives with the status polls, long after first paint, and
+// changes width when it does — so remeasure whenever the header changes size
+// rather than only on window resize.
+if (typeof ResizeObserver !== "undefined") {
+  const headerObserver = new ResizeObserver(syncTabOverflowFade);
+  const bar = $("tab-bar");
+  if (bar) {
+    headerObserver.observe(bar);
+    if (bar.parentElement) headerObserver.observe(bar.parentElement);
+  }
+}
+syncTabOverflowFade();
+
 // --- at-a-glance strip (page furniture, not a hideable widget) ---------------
 
 async function renderDashStats() {
@@ -5390,8 +5425,12 @@ async function renderDashStats() {
   const due = open.filter((r) => new Date(r.due_at) <= now).length;
 
   const tiles = [
-    { icon: "📝", value: stats ? stats.total_entries : "–", label: "notes", go: () => switchTab("notes") },
-    { icon: "🗓", value: thisWeek, label: "this week", go: () => switchTab("notes") },
+    // Both of these are counts of notes, so they belong on the list that
+    // shows them — not on whichever Notes sub-tab happened to be open last.
+    { icon: "📝", value: stats ? stats.total_entries : "–", label: "notes",
+      go: () => { switchTab("notes"); showNotesSection("browse"); } },
+    { icon: "🗓", value: thisWeek, label: "this week",
+      go: () => { switchTab("notes"); showNotesSection("browse"); } },
     { icon: "🔥", value: streak, label: streak === 1 ? "day streak" : "day streak", go: () => switchTab("dashboard") },
     {
       icon: due ? "⏰" : "✅",
@@ -5425,8 +5464,25 @@ async function renderDashStats() {
 
 // --- dashboard quick links ---------------------------------------------------
 
+// Anything targeting the Notes tab must name its sub-tab.
+//
+// The tab is split into capture / ask / browse and *remembers the last one
+// used*, so "switchTab('notes') then focus" only works if you happened to
+// leave it on the right section. "Search notes" was fixed after being
+// reported; an audit of every button here — clicking each one from all three
+// starting sections — found "New note" failing in exactly the same way from
+// two of the three, with the capture box hidden and nothing focused. It is
+// the most-used button on the dashboard.
 const QUICK_LINKS = [
-  { icon: "✏️", label: "New note", run: () => { switchTab("notes"); $("entry-content").focus(); } },
+  {
+    icon: "✏️",
+    label: "New note",
+    run: () => {
+      switchTab("notes");
+      showNotesSection("capture"); // or the box you're about to focus is hidden
+      $("entry-content").focus();
+    },
+  },
   { icon: "💬", label: "Ask AI", run: () => { switchTab("chat"); $("chat-input").focus(); } },
   { icon: "🕸", label: "Graph", run: () => switchTab("graph") },
   { icon: "⏰", label: "Reminders", run: () => switchTab("reminders") },
@@ -5471,18 +5527,18 @@ function renderQuickLinks() {
 function featureCatalog() {
   return [
     { group: "Capture & notes", items: [
-      { name: "Capture a thought", desc: "Save anything; the AI files it into a category and suggests tags.", run: () => { switchTab("notes"); $("entry-content").focus(); } },
-      { name: "Templates", desc: "Start a note from a prefilled shape (journal, recipe, meeting…).", run: () => switchTab("notes") },
-      { name: "Improve writing", desc: "Proofread, rewrite, or condense a note with AI before saving.", run: () => switchTab("notes") },
+      { name: "Capture a thought", desc: "Save anything; the AI files it into a category and suggests tags.", run: () => { switchTab("notes"); showNotesSection("capture"); $("entry-content").focus(); } },
+      { name: "Templates", desc: "Start a note from a prefilled shape (journal, recipe, meeting…).", run: () => { switchTab("notes"); showNotesSection("capture"); } },
+      { name: "Improve writing", desc: "Proofread, rewrite, or condense a note with AI before saving.", run: () => { switchTab("notes"); showNotesSection("capture"); } },
       { name: "Sketch pad", desc: "Draw something and save it as a note with a caption.", run: () => openSketch() },
-      { name: "Dictation", desc: "Speak a note; transcribed locally with Whisper.", run: () => switchTab("notes") },
-      { name: "Attachments", desc: "Attach files and images to any note.", run: () => switchTab("notes") },
-      { name: "Threads", desc: "Continue a thought to build a train of related notes.", run: () => switchTab("notes") },
-      { name: "Pins & tags", desc: "Pin important notes and organise with tags.", run: () => switchTab("notes") },
-      { name: "Recycle bin", desc: "Deleted notes are recoverable until the bin is cleared.", run: () => switchTab("notes") },
+      { name: "Dictation", desc: "Speak a note; transcribed locally with Whisper.", run: () => { switchTab("notes"); showNotesSection("capture"); } },
+      { name: "Attachments", desc: "Attach files and images to any note.", run: () => { switchTab("notes"); showNotesSection("browse"); } },
+      { name: "Threads", desc: "Continue a thought to build a train of related notes.", run: () => { switchTab("notes"); showNotesSection("browse"); } },
+      { name: "Pins & tags", desc: "Pin important notes and organise with tags.", run: () => { switchTab("notes"); showNotesSection("browse"); } },
+      { name: "Recycle bin", desc: "Deleted notes are recoverable until the bin is cleared.", run: () => { switchTab("notes"); showNotesSection("browse"); } },
     ]},
     { group: "Ask & chat", items: [
-      { name: "Ask your notebook", desc: "Questions answered strictly from your own notes.", run: () => { switchTab("notes"); $("question").focus(); } },
+      { name: "Ask your notebook", desc: "Questions answered strictly from your own notes.", run: () => { switchTab("notes"); showNotesSection("ask"); $("question").focus(); } },
       { name: "Chat", desc: "A full conversation with your notebook, saved and resumable.", run: () => { switchTab("chat"); $("chat-input").focus(); } },
       { name: "Personas", desc: "Change the assistant's voice — Librarian, Coach, Analyst, or your own.", run: () => openSettingsModal("personas") },
       { name: "Skills", desc: "One-click requests like “Summarise my week”; can act on your notes.", run: () => openSettingsModal("skills") },
@@ -5496,7 +5552,7 @@ function featureCatalog() {
       { name: "Physics controls", desc: "Gravity and Spread sliders reshape the layout.", run: () => switchTab("graph") },
       { name: "Suggested links", desc: "The AI proposes connections between related notes.", run: () => switchTab("graph") },
       { name: "On this day", desc: "Notes you captured on this date in past months resurface.", run: () => switchTab("dashboard") },
-      { name: "Related notes", desc: "See notes that mean something similar to the one you're reading.", run: () => switchTab("notes") },
+      { name: "Related notes", desc: "See notes that mean something similar to the one you're reading.", run: () => { switchTab("notes"); showNotesSection("browse"); } },
     ]},
     { group: "Plan & focus", items: [
       { name: "Reminders", desc: "Due dates with priority, repeats, snooze and notifications.", run: () => switchTab("reminders") },
@@ -8105,9 +8161,44 @@ async function openGraphPopup(event, node) {
   $("graph-popup-content").value = entry.content;
   $("graph-popup-tags").value = (entry.tags || []).join(", ");
   renderGraphPopupInfo(entry, node);
+  renderGraphPopupMedia(entry);
   renderGraphPopupActions(entry);
   placeGraphPopup(); // now that it's at its real height
   $("graph-popup-content").focus();
+}
+
+// Show a note's images in the popup, biggest reason being sketches.
+//
+// A sketch is stored as a note carrying the caption plus a PNG attachment, so
+// on the map it is an ordinary node and the popup showed its caption and
+// nothing else. There was no way to see the drawing from the graph at all —
+// "Open" only took you to the Notes tab, where you still had to find the card
+// and click its thumbnail. Reported as "sketches don't open from the graph",
+// and that is exactly right: the one thing the note is *about* was missing.
+function renderGraphPopupMedia(entry) {
+  const box = $("graph-popup-media");
+  box.replaceChildren();
+  const images = (entry.attachments || []).filter((a) => a.is_image);
+  box.classList.toggle("hidden", images.length === 0);
+  if (!images.length) return;
+  for (const attachment of images) {
+    const img = document.createElement("img");
+    img.className = "graph-popup-thumb";
+    img.alt = attachment.filename;
+    img.title = `${attachment.filename} — click to view full size`;
+    // The bytes need the auth header, so they arrive as an object URL rather
+    // than a plain src. Cached per attachment by attachmentObjectUrl.
+    attachmentObjectUrl(attachment)
+      .then((url) => {
+        img.src = url;
+        placeGraphPopup(); // the popup just got taller
+      })
+      .catch(() => img.remove());
+    img.addEventListener("click", async () => {
+      openLightbox(await attachmentObjectUrl(attachment), attachment.filename);
+    });
+    box.appendChild(img);
+  }
 }
 
 // Clamp the popup inside the graph box. Called on open and again once the
@@ -9403,6 +9494,12 @@ async function loadMostUsed() {
 // --- model manager (Phase 3.5) ---------------------------------------------------
 
 let modelStatus = null; // latest /models/status payload
+// Has the status endpoint ever answered? "We haven't asked yet" and "we asked
+// and got nothing" are both `modelStatus === null`, but they mean opposite
+// things to the user: the first is normal for the first second of every
+// startup, the second is a fault. Without this the indicator flashed red on
+// every single page load before settling.
+let statusEverAnswered = false;
 let suggestedCatalog = null; // loaded once, it never changes
 let statusTimer = null;
 
@@ -9426,6 +9523,7 @@ async function refreshModelStatus() {
   try {
     // silent: a poll must never trigger the lock screen (Wave O fix).
     modelStatus = await apiJson("/models/status", { silent: true });
+    statusEverAnswered = true;
   } catch {
     modelStatus = null; // locked or unreachable — pill shows the worst case
   }
@@ -9485,47 +9583,147 @@ function syncAiOnlyControls() {
   }
 }
 
-function renderAiPill() {
-  const pill = $("ai-pill");
-  pill.className = "";
+// What the AI is doing, as one decision.
+//
+// Three levels, and the boundary between them is deliberate. This app is built
+// to degrade gracefully, so "no AI at all" is a supported way to run it, not a
+// fault — it is amber, not red. Red is reserved for something that is actually
+// broken: a model that failed to load, or a server we can't reach. Colouring a
+// normal offline setup red would train the user to ignore the indicator.
+//
+//   idle  … grey    haven't heard back yet — says nothing either way
+//   ok    ✓ green   everything the AI can do is available
+//   warn  ! amber   loading, switched off, or partly available — app works
+//   error ✕ red     something is broken and won't fix itself
+function aiStatusState() {
   if (!modelStatus) {
-    pill.textContent = "status unknown";
-    return;
+    // The first poll of every page load lands here for a moment. Reporting
+    // that as a fault would flash red on every startup and teach the user
+    // that red means nothing — so an unanswered *first* request is its own
+    // quiet state, and only a request that has failed after we have already
+    // had an answer counts as the server going away.
+    if (!statusEverAnswered) {
+      return {
+        level: "idle",
+        title: "Checking…",
+        detail: "Asking the app what the AI is doing. This takes a moment.",
+      };
+    }
+    return {
+      level: "error",
+      title: "Can't reach MemoryMap",
+      detail:
+        "The app can't read its own status, which usually means the server " +
+        "stopped. Your notes are safe on disk.",
+    };
   }
   const chatReady = modelStatus.ollama_running;
   const searchReady = modelStatus.embedding_ready;
+
   if (modelStatus.reindex && modelStatus.reindex.status === "running") {
-    pill.classList.add("busy");
-    pill.textContent = "rebuilding search index…";
-  } else if (!searchReady && modelStatus.embedding_warming) {
-    pill.classList.add("busy");
-    pill.textContent = "search AI warming up…";
-  } else if (!searchReady && modelStatus.embedding_error) {
-    // Distinguish "broken" from "loading" — the old pill said
-    // "warming up…" forever when the model failed to load.
-    //
-    // These messages lead with what still WORKS, not with what's broken. The
-    // old wording ("search AI unavailable — see Settings → Logs") announced a
-    // fault and sent you to a log viewer, which reads as "the app is broken"
-    // when in fact everything except meaning-based search is fine.
-    pill.classList.add("busy");
-    pill.textContent = "word search on · AI search unavailable";
-    pill.title = `${modelStatus.embedding_error}\n\nSearching by word still works, and notes, tags, reminders and the graph are unaffected. Settings → Logs has the details.`;
-  } else if (chatReady && searchReady) {
-    pill.classList.add("ok");
-    pill.textContent = "AI ready";
-  } else if (!chatReady && searchReady) {
-    pill.classList.add("busy");
-    pill.textContent = "everything works · chat AI off";
-    pill.title = "Notes, search, tags, reminders and the graph all work. Start Ollama to add chat and auto-filing.";
-  } else if (chatReady && !searchReady) {
-    pill.classList.add("busy");
-    pill.textContent = "word search on · AI search warming";
-    pill.title = "Searching by word works now; searching by meaning becomes available once the embedding model has loaded.";
-  } else {
-    pill.textContent = "everything works · AI off";
-    pill.title = "Writing, searching, tagging, reminders, documents and the graph all work without any AI. Start Ollama to add chat, auto-filing and search by meaning.";
+    return {
+      level: "warn",
+      title: "Rebuilding the search index",
+      detail:
+        "Searching by word works while this runs. Searching by meaning comes " +
+        "back when it finishes.",
+    };
   }
+  if (!searchReady && modelStatus.embedding_warming) {
+    return {
+      level: "warn",
+      title: "Search AI is warming up",
+      detail:
+        "Searching by word works now. Searching by meaning becomes available " +
+        "once the model has loaded.",
+    };
+  }
+  if (!searchReady && modelStatus.embedding_error) {
+    // "Broken" and "still loading" looked identical before: the old pill said
+    // "warming up…" forever when the model had actually failed.
+    return {
+      level: "error",
+      title: "Search AI didn't load",
+      detail:
+        `${modelStatus.embedding_error}\n\nSearching by word still works, and ` +
+        "notes, tags, reminders and the graph are unaffected. Settings → Logs " +
+        "has the details.",
+    };
+  }
+  if (chatReady && searchReady) {
+    return {
+      level: "ok",
+      title: "AI ready",
+      detail: "Chat, auto-filing and search by meaning are all available.",
+    };
+  }
+  // Everything below leads with what still WORKS. Announcing a fault and
+  // pointing at a log reads as "the app is broken" when in fact only the
+  // optional half is missing.
+  if (!chatReady && searchReady) {
+    return {
+      level: "warn",
+      title: "Everything works · chat AI off",
+      detail:
+        "Notes, search, tags, reminders and the graph all work. Start Ollama " +
+        "to add chat and auto-filing.",
+    };
+  }
+  if (chatReady && !searchReady) {
+    return {
+      level: "warn",
+      title: "Word search on · AI search warming",
+      detail:
+        "Searching by word works now; searching by meaning becomes available " +
+        "once the embedding model has loaded.",
+    };
+  }
+  return {
+    level: "warn",
+    title: "Everything works · AI off",
+    detail:
+      "Writing, searching, tagging, reminders, documents and the graph all " +
+      "work without any AI. Start Ollama to add chat, auto-filing and search " +
+      "by meaning.",
+  };
+}
+
+// The glyph is not decoration. Colour alone fails for the ~8% of men with a
+// colour vision deficiency, and fails everyone in high-contrast mode — so the
+// shape carries the same meaning the colour does.
+// "…" for connecting rather than a spinner: a spinner has to be animated to
+// read as one, and under prefers-reduced-motion a frozen spinner looks like a
+// rendering fault. The ellipsis says "waiting" while perfectly still.
+const AI_STATUS_GLYPH = { idle: "…", ok: "✓", warn: "!", error: "✕" };
+
+function renderAiPill() {
+  const button = $("ai-status");
+  if (!button) return;
+  const state = aiStatusState();
+  button.dataset.level = state.level;
+  button.querySelector(".ai-status-dot").textContent = AI_STATUS_GLYPH[state.level];
+  // The button's own name for screen readers and for the native tooltip, so
+  // the information is reachable without opening anything.
+  const summary = `AI status: ${state.title}`;
+  $("ai-status-label").textContent = summary;
+  button.title = `${state.title}\n\n${state.detail}`;
+  $("ai-status-title").textContent = state.title;
+  $("ai-status-detail").textContent = state.detail;
+}
+
+// Hover is handled in CSS. This is the click half — needed for touch, where
+// there is no hover, and for keyboards, where there is no pointer.
+function toggleAiStatusPopup(force) {
+  const button = $("ai-status");
+  const popup = $("ai-status-popup");
+  if (!button || !popup) return;
+  const open = force !== undefined ? force : !button.classList.contains("pinned");
+  button.classList.toggle("pinned", open);
+  button.setAttribute("aria-expanded", String(open));
+  // Visibility, not the `hidden` attribute: `hidden` is display:none, which
+  // the CSS hover rule would then have to fight. The stylesheet owns whether
+  // the popup is shown; this only records that it has been pinned open.
+  popup.classList.toggle("pinned", open);
 }
 
 // One plain-English line: which search engine is active and whether it works.
@@ -9698,9 +9896,23 @@ function renderUtilityModelPicker(status) {
 }
 
 function renderEmbeddingPicker(status) {
-  // The backend radios only reflect the saved value when the user isn't
-  // mid-change (they have no rebuild, so a simple focus check is enough).
-  const touching = document.activeElement?.name === "emb-backend";
+  // The backend radios only reflect the saved value while the user has no
+  // pending choice of their own.
+  //
+  // A focus check alone was not enough, and it is why switching search
+  // engines was reported as impossible. Picking a radio does not save
+  // anything — "Apply & re-index" does — so between the click and the apply
+  // there is a pending choice the server doesn't know about yet. The moment
+  // focus moved (clicking Apply, or just tabbing away) the status poll ran,
+  // found `touching` false, and reset the radio to the *saved* backend. The
+  // selection visibly snapped back, so the setting looked stuck.
+  //
+  // Same `userChosen` latch the model selects already use, cleared once the
+  // choice is actually applied.
+  const group = document.querySelectorAll('input[name="emb-backend"]');
+  const touching =
+    document.activeElement?.name === "emb-backend" ||
+    [...group].some((radio) => radio.dataset.userChosen === "1");
   if (!touching) {
     for (const radio of document.querySelectorAll('input[name="emb-backend"]')) {
       radio.checked = radio.value === status.embedding_backend;
@@ -10016,16 +10228,33 @@ async function applyEmbeddingBackend() {
       "notes so search keeps making sense. Notes and keyword search stay " +
       "available while it runs. Continue?"
   );
-  if (!ok) return;
+  if (!ok) {
+    // Backing out puts the saved backend back on screen, rather than leaving
+    // a radio selected for a switch that never happened.
+    clearEmbeddingBackendLatch();
+    refreshModelStatus();
+    return;
+  }
   try {
     await api("/models/embedding-backend", {
       method: "POST",
       body: JSON.stringify({ backend, model: backend === "ollama" ? model : null }),
     });
-    delete $("embedding-model-select").dataset.userChosen; // applied
+    clearEmbeddingBackendLatch(); // applied — polling may reflect it again
     refreshModelStatus();
   } catch (error) {
     toast(error.message, true);
+  }
+}
+
+// Let the status poll own the radios again. Called once a choice is applied,
+// and when the user backs out of applying it — otherwise a cancelled switch
+// would leave the radio showing a backend that was never saved, which is the
+// same lie in the opposite direction.
+function clearEmbeddingBackendLatch() {
+  delete $("embedding-model-select").dataset.userChosen;
+  for (const radio of document.querySelectorAll('input[name="emb-backend"]')) {
+    delete radio.dataset.userChosen;
   }
 }
 
@@ -10090,14 +10319,50 @@ function currentAccentHex() {
 }
 
 function applyAccent(name, remember = true) {
-  if (name === "indigo") delete document.documentElement.dataset.accent;
-  else document.documentElement.dataset.accent = name;
   // applyThemePreset re-applies the theme's accent without recording it as a
   // manual choice — otherwise merely picking a theme would pin its colour as
   // an override and the next theme couldn't change it.
   if (remember) localStorage.setItem("accent", name);
+  applyEffectiveAccent();
   if (bgArtOn()) startBgArt(); // repaint the background in the new accent
   renderBrandLogo(); // recolour the emblem too
+}
+
+// Which accent the app actually wears, decided in one place.
+//
+// Two bugs came out of not having this. Both were reported as "with a theme
+// selected, the individual colour controls can't be changed":
+//
+// 1. The accent swatches did nothing under any theme. `[data-accent]` rules
+//    live at the top of the stylesheet and `[data-palette]` rules near the
+//    bottom, both `:root[data-…]` and so both specificity (0,2,0) — so the
+//    palette won on source order alone, every time. Since every theme selects
+//    a palette, picking an accent was visibly dead the moment a theme was on.
+// 2. Clearing a manual accent left it applied. `applyAppearance` re-applied
+//    every other setting but never the accent, so "clear my changes" removed
+//    the stored value and the picker showed nothing selected while the app
+//    carried on wearing the old colour.
+//
+// An explicit pick is written as an inline custom property, which beats any
+// stylesheet rule and so beats the palette. No pick means no inline property,
+// leaving the palette to supply the colour as it should. That is the
+// documented layering — your change → theme → default — applied to colour.
+// It owns `data-accent` as well as the inline property. Keeping the attribute
+// in step matters even though the inline colour is what wins: the pre-paint
+// script in index.html sets it from localStorage to avoid a flash, so a stale
+// attribute survives a reload and re-colours the app from the stylesheet the
+// moment the inline property is removed. That is what kept a cleared accent
+// visible after "clear my changes".
+function applyEffectiveAccent() {
+  const root = document.documentElement;
+  const custom = localStorage.getItem("accent-custom");
+  // Only a *stored* accent is a deliberate choice; a theme never sets one.
+  const chosen = localStorage.getItem("accent");
+  const preset = chosen ? ACCENTS.find((a) => a.name === chosen) : null;
+  if (preset && preset.name !== "indigo") root.dataset.accent = preset.name;
+  else delete root.dataset.accent;
+  if (custom) return applyCustomAccent(custom); // a picked hex wins outright
+  applyCustomAccent(preset ? preset.swatch : null);
 }
 
 function contrastOn() {
@@ -10125,16 +10390,23 @@ const APPEARANCE_DEFAULTS = {
   // left the picker rendering blank (selectedIndex -1) — so choosing "Moving"
   // looked like it did nothing, and there was no way at all to get the art
   // moving on a machine with reduced motion turned on.
-  "bg-motion": "auto",
+  // "auto" follows the reduced-motion setting; "moving" is an explicit
+  // request that overrides it; "still" never moves. This key was declared
+  // twice — once here as "auto" and again below as "moving" — after two
+  // sessions fixed the same blank-picker bug independently. The later
+  // declaration silently won, so the documented default was not the one
+  // anybody got. One declaration, matching the <option> list and the hint
+  // text that explains what "auto" means.
+  "bg-motion": "auto", // auto | moving | still
   "bg-intensity": "90",
   radius: "14", // global corner rounding, px
   "glass-blur": "18", // frosted-glass blur strength, px
   "bg-style": "aurora", // aurora | constellation | waves | bubbles | mesh
   palette: "default", // which curated colour set; themes select one
-  // Missing entirely until now, so appearancePref("bg-motion") returned
-  // undefined and renderAppearance set the Movement <select> to it — which
-  // matches no <option>, leaving the control blank on every fresh profile.
-  "bg-motion": "moving", // moving | still
+  // No accent by default: the palette supplies the colour until you pick one
+  // yourself. Named here so appearancePref("accent") has a defined answer
+  // rather than returning undefined and relying on a lookup miss.
+  accent: "indigo",
 };
 
 // --- curated visual themes ---------------------------------------------------------
@@ -10212,6 +10484,17 @@ const THEME_PRESETS = {
   graphite: {
     label: "Graphite",
     values: { theme: "dark", palette: "carbon", glass: "off", radius: "4" },
+  },
+  // Asked for directly: an indigo-and-teal dark theme, and a teal light one.
+  // Two themes over one palette, which is exactly what the palette/theme split
+  // is for — same colours, different light/dark commitment.
+  lagoon: {
+    label: "Lagoon",
+    values: { theme: "dark", palette: "lagoon", glass: "on", radius: "14" },
+  },
+  shallows: {
+    label: "Shallows",
+    values: { theme: "light", palette: "lagoon", glass: "on", radius: "14" },
   },
 };
 
@@ -10352,7 +10635,9 @@ function applyAppearance() {
   // value would pin whatever the theme supplied as a manual override — after
   // which no other theme could ever change the palette again.
   applyPalette(activePalette(), false);
-  applyCustomAccent(localStorage.getItem("accent-custom"));
+  // After the palette, never before: the accent has to be able to override
+  // whatever colour the palette just supplied.
+  applyEffectiveAccent();
   // A theme may set the page colour; your own pick overrides it.
   applyPageBackground(appearancePref("page-bg"));
   applyCustomCss(localStorage.getItem("custom-css"));
@@ -10468,8 +10753,7 @@ function renderAppearance() {
     button.classList.toggle("active", !customSet && accent.name === activeAccent());
     button.addEventListener("click", () => {
       localStorage.removeItem("accent-custom"); // presets clear a custom colour
-      applyCustomAccent(null);
-      applyAccent(accent.name);
+      applyAccent(accent.name); // re-derives the inline colour from scratch
       renderAppearance();
     });
     holder.appendChild(button);
@@ -10559,6 +10843,13 @@ const PALETTES = [
     note: "Cool teal and deep blue. Crisp rather than cosy.",
     light: { page: "linear-gradient(135deg,#e4f0f6,#eef6f8 45%,#dfeef2)", card: "rgba(252,254,255,0.85)", accent: "#0f7d99", border: "rgba(20,38,46,0.14)" },
     dark: { page: "linear-gradient(135deg,#08131a,#0d1e28 45%,#091a22)", card: "rgba(21,36,45,0.85)", accent: "#46c9e6", border: "rgba(200,238,250,0.15)" },
+  },
+  {
+    id: "lagoon",
+    name: "Lagoon",
+    note: "Indigo ground with a teal accent — both colours, not blended.",
+    light: { page: "linear-gradient(135deg,#eef1fa,#eaf4f6 45%,#e6edf8)", card: "rgba(253,254,255,0.85)", accent: "#0b6b7d", border: "rgba(26,34,62,0.15)" },
+    dark: { page: "linear-gradient(135deg,#10142a,#141b38 45%,#0e1626)", card: "rgba(28,35,62,0.85)", accent: "#5fd8d0", border: "rgba(200,218,255,0.16)" },
   },
   {
     id: "ember",
@@ -11409,6 +11700,20 @@ $("persona-select").addEventListener("change", async () => {
     body: JSON.stringify({ active_persona: $("persona-select").value }),
   }).catch(() => {});
 });
+// The AI status dot. Hover is CSS; these are the paths hover doesn't cover —
+// touch, where there is no hover at all, and keyboards.
+$("ai-status").addEventListener("click", () => toggleAiStatusPopup());
+document.addEventListener("click", (event) => {
+  // Anywhere outside closes it, the way every other popover here behaves.
+  if (!event.target.closest(".ai-status-wrap")) toggleAiStatusPopup(false);
+});
+$("ai-status").addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    toggleAiStatusPopup(false);
+    $("ai-status").focus();
+  }
+});
+
 $("persona-add").addEventListener("click", addPersona);
 $("skill-add").addEventListener("click", addSkill);
 $("skill-cancel").addEventListener("click", stopEditingSkill);
@@ -12090,10 +12395,13 @@ for (const id of ["chat-model-select", "embedding-model-select"]) {
   $(id).addEventListener("change", () => ($(id).dataset.userChosen = "1"));
 }
 for (const radio of document.querySelectorAll('input[name="emb-backend"]')) {
-  radio.addEventListener(
-    "change",
-    () => ($("embedding-model-select").dataset.userChosen = "1")
-  );
+  radio.addEventListener("change", () => {
+    $("embedding-model-select").dataset.userChosen = "1";
+    // The radio itself needs the latch too: the choice isn't saved until
+    // "Apply & re-index", and without this the next status poll put the old
+    // backend back the instant focus left the radio.
+    radio.dataset.userChosen = "1";
+  });
 }
 $("save-btn").addEventListener("click", saveEntry);
 $("ask-btn").addEventListener("click", () => askQuestion()); // no event as preset

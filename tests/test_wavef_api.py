@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import time
 import zipfile
 
 import pytest
@@ -317,7 +318,27 @@ def test_searxng_status_without_docker_falls_back_to_source(client, monkeypatch)
     assert body["backend"] == "source"
 
 
+def test_searxng_installs_without_docker_or_git(client, monkeypatch):
+    """Neither Docker nor git is a dead end any more.
+
+    This is what "I can't download searxng" meant: `source_available` required
+    the git binary, so a machine with neither Docker nor git was offered an
+    install button that could never work. pip fetches a source tarball over
+    HTTPS on its own, so Python and a network connection are the only real
+    requirements.
+    """
+    from memorymap.search import searxng_manager
+
+    monkeypatch.setattr(searxng_manager, "docker_available", lambda: False)
+    monkeypatch.setattr(searxng_manager, "docker_installed", lambda: False)
+    monkeypatch.setattr(searxng_manager, "git_installed", lambda: False)
+    body = client.get("/websearch/searxng/status").json()
+    assert body["source"] is True
+    assert body["backend"] == "source"
+
+
 def test_searxng_status_with_no_backend_at_all(client, monkeypatch):
+    """Only reachable if source installs are disabled outright."""
     from memorymap.search import searxng_manager
 
     monkeypatch.setattr(searxng_manager, "docker_available", lambda: False)
@@ -325,7 +346,7 @@ def test_searxng_status_with_no_backend_at_all(client, monkeypatch):
     monkeypatch.setattr(searxng_manager, "source_available", lambda: False)
     body = client.get("/websearch/searxng/status").json()
     assert body["backend"] is None
-    assert "either Docker or git" in body["detail"]
+    assert "run yourself" in body["detail"]
 
 
 def test_docker_installed_but_not_running_is_not_treated_as_available(client, monkeypatch):
@@ -379,7 +400,7 @@ def test_searxng_start_without_any_backend_is_a_clear_503(client, monkeypatch):
     monkeypatch.setattr(searxng_manager, "source_available", lambda: False)
     response = client.post("/websearch/searxng/start")
     assert response.status_code == 503
-    assert "either Docker or git" in response.json()["detail"]
+    assert "run yourself" in response.json()["detail"]
 
 
 def test_searxng_start_from_source_installs_first(client, monkeypatch):
@@ -639,3 +660,93 @@ def test_reader_opens_an_ordinary_result_page(client, monkeypatch):
     response = client.get("/websearch/read?url=https://en.wikipedia.org/wiki/Cat")
     assert response.status_code == 200
     assert response.json()["title"] == "A post"
+
+
+def test_uploading_recreates_a_missing_uploads_folder(client, app_state, tmp_path):
+    """The folder is made at startup, but it only has to vanish once.
+
+    A cleanup tool, an unmounted data directory, or a restore that skipped an
+    empty folder used to turn every upload into a 500 with a traceback. For a
+    sketch that is the worst shape of failure: the note saves first, so only
+    the drawing is lost and the caption is left behind pointing at nothing.
+    """
+    import shutil
+
+    entry = _save(client, "a sketch caption", category="Sketches")
+    uploads = deps.get_config().uploads_dir
+    shutil.rmtree(uploads)
+    assert not uploads.exists()
+
+    response = client.post(
+        f"/entries/{entry['id']}/files",
+        files={"file": ("sketch.png", b"\x89PNG\r\n\x1a\nnot-really", "image/png")},
+    )
+    assert response.status_code == 201
+    assert response.json()["attachments"][0]["filename"] == "sketch.png"
+
+
+def test_source_install_uses_the_tarball_when_git_is_missing(app_state, tmp_path, monkeypatch):
+    """Without git, pip is pointed at the tarball rather than a clone."""
+    from memorymap.search import searxng_manager
+
+    calls = []
+
+    class _Ok:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    def fake_run(cmd, timeout=None):
+        calls.append(list(cmd))
+        return _Ok()
+
+    monkeypatch.setattr(searxng_manager, "_run", fake_run)
+    monkeypatch.setattr(searxng_manager, "git_installed", lambda: False)
+    # Pretend the venv already exists so the install goes straight to pip.
+    monkeypatch.setattr(searxng_manager, "_venv_python", lambda d: tmp_path / "python")
+    (tmp_path / "python").write_text("")
+
+    searxng_manager.install_source(tmp_path)
+    for _ in range(100):  # the install runs on a worker thread
+        if not searxng_manager._install_state["running"]:
+            break
+        time.sleep(0.05)
+
+    assert searxng_manager._install_state["error"] == ""
+    assert not any(c[0] == "git" for c in calls), "should not shell out to git"
+    pip_call = next(c for c in calls if "pip" in c)
+    assert searxng_manager.SOURCE_TARBALL in pip_call
+    assert "-e" not in pip_call
+
+
+def test_source_install_prefers_a_clone_when_git_is_present(app_state, tmp_path, monkeypatch):
+    """With git, keep the editable checkout so it can be updated in place."""
+    from memorymap.search import searxng_manager
+
+    calls = []
+
+    class _Ok:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    def fake_run(cmd, timeout=None):
+        calls.append(list(cmd))
+        return _Ok()
+
+    monkeypatch.setattr(searxng_manager, "_run", fake_run)
+    monkeypatch.setattr(searxng_manager, "git_installed", lambda: True)
+    monkeypatch.setattr(searxng_manager, "_venv_python", lambda d: tmp_path / "python")
+    (tmp_path / "python").write_text("")
+
+    searxng_manager.install_source(tmp_path)
+    for _ in range(100):
+        if not searxng_manager._install_state["running"]:
+            break
+        time.sleep(0.05)
+
+    assert searxng_manager._install_state["error"] == ""
+    assert any(c[0] == "git" and c[1] == "clone" for c in calls)
+    pip_call = next(c for c in calls if "pip" in c)
+    assert "-e" in pip_call
+    assert searxng_manager.SOURCE_TARBALL not in pip_call

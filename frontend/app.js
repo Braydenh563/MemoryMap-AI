@@ -8591,7 +8591,7 @@ function initScrollTopButton() {
 
 // --- settings modal (Wave A) ------------------------------------------------------
 
-const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "appearance", "shortcuts", "preferences", "account", "tasks", "data", "logs", "help", "about"];
+const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "websearch", "appearance", "shortcuts", "preferences", "account", "tasks", "data", "logs", "help", "about"];
 
 // Where to send focus back when a dialog closes (Wave L).
 let overlayReturnFocus = null;
@@ -8689,6 +8689,7 @@ function showSettingsSection(name) {
   }
   if (name === "logs") renderLogs();
   if (name === "preferences") renderPrefs().catch(() => {});
+  if (name === "websearch") renderWebSearch().catch(() => {});
   if (name === "personas") renderPersonas().catch(() => {});
   if (name === "skills") renderSkillSettings();
   if (name === "tools") renderToolSettings();
@@ -8953,10 +8954,84 @@ async function renderPrefs() {
   $("pref-style").value = prefsCache.communication_style;
   $("pref-profile").value = prefsCache.user_profile;
   $("pref-profile-enabled").checked = prefsCache.profile_enabled;
+  $("prefs-status").textContent = "";
+}
+
+// --- Settings → Web search ------------------------------------------------------
+//
+// Its own screen, and its own save. Web search used to be four controls inside
+// Preferences, which is why every error message that said "Settings → Web
+// search" pointed at a screen that did not exist.
+//
+// The engine list comes from the server rather than being written out here:
+// the frontend and `websearch.PROVIDERS` would otherwise drift, and the first
+// symptom would be a radio button the API rejects.
+async function renderWebSearch() {
+  prefsCache = await apiJson("/preferences");
   $("pref-web-search").checked = Boolean(prefsCache.web_search_enabled);
   $("pref-searxng").value = prefsCache.searxng_url || "";
+  $("search-provider-status").textContent = "";
+
+  const picker = $("search-provider-picker");
+  picker.replaceChildren();
+  const info = await apiJson("/websearch/providers").catch(() => null);
+  if (!info) {
+    picker.textContent = "Couldn't load the engine list.";
+    return;
+  }
+  for (const provider of info.providers) {
+    const row = document.createElement("label");
+    row.className = "provider-option";
+    const radio = document.createElement("input");
+    radio.type = "radio";
+    radio.name = "search-provider";
+    radio.value = provider.id;
+    radio.checked = provider.id === info.selected;
+    radio.addEventListener("change", () => saveSearchProvider(provider.id));
+    const text = document.createElement("span");
+    const title = document.createElement("strong");
+    title.textContent = provider.label;
+    const detail = document.createElement("span");
+    detail.className = "muted";
+    detail.textContent = provider.detail;
+    text.append(title, document.createElement("br"), detail);
+    row.append(radio, text);
+    picker.appendChild(row);
+  }
   refreshSearxngHost().catch(() => {});
-  $("prefs-status").textContent = "";
+}
+
+async function saveSearchProvider(provider) {
+  const status = $("search-provider-status");
+  try {
+    prefsCache = await apiJson("/preferences", {
+      method: "PUT",
+      body: JSON.stringify({ search_provider: provider }),
+    });
+    status.classList.remove("error");
+    status.textContent = "Saved.";
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+  }
+}
+
+async function saveWebSearchSettings() {
+  const status = $("search-provider-status");
+  try {
+    prefsCache = await apiJson("/preferences", {
+      method: "PUT",
+      body: JSON.stringify({
+        web_search_enabled: $("pref-web-search").checked,
+        searxng_url: $("pref-searxng").value.trim(),
+      }),
+    });
+    status.classList.remove("error");
+    status.textContent = "Saved.";
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+  }
 }
 
 async function savePrefs() {
@@ -8969,8 +9044,6 @@ async function savePrefs() {
         communication_style: $("pref-style").value,
         user_profile: $("pref-profile").value,
         profile_enabled: $("pref-profile-enabled").checked,
-        web_search_enabled: $("pref-web-search").checked,
-        searxng_url: $("pref-searxng").value.trim(),
       }),
     });
     $("prefs-status").textContent = "Saved.";
@@ -11548,6 +11621,17 @@ $("settings-modal").addEventListener("click", (e) => {
 for (const button of document.querySelectorAll("#settings-nav button")) {
   button.addEventListener("click", () => showSettingsSection(button.dataset.section));
 }
+// Cross-links between settings screens ("web search lives over there").
+// Delegated, so a link added to the markup later needs no wiring.
+$("settings-modal").addEventListener("click", (event) => {
+  const link = event.target.closest("[data-goto-section]");
+  if (link) showSettingsSection(link.dataset.gotoSection);
+});
+// Web search saves on change rather than behind a Save button: there are two
+// controls, and a checkbox that needs a second click elsewhere to take effect
+// is the shape of "this control does nothing" that keeps getting reported.
+$("pref-web-search").addEventListener("change", saveWebSearchSettings);
+$("pref-searxng").addEventListener("change", saveWebSearchSettings);
 $("log-source").addEventListener("change", renderLogs);
 $("logs-refresh").addEventListener("click", renderLogs);
 $("logs-copy").addEventListener("click", copyLogs);
@@ -11822,7 +11906,7 @@ $("tools-toggle").addEventListener("change", async () => {
 });
 
 // In-chat web-search toggle: reflects and flips the web_search_enabled pref,
-// with a clear active state (it's the same setting as Settings → Preferences).
+// with a clear active state (it's the same setting as Settings → Web search).
 function renderWebSearchToggle() {
   const on = Boolean(prefsCache && prefsCache.web_search_enabled);
   const button = $("web-search-toggle");
@@ -12309,6 +12393,12 @@ async function refreshSearxngHost() {
     clearTimeout(refreshSearxngHost.timer);
     refreshSearxngHost.timer = setTimeout(refreshSearxngHost, 3000);
   }
+  // What the instance itself printed. Only worth showing when it is not
+  // running happily — when it is, its own log is just noise.
+  const fold = $("searxng-output-fold");
+  const said = (info.output || "").trim();
+  fold.classList.toggle("hidden", !said || running);
+  if (said) $("searxng-output").textContent = said;
 }
 
 $("searxng-start").addEventListener("click", async () => {

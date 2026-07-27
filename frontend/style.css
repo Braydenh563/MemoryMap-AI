@@ -3306,7 +3306,51 @@ button { border-radius: calc(var(--radius) * 0.7); }
   border-radius: calc(var(--radius) * 0.5);
   font-size: 0.8rem;
   overflow-x: auto;
+  /* A pasted command or a stack trace is wider than the dialog. Wrapping the
+     scroll in this element only works while its ancestors have a floor to
+     shrink to — see the automatic-minimum-sizing note in ARCHITECTURE §10. */
+  min-width: 0;
   margin: 0 0 0.5rem;
+}
+
+/* --- the web-search engine picker ------------------------------------------ */
+/* One row per engine, each with its own sentence: which engine answers is not
+   obvious from a three-word label, and "auto" in particular means something
+   specific (fall back) that a radio button alone cannot say. */
+.provider-picker {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0.5rem 0 0.3rem;
+}
+.provider-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.6rem;
+  align-items: start;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 0.6);
+  padding: 0.55rem 0.7rem;
+  cursor: pointer;
+}
+.provider-option:hover { border-color: var(--accent); }
+.provider-option:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--chip-bg);
+}
+.provider-option input { margin-top: 0.2rem; }
+.provider-option .muted { font-size: 0.84rem; }
+
+/* A button that reads as a link — used for "that setting lives over there"
+   cross-links, which must be buttons for the keyboard but must not look like
+   one more thing to press. */
+.linklike {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 /* --- back-to-top button ---------------------------------------------------- */

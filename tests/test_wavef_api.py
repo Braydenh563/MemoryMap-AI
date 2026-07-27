@@ -153,7 +153,9 @@ def test_websearch_enabled_returns_parsed_results(client, monkeypatch):
     monkeypatch.setattr(
         websearch,
         "search_web",
-        lambda q, limit=5, searxng_url=None: websearch._parse_results(FAKE_DDG_PAGE, limit),
+        lambda q, limit=5, searxng_url=None, provider="auto": websearch._parse_results(
+            FAKE_DDG_PAGE, limit
+        ),
     )
     body = client.get("/websearch?q=brisbane weather").json()
     assert body["results"] == [

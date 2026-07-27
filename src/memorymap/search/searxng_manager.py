@@ -21,6 +21,7 @@ reason and leaves web search on DuckDuckGo.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import secrets
 import shutil
@@ -252,6 +253,30 @@ def install_source(data_dir: Path) -> None:
     threading.Thread(target=work, name="searxng-install", daemon=True).start()
 
 
+def log_path(data_dir: Path) -> Path:
+    """Where SearXNG's own output goes.
+
+    It used to go to DEVNULL, and that is why "SearXNG started but never
+    answered. Check the port isn't in use." was the only thing this could ever
+    say. A process that dies a second after spawning — a missing dependency, a
+    settings file it won't parse, a port already bound — left no trace
+    whatsoever, so the message had to guess, and it guessed the same thing
+    every time regardless of what actually happened.
+    """
+    return Path(data_dir) / "searxng" / "searxng.log"
+
+
+def recent_output(data_dir: Path, lines: int = 12) -> str:
+    """The tail of that log, for a failure message and the Logs screen."""
+    path = log_path(data_dir)
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+    tail = [line for line in text.strip().splitlines() if line.strip()][-lines:]
+    return "\n".join(tail)
+
+
 def _start_source(data_dir: Path) -> dict:
     """Spawn SearXNG from its virtualenv and remember the PID."""
     if not source_installed(data_dir):
@@ -264,6 +289,15 @@ def _start_source(data_dir: Path) -> dict:
         "SEARXNG_BIND_ADDRESS": "127.0.0.1",
         "SEARXNG_BASE_URL": f"{BASE_URL}/",
     }
+    output = log_path(data_dir)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        # Truncated per start, not appended to: the only question this file
+        # answers is "why did *this* attempt fail", and a growing file makes
+        # that harder to read, not easier.
+        handle = output.open("w", encoding="utf-8")
+    except OSError as exc:
+        raise SearxngError(f"Couldn't open {output.name} to record output: {exc}") from exc
     try:
         process = subprocess.Popen(  # noqa: S603 — fixed args, no shell
             [str(_venv_python(data_dir)), "-m", "searx.webapp"],
@@ -273,12 +307,19 @@ def _start_source(data_dir: Path) -> dict:
             # is missing" rather than "that folder is".
             cwd=str(src) if (src := _source_dir(data_dir)).exists() else None,
             env=env,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            # Both streams into one file, in the order they were written —
+            # SearXNG's startup errors go to whichever it feels like.
+            stdout=handle,
+            stderr=subprocess.STDOUT,
             start_new_session=True,
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise SearxngError(f"Couldn't start SearXNG: {exc}") from exc
+    finally:
+        # The child holds its own duplicate of the descriptor, so closing
+        # this one doesn't cut off its output — it just stops us leaking one
+        # handle per start.
+        handle.close()
     _pid_file(data_dir).write_text(
         json.dumps({"pid": process.pid, "backend": "source"}), encoding="utf-8"
     )
@@ -431,8 +472,26 @@ def _start_from_source(data_dir: Path) -> dict:
         return {"url": BASE_URL, "started": False, "backend": "source"}
     result = _start_source(data_dir)
     if not _wait_until_ready():
+        # Read what it said *before* stopping it — a SIGTERM adds its own
+        # lines, and the interesting ones are the earlier ones.
+        said = recent_output(data_dir)
         _stop_source(data_dir)
-        raise SearxngError("SearXNG started but never answered. Check the port isn't in use.")
+        logging.getLogger("memorymap.searxng").warning(
+            "SearXNG didn't answer within %ss. Its own output was:\n%s",
+            START_TIMEOUT,
+            said or "(nothing — it wrote no output at all)",
+        )
+        if said:
+            raise SearxngError(
+                "SearXNG started but never answered. It said:\n\n"
+                f"{said}\n\n"
+                f"The full log is at {log_path(data_dir)}."
+            )
+        raise SearxngError(
+            "SearXNG started but wrote nothing and never answered — which "
+            "usually means the process died immediately. Check that port "
+            f"{HOST_PORT} is free. The log is at {log_path(data_dir)}."
+        )
     return result
 
 

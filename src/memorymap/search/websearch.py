@@ -286,30 +286,104 @@ def domain_of(url: str) -> str:
         return ""
 
 
+# Which engine answers. Kept as data so the settings screen, the API and the
+# search itself all agree on the same three names.
+PROVIDERS = {
+    "auto": {
+        "label": "Automatic",
+        "detail": "Use SearXNG when it's running, otherwise DuckDuckGo.",
+    },
+    "searxng": {
+        "label": "SearXNG only",
+        "detail": (
+            "Only ever ask your own instance. A search fails rather than "
+            "quietly going out to DuckDuckGo instead."
+        ),
+    },
+    "duckduckgo": {
+        "label": "DuckDuckGo only",
+        "detail": "Always scrape DuckDuckGo, even if a SearXNG is configured.",
+    },
+}
+DEFAULT_PROVIDER = "auto"
+
+
+def normalise_provider(value: object) -> str:
+    """Anything unrecognised means the default, never an error.
+
+    This is read from a preferences file the user is invited to edit by hand,
+    and a typo there should not be able to break searching altogether.
+    """
+    text = str(value or "").strip().lower()
+    return text if text in PROVIDERS else DEFAULT_PROVIDER
+
+
+def settings_from(config) -> tuple[str, str]:
+    """(searxng_url, provider) as the user has them set.
+
+    Takes the config rather than reaching for the singleton, so this module
+    stays free of the dependency container. One reader for the HTTP route and
+    the agent's `web_search` tool both — two readers is how the tool ended up
+    honouring a different setting from the rest of the app.
+    """
+    return (
+        str(config.get_preference("searxng_url", "") or ""),
+        normalise_provider(config.get_preference("search_provider")),
+    )
+
+
 def search_web(
     query: str,
     limit: int = 5,
     searxng_url: str | None = None,
+    provider: str = DEFAULT_PROVIDER,
 ) -> list[dict]:
-    """[{title, url, snippet, domain, engine}] for a query, best first."""
+    """[{title, url, snippet, domain, engine}] for a query, best first.
+
+    `provider` is the user's choice from Settings → Web search, and "searxng"
+    means it. The old behaviour — try SearXNG, silently fall back to
+    DuckDuckGo — is still available as "auto" and is still the default, but it
+    could not be turned off, and it is the wrong answer for somebody who runs
+    their own instance *so that* their queries stay on their own network: a
+    failed instance quietly sent every query to the engine they were avoiding.
+    """
     query = (query or "").strip()
     if not query:
         return []
 
-    cache_key = (f"{searxng_url or 'ddg'}::{query.lower()}", limit)
+    provider = normalise_provider(provider)
+    if provider == "searxng" and not searxng_url:
+        raise WebSearchError(
+            "Web search is set to use SearXNG only, but no SearXNG address is "
+            "configured. Set one in Settings → Web search, or switch the "
+            "engine to Automatic."
+        )
+
+    cache_key = (f"{provider}::{searxng_url or 'ddg'}::{query.lower()}", limit)
     cached = _cache_get(cache_key)
     if cached is not None:
         return cached
 
-    results: list[dict] = []
-    if searxng_url:
-        try:
-            results = _search_searxng(query, limit, searxng_url)
-        except WebSearchError:
-            results = []  # fall through to DuckDuckGo rather than failing
-
-    if not results:
+    if provider == "searxng":
+        # No fallback on purpose — see the docstring.
+        results = _search_searxng(query, limit, searxng_url)
+    elif provider == "duckduckgo":
         results = _search_duckduckgo(query, limit)
+    else:
+        results = []
+        if searxng_url:
+            try:
+                results = _search_searxng(query, limit, searxng_url)
+            except WebSearchError as exc:
+                # Named, not swallowed: "my results changed" is otherwise
+                # impossible to explain after the fact.
+                logger.info(
+                    "SearXNG didn't answer (%s) — falling back to DuckDuckGo",
+                    exc,
+                )
+                results = []
+        if not results:
+            results = _search_duckduckgo(query, limit)
 
     _cache_put(cache_key, results)
     return results

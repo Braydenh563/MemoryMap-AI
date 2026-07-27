@@ -843,17 +843,23 @@ def _web_search(session: Session, args: dict) -> dict:
 
     config = deps.get_config()
     if not config.get_preference("web_search_enabled", False):
-        raise ToolError("Web search is disabled in Settings → Preferences")
+        raise ToolError("Web search is disabled in Settings → Web search")
+    # Read through the same helper the HTTP route uses, so the engine the
+    # user picked is the engine the agent uses. Two readers is how a tool
+    # ends up quietly ignoring a setting the rest of the app honours.
+    searxng_url, provider = websearch.settings_from(config)
     try:
         results = websearch.search_web(
             str(args["query"]),
             limit=5,
-            searxng_url=str(config.get_preference("searxng_url", "") or "") or None,
+            searxng_url=searxng_url or None,
+            provider=provider,
         )
     except websearch.WebSearchError as exc:
         raise ToolError(str(exc)) from exc
     return {
         "results": results,
+        "provider": provider,
         "label": f"🌐 Searched the web for “{_clip(str(args['query']), 40)}”",
     }
 
@@ -879,7 +885,7 @@ def _read_url(session: Session, args: dict) -> dict:
 
     config = deps.get_config()
     if not config.get_preference("web_search_enabled", False):
-        raise ToolError("Web search is disabled in Settings → Preferences")
+        raise ToolError("Web search is disabled in Settings → Web search")
     url = str(args.get("url") or "").strip()
     if not url:
         raise ToolError("No URL was given")

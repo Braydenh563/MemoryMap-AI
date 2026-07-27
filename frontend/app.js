@@ -1312,6 +1312,50 @@ function matchesSearch(entry) {
 // Never uses innerHTML: a note containing "<script>" is text, not markup.
 // Render note text with [[wiki links]] as clickable chips and search terms
 // marked. Splits on the links first so a highlight can't land inside one.
+// Inline markdown in note text — and deliberately only the inline kind.
+//
+// Reported: notes show raw `**text**` while chat answers, documents and the
+// dashboard digest all render markdown. They render it with renderMarkdown,
+// which also does headings, tables, lists and fenced code — and a list of
+// notes rendered that way gets very tall very fast, which is a worse problem
+// than the one being fixed. What people actually type in a note is bold, a
+// little italic, and the odd `code` span.
+//
+// Order matters: code spans are matched first and their contents are never
+// looked at again, so `**not bold**` inside backticks stays literal.
+// Underscore italics are left out on purpose — snake_case_names are common in
+// notes and `_` italics would eat them.
+const INLINE_MD = /`([^`\n]+)`|\*\*([^*\n]+?)\*\*|~~([^~\n]+?)~~|\*([^*\n]+?)\*/g;
+
+function renderInlineMarkdown(element, text, terms) {
+  element.replaceChildren();
+  const pattern = new RegExp(INLINE_MD.source, "g");
+  let cursor = 0;
+  let match;
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > cursor) {
+      const before = document.createElement("span");
+      highlightInto(before, text.slice(cursor, match.index), terms);
+      element.appendChild(before);
+    }
+    const [, code, bold, strike, italic] = match;
+    const tag = code ? "code" : bold ? "strong" : strike ? "s" : "em";
+    const node = document.createElement(tag);
+    // A code span is literal by definition, so it is never searched-highlighted
+    // into pieces — the rest still is, or filtering would stop marking any
+    // word that happened to sit inside emphasis.
+    if (code) node.textContent = code;
+    else highlightInto(node, bold || strike || italic, terms);
+    element.appendChild(node);
+    cursor = pattern.lastIndex;
+  }
+  if (cursor < text.length) {
+    const rest = document.createElement("span");
+    highlightInto(rest, text.slice(cursor), terms);
+    element.appendChild(rest);
+  }
+}
+
 function renderNoteText(element, text, terms) {
   element.replaceChildren();
   const pattern = /\[\[([^[\]]{1,120})\]\]/g;
@@ -1320,7 +1364,7 @@ function renderNoteText(element, text, terms) {
   while ((match = pattern.exec(text)) !== null) {
     if (match.index > cursor) {
       const span = document.createElement("span");
-      highlightInto(span, text.slice(cursor, match.index), terms);
+      renderInlineMarkdown(span, text.slice(cursor, match.index), terms);
       element.appendChild(span);
     }
     const name = match[1].trim();
@@ -1342,7 +1386,7 @@ function renderNoteText(element, text, terms) {
   }
   if (cursor < text.length) {
     const span = document.createElement("span");
-    highlightInto(span, text.slice(cursor), terms);
+    renderInlineMarkdown(span, text.slice(cursor), terms);
     element.appendChild(span);
   }
 }

@@ -639,3 +639,26 @@ def test_reader_opens_an_ordinary_result_page(client, monkeypatch):
     response = client.get("/websearch/read?url=https://en.wikipedia.org/wiki/Cat")
     assert response.status_code == 200
     assert response.json()["title"] == "A post"
+
+
+def test_uploading_recreates_a_missing_uploads_folder(client, app_state, tmp_path):
+    """The folder is made at startup, but it only has to vanish once.
+
+    A cleanup tool, an unmounted data directory, or a restore that skipped an
+    empty folder used to turn every upload into a 500 with a traceback. For a
+    sketch that is the worst shape of failure: the note saves first, so only
+    the drawing is lost and the caption is left behind pointing at nothing.
+    """
+    import shutil
+
+    entry = _save(client, "a sketch caption", category="Sketches")
+    uploads = deps.get_config().uploads_dir
+    shutil.rmtree(uploads)
+    assert not uploads.exists()
+
+    response = client.post(
+        f"/entries/{entry['id']}/files",
+        files={"file": ("sketch.png", b"\x89PNG\r\n\x1a\nnot-really", "image/png")},
+    )
+    assert response.status_code == 201
+    assert response.json()["attachments"][0]["filename"] == "sketch.png"

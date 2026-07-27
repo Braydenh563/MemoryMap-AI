@@ -2063,6 +2063,30 @@ html { font-size: 16px; }
   cursor: zoom-in;
   display: block;
 }
+/* A note's images inside the graph popup — how a sketch becomes visible from
+   the map. Capped tighter than the note-list thumbnail because the popup has
+   to stay inside the graph box. */
+.graph-popup-media {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 0.5rem;
+}
+.graph-popup-media.hidden { display: none; }
+.graph-popup-thumb {
+  max-height: 120px;
+  max-width: 100%;
+  /* A sketch canvas is 820x480, so it scales down to about 205x120. The
+     minimum is for anything unusually small — an image a few pixels across
+     would otherwise be an unclickable speck rather than a preview. */
+  min-height: 44px;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #fff; /* a transparent PNG stays legible on a dark theme */
+  cursor: zoom-in;
+  display: block;
+}
 .thumb-wrap .unlink {
   position: absolute;
   top: 0.2rem;

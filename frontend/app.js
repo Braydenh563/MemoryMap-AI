@@ -8109,9 +8109,44 @@ async function openGraphPopup(event, node) {
   $("graph-popup-content").value = entry.content;
   $("graph-popup-tags").value = (entry.tags || []).join(", ");
   renderGraphPopupInfo(entry, node);
+  renderGraphPopupMedia(entry);
   renderGraphPopupActions(entry);
   placeGraphPopup(); // now that it's at its real height
   $("graph-popup-content").focus();
+}
+
+// Show a note's images in the popup, biggest reason being sketches.
+//
+// A sketch is stored as a note carrying the caption plus a PNG attachment, so
+// on the map it is an ordinary node and the popup showed its caption and
+// nothing else. There was no way to see the drawing from the graph at all —
+// "Open" only took you to the Notes tab, where you still had to find the card
+// and click its thumbnail. Reported as "sketches don't open from the graph",
+// and that is exactly right: the one thing the note is *about* was missing.
+function renderGraphPopupMedia(entry) {
+  const box = $("graph-popup-media");
+  box.replaceChildren();
+  const images = (entry.attachments || []).filter((a) => a.is_image);
+  box.classList.toggle("hidden", images.length === 0);
+  if (!images.length) return;
+  for (const attachment of images) {
+    const img = document.createElement("img");
+    img.className = "graph-popup-thumb";
+    img.alt = attachment.filename;
+    img.title = `${attachment.filename} — click to view full size`;
+    // The bytes need the auth header, so they arrive as an object URL rather
+    // than a plain src. Cached per attachment by attachmentObjectUrl.
+    attachmentObjectUrl(attachment)
+      .then((url) => {
+        img.src = url;
+        placeGraphPopup(); // the popup just got taller
+      })
+      .catch(() => img.remove());
+    img.addEventListener("click", async () => {
+      openLightbox(await attachmentObjectUrl(attachment), attachment.filename);
+    });
+    box.appendChild(img);
+  }
 }
 
 // Clamp the popup inside the graph box. Called on open and again once the

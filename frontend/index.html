@@ -570,6 +570,11 @@ Link to another note with [[its first few words]]."></textarea>
           </div>
           <!-- At-a-glance facts about this note -->
           <div id="graph-popup-info" class="graph-popup-info"></div>
+          <!-- A sketch is a note plus a PNG, so its node on the map used to
+               show only the caption — the drawing itself was unreachable from
+               the graph entirely (user-reported: "sketches don't open from
+               the graph"). Any image attachment previews here. -->
+          <div id="graph-popup-media" class="graph-popup-media hidden"></div>
           <textarea id="graph-popup-content" rows="4" aria-label="Note content"></textarea>
           <input id="graph-popup-tags" type="text" placeholder="Tags, comma separated"
             aria-label="Tags">

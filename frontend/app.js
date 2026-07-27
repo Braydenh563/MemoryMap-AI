@@ -10378,6 +10378,17 @@ const THEME_PRESETS = {
     label: "Graphite",
     values: { theme: "dark", palette: "carbon", glass: "off", radius: "4" },
   },
+  // Asked for directly: an indigo-and-teal dark theme, and a teal light one.
+  // Two themes over one palette, which is exactly what the palette/theme split
+  // is for — same colours, different light/dark commitment.
+  lagoon: {
+    label: "Lagoon",
+    values: { theme: "dark", palette: "lagoon", glass: "on", radius: "14" },
+  },
+  shallows: {
+    label: "Shallows",
+    values: { theme: "light", palette: "lagoon", glass: "on", radius: "14" },
+  },
 };
 
 // The two colours a theme card shows: the page it sits on and the accent it
@@ -10725,6 +10736,13 @@ const PALETTES = [
     note: "Cool teal and deep blue. Crisp rather than cosy.",
     light: { page: "linear-gradient(135deg,#e4f0f6,#eef6f8 45%,#dfeef2)", card: "rgba(252,254,255,0.85)", accent: "#0f7d99", border: "rgba(20,38,46,0.14)" },
     dark: { page: "linear-gradient(135deg,#08131a,#0d1e28 45%,#091a22)", card: "rgba(21,36,45,0.85)", accent: "#46c9e6", border: "rgba(200,238,250,0.15)" },
+  },
+  {
+    id: "lagoon",
+    name: "Lagoon",
+    note: "Indigo ground with a teal accent — both colours, not blended.",
+    light: { page: "linear-gradient(135deg,#eef1fa,#eaf4f6 45%,#e6edf8)", card: "rgba(253,254,255,0.85)", accent: "#0b6b7d", border: "rgba(26,34,62,0.15)" },
+    dark: { page: "linear-gradient(135deg,#10142a,#141b38 45%,#0e1626)", card: "rgba(28,35,62,0.85)", accent: "#5fd8d0", border: "rgba(200,218,255,0.16)" },
   },
   {
     id: "ember",

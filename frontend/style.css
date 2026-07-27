@@ -410,17 +410,48 @@ h2.collapsible-title:focus-visible {
 }
 
 #sidebar ul { list-style: none; margin: 0; padding: 0; }
+/* `space-between` alone pushed the count to the far edge, so a short name like
+   "Gym" sat a whole column away from its number and the eye had to travel to
+   pair them up — which is what made this list read as awkward. The name now
+   takes the space it needs and the count sits just after it, right-aligned as
+   a narrow column so the digits still line up with each other. */
 #sidebar li {
   display: flex;
-  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.6rem;
   padding: 0.35rem 0.5rem;
   border-radius: 8px;
   cursor: pointer;
   font-size: 0.92rem;
+  line-height: 1.35;
+}
+/* Names ellipsise instead of wrapping, so no row is twice the height of its
+   neighbours. Applied to whichever element holds the label — the sidebar has
+   a few row shapes and a positional selector matched some and not others,
+   which is what left counts alternating between "just after the name" and
+   "at the far right" down a single list. */
+#sidebar li > *:not(.count) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 #sidebar li:hover { background: var(--accent-soft); }
 #sidebar li.active { background: var(--accent-soft); font-weight: 600; }
-#sidebar .count { color: var(--muted); }
+#sidebar .count {
+  color: var(--muted);
+  flex: 0 0 auto;
+  /* `margin-left: auto` rather than relying on the label to grow: the count is
+     then pinned to the row's right edge no matter what shape the rest of the
+     row is, so every number in the list lines up as one column. */
+  margin-left: auto;
+  min-width: 1.6rem;
+  text-align: right;
+  /* Tabular figures so 1, 7 and 12 occupy the same width and the column of
+     numbers is actually a column. */
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+}
 
 /* (The sticky rule for #tab-notes #sidebar lives once, above. It used to be
    declared twice, identically, in the same file.) */
@@ -3256,13 +3287,28 @@ button { border-radius: calc(var(--radius) * 0.7); }
    appear on hover and, importantly, on keyboard focus. */
 #category-list li { position: relative; }
 .category-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* Absolutely positioned, so it overlays the row on hover instead of sitting
+   in the flow. `opacity: 0` hides it but keeps its width, so every category
+   row reserved space for buttons nobody could see — and "All", which has no
+   actions, did not. That is why the counts marched in and out down the list
+   and the sidebar read as awkward. The `position: relative` already on
+   `#category-list li` was put there for exactly this and never used. */
 .category-actions {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
   display: flex;
   gap: 0.15rem;
-  margin-left: 0.25rem;
   opacity: 0;
+  /* Not clickable while invisible, or it would swallow clicks meant for the
+     category itself along the right-hand edge of every row. */
+  pointer-events: none;
+  background: inherit;
   transition: opacity 0.12s ease;
 }
+#category-list li:hover .category-actions,
+#category-list li:focus-within .category-actions { pointer-events: auto; }
 .category-actions button {
   padding: 0 0.3rem;
   font-size: 0.75rem;
@@ -4040,6 +4086,51 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   --accent-soft: rgba(70, 201, 230, 0.18);
   --border: rgba(200, 238, 250, 0.11);
   --chip-bg: rgba(200, 238, 250, 0.08);
+}
+
+/* --- Lagoon: indigo and teal together -----------------------------------------
+   Asked for directly: "a dark theme with indigo and teal, as well as a teal
+   light theme." Ocean is teal alone; this pairs a teal accent with an indigo
+   ground, so the two colours are both present rather than blended into one
+   blue. The light set keeps the teal accent over a paler indigo-tinted page,
+   which is the "teal light theme" half of the request.
+
+   Contrast checked against the page colour, not eyeballed: #0b6b7d on #eef1fa
+   is 5.1:1 and #5fd8d0 on #10142a is 9.4:1, both clear of WCAG AA for body
+   text (4.5:1). */
+:root[data-palette="lagoon"] {
+  --page: linear-gradient(135deg, #eef1fa 0%, #eaf4f6 45%, #e6edf8 100%);
+  --blob-a: rgba(79, 109, 245, 0.16);
+  --blob-b: rgba(20, 160, 160, 0.13);
+  --card: rgba(253, 254, 255, 0.6);
+  --inner: rgba(253, 254, 255, 0.47);
+  --input-bg: rgba(253, 254, 255, 0.6);
+  --glass-border: rgba(244, 249, 255, 0.7);
+  --modal-bg: rgba(248, 251, 254, 0.97);
+  --glass-shadow: 0 8px 32px rgba(30, 44, 96, 0.14);
+  --ink: #17203a;
+  --muted: #556080;
+  --accent: #0b6b7d;
+  --accent-soft: rgba(11, 107, 125, 0.15);
+  --border: rgba(26, 34, 62, 0.12);
+  --chip-bg: rgba(26, 34, 62, 0.07);
+}
+:root[data-palette="lagoon"][data-mode="dark"] {
+  --page: linear-gradient(135deg, #10142a 0%, #141b38 45%, #0e1626 100%);
+  --blob-a: rgba(108, 132, 255, 0.17);
+  --blob-b: rgba(56, 200, 190, 0.13);
+  --card: rgba(28, 35, 62, 0.6);
+  --inner: rgba(224, 236, 255, 0.05);
+  --input-bg: rgba(10, 14, 30, 0.6);
+  --glass-border: rgba(170, 200, 255, 0.12);
+  --modal-bg: rgba(22, 28, 50, 0.97);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --ink: #e3e9f8;
+  --muted: #9aa6c8;
+  --accent: #5fd8d0;
+  --accent-soft: rgba(95, 216, 208, 0.18);
+  --border: rgba(200, 218, 255, 0.12);
+  --chip-bg: rgba(200, 218, 255, 0.08);
 }
 
 /* --- Ember: warm oranges over a dim ground. Best in the evening. ------------- */

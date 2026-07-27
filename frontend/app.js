@@ -1914,7 +1914,7 @@ function renderAskedQuestion(question) {
   }
   const label = document.createElement("span");
   label.className = "asked-label";
-  label.textContent = "You asked";
+  label.textContent = "You asked: ";
   const text = document.createElement("span");
   text.className = "asked-text";
   text.textContent = question;

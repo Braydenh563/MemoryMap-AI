@@ -18,12 +18,13 @@ from pathlib import Path
 
 from sqlalchemy import (
     Boolean,
-    DateTime,
+    DateTime as SaDateTime,
     ForeignKey,
     Integer,
     LargeBinary,
     String,
     Text,
+    TypeDecorator,
     create_engine,
     event,
 )
@@ -39,6 +40,44 @@ from sqlalchemy.orm import (
 def utcnow() -> datetime:
     """Timezone-aware UTC now (datetime.utcnow is deprecated — plan §4)."""
     return datetime.now(timezone.utc)
+
+
+class DateTime(TypeDecorator):
+    """A DateTime that is always UTC, and always says so.
+
+    SQLite has no timezone type, so a plain DateTime column silently drops the
+    offset on the way in and hands back a NAIVE datetime on the way out. Every
+    value here is UTC — utcnow() and the API both guarantee it — but "naive"
+    and "UTC" are not the same claim, and the difference reaches the user:
+    FastAPI serialises a naive datetime with no offset, and JavaScript parses a
+    timezone-less date-time string as LOCAL time.
+
+    So a reminder due in five minutes came back reading ten hours overdue for a
+    user in UTC+10 (user-reported). It was worse than a display bug, because
+    the POST response carried the offset (SQLAlchemy returned the object still
+    in memory) and only a later read from disk lost it — so it looked right
+    until it didn't.
+
+    Attaching UTC on the way out costs nothing and makes every timestamp the
+    API emits unambiguous, for every table at once rather than per endpoint.
+    """
+
+    impl = SaDateTime
+    cache_ok = True
+
+    def process_bind_param(self, value: datetime | None, dialect):
+        if value is None:
+            return None
+        # Normalise to UTC before storing, so a caller that passes a local
+        # aware datetime doesn't quietly write a different instant.
+        if value.tzinfo is not None:
+            return value.astimezone(timezone.utc).replace(tzinfo=None)
+        return value
+
+    def process_result_value(self, value: datetime | None, dialect):
+        if value is None:
+            return None
+        return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
 
 
 class Base(DeclarativeBase):

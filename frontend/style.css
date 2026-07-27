@@ -153,13 +153,43 @@ header#top-bar h1 {
   flex: 0 1 auto;
   min-width: 0;
 }
+/* The header gives up space in a deliberate order as the window narrows:
+   the wordmark first (decoration), then the status pill (its text is
+   duplicated in Settings), then tab padding, and only then do tabs scroll.
+   Each step buys roughly a tab's worth of room. */
+@media (max-width: 1200px) {
+  header#top-bar { gap: 0.9rem; padding-inline: 1rem; }
+  .ai-pill-slot { flex: 0 1 12rem; width: 12rem; min-width: 0; }
+}
 @media (max-width: 1080px) {
   header#top-bar h1 { display: none; }
+  #tab-bar button { padding-inline: 0.7rem; }
+}
+@media (max-width: 940px) {
+  header#top-bar { gap: 0.6rem; }
+  /* The pill can vanish entirely before a tab loses a letter. */
+  .ai-pill-slot { flex: 0 1 auto; width: auto; min-width: 0; }
+  #tab-bar button { padding-inline: 0.55rem; font-size: 0.92rem; }
+}
+/* Below this the tabs really do scroll, so say so with a fade at the edge
+   instead of letting a label look chopped off. */
+@media (max-width: 820px) and (min-width: 721px) {
+  #tab-bar {
+    /* Now allowed to shrink, so it scrolls — with a fade at the edge, so a
+       part-visible tab reads as "there is more here" rather than as clipping. */
+    flex: 0 1 auto;
+    min-width: 0;
+    -webkit-mask-image: linear-gradient(to right, #000 88%, transparent 100%);
+    mask-image: linear-gradient(to right, #000 88%, transparent 100%);
+  }
 }
 .header-controls {
   display: flex;
   gap: 0.5rem;
   align-items: center;
+  /* "⚙ Settings" broke across two lines once the row got tight, which made
+     the whole bar taller and put the buttons out of line with the tabs. */
+  white-space: nowrap;
   /* The controls stay on one line. When this wrapped, a longer status message
      could drop a button to a second row and change the header's height —
      which is the flicker along the bottom edge of the top bar that was
@@ -215,14 +245,22 @@ header#top-bar h1 {
   padding: 0.2rem;
   border-radius: 12px;
   background: var(--chip-bg);
-  /* Scroll rather than wrap when the window is too narrow for six tabs.
-     min-width:0 is what actually lets a flex item shrink below its content. */
-  min-width: 0;
+  /* Scroll rather than wrap when the window is genuinely too narrow.
+     min-width:0 is what actually lets a flex item shrink below its content.
+     The tighter padding below runs out first, so scrolling is the last
+     resort rather than the first — a clipped "Reminder|s" reads as a bug,
+     even when it's really a scroll (user-reported). */
+  /* flex-shrink: 0 — the tabs are the ONE thing here that must not give up
+     space, because a clipped tab label reads as a broken app. Everything
+     beside them shrinks first: the wordmark disappears, then the status pill
+     (whose text is repeated in Settings). Only under 820px, where there
+     genuinely isn't room, does the rule below let these scroll. */
+  flex: 0 0 auto;
   overflow-x: auto;
   scrollbar-width: none;
 }
 #tab-bar::-webkit-scrollbar { display: none; }
-#tab-bar button { flex: 0 0 auto; }
+#tab-bar button { flex: 0 0 auto; white-space: nowrap; }
 #tab-bar button {
   background: transparent;
   border: none;
@@ -4280,3 +4318,17 @@ textarea.autogrow {
 
 /* "Go to it" beside the save confirmation. */
 .jump-to-note { font-size: 0.78rem; padding: 0.15rem 0.5rem; }
+
+
+/* --- top bar polish ----------------------------------------------------------
+   The controls are a row of small buttons of slightly different content
+   widths; without a shared height they sit at visibly different sizes next to
+   the tab pill. */
+.header-controls button {
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding-inline: 0.7rem;
+}
+#top-bar #brand-logo { flex: 0 0 auto; }

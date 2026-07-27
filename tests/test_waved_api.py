@@ -404,3 +404,40 @@ def test_dashboard_layout_persists_legacy_widget_sizes(client):
     layout = {"order": ["stats"], "hidden": [], "sizes": {"stats": "wide"}}
     updated = client.put("/preferences", json={"dashboard_layout": layout}).json()
     assert updated["dashboard_layout"]["sizes"] == {"stats": "wide"}
+
+
+def test_reminder_times_come_back_marked_as_utc(client):
+    """A reminder due in five minutes read as ten hours overdue (user-reported).
+
+    SQLite has no timezone type, so a plain DateTime column handed back a NAIVE
+    datetime. FastAPI serialised it with no offset, and JavaScript parses a
+    timezone-less date-time string as LOCAL — so a user in UTC+10 saw every
+    stored UTC time ten hours in the past.
+
+    The trap was that it looked fine at first: the POST response carried the
+    offset, because SQLAlchemy returned the object still in memory. Only a
+    later read from disk lost it. So this asserts on the LIST response.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    due = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
+    client.post("/reminders", json={"text": "soon", "due_at": due})
+
+    listed = client.get("/reminders").json()[0]
+    assert listed["due_at"].endswith("Z") or "+" in listed["due_at"][10:], listed["due_at"]
+
+    # And it round-trips to the same instant, not one shifted by the offset.
+    parsed = datetime.fromisoformat(listed["due_at"].replace("Z", "+00:00"))
+    assert parsed.tzinfo is not None
+    assert abs((parsed - datetime.now(timezone.utc)).total_seconds() - 300) < 30
+
+
+def test_entry_timestamps_are_marked_as_utc_too(client):
+    """The same column type backs every table, so the guarantee is app-wide."""
+    from datetime import datetime, timezone
+
+    client.post("/entries", json={"content": "a note"})
+    entry = client.get("/entries").json()[0]
+    value = entry["created_at"]
+    assert value.endswith("Z") or "+" in value[10:], value
+    assert datetime.fromisoformat(value.replace("Z", "+00:00")).tzinfo is not None

@@ -1312,6 +1312,50 @@ function matchesSearch(entry) {
 // Never uses innerHTML: a note containing "<script>" is text, not markup.
 // Render note text with [[wiki links]] as clickable chips and search terms
 // marked. Splits on the links first so a highlight can't land inside one.
+// Inline markdown in note text — and deliberately only the inline kind.
+//
+// Reported: notes show raw `**text**` while chat answers, documents and the
+// dashboard digest all render markdown. They render it with renderMarkdown,
+// which also does headings, tables, lists and fenced code — and a list of
+// notes rendered that way gets very tall very fast, which is a worse problem
+// than the one being fixed. What people actually type in a note is bold, a
+// little italic, and the odd `code` span.
+//
+// Order matters: code spans are matched first and their contents are never
+// looked at again, so `**not bold**` inside backticks stays literal.
+// Underscore italics are left out on purpose — snake_case_names are common in
+// notes and `_` italics would eat them.
+const INLINE_MD = /`([^`\n]+)`|\*\*([^*\n]+?)\*\*|~~([^~\n]+?)~~|\*([^*\n]+?)\*/g;
+
+function renderInlineMarkdown(element, text, terms) {
+  element.replaceChildren();
+  const pattern = new RegExp(INLINE_MD.source, "g");
+  let cursor = 0;
+  let match;
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > cursor) {
+      const before = document.createElement("span");
+      highlightInto(before, text.slice(cursor, match.index), terms);
+      element.appendChild(before);
+    }
+    const [, code, bold, strike, italic] = match;
+    const tag = code ? "code" : bold ? "strong" : strike ? "s" : "em";
+    const node = document.createElement(tag);
+    // A code span is literal by definition, so it is never searched-highlighted
+    // into pieces — the rest still is, or filtering would stop marking any
+    // word that happened to sit inside emphasis.
+    if (code) node.textContent = code;
+    else highlightInto(node, bold || strike || italic, terms);
+    element.appendChild(node);
+    cursor = pattern.lastIndex;
+  }
+  if (cursor < text.length) {
+    const rest = document.createElement("span");
+    highlightInto(rest, text.slice(cursor), terms);
+    element.appendChild(rest);
+  }
+}
+
 function renderNoteText(element, text, terms) {
   element.replaceChildren();
   const pattern = /\[\[([^[\]]{1,120})\]\]/g;
@@ -1320,7 +1364,7 @@ function renderNoteText(element, text, terms) {
   while ((match = pattern.exec(text)) !== null) {
     if (match.index > cursor) {
       const span = document.createElement("span");
-      highlightInto(span, text.slice(cursor, match.index), terms);
+      renderInlineMarkdown(span, text.slice(cursor, match.index), terms);
       element.appendChild(span);
     }
     const name = match[1].trim();
@@ -1342,7 +1386,7 @@ function renderNoteText(element, text, terms) {
   }
   if (cursor < text.length) {
     const span = document.createElement("span");
-    highlightInto(span, text.slice(cursor), terms);
+    renderInlineMarkdown(span, text.slice(cursor), terms);
     element.appendChild(span);
   }
 }
@@ -5271,6 +5315,11 @@ function renderDashboardGreeting() {
     : dashboardGreetingText();
   refreshAiGreeting().catch(() => {});
   renderNameNudge(el);
+  // Drawn here rather than at startup: renderEmblem reads the current accent,
+  // so it has to be redrawn when the dashboard repaints after a theme change.
+  // It also can't be sized while the tab is display:none — p5 measures zero —
+  // which is why this sits in the dashboard's own render and not in init.
+  renderEmblem($("dash-hero-emblem"), 46, { animate: true });
   paintDashClock();
   // One ticking clock, however many times the dashboard re-renders.
   if (dashClockTimer) clearInterval(dashClockTimer);
@@ -6152,8 +6201,16 @@ async function renderStatsWidget(body) {
 // A note's text as it should read in a preview: the [[link]] syntax is
 // scaffolding, not content, so previews show the words without the brackets.
 // Full note bodies get real clickable chips instead (renderNoteText).
+// One line of a note, as plain text, for the dashboard's little lists.
+//
+// Markers are stripped rather than rendered, unlike the note list — these are
+// clipped to about 70 characters and a clip that lands mid-`<strong>` is worse
+// than no emphasis at all. Same reasoning that already applied to `[[links]]`,
+// which this has always flattened.
 function notePreviewText(content) {
-  return (content || "").replace(/\[\[([^[\]]{1,120})\]\]/g, "$1");
+  return (content || "")
+    .replace(/\[\[([^[\]]{1,120})\]\]/g, "$1")
+    .replace(new RegExp(INLINE_MD.source, "g"), (...m) => m[1] ?? m[2] ?? m[3] ?? m[4]);
 }
 
 function miniEntryList(body, entries, emptyText) {
@@ -8591,7 +8648,7 @@ function initScrollTopButton() {
 
 // --- settings modal (Wave A) ------------------------------------------------------
 
-const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "appearance", "shortcuts", "preferences", "account", "tasks", "data", "logs", "help", "about"];
+const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "websearch", "appearance", "shortcuts", "preferences", "account", "tasks", "data", "logs", "help", "about"];
 
 // Where to send focus back when a dialog closes (Wave L).
 let overlayReturnFocus = null;
@@ -8689,6 +8746,7 @@ function showSettingsSection(name) {
   }
   if (name === "logs") renderLogs();
   if (name === "preferences") renderPrefs().catch(() => {});
+  if (name === "websearch") renderWebSearch().catch(() => {});
   if (name === "personas") renderPersonas().catch(() => {});
   if (name === "skills") renderSkillSettings();
   if (name === "tools") renderToolSettings();
@@ -8953,10 +9011,84 @@ async function renderPrefs() {
   $("pref-style").value = prefsCache.communication_style;
   $("pref-profile").value = prefsCache.user_profile;
   $("pref-profile-enabled").checked = prefsCache.profile_enabled;
+  $("prefs-status").textContent = "";
+}
+
+// --- Settings → Web search ------------------------------------------------------
+//
+// Its own screen, and its own save. Web search used to be four controls inside
+// Preferences, which is why every error message that said "Settings → Web
+// search" pointed at a screen that did not exist.
+//
+// The engine list comes from the server rather than being written out here:
+// the frontend and `websearch.PROVIDERS` would otherwise drift, and the first
+// symptom would be a radio button the API rejects.
+async function renderWebSearch() {
+  prefsCache = await apiJson("/preferences");
   $("pref-web-search").checked = Boolean(prefsCache.web_search_enabled);
   $("pref-searxng").value = prefsCache.searxng_url || "";
+  $("search-provider-status").textContent = "";
+
+  const picker = $("search-provider-picker");
+  picker.replaceChildren();
+  const info = await apiJson("/websearch/providers").catch(() => null);
+  if (!info) {
+    picker.textContent = "Couldn't load the engine list.";
+    return;
+  }
+  for (const provider of info.providers) {
+    const row = document.createElement("label");
+    row.className = "provider-option";
+    const radio = document.createElement("input");
+    radio.type = "radio";
+    radio.name = "search-provider";
+    radio.value = provider.id;
+    radio.checked = provider.id === info.selected;
+    radio.addEventListener("change", () => saveSearchProvider(provider.id));
+    const text = document.createElement("span");
+    const title = document.createElement("strong");
+    title.textContent = provider.label;
+    const detail = document.createElement("span");
+    detail.className = "muted";
+    detail.textContent = provider.detail;
+    text.append(title, document.createElement("br"), detail);
+    row.append(radio, text);
+    picker.appendChild(row);
+  }
   refreshSearxngHost().catch(() => {});
-  $("prefs-status").textContent = "";
+}
+
+async function saveSearchProvider(provider) {
+  const status = $("search-provider-status");
+  try {
+    prefsCache = await apiJson("/preferences", {
+      method: "PUT",
+      body: JSON.stringify({ search_provider: provider }),
+    });
+    status.classList.remove("error");
+    status.textContent = "Saved.";
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+  }
+}
+
+async function saveWebSearchSettings() {
+  const status = $("search-provider-status");
+  try {
+    prefsCache = await apiJson("/preferences", {
+      method: "PUT",
+      body: JSON.stringify({
+        web_search_enabled: $("pref-web-search").checked,
+        searxng_url: $("pref-searxng").value.trim(),
+      }),
+    });
+    status.classList.remove("error");
+    status.textContent = "Saved.";
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+  }
 }
 
 async function savePrefs() {
@@ -8969,8 +9101,6 @@ async function savePrefs() {
         communication_style: $("pref-style").value,
         user_profile: $("pref-profile").value,
         profile_enabled: $("pref-profile-enabled").checked,
-        web_search_enabled: $("pref-web-search").checked,
-        searxng_url: $("pref-searxng").value.trim(),
       }),
     });
     $("prefs-status").textContent = "Saved.";
@@ -11548,6 +11678,17 @@ $("settings-modal").addEventListener("click", (e) => {
 for (const button of document.querySelectorAll("#settings-nav button")) {
   button.addEventListener("click", () => showSettingsSection(button.dataset.section));
 }
+// Cross-links between settings screens ("web search lives over there").
+// Delegated, so a link added to the markup later needs no wiring.
+$("settings-modal").addEventListener("click", (event) => {
+  const link = event.target.closest("[data-goto-section]");
+  if (link) showSettingsSection(link.dataset.gotoSection);
+});
+// Web search saves on change rather than behind a Save button: there are two
+// controls, and a checkbox that needs a second click elsewhere to take effect
+// is the shape of "this control does nothing" that keeps getting reported.
+$("pref-web-search").addEventListener("change", saveWebSearchSettings);
+$("pref-searxng").addEventListener("change", saveWebSearchSettings);
 $("log-source").addEventListener("change", renderLogs);
 $("logs-refresh").addEventListener("click", renderLogs);
 $("logs-copy").addEventListener("click", copyLogs);
@@ -11822,7 +11963,7 @@ $("tools-toggle").addEventListener("change", async () => {
 });
 
 // In-chat web-search toggle: reflects and flips the web_search_enabled pref,
-// with a clear active state (it's the same setting as Settings → Preferences).
+// with a clear active state (it's the same setting as Settings → Web search).
 function renderWebSearchToggle() {
   const on = Boolean(prefsCache && prefsCache.web_search_enabled);
   const button = $("web-search-toggle");
@@ -12309,7 +12450,43 @@ async function refreshSearxngHost() {
     clearTimeout(refreshSearxngHost.timer);
     refreshSearxngHost.timer = setTimeout(refreshSearxngHost, 3000);
   }
+  // What the instance itself printed. Only worth showing when it is not
+  // running happily — when it is, its own log is just noise.
+  const fold = $("searxng-output-fold");
+  const said = (info.output || "").trim();
+  fold.classList.toggle("hidden", !said || running);
+  if (said) $("searxng-output").textContent = said;
+
+  // The port, answered rather than suggested. Only three states matter, and
+  // only one of them is the user's problem to go and solve.
+  const port = info.port;
+  const portLine = $("searxng-port");
+  portLine.textContent = port ? port.detail : "";
+  portLine.classList.toggle("error", Boolean(port && !port.free && !port.held_by_searxng));
 }
+
+$("searxng-reinstall").addEventListener("click", async () => {
+  if (
+    !confirm(
+      "Delete the SearXNG install and set it up again from scratch?\n\n" +
+        "Your settings file is kept — only the downloaded copy and its " +
+        "virtualenv are removed. Reinstalling takes a few minutes."
+    )
+  )
+    return;
+  const status = $("searxng-host-status");
+  status.classList.remove("error");
+  status.textContent = "Removing the old install…";
+  try {
+    await apiJson("/websearch/searxng/reinstall", { method: "POST" });
+    status.textContent = "Reinstalling — this takes a few minutes.";
+    toast("Reinstalling SearXNG.");
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+  }
+  refreshSearxngHost();
+});
 
 $("searxng-start").addEventListener("click", async () => {
   const status = $("searxng-host-status");

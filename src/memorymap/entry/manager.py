@@ -8,6 +8,7 @@ keeps capture working even when every AI piece is down (plan §4).
 from __future__ import annotations
 
 import json
+import logging
 import re
 from datetime import timedelta
 
@@ -177,8 +178,16 @@ def _hard_delete(session: Session, entries: list[Entry], uploads_dir: Path | Non
         if uploads_dir is not None:
             try:
                 (uploads_dir / attachment.stored_name).unlink(missing_ok=True)
-            except OSError:
-                pass
+            except OSError as exc:
+                # The row goes either way — a file that won't delete must not
+                # block the purge — but a folder that has stopped accepting
+                # deletes will otherwise grow forever with nothing said.
+                logging.getLogger("memorymap.entries").warning(
+                    "couldn't delete the file for attachment %s (%s); "
+                    "removing the record anyway",
+                    attachment.id,
+                    type(exc).__name__,
+                )
     session.execute(delete(Attachment).where(Attachment.entry_id.in_(ids)))
     session.execute(delete(EmbeddingRecord).where(EmbeddingRecord.entry_id.in_(ids)))
     session.execute(

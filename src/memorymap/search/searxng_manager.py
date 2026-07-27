@@ -21,10 +21,12 @@ reason and leaves web search on DuckDuckGo.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import secrets
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -252,6 +254,110 @@ def install_source(data_dir: Path) -> None:
     threading.Thread(target=work, name="searxng-install", daemon=True).start()
 
 
+def port_report() -> dict:
+    """Who, if anyone, is holding the port SearXNG wants.
+
+    "Check the port isn't in use" is advice that assumes the person can check.
+    This checks: it binds the port, and if it can't, asks whatever is there
+    whether it speaks SearXNG. Those are three genuinely different situations
+    — free, occupied by a working SearXNG, occupied by something else — and
+    only the last one is a problem the user has to go and solve.
+    """
+    free = True
+    try:
+        probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # No SO_REUSEADDR: the question is whether a *live* listener holds the
+        # port, and reuse would let this bind alongside one on some platforms.
+        probe.bind(("127.0.0.1", HOST_PORT))
+        probe.close()
+    except OSError:
+        free = False
+
+    if free:
+        return {
+            "port": HOST_PORT,
+            "free": True,
+            "held_by_searxng": False,
+            "detail": f"Port {HOST_PORT} is free.",
+        }
+
+    answering = websearch.probe_searxng(BASE_URL)
+    return {
+        "port": HOST_PORT,
+        "free": False,
+        "held_by_searxng": answering,
+        "detail": (
+            f"A working SearXNG is already answering on port {HOST_PORT} — "
+            "MemoryMap can use it as it is."
+            if answering
+            else f"Something is using port {HOST_PORT}, and it isn't answering "
+            "as SearXNG. Close whatever has it (or stop and reinstall here to "
+            "clear a half-dead instance of our own) and try again."
+        ),
+    }
+
+
+def uninstall_source(data_dir: Path) -> dict:
+    """Delete the virtualenv and checkout so the next start installs fresh.
+
+    A part-finished install — pip interrupted, a half-cloned checkout, a venv
+    built against a Python that has since been upgraded — leaves
+    `source_installed` saying yes and the process dying instantly, which reads
+    as "it just doesn't work" with nothing to act on. There was no way to get
+    back to a clean state short of deleting folders by hand.
+
+    The generated settings.yml is deliberately kept: it holds the instance's
+    secret key and any edits the user has made, and it is not what breaks.
+    """
+    data_dir = Path(data_dir)
+    try:
+        _stop_source(data_dir)
+    except SearxngError:
+        pass  # nothing to stop, or it was already gone — either way, carry on
+    _pid_file(data_dir).unlink(missing_ok=True)
+
+    removed = []
+    for path in (_venv_dir(data_dir), _source_dir(data_dir)):
+        if path.exists():
+            shutil.rmtree(path, ignore_errors=True)
+            removed.append(path.name)
+    log_path(data_dir).unlink(missing_ok=True)
+    return {"removed": removed}
+
+
+def reinstall_source(data_dir: Path) -> dict:
+    """Wipe the install and start a fresh one in the background."""
+    if _install_state["running"]:
+        raise SearxngError("An install is already running — let it finish first.")
+    result = uninstall_source(data_dir)
+    install_source(data_dir)
+    return {**result, "installing": True}
+
+
+def log_path(data_dir: Path) -> Path:
+    """Where SearXNG's own output goes.
+
+    It used to go to DEVNULL, and that is why "SearXNG started but never
+    answered. Check the port isn't in use." was the only thing this could ever
+    say. A process that dies a second after spawning — a missing dependency, a
+    settings file it won't parse, a port already bound — left no trace
+    whatsoever, so the message had to guess, and it guessed the same thing
+    every time regardless of what actually happened.
+    """
+    return Path(data_dir) / "searxng" / "searxng.log"
+
+
+def recent_output(data_dir: Path, lines: int = 12) -> str:
+    """The tail of that log, for a failure message and the Logs screen."""
+    path = log_path(data_dir)
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+    tail = [line for line in text.strip().splitlines() if line.strip()][-lines:]
+    return "\n".join(tail)
+
+
 def _start_source(data_dir: Path) -> dict:
     """Spawn SearXNG from its virtualenv and remember the PID."""
     if not source_installed(data_dir):
@@ -264,6 +370,15 @@ def _start_source(data_dir: Path) -> dict:
         "SEARXNG_BIND_ADDRESS": "127.0.0.1",
         "SEARXNG_BASE_URL": f"{BASE_URL}/",
     }
+    output = log_path(data_dir)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        # Truncated per start, not appended to: the only question this file
+        # answers is "why did *this* attempt fail", and a growing file makes
+        # that harder to read, not easier.
+        handle = output.open("w", encoding="utf-8")
+    except OSError as exc:
+        raise SearxngError(f"Couldn't open {output.name} to record output: {exc}") from exc
     try:
         process = subprocess.Popen(  # noqa: S603 — fixed args, no shell
             [str(_venv_python(data_dir)), "-m", "searx.webapp"],
@@ -273,12 +388,19 @@ def _start_source(data_dir: Path) -> dict:
             # is missing" rather than "that folder is".
             cwd=str(src) if (src := _source_dir(data_dir)).exists() else None,
             env=env,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            # Both streams into one file, in the order they were written —
+            # SearXNG's startup errors go to whichever it feels like.
+            stdout=handle,
+            stderr=subprocess.STDOUT,
             start_new_session=True,
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise SearxngError(f"Couldn't start SearXNG: {exc}") from exc
+    finally:
+        # The child holds its own duplicate of the descriptor, so closing
+        # this one doesn't cut off its output — it just stops us leaking one
+        # handle per start.
+        handle.close()
     _pid_file(data_dir).write_text(
         json.dumps({"pid": process.pid, "backend": "source"}), encoding="utf-8"
     )
@@ -356,6 +478,9 @@ def status(data_dir: Path | None = None) -> dict:
         "install_step": _install_state["step"],
         "install_error": _install_state["error"],
         "detail": "",
+        # Answered rather than suggested: "check the port isn't in use" is
+        # advice that assumes the person can check.
+        "port": port_report(),
     }
     if backend is None:
         # "Docker is installed but not started" is a different problem from
@@ -431,8 +556,26 @@ def _start_from_source(data_dir: Path) -> dict:
         return {"url": BASE_URL, "started": False, "backend": "source"}
     result = _start_source(data_dir)
     if not _wait_until_ready():
+        # Read what it said *before* stopping it — a SIGTERM adds its own
+        # lines, and the interesting ones are the earlier ones.
+        said = recent_output(data_dir)
         _stop_source(data_dir)
-        raise SearxngError("SearXNG started but never answered. Check the port isn't in use.")
+        logging.getLogger("memorymap.searxng").warning(
+            "SearXNG didn't answer within %ss. Its own output was:\n%s",
+            START_TIMEOUT,
+            said or "(nothing — it wrote no output at all)",
+        )
+        if said:
+            raise SearxngError(
+                "SearXNG started but never answered. It said:\n\n"
+                f"{said}\n\n"
+                f"The full log is at {log_path(data_dir)}."
+            )
+        raise SearxngError(
+            "SearXNG started but wrote nothing and never answered — which "
+            "usually means the process died immediately. Check that port "
+            f"{HOST_PORT} is free. The log is at {log_path(data_dir)}."
+        )
     return result
 
 
@@ -497,6 +640,47 @@ def _wait_until_ready(timeout: int = START_TIMEOUT) -> bool:
     return False
 
 
+# Lines that are never the reason something failed, however last they are.
+#
+# Reported with a screenshot: "Couldn't install SearXNG: [notice] To update,
+# run: …python.exe -m pip install --upgrade pip". That notice is pip's parting
+# advice, it is printed on almost every run, and it is always the last line —
+# so taking the last line meant reporting it instead of the actual failure,
+# every single time an install went wrong. The user is then sent to fix pip,
+# which was never the problem.
+_NOT_A_REASON = (
+    "[notice]",
+    "to update, run",
+    "you should consider upgrading",
+    "warning: you are using pip version",
+)
+
+
 def _reason(result: subprocess.CompletedProcess, prefix: str) -> str:
-    detail = (result.stderr or result.stdout or "").strip().splitlines()
-    return f"{prefix}: {detail[-1]}" if detail else prefix
+    """`prefix`, plus the most useful line the command actually printed.
+
+    Prefers a line that names an error, falls back to the last line that isn't
+    boilerplate, and says nothing rather than something misleading.
+    """
+    lines = [
+        line.strip()
+        for line in (result.stderr or result.stdout or "").strip().splitlines()
+        if line.strip()
+    ]
+    useful = [
+        line
+        for line in lines
+        if not any(marker in line.lower() for marker in _NOT_A_REASON)
+    ]
+    if not useful:
+        return prefix
+
+    # A line that names the failure beats the last line — pip prints the real
+    # cause and then several lines of hint after it.
+    named = [
+        line
+        for line in useful
+        if line.lower().startswith(("error", "fatal", "exception"))
+        or "error:" in line.lower()
+    ]
+    return f"{prefix}: {(named or useful)[-1]}"

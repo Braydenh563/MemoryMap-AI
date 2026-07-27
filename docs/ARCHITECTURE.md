@@ -29,10 +29,12 @@ These are the constraints that shaped every decision. When in doubt, they win.
    When it *is* on it is built to reveal as little as possible: an ordinary
    browser User-Agent rather than one naming the app, no cookie jar, no
    Referer, DNT/Sec-GPC set, POST so queries stay out of request lines, and
-   tracking parameters stripped from result URLs.
+   tracking parameters stripped from result URLs. It has its own settings
+   screen (`settings-websearch`) — not a corner of Preferences — because
+   every message that has to explain it points there by name.
 2. **Degrade gracefully.** If the AI (Ollama) is down, the app still works:
    new notes are filed as `Uncategorised`, search falls back to keywords, and a
-   status pill in the header says what the AI is doing. **Saving a note must
+   status dot in the header says what the AI is doing. **Saving a note must
    never fail because the AI is unavailable.**
 3. **Your data is yours, in plain files.** SQLite + JSON on disk, in a folder
    you can back up, inspect, or delete. Full JSON/CSV/Markdown export built in.
@@ -123,8 +125,11 @@ MemoryMap-AI-v0/
 │   │   ├── config.py        # paths + user preferences (ConfigManager)
 │   │   ├── database.py      # SQLAlchemy models + additive auto-migrator
 │   │   ├── deps.py          # THE singletons (config, db, ollama, embeddings…)
+│   │   │                    #   + store_quietly(): best-effort embed, lives
+│   │   │                    #   here because it needs the shared service
 │   │   ├── backup.py        # daily local snapshot + restore
-│   │   └── logbuffer.py     # in-memory log capture for the Settings viewer
+│   │   └── logbuffer.py     # in-memory log capture + safe_value() for
+│   │                        #   anything untrusted going into a log line
 │   ├── entry/
 │   │   └── manager.py       # create/read/soft-delete entries, audit log
 │   ├── ai/
@@ -138,7 +143,8 @@ MemoryMap-AI-v0/
 │   │   └── voice.py         # optional local Whisper dictation
 │   ├── search/
 │   │   ├── search_manager.py# semantic + keyword search, with fallback
-│   │   └── websearch.py     # opt-in web search (off by default)
+│   │   ├── websearch.py     # opt-in web search (off by default) + PROVIDERS
+│   │   └── searxng_manager.py # install/start/stop a local SearXNG
 │   └── api/
 │       ├── app.py           # builds the FastAPI app, mounts frontend, gate
 │       ├── schemas.py       # Pydantic request/response models
@@ -167,7 +173,7 @@ are grouped by feature area:
 | `routes_chat` | `/chat` | ask questions, streaming answers, agentic tools, suggestions |
 | `routes_conversations` | `/conversations` | saved chat threads |
 | `routes_models` | `/models` | Ollama status, pull models, switch chat/embedding/utility model |
-| `routes_settings` | `/` | preferences, audit log, JSON/CSV/Markdown export & import, backups, logs |
+| `routes_settings` | `/` | preferences, audit log, JSON/CSV/Markdown export & import, backups, logs, web search + SearXNG lifecycle |
 | `routes_documents` | `/documents` | long-form markdown documents, export, AI edit |
 | `routes_duplicates` | `/duplicates` | near-duplicate finder + AI merge |
 | `routes_drafts` | `/drafts` | the writing room's compose/rewrite calls |
@@ -206,6 +212,35 @@ a confirmation event to the UI instead of executing.
 `search_notes` and `list_notes` return **previews**, which is why `get_note`
 exists and its description says so — a model that quoted a note from a preview
 was quoting a truncation.
+
+### Errors a tool is allowed to explain
+
+Handlers raise **`tools.ToolError`** for failures they mean to explain ("no
+note with that id"). Only that text is passed back to the model and out of
+`POST /chat/tools/execute` to the user. A bare `ValueError`, `KeyError` or
+`TypeError` from inside a handler is something else — whatever `int("abc")`
+happened to say — so it is logged here and reported by *shape* instead. A
+single `except ValueError` could not tell those apart, and the difference is
+the one CodeQL flagged as stack-trace exposure.
+
+### The per-round budget
+
+Everything in this registry is serialised into the `tools` field on **every
+round of every turn**, alongside the system prompt. That fixed overhead is
+~3,050 tokens, and **77% of it is these schemas, not the prose in
+`TOOLS_GUIDE`** — so a verbose new tool description costs more than a verbose
+new paragraph.
+
+`agent.PROMPT_BUDGET_CHARS` caps the total and `tests/test_prompt_budget.py`
+enforces it. It exists because Ollama defaults to a 4096-token window and
+drops overflow from the *front*: a 3B model that overflows loses the system
+prompt and stops knowing it has tools, which presents as "the AI won't use
+tools" rather than as anything to do with length. Settings → Tools
+(`disabled_tools`) is the user-facing escape hatch, and it filters at
+`ollama_tools()` — the wire — not just at execution.
+
+**Adding a tool is not free.** If the budget test fails, that is the design
+working; either trim, or raise the constant deliberately and say why.
 
 The agent loop (`ai/agent.py`) streams: it calls `chat_tools_stream`, so the
 model's prose reaches the user as it is written rather than arriving in one
@@ -254,6 +289,43 @@ SQLite via SQLAlchemy 2.0 (`core/database.py`). Main tables:
 **Migrations:** `database.py` runs an additive auto-migrator at startup — new
 columns are added to existing databases in place. You never delete your data to
 upgrade. Rename/removal-style migrations are out of scope until genuinely needed.
+
+## 8b. Anything that leaves the machine
+
+One module, `search/websearch.py`, owns every outbound request, and it has
+three rules that are easy to break by accident. All three have already been
+broken once.
+
+**Which engine answers is the user's choice, read in one place.** The
+`search_provider` preference is `auto` | `searxng` | `duckduckgo`
+(`websearch.PROVIDERS`). `auto` tries SearXNG and falls back; **`searxng`
+does not fall back** — reporting a failure is the point, because silently
+re-routing to DuckDuckGo defeats running your own instance. Both callers (the
+`/websearch` route and the agent's `web_search` tool) read it through
+`websearch.settings_from(config)`. Two readers is how the tool ended up
+honouring a different setting from the UI.
+
+**Check an address and then connect to that address, not to the name.**
+`_searxng_target` and `_pin_url` both resolve once, validate, and hand
+`requests` an **IP literal** with the hostname in a `Host` header (and, for
+HTTPS, `_PinnedAdapter` to keep SNI and certificate verification intact).
+Resolving to check and resolving again to connect leaves a DNS-rebinding
+window between the two. The reader path was fixed for this; the SearXNG search
+path was not, and kept the hole for months while the *probe* beside it was
+pinned correctly.
+
+**A redirect is a new request.** `_get_external` follows hops by hand with
+`allow_redirects=False`, re-checking each one, because `allow_redirects=True`
+resolves the next hop inside `requests` where no guard can see it — and
+"302 → http://127.0.0.1/" walks straight past a check on the first URL.
+
+A configured SearXNG must resolve to this machine or the local network, and
+**every** address it resolves to must, not merely one of them.
+
+`search/searxng_manager.py` can install, start and stop an instance. Its
+output goes to `data/searxng/searxng.log` — never `DEVNULL`, which is what
+made a failed start unexplainable and reduced the error message to a guess
+about the port.
 
 ## 9. AI stack
 
@@ -322,6 +394,22 @@ focused element's `offsetParent` — catches far more than a screenshot.
    scaled display.
 6. **`prefers-reduced-motion` disables animation**, so any animation carrying
    *meaning* needs a still fallback or it reads as a rendering fault.
+7. **p5 measures a canvas as zero inside a `display: none` tab.** Anything
+   using `renderEmblem` has to be drawn in its own tab's render, not at
+   startup — which is also what makes it redraw when a theme change moves the
+   accent.
+8. **Note text is user content and is never parsed as markup.** Everything is
+   built with `createElement` / `textContent`. `renderNoteText` layers
+   `[[wiki links]]`, then `renderInlineMarkdown` (bold, italic, `code`,
+   strike — inline only, deliberately), then `highlightInto` for filter
+   matches, and all three have to keep working through each other. Block
+   markdown is *not* used in the note list: rendered headings and tables make
+   it enormous. The dashboard's one-line previews strip the markers instead
+   (`notePreviewText`), because a 70-character clip can land mid-tag.
+9. **Settings sections are three things that must agree**: an entry in
+   `SETTINGS_SECTIONS`, a `<section id="settings-NAME">`, and a
+   `<button data-section="NAME">` in the nav. Miss the first and the section
+   never hides; miss the third and it is unreachable.
 
 ## 11. Configuration
 
@@ -338,7 +426,7 @@ style, optional AI profile, …) live in `data/preferences.json`, managed by
 
 ## 12. Testing & CI
 
-- **Run locally:** `PYTHONPATH=src pytest` (≈500 tests, about a minute). Uses a
+- **Run locally:** `PYTHONPATH=src pytest` (≈560 tests, about a minute). Uses a
   throwaway database and fakes every AI call (`tests/fakes.py` +
   `tests/conftest.py`), so it's fast and fully offline.
 - **The suite cannot see the UI.** Every layout and wiring bug fixed so far
@@ -378,7 +466,12 @@ On first run you choose a password (bcrypt-hashed, stays local). See the
 | Change the UI | `frontend/app.js`, `frontend/style.css` (read §10's invariants first) |
 | Work out why a page scrolls sideways | §10 invariant 2 — an ancestor with no `min-width: 0` |
 | Change what a saved chat replays | `steps` in `routes_conversations.py` — not just `content` |
-| Add a preference | `DEFAULT_PREFERENCES` in `core/config.py` |
+| Add a preference | `DEFAULT_PREFERENCES` in `core/config.py`, then `PreferencesBody` + `get_preferences()` in `routes_settings.py` |
+| Add a Settings screen | §10 invariant 9 — three places, all three needed |
+| Change which search engine answers | `websearch.PROVIDERS` + `settings_from()`; never read the preference directly |
+| Add an agent tool | `ai/tools.py`, then run `tests/test_prompt_budget.py` — schemas are 77% of the per-round cost |
+| Log something a user or a website typed | `logbuffer.safe_value()` at the call site; `sanitise` only protects the in-app viewer |
+| Work out why SearXNG won't start | `data/searxng/searxng.log`, surfaced in Settings → Web search |
 | Add a test | `tests/` — copy an existing `test_*.py` and reuse the fakes |
 
 ---

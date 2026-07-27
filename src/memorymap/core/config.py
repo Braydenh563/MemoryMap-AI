@@ -32,6 +32,13 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     # the wrong clock lands hours out. Empty means "fall back to the server's
     # own zone", which is correct for the ordinary case of both on one laptop.
     "timezone": "",
+    # Web search is the one feature that leaves the machine, so it is off
+    # until asked for, and which engine answers is the user's choice rather
+    # than something inferred from whether a SearXNG address happens to be
+    # filled in. See `search/websearch.PROVIDERS`.
+    "web_search_enabled": False,
+    "searxng_url": "",
+    "search_provider": "auto",
 }
 
 
@@ -66,8 +73,18 @@ class ConfigManager:
         if self.preferences_path.exists():
             try:
                 prefs.update(json.loads(self.preferences_path.read_text()))
-            except (OSError, json.JSONDecodeError):
-                pass
+            except (OSError, json.JSONDecodeError) as exc:
+                # Starting on defaults is the right behaviour; doing it
+                # silently is not. Every setting the user has ever chosen has
+                # just reverted, and without this line the only clue is that
+                # the app "forgot" everything.
+                logging.getLogger("memorymap.config").warning(
+                    "couldn't read %s (%s) — starting from the default "
+                    "preferences; your saved settings are not lost unless "
+                    "something writes over the file",
+                    self.preferences_path.name,
+                    type(exc).__name__,
+                )
         return prefs
 
     def get_preference(self, key: str, default: Any = None) -> Any:

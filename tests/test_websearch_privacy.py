@@ -40,12 +40,28 @@ def test_every_request_carries_the_same_privacy_headers():
 
 def test_searxng_probe_keeps_the_privacy_headers_and_pins_the_host():
     """The probe overrides Host to pin the address — it must not lose the rest."""
-    target = websearch._build_pinned_probe_target("http://127.0.0.1:8888")
+    target = websearch._searxng_target("http://127.0.0.1:8888")
     assert target is not None
-    _url, headers = target
+    url, headers = target
     assert headers["User-Agent"] == websearch.PRIVACY_HEADERS["User-Agent"]
     assert headers["DNT"] == "1"
     assert headers["Host"] == "127.0.0.1:8888"
+    # The URL requests is given is the checked address, not the name.
+    assert url == "http://127.0.0.1:8888/search"
+
+
+def test_a_searxng_address_that_is_not_local_is_refused():
+    """The one rule that makes the SearXNG path safe: it can only reach you."""
+    assert websearch._searxng_target("http://93.184.216.34:8888") is None
+    assert websearch._searxng_target("ftp://127.0.0.1:8888") is None
+    # Credentials make an address read as one host and resolve as another.
+    assert websearch._searxng_target("http://127.0.0.1@93.184.216.34/") is None
+
+
+def test_a_nonsense_searxng_port_is_refused_rather_than_raising():
+    """A bad preference must come back as "no", not as a 500 from Settings."""
+    assert websearch._searxng_target("http://127.0.0.1:99999") is None
+    assert websearch._searxng_target("http://127.0.0.1:notaport") is None
 
 
 # --- what we strip out of links ------------------------------------------------------
@@ -223,7 +239,11 @@ def test_read_url_returns_the_page_text(app_state, session, monkeypatch):
     assert result["title"] == "A post"
     assert result["text"] == "The readable body of the page."
     assert result["truncated"] is False
-    assert "example.com" in result["label"]
+    # Compared whole rather than as a substring: `"example.com" in label` also
+    # passes for "example.com.evil.test", which is the shape of check this
+    # codebase must never learn by habit.
+    assert result["domain"] == "example.com"
+    assert result["label"] == "📖 Read example.com"
 
 
 def test_read_url_says_when_it_only_read_part_of_a_page(app_state, session, monkeypatch):

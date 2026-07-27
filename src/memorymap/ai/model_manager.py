@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import threading
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import Protocol
 
 from sqlalchemy import delete, select
 
@@ -20,8 +20,23 @@ from memorymap.core.config import ConfigManager
 from memorymap.core.database import DatabaseManager, EmbeddingRecord, Entry
 from memorymap.entry.manager import log_action
 
-if TYPE_CHECKING:  # import only for type hints — avoids a circular import
-    from memorymap.ai.embeddings import EmbeddingService
+
+class Embedder(Protocol):
+    """The two methods the re-index job needs from an embedding service.
+
+    Stated structurally rather than by importing `EmbeddingService`, because
+    that import points back at `ai/embeddings.py`, which imports this module —
+    a genuine cycle that a `TYPE_CHECKING` guard hides at runtime without
+    removing. Writing down the contract is also the more honest description:
+    re-indexing does not need an `EmbeddingService`, it needs something that
+    can embed an entry and name its backend, which is what the tests pass.
+    """
+
+    def store_for_entry(self, session, entry: Entry) -> bool:
+        pass
+
+    def backend_id(self) -> str:
+        pass
 
 # Curated catalog, stored as data so it's trivial to edit (plan §6.5).
 # There's no Ollama API to browse the online library, hence hardcoded.
@@ -146,7 +161,7 @@ def cancel_pull(name: str) -> bool:
     return False
 
 
-def start_reindex(db: DatabaseManager, embeddings: "EmbeddingService") -> bool:
+def start_reindex(db: DatabaseManager, embeddings: Embedder) -> bool:
     """Regenerate every non-deleted entry's embedding with the current
     backend, in a background thread. Returns False if one is already
     running. While it runs, old vectors no longer match the new
@@ -164,7 +179,7 @@ def start_reindex(db: DatabaseManager, embeddings: "EmbeddingService") -> bool:
     return True
 
 
-def _run_reindex(db: DatabaseManager, embeddings: "EmbeddingService", job: Job) -> None:
+def _run_reindex(db: DatabaseManager, embeddings: Embedder, job: Job) -> None:
     session = db.session()
     try:
         entries = list(

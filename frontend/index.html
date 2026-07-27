@@ -4,7 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>MemoryMap AI</title>
+  <!-- The SVG is the icon; the PNG is the fallback for the handful of places
+       that still won't take one — Safari's touch icon in particular, which
+       also composites onto white, so the mark carries its own tile. -->
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <!-- PWA (Wave F): installable, and the shell loads from cache -->
   <link rel="manifest" href="/manifest.webmanifest">
   <meta name="theme-color" content="#4f6df5">
@@ -134,7 +138,12 @@
     <!-- Full-width welcome banner: greeting + a line about your notebook,
          with a live clock on the right. -->
     <section class="dash-hero" id="dash-hero">
+      <!-- The emblem and wordmark, asked for repeatedly: the mark lived only
+           in the top bar at 24px. It goes *in* the greeting card rather than
+           above it — a second banner over a banner is just two headers. -->
+      <div id="dash-hero-emblem" class="emblem dash-hero-emblem" aria-hidden="true"></div>
       <div class="dash-hero-text">
+        <p class="dash-wordmark">MemoryMap<span> AI</span></p>
         <h2 id="dash-greeting" class="dash-greeting"></h2>
         <p id="dash-submessage" class="dash-submessage"></p>
       </div>
@@ -886,6 +895,7 @@ Link to another note with [[its first few words]]."></textarea>
             <button data-section="personas">Personas</button>
             <button data-section="skills">Skills</button>
             <button data-section="tools">Tools it can use</button>
+            <button data-section="websearch">Web search</button>
           </div>
 
           <p class="nav-group-label" id="nav-group-you">Your notebook</p>
@@ -1356,17 +1366,55 @@ Link to another note with [[its first few words]]."></textarea>
               <option value="concise">Concise</option>
               <option value="detailed">Detailed</option>
             </select>
-            <h3>Web search (optional — this one goes online)</h3>
+            <h3>Web search</h3>
+            <p class="muted">
+              Web search is the one feature that goes online, so it has a
+              screen of its own —
+              <button type="button" class="linklike" data-goto-section="websearch">open
+                Settings → Web search</button>.
+            </p>
+            <h3>About you (optional)</h3>
+            <label>
+              <input type="checkbox" id="pref-profile-enabled">
+              Let the AI use this profile for more personal answers
+            </label>
+            <textarea id="pref-profile" rows="3"
+              placeholder="e.g. I'm Brayden, in Brisbane. I run track and collect dad jokes."></textarea>
+            <div class="row">
+              <button id="prefs-save" class="small">Save preferences</button>
+              <button id="profile-delete" class="ghost small">Delete my profile data</button>
+              <span id="prefs-status" class="status" role="status"></span>
+            </div>
+            <p class="muted">
+              Stays on this computer like everything else. Turn it off or delete
+              it any time — answers just get less personal.
+            </p>
+          </section>
+
+          <!-- Web search. Its own screen rather than four inches of the
+               Preferences page: it is the only feature that leaves the
+               machine, and the error messages point people here by name. -->
+          <section class="settings-section hidden" id="settings-websearch">
+            <p class="muted">
+              This is the one part of MemoryMap that goes online. It is off
+              until you turn it on, and even then only your search words
+              leave this computer — never your notes.
+            </p>
+
+            <h3>Let the AI search the web</h3>
             <label>
               <input type="checkbox" id="pref-web-search">
-              Let the AI search the web (DuckDuckGo) when you ask it to
+              Allow web search when I ask for it
             </label>
-            <p class="muted">
-              Off by default. When on, only your search words leave this
-              computer — never your notes.
-            </p>
+
+            <h3>Which engine answers</h3>
+            <div id="search-provider-picker" class="provider-picker"
+              role="radiogroup" aria-label="Web search engine"></div>
+            <p id="search-provider-status" class="status" role="status"></p>
+
+            <h3>Your SearXNG instance</h3>
             <div class="row">
-              <label for="pref-searxng" class="muted">SearXNG URL (optional)</label>
+              <label for="pref-searxng" class="muted">Address</label>
               <input id="pref-searxng" type="text" maxlength="200"
                 placeholder="http://localhost:8888">
               <button id="searxng-detect" class="ghost small"
@@ -1375,10 +1423,10 @@ Link to another note with [[its first few words]]."></textarea>
             <p id="searxng-status" class="status" role="status"></p>
             <p class="muted">
               <strong>SearXNG</strong> is an optional, self-hosted search engine.
-              Point MemoryMap at one and it searches through that instead of
-              DuckDuckGo — better results, no page scraping, and the query stays
-              inside your own network. Leave it blank to use DuckDuckGo; if your
-              instance is unreachable MemoryMap falls back automatically.
+              It gives better results than scraping DuckDuckGo, it can't be
+              rate-limited the way scraping can, and the query stays inside your
+              own network. It has to be on this machine or your own network —
+              MemoryMap won't send searches to somebody else's instance.
             </p>
             <div class="searxng-host">
               <div class="row space-between">
@@ -1391,11 +1439,22 @@ Link to another note with [[its first few words]]."></textarea>
                 edit.
               </p>
               <p class="muted" id="searxng-backend"></p>
+              <!-- Answers "is the port free?" instead of telling people to go
+                   and check, which was the only advice a failed start had. -->
+              <p class="muted" id="searxng-port"></p>
               <div class="row">
                 <button id="searxng-start" class="small">▶ Start SearXNG</button>
                 <button id="searxng-stop" class="ghost small">■ Stop</button>
+                <button id="searxng-reinstall" class="ghost small"
+                  title="Delete the SearXNG install and set it up again from scratch">↻ Reinstall</button>
                 <span id="searxng-host-status" class="status" role="status"></span>
               </div>
+              <!-- What the instance itself said. Its output used to go to
+                   /dev/null, so a failed start could only ever be guessed at. -->
+              <details id="searxng-output-fold" class="help-accordion hidden">
+                <summary>What SearXNG reported</summary>
+                <pre id="searxng-output" class="setup-snippet"></pre>
+              </details>
             </div>
             <details class="help-accordion">
               <summary>Prefer to run it yourself?</summary>
@@ -1414,22 +1473,6 @@ Link to another note with [[its first few words]]."></textarea>
                 MemoryMap checks the usual ports and fills this in for you.
               </p>
             </details>
-            <h3>About you (optional)</h3>
-            <label>
-              <input type="checkbox" id="pref-profile-enabled">
-              Let the AI use this profile for more personal answers
-            </label>
-            <textarea id="pref-profile" rows="3"
-              placeholder="e.g. I'm Brayden, in Brisbane. I run track and collect dad jokes."></textarea>
-            <div class="row">
-              <button id="prefs-save" class="small">Save preferences</button>
-              <button id="profile-delete" class="ghost small">Delete my profile data</button>
-              <span id="prefs-status" class="status" role="status"></span>
-            </div>
-            <p class="muted">
-              Stays on this computer like everything else. Turn it off or delete
-              it any time — answers just get less personal.
-            </p>
           </section>
 
           <!-- Tasks (Wave N): see and quit background jobs -->

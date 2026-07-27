@@ -278,25 +278,7 @@ class EmbeddingService:
         return True
 
 
-def store_quietly(session: Session, entry: Entry) -> bool:
-    """Best-effort embedding refresh for a note that was just written.
-
-    Every caller wants the same two things: never fail the user's save because
-    the embedding backend is unhappy, and never lose the reason it was unhappy.
-    The bare ``except Exception: pass`` this replaces delivered only the first —
-    so a backend that had stopped working produced notes that quietly dropped
-    out of semantic search with nothing anywhere to say why.
-
-    Returns True if a vector was stored.
-    """
-    from memorymap.core import deps  # deferred: deps imports this module
-
-    try:
-        return deps.get_embeddings().store_for_entry(session, entry)
-    except Exception:  # noqa: BLE001 — the whole point is that nothing escapes
-        logger.warning(
-            "couldn't embed entry %s; it stays keyword-searchable only",
-            getattr(entry, "id", "?"),
-            exc_info=True,
-        )
-        return False
+# `store_quietly` used to live here and is now `core.deps.store_quietly` — it
+# needs the shared EmbeddingService, and reaching for that from inside this
+# module means importing the container that imports this module. See the
+# docstring there.

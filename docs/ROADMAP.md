@@ -16,21 +16,31 @@ the way*, not by how interesting it is to build.
    closer to just presaved mini prompts. I keep trying to get the AI to make
    me some skills in the chat but it doesn't recognise that it needs to use
    tools." This is the biggest gap between what the app claims and what it
-   does, and it blocks the agent being useful at all.
-2. **Web search still returns nothing** (§8b). The diagnosis landed — the app
-   now correctly says "DuckDuckGo is rate-limiting this app" instead of
-   failing silently — but the *fix* hasn't. SearXNG is the fix and its
-   installer now runs without Docker or git, yet starting it reports "started
-   but never answered". That is the next thing to debug.
+   does, and it blocks the agent being useful at all. **Still the top item,
+   and nothing below it should jump the queue.**
+2. **Web search still returns nothing** (§8b). Partly addressed — see below —
+   but the underlying "SearXNG starts and never answers" is still open, and
+   it is now *debuggable* rather than a guess: the instance's own output is
+   captured to `data/searxng/searxng.log` and shown in Settings → Web search.
+   The next session should read that log rather than theorising.
 3. **Token usage in chats** (§11a). Asked directly: "is there a way to reduce
    excessive token usage in the chats?" A 3-turn chat is showing 8.7k tokens.
    The history and the retrieved notes are resent whole on every turn.
-4. **Markdown rendering for notes** (§22). Notes render as plain text while
-   chat answers, documents and the dashboard all render markdown.
+   *Measured since:* the fixed overhead alone — system prompt plus all 28 tool
+   schemas — is ~3,050 tokens per round, and 77% of that is the schemas, not
+   the prose. `agent.PROMPT_BUDGET_CHARS` now caps it and a test enforces the
+   cap. **The remaining win is offering fewer tools per turn, not more
+   trimming of words.**
+4. ~~**Markdown rendering for notes** (§22)~~ **done.** Inline only — bold,
+   italic, `code`, strike — because `renderMarkdown`'s block elements make a
+   note list enormous, which is the problem §22 itself flagged. Wiki links and
+   filter highlighting both still work inside emphasis. The dashboard's little
+   note lists *strip* the markers instead, since they clip at ~70 characters.
 5. **Note timeline** (§10). Asked for repeatedly, now with more shape: see
-   notes on a time axis, grouped by event, place or theme.
-6. **A hero header on the dashboard** (§22) — the logo and wordmark at the top
-   of the dashboard, not only in the top bar.
+   notes on a time axis, grouped by event, place or theme. **This is now the
+   biggest unbuilt feature after §21.**
+6. ~~**A hero header on the dashboard** (§22)~~ **done** — emblem and wordmark
+   inside the greeting card, hidden below 720px.
 
 > **Check the running app before building anything here.** This document
 > describes intent, and it drifts. An audit of §2 found four of its six "quick
@@ -46,11 +56,21 @@ the way*, not by how interesting it is to build.
 
 ## How to work on this repo
 
-- `pytest` — 500 tests, fully offline, no Ollama needed (`pytest.ini` now sets
+- `pytest` — 560 tests, fully offline, no Ollama needed (`pytest.ini` sets
   `pythonpath = src`, so this works without an editable install)
 - `ruff check .` — matches CI
 - `node --check frontend/app.js` — the frontend is one large plain-JS file, so a
   syntax check is worth running after every edit
+
+Three of those tests are guards rather than features, and are the ones most
+likely to fail on you without you having broken anything visible:
+
+- `tests/test_frontend_ids.py` — duplicate element ids, and `$("…")` lookups
+  with no matching element. Two elements sharing `persona-prompt` is what made
+  "Add Persona" silently throw.
+- `tests/test_prompt_budget.py` — the agent's fixed per-round overhead. If you
+  add a tool, this is what tells you it cost something. See §11a.
+- the pre-paint theme table in `index.html` drifting from `THEME_PRESETS`.
 
 **Drive the app in a browser before claiming anything works.** Chromium is
 preinstalled at `/opt/pw-browsers/chromium-1194/chrome-linux/chrome`, but the
@@ -69,7 +89,25 @@ Two things make this much faster than it sounds:
   steps found a header that overflowed itself at every size between 740 and
   1400px. A screenshot shows one width and invites you to squint at it.
 
-Every UI bug in §8 passed a fully green 500-test run.
+Every UI bug in §8 passed a fully green test run.
+
+**A working driver script**, if you want to skip re-deriving one — unlock,
+dismiss onboarding, then drive:
+
+```python
+page.goto("http://localhost:8000", wait_until="networkidle")
+page.wait_for_timeout(800)
+if page.locator("#lock-overlay").is_visible():        # NOT #unlock-password
+    page.fill("#lock-password", "…"); page.click("#lock-submit")
+    page.wait_for_timeout(2500)
+if page.locator("#onboarding-overlay").is_visible():  # blocks every click
+    page.click("#onboarding-skip")
+```
+
+Start the server with `MEMORYMAP_DATA_DIR` pointed at a scratch directory so
+you never drive the real notebook. Use the app's own `apiJson` inside
+`page.evaluate` rather than raw `fetch` — auth is an `X-Auth-Token` header,
+not a bearer token, and a hand-rolled fetch just 401s.
 
 **Installing dependencies in a fresh sandbox:** `download.pytorch.org` is blocked
 by the network policy, so `pip install -r requirements.txt` stalls on torch.
@@ -78,6 +116,11 @@ python-dotenv, requests, numpy, bcrypt, cryptography, python-multipart, pytest,
 httpx, ruff), plus `pip install --force-reinstall cffi` — the system
 `cryptography` needs a `_cffi_backend` that isn't present by default, and three
 test files fail to collect without it.
+
+**There is no general outbound network in the sandbox** — the proxy refuses
+anything not explicitly allowed, so you cannot verify a new search-engine
+scraper, or anything else that talks to a third-party site, against the real
+thing. Don't ship one you couldn't test.
 
 ### Traps worth knowing about
 
@@ -119,7 +162,74 @@ test files fail to collect without it.
 
 ---
 
-## Done recently — don't redo
+## Done in the most recent session — read this first
+
+Newest at the top. Everything here is on `main` (or the branch merging into
+it), verified, and must not be rebuilt.
+
+**Web search has its own settings screen now.** It was four controls two
+thirds of the way down Preferences, which is why every error message saying
+"Settings → Web search" pointed at a screen that did not exist. It is now
+`settings-websearch`, listed under "The AI" in the nav, with a real engine
+picker: `auto` / `searxng` / `duckduckgo`, stored as the `search_provider`
+preference. **"SearXNG only" does not fall back** — that fallback was wrong
+for the one person who most wants SearXNG, someone running it so their
+queries stay on their own network. The provider list is served from
+`GET /websearch/providers` rather than written out in `app.js`, so the radios
+cannot offer something the API rejects, and both the HTTP route and the
+agent's `web_search` tool read it through `websearch.settings_from(config)`.
+
+**SearXNG is now debuggable, which it was not.** Its stdout and stderr went to
+`DEVNULL`, so "SearXNG started but never answered. Check the port isn't in
+use." was a guess, and the same guess every time. Output now goes to
+`data/searxng/searxng.log`, the tail is quoted in the failure and shown in a
+fold on the settings screen. Alongside it: a **port answer** (free / held by a
+working SearXNG / held by something else — only the last is the user's
+problem) and a **↻ Reinstall** button, because a part-finished install makes
+`source_installed` say yes while the process dies instantly, and there was no
+way back short of deleting folders by hand.
+
+`_reason()` also stopped reporting pip's parting "[notice] To update, run:
+… --upgrade pip" as the cause of every failed install. It took the *last*
+line; that notice is always last.
+
+**The CodeQL alert list is closed**, and two of the thirteen were real:
+
+- The SearXNG *search* path resolved the hostname to check it and then handed
+  the hostname to `requests`, which resolved it again — the DNS-rebinding
+  window the reader path closed months earlier, still open here. The probe
+  pinned; the search that followed it did not. Both now go through one
+  `websearch._searxng_target`.
+- `execute_tool` could not tell a message a handler wrote from whatever
+  `int("abc")` happened to say, so stray exception text reached the model and
+  the UI. Handlers now raise `tools.ToolError`; everything else is logged and
+  reported by shape.
+
+The rest were quality: log injection (`logbuffer.safe_value` at the call site
+— `sanitise` only ever ran at the ring buffer, so the terminal saw raw text),
+three `except: pass` blocks that now say what failed, the
+model_manager↔embeddings and deps↔embeddings cycles (a `Protocol` and moving
+`store_quietly` to `deps`), and a test asserting `"example.com" in label`.
+
+**There is now a prompt budget.** `agent.PROMPT_BUDGET_CHARS` caps the system
+prompt plus all tool schemas, and `tests/test_prompt_budget.py` enforces it.
+Measured: ~3,050 tokens per round, **77% of it tool schemas, not prose**. This
+matters because Ollama defaults to a 4096-token window and overflow is dropped
+from the *front* — so a 3B model that overflows stops knowing it has tools,
+and reports as "the AI won't use tools". See §11a.
+
+**Also done:** a favicon that survives 16px (the old one was drawn at 100 and
+had no background, so its white nodes vanished on a light tab strip), plus a
+maskable icon and PNG fallbacks; inline markdown in the note list (§22); the
+emblem and wordmark on the dashboard (§22); a full README rewrite.
+
+**Don't redo:** the README, the favicon/icon set, the web-search settings
+screen, the engine picker, the SearXNG port/reinstall/log work, the prompt
+budget, note markdown, the dashboard hero.
+
+---
+
+## Done in earlier sessions — don't redo
 
 **Bugs fixed** (each reproduced and verified in a browser):
 
@@ -420,20 +530,30 @@ rate-limiting this app rather than returning results" instead of showing an
 empty panel, which is confirmed in use. That was the whole point — the failure
 is now legible. It is not, however, fixed.
 
-**The fix is SearXNG, and SearXNG doesn't start.** The installer no longer
-needs Docker or git, and the process does start, but the health check times
-out: "SearXNG started but never answered. Check the port isn't in use."
+**The fix is SearXNG, and SearXNG still doesn't start.** The installer no
+longer needs Docker or git, and the process does start, but the health check
+times out.
 
-**Debug it in this order.** `_start_source` sends stdout and stderr to
-`DEVNULL`, so a process that dies on startup — a missing dependency, a
-settings file it won't parse, a port already bound — leaves no trace at all.
-That is why the current message is a guess about the port. Capture both
-streams to a file under the data dir first, then read what it actually said.
-Everything after that is speculation until then.
+**The debugging groundwork is done — go and read the log.** `_start_source`
+used to send stdout and stderr to `DEVNULL`, which is why the message was a
+guess about the port. It is now captured to `data/searxng/searxng.log`,
+truncated per start, quoted in the failure message, and shown in a fold on
+Settings → Web search. There is also a `↻ Reinstall` button (wipes the venv
+and checkout, keeps `settings.yml` and its secret key) and a port line saying
+whether 8888 is free, held by a working SearXNG, or held by something else.
 
-Worth checking once it starts: the generated `settings.yml` must include
-`- json` under `search.formats`, or the API returns 403 and "started but never
-answered" would be exactly the symptom.
+**So the next step is no longer speculative.** Start it, read what it printed,
+fix that. Do not theorise ahead of the log.
+
+The one thing already ruled out: the generated `settings.yml` *does* include
+`- json` under `search.formats`, so the 403-from-a-missing-format theory is
+not it.
+
+Known from a user screenshot, now fixed: `_reason()` reported pip's parting
+"[notice] To update, run: … --upgrade pip" as the cause of a failed install,
+because it took the last line and that notice is always last. If an install
+failure is being investigated, the message is trustworthy now; it was not
+before.
 
 ---
 
@@ -553,8 +673,35 @@ tokens. Where it goes, cheapest fix first:
   round of every turn, which is where Ollama's prompt-prefix reuse and
   `keep_alive` would actually pay.
 
-Measure before cutting: log the prompt-token count per round and see which of
-these dominates. Summarising older history is the usual answer, but it costs a
+**Half of this has now been measured, and the answer was not where anyone was
+looking.** The *fixed* overhead — system prompt plus every tool schema, sent
+before a word of the question, the notes or the history, on each of up to
+`MAX_ROUNDS` rounds — is ~12,400 characters, about **3,050 tokens**. Of that,
+**9,957 characters (77%) is the tool schemas**, not the prose. Trimming the
+guide was the smaller half by a wide margin.
+
+`agent.PROMPT_BUDGET_CHARS` now caps it and `tests/test_prompt_budget.py`
+fails the build if it drifts past, because this grows invisibly: every tool
+added costs the same budget and nothing else in the suite would notice.
+
+**Why it matters more than the arithmetic suggests.** Ollama defaults to a
+4096-token window unless the model declares otherwise, and overflow is dropped
+from the *front* — which is the system prompt. A 3B model (granite4.1:3b,
+llama3.2:3b, qwen3.5:2b — the ones this is aimed at) that overflows therefore
+stops knowing it has tools at all, and reports as **"the AI won't use
+tools"**, which is the hardest possible symptom to trace back to a long
+prompt. Settings → Tools is the user-facing escape hatch, and there is now a
+test proving that switch reaches the wire rather than only the executor.
+
+**The remaining win is offering fewer tools per turn, not trimming more
+words.** 28 schemas go up every round whether the question is "how many notes
+do I have" or "remind me to call mum". A relevance filter — or a small
+always-on core plus an opt-in rest — is worth more than anything left in the
+prose. Do it before §21 adds skill tools to the same budget.
+
+Still unmeasured, and still worth measuring before cutting: which of the
+*variable* costs above dominates a real 3-turn chat. Log the prompt-token
+count per round. Summarising older history is the usual answer, but it costs a
 model call, so it should be the last resort rather than the first.
 
 ---
@@ -753,24 +900,47 @@ them. Fixing the prompt alone will not help — the shape has to change first.
 then a runner that executes them with progress, then the UI. The existing
 prompt-only skills should keep working as a one-step skill so nothing is lost.
 
+**Read §11a before starting.** A skill's declared tool allowlist is the thing
+that makes a small model reach for tools — that is the reported failure — but
+every tool schema costs the same per-round budget that
+`agent.PROMPT_BUDGET_CHARS` now caps, and `tests/test_prompt_budget.py` will
+fail if this work pushes it over. That is a feature, not an obstacle: **a
+skill naming its three tools is an argument for offering only those three
+during the skill's run**, which is simultaneously the §11a win and the thing
+that makes the skill work on a 3B model. Build them together; the allowlist is
+the same data structure either way.
+
+Where the code is today: skills are `{name, prompt}` (plus a `useTools` flag
+the frontend adds) in the `skills` preference, validated by `SkillItem` in
+`routes_settings.py`, with `_list_skills` / `_save_skill` / `_delete_skill` in
+`ai/tools.py` and `BUILTIN_SKILLS` + `runSkill` in `app.js`.
+
 ---
 
 ## 22. Reported in use, not yet done
 
 Small, concrete, each seen in the running app:
 
-- **Notes don't render markdown.** Chat answers, documents and the dashboard
-  digest all render it; the note list shows raw `**text**`. `renderMarkdown`
-  already exists and is used by three other surfaces, so this is mostly
-  deciding whether the note *list* renders it or only the expanded note —
-  a list of fully-rendered notes with headings and tables gets very tall.
-- **A hero header on the dashboard.** The emblem and wordmark at the top of
-  the dashboard, not only in the top bar. Worth doing with the greeting card
-  that is already there ("Welcome back Brayden!") rather than above it.
-- **SearXNG starts but never answers.** The installer now works without Docker
-  or git, and the process starts, but the health check times out. Next step is
-  to capture its stdout/stderr instead of sending them to DEVNULL — right now
-  a failed start is completely silent, which is why this is a guess.
+- ~~**Notes don't render markdown.**~~ **done** — but read how, before
+  extending it. `renderInlineMarkdown` handles bold, italic, `code` and
+  strike *only*; `renderMarkdown`'s block elements (headings, tables, lists,
+  fences) are deliberately not used in the list, because a list of
+  fully-rendered notes gets very tall, which is the problem this section
+  itself flagged. Code spans are matched first so `` `**x**` `` stays
+  literal, underscore italics are excluded so `snake_case` survives, and
+  `[[wiki links]]` and filter highlighting both still work *inside* emphasis.
+  The dashboard's little note lists **strip** the markers instead
+  (`notePreviewText`) — they clip at ~70 characters, and a clip landing
+  mid-`<strong>` is worse than no emphasis. If someone wants block markdown,
+  it belongs in an expanded/detail view, not the list.
+- ~~**A hero header on the dashboard.**~~ **done** — emblem and wordmark
+  inside the greeting card (not above it), hidden below 720px. The emblem is
+  drawn in the dashboard's own render, not at startup: p5 measures a canvas
+  as zero inside a `display: none` tab, and it has to be redrawn anyway when
+  a theme change moves the accent.
+- ~~**SearXNG starts but never answers** — capture its output.~~ The
+  *capture* is done (see §8b); the underlying start failure is not. Read
+  `data/searxng/searxng.log`.
 
 ---
 

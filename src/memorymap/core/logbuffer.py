@@ -48,13 +48,36 @@ class NoiseFilter(logging.Filter):
 _CONTROL_CHARS = {c: None for c in range(0x20) if c not in (0x09,)}
 _CONTROL_CHARS[0x7F] = None
 MAX_MESSAGE_CHARS = 2000
+MAX_VALUE_CHARS = 200
 
 
 def sanitise(text: str) -> str:
     """Flatten a message to one printable line, capped in length."""
-    cleaned = str(text).translate(_CONTROL_CHARS)
+    # The line breaks are stripped explicitly rather than only via the
+    # translation table below: they are the whole attack, and spelling them out
+    # is what makes this readable as a barrier — to a reviewer and to CodeQL.
+    cleaned = str(text).replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
+    cleaned = cleaned.translate(_CONTROL_CHARS)
     if len(cleaned) > MAX_MESSAGE_CHARS:
         cleaned = cleaned[: MAX_MESSAGE_CHARS - 1] + "…"
+    return cleaned
+
+
+def safe_value(value: object, limit: int = MAX_VALUE_CHARS) -> str:
+    """Make one untrusted value safe to interpolate into a log message.
+
+    `sanitise` runs at the ring buffer, which protects the Settings → Logs
+    viewer and nothing else: the terminal, and any handler a user attaches, see
+    the raw record. Anything the user typed or the internet said therefore has
+    to be cleaned at the *call site* — this is that call.
+
+    Truncation is part of the job. A forged row is the obvious risk; a chat
+    question long enough to push every real record out of a 500-record buffer
+    is the quieter one.
+    """
+    cleaned = sanitise(value if isinstance(value, str) else repr(value))
+    if len(cleaned) > limit:
+        cleaned = cleaned[: limit - 1] + "…"
     return cleaned
 
 

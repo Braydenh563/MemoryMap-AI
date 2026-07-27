@@ -20,11 +20,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from memorymap import __version__
-from memorymap.ai import embeddings
 from memorymap.core import backup, deps, logbuffer
 from memorymap.core.database import AuditLog, Category, Entry, EntryLink, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
+from memorymap.search import websearch
 
 router = APIRouter(tags=["settings"])
 
@@ -72,6 +72,10 @@ class PreferencesBody(BaseModel):
     web_search_enabled: bool | None = None
     # Optional self-hosted SearXNG instance; empty string = use DuckDuckGo.
     searxng_url: str | None = Field(default=None, max_length=200)
+    # Which engine answers: "auto" | "searxng" | "duckduckgo". Validated
+    # rather than free text, so a bad value is rejected at the door instead of
+    # sitting in preferences quietly meaning "auto" forever.
+    search_provider: str | None = None
     # Wave O: agent tools the user has switched off (by tool name).
     disabled_tools: list[str] | None = Field(default=None, max_length=50)
     # The user's IANA timezone, reported by the browser at startup. Anything
@@ -91,6 +95,21 @@ class PreferencesBody(BaseModel):
         except (ZoneInfoNotFoundError, ValueError) as exc:
             raise ValueError(f"Unknown timezone {value!r}") from exc
         return value
+
+    @field_validator("search_provider")
+    @classmethod
+    def _known_provider(cls, value: str | None) -> str | None:
+        """Rejected at the door rather than normalised away, so a UI sending
+        the wrong name finds out instead of silently getting "auto"."""
+        if value is None:
+            return value
+        if value not in websearch.PROVIDERS:
+            raise ValueError(
+                f"Unknown search provider {value!r} — expected one of "
+                + ", ".join(sorted(websearch.PROVIDERS))
+            )
+        return value
+
     # Named filters the user has saved from the Notes tab.
     saved_searches: list["SavedSearch"] | None = Field(default=None, max_length=30)
 
@@ -132,6 +151,9 @@ def get_preferences() -> dict:
         "tools_enabled": config.get_preference("tools_enabled", True),
         "web_search_enabled": config.get_preference("web_search_enabled", False),
         "searxng_url": config.get_preference("searxng_url", ""),
+        "search_provider": websearch.normalise_provider(
+            config.get_preference("search_provider", websearch.DEFAULT_PROVIDER)
+        ),
         "disabled_tools": config.get_preference("disabled_tools", []),
         "saved_searches": config.get_preference("saved_searches", []),
         # Echoed back so the browser can tell whether the zone it just
@@ -348,7 +370,7 @@ def import_markdown(
         if meta.get("category"):
             entry.user_filed = True  # the file said where it belongs
             session.commit()
-        embeddings.store_quietly(session, entry)
+        deps.store_quietly(session, entry)
         imported += 1
     manager.log_action(session, "imported", "data", detail=f"markdown x{imported}")
     session.commit()
@@ -365,20 +387,41 @@ def _require_web_search() -> str:
     if not config.get_preference("web_search_enabled", False):
         raise HTTPException(
             status_code=403,
-            detail="Web search is turned off. Enable it in Settings → Preferences "
+            detail="Web search is turned off. Enable it in Settings → Web search "
             "(this is the one feature that goes online).",
         )
     return str(config.get_preference("searxng_url", "") or "")
 
 
+@router.get("/websearch/providers")
+def web_search_providers() -> dict:
+    """The engine choices, for the selector in Settings → Web search.
+
+    Served rather than duplicated in the frontend so the list can't drift from
+    what `search_web` will actually accept.
+    """
+    searxng_url, provider = websearch.settings_from(deps.get_config())
+    return {
+        "selected": provider,
+        "searxng_url": searxng_url,
+        "providers": [
+            {"id": key, **value} for key, value in websearch.PROVIDERS.items()
+        ],
+    }
+
+
 @router.get("/websearch")
 def web_search(q: str, limit: int = 5, session: Session = Depends(get_session)) -> dict:
-    """Opt-in web lookup via SearXNG (if configured) or DuckDuckGo."""
-    from memorymap.search import websearch
-
-    searxng = _require_web_search()
+    """Opt-in web lookup through whichever engine the user chose."""
+    _require_web_search()
+    searxng, provider = websearch.settings_from(deps.get_config())
     try:
-        results = websearch.search_web(q, limit=max(1, min(limit, 10)), searxng_url=searxng or None)
+        results = websearch.search_web(
+            q,
+            limit=max(1, min(limit, 10)),
+            searxng_url=searxng or None,
+            provider=provider,
+        )
     except websearch.WebSearchError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     manager.log_action(session, "web_searched", "chat", detail=q[:120])
@@ -386,7 +429,10 @@ def web_search(q: str, limit: int = 5, session: Session = Depends(get_session)) 
     return {
         "query": q,
         "results": results,
+        # Which engine actually answered, not which one was asked for — under
+        # "auto" those differ, and the difference is the interesting part.
         "provider": results[0]["engine"] if results else ("searxng" if searxng else "duckduckgo"),
+        "requested_provider": provider,
     }
 
 
@@ -422,7 +468,13 @@ def searxng_status() -> dict:
     """Is a MemoryMap-managed SearXNG installed, running, and answering?"""
     from memorymap.search import searxng_manager
 
-    return searxng_manager.status(deps.get_config().data_dir)
+    data_dir = deps.get_config().data_dir
+    return {
+        **searxng_manager.status(data_dir),
+        # What the instance itself last said. Its output used to go to
+        # DEVNULL, which is why a failed start could only ever be guessed at.
+        "output": searxng_manager.recent_output(data_dir),
+    }
 
 
 @router.post("/websearch/searxng/start")
@@ -441,6 +493,29 @@ def searxng_start(session: Session = Depends(get_session)) -> dict:
     manager.log_action(session, "edited", "preferences", detail="searxng started")
     session.commit()
     return {"running": True, **result}
+
+
+@router.post("/websearch/searxng/reinstall")
+def searxng_reinstall(session: Session = Depends(get_session)) -> dict:
+    """Throw the SearXNG install away and build a fresh one.
+
+    A part-finished install looks installed and dies on start, which reads as
+    "it just doesn't work" with nothing to act on — and the only fix was to go
+    and delete folders by hand.
+    """
+    from memorymap.search import searxng_manager
+
+    config = deps.get_config()
+    try:
+        result = searxng_manager.reinstall_source(config.data_dir)
+    except searxng_manager.SearxngError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    config.set_preference("searxng_url", "")  # nothing to point at until it's back
+    websearch.clear_cache()
+    manager.log_action(session, "edited", "preferences", detail="searxng reinstalled")
+    session.commit()
+    return result
 
 
 @router.post("/websearch/searxng/stop")

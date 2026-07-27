@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from sqlalchemy import delete as sa_delete
 from sqlalchemy.orm import Session
 
-from memorymap.ai import embeddings, janitor, librarian
+from memorymap.ai import janitor, librarian
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.api.schemas import (
     AttachmentOut,
@@ -162,7 +162,7 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
     # to semantic search until re-indexed — never a failed save. It is logged
     # rather than swallowed, so a backend that has stopped working shows up in
     # Settings → Logs instead of quietly shrinking search.
-    embeddings.store_quietly(session, entry)
+    deps.store_quietly(session, entry)
 
     # [[wiki links]] become real links. Best effort for the same reason: a
     # link that can't be resolved must never cost someone their note.
@@ -201,7 +201,7 @@ def add_context(
         )
         session.rollback()
     else:
-        embeddings.store_quietly(session, entry)
+        deps.store_quietly(session, entry)
 
     filed_by = None
     if not entry.user_filed:
@@ -476,7 +476,7 @@ def update_entry(
             )
             session.rollback()
         else:
-            embeddings.store_quietly(session, entry)
+            deps.store_quietly(session, entry)
         # Editing a note can introduce new [[links]]; resolve those too.
         try:
             manager.sync_wiki_links(session, entry)

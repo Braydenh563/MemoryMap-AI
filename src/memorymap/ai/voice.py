@@ -20,8 +20,12 @@ INSTALL_HINT = (
 
 # One loaded model per process; Whisper models are too heavy to reload
 # per request. Guarded by a lock because two requests can race the load.
-_model = None
-_model_size: str | None = None
+#
+# The size and the model are one cache entry, not two globals: kept apart, the
+# pair can be written half-way — the old model still loaded under the new
+# size's name — and every later call then hands back the wrong model believing
+# it is the right one. A single tuple cannot get out of step with itself.
+_loaded: tuple[str, object] | None = None
 _lock = threading.Lock()
 
 
@@ -30,15 +34,14 @@ def whisper_available() -> bool:
 
 
 def _get_model(size: str):  # noqa: ANN202 — faster_whisper types are optional
-    global _model, _model_size
+    global _loaded
     with _lock:
-        if _model is None or _model_size != size:
+        if _loaded is None or _loaded[0] != size:
             from faster_whisper import WhisperModel  # imported only when present
 
             # int8 keeps memory modest on ordinary laptops.
-            _model = WhisperModel(size, device="cpu", compute_type="int8")
-            _model_size = size
-        return _model
+            _loaded = (size, WhisperModel(size, device="cpu", compute_type="int8"))
+        return _loaded[1]
 
 
 def transcribe(audio_path: Path, model_size: str = "base") -> str:

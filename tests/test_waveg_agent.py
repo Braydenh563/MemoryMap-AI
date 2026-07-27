@@ -25,10 +25,16 @@ def _stream_events(client, question, **body):
 # --- the registry ---------------------------------------------------------------
 
 
+# Tools that reach the internet. They stay hidden until the user opts in
+# (Wave F), so the registry is always larger than what's offered.
+ONLINE_TOOLS = {"web_search", "read_url"}
+
+
 def test_registry_shapes_are_valid_for_ollama(app_state):
     offered = tools.ollama_tools()
-    # web_search stays hidden until the user opts in (Wave F).
-    assert len(offered) == len(tools.TOOLS) - 1
+    # Expressed as the rule rather than a count, so adding an online tool
+    # doesn't fail this test for the wrong reason.
+    assert {t["function"]["name"] for t in offered} == set(tools.TOOLS) - ONLINE_TOOLS
     for item in offered:
         assert item["type"] == "function"
         fn = item["function"]

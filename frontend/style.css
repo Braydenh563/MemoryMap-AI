@@ -4129,3 +4129,8 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   font-weight: 600;
 }
 .notes-subtabs button:not(.active):hover { background: var(--accent-soft); color: var(--ink); }
+
+/* Agent mode reads as a mode you switch into, not a checkbox you tick, so the
+   label carries a little more weight than the other toolbar controls. */
+.agent-toggle .agent-toggle-label { font-weight: 600; }
+.agent-toggle:has(input:checked) .agent-toggle-label { color: var(--accent); }

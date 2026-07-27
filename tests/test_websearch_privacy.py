@@ -188,3 +188,76 @@ def test_assert_external_still_refuses_local_addresses(monkeypatch):
     )
     with pytest.raises(websearch.WebSearchError, match="local address"):
         websearch._assert_external("http://sneaky.example/")
+
+
+# --- reading a page for the model ------------------------------------------------------
+
+
+def test_read_url_is_hidden_until_web_search_is_enabled(app_state):
+    """It reaches the internet, so it lives behind the same opt-in as search."""
+    from memorymap.ai import tools
+
+    assert tools.tool_enabled("read_url") is False
+    assert "read_url" not in {t["function"]["name"] for t in tools.ollama_tools()}
+
+
+def test_read_url_returns_the_page_text(app_state, session, monkeypatch):
+    """The tool behind "Ask about this". Without it the model is handed a URL
+    it cannot open, and answers from the address alone."""
+    from memorymap.ai import tools
+    from memorymap.core import deps
+
+    deps.get_config().set_preference("web_search_enabled", True)
+    monkeypatch.setattr(
+        websearch,
+        "fetch_readable",
+        lambda url: {
+            "url": url,
+            "domain": "example.com",
+            "title": "A post",
+            "text": "The readable body of the page.",
+            "blocks": [],
+        },
+    )
+    result = tools.execute_tool(session, "read_url", {"url": "https://example.com/a"})
+    assert result["title"] == "A post"
+    assert result["text"] == "The readable body of the page."
+    assert result["truncated"] is False
+    assert "example.com" in result["label"]
+
+
+def test_read_url_says_when_it_only_read_part_of_a_page(app_state, session, monkeypatch):
+    """A truncated page reported as whole is how a model confidently answers
+    from an article it only saw the top of."""
+    from memorymap.ai import tools
+    from memorymap.core import deps
+
+    deps.get_config().set_preference("web_search_enabled", True)
+    long_page = "x" * (tools.READ_URL_MAX_CHARS + 500)
+    monkeypatch.setattr(
+        websearch,
+        "fetch_readable",
+        lambda url: {
+            "url": url, "domain": "example.com", "title": "Long",
+            "text": long_page, "blocks": [],
+        },
+    )
+    result = tools.execute_tool(session, "read_url", {"url": "https://example.com/a"})
+    assert len(result["text"]) == tools.READ_URL_MAX_CHARS
+    assert result["truncated"] is True
+    assert result["note"]
+
+
+def test_read_url_reports_a_refused_address_to_the_model(app_state, session, monkeypatch):
+    from memorymap.ai import tools
+    from memorymap.core import deps
+
+    deps.get_config().set_preference("web_search_enabled", True)
+
+    def boom(url):
+        raise websearch.WebSearchError("That link points at a local address")
+
+    monkeypatch.setattr(websearch, "fetch_readable", boom)
+    result = tools.execute_tool(session, "read_url", {"url": "http://127.0.0.1/"})
+    # An error comes back as data the model can act on, never as a crash.
+    assert "local address" in result["error"]

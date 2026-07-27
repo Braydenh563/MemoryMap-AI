@@ -205,7 +205,7 @@ function startApp() {
   step("load templates", loadTemplates).then(() =>
     step("set up chat options", () => {
       personaOptions();
-      // Wave G: skills chips + the "AI can make changes" toggle read the
+      // Wave G: skills chips + the agent-mode toggle read the
       // same prefsCache that loadTemplates just filled.
       loadChatSkills();
       $("tools-toggle").checked = !prefsCache || prefsCache.tools_enabled !== false;
@@ -2290,14 +2290,37 @@ async function runWebSearch() {
     open.textContent = "↗ Open in browser";
     actions.appendChild(open);
     actions.appendChild(
-      smallButton("💬 Ask about this", "Send this link to the chat", () => {
-        $("chat-input").value = `About ${result.url} — `;
-        $("chat-input").focus();
-      })
+      smallButton(
+        "💬 Ask about this",
+        "Open this page and ask the AI about it",
+        () => askAboutPage(result.url, result.title)
+      )
     );
     row.appendChild(actions);
     box.appendChild(row);
   }
+}
+
+// "Ask about this" used to drop `About <url> — ` into the chat box and stop
+// there. The model cannot open a URL, so it answered from the address text —
+// which is why this read as simply not working (user-reported). It now closes
+// the web panel, writes a question naming the page, and lets the agent's
+// read_url tool fetch it. The tool needs web search on, so that is checked
+// first and offered rather than failing silently.
+async function askAboutPage(url, title) {
+  if (!(prefsCache && prefsCache.web_search_enabled)) {
+    toast("Turn on 🌐 Web first — reading a page needs it.", true);
+    return;
+  }
+  // Reading a page is a tool call, so agent mode has to be on for this turn.
+  const input = $("chat-input");
+  const label = (title || "").trim() || url;
+  input.value = `Read ${url} and tell me about it — "${label}".`;
+  toggleWebPanel(false);
+  input.focus();
+  // Sent with tools forced on, whatever the toggle says: the request is
+  // meaningless without the one tool that can fetch the page.
+  await sendChatMessage(undefined, { useTools: true });
 }
 
 async function openWebReader(url) {
@@ -4548,7 +4571,7 @@ async function addPersona() {
 // "Tidy suggestions" is the self-organising librarian: it proposes
 // merges/renames/links and asks — it never changes anything silently.
 // `useTools: true` marks a skill that DOES things (via the AI's tools) rather
-// than just answering — running it turns on "AI can make changes" for that
+// than just answering — running it turns on agent mode for that
 // message, so an action skill actually acts. Destructive steps still confirm.
 const BUILTIN_SKILLS = [
   {
@@ -4643,7 +4666,7 @@ function stopEditingSkill() {
   $("skill-status").textContent = "";
 }
 
-// Run a skill. An action skill (useTools) turns on "AI can make changes" for
+// Run a skill. An action skill (useTools) turns on agent mode for
 // this run — and leaves it on, visibly, so the user sees the AI is acting —
 // so it can actually use its tools instead of only answering.
 function runSkill(skill) {
@@ -5342,7 +5365,7 @@ function featureCatalog() {
       { name: "Chat", desc: "A full conversation with your notebook, saved and resumable.", run: () => { switchTab("chat"); $("chat-input").focus(); } },
       { name: "Personas", desc: "Change the assistant's voice — Librarian, Coach, Analyst, or your own.", run: () => openSettingsModal("personas") },
       { name: "Skills", desc: "One-click requests like “Summarise my week”; can act on your notes.", run: () => openSettingsModal("skills") },
-      { name: "AI can make changes", desc: "Let the assistant create, tag, link and organise notes for you.", run: () => switchTab("chat") },
+      { name: "Agent mode", desc: "Let the assistant use its tools — search your notes, open a page, create, tag, link and organise.", run: () => switchTab("chat") },
       { name: "Web search", desc: "Optional, opt-in: the one feature that goes online.", run: () => switchTab("chat") },
       { name: "Export chat", desc: "Download a conversation as Markdown.", run: () => switchTab("chat") },
     ]},
@@ -11320,6 +11343,9 @@ $("web-reader-back").addEventListener("click", () =>
   $("web-reader").classList.add("hidden")
 );
 $("web-reader-save").addEventListener("click", saveWebPageAsNote);
+$("web-reader-ask").addEventListener("click", () => {
+  if (webReaderPage) askAboutPage(webReaderPage.url, webReaderPage.title);
+});
 
 // Dashboard + reminders (Wave D).
 $("dash-edit").addEventListener("click", () => {
@@ -12006,7 +12032,7 @@ const ONBOARDING_SLIDES = [
   {
     icon: "💬",
     title: "Ask your notebook",
-    text: "Ask questions in plain English and get answers grounded in your own notes. Switch on “AI can make changes” and it can organise them for you too.",
+    text: "Ask questions in plain English and get answers grounded in your own notes. Switch on Agent mode and it can use its tools — searching your notes, opening a web page, and organising things for you.",
   },
   {
     icon: "🕸",

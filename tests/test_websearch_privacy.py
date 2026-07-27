@@ -9,6 +9,10 @@ campaign put in the link, is traceable by construction.
 
 from __future__ import annotations
 
+import ipaddress
+
+import pytest
+
 from memorymap.search import websearch
 
 
@@ -123,3 +127,64 @@ def test_headings_keep_their_depth():
     assert [h["text"] for h in headings] == ["The title", "A section", "A subsection"]
     # Non-headings don't carry a level.
     assert all("level" not in b for b in blocks if b["type"] != "heading")
+
+
+# --- what we connect to --------------------------------------------------------------
+# Headers and link-stripping cover what a site learns about you. These cover a
+# different risk: being made to fetch something on your own machine.
+
+
+def test_a_search_session_starts_with_an_empty_cookie_jar():
+    """Cookies are the other half of correlation — they link one query to the
+    next regardless of how careful the headers are."""
+    session = websearch._private_session()
+    try:
+        assert len(session.cookies) == 0
+        assert session.headers["User-Agent"] == websearch.USER_AGENT
+        # trust_env must stay on: it is how someone's own proxy (Tor, a VPN)
+        # and the system CA bundle reach requests at all. Disabling it would
+        # look like a privacy win and be the opposite.
+        assert session.trust_env is True
+    finally:
+        session.close()
+
+
+def test_pin_url_swaps_in_the_checked_address_and_keeps_the_host():
+    """The connection has to go to the address that passed the check.
+
+    Resolving once for the check and again for the connection leaves a window
+    where a hostile nameserver answers the two differently (DNS rebinding).
+    """
+    pinned, host = websearch._pin_url(
+        "https://example.com/page", ipaddress.ip_address("93.184.216.34")
+    )
+    assert pinned == "https://93.184.216.34:443/page"
+    assert host == "example.com"
+
+
+def test_pin_url_brackets_ipv6_and_keeps_an_explicit_port():
+    pinned, host = websearch._pin_url(
+        "http://example.com:8080/p",
+        ipaddress.ip_address("2606:2800:220:1:248:1893:25c8:1946"),
+    )
+    assert pinned.startswith("http://[2606:2800:220:1:248:1893:25c8:1946]:8080/")
+    assert host == "example.com:8080"
+
+
+def test_assert_external_hands_back_the_addresses_it_validated(monkeypatch):
+    monkeypatch.setattr(
+        websearch,
+        "_host_addresses",
+        lambda host: [ipaddress.ip_address("93.184.216.34")],
+    )
+    assert websearch._assert_external("https://example.com/") == [
+        ipaddress.ip_address("93.184.216.34")
+    ]
+
+
+def test_assert_external_still_refuses_local_addresses(monkeypatch):
+    monkeypatch.setattr(
+        websearch, "_host_addresses", lambda host: [ipaddress.ip_address("127.0.0.1")]
+    )
+    with pytest.raises(websearch.WebSearchError, match="local address"):
+        websearch._assert_external("http://sneaky.example/")

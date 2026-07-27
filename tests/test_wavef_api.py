@@ -97,9 +97,14 @@ def test_backup_create_list_delete(client):
     assert {b["name"] for b in listed} == baseline | {name}
     assert all(b["size"] > 0 for b in listed)
 
-    assert client.delete(f"/backups/{name}").json() == {"deleted": name}
+    # The request goes on its own line, not inside the assert: `python -O`
+    # strips assert statements wholesale, which would delete the deletion and
+    # leave the test passing while exercising nothing.
+    deleted = client.delete(f"/backups/{name}")
+    assert deleted.json() == {"deleted": name}
     assert {b["name"] for b in client.get("/backups").json()} == baseline
-    assert client.delete("/backups/nope.db").status_code == 404
+    missing = client.delete("/backups/nope.db")
+    assert missing.status_code == 404
 
 
 def test_backup_restore_rolls_the_database_back(client):
@@ -202,15 +207,24 @@ def test_searxng_is_used_when_configured(client, monkeypatch):
 
     captured = {}
 
-    def fake_get(url, params=None, headers=None, timeout=None):
-        captured["url"] = url
-        captured["params"] = params
-        return FakeResponse()
+    # Searches now go through a throwaway private session (no cookie jar, no
+    # identifying User-Agent) and use POST so the query stays out of the
+    # request line, so the fake stands in for the session rather than for
+    # requests.get.
+    class FakeSession:
+        def post(self, url, data=None, timeout=None):
+            captured["url"] = url
+            captured["data"] = data
+            return FakeResponse()
 
-    monkeypatch.setattr(websearch.requests, "get", fake_get)
+        def close(self):
+            captured["closed"] = True
+
+    monkeypatch.setattr(websearch, "_private_session", FakeSession)
     body = client.get("/websearch?q=hello").json()
     assert captured["url"] == "http://localhost:8888/search"
-    assert captured["params"]["format"] == "json"
+    assert captured["data"]["format"] == "json"
+    assert captured["closed"] is True  # the session must not be kept around
     assert body["provider"] == "searxng"
     assert body["results"][0]["domain"] == "example.net"
     assert body["results"][0]["engine"] == "searxng"
@@ -223,10 +237,14 @@ def test_searxng_failure_falls_back_to_duckduckgo(client, monkeypatch):
         json={"web_search_enabled": True, "searxng_url": "http://localhost:8888"},
     )
 
-    def boom(*args, **kwargs):
-        raise websearch.requests.RequestException("instance is down")
+    class DeadSession:
+        def post(self, *args, **kwargs):
+            raise websearch.requests.RequestException("instance is down")
 
-    monkeypatch.setattr(websearch.requests, "get", boom)
+        def close(self):
+            pass
+
+    monkeypatch.setattr(websearch, "_private_session", DeadSession)
     monkeypatch.setattr(
         websearch, "_search_duckduckgo", lambda q, limit: websearch._parse_results(FAKE_DDG_PAGE, limit)
     )
@@ -578,17 +596,30 @@ def test_reader_refuses_a_redirect_into_the_local_network(client, monkeypatch):
         def close(self):
             pass
 
-    def fake_get(url, **kwargs):
-        seen.append(url)
-        return FakeResponse(url)
+    class FakeSession:
+        def get(self, url, **kwargs):
+            seen.append((url, kwargs.get("headers", {}).get("Host")))
+            return FakeResponse(url)
 
-    monkeypatch.setattr(websearch.requests, "get", fake_get)
+        def mount(self, prefix, adapter):
+            pass
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(websearch, "_private_session", FakeSession)
     client.put("/preferences", json={"web_search_enabled": True})
     response = client.get("/websearch/read?url=https://example.com/post")
     assert response.status_code == 502
     assert "local address" in response.json()["detail"]
-    # The first hop was fetched; the redirect target never was.
-    assert seen == ["https://example.com/post"]
+    # One hop was fetched and the redirect target never was. The fetched URL
+    # carries the resolved IP rather than the hostname — each hop connects to
+    # the address that passed the check, so a nameserver can't answer the
+    # check and the connection differently (DNS rebinding).
+    assert len(seen) == 1
+    fetched_url, host_header = seen[0]
+    assert host_header == "example.com"
+    assert "example.com" not in fetched_url
 
 
 def test_reader_opens_an_ordinary_result_page(client, monkeypatch):

@@ -72,7 +72,11 @@ async function api(path, options = {}) {
   // `timeoutMs`: opt-in abort so a call can't hang the UI forever (used by the
   // startup probe). Off by default, so long-running requests — model pulls,
   // blocking chat — are unaffected.
-  const { silent, timeoutMs, ...fetchOptions } = options;
+  // `ownsAuthErrors`: this call treats 401 as part of its own result rather
+  // than as an expired session. Change-password answers 401 for "that isn't
+  // your current password" — a typo there must show a message beside the
+  // field, not throw the user out to the lock screen.
+  const { silent, timeoutMs, ownsAuthErrors, ...fetchOptions } = options;
   let timer = null;
   if (timeoutMs) {
     const controller = new AbortController();
@@ -88,7 +92,7 @@ async function api(path, options = {}) {
   } finally {
     if (timer) clearTimeout(timer);
   }
-  if (response.status === 401) {
+  if (response.status === 401 && !ownsAuthErrors) {
     if (!silent) showLockScreen(false); // token expired (e.g. app restarted)
     throw new Error("Locked");
   }
@@ -211,8 +215,30 @@ function startApp() {
   step("load conversations", loadConversationList);
   step("check the AI model status", refreshModelStatus);
 
+  // Re-render whichever tab is on screen. switchTab() runs at module level —
+  // before initAuth() has a token — so a tab that fetches its own data painted
+  // itself from a pile of 401s and then never tried again. On the dashboard
+  // that meant an empty grid until you opened Edit layout and cancelled out of
+  // it, which re-ran renderDashboard by hand (user-reported).
+  step("load this tab", () => refreshActiveTab());
+
   // First-run welcome tour (guarded by localStorage; re-runnable from Help).
   maybeShowOnboarding();
+}
+
+// The per-tab data loads switchTab performs, without the tab-switching itself.
+// Kept beside switchTab's own dispatch so the two can't drift apart.
+function refreshActiveTab() {
+  const name = localStorage.getItem("activeTab") || "notes";
+  if (name === "dashboard") return renderDashboard();
+  if (name === "graph") return renderGraph();
+  if (name === "documents") return loadDocuments();
+  if (name === "reminders") {
+    refreshReminderDefaults();
+    return loadReminders();
+  }
+  if (name === "chat") return loadChatSuggestions();
+  return undefined; // the notes tab is covered by loadEntries above
 }
 
 // --- capture templates (Wave B) ---------------------------------------------------
@@ -2001,7 +2027,7 @@ function chatMessageActions(actions) {
 // A small "what this answer cost" line under an assistant bubble: which model
 // answered, how long it took, and — when Ollama reports them — token counts
 // and generation speed.
-function messageMetaLine({ model, elapsedMs, stats }) {
+function messageMetaLine({ model, elapsedMs, stats, toolCount = 0, rounds = 0 }) {
   const row = document.createElement("div");
   row.className = "msg-meta muted";
   const bits = [];
@@ -2019,8 +2045,13 @@ function messageMetaLine({ model, elapsedMs, stats }) {
       bits.push(`${(outTok / (stats.eval_ms / 1000)).toFixed(1)} tok/s`);
     }
   }
+  // What the agent actually did, so a turn that used tools says so rather
+  // than looking identical to one that didn't.
+  if (toolCount) bits.push(`${toolCount} tool${toolCount === 1 ? "" : "s"}`);
+  if (rounds > 1) bits.push(`${rounds} rounds`);
   row.textContent = bits.join(" · ");
-  row.title = "Model · response time · prompt→output tokens · generation speed";
+  row.title =
+    "Model · response time · prompt→output tokens · generation speed · tools used";
   return row;
 }
 
@@ -2433,20 +2464,39 @@ function reducedMotionWanted() {
   );
 }
 
-function typingDots() {
+// `label` is the reduced-motion fallback: with animations off the dots can't
+// convey "working", so a word has to. Callers that already print their own
+// sentence beside the indicator pass theirs in — the weekly digest used to
+// append " Thinking about your week…" next to the default, and it rendered as
+// "Thinking… Thinking about your week…" (user-reported).
+function typingDots(label = "Thinking…") {
   if (reducedMotionWanted()) {
-    const label = document.createElement("span");
-    label.className = "typing-label";
-    label.textContent = "Thinking…";
-    label.setAttribute("role", "status");
-    return label;
+    const text = document.createElement("span");
+    text.className = "typing-label";
+    text.textContent = label;
+    text.setAttribute("role", "status");
+    return text;
   }
   const dots = document.createElement("span");
   dots.className = "typing-dots";
   dots.setAttribute("role", "status");
-  dots.setAttribute("aria-label", "The model is writing");
+  dots.setAttribute("aria-label", label);
   for (let i = 0; i < 3; i++) dots.appendChild(document.createElement("span"));
   return dots;
+}
+
+// "⋯ Thinking about your week…" as one node: animated dots plus the sentence
+// when motion is allowed, and the sentence alone when it isn't — never both
+// the default label and a caller's, which is what produced the doubled
+// "Thinking… Thinking about your week…" in the digest widget.
+function typingLine(label) {
+  const wrap = document.createElement("span");
+  const indicator = typingDots(label);
+  wrap.appendChild(indicator);
+  if (!indicator.classList.contains("typing-label")) {
+    wrap.append(` ${label}`);
+  }
+  return wrap;
 }
 
 // Coalesce scroll-to-end into one write per animation frame. It used to run
@@ -2490,7 +2540,158 @@ function addBubble(role, text) {
   return bubble;
 }
 
-// An assistant bubble with its thinking box and matching-records slot.
+// --- the agent's run, as an ordered timeline --------------------------------------
+// A turn used to render into three fixed slots — thinking, then every tool chip,
+// then the answer — regardless of when those things actually happened. For a
+// multi-step agent run that destroys the one thing worth seeing: the order. A
+// model that thought, searched, thought again and then answered looked
+// identical to one that answered immediately.
+//
+// So steps are appended as the events arrive. Consecutive deltas of the same
+// kind extend the current step; a different kind starts a new one, which is
+// what produces the thinking → tool → tool → answer chain the user follows.
+function agentTimeline(holder) {
+  let current = null; // the step still being written into
+  const answerSteps = []; // every prose step, in order
+  const thinkingSteps = [];
+  const record = []; // a serialisable copy, for persistence
+
+  const foldEarlierThinking = () => {
+    // Reasoning that has produced output is finished — collapse it so the
+    // answer isn't buried under it, but leave it there to reopen.
+    for (const step of thinkingSteps) step.el.open = false;
+  };
+
+  const startThinking = () => {
+    const el = document.createElement("details");
+    el.className = "agent-step step-thinking";
+    el.open = true;
+    const summary = document.createElement("summary");
+    summary.textContent = "Thinking";
+    const body = document.createElement("div");
+    body.className = "thinking";
+    el.append(summary, body);
+    holder.appendChild(el);
+    current = { kind: "thinking", el, body, raw: "" };
+    thinkingSteps.push(current);
+    return current;
+  };
+
+  const startAnswer = () => {
+    foldEarlierThinking();
+    const el = document.createElement("div");
+    el.className = "agent-step step-answer bubble-answer";
+    holder.appendChild(el);
+    current = {
+      kind: "answer",
+      el,
+      body: el,
+      raw: "",
+      render: liveMarkdownRenderer(el),
+    };
+    answerSteps.push(current);
+    return current;
+  };
+
+  return {
+    holder,
+    thinking(delta) {
+      const step = current?.kind === "thinking" ? current : startThinking();
+      step.raw += delta;
+      step.body.textContent = step.raw;
+    },
+    answer(delta) {
+      const step = current?.kind === "answer" ? current : startAnswer();
+      step.raw += delta;
+      step.render(step.raw);
+    },
+    // A tool call is its own small step between the prose around it.
+    tool(node) {
+      foldEarlierThinking();
+      holder.appendChild(node);
+      current = null; // whatever comes next begins a fresh step
+    },
+    // Replay a saved run (reopening a conversation).
+    replay(steps) {
+      for (const step of steps || []) {
+        if (step.kind === "thinking" && step.text) {
+          this.thinking(step.text);
+          if (current) current.el.open = false;
+          current = null;
+        } else if (step.kind === "answer" && step.text) {
+          const node = startAnswer();
+          node.raw = step.text;
+          renderMarkdown(node.body, step.text);
+          current = null;
+        } else if (step.kind === "tool") {
+          this.tool(toolChip(step.label, step.ok !== false));
+        }
+      }
+    },
+    noteStep(entry) {
+      record.push(entry);
+    },
+    // Everything the model actually said, for copying, reading aloud and the
+    // history sent with the next question.
+    text() {
+      return answerSteps.map((s) => s.raw).join("\n\n").trim();
+    },
+    thinkingText() {
+      return thinkingSteps.map((s) => s.raw).join("\n\n").trim();
+    },
+    // Re-render each prose step properly once streaming has finished.
+    finalise() {
+      for (const step of answerSteps) renderMarkdown(step.body, step.raw);
+      foldEarlierThinking();
+    },
+    // The box to put a message into when the model produced nothing at all.
+    ensureAnswerBox() {
+      return (answerSteps.at(-1) || startAnswer()).body;
+    },
+    // Editing an answer replaces the model's prose with the user's own, so the
+    // separate prose steps collapse into the one block they typed. The
+    // reasoning and tool steps around them are left alone — those record what
+    // actually happened and aren't the user's to rewrite.
+    replaceAnswer(markdown) {
+      for (const step of answerSteps.slice(1)) step.el.remove();
+      answerSteps.length = Math.min(answerSteps.length, 1);
+      const step = answerSteps[0] || startAnswer();
+      step.raw = markdown;
+      renderMarkdown(step.body, markdown);
+      current = null;
+      return step.body;
+    },
+    // The element answer-editing hides while its textarea is open.
+    answerElement() {
+      return (answerSteps.at(-1) || startAnswer()).el;
+    },
+    hasAnswer() {
+      return answerSteps.some((s) => s.raw.trim());
+    },
+    // The timeline in the order it happened, for saving with the turn.
+    serialise() {
+      const out = [];
+      for (const node of holder.children) {
+        if (node.classList.contains("step-thinking")) {
+          const step = thinkingSteps.find((s) => s.el === node);
+          if (step?.raw) out.push({ kind: "thinking", text: step.raw });
+        } else if (node.classList.contains("step-answer")) {
+          const step = answerSteps.find((s) => s.el === node);
+          if (step?.raw) out.push({ kind: "answer", text: step.raw });
+        } else if (node.classList.contains("tool-chip")) {
+          out.push({
+            kind: "tool",
+            label: node.textContent,
+            ok: !node.classList.contains("tool-chip-error"),
+          });
+        }
+      }
+      return out;
+    },
+  };
+}
+
+// An assistant bubble: an avatar, the step timeline, and a matching-records slot.
 function addAssistantBubble() {
   clearChatEmptyState();
   const bubble = document.createElement("div");
@@ -2510,28 +2711,18 @@ function addAssistantBubble() {
   // canvas inside a detached element, which left the avatar blank until some
   // later render happened to redraw it.
 
-  const thinkingBox = document.createElement("details");
-  thinkingBox.className = "hidden";
-  const summary = document.createElement("summary");
-  summary.textContent = "Model's thinking";
-  const thinkingText = document.createElement("div");
-  thinkingText.className = "thinking";
-  thinkingBox.append(summary, thinkingText);
-
-  // Tool activity (Wave G): "✏️ created note…" chips + confirm cards.
-  const toolsHolder = document.createElement("div");
-  toolsHolder.className = "tool-activity";
-
-  const answerBox = document.createElement("div");
-  answerBox.className = "bubble-answer";
+  // Every step — reasoning, tool calls, prose — lands here in event order.
+  const stepsHolder = document.createElement("div");
+  stepsHolder.className = "agent-steps";
 
   const recordsHolder = document.createElement("div");
 
-  bubble.append(thinkingBox, toolsHolder, answerBox, recordsHolder);
+  bubble.append(stepsHolder, recordsHolder);
   $("chat-messages").appendChild(bubble);
   renderEmblem(avatar, 20); // now attached, so p5 can measure and draw
   chatScrollToEnd();
-  return { bubble, thinkingBox, thinkingText, answerBox, toolsHolder, recordsHolder };
+  const timeline = agentTimeline(stepsHolder);
+  return { bubble, stepsHolder, recordsHolder, timeline };
 }
 
 // One "the AI did something" chip in a bubble (Wave G).
@@ -3480,12 +3671,13 @@ async function sendChatMessage(preset, opts = {}) {
 
   // Regenerate re-runs the same question without adding a duplicate "you".
   if (!opts.skipUserBubble) addBubble("user", question);
-  const { bubble, thinkingBox, thinkingText, answerBox, toolsHolder, recordsHolder } =
-    addAssistantBubble();
-  answerBox.appendChild(typingDots()); // until the first token arrives
-  const renderLive = liveMarkdownRenderer(answerBox);
-  let answerRaw = "";
-  let thinkingRaw = "";
+  const { bubble, stepsHolder, recordsHolder, timeline } = addAssistantBubble();
+  // A placeholder until the first event arrives; the first real step evicts it.
+  const pending = document.createElement("div");
+  pending.className = "agent-step step-pending";
+  pending.appendChild(typingDots());
+  stepsHolder.appendChild(pending);
+  const clearPending = () => pending.remove();
   let meta = null;
   let toolsActed = false;
   let stats = null;
@@ -3509,33 +3701,31 @@ async function sendChatMessage(preset, opts = {}) {
         status.textContent = "The model is writing…";
       },
       onThinking: (delta) => {
-        answerBox.querySelector(".typing-dots, .typing-label")?.remove();
-        thinkingBox.classList.remove("hidden");
-        thinkingBox.open = true; // expanded while reasoning (user request)
-        thinkingRaw += delta;
-        thinkingText.textContent = thinkingRaw;
+        clearPending();
+        timeline.thinking(delta);
         status.textContent = "The model is thinking…";
         chatScrollToEnd();
       },
       onAnswer: (delta) => {
-        if (thinkingBox.open) thinkingBox.open = false; // collapse when answering
-        answerRaw += delta;
-        renderLive(answerRaw); // live markdown (user request; replaces the dots)
+        clearPending();
+        timeline.answer(delta);
         status.textContent = "The model is writing…";
         chatScrollToEnd();
       },
       onTool: (event) => {
-        answerBox.querySelector(".typing-dots, .typing-label")?.remove();
+        clearPending();
         const label = event.ok ? event.label : `⚠️ ${event.error || event.label}`;
-        toolsHolder.appendChild(toolChip(label, event.ok));
+        timeline.tool(toolChip(label, event.ok));
         toolEvents.push({ label, ok: event.ok }); // remember for persistence
         if (event.ok) toolsActed = true;
         status.textContent = "The model is making changes…";
         chatScrollToEnd();
       },
       onConfirm: (event) => {
-        answerBox.querySelector(".typing-dots, .typing-label")?.remove();
-        renderToolConfirm(toolsHolder, event);
+        clearPending();
+        const card = document.createElement("div");
+        renderToolConfirm(card, event);
+        timeline.tool(card.firstElementChild || card);
         status.textContent = "Waiting for your confirmation…";
       },
       onStats: (event) => {
@@ -3550,6 +3740,8 @@ async function sendChatMessage(preset, opts = {}) {
         stats.prompt_tokens = Math.max(stats.prompt_tokens || 0, event.prompt_tokens || 0);
         stats.output_tokens = (stats.output_tokens || 0) + (event.output_tokens || 0);
         stats.eval_ms = (stats.eval_ms || 0) + (event.eval_ms || 0);
+        // The agent tags each round; the highest is how many it took.
+        stats.round = Math.max(stats.round || 0, event.round || 0);
       },
     });
     status.textContent = "";
@@ -3569,16 +3761,23 @@ async function sendChatMessage(preset, opts = {}) {
     input.focus();
   }
 
-  renderMarkdown(answerBox, answerRaw);
+  clearPending();
+  timeline.finalise();
+  const answerRaw = timeline.text();
+  const thinkingRaw = timeline.thinkingText();
   if (meta) renderRecordsDetails(recordsHolder, meta);
   // What this answer cost: model, wall-clock time, tokens, speed.
   const elapsedMs = Math.round(performance.now() - startedAt);
-  if (answerRaw) {
+  // A turn that only ran tools still cost time and tokens, so it gets a meta
+  // line too — previously an agent turn with no prose showed nothing at all.
+  if (answerRaw || toolEvents.length) {
     bubble.appendChild(
       messageMetaLine({
         model: (stats && stats.model) || (meta && meta.answered_by),
         elapsedMs,
         stats,
+        toolCount: toolEvents.length,
+        rounds: (stats && stats.round) || 0,
       })
     );
   }
@@ -3602,7 +3801,7 @@ async function sendChatMessage(preset, opts = {}) {
         "The model finished without writing anything. That usually means it ran " +
         "out of context or the model is struggling with this question — try again, " +
         "or rephrase it.";
-      answerBox.replaceChildren(note);
+      timeline.ensureAnswerBox().replaceChildren(note);
       // Retry and delete at minimum, so there's always a way forward.
       bubble.appendChild(
         chatMessageActions([
@@ -3619,7 +3818,7 @@ async function sendChatMessage(preset, opts = {}) {
     chatMessageActions([
       { label: "⧉", title: "Copy answer", onClick: (e) => copyToClipboard(answerRaw, e.currentTarget) },
       { label: "↻", title: "Regenerate (replaces this answer)", onClick: () => regenerateLastAnswer() },
-      { label: "🔊", title: "Read aloud", onClick: () => speakText(answerBox.textContent) },
+      { label: "🔊", title: "Read aloud", onClick: () => speakText(answerRaw) },
       { label: "🗑", title: "Delete this message", onClick: () => deleteChatTurn(bubble) },
     ])
   );
@@ -3637,6 +3836,9 @@ async function sendChatMessage(preset, opts = {}) {
       answer: answerRaw,
       thinking: thinkingRaw || null,
       tools: toolEvents.length ? toolEvents : null,
+      // The run in the order it happened, so reopening the chat shows the
+      // same step-by-step process rather than a flattened summary.
+      steps: timeline.serialise(),
       // What this turn cost, so the conversation can show a running total.
       // Prompt + output, because both were sent through the model.
       tokens: stats
@@ -4065,10 +4267,11 @@ function editChatAnswer(handles, turnIndex, current) {
   box.rows = Math.min(20, Math.max(4, current.split("\n").length + 1));
   box.setAttribute("aria-label", "Edit this answer");
 
+  const target = handles.timeline.answerElement();
   const finish = (markdown) => {
     editor.remove();
-    handles.answerBox.classList.remove("hidden");
-    if (markdown !== null) renderMarkdown(handles.answerBox, markdown);
+    target.classList.remove("hidden");
+    if (markdown !== null) handles.timeline.replaceAnswer(markdown);
   };
 
   const save = document.createElement("button");
@@ -4113,8 +4316,8 @@ function editChatAnswer(handles, turnIndex, current) {
   row.className = "row";
   row.append(save, cancel);
   editor.append(box, row);
-  handles.answerBox.classList.add("hidden");
-  handles.answerBox.after(editor);
+  target.classList.add("hidden");
+  target.after(editor);
   box.focus();
 }
 
@@ -4133,16 +4336,26 @@ async function openConversation(id) {
       addBubble("user", message.content);
     } else {
       const handles = addAssistantBubble();
-      // Re-draw the tool-activity chips (Wave G) so they don't vanish on
-      // reload the way they used to (user-reported).
-      for (const t of message.tools || []) {
-        handles.toolsHolder.appendChild(toolChip(t.label, t.ok !== false));
+      // Replay the run in the order it happened when the turn recorded one.
+      // Older turns (saved before steps existed) only have the flattened
+      // thinking/tools/answer, so they're rebuilt in that fixed order —
+      // everything is still shown, just without the interleaving.
+      if (message.steps && message.steps.length) {
+        handles.timeline.replay(message.steps);
+      } else {
+        if (message.thinking) {
+          handles.timeline.thinking(message.thinking);
+        }
+        // Re-draw the tool-activity chips (Wave G) so they don't vanish on
+        // reload the way they used to (user-reported).
+        for (const t of message.tools || []) {
+          handles.timeline.tool(toolChip(t.label, t.ok !== false));
+        }
+        if (message.content) {
+          handles.timeline.answer(message.content);
+        }
       }
-      renderMarkdown(handles.answerBox, message.content);
-      if (message.thinking) {
-        handles.thinkingBox.classList.remove("hidden");
-        handles.thinkingText.textContent = message.thinking;
-      }
+      handles.timeline.finalise();
       const turnIndex = chatConv.turns.length; // index this pair will occupy
       if (message.edited) handles.bubble.appendChild(editedMarker());
       handles.bubble.appendChild(
@@ -4153,7 +4366,7 @@ async function openConversation(id) {
             title: "Edit this answer",
             onClick: () => editChatAnswer(handles, turnIndex, message.content),
           },
-          { label: "🔊", title: "Read aloud", onClick: () => speakText(handles.answerBox.textContent) },
+          { label: "🔊", title: "Read aloud", onClick: () => speakText(message.content) },
           { label: "🗑", title: "Delete this message", onClick: () => deleteChatTurn(handles.bubble) },
         ])
       );
@@ -5936,7 +6149,8 @@ async function renderDigestWidget(body) {
   const runGeneration = () => {
     const thinking = document.createElement("p");
     thinking.className = "muted";
-    thinking.append(typingDots(), " Thinking about your week…");
+    // One indicator, one sentence, in both motion modes.
+    thinking.append(typingLine("Thinking about your week…"));
     body.replaceChildren(thinking);
     // Live-render the text as it streams in; the dots stay until the first
     // token arrives, then the words take over.
@@ -6595,10 +6809,113 @@ function nextRecurringDate(fromIso, recurring) {
 // A named quick-due preset -> a concrete Date.
 function presetDate(preset) {
   const d = new Date();
-  if (preset === "3h") d.setHours(d.getHours() + 3);
-  else if (preset === "tomorrow") (d.setDate(d.getDate() + 1), d.setHours(9, 0, 0, 0));
-  else if (preset === "nextweek") (d.setDate(d.getDate() + 7), d.setHours(9, 0, 0, 0));
+  d.setSeconds(0, 0);
+  switch (preset) {
+    case "30m":
+      d.setMinutes(d.getMinutes() + 30);
+      break;
+    case "1h":
+      d.setHours(d.getHours() + 1);
+      break;
+    case "3h":
+      d.setHours(d.getHours() + 3);
+      break;
+    case "tonight":
+      // If it's already past 7pm, "tonight" can only mean tomorrow evening.
+      if (d.getHours() >= 19) d.setDate(d.getDate() + 1);
+      d.setHours(19, 0, 0, 0);
+      break;
+    case "tomorrow":
+      d.setDate(d.getDate() + 1);
+      d.setHours(9, 0, 0, 0);
+      break;
+    case "tomorrowpm":
+      d.setDate(d.getDate() + 1);
+      d.setHours(14, 0, 0, 0);
+      break;
+    case "weekend": {
+      // The coming Saturday morning; on a Saturday or Sunday, the next one.
+      const daysToSaturday = (6 - d.getDay() + 7) % 7 || 7;
+      d.setDate(d.getDate() + daysToSaturday);
+      d.setHours(10, 0, 0, 0);
+      break;
+    }
+    case "nextweek":
+      d.setDate(d.getDate() + 7);
+      d.setHours(9, 0, 0, 0);
+      break;
+    default:
+      break;
+  }
   return d;
+}
+
+// A plain-English echo of whatever is in the datetime field. The raw
+// "27/07/2026 11:20 AM" is hard to sanity-check at a glance; "in about 3
+// hours — Monday 27 July, 11:20" is not (user-reported).
+function updateDueReadout() {
+  const readout = $("reminder-due-readout");
+  if (!readout) return;
+  const raw = $("reminder-due").value;
+  if (!raw) {
+    readout.textContent = "No time set";
+    readout.classList.add("muted");
+    return;
+  }
+  const when = new Date(raw);
+  if (Number.isNaN(when.getTime())) {
+    readout.textContent = "That date doesn't look right";
+    return;
+  }
+  const minutes = Math.round((when.getTime() - Date.now()) / 60000);
+  const pretty = when.toLocaleString([], {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  let relative;
+  if (minutes < 0) relative = "in the past";
+  else if (minutes < 1) relative = "in under a minute";
+  else if (minutes < 60) relative = `in ${minutes} min`;
+  else if (minutes < 60 * 24) relative = `in about ${Math.round(minutes / 60)} h`;
+  else {
+    const days = Math.round(minutes / (60 * 24));
+    relative = `in ${days} day${days === 1 ? "" : "s"}`;
+  }
+  readout.textContent = `⏰ ${relative} — ${pretty}`;
+  readout.classList.toggle("error", minutes < 0);
+}
+
+// Shift the due time by a number of minutes, from whatever is there now.
+function nudgeDue(minutes) {
+  const raw = $("reminder-due").value;
+  const base = raw && !Number.isNaN(new Date(raw).getTime()) ? new Date(raw) : new Date();
+  base.setMinutes(base.getMinutes() + minutes);
+  $("reminder-due").value = toLocalInputValue(base.toISOString());
+  updateDueReadout();
+}
+
+// True when the compose form is untouched — nothing typed anywhere. Only then
+// is it safe to move the due time out from under the user.
+function reminderComposeIsPristine() {
+  return (
+    !$("reminder-text").value.trim() &&
+    !$("reminder-magic").value.trim() &&
+    $("reminder-priority").value === "normal" &&
+    $("reminder-recurring").value === "none"
+  );
+}
+
+// Re-seed the due time whenever the tab is opened on an untouched form, so it
+// is always relative to now rather than to whenever the app happened to start
+// (user request). A half-written reminder is never disturbed.
+function refreshReminderDefaults() {
+  if (!$("reminder-due").value || reminderComposeIsPristine()) {
+    $("reminder-due").value = defaultDueValue();
+  }
+  updateDueReadout();
 }
 
 async function snoozeReminderTo(reminder, when) {
@@ -7864,7 +8181,7 @@ function switchTab(name) {
     renderDocStorage();
   }
   if (name === "reminders") {
-    if (!$("reminder-due").value) $("reminder-due").value = defaultDueValue();
+    refreshReminderDefaults();
     loadReminders();
   }
 }
@@ -7983,10 +8300,62 @@ function initScrollTopButton() {
 
 // --- settings modal (Wave A) ------------------------------------------------------
 
-const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "appearance", "shortcuts", "preferences", "tasks", "data", "logs", "help", "about"];
+const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "appearance", "shortcuts", "preferences", "account", "tasks", "data", "logs", "help", "about"];
 
 // Where to send focus back when a dialog closes (Wave L).
 let overlayReturnFocus = null;
+
+// --- page scroll lock while any overlay is open ---------------------------------
+// Every dialog in the app is a `.modal-overlay` toggled by the `hidden` class,
+// and the page behind kept scrolling under them — you'd reach for the settings
+// scrollbar and move the notebook instead (user-reported). Rather than pairing
+// a lock/unlock onto each of the seven open/close sites (and every one added
+// later), one observer watches the overlays and derives the lock from whatever
+// is actually visible. Overlays created on the fly — the image lightbox — are
+// picked up by the same observer watching <body> for added nodes.
+// `.lightbox` is the same idea under a different class (it's built at runtime
+// rather than living in index.html), so it locks the page too.
+const OVERLAY_SELECTOR = ".modal-overlay, .lightbox";
+
+function syncScrollLock() {
+  const anyOpen = [...document.querySelectorAll(OVERLAY_SELECTOR)].some(
+    (el) => !el.classList.contains("hidden") && el.isConnected
+  );
+  document.documentElement.classList.toggle("modal-open", anyOpen);
+}
+
+function watchOverlays() {
+  let queued = false;
+  // The app toggles classes constantly while streaming a chat answer, so this
+  // observer sees a lot of traffic it doesn't care about. Ignore anything that
+  // isn't an overlay, then coalesce the rest into one check per frame — the
+  // lock must never become a cost on the hot path.
+  const touchesOverlay = (record) => {
+    const target = record.target;
+    if (target instanceof Element && target.matches(OVERLAY_SELECTOR)) return true;
+    // An added/removed node may BE an overlay (the lightbox) or contain one.
+    const isOverlay = (node) =>
+      node instanceof Element &&
+      (node.matches(OVERLAY_SELECTOR) || node.querySelector(OVERLAY_SELECTOR) !== null);
+    return [...record.addedNodes, ...record.removedNodes].some(isOverlay);
+  };
+
+  const observer = new MutationObserver((records) => {
+    if (queued || !records.some(touchesOverlay)) return;
+    queued = true;
+    requestAnimationFrame(() => {
+      queued = false;
+      syncScrollLock();
+    });
+  });
+  observer.observe(document.body, {
+    subtree: true,
+    childList: true, // lightbox-style overlays appended at runtime
+    attributes: true,
+    attributeFilter: ["class"], // the `hidden` toggle on existing dialogs
+  });
+  syncScrollLock();
+}
 
 function settingsModalOpen() {
   return !$("settings-modal").classList.contains("hidden");
@@ -8006,6 +8375,7 @@ function showSettingsSection(name) {
   if (name === "tools") renderToolSettings();
   if (name === "appearance") renderAppearance();
   if (name === "shortcuts") renderShortcutList();
+  if (name === "account") renderAccount().catch(() => {});
   if (name === "data") renderBackups();
   if (name === "tasks") refreshModelStatus(); // populate the tasks list now
 }
@@ -8028,6 +8398,97 @@ function closeSettingsModal() {
   $("settings-modal").classList.add("hidden");
   overlayReturnFocus?.focus?.();
   overlayReturnFocus = null;
+}
+
+// --- account & security ------------------------------------------------------------
+
+async function renderAccount() {
+  const facts = $("account-facts");
+  facts.replaceChildren();
+  const info = await apiJson("/auth/account").catch(() => null);
+  if (!info) {
+    const li = document.createElement("li");
+    li.className = "muted";
+    li.textContent = "Couldn't read the account state.";
+    facts.appendChild(li);
+    return;
+  }
+  const rows = [
+    ["Password", info.configured ? "Set" : "Not set yet"],
+    [
+      "Created",
+      info.created_at ? new Date(info.created_at).toLocaleDateString() : "—",
+    ],
+    [
+      "Private notes",
+      info.vault_exists
+        ? info.vault_open
+          ? "Encryption key loaded — private notes are readable"
+          : "Locked — unlock to read private notes"
+        : "No encrypted notes yet",
+    ],
+    ["Open sessions", String(info.active_sessions)],
+  ];
+  for (const [label, value] of rows) {
+    const li = document.createElement("li");
+    const name = document.createElement("strong");
+    name.textContent = `${label}: `;
+    li.append(name, document.createTextNode(value));
+    facts.appendChild(li);
+  }
+}
+
+async function changePassword() {
+  const status = $("account-status");
+  const current = $("account-current").value;
+  const next = $("account-new").value;
+  const confirmed = $("account-confirm").value;
+  status.classList.remove("error");
+
+  // Checked here as well as on the server, so a typo costs a moment rather
+  // than a password you didn't mean to set.
+  if (!current || !next) {
+    status.classList.add("error");
+    status.textContent = "Fill in your current and new password.";
+    return;
+  }
+  if (next !== confirmed) {
+    status.classList.add("error");
+    status.textContent = "The two new passwords don't match.";
+    return;
+  }
+  if (next.length < 4) {
+    status.classList.add("error");
+    status.textContent = "A password needs at least 4 characters.";
+    return;
+  }
+
+  status.textContent = "Changing…";
+  try {
+    const result = await apiJson("/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify({ current_password: current, new_password: next }),
+      // A 401 here means "wrong current password", not "your session died".
+      ownsAuthErrors: true,
+    });
+    // Changing the password invalidates every token, including this tab's.
+    // The server hands back a fresh one so the change doesn't log you out of
+    // the screen you just used to make it. Key must match authToken().
+    localStorage.setItem("token", result.token);
+    $("account-current").value = "";
+    $("account-new").value = "";
+    $("account-confirm").value = "";
+    status.textContent = "Password changed.";
+    toast(
+      result.other_sessions_ended
+        ? `Password changed. ${result.other_sessions_ended} other session(s) were signed out.`
+        : "Password changed."
+    );
+    renderAccount().catch(() => {});
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+  }
 }
 
 // --- logs viewer (Wave A) ---------------------------------------------------------
@@ -8888,10 +9349,13 @@ function renderSettings() {
   $("models-config").classList.toggle("hidden", !status.ollama_running);
   $("suggested-box").classList.toggle("hidden", !status.ollama_running);
 
+  // The search engine is always adjustable: its recommended option is the
+  // built-in one, which needs no Ollama. Only the Ollama half of it depends
+  // on Ollama being up.
+  renderEmbeddingPicker(status);
   if (status.ollama_running) {
     renderChatModelPicker(status);
     renderUtilityModelPicker(status);
-    renderEmbeddingPicker(status);
     renderInstalledModels(status);
     renderSuggested(status);
   } else {
@@ -9014,13 +9478,22 @@ function renderEmbeddingPicker(status) {
       radio.checked = radio.value === status.embedding_backend;
     }
   }
-  const names = status.installed_models.map((m) => m.name);
+  const names = (status.installed_models || []).map((m) => m.name);
   fillModelSelect(
     $("embedding-model-select"),
     names,
     null,
     status.embedding_model
   );
+  // With Ollama down there are no embedding models to pick from, so that half
+  // of the choice is disabled and says why — rather than the whole section
+  // disappearing, which is what used to happen.
+  const offline = !status.ollama_running;
+  $("embedding-model-select").disabled = offline;
+  $("embedding-apply").disabled = offline;
+  document.querySelector('input[name="emb-backend"][value="ollama"]').disabled = offline;
+  $("embedding-ollama-note").classList.toggle("hidden", offline);
+  $("embedding-offline-note").classList.toggle("hidden", !offline);
 }
 
 function renderReindex(status) {
@@ -9367,7 +9840,9 @@ const ACCENTS = [
 ];
 
 function activeAccent() {
-  return localStorage.getItem("accent") || "indigo";
+  // Goes through appearancePref so a theme's accent applies until you pick
+  // one yourself, at which point yours wins.
+  return appearancePref("accent");
 }
 
 // The colour the app is *actually* wearing right now. The generative art used
@@ -9386,10 +9861,13 @@ function currentAccentHex() {
   );
 }
 
-function applyAccent(name) {
+function applyAccent(name, remember = true) {
   if (name === "indigo") delete document.documentElement.dataset.accent;
   else document.documentElement.dataset.accent = name;
-  localStorage.setItem("accent", name);
+  // applyThemePreset re-applies the theme's accent without recording it as a
+  // manual choice — otherwise merely picking a theme would pin its colour as
+  // an override and the next theme couldn't change it.
+  if (remember) localStorage.setItem("accent", name);
   if (bgArtOn()) startBgArt(); // repaint the background in the new accent
   renderBrandLogo(); // recolour the emblem too
 }
@@ -9423,11 +9901,165 @@ const APPEARANCE_DEFAULTS = {
   "bg-intensity": "90",
   radius: "14", // global corner rounding, px
   "glass-blur": "18", // frosted-glass blur strength, px
-  "bg-style": "aurora", // aurora | constellations | blobs | particles
+  "bg-style": "aurora", // aurora | constellation | waves | bubbles | mesh
+  palette: "default", // which curated colour set; themes select one
+  // Missing entirely until now, so appearancePref("bg-motion") returned
+  // undefined and renderAppearance set the Movement <select> to it — which
+  // matches no <option>, leaving the control blank on every fresh profile.
+  "bg-motion": "moving", // moving | still
 };
 
+// --- curated visual themes ---------------------------------------------------------
+// A theme is just a bundle of the same settings the individual controls write,
+// so nothing here is a separate system that could drift from them. It sits as a
+// LAYER between the app defaults and your own choices:
+//
+//     your manual change  →  the selected theme  →  the app default
+//
+// which is what makes "apply manual colour changes over a selected theme" work
+// (user request). Picking a theme never erases a manual setting, and clearing a
+// manual setting falls back to the theme rather than to the app default.
+// A theme is a COMPLETE look: which colour palette to wear, plus the
+// typography and shape that go with it. It deliberately does not carry colours
+// of its own — main's palettes already own colour, with a matched light and
+// dark set each, and a theme that also set `accent` would silently lose to
+// them ([data-palette] rules come later in the stylesheet and win at equal
+// specificity). One mechanism for colour, one for everything else.
+//
+// It sits as a LAYER between the app defaults and your own choices:
+//
+//     your manual change  →  the selected theme  →  the app default
+//
+// which is what makes "apply manual colour changes over a selected theme"
+// work. Picking a theme never erases a manual setting, and clearing a manual
+// setting falls back to the theme rather than to the app default.
+const THEME_PRESETS = {
+  midnight: {
+    label: "Midnight",
+    values: { theme: "dark", palette: "default", glass: "on", radius: "14" },
+  },
+  daylight: {
+    label: "Daylight",
+    values: { theme: "light", palette: "default", glass: "on", radius: "14" },
+  },
+  manuscript: {
+    label: "Manuscript",
+    values: {
+      theme: "light", palette: "parchment", font: "serif", glass: "off",
+      radius: "6", density: "spacious",
+    },
+  },
+  terminal: {
+    label: "Terminal",
+    values: {
+      theme: "dark", palette: "carbon", font: "mono", glass: "off",
+      radius: "2", density: "compact",
+    },
+  },
+  study: {
+    label: "Sage Study",
+    values: { theme: "light", palette: "sage", font: "serif", glass: "on", radius: "16" },
+  },
+  abyss: {
+    label: "Deep Ocean",
+    values: {
+      theme: "dark", palette: "ocean", glass: "on", "glass-blur": "26", radius: "14",
+    },
+  },
+  evening: {
+    label: "Ember Evening",
+    values: { theme: "dark", palette: "ember", glass: "on", radius: "12" },
+  },
+  orchid: {
+    label: "Orchid",
+    values: { theme: "dark", palette: "plum", glass: "on", radius: "18" },
+  },
+  blueprint: {
+    label: "Blueprint",
+    values: {
+      theme: "light", palette: "ocean", font: "mono", glass: "off",
+      radius: "4", density: "compact",
+    },
+  },
+  graphite: {
+    label: "Graphite",
+    values: { theme: "dark", palette: "carbon", glass: "off", radius: "4" },
+  },
+};
+
+// The two colours a theme card shows: the page it sits on and the accent it
+// picks out. Read from the palette itself so a palette tweak can never leave
+// the theme cards advertising a colour the app no longer uses.
+function themeSwatch(preset) {
+  const palette = PALETTES.find((p) => p.id === preset.values.palette) || PALETTES[0];
+  const set = preset.values.theme === "dark" ? palette.dark : palette.light;
+  return [set.page, set.accent];
+}
+
+function activeThemePreset() {
+  const name = localStorage.getItem("themePreset");
+  return THEME_PRESETS[name] ? name : "";
+}
+
+// What the selected theme says about one setting, or undefined.
+function themeValue(key) {
+  const preset = THEME_PRESETS[activeThemePreset()];
+  return preset ? preset.values[key] : undefined;
+}
+
+// The three layers, in order. `??` rather than `||` so a legitimate "0"
+// (corner rounding) isn't treated as unset.
 function appearancePref(key) {
-  return localStorage.getItem(key) || APPEARANCE_DEFAULTS[key];
+  return localStorage.getItem(key) ?? themeValue(key) ?? APPEARANCE_DEFAULTS[key];
+}
+
+// Applying a theme only records WHICH theme. Because every read goes through
+// appearancePref, that is enough to change everything the theme covers while
+// leaving your manual choices sitting on top of it, untouched.
+function applyThemePreset(name) {
+  if (THEME_PRESETS[name]) localStorage.setItem("themePreset", name);
+  else localStorage.removeItem("themePreset");
+  applyAppearance();
+  // `false` on both: re-applying what the theme says must not record it as a
+  // manual choice, or merely picking a theme would pin its values as
+  // overrides and the next theme couldn't change them.
+  applyThemeChoice(appearancePref("theme"), false);
+  applyPalette(appearancePref("palette"), false);
+  renderBrandLogo();
+  if (bgArtOn()) startBgArt();
+}
+
+// Which manual overrides are currently sitting on top of the theme. Shown in
+// the UI so "why isn't the theme's colour showing?" has a visible answer.
+const OVERRIDABLE_KEYS = [
+  "theme", "palette", "accent", "accent-custom", "page-bg", "font", "fontsize",
+  "density", "radius", "glass", "glass-blur", "bg-style", "bg-motion",
+  "bg-intensity",
+];
+
+function manualOverrides() {
+  return OVERRIDABLE_KEYS.filter((key) => localStorage.getItem(key) !== null);
+}
+
+// Drop the manual layer, keeping the chosen theme — the counterpart to
+// "reset the theme" below.
+function clearManualOverrides() {
+  for (const key of manualOverrides()) localStorage.removeItem(key);
+  applyCustomAccent(null);
+  applyPageBackground(null);
+  applyThemePreset(activeThemePreset());
+  renderAppearance();
+  toast("Your manual changes are cleared — the theme is showing on its own.");
+}
+
+// Drop the theme, keeping every manual change — so "reset the theme to
+// default because I want my own colours instead" does exactly that, rather
+// than wiping the colours too (user request).
+function resetThemeOnly() {
+  localStorage.removeItem("themePreset");
+  applyThemePreset("");
+  renderAppearance();
+  toast("Theme reset to the app default. Your own changes are still applied.");
 }
 
 // "#rrggbb" -> "r, g, b" so a custom colour can drive rgba() softs.
@@ -9479,6 +10111,7 @@ function applyAppearance() {
   root.dataset.font = appearancePref("font");
   root.dataset.density = appearancePref("density");
   root.dataset.glass = appearancePref("glass");
+  root.dataset.themePreset = activeThemePreset();
   root.dataset.motion = appearancePref("motion");
   root.style.setProperty("--bg-art-opacity", Number(appearancePref("bg-intensity")) / 100);
   // Cards thin out slightly while the art is on, so it reads through the page
@@ -9487,14 +10120,20 @@ function applyAppearance() {
   root.style.setProperty("--radius", `${appearancePref("radius")}px`);
   root.style.setProperty("--glass-blur", `${appearancePref("glass-blur")}px`);
   applyResolvedMode();
-  applyPalette(activePalette());
+  // remember=false: this runs on every startup, and recording the resolved
+  // value would pin whatever the theme supplied as a manual override — after
+  // which no other theme could ever change the palette again.
+  applyPalette(activePalette(), false);
   applyCustomAccent(localStorage.getItem("accent-custom"));
-  applyPageBackground(localStorage.getItem("page-bg"));
+  // A theme may set the page colour; your own pick overrides it.
+  applyPageBackground(appearancePref("page-bg"));
   applyCustomCss(localStorage.getItem("custom-css"));
 }
 
 function effectiveTheme() {
-  return localStorage.getItem("theme") || "system";
+  // "system" is a real choice, so an explicit one is only overridden by a
+  // manual pick; a theme supplies it when you haven't made one.
+  return localStorage.getItem("theme") ?? themeValue("theme") ?? "system";
 }
 
 // What the app is *actually* showing right now: "system" is a choice, not a
@@ -9520,13 +10159,13 @@ window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () 
   }
 });
 
-function applyThemeChoice(choice) {
+function applyThemeChoice(choice, remember = true) {
   if (choice === "system") {
     delete document.documentElement.dataset.theme;
-    localStorage.removeItem("theme");
+    if (remember) localStorage.removeItem("theme");
   } else {
     document.documentElement.dataset.theme = choice;
-    localStorage.setItem("theme", choice);
+    if (remember) localStorage.setItem("theme", choice);
   }
   applyResolvedMode();
   if (bgArtOn()) startBgArt();
@@ -9539,7 +10178,55 @@ function _segActive(groupId, attr, value) {
   }
 }
 
+function renderThemePresets() {
+  const holder = $("theme-presets");
+  if (!holder) return;
+  holder.replaceChildren();
+  const active = activeThemePreset();
+  for (const [name, preset] of Object.entries(THEME_PRESETS)) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "theme-card";
+    button.title = `Apply the ${preset.label} theme`;
+    button.setAttribute("aria-pressed", String(name === active));
+    const swatch = document.createElement("span");
+    swatch.className = "theme-swatch";
+    // Two bands: the page it sits on and the accent it picks out.
+    const [page, accent] = themeSwatch(preset);
+    swatch.style.background = page;
+    swatch.style.borderBottom = `6px solid ${accent}`;
+    const caption = document.createElement("span");
+    caption.textContent = preset.label;
+    button.append(swatch, caption);
+    button.addEventListener("click", () => {
+      // Clicking the active theme turns it off, so the control is a toggle
+      // rather than a one-way door.
+      applyThemePreset(name === active ? "" : name);
+      renderAppearance();
+    });
+    holder.appendChild(button);
+  }
+
+  // Say plainly which manual settings are covering the theme, so a theme that
+  // "isn't working" has a visible cause and a one-click fix beside it.
+  const overrides = manualOverrides();
+  const note = $("theme-override-note");
+  if (!active && !overrides.length) {
+    note.textContent = "No theme selected — the app's default look.";
+  } else if (!overrides.length) {
+    note.textContent = `${THEME_PRESETS[active].label} is showing exactly as designed.`;
+  } else {
+    note.textContent =
+      `${overrides.length} setting${overrides.length === 1 ? "" : "s"} you changed ` +
+      `(${overrides.join(", ")}) ${overrides.length === 1 ? "is" : "are"} on top of ` +
+      (active ? `the ${THEME_PRESETS[active].label} theme.` : "the default look.");
+  }
+  $("theme-clear-overrides").disabled = overrides.length === 0;
+  $("theme-reset").disabled = !active;
+}
+
 function renderAppearance() {
+  renderThemePresets();
   const holder = $("accent-swatches");
   holder.replaceChildren();
   for (const accent of ACCENTS) {
@@ -9669,17 +10356,19 @@ const PALETTES = [
 ];
 
 function activePalette() {
-  const saved = localStorage.getItem("palette");
+  // Through appearancePref, so a theme supplies the palette until you pick one
+  // yourself — at which point yours wins and stays won.
+  const saved = appearancePref("palette");
   return PALETTES.some((p) => p.id === saved) ? saved : "default";
 }
 
-function applyPalette(id) {
+function applyPalette(id, remember = true) {
   const root = document.documentElement;
   // "default" means "no palette overrides" — leave the attribute off rather
   // than shipping a block that restates the base :root values.
   if (id && id !== "default") root.dataset.palette = id;
   else delete root.dataset.palette;
-  localStorage.setItem("palette", id || "default");
+  if (remember) localStorage.setItem("palette", id || "default");
   // The generative background paints from the accent, so it has to be rebuilt.
   if (bgArtOn()) startBgArt();
 }
@@ -9740,7 +10429,7 @@ function resetAppearance() {
   for (const key of [
     "fontsize", "font", "density", "glass", "motion", "bg-intensity", "accent",
     "contrast", "bgArt", "theme", "radius", "glass-blur", "bg-style",
-    "bg-motion", "palette",
+    "bg-motion", "palette", "themePreset",
     "accent-custom", "page-bg", "custom-css",
   ]) {
     localStorage.removeItem(key);
@@ -10282,6 +10971,21 @@ $("custom-css-clear").addEventListener("click", () => {
   $("custom-css-status").textContent = "Cleared.";
 });
 $("appearance-reset").addEventListener("click", resetAppearance);
+$("theme-reset").addEventListener("click", resetThemeOnly);
+$("account-change").addEventListener("click", changePassword);
+$("account-lock-all").addEventListener("click", async () => {
+  if (!confirm("End every session, including this one? You'll need your password to get back in.")) return;
+  await apiJson("/auth/lock-all", { method: "POST" }).catch(() => {});
+  localStorage.removeItem("token");
+  location.reload();
+});
+// Enter anywhere in the change-password form submits it.
+for (const id of ["account-current", "account-new", "account-confirm"]) {
+  $(id).addEventListener("keydown", (e) => {
+    if (e.key === "Enter") changePassword();
+  });
+}
+$("theme-clear-overrides").addEventListener("click", clearManualOverrides);
 
 // Apply saved appearance prefs immediately, then start the background.
 applyAppearance();
@@ -10312,6 +11016,7 @@ $("skip-link").addEventListener("click", (e) => {
 initNotesSubtabs();
 scrollTopUpdate = initScrollTopButton();
 initResizableSidebars();
+watchOverlays(); // page behind a dialog must not scroll
 switchTab(localStorage.getItem("activeTab") || "notes");
 
 // Settings modal (Wave A).
@@ -10631,6 +11336,9 @@ $("reminder-add").addEventListener("click", async () => {
     $("reminder-text").value = "";
     $("reminder-priority").value = "normal";
     $("reminder-recurring").value = "none";
+    // A fresh default for the next one, measured from now.
+    $("reminder-due").value = defaultDueValue();
+    updateDueReadout();
   }
 });
 $("reminder-clear-done").addEventListener("click", clearDoneReminders);
@@ -10650,9 +11358,16 @@ $("reminder-magic").addEventListener("keydown", (e) => {
 for (const button of document.querySelectorAll("#reminder-presets button")) {
   button.addEventListener("click", () => {
     $("reminder-due").value = toLocalInputValue(presetDate(button.dataset.preset).toISOString());
+    updateDueReadout();
     if (!$("reminder-text").value.trim()) $("reminder-text").focus();
   });
 }
+// Nudges: adjusting an existing time is far quicker than retyping one.
+$("reminder-due-nudge-down").addEventListener("click", () => nudgeDue(-15));
+$("reminder-due-nudge-up").addEventListener("click", () => nudgeDue(15));
+$("reminder-due-day-down").addEventListener("click", () => nudgeDue(-60 * 24));
+$("reminder-due-day-up").addEventListener("click", () => nudgeDue(60 * 24));
+$("reminder-due").addEventListener("input", updateDueReadout);
 for (const button of document.querySelectorAll(".panel-close")) {
   button.addEventListener("click", () => showPanel(null));
 }

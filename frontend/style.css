@@ -765,14 +765,32 @@ li.link-source { outline: 2px solid var(--accent); }
 .modal-body {
   display: grid;
   grid-template-columns: 160px 1fr;
+  /* An implicit `auto` row sizes to its CONTENT, so the scroll pane inside
+     grew past the dialog and .modal-body's overflow:hidden simply clipped it
+     — every settings screen lost its last inch and nothing scrolled. Pinning
+     the row to minmax(0, 1fr) gives the pane a real height to scroll within. */
+  grid-template-rows: minmax(0, 1fr);
   gap: 1rem;
   overflow: hidden;
   flex: 1;
+  min-height: 0; /* a flex item defaults to min-height:auto — it must shrink */
 }
 @media (max-width: 640px) {
-  .modal-body { grid-template-columns: 1fr; }
+  .modal-body {
+    grid-template-columns: 1fr;
+    /* Stacked: the nav takes its natural height, the pane scrolls. */
+    grid-template-rows: auto minmax(0, 1fr);
+  }
 }
-.modal-nav { display: flex; flex-direction: column; gap: 0.15rem; }
+.modal-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  /* Long nav on a short window scrolls on its own rather than pushing the
+     dialog taller than the viewport. */
+  overflow-y: auto;
+  min-height: 0;
+}
 .modal-nav > div { display: flex; flex-direction: column; gap: 0.15rem; }
 /* Group labels: quiet enough to scan past, clear enough to orient by. */
 .nav-group-label {
@@ -802,8 +820,66 @@ li.link-source { outline: 2px solid var(--accent); }
   color: var(--ink);
   font-weight: 600;
 }
-.modal-content { overflow-y: auto; padding-right: 0.4rem; min-height: 320px; }
+.modal-content {
+  overflow-y: auto;
+  padding-right: 0.4rem;
+  /* min-height:auto is the grid default and would defeat the row sizing
+     above; the dialog itself guarantees a usable height. The bottom padding
+     stops the final control sitting flush against the clipped edge. */
+  min-height: 0;
+  padding-bottom: 1.25rem;
+  overscroll-behavior: contain; /* don't hand the scroll on to the page behind */
+}
 .settings-section h3:first-child { margin-top: 0; }
+
+/* --- account & security ------------------------------------------------------ */
+.stacked-label {
+  display: block;
+  margin: 0.6rem 0 0.2rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.code-block {
+  margin: 0.4rem 0;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  background: var(--chip-bg);
+  border: 1px solid var(--border);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.82rem;
+  overflow-x: auto; /* a long command scrolls rather than widening the dialog */
+}
+.code-block code { background: none; padding: 0; }
+
+/* --- curated themes ----------------------------------------------------------
+   Themes and palettes are siblings on the same screen, so theme cards reuse
+   .theme-card from the palette grid rather than defining a rival copy of it —
+   two definitions of one class is how the two grids drift apart visually.
+   Only the swatch differs, because a theme previews a page + accent pair
+   rather than a full palette. */
+.theme-presets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+.theme-swatch {
+  height: 38px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  box-sizing: border-box;
+}
+
+/* Scroll lock: while any overlay is open the page behind must not move.
+   Applied to <html> as well as <body> because the app scrolls the window
+   (switchTab calls window.scrollTo), which body-only overflow doesn't catch. */
+html.modal-open,
+html.modal-open body {
+  overflow: hidden;
+  /* Keeps the locked page from jumping when the scrollbar disappears. */
+  scrollbar-gutter: stable;
+}
 
 .log-list {
   list-style: none;
@@ -1208,6 +1284,75 @@ li.link-source { outline: 2px solid var(--accent); }
   background: var(--warn-soft);
 }
 .tool-confirm p { margin: 0 0 0.5rem; font-size: 0.9rem; }
+
+/* --- the agent's run, as a timeline -------------------------------------------
+   A turn used to render into three fixed slots — all the thinking, then all the
+   tool chips, then the answer — which threw away the order the work actually
+   happened in. Steps are now appended as they arrive, and a rail down the left
+   ties them into one visible sequence: thought → searched → thought again →
+   answered. */
+.agent-steps {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+/* The rail. Drawn only when there's more than one step, so an ordinary
+   single-answer reply stays as plain as it was before. */
+.agent-steps:has(> :nth-child(2))::before {
+  content: "";
+  position: absolute;
+  left: 0.32rem;
+  top: 0.5rem;
+  bottom: 0.5rem;
+  width: 2px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to bottom,
+    var(--accent-soft),
+    var(--accent-soft) 70%,
+    transparent
+  );
+  pointer-events: none;
+}
+.agent-steps:has(> :nth-child(2)) > .agent-step,
+.agent-steps:has(> :nth-child(2)) > .tool-chip,
+.agent-steps:has(> :nth-child(2)) > .tool-confirm {
+  position: relative;
+  padding-left: 1.15rem;
+}
+/* The node on the rail. */
+.agent-steps:has(> :nth-child(2)) > .agent-step::before,
+.agent-steps:has(> :nth-child(2)) > .tool-chip::before,
+.agent-steps:has(> :nth-child(2)) > .tool-confirm::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.55rem;
+  width: 0.66rem;
+  height: 0.66rem;
+  border-radius: 50%;
+  background: var(--card);
+  border: 2px solid var(--accent);
+  box-sizing: border-box;
+}
+/* Reasoning is secondary to the answer, so it reads quieter and folds away
+   once it has produced something. */
+.agent-step.step-thinking {
+  font-size: 0.85rem;
+  margin: 0;
+}
+.agent-step.step-thinking summary {
+  cursor: pointer;
+  color: var(--muted);
+  list-style-position: outside;
+}
+.agent-step.step-thinking[open] summary { margin-bottom: 0.3rem; }
+.agent-steps > .tool-chip { margin: 0; }
+.agent-step.step-answer { margin: 0; }
+.agent-step.step-pending { min-height: 1.2rem; }
+/* A pending placeholder has no meaning of its own — no node on the rail. */
+.agent-steps > .step-pending::before { display: none; }
 
 /* --- Wave E: graph view ------------------------------------------------------- */
 #graph-box {
@@ -2246,6 +2391,14 @@ html { font-size: 16px; }
 }
 #reminder-presets { align-items: center; flex-wrap: wrap; }
 .reminder-hint { margin-left: auto; font-size: 0.82rem; }
+/* The plain-English echo of the chosen time, plus the nudge buttons. */
+#reminder-due-row { align-items: center; flex-wrap: wrap; gap: 0.4rem; }
+#reminder-due-readout {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  min-width: 15rem;
+}
+#reminder-due-readout.error { color: var(--warn); }
 .reminder-listbar {
   display: flex;
   align-items: center;

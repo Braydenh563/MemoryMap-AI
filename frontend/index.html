@@ -10,21 +10,62 @@
   <meta name="theme-color" content="#4f6df5">
   <link rel="stylesheet" href="/style.css">
   <script>
-    // Apply the saved theme + accent before first paint to avoid a flash.
-    const saved = localStorage.getItem("theme");
-    if (saved) document.documentElement.dataset.theme = saved;
-    const accent = localStorage.getItem("accent");
-    if (accent && accent !== "indigo") document.documentElement.dataset.accent = accent;
-    if (localStorage.getItem("contrast") === "on")
-      document.documentElement.dataset.contrast = "on";
-    // Layout prefs before first paint, so there's no flash (Wave O).
-    const _r = document.documentElement;
-    _r.dataset.fontsize = localStorage.getItem("fontsize") || "normal";
-    _r.dataset.font = localStorage.getItem("font") || "system";
-    _r.dataset.density = localStorage.getItem("density") || "comfortable";
-    _r.dataset.glass = localStorage.getItem("glass") || "on";
-    _r.dataset.motion = localStorage.getItem("motion") || "auto";
-    _r.style.setProperty("--bg-art-opacity", (Number(localStorage.getItem("bg-intensity") || 90)) / 100);
+    // Everything visual is applied before first paint, so the app never
+    // flashes the default look and then corrects itself.
+    //
+    // The lookup order matches appearancePref() in app.js exactly:
+    //     your manual change  →  the selected theme  →  the app default
+    // It is duplicated here rather than imported because app.js loads at the
+    // end of the body, which is far too late to prevent the flash. The theme
+    // VALUES are the only thing repeated; keep them in step with
+    // THEME_PRESETS, or a themed reload will flicker.
+    (function () {
+      const _r = document.documentElement;
+      const THEMES = {
+        midnight: { theme: "dark", palette: "default", glass: "on", radius: "14" },
+        daylight: { theme: "light", palette: "default", glass: "on", radius: "14" },
+        manuscript: { theme: "light", palette: "parchment", font: "serif", glass: "off", radius: "6", density: "spacious" },
+        terminal: { theme: "dark", palette: "carbon", font: "mono", glass: "off", radius: "2", density: "compact" },
+        study: { theme: "light", palette: "sage", font: "serif", glass: "on", radius: "16" },
+        abyss: { theme: "dark", palette: "ocean", glass: "on", "glass-blur": "26", radius: "14" },
+        evening: { theme: "dark", palette: "ember", glass: "on", radius: "12" },
+        orchid: { theme: "dark", palette: "plum", glass: "on", radius: "18" },
+        blueprint: { theme: "light", palette: "ocean", font: "mono", glass: "off", radius: "4", density: "compact" },
+        graphite: { theme: "dark", palette: "carbon", glass: "off", radius: "4" },
+      };
+      const preset = THEMES[localStorage.getItem("themePreset")] || {};
+      const pref = (key, fallback) =>
+        localStorage.getItem(key) ?? preset[key] ?? fallback;
+
+      const theme = pref("theme", "system");
+      if (theme && theme !== "system") _r.dataset.theme = theme;
+      // data-mode is the RESOLVED light/dark, which the palettes match on —
+      // under "System" there is no data-theme for CSS to hang off, so without
+      // this every palette would paint its light set on a dark desktop until
+      // app.js caught up.
+      _r.dataset.mode =
+        theme === "light" || theme === "dark"
+          ? theme
+          : window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+
+      const palette = pref("palette", "default");
+      if (palette && palette !== "default") _r.dataset.palette = palette;
+      const accent = pref("accent", "indigo");
+      if (accent && accent !== "indigo") _r.dataset.accent = accent;
+      if (localStorage.getItem("contrast") === "on") _r.dataset.contrast = "on";
+
+      _r.dataset.fontsize = pref("fontsize", "normal");
+      _r.dataset.font = pref("font", "system");
+      _r.dataset.density = pref("density", "comfortable");
+      _r.dataset.glass = pref("glass", "on");
+      _r.dataset.motion = pref("motion", "auto");
+      _r.dataset.themePreset = localStorage.getItem("themePreset") || "";
+      _r.style.setProperty("--radius", pref("radius", "14") + "px");
+      _r.style.setProperty("--glass-blur", pref("glass-blur", "18") + "px");
+      _r.style.setProperty("--bg-art-opacity", Number(pref("bg-intensity", "90")) / 100);
+      const page = pref("page-bg", null);
+      if (page) _r.style.setProperty("--page", page);
+    })();
   </script>
 </head>
 <body>
@@ -726,11 +767,30 @@ Link to another note with [[its first few words]]."></textarea>
         </select>
         <button id="reminder-add">Add</button>
       </div>
+      <!-- Quick set covers the times people actually pick, so the
+           datetime-local field is a fallback rather than the only way in.
+           Each button shows the time it resolves to once pressed. -->
       <div class="row" id="reminder-presets">
         <span class="muted">Quick set:</span>
+        <button class="ghost small" data-preset="30m">In 30 min</button>
+        <button class="ghost small" data-preset="1h">In 1 hour</button>
         <button class="ghost small" data-preset="3h">In 3 hours</button>
+        <button class="ghost small" data-preset="tonight">Tonight 7pm</button>
         <button class="ghost small" data-preset="tomorrow">Tomorrow 9am</button>
+        <button class="ghost small" data-preset="tomorrowpm">Tomorrow 2pm</button>
+        <button class="ghost small" data-preset="weekend">This weekend</button>
         <button class="ghost small" data-preset="nextweek">Next week</button>
+      </div>
+      <div class="row" id="reminder-due-row">
+        <span class="muted" id="reminder-due-readout" role="status"></span>
+        <button id="reminder-due-nudge-down" class="ghost small"
+          title="15 minutes earlier" aria-label="15 minutes earlier">−15m</button>
+        <button id="reminder-due-nudge-up" class="ghost small"
+          title="15 minutes later" aria-label="15 minutes later">+15m</button>
+        <button id="reminder-due-day-down" class="ghost small"
+          title="A day earlier" aria-label="A day earlier">−1d</button>
+        <button id="reminder-due-day-up" class="ghost small"
+          title="A day later" aria-label="A day later">+1d</button>
         <span class="muted reminder-hint">Notifications fire while the app is open — or hit ⏰ on any note.</span>
       </div>
     </section>
@@ -787,6 +847,7 @@ Link to another note with [[its first few words]]."></textarea>
 
           <p class="nav-group-label" id="nav-group-system">System</p>
           <div role="group" aria-labelledby="nav-group-system">
+            <button data-section="account">Account &amp; security</button>
             <button data-section="tasks">Background tasks</button>
             <button data-section="logs">Logs</button>
           </div>
@@ -828,6 +889,14 @@ Link to another note with [[its first few words]]."></textarea>
                 small fast model (e.g. llama3.2) and let a bigger one answer
                 your questions. Leave as “Same as chat model” to keep it simple.
               </p>
+            </div>
+
+            <!-- Deliberately OUTSIDE #models-config. It used to live inside,
+                 which hid the whole search-engine choice whenever Ollama
+                 wasn't running — including the built-in option, which needs
+                 no Ollama at all. So the one setting you could always change
+                 was the one you could never reach (user-reported). -->
+            <div id="search-engine-config">
               <h3>Search engine (how your notes are understood)</h3>
               <label>
                 <input type="radio" name="emb-backend" value="sentence-transformers">
@@ -841,12 +910,16 @@ Link to another note with [[its first few words]]."></textarea>
                 <select id="embedding-model-select"></select>
                 <button id="embedding-apply" class="small">Apply &amp; re-index</button>
               </div>
-              <p class="muted">
+              <p class="muted" id="embedding-ollama-note">
                 Pick a dedicated <strong>embedding</strong> model (e.g.
                 nomic-embed-text) — chat models can't create embeddings.
                 Changing this re-reads every note so search keeps making sense —
                 it runs in the background and search falls back to keywords until
                 it finishes.
+              </p>
+              <p class="muted hidden" id="embedding-offline-note">
+                The Ollama option needs Ollama running — start it and this list
+                fills in. The built-in engine works either way.
               </p>
             </div>
             <div id="reindex-box" class="hidden">
@@ -929,6 +1002,26 @@ Link to another note with [[its first few words]]."></textarea>
 
           <!-- Appearance (Wave J): grouped into scannable setting rows -->
           <section class="settings-section hidden" id="settings-appearance">
+
+            <!-- ---------- Curated themes ---------- -->
+            <div class="settings-group">
+              <h3>Themes</h3>
+              <p class="muted">
+                A theme sets everything below in one go. Anything you then
+                change by hand sits on top of it and wins — so you can pick a
+                theme and still choose your own accent colour.
+              </p>
+              <div id="theme-presets" class="theme-presets"></div>
+              <p class="muted" id="theme-override-note"></p>
+              <div class="row">
+                <button id="theme-reset" class="ghost small"
+                  title="Go back to the app's default look, keeping your own changes">
+                  Reset theme to default</button>
+                <button id="theme-clear-overrides" class="ghost small"
+                  title="Drop your manual changes and show the theme on its own">
+                  Clear my changes, keep the theme</button>
+              </div>
+            </div>
 
             <!-- ---------- Theme & colour ---------- -->
             <div class="settings-group">
@@ -1349,6 +1442,75 @@ Link to another note with [[its first few words]]."></textarea>
           </section>
 
           <!-- Logs (Wave A) -->
+          <!-- Account & security: the one place credentials are managed. -->
+          <section class="settings-section hidden" id="settings-account">
+            <p class="muted">
+              MemoryMap is a <strong>single-user app</strong>: one notebook,
+              one password, all on this machine. To keep separate notebooks,
+              run the app with a different data folder rather than a second
+              account.
+            </p>
+
+            <div class="settings-group">
+              <h3>This notebook</h3>
+              <ul class="entry-list" id="account-facts"></ul>
+            </div>
+
+            <div class="settings-group">
+              <h3>Change your password or PIN</h3>
+              <p class="muted">
+                Your current password is asked for even though you're already
+                unlocked — being at an unlocked screen isn't proof of knowing
+                it. Private notes move across to the new password
+                automatically.
+              </p>
+              <label class="stacked-label" for="account-current">Current password</label>
+              <input id="account-current" type="password" autocomplete="current-password"
+                placeholder="Your current password or PIN">
+              <label class="stacked-label" for="account-new">New password</label>
+              <input id="account-new" type="password" autocomplete="new-password"
+                placeholder="At least 4 characters">
+              <label class="stacked-label" for="account-confirm">Confirm new password</label>
+              <input id="account-confirm" type="password" autocomplete="new-password"
+                placeholder="Type it again">
+              <div class="row">
+                <button id="account-change">Change password</button>
+                <span id="account-status" class="status" role="status"></span>
+              </div>
+            </div>
+
+            <div class="settings-group">
+              <h3>Sessions</h3>
+              <p class="muted">
+                Unlocking issues a token that lives in memory only, so
+                restarting the app locks it again. Changing your password ends
+                every other session.
+              </p>
+              <div class="row">
+                <button id="account-lock-all" class="ghost small">
+                  🔒 Lock everywhere now</button>
+              </div>
+            </div>
+
+            <div class="settings-group">
+              <h3>If you forget your password</h3>
+              <p class="muted">
+                There is no reset link, on purpose — one inside an app you're
+                locked out of would just be a way in for anyone at the
+                keyboard. Run this in a terminal instead:
+              </p>
+              <pre class="code-block"><code>python -m memorymap --reset-password</code></pre>
+              <p class="muted">
+                It asks you to confirm, then clears the password so you can set
+                a new one. <strong>Your ordinary notes are not encrypted</strong>
+                and come back untouched. <strong>Private notes are</strong> —
+                their key is derived from your password, so without it they
+                cannot be recovered by anyone, and the reset loses them. The
+                command tells you how many you have before you confirm.
+              </p>
+            </div>
+          </section>
+
           <section class="settings-section hidden" id="settings-logs">
             <div class="row">
               <select id="log-source" style="max-width:11rem">

@@ -304,3 +304,43 @@ def test_truncating_past_the_end_changes_nothing(client):
     assert result["removed"] == 0
     full = client.get(f"/conversations/{created['id']}").json()
     assert len(full["messages"]) == 2
+
+
+def test_a_turn_can_record_the_agent_run_step_by_step(client):
+    """The chat shows the agent's work as an ordered timeline, so reopening a
+    conversation has to reproduce that order rather than a flattened summary.
+
+    Steps live alongside the existing answer/thinking/tools fields rather than
+    replacing them, so a chat saved before steps existed still renders.
+    """
+    steps = [
+        {"kind": "thinking", "text": "I should look this up."},
+        {"kind": "tool", "label": "🔍 Searched notes", "ok": True},
+        {"kind": "answer", "text": "You have three notes about it."},
+    ]
+    created = client.post(
+        "/conversations",
+        json={
+            "question": "what do I know?",
+            "answer": "You have three notes about it.",
+            "thinking": "I should look this up.",
+            "tools": [{"label": "🔍 Searched notes", "ok": True}],
+            "steps": steps,
+        },
+    ).json()
+
+    messages = client.get(f"/conversations/{created['id']}").json()["messages"]
+    assistant = messages[1]
+    assert assistant["steps"] == steps
+    # The flattened fields stay, so nothing that reads them breaks.
+    assert assistant["content"] == "You have three notes about it."
+    assert assistant["tools"] == [{"label": "🔍 Searched notes", "ok": True}]
+
+
+def test_a_turn_without_steps_still_saves(client):
+    """Older clients (and the plain non-agent path) send no steps at all."""
+    created = client.post(
+        "/conversations", json={"question": "hi", "answer": "hello"}
+    ).json()
+    assistant = client.get(f"/conversations/{created['id']}").json()["messages"][1]
+    assert "steps" not in assistant

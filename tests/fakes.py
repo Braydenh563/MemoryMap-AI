@@ -136,6 +136,24 @@ class FakeOllama:
             "stats": dict(self.stats, model=model),
         }
 
+    def chat_tools_stream(self, model: str, messages: list[dict], tools: list[dict]):
+        """The streaming shape of chat_tools — what the agent loop calls now.
+
+        Delegates so both paths stay in lockstep and the existing tool_script /
+        tool_rounds fixtures keep working unchanged.
+        """
+        reply = self.chat_tools(model, messages, tools)
+        if reply.get("thinking"):
+            yield {"thinking_delta": reply["thinking"]}
+        text = reply.get("content") or ""
+        if text:
+            middle = max(1, len(text) // 2)
+            yield {"content_delta": text[:middle]}
+            yield {"content_delta": text[middle:]}
+        # streamed=True tells the agent the prose already reached the user, so
+        # it must not send the final text a second time.
+        yield {"final": {**reply, "streamed": bool(text)}}
+
     def _reply_text(self, messages: list[dict]) -> str:
         if not self.running:
             raise OllamaError("Ollama is not running (fake)")

@@ -28,7 +28,10 @@ def test_ai_decisions_are_logged(client):
 
 def test_clear_endpoint(client):
     logging.getLogger("memorymap.test").info("about to vanish")
-    assert client.delete("/logs").json() == {"cleared": True}
+    # Not inside the assert: `python -O` removes assert statements, taking the
+    # clear with them and leaving a test that proves nothing.
+    cleared = client.delete("/logs")
+    assert cleared.json() == {"cleared": True}
     # New records may arrive after the clear (request plumbing logs);
     # what matters is that the old ones are gone.
     messages = [r["message"] for r in client.get("/logs").json()]

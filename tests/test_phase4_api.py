@@ -75,7 +75,10 @@ def test_guided_entry_skips_janitor(ai_client, fake_ollama):
 
 def test_delete_restore_and_bin_view(client):
     entry = _save(client, "bin me")
-    assert client.delete(f"/entries/{entry['id']}").status_code == 200
+    # Outside the assert on purpose: `python -O` drops assert statements, and
+    # with the delete inside one the test would pass without ever deleting.
+    deleted = client.delete(f"/entries/{entry['id']}")
+    assert deleted.status_code == 200
 
     assert client.get("/entries").json() == []
     binned = client.get("/entries", params={"deleted": True}).json()

@@ -294,7 +294,11 @@ def test_the_agent_stops_adding_tool_results_once_the_budget_is_spent(
             ollama=fake_ollama,
         )
     )
-    assert [e["type"] for e in events][-1] == "answer"
+    # The agent streams, so the answer arrives as one or more "answer" deltas
+    # followed by the round's "stats" — it is no longer the single last event.
+    # What matters is that the turn ends by answering rather than looping.
+    assert "answer" in [e["type"] for e in events]
+    assert [e["type"] for e in events if e["type"] in ("answer", "tool")][-1] == "answer"
 
     # The second call's result was replaced by the notice, and the tool list
     # was withdrawn so the model has to answer.
@@ -326,4 +330,6 @@ def test_a_normal_turn_is_not_affected_by_the_budget(ai_client, session, fake_ol
     )
     tool_events = [e for e in events if e["type"] == "tool"]
     assert tool_events and tool_events[0]["ok"] is True
-    assert events[-1]["delta"] == "You have one note."
+    # Joined, because streaming splits the answer across deltas.
+    answer = "".join(e["delta"] for e in events if e["type"] == "answer")
+    assert answer == "You have one note."

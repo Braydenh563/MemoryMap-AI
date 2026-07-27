@@ -13,6 +13,7 @@ Rules of the registry:
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Callable
@@ -22,6 +23,7 @@ from datetime import timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from memorymap.ai import embeddings
 from memorymap.core import deps
 from memorymap.core.database import EmbeddingRecord, Entry, Reminder
 from memorymap.entry import manager
@@ -173,7 +175,9 @@ def _since_days(value) -> int | None:
 
 def _refresh_embedding(session: Session, entry: Entry) -> None:
     """Content changed → the old vector is stale. Best effort, exactly
-    like the entries routes: a failed embed never fails the change."""
+    like the entries routes: a failed embed never fails the change —
+    but it does get logged, so a backend that has stopped working is
+    visible in Settings → Logs instead of silently degrading search."""
     try:
         session.execute(
             EmbeddingRecord.__table__.delete().where(
@@ -181,9 +185,13 @@ def _refresh_embedding(session: Session, entry: Entry) -> None:
             )
         )
         session.commit()
-        deps.get_embeddings().store_for_entry(session, entry)
-    except Exception:
-        pass
+    except Exception:  # noqa: BLE001 — never fail the edit over the index
+        logging.getLogger("memorymap.embeddings").warning(
+            "couldn't clear the stale vector for entry %s", entry.id, exc_info=True
+        )
+        session.rollback()
+        return
+    embeddings.store_quietly(session, entry)
 
 
 # --- handlers (session, args) -> result dict -----------------------------------
@@ -646,10 +654,7 @@ def _create_note(session: Session, args: dict) -> dict:
         entry = manager.create_entry(
             session, content, category_name=category, tags=tags, ai_confidence=confidence
         )
-    try:
-        deps.get_embeddings().store_for_entry(session, entry)
-    except Exception:
-        pass
+    embeddings.store_quietly(session, entry)
     result = _note_summary(session, entry)
     result["label"] = f"✏️ Created note #{entry.id} in {result['category']}"
     return result

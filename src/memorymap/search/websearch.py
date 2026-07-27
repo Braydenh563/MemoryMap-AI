@@ -75,6 +75,26 @@ _TRACKING_PARAMS = frozenset(
 )
 
 
+def _private_session() -> requests.Session:
+    """A one-shot session that keeps nothing between calls.
+
+    Headers alone don't stop the other half of the correlation problem:
+    cookies are how a search engine links one query to the next. The jar is
+    empty at the start and thrown away at the end, so nothing about a search
+    survives to be joined onto the one after it.
+
+    trust_env stays ON deliberately. Turning it off looks like a privacy win —
+    no ambient proxy, no netrc — but it also discards the system CA bundle and
+    the user's own proxy settings, and someone routing through Tor or a VPN
+    configures that through exactly those variables. Ignoring them would make
+    this less private, not more.
+    """
+    session = requests.Session()
+    session.headers.update(PRIVACY_HEADERS)
+    session.cookies.clear()
+    return session
+
+
 def strip_tracking(url: str) -> str:
     """Remove click-tracking parameters from a URL, keeping everything else.
 
@@ -263,19 +283,24 @@ def _search_searxng(query: str, limit: int, base_url: str) -> list[dict]:
     if not addresses or not all(_is_internal(address) for address in addresses):
         raise WebSearchError("The SearXNG address must be on this machine or your network")
     url = base_url.rstrip("/") + "/search"
+    session = _private_session()
     try:
         # Same accepted CodeQL SSRF alert as probe_searxng: a user-configured
         # instance, address-checked immediately above.
-        response = requests.get(
+        # POST rather than GET so the query never appears in a request line —
+        # request lines are what end up in access logs and proxy history. The
+        # instance is local, but "local" is not the same as "not written down".
+        response = session.post(
             url,
-            params={"q": query, "format": "json"},
-            headers=PRIVACY_HEADERS,
+            data={"q": query, "format": "json"},
             timeout=REQUEST_TIMEOUT,
         )
         response.raise_for_status()
         payload = response.json()
     except (requests.RequestException, ValueError) as exc:
         raise WebSearchError(f"SearXNG search failed: {exc}") from exc
+    finally:
+        session.close()  # the cookie jar goes with it
 
     rows = payload.get("results") if isinstance(payload, dict) else None
     if not isinstance(rows, list):
@@ -304,16 +329,18 @@ def _search_searxng(query: str, limit: int, base_url: str) -> list[dict]:
 
 
 def _search_duckduckgo(query: str, limit: int) -> list[dict]:
+    session = _private_session()
     try:
-        response = requests.post(
+        response = session.post(
             DDG_URL,
             data={"q": query},
-            headers=PRIVACY_HEADERS,
             timeout=REQUEST_TIMEOUT,
         )
         response.raise_for_status()
     except requests.RequestException as exc:
         raise WebSearchError(f"Web search failed: {exc}") from exc
+    finally:
+        session.close()  # no cookies carried into the next search
     return _parse_results(response.text, limit)
 
 
@@ -414,12 +441,15 @@ def _is_internal(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool
 _MAX_REDIRECTS = 5
 
 
-def _assert_external(url: str) -> None:
+def _assert_external(url: str) -> list:
     """Refuse a URL that isn't plain http(s) out to the public internet.
 
     A search result is untrusted input, so it must never make the app fetch
     something on this machine or the local network — that would turn "open a
     result" into a probe of the user's own services.
+
+    Returns the resolved addresses so the caller can connect to one it has
+    actually checked (see _pin_url) instead of resolving the name again.
     """
     scheme, host = _split_url(url)
     if not scheme:
@@ -429,6 +459,48 @@ def _assert_external(url: str) -> None:
         raise WebSearchError("Couldn't look up that address")
     if any(_is_internal(address) for address in addresses):
         raise WebSearchError("That link points at a local address, so it wasn't opened")
+    return addresses
+
+
+def _pin_url(url: str, address) -> tuple[str, str]:
+    """Rewrite a URL to connect to one already-validated IP.
+
+    Without this the guard above is checkable but not enforceable:
+    _assert_external resolves the hostname, then requests resolves it AGAIN to
+    open the connection. A hostile nameserver can answer the first lookup with
+    a public address and the second with 127.0.0.1 — DNS rebinding — and the
+    fetch walks straight past the check. Connecting to the exact address that
+    passed closes that window.
+
+    Returns (pinned_url, host_header).
+    """
+    parsed = urlparse(url)
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    literal = f"[{address}]" if address.version == 6 else str(address)
+    host_header = (
+        parsed.hostname if parsed.port is None else f"{parsed.hostname}:{parsed.port}"
+    )
+    pinned = urlunparse(parsed._replace(netloc=f"{literal}:{port}"))
+    return pinned, host_header
+
+
+class _PinnedAdapter(requests.adapters.HTTPAdapter):
+    """Connects to a pinned IP while still doing TLS against the real hostname.
+
+    Aiming a request at an IP literal would otherwise send the wrong SNI and
+    check the certificate against the address, so every HTTPS fetch would fail.
+    These two put the hostname back where TLS needs it, leaving verification
+    fully intact.
+    """
+
+    def __init__(self, hostname: str, **kwargs) -> None:
+        self._hostname = hostname
+        super().__init__(**kwargs)
+
+    def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
+        pool_kwargs["server_hostname"] = self._hostname
+        pool_kwargs["assert_hostname"] = self._hostname
+        super().init_poolmanager(connections, maxsize, block=block, **pool_kwargs)
 
 
 def _get_external(url: str) -> requests.Response:
@@ -439,28 +511,48 @@ def _get_external(url: str) -> requests.Response:
     see it — a public page answering "302 → http://127.0.0.1/" would otherwise
     walk straight past the guard above.
     """
-    for _ in range(_MAX_REDIRECTS):
-        _assert_external(url)
-        # CodeQL reports this as SSRF and always will: opening a link the user
-        # picked is the feature. _assert_external runs on every hop, including
-        # each redirect target, which is as far as this can be constrained.
-        response = requests.get(
-            url,
-            headers=PRIVACY_HEADERS,
-            timeout=REQUEST_TIMEOUT,
-            stream=True,
-            allow_redirects=False,
-        )
-        if response.is_redirect or response.is_permanent_redirect:
-            location = response.headers.get("location", "")
-            response.close()
-            if not location:
-                raise WebSearchError("That page redirected to nowhere")
-            # A relative Location is resolved against the hop it came from.
-            url = requests.compat.urljoin(url, location)
-            continue
-        response.raise_for_status()
-        return response
+    session = _private_session()
+    try:
+        for _ in range(_MAX_REDIRECTS):
+            addresses = _assert_external(url)
+            pinned, host_header = _pin_url(url, addresses[0])
+            parsed = urlparse(pinned)
+            if parsed.scheme == "https":
+                session.mount(
+                    f"https://{parsed.netloc}", _PinnedAdapter(urlparse(url).hostname)
+                )
+            # CodeQL reports this as SSRF and always will: opening a link the
+            # user picked is the feature. Every hop is address-checked above
+            # and then pinned to the checked address, which is as far as this
+            # can be constrained without dropping the feature.
+            response = session.get(
+                pinned,
+                headers={"Host": host_header},
+                timeout=REQUEST_TIMEOUT,
+                stream=True,
+                allow_redirects=False,
+            )
+            if response.is_redirect or response.is_permanent_redirect:
+                location = response.headers.get("location", "")
+                response.close()
+                if not location:
+                    raise WebSearchError("That page redirected to nowhere")
+                # A relative Location is resolved against the hop it came from —
+                # the original URL, not the pinned one, so the next check sees
+                # the real hostname.
+                url = requests.compat.urljoin(url, location)
+                continue
+            response.raise_for_status()
+            # The body is still unread, so the session has to outlive this
+            # function; closing it here would shut the pool the caller is about
+            # to stream from. Tying it to the response hands that lifetime to
+            # the garbage collector.
+            response._memorymap_session = session
+            return response
+    except BaseException:
+        session.close()
+        raise
+    session.close()
     raise WebSearchError("That page redirected too many times")
 
 

@@ -40,6 +40,24 @@ class NoiseFilter(logging.Filter):
         return not any(marker in text for marker in _NOISE_MARKERS)
 
 
+# Anything that could let one logged value pose as a second log line. The
+# viewer renders one record per row, so a newline inside a message would draw a
+# forged row — and the text being logged includes things the user typed (chat
+# questions) and things the internet said (page titles). Control characters go
+# for the same reason: they can rewrite what a terminal shows.
+_CONTROL_CHARS = {c: None for c in range(0x20) if c not in (0x09,)}
+_CONTROL_CHARS[0x7F] = None
+MAX_MESSAGE_CHARS = 2000
+
+
+def sanitise(text: str) -> str:
+    """Flatten a message to one printable line, capped in length."""
+    cleaned = str(text).translate(_CONTROL_CHARS)
+    if len(cleaned) > MAX_MESSAGE_CHARS:
+        cleaned = cleaned[: MAX_MESSAGE_CHARS - 1] + "…"
+    return cleaned
+
+
 class BufferHandler(logging.Handler):
     """A logging handler that appends records to the ring buffer."""
 
@@ -48,13 +66,25 @@ class BufferHandler(logging.Handler):
             message = record.getMessage()
         except Exception:  # a bad %-format must never kill logging
             message = str(record.msg)
+        # An exception logged with exc_info carries the traceback separately;
+        # keeping it is the difference between "something failed" and knowing
+        # what, which is the whole point of the viewer.
+        trace = ""
+        if record.exc_info:
+            try:
+                trace = self.format(record).split("\n", 1)[-1]
+            except Exception:  # formatting must never kill logging either
+                trace = ""
         with _lock:
             _records.append(
                 {
                     "time": datetime.now(timezone.utc).isoformat(),
                     "level": record.levelname,
                     "logger": record.name,
-                    "message": message,
+                    "message": sanitise(message),
+                    # Kept as real multi-line text: the viewer renders it in a
+                    # fold, not as rows, so it can't forge a record.
+                    "trace": trace[:8000],
                 }
             )
 

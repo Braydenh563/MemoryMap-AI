@@ -26,7 +26,7 @@ python-dotenv>=1.2.2,<2.0
 
 # AI (Phase 2)
 requests>=2.34.2,<3.0      # talks to the local Ollama REST API
-numpy>=1.26,<3.0           # vectors stored as raw float32 bytes
+numpy>=2.4.6,<3.0           # vectors stored as raw float32 bytes
 sentence-transformers>=2.7,<6.0
 
 # torch: on Windows, force the CPU-only build. The default Windows torch wheel

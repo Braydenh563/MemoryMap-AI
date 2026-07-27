@@ -258,8 +258,13 @@ header#top-bar h1 {
   flex: 0 0 auto;
 }
 .ai-status {
-  width: 1.6rem;
-  height: 1.6rem;
+  /* Square by construction. `aspect-ratio` alongside the explicit height means
+     the circle survives anything that changes one dimension without the other
+     — which is exactly how it became an oval the first time. */
+  width: 1.75rem;
+  height: 1.75rem;
+  aspect-ratio: 1;
+  flex: 0 0 auto;
   padding: 0;
   display: grid;
   place-items: center;
@@ -268,15 +273,32 @@ header#top-bar h1 {
   background: var(--chip-bg);
   color: var(--muted);
   cursor: pointer;
+  /* line-height 1 and a centred grid: the glyphs have different heights above
+     the baseline (… sits low, ✓ and ✕ sit high), and text centring alone would
+     put each one in a slightly different place. */
   line-height: 1;
   box-shadow: none;
 }
 .ai-status-dot {
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 700;
-  /* The glyphs have different natural widths; centring the box keeps the dot
-     itself perfectly round whichever one is showing. */
+  line-height: 1;
   display: block;
+  text-align: center;
+  /* Optical centring, measured rather than guessed. The grid centres the
+     glyph's *line box*; the ink inside it is not centred in that box, because
+     ✓ ! and ✕ all sit in the cap-height band above the baseline. Rendering
+     each one at 6x and measuring its ink put all three exactly 2.17px high on
+     a 28px dot — 0.17em at this font size. */
+  transform: translateY(0.17em);
+}
+.ai-status[data-level="idle"] { background: var(--chip-bg); color: var(--muted); }
+/* The ellipsis is the one glyph that sits *below* the middle — it rides the
+   baseline rather than the cap height — so it needs the opposite correction
+   to the other three. Measured the same way: 2px low before this. */
+.ai-status[data-level="idle"] .ai-status-dot {
+  font-size: 0.9rem;
+  transform: translateY(-0.16em);
 }
 .ai-status[data-level="ok"] { background: var(--ok-soft); color: var(--ok); }
 .ai-status[data-level="warn"] { background: var(--warn-soft); color: var(--warn); }
@@ -4634,7 +4656,14 @@ textarea.autogrow {
    The controls are a row of small buttons of slightly different content
    widths; without a shared height they sit at visibly different sizes next to
    the tab pill. */
-.header-controls button {
+/* `:not(.ai-status)` — the status dot is a button in this group but it is a
+   circle, not a pill, and this rule was quietly making it neither: `height:
+   2rem` against its own 1.6rem width made it an oval, and `padding-inline:
+   0.7rem` against a 25.6px box left the glyph 4.9px right of centre. It sits
+   4,400 lines after `.ai-status` and outranks it (0,1,1 against 0,1,0), so
+   the exception belongs here where the conflict is, not there where it
+   wouldn't be seen. */
+.header-controls button:not(.ai-status) {
   height: 2rem;
   display: inline-flex;
   align-items: center;

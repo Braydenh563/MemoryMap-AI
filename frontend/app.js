@@ -9494,6 +9494,12 @@ async function loadMostUsed() {
 // --- model manager (Phase 3.5) ---------------------------------------------------
 
 let modelStatus = null; // latest /models/status payload
+// Has the status endpoint ever answered? "We haven't asked yet" and "we asked
+// and got nothing" are both `modelStatus === null`, but they mean opposite
+// things to the user: the first is normal for the first second of every
+// startup, the second is a fault. Without this the indicator flashed red on
+// every single page load before settling.
+let statusEverAnswered = false;
 let suggestedCatalog = null; // loaded once, it never changes
 let statusTimer = null;
 
@@ -9517,6 +9523,7 @@ async function refreshModelStatus() {
   try {
     // silent: a poll must never trigger the lock screen (Wave O fix).
     modelStatus = await apiJson("/models/status", { silent: true });
+    statusEverAnswered = true;
   } catch {
     modelStatus = null; // locked or unreachable — pill shows the worst case
   }
@@ -9584,11 +9591,24 @@ function syncAiOnlyControls() {
 // broken: a model that failed to load, or a server we can't reach. Colouring a
 // normal offline setup red would train the user to ignore the indicator.
 //
+//   idle  … grey    haven't heard back yet — says nothing either way
 //   ok    ✓ green   everything the AI can do is available
 //   warn  ! amber   loading, switched off, or partly available — app works
 //   error ✕ red     something is broken and won't fix itself
 function aiStatusState() {
   if (!modelStatus) {
+    // The first poll of every page load lands here for a moment. Reporting
+    // that as a fault would flash red on every startup and teach the user
+    // that red means nothing — so an unanswered *first* request is its own
+    // quiet state, and only a request that has failed after we have already
+    // had an answer counts as the server going away.
+    if (!statusEverAnswered) {
+      return {
+        level: "idle",
+        title: "Checking…",
+        detail: "Asking the app what the AI is doing. This takes a moment.",
+      };
+    }
     return {
       level: "error",
       title: "Can't reach MemoryMap",
@@ -9671,7 +9691,10 @@ function aiStatusState() {
 // The glyph is not decoration. Colour alone fails for the ~8% of men with a
 // colour vision deficiency, and fails everyone in high-contrast mode — so the
 // shape carries the same meaning the colour does.
-const AI_STATUS_GLYPH = { ok: "✓", warn: "!", error: "✕" };
+// "…" for connecting rather than a spinner: a spinner has to be animated to
+// read as one, and under prefers-reduced-motion a frozen spinner looks like a
+// rendering fault. The ellipsis says "waiting" while perfectly still.
+const AI_STATUS_GLYPH = { idle: "…", ok: "✓", warn: "!", error: "✕" };
 
 function renderAiPill() {
   const button = $("ai-status");

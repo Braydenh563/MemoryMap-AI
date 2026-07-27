@@ -150,8 +150,14 @@ header#top-bar h1 {
   font-size: 1.1rem;
   letter-spacing: 0.01em;
   white-space: nowrap;
-  flex: 0 1 auto;
-  min-width: 0;
+  /* Never shrinks. `flex: 0 1 auto` with `min-width: 0` let the box get
+     narrower than the text while `white-space: nowrap` kept the text at full
+     width — so the name overflowed its own box and printed straight over
+     "Dashboard". That is the reported clash between the wordmark and the tab
+     bar, and it is why hiding the wordmark early looked like the fix.
+     The tab strip is what gives up space now (it scrolls); the name is short,
+     fixed, and either fully readable or, below the mobile breakpoint, gone. */
+  flex: 0 0 auto;
 }
 /* The header gives up space in a deliberate order as the window narrows:
    the wordmark first (decoration), then the status pill (its text is
@@ -161,21 +167,22 @@ header#top-bar h1 {
   header#top-bar { gap: 0.9rem; padding-inline: 1rem; }
   .ai-pill-slot { flex: 0 1 12rem; width: 12rem; min-width: 0; }
 }
-/* Back to 1080 after 1390 was tried and reverted.
+/* The wordmark stays until the layout stacks. 1390 was tried, then 1080; both
+   were still hiding the app's own name on ordinary windows, which was
+   reported twice. It is not decoration — it is what tells you which app this
+   is — so it now survives to the mobile breakpoint, where the header becomes
+   a different shape anyway.
 
-   1390 was the width at which six tabs, the pill and three buttons stop
-   fitting beside the wordmark, so hiding it there meant the tabs never had to
-   scroll. But it also took the app's name off the screen on ordinary laptop
-   windows, which was immediately reported — the wordmark is not only
-   decoration, it is what tells you which app this is.
-
-   Hiding it later is safe now in a way it wasn't before: the tab strip can
-   shrink (see the base `#tab-bar` rule), so between 1080 and 1390 the tabs
-   scroll a little with a fade rather than the header overflowing itself. A
-   scrolling tab strip is a much smaller loss than a missing name. */
+   This is only safe because the tab strip can shrink (see the base `#tab-bar`
+   rule). Before that, keeping the wordmark meant the header overflowed itself
+   by up to 215px and pushed the controls out of the window; now the tabs
+   scroll a little with a fade instead, which is a far smaller loss than a
+   missing name. */
 @media (max-width: 1080px) {
-  header#top-bar h1 { display: none; }
   #tab-bar button { padding-inline: 0.7rem; }
+}
+@media (max-width: 720px) {
+  header#top-bar h1 { display: none; }
 }
 @media (max-width: 940px) {
   header#top-bar { gap: 0.6rem; }

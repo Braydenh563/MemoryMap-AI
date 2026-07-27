@@ -663,11 +663,30 @@ Link to another note with [[its first few words]]."></textarea>
         </select>
         <button id="reminder-add">Add</button>
       </div>
+      <!-- Quick set covers the times people actually pick, so the
+           datetime-local field is a fallback rather than the only way in.
+           Each button shows the time it resolves to once pressed. -->
       <div class="row" id="reminder-presets">
         <span class="muted">Quick set:</span>
+        <button class="ghost small" data-preset="30m">In 30 min</button>
+        <button class="ghost small" data-preset="1h">In 1 hour</button>
         <button class="ghost small" data-preset="3h">In 3 hours</button>
+        <button class="ghost small" data-preset="tonight">Tonight 7pm</button>
         <button class="ghost small" data-preset="tomorrow">Tomorrow 9am</button>
+        <button class="ghost small" data-preset="tomorrowpm">Tomorrow 2pm</button>
+        <button class="ghost small" data-preset="weekend">This weekend</button>
         <button class="ghost small" data-preset="nextweek">Next week</button>
+      </div>
+      <div class="row" id="reminder-due-row">
+        <span class="muted" id="reminder-due-readout" role="status"></span>
+        <button id="reminder-due-nudge-down" class="ghost small"
+          title="15 minutes earlier" aria-label="15 minutes earlier">−15m</button>
+        <button id="reminder-due-nudge-up" class="ghost small"
+          title="15 minutes later" aria-label="15 minutes later">+15m</button>
+        <button id="reminder-due-day-down" class="ghost small"
+          title="A day earlier" aria-label="A day earlier">−1d</button>
+        <button id="reminder-due-day-up" class="ghost small"
+          title="A day later" aria-label="A day later">+1d</button>
         <span class="muted reminder-hint">Notifications fire while the app is open — or hit ⏰ on any note.</span>
       </div>
     </section>
@@ -764,6 +783,14 @@ Link to another note with [[its first few words]]."></textarea>
                 small fast model (e.g. llama3.2) and let a bigger one answer
                 your questions. Leave as “Same as chat model” to keep it simple.
               </p>
+            </div>
+
+            <!-- Deliberately OUTSIDE #models-config. It used to live inside,
+                 which hid the whole search-engine choice whenever Ollama
+                 wasn't running — including the built-in option, which needs
+                 no Ollama at all. So the one setting you could always change
+                 was the one you could never reach (user-reported). -->
+            <div id="search-engine-config">
               <h3>Search engine (how your notes are understood)</h3>
               <label>
                 <input type="radio" name="emb-backend" value="sentence-transformers">
@@ -777,12 +804,16 @@ Link to another note with [[its first few words]]."></textarea>
                 <select id="embedding-model-select"></select>
                 <button id="embedding-apply" class="small">Apply &amp; re-index</button>
               </div>
-              <p class="muted">
+              <p class="muted" id="embedding-ollama-note">
                 Pick a dedicated <strong>embedding</strong> model (e.g.
                 nomic-embed-text) — chat models can't create embeddings.
                 Changing this re-reads every note so search keeps making sense —
                 it runs in the background and search falls back to keywords until
                 it finishes.
+              </p>
+              <p class="muted hidden" id="embedding-offline-note">
+                The Ollama option needs Ollama running — start it and this list
+                fills in. The built-in engine works either way.
               </p>
             </div>
             <div id="reindex-box" class="hidden">

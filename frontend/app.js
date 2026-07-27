@@ -229,7 +229,10 @@ function refreshActiveTab() {
   if (name === "dashboard") return renderDashboard();
   if (name === "graph") return renderGraph();
   if (name === "documents") return loadDocuments();
-  if (name === "reminders") return loadReminders();
+  if (name === "reminders") {
+    refreshReminderDefaults();
+    return loadReminders();
+  }
   if (name === "chat") return loadChatSuggestions();
   return undefined; // the notes tab is covered by loadEntries above
 }
@@ -6289,10 +6292,113 @@ function nextRecurringDate(fromIso, recurring) {
 // A named quick-due preset -> a concrete Date.
 function presetDate(preset) {
   const d = new Date();
-  if (preset === "3h") d.setHours(d.getHours() + 3);
-  else if (preset === "tomorrow") (d.setDate(d.getDate() + 1), d.setHours(9, 0, 0, 0));
-  else if (preset === "nextweek") (d.setDate(d.getDate() + 7), d.setHours(9, 0, 0, 0));
+  d.setSeconds(0, 0);
+  switch (preset) {
+    case "30m":
+      d.setMinutes(d.getMinutes() + 30);
+      break;
+    case "1h":
+      d.setHours(d.getHours() + 1);
+      break;
+    case "3h":
+      d.setHours(d.getHours() + 3);
+      break;
+    case "tonight":
+      // If it's already past 7pm, "tonight" can only mean tomorrow evening.
+      if (d.getHours() >= 19) d.setDate(d.getDate() + 1);
+      d.setHours(19, 0, 0, 0);
+      break;
+    case "tomorrow":
+      d.setDate(d.getDate() + 1);
+      d.setHours(9, 0, 0, 0);
+      break;
+    case "tomorrowpm":
+      d.setDate(d.getDate() + 1);
+      d.setHours(14, 0, 0, 0);
+      break;
+    case "weekend": {
+      // The coming Saturday morning; on a Saturday or Sunday, the next one.
+      const daysToSaturday = (6 - d.getDay() + 7) % 7 || 7;
+      d.setDate(d.getDate() + daysToSaturday);
+      d.setHours(10, 0, 0, 0);
+      break;
+    }
+    case "nextweek":
+      d.setDate(d.getDate() + 7);
+      d.setHours(9, 0, 0, 0);
+      break;
+    default:
+      break;
+  }
   return d;
+}
+
+// A plain-English echo of whatever is in the datetime field. The raw
+// "27/07/2026 11:20 AM" is hard to sanity-check at a glance; "in about 3
+// hours — Monday 27 July, 11:20" is not (user-reported).
+function updateDueReadout() {
+  const readout = $("reminder-due-readout");
+  if (!readout) return;
+  const raw = $("reminder-due").value;
+  if (!raw) {
+    readout.textContent = "No time set";
+    readout.classList.add("muted");
+    return;
+  }
+  const when = new Date(raw);
+  if (Number.isNaN(when.getTime())) {
+    readout.textContent = "That date doesn't look right";
+    return;
+  }
+  const minutes = Math.round((when.getTime() - Date.now()) / 60000);
+  const pretty = when.toLocaleString([], {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  let relative;
+  if (minutes < 0) relative = "in the past";
+  else if (minutes < 1) relative = "in under a minute";
+  else if (minutes < 60) relative = `in ${minutes} min`;
+  else if (minutes < 60 * 24) relative = `in about ${Math.round(minutes / 60)} h`;
+  else {
+    const days = Math.round(minutes / (60 * 24));
+    relative = `in ${days} day${days === 1 ? "" : "s"}`;
+  }
+  readout.textContent = `⏰ ${relative} — ${pretty}`;
+  readout.classList.toggle("error", minutes < 0);
+}
+
+// Shift the due time by a number of minutes, from whatever is there now.
+function nudgeDue(minutes) {
+  const raw = $("reminder-due").value;
+  const base = raw && !Number.isNaN(new Date(raw).getTime()) ? new Date(raw) : new Date();
+  base.setMinutes(base.getMinutes() + minutes);
+  $("reminder-due").value = toLocalInputValue(base.toISOString());
+  updateDueReadout();
+}
+
+// True when the compose form is untouched — nothing typed anywhere. Only then
+// is it safe to move the due time out from under the user.
+function reminderComposeIsPristine() {
+  return (
+    !$("reminder-text").value.trim() &&
+    !$("reminder-magic").value.trim() &&
+    $("reminder-priority").value === "normal" &&
+    $("reminder-recurring").value === "none"
+  );
+}
+
+// Re-seed the due time whenever the tab is opened on an untouched form, so it
+// is always relative to now rather than to whenever the app happened to start
+// (user request). A half-written reminder is never disturbed.
+function refreshReminderDefaults() {
+  if (!$("reminder-due").value || reminderComposeIsPristine()) {
+    $("reminder-due").value = defaultDueValue();
+  }
+  updateDueReadout();
 }
 
 async function snoozeReminderTo(reminder, when) {
@@ -7375,7 +7481,7 @@ function switchTab(name) {
   if (name === "graph") renderGraph();
   if (name === "documents") loadDocuments();
   if (name === "reminders") {
-    if (!$("reminder-due").value) $("reminder-due").value = defaultDueValue();
+    refreshReminderDefaults();
     loadReminders();
   }
 }
@@ -8446,10 +8552,13 @@ function renderSettings() {
   $("models-config").classList.toggle("hidden", !status.ollama_running);
   $("suggested-box").classList.toggle("hidden", !status.ollama_running);
 
+  // The search engine is always adjustable: its recommended option is the
+  // built-in one, which needs no Ollama. Only the Ollama half of it depends
+  // on Ollama being up.
+  renderEmbeddingPicker(status);
   if (status.ollama_running) {
     renderChatModelPicker(status);
     renderUtilityModelPicker(status);
-    renderEmbeddingPicker(status);
     renderInstalledModels(status);
     renderSuggested(status);
   } else {
@@ -8572,13 +8681,22 @@ function renderEmbeddingPicker(status) {
       radio.checked = radio.value === status.embedding_backend;
     }
   }
-  const names = status.installed_models.map((m) => m.name);
+  const names = (status.installed_models || []).map((m) => m.name);
   fillModelSelect(
     $("embedding-model-select"),
     names,
     null,
     status.embedding_model
   );
+  // With Ollama down there are no embedding models to pick from, so that half
+  // of the choice is disabled and says why — rather than the whole section
+  // disappearing, which is what used to happen.
+  const offline = !status.ollama_running;
+  $("embedding-model-select").disabled = offline;
+  $("embedding-apply").disabled = offline;
+  document.querySelector('input[name="emb-backend"][value="ollama"]').disabled = offline;
+  $("embedding-ollama-note").classList.toggle("hidden", offline);
+  $("embedding-offline-note").classList.toggle("hidden", !offline);
 }
 
 function renderReindex(status) {
@@ -8957,7 +9075,11 @@ const APPEARANCE_DEFAULTS = {
   "bg-intensity": "90",
   radius: "14", // global corner rounding, px
   "glass-blur": "18", // frosted-glass blur strength, px
-  "bg-style": "aurora", // aurora | constellations | blobs | particles
+  "bg-style": "aurora", // aurora | constellation | waves | bubbles | mesh
+  // Missing entirely until now, so appearancePref("bg-motion") returned
+  // undefined and renderAppearance set the Movement <select> to it — which
+  // matches no <option>, leaving the control blank on every fresh profile.
+  "bg-motion": "moving", // moving | still
 };
 
 function appearancePref(key) {
@@ -9970,6 +10092,9 @@ $("reminder-add").addEventListener("click", async () => {
     $("reminder-text").value = "";
     $("reminder-priority").value = "normal";
     $("reminder-recurring").value = "none";
+    // A fresh default for the next one, measured from now.
+    $("reminder-due").value = defaultDueValue();
+    updateDueReadout();
   }
 });
 $("reminder-clear-done").addEventListener("click", clearDoneReminders);
@@ -9989,9 +10114,16 @@ $("reminder-magic").addEventListener("keydown", (e) => {
 for (const button of document.querySelectorAll("#reminder-presets button")) {
   button.addEventListener("click", () => {
     $("reminder-due").value = toLocalInputValue(presetDate(button.dataset.preset).toISOString());
+    updateDueReadout();
     if (!$("reminder-text").value.trim()) $("reminder-text").focus();
   });
 }
+// Nudges: adjusting an existing time is far quicker than retyping one.
+$("reminder-due-nudge-down").addEventListener("click", () => nudgeDue(-15));
+$("reminder-due-nudge-up").addEventListener("click", () => nudgeDue(15));
+$("reminder-due-day-down").addEventListener("click", () => nudgeDue(-60 * 24));
+$("reminder-due-day-up").addEventListener("click", () => nudgeDue(60 * 24));
+$("reminder-due").addEventListener("input", updateDueReadout);
 for (const button of document.querySelectorAll(".panel-close")) {
   button.addEventListener("click", () => showPanel(null));
 }

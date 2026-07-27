@@ -2335,6 +2335,14 @@ html { font-size: 16px; }
 }
 #reminder-presets { align-items: center; flex-wrap: wrap; }
 .reminder-hint { margin-left: auto; font-size: 0.82rem; }
+/* The plain-English echo of the chosen time, plus the nudge buttons. */
+#reminder-due-row { align-items: center; flex-wrap: wrap; gap: 0.4rem; }
+#reminder-due-readout {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  min-width: 15rem;
+}
+#reminder-due-readout.error { color: var(--warn); }
 .reminder-listbar {
   display: flex;
   align-items: center;

@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img"
+     aria-label="MemoryMap AI">
+  <title>MemoryMap AI</title>
+  <!--
+    The maskable variant, for Android home screens. Android crops an installed
+    icon to whatever shape the launcher uses — circle, squircle, teardrop — so
+    a maskable icon must bleed to the edges (no rounded corners of its own, or
+    the crop cuts a second, wonky corner out of the first) and must keep
+    everything meaningful inside the central 80%: a circle of radius 40 about
+    the centre.
+
+    The mark in favicon.svg was drawn to that budget already — its outermost
+    point is a node centre at radius 30 plus its 7.5 radius, so 37.5 — which
+    is why this file is the same artwork on a square field rather than a
+    separate, smaller drawing.
+  -->
+  <defs>
+    <linearGradient id="tileMask" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#5b7cff" />
+      <stop offset="55%" stop-color="#4f6df5" />
+      <stop offset="100%" stop-color="#a927d8" />
+    </linearGradient>
+  </defs>
+
+  <rect width="100" height="100" fill="url(#tileMask)" />
+
+  <g stroke="#ffffff" stroke-width="5.5" stroke-linecap="round" opacity="0.92">
+    <path d="M50 50 50 20" />
+    <path d="M50 50 78.5 40.7" />
+    <path d="M50 50 67.6 74.3" />
+    <path d="M50 50 32.4 74.3" />
+    <path d="M50 50 21.5 40.7" />
+  </g>
+
+  <g fill="#ffffff">
+    <circle cx="50" cy="20" r="7.5" />
+    <circle cx="78.5" cy="40.7" r="7.5" />
+    <circle cx="67.6" cy="74.3" r="7.5" />
+    <circle cx="32.4" cy="74.3" r="7.5" />
+    <circle cx="21.5" cy="40.7" r="7.5" />
+  </g>
+
+  <circle cx="50" cy="50" r="13" fill="#4f6df5" />
+  <circle cx="50" cy="50" r="9.5" fill="#ffffff" />
+</svg>

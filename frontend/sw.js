@@ -7,12 +7,18 @@
 // "broken" because the HTML was new but the CSS/JS were old). The cache
 // name is now versioned, the worker takes over immediately, and it tells
 // open pages to reload once so fresh assets always win.
-const CACHE = "memorymap-shell-v4";
+// Bumped with the icon set: a stale cache would keep serving the old favicon
+// long after the new one shipped, which is exactly the class of bug the
+// version in this name exists to prevent.
+const CACHE = "memorymap-shell-v5";
 const SHELL = [
   "/",
   "/app.js",
   "/style.css",
   "/favicon.svg",
+  "/icon-maskable.svg",
+  "/apple-touch-icon.png",
+  "/icon-512.png",
   "/vendor/d3.v7.min.js",
   "/vendor/p5.min.js",
   "/manifest.webmanifest",

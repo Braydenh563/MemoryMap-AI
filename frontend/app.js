@@ -370,31 +370,6 @@ function smallButton(label, title, onClick, ghost = true) {
 // One entry card, shared by the browse list, chat results, and the bin.
 // "2 hours ago" style, with the exact date kept for the hover tooltip
 // (Wave J). Anything older than a week just shows the date.
-function relativeTime(iso) {
-  const then = new Date(iso);
-  const seconds = Math.round((Date.now() - then.getTime()) / 1000);
-  if (seconds < 45) return "just now";
-  const units = [
-    ["minute", 60],
-    ["hour", 60],
-    ["day", 24],
-  ];
-  let value = seconds / 60; // start in minutes
-  let unit = "minute";
-  if (value < 60) {
-    // minutes
-  } else if (value / 60 < 24) {
-    value /= 60;
-    unit = "hour";
-  } else if (value / 60 / 24 < 7) {
-    value = value / 60 / 24;
-    unit = "day";
-  } else {
-    return then.toLocaleDateString();
-  }
-  const rounded = Math.round(value);
-  return `${rounded} ${unit}${rounded === 1 ? "" : "s"} ago`;
-}
 
 function entryItem(entry, options = {}) {
   const li = document.createElement("li");
@@ -4220,10 +4195,26 @@ function formatTokens(n) {
   return `${(count / 1000).toFixed(count < 10000 ? 1 : 0)}k`;
 }
 
+// Server timestamps are UTC. Most now carry an explicit offset or Z; older
+// stored values may carry neither, and a naive string is parsed as LOCAL by
+// JavaScript. One parser, so the assumption lives in exactly one place.
+function parseServerTime(iso) {
+  if (!iso) return null;
+  const text = String(iso);
+  const hasZone = /[Zz]$|[+-]\d{2}:?\d{2}$/.test(text);
+  const date = new Date(hasZone ? text : `${text}Z`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 // How long ago, in words. A wall of identical timestamps tells you nothing;
 // "yesterday" and "3 weeks ago" are what you actually navigate by.
 function relativeTime(iso) {
-  const then = new Date(iso + (iso.endsWith("Z") ? "" : "Z"));
+  // Timestamps now come back explicitly UTC ("...+00:00"), so the old
+  // unconditional `iso + "Z"` produced "…+00:00Z" — an unparseable string that
+  // rendered literally as "Invalid Date" in the documents sidebar. Only assume
+  // UTC when the value doesn't already say what it is.
+  const then = parseServerTime(iso);
+  if (!then) return "";
   const seconds = Math.max(0, (Date.now() - then.getTime()) / 1000);
   if (seconds < 90) return "just now";
   const minutes = seconds / 60;
@@ -5440,7 +5431,17 @@ const QUICK_LINKS = [
   { icon: "🕸", label: "Graph", run: () => switchTab("graph") },
   { icon: "⏰", label: "Reminders", run: () => switchTab("reminders") },
   { icon: "🎨", label: "Sketch", run: () => openSketch() },
-  { icon: "🔍", label: "Search notes", run: () => { switchTab("notes"); $("note-search").focus(); } },
+  {
+    icon: "🔍",
+    label: "Search notes",
+    run: () => {
+      switchTab("notes");
+      // The search box lives in the "browse" sub-tab; focusing it while that
+      // section is display:none silently does nothing (user-reported).
+      showNotesSection("browse");
+      $("note-search").focus();
+    },
+  },
   { icon: "🧰", label: "Tools & features", run: () => openFeatures(), primary: true },
 ];
 
@@ -7445,6 +7446,13 @@ function renderMarkdown(container, text) {
       if (!list || (list.tagName === "OL") !== wantOrdered) {
         closeList();
         list = document.createElement(wantOrdered ? "ol" : "ul");
+        // Start where the author started. Without this a list written as
+        // "3. 4. 5." renders as 1, 2, 3 — and, more importantly, a list that
+        // resumes after a paragraph restarts from 1.
+        if (wantOrdered) {
+          const first = Number.parseInt(line.trim(), 10);
+          if (Number.isFinite(first) && first !== 1) list.start = first;
+        }
       }
       const li = document.createElement("li");
       let itemText = (bullet || numbered)[1];
@@ -7466,7 +7474,19 @@ function renderMarkdown(container, text) {
     }
 
     if (line.trim() === "") {
-      closeList();
+      // A blank line only ends a list if what follows isn't another item of
+      // the same kind. Models write "1.\n\n2.\n\n3." far more often than
+      // they write it tightly, and closing the <ol> on each gap restarted the
+      // numbering at 1 every single time (user-reported).
+      let next = i + 1;
+      while (next < lines.length && lines[next].trim() === "") next++;
+      const continues =
+        list &&
+        next < lines.length &&
+        (list.tagName === "OL"
+          ? /^\s*\d+\.\s+/.test(lines[next])
+          : /^\s*[-*+]\s+/.test(lines[next]));
+      if (!continues) closeList();
       i++;
       continue;
     }
@@ -8392,6 +8412,13 @@ function showNotesSection(name, { focus = false } = {}) {
     if (active && focus) button.focus();
   }
   localStorage.setItem(NOTES_SECTION_STORE, wanted);
+  // A textarea measured while its section is display:none reports
+  // scrollHeight 0, so autoGrow collapsed the capture box to its minimum and
+  // it only sprang open once clicked (user-reported). Re-measure now that the
+  // section is actually visible.
+  for (const box of document.querySelectorAll("textarea.autogrow")) {
+    if (box.offsetParent !== null) autoGrow(box);
+  }
 }
 
 function initNotesSubtabs() {

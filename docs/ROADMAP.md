@@ -256,18 +256,26 @@ the one being blamed.
 
 **Chat rendering**
 
-- **Numbered lists always render `1.`** for every item when the AI writes them.
-  The markdown renderer is emitting a fresh `<ol>` per item, or losing `start`.
-  This is the most visible AI-output bug.
-- **Assistant message content sits too far right.** Asked for it to move left.
+- ~~**Numbered lists always render `1.`**~~ FIXED. A blank line between items
+  closed the `<ol>`, and models write "1.\n\n2.\n\n3." far more often than
+  they write it tightly, so every item started a new list at 1. A blank line now
+  only ends a list if what follows isn't another item of the same kind, and an
+  `<ol>` keeps its starting number.
+- ~~**Assistant content too far right / rail overlap**~~ FIXED. The rail padded
+  each step's own box, so the `<details>` marker and the tool chips sat on top
+  of the circles; the container now has a gutter of its own. Long URLs get
+  `overflow-wrap: anywhere` so they stay inside the bubble.
 - **The thinking disclosure arrow and the tool-use boxes overlap the agent
   timeline's circles and connector line.** The rail was added with
   `padding-left: 1.15rem` on step children; `<details>` draws its own marker in
   that space. Give the rail its own gutter rather than padding the children.
-- **Thinking boxes vanish on reload.** They are saved (`steps` carries
-  `{kind:"thinking"}`) but `openConversation` only replays them for turns that
-  have a `steps` array — older turns fall back to `message.thinking`, and the
-  fallback path may be dropping it. Check both paths.
+- **Thinking boxes vanish on reload.** NOT yet fixed — reading the code did not
+  reveal it, so reproduce first. They *are* saved (`steps` carries
+  `{kind:"thinking"}`, and `timeline.replay` handles that kind). Suspects, in
+  order: turns saved before `steps` existed fall back to `message.thinking`;
+  `serialise()` reads `holder.children` and could miss a step; or the turn is
+  never persisted because `chatConv.id` was still null. Log what
+  `GET /conversations/{id}` actually returns before changing anything.
 - **A long URL breaks out of the chat bubble on the right.** Needs
   `overflow-wrap: anywhere` on bubble content.
 
@@ -299,12 +307,17 @@ the one being blamed.
 
 **Elsewhere**
 
-- **Documents show "Invalid Date"** in the sidebar.
-- **Dashboard "Search notes" goes to the wrong place** (lands in chat rather
-  than the notes search).
-- **Capture textbox is short until clicked.** `autoGrow` measures
-  `scrollHeight` while the sub-tab is `display:none`, which is 0. Re-grow when
-  a sub-tab becomes visible.
+- ~~**Documents show "Invalid Date"**~~ FIXED, and it was a regression from the
+  UTC timestamp fix: `relativeTime` did `iso + "Z"` unconditionally, so once
+  timestamps carried `+00:00` it built `"…+00:00Z"`. There were also *two*
+  `relativeTime` definitions, one shadowing the other — the dead one is gone and
+  parsing now lives in a single `parseServerTime`.
+- ~~**Dashboard "Search notes" goes to the wrong place**~~ FIXED — it focused a
+  box inside the hidden "browse" sub-tab, the same trap `flashEntry` hit.
+  **Still to do:** audit the remaining quick-access buttons the same way.
+- ~~**Capture textbox short until clicked**~~ FIXED. `autoGrow` measured
+  `scrollHeight` while the section was `display:none` (always 0);
+  `showNotesSection` now re-measures once the section is visible.
 - **Desktop app: the menu-bar buttons overlap the "MemoryMap AI" title.** The
   pywebview window is narrower than the breakpoint that hides the wordmark.
 - **Sketches don't open from the graph** when their node is clicked.

@@ -1388,11 +1388,17 @@ html.modal-open body {
   );
   pointer-events: none;
 }
+.agent-steps:has(> :nth-child(2)) {
+  /* Give the rail a gutter of its own instead of padding each step's box.
+     Padding the children put the <details> disclosure marker and the tool
+     chips' own background directly over the circles and the line
+     (user-reported); a padded container keeps that column empty. */
+  padding-left: 1.15rem;
+}
 .agent-steps:has(> :nth-child(2)) > .agent-step,
 .agent-steps:has(> :nth-child(2)) > .tool-chip,
 .agent-steps:has(> :nth-child(2)) > .tool-confirm {
   position: relative;
-  padding-left: 1.15rem;
 }
 /* The node on the rail. */
 .agent-steps:has(> :nth-child(2)) > .agent-step::before,
@@ -1400,7 +1406,7 @@ html.modal-open body {
 .agent-steps:has(> :nth-child(2)) > .tool-confirm::before {
   content: "";
   position: absolute;
-  left: 0;
+  left: -1.15rem;
   top: 0.55rem;
   width: 0.66rem;
   height: 0.66rem;
@@ -4332,3 +4338,29 @@ textarea.autogrow {
   padding-inline: 0.7rem;
 }
 #top-bar #brand-logo { flex: 0 0 auto; }
+
+
+/* --- assistant message layout ------------------------------------------------
+   Asked for: bring the generated content further left, and stop long links
+   escaping the bubble on the right. */
+.msg.assistant { padding-left: 0.75rem; }
+.msg.assistant .agent-steps { margin-left: 0; }
+/* A URL has no spaces, so without this it sets the bubble's minimum width and
+   pushes itself past the right edge (user-reported). */
+.msg .bubble-answer,
+.msg .bubble-answer a,
+.msg .bubble-answer p,
+.msg .bubble-answer li,
+.web-reader-text,
+.web-reader-text a {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+/* The reader and any answer content must never widen the page. Wide children
+   (tables, code, pre) scroll inside themselves instead. */
+.msg,
+.web-reader,
+.web-reader-text { max-width: 100%; min-width: 0; }
+.web-reader-text pre,
+.msg .bubble-answer pre { overflow-x: auto; max-width: 100%; }
+.web-reader-text img { max-width: 100%; height: auto; }

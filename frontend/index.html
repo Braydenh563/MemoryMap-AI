@@ -444,7 +444,13 @@ Link to another note with [[its first few words]]."></textarea>
               title="Everything this conversation has sent to the model so far"></span>
             <button id="chat-export" class="ghost small" title="Download this chat as a Markdown file">⭳ Export</button>
           </div>
-          <div id="persona-prompt" class="persona-prompt hidden">
+          <!-- id is persona-peek-panel, NOT persona-prompt: the Settings
+               screen has a <textarea id="persona-prompt"> for writing a new
+               persona, and two elements sharing an id is not a duplicate
+               that browsers complain about — getElementById simply returns
+               the first, which is this div. That made "Add persona" read
+               `.value` off a <div>, throw, and do nothing at all. -->
+          <div id="persona-peek-panel" class="persona-prompt hidden">
             <strong>What this persona tells the AI</strong>
             <p id="persona-prompt-text"></p>
           </div>

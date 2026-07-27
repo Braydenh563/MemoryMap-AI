@@ -2514,7 +2514,7 @@ function personaOptions() {
 // You could choose a persona but never read what it told the model to do —
 // which makes the choice a guess. This shows the actual system prompt.
 function togglePersonaPrompt() {
-  const panel = $("persona-prompt");
+  const panel = $("persona-peek-panel");
   const showing = panel.classList.toggle("hidden");
   $("persona-peek").setAttribute("aria-expanded", String(!showing));
 }

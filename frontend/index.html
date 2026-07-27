@@ -1434,9 +1434,14 @@ Link to another note with [[its first few words]]."></textarea>
                 edit.
               </p>
               <p class="muted" id="searxng-backend"></p>
+              <!-- Answers "is the port free?" instead of telling people to go
+                   and check, which was the only advice a failed start had. -->
+              <p class="muted" id="searxng-port"></p>
               <div class="row">
                 <button id="searxng-start" class="small">▶ Start SearXNG</button>
                 <button id="searxng-stop" class="ghost small">■ Stop</button>
+                <button id="searxng-reinstall" class="ghost small"
+                  title="Delete the SearXNG install and set it up again from scratch">↻ Reinstall</button>
                 <span id="searxng-host-status" class="status" role="status"></span>
               </div>
               <!-- What the instance itself said. Its output used to go to

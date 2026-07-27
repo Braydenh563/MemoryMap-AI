@@ -276,9 +276,25 @@ showing an empty panel. Waiting a few minutes usually clears it.
 
 The real fix is your own SearXNG instance: **Settings → Web search → Start
 SearXNG**. MemoryMap installs it (Docker if you have it, otherwise a virtualenv
-of its own), configures the JSON API, and points search at it. If it fails to
-start, its own output is now shown right there under *What SearXNG reported* —
-and kept in `data/searxng/searxng.log`.
+of its own), configures the JSON API, and points search at it.
+
+</details>
+
+<details>
+<summary><strong>SearXNG won't start, or starts and never answers</strong></summary>
+
+Everything you need is on **Settings → Web search**:
+
+- **The port line** says whether port 8888 is free, held by a working SearXNG
+  (fine — MemoryMap will just use it), or held by something else (the only case
+  you have to go and fix).
+- **What SearXNG reported** is a fold with the instance's own output — the
+  actual traceback, not a guess. It's kept in `data/searxng/searxng.log` too.
+- **↻ Reinstall** deletes the downloaded copy and its virtualenv and builds a
+  fresh one. This is the fix when an install was interrupted, or the Python it
+  was built against has since been upgraded: it *looks* installed and dies
+  instantly on start. Your `settings.yml` is kept — it holds the instance's
+  secret key and any edits you made, and it isn't what breaks.
 
 </details>
 

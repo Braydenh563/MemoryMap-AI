@@ -495,6 +495,29 @@ def searxng_start(session: Session = Depends(get_session)) -> dict:
     return {"running": True, **result}
 
 
+@router.post("/websearch/searxng/reinstall")
+def searxng_reinstall(session: Session = Depends(get_session)) -> dict:
+    """Throw the SearXNG install away and build a fresh one.
+
+    A part-finished install looks installed and dies on start, which reads as
+    "it just doesn't work" with nothing to act on — and the only fix was to go
+    and delete folders by hand.
+    """
+    from memorymap.search import searxng_manager
+
+    config = deps.get_config()
+    try:
+        result = searxng_manager.reinstall_source(config.data_dir)
+    except searxng_manager.SearxngError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    config.set_preference("searxng_url", "")  # nothing to point at until it's back
+    websearch.clear_cache()
+    manager.log_action(session, "edited", "preferences", detail="searxng reinstalled")
+    session.commit()
+    return result
+
+
 @router.post("/websearch/searxng/stop")
 def searxng_stop(session: Session = Depends(get_session)) -> dict:
     """Stop the managed instance and fall back to DuckDuckGo."""

@@ -12399,7 +12399,37 @@ async function refreshSearxngHost() {
   const said = (info.output || "").trim();
   fold.classList.toggle("hidden", !said || running);
   if (said) $("searxng-output").textContent = said;
+
+  // The port, answered rather than suggested. Only three states matter, and
+  // only one of them is the user's problem to go and solve.
+  const port = info.port;
+  const portLine = $("searxng-port");
+  portLine.textContent = port ? port.detail : "";
+  portLine.classList.toggle("error", Boolean(port && !port.free && !port.held_by_searxng));
 }
+
+$("searxng-reinstall").addEventListener("click", async () => {
+  if (
+    !confirm(
+      "Delete the SearXNG install and set it up again from scratch?\n\n" +
+        "Your settings file is kept — only the downloaded copy and its " +
+        "virtualenv are removed. Reinstalling takes a few minutes."
+    )
+  )
+    return;
+  const status = $("searxng-host-status");
+  status.classList.remove("error");
+  status.textContent = "Removing the old install…";
+  try {
+    await apiJson("/websearch/searxng/reinstall", { method: "POST" });
+    status.textContent = "Reinstalling — this takes a few minutes.";
+    toast("Reinstalling SearXNG.");
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+  }
+  refreshSearxngHost();
+});
 
 $("searxng-start").addEventListener("click", async () => {
   const status = $("searxng-host-status");

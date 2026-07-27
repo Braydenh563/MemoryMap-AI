@@ -26,6 +26,7 @@ import os
 import secrets
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -253,6 +254,86 @@ def install_source(data_dir: Path) -> None:
     threading.Thread(target=work, name="searxng-install", daemon=True).start()
 
 
+def port_report() -> dict:
+    """Who, if anyone, is holding the port SearXNG wants.
+
+    "Check the port isn't in use" is advice that assumes the person can check.
+    This checks: it binds the port, and if it can't, asks whatever is there
+    whether it speaks SearXNG. Those are three genuinely different situations
+    — free, occupied by a working SearXNG, occupied by something else — and
+    only the last one is a problem the user has to go and solve.
+    """
+    free = True
+    try:
+        probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # No SO_REUSEADDR: the question is whether a *live* listener holds the
+        # port, and reuse would let this bind alongside one on some platforms.
+        probe.bind(("127.0.0.1", HOST_PORT))
+        probe.close()
+    except OSError:
+        free = False
+
+    if free:
+        return {
+            "port": HOST_PORT,
+            "free": True,
+            "held_by_searxng": False,
+            "detail": f"Port {HOST_PORT} is free.",
+        }
+
+    answering = websearch.probe_searxng(BASE_URL)
+    return {
+        "port": HOST_PORT,
+        "free": False,
+        "held_by_searxng": answering,
+        "detail": (
+            f"A working SearXNG is already answering on port {HOST_PORT} — "
+            "MemoryMap can use it as it is."
+            if answering
+            else f"Something is using port {HOST_PORT}, and it isn't answering "
+            "as SearXNG. Close whatever has it (or stop and reinstall here to "
+            "clear a half-dead instance of our own) and try again."
+        ),
+    }
+
+
+def uninstall_source(data_dir: Path) -> dict:
+    """Delete the virtualenv and checkout so the next start installs fresh.
+
+    A part-finished install — pip interrupted, a half-cloned checkout, a venv
+    built against a Python that has since been upgraded — leaves
+    `source_installed` saying yes and the process dying instantly, which reads
+    as "it just doesn't work" with nothing to act on. There was no way to get
+    back to a clean state short of deleting folders by hand.
+
+    The generated settings.yml is deliberately kept: it holds the instance's
+    secret key and any edits the user has made, and it is not what breaks.
+    """
+    data_dir = Path(data_dir)
+    try:
+        _stop_source(data_dir)
+    except SearxngError:
+        pass  # nothing to stop, or it was already gone — either way, carry on
+    _pid_file(data_dir).unlink(missing_ok=True)
+
+    removed = []
+    for path in (_venv_dir(data_dir), _source_dir(data_dir)):
+        if path.exists():
+            shutil.rmtree(path, ignore_errors=True)
+            removed.append(path.name)
+    log_path(data_dir).unlink(missing_ok=True)
+    return {"removed": removed}
+
+
+def reinstall_source(data_dir: Path) -> dict:
+    """Wipe the install and start a fresh one in the background."""
+    if _install_state["running"]:
+        raise SearxngError("An install is already running — let it finish first.")
+    result = uninstall_source(data_dir)
+    install_source(data_dir)
+    return {**result, "installing": True}
+
+
 def log_path(data_dir: Path) -> Path:
     """Where SearXNG's own output goes.
 
@@ -397,6 +478,9 @@ def status(data_dir: Path | None = None) -> dict:
         "install_step": _install_state["step"],
         "install_error": _install_state["error"],
         "detail": "",
+        # Answered rather than suggested: "check the port isn't in use" is
+        # advice that assumes the person can check.
+        "port": port_report(),
     }
     if backend is None:
         # "Docker is installed but not started" is a different problem from

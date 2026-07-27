@@ -248,7 +248,266 @@ where the genuine embedded browser from §3 becomes possible.
 
 ---
 
-## 8. Agent quality
+## 8. Open bug list (reported, not yet fixed)
+
+Every one of these was seen in the running app. Reproduce before fixing —
+several earlier "bugs" turned out to be a different component moving underneath
+the one being blamed.
+
+**Chat rendering**
+
+- **Numbered lists always render `1.`** for every item when the AI writes them.
+  The markdown renderer is emitting a fresh `<ol>` per item, or losing `start`.
+  This is the most visible AI-output bug.
+- **Assistant message content sits too far right.** Asked for it to move left.
+- **The thinking disclosure arrow and the tool-use boxes overlap the agent
+  timeline's circles and connector line.** The rail was added with
+  `padding-left: 1.15rem` on step children; `<details>` draws its own marker in
+  that space. Give the rail its own gutter rather than padding the children.
+- **Thinking boxes vanish on reload.** They are saved (`steps` carries
+  `{kind:"thinking"}`) but `openConversation` only replays them for turns that
+  have a `steps` array — older turns fall back to `message.thinking`, and the
+  fallback path may be dropping it. Check both paths.
+- **A long URL breaks out of the chat bubble on the right.** Needs
+  `overflow-wrap: anywhere` on bubble content.
+
+**Web search / reader**
+
+- **Web search returns nothing in some environments** — pages won't show up.
+  Reported as working under the hosted Python desktop environment, which
+  strongly suggests egress/proxy differences rather than parser breakage.
+  Diagnose by logging the actual HTTP status and body length from
+  `_search_duckduckgo` before assuming the parse failed. DuckDuckGo also
+  rate-limits and occasionally serves a challenge page to non-browser clients;
+  if that is what's happening, SearXNG (§2) is the real fix, not a parser tweak.
+- **"Ask about this" wrecks the layout**: the page renders very wide, forces a
+  long horizontal scrollbar, and scales everything up. Almost certainly the
+  reader's `<pre>` blocks and long unbroken strings escaping their container.
+  Constrain the reader/answer width and let code blocks scroll inside
+  themselves.
+- **Improve the extracted page's visual rendering** generally — it now carries
+  heading levels, so it can be laid out as a real document (typographic scale,
+  measure capped around 70ch, blockquotes, lists, code).
+
+**Appearance**
+
+- **Switch search engines at will.** Still reported as not freely switchable.
+- **With a theme or palette selected, the individual colour/font controls below
+  sometimes can't be changed.** Suspect the layering: a manual write may be
+  landing but being immediately re-derived from the theme. Reproduce by picking
+  a theme, then a font, then checking `localStorage` and the computed value.
+
+**Elsewhere**
+
+- **Documents show "Invalid Date"** in the sidebar.
+- **Dashboard "Search notes" goes to the wrong place** (lands in chat rather
+  than the notes search).
+- **Capture textbox is short until clicked.** `autoGrow` measures
+  `scrollHeight` while the sub-tab is `display:none`, which is 0. Re-grow when
+  a sub-tab becomes visible.
+- **Desktop app: the menu-bar buttons overlap the "MemoryMap AI" title.** The
+  pywebview window is narrower than the breakpoint that hides the wordmark.
+- **Sketches don't open from the graph** when their node is clicked.
+
+---
+
+## 9. The graph — make it a tool, and give it a look
+
+**Why.** Asked repeatedly: "expand on the capabilities of the graph", "more
+utility and ways to use and visualise my notes", "it's still kinda plain — it
+needs more life and design style". `main` made it keyboard-operable; it is still
+a plain force-directed blob that doesn't fill its own panel.
+
+**Visual identity — offer several map styles**, not one:
+
+- **Galaxy / starfield** — categories as spiral arms, notes as stars sized by
+  access count, links as faint filaments. The dashboard's "notebook
+  constellation" widget already proves the aesthetic works.
+- **Sea chart** — islands per category, notes as landmarks, links as shipping
+  routes, unlinked notes adrift. Parchment palette pairs with it.
+- **Subway map** — orthogonal edges, categories as lines. Best for dense,
+  heavily-linked notebooks.
+- **Mind map / radial tree** — one note at the centre, everything else by hops.
+- Plain force-directed stays the default; the rest are a picker.
+
+**Fit and framing.** It should size to its panel and re-fit on resize, with
+zoom-to-fit, zoom controls, and a minimap for large notebooks.
+
+**Utility it still lacks:**
+
+- Filter by category, tag or date range; double-click to focus a neighbourhood
+- **Paths between two notes** — the question a graph is uniquely good at
+- Cluster detection, with "name this cluster" handed to the AI
+- Orphans and hubs surfaced explicitly
+- Create a link by dragging one node onto another
+- Timeline scrub — play the notebook's growth
+- PNG/SVG export of the current view
+- A `related_notes(id, depth)` tool so the model can walk links, not just
+  similarity
+
+---
+
+## 10. Timeline tab, and time-aware notes
+
+**Why.** Asked for directly, and it is the most substantial new idea in the
+backlog. Notes say "today", "yesterday", "last week", "two days ago" — phrasing
+that is correct when written and misleading forever after. Today nothing records
+what those phrases *resolved to*.
+
+**Two halves, and the first is worth doing alone:**
+
+**A. Resolve relative time at capture.** When a note is saved, extract temporal
+expressions and store the absolute date each one resolved to, alongside
+`created_at`. Then:
+
+- Show it inline — "yesterday" with the real date on hover, or a subtle chip
+- Tag notes that contain relative time, so they're findable as a class
+- Let the AI answer "what did I mean by *last week* in that note?" correctly
+- Let it suggest actions on stale ones ("this said 'tomorrow' three weeks ago —
+  did it happen?")
+
+Do the extraction with a deterministic parser first (`reminder_parser` already
+does something similar for reminders) and only fall back to the model, so it
+works with Ollama off.
+
+**B. A Timeline tab.** An event tree of what has happened, is happening, and
+will happen:
+
+- Notes place themselves on it by their resolved dates, not just creation date
+- Reminders and their completion appear as events
+- The AI can add events, and link notes to them
+- Past / present / future as one continuous view, zoomable from days to years
+- Branches for parallel threads, since "everything that is, has, and will
+  happen" is a tree, not a line
+
+**Data shape:** a new `events` table (`title`, `at`, `precision`, `kind`,
+`entry_id?`, `source`), plus `entry_dates` for resolved expressions. Both
+additive.
+
+---
+
+## 11. Performance, accuracy and AI efficiency
+
+**Why.** Asked: "make sure all the code, processes, and AI usage is fully
+optimised and efficient", and "more ways to make the program and AI more
+accurate, usable, capable, and faster".
+
+**Measure first** — there is no profiling in the repo, so where a chat turn
+spends its time is currently a guess.
+
+- **Prompt reuse.** Every agent round resends the whole message list; Ollama's
+  `keep_alive` and prompt-prefix reuse are never set.
+- **Cap tool output.** Return previews by default, full text only on request.
+- **Hybrid retrieval** (semantic + keyword, reciprocal-rank fusion) — a
+  well-established accuracy win, and the keyword search already exists.
+- **Re-ranking** with a small cross-encoder over the top-20, behind a setting.
+- **Batch embeddings** — the backfill embeds one note at a time.
+- **Warm the model** so the first chat doesn't pay the load cost.
+- **Frontend**: `app.js` is ~12k lines parsed on every load, and
+  `renderEntries` rebuilds the entire list on any change.
+- **Context warning** as the window fills — the per-turn cost is already shown.
+
+---
+
+## 12. Does the AI know it is an agent?
+
+**Why.** Asked: "does it know it is an agent and can use tools and skills freely
+and in multiple turns if necessary?" and later, "I need agents to use tools more
+and better if they are required."
+
+**Honest answer: partly.** `TOOLS_GUIDE` says tools exist and forbids claiming a
+save that didn't happen. The loop runs to `MAX_ROUNDS = 6`. What it is *not*
+told:
+
+- That taking several rounds deliberately is expected — plan, act, check, answer
+- That skills exist at all (the tools are there; the prompt never mentions them)
+- What to do when a tool fails — the error is returned with no guidance, so
+  small models give up or repeat the same call
+- That a search snippet is rarely enough and `read_url` exists
+- What the user can already see (the step timeline), so it stops re-narrating
+
+**Add:** an explicit `plan` step rendered at the top of the timeline; a
+"required tools" hint for requests that clearly need one; and a nudge when the
+model answers a notebook question without having searched.
+
+---
+
+## 13. Web search effectiveness
+
+- **Query expansion** — two or three phrasings, results fused
+- **Read before answering** — tell the model a snippet is rarely enough
+- **Cite sources** with the domains actually read
+- **Per-turn result cache**
+- **SearXNG as the recommended default** once §2's install path works — better
+  results *and* better privacy than scraping DuckDuckGo HTML, and likely the
+  real fix for the "no results" bug in §8
+
+---
+
+## 14. More tools worth adding
+
+`create_document` / `edit_document` (the AI can read documents but not write
+them) · `related_notes(id, depth)` (§9) · `move_notes` (bulk re-file) ·
+`merge_notes` · `export_notes` · `find_similar(note_id)` · `stats` ·
+`add_event` / `list_events` (§10) · `set_preference` over a small allowlist so
+"make your answers shorter" works.
+
+---
+
+## 15. Appearance: more of everything
+
+Asked for: "more options for the appearances — fonts, colours, sizing, themes,
+palettes."
+
+- **Fonts**: beyond system/serif/mono — a curated set including a dyslexia-
+  friendly face, plus per-surface choice (UI vs note body vs code)
+- **Sizing**: independent UI scale and reading size; line-height and measure
+  (line width) controls, which matter more for long notes than font size
+- **Colours**: per-surface accents, a custom palette builder (pick a base,
+  derive the set), and import/export of a palette as JSON
+- **More themes and palettes**, and a "surprise me" that generates a coherent
+  one
+- **Live preview** while hovering a theme, before committing
+- Fix the reported bug where individual controls resist change under a theme
+  (§8)
+
+---
+
+## 16. Sweeping UI quality-of-life
+
+- **Undo toasts** for anything soft-deleted, instead of confirm dialogs
+- **Optimistic UI** — a saved note appears instantly and reconciles
+- **Consistent empty states** and loading skeletons
+- **Keyboard**: `/` focuses search, `g`+letter jumps tabs, Escape closes every
+  overlay
+- **Bulk selection** in the note list
+- **"What changed" after an AI action** — chips say what ran, not what it did
+- **Confirm on close** with unsaved text
+- **Relative timestamps** everywhere, absolute on hover
+- **Dashboard**: audit every quick-access button actually lands where it says,
+  and add the ones that are missing (§8 has one confirmed wrong)
+
+---
+
+## 17. Use cases the app can't serve yet
+
+- **Meeting notes** — record/transcribe into a note (Whisper is already a
+  dependency), extract action items into reminders. Highest-value single
+  addition.
+- **Reading and research** — the Browse section (§3) plus highlights saved as
+  notes back-linked to their source
+- **Journalling** — a daily-note pattern; the pieces exist, nothing ties them
+- **Task management** — reminders are not tasks (no sub-tasks, projects, or
+  "someday"). Commit to it or stay deliberately out.
+- **Study / revision** — spaced repetition; access-count and embeddings are
+  already stored
+- **Sharing one note or document** — no export-one-thing path today
+- **A second device** — single-user by design; sync is a much larger decision
+  and should be stated as out of scope rather than left implied
+
+---
+
+## 18. Agent quality
 
 The registry is now 28 tools and reaches the whole notebook, documents and chat
 history. What's still weak:
@@ -262,7 +521,7 @@ history. What's still weak:
 
 ---
 
-## 9. Accessibility audit
+## 19. Accessibility audit
 
 Deserves one deliberate pass rather than more ad-hoc fixes:
 
@@ -274,7 +533,7 @@ Deserves one deliberate pass rather than more ad-hoc fixes:
 
 ---
 
-## 10. Backend
+## 20. Backend
 
 - **Async httpx client** — touches the streaming path, which is what makes chat
   feel responsive, so a subtle regression wouldn't show up in tests. Do it with

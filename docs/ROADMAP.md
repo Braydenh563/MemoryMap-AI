@@ -144,6 +144,22 @@ test files fail to collect without it.
 The whole of §8's reported bug list has since been closed as well — see that
 section for what each one turned out to be.
 
+**Fixed in the session after that**, each reproduced in Chromium first:
+
+| Reported as | What it actually was |
+| --- | --- |
+| The thinking arrow clashes with the chain circles | `list-style-position: outside` draws the `<details>` marker *outside* the summary's box — exactly where the rail's gutter is. No gutter width could clear it; the native marker is now removed and redrawn inside the summary |
+| "MemoryMap AI" is gone from the top bar | Twice my own doing: I moved the hide breakpoint (1390, then 1080) instead of fixing why it hid. `h1` had `flex: 0 1 auto` + `min-width: 0` with `white-space: nowrap`, so the box shrank below the text and the name printed over "Dashboard" — the original overlap report. Now `flex: 0 0 auto`, visible to the 720px mobile breakpoint |
+| "Add Persona" does nothing | Two elements shared the id `persona-prompt` — the Chat tab's peek panel `<div>` and the Settings `<textarea>`. `getElementById` returns the first without complaining, so the handler read `.value` off a div and threw |
+| The categories sidebar looks awkward | `.category-actions` was `opacity: 0` but still in the flow, so every category row reserved width for invisible buttons and the "All" row, which has none, did not — the counts marched in and out down the list |
+| Web search returns nothing, silently | Three different failures (no egress, a rate-limit challenge page, a genuine empty result) all surfaced as an empty list. Now logged and named separately — confirmed working in use |
+
+**Also added:** the Lagoon and Shallows themes (an indigo ground with a teal
+accent, dark and light), recovery advice on every failed tool call, and a
+prompt that tells the agent multiple rounds are expected. Guard tests now
+catch duplicate element ids, `$("…")` lookups with no matching element, and
+the pre-paint theme table drifting from `THEME_PRESETS`.
+
 **Features added:** 10 curated themes layered over `main`'s 7 palettes
 (`your change → theme → default`, with separate "reset theme" and "clear my
 changes") · Settings → Account with password change (`vault.rewrap` existed and

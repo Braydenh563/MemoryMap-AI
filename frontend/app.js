@@ -9702,9 +9702,23 @@ function renderUtilityModelPicker(status) {
 }
 
 function renderEmbeddingPicker(status) {
-  // The backend radios only reflect the saved value when the user isn't
-  // mid-change (they have no rebuild, so a simple focus check is enough).
-  const touching = document.activeElement?.name === "emb-backend";
+  // The backend radios only reflect the saved value while the user has no
+  // pending choice of their own.
+  //
+  // A focus check alone was not enough, and it is why switching search
+  // engines was reported as impossible. Picking a radio does not save
+  // anything — "Apply & re-index" does — so between the click and the apply
+  // there is a pending choice the server doesn't know about yet. The moment
+  // focus moved (clicking Apply, or just tabbing away) the status poll ran,
+  // found `touching` false, and reset the radio to the *saved* backend. The
+  // selection visibly snapped back, so the setting looked stuck.
+  //
+  // Same `userChosen` latch the model selects already use, cleared once the
+  // choice is actually applied.
+  const group = document.querySelectorAll('input[name="emb-backend"]');
+  const touching =
+    document.activeElement?.name === "emb-backend" ||
+    [...group].some((radio) => radio.dataset.userChosen === "1");
   if (!touching) {
     for (const radio of document.querySelectorAll('input[name="emb-backend"]')) {
       radio.checked = radio.value === status.embedding_backend;
@@ -10020,16 +10034,33 @@ async function applyEmbeddingBackend() {
       "notes so search keeps making sense. Notes and keyword search stay " +
       "available while it runs. Continue?"
   );
-  if (!ok) return;
+  if (!ok) {
+    // Backing out puts the saved backend back on screen, rather than leaving
+    // a radio selected for a switch that never happened.
+    clearEmbeddingBackendLatch();
+    refreshModelStatus();
+    return;
+  }
   try {
     await api("/models/embedding-backend", {
       method: "POST",
       body: JSON.stringify({ backend, model: backend === "ollama" ? model : null }),
     });
-    delete $("embedding-model-select").dataset.userChosen; // applied
+    clearEmbeddingBackendLatch(); // applied — polling may reflect it again
     refreshModelStatus();
   } catch (error) {
     toast(error.message, true);
+  }
+}
+
+// Let the status poll own the radios again. Called once a choice is applied,
+// and when the user backs out of applying it — otherwise a cancelled switch
+// would leave the radio showing a backend that was never saved, which is the
+// same lie in the opposite direction.
+function clearEmbeddingBackendLatch() {
+  delete $("embedding-model-select").dataset.userChosen;
+  for (const radio of document.querySelectorAll('input[name="emb-backend"]')) {
+    delete radio.dataset.userChosen;
   }
 }
 
@@ -10094,14 +10125,50 @@ function currentAccentHex() {
 }
 
 function applyAccent(name, remember = true) {
-  if (name === "indigo") delete document.documentElement.dataset.accent;
-  else document.documentElement.dataset.accent = name;
   // applyThemePreset re-applies the theme's accent without recording it as a
   // manual choice — otherwise merely picking a theme would pin its colour as
   // an override and the next theme couldn't change it.
   if (remember) localStorage.setItem("accent", name);
+  applyEffectiveAccent();
   if (bgArtOn()) startBgArt(); // repaint the background in the new accent
   renderBrandLogo(); // recolour the emblem too
+}
+
+// Which accent the app actually wears, decided in one place.
+//
+// Two bugs came out of not having this. Both were reported as "with a theme
+// selected, the individual colour controls can't be changed":
+//
+// 1. The accent swatches did nothing under any theme. `[data-accent]` rules
+//    live at the top of the stylesheet and `[data-palette]` rules near the
+//    bottom, both `:root[data-…]` and so both specificity (0,2,0) — so the
+//    palette won on source order alone, every time. Since every theme selects
+//    a palette, picking an accent was visibly dead the moment a theme was on.
+// 2. Clearing a manual accent left it applied. `applyAppearance` re-applied
+//    every other setting but never the accent, so "clear my changes" removed
+//    the stored value and the picker showed nothing selected while the app
+//    carried on wearing the old colour.
+//
+// An explicit pick is written as an inline custom property, which beats any
+// stylesheet rule and so beats the palette. No pick means no inline property,
+// leaving the palette to supply the colour as it should. That is the
+// documented layering — your change → theme → default — applied to colour.
+// It owns `data-accent` as well as the inline property. Keeping the attribute
+// in step matters even though the inline colour is what wins: the pre-paint
+// script in index.html sets it from localStorage to avoid a flash, so a stale
+// attribute survives a reload and re-colours the app from the stylesheet the
+// moment the inline property is removed. That is what kept a cleared accent
+// visible after "clear my changes".
+function applyEffectiveAccent() {
+  const root = document.documentElement;
+  const custom = localStorage.getItem("accent-custom");
+  // Only a *stored* accent is a deliberate choice; a theme never sets one.
+  const chosen = localStorage.getItem("accent");
+  const preset = chosen ? ACCENTS.find((a) => a.name === chosen) : null;
+  if (preset && preset.name !== "indigo") root.dataset.accent = preset.name;
+  else delete root.dataset.accent;
+  if (custom) return applyCustomAccent(custom); // a picked hex wins outright
+  applyCustomAccent(preset ? preset.swatch : null);
 }
 
 function contrastOn() {
@@ -10129,16 +10196,23 @@ const APPEARANCE_DEFAULTS = {
   // left the picker rendering blank (selectedIndex -1) — so choosing "Moving"
   // looked like it did nothing, and there was no way at all to get the art
   // moving on a machine with reduced motion turned on.
-  "bg-motion": "auto",
+  // "auto" follows the reduced-motion setting; "moving" is an explicit
+  // request that overrides it; "still" never moves. This key was declared
+  // twice — once here as "auto" and again below as "moving" — after two
+  // sessions fixed the same blank-picker bug independently. The later
+  // declaration silently won, so the documented default was not the one
+  // anybody got. One declaration, matching the <option> list and the hint
+  // text that explains what "auto" means.
+  "bg-motion": "auto", // auto | moving | still
   "bg-intensity": "90",
   radius: "14", // global corner rounding, px
   "glass-blur": "18", // frosted-glass blur strength, px
   "bg-style": "aurora", // aurora | constellation | waves | bubbles | mesh
   palette: "default", // which curated colour set; themes select one
-  // Missing entirely until now, so appearancePref("bg-motion") returned
-  // undefined and renderAppearance set the Movement <select> to it — which
-  // matches no <option>, leaving the control blank on every fresh profile.
-  "bg-motion": "moving", // moving | still
+  // No accent by default: the palette supplies the colour until you pick one
+  // yourself. Named here so appearancePref("accent") has a defined answer
+  // rather than returning undefined and relying on a lookup miss.
+  accent: "indigo",
 };
 
 // --- curated visual themes ---------------------------------------------------------
@@ -10356,7 +10430,9 @@ function applyAppearance() {
   // value would pin whatever the theme supplied as a manual override — after
   // which no other theme could ever change the palette again.
   applyPalette(activePalette(), false);
-  applyCustomAccent(localStorage.getItem("accent-custom"));
+  // After the palette, never before: the accent has to be able to override
+  // whatever colour the palette just supplied.
+  applyEffectiveAccent();
   // A theme may set the page colour; your own pick overrides it.
   applyPageBackground(appearancePref("page-bg"));
   applyCustomCss(localStorage.getItem("custom-css"));
@@ -10472,8 +10548,7 @@ function renderAppearance() {
     button.classList.toggle("active", !customSet && accent.name === activeAccent());
     button.addEventListener("click", () => {
       localStorage.removeItem("accent-custom"); // presets clear a custom colour
-      applyCustomAccent(null);
-      applyAccent(accent.name);
+      applyAccent(accent.name); // re-derives the inline colour from scratch
       renderAppearance();
     });
     holder.appendChild(button);
@@ -12094,10 +12169,13 @@ for (const id of ["chat-model-select", "embedding-model-select"]) {
   $(id).addEventListener("change", () => ($(id).dataset.userChosen = "1"));
 }
 for (const radio of document.querySelectorAll('input[name="emb-backend"]')) {
-  radio.addEventListener(
-    "change",
-    () => ($("embedding-model-select").dataset.userChosen = "1")
-  );
+  radio.addEventListener("change", () => {
+    $("embedding-model-select").dataset.userChosen = "1";
+    // The radio itself needs the latch too: the choice isn't saved until
+    // "Apply & re-index", and without this the next status poll put the old
+    // backend back the instant focus left the radio.
+    radio.dataset.userChosen = "1";
+  });
 }
 $("save-btn").addEventListener("click", saveEntry);
 $("ask-btn").addEventListener("click", () => askQuestion()); // no event as preset

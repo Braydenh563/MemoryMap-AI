@@ -236,8 +236,16 @@ def build_agent_messages(
     # is computed from, so resolving it against the server's zone instead
     # puts every relative time out by the offset between them.
     local = user_now(deps.get_config())
+    # To the minute, not the microsecond. This string sits near the top of a
+    # prompt that is resent on every round of every turn, and Ollama's prefix
+    # cache keeps only the tokens *before* the first difference — so a clock
+    # that ticked every microsecond invalidated the history and the notes
+    # below it every single time, and each round re-read the whole prompt from
+    # scratch. A tool loop runs its rounds seconds apart, so a minute-precision
+    # clock is identical across all of them, and no answer this app gives
+    # needs the seconds: "remind me in 10 minutes" is not resolved to one.
     now_hint = (
-        f" The current date and time is {local.isoformat()}"
+        f" The current date and time is {local.replace(second=0, microsecond=0).isoformat()}"
         f" ({local.tzname() or 'local time'})."
     )
     messages = [

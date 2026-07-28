@@ -657,6 +657,15 @@ recurring causes are now written up as invariants in `docs/ARCHITECTURE.md` §10
 
 ## 8b. Web search — two Windows bugs found, and what is left
 
+~~**Port 8888 being taken was a dead end.**~~ **fixed.** Asked directly: *"is
+there a way to change the port if it is full?? maybe like 8080 or smth"*. The
+port report said "close whatever has it", which assumes the user can — often
+they cannot, and the thing holding it may be something they need. `start()`
+now settles a port first: the wanted one, else 8080/8081/8890/8899, with
+`MEMORYMAP_SEARXNG_PORT` to name one. A SearXNG *already answering* on the
+wanted port beats a free one, because that is ours from a previous run and
+moving would start a second copy beside it.
+
 **Seen in a log this session, not yet fixed:** a start attempt and an install
 can be in flight at the same time. The user's log shows `SearXNG didn't answer
 within 90s. Its own output was: (nothing — it wrote no output at all)` at
@@ -954,6 +963,59 @@ additive.
 ---
 
 ## 11. Performance, accuracy and AI efficiency
+
+### Headroom — evaluated, not adopted
+
+Asked: *"is it worth trying to analyse and implement something like headroom
+for token efficiency?"* ([headroomlabs-ai/headroom][hr] — Apache-2.0, 62k
+stars, active). It compresses tool outputs, logs and RAG chunks before they
+reach the model: 60–95% off JSON, 15–20% for coding agents, with benchmark
+accuracy held. It is a good project. It is the wrong fit here, for three
+reasons that are about **this** app rather than about it:
+
+1. **There is no token bill.** Ollama runs on the user's own machine, so a
+   token costs latency and context window, not money. Headroom's headline
+   numbers are savings on a metered API.
+2. **It would compete for the same CPU.** The compression path wants ONNX
+   Runtime and a transformer of its own, running immediately before the local
+   LLM on the same hardware. Saving 1–2k tokens of prefill by spending an
+   inference pass is very likely net-negative on wall-clock for a 7B model on
+   a laptop — and it needs AVX2, which is not a promise this app can make.
+3. **Its biggest win is already taken.** The 60–95% figures come from raw
+   machine JSON — API responses, k8s logs. Our tool results are hand-shaped
+   summaries (`_note_summary`: id, preview, category, tags, dates) precisely
+   so they are small. There is little left in them to squeeze.
+
+Set against a **hard** cost: ONNX Runtime plus a model download, in an app
+whose whole proposition is offline, self-contained and light — one that
+vendors d3 and p5 locally rather than take a CDN.
+
+**What was worth taking from it, and cost nothing:**
+
+- ~~**Prefix-cache alignment** (their CacheAligner)~~ **done, and it found a
+  real bug.** The idea is to keep the front of the prompt byte-identical so
+  the provider's KV cache survives. Checking ours against that: the system
+  prompt carried `local.isoformat()` — *microseconds* — above the history and
+  the notes. Every round of every turn differed from the last, so Ollama's
+  prefix cache could never hold anything below that line, and each round of a
+  tool loop re-read the entire prompt. Now to the minute, which is identical
+  across the rounds of one loop and still correct for everything the app does
+  with it ("remind me in 10 minutes" is not resolved to the second).
+- **Reversible compression** (their CCR — send a short form, let the model
+  fetch the original on demand). We are already most of the way there: notes
+  go to the model as previews and there are tools to read one in full. The
+  unbuilt part is doing it for *long* notes rather than for the list — a note
+  of 4,000 characters is sent whole today.
+- **Verbosity steering.** Output tokens are half the latency and are not
+  budgeted at all. A style hint already exists; a length hint does not.
+
+**Before any more of this: measure.** §11a was done by counting characters of
+tool schema, which is why it worked. "A 3-turn chat shows 8.7k tokens" is not
+yet broken down into system / tools / history / notes / question, and until it
+is, the next optimisation is a guess.
+
+[hr]: https://github.com/headroomlabs-ai/headroom
+
 
 **Why.** Asked: "make sure all the code, processes, and AI usage is fully
 optimised and efficient", and "more ways to make the program and AI more

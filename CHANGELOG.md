@@ -9,6 +9,19 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- **A chat's prompt stops moving between rounds.** The clock in the system
+  prompt carried microseconds, and that line sits above your notes and the
+  conversation so far. Ollama caches the prompt only up to the first
+  difference, so every round of every turn re-read the whole thing from
+  scratch. It is now to the minute — identical across the rounds of one tool
+  loop, which is exactly where the re-reading was costing the most.
+- **SearXNG moves to a free port instead of giving up.** Port 8888 is a
+  popular number, and "close whatever has it" is advice that assumes you can.
+  It now tries 8080, 8081, 8890 and 8899 in turn, and `MEMORYMAP_SEARXNG_PORT`
+  picks one yourself. A SearXNG already answering on the wanted port still
+  wins over a free one — that is ours from a previous run, and moving would
+  start a second copy beside it.
+
 - **The dashboard's widgets no longer go missing on a cold load.** Starting the
   app fetched your notes and rendered the open tab at the same time, so the
   dashboard could draw its brand-new-notebook card over a notebook full of

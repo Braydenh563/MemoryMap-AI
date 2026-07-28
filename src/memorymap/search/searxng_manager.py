@@ -39,8 +39,69 @@ from memorymap.search import websearch
 
 CONTAINER_NAME = "memorymap-searxng"
 IMAGE = "searxng/searxng:latest"
-HOST_PORT = 8888
+# The port SearXNG listens on. 8888 by default, but that is a popular number
+# and "something is using port 8888" was a dead end for the user: the advice
+# was to go and close whatever had it, which is not always a thing you can do.
+# So it is settable, and if the wanted one is taken by something that is not a
+# SearXNG, `choose_port()` moves along to one that is free.
+DEFAULT_PORT = 8888
+HOST_PORT = DEFAULT_PORT  # the default, and what a fresh install will use
+# 8080 first because that is what the user suggested, and what SearXNG itself
+# listens on inside its own container.
+FALLBACK_PORTS = (8080, 8081, 8890, 8899)
 BASE_URL = f"http://localhost:{HOST_PORT}"
+
+# The port this run settled on, once it has. Sticky for the process, so a
+# started SearXNG is still findable by every later status and probe call.
+_chosen_port: int | None = None
+
+
+def host_port() -> int:
+    """The port to use: whatever was settled on, else what was asked for."""
+    if _chosen_port is not None:
+        return _chosen_port
+    wanted = os.environ.get("MEMORYMAP_SEARXNG_PORT", "").strip()
+    if wanted.isdigit() and 1 <= int(wanted) <= 65535:
+        return int(wanted)
+    return DEFAULT_PORT
+
+
+def base_url() -> str:
+    return f"http://localhost:{host_port()}"
+
+
+def _port_free(port: int) -> bool:
+    probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        # No SO_REUSEADDR: the question is whether a *live* listener holds it.
+        probe.bind(("127.0.0.1", port))
+        return True
+    except OSError:
+        return False
+    finally:
+        probe.close()
+
+
+def choose_port() -> int:
+    """Settle on a port, now, before starting.
+
+    A port already answering as SearXNG is *better* than a free one — that is
+    our own instance from a previous run, and taking a different port would
+    start a second copy beside it. Anything else holding the port is a reason
+    to move along rather than to fail, which is what used to happen.
+    """
+    global _chosen_port
+    wanted = host_port()
+    for port in (wanted, *(p for p in FALLBACK_PORTS if p != wanted)):
+        if websearch.probe_searxng(f"http://localhost:{port}") or _port_free(port):
+            _chosen_port = port
+            return port
+    # Everything is taken. Keep the one that was asked for so the error names
+    # the port the user actually configured.
+    _chosen_port = wanted
+    return wanted
+
+
 START_TIMEOUT = 90  # image pulls can be slow the first time
 COMMAND_TIMEOUT = 20
 
@@ -540,9 +601,9 @@ def _searxng_env(data_dir: Path) -> dict:
     return {
         **os.environ,
         "SEARXNG_SETTINGS_PATH": str(ensure_settings(data_dir)),
-        "SEARXNG_PORT": str(HOST_PORT),
+        "SEARXNG_PORT": str(host_port()),
         "SEARXNG_BIND_ADDRESS": "127.0.0.1",
-        "SEARXNG_BASE_URL": f"{BASE_URL}/",
+        "SEARXNG_BASE_URL": f"{base_url()}/",
     }
 
 
@@ -697,31 +758,32 @@ def port_report() -> dict:
         probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # No SO_REUSEADDR: the question is whether a *live* listener holds the
         # port, and reuse would let this bind alongside one on some platforms.
-        probe.bind(("127.0.0.1", HOST_PORT))
+        probe.bind(("127.0.0.1", host_port()))
         probe.close()
     except OSError:
         free = False
 
     if free:
         return {
-            "port": HOST_PORT,
+            "port": host_port(),
             "free": True,
             "held_by_searxng": False,
-            "detail": f"Port {HOST_PORT} is free.",
+            "detail": f"Port {host_port()} is free.",
         }
 
-    answering = websearch.probe_searxng(BASE_URL)
+    answering = websearch.probe_searxng(base_url())
     return {
-        "port": HOST_PORT,
+        "port": host_port(),
         "free": False,
         "held_by_searxng": answering,
         "detail": (
-            f"A working SearXNG is already answering on port {HOST_PORT} — "
+            f"A working SearXNG is already answering on port {host_port()} — "
             "MemoryMap can use it as it is."
             if answering
-            else f"Something is using port {HOST_PORT}, and it isn't answering "
-            "as SearXNG. Close whatever has it (or stop and reinstall here to "
-            "clear a half-dead instance of our own) and try again."
+            else f"Something is using port {host_port()}, and it isn't answering "
+            "as SearXNG. Starting will move to the next free port on its own "
+            f"(it tries {', '.join(str(p) for p in FALLBACK_PORTS)}); set "
+            "MEMORYMAP_SEARXNG_PORT to pick one yourself."
         ),
     }
 
@@ -891,7 +953,7 @@ def _start_source(data_dir: Path) -> dict:
     _pid_file(data_dir).write_text(
         json.dumps({"pid": process.pid, "backend": "source"}), encoding="utf-8"
     )
-    return {"url": BASE_URL, "started": True, "backend": "source"}
+    return {"url": base_url(), "started": True, "backend": "source"}
 
 
 def _stop_source(data_dir: Path) -> dict:
@@ -1007,7 +1069,7 @@ def status(data_dir: Path | None = None) -> dict:
         "docker_installed": docker_installed(),
         "source": source_available(),
         "backend": backend,
-        "url": BASE_URL,
+        "url": base_url(),
         "installing": _install_state["running"],
         "install_step": _install_state["step"],
         "install_error": _install_state["error"],
@@ -1060,7 +1122,7 @@ def status(data_dir: Path | None = None) -> dict:
     return {
         **base,
         "state": state,
-        "responding": websearch.probe_searxng(BASE_URL) if state == "running" else False,
+        "responding": websearch.probe_searxng(base_url()) if state == "running" else False,
     }
 
 
@@ -1072,6 +1134,9 @@ def start(data_dir: Path) -> dict:
             "SearXNG can't be set up automatically here. Point MemoryMap at a "
             "SearXNG you run yourself."
         )
+    # Settle the port before anything binds it, so the settings file, the
+    # child process and every later probe all agree on one number.
+    choose_port()
     if backend == "source":
         return _start_from_source(data_dir)
     return _start_docker(data_dir)
@@ -1094,8 +1159,8 @@ def _start_from_source(data_dir: Path) -> dict:
             "Setting SearXNG up in its own virtualenv. This takes a few minutes "
             "the first time; press Start again when it's done."
         )
-    if _source_state(data_dir) == "running" and websearch.probe_searxng(BASE_URL):
-        return {"url": BASE_URL, "started": False, "backend": "source"}
+    if _source_state(data_dir) == "running" and websearch.probe_searxng(base_url()):
+        return {"url": base_url(), "started": False, "backend": "source"}
     result = _start_source(data_dir)
     if not _wait_until_ready():
         # Read what it said *before* stopping it — a SIGTERM adds its own
@@ -1116,7 +1181,7 @@ def _start_from_source(data_dir: Path) -> dict:
         raise SearxngError(
             "SearXNG started but wrote nothing and never answered — which "
             "usually means the process died immediately. Check that port "
-            f"{HOST_PORT} is free. The log is at {log_path(data_dir)}."
+            f"{host_port()} is free. The log is at {log_path(data_dir)}."
         )
     return result
 
@@ -1125,8 +1190,8 @@ def _start_docker(data_dir: Path) -> dict:
     """Start (or create) the container and wait until it answers JSON."""
     state = _docker_state()
     if state == "running":
-        if websearch.probe_searxng(BASE_URL):
-            return {"url": BASE_URL, "started": False}
+        if websearch.probe_searxng(base_url()):
+            return {"url": base_url(), "started": False}
     elif state == "stopped":
         result = _run(["docker", "start", CONTAINER_NAME])
         if result.returncode != 0:
@@ -1138,9 +1203,9 @@ def _start_docker(data_dir: Path) -> dict:
                 "docker", "run", "-d",
                 "--name", CONTAINER_NAME,
                 "--restart", "unless-stopped",
-                "-p", f"{HOST_PORT}:8080",
+                "-p", f"{host_port()}:8080",
                 "-v", f"{settings}:/etc/searxng/settings.yml:ro",
-                "-e", f"SEARXNG_BASE_URL={BASE_URL}/",
+                "-e", f"SEARXNG_BASE_URL={base_url()}/",
                 IMAGE,
             ],
             timeout=START_TIMEOUT,
@@ -1153,7 +1218,7 @@ def _start_docker(data_dir: Path) -> dict:
             "SearXNG started but isn't answering yet. Give it a moment and press "
             "Auto-detect, or check `docker logs memorymap-searxng`."
         )
-    return {"url": BASE_URL, "started": True}
+    return {"url": base_url(), "started": True}
 
 
 def stop(data_dir: Path | None = None) -> dict:
@@ -1176,7 +1241,7 @@ def stop(data_dir: Path | None = None) -> dict:
 def _wait_until_ready(timeout: int = START_TIMEOUT) -> bool:
     deadline = time.time() + timeout
     while time.time() < deadline:
-        if websearch.probe_searxng(BASE_URL):
+        if websearch.probe_searxng(base_url()):
             return True
         time.sleep(2)
     return False

@@ -207,3 +207,47 @@ def test_a_command_that_said_nothing_useful_gets_no_invented_reason():
     assert searxng_manager._reason(_Result(), "Couldn't install") == "Couldn't install"
     noise = _Result(stdout="[notice] To update, run: pip install --upgrade pip")
     assert searxng_manager._reason(noise, "Couldn't install") == "Couldn't install"
+
+
+def test_a_configured_port_is_used_instead_of_the_default(monkeypatch):
+    """"Is there a way to change the port if it is full?? maybe like 8080."" """
+    monkeypatch.setattr(searxng_manager, "_chosen_port", None)
+    monkeypatch.setenv("MEMORYMAP_SEARXNG_PORT", "8080")
+    assert searxng_manager.host_port() == 8080
+    assert searxng_manager.base_url() == "http://localhost:8080"
+
+
+def test_nonsense_in_the_port_variable_falls_back_rather_than_crashing(monkeypatch):
+    monkeypatch.setattr(searxng_manager, "_chosen_port", None)
+    for junk in ("", "eight", "0", "99999", "8080; rm -rf /"):
+        monkeypatch.setenv("MEMORYMAP_SEARXNG_PORT", junk)
+        assert searxng_manager.host_port() == searxng_manager.DEFAULT_PORT, junk
+
+
+def test_a_taken_port_moves_along_instead_of_failing(monkeypatch):
+    """The old advice was "close whatever has it", which assumes you can."""
+    monkeypatch.setattr(searxng_manager, "_chosen_port", None)
+    monkeypatch.delenv("MEMORYMAP_SEARXNG_PORT", raising=False)
+    monkeypatch.setattr(searxng_manager.websearch, "probe_searxng", lambda url: False)
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as holder:
+        holder.bind(("127.0.0.1", searxng_manager.DEFAULT_PORT))
+        holder.listen(1)
+        chosen = searxng_manager.choose_port()
+    assert chosen != searxng_manager.DEFAULT_PORT
+    assert chosen in searxng_manager.FALLBACK_PORTS
+    # And it sticks, so the started instance stays findable.
+    assert searxng_manager.host_port() == chosen
+
+
+def test_a_searxng_already_answering_wins_over_a_free_port(monkeypatch):
+    """Ours, from a previous run. Taking a different port would start a
+    second copy beside it."""
+    monkeypatch.setattr(searxng_manager, "_chosen_port", None)
+    monkeypatch.delenv("MEMORYMAP_SEARXNG_PORT", raising=False)
+    monkeypatch.setattr(
+        searxng_manager.websearch,
+        "probe_searxng",
+        lambda url: url.endswith(str(searxng_manager.DEFAULT_PORT)),
+    )
+    monkeypatch.setattr(searxng_manager, "_port_free", lambda port: True)
+    assert searxng_manager.choose_port() == searxng_manager.DEFAULT_PORT

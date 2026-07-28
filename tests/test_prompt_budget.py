@@ -157,3 +157,27 @@ def test_the_guide_does_not_repeat_what_a_tool_result_already_says(app_state):
     guide = agent.TOOLS_GUIDE.lower()
     assert "clipped previews" not in guide
     assert tools._READ_MORE.lower() not in guide
+
+
+def test_the_clock_in_the_prompt_is_stable_across_a_tool_loop(monkeypatch):
+    """Ollama's prefix cache keeps the tokens before the first difference, and
+    this line sits above the history and the notes. At microsecond precision
+    it differed on every round of every turn, so each round re-read the whole
+    prompt. The rounds of one tool loop are seconds apart, so a clock to the
+    minute is the same string for all of them."""
+    from datetime import datetime, timedelta, timezone
+
+    from memorymap.core import config
+
+    base = datetime(2026, 7, 28, 18, 55, 10, 123456, tzinfo=timezone.utc)
+
+    def system_at(moment):
+        monkeypatch.setattr(config, "user_now", lambda _cfg: moment)
+        return agent.build_agent_messages("q", [])[0]["content"]
+
+    first = system_at(base)
+    # Three seconds later — a plausible gap between two rounds of one loop.
+    assert system_at(base + timedelta(seconds=3, microseconds=8)) == first
+    # A minute later it is allowed to change; the clock still has to be right.
+    assert system_at(base + timedelta(minutes=1)) != first
+    assert "18:55:00" in first and ".123456" not in first

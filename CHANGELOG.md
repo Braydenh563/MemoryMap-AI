@@ -121,6 +121,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- **The chat box couldn't grow.** It was a one-line `<input>`, so a
+  three-sentence question scrolled sideways inside a box the width of the chat
+  pane and you couldn't read what you'd written before sending it. It now
+  grows with the text up to a cap. Enter still sends; **Shift+Enter** writes a
+  newline, which a single-line box couldn't offer at all.
+- **One long note filled the whole list.** Notes past about ten lines are now
+  clamped with a fade and a "Show more", so the list stays a list. Only notes
+  that genuinely overflow get one — a note you can already read in full never
+  grows a button.
 - **The app was naming the wrong embedding model.** Settings → Models said
   "Built-in (all-MiniLM)" — it had been `BAAI/bge-small-en-v1.5` for two
   changes, and the only way to find out was to watch it download from Hugging

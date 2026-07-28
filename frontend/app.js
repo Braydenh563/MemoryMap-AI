@@ -399,11 +399,36 @@ function entryItem(entry, options = {}) {
 
   const content = document.createElement("p");
   content.className = "entry-content";
+  // One long note used to push everything else off the screen, so the list
+  // stopped being a list. Anything past this is clamped with a "Show more".
+  //
+  // The trigger is the character count, not a measured height: this list
+  // renders inside a `display: none` sub-tab, where every measurement comes
+  // back 0 — the trap that has caught four separate features here already.
+  const isLong =
+    entry.content.length > LONG_NOTE_CHARS ||
+    entry.content.split("\n").length > LONG_NOTE_LINES;
+  if (isLong && !expandedNotes.has(entry.id)) content.classList.add("entry-clamped");
   // Mark the matched words while filtering, so it's obvious WHY a note is in
   // the list. Built with createElement/textContent rather than innerHTML —
   // note text is user content and must never be parsed as markup.
   renderNoteText(content, entry.content, searchHighlightTerms());
   li.appendChild(content);
+  if (isLong) {
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "entry-more";
+    const label = () =>
+      expandedNotes.has(entry.id) ? "Show less" : "Show more";
+    toggle.textContent = label();
+    toggle.addEventListener("click", () => {
+      if (expandedNotes.has(entry.id)) expandedNotes.delete(entry.id);
+      else expandedNotes.add(entry.id);
+      content.classList.toggle("entry-clamped", !expandedNotes.has(entry.id));
+      toggle.textContent = label();
+    });
+    li.appendChild(toggle);
+  }
 
   const meta = document.createElement("div");
   meta.className = "entry-meta";
@@ -1536,6 +1561,9 @@ function renderEntries() {
     const parentVisible = entry.parent_id && visibleIds.has(entry.parent_id);
     if (!parentVisible) addWithChildren(entry, 0);
   }
+  // After the list is in the DOM: drop the clamp from any note that turned
+  // out to fit. No-op while the sub-tab is hidden; showNotesSection re-runs it.
+  settleNoteClamps();
 }
 
 // name -> {id, count}. Needed because renaming and deleting work on ids,
@@ -4062,6 +4090,7 @@ async function sendChatMessage(preset, opts = {}) {
 
   $("chat-suggest").classList.add("hidden");
   input.value = "";
+  autoGrow(input); // a cleared box must not keep the height of what was in it
   input.disabled = true;
   hide("chat-send");
   show("chat-stop");
@@ -8133,6 +8162,36 @@ let graphDims = { w: 0, h: 0 };
 let graphHoveredId = null; // node the pointer is over (spotlight its links)
 let graphAdjacency = null; // Map<id, Set<neighbourId>>
 
+// How much of a note the list shows before clamping it. Roughly ten lines at
+// a comfortable reading width — long enough that a normal note is never
+// clipped, short enough that one essay can't take the whole screen.
+const LONG_NOTE_CHARS = 500;
+const LONG_NOTE_LINES = 10;
+// Which notes the user has opened out, for this session. Not persisted: it is
+// a reading position, not a preference.
+const expandedNotes = new Set();
+
+// The character count decides which notes *might* be too tall; only a
+// measurement can say whether one actually is, because that depends on the
+// width it is rendered at. So the clamp goes on optimistically and this takes
+// it back off wherever the note fits after all — a "Show more" on a note that
+// is fully visible is worse than no clamping at all.
+//
+// It bails when the list is off screen: this renders inside a `display: none`
+// sub-tab, where every measurement is 0. `showNotesSection` calls it again on
+// the way in, which is the moment the numbers become real.
+function settleNoteClamps() {
+  const list = $("entry-list");
+  if (!list || !list.offsetParent) return;
+  for (const content of list.querySelectorAll(".entry-content.entry-clamped")) {
+    const toggle = content.parentElement?.querySelector(".entry-more");
+    if (content.scrollHeight <= content.clientHeight + 4) {
+      content.classList.remove("entry-clamped");
+      toggle?.remove();
+    }
+  }
+}
+
 function graphNodeRadius(node) {
   // A category heading in a tree layout is a fixed size — it has no access
   // count of its own, and sizing it by one would be inventing a number.
@@ -9228,6 +9287,8 @@ function activeNotesSection() {
 }
 
 function showNotesSection(name, { focus = false } = {}) {
+  // Measurements only mean anything once the section is on screen.
+  if (name === "browse") setTimeout(settleNoteClamps, 0);
   // The picker lists documents that may have been created since this page
   // loaded — a stale list is how "add to document" ends up offering nothing.
   if (name === "capture") loadCaptureDocuments();
@@ -12583,7 +12644,12 @@ $("conv-search").addEventListener("input", (event) => {
 });
 $("chat-export").addEventListener("click", exportChatMarkdown);
 $("chat-input").addEventListener("keydown", (e) => {
-  if (e.key === "Enter") sendChatMessage();
+  // Enter sends, Shift+Enter (or Ctrl/Cmd+Enter) writes a newline. The box is
+  // a textarea now, so "send" has to be chosen rather than inherited.
+  if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+    e.preventDefault();
+    sendChatMessage();
+  }
 });
 $("persona-select").addEventListener("change", async () => {
   // Remember the choice so the Notes quick-ask uses the same persona.

@@ -3060,6 +3060,12 @@ html { font-size: 16px; }
   margin: 0;
   padding: 0.7rem 0.9rem;
   border-radius: calc(var(--radius) * 0.8);
+  /* `.row input, .row select { flex: 1 }` does not match a textarea, and the
+     box collapsed to its intrinsic width the moment it stopped being an
+     <input>. min-width: 0 for the usual reason — a flex item refuses to
+     shrink below its content without it (invariant 2). */
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .chat-composer button { padding: 0.6rem 1.1rem; }
 /* Conversation list: a clear active row with an accent spine. */
@@ -5029,3 +5035,38 @@ textarea.autogrow {
    a detach button, so the two can't run into each other on a long preview. */
 #doc-notes li { display: flex; align-items: center; gap: 0.3rem; }
 #doc-notes .outline-link { flex: 1 1 auto; min-width: 0; }
+
+/* The chat box grows with the question (capped by AUTOGROW_MAX_PX in JS).
+   It replaced an <input>, so it has to keep an input's shape: one line to
+   start with, and no manual resize handle fighting the auto-grow. */
+.chat-input {
+  resize: none;
+  margin-bottom: 0;
+  min-height: 2.6rem;
+  line-height: 1.4;
+}
+
+/* A long note is clamped rather than cut: the fade says there is more, and
+   the button is the way to it. Sized in lines so it scales with the reading
+   size setting instead of being pinned to a pixel height. */
+.entry-content.entry-clamped {
+  max-height: 11.5em;
+  overflow: hidden;
+  /* The fade is a mask rather than a gradient overlay, so it works on every
+     surface — a solid-colour overlay would show as a band on a themed card. */
+  -webkit-mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
+}
+.entry-more {
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.1rem 0;
+  margin-top: -0.2rem;
+  cursor: pointer;
+}
+.entry-more:hover { text-decoration: underline; }

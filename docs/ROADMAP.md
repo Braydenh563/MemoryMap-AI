@@ -1159,6 +1159,19 @@ Small, concrete, each seen in the running app:
   drawn in the dashboard's own render, not at startup: p5 measures a canvas
   as zero inside a `display: none` tab, and it has to be redrawn anyway when
   a theme change moves the accent.
+- ~~**The chat box can't grow.**~~ **done.** It was an `<input type="text">`,
+  which is one line forever: a three-sentence question scrolled sideways
+  inside a box the width of a chat pane, so you could not read what you had
+  written before sending it. It is a textarea that grows with the text and
+  stops at `AUTOGROW_MAX_PX`, the same cap the capture box uses. Enter still
+  sends; Shift+Enter is a newline, which a single-line input could not offer
+  at all.
+- ~~**A long note fills the list.**~~ **done.** One 800-word note pushed
+  everything else off the screen, so the list stopped being a list. Anything
+  past `LONG_NOTE_CHARS` is clamped with a fade and a "Show more", remembered
+  per note for the session. The trigger is the character count, not a measured
+  height: the notes list renders inside a `display: none` sub-tab, where every
+  measurement is 0 — the trap that has caught four separate features here.
 - ~~**SearXNG starts but never answers** — capture its output.~~ The capture
   was done first; the cause was found this session and it was us — the status
   poll's liveness check terminated the process on Windows. See §8b, and

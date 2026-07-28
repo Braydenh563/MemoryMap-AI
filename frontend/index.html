@@ -547,7 +547,11 @@ Link to another note with [[its first few words]]."></textarea>
                 </div>
               </div>
             </div>
-            <input id="chat-input" type="text" placeholder="Ask your notebook anything…">
+            <!-- A textarea, not an input: a three-sentence question used to
+                 scroll sideways inside one line. Enter still sends; Shift+Enter
+                 is a newline, which an <input> could not offer at all. -->
+            <textarea id="chat-input" rows="1" class="autogrow chat-input"
+              placeholder="Ask your notebook anything…"></textarea>
             <button id="mic-chat" class="ghost" title="Dictate your question (local Whisper)" aria-label="Dictate your question">🎙</button>
             <button id="chat-send">Send</button>
             <button id="chat-stop" class="ghost hidden" title="Stop the answer">Stop</button>

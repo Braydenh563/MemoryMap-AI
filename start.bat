@@ -100,6 +100,23 @@ if exist ".venv\.mm_installed" (
   if "!REQ_TIME!"=="!LAST_TIME!" set "NEED_INSTALL=0"
 )
 
+REM  The marker only answers "have requirements.txt changed?". The question
+REM  that matters at launch is "can this venv actually import the app?", and
+REM  those come apart the moment the project folder is renamed or moved:
+REM  `pip install -e .` records an ABSOLUTE path into the venv, so the old
+REM  path stops resolving while requirements.txt keeps its timestamp. The
+REM  marker then says "up to date", the reinstall is skipped, and the launch
+REM  dies with "No module named memorymap" - reported after a rename from
+REM  MemoryMap-AI-v0 to MemoryMap-AI. Asking the venv directly costs one
+REM  interpreter start and catches a move, a rename, and a half-deleted venv.
+if "!NEED_INSTALL!"=="0" (
+  "%VENV_PY%" -c "import memorymap" >nul 2>nul
+  if errorlevel 1 (
+    echo  [2/4] The app folder moved since it was installed - relinking it...
+    set "NEED_INSTALL=1"
+  )
+)
+
 if "!NEED_INSTALL!"=="1" (
   echo  [2/4] Installing dependencies - this can take a few minutes the first time...
   "%VENV_PY%" -m pip install --upgrade pip

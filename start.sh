@@ -73,6 +73,20 @@ if [ -f ".venv/.mm_installed" ]; then
   [ "$REQ_HASH" = "$LAST_HASH" ] && NEED_INSTALL=0
 fi
 
+# The marker only answers "have requirements.txt changed?". The question that
+# matters at launch is "can this venv actually import the app?", and the two
+# come apart the moment the project folder is renamed or moved: `pip install
+# -e .` records an ABSOLUTE path into the venv, so the old path stops
+# resolving while requirements.txt keeps its checksum. The marker then says
+# "up to date", the reinstall is skipped, and the launch dies with "No module
+# named memorymap" — reported on Windows after renaming the project folder.
+# Asking the venv directly costs one interpreter start and catches a move, a
+# rename, and a half-deleted venv alike.
+if [ "$NEED_INSTALL" = "0" ] && ! "$VENV_PY" -c "import memorymap" >/dev/null 2>&1; then
+  echo " [2/4] The app folder moved since it was installed - relinking it..."
+  NEED_INSTALL=1
+fi
+
 if [ "$NEED_INSTALL" = "1" ]; then
   echo " [2/4] Installing dependencies - this can take a few minutes the first time..."
   "$VENV_PY" -m pip install --upgrade pip

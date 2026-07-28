@@ -77,6 +77,10 @@ def graph(similarity: bool = False, session: Session = Depends(get_session)) -> 
             "category": manager.category_name_for(session, e),
             "access_count": e.access_count,
             "pinned": e.pinned,
+            # A note's reply-to, so the tree layouts can nest a train of
+            # thought under the note that started it instead of laying every
+            # note out as a sibling (§9).
+            "parent_id": e.parent_id if e.parent_id in node_ids else None,
         }
         for e in entries
     ]

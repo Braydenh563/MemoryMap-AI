@@ -689,17 +689,57 @@ utility and ways to use and visualise my notes", "it's still kinda plain — it
 needs more life and design style". `main` made it keyboard-operable; it is still
 a plain force-directed blob that doesn't fill its own panel.
 
-**Visual identity — offer several map styles**, not one:
+**Layouts — the shape the notes are arranged in.** Asked for directly: "can
+you add different types of graph views… like tree graph diagrams and the
+like". These are separate from *styling*: a layout decides where a note goes,
+a style decides what it looks like once it is there. Layouts first, because a
+force-directed blob is the thing that makes the graph hard to read, and no
+amount of styling fixes it.
 
-- **Galaxy / starfield** — categories as spiral arms, notes as stars sized by
-  access count, links as faint filaments. The dashboard's "notebook
-  constellation" widget already proves the aesthetic works.
+The notebook has three different structures in it, and each one wants a
+different picture:
+
+| Structure | Where it comes from | Layout that shows it |
+| --- | --- | --- |
+| Hierarchy | category → note, and `parent_id` threads | tree, radial tree, treemap, sunburst |
+| Network | `entry_links` (wiki links, AI links) | force, arc diagram, adjacency matrix |
+| Sequence | `created_at`, `entry_dates` (§10A) | timeline-graph, growth animation |
+
+- ~~**Tree**~~ **built.** Root → category → note, with a note's replies nested
+  under it, so a train of thought reads as one branch. This is the layout the
+  request was about, and it is the one that suits a notebook with few links
+  and many categories — which is most notebooks before the graph has been
+  used much.
+- ~~**Radial tree**~~ **built.** The same hierarchy wrapped into a circle:
+  denser, and it makes the *shape* of a notebook obvious — a fat arc is a
+  category you write in constantly.
+- **Mind map from one note** — pick a note as the root and lay everything else
+  out by hops along `entry_links`. Different from the tree above: the
+  hierarchy there is filing, here it is connection.
+- **Treemap / sunburst** — area as weight, so a category with 200 notes looks
+  like one. Best for "where does my writing actually go?", and the only layout
+  here that answers a question about proportion.
+- **Arc diagram** — notes on one line, links as arcs above it. Ugly for
+  browsing, excellent for spotting the one note everything connects to.
+- **Adjacency matrix** — no crossing edges at all, so it stays readable when a
+  force graph has turned into wool. Worth it only once there are hundreds of
+  links.
+- **Timeline-graph** — the graph laid out left-to-right by date, links as
+  arcs. §10's Timeline tab does the axis; this would do the axis *and* the
+  links, which is the one thing neither view has.
+- **Subway map** — orthogonal edges, categories as lines. Beautiful and
+  genuinely hard: it needs edge routing, which is real work rather than a
+  layout call.
+
+**Styling — the same layout, dressed differently.** These are skins over
+whichever layout is picked, not layouts of their own:
+
+- **Galaxy / starfield** — notes as stars sized by access count, links as
+  faint filaments. The dashboard's "notebook constellation" widget already
+  proves the aesthetic works.
 - **Sea chart** — islands per category, notes as landmarks, links as shipping
   routes, unlinked notes adrift. Parchment palette pairs with it.
-- **Subway map** — orthogonal edges, categories as lines. Best for dense,
-  heavily-linked notebooks.
-- **Mind map / radial tree** — one note at the centre, everything else by hops.
-- Plain force-directed stays the default; the rest are a picker.
+- Plain force-directed stays the default; everything else is a picker.
 
 **Fit and framing.** It should size to its panel and re-fit on resize, with
 zoom-to-fit, zoom controls, and a minimap for large notebooks.

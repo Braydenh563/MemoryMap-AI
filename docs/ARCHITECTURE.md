@@ -618,6 +618,7 @@ On first run you choose a password (bcrypt-hashed, stays local). See the
 | Teach it a new time phrase | `entry/timewords.py` — one rule, one test row |
 | Change search behaviour | `src/memorymap/search/search_manager.py` |
 | Change the UI | `frontend/app.js`, `frontend/style.css` (read §10's invariants first) |
+| Add a graph layout | `layoutHierarchy` in `app.js` + an option in `#graph-layout`; d3's full v7 is vendored, so `tree`/`cluster`/`partition` are all there |
 | Change what the Timeline plots | `api/routes_timeline.py` — a note sits at what it is *about* when it says so |
 | Work out why a page scrolls sideways | §10 invariant 2 — an ancestor with no `min-width: 0` |
 | Change what a saved chat replays | `steps` in `routes_conversations.py` — not just `content` |

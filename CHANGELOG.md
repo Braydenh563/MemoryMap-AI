@@ -53,6 +53,13 @@ below). Versioning is `0.x` while the app stabilises.
   from the server, with a live step for each job, a progress bar where there
   is a real number to show, and a Quit button only on the jobs that can be
   stopped safely.
+- **The graph has layouts.** A picker for how the notes are arranged: the
+  force-directed **web** as before, a **tree** — notebook → category → note,
+  reading left to right, with a note's replies branching off the note they
+  answer — and a **radial tree**, the same shape wrapped into a circle. Most
+  notebooks have far more filing than links, and a force graph of
+  mostly-unlinked notes is a cloud of dots; a tree shows the structure that is
+  actually there. Your choice is remembered.
 - **A Timeline tab.** Your notes on a time axis, in bands — one per category
   or tag — with the bucket size you choose, from days to years. A note sits
   where it is *about* when it says so ("the beans need netting next week"

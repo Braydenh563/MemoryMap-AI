@@ -8033,8 +8033,99 @@ let graphHoveredId = null; // node the pointer is over (spotlight its links)
 let graphAdjacency = null; // Map<id, Set<neighbourId>>
 
 function graphNodeRadius(node) {
+  // A category heading in a tree layout is a fixed size — it has no access
+  // count of its own, and sizing it by one would be inventing a number.
+  if (node.isGroup) return node.id === "root" ? 14 : 11;
   // Much-used notes draw the eye: base size + a gentle access bonus.
   return 9 + Math.min(9, Math.sqrt(node.access_count || 0) * 2);
+}
+
+// --- graph layouts (§9) -----------------------------------------------------------
+//
+// Asked for directly: "can you add different types of graph views… like tree
+// graph diagrams and the like". A layout decides *where* a note goes; the
+// styling is a separate question. Force is the default because it shows the
+// links; the trees are here because most notebooks have far more filing than
+// links, and a force graph of mostly-unlinked notes is a cloud of dots.
+//
+// The hierarchy is real data, not an invention: notebook → category → note,
+// with a note's replies (`parent_id`, the train-of-thought threads) nested
+// under the note they answer, so a thread reads as one branch.
+
+function graphLayout() {
+  const saved = localStorage.getItem("graph-layout");
+  return ["force", "tree", "radial"].includes(saved) ? saved : "force";
+}
+
+// A category level in a tree layout. It is a real node in the drawing so the
+// join, the colours and the labels all work unchanged — but it is not a note,
+// so anything that would open or edit one has to check.
+function graphGroupNode(category) {
+  return {
+    id: `group:${category}`,
+    isGroup: true,
+    preview: category,
+    category,
+    access_count: 0,
+    pinned: false,
+  };
+}
+
+function layoutHierarchy(nodes, kind, width, height) {
+  // Build parent → children from the notes themselves.
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  const groups = new Map();
+  for (const node of nodes) {
+    if (!groups.has(node.category)) groups.set(node.category, graphGroupNode(node.category));
+  }
+  const root = { id: "root", isGroup: true, preview: "Notebook", category: "", access_count: 0 };
+  const children = new Map([[root.id, [...groups.values()]]]);
+  for (const group of groups.values()) children.set(group.id, []);
+  for (const node of nodes) {
+    // A reply hangs off the note it answers, wherever that note is filed —
+    // splitting a thread across categories would lose the thing it is.
+    const parent =
+      node.parent_id != null && byId.has(node.parent_id)
+        ? byId.get(node.parent_id)
+        : groups.get(node.category);
+    if (!children.has(node.id)) children.set(node.id, []);
+    children.get(parent.id).push(node);
+  }
+
+  const laid = d3.hierarchy(root, (d) => children.get(d.id) || []);
+  const radial = kind === "radial";
+  const radius = Math.min(width, height) / 2 - 40;
+  const layout = radial
+    ? d3.cluster().size([2 * Math.PI, radius])
+    : d3.tree().size([height - 60, width - 200]);
+  layout.separation((a, b) => (a.parent === b.parent ? 1 : 1.6) * (radial ? 1 : 1));
+  layout(laid);
+
+  const placed = [];
+  const links = [];
+  laid.each((point) => {
+    const node = point.data;
+    if (radial) {
+      // d3's radial convention: x is the angle, y the distance out.
+      node.x = width / 2 + point.y * Math.cos(point.x - Math.PI / 2);
+      node.y = height / 2 + point.y * Math.sin(point.x - Math.PI / 2);
+    } else {
+      node.x = 110 + point.y; // depth runs left → right
+      node.y = 30 + point.x;
+    }
+    node.fx = node.x;
+    node.fy = node.y;
+    node.depth = point.depth;
+    placed.push(node);
+    if (point.parent) {
+      links.push({
+        source: point.parent.data,
+        target: node,
+        kind: node.parent_id != null ? "thread" : "filing",
+      });
+    }
+  });
+  return { nodes: placed, links };
 }
 
 async function renderGraph() {
@@ -8124,14 +8215,23 @@ async function renderGraph() {
   graphDims = { w: width, h: height };
 
   // D3 mutates these (x/y/vx/vy), so work on copies.
-  const nodes = visibleNodes.map((n) => ({ ...n }));
-  const edges = visibleEdges.map((e) => ({ ...e }));
+  const layoutKind = graphLayout();
+  const tree = layoutKind === "force" ? null : layoutHierarchy(
+    visibleNodes.map((n) => ({ ...n })), layoutKind, width, height
+  );
+  // In a tree the drawn edges *are* the hierarchy: the note links are a
+  // different structure, and overlaying them turns the tree back into the
+  // web it exists to be an alternative to.
+  const nodes = tree ? tree.nodes : visibleNodes.map((n) => ({ ...n }));
+  const edges = tree ? tree.links : visibleEdges.map((e) => ({ ...e }));
   graphNodesRef = nodes;
   // Adjacency for hover-highlight: which notes each note is linked to.
   graphAdjacency = new Map(nodes.map((n) => [n.id, new Set()]));
   for (const e of edges) {
-    graphAdjacency.get(e.source)?.add(e.target);
-    graphAdjacency.get(e.target)?.add(e.source);
+    const from = tree ? e.source.id : e.source;
+    const to = tree ? e.target.id : e.target;
+    graphAdjacency.get(from)?.add(to);
+    graphAdjacency.get(to)?.add(from);
   }
 
   // Physics sliders (0–100, default 50) scale the tuned defaults so the
@@ -8141,7 +8241,9 @@ async function renderGraph() {
   const spreadScale = 0.5 + spread / 50; // 0.5×–2.5× the base link distance
   const gravityScale = 0.4 + gravity / 41.7; // stronger pull → tighter clusters
 
-  graphSimulation = d3
+  graphSimulation = tree
+    ? null
+    : d3
     .forceSimulation(nodes)
     .force(
       "link",
@@ -8157,6 +8259,7 @@ async function renderGraph() {
     .force("x", d3.forceX(width / 2).strength(0.04))
     .force("y", d3.forceY(height / 2).strength(0.06))
     .force("collide", d3.forceCollide().radius((d) => graphNodeRadius(d) + 24));
+  if (tree) graphSimulation = null;
 
   const edgeLines = canvas
     .append("g")
@@ -8175,7 +8278,7 @@ async function renderGraph() {
       d3
         .drag()
         .on("start", (event, d) => {
-          if (!event.active) graphSimulation.alphaTarget(0.3).restart();
+          if (!event.active) graphSimulation?.alphaTarget(0.3).restart();
           d.fx = d.x;
           d.fy = d.y;
         })
@@ -8184,12 +8287,16 @@ async function renderGraph() {
           d.fy = event.y;
         })
         .on("end", (event, d) => {
-          if (!event.active) graphSimulation.alphaTarget(0);
+          if (!event.active) graphSimulation?.alphaTarget(0);
+          if (tree) return; // a laid-out tree keeps its shape
           d.fx = null;
           d.fy = null;
         })
     )
-    .on("click", (event, d) => openGraphPopup(event, d))
+    .on("click", (event, d) => {
+      if (d.isGroup) return; // a category heading, not a note to open
+      openGraphPopup(event, d);
+    })
     // Double-click pins a node where it is; again releases it (Wave M).
     .on("dblclick", function (event, d) {
       event.stopPropagation(); // don't also zoom
@@ -8215,6 +8322,7 @@ async function renderGraph() {
   nodeGroups
     .append("circle")
     .attr("class", "graph-core")
+    .classed("graph-group", (d) => Boolean(d.isGroup))
     .attr("r", graphNodeRadius)
     .attr("fill", (d) => color(d.category))
     .classed("graph-pinned", (d) => d.pinned)
@@ -8248,14 +8356,21 @@ async function renderGraph() {
 
   // A plain-language readout of what's on screen, so the map isn't a
   // mystery: how many notes and what kinds of connections link them.
-  const counts = { link: 0, thread: 0, similar: 0 };
+  const counts = { link: 0, thread: 0, similar: 0, filing: 0 };
   for (const e of edges) counts[e.kind] = (counts[e.kind] || 0) + 1;
-  const parts = [`${nodes.length} note${nodes.length === 1 ? "" : "s"}`];
+  const noteCount = nodes.filter((n) => !n.isGroup).length;
+  const parts = [`${noteCount} note${noteCount === 1 ? "" : "s"}`];
   if (counts.link) parts.push(`${counts.link} link${counts.link === 1 ? "" : "s"}`);
   if (counts.thread) parts.push(`${counts.thread} thread${counts.thread === 1 ? "" : "s"}`);
   if (counts.similar) parts.push(`${counts.similar} similarity line${counts.similar === 1 ? "" : "s"}`);
+  if (counts.filing) parts.push(`${counts.filing} filed under a category`);
   $("graph-stats").textContent =
-    parts.join(" · ") + " — bigger, brighter notes are the ones you use most.";
+    parts.join(" · ") +
+    (layoutKind === "tree"
+      ? " — filed left to right; replies branch off the note they answer."
+      : layoutKind === "radial"
+        ? " — categories around the centre; replies branch off the note they answer."
+        : " — bigger, brighter notes are the ones you use most.");
 
   // Hover-highlight (spotlight a note's connections). Uses the same dimming
   // pipeline as search so the two never fight each other.
@@ -8269,8 +8384,22 @@ async function renderGraph() {
       applyGraphHighlight();
     });
 
+  const place = () => {
+    edgeLines
+      .attr("x1", (d) => d.source.x)
+      .attr("y1", (d) => d.source.y)
+      .attr("x2", (d) => d.target.x)
+      .attr("y2", (d) => d.target.y);
+    nodeGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
+  };
+  if (tree) {
+    // Laid out, not simulated: draw it once and frame it.
+    place();
+    fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height);
+  }
+
   let fitted = false;
-  graphSimulation.on("tick", () => {
+  graphSimulation?.on("tick", () => {
     edgeLines
       .attr("x1", (d) => d.source.x)
       .attr("y1", (d) => d.source.y)
@@ -8849,7 +8978,10 @@ function switchTab(name) {
     $("chat-input").focus();
   }
   if (name === "dashboard") renderDashboard();
-  if (name === "graph") renderGraph();
+  if (name === "graph") {
+    $("graph-layout").value = graphLayout();
+    renderGraph();
+  }
   if (name === "timeline") renderTimeline();
   if (name === "documents") {
     loadDocuments();
@@ -8961,6 +9093,13 @@ function timelineDot(note) {
 for (const id of ["timeline-scale", "timeline-group", "timeline-days"]) {
   $(id).addEventListener("change", renderTimeline);
 }
+
+// Layout picker (§9). Stored, because which shape suits a notebook is a
+// property of the notebook rather than of one visit.
+$("graph-layout").addEventListener("change", (event) => {
+  localStorage.setItem("graph-layout", event.target.value);
+  renderGraph();
+});
 
 // --- Notes sub-tabs ---------------------------------------------------------------
 // Four full-height cards stacked on one page meant scrolling past three forms

@@ -598,6 +598,12 @@ Link to another note with [[its first few words]]."></textarea>
           aria-label="Highlight matching notes in the graph">
         <button id="graph-add-node" class="small"
           title="Add a new note straight onto the map">＋ New note</button>
+        <label class="muted" for="graph-layout">Layout</label>
+        <select id="graph-layout" aria-label="How the notes are arranged">
+          <option value="force" selected>Force (web)</option>
+          <option value="tree">Tree</option>
+          <option value="radial">Radial tree</option>
+        </select>
         <span class="graph-physics">
           <label for="graph-gravity" class="muted">Gravity</label>
           <input id="graph-gravity" type="range" min="0" max="100" value="50"

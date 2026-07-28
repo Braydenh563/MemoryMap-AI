@@ -196,6 +196,14 @@ engines:
   - name: ahmia
     engine: ahmia
     disabled: true
+  # Bilibili can fail on Windows when IANA tzdata is missing.
+  - name: bilibili
+    engine: bilibili
+    disabled: true
+  # Torch can fail engine loading on some local/private installs.
+  - name: torch
+    engine: torch
+    disabled: true
 plugins:
   # Off deliberately. This plugin downloads a rules file from
   # rules1.clearurls.xyz *during startup*, and a failure there is not caught:
@@ -705,7 +713,7 @@ def _install_steps(python: str, src: Path) -> list[tuple[str, list[str]]]:
         (
             4,
             "Installing dependencies (the long one — a few minutes)…",
-            [python, "-m", "pip", "install", "-U", "pip", "setuptools", "wheel"],
+            [python, "-m", "pip", "install", "-U", "pip", "setuptools", "wheel", "tzdata"],
         ),
         (
             4,

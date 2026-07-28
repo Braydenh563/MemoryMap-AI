@@ -430,7 +430,7 @@ BUILTIN_SKILLS: list[dict] = [
         "prompt": "Help me plan how to get {{goal}} done by {{deadline}}.",
         "steps": [
             "Check my notes for anything already written about {{goal}}.",
-            "Lay out a realistic step-by-step plan between now and "
+            "Lay out a realistic step-by-step plan between now and " +
             "{{deadline}}, working the dates out from the current time.",
             "Set a reminder for the first milestone, and ask before setting "
             "the rest.",

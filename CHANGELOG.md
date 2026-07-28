@@ -121,6 +121,17 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- **SearXNG couldn't be imported on Windows at all.** With the install
+  finally finishing, the start died on `ModuleNotFoundError: No module named
+  'pwd'` — a POSIX-only module SearXNG imports at the top of one file. It is
+  the only such import in the whole package, and the only thing it's used for
+  is naming the current user in an error message that can't be reached without
+  a Valkey database. A stand-in module now goes into SearXNG's own virtualenv
+  where the platform hasn't got one.
+- **The install said it had worked when it hadn't.** Its final check was
+  `import searx`, which passed on Windows while the thing that actually runs —
+  `searx.webapp` — could not be imported. It checks that now, using the same
+  settings a real start uses.
 - **The chat box couldn't grow.** It was a one-line `<input>`, so a
   three-sentence question scrolled sideways inside a box the width of the chat
   pane and you couldn't read what you'd written before sending it. It now

@@ -470,6 +470,110 @@ def _fetch_source(src: Path, state: dict) -> None:
         )
 
 
+# SearXNG imports `pwd` at module scope in `searx/valkeydb.py`, and `pwd` is a
+# POSIX-only stdlib module. So `import searx.webapp` — the first thing a start
+# does — dies on Windows with:
+#
+#     File "…\searx\valkeydb.py", line 22, in <module>
+#         import pwd
+#     ModuleNotFoundError: No module named 'pwd'
+#
+# reported with a photo. It is the *only* POSIX-only import in the whole
+# package, and the only thing it is used for is one line of an error message
+# ("[user (uid)] can't connect valkey DB") in a branch that is unreachable
+# unless a Valkey/Redis URL is configured — which MemoryMap never does.
+#
+# So a stand-in module is written into the virtualenv where the platform
+# hasn't got one. Not a patch to SearXNG's own source: a patch has to match
+# text upstream is free to change and would need re-applying after every
+# update. This is a compatibility shim for a stdlib module that isn't there,
+# it lives only inside SearXNG's own venv, and it says what it is.
+_PWD_SHIM = '''"""A stand-in for the POSIX-only `pwd` module, written by MemoryMap.
+
+SearXNG imports `pwd` at module scope in `searx/valkeydb.py`, which makes it
+unimportable on Windows. It uses it in exactly one place — naming the current
+user in an error message when a Valkey DB connection fails — and MemoryMap
+configures no Valkey DB, so that line never runs.
+
+If it ever does run, these values are honest about being placeholders rather
+than pretending to be a real passwd entry.
+"""
+
+import getpass
+from collections import namedtuple
+
+struct_passwd = namedtuple(
+    "struct_passwd",
+    "pw_name pw_passwd pw_uid pw_gid pw_gecos pw_dir pw_shell",
+)
+
+
+def _entry(uid=0):
+    try:
+        name = getpass.getuser() or "unknown"
+    except Exception:  # noqa: BLE001 - a name for a log line is never worth raising
+        name = "unknown"
+    return struct_passwd(name, "x", uid, uid, name, "", "")
+
+
+def getpwuid(uid=0):
+    return _entry(uid)
+
+
+def getpwnam(name):
+    return _entry()
+
+
+def getpwall():
+    return [_entry()]
+'''
+
+
+def _searxng_env(data_dir: Path) -> dict:
+    """The environment SearXNG runs in — the generated settings included.
+
+    Used by the start *and* by the install's final check, because verifying
+    against SearXNG's own defaults is verifying something nobody will ever
+    run: it refuses to start on its placeholder `secret_key`, so the check
+    failed on a file the app replaces anyway.
+    """
+    return {
+        **os.environ,
+        "SEARXNG_SETTINGS_PATH": str(ensure_settings(data_dir)),
+        "SEARXNG_PORT": str(HOST_PORT),
+        "SEARXNG_BIND_ADDRESS": "127.0.0.1",
+        "SEARXNG_BASE_URL": f"{BASE_URL}/",
+    }
+
+
+def _write_pwd_shim(python: str) -> bool:
+    """Give the virtualenv a `pwd` module if its platform hasn't got one.
+
+    Asks the interpreter rather than checking `os.name`: whether *that* Python
+    can import it is the thing that actually breaks, and the answer stays
+    right if this ever runs somewhere unexpected.
+    """
+    if _run([python, "-c", "import pwd"], timeout=COMMAND_TIMEOUT).returncode == 0:
+        return False
+    where = _run(
+        [python, "-c", "import sysconfig; print(sysconfig.get_paths()['purelib'])"],
+        timeout=COMMAND_TIMEOUT,
+    )
+    target = (where.stdout or "").strip()
+    if not target:
+        raise SearxngError(
+            "Couldn't find where to add a compatibility module in SearXNG's "
+            "virtualenv."
+        )
+    Path(target, "pwd.py").write_text(_PWD_SHIM, encoding="utf-8")
+    logging.getLogger("memorymap.searxng").info(
+        "Wrote a `pwd` compatibility module into %s — SearXNG imports it at "
+        "module scope and this platform has no such module.",
+        target,
+    )
+    return True
+
+
 def _install_steps(python: str, src: Path) -> list[tuple[str, list[str]]]:
     """The pip commands that install SearXNG, in the order they must run.
 
@@ -545,17 +649,24 @@ def install_source(data_dir: Path) -> None:
                 result = _run_streaming(args, INSTALL_TIMEOUT, _install_log)
                 if result.returncode != 0:
                     raise SearxngError(_reason(result, "Couldn't install SearXNG"))
-            # pip exiting 0 is not the same as `searx` being importable — a
+            # pip exiting 0 is not the same as SearXNG being runnable — a
             # half-installed venv otherwise reads as installed and dies at
             # start, which is the state the reinstall button exists to escape.
             _install_state["step"] = "Checking the install…"
             _install_state["progress"] = 0.98
+            if _write_pwd_shim(python):
+                _install_log("Added a `pwd` compatibility module for this platform.")
+            # `import searx` was too shallow: it passed on Windows and the
+            # start then died importing `searx.webapp`, which is the module
+            # that actually runs. Check the thing that runs.
             check = _run(
-                [str(_venv_python(data_dir)), "-c", "import searx"], timeout=COMMAND_TIMEOUT
+                [python, "-c", "import searx.webapp"],
+                timeout=INSTALL_TIMEOUT,
+                env=_searxng_env(data_dir),
             )
             if check.returncode != 0:
                 raise SearxngError(
-                    _reason(check, "SearXNG installed but can't be imported")
+                    _reason(check, "SearXNG installed but can't be started")
                 )
             _import_ok.add(str(Path(data_dir)))
             _install_log("SearXNG installed and importable.")
@@ -744,14 +855,7 @@ def _start_source(data_dir: Path) -> dict:
     """Spawn SearXNG from its virtualenv and remember the PID."""
     if not source_installed(data_dir):
         raise SearxngError("SearXNG isn't installed yet.")
-    settings = ensure_settings(data_dir)
-    env = {
-        **os.environ,
-        "SEARXNG_SETTINGS_PATH": str(settings),
-        "SEARXNG_PORT": str(HOST_PORT),
-        "SEARXNG_BIND_ADDRESS": "127.0.0.1",
-        "SEARXNG_BASE_URL": f"{BASE_URL}/",
-    }
+    env = _searxng_env(data_dir)
     output = log_path(data_dir)
     output.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -851,7 +955,9 @@ def _run_streaming(
     )
 
 
-def _run(args: list[str], timeout: int = COMMAND_TIMEOUT) -> subprocess.CompletedProcess:
+def _run(
+    args: list[str], timeout: int = COMMAND_TIMEOUT, env: dict | None = None
+) -> subprocess.CompletedProcess:
     """Run a setup command. Fixed argument lists only — never a shell."""
     try:
         return subprocess.run(  # noqa: S603 — fixed args, no shell
@@ -860,6 +966,7 @@ def _run(args: list[str], timeout: int = COMMAND_TIMEOUT) -> subprocess.Complete
             text=True,
             timeout=timeout,
             check=False,
+            env=env,
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise SearxngError(f"Couldn't run {args[0]}: {exc}") from exc

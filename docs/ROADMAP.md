@@ -675,6 +675,23 @@ cannot be reproduced here. The tests pin the logic
 (`tests/test_searxng_install.py`), but ask the user whether SearXNG now
 installs and stays up before treating §8b as closed.
 
+**6. `import pwd` — SearXNG cannot be imported on Windows.** Reported with a
+photo: the install finally *finished*, and the start died with
+`ModuleNotFoundError: No module named 'pwd'` from `searx/valkeydb.py` line 22.
+`pwd` is POSIX-only. It is the **only** POSIX-only import in the whole
+package, and the only thing it is used for is naming the current user in one
+error message when a Valkey DB connection fails — a branch that is
+unreachable unless a Valkey URL is configured, which MemoryMap never does. A
+`pwd` stand-in is written into SearXNG's own virtualenv where the platform
+hasn't got one; patching SearXNG's source instead would mean matching text
+upstream is free to change and re-applying it after every update.
+
+The install's final check was also too shallow to have caught it: `import
+searx` passed on Windows and the *start* then died on `searx.webapp`. It
+checks `searx.webapp` now, with the same environment a start uses — verifying
+against SearXNG's own defaults verifies something nobody runs, since it
+refuses to start on its placeholder `secret_key`.
+
 **What is still unknown.** Whether search *results* come back on the user's
 machine. Every engine returned "access denied" in the sandbox because the
 proxy blocks them, so the one thing this session could not test is the one

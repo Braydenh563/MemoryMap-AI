@@ -256,7 +256,9 @@ def test_pip_succeeding_is_not_taken_as_searxng_being_importable(
     archive = _archive(tmp_path, ["setup.py"])
 
     def run(args, timeout=None):
-        if args[-1] == "import searx":
+        # The check is `import searx.webapp` now — the module a start actually
+        # loads. `import searx` passed on Windows and the start died anyway.
+        if args[-1] == "import searx.webapp":
             return subprocess.CompletedProcess(
                 args, 1, stdout="", stderr="ModuleNotFoundError: No module named 'searx'"
             )
@@ -407,6 +409,82 @@ def test_a_streamed_command_hands_back_each_line_as_it_prints(app_state):
     )
     assert result.returncode == 0
     assert [line.strip() for line in lines] == ["one", "two"]
+
+
+# --- the Windows-only import that stopped it starting ------------------------
+
+
+def test_the_pwd_shim_is_only_written_where_the_module_is_missing(app_state, monkeypatch):
+    """SearXNG imports `pwd` at module scope, and `pwd` is POSIX-only — which
+    is why the install succeeded on Windows and the *start* then died. Asking
+    the interpreter beats checking os.name: whether that Python can import it
+    is the thing that actually breaks."""
+    calls = []
+
+    def has_pwd(args, timeout=None):
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(searxng_manager, "_run", has_pwd)
+    assert searxng_manager._write_pwd_shim("python") is False
+    assert calls[0][-1] == "import pwd"
+    assert len(calls) == 1, "nothing else runs once the module is already there"
+
+
+def test_the_pwd_shim_lands_in_the_virtualenv(app_state, tmp_path, monkeypatch):
+    site = tmp_path / "site-packages"
+    site.mkdir()
+
+    def without_pwd(args, timeout=None):
+        if args[-1] == "import pwd":
+            return subprocess.CompletedProcess(args, 1, stdout="", stderr="no pwd")
+        return subprocess.CompletedProcess(args, 0, stdout=f"{site}\n", stderr="")
+
+    monkeypatch.setattr(searxng_manager, "_run", without_pwd)
+
+    assert searxng_manager._write_pwd_shim("python") is True
+    written = (site / "pwd.py").read_text()
+    assert "written by MemoryMap" in written
+    assert "valkeydb" in written, "it has to say what it is standing in for"
+
+
+def test_the_pwd_shim_is_valid_python_that_behaves_like_pwd(tmp_path):
+    """It is loaded by SearXNG, not by us, so a syntax error in it would only
+    show up as a failed start."""
+    import importlib.util
+
+    path = tmp_path / "pwd_shim.py"
+    path.write_text(searxng_manager._PWD_SHIM, encoding="utf-8")
+    spec = importlib.util.spec_from_file_location("pwd_shim", path)
+    shim = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(shim)
+
+    entry = shim.getpwuid(0)
+    assert entry.pw_uid == 0 and entry.pw_name
+    # The same field names the real module has: valkeydb reads pw_name/pw_uid.
+    assert set(entry._fields) == {
+        "pw_name", "pw_passwd", "pw_uid", "pw_gid", "pw_gecos", "pw_dir", "pw_shell"
+    }
+    assert shim.getpwnam("someone").pw_name and len(shim.getpwall()) == 1
+
+
+def test_the_install_checks_the_module_that_actually_runs(
+    app_state, tmp_path, monkeypatch
+):
+    """`import searx` passed on Windows and the start then died importing
+    `searx.webapp`. Checking the shallower thing is how that got through."""
+    data_dir = app_state.data_dir
+    _fake_venv(data_dir)
+    archive = _archive(tmp_path, ["setup.py"])
+    commands = _Commands()
+    monkeypatch.setattr(searxng_manager, "_run", commands)
+    monkeypatch.setattr(searxng_manager, "_run_streaming", commands)
+    monkeypatch.setattr(searxng_manager, "_download", lambda url, dest, on_progress=None: shutil.copy(archive, dest))
+
+    _install_and_wait(data_dir)
+
+    checked = [call[-1] for call in commands.calls if call[-2:-1] == ["-c"]]
+    assert "import searx.webapp" in checked, checked
 
 
 def test_an_empty_source_folder_no_longer_counts_as_installed(app_state, monkeypatch):

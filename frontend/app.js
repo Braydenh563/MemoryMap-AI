@@ -8822,7 +8822,7 @@ async function saveGraphNewNote() {
 
 // --- tabs (Wave A) ----------------------------------------------------------------
 
-const TABS = ["dashboard", "notes", "chat", "graph", "documents", "reminders"];
+const TABS = ["dashboard", "notes", "chat", "graph", "timeline", "documents", "reminders"];
 
 function switchTab(name) {
   for (const tab of TABS) {
@@ -8850,6 +8850,7 @@ function switchTab(name) {
   }
   if (name === "dashboard") renderDashboard();
   if (name === "graph") renderGraph();
+  if (name === "timeline") renderTimeline();
   if (name === "documents") {
     loadDocuments();
     renderDocStorage();
@@ -8858,6 +8859,107 @@ function switchTab(name) {
     refreshReminderDefaults();
     loadReminders();
   }
+}
+
+// --- Timeline (§10B) --------------------------------------------------------------
+//
+// Asked for repeatedly, and with more shape each time: "I want a note timeline
+// where I can see notes visually by what time they were made. Maybe I can even
+// group them by events or related places etc." So the axis is time and the
+// rows are bands — a note's category or tag — because that is what turns a
+// sorted list into a map of what happened.
+//
+// Drawn as a CSS grid rather than SVG: every cell is a real element, so it is
+// scrollable, selectable, keyboard-reachable and readable by a screen reader
+// without any of that being built by hand.
+
+async function renderTimeline() {
+  const grid = $("timeline-grid");
+  const body = await apiJson(
+    `/timeline?scale=${$("timeline-scale").value}` +
+      `&group=${$("timeline-group").value}&days=${$("timeline-days").value}`
+  ).catch(() => null);
+  grid.replaceChildren();
+  if (!body || !body.notes.length) {
+    $("timeline-empty").classList.remove("hidden");
+    $("timeline-count").textContent = "";
+    return;
+  }
+  $("timeline-empty").classList.add("hidden");
+  $("timeline-count").textContent = `${body.notes.length} notes · ${body.buckets.length} columns`;
+
+  const buckets = body.buckets;
+  const byId = new Map(body.notes.map((note) => [note.id, note]));
+  // Columns: one label column for the band names, then one per bucket.
+  grid.style.gridTemplateColumns = `minmax(7rem, auto) repeat(${buckets.length}, minmax(5.5rem, 1fr))`;
+
+  const corner = document.createElement("div");
+  corner.className = "timeline-corner";
+  grid.appendChild(corner);
+  for (const bucket of buckets) {
+    const head = document.createElement("div");
+    head.className = "timeline-head";
+    head.textContent = bucketLabel(bucket, body.scale);
+    grid.appendChild(head);
+  }
+
+  for (const band of body.bands) {
+    const name = document.createElement("div");
+    name.className = "timeline-band";
+    name.textContent = band.name;
+    const count = document.createElement("span");
+    count.className = "muted";
+    count.textContent = ` ${band.count}`;
+    name.appendChild(count);
+    grid.appendChild(name);
+
+    const inBand = new Set(band.ids);
+    for (const bucket of buckets) {
+      const cell = document.createElement("div");
+      cell.className = "timeline-cell";
+      const here = body.notes.filter(
+        (note) => note.bucket === bucket && inBand.has(note.id)
+      );
+      for (const note of here) cell.appendChild(timelineDot(note));
+      grid.appendChild(cell);
+    }
+  }
+  // The most recent column is the interesting one, so start there.
+  $("timeline-scroll").scrollLeft = $("timeline-scroll").scrollWidth;
+  void byId;
+}
+
+function bucketLabel(iso, scale) {
+  const day = new Date(`${iso}T00:00:00`);
+  if (scale === "year") return String(day.getFullYear());
+  if (scale === "month") {
+    return day.toLocaleDateString(undefined, { month: "short", year: "2-digit" });
+  }
+  return day.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}
+
+function timelineDot(note) {
+  const dot = document.createElement("button");
+  dot.className = `timeline-dot${note.placed_by === "mentioned" ? " timeline-dot-mentioned" : ""}`;
+  dot.type = "button";
+  // 🕓 marks a note that is here because of what it says, not when it was
+  // typed. Without it the timeline quietly moves notes and looks wrong.
+  dot.textContent = (note.placed_by === "mentioned" ? "🕓 " : "") + note.preview;
+  dot.title =
+    note.placed_by === "mentioned"
+      ? `“${note.phrase}” in this note meant ${new Date(note.at).toLocaleDateString()}.` +
+        `\nWritten ${new Date(note.written_at).toLocaleDateString()}.`
+      : `Written ${new Date(note.written_at).toLocaleString()}`;
+  dot.addEventListener("click", () => {
+    switchTab("notes");
+    showNotesSection("browse"); // focusing inside a hidden section does nothing
+    flashEntry(note.id);
+  });
+  return dot;
+}
+
+for (const id of ["timeline-scale", "timeline-group", "timeline-days"]) {
+  $(id).addEventListener("change", renderTimeline);
 }
 
 // --- Notes sub-tabs ---------------------------------------------------------------

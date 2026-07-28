@@ -186,6 +186,7 @@ are grouped by feature area:
 | `routes_insights` | `/insights` | dashboard: stats, most-accessed, on-this-day, digest |
 | `routes_reminders` | `/reminders` | create/list/complete reminders |
 | `routes_voice` | `/voice` | local Whisper transcription |
+| `routes_timeline` | `/timeline` | the notebook on a time axis, in bands |
 | `routes_tasks` | `/tasks` | what is running in the background right now |
 | system | `/health` | liveness + version (open, no unlock) |
 
@@ -617,6 +618,7 @@ On first run you choose a password (bcrypt-hashed, stays local). See the
 | Teach it a new time phrase | `entry/timewords.py` — one rule, one test row |
 | Change search behaviour | `src/memorymap/search/search_manager.py` |
 | Change the UI | `frontend/app.js`, `frontend/style.css` (read §10's invariants first) |
+| Change what the Timeline plots | `api/routes_timeline.py` — a note sits at what it is *about* when it says so |
 | Work out why a page scrolls sideways | §10 invariant 2 — an ancestor with no `min-width: 0` |
 | Change what a saved chat replays | `steps` in `routes_conversations.py` — not just `content` |
 | Add a preference | `DEFAULT_PREFERENCES` in `core/config.py`, then `PreferencesBody` + `get_preferences()` in `routes_settings.py` |

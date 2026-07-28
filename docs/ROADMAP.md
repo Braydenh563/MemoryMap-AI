@@ -45,14 +45,13 @@ the way*, not by how interesting it is to build.
    note list enormous, which is the problem §22 itself flagged. Wiki links and
    filter highlighting both still work inside emphasis. The dashboard's little
    note lists *strip* the markers instead, since they clip at ~70 characters.
-5. **Note timeline** (§10). Asked for repeatedly: see notes on a time axis,
-   grouped by event, place or theme. **Half A is done** — every note's
-   relative time phrases are now resolved at capture and stored
-   (`entry/timewords.py`, the `entry_dates` table), shown as a chip on the
-   note and given to the AI, so "the deadline is next Friday" written in
-   March no longer reads as the Friday coming up. **Half B, the Timeline tab
-   itself, is now the biggest unbuilt feature in this document.** It has the
-   dates it needs to plot.
+5. ~~**Note timeline** (§10)~~ **both halves built.** Relative time is
+   resolved at capture (`entry/timewords.py` → `entry_dates`) and there is a
+   **Timeline tab**: a time axis across, bands down the side (category, tag or
+   none), and every note plotted at what it is *about* where it says so —
+   "the beans need netting next week" sits on that week, marked 🕓 — and at
+   when it was written otherwise. What is left is in §10: an `events` table so
+   the bands can be events and places rather than only categories and tags.
 6. ~~**A hero header on the dashboard** (§22)~~ **done** — emblem and wordmark
    inside the greeting card, hidden below 720px.
 
@@ -758,22 +757,28 @@ findable as a class, and nudging on stale ones ("this said 'tomorrow' three
 weeks ago — did it happen?"). Both are queries over `entry_dates` now that
 the data exists.
 
-**B. A Timeline tab.** An event tree of what has happened, is happening, and
-will happen:
+~~**B. A Timeline tab.**~~ **built, first version.** A time axis across, one
+band per category or tag down the side (or none), and a bucket size you pick —
+day, week, month, year. Every note plots at what it is *about* where §10A
+resolved a date from its text, and at when it was written otherwise; a note
+moved by what it says is marked 🕓 and says so on hover, because a timeline
+that silently relocates notes looks broken rather than clever. Clicking a note
+opens it.
 
-- Notes place themselves on it by their resolved dates, not just creation date
-- **Grouped, not just sequential.** Asked again with more shape: "I want a note
-  timeline where I can see notes visually by what time they were made. Maybe I
-  can even group them by events or related places etc." So the axis is time,
-  but the *bands* are events, places or themes — which is what makes it a map
-  of what happened rather than a sorted list. Places and themes can be derived
-  from what is already stored (categories, tags, embeddings); events need §10's
-  `events` table.
-- Reminders and their completion appear as events
-- The AI can add events, and link notes to them
-- Past / present / future as one continuous view, zoomable from days to years
-- Branches for parallel threads, since "everything that is, has, and will
-  happen" is a tree, not a line
+Drawn as a CSS grid rather than SVG: every cell is a real element, so it
+scrolls, tabs and reads aloud without any of that being hand-built. Bands are
+capped at eight plus an "Everything else" lane — a chart with forty lanes is
+not a chart.
+
+**Still open here:**
+
+- **Events as bands.** The shape this slots into: one more `group` value, once
+  there is an `events` table. Places and themes can be derived from what is
+  already stored; events cannot.
+- **Reminders and their completion** as points on the axis.
+- **Zoom from days to years as a gesture**, rather than a bucket picker, and
+  branches for parallel threads — "everything that is, has and will happen" is
+  a tree, not a line.
 
 **Data shape:** a new `events` table (`title`, `at`, `precision`, `kind`,
 `entry_id?`, `source`), plus `entry_dates` for resolved expressions. Both

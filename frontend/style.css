@@ -4929,3 +4929,88 @@ textarea.autogrow {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* --- Timeline (§10B): the notebook on a time axis, in bands ----------------- */
+/* The base rule gives every select `width: 100%`, which stacked the three
+   toolbar pickers into three full-width rows. `.small-select` exists for
+   exactly this, but the toolbar owns its own widths so the markup stays
+   plain. */
+.graph-toolbar select {
+  width: auto;
+  max-width: 10rem;
+  margin-bottom: 0;
+}
+.graph-toolbar label { white-space: nowrap; }
+/* A CSS grid rather than SVG: every cell is a real element, so it scrolls,
+   selects, tabs and reads aloud without any of that being hand-built. */
+.timeline-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* Invariant 2: a grid track of 1fr refuses to shrink below its content, so
+     without a floor here the whole page grows sideways instead of this box. */
+  min-width: 0;
+  padding-bottom: 0.4rem;
+}
+.timeline-grid {
+  display: grid;
+  gap: 2px;
+  align-items: stretch;
+  min-width: min-content;
+}
+.timeline-corner { position: sticky; left: 0; background: var(--card); z-index: 2; }
+.timeline-head {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: center;
+  padding: 0.25rem 0.2rem;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.timeline-band {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--card);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.35rem 0.5rem 0.35rem 0;
+  border-right: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4rem;
+  align-items: baseline;
+}
+.timeline-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0.2rem;
+  min-width: 0;
+  border-bottom: 1px solid var(--border);
+}
+.timeline-dot {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: 0.7rem;
+  line-height: 1.25;
+  padding: 0.2rem 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--chip-bg);
+  color: var(--text);
+  cursor: pointer;
+  /* Two lines, then clip: a timeline is a shape to scan, not a reading view. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.timeline-dot:hover, .timeline-dot:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+}
+/* A note placed by what it says rather than when it was typed. */
+.timeline-dot-mentioned { border-style: dashed; }

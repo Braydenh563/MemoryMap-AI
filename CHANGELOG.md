@@ -45,9 +45,6 @@ below). Versioning is `0.x` while the app stabilises.
   (Activity / Tags / Recycle bin) return to the top when opened.
 - **Settings navigation is grouped** — the AI, your notebook, system, getting
   help — instead of eleven flat buttons. Appearance is unchanged.
-
-### Added
-
 - **Settings → Background tasks shows everything that's running**, not just
   two of them. It knew about re-indexing and model downloads; the embedding
   model loading at startup (a ~90 MB download the first time) and the SearXNG
@@ -56,6 +53,11 @@ below). Versioning is `0.x` while the app stabilises.
   from the server, with a live step for each job, a progress bar where there
   is a real number to show, and a Quit button only on the jobs that can be
   stopped safely.
+- **A Timeline tab.** Your notes on a time axis, in bands — one per category
+  or tag — with the bucket size you choose, from days to years. A note sits
+  where it is *about* when it says so ("the beans need netting next week"
+  plots on that week, marked 🕓, with the date it was written on hover) and at
+  when it was written otherwise. Click any note to open it.
 - **Notes remember what "tomorrow" meant.** A note saying "the deadline is
   next Friday" is correct the day it is written and misleading forever after,
   and nothing recorded which Friday it was. Every note's relative time

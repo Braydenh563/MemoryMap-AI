@@ -91,6 +91,8 @@
         aria-selected="false" aria-controls="tab-chat" tabindex="-1">Chat</button>
       <button role="tab" id="tab-btn-graph" data-tab="graph"
         aria-selected="false" aria-controls="tab-graph" tabindex="-1">Graph</button>
+      <button role="tab" id="tab-btn-timeline" data-tab="timeline"
+        aria-selected="false" aria-controls="tab-timeline" tabindex="-1">Timeline</button>
       <button role="tab" id="tab-btn-documents" data-tab="documents"
         aria-selected="false" aria-controls="tab-documents" tabindex="-1">Documents</button>
       <button role="tab" id="tab-btn-reminders" data-tab="reminders"
@@ -546,6 +548,47 @@ Link to another note with [[its first few words]]."></textarea>
   </div>
 
   <!-- ======================= GRAPH TAB (Wave E fills this) ================ -->
+  <!-- Timeline (§10B): the notebook on a time axis, in bands. The axis is
+       time; the bands are what make it a map of what happened rather than a
+       sorted list. -->
+  <div class="tab-page hidden" id="tab-timeline" role="tabpanel"
+    aria-labelledby="tab-btn-timeline" tabindex="-1">
+    <section class="card">
+      <div class="graph-toolbar">
+        <h2>Timeline</h2>
+        <label class="muted" for="timeline-scale">Bucket by</label>
+        <select id="timeline-scale" aria-label="Time bucket">
+          <option value="day">Day</option>
+          <option value="week">Week</option>
+          <option value="month" selected>Month</option>
+          <option value="year">Year</option>
+        </select>
+        <label class="muted" for="timeline-group">Bands</label>
+        <select id="timeline-group" aria-label="Group notes into bands">
+          <option value="category" selected>Category</option>
+          <option value="tag">Tag</option>
+          <option value="none">None</option>
+        </select>
+        <label class="muted" for="timeline-days">Show</label>
+        <select id="timeline-days" aria-label="How far back to show">
+          <option value="90">Last 3 months</option>
+          <option value="365" selected>Last year</option>
+          <option value="0">Everything</option>
+        </select>
+        <span id="timeline-count" class="muted"></span>
+      </div>
+      <p class="muted">
+        A note sits where it is <em>about</em> when it says so — "the deadline
+        is next Friday" plots on that Friday, marked 🕓 — and at when it was
+        written otherwise. Click any note to open it.
+      </p>
+      <div id="timeline-scroll" class="timeline-scroll">
+        <div id="timeline-grid" class="timeline-grid"></div>
+      </div>
+      <p id="timeline-empty" class="muted hidden">Nothing to plot yet.</p>
+    </section>
+  </div>
+
   <div class="tab-page hidden" id="tab-graph" role="tabpanel" aria-labelledby="tab-btn-graph" tabindex="-1">
     <section class="card" id="graph-card">
       <!-- One toolbar instead of three stacked rows -->

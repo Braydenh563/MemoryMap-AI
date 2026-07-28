@@ -272,6 +272,26 @@ from running, so a cue that fails to fire costs tokens, not abilities.
 Settings → Tools has the switch (`tool_focus`), because the honest failure of
 a keyword rule is a phrasing it does not know.
 
+**Two more rules hold the budget, and both are easy to break by accident:**
+
+- **A note goes in short, and the model can ask for the rest.**
+  `librarian.note_for_prompt` caps a note at `MAX_NOTE_CHARS` (900) and cuts
+  with a marker naming the call that reads it whole — `… [cut — call
+  get_note(7) to read it in full]`. Retrieving ten notes is pointless if one
+  note of several pages fills the prompt on its own. This is only safe because
+  the truncation is *reversible*: `get_note` exists and `TOOLS_GUIDE` already
+  tells the model to use it before quoting. **A cut the model cannot undo is
+  just a missing piece of the note** — so if the marker or the tool ever goes,
+  the cap has to go with it.
+- **The front of the prompt must not move between rounds.** Ollama caches a
+  prompt only up to the first difference, so anything volatile near the top
+  invalidates everything below it. The clock in the system prompt is written
+  to the *minute* for exactly this reason: at microsecond precision it
+  differed on every round of every turn, and each round of a tool loop — whose
+  rounds are seconds apart — re-read the whole prompt from scratch. Anything
+  added above the history or the notes has to be stable for at least the
+  length of a tool loop, or it costs a full re-read per round.
+
 ## 7b. Skills
 
 A skill (`ai/skills.py`) is a **named, repeatable job over the notebook**, not
@@ -510,8 +530,10 @@ Ollama stopped and no optional extras installed.
 A single-page app in **vanilla HTML/CSS/JS — no framework, no build step.**
 Served as static files by the same FastAPI server (so no CORS is needed). It's
 also a **PWA** (`manifest.webmanifest` + `sw.js`) with a mobile pass, a command
-palette (Ctrl/Cmd-K), an Obsidian-style force-directed graph (D3, vendored
-locally in `frontend/vendor/`), and a sketch pad (p5, also vendored). No asset
+palette (Ctrl/Cmd-K), a graph of the notebook in three layouts — a
+force-directed **web**, a **tree** (notebook → category → note, replies
+branching off the note they answer) and a **radial tree** — drawn with D3
+vendored locally in `frontend/vendor/`, and a sketch pad (p5, also vendored). No asset
 is ever loaded from a CDN — consistent with the offline-first rule.
 
 ### Driving it in a browser
@@ -568,19 +590,42 @@ focused element's `offsetParent` — catches far more than a screenshot.
    markdown is *not* used in the note list: rendered headings and tables make
    it enormous. The dashboard's one-line previews strip the markers instead
    (`notePreviewText`), because a 70-character clip can land mid-tag.
-9. **Settings sections are three things that must agree**: an entry in
+9. **Appearance is three layers, read manual-first**: defaults →
+   the chosen theme → your manual tweaks (`appearancePref`). That order is
+   right for a tweak made *after* choosing a theme and wrong for every theme
+   chosen after the tweak — one stored palette cancelled that part of each new
+   theme, so themes "did nothing". `applyThemePreset(name, chosenByUser)`
+   therefore clears the manual keys *that theme has an opinion about* when the
+   user picks one, and no others. **A new appearance key needs a decision
+   about which layer owns it**, or it silently joins the layer that outranks
+   the theme.
+10. **A graph layout is a set of rules about what a label needs**, not about
+   what the panel has. `d3.tree().size([...])` divides the panel height by the
+   leaf count, which gave a 29-note notebook eighteen pixels a row; `nodeSize`
+   and panning is the fix. The radial rings **by depth** (`d3.tree`), not by
+   `d3.cluster`'s height, or a category containing a thread sits a ring in
+   from its siblings. `frameTree` frames from the canvas's measured `getBBox`
+   rather than from node coordinates plus a padding guess, because the labels
+   are what overflow. Assert on the labels' rotated corners, not their
+   axis-aligned boxes — those overlap when diagonal text does not.
+11. **Settings sections are three things that must agree**: an entry in
    `SETTINGS_SECTIONS`, a `<section id="settings-NAME">`, and a
    `<button data-section="NAME">` in the nav. Miss the first and the section
    never hides; miss the third and it is unreachable.
 
 ## 11. Configuration
 
-Two knobs, both optional, via `.env` (copy from `.env.example`):
+Three knobs, all optional, via `.env` (copy from `.env.example`):
 
 - `MEMORYMAP_DATA_DIR` — where the database, preferences, uploads, and backups
   live (default `data/`).
 - `OLLAMA_URL` — where the local Ollama server listens (default
   `http://localhost:11434`).
+- `MEMORYMAP_SEARXNG_PORT` — the port to run a managed SearXNG on (default
+  8888). Rarely needed: `searxng_manager.choose_port()` already moves to
+  8080/8081/8890/8899 when the wanted port is held by something that is not a
+  SearXNG. A port *already answering as SearXNG* beats a free one — that is
+  ours from a previous run, and moving would start a second copy beside it.
 
 User-facing preferences (chat model, embedding backend, recycle-bin days, answer
 style, optional AI profile, …) live in `data/preferences.json`, managed by
@@ -627,12 +672,13 @@ On first run you choose a password (bcrypt-hashed, stays local). See the
 | Teach it a new time phrase | `entry/timewords.py` — one rule, one test row |
 | Change search behaviour | `src/memorymap/search/search_manager.py` |
 | Change the UI | `frontend/app.js`, `frontend/style.css` (read §10's invariants first) |
-| Add a graph layout | `layoutHierarchy` in `app.js` + an option in `#graph-layout`; d3's full v7 is vendored, so `tree`/`cluster`/`partition` are all there |
+| Add a graph layout | `layoutHierarchy` in `app.js` + an option in `#graph-layout`; d3's full v7 is vendored, so `tree`/`cluster`/`partition` are all there. Read §10 invariant 10 first — the readable-layout rules are not obvious |
+| Add a theme or palette | `THEME_PRESETS` in `app.js` + a `[data-palette]` block in `style.css`; §10 invariant 9 for why a theme has to clear manual keys |
 | Change what the Timeline plots | `api/routes_timeline.py` — a note sits at what it is *about* when it says so |
 | Work out why a page scrolls sideways | §10 invariant 2 — an ancestor with no `min-width: 0` |
 | Change what a saved chat replays | `steps` in `routes_conversations.py` — not just `content` |
 | Add a preference | `DEFAULT_PREFERENCES` in `core/config.py`, then `PreferencesBody` + `get_preferences()` in `routes_settings.py` |
-| Add a Settings screen | §10 invariant 9 — three places, all three needed |
+| Add a Settings screen | §10 invariant 11 — three places, all three needed |
 | Change which search engine answers | `websearch.PROVIDERS` + `settings_from()`; never read the preference directly |
 | Add an agent tool | `ai/tools.py`, then run `tests/test_prompt_budget.py` — schemas are 77% of the per-round cost |
 | Change what a skill can be | `ai/skills.py` — `normalise` is the one validator both the editor and `save_skill` go through |

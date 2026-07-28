@@ -707,8 +707,18 @@ within 90s. Its own output was: (nothing — it wrote no output at all)` at
 shim at 6:54:11 — so the start was waiting 90 seconds for an interpreter that
 was still being built. Nothing is broken by this beyond the wasted wait and a
 misleading error, but the error is the one the user sees, and it accuses the
-wrong thing. `start()` should refuse while `_install_state["running"]` is set
-and say the install is still going, rather than time out against it.
+wrong thing.
+
+**The direction that is already guarded is the wrong one.** `_start_from_source`
+refuses when `_install_state["running"]` is set, so *starting during an
+install* is handled. What happened here is the reverse: a start was already
+waiting when a reinstall began, and nothing cancels a wait in flight — it sits
+out its full `START_TIMEOUT` against a virtualenv being rebuilt underneath it,
+then blames SearXNG for writing no output. Fixing it properly means making
+`_wait_until_ready` interruptible: give it a generation counter or an
+`threading.Event` that `install_source` sets, so the waiter notices the ground
+has moved and returns "the install restarted" instead of "it never answered".
+Not a quick change, which is why it is here rather than done.
 
 The diagnosis from §8 shipped and is working: the app now says "DuckDuckGo is
 rate-limiting this app rather than returning results" instead of showing an

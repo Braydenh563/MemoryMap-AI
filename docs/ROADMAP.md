@@ -495,6 +495,14 @@ Checked against the running app, not assumed:
   because the relationship is many-to-many and neither side owns the other —
   detaching removes a connection, never a note, and binning a note takes it
   out of the document's list on its own.
+
+  Asked again straight afterwards — *"also what about adding a document to a
+  note??"* — because a capture-time picker only helps the notes you have not
+  written yet, and the ones that turn out to belong to a document are usually
+  the old ones. **📄 Add to a document** in a note's ⋯ menu picks from the
+  documents that note is not already on, and the × on its 📄 chip detaches it
+  from the note's side. Both directions now use the same two routes, so there
+  is one behaviour to reason about rather than two.
 - **Document history** — notes have `EntryRevision`; documents have no
   equivalent table, and the AI edit overwrites on accept
 

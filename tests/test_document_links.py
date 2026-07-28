@@ -106,6 +106,31 @@ def test_the_link_shows_up_on_the_note_in_the_list(client):
     assert listed["documents"][0]["title"] == "Reading notes"
 
 
+def test_attaching_afterwards_shows_up_on_the_note_straight_away(client):
+    """"What about adding a document to a note??" — the note list is where
+    that is done from, so it is where the result has to appear. The note card
+    reads `documents` off `GET /entries` and nothing else."""
+    document = _doc(client, "Iceland trip")
+    note = _note(client, "the ferry leaves at 8")
+    client.post(f"/documents/{document['id']}/notes", json={"entry_id": note["id"]})
+
+    listed = client.get("/entries").json()[0]
+    assert [d["title"] for d in listed["documents"]] == ["Iceland trip"]
+
+
+def test_detaching_from_the_note_side_leaves_the_note_alone(client):
+    """The × on the note's 📄 chip removes a connection. Losing the note to it
+    would be the worst possible reading of that button."""
+    document = _doc(client, "Iceland trip")
+    note = _note(client, "the ferry leaves at 8", document_ids=[document["id"]])
+
+    client.delete(f"/documents/{document['id']}/notes/{note['id']}")
+
+    listed = client.get("/entries").json()
+    assert [n["id"] for n in listed] == [note["id"]]
+    assert listed[0]["documents"] == []
+
+
 def test_a_note_with_no_documents_says_so_rather_than_omitting_the_field(client):
     """The frontend renders what it is given; a missing key is a crash."""
     note = _note(client, "unattached")

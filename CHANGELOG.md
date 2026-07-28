@@ -58,7 +58,11 @@ below). Versioning is `0.x` while the app stabilises.
   save it rather than afterwards. The note then carries a 📄 chip that opens
   that document, and the document lists the notes it draws on, each with a
   detach button. Detaching removes the connection and never the note; binning
-  a note takes it out of the document's list on its own.
+  a note takes it out of the document's list on its own. A note you wrote
+  before the document existed can be added afterwards, too — **📄 Add to a
+  document** in a note's ⋯ menu picks from the documents you have, and the ×
+  on the note's 📄 chip detaches it again without going to find the document
+  first.
 - **The graph has layouts.** A picker for how the notes are arranged: the
   force-directed **web** as before, a **tree** — notebook → category → note,
   reading left to right, with a note's replies branching off the note they

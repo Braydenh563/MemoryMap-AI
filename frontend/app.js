@@ -459,6 +459,23 @@ function entryItem(entry, options = {}) {
   for (const doc of entry.documents || []) {
     const mark = chip(`📄 ${doc.title}`, "tag", () => openDocumentFromNote(doc.id));
     mark.title = `Open “${doc.title}”`;
+    if (options.actions) {
+      // Detach from the note's side too. The document editor has had this
+      // since the link existed; from here it took going and finding the
+      // document first, which is the wrong way round when the note is what
+      // you are already looking at.
+      const unlink = document.createElement("span");
+      unlink.className = "unlink";
+      unlink.textContent = "×";
+      unlink.title = `Detach from “${doc.title}” — the note stays`;
+      unlink.addEventListener("click", async (event) => {
+        event.stopPropagation(); // the chip itself opens the document
+        await api(`/documents/${doc.id}/notes/${entry.id}`, { method: "DELETE" });
+        await loadEntries();
+        toast(`Detached from “${doc.title}”.`);
+      });
+      mark.appendChild(unlink);
+    }
     meta.appendChild(mark);
   }
 
@@ -762,6 +779,16 @@ function entryOverflowMenu(entry) {
       run: () => openEntryHistory(entry),
     },
     {
+      label: "📄 Add to a document",
+      title: "Attach this note to a document you have already started",
+      run: () => {
+        inlineAction = inlineActionIs(entry.id, "document")
+          ? null
+          : { id: entry.id, kind: "document" };
+        renderEntries();
+      },
+    },
+    {
       label: "📄 Expand into a document",
       title: "Start a document from this note — the note stays where it is",
       run: () => expandNoteIntoDocument(entry),
@@ -987,6 +1014,11 @@ function renderInlineAction(entry) {
 
   if (inlineAction.kind === "reevaluate") {
     renderReevaluateResult(entry, wrap);
+    return wrap;
+  }
+
+  if (inlineAction.kind === "document") {
+    renderAttachToDocument(entry, wrap);
     return wrap;
   }
 
@@ -1781,6 +1813,82 @@ function renderCaptureDocuments(documents) {
     chipEl.title = "Don't attach this note to that document after all";
     box.appendChild(chipEl);
   }
+}
+
+// The other direction, asked for straight after the capture-time picker:
+// "what about adding a document to a note??". A note you wrote weeks ago
+// turns out to belong to something you are writing now, and the capture box
+// is long gone by then.
+async function renderAttachToDocument(entry, wrap) {
+  const status = document.createElement("p");
+  status.className = "muted";
+  status.textContent = "Loading documents…";
+  wrap.appendChild(status);
+
+  const documents = await apiJson("/documents").catch(() => null);
+  if (!documents) {
+    status.classList.add("error");
+    status.textContent = "Couldn't load your documents.";
+    return;
+  }
+  const close = () =>
+    smallButton("Close", "", () => {
+      inlineAction = null;
+      renderEntries();
+    });
+  const already = new Set((entry.documents || []).map((doc) => doc.id));
+  const free = documents.filter((doc) => !already.has(doc.id));
+  if (!free.length) {
+    status.textContent = documents.length
+      ? "This note is on all of your documents already."
+      : "No documents yet — “Expand into a document” starts one from this note.";
+    wrap.appendChild(close());
+    return;
+  }
+
+  status.textContent = "Add this note to:";
+  const picker = document.createElement("select");
+  for (const doc of free) {
+    const option = document.createElement("option");
+    option.value = String(doc.id);
+    option.textContent = doc.title || "Untitled";
+    picker.appendChild(option);
+  }
+
+  const row = document.createElement("div");
+  row.className = "row";
+  row.appendChild(
+    smallButton(
+      "Attach",
+      "Add this note to the chosen document",
+      async () => {
+        const id = picker.value;
+        const title = picker.selectedOptions[0]?.textContent || "that document";
+        try {
+          await apiJson(`/documents/${id}/notes`, {
+            method: "POST",
+            body: JSON.stringify({ entry_id: entry.id }),
+          });
+          inlineAction = null;
+          await loadEntries();
+          toastAction(`Added to “${title}”.`, "Open", () =>
+            openDocumentFromNote(Number(id))
+          );
+        } catch (error) {
+          toast(error.message, true);
+        }
+      },
+      false
+    )
+  );
+  row.appendChild(
+    smallButton("Cancel", "", () => {
+      inlineAction = null;
+      renderEntries();
+    })
+  );
+  wrap.append(picker, row);
+  setTimeout(() => picker.focus(), 0);
 }
 
 function openDocumentFromNote(documentId) {

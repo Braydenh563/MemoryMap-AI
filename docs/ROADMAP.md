@@ -657,6 +657,16 @@ recurring causes are now written up as invariants in `docs/ARCHITECTURE.md` §10
 
 ## 8b. Web search — two Windows bugs found, and what is left
 
+**Seen in a log this session, not yet fixed:** a start attempt and an install
+can be in flight at the same time. The user's log shows `SearXNG didn't answer
+within 90s. Its own output was: (nothing — it wrote no output at all)` at
+6:54:06, with the install still unpacking at 6:53:12 and writing the `pwd`
+shim at 6:54:11 — so the start was waiting 90 seconds for an interpreter that
+was still being built. Nothing is broken by this beyond the wasted wait and a
+misleading error, but the error is the one the user sees, and it accuses the
+wrong thing. `start()` should refuse while `_install_state["running"]` is set
+and say the install is still going, rather than time out against it.
+
 The diagnosis from §8 shipped and is working: the app now says "DuckDuckGo is
 rate-limiting this app rather than returning results" instead of showing an
 empty panel, which is confirmed in use. That was the whole point — the failure

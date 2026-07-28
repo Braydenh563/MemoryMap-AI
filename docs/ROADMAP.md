@@ -506,6 +506,50 @@ Checked against the running app, not assumed:
 - **Document history** — notes have `EntryRevision`; documents have no
   equivalent table, and the AI edit overwrites on accept
 
+### Asked for this session, not yet built
+
+A round of use produced four requests about documents at once, and they are
+one direction rather than four features: *"I want the documents to be more
+like using Obsidian or Notion."* Ordered by how much each one gets in the way.
+
+- **A mini AI chat bar in the document editor.** Asked for directly: *"a mini
+  chat bar on the documents page to request the ai to do stuff, like write
+  something, edit something specific (the whole document or current selection
+  etc)."* This is the biggest of the four and the closest to already existing:
+  `doc-ai-panel` edits a selection or the whole document and shows the result
+  as a proposal, so the *editing* half is built. What is missing is the
+  **conversational** half — a bar you type an instruction into, in place, that
+  can either answer about the document or propose an edit to it, and that
+  keeps the thread of what you have already asked. Two decisions to make
+  before building it: whether it shares `/chat`'s conversation store (a
+  document's thread is about the document, so probably its own), and whether
+  an instruction with a selection active always means "edit this" (it should
+  — ambiguity there is what makes an AI editor feel unpredictable).
+- **Upload a file as a document, attached to a note.** Asked as *"I want to be
+  able to upload a document to a note"*. Distinct from `📎 Attach a file`,
+  which stores a blob against the note and gives you back a download: this
+  would take a `.md` or `.txt`, make it a real Document with its text in the
+  editor, and link it to the note in one step. The pieces exist — `/files`
+  ingests uploads, `/documents` creates, `document_links` joins — so this is
+  mostly a route that does the three together, plus deciding what to do with a
+  `.docx` or a PDF (probably: refuse politely rather than half-convert).
+- **Obsidian/Notion editing.** The editor is a `<textarea>` with a preview
+  beside it. What people mean by this request, roughly in order of how much
+  each is missed: `[[wiki links]]` between documents (notes already have them
+  — the parser is in `renderNoteText`), a `/` command menu at the cursor,
+  drag-and-drop images that land as markdown, backlinks ("what links here"),
+  and live-preview editing where the markup renders in place instead of in a
+  second pane. The last one is the one that would change the feel and also the
+  one that means giving up the textarea — worth doing deliberately, and last.
+- **Documents on the graph and the timeline.** Asked as *"docs should also
+  probably show on the graph and timeline"*. Both views are built around
+  `Entry` and would need a second node/point kind. The design question is not
+  technical: a document is not a note, and drawing it as one would say the
+  wrong thing. On the graph it wants its own shape and to sit where its notes
+  are (it is a hub over them, which is exactly what `document_links` records);
+  on the timeline it wants to be a band or a marker rather than a dot, because
+  a document is written over weeks and a note happens at a moment.
+
 ---
 
 ## 6. OpenAI-compatible backends (LM Studio, llama.cpp, Jan, vLLM)
@@ -543,7 +587,19 @@ where the genuine embedded browser from §3 becomes possible.
 
 ---
 
-## 8. Open bug list — now empty
+## 8. Open bug list
+
+- ~~**The dashboard's widgets are missing until you switch tabs**~~ **fixed.**
+  Reported as *"initially when I load up the app the dashboard widgets are
+  missing until I refresh or change tabs and go back on it again"*. `startApp`
+  fired `loadEntries` and `refreshActiveTab` as two independent steps, so on a
+  cold load the dashboard rendered against an `allEntries` that was still `[]`
+  and drew its brand-new-notebook card — which is correct for an empty
+  notebook and wrong for one that has simply not arrived yet. The tab render
+  now waits for the entries, and the empty-state card is gated on a flag that
+  says the fetch has actually happened, because "empty" and "not loaded" are
+  indistinguishable from a length alone.
+
 
 Every reported bug in this section has been reproduced in Chromium and fixed.
 What follows is kept as a record of *what each one actually was*, because in

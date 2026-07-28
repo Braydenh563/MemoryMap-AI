@@ -80,7 +80,7 @@
 
   <!-- One compact, sticky top bar: brand · tabs · controls (Wave L). -->
   <header id="top-bar">
-    <span id="brand-logo" title="A one-of-a-kind emblem, generated fresh each visit" aria-hidden="true"></span>
+    <img id="brand-logo" src="/favicon.svg" alt="" aria-hidden="true" width="34" height="34">
     <h1 title="Your offline, self-filing notebook">MemoryMap&nbsp;AI</h1>
     <nav id="tab-bar" role="tablist" aria-label="App sections">
       <button role="tab" id="tab-btn-dashboard" data-tab="dashboard"
@@ -172,7 +172,10 @@
     <div class="layout">
       <!-- Category sidebar: built from the loaded entries, click to filter -->
       <aside class="card" id="sidebar">
-        <h2>Categories</h2>
+        <div class="row space-between sidebar-head">
+          <h2>Categories</h2>
+          <span id="notes-emblem" class="emblem emblem-mark" title="MemoryMap's AI is filing these for you" aria-hidden="true"></span>
+        </div>
         <ul id="category-list"></ul>
         <div id="most-used-box" class="hidden">
           <h2>Most used</h2>
@@ -448,6 +451,7 @@ Link to another note with [[its first few words]]."></textarea>
       <aside class="card" id="chat-sidebar">
         <div class="row space-between">
           <h2>Chats</h2>
+          <span id="chat-emblem" class="emblem emblem-mark" title="Answered by the AI on this machine" aria-hidden="true"></span>
           <button id="chat-new" class="ghost small" title="Start a fresh conversation">+ New</button>
         </div>
         <!-- Searches what was said, not just titles: you remember the

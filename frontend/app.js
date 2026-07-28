@@ -45,6 +45,9 @@ window.addEventListener("unhandledrejection", (e) =>
 const REVIEW_THRESHOLD = 50;
 
 let allEntries = []; // latest GET /entries result, newest first
+// Whether that has ever come back. An empty notebook and a notebook that
+// has not loaded yet look identical from `allEntries.length` alone.
+let entriesEverLoaded = false;
 let activeCategory = null; // sidebar filter; null = All
 let linkSource = null; // entry id waiting for its link partner
 let editingId = null; // entry id currently in inline-edit mode
@@ -198,7 +201,7 @@ function startApp() {
     }
   };
 
-  step("load entries", loadEntries);
+  const entriesReady = step("load entries", loadEntries);
   step("load recent questions", loadRecentQuestions);
   step("load suggestions", loadSuggestions);
   step("load your most-used items", loadMostUsed);
@@ -221,7 +224,12 @@ function startApp() {
   // itself from a pile of 401s and then never tried again. On the dashboard
   // that meant an empty grid until you opened Edit layout and cancelled out of
   // it, which re-ran renderDashboard by hand (user-reported).
-  step("load this tab", () => refreshActiveTab());
+  // *After* the entries land, not alongside them. These two ran concurrently,
+  // so on a cold load the dashboard rendered against an `allEntries` that was
+  // still `[]` and drew its brand-new-notebook card instead of the widgets —
+  // reported as "the dashboard widgets are missing until I refresh or change
+  // tabs". Every tab wants the notes; none of them wants to guess.
+  entriesReady.then(() => step("load this tab", () => refreshActiveTab()));
 
   // First-run welcome tour (guarded by localStorage; re-runnable from Help).
   maybeShowOnboarding();
@@ -1730,6 +1738,7 @@ function showEntrySkeletons() {
 async function loadEntries() {
   showEntrySkeletons();
   allEntries = await apiJson("/entries");
+  entriesEverLoaded = true;
   renderSidebar();
   // Categories the AI has filed notes into since the last load need their ids
   // fetched before rename/delete can work on them. Deliberately not awaited:
@@ -1793,8 +1802,37 @@ async function loadCaptureDocuments() {
     option.textContent = doc.title;
     select.appendChild(option);
   }
+  // Asked for: "the add to document should have the option for a new document
+  // as well". Wanting to file a note under something that does not exist yet
+  // is the normal case at the start of a project, and leaving to make the
+  // document loses the note you were in the middle of writing.
+  const fresh = document.createElement("option");
+  fresh.value = NEW_DOCUMENT;
+  fresh.textContent = "＋ New document…";
+  select.appendChild(fresh);
   select.value = chosen;
   renderCaptureDocuments(documents);
+}
+
+// The picker's value for "one that doesn't exist yet". A string, so it can
+// never collide with a document id.
+const NEW_DOCUMENT = "new";
+
+// Ask for a title and start an empty document. Shared by the capture box and
+// the note card's "Add to a document", so both offer the same thing.
+async function createDocumentNamed(suggestion = "") {
+  const title = (prompt("Title for the new document:", suggestion) || "").trim();
+  if (!title) return null;
+  try {
+    const doc = await apiJson("/documents", {
+      method: "POST",
+      body: JSON.stringify({ title, content: `# ${title}\n\n` }),
+    });
+    return doc; // the documents tab refetches on switch, so nothing to sync
+  } catch (error) {
+    toast(error.message, true);
+    return null;
+  }
 }
 
 let captureDocumentTitles = new Map();
@@ -1831,22 +1869,14 @@ async function renderAttachToDocument(entry, wrap) {
     status.textContent = "Couldn't load your documents.";
     return;
   }
-  const close = () =>
-    smallButton("Close", "", () => {
-      inlineAction = null;
-      renderEntries();
-    });
   const already = new Set((entry.documents || []).map((doc) => doc.id));
   const free = documents.filter((doc) => !already.has(doc.id));
-  if (!free.length) {
-    status.textContent = documents.length
-      ? "This note is on all of your documents already."
-      : "No documents yet — “Expand into a document” starts one from this note.";
-    wrap.appendChild(close());
-    return;
-  }
 
-  status.textContent = "Add this note to:";
+  status.textContent = free.length
+    ? "Add this note to:"
+    : documents.length
+      ? "This note is on all of your documents — or start a new one:"
+      : "No documents yet — start one:";
   const picker = document.createElement("select");
   for (const doc of free) {
     const option = document.createElement("option");
@@ -1854,6 +1884,12 @@ async function renderAttachToDocument(entry, wrap) {
     option.textContent = doc.title || "Untitled";
     picker.appendChild(option);
   }
+  // Same offer as the capture box: the document this note belongs to often
+  // does not exist until the note makes you realise you want it.
+  const fresh = document.createElement("option");
+  fresh.value = NEW_DOCUMENT;
+  fresh.textContent = "＋ New document…";
+  picker.appendChild(fresh);
 
   const row = document.createElement("div");
   row.className = "row";
@@ -1862,8 +1898,14 @@ async function renderAttachToDocument(entry, wrap) {
       "Attach",
       "Add this note to the chosen document",
       async () => {
-        const id = picker.value;
-        const title = picker.selectedOptions[0]?.textContent || "that document";
+        let id = picker.value;
+        let title = picker.selectedOptions[0]?.textContent || "that document";
+        if (id === NEW_DOCUMENT) {
+          const made = await createDocumentNamed(entry.content.trim().slice(0, 60));
+          if (!made) return;
+          id = String(made.id);
+          title = made.title;
+        }
         try {
           await apiJson(`/documents/${id}/notes`, {
             method: "POST",
@@ -6397,7 +6439,10 @@ async function renderDashboard() {
   // they made a working app look broken on the day someone starts using it.
   // One card that says what to do instead — and only until there's anything
   // to show, which is the first note.
-  if (!allEntries.length && !dashEditMode) {
+  // `entriesEverLoaded` and not just the length: before the first GET /entries
+  // comes back these are indistinguishable, and guessing "empty" paints the
+  // brand-new-notebook card over a notebook full of notes.
+  if (entriesEverLoaded && !allEntries.length && !dashEditMode) {
     // The emblem draws into a canvas, which p5 can only size once the element
     // is actually in the document — rendering it while the card is still
     // detached leaves a blank gap where the mark should be.
@@ -9590,10 +9635,18 @@ for (const id of ["timeline-scale", "timeline-group", "timeline-days"]) {
   $(id).addEventListener("change", renderTimeline);
 }
 
-$("entry-document").addEventListener("change", (event) => {
-  const id = Number(event.target.value);
-  if (id) captureDocuments.add(id);
+$("entry-document").addEventListener("change", async (event) => {
+  const value = event.target.value;
   event.target.value = "";
+  if (value === NEW_DOCUMENT) {
+    const doc = await createDocumentNamed($("entry-content").value.trim().slice(0, 60));
+    if (!doc) return;
+    captureDocuments.add(doc.id);
+    await loadCaptureDocuments(); // so the new one is in the list to remove
+    return;
+  }
+  const id = Number(value);
+  if (id) captureDocuments.add(id);
   renderCaptureDocuments();
 });
 
@@ -12632,7 +12685,12 @@ function renderEmblem(holder, size = 34, { animate = false } = {}) {
 
 // Every emblem currently on the page, keyed by element id and size.
 const EMBLEM_SLOTS = [
-  ["brand-logo", 34, true],
+  // Not the top bar any more: that is the favicon now, so the app's icon in
+  // the tab strip and the mark above it are the same thing. The generated
+  // emblem is the dashboard's hero, and a small animated marker on the tabs
+  // where the AI is doing something — asked for as "kinda like an ai symbol".
+  ["notes-emblem", 22, true],
+  ["chat-emblem", 22, true],
   ["lock-emblem", 76, true],
   ["onboarding-emblem", 64, false],
   ["chat-empty-emblem", 52, false],

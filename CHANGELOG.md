@@ -7,8 +7,23 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The dashboard's widgets no longer go missing on a cold load.** Starting the
+  app fetched your notes and rendered the open tab at the same time, so the
+  dashboard could draw its brand-new-notebook card over a notebook full of
+  notes; switching tabs and back fixed it, which is how it was noticed.
+
 ### Added
 
+- **A new document, without leaving the note.** The *Add to document* picker —
+  in the capture box and in a note's ⋯ menu — offers **＋ New document…**, so
+  a note can go into a document that does not exist yet.
+- **The app's icon is the app's icon.** The top bar now shows the favicon, so
+  the mark in your browser tab and the mark above the tabs are the same thing.
+  The generated emblem stays the hero on the dashboard and appears small and
+  animated beside the sidebar heading on Notes and Chat, where the AI is doing
+  the work.
 - **Search operators in the notes filter**: `tag:work`, `cat:recipes`,
   `is:pinned` / `private` / `linked` / `untagged`, `"exact phrase"`, and
   `-exclude`. Plain words now match in any order rather than as one substring.

@@ -9,11 +9,25 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- **Picking a theme works every time.** A single earlier tweak — one palette,
+  one light/dark choice — sat on top of every theme picked afterwards and
+  cancelled that part of it, so a theme could appear to do nothing. Choosing a
+  theme now clears the manual settings that theme covers, and leaves the ones
+  it says nothing about alone.
+- **Lagoon and Shallows refined.** Shallows is properly teal rather than
+  indigo-tinted, and Lagoon's inset panels and secondary text are no longer
+  washed out against their cards.
+- **Background tasks shows SearXNG starting**, not just installing. A start
+  waits up to 90 seconds for the service to answer — the longest silence in
+  the app, and the one thing missing from the screen that exists to explain
+  silences.
+- **The AI emblem has one home.** It was squeezed into the Notes and Chat
+  sidebar headings and absent everywhere else; it now sits in the header next
+  to the AI status dot, on screen for every tab.
 - **A long note no longer crowds out the rest of your notebook.** Ten notes
   are retrieved so the AI sees ten of them; one note of several pages used to
   fill the prompt on its own. Notes now go in capped, cut with a marker
   telling the AI exactly how to read the rest — which it could already do.
-
 - **A chat's prompt stops moving between rounds.** The clock in the system
   prompt carried microseconds, and that line sits above your notes and the
   conversation so far. Ollama caches the prompt only up to the first
@@ -26,7 +40,6 @@ below). Versioning is `0.x` while the app stabilises.
   picks one yourself. A SearXNG already answering on the wanted port still
   wins over a free one — that is ours from a previous run, and moving would
   start a second copy beside it.
-
 - **The dashboard's widgets no longer go missing on a cold load.** Starting the
   app fetched your notes and rendered the open tab at the same time, so the
   dashboard could draw its brand-new-notebook card over a notebook full of
@@ -40,8 +53,8 @@ below). Versioning is `0.x` while the app stabilises.
 - **The app's icon is the app's icon.** The top bar now shows the favicon, so
   the mark in your browser tab and the mark above the tabs are the same thing.
   The generated emblem stays the hero on the dashboard and appears small and
-  animated beside the sidebar heading on Notes and Chat, where the AI is doing
-  the work.
+  animated in the header beside the AI status dot, so it is on screen whatever
+  tab you are on.
 - **Search operators in the notes filter**: `tag:work`, `cat:recipes`,
   `is:pinned` / `private` / `linked` / `untagged`, `"exact phrase"`, and
   `-exclude`. Plain words now match in any order rather than as one substring.

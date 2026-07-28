@@ -589,6 +589,40 @@ where the genuine embedded browser from §3 becomes possible.
 
 ## 8. Open bug list
 
+- ~~**Picking a theme did nothing about half the time**~~ **fixed.**
+  Appearance has three layers — defaults, the chosen theme, your manual
+  tweaks — and `appearancePref` reads them in that order, manual first. That
+  is right for a tweak made *after* choosing a theme and wrong for every theme
+  chosen afterwards: one earlier change to the palette or the mode sat on top
+  of each new theme and silently cancelled that part of it, and with a few
+  stored a theme could change nothing visible at all. Picking a theme now
+  clears the manual keys *that theme has an opinion about* — so Lagoon drops a
+  stored palette and mode but leaves a font size it says nothing about — and
+  clears the custom accent with the palette, since an accent picked against
+  one palette has no meaning against another.
+- ~~**Lagoon and Shallows needed refining**~~ **done.** Shallows was asked for
+  as "a teal light one" and was drawn mostly indigo, so its ground and its
+  accent pulled against each other; the page is aqua now and the indigo
+  survives as the cooler of the two blobs. Lagoon's `--inner` was 5% white,
+  which made every inset panel identical to the card it sat in, and `--muted`
+  was low enough to grey out secondary text; both lifted, and the page
+  gradient runs greener at the bottom so the teal accent reads as lit from
+  inside the water rather than printed on it.
+- ~~**Background tasks showed nothing while SearXNG started**~~ **fixed.**
+  Reported twice — "I still don't think the bg tasks is working". The list was
+  right about installs and wrong about the case the user was actually
+  watching: a *start* is not an install, it runs in the request thread, and it
+  waits up to `START_TIMEOUT` (90s) for the service to answer. That is the
+  longest silence in the app from the outside and it was the one thing not on
+  the screen built to explain silences. `searxng_manager.starting()` now
+  reports it, with the seconds waited against the timeout as a progress bar.
+- ~~**The AI emblem was cramped, and only on two tabs**~~ **fixed.** It was
+  put inside the Notes and Chat sidebar headings, wedged between a title and a
+  button — too big for the row, differently placed on each, and five more tabs
+  would have meant five more of those decisions. It has one home now, in the
+  header beside the AI status dot, which is what it is about: on screen for
+  every tab, one size to get right, and the first thing to drop when the
+  header runs out of room on a narrow window.
 - ~~**The dashboard's widgets are missing until you switch tabs**~~ **fixed.**
   Reported as *"initially when I load up the app the dashboard widgets are
   missing until I refresh or change tabs and go back on it again"*. `startApp`
@@ -673,8 +707,18 @@ within 90s. Its own output was: (nothing — it wrote no output at all)` at
 shim at 6:54:11 — so the start was waiting 90 seconds for an interpreter that
 was still being built. Nothing is broken by this beyond the wasted wait and a
 misleading error, but the error is the one the user sees, and it accuses the
-wrong thing. `start()` should refuse while `_install_state["running"]` is set
-and say the install is still going, rather than time out against it.
+wrong thing.
+
+**The direction that is already guarded is the wrong one.** `_start_from_source`
+refuses when `_install_state["running"]` is set, so *starting during an
+install* is handled. What happened here is the reverse: a start was already
+waiting when a reinstall began, and nothing cancels a wait in flight — it sits
+out its full `START_TIMEOUT` against a virtualenv being rebuilt underneath it,
+then blames SearXNG for writing no output. Fixing it properly means making
+`_wait_until_ready` interruptible: give it a generation counter or an
+`threading.Event` that `install_source` sets, so the waiter notices the ground
+has moved and returns "the install restarted" instead of "it never answered".
+Not a quick change, which is why it is here rather than done.
 
 The diagnosis from §8 shipped and is working: the app now says "DuckDuckGo is
 rate-limiting this app rather than returning results" instead of showing an

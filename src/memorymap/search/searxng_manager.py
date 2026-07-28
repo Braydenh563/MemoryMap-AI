@@ -1126,6 +1126,19 @@ def status(data_dir: Path | None = None) -> dict:
     }
 
 
+# A start runs in the request thread and waits up to START_TIMEOUT for the
+# service to answer — a minute and a half of nothing, and the one wait a user
+# is most likely to open Background tasks to ask about. The install was listed
+# there and this was not, which is what "the bg tasks still isn't working"
+# turned out to be: the longest visible wait in the app had nothing to show.
+_start_state: dict = {"running": False, "backend": "", "since": 0.0}
+
+
+def starting() -> dict | None:
+    """The start in flight, if there is one."""
+    return dict(_start_state) if _start_state["running"] else None
+
+
 def start(data_dir: Path) -> dict:
     """Start SearXNG whichever way this machine can, and wait for JSON."""
     backend = preferred_backend()
@@ -1137,9 +1150,13 @@ def start(data_dir: Path) -> dict:
     # Settle the port before anything binds it, so the settings file, the
     # child process and every later probe all agree on one number.
     choose_port()
-    if backend == "source":
-        return _start_from_source(data_dir)
-    return _start_docker(data_dir)
+    _start_state.update({"running": True, "backend": backend, "since": time.time()})
+    try:
+        if backend == "source":
+            return _start_from_source(data_dir)
+        return _start_docker(data_dir)
+    finally:
+        _start_state["running"] = False
 
 
 def _start_from_source(data_dir: Path) -> dict:

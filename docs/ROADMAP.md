@@ -589,6 +589,20 @@ where the genuine embedded browser from §3 becomes possible.
 
 ## 8. Open bug list
 
+- ~~**Renaming the project folder broke the launcher**~~ **fixed.** Reported
+  with a screenshot after renaming `MemoryMap-AI-v0` to `MemoryMap-AI`:
+  `No module named memorymap`, straight after `[2/4] Dependencies already up
+  to date - skipping install.` Those two lines are the whole bug. `pip install
+  -e .` writes an **absolute** path into the venv, so the rename left it
+  resolving to a folder that no longer exists; the skip marker stores
+  `requirements.txt`'s timestamp (`.bat`) or checksum (`.sh`), which a rename
+  does not change, so the one thing that would have relinked it was skipped.
+  The marker was answering the wrong question — "have requirements changed?"
+  rather than "can this venv import the app?" — and those come apart exactly
+  when the folder moves. Both launchers now ask the venv directly before
+  trusting the marker, which costs one interpreter start and also catches a
+  moved folder and a half-deleted venv. Reproduced by renaming a real venv'd
+  checkout and confirmed fixed against it.
 - ~~**Picking a theme did nothing about half the time**~~ **fixed.**
   Appearance has three layers — defaults, the chosen theme, your manual
   tweaks — and `appearancePref` reads them in that order, manual first. That

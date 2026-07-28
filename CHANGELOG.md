@@ -9,6 +9,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- **Renaming or moving the app folder no longer breaks the launcher.** The
+  app is installed into its own `.venv` by absolute path, so a renamed folder
+  left the venv pointing at somewhere that no longer exists — and the
+  "dependencies already up to date" check, which only watches
+  `requirements.txt`, skipped the reinstall that would have fixed it. The
+  launch then died with `No module named memorymap`. Both launchers now ask
+  the venv whether it can actually import the app, which catches a rename, a
+  move, and a half-deleted venv alike.
+
 - **Picking a theme works every time.** A single earlier tweak — one palette,
   one light/dark choice — sat on top of every theme picked afterwards and
   cancelled that part of it, so a theme could appear to do nothing. Choosing a

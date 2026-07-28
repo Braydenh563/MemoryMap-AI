@@ -191,6 +191,11 @@ engines:
   - name: duckduckgo
     engine: duckduckgo
     disabled: false
+  # Ahmia can fail engine loading on some installs; keep it off by default
+  # for first-run reliability. Users can re-enable it in settings.yml later.
+  - name: ahmia
+    engine: ahmia
+    disabled: true
 plugins:
   # Off deliberately. This plugin downloads a rules file from
   # rules1.clearurls.xyz *during startup*, and a failure there is not caught:

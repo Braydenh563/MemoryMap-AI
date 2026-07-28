@@ -18,6 +18,7 @@ import shutil
 import signal
 import stat
 import subprocess
+import sys
 import tarfile
 import time
 from pathlib import Path
@@ -29,10 +30,12 @@ from memorymap.search import searxng_manager
 
 @pytest.fixture(autouse=True)
 def _clean_install_state():
-    searxng_manager._install_state.update({"running": False, "step": "", "error": ""})
+    fresh = {"running": False, "step": "", "error": "", "stage": 0, "progress": None,
+             "log": []}
+    searxng_manager._install_state.update(fresh)
     searxng_manager._import_ok.clear()
     yield
-    searxng_manager._install_state.update({"running": False, "step": "", "error": ""})
+    searxng_manager._install_state.update(dict(fresh, log=[]))
     searxng_manager._import_ok.clear()
 
 
@@ -44,13 +47,17 @@ def _fake_venv(data_dir: Path) -> None:
 
 
 class _Commands:
-    """Stands in for `_run`, recording what the installer tried to do."""
+    """Stands in for `_run` *and* `_run_streaming`, recording what the
+    installer tried to do. The pip steps stream their output now, so a stub
+    for one and not the other tests half the install."""
 
     def __init__(self):
         self.calls: list[list[str]] = []
 
-    def __call__(self, args, timeout=None):
+    def __call__(self, args, timeout=None, on_line=None):
         self.calls.append(list(args))
+        if on_line:
+            on_line("Collecting things\n")
         return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
 
     @property
@@ -156,8 +163,11 @@ def test_the_install_downloads_an_archive_and_never_shells_out_to_git(
     archive = _archive(tmp_path, ["setup.py", "searx/webapp.py", *WINDOWS_HOSTILE])
     commands = _Commands()
     monkeypatch.setattr(searxng_manager, "_run", commands)
+    monkeypatch.setattr(searxng_manager, "_run_streaming", commands)
     monkeypatch.setattr(
-        searxng_manager, "_download", lambda url, dest: shutil.copy(archive, dest)
+        searxng_manager,
+        "_download",
+        lambda url, dest, on_progress=None: shutil.copy(archive, dest),
     )
 
     _install_and_wait(data_dir)
@@ -184,8 +194,11 @@ def test_a_leftover_source_folder_is_replaced_rather_than_installed(
     archive = _archive(tmp_path, ["setup.py"])
     commands = _Commands()
     monkeypatch.setattr(searxng_manager, "_run", commands)
+    monkeypatch.setattr(searxng_manager, "_run_streaming", commands)
     monkeypatch.setattr(
-        searxng_manager, "_download", lambda url, dest: shutil.copy(archive, dest)
+        searxng_manager,
+        "_download",
+        lambda url, dest, on_progress=None: shutil.copy(archive, dest),
     )
 
     _install_and_wait(data_dir)
@@ -203,8 +216,11 @@ def test_a_download_that_produces_no_project_is_named_before_pip_sees_it(
     archive = _archive(tmp_path, ["README.rst"])
     commands = _Commands()
     monkeypatch.setattr(searxng_manager, "_run", commands)
+    monkeypatch.setattr(searxng_manager, "_run_streaming", commands)
     monkeypatch.setattr(
-        searxng_manager, "_download", lambda url, dest: shutil.copy(archive, dest)
+        searxng_manager,
+        "_download",
+        lambda url, dest, on_progress=None: shutil.copy(archive, dest),
     )
 
     _install_and_wait(data_dir)
@@ -216,9 +232,11 @@ def test_a_download_that_produces_no_project_is_named_before_pip_sees_it(
 def test_a_download_that_fails_says_so(app_state, monkeypatch):
     data_dir = app_state.data_dir
     _fake_venv(data_dir)
-    monkeypatch.setattr(searxng_manager, "_run", _Commands())
+    commands = _Commands()
+    monkeypatch.setattr(searxng_manager, "_run", commands)
+    monkeypatch.setattr(searxng_manager, "_run_streaming", commands)
 
-    def boom(url, dest):
+    def boom(url, dest, on_progress=None):
         raise searxng_manager.SearxngError("Couldn't download SearXNG: no route to host")
 
     monkeypatch.setattr(searxng_manager, "_download", boom)
@@ -246,7 +264,12 @@ def test_pip_succeeding_is_not_taken_as_searxng_being_importable(
 
     monkeypatch.setattr(searxng_manager, "_run", run)
     monkeypatch.setattr(
-        searxng_manager, "_download", lambda url, dest: shutil.copy(archive, dest)
+        searxng_manager, "_run_streaming", lambda args, timeout, on_line: run(args)
+    )
+    monkeypatch.setattr(
+        searxng_manager,
+        "_download",
+        lambda url, dest, on_progress=None: shutil.copy(archive, dest),
     )
 
     _install_and_wait(data_dir)
@@ -265,8 +288,11 @@ def test_the_requirements_go_in_before_the_package(app_state, tmp_path, monkeypa
     archive = _archive(tmp_path, ["setup.py", "requirements.txt"])
     commands = _Commands()
     monkeypatch.setattr(searxng_manager, "_run", commands)
+    monkeypatch.setattr(searxng_manager, "_run_streaming", commands)
     monkeypatch.setattr(
-        searxng_manager, "_download", lambda url, dest: shutil.copy(archive, dest)
+        searxng_manager,
+        "_download",
+        lambda url, dest, on_progress=None: shutil.copy(archive, dest),
     )
 
     _install_and_wait(data_dir)
@@ -289,6 +315,98 @@ def test_the_generated_settings_dont_download_anything_at_boot(app_state):
     assert "tracker_url_remover" in text
     assert "active: false" in text
     assert "- json" in text  # the API format, without which /search returns 403
+
+
+def test_the_install_reports_progress_and_what_it_is_doing(
+    app_state, tmp_path, monkeypatch
+):
+    """Reported: "the searxng reinstall doesn't have a progress bar so idk if
+    it has frozen or is working". A step name that doesn't change for four
+    minutes while pip builds lxml is indistinguishable from a hang."""
+    data_dir = app_state.data_dir
+    _fake_venv(data_dir)
+    archive = _archive(tmp_path, ["setup.py", "requirements.txt"])
+    seen: list[tuple[int, float | None]] = []
+
+    class _Watching(_Commands):
+        def __call__(self, args, timeout=None, on_line=None):
+            seen.append(
+                (
+                    searxng_manager._install_state["stage"],
+                    searxng_manager._install_state["progress"],
+                )
+            )
+            return super().__call__(args, timeout=timeout, on_line=on_line)
+
+    commands = _Watching()
+    monkeypatch.setattr(searxng_manager, "_run", commands)
+    monkeypatch.setattr(searxng_manager, "_run_streaming", commands)
+    monkeypatch.setattr(
+        searxng_manager,
+        "_download",
+        lambda url, dest, on_progress=None: shutil.copy(archive, dest),
+    )
+
+    _install_and_wait(data_dir)
+
+    stages = [stage for stage, _ in seen]
+    assert stages == sorted(stages), "the stage number must never go backwards"
+    assert max(stages) >= 4, stages
+    progress = [p for _, p in seen if p is not None]
+    assert progress == sorted(progress) and progress[-1] > progress[0]
+    assert searxng_manager._install_state["progress"] == 1.0
+
+    # And the lines the tools printed, which are what actually distinguish
+    # slow from stuck while a bar sits on one number.
+    log = searxng_manager._install_state["log"]
+    assert any("Downloading SearXNG" in line for line in log)
+    assert any("Collecting things" in line for line in log), "pip output is dropped"
+    assert len(log) <= searxng_manager._LOG_LINES
+
+
+def test_the_download_reports_bytes_as_they_arrive(app_state, monkeypatch):
+    """The one stage with a genuinely knowable percentage — GitHub sends a
+    content-length, so this bar is real rather than a guess."""
+    searxng_manager._install_state.update({"stage": 2, "progress": 0.2, "log": []})
+
+    class _Response:
+        headers = {"Content-Length": "1000"}
+
+        def raise_for_status(self):
+            return None
+
+        def iter_content(self, chunk_size):
+            yield b"x" * 500
+            yield b"x" * 500
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    import requests
+
+    monkeypatch.setattr(requests, "get", lambda *a, **k: _Response())
+    seen = []
+    searxng_manager._download(
+        "http://example.invalid/x.tar.gz",
+        app_state.data_dir / "x.tar.gz",
+        on_progress=lambda done, total: seen.append((done, total)),
+    )
+
+    assert seen == [(500, 1000), (1000, 1000)]
+
+
+def test_a_streamed_command_hands_back_each_line_as_it_prints(app_state):
+    """`_run` returns everything at the end, which is right for a two-second
+    command and useless for a four-minute one."""
+    lines: list[str] = []
+    result = searxng_manager._run_streaming(
+        [sys.executable, "-c", "print('one'); print('two')"], 30, lines.append
+    )
+    assert result.returncode == 0
+    assert [line.strip() for line in lines] == ["one", "two"]
 
 
 def test_an_empty_source_folder_no_longer_counts_as_installed(app_state, monkeypatch):
@@ -314,6 +432,9 @@ def test_the_import_check_is_not_re_run_on_every_status_poll(app_state, monkeypa
         return subprocess.CompletedProcess(args, 0)
 
     monkeypatch.setattr(searxng_manager, "_run", run)
+    monkeypatch.setattr(
+        searxng_manager, "_run_streaming", lambda args, timeout, on_line: run(args)
+    )
 
     assert searxng_manager.source_installed(data_dir) is True
     assert searxng_manager.source_installed(data_dir) is True

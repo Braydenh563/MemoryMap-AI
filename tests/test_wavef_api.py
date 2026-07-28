@@ -715,7 +715,7 @@ def test_the_source_install_never_shells_out_to_git(app_state, tmp_path, monkeyp
         stdout = ""
         stderr = ""
 
-    def fake_run(cmd, timeout=None):
+    def fake_run(cmd, timeout=None, on_line=None):
         calls.append(list(cmd))
         return _Ok()
 
@@ -726,6 +726,7 @@ def test_the_source_install_never_shells_out_to_git(app_state, tmp_path, monkeyp
         (target / "setup.py").write_text("")
 
     monkeypatch.setattr(searxng_manager, "_run", fake_run)
+    monkeypatch.setattr(searxng_manager, "_run_streaming", fake_run)
     monkeypatch.setattr(searxng_manager, "_fetch_source", fake_fetch)
     # Pretend the venv already exists so the install goes straight to pip.
     monkeypatch.setattr(searxng_manager, "_venv_python", lambda d: tmp_path / "python")

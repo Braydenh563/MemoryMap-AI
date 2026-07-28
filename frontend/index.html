@@ -961,7 +961,7 @@ Link to another note with [[its first few words]]."></textarea>
               <h3>Search engine (how your notes are understood)</h3>
               <label>
                 <input type="radio" name="emb-backend" value="sentence-transformers">
-                Built-in (recommended — works out of the box, no download)
+                Built-in (recommended) — <span id="builtin-model-name" class="muted">…</span>
               </label>
               <label>
                 <input type="radio" name="emb-backend" value="ollama">
@@ -1486,6 +1486,11 @@ Link to another note with [[its first few words]]."></textarea>
                   title="Delete the SearXNG install and set it up again from scratch">↻ Reinstall</button>
                 <span id="searxng-host-status" class="status" role="status"></span>
               </div>
+              <!-- An install runs for minutes. Without a bar and a live line
+                   from the tool itself, slow and stuck look identical. -->
+              <progress id="searxng-install-progress" class="install-progress hidden"
+                max="1" aria-label="Install progress"></progress>
+              <p class="muted install-line" id="searxng-install-line"></p>
               <!-- What the instance itself said. Its output used to go to
                    /dev/null, so a failed start could only ever be guessed at. -->
               <details id="searxng-output-fold" class="help-accordion hidden">

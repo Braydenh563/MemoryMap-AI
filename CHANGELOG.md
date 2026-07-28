@@ -106,6 +106,22 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- **The app was naming the wrong embedding model.** Settings → Models said
+  "Built-in (all-MiniLM)" — it had been `BAAI/bge-small-en-v1.5` for two
+  changes, and the only way to find out was to watch it download from Hugging
+  Face in the log. Reported by someone who did exactly that. The name now
+  comes from the running service rather than a string in the interface, so it
+  cannot drift again, and the built-in option says it downloads on first use
+  instead of claiming it needs no download.
+- **The SearXNG install had no progress and no output**, so a working install
+  and a hung one looked identical for several minutes. It now shows which of
+  five stages it is in, a bar that moves (the download reports real bytes),
+  and the lines pip is printing as it prints them — which is what actually
+  tells you it is alive while a bar sits still. Both appear on the Web search
+  screen and in Settings → Background tasks.
+- **A finished install left "Installing SearXNG…" on screen** under a badge
+  that said "Stopped" — reported with a photo, and the install had in fact
+  succeeded. That line now always says something current.
 - **SearXNG now installs, starts and answers.** Five separate bugs, none of
   them in its log, because three of them happened before it wrote a line.
   - *`git clone` can never work on Windows.* Four files in the SearXNG

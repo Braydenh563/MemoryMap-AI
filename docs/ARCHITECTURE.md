@@ -193,6 +193,11 @@ Interactive API docs live at `http://localhost:8000/docs` when the app is
 running.
 
 **Anything that runs on a worker thread belongs in `routes_tasks.collect()`.**
+Each job reports a label, a detail line, a `progress` fraction *only where one
+is genuinely knowable*, whether it can be stopped, and the lines it has
+printed. The log matters as much as the bar: pip building lxml sits on one
+number for minutes, and its output is the only thing that distinguishes slow
+from stuck.
 Settings → Background tasks renders whatever that returns, so a new job shows
 up there without the frontend being taught about it. It used to build the list
 in `app.js` from the two jobs that happened to be in `/models/status`, which
@@ -474,8 +479,13 @@ its JSON API, and `websearch.probe_searxng` returns True against it.
 - **Chat model:** any model installed in **[Ollama](https://ollama.com)**
   (default `llama3.2`). Talked to over the local REST API via
   `ai/ollama_client.py`. Used by the janitor, librarian, and agent.
-- **Embeddings:** default `all-MiniLM-L6-v2` via `sentence-transformers`
-  (~90 MB, auto-downloads on first use). Optionally switch the backend to an
+- **Embeddings:** default `BAAI/bge-small-en-v1.5` via `sentence-transformers`
+  (auto-downloads on first use). **Nothing user-facing may hard-code that
+  name** — it was `all-MiniLM-L6-v2` once, and the Models screen went on
+  saying so long after it changed, so the only way to find out what was
+  really running was to watch it download in the log. Ask
+  `EmbeddingService.active_model()`, which the status endpoint exposes as
+  `active_embedding_model`. Optionally switch the backend to an
   Ollama embedding model; notes re-index automatically with a progress bar.
 - **Voice (optional):** local Whisper via `faster-whisper` for the 🎙 buttons.
 - **Warm-up:** embeddings load in a background thread at startup so the first

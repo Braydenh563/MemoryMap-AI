@@ -31,6 +31,10 @@ class FakeEmbeddingService(EmbeddingService):
     def backend_id(self) -> str:
         return "fake:keywords-v1"
 
+    def active_model(self) -> str:
+        # The real one asks the model manager, which this fake doesn't have.
+        return "fake-embeddings"
+
     def is_ready(self) -> bool:
         return self.available
 

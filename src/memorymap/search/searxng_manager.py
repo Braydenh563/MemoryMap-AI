@@ -170,7 +170,53 @@ def preferred_backend() -> str | None:
 # minutes long, so it happens on a worker thread and the settings screen polls
 # status() rather than holding a request open.
 _install_lock = threading.Lock()
-_install_state: dict = {"running": False, "step": "", "error": ""}
+
+# Reported: "the searxng reinstall doesn't have a progress bar so idk if it
+# has frozen or is working". A step name that sits unchanged for four minutes
+# while pip builds lxml is indistinguishable from a hang, and the install is
+# the longest thing this app does.
+#
+# So the state carries three things a step name cannot: which numbered stage
+# of the install we are in (a bar that moves), a fraction inside the stage
+# where one is knowable (the download has a content-length; the unpack has a
+# member count), and the last few lines the tools themselves printed — which
+# is the only real evidence that something is still happening.
+INSTALL_STAGES = 5
+_LOG_LINES = 12
+_install_state: dict = {
+    "running": False,
+    "step": "",
+    "error": "",
+    "stage": 0,
+    "stages": INSTALL_STAGES,
+    "progress": None,  # 0..1 within the whole install, or None if unknowable
+    "log": [],
+}
+
+
+def _install_log(line: str) -> None:
+    """Keep the last few lines of what the install is actually doing."""
+    text = str(line).strip()
+    if not text:
+        return
+    lines = _install_state["log"]
+    lines.append(text)
+    del lines[:-_LOG_LINES]
+
+
+def _install_stage(stage: int, step: str) -> None:
+    """Move to a numbered stage. Progress is the stage boundary until
+    something inside the stage knows better."""
+    _install_state.update(
+        {"stage": stage, "step": step, "progress": (stage - 1) / INSTALL_STAGES}
+    )
+    _install_log(f"— {step}")
+
+
+def _install_progress(stage: int, fraction: float) -> None:
+    """Progress *within* a stage, mapped onto the whole install."""
+    fraction = max(0.0, min(1.0, fraction))
+    _install_state["progress"] = (stage - 1 + fraction) / INSTALL_STAGES
 
 
 def _source_dir(data_dir: Path) -> Path:
@@ -329,16 +375,26 @@ def _unsafe_member(name: str) -> bool:
     return any(char in _UNSAFE_CHARS for part in parts for char in part)
 
 
-def _download(url: str, destination: Path) -> None:
-    """Fetch the archive to disk. Streamed — it is tens of megabytes."""
+def _download(url: str, destination: Path, on_progress=None) -> None:
+    """Fetch the archive to disk. Streamed — it is tens of megabytes.
+
+    `on_progress(done_bytes, total_bytes)` is called as it goes. GitHub sends
+    a content-length here, so this is the one stage of the install with a
+    genuinely knowable percentage.
+    """
     import requests  # local: the module is importable without a network stack
 
     try:
         with requests.get(url, stream=True, timeout=DOWNLOAD_TIMEOUT) as response:
             response.raise_for_status()
+            total = int(response.headers.get("Content-Length") or 0)
+            done = 0
             with destination.open("wb") as handle:
                 for chunk in response.iter_content(chunk_size=1 << 16):
                     handle.write(chunk)
+                    done += len(chunk)
+                    if on_progress:
+                        on_progress(done, total)
     except requests.RequestException as exc:
         raise SearxngError(f"Couldn't download SearXNG: {exc}") from exc
 
@@ -384,11 +440,22 @@ def _fetch_source(src: Path, state: dict) -> None:
         raise SearxngError(f"Couldn't clear the old copy of SearXNG: {problem}")
     archive = src.parent / "searxng-source.tar.gz"
     try:
-        state["step"] = "Downloading SearXNG…"
-        _download(SOURCE_TARBALL, archive)
-        state["step"] = "Unpacking SearXNG…"
+        _install_stage(2, "Downloading SearXNG…")
+
+        def downloaded(done: int, total: int) -> None:
+            if total:
+                _install_progress(2, done / total)
+            _install_state["step"] = (
+                f"Downloading SearXNG… {done // 1_000_000} MB"
+                + (f" of {total // 1_000_000} MB" if total else "")
+            )
+
+        _download(SOURCE_TARBALL, archive, on_progress=downloaded)
+        _install_stage(3, "Unpacking SearXNG…")
         skipped = _unpack(archive, src)
+        _install_log(f"Unpacked into {src.name}")
         if skipped:
+            _install_log(f"Skipped {len(skipped)} file(s) this filesystem can't hold")
             logging.getLogger("memorymap.searxng").info(
                 "Skipped %d file(s) this filesystem can't hold: %s",
                 len(skipped),
@@ -420,15 +487,18 @@ def _install_steps(python: str, src: Path) -> list[tuple[str, list[str]]]:
     """
     return [
         (
-            "Preparing the virtualenv…",
+            4,
+            "Installing dependencies (the long one — a few minutes)…",
             [python, "-m", "pip", "install", "-U", "pip", "setuptools", "wheel"],
         ),
         (
-            "Installing dependencies (this takes a few minutes)…",
+            4,
+            "Installing dependencies (the long one — a few minutes)…",
             [python, "-m", "pip", "install", "-r", str(src / "requirements.txt")],
         ),
         (
-            "Installing SearXNG…",
+            5,
+            "Installing SearXNG itself…",
             [
                 python, "-m", "pip", "install",
                 "--use-pep517", "--no-build-isolation", "-e", str(src),
@@ -442,7 +512,10 @@ def install_source(data_dir: Path) -> None:
     with _install_lock:
         if _install_state["running"]:
             raise SearxngError("An install is already running.")
-        _install_state.update({"running": True, "step": "Creating a virtualenv…", "error": ""})
+        _install_state.update(
+            {"running": True, "step": "", "error": "", "log": [], "progress": 0.0}
+        )
+    _install_stage(1, "Creating a virtualenv…")
 
     def work() -> None:
         try:
@@ -452,6 +525,7 @@ def install_source(data_dir: Path) -> None:
             venv = _venv_dir(data_dir)
             if not _venv_python(data_dir).exists():
                 _run([sys.executable, "-m", "venv", str(venv)], timeout=180)
+                _install_log(f"Virtualenv created at {venv}")
                 if not _venv_python(data_dir).exists():
                     raise SearxngError(
                         "Couldn't create a virtualenv for SearXNG at "
@@ -464,15 +538,18 @@ def install_source(data_dir: Path) -> None:
             # and four of them cannot exist on Windows.
             _fetch_source(src, _install_state)
             python = str(_venv_python(data_dir))
-            for step, args in _install_steps(python, src):
-                _install_state["step"] = step
-                result = _run(args, timeout=INSTALL_TIMEOUT)
+            for stage, step, args in _install_steps(python, src):
+                _install_stage(stage, step)
+                # Streamed, not captured: pip prints steadily for minutes here,
+                # and those lines are the only evidence the install is alive.
+                result = _run_streaming(args, INSTALL_TIMEOUT, _install_log)
                 if result.returncode != 0:
                     raise SearxngError(_reason(result, "Couldn't install SearXNG"))
             # pip exiting 0 is not the same as `searx` being importable — a
             # half-installed venv otherwise reads as installed and dies at
             # start, which is the state the reinstall button exists to escape.
             _install_state["step"] = "Checking the install…"
+            _install_state["progress"] = 0.98
             check = _run(
                 [str(_venv_python(data_dir)), "-c", "import searx"], timeout=COMMAND_TIMEOUT
             )
@@ -481,11 +558,14 @@ def install_source(data_dir: Path) -> None:
                     _reason(check, "SearXNG installed but can't be imported")
                 )
             _import_ok.add(str(Path(data_dir)))
-            _install_state["step"] = ""
+            _install_log("SearXNG installed and importable.")
+            _install_state.update({"step": "", "progress": 1.0, "stage": INSTALL_STAGES})
         except SearxngError as exc:
             _install_state["error"] = str(exc)
+            _install_log(f"Failed: {exc}")
         except Exception as exc:  # noqa: BLE001 — a worker thread must not die silently
             _install_state["error"] = f"Install failed: {exc}"
+            _install_log(f"Failed: {exc}")
         finally:
             _install_state["running"] = False
 
@@ -727,6 +807,50 @@ def _stop_source(data_dir: Path) -> dict:
     return {"stopped": True}
 
 
+def _run_streaming(
+    args: list[str], timeout: int, on_line
+) -> subprocess.CompletedProcess:
+    """Run a command, handing each line to `on_line` as it is printed.
+
+    `_run` captures output and returns it when the command finishes, which is
+    right for a two-second command and useless for a four-minute one: pip
+    building lxml prints steadily for minutes and the user saw none of it, so
+    a working install and a hung one looked identical. The lines are the
+    evidence that something is happening.
+    """
+    output: list[str] = []
+    try:
+        process = subprocess.Popen(  # noqa: S603 — fixed args, no shell
+            args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise SearxngError(f"Couldn't run {args[0]}: {exc}") from exc
+    deadline = time.time() + timeout
+    try:
+        for line in process.stdout or []:
+            output.append(line)
+            on_line(line)
+            if time.time() > deadline:
+                process.kill()
+                raise SearxngError(
+                    f"{args[0]} took longer than {timeout}s and was stopped."
+                )
+        process.wait(timeout=max(1, int(deadline - time.time())))
+    except subprocess.TimeoutExpired as exc:
+        process.kill()
+        raise SearxngError(f"{args[0]} timed out after {timeout}s.") from exc
+    finally:
+        if process.stdout:
+            process.stdout.close()
+    return subprocess.CompletedProcess(
+        args, process.returncode, stdout="".join(output), stderr=""
+    )
+
+
 def _run(args: list[str], timeout: int = COMMAND_TIMEOUT) -> subprocess.CompletedProcess:
     """Run a setup command. Fixed argument lists only — never a shell."""
     try:
@@ -780,6 +904,14 @@ def status(data_dir: Path | None = None) -> dict:
         "installing": _install_state["running"],
         "install_step": _install_state["step"],
         "install_error": _install_state["error"],
+        # An install runs for minutes; a step name that doesn't change for
+        # four of them is indistinguishable from a hang. The stage numbers
+        # give a bar something to move along, and the log is what the tools
+        # are printing right now.
+        "install_stage": _install_state["stage"],
+        "install_stages": _install_state["stages"],
+        "install_progress": _install_state["progress"],
+        "install_log": list(_install_state["log"]),
         "detail": "",
         # Answered rather than suggested: "check the port isn't in use" is
         # advice that assumes the person can check.

@@ -10198,10 +10198,14 @@ function toggleAiStatusPopup(force) {
 // The built-in engine runs without Ollama, so this shows in every state.
 function renderSearchEngineHealth(status) {
   const el = $("search-engine-health");
+  // The name comes from the server, never from a string in here: this line
+  // said "Built-in (all-MiniLM)" for two model changes after the built-in
+  // model stopped being all-MiniLM, and the only way to find out what was
+  // really running was to watch it download in the log.
   const engine =
     status.embedding_backend === "ollama"
       ? `Ollama · ${status.embedding_model}`
-      : "Built-in (all-MiniLM)";
+      : `Built-in · ${status.active_embedding_model || "…"}`;
   let state = "not ready";
   let cls = "busy";
   if (status.embedding_ready) {
@@ -10277,30 +10281,14 @@ async function renderTasks() {
   $("tasks-empty").classList.toggle("hidden", jobs.length > 0);
   for (const job of jobs) {
     const li = document.createElement("li");
+    // The heading row is the job and its Quit button; everything else stacks
+    // underneath at full width. The bar used to sit inline after the label,
+    // where it ran off the right edge of the card on a long job name.
     const row = document.createElement("div");
     row.className = "entry-meta";
-    const label = document.createElement("span");
     const name = document.createElement("strong");
     name.textContent = job.label;
-    label.appendChild(name);
-    if (job.detail) {
-      const detail = document.createElement("span");
-      detail.className = "muted tool-desc";
-      detail.textContent = job.detail;
-      label.appendChild(detail);
-    }
-    row.appendChild(label);
-
-    // A bar only where there is a real fraction to show. A progress bar that
-    // guesses is worse than one that admits it can't say — and under reduced
-    // motion an indeterminate animation freezes and reads as a fault.
-    if (typeof job.progress === "number") {
-      const bar = document.createElement("progress");
-      bar.max = 1;
-      bar.value = job.progress;
-      bar.className = "task-progress";
-      row.appendChild(bar);
-    }
+    row.appendChild(name);
 
     if (job.cancellable) {
       const actions = document.createElement("span");
@@ -10318,9 +10306,55 @@ async function renderTasks() {
       row.appendChild(actions);
     }
     li.appendChild(row);
+
+    if (job.detail) {
+      const detail = document.createElement("p");
+      detail.className = "muted task-detail";
+      detail.textContent = job.detail;
+      li.appendChild(detail);
+    }
+
+    // A bar only where there is a real fraction to show. A progress bar that
+    // guesses is worse than one that admits it can't say — and under reduced
+    // motion an indeterminate animation freezes and reads as a fault.
+    if (typeof job.progress === "number") {
+      const bar = document.createElement("progress");
+      bar.max = 1;
+      bar.value = job.progress;
+      bar.className = "task-progress";
+      li.appendChild(bar);
+    }
+
+    // What the job itself is printing. A bar answers "is it working?" only
+    // while it moves, and pip can sit on one number for minutes — the output
+    // is the thing that keeps changing, so it is the real answer to "has it
+    // frozen?". Open by default while a job is running; there is nothing to
+    // be spared from here.
+    if ((job.log || []).length) {
+      const fold = document.createElement("details");
+      fold.className = "task-log";
+      fold.open = taskLogsOpen.has(job.kind);
+      fold.addEventListener("toggle", () => {
+        if (fold.open) taskLogsOpen.add(job.kind);
+        else taskLogsOpen.delete(job.kind);
+      });
+      const summary = document.createElement("summary");
+      summary.textContent = `What it's doing (${job.log.length} lines)`;
+      const pre = document.createElement("pre");
+      pre.className = "task-log-lines";
+      pre.textContent = job.log.join("\n");
+      fold.append(summary, pre);
+      li.appendChild(fold);
+      // Follow the tail, the way a terminal does.
+      if (fold.open) pre.scrollTop = pre.scrollHeight;
+    }
     list.appendChild(li);
   }
 }
+
+// Which task logs the user has opened, kept across the 3-second re-render so
+// a fold doesn't slam shut under them.
+const taskLogsOpen = new Set(["searxng"]);
 
 // Model pickers (rewritten, Wave O). The old version let the status poll
 // (every ~3s while Settings is open) reset the dropdown to the SAVED
@@ -10384,6 +10418,13 @@ function renderUtilityModelPicker(status) {
 }
 
 function renderEmbeddingPicker(status) {
+  // Name the built-in model rather than describing it. "Works out of the box,
+  // no download" was wrong on both counts: it fetches ~130 MB from Hugging
+  // Face the first time, which is a long quiet wait to have described as
+  // needing nothing.
+  $("builtin-model-name").textContent = status.active_embedding_model
+    ? `${status.active_embedding_model}, downloaded once on first use`
+    : "downloaded once on first use";
   // The backend radios only reflect the saved value while the user has no
   // pending choice of their own.
   //
@@ -12777,16 +12818,37 @@ async function refreshSearxngHost() {
 
   // An install is minutes long and runs in the background — poll it so the
   // step text keeps moving instead of the screen looking stuck.
+  const bar = $("searxng-install-progress");
   if (info.installing) {
-    badge.textContent = "Installing…";
+    const stage = info.install_stage || 1;
+    const stages = info.install_stages || 5;
+    badge.textContent = `Installing… ${stage}/${stages}`;
     badge.className = "chip";
     start.disabled = true;
     stop.disabled = true;
-    $("searxng-host-status").textContent = info.install_step || "Setting SearXNG up…";
+    $("searxng-host-status").classList.remove("error");
+    $("searxng-host-status").textContent =
+      info.install_step || "Setting SearXNG up…";
+    // Reported: "the searxng reinstall doesn't have a progress bar so idk if
+    // it has frozen or is working". The bar moves through the five stages;
+    // the line under it is what pip is printing right now, which is what
+    // actually distinguishes slow from stuck.
+    bar.classList.remove("hidden");
+    if (typeof info.install_progress === "number") {
+      bar.removeAttribute("data-indeterminate");
+      bar.value = info.install_progress;
+    } else {
+      bar.setAttribute("data-indeterminate", "1");
+      bar.removeAttribute("value");
+    }
+    const said = (info.install_log || []).at(-1);
+    $("searxng-install-line").textContent = said || "";
     clearTimeout(refreshSearxngHost.timer);
-    refreshSearxngHost.timer = setTimeout(refreshSearxngHost, 3000);
+    refreshSearxngHost.timer = setTimeout(refreshSearxngHost, 2000);
     return;
   }
+  bar.classList.add("hidden");
+  $("searxng-install-line").textContent = "";
   if (info.install_error) {
     $("searxng-host-status").classList.add("error");
     $("searxng-host-status").textContent = info.install_error;
@@ -12795,6 +12857,18 @@ async function refreshSearxngHost() {
     // explanation of what will happen, not a failure.
     $("searxng-host-status").classList.remove("error");
     $("searxng-host-status").textContent = info.detail;
+  } else {
+    // Always say something current. This line used to keep whatever the last
+    // poll wrote, so a finished install left "Installing SearXNG…" sitting
+    // under a badge reading "Stopped" — reported with a photo, and the
+    // install had in fact completed.
+    $("searxng-host-status").classList.remove("error");
+    $("searxng-host-status").textContent =
+      info.state === "stopped"
+        ? "Installed and ready — press Start SearXNG."
+        : info.state === "running"
+          ? "Running."
+          : "";
   }
   const running = info.state === "running" && info.responding;
   badge.textContent = running

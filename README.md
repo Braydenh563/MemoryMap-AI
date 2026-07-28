@@ -120,8 +120,9 @@ Any Ollama model works, and you can switch between them in-app from
 
 *More at [huggingface.co/braydenh563](https://huggingface.co/braydenh563).*
 
-The **embedding** model for semantic search (`all-MiniLM-L6-v2`, ~90 MB)
-downloads itself the first time it's needed. No Ollama pull required — and you
+The **embedding** model for semantic search (`BAAI/bge-small-en-v1.5`)
+downloads itself the first time it's needed — Settings → Models names whichever
+one is actually loaded. No Ollama pull required — and you
 can switch to an Ollama embedding model later, with an automatic re-index.
 
 ## Manual setup

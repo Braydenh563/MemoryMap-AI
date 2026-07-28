@@ -50,6 +50,7 @@ def collect() -> list[dict]:
                 "detail": f"{reindex['done']} of {reindex['total']}",
                 "progress": _percent(reindex["done"], reindex["total"]),
                 "cancellable": True,
+                "log": [],
             }
         )
 
@@ -65,6 +66,7 @@ def collect() -> list[dict]:
                 "detail": f"{round(fraction * 100)}%" if fraction is not None else "starting…",
                 "progress": fraction,
                 "cancellable": True,
+                "log": [],
             }
         )
 
@@ -81,6 +83,7 @@ def collect() -> list[dict]:
                 "back to keywords until it's ready.",
                 "progress": None,
                 "cancellable": False,
+                "log": [],
             }
         )
 
@@ -90,16 +93,23 @@ def collect() -> list[dict]:
     # stack, and this endpoint is polled.
     from memorymap.search import searxng_manager
 
-    if searxng_manager._install_state["running"]:
+    install = searxng_manager._install_state
+    if install["running"]:
+        stage = install.get("stage") or 1
         tasks.append(
             {
                 "kind": "searxng",
                 "name": "",
-                "label": "Setting up SearXNG",
-                "detail": searxng_manager._install_state["step"]
-                or "This takes a few minutes the first time.",
-                "progress": None,
+                "label": f"Setting up SearXNG — step {stage} of {install['stages']}",
+                "detail": install["step"] or "This takes a few minutes the first time.",
+                "progress": install.get("progress"),
                 "cancellable": False,
+                # The lines the tools themselves printed. Reported directly:
+                # "the searxng reinstall doesn't have a progress bar so idk if
+                # it has frozen or is working" — a bar answers that only while
+                # it moves, and pip building lxml can sit on one number for a
+                # while. Its output is the thing that keeps changing.
+                "log": list(install.get("log") or []),
             }
         )
 

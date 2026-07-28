@@ -81,7 +81,12 @@ def status() -> dict:
         # "" means "same as chat model" (Wave N utility model).
         "utility_model": manager._config.get_preference("utility_model", ""),
         "embedding_backend": manager.embedding_backend(),
+        # The Ollama model *setting* — only meaningful on that backend.
         "embedding_model": manager.embedding_model(),
+        # What is actually embedding right now, whichever backend that is.
+        # The UI used to hard-code the built-in name and was two model
+        # changes out of date.
+        "active_embedding_model": embeddings.active_model(),
         "embedding_ready": embeddings.is_ready(),
         # Lets the UI tell "still loading" from "failed" (pill fix).
         "embedding_warming": embeddings_module.warmup_running(),

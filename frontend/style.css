@@ -2497,10 +2497,15 @@ html { font-size: 16px; }
 /* --- Wave O: AI Tools toggles --------------------------------------------------- */
 #task-list li { padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
 #task-list .entry-meta { align-items: center; gap: 0.6rem; }
-#task-list .entry-meta > span:first-child { flex: 1 1 12rem; min-width: 0; }
+#task-list .entry-meta > strong { flex: 1 1 12rem; min-width: 0; overflow-wrap: anywhere; }
+.task-detail { margin: 0.15rem 0 0; font-size: 0.82rem; }
+/* Full width, on its own line: inline after the label it ran off the right
+   edge of the card as soon as the job name got long. */
 .task-progress {
-  flex: 0 0 8rem;
+  display: block;
+  width: 100%;
   height: 0.5rem;
+  margin: 0.4rem 0 0.1rem;
   accent-color: var(--accent);
 }
 #tool-list li { padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
@@ -4893,3 +4898,34 @@ textarea.autogrow {
 .web-reader-text pre,
 .msg .bubble-answer pre { overflow-x: auto; max-width: 100%; }
 .web-reader-text img { max-width: 100%; height: auto; }
+
+/* An install that runs for minutes needs a bar and a live line, or slow and
+   stuck look the same. Reported: "the searxng reinstall doesn't have a
+   progress bar so idk if it has frozen or is working". */
+.install-progress {
+  display: block;
+  width: 100%;
+  height: 0.5rem;
+  margin: 0.4rem 0 0.2rem;
+  accent-color: var(--accent);
+}
+.install-line {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+  margin: 0;
+}
+.install-line:empty { display: none; }
+/* What a background job is printing, on the tasks screen. */
+.task-log summary { cursor: pointer; font-size: 0.8rem; color: var(--muted); }
+.task-log-lines {
+  max-height: 9rem;
+  overflow: auto;
+  margin: 0.3rem 0 0;
+  padding: 0.4rem 0.5rem;
+  background: var(--chip-bg);
+  border-radius: var(--radius);
+  font-size: 0.72rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

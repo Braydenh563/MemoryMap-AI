@@ -103,6 +103,38 @@ def test_the_searxng_install_is_a_visible_job(client, monkeypatch):
     assert task["cancellable"] is False
 
 
+def test_a_long_job_carries_its_progress_and_its_output(client, monkeypatch):
+    """Reported: "the searxng reinstall doesn't have a progress bar so idk if
+    it has frozen or is working". The bar answers that while it moves; the
+    lines answer it while the bar sits still."""
+    from memorymap.search import searxng_manager
+
+    monkeypatch.setitem(searxng_manager._install_state, "running", True)
+    monkeypatch.setitem(searxng_manager._install_state, "stage", 4)
+    monkeypatch.setitem(searxng_manager._install_state, "progress", 0.7)
+    monkeypatch.setitem(
+        searxng_manager._install_state, "log", ["Collecting lxml", "Building wheel"]
+    )
+    task = next(t for t in client.get("/tasks").json()["tasks"] if t["kind"] == "searxng")
+    assert "step 4 of 5" in task["label"]
+    assert task["progress"] == 0.7
+    assert task["log"] == ["Collecting lxml", "Building wheel"]
+
+
+def test_every_task_carries_a_log_field_even_when_it_is_empty(client, monkeypatch):
+    """The frontend renders whatever it is given; a missing key is a crash."""
+    monkeypatch.setattr(
+        model_manager,
+        "reindex_status",
+        lambda: {"kind": "reindex", "name": "", "total": 4, "done": 1,
+                 "status": "running", "error": ""},
+    )
+    for task in client.get("/tasks").json()["tasks"]:
+        assert set(task) >= {
+            "kind", "name", "label", "detail", "progress", "cancellable", "log"
+        }
+
+
 def test_several_jobs_at_once_all_appear(client, monkeypatch):
     from memorymap.ai import embeddings as embeddings_module
     from memorymap.search import searxng_manager

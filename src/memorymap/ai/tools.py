@@ -1420,6 +1420,121 @@ WRITE_TOOLS = {
 }
 
 
+# --- which tools a turn is offered (roadmap §11a) --------------------------------
+#
+# All 26 schemas went up on every round of every turn, whether the question was
+# "how many notes do I have" or "remind me to call mum" — 10,215 characters,
+# 77% of the fixed per-round overhead, resent up to MAX_ROUNDS times. On a
+# model with a 4096-token window that is most of the room, and the overflow is
+# dropped from the front, which is the system prompt: the model stops knowing
+# it has tools at all and reports as "the AI won't use tools".
+#
+# A skill declares what it needs, so its run is easy (see ai/skills.py). An
+# ordinary turn declares nothing, so this reads the question. The rule that
+# keeps it honest: **narrow only when we are confident, and widen when we are
+# not.** A question gets the reading core; a request that names something gets
+# that group as well; anything that sounds like a job but doesn't say which
+# one gets everything. Losing a tool the turn needed is worse than paying for
+# schemas it didn't.
+
+# Always offered: reading the notebook, knowing the time, and saving a note —
+# the last because "save this" is the most common action there is, and the
+# cost of missing it is the model claiming a save that never happened.
+CORE_TOOLS = [
+    "search_notes",
+    "get_note",
+    "list_notes",
+    "count_notes",
+    "list_categories",
+    "list_tags",
+    "get_current_time",
+    "create_note",
+]
+
+# Groups, and the words that ask for them. Generous on purpose: a cue that
+# fires when it needn't costs a few hundred characters, and one that fails to
+# fire costs the user the thing they asked for.
+TOOL_GROUPS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
+    (
+        ("set_reminder", "list_reminders", "complete_reminder"),
+        (
+            "remind", "reminder", "forget", "due", "deadline", "tomorrow",
+            "tonight", "later", "schedule", "chase", "follow up", "o'clock",
+            "next week", "on monday", "on tuesday", "on wednesday",
+            "on thursday", "on friday", "on saturday", "on sunday", "alarm",
+        ),
+    ),
+    (
+        ("tag_note", "rename_tag", "delete_tag"),
+        ("tag", "label", "untagged", "retag", "categorise", "categorize"),
+    ),
+    (
+        ("link_notes",),
+        ("link", "connect", "related", "relate", "join", "graph", "together"),
+    ),
+    (
+        ("edit_note", "pin_note"),
+        (
+            "edit", "change", "update", "rewrite", "fix", "correct", "amend",
+            "pin", "unpin", "reword", "shorten", "expand",
+        ),
+    ),
+    (
+        ("delete_note", "restore_note"),
+        ("delete", "remove", "bin", "trash", "restore", "undelete", "recycle"),
+    ),
+    (
+        ("list_documents", "get_document"),
+        ("document", "doc ", "docs", "write-up", "essay", "report", "chapter"),
+    ),
+    (
+        ("search_chat_history",),
+        (
+            "we talked", "we discussed", "you said", "earlier", "last time",
+            "previous", "conversation", "chat about", "mentioned before",
+        ),
+    ),
+    (
+        ("list_skills", "save_skill", "delete_skill"),
+        ("skill", "shortcut"),
+    ),
+    (
+        ("summarize_notes",),
+        ("summarise", "summarize", "summary", "recap", "overview", "gist"),
+    ),
+]
+
+# "Do something about my notebook" without saying what. The safe answer is the
+# whole toolbox: this is exactly the request that needs tools we can't guess.
+BROAD_REQUESTS = (
+    "tidy", "organise", "organize", "clean up", "sort out", "sort my",
+    "go through", "merge", "duplicate", "reorganise", "reorganize",
+    "manage my", "look after", "housekeeping", "do whatever",
+)
+
+
+def focus_for(question: str) -> list[str] | None:
+    """The tools worth offering for this question, or None for all of them.
+
+    Deliberately keyword-driven rather than another model call: an extra
+    round-trip to decide what to send would cost more than it saves, and a
+    deterministic rule can be read, tested, and argued with.
+    """
+    text = f" {(question or '').lower()} "
+    if any(cue in text for cue in BROAD_REQUESTS):
+        return None
+    wanted = list(CORE_TOOLS)
+    for group, cues in TOOL_GROUPS:
+        if any(cue in text for cue in cues):
+            wanted.extend(group)
+    # The web tools are the user's own opt-in, made per-notebook rather than
+    # per-question; `tool_enabled` already hides them otherwise, and second-
+    # guessing that switch here would mean "web search is on but I didn't
+    # think you meant it".
+    wanted.extend(["web_search", "read_url"])
+    return wanted
+
+
 def tool_enabled(name: str) -> bool:
     """A tool is offered unless the user turned it off in Settings → Tools
     (Wave O). web_search additionally requires the online opt-in."""

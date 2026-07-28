@@ -90,6 +90,10 @@ class PreferencesBody(BaseModel):
     # Wave G: user-defined skills, and whether the chat AI may use tools.
     skills: list[SkillItem] | None = Field(default=None, max_length=30)
     tools_enabled: bool | None = None
+    # Which tools each turn is offered: "auto" reads the question and sends
+    # what it plausibly needs (§11a — the schemas are most of the per-round
+    # cost); "all" sends the whole registry, as it always did.
+    tool_focus: Literal["auto", "all"] | None = None
     # Wave F: the ONE feature that goes online — off unless the user opts in.
     web_search_enabled: bool | None = None
     # Optional self-hosted SearXNG instance; empty string = use DuckDuckGo.
@@ -171,6 +175,7 @@ def get_preferences() -> dict:
         ),
         "skills": config.get_preference("skills", []),
         "tools_enabled": config.get_preference("tools_enabled", True),
+        "tool_focus": config.get_preference("tool_focus", "auto"),
         "web_search_enabled": config.get_preference("web_search_enabled", False),
         "searxng_url": config.get_preference("searxng_url", ""),
         "search_provider": websearch.normalise_provider(

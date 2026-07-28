@@ -275,6 +275,20 @@ AWAITING_CONFIRMATION = {
 }
 
 
+def _focus(question: str) -> list[str] | None:
+    """Which tools this turn is offered, unless the user asked for all of them.
+
+    Settings → Tools has the switch, because the honest failure mode of a
+    keyword rule is a request phrased in words it doesn't know, and the fix
+    for that has to be reachable without editing code.
+    """
+    from memorymap.core import deps
+
+    if str(deps.get_config().get_preference("tool_focus", "auto")) == "all":
+        return None
+    return tools.focus_for(question)
+
+
 def run_agent(
     session: Session,
     question: str,
@@ -308,7 +322,14 @@ def run_agent(
     )
     # A skill's declared tools are the only ones offered for its run: fewer
     # schemas on the wire (roadmap §11a) and a narrower thing to go wrong.
-    offered = tools.ollama_tools(allowed_tools)
+    # An ordinary turn declares nothing, so the question is read for what it
+    # plausibly needs — see tools.focus_for. Note the asymmetry: the skill's
+    # list is also *enforced* below, while the focus is only an economy. A
+    # tool left out because a cue didn't fire must still run if the model
+    # somehow calls it.
+    offered = tools.ollama_tools(
+        allowed_tools if allowed_tools is not None else _focus(question)
+    )
     permitted = set(allowed_tools) if allowed_tools else None
     model = model_manager.chat_model()
     did_write = False  # did any real write tool run this turn?

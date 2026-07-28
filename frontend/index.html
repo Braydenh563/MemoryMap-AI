@@ -1076,6 +1076,26 @@ Link to another note with [[its first few words]]."></textarea>
               offered that tool at all. Destructive actions always ask you to
               confirm first.
             </p>
+            <h3>How many are offered at once</h3>
+            <p class="muted">
+              Every tool the AI is offered is described to it again on every
+              round of every message — all of them together are about three
+              quarters of what a small model reads before it even sees your
+              question. Sending only the ones a message plausibly needs leaves
+              far more room for your notes.
+            </p>
+            <label class="check-row">
+              <input type="radio" name="tool-focus" value="auto">
+              <span><strong>Only what the message needs</strong> — the whole set
+                is still sent when a request is broad ("tidy up my notes")</span>
+            </label>
+            <label class="check-row">
+              <input type="radio" name="tool-focus" value="all">
+              <span><strong>Always send all of them</strong> — pick this if the
+                AI ever misses a tool you asked for</span>
+            </label>
+            <p id="tool-focus-status" class="status" role="status"></p>
+            <h3>Which ones it may use</h3>
             <ul id="tool-list" class="entry-list"></ul>
           </section>
 

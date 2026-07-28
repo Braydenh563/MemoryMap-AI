@@ -244,6 +244,18 @@ tools" rather than as anything to do with length. Settings → Tools
 **Adding a tool is not free.** If the budget test fails, that is the design
 working; either trim, or raise the constant deliberately and say why.
 
+**Not every turn is offered every tool.** `tools.focus_for(question)` reads the
+message and returns the reading core plus whatever the words ask for —
+`set_reminder` for "remind me…", `tag_note` for "tag my…". An ordinary
+question therefore carries ~3,340 characters of schema instead of 10,215,
+which halves the fixed overhead a 3B model reads before it reaches the
+question. Two rules keep it honest: a request that sounds like a job but does
+not say which one ("tidy up my notes") gets **everything**, and the focus is
+an *economy, not a policy* — unlike a skill's allowlist it never stops a tool
+from running, so a cue that fails to fire costs tokens, not abilities.
+Settings → Tools has the switch (`tool_focus`), because the honest failure of
+a keyword rule is a phrasing it does not know.
+
 ## 7b. Skills
 
 A skill (`ai/skills.py`) is a **named, repeatable job over the notebook**, not

@@ -5179,6 +5179,29 @@ async function addSkill() {
 
 // --- Wave O: agent-tools toggles ----------------------------------------------------
 
+// How many tool descriptions each message carries (§11a). Saved on change
+// rather than behind an Apply button — the search-engine picker taught us
+// that a control which saves nothing until later reads as broken, because
+// the next status poll paints the old value back over it.
+function renderToolFocus(current) {
+  for (const radio of document.querySelectorAll('input[name="tool-focus"]')) {
+    radio.checked = radio.value === current;
+    radio.onchange = async () => {
+      if (!radio.checked) return;
+      const status = $("tool-focus-status");
+      status.textContent = "Saving…";
+      prefsCache = await apiJson("/preferences", {
+        method: "PUT",
+        body: JSON.stringify({ tool_focus: radio.value }),
+      });
+      status.textContent =
+        radio.value === "auto"
+          ? "Each message is offered the tools it needs."
+          : "Every message is offered every tool.";
+    };
+  }
+}
+
 async function renderToolSettings() {
   const list = $("tool-list");
   const [catalog, prefs] = await Promise.all([
@@ -5186,6 +5209,7 @@ async function renderToolSettings() {
     apiJson("/preferences").catch(() => ({ disabled_tools: [] })),
   ]);
   prefsCache = prefs;
+  renderToolFocus(prefs.tool_focus || "auto");
   const disabled = new Set(prefs.disabled_tools || []);
   list.replaceChildren();
   for (const tool of catalog) {

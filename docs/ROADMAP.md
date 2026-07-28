@@ -32,11 +32,14 @@ the way*, not by how interesting it is to build.
    *Measured since:* the fixed overhead alone — system prompt plus all 28 tool
    schemas — is ~3,050 tokens per round, and 77% of that is the schemas, not
    the prose. `agent.PROMPT_BUDGET_CHARS` now caps it and a test enforces the
-   cap. **Half of the remaining win is now delivered**: a skill run offers only
-   the tools it declared, which is 1,963 characters of schema rather than
-   10,215. The other half is doing the same for an ordinary chat turn, where
-   nothing declares anything — a relevance filter, or a small always-on core
-   with the rest opt-in.
+   cap. ~~The remaining win is offering fewer tools per turn~~ **done, both
+   halves.** A skill run offers only the tools it declared (1,963 characters
+   of schema rather than 10,215); an ordinary turn is now read for what it
+   plausibly needs (`tools.focus_for`), which takes the *fixed* overhead of a
+   typical question from ~3,157 tokens to ~1,439. **What is left here is the
+   variable half**: the retrieved notes and the history are still resent
+   whole on every turn, and nothing has measured which of those dominates a
+   real 3-turn chat. Log the prompt-token count per round before cutting.
 4. ~~**Markdown rendering for notes** (§22)~~ **done.** Inline only — bold,
    italic, `code`, strike — because `renderMarkdown`'s block elements make a
    note list enormous, which is the problem §22 itself flagged. Wiki links and

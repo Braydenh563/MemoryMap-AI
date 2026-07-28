@@ -48,6 +48,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- **A message is only offered the tools it plausibly needs.** Every tool is
+  described to the model again on every round of every message, and all of
+  them together were about three quarters of what it read before reaching
+  your question — on a small model, most of the window. A question now
+  carries the reading tools; "remind me…" adds the reminder ones; "tidy up my
+  notes", which could mean anything, still gets everything. Measured: the
+  fixed overhead of a typical question drops from ~3,157 tokens to ~1,439.
+  It only decides what is *offered* — a tool is never blocked from running —
+  and Settings → Tools can turn it off.
 - **Skills are jobs now, not saved prompts.** A skill was a name and a string,
   and clicking one dropped that string into the chat box — which is why asking
   the AI to make one only ever produced another sentence. A skill now carries

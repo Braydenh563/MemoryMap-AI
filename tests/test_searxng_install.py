@@ -54,7 +54,7 @@ class _Commands:
     def __init__(self):
         self.calls: list[list[str]] = []
 
-    def __call__(self, args, timeout=None, on_line=None):
+    def __call__(self, args, timeout=None, on_line=None, env=None):
         self.calls.append(list(args))
         if on_line:
             on_line("Collecting things\n")
@@ -255,7 +255,7 @@ def test_pip_succeeding_is_not_taken_as_searxng_being_importable(
     _fake_venv(data_dir)
     archive = _archive(tmp_path, ["setup.py"])
 
-    def run(args, timeout=None):
+    def run(args, timeout=None, env=None):
         # The check is `import searx.webapp` now — the module a start actually
         # loads. `import searx` passed on Windows and the start died anyway.
         if args[-1] == "import searx.webapp":
@@ -331,7 +331,7 @@ def test_the_install_reports_progress_and_what_it_is_doing(
     seen: list[tuple[int, float | None]] = []
 
     class _Watching(_Commands):
-        def __call__(self, args, timeout=None, on_line=None):
+        def __call__(self, args, timeout=None, on_line=None, env=None):
             seen.append(
                 (
                     searxng_manager._install_state["stage"],
@@ -421,7 +421,7 @@ def test_the_pwd_shim_is_only_written_where_the_module_is_missing(app_state, mon
     is the thing that actually breaks."""
     calls = []
 
-    def has_pwd(args, timeout=None):
+    def has_pwd(args, timeout=None, env=None):
         calls.append(args)
         return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
 
@@ -435,7 +435,7 @@ def test_the_pwd_shim_lands_in_the_virtualenv(app_state, tmp_path, monkeypatch):
     site = tmp_path / "site-packages"
     site.mkdir()
 
-    def without_pwd(args, timeout=None):
+    def without_pwd(args, timeout=None, env=None):
         if args[-1] == "import pwd":
             return subprocess.CompletedProcess(args, 1, stdout="", stderr="no pwd")
         return subprocess.CompletedProcess(args, 0, stdout=f"{site}\n", stderr="")
@@ -505,7 +505,7 @@ def test_the_import_check_is_not_re_run_on_every_status_poll(app_state, monkeypa
     _fake_venv(data_dir)
     calls = []
 
-    def run(args, timeout=None):
+    def run(args, timeout=None, env=None):
         calls.append(args)
         return subprocess.CompletedProcess(args, 0)
 

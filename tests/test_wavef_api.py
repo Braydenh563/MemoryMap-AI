@@ -715,7 +715,7 @@ def test_the_source_install_never_shells_out_to_git(app_state, tmp_path, monkeyp
         stdout = ""
         stderr = ""
 
-    def fake_run(cmd, timeout=None, on_line=None):
+    def fake_run(cmd, timeout=None, on_line=None, env=None):
         calls.append(list(cmd))
         return _Ok()
 

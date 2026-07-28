@@ -23,6 +23,7 @@ from memorymap.core.database import (
     Category,
     EmbeddingRecord,
     Entry,
+    DocumentLink,
     EntryDate,
     EntryLink,
     utcnow,
@@ -202,6 +203,66 @@ def record_dates(session: Session, entry: Entry) -> None:
         logging.getLogger("memorymap.entries").warning(
             "Couldn't resolve the dates in entry %s", entry.id, exc_info=True
         )
+
+
+# --- notes ↔ documents -------------------------------------------------------
+# A note and a document are different things on purpose, but they are usually
+# about the same thing. These are the only four functions that know how they
+# are joined, so both sides of the relationship can never drift apart.
+
+
+def link_document(session: Session, document_id: int, entry_id: int) -> bool:
+    """Attach a note to a document. False if it already was."""
+    existing = session.scalar(
+        select(DocumentLink).where(
+            DocumentLink.document_id == document_id, DocumentLink.entry_id == entry_id
+        )
+    )
+    if existing is not None:
+        return False
+    session.add(DocumentLink(document_id=document_id, entry_id=entry_id))
+    log_action(session, "linked", "document", document_id, f"note {entry_id}")
+    session.commit()
+    return True
+
+
+def unlink_document(session: Session, document_id: int, entry_id: int) -> bool:
+    removed = session.execute(
+        delete(DocumentLink).where(
+            DocumentLink.document_id == document_id, DocumentLink.entry_id == entry_id
+        )
+    ).rowcount
+    if removed:
+        log_action(session, "unlinked", "document", document_id, f"note {entry_id}")
+        session.commit()
+    return bool(removed)
+
+
+def documents_for_entry(session: Session, entry: Entry) -> list:
+    """The documents this note is attached to, oldest link first."""
+    from memorymap.core.database import Document
+
+    return list(
+        session.scalars(
+            select(Document)
+            .join(DocumentLink, DocumentLink.document_id == Document.id)
+            .where(DocumentLink.entry_id == entry.id)
+            .order_by(DocumentLink.id)
+        )
+    )
+
+
+def entries_for_document(session: Session, document_id: int) -> list[Entry]:
+    """The notes attached to this document. Binned notes drop out on their
+    own — a note in the recycle bin should not still be feeding a draft."""
+    return list(
+        session.scalars(
+            select(Entry)
+            .join(DocumentLink, DocumentLink.entry_id == Entry.id)
+            .where(DocumentLink.document_id == document_id, Entry.is_deleted == False)  # noqa: E712
+            .order_by(DocumentLink.id)
+        )
+    )
 
 
 def soft_delete_entry(session: Session, entry: Entry) -> None:

@@ -253,6 +253,17 @@ Link to another note with [[its first few words]]."></textarea>
           <input id="entry-tags" type="text" list="tag-suggestions"
             placeholder="Optional tags, comma separated (e.g. joke, work)">
           <datalist id="tag-suggestions"></datalist>
+          <!-- Notes and documents are different things, but usually about
+               the same thing. Attaching one here is the moment the connection
+               is obvious; by the time the note is in a list it is forgotten. -->
+          <div class="row">
+            <label for="entry-document" class="muted">Add to document</label>
+            <select id="entry-document" class="small-select"
+              title="Attach this note to a document you're writing">
+              <option value="">None</option>
+            </select>
+            <span id="entry-document-chips" class="entry-meta"></span>
+          </div>
           <div class="row">
             <label for="entry-category" class="muted">File under</label>
             <select id="entry-category"></select>
@@ -558,9 +569,9 @@ Link to another note with [[its first few words]]."></textarea>
         <h2>Timeline</h2>
         <label class="muted" for="timeline-scale">Bucket by</label>
         <select id="timeline-scale" aria-label="Time bucket">
-          <option value="day">Day</option>
+          <option value="day" selected>Day</option>
           <option value="week">Week</option>
-          <option value="month" selected>Month</option>
+          <option value="month">Month</option>
           <option value="year">Year</option>
         </select>
         <label class="muted" for="timeline-group">Bands</label>
@@ -724,6 +735,13 @@ Link to another note with [[its first few words]]."></textarea>
         <div id="doc-outline-wrap" class="doc-outline-wrap hidden">
           <h3>Outline</h3>
           <ul id="doc-outline" class="doc-outline"></ul>
+        </div>
+
+        <!-- The notes this document draws on. A document is something you
+             sit down and write; the notes are what you wrote it from. -->
+        <div id="doc-notes-wrap" class="doc-outline-wrap hidden">
+          <h3>Notes it draws on</h3>
+          <ul id="doc-notes" class="doc-outline"></ul>
         </div>
 
         <!-- "Where are they stored?" was asked outright, and the app had no

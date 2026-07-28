@@ -295,6 +295,29 @@ class Document(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class DocumentLink(Base):
+    """A note attached to a document.
+
+    Notes and documents are deliberately different things — a note is a
+    captured thought, a document is something you sat down and write — but
+    they are usually *about* the same thing, and until now there was no way to
+    say so. Asked for directly: "I want a way to link documents to new notes I
+    create in the capture tab; the documents and notes sections need to be
+    more integrated."
+
+    Its own table rather than a column on either side: the relationship is
+    many-to-many (a document draws on several notes; a note can feed several
+    documents), and neither side owns the other.
+    """
+
+    __tablename__ = "document_links"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    document_id: Mapped[int] = mapped_column(ForeignKey("documents.id"), index=True)
+    entry_id: Mapped[int] = mapped_column(ForeignKey("entries.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 class AuditLog(Base):
     """Every meaningful action, from Phase 1 onward (plan §4)."""
 

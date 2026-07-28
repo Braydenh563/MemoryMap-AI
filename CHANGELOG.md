@@ -53,6 +53,12 @@ below). Versioning is `0.x` while the app stabilises.
   from the server, with a live step for each job, a progress bar where there
   is a real number to show, and a Quit button only on the jobs that can be
   stopped safely.
+- **Notes and documents are joined up.** The capture box has an **Add to
+  document** picker, so a note can be attached to what you're writing as you
+  save it rather than afterwards. The note then carries a 📄 chip that opens
+  that document, and the document lists the notes it draws on, each with a
+  detach button. Detaching removes the connection and never the note; binning
+  a note takes it out of the document's list on its own.
 - **The graph has layouts.** A picker for how the notes are arranged: the
   force-directed **web** as before, a **tree** — notebook → category → note,
   reading left to right, with a note's replies branching off the note they
@@ -60,7 +66,7 @@ below). Versioning is `0.x` while the app stabilises.
   notebooks have far more filing than links, and a force graph of
   mostly-unlinked notes is a cloud of dots; a tree shows the structure that is
   actually there. Your choice is remembered.
-- **A Timeline tab.** Your notes on a time axis, in bands — one per category
+- **A Timeline tab.** Opening on days by default. Your notes on a time axis, in bands — one per category
   or tag — with the bucket size you choose, from days to years. A note sits
   where it is *about* when it says so ("the beans need netting next week"
   plots on that week, marked 🕓, with the date it was written on hover) and at

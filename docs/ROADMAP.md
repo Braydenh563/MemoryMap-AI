@@ -55,6 +55,13 @@ the way*, not by how interesting it is to build.
 6. ~~**A hero header on the dashboard** (§22)~~ **done** — emblem and wordmark
    inside the greeting card, hidden below 720px.
 
+**Where this session got to.** Items 1–6 above are all closed. The body
+sections below are the backlog now, and the ones with the most left in them
+are §9 (the graph's *utility* — paths between notes, clusters, drag-to-link;
+the layouts are done), §1 (the live log console), §3 (Chat/Agent/Browse
+sub-tabs) and §4 (the Library tab). §5's "attach documents to notes" is done
+— see below.
+
 > **Check the running app before building anything here.** This document
 > describes intent, and it drifts. An audit of §2 found four of its six "quick
 > wins" already built — the sticky sidebar, the per-code-block copy button,
@@ -478,7 +485,16 @@ Checked against the running app, not assumed:
   What's missing is the *conversational* shape: ask a question about the
   document without it proposing an edit.
 - **A real document browser** — the sidebar list is not a gallery
-- **Attach documents to notes** — still nothing
+- ~~**Attach documents to notes**~~ **done.** Asked for directly: "a way to
+  link documents to new notes I create in the capture tab… the documents and
+  notes sections and features need to be more integrated together." The
+  capture box has an *Add to document* picker, so the connection is made while
+  it is obvious rather than after the note is buried in a list; the note card
+  carries a 📄 chip that opens the document; the document lists the notes it
+  draws on, each with a detach button. `document_links` is its own table
+  because the relationship is many-to-many and neither side owns the other —
+  detaching removes a connection, never a note, and binning a note takes it
+  out of the document's list on its own.
 - **Document history** — notes have `EntryRevision`; documents have no
   equivalent table, and the AI edit overwrites on accept
 

@@ -429,6 +429,14 @@ function entryItem(entry, options = {}) {
   }
   if (confidenceChip) meta.appendChild(confidenceChip);
 
+  // The documents this note feeds. Notes and documents are separate things
+  // on purpose; this is the one place that says they are about the same one.
+  for (const doc of entry.documents || []) {
+    const mark = chip(`📄 ${doc.title}`, "tag", () => openDocumentFromNote(doc.id));
+    mark.title = `Open “${doc.title}”`;
+    meta.appendChild(mark);
+  }
+
   // What this note's own "tomorrow" meant on the day it was written (§10A).
   // A chip rather than a mark inside the text: `renderNoteText` already
   // layers wiki links, inline markdown and filter highlighting through each
@@ -1703,6 +1711,56 @@ function filedByText(saved) {
   }
 }
 
+// --- notes ↔ documents ------------------------------------------------------
+// Asked for directly: "a way to link documents to new notes I create in the
+// capture tab… the documents and notes sections need to be more integrated".
+// The picker adds; the chips are how you take one back off before saving.
+
+const captureDocuments = new Set();
+
+async function loadCaptureDocuments() {
+  const select = $("entry-document");
+  const documents = await apiJson("/documents").catch(() => []);
+  const chosen = select.value;
+  select.replaceChildren();
+  const none = document.createElement("option");
+  none.value = "";
+  none.textContent = documents.length ? "None" : "No documents yet";
+  select.appendChild(none);
+  for (const doc of documents) {
+    const option = document.createElement("option");
+    option.value = String(doc.id);
+    option.textContent = doc.title;
+    select.appendChild(option);
+  }
+  select.value = chosen;
+  renderCaptureDocuments(documents);
+}
+
+let captureDocumentTitles = new Map();
+
+function renderCaptureDocuments(documents) {
+  if (documents) {
+    captureDocumentTitles = new Map(documents.map((d) => [String(d.id), d.title]));
+  }
+  const box = $("entry-document-chips");
+  box.replaceChildren();
+  for (const id of captureDocuments) {
+    const chipEl = chip(`📄 ${captureDocumentTitles.get(String(id)) || id} ✕`, "tag", () => {
+      captureDocuments.delete(id);
+      renderCaptureDocuments();
+    });
+    chipEl.title = "Don't attach this note to that document after all";
+    box.appendChild(chipEl);
+  }
+}
+
+function openDocumentFromNote(documentId) {
+  switchTab("documents");
+  // The tab's own loader races us otherwise, and opens the last document.
+  setTimeout(() => openDocument(documentId), 150);
+}
+
 async function saveEntry() {
   const contentBox = $("entry-content");
   const status = $("save-status");
@@ -1728,7 +1786,12 @@ async function saveEntry() {
   try {
     const saved = await apiJson("/entries", {
       method: "POST",
-      body: JSON.stringify({ content, tags, category }),
+      body: JSON.stringify({
+        content,
+        tags,
+        category,
+        document_ids: [...captureDocuments],
+      }),
     });
     status.textContent = filedByText(saved);
     if (saved.similar) {
@@ -1744,6 +1807,8 @@ async function saveEntry() {
     $("entry-count").textContent = "0 characters";
     $("entry-tags").value = "";
     $("entry-category").value = "";
+    captureDocuments.clear();
+    renderCaptureDocuments();
     $("entry-template").value = "";
     await loadEntries();
     loadSuggestions(); // new categories → fresher recommended questions
@@ -3174,7 +3239,42 @@ async function openDocument(id) {
   renderDocPreview();
   renderDocStats();
   renderDocOutline();
+  renderDocNotes();
   renderDocList();
+}
+
+// The notes this document draws on. Shown beside the outline because both
+// answer the same question — what is this document made of.
+function renderDocNotes() {
+  const wrap = $("doc-notes-wrap");
+  const list = $("doc-notes");
+  const notes = (currentDoc && currentDoc.notes) || [];
+  wrap.classList.toggle("hidden", !notes.length);
+  list.replaceChildren();
+  for (const note of notes) {
+    const item = document.createElement("li");
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "outline-link";
+    open.textContent = note.is_private ? "🔒 (private note)" : note.preview;
+    open.title = "Show this note";
+    open.addEventListener("click", () => {
+      switchTab("notes");
+      showNotesSection("browse"); // focusing inside a hidden section does nothing
+      flashEntry(note.id);
+    });
+    const remove = smallButton("✕", "Detach this note from the document", async () => {
+      currentDoc = await apiJson(
+        `/documents/${currentDoc.id}/notes/${note.id}`,
+        { method: "DELETE" }
+      );
+      renderDocNotes();
+      // The note keeps existing — only the connection went.
+      loadEntries();
+    });
+    item.append(open, remove);
+    list.appendChild(item);
+  }
 }
 
 async function createDocument() {
@@ -3182,6 +3282,7 @@ async function createDocument() {
     method: "POST",
     body: JSON.stringify({ title: "Untitled", content: "" }),
   });
+  loadCaptureDocuments(); // so Capture can attach to it straight away
   await loadDocuments(doc.id);
   $("doc-title").focus();
   $("doc-title").select();
@@ -9094,6 +9195,13 @@ for (const id of ["timeline-scale", "timeline-group", "timeline-days"]) {
   $(id).addEventListener("change", renderTimeline);
 }
 
+$("entry-document").addEventListener("change", (event) => {
+  const id = Number(event.target.value);
+  if (id) captureDocuments.add(id);
+  event.target.value = "";
+  renderCaptureDocuments();
+});
+
 // Layout picker (§9). Stored, because which shape suits a notebook is a
 // property of the notebook rather than of one visit.
 $("graph-layout").addEventListener("change", (event) => {
@@ -9120,6 +9228,9 @@ function activeNotesSection() {
 }
 
 function showNotesSection(name, { focus = false } = {}) {
+  // The picker lists documents that may have been created since this page
+  // loaded — a stale list is how "add to document" ends up offering nothing.
+  if (name === "capture") loadCaptureDocuments();
   const wanted = NOTES_SECTIONS.includes(name) ? name : "browse";
   for (const id of NOTES_SECTIONS) {
     const card = document.getElementById(id);

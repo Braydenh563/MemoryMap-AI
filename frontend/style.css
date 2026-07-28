@@ -5024,3 +5024,8 @@ textarea.autogrow {
 }
 /* Filing edges (category → note) are quieter than a link the user made. */
 .graph-edge-filing { stroke-dasharray: 3 3; opacity: 0.45; }
+
+/* The notes a document draws on, beside its outline. The row is the note plus
+   a detach button, so the two can't run into each other on a long preview. */
+#doc-notes li { display: flex; align-items: center; gap: 0.3rem; }
+#doc-notes .outline-link { flex: 1 1 auto; min-width: 0; }

@@ -18,7 +18,13 @@ from memorymap.ai import drafter
 from memorymap.core import deps
 from memorymap.core.database import Document, utcnow
 from memorymap.core.deps import get_session
-from memorymap.entry.manager import log_action
+from memorymap.entry.manager import (
+    entries_for_document,
+    get_entry,
+    link_document,
+    log_action,
+    unlink_document,
+)
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -54,8 +60,30 @@ def _summary(document: Document) -> dict:
     }
 
 
-def _full(document: Document) -> dict:
-    return {**_summary(document), "content": document.content}
+def _full(document: Document, session: Session | None = None) -> dict:
+    body = {**_summary(document), "content": document.content}
+    if session is not None:
+        body["notes"] = _linked_notes(session, document.id)
+    return body
+
+
+def _linked_notes(session: Session, document_id: int) -> list[dict]:
+    """The notes attached to this document, as previews.
+
+    A note and a document are different things on purpose, but they are
+    usually about the same thing — asked for directly: "the documents and
+    notes sections and features need to be more integrated together".
+    """
+    from memorymap.entry.manager import readable_content
+
+    return [
+        {
+            "id": entry.id,
+            "preview": readable_content(entry)[:120],
+            "is_private": bool(entry.is_private),
+        }
+        for entry in entries_for_document(session, document_id)
+    ]
 
 
 def _existing(session: Session, document_id: int) -> Document:
@@ -82,12 +110,12 @@ def create_document(
     session.flush()
     log_action(session, "created", "document", document.id, document.title[:80])
     session.commit()
-    return _full(document)
+    return _full(document, session)
 
 
 @router.get("/{document_id}")
 def get_document(document_id: int, session: Session = Depends(get_session)) -> dict:
-    return _full(_existing(session, document_id))
+    return _full(_existing(session, document_id), session)
 
 
 @router.put("/{document_id}")
@@ -101,7 +129,7 @@ def update_document(
         document.content = body.content
     document.updated_at = utcnow()
     session.commit()
-    return _full(document)
+    return _full(document, session)
 
 
 @router.delete("/{document_id}")
@@ -118,6 +146,34 @@ def _safe_filename(title: str, extension: str) -> str:
     cleaned = re.sub(r"[^\w\s-]", "", title).strip() or "document"
     cleaned = re.sub(r"[\s_]+", "-", cleaned)[:60]
     return f"{cleaned}.{extension}"
+
+
+class LinkBody(BaseModel):
+    entry_id: int
+
+
+@router.post("/{document_id}/notes", status_code=201)
+def attach_note(
+    document_id: int, body: LinkBody, session: Session = Depends(get_session)
+) -> dict:
+    """Attach an existing note to this document."""
+    document = _existing(session, document_id)
+    entry = get_entry(session, body.entry_id)
+    if entry is None or entry.is_deleted:
+        raise HTTPException(status_code=404, detail="Note not found")
+    link_document(session, document.id, entry.id)
+    return _full(document, session)
+
+
+@router.delete("/{document_id}/notes/{entry_id}")
+def detach_note(
+    document_id: int, entry_id: int, session: Session = Depends(get_session)
+) -> dict:
+    """Detach a note. The note itself is untouched — this is a connection,
+    not ownership."""
+    document = _existing(session, document_id)
+    unlink_document(session, document.id, entry_id)
+    return _full(document, session)
 
 
 @router.get("/{document_id}/export.md")

@@ -62,7 +62,9 @@ def _bucket_start(when: datetime, scale: str) -> str:
 
 @router.get("")
 def timeline(
-    scale: str = "month",
+    # Days by default: a month bucket puts a whole month of notes in one
+    # column, which is the shape the Timeline exists to break up.
+    scale: str = "day",
     group: str = "category",
     days: int = 365,
     session: Session = Depends(get_session),

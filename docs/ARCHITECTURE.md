@@ -374,6 +374,15 @@ SQLite via SQLAlchemy 2.0 (`core/database.py`). Main tables:
 - **entry_revisions** — edit history for notes. Documents have no equivalent
   yet, which is why the AI document edit overwrites on accept.
 - **documents** — long-form markdown, separate from notes.
+- **document_links** — which notes a document draws on. Its own table because
+  the relationship is many-to-many and neither side owns the other: detaching
+  removes a connection, never a note. `manager.link_document` /
+  `unlink_document` / `documents_for_entry` / `entries_for_document` are the
+  only four functions that know how the two are joined, so the note side and
+  the document side cannot drift apart. A note can be attached as it is saved
+  (`document_ids` on `POST /entries`), which is the point — the connection is
+  obvious while you are writing and forgotten by the time the note is in a
+  list.
 - **reminders** — lightweight reminders the agent can set. Stored UTC-aware:
   SQLite drops timezones and JavaScript parses a naive date-time as *local*,
   which read as a reminder being hours overdue the moment it was set.

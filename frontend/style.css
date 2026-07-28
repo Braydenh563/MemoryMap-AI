@@ -2445,20 +2445,28 @@ html { font-size: 16px; }
   flex: 0 0 auto;
 }
 
-/* The generated emblem, small, beside a heading on the working tabs: a sign
-   that the AI is involved here, not decoration. Sized in CSS as well as in
-   the p5 call because a canvas with no box collapses the row. */
+/* The generated emblem at header size. It sat inside two sidebar headings
+   first, wedged between a title and a button, where it was both too big for
+   the row and different on every tab — and six more tabs would have meant six
+   more of those decisions. One place, on screen everywhere, beside the AI
+   status it is about. Sized in CSS as well as in the p5 call because a canvas
+   with no box collapses the row. */
 .emblem-mark {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   display: inline-flex;
   flex: 0 0 auto;
-  opacity: 0.9;
+  align-self: center;
+  opacity: 0.85;
+  transition: opacity 0.15s ease;
 }
-.emblem-mark canvas { width: 22px !important; height: 22px !important; }
-/* The heading and its mark sit together; the row's `space-between` would
-   otherwise push them to opposite ends of the sidebar. */
-.sidebar-head { justify-content: flex-start; gap: 0.45rem; }
+.emblem-mark:hover { opacity: 1; }
+.emblem-mark canvas { width: 24px !important; height: 24px !important; }
+/* The header is the first thing to run out of room; the mark is the first
+   thing that can go when it does. */
+@media (max-width: 900px) {
+  .emblem-mark { display: none; }
+}
 
 /* The ambient background reads on every tab; its strength follows the
    Appearance → Intensity slider (Wave O). */
@@ -4401,39 +4409,48 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
    Contrast checked against the page colour, not eyeballed: #0b6b7d on #eef1fa
    is 5.1:1 and #5fd8d0 on #10142a is 9.4:1, both clear of WCAG AA for body
    text (4.5:1). */
+/* Shallows (the light half). It was asked for as "a teal light one" and was
+   drawn mostly indigo, so the page and the accent pulled in two directions —
+   a blue-grey ground with a teal accent sitting on it rather than in it. The
+   ground is aqua now and the indigo survives only as the cooler blob, which
+   is what makes it read as water over sand rather than as a grey page. */
 :root[data-palette="lagoon"] {
-  --page: linear-gradient(135deg, #eef1fa 0%, #eaf4f6 45%, #e6edf8 100%);
-  --blob-a: rgba(79, 109, 245, 0.16);
-  --blob-b: rgba(20, 160, 160, 0.13);
-  --card: rgba(253, 254, 255, 0.6);
-  --inner: rgba(253, 254, 255, 0.47);
-  --input-bg: rgba(253, 254, 255, 0.6);
-  --glass-border: rgba(244, 249, 255, 0.7);
-  --modal-bg: rgba(248, 251, 254, 0.97);
-  --glass-shadow: 0 8px 32px rgba(30, 44, 96, 0.14);
-  --ink: #17203a;
-  --muted: #556080;
-  --accent: #0b6b7d;
-  --accent-soft: rgba(11, 107, 125, 0.15);
-  --border: rgba(26, 34, 62, 0.12);
-  --chip-bg: rgba(26, 34, 62, 0.07);
+  --page: linear-gradient(135deg, #e6f4f4 0%, #e9f6f7 45%, #dfeff3 100%);
+  --blob-a: rgba(62, 122, 224, 0.15);
+  --blob-b: rgba(22, 178, 172, 0.16);
+  --card: rgba(253, 255, 255, 0.62);
+  --inner: rgba(253, 255, 255, 0.5);
+  --input-bg: rgba(253, 255, 255, 0.62);
+  --glass-border: rgba(240, 252, 253, 0.72);
+  --modal-bg: rgba(246, 253, 253, 0.97);
+  --glass-shadow: 0 8px 32px rgba(18, 70, 84, 0.13);
+  --ink: #10262e;
+  --muted: #4a6a74;
+  --accent: #0a7f8c;
+  --accent-soft: rgba(10, 127, 140, 0.16);
+  --border: rgba(16, 46, 56, 0.12);
+  --chip-bg: rgba(16, 46, 56, 0.07);
 }
 :root[data-palette="lagoon"][data-mode="dark"] {
-  --page: linear-gradient(135deg, #10142a 0%, #141b38 45%, #0e1626 100%);
-  --blob-a: rgba(108, 132, 255, 0.17);
-  --blob-b: rgba(56, 200, 190, 0.13);
-  --card: rgba(28, 35, 62, 0.6);
-  --inner: rgba(224, 236, 255, 0.05);
-  --input-bg: rgba(10, 14, 30, 0.6);
-  --glass-border: rgba(170, 200, 255, 0.12);
-  --modal-bg: rgba(22, 28, 50, 0.97);
+  /* Deep water: the indigo goes darker and greener towards the bottom so the
+     teal accent looks lit from inside it rather than printed on top. `--inner`
+     was 5% white, which made every inset panel indistinguishable from its
+     card; `--muted` was low enough that secondary text greyed out. */
+  --page: linear-gradient(135deg, #0d1226 0%, #131c3a 45%, #0b1a22 100%);
+  --blob-a: rgba(104, 130, 255, 0.18);
+  --blob-b: rgba(46, 206, 194, 0.16);
+  --card: rgba(26, 34, 60, 0.62);
+  --inner: rgba(190, 226, 240, 0.075);
+  --input-bg: rgba(8, 13, 28, 0.62);
+  --glass-border: rgba(150, 210, 225, 0.14);
+  --modal-bg: rgba(20, 27, 48, 0.97);
   --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-  --ink: #e3e9f8;
-  --muted: #9aa6c8;
-  --accent: #5fd8d0;
-  --accent-soft: rgba(95, 216, 208, 0.18);
-  --border: rgba(200, 218, 255, 0.12);
-  --chip-bg: rgba(200, 218, 255, 0.08);
+  --ink: #e6eefa;
+  --muted: #a7b8d2;
+  --accent: #55dcd2;
+  --accent-soft: rgba(85, 220, 210, 0.2);
+  --border: rgba(186, 216, 236, 0.14);
+  --chip-bg: rgba(186, 216, 236, 0.09);
 }
 
 /* --- Ember: warm oranges over a dim ground. Best in the evening. ------------- */

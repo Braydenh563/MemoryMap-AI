@@ -8,6 +8,8 @@ the app at several minutes, ran with nothing on that screen to say so.
 
 from __future__ import annotations
 
+import time
+
 import pytest
 
 from memorymap.ai import model_manager
@@ -156,3 +158,30 @@ def test_the_tasks_list_sits_behind_the_unlock_gate(client):
     token = client.post("/auth/setup", json={"password": "gate-test"}).json()["token"]
     assert client.get("/tasks").status_code == 401
     assert client.get("/tasks", headers={"X-Auth-Token": token}).status_code == 200
+
+
+def test_a_searxng_start_is_a_visible_task(client, monkeypatch):
+    """The longest silence in the app from the user's side: a start waits up
+    to 90 seconds for the service to answer. The install was listed here and
+    this was not, so the panel looked broken to anyone watching a start."""
+    from memorymap.search import searxng_manager
+
+    monkeypatch.setitem(searxng_manager._start_state, "running", True)
+    monkeypatch.setitem(searxng_manager._start_state, "backend", "source")
+    monkeypatch.setitem(searxng_manager._start_state, "since", time.time() - 12)
+
+    tasks = client.get("/tasks").json()["tasks"]
+    start = [t for t in tasks if t["kind"] == "searxng-start"]
+    assert start, [t["kind"] for t in tasks]
+    assert start[0]["label"] == "Starting SearXNG"
+    assert "12s of 90s" in start[0]["detail"]
+    assert 0 < start[0]["progress"] < 1
+    assert start[0]["cancellable"] is False
+
+
+def test_nothing_is_listed_once_the_start_finishes(client):
+    from memorymap.search import searxng_manager
+
+    searxng_manager._start_state["running"] = False
+    kinds = [t["kind"] for t in client.get("/tasks").json()["tasks"]]
+    assert "searxng-start" not in kinds

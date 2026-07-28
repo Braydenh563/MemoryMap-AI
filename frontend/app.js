@@ -11858,7 +11858,29 @@ function appearancePref(key) {
 // Applying a theme only records WHICH theme. Because every read goes through
 // appearancePref, that is enough to change everything the theme covers while
 // leaving your manual choices sitting on top of it, untouched.
-function applyThemePreset(name) {
+function applyThemePreset(name, chosenByUser = false) {
+  // Picking a theme has to *win*. `appearancePref` reads the manual layer
+  // first, so a single earlier tweak — one accent, one corner radius — sat on
+  // top of every theme picked afterwards and silently cancelled that part of
+  // it. With several tweaks stored, a theme could change nothing visible at
+  // all, which is what "the themes don't work half the time" was.
+  //
+  // Only the keys *this* theme has an opinion about are dropped: choosing
+  // Lagoon should not also throw away a font size it says nothing about.
+  if (chosenByUser && THEME_PRESETS[name]) {
+    for (const key of Object.keys(THEME_PRESETS[name].values)) {
+      localStorage.removeItem(key);
+    }
+    // The accent and page background are painted from stored values rather
+    // than read through `appearancePref`, so they need clearing by hand or a
+    // custom accent outlives the palette it was picked against.
+    if (THEME_PRESETS[name].values.palette) {
+      localStorage.removeItem("accent");
+      localStorage.removeItem("accent-custom");
+      applyCustomAccent(null);
+      applyPageBackground(null);
+    }
+  }
   if (THEME_PRESETS[name]) localStorage.setItem("themePreset", name);
   else localStorage.removeItem("themePreset");
   applyAppearance();
@@ -12045,7 +12067,9 @@ function renderThemePresets() {
     button.addEventListener("click", () => {
       // Clicking the active theme turns it off, so the control is a toggle
       // rather than a one-way door.
-      applyThemePreset(name === active ? "" : name);
+      // `true`: this is the user asking for the theme, so it clears the
+      // manual tweaks that would otherwise cancel parts of it.
+      applyThemePreset(name === active ? "" : name, true);
       renderAppearance();
     });
     holder.appendChild(button);
@@ -12689,8 +12713,7 @@ const EMBLEM_SLOTS = [
   // the tab strip and the mark above it are the same thing. The generated
   // emblem is the dashboard's hero, and a small animated marker on the tabs
   // where the AI is doing something — asked for as "kinda like an ai symbol".
-  ["notes-emblem", 22, true],
-  ["chat-emblem", 22, true],
+  ["ai-mark", 24, true],
   ["lock-emblem", 76, true],
   ["onboarding-emblem", 64, false],
   ["chat-empty-emblem", 52, false],

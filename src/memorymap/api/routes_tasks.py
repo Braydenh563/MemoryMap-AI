@@ -19,6 +19,8 @@ accumulates them is a log — which the app already has.
 
 from __future__ import annotations
 
+import time
+
 from fastapi import APIRouter
 
 from memorymap.ai import embeddings as embeddings_module
@@ -92,6 +94,28 @@ def collect() -> list[dict]:
     # else. Imported here rather than at module level: it pulls in the search
     # stack, and this endpoint is polled.
     from memorymap.search import searxng_manager
+
+    # A start is not an install, and it is the longer silence of the two from
+    # the user's side: it waits up to START_TIMEOUT for the service to answer
+    # and shows nothing while it does.
+    starting = searxng_manager.starting()
+    if starting:
+        waited = int(time.time() - (starting.get("since") or time.time()))
+        tasks.append(
+            {
+                "kind": "searxng-start",
+                "name": "",
+                "label": "Starting SearXNG",
+                "detail": (
+                    f"Waiting for it to answer ({waited}s of "
+                    f"{searxng_manager.START_TIMEOUT}s) — "
+                    f"{starting.get('backend') or 'source'} backend."
+                ),
+                "progress": min(waited / max(searxng_manager.START_TIMEOUT, 1), 1.0),
+                "cancellable": False,
+                "log": [],
+            }
+        )
 
     install = searxng_manager._install_state
     if install["running"]:

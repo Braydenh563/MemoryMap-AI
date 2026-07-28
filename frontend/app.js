@@ -45,6 +45,9 @@ window.addEventListener("unhandledrejection", (e) =>
 const REVIEW_THRESHOLD = 50;
 
 let allEntries = []; // latest GET /entries result, newest first
+// Whether that has ever come back. An empty notebook and a notebook that
+// has not loaded yet look identical from `allEntries.length` alone.
+let entriesEverLoaded = false;
 let activeCategory = null; // sidebar filter; null = All
 let linkSource = null; // entry id waiting for its link partner
 let editingId = null; // entry id currently in inline-edit mode
@@ -198,7 +201,7 @@ function startApp() {
     }
   };
 
-  step("load entries", loadEntries);
+  const entriesReady = step("load entries", loadEntries);
   step("load recent questions", loadRecentQuestions);
   step("load suggestions", loadSuggestions);
   step("load your most-used items", loadMostUsed);
@@ -221,7 +224,12 @@ function startApp() {
   // itself from a pile of 401s and then never tried again. On the dashboard
   // that meant an empty grid until you opened Edit layout and cancelled out of
   // it, which re-ran renderDashboard by hand (user-reported).
-  step("load this tab", () => refreshActiveTab());
+  // *After* the entries land, not alongside them. These two ran concurrently,
+  // so on a cold load the dashboard rendered against an `allEntries` that was
+  // still `[]` and drew its brand-new-notebook card instead of the widgets —
+  // reported as "the dashboard widgets are missing until I refresh or change
+  // tabs". Every tab wants the notes; none of them wants to guess.
+  entriesReady.then(() => step("load this tab", () => refreshActiveTab()));
 
   // First-run welcome tour (guarded by localStorage; re-runnable from Help).
   maybeShowOnboarding();
@@ -399,11 +407,36 @@ function entryItem(entry, options = {}) {
 
   const content = document.createElement("p");
   content.className = "entry-content";
+  // One long note used to push everything else off the screen, so the list
+  // stopped being a list. Anything past this is clamped with a "Show more".
+  //
+  // The trigger is the character count, not a measured height: this list
+  // renders inside a `display: none` sub-tab, where every measurement comes
+  // back 0 — the trap that has caught four separate features here already.
+  const isLong =
+    entry.content.length > LONG_NOTE_CHARS ||
+    entry.content.split("\n").length > LONG_NOTE_LINES;
+  if (isLong && !expandedNotes.has(entry.id)) content.classList.add("entry-clamped");
   // Mark the matched words while filtering, so it's obvious WHY a note is in
   // the list. Built with createElement/textContent rather than innerHTML —
   // note text is user content and must never be parsed as markup.
   renderNoteText(content, entry.content, searchHighlightTerms());
   li.appendChild(content);
+  if (isLong) {
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "entry-more";
+    const label = () =>
+      expandedNotes.has(entry.id) ? "Show less" : "Show more";
+    toggle.textContent = label();
+    toggle.addEventListener("click", () => {
+      if (expandedNotes.has(entry.id)) expandedNotes.delete(entry.id);
+      else expandedNotes.add(entry.id);
+      content.classList.toggle("entry-clamped", !expandedNotes.has(entry.id));
+      toggle.textContent = label();
+    });
+    li.appendChild(toggle);
+  }
 
   const meta = document.createElement("div");
   meta.className = "entry-meta";
@@ -428,6 +461,49 @@ function entryItem(entry, options = {}) {
     flashConfidenceId = null;
   }
   if (confidenceChip) meta.appendChild(confidenceChip);
+
+  // The documents this note feeds. Notes and documents are separate things
+  // on purpose; this is the one place that says they are about the same one.
+  for (const doc of entry.documents || []) {
+    const mark = chip(`📄 ${doc.title}`, "tag", () => openDocumentFromNote(doc.id));
+    mark.title = `Open “${doc.title}”`;
+    if (options.actions) {
+      // Detach from the note's side too. The document editor has had this
+      // since the link existed; from here it took going and finding the
+      // document first, which is the wrong way round when the note is what
+      // you are already looking at.
+      const unlink = document.createElement("span");
+      unlink.className = "unlink";
+      unlink.textContent = "×";
+      unlink.title = `Detach from “${doc.title}” — the note stays`;
+      unlink.addEventListener("click", async (event) => {
+        event.stopPropagation(); // the chip itself opens the document
+        await api(`/documents/${doc.id}/notes/${entry.id}`, { method: "DELETE" });
+        await loadEntries();
+        toast(`Detached from “${doc.title}”.`);
+      });
+      mark.appendChild(unlink);
+    }
+    meta.appendChild(mark);
+  }
+
+  // What this note's own "tomorrow" meant on the day it was written (§10A).
+  // A chip rather than a mark inside the text: `renderNoteText` already
+  // layers wiki links, inline markdown and filter highlighting through each
+  // other, and a fourth pass over the same string is where that breaks.
+  for (const when of entry.dates || []) {
+    const day = new Date(`${when.at}T00:00:00`);
+    const label =
+      when.precision === "day"
+        ? day.toLocaleDateString(undefined, { day: "numeric", month: "short" })
+        : `${when.precision} of ${day.toLocaleDateString(undefined, { day: "numeric", month: "short" })}`;
+    const mark = chip(`🕓 ${when.phrase} → ${label}`, "when");
+    mark.title =
+      `“${when.phrase}” meant ${day.toLocaleDateString(undefined, {
+        weekday: "long", day: "numeric", month: "long", year: "numeric",
+      })}, worked out from the day this note was written.`;
+    meta.appendChild(mark);
+  }
 
   // While the AI is re-evaluating this note, show a live spinner chip so
   // it's obvious something is running on this specific card.
@@ -711,6 +787,16 @@ function entryOverflowMenu(entry) {
       run: () => openEntryHistory(entry),
     },
     {
+      label: "📄 Add to a document",
+      title: "Attach this note to a document you have already started",
+      run: () => {
+        inlineAction = inlineActionIs(entry.id, "document")
+          ? null
+          : { id: entry.id, kind: "document" };
+        renderEntries();
+      },
+    },
+    {
       label: "📄 Expand into a document",
       title: "Start a document from this note — the note stays where it is",
       run: () => expandNoteIntoDocument(entry),
@@ -936,6 +1022,11 @@ function renderInlineAction(entry) {
 
   if (inlineAction.kind === "reevaluate") {
     renderReevaluateResult(entry, wrap);
+    return wrap;
+  }
+
+  if (inlineAction.kind === "document") {
+    renderAttachToDocument(entry, wrap);
     return wrap;
   }
 
@@ -1510,6 +1601,9 @@ function renderEntries() {
     const parentVisible = entry.parent_id && visibleIds.has(entry.parent_id);
     if (!parentVisible) addWithChildren(entry, 0);
   }
+  // After the list is in the DOM: drop the clamp from any note that turned
+  // out to fit. No-op while the sub-tab is hidden; showNotesSection re-runs it.
+  settleNoteClamps();
 }
 
 // name -> {id, count}. Needed because renaming and deleting work on ids,
@@ -1644,6 +1738,7 @@ function showEntrySkeletons() {
 async function loadEntries() {
   showEntrySkeletons();
   allEntries = await apiJson("/entries");
+  entriesEverLoaded = true;
   renderSidebar();
   // Categories the AI has filed notes into since the last load need their ids
   // fetched before rename/delete can work on them. Deliberately not awaited:
@@ -1685,6 +1780,165 @@ function filedByText(saved) {
   }
 }
 
+// --- notes ↔ documents ------------------------------------------------------
+// Asked for directly: "a way to link documents to new notes I create in the
+// capture tab… the documents and notes sections need to be more integrated".
+// The picker adds; the chips are how you take one back off before saving.
+
+const captureDocuments = new Set();
+
+async function loadCaptureDocuments() {
+  const select = $("entry-document");
+  const documents = await apiJson("/documents").catch(() => []);
+  const chosen = select.value;
+  select.replaceChildren();
+  const none = document.createElement("option");
+  none.value = "";
+  none.textContent = documents.length ? "None" : "No documents yet";
+  select.appendChild(none);
+  for (const doc of documents) {
+    const option = document.createElement("option");
+    option.value = String(doc.id);
+    option.textContent = doc.title;
+    select.appendChild(option);
+  }
+  // Asked for: "the add to document should have the option for a new document
+  // as well". Wanting to file a note under something that does not exist yet
+  // is the normal case at the start of a project, and leaving to make the
+  // document loses the note you were in the middle of writing.
+  const fresh = document.createElement("option");
+  fresh.value = NEW_DOCUMENT;
+  fresh.textContent = "＋ New document…";
+  select.appendChild(fresh);
+  select.value = chosen;
+  renderCaptureDocuments(documents);
+}
+
+// The picker's value for "one that doesn't exist yet". A string, so it can
+// never collide with a document id.
+const NEW_DOCUMENT = "new";
+
+// Ask for a title and start an empty document. Shared by the capture box and
+// the note card's "Add to a document", so both offer the same thing.
+async function createDocumentNamed(suggestion = "") {
+  const title = (prompt("Title for the new document:", suggestion) || "").trim();
+  if (!title) return null;
+  try {
+    const doc = await apiJson("/documents", {
+      method: "POST",
+      body: JSON.stringify({ title, content: `# ${title}\n\n` }),
+    });
+    return doc; // the documents tab refetches on switch, so nothing to sync
+  } catch (error) {
+    toast(error.message, true);
+    return null;
+  }
+}
+
+let captureDocumentTitles = new Map();
+
+function renderCaptureDocuments(documents) {
+  if (documents) {
+    captureDocumentTitles = new Map(documents.map((d) => [String(d.id), d.title]));
+  }
+  const box = $("entry-document-chips");
+  box.replaceChildren();
+  for (const id of captureDocuments) {
+    const chipEl = chip(`📄 ${captureDocumentTitles.get(String(id)) || id} ✕`, "tag", () => {
+      captureDocuments.delete(id);
+      renderCaptureDocuments();
+    });
+    chipEl.title = "Don't attach this note to that document after all";
+    box.appendChild(chipEl);
+  }
+}
+
+// The other direction, asked for straight after the capture-time picker:
+// "what about adding a document to a note??". A note you wrote weeks ago
+// turns out to belong to something you are writing now, and the capture box
+// is long gone by then.
+async function renderAttachToDocument(entry, wrap) {
+  const status = document.createElement("p");
+  status.className = "muted";
+  status.textContent = "Loading documents…";
+  wrap.appendChild(status);
+
+  const documents = await apiJson("/documents").catch(() => null);
+  if (!documents) {
+    status.classList.add("error");
+    status.textContent = "Couldn't load your documents.";
+    return;
+  }
+  const already = new Set((entry.documents || []).map((doc) => doc.id));
+  const free = documents.filter((doc) => !already.has(doc.id));
+
+  status.textContent = free.length
+    ? "Add this note to:"
+    : documents.length
+      ? "This note is on all of your documents — or start a new one:"
+      : "No documents yet — start one:";
+  const picker = document.createElement("select");
+  for (const doc of free) {
+    const option = document.createElement("option");
+    option.value = String(doc.id);
+    option.textContent = doc.title || "Untitled";
+    picker.appendChild(option);
+  }
+  // Same offer as the capture box: the document this note belongs to often
+  // does not exist until the note makes you realise you want it.
+  const fresh = document.createElement("option");
+  fresh.value = NEW_DOCUMENT;
+  fresh.textContent = "＋ New document…";
+  picker.appendChild(fresh);
+
+  const row = document.createElement("div");
+  row.className = "row";
+  row.appendChild(
+    smallButton(
+      "Attach",
+      "Add this note to the chosen document",
+      async () => {
+        let id = picker.value;
+        let title = picker.selectedOptions[0]?.textContent || "that document";
+        if (id === NEW_DOCUMENT) {
+          const made = await createDocumentNamed(entry.content.trim().slice(0, 60));
+          if (!made) return;
+          id = String(made.id);
+          title = made.title;
+        }
+        try {
+          await apiJson(`/documents/${id}/notes`, {
+            method: "POST",
+            body: JSON.stringify({ entry_id: entry.id }),
+          });
+          inlineAction = null;
+          await loadEntries();
+          toastAction(`Added to “${title}”.`, "Open", () =>
+            openDocumentFromNote(Number(id))
+          );
+        } catch (error) {
+          toast(error.message, true);
+        }
+      },
+      false
+    )
+  );
+  row.appendChild(
+    smallButton("Cancel", "", () => {
+      inlineAction = null;
+      renderEntries();
+    })
+  );
+  wrap.append(picker, row);
+  setTimeout(() => picker.focus(), 0);
+}
+
+function openDocumentFromNote(documentId) {
+  switchTab("documents");
+  // The tab's own loader races us otherwise, and opens the last document.
+  setTimeout(() => openDocument(documentId), 150);
+}
+
 async function saveEntry() {
   const contentBox = $("entry-content");
   const status = $("save-status");
@@ -1710,7 +1964,12 @@ async function saveEntry() {
   try {
     const saved = await apiJson("/entries", {
       method: "POST",
-      body: JSON.stringify({ content, tags, category }),
+      body: JSON.stringify({
+        content,
+        tags,
+        category,
+        document_ids: [...captureDocuments],
+      }),
     });
     status.textContent = filedByText(saved);
     if (saved.similar) {
@@ -1726,6 +1985,8 @@ async function saveEntry() {
     $("entry-count").textContent = "0 characters";
     $("entry-tags").value = "";
     $("entry-category").value = "";
+    captureDocuments.clear();
+    renderCaptureDocuments();
     $("entry-template").value = "";
     await loadEntries();
     loadSuggestions(); // new categories → fresher recommended questions
@@ -1846,8 +2107,13 @@ async function streamChat({
   persona,
   useTools,
   noteIds,
+  skill,
+  skillInputs,
   signal,
   onMeta,
+  onPlan,
+  onStep,
+  onResult,
   onThinking,
   onAnswer,
   onTool,
@@ -1858,6 +2124,13 @@ async function streamChat({
   if (persona) body.persona = persona;
   if (typeof useTools === "boolean") body.use_tools = useTools;
   if (noteIds && noteIds.length) body.note_ids = noteIds;
+  // Running a skill sends its name, not its prompt: the server owns what a
+  // skill is — the steps, the values, the tools it may use — so the two
+  // definitions can't drift apart.
+  if (skill) {
+    body.skill = skill;
+    if (skillInputs && Object.keys(skillInputs).length) body.skill_inputs = skillInputs;
+  }
   const response = await fetch("/chat/stream", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() },
@@ -1886,6 +2159,9 @@ async function streamChat({
       if (!line.trim()) continue;
       const event = JSON.parse(line);
       if (event.type === "meta") onMeta(event);
+      else if (event.type === "plan" && onPlan) onPlan(event);
+      else if (event.type === "step" && onStep) onStep(event);
+      else if (event.type === "result" && onResult) onResult(event);
       else if (event.type === "thinking") onThinking(event.delta);
       else if (event.type === "answer") onAnswer(event.delta);
       else if (event.type === "tool" && onTool) onTool(event);
@@ -2715,8 +2991,93 @@ function agentTimeline(holder) {
     return current;
   };
 
+  // The plan a skill declared, drawn before anything runs. The timeline has
+  // always shown what happened; a skill is the first thing that knows what is
+  // *meant* to happen, so it says so up front (roadmap §18).
+  const plans = [];
+  const startPlan = (plan) => {
+    const el = document.createElement("details");
+    el.className = "agent-step step-plan";
+    el.open = true;
+    const summary = document.createElement("summary");
+    summary.textContent = `⚡ ${plan.skill}`;
+    el.appendChild(summary);
+    const items = [];
+    if (plan.steps && plan.steps.length) {
+      const list = document.createElement("ol");
+      list.className = "plan-steps";
+      for (const step of plan.steps) {
+        const item = document.createElement("li");
+        item.textContent = step;
+        list.appendChild(item);
+        items.push(item);
+      }
+      el.appendChild(list);
+    }
+    if (plan.tools && plan.tools.length) {
+      const line = document.createElement("div");
+      line.className = "plan-tools";
+      line.textContent = `Tools for this run: ${plan.tools.join(", ")}`;
+      el.appendChild(line);
+    }
+    holder.appendChild(el);
+    const entry = { el, items, plan: { ...plan, states: plan.states || {} } };
+    plans.push(entry);
+    // Replaying a finished run: paint the states it ended with.
+    for (const [index, state] of Object.entries(entry.plan.states)) {
+      markStep(entry, Number(index), state.state, state.reason);
+    }
+    current = null;
+    return el;
+  };
+
+  // A step's state, shown on the plan itself. The timeline records what
+  // happened; this is the only place that says how far through it got.
+  const markStep = (entry, index, state, reason) => {
+    const item = entry.items[index];
+    if (!item) return;
+    entry.plan.states[index] = { state, reason };
+    item.className = `plan-step plan-step-${state}`;
+    item.dataset.state = state;
+    const note = item.querySelector(".plan-step-reason");
+    if (note) note.remove();
+    if (state === "failed" && reason) {
+      const why = document.createElement("span");
+      why.className = "plan-step-reason";
+      why.textContent = ` — ${reason}`;
+      item.appendChild(why);
+    }
+  };
+
   return {
     holder,
+    plan(event) {
+      startPlan(event);
+    },
+    step(event) {
+      const entry = plans.at(-1);
+      if (entry) markStep(entry, event.index, event.state, event.reason);
+      // Each step's prose is its own block. Without this, step 2's first
+      // sentence lands on the end of step 1's paragraph ("…with no tags.Read
+      // them.") because nothing between them closed the step.
+      current = null;
+    },
+    // What the run actually changed, with the call that puts each one back.
+    // Prose claiming something happened is exactly what this replaces.
+    result(event, options = {}) {
+      const changes = event.changes || [];
+      if (!changes.length) return;
+      const box = document.createElement("div");
+      box.className = "skill-result";
+      box.dataset.changes = JSON.stringify(changes);
+      const title = document.createElement("div");
+      title.className = "skill-result-title";
+      title.textContent = `What changed (${changes.length})`;
+      box.appendChild(title);
+      for (const change of changes) box.appendChild(changeRow(change, options));
+      holder.appendChild(box);
+      current = null;
+    },
     thinking(delta) {
       const step = current?.kind === "thinking" ? current : startThinking();
       step.raw += delta;
@@ -2736,7 +3097,12 @@ function agentTimeline(holder) {
     // Replay a saved run (reopening a conversation).
     replay(steps) {
       for (const step of steps || []) {
-        if (step.kind === "thinking" && step.text) {
+        if (step.kind === "plan") {
+          startPlan(step);
+          if (plans.at(-1)) plans.at(-1).el.open = false;
+        } else if (step.kind === "result") {
+          this.result(step);
+        } else if (step.kind === "thinking" && step.text) {
           this.thinking(step.text);
           if (current) current.el.open = false;
           current = null;
@@ -2794,7 +3160,14 @@ function agentTimeline(holder) {
     serialise() {
       const out = [];
       for (const node of holder.children) {
-        if (node.classList.contains("step-thinking")) {
+        if (node.classList.contains("step-plan")) {
+          const entry = plans.find((p) => p.el === node);
+          // The states go with it, so reopening a chat shows how far the run
+          // got rather than an untouched plan.
+          if (entry) out.push({ kind: "plan", ...entry.plan });
+        } else if (node.classList.contains("skill-result")) {
+          out.push({ kind: "result", changes: JSON.parse(node.dataset.changes || "[]") });
+        } else if (node.classList.contains("step-thinking")) {
           const step = thinkingSteps.find((s) => s.el === node);
           if (step?.raw) out.push({ kind: "thinking", text: step.raw });
         } else if (node.classList.contains("step-answer")) {
@@ -2848,6 +3221,52 @@ function addAssistantBubble() {
 }
 
 // One "the AI did something" chip in a bubble (Wave G).
+// One line of a skill's result: what changed, a way to see it, and — where
+// an inverse exists — a way to put it back. The undo is a tool call the
+// server handed us, run through the same endpoint the confirm button uses.
+function changeRow(change, options = {}) {
+  const row = document.createElement("div");
+  row.className = "skill-change";
+  const label = document.createElement("span");
+  label.className = "skill-change-label";
+  label.textContent = change.label || change.tool;
+  row.appendChild(label);
+
+  if (change.note_id) {
+    row.appendChild(
+      smallButton("View", "Show this note", () => {
+        switchTab("notes");
+        showNotesSection("browse"); // focusing inside a hidden section does nothing
+        flashEntry(change.note_id);
+      })
+    );
+  }
+  if (change.undo) {
+    const undo = smallButton("Undo", "Put this back the way it was", async () => {
+      undo.disabled = true;
+      try {
+        const result = await apiJson("/chat/tools/execute", {
+          method: "POST",
+          body: JSON.stringify({
+            name: change.undo.tool,
+            arguments: change.undo.arguments,
+          }),
+        });
+        if (result && result.error) throw new Error(result.error);
+        row.classList.add("skill-change-undone");
+        label.textContent = `${change.label || change.tool} — undone`;
+        undo.remove();
+        loadEntries();
+      } catch (error) {
+        undo.disabled = false;
+        toast(error.message || "Couldn't undo that.", true);
+      }
+    });
+    row.appendChild(undo);
+  }
+  return row;
+}
+
 function toolChip(label, ok = true) {
   const item = document.createElement("div");
   item.className = `tool-chip ${ok ? "" : "tool-chip-error"}`.trim();
@@ -2998,7 +3417,42 @@ async function openDocument(id) {
   renderDocPreview();
   renderDocStats();
   renderDocOutline();
+  renderDocNotes();
   renderDocList();
+}
+
+// The notes this document draws on. Shown beside the outline because both
+// answer the same question — what is this document made of.
+function renderDocNotes() {
+  const wrap = $("doc-notes-wrap");
+  const list = $("doc-notes");
+  const notes = (currentDoc && currentDoc.notes) || [];
+  wrap.classList.toggle("hidden", !notes.length);
+  list.replaceChildren();
+  for (const note of notes) {
+    const item = document.createElement("li");
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "outline-link";
+    open.textContent = note.is_private ? "🔒 (private note)" : note.preview;
+    open.title = "Show this note";
+    open.addEventListener("click", () => {
+      switchTab("notes");
+      showNotesSection("browse"); // focusing inside a hidden section does nothing
+      flashEntry(note.id);
+    });
+    const remove = smallButton("✕", "Detach this note from the document", async () => {
+      currentDoc = await apiJson(
+        `/documents/${currentDoc.id}/notes/${note.id}`,
+        { method: "DELETE" }
+      );
+      renderDocNotes();
+      // The note keeps existing — only the connection went.
+      loadEntries();
+    });
+    item.append(open, remove);
+    list.appendChild(item);
+  }
 }
 
 async function createDocument() {
@@ -3006,6 +3460,7 @@ async function createDocument() {
     method: "POST",
     body: JSON.stringify({ title: "Untitled", content: "" }),
   });
+  loadCaptureDocuments(); // so Capture can attach to it straight away
   await loadDocuments(doc.id);
   $("doc-title").focus();
   $("doc-title").select();
@@ -3785,6 +4240,7 @@ async function sendChatMessage(preset, opts = {}) {
 
   $("chat-suggest").classList.add("hidden");
   input.value = "";
+  autoGrow(input); // a cleared box must not keep the height of what was in it
   input.disabled = true;
   hide("chat-send");
   show("chat-stop");
@@ -3817,10 +4273,33 @@ async function sendChatMessage(preset, opts = {}) {
       persona: $("persona-select").value || null,
       useTools: opts.useTools ?? $("tools-toggle").checked,
       noteIds: sentAttachments,
+      skill: opts.skill,
+      skillInputs: opts.skillInputs,
       signal: chatController.signal,
       onMeta: (m) => {
         meta = m;
         status.textContent = "The model is writing…";
+      },
+      onPlan: (event) => {
+        clearPending();
+        timeline.plan(event);
+        status.textContent = `Running “${event.skill}”…`;
+        chatScrollToEnd();
+      },
+      onStep: (event) => {
+        clearPending();
+        timeline.step(event);
+        if (event.state === "running") {
+          status.textContent = `Step ${event.index + 1}: ${event.text}`;
+        }
+        chatScrollToEnd();
+      },
+      onResult: (event) => {
+        clearPending();
+        timeline.result(event);
+        // A skill that changed notes has just made the list on screen stale.
+        if ((event.changes || []).length) loadEntries();
+        chatScrollToEnd();
       },
       onThinking: (delta) => {
         clearPending();
@@ -4684,91 +5163,70 @@ async function addPersona() {
   personaOptions();
 }
 
-// --- skills (Wave G): one-click saved requests for the chat tab -------------------
+// --- skills (§21): named, repeatable jobs over the notebook ----------------------
 
-// Built-ins ship with the app; the user's own live in preferences.
-// "Tidy suggestions" is the self-organising librarian: it proposes
-// merges/renames/links and asks — it never changes anything silently.
-// `useTools: true` marks a skill that DOES things (via the AI's tools) rather
-// than just answering — running it turns on agent mode for that
-// message, so an action skill actually acts. Destructive steps still confirm.
-const BUILTIN_SKILLS = [
-  {
-    name: "📋 Summarise my week",
-    prompt:
-      "Summarise what I've saved in the last 7 days: the main topics, " +
-      "anything that looks important, and one thing worth revisiting.",
-  },
-  {
-    name: "🧹 Find loose ends",
-    prompt:
-      "Look through my notes for loose ends — unfinished tasks, open " +
-      "questions, or things I said I'd do. List each one with its note id.",
-  },
-  {
-    name: "🏷 Auto-tag my notes",
-    useTools: true,
-    prompt:
-      "Find my notes that have no tags or very few tags. For each one, add 2–3 " +
-      "relevant short tags using the tag_note tool. When you're done, tell me " +
-      "which notes you tagged and with what.",
-  },
-  {
-    name: "🔗 Link related notes",
-    useTools: true,
-    prompt:
-      "Find pairs of my notes that are clearly about the same thing but aren't " +
-      "linked yet. Link each pair with the link_notes tool, then give me a short " +
-      "summary of what you connected.",
-  },
-  {
-    name: "🗂 Tidy suggestions",
-    prompt:
-      "Review my categories and tags (use list_categories and count_notes). " +
-      "Suggest merges, renames, or links between related notes that would " +
-      "tidy the notebook. Don't change anything yet — list your suggestions " +
-      "and ask which ones I'd like you to apply.",
-  },
-  {
-    name: "✉️ Draft an email",
-    prompt:
-      "Help me draft an email. Ask me who it's to and what it's about if I " +
-      "haven't said, then write a clear, friendly draft I can edit.",
-  },
-  {
-    name: "💡 Brainstorm ideas",
-    prompt:
-      "Brainstorm ideas with me. Ask what topic if I haven't given one, then " +
-      "offer a varied list of ideas, drawing on anything relevant in my notes.",
-  },
-  {
-    name: "📖 Explain a concept",
-    prompt:
-      "Explain a concept to me clearly and simply. Ask which concept if I " +
-      "haven't named one, then explain it with a short example.",
-  },
-  {
-    name: "🗓 Create a study plan",
-    prompt:
-      "Help me create a study or action plan. Ask about the goal and timeframe " +
-      "if I haven't said, then lay out a realistic step-by-step plan.",
-  },
-];
+// A skill used to be {name, prompt} and clicking one dropped its prompt into
+// the chat box. It is now a job: what to do, the steps to do it in, the tools
+// it may use, and the values it asks for first. The built-in ones used to be
+// a list right here, which meant the server could not resolve a skill the
+// user clicked; they are served from GET /skills now, alongside the user's own.
+let skillsCache = [];
+let skillLimits = { steps: 10, tools: 12, inputs: 5 };
+
+async function loadSkills() {
+  const body = await apiJson("/skills").catch(() => null);
+  if (!body) return skillsCache;
+  skillsCache = body.skills || [];
+  if (body.limits) skillLimits = body.limits;
+  return skillsCache;
+}
 
 function allSkills() {
-  const custom = (prefsCache && prefsCache.skills) || [];
-  return [...BUILTIN_SKILLS, ...custom];
+  return skillsCache;
+}
+
+function customSkills() {
+  return skillsCache.filter((skill) => !skill.builtin);
 }
 
 // Which custom skill (by name) the editor is currently editing, if any.
 // Tracking it lets Edit rename a skill instead of leaving a duplicate.
 let editingSkillName = null;
 
+// Steps and inputs are edited as one-per-line text, which is the shape people
+// already write a list in. An input is "name" or "name: the question to ask".
+function stepsToText(steps) {
+  return (steps || []).join("\n");
+}
+
+function textToSteps(text) {
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function inputsToText(inputs) {
+  return (inputs || [])
+    .map((item) => (item.label && item.label !== `${item.name}?` ? `${item.name}: ${item.label}` : item.name))
+    .join("\n");
+}
+
+function textToInputs(text) {
+  return textToSteps(text).map((line) => {
+    const [name, ...rest] = line.split(":");
+    return { name: name.trim(), label: rest.join(":").trim(), required: true };
+  });
+}
+
 function startEditingSkill(skill) {
   editingSkillName = skill.name;
   $("skill-name").value = skill.name;
   $("skill-prompt").value = skill.prompt;
-  $("skill-tools").checked = !!skill.useTools;
+  $("skill-description").value = skill.description || "";
+  $("skill-steps").value = stepsToText(skill.steps);
+  $("skill-inputs").value = inputsToText(skill.inputs);
+  renderSkillToolPicker(skill.tools || []);
   $("skill-add").textContent = "Save changes";
   $("skill-cancel").classList.remove("hidden");
   $("skill-status").textContent = `Editing “${skill.name}”…`;
@@ -4777,23 +5235,124 @@ function startEditingSkill(skill) {
 
 function stopEditingSkill() {
   editingSkillName = null;
-  $("skill-name").value = "";
-  $("skill-prompt").value = "";
-  $("skill-tools").checked = false;
+  for (const id of ["skill-name", "skill-prompt", "skill-description", "skill-steps", "skill-inputs"]) {
+    $(id).value = "";
+  }
+  renderSkillToolPicker([]);
   $("skill-add").textContent = "Add skill";
   $("skill-cancel").classList.add("hidden");
   $("skill-status").textContent = "";
 }
 
-// Run a skill. An action skill (useTools) turns on agent mode for
-// this run — and leaves it on, visibly, so the user sees the AI is acting —
-// so it can actually use its tools instead of only answering.
-function runSkill(skill) {
-  if (skill.useTools) $("tools-toggle").checked = true;
-  sendChatMessage(skill.prompt, { useTools: skill.useTools || undefined });
+// The tools a skill may use, as checkboxes over the real registry — so a
+// skill cannot name a tool that doesn't exist, and picking them is a matter
+// of reading rather than remembering.
+async function renderSkillToolPicker(selected = []) {
+  const box = $("skill-tool-list");
+  if (!box) return;
+  const chosen = new Set(selected);
+  const catalog = await apiJson("/chat/tools").catch(() => []);
+  box.replaceChildren();
+  for (const tool of catalog) {
+    const label = document.createElement("label");
+    label.className = "check-row";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.value = tool.name;
+    input.checked = chosen.has(tool.name);
+    const text = document.createElement("span");
+    text.textContent = tool.name;
+    text.title = tool.description;
+    label.append(input, text);
+    box.appendChild(label);
+  }
 }
 
-function loadChatSkills() {
+function chosenSkillTools() {
+  const box = $("skill-tool-list");
+  if (!box) return [];
+  return [...box.querySelectorAll("input:checked")].map((input) => input.value);
+}
+
+// Run a skill. The server owns what a skill is, so this sends its name and
+// the values it asked for — not a prompt assembled here. An action skill
+// brings its own permission to act, so agent mode is not switched on behind
+// the user's back and left on afterwards.
+function runSkill(skill) {
+  if ((skill.inputs || []).length) {
+    askSkillInputs(skill, (values) => startSkill(skill, values));
+    return;
+  }
+  startSkill(skill, {});
+}
+
+function startSkill(skill, values) {
+  const given = Object.values(values).filter(Boolean).join(", ");
+  sendChatMessage(`⚡ ${skill.name}${given ? ` — ${given}` : ""}`, {
+    skill: skill.name,
+    skillInputs: values,
+  });
+}
+
+// One dialog for everything a skill asks for. Two window.prompt boxes in a
+// row is how this started, and the second one gave no clue which skill it
+// belonged to or what the first answer had been.
+function askSkillInputs(skill, done) {
+  const overlay = $("skill-run-overlay");
+  const fields = $("skill-run-fields");
+  $("skill-run-title").textContent = skill.name;
+  $("skill-run-description").textContent = skill.description || skill.prompt;
+  fields.replaceChildren();
+  const inputs = [];
+  for (const item of skill.inputs || []) {
+    const label = document.createElement("label");
+    label.className = "field";
+    const text = document.createElement("span");
+    text.textContent = item.label || item.name;
+    const box = document.createElement("input");
+    box.type = "text";
+    box.value = item.default || "";
+    box.maxLength = 200;
+    box.placeholder = item.required ? "" : "optional";
+    label.append(text, box);
+    fields.appendChild(label);
+    inputs.push({ item, box });
+  }
+
+  const close = () => {
+    overlay.classList.add("hidden");
+    document.removeEventListener("keydown", onKey);
+  };
+  const submit = () => {
+    const values = {};
+    for (const { item, box } of inputs) {
+      const value = box.value.trim();
+      if (!value && item.required && !item.default) {
+        box.focus();
+        // Nothing is sent half-filled: a skill run with a blank {{topic}}
+        // searches the whole notebook for nothing and reads as being ignored.
+        toast(`“${skill.name}” needs ${item.label || item.name}.`, true);
+        return;
+      }
+      values[item.name] = value;
+    }
+    close();
+    done(values);
+  };
+  const onKey = (event) => {
+    if (event.key === "Escape") close();
+    else if (event.key === "Enter" && event.target.tagName === "INPUT") submit();
+  };
+
+  $("skill-run-go").onclick = submit;
+  $("skill-run-cancel").onclick = close;
+  document.addEventListener("keydown", onKey);
+  overlay.classList.remove("hidden");
+  inputs[0]?.box.focus();
+}
+
+async function loadChatSkills() {
+  await loadSkills();
   const box = $("chat-skills");
   box.replaceChildren();
   const label = document.createElement("span");
@@ -4801,10 +5360,10 @@ function loadChatSkills() {
   label.textContent = "⚡ Skills:";
   box.appendChild(label);
   for (const skill of allSkills()) {
-    const chipEl = chip(skill.name + (skill.useTools ? " ⚙" : ""), "", () => runSkill(skill));
-    chipEl.title = skill.useTools
-      ? `${skill.prompt}\n\n(This skill makes changes for you — destructive steps still ask first.)`
-      : skill.prompt;
+    // ⚙ means "this one changes your notebook", not "this one uses tools" —
+    // nearly every skill uses tools, and a marker on all of them says nothing.
+    const chipEl = chip(skill.name + (skill.changes ? " ⚙" : ""), "", () => runSkill(skill));
+    chipEl.title = skillSummary(skill);
     box.appendChild(chipEl);
   }
   const manage = chip("＋ manage", "", () => openSettingsModal("skills"));
@@ -4813,42 +5372,48 @@ function loadChatSkills() {
   box.classList.remove("hidden");
 }
 
+function skillSummary(skill) {
+  const lines = [skill.description || skill.prompt];
+  if (skill.changes) lines.push("(This one changes your notes — deletes still ask first.)");
+  if ((skill.steps || []).length) {
+    lines.push("", ...skill.steps.map((step, i) => `${i + 1}. ${step}`));
+  }
+  if ((skill.tools || []).length) lines.push("", `Tools: ${skill.tools.join(", ")}`);
+  if ((skill.inputs || []).length) {
+    lines.push("", `Asks you for: ${skill.inputs.map((i) => i.name).join(", ")}`);
+  }
+  return lines.join("\n");
+}
+
 async function saveSkillList(skills) {
   prefsCache = await apiJson("/preferences", {
     method: "PUT",
     body: JSON.stringify({ skills }),
   });
+  await loadSkills();
   renderSkillSettings();
   loadChatSkills();
 }
 
-function renderSkillSettings() {
-  const custom = (prefsCache && prefsCache.skills) || [];
-  const list = $("skill-list");
-  list.replaceChildren();
-
-  for (const skill of BUILTIN_SKILLS) {
-    const li = document.createElement("li");
-    const row = document.createElement("div");
-    row.className = "entry-meta";
-    row.append(chip(skill.name), chip("built-in", "tag"));
-    const note = document.createElement("span");
-    note.className = "muted persona-preview";
-    note.textContent = skill.prompt.slice(0, 70);
-    row.appendChild(note);
-    li.appendChild(row);
-    list.appendChild(li);
+function skillRow(skill) {
+  const li = document.createElement("li");
+  const row = document.createElement("div");
+  row.className = "entry-meta";
+  row.appendChild(chip(skill.name));
+  if (skill.builtin) row.appendChild(chip("built-in", "tag"));
+  if (skill.changes) row.appendChild(chip("changes notes", "tag"));
+  if ((skill.steps || []).length) {
+    row.appendChild(chip(`${skill.steps.length} steps`, "tag"));
   }
-
-  for (const skill of custom) {
-    const li = document.createElement("li");
-    const row = document.createElement("div");
-    row.className = "entry-meta";
-    row.appendChild(chip(skill.name));
-    const note = document.createElement("span");
-    note.className = "muted persona-preview";
-    note.textContent = skill.prompt.slice(0, 70);
-    row.appendChild(note);
+  if ((skill.tools || []).length) {
+    row.appendChild(chip(`${skill.tools.length} tools`, "tag"));
+  }
+  for (const item of skill.inputs || []) row.appendChild(chip(`asks: ${item.name}`, "tag"));
+  const note = document.createElement("span");
+  note.className = "muted persona-preview";
+  note.textContent = (skill.description || skill.prompt).slice(0, 70);
+  row.appendChild(note);
+  if (!skill.builtin) {
     const actions = document.createElement("span");
     actions.className = "entry-actions";
     actions.appendChild(
@@ -4857,36 +5422,83 @@ function renderSkillSettings() {
     actions.appendChild(
       smallButton("Delete", "Remove this skill", async () => {
         if (!confirm(`Delete the “${skill.name}” skill?`)) return;
-        await saveSkillList(custom.filter((s) => s.name !== skill.name));
+        await saveSkillList(customSkills().filter((s) => s.name !== skill.name));
       })
     );
     row.appendChild(actions);
-    li.appendChild(row);
-    list.appendChild(li);
   }
+  li.appendChild(row);
+  return li;
+}
+
+async function renderSkillSettings() {
+  await loadSkills();
+  const list = $("skill-list");
+  list.replaceChildren();
+  for (const skill of allSkills()) list.appendChild(skillRow(skill));
+  if (!$("skill-tool-list").children.length) renderSkillToolPicker([]);
 }
 
 async function addSkill() {
   const name = $("skill-name").value.trim();
   const promptText = $("skill-prompt").value.trim();
   const status = $("skill-status");
+  status.classList.remove("error");
   if (!name || !promptText) {
     status.textContent = "Both a name and a request are needed.";
     return;
   }
   // Drop any skill with the new name AND (when editing) the one being edited,
   // so saving updates in place and even a rename doesn't leave a duplicate.
-  const custom = ((prefsCache && prefsCache.skills) || []).filter(
+  const custom = customSkills().filter(
     (s) => s.name !== name && s.name !== editingSkillName
   );
-  custom.push({ name, prompt: promptText, useTools: $("skill-tools").checked || undefined });
+  custom.push({
+    name,
+    prompt: promptText,
+    description: $("skill-description").value.trim(),
+    steps: textToSteps($("skill-steps").value),
+    tools: chosenSkillTools(),
+    inputs: textToInputs($("skill-inputs").value),
+  });
   const wasEditing = editingSkillName;
-  await saveSkillList(custom);
+  try {
+    await saveSkillList(custom);
+  } catch (error) {
+    // The server validates both ways in, so this is the same message the AI
+    // would get for the same mistake — an undeclared {{placeholder}}, say.
+    status.classList.add("error");
+    status.textContent = error.message;
+    return;
+  }
   stopEditingSkill();
   status.textContent = wasEditing ? `Updated “${name}”.` : `Saved “${name}”.`;
 }
 
 // --- Wave O: agent-tools toggles ----------------------------------------------------
+
+// How many tool descriptions each message carries (§11a). Saved on change
+// rather than behind an Apply button — the search-engine picker taught us
+// that a control which saves nothing until later reads as broken, because
+// the next status poll paints the old value back over it.
+function renderToolFocus(current) {
+  for (const radio of document.querySelectorAll('input[name="tool-focus"]')) {
+    radio.checked = radio.value === current;
+    radio.onchange = async () => {
+      if (!radio.checked) return;
+      const status = $("tool-focus-status");
+      status.textContent = "Saving…";
+      prefsCache = await apiJson("/preferences", {
+        method: "PUT",
+        body: JSON.stringify({ tool_focus: radio.value }),
+      });
+      status.textContent =
+        radio.value === "auto"
+          ? "Each message is offered the tools it needs."
+          : "Every message is offered every tool.";
+    };
+  }
+}
 
 async function renderToolSettings() {
   const list = $("tool-list");
@@ -4895,6 +5507,7 @@ async function renderToolSettings() {
     apiJson("/preferences").catch(() => ({ disabled_tools: [] })),
   ]);
   prefsCache = prefs;
+  renderToolFocus(prefs.tool_focus || "auto");
   const disabled = new Set(prefs.disabled_tools || []);
   list.replaceChildren();
   for (const tool of catalog) {
@@ -5826,7 +6439,10 @@ async function renderDashboard() {
   // they made a working app look broken on the day someone starts using it.
   // One card that says what to do instead — and only until there's anything
   // to show, which is the first note.
-  if (!allEntries.length && !dashEditMode) {
+  // `entriesEverLoaded` and not just the length: before the first GET /entries
+  // comes back these are indistinguishable, and guessing "empty" paints the
+  // brand-new-notebook card over a notebook full of notes.
+  if (entriesEverLoaded && !allEntries.length && !dashEditMode) {
     // The emblem draws into a canvas, which p5 can only size once the element
     // is actually in the document — rendering it while the card is still
     // detached leaves a blank gap where the mark should be.
@@ -7699,9 +8315,292 @@ let graphDims = { w: 0, h: 0 };
 let graphHoveredId = null; // node the pointer is over (spotlight its links)
 let graphAdjacency = null; // Map<id, Set<neighbourId>>
 
+// How much of a note the list shows before clamping it. Roughly ten lines at
+// a comfortable reading width — long enough that a normal note is never
+// clipped, short enough that one essay can't take the whole screen.
+const LONG_NOTE_CHARS = 500;
+const LONG_NOTE_LINES = 10;
+// Which notes the user has opened out, for this session. Not persisted: it is
+// a reading position, not a preference.
+const expandedNotes = new Set();
+
+// The character count decides which notes *might* be too tall; only a
+// measurement can say whether one actually is, because that depends on the
+// width it is rendered at. So the clamp goes on optimistically and this takes
+// it back off wherever the note fits after all — a "Show more" on a note that
+// is fully visible is worse than no clamping at all.
+//
+// It bails when the list is off screen: this renders inside a `display: none`
+// sub-tab, where every measurement is 0. `showNotesSection` calls it again on
+// the way in, which is the moment the numbers become real.
+function settleNoteClamps() {
+  const list = $("entry-list");
+  if (!list || !list.offsetParent) return;
+  for (const content of list.querySelectorAll(".entry-content.entry-clamped")) {
+    const toggle = content.parentElement?.querySelector(".entry-more");
+    if (content.scrollHeight <= content.clientHeight + 4) {
+      content.classList.remove("entry-clamped");
+      toggle?.remove();
+    }
+  }
+}
+
 function graphNodeRadius(node) {
+  // A category heading in a tree layout is a fixed size — it has no access
+  // count of its own, and sizing it by one would be inventing a number.
+  if (node.isGroup) return node.id === "root" ? 14 : 11;
   // Much-used notes draw the eye: base size + a gentle access bonus.
   return 9 + Math.min(9, Math.sqrt(node.access_count || 0) * 2);
+}
+
+// --- graph layouts (§9) -----------------------------------------------------------
+//
+// Asked for directly: "can you add different types of graph views… like tree
+// graph diagrams and the like". A layout decides *where* a note goes; the
+// styling is a separate question. Force is the default because it shows the
+// links; the trees are here because most notebooks have far more filing than
+// links, and a force graph of mostly-unlinked notes is a cloud of dots.
+//
+// The hierarchy is real data, not an invention: notebook → category → note,
+// with a note's replies (`parent_id`, the train-of-thought threads) nested
+// under the note they answer, so a thread reads as one branch.
+
+function graphLayout() {
+  const saved = localStorage.getItem("graph-layout");
+  return ["force", "tree", "radial"].includes(saved) ? saved : "force";
+}
+
+// A category level in a tree layout. It is a real node in the drawing so the
+// join, the colours and the labels all work unchanged — but it is not a note,
+// so anything that would open or edit one has to check.
+function graphGroupNode(category) {
+  return {
+    id: `group:${category}`,
+    isGroup: true,
+    preview: category,
+    category,
+    access_count: 0,
+    pinned: false,
+  };
+}
+
+// Row height and column width for the tree. Fixed sizes, not a bounding box:
+// `d3.tree().size([...])` squeezes every leaf into the panel's height, so a
+// notebook with 29 notes got 18 pixels a row and the labels printed on top of
+// each other (reported with a photo). `nodeSize` gives each note the room a
+// label needs and lets the tree be as tall as it is — the panel pans and
+// zooms, which is what those controls are for.
+const TREE_ROW = 34;
+const TREE_COL = 235;
+
+// The radial is the opposite problem: it is a shape you read whole, so it has
+// to fit the panel, and a fixed radius meant a 29-note notebook was drawn at
+// 0.55× — every label technically present and none of them readable. Size the
+// rings from the panel instead, and only grow past it when the notes need the
+// circumference (below ~RADIAL_ARC pixels of arc each, labels collide).
+const RADIAL_ARC = 22; // arc length a note needs on its ring
+const RADIAL_LABEL = 118; // room the labels take outside the outermost ring
+// A category name is written along its spoke, pointing out, so its ring has
+// to clear the notes' ring by more than that name is long.
+const RADIAL_GAP = 82;
+// A reply hangs one shorter step outside the note it answers — and since a
+// lone reply inherits its parent's angle exactly, the parent's label is
+// written straight down the same spoke. That is why an intermediate note is
+// labelled shorter than a leaf (RADIAL_STEM below): the step has to clear it.
+const REPLY_RING = 78;
+const RADIAL_STEM = 10; // characters, for a label written down a shared spoke
+
+// Labels on the left half of the circle would read upside down, so they are
+// turned around — which swaps which way "outward" is for everything after.
+function radialFlip(node) {
+  const degrees = ((node.angle || 0) * 180) / Math.PI - 90;
+  return degrees > 90 || degrees < -90;
+}
+
+// Where each ring goes. Every constraint here is a thing that was measured
+// going wrong: categories too tight to name, notes too tight to label, the
+// whole circle too big for the panel — or, just as bad, needlessly small in
+// a panel with room to spare.
+function radialRings(leafCount, groupCount, rings, width, height) {
+  // The floor matters as much as the arc: a dozen categories all radiating
+  // from a 58px ring read as one blob at the centre, whatever the maths said
+  // about them technically not touching. It grows with the count, because
+  // four categories on that same ring only look sparse.
+  const inner = Math.max((groupCount * RADIAL_ARC) / (2 * Math.PI), 40 + groupCount * 3);
+  const room = Math.max(Math.min(width, height) / 2 - 12, 130) - RADIAL_LABEL;
+  const extra = rings > 2 ? REPLY_RING : 0;
+  const notes = Math.max(
+    (leafCount * RADIAL_ARC) / (2 * Math.PI),
+    inner + RADIAL_GAP,
+    // Fill the panel when it is bigger than the minimum — a readable circle
+    // is a big one. `frameTree` zooms out when the minimum wins instead.
+    Math.min(room - extra, 320)
+  );
+  return { inner, notes, outer: notes + extra };
+}
+
+function layoutHierarchy(nodes, kind, width, height) {
+  // Build parent → children from the notes themselves.
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  const groups = new Map();
+  for (const node of nodes) {
+    if (!groups.has(node.category)) groups.set(node.category, graphGroupNode(node.category));
+  }
+  const root = { id: "root", isGroup: true, preview: "Notebook", category: "", access_count: 0 };
+  const children = new Map([[root.id, [...groups.values()]]]);
+  for (const group of groups.values()) children.set(group.id, []);
+  for (const node of nodes) {
+    // A reply hangs off the note it answers, wherever that note is filed —
+    // splitting a thread across categories would lose the thing it is.
+    const parent =
+      node.parent_id != null && byId.has(node.parent_id)
+        ? byId.get(node.parent_id)
+        : groups.get(node.category);
+    if (!children.has(node.id)) children.set(node.id, []);
+    children.get(parent.id).push(node);
+  }
+
+  const laid = d3.hierarchy(root, (d) => children.get(d.id) || []);
+  const radial = kind === "radial";
+  if (radial) {
+    // `d3.tree`, not `d3.cluster`: cluster rings a node by its *height*, so a
+    // category that happened to contain a thread was drawn one ring closer in
+    // than its siblings and the circle came out ragged. Here a ring means a
+    // depth — notebook, category, note, reply — which is what the view says
+    // it means.
+    d3
+      .tree()
+      .size([2 * Math.PI, 1])
+      // Notes under different categories need more air than siblings, and the
+      // gap has to shrink as the circle grows — the standard radial rule.
+      // Categories get a wedge of their own on top of that, or the ones with
+      // a single note in them end up sharing a slot with their neighbour.
+      .separation((a, b) =>
+        a.depth === 1 ? 2 : (a.parent === b.parent ? 1 : 2) / a.depth
+      )(laid);
+    const rings = radialRings(
+      // Those wedges are real circumference, so count them: sizing the ring
+      // off the notes alone would under-measure it by a third.
+      (laid.leaves().length || 1) + groups.size,
+      groups.size,
+      laid.height || 1,
+      width,
+      height
+    );
+    const deep = Math.max((laid.height || 1) - 2, 1);
+    laid.each((point) => {
+      if (!point.depth) point.y = 0;
+      else if (point.depth === 1) point.y = rings.inner;
+      else {
+        point.y = rings.notes + ((point.depth - 2) / deep) * (rings.outer - rings.notes);
+      }
+    });
+  } else {
+    d3.tree().nodeSize([TREE_ROW, TREE_COL])(laid);
+  }
+
+  const placed = [];
+  const links = [];
+  laid.each((point) => {
+    const node = point.data;
+    if (radial) {
+      // d3's radial convention: x is the angle, y the distance out.
+      node.angle = point.x;
+      node.radius = point.y;
+      node.x = point.y * Math.cos(point.x - Math.PI / 2);
+      node.y = point.y * Math.sin(point.x - Math.PI / 2);
+    } else {
+      node.x = point.y; // depth runs left → right
+      node.y = point.x;
+    }
+    node.fx = node.x;
+    node.fy = node.y;
+    node.depth = point.depth;
+    node.isLeaf = !point.children;
+    // A lone child inherits its parent's row (or, on the radial, its angle),
+    // so the parent's label is written straight down the line joining them.
+    // Only *that* parent has to keep its label short.
+    node.shared = Boolean(point.children?.some((child) => child.x === point.x));
+    placed.push(node);
+    if (point.parent) {
+      links.push({
+        source: point.parent.data,
+        target: node,
+        kind: node.parent_id != null ? "thread" : "filing",
+      });
+    }
+  });
+  return { nodes: placed, links, radial };
+}
+
+// A tree drawn with straight diagonals reads as a fan of loose string. Elbows
+// (horizontal out, vertical across, horizontal in) are what makes it look
+// like a tree diagram — and on the radial one, arcs that follow the rings.
+function hierarchyPath(link, radial) {
+  const { source: a, target: b } = link;
+  if (radial) {
+    return d3
+      .linkRadial()
+      .angle((d) => d.angle)
+      .radius((d) => d.radius)({ source: a, target: b });
+  }
+  const mid = (a.x + b.x) / 2;
+  return `M${a.x},${a.y}C${mid},${a.y} ${mid},${b.y} ${b.x},${b.y}`;
+}
+
+// A tall tree does not want to be squeezed into the panel: zoomed to fit, 29
+// rows of text become illegible. Fit the *width*, never magnify past 1:1, and
+// start at the top — the panel pans, and a readable tree you scroll beats a
+// complete one you can't read.
+function frameTree(svg, zoomBehavior, canvas, nodes, width, height, radial) {
+  // Labels stick out past the node they belong to: to the right in a tree, in
+  // every direction on a radial, and by however much the longest one happens
+  // to be. Guessing that with a padding constant left label tips off the edge
+  // of the panel; the drawing is already in the DOM, so ask it. `getBBox` is
+  // in the canvas's own coordinates — the zoom transform is not applied yet —
+  // and covers the rotated labels' real corners.
+  const drawn = canvas.node().getBBox();
+  const xs = nodes.map((n) => n.x);
+  const ys = nodes.map((n) => n.y);
+  // A hidden panel measures zero, so fall back to the node positions.
+  const box = drawn.width
+    ? drawn
+    : {
+        x: Math.min(...xs) - 40,
+        y: Math.min(...ys) - 30,
+        width: Math.max(...xs) - Math.min(...xs) + 200,
+        height: Math.max(...ys) - Math.min(...ys) + 60,
+      };
+  const minX = box.x - 10;
+  const maxX = box.x + box.width + 10;
+  const minY = box.y - 10;
+  const maxY = box.y + box.height + 10;
+  const spanX = Math.max(maxX - minX, 1);
+  const spanY = Math.max(maxY - minY, 1);
+  // A radial is a shape you read whole, so both dimensions have to fit. A
+  // tree grows downwards without limit, so squeezing it into the panel is
+  // exactly what made 29 rows unreadable — but a notebook that *nearly* fits
+  // is worth a small zoom-out to see whole, and only falls back to panning
+  // when the price of fitting would be text you can't read.
+  const both = Math.min((width - 20) / spanX, (height - 20) / spanY);
+  const fit = radial || both >= 0.8 ? both : (width - 20) / spanX;
+  const scale = Math.max(0.35, Math.min(1, fit));
+  // Same rule on both axes: centre what fits, otherwise anchor to the start
+  // so the root is the part you can see.
+  const tx =
+    spanX * scale <= width - 20
+      ? width / 2 - scale * (minX + maxX) / 2
+      : 10 - scale * minX;
+  // Centre vertically only when the whole thing already fits; otherwise start
+  // at the top, because a tree is read from its root down.
+  const ty =
+    spanY * scale <= height - 20
+      ? height / 2 - scale * (minY + maxY) / 2
+      : 10 - scale * minY;
+  svg
+    .transition()
+    .duration(400)
+    .call(zoomBehavior.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
 }
 
 async function renderGraph() {
@@ -7791,14 +8690,23 @@ async function renderGraph() {
   graphDims = { w: width, h: height };
 
   // D3 mutates these (x/y/vx/vy), so work on copies.
-  const nodes = visibleNodes.map((n) => ({ ...n }));
-  const edges = visibleEdges.map((e) => ({ ...e }));
+  const layoutKind = graphLayout();
+  const tree = layoutKind === "force" ? null : layoutHierarchy(
+    visibleNodes.map((n) => ({ ...n })), layoutKind, width, height
+  );
+  // In a tree the drawn edges *are* the hierarchy: the note links are a
+  // different structure, and overlaying them turns the tree back into the
+  // web it exists to be an alternative to.
+  const nodes = tree ? tree.nodes : visibleNodes.map((n) => ({ ...n }));
+  const edges = tree ? tree.links : visibleEdges.map((e) => ({ ...e }));
   graphNodesRef = nodes;
   // Adjacency for hover-highlight: which notes each note is linked to.
   graphAdjacency = new Map(nodes.map((n) => [n.id, new Set()]));
   for (const e of edges) {
-    graphAdjacency.get(e.source)?.add(e.target);
-    graphAdjacency.get(e.target)?.add(e.source);
+    const from = tree ? e.source.id : e.source;
+    const to = tree ? e.target.id : e.target;
+    graphAdjacency.get(from)?.add(to);
+    graphAdjacency.get(to)?.add(from);
   }
 
   // Physics sliders (0–100, default 50) scale the tuned defaults so the
@@ -7808,7 +8716,9 @@ async function renderGraph() {
   const spreadScale = 0.5 + spread / 50; // 0.5×–2.5× the base link distance
   const gravityScale = 0.4 + gravity / 41.7; // stronger pull → tighter clusters
 
-  graphSimulation = d3
+  graphSimulation = tree
+    ? null
+    : d3
     .forceSimulation(nodes)
     .force(
       "link",
@@ -7824,13 +8734,24 @@ async function renderGraph() {
     .force("x", d3.forceX(width / 2).strength(0.04))
     .force("y", d3.forceY(height / 2).strength(0.06))
     .force("collide", d3.forceCollide().radius((d) => graphNodeRadius(d) + 24));
+  if (tree) graphSimulation = null;
 
-  const edgeLines = canvas
-    .append("g")
-    .selectAll("line")
-    .data(edges)
-    .join("line")
-    .attr("class", (d) => `graph-edge graph-edge-${d.kind}`);
+  // A tree's edges are curves between fixed points; the web's are lines that
+  // move on every tick. Different elements, so each can be what it needs.
+  const edgeLayer = canvas.append("g");
+  const edgeLines = tree
+    ? edgeLayer
+        .selectAll("path")
+        .data(edges)
+        .join("path")
+        .attr("class", (d) => `graph-edge graph-edge-${d.kind}`)
+        .attr("fill", "none")
+        .attr("d", (d) => hierarchyPath(d, tree.radial))
+    : edgeLayer
+        .selectAll("line")
+        .data(edges)
+        .join("line")
+        .attr("class", (d) => `graph-edge graph-edge-${d.kind}`);
 
   const nodeGroups = canvas
     .append("g")
@@ -7842,7 +8763,7 @@ async function renderGraph() {
       d3
         .drag()
         .on("start", (event, d) => {
-          if (!event.active) graphSimulation.alphaTarget(0.3).restart();
+          if (!event.active) graphSimulation?.alphaTarget(0.3).restart();
           d.fx = d.x;
           d.fy = d.y;
         })
@@ -7851,12 +8772,16 @@ async function renderGraph() {
           d.fy = event.y;
         })
         .on("end", (event, d) => {
-          if (!event.active) graphSimulation.alphaTarget(0);
+          if (!event.active) graphSimulation?.alphaTarget(0);
+          if (tree) return; // a laid-out tree keeps its shape
           d.fx = null;
           d.fy = null;
         })
     )
-    .on("click", (event, d) => openGraphPopup(event, d))
+    .on("click", (event, d) => {
+      if (d.isGroup) return; // a category heading, not a note to open
+      openGraphPopup(event, d);
+    })
     // Double-click pins a node where it is; again releases it (Wave M).
     .on("dblclick", function (event, d) {
       event.stopPropagation(); // don't also zoom
@@ -7882,6 +8807,7 @@ async function renderGraph() {
   nodeGroups
     .append("circle")
     .attr("class", "graph-core")
+    .classed("graph-group", (d) => Boolean(d.isGroup))
     .attr("r", graphNodeRadius)
     .attr("fill", (d) => color(d.category))
     .classed("graph-pinned", (d) => d.pinned)
@@ -7903,11 +8829,74 @@ async function renderGraph() {
       `${d.access_count ? ` · used ${d.access_count}×` : ""}`
     );
   });
-  nodeGroups
+  // Where the label goes is the difference between a readable tree and a
+  // pile of overlapping text. Under the node is right for the web, where
+  // nodes are spread in two dimensions; in a tree the rows are only
+  // TREE_ROW apart, so it has to sit *beside* the node instead.
+  const labels = nodeGroups
     .append("text")
-    .attr("class", "graph-label")
-    .attr("dy", (d) => graphNodeRadius(d) + 13)
-    .text((d) => (d.preview.length > 22 ? d.preview.slice(0, 21) + "…" : d.preview));
+    .attr(
+      "class",
+      (d) =>
+        `graph-label${tree ? " graph-label-tree" : ""}` +
+        `${tree && d.isGroup ? " graph-label-group" : ""}`
+    )
+    .text((d) => {
+      // A radial's labels stick out of every side, so their length is what
+      // decides how far the view has to zoom out; a tree's only extend
+      // right, into space the columns already reserve.
+      // Radial labels are what decide how far the view has to zoom out, and
+      // the two written down a *shared* spoke — a category's, and a note that
+      // has a reply hanging off it — are the ones that have to stay short.
+      const limit = !tree
+        ? 22
+        : !tree.radial
+          ? 30
+          : d.isGroup || d.shared
+            ? RADIAL_STEM
+            : 16;
+      return d.preview.length > limit ? d.preview.slice(0, limit - 1) + "…" : d.preview;
+    });
+  if (!tree) {
+    labels.attr("dy", (d) => graphNodeRadius(d) + 13);
+  } else if (tree.radial) {
+    // Rotated to its own radius and flipped on the left half, or every label
+    // past the halfway point reads upside down. The hub is the exception: it
+    // has no meaningful direction to point in, and radiating from radius 0
+    // put it straight through whichever category shared its angle.
+    labels
+      .attr("dy", (d) => (d.depth ? "0.31em" : graphNodeRadius(d) + 13))
+      .attr("transform", (d) => {
+        if (!d.depth) return null;
+        const degrees = ((d.angle || 0) * 180) / Math.PI - 90;
+        return `rotate(${degrees})${radialFlip(d) ? " rotate(180)" : ""}`;
+      })
+      // The offset is an `x` *inside* the flipped frame, not a translate
+      // outside it: translating by −out and then rotating 180° sends the
+      // label back across the node towards the centre, which is how the hub's
+      // name ended up printed over a category's.
+      .attr("x", (d) => {
+        if (!d.depth) return 0;
+        const out = graphNodeRadius(d) + 6;
+        return radialFlip(d) ? -out : out;
+      })
+      // A style, not an attribute: `.graph-node text` sets `text-anchor:
+      // middle` in the stylesheet, and a rule always beats a presentation
+      // attribute — set as an attr, every one of these silently stayed
+      // centred and the labels overlapped the ring.
+      .style("text-anchor", (d) => (!d.depth ? "middle" : radialFlip(d) ? "end" : "start"));
+  } else {
+    labels
+      // A node with children has edges leaving it rightwards, along the line
+      // its own label would sit on — and where the child is a lone reply that
+      // edge runs the label's whole length. A halo hides a thin line between
+      // glyphs but not between words, so it read as struck through. Every
+      // branch point is labelled above its row instead; leaves, which nothing
+      // leaves from, keep the label beside them.
+      .attr("dy", (d) => (d.isLeaf ? "0.31em" : -graphNodeRadius(d) - 5))
+      .attr("x", (d) => graphNodeRadius(d) + 7)
+      .style("text-anchor", "start");
+  }
 
   // Labels toggle: when off, labels only appear on hover (declutters a big
   // map). Driven by a class so toggling never rebuilds the simulation.
@@ -7915,14 +8904,21 @@ async function renderGraph() {
 
   // A plain-language readout of what's on screen, so the map isn't a
   // mystery: how many notes and what kinds of connections link them.
-  const counts = { link: 0, thread: 0, similar: 0 };
+  const counts = { link: 0, thread: 0, similar: 0, filing: 0 };
   for (const e of edges) counts[e.kind] = (counts[e.kind] || 0) + 1;
-  const parts = [`${nodes.length} note${nodes.length === 1 ? "" : "s"}`];
+  const noteCount = nodes.filter((n) => !n.isGroup).length;
+  const parts = [`${noteCount} note${noteCount === 1 ? "" : "s"}`];
   if (counts.link) parts.push(`${counts.link} link${counts.link === 1 ? "" : "s"}`);
   if (counts.thread) parts.push(`${counts.thread} thread${counts.thread === 1 ? "" : "s"}`);
   if (counts.similar) parts.push(`${counts.similar} similarity line${counts.similar === 1 ? "" : "s"}`);
+  if (counts.filing) parts.push(`${counts.filing} filed under a category`);
   $("graph-stats").textContent =
-    parts.join(" · ") + " — bigger, brighter notes are the ones you use most.";
+    parts.join(" · ") +
+    (layoutKind === "tree"
+      ? " — filed left to right; replies branch off the note they answer."
+      : layoutKind === "radial"
+        ? " — categories around the centre; replies branch off the note they answer."
+        : " — bigger, brighter notes are the ones you use most.");
 
   // Hover-highlight (spotlight a note's connections). Uses the same dimming
   // pipeline as search so the two never fight each other.
@@ -7936,8 +8932,15 @@ async function renderGraph() {
       applyGraphHighlight();
     });
 
+  if (tree) {
+    // Laid out, not simulated: the paths are already drawn, so this only has
+    // to place the nodes and frame the result.
+    nodeGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
+    frameTree(svg, zoomBehavior, canvas, nodes, width, height, tree.radial);
+  }
+
   let fitted = false;
-  graphSimulation.on("tick", () => {
+  graphSimulation?.on("tick", () => {
     edgeLines
       .attr("x1", (d) => d.source.x)
       .attr("y1", (d) => d.source.y)
@@ -8489,7 +9492,7 @@ async function saveGraphNewNote() {
 
 // --- tabs (Wave A) ----------------------------------------------------------------
 
-const TABS = ["dashboard", "notes", "chat", "graph", "documents", "reminders"];
+const TABS = ["dashboard", "notes", "chat", "graph", "timeline", "documents", "reminders"];
 
 function switchTab(name) {
   for (const tab of TABS) {
@@ -8516,7 +9519,11 @@ function switchTab(name) {
     $("chat-input").focus();
   }
   if (name === "dashboard") renderDashboard();
-  if (name === "graph") renderGraph();
+  if (name === "graph") {
+    $("graph-layout").value = graphLayout();
+    renderGraph();
+  }
+  if (name === "timeline") renderTimeline();
   if (name === "documents") {
     loadDocuments();
     renderDocStorage();
@@ -8526,6 +9533,129 @@ function switchTab(name) {
     loadReminders();
   }
 }
+
+// --- Timeline (§10B) --------------------------------------------------------------
+//
+// Asked for repeatedly, and with more shape each time: "I want a note timeline
+// where I can see notes visually by what time they were made. Maybe I can even
+// group them by events or related places etc." So the axis is time and the
+// rows are bands — a note's category or tag — because that is what turns a
+// sorted list into a map of what happened.
+//
+// Drawn as a CSS grid rather than SVG: every cell is a real element, so it is
+// scrollable, selectable, keyboard-reachable and readable by a screen reader
+// without any of that being built by hand.
+
+async function renderTimeline() {
+  const grid = $("timeline-grid");
+  const body = await apiJson(
+    `/timeline?scale=${$("timeline-scale").value}` +
+      `&group=${$("timeline-group").value}&days=${$("timeline-days").value}`
+  ).catch(() => null);
+  grid.replaceChildren();
+  if (!body || !body.notes.length) {
+    $("timeline-empty").classList.remove("hidden");
+    $("timeline-count").textContent = "";
+    return;
+  }
+  $("timeline-empty").classList.add("hidden");
+  $("timeline-count").textContent = `${body.notes.length} notes · ${body.buckets.length} columns`;
+
+  const buckets = body.buckets;
+  const byId = new Map(body.notes.map((note) => [note.id, note]));
+  // Columns: one label column for the band names, then one per bucket.
+  grid.style.gridTemplateColumns = `minmax(7rem, auto) repeat(${buckets.length}, minmax(5.5rem, 1fr))`;
+
+  const corner = document.createElement("div");
+  corner.className = "timeline-corner";
+  grid.appendChild(corner);
+  for (const bucket of buckets) {
+    const head = document.createElement("div");
+    head.className = "timeline-head";
+    head.textContent = bucketLabel(bucket, body.scale);
+    grid.appendChild(head);
+  }
+
+  for (const band of body.bands) {
+    const name = document.createElement("div");
+    name.className = "timeline-band";
+    name.textContent = band.name;
+    const count = document.createElement("span");
+    count.className = "muted";
+    count.textContent = ` ${band.count}`;
+    name.appendChild(count);
+    grid.appendChild(name);
+
+    const inBand = new Set(band.ids);
+    for (const bucket of buckets) {
+      const cell = document.createElement("div");
+      cell.className = "timeline-cell";
+      const here = body.notes.filter(
+        (note) => note.bucket === bucket && inBand.has(note.id)
+      );
+      for (const note of here) cell.appendChild(timelineDot(note));
+      grid.appendChild(cell);
+    }
+  }
+  // The most recent column is the interesting one, so start there.
+  $("timeline-scroll").scrollLeft = $("timeline-scroll").scrollWidth;
+  void byId;
+}
+
+function bucketLabel(iso, scale) {
+  const day = new Date(`${iso}T00:00:00`);
+  if (scale === "year") return String(day.getFullYear());
+  if (scale === "month") {
+    return day.toLocaleDateString(undefined, { month: "short", year: "2-digit" });
+  }
+  return day.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}
+
+function timelineDot(note) {
+  const dot = document.createElement("button");
+  dot.className = `timeline-dot${note.placed_by === "mentioned" ? " timeline-dot-mentioned" : ""}`;
+  dot.type = "button";
+  // 🕓 marks a note that is here because of what it says, not when it was
+  // typed. Without it the timeline quietly moves notes and looks wrong.
+  dot.textContent = (note.placed_by === "mentioned" ? "🕓 " : "") + note.preview;
+  dot.title =
+    note.placed_by === "mentioned"
+      ? `“${note.phrase}” in this note meant ${new Date(note.at).toLocaleDateString()}.` +
+        `\nWritten ${new Date(note.written_at).toLocaleDateString()}.`
+      : `Written ${new Date(note.written_at).toLocaleString()}`;
+  dot.addEventListener("click", () => {
+    switchTab("notes");
+    showNotesSection("browse"); // focusing inside a hidden section does nothing
+    flashEntry(note.id);
+  });
+  return dot;
+}
+
+for (const id of ["timeline-scale", "timeline-group", "timeline-days"]) {
+  $(id).addEventListener("change", renderTimeline);
+}
+
+$("entry-document").addEventListener("change", async (event) => {
+  const value = event.target.value;
+  event.target.value = "";
+  if (value === NEW_DOCUMENT) {
+    const doc = await createDocumentNamed($("entry-content").value.trim().slice(0, 60));
+    if (!doc) return;
+    captureDocuments.add(doc.id);
+    await loadCaptureDocuments(); // so the new one is in the list to remove
+    return;
+  }
+  const id = Number(value);
+  if (id) captureDocuments.add(id);
+  renderCaptureDocuments();
+});
+
+// Layout picker (§9). Stored, because which shape suits a notebook is a
+// property of the notebook rather than of one visit.
+$("graph-layout").addEventListener("change", (event) => {
+  localStorage.setItem("graph-layout", event.target.value);
+  renderGraph();
+});
 
 // --- Notes sub-tabs ---------------------------------------------------------------
 // Four full-height cards stacked on one page meant scrolling past three forms
@@ -8546,6 +9676,11 @@ function activeNotesSection() {
 }
 
 function showNotesSection(name, { focus = false } = {}) {
+  // Measurements only mean anything once the section is on screen.
+  if (name === "browse") setTimeout(settleNoteClamps, 0);
+  // The picker lists documents that may have been created since this page
+  // loaded — a stale list is how "add to document" ends up offering nothing.
+  if (name === "capture") loadCaptureDocuments();
   const wanted = NOTES_SECTIONS.includes(name) ? name : "browse";
   for (const id of NOTES_SECTIONS) {
     const card = document.getElementById(id);
@@ -8737,7 +9872,12 @@ function settingsModalOpen() {
   return !$("settings-modal").classList.contains("hidden");
 }
 
+// Which settings section is on screen. The Background tasks list polls while
+// it is open, and needs to know that it is.
+let currentSettingsSection = "models";
+
 function showSettingsSection(name) {
+  currentSettingsSection = name;
   for (const section of SETTINGS_SECTIONS) {
     $(`settings-${section}`).classList.toggle("hidden", section !== name);
   }
@@ -8754,7 +9894,7 @@ function showSettingsSection(name) {
   if (name === "shortcuts") renderShortcutList();
   if (name === "account") renderAccount().catch(() => {});
   if (name === "data") renderBackups();
-  if (name === "tasks") refreshModelStatus(); // populate the tasks list now
+  if (name === "tasks") renderTasks(); // fill it in now, then poll
 }
 
 async function openSettingsModal(section = "models") {
@@ -9860,10 +11000,14 @@ function toggleAiStatusPopup(force) {
 // The built-in engine runs without Ollama, so this shows in every state.
 function renderSearchEngineHealth(status) {
   const el = $("search-engine-health");
+  // The name comes from the server, never from a string in here: this line
+  // said "Built-in (all-MiniLM)" for two model changes after the built-in
+  // model stopped being all-MiniLM, and the only way to find out what was
+  // really running was to watch it download in the log.
   const engine =
     status.embedding_backend === "ollama"
       ? `Ollama · ${status.embedding_model}`
-      : "Built-in (all-MiniLM)";
+      : `Built-in · ${status.active_embedding_model || "…"}`;
   let state = "not ready";
   let cls = "busy";
   if (status.embedding_ready) {
@@ -9918,51 +11062,101 @@ function renderSettings() {
     $("installed-box").classList.add("hidden");
   }
   renderReindex(status);
-  if (settingsModalOpen()) renderTasks(status); // Wave N tasks manager
+  // Only while the section is actually on screen: /tasks is its own call, and
+  // polling it behind a closed panel is work nobody is looking at.
+  if (settingsModalOpen() && currentSettingsSection === "tasks") renderTasks();
 }
 
 // --- Wave N: tasks manager (see and quit background jobs) ---------------------------
 
-function renderTasks(status) {
+// The list is built by the server (GET /tasks), not assembled here from
+// whatever happened to be in the model status. It used to know about exactly
+// two jobs — a re-index and a model download — so the embedding model loading
+// at startup and the SearXNG install, which is minutes long, ran with nothing
+// on this screen to say so. Rendering whatever the server sends means the
+// next background job appears here without touching this file.
+async function renderTasks() {
   const list = $("task-list");
-  const jobs = [];
-  if (status.reindex && status.reindex.status === "running") {
-    jobs.push({
-      kind: "reindex",
-      label: `Re-indexing notes — ${status.reindex.done} of ${status.reindex.total}`,
-    });
-  }
-  for (const [name, job] of Object.entries(status.pulls || {})) {
-    if (job.status === "running") {
-      const pct = job.total ? Math.round((job.done / job.total) * 100) : 0;
-      jobs.push({ kind: "pull", name, label: `Downloading ${name} — ${pct}%` });
-    }
-  }
+  const body = await apiJson("/tasks", { silent: true }).catch(() => null);
+  const jobs = (body && body.tasks) || [];
   list.replaceChildren();
   $("tasks-empty").classList.toggle("hidden", jobs.length > 0);
   for (const job of jobs) {
     const li = document.createElement("li");
+    // The heading row is the job and its Quit button; everything else stacks
+    // underneath at full width. The bar used to sit inline after the label,
+    // where it ran off the right edge of the card on a long job name.
     const row = document.createElement("div");
     row.className = "entry-meta";
-    const label = document.createElement("span");
-    label.textContent = job.label;
-    const actions = document.createElement("span");
-    actions.className = "entry-actions";
-    actions.appendChild(
-      smallButton("Quit", "Stop this job", async () => {
-        const q = new URLSearchParams({ kind: job.kind, name: job.name || "" });
-        await api(`/models/jobs/cancel?${q}`, { method: "POST" }).catch((e) =>
-          toast(e.message, true)
-        );
-        toast("Asked the job to stop.");
-        refreshModelStatus();
-      })
-    );
-    row.append(label, actions);
+    const name = document.createElement("strong");
+    name.textContent = job.label;
+    row.appendChild(name);
+
+    if (job.cancellable) {
+      const actions = document.createElement("span");
+      actions.className = "entry-actions";
+      actions.appendChild(
+        smallButton("Quit", "Stop this job", async () => {
+          const q = new URLSearchParams({ kind: job.kind, name: job.name || "" });
+          await api(`/models/jobs/cancel?${q}`, { method: "POST" }).catch((e) =>
+            toast(e.message, true)
+          );
+          toast("Asked the job to stop.");
+          refreshModelStatus();
+        })
+      );
+      row.appendChild(actions);
+    }
     li.appendChild(row);
+
+    if (job.detail) {
+      const detail = document.createElement("p");
+      detail.className = "muted task-detail";
+      detail.textContent = job.detail;
+      li.appendChild(detail);
+    }
+
+    // A bar only where there is a real fraction to show. A progress bar that
+    // guesses is worse than one that admits it can't say — and under reduced
+    // motion an indeterminate animation freezes and reads as a fault.
+    if (typeof job.progress === "number") {
+      const bar = document.createElement("progress");
+      bar.max = 1;
+      bar.value = job.progress;
+      bar.className = "task-progress";
+      li.appendChild(bar);
+    }
+
+    // What the job itself is printing. A bar answers "is it working?" only
+    // while it moves, and pip can sit on one number for minutes — the output
+    // is the thing that keeps changing, so it is the real answer to "has it
+    // frozen?". Open by default while a job is running; there is nothing to
+    // be spared from here.
+    if ((job.log || []).length) {
+      const fold = document.createElement("details");
+      fold.className = "task-log";
+      fold.open = taskLogsOpen.has(job.kind);
+      fold.addEventListener("toggle", () => {
+        if (fold.open) taskLogsOpen.add(job.kind);
+        else taskLogsOpen.delete(job.kind);
+      });
+      const summary = document.createElement("summary");
+      summary.textContent = `What it's doing (${job.log.length} lines)`;
+      const pre = document.createElement("pre");
+      pre.className = "task-log-lines";
+      pre.textContent = job.log.join("\n");
+      fold.append(summary, pre);
+      li.appendChild(fold);
+      // Follow the tail, the way a terminal does.
+      if (fold.open) pre.scrollTop = pre.scrollHeight;
+    }
     list.appendChild(li);
   }
 }
+
+// Which task logs the user has opened, kept across the 3-second re-render so
+// a fold doesn't slam shut under them.
+const taskLogsOpen = new Set(["searxng"]);
 
 // Model pickers (rewritten, Wave O). The old version let the status poll
 // (every ~3s while Settings is open) reset the dropdown to the SAVED
@@ -10026,6 +11220,13 @@ function renderUtilityModelPicker(status) {
 }
 
 function renderEmbeddingPicker(status) {
+  // Name the built-in model rather than describing it. "Works out of the box,
+  // no download" was wrong on both counts: it fetches ~130 MB from Hugging
+  // Face the first time, which is a long quiet wait to have described as
+  // needing nothing.
+  $("builtin-model-name").textContent = status.active_embedding_model
+    ? `${status.active_embedding_model}, downloaded once on first use`
+    : "downloaded once on first use";
   // The backend radios only reflect the saved value while the user has no
   // pending choice of their own.
   //
@@ -11484,7 +12685,12 @@ function renderEmblem(holder, size = 34, { animate = false } = {}) {
 
 // Every emblem currently on the page, keyed by element id and size.
 const EMBLEM_SLOTS = [
-  ["brand-logo", 34, true],
+  // Not the top bar any more: that is the favicon now, so the app's icon in
+  // the tab strip and the mark above it are the same thing. The generated
+  // emblem is the dashboard's hero, and a small animated marker on the tabs
+  // where the AI is doing something — asked for as "kinda like an ai symbol".
+  ["notes-emblem", 22, true],
+  ["chat-emblem", 22, true],
   ["lock-emblem", 76, true],
   ["onboarding-emblem", 64, false],
   ["chat-empty-emblem", 52, false],
@@ -11832,7 +13038,12 @@ $("conv-search").addEventListener("input", (event) => {
 });
 $("chat-export").addEventListener("click", exportChatMarkdown);
 $("chat-input").addEventListener("keydown", (e) => {
-  if (e.key === "Enter") sendChatMessage();
+  // Enter sends, Shift+Enter (or Ctrl/Cmd+Enter) writes a newline. The box is
+  // a textarea now, so "send" has to be chosen rather than inherited.
+  if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+    e.preventDefault();
+    sendChatMessage();
+  }
 });
 $("persona-select").addEventListener("change", async () => {
   // Remember the choice so the Notes quick-ask uses the same persona.
@@ -11934,7 +13145,13 @@ $("skill-import").addEventListener("click", () =>
   pickJsonFile("skill-import-file", async (data) => {
     const merged = mergeNamedPrompts((prefsCache && prefsCache.skills) || [], data.skills);
     if (!merged) return toast("No skills found in that file.", true);
-    await saveSkillList(merged);
+    try {
+      await saveSkillList(merged);
+    } catch (error) {
+      // The server validates imports the same way it validates the editor —
+      // a skill naming a tool that no longer exists is refused by name.
+      return toast(error.message, true);
+    }
     toast("Skills imported.");
   })
 );
@@ -12413,16 +13630,37 @@ async function refreshSearxngHost() {
 
   // An install is minutes long and runs in the background — poll it so the
   // step text keeps moving instead of the screen looking stuck.
+  const bar = $("searxng-install-progress");
   if (info.installing) {
-    badge.textContent = "Installing…";
+    const stage = info.install_stage || 1;
+    const stages = info.install_stages || 5;
+    badge.textContent = `Installing… ${stage}/${stages}`;
     badge.className = "chip";
     start.disabled = true;
     stop.disabled = true;
-    $("searxng-host-status").textContent = info.install_step || "Setting SearXNG up…";
+    $("searxng-host-status").classList.remove("error");
+    $("searxng-host-status").textContent =
+      info.install_step || "Setting SearXNG up…";
+    // Reported: "the searxng reinstall doesn't have a progress bar so idk if
+    // it has frozen or is working". The bar moves through the five stages;
+    // the line under it is what pip is printing right now, which is what
+    // actually distinguishes slow from stuck.
+    bar.classList.remove("hidden");
+    if (typeof info.install_progress === "number") {
+      bar.removeAttribute("data-indeterminate");
+      bar.value = info.install_progress;
+    } else {
+      bar.setAttribute("data-indeterminate", "1");
+      bar.removeAttribute("value");
+    }
+    const said = (info.install_log || []).at(-1);
+    $("searxng-install-line").textContent = said || "";
     clearTimeout(refreshSearxngHost.timer);
-    refreshSearxngHost.timer = setTimeout(refreshSearxngHost, 3000);
+    refreshSearxngHost.timer = setTimeout(refreshSearxngHost, 2000);
     return;
   }
+  bar.classList.add("hidden");
+  $("searxng-install-line").textContent = "";
   if (info.install_error) {
     $("searxng-host-status").classList.add("error");
     $("searxng-host-status").textContent = info.install_error;
@@ -12431,6 +13669,18 @@ async function refreshSearxngHost() {
     // explanation of what will happen, not a failure.
     $("searxng-host-status").classList.remove("error");
     $("searxng-host-status").textContent = info.detail;
+  } else {
+    // Always say something current. This line used to keep whatever the last
+    // poll wrote, so a finished install left "Installing SearXNG…" sitting
+    // under a badge reading "Stopped" — reported with a photo, and the
+    // install had in fact completed.
+    $("searxng-host-status").classList.remove("error");
+    $("searxng-host-status").textContent =
+      info.state === "stopped"
+        ? "Installed and ready — press Start SearXNG."
+        : info.state === "running"
+          ? "Running."
+          : "";
   }
   const running = info.state === "running" && info.responding;
   badge.textContent = running

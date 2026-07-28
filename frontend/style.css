@@ -814,6 +814,14 @@ progress { accent-color: var(--accent); width: 100%; }
   font-weight: 600;
 }
 .chip.tag { background: var(--chip-bg); color: var(--muted); font-weight: 400; }
+/* What a note's own "tomorrow" resolved to. Quieter than a tag: it is a
+   reading of the text, not something the user typed. */
+.chip.when {
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--muted);
+  font-weight: 400;
+}
 .chip.confidence { background: var(--ok-soft); color: var(--ok); }
 .chip.review { background: var(--warn-soft); color: var(--warn); }
 /* Chips that carry a click handler are real buttons — show it and give them a
@@ -1690,6 +1698,78 @@ html.modal-open body {
   .agent-step.step-thinking summary::before { transition: none; }
 }
 .agent-step.step-thinking[open] summary { margin-bottom: 0.3rem; }
+/* A skill's plan, drawn before anything runs. It borrows the thinking step's
+   folding and marker so the timeline reads as one thing, but keeps the
+   accent — this is what the run is *for*, not an aside. */
+.agent-step.step-plan {
+  font-size: 0.85rem;
+  margin: 0;
+}
+.agent-step.step-plan summary {
+  cursor: pointer;
+  font-weight: 600;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.agent-step.step-plan summary::-webkit-details-marker { display: none; }
+/* Same reason as the thinking step: the native marker is drawn outside the
+   summary's box, which is where the rail's circles are. Redrawn inside. */
+.agent-step.step-plan summary::before {
+  content: "";
+  flex: none;
+  width: 0;
+  height: 0;
+  border-left: 0.32rem solid currentColor;
+  border-top: 0.24rem solid transparent;
+  border-bottom: 0.24rem solid transparent;
+  transform: rotate(0deg);
+  transform-origin: 40% 50%;
+  transition: transform 0.15s ease;
+}
+.agent-step.step-plan[open] summary::before { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) {
+  .agent-step.step-plan summary::before { transition: none; }
+}
+.agent-step.step-plan .plan-steps {
+  margin: 0.35rem 0 0;
+  padding-left: 1.2rem;
+  color: var(--muted);
+}
+.agent-step.step-plan .plan-steps li { margin: 0.1rem 0; }
+/* How far the run got. The marker is a ::after so it can't be confused with
+   the ordered list's own numbering, which stays the step's identity. */
+.plan-step-running { color: var(--text); font-weight: 500; }
+.plan-step-running::after { content: " …"; }
+.plan-step-done::after { content: " ✓"; color: var(--ok); }
+.plan-step-failed { color: var(--error); }
+.plan-step-failed::after { content: " ✕"; }
+.plan-step-reason { font-style: italic; }
+/* A skill's result: what changed, with a way back. */
+.skill-result {
+  margin: 0;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+.skill-result-title { font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem; }
+.skill-change {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  padding: 0.15rem 0;
+  font-size: 0.85rem;
+}
+.skill-change-label { flex: 1 1 12rem; min-width: 0; overflow-wrap: anywhere; }
+.skill-change-undone .skill-change-label { text-decoration: line-through; opacity: 0.7; }
+.agent-step.step-plan .plan-tools {
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
 .agent-steps > .tool-chip { margin: 0; }
 .agent-step.step-answer { margin: 0; }
 .agent-step.step-pending { min-height: 1.2rem; }
@@ -2364,7 +2444,21 @@ html { font-size: 16px; }
   display: inline-flex;
   flex: 0 0 auto;
 }
-#brand-logo canvas { width: 34px !important; height: 34px !important; }
+
+/* The generated emblem, small, beside a heading on the working tabs: a sign
+   that the AI is involved here, not decoration. Sized in CSS as well as in
+   the p5 call because a canvas with no box collapses the row. */
+.emblem-mark {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  opacity: 0.9;
+}
+.emblem-mark canvas { width: 22px !important; height: 22px !important; }
+/* The heading and its mark sit together; the row's `space-between` would
+   otherwise push them to opposite ends of the sidebar. */
+.sidebar-head { justify-content: flex-start; gap: 0.45rem; }
 
 /* The ambient background reads on every tab; its strength follows the
    Appearance → Intensity slider (Wave O). */
@@ -2415,10 +2509,48 @@ html { font-size: 16px; }
 :root[data-glass="off"] { --card: var(--modal-bg); }
 
 /* --- Wave O: AI Tools toggles --------------------------------------------------- */
+#task-list li { padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+#task-list .entry-meta { align-items: center; gap: 0.6rem; }
+#task-list .entry-meta > strong { flex: 1 1 12rem; min-width: 0; overflow-wrap: anywhere; }
+.task-detail { margin: 0.15rem 0 0; font-size: 0.82rem; }
+/* Full width, on its own line: inline after the label it ran off the right
+   edge of the card as soon as the job name got long. */
+.task-progress {
+  display: block;
+  width: 100%;
+  height: 0.5rem;
+  margin: 0.4rem 0 0.1rem;
+  accent-color: var(--accent);
+}
 #tool-list li { padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
 .tool-row { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: 500; }
 .tool-row input { width: 1.15rem; height: 1.15rem; margin: 0; accent-color: var(--accent); }
 .tool-desc { display: block; margin: 0.2rem 0 0 1.65rem; font-size: 0.82rem; }
+
+/* The tool allowlist inside the skill editor. Twenty-odd names, so it wraps
+   into columns rather than becoming a page-length list. */
+.tool-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(11rem, 100%), 1fr));
+  gap: 0.15rem 0.75rem;
+  margin-top: 0.4rem;
+}
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.check-row input { width: 1rem; height: 1rem; margin: 0; accent-color: var(--accent); }
+.check-row span { overflow: hidden; text-overflow: ellipsis; }
+.settings-fold summary { cursor: pointer; font-weight: 600; margin: 0.5rem 0; }
+
+/* A labelled box in a dialog — used by the "what does this skill need?" form. */
+.field { display: block; margin: 0.5rem 0; }
+.field > span { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.2rem; }
+.field > input { width: 100%; }
 
 /* Per-message metadata: model · time · tokens · speed */
 .msg-meta {
@@ -2942,6 +3074,12 @@ html { font-size: 16px; }
   margin: 0;
   padding: 0.7rem 0.9rem;
   border-radius: calc(var(--radius) * 0.8);
+  /* `.row input, .row select { flex: 1 }` does not match a textarea, and the
+     box collapsed to its intrinsic width the moment it stopped being an
+     <input>. min-width: 0 for the usual reason — a flex item refuses to
+     shrink below its content without it (invariant 2). */
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .chat-composer button { padding: 0.6rem 1.1rem; }
 /* Conversation list: a clear active row with an accent spine. */
@@ -4780,3 +4918,190 @@ textarea.autogrow {
 .web-reader-text pre,
 .msg .bubble-answer pre { overflow-x: auto; max-width: 100%; }
 .web-reader-text img { max-width: 100%; height: auto; }
+
+/* An install that runs for minutes needs a bar and a live line, or slow and
+   stuck look the same. Reported: "the searxng reinstall doesn't have a
+   progress bar so idk if it has frozen or is working". */
+.install-progress {
+  display: block;
+  width: 100%;
+  height: 0.5rem;
+  margin: 0.4rem 0 0.2rem;
+  accent-color: var(--accent);
+}
+.install-line {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+  margin: 0;
+}
+.install-line:empty { display: none; }
+/* What a background job is printing, on the tasks screen. */
+.task-log summary { cursor: pointer; font-size: 0.8rem; color: var(--muted); }
+.task-log-lines {
+  max-height: 9rem;
+  overflow: auto;
+  margin: 0.3rem 0 0;
+  padding: 0.4rem 0.5rem;
+  background: var(--chip-bg);
+  border-radius: var(--radius);
+  font-size: 0.72rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* --- Timeline (§10B): the notebook on a time axis, in bands ----------------- */
+/* The base rule gives every select `width: 100%`, which stacked the three
+   toolbar pickers into three full-width rows. `.small-select` exists for
+   exactly this, but the toolbar owns its own widths so the markup stays
+   plain. */
+.graph-toolbar select {
+  width: auto;
+  max-width: 10rem;
+  margin-bottom: 0;
+}
+.graph-toolbar label { white-space: nowrap; }
+/* A CSS grid rather than SVG: every cell is a real element, so it scrolls,
+   selects, tabs and reads aloud without any of that being hand-built. */
+.timeline-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* Invariant 2: a grid track of 1fr refuses to shrink below its content, so
+     without a floor here the whole page grows sideways instead of this box. */
+  min-width: 0;
+  padding-bottom: 0.4rem;
+}
+.timeline-grid {
+  display: grid;
+  gap: 2px;
+  align-items: stretch;
+  min-width: min-content;
+}
+.timeline-corner { position: sticky; left: 0; background: var(--card); z-index: 2; }
+.timeline-head {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: center;
+  padding: 0.25rem 0.2rem;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.timeline-band {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--card);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.35rem 0.5rem 0.35rem 0;
+  border-right: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4rem;
+  align-items: baseline;
+}
+.timeline-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0.2rem;
+  min-width: 0;
+  border-bottom: 1px solid var(--border);
+}
+.timeline-dot {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: 0.7rem;
+  line-height: 1.25;
+  padding: 0.2rem 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--chip-bg);
+  color: var(--text);
+  cursor: pointer;
+  /* Two lines, then clip: a timeline is a shape to scan, not a reading view. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.timeline-dot:hover, .timeline-dot:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+}
+/* A note placed by what it says rather than when it was typed. */
+.timeline-dot-mentioned { border-style: dashed; }
+
+/* A category heading in a tree layout — a real node in the drawing, but not
+   a note: hollow, so it never reads as something you can open. */
+.graph-core.graph-group {
+  fill-opacity: 0.25;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+/* Filing edges (category → note) are quieter than a link the user made. */
+.graph-edge-filing { stroke-dasharray: 3 3; opacity: 0.45; }
+
+/* A tree label sits *beside* its node rather than under it, so it needs a
+   thinner halo — a 3px stroke on text that starts 7px from the circle eats
+   into the node itself. The anchor is set in JS as an inline style, because
+   `.graph-node text` sets `text-anchor: middle` and a stylesheet rule beats
+   the presentation attribute it would otherwise be. */
+.graph-node text.graph-label-tree {
+  font-size: 0.76rem;
+  /* A tree label lies *along* the edge running to its children, so the halo
+     is doing real work here: it has to be wide enough to cover the line in
+     the gaps between glyphs, and opaque. `--card` is 55% white — the dashes
+     of a thread edge showed straight through it and the label came out
+     looking struck through. */
+  stroke: var(--modal-bg);
+  stroke-width: 5px;
+}
+/* Category headings label the branch they open, so they carry the weight. */
+.graph-node text.graph-label-group {
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+/* The notes a document draws on, beside its outline. The row is the note plus
+   a detach button, so the two can't run into each other on a long preview. */
+#doc-notes li { display: flex; align-items: center; gap: 0.3rem; }
+#doc-notes .outline-link { flex: 1 1 auto; min-width: 0; }
+
+/* The chat box grows with the question (capped by AUTOGROW_MAX_PX in JS).
+   It replaced an <input>, so it has to keep an input's shape: one line to
+   start with, and no manual resize handle fighting the auto-grow. */
+.chat-input {
+  resize: none;
+  margin-bottom: 0;
+  min-height: 2.6rem;
+  line-height: 1.4;
+}
+
+/* A long note is clamped rather than cut: the fade says there is more, and
+   the button is the way to it. Sized in lines so it scales with the reading
+   size setting instead of being pinned to a pixel height. */
+.entry-content.entry-clamped {
+  max-height: 11.5em;
+  overflow: hidden;
+  /* The fade is a mask rather than a gradient overlay, so it works on every
+     surface — a solid-colour overlay would show as a band on a themed card. */
+  -webkit-mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
+}
+.entry-more {
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.1rem 0;
+  margin-top: -0.2rem;
+  cursor: pointer;
+}
+.entry-more:hover { text-decoration: underline; }

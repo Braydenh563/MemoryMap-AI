@@ -20,7 +20,9 @@ from memorymap.ai.ollama_client import OllamaError
 from memorymap.api.schemas import (
     AttachmentOut,
     ContextBody,
+    DocumentRefOut,
     EntryCreate,
+    EntryDateOut,
     EntryOut,
     EntryUpdate,
     LinkOut,
@@ -28,6 +30,7 @@ from memorymap.api.schemas import (
 )
 from memorymap.core import deps
 from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_suggestions)
+    Document,
     EmbeddingRecord,
     EntryLink,
     EntryRevision,
@@ -71,6 +74,14 @@ def _to_out(
         is_private=bool(getattr(entry, "is_private", False)),
         created_at=entry.created_at,
         deleted_at=entry.deleted_at if entry.is_deleted else None,
+        dates=[
+            EntryDateOut(phrase=d.phrase, at=d.at.date(), precision=d.precision)
+            for d in manager.entry_dates(session, entry)
+        ],
+        documents=[
+            DocumentRefOut(id=doc.id, title=doc.title)
+            for doc in manager.documents_for_entry(session, entry)
+        ],
         links=[
             LinkOut(
                 link_id=link.id,
@@ -171,6 +182,13 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
         session.commit()
     except Exception:
         session.rollback()
+
+    # Documents this note belongs with, attached as it is saved. A document
+    # that has since been deleted is skipped rather than refused: the note is
+    # the thing being saved, and losing it over a stale id would be absurd.
+    for document_id in dict.fromkeys(body.document_ids):
+        if session.get(Document, document_id) is not None:
+            manager.link_document(session, document_id, entry.id)
 
     return _to_out(
         session, entry, filed_by=filed_by, similar=_find_near_duplicate(session, entry)

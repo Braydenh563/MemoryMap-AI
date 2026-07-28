@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
@@ -15,6 +15,12 @@ class EntryCreate(BaseModel):
     category: str | None = None
     # Train-of-thought (Wave B): continue an existing entry.
     parent_id: int | None = None
+    # Documents this note belongs with, attached as it is saved. Asked for
+    # directly: "a way to link documents to new notes I create in the capture
+    # tab". Doing it on create rather than afterwards is the point — the
+    # connection is obvious while you are writing and forgotten by the time
+    # the note is in a list.
+    document_ids: list[int] = Field(default_factory=list, max_length=10)
 
 
 class EntryUpdate(BaseModel):
@@ -53,6 +59,26 @@ class SimilarOut(BaseModel):
     similarity: float
 
 
+class DocumentRefOut(BaseModel):
+    """Just enough of a document to name it and open it."""
+
+    id: int
+    title: str
+
+
+class EntryDateOut(BaseModel):
+    """A relative time phrase, and the date it resolved to.
+
+    The phrase travels with the date on purpose: the resolution is a rule
+    ("next Friday" = the Friday of next week), not a fact, and a reader can
+    only disagree with it if both are visible.
+    """
+
+    phrase: str
+    at: date
+    precision: str = "day"
+
+
 class EntryOut(BaseModel):
     id: int
     content: str
@@ -69,6 +95,11 @@ class EntryOut(BaseModel):
     deleted_at: datetime | None = None  # set only in the recycle-bin view
     links: list[LinkOut] = Field(default_factory=list)
     attachments: list[AttachmentOut] = Field(default_factory=list)
+    # Documents this note is attached to: [{"id": 3, "title": "Trip plan"}].
+    documents: list["DocumentRefOut"] = Field(default_factory=list)
+    # What the note's relative time phrases meant when it was written (§10A):
+    # [{"phrase": "next friday", "at": "2026-08-07", "precision": "day"}].
+    dates: list["EntryDateOut"] = Field(default_factory=list)
     # How this entry was filed — only present on the create response:
     # 'semantic-match' | 'llm' | 'user' | 'thread' | 'none'
     filed_by: str | None = None

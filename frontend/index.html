@@ -80,7 +80,7 @@
 
   <!-- One compact, sticky top bar: brand · tabs · controls (Wave L). -->
   <header id="top-bar">
-    <span id="brand-logo" title="A one-of-a-kind emblem, generated fresh each visit" aria-hidden="true"></span>
+    <img id="brand-logo" src="/favicon.svg" alt="" aria-hidden="true" width="34" height="34">
     <h1 title="Your offline, self-filing notebook">MemoryMap&nbsp;AI</h1>
     <nav id="tab-bar" role="tablist" aria-label="App sections">
       <button role="tab" id="tab-btn-dashboard" data-tab="dashboard"
@@ -91,6 +91,8 @@
         aria-selected="false" aria-controls="tab-chat" tabindex="-1">Chat</button>
       <button role="tab" id="tab-btn-graph" data-tab="graph"
         aria-selected="false" aria-controls="tab-graph" tabindex="-1">Graph</button>
+      <button role="tab" id="tab-btn-timeline" data-tab="timeline"
+        aria-selected="false" aria-controls="tab-timeline" tabindex="-1">Timeline</button>
       <button role="tab" id="tab-btn-documents" data-tab="documents"
         aria-selected="false" aria-controls="tab-documents" tabindex="-1">Documents</button>
       <button role="tab" id="tab-btn-reminders" data-tab="reminders"
@@ -170,7 +172,10 @@
     <div class="layout">
       <!-- Category sidebar: built from the loaded entries, click to filter -->
       <aside class="card" id="sidebar">
-        <h2>Categories</h2>
+        <div class="row space-between sidebar-head">
+          <h2>Categories</h2>
+          <span id="notes-emblem" class="emblem emblem-mark" title="MemoryMap's AI is filing these for you" aria-hidden="true"></span>
+        </div>
         <ul id="category-list"></ul>
         <div id="most-used-box" class="hidden">
           <h2>Most used</h2>
@@ -251,6 +256,17 @@ Link to another note with [[its first few words]]."></textarea>
           <input id="entry-tags" type="text" list="tag-suggestions"
             placeholder="Optional tags, comma separated (e.g. joke, work)">
           <datalist id="tag-suggestions"></datalist>
+          <!-- Notes and documents are different things, but usually about
+               the same thing. Attaching one here is the moment the connection
+               is obvious; by the time the note is in a list it is forgotten. -->
+          <div class="row">
+            <label for="entry-document" class="muted">Add to document</label>
+            <select id="entry-document" class="small-select"
+              title="Attach this note to a document you're writing">
+              <option value="">None</option>
+            </select>
+            <span id="entry-document-chips" class="entry-meta"></span>
+          </div>
           <div class="row">
             <label for="entry-category" class="muted">File under</label>
             <select id="entry-category"></select>
@@ -435,6 +451,7 @@ Link to another note with [[its first few words]]."></textarea>
       <aside class="card" id="chat-sidebar">
         <div class="row space-between">
           <h2>Chats</h2>
+          <span id="chat-emblem" class="emblem emblem-mark" title="Answered by the AI on this machine" aria-hidden="true"></span>
           <button id="chat-new" class="ghost small" title="Start a fresh conversation">+ New</button>
         </div>
         <!-- Searches what was said, not just titles: you remember the
@@ -534,7 +551,11 @@ Link to another note with [[its first few words]]."></textarea>
                 </div>
               </div>
             </div>
-            <input id="chat-input" type="text" placeholder="Ask your notebook anything…">
+            <!-- A textarea, not an input: a three-sentence question used to
+                 scroll sideways inside one line. Enter still sends; Shift+Enter
+                 is a newline, which an <input> could not offer at all. -->
+            <textarea id="chat-input" rows="1" class="autogrow chat-input"
+              placeholder="Ask your notebook anything…"></textarea>
             <button id="mic-chat" class="ghost" title="Dictate your question (local Whisper)" aria-label="Dictate your question">🎙</button>
             <button id="chat-send">Send</button>
             <button id="chat-stop" class="ghost hidden" title="Stop the answer">Stop</button>
@@ -546,6 +567,47 @@ Link to another note with [[its first few words]]."></textarea>
   </div>
 
   <!-- ======================= GRAPH TAB (Wave E fills this) ================ -->
+  <!-- Timeline (§10B): the notebook on a time axis, in bands. The axis is
+       time; the bands are what make it a map of what happened rather than a
+       sorted list. -->
+  <div class="tab-page hidden" id="tab-timeline" role="tabpanel"
+    aria-labelledby="tab-btn-timeline" tabindex="-1">
+    <section class="card">
+      <div class="graph-toolbar">
+        <h2>Timeline</h2>
+        <label class="muted" for="timeline-scale">Bucket by</label>
+        <select id="timeline-scale" aria-label="Time bucket">
+          <option value="day" selected>Day</option>
+          <option value="week">Week</option>
+          <option value="month">Month</option>
+          <option value="year">Year</option>
+        </select>
+        <label class="muted" for="timeline-group">Bands</label>
+        <select id="timeline-group" aria-label="Group notes into bands">
+          <option value="category" selected>Category</option>
+          <option value="tag">Tag</option>
+          <option value="none">None</option>
+        </select>
+        <label class="muted" for="timeline-days">Show</label>
+        <select id="timeline-days" aria-label="How far back to show">
+          <option value="90">Last 3 months</option>
+          <option value="365" selected>Last year</option>
+          <option value="0">Everything</option>
+        </select>
+        <span id="timeline-count" class="muted"></span>
+      </div>
+      <p class="muted">
+        A note sits where it is <em>about</em> when it says so — "the deadline
+        is next Friday" plots on that Friday, marked 🕓 — and at when it was
+        written otherwise. Click any note to open it.
+      </p>
+      <div id="timeline-scroll" class="timeline-scroll">
+        <div id="timeline-grid" class="timeline-grid"></div>
+      </div>
+      <p id="timeline-empty" class="muted hidden">Nothing to plot yet.</p>
+    </section>
+  </div>
+
   <div class="tab-page hidden" id="tab-graph" role="tabpanel" aria-labelledby="tab-btn-graph" tabindex="-1">
     <section class="card" id="graph-card">
       <!-- One toolbar instead of three stacked rows -->
@@ -555,6 +617,12 @@ Link to another note with [[its first few words]]."></textarea>
           aria-label="Highlight matching notes in the graph">
         <button id="graph-add-node" class="small"
           title="Add a new note straight onto the map">＋ New note</button>
+        <label class="muted" for="graph-layout">Layout</label>
+        <select id="graph-layout" aria-label="How the notes are arranged">
+          <option value="force" selected>Force (web)</option>
+          <option value="tree">Tree</option>
+          <option value="radial">Radial tree</option>
+        </select>
         <span class="graph-physics">
           <label for="graph-gravity" class="muted">Gravity</label>
           <input id="graph-gravity" type="range" min="0" max="100" value="50"
@@ -675,6 +743,13 @@ Link to another note with [[its first few words]]."></textarea>
         <div id="doc-outline-wrap" class="doc-outline-wrap hidden">
           <h3>Outline</h3>
           <ul id="doc-outline" class="doc-outline"></ul>
+        </div>
+
+        <!-- The notes this document draws on. A document is something you
+             sit down and write; the notes are what you wrote it from. -->
+        <div id="doc-notes-wrap" class="doc-outline-wrap hidden">
+          <h3>Notes it draws on</h3>
+          <ul id="doc-notes" class="doc-outline"></ul>
         </div>
 
         <!-- "Where are they stored?" was asked outright, and the app had no
@@ -961,7 +1036,7 @@ Link to another note with [[its first few words]]."></textarea>
               <h3>Search engine (how your notes are understood)</h3>
               <label>
                 <input type="radio" name="emb-backend" value="sentence-transformers">
-                Built-in (recommended — works out of the box, no download)
+                Built-in (recommended) — <span id="builtin-model-name" class="muted">…</span>
               </label>
               <label>
                 <input type="radio" name="emb-backend" value="ollama">
@@ -1022,22 +1097,39 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
           </section>
 
-          <!-- Skills (Wave G): saved prompt shortcuts for the chat tab -->
+          <!-- Skills (§21): named, repeatable jobs over the notebook -->
           <section class="settings-section hidden" id="settings-skills">
             <p class="muted">
-              A skill is a saved request you can fire with one click from the
-              Chat tab — and skills can use the AI's tools, so "tidy my tags"
-              actually tidies your tags (with your approval for anything
-              destructive).
+              A skill is a job you can run with one click from the Chat tab:
+              what to do, the steps to do it in, the tools it's allowed to
+              use, and anything it should ask you for first. Naming its tools
+              is what makes a small model actually reach for them — and only
+              those tools are offered while it runs. Destructive steps still
+              ask for your approval.
             </p>
             <ul id="skill-list" class="entry-list"></ul>
             <h3>Add your own</h3>
             <input id="skill-name" type="text" maxlength="40" placeholder="Name (e.g. Weekly review)">
+            <input id="skill-description" type="text" maxlength="200"
+              placeholder="One line about what it does (optional)">
             <textarea id="skill-prompt" rows="2" maxlength="2000"
-              placeholder="The request to send, e.g. Summarise everything I saved this week."></textarea>
-            <label class="muted tools-toggle" title="Run this skill in agent mode, so it can use the AI's tools">
-              <input type="checkbox" id="skill-tools"> Run this skill in agent mode
-            </label>
+              placeholder="What it should do, e.g. Summarise everything I saved this week."></textarea>
+            <label class="muted" for="skill-steps">Steps — one per line, in order (optional)</label>
+            <textarea id="skill-steps" rows="3"
+              placeholder="Find my notes tagged {{tag}}&#10;Give each one a category&#10;Tell me what you filed"></textarea>
+            <label class="muted" for="skill-inputs">Ask me for — one per line, as <code>name</code> or <code>name: question</code> (optional)</label>
+            <textarea id="skill-inputs" rows="2"
+              placeholder="tag: Which tag should I file?"></textarea>
+            <details class="settings-fold">
+              <summary>Tools this skill may use (optional)</summary>
+              <p class="muted">
+                Leave everything unticked to let it use whatever is switched on
+                in Settings → Tools. Ticking a few is both safer and more
+                reliable: they're the only ones offered for the run, which
+                leaves far more room in a small model's context.
+              </p>
+              <div id="skill-tool-list" class="tool-picker"></div>
+            </details>
             <div class="row">
               <button id="skill-add" class="small">Add skill</button>
               <button id="skill-cancel" class="ghost small hidden">Cancel edit</button>
@@ -1059,6 +1151,26 @@ Link to another note with [[its first few words]]."></textarea>
               offered that tool at all. Destructive actions always ask you to
               confirm first.
             </p>
+            <h3>How many are offered at once</h3>
+            <p class="muted">
+              Every tool the AI is offered is described to it again on every
+              round of every message — all of them together are about three
+              quarters of what a small model reads before it even sees your
+              question. Sending only the ones a message plausibly needs leaves
+              far more room for your notes.
+            </p>
+            <label class="check-row">
+              <input type="radio" name="tool-focus" value="auto">
+              <span><strong>Only what the message needs</strong> — the whole set
+                is still sent when a request is broad ("tidy up my notes")</span>
+            </label>
+            <label class="check-row">
+              <input type="radio" name="tool-focus" value="all">
+              <span><strong>Always send all of them</strong> — pick this if the
+                AI ever misses a tool you asked for</span>
+            </label>
+            <p id="tool-focus-status" class="status" role="status"></p>
+            <h3>Which ones it may use</h3>
             <ul id="tool-list" class="entry-list"></ul>
           </section>
 
@@ -1449,6 +1561,11 @@ Link to another note with [[its first few words]]."></textarea>
                   title="Delete the SearXNG install and set it up again from scratch">↻ Reinstall</button>
                 <span id="searxng-host-status" class="status" role="status"></span>
               </div>
+              <!-- An install runs for minutes. Without a bar and a live line
+                   from the tool itself, slow and stuck look identical. -->
+              <progress id="searxng-install-progress" class="install-progress hidden"
+                max="1" aria-label="Install progress"></progress>
+              <p class="muted install-line" id="searxng-install-line"></p>
               <!-- What the instance itself said. Its output used to go to
                    /dev/null, so a failed start could only ever be guessed at. -->
               <details id="searxng-output-fold" class="help-accordion hidden">
@@ -1478,8 +1595,10 @@ Link to another note with [[its first few words]]."></textarea>
           <!-- Tasks (Wave N): see and quit background jobs -->
           <section class="settings-section hidden" id="settings-tasks">
             <p class="muted">
-              Background jobs — re-indexing your notes and model downloads.
-              If one is stuck or taking too long, you can quit it here.
+              Everything the app is doing in the background right now —
+              re-indexing your notes, downloading a model, loading the
+              embedding model, setting up SearXNG. Jobs that can be stopped
+              safely have a Quit button; the rest are left to finish.
             </p>
             <ul id="task-list" class="entry-list"></ul>
             <p id="tasks-empty" class="muted">Nothing running right now.</p>
@@ -1718,6 +1837,24 @@ Link to another note with [[its first few words]]."></textarea>
       </div>
       <p id="history-status" class="status" role="status"></p>
       <div id="history-list"></div>
+    </div>
+  </div>
+
+  <!-- What a skill asks for before it runs (§21). One dialog for all of a
+       skill's inputs — a skill with two of them used to mean two prompt()
+       boxes in a row, and the second one arrived with no context. -->
+  <div id="skill-run-overlay" class="modal-overlay hidden" role="dialog"
+    aria-modal="true" aria-label="Run a skill">
+    <div class="card modal-card" id="skill-run-card">
+      <div class="row space-between">
+        <h2 id="skill-run-title">Run a skill</h2>
+        <button id="skill-run-cancel" class="ghost small">Cancel</button>
+      </div>
+      <p id="skill-run-description" class="muted"></p>
+      <div id="skill-run-fields"></div>
+      <div class="row">
+        <button id="skill-run-go" class="small">Run</button>
+      </div>
     </div>
   </div>
 

@@ -255,6 +255,28 @@ class EntryRevision(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class EntryDate(Base):
+    """What a relative time phrase in a note meant, on the day it was written.
+
+    "Tomorrow" is correct when it is typed and misleading forever afterwards,
+    and nothing recorded what it resolved to (roadmap §10A). The phrase is
+    kept alongside the date deliberately: the resolution is a rule, not a
+    fact, and a reader can only disagree with it if they can see both.
+
+    `precision` says how exact the phrase was — "last week" did not mean a
+    day, and rendering it as one would invent precision the writer never used.
+    """
+
+    __tablename__ = "entry_dates"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entry_id: Mapped[int] = mapped_column(ForeignKey("entries.id"), index=True)
+    phrase: Mapped[str] = mapped_column(String(60))
+    at: Mapped[datetime] = mapped_column(DateTime)
+    precision: Mapped[str] = mapped_column(String(10), default="day")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 class Document(Base):
     """A long-form document (the editor tab).
 
@@ -271,6 +293,29 @@ class Document(Base):
     content: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class DocumentLink(Base):
+    """A note attached to a document.
+
+    Notes and documents are deliberately different things — a note is a
+    captured thought, a document is something you sat down and write — but
+    they are usually *about* the same thing, and until now there was no way to
+    say so. Asked for directly: "I want a way to link documents to new notes I
+    create in the capture tab; the documents and notes sections need to be
+    more integrated."
+
+    Its own table rather than a column on either side: the relationship is
+    many-to-many (a document draws on several notes; a note can feed several
+    documents), and neither side owns the other.
+    """
+
+    __tablename__ = "document_links"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    document_id: Mapped[int] = mapped_column(ForeignKey("documents.id"), index=True)
+    entry_id: Mapped[int] = mapped_column(ForeignKey("entries.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
 class AuditLog(Base):

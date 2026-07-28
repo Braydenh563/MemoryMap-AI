@@ -1,0 +1,142 @@
+"""The notebook on a time axis (roadmap §10B).
+
+Asked for repeatedly: "I want a note timeline where I can see notes visually
+by what time they were made. Maybe I can even group them by events or related
+places etc." The axis is time; the bands are what make it a map of what
+happened rather than a sorted list.
+"""
+
+from __future__ import annotations
+
+from datetime import timedelta
+
+from memorymap.core.database import Entry, utcnow
+
+
+def _save(client, content, **extra):
+    response = client.post("/entries", json={"content": content, **extra})
+    assert response.status_code == 201
+    return response.json()
+
+
+def _age(session, note_id: int, days: int) -> None:
+    """Backdate a note, so a timeline has more than one column in it."""
+    entry = session.get(Entry, note_id)
+    entry.created_at = utcnow() - timedelta(days=days)
+    session.commit()
+
+
+def test_an_empty_notebook_is_an_empty_timeline_not_an_error(client):
+    body = client.get("/timeline").json()
+    assert body["notes"] == [] and body["buckets"] == []
+
+
+def test_notes_land_in_buckets_on_the_scale_asked_for(client, session):
+    old = _save(client, "an older thought")
+    _age(session, old["id"], 40)
+    _save(client, "a fresh thought")
+
+    monthly = client.get("/timeline?scale=month").json()
+    assert len(monthly["buckets"]) == 2, monthly["buckets"]
+    assert all(bucket.endswith("-01") for bucket in monthly["buckets"])
+
+    yearly = client.get("/timeline?scale=year").json()
+    assert len(yearly["buckets"]) == 1  # 40 days apart is one year
+
+
+def test_a_note_plots_at_what_it_is_about_not_when_it_was_typed(client, session):
+    """The reason this is more than ORDER BY created_at: §10A resolved the
+    relative time in note text, so "the deadline is next friday" knows which
+    Friday and belongs there."""
+    note = _save(client, "the deadline is next friday")
+    body = client.get("/timeline?scale=day").json()
+    placed = next(n for n in body["notes"] if n["id"] == note["id"])
+
+    assert placed["placed_by"] == "mentioned"
+    assert placed["phrase"] == "next friday"
+    assert placed["at"] > placed["written_at"], placed
+    # A note with no dates in it stays where it was written, and says so.
+    plain = _save(client, "no dates in this one")
+    again = client.get("/timeline?scale=day").json()
+    written = next(n for n in again["notes"] if n["id"] == plain["id"])
+    assert written["placed_by"] == "written" and written["phrase"] == ""
+
+
+def test_bands_are_the_categories_you_actually_write_in(client, session):
+    _save(client, "pasta recipe", category="Recipes")
+    _save(client, "risotto recipe", category="Recipes")
+    _save(client, "a work thing", category="Work")
+
+    body = client.get("/timeline?group=category").json()
+    names = [band["name"] for band in body["bands"]]
+    assert names[0] == "Recipes", body["bands"]  # biggest first
+    assert dict((b["name"], b["count"]) for b in body["bands"]) == {
+        "Recipes": 2,
+        "Work": 1,
+    }
+
+
+def test_bands_can_be_tags_instead(client):
+    _save(client, "a note", tags=["garden"])
+    _save(client, "another", tags=["garden", "spring"])
+    _save(client, "bare one")
+
+    bands = {b["name"]: b["count"] for b in client.get("/timeline?group=tag").json()["bands"]}
+    assert bands["garden"] == 2
+    assert bands["spring"] == 1
+    assert bands["untagged"] == 1
+
+
+def test_a_long_tail_of_bands_collapses_into_one(client):
+    """A chart with forty lanes is not a chart."""
+    from memorymap.api.routes_timeline import MAX_BANDS, OTHER_BAND
+
+    for index in range(MAX_BANDS + 4):
+        _save(client, f"note {index}", category=f"Cat{index}")
+
+    bands = client.get("/timeline?group=category").json()["bands"]
+    assert len(bands) == MAX_BANDS + 1
+    assert bands[-1]["name"] == OTHER_BAND
+    assert bands[-1]["count"] == 4
+
+
+def test_grouping_can_be_turned_off(client):
+    _save(client, "one", category="Work")
+    bands = client.get("/timeline?group=none").json()["bands"]
+    assert [band["name"] for band in bands] == ["All notes"]
+
+
+def test_private_notes_stay_out_of_the_view(client, session):
+    """Its text is encrypted at rest; a preview in a chart would undo that."""
+    from memorymap.core import vault
+
+    vault.close()
+    vault.create(session, "test-passphrase")
+    session.commit()
+    note = _save(client, "the appointment is tomorrow")
+    client.post(f"/entries/{note['id']}/privacy", json={"private": True})
+
+    body = client.get("/timeline").json()
+    assert [n["id"] for n in body["notes"]] == []
+
+
+def test_binned_notes_stay_out_too(client):
+    note = _save(client, "a mistake")
+    client.delete(f"/entries/{note['id']}")
+    assert client.get("/timeline").json()["notes"] == []
+
+
+def test_a_window_can_be_asked_for(client, session):
+    old = _save(client, "ancient history")
+    _age(session, old["id"], 400)
+    _save(client, "recent")
+
+    year = client.get("/timeline?days=365").json()
+    assert [n["preview"] for n in year["notes"]] == ["recent"]
+    everything = client.get("/timeline?days=0").json()
+    assert len(everything["notes"]) == 2
+
+
+def test_a_scale_or_grouping_it_does_not_know_is_refused(client):
+    assert client.get("/timeline?scale=fortnight").status_code == 422
+    assert client.get("/timeline?group=vibes").status_code == 422

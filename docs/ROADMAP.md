@@ -11,36 +11,56 @@ the part that's expensive to reconstruct.
 Re-prioritised after a round of use. The ordering is by *how often it gets in
 the way*, not by how interesting it is to build.
 
-1. **Skills are not skills** (§21). Reported as: "the way skills are used
-   currently, and what the skills are at the moment, are incorrect and are
-   closer to just presaved mini prompts. I keep trying to get the AI to make
-   me some skills in the chat but it doesn't recognise that it needs to use
-   tools." This is the biggest gap between what the app claims and what it
-   does, and it blocks the agent being useful at all. **Still the top item,
-   and nothing below it should jump the queue.**
-2. **Web search still returns nothing** (§8b). Partly addressed — see below —
-   but the underlying "SearXNG starts and never answers" is still open, and
-   it is now *debuggable* rather than a guess: the instance's own output is
-   captured to `data/searxng/searxng.log` and shown in Settings → Web search.
-   The next session should read that log rather than theorising.
+1. ~~**Skills are not skills** (§21)~~ **rebuilt, and running one is a job
+   now.** A skill has ordered steps, a tool allowlist and declared inputs;
+   `save_skill` takes steps and tools, so "make me a skill that files my inbox
+   notes" has somewhere to put them. Running one executes **a step per turn**,
+   ticking each off, naming the step that failed, and ending in a list of what
+   changed with an Undo on each. The allowlist is both the safety property and
+   the §11a win: a run offers its own tools instead of all 28 (1,963
+   characters of schema instead of 10,215). What is left is small — see §21.
+2. **Web search still returns nothing** (§8b). **Two causes found and fixed
+   this session, both Windows-only, both reported by the user rather than
+   found in the log** — see §8b. The install error (`does not appear to be a
+   Python project`) and "started but never answered" were the same class of
+   mistake: a POSIX idiom that does something else on Windows. Unverified on
+   Windows itself — the sandbox is Linux — so the next session should confirm
+   with the user before assuming this one is closed.
 3. **Token usage in chats** (§11a). Asked directly: "is there a way to reduce
    excessive token usage in the chats?" A 3-turn chat is showing 8.7k tokens.
    The history and the retrieved notes are resent whole on every turn.
    *Measured since:* the fixed overhead alone — system prompt plus all 28 tool
    schemas — is ~3,050 tokens per round, and 77% of that is the schemas, not
    the prose. `agent.PROMPT_BUDGET_CHARS` now caps it and a test enforces the
-   cap. **The remaining win is offering fewer tools per turn, not more
-   trimming of words.**
+   cap. ~~The remaining win is offering fewer tools per turn~~ **done, both
+   halves.** A skill run offers only the tools it declared (1,963 characters
+   of schema rather than 10,215); an ordinary turn is now read for what it
+   plausibly needs (`tools.focus_for`), which takes the *fixed* overhead of a
+   typical question from ~3,157 tokens to ~1,439. **What is left here is the
+   variable half**: the retrieved notes and the history are still resent
+   whole on every turn, and nothing has measured which of those dominates a
+   real 3-turn chat. Log the prompt-token count per round before cutting.
 4. ~~**Markdown rendering for notes** (§22)~~ **done.** Inline only — bold,
    italic, `code`, strike — because `renderMarkdown`'s block elements make a
    note list enormous, which is the problem §22 itself flagged. Wiki links and
    filter highlighting both still work inside emphasis. The dashboard's little
    note lists *strip* the markers instead, since they clip at ~70 characters.
-5. **Note timeline** (§10). Asked for repeatedly, now with more shape: see
-   notes on a time axis, grouped by event, place or theme. **This is now the
-   biggest unbuilt feature after §21.**
+5. ~~**Note timeline** (§10)~~ **both halves built.** Relative time is
+   resolved at capture (`entry/timewords.py` → `entry_dates`) and there is a
+   **Timeline tab**: a time axis across, bands down the side (category, tag or
+   none), and every note plotted at what it is *about* where it says so —
+   "the beans need netting next week" sits on that week, marked 🕓 — and at
+   when it was written otherwise. What is left is in §10: an `events` table so
+   the bands can be events and places rather than only categories and tags.
 6. ~~**A hero header on the dashboard** (§22)~~ **done** — emblem and wordmark
    inside the greeting card, hidden below 720px.
+
+**Where this session got to.** Items 1–6 above are all closed. The body
+sections below are the backlog now, and the ones with the most left in them
+are §9 (the graph's *utility* — paths between notes, clusters, drag-to-link;
+the layouts are done), §1 (the live log console), §3 (Chat/Agent/Browse
+sub-tabs) and §4 (the Library tab). §5's "attach documents to notes" is done
+— see below.
 
 > **Check the running app before building anything here.** This document
 > describes intent, and it drifts. An audit of §2 found four of its six "quick
@@ -155,7 +175,13 @@ thing. Don't ship one you couldn't test.
     their content. `overflow-x: auto` on the child does nothing until every
     ancestor has an explicit floor. This one bug produced three separate
     reports before it was understood.
-11. **A control that "does nothing" is usually working.** Four reported cases,
+11. **A POSIX idiom can mean something else on Windows, silently.** Two bugs
+    in one module: `os.kill(pid, 0)` terminates the process on Windows rather
+    than asking about it, and `shutil.rmtree(ignore_errors=True)` cannot
+    delete a read-only file there, so it half-deletes the tree and reports
+    success. Both ran on every settings-screen poll. The user runs Windows;
+    the sandbox does not, so nothing here reproduces either one.
+12. **A control that "does nothing" is usually working.** Four reported cases,
     three of which wrote correctly and were then overridden — by CSS source
     order, by a status poll repainting from the server, or by living in a
     hidden section. Check the *computed* result, not the handler.
@@ -166,6 +192,39 @@ thing. Don't ship one you couldn't test.
 
 Newest at the top. Everything here is on `main` (or the branch merging into
 it), verified, and must not be rebuilt.
+
+**Skills are jobs now, not saved sentences (§21, the top item).** Steps, a
+tool allowlist, declared inputs, and a plan drawn in the timeline before
+anything runs. `save_skill` takes steps and tools, so the AI can write a real
+one. The built-ins moved from `app.js` to `ai/skills.py` and are served from
+`GET /skills`.
+
+**And running one is a job, not a paragraph.** `ai/skill_runner.py` executes
+one step per turn, so the app knows where it got to: steps tick off as they
+finish, a failed step is named with its reason and stops the run, and the run
+ends in a list of what changed with **View** and **Undo** on each row. The
+undo is a tool call captured before the write and replayed through
+`POST /chat/tools/execute`. Every built-in was rewritten as a real job with
+steps and declared inputs, asked for in one dialog before the run.
+
+Driven in Chromium: chips load from the server, the editor saves and refuses
+a bad skill by name, the input dialog refuses a blank required field, steps
+tick and a failure shows its reason, Undo really undoes it, the whole run
+replays after a reload, 0px of horizontal overflow, no page errors.
+**Don't redo:** the skill schema, the runner, the allowlist plumbing, the
+editor, the plan/step/result UI.
+
+**SearXNG installs and runs.** Five separate bugs, three of them fatal on
+every OS and none of them visible in the log, because they all happened
+before SearXNG wrote a line: the repository cannot be checked out on Windows
+(four filenames contain a colon), `pip install -e .` cannot build it at all
+(its setup.py imports a runtime dependency), a plugin downloads a file at boot
+and kills the process if that fails, `os.kill(pid, 0)` terminates the process
+on Windows instead of checking it, and `rmtree(ignore_errors=True)` leaves a
+git checkout half-deleted there while reporting success. Verified end to end
+here — installed, started, answered its JSON API, passed the app's own probe.
+Full write-up in §8b. **The two Windows-specific fixes are unverified on
+Windows** — ask the user.
 
 **Web search has its own settings screen now.** It was four controls two
 thirds of the way down Preferences, which is why every error message saying
@@ -426,9 +485,70 @@ Checked against the running app, not assumed:
   What's missing is the *conversational* shape: ask a question about the
   document without it proposing an edit.
 - **A real document browser** — the sidebar list is not a gallery
-- **Attach documents to notes** — still nothing
+- ~~**Attach documents to notes**~~ **done.** Asked for directly: "a way to
+  link documents to new notes I create in the capture tab… the documents and
+  notes sections and features need to be more integrated together." The
+  capture box has an *Add to document* picker, so the connection is made while
+  it is obvious rather than after the note is buried in a list; the note card
+  carries a 📄 chip that opens the document; the document lists the notes it
+  draws on, each with a detach button. `document_links` is its own table
+  because the relationship is many-to-many and neither side owns the other —
+  detaching removes a connection, never a note, and binning a note takes it
+  out of the document's list on its own.
+
+  Asked again straight afterwards — *"also what about adding a document to a
+  note??"* — because a capture-time picker only helps the notes you have not
+  written yet, and the ones that turn out to belong to a document are usually
+  the old ones. **📄 Add to a document** in a note's ⋯ menu picks from the
+  documents that note is not already on, and the × on its 📄 chip detaches it
+  from the note's side. Both directions now use the same two routes, so there
+  is one behaviour to reason about rather than two.
 - **Document history** — notes have `EntryRevision`; documents have no
   equivalent table, and the AI edit overwrites on accept
+
+### Asked for this session, not yet built
+
+A round of use produced four requests about documents at once, and they are
+one direction rather than four features: *"I want the documents to be more
+like using Obsidian or Notion."* Ordered by how much each one gets in the way.
+
+- **A mini AI chat bar in the document editor.** Asked for directly: *"a mini
+  chat bar on the documents page to request the ai to do stuff, like write
+  something, edit something specific (the whole document or current selection
+  etc)."* This is the biggest of the four and the closest to already existing:
+  `doc-ai-panel` edits a selection or the whole document and shows the result
+  as a proposal, so the *editing* half is built. What is missing is the
+  **conversational** half — a bar you type an instruction into, in place, that
+  can either answer about the document or propose an edit to it, and that
+  keeps the thread of what you have already asked. Two decisions to make
+  before building it: whether it shares `/chat`'s conversation store (a
+  document's thread is about the document, so probably its own), and whether
+  an instruction with a selection active always means "edit this" (it should
+  — ambiguity there is what makes an AI editor feel unpredictable).
+- **Upload a file as a document, attached to a note.** Asked as *"I want to be
+  able to upload a document to a note"*. Distinct from `📎 Attach a file`,
+  which stores a blob against the note and gives you back a download: this
+  would take a `.md` or `.txt`, make it a real Document with its text in the
+  editor, and link it to the note in one step. The pieces exist — `/files`
+  ingests uploads, `/documents` creates, `document_links` joins — so this is
+  mostly a route that does the three together, plus deciding what to do with a
+  `.docx` or a PDF (probably: refuse politely rather than half-convert).
+- **Obsidian/Notion editing.** The editor is a `<textarea>` with a preview
+  beside it. What people mean by this request, roughly in order of how much
+  each is missed: `[[wiki links]]` between documents (notes already have them
+  — the parser is in `renderNoteText`), a `/` command menu at the cursor,
+  drag-and-drop images that land as markdown, backlinks ("what links here"),
+  and live-preview editing where the markup renders in place instead of in a
+  second pane. The last one is the one that would change the feel and also the
+  one that means giving up the textarea — worth doing deliberately, and last.
+- **Documents on the graph and the timeline.** Asked as *"docs should also
+  probably show on the graph and timeline"*. Both views are built around
+  `Entry` and would need a second node/point kind. The design question is not
+  technical: a document is not a note, and drawing it as one would say the
+  wrong thing. On the graph it wants its own shape and to sit where its notes
+  are (it is a hub over them, which is exactly what `document_links` records);
+  on the timeline it wants to be a band or a marker rather than a dot, because
+  a document is written over weeks and a note happens at a moment.
 
 ---
 
@@ -467,7 +587,19 @@ where the genuine embedded browser from §3 becomes possible.
 
 ---
 
-## 8. Open bug list — now empty
+## 8. Open bug list
+
+- ~~**The dashboard's widgets are missing until you switch tabs**~~ **fixed.**
+  Reported as *"initially when I load up the app the dashboard widgets are
+  missing until I refresh or change tabs and go back on it again"*. `startApp`
+  fired `loadEntries` and `refreshActiveTab` as two independent steps, so on a
+  cold load the dashboard rendered against an `allEntries` that was still `[]`
+  and drew its brand-new-notebook card — which is correct for an empty
+  notebook and wrong for one that has simply not arrived yet. The tab render
+  now waits for the entries, and the empty-state card is gated on a flag that
+  says the fetch has actually happened, because "empty" and "not loaded" are
+  indistinguishable from a length alone.
+
 
 Every reported bug in this section has been reproduced in Chromium and fixed.
 What follows is kept as a record of *what each one actually was*, because in
@@ -523,27 +655,136 @@ recurring causes are now written up as invariants in `docs/ARCHITECTURE.md` §10
 
 ---
 
-## 8b. Web search — diagnosed, not yet fixed
+## 8b. Web search — two Windows bugs found, and what is left
+
+~~**Port 8888 being taken was a dead end.**~~ **fixed.** Asked directly: *"is
+there a way to change the port if it is full?? maybe like 8080 or smth"*. The
+port report said "close whatever has it", which assumes the user can — often
+they cannot, and the thing holding it may be something they need. `start()`
+now settles a port first: the wanted one, else 8080/8081/8890/8899, with
+`MEMORYMAP_SEARXNG_PORT` to name one. A SearXNG *already answering* on the
+wanted port beats a free one, because that is ours from a previous run and
+moving would start a second copy beside it.
+
+**Seen in a log this session, not yet fixed:** a start attempt and an install
+can be in flight at the same time. The user's log shows `SearXNG didn't answer
+within 90s. Its own output was: (nothing — it wrote no output at all)` at
+6:54:06, with the install still unpacking at 6:53:12 and writing the `pwd`
+shim at 6:54:11 — so the start was waiting 90 seconds for an interpreter that
+was still being built. Nothing is broken by this beyond the wasted wait and a
+misleading error, but the error is the one the user sees, and it accuses the
+wrong thing. `start()` should refuse while `_install_state["running"]` is set
+and say the install is still going, rather than time out against it.
 
 The diagnosis from §8 shipped and is working: the app now says "DuckDuckGo is
 rate-limiting this app rather than returning results" instead of showing an
 empty panel, which is confirmed in use. That was the whole point — the failure
-is now legible. It is not, however, fixed.
+is now legible.
 
-**The fix is SearXNG, and SearXNG still doesn't start.** The installer no
-longer needs Docker or git, and the process does start, but the health check
-times out.
+**The fix is SearXNG, and this session found five reasons it couldn't work.**
+None was in the log, which is why reading the log first did not find them —
+three of the five happen before SearXNG writes a line, and the other two are
+Windows-only.
 
-**The debugging groundwork is done — go and read the log.** `_start_source`
-used to send stdout and stderr to `DEVNULL`, which is why the message was a
-guess about the port. It is now captured to `data/searxng/searxng.log`,
-truncated per start, quoted in the failure message, and shown in a fold on
-Settings → Web search. There is also a `↻ Reinstall` button (wipes the venv
+**Read this first: SearXNG now installs, starts, answers its JSON API, and
+passes `websearch.probe_searxng`, verified in this sandbox.** Everything below
+was reproduced rather than deduced. The one part still unverified is the
+download itself, because the sandbox proxy blocks the archive URL.
+
+**3. `git clone` can never work on Windows.** Reported mid-session:
+*"Couldn't download SearXNG: fatal: unable to checkout working tree"*. Four
+files in the repository have a colon in the name —
+`utils/templates/etc/nginx/default.apps-available/searxng.conf:socket` and
+three like it. A colon separates a drive letter, so Windows refuses the name,
+git fetches every object and then dies at the checkout, **leaving the
+half-written folder that produced bug 2 above**. Nothing about it is
+transient; retrying could never help. `pip install <tarball-url>` — the
+"install without git" path — unpacks the same files and fails the same way, so
+both paths were broken there. Fixed by downloading the archive and unpacking
+it ourselves, skipping members this filesystem can't hold (they are nginx and
+uwsgi deployment templates) and any that would escape the folder. git is no
+longer used at all.
+
+**4. `pip install -e .` can never work, on any OS.** SearXNG's `setup.py`
+imports `searx` for its version, `searx/__init__.py` imports `msgspec`, and
+pip builds in an isolated environment that has neither —
+`ModuleNotFoundError: No module named 'msgspec'`, before setup.py can declare
+a requirement. `requirements.txt` now goes in first and the package is built
+with `--no-build-isolation`, which is exactly what SearXNG's own `manage`
+script does.
+
+**5. The `tracker_url_remover` plugin kills the process at boot.** It
+downloads a rules file from `rules1.clearurls.xyz` during `init` and does not
+catch a failure, so SearXNG exits before binding the port on any machine that
+is offline, proxied or slow. Confirmed here: with the plugin on, the process
+died in init; with it off (in the generated `settings.yml`) it booted and
+answered. MemoryMap strips tracking parameters itself, so nothing is lost.
+
+**And the two Windows-only ones, from earlier in the session** — the same
+mistake twice: a POSIX idiom that means something different on Windows.
+
+**1. "SearXNG started but never answered" — we were killing it.** `_alive()`
+asked `os.kill(pid, 0)`, the POSIX way to check a process exists without
+touching it. On Windows every signal except `CTRL_C_EVENT`/`CTRL_BREAK_EVENT`
+is handed to `TerminateProcess`, so that call *ended* the process (exit code
+0) and then returned True. `status()` asks `_source_state()`, which asks
+`_alive()`, and the settings screen polls `status()` every three seconds — so
+a freshly started SearXNG was shot within seconds of starting, every time,
+and the app reported that it started and never answered. That is exactly the
+symptom this section was named after. `_alive` now uses
+`OpenProcess`/`GetExitCodeProcess` on Windows; `_terminate` is the only thing
+that signals.
+
+**2. "does not appear to be a Python project" — reported directly:**
+
+    Couldn't install SearXNG: ERROR: file:///C:/Projects/MemoryMap-AI-v0/
+    data/searxng/src does not appear to be a Python project: neither
+    'setup.py' nor 'pyproject.toml' found.
+
+`install_source` skipped the download when `data/searxng/src` *existed* and
+handed the folder to `pip install -e`. Reinstalling didn't help because
+`uninstall_source` used `shutil.rmtree(..., ignore_errors=True)`, and git
+marks `.git/objects` read-only, which Windows enforces — so the wipe deleted
+the writable files, left the folder standing, and said it had removed it. The
+next install then found the folder, skipped the clone, and reproduced the
+error exactly. Fixed at all three points: `is_checkout()` asks what is *in*
+the folder, `_remove_tree()` clears the read-only bit (and moves the tree
+aside if it still can't delete it) and reports what survived, and the
+installer verifies `import searx` in the new venv before calling it done.
+
+**The two Windows-only fixes are not verified on Windows** — this sandbox is
+Linux, and the behaviour that was wrong is precisely the behaviour that
+cannot be reproduced here. The tests pin the logic
+(`tests/test_searxng_install.py`), but ask the user whether SearXNG now
+installs and stays up before treating §8b as closed.
+
+**6. `import pwd` — SearXNG cannot be imported on Windows.** Reported with a
+photo: the install finally *finished*, and the start died with
+`ModuleNotFoundError: No module named 'pwd'` from `searx/valkeydb.py` line 22.
+`pwd` is POSIX-only. It is the **only** POSIX-only import in the whole
+package, and the only thing it is used for is naming the current user in one
+error message when a Valkey DB connection fails — a branch that is
+unreachable unless a Valkey URL is configured, which MemoryMap never does. A
+`pwd` stand-in is written into SearXNG's own virtualenv where the platform
+hasn't got one; patching SearXNG's source instead would mean matching text
+upstream is free to change and re-applying it after every update.
+
+The install's final check was also too shallow to have caught it: `import
+searx` passed on Windows and the *start* then died on `searx.webapp`. It
+checks `searx.webapp` now, with the same environment a start uses — verifying
+against SearXNG's own defaults verifies something nobody runs, since it
+refuses to start on its placeholder `secret_key`.
+
+**What is still unknown.** Whether search *results* come back on the user's
+machine. Every engine returned "access denied" in the sandbox because the
+proxy blocks them, so the one thing this session could not test is the one
+thing the feature is for. If results are empty on a real network, the log at
+`data/searxng/searxng.log` will now say why — it finally contains the output
+of a process that booted properly. Do not theorise ahead of it.
+
+Also present, from earlier sessions: a `↻ Reinstall` button (wipes the venv
 and checkout, keeps `settings.yml` and its secret key) and a port line saying
 whether 8888 is free, held by a working SearXNG, or held by something else.
-
-**So the next step is no longer speculative.** Start it, read what it printed,
-fix that. Do not theorise ahead of the log.
 
 The one thing already ruled out: the generated `settings.yml` *does* include
 `- json` under `search.formats`, so the 403-from-a-missing-format theory is
@@ -564,17 +805,77 @@ utility and ways to use and visualise my notes", "it's still kinda plain — it
 needs more life and design style". `main` made it keyboard-operable; it is still
 a plain force-directed blob that doesn't fill its own panel.
 
-**Visual identity — offer several map styles**, not one:
+**Layouts — the shape the notes are arranged in.** Asked for directly: "can
+you add different types of graph views… like tree graph diagrams and the
+like". These are separate from *styling*: a layout decides where a note goes,
+a style decides what it looks like once it is there. Layouts first, because a
+force-directed blob is the thing that makes the graph hard to read, and no
+amount of styling fixes it.
 
-- **Galaxy / starfield** — categories as spiral arms, notes as stars sized by
-  access count, links as faint filaments. The dashboard's "notebook
-  constellation" widget already proves the aesthetic works.
+The notebook has three different structures in it, and each one wants a
+different picture:
+
+| Structure | Where it comes from | Layout that shows it |
+| --- | --- | --- |
+| Hierarchy | category → note, and `parent_id` threads | tree, radial tree, treemap, sunburst |
+| Network | `entry_links` (wiki links, AI links) | force, arc diagram, adjacency matrix |
+| Sequence | `created_at`, `entry_dates` (§10A) | timeline-graph, growth animation |
+
+- ~~**Tree**~~ **built.** Root → category → note, with a note's replies nested
+  under it, so a train of thought reads as one branch. This is the layout the
+  request was about, and it is the one that suits a notebook with few links
+  and many categories — which is most notebooks before the graph has been
+  used much.
+- ~~**Radial tree**~~ **built.** The same hierarchy wrapped into a circle:
+  denser, and it makes the *shape* of a notebook obvious — a fat arc is a
+  category you write in constantly.
+
+  Both were first built by handing d3 the panel's dimensions as a bounding
+  box, which is the wrong instruction: `d3.tree().size([...])` divides the
+  height by the number of leaves, so a 29-note notebook got eighteen pixels a
+  row and printed its labels on top of each other. Reported with a photo —
+  *"the graph tree and radial are a bit hard to read and aren't neat"*. The
+  fix is a set of rules about **what a label needs**, not about what the panel
+  has: the tree uses `nodeSize` and pans when it is taller than the panel
+  (zooming out only when the whole thing nearly fits, because a tree you
+  scroll beats one you cannot read); the radial computes its rings from the
+  note count, the category count and the panel, and rings **by depth** rather
+  than by d3-cluster's height — cluster put a category containing a thread one
+  ring closer in than its siblings, which is what made the circle look ragged.
+  Three collisions only a browser can find were fixed on the way: a stylesheet
+  rule beating the `text-anchor` presentation attribute so no side-label ever
+  moved, a flipped left-half label whose offset sent it back across its own
+  node, and a 55%-transparent label halo that let a thread edge show through
+  the words it ran behind. All of it is asserted on measured geometry — the
+  labels' real rotated corners, separated by a separating-axis test, because
+  the axis-aligned box around diagonal text overlaps when the words do not.
+- **Mind map from one note** — pick a note as the root and lay everything else
+  out by hops along `entry_links`. Different from the tree above: the
+  hierarchy there is filing, here it is connection.
+- **Treemap / sunburst** — area as weight, so a category with 200 notes looks
+  like one. Best for "where does my writing actually go?", and the only layout
+  here that answers a question about proportion.
+- **Arc diagram** — notes on one line, links as arcs above it. Ugly for
+  browsing, excellent for spotting the one note everything connects to.
+- **Adjacency matrix** — no crossing edges at all, so it stays readable when a
+  force graph has turned into wool. Worth it only once there are hundreds of
+  links.
+- **Timeline-graph** — the graph laid out left-to-right by date, links as
+  arcs. §10's Timeline tab does the axis; this would do the axis *and* the
+  links, which is the one thing neither view has.
+- **Subway map** — orthogonal edges, categories as lines. Beautiful and
+  genuinely hard: it needs edge routing, which is real work rather than a
+  layout call.
+
+**Styling — the same layout, dressed differently.** These are skins over
+whichever layout is picked, not layouts of their own:
+
+- **Galaxy / starfield** — notes as stars sized by access count, links as
+  faint filaments. The dashboard's "notebook constellation" widget already
+  proves the aesthetic works.
 - **Sea chart** — islands per category, notes as landmarks, links as shipping
   routes, unlinked notes adrift. Parchment palette pairs with it.
-- **Subway map** — orthogonal edges, categories as lines. Best for dense,
-  heavily-linked notebooks.
-- **Mind map / radial tree** — one note at the centre, everything else by hops.
-- Plain force-directed stays the default; the rest are a picker.
+- Plain force-directed stays the default; everything else is a picker.
 
 **Fit and framing.** It should size to its panel and re-fit on resize, with
 zoom-to-fit, zoom controls, and a minimap for large notebooks.
@@ -602,36 +903,58 @@ what those phrases *resolved to*.
 
 **Two halves, and the first is worth doing alone:**
 
-**A. Resolve relative time at capture.** When a note is saved, extract temporal
-expressions and store the absolute date each one resolved to, alongside
-`created_at`. Then:
+~~**A. Resolve relative time at capture.**~~ **done.** Every note's temporal
+phrases are resolved when it is saved (and re-read when its text is edited)
+and stored in `entry_dates` with the phrase beside the date — the resolution
+is a rule, not a fact, and a reader can only disagree with it if both are
+visible. `entry/timewords.py` is deterministic regexes and arithmetic, not a
+model call: it runs on every save, including with Ollama off, and is
+best-effort so it can never stop a note being saved. Private notes are
+excluded, and marking a note private clears what was already stored — the
+same reasoning as dropping its embedding.
 
-- Show it inline — "yesterday" with the real date on hover, or a subtle chip
-- Tag notes that contain relative time, so they're findable as a class
-- Let the AI answer "what did I mean by *last week* in that note?" correctly
-- Let it suggest actions on stale ones ("this said 'tomorrow' three weeks ago —
-  did it happen?")
+Handled: today · tonight · this morning/afternoon/evening · tomorrow ·
+yesterday · last night · the day before/after · this/last/next week, month,
+year · "in N days/weeks/months" · "N days/weeks ago" · "last/next/this/on
+<weekday>". Precision is kept, so "last week" shows as a week rather than
+being flattened to a day. The weekday rule is written down in the module,
+because both readings of "next Friday" exist and consistency is the most that
+can be offered.
 
-Do the extraction with a deterministic parser first (`reminder_parser` already
-does something similar for reminders) and only fall back to the model, so it
-works with Ollama off.
+Shown as a chip on the note (`🕓 last week → week of Jul 20`, with the full
+date on hover) rather than marked up inside the text: `renderNoteText`
+already layers wiki links, inline markdown and filter highlighting through
+each other, and a fourth pass over the same string is where that breaks. The
+resolved dates also travel in `get_note`/`search_notes` results, so the model
+can answer "what did I mean by *last week* in that note?".
 
-**B. A Timeline tab.** An event tree of what has happened, is happening, and
-will happen:
+**Still open from A:** tagging notes that contain relative time so they are
+findable as a class, and nudging on stale ones ("this said 'tomorrow' three
+weeks ago — did it happen?"). Both are queries over `entry_dates` now that
+the data exists.
 
-- Notes place themselves on it by their resolved dates, not just creation date
-- **Grouped, not just sequential.** Asked again with more shape: "I want a note
-  timeline where I can see notes visually by what time they were made. Maybe I
-  can even group them by events or related places etc." So the axis is time,
-  but the *bands* are events, places or themes — which is what makes it a map
-  of what happened rather than a sorted list. Places and themes can be derived
-  from what is already stored (categories, tags, embeddings); events need §10's
-  `events` table.
-- Reminders and their completion appear as events
-- The AI can add events, and link notes to them
-- Past / present / future as one continuous view, zoomable from days to years
-- Branches for parallel threads, since "everything that is, has, and will
-  happen" is a tree, not a line
+~~**B. A Timeline tab.**~~ **built, first version.** A time axis across, one
+band per category or tag down the side (or none), and a bucket size you pick —
+day, week, month, year. Every note plots at what it is *about* where §10A
+resolved a date from its text, and at when it was written otherwise; a note
+moved by what it says is marked 🕓 and says so on hover, because a timeline
+that silently relocates notes looks broken rather than clever. Clicking a note
+opens it.
+
+Drawn as a CSS grid rather than SVG: every cell is a real element, so it
+scrolls, tabs and reads aloud without any of that being hand-built. Bands are
+capped at eight plus an "Everything else" lane — a chart with forty lanes is
+not a chart.
+
+**Still open here:**
+
+- **Events as bands.** The shape this slots into: one more `group` value, once
+  there is an `events` table. Places and themes can be derived from what is
+  already stored; events cannot.
+- **Reminders and their completion** as points on the axis.
+- **Zoom from days to years as a gesture**, rather than a bucket picker, and
+  branches for parallel threads — "everything that is, has and will happen" is
+  a tree, not a line.
 
 **Data shape:** a new `events` table (`title`, `at`, `precision`, `kind`,
 `entry_id?`, `source`), plus `entry_dates` for resolved expressions. Both
@@ -640,6 +963,89 @@ additive.
 ---
 
 ## 11. Performance, accuracy and AI efficiency
+
+### Headroom — evaluated, not adopted
+
+Asked: *"is it worth trying to analyse and implement something like headroom
+for token efficiency?"* ([headroomlabs-ai/headroom][hr] — Apache-2.0, 62k
+stars, active). It compresses tool outputs, logs and RAG chunks before they
+reach the model: 60–95% off JSON, 15–20% for coding agents, with benchmark
+accuracy held. It is a good project. It is the wrong fit here, for three
+reasons that are about **this** app rather than about it:
+
+1. **There is no token bill.** Ollama runs on the user's own machine, so a
+   token costs latency and context window, not money. Headroom's headline
+   numbers are savings on a metered API.
+2. **It would compete for the same CPU.** The compression path wants ONNX
+   Runtime and a transformer of its own, running immediately before the local
+   LLM on the same hardware. Saving 1–2k tokens of prefill by spending an
+   inference pass is very likely net-negative on wall-clock for a 7B model on
+   a laptop — and it needs AVX2, which is not a promise this app can make.
+3. **The JSON it would compress is the JSON that cannot be compressed.**
+   This one was worth measuring rather than assuming, and the measurement
+   moved the answer. A representative agent prompt — ten retrieved notes, two
+   turns of history, focused tools:
+
+   | Part | Chars | Share |
+   | --- | ---: | ---: |
+   | System prompt (prose) | 2,521 | 34.4% |
+   | History (prose) | 77 | 1.1% |
+   | Notes + question (prose) | 1,381 | 18.9% |
+   | **Tool schemas (JSON)** | **3,340** | **45.6%** |
+   | Total | 7,319 | |
+
+   So the prompt *is* nearly half JSON — more than expected. But that JSON is
+   the **tool schemas**, and Headroom compresses tool *outputs*, logs, files
+   and RAG chunks. A schema is a contract the runtime parses to constrain the
+   model's tool calls; compress it and the calls stop being valid. It is the
+   one JSON block in this prompt that has to go verbatim.
+
+   What is genuinely in scope: the notes (18.9% — this is the RAG-chunk case
+   Headroom is built for) and the tool results appended during a loop, which
+   are already hand-shaped summaries (`_note_summary`: id, preview, category,
+   tags, dates). At its own headline 60% on the addressable part, that is
+   roughly 11% off the prompt — real, but not the 60–70% the numbers suggest
+   at a glance, and not worth ONNX Runtime to get.
+
+   **The 45.6% is still the thing to attack — just not with compression.**
+   `focus_for` already took it from 10,215 to 3,340 characters. Getting it
+   lower is more schema pruning: shorter descriptions, fewer tools per focus,
+   dropping parameters with obvious defaults. That is the highest-leverage
+   work left in this section and it costs nothing but care.
+
+Set against a **hard** cost: ONNX Runtime plus a model download, in an app
+whose whole proposition is offline, self-contained and light — one that
+vendors d3 and p5 locally rather than take a CDN.
+
+**What was worth taking from it, and cost nothing:**
+
+- ~~**Prefix-cache alignment** (their CacheAligner)~~ **done, and it found a
+  real bug.** The idea is to keep the front of the prompt byte-identical so
+  the provider's KV cache survives. Checking ours against that: the system
+  prompt carried `local.isoformat()` — *microseconds* — above the history and
+  the notes. Every round of every turn differed from the last, so Ollama's
+  prefix cache could never hold anything below that line, and each round of a
+  tool loop re-read the entire prompt. Now to the minute, which is identical
+  across the rounds of one loop and still correct for everything the app does
+  with it ("remind me in 10 minutes" is not resolved to the second).
+- ~~**Reversible compression** (their CCR — send a short form, let the model
+  fetch the original on demand)~~ **done.** A note now goes into the prompt
+  capped at `MAX_NOTE_CHARS` (900), cut with a marker naming the call that
+  reads the rest: `… [cut — call get_note(7) to read it in full]`. Safe only
+  because the model can undo it, which is the whole idea — and the tools guide
+  already told it to call `get_note` before quoting. Most notes are a line or
+  two and are untouched; ten notes of 4,000 characters used to be 40,000 and
+  now fit the budget.
+- **Verbosity steering.** Output tokens are half the latency and are not
+  budgeted at all. A style hint already exists; a length hint does not.
+
+**Before any more of this: measure.** §11a was done by counting characters of
+tool schema, which is why it worked. "A 3-turn chat shows 8.7k tokens" is not
+yet broken down into system / tools / history / notes / question, and until it
+is, the next optimisation is a guess.
+
+[hr]: https://github.com/headroomlabs-ai/headroom
+
 
 **Why.** Asked: "make sure all the code, processes, and AI usage is fully
 optimised and efficient", and "more ways to make the program and AI more
@@ -864,7 +1270,7 @@ Deserves one deliberate pass rather than more ad-hoc fixes:
 
 ---
 
-## 21. Skills — a rebuild, not a tweak
+## 21. Skills — rebuilt; what is left
 
 **Why.** Reported directly: "the skill system also needs a remake. The way
 skills are used currently, and what the skills are at the moment, are
@@ -872,48 +1278,66 @@ incorrect and are closer to just presaved mini prompts. I keep on trying to
 get the AI to make me some skills in the chat but it doesn't recognise that it
 needs to use tools and how to properly utilise the workspace."
 
-**That description is accurate.** A skill today is `{name, prompt}` in
-preferences. Clicking one drops its prompt into the chat box. `save_skill`
-stores a name and a string. There is no notion of what a skill *does*, no
-tools it is allowed to use, no steps, no inputs, no way to tell whether
-running one worked. It is a text snippet with a button.
+**That description was accurate**, and the shape has changed. A skill was
+`{name, prompt}`; clicking one dropped its prompt into the chat box, and
+`save_skill` stored a name and a string — so "make me a skill that files my
+inbox notes" could only produce another sentence, because the storage had
+nowhere to put the steps. Fixing the prompt alone would not have helped.
 
-**What a skill should be.** A named, repeatable job over the notebook:
+**What a skill is now** (`ai/skills.py`, one validator for every way in):
 
-- **Inputs** — declared, so a skill can be "file everything tagged `inbox`"
-  rather than a sentence hoping the model guesses the tag.
-- **Tools it may use** — an explicit allowlist. Both a safety property and a
-  prompt: naming the three tools a skill needs is what makes a small model
-  reach for them, which is the reported failure.
-- **Steps** — ordered, each one a tool call or a model call, so a skill can be
-  replayed and its progress shown against the plan (this is also §18's missing
-  plan/progress, and the two should be built together).
-- **A result** — what changed, as a list the user can undo, rather than prose
-  claiming something happened.
+- **prompt** — what it should do. A skill with only this behaves exactly as it
+  did before, which is why nothing was lost.
+- **steps** — ordered instructions, numbered into the run instruction and
+  drawn as a plan at the top of the step timeline before anything runs.
+- **tools** — an explicit allowlist. Only those schemas go on the wire and
+  anything outside the list is refused at execution, so it is a safety
+  property and not just a prompt. It is also §11a: the full registry is 10,215
+  characters of schema on *every round*; "🏷 Auto-tag my notes" ships 1,963.
+- **inputs** — declared `{{placeholders}}`, asked for before the run. A
+  placeholder with no input behind it is refused on save, in the editor and in
+  `save_skill` alike, because the alternative is a model handed a literal
+  `{{tag}}` inventing a value.
 
-**Why the AI can't currently make one.** `save_skill` takes a prompt string,
-so "make me a skill that files my inbox notes" can only produce another
-sentence. It cannot express the steps because the storage has nowhere to put
-them. Fixing the prompt alone will not help — the shape has to change first.
+Two decisions worth keeping:
 
-**Order.** Schema for a skill (additive), then `save_skill` accepting steps,
-then a runner that executes them with progress, then the UI. The existing
-prompt-only skills should keep working as a one-step skill so nothing is lost.
+**The built-in skills moved out of `app.js`** and are served from
+`GET /skills` with the user's own. The server could not previously resolve a
+skill the user clicked, `list_skills` answered "you have none" while ten were
+on screen, and every field added to a skill had to be added twice.
 
-**Read §11a before starting.** A skill's declared tool allowlist is the thing
-that makes a small model reach for tools — that is the reported failure — but
-every tool schema costs the same per-round budget that
-`agent.PROMPT_BUDGET_CHARS` now caps, and `tests/test_prompt_budget.py` will
-fail if this work pushes it over. That is a feature, not an obstacle: **a
-skill naming its three tools is an argument for offering only those three
-during the skill's run**, which is simultaneously the §11a win and the thing
-that makes the skill work on a 3B model. Build them together; the allowlist is
-the same data structure either way.
+**The declared tools are named in the instruction text as well as narrowed on
+the wire.** Not redundancy: the reported failure was a model that *had* tools
+and did not know it was meant to act, and telling a 3B model "use `tag_note`"
+is what makes it reach for one.
 
-Where the code is today: skills are `{name, prompt}` (plus a `useTools` flag
-the frontend adds) in the `skills` preference, validated by `SkillItem` in
-`routes_settings.py`, with `_list_skills` / `_save_skill` / `_delete_skill` in
-`ai/tools.py` and `BUILTIN_SKILLS` + `runSkill` in `app.js`.
+**And what running one now does** (`ai/skill_runner.py`):
+
+- **One turn per step.** Not one request carrying a numbered list — that is a
+  plan the model may ignore, and a 3B model given four instructions at once
+  does the first and narrates the rest. The app knows which step is running,
+  so the UI ticks them off as they finish.
+- **A step that fails is named**, with the reason, and the run stops there
+  instead of ploughing on. §21 asked for exactly this.
+- **The run ends in what changed**, not prose claiming something happened:
+  a list of every write, each with a **View** and — where an inverse exists —
+  an **Undo**. The undo is a tool call captured *before* the write and run
+  through `POST /chat/tools/execute`, the same endpoint the confirm button
+  uses. It is stripped out of what the model sees, since every field left in
+  a tool result is resent on every later round.
+- **Every built-in is a real job**: steps, tools, and declared inputs asked
+  for in one dialog before the run. "Draft an email" asks who and what
+  instead of spending a chat round on it.
+
+**Still to do:**
+
+- **Re-running a past run.** A skill is repeatable; a *run* is not yet
+  something you can replay over a different set of notes.
+- **Undo the whole run**, rather than one change at a time.
+- **Links and reminders have no inverse tool**, so those two changes are
+  listed without an Undo. `unlink_notes` / `delete_reminder` would fix it, at
+  the cost of two more schemas in the per-round budget (§11a) — worth doing
+  when something else needs them too.
 
 ---
 
@@ -938,9 +1362,23 @@ Small, concrete, each seen in the running app:
   drawn in the dashboard's own render, not at startup: p5 measures a canvas
   as zero inside a `display: none` tab, and it has to be redrawn anyway when
   a theme change moves the accent.
-- ~~**SearXNG starts but never answers** — capture its output.~~ The
-  *capture* is done (see §8b); the underlying start failure is not. Read
-  `data/searxng/searxng.log`.
+- ~~**The chat box can't grow.**~~ **done.** It was an `<input type="text">`,
+  which is one line forever: a three-sentence question scrolled sideways
+  inside a box the width of a chat pane, so you could not read what you had
+  written before sending it. It is a textarea that grows with the text and
+  stops at `AUTOGROW_MAX_PX`, the same cap the capture box uses. Enter still
+  sends; Shift+Enter is a newline, which a single-line input could not offer
+  at all.
+- ~~**A long note fills the list.**~~ **done.** One 800-word note pushed
+  everything else off the screen, so the list stopped being a list. Anything
+  past `LONG_NOTE_CHARS` is clamped with a fade and a "Show more", remembered
+  per note for the session. The trigger is the character count, not a measured
+  height: the notes list renders inside a `display: none` sub-tab, where every
+  measurement is 0 — the trap that has caught four separate features here.
+- ~~**SearXNG starts but never answers** — capture its output.~~ The capture
+  was done first; the cause was found this session and it was us — the status
+  poll's liveness check terminated the process on Windows. See §8b, and
+  confirm with the user before calling it closed.
 
 ---
 

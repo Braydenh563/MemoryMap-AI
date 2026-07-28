@@ -23,6 +23,7 @@ from datetime import timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from memorymap.ai import skills
 from memorymap.core import deps
 from memorymap.core.database import EmbeddingRecord, Entry, Reminder
 from memorymap.core.logbuffer import safe_value
@@ -106,7 +107,7 @@ def _note_summary(session: Session, entry: Entry, chars: int = PREVIEW_CHARS) ->
     and to reference it in follow-up tool calls."""
     text = _readable(entry)
     clipped = _clip(text, chars)
-    return {
+    summary = {
         "id": entry.id,
         "content": clipped,
         "truncated": len(clipped) < len(text),
@@ -114,6 +115,36 @@ def _note_summary(session: Session, entry: Entry, chars: int = PREVIEW_CHARS) ->
         "tags": manager.entry_tags(entry),
         "pinned": entry.pinned,
         "created_at": entry.created_at.isoformat() if entry.created_at else None,
+    }
+    # What the note's own "tomorrow" meant on the day it was written (§10A).
+    # Without this the model reads "the deadline is next Friday" in a note
+    # from March and answers about the Friday coming up.
+    dates = manager.entry_dates(session, entry)
+    if dates:
+        summary["dates"] = [
+            {"phrase": d.phrase, "meant": d.at.date().isoformat()} for d in dates
+        ]
+    return summary
+
+
+def _undo_edit(session: Session, entry: Entry) -> dict:
+    """The call that would put this note back the way it is right now.
+
+    Captured *before* a write, and expressed as a tool call rather than a
+    special-case endpoint: the UI hands it straight back to
+    `POST /chat/tools/execute`, which is the same path the confirm button
+    already uses. Roadmap §21 asks a skill to end in "a list the user can
+    undo, rather than prose claiming something happened" — this is the half
+    that makes the list actionable.
+    """
+    return {
+        "tool": "edit_note",
+        "arguments": {
+            "note_id": entry.id,
+            "content": entry.content,
+            "category": manager.category_name_for(session, entry),
+            "tags": manager.entry_tags(entry),
+        },
     }
 
 
@@ -592,59 +623,88 @@ def _search_chat_history(session: Session, args: dict) -> dict:
     }
 
 
-def _skill_list(config) -> list[dict]:
-    return list(config.get_preference("skills", []) or [])
-
-
 def _list_skills(session: Session, args: dict) -> dict:
-    skills = _skill_list(deps.get_config())
+    """Everything runnable, built-ins included.
+
+    The built-ins used to live only in `app.js`, so a model asked "what skills
+    do I have?" answered with the user's own and nothing else — while the
+    interface showed ten more.
+    """
+    config = deps.get_config()
+    catalog = skills.catalog(config, set(TOOLS))
     return {
         "skills": [
-            {"name": s.get("name"), "prompt": _clip(str(s.get("prompt", "")), 300)}
-            for s in skills
+            {
+                "name": skill["name"],
+                "prompt": _clip(skill["prompt"], 200),
+                "steps": skill["steps"],
+                "tools": skill["tools"],
+                "inputs": [item["name"] for item in skill["inputs"]],
+                "builtin": skill["builtin"],
+            }
+            for skill in catalog
         ],
-        "count": len(skills),
+        "count": len(catalog),
         "note_to_model": (
-            "These are the user's own saved skills. The app also ships "
-            "built-in ones that live in the interface and can't be edited here."
+            "Built-in skills can be run but not edited. A skill's steps and "
+            "tools are what it does — copy that shape when you make one."
         ),
-        "label": "⚡ Listed your saved skills",
+        "label": "⚡ Listed the saved skills",
     }
 
 
 def _save_skill(session: Session, args: dict) -> dict:
     """Create or update one skill. Same tool for both, because from the
     model's side "make me a skill that does X" is one intent, and a separate
-    update tool just adds a way to get it wrong."""
+    update tool just adds a way to get it wrong.
+
+    `steps` and `tools` are the rebuild (roadmap §21): without somewhere to
+    put them, "make me a skill that files my inbox notes" could only ever
+    save another sentence.
+    """
     config = deps.get_config()
-    name = str(args["name"]).strip()
-    prompt = str(args["prompt"]).strip()
-    if not name or not prompt:
-        raise ToolError("A skill needs both a name and a prompt")
-    if len(name) > 40:
-        raise ToolError("Skill names are limited to 40 characters")
-    if len(prompt) > 2000:
-        raise ToolError("Skill prompts are limited to 2000 characters")
-    skills = _skill_list(config)
-    existed = any(s.get("name") == name for s in skills)
-    if len(skills) >= 30 and not existed:
-        raise ToolError("There are already 30 saved skills — delete one first")
-    skills = [s for s in skills if s.get("name") != name]
-    skills.append({"name": name, "prompt": prompt})
-    config.set_preference("skills", skills)
+    try:
+        skill = skills.normalise(
+            {
+                "name": args.get("name"),
+                "prompt": args.get("prompt"),
+                "steps": args.get("steps"),
+                "tools": args.get("tools"),
+            },
+            set(TOOLS),
+        )
+    except skills.SkillError as exc:
+        raise ToolError(str(exc)) from exc
+    if any(skill["name"] == shipped["name"] for shipped in skills.builtins()):
+        raise ToolError(
+            f"“{skill['name']}” is a built-in skill — pick a different name"
+        )
+    stored = skills.stored(config)
+    existed = any(s.get("name") == skill["name"] for s in stored)
+    if len(stored) >= skills.MAX_SKILLS and not existed:
+        raise ToolError(
+            f"There are already {skills.MAX_SKILLS} saved skills — delete one first"
+        )
+    config.set_preference(
+        "skills", [s for s in stored if s.get("name") != skill["name"]] + [skill]
+    )
     return {
-        "name": name,
+        "name": skill["name"],
         "updated": existed,
-        "label": f"⚡ {'Updated' if existed else 'Created'} the “{name}” skill",
+        "steps": len(skill["steps"]),
+        "tools": skill["tools"],
+        "label": f"⚡ {'Updated' if existed else 'Created'} the “{skill['name']}” skill",
     }
 
 
 def _delete_skill(session: Session, args: dict) -> dict:
     config = deps.get_config()
     name = str(args["name"]).strip()
-    skills = _skill_list(config)
-    remaining = [s for s in skills if s.get("name") != name]
-    if len(remaining) == len(skills):
+    stored = skills.stored(config)
+    remaining = [s for s in stored if s.get("name") != name]
+    if len(remaining) == len(stored):
+        if any(name == shipped["name"] for shipped in skills.builtins()):
+            raise ToolError(f"“{name}” is a built-in skill and can't be deleted")
         raise ToolError(f"There's no saved skill called “{name}”")
     config.set_preference("skills", remaining)
     return {"name": name, "label": f"⚡ Deleted the “{name}” skill"}
@@ -680,11 +740,13 @@ def _create_note(session: Session, args: dict) -> dict:
     deps.store_quietly(session, entry)
     result = _note_summary(session, entry)
     result["label"] = f"✏️ Created note #{entry.id} in {result['category']}"
+    result["undo"] = {"tool": "delete_note", "arguments": {"note_id": entry.id}}
     return result
 
 
 def _edit_note(session: Session, args: dict) -> dict:
     entry = _require_note(session, args)
+    undo = _undo_edit(session, entry)  # before the write, or it undoes nothing
     content = args.get("content")
     content_changed = content is not None and str(content) != entry.content
     manager.update_entry(
@@ -698,11 +760,13 @@ def _edit_note(session: Session, args: dict) -> dict:
         _refresh_embedding(session, entry)
     result = _note_summary(session, entry)
     result["label"] = f"📝 Updated note #{entry.id}"
+    result["undo"] = undo
     return result
 
 
 def _tag_note(session: Session, args: dict) -> dict:
     entry = _require_note(session, args)
+    undo = _undo_edit(session, entry)
     tags = manager.entry_tags(entry)
     for tag in args.get("add") or []:
         if str(tag) not in tags:
@@ -711,6 +775,7 @@ def _tag_note(session: Session, args: dict) -> dict:
     manager.update_entry(session, entry, tags=tags)
     result = _note_summary(session, entry)
     result["label"] = f"🏷 Retagged note #{entry.id} → {', '.join(tags) or 'no tags'}"
+    result["undo"] = undo
     return result
 
 
@@ -725,6 +790,10 @@ def _pin_note(session: Session, args: dict) -> dict:
         session.commit()
     result = _note_summary(session, entry)
     result["label"] = f"📌 {'Pinned' if pinned else 'Unpinned'} note #{entry.id}"
+    result["undo"] = {
+        "tool": "pin_note",
+        "arguments": {"note_id": entry.id, "pinned": not pinned},
+    }
     return result
 
 
@@ -748,6 +817,7 @@ def _delete_note(session: Session, args: dict) -> dict:
     return {
         "deleted": entry.id,
         "recoverable": True,
+        "undo": {"tool": "restore_note", "arguments": {"note_id": entry.id}},
         "label": f"🗑 Moved note #{entry.id} to the recycle bin",
     }
 
@@ -760,6 +830,7 @@ def _restore_note(session: Session, args: dict) -> dict:
         manager.restore_entry(session, entry)
     result = _note_summary(session, entry)
     result["label"] = f"♻️ Restored note #{entry.id} from the recycle bin"
+    result["undo"] = {"tool": "delete_note", "arguments": {"note_id": entry.id}}
     return result
 
 
@@ -832,6 +903,10 @@ def _rename_tag(session: Session, args: dict) -> dict:
     return {
         "entries_changed": changed,
         "label": f"🏷 Renamed tag “{args['old']}” → “{args['new']}” ({changed} notes)",
+        "undo": {
+            "tool": "rename_tag",
+            "arguments": {"old": str(args["new"]), "new": str(args["old"])},
+        },
     }
 
 
@@ -1074,16 +1149,26 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             "save_skill",
-            "Create a saved skill, or update one that already exists by using "
-            "the same name. A skill is a reusable request the user can run "
-            "with one click.",
+            "Create a saved skill, or update one by using the same name. A "
+            "skill is a repeatable job the user runs with one click: what to "
+            "do, the steps to do it in, and the tools it needs.",
             {
                 "type": "object",
                 "properties": {
                     "name": {"type": "string", "description": "Short name, up to 40 characters"},
                     "prompt": {
                         "type": "string",
-                        "description": "What the skill asks for, written as an instruction",
+                        "description": "What the skill should do, in one instruction",
+                    },
+                    "steps": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "The steps to follow, in order",
+                    },
+                    "tools": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Names of the tools the skill needs, e.g. tag_note",
                     },
                 },
                 "required": ["name", "prompt"],
@@ -1324,6 +1409,141 @@ TOOLS: dict[str, ToolSpec] = {
 }
 
 
+# The tools that change something. Used by the agent's "you claimed you saved
+# it but never called a write tool" safety net, and by the skill list to say
+# which skills act rather than answer — one list, so the two can't disagree.
+WRITE_TOOLS = {
+    "create_note",
+    "edit_note",
+    "tag_note",
+    "pin_note",
+    "link_notes",
+    "delete_note",
+    "restore_note",
+    "set_reminder",
+    "complete_reminder",
+    "rename_tag",
+    "delete_tag",
+    "save_skill",
+    "delete_skill",
+}
+
+
+# --- which tools a turn is offered (roadmap §11a) --------------------------------
+#
+# All 26 schemas went up on every round of every turn, whether the question was
+# "how many notes do I have" or "remind me to call mum" — 10,215 characters,
+# 77% of the fixed per-round overhead, resent up to MAX_ROUNDS times. On a
+# model with a 4096-token window that is most of the room, and the overflow is
+# dropped from the front, which is the system prompt: the model stops knowing
+# it has tools at all and reports as "the AI won't use tools".
+#
+# A skill declares what it needs, so its run is easy (see ai/skills.py). An
+# ordinary turn declares nothing, so this reads the question. The rule that
+# keeps it honest: **narrow only when we are confident, and widen when we are
+# not.** A question gets the reading core; a request that names something gets
+# that group as well; anything that sounds like a job but doesn't say which
+# one gets everything. Losing a tool the turn needed is worse than paying for
+# schemas it didn't.
+
+# Always offered: reading the notebook, knowing the time, and saving a note —
+# the last because "save this" is the most common action there is, and the
+# cost of missing it is the model claiming a save that never happened.
+CORE_TOOLS = [
+    "search_notes",
+    "get_note",
+    "list_notes",
+    "count_notes",
+    "list_categories",
+    "list_tags",
+    "get_current_time",
+    "create_note",
+]
+
+# Groups, and the words that ask for them. Generous on purpose: a cue that
+# fires when it needn't costs a few hundred characters, and one that fails to
+# fire costs the user the thing they asked for.
+TOOL_GROUPS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
+    (
+        ("set_reminder", "list_reminders", "complete_reminder"),
+        (
+            "remind", "reminder", "forget", "due", "deadline", "tomorrow",
+            "tonight", "later", "schedule", "chase", "follow up", "o'clock",
+            "next week", "on monday", "on tuesday", "on wednesday",
+            "on thursday", "on friday", "on saturday", "on sunday", "alarm",
+        ),
+    ),
+    (
+        ("tag_note", "rename_tag", "delete_tag"),
+        ("tag", "label", "untagged", "retag", "categorise", "categorize"),
+    ),
+    (
+        ("link_notes",),
+        ("link", "connect", "related", "relate", "join", "graph", "together"),
+    ),
+    (
+        ("edit_note", "pin_note"),
+        (
+            "edit", "change", "update", "rewrite", "fix", "correct", "amend",
+            "pin", "unpin", "reword", "shorten", "expand",
+        ),
+    ),
+    (
+        ("delete_note", "restore_note"),
+        ("delete", "remove", "bin", "trash", "restore", "undelete", "recycle"),
+    ),
+    (
+        ("list_documents", "get_document"),
+        ("document", "doc ", "docs", "write-up", "essay", "report", "chapter"),
+    ),
+    (
+        ("search_chat_history",),
+        (
+            "we talked", "we discussed", "you said", "earlier", "last time",
+            "previous", "conversation", "chat about", "mentioned before",
+        ),
+    ),
+    (
+        ("list_skills", "save_skill", "delete_skill"),
+        ("skill", "shortcut"),
+    ),
+    (
+        ("summarize_notes",),
+        ("summarise", "summarize", "summary", "recap", "overview", "gist"),
+    ),
+]
+
+# "Do something about my notebook" without saying what. The safe answer is the
+# whole toolbox: this is exactly the request that needs tools we can't guess.
+BROAD_REQUESTS = (
+    "tidy", "organise", "organize", "clean up", "sort out", "sort my",
+    "go through", "merge", "duplicate", "reorganise", "reorganize",
+    "manage my", "look after", "housekeeping", "do whatever",
+)
+
+
+def focus_for(question: str) -> list[str] | None:
+    """The tools worth offering for this question, or None for all of them.
+
+    Deliberately keyword-driven rather than another model call: an extra
+    round-trip to decide what to send would cost more than it saves, and a
+    deterministic rule can be read, tested, and argued with.
+    """
+    text = f" {(question or '').lower()} "
+    if any(cue in text for cue in BROAD_REQUESTS):
+        return None
+    wanted = list(CORE_TOOLS)
+    for group, cues in TOOL_GROUPS:
+        if any(cue in text for cue in cues):
+            wanted.extend(group)
+    # The web tools are the user's own opt-in, made per-notebook rather than
+    # per-question; `tool_enabled` already hides them otherwise, and second-
+    # guessing that switch here would mean "web search is on but I didn't
+    # think you meant it".
+    wanted.extend(["web_search", "read_url"])
+    return wanted
+
+
 def tool_enabled(name: str) -> bool:
     """A tool is offered unless the user turned it off in Settings → Tools
     (Wave O). web_search additionally requires the online opt-in."""
@@ -1335,10 +1555,18 @@ def tool_enabled(name: str) -> bool:
     return name not in set(config.get_preference("disabled_tools", []))
 
 
-def ollama_tools() -> list[dict]:
+def ollama_tools(allowed: list[str] | None = None) -> list[dict]:
     """The registry in the shape Ollama's /api/chat 'tools' field wants,
     minus any the user disabled — a model can't be tempted by a tool it
-    never hears about."""
+    never hears about.
+
+    `allowed` narrows it further, to the tools a skill declared. That is
+    roadmap §11a in one line: 28 schemas are ~77% of the fixed per-round
+    overhead, and a skill that needs three of them should pay for three. The
+    user's own switches still win — a skill cannot re-enable something turned
+    off in Settings → Tools.
+    """
+    wanted = set(allowed) if allowed else None
     return [
         {
             "type": "function",
@@ -1349,7 +1577,7 @@ def ollama_tools() -> list[dict]:
             },
         }
         for spec in TOOLS.values()
-        if tool_enabled(spec.name)
+        if tool_enabled(spec.name) and (wanted is None or spec.name in wanted)
     ]
 
 

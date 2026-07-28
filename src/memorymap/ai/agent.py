@@ -162,12 +162,18 @@ _RECOVERY_HINTS = {
         "different arguments, try a different tool, or tell the user plainly "
         "what failed and answer with what you already have."
     ),
+    "not_in_skill": (
+        "This skill does not include that tool. Use only the tools listed for "
+        "the run, or finish and tell the user what the skill could not do."
+    ),
 }
 
 
 def _recovery_hint(name: str, message: str) -> str:
     """Pick the advice that fits this failure."""
     lowered = message.lower()
+    if "not part of this skill" in lowered:
+        return _RECOVERY_HINTS["not_in_skill"]
     if lowered.startswith("unknown tool"):
         return _RECOVERY_HINTS["unknown_tool"]
     if "turned off in settings" in lowered:
@@ -191,19 +197,9 @@ REPEATED_CALL_NOTE = (
 
 
 # Write tools whose absence makes a "I saved it" claim a lie (safety net).
-_WRITE_TOOLS = {
-    "create_note",
-    "edit_note",
-    "tag_note",
-    "pin_note",
-    "link_notes",
-    "delete_note",
-    "restore_note",
-    "set_reminder",
-    "complete_reminder",
-    "rename_tag",
-    "delete_tag",
-}
+# Defined in the registry, so the settings screen and the skill list can mark
+# "this one changes things" from the same list rather than a second copy.
+_WRITE_TOOLS = tools.WRITE_TOOLS
 
 # Phrases that mean the model thinks it performed a write action.
 _CLAIM_PATTERN = re.compile(
@@ -240,8 +236,16 @@ def build_agent_messages(
     # is computed from, so resolving it against the server's zone instead
     # puts every relative time out by the offset between them.
     local = user_now(deps.get_config())
+    # To the minute, not the microsecond. This string sits near the top of a
+    # prompt that is resent on every round of every turn, and Ollama's prefix
+    # cache keeps only the tokens *before* the first difference — so a clock
+    # that ticked every microsecond invalidated the history and the notes
+    # below it every single time, and each round re-read the whole prompt from
+    # scratch. A tool loop runs its rounds seconds apart, so a minute-precision
+    # clock is identical across all of them, and no answer this app gives
+    # needs the seconds: "remind me in 10 minutes" is not resolved to one.
     now_hint = (
-        f" The current date and time is {local.isoformat()}"
+        f" The current date and time is {local.replace(second=0, microsecond=0).isoformat()}"
         f" ({local.tzname() or 'local time'})."
     )
     messages = [
@@ -261,7 +265,8 @@ def build_agent_messages(
             messages.append({"role": "assistant", "content": past_answer})
 
     numbered = "\n".join(
-        f"{i}. (note id {note.get('id', '?')}) [{note['category']}] {note['content']}"
+        f"{i}. (note id {note.get('id', '?')}) [{note['category']}] "
+        f"{librarian.note_for_prompt(note)}"
         for i, note in enumerate(notes, start=1)
     )
     body = f"My notes:\n{numbered}\n\n" if notes else "My notebook looks empty.\n\n"
@@ -279,6 +284,20 @@ AWAITING_CONFIRMATION = {
 }
 
 
+def _focus(question: str) -> list[str] | None:
+    """Which tools this turn is offered, unless the user asked for all of them.
+
+    Settings → Tools has the switch, because the honest failure mode of a
+    keyword rule is a request phrased in words it doesn't know, and the fix
+    for that has to be reachable without editing code.
+    """
+    from memorymap.core import deps
+
+    if str(deps.get_config().get_preference("tool_focus", "auto")) == "all":
+        return None
+    return tools.focus_for(question)
+
+
 def run_agent(
     session: Session,
     question: str,
@@ -289,6 +308,9 @@ def run_agent(
     profile: str = "",
     history: list[dict] | None = None,
     persona_prompt: str | None = None,
+    allowed_tools: list[str] | None = None,
+    max_rounds: int = MAX_ROUNDS,
+    exhausted_note: str | None = None,
 ) -> Iterator[dict]:
     """Yields event dicts:
     {"type": "unsupported"}                    — model can't do tools; caller
@@ -307,7 +329,17 @@ def run_agent(
         history=history,
         persona_prompt=persona_prompt,
     )
-    offered = tools.ollama_tools()
+    # A skill's declared tools are the only ones offered for its run: fewer
+    # schemas on the wire (roadmap §11a) and a narrower thing to go wrong.
+    # An ordinary turn declares nothing, so the question is read for what it
+    # plausibly needs — see tools.focus_for. Note the asymmetry: the skill's
+    # list is also *enforced* below, while the focus is only an economy. A
+    # tool left out because a cue didn't fire must still run if the model
+    # somehow calls it.
+    offered = tools.ollama_tools(
+        allowed_tools if allowed_tools is not None else _focus(question)
+    )
+    permitted = set(allowed_tools) if allowed_tools else None
     model = model_manager.chat_model()
     did_write = False  # did any real write tool run this turn?
     spent = 0  # characters of tool output added to the conversation so far
@@ -315,7 +347,7 @@ def run_agent(
     # the same broken call can be told so rather than burning every round.
     failed_calls: set[tuple[str, str]] = set()
 
-    for round_number in range(MAX_ROUNDS):
+    for round_number in range(max(1, max_rounds)):
         # Streamed: the model's prose reaches the user as it's written. The
         # non-streamed call this used to make is why an agent answer landed in
         # one lump after a visible pause (user-reported) — every other chat
@@ -380,7 +412,25 @@ def run_agent(
         for call in calls:
             name, arguments = call["name"], call.get("arguments") or {}
             spec = tools.TOOLS.get(name)
-            if spec is not None and spec.destructive:
+            if permitted is not None and name not in permitted:
+                # The allowlist is a safety property, not only a prompt: a
+                # model that calls a tool it was never offered does not get to
+                # run it just because the registry has one by that name.
+                result = {"error": f"{name} is not part of this skill's tools"}
+                signature = (name, json.dumps(arguments, sort_keys=True))
+                result["what_to_do"] = (
+                    REPEATED_CALL_NOTE
+                    if signature in failed_calls
+                    else _RECOVERY_HINTS["not_in_skill"]
+                )
+                failed_calls.add(signature)
+                yield {
+                    "type": "tool",
+                    "label": f"⚠️ {name} isn't part of this skill",
+                    "ok": False,
+                    "error": result["error"],
+                }
+            elif spec is not None and spec.destructive:
                 # Park it for the user — never auto-run a destructive tool.
                 # The confirm card is the honest signal, so count it as an
                 # action (don't fire the "nothing happened" safety net).
@@ -394,8 +444,20 @@ def run_agent(
                 result = AWAITING_CONFIRMATION
             else:
                 result = tools.execute_tool(session, name, arguments)
+                # What changed, and the call that would put it back. Popped
+                # rather than read: `undo` is for the user, and every field
+                # left in the result is resent to the model on every later
+                # round of the turn.
+                undo = result.pop("undo", None)
+                change = None
                 if "error" not in result and name in _WRITE_TOOLS:
                     did_write = True
+                    change = {
+                        "tool": name,
+                        "label": result.get("label") or name,
+                        "note_id": result.get("id"),
+                        "undo": undo,
+                    }
                 if "error" in result:
                     # Hand back advice with the error, not just the error.
                     signature = (name, json.dumps(arguments, sort_keys=True))
@@ -409,12 +471,15 @@ def run_agent(
                             else _recovery_hint(name, str(result["error"]))
                         ),
                     }
-                yield {
+                event = {
                     "type": "tool",
                     "label": result.get("label") or name,
                     "ok": "error" not in result,
                     "error": result.get("error"),
                 }
+                if change:
+                    event["change"] = change
+                yield event
             payload = json.dumps(result)
             if spent + len(payload) > TOOL_RESULT_BUDGET_CHARS:
                 # Over budget. Hand back the notice instead of the result and
@@ -431,7 +496,8 @@ def run_agent(
 
     yield {
         "type": "answer",
-        "delta": (
+        "delta": exhausted_note
+        or (
             "I stopped after using several tools in a row — here's where "
             "things stand. Ask me to continue if there's more to do."
         ),

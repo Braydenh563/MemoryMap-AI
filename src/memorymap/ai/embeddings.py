@@ -1,6 +1,6 @@
 """The ONE active embedding backend (plan §2, resolution 1).
 
-Default: sentence-transformers `all-MiniLM-L6-v2` — no Ollama needed.
+Default: sentence-transformers `BAAI/bge-small-en-v1.5` — no Ollama needed.
 Optional: an Ollama embedding model (user's choice, Phase 3.5).
 
 Both hide behind `embed_text()`, which returns None whenever embeddings
@@ -21,7 +21,12 @@ from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient, OllamaError
 from memorymap.core.database import EmbeddingRecord, Entry
 
-# DEFAULT_ST_MODEL = "all-MiniLM-L6-v2"
+# The built-in embedding model. It was all-MiniLM-L6-v2 and is not any more,
+# which is exactly why nothing user-facing may hard-code a name: the Models
+# screen went on saying "Built-in (all-MiniLM)" long after this changed, and
+# the only way to find out what was really running was to watch it download
+# from Hugging Face in the log. Anything that shows the name asks
+# `EmbeddingService.active_model()`.
 DEFAULT_ST_MODEL = "BAAI/bge-small-en-v1.5"
 
 logger = logging.getLogger("memorymap.embeddings")
@@ -166,6 +171,12 @@ class EmbeddingService:
         an out-of-date banner."""
         self.last_error = None
         self._load_failed_at = None
+
+    def active_model(self) -> str:
+        """The model actually doing the work right now, whichever backend."""
+        if self._models.embedding_backend() == "ollama":
+            return self._models.embedding_model()
+        return DEFAULT_ST_MODEL
 
     def backend_id(self) -> str:
         """Stored as model_version next to every vector, so a backend

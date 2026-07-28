@@ -131,7 +131,8 @@ MemoryMap-AI-v0/
 │   │   └── logbuffer.py     # in-memory log capture + safe_value() for
 │   │                        #   anything untrusted going into a log line
 │   ├── entry/
-│   │   └── manager.py       # create/read/soft-delete entries, audit log
+│   │   ├── manager.py       # create/read/soft-delete entries, audit log
+│   │   └── timewords.py     # what "tomorrow" meant, resolved at capture
 │   ├── ai/
 │   │   ├── ollama_client.py # thin REST client for the local Ollama server
 │   │   ├── model_manager.py # list/pull models, pick chat/embedding backend
@@ -140,6 +141,8 @@ MemoryMap-AI-v0/
 │   │   ├── librarian.py     # LLM prompt #2: answer from retrieved notes
 │   │   ├── agent.py         # tool-calling loop (Wave G)
 │   │   ├── tools.py         # the agent's tool registry (see §7)
+│   │   ├── skills.py        # what a skill is: steps, tools, inputs (§7b)
+│   │   ├── skill_runner.py  # runs one, a step at a time, with a result
 │   │   └── voice.py         # optional local Whisper dictation
 │   ├── search/
 │   │   ├── search_manager.py# semantic + keyword search, with fallback
@@ -173,7 +176,7 @@ are grouped by feature area:
 | `routes_chat` | `/chat` | ask questions, streaming answers, agentic tools, suggestions |
 | `routes_conversations` | `/conversations` | saved chat threads |
 | `routes_models` | `/models` | Ollama status, pull models, switch chat/embedding/utility model |
-| `routes_settings` | `/` | preferences, audit log, JSON/CSV/Markdown export & import, backups, logs, web search + SearXNG lifecycle |
+| `routes_settings` | `/` | preferences, skills (`GET /skills`), audit log, JSON/CSV/Markdown export & import, backups, logs, web search + SearXNG lifecycle |
 | `routes_documents` | `/documents` | long-form markdown documents, export, AI edit |
 | `routes_duplicates` | `/duplicates` | near-duplicate finder + AI merge |
 | `routes_drafts` | `/drafts` | the writing room's compose/rewrite calls |
@@ -183,10 +186,25 @@ are grouped by feature area:
 | `routes_insights` | `/insights` | dashboard: stats, most-accessed, on-this-day, digest |
 | `routes_reminders` | `/reminders` | create/list/complete reminders |
 | `routes_voice` | `/voice` | local Whisper transcription |
+| `routes_timeline` | `/timeline` | the notebook on a time axis, in bands |
+| `routes_tasks` | `/tasks` | what is running in the background right now |
 | system | `/health` | liveness + version (open, no unlock) |
 
 Interactive API docs live at `http://localhost:8000/docs` when the app is
 running.
+
+**Anything that runs on a worker thread belongs in `routes_tasks.collect()`.**
+Each job reports a label, a detail line, a `progress` fraction *only where one
+is genuinely knowable*, whether it can be stopped, and the lines it has
+printed. The log matters as much as the bar: pip building lxml sits on one
+number for minutes, and its output is the only thing that distinguishes slow
+from stuck.
+Settings → Background tasks renders whatever that returns, so a new job shows
+up there without the frontend being taught about it. It used to build the list
+in `app.js` from the two jobs that happened to be in `/models/status`, which
+is why the embedding warm-up and the multi-minute SearXNG install ran with
+nothing on that screen to say so. Only *running* work is listed — a finished
+job is not a task, and a screen that accumulates them is the Logs screen.
 
 ## 7. The agent's tools (Wave G)
 
@@ -242,6 +260,72 @@ tools" rather than as anything to do with length. Settings → Tools
 **Adding a tool is not free.** If the budget test fails, that is the design
 working; either trim, or raise the constant deliberately and say why.
 
+**Not every turn is offered every tool.** `tools.focus_for(question)` reads the
+message and returns the reading core plus whatever the words ask for —
+`set_reminder` for "remind me…", `tag_note` for "tag my…". An ordinary
+question therefore carries ~3,340 characters of schema instead of 10,215,
+which halves the fixed overhead a 3B model reads before it reaches the
+question. Two rules keep it honest: a request that sounds like a job but does
+not say which one ("tidy up my notes") gets **everything**, and the focus is
+an *economy, not a policy* — unlike a skill's allowlist it never stops a tool
+from running, so a cue that fails to fire costs tokens, not abilities.
+Settings → Tools has the switch (`tool_focus`), because the honest failure of
+a keyword rule is a phrasing it does not know.
+
+## 7b. Skills
+
+A skill (`ai/skills.py`) is a **named, repeatable job over the notebook**, not
+a saved sentence. It has a `prompt`, and optionally `steps` (ordered
+instructions), `tools` (an allowlist), `inputs` (declared `{{placeholders}}`)
+and a `description`. A skill with only a prompt is exactly what skills used to
+be, so nothing was lost in the rebuild.
+
+Three things are worth knowing before changing anything here:
+
+1. **The declared tools are the only ones offered for the run.**
+   `ollama_tools(allowed)` narrows the wire and `run_agent(allowed_tools=…)`
+   refuses execution of anything outside the list — it is a safety property,
+   not only a prompt. It is also §11a's win: the full registry is ~10,200
+   characters of schema on *every round*; "Auto-tag my notes" ships 1,963.
+   The user's own switches still win, so a skill can't re-enable a tool turned
+   off in Settings → Tools.
+2. **Naming the tools in the instruction text is deliberate**, on top of
+   narrowing the wire. The reported failure was a model that had tools and
+   didn't know it was meant to act; telling a 3B model "use `tag_note`" is
+   what makes it reach for one.
+3. **The built-ins live in Python, not `app.js`.** They are served from
+   `GET /skills` with the user's own, for the same reason the web-search
+   providers are: the server has to be able to resolve a skill the user just
+   clicked, and a field added to a skill should not need adding twice.
+
+Running one is `POST /chat/stream` with `skill` and `skill_inputs` — the
+server builds the instruction, so what a skill *is* lives in one place.
+`skills.normalise` validates both ways in — the editor and `save_skill` — so a
+skill the AI can write is one the UI can write, and neither can store one that
+won't run.
+
+**A skill with steps runs one step per turn** (`ai/skill_runner.py`), not one
+request carrying a numbered list. A list inside one request is a plan the
+model may ignore, and a 3B model given four instructions at once does the
+first and narrates the rest. One turn per step means the app *knows* where it
+got to, so it can tick each step off, name the step that failed, and keep each
+turn small. Each step gets the previous steps as history. A skill with no
+steps is a single turn — exactly the pre-rebuild behaviour.
+
+The run's events are the agent's, plus three:
+
+| Event | Meaning |
+| --- | --- |
+| `plan` | the steps and tools, before anything runs |
+| `step` | `running` / `done` / `failed` (with a reason), by index |
+| `result` | `changes`: what was written, each with an `undo` |
+
+`undo` is a **tool call** — `{"tool": "edit_note", "arguments": {…}}` captured
+*before* the write — which the UI hands back to `POST /chat/tools/execute`,
+the same path the confirm button uses. It is popped out of the result before
+the result reaches the model, because everything left in a tool result is
+resent on every later round.
+
 The agent loop (`ai/agent.py`) streams: it calls `chat_tools_stream`, so the
 model's prose reaches the user as it is written rather than arriving in one
 block when the turn ends. Text that might turn out to be a tool call written
@@ -278,9 +362,27 @@ SQLite via SQLAlchemy 2.0 (`core/database.py`). Main tables:
   used for copying and for the history sent with the next question. **Anything
   that edits an answer has to update both**, or the edit is invisible the
   moment the chat is reopened.
+- **entry_dates** — what a note's relative time phrases resolved to when it
+  was written ("next Friday" → 2026-08-07), with the phrase kept beside the
+  date because the resolution is a rule, not a fact. Filled by
+  `entry/timewords.py` at capture and on every content edit — deterministic
+  regexes rather than a model call, because this runs on every save including
+  when Ollama is off, and best-effort because a note must save even if it
+  fails. **Anything derived from a note's text and stored in the clear has to
+  be cleared when the note is made private**, exactly like its embedding:
+  "the appointment is tomorrow" plus a date is most of the note.
 - **entry_revisions** — edit history for notes. Documents have no equivalent
   yet, which is why the AI document edit overwrites on accept.
 - **documents** — long-form markdown, separate from notes.
+- **document_links** — which notes a document draws on. Its own table because
+  the relationship is many-to-many and neither side owns the other: detaching
+  removes a connection, never a note. `manager.link_document` /
+  `unlink_document` / `documents_for_entry` / `entries_for_document` are the
+  only four functions that know how the two are joined, so the note side and
+  the document side cannot drift apart. A note can be attached as it is saved
+  (`document_ids` on `POST /entries`), which is the point — the connection is
+  obvious while you are writing and forgotten by the time the note is in a
+  list.
 - **reminders** — lightweight reminders the agent can set. Stored UTC-aware:
   SQLite drops timezones and JavaScript parses a naive date-time as *local*,
   which read as a reminder being hours overdue the moment it was set.
@@ -327,13 +429,73 @@ output goes to `data/searxng/searxng.log` — never `DEVNULL`, which is what
 made a failed start unexplainable and reduced the error message to a guess
 about the port.
 
+Two things in there are Windows-specific and both were wrong in the same way
+— a POSIX idiom that means something else entirely on Windows:
+
+- **`os.kill(pid, 0)` does not ask a question on Windows, it terminates the
+  process.** Any signal other than `CTRL_C_EVENT`/`CTRL_BREAK_EVENT` is passed
+  to `TerminateProcess`, so the liveness check inside `_source_state` — which
+  `status()` calls, which the settings screen polls every three seconds —
+  killed the instance seconds after starting it and then reported that it
+  "started but never answered". `_alive` now goes through
+  `OpenProcess`/`GetExitCodeProcess` on Windows and only signals on POSIX.
+- **`shutil.rmtree(..., ignore_errors=True)` cannot delete a git checkout on
+  Windows**, because git marks `.git/objects` read-only. It deleted everything
+  writable, left the folder standing, and reported success — after which
+  `data/searxng/src` existed but was no longer a Python project, the installer
+  skipped the download because the folder was there, and pip said *"does not
+  appear to be a Python project"* about a path the user had never heard of.
+  `_remove_tree` clears the read-only bit and retries, moves the tree aside if
+  it still can't delete it, and reports what survived instead of pretending.
+
+The rule underneath both: **a folder existing is not the question.**
+`is_checkout()` asks whether there is a `setup.py` or a `pyproject.toml` in
+it, and installing, starting and `source_installed()` all ask that rather than
+`.exists()`. `install_source` also verifies `import searx` in the new venv
+before calling the install done, because pip exiting 0 and SearXNG being
+runnable are different claims.
+
+**How SearXNG is installed, and why it looks so indirect.** Three separate
+things each rule out the obvious approach, and all three were found by running
+it rather than by reading:
+
+1. **`git clone` cannot work on Windows, ever.** Four files in the repository
+   have a colon in the name (`…/searxng.conf:socket` and three like it). A
+   colon separates a drive letter, so git fetches every object and then dies —
+   *"fatal: unable to checkout working tree"* — leaving the half-written
+   folder that caused the error above. `pip install <tarball-url>` fails the
+   same way, because pip unpacks the same files. So the archive is downloaded
+   and unpacked *here*, skipping members this filesystem can't hold (they are
+   nginx/uwsgi deployment templates — nothing the app runs) and members that
+   would escape the directory.
+2. **`pip install -e .` cannot work anywhere.** SearXNG's `setup.py` imports
+   `searx` to read its version, and `searx/__init__.py` imports `msgspec` —
+   which does not exist in pip's isolated build environment. It fails with
+   `ModuleNotFoundError` before declaring a single requirement. So
+   `requirements.txt` is installed first and the package is then built with
+   `--no-build-isolation`, which is what SearXNG's own `manage` script does.
+3. **The generated `settings.yml` turns off `tracker_url_remover`.** That
+   plugin downloads a rules file from `rules1.clearurls.xyz` *during startup*
+   and does not catch a failure, so an offline or proxied machine loses the
+   process before it binds the port — "started but never answered" again.
+   `websearch.strip_tracking` already does that job locally.
+
+Verified end to end in this sandbox except the download itself (the proxy
+blocks the URL): the archive unpacks to a real tree, installs, starts, serves
+its JSON API, and `websearch.probe_searxng` returns True against it.
+
 ## 9. AI stack
 
 - **Chat model:** any model installed in **[Ollama](https://ollama.com)**
   (default `llama3.2`). Talked to over the local REST API via
   `ai/ollama_client.py`. Used by the janitor, librarian, and agent.
-- **Embeddings:** default `all-MiniLM-L6-v2` via `sentence-transformers`
-  (~90 MB, auto-downloads on first use). Optionally switch the backend to an
+- **Embeddings:** default `BAAI/bge-small-en-v1.5` via `sentence-transformers`
+  (auto-downloads on first use). **Nothing user-facing may hard-code that
+  name** — it was `all-MiniLM-L6-v2` once, and the Models screen went on
+  saying so long after it changed, so the only way to find out what was
+  really running was to watch it download in the log. Ask
+  `EmbeddingService.active_model()`, which the status endpoint exposes as
+  `active_embedding_model`. Optionally switch the backend to an
   Ollama embedding model; notes re-index automatically with a progress bar.
 - **Voice (optional):** local Whisper via `faster-whisper` for the 🎙 buttons.
 - **Warm-up:** embeddings load in a background thread at startup so the first
@@ -462,16 +624,22 @@ On first run you choose a password (bcrypt-hashed, stays local). See the
 | Add/adjust an agent action | `src/memorymap/ai/tools.py` (+ `agent.py`) |
 | Add an API endpoint | the matching `src/memorymap/api/routes_*.py` |
 | Add a database column | `src/memorymap/core/database.py` (+ auto-migrator) |
+| Teach it a new time phrase | `entry/timewords.py` — one rule, one test row |
 | Change search behaviour | `src/memorymap/search/search_manager.py` |
 | Change the UI | `frontend/app.js`, `frontend/style.css` (read §10's invariants first) |
+| Add a graph layout | `layoutHierarchy` in `app.js` + an option in `#graph-layout`; d3's full v7 is vendored, so `tree`/`cluster`/`partition` are all there |
+| Change what the Timeline plots | `api/routes_timeline.py` — a note sits at what it is *about* when it says so |
 | Work out why a page scrolls sideways | §10 invariant 2 — an ancestor with no `min-width: 0` |
 | Change what a saved chat replays | `steps` in `routes_conversations.py` — not just `content` |
 | Add a preference | `DEFAULT_PREFERENCES` in `core/config.py`, then `PreferencesBody` + `get_preferences()` in `routes_settings.py` |
 | Add a Settings screen | §10 invariant 9 — three places, all three needed |
 | Change which search engine answers | `websearch.PROVIDERS` + `settings_from()`; never read the preference directly |
 | Add an agent tool | `ai/tools.py`, then run `tests/test_prompt_budget.py` — schemas are 77% of the per-round cost |
+| Change what a skill can be | `ai/skills.py` — `normalise` is the one validator both the editor and `save_skill` go through |
+| Add a built-in skill | `skills.BUILTIN_SKILLS`, not `app.js`; name its tools (§7b) |
 | Log something a user or a website typed | `logbuffer.safe_value()` at the call site; `sanitise` only protects the in-app viewer |
 | Work out why SearXNG won't start | `data/searxng/searxng.log`, surfaced in Settings → Web search |
+| Add a background job | `api/routes_tasks.collect()` — otherwise it runs invisibly |
 | Add a test | `tests/` — copy an existing `test_*.py` and reuse the fakes |
 
 ---

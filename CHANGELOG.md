@@ -7,8 +7,41 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A long note no longer crowds out the rest of your notebook.** Ten notes
+  are retrieved so the AI sees ten of them; one note of several pages used to
+  fill the prompt on its own. Notes now go in capped, cut with a marker
+  telling the AI exactly how to read the rest — which it could already do.
+
+- **A chat's prompt stops moving between rounds.** The clock in the system
+  prompt carried microseconds, and that line sits above your notes and the
+  conversation so far. Ollama caches the prompt only up to the first
+  difference, so every round of every turn re-read the whole thing from
+  scratch. It is now to the minute — identical across the rounds of one tool
+  loop, which is exactly where the re-reading was costing the most.
+- **SearXNG moves to a free port instead of giving up.** Port 8888 is a
+  popular number, and "close whatever has it" is advice that assumes you can.
+  It now tries 8080, 8081, 8890 and 8899 in turn, and `MEMORYMAP_SEARXNG_PORT`
+  picks one yourself. A SearXNG already answering on the wanted port still
+  wins over a free one — that is ours from a previous run, and moving would
+  start a second copy beside it.
+
+- **The dashboard's widgets no longer go missing on a cold load.** Starting the
+  app fetched your notes and rendered the open tab at the same time, so the
+  dashboard could draw its brand-new-notebook card over a notebook full of
+  notes; switching tabs and back fixed it, which is how it was noticed.
+
 ### Added
 
+- **A new document, without leaving the note.** The *Add to document* picker —
+  in the capture box and in a note's ⋯ menu — offers **＋ New document…**, so
+  a note can go into a document that does not exist yet.
+- **The app's icon is the app's icon.** The top bar now shows the favicon, so
+  the mark in your browser tab and the mark above the tabs are the same thing.
+  The generated emblem stays the hero on the dashboard and appears small and
+  animated beside the sidebar heading on Notes and Chat, where the AI is doing
+  the work.
 - **Search operators in the notes filter**: `tag:work`, `cat:recipes`,
   `is:pinned` / `private` / `linked` / `untagged`, `"exact phrase"`, and
   `-exclude`. Plain words now match in any order rather than as one substring.
@@ -45,9 +78,169 @@ below). Versioning is `0.x` while the app stabilises.
   (Activity / Tags / Recycle bin) return to the top when opened.
 - **Settings navigation is grouped** — the AI, your notebook, system, getting
   help — instead of eleven flat buttons. Appearance is unchanged.
+- **Settings → Background tasks shows everything that's running**, not just
+  two of them. It knew about re-indexing and model downloads; the embedding
+  model loading at startup (a ~90 MB download the first time) and the SearXNG
+  install (several minutes) both ran with nothing on that screen to say so —
+  which reads as the app being broken rather than busy. The list now comes
+  from the server, with a live step for each job, a progress bar where there
+  is a real number to show, and a Quit button only on the jobs that can be
+  stopped safely.
+- **Notes and documents are joined up.** The capture box has an **Add to
+  document** picker, so a note can be attached to what you're writing as you
+  save it rather than afterwards. The note then carries a 📄 chip that opens
+  that document, and the document lists the notes it draws on, each with a
+  detach button. Detaching removes the connection and never the note; binning
+  a note takes it out of the document's list on its own. A note you wrote
+  before the document existed can be added afterwards, too — **📄 Add to a
+  document** in a note's ⋯ menu picks from the documents you have, and the ×
+  on the note's 📄 chip detaches it again without going to find the document
+  first.
+- **The graph has layouts.** A picker for how the notes are arranged: the
+  force-directed **web** as before, a **tree** — notebook → category → note,
+  reading left to right, with a note's replies branching off the note they
+  answer — and a **radial tree**, the same shape wrapped into a circle. Most
+  notebooks have far more filing than links, and a force graph of
+  mostly-unlinked notes is a cloud of dots; a tree shows the structure that is
+  actually there. Your choice is remembered.
+- **Both trees are legible at the size of a real notebook.** Reported with a
+  photo — "the graph tree and radial are a bit hard to read and aren't neat" —
+  of 29 notes squeezed into the panel's height at eighteen pixels a row. The
+  tree now gives every note the room a label needs and pans if that makes it
+  taller than the panel, zooming out only when the whole thing nearly fits;
+  labels sit beside their note and above their branch, joined by elbows rather
+  than straight diagonals. The radial sizes its rings from the panel and the
+  note count instead of a fixed radius, gives each category a wedge of its own
+  so a one-note category is not squeezed against its neighbour, and rings by
+  depth — notebook, category, note, reply — so a category that happens to
+  contain a thread no longer sits a ring in from its siblings.
+- **A Timeline tab.** Opening on days by default. Your notes on a time axis, in bands — one per category
+  or tag — with the bucket size you choose, from days to years. A note sits
+  where it is *about* when it says so ("the beans need netting next week"
+  plots on that week, marked 🕓, with the date it was written on hover) and at
+  when it was written otherwise. Click any note to open it.
+- **Notes remember what "tomorrow" meant.** A note saying "the deadline is
+  next Friday" is correct the day it is written and misleading forever after,
+  and nothing recorded which Friday it was. Every note's relative time
+  phrases — tomorrow, last week, in three days, next Friday, two months ago —
+  are now worked out when it is saved and kept beside it, shown as a small
+  chip (`🕓 last week → week of Jul 20`) with the full date on hover. The
+  phrase is always shown next to the date, because the resolution is a rule
+  rather than a fact and you should be able to disagree with it. The AI gets
+  them too, so it can answer questions about a note's own dates instead of
+  guessing. It is plain pattern-matching, not an AI feature: it works with
+  Ollama off, and it can never stop a note being saved. Private notes are
+  excluded, and marking a note private removes anything already stored.
+
+### Changed
+
+- **A message is only offered the tools it plausibly needs.** Every tool is
+  described to the model again on every round of every message, and all of
+  them together were about three quarters of what it read before reaching
+  your question — on a small model, most of the window. A question now
+  carries the reading tools; "remind me…" adds the reminder ones; "tidy up my
+  notes", which could mean anything, still gets everything. Measured: the
+  fixed overhead of a typical question drops from ~3,157 tokens to ~1,439.
+  It only decides what is *offered* — a tool is never blocked from running —
+  and Settings → Tools can turn it off.
+- **Skills are jobs now, not saved prompts.** A skill was a name and a string,
+  and clicking one dropped that string into the chat box — which is why asking
+  the AI to make one only ever produced another sentence. A skill now carries
+  ordered **steps**, an explicit **tool allowlist**, and declared **inputs**
+  it asks you for before it runs, and `save_skill` accepts all of them so the
+  AI can write a real one. Skills with only a prompt keep working exactly as
+  before.
+  - **Naming a skill's tools makes it work on a small model.** Only those
+    tools are offered for the run — 1,963 characters of schema for "Auto-tag
+    my notes" instead of the full registry's 10,215 — and calling anything
+    outside the list is refused rather than merely discouraged. That leaves
+    far more of a 4k context window for the actual question.
+  - **Running one is a job, not a paragraph.** Each step is its own turn, so
+    the steps tick off as they finish, and a step that fails is named with the
+    reason instead of the run quietly doing less than it claimed.
+  - **A run ends in what changed** — every note it wrote, with a button to see
+    it and a button to put it back. Nothing is taken on trust from the model's
+    own account of what it did.
+  - **A skill asks for what it needs first.** "Draft an email" has a box for
+    who it's to and what it's about, instead of spending a chat round asking.
+  - The ten built-in skills moved out of the frontend and are served by the
+    API, so the AI can list and run them too — it used to answer "you have no
+    skills" while ten were on screen.
 
 ### Fixed
 
+- **SearXNG couldn't be imported on Windows at all.** With the install
+  finally finishing, the start died on `ModuleNotFoundError: No module named
+  'pwd'` — a POSIX-only module SearXNG imports at the top of one file. It is
+  the only such import in the whole package, and the only thing it's used for
+  is naming the current user in an error message that can't be reached without
+  a Valkey database. A stand-in module now goes into SearXNG's own virtualenv
+  where the platform hasn't got one.
+- **The install said it had worked when it hadn't.** Its final check was
+  `import searx`, which passed on Windows while the thing that actually runs —
+  `searx.webapp` — could not be imported. It checks that now, using the same
+  settings a real start uses.
+- **The chat box couldn't grow.** It was a one-line `<input>`, so a
+  three-sentence question scrolled sideways inside a box the width of the chat
+  pane and you couldn't read what you'd written before sending it. It now
+  grows with the text up to a cap. Enter still sends; **Shift+Enter** writes a
+  newline, which a single-line box couldn't offer at all.
+- **One long note filled the whole list.** Notes past about ten lines are now
+  clamped with a fade and a "Show more", so the list stays a list. Only notes
+  that genuinely overflow get one — a note you can already read in full never
+  grows a button.
+- **The app was naming the wrong embedding model.** Settings → Models said
+  "Built-in (all-MiniLM)" — it had been `BAAI/bge-small-en-v1.5` for two
+  changes, and the only way to find out was to watch it download from Hugging
+  Face in the log. Reported by someone who did exactly that. The name now
+  comes from the running service rather than a string in the interface, so it
+  cannot drift again, and the built-in option says it downloads on first use
+  instead of claiming it needs no download.
+- **The SearXNG install had no progress and no output**, so a working install
+  and a hung one looked identical for several minutes. It now shows which of
+  five stages it is in, a bar that moves (the download reports real bytes),
+  and the lines pip is printing as it prints them — which is what actually
+  tells you it is alive while a bar sits still. Both appear on the Web search
+  screen and in Settings → Background tasks.
+- **A finished install left "Installing SearXNG…" on screen** under a badge
+  that said "Stopped" — reported with a photo, and the install had in fact
+  succeeded. That line now always says something current.
+- **SearXNG now installs, starts and answers.** Five separate bugs, none of
+  them in its log, because three of them happened before it wrote a line.
+  - *`git clone` can never work on Windows.* Four files in the SearXNG
+    repository have a colon in the name (`…/searxng.conf:socket`), which
+    Windows refuses — git fetches everything and then dies at the checkout,
+    leaving a half-written folder behind. `pip install <tarball-url>` unpacks
+    the same files, so the no-git path was broken there too. The archive is
+    now downloaded and unpacked by the app, skipping the handful of members a
+    filesystem can't hold (nginx/uwsgi deployment templates) and any that
+    would escape the folder. git is no longer used.
+  - *`pip install -e .` can never work anywhere.* SearXNG's setup.py imports
+    `searx`, which imports `msgspec`, which pip's isolated build environment
+    does not have. The requirements go in first now and the package is built
+    with `--no-build-isolation`, as SearXNG's own tooling does.
+  - *A plugin killed it at boot.* `tracker_url_remover` downloads a rules file
+    from clearurls.xyz during startup and doesn't catch a failure, so an
+    offline or proxied machine lost the process before it bound the port. The
+    generated settings turn it off; MemoryMap strips tracking parameters
+    itself.
+- **…and two Windows-only bugs, both a POSIX idiom that means something else
+  on Windows.**
+  - *"…\data\searxng\src does not appear to be a Python project: neither
+    'setup.py' nor 'pyproject.toml' found."* The installer skipped the
+    download whenever that folder existed, then handed it to pip. Reinstalling
+    made it permanent rather than fixing it: the wipe used
+    `rmtree(ignore_errors=True)`, git marks `.git/objects` read-only, Windows
+    enforces that — so the writable files went, the folder stayed, and the
+    wipe reported success. Now the question asked is whether the folder
+    *contains a project*, the wipe clears the read-only bit (moving the tree
+    aside if it still can't delete it) and says what survived, and an install
+    isn't called done until `import searx` works in the new virtualenv.
+  - *"SearXNG started but never answered."* The liveness check was
+    `os.kill(pid, 0)` — on Windows any signal but CTRL_C/CTRL_BREAK goes to
+    `TerminateProcess`, so checking whether the instance was alive killed it.
+    The Web search screen polls status every three seconds, so it was killed
+    seconds after every start.
 - **One wide code block widened the whole page.** "Ask about this" renders a
   fetched page into the chat, and a wide code block, a nine-column table or a
   long URL pushed the layout sideways: a horizontal scrollbar, and text that

@@ -20,6 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from memorymap import __version__
+from memorymap.ai import skills
 from memorymap.core import backup, deps, logbuffer
 from memorymap.core.database import AuditLog, Category, Entry, EntryLink, utcnow
 from memorymap.core.deps import get_session
@@ -41,11 +42,32 @@ class PersonaItem(BaseModel):
     prompt: str = Field(min_length=1, max_length=2000)
 
 
-class SkillItem(BaseModel):
-    """A saved prompt shortcut for the chat tab (Wave G)."""
+class SkillInput(BaseModel):
+    """One value a skill asks for before it runs (§21)."""
 
-    name: str = Field(min_length=1, max_length=40)
-    prompt: str = Field(min_length=1, max_length=2000)
+    name: str = Field(min_length=1, max_length=24)
+    label: str = Field(default="", max_length=60)
+    required: bool = True
+    default: str = Field(default="", max_length=skills.MAX_INPUT_VALUE)
+
+
+class SkillItem(BaseModel):
+    """A named, repeatable job over the notebook (§21).
+
+    `prompt` alone is the whole of a pre-rebuild skill, and still valid — the
+    steps, tools and inputs are what make it a job rather than a saved
+    sentence. The real rules live in `ai/skills.normalise`, which the route
+    applies as well, so the tool path and the settings path can't drift.
+    """
+
+    name: str = Field(min_length=1, max_length=skills.MAX_NAME)
+    prompt: str = Field(min_length=1, max_length=skills.MAX_PROMPT)
+    description: str = Field(default="", max_length=skills.MAX_DESCRIPTION)
+    steps: list[str] = Field(default_factory=list, max_length=skills.MAX_STEPS)
+    tools: list[str] = Field(default_factory=list, max_length=skills.MAX_TOOLS)
+    inputs: list[SkillInput] = Field(default_factory=list, max_length=skills.MAX_INPUTS)
+    # Pre-rebuild flag the UI still reads; derived on save from steps/tools.
+    useTools: bool = False  # noqa: N815 — the stored key, kept for old skills
 
 
 class PreferencesBody(BaseModel):
@@ -68,6 +90,10 @@ class PreferencesBody(BaseModel):
     # Wave G: user-defined skills, and whether the chat AI may use tools.
     skills: list[SkillItem] | None = Field(default=None, max_length=30)
     tools_enabled: bool | None = None
+    # Which tools each turn is offered: "auto" reads the question and sends
+    # what it plausibly needs (§11a — the schemas are most of the per-round
+    # cost); "all" sends the whole registry, as it always did.
+    tool_focus: Literal["auto", "all"] | None = None
     # Wave F: the ONE feature that goes online — off unless the user opts in.
     web_search_enabled: bool | None = None
     # Optional self-hosted SearXNG instance; empty string = use DuckDuckGo.
@@ -149,6 +175,7 @@ def get_preferences() -> dict:
         ),
         "skills": config.get_preference("skills", []),
         "tools_enabled": config.get_preference("tools_enabled", True),
+        "tool_focus": config.get_preference("tool_focus", "auto"),
         "web_search_enabled": config.get_preference("web_search_enabled", False),
         "searxng_url": config.get_preference("searxng_url", ""),
         "search_provider": websearch.normalise_provider(
@@ -169,12 +196,76 @@ def update_preferences(
 ) -> dict:
     config = deps.get_config()
     for key, value in body.model_dump(exclude_none=True).items():
+        if key == "skills":
+            # One validator for both ways in. A skill saved from the editor
+            # goes through exactly what `save_skill` goes through, so a skill
+            # the AI can write is a skill the UI can write, and neither can
+            # store one that won't run.
+            value = _validated_skills(value)
         config.set_preference(key, value)
         # Don't copy profile text into the audit log — it's personal.
         detail = f"{key}=…" if key == "user_profile" else f"{key}={value}"
         manager.log_action(session, "edited", "preferences", detail=detail)
     session.commit()
     return get_preferences()
+
+
+def _validated_skills(raw: list[dict]) -> list[dict]:
+    """Every skill, normalised — or a 422 naming the one that's wrong."""
+    from memorymap.ai import tools
+
+    known = set(tools.TOOLS)
+    shipped = {skill["name"] for skill in skills.builtins()}
+    out = []
+    for item in raw:
+        try:
+            skill = skills.normalise(item, known)
+        except skills.SkillError as exc:
+            raise HTTPException(
+                status_code=422, detail=f"“{item.get('name', '?')}”: {exc}"
+            ) from exc
+        if skill["name"] in shipped:
+            raise HTTPException(
+                status_code=422,
+                detail=f"“{skill['name']}” is a built-in skill — pick another name",
+            )
+        out.append(skill)
+    return out
+
+
+@router.get("/skills")
+def list_skills() -> dict:
+    """Everything runnable: the shipped skills and the user's own.
+
+    The built-ins used to be a list in `app.js`, which meant the server could
+    not resolve a skill the user had just clicked, and every field added to a
+    skill had to be added in two places. Served from here for the same reason
+    the web-search providers are: the interface cannot then offer something
+    the API would reject.
+    """
+    from memorymap.ai import tools
+
+    catalog = []
+    for skill in skills.catalog(deps.get_config(), set(tools.TOOLS)):
+        # "This one changes things" is a different question from "this one
+        # uses tools", and the UI marks it as such. A skill with steps but no
+        # declared tools could do anything, so it counts.
+        catalog.append(
+            {
+                **skill,
+                "changes": bool(set(skill["tools"]) & tools.WRITE_TOOLS)
+                or (not skill["tools"] and bool(skill["steps"])),
+            }
+        )
+    return {
+        "skills": catalog,
+        "limits": {
+            "skills": skills.MAX_SKILLS,
+            "steps": skills.MAX_STEPS,
+            "tools": skills.MAX_TOOLS,
+            "inputs": skills.MAX_INPUTS,
+        },
+    }
 
 
 @router.get("/audit")

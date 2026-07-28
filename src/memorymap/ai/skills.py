@@ -294,9 +294,9 @@ BUILTIN_SKILLS: list[dict] = [
         "prompt": "Summarise what I saved in the last 7 days.",
         "steps": [
             "Find the notes I saved in the last 7 days.",
-            "Read the ones that look substantial, rather than working from "
+            "Read the ones that look substantial, rather than working from " + 
             "the previews.",
-            "Write the summary: the main topics, anything that looks "
+            "Write the summary: the main topics, anything that looks " + 
             "important, and one thing worth revisiting.",
         ],
         "tools": [*_READING_TOOLS, "summarize_notes"],
@@ -306,9 +306,9 @@ BUILTIN_SKILLS: list[dict] = [
         "description": "Unfinished things you wrote down and left.",
         "prompt": "Find the loose ends in my notes and list them.",
         "steps": [
-            "Search my notes for unfinished work — todo, need to, should, "
+            "Search my notes for unfinished work — todo, need to, should, " + 
             "waiting on, must, chase up, follow up.",
-            "Read each candidate to check it is genuinely unfinished rather "
+            "Read each candidate to check it is genuinely unfinished rather " + 
             "than something I already closed off.",
             "List each loose end with its note id, newest first.",
         ],
@@ -319,10 +319,10 @@ BUILTIN_SKILLS: list[dict] = [
         "description": "Adds 2–3 tags to notes that have none.",
         "prompt": "Tag the notes in my notebook that have no tags yet.",
         "steps": [
-            "List the tags I already use, so new ones match rather than "
+            "List the tags I already use, so new ones match rather than " + 
             "duplicate them.",
             "Find my notes with no tags, or only one.",
-            "Read each of those notes so the tags describe what it actually "
+            "Read each of those notes so the tags describe what it actually " + 
             "says.",
             "Call tag_note on each one with 2–3 short, reusable tags.",
             "Tell me which notes you tagged and with what.",
@@ -334,9 +334,9 @@ BUILTIN_SKILLS: list[dict] = [
         "description": "Connects notes that are clearly about the same thing.",
         "prompt": "Connect the notes in my notebook that belong together.",
         "steps": [
-            "Look through my notes for pairs that are clearly about the same "
+            "Look through my notes for pairs that are clearly about the same " + 
             "thing but aren't linked yet.",
-            "Read both notes of a pair before deciding — a shared word is not "
+            "Read both notes of a pair before deciding — a shared word is not " + 
             "a shared subject.",
             "Link each pair you are confident about with link_notes.",
             "Give me a short summary of what you connected, and why.",
@@ -349,9 +349,9 @@ BUILTIN_SKILLS: list[dict] = [
         "prompt": "Suggest how I could tidy my notebook, without changing it.",
         "steps": [
             "List my categories and tags with their counts.",
-            "Find the overlaps: tags that mean the same thing, categories "
+            "Find the overlaps: tags that mean the same thing, categories " + 
             "with one or two notes, notes that look misfiled.",
-            "Give me the suggestions as a numbered list and ask which ones I "
+            "Give me the suggestions as a numbered list and ask which ones I " + 
             "want applied. Do not change anything yourself.",
         ],
         "tools": ["list_categories", "list_tags", "count_notes", "list_notes"],
@@ -363,7 +363,7 @@ BUILTIN_SKILLS: list[dict] = [
         "steps": [
             "Search my notes for {{topic}}.",
             "Read the most relevant ones in full.",
-            "Tell me what I seem to think about {{topic}}, what is still "
+            "Tell me what I seem to think about {{topic}}, what is still " + 
             "unresolved, and what I said about it most recently.",
         ],
         "inputs": [{"name": "topic", "label": "Which topic?", "required": True}],
@@ -376,7 +376,7 @@ BUILTIN_SKILLS: list[dict] = [
         "steps": [
             "Find the notes I saved today.",
             "Read them, and pick out anything that is actually an action.",
-            "Set a reminder for each action that has a time in it, using the "
+            "Set a reminder for each action that has a time in it, using the " + 
             "current clock to work the time out.",
             "Give me the rest as a short list of what is still open.",
         ],
@@ -387,9 +387,9 @@ BUILTIN_SKILLS: list[dict] = [
         "description": "A clear first draft you can edit.",
         "prompt": "Draft an email to {{to}} about {{about}}.",
         "steps": [
-            "Check my notes for anything about {{about}} or {{to}} that the "
+            "Check my notes for anything about {{about}} or {{to}} that the " + 
             "email should take into account.",
-            "Write the draft: a clear subject line, a short opening, the "
+            "Write the draft: a clear subject line, a short opening, the " + 
             "point, and a plain closing. Friendly, not formal.",
         ],
         "inputs": [
@@ -403,9 +403,9 @@ BUILTIN_SKILLS: list[dict] = [
         "description": "A varied list, drawing on your notes.",
         "prompt": "Brainstorm ideas about {{topic}} with me.",
         "steps": [
-            "Look for anything in my notes about {{topic}}, so the ideas "
+            "Look for anything in my notes about {{topic}}, so the ideas " + 
             "build on what I already think.",
-            "Give me a varied list of ideas — some obvious, some not — and "
+            "Give me a varied list of ideas — some obvious, some not — and " + 
             "say which one you would start with.",
         ],
         "inputs": [{"name": "topic", "label": "What are we brainstorming?"}],
@@ -416,9 +416,9 @@ BUILTIN_SKILLS: list[dict] = [
         "description": "Plain English, with an example.",
         "prompt": "Explain {{concept}} to me clearly and simply.",
         "steps": [
-            "Check whether I already have notes on {{concept}}, and pitch the "
+            "Check whether I already have notes on {{concept}}, and pitch the " + 
             "explanation at what they show I know.",
-            "Explain it in plain English with one short example, then offer "
+            "Explain it in plain English with one short example, then offer " + 
             "to save the explanation as a note.",
         ],
         "inputs": [{"name": "concept", "label": "Which concept?"}],
@@ -430,9 +430,9 @@ BUILTIN_SKILLS: list[dict] = [
         "prompt": "Help me plan how to get {{goal}} done by {{deadline}}.",
         "steps": [
             "Check my notes for anything already written about {{goal}}.",
-            "Lay out a realistic step-by-step plan between now and "
+            "Lay out a realistic step-by-step plan between now and " + 
             "{{deadline}}, working the dates out from the current time.",
-            "Set a reminder for the first milestone, and ask before setting "
+            "Set a reminder for the first milestone, and ask before setting " + 
             "the rest.",
         ],
         "inputs": [

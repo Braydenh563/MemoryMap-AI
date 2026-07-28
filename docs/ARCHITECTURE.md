@@ -141,6 +141,7 @@ MemoryMap-AI-v0/
 │   │   ├── agent.py         # tool-calling loop (Wave G)
 │   │   ├── tools.py         # the agent's tool registry (see §7)
 │   │   ├── skills.py        # what a skill is: steps, tools, inputs (§7b)
+│   │   ├── skill_runner.py  # runs one, a step at a time, with a result
 │   │   └── voice.py         # optional local Whisper dictation
 │   ├── search/
 │   │   ├── search_manager.py# semantic + keyword search, with fallback
@@ -270,11 +271,32 @@ Three things are worth knowing before changing anything here:
    clicked, and a field added to a skill should not need adding twice.
 
 Running one is `POST /chat/stream` with `skill` and `skill_inputs` — the
-server builds the instruction (`skills.run_instruction`), so what a skill *is*
-lives in one place. It emits a `plan` event before anything runs, which the UI
-draws at the top of the step timeline. `skills.normalise` validates both ways
-in — the editor and `save_skill` — so a skill the AI can write is one the UI
-can write, and neither can store one that won't run.
+server builds the instruction, so what a skill *is* lives in one place.
+`skills.normalise` validates both ways in — the editor and `save_skill` — so a
+skill the AI can write is one the UI can write, and neither can store one that
+won't run.
+
+**A skill with steps runs one step per turn** (`ai/skill_runner.py`), not one
+request carrying a numbered list. A list inside one request is a plan the
+model may ignore, and a 3B model given four instructions at once does the
+first and narrates the rest. One turn per step means the app *knows* where it
+got to, so it can tick each step off, name the step that failed, and keep each
+turn small. Each step gets the previous steps as history. A skill with no
+steps is a single turn — exactly the pre-rebuild behaviour.
+
+The run's events are the agent's, plus three:
+
+| Event | Meaning |
+| --- | --- |
+| `plan` | the steps and tools, before anything runs |
+| `step` | `running` / `done` / `failed` (with a reason), by index |
+| `result` | `changes`: what was written, each with an `undo` |
+
+`undo` is a **tool call** — `{"tool": "edit_note", "arguments": {…}}` captured
+*before* the write — which the UI hands back to `POST /chat/tools/execute`,
+the same path the confirm button uses. It is popped out of the result before
+the result reaches the model, because everything left in a tool result is
+resent on every later round.
 
 The agent loop (`ai/agent.py`) streams: it calls `chat_tools_stream`, so the
 model's prose reaches the user as it is written rather than arriving in one

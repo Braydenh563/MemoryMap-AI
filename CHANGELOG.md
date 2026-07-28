@@ -60,8 +60,14 @@ below). Versioning is `0.x` while the app stabilises.
     my notes" instead of the full registry's 10,215 — and calling anything
     outside the list is refused rather than merely discouraged. That leaves
     far more of a 4k context window for the actual question.
-  - **The plan is shown before the run.** A skill's steps are drawn at the top
-    of the agent timeline, so you can see what it is about to do.
+  - **Running one is a job, not a paragraph.** Each step is its own turn, so
+    the steps tick off as they finish, and a step that fails is named with the
+    reason instead of the run quietly doing less than it claimed.
+  - **A run ends in what changed** — every note it wrote, with a button to see
+    it and a button to put it back. Nothing is taken on trust from the model's
+    own account of what it did.
+  - **A skill asks for what it needs first.** "Draft an email" has a box for
+    who it's to and what it's about, instead of spending a chat round asking.
   - The ten built-in skills moved out of the frontend and are served by the
     API, so the AI can list and run them too — it used to answer "you have no
     skills" while ten were on screen.

@@ -118,6 +118,27 @@ def _note_summary(session: Session, entry: Entry, chars: int = PREVIEW_CHARS) ->
     }
 
 
+def _undo_edit(session: Session, entry: Entry) -> dict:
+    """The call that would put this note back the way it is right now.
+
+    Captured *before* a write, and expressed as a tool call rather than a
+    special-case endpoint: the UI hands it straight back to
+    `POST /chat/tools/execute`, which is the same path the confirm button
+    already uses. Roadmap §21 asks a skill to end in "a list the user can
+    undo, rather than prose claiming something happened" — this is the half
+    that makes the list actionable.
+    """
+    return {
+        "tool": "edit_note",
+        "arguments": {
+            "note_id": entry.id,
+            "content": entry.content,
+            "category": manager.category_name_for(session, entry),
+            "tags": manager.entry_tags(entry),
+        },
+    }
+
+
 def _require_note(session: Session, args: dict, field: str = "note_id") -> Entry:
     entry = manager.get_entry(session, int(args[field]))
     if entry is None or entry.is_deleted:
@@ -710,11 +731,13 @@ def _create_note(session: Session, args: dict) -> dict:
     deps.store_quietly(session, entry)
     result = _note_summary(session, entry)
     result["label"] = f"✏️ Created note #{entry.id} in {result['category']}"
+    result["undo"] = {"tool": "delete_note", "arguments": {"note_id": entry.id}}
     return result
 
 
 def _edit_note(session: Session, args: dict) -> dict:
     entry = _require_note(session, args)
+    undo = _undo_edit(session, entry)  # before the write, or it undoes nothing
     content = args.get("content")
     content_changed = content is not None and str(content) != entry.content
     manager.update_entry(
@@ -728,11 +751,13 @@ def _edit_note(session: Session, args: dict) -> dict:
         _refresh_embedding(session, entry)
     result = _note_summary(session, entry)
     result["label"] = f"📝 Updated note #{entry.id}"
+    result["undo"] = undo
     return result
 
 
 def _tag_note(session: Session, args: dict) -> dict:
     entry = _require_note(session, args)
+    undo = _undo_edit(session, entry)
     tags = manager.entry_tags(entry)
     for tag in args.get("add") or []:
         if str(tag) not in tags:
@@ -741,6 +766,7 @@ def _tag_note(session: Session, args: dict) -> dict:
     manager.update_entry(session, entry, tags=tags)
     result = _note_summary(session, entry)
     result["label"] = f"🏷 Retagged note #{entry.id} → {', '.join(tags) or 'no tags'}"
+    result["undo"] = undo
     return result
 
 
@@ -755,6 +781,10 @@ def _pin_note(session: Session, args: dict) -> dict:
         session.commit()
     result = _note_summary(session, entry)
     result["label"] = f"📌 {'Pinned' if pinned else 'Unpinned'} note #{entry.id}"
+    result["undo"] = {
+        "tool": "pin_note",
+        "arguments": {"note_id": entry.id, "pinned": not pinned},
+    }
     return result
 
 
@@ -778,6 +808,7 @@ def _delete_note(session: Session, args: dict) -> dict:
     return {
         "deleted": entry.id,
         "recoverable": True,
+        "undo": {"tool": "restore_note", "arguments": {"note_id": entry.id}},
         "label": f"🗑 Moved note #{entry.id} to the recycle bin",
     }
 
@@ -790,6 +821,7 @@ def _restore_note(session: Session, args: dict) -> dict:
         manager.restore_entry(session, entry)
     result = _note_summary(session, entry)
     result["label"] = f"♻️ Restored note #{entry.id} from the recycle bin"
+    result["undo"] = {"tool": "delete_note", "arguments": {"note_id": entry.id}}
     return result
 
 
@@ -862,6 +894,10 @@ def _rename_tag(session: Session, args: dict) -> dict:
     return {
         "entries_changed": changed,
         "label": f"🏷 Renamed tag “{args['old']}” → “{args['new']}” ({changed} notes)",
+        "undo": {
+            "tool": "rename_tag",
+            "arguments": {"old": str(args["new"]), "new": str(args["old"])},
+        },
     }
 
 

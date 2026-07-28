@@ -1738,6 +1738,24 @@ Link to another note with [[its first few words]]."></textarea>
     </div>
   </div>
 
+  <!-- What a skill asks for before it runs (§21). One dialog for all of a
+       skill's inputs — a skill with two of them used to mean two prompt()
+       boxes in a row, and the second one arrived with no context. -->
+  <div id="skill-run-overlay" class="modal-overlay hidden" role="dialog"
+    aria-modal="true" aria-label="Run a skill">
+    <div class="card modal-card" id="skill-run-card">
+      <div class="row space-between">
+        <h2 id="skill-run-title">Run a skill</h2>
+        <button id="skill-run-cancel" class="ghost small">Cancel</button>
+      </div>
+      <p id="skill-run-description" class="muted"></p>
+      <div id="skill-run-fields"></div>
+      <div class="row">
+        <button id="skill-run-go" class="small">Run</button>
+      </div>
+    </div>
+  </div>
+
   <div id="shortcuts-overlay" class="modal-overlay hidden" role="dialog"
     aria-modal="true" aria-label="Keyboard shortcuts">
     <div class="card modal-card" id="shortcuts-card">

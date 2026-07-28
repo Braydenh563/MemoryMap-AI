@@ -11,14 +11,14 @@ the part that's expensive to reconstruct.
 Re-prioritised after a round of use. The ordering is by *how often it gets in
 the way*, not by how interesting it is to build.
 
-1. ~~**Skills are not skills** (§21)~~ **rebuilt.** A skill is now a job —
-   prompt, ordered steps, a tool allowlist, declared inputs — and
-   `save_skill` accepts steps and tools, so "make me a skill that files my
-   inbox notes" has somewhere to put them. The allowlist is both the safety
-   property and the §11a win: a skill's run offers its own tools instead of
-   all 28 (measured: 1,963 characters of schema instead of 10,215). What is
-   left is in §21 and is smaller than what was done: a runner that shows
-   progress *against* the steps, and a result you can undo.
+1. ~~**Skills are not skills** (§21)~~ **rebuilt, and running one is a job
+   now.** A skill has ordered steps, a tool allowlist and declared inputs;
+   `save_skill` takes steps and tools, so "make me a skill that files my inbox
+   notes" has somewhere to put them. Running one executes **a step per turn**,
+   ticking each off, naming the step that failed, and ending in a list of what
+   changed with an Undo on each. The allowlist is both the safety property and
+   the §11a win: a run offers its own tools instead of all 28 (1,963
+   characters of schema instead of 10,215). What is left is small — see §21.
 2. **Web search still returns nothing** (§8b). **Two causes found and fixed
    this session, both Windows-only, both reported by the user rather than
    found in the log** — see §8b. The install error (`does not appear to be a
@@ -183,10 +183,22 @@ it), verified, and must not be rebuilt.
 tool allowlist, declared inputs, and a plan drawn in the timeline before
 anything runs. `save_skill` takes steps and tools, so the AI can write a real
 one. The built-ins moved from `app.js` to `ai/skills.py` and are served from
-`GET /skills`. Driven in Chromium: the chips load from the server, the editor
-saves and refuses a bad skill by name, running one asks for its input and
-draws its plan, 0px of horizontal overflow, no page errors. **Don't redo:**
-the skill schema, the allowlist plumbing, the editor, the plan step.
+`GET /skills`.
+
+**And running one is a job, not a paragraph.** `ai/skill_runner.py` executes
+one step per turn, so the app knows where it got to: steps tick off as they
+finish, a failed step is named with its reason and stops the run, and the run
+ends in a list of what changed with **View** and **Undo** on each row. The
+undo is a tool call captured before the write and replayed through
+`POST /chat/tools/execute`. Every built-in was rewritten as a real job with
+steps and declared inputs, asked for in one dialog before the run.
+
+Driven in Chromium: chips load from the server, the editor saves and refuses
+a bad skill by name, the input dialog refuses a blank required field, steps
+tick and a failure shows its reason, Undo really undoes it, the whole run
+replays after a reload, 0px of horizontal overflow, no page errors.
+**Don't redo:** the skill schema, the runner, the allowlist plumbing, the
+editor, the plan/step/result UI.
 
 **SearXNG installs and runs.** Five separate bugs, three of them fatal on
 every OS and none of them visible in the log, because they all happened
@@ -1011,18 +1023,33 @@ the wire.** Not redundancy: the reported failure was a model that *had* tools
 and did not know it was meant to act, and telling a 3B model "use `tag_note`"
 is what makes it reach for one.
 
-**Still to do, in order:**
+**And what running one now does** (`ai/skill_runner.py`):
 
-- **Progress against the plan.** The plan is drawn; the steps are not ticked
-  off as they happen. Doing that properly means the runner knowing which step
-  it is on, which is the same structure §18 wants for the agent generally.
-- **A result you can undo.** A skill still ends in prose. It should end in a
-  list of what changed, with an undo — the audit log already records every
-  tool action, so the data is there.
-- **Replay.** Once a run is a list of steps with outcomes, running the same
-  skill again over yesterday's notes is a re-run rather than a retype.
-- **A skill that fails halfway** should say which step it stopped at. Today it
-  is asked to, in the run instruction, which is not the same as being made to.
+- **One turn per step.** Not one request carrying a numbered list — that is a
+  plan the model may ignore, and a 3B model given four instructions at once
+  does the first and narrates the rest. The app knows which step is running,
+  so the UI ticks them off as they finish.
+- **A step that fails is named**, with the reason, and the run stops there
+  instead of ploughing on. §21 asked for exactly this.
+- **The run ends in what changed**, not prose claiming something happened:
+  a list of every write, each with a **View** and — where an inverse exists —
+  an **Undo**. The undo is a tool call captured *before* the write and run
+  through `POST /chat/tools/execute`, the same endpoint the confirm button
+  uses. It is stripped out of what the model sees, since every field left in
+  a tool result is resent on every later round.
+- **Every built-in is a real job**: steps, tools, and declared inputs asked
+  for in one dialog before the run. "Draft an email" asks who and what
+  instead of spending a chat round on it.
+
+**Still to do:**
+
+- **Re-running a past run.** A skill is repeatable; a *run* is not yet
+  something you can replay over a different set of notes.
+- **Undo the whole run**, rather than one change at a time.
+- **Links and reminders have no inverse tool**, so those two changes are
+  listed without an Undo. `unlink_notes` / `delete_reminder` would fix it, at
+  the cost of two more schemas in the per-round budget (§11a) — worth doing
+  when something else needs them too.
 
 ---
 

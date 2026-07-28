@@ -109,6 +109,28 @@ def test_the_built_in_skills_are_valid_and_name_real_tools():
             assert name in tools.TOOLS
 
 
+def test_every_built_in_is_a_job_rather_than_a_sentence():
+    """The point of the rebuild. A built-in with no steps and no tools is a
+    saved prompt wearing a skill's clothes."""
+    for skill in skills.builtins(_known()):
+        assert skill["steps"], f"{skill['name']} has no steps"
+        assert skill["tools"], f"{skill['name']} names no tools"
+        assert skill["description"], f"{skill['name']} says nothing about itself"
+
+
+def test_a_built_in_that_needs_a_value_asks_for_it_instead_of_guessing():
+    """"Ask me who it's to" inside a prompt is a round trip the user pays for
+    every run; a declared input is a box before it starts."""
+    email = next(
+        s for s in skills.builtins(_known()) if "Draft an email" in s["name"]
+    )
+    assert [item["name"] for item in email["inputs"]] == ["to", "about"]
+    assert skills.missing_inputs(email, {}) == ["to", "about"]
+    filled = skills.run_instruction(email, {"to": "Sam", "about": "the lease"})
+    assert "to Sam about the lease" in filled
+    assert "{{" not in filled
+
+
 def test_a_stored_skill_that_no_longer_validates_is_kept_as_a_prompt(app_state):
     """Losing someone's skill because a field went stale is worse than running
     it with fewer powers than it asked for."""
@@ -260,11 +282,25 @@ def test_the_agent_refuses_a_tool_the_skill_did_not_declare(
 
 def test_running_a_skill_sends_its_instruction_not_its_name(ai_client, fake_ollama):
     events = _stream_events(ai_client, "🏷 Auto-tag my notes", skill="🏷 Auto-tag my notes")
-    assert [e for e in events if e["type"] == "plan"][0]["steps"]
+    plan = [e for e in events if e["type"] == "plan"][0]
+    assert plan["steps"]
 
     sent = fake_ollama.tool_rounds[-1][-1]["content"]
-    assert "Follow these steps in order" in sent
+    assert f"step {len(plan['steps'])} of {len(plan['steps'])}" in sent
     assert "tag_note" in sent
+
+
+def test_a_skill_with_no_steps_is_still_one_instruction(ai_client, fake_ollama):
+    """Nothing was taken away: a skill saved before the rebuild — a name and a
+    prompt — still runs, as a single turn."""
+    ai_client.put(
+        "/preferences",
+        json={"skills": [{"name": "Old style", "prompt": "Summarise my week."}]},
+    )
+    _stream_events(ai_client, "Old style", skill="Old style")
+    sent = fake_ollama.tool_rounds[-1][-1]["content"]
+    assert "Run my saved skill" in sent
+    assert "step 1 of" not in sent
 
 
 def test_running_a_skill_narrows_the_tools_on_the_wire(ai_client, fake_ollama, session):
@@ -305,6 +341,113 @@ def test_running_a_skill_that_does_not_exist_says_so(ai_client):
         "/chat/stream", json={"question": "x", "skill": "Not a skill"}
     )
     assert response.status_code == 404
+
+
+# --- running one step at a time ----------------------------------------------
+
+
+def _saved(client, content, **extra):
+    response = client.post("/entries", json={"content": content, **extra})
+    assert response.status_code == 201
+    return response.json()
+
+
+def test_each_step_is_its_own_turn_and_is_ticked_off(ai_client, fake_ollama):
+    """Handing a 3B model four instructions at once gets the first one done
+    and the rest narrated. One step per turn is what makes "step 2 happened"
+    something the app knows rather than hopes."""
+    events = _stream_events(ai_client, "run", skill="🏷 Auto-tag my notes")
+    plan = [e for e in events if e["type"] == "plan"][0]
+    steps = [e for e in events if e["type"] == "step"]
+
+    assert [s["state"] for s in steps if s["state"] == "running"] == ["running"] * len(
+        plan["steps"]
+    )
+    assert [s["index"] for s in steps if s["state"] == "done"] == list(
+        range(len(plan["steps"]))
+    )
+    # One model turn per step, not one turn carrying a numbered list.
+    assert len(fake_ollama.tool_rounds) >= len(plan["steps"])
+
+
+def test_a_step_only_sees_what_the_earlier_steps_said(ai_client, fake_ollama):
+    _stream_events(ai_client, "run", skill="🏷 Auto-tag my notes")
+    last_turn = fake_ollama.tool_rounds[-1]
+    # The history the last step was given carries the earlier steps as turns.
+    earlier = [m for m in last_turn if m.get("role") == "user"]
+    assert len(earlier) > 1, "the last step was given no earlier context"
+
+
+def test_what_changed_comes_back_as_a_list_with_a_way_to_undo_it(
+    ai_client, session, fake_ollama
+):
+    """§21: "a result — what changed, as a list the user can undo, rather than
+    prose claiming something happened"."""
+    note = _saved(ai_client, "a note that wants tagging")
+    fake_ollama.tool_script = [
+        [{"name": "tag_note", "arguments": {"note_id": note["id"], "add": ["filed"]}}]
+    ]
+    events = _stream_events(ai_client, "run", skill="🏷 Auto-tag my notes")
+
+    result = [e for e in events if e["type"] == "result"][-1]
+    assert len(result["changes"]) == 1
+    change = result["changes"][0]
+    assert change["note_id"] == note["id"]
+    assert change["undo"]["tool"] == "edit_note"
+    # And the undo actually undoes it, through the endpoint the UI uses.
+    ai_client.post(
+        "/chat/tools/execute",
+        json={"name": change["undo"]["tool"], "arguments": change["undo"]["arguments"]},
+    )
+    assert ai_client.get(f"/entries/{note['id']}").json()["tags"] == []
+
+
+def test_the_undo_never_reaches_the_model(ai_client, session, fake_ollama):
+    """Every field left in a tool result is resent on every later round."""
+    note = _saved(ai_client, "a note")
+    fake_ollama.tool_script = [
+        [{"name": "pin_note", "arguments": {"note_id": note["id"]}}]
+    ]
+    _stream_events(ai_client, "run", skill="🏷 Auto-tag my notes")
+    tool_messages = [
+        m
+        for turn in fake_ollama.tool_rounds
+        for m in turn
+        if m.get("role") == "tool"
+    ]
+    assert tool_messages
+    assert not any("undo" in m["content"] for m in tool_messages)
+
+
+def test_a_step_that_produces_nothing_is_reported_as_the_failure(
+    ai_client, fake_ollama, monkeypatch
+):
+    """"A skill that fails halfway should say which step it stopped at."""
+    from memorymap.ai import agent
+
+    def only_failures(session, question, notes, *args, **kwargs):
+        yield {"type": "tool", "label": "⚠️ nope", "ok": False, "error": "it broke"}
+
+    monkeypatch.setattr(agent, "run_agent", only_failures)
+    events = _stream_events(ai_client, "run", skill="🏷 Auto-tag my notes")
+
+    failed = [e for e in events if e["type"] == "step" and e["state"] == "failed"]
+    assert failed and failed[0]["index"] == 0
+    assert "it broke" in failed[0]["reason"]
+    # It stops rather than ploughing on through the remaining steps.
+    assert not [e for e in events if e["type"] == "step" and e["index"] == 1]
+
+
+def test_a_model_that_cannot_use_tools_still_falls_back_to_a_plain_answer(
+    ai_client, fake_ollama
+):
+    """The runner's first event has to mean what the agent's did, or the
+    fallback that keeps this app usable without tool support breaks."""
+    fake_ollama.supports_tools = False
+    events = _stream_events(ai_client, "run", skill="🏷 Auto-tag my notes")
+
+    assert not [e for e in events if e["type"] == "plan"]
+    assert any(e["type"] == "answer" for e in events)
 
 
 def test_an_action_skill_acts_even_with_agent_mode_off(ai_client, fake_ollama):

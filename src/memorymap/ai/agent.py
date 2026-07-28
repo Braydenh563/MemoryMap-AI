@@ -286,6 +286,8 @@ def run_agent(
     history: list[dict] | None = None,
     persona_prompt: str | None = None,
     allowed_tools: list[str] | None = None,
+    max_rounds: int = MAX_ROUNDS,
+    exhausted_note: str | None = None,
 ) -> Iterator[dict]:
     """Yields event dicts:
     {"type": "unsupported"}                    — model can't do tools; caller
@@ -315,7 +317,7 @@ def run_agent(
     # the same broken call can be told so rather than burning every round.
     failed_calls: set[tuple[str, str]] = set()
 
-    for round_number in range(MAX_ROUNDS):
+    for round_number in range(max(1, max_rounds)):
         # Streamed: the model's prose reaches the user as it's written. The
         # non-streamed call this used to make is why an agent answer landed in
         # one lump after a visible pause (user-reported) — every other chat
@@ -412,8 +414,20 @@ def run_agent(
                 result = AWAITING_CONFIRMATION
             else:
                 result = tools.execute_tool(session, name, arguments)
+                # What changed, and the call that would put it back. Popped
+                # rather than read: `undo` is for the user, and every field
+                # left in the result is resent to the model on every later
+                # round of the turn.
+                undo = result.pop("undo", None)
+                change = None
                 if "error" not in result and name in _WRITE_TOOLS:
                     did_write = True
+                    change = {
+                        "tool": name,
+                        "label": result.get("label") or name,
+                        "note_id": result.get("id"),
+                        "undo": undo,
+                    }
                 if "error" in result:
                     # Hand back advice with the error, not just the error.
                     signature = (name, json.dumps(arguments, sort_keys=True))
@@ -427,12 +441,15 @@ def run_agent(
                             else _recovery_hint(name, str(result["error"]))
                         ),
                     }
-                yield {
+                event = {
                     "type": "tool",
                     "label": result.get("label") or name,
                     "ok": "error" not in result,
                     "error": result.get("error"),
                 }
+                if change:
+                    event["change"] = change
+                yield event
             payload = json.dumps(result)
             if spent + len(payload) > TOOL_RESULT_BUDGET_CHARS:
                 # Over budget. Hand back the notice instead of the result and
@@ -449,7 +466,8 @@ def run_agent(
 
     yield {
         "type": "answer",
-        "delta": (
+        "delta": exhausted_note
+        or (
             "I stopped after using several tools in a row — here's where "
             "things stand. Ask me to continue if there's more to do."
         ),

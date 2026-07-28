@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import agent, intent, librarian, skills, tools
+from memorymap.ai import agent, intent, librarian, skill_runner, skills, tools
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.api.schemas import EntryOut
 from memorymap.core import deps
@@ -406,35 +406,40 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
             }
         )
 
-        # The plan, before anything runs. The step timeline has always shown
-        # what happened; a skill is the first thing here that knows what is
-        # *meant* to happen, so it says so up front (roadmap §18).
-        if skill:
-            yield event(
-                {
-                    "type": "plan",
-                    "skill": skill["skill"]["name"],
-                    "steps": skill["skill"]["steps"],
-                    "tools": skill["skill"]["tools"],
-                }
-            )
-
         events: Iterator[dict] = plain_events(prepared, ollama_running)
         # Small talk never goes near the agent: "hey" is not a request to do
         # anything, and handing it a toolbox invites it to invent an errand.
         if ollama_running and use_tools and intent.needs_retrieval(prepared["intent"]):
-            agent_events = agent.run_agent(
-                session,
-                question,
-                prepared["notes"],
-                model_manager,
-                ollama,
-                style=prepared["style"],
-                profile=prepared["profile"],
-                history=history,
-                persona_prompt=persona_prompt,
-                allowed_tools=allowed_tools,
-            )
+            shared = {
+                "style": prepared["style"],
+                "profile": prepared["profile"],
+                "history": history,
+                "persona_prompt": persona_prompt,
+            }
+            if skill:
+                # A skill runs step by step — the runner emits the plan, ticks
+                # each step, and ends with what changed. Its first event has
+                # the same meaning as the agent's, so the fallback below is
+                # unchanged.
+                agent_events = skill_runner.run_skill(
+                    session,
+                    skill["skill"],
+                    body.skill_inputs or {},
+                    prepared["notes"],
+                    model_manager,
+                    ollama,
+                    **shared,
+                )
+            else:
+                agent_events = agent.run_agent(
+                    session,
+                    question,
+                    prepared["notes"],
+                    model_manager,
+                    ollama,
+                    allowed_tools=allowed_tools,
+                    **shared,
+                )
             first = next(agent_events, None)
             if first is None or first.get("type") == "unsupported":
                 # The active model can't do tool calls — plain Q&A, never

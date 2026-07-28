@@ -1851,6 +1851,8 @@ async function streamChat({
   signal,
   onMeta,
   onPlan,
+  onStep,
+  onResult,
   onThinking,
   onAnswer,
   onTool,
@@ -1897,6 +1899,8 @@ async function streamChat({
       const event = JSON.parse(line);
       if (event.type === "meta") onMeta(event);
       else if (event.type === "plan" && onPlan) onPlan(event);
+      else if (event.type === "step" && onStep) onStep(event);
+      else if (event.type === "result" && onResult) onResult(event);
       else if (event.type === "thinking") onThinking(event.delta);
       else if (event.type === "answer") onAnswer(event.delta);
       else if (event.type === "tool" && onTool) onTool(event);
@@ -2737,6 +2741,7 @@ function agentTimeline(holder) {
     const summary = document.createElement("summary");
     summary.textContent = `⚡ ${plan.skill}`;
     el.appendChild(summary);
+    const items = [];
     if (plan.steps && plan.steps.length) {
       const list = document.createElement("ol");
       list.className = "plan-steps";
@@ -2744,6 +2749,7 @@ function agentTimeline(holder) {
         const item = document.createElement("li");
         item.textContent = step;
         list.appendChild(item);
+        items.push(item);
       }
       el.appendChild(list);
     }
@@ -2754,15 +2760,62 @@ function agentTimeline(holder) {
       el.appendChild(line);
     }
     holder.appendChild(el);
-    plans.push({ el, plan });
+    const entry = { el, items, plan: { ...plan, states: plan.states || {} } };
+    plans.push(entry);
+    // Replaying a finished run: paint the states it ended with.
+    for (const [index, state] of Object.entries(entry.plan.states)) {
+      markStep(entry, Number(index), state.state, state.reason);
+    }
     current = null;
     return el;
+  };
+
+  // A step's state, shown on the plan itself. The timeline records what
+  // happened; this is the only place that says how far through it got.
+  const markStep = (entry, index, state, reason) => {
+    const item = entry.items[index];
+    if (!item) return;
+    entry.plan.states[index] = { state, reason };
+    item.className = `plan-step plan-step-${state}`;
+    item.dataset.state = state;
+    const note = item.querySelector(".plan-step-reason");
+    if (note) note.remove();
+    if (state === "failed" && reason) {
+      const why = document.createElement("span");
+      why.className = "plan-step-reason";
+      why.textContent = ` — ${reason}`;
+      item.appendChild(why);
+    }
   };
 
   return {
     holder,
     plan(event) {
       startPlan(event);
+    },
+    step(event) {
+      const entry = plans.at(-1);
+      if (entry) markStep(entry, event.index, event.state, event.reason);
+      // Each step's prose is its own block. Without this, step 2's first
+      // sentence lands on the end of step 1's paragraph ("…with no tags.Read
+      // them.") because nothing between them closed the step.
+      current = null;
+    },
+    // What the run actually changed, with the call that puts each one back.
+    // Prose claiming something happened is exactly what this replaces.
+    result(event, options = {}) {
+      const changes = event.changes || [];
+      if (!changes.length) return;
+      const box = document.createElement("div");
+      box.className = "skill-result";
+      box.dataset.changes = JSON.stringify(changes);
+      const title = document.createElement("div");
+      title.className = "skill-result-title";
+      title.textContent = `What changed (${changes.length})`;
+      box.appendChild(title);
+      for (const change of changes) box.appendChild(changeRow(change, options));
+      holder.appendChild(box);
+      current = null;
     },
     thinking(delta) {
       const step = current?.kind === "thinking" ? current : startThinking();
@@ -2786,6 +2839,8 @@ function agentTimeline(holder) {
         if (step.kind === "plan") {
           startPlan(step);
           if (plans.at(-1)) plans.at(-1).el.open = false;
+        } else if (step.kind === "result") {
+          this.result(step);
         } else if (step.kind === "thinking" && step.text) {
           this.thinking(step.text);
           if (current) current.el.open = false;
@@ -2846,7 +2901,11 @@ function agentTimeline(holder) {
       for (const node of holder.children) {
         if (node.classList.contains("step-plan")) {
           const entry = plans.find((p) => p.el === node);
+          // The states go with it, so reopening a chat shows how far the run
+          // got rather than an untouched plan.
           if (entry) out.push({ kind: "plan", ...entry.plan });
+        } else if (node.classList.contains("skill-result")) {
+          out.push({ kind: "result", changes: JSON.parse(node.dataset.changes || "[]") });
         } else if (node.classList.contains("step-thinking")) {
           const step = thinkingSteps.find((s) => s.el === node);
           if (step?.raw) out.push({ kind: "thinking", text: step.raw });
@@ -2901,6 +2960,52 @@ function addAssistantBubble() {
 }
 
 // One "the AI did something" chip in a bubble (Wave G).
+// One line of a skill's result: what changed, a way to see it, and — where
+// an inverse exists — a way to put it back. The undo is a tool call the
+// server handed us, run through the same endpoint the confirm button uses.
+function changeRow(change, options = {}) {
+  const row = document.createElement("div");
+  row.className = "skill-change";
+  const label = document.createElement("span");
+  label.className = "skill-change-label";
+  label.textContent = change.label || change.tool;
+  row.appendChild(label);
+
+  if (change.note_id) {
+    row.appendChild(
+      smallButton("View", "Show this note", () => {
+        switchTab("notes");
+        showNotesSection("browse"); // focusing inside a hidden section does nothing
+        flashEntry(change.note_id);
+      })
+    );
+  }
+  if (change.undo) {
+    const undo = smallButton("Undo", "Put this back the way it was", async () => {
+      undo.disabled = true;
+      try {
+        const result = await apiJson("/chat/tools/execute", {
+          method: "POST",
+          body: JSON.stringify({
+            name: change.undo.tool,
+            arguments: change.undo.arguments,
+          }),
+        });
+        if (result && result.error) throw new Error(result.error);
+        row.classList.add("skill-change-undone");
+        label.textContent = `${change.label || change.tool} — undone`;
+        undo.remove();
+        loadEntries();
+      } catch (error) {
+        undo.disabled = false;
+        toast(error.message || "Couldn't undo that.", true);
+      }
+    });
+    row.appendChild(undo);
+  }
+  return row;
+}
+
 function toolChip(label, ok = true) {
   const item = document.createElement("div");
   item.className = `tool-chip ${ok ? "" : "tool-chip-error"}`.trim();
@@ -3883,6 +3988,21 @@ async function sendChatMessage(preset, opts = {}) {
         status.textContent = `Running “${event.skill}”…`;
         chatScrollToEnd();
       },
+      onStep: (event) => {
+        clearPending();
+        timeline.step(event);
+        if (event.state === "running") {
+          status.textContent = `Step ${event.index + 1}: ${event.text}`;
+        }
+        chatScrollToEnd();
+      },
+      onResult: (event) => {
+        clearPending();
+        timeline.result(event);
+        // A skill that changed notes has just made the list on screen stale.
+        if ((event.changes || []).length) loadEntries();
+        chatScrollToEnd();
+      },
       onThinking: (delta) => {
         clearPending();
         timeline.thinking(delta);
@@ -4861,20 +4981,76 @@ function chosenSkillTools() {
 // brings its own permission to act, so agent mode is not switched on behind
 // the user's back and left on afterwards.
 function runSkill(skill) {
-  const values = {};
-  for (const item of skill.inputs || []) {
-    const answer = prompt(`${skill.name}\n\n${item.label || item.name}`, item.default || "");
-    if (answer === null) return; // cancelled
-    values[item.name] = answer.trim();
-    if (!values[item.name] && item.required && !item.default) {
-      toast(`“${skill.name}” needs ${item.name}.`);
-      return;
-    }
+  if ((skill.inputs || []).length) {
+    askSkillInputs(skill, (values) => startSkill(skill, values));
+    return;
   }
-  const shown = skill.inputs && skill.inputs.length
-    ? `⚡ ${skill.name} — ${Object.values(values).filter(Boolean).join(", ")}`
-    : `⚡ ${skill.name}`;
-  sendChatMessage(shown, { skill: skill.name, skillInputs: values });
+  startSkill(skill, {});
+}
+
+function startSkill(skill, values) {
+  const given = Object.values(values).filter(Boolean).join(", ");
+  sendChatMessage(`⚡ ${skill.name}${given ? ` — ${given}` : ""}`, {
+    skill: skill.name,
+    skillInputs: values,
+  });
+}
+
+// One dialog for everything a skill asks for. Two window.prompt boxes in a
+// row is how this started, and the second one gave no clue which skill it
+// belonged to or what the first answer had been.
+function askSkillInputs(skill, done) {
+  const overlay = $("skill-run-overlay");
+  const fields = $("skill-run-fields");
+  $("skill-run-title").textContent = skill.name;
+  $("skill-run-description").textContent = skill.description || skill.prompt;
+  fields.replaceChildren();
+  const inputs = [];
+  for (const item of skill.inputs || []) {
+    const label = document.createElement("label");
+    label.className = "field";
+    const text = document.createElement("span");
+    text.textContent = item.label || item.name;
+    const box = document.createElement("input");
+    box.type = "text";
+    box.value = item.default || "";
+    box.maxLength = 200;
+    box.placeholder = item.required ? "" : "optional";
+    label.append(text, box);
+    fields.appendChild(label);
+    inputs.push({ item, box });
+  }
+
+  const close = () => {
+    overlay.classList.add("hidden");
+    document.removeEventListener("keydown", onKey);
+  };
+  const submit = () => {
+    const values = {};
+    for (const { item, box } of inputs) {
+      const value = box.value.trim();
+      if (!value && item.required && !item.default) {
+        box.focus();
+        // Nothing is sent half-filled: a skill run with a blank {{topic}}
+        // searches the whole notebook for nothing and reads as being ignored.
+        toast(`“${skill.name}” needs ${item.label || item.name}.`, true);
+        return;
+      }
+      values[item.name] = value;
+    }
+    close();
+    done(values);
+  };
+  const onKey = (event) => {
+    if (event.key === "Escape") close();
+    else if (event.key === "Enter" && event.target.tagName === "INPUT") submit();
+  };
+
+  $("skill-run-go").onclick = submit;
+  $("skill-run-cancel").onclick = close;
+  document.addEventListener("keydown", onKey);
+  overlay.classList.remove("hidden");
+  inputs[0]?.box.focus();
 }
 
 async function loadChatSkills() {

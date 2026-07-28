@@ -156,14 +156,19 @@ def is_action(skill: dict) -> bool:
 
 
 def fill(text: str, values: dict) -> str:
-    """Substitute {{input}} placeholders. Unknown ones are left alone so the
-    failure is visible rather than silently blank."""
+    """Substitute {{input}} placeholders.
+
+    A *declared* input substitutes even when it is empty — an optional input
+    left blank should disappear, not print `{{to}}` at the model. An
+    undeclared name is left alone so the mistake is visible, though
+    `normalise` refuses to store one in the first place.
+    """
 
     def swap(match: re.Match) -> str:
-        value = values.get(match.group(1))
-        return str(value) if value not in (None, "") else match.group(0)
+        name = match.group(1)
+        return str(values[name]) if name in values else match.group(0)
 
-    return PLACEHOLDER.sub(swap, text)
+    return re.sub(r"[ \t]{2,}", " ", PLACEHOLDER.sub(swap, text))
 
 
 def missing_inputs(skill: dict, values: dict) -> list[str]:
@@ -227,6 +232,49 @@ def run_instruction(skill: dict, values: dict | None = None) -> str:
     return "\n\n".join(parts)
 
 
+def step_instruction(skill: dict, values: dict | None, index: int) -> str:
+    """What the model is asked for **one** step of a skill.
+
+    A skill's steps used to be handed over as one numbered list inside one
+    request, which is a plan the model is free to ignore — and a 3B model
+    given four instructions at once reliably does the first and narrates the
+    rest. Each step is its own turn now, so "the model did step 2" is
+    something the app knows rather than something it hopes for.
+    """
+    values = input_values(skill, values)
+    steps = skill.get("steps") or []
+    total = len(steps)
+    parts = [
+        f"You are running the skill “{skill['name']}” for me. "
+        f"This is step {index + 1} of {total}.",
+        f"The whole job: {fill(skill['prompt'], values)}",
+    ]
+    if index:
+        parts.append(
+            "Earlier steps are in the conversation above — build on what they "
+            "found rather than starting again."
+        )
+    parts.append(f"Step {index + 1}, and only this step: {fill(steps[index], values)}")
+    given = {name: value for name, value in values.items() if value}
+    if given:
+        parts.append(
+            "Values for this run: "
+            + ", ".join(f"{name} = “{value}”" for name, value in given.items())
+        )
+    if skill.get("tools"):
+        parts.append(
+            "Tools for this step: "
+            + ", ".join(skill["tools"])
+            + ". Use them rather than answering from memory."
+        )
+    parts.append(
+        "Do this step and then stop — not the later ones. Say what you did in "
+        "a sentence or two. If it cannot be done, say so plainly instead of "
+        "pretending it worked."
+    )
+    return "\n\n".join(parts)
+
+
 # --- what ships with the app --------------------------------------------------
 #
 # These lived in `app.js` as BUILTIN_SKILLS, which meant the server could not
@@ -243,19 +291,27 @@ BUILTIN_SKILLS: list[dict] = [
     {
         "name": "📋 Summarise my week",
         "description": "The last seven days, in a paragraph.",
-        "prompt": (
-            "Summarise what I've saved in the last 7 days: the main topics, "
-            "anything that looks important, and one thing worth revisiting."
-        ),
+        "prompt": "Summarise what I saved in the last 7 days.",
+        "steps": [
+            "Find the notes I saved in the last 7 days.",
+            "Read the ones that look substantial, rather than working from "
+            "the previews.",
+            "Write the summary: the main topics, anything that looks "
+            "important, and one thing worth revisiting.",
+        ],
         "tools": [*_READING_TOOLS, "summarize_notes"],
     },
     {
         "name": "🧹 Find loose ends",
         "description": "Unfinished things you wrote down and left.",
-        "prompt": (
-            "Look through my notes for loose ends — unfinished tasks, open "
-            "questions, or things I said I'd do. List each one with its note id."
-        ),
+        "prompt": "Find the loose ends in my notes and list them.",
+        "steps": [
+            "Search my notes for unfinished work — todo, need to, should, "
+            "waiting on, must, chase up, follow up.",
+            "Read each candidate to check it is genuinely unfinished rather "
+            "than something I already closed off.",
+            "List each loose end with its note id, newest first.",
+        ],
         "tools": _READING_TOOLS,
     },
     {
@@ -263,8 +319,11 @@ BUILTIN_SKILLS: list[dict] = [
         "description": "Adds 2–3 tags to notes that have none.",
         "prompt": "Tag the notes in my notebook that have no tags yet.",
         "steps": [
-            "List my notes and find the ones with no tags, or only one.",
-            "Read each of those notes so the tags describe what it actually says.",
+            "List the tags I already use, so new ones match rather than "
+            "duplicate them.",
+            "Find my notes with no tags, or only one.",
+            "Read each of those notes so the tags describe what it actually "
+            "says.",
             "Call tag_note on each one with 2–3 short, reusable tags.",
             "Tell me which notes you tagged and with what.",
         ],
@@ -277,8 +336,9 @@ BUILTIN_SKILLS: list[dict] = [
         "steps": [
             "Look through my notes for pairs that are clearly about the same "
             "thing but aren't linked yet.",
-            "Read both notes of a pair before linking them.",
-            "Link each pair with link_notes.",
+            "Read both notes of a pair before deciding — a shared word is not "
+            "a shared subject.",
+            "Link each pair you are confident about with link_notes.",
             "Give me a short summary of what you connected, and why.",
         ],
         "tools": ["search_notes", "list_notes", "get_note", "link_notes"],
@@ -286,61 +346,100 @@ BUILTIN_SKILLS: list[dict] = [
     {
         "name": "🗂 Tidy suggestions",
         "description": "Proposes tidy-ups. Changes nothing on its own.",
-        "prompt": (
-            "Review my categories and tags. Suggest merges, renames, or links "
-            "between related notes that would tidy the notebook. Don't change "
-            "anything — list your suggestions and ask which ones I'd like "
-            "applied."
-        ),
+        "prompt": "Suggest how I could tidy my notebook, without changing it.",
+        "steps": [
+            "List my categories and tags with their counts.",
+            "Find the overlaps: tags that mean the same thing, categories "
+            "with one or two notes, notes that look misfiled.",
+            "Give me the suggestions as a numbered list and ask which ones I "
+            "want applied. Do not change anything yourself.",
+        ],
         "tools": ["list_categories", "list_tags", "count_notes", "list_notes"],
     },
     {
         "name": "🔎 Catch up on a topic",
         "description": "Everything you've written about one thing.",
-        "prompt": (
-            "Pull together everything I've written about {{topic}}. Say what "
-            "I seem to think about it, what's unresolved, and what I last said."
-        ),
+        "prompt": "Pull together everything I have written about {{topic}}.",
+        "steps": [
+            "Search my notes for {{topic}}.",
+            "Read the most relevant ones in full.",
+            "Tell me what I seem to think about {{topic}}, what is still "
+            "unresolved, and what I said about it most recently.",
+        ],
         "inputs": [{"name": "topic", "label": "Which topic?", "required": True}],
         "tools": _READING_TOOLS,
     },
     {
+        "name": "📓 Daily review",
+        "description": "Today's notes, turned into tomorrow's list.",
+        "prompt": "Review what I captured today and tell me what needs doing.",
+        "steps": [
+            "Find the notes I saved today.",
+            "Read them, and pick out anything that is actually an action.",
+            "Set a reminder for each action that has a time in it, using the "
+            "current clock to work the time out.",
+            "Give me the rest as a short list of what is still open.",
+        ],
+        "tools": [*_READING_TOOLS, "get_current_time", "set_reminder"],
+    },
+    {
         "name": "✉️ Draft an email",
         "description": "A clear first draft you can edit.",
-        "prompt": (
-            "Help me draft an email. Ask me who it's to and what it's about if "
-            "I haven't said, then write a clear, friendly draft I can edit."
-        ),
+        "prompt": "Draft an email to {{to}} about {{about}}.",
+        "steps": [
+            "Check my notes for anything about {{about}} or {{to}} that the "
+            "email should take into account.",
+            "Write the draft: a clear subject line, a short opening, the "
+            "point, and a plain closing. Friendly, not formal.",
+        ],
+        "inputs": [
+            {"name": "to", "label": "Who is it to?", "required": True},
+            {"name": "about", "label": "What is it about?", "required": True},
+        ],
         "tools": ["search_notes", "get_note"],
     },
     {
         "name": "💡 Brainstorm ideas",
         "description": "A varied list, drawing on your notes.",
-        "prompt": (
-            "Brainstorm ideas with me. Ask what topic if I haven't given one, "
-            "then offer a varied list of ideas, drawing on anything relevant "
-            "in my notes."
-        ),
+        "prompt": "Brainstorm ideas about {{topic}} with me.",
+        "steps": [
+            "Look for anything in my notes about {{topic}}, so the ideas "
+            "build on what I already think.",
+            "Give me a varied list of ideas — some obvious, some not — and "
+            "say which one you would start with.",
+        ],
+        "inputs": [{"name": "topic", "label": "What are we brainstorming?"}],
         "tools": ["search_notes", "get_note"],
     },
     {
         "name": "📖 Explain a concept",
         "description": "Plain English, with an example.",
-        "prompt": (
-            "Explain a concept to me clearly and simply. Ask which concept if "
-            "I haven't named one, then explain it with a short example."
-        ),
-        "tools": ["search_notes", "get_note"],
+        "prompt": "Explain {{concept}} to me clearly and simply.",
+        "steps": [
+            "Check whether I already have notes on {{concept}}, and pitch the "
+            "explanation at what they show I know.",
+            "Explain it in plain English with one short example, then offer "
+            "to save the explanation as a note.",
+        ],
+        "inputs": [{"name": "concept", "label": "Which concept?"}],
+        "tools": ["search_notes", "get_note", "create_note"],
     },
     {
         "name": "🗓 Create a study plan",
-        "description": "A realistic step-by-step plan.",
-        "prompt": (
-            "Help me create a study or action plan. Ask about the goal and "
-            "timeframe if I haven't said, then lay out a realistic "
-            "step-by-step plan."
-        ),
-        "tools": ["search_notes", "get_note", "set_reminder"],
+        "description": "A realistic plan, with reminders set.",
+        "prompt": "Help me plan how to get {{goal}} done by {{deadline}}.",
+        "steps": [
+            "Check my notes for anything already written about {{goal}}.",
+            "Lay out a realistic step-by-step plan between now and "
+            "{{deadline}}, working the dates out from the current time.",
+            "Set a reminder for the first milestone, and ask before setting "
+            "the rest.",
+        ],
+        "inputs": [
+            {"name": "goal", "label": "What are you working towards?"},
+            {"name": "deadline", "label": "By when? (e.g. 3 weeks, 12 May)"},
+        ],
+        "tools": ["search_notes", "get_note", "get_current_time", "set_reminder"],
     },
 ]
 

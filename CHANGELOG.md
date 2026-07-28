@@ -48,6 +48,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- **Settings → Background tasks shows everything that's running**, not just
+  two of them. It knew about re-indexing and model downloads; the embedding
+  model loading at startup (a ~90 MB download the first time) and the SearXNG
+  install (several minutes) both ran with nothing on that screen to say so —
+  which reads as the app being broken rather than busy. The list now comes
+  from the server, with a live step for each job, a progress bar where there
+  is a real number to show, and a Quit button only on the jobs that can be
+  stopped safely.
 - **Notes remember what "tomorrow" meant.** A note saying "the deadline is
   next Friday" is correct the day it is written and misleading forever after,
   and nothing recorded which Friday it was. Every note's relative time

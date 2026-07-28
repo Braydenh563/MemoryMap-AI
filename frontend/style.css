@@ -2495,6 +2495,14 @@ html { font-size: 16px; }
 :root[data-glass="off"] { --card: var(--modal-bg); }
 
 /* --- Wave O: AI Tools toggles --------------------------------------------------- */
+#task-list li { padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+#task-list .entry-meta { align-items: center; gap: 0.6rem; }
+#task-list .entry-meta > span:first-child { flex: 1 1 12rem; min-width: 0; }
+.task-progress {
+  flex: 0 0 8rem;
+  height: 0.5rem;
+  accent-color: var(--accent);
+}
 #tool-list li { padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
 .tool-row { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: 500; }
 .tool-row input { width: 1.15rem; height: 1.15rem; margin: 0; accent-color: var(--accent); }

@@ -9070,7 +9070,12 @@ function settingsModalOpen() {
   return !$("settings-modal").classList.contains("hidden");
 }
 
+// Which settings section is on screen. The Background tasks list polls while
+// it is open, and needs to know that it is.
+let currentSettingsSection = "models";
+
 function showSettingsSection(name) {
+  currentSettingsSection = name;
   for (const section of SETTINGS_SECTIONS) {
     $(`settings-${section}`).classList.toggle("hidden", section !== name);
   }
@@ -9087,7 +9092,7 @@ function showSettingsSection(name) {
   if (name === "shortcuts") renderShortcutList();
   if (name === "account") renderAccount().catch(() => {});
   if (name === "data") renderBackups();
-  if (name === "tasks") refreshModelStatus(); // populate the tasks list now
+  if (name === "tasks") renderTasks(); // fill it in now, then poll
 }
 
 async function openSettingsModal(section = "models") {
@@ -10251,26 +10256,23 @@ function renderSettings() {
     $("installed-box").classList.add("hidden");
   }
   renderReindex(status);
-  if (settingsModalOpen()) renderTasks(status); // Wave N tasks manager
+  // Only while the section is actually on screen: /tasks is its own call, and
+  // polling it behind a closed panel is work nobody is looking at.
+  if (settingsModalOpen() && currentSettingsSection === "tasks") renderTasks();
 }
 
 // --- Wave N: tasks manager (see and quit background jobs) ---------------------------
 
-function renderTasks(status) {
+// The list is built by the server (GET /tasks), not assembled here from
+// whatever happened to be in the model status. It used to know about exactly
+// two jobs — a re-index and a model download — so the embedding model loading
+// at startup and the SearXNG install, which is minutes long, ran with nothing
+// on this screen to say so. Rendering whatever the server sends means the
+// next background job appears here without touching this file.
+async function renderTasks() {
   const list = $("task-list");
-  const jobs = [];
-  if (status.reindex && status.reindex.status === "running") {
-    jobs.push({
-      kind: "reindex",
-      label: `Re-indexing notes — ${status.reindex.done} of ${status.reindex.total}`,
-    });
-  }
-  for (const [name, job] of Object.entries(status.pulls || {})) {
-    if (job.status === "running") {
-      const pct = job.total ? Math.round((job.done / job.total) * 100) : 0;
-      jobs.push({ kind: "pull", name, label: `Downloading ${name} — ${pct}%` });
-    }
-  }
+  const body = await apiJson("/tasks", { silent: true }).catch(() => null);
+  const jobs = (body && body.tasks) || [];
   list.replaceChildren();
   $("tasks-empty").classList.toggle("hidden", jobs.length > 0);
   for (const job of jobs) {
@@ -10278,20 +10280,43 @@ function renderTasks(status) {
     const row = document.createElement("div");
     row.className = "entry-meta";
     const label = document.createElement("span");
-    label.textContent = job.label;
-    const actions = document.createElement("span");
-    actions.className = "entry-actions";
-    actions.appendChild(
-      smallButton("Quit", "Stop this job", async () => {
-        const q = new URLSearchParams({ kind: job.kind, name: job.name || "" });
-        await api(`/models/jobs/cancel?${q}`, { method: "POST" }).catch((e) =>
-          toast(e.message, true)
-        );
-        toast("Asked the job to stop.");
-        refreshModelStatus();
-      })
-    );
-    row.append(label, actions);
+    const name = document.createElement("strong");
+    name.textContent = job.label;
+    label.appendChild(name);
+    if (job.detail) {
+      const detail = document.createElement("span");
+      detail.className = "muted tool-desc";
+      detail.textContent = job.detail;
+      label.appendChild(detail);
+    }
+    row.appendChild(label);
+
+    // A bar only where there is a real fraction to show. A progress bar that
+    // guesses is worse than one that admits it can't say — and under reduced
+    // motion an indeterminate animation freezes and reads as a fault.
+    if (typeof job.progress === "number") {
+      const bar = document.createElement("progress");
+      bar.max = 1;
+      bar.value = job.progress;
+      bar.className = "task-progress";
+      row.appendChild(bar);
+    }
+
+    if (job.cancellable) {
+      const actions = document.createElement("span");
+      actions.className = "entry-actions";
+      actions.appendChild(
+        smallButton("Quit", "Stop this job", async () => {
+          const q = new URLSearchParams({ kind: job.kind, name: job.name || "" });
+          await api(`/models/jobs/cancel?${q}`, { method: "POST" }).catch((e) =>
+            toast(e.message, true)
+          );
+          toast("Asked the job to stop.");
+          refreshModelStatus();
+        })
+      );
+      row.appendChild(actions);
+    }
     li.appendChild(row);
     list.appendChild(li);
   }

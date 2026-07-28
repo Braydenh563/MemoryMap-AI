@@ -186,10 +186,19 @@ are grouped by feature area:
 | `routes_insights` | `/insights` | dashboard: stats, most-accessed, on-this-day, digest |
 | `routes_reminders` | `/reminders` | create/list/complete reminders |
 | `routes_voice` | `/voice` | local Whisper transcription |
+| `routes_tasks` | `/tasks` | what is running in the background right now |
 | system | `/health` | liveness + version (open, no unlock) |
 
 Interactive API docs live at `http://localhost:8000/docs` when the app is
 running.
+
+**Anything that runs on a worker thread belongs in `routes_tasks.collect()`.**
+Settings → Background tasks renders whatever that returns, so a new job shows
+up there without the frontend being taught about it. It used to build the list
+in `app.js` from the two jobs that happened to be in `/models/status`, which
+is why the embedding warm-up and the multi-minute SearXNG install ran with
+nothing on that screen to say so. Only *running* work is listed — a finished
+job is not a task, and a screen that accumulates them is the Logs screen.
 
 ## 7. The agent's tools (Wave G)
 
@@ -608,6 +617,7 @@ On first run you choose a password (bcrypt-hashed, stays local). See the
 | Add a built-in skill | `skills.BUILTIN_SKILLS`, not `app.js`; name its tools (§7b) |
 | Log something a user or a website typed | `logbuffer.safe_value()` at the call site; `sanitise` only protects the in-app viewer |
 | Work out why SearXNG won't start | `data/searxng/searxng.log`, surfaced in Settings → Web search |
+| Add a background job | `api/routes_tasks.collect()` — otherwise it runs invisibly |
 | Add a test | `tests/` — copy an existing `test_*.py` and reuse the fakes |
 
 ---

@@ -29,6 +29,7 @@ from memorymap.api import (
     routes_models,
     routes_reminders,
     routes_settings,
+    routes_tasks,
     routes_tags,
     routes_voice,
 )
@@ -110,6 +111,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_graph.router, dependencies=locked)
     app.include_router(routes_reminders.router, dependencies=locked)
     app.include_router(routes_voice.router, dependencies=locked)
+    app.include_router(routes_tasks.router, dependencies=locked)
 
     @app.get("/health", tags=["system"])
     def health() -> dict[str, str]:

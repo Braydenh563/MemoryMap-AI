@@ -21,6 +21,7 @@ from memorymap.api.schemas import (
     AttachmentOut,
     ContextBody,
     EntryCreate,
+    EntryDateOut,
     EntryOut,
     EntryUpdate,
     LinkOut,
@@ -71,6 +72,10 @@ def _to_out(
         is_private=bool(getattr(entry, "is_private", False)),
         created_at=entry.created_at,
         deleted_at=entry.deleted_at if entry.is_deleted else None,
+        dates=[
+            EntryDateOut(phrase=d.phrase, at=d.at.date(), precision=d.precision)
+            for d in manager.entry_dates(session, entry)
+        ],
         links=[
             LinkOut(
                 link_id=link.id,

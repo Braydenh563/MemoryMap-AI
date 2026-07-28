@@ -107,7 +107,7 @@ def _note_summary(session: Session, entry: Entry, chars: int = PREVIEW_CHARS) ->
     and to reference it in follow-up tool calls."""
     text = _readable(entry)
     clipped = _clip(text, chars)
-    return {
+    summary = {
         "id": entry.id,
         "content": clipped,
         "truncated": len(clipped) < len(text),
@@ -116,6 +116,15 @@ def _note_summary(session: Session, entry: Entry, chars: int = PREVIEW_CHARS) ->
         "pinned": entry.pinned,
         "created_at": entry.created_at.isoformat() if entry.created_at else None,
     }
+    # What the note's own "tomorrow" meant on the day it was written (§10A).
+    # Without this the model reads "the deadline is next Friday" in a note
+    # from March and answers about the Friday coming up.
+    dates = manager.entry_dates(session, entry)
+    if dates:
+        summary["dates"] = [
+            {"phrase": d.phrase, "meant": d.at.date().isoformat()} for d in dates
+        ]
+    return summary
 
 
 def _undo_edit(session: Session, entry: Entry) -> dict:

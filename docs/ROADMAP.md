@@ -45,9 +45,14 @@ the way*, not by how interesting it is to build.
    note list enormous, which is the problem §22 itself flagged. Wiki links and
    filter highlighting both still work inside emphasis. The dashboard's little
    note lists *strip* the markers instead, since they clip at ~70 characters.
-5. **Note timeline** (§10). Asked for repeatedly, now with more shape: see
-   notes on a time axis, grouped by event, place or theme. **This is now the
-   biggest unbuilt feature after §21.**
+5. **Note timeline** (§10). Asked for repeatedly: see notes on a time axis,
+   grouped by event, place or theme. **Half A is done** — every note's
+   relative time phrases are now resolved at capture and stored
+   (`entry/timewords.py`, the `entry_dates` table), shown as a chip on the
+   note and given to the AI, so "the deadline is next Friday" written in
+   March no longer reads as the Friday coming up. **Half B, the Timeline tab
+   itself, is now the biggest unbuilt feature in this document.** It has the
+   dates it needs to plot.
 6. ~~**A hero header on the dashboard** (§22)~~ **done** — emblem and wordmark
    inside the greeting card, hidden below 720px.
 
@@ -723,19 +728,35 @@ what those phrases *resolved to*.
 
 **Two halves, and the first is worth doing alone:**
 
-**A. Resolve relative time at capture.** When a note is saved, extract temporal
-expressions and store the absolute date each one resolved to, alongside
-`created_at`. Then:
+~~**A. Resolve relative time at capture.**~~ **done.** Every note's temporal
+phrases are resolved when it is saved (and re-read when its text is edited)
+and stored in `entry_dates` with the phrase beside the date — the resolution
+is a rule, not a fact, and a reader can only disagree with it if both are
+visible. `entry/timewords.py` is deterministic regexes and arithmetic, not a
+model call: it runs on every save, including with Ollama off, and is
+best-effort so it can never stop a note being saved. Private notes are
+excluded, and marking a note private clears what was already stored — the
+same reasoning as dropping its embedding.
 
-- Show it inline — "yesterday" with the real date on hover, or a subtle chip
-- Tag notes that contain relative time, so they're findable as a class
-- Let the AI answer "what did I mean by *last week* in that note?" correctly
-- Let it suggest actions on stale ones ("this said 'tomorrow' three weeks ago —
-  did it happen?")
+Handled: today · tonight · this morning/afternoon/evening · tomorrow ·
+yesterday · last night · the day before/after · this/last/next week, month,
+year · "in N days/weeks/months" · "N days/weeks ago" · "last/next/this/on
+<weekday>". Precision is kept, so "last week" shows as a week rather than
+being flattened to a day. The weekday rule is written down in the module,
+because both readings of "next Friday" exist and consistency is the most that
+can be offered.
 
-Do the extraction with a deterministic parser first (`reminder_parser` already
-does something similar for reminders) and only fall back to the model, so it
-works with Ollama off.
+Shown as a chip on the note (`🕓 last week → week of Jul 20`, with the full
+date on hover) rather than marked up inside the text: `renderNoteText`
+already layers wiki links, inline markdown and filter highlighting through
+each other, and a fourth pass over the same string is where that breaks. The
+resolved dates also travel in `get_note`/`search_notes` results, so the model
+can answer "what did I mean by *last week* in that note?".
+
+**Still open from A:** tagging notes that contain relative time so they are
+findable as a class, and nudging on stale ones ("this said 'tomorrow' three
+weeks ago — did it happen?"). Both are queries over `entry_dates` now that
+the data exists.
 
 **B. A Timeline tab.** An event tree of what has happened, is happening, and
 will happen:

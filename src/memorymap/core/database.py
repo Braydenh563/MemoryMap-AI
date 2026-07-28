@@ -255,6 +255,28 @@ class EntryRevision(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class EntryDate(Base):
+    """What a relative time phrase in a note meant, on the day it was written.
+
+    "Tomorrow" is correct when it is typed and misleading forever afterwards,
+    and nothing recorded what it resolved to (roadmap §10A). The phrase is
+    kept alongside the date deliberately: the resolution is a rule, not a
+    fact, and a reader can only disagree with it if they can see both.
+
+    `precision` says how exact the phrase was — "last week" did not mean a
+    day, and rendering it as one would invent precision the writer never used.
+    """
+
+    __tablename__ = "entry_dates"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entry_id: Mapped[int] = mapped_column(ForeignKey("entries.id"), index=True)
+    phrase: Mapped[str] = mapped_column(String(60))
+    at: Mapped[datetime] = mapped_column(DateTime)
+    precision: Mapped[str] = mapped_column(String(10), default="day")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 class Document(Base):
     """A long-form document (the editor tab).
 

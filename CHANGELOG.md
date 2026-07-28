@@ -46,6 +46,21 @@ below). Versioning is `0.x` while the app stabilises.
 - **Settings navigation is grouped** — the AI, your notebook, system, getting
   help — instead of eleven flat buttons. Appearance is unchanged.
 
+### Added
+
+- **Notes remember what "tomorrow" meant.** A note saying "the deadline is
+  next Friday" is correct the day it is written and misleading forever after,
+  and nothing recorded which Friday it was. Every note's relative time
+  phrases — tomorrow, last week, in three days, next Friday, two months ago —
+  are now worked out when it is saved and kept beside it, shown as a small
+  chip (`🕓 last week → week of Jul 20`) with the full date on hover. The
+  phrase is always shown next to the date, because the resolution is a rule
+  rather than a fact and you should be able to disagree with it. The AI gets
+  them too, so it can answer questions about a note's own dates instead of
+  guessing. It is plain pattern-matching, not an AI feature: it works with
+  Ollama off, and it can never stop a note being saved. Private notes are
+  excluded, and marking a note private removes anything already stored.
+
 ### Changed
 
 - **A message is only offered the tools it plausibly needs.** Every tool is

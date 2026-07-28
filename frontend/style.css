@@ -814,6 +814,14 @@ progress { accent-color: var(--accent); width: 100%; }
   font-weight: 600;
 }
 .chip.tag { background: var(--chip-bg); color: var(--muted); font-weight: 400; }
+/* What a note's own "tomorrow" resolved to. Quieter than a tag: it is a
+   reading of the text, not something the user typed. */
+.chip.when {
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--muted);
+  font-weight: 400;
+}
 .chip.confidence { background: var(--ok-soft); color: var(--ok); }
 .chip.review { background: var(--warn-soft); color: var(--warn); }
 /* Chips that carry a click handler are real buttons — show it and give them a

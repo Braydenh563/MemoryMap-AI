@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
@@ -53,6 +53,19 @@ class SimilarOut(BaseModel):
     similarity: float
 
 
+class EntryDateOut(BaseModel):
+    """A relative time phrase, and the date it resolved to.
+
+    The phrase travels with the date on purpose: the resolution is a rule
+    ("next Friday" = the Friday of next week), not a fact, and a reader can
+    only disagree with it if both are visible.
+    """
+
+    phrase: str
+    at: date
+    precision: str = "day"
+
+
 class EntryOut(BaseModel):
     id: int
     content: str
@@ -69,6 +82,9 @@ class EntryOut(BaseModel):
     deleted_at: datetime | None = None  # set only in the recycle-bin view
     links: list[LinkOut] = Field(default_factory=list)
     attachments: list[AttachmentOut] = Field(default_factory=list)
+    # What the note's relative time phrases meant when it was written (§10A):
+    # [{"phrase": "next friday", "at": "2026-08-07", "precision": "day"}].
+    dates: list["EntryDateOut"] = Field(default_factory=list)
     # How this entry was filed — only present on the create response:
     # 'semantic-match' | 'llm' | 'user' | 'thread' | 'none'
     filed_by: str | None = None

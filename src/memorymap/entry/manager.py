@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
@@ -23,9 +23,11 @@ from memorymap.core.database import (
     Category,
     EmbeddingRecord,
     Entry,
+    EntryDate,
     EntryLink,
     utcnow,
 )
+from memorymap.entry import timewords
 
 # Where entries land when no AI is available or the AI can't decide.
 UNCATEGORISED = "Uncategorised"
@@ -77,6 +79,7 @@ def create_entry(
     )
     session.add(entry)
     session.flush()
+    record_dates(session, entry)
     log_action(session, "created", "entry", entry.id)
     session.commit()
     return entry
@@ -144,10 +147,61 @@ def update_entry(
     if tags is not None:
         entry.tags = json.dumps(tags)
         changed.append("tags")
+    if "content" in changed:
+        # The text is what carries the phrases, so a rewrite re-reads them.
+        # Resolved against *now*, not the original capture: the user is
+        # writing "tomorrow" today.
+        record_dates(session, entry)
     if changed:
         log_action(session, "edited", "entry", entry.id, ", ".join(changed))
         session.commit()
     return entry
+
+
+def entry_dates(session: Session, entry: Entry) -> list[EntryDate]:
+    """The resolved time phrases for one note, in the order they were written."""
+    return list(
+        session.scalars(
+            select(EntryDate)
+            .where(EntryDate.entry_id == entry.id)
+            .order_by(EntryDate.id)
+        )
+    )
+
+
+def record_dates(session: Session, entry: Entry) -> None:
+    """Resolve the relative time phrases in a note and store what they meant.
+
+    Best-effort by design (principle 2): a note must save even if this cannot
+    run at all, so every failure here is logged and swallowed. Private notes
+    are skipped — their text is encrypted at rest, and lifting phrases out of
+    it into a plain table would leak the one thing encryption is for.
+    """
+    try:
+        if entry.is_private:
+            return
+        from memorymap.core.config import user_now
+        from memorymap.core import deps
+
+        try:
+            now = user_now(deps.get_config())
+        except Exception:  # noqa: BLE001 — no app state (a script, a test)
+            now = datetime.now()
+        session.execute(delete(EntryDate).where(EntryDate.entry_id == entry.id))
+        for mention in timewords.find(entry.content or "", now):
+            session.add(
+                EntryDate(
+                    entry_id=entry.id,
+                    phrase=mention.phrase[:60],
+                    at=datetime(mention.at.year, mention.at.month, mention.at.day),
+                    precision=mention.precision,
+                )
+            )
+        session.flush()
+    except Exception:  # noqa: BLE001 — never let this stop a note being saved
+        logging.getLogger("memorymap.entries").warning(
+            "Couldn't resolve the dates in entry %s", entry.id, exc_info=True
+        )
 
 
 def soft_delete_entry(session: Session, entry: Entry) -> None:
@@ -537,10 +591,16 @@ def set_private(session: Session, entry: Entry, private: bool) -> bool:
             entry.content = crypto.encrypt(key, entry.content)
         entry.is_private = True
         session.execute(delete(EmbeddingRecord).where(EmbeddingRecord.entry_id == entry.id))
+        # And the resolved dates, for the same reason as the embedding: a note
+        # is marked private *after* it is created, so anything derived from
+        # its text and stored in the clear has to be cleared out here too.
+        # "The appointment is tomorrow" plus a date is most of the note.
+        session.execute(delete(EntryDate).where(EntryDate.entry_id == entry.id))
     else:
         if crypto.is_encrypted(entry.content):
             entry.content = crypto.decrypt(key, entry.content)
         entry.is_private = False
+        record_dates(session, entry)  # readable again, so it can be read again
     log_action(session, "edited", "entry", entry.id, f"private={private}")
     return True
 

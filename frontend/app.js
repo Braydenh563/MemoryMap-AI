@@ -429,6 +429,24 @@ function entryItem(entry, options = {}) {
   }
   if (confidenceChip) meta.appendChild(confidenceChip);
 
+  // What this note's own "tomorrow" meant on the day it was written (§10A).
+  // A chip rather than a mark inside the text: `renderNoteText` already
+  // layers wiki links, inline markdown and filter highlighting through each
+  // other, and a fourth pass over the same string is where that breaks.
+  for (const when of entry.dates || []) {
+    const day = new Date(`${when.at}T00:00:00`);
+    const label =
+      when.precision === "day"
+        ? day.toLocaleDateString(undefined, { day: "numeric", month: "short" })
+        : `${when.precision} of ${day.toLocaleDateString(undefined, { day: "numeric", month: "short" })}`;
+    const mark = chip(`🕓 ${when.phrase} → ${label}`, "when");
+    mark.title =
+      `“${when.phrase}” meant ${day.toLocaleDateString(undefined, {
+        weekday: "long", day: "numeric", month: "long", year: "numeric",
+      })}, worked out from the day this note was written.`;
+    meta.appendChild(mark);
+  }
+
   // While the AI is re-evaluating this note, show a live spinner chip so
   // it's obvious something is running on this specific card.
   if (entry.id === busyEntryId) {

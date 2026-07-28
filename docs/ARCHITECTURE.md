@@ -131,7 +131,8 @@ MemoryMap-AI-v0/
 │   │   └── logbuffer.py     # in-memory log capture + safe_value() for
 │   │                        #   anything untrusted going into a log line
 │   ├── entry/
-│   │   └── manager.py       # create/read/soft-delete entries, audit log
+│   │   ├── manager.py       # create/read/soft-delete entries, audit log
+│   │   └── timewords.py     # what "tomorrow" meant, resolved at capture
 │   ├── ai/
 │   │   ├── ollama_client.py # thin REST client for the local Ollama server
 │   │   ├── model_manager.py # list/pull models, pick chat/embedding backend
@@ -346,6 +347,15 @@ SQLite via SQLAlchemy 2.0 (`core/database.py`). Main tables:
   used for copying and for the history sent with the next question. **Anything
   that edits an answer has to update both**, or the edit is invisible the
   moment the chat is reopened.
+- **entry_dates** — what a note's relative time phrases resolved to when it
+  was written ("next Friday" → 2026-08-07), with the phrase kept beside the
+  date because the resolution is a rule, not a fact. Filled by
+  `entry/timewords.py` at capture and on every content edit — deterministic
+  regexes rather than a model call, because this runs on every save including
+  when Ollama is off, and best-effort because a note must save even if it
+  fails. **Anything derived from a note's text and stored in the clear has to
+  be cleared when the note is made private**, exactly like its embedding:
+  "the appointment is tomorrow" plus a date is most of the note.
 - **entry_revisions** — edit history for notes. Documents have no equivalent
   yet, which is why the AI document edit overwrites on accept.
 - **documents** — long-form markdown, separate from notes.
@@ -585,6 +595,7 @@ On first run you choose a password (bcrypt-hashed, stays local). See the
 | Add/adjust an agent action | `src/memorymap/ai/tools.py` (+ `agent.py`) |
 | Add an API endpoint | the matching `src/memorymap/api/routes_*.py` |
 | Add a database column | `src/memorymap/core/database.py` (+ auto-migrator) |
+| Teach it a new time phrase | `entry/timewords.py` — one rule, one test row |
 | Change search behaviour | `src/memorymap/search/search_manager.py` |
 | Change the UI | `frontend/app.js`, `frontend/style.css` (read §10's invariants first) |
 | Work out why a page scrolls sideways | §10 invariant 2 — an ancestor with no `min-width: 0` |

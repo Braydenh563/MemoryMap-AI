@@ -5031,6 +5031,27 @@ textarea.autogrow {
 /* Filing edges (category → note) are quieter than a link the user made. */
 .graph-edge-filing { stroke-dasharray: 3 3; opacity: 0.45; }
 
+/* A tree label sits *beside* its node rather than under it, so it needs a
+   thinner halo — a 3px stroke on text that starts 7px from the circle eats
+   into the node itself. The anchor is set in JS as an inline style, because
+   `.graph-node text` sets `text-anchor: middle` and a stylesheet rule beats
+   the presentation attribute it would otherwise be. */
+.graph-node text.graph-label-tree {
+  font-size: 0.76rem;
+  /* A tree label lies *along* the edge running to its children, so the halo
+     is doing real work here: it has to be wide enough to cover the line in
+     the gaps between glyphs, and opaque. `--card` is 55% white — the dashes
+     of a thread edge showed straight through it and the label came out
+     looking struck through. */
+  stroke: var(--modal-bg);
+  stroke-width: 5px;
+}
+/* Category headings label the branch they open, so they carry the weight. */
+.graph-node text.graph-label-group {
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
 /* The notes a document draws on, beside its outline. The row is the note plus
    a detach button, so the two can't run into each other on a long preview. */
 #doc-notes li { display: flex; align-items: center; gap: 0.3rem; }

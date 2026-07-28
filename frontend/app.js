@@ -8231,6 +8231,61 @@ function graphGroupNode(category) {
   };
 }
 
+// Row height and column width for the tree. Fixed sizes, not a bounding box:
+// `d3.tree().size([...])` squeezes every leaf into the panel's height, so a
+// notebook with 29 notes got 18 pixels a row and the labels printed on top of
+// each other (reported with a photo). `nodeSize` gives each note the room a
+// label needs and lets the tree be as tall as it is — the panel pans and
+// zooms, which is what those controls are for.
+const TREE_ROW = 34;
+const TREE_COL = 235;
+
+// The radial is the opposite problem: it is a shape you read whole, so it has
+// to fit the panel, and a fixed radius meant a 29-note notebook was drawn at
+// 0.55× — every label technically present and none of them readable. Size the
+// rings from the panel instead, and only grow past it when the notes need the
+// circumference (below ~RADIAL_ARC pixels of arc each, labels collide).
+const RADIAL_ARC = 22; // arc length a note needs on its ring
+const RADIAL_LABEL = 118; // room the labels take outside the outermost ring
+// A category name is written along its spoke, pointing out, so its ring has
+// to clear the notes' ring by more than that name is long.
+const RADIAL_GAP = 82;
+// A reply hangs one shorter step outside the note it answers — and since a
+// lone reply inherits its parent's angle exactly, the parent's label is
+// written straight down the same spoke. That is why an intermediate note is
+// labelled shorter than a leaf (RADIAL_STEM below): the step has to clear it.
+const REPLY_RING = 78;
+const RADIAL_STEM = 10; // characters, for a label written down a shared spoke
+
+// Labels on the left half of the circle would read upside down, so they are
+// turned around — which swaps which way "outward" is for everything after.
+function radialFlip(node) {
+  const degrees = ((node.angle || 0) * 180) / Math.PI - 90;
+  return degrees > 90 || degrees < -90;
+}
+
+// Where each ring goes. Every constraint here is a thing that was measured
+// going wrong: categories too tight to name, notes too tight to label, the
+// whole circle too big for the panel — or, just as bad, needlessly small in
+// a panel with room to spare.
+function radialRings(leafCount, groupCount, rings, width, height) {
+  // The floor matters as much as the arc: a dozen categories all radiating
+  // from a 58px ring read as one blob at the centre, whatever the maths said
+  // about them technically not touching. It grows with the count, because
+  // four categories on that same ring only look sparse.
+  const inner = Math.max((groupCount * RADIAL_ARC) / (2 * Math.PI), 40 + groupCount * 3);
+  const room = Math.max(Math.min(width, height) / 2 - 12, 130) - RADIAL_LABEL;
+  const extra = rings > 2 ? REPLY_RING : 0;
+  const notes = Math.max(
+    (leafCount * RADIAL_ARC) / (2 * Math.PI),
+    inner + RADIAL_GAP,
+    // Fill the panel when it is bigger than the minimum — a readable circle
+    // is a big one. `frameTree` zooms out when the minimum wins instead.
+    Math.min(room - extra, 320)
+  );
+  return { inner, notes, outer: notes + extra };
+}
+
 function layoutHierarchy(nodes, kind, width, height) {
   // Build parent → children from the notes themselves.
   const byId = new Map(nodes.map((node) => [node.id, node]));
@@ -8254,12 +8309,42 @@ function layoutHierarchy(nodes, kind, width, height) {
 
   const laid = d3.hierarchy(root, (d) => children.get(d.id) || []);
   const radial = kind === "radial";
-  const radius = Math.min(width, height) / 2 - 40;
-  const layout = radial
-    ? d3.cluster().size([2 * Math.PI, radius])
-    : d3.tree().size([height - 60, width - 200]);
-  layout.separation((a, b) => (a.parent === b.parent ? 1 : 1.6) * (radial ? 1 : 1));
-  layout(laid);
+  if (radial) {
+    // `d3.tree`, not `d3.cluster`: cluster rings a node by its *height*, so a
+    // category that happened to contain a thread was drawn one ring closer in
+    // than its siblings and the circle came out ragged. Here a ring means a
+    // depth — notebook, category, note, reply — which is what the view says
+    // it means.
+    d3
+      .tree()
+      .size([2 * Math.PI, 1])
+      // Notes under different categories need more air than siblings, and the
+      // gap has to shrink as the circle grows — the standard radial rule.
+      // Categories get a wedge of their own on top of that, or the ones with
+      // a single note in them end up sharing a slot with their neighbour.
+      .separation((a, b) =>
+        a.depth === 1 ? 2 : (a.parent === b.parent ? 1 : 2) / a.depth
+      )(laid);
+    const rings = radialRings(
+      // Those wedges are real circumference, so count them: sizing the ring
+      // off the notes alone would under-measure it by a third.
+      (laid.leaves().length || 1) + groups.size,
+      groups.size,
+      laid.height || 1,
+      width,
+      height
+    );
+    const deep = Math.max((laid.height || 1) - 2, 1);
+    laid.each((point) => {
+      if (!point.depth) point.y = 0;
+      else if (point.depth === 1) point.y = rings.inner;
+      else {
+        point.y = rings.notes + ((point.depth - 2) / deep) * (rings.outer - rings.notes);
+      }
+    });
+  } else {
+    d3.tree().nodeSize([TREE_ROW, TREE_COL])(laid);
+  }
 
   const placed = [];
   const links = [];
@@ -8267,15 +8352,22 @@ function layoutHierarchy(nodes, kind, width, height) {
     const node = point.data;
     if (radial) {
       // d3's radial convention: x is the angle, y the distance out.
-      node.x = width / 2 + point.y * Math.cos(point.x - Math.PI / 2);
-      node.y = height / 2 + point.y * Math.sin(point.x - Math.PI / 2);
+      node.angle = point.x;
+      node.radius = point.y;
+      node.x = point.y * Math.cos(point.x - Math.PI / 2);
+      node.y = point.y * Math.sin(point.x - Math.PI / 2);
     } else {
-      node.x = 110 + point.y; // depth runs left → right
-      node.y = 30 + point.x;
+      node.x = point.y; // depth runs left → right
+      node.y = point.x;
     }
     node.fx = node.x;
     node.fy = node.y;
     node.depth = point.depth;
+    node.isLeaf = !point.children;
+    // A lone child inherits its parent's row (or, on the radial, its angle),
+    // so the parent's label is written straight down the line joining them.
+    // Only *that* parent has to keep its label short.
+    node.shared = Boolean(point.children?.some((child) => child.x === point.x));
     placed.push(node);
     if (point.parent) {
       links.push({
@@ -8285,7 +8377,77 @@ function layoutHierarchy(nodes, kind, width, height) {
       });
     }
   });
-  return { nodes: placed, links };
+  return { nodes: placed, links, radial };
+}
+
+// A tree drawn with straight diagonals reads as a fan of loose string. Elbows
+// (horizontal out, vertical across, horizontal in) are what makes it look
+// like a tree diagram — and on the radial one, arcs that follow the rings.
+function hierarchyPath(link, radial) {
+  const { source: a, target: b } = link;
+  if (radial) {
+    return d3
+      .linkRadial()
+      .angle((d) => d.angle)
+      .radius((d) => d.radius)({ source: a, target: b });
+  }
+  const mid = (a.x + b.x) / 2;
+  return `M${a.x},${a.y}C${mid},${a.y} ${mid},${b.y} ${b.x},${b.y}`;
+}
+
+// A tall tree does not want to be squeezed into the panel: zoomed to fit, 29
+// rows of text become illegible. Fit the *width*, never magnify past 1:1, and
+// start at the top — the panel pans, and a readable tree you scroll beats a
+// complete one you can't read.
+function frameTree(svg, zoomBehavior, canvas, nodes, width, height, radial) {
+  // Labels stick out past the node they belong to: to the right in a tree, in
+  // every direction on a radial, and by however much the longest one happens
+  // to be. Guessing that with a padding constant left label tips off the edge
+  // of the panel; the drawing is already in the DOM, so ask it. `getBBox` is
+  // in the canvas's own coordinates — the zoom transform is not applied yet —
+  // and covers the rotated labels' real corners.
+  const drawn = canvas.node().getBBox();
+  const xs = nodes.map((n) => n.x);
+  const ys = nodes.map((n) => n.y);
+  // A hidden panel measures zero, so fall back to the node positions.
+  const box = drawn.width
+    ? drawn
+    : {
+        x: Math.min(...xs) - 40,
+        y: Math.min(...ys) - 30,
+        width: Math.max(...xs) - Math.min(...xs) + 200,
+        height: Math.max(...ys) - Math.min(...ys) + 60,
+      };
+  const minX = box.x - 10;
+  const maxX = box.x + box.width + 10;
+  const minY = box.y - 10;
+  const maxY = box.y + box.height + 10;
+  const spanX = Math.max(maxX - minX, 1);
+  const spanY = Math.max(maxY - minY, 1);
+  // A radial is a shape you read whole, so both dimensions have to fit. A
+  // tree grows downwards without limit, so squeezing it into the panel is
+  // exactly what made 29 rows unreadable — but a notebook that *nearly* fits
+  // is worth a small zoom-out to see whole, and only falls back to panning
+  // when the price of fitting would be text you can't read.
+  const both = Math.min((width - 20) / spanX, (height - 20) / spanY);
+  const fit = radial || both >= 0.8 ? both : (width - 20) / spanX;
+  const scale = Math.max(0.35, Math.min(1, fit));
+  // Same rule on both axes: centre what fits, otherwise anchor to the start
+  // so the root is the part you can see.
+  const tx =
+    spanX * scale <= width - 20
+      ? width / 2 - scale * (minX + maxX) / 2
+      : 10 - scale * minX;
+  // Centre vertically only when the whole thing already fits; otherwise start
+  // at the top, because a tree is read from its root down.
+  const ty =
+    spanY * scale <= height - 20
+      ? height / 2 - scale * (minY + maxY) / 2
+      : 10 - scale * minY;
+  svg
+    .transition()
+    .duration(400)
+    .call(zoomBehavior.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
 }
 
 async function renderGraph() {
@@ -8421,12 +8583,22 @@ async function renderGraph() {
     .force("collide", d3.forceCollide().radius((d) => graphNodeRadius(d) + 24));
   if (tree) graphSimulation = null;
 
-  const edgeLines = canvas
-    .append("g")
-    .selectAll("line")
-    .data(edges)
-    .join("line")
-    .attr("class", (d) => `graph-edge graph-edge-${d.kind}`);
+  // A tree's edges are curves between fixed points; the web's are lines that
+  // move on every tick. Different elements, so each can be what it needs.
+  const edgeLayer = canvas.append("g");
+  const edgeLines = tree
+    ? edgeLayer
+        .selectAll("path")
+        .data(edges)
+        .join("path")
+        .attr("class", (d) => `graph-edge graph-edge-${d.kind}`)
+        .attr("fill", "none")
+        .attr("d", (d) => hierarchyPath(d, tree.radial))
+    : edgeLayer
+        .selectAll("line")
+        .data(edges)
+        .join("line")
+        .attr("class", (d) => `graph-edge graph-edge-${d.kind}`);
 
   const nodeGroups = canvas
     .append("g")
@@ -8504,11 +8676,74 @@ async function renderGraph() {
       `${d.access_count ? ` · used ${d.access_count}×` : ""}`
     );
   });
-  nodeGroups
+  // Where the label goes is the difference between a readable tree and a
+  // pile of overlapping text. Under the node is right for the web, where
+  // nodes are spread in two dimensions; in a tree the rows are only
+  // TREE_ROW apart, so it has to sit *beside* the node instead.
+  const labels = nodeGroups
     .append("text")
-    .attr("class", "graph-label")
-    .attr("dy", (d) => graphNodeRadius(d) + 13)
-    .text((d) => (d.preview.length > 22 ? d.preview.slice(0, 21) + "…" : d.preview));
+    .attr(
+      "class",
+      (d) =>
+        `graph-label${tree ? " graph-label-tree" : ""}` +
+        `${tree && d.isGroup ? " graph-label-group" : ""}`
+    )
+    .text((d) => {
+      // A radial's labels stick out of every side, so their length is what
+      // decides how far the view has to zoom out; a tree's only extend
+      // right, into space the columns already reserve.
+      // Radial labels are what decide how far the view has to zoom out, and
+      // the two written down a *shared* spoke — a category's, and a note that
+      // has a reply hanging off it — are the ones that have to stay short.
+      const limit = !tree
+        ? 22
+        : !tree.radial
+          ? 30
+          : d.isGroup || d.shared
+            ? RADIAL_STEM
+            : 16;
+      return d.preview.length > limit ? d.preview.slice(0, limit - 1) + "…" : d.preview;
+    });
+  if (!tree) {
+    labels.attr("dy", (d) => graphNodeRadius(d) + 13);
+  } else if (tree.radial) {
+    // Rotated to its own radius and flipped on the left half, or every label
+    // past the halfway point reads upside down. The hub is the exception: it
+    // has no meaningful direction to point in, and radiating from radius 0
+    // put it straight through whichever category shared its angle.
+    labels
+      .attr("dy", (d) => (d.depth ? "0.31em" : graphNodeRadius(d) + 13))
+      .attr("transform", (d) => {
+        if (!d.depth) return null;
+        const degrees = ((d.angle || 0) * 180) / Math.PI - 90;
+        return `rotate(${degrees})${radialFlip(d) ? " rotate(180)" : ""}`;
+      })
+      // The offset is an `x` *inside* the flipped frame, not a translate
+      // outside it: translating by −out and then rotating 180° sends the
+      // label back across the node towards the centre, which is how the hub's
+      // name ended up printed over a category's.
+      .attr("x", (d) => {
+        if (!d.depth) return 0;
+        const out = graphNodeRadius(d) + 6;
+        return radialFlip(d) ? -out : out;
+      })
+      // A style, not an attribute: `.graph-node text` sets `text-anchor:
+      // middle` in the stylesheet, and a rule always beats a presentation
+      // attribute — set as an attr, every one of these silently stayed
+      // centred and the labels overlapped the ring.
+      .style("text-anchor", (d) => (!d.depth ? "middle" : radialFlip(d) ? "end" : "start"));
+  } else {
+    labels
+      // A node with children has edges leaving it rightwards, along the line
+      // its own label would sit on — and where the child is a lone reply that
+      // edge runs the label's whole length. A halo hides a thin line between
+      // glyphs but not between words, so it read as struck through. Every
+      // branch point is labelled above its row instead; leaves, which nothing
+      // leaves from, keep the label beside them.
+      .attr("dy", (d) => (d.isLeaf ? "0.31em" : -graphNodeRadius(d) - 5))
+      .attr("x", (d) => graphNodeRadius(d) + 7)
+      .style("text-anchor", "start");
+  }
 
   // Labels toggle: when off, labels only appear on hover (declutters a big
   // map). Driven by a class so toggling never rebuilds the simulation.
@@ -8544,18 +8779,11 @@ async function renderGraph() {
       applyGraphHighlight();
     });
 
-  const place = () => {
-    edgeLines
-      .attr("x1", (d) => d.source.x)
-      .attr("y1", (d) => d.source.y)
-      .attr("x2", (d) => d.target.x)
-      .attr("y2", (d) => d.target.y);
-    nodeGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
-  };
   if (tree) {
-    // Laid out, not simulated: draw it once and frame it.
-    place();
-    fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height);
+    // Laid out, not simulated: the paths are already drawn, so this only has
+    // to place the nodes and frame the result.
+    nodeGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
+    frameTree(svg, zoomBehavior, canvas, nodes, width, height, tree.radial);
   }
 
   let fitted = false;

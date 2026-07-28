@@ -66,6 +66,17 @@ below). Versioning is `0.x` while the app stabilises.
   notebooks have far more filing than links, and a force graph of
   mostly-unlinked notes is a cloud of dots; a tree shows the structure that is
   actually there. Your choice is remembered.
+- **Both trees are legible at the size of a real notebook.** Reported with a
+  photo — "the graph tree and radial are a bit hard to read and aren't neat" —
+  of 29 notes squeezed into the panel's height at eighteen pixels a row. The
+  tree now gives every note the room a label needs and pans if that makes it
+  taller than the panel, zooming out only when the whole thing nearly fits;
+  labels sit beside their note and above their branch, joined by elbows rather
+  than straight diagonals. The radial sizes its rings from the panel and the
+  note count instead of a fixed radius, gives each category a wedge of its own
+  so a one-note category is not squeezed against its neighbour, and rings by
+  depth — notebook, category, note, reply — so a category that happens to
+  contain a thread no longer sits a ring in from its siblings.
 - **A Timeline tab.** Opening on days by default. Your notes on a time axis, in bands — one per category
   or tag — with the bucket size you choose, from days to years. A note sits
   where it is *about* when it says so ("the beans need netting next week"

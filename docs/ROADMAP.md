@@ -746,6 +746,26 @@ different picture:
 - ~~**Radial tree**~~ **built.** The same hierarchy wrapped into a circle:
   denser, and it makes the *shape* of a notebook obvious — a fat arc is a
   category you write in constantly.
+
+  Both were first built by handing d3 the panel's dimensions as a bounding
+  box, which is the wrong instruction: `d3.tree().size([...])` divides the
+  height by the number of leaves, so a 29-note notebook got eighteen pixels a
+  row and printed its labels on top of each other. Reported with a photo —
+  *"the graph tree and radial are a bit hard to read and aren't neat"*. The
+  fix is a set of rules about **what a label needs**, not about what the panel
+  has: the tree uses `nodeSize` and pans when it is taller than the panel
+  (zooming out only when the whole thing nearly fits, because a tree you
+  scroll beats one you cannot read); the radial computes its rings from the
+  note count, the category count and the panel, and rings **by depth** rather
+  than by d3-cluster's height — cluster put a category containing a thread one
+  ring closer in than its siblings, which is what made the circle look ragged.
+  Three collisions only a browser can find were fixed on the way: a stylesheet
+  rule beating the `text-anchor` presentation attribute so no side-label ever
+  moved, a flipped left-half label whose offset sent it back across its own
+  node, and a 55%-transparent label halo that let a thread edge show through
+  the words it ran behind. All of it is asserted on measured geometry — the
+  labels' real rotated corners, separated by a separating-axis test, because
+  the axis-aligned box around diagonal text overlaps when the words do not.
 - **Mind map from one note** — pick a note as the root and lay everything else
   out by hops along `entry_links`. Different from the tree above: the
   hierarchy there is filing, here it is connection.

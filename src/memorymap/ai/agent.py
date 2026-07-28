@@ -265,7 +265,8 @@ def build_agent_messages(
             messages.append({"role": "assistant", "content": past_answer})
 
     numbered = "\n".join(
-        f"{i}. (note id {note.get('id', '?')}) [{note['category']}] {note['content']}"
+        f"{i}. (note id {note.get('id', '?')}) [{note['category']}] "
+        f"{librarian.note_for_prompt(note)}"
         for i, note in enumerate(notes, start=1)
     )
     body = f"My notes:\n{numbered}\n\n" if notes else "My notebook looks empty.\n\n"

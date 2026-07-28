@@ -981,10 +981,37 @@ reasons that are about **this** app rather than about it:
    LLM on the same hardware. Saving 1–2k tokens of prefill by spending an
    inference pass is very likely net-negative on wall-clock for a 7B model on
    a laptop — and it needs AVX2, which is not a promise this app can make.
-3. **Its biggest win is already taken.** The 60–95% figures come from raw
-   machine JSON — API responses, k8s logs. Our tool results are hand-shaped
-   summaries (`_note_summary`: id, preview, category, tags, dates) precisely
-   so they are small. There is little left in them to squeeze.
+3. **The JSON it would compress is the JSON that cannot be compressed.**
+   This one was worth measuring rather than assuming, and the measurement
+   moved the answer. A representative agent prompt — ten retrieved notes, two
+   turns of history, focused tools:
+
+   | Part | Chars | Share |
+   | --- | ---: | ---: |
+   | System prompt (prose) | 2,521 | 34.4% |
+   | History (prose) | 77 | 1.1% |
+   | Notes + question (prose) | 1,381 | 18.9% |
+   | **Tool schemas (JSON)** | **3,340** | **45.6%** |
+   | Total | 7,319 | |
+
+   So the prompt *is* nearly half JSON — more than expected. But that JSON is
+   the **tool schemas**, and Headroom compresses tool *outputs*, logs, files
+   and RAG chunks. A schema is a contract the runtime parses to constrain the
+   model's tool calls; compress it and the calls stop being valid. It is the
+   one JSON block in this prompt that has to go verbatim.
+
+   What is genuinely in scope: the notes (18.9% — this is the RAG-chunk case
+   Headroom is built for) and the tool results appended during a loop, which
+   are already hand-shaped summaries (`_note_summary`: id, preview, category,
+   tags, dates). At its own headline 60% on the addressable part, that is
+   roughly 11% off the prompt — real, but not the 60–70% the numbers suggest
+   at a glance, and not worth ONNX Runtime to get.
+
+   **The 45.6% is still the thing to attack — just not with compression.**
+   `focus_for` already took it from 10,215 to 3,340 characters. Getting it
+   lower is more schema pruning: shorter descriptions, fewer tools per focus,
+   dropping parameters with obvious defaults. That is the highest-leverage
+   work left in this section and it costs nothing but care.
 
 Set against a **hard** cost: ONNX Runtime plus a model download, in an app
 whose whole proposition is offline, self-contained and light — one that
@@ -1001,11 +1028,14 @@ vendors d3 and p5 locally rather than take a CDN.
   tool loop re-read the entire prompt. Now to the minute, which is identical
   across the rounds of one loop and still correct for everything the app does
   with it ("remind me in 10 minutes" is not resolved to the second).
-- **Reversible compression** (their CCR — send a short form, let the model
-  fetch the original on demand). We are already most of the way there: notes
-  go to the model as previews and there are tools to read one in full. The
-  unbuilt part is doing it for *long* notes rather than for the list — a note
-  of 4,000 characters is sent whole today.
+- ~~**Reversible compression** (their CCR — send a short form, let the model
+  fetch the original on demand)~~ **done.** A note now goes into the prompt
+  capped at `MAX_NOTE_CHARS` (900), cut with a marker naming the call that
+  reads the rest: `… [cut — call get_note(7) to read it in full]`. Safe only
+  because the model can undo it, which is the whole idea — and the tools guide
+  already told it to call `get_note` before quoting. Most notes are a line or
+  two and are untouched; ten notes of 4,000 characters used to be 40,000 and
+  now fit the budget.
 - **Verbosity steering.** Output tokens are half the latency and are not
   budgeted at all. A style hint already exists; a length hint does not.
 

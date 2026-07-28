@@ -9,6 +9,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- **A long note no longer crowds out the rest of your notebook.** Ten notes
+  are retrieved so the AI sees ten of them; one note of several pages used to
+  fill the prompt on its own. Notes now go in capped, cut with a marker
+  telling the AI exactly how to read the rest — which it could already do.
+
 - **A chat's prompt stops moving between rounds.** The clock in the system
   prompt carried microseconds, and that line sits above your notes and the
   conversation so far. Ollama caches the prompt only up to the first

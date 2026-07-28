@@ -103,6 +103,30 @@ STYLE_HINTS = {
 MAX_HISTORY_TURNS = 4
 MAX_HISTORY_ANSWER_CHARS = 600
 
+# How much of a note goes into the prompt before it is cut short. Most notes
+# are a line or two and are never touched by this; a few are pages, and those
+# few would otherwise crowd out the rest of the notebook — the whole point of
+# retrieving ten notes is that the model sees ten of them.
+#
+# Cutting is only safe because the model can undo it: `get_note` reads one in
+# full, and the tools guide already tells it to before quoting. That is the
+# trade — send a short form, let it ask for the original — and it is the one
+# idea worth taking from the compression tooling that keeps being suggested
+# (see ROADMAP §11).
+MAX_NOTE_CHARS = 900
+
+
+def note_for_prompt(note: dict) -> str:
+    """A note's text, short enough to sit beside nine others."""
+    content = str(note.get("content", ""))
+    if len(content) <= MAX_NOTE_CHARS:
+        return content
+    # Naming the tool and the id in the marker: a truncation the model cannot
+    # act on is just a missing piece of the note.
+    note_id = note.get("id")
+    where = f" — call get_note({note_id}) to read it in full" if note_id else ""
+    return f"{content[:MAX_NOTE_CHARS].rstrip()}… [cut{where}]"
+
 
 def build_conversational_messages(
     question: str,
@@ -174,7 +198,7 @@ def build_messages(
         # A note the user attached by hand is flagged, so the model treats it
         # as the subject rather than as one more search hit.
         f"{i}. [{note['category']}]{' (attached by me)' if note.get('attached') else ''} "
-        f"{note['content']}"
+        f"{note_for_prompt(note)}"
         for i, note in enumerate(notes, start=1)
     )
     attached_hint = (

@@ -181,3 +181,27 @@ def test_the_clock_in_the_prompt_is_stable_across_a_tool_loop(monkeypatch):
     # A minute later it is allowed to change; the clock still has to be right.
     assert system_at(base + timedelta(minutes=1)) != first
     assert "18:55:00" in first and ".123456" not in first
+
+
+def test_a_very_long_note_is_cut_short_with_a_way_to_read_the_rest():
+    """Ten notes retrieved so the model sees ten of them — one note of pages
+    would crowd out the other nine. Safe only because it can undo it."""
+    note = {"id": 7, "category": "Work", "content": "x" * 4000}
+    short = librarian.note_for_prompt(note)
+    assert len(short) < 1100
+    assert "get_note(7)" in short
+
+
+def test_an_ordinary_note_is_left_exactly_as_it_is():
+    """Most notes are a line or two; nothing should touch them."""
+    note = {"id": 7, "category": "Work", "content": "the ferry leaves at 8"}
+    assert librarian.note_for_prompt(note) == "the ferry leaves at 8"
+
+
+def test_a_long_note_does_not_blow_the_prompt_budget():
+    long_notes = [
+        {"id": i, "category": "Work", "content": "y" * 4000} for i in range(10)
+    ]
+    messages = agent.build_agent_messages("what did I say?", long_notes)
+    total = sum(len(m["content"]) for m in messages)
+    assert total < agent.PROMPT_BUDGET_CHARS, total

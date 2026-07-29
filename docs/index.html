@@ -690,7 +690,10 @@ function mmCopyCode(btn) {
 function fetchWithTimeout(url, ms) {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error('timeout')), ms);
-    fetch(url).then(r => { clearTimeout(t); resolve(r); }).catch(e => { clearTimeout(t); reject(e); });
+    // Force 'no-store' so the local browser NEVER caches an AdGuard-blocked response
+    fetch(url, { cache: 'no-store' })
+      .then(r => { clearTimeout(t); resolve(r); })
+      .catch(e => { clearTimeout(t); reject(e); });
   });
 }
 

@@ -100,6 +100,9 @@
     .btn-accent{background:var(--accent);color:#fff;}
     [data-theme="dark"] .btn-accent{color:#0e1017;}
     .btn-accent:hover{filter:brightness(1.08);}
+    .stars-badge{display:inline-flex;align-items:center;gap:.3rem;font-size:.78rem;color:var(--muted);text-decoration:none!important;}
+    .stars-badge:hover{color:var(--ink);}
+    .stars-badge svg{width:13px;height:13px;fill:currentColor;opacity:.7;}
 
     .hero{max-width:780px;margin:6rem auto 0;padding:0 1.5rem;}
     .hero-eyebrow{
@@ -210,13 +213,23 @@
     .mm-docs-body li>ul,.mm-docs-body li>ol{margin-top:.25rem;margin-bottom:.25rem;}
     .mm-docs-body li p{margin-bottom:.25rem;}
     .mm-docs-body li strong,.mm-docs-body p strong{color:var(--ink);}
+    .mm-docs-body .docs-code-wrap{position:relative;margin:.5rem 0 1rem;}
     .mm-docs-body pre{
       background:var(--inner);border:1px solid var(--border);
       border-radius:9px;padding:.85rem 1rem;
       overflow-x:auto;font-size:.8rem;line-height:1.6;
       font-family:ui-monospace,'Cascadia Code',Consolas,monospace;
-      margin:.5rem 0 1rem;max-width:100%;
+      max-width:100%;margin:0;
     }
+    .mm-docs-body .copy-btn{
+      position:absolute;top:.45rem;right:.5rem;
+      padding:.18rem .55rem;border-radius:6px;
+      font-size:.72rem;font-weight:600;cursor:pointer;
+      background:var(--chip);color:var(--muted);border:1px solid var(--border);
+      font-family:inherit;transition:background .13s,color .13s;
+      opacity:.7;
+    }
+    .mm-docs-body .copy-btn:hover{opacity:1;background:var(--as);color:var(--ink);}
     .mm-docs-body code{font-family:ui-monospace,'Cascadia Code',Consolas,monospace;font-size:.83em;background:var(--chip);padding:.1rem .33rem;border-radius:4px;}
     .mm-docs-body pre code{background:none;padding:0;font-size:inherit;white-space:pre;}
     .mm-docs-body table{width:100%;border-collapse:collapse;font-size:.84rem;margin:.6rem 0 1.1rem;overflow-x:auto;display:block;}
@@ -238,7 +251,7 @@
     .mm-docs-body blockquote p{margin:.25rem 0;color:var(--muted);max-width:none;}
     .mm-docs-body blockquote p:first-child{margin-top:0;}
     .mm-docs-body blockquote p:last-child{margin-bottom:0;}
-    .mm-docs-body hr{border:none;border-top:1px solid var(--border);margin:1.2rem 0;}
+    .mm-docs-body hr{border:none;border-top:1px solid var(--border);margin:1.4rem 0;}
 
     .mm-docs-status{
       display:flex;align-items:center;justify-content:center;gap:.5rem;
@@ -293,6 +306,11 @@
     <a href="#docs">Docs</a>
   </div>
   <div class="nav-end">
+    <a href="https://github.com/Braydenh563/MemoryMap-AI/stargazers" target="_blank" rel="noopener"
+       class="stars-badge" aria-label="GitHub stars">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.751.751 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Z"/></svg>
+      <img src="https://img.shields.io/github/stars/Braydenh563/MemoryMap-AI?style=flat&label=&color=8b9df8&labelColor=transparent&logo=none" alt="Stars" height="16" style="display:inline;vertical-align:middle;" loading="lazy" />
+    </a>
     <button class="btn-sm btn-ghost" id="themeBtn" aria-label="Toggle theme">&#x2600;&#xFE0F;</button>
     <a href="https://github.com/Braydenh563/MemoryMap-AI" target="_blank" rel="noopener"
        class="btn-sm btn-accent">GitHub &#x2197;</a>
@@ -391,7 +409,6 @@ python -m memorymap</pre>
     <button class="dpill" data-doc="roadmap">Roadmap</button>
     <button class="dpill" data-doc="changelog">Changelog</button>
     <button class="dpill" data-doc="contributing">Contributing</button>
-    <button class="dpill" data-doc="ideas">Ideas</button>
     <button class="dpill" data-doc="security">Security</button>
   </div>
   <div class="mm-docs-body g" id="mmDocsBody">
@@ -467,17 +484,17 @@ const ro = new IntersectionObserver(es => {
 document.querySelectorAll('.reveal').forEach(el => ro.observe(el));
 
 // ── Docs loader ───────────────────────────────────────────────────────────────
-// Uses raw.githubusercontent.com: no rate limit, CORS-open for GitHub Pages.
-const BRANCH  = 'main';
-const RAW_BASE = 'https://raw.githubusercontent.com/Braydenh563/MemoryMap-AI/' + BRANCH + '/';
-const GH_BASE  = 'https://github.com/Braydenh563/MemoryMap-AI/blob/' + BRANCH + '/';
+// Primary: jsDelivr (CDN, not on blocklists). Fallback: raw.githubusercontent.com.
+const BRANCH    = 'main';
+const CDN_BASE  = 'https://cdn.jsdelivr.net/gh/Braydenh563/MemoryMap-AI@' + BRANCH + '/';
+const RAW_BASE  = 'https://raw.githubusercontent.com/Braydenh563/MemoryMap-AI/' + BRANCH + '/';
+const GH_BASE   = 'https://github.com/Braydenh563/MemoryMap-AI/blob/' + BRANCH + '/';
 
 const DOC_MAP = {
   architecture: 'docs/ARCHITECTURE.md',
   roadmap:      'docs/ROADMAP.md',
   changelog:    'CHANGELOG.md',
   contributing: 'CONTRIBUTING.md',
-  ideas:        'IDEAS.md',
   security:     'SECURITY.md',
 };
 
@@ -492,7 +509,7 @@ function esc(t) {
     .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// ── Inline markdown (runs within a single line or text node) ─────────────────
+// ── Inline markdown ───────────────────────────────────────────────────────────
 function inline(t) {
   return t
     .replace(/`([^`]+)`/g, '<code>$1</code>')
@@ -506,10 +523,7 @@ function inline(t) {
 }
 
 // ── Full markdown-to-HTML renderer ───────────────────────────────────────────
-// Handles: headings, fenced code, blockquotes (merged), ordered + unordered
-// lists with nesting up to 2 levels, multi-paragraph list items, tables, HR.
 function mdToHtml(raw) {
-  // Strip badge images and raw <img> tags that break layout
   let s = raw
     .replace(/<img[^>]*>/gi, '')
     .replace(/!\[([^\]]*)\]\([^)]+\)/g, '')
@@ -519,21 +533,14 @@ function mdToHtml(raw) {
   const lines = s.split('\n');
   let out = '';
 
-  // Parser state
   let inPre = false, preLang = '', preLines = [];
-  let inTable = false, tableHead = false;
-
-  // List stack: [{type:'ul'|'ol', indent:number}]
-  // We track open list elements and flush them when indent drops or context changes.
+  let inTable = false;
   let listStack = [];
-
-  // Blockquote accumulation
   let bqLines = [];
 
   function flushBq() {
     if (!bqLines.length) return;
     out += '<blockquote>';
-    // Group consecutive non-blank lines into <p> elements
     let para = [];
     bqLines.forEach(ln => {
       if (ln.trim() === '') {
@@ -548,24 +555,34 @@ function mdToHtml(raw) {
   }
 
   function flushTable() {
-    if (inTable) { out += '</tbody></table>'; inTable = false; tableHead = false; }
+    if (inTable) { out += '</tbody></table>'; inTable = false; }
   }
 
   function flushLists(toDepth) {
-    // Close list levels deeper than toDepth
     while (listStack.length > toDepth) {
       const top = listStack.pop();
-      out += (top.type === 'ol') ? '</ol>' : '</ul>';
+      out += (top.type === 'ol') ? '</li></ol>' : '</li></ul>';
     }
+    if (listStack.length === toDepth && toDepth > 0) {
+      out += '</li>';
+    }
+  }
+
+  function closeCurrentItem() {
+    // Close the most recent open <li> without popping the list
+    // We track this with a flag
   }
 
   function flushAll() {
     flushBq();
     flushTable();
-    flushLists(0);
+    // Close all open list items and lists
+    while (listStack.length > 0) {
+      const top = listStack.pop();
+      out += top.type === 'ol' ? '</ol>' : '</ul>';
+    }
   }
 
-  // Detect list line: returns {indent, type, content} or null
   function parseListLine(l) {
     const ulm = l.match(/^( {0,6})[*\-+] +(.+)/);
     if (ulm) return { indent: ulm[1].length, type: 'ul', content: ulm[2] };
@@ -574,9 +591,35 @@ function mdToHtml(raw) {
     return null;
   }
 
-  // Continuation indent: a line indented >= 2 more than list base that isn't itself a list item
   function isContinuation(l, baseIndent) {
     return l.match(/^ {2,}/) && !parseListLine(l) && l.trim() !== '';
+  }
+
+  // Track open list state more carefully
+  // listStack: [{type, indent}], and we track whether the current <li> is open
+  let liOpen = false;
+
+  function openList(type, indent) {
+    out += type === 'ol' ? '<ol>' : '<ul>';
+    listStack.push({ type, indent });
+    liOpen = false;
+  }
+
+  function closeList() {
+    if (liOpen) { out += '</li>'; liOpen = false; }
+    const top = listStack.pop();
+    if (top) out += top.type === 'ol' ? '</ol>' : '</ul>';
+  }
+
+  function closeAllLists() {
+    if (liOpen) { out += '</li>'; liOpen = false; }
+    while (listStack.length > 0) closeList();
+  }
+
+  function flushAllClean() {
+    flushBq();
+    flushTable();
+    closeAllLists();
   }
 
   for (let i = 0; i < lines.length; i++) {
@@ -586,13 +629,16 @@ function mdToHtml(raw) {
     // ── Fenced code blocks ──────────────────────────────────────────────────
     if (l.trimStart().startsWith('```')) {
       if (!inPre) {
-        flushAll();
+        flushAllClean();
         inPre = true;
         preLang = l.trim().slice(3).trim();
         preLines = [];
       } else {
-        out += '<pre><code' + (preLang ? ' class="lang-' + esc(preLang) + '"' : '') + '>'
-             + esc(preLines.join('\n')) + '</code></pre>';
+        const codeHtml = '<div class="docs-code-wrap"><pre><code' +
+          (preLang ? ' class="lang-' + esc(preLang) + '"' : '') + '>' +
+          esc(preLines.join('\n')) + '</code></pre>' +
+          '<button class="copy-btn" onclick="mmCopyCode(this)">Copy</button></div>';
+        out += codeHtml;
         inPre = false; preLang = '';
       }
       continue;
@@ -602,7 +648,7 @@ function mdToHtml(raw) {
     // ── Headings ─────────────────────────────────────────────────────────────
     const hm = l.match(/^(#{1,6}) +(.+)/);
     if (hm) {
-      flushAll();
+      flushAllClean();
       const lv = Math.min(hm[1].length + 1, 6);
       out += '<h' + lv + '>' + inline(hm[2].trim()) + '</h' + lv + '>';
       continue;
@@ -610,36 +656,31 @@ function mdToHtml(raw) {
 
     // ── Horizontal rule ───────────────────────────────────────────────────────
     if (/^[-*_]{3,}\s*$/.test(l.trim()) && !parseListLine(l)) {
-      flushAll();
+      flushAllClean();
       out += '<hr>';
       continue;
     }
 
     // ── Blockquotes ───────────────────────────────────────────────────────────
     if (l.match(/^> ?/)) {
-      // Flush non-BQ context but keep BQ accumulating
       flushTable();
-      flushLists(0);
+      closeAllLists();
       bqLines.push(l.replace(/^> ?/, ''));
       continue;
     } else if (bqLines.length) {
-      flushBq(); // bq ended — flush it before processing this line
+      flushBq();
     }
 
     // ── Tables ────────────────────────────────────────────────────────────────
     if (l.trim().startsWith('|')) {
       const cells = l.split('|').filter((_, idx, arr) => idx > 0 && idx < arr.length - 1).map(c => c.trim());
-      // Separator row — signals end of header
-      if (/^[\s|:-]+$/.test(l)) {
-        tableHead = false; // next rows are body
-        continue;
-      }
-      flushLists(0);
+      if (/^[\s|:-]+$/.test(l)) { continue; }
+      closeAllLists();
       if (!inTable) {
         out += '<table><thead><tr>';
         cells.forEach(c => { out += '<th>' + inline(c) + '</th>'; });
         out += '</tr></thead><tbody>';
-        inTable = true; tableHead = true;
+        inTable = true;
       } else {
         out += '<tr>';
         cells.forEach(c => { out += '<td>' + inline(c) + '</td>'; });
@@ -653,51 +694,47 @@ function mdToHtml(raw) {
     const listItem = parseListLine(l);
     if (listItem) {
       flushBq(); flushTable();
-      const depth = listItem.indent < 2 ? 0 : 1; // 0 = top-level, 1 = nested
+      const depth = listItem.indent < 2 ? 0 : 1;
+
+      if (liOpen && depth === 0 && listStack.length > 0) {
+        // Close previous li before opening new one at same level
+        // But first close any nested lists
+        while (listStack.length > 1) closeList();
+        out += '</li>';
+        liOpen = false;
+      }
 
       if (depth === 0) {
-        // Close any nested lists, ensure top-level list of correct type is open
-        flushLists(1);
         if (listStack.length === 0) {
-          out += listItem.type === 'ol' ? '<ol>' : '<ul>';
-          listStack.push({ type: listItem.type, indent: 0 });
+          openList(listItem.type, 0);
         } else if (listStack[0].type !== listItem.type) {
-          // Switching type at top level
-          flushLists(0);
-          out += listItem.type === 'ol' ? '<ol>' : '<ul>';
-          listStack.push({ type: listItem.type, indent: 0 });
+          closeAllLists();
+          openList(listItem.type, 0);
         }
       } else {
-        // Nested: ensure parent level exists
-        if (listStack.length === 0) {
-          out += listItem.type === 'ol' ? '<ol>' : '<ul>';
-          listStack.push({ type: listItem.type, indent: 0 });
-        }
+        // nested
+        if (listStack.length === 0) openList(listItem.type, 0);
         if (listStack.length < 2) {
+          if (liOpen) { /* don't close the parent li yet — nest inside it */ }
           out += listItem.type === 'ol' ? '<ol>' : '<ul>';
           listStack.push({ type: listItem.type, indent: listItem.indent });
-        } else if (listStack[1].type !== listItem.type) {
-          out += listStack[1].type === 'ol' ? '</ol>' : '</ul>';
-          listStack.pop();
-          out += listItem.type === 'ol' ? '<ol>' : '<ul>';
-          listStack.push({ type: listItem.type, indent: listItem.indent });
+          liOpen = false;
         }
       }
 
-      // Collect continuation lines for multi-paragraph list items
+      // Collect continuation lines
       let itemContent = inline(listItem.content);
       let extraParas = [];
       while (i + 1 < lines.length) {
         const next = lines[i + 1];
         if (next.trim() === '') {
-          // Peek further: if next non-blank is continuation, absorb blank
           let j = i + 2;
           while (j < lines.length && lines[j].trim() === '') j++;
           if (j < lines.length && isContinuation(lines[j], listItem.indent)) {
-            extraParas.push(''); // paragraph break inside item
+            extraParas.push('');
             i = j - 1;
           } else {
-            break; // blank line ends item
+            break;
           }
         } else if (isContinuation(next, listItem.indent)) {
           if (extraParas.length && extraParas[extraParas.length - 1] === '') {
@@ -711,6 +748,7 @@ function mdToHtml(raw) {
         }
       }
 
+      liOpen = true;
       if (extraParas.length) {
         out += '<li><p>' + itemContent + '</p>';
         let para = [];
@@ -722,9 +760,9 @@ function mdToHtml(raw) {
           }
         });
         if (para.length) out += '<p>' + inline(para.join(' ')) + '</p>';
-        out += '</li>';
+        // don't close li yet — might have nested list coming
       } else {
-        out += '<li>' + itemContent + '</li>';
+        out += '<li>' + itemContent;
       }
       continue;
     }
@@ -733,23 +771,38 @@ function mdToHtml(raw) {
     if (l.trim() === '') {
       flushBq();
       flushTable();
-      // Blank line closes lists only if next non-blank line is not a list continuation
       let j = i + 1;
       while (j < lines.length && lines[j].trim() === '') j++;
       if (j >= lines.length || !parseListLine(lines[j])) {
-        flushLists(0);
+        closeAllLists();
       }
       continue;
     }
 
     // ── Plain paragraph ───────────────────────────────────────────────────────
-    flushAll();
+    flushAllClean();
     out += '<p>' + inline(l) + '</p>';
   }
 
-  flushAll();
-  if (inPre) out += '<pre><code>' + esc(preLines.join('\n')) + '</code></pre>';
+  flushAllClean();
+  if (inPre) {
+    out += '<div class="docs-code-wrap"><pre><code>' + esc(preLines.join('\n')) + '</code></pre>' +
+           '<button class="copy-btn" onclick="mmCopyCode(this)">Copy</button></div>';
+  }
   return out;
+}
+
+// ── Copy code button ──────────────────────────────────────────────────────────
+function mmCopyCode(btn) {
+  const code = btn.previousElementSibling.querySelector('code');
+  if (!code) return;
+  navigator.clipboard.writeText(code.innerText).then(() => {
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = 'Copy'; }, 1800);
+  }).catch(() => {
+    btn.textContent = 'Error';
+    setTimeout(() => { btn.textContent = 'Copy'; }, 1800);
+  });
 }
 
 // ── Fetch with timeout helper ─────────────────────────────────────────────────
@@ -763,37 +816,67 @@ function fetchWithTimeout(url, ms) {
 }
 
 // ── Load doc by key ───────────────────────────────────────────────────────────
+// Primary source: jsDelivr CDN (not on ad/tracker blocklists).
+// Fallback: raw.githubusercontent.com.
 async function loadDoc(key) {
   mmActive = key;
+  // Update URL hash for deep-linking
+  history.replaceState(null, '', '#docs-' + key);
   mmFrame.innerHTML = '<div class="mm-docs-status"><div class="mm-spinner"></div>&nbsp;Loading&hellip;</div>';
 
   if (mmCache[key]) { mmFrame.innerHTML = mmCache[key]; return; }
 
-  const url   = RAW_BASE + DOC_MAP[key];
-  const ghUrl = GH_BASE  + DOC_MAP[key];
+  const filePath = DOC_MAP[key];
+  const cdnUrl   = CDN_BASE + filePath;
+  const rawUrl   = RAW_BASE + filePath;
+  const ghUrl    = GH_BASE  + filePath;
 
-  try {
+  async function tryFetch(url) {
     const resp = await fetchWithTimeout(url, 8000);
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const md = await resp.text();
     if (!md || !md.trim()) throw new Error('empty response');
-    const rendered = mdToHtml(md);
-    if (!rendered || !rendered.trim()) throw new Error('render produced nothing');
-    mmCache[key] = rendered;
-    // Only update DOM if this is still the active doc
-    if (mmActive === key) mmFrame.innerHTML = rendered;
-  } catch (err) {
-    if (mmActive !== key) return;
-    mmFrame.innerHTML =
-      '<div class="mm-docs-error">' +
-        '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r=".6" fill="currentColor"/></svg>' +
-        '<span>Couldn\'t load this document' + (err.message === 'timeout' ? ' (timed out)' : '') + '.</span>' +
-        '<div style="display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;">' +
-          '<button class="mm-retry-btn" onclick="loadDoc(\'' + key + '\')">&#x21BA;&nbsp;Retry</button>' +
-          '<a href="' + ghUrl + '" target="_blank" rel="noopener" class="mm-retry-btn">Read on GitHub &rarr;</a>' +
-        '</div>' +
-      '</div>';
+    return md;
   }
+
+  let md = null;
+  let lastErr = null;
+
+  // Try jsDelivr first
+  try {
+    md = await tryFetch(cdnUrl);
+  } catch (e) {
+    lastErr = e;
+    // Fallback to raw.githubusercontent.com
+    try {
+      md = await tryFetch(rawUrl);
+    } catch (e2) {
+      lastErr = e2;
+    }
+  }
+
+  if (mmActive !== key) return; // switched away during load
+
+  if (md) {
+    const rendered = mdToHtml(md);
+    if (rendered && rendered.trim()) {
+      mmCache[key] = rendered;
+      mmFrame.innerHTML = rendered;
+      return;
+    }
+    lastErr = new Error('render produced nothing');
+  }
+
+  // Both sources failed — show error
+  mmFrame.innerHTML =
+    '<div class="mm-docs-error">' +
+      '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r=".6" fill="currentColor"/></svg>' +
+      '<span>Couldn\'t load this document' + (lastErr && lastErr.message === 'timeout' ? ' (timed out)' : '') + '.</span>' +
+      '<div style="display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;">' +
+        '<button class="mm-retry-btn" onclick="mmCache[\'' + key + '\']=undefined;loadDoc(\'' + key + '\')">&#x21BA;&nbsp;Retry</button>' +
+        '<a href="' + ghUrl + '" target="_blank" rel="noopener" class="mm-retry-btn">Read on GitHub &rarr;</a>' +
+      '</div>' +
+    '</div>';
 }
 
 // ── Docs pill clicks ──────────────────────────────────────────────────────────
@@ -805,9 +888,21 @@ document.querySelectorAll('.dpill').forEach(pill => {
   });
 });
 
+// ── Deep-link support: honour #docs-<key> in URL ─────────────────────────────
+function resolveHashDoc() {
+  const m = location.hash.match(/^#docs-(\w+)$/);
+  if (m && DOC_MAP[m[1]]) {
+    document.querySelectorAll('.dpill').forEach(p => {
+      p.classList.toggle('on', p.dataset.doc === m[1]);
+    });
+    return m[1];
+  }
+  return 'architecture';
+}
+
 // ── Initial load: defer to after DOM + extensions settle ─────────────────────
 requestAnimationFrame(() => {
-  setTimeout(() => loadDoc('architecture'), 120);
+  setTimeout(() => loadDoc(resolveHashDoc()), 120);
 });
 </script>
 </body>

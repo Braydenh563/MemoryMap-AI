@@ -57,7 +57,6 @@
     a:hover{text-decoration:underline;}
     :focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:5px;}
     @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;}}
-
     .g{
       background:var(--card);
       backdrop-filter:blur(var(--blur)) saturate(150%);
@@ -66,7 +65,6 @@
       border-radius:var(--r);
       box-shadow:var(--gs);
     }
-
     nav{
       position:sticky;top:0;z-index:50;
       display:flex;align-items:center;gap:1.2rem;
@@ -103,7 +101,6 @@
     .stars-badge{display:inline-flex;align-items:center;gap:.3rem;font-size:.78rem;color:var(--muted);text-decoration:none!important;}
     .stars-badge:hover{color:var(--ink);}
     .stars-badge svg{width:13px;height:13px;fill:currentColor;opacity:.7;}
-
     .hero{max-width:780px;margin:6rem auto 0;padding:0 1.5rem;}
     .hero-eyebrow{
       display:inline-flex;align-items:center;gap:.5rem;
@@ -114,11 +111,7 @@
     .hero-eyebrow::before,.hero-eyebrow::after{content:'';flex:1;height:1px;background:var(--border);}
     .hero-eyebrow::before{max-width:3rem;}
     .hero-eyebrow::after{max-width:3rem;}
-    .hero h1{
-      font-size:clamp(2rem,4.5vw,3.2rem);
-      font-weight:800;letter-spacing:-.03em;line-height:1.08;
-      margin-bottom:1.4rem;
-    }
+    .hero h1{font-size:clamp(2rem,4.5vw,3.2rem);font-weight:800;letter-spacing:-.03em;line-height:1.08;margin-bottom:1.4rem;}
     .hero h1 em{font-style:normal;color:var(--accent);}
     .hero-sub{font-size:clamp(.95rem,1.4vw,1.1rem);color:var(--muted);max-width:56ch;line-height:1.75;margin-bottom:.9rem;}
     .hero-flow{font-size:.83rem;color:var(--faint);font-family:ui-monospace,'Cascadia Code',Consolas,monospace;margin-bottom:2.2rem;letter-spacing:.01em;}
@@ -135,7 +128,6 @@
     .btn-lg.primary:hover{filter:brightness(1.07);}
     .btn-lg.secondary{background:var(--chip);color:var(--ink);border:1px solid var(--gb);}
     .btn-lg.secondary:hover{background:var(--as);}
-
     .tabs-section{max-width:900px;margin:0 auto 5rem;padding:0 1.5rem;}
     .section-label{font-size:.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);margin-bottom:1.4rem;}
     .tab-row{display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:1.2rem;}
@@ -155,7 +147,6 @@
     .tab-card h3{font-size:1rem;font-weight:700;margin-bottom:.55rem;}
     .tab-card p{font-size:.9rem;color:var(--muted);max-width:68ch;line-height:1.7;}
     .tab-card code{background:var(--chip);padding:.1rem .36rem;border-radius:4px;font-size:.83em;font-family:ui-monospace,'Cascadia Code',Consolas,monospace;}
-
     .qs-section{max-width:720px;margin:0 auto 5rem;padding:0 1.5rem;}
     .qs-card{padding:1.75rem 2rem;}
     .qs-card h2{font-size:1.2rem;font-weight:700;margin-bottom:1.1rem;}
@@ -184,8 +175,6 @@
       padding:.6rem .9rem;border-radius:0 8px 8px 0;
       background:var(--as);margin:.8rem 0;
     }
-
-    /* ---- Docs section ---- */
     .docs-section{max-width:900px;margin:0 auto 5rem;padding:0 1.5rem;}
     .docs-pick{display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:1.1rem;}
     .dpill{
@@ -252,7 +241,6 @@
     .mm-docs-body blockquote p:first-child{margin-top:0;}
     .mm-docs-body blockquote p:last-child{margin-bottom:0;}
     .mm-docs-body hr{border:none;border-top:1px solid var(--border);margin:1.4rem 0;}
-
     .mm-docs-status{
       display:flex;align-items:center;justify-content:center;gap:.5rem;
       padding:3rem;font-size:.88rem;color:var(--muted);
@@ -278,13 +266,10 @@
       font-family:inherit;transition:background .13s;
     }
     .mm-retry-btn:hover{background:var(--as);}
-
     footer{text-align:center;padding:2.5rem 1.5rem 3rem;font-size:.8rem;color:var(--faint);border-top:1px solid var(--border);}
     footer a{color:var(--accent);}
-
     .reveal{opacity:0;transform:translateY(14px);transition:opacity .45s ease,transform .45s ease;}
     .reveal.in{opacity:1;transform:none;}
-
     @media(max-width:600px){
       .hero{margin-top:4rem;}
       .hero h1{font-size:1.9rem;}
@@ -296,8 +281,7 @@
 
 <nav>
   <a class="nav-logo" href="#top">
-    <img src="https://raw.githubusercontent.com/Braydenh563/MemoryMap-AI/main/frontend/favicon.svg"
-         alt="MemoryMap AI" width="26" height="26" loading="eager" />
+    <img src="https://raw.githubusercontent.com/Braydenh563/MemoryMap-AI/main/frontend/favicon.svg" alt="MemoryMap AI" width="26" height="26" loading="eager" />
     <span>MemoryMap <span style="opacity:.5">AI</span></span>
   </a>
   <div class="nav-tabs">
@@ -306,30 +290,23 @@
     <a href="#docs">Docs</a>
   </div>
   <div class="nav-end">
-    <a href="https://github.com/Braydenh563/MemoryMap-AI/stargazers" target="_blank" rel="noopener"
-       class="stars-badge" aria-label="GitHub stars">
+    <a href="https://github.com/Braydenh563/MemoryMap-AI/stargazers" target="_blank" rel="noopener" class="stars-badge" aria-label="GitHub stars">
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.751.751 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Z"/></svg>
       <img src="https://img.shields.io/github/stars/Braydenh563/MemoryMap-AI?style=flat&label=&color=8b9df8&labelColor=transparent&logo=none" alt="Stars" height="16" style="display:inline;vertical-align:middle;" loading="lazy" />
     </a>
     <button class="btn-sm btn-ghost" id="themeBtn" aria-label="Toggle theme">&#x2600;&#xFE0F;</button>
-    <a href="https://github.com/Braydenh563/MemoryMap-AI" target="_blank" rel="noopener"
-       class="btn-sm btn-accent">GitHub &#x2197;</a>
+    <a href="https://github.com/Braydenh563/MemoryMap-AI" target="_blank" rel="noopener" class="btn-sm btn-accent">GitHub &#x2197;</a>
   </div>
 </nav>
 
 <section class="hero" id="top">
   <div class="hero-eyebrow">Local-first &nbsp;&middot;&nbsp; 100 % offline &nbsp;&middot;&nbsp; Open source</div>
   <h1>Your thoughts, mapped<br>by a <em>local AI</em>.</h1>
-  <p class="hero-sub">
-    Type a thought &mdash; a local AI files it. Ask a question in plain English and get
-    back a conversational answer <em>and</em> the raw notes behind it, side by side,
-    so you can check it. No account. No cloud. No telemetry.
-  </p>
+  <p class="hero-sub">Type a thought &mdash; a local AI files it. Ask a question in plain English and get back a conversational answer <em>and</em> the raw notes behind it, side by side, so you can check it. No account. No cloud. No telemetry.</p>
   <p class="hero-flow">capture text &rarr; AI files it &rarr; ask a question &rarr; answer + the notes behind it</p>
   <div class="hero-ctas">
     <a href="#quickstart" class="btn-lg primary">Get started</a>
-    <a href="https://github.com/Braydenh563/MemoryMap-AI"
-       target="_blank" rel="noopener" class="btn-lg secondary">View on GitHub</a>
+    <a href="https://github.com/Braydenh563/MemoryMap-AI" target="_blank" rel="noopener" class="btn-lg secondary">View on GitHub</a>
   </div>
 </section>
 
@@ -343,30 +320,12 @@
     <button class="tab-pill" role="tab" data-tab="documents">Documents</button>
     <button class="tab-pill" role="tab" data-tab="reminders">Reminders</button>
   </div>
-  <div id="pane-dashboard" class="tab-pane on g tab-card" role="tabpanel">
-    <h3>Dashboard</h3>
-    <p>Greeting, capture streak, at-a-glance counts, an AI digest of your week, an activity heatmap, on-this-day, a focus timer, and a layout you can rearrange.</p>
-  </div>
-  <div id="pane-notes" class="tab-pane g tab-card" role="tabpanel">
-    <h3>Notes</h3>
-    <p>Capture, browse and ask &mdash; three sub-tabs. Auto-filing, tags, pins, threads, attachments, private notes encrypted at rest, a recycle bin, revision history, and a search box that understands <code>tag:work</code>, <code>cat:recipes</code>, <code>is:pinned</code>, <code>"exact phrase"</code> and <code>-exclude</code>.</p>
-  </div>
-  <div id="pane-chat" class="tab-pane g tab-card" role="tabpanel">
-    <h3>Chat</h3>
-    <p>A conversation with your notebook, saved and resumable. Agent mode uses 28 tools &mdash; search and read your notes, create, tag, link and organise, set reminders, open a web page &mdash; with destructive actions always confirmed. Personas change its voice; the run shows thinking, tool calls, and prose in the order they happened.</p>
-  </div>
-  <div id="pane-graph" class="tab-pane g tab-card" role="tabpanel">
-    <h3>Graph</h3>
-    <p>Your notes as a force-directed map. Click a node to edit it in place, see its images, link it to another, or ask for related notes. The AI can suggest connections.</p>
-  </div>
-  <div id="pane-documents" class="tab-pane g tab-card" role="tabpanel">
-    <h3>Documents</h3>
-    <p>A markdown editor for long-form writing: live preview, autosave, table of contents, word count and reading time, <code>.md</code> and PDF export, and AI edits shown as a proposal you accept or reject.</p>
-  </div>
-  <div id="pane-reminders" class="tab-pane g tab-card" role="tabpanel">
-    <h3>Reminders</h3>
-    <p>Due dates with priority, repeats, snooze and notifications &mdash; or type <em>"call mum tomorrow evening"</em> and let the AI schedule it.</p>
-  </div>
+  <div id="pane-dashboard" class="tab-pane on g tab-card" role="tabpanel"><h3>Dashboard</h3><p>Greeting, capture streak, at-a-glance counts, an AI digest of your week, an activity heatmap, on-this-day, a focus timer, and a layout you can rearrange.</p></div>
+  <div id="pane-notes" class="tab-pane g tab-card" role="tabpanel"><h3>Notes</h3><p>Capture, browse and ask &mdash; three sub-tabs. Auto-filing, tags, pins, threads, attachments, private notes encrypted at rest, a recycle bin, revision history, and a search box that understands <code>tag:work</code>, <code>cat:recipes</code>, <code>is:pinned</code>, <code>"exact phrase"</code> and <code>-exclude</code>.</p></div>
+  <div id="pane-chat" class="tab-pane g tab-card" role="tabpanel"><h3>Chat</h3><p>A conversation with your notebook, saved and resumable. Agent mode uses 28 tools &mdash; search and read your notes, create, tag, link and organise, set reminders, open a web page &mdash; with destructive actions always confirmed. Personas change its voice; the run shows thinking, tool calls, and prose in the order they happened.</p></div>
+  <div id="pane-graph" class="tab-pane g tab-card" role="tabpanel"><h3>Graph</h3><p>Your notes as a force-directed map. Click a node to edit it in place, see its images, link it to another, or ask for related notes. The AI can suggest connections.</p></div>
+  <div id="pane-documents" class="tab-pane g tab-card" role="tabpanel"><h3>Documents</h3><p>A markdown editor for long-form writing: live preview, autosave, table of contents, word count and reading time, <code>.md</code> and PDF export, and AI edits shown as a proposal you accept or reject.</p></div>
+  <div id="pane-reminders" class="tab-pane g tab-card" role="tabpanel"><h3>Reminders</h3><p>Due dates with priority, repeats, snooze and notifications &mdash; or type <em>"call mum tomorrow evening"</em> and let the AI schedule it.</p></div>
 </section>
 
 <section class="qs-section reveal" id="quickstart">
@@ -383,22 +342,13 @@
       <p style="font-size:.87rem;color:var(--muted);">Double-click <code>start.bat</code> in the repo root. The launcher builds the virtual environment, installs everything, starts the server and opens <code>http://localhost:8000</code>.</p>
       <p style="font-size:.87rem;color:var(--muted);margin-top:.5rem;">For a dedicated desktop window use <code>start-desktop.bat</code>.</p>
     </div>
-    <div class="pcontent" id="p-mac">
-      <pre>./start.sh</pre>
-      <p style="font-size:.87rem;color:var(--muted);">For a desktop window: <code>./start.sh --desktop</code></p>
-    </div>
-    <div class="pcontent" id="p-manual">
-      <pre>git clone https://github.com/Braydenh563/MemoryMap-AI.git
+    <div class="pcontent" id="p-mac"><pre>./start.sh</pre><p style="font-size:.87rem;color:var(--muted);">For a desktop window: <code>./start.sh --desktop</code></p></div>
+    <div class="pcontent" id="p-manual"><pre>git clone https://github.com/Braydenh563/MemoryMap-AI.git
 cd MemoryMap-AI
 python3 -m venv .venv &amp;&amp; source .venv/bin/activate
 pip install -r requirements.txt &amp;&amp; pip install -e .
-python -m memorymap</pre>
-    </div>
-    <div class="note">
-      MemoryMap works without AI &mdash; keyword search and <code>Uncategorised</code> filing always work.
-      For auto-filing and chat answers install <a href="https://ollama.com" target="_blank" rel="noopener">Ollama</a>
-      and run <code>ollama pull llama3.2</code>. Switch models any time from <strong>Settings &rarr; Models</strong>.
-    </div>
+python -m memorymap</pre></div>
+    <div class="note">MemoryMap works without AI &mdash; keyword search and <code>Uncategorised</code> filing always work. For auto-filing and chat answers install <a href="https://ollama.com" target="_blank" rel="noopener">Ollama</a> and run <code>ollama pull llama3.2</code>. Switch models any time from <strong>Settings &rarr; Models</strong>.</div>
   </div>
 </section>
 
@@ -415,36 +365,24 @@ python -m memorymap</pre>
     <div class="mm-docs-status"><div class="mm-spinner"></div>&nbsp;Loading&hellip;</div>
   </div>
   <p style="font-size:.76rem;color:var(--faint);margin-top:.55rem;text-align:right;">
-    Pulled live from
-    <a href="https://github.com/Braydenh563/MemoryMap-AI" target="_blank" rel="noopener">GitHub</a>
-    &mdash; always up to date.
+    Pulled live from <a href="https://github.com/Braydenh563/MemoryMap-AI" target="_blank" rel="noopener">GitHub</a> &mdash; always up to date.
   </p>
 </section>
 
 <footer>
-  <p>MemoryMap AI &mdash; built by
-    <a href="https://github.com/Braydenh563" target="_blank" rel="noopener">Brayden Hoyle</a>
-    &nbsp;&middot;&nbsp;
-    <a href="https://github.com/Braydenh563/MemoryMap-AI" target="_blank" rel="noopener">GitHub</a>
-    &nbsp;&middot;&nbsp;
-    <a href="https://github.com/Braydenh563/MemoryMap-AI/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
-  </p>
+  <p>MemoryMap AI &mdash; built by <a href="https://github.com/Braydenh563" target="_blank" rel="noopener">Brayden Hoyle</a> &nbsp;&middot;&nbsp; <a href="https://github.com/Braydenh563/MemoryMap-AI" target="_blank" rel="noopener">GitHub</a> &nbsp;&middot;&nbsp; <a href="https://github.com/Braydenh563/MemoryMap-AI/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a></p>
 </footer>
 
 <script>
-// ── Theme toggle ─────────────────────────────────────────────────────────────
+// ── Theme ─────────────────────────────────────────────────────────────────────
 const html = document.documentElement;
 const themeBtn = document.getElementById('themeBtn');
-let theme = html.getAttribute('data-theme') ||
-            (matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light');
-const applyTheme = t => {
-  html.setAttribute('data-theme', t);
-  themeBtn.textContent = t === 'dark' ? '\u2600\uFE0F' : '\uD83C\uDF19';
-};
+let theme = html.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light');
+const applyTheme = t => { html.setAttribute('data-theme', t); themeBtn.textContent = t === 'dark' ? '\u2600\uFE0F' : '\uD83C\uDF19'; };
 applyTheme(theme);
 themeBtn.addEventListener('click', () => { theme = theme === 'dark' ? 'light' : 'dark'; applyTheme(theme); });
 
-// ── Feature tabs ─────────────────────────────────────────────────────────────
+// ── Feature tabs ──────────────────────────────────────────────────────────────
 document.querySelectorAll('.tab-pill').forEach(pill => {
   pill.addEventListener('click', () => {
     document.querySelectorAll('.tab-pill').forEach(p => p.classList.remove('on'));
@@ -464,7 +402,7 @@ document.querySelectorAll('.ptab').forEach(t => {
   });
 });
 
-// ── Nav active highlight ──────────────────────────────────────────────────────
+// ── Nav highlight ─────────────────────────────────────────────────────────────
 const navLinks = document.querySelectorAll('.nav-tabs a');
 const sio = new IntersectionObserver(es => {
   es.forEach(e => {
@@ -484,11 +422,10 @@ const ro = new IntersectionObserver(es => {
 document.querySelectorAll('.reveal').forEach(el => ro.observe(el));
 
 // ── Docs loader ───────────────────────────────────────────────────────────────
-// Primary: jsDelivr (CDN, not on blocklists). Fallback: raw.githubusercontent.com.
-const BRANCH    = 'main';
-const CDN_BASE  = 'https://cdn.jsdelivr.net/gh/Braydenh563/MemoryMap-AI@' + BRANCH + '/';
-const RAW_BASE  = 'https://raw.githubusercontent.com/Braydenh563/MemoryMap-AI/' + BRANCH + '/';
-const GH_BASE   = 'https://github.com/Braydenh563/MemoryMap-AI/blob/' + BRANCH + '/';
+const BRANCH   = 'main';
+const CDN_BASE = 'https://cdn.jsdelivr.net/gh/Braydenh563/MemoryMap-AI@' + BRANCH + '/';
+const RAW_BASE = 'https://raw.githubusercontent.com/Braydenh563/MemoryMap-AI/' + BRANCH + '/';
+const GH_BASE  = 'https://github.com/Braydenh563/MemoryMap-AI/blob/' + BRANCH + '/';
 
 const DOC_MAP = {
   architecture: 'docs/ARCHITECTURE.md',
@@ -498,18 +435,14 @@ const DOC_MAP = {
   security:     'SECURITY.md',
 };
 
-const mmCache  = {};
-const mmFrame  = document.getElementById('mmDocsBody');
-let   mmActive = 'architecture';
+const mmCache = {};
+const mmFrame = document.getElementById('mmDocsBody');
+let mmActive  = 'architecture';
 
-// ── Escape helpers ────────────────────────────────────────────────────────────
 function esc(t) {
-  return String(t)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// ── Inline markdown ───────────────────────────────────────────────────────────
 function inline(t) {
   return t
     .replace(/`([^`]+)`/g, '<code>$1</code>')
@@ -522,279 +455,224 @@ function inline(t) {
     .replace(/~~([^~]+)~~/g, '<del>$1</del>');
 }
 
-// ── Full markdown-to-HTML renderer ───────────────────────────────────────────
+// ── Markdown renderer ─────────────────────────────────────────────────────────
+// Straightforward line-by-line renderer with clean list state tracking.
 function mdToHtml(raw) {
-  let s = raw
+  const s = raw
     .replace(/<img[^>]*>/gi, '')
     .replace(/!\[([^\]]*)\]\([^)]+\)/g, '')
     .replace(/\[!\[([^\]]*)\]\([^)]+\)\]\([^)]+\)/g, '')
     .trim();
 
   const lines = s.split('\n');
-  let out = '';
+  const parts = []; // output fragments
 
   let inPre = false, preLang = '', preLines = [];
   let inTable = false;
-  let listStack = [];
-  let bqLines = [];
+  let bqBuf = [];   // blockquote line buffer
+
+  // List state: stack of { tag:'ul'|'ol' }
+  // Between items we always close the previous <li> before opening a new one.
+  // listDepth 0 = no list open, 1 = top-level, 2 = nested.
+  let lists = [];   // stack of tag names
+  let liPending = false; // true when we've written <li>... but not </li> yet
+
+  function closeLi() {
+    if (liPending) { parts.push('</li>'); liPending = false; }
+  }
+
+  function closeListsTo(depth) {
+    while (lists.length > depth) {
+      closeLi();
+      parts.push('</' + lists.pop() + '>');
+    }
+  }
 
   function flushBq() {
-    if (!bqLines.length) return;
-    out += '<blockquote>';
+    if (!bqBuf.length) return;
+    parts.push('<blockquote>');
     let para = [];
-    bqLines.forEach(ln => {
-      if (ln.trim() === '') {
-        if (para.length) { out += '<p>' + inline(para.join(' ')) + '</p>'; para = []; }
-      } else {
-        para.push(ln);
-      }
+    bqBuf.forEach(ln => {
+      if (!ln.trim()) {
+        if (para.length) { parts.push('<p>' + inline(para.join(' ')) + '</p>'); para = []; }
+      } else { para.push(ln); }
     });
-    if (para.length) out += '<p>' + inline(para.join(' ')) + '</p>';
-    out += '</blockquote>';
-    bqLines = [];
+    if (para.length) parts.push('<p>' + inline(para.join(' ')) + '</p>');
+    parts.push('</blockquote>');
+    bqBuf = [];
   }
 
   function flushTable() {
-    if (inTable) { out += '</tbody></table>'; inTable = false; }
-  }
-
-  function flushLists(toDepth) {
-    while (listStack.length > toDepth) {
-      const top = listStack.pop();
-      out += (top.type === 'ol') ? '</li></ol>' : '</li></ul>';
-    }
-    if (listStack.length === toDepth && toDepth > 0) {
-      out += '</li>';
-    }
-  }
-
-  function closeCurrentItem() {
-    // Close the most recent open <li> without popping the list
-    // We track this with a flag
+    if (inTable) { parts.push('</tbody></table>'); inTable = false; }
   }
 
   function flushAll() {
     flushBq();
     flushTable();
-    // Close all open list items and lists
-    while (listStack.length > 0) {
-      const top = listStack.pop();
-      out += top.type === 'ol' ? '</ol>' : '</ul>';
-    }
+    closeListsTo(0);
   }
 
-  function parseListLine(l) {
-    const ulm = l.match(/^( {0,6})[*\-+] +(.+)/);
-    if (ulm) return { indent: ulm[1].length, type: 'ul', content: ulm[2] };
-    const olm = l.match(/^( {0,6})\d+[.):] +(.+)/);
-    if (olm) return { indent: olm[1].length, type: 'ol', content: olm[2] };
+  function parseList(l) {
+    const u = l.match(/^( {0,6})[*\-+] +(.+)/);
+    if (u) return { indent: u[1].length, tag: 'ul', content: u[2] };
+    const o = l.match(/^( {0,6})\d+[.):]? +(.+)/);
+    if (o) return { indent: o[1].length, tag: 'ol', content: o[2] };
     return null;
   }
 
-  function isContinuation(l, baseIndent) {
-    return l.match(/^ {2,}/) && !parseListLine(l) && l.trim() !== '';
-  }
-
-  // Track open list state more carefully
-  // listStack: [{type, indent}], and we track whether the current <li> is open
-  let liOpen = false;
-
-  function openList(type, indent) {
-    out += type === 'ol' ? '<ol>' : '<ul>';
-    listStack.push({ type, indent });
-    liOpen = false;
-  }
-
-  function closeList() {
-    if (liOpen) { out += '</li>'; liOpen = false; }
-    const top = listStack.pop();
-    if (top) out += top.type === 'ol' ? '</ol>' : '</ul>';
-  }
-
-  function closeAllLists() {
-    if (liOpen) { out += '</li>'; liOpen = false; }
-    while (listStack.length > 0) closeList();
-  }
-
-  function flushAllClean() {
-    flushBq();
-    flushTable();
-    closeAllLists();
-  }
-
   for (let i = 0; i < lines.length; i++) {
-    const raw2 = lines[i];
-    const l = raw2;
+    const line = lines[i];
 
-    // ── Fenced code blocks ──────────────────────────────────────────────────
-    if (l.trimStart().startsWith('```')) {
+    // Fenced code
+    if (line.trimStart().startsWith('```')) {
       if (!inPre) {
-        flushAllClean();
+        flushAll();
         inPre = true;
-        preLang = l.trim().slice(3).trim();
+        preLang = line.trim().slice(3).trim();
         preLines = [];
       } else {
-        const codeHtml = '<div class="docs-code-wrap"><pre><code' +
+        parts.push(
+          '<div class="docs-code-wrap"><pre><code' +
           (preLang ? ' class="lang-' + esc(preLang) + '"' : '') + '>' +
           esc(preLines.join('\n')) + '</code></pre>' +
-          '<button class="copy-btn" onclick="mmCopyCode(this)">Copy</button></div>';
-        out += codeHtml;
+          '<button class="copy-btn" onclick="mmCopyCode(this)">Copy</button></div>'
+        );
         inPre = false; preLang = '';
       }
       continue;
     }
-    if (inPre) { preLines.push(raw2); continue; }
+    if (inPre) { preLines.push(line); continue; }
 
-    // ── Headings ─────────────────────────────────────────────────────────────
-    const hm = l.match(/^(#{1,6}) +(.+)/);
+    // Heading
+    const hm = line.match(/^(#{1,6}) +(.+)/);
     if (hm) {
-      flushAllClean();
+      flushAll();
       const lv = Math.min(hm[1].length + 1, 6);
-      out += '<h' + lv + '>' + inline(hm[2].trim()) + '</h' + lv + '>';
+      parts.push('<h' + lv + '>' + inline(hm[2].trim()) + '</h' + lv + '>');
       continue;
     }
 
-    // ── Horizontal rule ───────────────────────────────────────────────────────
-    if (/^[-*_]{3,}\s*$/.test(l.trim()) && !parseListLine(l)) {
-      flushAllClean();
-      out += '<hr>';
+    // HR
+    if (/^[-*_]{3,}\s*$/.test(line.trim()) && !parseList(line)) {
+      flushAll();
+      parts.push('<hr>');
       continue;
     }
 
-    // ── Blockquotes ───────────────────────────────────────────────────────────
-    if (l.match(/^> ?/)) {
-      flushTable();
-      closeAllLists();
-      bqLines.push(l.replace(/^> ?/, ''));
+    // Blockquote
+    if (/^> ?/.test(line)) {
+      flushTable(); closeListsTo(0);
+      bqBuf.push(line.replace(/^> ?/, ''));
       continue;
-    } else if (bqLines.length) {
-      flushBq();
     }
+    if (bqBuf.length) flushBq();
 
-    // ── Tables ────────────────────────────────────────────────────────────────
-    if (l.trim().startsWith('|')) {
-      const cells = l.split('|').filter((_, idx, arr) => idx > 0 && idx < arr.length - 1).map(c => c.trim());
-      if (/^[\s|:-]+$/.test(l)) { continue; }
-      closeAllLists();
+    // Table
+    if (line.trim().startsWith('|')) {
+      if (/^[\s|:-]+$/.test(line)) continue; // separator row
+      closeListsTo(0);
+      const cells = line.split('|').slice(1, -1).map(c => c.trim());
       if (!inTable) {
-        out += '<table><thead><tr>';
-        cells.forEach(c => { out += '<th>' + inline(c) + '</th>'; });
-        out += '</tr></thead><tbody>';
+        parts.push('<table><thead><tr>');
+        cells.forEach(c => parts.push('<th>' + inline(c) + '</th>'));
+        parts.push('</tr></thead><tbody>');
         inTable = true;
       } else {
-        out += '<tr>';
-        cells.forEach(c => { out += '<td>' + inline(c) + '</td>'; });
-        out += '</tr>';
+        parts.push('<tr>');
+        cells.forEach(c => parts.push('<td>' + inline(c) + '</td>'));
+        parts.push('</tr>');
       }
       continue;
     }
     if (inTable) flushTable();
 
-    // ── List items ────────────────────────────────────────────────────────────
-    const listItem = parseListLine(l);
-    if (listItem) {
+    // List item
+    const li = parseList(line);
+    if (li) {
       flushBq(); flushTable();
-      const depth = listItem.indent < 2 ? 0 : 1;
+      const depth = li.indent < 2 ? 1 : 2;
 
-      if (liOpen && depth === 0 && listStack.length > 0) {
-        // Close previous li before opening new one at same level
-        // But first close any nested lists
-        while (listStack.length > 1) closeList();
-        out += '</li>';
-        liOpen = false;
-      }
-
-      if (depth === 0) {
-        if (listStack.length === 0) {
-          openList(listItem.type, 0);
-        } else if (listStack[0].type !== listItem.type) {
-          closeAllLists();
-          openList(listItem.type, 0);
-        }
-      } else {
-        // nested
-        if (listStack.length === 0) openList(listItem.type, 0);
-        if (listStack.length < 2) {
-          if (liOpen) { /* don't close the parent li yet — nest inside it */ }
-          out += listItem.type === 'ol' ? '<ol>' : '<ul>';
-          listStack.push({ type: listItem.type, indent: listItem.indent });
-          liOpen = false;
-        }
-      }
-
-      // Collect continuation lines
-      let itemContent = inline(listItem.content);
-      let extraParas = [];
-      while (i + 1 < lines.length) {
-        const next = lines[i + 1];
-        if (next.trim() === '') {
-          let j = i + 2;
-          while (j < lines.length && lines[j].trim() === '') j++;
-          if (j < lines.length && isContinuation(lines[j], listItem.indent)) {
-            extraParas.push('');
-            i = j - 1;
-          } else {
-            break;
-          }
-        } else if (isContinuation(next, listItem.indent)) {
-          if (extraParas.length && extraParas[extraParas.length - 1] === '') {
-            extraParas.push(next.trim());
-          } else {
-            itemContent += ' ' + next.trim();
-          }
-          i++;
+      if (depth === 1) {
+        // Close any nested lists first, then close previous top-level li
+        closeListsTo(1);
+        if (lists.length === 0) {
+          // No list open yet
+          parts.push('<' + li.tag + '>');
+          lists.push(li.tag);
+        } else if (lists[0] !== li.tag) {
+          // Type changed — close and reopen
+          closeListsTo(0);
+          parts.push('<' + li.tag + '>');
+          lists.push(li.tag);
         } else {
-          break;
+          // Same type, just close previous li
+          closeLi();
+        }
+      } else {
+        // depth 2 = nested
+        if (lists.length === 0) {
+          parts.push('<' + li.tag + '>');
+          lists.push(li.tag);
+        }
+        if (lists.length < 2) {
+          // Open nested list inside current open li (don't close it)
+          parts.push('<' + li.tag + '>');
+          lists.push(li.tag);
+        } else {
+          closeLi(); // close previous nested li
         }
       }
 
-      liOpen = true;
-      if (extraParas.length) {
-        out += '<li><p>' + itemContent + '</p>';
-        let para = [];
-        extraParas.forEach(ep => {
-          if (ep === '') {
-            if (para.length) { out += '<p>' + inline(para.join(' ')) + '</p>'; para = []; }
-          } else {
-            para.push(ep);
-          }
-        });
-        if (para.length) out += '<p>' + inline(para.join(' ')) + '</p>';
-        // don't close li yet — might have nested list coming
-      } else {
-        out += '<li>' + itemContent;
+      // Accumulate continuation lines (indented, non-list lines)
+      let content = inline(li.content);
+      while (i + 1 < lines.length) {
+        const nxt = lines[i + 1];
+        if (nxt.trim() === '') {
+          // Peek: if next non-blank is still a continuation, absorb blank
+          let j = i + 2;
+          while (j < lines.length && !lines[j].trim()) j++;
+          if (j < lines.length && /^ {2,}/.test(lines[j]) && !parseList(lines[j])) {
+            i = j - 1;
+          } else break;
+        } else if (/^ {2,}/.test(nxt) && !parseList(nxt)) {
+          content += ' ' + nxt.trim();
+          i++;
+        } else break;
       }
+
+      parts.push('<li>' + content);
+      liPending = true;
       continue;
     }
 
-    // ── Blank line ────────────────────────────────────────────────────────────
-    if (l.trim() === '') {
-      flushBq();
-      flushTable();
+    // Blank line
+    if (!line.trim()) {
+      flushBq(); flushTable();
+      // Only close lists if next non-blank isn't another list item
       let j = i + 1;
-      while (j < lines.length && lines[j].trim() === '') j++;
-      if (j >= lines.length || !parseListLine(lines[j])) {
-        closeAllLists();
-      }
+      while (j < lines.length && !lines[j].trim()) j++;
+      if (j >= lines.length || !parseList(lines[j])) closeListsTo(0);
       continue;
     }
 
-    // ── Plain paragraph ───────────────────────────────────────────────────────
-    flushAllClean();
-    out += '<p>' + inline(l) + '</p>';
+    // Plain paragraph
+    flushAll();
+    parts.push('<p>' + inline(line) + '</p>');
   }
 
-  flushAllClean();
+  flushAll();
   if (inPre) {
-    out += '<div class="docs-code-wrap"><pre><code>' + esc(preLines.join('\n')) + '</code></pre>' +
-           '<button class="copy-btn" onclick="mmCopyCode(this)">Copy</button></div>';
+    parts.push(
+      '<div class="docs-code-wrap"><pre><code>' + esc(preLines.join('\n')) + '</code></pre>' +
+      '<button class="copy-btn" onclick="mmCopyCode(this)">Copy</button></div>'
+    );
   }
-  return out;
+  return parts.join('');
 }
 
-// ── Copy code button ──────────────────────────────────────────────────────────
+// ── Copy button ───────────────────────────────────────────────────────────────
 function mmCopyCode(btn) {
-  const code = btn.previousElementSibling.querySelector('code');
+  const code = btn.previousElementSibling && btn.previousElementSibling.querySelector('code');
   if (!code) return;
   navigator.clipboard.writeText(code.innerText).then(() => {
     btn.textContent = 'Copied!';
@@ -805,81 +683,56 @@ function mmCopyCode(btn) {
   });
 }
 
-// ── Fetch with timeout helper ─────────────────────────────────────────────────
+// ── Fetch with timeout ────────────────────────────────────────────────────────
 function fetchWithTimeout(url, ms) {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('timeout')), ms);
-    fetch(url)
-      .then(r => { clearTimeout(timer); resolve(r); })
-      .catch(e => { clearTimeout(timer); reject(e); });
+    const t = setTimeout(() => reject(new Error('timeout')), ms);
+    fetch(url).then(r => { clearTimeout(t); resolve(r); }).catch(e => { clearTimeout(t); reject(e); });
   });
 }
 
-// ── Load doc by key ───────────────────────────────────────────────────────────
-// Primary source: jsDelivr CDN (not on ad/tracker blocklists).
-// Fallback: raw.githubusercontent.com.
+// ── Load doc ──────────────────────────────────────────────────────────────────
 async function loadDoc(key) {
   mmActive = key;
-  // Update URL hash for deep-linking
   history.replaceState(null, '', '#docs-' + key);
   mmFrame.innerHTML = '<div class="mm-docs-status"><div class="mm-spinner"></div>&nbsp;Loading&hellip;</div>';
 
   if (mmCache[key]) { mmFrame.innerHTML = mmCache[key]; return; }
 
-  const filePath = DOC_MAP[key];
-  const cdnUrl   = CDN_BASE + filePath;
-  const rawUrl   = RAW_BASE + filePath;
-  const ghUrl    = GH_BASE  + filePath;
+  const path  = DOC_MAP[key];
+  const ghUrl = GH_BASE + path;
 
   async function tryFetch(url) {
-    const resp = await fetchWithTimeout(url, 8000);
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    const md = await resp.text();
-    if (!md || !md.trim()) throw new Error('empty response');
-    return md;
+    const r = await fetchWithTimeout(url, 8000);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const t = await r.text();
+    if (!t || !t.trim()) throw new Error('empty');
+    return t;
   }
 
-  let md = null;
-  let lastErr = null;
+  let md = null, lastErr = null;
+  try { md = await tryFetch(CDN_BASE + path); }
+  catch (e) { lastErr = e; try { md = await tryFetch(RAW_BASE + path); } catch (e2) { lastErr = e2; } }
 
-  // Try jsDelivr first
-  try {
-    md = await tryFetch(cdnUrl);
-  } catch (e) {
-    lastErr = e;
-    // Fallback to raw.githubusercontent.com
-    try {
-      md = await tryFetch(rawUrl);
-    } catch (e2) {
-      lastErr = e2;
-    }
-  }
-
-  if (mmActive !== key) return; // switched away during load
+  if (mmActive !== key) return;
 
   if (md) {
-    const rendered = mdToHtml(md);
-    if (rendered && rendered.trim()) {
-      mmCache[key] = rendered;
-      mmFrame.innerHTML = rendered;
-      return;
-    }
-    lastErr = new Error('render produced nothing');
+    const html = mdToHtml(md);
+    if (html && html.trim()) { mmCache[key] = html; mmFrame.innerHTML = html; return; }
+    lastErr = new Error('render empty');
   }
 
-  // Both sources failed — show error
   mmFrame.innerHTML =
     '<div class="mm-docs-error">' +
-      '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r=".6" fill="currentColor"/></svg>' +
-      '<span>Couldn\'t load this document' + (lastErr && lastErr.message === 'timeout' ? ' (timed out)' : '') + '.</span>' +
-      '<div style="display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;">' +
-        '<button class="mm-retry-btn" onclick="mmCache[\'' + key + '\']=undefined;loadDoc(\'' + key + '\')">&#x21BA;&nbsp;Retry</button>' +
-        '<a href="' + ghUrl + '" target="_blank" rel="noopener" class="mm-retry-btn">Read on GitHub &rarr;</a>' +
-      '</div>' +
-    '</div>';
+    '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r=".6" fill="currentColor"/></svg>' +
+    '<span>Couldn\'t load this document' + (lastErr && lastErr.message === 'timeout' ? ' (timed out)' : '') + '.</span>' +
+    '<div style="display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;">' +
+    '<button class="mm-retry-btn" onclick="delete mmCache[\'' + key + '\'];loadDoc(\'' + key + '\')">&#x21BA;&nbsp;Retry</button>' +
+    '<a href="' + ghUrl + '" target="_blank" rel="noopener" class="mm-retry-btn">Read on GitHub &rarr;</a>' +
+    '</div></div>';
 }
 
-// ── Docs pill clicks ──────────────────────────────────────────────────────────
+// ── Pill clicks ───────────────────────────────────────────────────────────────
 document.querySelectorAll('.dpill').forEach(pill => {
   pill.addEventListener('click', () => {
     document.querySelectorAll('.dpill').forEach(p => p.classList.remove('on'));
@@ -888,22 +741,16 @@ document.querySelectorAll('.dpill').forEach(pill => {
   });
 });
 
-// ── Deep-link support: honour #docs-<key> in URL ─────────────────────────────
+// ── Deep-link + initial load ──────────────────────────────────────────────────
 function resolveHashDoc() {
   const m = location.hash.match(/^#docs-(\w+)$/);
   if (m && DOC_MAP[m[1]]) {
-    document.querySelectorAll('.dpill').forEach(p => {
-      p.classList.toggle('on', p.dataset.doc === m[1]);
-    });
+    document.querySelectorAll('.dpill').forEach(p => p.classList.toggle('on', p.dataset.doc === m[1]));
     return m[1];
   }
   return 'architecture';
 }
-
-// ── Initial load: defer to after DOM + extensions settle ─────────────────────
-requestAnimationFrame(() => {
-  setTimeout(() => loadDoc(resolveHashDoc()), 120);
-});
+requestAnimationFrame(() => setTimeout(() => loadDoc(resolveHashDoc()), 120));
 </script>
 </body>
 </html>

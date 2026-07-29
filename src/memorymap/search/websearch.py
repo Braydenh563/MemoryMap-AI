@@ -858,7 +858,7 @@ def _page_links(page: str, base_url: str, limit: int = 40) -> list[dict]:
     links: list[dict] = []
     seen: set[str] = set()
     for match in _LINK_RE.finditer(_content_body(page)):
-        label = re.sub(r"[ \t ]+", " ", _strip_tags(match.group(3))).strip()
+        label = re.sub(r"[ \t\xa0]+", " ", _strip_tags(match.group(3))).strip()
         if len(label) < 2:
             continue  # icon and anchor links say nothing worth keeping
         absolute = urljoin(base_url, html.unescape(match.group(2)).strip())

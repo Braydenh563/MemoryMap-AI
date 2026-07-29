@@ -1281,8 +1281,13 @@ def _restrict(path: Path, mode: int) -> None:
     """
     try:
         path.chmod(mode)
-    except OSError:
-        pass
+    except OSError as exc:
+        logging.debug(
+            "Could not apply mode %o to %s (non-fatal): %s",
+            mode,
+            path,
+            exc,
+        )
 
 
 def ensure_settings(data_dir: Path, rewrite: bool = True) -> Path:

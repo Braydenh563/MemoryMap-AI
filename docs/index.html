@@ -175,8 +175,8 @@
       padding:.6rem .9rem;border-radius:0 8px 8px 0;
       background:var(--as);margin:.8rem 0;
     }
-    .docs-section{max-width:900px;margin:0 auto 5rem;padding:0 1.5rem;}
-    .docs-pick{display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:1.1rem;}
+    .ref-section{max-width:900px;margin:0 auto 5rem;padding:0 1.5rem;}
+    .ref-pick{display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:1.1rem;}
     .dpill{
       padding:.3rem .85rem;border-radius:999px;
       font-size:.82rem;font-weight:600;cursor:pointer;
@@ -186,31 +186,31 @@
     }
     .dpill.on{background:var(--as);color:var(--ink);border-color:var(--accent);}
     .dpill:hover{background:var(--as);color:var(--ink);}
-    .mm-docs-body{
+    .mm-ref-body{
       padding:1.75rem 2rem;
       min-height:22rem;
       overflow-x:hidden;
     }
-    .mm-docs-body h1{font-size:1.3rem;font-weight:800;margin-bottom:1rem;letter-spacing:-.01em;}
-    .mm-docs-body h2{font-size:1.05rem;font-weight:700;margin:1.8rem 0 .6rem;padding-top:.4rem;border-top:1px solid var(--border);}
-    .mm-docs-body h2:first-child{margin-top:0;border-top:none;padding-top:0;}
-    .mm-docs-body h3{font-size:.93rem;font-weight:700;margin:1.2rem 0 .4rem;color:var(--ink);}
-    .mm-docs-body h4{font-size:.88rem;font-weight:600;margin:1rem 0 .35rem;color:var(--ink);}
-    .mm-docs-body p{font-size:.88rem;color:var(--muted);margin-bottom:.75rem;max-width:72ch;line-height:1.78;}
-    .mm-docs-body ul,.mm-docs-body ol{padding-left:1.4rem;margin-bottom:.85rem;margin-top:.2rem;}
-    .mm-docs-body li{font-size:.88rem;color:var(--muted);line-height:1.74;margin-bottom:.3rem;}
-    .mm-docs-body li>ul,.mm-docs-body li>ol{margin-top:.25rem;margin-bottom:.25rem;}
-    .mm-docs-body li p{margin-bottom:.25rem;}
-    .mm-docs-body li strong,.mm-docs-body p strong{color:var(--ink);}
-    .mm-docs-body .docs-code-wrap{position:relative;margin:.5rem 0 1rem;}
-    .mm-docs-body pre{
+    .mm-ref-body h1{font-size:1.3rem;font-weight:800;margin-bottom:1rem;letter-spacing:-.01em;}
+    .mm-ref-body h2{font-size:1.05rem;font-weight:700;margin:1.8rem 0 .6rem;padding-top:.4rem;border-top:1px solid var(--border);}
+    .mm-ref-body h2:first-child{margin-top:0;border-top:none;padding-top:0;}
+    .mm-ref-body h3{font-size:.93rem;font-weight:700;margin:1.2rem 0 .4rem;color:var(--ink);}
+    .mm-ref-body h4{font-size:.88rem;font-weight:600;margin:1rem 0 .35rem;color:var(--ink);}
+    .mm-ref-body p{font-size:.88rem;color:var(--muted);margin-bottom:.75rem;max-width:72ch;line-height:1.78;}
+    .mm-ref-body ul,.mm-ref-body ol{padding-left:1.4rem;margin-bottom:.85rem;margin-top:.2rem;}
+    .mm-ref-body li{font-size:.88rem;color:var(--muted);line-height:1.74;margin-bottom:.3rem;}
+    .mm-ref-body li>ul,.mm-ref-body li>ol{margin-top:.25rem;margin-bottom:.25rem;}
+    .mm-ref-body li p{margin-bottom:.25rem;}
+    .mm-ref-body li strong,.mm-ref-body p strong{color:var(--ink);}
+    .mm-ref-body .ref-code-wrap{position:relative;margin:.5rem 0 1rem;}
+    .mm-ref-body pre{
       background:var(--inner);border:1px solid var(--border);
       border-radius:9px;padding:.85rem 1rem;
       overflow-x:auto;font-size:.8rem;line-height:1.6;
       font-family:ui-monospace,'Cascadia Code',Consolas,monospace;
       max-width:100%;margin:0;
     }
-    .mm-docs-body .copy-btn{
+    .mm-ref-body .copy-btn{
       position:absolute;top:.45rem;right:.5rem;
       padding:.18rem .55rem;border-radius:6px;
       font-size:.72rem;font-weight:600;cursor:pointer;
@@ -218,17 +218,17 @@
       font-family:inherit;transition:background .13s,color .13s;
       opacity:.7;
     }
-    .mm-docs-body .copy-btn:hover{opacity:1;background:var(--as);color:var(--ink);}
-    .mm-docs-body code{font-family:ui-monospace,'Cascadia Code',Consolas,monospace;font-size:.83em;background:var(--chip);padding:.1rem .33rem;border-radius:4px;}
-    .mm-docs-body pre code{background:none;padding:0;font-size:inherit;white-space:pre;}
-    .mm-docs-body table{width:100%;border-collapse:collapse;font-size:.84rem;margin:.6rem 0 1.1rem;overflow-x:auto;display:block;}
-    .mm-docs-body th{text-align:left;font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--faint);padding:.5rem .75rem;border-bottom:2px solid var(--border);background:var(--chip);}
-    .mm-docs-body td{padding:.42rem .75rem;border-bottom:1px solid var(--border);color:var(--muted);vertical-align:top;}
-    .mm-docs-body td:first-child{color:var(--ink);font-weight:500;}
-    .mm-docs-body a{color:var(--accent);}
-    .mm-docs-body details{margin:.5rem 0;border:1px solid var(--border);border-radius:8px;padding:.6rem .9rem;}
-    .mm-docs-body summary{cursor:pointer;font-size:.88rem;font-weight:600;color:var(--ink);}
-    .mm-docs-body blockquote{
+    .mm-ref-body .copy-btn:hover{opacity:1;background:var(--as);color:var(--ink);}
+    .mm-ref-body code{font-family:ui-monospace,'Cascadia Code',Consolas,monospace;font-size:.83em;background:var(--chip);padding:.1rem .33rem;border-radius:4px;}
+    .mm-ref-body pre code{background:none;padding:0;font-size:inherit;white-space:pre;}
+    .mm-ref-body table{width:100%;border-collapse:collapse;font-size:.84rem;margin:.6rem 0 1.1rem;overflow-x:auto;display:block;}
+    .mm-ref-body th{text-align:left;font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--faint);padding:.5rem .75rem;border-bottom:2px solid var(--border);background:var(--chip);}
+    .mm-ref-body td{padding:.42rem .75rem;border-bottom:1px solid var(--border);color:var(--muted);vertical-align:top;}
+    .mm-ref-body td:first-child{color:var(--ink);font-weight:500;}
+    .mm-ref-body a{color:var(--accent);}
+    .mm-ref-body details{margin:.5rem 0;border:1px solid var(--border);border-radius:8px;padding:.6rem .9rem;}
+    .mm-ref-body summary{cursor:pointer;font-size:.88rem;font-weight:600;color:var(--ink);}
+    .mm-ref-body blockquote{
       border-left:3px solid var(--accent);
       padding:.55rem .9rem;
       margin:.8rem 0;
@@ -237,11 +237,11 @@
       font-size:.87rem;
       color:var(--muted);
     }
-    .mm-docs-body blockquote p{margin:.25rem 0;color:var(--muted);max-width:none;}
-    .mm-docs-body blockquote p:first-child{margin-top:0;}
-    .mm-docs-body blockquote p:last-child{margin-bottom:0;}
-    .mm-docs-body hr{border:none;border-top:1px solid var(--border);margin:1.4rem 0;}
-    .mm-docs-status{
+    .mm-ref-body blockquote p{margin:.25rem 0;color:var(--muted);max-width:none;}
+    .mm-ref-body blockquote p:first-child{margin-top:0;}
+    .mm-ref-body blockquote p:last-child{margin-bottom:0;}
+    .mm-ref-body hr{border:none;border-top:1px solid var(--border);margin:1.4rem 0;}
+    .mm-ref-status{
       display:flex;align-items:center;justify-content:center;gap:.5rem;
       padding:3rem;font-size:.88rem;color:var(--muted);
     }
@@ -251,13 +251,13 @@
       border-radius:50%;animation:spin .7s linear infinite;
     }
     @keyframes spin{to{transform:rotate(360deg)}}
-    .mm-docs-error{
+    .mm-ref-error{
       display:flex;flex-direction:column;align-items:center;
       gap:.7rem;padding:2.5rem;text-align:center;
       font-size:.88rem;color:var(--muted);
     }
-    .mm-docs-error svg{opacity:.5;}
-    .mm-docs-error a{color:var(--accent);}
+    .mm-ref-error svg{opacity:.5;}
+    .mm-ref-error a{color:var(--accent);}
     .mm-retry-btn{
       display:inline-flex;align-items:center;gap:.3rem;
       padding:.3rem .85rem;border-radius:8px;
@@ -273,7 +273,7 @@
     @media(max-width:600px){
       .hero{margin-top:4rem;}
       .hero h1{font-size:1.9rem;}
-      .qs-card,.tab-card,.mm-docs-body{padding:1.2rem 1.1rem;}
+      .qs-card,.tab-card,.mm-ref-body{padding:1.2rem 1.1rem;}
     }
   </style>
 </head>
@@ -287,7 +287,7 @@
   <div class="nav-tabs">
     <a href="#features">Features</a>
     <a href="#quickstart">Quick start</a>
-    <a href="#docs">Docs</a>
+    <a href="#reference">Docs</a>
   </div>
   <div class="nav-end">
     <a href="https://github.com/Braydenh563/MemoryMap-AI/stargazers" target="_blank" rel="noopener" class="stars-badge" aria-label="GitHub stars">
@@ -352,17 +352,17 @@ python -m memorymap</pre></div>
   </div>
 </section>
 
-<section class="docs-section reveal" id="docs">
+<section class="ref-section reveal" id="reference">
   <p class="section-label">Documentation</p>
-  <div class="docs-pick">
+  <div class="ref-pick">
     <button class="dpill on" data-doc="architecture">Architecture</button>
     <button class="dpill" data-doc="roadmap">Roadmap</button>
     <button class="dpill" data-doc="changelog">Changelog</button>
     <button class="dpill" data-doc="contributing">Contributing</button>
     <button class="dpill" data-doc="security">Security</button>
   </div>
-  <div class="mm-docs-body g" id="mmDocsBody">
-    <div class="mm-docs-status"><div class="mm-spinner"></div>&nbsp;Loading&hellip;</div>
+  <div class="mm-ref-body g" id="mmRefBody">
+    <div class="mm-ref-status"><div class="mm-spinner"></div>&nbsp;Loading&hellip;</div>
   </div>
   <p style="font-size:.76rem;color:var(--faint);margin-top:.55rem;text-align:right;">
     Pulled live from <a href="https://github.com/Braydenh563/MemoryMap-AI" target="_blank" rel="noopener">GitHub</a> &mdash; always up to date.
@@ -421,7 +421,7 @@ const ro = new IntersectionObserver(es => {
 }, { threshold: 0.06 });
 document.querySelectorAll('.reveal').forEach(el => ro.observe(el));
 
-// ── Docs loader ───────────────────────────────────────────────────────────────
+// ── Ref loader ───────────────────────────────────────────────────────────────
 const BRANCH   = 'main';
 const CDN_BASE = 'https://cdn.jsdelivr.net/gh/Braydenh563/MemoryMap-AI@' + BRANCH + '/';
 const RAW_BASE = 'https://raw.githubusercontent.com/Braydenh563/MemoryMap-AI/' + BRANCH + '/';
@@ -436,7 +436,7 @@ const DOC_MAP = {
 };
 
 const mmCache = {};
-const mmFrame = document.getElementById('mmDocsBody');
+const mmFrame = document.getElementById('mmRefBody');
 let mmActive  = 'architecture';
 
 function esc(t) {
@@ -529,7 +529,7 @@ function mdToHtml(raw) {
         preLines = [];
       } else {
         parts.push(
-          '<div class="docs-code-wrap"><pre><code' +
+          '<div class="ref-code-wrap"><pre><code' +
           (preLang ? ' class="lang-' + esc(preLang) + '"' : '') + '>' +
           esc(preLines.join('\n')) + '</code></pre>' +
           '<button class="copy-btn" onclick="mmCopyCode(this)">Copy</button></div>'
@@ -644,7 +644,7 @@ function mdToHtml(raw) {
   flushAll();
   if (inPre) {
     parts.push(
-      '<div class="docs-code-wrap"><pre><code>' + esc(preLines.join('\n')) + '</code></pre>' +
+      '<div class="ref-code-wrap"><pre><code>' + esc(preLines.join('\n')) + '</code></pre>' +
       '<button class="copy-btn" onclick="mmCopyCode(this)">Copy</button></div>'
     );
   }
@@ -677,8 +677,8 @@ function fetchWithTimeout(url, ms) {
 // ── Load doc ──────────────────────────────────────────────────────────────────
 async function loadDoc(key) {
   mmActive = key;
-  history.replaceState(null, '', '#docs-' + key);
-  mmFrame.innerHTML = '<div class="mm-docs-status"><div class="mm-spinner"></div>&nbsp;Loading&hellip;</div>';
+  history.replaceState(null, '', '#tab-' + key);
+  mmFrame.innerHTML = '<div class="mm-ref-status"><div class="mm-spinner"></div>&nbsp;Loading&hellip;</div>';
 
   if (mmCache[key]) { mmFrame.innerHTML = mmCache[key]; return; }
 
@@ -730,7 +730,7 @@ async function loadDoc(key) {
   }
 
   mmFrame.innerHTML =
-    '<div class="mm-docs-error">' +
+    '<div class="mm-ref-error">' +
     '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r=".6" fill="currentColor"/></svg>' +
     '<span>Couldn\'t load this document' + (lastErr && lastErr.message === 'timeout' ? ' (timed out)' : '') + '.</span>' +
     '<div style="display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;">' +
@@ -750,7 +750,7 @@ document.querySelectorAll('.dpill').forEach(pill => {
 
 // ── Deep-link + initial load ──────────────────────────────────────────────────
 function resolveHashDoc() {
-  const m = location.hash.match(/^#docs-(\w+)$/);
+  const m = location.hash.match(/^#tab-(\w+)$/);
   if (m && DOC_MAP[m[1]]) {
     document.querySelectorAll('.dpill').forEach(p => p.classList.toggle('on', p.dataset.doc === m[1]));
     return m[1];

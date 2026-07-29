@@ -110,7 +110,9 @@ def test_reinstall_refuses_while_an_install_is_already_running(app_state, monkey
 def test_the_reinstall_endpoint_wipes_and_restarts(client, monkeypatch, app_state):
     started = {}
     monkeypatch.setattr(
-        searxng_manager, "install_source", lambda d: started.setdefault("dir", d)
+        searxng_manager,
+        "install_source",
+        lambda d, on_ready=None: started.setdefault("dir", d),
     )
     _fake_install(app_state.data_dir)
     client.put("/preferences", json={"searxng_url": "http://localhost:8888"})
@@ -170,6 +172,69 @@ def test_a_start_that_says_nothing_at_all_says_so(app_state, monkeypatch):
         searxng_manager._start_from_source(app_state.data_dir)
 
 
+# --- a taken port is walked past, not handed to the user --------------------
+
+
+_WINDOWS_PORT_CLASH = (
+    "OSError: [WinError 10048] Only one usage of each socket address "
+    "(protocol/network address/port) is normally permitted"
+)
+
+
+def _start_that_fails_on_taken_ports(monkeypatch, ready_answers):
+    """A start where SearXNG dies with a bind error until an attempt is
+    allowed to succeed. Returns the list of ports each attempt used."""
+    monkeypatch.setattr(searxng_manager, "_chosen_port", None)
+    monkeypatch.setattr(searxng_manager, "source_installed", lambda d: True)
+    monkeypatch.setattr(searxng_manager, "docker_available", lambda: False)
+    monkeypatch.setattr(searxng_manager, "_source_state", lambda d: "stopped")
+    monkeypatch.setattr(searxng_manager, "_stop_source", lambda d: {"stopped": True})
+    monkeypatch.setattr(
+        searxng_manager, "recent_output", lambda d, lines=12: _WINDOWS_PORT_CLASH
+    )
+    answers = iter(ready_answers)
+    monkeypatch.setattr(
+        searxng_manager, "_wait_until_ready", lambda *a, **k: next(answers)
+    )
+
+    ports: list[int] = []
+
+    def fake_start(d):
+        ports.append(searxng_manager.host_port())
+        return {
+            "url": searxng_manager.base_url(),
+            "started": True,
+            "backend": "source",
+        }
+
+    monkeypatch.setattr(searxng_manager, "_start_source", fake_start)
+    return ports
+
+
+def test_a_taken_port_moves_to_the_next_until_one_works(app_state, monkeypatch):
+    """choose_port() checks before the start, but checking is racy — the
+    honest signal is SearXNG itself dying with a bind error, and the fix is
+    to move along automatically, not to report a port number."""
+    ports = _start_that_fails_on_taken_ports(monkeypatch, [False, False, True])
+
+    result = searxng_manager._start_from_source(app_state.data_dir)
+
+    assert ports == [8888, 8080, 8081]
+    assert result["url"].endswith(":8081")
+
+
+def test_every_port_taken_names_them_all_and_the_way_out(app_state, monkeypatch):
+    ports = _start_that_fails_on_taken_ports(monkeypatch, [False] * 5)
+
+    with pytest.raises(searxng_manager.SearxngError) as caught:
+        searxng_manager._start_from_source(app_state.data_dir)
+
+    assert ports == [8888, *searxng_manager.FALLBACK_PORTS]
+    assert "Every port" in str(caught.value)
+    assert "8899" in str(caught.value)
+    assert "MEMORYMAP_SEARXNG_PORT" in str(caught.value)
+
+
 # --- the reason a command failed, not the last thing it printed -------------
 
 
@@ -214,7 +279,10 @@ def test_a_configured_port_is_used_instead_of_the_default(monkeypatch):
     monkeypatch.setattr(searxng_manager, "_chosen_port", None)
     monkeypatch.setenv("MEMORYMAP_SEARXNG_PORT", "8080")
     assert searxng_manager.host_port() == 8080
-    assert searxng_manager.base_url() == "http://localhost:8080"
+    # An IP literal, never localhost: the probe must dial the exact address
+    # SearXNG binds (SEARXNG_BIND_ADDRESS=127.0.0.1). On Windows, localhost
+    # can resolve to IPv6 ::1 first — a door the instance is not behind.
+    assert searxng_manager.base_url() == "http://127.0.0.1:8080"
 
 
 def test_nonsense_in_the_port_variable_falls_back_rather_than_crashing(monkeypatch):

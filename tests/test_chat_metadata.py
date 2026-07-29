@@ -68,3 +68,21 @@ def test_thinking_model_in_agent_mode_reports_both(ai_client, fake_ollama):
     meta = next(e for e in events if e["type"] == "meta")
     assert meta["raw_results"]
     assert meta["answered_by"]
+
+
+def test_the_latest_answer_reaches_a_follow_up_nearly_whole():
+    """Reported: "difficult to get the agent to explain something, and then
+    make it as a note." The explanation is the previous answer, and clipping
+    it to 600 characters meant "save that" saved a stump. The most recent
+    answer travels nearly whole; older ones stay clipped hard."""
+    from memorymap.ai import librarian
+
+    turns = [
+        {"question": f"q{i}", "answer": "old " * 500} for i in range(3)
+    ] + [{"question": "explain seraphine", "answer": "the explanation " * 500}]
+    messages = librarian.history_messages(turns)
+    answers = [m["content"] for m in messages if m["role"] == "assistant"]
+    assert all(
+        len(a) <= librarian.MAX_HISTORY_ANSWER_CHARS for a in answers[:-1]
+    )
+    assert len(answers[-1]) == librarian.LAST_ANSWER_CHARS

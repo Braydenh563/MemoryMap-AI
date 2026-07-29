@@ -319,6 +319,130 @@ def test_the_generated_settings_dont_download_anything_at_boot(app_state):
     assert "- json" in text  # the API format, without which /search returns 403
 
 
+def test_the_generated_settings_remove_broken_engines_rather_than_disable(
+    app_state,
+):
+    """`disabled: true` still imports the engine module at startup — bilibili
+    is disabled in SearXNG's own defaults and still crashed every Windows
+    start from a module-scope ZoneInfo call. And an entry under `engines:`
+    merges over the default entry of the same name key by key — upstream's
+    `torch` engine is really the xpath module, so an override saying
+    `engine: torch` sent SearXNG after a torch.py that does not exist.
+    Removal via use_default_settings has neither failure mode."""
+    text = searxng_manager.ensure_settings(app_state.data_dir).read_text()
+    removes = ""
+    if "remove:" in text:
+        removes = text.split("remove:", 1)[1].split("server:", 1)[0]
+    for engine in ("google", "bing", "wikidata", "brave", "ahmia", "torch", "bilibili"):
+        assert f"- {engine}" in removes, f"{engine} should be on the remove list"
+    # Engines that share a removed engine's network must go with it —
+    # SearXNG's network init does NETWORKS[name] = NETWORKS['brave'] and
+    # dies with KeyError: 'brave' if they stay. Reported from a real start.
+    for engine in ("brave.images", "brave.videos", "brave.news"):
+        assert f"- {engine}" in removes, f"{engine} shares brave's network"
+    # Merge entries may only flip `disabled` — an `engine:` key is what sent
+    # SearXNG after a torch.py that does not exist.
+    engines_block = text.split("\nengines:", 1)[1].split("\nplugins:", 1)[0]
+    code_lines = [
+        line for line in engines_block.splitlines() if not line.strip().startswith("#")
+    ]
+    assert not any("engine:" in line for line in code_lines)
+
+
+def test_engines_borrowing_a_removed_network_are_removed_too(app_state):
+    """The brave KeyError, generalised: upstream may add engines that borrow
+    a removed engine's network at any time, so the removal list is read from
+    the installed checkout's own settings.yml rather than predicted."""
+    defaults = searxng_manager._source_dir(app_state.data_dir) / "searx" / "settings.yml"
+    defaults.parent.mkdir(parents=True, exist_ok=True)
+    defaults.write_text(
+        "server:\n  port: 8888\n"
+        "engines:\n"
+        "  - name: shiny new engine\n"
+        "    engine: xpath\n"
+        "    network: google\n"
+        "  - name: harmless\n"
+        "    engine: xpath\n"
+        "  - name: borrower of a borrower\n"
+        "    network: shiny new engine\n"
+        "doi_resolvers:\n  x: y\n",
+        encoding="utf-8",
+    )
+    text = searxng_manager.ensure_settings(app_state.data_dir).read_text()
+    removes = text.split("remove:", 1)[1].split("server:", 1)[0]
+    assert "- shiny new engine" in removes
+    assert "- borrower of a borrower" in removes, "the scan must chase chains"
+    assert "- harmless" not in removes
+
+
+def _passing_install(monkeypatch, tmp_path, data_dir):
+    """Every command succeeds, so the install runs through to the end."""
+    _fake_venv(data_dir)
+    archive = _archive(tmp_path, ["setup.py", "requirements.txt"])
+    commands = _Commands()
+    monkeypatch.setattr(searxng_manager, "_run", commands)
+    monkeypatch.setattr(searxng_manager, "_run_streaming", commands)
+    monkeypatch.setattr(
+        searxng_manager,
+        "_download",
+        lambda url, dest, on_progress=None: shutil.copy(archive, dest),
+    )
+
+
+def test_a_finished_install_starts_searxng_and_reports_the_url(
+    app_state, tmp_path, monkeypatch
+):
+    """"Press Start, wait minutes, press Start again" asked the user to
+    babysit the longest wait in the app — and the second press was the step
+    people missed. With on_ready, the install ends by starting the instance
+    and handing the URL to whoever asked for it."""
+    data_dir = app_state.data_dir
+    _passing_install(monkeypatch, tmp_path, data_dir)
+    monkeypatch.setattr(
+        searxng_manager,
+        "start",
+        lambda d, on_ready=None: {"url": "http://localhost:8888", "started": True},
+    )
+
+    urls: list[str] = []
+    searxng_manager.install_source(data_dir, on_ready=urls.append)
+    deadline = time.time() + 5
+    while (
+        searxng_manager._install_state["running"] or not urls
+    ) and time.time() < deadline:
+        time.sleep(0.01)
+
+    assert urls == ["http://localhost:8888"]
+    assert searxng_manager._install_state["error"] == ""
+
+
+def test_a_failed_automatic_start_reports_instead_of_pointing_at_it(
+    app_state, tmp_path, monkeypatch
+):
+    """If the follow-on start fails, the install must say so — and never
+    hand a dead URL to the callback."""
+    data_dir = app_state.data_dir
+    _passing_install(monkeypatch, tmp_path, data_dir)
+
+    def refuse(d, on_ready=None):
+        raise searxng_manager.SearxngError("port taken")
+
+    monkeypatch.setattr(searxng_manager, "start", refuse)
+
+    urls: list[str] = []
+    searxng_manager.install_source(data_dir, on_ready=urls.append)
+    deadline = time.time() + 5
+    while (
+        searxng_manager._install_state["running"]
+        or not searxng_manager._install_state["error"]
+    ) and time.time() < deadline:
+        time.sleep(0.01)
+
+    assert urls == []
+    assert "automatic start failed" in searxng_manager._install_state["error"]
+    assert "port taken" in searxng_manager._install_state["error"]
+
+
 def test_the_install_reports_progress_and_what_it_is_doing(
     app_state, tmp_path, monkeypatch
 ):

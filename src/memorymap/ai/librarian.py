@@ -102,6 +102,38 @@ STYLE_HINTS = {
 # and a long past answer gets clipped.
 MAX_HISTORY_TURNS = 4
 MAX_HISTORY_ANSWER_CHARS = 600
+# Except the answer being followed up on. "Now save that as a note" refers
+# to the answer just given, and a 600-character stump of it was what got
+# saved — the *most recent* answer keeps enough of itself that "that" means
+# what the user watched being written. Reported as "difficult to get the
+# agent to explain something, and then make it as a note".
+LAST_ANSWER_CHARS = 4_000
+
+
+def history_messages(history: list[dict] | None) -> list[dict]:
+    """The recent turns as chat messages, oldest first.
+
+    One clipping rule for every chat path — conversational, grounded and
+    agent — so a follow-up behaves the same wherever it lands: old answers
+    are clipped hard, the latest one travels nearly whole (see
+    LAST_ANSWER_CHARS).
+    """
+    recent = [
+        turn
+        for turn in (history or [])[-MAX_HISTORY_TURNS:]
+        if str(turn.get("question", "")).strip()
+        and str(turn.get("answer", "")).strip()
+    ]
+    messages: list[dict] = []
+    for i, turn in enumerate(recent):
+        limit = (
+            LAST_ANSWER_CHARS if i == len(recent) - 1 else MAX_HISTORY_ANSWER_CHARS
+        )
+        messages.append({"role": "user", "content": str(turn["question"]).strip()})
+        messages.append(
+            {"role": "assistant", "content": str(turn["answer"]).strip()[:limit]}
+        )
+    return messages
 
 # How much of a note goes into the prompt before it is cut short. Most notes
 # are a line or two and are never touched by this; a few are pages, and those
@@ -152,12 +184,7 @@ def build_conversational_messages(
     messages = [
         {"role": "system", "content": f"{persona} {brief} {style_hint}{profile_hint}"}
     ]
-    for turn in (history or [])[-MAX_HISTORY_TURNS:]:
-        past_question = str(turn.get("question", "")).strip()
-        past_answer = str(turn.get("answer", "")).strip()[:MAX_HISTORY_ANSWER_CHARS]
-        if past_question and past_answer:
-            messages.append({"role": "user", "content": past_question})
-            messages.append({"role": "assistant", "content": past_answer})
+    messages.extend(history_messages(history))
     messages.append({"role": "user", "content": question})
     return messages
 
@@ -187,12 +214,7 @@ def build_messages(
             "content": f"{persona} {GROUNDING} {style_hint}{profile_hint}",
         }
     ]
-    for turn in (history or [])[-MAX_HISTORY_TURNS:]:
-        past_question = str(turn.get("question", "")).strip()
-        past_answer = str(turn.get("answer", "")).strip()[:MAX_HISTORY_ANSWER_CHARS]
-        if past_question and past_answer:
-            messages.append({"role": "user", "content": past_question})
-            messages.append({"role": "assistant", "content": past_answer})
+    messages.extend(history_messages(history))
 
     numbered = "\n".join(
         # A note the user attached by hand is flagged, so the model treats it

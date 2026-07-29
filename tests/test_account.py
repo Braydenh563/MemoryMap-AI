@@ -127,3 +127,37 @@ def test_lock_all_ends_every_session(client):
     ended = client.post("/auth/lock-all", headers=headers)
     assert ended.status_code == 200
     assert client.get("/auth/account", headers=headers).status_code == 401
+
+
+def test_unlock_throttles_a_run_of_wrong_passwords(client, monkeypatch):
+    """bcrypt makes each guess slow; this makes *many* guesses slow. The app
+    binds localhost, but people put it behind tunnels to reach it from a
+    phone — a server log showed a public address arriving through a proxy —
+    and a four-character floor is PIN territory without a throttle."""
+    from memorymap.api import routes_auth
+
+    monkeypatch.setattr(routes_auth, "_failed_unlocks", [])
+    _setup(client)
+    for _ in range(routes_auth._FAILURE_ALLOWANCE):
+        assert client.post("/auth/unlock", json={"password": "nope"}).status_code == 401
+
+    # Inside the earned wait even the right password is refused — the 429
+    # names the wait so the owner knows it is a throttle, not a lockout.
+    refused = client.post("/auth/unlock", json={"password": "first-pass"})
+    assert refused.status_code == 429
+    assert "try again" in refused.json()["detail"]
+
+
+def test_unlock_forgives_once_the_wait_has_passed(client, monkeypatch):
+    from memorymap.api import routes_auth
+
+    monkeypatch.setattr(routes_auth, "_failed_unlocks", [])
+    _setup(client)
+    for _ in range(routes_auth._FAILURE_ALLOWANCE):
+        client.post("/auth/unlock", json={"password": "nope"})
+
+    # Age the failures past the wait they earned; the right password gets in
+    # and wipes the slate, so the next wrong guess starts from zero.
+    routes_auth._failed_unlocks[:] = [t - 5 for t in routes_auth._failed_unlocks]
+    assert client.post("/auth/unlock", json={"password": "first-pass"}).status_code == 200
+    assert routes_auth._failed_unlocks == []

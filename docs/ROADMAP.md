@@ -1403,6 +1403,37 @@ is what makes it reach for one.
 
 Small, concrete, each seen in the running app:
 
+- **Background tasks vanish when they finish.** A completed or failed task
+  disappears from Settings → Background tasks, so "did the reinstall work?"
+  has no answer five minutes later. Keep finished tasks listed as
+  ended/previous (with outcome and duration), persist them to the logs, and
+  add a "clear history" button — probably one shared affordance for task
+  history and logs both.
+- **Chat / Agent / Browse selector and a browse UI.** Asked for directly
+  ("can the chat interface be improved?? like the selector for agent mode
+  and the web browser ui??") — this is §3, already designed there, unbuilt.
+  Treat §3 as user-requested now, not speculative.
+- **Agent continuation quality.** "The agent really struggles to continue a
+  chat based off the previous message." Two things landed for it (2026-07:
+  the most recent answer now reaches the next turn nearly whole —
+  `librarian.history_messages` / LAST_ANSWER_CHARS — and every agent turn
+  logs its prompt composition as memorymap.agent "prompt composition").
+  Next step per §11a: read those logs from a real 3-turn chat, see whether
+  notes or history dominates, and only then trim the variable half.
+- **A skill that writes skills.** `save_skill` already takes steps and tool
+  allowlists (§21), so a built-in "skill author" skill that interviews the
+  user and calls save_skill is small and real. Not started.
+- **Appearance settings page (§15).** Asked whether it can be improved;
+  nobody has audited it against §15 yet. The chat empty-state emblem now
+  animates (same motion switch as the ai-mark), which was the one concrete
+  ask.
+- **Bot-walled sites in the reader.** Cloudflare-fronted wikis and Reddit
+  403/challenge the reader on TLS fingerprint alone; no header can fix
+  that. The reader now names the wall instead of dumping a status
+  (websearch.fetch_readable), but actually reading such sites would take
+  browser impersonation — decide deliberately whether that dependency is
+  ever worth it before anyone "fixes" this again.
+
 - ~~**Notes don't render markdown.**~~ **done** — but read how, before
   extending it. `renderInlineMarkdown` handles bold, italic, `code` and
   strike *only*; `renderMarkdown`'s block elements (headings, tables, lists,

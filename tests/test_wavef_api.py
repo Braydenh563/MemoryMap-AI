@@ -425,7 +425,11 @@ def test_searxng_start_from_source_installs_first(client, monkeypatch):
     monkeypatch.setattr(searxng_manager, "docker_available", lambda: False)
     monkeypatch.setattr(searxng_manager, "source_available", lambda: True)
     monkeypatch.setattr(searxng_manager, "source_installed", lambda data_dir: False)
-    monkeypatch.setattr(searxng_manager, "install_source", lambda data_dir: calls.append(data_dir))
+    monkeypatch.setattr(
+        searxng_manager,
+        "install_source",
+        lambda data_dir, on_ready=None: calls.append(data_dir),
+    )
 
     response = client.post("/websearch/searxng/start")
     assert response.status_code == 503
@@ -457,7 +461,9 @@ def test_searxng_start_saves_the_url(client, monkeypatch):
     from memorymap.search import searxng_manager
 
     monkeypatch.setattr(
-        searxng_manager, "start", lambda data_dir: {"url": "http://localhost:8888", "started": True}
+        searxng_manager,
+        "start",
+        lambda data_dir, on_ready=None: {"url": "http://localhost:8888", "started": True},
     )
     body = client.post("/websearch/searxng/start").json()
     assert body["running"] is True
@@ -482,11 +488,22 @@ def test_searxng_settings_enable_the_json_api(tmp_path):
     path = searxng_manager.ensure_settings(tmp_path)
     text = path.read_text()
     assert "json" in text
-    assert "use_default_settings: true" in text
+    assert "use_default_settings:" in text
 
-    # Written once, then left alone so user edits survive.
-    path.write_text("# edited by hand\n")
+    # Rewritten on each start, so fixes to the managed defaults reach
+    # installs made before those fixes existed — but the secret key
+    # survives the rewrite, or every start would invalidate sessions.
+    secret = searxng_manager._existing_secret_key(path)
+    assert secret
+    path.write_text(f'server:\n  secret_key: "{secret}"\n# edited by hand\n')
     searxng_manager.ensure_settings(tmp_path)
+    refreshed = path.read_text()
+    assert "# edited by hand" not in refreshed
+    assert secret in refreshed
+
+    # rewrite=False is the escape hatch that keeps a hand-edited file as-is.
+    path.write_text("# edited by hand\n")
+    searxng_manager.ensure_settings(tmp_path, rewrite=False)
     assert path.read_text() == "# edited by hand\n"
 
 

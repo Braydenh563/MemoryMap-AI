@@ -2583,7 +2583,9 @@ function renderChatEmptyState() {
     "make changes” and it can create, tag, link, and organise notes for you too.";
   empty.append(emblem, title, blurb);
   box.appendChild(empty);
-  renderEmblem(emblem, 52); // after insertion — see addAssistantBubble
+  // Animated like the ai-mark: a new chat is the AI waiting, and the slow
+  // turn says so. Stills itself under Settings → Appearance → reduced motion.
+  renderEmblem(emblem, 52, { animate: true }); // after insertion — see addAssistantBubble
 }
 
 function clearChatEmptyState() {
@@ -12716,7 +12718,7 @@ const EMBLEM_SLOTS = [
   ["ai-mark", 24, true],
   ["lock-emblem", 76, true],
   ["onboarding-emblem", 64, false],
-  ["chat-empty-emblem", 52, false],
+  ["chat-empty-emblem", 52, true],
   ["graph-empty-emblem", 52, false],
   ["about-emblem", 44, false],
 ];

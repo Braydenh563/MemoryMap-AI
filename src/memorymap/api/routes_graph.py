@@ -10,6 +10,7 @@ Nodes are non-deleted entries; edges come from three places:
 
 from __future__ import annotations
 
+import re
 from itertools import combinations
 
 from fastapi import APIRouter, Depends
@@ -32,7 +33,25 @@ SIMILARITY_EDGE_THRESHOLD = 0.55
 MAX_SIMILARITY_EDGES = 200
 
 
+# The inline markers the note editor supports, matched with their content so
+# stripping keeps the words. Mirrors the frontend's notePreviewText — these
+# labels are clipped to ~40 characters, and a clip that lands mid-`**` shows
+# scaffolding ("**Seraphine…") instead of the note.
+_INLINE_MD = re.compile(
+    r"\*\*([^*\n]{1,500})\*\*|\*([^*\n]{1,500})\*|__([^_\n]{1,500})__"
+    r"|_([^_\n]{1,500})_|~~([^~\n]{1,500})~~|`([^`\n]{1,500})`"
+)
+_HEADING_MD = re.compile(r"^\s{0,3}#{1,6}\s+", re.M)
+
+
 def _preview(text: str, length: int = 40) -> str:
+    """One line of a note as plain words — markers stripped, not rendered."""
+    text = _HEADING_MD.sub("", text)
+    text = re.sub(r"\[\[([^\[\]]{1,120})\]\]", r"\1", text)
+    text = _INLINE_MD.sub(
+        lambda m: next(g for g in m.groups() if g is not None), text
+    )
+    text = " ".join(text.split())
     return text if len(text) <= length else text[: length - 1] + "…"
 
 

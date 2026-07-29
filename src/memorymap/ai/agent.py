@@ -12,6 +12,7 @@ is told the action is waiting on the user.
 from __future__ import annotations
 
 import json
+import logging
 import re
 from collections.abc import Iterator
 
@@ -255,14 +256,7 @@ def build_agent_messages(
             f"{style_hint}{profile_hint}",
         }
     ]
-    for turn in (history or [])[-librarian.MAX_HISTORY_TURNS:]:
-        past_question = str(turn.get("question", "")).strip()
-        past_answer = str(turn.get("answer", "")).strip()[
-            : librarian.MAX_HISTORY_ANSWER_CHARS
-        ]
-        if past_question and past_answer:
-            messages.append({"role": "user", "content": past_question})
-            messages.append({"role": "assistant", "content": past_answer})
+    messages.extend(librarian.history_messages(history))
 
     numbered = "\n".join(
         f"{i}. (note id {note.get('id', '?')}) [{note['category']}] "
@@ -338,6 +332,20 @@ def run_agent(
     # somehow calls it.
     offered = tools.ollama_tools(
         allowed_tools if allowed_tools is not None else _focus(question)
+    )
+    # Roadmap §11a's prescribed first step: measure before cutting. One line
+    # per turn saying what the prompt is made of, so "which half dominates a
+    # real chat — the notes or the history?" is answered from the log rather
+    # than argued about. Chars, not tokens: the ratio is what matters, and
+    # the true token counts already arrive in each round's stats event.
+    logging.getLogger("memorymap.agent").info(
+        "prompt composition: system=%d history=%d notes+question=%d "
+        "tool_schemas=%d chars (%d tools offered)",
+        len(messages[0]["content"]),
+        sum(len(m["content"]) for m in messages[1:-1]),
+        len(messages[-1]["content"]),
+        len(json.dumps(offered)),
+        len(offered),
     )
     permitted = set(allowed_tools) if allowed_tools else None
     model = model_manager.chat_model()

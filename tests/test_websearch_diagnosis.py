@@ -121,3 +121,40 @@ def test_the_query_itself_is_never_logged(monkeypatch, caplog):
 
     logged = " ".join(record.getMessage() for record in caplog.records)
     assert "medical" not in logged
+
+
+def test_the_reader_collects_the_articles_links_but_not_the_chrome():
+    """Links come back [{text, url}] so an agent can cite and follow up
+    without a second search — from the article only, cleaned the same way
+    every reader URL is: absolute, tracking-stripped, http(s) or nothing."""
+    page = (
+        "<html><body><nav><a href='/home'>Home</a></nav><article>"
+        "<p><a href='/wiki/Ability?utm_source=x'>Ability</a>"
+        "<a href='javascript:alert(1)'>bad</a>"
+        "<a href='mailto:a@b.c'>mail</a></p></article></body></html>"
+    )
+    links = websearch._page_links(page, "https://wiki.example/wiki/Seraphine")
+    assert {"text": "Ability", "url": "https://wiki.example/wiki/Ability"} in links
+    assert all(link["url"].startswith("http") for link in links)
+    assert not any(link["text"] == "Home" for link in links)
+
+
+def test_a_bot_wall_is_named_rather_than_dumped_as_a_status(monkeypatch):
+    """Reported: 'Couldn't open that page: 403 Client Error: Forbidden for
+    url: https://162.159.142.170:443/…'. The IP-literal is our pinning, not
+    something the user typed, and the 403 is the site's bot protection — the
+    message should say that instead of leaving both to be puzzled over."""
+    import requests
+
+    def refuse(url):
+        response = requests.Response()
+        response.status_code = 403
+        raise requests.HTTPError(response=response)
+
+    monkeypatch.setattr(websearch, "_get_external", refuse)
+    with pytest.raises(websearch.WebSearchError) as caught:
+        websearch.fetch_readable("https://wiki.example/wiki/Seraphine")
+    message = str(caught.value)
+    assert "bot protection" in message
+    assert "wiki.example" in message
+    assert "162." not in message and "http" not in message

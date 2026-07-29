@@ -81,3 +81,12 @@ def test_graph_similarity_skips_already_linked_pairs(ai_client):
 def client_edges(client, similarity: bool) -> list[dict]:
     url = "/graph?similarity=true" if similarity else "/graph"
     return client.get(url).json()["edges"]
+
+
+def test_graph_previews_show_words_not_markdown_markers(client):
+    """Reported: "**note" showing in graph titles when a note starts with a
+    header or bolded word. Labels clip at ~40 characters, so markers are
+    stripped rather than rendered — a clip mid-`**` is scaffolding."""
+    client.post("/entries", json={"content": "## **Seraphine build** for _mid_ lane"})
+    nodes = client.get("/graph").json()["nodes"]
+    assert nodes[0]["preview"] == "Seraphine build for mid lane"

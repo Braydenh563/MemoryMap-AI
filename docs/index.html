@@ -182,6 +182,7 @@
       background:var(--as);margin:.8rem 0;
     }
 
+    /* ---- Docs section ---- */
     .docs-section{max-width:900px;margin:0 auto 5rem;padding:0 1.5rem;}
     .docs-pick{display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:1.1rem;}
     .dpill{
@@ -193,7 +194,11 @@
     }
     .dpill.on{background:var(--as);color:var(--ink);border-color:var(--accent);}
     .dpill:hover{background:var(--as);color:var(--ink);}
-    .docs-frame{padding:1.75rem 2rem;min-height:18rem;}
+    .docs-frame{
+      padding:1.75rem 2rem;
+      min-height:22rem;
+      overflow-x:hidden;
+    }
     .docs-frame h1{font-size:1.3rem;font-weight:800;margin-bottom:1rem;letter-spacing:-.01em;}
     .docs-frame h2{font-size:1.05rem;font-weight:700;margin:1.6rem 0 .55rem;padding-top:.3rem;border-top:1px solid var(--border);}
     .docs-frame h3{font-size:.93rem;font-weight:700;margin:1.1rem 0 .35rem;color:var(--ink);}
@@ -202,7 +207,7 @@
     .docs-frame ul,.docs-frame ol{padding-left:1.3rem;margin-bottom:.7rem;}
     .docs-frame li{font-size:.88rem;color:var(--muted);line-height:1.7;margin-bottom:.15rem;}
     .docs-frame li strong,.docs-frame p strong{color:var(--ink);}
-    .docs-frame pre{margin:.6rem 0 1rem;}
+    .docs-frame pre{margin:.6rem 0 1rem;max-width:100%;overflow-x:auto;}
     .docs-frame table{width:100%;border-collapse:collapse;font-size:.85rem;margin:.6rem 0 1rem;overflow-x:auto;display:block;}
     .docs-frame th{text-align:left;font-size:.73rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--faint);padding:.5rem .75rem;border-bottom:1px solid var(--border);}
     .docs-frame td{padding:.45rem .75rem;border-bottom:1px solid var(--border);color:var(--muted);vertical-align:top;}
@@ -213,9 +218,24 @@
     .docs-frame blockquote{border-left:2px solid var(--accent);padding:.5rem .9rem;margin:.6rem 0;background:var(--as);border-radius:0 8px 8px 0;font-size:.87rem;color:var(--muted);}
     .docs-frame blockquote p{margin:0;}
     .docs-frame hr{border:none;border-top:1px solid var(--border);margin:.8rem 0;}
-    .spinner{width:32px;height:32px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:3rem auto;}
+
+    .docs-status{
+      display:flex;align-items:center;gap:.5rem;
+      padding:2.5rem;justify-content:center;
+      font-size:.88rem;color:var(--muted);
+    }
+    .spinner{
+      width:20px;height:20px;flex-shrink:0;
+      border:2px solid var(--border);border-top-color:var(--accent);
+      border-radius:50%;animation:spin .7s linear infinite;
+    }
     @keyframes spin{to{transform:rotate(360deg)}}
-    .docs-err{text-align:center;padding:3rem;font-size:.88rem;color:var(--muted);}
+    .docs-err{
+      display:flex;flex-direction:column;align-items:center;
+      gap:.6rem;padding:2.5rem;text-align:center;
+      font-size:.88rem;color:var(--muted);
+    }
+    .docs-err a{color:var(--accent);}
 
     footer{text-align:center;padding:2.5rem 1.5rem 3rem;font-size:.8rem;color:var(--faint);border-top:1px solid var(--border);}
     footer a{color:var(--accent);}
@@ -244,21 +264,21 @@
     <a href="#docs">Docs</a>
   </div>
   <div class="nav-end">
-    <button class="btn-sm btn-ghost" id="themeBtn" aria-label="Toggle theme">☀️</button>
+    <button class="btn-sm btn-ghost" id="themeBtn" aria-label="Toggle theme">&#x2600;&#xFE0F;</button>
     <a href="https://github.com/Braydenh563/MemoryMap-AI" target="_blank" rel="noopener"
-       class="btn-sm btn-accent">GitHub ↗</a>
+       class="btn-sm btn-accent">GitHub &#x2197;</a>
   </div>
 </nav>
 
 <section class="hero" id="top">
-  <div class="hero-eyebrow">Local-first &nbsp;·&nbsp; 100 % offline &nbsp;·&nbsp; Open source</div>
+  <div class="hero-eyebrow">Local-first &nbsp;&middot;&nbsp; 100 % offline &nbsp;&middot;&nbsp; Open source</div>
   <h1>Your thoughts, mapped<br>by a <em>local AI</em>.</h1>
   <p class="hero-sub">
-    Type a thought — a local AI files it. Ask a question in plain English and get
+    Type a thought &mdash; a local AI files it. Ask a question in plain English and get
     back a conversational answer <em>and</em> the raw notes behind it, side by side,
     so you can check it. No account. No cloud. No telemetry.
   </p>
-  <p class="hero-flow">capture text → AI files it → ask a question → answer + the notes behind it</p>
+  <p class="hero-flow">capture text &rarr; AI files it &rarr; ask a question &rarr; answer + the notes behind it</p>
   <div class="hero-ctas">
     <a href="#quickstart" class="btn-lg primary">Get started</a>
     <a href="https://github.com/Braydenh563/MemoryMap-AI"
@@ -282,11 +302,11 @@
   </div>
   <div id="pane-notes" class="tab-pane g tab-card" role="tabpanel">
     <h3>Notes</h3>
-    <p>Capture, browse and ask — three sub-tabs. Auto-filing, tags, pins, threads, attachments, private notes encrypted at rest, a recycle bin, revision history, and a search box that understands <code>tag:work</code>, <code>cat:recipes</code>, <code>is:pinned</code>, <code>"exact phrase"</code> and <code>-exclude</code>.</p>
+    <p>Capture, browse and ask &mdash; three sub-tabs. Auto-filing, tags, pins, threads, attachments, private notes encrypted at rest, a recycle bin, revision history, and a search box that understands <code>tag:work</code>, <code>cat:recipes</code>, <code>is:pinned</code>, <code>"exact phrase"</code> and <code>-exclude</code>.</p>
   </div>
   <div id="pane-chat" class="tab-pane g tab-card" role="tabpanel">
     <h3>Chat</h3>
-    <p>A conversation with your notebook, saved and resumable. Agent mode uses 28 tools — search and read your notes, create, tag, link and organise, set reminders, open a web page — with destructive actions always confirmed. Personas change its voice; the run shows thinking, tool calls, and prose in the order they happened.</p>
+    <p>A conversation with your notebook, saved and resumable. Agent mode uses 28 tools &mdash; search and read your notes, create, tag, link and organise, set reminders, open a web page &mdash; with destructive actions always confirmed. Personas change its voice; the run shows thinking, tool calls, and prose in the order they happened.</p>
   </div>
   <div id="pane-graph" class="tab-pane g tab-card" role="tabpanel">
     <h3>Graph</h3>
@@ -298,7 +318,7 @@
   </div>
   <div id="pane-reminders" class="tab-pane g tab-card" role="tabpanel">
     <h3>Reminders</h3>
-    <p>Due dates with priority, repeats, snooze and notifications — or type <em>"call mum tomorrow evening"</em> and let the AI schedule it.</p>
+    <p>Due dates with priority, repeats, snooze and notifications &mdash; or type <em>"call mum tomorrow evening"</em> and let the AI schedule it.</p>
   </div>
 </section>
 
@@ -323,14 +343,14 @@
     <div class="pcontent" id="p-manual">
       <pre>git clone https://github.com/Braydenh563/MemoryMap-AI.git
 cd MemoryMap-AI
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt && pip install -e .
+python3 -m venv .venv &amp;&amp; source .venv/bin/activate
+pip install -r requirements.txt &amp;&amp; pip install -e .
 python -m memorymap</pre>
     </div>
     <div class="note">
-      MemoryMap works without AI — keyword search and <code>Uncategorised</code> filing always work.
+      MemoryMap works without AI &mdash; keyword search and <code>Uncategorised</code> filing always work.
       For auto-filing and chat answers install <a href="https://ollama.com" target="_blank" rel="noopener">Ollama</a>
-      and run <code>ollama pull llama3.2</code>. Switch models any time from <strong>Settings → Models</strong>.
+      and run <code>ollama pull llama3.2</code>. Switch models any time from <strong>Settings &rarr; Models</strong>.
     </div>
   </div>
 </section>
@@ -345,78 +365,84 @@ python -m memorymap</pre>
     <button class="dpill" data-doc="ideas">Ideas</button>
     <button class="dpill" data-doc="security">Security</button>
   </div>
-  <div class="docs-frame g" id="docsFrame"><div class="spinner"></div></div>
+  <div class="docs-frame g" id="docsFrame">
+    <div class="docs-status"><div class="spinner"></div>&nbsp;Loading&hellip;</div>
+  </div>
   <p style="font-size:.76rem;color:var(--faint);margin-top:.55rem;text-align:right;">
     Pulled live from
     <a href="https://github.com/Braydenh563/MemoryMap-AI" target="_blank" rel="noopener">GitHub</a>
-    — always up to date.
+    &mdash; always up to date.
   </p>
 </section>
 
 <footer>
-  <p>MemoryMap AI — built by
+  <p>MemoryMap AI &mdash; built by
     <a href="https://github.com/Braydenh563" target="_blank" rel="noopener">Brayden Hoyle</a>
-    &nbsp;·&nbsp;
+    &nbsp;&middot;&nbsp;
     <a href="https://github.com/Braydenh563/MemoryMap-AI" target="_blank" rel="noopener">GitHub</a>
-    &nbsp;·&nbsp;
+    &nbsp;&middot;&nbsp;
     <a href="https://github.com/Braydenh563/MemoryMap-AI/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
   </p>
 </footer>
 
 <script>
-// Theme toggle
+// ── Theme toggle ─────────────────────────────────────────────────────────────
 const html = document.documentElement;
 const themeBtn = document.getElementById('themeBtn');
 let theme = html.getAttribute('data-theme') ||
             (matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light');
-const applyTheme = t => { html.setAttribute('data-theme',t); themeBtn.textContent = t==='dark'?'☀️':'🌙'; };
+const applyTheme = t => {
+  html.setAttribute('data-theme', t);
+  themeBtn.textContent = t === 'dark' ? '\u2600\uFE0F' : '\uD83C\uDF19';
+};
 applyTheme(theme);
-themeBtn.addEventListener('click',()=>{ theme=theme==='dark'?'light':'dark'; applyTheme(theme); });
+themeBtn.addEventListener('click', () => { theme = theme === 'dark' ? 'light' : 'dark'; applyTheme(theme); });
 
-// Feature tabs
-document.querySelectorAll('.tab-pill').forEach(pill=>{
-  pill.addEventListener('click',()=>{
-    document.querySelectorAll('.tab-pill').forEach(p=>p.classList.remove('on'));
-    document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('on'));
+// ── Feature tabs ─────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab-pill').forEach(pill => {
+  pill.addEventListener('click', () => {
+    document.querySelectorAll('.tab-pill').forEach(p => p.classList.remove('on'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('on'));
     pill.classList.add('on');
-    document.getElementById('pane-'+pill.dataset.tab).classList.add('on');
+    document.getElementById('pane-' + pill.dataset.tab).classList.add('on');
   });
 });
 
-// Platform tabs
-document.querySelectorAll('.ptab').forEach(t=>{
-  t.addEventListener('click',()=>{
-    document.querySelectorAll('.ptab').forEach(x=>x.classList.remove('on'));
-    document.querySelectorAll('.pcontent').forEach(x=>x.classList.remove('on'));
+// ── Platform tabs ─────────────────────────────────────────────────────────────
+document.querySelectorAll('.ptab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.ptab').forEach(x => x.classList.remove('on'));
+    document.querySelectorAll('.pcontent').forEach(x => x.classList.remove('on'));
     t.classList.add('on');
-    document.getElementById('p-'+t.dataset.p).classList.add('on');
+    document.getElementById('p-' + t.dataset.p).classList.add('on');
   });
 });
 
-// Nav active highlight
+// ── Nav active highlight ──────────────────────────────────────────────────────
 const navLinks = document.querySelectorAll('.nav-tabs a');
-const sio = new IntersectionObserver(es=>{
-  es.forEach(e=>{
-    if(e.isIntersecting){
-      navLinks.forEach(a=>a.classList.remove('on'));
-      const hit=[...navLinks].find(a=>a.getAttribute('href')==='#'+e.target.id);
-      if(hit)hit.classList.add('on');
+const sio = new IntersectionObserver(es => {
+  es.forEach(e => {
+    if (e.isIntersecting) {
+      navLinks.forEach(a => a.classList.remove('on'));
+      const hit = [...navLinks].find(a => a.getAttribute('href') === '#' + e.target.id);
+      if (hit) hit.classList.add('on');
     }
   });
-},{rootMargin:'-20% 0px -70% 0px'});
-document.querySelectorAll('section[id]').forEach(s=>sio.observe(s));
+}, { rootMargin: '-20% 0px -70% 0px' });
+document.querySelectorAll('section[id]').forEach(s => sio.observe(s));
 
-// Scroll reveal
-const ro = new IntersectionObserver(es=>{
-  es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');ro.unobserve(e.target);}});
-},{threshold:0.06});
-document.querySelectorAll('.reveal').forEach(el=>ro.observe(el));
+// ── Scroll reveal ─────────────────────────────────────────────────────────────
+const ro = new IntersectionObserver(es => {
+  es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); ro.unobserve(e.target); } });
+}, { threshold: 0.06 });
+document.querySelectorAll('.reveal').forEach(el => ro.observe(el));
 
-// ---------- Docs: fetch via GitHub Contents API (no CORS issues on Pages) ----------
-// The Contents API returns JSON with a base64-encoded `content` field.
-// This avoids the CORS block that raw.githubusercontent.com has on Pages fetches.
-const REPO = 'Braydenh563/MemoryMap-AI';
-const API  = 'https://api.github.com/repos/' + REPO + '/contents/';
+// ── Docs: fetch raw markdown from raw.githubusercontent.com ───────────────────
+// raw.githubusercontent.com has no rate limit and is CORS-open to GitHub Pages.
+// We render the markdown ourselves so there is no dependency on the API.
+const BRANCH = 'main';
+const RAW    = 'https://raw.githubusercontent.com/Braydenh563/MemoryMap-AI/' + BRANCH + '/';
+const GH     = 'https://github.com/Braydenh563/MemoryMap-AI/blob/' + BRANCH + '/';
 
 const DOC_MAP = {
   architecture: 'docs/ARCHITECTURE.md',
@@ -430,124 +456,164 @@ const DOC_MAP = {
 const cache = {};
 const frame = document.getElementById('docsFrame');
 
-function esc(t){ return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-function inline(t){
-  return t
-    .replace(/`([^`]+)`/g,'<code>$1</code>')
-    .replace(/\*\*\*([^*]+)\*\*\*/g,'<strong><em>$1</em></strong>')
-    .replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>')
-    .replace(/__([^_]+)__/g,'<strong>$1</strong>')
-    .replace(/\*([^*]+)\*/g,'<em>$1</em>')
-    .replace(/_([^_\s][^_]*)_/g,'<em>$1</em>')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+function esc(t) {
+  return String(t)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
-function mdToHtml(md){
-  // Strip HTML image tags and shield badges that break the layout
-  let s = md
-    .replace(/<img[^>]*>/gi,'')
-    .replace(/!\[([^\]]*)\]\([^)]+\)/g,'')  // markdown images
-    .replace(/\[!\[([^\]]*)\]\([^)]+\)\]\([^)]+\)/g,'') // badge links
+function inline(t) {
+  return t
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*\*([^*]+)\*\*\*/g, '<strong><em>$1</em></strong>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/__([^_]+)__/g, '<strong>$1</strong>')
+    .replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
+    .replace(/_([^_\s][^_\n]*)_/g, '<em>$1</em>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/~~([^~]+)~~/g, '<del>$1</del>');
+}
+
+function mdToHtml(rawMd) {
+  // Strip image tags and badge links that break layout
+  let s = rawMd
+    .replace(/<img[^>]*>/gi, '')
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, '')
+    .replace(/\[!\[([^\]]*)\]\([^)]+\)\]\([^)]+\)/g, '')
     .trim();
 
   const lines = s.split('\n');
-  let out='', inPre=false, inTable=false, inUl=false, inOl=false, preLines=[], preLang='';
+  let out = '', inPre = false, inTable = false, inUl = false, inOl = false;
+  let preLines = [], preLang = '';
 
-  const flushList  = ()=>{ if(inUl){out+='</ul>';inUl=false;} if(inOl){out+='</ol>';inOl=false;} };
-  const flushTable = ()=>{ if(inTable){out+='</tbody></table>';inTable=false;} };
+  const flushList  = () => { if (inUl) { out += '</ul>';  inUl = false; } if (inOl) { out += '</ol>'; inOl = false; } };
+  const flushTable = () => { if (inTable) { out += '</tbody></table>'; inTable = false; } };
+  const flushAll   = () => { flushList(); flushTable(); };
 
-  for(let i=0;i<lines.length;i++){
-    const l = lines[i];
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const l   = raw;
 
     // Fenced code blocks
-    if(l.trim().startsWith('```')){
-      if(!inPre){ inPre=true; preLang=l.trim().slice(3).trim(); preLines=[]; flushList(); flushTable(); }
-      else{ out+='<pre><code'+(preLang?' class="lang-'+esc(preLang)+'"':'')+'>'
-               +esc(preLines.join('\n'))+'</code></pre>'; inPre=false; preLang=''; }
+    if (l.trimStart().startsWith('```')) {
+      if (!inPre) {
+        inPre = true;
+        preLang = l.trim().slice(3).trim();
+        preLines = [];
+        flushAll();
+      } else {
+        out += '<pre><code' + (preLang ? ' class="lang-' + esc(preLang) + '"' : '') + '>'
+             + esc(preLines.join('\n')) + '</code></pre>';
+        inPre = false; preLang = '';
+      }
       continue;
     }
-    if(inPre){ preLines.push(l); continue; }
+    if (inPre) { preLines.push(raw); continue; }
 
     // Headings
-    const hm = l.match(/^(#{1,4})\s+(.*)/);
-    if(hm){ flushList(); flushTable();
-      const lv=Math.min(hm[1].length+1,5);
-      out+=`<h${lv}>${inline(hm[2])}</h${lv}>`; continue; }
-
-    // HR
-    if(/^---+$/.test(l.trim())){ flushList(); flushTable(); out+='<hr>'; continue; }
-
-    // Blockquote
-    if(l.startsWith('> ')){ flushList(); flushTable();
-      out+=`<blockquote><p>${inline(l.slice(2))}</p></blockquote>`; continue; }
-
-    // Table rows
-    if(l.includes('|') && l.trim().startsWith('|')){
-      const cells=l.split('|').map(c=>c.trim()).filter(c=>c!=='');
-      if(/^[-:| ]+$/.test(l)) continue; // separator row
-      flushList();
-      if(!inTable){ out+='<table><thead><tr>';
-        cells.forEach(c=>{ out+=`<th>${inline(c)}</th>`; });
-        out+='</tr></thead><tbody>'; inTable=true; }
-      else{ out+='<tr>'; cells.forEach(c=>{ out+=`<td>${inline(c)}</td>`; }); out+='</tr>'; }
+    const hm = l.match(/^(#{1,6})\s+(.+)/);
+    if (hm) {
+      flushAll();
+      const lv = Math.min(hm[1].length + 1, 6);
+      out += '<h' + lv + '>' + inline(hm[2].trim()) + '</h' + lv + '>';
       continue;
     }
-    if(inTable && (!l.includes('|') || !l.trim().startsWith('|'))) flushTable();
+
+    // HR
+    if (/^[-*_]{3,}\s*$/.test(l.trim())) { flushAll(); out += '<hr>'; continue; }
+
+    // Blockquote
+    if (l.startsWith('> ')) {
+      flushAll();
+      out += '<blockquote><p>' + inline(l.slice(2)) + '</p></blockquote>';
+      continue;
+    }
+
+    // Table rows (must start with |)
+    if (l.trim().startsWith('|')) {
+      const cells = l.split('|').map(c => c.trim()).filter(c => c !== '');
+      if (/^[\s|:-]+$/.test(l)) continue; // separator row
+      flushList();
+      if (!inTable) {
+        out += '<table><thead><tr>';
+        cells.forEach(c => { out += '<th>' + inline(c) + '</th>'; });
+        out += '</tr></thead><tbody>';
+        inTable = true;
+      } else {
+        out += '<tr>';
+        cells.forEach(c => { out += '<td>' + inline(c) + '</td>'; });
+        out += '</tr>';
+      }
+      continue;
+    }
+    if (inTable) flushTable();
 
     // Unordered list
-    const ulm = l.match(/^(\s*)[*\-+]\s+(.*)/);
-    if(ulm){ flushTable();
-      if(!inUl){ if(inOl){out+='</ol>';inOl=false;} out+='<ul>';inUl=true; }
-      out+=`<li>${inline(ulm[2])}</li>`; continue; }
+    const ulm = l.match(/^(\s{0,3})[*\-+]\s+(.+)/);
+    if (ulm) {
+      flushTable();
+      if (!inUl) { if (inOl) { out += '</ol>'; inOl = false; } out += '<ul>'; inUl = true; }
+      out += '<li>' + inline(ulm[2]) + '</li>';
+      continue;
+    }
 
     // Ordered list
-    const olm = l.match(/^\d+\.\s+(.*)/);
-    if(olm){ flushTable();
-      if(!inOl){ if(inUl){out+='</ul>';inUl=false;} out+='<ol>';inOl=true; }
-      out+=`<li>${inline(olm[1])}</li>`; continue; }
+    const olm = l.match(/^(\s{0,3})\d+[.):]\s+(.+)/);
+    if (olm) {
+      flushTable();
+      if (!inOl) { if (inUl) { out += '</ul>'; inUl = false; } out += '<ol>'; inOl = true; }
+      out += '<li>' + inline(olm[2]) + '</li>';
+      continue;
+    }
 
     // Blank line
-    if(l.trim()==='') { flushList(); flushTable(); continue; }
+    if (l.trim() === '') { flushAll(); continue; }
 
     // Plain paragraph
-    flushList(); flushTable();
-    out+=`<p>${inline(l)}</p>`;
+    flushAll();
+    out += '<p>' + inline(l) + '</p>';
   }
-  flushList(); flushTable();
-  if(inPre) out+='<pre><code>'+esc(preLines.join('\n'))+'</code></pre>';
+  flushAll();
+  if (inPre) out += '<pre><code>' + esc(preLines.join('\n')) + '</code></pre>';
   return out;
 }
 
-async function loadDoc(key){
-  frame.innerHTML='<div class="spinner"></div>';
-  if(cache[key]){ frame.innerHTML=cache[key]; return; }
-  try{
-    const r = await fetch(API + DOC_MAP[key], {
-      headers:{ 'Accept':'application/vnd.github.v3+json' }
-    });
-    if(!r.ok) throw new Error(r.status);
-    const json = await r.json();
-    // Content is base64-encoded, may contain newlines — strip them before decode
-    const md = decodeURIComponent(
-      atob(json.content.replace(/\n/g,''))
-        .split('').map(c=>'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join('')
-    );
+async function loadDoc(key) {
+  frame.innerHTML = '<div class="docs-status"><div class="spinner"></div>&nbsp;Loading&hellip;</div>';
+
+  if (cache[key]) { frame.innerHTML = cache[key]; return; }
+
+  const url    = RAW + DOC_MAP[key];
+  const ghUrl  = GH  + DOC_MAP[key];
+
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const md = await resp.text();
+    if (!md || !md.trim()) throw new Error('empty');
     cache[key] = mdToHtml(md);
     frame.innerHTML = cache[key];
-  } catch(e){
-    const ghUrl = 'https://github.com/'+REPO+'/blob/main/'+DOC_MAP[key];
-    frame.innerHTML=`<div class="docs-err">Couldn't load — <a href="${ghUrl}" target="_blank" rel="noopener">read it on GitHub</a>.</div>`;
+  } catch (err) {
+    frame.innerHTML =
+      '<div class="docs-err">' +
+        '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
+        '<span>Couldn\'t load this document.</span>' +
+        '<a href="' + ghUrl + '" target="_blank" rel="noopener">Read it on GitHub &rarr;</a>' +
+      '</div>';
   }
 }
 
-document.querySelectorAll('.dpill').forEach(pill=>{
-  pill.addEventListener('click',()=>{
-    document.querySelectorAll('.dpill').forEach(p=>p.classList.remove('on'));
+document.querySelectorAll('.dpill').forEach(pill => {
+  pill.addEventListener('click', () => {
+    document.querySelectorAll('.dpill').forEach(p => p.classList.remove('on'));
     pill.classList.add('on');
     loadDoc(pill.dataset.doc);
   });
 });
+
+// Load the default doc on page load
 loadDoc('architecture');
 </script>
 </body>

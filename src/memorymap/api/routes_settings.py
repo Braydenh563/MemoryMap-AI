@@ -575,7 +575,16 @@ def searxng_start(session: Session = Depends(get_session)) -> dict:
 
     config = deps.get_config()
     try:
-        result = searxng_manager.start(config.data_dir)
+        # When nothing is installed yet, this kicks off a background install
+        # that ends by starting SearXNG itself — the callback points web
+        # search at it the moment it answers, with no second Start press.
+        result = searxng_manager.start(
+            config.data_dir,
+            on_ready=lambda url: (
+                config.set_preference("searxng_url", url),
+                websearch.clear_cache(),
+            ),
+        )
     except searxng_manager.SearxngError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
@@ -598,7 +607,15 @@ def searxng_reinstall(session: Session = Depends(get_session)) -> dict:
 
     config = deps.get_config()
     try:
-        result = searxng_manager.reinstall_source(config.data_dir)
+        # The rebuilt SearXNG starts itself when the install lands; the
+        # callback points web search back at it, so reinstall is one press.
+        result = searxng_manager.reinstall_source(
+            config.data_dir,
+            on_ready=lambda url: (
+                config.set_preference("searxng_url", url),
+                websearch.clear_cache(),
+            ),
+        )
     except searxng_manager.SearxngError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 

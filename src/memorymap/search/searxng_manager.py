@@ -49,11 +49,22 @@ HOST_PORT = DEFAULT_PORT  # the default, and what a fresh install will use
 # 8080 first because that is what the user suggested, and what SearXNG itself
 # listens on inside its own container.
 FALLBACK_PORTS = (8080, 8081, 8890, 8899)
-BASE_URL = f"http://localhost:{HOST_PORT}"
+# 127.0.0.1, never localhost: SearXNG is told to bind exactly
+# SEARXNG_BIND_ADDRESS=127.0.0.1, and on Windows `localhost` often resolves
+# to IPv6 ::1 first — so a probe of "localhost" knocked on a door SearXNG
+# was not behind, timed out the whole start, and blamed whatever noise sat
+# in the log. The address we dial must be the address we bind.
+BASE_URL = f"http://127.0.0.1:{HOST_PORT}"
 
 # The port this run settled on, once it has. Sticky for the process, so a
 # started SearXNG is still findable by every later status and probe call.
 _chosen_port: int | None = None
+
+
+def _settle_on(port: int) -> None:
+    """Make `port` the one every url, probe and settings file agrees on."""
+    global _chosen_port
+    _chosen_port = port
 
 
 def host_port() -> int:
@@ -67,7 +78,8 @@ def host_port() -> int:
 
 
 def base_url() -> str:
-    return f"http://localhost:{host_port()}"
+    # See BASE_URL for why this is an IP literal rather than localhost.
+    return f"http://127.0.0.1:{host_port()}"
 
 
 def _port_free(port: int) -> bool:
@@ -93,7 +105,7 @@ def choose_port() -> int:
     global _chosen_port
     wanted = host_port()
     for port in (wanted, *(p for p in FALLBACK_PORTS if p != wanted)):
-        if websearch.probe_searxng(f"http://localhost:{port}") or _port_free(port):
+        if websearch.probe_searxng(f"http://127.0.0.1:{port}") or _port_free(port):
             _chosen_port = port
             return port
     # Everything is taken. Keep the one that was asked for so the error names
@@ -103,6 +115,14 @@ def choose_port() -> int:
 
 
 START_TIMEOUT = 90  # image pulls can be slow the first time
+# A first from-source start is slower than any Docker start: it imports a few
+# hundred modules into a cold interpreter, and on Windows the antivirus reads
+# over every one of them on the way. 90 seconds is genuinely not always
+# enough, and calling a start that was going to succeed a failure — then
+# SIGTERMing it — is the worst outcome available. The wait bails out early
+# when the process dies, so the higher ceiling costs nothing when something
+# is actually wrong.
+SOURCE_START_TIMEOUT = 180
 COMMAND_TIMEOUT = 20
 
 # The source, as an archive we download and unpack ourselves.
@@ -135,28 +155,54 @@ INSTALL_TIMEOUT = 900  # a cold pip install builds a few wheels
 # use_default_settings keeps SearXNG's own defaults and layers ours on top —
 # the important bit being the json format, without which the API returns 403.
 #
-# Engine defaults: several engines that SearXNG enables by default are
-# unreliable or broken for a local/private install and cause the 90-second
-# startup timeout the user sees. We disable them here so a fresh install
-# works without any manual settings.yml editing:
+# Engine defaults: several engines that SearXNG ships are broken or hostile
+# for a local/private install, and a broken engine is not a quiet failure —
+# module import and engine init happen at startup, so one bad engine fills
+# the start window with tracebacks and can sink the whole start. They are
+# *removed* here, not merely `disabled: true`, for two reasons this module
+# learned the hard way:
+#
+#   - A disabled engine still gets imported. `bilibili` is disabled in
+#     SearXNG's own defaults and still crashed every Windows start, because
+#     it calls ZoneInfo("Asia/Shanghai") at module scope and Windows has no
+#     IANA tzdata.
+#   - An entry added under `engines:` merges *over* the default entry of the
+#     same name, key by key. Upstream's `torch` engine is really the `xpath`
+#     module in disguise (`name: torch, engine: xpath`), so an override that
+#     said `engine: torch` sent SearXNG looking for a `torch.py` that does
+#     not exist — FileNotFoundError, from our own settings file.
+#
+# `use_default_settings.engines.remove` has neither problem: a removed engine
+# is never imported at all, and the loader treats it as a plain name filter,
+# so a name upstream has meanwhile dropped is a no-op rather than a crash.
+# What is removed, and why:
 #
 #   - google / bing: aggressively rate-limit automated requests from home IPs
-#     and return HTTP 403 (suspended_time=180), which makes every search hang
-#     for three minutes before SearXNG gives up. Disabling them lets the
-#     remaining engines answer immediately.
-#   - wikidata: performs an outbound HTTP request during engine *init* (not
-#     search), fails with an ERROR log on every startup, and prevents the
-#     engine from registering at all. Disabling it stops the startup noise.
-#   - brave: requires an API key; returns 403 without one. Off by default
-#     so first-time installs don't accumulate suspended engines.
-#   - duckduckgo: the most permissive engine for private/local instances —
-#     kept enabled as the reliable default.
+#     and answer HTTP 403 (suspended_time=180), which makes every search hang
+#     while SearXNG waits them out.
+#   - wikidata: performs an outbound HTTP request during engine *init* and
+#     fails it with an ERROR log on every startup of a home install.
+#   - brave: requires an API key; returns 403 without one.
+#   - ahmia / torch: Tor onion-network engines — useless without a Tor proxy,
+#     and both have broken startup on a plain install.
+#   - bilibili: the module-scope tzdata crash above.
 #
-# The user can re-enable any of these by editing settings.yml; MemoryMap
-# preserves the secret_key but rewrites the managed sections on each start
-# (pass rewrite=False to ensure_settings to keep a hand-edited file as-is).
+# duckduckgo — the most permissive engine for private instances — is enabled
+# in SearXNG's own defaults and is the working default here. The user can
+# edit settings.yml, but MemoryMap rewrites the managed sections on each
+# start, preserving secret_key (pass rewrite=False to ensure_settings to
+# keep a hand-edited file as-is).
 SETTINGS_TEMPLATE = """# Generated by MemoryMap.  Edit freely; MemoryMap refreshes managed sections on each start.
-use_default_settings: true
+use_default_settings:
+  engines:
+    remove:
+      - google
+      - bing
+      - wikidata
+      - brave
+      - ahmia
+      - torch
+      - bilibili
 server:
   secret_key: "{secret}"
   limiter: false
@@ -170,40 +216,6 @@ outgoing:
   # Short timeouts prevent a single blocked engine from stalling all results.
   request_timeout: 3.0
   max_request_timeout: 6.0
-engines:
-  # Google and Bing aggressively rate-limit local instances (HTTP 403,
-  # suspended_time=180). Disable them so searches return immediately.
-  - name: google
-    engine: google
-    disabled: true
-  - name: bing
-    engine: bing
-    disabled: true
-  # Wikidata fails engine init on startup and logs ERROR on every run.
-  - name: wikidata
-    engine: wikidata
-    disabled: true
-  # Brave requires an API key; returns 403 without one.
-  - name: brave
-    engine: brave
-    disabled: true
-  # DuckDuckGo is the reliable default for local/private installs.
-  - name: duckduckgo
-    engine: duckduckgo
-    disabled: false
-  # Ahmia can fail engine loading on some installs; keep it off by default
-  # for first-run reliability. Users can re-enable it in settings.yml later.
-  - name: ahmia
-    engine: ahmia
-    disabled: true
-  # Bilibili can fail on Windows when IANA tzdata is missing.
-  - name: bilibili
-    engine: bilibili
-    disabled: true
-  # Torch can fail engine loading on some local/private installs.
-  - name: torch
-    engine: torch
-    disabled: true
 plugins:
   # Off deliberately. This plugin downloads a rules file from
   # rules1.clearurls.xyz *during startup*, and a failure there is not caught:
@@ -663,6 +675,10 @@ def _searxng_env(data_dir: Path) -> dict:
         "SEARXNG_PORT": str(host_port()),
         "SEARXNG_BIND_ADDRESS": "127.0.0.1",
         "SEARXNG_BASE_URL": f"{base_url()}/",
+        # The child's stdout goes to a file, which Python block-buffers: a
+        # start that died mid-way could take its last lines with it, and
+        # those lines are the whole point of keeping the log.
+        "PYTHONUNBUFFERED": "1",
     }
 
 
@@ -731,13 +747,27 @@ def _install_steps(python: str, src: Path) -> list[tuple[str, list[str]]]:
     ]
 
 
-def install_source(data_dir: Path) -> None:
-    """Fetch SearXNG into a virtualenv of its own. Minutes, not seconds."""
+def install_source(data_dir: Path, on_ready=None) -> None:
+    """Fetch SearXNG into a virtualenv of its own. Minutes, not seconds.
+
+    With `on_ready` given, a successful install is followed by a start, and
+    `on_ready(url)` is called once SearXNG answers. That makes install a
+    one-press affair — "press Start, wait minutes, press Start again" asked
+    the user to babysit the longest wait in the app, and the second press
+    was the step people missed.
+    """
     with _install_lock:
         if _install_state["running"]:
             raise SearxngError("An install is already running.")
         _install_state.update(
-            {"running": True, "step": "", "error": "", "log": [], "progress": 0.0}
+            {
+                "running": True,
+                "step": "",
+                "error": "",
+                "log": [],
+                "progress": 0.0,
+                "auto_start": on_ready is not None,
+            }
         )
     _install_stage(1, "Creating a virtualenv…")
 
@@ -799,6 +829,29 @@ def install_source(data_dir: Path) -> None:
             _install_log(f"Failed: {exc}")
         finally:
             _install_state["running"] = False
+        if on_ready is None or _install_state["error"]:
+            return
+        # The follow-on start, still on the worker thread. `running` is
+        # False by now, so the start path doesn't mistake its own install
+        # for one that is still going.
+        try:
+            _install_log("Install done — starting SearXNG…")
+            result = start(data_dir)
+            _install_log("SearXNG is up and answering.")
+        except SearxngError as exc:
+            _install_state["error"] = (
+                f"SearXNG installed, but the automatic start failed: {exc}"
+            )
+            _install_log(f"Automatic start failed: {exc}")
+            return
+        try:
+            on_ready(result["url"])
+        except Exception:  # noqa: BLE001 — the instance is up; a callback must not undo that
+            logging.getLogger("memorymap.searxng").warning(
+                "SearXNG started at %s but the on_ready callback failed.",
+                result["url"],
+                exc_info=True,
+            )
 
     threading.Thread(target=work, name="searxng-install", daemon=True).start()
 
@@ -939,12 +992,17 @@ def uninstall_source(data_dir: Path) -> dict:
     return {"removed": removed}
 
 
-def reinstall_source(data_dir: Path) -> dict:
-    """Wipe the install and start a fresh one in the background."""
+def reinstall_source(data_dir: Path, on_ready=None) -> dict:
+    """Wipe the install and start a fresh one in the background.
+
+    `on_ready` is handed to `install_source`: with it, the rebuilt SearXNG
+    starts itself when the install lands, so reinstall is one press rather
+    than reinstall-wait-Start.
+    """
     if _install_state["running"]:
         raise SearxngError("An install is already running — let it finish first.")
     result = uninstall_source(data_dir)
-    install_source(data_dir)
+    install_source(data_dir, on_ready=on_ready)
     return {**result, "installing": True}
 
 
@@ -1217,8 +1275,14 @@ def starting() -> dict | None:
     return dict(_start_state) if _start_state["running"] else None
 
 
-def start(data_dir: Path) -> dict:
-    """Start SearXNG whichever way this machine can, and wait for JSON."""
+def start(data_dir: Path, on_ready=None) -> dict:
+    """Start SearXNG whichever way this machine can, and wait for JSON.
+
+    `on_ready` only matters when nothing is installed yet: the install this
+    kicks off runs for minutes in the background, and with a callback it
+    finishes by starting SearXNG and reporting the URL — instead of asking
+    the user to come back and press Start a second time.
+    """
     backend = preferred_backend()
     if backend is None:
         raise SearxngError(
@@ -1231,13 +1295,30 @@ def start(data_dir: Path) -> dict:
     _start_state.update({"running": True, "backend": backend, "since": time.time()})
     try:
         if backend == "source":
-            return _start_from_source(data_dir)
+            return _start_from_source(data_dir, on_ready=on_ready)
         return _start_docker(data_dir)
     finally:
         _start_state["running"] = False
 
 
-def _start_from_source(data_dir: Path) -> dict:
+# The log lines that mean "the port, not SearXNG, is the problem" — one
+# spelling per platform. POSIX raises EADDRINUSE ("Address already in use"),
+# Windows raises WinError 10048 ("Only one usage of each socket address …").
+_PORT_CLASH_MARKS = (
+    "address already in use",
+    "eaddrinuse",
+    "winerror 10048",
+    "only one usage of each socket address",
+)
+
+
+def _port_clash(output: str) -> bool:
+    """Did this start die because something else holds the port?"""
+    lowered = output.lower()
+    return any(mark in lowered for mark in _PORT_CLASH_MARKS)
+
+
+def _start_from_source(data_dir: Path, on_ready=None) -> dict:
     """Install on first use (in the background), then spawn the process."""
     if _install_state["error"]:
         error = _install_state["error"]
@@ -1246,25 +1327,61 @@ def _start_from_source(data_dir: Path) -> dict:
     if _install_state["running"]:
         raise SearxngError(
             f"Still setting SearXNG up — {_install_state['step']} "
-            "Press Start again when it finishes."
+            + (
+                "It will start on its own when the install finishes."
+                if _install_state.get("auto_start")
+                else "Press Start again when it finishes."
+            )
         )
     if not source_installed(data_dir):
-        install_source(data_dir)
+        install_source(data_dir, on_ready=on_ready)
         raise SearxngError(
             "Setting SearXNG up in its own virtualenv. This takes a few minutes "
-            "the first time; press Start again when it's done."
+            "the first time"
+            + (
+                ", and it will start on its own when the install finishes."
+                if on_ready is not None
+                else "; press Start again when it's done."
+            )
         )
     if _source_state(data_dir) == "running" and websearch.probe_searxng(base_url()):
         return {"url": base_url(), "started": False, "backend": "source"}
-    result = _start_source(data_dir)
-    if not _wait_until_ready():
+    # The settled port first, then every fallback. choose_port() already
+    # avoids ports it can see are taken, but seeing is racy — the honest
+    # check is SearXNG itself failing to bind, and that failure is fixed by
+    # moving along, not by handing the user a port number to go free up.
+    remaining = list(dict.fromkeys((host_port(), *FALLBACK_PORTS)))
+    tried: list[int] = []
+    while True:
+        port = remaining.pop(0)
+        tried.append(port)
+        _settle_on(port)
+        result = _start_source(data_dir)
+        pid = _read_pid(data_dir)
+        if _wait_until_ready(
+            SOURCE_START_TIMEOUT,
+            still_starting=lambda: pid is not None and _alive(pid),
+        ):
+            return result
         # Read what it said *before* stopping it — a SIGTERM adds its own
         # lines, and the interesting ones are the earlier ones.
         said = recent_output(data_dir)
         _stop_source(data_dir)
+        if _port_clash(said):
+            if remaining:
+                logging.getLogger("memorymap.searxng").info(
+                    "Port %s was taken after all — trying %s.", port, remaining[0]
+                )
+                continue
+            raise SearxngError(
+                "Every port MemoryMap knows to try was taken: "
+                + ", ".join(str(p) for p in tried)
+                + ". Set MEMORYMAP_SEARXNG_PORT to a free one and press Start "
+                "again."
+            )
         logging.getLogger("memorymap.searxng").warning(
             "SearXNG didn't answer within %ss. Its own output was:\n%s",
-            START_TIMEOUT,
+            SOURCE_START_TIMEOUT,
             said or "(nothing — it wrote no output at all)",
         )
         if said:
@@ -1278,11 +1395,15 @@ def _start_from_source(data_dir: Path) -> dict:
             "usually means the process died immediately. Check that port "
             f"{host_port()} is free. The log is at {log_path(data_dir)}."
         )
-    return result
 
 
 def _start_docker(data_dir: Path) -> dict:
     """Start (or create) the container and wait until it answers JSON."""
+    # Refreshed for every path, not only creation: the container mounts this
+    # host file, so a stopped container restarted with stale settings would
+    # keep old engine defaults forever — the exact staleness rewrite-on-start
+    # exists to end.
+    settings = ensure_settings(data_dir)
     state = _docker_state()
     if state == "running":
         if websearch.probe_searxng(base_url()):
@@ -1292,7 +1413,6 @@ def _start_docker(data_dir: Path) -> dict:
         if result.returncode != 0:
             raise SearxngError(_reason(result, "Couldn't start the existing container"))
     else:
-        settings = ensure_settings(data_dir)
         result = _run(
             [
                 "docker", "run", "-d",
@@ -1333,11 +1453,20 @@ def stop(data_dir: Path | None = None) -> dict:
     return {"stopped": True}
 
 
-def _wait_until_ready(timeout: int = START_TIMEOUT) -> bool:
+def _wait_until_ready(timeout: int = START_TIMEOUT, still_starting=None) -> bool:
+    """Poll until SearXNG answers JSON, the process dies, or time runs out.
+
+    `still_starting`, when given, is asked between polls whether the thing
+    being waited for is still there to wait for. A process that has died
+    cannot become ready, and waiting the full window on it only delays the
+    error message its log already holds.
+    """
     deadline = time.time() + timeout
     while time.time() < deadline:
         if websearch.probe_searxng(base_url()):
             return True
+        if still_starting is not None and not still_starting():
+            return False
         time.sleep(2)
     return False
 

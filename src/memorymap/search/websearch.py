@@ -172,12 +172,17 @@ def clear_cache() -> None:
 
 
 # Where a self-hosted SearXNG usually listens. Checked in order, once, so a
-# user who has one running never has to type a URL.
+# user who has one running never has to type a URL. Every port
+# searxng_manager can settle on (DEFAULT_PORT plus FALLBACK_PORTS) is here,
+# or Auto-detect would miss our own instance whenever it had to dodge a
+# taken 8888.
 SEARXNG_CANDIDATES = (
     "http://localhost:8888",
     "http://127.0.0.1:8888",
     "http://localhost:8080",
     "http://localhost:8081",
+    "http://localhost:8890",
+    "http://localhost:8899",
     "http://searxng:8080",
 )
 DISCOVERY_TIMEOUT = 1.5
@@ -232,7 +237,11 @@ def _searxng_target(
     if not addresses or not all(_is_internal(address) for address in addresses):
         return None
 
-    pinned_ip = addresses[0]
+    # Prefer IPv4 when the name resolves to both families. A self-hosted
+    # SearXNG almost always listens on IPv4 (ours binds 127.0.0.1 exactly),
+    # while Windows resolves `localhost` to IPv6 ::1 first — pinning to the
+    # first answer meant probing a door the instance was not behind.
+    pinned_ip = next((a for a in addresses if a.version == 4), addresses[0])
     if port is None:
         port = 443 if parsed.scheme == "https" else 80
 

@@ -122,7 +122,7 @@ _RULES: list[tuple[str, object]] = [
      lambda m, t: (_add_months(t, -(_count(m.group(1)) or 0)), MONTH)),
     # "last friday", "next tues", "this monday", "on wednesday"
     (r"(last|next|this|on) (" + "|".join(_WEEKDAYS) + r")\b",
-     lambda m, t: _weekday(m, t)),
+     _weekday),
 ]
 
 _COMPILED = [(re.compile(pattern, re.IGNORECASE), resolve) for pattern, resolve in _RULES]

@@ -493,13 +493,16 @@ def test_searxng_settings_enable_the_json_api(tmp_path):
     # Rewritten on each start, so fixes to the managed defaults reach
     # installs made before those fixes existed — but the secret key
     # survives the rewrite, or every start would invalidate sessions.
-    secret = searxng_manager._existing_secret_key(path)
-    assert secret
-    path.write_text(f'server:\n  secret_key: "{secret}"\n# edited by hand\n')
+    assert searxng_manager._existing_secret_key(path)  # one was generated
+    # A stand-in rather than the generated secret: the property under test is
+    # "whatever key is in the file survives the rewrite", and writing a real
+    # one back here would be storing a credential in the test suite.
+    marker = "not-a-real-secret-0123456789"
+    path.write_text(f'server:\n  secret_key: "{marker}"\n# edited by hand\n')
     searxng_manager.ensure_settings(tmp_path)
     refreshed = path.read_text()
     assert "# edited by hand" not in refreshed
-    assert secret in refreshed
+    assert marker in refreshed
 
     # rewrite=False is the escape hatch that keeps a hand-edited file as-is.
     path.write_text("# edited by hand\n")

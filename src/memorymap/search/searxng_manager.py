@@ -1266,6 +1266,25 @@ def _extra_removes(data_dir: Path) -> list[str]:
         removed.update(found)
 
 
+def _restrict(path: Path, mode: int) -> None:
+    """Keep a path to this user. Best effort, deliberately.
+
+    settings.yml holds the instance's `secret_key` in clear text, because
+    SearXNG reads it from there — encrypting it would only move the problem
+    to wherever that key lived. What we *can* do is make sure nothing else
+    on the machine can read it, which is the actual exposure.
+
+    Never fatal: Windows ignores POSIX mode bits, and a FAT/exFAT data
+    directory has nowhere to store them. Refusing to run SearXNG because a
+    filesystem cannot express permissions would trade a working feature for
+    no security gain at all.
+    """
+    try:
+        path.chmod(mode)
+    except OSError:
+        pass
+
+
 def ensure_settings(data_dir: Path, rewrite: bool = True) -> Path:
     """Write the managed settings file, refreshing it by default so fixes
     to engine defaults (rate-limited engines, timeouts, plugins) reach
@@ -1274,6 +1293,7 @@ def ensure_settings(data_dir: Path, rewrite: bool = True) -> Path:
     rewrite=False to leave a hand-edited file alone."""
     path = settings_path(data_dir)
     path.parent.mkdir(parents=True, exist_ok=True)
+    _restrict(path.parent, 0o700)
     secret = _existing_secret_key(path) or secrets.token_hex(24)
     if rewrite or not path.exists():
         extra = "".join(f"\n      - {name}" for name in _extra_removes(data_dir))
@@ -1281,6 +1301,9 @@ def ensure_settings(data_dir: Path, rewrite: bool = True) -> Path:
             SETTINGS_TEMPLATE.format(secret=secret, extra_removes=extra),
             encoding="utf-8",
         )
+    # Every time, not only on write: a file created before this existed is
+    # exactly the one still sitting there world-readable.
+    _restrict(path, 0o600)
     return path
 
 

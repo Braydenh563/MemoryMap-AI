@@ -194,48 +194,77 @@
     }
     .dpill.on{background:var(--as);color:var(--ink);border-color:var(--accent);}
     .dpill:hover{background:var(--as);color:var(--ink);}
-    .docs-frame{
+    .mm-docs-body{
       padding:1.75rem 2rem;
       min-height:22rem;
       overflow-x:hidden;
     }
-    .docs-frame h1{font-size:1.3rem;font-weight:800;margin-bottom:1rem;letter-spacing:-.01em;}
-    .docs-frame h2{font-size:1.05rem;font-weight:700;margin:1.6rem 0 .55rem;padding-top:.3rem;border-top:1px solid var(--border);}
-    .docs-frame h3{font-size:.93rem;font-weight:700;margin:1.1rem 0 .35rem;color:var(--ink);}
-    .docs-frame h4{font-size:.88rem;font-weight:600;margin:.9rem 0 .3rem;color:var(--ink);}
-    .docs-frame p{font-size:.88rem;color:var(--muted);margin-bottom:.7rem;max-width:72ch;line-height:1.75;}
-    .docs-frame ul,.docs-frame ol{padding-left:1.3rem;margin-bottom:.7rem;}
-    .docs-frame li{font-size:.88rem;color:var(--muted);line-height:1.7;margin-bottom:.15rem;}
-    .docs-frame li strong,.docs-frame p strong{color:var(--ink);}
-    .docs-frame pre{margin:.6rem 0 1rem;max-width:100%;overflow-x:auto;}
-    .docs-frame table{width:100%;border-collapse:collapse;font-size:.85rem;margin:.6rem 0 1rem;overflow-x:auto;display:block;}
-    .docs-frame th{text-align:left;font-size:.73rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--faint);padding:.5rem .75rem;border-bottom:1px solid var(--border);}
-    .docs-frame td{padding:.45rem .75rem;border-bottom:1px solid var(--border);color:var(--muted);vertical-align:top;}
-    .docs-frame td:first-child{color:var(--ink);font-weight:500;}
-    .docs-frame a{color:var(--accent);}
-    .docs-frame details{margin:.5rem 0;border:1px solid var(--border);border-radius:8px;padding:.6rem .9rem;}
-    .docs-frame summary{cursor:pointer;font-size:.88rem;font-weight:600;color:var(--ink);}
-    .docs-frame blockquote{border-left:2px solid var(--accent);padding:.5rem .9rem;margin:.6rem 0;background:var(--as);border-radius:0 8px 8px 0;font-size:.87rem;color:var(--muted);}
-    .docs-frame blockquote p{margin:0;}
-    .docs-frame hr{border:none;border-top:1px solid var(--border);margin:.8rem 0;}
-
-    .docs-status{
-      display:flex;align-items:center;gap:.5rem;
-      padding:2.5rem;justify-content:center;
-      font-size:.88rem;color:var(--muted);
+    .mm-docs-body h1{font-size:1.3rem;font-weight:800;margin-bottom:1rem;letter-spacing:-.01em;}
+    .mm-docs-body h2{font-size:1.05rem;font-weight:700;margin:1.8rem 0 .6rem;padding-top:.4rem;border-top:1px solid var(--border);}
+    .mm-docs-body h2:first-child{margin-top:0;border-top:none;padding-top:0;}
+    .mm-docs-body h3{font-size:.93rem;font-weight:700;margin:1.2rem 0 .4rem;color:var(--ink);}
+    .mm-docs-body h4{font-size:.88rem;font-weight:600;margin:1rem 0 .35rem;color:var(--ink);}
+    .mm-docs-body p{font-size:.88rem;color:var(--muted);margin-bottom:.75rem;max-width:72ch;line-height:1.78;}
+    .mm-docs-body ul,.mm-docs-body ol{padding-left:1.4rem;margin-bottom:.85rem;margin-top:.2rem;}
+    .mm-docs-body li{font-size:.88rem;color:var(--muted);line-height:1.74;margin-bottom:.3rem;}
+    .mm-docs-body li>ul,.mm-docs-body li>ol{margin-top:.25rem;margin-bottom:.25rem;}
+    .mm-docs-body li p{margin-bottom:.25rem;}
+    .mm-docs-body li strong,.mm-docs-body p strong{color:var(--ink);}
+    .mm-docs-body pre{
+      background:var(--inner);border:1px solid var(--border);
+      border-radius:9px;padding:.85rem 1rem;
+      overflow-x:auto;font-size:.8rem;line-height:1.6;
+      font-family:ui-monospace,'Cascadia Code',Consolas,monospace;
+      margin:.5rem 0 1rem;max-width:100%;
     }
-    .spinner{
+    .mm-docs-body code{font-family:ui-monospace,'Cascadia Code',Consolas,monospace;font-size:.83em;background:var(--chip);padding:.1rem .33rem;border-radius:4px;}
+    .mm-docs-body pre code{background:none;padding:0;font-size:inherit;white-space:pre;}
+    .mm-docs-body table{width:100%;border-collapse:collapse;font-size:.84rem;margin:.6rem 0 1.1rem;overflow-x:auto;display:block;}
+    .mm-docs-body th{text-align:left;font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--faint);padding:.5rem .75rem;border-bottom:2px solid var(--border);background:var(--chip);}
+    .mm-docs-body td{padding:.42rem .75rem;border-bottom:1px solid var(--border);color:var(--muted);vertical-align:top;}
+    .mm-docs-body td:first-child{color:var(--ink);font-weight:500;}
+    .mm-docs-body a{color:var(--accent);}
+    .mm-docs-body details{margin:.5rem 0;border:1px solid var(--border);border-radius:8px;padding:.6rem .9rem;}
+    .mm-docs-body summary{cursor:pointer;font-size:.88rem;font-weight:600;color:var(--ink);}
+    .mm-docs-body blockquote{
+      border-left:3px solid var(--accent);
+      padding:.55rem .9rem;
+      margin:.8rem 0;
+      background:var(--as);
+      border-radius:0 8px 8px 0;
+      font-size:.87rem;
+      color:var(--muted);
+    }
+    .mm-docs-body blockquote p{margin:.25rem 0;color:var(--muted);max-width:none;}
+    .mm-docs-body blockquote p:first-child{margin-top:0;}
+    .mm-docs-body blockquote p:last-child{margin-bottom:0;}
+    .mm-docs-body hr{border:none;border-top:1px solid var(--border);margin:1.2rem 0;}
+
+    .mm-docs-status{
+      display:flex;align-items:center;justify-content:center;gap:.5rem;
+      padding:3rem;font-size:.88rem;color:var(--muted);
+    }
+    .mm-spinner{
       width:20px;height:20px;flex-shrink:0;
       border:2px solid var(--border);border-top-color:var(--accent);
       border-radius:50%;animation:spin .7s linear infinite;
     }
     @keyframes spin{to{transform:rotate(360deg)}}
-    .docs-err{
+    .mm-docs-error{
       display:flex;flex-direction:column;align-items:center;
-      gap:.6rem;padding:2.5rem;text-align:center;
+      gap:.7rem;padding:2.5rem;text-align:center;
       font-size:.88rem;color:var(--muted);
     }
-    .docs-err a{color:var(--accent);}
+    .mm-docs-error svg{opacity:.5;}
+    .mm-docs-error a{color:var(--accent);}
+    .mm-retry-btn{
+      display:inline-flex;align-items:center;gap:.3rem;
+      padding:.3rem .85rem;border-radius:8px;
+      font-size:.82rem;font-weight:600;cursor:pointer;
+      background:var(--chip);color:var(--ink);border:1px solid var(--border);
+      font-family:inherit;transition:background .13s;
+    }
+    .mm-retry-btn:hover{background:var(--as);}
 
     footer{text-align:center;padding:2.5rem 1.5rem 3rem;font-size:.8rem;color:var(--faint);border-top:1px solid var(--border);}
     footer a{color:var(--accent);}
@@ -246,7 +275,7 @@
     @media(max-width:600px){
       .hero{margin-top:4rem;}
       .hero h1{font-size:1.9rem;}
-      .qs-card,.tab-card,.docs-frame{padding:1.2rem 1.1rem;}
+      .qs-card,.tab-card,.mm-docs-body{padding:1.2rem 1.1rem;}
     }
   </style>
 </head>
@@ -365,8 +394,8 @@ python -m memorymap</pre>
     <button class="dpill" data-doc="ideas">Ideas</button>
     <button class="dpill" data-doc="security">Security</button>
   </div>
-  <div class="docs-frame g" id="docsFrame">
-    <div class="docs-status"><div class="spinner"></div>&nbsp;Loading&hellip;</div>
+  <div class="mm-docs-body g" id="mmDocsBody">
+    <div class="mm-docs-status"><div class="mm-spinner"></div>&nbsp;Loading&hellip;</div>
   </div>
   <p style="font-size:.76rem;color:var(--faint);margin-top:.55rem;text-align:right;">
     Pulled live from
@@ -437,12 +466,11 @@ const ro = new IntersectionObserver(es => {
 }, { threshold: 0.06 });
 document.querySelectorAll('.reveal').forEach(el => ro.observe(el));
 
-// ── Docs: fetch raw markdown from raw.githubusercontent.com ───────────────────
-// raw.githubusercontent.com has no rate limit and is CORS-open to GitHub Pages.
-// We render the markdown ourselves so there is no dependency on the API.
-const BRANCH = 'main';
-const RAW    = 'https://raw.githubusercontent.com/Braydenh563/MemoryMap-AI/' + BRANCH + '/';
-const GH     = 'https://github.com/Braydenh563/MemoryMap-AI/blob/' + BRANCH + '/';
+// ── Docs loader ───────────────────────────────────────────────────────────────
+// Uses raw.githubusercontent.com: no rate limit, CORS-open for GitHub Pages.
+const BRANCH  = 'main';
+const RAW_BASE = 'https://raw.githubusercontent.com/Braydenh563/MemoryMap-AI/' + BRANCH + '/';
+const GH_BASE  = 'https://github.com/Braydenh563/MemoryMap-AI/blob/' + BRANCH + '/';
 
 const DOC_MAP = {
   architecture: 'docs/ARCHITECTURE.md',
@@ -453,17 +481,18 @@ const DOC_MAP = {
   security:     'SECURITY.md',
 };
 
-const cache = {};
-const frame = document.getElementById('docsFrame');
+const mmCache  = {};
+const mmFrame  = document.getElementById('mmDocsBody');
+let   mmActive = 'architecture';
 
+// ── Escape helpers ────────────────────────────────────────────────────────────
 function esc(t) {
   return String(t)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// ── Inline markdown (runs within a single line or text node) ─────────────────
 function inline(t) {
   return t
     .replace(/`([^`]+)`/g, '<code>$1</code>')
@@ -476,33 +505,91 @@ function inline(t) {
     .replace(/~~([^~]+)~~/g, '<del>$1</del>');
 }
 
-function mdToHtml(rawMd) {
-  // Strip image tags and badge links that break layout
-  let s = rawMd
+// ── Full markdown-to-HTML renderer ───────────────────────────────────────────
+// Handles: headings, fenced code, blockquotes (merged), ordered + unordered
+// lists with nesting up to 2 levels, multi-paragraph list items, tables, HR.
+function mdToHtml(raw) {
+  // Strip badge images and raw <img> tags that break layout
+  let s = raw
     .replace(/<img[^>]*>/gi, '')
     .replace(/!\[([^\]]*)\]\([^)]+\)/g, '')
     .replace(/\[!\[([^\]]*)\]\([^)]+\)\]\([^)]+\)/g, '')
     .trim();
 
   const lines = s.split('\n');
-  let out = '', inPre = false, inTable = false, inUl = false, inOl = false;
-  let preLines = [], preLang = '';
+  let out = '';
 
-  const flushList  = () => { if (inUl) { out += '</ul>';  inUl = false; } if (inOl) { out += '</ol>'; inOl = false; } };
-  const flushTable = () => { if (inTable) { out += '</tbody></table>'; inTable = false; } };
-  const flushAll   = () => { flushList(); flushTable(); };
+  // Parser state
+  let inPre = false, preLang = '', preLines = [];
+  let inTable = false, tableHead = false;
+
+  // List stack: [{type:'ul'|'ol', indent:number}]
+  // We track open list elements and flush them when indent drops or context changes.
+  let listStack = [];
+
+  // Blockquote accumulation
+  let bqLines = [];
+
+  function flushBq() {
+    if (!bqLines.length) return;
+    out += '<blockquote>';
+    // Group consecutive non-blank lines into <p> elements
+    let para = [];
+    bqLines.forEach(ln => {
+      if (ln.trim() === '') {
+        if (para.length) { out += '<p>' + inline(para.join(' ')) + '</p>'; para = []; }
+      } else {
+        para.push(ln);
+      }
+    });
+    if (para.length) out += '<p>' + inline(para.join(' ')) + '</p>';
+    out += '</blockquote>';
+    bqLines = [];
+  }
+
+  function flushTable() {
+    if (inTable) { out += '</tbody></table>'; inTable = false; tableHead = false; }
+  }
+
+  function flushLists(toDepth) {
+    // Close list levels deeper than toDepth
+    while (listStack.length > toDepth) {
+      const top = listStack.pop();
+      out += (top.type === 'ol') ? '</ol>' : '</ul>';
+    }
+  }
+
+  function flushAll() {
+    flushBq();
+    flushTable();
+    flushLists(0);
+  }
+
+  // Detect list line: returns {indent, type, content} or null
+  function parseListLine(l) {
+    const ulm = l.match(/^( {0,6})[*\-+] +(.+)/);
+    if (ulm) return { indent: ulm[1].length, type: 'ul', content: ulm[2] };
+    const olm = l.match(/^( {0,6})\d+[.):] +(.+)/);
+    if (olm) return { indent: olm[1].length, type: 'ol', content: olm[2] };
+    return null;
+  }
+
+  // Continuation indent: a line indented >= 2 more than list base that isn't itself a list item
+  function isContinuation(l, baseIndent) {
+    return l.match(/^ {2,}/) && !parseListLine(l) && l.trim() !== '';
+  }
 
   for (let i = 0; i < lines.length; i++) {
-    const raw = lines[i];
-    const l   = raw;
+    const raw2 = lines[i];
+    const l = raw2;
 
-    // Fenced code blocks
+    // ── Fenced code blocks ──────────────────────────────────────────────────
     if (l.trimStart().startsWith('```')) {
       if (!inPre) {
+        flushAll();
         inPre = true;
         preLang = l.trim().slice(3).trim();
         preLines = [];
-        flushAll();
       } else {
         out += '<pre><code' + (preLang ? ' class="lang-' + esc(preLang) + '"' : '') + '>'
              + esc(preLines.join('\n')) + '</code></pre>';
@@ -510,10 +597,10 @@ function mdToHtml(rawMd) {
       }
       continue;
     }
-    if (inPre) { preLines.push(raw); continue; }
+    if (inPre) { preLines.push(raw2); continue; }
 
-    // Headings
-    const hm = l.match(/^(#{1,6})\s+(.+)/);
+    // ── Headings ─────────────────────────────────────────────────────────────
+    const hm = l.match(/^(#{1,6}) +(.+)/);
     if (hm) {
       flushAll();
       const lv = Math.min(hm[1].length + 1, 6);
@@ -521,26 +608,38 @@ function mdToHtml(rawMd) {
       continue;
     }
 
-    // HR
-    if (/^[-*_]{3,}\s*$/.test(l.trim())) { flushAll(); out += '<hr>'; continue; }
-
-    // Blockquote
-    if (l.startsWith('> ')) {
+    // ── Horizontal rule ───────────────────────────────────────────────────────
+    if (/^[-*_]{3,}\s*$/.test(l.trim()) && !parseListLine(l)) {
       flushAll();
-      out += '<blockquote><p>' + inline(l.slice(2)) + '</p></blockquote>';
+      out += '<hr>';
       continue;
     }
 
-    // Table rows (must start with |)
+    // ── Blockquotes ───────────────────────────────────────────────────────────
+    if (l.match(/^> ?/)) {
+      // Flush non-BQ context but keep BQ accumulating
+      flushTable();
+      flushLists(0);
+      bqLines.push(l.replace(/^> ?/, ''));
+      continue;
+    } else if (bqLines.length) {
+      flushBq(); // bq ended — flush it before processing this line
+    }
+
+    // ── Tables ────────────────────────────────────────────────────────────────
     if (l.trim().startsWith('|')) {
-      const cells = l.split('|').map(c => c.trim()).filter(c => c !== '');
-      if (/^[\s|:-]+$/.test(l)) continue; // separator row
-      flushList();
+      const cells = l.split('|').filter((_, idx, arr) => idx > 0 && idx < arr.length - 1).map(c => c.trim());
+      // Separator row — signals end of header
+      if (/^[\s|:-]+$/.test(l)) {
+        tableHead = false; // next rows are body
+        continue;
+      }
+      flushLists(0);
       if (!inTable) {
         out += '<table><thead><tr>';
         cells.forEach(c => { out += '<th>' + inline(c) + '</th>'; });
         out += '</tr></thead><tbody>';
-        inTable = true;
+        inTable = true; tableHead = true;
       } else {
         out += '<tr>';
         cells.forEach(c => { out += '<td>' + inline(c) + '</td>'; });
@@ -550,61 +649,154 @@ function mdToHtml(rawMd) {
     }
     if (inTable) flushTable();
 
-    // Unordered list
-    const ulm = l.match(/^(\s{0,3})[*\-+]\s+(.+)/);
-    if (ulm) {
-      flushTable();
-      if (!inUl) { if (inOl) { out += '</ol>'; inOl = false; } out += '<ul>'; inUl = true; }
-      out += '<li>' + inline(ulm[2]) + '</li>';
+    // ── List items ────────────────────────────────────────────────────────────
+    const listItem = parseListLine(l);
+    if (listItem) {
+      flushBq(); flushTable();
+      const depth = listItem.indent < 2 ? 0 : 1; // 0 = top-level, 1 = nested
+
+      if (depth === 0) {
+        // Close any nested lists, ensure top-level list of correct type is open
+        flushLists(1);
+        if (listStack.length === 0) {
+          out += listItem.type === 'ol' ? '<ol>' : '<ul>';
+          listStack.push({ type: listItem.type, indent: 0 });
+        } else if (listStack[0].type !== listItem.type) {
+          // Switching type at top level
+          flushLists(0);
+          out += listItem.type === 'ol' ? '<ol>' : '<ul>';
+          listStack.push({ type: listItem.type, indent: 0 });
+        }
+      } else {
+        // Nested: ensure parent level exists
+        if (listStack.length === 0) {
+          out += listItem.type === 'ol' ? '<ol>' : '<ul>';
+          listStack.push({ type: listItem.type, indent: 0 });
+        }
+        if (listStack.length < 2) {
+          out += listItem.type === 'ol' ? '<ol>' : '<ul>';
+          listStack.push({ type: listItem.type, indent: listItem.indent });
+        } else if (listStack[1].type !== listItem.type) {
+          out += listStack[1].type === 'ol' ? '</ol>' : '</ul>';
+          listStack.pop();
+          out += listItem.type === 'ol' ? '<ol>' : '<ul>';
+          listStack.push({ type: listItem.type, indent: listItem.indent });
+        }
+      }
+
+      // Collect continuation lines for multi-paragraph list items
+      let itemContent = inline(listItem.content);
+      let extraParas = [];
+      while (i + 1 < lines.length) {
+        const next = lines[i + 1];
+        if (next.trim() === '') {
+          // Peek further: if next non-blank is continuation, absorb blank
+          let j = i + 2;
+          while (j < lines.length && lines[j].trim() === '') j++;
+          if (j < lines.length && isContinuation(lines[j], listItem.indent)) {
+            extraParas.push(''); // paragraph break inside item
+            i = j - 1;
+          } else {
+            break; // blank line ends item
+          }
+        } else if (isContinuation(next, listItem.indent)) {
+          if (extraParas.length && extraParas[extraParas.length - 1] === '') {
+            extraParas.push(next.trim());
+          } else {
+            itemContent += ' ' + next.trim();
+          }
+          i++;
+        } else {
+          break;
+        }
+      }
+
+      if (extraParas.length) {
+        out += '<li><p>' + itemContent + '</p>';
+        let para = [];
+        extraParas.forEach(ep => {
+          if (ep === '') {
+            if (para.length) { out += '<p>' + inline(para.join(' ')) + '</p>'; para = []; }
+          } else {
+            para.push(ep);
+          }
+        });
+        if (para.length) out += '<p>' + inline(para.join(' ')) + '</p>';
+        out += '</li>';
+      } else {
+        out += '<li>' + itemContent + '</li>';
+      }
       continue;
     }
 
-    // Ordered list
-    const olm = l.match(/^(\s{0,3})\d+[.):]\s+(.+)/);
-    if (olm) {
+    // ── Blank line ────────────────────────────────────────────────────────────
+    if (l.trim() === '') {
+      flushBq();
       flushTable();
-      if (!inOl) { if (inUl) { out += '</ul>'; inUl = false; } out += '<ol>'; inOl = true; }
-      out += '<li>' + inline(olm[2]) + '</li>';
+      // Blank line closes lists only if next non-blank line is not a list continuation
+      let j = i + 1;
+      while (j < lines.length && lines[j].trim() === '') j++;
+      if (j >= lines.length || !parseListLine(lines[j])) {
+        flushLists(0);
+      }
       continue;
     }
 
-    // Blank line
-    if (l.trim() === '') { flushAll(); continue; }
-
-    // Plain paragraph
+    // ── Plain paragraph ───────────────────────────────────────────────────────
     flushAll();
     out += '<p>' + inline(l) + '</p>';
   }
+
   flushAll();
   if (inPre) out += '<pre><code>' + esc(preLines.join('\n')) + '</code></pre>';
   return out;
 }
 
+// ── Fetch with timeout helper ─────────────────────────────────────────────────
+function fetchWithTimeout(url, ms) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('timeout')), ms);
+    fetch(url)
+      .then(r => { clearTimeout(timer); resolve(r); })
+      .catch(e => { clearTimeout(timer); reject(e); });
+  });
+}
+
+// ── Load doc by key ───────────────────────────────────────────────────────────
 async function loadDoc(key) {
-  frame.innerHTML = '<div class="docs-status"><div class="spinner"></div>&nbsp;Loading&hellip;</div>';
+  mmActive = key;
+  mmFrame.innerHTML = '<div class="mm-docs-status"><div class="mm-spinner"></div>&nbsp;Loading&hellip;</div>';
 
-  if (cache[key]) { frame.innerHTML = cache[key]; return; }
+  if (mmCache[key]) { mmFrame.innerHTML = mmCache[key]; return; }
 
-  const url    = RAW + DOC_MAP[key];
-  const ghUrl  = GH  + DOC_MAP[key];
+  const url   = RAW_BASE + DOC_MAP[key];
+  const ghUrl = GH_BASE  + DOC_MAP[key];
 
   try {
-    const resp = await fetch(url);
+    const resp = await fetchWithTimeout(url, 8000);
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const md = await resp.text();
-    if (!md || !md.trim()) throw new Error('empty');
-    cache[key] = mdToHtml(md);
-    frame.innerHTML = cache[key];
+    if (!md || !md.trim()) throw new Error('empty response');
+    const rendered = mdToHtml(md);
+    if (!rendered || !rendered.trim()) throw new Error('render produced nothing');
+    mmCache[key] = rendered;
+    // Only update DOM if this is still the active doc
+    if (mmActive === key) mmFrame.innerHTML = rendered;
   } catch (err) {
-    frame.innerHTML =
-      '<div class="docs-err">' +
-        '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
-        '<span>Couldn\'t load this document.</span>' +
-        '<a href="' + ghUrl + '" target="_blank" rel="noopener">Read it on GitHub &rarr;</a>' +
+    if (mmActive !== key) return;
+    mmFrame.innerHTML =
+      '<div class="mm-docs-error">' +
+        '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r=".6" fill="currentColor"/></svg>' +
+        '<span>Couldn\'t load this document' + (err.message === 'timeout' ? ' (timed out)' : '') + '.</span>' +
+        '<div style="display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;">' +
+          '<button class="mm-retry-btn" onclick="loadDoc(\'' + key + '\')">&#x21BA;&nbsp;Retry</button>' +
+          '<a href="' + ghUrl + '" target="_blank" rel="noopener" class="mm-retry-btn">Read on GitHub &rarr;</a>' +
+        '</div>' +
       '</div>';
   }
 }
 
+// ── Docs pill clicks ──────────────────────────────────────────────────────────
 document.querySelectorAll('.dpill').forEach(pill => {
   pill.addEventListener('click', () => {
     document.querySelectorAll('.dpill').forEach(p => p.classList.remove('on'));
@@ -613,8 +805,10 @@ document.querySelectorAll('.dpill').forEach(pill => {
   });
 });
 
-// Load the default doc on page load
-loadDoc('architecture');
+// ── Initial load: defer to after DOM + extensions settle ─────────────────────
+requestAnimationFrame(() => {
+  setTimeout(() => loadDoc('architecture'), 120);
+});
 </script>
 </body>
 </html>

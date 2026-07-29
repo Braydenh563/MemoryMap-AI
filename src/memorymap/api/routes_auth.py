@@ -12,6 +12,7 @@ setup screen first.
 from __future__ import annotations
 
 import secrets
+import time
 
 import bcrypt
 from fastapi import APIRouter, Depends, Header, HTTPException
@@ -28,6 +29,44 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 # In-memory sessions: fine for a single-user local app.
 _active_tokens: set[str] = set()
+
+# Brute-force throttle for unlock attempts. The app binds 127.0.0.1, but a
+# server log showed a public client address arriving through a proxy header —
+# people do put this behind tunnels to reach it from a phone. bcrypt makes
+# each guess slow; nothing made *many* guesses slow, and the password floor
+# is four characters, which is PIN territory. One global bucket, not per-IP:
+# there is a single user to protect, and per-IP buckets are exactly what a
+# botnet has plenty of. Wrong guesses beyond the free allowance earn an
+# exponentially growing wait; a right password inside the wait still waits.
+_FAILURE_ALLOWANCE = 5  # free tries before the waits start
+_FAILURE_WINDOW = 15 * 60  # forgiven this long after the last failure
+_WAIT_CEILING = 300  # the wait stops growing at five minutes
+_failed_unlocks: list[float] = []
+
+
+def _refuse_if_throttled() -> None:
+    """429 while inside the wait a run of wrong passwords has earned."""
+    now = time.time()
+    if _failed_unlocks and now - _failed_unlocks[-1] > _FAILURE_WINDOW:
+        _failed_unlocks.clear()  # long quiet: forgiven
+    over = len(_failed_unlocks) - _FAILURE_ALLOWANCE
+    if over < 0:
+        return
+    wait = min(2 ** over, _WAIT_CEILING)
+    remaining = wait - (now - _failed_unlocks[-1])
+    if remaining > 0:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many wrong passwords — try again in {int(remaining) + 1}s",
+        )
+
+
+def _unlock_failed() -> None:
+    _failed_unlocks.append(time.time())
+
+
+def _unlock_succeeded() -> None:
+    _failed_unlocks.clear()
 
 
 class PasswordBody(BaseModel):
@@ -77,11 +116,14 @@ def setup(body: PasswordBody, session: Session = Depends(get_session)) -> dict:
 
 @router.post("/unlock")
 def unlock(body: PasswordBody, session: Session = Depends(get_session)) -> dict:
+    _refuse_if_throttled()
     user = _get_user(session)
     if user is None:
         raise HTTPException(status_code=400, detail="No password set yet — use setup")
     if not bcrypt.checkpw(body.password.encode(), user.password_hash.encode()):
+        _unlock_failed()
         raise HTTPException(status_code=401, detail="Wrong password")
+    _unlock_succeeded()
     # Unwrap the data key so private notes are readable for this session.
     vault_open = vault.open_with(session, body.password)
     log_action(session, "unlocked", "user", user.id)

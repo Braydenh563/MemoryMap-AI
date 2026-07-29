@@ -63,10 +63,16 @@ def test_build_messages_clips_history_length():
     history = [{"question": f"q{i}", "answer": long_answer} for i in range(10)]
     messages = librarian.build_messages("now", [{"content": "n", "category": "c"}], history=history)
 
-    # At most MAX_HISTORY_TURNS pairs survive, and each answer is clipped.
+    # At most MAX_HISTORY_TURNS pairs survive, and each answer is clipped —
+    # old ones hard, the most recent one generously, because "save that as a
+    # note" refers to it and a stump of it is what used to get saved.
     assistant_msgs = [m for m in messages if m["role"] == "assistant"]
     assert len(assistant_msgs) == librarian.MAX_HISTORY_TURNS
-    assert all(len(m["content"]) <= librarian.MAX_HISTORY_ANSWER_CHARS for m in assistant_msgs)
+    assert all(
+        len(m["content"]) <= librarian.MAX_HISTORY_ANSWER_CHARS
+        for m in assistant_msgs[:-1]
+    )
+    assert len(assistant_msgs[-1]["content"]) <= librarian.LAST_ANSWER_CHARS
 
 
 def test_chat_endpoint_threads_history_to_model(ai_client, fake_ollama):

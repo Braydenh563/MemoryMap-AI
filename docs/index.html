@@ -67,7 +67,6 @@
       box-shadow:var(--gs);
     }
 
-    /* nav */
     nav{
       position:sticky;top:0;z-index:50;
       display:flex;align-items:center;gap:1.2rem;
@@ -102,7 +101,6 @@
     [data-theme="dark"] .btn-accent{color:#0e1017;}
     .btn-accent:hover{filter:brightness(1.08);}
 
-    /* hero */
     .hero{max-width:780px;margin:6rem auto 0;padding:0 1.5rem;}
     .hero-eyebrow{
       display:inline-flex;align-items:center;gap:.5rem;
@@ -135,7 +133,6 @@
     .btn-lg.secondary{background:var(--chip);color:var(--ink);border:1px solid var(--gb);}
     .btn-lg.secondary:hover{background:var(--as);}
 
-    /* features */
     .tabs-section{max-width:900px;margin:0 auto 5rem;padding:0 1.5rem;}
     .section-label{font-size:.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);margin-bottom:1.4rem;}
     .tab-row{display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:1.2rem;}
@@ -156,7 +153,6 @@
     .tab-card p{font-size:.9rem;color:var(--muted);max-width:68ch;line-height:1.7;}
     .tab-card code{background:var(--chip);padding:.1rem .36rem;border-radius:4px;font-size:.83em;font-family:ui-monospace,'Cascadia Code',Consolas,monospace;}
 
-    /* quick start */
     .qs-section{max-width:720px;margin:0 auto 5rem;padding:0 1.5rem;}
     .qs-card{padding:1.75rem 2rem;}
     .qs-card h2{font-size:1.2rem;font-weight:700;margin-bottom:1.1rem;}
@@ -186,7 +182,6 @@
       background:var(--as);margin:.8rem 0;
     }
 
-    /* live docs */
     .docs-section{max-width:900px;margin:0 auto 5rem;padding:0 1.5rem;}
     .docs-pick{display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:1.1rem;}
     .dpill{
@@ -197,16 +192,18 @@
       transition:background .13s,color .13s;font-family:inherit;
     }
     .dpill.on{background:var(--as);color:var(--ink);border-color:var(--accent);}
+    .dpill:hover{background:var(--as);color:var(--ink);}
     .docs-frame{padding:1.75rem 2rem;min-height:18rem;}
     .docs-frame h1{font-size:1.3rem;font-weight:800;margin-bottom:1rem;letter-spacing:-.01em;}
     .docs-frame h2{font-size:1.05rem;font-weight:700;margin:1.6rem 0 .55rem;padding-top:.3rem;border-top:1px solid var(--border);}
     .docs-frame h3{font-size:.93rem;font-weight:700;margin:1.1rem 0 .35rem;color:var(--ink);}
+    .docs-frame h4{font-size:.88rem;font-weight:600;margin:.9rem 0 .3rem;color:var(--ink);}
     .docs-frame p{font-size:.88rem;color:var(--muted);margin-bottom:.7rem;max-width:72ch;line-height:1.75;}
     .docs-frame ul,.docs-frame ol{padding-left:1.3rem;margin-bottom:.7rem;}
     .docs-frame li{font-size:.88rem;color:var(--muted);line-height:1.7;margin-bottom:.15rem;}
     .docs-frame li strong,.docs-frame p strong{color:var(--ink);}
     .docs-frame pre{margin:.6rem 0 1rem;}
-    .docs-frame table{width:100%;border-collapse:collapse;font-size:.85rem;margin:.6rem 0 1rem;}
+    .docs-frame table{width:100%;border-collapse:collapse;font-size:.85rem;margin:.6rem 0 1rem;overflow-x:auto;display:block;}
     .docs-frame th{text-align:left;font-size:.73rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--faint);padding:.5rem .75rem;border-bottom:1px solid var(--border);}
     .docs-frame td{padding:.45rem .75rem;border-bottom:1px solid var(--border);color:var(--muted);vertical-align:top;}
     .docs-frame td:first-child{color:var(--ink);font-weight:500;}
@@ -215,6 +212,7 @@
     .docs-frame summary{cursor:pointer;font-size:.88rem;font-weight:600;color:var(--ink);}
     .docs-frame blockquote{border-left:2px solid var(--accent);padding:.5rem .9rem;margin:.6rem 0;background:var(--as);border-radius:0 8px 8px 0;font-size:.87rem;color:var(--muted);}
     .docs-frame blockquote p{margin:0;}
+    .docs-frame hr{border:none;border-top:1px solid var(--border);margin:.8rem 0;}
     .spinner{width:32px;height:32px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:3rem auto;}
     @keyframes spin{to{transform:rotate(360deg)}}
     .docs-err{text-align:center;padding:3rem;font-size:.88rem;color:var(--muted);}
@@ -253,7 +251,7 @@
 </nav>
 
 <section class="hero" id="top">
-  <div class="hero-eyebrow">Local-first &nbsp;·&nbsp; 100 % offline &nbsp;·&nbsp; Open source</div>
+  <div class="hero-eyebrow">Local-first &nbsp;·&nbsp; 100 % offline &nbsp;·&nbsp; Open source</div>
   <h1>Your thoughts, mapped<br>by a <em>local AI</em>.</h1>
   <p class="hero-sub">
     Type a thought — a local AI files it. Ask a question in plain English and get
@@ -308,7 +306,7 @@
   <p class="section-label">Quick start</p>
   <div class="qs-card g">
     <h2>Running MemoryMap AI</h2>
-    <p style="font-size:.88rem;color:var(--muted);margin-bottom:1rem;">You need <strong>Python 3.11+</strong>. That’s it to get started.</p>
+    <p style="font-size:.88rem;color:var(--muted);margin-bottom:1rem;">You need <strong>Python 3.11+</strong>. That's it to get started.</p>
     <div class="platform-tabs">
       <button class="ptab on" data-p="win">Windows</button>
       <button class="ptab" data-p="mac">macOS / Linux</button>
@@ -344,6 +342,7 @@ python -m memorymap</pre>
     <button class="dpill" data-doc="roadmap">Roadmap</button>
     <button class="dpill" data-doc="changelog">Changelog</button>
     <button class="dpill" data-doc="contributing">Contributing</button>
+    <button class="dpill" data-doc="ideas">Ideas</button>
     <button class="dpill" data-doc="security">Security</button>
   </div>
   <div class="docs-frame g" id="docsFrame"><div class="spinner"></div></div>
@@ -365,6 +364,7 @@ python -m memorymap</pre>
 </footer>
 
 <script>
+// Theme toggle
 const html = document.documentElement;
 const themeBtn = document.getElementById('themeBtn');
 let theme = html.getAttribute('data-theme') ||
@@ -373,6 +373,7 @@ const applyTheme = t => { html.setAttribute('data-theme',t); themeBtn.textConten
 applyTheme(theme);
 themeBtn.addEventListener('click',()=>{ theme=theme==='dark'?'light':'dark'; applyTheme(theme); });
 
+// Feature tabs
 document.querySelectorAll('.tab-pill').forEach(pill=>{
   pill.addEventListener('click',()=>{
     document.querySelectorAll('.tab-pill').forEach(p=>p.classList.remove('on'));
@@ -382,6 +383,7 @@ document.querySelectorAll('.tab-pill').forEach(pill=>{
   });
 });
 
+// Platform tabs
 document.querySelectorAll('.ptab').forEach(t=>{
   t.addEventListener('click',()=>{
     document.querySelectorAll('.ptab').forEach(x=>x.classList.remove('on'));
@@ -391,6 +393,7 @@ document.querySelectorAll('.ptab').forEach(t=>{
   });
 });
 
+// Nav active highlight
 const navLinks = document.querySelectorAll('.nav-tabs a');
 const sio = new IntersectionObserver(es=>{
   es.forEach(e=>{
@@ -403,87 +406,141 @@ const sio = new IntersectionObserver(es=>{
 },{rootMargin:'-20% 0px -70% 0px'});
 document.querySelectorAll('section[id]').forEach(s=>sio.observe(s));
 
+// Scroll reveal
 const ro = new IntersectionObserver(es=>{
   es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');ro.unobserve(e.target);}});
 },{threshold:0.06});
 document.querySelectorAll('.reveal').forEach(el=>ro.observe(el));
 
-function mdToHtml(md){
-  let s=md
-    .replace(/^<div[\s\S]*?<\/div>/gm,'')
-    .replace(/<img[^>]*>/g,'')
-    .replace(/<[a-z][^>]*>([^<]*)<\/[a-z]+>/g,'$1')
-    .trim();
-  const lines=s.split('\n');
-  let html='',inPre=false,inTable=false,inUl=false,inOl=false,preLines=[];
-  const flushList=()=>{if(inUl){html+='</ul>';inUl=false;}if(inOl){html+='</ol>';inOl=false;}};
-  const flushTable=()=>{if(inTable){html+='</tbody></table>';inTable=false;}};
-  const esc=t=>t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const inline=t=>t
+// ---------- Docs: fetch via GitHub Contents API (no CORS issues on Pages) ----------
+// The Contents API returns JSON with a base64-encoded `content` field.
+// This avoids the CORS block that raw.githubusercontent.com has on Pages fetches.
+const REPO = 'Braydenh563/MemoryMap-AI';
+const API  = 'https://api.github.com/repos/' + REPO + '/contents/';
+
+const DOC_MAP = {
+  architecture: 'docs/ARCHITECTURE.md',
+  roadmap:      'docs/ROADMAP.md',
+  changelog:    'CHANGELOG.md',
+  contributing: 'CONTRIBUTING.md',
+  ideas:        'IDEAS.md',
+  security:     'SECURITY.md',
+};
+
+const cache = {};
+const frame = document.getElementById('docsFrame');
+
+function esc(t){ return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function inline(t){
+  return t
     .replace(/`([^`]+)`/g,'<code>$1</code>')
+    .replace(/\*\*\*([^*]+)\*\*\*/g,'<strong><em>$1</em></strong>')
     .replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>')
-    .replace(/_([^_]+)_/g,'<em>$1</em>')
+    .replace(/__([^_]+)__/g,'<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g,'<em>$1</em>')
+    .replace(/_([^_\s][^_]*)_/g,'<em>$1</em>')
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
-  for(let i=0;i<lines.length;i++){
-    const l=lines[i];
-    if(l.startsWith('```')){
-      if(!inPre){inPre=true;preLines=[];flushList();flushTable();}
-      else{html+='<pre><code>'+esc(preLines.join('\n'))+'</code></pre>';inPre=false;}
-      continue;
-    }
-    if(inPre){preLines.push(l);continue;}
-    const hm=l.match(/^(#{1,4})\s+(.*)/);
-    if(hm){flushList();flushTable();const lv=Math.min(hm[1].length+1,4);html+=`<h${lv}>${inline(hm[2])}</h${lv}>`;continue;}
-    if(/^---+$/.test(l.trim())){flushList();flushTable();html+='<hr style="border:none;border-top:1px solid var(--border);margin:.8rem 0;">';continue;}
-    if(l.startsWith('> ')){flushList();flushTable();html+=`<blockquote><p>${inline(l.slice(2))}</p></blockquote>`;continue;}
-    if(l.includes('|')){
-      const cells=l.split('|').map(c=>c.trim()).filter(c=>c!=='');
-      if(/^[-:| ]+$/.test(l))continue;
-      flushList();
-      if(!inTable){html+='<table><thead><tr>';cells.forEach(c=>{html+=`<th>${inline(c)}</th>`;});html+='</tr></thead><tbody>';inTable=true;}
-      else{html+='<tr>';cells.forEach(c=>{html+=`<td>${inline(c)}</td>`;});html+='</tr>';}
-      continue;
-    }
-    if(inTable&&!l.includes('|'))flushTable();
-    if(l.trim().startsWith('<details>')){flushList();flushTable();html+='<details>';continue;}
-    if(l.trim().startsWith('<summary>')){html+=l.trim();continue;}
-    if(l.trim()==='</details>'){html+='</details>';continue;}
-    const ulm=l.match(/^(\s*)[*\-]\s+(.*)/);
-    if(ulm){flushTable();if(!inUl){if(inOl){html+='</ol>';inOl=false;}html+='<ul>';inUl=true;}html+=`<li>${inline(ulm[2])}</li>`;continue;}
-    const olm=l.match(/^\d+\.\s+(.*)/);
-    if(olm){flushTable();if(!inOl){if(inUl){html+='</ul>';inUl=false;}html+='<ol>';inOl=true;}html+=`<li>${inline(olm[1])}</li>`;continue;}
-    if(l.trim()===''){flushList();flushTable();continue;}
-    flushList();flushTable();html+=`<p>${inline(l)}</p>`;
-  }
-  flushList();flushTable();
-  if(inPre)html+='<pre><code>'+esc(preLines.join('\n'))+'</code></pre>';
-  return html;
 }
 
-const BASE='https://raw.githubusercontent.com/Braydenh563/MemoryMap-AI/main/';
-const DOC_MAP={
-  architecture: BASE+'docs/ARCHITECTURE.md',
-  roadmap:      BASE+'docs/ROADMAP.md',
-  changelog:    BASE+'CHANGELOG.md',
-  contributing: BASE+'CONTRIBUTING.md',
-  security:     BASE+'SECURITY.md',
-};
-const cache={};
-const frame=document.getElementById('docsFrame');
+function mdToHtml(md){
+  // Strip HTML image tags and shield badges that break the layout
+  let s = md
+    .replace(/<img[^>]*>/gi,'')
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g,'')  // markdown images
+    .replace(/\[!\[([^\]]*)\]\([^)]+\)\]\([^)]+\)/g,'') // badge links
+    .trim();
+
+  const lines = s.split('\n');
+  let out='', inPre=false, inTable=false, inUl=false, inOl=false, preLines=[], preLang='';
+
+  const flushList  = ()=>{ if(inUl){out+='</ul>';inUl=false;} if(inOl){out+='</ol>';inOl=false;} };
+  const flushTable = ()=>{ if(inTable){out+='</tbody></table>';inTable=false;} };
+
+  for(let i=0;i<lines.length;i++){
+    const l = lines[i];
+
+    // Fenced code blocks
+    if(l.trim().startsWith('```')){
+      if(!inPre){ inPre=true; preLang=l.trim().slice(3).trim(); preLines=[]; flushList(); flushTable(); }
+      else{ out+='<pre><code'+(preLang?' class="lang-'+esc(preLang)+'"':'')+'>'
+               +esc(preLines.join('\n'))+'</code></pre>'; inPre=false; preLang=''; }
+      continue;
+    }
+    if(inPre){ preLines.push(l); continue; }
+
+    // Headings
+    const hm = l.match(/^(#{1,4})\s+(.*)/);
+    if(hm){ flushList(); flushTable();
+      const lv=Math.min(hm[1].length+1,5);
+      out+=`<h${lv}>${inline(hm[2])}</h${lv}>`; continue; }
+
+    // HR
+    if(/^---+$/.test(l.trim())){ flushList(); flushTable(); out+='<hr>'; continue; }
+
+    // Blockquote
+    if(l.startsWith('> ')){ flushList(); flushTable();
+      out+=`<blockquote><p>${inline(l.slice(2))}</p></blockquote>`; continue; }
+
+    // Table rows
+    if(l.includes('|') && l.trim().startsWith('|')){
+      const cells=l.split('|').map(c=>c.trim()).filter(c=>c!=='');
+      if(/^[-:| ]+$/.test(l)) continue; // separator row
+      flushList();
+      if(!inTable){ out+='<table><thead><tr>';
+        cells.forEach(c=>{ out+=`<th>${inline(c)}</th>`; });
+        out+='</tr></thead><tbody>'; inTable=true; }
+      else{ out+='<tr>'; cells.forEach(c=>{ out+=`<td>${inline(c)}</td>`; }); out+='</tr>'; }
+      continue;
+    }
+    if(inTable && (!l.includes('|') || !l.trim().startsWith('|'))) flushTable();
+
+    // Unordered list
+    const ulm = l.match(/^(\s*)[*\-+]\s+(.*)/);
+    if(ulm){ flushTable();
+      if(!inUl){ if(inOl){out+='</ol>';inOl=false;} out+='<ul>';inUl=true; }
+      out+=`<li>${inline(ulm[2])}</li>`; continue; }
+
+    // Ordered list
+    const olm = l.match(/^\d+\.\s+(.*)/);
+    if(olm){ flushTable();
+      if(!inOl){ if(inUl){out+='</ul>';inUl=false;} out+='<ol>';inOl=true; }
+      out+=`<li>${inline(olm[1])}</li>`; continue; }
+
+    // Blank line
+    if(l.trim()==='') { flushList(); flushTable(); continue; }
+
+    // Plain paragraph
+    flushList(); flushTable();
+    out+=`<p>${inline(l)}</p>`;
+  }
+  flushList(); flushTable();
+  if(inPre) out+='<pre><code>'+esc(preLines.join('\n'))+'</code></pre>';
+  return out;
+}
+
 async function loadDoc(key){
   frame.innerHTML='<div class="spinner"></div>';
-  if(cache[key]){frame.innerHTML=cache[key];return;}
+  if(cache[key]){ frame.innerHTML=cache[key]; return; }
   try{
-    const r=await fetch(DOC_MAP[key]);
-    if(!r.ok)throw new Error(r.status);
-    const md=await r.text();
-    cache[key]=mdToHtml(md);
-    frame.innerHTML=cache[key];
-  }catch(e){
-    const ghUrl=DOC_MAP[key].replace('raw.githubusercontent.com','github.com').replace('/main/','/blob/main/');
-    frame.innerHTML=`<div class="docs-err">Couldn’t load — <a href="${ghUrl}" target="_blank" rel="noopener">read it on GitHub</a>.</div>`;
+    const r = await fetch(API + DOC_MAP[key], {
+      headers:{ 'Accept':'application/vnd.github.v3+json' }
+    });
+    if(!r.ok) throw new Error(r.status);
+    const json = await r.json();
+    // Content is base64-encoded, may contain newlines — strip them before decode
+    const md = decodeURIComponent(
+      atob(json.content.replace(/\n/g,''))
+        .split('').map(c=>'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join('')
+    );
+    cache[key] = mdToHtml(md);
+    frame.innerHTML = cache[key];
+  } catch(e){
+    const ghUrl = 'https://github.com/'+REPO+'/blob/main/'+DOC_MAP[key];
+    frame.innerHTML=`<div class="docs-err">Couldn't load — <a href="${ghUrl}" target="_blank" rel="noopener">read it on GitHub</a>.</div>`;
   }
 }
+
 document.querySelectorAll('.dpill').forEach(pill=>{
   pill.addEventListener('click',()=>{
     document.querySelectorAll('.dpill').forEach(p=>p.classList.remove('on'));

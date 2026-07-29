@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MemoryMap AI — Docs</title>
+  <meta name="description" content="MemoryMap AI: a local-first, AI-powered personal knowledge base. Install, configure, and explore the architecture." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..700&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Design tokens — mirrored from frontend/style.css ───────────────── */
+    :root {
+      --page: linear-gradient(135deg, #e9edfb 0%, #f6f2ec 45%, #e6f1f2 100%);
+      --blob-a: rgba(79,109,245,0.20);
+      --blob-b: rgba(157,88,245,0.14);
+      --card: rgba(255,255,255,0.55);
+      --inner: rgba(255,255,255,0.45);
+      --glass-border: rgba(255,255,255,0.65);
+      --glass-shadow: 0 8px 32px rgba(31,38,135,0.14);
+      --ink: #1f2430;
+      --muted: #5b6472;
+      --accent: #4f6df5;
+      --accent-soft: rgba(79,109,245,0.14);
+      --chip-bg: rgba(31,36,48,0.07);
+      --border: rgba(31,36,48,0.10);
+      --ok: #10653c;
+      --ok-soft: rgba(52,199,123,0.20);
+      --radius: 14px;
+      --glass-blur: 18px;
+    }
+    [data-theme="dark"] {
+      --page: linear-gradient(135deg, #0e1017 0%, #171a26 45%, #0f1720 100%);
+      --blob-a: rgba(123,144,247,0.16);
+      --blob-b: rgba(88,235,245,0.07);
+      --card: rgba(29,33,46,0.55);
+      --inner: rgba(255,255,255,0.05);
+      --glass-border: rgba(255,255,255,0.10);
+      --glass-shadow: 0 8px 32px rgba(0,0,0,0.45);
+      --ink: #e7e9ee;
+      --muted: #9aa1ad;
+      --accent: #8b9df8;
+      --accent-soft: rgba(123,144,247,0.20);
+      --chip-bg: rgba(255,255,255,0.08);
+      --border: rgba(255,255,255,0.10);
+      --ok: #4ade80;
+      --ok-soft: rgba(74,222,128,0.15);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --page: linear-gradient(135deg, #0e1017 0%, #171a26 45%, #0f1720 100%);
+        --blob-a: rgba(123,144,247,0.16);
+        --blob-b: rgba(88,235,245,0.07);
+        --card: rgba(29,33,46,0.55);
+        --inner: rgba(255,255,255,0.05);
+        --glass-border: rgba(255,255,255,0.10);
+        --glass-shadow: 0 8px 32px rgba(0,0,0,0.45);
+        --ink: #e7e9ee;
+        --muted: #9aa1ad;
+        --accent: #8b9df8;
+        --accent-soft: rgba(123,144,247,0.20);
+        --chip-bg: rgba(255,255,255,0.08);
+        --border: rgba(255,255,255,0.10);
+        --ok: #4ade80;
+        --ok-soft: rgba(74,222,128,0.15);
+      }
+    }
+
+    /* ── Base ────────────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html {
+      min-height: 100%;
+      scroll-behavior: smooth;
+      scroll-padding-top: 5rem;
+      background:
+        radial-gradient(600px 400px at 15% 8%, var(--blob-a), transparent 70%),
+        radial-gradient(700px 500px at 85% 90%, var(--blob-b), transparent 70%),
+        var(--page);
+      background-attachment: fixed;
+    }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      color: var(--ink);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+    img { display: block; max-width: 100%; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+
+    /* ── Glass card ─────────────────────────────────────────────────────── */
+    .glass {
+      background: var(--card);
+      backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      box-shadow: var(--glass-shadow);
+    }
+
+    /* ── Nav bar ─────────────────────────────────────────────────────────── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      padding: 0.6rem 2rem;
+      border-bottom: 1px solid var(--glass-border);
+      background: var(--card);
+      backdrop-filter: blur(18px) saturate(150%);
+      -webkit-backdrop-filter: blur(18px) saturate(150%);
+    }
+    .nav-brand {
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      white-space: nowrap;
+      flex: 0 0 auto;
+    }
+    .nav-brand span { opacity: 0.55; }
+    .nav-links {
+      display: flex;
+      gap: 0.2rem;
+      flex: 1;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .nav-links::-webkit-scrollbar { display: none; }
+    .nav-links a {
+      white-space: nowrap;
+      padding: 0.3rem 0.85rem;
+      border-radius: 9px;
+      font-size: 0.88rem;
+      font-weight: 500;
+      color: var(--muted);
+      transition: background 0.15s, color 0.15s;
+    }
+    .nav-links a:hover, .nav-links a.active {
+      background: var(--accent-soft);
+      color: var(--ink);
+      text-decoration: none;
+    }
+    .nav-actions { margin-left: auto; display: flex; gap: 0.5rem; align-items: center; flex: 0 0 auto; }
+    .btn-theme {
+      background: var(--chip-bg);
+      border: 1px solid var(--glass-border);
+      color: var(--ink);
+      border-radius: 9px;
+      padding: 0.3rem 0.7rem;
+      font-size: 0.82rem;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s;
+    }
+    .btn-theme:hover { background: var(--accent-soft); }
+    .btn-gh {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 9px;
+      padding: 0.3rem 0.9rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      box-shadow: 0 2px 10px rgba(79,109,245,0.25);
+      transition: filter 0.12s;
+    }
+    .btn-gh:hover { filter: brightness(1.08); }
+    [data-theme="dark"] .btn-gh { color: #0e1017; }
+
+    /* ── Hero ────────────────────────────────────────────────────────────── */
+    .hero {
+      max-width: 900px;
+      margin: 5rem auto 3rem;
+      padding: 0 1.5rem;
+      text-align: center;
+    }
+    .hero-label {
+      display: inline-block;
+      margin-bottom: 1rem;
+      padding: 0.25rem 0.9rem;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+    .hero h1 {
+      font-size: clamp(2.2rem, 5vw, 3.6rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      margin-bottom: 1.2rem;
+    }
+    .hero h1 .accent { color: var(--accent); }
+    .hero p {
+      font-size: clamp(1rem, 1.5vw, 1.2rem);
+      color: var(--muted);
+      max-width: 60ch;
+      margin: 0 auto 2.5rem;
+      line-height: 1.7;
+    }
+    .hero-ctas {
+      display: flex;
+      gap: 0.75rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .cta-primary {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 11px;
+      padding: 0.75rem 1.6rem;
+      font-size: 0.96rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      box-shadow: 0 4px 18px rgba(79,109,245,0.3);
+      transition: filter 0.12s, transform 0.08s;
+      display: inline-block;
+    }
+    .cta-primary:hover { filter: brightness(1.08); transform: translateY(-1px); text-decoration: none; }
+    [data-theme="dark"] .cta-primary { color: #0e1017; }
+    .cta-secondary {
+      background: var(--chip-bg);
+      color: var(--ink);
+      border: 1px solid var(--glass-border);
+      border-radius: 11px;
+      padding: 0.75rem 1.6rem;
+      font-size: 0.96rem;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+      backdrop-filter: blur(8px);
+      transition: background 0.15s;
+      display: inline-block;
+    }
+    .cta-secondary:hover { background: var(--accent-soft); text-decoration: none; }
+
+    /* ── Feature cards ───────────────────────────────────────────────────── */
+    .features {
+      max-width: 1000px;
+      margin: 0 auto 5rem;
+      padding: 0 1.5rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1rem;
+    }
+    .feature-card {
+      padding: 1.4rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .feature-icon {
+      font-size: 1.5rem;
+      margin-bottom: 0.25rem;
+    }
+    .feature-card h3 {
+      font-size: 0.97rem;
+      font-weight: 700;
+      margin: 0;
+    }
+    .feature-card p {
+      font-size: 0.88rem;
+      color: var(--muted);
+      margin: 0;
+      line-height: 1.55;
+    }
+
+    /* ── Docs layout ─────────────────────────────────────────────────────── */
+    .docs-wrap {
+      display: grid;
+      grid-template-columns: 220px minmax(0, 1fr);
+      gap: 1.5rem;
+      max-width: 1100px;
+      margin: 0 auto 4rem;
+      padding: 0 1.5rem;
+      align-items: start;
+    }
+    @media (max-width: 720px) {
+      .docs-wrap { grid-template-columns: 1fr; }
+      .docs-sidebar { display: none; }
+    }
+    .docs-sidebar {
+      position: sticky;
+      top: 5rem;
+      padding: 1rem 1.1rem;
+    }
+    .docs-sidebar h4 {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0.8rem 0 0.3rem;
+    }
+    .docs-sidebar h4:first-child { margin-top: 0; }
+    .docs-sidebar ul { list-style: none; padding: 0; }
+    .docs-sidebar li a {
+      display: block;
+      padding: 0.28rem 0.6rem;
+      border-radius: 8px;
+      font-size: 0.86rem;
+      color: var(--muted);
+      transition: background 0.13s, color 0.13s;
+    }
+    .docs-sidebar li a:hover, .docs-sidebar li a.active {
+      background: var(--accent-soft);
+      color: var(--ink);
+      text-decoration: none;
+    }
+    .docs-content { display: flex; flex-direction: column; gap: 1.2rem; }
+    .doc-section {
+      padding: 1.8rem 2rem;
+      scroll-margin-top: 5.5rem;
+    }
+    .doc-section h2 {
+      font-size: 1.45rem;
+      font-weight: 700;
+      margin-bottom: 0.9rem;
+      padding-bottom: 0.6rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .doc-section h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin: 1.4rem 0 0.5rem;
+      color: var(--ink);
+    }
+    .doc-section p { font-size: 0.92rem; color: var(--muted); margin-bottom: 0.8rem; line-height: 1.7; max-width: 72ch; }
+    .doc-section ul, .doc-section ol { padding-left: 1.4rem; margin-bottom: 0.8rem; }
+    .doc-section li { font-size: 0.92rem; color: var(--muted); line-height: 1.7; margin-bottom: 0.2rem; }
+    .doc-section li strong { color: var(--ink); }
+    code, pre { font-family: ui-monospace, 'Cascadia Code', Consolas, monospace; }
+    .doc-section code {
+      background: var(--chip-bg);
+      padding: 0.1rem 0.4rem;
+      border-radius: 5px;
+      font-size: 0.85em;
+      color: var(--ink);
+    }
+    .doc-section pre {
+      background: var(--chip-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.2rem;
+      overflow-x: auto;
+      margin: 0.8rem 0 1rem;
+      font-size: 0.83rem;
+      line-height: 1.6;
+    }
+    .doc-section pre code { background: none; padding: 0; font-size: inherit; }
+    .callout {
+      background: var(--accent-soft);
+      border: 1px solid var(--glass-border);
+      border-left: 3px solid var(--accent);
+      border-radius: 0 10px 10px 0;
+      padding: 0.8rem 1rem;
+      margin: 0.8rem 0;
+      font-size: 0.88rem;
+      color: var(--ink);
+    }
+    .callout p { color: inherit; margin: 0; }
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      background: var(--ok-soft);
+      color: var(--ok);
+      margin-left: 0.5rem;
+      vertical-align: middle;
+    }
+    .step-list { list-style: none; padding: 0; counter-reset: steps; }
+    .step-list li {
+      counter-increment: steps;
+      display: flex;
+      gap: 0.9rem;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+    }
+    .step-list li::before {
+      content: counter(steps);
+      flex: 0 0 auto;
+      width: 1.8rem;
+      height: 1.8rem;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: 0.78rem;
+      font-weight: 800;
+      margin-top: 0.05rem;
+    }
+    [data-theme="dark"] .step-list li::before { color: #0e1017; }
+    .step-list li > div { min-width: 0; }
+    .step-list li strong { display: block; font-size: 0.92rem; color: var(--ink); margin-bottom: 0.2rem; }
+    .step-list li p { margin: 0; }
+
+    /* ── Architecture diagram ────────────────────────────────────────────── */
+    .arch-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 0.75rem;
+      margin: 1rem 0;
+    }
+    .arch-node {
+      background: var(--inner);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.9rem 1rem;
+    }
+    .arch-node h4 { font-size: 0.85rem; font-weight: 700; margin-bottom: 0.35rem; color: var(--ink); }
+    .arch-node p { font-size: 0.8rem; color: var(--muted); margin: 0; line-height: 1.5; }
+
+    /* ── Footer ──────────────────────────────────────────────────────────── */
+    footer {
+      text-align: center;
+      padding: 2.5rem 1.5rem;
+      font-size: 0.82rem;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+    }
+    footer a { color: var(--accent); }
+
+    /* ── Scroll-reveal animation ─────────────────────────────────────────── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(18px);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
+    .reveal.visible { opacity: 1; transform: none; }
+  </style>
+</head>
+<body>
+
+  <!-- ── Navigation ──────────────────────────────────────────────────────── -->
+  <nav>
+    <span class="nav-brand">MemoryMap <span>AI</span></span>
+    <div class="nav-links">
+      <a href="#intro" class="active">Home</a>
+      <a href="#quickstart">Quick Start</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#roadmap">Roadmap</a>
+      <a href="#config">Configuration</a>
+    </div>
+    <div class="nav-actions">
+      <button class="btn-theme" data-theme-toggle aria-label="Toggle theme">🌙</button>
+      <a href="https://github.com/Braydenh563/MemoryMap-AI" target="_blank" rel="noopener" class="btn-gh">GitHub ↗</a>
+    </div>
+  </nav>
+
+  <!-- ── Hero ────────────────────────────────────────────────────────────── -->
+  <section class="hero" id="intro">
+    <div class="hero-label">Local-first · AI-powered · Open source</div>
+    <h1>Your personal <span class="accent">memory map</span>,<br>built on local AI</h1>
+    <p>MemoryMap AI is a self-hosted knowledge base that stores notes, reminders, and thoughts, then lets you query, link, and surface them using a local LLM — no cloud, no subscriptions, no data leaving your machine.</p>
+    <div class="hero-ctas">
+      <a href="#quickstart" class="cta-primary">Get started</a>
+      <a href="https://github.com/Braydenh563/MemoryMap-AI" target="_blank" rel="noopener" class="cta-secondary">View on GitHub</a>
+    </div>
+  </section>
+
+  <!-- ── Feature cards ────────────────────────────────────────────────────── -->
+  <div class="features reveal">
+    <div class="glass feature-card">
+      <div class="feature-icon">🧠</div>
+      <h3>Semantic memory</h3>
+      <p>Notes are embedded with a local model and retrieved by meaning, not just keyword match.</p>
+    </div>
+    <div class="glass feature-card">
+      <div class="feature-icon">🔒</div>
+      <h3>100 % local</h3>
+      <p>Ollama for inference, ChromaDB for vectors, SQLite for storage. Nothing phones home.</p>
+    </div>
+    <div class="glass feature-card">
+      <div class="feature-icon">💬</div>
+      <h3>Conversational chat</h3>
+      <p>Ask questions in natural language and get answers grounded in your own notes.</p>
+    </div>
+    <div class="glass feature-card">
+      <div class="feature-icon">⏰</div>
+      <h3>Smart reminders</h3>
+      <p>Write reminders in plain English — the AI resolves dates, priorities, and recurring patterns.</p>
+    </div>
+    <div class="glass feature-card">
+      <div class="feature-icon">🎨</div>
+      <h3>Glassmorphism UI</h3>
+      <p>A translucent, dark-first interface with live blobs, themes, and density controls.</p>
+    </div>
+    <div class="glass feature-card">
+      <div class="feature-icon">🔌</div>
+      <h3>Model-agnostic</h3>
+      <p>Swap the Ollama model in Settings. Any model that supports tool calling works.</p>
+    </div>
+  </div>
+
+  <!-- ── Docs ─────────────────────────────────────────────────────────────── -->
+  <div class="docs-wrap">
+
+    <!-- Sidebar -->
+    <aside class="docs-sidebar glass">
+      <h4>Getting started</h4>
+      <ul>
+        <li><a href="#quickstart">Quick Start</a></li>
+        <li><a href="#prereqs">Prerequisites</a></li>
+        <li><a href="#install">Installation</a></li>
+      </ul>
+      <h4>Architecture</h4>
+      <ul>
+        <li><a href="#architecture">Overview</a></li>
+        <li><a href="#stack">Tech stack</a></li>
+        <li><a href="#flow">Data flow</a></li>
+      </ul>
+      <h4>Reference</h4>
+      <ul>
+        <li><a href="#config">Configuration</a></li>
+        <li><a href="#roadmap">Roadmap</a></li>
+      </ul>
+    </aside>
+
+    <!-- Content -->
+    <div class="docs-content">
+
+      <!-- Quick Start -->
+      <section class="doc-section glass reveal" id="quickstart">
+        <h2>Quick Start</h2>
+        <p>Get MemoryMap AI running locally in under five minutes. You'll need Python 3.11+, <a href="https://ollama.com" target="_blank" rel="noopener">Ollama</a>, and a model pulled locally.</p>
+
+        <div id="prereqs"></div>
+        <h3>Prerequisites</h3>
+        <ul>
+          <li><strong>Python 3.11+</strong> — check with <code>python --version</code></li>
+          <li><strong>Ollama</strong> — install from <a href="https://ollama.com" target="_blank" rel="noopener">ollama.com</a></li>
+          <li><strong>A local model</strong> — recommended: <code>ollama pull llama3.2</code></li>
+          <li><strong>An embedding model</strong> — <code>ollama pull nomic-embed-text</code></li>
+        </ul>
+
+        <div id="install"></div>
+        <h3>Installation</h3>
+        <ol class="step-list">
+          <li>
+            <div>
+              <strong>Clone the repository</strong>
+              <pre><code>git clone https://github.com/Braydenh563/MemoryMap-AI.git
+cd MemoryMap-AI</code></pre>
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>Install Python dependencies</strong>
+              <pre><code>pip install -e .</code></pre>
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>Configure your models</strong>
+              <p>Copy <code>config.example.json</code> to <code>config.json</code> and set your preferred Ollama model and embedding model.</p>
+              <pre><code>{
+  "model": "llama3.2",
+  "embed_model": "nomic-embed-text",
+  "ollama_url": "http://localhost:11434"
+}</code></pre>
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>Start the backend</strong>
+              <pre><code>python -m memorymap_ai.server</code></pre>
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>Open the UI</strong>
+              <p>Navigate to <code>http://localhost:7532</code> — the glassmorphism interface loads instantly.</p>
+            </div>
+          </li>
+        </ol>
+
+        <div class="callout"><p>💡 On first launch MemoryMap AI creates a local SQLite database and initialises the ChromaDB vector store in <code>~/.memorymap/</code>. No additional setup required.</p></div>
+      </section>
+
+      <!-- Architecture -->
+      <section class="doc-section glass reveal" id="architecture">
+        <h2>Architecture</h2>
+        <p>MemoryMap AI is a single-process Python server with a pure HTML/CSS/JS frontend. There are no external services, no authentication tokens, and no network calls outside your machine.</p>
+
+        <div class="arch-grid" id="stack">
+          <div class="arch-node">
+            <h4>Frontend</h4>
+            <p>Vanilla HTML + CSS + JS. Glassmorphism UI, tab-based navigation, live streaming via SSE.</p>
+          </div>
+          <div class="arch-node">
+            <h4>Backend</h4>
+            <p>Python (FastAPI). REST + SSE endpoints. Handles memory CRUD, AI orchestration, reminders.</p>
+          </div>
+          <div class="arch-node">
+            <h4>Vector store</h4>
+            <p>ChromaDB (local). Embeds and indexes every note for semantic retrieval.</p>
+          </div>
+          <div class="arch-node">
+            <h4>Relational store</h4>
+            <p>SQLite via SQLAlchemy. Notes, reminders, activity log, conversation history.</p>
+          </div>
+          <div class="arch-node">
+            <h4>Inference</h4>
+            <p>Ollama (local). Swappable model. Supports tool calling for structured memory operations.</p>
+          </div>
+          <div class="arch-node">
+            <h4>Embeddings</h4>
+            <p>nomic-embed-text (or any Ollama embed model). Runs entirely on device.</p>
+          </div>
+        </div>
+
+        <h3 id="flow">Data flow</h3>
+        <p>When you save a note the backend writes it to SQLite, embeds it via Ollama, and upserts the vector into ChromaDB. When you ask a question the query is embedded, the top-k most similar notes are retrieved, and those are injected into the LLM prompt as grounding context. The streamed response is sent back over SSE.</p>
+        <pre><code>User input
+  → FastAPI /ask endpoint
+  → embed query  (Ollama nomic-embed-text)
+  → vector search (ChromaDB top-k)
+  → build prompt  (system + retrieved notes + user query)
+  → stream tokens (Ollama LLM)
+  → SSE → frontend</code></pre>
+      </section>
+
+      <!-- Configuration -->
+      <section class="doc-section glass reveal" id="config">
+        <h2>Configuration</h2>
+        <p>All settings live in <code>config.json</code> at the project root. You can also change most of them live from the Settings → Appearance and Settings → AI panels in the UI.</p>
+
+        <h3>Key options</h3>
+        <ul>
+          <li><strong>model</strong> — Ollama model tag for chat inference (e.g. <code>llama3.2</code>, <code>mistral</code>)</li>
+          <li><strong>embed_model</strong> — Ollama model tag for embeddings (e.g. <code>nomic-embed-text</code>)</li>
+          <li><strong>ollama_url</strong> — Base URL for your Ollama instance (default <code>http://localhost:11434</code>)</li>
+          <li><strong>top_k</strong> — Number of notes retrieved per query (default <code>6</code>)</li>
+          <li><strong>port</strong> — Server port (default <code>7532</code>)</li>
+          <li><strong>data_dir</strong> — Where SQLite and ChromaDB are stored (default <code>~/.memorymap/</code>)</li>
+        </ul>
+
+        <div class="callout"><p>🔄 Changing <code>embed_model</code> after you've stored notes requires re-embedding the entire collection. Use the <strong>Settings → AI → Re-embed all</strong> button in the UI.</p></div>
+
+        <h3>Switching models</h3>
+        <p>Any model available via <code>ollama list</code> can be used. Models with native tool calling (Llama 3, Mistral, Qwen 2.5) give the best structured memory operations. You can also use GGUF quantised models for lower VRAM — just <code>ollama pull</code> the variant you want.</p>
+      </section>
+
+      <!-- Roadmap -->
+      <section class="doc-section glass reveal" id="roadmap">
+        <h2>Roadmap <span class="badge">active</span></h2>
+        <p>MemoryMap AI is under active development. The full roadmap lives in <a href="https://github.com/Braydenh563/MemoryMap-AI/blob/main/docs/ROADMAP.md" target="_blank" rel="noopener">docs/ROADMAP.md</a>. Key upcoming areas:</p>
+        <ul>
+          <li><strong>Agent skills</strong> — pluggable tools the AI can invoke (web search, calculator, calendar sync)</li>
+          <li><strong>Graph view</strong> — visualise note links as an interactive memory map</li>
+          <li><strong>Mobile PWA</strong> — installable on iOS/Android, syncs over local network</li>
+          <li><strong>Multi-user</strong> — per-user isolation with optional shared spaces</li>
+          <li><strong>Export / import</strong> — Markdown vault, Obsidian-compatible format</li>
+          <li><strong>QAT model support</strong> — optimised quantisation-aware inference paths</li>
+        </ul>
+        <div class="callout"><p>📋 See the <a href="https://github.com/Braydenh563/MemoryMap-AI/issues" target="_blank" rel="noopener">GitHub Issues</a> tracker for granular tasks and contribution opportunities.</p></div>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- ── Footer ───────────────────────────────────────────────────────────── -->
+  <footer>
+    <p>MemoryMap AI — built by <a href="https://github.com/Braydenh563" target="_blank" rel="noopener">Brayden Hoyle</a> · <a href="https://github.com/Braydenh563/MemoryMap-AI" target="_blank" rel="noopener">GitHub</a></p>
+  </footer>
+
+  <script>
+    // ── Theme toggle ─────────────────────────────────────────────────────
+    const html = document.documentElement;
+    const btn  = document.querySelector('[data-theme-toggle]');
+    let theme  = html.getAttribute('data-theme') ||
+                 (matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light');
+    html.setAttribute('data-theme', theme);
+    if (btn) btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+    if (btn) btn.addEventListener('click', () => {
+      theme = theme === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-theme', theme);
+      btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+    });
+
+    // ── Scroll-reveal ────────────────────────────────────────────────────
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); io.unobserve(e.target); } });
+    }, { threshold: 0.08 });
+    document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+    // ── Active nav on scroll ─────────────────────────────────────────────
+    const sections = document.querySelectorAll('section[id], div[id="install"]');
+    const navLinks = document.querySelectorAll('.nav-links a');
+    const sideLinks = document.querySelectorAll('.docs-sidebar a');
+    const allLinks  = [...navLinks, ...sideLinks];
+    const sio = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          allLinks.forEach(a => a.classList.remove('active'));
+          allLinks.filter(a => a.getAttribute('href') === '#' + e.target.id)
+                  .forEach(a => a.classList.add('active'));
+        }
+      });
+    }, { rootMargin: '-20% 0px -70% 0px' });
+    document.querySelectorAll('section[id]').forEach(s => sio.observe(s));
+  </script>
+</body>
+</html>

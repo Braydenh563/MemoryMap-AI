@@ -1,48 +1,40 @@
-# Docs: builds the MkDocs Material site and deploys it to GitHub Pages
-# on every push to main. The site lives at:
-#   https://braydenh563.github.io/MemoryMap-AI/
-#
-# Prerequisites (one-time, in the repo Settings UI):
-#   Settings → Pages → Source: "Deploy from a branch" → branch: gh-pages
-
-name: Docs
+name: Deploy Docs to GitHub Pages
 
 on:
   push:
     branches: [main]
     paths:
-      - "docs/**"
-      - "mkdocs.yml"
-      - "README.md"
-      - "CHANGELOG.md"
-      - "CONTRIBUTING.md"
-      - "SECURITY.md"
+      - 'docs/**'
+      - 'README.md'
   workflow_dispatch:
 
 permissions:
-  contents: write   # gh-deploy pushes to gh-pages branch
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
 
 jobs:
   deploy:
-    name: Build & deploy docs
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # full history for git-revision-date plugin
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
 
-      - name: Install MkDocs + plugins
-        run: |
-          pip install \
-            mkdocs-material \
-            mkdocs-git-revision-date-localized-plugin
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./docs
 
       - name: Deploy to GitHub Pages
-        run: mkdocs gh-deploy --force
+        id: deployment
+        uses: actions/deploy-pages@v4

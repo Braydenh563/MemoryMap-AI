@@ -445,6 +445,9 @@ function esc(t) {
 
 function inline(t) {
   return t
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*\*([^*]+)\*\*\*/g, '<strong><em>$1</em></strong>')
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
@@ -635,7 +638,7 @@ function mdToHtml(raw) {
             i = j - 1;
           } else break;
         } else if (/^ {2,}/.test(nxt) && !parseList(nxt)) {
-          content += ' ' + nxt.trim();
+          content += ' ' + inline(nxt.trim());
           i++;
         } else break;
       }
@@ -701,6 +704,7 @@ async function loadDoc(key) {
 
   const path  = DOC_MAP[key];
   const ghUrl = GH_BASE + path;
+  const bust  = '?t=' + Date.now(); // Cache-busting query parameter
 
   async function tryFetch(url) {
     const r = await fetchWithTimeout(url, 8000);
@@ -711,15 +715,19 @@ async function loadDoc(key) {
   }
 
   let md = null, lastErr = null;
-  try { md = await tryFetch(CDN_BASE + path); }
-  catch (e) { lastErr = e; try { md = await tryFetch(RAW_BASE + path); } catch (e2) { lastErr = e2; } }
+  try { md = await tryFetch(CDN_BASE + path + bust); }
+  catch (e) { lastErr = e; try { md = await tryFetch(RAW_BASE + path + bust); } catch (e2) { lastErr = e2; } }
 
   if (mmActive !== key) return;
 
   if (md) {
-    const html = mdToHtml(md);
-    if (html && html.trim()) { mmCache[key] = html; mmFrame.innerHTML = html; return; }
-    lastErr = new Error('render empty');
+    try {
+      const html = mdToHtml(md);
+      if (html && html.trim()) { mmCache[key] = html; mmFrame.innerHTML = html; return; }
+      lastErr = new Error('render empty');
+    } catch (err) {
+      lastErr = err; // Safely catch any catastrophic parser failures
+    }
   }
 
   mmFrame.innerHTML =

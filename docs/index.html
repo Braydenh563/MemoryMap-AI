@@ -459,7 +459,6 @@ function inline(t) {
 }
 
 // ── Markdown renderer ─────────────────────────────────────────────────────────
-// Straightforward line-by-line renderer with clean list state tracking.
 function mdToHtml(raw) {
   const s = raw
     .replace(/<img[^>]*>/gi, '')
@@ -468,17 +467,13 @@ function mdToHtml(raw) {
     .trim();
 
   const lines = s.split('\n');
-  const parts = []; // output fragments
+  const parts = []; 
 
   let inPre = false, preLang = '', preLines = [];
   let inTable = false;
-  let bqBuf = [];   // blockquote line buffer
-
-  // List state: stack of { tag:'ul'|'ol' }
-  // Between items we always close the previous <li> before opening a new one.
-  // listDepth 0 = no list open, 1 = top-level, 2 = nested.
-  let lists = [];   // stack of tag names
-  let liPending = false; // true when we've written <li>... but not </li> yet
+  let bqBuf = [];   
+  let lists = [];   
+  let liPending = false; 
 
   function closeLi() {
     if (liPending) { parts.push('</li>'); liPending = false; }
@@ -526,7 +521,6 @@ function mdToHtml(raw) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    // Fenced code
     if (line.trimStart().startsWith('```')) {
       if (!inPre) {
         flushAll();
@@ -546,7 +540,6 @@ function mdToHtml(raw) {
     }
     if (inPre) { preLines.push(line); continue; }
 
-    // Heading
     const hm = line.match(/^(#{1,6}) +(.+)/);
     if (hm) {
       flushAll();
@@ -555,14 +548,12 @@ function mdToHtml(raw) {
       continue;
     }
 
-    // HR
     if (/^[-*_]{3,}\s*$/.test(line.trim()) && !parseList(line)) {
       flushAll();
       parts.push('<hr>');
       continue;
     }
 
-    // Blockquote
     if (/^> ?/.test(line)) {
       flushTable(); closeListsTo(0);
       bqBuf.push(line.replace(/^> ?/, ''));
@@ -570,9 +561,8 @@ function mdToHtml(raw) {
     }
     if (bqBuf.length) flushBq();
 
-    // Table
     if (line.trim().startsWith('|')) {
-      if (/^[\s|:-]+$/.test(line)) continue; // separator row
+      if (/^[\s|:-]+$/.test(line)) continue; 
       closeListsTo(0);
       const cells = line.split('|').slice(1, -1).map(c => c.trim());
       if (!inTable) {
@@ -589,49 +579,40 @@ function mdToHtml(raw) {
     }
     if (inTable) flushTable();
 
-    // List item
     const li = parseList(line);
     if (li) {
       flushBq(); flushTable();
       const depth = li.indent < 2 ? 1 : 2;
 
       if (depth === 1) {
-        // Close any nested lists first, then close previous top-level li
         closeListsTo(1);
         if (lists.length === 0) {
-          // No list open yet
           parts.push('<' + li.tag + '>');
           lists.push(li.tag);
         } else if (lists[0] !== li.tag) {
-          // Type changed — close and reopen
           closeListsTo(0);
           parts.push('<' + li.tag + '>');
           lists.push(li.tag);
         } else {
-          // Same type, just close previous li
           closeLi();
         }
       } else {
-        // depth 2 = nested
         if (lists.length === 0) {
           parts.push('<' + li.tag + '>');
           lists.push(li.tag);
         }
         if (lists.length < 2) {
-          // Open nested list inside current open li (don't close it)
           parts.push('<' + li.tag + '>');
           lists.push(li.tag);
         } else {
-          closeLi(); // close previous nested li
+          closeLi(); 
         }
       }
 
-      // Accumulate continuation lines (indented, non-list lines)
       let content = inline(li.content);
       while (i + 1 < lines.length) {
         const nxt = lines[i + 1];
         if (nxt.trim() === '') {
-          // Peek: if next non-blank is still a continuation, absorb blank
           let j = i + 2;
           while (j < lines.length && !lines[j].trim()) j++;
           if (j < lines.length && /^ {2,}/.test(lines[j]) && !parseList(lines[j])) {
@@ -648,17 +629,14 @@ function mdToHtml(raw) {
       continue;
     }
 
-    // Blank line
     if (!line.trim()) {
       flushBq(); flushTable();
-      // Only close lists if next non-blank isn't another list item
       let j = i + 1;
       while (j < lines.length && !lines[j].trim()) j++;
       if (j >= lines.length || !parseList(lines[j])) closeListsTo(0);
       continue;
     }
 
-    // Plain paragraph
     flushAll();
     parts.push('<p>' + inline(line) + '</p>');
   }
@@ -690,7 +668,6 @@ function mmCopyCode(btn) {
 function fetchWithTimeout(url, ms) {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error('timeout')), ms);
-    // Force 'no-store' so the local browser NEVER caches an AdGuard-blocked response
     fetch(url, { cache: 'no-store' })
       .then(r => { clearTimeout(t); resolve(r); })
       .catch(e => { clearTimeout(t); reject(e); });
@@ -707,7 +684,14 @@ async function loadDoc(key) {
 
   const path  = DOC_MAP[key];
   const ghUrl = GH_BASE + path;
-  const bust  = '?t=' + Date.now(); // Cache-busting query parameter
+  const bust  = '?t=' + Date.now(); 
+
+  // 1. Primary CDN
+  const urlCDN = CDN_BASE + path + bust;
+  // 2. Secondary Raw
+  const urlRaw = RAW_BASE + path + bust;
+  // 3. Tertiary Proxy (Bypasses all tracker/DNS blocklists)
+  const urlProxy = '[https://api.allorigins.win/raw?url=](https://api.allorigins.win/raw?url=)' + encodeURIComponent(RAW_BASE + path);
 
   async function tryFetch(url) {
     const r = await fetchWithTimeout(url, 8000);
@@ -718,8 +702,20 @@ async function loadDoc(key) {
   }
 
   let md = null, lastErr = null;
-  try { md = await tryFetch(CDN_BASE + path + bust); }
-  catch (e) { lastErr = e; try { md = await tryFetch(RAW_BASE + path + bust); } catch (e2) { lastErr = e2; } }
+  
+  try { 
+    md = await tryFetch(urlCDN); 
+  } catch (e1) { 
+    try { 
+      md = await tryFetch(urlRaw); 
+    } catch (e2) { 
+      try {
+        md = await tryFetch(urlProxy);
+      } catch (e3) {
+        lastErr = e3; 
+      }
+    } 
+  }
 
   if (mmActive !== key) return;
 
@@ -729,7 +725,7 @@ async function loadDoc(key) {
       if (html && html.trim()) { mmCache[key] = html; mmFrame.innerHTML = html; return; }
       lastErr = new Error('render empty');
     } catch (err) {
-      lastErr = err; // Safely catch any catastrophic parser failures
+      lastErr = err; 
     }
   }
 
@@ -761,7 +757,13 @@ function resolveHashDoc() {
   }
   return 'architecture';
 }
-requestAnimationFrame(() => setTimeout(() => loadDoc(resolveHashDoc()), 120));
+
+// Execute strictly after the DOM has fully parsed and stabilized
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => loadDoc(resolveHashDoc()));
+} else {
+  loadDoc(resolveHashDoc());
+}
 </script>
 </body>
 </html>

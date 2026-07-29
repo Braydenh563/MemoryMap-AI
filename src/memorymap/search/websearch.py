@@ -29,6 +29,7 @@ from urllib.parse import (
     parse_qsl,
     unquote,
     urlencode,
+    urljoin,
     urlparse,
     urlunparse,
 )
@@ -733,6 +734,10 @@ def _get_external(url: str) -> requests.Response:
             # to stream from. Tying it to the response hands that lifetime to
             # the garbage collector.
             response._memorymap_session = session
+            # response.url is the pinned IP-literal — anything resolved
+            # against it (relative links, error messages) would leak the
+            # confusing rewritten address. Carry the real one alongside.
+            response._memorymap_url = url
             return response
     except BaseException:
         session.close()
@@ -773,9 +778,29 @@ def fetch_readable(url: str) -> dict:
         if "html" not in content_type and "text" not in content_type:
             raise WebSearchError("That link isn't a readable page")
         raw = response.raw.read(_READER_MAX_BYTES, decode_content=True) or b""
+    except requests.HTTPError as exc:
+        # Name the site, not the pinned IP-literal the request was aimed at —
+        # "403 for https://162.159.142.170:443/…" reads as our bug, and the
+        # interesting part is *why*: 403/429/503 from a fetch that presents
+        # ordinary headers is almost always bot protection (Cloudflare and
+        # friends fingerprint the TLS handshake itself), which no local
+        # reader can pass. Say so, instead of leaving a raw status to explain.
+        status = exc.response.status_code if exc.response is not None else 0
+        if status in (403, 429, 503):
+            raise WebSearchError(
+                f"{domain_of(url)} refused the reader ({status}) — its bot "
+                "protection wants a real browser. Open the link there instead."
+            ) from exc
+        raise WebSearchError(
+            f"Couldn't open that page: {domain_of(url)} answered {status}"
+        ) from exc
     except requests.RequestException as exc:
         raise WebSearchError(f"Couldn't open that page: {exc}") from exc
 
+    # Relative links resolve against where the page actually came from
+    # (redirects included) — never against response.url, which is the
+    # pinned IP-literal.
+    final_url = getattr(response, "_memorymap_url", url)
     page = raw.decode(response.encoding or "utf-8", errors="replace")
     blocks = _readable_blocks(page)
     words = sum(len(block["text"].split()) for block in blocks)
@@ -785,6 +810,7 @@ def fetch_readable(url: str) -> dict:
         "title": _page_title(page) or domain_of(url),
         "text": _readable_text(page)[:_READER_MAX_CHARS],
         "blocks": blocks,
+        "links": _page_links(page, final_url),
         "words": words,
         # Roughly how long this is, so you can decide whether to read it here
         # or save it for later before scrolling to find out.
@@ -803,17 +829,59 @@ _JUNK_PATTERNS = re.compile(
 )
 
 
+def _content_body(page: str) -> str:
+    """The page minus its furniture, narrowed to the article when marked up.
+
+    Shared by the block parser and the link collector, so both read the same
+    part of the page — links from a stripped nav bar would be exactly the
+    chrome the stripping exists to drop.
+    """
+    body = re.sub(rf"(?is)<({_STRIP_TAGS})[^>]{{0,400}}>.{{0,200000}}?</\1>", " ", page)
+    article = re.search(r"(?is)<(article|main)[^>]{0,400}>(.{0,500000}?)</\1>", body)
+    return article.group(2) if article else body
+
+
+_LINK_RE = re.compile(
+    r"(?is)<a\s[^>]{0,600}?href\s*=\s*([\"'])(.{1,2000}?)\1[^>]{0,600}>(.{0,2000}?)</a>"
+)
+
+
+def _page_links(page: str, base_url: str, limit: int = 40) -> list[dict]:
+    """The article's outgoing links: [{text, url}], absolute and cleaned.
+
+    So an agent that has read a page can cite where its statements lead and
+    follow up without a second search. Only http(s) targets survive —
+    javascript:, data: and mailto: are dropped by the same check every
+    reader URL passes — and following one still goes through the full
+    address check and pinning in fetch_readable; nothing here is fetched.
+    """
+    links: list[dict] = []
+    seen: set[str] = set()
+    for match in _LINK_RE.finditer(_content_body(page)):
+        label = re.sub(r"[ \t ]+", " ", _strip_tags(match.group(3))).strip()
+        if len(label) < 2:
+            continue  # icon and anchor links say nothing worth keeping
+        absolute = urljoin(base_url, html.unescape(match.group(2)).strip())
+        scheme, _host = _split_url(absolute)
+        if not scheme:
+            continue
+        absolute = strip_tracking(absolute.split("#", 1)[0])
+        if not absolute or absolute in seen:
+            continue
+        seen.add(absolute)
+        links.append({"text": label[:120], "url": absolute})
+        if len(links) >= limit:
+            break
+    return links
+
+
 def _readable_blocks(page: str) -> list[dict]:
     """Structured [{type, text}] so the reader can lay the page out properly.
 
     Returning headings and paragraphs separately is what turns a wall of text
     into something you can actually read.
     """
-    body = re.sub(rf"(?is)<({_STRIP_TAGS})[^>]{{0,400}}>.{{0,200000}}?</\1>", " ", page)
-    # Prefer the main article when the page marks one up.
-    article = re.search(r"(?is)<(article|main)[^>]{0,400}>(.{0,500000}?)</\1>", body)
-    if article:
-        body = article.group(2)
+    body = _content_body(page)
 
     blocks: list[dict] = []
     pattern = re.compile(

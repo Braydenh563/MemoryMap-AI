@@ -1,0 +1,48 @@
+# Docs: builds the MkDocs Material site and deploys it to GitHub Pages
+# on every push to main. The site lives at:
+#   https://braydenh563.github.io/MemoryMap-AI/
+#
+# Prerequisites (one-time, in the repo Settings UI):
+#   Settings → Pages → Source: "Deploy from a branch" → branch: gh-pages
+
+name: Docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "README.md"
+      - "CHANGELOG.md"
+      - "CONTRIBUTING.md"
+      - "SECURITY.md"
+  workflow_dispatch:
+
+permissions:
+  contents: write   # gh-deploy pushes to gh-pages branch
+
+jobs:
+  deploy:
+    name: Build & deploy docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history for git-revision-date plugin
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install MkDocs + plugins
+        run: |
+          pip install \
+            mkdocs-material \
+            mkdocs-git-revision-date-localized-plugin
+
+      - name: Deploy to GitHub Pages
+        run: mkdocs gh-deploy --force

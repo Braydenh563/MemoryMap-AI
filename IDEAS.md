@@ -3,6 +3,7 @@
 Good ideas that are **out of scope right now** get written here instead of
 built (build plan §0: never expand scope mid-phase).
 
+- A guided setup on first install (like setting your name, choosing a model if one isn't yet downloaded, a tour, making the first note etc)
 - A mini bar at the bottom with various statuses and quick access to the command palatte
 - Allow for saving of custom appearances and themes. 
 - Make notebook constelation regenerate on light/dark theme change. 

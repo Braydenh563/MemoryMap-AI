@@ -335,8 +335,44 @@ def test_the_generated_settings_remove_broken_engines_rather_than_disable(
         removes = text.split("remove:", 1)[1].split("server:", 1)[0]
     for engine in ("google", "bing", "wikidata", "brave", "ahmia", "torch", "bilibili"):
         assert f"- {engine}" in removes, f"{engine} should be on the remove list"
-    # No engine merge entries at all: they are what broke the torch start.
-    assert "\nengines:" not in text
+    # Engines that share a removed engine's network must go with it —
+    # SearXNG's network init does NETWORKS[name] = NETWORKS['brave'] and
+    # dies with KeyError: 'brave' if they stay. Reported from a real start.
+    for engine in ("brave.images", "brave.videos", "brave.news"):
+        assert f"- {engine}" in removes, f"{engine} shares brave's network"
+    # Merge entries may only flip `disabled` — an `engine:` key is what sent
+    # SearXNG after a torch.py that does not exist.
+    engines_block = text.split("\nengines:", 1)[1].split("\nplugins:", 1)[0]
+    code_lines = [
+        line for line in engines_block.splitlines() if not line.strip().startswith("#")
+    ]
+    assert not any("engine:" in line for line in code_lines)
+
+
+def test_engines_borrowing_a_removed_network_are_removed_too(app_state):
+    """The brave KeyError, generalised: upstream may add engines that borrow
+    a removed engine's network at any time, so the removal list is read from
+    the installed checkout's own settings.yml rather than predicted."""
+    defaults = searxng_manager._source_dir(app_state.data_dir) / "searx" / "settings.yml"
+    defaults.parent.mkdir(parents=True, exist_ok=True)
+    defaults.write_text(
+        "server:\n  port: 8888\n"
+        "engines:\n"
+        "  - name: shiny new engine\n"
+        "    engine: xpath\n"
+        "    network: google\n"
+        "  - name: harmless\n"
+        "    engine: xpath\n"
+        "  - name: borrower of a borrower\n"
+        "    network: shiny new engine\n"
+        "doi_resolvers:\n  x: y\n",
+        encoding="utf-8",
+    )
+    text = searxng_manager.ensure_settings(app_state.data_dir).read_text()
+    removes = text.split("remove:", 1)[1].split("server:", 1)[0]
+    assert "- shiny new engine" in removes
+    assert "- borrower of a borrower" in removes, "the scan must chase chains"
+    assert "- harmless" not in removes
 
 
 def _passing_install(monkeypatch, tmp_path, data_dir):

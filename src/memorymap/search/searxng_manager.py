@@ -200,9 +200,16 @@ use_default_settings:
       - bing
       - wikidata
       - brave
+      # Removing an engine must take every engine that shares its network:
+      # these three declare `network: brave`, and SearXNG's network init
+      # does NETWORKS[name] = NETWORKS['brave'] — KeyError once brave is
+      # gone, and the whole start dies on it.
+      - brave.images
+      - brave.videos
+      - brave.news
       - ahmia
       - torch
-      - bilibili
+      - bilibili{extra_removes}
 server:
   secret_key: "{secret}"
   limiter: false
@@ -216,6 +223,17 @@ outgoing:
   # Short timeouts prevent a single blocked engine from stalling all results.
   request_timeout: 3.0
   max_request_timeout: 6.0
+engines:
+  # One general engine is not enough: DuckDuckGo rate-limits by IP, and a
+  # home instance that leans on it alone goes dark the moment it throttles.
+  # Qwant and Mojeek run their own indexes and tolerate private instances.
+  # Deliberately no `engine:` key — these merge onto the default entries by
+  # name and only flip `disabled`, so they can never point an entry at a
+  # module that is not there (which is how the torch override broke starts).
+  - name: qwant
+    disabled: false
+  - name: mojeek
+    disabled: false
 plugins:
   # Off deliberately. This plugin downloads a rules file from
   # rules1.clearurls.xyz *during startup*, and a failure there is not caught:
@@ -1181,6 +1199,73 @@ def _existing_secret_key(path: Path) -> str | None:
     return None
 
 
+# The names SETTINGS_TEMPLATE removes, kept in one place so the network-ref
+# scan below can reason about them without re-parsing our own template.
+REMOVED_ENGINES = (
+    "google",
+    "bing",
+    "wikidata",
+    "brave",
+    "brave.images",
+    "brave.videos",
+    "brave.news",
+    "ahmia",
+    "torch",
+    "bilibili",
+)
+
+
+def _engines_sharing_removed_networks(defaults_text: str, removed: set[str]) -> list[str]:
+    """Engines in SearXNG's own settings.yml whose `network:` names one of
+    ours. A light line scan rather than a YAML parse: MemoryMap doesn't
+    depend on a YAML library, and the file is machine-formatted."""
+    found: list[str] = []
+    name = None
+    in_engines = False
+    for line in defaults_text.splitlines():
+        if line.startswith("engines:"):
+            in_engines = True
+            continue
+        if in_engines and line and not line[0].isspace():
+            break  # left the engines block
+        if not in_engines:
+            continue
+        stripped = line.strip()
+        if stripped.startswith("- name:"):
+            name = stripped.split(":", 1)[1].strip().strip("'\"")
+        elif stripped.startswith("network:") and name and name not in removed:
+            network = stripped.split(":", 1)[1].strip().strip("'\"")
+            if network in removed:
+                found.append(name)
+    return found
+
+
+def _extra_removes(data_dir: Path) -> list[str]:
+    """Engines the installed checkout forces us to remove along with ours.
+
+    The brave lesson, generalised: SearXNG's network init runs
+    `NETWORKS[name] = NETWORKS[network]` for every engine that borrows
+    another's network, and a borrowed name we removed is a KeyError that
+    kills the whole start. Upstream is free to add such engines at any
+    time, so the list is read from the checkout's own settings.yml at
+    write time rather than predicted here. Empty when there is no checkout
+    to read (Docker ships defaults the static list already covers).
+    """
+    defaults = _source_dir(data_dir) / "searx" / "settings.yml"
+    try:
+        text = defaults.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return []
+    removed = set(REMOVED_ENGINES)
+    extra: list[str] = []
+    while True:  # a borrower can itself be borrowed from; chase to a fixpoint
+        found = _engines_sharing_removed_networks(text, removed)
+        if not found:
+            return extra
+        extra.extend(found)
+        removed.update(found)
+
+
 def ensure_settings(data_dir: Path, rewrite: bool = True) -> Path:
     """Write the managed settings file, refreshing it by default so fixes
     to engine defaults (rate-limited engines, timeouts, plugins) reach
@@ -1191,8 +1276,10 @@ def ensure_settings(data_dir: Path, rewrite: bool = True) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     secret = _existing_secret_key(path) or secrets.token_hex(24)
     if rewrite or not path.exists():
+        extra = "".join(f"\n      - {name}" for name in _extra_removes(data_dir))
         path.write_text(
-            SETTINGS_TEMPLATE.format(secret=secret), encoding="utf-8"
+            SETTINGS_TEMPLATE.format(secret=secret, extra_removes=extra),
+            encoding="utf-8",
         )
     return path
 

@@ -5,50 +5,54 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MemoryMap AI</title>
   <meta name="description" content="Your thoughts, mapped by a local AI. 100% offline, on your machine." />
-  <link rel="icon" type="image/svg+xml" href="https://raw.githubusercontent.com/Braydenh563/MemoryMap-AI/main/frontend/favicon.svg" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cline x1='6' y1='18' x2='12' y2='6' stroke='%23b23a2e' stroke-width='1.8'/%3E%3Cline x1='12' y1='6' x2='18' y2='18' stroke='%23b23a2e' stroke-width='1.8'/%3E%3Cline x1='6' y1='18' x2='18' y2='18' stroke='%23b23a2e' stroke-width='1.8'/%3E%3Ccircle cx='6' cy='18' r='2.5' fill='%23b23a2e'/%3E%3Ccircle cx='18' cy='18' r='2.5' fill='%23b23a2e'/%3E%3Ccircle cx='12' cy='6' r='2.5' fill='%23b23a2e'/%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --page: linear-gradient(135deg,#e9edfb 0%,#f6f2ec 45%,#e6f1f2 100%);
-      --blob-a: rgba(79,109,245,.20); --blob-b: rgba(157,88,245,.14);
-      --card: rgba(255,255,255,.55); --inner: rgba(255,255,255,.40);
-      --gb: rgba(255,255,255,.65);
-      --gs: 0 8px 32px rgba(31,38,135,.14);
-      --ink: #1f2430; --muted: #5b6472; --faint: #9aa1b4;
-      --accent: #4f6df5; --as: rgba(79,109,245,.13);
-      --chip: rgba(31,36,48,.07); --border: rgba(31,36,48,.10);
-      --r: 13px; --blur: 18px;
+      --page: radial-gradient(900px 520px at 12% 0%, var(--blob-a), transparent 62%),
+              radial-gradient(820px 560px at 92% 100%, var(--blob-b), transparent 62%),
+              #eceae4;
+      --blob-a: rgba(178,58,46,.10); --blob-b: rgba(58,92,86,.10);
+      --card: rgba(255,255,255,.60); --inner: rgba(255,255,255,.45);
+      --gb: rgba(30,28,24,.08);
+      --gs: 0 8px 28px rgba(30,25,20,.10);
+      --ink: #211d18; --muted: #5c574c; --faint: #98917f;
+      --accent: #b23a2e; --as: rgba(178,58,46,.11);
+      --chip: rgba(30,28,24,.06); --border: rgba(30,28,24,.11);
+      --r: 12px; --blur: 16px;
+      --mono: ui-monospace,'Space Mono','Cascadia Code',Consolas,monospace;
     }
     [data-theme="dark"] {
-      --page: linear-gradient(135deg,#0e1017 0%,#171a26 45%,#0f1720 100%);
-      --blob-a: rgba(123,144,247,.16); --blob-b: rgba(88,235,245,.07);
-      --card: rgba(29,33,46,.55); --inner: rgba(255,255,255,.05);
-      --gb: rgba(255,255,255,.10); --gs: 0 8px 32px rgba(0,0,0,.45);
-      --ink: #e7e9ee; --muted: #9aa1ad; --faint: #5a6070;
-      --accent: #8b9df8; --as: rgba(123,144,247,.18);
-      --chip: rgba(255,255,255,.07); --border: rgba(255,255,255,.09);
+      --page: radial-gradient(900px 520px at 12% 0%, var(--blob-a), transparent 62%),
+              radial-gradient(820px 560px at 92% 100%, var(--blob-b), transparent 62%),
+              #15140f;
+      --blob-a: rgba(224,110,90,.14); --blob-b: rgba(90,140,128,.10);
+      --card: rgba(30,27,21,.60); --inner: rgba(255,252,246,.05);
+      --gb: rgba(255,250,240,.09); --gs: 0 8px 28px rgba(0,0,0,.42);
+      --ink: #ece6d9; --muted: #a89f8d; --faint: #6c6656;
+      --accent: #e0806e; --as: rgba(224,128,110,.16);
+      --chip: rgba(255,250,240,.06); --border: rgba(255,250,240,.10);
     }
     @media (prefers-color-scheme:dark) {
       :root:not([data-theme="light"]) {
-        --page: linear-gradient(135deg,#0e1017 0%,#171a26 45%,#0f1720 100%);
-        --blob-a: rgba(123,144,247,.16); --blob-b: rgba(88,235,245,.07);
-        --card: rgba(29,33,46,.55); --inner: rgba(255,255,255,.05);
-        --gb: rgba(255,255,255,.10); --gs: 0 8px 32px rgba(0,0,0,.45);
-        --ink: #e7e9ee; --muted: #9aa1ad; --faint: #5a6070;
-        --accent: #8b9df8; --as: rgba(123,144,247,.18);
-        --chip: rgba(255,255,255,.07); --border: rgba(255,255,255,.09);
+        --page: radial-gradient(900px 520px at 12% 0%, var(--blob-a), transparent 62%),
+                radial-gradient(820px 560px at 92% 100%, var(--blob-b), transparent 62%),
+                #15140f;
+        --blob-a: rgba(224,110,90,.14); --blob-b: rgba(90,140,128,.10);
+        --card: rgba(30,27,21,.60); --inner: rgba(255,252,246,.05);
+        --gb: rgba(255,250,240,.09); --gs: 0 8px 28px rgba(0,0,0,.42);
+        --ink: #ece6d9; --muted: #a89f8d; --faint: #6c6656;
+        --accent: #e0806e; --as: rgba(224,128,110,.16);
+        --chip: rgba(255,250,240,.06); --border: rgba(255,250,240,.10);
       }
     }
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
     html {
       scroll-behavior:smooth; scroll-padding-top:4.5rem;
       min-height:100%;
-      background:
-        radial-gradient(600px 400px at 12% 6%, var(--blob-a), transparent 70%),
-        radial-gradient(700px 500px at 88% 92%, var(--blob-b), transparent 70%),
-        var(--page);
+      background:var(--page);
       background-attachment:fixed;
     }
     body{font-family:'Inter',system-ui,sans-serif;color:var(--ink);line-height:1.6;min-height:100vh;}
@@ -59,8 +63,8 @@
     @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;}}
     .g{
       background:var(--card);
-      backdrop-filter:blur(var(--blur)) saturate(150%);
-      -webkit-backdrop-filter:blur(var(--blur)) saturate(150%);
+      backdrop-filter:blur(var(--blur)) saturate(140%);
+      -webkit-backdrop-filter:blur(var(--blur)) saturate(140%);
       border:1px solid var(--gb);
       border-radius:var(--r);
       box-shadow:var(--gs);
@@ -71,12 +75,12 @@
       padding:.5rem 1.75rem;
       border-bottom:1px solid var(--gb);
       background:var(--card);
-      backdrop-filter:blur(22px) saturate(160%);
-      -webkit-backdrop-filter:blur(22px) saturate(160%);
+      backdrop-filter:blur(20px) saturate(150%);
+      -webkit-backdrop-filter:blur(20px) saturate(150%);
     }
     .nav-logo{display:flex;align-items:center;gap:.55rem;flex:0 0 auto;text-decoration:none!important;color:inherit;}
-    .nav-logo img{width:26px;height:26px;}
-    .nav-logo span{font-size:.88rem;font-weight:700;letter-spacing:.03em;white-space:nowrap;}
+    .nav-logo svg{width:22px;height:22px;flex-shrink:0;}
+    .nav-logo span{font-family:var(--mono);font-size:.86rem;font-weight:700;letter-spacing:.01em;white-space:nowrap;}
     .nav-tabs{display:flex;gap:.1rem;flex:1;overflow-x:auto;scrollbar-width:none;}
     .nav-tabs::-webkit-scrollbar{display:none;}
     .nav-tabs a{
@@ -95,67 +99,73 @@
     }
     .btn-ghost{background:var(--chip);color:var(--ink);border:1px solid var(--gb);}
     .btn-ghost:hover{background:var(--as);}
-    .btn-accent{background:var(--accent);color:#fff;}
-    [data-theme="dark"] .btn-accent{color:#0e1017;}
+    .btn-accent{background:var(--accent);color:#fff9f4;}
     .btn-accent:hover{filter:brightness(1.08);}
     .stars-badge{display:inline-flex;align-items:center;gap:.3rem;font-size:.78rem;color:var(--muted);text-decoration:none!important;}
     .stars-badge:hover{color:var(--ink);}
     .stars-badge svg{width:13px;height:13px;fill:currentColor;opacity:.7;}
-    .hero{max-width:780px;margin:6rem auto 0;padding:0 1.5rem;}
+    .hero{position:relative;max-width:780px;margin:6rem auto 0;padding:0 1.5rem;}
+    .hero-board{position:absolute;top:-2rem;right:-2.5rem;width:340px;height:auto;pointer-events:none;opacity:.6;z-index:0;}
+    .mm-card rect{fill:var(--card);stroke:var(--gb);stroke-width:1.2;}
+    .mm-card .mm-pin{fill:var(--accent);}
+    .mm-thread{fill:none;stroke:var(--accent);stroke-width:1.3;opacity:.45;stroke-linecap:round;}
+    @media(max-width:980px){.hero-board{display:none;}}
+    .hero>*{position:relative;z-index:1;}
     .hero-eyebrow{
       display:inline-flex;align-items:center;gap:.5rem;
       margin-bottom:1.5rem;
-      font-size:.76rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+      font-family:var(--mono);
+      font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
       color:var(--muted);
     }
     .hero-eyebrow::before,.hero-eyebrow::after{content:'';flex:1;height:1px;background:var(--border);}
     .hero-eyebrow::before{max-width:3rem;}
     .hero-eyebrow::after{max-width:3rem;}
-    .hero h1{font-size:clamp(2rem,4.5vw,3.2rem);font-weight:800;letter-spacing:-.03em;line-height:1.08;margin-bottom:1.4rem;}
+    .hero h1{font-family:'Space Mono',var(--mono);font-size:clamp(1.7rem,4.2vw,2.9rem);font-weight:700;letter-spacing:-.01em;line-height:1.2;margin-bottom:1.4rem;}
     .hero h1 em{font-style:normal;color:var(--accent);}
     .hero-sub{font-size:clamp(.95rem,1.4vw,1.1rem);color:var(--muted);max-width:56ch;line-height:1.75;margin-bottom:.9rem;}
-    .hero-flow{font-size:.83rem;color:var(--faint);font-family:ui-monospace,'Cascadia Code',Consolas,monospace;margin-bottom:2.2rem;letter-spacing:.01em;}
+    .hero-flow{font-size:.82rem;color:var(--faint);font-family:var(--mono);margin-bottom:2.2rem;letter-spacing:.01em;}
     .hero-ctas{display:flex;gap:.65rem;flex-wrap:wrap;margin-bottom:3.5rem;}
     .btn-lg{
       display:inline-flex;align-items:center;gap:.4rem;
-      padding:.7rem 1.5rem;border-radius:11px;
+      padding:.7rem 1.5rem;border-radius:10px;
       font-size:.92rem;font-weight:600;font-family:inherit;cursor:pointer;
       transition:filter .12s,transform .08s,background .13s;border:none;
     }
     .btn-lg:hover{transform:translateY(-1px);}
-    .btn-lg.primary{background:var(--accent);color:#fff;box-shadow:0 4px 18px rgba(79,109,245,.28);}
-    [data-theme="dark"] .btn-lg.primary{color:#0e1017;}
+    .btn-lg.primary{background:var(--accent);color:#fff9f4;box-shadow:0 4px 16px rgba(178,58,46,.25);}
     .btn-lg.primary:hover{filter:brightness(1.07);}
     .btn-lg.secondary{background:var(--chip);color:var(--ink);border:1px solid var(--gb);}
     .btn-lg.secondary:hover{background:var(--as);}
     .tabs-section{max-width:900px;margin:0 auto 5rem;padding:0 1.5rem;}
-    .section-label{font-size:.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);margin-bottom:1.4rem;}
+    .section-label{font-family:var(--mono);font-size:.7rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);margin-bottom:1.4rem;}
     .tab-row{display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:1.2rem;}
     .tab-pill{
       padding:.3rem .85rem;border-radius:999px;
-      font-size:.82rem;font-weight:600;cursor:pointer;
+      font-family:var(--mono);
+      font-size:.79rem;font-weight:700;cursor:pointer;
       background:var(--chip);color:var(--muted);
       border:1px solid var(--border);
       transition:background .13s,color .13s,border-color .13s;
-      font-family:inherit;
     }
     .tab-pill.on,.tab-pill:hover{background:var(--as);color:var(--ink);border-color:var(--accent);}
     .tab-pane{display:none;animation:fade .22s ease;}
     .tab-pane.on{display:block;}
     @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
     .tab-card{padding:1.5rem 1.75rem;}
-    .tab-card h3{font-size:1rem;font-weight:700;margin-bottom:.55rem;}
+    .tab-card h3{font-family:var(--mono);font-size:.95rem;font-weight:700;margin-bottom:.55rem;}
     .tab-card p{font-size:.9rem;color:var(--muted);max-width:68ch;line-height:1.7;}
-    .tab-card code{background:var(--chip);padding:.1rem .36rem;border-radius:4px;font-size:.83em;font-family:ui-monospace,'Cascadia Code',Consolas,monospace;}
+    .tab-card code{background:var(--chip);padding:.1rem .36rem;border-radius:4px;font-size:.83em;font-family:var(--mono);}
     .qs-section{max-width:720px;margin:0 auto 5rem;padding:0 1.5rem;}
     .qs-card{padding:1.75rem 2rem;}
-    .qs-card h2{font-size:1.2rem;font-weight:700;margin-bottom:1.1rem;}
+    .qs-card h2{font-family:var(--mono);font-size:1.1rem;font-weight:700;margin-bottom:1.1rem;}
     .platform-tabs{display:flex;gap:.3rem;margin-bottom:1.1rem;}
     .ptab{
       padding:.25rem .75rem;border-radius:8px;
-      font-size:.8rem;font-weight:600;cursor:pointer;
+      font-family:var(--mono);
+      font-size:.78rem;font-weight:700;cursor:pointer;
       background:var(--chip);color:var(--muted);border:1px solid var(--border);
-      transition:background .13s,color .13s;font-family:inherit;
+      transition:background .13s,color .13s;
     }
     .ptab.on,.ptab:hover{background:var(--as);color:var(--ink);}
     .pcontent{display:none;}
@@ -164,10 +174,10 @@
       background:var(--inner);border:1px solid var(--border);
       border-radius:9px;padding:1rem 1.1rem;
       overflow-x:auto;font-size:.82rem;line-height:1.65;
-      font-family:ui-monospace,'Cascadia Code',Consolas,monospace;
+      font-family:var(--mono);
       margin:.75rem 0 1rem;
     }
-    code{font-family:ui-monospace,'Cascadia Code',Consolas,monospace;font-size:.85em;}
+    code{font-family:var(--mono);font-size:.85em;}
     p code,li code{background:var(--chip);padding:.1rem .36rem;border-radius:4px;font-size:.83em;}
     .note{
       font-size:.83rem;color:var(--muted);
@@ -179,10 +189,11 @@
     .ref-pick{display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:1.1rem;}
     .dpill{
       padding:.3rem .85rem;border-radius:999px;
-      font-size:.82rem;font-weight:600;cursor:pointer;
+      font-family:var(--mono);
+      font-size:.79rem;font-weight:700;cursor:pointer;
       background:var(--chip);color:var(--muted);
       border:1px solid var(--border);
-      transition:background .13s,color .13s;font-family:inherit;
+      transition:background .13s,color .13s;
     }
     .dpill.on{background:var(--as);color:var(--ink);border-color:var(--accent);}
     .dpill:hover{background:var(--as);color:var(--ink);}
@@ -207,7 +218,7 @@
       background:var(--inner);border:1px solid var(--border);
       border-radius:9px;padding:.85rem 1rem;
       overflow-x:auto;font-size:.8rem;line-height:1.6;
-      font-family:ui-monospace,'Cascadia Code',Consolas,monospace;
+      font-family:var(--mono);
       max-width:100%;margin:0;
     }
     .mm-ref-body .copy-btn{
@@ -219,7 +230,7 @@
       opacity:.7;
     }
     .mm-ref-body .copy-btn:hover{opacity:1;background:var(--as);color:var(--ink);}
-    .mm-ref-body code{font-family:ui-monospace,'Cascadia Code',Consolas,monospace;font-size:.83em;background:var(--chip);padding:.1rem .33rem;border-radius:4px;}
+    .mm-ref-body code{font-family:var(--mono);font-size:.83em;background:var(--chip);padding:.1rem .33rem;border-radius:4px;}
     .mm-ref-body pre code{background:none;padding:0;font-size:inherit;white-space:pre;}
     .mm-ref-body table{width:100%;border-collapse:collapse;font-size:.84rem;margin:.6rem 0 1.1rem;overflow-x:auto;display:block;}
     .mm-ref-body th{text-align:left;font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--faint);padding:.5rem .75rem;border-bottom:2px solid var(--border);background:var(--chip);}
@@ -266,13 +277,24 @@
       font-family:inherit;transition:background .13s;
     }
     .mm-retry-btn:hover{background:var(--as);}
+    .mm-stale-note{
+      display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;
+      font-size:.78rem;color:var(--muted);
+      background:var(--as);border-left:2px solid var(--accent);
+      padding:.5rem .85rem;border-radius:0 8px 8px 0;margin-bottom:1.2rem;
+    }
+    .mm-stale-note button{
+      font-family:inherit;font-size:.76rem;font-weight:600;cursor:pointer;
+      background:var(--chip);color:var(--ink);border:1px solid var(--border);
+      border-radius:6px;padding:.15rem .55rem;
+    }
     footer{text-align:center;padding:2.5rem 1.5rem 3rem;font-size:.8rem;color:var(--faint);border-top:1px solid var(--border);}
     footer a{color:var(--accent);}
     .reveal{opacity:0;transform:translateY(14px);transition:opacity .45s ease,transform .45s ease;}
     .reveal.in{opacity:1;transform:none;}
     @media(max-width:600px){
       .hero{margin-top:4rem;}
-      .hero h1{font-size:1.9rem;}
+      .hero h1{font-size:1.55rem;}
       .qs-card,.tab-card,.mm-ref-body{padding:1.2rem 1.1rem;}
     }
   </style>
@@ -281,7 +303,14 @@
 
 <nav>
   <a class="nav-logo" href="#top">
-    <img src="https://raw.githubusercontent.com/Braydenh563/MemoryMap-AI/main/frontend/favicon.svg" alt="MemoryMap AI" width="26" height="26" loading="eager" />
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <line x1="6" y1="18" x2="12" y2="6" stroke="var(--accent)" stroke-width="1.8"/>
+      <line x1="12" y1="6" x2="18" y2="18" stroke="var(--accent)" stroke-width="1.8"/>
+      <line x1="6" y1="18" x2="18" y2="18" stroke="var(--accent)" stroke-width="1.8"/>
+      <circle cx="6" cy="18" r="2.6" fill="var(--accent)"/>
+      <circle cx="18" cy="18" r="2.6" fill="var(--accent)"/>
+      <circle cx="12" cy="6" r="2.6" fill="var(--accent)"/>
+    </svg>
     <span>MemoryMap <span style="opacity:.5">AI</span></span>
   </a>
   <div class="nav-tabs">
@@ -292,7 +321,7 @@
   <div class="nav-end">
     <a href="https://github.com/Braydenh563/MemoryMap-AI/stargazers" target="_blank" rel="noopener" class="stars-badge" aria-label="GitHub stars">
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.751.751 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Z"/></svg>
-      <img src="https://img.shields.io/github/stars/Braydenh563/MemoryMap-AI?style=flat&label=&color=8b9df8&labelColor=transparent&logo=none" alt="Stars" height="16" style="display:inline;vertical-align:middle;" loading="lazy" />
+      <img src="https://img.shields.io/github/stars/Braydenh563/MemoryMap-AI?style=flat&label=&color=e0806e&labelColor=transparent&logo=none" alt="Stars" height="16" style="display:inline;vertical-align:middle;" loading="lazy" onerror="this.style.display='none'" />
     </a>
     <button class="btn-sm btn-ghost" id="themeBtn" aria-label="Toggle theme">&#x2600;&#xFE0F;</button>
     <a href="https://github.com/Braydenh563/MemoryMap-AI" target="_blank" rel="noopener" class="btn-sm btn-accent">GitHub &#x2197;</a>
@@ -300,6 +329,23 @@
 </nav>
 
 <section class="hero" id="top">
+  <svg class="hero-board" viewBox="0 0 440 380" aria-hidden="true">
+    <path class="mm-thread" d="M120,50 C170,20 210,60 260,100" />
+    <path class="mm-thread" d="M180,133 C160,170 150,190 180,230" />
+    <path class="mm-thread" d="M290,176 C260,200 220,210 190,236" />
+    <g class="mm-card" transform="translate(60,40) rotate(-6)">
+      <rect x="0" y="0" width="120" height="86" rx="3"/>
+      <circle class="mm-pin" cx="60" cy="8" r="4"/>
+    </g>
+    <g class="mm-card" transform="translate(230,90) rotate(4)">
+      <rect x="0" y="0" width="120" height="86" rx="3"/>
+      <circle class="mm-pin" cx="60" cy="8" r="4"/>
+    </g>
+    <g class="mm-card" transform="translate(120,220) rotate(-3)">
+      <rect x="0" y="0" width="120" height="86" rx="3"/>
+      <circle class="mm-pin" cx="60" cy="8" r="4"/>
+    </g>
+  </svg>
   <div class="hero-eyebrow">Local-first &nbsp;&middot;&nbsp; 100 % offline &nbsp;&middot;&nbsp; Open source</div>
   <h1>Your thoughts, mapped<br>by a <em>local AI</em>.</h1>
   <p class="hero-sub">Type a thought &mdash; a local AI files it. Ask a question in plain English and get back a conversational answer <em>and</em> the raw notes behind it, side by side, so you can check it. No account. No cloud. No telemetry.</p>
@@ -422,10 +468,26 @@ const ro = new IntersectionObserver(es => {
 document.querySelectorAll('.reveal').forEach(el => ro.observe(el));
 
 // ── Ref loader ───────────────────────────────────────────────────────────────
-const BRANCH   = 'main';
-const CDN_BASE = 'https://cdn.jsdelivr.net/gh/Braydenh563/MemoryMap-AI@' + BRANCH + '/';
-const RAW_BASE = 'https://raw.githubusercontent.com/Braydenh563/MemoryMap-AI/' + BRANCH + '/';
-const GH_BASE  = 'https://github.com/Braydenh563/MemoryMap-AI/blob/' + BRANCH + '/';
+// Fix for the "docs won't load" issue:
+//  1. The old 3rd fallback URL was malformed - it literally contained markdown
+//     link syntax "[https://...](https://...)" inside the JS string, so it could
+//     never succeed as a fetch target.
+//  2. The other two fallbacks (raw.githubusercontent.com, cdn.jsdelivr.net) are
+//     both cross-origin CDN/proxy-style domains, which is exactly the pattern
+//     ad/tracker block-lists (AdGuard, uBlock, etc.) key on - so they get caught
+//     even when nothing "ad-like" is actually happening.
+//  3. Fix: try the SAME origin first. This page's own repo already contains
+//     these .md files, so if GitHub Pages is serving from the branch/folder that
+//     includes them, this fetch never leaves the site's own domain and can't be
+//     touched by a blocklist. raw.githubusercontent.com and jsdelivr remain as
+//     fallbacks for when Pages is configured to publish from elsewhere. A last-
+//     resort localStorage cache covers genuine offline/outage cases so a repeat
+//     visitor still sees content instead of a dead panel.
+const BRANCH    = 'main';
+const PAGE_BASE = location.pathname.replace(/[^/]*$/, ''); // same-origin repo root on Pages
+const RAW_BASE  = 'https://raw.githubusercontent.com/Braydenh563/MemoryMap-AI/' + BRANCH + '/';
+const CDN_BASE  = 'https://cdn.jsdelivr.net/gh/Braydenh563/MemoryMap-AI@' + BRANCH + '/';
+const GH_BASE   = 'https://github.com/Braydenh563/MemoryMap-AI/blob/' + BRANCH + '/';
 
 const DOC_MAP = {
   architecture: 'docs/ARCHITECTURE.md',
@@ -467,13 +529,13 @@ function mdToHtml(raw) {
     .trim();
 
   const lines = s.split('\n');
-  const parts = []; 
+  const parts = [];
 
   let inPre = false, preLang = '', preLines = [];
   let inTable = false;
-  let bqBuf = [];   
-  let lists = [];   
-  let liPending = false; 
+  let bqBuf = [];
+  let lists = [];
+  let liPending = false;
 
   function closeLi() {
     if (liPending) { parts.push('</li>'); liPending = false; }
@@ -562,7 +624,7 @@ function mdToHtml(raw) {
     if (bqBuf.length) flushBq();
 
     if (line.trim().startsWith('|')) {
-      if (/^[\s|:-]+$/.test(line)) continue; 
+      if (/^[\s|:-]+$/.test(line)) continue;
       closeListsTo(0);
       const cells = line.split('|').slice(1, -1).map(c => c.trim());
       if (!inTable) {
@@ -605,7 +667,7 @@ function mdToHtml(raw) {
           parts.push('<' + li.tag + '>');
           lists.push(li.tag);
         } else {
-          closeLi(); 
+          closeLi();
         }
       }
 
@@ -674,6 +736,20 @@ function fetchWithTimeout(url, ms) {
   });
 }
 
+// ── localStorage cache helpers (last-resort, survives full network failure) ───
+function cacheGet(key) {
+  try {
+    const raw = localStorage.getItem('mm-doc-' + key);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) { return null; }
+}
+function cacheSet(key, html) {
+  try {
+    localStorage.setItem('mm-doc-' + key, JSON.stringify({ html, ts: Date.now() }));
+  } catch (e) { /* storage disabled/full - not critical, skip silently */ }
+}
+
 // ── Load doc ──────────────────────────────────────────────────────────────────
 async function loadDoc(key) {
   mmActive = key;
@@ -682,16 +758,15 @@ async function loadDoc(key) {
 
   if (mmCache[key]) { mmFrame.innerHTML = mmCache[key]; return; }
 
-  const path  = DOC_MAP[key];
+  const path = DOC_MAP[key];
   const ghUrl = GH_BASE + path;
-  const bust  = '?t=' + Date.now(); 
+  const bust = '?t=' + Date.now();
 
-  // 1. Primary CDN
-  const urlCDN = CDN_BASE + path + bust;
-  // 2. Secondary Raw
-  const urlRaw = RAW_BASE + path + bust;
-  // 3. Tertiary Proxy (Bypasses all tracker/DNS blocklists)
-  const urlProxy = '[https://api.allorigins.win/raw?url=](https://api.allorigins.win/raw?url=)' + encodeURIComponent(RAW_BASE + path);
+  const candidates = [
+    PAGE_BASE + path + bust,   // 1. same-origin - immune to cross-origin blocklist rules
+    RAW_BASE + path + bust,    // 2. GitHub's own raw host
+    CDN_BASE + path + bust,    // 3. jsdelivr mirror
+  ];
 
   async function tryFetch(url) {
     const r = await fetchWithTimeout(url, 8000);
@@ -702,31 +777,36 @@ async function loadDoc(key) {
   }
 
   let md = null, lastErr = null;
-  
-  try { 
-    md = await tryFetch(urlCDN); 
-  } catch (e1) { 
-    try { 
-      md = await tryFetch(urlRaw); 
-    } catch (e2) { 
-      try {
-        md = await tryFetch(urlProxy);
-      } catch (e3) {
-        lastErr = e3; 
-      }
-    } 
+  for (const url of candidates) {
+    try { md = await tryFetch(url); break; }
+    catch (e) { lastErr = e; }
   }
 
   if (mmActive !== key) return;
 
   if (md) {
     try {
-      const html = mdToHtml(md);
-      if (html && html.trim()) { mmCache[key] = html; mmFrame.innerHTML = html; return; }
+      const rendered = mdToHtml(md);
+      if (rendered && rendered.trim()) {
+        mmCache[key] = rendered;
+        cacheSet(key, rendered);
+        mmFrame.innerHTML = rendered;
+        return;
+      }
       lastErr = new Error('render empty');
     } catch (err) {
-      lastErr = err; 
+      lastErr = err;
     }
+  }
+
+  // All network attempts failed - fall back to a previously cached copy, if any.
+  const cached = cacheGet(key);
+  if (cached) {
+    mmFrame.innerHTML =
+      '<div class="mm-stale-note">Showing a saved copy from an earlier visit &mdash; may be out of date.' +
+      '<button onclick="delete mmCache[\'' + key + '\'];loadDoc(\'' + key + '\')">Try live version</button></div>' +
+      cached.html;
+    return;
   }
 
   mmFrame.innerHTML =

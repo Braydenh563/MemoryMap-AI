@@ -3,6 +3,7 @@
 Good ideas that are **out of scope right now** get written here instead of
 built (build plan §0: never expand scope mid-phase).
 
+- Update the readme and gh pages site to have up to date information.
 - A guided setup on first install (like setting your name, choosing a model if one isn't yet downloaded, a tour, making the first note etc)
 - Data and note compression (compress and store notes??)
 - Better agentic web search through chat

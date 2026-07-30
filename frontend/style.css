@@ -290,7 +290,7 @@ header#top-bar h1 {
      ✓ ! and ✕ all sit in the cap-height band above the baseline. Rendering
      each one at 6x and measuring its ink put all three exactly 2.17px high on
      a 28px dot — 0.17em at this font size. */
-  transform: translateY(0.17em);
+  /* transform: translateY(0.17em); */ 
 }
 .ai-status[data-level="idle"] { background: var(--chip-bg); color: var(--muted); }
 /* The ellipsis is the one glyph that sits *below* the middle — it rides the

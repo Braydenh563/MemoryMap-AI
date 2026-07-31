@@ -45,3 +45,6 @@ built (build plan §0: never expand scope mid-phase).
 - Improve/expand on start.bat and similar files. maybe a background cli to manage the app or a developers console  for management in settings??
 - Dynamically change models based on complexity of task and compatibility?? Optional??
 - Collapsible sidebars
+- If possible, introduce a slight ai nudge for the semantic notes search, so if I ask “what notes did I save in the last two days” or “what note did I save on {this specific day}” or smth more specific that may make the semantic search less accurate with its retrievals more accurate.
+- Reduce the cap on semantic search outputs (is there a cap??) - maybe change how the cap works?? Potentially based on length and ai context length
+- Optimise outputs and how app features work based off what the currently used ai model can use

@@ -30,6 +30,7 @@ built (build plan §0: never expand scope mid-phase).
 - In built browser with mcp tool abilities to accompany the web search??
 - Full security sweep and analysis. Must be fully private, hack proof, and secure. user data must not be accessible, leaked or shown and web browsing should be as private, secure, and untrackable as possible. 
 - VS Code Extension??
+- Make memorymap-ai cross-platform and compatible with linux and if possible mac as well. 
 - Improve the console in settings, make sure all console messages are shown. 
 - Improve or expand on start.bat?? dont make a cmd prompt window show but make it accessible (maybe it can be accessible in the system tray if possible??)
 - Add a way to exit the app and close the program quitting the backend. Make the whole process for set up, fixes, updates etc and everything automated with the bat files

@@ -5,6 +5,10 @@ built (build plan §0: never expand scope mid-phase).
 
 - Update the readme and gh pages site to have up to date information.
 - I wrote "ai is cool" as a note and it was filed under sketches??
+- Expand and improve sketches board. Maybe a whiteboard tab??
+- Handle image and file uploads! + drag and drop features
+- Manually group notes together (this will be separate from the main sorting)
+- A note should be able to have multiple categories
 - A guided setup on first install (like setting your name, choosing a model if one isn't yet downloaded, a tour, making the first note etc)
 - Data and note compression (compress and store notes??)
 - Better agentic web search through chat
@@ -35,4 +39,8 @@ built (build plan §0: never expand scope mid-phase).
 - The help area in settings has an ask ai feature where the ai has access to all the program documentation and can help answer your questions. 
 - A way to reduce token usage in all ai interactions to make them more efficient and usable??
 - Streamline, enhance, and optimise the processes of the backend and all ai interactions.
-- Gravity and Spread have no affect on other graph vires
+- Gravity and Spread have no affect on other graph views
+- Package application, improve settings model page and functionality
+- Improve/expand on start.bat and similar files. maybe a background cli to manage the app or a developers console  for management in settings??
+- Dynamically change models based on complexity of task and compatibility?? Optional??
+- Collapsible sidebars

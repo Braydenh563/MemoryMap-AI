@@ -5146,3 +5146,39 @@ textarea.autogrow {
 .sketch-color[data-color="#e2534b"] { background: #e2534b; }
 .sketch-color[data-color="#3a9e56"] { background: #3a9e56; }
 .sketch-color[data-color="#1c1e26"] { background: #1c1e26; }
+
+/* The "N earlier records dropped" line above the log list. Styled as a
+   caution rather than an error: the log is working, it is just not the whole
+   story, and a red banner would read as a fault in the app being diagnosed. */
+.log-dropped {
+  margin: 0 0 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border-left: 3px solid var(--warn, #c8892b);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--warn, #c8892b) 12%, transparent);
+  color: var(--text-muted, inherit);
+  font-size: 0.8rem;
+}
+
+/* Which upstream engine found a result. Quiet by design — it is provenance,
+   not part of the result, and should be readable without competing with the
+   title or the domain beside it. */
+.web-result-via {
+  font-size: 0.75rem;
+  opacity: 0.75;
+}
+.web-answered-detail {
+  font-size: 0.8rem;
+}
+
+/* Gravity/Spread under a tree layout, where they have nothing to act on.
+   Dimmed rather than hidden: a control that vanishes reads as a bug, while
+   one that is visibly unavailable teaches what it belongs to. The labels are
+   dimmed with it — greying the slider alone leaves the words looking live. */
+.graph-physics.is-disabled {
+  opacity: 0.45;
+}
+.graph-physics.is-disabled label,
+.graph-physics.is-disabled input {
+  cursor: not-allowed;
+}

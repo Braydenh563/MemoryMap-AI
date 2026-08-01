@@ -216,9 +216,14 @@ keep no cookies between searches, send no `Referer`, and set DNT and Sec-GPC;
 - queries go by POST, so they stay out of request lines and access logs;
 - tracking parameters (`utm_*`, `fbclid`, `gclid`, …) are stripped from result
 URLs before you ever see them;
-- you choose which engine answers - DuckDuckGo, your own
-[SearXNG](https://searxng.org) instance, or automatic. MemoryMap can install
-and run SearXNG for you, which keeps the query on your own network.
+- **your own [SearXNG](https://searxng.org) is the recommended engine**, and
+MemoryMap installs and runs it for you in one click - no Docker required, no
+account, no setup. The query then never leaves your own network at all. The
+default setting, *Automatic*, uses it whenever it is running and falls back to
+DuckDuckGo until you have one, so search works out of the box either way;
+- the results panel says **which engine actually answered** each search, and
+what that meant for the query - so the choice you made in Settings is visible
+at the moment it applies rather than only where you set it.
 
 **Opening a page** (the reader view, and the agent's `read_url` tool) is
 address-checked on *every* redirect hop and then pinned to the address that

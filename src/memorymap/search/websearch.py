@@ -300,8 +300,12 @@ def domain_of(url: str) -> str:
 # search itself all agree on the same three names.
 PROVIDERS = {
     "auto": {
-        "label": "Automatic",
-        "detail": "Use SearXNG when it's running, otherwise DuckDuckGo.",
+        "label": "Automatic (recommended)",
+        "detail": (
+            "Prefer your own SearXNG whenever it is running, and fall back to "
+            "DuckDuckGo when it isn't — so search keeps working before you "
+            "have set one up."
+        ),
     },
     "searxng": {
         "label": "SearXNG only",
@@ -315,7 +319,41 @@ PROVIDERS = {
         "detail": "Always scrape DuckDuckGo, even if a SearXNG is configured.",
     },
 }
+
+# Deliberately "auto" rather than "searxng", now that the install path works.
+#
+# The roadmap asked to flip the default to SearXNG once it did. Read literally
+# that means "searxng", and that mode exists precisely so it will NOT fall back
+# — which is right for the person who wants it and wrong as a default, because
+# a fresh notebook has no SearXNG yet and every search would fail until one was
+# installed. "auto" already *prefers* SearXNG whenever it is running, which is
+# the behaviour the item actually wanted; what was missing was saying so, which
+# the labels above and the settings copy now do.
 DEFAULT_PROVIDER = "auto"
+
+# How to describe the engine that ANSWERED, which is a different question from
+# which one was configured — under "auto" those routinely differ, and the
+# difference is the whole point of saying so. The person picked an engine in
+# Settings for a privacy reason; if the panel does not report which one served
+# a given search, that choice is invisible exactly where it matters.
+ANSWERED_BY = {
+    "searxng": {
+        "label": "SearXNG",
+        "detail": "your own instance — the query stayed on your machine",
+    },
+    "duckduckgo": {
+        "label": "DuckDuckGo",
+        "detail": "a third party saw this query, but not your notes",
+    },
+}
+
+
+def answered_by(provider: str) -> dict:
+    """A name and a plain-English privacy note for whoever answered."""
+    known = ANSWERED_BY.get(str(provider or "").strip().lower())
+    if known:
+        return {"provider": provider, **known}
+    return {"provider": provider, "label": str(provider or "unknown"), "detail": ""}
 
 
 def normalise_provider(value: object) -> str:
@@ -454,9 +492,51 @@ def _search_searxng(query: str, limit: int, base_url: str) -> list[dict]:
                 "snippet": str(row.get("content") or "").strip(),
                 "domain": domain_of(link),
                 "engine": "searxng",
+                # SearXNG is a metasearch engine: "via searxng" says where the
+                # query was assembled, not who answered it. It reports the
+                # upstream engines that returned each result, and that is the
+                # part with privacy meaning — a result from a self-hosted
+                # instance still originated somewhere.
+                "via": _upstream_engines(row),
             }
         )
     return results
+
+
+# A SearXNG result names its upstream engines as short lowercase slugs. Cap
+# both the count and the length: this is third-party text on its way to the UI,
+# and a long list would push the result itself off the row.
+MAX_UPSTREAM_ENGINES = 4
+MAX_UPSTREAM_NAME_CHARS = 24
+
+
+def _upstream_engines(row: dict) -> list[str]:
+    """Which engines actually returned a SearXNG result, cleaned for display.
+
+    SearXNG sends `engines` (a list) and sometimes `engine` (a single name);
+    take whichever is there, and accept neither without complaint — this is
+    presentational, so a schema change upstream must not break searching.
+    """
+    raw = row.get("engines")
+    if not isinstance(raw, list):
+        single = row.get("engine")
+        raw = [single] if isinstance(single, str) else []
+    names = []
+    for item in raw:
+        if not isinstance(item, str):
+            continue
+        # Letters, digits and the few separators engine names really use;
+        # everything else goes, so nothing styled or scripted reaches the DOM.
+        name = "".join(
+            character
+            for character in item.strip().lower()
+            if character.isalnum() or character in "._- "
+        ).strip()
+        if name and name not in names:
+            names.append(name[:MAX_UPSTREAM_NAME_CHARS])
+        if len(names) >= MAX_UPSTREAM_ENGINES:
+            break
+    return names
 
 
 # --- DuckDuckGo ---------------------------------------------------------------

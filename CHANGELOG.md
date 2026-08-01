@@ -52,7 +52,58 @@ so the next audit does not have to rediscover them. The other four were real.
   disabling geolocation, camera, payment and USB (but deliberately not the
   microphone, which voice capture needs).
 
+### Added
+
+- **The results panel says which engine answered, and what that meant.** You
+  choose an engine in Settings for a privacy reason, and until now nothing
+  reported whether that choice was honoured — under *Automatic* the engine
+  that answers is not necessarily the one configured. Searches now report
+  "via SearXNG — your own instance, the query stayed on your machine" or
+  "via DuckDuckGo — a third party saw this query, but not your notes",
+  **including when nothing was found**, which is when it matters most and was
+  exactly when the panel used to go quiet. Individual results also name the
+  upstream engines SearXNG used to find them: it is a metasearch engine, so
+  "via SearXNG" describes where the query was assembled, not who answered it.
+
+- **The log viewer admits when it has forgotten something.** The buffer keeps
+  the most recent 500 records and silently discarded the rest, so a busy hour
+  and a quiet one looked identical — 500 rows either way, with no way to tell
+  whether the top row was the start of the story or the middle of it. It now
+  says how many earlier records were dropped and how far back it still
+  reaches. Worst in exactly the case the viewer exists for: chasing something
+  that keeps failing, where the repetition is what pushed the first occurrence
+  out of the window.
+
+- **MemoryMap refuses to start with more than one worker.** Its configuration,
+  database handle, log buffer, unlock sessions and SearXNG subprocess are all
+  one-per-process; with two workers each silently becomes per-worker, and the
+  result is a log showing half of what happened, an unlock that works only
+  sometimes, and two workers each believing they own the SearXNG they started.
+  None of that fails loudly, so it is refused with an explanation rather than
+  warned about. `python -m memorymap` was never able to hit this.
+
+### Changed
+
+- **SearXNG is presented as the recommended way to search**, not "an optional,
+  self-hosted search engine" — the one-click install works now, and it needs
+  no Docker and no account. The default setting is deliberately still
+  *Automatic*, which prefers SearXNG whenever it is running and falls back to
+  DuckDuckGo until you have one, so search keeps working on a fresh notebook.
+  (*SearXNG only* remains available and still refuses to fall back.)
+
+- **Autocomplete is pinned off in the generated SearXNG settings.** It is the
+  one thing in a search UI that leaks without a search being run — a fragment
+  of every query goes to a third-party suggestion endpoint as it is typed.
+  SearXNG already defaults it off; stating it explicitly means neither a
+  hand-edited file nor a changed upstream default can turn it back on.
+
 ### Fixed
+
+- **Gravity and Spread no longer pretend to work under the tree layouts.**
+  Both scale the force simulation, which Tree and Radial tree do not run —
+  their positions come from the hierarchy — so the sliders moved, saved their
+  value, and changed nothing. They are now disabled and dimmed under those
+  layouts, with the reason on hover, and restored when you switch back.
 
 - **Custom CSS works under the new security policy.** Settings → Appearance
   applied your CSS by injecting a `<style>` element, which is precisely what

@@ -301,6 +301,16 @@ def server_logs(limit: int = 200) -> list[dict]:
     return logbuffer.recent(limit=min(limit, logbuffer.MAX_RECORDS))
 
 
+@router.get("/logs/stats")
+def server_log_stats(limit: int = 200) -> dict:
+    """How complete the log above actually is.
+
+    A separate call rather than a wrapper around the records, so the shape of
+    /logs stays a plain list for everything already reading it.
+    """
+    return logbuffer.stats(limit=min(limit, logbuffer.MAX_RECORDS))
+
+
 @router.delete("/logs")
 def clear_server_logs() -> dict:
     logbuffer.clear()
@@ -517,12 +527,16 @@ def web_search(q: str, limit: int = 5, session: Session = Depends(get_session)) 
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     manager.log_action(session, "web_searched", "chat", detail=q[:120])
     session.commit()
+    # Which engine actually answered, not which one was asked for — under
+    # "auto" those differ, and the difference is the interesting part. Resolved
+    # even when nothing came back: "no results" is exactly when you want to
+    # know who found nothing, and it is the case the panel used to go quiet.
+    answered = results[0]["engine"] if results else ("searxng" if searxng else "duckduckgo")
     return {
         "query": q,
         "results": results,
-        # Which engine actually answered, not which one was asked for — under
-        # "auto" those differ, and the difference is the interesting part.
-        "provider": results[0]["engine"] if results else ("searxng" if searxng else "duckduckgo"),
+        "provider": answered,
+        "answered_by": websearch.answered_by(answered),
         "requested_provider": provider,
     }
 

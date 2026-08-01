@@ -660,6 +660,33 @@ python -m memorymap --desktop  # same app in its own window (needs pywebview)
 On first run you choose a password (bcrypt-hashed, stays local). See the
 [README](../README.md) for the full walkthrough of each screen.
 
+### One process, and why more is not an option
+
+**MemoryMap runs with exactly one worker, and refuses to start with more.**
+`core/deps.refuse_multiple_workers()` runs at the top of `create_app()` and
+raises on `--workers N` (N > 1) or `WEB_CONCURRENCY`.
+
+This is not caution — it is the direct consequence of §3's singletons. The
+config, the database handle, the in-memory log buffer, the set of unlock
+tokens and the handle on the SearXNG subprocess are all one-per-process,
+which is correct and simple for one process and quietly wrong for two:
+
+| With two workers | What you would actually see |
+| --- | --- |
+| Two log buffers | Settings → Logs shows roughly half of what happened |
+| Two token sets | Unlocking works, then randomly 401s on the next request |
+| Two SearXNG handles | Both workers think they own it; stop/reinstall fight |
+| Two embedding warm-ups | The model loads twice, for twice the memory |
+
+None of that fails loudly, which is exactly why it is refused rather than
+warned about — it would present as flakiness and be debugged as a bug in the
+app. `python -m memorymap` cannot hit this (it hands uvicorn an app object,
+not an import string, and uvicorn cannot fork that); running `uvicorn` against
+the factory directly can, and is the case the check exists for.
+
+More workers is also not the lever for speed here. The slow paths are Ollama
+and embedding, and both already run off the request thread.
+
 ## 14. Where to look when you want to…
 
 | I want to… | Start here |

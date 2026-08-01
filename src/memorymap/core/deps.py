@@ -8,6 +8,8 @@ NEVER build their own DatabaseManager.
 from __future__ import annotations
 
 import logging
+import os
+import sys
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -24,6 +26,70 @@ _db: DatabaseManager | None = None
 _ollama: OllamaClient | None = None
 _model_manager: ModelManager | None = None
 _embeddings: EmbeddingService | None = None
+
+
+class MultipleWorkersError(RuntimeError):
+    """Raised when the app is started with more than one worker process."""
+
+
+def _requested_worker_count() -> int | None:
+    """How many workers the launcher was asked for, if it said.
+
+    Everything in this module is one-per-process, and so are the in-memory log
+    buffer, the auth tokens and the handle on the SearXNG subprocess. That is
+    correct and simple for one process, and quietly wrong for two: the log
+    console would show a fraction of what happened, an unlock would work only
+    on whichever worker answered next, and two workers would each believe they
+    owned the SearXNG they started.
+
+    None of that fails loudly. It presents as flakiness, which is the reason
+    to refuse rather than warn.
+
+    Read from the command line and from WEB_CONCURRENCY, which is the
+    environment variable uvicorn and gunicorn both honour — between them those
+    are the ways someone actually turns this up.
+    """
+    argv = sys.argv[1:]
+    for index, argument in enumerate(argv):
+        value = None
+        if argument in ("--workers", "-w") and index + 1 < len(argv):
+            value = argv[index + 1]
+        elif argument.startswith("--workers="):
+            value = argument.split("=", 1)[1]
+        if value is not None:
+            try:
+                return int(value)
+            except ValueError:
+                return None
+    concurrency = os.environ.get("WEB_CONCURRENCY")
+    if concurrency:
+        try:
+            return int(concurrency)
+        except ValueError:
+            return None
+    return None
+
+
+def refuse_multiple_workers() -> None:
+    """Stop a multi-worker start, with the reason and the way out.
+
+    Deliberately an exception rather than a log line. A warning at startup is
+    read by nobody and the failure it precedes looks like a bug in the app.
+    """
+    workers = _requested_worker_count()
+    if workers is None or workers <= 1:
+        return
+    raise MultipleWorkersError(
+        f"MemoryMap cannot run with {workers} workers — it is a single-user "
+        "app, and its configuration, database handle, log buffer, unlock "
+        "sessions and SearXNG subprocess are one-per-process. With more than "
+        "one worker each of those silently becomes per-worker: logs would show "
+        "a fraction of what happened, unlocking would work only sometimes, and "
+        "two workers would each think they own the SearXNG they started.\n\n"
+        "Start it with one worker (`python -m memorymap`). If you are trying "
+        "to make it faster, more workers is not the lever — the slow paths are "
+        "Ollama and embedding, and both are already off the request thread."
+    )
 
 
 def init_app_state(data_dir: str | Path | None = None) -> None:

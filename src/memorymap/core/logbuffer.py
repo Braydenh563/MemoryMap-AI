@@ -17,6 +17,18 @@ MAX_RECORDS = 500
 _records: deque[dict] = deque(maxlen=MAX_RECORDS)
 _lock = threading.Lock()
 
+# How many records the ring buffer has thrown away since the last clear, and
+# the timestamp of the oldest one still held.
+#
+# A deque with a maxlen drops silently, which makes a busy hour and a quiet one
+# look identical in the viewer: 500 rows either way, and no way to tell whether
+# the top row is the beginning of the story or the middle of it. That matters
+# most in exactly the case the viewer exists for — chasing something that has
+# been failing repeatedly, where the repetition itself is what pushed the first
+# occurrence out.
+_dropped = 0
+_dropped_since: str | None = None
+
 
 # Windows' asyncio Proactor loop logs an "Exception in callback
 # _ProactorBasePipeTransport._call_connection_lost" whenever a client drops a
@@ -98,7 +110,14 @@ class BufferHandler(logging.Handler):
                 trace = self.format(record).split("\n", 1)[-1]
             except Exception:  # formatting must never kill logging either
                 trace = ""
+        global _dropped, _dropped_since
         with _lock:
+            # A full deque discards the oldest on append, so count it here —
+            # afterwards there is nothing left to notice.
+            if len(_records) == MAX_RECORDS:
+                if not _dropped:
+                    _dropped_since = _records[0]["time"]
+                _dropped += 1
             _records.append(
                 {
                     "time": datetime.now(timezone.utc).isoformat(),
@@ -142,6 +161,32 @@ def recent(limit: int = 200) -> list[dict]:
     return records[-limit:]
 
 
+def stats(limit: int = 200) -> dict:
+    """What the viewer needs to say how complete its picture is.
+
+    `dropped` counts records the ring buffer discarded; `truncated` counts ones
+    it still holds but this request did not ask for. They are different
+    problems — the first is gone for good, the second is one bigger `limit`
+    away — and telling a reader they are the same would send them looking in
+    the wrong place.
+    """
+    with _lock:
+        held = len(_records)
+        return {
+            "held": held,
+            "capacity": MAX_RECORDS,
+            "dropped": _dropped,
+            "dropped_since": _dropped_since,
+            "truncated": max(0, held - limit),
+        }
+
+
 def clear() -> None:
+    global _dropped, _dropped_since
     with _lock:
         _records.clear()
+        # The count describes the records that *were* here; clearing them
+        # clears it too, or the viewer would report a gap in a log it had
+        # just emptied itself.
+        _dropped = 0
+        _dropped_since = None

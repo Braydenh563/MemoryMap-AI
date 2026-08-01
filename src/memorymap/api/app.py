@@ -87,6 +87,11 @@ def _backup_if_due() -> None:
 
 
 def create_app() -> FastAPI:
+    # First, before any singleton is built. This catches `uvicorn … --workers 4`
+    # run directly against this factory, which is the only way the app can be
+    # started multi-worker — `python -m memorymap` hands uvicorn an app object
+    # rather than an import string, and uvicorn cannot fork that.
+    deps.refuse_multiple_workers()
     logbuffer.install()  # start capturing logs for the Settings viewer
     init_app_state()
     _purge_expired_bin_entries()

@@ -212,13 +212,32 @@ use_default_settings:
       - bilibili{extra_removes}
 server:
   secret_key: "{secret}"
+  # Safe ONLY because the instance is bound to loopback — the source path sets
+  # SEARXNG_BIND_ADDRESS=127.0.0.1 and the docker path publishes
+  # 127.0.0.1:PORT. The limiter is SearXNG's bot/abuse protection; with it off
+  # and the port reachable from the network, anyone on that network could run
+  # searches through this instance. If the bind address is ever widened, this
+  # has to be turned on in the same change.
   limiter: false
+  # Result images are fetched by SearXNG and passed on, rather than by the
+  # browser going to the result's own domain. Without it, merely *rendering*
+  # a result page tells every pictured site that someone searched and got
+  # them back — before anything is clicked.
   image_proxy: true
 search:
   safe_search: 0
   formats:
     - html
     - json
+  # Off explicitly, not just by default. Autocomplete sends a fragment of
+  # every query to a third-party suggestion endpoint as it is typed — the one
+  # thing in a search UI that leaks even when no search is ever run. SearXNG
+  # already defaults it off; pinning it here means a changed upstream default
+  # or a hand-edited file cannot quietly turn it back on, and this file is
+  # rewritten on every start anyway so it costs nothing to state.
+  # (MemoryMap itself only ever calls the JSON API, so this protects the
+  # SearXNG web UI that is also reachable on the same port.)
+  autocomplete: ""
 outgoing:
   # Short timeouts prevent a single blocked engine from stalling all results.
   request_timeout: 3.0

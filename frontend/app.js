@@ -2626,9 +2626,25 @@ async function runWebSearch() {
     return;
   }
   const results = body.results || [];
-  status.textContent = results.length
-    ? `${results.length} results via ${body.provider}`
-    : "No results — try different words.";
+  // Name the engine that ANSWERED — which under "Automatic" is not
+  // necessarily the one configured — and say what that means for privacy.
+  // The person chose an engine in Settings for a reason; without this the
+  // choice is invisible at the one moment it applies. Said on an empty result
+  // too: "nothing found" and "nothing found *by DuckDuckGo*" are different
+  // facts, and the second is the one you can act on.
+  const answered = body.answered_by || { label: body.provider || "", detail: "" };
+  status.replaceChildren();
+  const summary = document.createElement("span");
+  summary.textContent = results.length
+    ? `${results.length} result${results.length === 1 ? "" : "s"} via ${answered.label}`
+    : `No results from ${answered.label} — try different words.`;
+  status.appendChild(summary);
+  if (answered.detail) {
+    const detail = document.createElement("span");
+    detail.className = "web-answered-detail muted";
+    detail.textContent = ` · ${answered.detail}`;
+    status.appendChild(detail);
+  }
   for (const result of results) {
     const row = document.createElement("div");
     row.className = "web-result";
@@ -2643,6 +2659,17 @@ async function runWebSearch() {
     const meta = document.createElement("div");
     meta.className = "web-result-meta muted";
     meta.textContent = result.domain || "";
+    // SearXNG is a metasearch engine, so "via SearXNG" says where the query
+    // was assembled rather than who answered it. Naming the upstream engines
+    // is what makes a self-hosted instance legible rather than a black box.
+    // textContent throughout — these names come from a third party.
+    if (Array.isArray(result.via) && result.via.length) {
+      const via = document.createElement("span");
+      via.className = "web-result-via";
+      via.textContent = result.via.join(" · ");
+      via.title = `Found by ${result.via.join(", ")}`;
+      meta.append(" — ", via);
+    }
     row.appendChild(meta);
 
     if (result.snippet) {
@@ -8372,6 +8399,40 @@ function graphLayout() {
   return ["force", "tree", "radial"].includes(saved) ? saved : "force";
 }
 
+// Gravity and Spread scale the force simulation, and the tree layouts do not
+// run one — their positions come from the hierarchy. Left enabled they are two
+// controls that move, save, and change nothing, which reads as a broken app
+// rather than an inapplicable setting. Disabled, with the reason on hover.
+function setGraphPhysicsEnabled(layoutKind) {
+  const applies = layoutKind === "force";
+  const box = $("graph-physics");
+  if (!box) return;
+  const why = applies
+    ? ""
+    : "Only applies to the Force (web) layout — a tree's positions come from its branches.";
+  box.classList.toggle("is-disabled", !applies);
+  for (const id of ["graph-gravity", "graph-spread"]) {
+    const slider = $(id);
+    if (!slider) continue;
+    slider.disabled = !applies;
+    // Restore the slider's own description when it applies again, rather than
+    // leaving the explanation of why it did not.
+    if (applies) {
+      slider.title =
+        id === "graph-gravity"
+          ? "How strongly notes pull together"
+          : "How far apart linked notes sit";
+    } else {
+      slider.title = why;
+    }
+  }
+  // The labels are separate elements, so they need the attribute too or the
+  // hover explanation is missing on exactly the words being greyed out.
+  for (const label of box.querySelectorAll("label")) {
+    label.title = why;
+  }
+}
+
 // A category level in a tree layout. It is a real node in the drawing so the
 // join, the colours and the labels all work unchanged — but it is not a note,
 // so anything that would open or edit one has to check.
@@ -9523,6 +9584,9 @@ function switchTab(name) {
   if (name === "dashboard") renderDashboard();
   if (name === "graph") {
     $("graph-layout").value = graphLayout();
+    // Match the saved layout on arrival, not only on change — otherwise a
+    // notebook left on Tree comes back with two live-looking dead sliders.
+    setGraphPhysicsEnabled(graphLayout());
     renderGraph();
   }
   if (name === "timeline") renderTimeline();
@@ -9656,6 +9720,7 @@ $("entry-document").addEventListener("change", async (event) => {
 // property of the notebook rather than of one visit.
 $("graph-layout").addEventListener("change", (event) => {
   localStorage.setItem("graph-layout", event.target.value);
+  setGraphPhysicsEnabled(event.target.value);
   renderGraph();
 });
 
@@ -10012,12 +10077,40 @@ async function changePassword() {
 
 // --- logs viewer (Wave A) ---------------------------------------------------------
 
+// The ring buffer discards its oldest record silently once it is full, which
+// makes a busy hour and a quiet one look identical: 200 rows either way, with
+// no way to tell whether the top row is the start of the story or the middle.
+// That is worst in exactly the case the viewer exists for — chasing something
+// that keeps failing, where the repetition is what pushed the first occurrence
+// out of the window.
+function renderLogGap(stats) {
+  const note = $("logs-dropped");
+  if (!stats || !stats.dropped) {
+    note.classList.add("hidden");
+    note.textContent = "";
+    return;
+  }
+  const since = stats.dropped_since
+    ? ` The oldest record still kept is from ${new Date(stats.dropped_since).toLocaleTimeString()}.`
+    : "";
+  note.textContent =
+    `${stats.dropped.toLocaleString()} earlier record${stats.dropped === 1 ? "" : "s"} ` +
+    `dropped — this log keeps the most recent ${stats.capacity.toLocaleString()}.${since}`;
+  note.classList.remove("hidden");
+}
+
 async function renderLogs() {
   const source = $("log-source").value;
   const records =
     source === "server"
       ? await apiJson("/logs?limit=200").catch(() => [])
       : browserLogs.slice(-200);
+
+  // Only the server buffer drops records; the browser-side one is a plain
+  // array this page owns, so there is no gap to warn about.
+  renderLogGap(
+    source === "server" ? await apiJson("/logs/stats?limit=200").catch(() => null) : null,
+  );
 
   const list = $("log-list");
   list.replaceChildren();

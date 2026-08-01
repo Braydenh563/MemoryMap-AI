@@ -222,18 +222,77 @@ stops the next audit having to rediscover them.
 > again by a new route: **a green suite says nothing about what a browser
 > refuses to do.**
 
-**Tier 1 — fastest wins.** Hours, not sessions; contained to one file or one
-function; low risk of breaking something else.
+**Tier 1 — fastest wins.** ~~Hours, not sessions; contained to one file or one
+function; low risk of breaking something else.~~ **all six done.** Unlike the
+security tier, none of these turned out to be already built. Pinned by
+`tests/test_security_boundaries.py` and `tests/test_tier1_refinements.py`.
 
-- Say which search engine answered a query (§13)
-- "N records dropped" visibility in the log console (§1)
-- Grey out Gravity/Spread under layouts they don't affect, or give them
-  layout-specific meaning (§8/§9)
-- Flip SearXNG to the recommended default now that it works, update the
-  onboarding copy that still frames it as advanced (§13)
-- Enforce (or at minimum document) single-worker at startup (§20)
-- Audit SearXNG's generated `settings.yml` for anything else defaulting to
-  "on" that shouldn't be, beyond the plugin already disabled (§13)
+- ~~Say which search engine answered a query (§13)~~ **done, and it needed
+  more than surfacing a field.** A raw slug already appeared in the status line
+  ("8 results via searxng"), which is not the same as saying what the choice
+  *meant*. Now: a readable name plus a plain-English privacy note ("SearXNG —
+  your own instance, the query stayed on your machine" / "DuckDuckGo — a third
+  party saw this query, but not your notes"), said **on an empty result too**,
+  which is when it matters most and was exactly when the panel went quiet.
+  Per-result, the **upstream engines** SearXNG actually used are now shown —
+  it is a metasearch engine, so "via SearXNG" says where the query was
+  assembled, not who answered it.
+- ~~"N records dropped" visibility in the log console (§1)~~ **done.**
+  `GET /logs/stats` reports `dropped`, `dropped_since`, `held`, `capacity` and
+  `truncated`, and the viewer shows a caution line above the list. `dropped`
+  and `truncated` are deliberately separate numbers: one is gone for good, the
+  other is one bigger `limit` away, and conflating them sends a reader looking
+  in the wrong place. `/logs` itself is untouched and still a plain list.
+- ~~Grey out Gravity/Spread under layouts they don't affect (§8/§9)~~ **done.**
+  Both only ever fed `d3.forceSimulation`, which the tree layouts skip
+  entirely — so under Tree or Radial they moved, saved, and changed nothing.
+  Disabled and dimmed there, with the reason on hover, and restored (along
+  with their own tooltips) on the way back to Force. Set on arrival as well as
+  on change, or a notebook left on Tree returns with two live-looking dead
+  sliders.
+- ~~Flip SearXNG to the recommended default (§13)~~ **done — but not the way
+  this item says, and the difference matters.** Read literally, "flip the
+  default to SearXNG" means the `searxng` provider, which exists precisely so
+  it will **not** fall back. As a default that would make every search fail on
+  a fresh notebook, which has no SearXNG yet — turning a working feature off
+  for everyone who has not installed one. `auto` *already* prefers SearXNG
+  whenever it is running, so the behaviour this item wanted was in place; what
+  was missing was **saying so**. The provider is now labelled "Automatic
+  (recommended)" and its detail explains the preference and the fallback, and
+  the settings copy calls SearXNG "the recommended way to search" and mentions
+  the one-click install, rather than "an optional, self-hosted search engine".
+  README updated to match. A test pins the default at `auto` with the reason.
+- ~~Enforce (or at minimum document) single-worker at startup (§20)~~ **both.**
+  `deps.refuse_multiple_workers()` runs at the top of `create_app()` and raises
+  on `--workers N` (N > 1), `--workers=N`, `-w N` or `WEB_CONCURRENCY`. An
+  exception rather than a warning, because every failure it prevents is silent:
+  a halved log, an unlock that works only sometimes, two workers each believing
+  they own the SearXNG they started. `python -m memorymap` cannot reach this
+  (it hands uvicorn an app object, which uvicorn cannot fork); running
+  `uvicorn` against the factory can, and is the case it exists for.
+  `ARCHITECTURE.md` §13 now has the constraint and a table of what each
+  duplicated singleton would actually do.
+- ~~Audit SearXNG's generated `settings.yml` (§13)~~ **done; less was wrong
+  than feared, and the reasoning is now in the file.** One change:
+  `autocomplete` is pinned to `""` rather than merely left at SearXNG's
+  default, because it is the one thing in a search UI that leaks *without a
+  search being run* — a fragment of every query goes to a third-party
+  suggestion endpoint as it is typed — and this file is rewritten on every
+  start anyway, so pinning costs nothing and survives both a hand edit and an
+  upstream default change. Confirmed already correct: `image_proxy: true`
+  (result images come via SearXNG, so rendering a page does not tell every
+  pictured site you searched — this is also the answer to the "no client-side
+  favicon fetching" worry below), and the engine list, which removes the
+  tracking-heavy defaults and adds two that run their own indexes.
+  `limiter: false` now carries a comment tying it to the loopback bind: it is
+  safe **only** because nothing off this machine can reach the port, and if
+  that ever changes the limiter has to come on in the same edit.
+
+> **Unverified against a live SearXNG.** The sandbox has no route to SearXNG's
+> archive, so the settings change above was checked by parsing the generated
+> file, not by starting an instance on it. It adds one key under an existing
+> section, which is the low-risk shape, but a real start is still worth
+> watching the first time.
 
 **Tier 2 — quick wins.** A session or so. Real but contained — mostly
 extending a pattern that already exists rather than inventing one.

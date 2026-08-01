@@ -623,7 +623,11 @@ Link to another note with [[its first few words]]."></textarea>
           <option value="tree">Tree</option>
           <option value="radial">Radial tree</option>
         </select>
-        <span class="graph-physics">
+        <!-- Both sliders feed the force simulation and nothing else, so they
+             have no effect under Tree or Radial tree, where positions come
+             from the hierarchy. setGraphPhysicsEnabled() disables them there
+             rather than leaving two controls that silently do nothing. -->
+        <span class="graph-physics" id="graph-physics">
           <label for="graph-gravity" class="muted">Gravity</label>
           <input id="graph-gravity" type="range" min="0" max="100" value="50"
             title="How strongly notes pull together">
@@ -1534,11 +1538,15 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
             <p id="searxng-status" class="status" role="status"></p>
             <p class="muted">
-              <strong>SearXNG</strong> is an optional, self-hosted search engine.
-              It gives better results than scraping DuckDuckGo, it can't be
-              rate-limited the way scraping can, and the query stays inside your
-              own network. It has to be on this machine or your own network —
-              MemoryMap won't send searches to somebody else's instance.
+              <strong>SearXNG is the recommended way to search.</strong> It is a
+              self-hosted search engine that MemoryMap can install and run for
+              you in one click — you don't need Docker, an account, or any
+              setup of your own. It gives better results than scraping
+              DuckDuckGo, it can't be rate-limited the way scraping can, and
+              the query never leaves your own network. It has to be on this
+              machine or your own network — MemoryMap won't send searches to
+              somebody else's instance, and the one it runs for you listens on
+              <code>127.0.0.1</code> only.
             </p>
             <div class="searxng-host">
               <div class="row space-between">
@@ -1735,6 +1743,7 @@ Link to another note with [[its first few words]]."></textarea>
               <button id="logs-copy" class="ghost small">Copy all</button>
               <button id="logs-clear" class="ghost small">Clear</button>
             </div>
+            <p id="logs-dropped" class="log-dropped hidden" role="status"></p>
             <ul id="log-list" class="log-list"></ul>
             <p id="logs-empty" class="muted hidden">No log records yet.</p>
           </section>

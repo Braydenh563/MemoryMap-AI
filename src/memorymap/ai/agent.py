@@ -121,7 +121,24 @@ TOOLS_GUIDE = (
 # tool added and every sentence added to the guide costs the same budget, and
 # nothing else in the codebase would notice. When this needs raising, raise it
 # deliberately and say why here.
-PROMPT_BUDGET_CHARS = 13_000
+#
+# 13,000 → 13,800, for the four category tools (§14). The guard did its job:
+# adding them took the all-tools overhead straight past the old figure, and
+# the first version of those schemas — with a per-parameter description on
+# each, matching the older tools — went past the *window* too. They were
+# rewritten terse (no "old: the current name" when the field is called `old`)
+# and now cost 1,112 characters between them.
+#
+# Read this before adding the next tool: the all-tools overhead is now ~13,743
+# characters against a hard ceiling of ~13,924 (0.85 × 4096 tokens × 4 chars).
+# **There is room for roughly one more tool, and then there is none.** The
+# answer at that point is not to raise this again — past the ceiling a 3B model
+# silently loses its tools — it is either to trim existing schemas or to accept
+# that "all tools" is no longer a mode a 4096-token model can run, and say so
+# in Settings → Tools rather than letting it fail quietly. Note this ceiling
+# only binds the "all" setting: `tool_focus` defaults to "auto", where a
+# typical question costs ~5,756 characters (~1,439 tokens).
+PROMPT_BUDGET_CHARS = 13_800
 
 # What to do about a failed tool call.
 #

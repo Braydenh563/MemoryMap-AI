@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 
 from memorymap.ai import skills
 from memorymap.core import deps
-from memorymap.core.database import EmbeddingRecord, Entry, Reminder
+from memorymap.core.database import Category, EmbeddingRecord, Entry, Reminder
 from memorymap.core.logbuffer import safe_value
 from memorymap.entry import manager
 from memorymap.search import search_manager
@@ -1003,6 +1003,168 @@ def _delete_tag(session: Session, args: dict) -> dict:
     }
 
 
+# --- categories -----------------------------------------------------------------
+#
+# Asked for indirectly: "more tools for managing… creating, editing, deleting,
+# and applying categories". Renaming and deleting already existed as UI actions
+# in routes_categories, but not as tools — so the agent could file a note into
+# a category it had no way to create, which is the wrong half of the job.
+#
+# These take NAMES, not ids. The model has never seen an id and would have to
+# guess one; every other categorising tool here already speaks in names.
+
+
+def _find_category(session: Session, name: str) -> Category:
+    """Resolve a category by name, or explain what exists.
+
+    Exact match FIRST, then case-insensitively. That order is not fussiness:
+    the case this tool exists for is a notebook that has grown both "Work" and
+    "work", and a purely case-insensitive lookup resolves both spellings to
+    whichever row comes back first — so `merge_categories(from="work",
+    into="Work")` found the same category twice and refused itself. The
+    duplicate is precisely what the user is trying to clear up.
+
+    Naming the alternatives on a miss matters more here than usual: the model
+    picked the name out of a conversation, and "no category called Work" with
+    nothing after it invites it to guess again rather than look.
+    """
+    wanted = (name or "").strip()
+    if not wanted:
+        raise ToolError("No category name was given")
+    found = session.scalar(select(Category).where(Category.name == wanted))
+    if found is None:
+        found = session.scalar(
+            select(Category).where(func.lower(Category.name) == wanted.lower())
+        )
+    if found is None:
+        existing = [c["name"] for c in manager.all_categories(session)]
+        known = ", ".join(f"“{n}”" for n in existing[:12]) or "none yet"
+        raise ToolError(f"There is no category called “{wanted}”. There is: {known}")
+    return found
+
+
+def _create_category(session: Session, args: dict) -> dict:
+    name = str(args.get("name") or "").strip()
+    if not name:
+        raise ToolError("A category needs a name")
+    if len(name) > 100:
+        raise ToolError("That category name is too long (100 characters max)")
+    existing = session.scalar(
+        select(Category).where(func.lower(Category.name) == name.lower())
+    )
+    if existing is not None:
+        # Not an error: the model asked for a category to exist, and it does.
+        # Failing here would send it round a retry loop over a done job.
+        return {
+            "name": existing.name,
+            "created": False,
+            "label": f"📁 “{existing.name}” already exists",
+        }
+    category = manager.get_or_create_category(session, name)
+    description = str(args.get("description") or "").strip()
+    if description:
+        category.description = description[:500]
+    manager.log_action(session, "created", "category", category.id, name)
+    session.commit()
+    return {
+        "name": category.name,
+        "created": True,
+        "label": f"📁 Created the category “{category.name}”",
+        # Safe to reverse: a category made a moment ago holds nothing, so
+        # removing it cannot strand any notes.
+        "undo": {"tool": "delete_category", "arguments": {"name": category.name}},
+    }
+
+
+def _rename_category(session: Session, args: dict) -> dict:
+    category = _find_category(session, str(args.get("old") or ""))
+    new_name = str(args.get("new") or "").strip()
+    if not new_name:
+        raise ToolError("A category needs a name")
+    old_name = category.name
+    try:
+        result = manager.rename_category(session, category.id, new_name)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
+
+    if result["merged"]:
+        # An undo is deliberately NOT offered here. Renaming onto an existing
+        # name merges the two, and once both sets of notes sit in one category
+        # nothing records which came from where — "undo" would move all of them
+        # back, inventing a history that never happened.
+        return {
+            "name": new_name,
+            "merged": True,
+            "notes_moved": result["moved"],
+            "label": (
+                f"📁 Merged “{old_name}” into “{new_name}” "
+                f"({result['moved']} notes moved)"
+            ),
+        }
+    return {
+        "name": new_name,
+        "merged": False,
+        "notes_moved": 0,
+        "label": f"📁 Renamed “{old_name}” → “{new_name}”",
+        "undo": {
+            "tool": "rename_category",
+            "arguments": {"old": new_name, "new": old_name},
+        },
+    }
+
+
+def _merge_categories(session: Session, args: dict) -> dict:
+    """Fold one category into another. Separate from rename on purpose.
+
+    `rename_category` merges as a side effect when the new name is taken, which
+    is the right behaviour for a rename and a terrible way to *ask* for a merge
+    — the model would have to know a name was already used to predict what its
+    call did. Saying "merge" says what is meant.
+    """
+    source = _find_category(session, str(args.get("from") or ""))
+    target = _find_category(session, str(args.get("into") or ""))
+    if source.id == target.id:
+        raise ToolError(f"“{source.name}” and “{target.name}” are the same category")
+    source_name, target_name = source.name, target.name
+    try:
+        result = manager.rename_category(session, source.id, target_name)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
+    return {
+        "from": source_name,
+        "into": target_name,
+        "notes_moved": result["moved"],
+        "label": (
+            f"📁 Merged “{source_name}” into “{target_name}” "
+            f"({result['moved']} notes moved)"
+        ),
+    }
+
+
+def _delete_category(session: Session, args: dict) -> dict:
+    """Remove a category. Its notes survive as Uncategorised.
+
+    Deleting a category never deletes notes — an organising action that could
+    destroy writing is not what anyone means by "delete category". Still marked
+    destructive, so the user approves it before it runs: it is not reversible
+    from here, because nothing records which notes were moved out.
+    """
+    category = _find_category(session, str(args.get("name") or ""))
+    name = category.name
+    try:
+        result = manager.delete_category(session, category.id)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
+    return {
+        "name": name,
+        "notes_moved": result["moved"],
+        "label": (
+            f"📁 Deleted the category “{name}” — {result['moved']} "
+            f"note{'' if result['moved'] == 1 else 's'} kept, now Uncategorised"
+        ),
+    }
+
+
 # --- the registry ---------------------------------------------------------------
 
 _NOTE_ID = {"type": "integer", "description": "The note's id number"}
@@ -1372,6 +1534,56 @@ TOOLS: dict[str, ToolSpec] = {
             },
             _rename_tag,
         ),
+        # Written terse on purpose. Every character of these four schemas is
+        # resent on every round in "all tools" mode, and the registry was
+        # already within ~100 characters of what a 4096-token window can hold
+        # (tests/test_prompt_budget.py). The per-parameter descriptions the
+        # other tools carry are the first thing to go: "old"/"new" and
+        # "from"/"into" do not need explaining.
+        ToolSpec(
+            "create_category",
+            "Make a new category. Use before filing a note under a category "
+            "that doesn't exist yet.",
+            {
+                "type": "object",
+                "properties": {"name": {"type": "string"}},
+                "required": ["name"],
+            },
+            _create_category,
+        ),
+        ToolSpec(
+            "rename_category",
+            "Rename a category; merges if the new name is already taken.",
+            {
+                "type": "object",
+                "properties": {"old": {"type": "string"}, "new": {"type": "string"}},
+                "required": ["old", "new"],
+            },
+            _rename_category,
+        ),
+        ToolSpec(
+            "merge_categories",
+            "Move every note from one category into another and remove the "
+            "empty one. Tidies duplicates like 'Work' and 'work'.",
+            {
+                "type": "object",
+                "properties": {"from": {"type": "string"}, "into": {"type": "string"}},
+                "required": ["from", "into"],
+            },
+            _merge_categories,
+            destructive=True,
+        ),
+        ToolSpec(
+            "delete_category",
+            "Remove a category. Its notes are kept, as Uncategorised.",
+            {
+                "type": "object",
+                "properties": {"name": {"type": "string"}},
+                "required": ["name"],
+            },
+            _delete_category,
+            destructive=True,
+        ),
         ToolSpec(
             "web_search",
             "Search the internet (DuckDuckGo) for current information the "
@@ -1482,6 +1694,20 @@ TOOL_GROUPS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     (
         ("tag_note", "rename_tag", "delete_tag"),
         ("tag", "label", "untagged", "retag", "categorise", "categorize"),
+    ),
+    (
+        # Kept apart from the tag group even though "categorise" cues both:
+        # tagging a note and reorganising the category tree are different
+        # jobs, and sending four category schemas to every "tag this" question
+        # is exactly the per-round cost §11a went to some trouble to cut.
+        ("create_category", "rename_category", "merge_categories", "delete_category"),
+        (
+            # "file … under" is split into its two halves deliberately: the
+            # first draft matched "file it under" and missed "file this under",
+            # which is the same request with a different pronoun.
+            "category", "categories", "folder", "file ", "filed ", "under",
+            "reorganise", "reorganize", "duplicate categor", "merge", "rename",
+        ),
     ),
     (
         ("link_notes",),

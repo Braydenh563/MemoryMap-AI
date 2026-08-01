@@ -208,9 +208,9 @@ job is not a task, and a screen that accumulates them is the Logs screen.
 
 ## 7. The agent's tools (Wave G)
 
-`ai/tools.py` defines a registry the chat model can call — **28 tools**. Read-only
-tools run inline; the two **destructive** ones (`delete_note`, `delete_tag`) emit
-a confirmation event to the UI instead of executing.
+`ai/tools.py` defines a registry the chat model can call — **32 tools**. Read-only
+tools run inline; the **destructive** ones (marked ⚠️ below) emit a confirmation
+event to the UI instead of executing.
 
 *Reading the notebook:* `search_notes` · `get_note` · `list_notes` ·
 `count_notes` · `list_tags` · `list_categories` · `summarize_notes`
@@ -221,11 +221,26 @@ a confirmation event to the UI instead of executing.
 *Writing:* `create_note` · `edit_note` · `tag_note` · `pin_note` · `link_notes` ·
 `restore_note` · `rename_tag` · `delete_note` ⚠️ · `delete_tag` ⚠️
 
+*Categories:* `create_category` · `rename_category` · `merge_categories` ⚠️ ·
+`delete_category` ⚠️ — by name, never by id, since the model has never seen
+one. Deleting a category keeps its notes (they become Uncategorised); the two
+marked destructive are so because neither is reversible afterwards — nothing
+records which notes came from where.
+
 *Reminders:* `set_reminder` · `list_reminders` · `complete_reminder`
 
 *Skills:* `list_skills` · `save_skill` · `delete_skill`
 
 *Online (opt-in, off by default):* `web_search` · `read_url`
+
+> **Adding a tool costs prompt budget, and the budget is nearly spent.** Every
+> schema here is resent on each round in `tool_focus: "all"` mode. That
+> overhead is now ~13,743 characters against a ceiling of ~13,924 (0.85 × a
+> 4096-token window × 4 chars/token), so there is room for about **one more
+> tool**. `tests/test_prompt_budget.py` is what will tell you; past the
+> ceiling a 3B model silently stops knowing it has tools at all, because
+> overflow is dropped from the front. The default `"auto"` mode is unaffected
+> — `tools.focus_for` sends ~8–12 tools for a typical question (~1,439 tokens).
 
 `search_notes` and `list_notes` return **previews**, which is why `get_note`
 exists and its description says so — a model that quoted a note from a preview

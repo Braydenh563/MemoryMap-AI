@@ -72,6 +72,17 @@ so the next audit does not have to rediscover them. The other four were real.
   - **Errors that arrive while you are on another screen** show as a count on
     the Logs item in the settings menu.
 
+- **The AI can manage categories, not just use them.** It could already file a
+  note into a category but had no way to make one, so asking it to organise
+  anything ran into a wall. It now has `create_category`, `rename_category`,
+  `merge_categories` and `delete_category` — enough to answer "tidy up my
+  duplicate categories" or "file these under a new Recipes category".
+
+  Deleting a category never deletes notes; they're kept and become
+  Uncategorised. Merging and deleting ask for your approval before they run,
+  because neither can be undone afterwards — nothing records which notes came
+  from where. Creating and renaming can be undone, and offer it.
+
 - **Any error in the log can be copied on its own.** Each record has its own
   copy button that takes the traceback with it, and an open traceback has a
   **Copy traceback** button of its own — so getting one error out is a click,

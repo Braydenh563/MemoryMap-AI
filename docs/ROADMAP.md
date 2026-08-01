@@ -301,8 +301,10 @@ extending a pattern that already exists rather than inventing one.
   level filter, merge the browser-side ring buffer (§1)~~ **done** — streamed
   as NDJSON over `fetch` rather than EventSource; see §1 for why that swap was
   forced rather than preferred.
-- `create_category` / `merge_categories` / `delete_category` as agent tools,
-  following the existing tag-tool pattern (§14)
+- ~~`create_category` / `merge_categories` / `delete_category` as agent tools,
+  following the existing tag-tool pattern (§14)~~ **done** — four of them
+  (`rename_category` too), and **the prompt budget is now the binding
+  constraint on this list.** See §14.
 - ~~A support-bundle export button (§1)~~ **done**, as an allowlist.
 - Fix the specific reported bugs in §8's ideas-parking-lot list — the
   miscategorised note, the dashboard markdown gap, the constellation widget
@@ -2201,11 +2203,44 @@ them) · `related_notes(id, depth)` (§9) · `move_notes` (bulk re-file) ·
 `add_event` / `list_events` (§10) · `set_preference` over a small allowlist so
 "make your answers shorter" works · `unlink_notes` / `delete_reminder` (§21,
 gives skill runs a real undo for those two change types) ·
-`create_category` / `merge_categories` / `delete_category` — asked for
-indirectly ("more tools for managing… creating, editing, deleting, and
-applying categories"); renaming and deleting a category already exist as UI
-actions (`routes_entries`) but not as agent tools, so today the agent can
-file a note into a category it cannot itself create.
+~~`create_category` / `merge_categories` / `delete_category`~~ **done, plus
+`rename_category`.** Asked for indirectly ("more tools for managing…
+creating, editing, deleting, and applying categories"); the agent could file
+a note into a category it had no way to create, which is the wrong half of
+the job. They take **names, not ids** — the model has never seen an id — and
+a miss lists what does exist, because "no category called Work" with nothing
+after it invites another guess rather than a look.
+
+Three decisions in there worth not re-litigating:
+
+- **`merge_categories` is its own tool even though `rename_category` already
+  merges** when the new name is taken. That is right for a rename and a
+  terrible way to *ask* for a merge: the model would have to know a name was
+  already in use to predict what its own call did.
+- **A rename that merged offers no undo.** Once both sets of notes sit in one
+  category nothing records which came from where, so an "undo" would move all
+  of them back — inventing a history that never happened, which is worse than
+  having none. `create_category` and a plain rename do offer one.
+- **Lookup is exact-match first, then case-insensitive.** Purely
+  case-insensitive resolved both "Work" and "work" to whichever row came back
+  first, so `merge_categories(from="work", into="Work")` found the same
+  category twice and refused itself — on precisely the duplicate the user was
+  trying to clear up. Caught by a test, not by inspection.
+
+> **⚠ The prompt budget is now the binding constraint on this section.**
+> Adding these four broke `tests/test_prompt_budget.py`, exactly as that test
+> exists to do — and the first draft, carrying per-parameter descriptions like
+> the older tools do, went past the 4096-token *window* as well. Rewritten
+> terse they cost 1,112 characters. The all-tools overhead is now **~13,743
+> characters against a hard ceiling of ~13,924** (0.85 × 4096 × 4).
+>
+> **There is room for roughly one more tool on this list, and then there is
+> none.** The answer at that point is not to raise `PROMPT_BUDGET_CHARS`
+> again — past the ceiling a 3B model silently stops knowing it has tools —
+> it is to trim existing schemas, or to accept that "all tools" is no longer a
+> mode a 4096-token model can run and say so in Settings → Tools instead of
+> letting it fail quietly. This binds the `tool_focus: "all"` setting only;
+> the default is `"auto"`, where a typical question costs ~1,439 tokens.
 
 ---
 

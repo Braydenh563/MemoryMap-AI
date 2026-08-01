@@ -186,12 +186,18 @@ def test_the_reply_length_is_capped():
 
 def test_every_generation_path_sends_the_options():
     """Four call sites, and a payload that silently omits them is a model
-    running with Ollama's defaults again."""
+    running with Ollama's defaults again.
+
+    Matched on the call rather than on its full argument list: the response
+    presets (§11) added a `mode` argument to every one of these, and an
+    assertion pinned to the exact spelling would have failed on a change that
+    kept the property it exists to protect.
+    """
     from pathlib import Path
 
     source = Path(OllamaClient.__module__.replace(".", "/") + ".py")
     text = (Path("src") / source).read_text(encoding="utf-8")
-    assert text.count("self.runtime_options(model)") == 4
+    assert text.count("self.runtime_options(model") == 4
 
 
 # --- the agent actually uses it ---------------------------------------------

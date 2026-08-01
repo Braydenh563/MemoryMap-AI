@@ -257,6 +257,7 @@ def build_agent_messages(
     history: list[dict] | None = None,
     persona_prompt: str | None = None,
     budget: "context.ContextBudget | None" = None,
+    mode: str | None = None,
 ) -> list[dict]:
     """Like librarian.build_messages, but the system prompt allows
     acting, and each note shows its id so tools can target it.
@@ -292,7 +293,7 @@ def build_agent_messages(
         {
             "role": "system",
             "content": f"{persona} {AGENT_GROUNDING} {TOOLS_GUIDE}{now_hint} "
-            f"{style_hint}{profile_hint}",
+            f"{style_hint}{profile_hint}{librarian.length_hint(mode)}",
         }
     ]
     past = librarian.history_messages(history)
@@ -363,6 +364,7 @@ def run_agent(
     allowed_tools: list[str] | None = None,
     max_rounds: int = MAX_ROUNDS,
     exhausted_note: str | None = None,
+    mode: str | None = None,
 ) -> Iterator[dict]:
     """Yields event dicts:
     {"type": "unsupported"}                    — model can't do tools; caller
@@ -384,7 +386,7 @@ def run_agent(
     window = report(model_manager.chat_model()) if callable(report) else None
     system_chars = len(
         f"{(persona_prompt or librarian.DEFAULT_PERSONA).strip()} "
-        f"{AGENT_GROUNDING} {TOOLS_GUIDE}"
+        f"{AGENT_GROUNDING} {TOOLS_GUIDE}{librarian.length_hint(mode)}"
     )
     budget = context.plan(
         window or OllamaClient.DEFAULT_CONTEXT_TOKENS, system_chars
@@ -399,6 +401,7 @@ def run_agent(
         history=history,
         persona_prompt=persona_prompt,
         budget=budget,
+        mode=mode,
     )
     # A skill's declared tools are the only ones offered for its run: fewer
     # schemas on the wire (roadmap §11a) and a narrower thing to go wrong.
@@ -457,7 +460,7 @@ def run_agent(
         reply: dict = {}
         streamed_any = False
         try:
-            for piece in ollama.chat_tools_stream(model, messages, offered):
+            for piece in ollama.chat_tools_stream(model, messages, offered, mode=mode):
                 if "thinking_delta" in piece:
                     yield {"type": "thinking", "delta": piece["thinking_delta"]}
                 elif "content_delta" in piece:

@@ -300,22 +300,49 @@ class Provider:
             self.DEFAULT_CONTEXT_TOKENS, min(declared, self.max_requested_context)
         )
 
-    def generation_budget(self, model: str, max_output_tokens: int | None = None) -> dict:
-        """The neutral pair every backend needs, before dialect.
+    def generation_budget(
+        self,
+        model: str,
+        max_output_tokens: int | None = None,
+        mode: str | None = None,
+    ) -> dict:
+        """The neutral settings every backend needs, before dialect.
 
         §6 called this: either each provider translates a neutral
         `{context_tokens, max_output_tokens}`, or it owns the whole payload —
-        and the agent should not learn four dialects. This is the neutral pair;
+        and the agent should not learn four dialects. This is that neutral set;
         `runtime_options` on each subclass is the translation.
+
+        `mode` is a response preset (§11) — quick, normal or detailed. An
+        explicit `max_output_tokens` still wins over the preset's, because a
+        caller that names a number has a reason the preset can't know about.
         """
+        from memorymap.ai import presets
+
+        preset = presets.resolve(mode)
         return {
             "context_tokens": self.usable_context(model),
-            "max_output_tokens": max_output_tokens or self.DEFAULT_MAX_OUTPUT_TOKENS,
+            "max_output_tokens": max_output_tokens or preset.max_output_tokens,
+            **presets.sampling_options(preset),
         }
 
-    def runtime_options(self, model: str, max_output_tokens: int | None = None) -> dict:
+    def runtime_options(
+        self,
+        model: str,
+        max_output_tokens: int | None = None,
+        mode: str | None = None,
+    ) -> dict:
         """The dialect-specific options block sent with every generation."""
         raise NotImplementedError
+
+    def request_extras(self, mode: str | None = None) -> dict:
+        """Top-level payload fields a preset needs that aren't options.
+
+        Ollama's thinking toggle is one; the OpenAI shape has no standard
+        equivalent, so its implementation returns nothing. Empty by default so
+        a provider only overrides it if it has something to say.
+        """
+        return {}
 
     def is_running(self) -> bool:
         raise NotImplementedError

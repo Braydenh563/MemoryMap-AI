@@ -51,6 +51,12 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     # Only ever needed by a hosted gateway; local servers ignore it. Kept out
     # of the support bundle by the same redaction that hides other secrets.
     "llm_api_key": "",
+    # How much effort a chat turn is worth by default (§11): "quick", "normal"
+    # or "detailed". One dial over the reply cap, the temperature, the thinking
+    # toggle and a length hint — see `ai/presets.py`. "normal" reproduces the
+    # behaviour that predates presets exactly, so upgrading changes nothing
+    # until someone chooses otherwise.
+    "response_mode": "normal",
 }
 
 

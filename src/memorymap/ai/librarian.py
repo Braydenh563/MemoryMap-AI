@@ -97,6 +97,24 @@ STYLE_HINTS = {
     "detailed": "Be thorough: mention every relevant note and add context.",
 }
 
+
+def length_hint(mode: str | None) -> str:
+    """How long the answer should be, as a sentence the model can follow (§11).
+
+    Separate from `STYLE_HINTS` on purpose, because they answer different
+    questions and are set in different places: style is a standing preference
+    about *voice* ("be warm", "be terse"), and this is a per-turn choice about
+    *effort*. Someone whose style is "friendly" can still want one quick answer.
+
+    The reply cap alone would not do this job. A cap truncates mid-sentence,
+    which reads as a crash; the hint is what makes the model produce a short
+    answer that *ends*.
+    """
+    from memorymap.ai import presets
+
+    return presets.resolve(mode).length_hint
+
+
 # Follow-up memory (Round 1): keep the conversation short enough that a
 # small local model never runs out of context. Only recent turns matter,
 # and a long past answer gets clipped.
@@ -167,6 +185,7 @@ def build_conversational_messages(
     profile: str = "",
     history: list[dict] | None = None,
     persona_prompt: str | None = None,
+    mode: str | None = None,
 ) -> list[dict]:
     """Prompt for a message that isn't about the notebook.
 
@@ -182,7 +201,10 @@ def build_conversational_messages(
     else:
         brief = CONVERSATIONAL
     messages = [
-        {"role": "system", "content": f"{persona} {brief} {style_hint}{profile_hint}"}
+        {
+            "role": "system",
+            "content": f"{persona} {brief} {style_hint}{profile_hint}{length_hint(mode)}",
+        }
     ]
     messages.extend(history_messages(history))
     messages.append({"role": "user", "content": question})
@@ -196,6 +218,7 @@ def build_messages(
     profile: str = "",
     history: list[dict] | None = None,
     persona_prompt: str | None = None,
+    mode: str | None = None,
 ) -> list[dict]:
     """The librarian's prompt — shared by the blocking and streaming
     chat endpoints so they can never drift apart.
@@ -211,7 +234,9 @@ def build_messages(
     messages = [
         {
             "role": "system",
-            "content": f"{persona} {GROUNDING} {style_hint}{profile_hint}",
+            "content": (
+                f"{persona} {GROUNDING} {style_hint}{profile_hint}{length_hint(mode)}"
+            ),
         }
     ]
     messages.extend(history_messages(history))
@@ -248,6 +273,7 @@ def answer(
     history: list[dict] | None = None,
     persona_prompt: str | None = None,
     use_utility_model: bool = False,
+    mode: str | None = None,
 ) -> tuple[str, str | None]:
     """(answer text, model's thinking or None) for `question` given
     retrieved `notes` (dicts with 'content' and 'category').
@@ -272,7 +298,9 @@ def answer(
                 profile=profile,
                 history=history,
                 persona_prompt=persona_prompt,
+                mode=mode,
             ),
+            mode=mode,
         )
         return reply["content"].strip(), reply["thinking"]
     except OllamaError:
@@ -298,6 +326,7 @@ def converse(
     profile: str = "",
     history: list[dict] | None = None,
     persona_prompt: str | None = None,
+    mode: str | None = None,
 ) -> tuple[str, str | None]:
     """Reply to a message that isn't a question about the notebook.
 
@@ -316,7 +345,9 @@ def converse(
                 profile=profile,
                 history=history,
                 persona_prompt=persona_prompt,
+                mode=mode,
             ),
+            mode=mode,
         )
         return reply["content"].strip(), reply["thinking"]
     except OllamaError:

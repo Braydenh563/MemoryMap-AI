@@ -431,6 +431,9 @@ DIAGNOSTIC_PREFERENCES = frozenset(
         # described-not-disclosed like every other secret.
         "llm_provider",
         "llm_base_url",
+        # How long answers were asked to be, which is the first thing to check
+        # in a "the AI is slow" or "the AI is too terse" report (§11).
+        "response_mode",
     }
 )
 

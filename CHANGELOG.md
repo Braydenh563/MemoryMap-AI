@@ -65,6 +65,35 @@ the normal order to do it in.
   work, and the status line names whichever backend actually answered instead
   of telling an LM Studio user to go and install Ollama.
 
+### Added — quick / normal / detailed (roadmap §11)
+
+The prompt side of a turn has been budgeted against the model's real window
+since the context work. The **output** side had one number for everything:
+`num_predict` was a flat 1,024 whether the question was "when did I write about
+beans" or "draft me a summary of the last month". Output tokens are generated
+one at a time, so they cost far more wall-clock each than prompt tokens do — a
+uniform cap means every short question pays for the possibility of a long
+answer.
+
+One picker in the chat toolbar now moves four settings together: the reply cap,
+the temperature, the thinking toggle and a length hint in the prompt. They
+belong together — capping the reply without telling the model to be brief
+truncates it mid-sentence, which reads as a crash rather than as brevity.
+
+- **`normal` is exactly what every turn got before**, and a test says so. It is
+  the default, so anything else would mean upgrading silently changed
+  everyone's chats.
+- **Settings a model can't do are never sent.** Thinking is only ever toggled
+  *off*: turning it off on a model with none is a harmless no-op, while turning
+  it on where it isn't supported is the request that errors. An unset
+  temperature is omitted rather than sent as null — absent means "your default",
+  which is what happened before presets existed.
+- **The picker is per-turn, the preference is the default.** One quick answer
+  doesn't change the setting for every answer after it, but the last choice is
+  remembered so someone who works in Quick isn't re-picking it every reload.
+- The mode list is served from `GET /chat/modes` rather than duplicated in
+  `app.js`, so adding a fourth preset is a change to `ai/presets.py` alone.
+
 ### Security
 
 The roadmap's security tier, worked through end to end. Three of its seven

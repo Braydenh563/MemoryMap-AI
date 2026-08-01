@@ -227,7 +227,12 @@ class OpenAICompatClient(Provider):
         self._context_lengths[model] = length
         return length
 
-    def runtime_options(self, model: str, max_output_tokens: int | None = None) -> dict:
+    def runtime_options(
+        self,
+        model: str,
+        max_output_tokens: int | None = None,
+        mode: str | None = None,
+    ) -> dict:
         """The neutral budget, translated into OpenAI's payload fields.
 
         Only half of the pair survives the translation, and deliberately:
@@ -237,8 +242,11 @@ class OpenAICompatClient(Provider):
         sent. `max_tokens` is the half that does, and it is the half that stops
         a rambling local model reading as a hang.
         """
-        budget = self.generation_budget(model, max_output_tokens)
-        return {"max_tokens": budget["max_output_tokens"]}
+        budget = self.generation_budget(model, max_output_tokens, mode)
+        options = {"max_tokens": budget["max_output_tokens"]}
+        if "temperature" in budget:
+            options["temperature"] = budget["temperature"]
+        return options
 
     # --- message translation ------------------------------------------------
 
@@ -458,11 +466,14 @@ class OpenAICompatClient(Provider):
                 total += len(content)
         return total
 
-    def _payload(self, model: str, messages: list[dict], **extra) -> dict:
+    def _payload(
+        self, model: str, messages: list[dict], mode: str | None = None, **extra
+    ) -> dict:
         payload = {
             "model": model,
             "messages": self._to_openai_messages(messages),
-            **self.runtime_options(model),
+            **self.runtime_options(model, mode=mode),
+            **self.request_extras(mode),
         }
         payload.update(extra)
         return payload
@@ -478,7 +489,7 @@ class OpenAICompatClient(Provider):
 
     # --- the four generation paths ------------------------------------------
 
-    def chat(self, model: str, messages: list[dict]) -> dict:
+    def chat(self, model: str, messages: list[dict], mode: str | None = None) -> dict:
         """One non-streamed chat turn.
 
         Returns {"content": str, "thinking": str | None} — the same shape the
@@ -488,7 +499,7 @@ class OpenAICompatClient(Provider):
         started = time.monotonic()
         try:
             response = self._post(
-                self._payload(model, messages, stream=False), stream=False
+                self._payload(model, messages, mode, stream=False), stream=False
             )
             response.raise_for_status()
             payload = response.json()
@@ -508,7 +519,9 @@ class OpenAICompatClient(Provider):
         except (requests.RequestException, KeyError, IndexError, TypeError, ValueError) as exc:
             raise ProviderError(f"Chat with '{model}' failed: {exc}") from exc
 
-    def chat_stream(self, model: str, messages: list[dict]) -> Iterator[dict]:
+    def chat_stream(
+        self, model: str, messages: list[dict], mode: str | None = None
+    ) -> Iterator[dict]:
         """Streamed chat turn: yields {"thinking_delta"} and {"content_delta"}
         pieces as the model produces them, then one {"stats"}."""
         splitter = _ThinkTagSplitter()
@@ -520,6 +533,7 @@ class OpenAICompatClient(Provider):
                 self._payload(
                     model,
                     messages,
+                    mode,
                     stream=True,
                     # Without this, a streamed OpenAI response carries no usage
                     # block at all and the metadata line loses its token counts.
@@ -553,7 +567,11 @@ class OpenAICompatClient(Provider):
             raise ProviderError(f"Chat with '{model}' failed: {exc}") from exc
 
     def chat_tools_stream(
-        self, model: str, messages: list[dict], tools: list[dict]
+        self,
+        model: str,
+        messages: list[dict],
+        tools: list[dict],
+        mode: str | None = None,
     ) -> Iterator[dict]:
         """Streamed tool-calling turn — the agent loop's normal path.
 
@@ -575,6 +593,7 @@ class OpenAICompatClient(Provider):
                 self._payload(
                     model,
                     messages,
+                    mode,
                     stream=True,
                     tools=tools,
                     stream_options={"include_usage": True},
@@ -660,12 +679,18 @@ class OpenAICompatClient(Provider):
             }
         }
 
-    def chat_tools(self, model: str, messages: list[dict], tools: list[dict]) -> dict:
+    def chat_tools(
+        self,
+        model: str,
+        messages: list[dict],
+        tools: list[dict],
+        mode: str | None = None,
+    ) -> dict:
         """One non-streamed chat turn with tools offered."""
         started = time.monotonic()
         try:
             response = self._post(
-                self._payload(model, messages, stream=False, tools=tools), stream=False
+                self._payload(model, messages, mode, stream=False, tools=tools), stream=False
             )
             if _looks_like_tools_rejection(response.status_code, response.text):
                 raise ToolsUnsupportedError(f"'{model}' can't use tools")

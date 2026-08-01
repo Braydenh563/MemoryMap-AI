@@ -109,18 +109,40 @@ class OllamaClient(Provider):
         self._context_lengths[model] = length
         return length
 
-    def runtime_options(self, model: str, max_output_tokens: int | None = None) -> dict:
+    def runtime_options(
+        self,
+        model: str,
+        max_output_tokens: int | None = None,
+        mode: str | None = None,
+    ) -> dict:
         """The neutral budget, translated into Ollama's `options` block.
 
         Nothing was sent before this, which meant two things at once: the
         window was whatever Ollama felt like (not what the app had budgeted
         for), and the reply length was unbounded.
         """
-        budget = self.generation_budget(model, max_output_tokens)
-        return {
+        budget = self.generation_budget(model, max_output_tokens, mode)
+        options = {
             "num_ctx": budget["context_tokens"],
             "num_predict": budget["max_output_tokens"],
         }
+        if "temperature" in budget:
+            options["temperature"] = budget["temperature"]
+        return options
+
+    def request_extras(self, mode: str | None = None) -> dict:
+        """Ollama's thinking toggle, which is top-level rather than an option.
+
+        Only ever sent to turn thinking *off*. Turning it off on a model with
+        no thinking to turn off is a harmless no-op; turning it *on* where it
+        isn't supported is the request that errors — so the unsupported
+        direction is simply never sent, and "not sent" means "whatever the
+        model does by default", which is what happened before presets existed.
+        """
+        from memorymap.ai import presets
+
+        preset = presets.resolve(mode)
+        return {"think": False} if preset.think is False else {}
 
     def is_running(self) -> bool:
         """Cheap reachability probe — short timeout so the UI never hangs
@@ -170,7 +192,7 @@ class OllamaClient(Provider):
         except requests.RequestException as exc:
             raise OllamaError(f"Removing '{name}' failed: {exc}") from exc
 
-    def chat(self, model: str, messages: list[dict]) -> dict:
+    def chat(self, model: str, messages: list[dict], mode: str | None = None) -> dict:
         """One non-streamed chat turn.
 
         Returns {"content": str, "thinking": str | None} — thinking is
@@ -183,7 +205,8 @@ class OllamaClient(Provider):
                     "model": model,
                     "messages": messages,
                     "stream": False,
-                    "options": self.runtime_options(model),
+                    "options": self.runtime_options(model, mode=mode),
+                    **self.request_extras(mode),
                 },
                 timeout=self.timeout,
             )
@@ -197,7 +220,9 @@ class OllamaClient(Provider):
         except (requests.RequestException, KeyError, TypeError, ValueError) as exc:
             raise OllamaError(f"Chat with '{model}' failed: {exc}") from exc
 
-    def chat_stream(self, model: str, messages: list[dict]) -> Iterator[dict]:
+    def chat_stream(
+        self, model: str, messages: list[dict], mode: str | None = None
+    ) -> Iterator[dict]:
         """Streamed chat turn: yields {"thinking_delta": str} and
         {"content_delta": str} pieces as the model produces them.
         Inline <think> tags are routed to thinking_delta too, even when
@@ -210,7 +235,8 @@ class OllamaClient(Provider):
                     "model": model,
                     "messages": messages,
                     "stream": True,
-                    "options": self.runtime_options(model),
+                    "options": self.runtime_options(model, mode=mode),
+                    **self.request_extras(mode),
                 },
                 stream=True,
                 timeout=self.timeout,
@@ -262,7 +288,11 @@ class OllamaClient(Provider):
     _offered_names = staticmethod(offered_tool_names)
 
     def chat_tools_stream(
-        self, model: str, messages: list[dict], tools: list[dict]
+        self,
+        model: str,
+        messages: list[dict],
+        tools: list[dict],
+        mode: str | None = None,
     ) -> Iterator[dict]:
         """Streamed tool-calling turn — the agent loop's normal path.
 
@@ -292,7 +322,8 @@ class OllamaClient(Provider):
                     "messages": messages,
                     "stream": True,
                     "tools": tools,
-                    "options": self.runtime_options(model),
+                    "options": self.runtime_options(model, mode=mode),
+                    **self.request_extras(mode),
                 },
                 stream=True,
                 timeout=self.timeout,
@@ -373,7 +404,13 @@ class OllamaClient(Provider):
             }
         }
 
-    def chat_tools(self, model: str, messages: list[dict], tools: list[dict]) -> dict:
+    def chat_tools(
+        self,
+        model: str,
+        messages: list[dict],
+        tools: list[dict],
+        mode: str | None = None,
+    ) -> dict:
         """One non-streamed chat turn with tools offered (Wave G).
 
         Returns {"content", "thinking", "tool_calls", "raw_tool_calls"}.
@@ -389,7 +426,8 @@ class OllamaClient(Provider):
                     "messages": messages,
                     "stream": False,
                     "tools": tools,
-                    "options": self.runtime_options(model),
+                    "options": self.runtime_options(model, mode=mode),
+                    **self.request_extras(mode),
                 },
                 timeout=self.timeout,
             )

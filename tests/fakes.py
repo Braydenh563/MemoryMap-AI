@@ -102,11 +102,11 @@ class FakeOllama:
     def usable_context(self, model: str) -> int:
         return self.context_tokens or 4096
 
-    def chat(self, model: str, messages: list[dict]) -> dict:
+    def chat(self, model: str, messages: list[dict], mode: str | None = None) -> dict:
         self.chat_models.append(model)
         return {"content": self._reply_text(messages), "thinking": self.librarian_thinking}
 
-    def chat_stream(self, model: str, messages: list[dict]):
+    def chat_stream(self, model: str, messages: list[dict], mode: str | None = None):
         """Chunks the canned reply like real streaming would."""
         text = self._reply_text(messages)
         if self.librarian_thinking:
@@ -118,7 +118,13 @@ class FakeOllama:
         # metadata line is built from these.
         yield {"stats": dict(self.stats, model=model)}
 
-    def chat_tools(self, model: str, messages: list[dict], tools: list[dict]) -> dict:
+    def chat_tools(
+        self,
+        model: str,
+        messages: list[dict],
+        tools: list[dict],
+        mode: str | None = None,
+    ) -> dict:
         """Plays back tool_script one round at a time (Wave G)."""
         if not self.running:
             raise OllamaError("Ollama is not running (fake)")
@@ -163,7 +169,13 @@ class FakeOllama:
             "stats": dict(self.stats, model=model),
         }
 
-    def chat_tools_stream(self, model: str, messages: list[dict], tools: list[dict]):
+    def chat_tools_stream(
+        self,
+        model: str,
+        messages: list[dict],
+        tools: list[dict],
+        mode: str | None = None,
+    ):
         """The streaming shape of chat_tools — what the agent loop calls now.
 
         Delegates so both paths stay in lockstep and the existing tool_script /

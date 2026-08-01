@@ -20,7 +20,15 @@ from pathlib import Path
 INDEX = Path(__file__).resolve().parents[1] / "frontend" / "index.html"
 
 # Ids that app.js creates at runtime rather than finding in the markup.
-RUNTIME_IDS = {"user-css", "focus-timer-display", "focus-timer-toggle"}
+# `copy-fallback` is the last-resort copy dialog: it only exists while a
+# browser has refused both clipboard mechanisms, so there is nothing to
+# declare in index.html.
+RUNTIME_IDS = {
+    "user-css",
+    "focus-timer-display",
+    "focus-timer-toggle",
+    "copy-fallback",
+}
 
 
 def _markup() -> str:

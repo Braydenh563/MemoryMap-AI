@@ -329,6 +329,13 @@ request behind it sit next to each other. It's memory-only - nothing is written
 to disk - in keeping with the rest of the privacy posture, and it says so when
 the buffer has had to drop older records rather than leaving a silent gap.
 
+**Got an error you want to send someone?** Every record has its own copy button
+that takes the traceback with it, and an opened traceback has a **Copy
+traceback** button too - so one error is one click, not a filter plus a careful
+drag. The error count on the **Logs** menu item is clickable and opens the
+screen already filtered to errors. **Copy all** copies what's on screen and
+relabels itself ("Copy 12 shown") whenever a filter is hiding something.
+
 **Reporting a bug?** The **⬇ Support bundle** button on the same screen saves a
 zip with the log, your settings, and app and model status - the things a bug
 report needs. Nothing is sent anywhere; the file goes to your disk and it's

@@ -72,6 +72,15 @@ so the next audit does not have to rediscover them. The other four were real.
   - **Errors that arrive while you are on another screen** show as a count on
     the Logs item in the settings menu.
 
+- **Any error in the log can be copied on its own.** Each record has its own
+  copy button that takes the traceback with it, and an open traceback has a
+  **Copy traceback** button of its own — so getting one error out is a click,
+  not a filter-then-select-across-a-scrolling-box. The error count on the Logs
+  menu item is clickable and opens the screen already filtered to errors, and
+  **Copy all** relabels itself to "Copy 12 shown" whenever a filter is hiding
+  something, because copying less than it promised is not something you'd
+  discover until you pasted it.
+
 - **A support bundle button** (Settings → Logs). It saves a zip containing the
   log, your settings, app and model status, and how many notes exist — the
   things a bug report needs. Nothing is sent anywhere: the file lands on your
@@ -128,6 +137,16 @@ so the next audit does not have to rediscover them. The other four were real.
   hand-edited file nor a changed upstream default can turn it back on.
 
 ### Fixed
+
+- **Copy buttons work when the app isn't on localhost.** Every copy in the app
+  — a note, an answer, a code block, a log record — used `navigator.clipboard`,
+  which browsers only expose in a *secure context*. On `http://localhost` that
+  is satisfied, so this looked fine; reach the app at `http://192.168.1.20:8000`
+  or through a tunnel and the entire API is `undefined`, and every copy button
+  became a no-op that said "couldn't copy". Copying now tries the modern API,
+  falls back to the older mechanism that works over plain http, and — if the
+  browser refuses both — shows the text in a dialog with it already selected,
+  so Ctrl+C still gets it out.
 
 - **Gravity and Spread no longer pretend to work under the tree layouts.**
   Both scale the force simulation, which Tree and Radial tree do not run —

@@ -632,12 +632,27 @@ sensitive key anyone ever adds; this only has to name the ones that help.
 Nothing is transmitted — that is the whole difference between this and the
 crash reporting §30 turned down.
 
-Two bugs found while building it, both by things other than the test suite:
+**Copying an error out was the follow-up ask, and it found something bigger.**
+Per-record copy buttons (traceback included), a Copy traceback button, a
+clickable error badge that filters to errors, and an honest "Copy 12 shown"
+label. Underneath: **every copy button in the app only worked on localhost.**
+`navigator.clipboard` exists only in a secure context, `http://localhost`
+qualifies, and nothing else does — so a LAN address or a tunnel turned every
+copy in the app into a no-op that said "couldn't copy". Three tiers now:
+the modern API, `execCommand` for plain http, then a dialog with the text
+pre-selected.
+
+Four bugs found while building this, none of them by the existing suite:
 the live pill kept reading "● live" after the stream was deliberately closed
-(the abort path returned before updating it — found in a browser), and the
-stream dropped every record that arrived in its last poll interval before
-handing over to the client's reconnect (the deadline was checked before the
-drain — found by a test that then had to be written to catch it).
+(the abort path returned before updating it — found in a browser); the stream
+dropped every record that arrived in its last poll interval before handing
+over to the client's reconnect (the deadline was checked before the drain —
+found by a test that had to be written first); both toolbar dropdowns
+collapsed to their arrows (a flex item's automatic minimum size does not
+protect a `<select>`, and one of the two only looked right because an earlier
+change had given it a `max-width`); and the traceback fold was laid out as a
+fifth *column* of a single-line flex row, squeezed to a few characters against
+the right edge — the row needed to wrap and the fold to claim `flex: 0 0 100%`.
 
 **The security tier at the top of the priority map is closed — all seven.**
 Full detail is up there with each item; the short version:
@@ -889,7 +904,24 @@ separate `trace` field for a fold.
   browser error and the request that caused it are one event seen from two
   ends, and reading them apart was what made this screen hard to use.
 - ~~Count errors since the screen was last opened and badge the nav item~~
-  **done.**
+  **done**, and the badge is clickable — it opens the screen already filtered
+  to errors, since it is the only place a failure announces itself.
+- **Getting one error OUT of the log** (asked for directly after the console
+  landed: "make sure that if there is an error in the log that it can be
+  accessed and copied"). Each record has its own copy button that takes the
+  traceback with it, an open traceback has a **Copy traceback** of its own,
+  and "Copy all" relabels to "Copy 12 shown" whenever a filter is hiding
+  something. **The real find here was underneath:** every copy in the whole
+  app went through `navigator.clipboard`, which browsers expose **only in a
+  secure context**. `http://localhost` qualifies, which is why nothing had
+  ever shown it — but reach the app at `http://192.168.1.20:8000` or through
+  a tunnel (§17's mobile-access question, and the proxied client address §8b
+  already saw in a real log) and the API is `undefined`, so every copy button
+  in the app was a no-op that said "couldn't copy". Copying now tries the
+  modern API, then `execCommand` on plain http, then shows the text
+  pre-selected in a dialog. A test asserts no caller writes to
+  `navigator.clipboard` directly any more, since a helper only some callers
+  use leaves the rest quietly lying.
 - ~~**Export a support bundle.**~~ **done** — see below; it is an allowlist,
   not a denylist. One button that zips the log buffer,
   `preferences.json` with anything sensitive stripped, and Ollama/model

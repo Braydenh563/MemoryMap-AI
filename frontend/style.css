@@ -5277,3 +5277,53 @@ textarea.autogrow {
   font-weight: 700;
   text-align: center;
 }
+
+/* Per-record copy. Present but quiet until the row is hovered or the button
+   is focused — visible on focus matters as much as on hover, or the control
+   is unreachable by keyboard in practice. */
+/* The row is a single-line flex, so anything appended to it becomes another
+   column. That is right for the copy button and wrong for the traceback: as a
+   column it was squeezed into a few characters against the right edge. Let the
+   row wrap, give the message the spare space, and make the fold claim a full
+   line of its own underneath. */
+.log-list li { flex-wrap: wrap; }
+.log-list .log-line { flex: 1 1 auto; min-width: 0; }
+.log-list .log-trace { flex: 0 0 100%; }
+
+.log-copy {
+  opacity: 0;
+  flex: 0 0 auto;
+  padding: 0 0.3rem;
+  line-height: 1.4;
+  transition: opacity 120ms ease;
+}
+.log-list li:hover .log-copy,
+.log-list li:focus-within .log-copy,
+.log-copy:focus-visible {
+  opacity: 1;
+}
+/* Touch has no hover, so waiting for one hides the control forever. */
+@media (hover: none) {
+  .log-copy { opacity: 0.7; }
+}
+
+.log-trace button {
+  margin-top: 0.3rem;
+}
+
+.log-error-badge { cursor: pointer; }
+
+/* The last-resort copy dialog: the text is on screen and already selected. */
+.copy-fallback-card {
+  max-width: min(46rem, 92vw);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.copy-fallback-text {
+  width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  white-space: pre;
+  overflow: auto;
+}

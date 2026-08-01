@@ -555,12 +555,7 @@ function entryItem(entry, options = {}) {
     );
     actions.appendChild(
       smallButton("📋", "Copy this note's text", async () => {
-        try {
-          await navigator.clipboard.writeText(entry.content);
-          toast("Note copied.");
-        } catch {
-          toast("Couldn't copy — your browser blocked clipboard access.", true);
-        }
+        if (await copyToClipboard(entry.content)) toast("Note copied.");
       })
     );
     actions.appendChild(
@@ -2340,12 +2335,7 @@ function retryAnswer() {
 }
 
 async function copyAnswer() {
-  try {
-    await navigator.clipboard.writeText($("ai-answer").textContent);
-    toast("Answer copied.");
-  } catch {
-    toast("Couldn't copy — your browser blocked clipboard access.", true);
-  }
+  if (await copyToClipboard($("ai-answer").textContent)) toast("Answer copied.");
 }
 
 // --- suggested questions (Round 1) ----------------------------------------------
@@ -2443,17 +2433,118 @@ function removeChatBubble(bubble) {
   return deleteChatTurn(assistant);
 }
 
-async function copyToClipboard(text, button) {
+// Copying has to actually work, in three descending steps.
+//
+// `navigator.clipboard` is only defined in a SECURE CONTEXT. On
+// http://localhost that is satisfied, which is why this looked fine — but the
+// moment the app is reached at http://192.168.1.20:8000, over a tunnel, or
+// through anything that is not localhost, the whole API is simply `undefined`
+// and every copy button in the app becomes a no-op that says "couldn't copy".
+// That is worst on the Logs screen, where the thing being copied is the error
+// you are trying to report to somebody.
+//
+// So: the modern API, then the old `execCommand` path that works on plain
+// http, and finally — if even that is refused — hand the text to the user in a
+// selected textarea so Ctrl+C still gets it out. The last step is the one that
+// makes "you can always copy this" a true statement rather than a hope.
+function copyViaTextarea(text) {
+  const staging = document.createElement("textarea");
+  staging.value = text;
+  // Off-screen rather than hidden: a display:none element cannot be selected,
+  // and the selection is the whole mechanism here.
+  staging.setAttribute("readonly", "");
+  staging.style.position = "fixed";
+  staging.style.top = "-1000px";
+  staging.style.opacity = "0";
+  document.body.appendChild(staging);
+  staging.select();
+  staging.setSelectionRange(0, text.length);
+  let copied = false;
   try {
-    await navigator.clipboard.writeText(text);
-    if (button) {
-      const original = button.textContent;
-      button.textContent = "✓";
-      setTimeout(() => (button.textContent = original), 1200);
+    copied = document.execCommand("copy");
+  } catch {
+    copied = false;
+  }
+  staging.remove();
+  return copied;
+}
+
+function flashCopied(button) {
+  if (!button) return;
+  const original = button.textContent;
+  button.textContent = "✓";
+  setTimeout(() => (button.textContent = original), 1200);
+}
+
+async function copyToClipboard(text, button) {
+  if (!text) return false;
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      flashCopied(button);
+      return true;
     }
   } catch {
-    toast("Couldn't copy to the clipboard.", true);
+    // Permission refused or the context is not what it claimed — fall through
+    // rather than reporting failure while a working path is still untried.
   }
+  if (copyViaTextarea(text)) {
+    flashCopied(button);
+    return true;
+  }
+  showCopyFallback(text);
+  return false;
+}
+
+// The last resort: show the text, already selected, and say what to press.
+// Reached when the browser refuses both copy mechanisms — usually a hardened
+// or embedded webview. The text is still on screen and still selectable, so
+// the answer to "how do I get this error out" is never "you can't".
+function showCopyFallback(text) {
+  const existing = $("copy-fallback");
+  if (existing) existing.remove();
+
+  const overlay = document.createElement("div");
+  overlay.id = "copy-fallback";
+  overlay.className = "modal-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-label", "Copy this text");
+
+  const card = document.createElement("div");
+  card.className = "modal-card copy-fallback-card";
+
+  const heading = document.createElement("h3");
+  heading.textContent = "Copy this";
+
+  const note = document.createElement("p");
+  note.className = "muted";
+  note.textContent =
+    "This browser wouldn't let the app write to the clipboard — it's already " +
+    "selected below, so press Ctrl+C (⌘C on a Mac).";
+
+  const box = document.createElement("textarea");
+  box.className = "copy-fallback-text";
+  box.value = text;
+  box.setAttribute("readonly", "");
+  box.rows = 12;
+
+  const close = document.createElement("button");
+  close.className = "small";
+  close.textContent = "Done";
+  const dismiss = () => overlay.remove();
+  close.addEventListener("click", dismiss);
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) dismiss();
+  });
+  overlay.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") dismiss();
+  });
+
+  card.append(heading, note, box, close);
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+  box.focus();
+  box.select();
 }
 
 // Put a question back in the input so it can be tweaked and re-sent.
@@ -10201,7 +10292,23 @@ function logRow(record) {
   text.textContent = record.logger ? `${record.logger} — ${record.message}` : record.message;
   line.appendChild(text);
 
-  li.append(when, level, line);
+  // One record, copyable on its own. "Copy all" plus the filters can already
+  // narrow to a single error, but that is a three-step answer to "send me that
+  // error" — and hand-selecting a row whose traceback lives in its own
+  // scrolling box is worse. This copies the record AND its traceback together,
+  // which is the thing anyone actually wants to paste.
+  const copy = document.createElement("button");
+  copy.type = "button";
+  copy.className = "log-copy ghost small";
+  copy.textContent = "📋";
+  copy.title = "Copy this record (with its traceback)";
+  copy.setAttribute("aria-label", `Copy this ${record.level} record`);
+  copy.addEventListener("click", async (event) => {
+    event.stopPropagation(); // never toggles the fold it sits beside
+    if (await copyToClipboard(logRecordText(record), copy)) toast("Record copied.");
+  });
+
+  li.append(when, level, line, copy);
 
   // A traceback is the difference between "something failed" and knowing
   // what. Folded, because it is many lines and most rows do not have one.
@@ -10212,10 +10319,27 @@ function logRow(record) {
     summary.textContent = "Traceback";
     const pre = document.createElement("pre");
     pre.textContent = record.trace; // real newlines here — it is not a row
-    fold.append(summary, pre);
+    const copyTrace = document.createElement("button");
+    copyTrace.type = "button";
+    copyTrace.className = "ghost small";
+    copyTrace.textContent = "Copy traceback";
+    copyTrace.addEventListener("click", async () => {
+      if (await copyToClipboard(record.trace, copyTrace)) toast("Traceback copied.");
+    });
+    fold.append(summary, pre, copyTrace);
     li.appendChild(fold);
   }
   return li;
+}
+
+// One record as the text you would paste into a bug report. The source tag is
+// always included here even though the row only shows it in the merged view —
+// out of context, "which half of the app said this" is the first question.
+function logRecordText(record) {
+  const head =
+    `${record.time} [${record.source}] ${record.level} ` +
+    `${record.logger || ""} ${record.message}`.trimEnd();
+  return record.trace ? `${head}\n${record.trace}` : head;
 }
 
 function nearLogBottom() {
@@ -10248,6 +10372,7 @@ function renderLogList() {
   } else {
     filtered.classList.add("hidden");
   }
+  renderCopyLogsLabel();
   if (shouldStick) scrollLogToBottom();
 }
 
@@ -10276,10 +10401,19 @@ function renderLogErrorBadge() {
   if (!badge) {
     badge = document.createElement("span");
     badge.className = "log-error-badge";
+    // Clicking the badge opens the Logs screen already filtered to errors.
+    // Set synchronously so it is in place before renderLogs() draws — the
+    // badge is the only place a failure announces itself, so it should also
+    // be the shortest way to the failure itself.
+    badge.addEventListener("click", () => {
+      $("log-source").value = "all";
+      $("log-level").value = "error";
+      $("log-filter").value = "";
+    });
     link.appendChild(badge);
   }
   badge.textContent = logErrorsSinceOpened > 99 ? "99+" : String(logErrorsSinceOpened);
-  badge.title = `${logErrorsSinceOpened} error${logErrorsSinceOpened === 1 ? "" : "s"} since you last looked at the logs`;
+  badge.title = `${logErrorsSinceOpened} error${logErrorsSinceOpened === 1 ? "" : "s"} since you last looked at the logs — click to show just those`;
 }
 
 // NDJSON over fetch rather than an EventSource, for one blunt reason:
@@ -10387,20 +10521,39 @@ function closeLogs() {
 }
 
 async function copyLogs() {
-  const text = logRecords
-    .filter(logMatchesFilters)
-    .map(
-      (r) =>
-        `${r.time} [${r.source}] ${r.level} ${r.logger || ""} ${r.message}` +
-        (r.trace ? `\n${r.trace}` : "")
-    )
-    .join("\n");
-  try {
-    await navigator.clipboard.writeText(text);
-    toast("Logs copied.");
-  } catch {
-    toast("Couldn't copy — clipboard blocked.", true);
+  const shown = logRecords.filter(logMatchesFilters);
+  if (!shown.length) {
+    toast("Nothing to copy — the filters above are hiding every record.", true);
+    return;
   }
+  const text = shown.map(logRecordText).join("\n");
+  if (await copyToClipboard(text)) {
+    toast(`Copied ${shown.length} record${shown.length === 1 ? "" : "s"}.`);
+  }
+}
+
+// The button copies what is ON SCREEN, not the whole buffer, so it has to say
+// which. "Copy all" while a filter hides 400 records is a promise it does not
+// keep — and the reader would not find out until they pasted it.
+function renderCopyLogsLabel() {
+  const button = $("logs-copy");
+  if (!button) return;
+  const shown = logRecords.filter(logMatchesFilters).length;
+  const filtering = shown !== logRecords.length;
+  button.textContent = filtering ? `Copy ${shown} shown` : "Copy all";
+  button.title = filtering
+    ? "Copies only the records the filters are showing"
+    : "Copies every record in this list, tracebacks included";
+}
+
+// Jump straight from "something failed while I was elsewhere" to the failures
+// themselves. The badge is the only place an error announces itself, so it
+// should also be the way to reach one.
+function showOnlyLogErrors() {
+  $("log-source").value = "all";
+  $("log-level").value = "error";
+  $("log-filter").value = "";
+  renderLogList();
 }
 
 async function clearLogs() {

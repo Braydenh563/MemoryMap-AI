@@ -300,6 +300,100 @@ def test_leaving_the_screen_closes_the_stream():
     assert 'if (name !== "logs") closeLogs();' in source
 
 
+def _app_js() -> str:
+    from memorymap.api.app import FRONTEND_DIR
+
+    return (FRONTEND_DIR / "app.js").read_text(encoding="utf-8")
+
+
+# --- getting an error OUT of the log ----------------------------------------
+#
+# "Copy all" plus a filter can technically reach one error, but that is a
+# three-step answer to "send me that error" — and hand-selecting a row whose
+# traceback sits in its own scrolling box is worse than it sounds.
+
+
+def test_every_record_has_its_own_copy_button():
+    source = _app_js()
+    start = source.index("function logRow(record) {")
+    body = source[start : source.index("function logRecordText(")]
+    assert "log-copy" in body
+    assert "copyToClipboard(logRecordText(record)" in body
+
+
+def test_copying_a_record_takes_its_traceback_with_it():
+    """The traceback is the half worth having, and it lives in a separate
+    element — copying the row without it would be the useless half."""
+    source = _app_js()
+    start = source.index("function logRecordText(record) {")
+    body = source[start : start + 400]
+    assert "record.trace" in body
+
+
+def test_a_records_copy_button_does_not_toggle_the_fold_it_sits_beside():
+    source = _app_js()
+    start = source.index("function logRow(record) {")
+    body = source[start : source.index("function logRecordText(")]
+    assert "stopPropagation" in body
+
+
+def test_copy_falls_back_when_the_clipboard_api_is_missing():
+    """`navigator.clipboard` only exists in a SECURE CONTEXT. On
+    http://localhost that holds, which is why this looked fine — but reach the
+    app at http://192.168.1.20:8000 or through a tunnel and the whole API is
+    `undefined`, so every copy button in the app becomes a no-op that says
+    "couldn't copy". Worst on this screen, where the thing being copied is the
+    error you are trying to report."""
+    source = _app_js()
+    start = source.index("async function copyToClipboard(")
+    body = source[start : start + 900]
+    assert "window.isSecureContext" in body
+    assert "copyViaTextarea" in body
+    assert "showCopyFallback" in body
+
+
+def test_the_last_resort_shows_the_text_already_selected():
+    """If both copy mechanisms are refused, the answer to "how do I get this
+    error out" still must not be "you can't"."""
+    source = _app_js()
+    start = source.index("function showCopyFallback(text) {")
+    body = source[start : start + 1800]
+    assert ".select()" in body
+    assert "Ctrl+C" in body
+
+
+def test_every_copy_path_goes_through_the_fallback():
+    """A helper that only some callers use leaves the others quietly lying.
+    No raw navigator.clipboard writes should remain outside the helper."""
+    source = _app_js()
+    helper = source.index("async function copyToClipboard(")
+    writes = [
+        index
+        for index in range(len(source))
+        if source.startswith("navigator.clipboard.writeText", index)
+    ]
+    outside = [index for index in writes if not (helper < index < helper + 900)]
+    assert not outside, "a copy path is still calling the clipboard API directly"
+
+
+def test_the_copy_button_says_what_it_will_copy():
+    """"Copy all" while a filter hides 400 records is a promise it does not
+    keep, and the reader would not find out until they pasted it."""
+    source = _app_js()
+    start = source.index("function renderCopyLogsLabel() {")
+    body = source[start : start + 600]
+    assert "Copy all" in body and "shown" in body
+
+
+def test_the_error_badge_leads_to_the_errors():
+    """The badge is the only place a failure announces itself, so it should
+    also be the shortest way to reach one."""
+    source = _app_js()
+    start = source.index("function renderLogErrorBadge() {")
+    body = source[start : start + 900]
+    assert 'log-level").value = "error"' in body
+
+
 def test_the_live_pill_is_not_left_claiming_to_be_live():
     """A deliberate abort returns early from the stream's own exit path, so the
     pill would still read "live" with nothing behind it. Found in a browser,

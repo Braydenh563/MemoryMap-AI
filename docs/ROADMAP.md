@@ -6,6 +6,56 @@ pick up without re-deriving context.
 Each item says **why** it matters, not just what to build — the reasoning is
 the part that's expensive to reconstruct.
 
+## Contents
+
+- [Do these next, in this order](#do-these-next-in-this-order)
+- [Priority map: quick wins → bigger bets](#priority-map-quick-wins-bigger-bets)
+- [Folded in from IDEAS.md and outside review](#folded-in-from-ideasmd-and-outside-review)
+- [How to work on this repo](#how-to-work-on-this-repo)
+- [Done in the most recent session — read this first](#done-in-the-most-recent-session-read-this-first)
+- [Done in earlier sessions — don't redo](#done-in-earlier-sessions-dont-redo)
+- [1. Live log console (started, not finished)](#1-live-log-console-started-not-finished)
+- [2. Quick wins](#2-quick-wins)
+- [3. Chat page: Chat / Agent / Browse sub-tabs](#3-chat-page-chat-agent-browse-sub-tabs)
+- [4. Library tab: chats, documents, images, archive](#4-library-tab-chats-documents-images-archive)
+- [5. Documents](#5-documents)
+- [6. OpenAI-compatible backends (LM Studio, llama.cpp, Jan, vLLM)](#6-openai-compatible-backends-lm-studio-llamacpp-jan-vllm)
+- [7. Desktop packaging](#7-desktop-packaging)
+- [8. Open bug list](#8-open-bug-list)
+- [8b. Web search — two Windows bugs found, and what is left](#8b-web-search-two-windows-bugs-found-and-what-is-left)
+- [9. The graph — make it a tool, and give it a look](#9-the-graph-make-it-a-tool-and-give-it-a-look)
+- [10. Timeline tab, and time-aware notes](#10-timeline-tab-and-time-aware-notes)
+- [11. Performance, accuracy and AI efficiency](#11-performance-accuracy-and-ai-efficiency)
+- [12. Does the AI know it is an agent?](#12-does-the-ai-know-it-is-an-agent)
+- [13. Web search effectiveness](#13-web-search-effectiveness)
+- [14. More tools worth adding](#14-more-tools-worth-adding)
+- [15. Appearance: more of everything](#15-appearance-more-of-everything)
+- [16. Sweeping UI quality-of-life](#16-sweeping-ui-quality-of-life)
+- [17. Use cases the app can't serve yet](#17-use-cases-the-app-cant-serve-yet)
+- [18. Agent quality](#18-agent-quality)
+- [19. Accessibility audit](#19-accessibility-audit)
+- [20. Backend](#20-backend)
+- [21. Skills — rebuilt; what is left](#21-skills-rebuilt-what-is-left)
+- [22. Reported in use, not yet done](#22-reported-in-use-not-yet-done)
+- [23. Organisation: manual grouping and multi-category notes](#23-organisation-manual-grouping-and-multi-category-notes)
+- [24. Dashboard: more widgets, and layout depth](#24-dashboard-more-widgets-and-layout-depth)
+- [25. App control: tray, health checks, and dependency repair](#25-app-control-tray-health-checks-and-dependency-repair)
+- [26. Data lifecycle: archive, and a full wipe](#26-data-lifecycle-archive-and-a-full-wipe)
+- [27. Onboarding and first-run experience](#27-onboarding-and-first-run-experience)
+- [28. In-app help: an AI that knows the docs](#28-in-app-help-an-ai-that-knows-the-docs)
+- [29. Extensibility ideas, not yet scoped](#29-extensibility-ideas-not-yet-scoped)
+- [30. External review, filtered — what didn't make the cut](#30-external-review-filtered-what-didnt-make-the-cut)
+- [31. Claude's own read: what I'd flag](#31-claudes-own-read-what-id-flag)
+- [Answers to questions already raised](#answers-to-questions-already-raised-so-they-arent-re-asked)
+
+**New in this pass:** a proper line/branch view for the Timeline (§10C), a
+search UI + privacy refinement pass now that SearXNG is confirmed working
+(§13/§8b), a backend-design pass (§20) and a full priority triage of the
+entire backlog — [**Priority map: quick wins → bigger
+bets**](#priority-map-quick-wins-bigger-bets), right below — sorted by effort
+rather than usage history, since most of it hasn't been used yet to sort the
+other way.
+
 ## Do these next, in this order
 
 Re-prioritised after a round of use. The ordering is by *how often it gets in
@@ -71,6 +121,190 @@ sub-tabs) and §4 (the Library tab). §5's "attach documents to notes" is done
 > already existed. Items verified against the code are marked ~~struck
 > through~~ with what was found; anything not marked is worth ten seconds of
 > grep first.
+
+---
+
+## Priority map: quick wins → bigger bets
+
+Asked for directly — a triage across *everything* in this document, not just
+the six items above (those are the ones already proven to matter most in
+actual use; this is the rest of the backlog, sorted by effort rather than
+usage history, since nobody has used most of it yet to sort it the other
+way). Four tiers. Within a tier, order doesn't mean much; between tiers, it
+does.
+
+**Security — worth doing out of turn, regardless of size.** None of these
+are large, and all of them are the kind of gap that's invisible until it
+costs something. Do these before anything else in this map, not after the
+"quick wins" below, even though most of them *are* quick wins by effort:
+
+1. `PRAGMA journal_mode=WAL` (§20) — one line, and the fix for background AI
+   writes stalling foreground reads
+2. Session TTL, and `SameSite=Strict` if the session is a cookie (§20)
+3. Origin/Referer check on the API, so a page open in another tab can't
+   drive-by MemoryMap the way local dev servers and Ollama itself have been
+   attacked before (§20)
+4. Brute-force backoff on the unlock gate (§8b)
+5. A CSP header on the app's own responses (§8b)
+6. Confirm the KDF behind private notes is slow (Argon2id/PBKDF2), not a fast
+   hash (§8b)
+7. Confirm SearXNG binds to localhost, not the LAN, the same way the main
+   server does (§13)
+
+**Tier 1 — fastest wins.** Hours, not sessions; contained to one file or one
+function; low risk of breaking something else.
+
+- Say which search engine answered a query (§13)
+- "N records dropped" visibility in the log console (§1)
+- Grey out Gravity/Spread under layouts they don't affect, or give them
+  layout-specific meaning (§8/§9)
+- Flip SearXNG to the recommended default now that it works, update the
+  onboarding copy that still frames it as advanced (§13)
+- Enforce (or at minimum document) single-worker at startup (§20)
+- Audit SearXNG's generated `settings.yml` for anything else defaulting to
+  "on" that shouldn't be, beyond the plugin already disabled (§13)
+
+**Tier 2 — quick wins.** A session or so. Real but contained — mostly
+extending a pattern that already exists rather than inventing one.
+
+- Finish the live log console: stream via EventSource, tail/autoscroll,
+  level filter, merge the browser-side ring buffer (§1)
+- `create_category` / `merge_categories` / `delete_category` as agent tools,
+  following the existing tag-tool pattern (§14)
+- A support-bundle export button (§1)
+- Fix the specific reported bugs in §8's ideas-parking-lot list — the
+  miscategorised note, the dashboard markdown gap, the constellation widget
+  not redrawing on theme change, settings on a narrow viewport — each is
+  probably small once found, and none has been reproduced in a browser yet
+- Collapsible sidebars (§16)
+- Keyboard arrow-key movement + Enter-to-open in the note list (§16)
+- A per-chat token/context meter in the Chat tab — the number already exists
+  server-side (§11a); this is surfacing it
+- Save a full custom theme, not just a palette (§15)
+- Word-count goal in Documents, the one unbuilt piece of an otherwise
+  finished feature (§5)
+
+**Tier 3 — medium bets.** Multiple sessions, genuine design decisions, but
+each is scoped and none needs a new abstraction the codebase doesn't already
+have a version of.
+
+- The Timeline branch/line view (§10C) — new rendering work, but reuses
+  §9's clustering and §10A's date data rather than inventing new grouping
+- Chat / Agent / Browse as real sub-tabs (§3)
+- The Library tab (§4)
+- The graph's utility — paths between notes, clusters, drag-to-link; the
+  layouts are already done (§9)
+- An eval/benchmark harness for tokens, latency and filing accuracy
+  together (§11, §31)
+- Splitting `app.js` into ES modules, one file per tab (§31) — mechanical
+  and low-risk if done incrementally, tab by tab, rather than all at once
+- A headless Playwright smoke suite in CI (§31) — the direct answer to "every
+  layout bug passes a green run"
+- The app-control/health-check screen, without the tray/packaging work
+  around it yet (§25)
+- First-run diagnostics folded into onboarding (§27)
+- A plain-Markdown-folder importer (§31) — the smallest version of "bring
+  notes in from somewhere else" that still covers most real cases
+
+**Tier 4 — bigger bets.** Architecture-level, multi-session, and the scope
+itself is still an open question for several of these — worth a deliberate
+decision before starting, not a session that discovers the scope midway.
+
+- Multi-category notes (schema change) vs. manual grouping (additive,
+  smaller) — decide which is actually wanted before building either (§23)
+- Response-mode presets (quick/normal/detailed) with per-mode model
+  assignment, and the "optional" dynamic routing on top (§11)
+- The agent reachable from anywhere in the app, and — much bigger, and
+  flagged rather than scoped — the agent controlling the screen itself (§18)
+- Desktop packaging: signed installers, single instance, tray, update
+  channels (§7, §25)
+- A dedicated whiteboard, distinct from the existing sketch pad (§4)
+- MCP tool support (§29) — no shape yet, and needs its own trust model
+  before it needs code
+- The mobile-access / LAN-exposure decision (§17) — a decision first,
+  security work second, code third
+
+---
+
+## Folded in from IDEAS.md and outside review
+
+Two outside reviews of the repo (Perplexity, two passes; a similar pass from
+Gemini) and the running `IDEAS.md` parking lot are merged into the sections
+below, rather than kept as separate documents. Two things worth knowing
+before trusting any of it:
+
+**The outside reviews were working from a stale GitHub profile blurb, not the
+repo.** Neither tool could actually fetch `README.md`/`ARCHITECTURE.md` at
+the time, so both built their picture from a one-line bio — "models bundled
+directly, no Ollama, LM Studio, or external setup required" — which describes
+a *different* project, not this one. MemoryMap AI talks to Ollama over its
+local REST API (`ai/ollama_client.py`) and has done since Phase 2; there is
+no bundled model, no hardware-aware model routing to build, no model-pack
+checksum/rollback system to build. Everything in both reviews that assumed
+bundled models is dropped rather than reframed — see §30 for the specific
+items and why. What *did* transfer are the parts that were really about
+general local-AI-app hygiene and happen to fit this repo anyway: prompt
+observability, a support bundle, an eval harness, first-run diagnostics.
+Those are folded into §1, §11 and the new §25–§28 below, in this app's actual
+shape.
+
+**IDEAS.md was a parking lot on purpose** ("out of scope right now"), so
+folding it in here is the point of this pass — some of it duplicates work
+already designed elsewhere (image drag-and-drop is already §4 item 1; a
+branching timeline is already in §10; a custom-palette builder is already
+§15), some of it is a genuine bug report that had never made it to §8, and a
+few items are big enough to be their own section (§23–§29). Each folded item
+below says where it landed and, for the outside-review material, whether it
+survived contact with the actual architecture.
+
+**Every line, accounted for.** So nothing here reads as silently dropped —
+`IDEAS.md` had 42 items when this pass was written; this is all of them:
+
+| `IDEAS.md` item | Landed |
+|---|---|
+| Update README + GH Pages | §22 (new) |
+| "ai is cool" filed under Sketches | §8 (new) |
+| Expand sketches / whiteboard tab | §4 item 4 (new) |
+| Image/file uploads + drag-and-drop | §4 item 1 — mostly done for images; note added on the file-type gap that's left |
+| Manual grouping of notes | §23 (new) |
+| Multi-category notes | §23 (new) |
+| Guided first-run setup | §27 (new) |
+| Note/data compression | §26 (new) |
+| Better agentic web search | §13 (extended) |
+| Bottom status bar + palette access | §16 (new) |
+| Save custom appearances/themes | §15 (extended — a saved *theme* is more than a saved palette) |
+| "Notebook constellation" redraw on theme change | §8 (new) |
+| Gravity/Spread don't affect other graph layouts | §8 (new) |
+| Branching visual timeline | §10 (extended) |
+| Better documents UI/usability | already thoroughly scoped in §5 — checked again, nothing missing |
+| Settings unreachable on narrow/mobile | §8 (new) + §19 |
+| Clean up timeline/graph spacing | §8 (new) |
+| Dashboard widgets missing markdown | §8 (new) |
+| More dashboard widgets / pie charts | §24 (new) |
+| Chat metadata disappears on reload | §8 (new) |
+| Better token tracking | §11 (new meter) |
+| More category-management tools, better agent workflow | §14 (new) |
+| Notes/documents as one whole (OneNote/Obsidian/Notion) | already thoroughly scoped in §5 — checked again, nothing missing |
+| Agent permission dialogue + before/after + agent everywhere | §18 (new) |
+| Agent controlling the screen itself | §18 (new, flagged as far bigger than the rest) |
+| Quick/normal/detailed modes, per-mode models | §11 (new) |
+| In-built browser with MCP tool abilities | §29 (new) + §3 (existing browser discussion) |
+| Full security sweep | §8b (new) |
+| VS Code extension | §29 (new) |
+| Cross-platform Linux/Mac | §7 (extended) |
+| Console completeness in Settings | §1 (new) |
+| Hide the cmd window, tray-accessible | §25 (new) |
+| Exit app + close backend, automate setup/fixes | §25 (new) |
+| App management interface (health check, repair deps) | §25 (new) |
+| Run on mobile / iPhone | §17 (extended) |
+| Does the red AI-status ever happen? | closing Q&A (new) |
+| In-settings ask-AI help with docs access | §28 (new) |
+| Reduce token usage | §11a (already there) + §11 (new: a visible meter, an eval harness) |
+| Streamline/optimise the backend and AI interactions | this is §11's whole subject already — no single line answers it, the section does |
+| Package the app + improve the Settings → Models page | §7 (packaging, already there) + §30 (what a fancier Models page would and wouldn't add) |
+| Expand start.bat / background CLI / dev console | §25 (new) |
+| Dynamic model switching by task complexity | §11 (new) |
+| Collapsible sidebars | §16 (new) |
 
 ---
 
@@ -385,6 +619,21 @@ separate `trace` field for a fold.
 - Merge the browser-side `browserLogs` ring buffer into the same view, tagged by
   source, so one screen answers "what just happened"
 - Count errors since the screen was last opened and badge the nav item
+- **Export a support bundle.** One button that zips the log buffer,
+  `preferences.json` with anything sensitive stripped, and Ollama/model
+  status (`/models/status`) into a file the user attaches to a bug report —
+  asked for indirectly ("an interface for managing the application… errors
+  etc") and echoed by the outside review's "support bundle" suggestion.
+  Everything in it is already local and already visible somewhere in the app;
+  this only collects it. No new telemetry — the file is written to disk and
+  the user chooses whether to send it, which is the difference between this
+  and the outside review's other suggestion (opt-in crash reporting),
+  rejected in §30.
+- **Confirm nothing is silently dropped.** Asked as "make sure all the
+  console messages are shown" — `logbuffer.py` is a 500-record ring buffer,
+  so a very chatty session can push early records out before the screen is
+  opened. Worth a visible "N records dropped, oldest kept is …" rather than a
+  silent gap.
 
 ---
 
@@ -458,11 +707,25 @@ store:**
    mostly a paste handler plus rendering. Decide inline markdown (`![](…)`) vs a
    separate attachment list — inline keeps exports portable, the same reasoning
    behind the markdown toolbar. Documents have no attachment support at all yet.
+   **What's still missing:** this is images specifically — a non-image file
+   (a PDF, a `.docx`) dropped on a plain note has nowhere to go today. `📎
+   Attach a file` exists for notes generally per §5, so the gap is narrower
+   than it first looks: drag-and-drop onto the *note capture box itself*,
+   not just the existing attach button, and a preview/icon in the note card
+   for a non-image attachment the way an image gets a thumbnail.
 2. **Archive.** A state between "active" and "binned", for things you want out
    of the way but not deleted. Applies to notes, chats and documents: one
    `archived_at` column per table, an additive migration.
 3. **Library tab.** One place showing stored images, documents, chats and
    archived items, with previews, sorting and search.
+4. **A bigger sketch board.** Asked for directly: "expand and improve
+   sketches board, maybe a whiteboard tab??" A sketch today is a note plus a
+   PNG (§9's bug list: "sketches don't open from the graph" was exactly this
+   pairing being unreachable from the map). A dedicated whiteboard is a
+   step further — a canvas that isn't tied 1:1 to a single note — worth
+   deciding whether that lives here as a Library item type or stays under
+   Notes as a richer sketch, since the answer decides whether it needs its
+   own storage shape or reuses `attachments`.
 
 ---
 
@@ -585,6 +848,18 @@ tray, graceful port fallback when 8000 is taken, first-run flow — then
 PyInstaller one-file builds for Windows/macOS/Linux. pywebview's webview is also
 where the genuine embedded browser from §3 becomes possible.
 
+**Cross-platform status, since it was asked about directly** ("make
+memorymap-ai cross-platform and compatible with linux and if possible mac as
+well"): closer to done than the ask implies. `start.sh` already exists
+alongside `start.bat`, and the app itself is Python + SQLite + a browser, none
+of which is Windows-specific. What genuinely is Windows-specific: the two
+`searxng_manager` fixes in §8b (`os.kill(pid, 0)` terminating instead of
+checking, `rmtree` failing on git's read-only objects) are guarded to only
+run their Windows branch, so they should be harmless elsewhere, but that is
+still unverified on real macOS/Linux hardware rather than reasoned from the
+code — the honest status is "should work," not "confirmed." The PyInstaller
+builds above are the part with no cross-platform equivalent yet at all.
+
 ---
 
 ## 8. Open bug list
@@ -686,6 +961,42 @@ effort is the expensive part to repeat.
 - `.entry-content` used `pre-wrap`, which keeps typed line breaks but cannot
   break inside a word, so one pasted URL widened the note list and the page.
 - `pytest` didn't work in a fresh clone without an editable install.
+
+**From the ideas parking lot, never formally triaged.** Reported informally
+(`IDEAS.md`) rather than reproduced in a browser yet — worth the same
+ten-second grep-first check as everything else in this document before
+anyone spends a session on them:
+
+- **A note filed under the wrong category by a wide margin** — "I wrote 'ai
+  is cool' as a note and it was filed under Sketches". Sketches is a specific
+  category the janitor's cheap embedding-centroid path can match against
+  (§4 of `ARCHITECTURE.md`), so this smells like a centroid gone stale or too
+  few notes in the right category to out-vote it, rather than a one-off.
+  Worth checking what "Sketches" actually contains before assuming the AI is
+  at fault.
+- **Settings can't be reached on a narrow/mobile viewport.** Distinct from
+  the general accessibility pass in §19 — this is specifically Settings, and
+  worth checking against the header's documented degrade order (§10 of
+  `ARCHITECTURE.md`) before assuming it needs new CSS rather than a missing
+  breakpoint.
+- **Some dashboard widgets don't render markdown.** The note list's
+  `renderInlineMarkdown` (§22) was deliberately not extended everywhere; the
+  dashboard's own small note previews strip markers instead
+  (`notePreviewText`). A widget showing raw `**bold**` is likely one that
+  calls neither — worth an inventory of which dashboard widgets go through
+  which path.
+- **The "notebook constellation" widget doesn't redraw on a theme change.**
+  The graph's galaxy/starfield styling (§9) points at this widget as proof
+  the aesthetic works; §10 of `ARCHITECTURE.md` already documents the general
+  version of this bug for the emblem (p5 measures a canvas as zero inside a
+  hidden tab, and has to redraw on theme change since the accent moves) —
+  very likely the same cause in a second place.
+- **Gravity and Spread only affect the force-directed layout.** Real:
+  `nodeSize`/panning-based tree and radial-ring layouts (§9) don't run a
+  physics simulation, so these two controls have nothing to act on outside
+  the default layout. Not obviously a bug — worth deciding whether they
+  should grey out under tree/radial, or gain layout-specific meaning (row
+  spacing, ring gap) instead of silently doing nothing.
 
 **Still open here**
 
@@ -810,11 +1121,10 @@ the folder, `_remove_tree()` clears the read-only bit (and moves the tree
 aside if it still can't delete it) and reports what survived, and the
 installer verifies `import searx` in the new venv before calling it done.
 
-**The two Windows-only fixes are not verified on Windows** — this sandbox is
-Linux, and the behaviour that was wrong is precisely the behaviour that
-cannot be reproduced here. The tests pin the logic
-(`tests/test_searxng_install.py`), but ask the user whether SearXNG now
-installs and stays up before treating §8b as closed.
+~~**The two Windows-only fixes are not verified on Windows**~~ **confirmed —
+see above.** The tests pin the logic (`tests/test_searxng_install.py`), and
+the user has since confirmed SearXNG installs, stays up, and returns results
+on the machine that hit both bugs originally.
 
 **6. `import pwd` — SearXNG cannot be imported on Windows.** Reported with a
 photo: the install finally *finished*, and the start died with
@@ -833,12 +1143,14 @@ checks `searx.webapp` now, with the same environment a start uses — verifying
 against SearXNG's own defaults verifies something nobody runs, since it
 refuses to start on its placeholder `secret_key`.
 
-**What is still unknown.** Whether search *results* come back on the user's
-machine. Every engine returned "access denied" in the sandbox because the
-proxy blocks them, so the one thing this session could not test is the one
-thing the feature is for. If results are empty on a real network, the log at
-`data/searxng/searxng.log` will now say why — it finally contains the output
-of a process that booted properly. Do not theorise ahead of it.
+**Confirmed working.** SearXNG now returns real results on the user's own
+machine — the thing this session couldn't test (the sandbox proxy blocks
+every engine) is now verified where it matters. That also confirms the two
+Windows-only fixes above (`_alive`, `is_checkout`/`_remove_tree`) actually
+held on real Windows hardware, not just in the sandboxed logic tests. §8b's
+open work is no longer "does this work at all" — it's UI polish and a
+privacy pass, both moved to §13 so they live with the rest of web search's
+design rather than the bug list.
 
 Also present, from earlier sessions: a `↻ Reinstall` button (wipes the venv
 and checkout, keeps `settings.yml` and its secret key) and a port line saying
@@ -853,6 +1165,48 @@ Known from a user screenshot, now fixed: `_reason()` reported pip's parting
 because it took the last line and that notice is always last. If an install
 failure is being investigated, the message is trustworthy now; it was not
 before.
+
+**A deliberate security pass, rather than more one-off fixes.** Asked
+broadly — "full security sweep and analysis… must be fully private, hack
+proof, and secure… web browsing should be as private, secure, and
+untrackable as possible" — which is this section's whole subject already,
+just not gathered into one pass. What exists today: the CodeQL alert list is
+closed (§ "Done in the most recent session"), the DNS-rebinding TOCTOU on
+both the reader and the SearXNG search path is closed, redirects are
+re-checked hop by hop rather than trusted, private notes are encrypted and
+excluded from every AI tool, and CodeQL runs on every push plus weekly. What
+a deliberate pass would add on top, parallel to §19's accessibility audit:
+
+- A dependency-vulnerability sweep (`pip-audit` / `npm audit` equivalent for
+  the vendored JS, since nothing currently checks either), and a fresh look
+  at this section's own three easy-to-break rules (§8b's opening) to confirm
+  nothing has quietly regressed since they were written down.
+- **Brute-force protection on the unlock gate.** Single-user and local
+  doesn't mean single-*network* — if the app is ever reachable beyond
+  localhost (§17's mobile-access question already raises this), an unlimited
+  password-attempt gate is the one thing standing between an attacker and
+  everything. Worth checking whether login attempts are rate-limited or
+  backed off at all today; if not, it's a small, cheap addition — a counter
+  and an increasing delay — worth having in place *before* §17's LAN
+  question is ever answered "yes," not after.
+- **A Content-Security-Policy header on the app's own pages**, not just the
+  reader's script-stripping for third-party content. The reader already
+  strips scripts from *fetched* pages (§ Privacy and security); a CSP on
+  MemoryMap's own responses would be the equivalent guarantee for the app
+  itself — worth confirming one exists and is tight (no `unsafe-inline`,
+  no wildcard sources) given the explicit "no asset from a CDN" rule already
+  makes a strict policy cheap to write.
+- **The KDF behind private notes, named explicitly.** The README already
+  states the encryption key is derived from the password; worth confirming
+  that derivation uses a slow, purpose-built KDF (Argon2id or PBKDF2 with a
+  real iteration count) rather than a single fast hash — the difference
+  only matters if the database file itself is ever copied off the machine,
+  which is exactly the scenario private notes exist to protect against.
+- **Cross-origin requests against the local API** — real enough to also
+  live in §20 as a backend-design question, not just a search-specific one;
+  see there for the full reasoning.
+- **Search-specific items** now live in §13, since SearXNG went from "being
+  built" to "actually running" this pass.
 
 ---
 
@@ -959,7 +1313,8 @@ backlog. Notes say "today", "yesterday", "last week", "two days ago" — phrasin
 that is correct when written and misleading forever after. Today nothing records
 what those phrases *resolved to*.
 
-**Two halves, and the first is worth doing alone:**
+**Three parts. The first two are done — the third is the one asked for again,
+more directly, and is not built yet:**
 
 ~~**A. Resolve relative time at capture.**~~ **done.** Every note's temporal
 phrases are resolved when it is saved (and re-read when its text is edited)
@@ -991,28 +1346,77 @@ findable as a class, and nudging on stale ones ("this said 'tomorrow' three
 weeks ago — did it happen?"). Both are queries over `entry_dates` now that
 the data exists.
 
-~~**B. A Timeline tab.**~~ **built, first version.** A time axis across, one
-band per category or tag down the side (or none), and a bucket size you pick —
-day, week, month, year. Every note plots at what it is *about* where §10A
-resolved a date from its text, and at when it was written otherwise; a note
-moved by what it says is marked 🕓 and says so on hover, because a timeline
-that silently relocates notes looks broken rather than clever. Clicking a note
-opens it.
+~~**B. A Timeline tab.**~~ **built, first version — and it is a grid, on
+purpose, for what it's for.** A time axis across, one band per category or
+tag down the side (or none), and a bucket size you pick — day, week, month,
+year. Every note plots at what it is *about* where §10A resolved a date from
+its text, and at when it was written otherwise; a note moved by what it says
+is marked 🕓 and says so on hover, because a timeline that silently relocates
+notes looks broken rather than clever. Clicking a note opens it.
 
 Drawn as a CSS grid rather than SVG: every cell is a real element, so it
 scrolls, tabs and reads aloud without any of that being hand-built. Bands are
 capped at eight plus an "Everything else" lane — a chart with forty lanes is
 not a chart.
 
-**Still open here:**
+**C. A branch/line view — asked for again, more directly, because B reads as
+a calendar rather than a timeline.** "Make sure the timeline has the
+additional aspect of like a line or branching line/tree-like graph view
+because right now it is more like a calendar" — accurate, and not a defect in
+B so much as B answering a different question well. A grid answers "what
+happened around this date, across every category at once." A line answers
+"what was the shape of this one thread over time" — and that's the thing a
+grid genuinely cannot show: two notes three months apart in the same project
+read as unrelated dots in a grid, and as one continuous line in a flow view.
+They're both real questions; this is the second view, not a replacement for
+the first.
+
+**Shape.** A spine running through time (main axis, chronological, same
+underlying `entry_dates` data as B) with **branches** peeling off it for
+threads that run in parallel — a tag, a category, or a linked-note cluster
+(§9 already computes these for the graph, so this reuses that grouping rather
+than inventing a second one). A branch starts where its first note in the
+thread sits on the spine, carries every note in that thread along its own
+line rather than back on the shared axis, and either rejoins the spine (the
+thread ended, nothing more tags into it) or runs off the visible edge (still
+open). Visually closer to a git commit graph or a river/Sankey diagram than
+to the force-directed graph in §9 — the *x*-axis is always time, never
+force-simulated, which is what makes it still readable as a timeline and not
+just the graph with a clock added.
+
+**Why this can't reuse B's CSS grid.** A grid cell is discrete — a bucket, a
+band, a note in it. A branch is a continuous path that has to curve away from
+the spine and back, at an arbitrary vertical offset that depends on how many
+other branches are active at that moment (two projects running at once need
+two lanes; the spine has to reserve space before it knows how many). That's
+an SVG-path layout problem — closer to what §9's graph already renders than
+to a table — so this is new rendering work, not a CSS change to the existing
+one. Reasonable to build as: **one shared time-scale function** (date →
+x-position) used by both B and C, so the two views can be toggled without
+recomputing anything, and C is additive to §10's existing data shape, not a
+rework of it.
+
+**What decides where a branch starts and ends** is the open design question,
+more than the rendering: automatic (a branch appears the moment three-plus
+notes share a tag within some window, ends after a gap with nothing added) is
+closest to "do this for me," but will branch on things the user didn't mean
+as a thread and miss things they did. Manual (pick a tag or cluster and
+"make this a branch") is predictable but is another thing to maintain.
+Worth prototyping automatic first, since §9's cluster detection already does
+the hard part of "what goes together" — the only new question is *when* a
+cluster starts and stops being active enough to draw as a branch.
+
+**Data shape:** no new table — this reads `entry_dates` (§10A) and the
+existing tag/cluster grouping (§9) the same way B does; the only new state is
+per-view (grid vs branch), which is a preference, not a migration.
+
+**Still open in B (the grid view):**
 
 - **Events as bands.** The shape this slots into: one more `group` value, once
   there is an `events` table. Places and themes can be derived from what is
   already stored; events cannot.
 - **Reminders and their completion** as points on the axis.
-- **Zoom from days to years as a gesture**, rather than a bucket picker, and
-  branches for parallel threads — "everything that is, has and will happen" is
-  a tree, not a line.
+- **Zoom from days to years as a gesture**, rather than a bucket picker.
 
 **Data shape:** a new `events` table (`title`, `at`, `precision`, `kind`,
 `entry_id?`, `source`), plus `entry_dates` for resolved expressions. Both
@@ -1096,6 +1500,21 @@ vendors d3 and p5 locally rather than take a CDN.
   now fit the budget.
 - **Verbosity steering.** Output tokens are half the latency and are not
   budgeted at all. A style hint already exists; a length hint does not.
+  Asked for as a bigger idea — a **quick / normal / detailed** picker on chat
+  and agent turns, where quick trims the length hint (and, on a model that
+  supports it, disables its own "thinking") and detailed asks for the
+  opposite, with the option to pin a specific model to each level rather
+  than always using whichever is set in Settings → Models. That's a UI and a
+  prompt change, not a new capability — the pieces (a style hint, a
+  per-purpose model already existing for chat/embedding/utility) are already
+  there; this is a preset over them.
+- **Dynamically switch models by task complexity.** A related but separate
+  ask — "optional," and worth keeping optional: a short factual question
+  routed to a small fast model and an agent job routed to a larger one,
+  automatically. The honest version of this needs a cheap way to estimate
+  "how hard is this turn" before picking a model, which is itself a model
+  call or a heuristic that will be wrong sometimes — worth prototyping as a
+  manual per-mode assignment (the bullet above) before attempting to guess.
 
 **Before any more of this: measure.** §11a was done by counting characters of
 tool schema, which is why it worked. "A 3-turn chat shows 8.7k tokens" is not
@@ -1123,6 +1542,22 @@ spends its time is currently a guess.
 - **Frontend**: `app.js` is ~12k lines parsed on every load, and
   `renderEntries` rebuilds the entire list on any change.
 - **Context warning** as the window fills — the per-turn cost is already shown.
+- **A per-chat token/context meter the user can actually see.** Asked twice,
+  once directly ("a better way to track tokens and other things") and once
+  from the outside review ("prompt inspector, token counts, latency
+  breakdown"). §11a already measures this server-side (prompt composition is
+  logged per round); what's missing is surfacing it in the Chat tab itself —
+  a small "~1.4k tokens this turn, 3.1k fixed overhead" readout, not just a
+  log line only visible in Settings → Logs.
+- **An eval/benchmark harness tied to changes here.** Every optimisation in
+  this section so far has been measured by hand, in one session, against
+  whatever the person doing it happened to type. A small fixed set of
+  representative prompts (a few notes, a few questions, a skill run) that CI
+  or a pre-release check can run against a real Ollama model and report
+  tokens/latency/answer-still-correct would catch a regression before a user
+  does. The outside review's suggestion that actually survived — not because
+  of any specific tool, but because "measure first" is already this
+  section's own rule (§11a) and there's no repeatable way to do it yet.
 
 **§11a — token usage in chats.** Asked directly: "is there a way to reduce
 excessive token usage in the chats?" A three-turn conversation showed 8.7k
@@ -1213,13 +1648,78 @@ nothing for a better-instructed model to call. §21 first.
 
 ## 13. Web search effectiveness
 
+**Now that SearXNG actually works (§8b), what's left is refinement, not
+bug-fixing** — asked for directly: "the whole search UI just needs
+refinement, and make sure that the search methods are as secure and private
+as possible." Split into the two things actually asked for.
+
+**Quality and UX:**
+
 - **Query expansion** — two or three phrasings, results fused
 - **Read before answering** — tell the model a snippet is rarely enough
 - **Cite sources** with the domains actually read
 - **Per-turn result cache**
-- **SearXNG as the recommended default** once §2's install path works — better
-  results *and* better privacy than scraping DuckDuckGo HTML, and likely the
-  real fix for the "no results" bug in §8
+- ~~**SearXNG as the recommended default** once §2's install path
+  works~~ — the install path works now (§8b); worth actually flipping the
+  default and updating the README/onboarding copy that still frames it as an
+  advanced option
+- **Say which engine answered.** DuckDuckGo and SearXNG have different
+  privacy properties (§ below) and the person chose one deliberately in
+  Settings; the results panel itself doesn't currently say which one served
+  a given search, so that choice is invisible at the point it matters
+- **Result cards worth reading, not just clicking.** A title and a link today;
+  a domain/favicon and a snippet with the matched terms highlighted would let
+  someone judge relevance before opening the reader view, the same reasoning
+  search engines converged on decades ago
+- **Open a result straight into the reader** without a second round trip —
+  ties to §3's Browse sub-tab, which is the natural home for this
+- **Distinguish *why* zero results came back** in the UI itself, not just the
+  log — rate-limited, engine down, genuinely nothing found are three
+  different situations and currently look identical to the person searching
+- **Deciding *when* to search, not just how well it searches once asked.**
+  Asked for as "better agentic web search through chat" — read as being about
+  judgement, not just result quality. Today `web_search` is one tool among 28
+  the model can choose or not; nothing measures whether it reaches for it
+  when a question is actually time-sensitive ("what's the latest version of
+  X") versus when it should trust the notebook or say it doesn't know. That's
+  a prompting and evaluation question more than a code one — a good
+  candidate for the eval harness in §11 to actually track, rather than
+  something to "fix" once.
+
+**Privacy and security, specific to search** — extending §8b's general
+security pass with what's particular to this feature. What's already true:
+only the search words leave the machine, never notes; the request looks like
+an ordinary browser rather than naming the app; no cookies survive between
+searches; queries go by POST so they don't land in access logs; tracking
+parameters are stripped from result URLs before they're ever shown; a
+self-hosted SearXNG keeps the query on the user's own network entirely
+rather than reaching a third party at all. Worth checking on top of that,
+now that SearXNG is a real running thing rather than a plan:
+
+- **SearXNG's own outbound behaviour.** A default SearXNG install can be
+  configured to query dozens of upstream engines, including ones with their
+  own tracking, and some engine plugins hit third-party autocomplete/suggestion
+  endpoints unless turned off — the `tracker_url_remover` plugin was already
+  found to break startup entirely (§8b, bug 5) and disabled; worth a pass
+  over the *rest* of the generated `settings.yml` for anything else
+  defaulting to "on" that shouldn't be, not just the one that crashed.
+- **No client-side favicon/thumbnail fetching per result.** A common leak in
+  search UIs: fetching each result's favicon from the result's own domain, at
+  render time, tells that domain someone searched and got them as a result —
+  before the person has chosen to visit anything. Worth confirming the result
+  card ideas above don't introduce this by loading icons live rather than
+  bundling a small generic set.
+- **SearXNG bound to localhost, not the LAN.** MemoryMap's own server already
+  does this on purpose (§1 of `ARCHITECTURE.md`); the SearXNG instance it
+  spawns as a subprocess should have the same property, since it's serving
+  MemoryMap alone, not the user directly — worth confirming rather than
+  assuming it inherited the same default.
+- **A visible statement of what's true**, not just true in the code. The
+  Privacy and security section of the README already says most of this
+  clearly; worth linking it from Settings → Web search directly, next to the
+  engine picker, so the privacy properties are legible exactly where someone
+  is deciding whether to turn search on — rather than something you have to
+  already know to go and read.
 
 ---
 
@@ -1229,7 +1729,13 @@ nothing for a better-instructed model to call. §21 first.
 them) · `related_notes(id, depth)` (§9) · `move_notes` (bulk re-file) ·
 `merge_notes` · `export_notes` · `find_similar(note_id)` · `stats` ·
 `add_event` / `list_events` (§10) · `set_preference` over a small allowlist so
-"make your answers shorter" works.
+"make your answers shorter" works · `unlink_notes` / `delete_reminder` (§21,
+gives skill runs a real undo for those two change types) ·
+`create_category` / `merge_categories` / `delete_category` — asked for
+indirectly ("more tools for managing… creating, editing, deleting, and
+applying categories"); renaming and deleting a category already exist as UI
+actions (`routes_entries`) but not as agent tools, so today the agent can
+file a note into a category it cannot itself create.
 
 ---
 
@@ -1246,6 +1752,12 @@ palettes."
   derive the set), and import/export of a palette as JSON
 - **More themes and palettes**, and a "surprise me" that generates a coherent
   one
+- **Save a custom combination as your own theme**, not just a custom palette.
+  Asked as "allow for saving of custom appearances and themes" — the palette
+  builder above already covers colour; a theme is colour *plus* light/dark,
+  font, density, radius and glass (see "Themes vs palettes?" in the closing
+  Q&A), so saving one as a named preset means capturing all of
+  `appearancePref`, not just the swatches.
 - **Live preview** while hovering a theme, before committing
 - ~~Fix the reported bug where individual controls resist change under a
   theme~~ done (§8): a palette always beat an accent on CSS source order, and
@@ -1267,6 +1779,36 @@ palettes."
 - ~~**Dashboard**: audit every quick-access button actually lands where it
   says~~ done (§8) — every quick link now checked from all three Notes
   sub-tabs. Still worth doing: **add the ones that are missing**
+- **Collapsible sidebars.** Asked for directly. The Notes, Chat and Documents
+  sidebars are fixed-width; a narrow window (or someone who just wants the
+  reading room back) has no way to fold them, distinct from the mobile
+  breakpoint that already hides them entirely.
+- **A status bar pinned to the bottom.** Asked for as "various statuses and
+  quick access to the command palette". The header already carries the AI
+  status dot and background-task summary (§1); this would be a persistent
+  strip rather than something you open Settings to check, with the command
+  palette's `Ctrl/Cmd-K` hint living there too. Overlaps enough with the
+  header that it's worth deciding which one owns "what is the app doing right
+  now" before building both.
+- **Keyboard-only navigation, confirmed end to end rather than assumed.**
+  §19 already covers focus traps and screen-reader gaps; this is narrower
+  and more basic — can someone move through the note list, open a note, edit
+  its tags, and file a reminder without a mouse touching anything? The
+  bullet above already has a few keys bound (`/`, `g`+letter, Escape); the
+  gap is whether the note list itself supports arrow-key movement and Enter
+  to open, which is the one interaction pattern used constantly enough that
+  its absence would be felt every session, not just noticed in an audit.
+- **A global quick-capture hotkey in desktop mode.** Not asked for directly,
+  but the app's own pitch — "just capture, a local AI files it" — implies
+  capture should be as close to zero-friction as opening the app currently
+  isn't. `--desktop` (§7) already owns a native window; a system-wide
+  hotkey that pops a capture box without switching to the app at all (the
+  way Apple Notes' quick note or Notion's quick capture work) would make the
+  core loop genuinely faster than opening a tab, typing, and filing —
+  rather than just as fast. Browser-tab mode can't do this (no OS-level
+  hotkey access from a page), so it's specifically a `--desktop` win, and
+  worth scoping alongside the rest of §7's packaging work rather than
+  separately.
 
 ---
 
@@ -1284,7 +1826,16 @@ palettes."
   already stored
 - **Sharing one note or document** — no export-one-thing path today
 - **A second device** — single-user by design; sync is a much larger decision
-  and should be stated as out of scope rather than left implied
+  and should be stated as out of scope rather than left implied. Asked
+  concretely as "a way to run the app on a mobile device like my iPhone",
+  which is a smaller ask than sync: the frontend is already a PWA with a
+  mobile pass (Wave F), so a phone on the same network *could* just point a
+  browser at it — except the server binds to `localhost` on purpose (§1 of
+  `ARCHITECTURE.md`), which is exactly what stops that. Opening it to the LAN
+  is a real security decision (anyone on the network reaches an unlocked API
+  surface until the password gate, not just the person at the keyboard), not
+  a config flag to flip quietly — worth stating explicitly as "possible, not
+  yet safe to default to" rather than leaving it unaddressed.
 
 ---
 
@@ -1302,6 +1853,25 @@ history. What's still weak:
 - A tool that fails is reported, but the model isn't told how to recover
 - `_CLAIM_PATTERN` catches "I saved it" when no write tool ran — worth extending
   to other claim types
+- **The agent only lives in the Chat tab.** Asked for as "allow the agent to
+  be accessed from anywhere in the program" — every other tab already has the
+  pieces this would reuse (the confirm-before-destructive pattern from design
+  principle 6, the plan/step/result UI from §21), so a floating entry point
+  that opens the same agent against "whatever I'm looking at right now" is
+  more a routing change than a new agent. Before/after comparison on an edit
+  already exists in one place — a skill run's changes list shows **View** and
+  **Undo** per row (§21) — the ask was really for that pattern everywhere an
+  edit happens, not a new mechanism.
+- **The agent controlling the screen itself** — "allow the agent to control
+  your screen within the application to navigate and make changes… with the
+  user able to cancel it at any time". A different and much bigger thing than
+  the tool-calling loop that exists today: it means the agent driving the
+  frontend the way the Playwright driver in §10 of `ARCHITECTURE.md` drives
+  it for testing, not just calling an API. Flagging it rather than scoping
+  it — it would need its own cancellation and audit story on top of
+  everything §21 already built for tool calls, and it's worth deciding
+  whether the tool registry can get there first before reaching for UI
+  automation.
 
 ---
 
@@ -1314,6 +1884,10 @@ Deserves one deliberate pass rather than more ad-hoc fixes:
   particularly the glass surfaces
 - Screen-reader pass; several dynamic regions announce nothing
 - Audit remaining meaningful animations for `prefers-reduced-motion` fallbacks
+- Settings screens on a narrow/mobile viewport specifically (§8's
+  ideas-parking-lot bug) — worth folding into this pass rather than fixing in
+  isolation, since it's likely the same class of breakpoint gap as the rest
+  of this list
 
 ---
 
@@ -1324,7 +1898,61 @@ Deserves one deliberate pass rather than more ad-hoc fixes:
   §6.
 - **Alembic migrations** — the additive auto-migrator cannot rename or drop, and
   won't survive a real schema change
-- **Session TTL** — tokens live in memory and never expire
+- ~~**Session TTL** — tokens live in memory and never expire~~ **real, and
+  worth pairing with the brute-force item below** — a session that never
+  expires is a second reason to lock the gate down before §17 ever considers
+  a LAN.
+- **Cross-origin requests against the local API — worth checking directly,
+  not assuming.** This is the specific way "single-user, local-only" apps
+  have actually been attacked before, Ollama included: the server isn't
+  reachable from the internet, but a malicious page open in *any other
+  browser tab* can still have the browser send a request to
+  `http://localhost:8000` on the person's behalf, because the browser
+  enforces the target's CORS policy, not the attacker's. If `allow_origins`
+  is permissive (or if the API trusts a session cookie without checking
+  where the request actually came from), a page with nothing to do with
+  MemoryMap could read or write notes just by being open in a tab. The fix
+  is standard and cheap: check the `Origin`/`Referer` header server-side
+  (not just an open CORS policy), and if the session is a cookie, set it
+  `SameSite=Strict`. Worth confirming this is already the case before
+  treating it as done — it's exactly the kind of thing that's invisible
+  until someone goes looking, and the cost of being wrong is every route
+  behind the unlock gate.
+- **Is SQLite in WAL mode?** Default (rollback-journal) SQLite locks the
+  whole file for the duration of a write, which matters here specifically
+  because background AI work (the janitor filing a note, an embedding
+  re-index) can be writing at the same moment the person is just reading
+  their own notebook. WAL mode lets readers proceed during a writer and is
+  usually the right default for exactly this "one process, mixed
+  read/write" shape — worth confirming `core/database.py` sets
+  `PRAGMA journal_mode=WAL` rather than leaving SQLite's default.
+- **What blocks the request thread.** A re-index on switching embedding
+  models, a SearXNG install, a daily backup — if any of these run
+  synchronously on the same thread that serves requests, the whole
+  single-user app freezes for their duration rather than just slowing
+  down. Worth an inventory of which long-running operations already run in
+  a background thread (§25's health-check screen would be a natural place
+  to surface "an indexing job is running" if one is) versus which quietly
+  block.
+- **Singletons and worker count are coupled, and that coupling isn't written
+  down anywhere.** `core/config`, the database connection, the in-memory log
+  buffer (§1) and the SearXNG process handle are all singletons per
+  `ARCHITECTURE.md` — correct and simple for a single process. If the app is
+  ever launched with more than one worker (`uvicorn --workers 2`, or a
+  well-meaning perf tweak by someone unfamiliar with the codebase), every one
+  of those becomes silently per-worker instead of shared — the log console
+  would show a fraction of what actually happened, and two workers could
+  each think they own the SearXNG subprocess. Cheap to prevent: either
+  enforce single-worker at startup (refuse `--workers > 1` with a clear
+  message) or write the constraint down where someone deciding to scale it
+  would actually see it.
+- **No enforced page size on list endpoints, as far as this document
+  establishes.** A notebook that's grown for years, all returned from
+  `search_notes` or the note list in one response, is a real failure mode
+  for a "just works" app that's supposed to degrade gracefully rather than
+  time out. Worth confirming every list-shaped route has a cap and a
+  cursor/offset, not just the ones that happened to need one during testing
+  on a small notebook.
 
 ---
 
@@ -1433,6 +2061,21 @@ Small, concrete, each seen in the running app:
   (websearch.fetch_readable), but actually reading such sites would take
   browser impersonation — decide deliberately whether that dependency is
   ever worth it before anyone "fixes" this again.
+- **Chat metadata disappears on a reload or app restart.** Distinct from the
+  already-fixed "no metadata when tools were used" bug above (§8) — that was
+  about the meta line never appearing; this is about it not surviving a
+  reload. `conversations.steps` is what a reopened chat replays (§8 of
+  `ARCHITECTURE.md`), so worth checking whether the metadata is part of
+  `steps` at all or lives only in the live DOM.
+- **README and GitHub Pages drift out of date.** Asked for directly: "update
+  the readme and gh pages site to have up to date information". The README's
+  own "What's in it" table still said six tabs after the Timeline tab (§10)
+  shipped, and its "Next up" list still named the pre-rebuild skill system
+  and pre-SearXNG web search as open work after both were done — exactly the
+  kind of drift this document itself warns about in its opening note. Worth
+  a pass through README, the GitHub Pages site (still on the "ideas, not
+  yet" list in `CHANGELOG.md`) and this file together, since all three
+  describe the same app and only this one gets updated every session.
 
 - ~~**Notes don't render markdown.**~~ **done** — but read how, before
   extending it. `renderInlineMarkdown` handles bold, italic, `code` and
@@ -1471,6 +2114,311 @@ Small, concrete, each seen in the running app:
 
 ---
 
+## 23. Organisation: manual grouping and multi-category notes
+
+**Why.** Two related asks: "manually group notes together (separate from
+the main sorting)" and "a note should be able to have multiple categories".
+Both point at the same gap — filing today is exactly one category per note
+(`entries.category_id`, a single foreign key, chosen by the janitor or the
+user) plus tags for everything else multi-valued.
+
+**Worth checking before building either.** Tags already are a multi-label,
+user- or AI-applied system (`entries.tags`, a JSON column, with `tag:work` as
+a search operator). A genuine "multiple categories" ask might already be
+served by tagging more — worth finding out what the category is doing for
+the person that a tag isn't (a category has an embedding centroid the
+janitor matches against; a tag doesn't) before adding a join table.
+
+**If it's still wanted after that:**
+
+- **Multi-category** is a schema change — `entries.category_id` becomes a
+  join table (`entry_categories`), and the janitor's cheap match (§4 of
+  `ARCHITECTURE.md`) needs a rule for what happens when a note matches two
+  centroids well. An additive migration, but touches the one part of the
+  filing pipeline every other feature assumes is single-valued (the sidebar
+  count, the graph's category layer in §9, "all notes in category X" queries).
+- **Manual grouping**, kept genuinely separate from categories/tags, is
+  smaller: a `collections` table and a join table, with no AI involvement at
+  all — the person decides what belongs together, the app doesn't guess.
+  Closer to a saved filter (§2) built by hand than to a new kind of filing.
+
+---
+
+## 24. Dashboard: more widgets, and layout depth
+
+**Why.** Asked for directly: "more dashboard widgets! maybe some pie
+graphs??" The dashboard already has a rearrangeable layout (Phase 5) and a
+widget set (streak, at-a-glance counts, AI digest, activity heatmap,
+on-this-day, focus timer) — this is more of the same shape, not a new system.
+
+- **A category/tag breakdown** — the pie chart asked for, over
+  `count_notes`-shaped data that already exists for the agent tool of the
+  same name (§7 of `ARCHITECTURE.md`).
+- **A writing-frequency chart** — bars over the activity heatmap's own data,
+  a different read of the same numbers (streak vs volume).
+- **A "stale notes" widget** — pairs with §10A's still-open idea of nudging on
+  a note whose relative-time phrase has gone stale ("this said 'tomorrow'
+  three weeks ago").
+- Before adding more: audit which existing widgets render markdown and which
+  don't (§8's ideas-parking-lot bug) so a new widget doesn't repeat the gap.
+
+---
+
+## 25. App control: tray, health checks, and dependency repair
+
+**Why.** Several asks that are really one request in different words: "an
+interface for managing the application… backend, cmd prompt console, quit,
+update, install/fix/uninstall/reinstall packages and dependencies,
+faster-whisper, and more… application health check, errors" — plus "improve
+or expand on start.bat, don't make a cmd prompt window show but make it
+accessible (maybe system tray)" and "a way to exit the app and close the
+program quitting the backend". §7's desktop-packaging plan already lists
+"single instance, native menus, tray" as part of hardening `--desktop`; this
+section is the *content* of that tray/console, not the packaging shell
+around it.
+
+- **A visible health check.** Is the venv intact, does Ollama answer, is the
+  embedding model loaded, is SearXNG (if installed) alive, how much disk is
+  `data/` using. Most of these already have an answer somewhere in the app
+  (`/models/status`, `searxng_manager.status()`); this is one screen that
+  asks all of them and states plainly what's wrong rather than making the
+  person go looking.
+- **Repair actions from that screen**, not just a diagnosis: reinstall a
+  dependency, re-pull a stuck model download, restart SearXNG. The SearXNG
+  ↻ Reinstall button (§8) is the existing pattern to extend, not a new idea.
+- **A real quit**, distinct from closing the browser tab — stopping the
+  server process, not just the window. `--desktop` mode is the natural home
+  for this since it already owns a process to exit; browser-tab mode can't
+  kill its own server from the tab.
+- **Update channels** (stable/beta/dev) — worth deferring until §7 actually
+  ships an installer; there's nothing to channel yet while `git pull` plus
+  the launcher's own dependency check is the update path.
+- **A hidden console window on Windows, reachable rather than gone** — the
+  ask was for the cmd window not to show at all *and* to still be reachable,
+  which is two different things depending on whether the point is "get it out
+  of my way" (a tray icon, minimised) or "I don't need to see it, ever, but
+  Settings → Logs already covers that" (nothing to build). Worth confirming
+  which was meant.
+
+---
+
+## 26. Data lifecycle: archive, and a full wipe
+
+**Why.** Groups a few related asks that are all "what happens to old or
+unwanted data" rather than day-to-day filing: "data and note compression",
+plus the general expectation that a local-first app should let someone see
+and delete everything it holds.
+
+- **Archive** — already scoped in §4 item 2 (an `archived_at` column,
+  additive migration). This section doesn't repeat it, just notes it's the
+  prerequisite for the rest here.
+- **A "delete everything" control.** Export (JSON/CSV/Markdown) already
+  exists; there's no equivalent single action for the other direction — wipe
+  the database, uploads and preferences and start over, distinct from
+  `--reset-password` which only clears the credential. Worth being as
+  explicit about what it destroys as `--reset-password` already is.
+- **Note compression** — asked for directly, and worth being honest about the
+  payoff before building it. Notes are short text in SQLite; a notebook of a
+  few thousand notes is low tens of megabytes uncompressed, and SQLite pages
+  already compress well under most filesystems' own compression. This is
+  likely solving a problem that doesn't exist yet at any realistic notebook
+  size — worth measuring an actual `data/memorymap.db` before writing any
+  compression code, not assuming it's needed.
+
+---
+
+## 27. Onboarding and first-run experience
+
+**Why.** Asked for directly: "a guided setup on first install (like setting
+your name, choosing a model if one isn't yet downloaded, a tour, making the
+first note etc)". There already is an `onboarding-overlay` (referenced by
+every Playwright driver script in this document as something to dismiss
+before testing), so this is about what it covers, not whether it exists.
+
+- **Confirm what the current onboarding actually walks through** before
+  extending it — the driver script only knows it exists and blocks clicks
+  until dismissed, not its content.
+- **Fold in first-run diagnostics.** The outside review's strongest surviving
+  suggestion: check Ollama is reachable, offer to pull a small model
+  (`llama3.2`) if none is installed, and check `MEMORYMAP_DATA_DIR` is
+  writable — before the person's first capture fails silently into
+  `Uncategorised` and they assume the AI is broken rather than absent. The
+  app already degrades gracefully when Ollama is off (design principle 2);
+  onboarding is where to explain that's what's happening, once, rather than
+  leaving the header's status dot to say it quietly forever after.
+- **Name, first note, model choice** — as asked. The dashboard's name-nudge
+  work ("empty by default and buried among a dozen fields") already solved
+  the *name* half; onboarding doing it once at the start is the same fix
+  moved earlier, not a new one.
+
+---
+
+## 28. In-app help: an AI that knows the docs
+
+**Why.** Asked for directly: "the help area in settings has an ask-AI
+feature where the AI has access to all the program documentation and can
+help answer your questions."
+
+**Shape.** Closer to the librarian (§4 of `ARCHITECTURE.md`) than to the
+agent: grounded, read-only, answers from a fixed corpus rather than the
+notebook. The corpus is already written — `README.md`, `ARCHITECTURE.md`,
+this file, `CONTRIBUTING.md` — so this is a retrieval index over the repo's
+own docs plus a chat surface in Settings → Help, not a new kind of AI
+feature. Worth deciding whether it's a `search_docs` tool the *existing*
+agent can call (cheaper, reuses everything) or a wholly separate grounded
+chat (simpler to reason about, since it never needs to touch the notebook or
+a destructive tool). The agent is already offered a narrowed tool set per
+question via `tools.focus_for` (§7 of `ARCHITECTURE.md`) — a docs question is
+exactly the kind of thing that focusing already exists to route.
+
+---
+
+## 29. Extensibility ideas, not yet scoped
+
+Two asks that are genuinely bigger than anything else in this document and
+don't have a shape yet — recorded so they aren't lost, not because either is
+close to being built:
+
+- **MCP tool support** — "an in-built browser with MCP tool abilities to
+  accompany the web search". The Model Context Protocol would let MemoryMap
+  either expose its own tools (§7 of `ARCHITECTURE.md`'s 28-tool registry) to
+  other MCP clients, or consume external MCP servers as more tools for its
+  own agent. Either direction is a real integration, not a checkbox — it
+  would need its own trust model, since an external MCP server is exactly
+  the kind of thing design principle 1 (offline-first, one narrow opt-in
+  exception for web search) currently doesn't have a category for.
+- **A VS Code extension.** No stated purpose yet beyond the idea itself —
+  worth asking what it would let someone do that the app's own web UI, PWA
+  and desktop window don't, before scoping anything.
+
+---
+
+## 30. External review, filtered — what didn't make the cut
+
+The outside reviews (Perplexity, Gemini) were thorough and mostly built on a
+false premise — see the note at the top of this document. Recorded here
+rather than silently dropped, since a future review working from the same
+stale bio will suggest the same things again:
+
+- **Hardware-aware model routing, bundled model packs, checksums, delta
+  updates, rollback.** All of this assumes the app ships models. It doesn't —
+  Ollama does that job, has its own model management, and MemoryMap already
+  has a thin layer over it (`ai/model_manager.py`, Settings → Models: list,
+  pull, switch chat/embedding/utility model). Nothing here to build.
+- **Backend abstraction across llama.cpp / MLX / ONNX / Vulkan / CUDA.**
+  Same premise. The real version of "don't lock into one backend" is already
+  scoped, correctly, in §6 — an OpenAI-compatible provider interface over
+  Ollama, LM Studio, llama.cpp's server, Jan and vLLM, at the HTTP layer
+  MemoryMap actually talks to, not the inference layer it never touches.
+- **Opt-in anonymous telemetry / crash reporting.** Weighed deliberately, not
+  just discarded for being off-brief: design principle 1 is "no feature may
+  depend on a cloud service," and the pitch to users is "no account, no
+  cloud, no telemetry" — an *opt-in* toggle for it would be the app's first
+  outbound channel besides search and page-reading, both of which exist
+  because the person explicitly asked a question that needs the web. A crash
+  is not that; the support-bundle idea in §1 gets most of the real value (a
+  file the person can choose to attach to a bug report) without the app ever
+  sending anything on its own.
+- **A capability dashboard / resource meter** (RAM, VRAM, estimated speed
+  before loading a model). Not rejected outright, just downgraded — Ollama
+  already reports this (`ollama ps`, its own API), so this would be
+  re-surfacing data from a tool that already surfaces it, for marginal gain
+  over what Settings → Models already shows. Worth doing only if someone
+  actually asks for it in-app rather than a review guessing it's missing.
+- **A structured memory taxonomy** (episodic/semantic memory, write/read
+  policy, conflict resolution, decay). This read the name "MemoryMap" as an
+  AI-memory-system product rather than what it is — a personal notebook an
+  AI files for you. The genuinely useful parts of that suggestion already
+  have real homes under their real names: deduplication is the existing
+  near-duplicate finder (`routes_duplicates`), decay/archival is §26,
+  retrieval quality is hybrid search and re-ranking in §11. Nothing needs a
+  new "memory" abstraction layered on top of notes, tags, links and
+  embeddings that already do these jobs.
+
+---
+
+## 31. Claude's own read: what I'd flag
+
+Asked for separately from the outside reviews — my own pass, based on
+`ARCHITECTURE.md`, `CHANGELOG.md` and this document, not on the repo's
+marketing copy. Same rule as everywhere else here: these are things worth
+checking, not things confirmed broken.
+
+- **`app.js` is one ~12k-line file with no module system.** §11 already
+  flags this for load-time performance; the maintainability side is a
+  separate cost. Seven tabs now, with §3, §4, §23 and §24 all adding more UI
+  to the same file — the project's own stated pain point is that "every
+  layout and wiring bug found so far passed a fully green run" because the
+  backend's ~560 tests can't see the frontend. A single enormous file makes
+  that worse, not just slower: there's no natural seam to test a piece of it
+  in isolation. Splitting into native ES modules (`<script type="module">`,
+  one file per tab plus shared utilities) costs nothing at runtime and no
+  build step — it doesn't have to mean adopting a bundler to get "this
+  function is 200 lines away from anything unrelated to it" back.
+- **The frontend has no CI coverage at all, only manual Playwright driving.**
+  The direct consequence of the point above, and worth stating plainly since
+  the project's own docs already admit it. If a handful of the driver
+  scripts referenced throughout this document (load each tab, dismiss
+  onboarding, assert no console errors, assert a couple of known elements
+  render) ran headless in CI alongside the existing lint-and-pytest job, that
+  specific admitted gap — layout bugs that pass a green run — would shrink
+  without needing GPU, models, or network, matching the existing CI's own
+  constraints.
+- **Export exists in three formats; there's no import.** JSON, CSV and
+  Markdown export are all built (§ various), which answers "can I get my
+  data out," but nothing answers "can I bring notes in from somewhere else."
+  For a single-user local notebook, first-run cold start is a real adoption
+  question — someone with two years of Apple Notes or Obsidian has no path
+  in short of pasting things one at a time. Doesn't need to be universal; even
+  a plain-Markdown-folder importer (the mirror of the Markdown export already
+  built) would cover a lot of the realistic cases.
+- **No bulk operations in the note list itself.** The agent has
+  `move_notes` and `merge_notes` as tools (§14), but a person doing the same
+  thing by hand has to ask the agent to do it rather than multi-select in
+  the UI and act. Given how much of this document is about giving the agent
+  UI-equivalent power (§18), it's worth also closing the gap the other
+  direction — a checkbox-select mode in the note list with bulk
+  tag/move/archive/delete, so the human path isn't strictly weaker than the
+  agent path for the same operation.
+- **Backups are taken; restoring one looks unexercised.** `data/backups/`
+  exists per the architecture doc, but nothing in this document describes a
+  tested restore flow — worth checking directly whether "restore from
+  backup" is an actual feature (a button, a documented command) or just
+  "the files are there, copy them back yourself." An untested restore path
+  is, functionally, not a backup strategy yet; worth confirming rather than
+  assuming, and worth a test that actually restores a backup and asserts the
+  data matches, not just that a backup file gets written.
+- **There's no non-AI fallback for filing quality, only for filing
+  happening.** Design principle 2 already guarantees a note always saves —
+  it lands in Uncategorised when Ollama is off. That's a fallback for
+  *availability*, not for *quality*: someone running fully offline by choice
+  gets every note in one bucket forever. A small set of deterministic,
+  regex-style rules a user can define themselves (`contains a phone number →
+  tag #contact`, `starts with "TODO" → category Tasks`) would extend the
+  same "works when the AI doesn't" principle from "doesn't fail" to "doesn't
+  fail *uselessly*" — and would double as building blocks the janitor could
+  also consult, not just a consolation prize for offline use.
+- **Two tabs open on the same note, and nothing arbitrates.** Nothing in
+  `ARCHITECTURE.md` describes an edit-conflict story for a note or a document
+  open in two tabs (or two windows — `--desktop` alongside a browser tab is
+  the obvious way this happens) at once. Given single-user, this reads as
+  unlikely rather than impossible, but "unlikely" plus "the loser's edits
+  silently vanish" is exactly the kind of bug that's invisible until it costs
+  someone a real note. Worth checking directly what happens today — a
+  last-write-wins overwrite is at least honest if that's the answer; the
+  actual risk is if the *client* believes its stale copy is still current and
+  shows it as saved.
+- **Filing confidence has no visible trend, only a per-note flag.** The
+  janitor already flags low-confidence filings for review (design principle
+  1) — what doesn't exist is whether that rate is going up or down over
+  time, notebook to notebook or model to model. Since §11's eval harness is
+  already being built to measure prompt/token regressions, filing accuracy
+  over a small fixed set of known-good notes is a natural thing to fold into
+  the same harness rather than build separately — one more signal, not one
+  more system.
+
+---
+
 ## Answers to questions already raised, so they aren't re-asked
 
 **Is it one user per app?** Yes. One `users` row, one bcrypt password, gating
@@ -1501,3 +2449,10 @@ come later in the stylesheet, so a theme's colour silently lost.
 many. The alternative is folding them into ~15 complete looks. Left split,
 because "same layout, different colours" is a real thing to want — worth
 confirming.
+
+**Does the "AI is off" status ever turn red?** Yes — amber (the common case,
+Ollama not running) and red (a model that failed to load, or a server that
+can't be reached) are both real states. Asked as "does the X status ever
+happen? I've never seen it" — if you've only ever seen amber or green,
+that's consistent: red needs Ollama to be *reachable but failing*, which is
+rarer than it simply not running.

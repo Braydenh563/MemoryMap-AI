@@ -90,6 +90,31 @@ class FakeOllama:
     def supports_pull(self) -> bool:
         return True
 
+    #: What "the model" declares it can do. Empty is the honest default for a
+    #: fake standing in for an unknown backend: `supports` then answers None
+    #: ("can't tell"), which is what every caller has to cope with anyway.
+    capabilities_declared: list[str] = []
+
+    def capabilities(self, model: str) -> set[str]:
+        return {c.lower() for c in self.capabilities_declared}
+
+    def supports(self, model: str, capability: str) -> bool | None:
+        declared = self.capabilities(model)
+        return None if not declared else capability in declared
+
+    def model_spec(self, model: str) -> dict:
+        return {
+            "name": model,
+            "family": "fake",
+            "parameters": "1B",
+            "quantisation": "Q4_K_M",
+            "context_length": self.context_tokens,
+            "usable_context": self.usable_context(model),
+            "capabilities": sorted(self.capabilities(model)),
+            "supports_tools": self.supports(model, "tools"),
+            "supports_thinking": self.supports(model, "thinking"),
+        }
+
     # The agent budgets its tool schemas against the model's real window
     # (see tools.within_budget). Generous here on purpose: a test asserting
     # what the agent does with tools should not be silently narrowed by a

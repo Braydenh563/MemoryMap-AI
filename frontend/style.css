@@ -5335,3 +5335,19 @@ textarea.autogrow {
   white-space: pre;
   overflow: auto;
 }
+
+/* The active model's specification, under the chat-model picker. A definition
+   list rather than a table: it is label/value pairs, it has to wrap sensibly
+   on a narrow screen, and half the rows are absent on a backend that doesn't
+   report them. */
+.model-spec {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.15rem 0.75rem;
+  margin: 0.5rem 0 0;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+.model-spec dt { color: var(--muted); }
+.model-spec dd { margin: 0; }
+.model-spec.hidden { display: none; }

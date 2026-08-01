@@ -227,6 +227,51 @@ class OpenAICompatClient(Provider):
         self._context_lengths[model] = length
         return length
 
+    def _catalog_entry(self, model: str) -> dict:
+        """This model's row in the `/models` catalogue, or an empty dict.
+
+        Matched on the trailing segment as well as the whole id, because a
+        catalogue may carry a publisher prefix (`lmstudio-community/qwen3`)
+        where the session stores the bare name.
+        """
+        for entry in self._fetch_catalog():
+            entry_id = entry.get("id") or entry.get("name") or ""
+            if entry_id == model or entry_id.split("/")[-1] == model.split("/")[-1]:
+                return entry
+        return {}
+
+    def model_spec(self, model: str) -> dict:
+        """What this server will say about the model, which varies a lot.
+
+        LM Studio is generous — quantisation, architecture, both context
+        numbers, whether it is currently loaded. Plain llama.cpp and vLLM
+        report an id and little else, and that is fine: every field is optional
+        and the UI omits what is missing rather than printing "unknown" six
+        times.
+
+        Capabilities are the one thing no OpenAI-compatible server reports in a
+        standard way, so `supports` stays None here and the app keeps its
+        existing behaviour — offer tools, and find out from the 400 if the
+        model cannot do them. That fallback already exists and is tested.
+        """
+        entry = self._catalog_entry(model)
+        loaded = entry.get("loaded_context_length")
+        return {
+            "name": model,
+            "family": entry.get("arch") or entry.get("architecture"),
+            "parameters": entry.get("parameter_size") or entry.get("size"),
+            "quantisation": entry.get("quantization") or entry.get("quantization_level"),
+            "context_length": self.context_length(model),
+            "usable_context": self.usable_context(model),
+            # Only LM Studio answers these two, and both are worth showing:
+            # "loaded at 4k" explains a 128k model behaving like a small one.
+            "loaded_context_length": int(loaded) if isinstance(loaded, (int, float)) and loaded > 0 else None,
+            "state": entry.get("state") or None,
+            "capabilities": [],
+            "supports_tools": None,
+            "supports_thinking": None,
+        }
+
     def runtime_options(
         self,
         model: str,
@@ -473,7 +518,7 @@ class OpenAICompatClient(Provider):
             "model": model,
             "messages": self._to_openai_messages(messages),
             **self.runtime_options(model, mode=mode),
-            **self.request_extras(mode),
+            **self.request_extras(mode, model),
         }
         payload.update(extra)
         return payload

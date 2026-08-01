@@ -335,7 +335,7 @@ class Provider:
         """The dialect-specific options block sent with every generation."""
         raise NotImplementedError
 
-    def request_extras(self, mode: str | None = None) -> dict:
+    def request_extras(self, mode: str | None = None, model: str = "") -> dict:
         """Top-level payload fields a preset needs that aren't options.
 
         Ollama's thinking toggle is one; the OpenAI shape has no standard
@@ -349,6 +349,42 @@ class Provider:
 
     def list_models(self) -> list[dict]:
         raise NotImplementedError
+
+    def supports(self, model: str, capability: str) -> bool | None:
+        """Can this model do `capability` — True, False, or None for unknown.
+
+        Three answers rather than two, and the third is the important one.
+        "This model has no thinking to turn off" and "I cannot tell you whether
+        it does" want different behaviour: the first means don't bother, the
+        second means send nothing rather than guess. Collapsing them into a
+        bool forces a guess at exactly the point where guessing wrong disables
+        a working feature.
+
+        The base implementation answers None to everything, which is the safe
+        answer for a backend that does not report capabilities at all.
+        """
+        return None
+
+    def model_spec(self, model: str) -> dict:
+        """The model's own specification, flat, for Settings → Models.
+
+        The app knew a context length and nothing else, so the screen could not
+        say how big a model was, how it was quantised, or whether it could use
+        tools — which is the first thing to check when "agent mode does
+        nothing". Every field is optional: a backend that cannot answer returns
+        None and the UI omits the row rather than printing "unknown" six times.
+        """
+        return {
+            "name": model,
+            "family": None,
+            "parameters": None,
+            "quantisation": None,
+            "context_length": self.context_length(model),
+            "usable_context": self.usable_context(model),
+            "capabilities": [],
+            "supports_tools": self.supports(model, "tools"),
+            "supports_thinking": self.supports(model, "thinking"),
+        }
 
     def supports_pull(self) -> bool:
         """Can this backend download models on request?

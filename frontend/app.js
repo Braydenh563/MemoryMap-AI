@@ -2941,6 +2941,55 @@ async function saveWebPageAsNote() {
   }
 }
 
+// What the backend says about the model in use. Fetched when the Models
+// screen is drawn rather than polled: none of it changes while the app runs.
+async function renderModelSpec(modelName) {
+  const box = $("model-spec");
+  if (!box) return;
+  const spec = await apiJson(`/models/spec?name=${encodeURIComponent(modelName || "")}`, {
+    silent: true,
+  }).catch(() => null);
+  if (!spec) {
+    box.classList.add("hidden");
+    return;
+  }
+  // Tri-state, and the third state is the point: null means "this backend
+  // doesn't report capabilities", which is not the same as "no". Saying "no"
+  // about a model that works fine would send someone chasing a problem that
+  // isn't there.
+  const canDo = (value) => (value === null ? "not reported" : value ? "yes" : "no");
+  const rows = [
+    ["Size", spec.parameters],
+    ["Quantisation", spec.quantisation],
+    ["Family", spec.family],
+    // Two windows, deliberately. A 128k model is *run* at less because the KV
+    // cache scales with the window — without both numbers the percentage on
+    // each message looks wrong to anyone who knows what the model can hold.
+    [
+      "Context window",
+      spec.context_length
+        ? `${compactTokens(spec.usable_context)} in use` +
+          (spec.context_length > spec.usable_context
+            ? ` (of ${compactTokens(spec.context_length)} it can hold)`
+            : "")
+        : null,
+    ],
+    ["Loaded at", spec.loaded_context_length ? compactTokens(spec.loaded_context_length) : null],
+    ["Can use tools", canDo(spec.supports_tools)],
+    ["Can think", canDo(spec.supports_thinking)],
+  ].filter(([, value]) => value != null && value !== "");
+
+  box.replaceChildren();
+  for (const [label, value] of rows) {
+    const dt = document.createElement("dt");
+    dt.textContent = label;
+    const dd = document.createElement("dd");
+    dd.textContent = String(value);
+    box.append(dt, dd);
+  }
+  box.classList.toggle("hidden", rows.length === 0);
+}
+
 // The response presets, fetched once. Served by /chat/modes rather than
 // listed here so adding a fourth is a change to `ai/presets.py` alone (§11).
 async function loadResponseModes() {
@@ -11749,8 +11798,10 @@ function renderSettings() {
     renderUtilityModelPicker(status);
     renderInstalledModels(status);
     renderSuggested(status);
+    renderModelSpec(status.chat_model);
   } else {
     $("installed-box").classList.add("hidden");
+    $("model-spec").classList.add("hidden");
   }
   renderReindex(status);
   // Only while the section is actually on screen: /tasks is its own call, and

@@ -136,6 +136,30 @@ def status() -> dict:
     }
 
 
+@router.get("/spec")
+def model_spec(name: str = "") -> dict:
+    """What the backend says about one model — size, quantisation, window,
+    and what it can actually do.
+
+    The app read a context length and nothing else, so Settings → Models could
+    not tell you how big a model was, how it was quantised, or whether it
+    supports tool calls — which is the first thing worth knowing when "agent
+    mode does nothing", and until now was only discoverable by trying it and
+    reading the failure.
+
+    `supports_tools` and `supports_thinking` are deliberately tri-state: True,
+    False, or null for "this backend doesn't say". Null is not False — an older
+    Ollama reports no capability list at all, and rendering its silence as
+    "can't use tools" would be a confident lie about a model that works fine.
+    """
+    client = deps.get_ollama()
+    model = name.strip() or deps.get_model_manager().chat_model()
+    try:
+        return client.model_spec(model)
+    except OllamaError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
 @router.get("/suggested")
 def suggested() -> dict:
     return SUGGESTED_MODELS

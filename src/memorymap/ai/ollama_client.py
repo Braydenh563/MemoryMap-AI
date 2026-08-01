@@ -65,10 +65,98 @@ class OllamaClient(Provider):
         # process: it cannot change without the model being re-pulled, and the
         # answer is needed on every agent round.
         self._context_lengths: dict[str, int | None] = {}
+        # The whole `/api/show` payload, cached alongside it: the context
+        # length, the parameter count, and the capability list all come from
+        # the same call, and asking three times for one answer each is three
+        # round trips on the path that already feels slowest.
+        self._shown: dict[str, dict] = {}
 
     def supports_pull(self) -> bool:
         """Ollama is the only backend that can fetch a model it doesn't have."""
         return True
+
+    def show(self, model: str) -> dict:
+        """Everything `/api/show` says about a model, cached per process.
+
+        One call answers several questions the app used to guess at or ignore:
+        the context length, the parameter count and quantisation, and — the
+        one that changes behaviour — `capabilities`, where Ollama lists what
+        the model can actually do (`tools`, `thinking`, `vision`, …).
+
+        Cached because none of it can change without the model being re-pulled,
+        and `context_length` is needed on every agent round.
+
+        An empty dict means "couldn't ask". Every caller treats that as
+        "unknown" rather than as "no", because an older Ollama build reports no
+        `capabilities` field at all, and reading its silence as "this model
+        can't use tools" would disable agent mode for everyone on it.
+        """
+        if model in self._shown:
+            return self._shown[model]
+        info: dict = {}
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/show", json={"model": model}, timeout=5
+            )
+            response.raise_for_status()
+            payload = response.json()
+            info = payload if isinstance(payload, dict) else {}
+        except (requests.RequestException, ValueError, AttributeError):
+            info = {}
+        self._shown[model] = info
+        return info
+
+    def capabilities(self, model: str) -> set[str]:
+        """What Ollama says this model can do, or an empty set if it won't say.
+
+        Empty means *unknown*, never *none* — see `show`. Callers must fail
+        open on an empty set: the alternative is an older Ollama build turning
+        off tools and thinking for every model it serves.
+        """
+        declared = self.show(model).get("capabilities")
+        if not isinstance(declared, list):
+            return set()
+        return {str(c).lower() for c in declared}
+
+    def supports(self, model: str, capability: str) -> bool | None:
+        """True / False / None-for-unknown, so a caller can tell the three apart.
+
+        The distinction is the whole point. "This model has no thinking to turn
+        off" and "I have no idea whether it does" want different behaviour: the
+        first means don't bother sending the toggle, the second means send
+        nothing rather than guess.
+        """
+        declared = self.capabilities(model)
+        if not declared:
+            return None
+        return capability in declared
+
+    def model_spec(self, model: str) -> dict:
+        """The model's own specification, in one flat shape for the UI (§11).
+
+        Reading these was the gap: the app knew the context length and nothing
+        else, so Settings → Models could not say how big a model was, how it
+        was quantised, or whether it could use tools at all — which is the
+        first thing to check when "agent mode does nothing".
+        """
+        info = self.show(model)
+        details = info.get("details") or {}
+        model_info = info.get("model_info") or {}
+        declared = self.context_length(model)
+        return {
+            "name": model,
+            "family": details.get("family") or model_info.get("general.architecture"),
+            "parameters": details.get("parameter_size"),
+            "quantisation": details.get("quantization_level"),
+            "context_length": declared,
+            # What the app will actually run it at, which is the number the
+            # window percentage on each message is measured against — and is
+            # often *lower* than the declared one, deliberately (KV cache).
+            "usable_context": self.usable_context(model),
+            "capabilities": sorted(self.capabilities(model)),
+            "supports_tools": self.supports(model, "tools"),
+            "supports_thinking": self.supports(model, "thinking"),
+        }
 
     def context_length(self, model: str) -> int | None:
         """How many tokens this model can actually hold, or None if unknown.
@@ -92,18 +180,11 @@ class OllamaClient(Provider):
         if model in self._context_lengths:
             return self._context_lengths[model]
         length: int | None = None
-        try:
-            response = requests.post(
-                f"{self.base_url}/api/show", json={"model": model}, timeout=5
-            )
-            response.raise_for_status()
-            info = response.json().get("model_info") or {}
-            for key, value in info.items():
-                if key.endswith(".context_length") and isinstance(value, int):
-                    length = value
-                    break
-        except (requests.RequestException, ValueError, AttributeError):
-            length = None  # unknown is a fine answer; the caller has a default
+        info = self.show(model).get("model_info") or {}
+        for key, value in info.items():
+            if key.endswith(".context_length") and isinstance(value, int):
+                length = value
+                break
         if length is None:
             length = known_context(model)
         self._context_lengths[model] = length
@@ -130,19 +211,32 @@ class OllamaClient(Provider):
             options["temperature"] = budget["temperature"]
         return options
 
-    def request_extras(self, mode: str | None = None) -> dict:
+    def request_extras(self, mode: str | None = None, model: str = "") -> dict:
         """Ollama's thinking toggle, which is top-level rather than an option.
 
-        Only ever sent to turn thinking *off*. Turning it off on a model with
-        no thinking to turn off is a harmless no-op; turning it *on* where it
-        isn't supported is the request that errors — so the unsupported
-        direction is simply never sent, and "not sent" means "whatever the
-        model does by default", which is what happened before presets existed.
+        Only ever sent to turn thinking *off*, and only to a model that has
+        thinking to turn off. Two separate guards, because they fail for
+        different reasons:
+
+        - **Direction.** Turning it *on* where it isn't supported is the
+          request that errors, so that direction is never sent at all.
+        - **Capability.** Ollama rejects `think` outright for a model without
+          the `thinking` capability on recent builds, so `quick` mode on an
+          ordinary model would have failed *every* turn — the preset breaking
+          the chat it was meant to speed up. `capabilities` is what makes the
+          check possible; before it, the app could only guess.
+
+        An *unknown* capability (an older Ollama that reports none) sends
+        nothing. Not sending means "whatever the model does by default", which
+        is exactly what happened before presets existed — so unknown degrades
+        to the old behaviour rather than to a broken one.
         """
         from memorymap.ai import presets
 
         preset = presets.resolve(mode)
-        return {"think": False} if preset.think is False else {}
+        if preset.think is not False:
+            return {}
+        return {"think": False} if self.supports(model, "thinking") else {}
 
     def is_running(self) -> bool:
         """Cheap reachability probe — short timeout so the UI never hangs
@@ -206,7 +300,7 @@ class OllamaClient(Provider):
                     "messages": messages,
                     "stream": False,
                     "options": self.runtime_options(model, mode=mode),
-                    **self.request_extras(mode),
+                    **self.request_extras(mode, model),
                 },
                 timeout=self.timeout,
             )
@@ -236,7 +330,7 @@ class OllamaClient(Provider):
                     "messages": messages,
                     "stream": True,
                     "options": self.runtime_options(model, mode=mode),
-                    **self.request_extras(mode),
+                    **self.request_extras(mode, model),
                 },
                 stream=True,
                 timeout=self.timeout,
@@ -323,7 +417,7 @@ class OllamaClient(Provider):
                     "stream": True,
                     "tools": tools,
                     "options": self.runtime_options(model, mode=mode),
-                    **self.request_extras(mode),
+                    **self.request_extras(mode, model),
                 },
                 stream=True,
                 timeout=self.timeout,
@@ -427,7 +521,7 @@ class OllamaClient(Provider):
                     "stream": False,
                     "tools": tools,
                     "options": self.runtime_options(model, mode=mode),
-                    **self.request_extras(mode),
+                    **self.request_extras(mode, model),
                 },
                 timeout=self.timeout,
             )

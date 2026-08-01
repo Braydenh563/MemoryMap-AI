@@ -98,16 +98,39 @@ def test_an_explicit_cap_still_beats_the_preset(ollama):
 # --- failing closed on a model that can't ------------------------------------
 
 
-def test_thinking_is_only_ever_turned_off_never_on(ollama):
-    """Turning it off on a model with none is a harmless no-op; turning it on
-    where it isn't supported is the request that errors. So the unsupported
-    direction is simply never sent."""
-    assert ollama.request_extras("quick") == {"think": False}
-    assert ollama.request_extras("normal") == {}
-    assert ollama.request_extras("detailed") == {}
-    assert all(
-        preset.think is not True for preset in presets.MODES.values()
-    ), "no preset may ask a model to start thinking"
+def test_no_preset_ever_asks_a_model_to_start_thinking():
+    """Turning thinking *on* where it isn't supported is the request that
+    errors. That direction is simply never available."""
+    assert all(preset.think is not True for preset in presets.MODES.values())
+
+
+def test_the_thinking_toggle_needs_a_model_that_has_thinking(ollama):
+    """Two guards, and this is the second one. Recent Ollama rejects `think`
+    outright for a model without the `thinking` capability — so `quick` mode
+    on an ordinary model would have failed *every* turn, the preset breaking
+    the chat it was meant to speed up."""
+    ollama._shown = {"thinker": {"capabilities": ["completion", "thinking"]}}
+    assert ollama.request_extras("quick", "thinker") == {"think": False}
+
+
+def test_a_model_without_thinking_is_not_sent_the_toggle(ollama):
+    ollama._shown = {"plain": {"capabilities": ["completion", "tools"]}}
+    assert ollama.request_extras("quick", "plain") == {}
+
+
+def test_an_unknown_capability_sends_nothing_rather_than_guessing(ollama):
+    """An older Ollama reports no `capabilities` field at all. Sending nothing
+    means "whatever the model does by default", which is exactly the behaviour
+    that predates presets — so unknown degrades to the old thing, not a broken
+    one."""
+    ollama._shown = {"ancient": {}}
+    assert ollama.request_extras("quick", "ancient") == {}
+
+
+def test_the_other_modes_never_send_a_toggle(ollama):
+    ollama._shown = {"thinker": {"capabilities": ["thinking"]}}
+    assert ollama.request_extras("normal", "thinker") == {}
+    assert ollama.request_extras("detailed", "thinker") == {}
 
 
 def test_an_unset_sampling_option_is_omitted_not_nulled():

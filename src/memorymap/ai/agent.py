@@ -18,7 +18,7 @@ from collections.abc import Iterator
 
 from sqlalchemy.orm import Session
 
-from memorymap.ai import librarian, tools
+from memorymap.ai import context, librarian, tools
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import (
     OllamaClient,
@@ -37,6 +37,15 @@ MAX_ROUNDS = 6
 #
 # Characters, not tokens, on purpose — a real tokeniser would mean loading one
 # per model just to count, and ~4 chars/token is close enough for a stop rule.
+#
+# **A ceiling now, not the budget.** As the only rule it was the single worst
+# offender in the overflow this app was reported to hit: 24,000 characters is
+# ~6,000 tokens, half again more than a 4,096-token window holds *on its own*,
+# before the system prompt, the tools, the notes or the question. The real
+# allowance is `context.plan(...).tool_result_chars`, a share of the window
+# actually available; this caps that share from above, because a 128k model
+# would otherwise be handed tens of thousands of tokens of tool output and pay
+# to re-read all of it on every later round.
 TOOL_RESULT_BUDGET_CHARS = 24_000
 
 BUDGET_EXHAUSTED = {
@@ -121,7 +130,31 @@ TOOLS_GUIDE = (
 # tool added and every sentence added to the guide costs the same budget, and
 # nothing else in the codebase would notice. When this needs raising, raise it
 # deliberately and say why here.
-PROMPT_BUDGET_CHARS = 13_000
+#
+# 13,000 → 13,800, for the four category tools (§14). The guard did its job:
+# adding them took the all-tools overhead straight past the old figure, and
+# the first version of those schemas — with a per-parameter description on
+# each, matching the older tools — went past the *window* too. They were
+# rewritten terse (no "old: the current name" when the field is called `old`)
+# and now cost 1,112 characters between them.
+#
+# **This is now a backstop, not the mechanism.** It was briefly the binding
+# constraint on §14's tool list — "room for about one more tool, then none" —
+# which was the wrong shape of answer, because the ceiling it described was
+# never a fact about the app. 4096 is what Ollama falls back to when a model
+# declares nothing; most current models declare 8k, 32k or far more.
+#
+# `tools.within_budget` now fits the schemas to the window the model actually
+# reports (`ollama_client.usable_context`), dropping the least relevant tools
+# when they do not fit and logging what it held back. So a 32k model gets the
+# whole registry, a genuine 3B at 4096 gets a prioritised subset, and adding a
+# tool is no longer a question of whether it fits inside a constant.
+#
+# What this number still does is catch the *prose* growing — the system prompt
+# and TOOLS_GUIDE are sent whatever the window, and no per-turn trimming
+# applies to them. If it trips, look at what was added to the guide before
+# reaching for the number.
+PROMPT_BUDGET_CHARS = 13_800
 
 # What to do about a failed tool call.
 #
@@ -223,9 +256,15 @@ def build_agent_messages(
     profile: str = "",
     history: list[dict] | None = None,
     persona_prompt: str | None = None,
+    budget: "context.ContextBudget | None" = None,
 ) -> list[dict]:
     """Like librarian.build_messages, but the system prompt allows
-    acting, and each note shows its id so tools can target it."""
+    acting, and each note shows its id so tools can target it.
+
+    `budget` trims the notes and the history to what the model can actually
+    hold. Optional so every existing caller keeps working untrimmed — the
+    agent loop passes one, having measured the window first.
+    """
     style_hint = librarian.STYLE_HINTS.get(style, librarian.STYLE_HINTS["friendly"])
     profile_hint = f" About the user: {profile.strip()}" if profile.strip() else ""
     persona = (persona_prompt or librarian.DEFAULT_PERSONA).strip()
@@ -256,7 +295,16 @@ def build_agent_messages(
             f"{style_hint}{profile_hint}",
         }
     ]
-    messages.extend(librarian.history_messages(history))
+    past = librarian.history_messages(history)
+    if budget is not None:
+        past = context.fit_history(past, budget.history_chars)
+    messages.extend(past)
+
+    dropped_notes = 0
+    if budget is not None:
+        notes, dropped_notes = context.fit_notes(
+            notes, budget.notes_chars, librarian.note_for_prompt
+        )
 
     numbered = "\n".join(
         f"{i}. (note id {note.get('id', '?')}) [{note['category']}] "
@@ -264,6 +312,16 @@ def build_agent_messages(
         for i, note in enumerate(notes, start=1)
     )
     body = f"My notes:\n{numbered}\n\n" if notes else "My notebook looks empty.\n\n"
+    if dropped_notes:
+        # Said rather than silently done. A model that knows its notes were
+        # cut short can search for the rest; one that doesn't will answer as
+        # though it saw the whole notebook, which is the confident-and-wrong
+        # failure this app exists to avoid.
+        body = (
+            f"{body[:-2]}\n({dropped_notes} more matching note"
+            f"{'' if dropped_notes == 1 else 's'} did not fit — use search_notes "
+            f"or get_note if you need them.)\n\n"
+        )
     messages.append({"role": "user", "content": f"{body}My request: {question}"})
     return messages
 
@@ -315,6 +373,24 @@ def run_agent(
     {"type": "confirm", "name", "arguments", "label"}
     {"type": "answer", "delta": str}           — the final text
     """
+    # Size the whole turn against the window before building any of it.
+    #
+    # Every part used to carry its own constant, each reasonable alone and
+    # never added up: the worst case came to ~11,300 tokens against a 4,096
+    # window, and the tool-result cap alone exceeded that window by half.
+    # Overflow is dropped from the FRONT, so the failure is not an error — it
+    # is the model quietly losing its system prompt and answering from nothing.
+    report = getattr(ollama, "usable_context", None)
+    window = report(model_manager.chat_model()) if callable(report) else None
+    system_chars = len(
+        f"{(persona_prompt or librarian.DEFAULT_PERSONA).strip()} "
+        f"{AGENT_GROUNDING} {TOOLS_GUIDE}"
+    )
+    budget = context.plan(
+        window or OllamaClient.DEFAULT_CONTEXT_TOKENS, system_chars
+    )
+    logging.getLogger("memorymap.agent").info(budget.as_log_line())
+
     messages = build_agent_messages(
         question,
         notes,
@@ -322,6 +398,7 @@ def run_agent(
         profile=profile,
         history=history,
         persona_prompt=persona_prompt,
+        budget=budget,
     )
     # A skill's declared tools are the only ones offered for its run: fewer
     # schemas on the wire (roadmap §11a) and a narrower thing to go wrong.
@@ -333,6 +410,23 @@ def run_agent(
     offered = tools.ollama_tools(
         allowed_tools if allowed_tools is not None else _focus(question)
     )
+    # Then fit what is left to the window the model actually has, rather than
+    # to a constant. See tools.within_budget: 4096 is Ollama's fallback, not a
+    # fact, and a model declaring 32k was being rationed as if it were a 3B.
+    # A skill's declared list is exempt — it asked for exactly those tools, and
+    # silently dropping one would break the run rather than trim it.
+    if allowed_tools is None:
+        offered, dropped = tools.within_budget(offered, budget.tool_schema_chars)
+        if dropped:
+            # Visible in Settings → Logs, because "the AI didn't use the tool I
+            # expected" is otherwise indistinguishable from the model choosing
+            # not to.
+            logging.getLogger("memorymap.agent").info(
+                "tool budget: %d-token window fits %d tools; held back %s",
+                budget.window_tokens,
+                len(offered),
+                ", ".join(dropped[:8]) + ("…" if len(dropped) > 8 else ""),
+            )
     # Roadmap §11a's prescribed first step: measure before cutting. One line
     # per turn saying what the prompt is made of, so "which half dominates a
     # real chat — the notes or the history?" is answered from the log rather
@@ -489,7 +583,12 @@ def run_agent(
                     event["change"] = change
                 yield event
             payload = json.dumps(result)
-            if spent + len(payload) > TOOL_RESULT_BUDGET_CHARS:
+            # The window's share, but never more than the absolute ceiling —
+            # a 128k model would otherwise be allowed tens of thousands of
+            # tokens of tool output, which is prefill time on every subsequent
+            # round for material the model has usually finished with.
+            result_cap = min(budget.tool_result_chars, TOOL_RESULT_BUDGET_CHARS)
+            if spent + len(payload) > result_cap:
                 # Over budget. Hand back the notice instead of the result and
                 # withdraw the tools, so the next round has to be an answer.
                 # Dropping the result rather than truncating it is deliberate:

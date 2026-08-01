@@ -208,6 +208,108 @@ class OllamaClient:
         self.base_url = base_url.rstrip("/")
         # Generous default: small local models on modest hardware are slow.
         self.timeout = timeout
+        # model name -> context length in tokens. Asked once per model per
+        # process: it cannot change without the model being re-pulled, and the
+        # answer is needed on every agent round.
+        self._context_lengths: dict[str, int | None] = {}
+
+    # Ollama's default when a model declares nothing. Everything that budgets
+    # against the window falls back to this, because being wrong in this
+    # direction only wastes headroom, while being wrong the other way silently
+    # drops the system prompt off the front of the context.
+    DEFAULT_CONTEXT_TOKENS = 4096
+
+    def context_length(self, model: str) -> int | None:
+        """How many tokens this model can actually hold, or None if unknown.
+
+        The app used to assume 4096 for everyone, which is Ollama's fallback
+        rather than a fact about any particular model — most current ones
+        declare 8k, 32k or far more. Rationing the tool schemas against 4096
+        on a model with 128k means withholding tools for no reason; assuming
+        128k on a 3B model means the system prompt falls off the front and it
+        stops knowing it has tools at all. So: ask.
+
+        Reported by `/api/show` under `model_info` as `<architecture>.
+        context_length` — the prefix varies by model family, so the key is
+        found by suffix rather than guessed.
+        """
+        if model in self._context_lengths:
+            return self._context_lengths[model]
+        length: int | None = None
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/show", json={"model": model}, timeout=5
+            )
+            response.raise_for_status()
+            info = response.json().get("model_info") or {}
+            for key, value in info.items():
+                if key.endswith(".context_length") and isinstance(value, int):
+                    length = value
+                    break
+        except (requests.RequestException, ValueError, AttributeError):
+            length = None  # unknown is a fine answer; the caller has a default
+        self._context_lengths[model] = length
+        return length
+
+    # The largest window this app will ask Ollama to allocate by default.
+    #
+    # A model declaring 128k does not mean asking for 128k is free: the KV
+    # cache scales with the window, so a 7B at 128k wants several gigabytes
+    # that a laptop may not have, and the failure is an out-of-memory rather
+    # than a slow answer. 8k is comfortably more than the app's own worst-case
+    # prompt needs and costs a fraction of that, so it is the default; anyone
+    # with the memory to spare can raise it in preferences.
+    MAX_REQUESTED_CONTEXT = 8192
+
+    # Room for the reply. Unset, Ollama will happily generate until it decides
+    # to stop, and a local model that rambles is the single most common reason
+    # an answer "takes ages" — output tokens are generated one at a time, so
+    # they cost far more wall-clock each than prompt tokens do.
+    DEFAULT_MAX_OUTPUT_TOKENS = 1024
+
+    def usable_context(self, model: str) -> int:
+        """The window to budget against — and to ask Ollama for.
+
+        Deliberately the same number in both places. Ollama runs a model at
+        `num_ctx`, which is its own default (commonly 4,096) *regardless of
+        what the model was trained for* — so reading a 32k context length from
+        /api/show and budgeting against it, without also asking for 32k, would
+        produce exactly the overflow the budget exists to prevent. This is the
+        one number, and `runtime_options` sends it.
+        """
+        declared = self.context_length(model) or self.DEFAULT_CONTEXT_TOKENS
+        return max(
+            self.DEFAULT_CONTEXT_TOKENS, min(declared, self.max_requested_context)
+        )
+
+    @property
+    def max_requested_context(self) -> int:
+        """The ceiling, overridable by the user who knows their own machine."""
+        try:
+            from memorymap.core import deps
+
+            wanted = int(
+                deps.get_config().get_preference(
+                    "max_context_tokens", self.MAX_REQUESTED_CONTEXT
+                )
+            )
+        except Exception:  # noqa: BLE001 — a bad preference must not stop a chat
+            return self.MAX_REQUESTED_CONTEXT
+        # Floor at Ollama's own default: below it nothing works, and a typo
+        # like 40 should not silently make the app unusable.
+        return max(self.DEFAULT_CONTEXT_TOKENS, wanted)
+
+    def runtime_options(self, model: str, max_output_tokens: int | None = None) -> dict:
+        """The `options` block sent with every generation.
+
+        Nothing was sent before this, which meant two things at once: the
+        window was whatever Ollama felt like (not what the app had budgeted
+        for), and the reply length was unbounded.
+        """
+        return {
+            "num_ctx": self.usable_context(model),
+            "num_predict": max_output_tokens or self.DEFAULT_MAX_OUTPUT_TOKENS,
+        }
 
     def is_running(self) -> bool:
         """Cheap reachability probe — short timeout so the UI never hangs
@@ -266,7 +368,12 @@ class OllamaClient:
         try:
             response = requests.post(
                 f"{self.base_url}/api/chat",
-                json={"model": model, "messages": messages, "stream": False},
+                json={
+                    "model": model,
+                    "messages": messages,
+                    "stream": False,
+                    "options": self.runtime_options(model),
+                },
                 timeout=self.timeout,
             )
             response.raise_for_status()
@@ -288,7 +395,12 @@ class OllamaClient:
         try:
             with requests.post(
                 f"{self.base_url}/api/chat",
-                json={"model": model, "messages": messages, "stream": True},
+                json={
+                    "model": model,
+                    "messages": messages,
+                    "stream": True,
+                    "options": self.runtime_options(model),
+                },
                 stream=True,
                 timeout=self.timeout,
             ) as response:
@@ -384,6 +496,7 @@ class OllamaClient:
                     "messages": messages,
                     "stream": True,
                     "tools": tools,
+                    "options": self.runtime_options(model),
                 },
                 stream=True,
                 timeout=self.timeout,
@@ -480,6 +593,7 @@ class OllamaClient:
                     "messages": messages,
                     "stream": False,
                     "tools": tools,
+                    "options": self.runtime_options(model),
                 },
                 timeout=self.timeout,
             )

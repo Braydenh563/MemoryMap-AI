@@ -208,9 +208,9 @@ job is not a task, and a screen that accumulates them is the Logs screen.
 
 ## 7. The agent's tools (Wave G)
 
-`ai/tools.py` defines a registry the chat model can call — **28 tools**. Read-only
-tools run inline; the two **destructive** ones (`delete_note`, `delete_tag`) emit
-a confirmation event to the UI instead of executing.
+`ai/tools.py` defines a registry the chat model can call — **32 tools**. Read-only
+tools run inline; the **destructive** ones (marked ⚠️ below) emit a confirmation
+event to the UI instead of executing.
 
 *Reading the notebook:* `search_notes` · `get_note` · `list_notes` ·
 `count_notes` · `list_tags` · `list_categories` · `summarize_notes`
@@ -221,11 +221,84 @@ a confirmation event to the UI instead of executing.
 *Writing:* `create_note` · `edit_note` · `tag_note` · `pin_note` · `link_notes` ·
 `restore_note` · `rename_tag` · `delete_note` ⚠️ · `delete_tag` ⚠️
 
+*Categories:* `create_category` · `rename_category` · `merge_categories` ⚠️ ·
+`delete_category` ⚠️ — by name, never by id, since the model has never seen
+one. Deleting a category keeps its notes (they become Uncategorised); the two
+marked destructive are so because neither is reversible afterwards — nothing
+records which notes came from where.
+
 *Reminders:* `set_reminder` · `list_reminders` · `complete_reminder`
 
 *Skills:* `list_skills` · `save_skill` · `delete_skill`
 
 *Online (opt-in, off by default):* `web_search` · `read_url`
+
+### The context budget
+
+`ai/context.py` sizes **one whole turn** against the model's window before any
+of it is assembled. Nothing else in the AI path holds a fixed character limit,
+because the bug it replaced was that each part had one and nothing added them
+up: the worst case came to ~11,328 tokens against a window that is commonly
+4,096, and overflow is dropped from the *front* — the system prompt — so a
+model that overflowed simply stopped knowing it had tools.
+
+```
+window  ──┬── reply reserve (15%)      kept back; num_ctx covers both
+          ├── system prompt            measured, not assumed (persona is editable)
+          └── the rest, split:
+                tool schemas  30%      what the agent needs to act at all
+                tool results  30%      capped by TOOL_RESULT_BUDGET_CHARS
+                notes         25%   ┐  recoverable — the model can ask for
+                history       15%   ┘  more (get_note, the visible thread)
+```
+
+Notes and history yield first when space is short *because they are
+recoverable*: `get_note` reads one in full, and the conversation is still on
+screen. Notes are dropped whole rather than all clipped shorter — ten notes cut
+to a sentence each are ten things the model cannot quote, four whole ones are
+four it can — and the model is told how many did not fit. History is kept in
+whole user/assistant pairs, since half an exchange invites the model to invent
+the missing side.
+
+`OllamaClient.runtime_options` then sends `num_ctx` **and** `num_predict` with
+every generation. Both matter, and the first is easy to miss: Ollama runs a
+model at its own `num_ctx` default regardless of what the model was trained
+for, so budgeting against a declared 32k without also *asking* for it
+reproduces the exact overflow the budget prevents. The number budgeted against
+and the number requested are the same one.
+
+**How many tools a turn actually sends** is decided in two steps, and neither
+is a fixed number:
+
+1. **Relevance** — `tools.focus_for(question)` reads the question for what it
+   plausibly needs and returns ~8–12 tools. Keyword-driven rather than another
+   model call: a round-trip to decide what to send would cost more than it
+   saves, and a deterministic rule can be read, tested and argued with.
+   Settings → Tools can switch this off (`tool_focus: "all"`).
+2. **Room** — `tools.within_budget` then fits whatever survives to the window
+   the model *reports* (`ollama_client.usable_context`, from `/api/show`),
+   spending at most `TOOL_SCHEMA_WINDOW_SHARE` of it on schemas. Anything that
+   does not fit is dropped from the tail, and what was held back is logged.
+
+This replaced a fixed character budget, which was the wrong shape: 4096 is
+Ollama's *fallback* when a model declares nothing, not a fact about any
+particular model. Rationing a 32k model against it withheld tools for no
+reason; assuming otherwise on a real 3B dropped the system prompt off the
+front, and a model that overflows stops knowing it has tools at all.
+
+| Model window | Tools sent (whole registry offered) |
+| --- | --- |
+| 2,048 | 4 — core only |
+| 4,096 | 9 |
+| 8,192 | 19 |
+| 16,384 and up | all of them |
+
+A skill's declared tool list is exempt from step 2: it asked for exactly those,
+and silently dropping one would break the run rather than trim it.
+
+> `agent.PROMPT_BUDGET_CHARS` and `tests/test_prompt_budget.py` still exist as
+> a backstop on the **prose** — the system prompt and `TOOLS_GUIDE` are sent
+> whatever the window and no per-turn trimming applies to them.
 
 `search_notes` and `list_notes` return **previews**, which is why `get_note`
 exists and its description says so — a model that quoted a note from a preview
@@ -659,6 +732,33 @@ python -m memorymap --desktop  # same app in its own window (needs pywebview)
 
 On first run you choose a password (bcrypt-hashed, stays local). See the
 [README](../README.md) for the full walkthrough of each screen.
+
+### One process, and why more is not an option
+
+**MemoryMap runs with exactly one worker, and refuses to start with more.**
+`core/deps.refuse_multiple_workers()` runs at the top of `create_app()` and
+raises on `--workers N` (N > 1) or `WEB_CONCURRENCY`.
+
+This is not caution — it is the direct consequence of §3's singletons. The
+config, the database handle, the in-memory log buffer, the set of unlock
+tokens and the handle on the SearXNG subprocess are all one-per-process,
+which is correct and simple for one process and quietly wrong for two:
+
+| With two workers | What you would actually see |
+| --- | --- |
+| Two log buffers | Settings → Logs shows roughly half of what happened |
+| Two token sets | Unlocking works, then randomly 401s on the next request |
+| Two SearXNG handles | Both workers think they own it; stop/reinstall fight |
+| Two embedding warm-ups | The model loads twice, for twice the memory |
+
+None of that fails loudly, which is exactly why it is refused rather than
+warned about — it would present as flakiness and be debugged as a bug in the
+app. `python -m memorymap` cannot hit this (it hands uvicorn an app object,
+not an import string, and uvicorn cannot fork that); running `uvicorn` against
+the factory directly can, and is the case the check exists for.
+
+More workers is also not the lever for speed here. The slow paths are Ollama
+and embedding, and both already run off the request thread.
 
 ## 14. Where to look when you want to…
 

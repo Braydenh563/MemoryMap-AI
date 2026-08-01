@@ -5122,3 +5122,208 @@ textarea.autogrow {
   cursor: pointer;
 }
 .entry-more:hover { text-decoration: underline; }
+
+/* ---------------------------------------------------------------------------
+   Rules that used to be inline style="" attributes.
+
+   They moved here so the Content-Security-Policy the server sends can refuse
+   inline styles outright (`style-src 'self'`) rather than allow them
+   everywhere. A policy carrying 'unsafe-inline' still blocks a remote
+   stylesheet, but it does nothing about a style attribute injected into the
+   page — which is the half that matters here, because note text is rendered
+   into this DOM. Eight declarations were worth that.
+--------------------------------------------------------------------------- */
+#pref-display-name { width: 12rem; }
+#pref-bin-days { width: 5rem; }
+#log-source { max-width: 11rem; }
+
+/* A heading that sits in a row beside a button supplies its own spacing. */
+.row h3.flush { margin: 0; }
+
+/* The pen swatches paint themselves from the colour they select, so the
+   value lives in one place per pen rather than two. */
+.sketch-color[data-color="#4f6df5"] { background: #4f6df5; }
+.sketch-color[data-color="#e2534b"] { background: #e2534b; }
+.sketch-color[data-color="#3a9e56"] { background: #3a9e56; }
+.sketch-color[data-color="#1c1e26"] { background: #1c1e26; }
+
+/* The "N earlier records dropped" line above the log list. Styled as a
+   caution rather than an error: the log is working, it is just not the whole
+   story, and a red banner would read as a fault in the app being diagnosed. */
+.log-dropped {
+  margin: 0 0 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border-left: 3px solid var(--warn, #c8892b);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--warn, #c8892b) 12%, transparent);
+  color: var(--text-muted, inherit);
+  font-size: 0.8rem;
+}
+
+/* Which upstream engine found a result. Quiet by design — it is provenance,
+   not part of the result, and should be readable without competing with the
+   title or the domain beside it. */
+.web-result-via {
+  font-size: 0.75rem;
+  opacity: 0.75;
+}
+.web-answered-detail {
+  font-size: 0.8rem;
+}
+
+/* Gravity/Spread under a tree layout, where they have nothing to act on.
+   Dimmed rather than hidden: a control that vanishes reads as a bug, while
+   one that is visibly unavailable teaches what it belongs to. The labels are
+   dimmed with it — greying the slider alone leaves the words looking live. */
+.graph-physics.is-disabled {
+  opacity: 0.45;
+}
+.graph-physics.is-disabled label,
+.graph-physics.is-disabled input {
+  cursor: not-allowed;
+}
+
+/* --- the log console (§1) ------------------------------------------------ */
+
+.log-toolbar {
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+/* A flex item's automatic minimum size does NOT protect a <select>: it will
+   happily shrink to the width of its arrow and show none of its options, which
+   is exactly what it did here — two empty boxes where the source and level
+   pickers should be. Both need a floor of their own. */
+#log-source,
+#log-level {
+  flex: 0 0 auto;
+  min-width: 9rem;
+  /* Capped as well as floored. Without a ceiling a <select> in a flex row
+     stretches to fill whatever is spare — #log-source only looked settled
+     because it already had a max-width of its own from an earlier change,
+     and its neighbour grew to 656px beside it. */
+  max-width: 11rem;
+}
+#log-filter { min-width: 8rem; flex: 1 1 8rem; }
+
+/* The live pill. Colour carries the state, but so does the text — a pill that
+   only differed by colour would say nothing to anyone who cannot separate
+   them, and nothing at all in a screenshot pasted into a bug report. */
+.log-live {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+.log-live[data-state="live"] { color: var(--ok, #3a9e56); }
+.log-live[data-state="connecting"],
+.log-live[data-state="offline"] { color: var(--warn, #c8892b); }
+.log-live[data-state="paused"] { opacity: 0.6; }
+
+/* Follow is on but paused because the reader scrolled up. Saying so beats
+   silently stopping, which is the same shape as the app having frozen. */
+#log-follow-label.is-paused::after {
+  content: " (paused)";
+  opacity: 0.7;
+}
+
+.log-list .log-error { border-left: 3px solid var(--danger, #e2534b); }
+.log-list .log-warn { border-left: 3px solid var(--warn, #c8892b); }
+
+.log-line { display: inline; }
+.log-source-tag {
+  display: inline-block;
+  margin-right: 0.35rem;
+  padding: 0 0.3rem;
+  border-radius: 3px;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  opacity: 0.8;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+}
+.log-source-browser { color: var(--accent, #4f6df5); }
+
+/* A traceback is many lines, so it folds. Real newlines are safe here — this
+   is a block, not a row, so it cannot forge a record the way a message could. */
+.log-trace { margin: 0.25rem 0 0 0; }
+.log-trace summary {
+  cursor: pointer;
+  font-size: 0.72rem;
+  opacity: 0.75;
+}
+.log-trace pre {
+  margin: 0.25rem 0 0;
+  padding: 0.4rem 0.5rem;
+  max-height: 16rem;
+  overflow: auto;
+  border-radius: 4px;
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  font-size: 0.72rem;
+  white-space: pre;
+}
+
+/* Errors that landed while you were on another screen. */
+.log-error-badge {
+  display: inline-block;
+  margin-left: 0.4rem;
+  min-width: 1.1rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background: var(--danger, #e2534b);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* Per-record copy. Present but quiet until the row is hovered or the button
+   is focused — visible on focus matters as much as on hover, or the control
+   is unreachable by keyboard in practice. */
+/* The row is a single-line flex, so anything appended to it becomes another
+   column. That is right for the copy button and wrong for the traceback: as a
+   column it was squeezed into a few characters against the right edge. Let the
+   row wrap, give the message the spare space, and make the fold claim a full
+   line of its own underneath. */
+.log-list li { flex-wrap: wrap; }
+.log-list .log-line { flex: 1 1 auto; min-width: 0; }
+.log-list .log-trace { flex: 0 0 100%; }
+
+.log-copy {
+  opacity: 0;
+  flex: 0 0 auto;
+  padding: 0 0.3rem;
+  line-height: 1.4;
+  transition: opacity 120ms ease;
+}
+.log-list li:hover .log-copy,
+.log-list li:focus-within .log-copy,
+.log-copy:focus-visible {
+  opacity: 1;
+}
+/* Touch has no hover, so waiting for one hides the control forever. */
+@media (hover: none) {
+  .log-copy { opacity: 0.7; }
+}
+
+.log-trace button {
+  margin-top: 0.3rem;
+}
+
+.log-error-badge { cursor: pointer; }
+
+/* The last-resort copy dialog: the text is on screen and already selected. */
+.copy-fallback-card {
+  max-width: min(46rem, 92vw);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.copy-fallback-text {
+  width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  white-space: pre;
+  overflow: auto;
+}

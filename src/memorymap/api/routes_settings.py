@@ -4,19 +4,24 @@ maintenance (plan Phase 4).
 
 from __future__ import annotations
 
+import asyncio
 import csv
 import io
 import json
+import platform
 import re
+import sys
 import zipfile
+from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Literal
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, UploadFile
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from memorymap import __version__
@@ -25,7 +30,7 @@ from memorymap.core import backup, deps, logbuffer
 from memorymap.core.database import AuditLog, Category, Entry, EntryLink, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
-from memorymap.search import websearch
+from memorymap.search import searxng_manager, websearch
 
 router = APIRouter(tags=["settings"])
 
@@ -301,10 +306,272 @@ def server_logs(limit: int = 200) -> list[dict]:
     return logbuffer.recent(limit=min(limit, logbuffer.MAX_RECORDS))
 
 
+@router.get("/logs/stats")
+def server_log_stats(limit: int = 200) -> dict:
+    """How complete the log above actually is.
+
+    A separate call rather than a wrapper around the records, so the shape of
+    /logs stays a plain list for everything already reading it.
+    """
+    return logbuffer.stats(limit=min(limit, logbuffer.MAX_RECORDS))
+
+
 @router.delete("/logs")
 def clear_server_logs() -> dict:
     logbuffer.clear()
     return {"cleared": True}
+
+
+# How long a single stream lives before it hands over to the browser's own
+# reconnect, and how often it looks for new records. The cap is not a
+# limitation to work around — EventSource reconnects on its own and resends
+# Last-Event-ID, so the handover is seamless, and a stream that lives forever
+# is a resource nothing ever reclaims when a tab is left open for a week.
+LOG_STREAM_SECONDS = 10 * 60
+LOG_STREAM_POLL = 0.7
+LOG_STREAM_HEARTBEAT = 15
+
+
+@router.get("/logs/stream")
+async def stream_server_logs(request: Request, after: int = 0) -> StreamingResponse:
+    """A live log feed, so the Logs screen reads like a terminal.
+
+    Asked for directly: the screen should behave "like the terminal running in
+    the background", not a list you refresh by hand.
+
+    **NDJSON over fetch rather than the EventSource the roadmap suggested.**
+    EventSource cannot set request headers, and this app authenticates with
+    `X-Auth-Token` — so an EventSource here would simply 401. The usual way
+    round that is to put the token in the query string, which is a bad trade
+    anywhere and a farcical one on the endpoint that serves the log: the token
+    would be written into the very records it is protecting. `fetch` carries
+    the header, and NDJSON matches the chat and digest streams the app already
+    has, so the browser-side reader is the one that already exists.
+
+    Polling the ring buffer rather than registering a subscriber on it. That
+    sounds like the lazier choice and is the more robust one: a subscriber
+    registry means the logging handler pushes into per-connection queues, so a
+    slow or dead reader can block or grow unboundedly *inside logging itself* —
+    and a logging path that can stall is a far worse failure than a console
+    running 700ms behind. One reader, one process, one deque.
+    """
+
+    async def lines() -> AsyncIterator[str]:
+        cursor = after
+        loop = asyncio.get_running_loop()
+        started = loop.time()
+        last_sent = started
+        # An immediate first line, so the reader knows the stream is live
+        # before anything has been logged — and learns where it is starting
+        # from, which is what makes "dropped" meaningful on the client.
+        yield json.dumps(
+            {"type": "open", "cursor": cursor, "latest": logbuffer.latest_seq()}
+        ) + "\n"
+        while True:
+            if await request.is_disconnected():
+                return
+            now = loop.time()
+            # Drain BEFORE checking the deadline. The other order loses every
+            # record that arrived in the last poll interval of the connection:
+            # the client reconnects from its cursor and those records are
+            # inside the buffer but behind it, so they are never sent at all.
+            for record in logbuffer.since(cursor):
+                cursor = record.get("seq", cursor)
+                yield json.dumps({"type": "record", "record": record}) + "\n"
+                last_sent = now
+            if now - started > LOG_STREAM_SECONDS:
+                # Hand back to the client's own reconnect rather than holding a
+                # connection open forever for a tab left open all week.
+                yield json.dumps({"type": "reconnect", "cursor": cursor}) + "\n"
+                return
+            if now - last_sent > LOG_STREAM_HEARTBEAT:
+                # Keeps the connection from being reaped as idle, and doubles
+                # as the client's proof that the server is still there rather
+                # than merely quiet.
+                yield json.dumps({"type": "ping", "cursor": cursor}) + "\n"
+                last_sent = now
+            await asyncio.sleep(LOG_STREAM_POLL)
+
+    return StreamingResponse(
+        lines(),
+        media_type="application/x-ndjson",
+        headers={
+            # Same reasoning as the chat stream: stop a reverse proxy buffering
+            # a stream whose whole value is arriving promptly.
+            "X-Accel-Buffering": "no",
+            "Cache-Control": "no-cache",
+        },
+    )
+
+
+# Preferences safe to put in a file the user will send to a stranger.
+#
+# An allowlist, not a denylist, and that choice is the whole design. A denylist
+# has to predict every sensitive key anyone will ever add; this one only has to
+# name the ones that help diagnose a bug. Anything not here is reported by
+# name, type and size — "persona_prompt: string, 412 chars" — which is enough
+# to tell whether a setting is involved without disclosing what it says.
+DIAGNOSTIC_PREFERENCES = frozenset(
+    {
+        "ai_enabled",
+        "tools_enabled",
+        "chat_model",
+        "utility_model",
+        "embedding_backend",
+        "embedding_model",
+        "recycle_bin_days",
+        "timezone",
+        "web_search_enabled",
+        "search_provider",
+        "thinking_enabled",
+        "guided_mode",
+        "auto_categorise",
+    }
+)
+
+
+def _redacted_preferences(preferences: dict) -> dict:
+    """Diagnostic settings verbatim; everything else described, not disclosed."""
+    kept: dict = {}
+    withheld: dict = {}
+    for key, value in sorted(preferences.items()):
+        if key in DIAGNOSTIC_PREFERENCES:
+            kept[key] = value
+            continue
+        shape = type(value).__name__
+        if isinstance(value, str):
+            withheld[key] = f"{shape}, {len(value)} chars"
+        elif isinstance(value, (list, dict)):
+            withheld[key] = f"{shape}, {len(value)} items"
+        else:
+            withheld[key] = shape
+    return {"included": kept, "withheld": withheld}
+
+
+BUNDLE_README = """MemoryMap AI — support bundle
+=============================
+
+What this is
+------------
+A snapshot of what the app can see about itself, collected so you can attach
+it to a bug report. Everything in it was already on this machine and already
+visible somewhere in the app; this file only gathers it into one place.
+
+Nothing was sent anywhere. This file was written to your disk and it is
+entirely your choice whether to share it.
+
+What is in it
+-------------
+  logs.json         the recent server log, exactly as Settings -> Logs shows
+  preferences.json  your settings, with free-text ones withheld (see below)
+  status.json       app version, platform, and the state of Ollama, the
+                    embedding model and SearXNG
+  counts.json       how many notes, categories and documents exist — numbers
+                    only, never their contents
+
+What is NOT in it
+-----------------
+  · No note, document, chat or reminder content of any kind.
+  · No password, and nothing derived from one.
+  · No private-note data, encrypted or otherwise.
+  · Free-text settings (display name, personas, custom prompts) are listed by
+    name and length only, under "withheld" in preferences.json.
+
+Worth a glance before you send it
+---------------------------------
+Log messages can quote things you typed — a chat question, or the title of a
+page you opened. Open logs.json and skim it if that matters to you.
+"""
+
+
+@router.get("/support-bundle")
+def support_bundle(session: Session = Depends(get_session)) -> Response:
+    """Everything a bug report needs, in one file, collected locally.
+
+    Asked for indirectly ("an interface for managing the application… errors
+    etc") and echoed by an outside review. Deliberately *not* crash reporting:
+    nothing is transmitted, the file lands on disk, and the user decides
+    whether it ever goes anywhere. That distinction is why this was accepted
+    and opt-in telemetry was not.
+    """
+    config = deps.get_config()
+    buffer = io.BytesIO()
+
+    def _safely(collect, fallback):
+        """A bundle that half-collects is far better than one that 500s.
+
+        The moment this is most needed is when something is already broken, so
+        any single probe failing must not take the whole file with it.
+        """
+        try:
+            return collect()
+        except Exception as exc:  # noqa: BLE001 — the reason IS the diagnostic
+            return {"error": f"{type(exc).__name__}: {exc}", **fallback}
+
+    status_payload = {
+        "app_version": __version__,
+        "generated_at": utcnow().isoformat(),
+        "platform": platform.platform(),
+        "python": sys.version.split()[0],
+        "data_dir": str(config.data_dir),
+        "models": _safely(_models_status_snapshot, {"models": None}),
+        "searxng": _safely(lambda: searxng_manager.status(config.data_dir), {}),
+        "logs": logbuffer.stats(),
+    }
+    counts = _safely(
+        lambda: {
+            "entries": session.scalar(select(func.count(Entry.id))) or 0,
+            "entries_deleted": session.scalar(
+                select(func.count(Entry.id)).where(Entry.is_deleted == True)  # noqa: E712
+            )
+            or 0,
+            "entries_private": session.scalar(
+                select(func.count(Entry.id)).where(Entry.is_private == True)  # noqa: E712
+            )
+            or 0,
+            "categories": session.scalar(select(func.count(Category.id))) or 0,
+            "links": session.scalar(select(func.count(EntryLink.id))) or 0,
+        },
+        {},
+    )
+
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("README.txt", BUNDLE_README)
+        archive.writestr(
+            "logs.json", json.dumps(logbuffer.recent(logbuffer.MAX_RECORDS), indent=2)
+        )
+        archive.writestr(
+            "preferences.json",
+            json.dumps(_redacted_preferences(config.all_preferences()), indent=2),
+        )
+        archive.writestr("status.json", json.dumps(status_payload, indent=2, default=str))
+        archive.writestr("counts.json", json.dumps(counts, indent=2))
+
+    manager.log_action(session, "exported", "data", detail="support bundle")
+    session.commit()
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": "attachment; filename=memorymap-support-bundle.zip"
+        },
+    )
+
+
+def _models_status_snapshot() -> dict:
+    """The model/AI state, without importing the models router's response."""
+    ollama = deps.get_ollama()
+    model_manager = deps.get_model_manager()
+    embeddings = deps.get_embeddings()
+    return {
+        "ollama_running": ollama.is_running(),
+        "chat_model": model_manager.chat_model(),
+        "utility_model": model_manager._config.get_preference("utility_model", ""),
+        "embedding_backend": model_manager.embedding_backend(),
+        "active_embedding_model": embeddings.active_model(),
+        "embedding_ready": embeddings.is_ready(),
+        "embedding_error": embeddings.last_error,
+    }
 
 
 def _export_rows(session: Session) -> tuple[list[Category], list[Entry], list[EntryLink]]:
@@ -517,12 +784,16 @@ def web_search(q: str, limit: int = 5, session: Session = Depends(get_session)) 
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     manager.log_action(session, "web_searched", "chat", detail=q[:120])
     session.commit()
+    # Which engine actually answered, not which one was asked for — under
+    # "auto" those differ, and the difference is the interesting part. Resolved
+    # even when nothing came back: "no results" is exactly when you want to
+    # know who found nothing, and it is the case the panel used to go quiet.
+    answered = results[0]["engine"] if results else ("searxng" if searxng else "duckduckgo")
     return {
         "query": q,
         "results": results,
-        # Which engine actually answered, not which one was asked for — under
-        # "auto" those differ, and the difference is the interesting part.
-        "provider": results[0]["engine"] if results else ("searxng" if searxng else "duckduckgo"),
+        "provider": answered,
+        "answered_by": websearch.answered_by(answered),
         "requested_provider": provider,
     }
 

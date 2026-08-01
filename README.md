@@ -216,9 +216,14 @@ keep no cookies between searches, send no `Referer`, and set DNT and Sec-GPC;
 - queries go by POST, so they stay out of request lines and access logs;
 - tracking parameters (`utm_*`, `fbclid`, `gclid`, …) are stripped from result
 URLs before you ever see them;
-- you choose which engine answers - DuckDuckGo, your own
-[SearXNG](https://searxng.org) instance, or automatic. MemoryMap can install
-and run SearXNG for you, which keeps the query on your own network.
+- **your own [SearXNG](https://searxng.org) is the recommended engine**, and
+MemoryMap installs and runs it for you in one click - no Docker required, no
+account, no setup. The query then never leaves your own network at all. The
+default setting, *Automatic*, uses it whenever it is running and falls back to
+DuckDuckGo until you have one, so search works out of the box either way;
+- the results panel says **which engine actually answered** each search, and
+what that meant for the query - so the choice you made in Settings is visible
+at the moment it applies rather than only where you set it.
 
 **Opening a page** (the reader view, and the agent's `read_url` tool) is
 address-checked on *every* redirect hop and then pinned to the address that
@@ -229,7 +234,28 @@ execute anywhere in the app.
 
 **Private notes** are encrypted at rest with a key wrapped by your password,
 and are excluded from search, the graph and every AI tool - the model cannot
-reach around the front door.
+reach around the front door. The key is derived with **scrypt** (n=2^15), a
+deliberately slow, memory-hard function, so a copy of the database file taken
+off the machine is not worth guessing at.
+
+**The browser on your own machine is treated as untrusted too.** Binding to
+localhost keeps the *network* out; it does nothing about a page open in
+another tab, which can ask your browser to send requests to
+`http://localhost:8000` on your behalf - this is how local dev servers and
+Ollama itself have actually been attacked. So:
+
+- requests that state an origin other than MemoryMap's own are **refused**,
+including before you have set a password, when there is otherwise nothing
+standing between a stray page and your new notebook;
+- a strict **Content-Security-Policy** on every response allows scripts and
+styles only from the app itself, no inline code, and **no remote host at
+all** - which the "no asset from a CDN" rule above makes possible;
+- **sessions expire** - after 12 hours unused, and 7 days regardless - and
+expiring forgets the private-note key, not just the token;
+- **wrong passwords earn a growing wait**, so a four-character PIN cannot be
+guessed at speed;
+- the SearXNG instance the app runs for you is published to `127.0.0.1` only,
+never the wider network.
 
 `.github/workflows/codeql.yml` runs static security analysis on every push and
 weekly. [`SECURITY.md`](https://github.com/Braydenh563/MemoryMap-AI/blob/main/SECURITY.md) has the full model and how to report an
@@ -294,9 +320,29 @@ but failing* rather than simply not running.
 
 **Something looks wrong and I want to see what happened**
 
-**Settings → Logs** shows the server's own log without hunting for a terminal.
-It's memory-only - nothing is written to disk - in keeping with the rest of the
-privacy posture.
+**Settings → Logs** is a live view of what the app is doing, without hunting
+for a terminal. It streams as things happen, follows the newest records (and
+pauses the moment you scroll up to read something), filters by level, source
+or text, and folds tracebacks open under the record they belong to. Server and
+browser logs appear in one time-ordered list, so an error in the page and the
+request behind it sit next to each other. It's memory-only - nothing is written
+to disk - in keeping with the rest of the privacy posture, and it says so when
+the buffer has had to drop older records rather than leaving a silent gap.
+
+**Got an error you want to send someone?** Every record has its own copy button
+that takes the traceback with it, and an opened traceback has a **Copy
+traceback** button too - so one error is one click, not a filter plus a careful
+drag. The error count on the **Logs** menu item is clickable and opens the
+screen already filtered to errors. **Copy all** copies what's on screen and
+relabels itself ("Copy 12 shown") whenever a filter is hiding something.
+
+**Reporting a bug?** The **⬇ Support bundle** button on the same screen saves a
+zip with the log, your settings, and app and model status - the things a bug
+report needs. Nothing is sent anywhere; the file goes to your disk and it's
+your choice whether to share it. Free-text settings are listed by name and
+length only (your display name appears as `str, 31 chars`), and no note,
+document, chat or reminder content is included. There's a README inside
+describing exactly what it holds.
 
 ## Where your data lives
 

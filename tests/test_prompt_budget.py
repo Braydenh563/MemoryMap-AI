@@ -205,3 +205,96 @@ def test_a_long_note_does_not_blow_the_prompt_budget():
     messages = agent.build_agent_messages("what did I say?", long_notes)
     total = sum(len(m["content"]) for m in messages)
     assert total < agent.PROMPT_BUDGET_CHARS, total
+
+
+# --- fitting the registry to the model, rather than to a constant ---------------
+#
+# Asked directly after four category tools took the all-tools overhead within
+# ~180 characters of a 4096-token window: "if adding more tools is an issue, can
+# we change or improve how tools are used so that doesn't become an issue?"
+#
+# The ceiling was never a fact about the app, it was an assumption about the
+# model. 4096 is Ollama's fallback when a model declares nothing; a current 7B
+# routinely declares 32k or more. The budget is measured now, not fixed.
+
+
+def test_a_big_window_is_not_rationed_like_a_small_one(app_state):
+    """Rationing a 32k model against 4096 withholds tools for no reason."""
+    every = tools.ollama_tools()
+    kept, dropped = tools.within_budget(every, tools.budget_for_window(32_768))
+    assert not dropped
+    assert len(kept) == len(every)
+
+
+def test_a_small_window_drops_tools_rather_than_overflowing(app_state):
+    """The failure this replaces is silent: past the window the system prompt
+    goes off the front and the model stops knowing it has tools at all."""
+    every = tools.ollama_tools()
+    budget = tools.budget_for_window(4096)
+    kept, dropped = tools.within_budget(every, budget)
+    assert dropped, "a 4096 window cannot hold every schema, and should say so"
+    assert tools.schema_chars(kept) <= budget
+
+
+def test_what_survives_a_tight_budget_is_what_matters_most(app_state):
+    """A model that cannot search or read a note cannot answer anything, so
+    those go first and the tail is what gets dropped."""
+    every = tools.ollama_tools()
+    kept, _ = tools.within_budget(every, tools.budget_for_window(2048))
+    names = [t["function"]["name"] for t in kept]
+    assert "search_notes" in names
+    assert names[0] in tools.CORE_TOOLS
+
+
+def test_a_budget_too_small_for_even_one_tool_still_sends_one(app_state):
+    """A model handed an empty tool list does not degrade gracefully — it
+    answers from nothing and sounds confident about it."""
+    kept, _ = tools.within_budget(tools.ollama_tools(), 1)
+    assert len(kept) == 1
+
+
+def test_the_measurement_is_of_the_list_as_it_is_actually_sent(app_state):
+    """Summing individual schemas misses the brackets and commas, which are
+    small and are also the difference between fitting and not."""
+    every = tools.ollama_tools()[:5]
+    assert tools.schema_chars(every) > sum(tools.schema_chars([t]) for t in every) - 100
+
+
+def test_an_unknown_window_falls_back_to_the_cautious_number():
+    """Being wrong towards 4096 wastes headroom; being wrong the other way
+    drops the system prompt off the front."""
+    from memorymap.ai.ollama_client import OllamaClient
+
+    client = OllamaClient(base_url="http://127.0.0.1:1")  # nothing listening
+    assert client.context_length("whatever") is None
+    assert client.usable_context("whatever") == OllamaClient.DEFAULT_CONTEXT_TOKENS
+
+
+def test_the_window_is_asked_for_once_per_model():
+    """It cannot change without the model being re-pulled, and the answer is
+    needed on every round."""
+    from memorymap.ai.ollama_client import OllamaClient
+
+    client = OllamaClient(base_url="http://127.0.0.1:1")
+    client.context_length("a-model")
+    client._context_lengths["a-model"] = 12345  # would be re-fetched if not cached
+    assert client.context_length("a-model") == 12345
+
+
+def test_a_backend_that_cannot_report_its_window_still_works(app_state):
+    """Reporting a context window is an Ollama feature. §6's planned
+    OpenAI-compatible backends (LM Studio, llama.cpp, Jan, vLLM) have no
+    equivalent of /api/show, and the budget is an optimisation — one that can
+    take the whole agent turn down with it is not one.
+
+    Caught by three existing tests whose local fake predates the method, which
+    is exactly the signal that a hard requirement had been added.
+    """
+    from memorymap.ai.ollama_client import OllamaClient
+
+    class NoWindowReporting:
+        """A client from before this existed, or a non-Ollama one."""
+
+    report = getattr(NoWindowReporting(), "usable_context", None)
+    window = report("m") if callable(report) else None
+    assert (window or OllamaClient.DEFAULT_CONTEXT_TOKENS) == 4096

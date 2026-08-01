@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 
 from memorymap.ai import skills
 from memorymap.core import deps
-from memorymap.core.database import EmbeddingRecord, Entry, Reminder
+from memorymap.core.database import Category, EmbeddingRecord, Entry, Reminder
 from memorymap.core.logbuffer import safe_value
 from memorymap.entry import manager
 from memorymap.search import search_manager
@@ -1003,6 +1003,168 @@ def _delete_tag(session: Session, args: dict) -> dict:
     }
 
 
+# --- categories -----------------------------------------------------------------
+#
+# Asked for indirectly: "more tools for managing… creating, editing, deleting,
+# and applying categories". Renaming and deleting already existed as UI actions
+# in routes_categories, but not as tools — so the agent could file a note into
+# a category it had no way to create, which is the wrong half of the job.
+#
+# These take NAMES, not ids. The model has never seen an id and would have to
+# guess one; every other categorising tool here already speaks in names.
+
+
+def _find_category(session: Session, name: str) -> Category:
+    """Resolve a category by name, or explain what exists.
+
+    Exact match FIRST, then case-insensitively. That order is not fussiness:
+    the case this tool exists for is a notebook that has grown both "Work" and
+    "work", and a purely case-insensitive lookup resolves both spellings to
+    whichever row comes back first — so `merge_categories(from="work",
+    into="Work")` found the same category twice and refused itself. The
+    duplicate is precisely what the user is trying to clear up.
+
+    Naming the alternatives on a miss matters more here than usual: the model
+    picked the name out of a conversation, and "no category called Work" with
+    nothing after it invites it to guess again rather than look.
+    """
+    wanted = (name or "").strip()
+    if not wanted:
+        raise ToolError("No category name was given")
+    found = session.scalar(select(Category).where(Category.name == wanted))
+    if found is None:
+        found = session.scalar(
+            select(Category).where(func.lower(Category.name) == wanted.lower())
+        )
+    if found is None:
+        existing = [c["name"] for c in manager.all_categories(session)]
+        known = ", ".join(f"“{n}”" for n in existing[:12]) or "none yet"
+        raise ToolError(f"There is no category called “{wanted}”. There is: {known}")
+    return found
+
+
+def _create_category(session: Session, args: dict) -> dict:
+    name = str(args.get("name") or "").strip()
+    if not name:
+        raise ToolError("A category needs a name")
+    if len(name) > 100:
+        raise ToolError("That category name is too long (100 characters max)")
+    existing = session.scalar(
+        select(Category).where(func.lower(Category.name) == name.lower())
+    )
+    if existing is not None:
+        # Not an error: the model asked for a category to exist, and it does.
+        # Failing here would send it round a retry loop over a done job.
+        return {
+            "name": existing.name,
+            "created": False,
+            "label": f"📁 “{existing.name}” already exists",
+        }
+    category = manager.get_or_create_category(session, name)
+    description = str(args.get("description") or "").strip()
+    if description:
+        category.description = description[:500]
+    manager.log_action(session, "created", "category", category.id, name)
+    session.commit()
+    return {
+        "name": category.name,
+        "created": True,
+        "label": f"📁 Created the category “{category.name}”",
+        # Safe to reverse: a category made a moment ago holds nothing, so
+        # removing it cannot strand any notes.
+        "undo": {"tool": "delete_category", "arguments": {"name": category.name}},
+    }
+
+
+def _rename_category(session: Session, args: dict) -> dict:
+    category = _find_category(session, str(args.get("old") or ""))
+    new_name = str(args.get("new") or "").strip()
+    if not new_name:
+        raise ToolError("A category needs a name")
+    old_name = category.name
+    try:
+        result = manager.rename_category(session, category.id, new_name)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
+
+    if result["merged"]:
+        # An undo is deliberately NOT offered here. Renaming onto an existing
+        # name merges the two, and once both sets of notes sit in one category
+        # nothing records which came from where — "undo" would move all of them
+        # back, inventing a history that never happened.
+        return {
+            "name": new_name,
+            "merged": True,
+            "notes_moved": result["moved"],
+            "label": (
+                f"📁 Merged “{old_name}” into “{new_name}” "
+                f"({result['moved']} notes moved)"
+            ),
+        }
+    return {
+        "name": new_name,
+        "merged": False,
+        "notes_moved": 0,
+        "label": f"📁 Renamed “{old_name}” → “{new_name}”",
+        "undo": {
+            "tool": "rename_category",
+            "arguments": {"old": new_name, "new": old_name},
+        },
+    }
+
+
+def _merge_categories(session: Session, args: dict) -> dict:
+    """Fold one category into another. Separate from rename on purpose.
+
+    `rename_category` merges as a side effect when the new name is taken, which
+    is the right behaviour for a rename and a terrible way to *ask* for a merge
+    — the model would have to know a name was already used to predict what its
+    call did. Saying "merge" says what is meant.
+    """
+    source = _find_category(session, str(args.get("from") or ""))
+    target = _find_category(session, str(args.get("into") or ""))
+    if source.id == target.id:
+        raise ToolError(f"“{source.name}” and “{target.name}” are the same category")
+    source_name, target_name = source.name, target.name
+    try:
+        result = manager.rename_category(session, source.id, target_name)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
+    return {
+        "from": source_name,
+        "into": target_name,
+        "notes_moved": result["moved"],
+        "label": (
+            f"📁 Merged “{source_name}” into “{target_name}” "
+            f"({result['moved']} notes moved)"
+        ),
+    }
+
+
+def _delete_category(session: Session, args: dict) -> dict:
+    """Remove a category. Its notes survive as Uncategorised.
+
+    Deleting a category never deletes notes — an organising action that could
+    destroy writing is not what anyone means by "delete category". Still marked
+    destructive, so the user approves it before it runs: it is not reversible
+    from here, because nothing records which notes were moved out.
+    """
+    category = _find_category(session, str(args.get("name") or ""))
+    name = category.name
+    try:
+        result = manager.delete_category(session, category.id)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
+    return {
+        "name": name,
+        "notes_moved": result["moved"],
+        "label": (
+            f"📁 Deleted the category “{name}” — {result['moved']} "
+            f"note{'' if result['moved'] == 1 else 's'} kept, now Uncategorised"
+        ),
+    }
+
+
 # --- the registry ---------------------------------------------------------------
 
 _NOTE_ID = {"type": "integer", "description": "The note's id number"}
@@ -1372,6 +1534,56 @@ TOOLS: dict[str, ToolSpec] = {
             },
             _rename_tag,
         ),
+        # Written terse on purpose. Every character of these four schemas is
+        # resent on every round in "all tools" mode, and the registry was
+        # already within ~100 characters of what a 4096-token window can hold
+        # (tests/test_prompt_budget.py). The per-parameter descriptions the
+        # other tools carry are the first thing to go: "old"/"new" and
+        # "from"/"into" do not need explaining.
+        ToolSpec(
+            "create_category",
+            "Make a new category. Use before filing a note under a category "
+            "that doesn't exist yet.",
+            {
+                "type": "object",
+                "properties": {"name": {"type": "string"}},
+                "required": ["name"],
+            },
+            _create_category,
+        ),
+        ToolSpec(
+            "rename_category",
+            "Rename a category; merges if the new name is already taken.",
+            {
+                "type": "object",
+                "properties": {"old": {"type": "string"}, "new": {"type": "string"}},
+                "required": ["old", "new"],
+            },
+            _rename_category,
+        ),
+        ToolSpec(
+            "merge_categories",
+            "Move every note from one category into another and remove the "
+            "empty one. Tidies duplicates like 'Work' and 'work'.",
+            {
+                "type": "object",
+                "properties": {"from": {"type": "string"}, "into": {"type": "string"}},
+                "required": ["from", "into"],
+            },
+            _merge_categories,
+            destructive=True,
+        ),
+        ToolSpec(
+            "delete_category",
+            "Remove a category. Its notes are kept, as Uncategorised.",
+            {
+                "type": "object",
+                "properties": {"name": {"type": "string"}},
+                "required": ["name"],
+            },
+            _delete_category,
+            destructive=True,
+        ),
         ToolSpec(
             "web_search",
             "Search the internet (DuckDuckGo) for current information the "
@@ -1484,6 +1696,20 @@ TOOL_GROUPS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
         ("tag", "label", "untagged", "retag", "categorise", "categorize"),
     ),
     (
+        # Kept apart from the tag group even though "categorise" cues both:
+        # tagging a note and reorganising the category tree are different
+        # jobs, and sending four category schemas to every "tag this" question
+        # is exactly the per-round cost §11a went to some trouble to cut.
+        ("create_category", "rename_category", "merge_categories", "delete_category"),
+        (
+            # "file … under" is split into its two halves deliberately: the
+            # first draft matched "file it under" and missed "file this under",
+            # which is the same request with a different pronoun.
+            "category", "categories", "folder", "file ", "filed ", "under",
+            "reorganise", "reorganize", "duplicate categor", "merge", "rename",
+        ),
+    ),
+    (
         ("link_notes",),
         ("link", "connect", "related", "relate", "join", "graph", "together"),
     ),
@@ -1585,6 +1811,77 @@ def ollama_tools(allowed: list[str] | None = None) -> list[dict]:
         for spec in TOOLS.values()
         if tool_enabled(spec.name) and (wanted is None or spec.name in wanted)
     ]
+
+
+# --- fitting the registry to the model that will read it -------------------------
+#
+# Asked directly, after four category tools took the all-tools overhead within
+# ~180 characters of a 4096-token window: "if adding more tools is an issue, can
+# we change or improve how tools are used so that doesn't become an issue?"
+#
+# The honest answer is that the ceiling was never a fact about the app — it was
+# an assumption about the model. 4096 is what Ollama falls back to when a model
+# declares nothing; a current 7B routinely declares 32k or 128k, and rationing
+# against 4096 there withholds tools for no reason at all. Meanwhile a genuine
+# 3B at 4096 needed rationing *harder* than a fixed constant could express,
+# because the right number depends on the question too.
+#
+# So the fixed budget is replaced by a measured one: ask the model how much room
+# it has (ollama_client.usable_context), spend a bounded share of it on schemas,
+# and drop the least relevant tools when they do not fit. Adding a tool stops
+# being a question of whether it fits inside a constant, and becomes a question
+# of what gets sent first — which is a much easier question, and one the app can
+# answer per turn instead of once at import time.
+
+# The share of the window the tool schemas may occupy. The rest is the system
+# prompt, the retrieved notes, the history and the answer — and tool RESULTS,
+# which is what makes a generous share a false economy: schemas the model never
+# calls cost the same as ones it does.
+TOOL_SCHEMA_WINDOW_SHARE = 0.25
+CHARS_PER_TOKEN = 4  # close enough for a stop rule; a real tokeniser per model is not
+
+
+def schema_chars(specs: list[dict]) -> int:
+    """What this list of tool schemas costs on the wire."""
+    return len(json.dumps(specs))
+
+
+def within_budget(
+    offered: list[dict], budget_chars: int, keep_first: list[str] | None = None
+) -> tuple[list[dict], list[str]]:
+    """(the tools that fit, the names dropped) — most important kept.
+
+    Order is the whole design. CORE_TOOLS go first because a model that cannot
+    search or read a note cannot answer anything; whatever the question-focus
+    picked comes next; the rest fill the remaining room. Dropping happens at
+    the tail, so what is lost is always the least relevant thing left.
+
+    At least one tool is always returned even if the budget cannot afford it:
+    a model handed an empty tool list does not degrade gracefully, it simply
+    answers from nothing and sounds confident about it.
+    """
+    if budget_chars <= 0 or not offered:
+        return offered, []
+    priority = list(keep_first or CORE_TOOLS)
+    rank = {name: index for index, name in enumerate(priority)}
+    ordered = sorted(offered, key=lambda t: rank.get(t["function"]["name"], len(rank)))
+
+    kept: list[dict] = []
+    dropped: list[str] = []
+    for spec in ordered:
+        # Measured against the list as it will actually be serialised, rather
+        # than by summing individual schemas — the brackets and commas are
+        # small but they are also the difference between fitting and not.
+        if not kept or schema_chars(kept + [spec]) <= budget_chars:
+            kept.append(spec)
+        else:
+            dropped.append(spec["function"]["name"])
+    return kept, dropped
+
+
+def budget_for_window(context_tokens: int) -> int:
+    """How many characters of tool schema a model with this window can hold."""
+    return int(context_tokens * TOOL_SCHEMA_WINDOW_SHARE) * CHARS_PER_TOKEN
 
 
 def tool_catalog() -> list[dict]:

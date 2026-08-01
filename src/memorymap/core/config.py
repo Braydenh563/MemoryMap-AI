@@ -90,6 +90,14 @@ class ConfigManager:
     def get_preference(self, key: str, default: Any = None) -> Any:
         return self._preferences.get(key, default)
 
+    def all_preferences(self) -> dict[str, Any]:
+        """Every setting, as a copy — for the support bundle to redact.
+
+        A copy rather than the live dict: a caller that only means to read
+        should not be able to edit the app's settings by accident.
+        """
+        return dict(self._preferences)
+
     def set_preference(self, key: str, value: Any) -> None:
         """Change a preference and persist it to disk immediately,
         so a crash never loses a settings change."""

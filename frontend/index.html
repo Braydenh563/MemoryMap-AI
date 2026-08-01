@@ -623,7 +623,11 @@ Link to another note with [[its first few words]]."></textarea>
           <option value="tree">Tree</option>
           <option value="radial">Radial tree</option>
         </select>
-        <span class="graph-physics">
+        <!-- Both sliders feed the force simulation and nothing else, so they
+             have no effect under Tree or Radial tree, where positions come
+             from the hierarchy. setGraphPhysicsEnabled() disables them there
+             rather than leaving two controls that silently do nothing. -->
+        <span class="graph-physics" id="graph-physics">
           <label for="graph-gravity" class="muted">Gravity</label>
           <input id="graph-gravity" type="range" min="0" max="100" value="50"
             title="How strongly notes pull together">
@@ -1463,13 +1467,13 @@ Link to another note with [[its first few words]]."></textarea>
             <h3>Your name</h3>
             <div class="row">
               <label for="pref-display-name" class="muted">Name for the dashboard greeting</label>
-              <input id="pref-display-name" type="text" maxlength="60" style="width:12rem"
+              <input id="pref-display-name" type="text" maxlength="60"
                 placeholder="e.g. Brayden">
             </div>
             <h3>Recycle bin</h3>
             <div class="row">
               <label for="pref-bin-days" class="muted">Auto-clear binned entries after</label>
-              <input id="pref-bin-days" type="number" min="1" max="365" style="width:5rem">
+              <input id="pref-bin-days" type="number" min="1" max="365">
               <span class="muted">days</span>
             </div>
             <h3>AI answer style</h3>
@@ -1534,11 +1538,15 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
             <p id="searxng-status" class="status" role="status"></p>
             <p class="muted">
-              <strong>SearXNG</strong> is an optional, self-hosted search engine.
-              It gives better results than scraping DuckDuckGo, it can't be
-              rate-limited the way scraping can, and the query stays inside your
-              own network. It has to be on this machine or your own network —
-              MemoryMap won't send searches to somebody else's instance.
+              <strong>SearXNG is the recommended way to search.</strong> It is a
+              self-hosted search engine that MemoryMap can install and run for
+              you in one click — you don't need Docker, an account, or any
+              setup of your own. It gives better results than scraping
+              DuckDuckGo, it can't be rate-limited the way scraping can, and
+              the query never leaves your own network. It has to be on this
+              machine or your own network — MemoryMap won't send searches to
+              somebody else's instance, and the one it runs for you listens on
+              <code>127.0.0.1</code> only.
             </p>
             <div class="searxng-host">
               <div class="row space-between">
@@ -1726,24 +1734,40 @@ Link to another note with [[its first few words]]."></textarea>
           </section>
 
           <section class="settings-section hidden" id="settings-logs">
-            <div class="row">
-              <select id="log-source" style="max-width:11rem">
+            <div class="row log-toolbar">
+              <select id="log-source" aria-label="Which log to show">
+                <option value="all">Everything</option>
                 <option value="server">Server logs</option>
                 <option value="browser">Browser logs</option>
               </select>
-              <button id="logs-refresh" class="ghost small">Refresh</button>
+              <select id="log-level" aria-label="Minimum level to show">
+                <option value="all">All levels</option>
+                <option value="warning">Warnings &amp; errors</option>
+                <option value="error">Errors only</option>
+              </select>
+              <input id="log-filter" type="search" placeholder="🔎 Filter…"
+                aria-label="Only show records containing this text">
+              <label class="muted tools-toggle" id="log-follow-label"
+                title="Keep the newest records in view. Scroll up to pause.">
+                <input type="checkbox" id="log-follow" checked> Follow
+              </label>
+              <span id="log-live" class="log-live" role="status">connecting…</span>
               <button id="logs-copy" class="ghost small">Copy all</button>
+              <button id="logs-bundle" class="ghost small"
+                title="Save a zip with the log, your settings and app status, for a bug report">⬇ Support bundle</button>
               <button id="logs-clear" class="ghost small">Clear</button>
             </div>
+            <p id="logs-dropped" class="log-dropped hidden" role="status"></p>
             <ul id="log-list" class="log-list"></ul>
             <p id="logs-empty" class="muted hidden">No log records yet.</p>
+            <p id="logs-filtered-out" class="muted hidden"></p>
           </section>
 
           <!-- About -->
           <!-- Help guide (learnability): a feature reference + re-run the tour -->
           <section class="settings-section hidden" id="settings-help">
             <div class="row space-between">
-              <h3 style="margin:0">Help &amp; guide</h3>
+              <h3 class="flush">Help &amp; guide</h3>
               <button id="show-guide-btn" class="small">▶ Replay welcome tour</button>
             </div>
             <p class="muted">A quick reference to what each part of MemoryMap does. Click a topic to expand it.</p>
@@ -1927,10 +1951,10 @@ Link to another note with [[its first few words]]."></textarea>
       </div>
       <div class="row" id="sketch-tools">
         <span class="muted">Pen</span>
-        <button class="sketch-color active" data-color="#4f6df5" style="background:#4f6df5" aria-label="Blue pen"></button>
-        <button class="sketch-color" data-color="#e2534b" style="background:#e2534b" aria-label="Red pen"></button>
-        <button class="sketch-color" data-color="#3a9e56" style="background:#3a9e56" aria-label="Green pen"></button>
-        <button class="sketch-color" data-color="#1c1e26" style="background:#1c1e26" aria-label="Black pen"></button>
+        <button class="sketch-color active" data-color="#4f6df5" aria-label="Blue pen"></button>
+        <button class="sketch-color" data-color="#e2534b" aria-label="Red pen"></button>
+        <button class="sketch-color" data-color="#3a9e56" aria-label="Green pen"></button>
+        <button class="sketch-color" data-color="#1c1e26" aria-label="Black pen"></button>
         <label class="muted">Size
           <input id="sketch-size" type="range" min="2" max="14" value="4">
         </label>

@@ -7,7 +7,242 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Security
+
+The roadmap's security tier, worked through end to end. Three of its seven
+items turned out to be built already (SQLite WAL mode, the unlock-gate
+backoff, and the scrypt KDF behind private notes); all three now have tests,
+so the next audit does not have to rediscover them. The other four were real.
+
+- **SearXNG was reachable from the local network when run under Docker.** The
+  container was created with `-p 8888:8080`, which publishes on *every*
+  interface rather than just this machine — and because Docker installs its
+  own firewall rules, a host firewall set to refuse that port never saw the
+  packet. SearXNG has no authentication in front of it, so anyone on the same
+  network had both a free proxy to the internet and a view of what had been
+  searched for. It is now published to `127.0.0.1` only. Port publishing is
+  fixed when a container is created, so **a container left behind by an
+  earlier version is detected and recreated** rather than started as it was;
+  one that cannot be inspected is left alone rather than removed on a guess.
+  The from-source path was never affected — it has always set
+  `SEARXNG_BIND_ADDRESS=127.0.0.1`.
+
+- **Requests caused by another site's page are refused.** Binding to localhost
+  keeps the network out, but not a page open in another browser tab: it can
+  have the browser send requests to `http://localhost:8000` on your behalf,
+  which is how local dev servers and Ollama itself have been attacked. The API
+  now checks the `Origin` (or, failing that, `Referer`) against the host the
+  request was actually sent to. Requests carrying neither header still work —
+  that is curl, the desktop window, and a shortcut, none of which a browser
+  sends an origin for. This closes a window that was widest **before a
+  password was set**, when the unlock gate is deliberately open and a
+  drive-by `POST /auth/setup` could have claimed a new notebook outright.
+
+- **Sessions expire.** Unlock tokens lived in memory until the app restarted,
+  which on a notebook left open for weeks is not a limit. They now expire 12
+  hours after last use, and 7 days after being issued however busy they have
+  been. Expiry also forgets the private-note key, so an expired session cannot
+  leave decrypted notes behind in memory.
+
+- **Every response carries a strict Content-Security-Policy** — no inline
+  script or style, no `eval`, and no remote host named anywhere in it. The
+  project's existing "no asset from a CDN" rule is what made a policy this
+  tight affordable. Alongside it: `X-Content-Type-Options`,
+  `X-Frame-Options`, `Referrer-Policy: no-referrer`, and a `Permissions-Policy`
+  disabling geolocation, camera, payment and USB (but deliberately not the
+  microphone, which voice capture needs).
+
+### Added
+
+- **The Logs screen is live.** It streams as things happen instead of showing
+  whatever was there when you opened it, which is what it was asked to be:
+  "like the terminal running in the background, with key errors flagged".
+  Alongside that:
+  - **Follow** keeps the newest records in view, and pauses the moment you
+    scroll up to read something — scrolling back to the bottom resumes it.
+  - **Filters** by level (all / warnings / errors), by source, and by text.
+    They re-draw what is already on screen rather than refetching, so changing
+    one in the middle of an incident cannot lose the records you were reading.
+    When a filter hides records it says how many, because "nothing matches"
+    and "nothing happened" are different answers.
+  - **Tracebacks** fold open under the record they belong to.
+  - **Server and browser logs are one list**, tagged by source and ordered by
+    time. A browser error and the request that caused it are the same event
+    seen from two ends.
+  - **Errors that arrive while you are on another screen** show as a count on
+    the Logs item in the settings menu.
+
+- **The AI can manage categories, not just use them.** It could already file a
+  note into a category but had no way to make one, so asking it to organise
+  anything ran into a wall. It now has `create_category`, `rename_category`,
+  `merge_categories` and `delete_category` — enough to answer "tidy up my
+  duplicate categories" or "file these under a new Recipes category".
+
+  Deleting a category never deletes notes; they're kept and become
+  Uncategorised. Merging and deleting ask for your approval before they run,
+  because neither can be undone afterwards — nothing records which notes came
+  from where. Creating and renaming can be undone, and offer it.
+
+- **Any error in the log can be copied on its own.** Each record has its own
+  copy button that takes the traceback with it, and an open traceback has a
+  **Copy traceback** button of its own — so getting one error out is a click,
+  not a filter-then-select-across-a-scrolling-box. The error count on the Logs
+  menu item is clickable and opens the screen already filtered to errors, and
+  **Copy all** relabels itself to "Copy 12 shown" whenever a filter is hiding
+  something, because copying less than it promised is not something you'd
+  discover until you pasted it.
+
+- **A support bundle button** (Settings → Logs). It saves a zip containing the
+  log, your settings, app and model status, and how many notes exist — the
+  things a bug report needs. Nothing is sent anywhere: the file lands on your
+  disk and it is entirely your choice whether to share it.
+
+  Settings are filtered by an **allowlist**, not a denylist. Diagnostic ones go
+  in as they are; everything else is described rather than disclosed, so your
+  display name appears as `"str, 31 chars"` and never as its value. No note,
+  document, chat or reminder content is included at all. The README inside the
+  zip says all of this, and suggests skimming the log before sending, since log
+  messages can quote things you typed.
+
+- **The results panel says which engine answered, and what that meant.** You
+  choose an engine in Settings for a privacy reason, and until now nothing
+  reported whether that choice was honoured — under *Automatic* the engine
+  that answers is not necessarily the one configured. Searches now report
+  "via SearXNG — your own instance, the query stayed on your machine" or
+  "via DuckDuckGo — a third party saw this query, but not your notes",
+  **including when nothing was found**, which is when it matters most and was
+  exactly when the panel used to go quiet. Individual results also name the
+  upstream engines SearXNG used to find them: it is a metasearch engine, so
+  "via SearXNG" describes where the query was assembled, not who answered it.
+
+- **The log viewer admits when it has forgotten something.** The buffer keeps
+  the most recent 500 records and silently discarded the rest, so a busy hour
+  and a quiet one looked identical — 500 rows either way, with no way to tell
+  whether the top row was the start of the story or the middle of it. It now
+  says how many earlier records were dropped and how far back it still
+  reaches. Worst in exactly the case the viewer exists for: chasing something
+  that keeps failing, where the repetition is what pushed the first occurrence
+  out of the window.
+
+- **MemoryMap refuses to start with more than one worker.** Its configuration,
+  database handle, log buffer, unlock sessions and SearXNG subprocess are all
+  one-per-process; with two workers each silently becomes per-worker, and the
+  result is a log showing half of what happened, an unlock that works only
+  sometimes, and two workers each believing they own the SearXNG they started.
+  None of that fails loudly, so it is refused with an explanation rather than
+  warned about. `python -m memorymap` was never able to hit this.
+
+### Changed
+
+- **SearXNG is presented as the recommended way to search**, not "an optional,
+  self-hosted search engine" — the one-click install works now, and it needs
+  no Docker and no account. The default setting is deliberately still
+  *Automatic*, which prefers SearXNG whenever it is running and falls back to
+  DuckDuckGo until you have one, so search keeps working on a fresh notebook.
+  (*SearXNG only* remains available and still refuses to fall back.)
+
+- **Autocomplete is pinned off in the generated SearXNG settings.** It is the
+  one thing in a search UI that leaks without a search being run — a fragment
+  of every query goes to a third-party suggestion endpoint as it is typed.
+  SearXNG already defaults it off; stating it explicitly means neither a
+  hand-edited file nor a changed upstream default can turn it back on.
+
+### Changed
+
+- **The whole prompt is now sized to the model's real context window.** Every
+  part of it — the instructions, the tool definitions, your retrieved notes,
+  the conversation so far, and the results of anything the AI looks up — used
+  to have its own separate limit, and nothing ever added them up. Together they
+  came to roughly 11,300 tokens against a window that is commonly 4,096: nearly
+  three times too big. When that overflows, the *start* of the prompt is what
+  gets discarded, which is the part telling the AI what it can do — so the
+  symptom was an assistant that suddenly forgot it had tools, rather than any
+  error you could see.
+
+  Each part is now a share of what's actually available, with room kept back
+  for the reply. Small models get a tighter, working prompt instead of a broken
+  one; large models get **more** than the old limits ever allowed, since those
+  were sized for the smallest case and applied to everyone. If notes don't fit,
+  the AI is told so it can search for the rest rather than answering as though
+  it saw everything.
+
+- **Replies are length-capped, so answers arrive instead of rambling.** Nothing
+  bounded the response before. Local models generate one token at a time, so a
+  long answer costs far more waiting than a long prompt does.
+
+- **MemoryMap now tells Ollama how much context to allocate.** It previously
+  sent no settings at all, so Ollama used its own default — typically 4,096
+  tokens — no matter what the model was capable of. Asking for the right window
+  is what makes the budgeting above true rather than optimistic. Capped at 8,192
+  by default because a larger window costs memory; raise `max_context_tokens`
+  in preferences if your machine has room.
+
+- **The AI is given as many tools as its model can actually hold.** The number
+  used to be fixed, tuned for a 4,096-token context — which is what Ollama
+  falls back to when a model doesn't declare a size, not a fact about any
+  particular model. Most current models declare 8k, 32k or far more, and were
+  being rationed for no reason; genuinely small ones needed rationing harder
+  than one number could express. MemoryMap now asks the model how much room it
+  has and fits the tool list to it, keeping the most useful tools when they
+  don't all fit and noting in the log what it held back. A 16k model gets
+  everything; a 4k model gets a prioritised subset instead of quietly
+  overflowing and forgetting it had tools at all.
+
 ### Fixed
+
+- **"🎲 Another" in the Rediscover widget often did nothing.** It picked a note
+  at random *including the one already on screen*, so a click could land back
+  on the same note — 1 in 10 clicks on a ten-note notebook, half of them on
+  two notes, and every single one when there was only one note to show. It now
+  picks from the others, and says so instead of offering a dead button when
+  there's only one note in the notebook.
+
+- **Magic Add put relative reminders out by your whole timezone offset.**
+  Reported: *"play league of legends in half an hour"* was scheduled for 10am
+  the next day. Two things were wrong.
+
+  The route built your clock as "UTC now, plus your offset" and then labelled
+  the result UTC — an aware timestamp claiming `+00:00` while actually holding
+  local wall-clock. The AI was told "now is 23:30+00:00" when that `+00:00`
+  was a fiction, so when it answered with a timezone of its own (the natural
+  thing, having been given one) that answer was trusted as-is and skipped the
+  correction. The reminder landed out by exactly your UTC offset — ten hours
+  in eastern Australia, which turns half an hour away into 10am tomorrow.
+  Anyone on UTC never saw it.
+
+  Separately, *"in half an hour"* was being handed to a 3B model to work out.
+  That is arithmetic, and the answer varied with whichever model happened to be
+  installed. **"In …" phrases are now resolved by rule before the AI is asked**
+  — "in half an hour", "in 20 minutes", "in a couple of hours", "in an hour and
+  a half", "in 3 days" and so on — which also means they work **with Ollama
+  switched off**, where Magic Add used to refuse outright. Phrases that name a
+  time rather than an offset ("at 8pm", "tomorrow morning") still go to the
+  model, now inside a timezone frame that is actually true. The time phrase is
+  taken out of the reminder text, so it reads "Play league of legends" rather
+  than repeating "in half an hour" when it fires.
+
+- **Copy buttons work when the app isn't on localhost.** Every copy in the app
+  — a note, an answer, a code block, a log record — used `navigator.clipboard`,
+  which browsers only expose in a *secure context*. On `http://localhost` that
+  is satisfied, so this looked fine; reach the app at `http://192.168.1.20:8000`
+  or through a tunnel and the entire API is `undefined`, and every copy button
+  became a no-op that said "couldn't copy". Copying now tries the modern API,
+  falls back to the older mechanism that works over plain http, and — if the
+  browser refuses both — shows the text in a dialog with it already selected,
+  so Ctrl+C still gets it out.
+
+- **Gravity and Spread no longer pretend to work under the tree layouts.**
+  Both scale the force simulation, which Tree and Radial tree do not run —
+  their positions come from the hierarchy — so the sliders moved, saved their
+  value, and changed nothing. They are now disabled and dimmed under those
+  layouts, with the reason on hover, and restored when you switch back.
+
+- **Custom CSS works under the new security policy.** Settings → Appearance
+  applied your CSS by injecting a `<style>` element, which is precisely what
+  the new `Content-Security-Policy` refuses — so the feature would have
+  silently stopped working. It now uses an adopted stylesheet, which keeps the
+  feature *and* the strict policy; the alternative would have been to permit
+  inline styles everywhere, including any injected through note text.
 
 - **Renaming or moving the app folder no longer breaks the launcher.** The
   app is installed into its own `.venv` by absolute path, so a renamed folder

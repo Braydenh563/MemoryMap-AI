@@ -58,6 +58,35 @@ bets**](#priority-map-quick-wins-bigger-bets), right below — sorted by effort
 rather than usage history, since most of it hasn't been used yet to sort the
 other way.
 
+## Next session: start here
+
+Named directly at the end of the last session, in this order:
+
+1. **§6 — other local AI backends (LM Studio, llama.cpp, Jan, vLLM).** The
+   headline ask. §6 now opens with a "read this before starting" block: the
+   context work has already staked out the four things a provider must answer
+   (`usable_context`, runtime options, tool-call shape, streaming shape) and
+   which of them already degrade gracefully when a provider cannot. LM Studio
+   reports `max_context_length` on `GET /api/v0/models`, so the window
+   budgeting carries over. Pair it with §20's async-httpx item — both rewrite
+   the same client.
+2. **Keep the agent lean.** §11a's fixed *and* variable halves are now
+   budgeted (`ai/context.py`), and §14's tool list is fitted to the model
+   rather than to a constant. **What is genuinely left is the output side:**
+   `num_predict` is a flat 1,024 for every request, and the
+   quick/normal/detailed preset in §11 is what would make it adaptive —
+   together with per-mode temperature and thinking budget, which was asked
+   for separately and is the same preset.
+3. **Possibly: read another repository and take what fits.** Worth doing the
+   way the Headroom evaluation in §11 was done — measure this app's actual
+   numbers first, then judge the import against them. That evaluation
+   *changed its own answer* halfway through on the strength of one
+   measurement, and it is the format to copy.
+
+Everything below this block is the standing backlog, unchanged.
+
+---
+
 ## Do these next, in this order
 
 Re-prioritised after a round of use. The ordering is by *how often it gets in
@@ -88,10 +117,16 @@ the way*, not by how interesting it is to build.
    halves.** A skill run offers only the tools it declared (1,963 characters
    of schema rather than 10,215); an ordinary turn is now read for what it
    plausibly needs (`tools.focus_for`), which takes the *fixed* overhead of a
-   typical question from ~3,157 tokens to ~1,439. **What is left here is the
-   variable half**: the retrieved notes and the history are still resent
-   whole on every turn, and nothing has measured which of those dominates a
-   real 3-turn chat. Log the prompt-token count per round before cutting.
+   typical question from ~3,157 tokens to ~1,439. ~~What is left here is the
+   variable half~~ **the variable half is now budgeted too — see
+   `ai/context.py`.** Every part of the prompt is a share of the model's real
+   window rather than its own constant, so the worst case fits by
+   construction instead of by luck; the measurement that motivated it (the
+   old worst case was ~11,328 tokens against a 4,096 window) is written up in
+   "Done in the most recent session". **What is genuinely left is the output
+   side** — `num_predict` is capped at a flat 1,024 now, and the
+   quick/normal/detailed preset below is what would make that adaptive rather
+   than uniform.
 4. ~~**Markdown rendering for notes** (§22)~~ **done.** Inline only — bold,
    italic, `code`, strike — because `renderMarkdown`'s block elements make a
    note list enormous, which is the problem §22 itself flagged. Wiki links and
@@ -135,45 +170,179 @@ usage history, since nobody has used most of it yet to sort it the other
 way). Four tiers. Within a tier, order doesn't mean much; between tiers, it
 does.
 
-**Security — worth doing out of turn, regardless of size.** None of these
+**Security — worth doing out of turn, regardless of size.** ~~None of these
 are large, and all of them are the kind of gap that's invisible until it
 costs something. Do these before anything else in this map, not after the
-"quick wins" below, even though most of them *are* quick wins by effort:
+"quick wins" below, even though most of them *are* quick wins by effort~~
+**all seven closed.** Three were already built and the audit is what
+established that; four were real and are done. `tests/test_security_boundaries.py`
+pins all seven, including the three that were already true — a test is what
+stops the next audit having to rediscover them.
 
-1. `PRAGMA journal_mode=WAL` (§20) — one line, and the fix for background AI
-   writes stalling foreground reads
-2. Session TTL, and `SameSite=Strict` if the session is a cookie (§20)
-3. Origin/Referer check on the API, so a page open in another tab can't
-   drive-by MemoryMap the way local dev servers and Ollama itself have been
-   attacked before (§20)
-4. Brute-force backoff on the unlock gate (§8b)
-5. A CSP header on the app's own responses (§8b)
-6. Confirm the KDF behind private notes is slow (Argon2id/PBKDF2), not a fast
-   hash (§8b)
-7. Confirm SearXNG binds to localhost, not the LAN, the same way the main
-   server does (§13)
+1. ~~`PRAGMA journal_mode=WAL` (§20)~~ **already built.** `core/database.py`
+   sets it per connection, alongside `busy_timeout=5000` and
+   `synchronous=NORMAL`. Nothing to do; now pinned by a test.
+2. ~~Session TTL, and `SameSite=Strict` if the session is a cookie (§20)~~
+   **done.** Tokens now carry an issue time and a last-used time, and expire
+   on two clocks: idle (`_SESSION_IDLE_TTL`, 12h) and absolute
+   (`_SESSION_MAX_AGE`, 7d). Expiry closes the vault too — an expiry that left
+   the data key in memory would be a lock on one door only. **SameSite does
+   not apply and its absence is not a gap:** the token travels as an
+   `X-Auth-Token` header the frontend sets explicitly, so a browser never
+   attaches it to a cross-site request on its own. That is a stronger position
+   than a SameSite cookie, not a missing flag.
+3. ~~Origin/Referer check on the API (§20)~~ **done** —
+   `core/security.py:OriginCheckMiddleware`. A request is refused when it
+   states an Origin (or, failing that, a Referer) that disagrees with the Host
+   it was sent to; a request with neither is allowed, because that is curl,
+   the pywebview shell and the desktop shortcut, and a browser attaches Origin
+   to exactly the cross-site requests this stops. `localhost` and `127.0.0.1`
+   are treated as one machine on the same port. **The window this matters most
+   in is the one that looks like it doesn't:** before a password is set the
+   unlock gate waves everything through, which is also when a drive-by POST to
+   `/auth/setup` could claim the notebook and lock the owner out of it.
+4. ~~Brute-force backoff on the unlock gate (§8b)~~ **already built.**
+   `routes_auth._refuse_if_throttled` — one global bucket, five free tries,
+   then an exponential wait to a five-minute ceiling, forgiven after 15
+   quiet minutes. Now pinned by a test.
+5. ~~A CSP header on the app's own responses (§8b)~~ **done, and it is strict:
+   no `unsafe-inline`, no `unsafe-eval`, and no host named anywhere in it** —
+   every source is `'self'` or a hash. That was only affordable because of the
+   no-CDN rule the project already follows. Two things had to move to get
+   there, both worth knowing about before editing them back:
+   - The eight `style=""` attributes in `index.html` are now rules in
+     `style.css`, so `style-src 'self'` is honest. A test asserts the file has
+     none left.
+   - **The one inline `<script>` — the pre-paint theme block — is allowed by
+     the sha256 of its own contents, computed from the file at startup rather
+     than written down.** Written down it would go stale the first time anyone
+     edited that block, which this document already expects to happen (its
+     theme table is kept in step with `THEME_PRESETS` by hand), and a stale
+     hash fails as a blank unstyled page.
+   Alongside it: `X-Content-Type-Options`, `X-Frame-Options`,
+   `Referrer-Policy: no-referrer`, and a `Permissions-Policy` that turns off
+   geolocation/camera/payment/usb — deliberately **not** the microphone, which
+   voice capture needs.
+6. ~~Confirm the KDF behind private notes is slow (§8b)~~ **already true, and
+   better than the item assumed.** `core/crypto.py` uses scrypt at n=2^15,
+   r=8, p=1 — a memory-hard KDF, so stronger against GPU guessing than the
+   PBKDF2 the item would have accepted. The envelope design (password wraps a
+   DEK; the DEK encrypts notes) is also why a password change re-wraps 32
+   bytes instead of re-encrypting every note.
+7. ~~Confirm SearXNG binds to localhost, not the LAN (§13)~~ **half of it was
+   already true and the other half was a real hole.** The source path sets
+   `SEARXNG_BIND_ADDRESS=127.0.0.1` and always did. **The docker path did not:**
+   it ran `-p 8888:8080`, and that publishes on *every* interface, which is
+   not what the plain reading suggests. Worse, docker writes its own firewall
+   rules, so the port is reachable from the LAN even behind a host firewall
+   set to refuse it — the firewall never sees the packet. An exposed SearXNG
+   is not just an open port: it is an unauthenticated proxy to the internet
+   that a stranger can run searches through, and a log of everything the owner
+   has searched for. Now `-p 127.0.0.1:8888:8080`. **Publishing is fixed when a
+   container is created**, so changing the run command only protects people who
+   never started SearXNG — a container from an earlier version is detected by
+   `docker inspect` and recreated. A container it cannot inspect is left alone
+   rather than destroyed on a guess.
 
-**Tier 1 — fastest wins.** Hours, not sessions; contained to one file or one
-function; low risk of breaking something else.
+> **What this cost, and the lesson worth keeping.** The strict CSP broke one
+> shipped feature, and **the full test suite — 757 green — did not notice.**
+> Settings → Appearance lets you write custom CSS, and it applied it by
+> injecting a `<style>` element, which is precisely what `style-src 'self'`
+> refuses. It now adopts a constructed stylesheet (`adoptedStyleSheets`),
+> which CSP does not treat as inline content, so the feature works *and* the
+> policy stays strict — the alternative, `'unsafe-inline'`, would also have
+> re-permitted style injected through note text. It was found by driving
+> Chromium and reading the console, which is the only place a CSP violation is
+> reported. This is the same lesson §8's bug list already carries, arriving
+> again by a new route: **a green suite says nothing about what a browser
+> refuses to do.**
 
-- Say which search engine answered a query (§13)
-- "N records dropped" visibility in the log console (§1)
-- Grey out Gravity/Spread under layouts they don't affect, or give them
-  layout-specific meaning (§8/§9)
-- Flip SearXNG to the recommended default now that it works, update the
-  onboarding copy that still frames it as advanced (§13)
-- Enforce (or at minimum document) single-worker at startup (§20)
-- Audit SearXNG's generated `settings.yml` for anything else defaulting to
-  "on" that shouldn't be, beyond the plugin already disabled (§13)
+**Tier 1 — fastest wins.** ~~Hours, not sessions; contained to one file or one
+function; low risk of breaking something else.~~ **all six done.** Unlike the
+security tier, none of these turned out to be already built. Pinned by
+`tests/test_security_boundaries.py` and `tests/test_tier1_refinements.py`.
+
+- ~~Say which search engine answered a query (§13)~~ **done, and it needed
+  more than surfacing a field.** A raw slug already appeared in the status line
+  ("8 results via searxng"), which is not the same as saying what the choice
+  *meant*. Now: a readable name plus a plain-English privacy note ("SearXNG —
+  your own instance, the query stayed on your machine" / "DuckDuckGo — a third
+  party saw this query, but not your notes"), said **on an empty result too**,
+  which is when it matters most and was exactly when the panel went quiet.
+  Per-result, the **upstream engines** SearXNG actually used are now shown —
+  it is a metasearch engine, so "via SearXNG" says where the query was
+  assembled, not who answered it.
+- ~~"N records dropped" visibility in the log console (§1)~~ **done.**
+  `GET /logs/stats` reports `dropped`, `dropped_since`, `held`, `capacity` and
+  `truncated`, and the viewer shows a caution line above the list. `dropped`
+  and `truncated` are deliberately separate numbers: one is gone for good, the
+  other is one bigger `limit` away, and conflating them sends a reader looking
+  in the wrong place. `/logs` itself is untouched and still a plain list.
+- ~~Grey out Gravity/Spread under layouts they don't affect (§8/§9)~~ **done.**
+  Both only ever fed `d3.forceSimulation`, which the tree layouts skip
+  entirely — so under Tree or Radial they moved, saved, and changed nothing.
+  Disabled and dimmed there, with the reason on hover, and restored (along
+  with their own tooltips) on the way back to Force. Set on arrival as well as
+  on change, or a notebook left on Tree returns with two live-looking dead
+  sliders.
+- ~~Flip SearXNG to the recommended default (§13)~~ **done — but not the way
+  this item says, and the difference matters.** Read literally, "flip the
+  default to SearXNG" means the `searxng` provider, which exists precisely so
+  it will **not** fall back. As a default that would make every search fail on
+  a fresh notebook, which has no SearXNG yet — turning a working feature off
+  for everyone who has not installed one. `auto` *already* prefers SearXNG
+  whenever it is running, so the behaviour this item wanted was in place; what
+  was missing was **saying so**. The provider is now labelled "Automatic
+  (recommended)" and its detail explains the preference and the fallback, and
+  the settings copy calls SearXNG "the recommended way to search" and mentions
+  the one-click install, rather than "an optional, self-hosted search engine".
+  README updated to match. A test pins the default at `auto` with the reason.
+- ~~Enforce (or at minimum document) single-worker at startup (§20)~~ **both.**
+  `deps.refuse_multiple_workers()` runs at the top of `create_app()` and raises
+  on `--workers N` (N > 1), `--workers=N`, `-w N` or `WEB_CONCURRENCY`. An
+  exception rather than a warning, because every failure it prevents is silent:
+  a halved log, an unlock that works only sometimes, two workers each believing
+  they own the SearXNG they started. `python -m memorymap` cannot reach this
+  (it hands uvicorn an app object, which uvicorn cannot fork); running
+  `uvicorn` against the factory can, and is the case it exists for.
+  `ARCHITECTURE.md` §13 now has the constraint and a table of what each
+  duplicated singleton would actually do.
+- ~~Audit SearXNG's generated `settings.yml` (§13)~~ **done; less was wrong
+  than feared, and the reasoning is now in the file.** One change:
+  `autocomplete` is pinned to `""` rather than merely left at SearXNG's
+  default, because it is the one thing in a search UI that leaks *without a
+  search being run* — a fragment of every query goes to a third-party
+  suggestion endpoint as it is typed — and this file is rewritten on every
+  start anyway, so pinning costs nothing and survives both a hand edit and an
+  upstream default change. Confirmed already correct: `image_proxy: true`
+  (result images come via SearXNG, so rendering a page does not tell every
+  pictured site you searched — this is also the answer to the "no client-side
+  favicon fetching" worry below), and the engine list, which removes the
+  tracking-heavy defaults and adds two that run their own indexes.
+  `limiter: false` now carries a comment tying it to the loopback bind: it is
+  safe **only** because nothing off this machine can reach the port, and if
+  that ever changes the limiter has to come on in the same edit.
+
+> **Unverified against a live SearXNG.** The sandbox has no route to SearXNG's
+> archive, so the settings change above was checked by parsing the generated
+> file, not by starting an instance on it. It adds one key under an existing
+> section, which is the low-risk shape, but a real start is still worth
+> watching the first time.
 
 **Tier 2 — quick wins.** A session or so. Real but contained — mostly
 extending a pattern that already exists rather than inventing one.
 
-- Finish the live log console: stream via EventSource, tail/autoscroll,
-  level filter, merge the browser-side ring buffer (§1)
-- `create_category` / `merge_categories` / `delete_category` as agent tools,
-  following the existing tag-tool pattern (§14)
-- A support-bundle export button (§1)
+- ~~Finish the live log console: stream via EventSource, tail/autoscroll,
+  level filter, merge the browser-side ring buffer (§1)~~ **done** — streamed
+  as NDJSON over `fetch` rather than EventSource; see §1 for why that swap was
+  forced rather than preferred.
+- ~~`create_category` / `merge_categories` / `delete_category` as agent tools,
+  following the existing tag-tool pattern (§14)~~ **done** — four of them
+  (`rename_category` too). Adding them briefly made the prompt budget the
+  binding constraint on §14's list; that has since been **lifted** by fitting
+  the tool schemas to the model's real context window rather than to a
+  constant. See §14.
+- ~~A support-bundle export button (§1)~~ **done**, as an allowlist.
 - Fix the specific reported bugs in §8's ideas-parking-lot list — the
   miscategorised note, the dashboard markdown gap, the constellation widget
   not redrawing on theme change, settings on a narrow viewport — each is
@@ -329,13 +498,13 @@ survived contact with the actual architecture.
 
 ## How to work on this repo
 
-- `pytest` — 560 tests, fully offline, no Ollama needed (`pytest.ini` sets
+- `pytest` — 864 tests, fully offline, no Ollama needed (`pytest.ini` sets
   `pythonpath = src`, so this works without an editable install)
 - `ruff check .` — matches CI
 - `node --check frontend/app.js` — the frontend is one large plain-JS file, so a
   syntax check is worth running after every edit
 
-Three of those tests are guards rather than features, and are the ones most
+Four of those tests are guards rather than features, and are the ones most
 likely to fail on you without you having broken anything visible:
 
 - `tests/test_frontend_ids.py` — duplicate element ids, and `$("…")` lookups
@@ -343,6 +512,17 @@ likely to fail on you without you having broken anything visible:
   "Add Persona" silently throw.
 - `tests/test_prompt_budget.py` — the agent's fixed per-round overhead. If you
   add a tool, this is what tells you it cost something. See §11a.
+- `tests/test_security_boundaries.py` — session expiry, the origin check, the
+  CSP, and SearXNG's published port. Two of its assertions are about the
+  *frontend*: that `index.html` contains no `style=""` attribute, and that
+  custom CSS does not inject a `<style>` tag. Both would otherwise fail
+  silently in a browser and nowhere else.
+- `tests/test_context_budget.py` — that one turn's worst case still fits the
+  model's window, at every window size. This is the one that fails if a new
+  part of the prompt is added without giving it a share, or if a share is
+  raised without taking it from somewhere else. It also asserts that all four
+  Ollama generation paths send an options block, because a payload that
+  quietly omits one is a model running on the backend's defaults again.
 - the pre-paint theme table in `index.html` drifting from `THEME_PRESETS`.
 
 **Drive the app in a browser before claiming anything works.** Chromium is
@@ -375,6 +555,29 @@ if page.locator("#lock-overlay").is_visible():        # NOT #unlock-password
     page.wait_for_timeout(2500)
 if page.locator("#onboarding-overlay").is_visible():  # blocks every click
     page.click("#onboarding-skip")
+```
+
+**Collect the console while you drive.** The app sends a strict CSP now, and
+anything it refuses is reported *only* there — no failed request, no thrown
+error, just a thing that quietly does not happen. This is what found the
+custom-CSS regression that 757 green tests missed:
+
+```python
+violations = []
+page.on("console", lambda m: violations.append(m.text) if "Refused" in m.text else None)
+page.on("pageerror", lambda e: violations.append(f"pageerror: {e}"))
+```
+
+For a violation the console message alone will not locate, listen for the
+event instead — it carries `sourceFile` and `lineNumber`, which the console
+text does not:
+
+```python
+page.add_init_script("""
+  window.__v = [];
+  document.addEventListener('securitypolicyviolation',
+    e => window.__v.push({d: e.violatedDirective, f: e.sourceFile, l: e.lineNumber}));
+""")
 ```
 
 Start the server with `MEMORYMAP_DATA_DIR` pointed at a scratch directory so
@@ -411,6 +614,19 @@ thing. Don't ship one you couldn't test.
    still in memory, so a serialisation bug only appears on the next read from
    disk. The UTC timestamp bug hid behind exactly this — assert on the LIST
    response, not the create response.
+5b. **`utcnow() + offset` is a lie with a timezone attached.** It produces an
+   aware datetime *tagged UTC* that actually holds local wall-clock, so
+   anything reading its `.isoformat()` is told an offset that is false. This
+   shipped: Magic Add handed that string to the model as "the current time",
+   the model answered with the same `+00:00` it had been shown, the route
+   trusted the offset and skipped its correction, and every relative reminder
+   landed out by exactly the user's UTC offset. "In half an hour" became 10am
+   the next day for a user at UTC+10, and was perfectly correct for anyone at
+   UTC — which is why it survived so long. **Build the user's clock as
+   `utcnow().astimezone(timezone(offset))`**, so the frame is true and both
+   the naive and aware branches answer the same question. Two datetimes that
+   represent the same instant are equal; two that merely *print* the same are
+   not the same thing.
 6. **Later CSS with equal specificity silently wins.** `position: relative` on
    `#chat-sidebar`, declared 600 lines later for the resize handle, quietly
    un-stuck a `position: sticky` rule. When a style "doesn't apply", grep for
@@ -434,7 +650,17 @@ thing. Don't ship one you couldn't test.
     delete a read-only file there, so it half-deletes the tree and reports
     success. Both ran on every settings-screen poll. The user runs Windows;
     the sandbox does not, so nothing here reproduces either one.
-12. **A control that "does nothing" is usually working.** Four reported cases,
+12. **The app sends a strict CSP, and a violation is reported in the browser
+    console and nowhere else.** No test sees it, no request fails, no error is
+    thrown — the thing simply does not happen. If a style, a script or a fetch
+    "does nothing" and the handler looks right, open the console before
+    debugging the handler. Three rules follow from the policy: an injected
+    `<style>` tag will not apply (use `adoptedStyleSheets`), a `style=""`
+    attribute in `index.html` will not apply (put it in `style.css`), and a
+    second inline `<script>` in `index.html` needs no action — its hash is
+    computed from the file at startup — but a script loaded from anywhere
+    off-origin will be refused outright.
+13. **A control that "does nothing" is usually working.** Four reported cases,
     three of which wrote correctly and were then overridden — by CSS source
     order, by a status poll repainting from the server, or by living in a
     hidden section. Check the *computed* result, not the handler.
@@ -445,6 +671,135 @@ thing. Don't ship one you couldn't test.
 
 Newest at the top. Everything here is on `main` (or the branch merging into
 it), verified, and must not be rebuilt.
+
+**The whole prompt is budgeted against the model's window now — this was the
+"maxed out token window" failure, and it was real.** Asked directly: *"make
+sure the AI can run as efficiently and effectively as possible… I don't want
+it being too prompt and context heavy and then taking ages to respond or
+failing due to a quickly maxed out token window."*
+
+Measured before cutting, as §11a insists. **Nothing added the parts up.** Each
+cap was individually reasonable and set in a different session against a
+different concern:
+
+| Part | Chars | Tokens |
+| --- | ---: | ---: |
+| System prompt | 2,416 | ~604 |
+| Tool schemas | 4,096 | ~1,024 |
+| History (4 turns) | 5,800 | ~1,450 |
+| Notes (10 × 900) | 9,000 | ~2,250 |
+| Tool results across a loop | 24,000 | ~6,000 |
+| **Worst case** | **45,312** | **~11,328** |
+
+Against a 4,096-token window that is **2.8× over**, and the tool-result cap
+alone exceeded the whole window by half. Overflow is dropped from the *front*,
+which is the system prompt — so it never raised, it just stopped the model
+knowing it had tools. `ai/context.py` now derives every share from what is
+actually left after the system prompt and a reserve for the reply, so the
+worst case fits every window exactly, and a 32k model gets **more** than the
+old constants ever allowed (they were sized for the smallest case and applied
+to everyone).
+
+**Two things were sent to Ollama for the first time**, and the second is the
+subtle one:
+
+- `num_predict` — the reply was unbounded. Output tokens are generated one at
+  a time, so they dominate wall-clock; an unbounded reply is the commonest
+  reason an answer "takes ages".
+- `num_ctx` — **Ollama runs a model at its own default (commonly 4,096)
+  regardless of what the model was trained for.** So reading 32k from
+  `/api/show` and budgeting against it, *without also asking for 32k*, would
+  have reproduced the exact overflow the budget exists to prevent. The number
+  budgeted against and the number requested are now the same one. Capped at
+  8k by default because the KV cache scales with the window and a 7B at 128k
+  wants gigabytes a laptop may not have — `max_context_tokens` raises it.
+
+**Tools are fitted to the model, not to a constant.** Asked directly — *"if
+adding more tools is an issue, can we change or improve how tools are used so
+that doesn't become an issue?"* — after four category tools took the all-tools
+overhead within ~180 characters of a 4096-token window. The answer was that
+4096 is Ollama's *fallback when a model declares nothing*, not a fact about
+any model anyone runs. `tools.within_budget` now fits the schemas to the
+window the model reports via `/api/show`, drops the least relevant when they
+do not fit, and logs what it held back. A 16k model gets the whole registry; a
+genuine 3B gets a prioritised subset instead of silently losing its system
+prompt off the front. **§14's list is open again** — see the table there.
+
+**§1's live log console is finished, and there is a support bundle.** The
+Logs screen streams now — NDJSON over `fetch`, **not** the EventSource this
+document suggested, because EventSource cannot set headers and this app
+authenticates with `X-Auth-Token`; the usual workaround puts the token in the
+query string, which on the log endpoint would write it into the records it
+protects. Follow/tail pauses when you scroll up and resumes at the bottom;
+level, source and text filters re-draw what is held rather than refetching;
+tracebacks fold; server and browser records are merged into one time-ordered
+list; errors that land while you are elsewhere badge the nav.
+
+The **support bundle** button zips the log, redacted settings, app/model
+status and row counts. It is an **allowlist**, not a denylist: named
+diagnostic settings go in verbatim, everything else is reported as
+`"display_name": "str, 31 chars"`. A denylist would have to predict every
+sensitive key anyone ever adds; this only has to name the ones that help.
+Nothing is transmitted — that is the whole difference between this and the
+crash reporting §30 turned down.
+
+**Copying an error out was the follow-up ask, and it found something bigger.**
+Per-record copy buttons (traceback included), a Copy traceback button, a
+clickable error badge that filters to errors, and an honest "Copy 12 shown"
+label. Underneath: **every copy button in the app only worked on localhost.**
+`navigator.clipboard` exists only in a secure context, `http://localhost`
+qualifies, and nothing else does — so a LAN address or a tunnel turned every
+copy in the app into a no-op that said "couldn't copy". Three tiers now:
+the modern API, `execCommand` for plain http, then a dialog with the text
+pre-selected.
+
+Four bugs found while building this, none of them by the existing suite:
+the live pill kept reading "● live" after the stream was deliberately closed
+(the abort path returned before updating it — found in a browser); the stream
+dropped every record that arrived in its last poll interval before handing
+over to the client's reconnect (the deadline was checked before the drain —
+found by a test that had to be written first); both toolbar dropdowns
+collapsed to their arrows (a flex item's automatic minimum size does not
+protect a `<select>`, and one of the two only looked right because an earlier
+change had given it a `max-width`); and the traceback fold was laid out as a
+fifth *column* of a single-line flex row, squeezed to a few characters against
+the right edge — the row needed to wrap and the fold to claim `flex: 0 0 100%`.
+
+**The security tier at the top of the priority map is closed — all seven.**
+Full detail is up there with each item; the short version:
+
+- **Three were already built**, and the audit is what established that: WAL
+  mode, the unlock-gate backoff, and the KDF (scrypt n=2^15 — memory-hard,
+  so stronger than the PBKDF2 the item would have settled for). All three are
+  now pinned by tests rather than left to be rediscovered a fourth time. This
+  is the fourth session in a row where a "grep first" would have saved work.
+- **Session tokens expire now**, on an idle clock (12h) and an absolute one
+  (7d), and expiry closes the vault as well as dropping the token. SameSite
+  turned out not to apply: the token is an `X-Auth-Token` header, not a
+  cookie, so no browser ever attaches it cross-site on its own.
+- **An Origin/Referer check** (`core/security.py`) refuses requests another
+  site's page caused. It matters most *before* a password is set, which is
+  the case that looks like it doesn't matter: the gate is open then, and a
+  drive-by `POST /auth/setup` could have claimed the notebook.
+- **A strict CSP** — no `unsafe-inline`, no `unsafe-eval`, no host named at
+  all. The eight `style=""` attributes in `index.html` moved to `style.css`
+  to make `style-src 'self'` honest, and the one inline `<script>` (the
+  pre-paint theme block) is allowed by a **hash computed from the file at
+  startup**, so editing that block can never leave a stale hash and a blank
+  page behind.
+- **SearXNG's docker path was publishing to the LAN.** `-p 8888:8080`
+  publishes on every interface, and docker's own firewall rules mean a host
+  firewall set to refuse it never sees the packet. The source path was always
+  correct; only docker was wrong. Containers created by earlier versions are
+  detected and recreated, because publishing cannot be changed after create.
+
+**One shipped feature broke, and 757 green tests did not notice.** Custom CSS
+(Settings → Appearance) applied itself by injecting a `<style>` element —
+exactly what the new `style-src 'self'` refuses. It now adopts a constructed
+stylesheet, which keeps the feature *and* the strict policy. Found by driving
+Chromium and reading the console, which is the only place a CSP violation
+surfaces. **Don't redo:** `core/security.py`, the session TTL, the moved
+inline styles, the SearXNG publish fix, `tests/test_security_boundaries.py`.
 
 **Skills are jobs now, not saved sentences (§21, the top item).** Steps, a
 tool allowlist, declared inputs, and a plan drawn in the timeline before
@@ -628,17 +983,58 @@ root logger and uvicorn's. It now sanitises each message to one printable line
 (so a chat question or a page title can't forge a row) and keeps tracebacks in a
 separate `trace` field for a fold.
 
-**What's left.**
+**What's left.** ~~Everything below~~ **nothing — §1 is finished.**
 
-- Stream `/logs` while the section is open — an EventSource endpoint is cleaner
-  than polling, and the app already streams NDJSON elsewhere
-- Follow/tail mode with autoscroll, pausing the moment the user scrolls up
-- Level filter (all / warnings / errors) and a text filter
-- Render the `trace` field in a fold under its record
-- Merge the browser-side `browserLogs` ring buffer into the same view, tagged by
-  source, so one screen answers "what just happened"
-- Count errors since the screen was last opened and badge the nav item
-- **Export a support bundle.** One button that zips the log buffer,
+- ~~Stream `/logs` while the section is open — an EventSource endpoint is
+  cleaner than polling~~ **done, but NOT as EventSource, and the reason is
+  worth keeping.** EventSource cannot set request headers, and this app
+  authenticates with `X-Auth-Token`, so an EventSource here would simply 401.
+  The standard workaround is to put the token in the query string, which is a
+  bad trade anywhere and a farcical one on *this* endpoint: the token would be
+  written into the very records it protects. So NDJSON over `fetch`, which
+  matches the chat and digest streams the app already has. Server-side it
+  polls the ring buffer rather than registering subscribers on it — a
+  subscriber registry means the logging handler pushes into per-connection
+  queues, so a slow reader can stall or grow unboundedly *inside logging
+  itself*, and a logging path that can block is a far worse failure than a
+  console running 700ms behind.
+- ~~Follow/tail mode with autoscroll, pausing the moment the user scrolls
+  up~~ **done**, and scrolling back to the bottom resumes it — the same
+  gesture every terminal uses. The label says "(paused)" rather than just
+  stopping, because silently stopping has the same shape as the app freezing.
+- ~~Level filter (all / warnings / errors) and a text filter~~ **done**, plus
+  a source filter. Filters only re-draw what is already held and never
+  refetch, so changing one mid-incident cannot lose the records you were
+  looking at. When a filter hides things it says how many: "nothing matches"
+  and "nothing happened" are different answers and only one is fixed by
+  changing the filter.
+- ~~Render the `trace` field in a fold under its record~~ **done.**
+- ~~Merge the browser-side `browserLogs` ring buffer into the same view,
+  tagged by source~~ **done** — one array, sorted by time, tagged only in the
+  merged view (in a single-source view every row would carry the same tag). A
+  browser error and the request that caused it are one event seen from two
+  ends, and reading them apart was what made this screen hard to use.
+- ~~Count errors since the screen was last opened and badge the nav item~~
+  **done**, and the badge is clickable — it opens the screen already filtered
+  to errors, since it is the only place a failure announces itself.
+- **Getting one error OUT of the log** (asked for directly after the console
+  landed: "make sure that if there is an error in the log that it can be
+  accessed and copied"). Each record has its own copy button that takes the
+  traceback with it, an open traceback has a **Copy traceback** of its own,
+  and "Copy all" relabels to "Copy 12 shown" whenever a filter is hiding
+  something. **The real find here was underneath:** every copy in the whole
+  app went through `navigator.clipboard`, which browsers expose **only in a
+  secure context**. `http://localhost` qualifies, which is why nothing had
+  ever shown it — but reach the app at `http://192.168.1.20:8000` or through
+  a tunnel (§17's mobile-access question, and the proxied client address §8b
+  already saw in a real log) and the API is `undefined`, so every copy button
+  in the app was a no-op that said "couldn't copy". Copying now tries the
+  modern API, then `execCommand` on plain http, then shows the text
+  pre-selected in a dialog. A test asserts no caller writes to
+  `navigator.clipboard` directly any more, since a helper only some callers
+  use leaves the rest quietly lying.
+- ~~**Export a support bundle.**~~ **done** — see below; it is an allowlist,
+  not a denylist. One button that zips the log buffer,
   `preferences.json` with anything sensitive stripped, and Ollama/model
   status (`/models/status`) into a file the user attaches to a bug report —
   asked for indirectly ("an interface for managing the application… errors
@@ -943,6 +1339,45 @@ tool calls degrades to plain Q&A exactly as a tool-less Ollama model does today.
 
 Best done together with the async-httpx refactor in §10 — both rewrite the same
 client, and doing them separately means touching the streaming path twice.
+
+**Read this before starting — the context work has already staked out the
+interface.** Four things a provider must now answer, and what happens when it
+cannot:
+
+1. **`usable_context(model)`** — the window to budget against. Already reached
+   through `getattr` in `agent.run_agent` for exactly this reason: reporting a
+   context length is an Ollama feature (`/api/show`), and a provider that
+   cannot answer falls back to `DEFAULT_CONTEXT_TOKENS` rather than crashing
+   the turn. **LM Studio does expose this** — `GET /api/v0/models` returns
+   `max_context_length` and `loaded_context_length` — so the interface should
+   have it, with a `None` return meaning "ask me nothing further".
+2. **`runtime_options(model)`** — currently Ollama's `num_ctx`/`num_predict`.
+   The OpenAI shape spells these `max_tokens` (and has no `num_ctx` at all —
+   the window is fixed when the model is loaded). So this cannot stay an
+   Ollama-shaped dict on the interface: either each provider translates a
+   neutral `{context_tokens, max_output_tokens}`, or it owns the whole payload.
+   **The neutral pair is the better shape** — the agent should not learn four
+   dialects.
+3. **Tool-call shape.** `_normalise_tool_calls` and `extract_text_tool_calls`
+   already exist because Ollama models are inconsistent *among themselves*; the
+   OpenAI shape (`tool_calls[].function.arguments` as a JSON *string*) is
+   another dialect on the same axis, and `extract_text_tool_calls` already
+   handles that spelling. Reuse rather than re-derive.
+4. **Streaming shape.** Ollama sends bare JSON lines; OpenAI sends SSE
+   `data: {...}` with a `[DONE]` sentinel and deltas nested under
+   `choices[0].delta`. `_ThinkTagSplitter` and `_ToolTextGate` sit *above*
+   this and should not need to change — keep the split at "parse one chunk"
+   so they don't.
+
+The capability-detection point in the paragraph above is now cheap: a provider
+that returns `None` from `usable_context` and `[]` from a tools probe already
+degrades correctly through paths that exist and are tested.
+
+**One trap that is specific to this work.** `tests/test_context_budget.py`
+asserts that all four Ollama generation paths send an options block. A new
+provider needs the equivalent assertion of its own, or it will run on the
+backend's defaults — which is the bug §11a spent this session fixing, arriving
+again through a different door.
 
 ---
 
@@ -1306,30 +1741,24 @@ a deliberate pass would add on top, parallel to §19's accessibility audit:
   the vendored JS, since nothing currently checks either), and a fresh look
   at this section's own three easy-to-break rules (§8b's opening) to confirm
   nothing has quietly regressed since they were written down.
-- **Brute-force protection on the unlock gate.** Single-user and local
-  doesn't mean single-*network* — if the app is ever reachable beyond
-  localhost (§17's mobile-access question already raises this), an unlimited
-  password-attempt gate is the one thing standing between an attacker and
-  everything. Worth checking whether login attempts are rate-limited or
-  backed off at all today; if not, it's a small, cheap addition — a counter
-  and an increasing delay — worth having in place *before* §17's LAN
-  question is ever answered "yes," not after.
-- **A Content-Security-Policy header on the app's own pages**, not just the
-  reader's script-stripping for third-party content. The reader already
-  strips scripts from *fetched* pages (§ Privacy and security); a CSP on
-  MemoryMap's own responses would be the equivalent guarantee for the app
-  itself — worth confirming one exists and is tight (no `unsafe-inline`,
-  no wildcard sources) given the explicit "no asset from a CDN" rule already
-  makes a strict policy cheap to write.
-- **The KDF behind private notes, named explicitly.** The README already
-  states the encryption key is derived from the password; worth confirming
-  that derivation uses a slow, purpose-built KDF (Argon2id or PBKDF2 with a
-  real iteration count) rather than a single fast hash — the difference
-  only matters if the database file itself is ever copied off the machine,
-  which is exactly the scenario private notes exist to protect against.
-- **Cross-origin requests against the local API** — real enough to also
-  live in §20 as a backend-design question, not just a search-specific one;
-  see there for the full reasoning.
+- ~~**Brute-force protection on the unlock gate.**~~ **already built** —
+  `routes_auth._refuse_if_throttled`: one global bucket (not per-IP, which is
+  exactly what a botnet has plenty of), five free tries, then an exponential
+  wait to a five-minute ceiling, forgiven after 15 quiet minutes. A correct
+  password inside the wait still waits. Pinned by a test now.
+- ~~**A Content-Security-Policy header on the app's own pages**~~ **done, and
+  tight: no `unsafe-inline`, no `unsafe-eval`, and no host named anywhere in
+  the policy** — every source is `'self'` or a hash. The "no asset from a CDN"
+  rule is what made that affordable, exactly as this item predicted. What it
+  did not predict is that it would break something: custom CSS injected a
+  `<style>` element, and a full green suite said nothing. See the note under
+  the security tier.
+- ~~**The KDF behind private notes, named explicitly.**~~ **confirmed, and
+  better than this item would have accepted:** `core/crypto.py` uses scrypt at
+  n=2^15, r=8, p=1 — memory-hard, so it resists GPU guessing in a way PBKDF2
+  does not. ~100ms and ~32MB per unlock, deliberately.
+- ~~**Cross-origin requests against the local API**~~ **done** — see §20,
+  where the full reasoning lives.
 - **Search-specific items** now live in §13, since SearXNG went from "being
   built" to "actually running" this pass.
 
@@ -1890,11 +2319,21 @@ now that SearXNG is a real running thing rather than a plan:
   before the person has chosen to visit anything. Worth confirming the result
   card ideas above don't introduce this by loading icons live rather than
   bundling a small generic set.
-- **SearXNG bound to localhost, not the LAN.** MemoryMap's own server already
-  does this on purpose (§1 of `ARCHITECTURE.md`); the SearXNG instance it
-  spawns as a subprocess should have the same property, since it's serving
-  MemoryMap alone, not the user directly — worth confirming rather than
-  assuming it inherited the same default.
+- ~~**SearXNG bound to localhost, not the LAN.**~~ **confirmed for the source
+  path, and it was wrong for docker.** The instinct behind this item — don't
+  assume it inherited the same default — was right, and the two paths had
+  drifted apart. `_start_from_source` sets `SEARXNG_BIND_ADDRESS=127.0.0.1`
+  and always did; `_start_docker` ran `-p 8888:8080`, which publishes on
+  **every** interface. That is docker's default and not what the plain reading
+  of the flag suggests, and it is worse than an ordinary open port because
+  docker installs its own firewall rules — a host firewall set to refuse 8888
+  never sees the packet. The exposure is not abstract: SearXNG has no auth in
+  front of it, so anyone on the same network gets a free proxy to the internet
+  *and* a log of everything the owner has searched for. Now
+  `-p 127.0.0.1:8888:8080`. Publishing is fixed at container-create time, so a
+  container an earlier version made is detected via `docker inspect` and
+  recreated rather than started as-is; one that cannot be inspected is left
+  alone rather than destroyed on a guess.
 - **A visible statement of what's true**, not just true in the code. The
   Privacy and security section of the README already says most of this
   clearly; worth linking it from Settings → Web search directly, next to the
@@ -1912,11 +2351,62 @@ them) · `related_notes(id, depth)` (§9) · `move_notes` (bulk re-file) ·
 `add_event` / `list_events` (§10) · `set_preference` over a small allowlist so
 "make your answers shorter" works · `unlink_notes` / `delete_reminder` (§21,
 gives skill runs a real undo for those two change types) ·
-`create_category` / `merge_categories` / `delete_category` — asked for
-indirectly ("more tools for managing… creating, editing, deleting, and
-applying categories"); renaming and deleting a category already exist as UI
-actions (`routes_entries`) but not as agent tools, so today the agent can
-file a note into a category it cannot itself create.
+~~`create_category` / `merge_categories` / `delete_category`~~ **done, plus
+`rename_category`.** Asked for indirectly ("more tools for managing…
+creating, editing, deleting, and applying categories"); the agent could file
+a note into a category it had no way to create, which is the wrong half of
+the job. They take **names, not ids** — the model has never seen an id — and
+a miss lists what does exist, because "no category called Work" with nothing
+after it invites another guess rather than a look.
+
+Three decisions in there worth not re-litigating:
+
+- **`merge_categories` is its own tool even though `rename_category` already
+  merges** when the new name is taken. That is right for a rename and a
+  terrible way to *ask* for a merge: the model would have to know a name was
+  already in use to predict what its own call did.
+- **A rename that merged offers no undo.** Once both sets of notes sit in one
+  category nothing records which came from where, so an "undo" would move all
+  of them back — inventing a history that never happened, which is worse than
+  having none. `create_category` and a plain rename do offer one.
+- **Lookup is exact-match first, then case-insensitive.** Purely
+  case-insensitive resolved both "Work" and "work" to whichever row came back
+  first, so `merge_categories(from="work", into="Work")` found the same
+  category twice and refused itself — on precisely the duplicate the user was
+  trying to clear up. Caught by a test, not by inspection.
+
+> ~~**⚠ The prompt budget is now the binding constraint on this section.**
+> There is room for roughly one more tool on this list, and then there is
+> none.~~ **Lifted — the constraint was an assumption, not a fact.**
+>
+> Adding these four did break `tests/test_prompt_budget.py`, exactly as that
+> test exists to do, and the first draft went past the 4096-token *window* as
+> well. But asked directly — *"if adding more tools is an issue, can we change
+> or improve how tools are used so that doesn't become an issue?"* — the honest
+> answer was that 4096 is **Ollama's fallback when a model declares nothing**,
+> not a property of any model anyone actually runs. A current 7B declares 32k
+> or 128k, and rationing it against 4096 withheld tools for nothing.
+>
+> So the fixed budget is gone. `tools.within_budget` fits the schemas to the
+> window the model *reports* (`ollama_client.usable_context`, via `/api/show`),
+> spends at most a quarter of it on schemas, drops the least relevant tools
+> when they do not fit, and logs what it held back — so "the AI didn't use the
+> tool I expected" is distinguishable from the model choosing not to. Core
+> tools go first: a model that cannot search or read a note cannot answer
+> anything.
+>
+> | Model window | Tools sent |
+> | --- | --- |
+> | 2,048 | 4 (core only) |
+> | 4,096 | 9 |
+> | 8,192 | 19 |
+> | 16,384+ | all of them |
+>
+> **What this means for the rest of this section: add the tools.** The cost of
+> one more is no longer "does it fit in a constant" but "what gets sent
+> first", which is a per-turn question the app now answers by itself. The
+> remaining lever, if a 4096-class model ever needs more room, is
+> `focus_for`'s cues rather than the registry's size.
 
 ---
 
@@ -2088,12 +2578,22 @@ Deserves one deliberate pass rather than more ad-hoc fixes:
   §6.
 - **Alembic migrations** — the additive auto-migrator cannot rename or drop, and
   won't survive a real schema change
-- ~~**Session TTL** — tokens live in memory and never expire~~ **real, and
-  worth pairing with the brute-force item below** — a session that never
-  expires is a second reason to lock the gate down before §17 ever considers
-  a LAN.
-- **Cross-origin requests against the local API — worth checking directly,
-  not assuming.** This is the specific way "single-user, local-only" apps
+- ~~**Session TTL** — tokens live in memory and never expire~~ **done.** Two
+  clocks doing different jobs: idle (12h — you walked away, and the notebook
+  locks itself the way a phone does) and absolute (7d — the ceiling a token
+  leaked from a proxy log or a synced browser profile eventually hits).
+  Expiry closes the vault as well, since an expiry that left the data key in
+  memory would be a lock on one door only. The brute-force item it was worth
+  pairing with turned out to be built already.
+- ~~**Cross-origin requests against the local API — worth checking directly,
+  not assuming.**~~ **checked, and it was open. Now closed** by
+  `core/security.py:OriginCheckMiddleware`; the reasoning below is why, and
+  is worth keeping. Two things the check turned up that the item did not
+  anticipate: the session is a *header*, not a cookie, so `SameSite` was never
+  the lever here — and the most exposed moment is *before* a password exists,
+  when the unlock gate is deliberately open and a drive-by `POST /auth/setup`
+  could have claimed the notebook outright. This is the specific way
+  "single-user, local-only" apps
   have actually been attacked before, Ollama included: the server isn't
   reachable from the internet, but a malicious page open in *any other
   browser tab* can still have the browser send a request to
@@ -2108,7 +2608,10 @@ Deserves one deliberate pass rather than more ad-hoc fixes:
   treating it as done — it's exactly the kind of thing that's invisible
   until someone goes looking, and the cost of being wrong is every route
   behind the unlock gate.
-- **Is SQLite in WAL mode?** Default (rollback-journal) SQLite locks the
+- ~~**Is SQLite in WAL mode?**~~ **yes, and it already was** —
+  `core/database.py` sets it on every connect, with `busy_timeout=5000` and
+  `synchronous=NORMAL` beside it. Pinned by a test now. The reasoning below
+  is still the reason it must stay. Default (rollback-journal) SQLite locks the
   whole file for the duration of a write, which matters here specifically
   because background AI work (the janitor filing a note, an embedding
   re-index) can be writing at the same moment the person is just reading
@@ -2250,6 +2753,56 @@ is what makes it reach for one.
 ## 22. Reported in use, not yet done
 
 Small, concrete, each seen in the running app:
+
+- **Take me to the thing the agent just changed.** Asked for directly: *"if the
+  agent performs a task like making a note, a button or link will appear to
+  navigate to the new note or document or whatever was changed."*
+
+  Today a tool run reports **what** it did — `📝 Created note #41` — and then
+  leaves you to go and find #41 yourself, in another tab, by searching for text
+  you already know the app knows the id of. The result row is one click away
+  from being the shortest path to the thing and instead is a dead end.
+
+  Most of the machinery is already there and this is mostly wiring:
+  - Tool results already carry a `label`, and the undo work (§21) already
+    proved the runner can put **buttons on a result row** — Undo is one, so a
+    View beside it is the same shape.
+  - `flashEntry(id)` already exists and does exactly the right thing: switch
+    to Notes, scroll to the note, highlight it. The Rediscover widget uses it.
+    Documents, reminders and categories need their equivalent.
+  - What is missing is that handlers return prose, not a **target**. The fix
+    is for each writing tool to include something like
+    `{"target": {"kind": "note", "id": 41}}` in its result, and for the chat
+    UI to render a View button whenever one is present. Doing it per-tool
+    rather than by parsing the label keeps it honest — a label is for reading,
+    and pulling an id back out of one is the kind of thing that works until
+    someone rewords the sentence.
+
+  Worth covering every kind the agent can create or change, not just notes:
+  notes, documents, reminders, categories, tags, links. `create_note`,
+  `edit_note`, `pin_note`, `tag_note`, `link_notes`, `set_reminder`,
+  `create_category` and the rest all have an obvious destination.
+
+  Two things to decide when it is built: whether a **destructive** result
+  should offer to navigate to the recycle bin rather than a note that is no
+  longer there, and whether a skill run's final "what changed" list should
+  carry the same buttons (it should — that list is where a multi-step run's
+  results actually get read).
+
+- ~~**Magic Add schedules relative reminders a whole timezone offset late.**~~
+  **fixed.** Reported: *"I just put a sentence in the magic add text box in
+  reminders saying 'play league of legends in half an hour' and it scheduled
+  it for 10am tomorrow??"* Two faults, and the phrase was the smaller one.
+  The route built the user's clock as `utcnow() + offset` — aware, tagged UTC,
+  actually holding local wall-clock — so the model was told an offset that was
+  a fiction, answered with the same fiction, and was then trusted, skipping the
+  correction. Error = exactly the user's UTC offset, so ten hours at UTC+10 and
+  zero at UTC, which is why nothing caught it. See trap 5b. Separately, "in
+  half an hour" was being handed to a 3B model to do arithmetic on; "in …"
+  phrases are resolved by rule now, before the model, which also makes Magic
+  Add work with Ollama off. Fifteen phrasings and five offsets are pinned in
+  `tests/test_reminder_times.py`, and reverting either half turns eight of
+  them red.
 
 - **Background tasks vanish when they finish.** A completed or failed task
   disappears from Settings → Background tasks, so "did the reinstall work?"

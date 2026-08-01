@@ -555,12 +555,7 @@ function entryItem(entry, options = {}) {
     );
     actions.appendChild(
       smallButton("📋", "Copy this note's text", async () => {
-        try {
-          await navigator.clipboard.writeText(entry.content);
-          toast("Note copied.");
-        } catch {
-          toast("Couldn't copy — your browser blocked clipboard access.", true);
-        }
+        if (await copyToClipboard(entry.content)) toast("Note copied.");
       })
     );
     actions.appendChild(
@@ -2340,12 +2335,7 @@ function retryAnswer() {
 }
 
 async function copyAnswer() {
-  try {
-    await navigator.clipboard.writeText($("ai-answer").textContent);
-    toast("Answer copied.");
-  } catch {
-    toast("Couldn't copy — your browser blocked clipboard access.", true);
-  }
+  if (await copyToClipboard($("ai-answer").textContent)) toast("Answer copied.");
 }
 
 // --- suggested questions (Round 1) ----------------------------------------------
@@ -2443,17 +2433,118 @@ function removeChatBubble(bubble) {
   return deleteChatTurn(assistant);
 }
 
-async function copyToClipboard(text, button) {
+// Copying has to actually work, in three descending steps.
+//
+// `navigator.clipboard` is only defined in a SECURE CONTEXT. On
+// http://localhost that is satisfied, which is why this looked fine — but the
+// moment the app is reached at http://192.168.1.20:8000, over a tunnel, or
+// through anything that is not localhost, the whole API is simply `undefined`
+// and every copy button in the app becomes a no-op that says "couldn't copy".
+// That is worst on the Logs screen, where the thing being copied is the error
+// you are trying to report to somebody.
+//
+// So: the modern API, then the old `execCommand` path that works on plain
+// http, and finally — if even that is refused — hand the text to the user in a
+// selected textarea so Ctrl+C still gets it out. The last step is the one that
+// makes "you can always copy this" a true statement rather than a hope.
+function copyViaTextarea(text) {
+  const staging = document.createElement("textarea");
+  staging.value = text;
+  // Off-screen rather than hidden: a display:none element cannot be selected,
+  // and the selection is the whole mechanism here.
+  staging.setAttribute("readonly", "");
+  staging.style.position = "fixed";
+  staging.style.top = "-1000px";
+  staging.style.opacity = "0";
+  document.body.appendChild(staging);
+  staging.select();
+  staging.setSelectionRange(0, text.length);
+  let copied = false;
   try {
-    await navigator.clipboard.writeText(text);
-    if (button) {
-      const original = button.textContent;
-      button.textContent = "✓";
-      setTimeout(() => (button.textContent = original), 1200);
+    copied = document.execCommand("copy");
+  } catch {
+    copied = false;
+  }
+  staging.remove();
+  return copied;
+}
+
+function flashCopied(button) {
+  if (!button) return;
+  const original = button.textContent;
+  button.textContent = "✓";
+  setTimeout(() => (button.textContent = original), 1200);
+}
+
+async function copyToClipboard(text, button) {
+  if (!text) return false;
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      flashCopied(button);
+      return true;
     }
   } catch {
-    toast("Couldn't copy to the clipboard.", true);
+    // Permission refused or the context is not what it claimed — fall through
+    // rather than reporting failure while a working path is still untried.
   }
+  if (copyViaTextarea(text)) {
+    flashCopied(button);
+    return true;
+  }
+  showCopyFallback(text);
+  return false;
+}
+
+// The last resort: show the text, already selected, and say what to press.
+// Reached when the browser refuses both copy mechanisms — usually a hardened
+// or embedded webview. The text is still on screen and still selectable, so
+// the answer to "how do I get this error out" is never "you can't".
+function showCopyFallback(text) {
+  const existing = $("copy-fallback");
+  if (existing) existing.remove();
+
+  const overlay = document.createElement("div");
+  overlay.id = "copy-fallback";
+  overlay.className = "modal-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-label", "Copy this text");
+
+  const card = document.createElement("div");
+  card.className = "modal-card copy-fallback-card";
+
+  const heading = document.createElement("h3");
+  heading.textContent = "Copy this";
+
+  const note = document.createElement("p");
+  note.className = "muted";
+  note.textContent =
+    "This browser wouldn't let the app write to the clipboard — it's already " +
+    "selected below, so press Ctrl+C (⌘C on a Mac).";
+
+  const box = document.createElement("textarea");
+  box.className = "copy-fallback-text";
+  box.value = text;
+  box.setAttribute("readonly", "");
+  box.rows = 12;
+
+  const close = document.createElement("button");
+  close.className = "small";
+  close.textContent = "Done";
+  const dismiss = () => overlay.remove();
+  close.addEventListener("click", dismiss);
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) dismiss();
+  });
+  overlay.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") dismiss();
+  });
+
+  card.append(heading, note, box, close);
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+  box.focus();
+  box.select();
 }
 
 // Put a question back in the input so it can be tweaked and re-sent.
@@ -2626,9 +2717,25 @@ async function runWebSearch() {
     return;
   }
   const results = body.results || [];
-  status.textContent = results.length
-    ? `${results.length} results via ${body.provider}`
-    : "No results — try different words.";
+  // Name the engine that ANSWERED — which under "Automatic" is not
+  // necessarily the one configured — and say what that means for privacy.
+  // The person chose an engine in Settings for a reason; without this the
+  // choice is invisible at the one moment it applies. Said on an empty result
+  // too: "nothing found" and "nothing found *by DuckDuckGo*" are different
+  // facts, and the second is the one you can act on.
+  const answered = body.answered_by || { label: body.provider || "", detail: "" };
+  status.replaceChildren();
+  const summary = document.createElement("span");
+  summary.textContent = results.length
+    ? `${results.length} result${results.length === 1 ? "" : "s"} via ${answered.label}`
+    : `No results from ${answered.label} — try different words.`;
+  status.appendChild(summary);
+  if (answered.detail) {
+    const detail = document.createElement("span");
+    detail.className = "web-answered-detail muted";
+    detail.textContent = ` · ${answered.detail}`;
+    status.appendChild(detail);
+  }
   for (const result of results) {
     const row = document.createElement("div");
     row.className = "web-result";
@@ -2643,6 +2750,17 @@ async function runWebSearch() {
     const meta = document.createElement("div");
     meta.className = "web-result-meta muted";
     meta.textContent = result.domain || "";
+    // SearXNG is a metasearch engine, so "via SearXNG" says where the query
+    // was assembled rather than who answered it. Naming the upstream engines
+    // is what makes a self-hosted instance legible rather than a black box.
+    // textContent throughout — these names come from a third party.
+    if (Array.isArray(result.via) && result.via.length) {
+      const via = document.createElement("span");
+      via.className = "web-result-via";
+      via.textContent = result.via.join(" · ");
+      via.title = `Found by ${result.via.join(", ")}`;
+      meta.append(" — ", via);
+    }
     row.appendChild(meta);
 
     if (result.snippet) {
@@ -6903,7 +7021,7 @@ async function renderQuestionsWidget(body) {
   const questions = await apiJson("/chat/recent");
   if (!questions.length) {
     body.textContent = "Your recent questions will appear here.";
-    body.className += " muted";
+    body.classList.add("muted");
     return;
   }
   const box = document.createElement("div");
@@ -7115,7 +7233,7 @@ async function renderRemindersWidget(body) {
   const reminders = (await apiJson("/reminders")).filter((r) => !r.done).slice(0, 4);
   if (!reminders.length) {
     body.textContent = "No open reminders — add one in the Reminders tab.";
-    body.className += " muted";
+    body.classList.add("muted");
     return;
   }
   const ul = document.createElement("ul");
@@ -7137,12 +7255,12 @@ async function renderHeatmapWidget(body) {
   const data = await apiJson("/insights/heatmap").catch(() => null);
   if (!data) {
     body.textContent = "Couldn't load your activity.";
-    body.className += " muted";
+    body.classList.add("muted");
     return;
   }
   if (!data.total) {
     body.textContent = "Save some notes and your activity shows up here.";
-    body.className += " muted";
+    body.classList.add("muted");
     return;
   }
 
@@ -7203,7 +7321,7 @@ async function renderCategoriesWidget(body) {
   const categories = (stats && stats.categories) || [];
   if (!categories.length) {
     body.textContent = "Save a few notes and your categories appear here.";
-    body.className += " muted";
+    body.classList.add("muted");
     return;
   }
   const max = categories[0].count || 1;
@@ -7246,13 +7364,27 @@ async function renderRandomNoteWidget(body) {
     : await apiJson("/entries").catch(() => []);
   if (!entries.length) {
     body.textContent = "Save some notes and one will resurface here.";
-    body.className += " muted";
+    body.classList.add("muted"); // not `className +=`, which stacks on re-render
     return;
   }
 
+  // "Another" has to actually show another one.
+  //
+  // Reported as broken, and it was: the pick was uniform over every note
+  // WITH REPLACEMENT, so it could hand back the note already on screen and
+  // the click did nothing. That is not rare — it is 1 in N, so a tenth of
+  // clicks on a ten-note notebook, half of them on two notes, and every
+  // single one when there is only one note to show. Excluding the current
+  // note makes the button keep its promise.
+  let current = null;
+
   const paint = () => {
     body.replaceChildren();
-    const note = entries[Math.floor(Math.random() * entries.length)];
+    const pool = entries.filter((e) => e.id !== (current && current.id));
+    const note = (pool.length ? pool : entries)[
+      Math.floor(Math.random() * (pool.length || entries.length))
+    ];
+    current = note;
     const text = document.createElement("p");
     text.className = "random-note";
     text.textContent =
@@ -7270,7 +7402,15 @@ async function renderRandomNoteWidget(body) {
 
     const row = document.createElement("div");
     row.className = "row";
-    row.appendChild(smallButton("🎲 Another", "Show a different note", paint));
+    const another = smallButton("🎲 Another", "Show a different note", paint);
+    if (entries.length < 2) {
+      // There is no other note to show. A live-looking button that cannot do
+      // anything is the exact shape of "this control is broken" — say why
+      // instead.
+      another.disabled = true;
+      another.title = "This is your only note so far — write another and it'll shuffle.";
+    }
+    row.appendChild(another);
     row.appendChild(
       smallButton("📝 Open", "Open this note in the Notes tab", () => flashEntry(note.id))
     );
@@ -7285,7 +7425,7 @@ async function renderTagCloudWidget(body) {
   const tags = await apiJson("/insights/tag-cloud").catch(() => []);
   if (!tags.length) {
     body.textContent = "Tag some notes and your cloud grows here.";
-    body.className += " muted";
+    body.classList.add("muted");
     return;
   }
   const max = tags[0].count || 1;
@@ -8370,6 +8510,40 @@ function graphNodeRadius(node) {
 function graphLayout() {
   const saved = localStorage.getItem("graph-layout");
   return ["force", "tree", "radial"].includes(saved) ? saved : "force";
+}
+
+// Gravity and Spread scale the force simulation, and the tree layouts do not
+// run one — their positions come from the hierarchy. Left enabled they are two
+// controls that move, save, and change nothing, which reads as a broken app
+// rather than an inapplicable setting. Disabled, with the reason on hover.
+function setGraphPhysicsEnabled(layoutKind) {
+  const applies = layoutKind === "force";
+  const box = $("graph-physics");
+  if (!box) return;
+  const why = applies
+    ? ""
+    : "Only applies to the Force (web) layout — a tree's positions come from its branches.";
+  box.classList.toggle("is-disabled", !applies);
+  for (const id of ["graph-gravity", "graph-spread"]) {
+    const slider = $(id);
+    if (!slider) continue;
+    slider.disabled = !applies;
+    // Restore the slider's own description when it applies again, rather than
+    // leaving the explanation of why it did not.
+    if (applies) {
+      slider.title =
+        id === "graph-gravity"
+          ? "How strongly notes pull together"
+          : "How far apart linked notes sit";
+    } else {
+      slider.title = why;
+    }
+  }
+  // The labels are separate elements, so they need the attribute too or the
+  // hover explanation is missing on exactly the words being greyed out.
+  for (const label of box.querySelectorAll("label")) {
+    label.title = why;
+  }
 }
 
 // A category level in a tree layout. It is a real node in the drawing so the
@@ -9523,6 +9697,9 @@ function switchTab(name) {
   if (name === "dashboard") renderDashboard();
   if (name === "graph") {
     $("graph-layout").value = graphLayout();
+    // Match the saved layout on arrival, not only on change — otherwise a
+    // notebook left on Tree comes back with two live-looking dead sliders.
+    setGraphPhysicsEnabled(graphLayout());
     renderGraph();
   }
   if (name === "timeline") renderTimeline();
@@ -9656,6 +9833,7 @@ $("entry-document").addEventListener("change", async (event) => {
 // property of the notebook rather than of one visit.
 $("graph-layout").addEventListener("change", (event) => {
   localStorage.setItem("graph-layout", event.target.value);
+  setGraphPhysicsEnabled(event.target.value);
   renderGraph();
 });
 
@@ -9886,6 +10064,9 @@ function showSettingsSection(name) {
   for (const button of document.querySelectorAll("#settings-nav button")) {
     button.classList.toggle("active", button.dataset.section === name);
   }
+  // The log stream is the only section that holds a connection open, so it is
+  // the only one that has to be told it is no longer being looked at.
+  if (name !== "logs") closeLogs();
   if (name === "logs") renderLogs();
   if (name === "preferences") renderPrefs().catch(() => {});
   if (name === "websearch") renderWebSearch().catch(() => {});
@@ -10012,59 +10193,432 @@ async function changePassword() {
 
 // --- logs viewer (Wave A) ---------------------------------------------------------
 
-async function renderLogs() {
-  const source = $("log-source").value;
-  const records =
-    source === "server"
-      ? await apiJson("/logs?limit=200").catch(() => [])
-      : browserLogs.slice(-200);
+// The ring buffer discards its oldest record silently once it is full, which
+// makes a busy hour and a quiet one look identical: 200 rows either way, with
+// no way to tell whether the top row is the start of the story or the middle.
+// That is worst in exactly the case the viewer exists for — chasing something
+// that keeps failing, where the repetition is what pushed the first occurrence
+// out of the window.
+// --- the log console (§1) -------------------------------------------------
+//
+// Asked for directly: this screen should read "like the terminal running in
+// the background, with key errors flagged", not a list you refresh by hand.
+//
+// One array holds both sources so a single screen answers "what just
+// happened". The server's records arrive on a stream; the browser's are
+// already in memory. They are merged and sorted by time, because a browser
+// error and the request that caused it are the same event seen from two ends,
+// and reading them apart is what made this screen hard to use.
 
-  const list = $("log-list");
-  list.replaceChildren();
-  $("logs-empty").classList.toggle("hidden", records.length > 0);
-  for (const record of records) {
-    const li = document.createElement("li");
-    if (record.level === "ERROR" || record.level === "WARNING" || record.level === "WARN") {
-      li.classList.add("log-warn");
-    }
-    const when = document.createElement("span");
-    when.className = "when";
-    when.textContent = new Date(record.time).toLocaleTimeString();
-    const level = document.createElement("span");
-    level.className = "what";
-    level.textContent = record.level;
-    const message = document.createElement("span");
-    message.textContent = record.logger
-      ? `${record.logger} — ${record.message}`
-      : record.message;
-    li.append(when, level, message);
-    list.appendChild(li);
+const LOG_LEVEL_RANK = { DEBUG: 0, LOG: 0, INFO: 1, WARN: 2, WARNING: 2, ERROR: 3, CRITICAL: 4 };
+const MAX_LOG_ROWS = 1000; // what the list holds; the buffers themselves are smaller
+
+let logRecords = [];
+let logStreamAbort = null;
+let logStreamCursor = 0;
+let logStreamRetry = null;
+let logFollowPinned = true; // false once the user scrolls up to read something
+let logErrorsSinceOpened = 0;
+let logScreenOpen = false;
+
+function logLevelRank(level) {
+  return LOG_LEVEL_RANK[String(level || "").toUpperCase()] ?? 1;
+}
+
+// The ring buffer discards its oldest record silently once it is full, which
+// makes a busy hour and a quiet one look identical: the same rows either way,
+// with no way to tell whether the top row is the start of the story or the
+// middle. That is worst in exactly the case the viewer exists for — chasing
+// something that keeps failing, where the repetition is what pushed the first
+// occurrence out of the window.
+function renderLogGap(stats) {
+  const note = $("logs-dropped");
+  if (!stats || !stats.dropped) {
+    note.classList.add("hidden");
+    note.textContent = "";
+    return;
   }
-  list.scrollTop = list.scrollHeight; // newest are at the bottom
+  const since = stats.dropped_since
+    ? ` The oldest record still kept is from ${new Date(stats.dropped_since).toLocaleTimeString()}.`
+    : "";
+  note.textContent =
+    `${stats.dropped.toLocaleString()} earlier record${stats.dropped === 1 ? "" : "s"} ` +
+    `dropped — this log keeps the most recent ${stats.capacity.toLocaleString()}.${since}`;
+  note.classList.remove("hidden");
+}
+
+function browserLogRecords() {
+  return browserLogs.map((r, index) => ({
+    ...r,
+    source: "browser",
+    logger: r.logger || "browser",
+    key: `b${index}-${r.time}`,
+  }));
+}
+
+function serverLogRecord(record) {
+  return { ...record, source: "server", key: `s${record.seq}` };
+}
+
+function sortLogRecords() {
+  // Stable on equal timestamps, so records logged in the same millisecond keep
+  // the order they arrived rather than shuffling on every repaint.
+  logRecords.sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0));
+  if (logRecords.length > MAX_LOG_ROWS) {
+    logRecords = logRecords.slice(-MAX_LOG_ROWS);
+  }
+}
+
+function logMatchesFilters(record) {
+  if (!record) return false;
+  const source = $("log-source").value;
+  if (source !== "all" && record.source !== source) return false;
+
+  const level = $("log-level").value;
+  if (level === "warning" && logLevelRank(record.level) < 2) return false;
+  if (level === "error" && logLevelRank(record.level) < 3) return false;
+
+  const needle = $("log-filter").value.trim().toLowerCase();
+  if (!needle) return true;
+  return (
+    String(record.message || "").toLowerCase().includes(needle) ||
+    String(record.logger || "").toLowerCase().includes(needle)
+  );
+}
+
+function logRow(record) {
+  const li = document.createElement("li");
+  const rank = logLevelRank(record.level);
+  if (rank >= 3) li.classList.add("log-error");
+  else if (rank === 2) li.classList.add("log-warn");
+
+  const when = document.createElement("span");
+  when.className = "when";
+  when.textContent = new Date(record.time).toLocaleTimeString();
+
+  const level = document.createElement("span");
+  level.className = "what";
+  level.textContent = record.level;
+
+  // Which side of the app said it. Only worth showing in the merged view —
+  // in a single-source view every row would carry the same tag.
+  const line = document.createElement("span");
+  line.className = "log-line";
+  if ($("log-source").value === "all") {
+    const tag = document.createElement("span");
+    tag.className = `log-source-tag log-source-${record.source}`;
+    tag.textContent = record.source === "browser" ? "browser" : "server";
+    line.appendChild(tag);
+  }
+  const text = document.createElement("span");
+  text.textContent = record.logger ? `${record.logger} — ${record.message}` : record.message;
+  line.appendChild(text);
+
+  // One record, copyable on its own. "Copy all" plus the filters can already
+  // narrow to a single error, but that is a three-step answer to "send me that
+  // error" — and hand-selecting a row whose traceback lives in its own
+  // scrolling box is worse. This copies the record AND its traceback together,
+  // which is the thing anyone actually wants to paste.
+  const copy = document.createElement("button");
+  copy.type = "button";
+  copy.className = "log-copy ghost small";
+  copy.textContent = "📋";
+  copy.title = "Copy this record (with its traceback)";
+  copy.setAttribute("aria-label", `Copy this ${record.level} record`);
+  copy.addEventListener("click", async (event) => {
+    event.stopPropagation(); // never toggles the fold it sits beside
+    if (await copyToClipboard(logRecordText(record), copy)) toast("Record copied.");
+  });
+
+  li.append(when, level, line, copy);
+
+  // A traceback is the difference between "something failed" and knowing
+  // what. Folded, because it is many lines and most rows do not have one.
+  if (record.trace) {
+    const fold = document.createElement("details");
+    fold.className = "log-trace";
+    const summary = document.createElement("summary");
+    summary.textContent = "Traceback";
+    const pre = document.createElement("pre");
+    pre.textContent = record.trace; // real newlines here — it is not a row
+    const copyTrace = document.createElement("button");
+    copyTrace.type = "button";
+    copyTrace.className = "ghost small";
+    copyTrace.textContent = "Copy traceback";
+    copyTrace.addEventListener("click", async () => {
+      if (await copyToClipboard(record.trace, copyTrace)) toast("Traceback copied.");
+    });
+    fold.append(summary, pre, copyTrace);
+    li.appendChild(fold);
+  }
+  return li;
+}
+
+// One record as the text you would paste into a bug report. The source tag is
+// always included here even though the row only shows it in the merged view —
+// out of context, "which half of the app said this" is the first question.
+function logRecordText(record) {
+  const head =
+    `${record.time} [${record.source}] ${record.level} ` +
+    `${record.logger || ""} ${record.message}`.trimEnd();
+  return record.trace ? `${head}\n${record.trace}` : head;
+}
+
+function nearLogBottom() {
+  const list = $("log-list");
+  // 40px of slack: "close enough to the bottom that you meant to be there".
+  return list.scrollHeight - list.scrollTop - list.clientHeight < 40;
+}
+
+function scrollLogToBottom() {
+  const list = $("log-list");
+  list.scrollTop = list.scrollHeight;
+}
+
+function renderLogList() {
+  const list = $("log-list");
+  const shouldStick = $("log-follow").checked && logFollowPinned;
+  const visible = logRecords.filter(logMatchesFilters);
+
+  list.replaceChildren();
+  for (const record of visible) list.appendChild(logRow(record));
+
+  $("logs-empty").classList.toggle("hidden", logRecords.length > 0);
+  // "Nothing matches" and "nothing happened" are different answers, and only
+  // the first one is fixed by changing the filter.
+  const hiddenCount = logRecords.length - visible.length;
+  const filtered = $("logs-filtered-out");
+  if (hiddenCount > 0) {
+    filtered.textContent = `${hiddenCount.toLocaleString()} record${hiddenCount === 1 ? "" : "s"} hidden by the filters above.`;
+    filtered.classList.remove("hidden");
+  } else {
+    filtered.classList.add("hidden");
+  }
+  renderCopyLogsLabel();
+  if (shouldStick) scrollLogToBottom();
+}
+
+function setLogLive(state, detail) {
+  const pill = $("log-live");
+  pill.textContent = detail;
+  pill.dataset.state = state;
+}
+
+// Errors that have arrived since the screen was last opened, shown on the nav
+// item so a failure in the background is noticed without going looking.
+function bumpLogErrorBadge(record) {
+  if (logScreenOpen || logLevelRank(record.level) < 3) return;
+  logErrorsSinceOpened += 1;
+  renderLogErrorBadge();
+}
+
+function renderLogErrorBadge() {
+  const link = document.querySelector('#settings-nav button[data-section="logs"]');
+  if (!link) return;
+  let badge = link.querySelector(".log-error-badge");
+  if (!logErrorsSinceOpened) {
+    badge?.remove();
+    return;
+  }
+  if (!badge) {
+    badge = document.createElement("span");
+    badge.className = "log-error-badge";
+    // Clicking the badge opens the Logs screen already filtered to errors.
+    // Set synchronously so it is in place before renderLogs() draws — the
+    // badge is the only place a failure announces itself, so it should also
+    // be the shortest way to the failure itself.
+    badge.addEventListener("click", () => {
+      $("log-source").value = "all";
+      $("log-level").value = "error";
+      $("log-filter").value = "";
+    });
+    link.appendChild(badge);
+  }
+  badge.textContent = logErrorsSinceOpened > 99 ? "99+" : String(logErrorsSinceOpened);
+  badge.title = `${logErrorsSinceOpened} error${logErrorsSinceOpened === 1 ? "" : "s"} since you last looked at the logs — click to show just those`;
+}
+
+// NDJSON over fetch rather than an EventSource, for one blunt reason:
+// EventSource cannot set request headers, and this app authenticates with
+// X-Auth-Token. The usual workaround is to put the token in the query string,
+// which would write it into the very log this stream is serving.
+async function startLogStream() {
+  stopLogStream();
+  const controller = new AbortController();
+  logStreamAbort = controller;
+  setLogLive("connecting", "connecting…");
+  try {
+    const response = await fetch(`/logs/stream?after=${logStreamCursor}`, {
+      headers: { "X-Auth-Token": localStorage.getItem("token") || "" },
+      signal: controller.signal,
+    });
+    if (!response.ok || !response.body) throw new Error(`stream failed (${response.status})`);
+    setLogLive("live", "● live");
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffered = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffered += decoder.decode(value, { stream: true });
+      const lines = buffered.split("\n");
+      buffered = lines.pop();
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        let event;
+        try {
+          event = JSON.parse(line);
+        } catch {
+          continue; // a torn line is not worth dropping the stream over
+        }
+        if (event.type === "open") {
+          logStreamCursor = Math.max(logStreamCursor, event.cursor || 0);
+        } else if (event.type === "record") {
+          logStreamCursor = event.record.seq || logStreamCursor;
+          logRecords.push(serverLogRecord(event.record));
+          bumpLogErrorBadge(event.record);
+          sortLogRecords();
+          if (logScreenOpen) renderLogList();
+        } else if (event.type === "ping") {
+          logStreamCursor = event.cursor || logStreamCursor;
+        } else if (event.type === "reconnect") {
+          break; // the server handed back; reconnect below picks up the cursor
+        }
+      }
+    }
+  } catch (error) {
+    if (controller.signal.aborted) return; // we closed it on purpose
+    setLogLive("offline", "reconnecting…");
+  }
+  if (controller.signal.aborted) return;
+  // Reconnect while the screen is open. The cursor means the gap is closed on
+  // the way back rather than left as a hole in the middle of the log.
+  if (logScreenOpen) {
+    logStreamRetry = setTimeout(startLogStream, 2000);
+  } else {
+    setLogLive("paused", "paused");
+  }
+}
+
+function stopLogStream() {
+  if (logStreamRetry) {
+    clearTimeout(logStreamRetry);
+    logStreamRetry = null;
+  }
+  if (logStreamAbort) {
+    logStreamAbort.abort();
+    logStreamAbort = null;
+  }
+}
+
+async function renderLogs() {
+  logScreenOpen = true;
+  logErrorsSinceOpened = 0;
+  renderLogErrorBadge();
+
+  const [records, stats] = await Promise.all([
+    apiJson("/logs?limit=500").catch(() => []),
+    apiJson("/logs/stats?limit=500").catch(() => null),
+  ]);
+  logStreamCursor = records.length ? records[records.length - 1].seq || 0 : 0;
+  logRecords = [...records.map(serverLogRecord), ...browserLogRecords()];
+  sortLogRecords();
+  renderLogGap(stats);
+  renderLogList();
+  scrollLogToBottom();
+  logFollowPinned = true;
+  startLogStream();
+}
+
+// Leaving the screen closes the connection. A stream held open by a tab
+// nobody is looking at is the kind of thing that is invisible until it is a
+// hundred of them.
+function closeLogs() {
+  logScreenOpen = false;
+  stopLogStream();
+  // Said here rather than left to the stream's own exit path: a deliberate
+  // abort returns early from there, so the pill would still read "● live"
+  // with nothing behind it — a status that lies is worse than none.
+  setLogLive("paused", "paused");
 }
 
 async function copyLogs() {
-  const source = $("log-source").value;
-  const records =
-    source === "server" ? await apiJson("/logs?limit=500").catch(() => []) : browserLogs;
-  const text = records
-    .map((r) => `${r.time} ${r.level} ${r.logger || ""} ${r.message}`)
-    .join("\n");
-  try {
-    await navigator.clipboard.writeText(text);
-    toast("Logs copied.");
-  } catch {
-    toast("Couldn't copy — clipboard blocked.", true);
+  const shown = logRecords.filter(logMatchesFilters);
+  if (!shown.length) {
+    toast("Nothing to copy — the filters above are hiding every record.", true);
+    return;
+  }
+  const text = shown.map(logRecordText).join("\n");
+  if (await copyToClipboard(text)) {
+    toast(`Copied ${shown.length} record${shown.length === 1 ? "" : "s"}.`);
   }
 }
 
+// The button copies what is ON SCREEN, not the whole buffer, so it has to say
+// which. "Copy all" while a filter hides 400 records is a promise it does not
+// keep — and the reader would not find out until they pasted it.
+function renderCopyLogsLabel() {
+  const button = $("logs-copy");
+  if (!button) return;
+  const shown = logRecords.filter(logMatchesFilters).length;
+  const filtering = shown !== logRecords.length;
+  button.textContent = filtering ? `Copy ${shown} shown` : "Copy all";
+  button.title = filtering
+    ? "Copies only the records the filters are showing"
+    : "Copies every record in this list, tracebacks included";
+}
+
+// Jump straight from "something failed while I was elsewhere" to the failures
+// themselves. The badge is the only place an error announces itself, so it
+// should also be the way to reach one.
+function showOnlyLogErrors() {
+  $("log-source").value = "all";
+  $("log-level").value = "error";
+  $("log-filter").value = "";
+  renderLogList();
+}
+
 async function clearLogs() {
-  if ($("log-source").value === "server") {
+  const source = $("log-source").value;
+  if (source !== "browser") {
     await api("/logs", { method: "DELETE" }).catch(() => {});
-  } else {
+  }
+  if (source !== "server") {
     browserLogs.length = 0;
   }
-  renderLogs();
+  logRecords = [];
+  await renderLogs();
+}
+
+// The bundle is built server-side and downloaded straight to disk. Nothing is
+// transmitted anywhere — that is the whole difference between this and the
+// crash reporting the roadmap turned down.
+async function downloadSupportBundle() {
+  const button = $("logs-bundle");
+  button.disabled = true;
+  const original = button.textContent;
+  button.textContent = "Collecting…";
+  try {
+    const response = await fetch("/support-bundle", {
+      headers: { "X-Auth-Token": localStorage.getItem("token") || "" },
+    });
+    if (!response.ok) throw new Error(`Couldn't build the bundle (${response.status})`);
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "memorymap-support-bundle.zip";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    toast("Support bundle saved. Have a look inside before you send it.");
+  } catch (error) {
+    toast(error.message || "Couldn't build the support bundle.", true);
+  } finally {
+    button.disabled = false;
+    button.textContent = original;
+  }
 }
 
 async function renderBin() {
@@ -11959,8 +12513,40 @@ function applyPageBackground(hex) {
   else root.style.removeProperty("--page");
 }
 
-// User CSS lives in one <style> we own, so applying and clearing is clean.
+// User CSS lives in one stylesheet we own, so applying and clearing is clean.
+//
+// A constructed stylesheet rather than a <style> tag, because the app now
+// sends `style-src 'self'`, and an injected <style> is exactly what that
+// refuses — this feature was the one thing the strict policy broke. Adopted
+// sheets are not inline content, so they are unaffected, and this is what the
+// API was added for. Keeping the tag would have meant 'unsafe-inline' on every
+// page, which would also have re-permitted style injected through note text.
+let userCssSheet = null;
+
 function applyCustomCss(css) {
+  const supported =
+    typeof CSSStyleSheet !== "undefined" &&
+    "replaceSync" in CSSStyleSheet.prototype &&
+    "adoptedStyleSheets" in Document.prototype;
+  if (!supported) return applyCustomCssLegacy(css);
+
+  if (!userCssSheet) {
+    userCssSheet = new CSSStyleSheet();
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, userCssSheet];
+  }
+  try {
+    // Invalid CSS throws here rather than being silently dropped, which is an
+    // improvement: a <style> tag with a typo in it just did nothing.
+    userCssSheet.replaceSync(css || "");
+  } catch (err) {
+    console.warn("Custom CSS was rejected:", err);
+  }
+}
+
+// Only for a browser without constructable stylesheets (pre-2019 Chrome, or
+// Safari before 16.4). Such a browser is old enough that it likely predates
+// the CSP directive that makes this necessary in the first place.
+function applyCustomCssLegacy(css) {
   let tag = document.getElementById("user-css");
   if (!tag) {
     tag = document.createElement("style");
@@ -12920,10 +13506,28 @@ $("settings-modal").addEventListener("click", (event) => {
 // is the shape of "this control does nothing" that keeps getting reported.
 $("pref-web-search").addEventListener("change", saveWebSearchSettings);
 $("pref-searxng").addEventListener("change", saveWebSearchSettings);
-$("log-source").addEventListener("change", renderLogs);
-$("logs-refresh").addEventListener("click", renderLogs);
+// Filters only re-draw what is already held — they never refetch, so changing
+// one mid-incident cannot lose the records you were looking at.
+$("log-source").addEventListener("change", renderLogList);
+$("log-level").addEventListener("change", renderLogList);
+$("log-filter").addEventListener("input", renderLogList);
 $("logs-copy").addEventListener("click", copyLogs);
 $("logs-clear").addEventListener("click", clearLogs);
+$("logs-bundle").addEventListener("click", downloadSupportBundle);
+
+$("log-follow").addEventListener("change", (event) => {
+  logFollowPinned = event.target.checked;
+  if (event.target.checked) scrollLogToBottom();
+});
+
+// Scrolling up is how you say "stop moving, I am reading this" — so it pauses
+// the follow rather than fighting you for the scroll position. Scrolling back
+// to the bottom resumes it, which is the same gesture every terminal uses.
+$("log-list").addEventListener("scroll", () => {
+  if (!$("log-follow").checked) return;
+  logFollowPinned = nearLogBottom();
+  $("log-follow-label").classList.toggle("is-paused", !logFollowPinned);
+});
 
 $("bin-btn").addEventListener("click", async () => {
   showPanel("bin-panel");

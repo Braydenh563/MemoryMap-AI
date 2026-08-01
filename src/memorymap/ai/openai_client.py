@@ -401,23 +401,62 @@ class OpenAICompatClient(Provider):
             )
         return raw
 
-    @staticmethod
-    def _stats_from(payload: dict, model: str, started: float) -> dict:
+    def _stats_from(
+        self,
+        payload: dict,
+        model: str,
+        started: float,
+        *,
+        prompt_chars: int = 0,
+        output_chars: int = 0,
+    ) -> dict:
         """Token counts + timings, in the one shape the UI's metadata line wants.
 
-        The OpenAI shape reports no timings at all — where Ollama sends
-        `total_duration` in nanoseconds, there is simply nothing — so the wall
-        clock is measured here instead. It is the honest number for "how long
-        did that take", which is what the line is read for.
+        Three things differ from the Ollama path, and each is a small honesty
+        problem rather than a plumbing one:
+
+        - **There are no timings.** Where Ollama sends `total_duration` in
+          nanoseconds, there is simply nothing, so the wall clock is measured
+          here. That is the honest answer to "how long did that take".
+        - **Not every server reports usage.** LM Studio and vLLM do; some
+          llama.cpp builds and several gateways ignore `stream_options`
+          entirely. Rather than showing a blank where a number belongs, the
+          count is estimated from characters — and marked as an estimate, so
+          the UI can say so. A number the user believes is measured, when it
+          was guessed, is worse than no number.
+        - **`context_tokens` is the window budgeted against**, so the UI can
+          say how *full* the window got. 3,900 tokens means nothing on its own;
+          "3,900 of 8,192" is what tells you an answer is about to start losing
+          the top of its own prompt.
         """
         usage = payload.get("usage") or {}
+        prompt_tokens = usage.get("prompt_tokens")
+        output_tokens = usage.get("completion_tokens")
+        measured = prompt_tokens is not None or output_tokens is not None
+        if not measured:
+            # ~4 characters per token. Crude, and roughly right across English
+            # prose and the JSON the tools trade in, which is what it is for.
+            prompt_tokens = prompt_chars // 4 or None
+            output_tokens = output_chars // 4 or None
         return {
             "model": payload.get("model") or model,
-            "prompt_tokens": usage.get("prompt_tokens"),
-            "output_tokens": usage.get("completion_tokens"),
+            "prompt_tokens": prompt_tokens,
+            "output_tokens": output_tokens,
             "total_ms": round((time.monotonic() - started) * 1000),
             "eval_ms": None,
+            "context_tokens": self.usable_context(model),
+            "usage_source": "real" if measured else "estimated",
         }
+
+    @staticmethod
+    def _chars_in(messages: list[dict]) -> int:
+        """Roughly how much text went up, for when the server won't say."""
+        total = 0
+        for message in messages or []:
+            content = message.get("content")
+            if isinstance(content, str):
+                total += len(content)
+        return total
 
     def _payload(self, model: str, messages: list[dict], **extra) -> dict:
         payload = {
@@ -458,7 +497,13 @@ class OpenAICompatClient(Provider):
             return {
                 "content": content,
                 "thinking": message.get("reasoning_content") or inline_thinking,
-                "stats": self._stats_from(payload, model, started),
+                "stats": self._stats_from(
+                    payload,
+                    model,
+                    started,
+                    prompt_chars=self._chars_in(messages),
+                    output_chars=len(message.get("content") or ""),
+                ),
             }
         except (requests.RequestException, KeyError, IndexError, TypeError, ValueError) as exc:
             raise ProviderError(f"Chat with '{model}' failed: {exc}") from exc
@@ -469,6 +514,7 @@ class OpenAICompatClient(Provider):
         splitter = _ThinkTagSplitter()
         started = time.monotonic()
         last: dict = {}
+        streamed_chars = 0  # for the estimate, when the server reports no usage
         try:
             with self._post(
                 self._payload(
@@ -488,12 +534,21 @@ class OpenAICompatClient(Provider):
                     choices = payload.get("choices") or []
                     delta = (choices[0] or {}).get("delta") if choices else None
                     content, thinking = self._delta_text(delta or {})
+                    streamed_chars += len(content) + len(thinking)
                     if thinking:
                         yield {"thinking_delta": thinking}
                     if content:
                         yield from splitter.feed(content)
                 yield from splitter.flush()
-                yield {"stats": self._stats_from(last, model, started)}
+                yield {
+                    "stats": self._stats_from(
+                        last,
+                        model,
+                        started,
+                        prompt_chars=self._chars_in(messages),
+                        output_chars=streamed_chars,
+                    )
+                }
         except (requests.RequestException, KeyError, IndexError, TypeError, ValueError) as exc:
             raise ProviderError(f"Chat with '{model}' failed: {exc}") from exc
 
@@ -592,7 +647,13 @@ class OpenAICompatClient(Provider):
                 "thinking": thinking or None,
                 "tool_calls": calls,
                 "raw_tool_calls": raw_calls,
-                "stats": self._stats_from(last, model, started),
+                "stats": self._stats_from(
+                    last,
+                    model,
+                    started,
+                    prompt_chars=self._chars_in(messages),
+                    output_chars=len(content) + len(thinking),
+                ),
                 # True when prose already reached the caller, so it must not
                 # send the final text again as a second copy.
                 "streamed": shown,
@@ -633,7 +694,13 @@ class OpenAICompatClient(Provider):
                 "thinking": message.get("reasoning_content") or inline_thinking,
                 "tool_calls": calls,
                 "raw_tool_calls": raw_calls,
-                "stats": self._stats_from(payload, model, started),
+                "stats": self._stats_from(
+                    payload,
+                    model,
+                    started,
+                    prompt_chars=self._chars_in(messages),
+                    output_chars=len(content or ""),
+                ),
             }
         except ToolsUnsupportedError:
             raise

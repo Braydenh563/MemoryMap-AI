@@ -230,30 +230,33 @@ class OllamaClient(Provider):
                         # Ollama's final chunk carries token counts and
                         # timings — worth surfacing, so the UI can show
                         # what the answer actually cost.
-                        yield {
-                            "stats": {
-                                "model": data.get("model") or model,
-                                "prompt_tokens": data.get("prompt_eval_count"),
-                                "output_tokens": data.get("eval_count"),
-                                "total_ms": _ns_to_ms(data.get("total_duration")),
-                                "eval_ms": _ns_to_ms(data.get("eval_duration")),
-                            }
-                        }
+                        yield {"stats": self._stats_from(data, model)}
         except (requests.RequestException, KeyError, TypeError, ValueError) as exc:
             raise OllamaError(f"Chat with '{model}' failed: {exc}") from exc
 
     # Both dialects normalise the same way — see `provider.normalise_tool_calls`.
     _normalise_tool_calls = staticmethod(normalise_tool_calls)
 
-    @staticmethod
-    def _stats_from(payload: dict, model: str) -> dict:
-        """Token counts + timings, in the one shape the UI's metadata line wants."""
+    def _stats_from(self, payload: dict, model: str) -> dict:
+        """Token counts + timings, in the one shape the UI's metadata line wants.
+
+        `context_tokens` is the window the turn was budgeted against, carried
+        alongside the counts so the UI can say *how full* the window got rather
+        than only how many tokens were spent. 3,900 tokens means nothing on its
+        own; "3,900 of 8,192" is the number that tells you an answer is about
+        to start losing the top of its own prompt.
+        """
         return {
             "model": payload.get("model") or model,
             "prompt_tokens": payload.get("prompt_eval_count"),
             "output_tokens": payload.get("eval_count"),
             "total_ms": _ns_to_ms(payload.get("total_duration")),
             "eval_ms": _ns_to_ms(payload.get("eval_duration")),
+            "context_tokens": self.usable_context(model),
+            # Ollama counts tokens itself, so these are measured rather than
+            # guessed. The OpenAI path cannot always say the same, and the UI
+            # marks an estimate as one.
+            "usage_source": "real",
         }
 
     _offered_names = staticmethod(offered_tool_names)
@@ -436,13 +439,7 @@ class OllamaClient(Provider):
                 # Same shape chat_stream reports, so the message metadata line
                 # can be filled in from an agent turn too. Without this, using
                 # tools (the default) silently dropped the token counts.
-                "stats": {
-                    "model": payload.get("model") or model,
-                    "prompt_tokens": payload.get("prompt_eval_count"),
-                    "output_tokens": payload.get("eval_count"),
-                    "total_ms": _ns_to_ms(payload.get("total_duration")),
-                    "eval_ms": _ns_to_ms(payload.get("eval_duration")),
-                },
+                "stats": self._stats_from(payload, model),
             }
         except ToolsUnsupportedError:
             raise

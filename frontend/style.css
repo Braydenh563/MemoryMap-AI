@@ -2568,6 +2568,14 @@ html { font-size: 16px; }
   opacity: 0.75;
 }
 .msg-meta:empty { display: none; }
+/* The window is nearly full: the NEXT turn of this conversation is the one
+   that starts dropping the top of the prompt. Warn before it happens, not
+   after the model has already lost the plot. Colour is not the only signal —
+   the line still says the percentage in words. */
+.msg-meta-tight {
+  color: var(--warn);
+  opacity: 1;
+}
 
 /* --- web panel (search + reader) ------------------------------------------- */
 .web-panel {

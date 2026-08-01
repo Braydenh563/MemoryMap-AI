@@ -2400,14 +2400,24 @@ function messageMetaLine({ model, elapsedMs, stats, toolCount = 0, rounds = 0 })
   if (elapsedMs != null) {
     bits.push(elapsedMs < 1000 ? `${elapsedMs} ms` : `${(elapsedMs / 1000).toFixed(1)}s`);
   }
+  let fill = null;
   if (stats) {
     const inTok = stats.prompt_tokens;
     const outTok = stats.output_tokens;
     if (inTok != null || outTok != null) {
-      bits.push(`${inTok ?? "?"}→${outTok ?? "?"} tokens`);
+      const approx = stats.usage_source === "estimated" ? "~" : "";
+      bits.push(`${approx}${inTok ?? "?"}→${outTok ?? "?"} tokens`);
     }
     if (outTok && stats.eval_ms) {
       bits.push(`${(outTok / (stats.eval_ms / 1000)).toFixed(1)} tok/s`);
+    }
+    // How full the window got. A raw token count doesn't tell you whether an
+    // answer was comfortable or nearly lost the top of its own prompt —
+    // "3.9k of 8k (48%)" does, and it is the number that explains a turn that
+    // suddenly forgot its instructions.
+    if (inTok != null && stats.context_tokens) {
+      fill = Math.min(100, Math.round((inTok / stats.context_tokens) * 100));
+      bits.push(`${compactTokens(inTok)}/${compactTokens(stats.context_tokens)} window (${fill}%)`);
     }
   }
   // What the agent actually did, so a turn that used tools says so rather
@@ -2415,9 +2425,25 @@ function messageMetaLine({ model, elapsedMs, stats, toolCount = 0, rounds = 0 })
   if (toolCount) bits.push(`${toolCount} tool${toolCount === 1 ? "" : "s"}`);
   if (rounds > 1) bits.push(`${rounds} rounds`);
   row.textContent = bits.join(" · ");
+  // Past ~80% the next turn of the same conversation is the one that starts
+  // dropping things, so the warning belongs on the turn *before* it happens
+  // rather than after the model has already lost the plot.
+  if (fill != null && fill >= 80) row.classList.add("msg-meta-tight");
   row.title =
-    "Model · response time · prompt→output tokens · generation speed · tools used";
+    "Model · response time · prompt→output tokens · generation speed · " +
+    "how much of the model's context window this turn used · tools used" +
+    (stats && stats.usage_source === "estimated"
+      ? "\n\n~ means the server didn't report token counts, so these are estimated from the text."
+      : "");
   return row;
+}
+
+// "8192" is a number you have to read; "8k" is one you can glance at. Under a
+// thousand stays exact, because rounding 900 to "1k" would be a lie in the
+// direction that matters when the window is nearly full.
+function compactTokens(n) {
+  if (n == null) return "?";
+  return n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n);
 }
 
 // Remove a message from the live transcript. A saved conversation stores
@@ -4463,6 +4489,13 @@ async function sendChatMessage(preset, opts = {}) {
         stats.eval_ms = (stats.eval_ms || 0) + (event.eval_ms || 0);
         // The agent tags each round; the highest is how many it took.
         stats.round = Math.max(stats.round || 0, event.round || 0);
+        // The window doesn't change between rounds, but the peak prompt does —
+        // and the peak is the one worth reporting, because it is the round
+        // that came closest to overflowing.
+        stats.context_tokens = event.context_tokens || stats.context_tokens;
+        // One estimated round makes the whole total an estimate. Reporting a
+        // mixed figure as measured would be the dishonest way round.
+        if (event.usage_source === "estimated") stats.usage_source = "estimated";
       },
     });
     status.textContent = "";

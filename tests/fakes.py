@@ -78,6 +78,10 @@ class FakeOllama:
             "output_tokens": 40,
             "total_ms": 900,
             "eval_ms": 800,
+            # The window the turn was budgeted against, so the UI can report
+            # how full it got rather than only how much was spent.
+            "context_tokens": 32_768,
+            "usage_source": "real",
         }
 
     def is_running(self) -> bool:

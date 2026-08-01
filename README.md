@@ -91,7 +91,7 @@ backups, and a desktop window (`--desktop`).
 - **macOS / Linux** - run **`./start.sh`**
 
 The launcher builds the virtual environment, installs everything, starts the
-app and opens <http://localhost:8000>. The first run takes a few minutes; after
+app and opens <http://localhost:8000> (or <http://127.0.0.1:8000>). The first run takes a few minutes; after
 that it goes straight to launching, and only re-installs when `requirements.txt` changes.
 
 For the app in its own window instead of a browser tab: `start-desktop.bat`, or `./start.sh --desktop`.

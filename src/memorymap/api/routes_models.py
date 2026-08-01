@@ -99,6 +99,11 @@ def status() -> dict:
 
     config = deps.get_config()
     provider = str(config.get_preference("llm_provider", "ollama") or "ollama")
+    # Judged on every status poll, not only when the address is changed. A
+    # warning that appears once and vanishes on the next reload is a warning
+    # about a condition that has not gone away — and this one is about notes
+    # leaving the machine, which is the app's central promise.
+    _, privacy_note, is_local = security.check_backend_url(ollama.base_url)
 
     return {
         # Named for Ollama because the whole UI is, and it means "the chat
@@ -110,6 +115,10 @@ def status() -> dict:
         "provider": provider,
         "base_url": ollama.base_url,
         "provider_default_base_urls": deps.DEFAULT_BASE_URLS,
+        # False means notes leave this machine to be answered. Reported on
+        # every poll so the warning persists rather than showing once.
+        "is_local": is_local,
+        "privacy_note": privacy_note,
         # Only Ollama can download a model on request; the others are handed
         # one that is already on disk. The download panel hides itself rather
         # than offering a button that cannot work.

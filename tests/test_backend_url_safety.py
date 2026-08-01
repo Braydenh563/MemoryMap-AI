@@ -178,3 +178,31 @@ def test_an_empty_address_is_judged_by_the_default_it_will_use(ai_client):
     against the address that will actually be dialled, not against ""."""
     body = ai_client.post("/models/provider", json={"provider": "openai"}).json()
     assert body["is_local"] is True
+
+
+def test_the_warning_persists_across_reloads(ai_client, app_state):
+    """A warning that shows once when you press Connect and vanishes on the
+    next reload is a warning about a condition that has not gone away. The
+    status poll — which is what redraws the screen — has to carry it too."""
+    app_state.set_preference("llm_provider", "openai")
+    app_state.set_preference("llm_base_url", "https://api.openai.com/v1")
+    from memorymap.core import deps
+
+    deps.reload_llm_client()
+
+    status = ai_client.get("/models/status").json()
+    assert status["is_local"] is False
+    assert "over the internet" in status["privacy_note"]
+
+
+def test_a_local_backend_says_nothing_at_all(ai_client, app_state):
+    """No warning fatigue: the ordinary case is silent."""
+    app_state.set_preference("llm_provider", "ollama")
+    app_state.set_preference("llm_base_url", "")
+    from memorymap.core import deps
+
+    deps.reload_llm_client()
+
+    status = ai_client.get("/models/status").json()
+    assert status["is_local"] is True
+    assert status["privacy_note"] == ""

@@ -11742,6 +11742,16 @@ function renderBackendPicker(status) {
     url.value = "";
   }
   url.placeholder = fallback || "Default address";
+
+  // Drawn from the status poll, not only from the Connect response. A warning
+  // that shows once and disappears on the next reload is a warning about a
+  // condition that has not gone away — and this one says the notes are leaving
+  // the machine, which is the promise the whole app is built on.
+  const privacy = $("llm-privacy-warning");
+  if (privacy) {
+    privacy.textContent = status.privacy_note || "";
+    privacy.classList.toggle("hidden", !status.privacy_note);
+  }
 }
 
 async function applyBackendChoice() {

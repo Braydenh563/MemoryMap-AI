@@ -303,8 +303,10 @@ extending a pattern that already exists rather than inventing one.
   forced rather than preferred.
 - ~~`create_category` / `merge_categories` / `delete_category` as agent tools,
   following the existing tag-tool pattern (§14)~~ **done** — four of them
-  (`rename_category` too), and **the prompt budget is now the binding
-  constraint on this list.** See §14.
+  (`rename_category` too). Adding them briefly made the prompt budget the
+  binding constraint on §14's list; that has since been **lifted** by fitting
+  the tool schemas to the model's real context window rather than to a
+  constant. See §14.
 - ~~A support-bundle export button (§1)~~ **done**, as an allowlist.
 - Fix the specific reported bugs in §8's ideas-parking-lot list — the
   miscategorised note, the dashboard markdown gap, the constellation widget
@@ -628,6 +630,17 @@ thing. Don't ship one you couldn't test.
 
 Newest at the top. Everything here is on `main` (or the branch merging into
 it), verified, and must not be rebuilt.
+
+**Tools are fitted to the model, not to a constant.** Asked directly — *"if
+adding more tools is an issue, can we change or improve how tools are used so
+that doesn't become an issue?"* — after four category tools took the all-tools
+overhead within ~180 characters of a 4096-token window. The answer was that
+4096 is Ollama's *fallback when a model declares nothing*, not a fact about
+any model anyone runs. `tools.within_budget` now fits the schemas to the
+window the model reports via `/api/show`, drops the least relevant when they
+do not fit, and logs what it held back. A 16k model gets the whole registry; a
+genuine 3B gets a prioritised subset instead of silently losing its system
+prompt off the front. **§14's list is open again** — see the table there.
 
 **§1's live log console is finished, and there is a support bundle.** The
 Logs screen streams now — NDJSON over `fetch`, **not** the EventSource this
@@ -2240,20 +2253,38 @@ Three decisions in there worth not re-litigating:
   category twice and refused itself — on precisely the duplicate the user was
   trying to clear up. Caught by a test, not by inspection.
 
-> **⚠ The prompt budget is now the binding constraint on this section.**
-> Adding these four broke `tests/test_prompt_budget.py`, exactly as that test
-> exists to do — and the first draft, carrying per-parameter descriptions like
-> the older tools do, went past the 4096-token *window* as well. Rewritten
-> terse they cost 1,112 characters. The all-tools overhead is now **~13,743
-> characters against a hard ceiling of ~13,924** (0.85 × 4096 × 4).
+> ~~**⚠ The prompt budget is now the binding constraint on this section.**
+> There is room for roughly one more tool on this list, and then there is
+> none.~~ **Lifted — the constraint was an assumption, not a fact.**
 >
-> **There is room for roughly one more tool on this list, and then there is
-> none.** The answer at that point is not to raise `PROMPT_BUDGET_CHARS`
-> again — past the ceiling a 3B model silently stops knowing it has tools —
-> it is to trim existing schemas, or to accept that "all tools" is no longer a
-> mode a 4096-token model can run and say so in Settings → Tools instead of
-> letting it fail quietly. This binds the `tool_focus: "all"` setting only;
-> the default is `"auto"`, where a typical question costs ~1,439 tokens.
+> Adding these four did break `tests/test_prompt_budget.py`, exactly as that
+> test exists to do, and the first draft went past the 4096-token *window* as
+> well. But asked directly — *"if adding more tools is an issue, can we change
+> or improve how tools are used so that doesn't become an issue?"* — the honest
+> answer was that 4096 is **Ollama's fallback when a model declares nothing**,
+> not a property of any model anyone actually runs. A current 7B declares 32k
+> or 128k, and rationing it against 4096 withheld tools for nothing.
+>
+> So the fixed budget is gone. `tools.within_budget` fits the schemas to the
+> window the model *reports* (`ollama_client.usable_context`, via `/api/show`),
+> spends at most a quarter of it on schemas, drops the least relevant tools
+> when they do not fit, and logs what it held back — so "the AI didn't use the
+> tool I expected" is distinguishable from the model choosing not to. Core
+> tools go first: a model that cannot search or read a note cannot answer
+> anything.
+>
+> | Model window | Tools sent |
+> | --- | --- |
+> | 2,048 | 4 (core only) |
+> | 4,096 | 9 |
+> | 8,192 | 19 |
+> | 16,384+ | all of them |
+>
+> **What this means for the rest of this section: add the tools.** The cost of
+> one more is no longer "does it fit in a constant" but "what gets sent
+> first", which is a per-turn question the app now answers by itself. The
+> remaining lever, if a 4096-class model ever needs more room, is
+> `focus_for`'s cues rather than the registry's size.
 
 ---
 
@@ -2600,6 +2631,41 @@ is what makes it reach for one.
 ## 22. Reported in use, not yet done
 
 Small, concrete, each seen in the running app:
+
+- **Take me to the thing the agent just changed.** Asked for directly: *"if the
+  agent performs a task like making a note, a button or link will appear to
+  navigate to the new note or document or whatever was changed."*
+
+  Today a tool run reports **what** it did — `📝 Created note #41` — and then
+  leaves you to go and find #41 yourself, in another tab, by searching for text
+  you already know the app knows the id of. The result row is one click away
+  from being the shortest path to the thing and instead is a dead end.
+
+  Most of the machinery is already there and this is mostly wiring:
+  - Tool results already carry a `label`, and the undo work (§21) already
+    proved the runner can put **buttons on a result row** — Undo is one, so a
+    View beside it is the same shape.
+  - `flashEntry(id)` already exists and does exactly the right thing: switch
+    to Notes, scroll to the note, highlight it. The Rediscover widget uses it.
+    Documents, reminders and categories need their equivalent.
+  - What is missing is that handlers return prose, not a **target**. The fix
+    is for each writing tool to include something like
+    `{"target": {"kind": "note", "id": 41}}` in its result, and for the chat
+    UI to render a View button whenever one is present. Doing it per-tool
+    rather than by parsing the label keeps it honest — a label is for reading,
+    and pulling an id back out of one is the kind of thing that works until
+    someone rewords the sentence.
+
+  Worth covering every kind the agent can create or change, not just notes:
+  notes, documents, reminders, categories, tags, links. `create_note`,
+  `edit_note`, `pin_note`, `tag_note`, `link_notes`, `set_reminder`,
+  `create_category` and the rest all have an obvious destination.
+
+  Two things to decide when it is built: whether a **destructive** result
+  should offer to navigate to the recycle bin rather than a note that is no
+  longer there, and whether a skill run's final "what changed" list should
+  carry the same buttons (it should — that list is where a multi-step run's
+  results actually get read).
 
 - ~~**Magic Add schedules relative reminders a whole timezone offset late.**~~
   **fixed.** Reported: *"I just put a sentence in the magic add text box in

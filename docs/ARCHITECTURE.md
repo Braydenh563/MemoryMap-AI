@@ -233,14 +233,38 @@ records which notes came from where.
 
 *Online (opt-in, off by default):* `web_search` · `read_url`
 
-> **Adding a tool costs prompt budget, and the budget is nearly spent.** Every
-> schema here is resent on each round in `tool_focus: "all"` mode. That
-> overhead is now ~13,743 characters against a ceiling of ~13,924 (0.85 × a
-> 4096-token window × 4 chars/token), so there is room for about **one more
-> tool**. `tests/test_prompt_budget.py` is what will tell you; past the
-> ceiling a 3B model silently stops knowing it has tools at all, because
-> overflow is dropped from the front. The default `"auto"` mode is unaffected
-> — `tools.focus_for` sends ~8–12 tools for a typical question (~1,439 tokens).
+**How many tools a turn actually sends** is decided in two steps, and neither
+is a fixed number:
+
+1. **Relevance** — `tools.focus_for(question)` reads the question for what it
+   plausibly needs and returns ~8–12 tools. Keyword-driven rather than another
+   model call: a round-trip to decide what to send would cost more than it
+   saves, and a deterministic rule can be read, tested and argued with.
+   Settings → Tools can switch this off (`tool_focus: "all"`).
+2. **Room** — `tools.within_budget` then fits whatever survives to the window
+   the model *reports* (`ollama_client.usable_context`, from `/api/show`),
+   spending at most `TOOL_SCHEMA_WINDOW_SHARE` of it on schemas. Anything that
+   does not fit is dropped from the tail, and what was held back is logged.
+
+This replaced a fixed character budget, which was the wrong shape: 4096 is
+Ollama's *fallback* when a model declares nothing, not a fact about any
+particular model. Rationing a 32k model against it withheld tools for no
+reason; assuming otherwise on a real 3B dropped the system prompt off the
+front, and a model that overflows stops knowing it has tools at all.
+
+| Model window | Tools sent (whole registry offered) |
+| --- | --- |
+| 2,048 | 4 — core only |
+| 4,096 | 9 |
+| 8,192 | 19 |
+| 16,384 and up | all of them |
+
+A skill's declared tool list is exempt from step 2: it asked for exactly those,
+and silently dropping one would break the run rather than trim it.
+
+> `agent.PROMPT_BUDGET_CHARS` and `tests/test_prompt_budget.py` still exist as
+> a backstop on the **prose** — the system prompt and `TOOLS_GUIDE` are sent
+> whatever the window and no per-turn trimming applies to them.
 
 `search_notes` and `list_notes` return **previews**, which is why `get_note`
 exists and its description says so — a model that quoted a note from a preview

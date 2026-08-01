@@ -7021,7 +7021,7 @@ async function renderQuestionsWidget(body) {
   const questions = await apiJson("/chat/recent");
   if (!questions.length) {
     body.textContent = "Your recent questions will appear here.";
-    body.className += " muted";
+    body.classList.add("muted");
     return;
   }
   const box = document.createElement("div");
@@ -7233,7 +7233,7 @@ async function renderRemindersWidget(body) {
   const reminders = (await apiJson("/reminders")).filter((r) => !r.done).slice(0, 4);
   if (!reminders.length) {
     body.textContent = "No open reminders — add one in the Reminders tab.";
-    body.className += " muted";
+    body.classList.add("muted");
     return;
   }
   const ul = document.createElement("ul");
@@ -7255,12 +7255,12 @@ async function renderHeatmapWidget(body) {
   const data = await apiJson("/insights/heatmap").catch(() => null);
   if (!data) {
     body.textContent = "Couldn't load your activity.";
-    body.className += " muted";
+    body.classList.add("muted");
     return;
   }
   if (!data.total) {
     body.textContent = "Save some notes and your activity shows up here.";
-    body.className += " muted";
+    body.classList.add("muted");
     return;
   }
 
@@ -7321,7 +7321,7 @@ async function renderCategoriesWidget(body) {
   const categories = (stats && stats.categories) || [];
   if (!categories.length) {
     body.textContent = "Save a few notes and your categories appear here.";
-    body.className += " muted";
+    body.classList.add("muted");
     return;
   }
   const max = categories[0].count || 1;
@@ -7364,13 +7364,27 @@ async function renderRandomNoteWidget(body) {
     : await apiJson("/entries").catch(() => []);
   if (!entries.length) {
     body.textContent = "Save some notes and one will resurface here.";
-    body.className += " muted";
+    body.classList.add("muted"); // not `className +=`, which stacks on re-render
     return;
   }
 
+  // "Another" has to actually show another one.
+  //
+  // Reported as broken, and it was: the pick was uniform over every note
+  // WITH REPLACEMENT, so it could hand back the note already on screen and
+  // the click did nothing. That is not rare — it is 1 in N, so a tenth of
+  // clicks on a ten-note notebook, half of them on two notes, and every
+  // single one when there is only one note to show. Excluding the current
+  // note makes the button keep its promise.
+  let current = null;
+
   const paint = () => {
     body.replaceChildren();
-    const note = entries[Math.floor(Math.random() * entries.length)];
+    const pool = entries.filter((e) => e.id !== (current && current.id));
+    const note = (pool.length ? pool : entries)[
+      Math.floor(Math.random() * (pool.length || entries.length))
+    ];
+    current = note;
     const text = document.createElement("p");
     text.className = "random-note";
     text.textContent =
@@ -7388,7 +7402,15 @@ async function renderRandomNoteWidget(body) {
 
     const row = document.createElement("div");
     row.className = "row";
-    row.appendChild(smallButton("🎲 Another", "Show a different note", paint));
+    const another = smallButton("🎲 Another", "Show a different note", paint);
+    if (entries.length < 2) {
+      // There is no other note to show. A live-looking button that cannot do
+      // anything is the exact shape of "this control is broken" — say why
+      // instead.
+      another.disabled = true;
+      another.title = "This is your only note so far — write another and it'll shuffle.";
+    }
+    row.appendChild(another);
     row.appendChild(
       smallButton("📝 Open", "Open this note in the Notes tab", () => flashEntry(note.id))
     );
@@ -7403,7 +7425,7 @@ async function renderTagCloudWidget(body) {
   const tags = await apiJson("/insights/tag-cloud").catch(() => []);
   if (!tags.length) {
     body.textContent = "Tag some notes and your cloud grows here.";
-    body.className += " muted";
+    body.classList.add("muted");
     return;
   }
   const max = tags[0].count || 1;

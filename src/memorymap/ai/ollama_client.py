@@ -208,6 +208,52 @@ class OllamaClient:
         self.base_url = base_url.rstrip("/")
         # Generous default: small local models on modest hardware are slow.
         self.timeout = timeout
+        # model name -> context length in tokens. Asked once per model per
+        # process: it cannot change without the model being re-pulled, and the
+        # answer is needed on every agent round.
+        self._context_lengths: dict[str, int | None] = {}
+
+    # Ollama's default when a model declares nothing. Everything that budgets
+    # against the window falls back to this, because being wrong in this
+    # direction only wastes headroom, while being wrong the other way silently
+    # drops the system prompt off the front of the context.
+    DEFAULT_CONTEXT_TOKENS = 4096
+
+    def context_length(self, model: str) -> int | None:
+        """How many tokens this model can actually hold, or None if unknown.
+
+        The app used to assume 4096 for everyone, which is Ollama's fallback
+        rather than a fact about any particular model — most current ones
+        declare 8k, 32k or far more. Rationing the tool schemas against 4096
+        on a model with 128k means withholding tools for no reason; assuming
+        128k on a 3B model means the system prompt falls off the front and it
+        stops knowing it has tools at all. So: ask.
+
+        Reported by `/api/show` under `model_info` as `<architecture>.
+        context_length` — the prefix varies by model family, so the key is
+        found by suffix rather than guessed.
+        """
+        if model in self._context_lengths:
+            return self._context_lengths[model]
+        length: int | None = None
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/show", json={"model": model}, timeout=5
+            )
+            response.raise_for_status()
+            info = response.json().get("model_info") or {}
+            for key, value in info.items():
+                if key.endswith(".context_length") and isinstance(value, int):
+                    length = value
+                    break
+        except (requests.RequestException, ValueError, AttributeError):
+            length = None  # unknown is a fine answer; the caller has a default
+        self._context_lengths[model] = length
+        return length
+
+    def usable_context(self, model: str) -> int:
+        """The window to budget against — the declared one, or the default."""
+        return self.context_length(model) or self.DEFAULT_CONTEXT_TOKENS
 
     def is_running(self) -> bool:
         """Cheap reachability probe — short timeout so the UI never hangs

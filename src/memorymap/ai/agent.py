@@ -129,15 +129,22 @@ TOOLS_GUIDE = (
 # rewritten terse (no "old: the current name" when the field is called `old`)
 # and now cost 1,112 characters between them.
 #
-# Read this before adding the next tool: the all-tools overhead is now ~13,743
-# characters against a hard ceiling of ~13,924 (0.85 × 4096 tokens × 4 chars).
-# **There is room for roughly one more tool, and then there is none.** The
-# answer at that point is not to raise this again — past the ceiling a 3B model
-# silently loses its tools — it is either to trim existing schemas or to accept
-# that "all tools" is no longer a mode a 4096-token model can run, and say so
-# in Settings → Tools rather than letting it fail quietly. Note this ceiling
-# only binds the "all" setting: `tool_focus` defaults to "auto", where a
-# typical question costs ~5,756 characters (~1,439 tokens).
+# **This is now a backstop, not the mechanism.** It was briefly the binding
+# constraint on §14's tool list — "room for about one more tool, then none" —
+# which was the wrong shape of answer, because the ceiling it described was
+# never a fact about the app. 4096 is what Ollama falls back to when a model
+# declares nothing; most current models declare 8k, 32k or far more.
+#
+# `tools.within_budget` now fits the schemas to the window the model actually
+# reports (`ollama_client.usable_context`), dropping the least relevant tools
+# when they do not fit and logging what it held back. So a 32k model gets the
+# whole registry, a genuine 3B at 4096 gets a prioritised subset, and adding a
+# tool is no longer a question of whether it fits inside a constant.
+#
+# What this number still does is catch the *prose* growing — the system prompt
+# and TOOLS_GUIDE are sent whatever the window, and no per-turn trimming
+# applies to them. If it trips, look at what was added to the guide before
+# reaching for the number.
 PROMPT_BUDGET_CHARS = 13_800
 
 # What to do about a failed tool call.
@@ -350,6 +357,34 @@ def run_agent(
     offered = tools.ollama_tools(
         allowed_tools if allowed_tools is not None else _focus(question)
     )
+    # Then fit what is left to the window the model actually has, rather than
+    # to a constant. See tools.within_budget: 4096 is Ollama's fallback, not a
+    # fact, and a model declaring 32k was being rationed as if it were a 3B.
+    # A skill's declared list is exempt — it asked for exactly those tools, and
+    # silently dropping one would break the run rather than trim it.
+    if allowed_tools is None:
+        # `getattr`, not a plain call: reporting a context window is an Ollama
+        # feature, and §6's planned OpenAI-compatible backends (LM Studio,
+        # llama.cpp, Jan, vLLM) have no equivalent of /api/show. A client that
+        # cannot answer should fall back to the cautious default, not crash the
+        # turn — the budget is an optimisation, and an optimisation that can
+        # take the whole agent down with it is not one.
+        report = getattr(ollama, "usable_context", None)
+        window = report(model_manager.chat_model()) if callable(report) else None
+        window = window or OllamaClient.DEFAULT_CONTEXT_TOKENS
+        offered, dropped = tools.within_budget(
+            offered, tools.budget_for_window(window)
+        )
+        if dropped:
+            # Visible in Settings → Logs, because "the AI didn't use the tool I
+            # expected" is otherwise indistinguishable from the model choosing
+            # not to.
+            logging.getLogger("memorymap.agent").info(
+                "tool budget: %d-token window fits %d tools; held back %s",
+                window,
+                len(offered),
+                ", ".join(dropped[:8]) + ("…" if len(dropped) > 8 else ""),
+            )
     # Roadmap §11a's prescribed first step: measure before cutting. One line
     # per turn saying what the prompt is made of, so "which half dominates a
     # real chat — the notes or the history?" is answered from the log rather

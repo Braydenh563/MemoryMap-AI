@@ -91,3 +91,34 @@ def test_every_theme_names_a_palette_that_exists():
     # "default" is the base :root, deliberately without a [data-palette] block.
     missing = sorted(used - defined - {"default"})
     assert not missing, f"themes select palettes with no CSS: {missing}"
+
+
+def test_rediscover_never_offers_the_note_it_is_already_showing():
+    """Reported as "the Another button is broken", and it was.
+
+    The pick was uniform over every note WITH REPLACEMENT, so it could hand
+    back the note already on screen and the click did nothing visible. Not
+    rare: 1 in N, so a tenth of clicks on a ten-note notebook, half of them on
+    two notes, and every single one when there is only one note to show.
+    """
+    app = (INDEX.parent / "app.js").read_text(encoding="utf-8")
+    start = app.index("async function renderRandomNoteWidget(")
+    body = app[start : start + 2200]
+    assert "entries.filter(" in body, "the current note is not excluded from the pool"
+    assert "current" in body
+
+
+def test_rediscover_disables_another_when_there_is_nothing_else_to_show():
+    """A live-looking button that cannot do anything is the exact shape of
+    "this control is broken" — trap 12, arriving by a new route."""
+    app = (INDEX.parent / "app.js").read_text(encoding="utf-8")
+    start = app.index("async function renderRandomNoteWidget(")
+    body = app[start : start + 2600]
+    assert "entries.length < 2" in body
+    assert "disabled = true" in body
+
+
+def test_a_widget_does_not_stack_class_names_on_every_render():
+    """`className += " muted"` appends again each time the dashboard redraws."""
+    app = (INDEX.parent / "app.js").read_text(encoding="utf-8")
+    assert 'className += " muted"' not in app

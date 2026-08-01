@@ -147,7 +147,27 @@ so the next audit does not have to rediscover them. The other four were real.
   SearXNG already defaults it off; stating it explicitly means neither a
   hand-edited file nor a changed upstream default can turn it back on.
 
+### Changed
+
+- **The AI is given as many tools as its model can actually hold.** The number
+  used to be fixed, tuned for a 4,096-token context — which is what Ollama
+  falls back to when a model doesn't declare a size, not a fact about any
+  particular model. Most current models declare 8k, 32k or far more, and were
+  being rationed for no reason; genuinely small ones needed rationing harder
+  than one number could express. MemoryMap now asks the model how much room it
+  has and fits the tool list to it, keeping the most useful tools when they
+  don't all fit and noting in the log what it held back. A 16k model gets
+  everything; a 4k model gets a prioritised subset instead of quietly
+  overflowing and forgetting it had tools at all.
+
 ### Fixed
+
+- **"🎲 Another" in the Rediscover widget often did nothing.** It picked a note
+  at random *including the one already on screen*, so a click could land back
+  on the same note — 1 in 10 clicks on a ten-note notebook, half of them on
+  two notes, and every single one when there was only one note to show. It now
+  picks from the others, and says so instead of offering a dead button when
+  there's only one note in the notebook.
 
 - **Magic Add put relative reminders out by your whole timezone offset.**
   Reported: *"play league of legends in half an hour"* was scheduled for 10am

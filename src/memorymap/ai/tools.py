@@ -1813,6 +1813,77 @@ def ollama_tools(allowed: list[str] | None = None) -> list[dict]:
     ]
 
 
+# --- fitting the registry to the model that will read it -------------------------
+#
+# Asked directly, after four category tools took the all-tools overhead within
+# ~180 characters of a 4096-token window: "if adding more tools is an issue, can
+# we change or improve how tools are used so that doesn't become an issue?"
+#
+# The honest answer is that the ceiling was never a fact about the app — it was
+# an assumption about the model. 4096 is what Ollama falls back to when a model
+# declares nothing; a current 7B routinely declares 32k or 128k, and rationing
+# against 4096 there withholds tools for no reason at all. Meanwhile a genuine
+# 3B at 4096 needed rationing *harder* than a fixed constant could express,
+# because the right number depends on the question too.
+#
+# So the fixed budget is replaced by a measured one: ask the model how much room
+# it has (ollama_client.usable_context), spend a bounded share of it on schemas,
+# and drop the least relevant tools when they do not fit. Adding a tool stops
+# being a question of whether it fits inside a constant, and becomes a question
+# of what gets sent first — which is a much easier question, and one the app can
+# answer per turn instead of once at import time.
+
+# The share of the window the tool schemas may occupy. The rest is the system
+# prompt, the retrieved notes, the history and the answer — and tool RESULTS,
+# which is what makes a generous share a false economy: schemas the model never
+# calls cost the same as ones it does.
+TOOL_SCHEMA_WINDOW_SHARE = 0.25
+CHARS_PER_TOKEN = 4  # close enough for a stop rule; a real tokeniser per model is not
+
+
+def schema_chars(specs: list[dict]) -> int:
+    """What this list of tool schemas costs on the wire."""
+    return len(json.dumps(specs))
+
+
+def within_budget(
+    offered: list[dict], budget_chars: int, keep_first: list[str] | None = None
+) -> tuple[list[dict], list[str]]:
+    """(the tools that fit, the names dropped) — most important kept.
+
+    Order is the whole design. CORE_TOOLS go first because a model that cannot
+    search or read a note cannot answer anything; whatever the question-focus
+    picked comes next; the rest fill the remaining room. Dropping happens at
+    the tail, so what is lost is always the least relevant thing left.
+
+    At least one tool is always returned even if the budget cannot afford it:
+    a model handed an empty tool list does not degrade gracefully, it simply
+    answers from nothing and sounds confident about it.
+    """
+    if budget_chars <= 0 or not offered:
+        return offered, []
+    priority = list(keep_first or CORE_TOOLS)
+    rank = {name: index for index, name in enumerate(priority)}
+    ordered = sorted(offered, key=lambda t: rank.get(t["function"]["name"], len(rank)))
+
+    kept: list[dict] = []
+    dropped: list[str] = []
+    for spec in ordered:
+        # Measured against the list as it will actually be serialised, rather
+        # than by summing individual schemas — the brackets and commas are
+        # small but they are also the difference between fitting and not.
+        if not kept or schema_chars(kept + [spec]) <= budget_chars:
+            kept.append(spec)
+        else:
+            dropped.append(spec["function"]["name"])
+    return kept, dropped
+
+
+def budget_for_window(context_tokens: int) -> int:
+    """How many characters of tool schema a model with this window can hold."""
+    return int(context_tokens * TOOL_SCHEMA_WINDOW_SHARE) * CHARS_PER_TOKEN
+
+
 def tool_catalog() -> list[dict]:
     """Metadata for the Settings → Tools toggles (Wave O)."""
     return [

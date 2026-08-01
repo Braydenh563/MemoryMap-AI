@@ -79,6 +79,18 @@ class FakeOllama:
     def is_running(self) -> bool:
         return self.running
 
+    # The agent budgets its tool schemas against the model's real window
+    # (see tools.within_budget). Generous here on purpose: a test asserting
+    # what the agent does with tools should not be silently narrowed by a
+    # tight fake window. Tests about the budget itself set this explicitly.
+    context_tokens: int = 32_768
+
+    def context_length(self, model: str) -> int | None:
+        return self.context_tokens
+
+    def usable_context(self, model: str) -> int:
+        return self.context_tokens or 4096
+
     def chat(self, model: str, messages: list[dict]) -> dict:
         self.chat_models.append(model)
         return {"content": self._reply_text(messages), "thinking": self.librarian_thinking}

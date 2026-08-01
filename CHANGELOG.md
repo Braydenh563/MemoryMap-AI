@@ -94,6 +94,39 @@ truncates it mid-sentence, which reads as a crash rather than as brevity.
 - The mode list is served from `GET /chat/modes` rather than duplicated in
   `app.js`, so adding a fourth preset is a change to `ai/presets.py` alone.
 
+### Security — the backend address is the one setting that can leave the machine
+
+Everything else about MemoryMap is local by construction: the server binds to
+localhost, the database is a file, nothing phones home. §6 made the chat
+backend an address the user types, and the server posts their notes to whatever
+it names on every turn. That is a new outbound surface, and it needs the
+*opposite* rule from the web reader's.
+
+`websearch._assert_external` refuses anything that isn't public, because it
+follows untrusted links and must never probe this machine. A model backend is
+supposed to be on localhost or the LAN, so private addresses are the normal
+case there and refusing them would break the only thing the setting is for.
+
+- **Refused: non-http(s) schemes, link-local, multicast and unspecified
+  addresses.** The one that matters is link-local: `169.254.169.254` is the
+  cloud instance-metadata service and the classic credential-theft target, and
+  nobody has ever served a language model from it. `::ffff:169.254.169.254` is
+  the same address wearing a hat and is refused too.
+- **The check order is load-bearing, and getting it wrong is a real hole.**
+  Python classes `169.254.0.0/16` as link-local *and* `is_private`, so an
+  allow-private rule running first waves the metadata address straight
+  through; `::1` is loopback *and* `is_reserved`, so a refuse-reserved rule
+  running first rejects the most ordinary backend there is. A test asserts
+  both overlaps, so a well-meaning tidy-up of the order fails loudly.
+- **A backend on the internet is allowed and said out loud.** Someone who
+  deliberately wants a hosted API is entitled to one; what they are not
+  entitled to is for it to happen quietly, because the app's headline promise
+  is that notes stay on the machine. Settings → Models shows a plain warning
+  naming what is being sent where, and it stays until the address changes.
+- A name that does not resolve yet is not an error — "set the address, then
+  start the server" is the normal order, and a container name resolves only
+  once its container is up.
+
 ### Security
 
 The roadmap's security tier, worked through end to end. Three of its seven

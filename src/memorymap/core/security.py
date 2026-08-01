@@ -211,3 +211,133 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "Permissions-Policy", "geolocation=(), camera=(), payment=(), usb=()"
         )
         return response
+
+
+# --- where the AI backend is allowed to live --------------------------------
+#
+# The chat backend's address is a *setting* now (§6), not a constant, and the
+# server posts the user's notes to whatever it names on every turn. That makes
+# it a new outbound surface, and it needs a different rule from the web-search
+# one above.
+#
+# The web reader refuses anything that ISN'T public, because it follows
+# untrusted links and must never probe this machine. This is the mirror image:
+# a backend is *supposed* to be on localhost or the LAN — that is the whole
+# product — so private addresses are the normal case and blocking them would
+# break it.
+#
+# What is refused is the narrow set nobody ever serves a model from, where
+# being pointed at one is a sign of a mistake or of something worse:
+#
+#   - a scheme that isn't http(s), so `file://` can't be read back by a
+#     library that helpfully supports it;
+#   - link-local (169.254.0.0/16, fe80::/10), which on every major cloud is
+#     the instance-metadata address — the classic credential-theft target,
+#     and never a model server;
+#   - multicast, reserved and unspecified addresses, which are not endpoints.
+#
+# Anything else is allowed and *reported* rather than blocked. Someone who
+# deliberately points this at a hosted API is entitled to; what they are not
+# entitled to is for it to happen quietly, because the app's headline promise
+# is that notes stay on the machine. `is_local` is what the UI warns from.
+
+import ipaddress  # noqa: E402 — grouped with the code it serves
+import socket  # noqa: E402
+
+_ALLOWED_BACKEND_SCHEMES = ("http", "https")
+
+
+def _backend_addresses(host: str) -> list:
+    """Every IP a backend hostname resolves to, or [] if it doesn't resolve.
+
+    A name that doesn't resolve yet is not an error here: "set the address,
+    then start the server" is the normal order, and a docker-compose service
+    name resolves only once its container is up. So an empty list means "can't
+    judge", and the caller treats that as allowed-but-unverified rather than
+    as a failure — the request will simply fail later if the name is wrong.
+    """
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except (socket.gaierror, UnicodeError):
+        return []
+    found = []
+    for info in infos:
+        try:
+            found.append(ipaddress.ip_address(info[4][0]))
+        except ValueError:
+            continue
+    return found
+
+
+def _refuses(address) -> str | None:
+    """Why this address can't be a model backend, or None if it can be."""
+    if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped:
+        # ::ffff:169.254.169.254 is the metadata address wearing a hat.
+        address = address.ipv4_mapped
+    # The order of these three blocks is load-bearing, because Python's
+    # categories overlap in two places that would each flip an answer:
+    #
+    #   - 169.254.0.0/16 is link-local AND `is_private`, so an allow-private
+    #     rule running first would wave through the cloud metadata address —
+    #     the exact thing this function exists to stop.
+    #   - `::1` is loopback AND `is_reserved`, so a refuse-reserved rule
+    #     running first would reject the most ordinary backend there is.
+    #
+    # So: refuse the specific bad things, then allow local, then refuse the
+    # leftovers.
+    if address.is_link_local:
+        return (
+            f"{address} is a link-local address. On a cloud machine that is "
+            "the instance-metadata service, not a model server."
+        )
+    if address.is_multicast or address.is_unspecified:
+        return f"{address} isn't an address something can listen on."
+    if address.is_loopback or address.is_private:
+        return None
+    if address.is_reserved:
+        return f"{address} isn't an address something can listen on."
+    return None
+
+
+def check_backend_url(url: str) -> tuple[bool, str, bool]:
+    """Judge a model-backend address.
+
+    Returns `(allowed, reason, is_local)`. `reason` is empty when there is
+    nothing to say; `is_local` is False for a backend that would take the
+    user's notes off this machine, which the UI says out loud rather than
+    refusing on their behalf.
+    """
+    parts = urlsplit((url or "").strip())
+    if parts.scheme not in _ALLOWED_BACKEND_SCHEMES:
+        return (
+            False,
+            f"A model backend has to be an http:// or https:// address"
+            f"{f' — “{parts.scheme}:” is not' if parts.scheme else ''}.",
+            False,
+        )
+    host = (parts.hostname or "").strip()
+    if not host:
+        return False, "That address has no host in it.", False
+
+    addresses = _backend_addresses(host)
+    for address in addresses:
+        refusal = _refuses(address)
+        if refusal:
+            return False, refusal, False
+
+    if not addresses:
+        # Unresolvable for now. Treat a name we can't check as non-local, so
+        # the honest warning is the one that shows.
+        return True, "", host in _LOOPBACK_HOSTS
+    is_local = all(
+        address.is_loopback or address.is_private for address in addresses
+    )
+    reason = (
+        ""
+        if is_local
+        else (
+            "This backend is not on your machine or your local network. Your "
+            "notes and questions will be sent to it over the internet."
+        )
+    )
+    return True, reason, is_local

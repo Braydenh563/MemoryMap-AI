@@ -1043,6 +1043,10 @@ Link to another note with [[its first few words]]."></textarea>
                 your own port.
               </p>
               <p id="llm-provider-status" class="status"></p>
+              <!-- Everything else in this app is local by construction. A
+                   backend address is the one setting that can change that, so
+                   it is the one setting that warns. -->
+              <p id="llm-privacy-warning" class="status error hidden"></p>
             </div>
 
             <div id="models-config" class="hidden">

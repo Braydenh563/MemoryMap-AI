@@ -11687,6 +11687,12 @@ async function applyBackendChoice() {
     note.textContent = body.reachable
       ? `● Connected to ${body.base_url} — ${body.installed_models.length} model(s) available.`
       : `○ Saved, but nothing is answering at ${body.base_url} yet. Start the server and this will light up.`;
+    // This app's headline promise is that notes stay on the machine. A backend
+    // somewhere else is allowed — someone may want it — but never quietly, so
+    // the warning is loud and stays until the address changes.
+    const privacy = $("llm-privacy-warning");
+    privacy.textContent = body.privacy_note || "";
+    privacy.classList.toggle("hidden", !body.privacy_note);
     await refreshModelStatus();
   } catch (err) {
     note.textContent = err.message;

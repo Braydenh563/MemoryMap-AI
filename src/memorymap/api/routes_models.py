@@ -16,7 +16,7 @@ from memorymap.ai import embeddings as embeddings_module
 from memorymap.ai import model_manager as jobs
 from memorymap.ai.model_manager import SUGGESTED_MODELS
 from memorymap.ai.ollama_client import OllamaError
-from memorymap.core import deps
+from memorymap.core import deps, security
 from memorymap.core.deps import get_session
 from memorymap.entry.manager import log_action
 
@@ -194,6 +194,18 @@ def set_provider(body: ProviderBody, session: Session = Depends(get_session)) ->
     """
     config = deps.get_config()
     base_url = body.base_url.strip()
+
+    # A backend address is a new outbound surface: the server posts the user's
+    # notes to whatever it names, on every turn. Private and loopback
+    # addresses are the *normal* case here and are allowed — that is the whole
+    # product — but the narrow set nobody serves a model from is refused, and
+    # a backend that would take notes off this machine is reported rather than
+    # blocked. See core.security.check_backend_url.
+    effective = base_url or deps.DEFAULT_BASE_URLS.get(body.provider, "")
+    allowed, reason, is_local = security.check_backend_url(effective)
+    if not allowed:
+        raise HTTPException(status_code=400, detail=reason)
+
     config.set_preference("llm_provider", body.provider)
     config.set_preference("llm_base_url", base_url)
     if body.api_key is not None:
@@ -222,6 +234,11 @@ def set_provider(body: ProviderBody, session: Session = Depends(get_session)) ->
         "reachable": running,
         "supports_pull": client.supports_pull(),
         "installed_models": models,
+        # False means the notes leave this machine to be answered. The app's
+        # headline promise is that they don't, so this is said out loud rather
+        # than decided on the user's behalf.
+        "is_local": is_local,
+        "privacy_note": reason,
     }
 
 

@@ -149,6 +149,30 @@ so the next audit does not have to rediscover them. The other four were real.
 
 ### Fixed
 
+- **Magic Add put relative reminders out by your whole timezone offset.**
+  Reported: *"play league of legends in half an hour"* was scheduled for 10am
+  the next day. Two things were wrong.
+
+  The route built your clock as "UTC now, plus your offset" and then labelled
+  the result UTC — an aware timestamp claiming `+00:00` while actually holding
+  local wall-clock. The AI was told "now is 23:30+00:00" when that `+00:00`
+  was a fiction, so when it answered with a timezone of its own (the natural
+  thing, having been given one) that answer was trusted as-is and skipped the
+  correction. The reminder landed out by exactly your UTC offset — ten hours
+  in eastern Australia, which turns half an hour away into 10am tomorrow.
+  Anyone on UTC never saw it.
+
+  Separately, *"in half an hour"* was being handed to a 3B model to work out.
+  That is arithmetic, and the answer varied with whichever model happened to be
+  installed. **"In …" phrases are now resolved by rule before the AI is asked**
+  — "in half an hour", "in 20 minutes", "in a couple of hours", "in an hour and
+  a half", "in 3 days" and so on — which also means they work **with Ollama
+  switched off**, where Magic Add used to refuse outright. Phrases that name a
+  time rather than an offset ("at 8pm", "tomorrow morning") still go to the
+  model, now inside a timezone frame that is actually true. The time phrase is
+  taken out of the reminder text, so it reads "Play league of legends" rather
+  than repeating "in half an hour" when it fires.
+
 - **Copy buttons work when the app isn't on localhost.** Every copy in the app
   — a note, an answer, a code block, a log record — used `navigator.clipboard`,
   which browsers only expose in a *secure context*. On `http://localhost` that

@@ -109,26 +109,47 @@ def magic_add_reminder(body: MagicAddBody, session: Session = Depends(get_sessio
     """
     from memorymap.ai import reminder_parser
 
-    ollama = deps.get_ollama()
-    if not ollama.is_running():
-        raise HTTPException(
-            status_code=503,
-            detail="The local AI isn't running — add the reminder with the form instead.",
-        )
     offset = timedelta(minutes=body.tz_offset_minutes or 0)
-    # Give the model the wall-clock time the user sees, then put the answer
-    # back on the UTC clock everything else is stored in.
-    local_now = utcnow() + offset
-    parsed = reminder_parser.parse_reminder(
-        body.text, ollama, deps.get_model_manager(), local_now
-    )
+    # The user's clock, labelled with the offset it actually has.
+    #
+    # This line is the bug behind "play league of legends in half an hour" being
+    # scheduled for 10am the next day. It used to be `utcnow() + offset`, which
+    # produces an aware datetime TAGGED UTC that really holds local wall-clock —
+    # so the model was told "now is 2026-08-01T23:30:00+00:00" when the +00:00
+    # was a fiction. A model that then answered with an offset of its own (the
+    # natural thing to do, having been given one) landed in the `else` branch
+    # below, was trusted, and skipped the correction — putting the reminder out
+    # by exactly the user's UTC offset. For the reporter, ten hours: half an
+    # hour away became 10am tomorrow.
+    #
+    # A real tzinfo makes the frame true, so both branches below are now
+    # answering the same question.
+    user_zone = timezone(offset)
+    local_now = utcnow().astimezone(user_zone)
+
+    ollama = deps.get_ollama()
+    # A phrase the rules can read needs no model at all — and refusing to add
+    # "remind me in 20 minutes" because Ollama is off would break design
+    # principle 2 for a request that needs nothing but arithmetic.
+    parsed = reminder_parser.parse_relative(body.text, local_now)
+    if parsed is None:
+        if not ollama.is_running():
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "The local AI isn't running, and I couldn't read a time from "
+                    "that. Try “in 20 minutes”, or use the form."
+                ),
+            )
+        parsed = reminder_parser.parse_reminder(
+            body.text, ollama, deps.get_model_manager(), local_now
+        )
+
     due_at = parsed["due_at"]
     if due_at.tzinfo is None:
-        # The model answered in local wall-clock time, as it was asked to.
-        due_at = due_at.replace(tzinfo=timezone.utc) - offset
-    else:
-        # It volunteered an offset. Trust it, but store UTC like everything else.
-        due_at = due_at.astimezone(timezone.utc)
+        # Answered in the user's wall-clock time, as asked.
+        due_at = due_at.replace(tzinfo=user_zone)
+    due_at = due_at.astimezone(timezone.utc)
     reminder = Reminder(
         text=parsed["text"], due_at=due_at, priority=parsed["priority"]
     )

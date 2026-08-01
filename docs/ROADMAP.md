@@ -571,6 +571,19 @@ thing. Don't ship one you couldn't test.
    still in memory, so a serialisation bug only appears on the next read from
    disk. The UTC timestamp bug hid behind exactly this — assert on the LIST
    response, not the create response.
+5b. **`utcnow() + offset` is a lie with a timezone attached.** It produces an
+   aware datetime *tagged UTC* that actually holds local wall-clock, so
+   anything reading its `.isoformat()` is told an offset that is false. This
+   shipped: Magic Add handed that string to the model as "the current time",
+   the model answered with the same `+00:00` it had been shown, the route
+   trusted the offset and skipped its correction, and every relative reminder
+   landed out by exactly the user's UTC offset. "In half an hour" became 10am
+   the next day for a user at UTC+10, and was perfectly correct for anyone at
+   UTC — which is why it survived so long. **Build the user's clock as
+   `utcnow().astimezone(timezone(offset))`**, so the frame is true and both
+   the naive and aware branches answer the same question. Two datetimes that
+   represent the same instant are equal; two that merely *print* the same are
+   not the same thing.
 6. **Later CSS with equal specificity silently wins.** `position: relative` on
    `#chat-sidebar`, declared 600 lines later for the resize handle, quietly
    un-stuck a `position: sticky` rule. When a style "doesn't apply", grep for
@@ -2587,6 +2600,21 @@ is what makes it reach for one.
 ## 22. Reported in use, not yet done
 
 Small, concrete, each seen in the running app:
+
+- ~~**Magic Add schedules relative reminders a whole timezone offset late.**~~
+  **fixed.** Reported: *"I just put a sentence in the magic add text box in
+  reminders saying 'play league of legends in half an hour' and it scheduled
+  it for 10am tomorrow??"* Two faults, and the phrase was the smaller one.
+  The route built the user's clock as `utcnow() + offset` — aware, tagged UTC,
+  actually holding local wall-clock — so the model was told an offset that was
+  a fiction, answered with the same fiction, and was then trusted, skipping the
+  correction. Error = exactly the user's UTC offset, so ten hours at UTC+10 and
+  zero at UTC, which is why nothing caught it. See trap 5b. Separately, "in
+  half an hour" was being handed to a 3B model to do arithmetic on; "in …"
+  phrases are resolved by rule now, before the model, which also makes Magic
+  Add work with Ollama off. Fifteen phrasings and five offsets are pinned in
+  `tests/test_reminder_times.py`, and reverting either half turns eight of
+  them red.
 
 - **Background tasks vanish when they finish.** A completed or failed task
   disappears from Settings → Background tasks, so "did the reinstall work?"

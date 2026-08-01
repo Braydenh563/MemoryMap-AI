@@ -1,8 +1,17 @@
+<div align="center">
+
+<img src="frontend/favicon.svg" alt="" width="96" height="96">
+
 # MemoryMap AI
 
 **Your thoughts, mapped by a local AI. 100% offline, on your machine.**
 
-[![CI](https://github.com/Braydenh563/MemoryMap-AI-v0/actions/workflows/ci.yml/badge.svg)](https://github.com/Braydenh563/MemoryMap-AI-v0/actions/workflows/ci.yml) [![CodeQL](https://github.com/Braydenh563/MemoryMap-AI-v0/actions/workflows/codeql.yml/badge.svg)](https://github.com/Braydenh563/MemoryMap-AI-v0/actions/workflows/codeql.yml) [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue)](https://github.com/Braydenh563/MemoryMap-AI/blob/main/pyproject.toml) [![License: MIT](https://img.shields.io/badge/license-MIT-green)](https://github.com/Braydenh563/MemoryMap-AI/blob/main/LICENSE)
+[![CI](https://github.com/Braydenh563/MemoryMap-AI-v0/actions/workflows/ci.yml/badge.svg)](https://github.com/Braydenh563/MemoryMap-AI-v0/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/Braydenh563/MemoryMap-AI-v0/actions/workflows/codeql.yml/badge.svg)](https://github.com/Braydenh563/MemoryMap-AI-v0/actions/workflows/codeql.yml)
+[![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue)](pyproject.toml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
+</div>
 
 ---
 

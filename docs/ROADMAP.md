@@ -41,12 +41,13 @@ the part that's expensive to reconstruct.
 - [23. Organisation: manual grouping and multi-category notes](#23-organisation-manual-grouping-and-multi-category-notes)
 - [24. Dashboard: more widgets, and layout depth](#24-dashboard-more-widgets-and-layout-depth)
 - [25. App control: tray, health checks, and dependency repair](#25-app-control-tray-health-checks-and-dependency-repair)
-- [26. Data lifecycle: archive, and a full wipe](#26-data-lifecycle-archive-and-a-full-wipe)
+- [26. Data lifecycle: archive, a full wipe, and a real trust page](#26-data-lifecycle-archive-a-full-wipe-and-a-real-trust-page)
 - [27. Onboarding and first-run experience](#27-onboarding-and-first-run-experience)
 - [28. In-app help: an AI that knows the docs](#28-in-app-help-an-ai-that-knows-the-docs)
 - [29. Extensibility ideas, not yet scoped](#29-extensibility-ideas-not-yet-scoped)
 - [30. External review, filtered — what didn't make the cut](#30-external-review-filtered-what-didnt-make-the-cut)
 - [31. Claude's own read: what I'd flag](#31-claudes-own-read-what-id-flag)
+- [32. Product direction — asked for directly, kept short on purpose](#32-product-direction-asked-for-directly-kept-short-on-purpose)
 - [Answers to questions already raised](#answers-to-questions-already-raised-so-they-arent-re-asked)
 
 **New in this pass:** a proper line/branch view for the Timeline (§10C), a
@@ -961,6 +962,17 @@ tray, graceful port fallback when 8000 is taken, first-run flow — then
 PyInstaller one-file builds for Windows/macOS/Linux. pywebview's webview is also
 where the genuine embedded browser from §3 becomes possible.
 
+**Portable vs installed, worth deciding rather than defaulting into one.**
+PyInstaller can build either — a one-file executable that runs from a USB
+stick with `data/` beside it, or a real OS-integrated install (Start Menu
+entry, `/Applications`, an uninstaller). They want different things from
+`MEMORYMAP_DATA_DIR`: portable mode wants data relative to the executable by
+default (so the whole thing is one folder you can move); an installed app
+wants a proper per-user data directory (`%APPDATA%`, `~/Library/Application
+Support`, `~/.local/share`) so it survives a reinstall. Worth picking the
+default deliberately per platform rather than the build script producing
+whichever one falls out of the PyInstaller config first.
+
 **Cross-platform status, since it was asked about directly** ("make
 memorymap-ai cross-platform and compatible with linux and if possible mac as
 well"): closer to done than the ask implies. `start.sh` already exists
@@ -1717,6 +1729,16 @@ spends its time is currently a guess.
   down this section runs, against every installed model instead of just the
   one in use — one dataset, watching for regressions over time and
   differences across models with the same tool.
+  - **Worth tracking retrieval quality specifically, not folding it into
+    "answer-still-correct."** A wrong answer can come from the model
+    reasoning badly over the right notes, or from search handing it the
+    wrong notes to begin with — those are different bugs with different
+    fixes, and a single pass/fail per prompt can't tell them apart. A known
+    query with a known correct note (or set of notes) lets the harness
+    check "did search find the right thing" separately from "did the model
+    say the right thing," which is what actually lets a hybrid-search or
+    re-ranking change (§11) be judged on its own rather than blamed on or
+    credited to whatever model happened to be loaded.
 
 **§11a — token usage in chats.** Asked directly: "is there a way to reduce
 excessive token usage in the chats?" A three-turn conversation showed 8.7k
@@ -2121,6 +2143,23 @@ Deserves one deliberate pass rather than more ad-hoc fixes:
   time out. Worth confirming every list-shaped route has a cap and a
   cursor/offset, not just the ones that happened to need one during testing
   on a small notebook.
+- **What happens when Ollama hangs, rather than errors.** The app already
+  handles Ollama being *off* gracefully (design principle 2) — a request
+  that never comes back is a different failure, and a more likely one on
+  the hardware this app actually targets: a model loading for the first
+  time, or a machine too small for the model it's asked to run, can leave a
+  request pending indefinitely rather than failing fast. Worth a timeout
+  with a clear message ("still waiting on Ollama — this can take a minute
+  the first time a model loads" past some threshold, then a real failure
+  past a longer one) rather than a spinner with no ceiling.
+- **Crash-safe recovery for a re-index or a model download interrupted
+  mid-way.** If the app is closed, or the machine loses power, while an
+  embedding re-index or a model pull is running, does it resume cleanly or
+  leave a half-written state that surfaces as a confusing error next
+  launch? Worth checking directly — the health-check screen in §25 is the
+  natural place to both detect this ("an interrupted re-index was found —
+  resume or restart it") and report it, rather than a repair action with
+  nothing that would ever notice the problem needed fixing.
 
 ---
 
@@ -2395,12 +2434,14 @@ around it.
 
 ---
 
-## 26. Data lifecycle: archive, and a full wipe
+## 26. Data lifecycle: archive, a full wipe, and a real trust page
 
 **Why.** Groups a few related asks that are all "what happens to old or
 unwanted data" rather than day-to-day filing: "data and note compression",
 plus the general expectation that a local-first app should let someone see
-and delete everything it holds.
+and delete everything it holds — the outside review's "local data map,
+retention policy UI" specifically, which is real and not yet one coherent
+thing anywhere in the app.
 
 - **Archive** — already scoped in §4 item 2 (an `archived_at` column,
   additive migration). This section doesn't repeat it, just notes it's the
@@ -2410,6 +2451,23 @@ and delete everything it holds.
   the database, uploads and preferences and start over, distinct from
   `--reset-password` which only clears the credential. Worth being as
   explicit about what it destroys as `--reset-password` already is.
+- **One actual "your data" page, not the pieces scattered.** The individual
+  facts already exist — where the data lives and how big it is (README),
+  what's in the audit log (Settings → Activity), what export and wipe do
+  (above) — but there's nowhere that shows all of it as one trust surface.
+  This is mostly assembly, not new data: a page that states plainly what's
+  stored, where, for how long by default, and links straight to export and
+  wipe from the same screen, rather than requiring someone to already know
+  those live in three different places.
+- **Opt-in retention rules — "forgetting," not just "archiving."** Archive
+  above is a manual action; nothing today acts on a note's age on its own.
+  A genuinely opt-in rule ("auto-archive notes untouched for a year") is a
+  different, smaller thing than automatic deletion — reversible, off by
+  default, and closer to the "stale notes" dashboard nudge (§24) than to a
+  destructive background job. Worth being conservative here: the app's own
+  design principle is that saving a note never fails and nothing is lost
+  silently, so any auto-archival needs to be loud about what it did, not
+  quiet.
 - **Note compression** — asked for directly, and worth being honest about the
   payoff before building it. Notes are short text in SQLite; a notebook of a
   few thousand notes is low tens of megabytes uncompressed, and SQLite pages
@@ -2452,6 +2510,27 @@ before testing), so this is about what it covers, not whether it exists.
   work ("empty by default and buried among a dozen fields") already solved
   the *name* half; onboarding doing it once at the start is the same fix
   moved earlier, not a new one.
+- **Say what the graph and timeline actually are, once, early.** Not asked
+  for directly, but the natural place to close the gap identified in §30's
+  "product differentiation" note: a first-time user who captures a note and
+  asks a question has seen the core loop, but nothing tells them the graph
+  and the branch/line timeline are the "map" the app's own name refers to.
+  A single onboarding step showing the graph forming around their first
+  couple of notes would do more for the product's identity than any new
+  feature — it's pointing at something that already exists, not building
+  something new.
+- **What stays local, and how much space it's using** — the disk-usage half
+  of the outside review's onboarding suggestion. Cheap to add alongside the
+  Ollama-reachability check above: the data folder's size and path, stated
+  plainly, once.
+- **Benchmark installed models on first run, to suggest a default rather
+  than assuming one.** If more than one Ollama model is already installed
+  when MemoryMap first runs, the model-comparison feature (§11) run once,
+  quietly, against a couple of trivial prompts is a better way to suggest a
+  default than always defaulting to whichever model §11's own
+  recommendations table happens to name — worth wiring the two together
+  once the comparison feature exists, rather than duplicating the "which
+  model is fastest" logic.
 
 ---
 
@@ -2562,6 +2641,23 @@ hitting the same access wall may fabricate the same way again:
   retrieval quality is hybrid search and re-ranking in §11. Nothing needs a
   new "memory" abstraction layered on top of notes, tags, links and
   embeddings that already do these jobs.
+  - **The one part of that critique worth taking seriously on its own terms,
+    separate from the misread:** *"the name MemoryMap suggests something
+    more distinctive — persistent memory visualization, editable memory
+    structures, temporal recall, spatial/graph-based reasoning over saved
+    knowledge."* Read literally, past the "AI memory system" framing, that's
+    not a missing feature — it's already what §9 and §10C are. A
+    force-directed, editable map of every note and how they connect *is*
+    "editable memory structures" and "spatial/graph-based reasoning"; the
+    branch/line timeline resolving what a note is *about*, not just when it
+    was written, *is* "temporal recall." The product already does the thing
+    the name promises. What it doesn't do yet is *say so* — the README
+    pitches "your thoughts, mapped by a local AI," which undersells it, and
+    nothing in onboarding (§27) tells a first-time user "this graph and this
+    timeline are the map the name refers to." The gap isn't technical; it's
+    that the identity is built but not narrated. Worth treating as a
+    positioning task for §27 and the README, not an engineering one — see
+    the product-direction note near the top of this document.
 - **Dynamic LoRA adapter loading (`unsloth`), a local vision/RAG pipeline
   built on LlamaIndex/ChromaDB, and anything else describing the fabricated
   first-pass architecture.** Not evaluated on the merits, because there's
@@ -2667,6 +2763,53 @@ checking, not things confirmed broken.
   over a small fixed set of known-good notes is a natural thing to fold into
   the same harness rather than build separately — one more signal, not one
   more system.
+
+---
+
+## 32. Product direction — asked for directly, kept short on purpose
+
+This document is now 32 sections long, and that's worth naming as a risk in
+its own right before adding a 33rd. Asked directly what I'd suggest for
+where this goes — the short version, since the long version is everything
+above.
+
+**The differentiated thing is already built — lean into it rather than
+diluting it.** §30's note stands: the graph plus the branch/line timeline
+plus AI filing is a genuinely distinctive combination — editable, spatial,
+temporal recall over a personal notebook, which is what the name promises
+and few other tools do together. Chasing Notion/Obsidian feature parity in
+§5 is worth doing where it's cheap (wiki-links, backlinks — already mostly
+built), but a full properties/database system or true collaborative editing
+would be competing with much larger teams on their own ground, for a feature
+set §5 has already correctly ruled out once. The graph and timeline are
+unclaimed ground; Notion-parity is not.
+
+**Two things earn their place ahead of almost everything else in this
+document, because they're not features — they're what makes every feature
+after them safe to build:** the frontend module split and the Playwright
+smoke suite (§31, sequenced there already). Every tab this document adds —
+Library, a whiteboard, a branch timeline — is more surface area on a file
+with no automated way to catch a regression. That trade gets worse the
+longer it's deferred, not better.
+
+**Tier 4 in the priority map is a "maybe never" list, not a backlog, and is
+worth treating that way on purpose.** MCP, a VS Code extension, the agent
+controlling the screen, LAN sync — none of these were asked for twice, all
+of them are large, and a roadmap that treats every recorded idea as
+eventually-do creates its own kind of debt: the next person (or the next
+session) reading this document has to re-derive which parts are live
+priorities and which are a parking lot, same problem `IDEAS.md` solved once
+already. Worth periodically pruning ideas that don't get re-requested,
+rather than letting the document only ever grow.
+
+**Worth saying plainly, since this reads as a portfolio piece as much as a
+personal tool:** a small number of things done with real depth — the core
+capture-file-ask loop, a graph and timeline that actually deliver on the
+name, a codebase someone else could read — demonstrates more than a long
+feature list does. Everything in Tier 1–3 of the priority map earns its
+place either by fixing something broken or by deepening the part of the
+product that's already distinctive. Tier 4 is where to be honestly
+skeptical of new ideas, including this document's own.
 
 ---
 

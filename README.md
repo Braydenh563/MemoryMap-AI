@@ -1,17 +1,8 @@
-<div align="center">
-
-<img src="frontend/favicon.svg" alt="" width="96" height="96">
-
 # MemoryMap AI
 
 **Your thoughts, mapped by a local AI. 100% offline, on your machine.**
 
-[![CI](https://github.com/Braydenh563/MemoryMap-AI-v0/actions/workflows/ci.yml/badge.svg)](https://github.com/Braydenh563/MemoryMap-AI-v0/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/Braydenh563/MemoryMap-AI-v0/actions/workflows/codeql.yml/badge.svg)](https://github.com/Braydenh563/MemoryMap-AI-v0/actions/workflows/codeql.yml)
-[![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue)](pyproject.toml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-
-</div>
+[![CI](https://github.com/Braydenh563/MemoryMap-AI-v0/actions/workflows/ci.yml/badge.svg)](https://github.com/Braydenh563/MemoryMap-AI-v0/actions/workflows/ci.yml) [![CodeQL](https://github.com/Braydenh563/MemoryMap-AI-v0/actions/workflows/codeql.yml/badge.svg)](https://github.com/Braydenh563/MemoryMap-AI-v0/actions/workflows/codeql.yml) [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue)](https://github.com/Braydenh563/MemoryMap-AI/blob/main/pyproject.toml) [![License: MIT](https://img.shields.io/badge/license-MIT-green)](https://github.com/Braydenh563/MemoryMap-AI/blob/main/LICENSE)
 
 ---
 
@@ -28,7 +19,7 @@ capture text  →  AI files it  →  ask a question  →  answer + the notes beh
 Everything runs on your own computer. No account, no cloud, no telemetry. Your
 notes are a SQLite file in a folder you control.
 
-> **New to the codebase?** [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) is the
+> **New to the codebase?** [`docs/ARCHITECTURE.md`](https://github.com/Braydenh563/MemoryMap-AI/blob/main/docs/ARCHITECTURE.md) is the
 > full tour - how a request flows, the data model, and a "where do I look to
 > change X?" map.
 
@@ -53,31 +44,32 @@ notes are a SQLite file in a folder you control.
 
 - **Just capture.** Type a thought; a local AI files it into the right category
   - matched by meaning, decided by the chat model, or your own choice in guided
-  mode. It tells you *which*, and flags the ones it wasn't sure about.
+mode. It tells you *which*, and flags the ones it wasn't sure about.
 - **Ask, don't dig.** Plain-English questions return an answer *and* the notes
-  that back it up, side by side. You are never asked to trust a summary you
-  can't check.
+that back it up, side by side. You are never asked to trust a summary you
+can't check.
 - **It's genuinely yours.** No account, no cloud, no telemetry. Plain SQLite in
-  a folder you choose, with JSON/CSV/Markdown export built in. The server binds
-  to localhost and never phones home.
+a folder you choose, with JSON/CSV/Markdown export built in. The server binds
+to localhost and never phones home.
 - **It works when the AI doesn't.** No Ollama running? Notes are filed as
-  `Uncategorised`, search falls back to keywords, and a dot in the header says
-  what the AI is doing. **Saving a note never fails.**
+`Uncategorised`, search falls back to keywords, and a dot in the header says
+what the AI is doing. **Saving a note never fails.**
 
 ## What's in it
 
-Six tabs, all offline:
+Seven tabs, all offline:
 
-| Tab | What it does |
-| --- | --- |
-| **Dashboard** | Greeting, capture streak, at-a-glance counts, an AI digest of your week, an activity heatmap, on-this-day, a focus timer, and a layout you can rearrange |
-| **Notes** | Capture, browse and ask, as three sub-tabs. Auto-filing, tags, pins, threads, attachments, private notes (encrypted at rest), a recycle bin, revision history, and a search box that understands `tag:work`, `cat:recipes`, `is:pinned`, `"exact phrase"` and `-exclude` |
-| **Chat** | A conversation with your notebook, saved and resumable. **Agent mode** lets it use 28 tools - search and read your notes, create, tag, link and organise, set reminders, open a web page - with destructive actions always confirmed. Personas change its voice; the run is shown as a timeline of thinking, tool calls and prose in the order they happened |
-| **Graph** | Your notes as a force-directed map. Click a node to edit it in place, see its images, link it to another, or ask for related notes. The AI can suggest connections |
-| **Documents** | A markdown editor for long-form writing: live preview, autosave, table of contents, word count and reading time, `.md` and PDF export, and AI edits shown as a proposal you accept or reject |
-| **Reminders** | Due dates with priority, repeats, snooze and notifications - or type "call mum tomorrow evening" and let the AI schedule it |
+| Tab           | What it does                                                                                                                                                                                             |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Dashboard** | Greeting, capture streak, at-a-glance counts, an AI digest of your week, an activity heatmap, on-this-day, a focus timer, and a layout you can rearrange                                                 |
+| **Notes**     | Capture, browse and ask, as three sub-tabs. Auto-filing, tags, pins, threads, attachments, private notes (encrypted at rest), a recycle bin, revision history, and a search box that understands `tag:work`, `cat:recipes`, `is:pinned`, `"exact phrase"` and `-exclude` |
+| **Chat**      | A conversation with your notebook, saved and resumable. **Agent mode** lets it use 28 tools - search and read your notes, create, tag, link and organise, set reminders, open a web page - with destructive actions always confirmed. Personas change its voice; the run is shown as a timeline of thinking, tool calls and prose in the order they happened |
+| **Graph**     | Your notes as a force-directed map. Click a node to edit it in place, see its images, link it to another, or ask for related notes. The AI can suggest connections                                       |
+| **Documents** | A markdown editor for long-form writing: live preview, autosave, table of contents, word count and reading time, `.md` and PDF export, and AI edits shown as a proposal you accept or reject             |
+| **Timeline**  | Every note plotted on a time axis - at what it's *about* when a phrase like "next week" resolves to a date, and at when it was written otherwise - in bands by category or tag, at a bucket size you pick |
+| **Reminders** | Due dates with priority, repeats, snooze and notifications - or type "call mum tomorrow evening" and let the AI schedule it                                                                              |
 
-Plus a command palette (<kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>K</kbd>), a sketch
+Plus a command palette (`Ctrl`/`Cmd`+`K`), a sketch
 pad, local Whisper dictation, read-aloud, opt-in web search with a reader view,
 12 themes over 8 colour palettes with per-setting overrides, daily local
 backups, and a desktop window (`--desktop`).
@@ -91,32 +83,27 @@ backups, and a desktop window (`--desktop`).
 
 The launcher builds the virtual environment, installs everything, starts the
 app and opens <http://localhost:8000>. The first run takes a few minutes; after
-that it goes straight to launching, and only re-installs when
-`requirements.txt` changes.
+that it goes straight to launching, and only re-installs when `requirements.txt` changes.
 
-For the app in its own window instead of a browser tab: `start-desktop.bat`, or
-`./start.sh --desktop`.
+For the app in its own window instead of a browser tab: `start-desktop.bat`, or `./start.sh --desktop`.
 
 ### Adding the AI
 
-MemoryMap works without it - you just get keyword search and `Uncategorised`
-filing. For auto-filing and chat answers, install [Ollama](https://ollama.com)
-and pull a model:
+MemoryMap works without it - you just get keyword search and `Uncategorised` filing. For auto-filing and chat answers, install [Ollama](https://ollama.com) and pull a model:
 
-```bash
+```
 ollama pull llama3.2
 ```
 
-Any Ollama model works, and you can switch between them in-app from
-**Settings → Models** without restarting. Small models that do well here:
+Any Ollama model works, and you can switch between them in-app from **Settings → Models** without restarting. Small models that do well here:
 
-| Model | Why |
-| --- | --- |
-| `llama3.2` | The default. Fast, ~2 GB, good all-rounder |
-| `granite4.1:3b` | Strong instruction-following at a small size |
-| `qwen3.5:2b` | The lightest of these; fine on a laptop with no GPU |
-| `gemma4:e2b` | Good summaries |
-| `lfm2.5` | Specifically LFM2.5-8B-A1B if you're pulling from Hugging Face |
+| Model           | Why                                                            |
+| --------------- | ---------------------------------------------------------------|
+| `llama3.2`      | The default. Fast, ~2 GB, good all-rounder                     |
+| `granite4.1:3b` | Strong instruction-following at a small size                   |
+| `qwen3.5:2b`    | The lightest of these; fine on a laptop with no GPU             |
+| `gemma4:e2b`    | Good summaries                                                 |
+| `lfm2.5`        | Specifically LFM2.5-8B-A1B if you're pulling from Hugging Face |
 
 *More at [huggingface.co/braydenh563](https://huggingface.co/braydenh563).*
 
@@ -129,7 +116,7 @@ can switch to an Ollama embedding model later, with an automatic re-index.
 
 If you'd rather not use the launcher:
 
-```bash
+```
 # 1. A virtual environment
 python3 -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
@@ -144,14 +131,14 @@ cp .env.example .env             # Windows: copy .env.example .env
 
 Optional extras, installed only if you want them:
 
-```bash
+```
 pip install pywebview       # the --desktop window
 pip install faster-whisper  # local speech-to-text for the 🎙 buttons
 ```
 
 ## Running it
 
-```bash
+```
 python -m memorymap             # a browser tab at http://localhost:8000
 python -m memorymap --desktop   # the same app in its own window
 ```
@@ -163,18 +150,18 @@ On first run you choose a password (bcrypt-hashed, stays on your machine).
 After that:
 
 - **Capture** - type a thought; the AI files it and says *how*. Low-confidence
-  filings are flagged for review.
+filings are flagged for review.
 - **Ask** - a conversational answer plus the raw matching notes, side by side.
 - **Correct anything** - content, category, tags, links; soft-delete to a
-  recycle bin that auto-clears after 30 days (configurable).
+recycle bin that auto-clears after 30 days (configurable).
 - **Settings → Models** - whether Ollama is running, switch the chat model
-  instantly, download suggested models with progress bars, or change the
-  embedding backend (your notes re-index automatically).
+instantly, download suggested models with progress bars, or change the
+embedding backend (your notes re-index automatically).
 - **Settings → Web search** - off by default. See
-  [Privacy and security](#privacy-and-security).
+[Privacy and security](#privacy-and-security).
 - **Settings → Activity** - the audit log of every meaningful action.
 - **Settings → Account & security** - change your password or PIN (private
-  notes move across automatically), see open sessions, lock everywhere.
+notes move across automatically), see open sessions, lock everywhere.
 
 The interactive API explorer lives at <http://localhost:8000/docs>.
 
@@ -191,7 +178,7 @@ folder with `MEMORYMAP_DATA_DIR` rather than creating a second account.
 There is no reset link inside the app - one there would just be a way in for
 anyone at the keyboard. Instead:
 
-```bash
+```
 python -m memorymap --reset-password
 ```
 
@@ -200,31 +187,29 @@ very different things happen to your notes, and the command tells you which
 before you commit:
 
 - **Ordinary notes are not encrypted** by your password. They are plain rows in
-  SQLite and come back untouched.
+SQLite and come back untouched.
 - **Private notes are.** Their key is derived from the password, so without it
-  nobody can decrypt them - including this command. The reset loses them, and
-  it tells you how many you have first.
+nobody can decrypt them - including this command. The reset loses them, and
+it tells you how many you have first.
 
 No backdoor was added, on purpose.
 
 ## Privacy and security
 
 The whole app is built around one rule: **nothing leaves your machine unless
-you explicitly ask it to.** The server binds to localhost, every route except
-`/health` sits behind the unlock gate, and no asset is ever loaded from a CDN.
+you explicitly ask it to.** The server binds to localhost, every route except `/health` sits behind the unlock gate, and no asset is ever loaded from a CDN.
 
-**Web search is the single exception**, and it is off until you turn it on in
-**Settings → Web search**. When it is on:
+**Web search is the single exception**, and it is off until you turn it on in **Settings → Web search**. When it is on:
 
 - only your search words leave the computer - never your notes;
 - requests send an ordinary browser User-Agent rather than one naming this app,
-  keep no cookies between searches, send no `Referer`, and set DNT and Sec-GPC;
+keep no cookies between searches, send no `Referer`, and set DNT and Sec-GPC;
 - queries go by POST, so they stay out of request lines and access logs;
 - tracking parameters (`utm_*`, `fbclid`, `gclid`, …) are stripped from result
-  URLs before you ever see them;
+URLs before you ever see them;
 - you choose which engine answers - DuckDuckGo, your own
-  [SearXNG](https://searxng.org) instance, or automatic. MemoryMap can install
-  and run SearXNG for you, which keeps the query on your own network.
+[SearXNG](https://searxng.org) instance, or automatic. MemoryMap can install
+and run SearXNG for you, which keeps the query on your own network.
 
 **Opening a page** (the reader view, and the agent's `read_url` tool) is
 address-checked on *every* redirect hop and then pinned to the address that
@@ -238,13 +223,12 @@ and are excluded from search, the graph and every AI tool - the model cannot
 reach around the front door.
 
 `.github/workflows/codeql.yml` runs static security analysis on every push and
-weekly. [`SECURITY.md`](SECURITY.md) has the full model and how to report an
+weekly. [`SECURITY.md`](https://github.com/Braydenh563/MemoryMap-AI/blob/main/SECURITY.md) has the full model and how to report an
 issue.
 
 ## Troubleshooting
 
-<details>
-<summary><strong>Windows: "torch_xpu.dll … WinError 127" and search falls back to keywords</strong></summary>
+**Windows: "torch_xpu.dll … WinError 127" and search falls back to keywords**
 
 You'll see a banner like *"The specified procedure could not be found. Error
 loading …\torch\lib\torch_xpu.dll"*. The app is fine - this is torch's default
@@ -256,7 +240,7 @@ torch on Windows.
 
 **Already installed the broken wheel?** Swap it:
 
-```powershell
+```
 pip uninstall -y torch
 pip install torch --index-url https://download.pytorch.org/whl/cpu
 ```
@@ -267,10 +251,7 @@ Then restart the app.
 set it as the embedding backend. It runs entirely through Ollama, needs no
 torch at all, and your notes re-index automatically.
 
-</details>
-
-<details>
-<summary><strong>Web search returns nothing, or says DuckDuckGo is rate-limiting</strong></summary>
+**Web search returns nothing, or says DuckDuckGo is rate-limiting**
 
 Scraping DuckDuckGo gets rate-limited, and the app now says so rather than
 showing an empty panel. Waiting a few minutes usually clears it.
@@ -279,66 +260,55 @@ The real fix is your own SearXNG instance: **Settings → Web search → Start
 SearXNG**. MemoryMap installs it (Docker if you have it, otherwise a virtualenv
 of its own), configures the JSON API, and points search at it.
 
-</details>
-
-<details>
-<summary><strong>SearXNG won't start, or starts and never answers</strong></summary>
+**SearXNG won't start, or starts and never answers**
 
 Everything you need is on **Settings → Web search**:
 
 - **The port line** says whether port 8888 is free, held by a working SearXNG
-  (fine - MemoryMap will just use it), or held by something else (the only case
-  you have to go and fix).
+(fine - MemoryMap will just use it), or held by something else (the only case
+you have to go and fix).
 - **What SearXNG reported** is a fold with the instance's own output - the
-  actual traceback, not a guess. It's kept in `data/searxng/searxng.log` too.
+actual traceback, not a guess. It's kept in `data/searxng/searxng.log` too.
 - **↻ Reinstall** deletes the downloaded copy and its virtualenv and builds a
-  fresh one. This is the fix when an install was interrupted, or the Python it
-  was built against has since been upgraded: it *looks* installed and dies
-  instantly on start. Your `settings.yml` is kept - it holds the instance's
-  secret key and any edits you made, and it isn't what breaks.
+fresh one. This is the fix when an install was interrupted, or the Python it
+was built against has since been upgraded: it *looks* installed and dies
+instantly on start. Your `settings.yml` is kept - it holds the instance's
+secret key and any edits you made, and it isn't what breaks.
 
-</details>
-
-<details>
-<summary><strong>The header pill / dot says the AI is off</strong></summary>
+**The header pill / dot says the AI is off**
 
 That's amber, not red, and it's a supported state: the app is built to degrade.
 Capture and keyword search work exactly as normal; only auto-filing and chat
 answers need Ollama. Red is reserved for a model that failed to load or a
-server that can't be reached.
+server that can't be reached - rarer, since it needs Ollama to be *reachable
+but failing* rather than simply not running.
 
-</details>
-
-<details>
-<summary><strong>Something looks wrong and I want to see what happened</strong></summary>
+**Something looks wrong and I want to see what happened**
 
 **Settings → Logs** shows the server's own log without hunting for a terminal.
 It's memory-only - nothing is written to disk - in keeping with the rest of the
 privacy posture.
 
-</details>
-
 ## Where your data lives
 
 Everything is in the `data/` folder (gitignored):
 
-| Path | What |
-| --- | --- |
-| `data/memorymap.db` | The SQLite database - all your notes |
-| `data/preferences.json` | Your settings |
-| `data/uploads/` | Attachments and sketches |
-| `data/backups/` | Daily local snapshots |
+| Path                    | What                                 |
+| ------------------------| ------------------------------------ |
+| `data/memorymap.db`     | The SQLite database - all your notes |
+| `data/preferences.json` | Your settings                        |
+| `data/uploads/`         | Attachments and sketches             |
+| `data/backups/`         | Daily local snapshots                |
 
 Point `MEMORYMAP_DATA_DIR` somewhere else to relocate all of it.
 
 **Schema upgrades happen automatically at startup** - new columns are added in
-place, your notes are never touched. You do *not* need to delete
-`data/memorymap.db` when updating.
+place, your notes are never touched. You do *not* need to delete `data/memorymap.db` when updating.
 
 ## Developing
 
-```bash
-pytest                       # 547 tests, about a minute
+```
+pytest                       # ~560 tests, about a minute
 ruff check .                 # what CI lints with
 node --check frontend/app.js # the frontend is one plain-JS file
 ```
@@ -349,11 +319,10 @@ fully offline - no GPU, no models, no network.
 **They also cannot see the interface.** Every layout and wiring bug found so
 far passed a fully green run: a header overflowing its own box by 215px, a
 button focusing an element inside a hidden section, an accent picker with no
-effect. Drive the app in a browser before believing a frontend change works -
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §10 says how, and lists the
+effect. Drive the app in a browser before believing a frontend change works - [`docs/ARCHITECTURE.md`](https://github.com/Braydenh563/MemoryMap-AI/blob/main/docs/ARCHITECTURE.md) §10 says how, and lists the
 layout traps that keep catching people out.
 
-[`CONTRIBUTING.md`](CONTRIBUTING.md) covers setup and opening a PR.
+[`CONTRIBUTING.md`](https://github.com/Braydenh563/MemoryMap-AI/blob/main/CONTRIBUTING.md) covers setup and opening a PR.
 
 ## Project layout
 
@@ -376,44 +345,49 @@ Phases 1–5 and waves A–P are done: the walking skeleton, the AI, the web
 interface, the model manager, the core MVP, then the app shell, agentic tools,
 the graph, the platform work (command palette, backups, PWA, web search, sketch
 pad), voice and desktop, hardening, and the depth pass (documents, private
-notes, search operators, themes). [`CHANGELOG.md`](CHANGELOG.md) has it wave by
-wave.
+notes, search operators, themes). Since then: a rebuilt skill system (ordered
+steps, a tool allowlist, an undoable result), SearXNG-backed web search,
+markdown rendering in the note list, and the Timeline tab above.
+[`CHANGELOG.md`](https://github.com/Braydenh563/MemoryMap-AI/blob/main/CHANGELOG.md) has it wave by wave.
 
-**Next up**, in order:
+**Next up**, in order - by how often it gets in the way, not how interesting
+it is to build:
 
-1. **A real skill system** - skills are still just saved prompts, with no steps,
-   no declared tools and no result you can undo
-2. **SearXNG-backed web search**, so results don't depend on scraping
-3. **Lower per-turn token cost** in chats
-4. **Markdown rendering in the note list**
-5. **A grouped note timeline**
+1. **The graph's utility** - paths between notes, clusters, drag-to-link. The
+layouts are done; what it can *do* for you isn't.
+2. **The live log console** - started, not finished. `/logs` is streamed but
+not followed, filtered, or exportable yet.
+3. **Chat / Agent / Browse as their own sub-tabs**, so a plain question, a
+tool-calling run and a web page aren't sharing one column.
+4. **A Library tab** - one place for stored images, documents, chats and an
+archive, none of which has a home today.
 
-[`docs/ROADMAP.md`](docs/ROADMAP.md) has the reasoning behind each, which is the
+[`docs/ROADMAP.md`](https://github.com/Braydenh563/MemoryMap-AI/blob/main/docs/ROADMAP.md) has the reasoning behind each, which is the
 expensive part to reconstruct.
 
 ## Documentation
 
-| Document | What's in it |
-| --- | --- |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | The whole project explained: design principles, request lifecycle, data model, the AI stack, and where to look to change any given thing |
-| [`docs/ROADMAP.md`](docs/ROADMAP.md) | What's outstanding, in order, and *why* each thing matters |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Setup, tests, opening a PR |
-| [`SECURITY.md`](SECURITY.md) | The security model and how to report an issue |
-| [`CHANGELOG.md`](CHANGELOG.md) | What changed, wave by wave |
+| Document                                                                           | What's in it                                                                                                                             |
+| ------------------------------------------------------------------------------------| ------------------------------------------------------------------------------------------------------------------------------------------|
+| [`docs/ARCHITECTURE.md`](https://github.com/Braydenh563/MemoryMap-AI/blob/main/docs/ARCHITECTURE.md) | The whole project explained: design principles, request lifecycle, data model, the AI stack, and where to look to change any given thing |
+| [`docs/ROADMAP.md`](https://github.com/Braydenh563/MemoryMap-AI/blob/main/docs/ROADMAP.md)           | What's outstanding, in order, and *why* each thing matters                                                                               |
+| [`CONTRIBUTING.md`](https://github.com/Braydenh563/MemoryMap-AI/blob/main/CONTRIBUTING.md)           | Setup, tests, opening a PR                                                                                                               |
+| [`SECURITY.md`](https://github.com/Braydenh563/MemoryMap-AI/blob/main/SECURITY.md)                   | The security model and how to report an issue                                                                                            |
+| [`CHANGELOG.md`](https://github.com/Braydenh563/MemoryMap-AI/blob/main/CHANGELOG.md)                 | What changed, wave by wave                                                                                                               |
 
 ### Operational decisions worth knowing
 
 - **Migrations are additive.** `core/database.py` adds new columns to existing
-  databases at startup; users never delete their data to upgrade. **Alembic is
-  deliberately deferred** until a column rename or removal is genuinely needed.
+databases at startup; users never delete their data to upgrade. **Alembic is
+deliberately deferred** until a column rename or removal is genuinely needed.
 - **SQLCipher is deferred too.** It needs a native dependency on every platform
-  for a single-user local file. If your notes are sensitive, your OS's disk
-  encryption (BitLocker / FileVault) protects the whole data folder today, and
-  private notes are already encrypted individually.
+for a single-user local file. If your notes are sensitive, your OS's disk
+encryption (BitLocker / FileVault) protects the whole data folder today, and
+private notes are already encrypted individually.
 - **CI** lints with ruff and runs the full suite on Python 3.11, 3.12 and 3.13
-  on every push and PR. It needs no GPU, no models and no network beyond pip.
-  CodeQL adds static security analysis; Dependabot keeps dependencies current.
+on every push and PR. It needs no GPU, no models and no network beyond pip.
+CodeQL adds static security analysis; Dependabot keeps dependencies current.
 
 ## License
 
-Released under the [MIT License](LICENSE).
+Released under the [MIT License](https://github.com/Braydenh563/MemoryMap-AI/blob/main/LICENSE).

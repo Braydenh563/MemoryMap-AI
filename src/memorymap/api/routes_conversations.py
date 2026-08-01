@@ -38,6 +38,27 @@ class TurnBody(BaseModel):
     # carrying?" is only answerable per-message today, which is the wrong
     # granularity — the total is what decides whether to start a new chat.
     tokens: int | None = None
+    # The whole metadata line, not just its total: which model answered, how
+    # long it took, prompt→output counts, how full the window got, whether
+    # those counts were measured or estimated.
+    #
+    # Reported in IDEAS.md as "chat message metadata disappears on reload".
+    # `tokens` above is a sum, which is the right shape for the conversation
+    # total and the wrong one for the per-message line — you cannot rebuild
+    # "3.9k of 8k, 12 tok/s, llama3.2" from a single integer, so on reload the
+    # line simply vanished and the chat looked like it had been answered by
+    # nothing in particular.
+    #
+    # A free-form dict rather than a model with fields: it is written by the
+    # provider and read by one function in `app.js`, and pinning its shape here
+    # would mean a third place to edit every time a provider learns to report
+    # something new. Bounded instead by only ever storing what the client sends
+    # back from a `stats` event.
+    stats: dict | None = None
+    # Wall-clock for the whole turn, measured by the client because it is the
+    # only thing that saw all of it: the server reports per-round timings, and
+    # an agent turn is several rounds plus the tool calls between them.
+    elapsed_ms: int | None = None
 
 
 class RenameBody(BaseModel):
@@ -56,6 +77,10 @@ def _turn_messages(turn: TurnBody) -> list[dict]:
         assistant["steps"] = turn.steps
     if turn.tokens:
         assistant["tokens"] = turn.tokens
+    if turn.stats:
+        assistant["stats"] = turn.stats
+    if turn.elapsed_ms is not None:
+        assistant["elapsed_ms"] = turn.elapsed_ms
     return [
         {"role": "user", "content": turn.question},
         assistant,

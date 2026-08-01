@@ -4673,6 +4673,15 @@ async function sendChatMessage(preset, opts = {}) {
       tokens: stats
         ? (stats.prompt_tokens || 0) + (stats.output_tokens || 0)
         : null,
+      // The whole metadata line, not just its total. `tokens` above is a sum,
+      // which is right for the conversation's running total and useless for
+      // rebuilding "3.9k/8k window · 12 tok/s · llama3.2" — so on reload the
+      // line used to vanish and the answer looked like it came from nowhere.
+      stats: stats || null,
+      // How long the answer took, measured here because the client is the only
+      // thing that saw the whole turn: the server reports per-round timings,
+      // and an agent turn is several rounds plus the tool calls between them.
+      elapsed_ms: elapsedMs,
     };
     if (chatConv.id === null) {
       const created = await apiJson("/conversations", {
@@ -5205,6 +5214,22 @@ async function openConversation(id) {
         }
       }
       handles.timeline.finalise();
+      // Rebuild the metadata line. Reported in IDEAS.md as "chat message
+      // metadata disappears on reload": it was only ever built from the live
+      // stream, so reopening a chat showed answers with nothing to say which
+      // model wrote them or what they cost. Turns saved before this stored no
+      // stats and correctly get no line, rather than a row of "?"s.
+      if (message.stats) {
+        handles.bubble.appendChild(
+          messageMetaLine({
+            model: message.stats.model,
+            elapsedMs: message.elapsed_ms,
+            stats: message.stats,
+            toolCount: (message.tools || []).length,
+            rounds: message.stats.round || 0,
+          })
+        );
+      }
       const turnIndex = chatConv.turns.length; // index this pair will occupy
       if (message.edited) handles.bubble.appendChild(editedMarker());
       handles.bubble.appendChild(

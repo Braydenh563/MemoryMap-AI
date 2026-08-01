@@ -86,3 +86,73 @@ def test_the_latest_answer_reaches_a_follow_up_nearly_whole():
         len(a) <= librarian.MAX_HISTORY_ANSWER_CHARS for a in answers[:-1]
     )
     assert len(answers[-1]) == librarian.LAST_ANSWER_CHARS
+
+
+# --- surviving a reload (IDEAS.md: "metadata disappears on reload") ----------
+
+
+def test_a_saved_turn_keeps_the_whole_metadata_line(ai_client):
+    """`tokens` is a sum, which is the right shape for the conversation total
+    and useless for rebuilding the per-message line — you cannot get "3.9k of
+    8k, 12 tok/s, llama3.2" back out of a single integer. So the line simply
+    vanished on reload and the answer looked like it came from nowhere."""
+    stats = {
+        "model": "llama3.2",
+        "prompt_tokens": 3900,
+        "output_tokens": 120,
+        "eval_ms": 800,
+        "context_tokens": 8192,
+        "usage_source": "real",
+    }
+    created = ai_client.post(
+        "/conversations",
+        json={
+            "question": "what did I write about beans?",
+            "answer": "You wrote about netting them.",
+            "tokens": 4020,
+            "stats": stats,
+            "elapsed_ms": 1500,
+        },
+    ).json()
+
+    full = ai_client.get(f"/conversations/{created['id']}").json()
+    assistant = next(m for m in full["messages"] if m["role"] == "assistant")
+    assert assistant["stats"] == stats
+    assert assistant["elapsed_ms"] == 1500
+    # The running total still works — this adds to it rather than replacing it.
+    assert full["tokens"] == 4020
+
+
+def test_an_older_turn_without_stats_still_loads(ai_client):
+    """Chats saved before this stored no stats. They must render without a
+    metadata line rather than with a row of "?"s — or worse, an error."""
+    created = ai_client.post(
+        "/conversations", json={"question": "q", "answer": "a", "tokens": 10}
+    ).json()
+    assistant = next(
+        m
+        for m in ai_client.get(f"/conversations/{created['id']}").json()["messages"]
+        if m["role"] == "assistant"
+    )
+    assert "stats" not in assistant
+    assert "elapsed_ms" not in assistant
+
+
+def test_the_window_and_the_estimate_flag_survive_too(ai_client):
+    """The two fields that make the line worth reading: how full the window
+    got, and whether the numbers were measured or guessed."""
+    created = ai_client.post(
+        "/conversations",
+        json={
+            "question": "q",
+            "answer": "a",
+            "stats": {"prompt_tokens": 100, "context_tokens": 4096, "usage_source": "estimated"},
+        },
+    ).json()
+    assistant = next(
+        m
+        for m in ai_client.get(f"/conversations/{created['id']}").json()["messages"]
+        if m["role"] == "assistant"
+    )
+    assert assistant["stats"]["context_tokens"] == 4096
+    assert assistant["stats"]["usage_source"] == "estimated"

@@ -22,7 +22,7 @@ built (build plan §0: never expand scope mid-phase).
 - Clean up timeline and graph ui and fix spacing within the window
 - No MD renering in some of the widgets on the dashboard. 
 - More dashboard widgets! maybe some pi graphs??
-- Chat message metadata disappears on reload or restart of app. and better chat utility and learnability, better way to track tokens and other things
+- ~~Chat message metadata disappears on reload or restart of app.~~ **fixed** — the whole stats block is stored per turn now, not just the token sum, so the line rebuilds on reopen. The token tracking half is also done: every message says how full the model's window got, and marks an estimate as one. What is left of this line is "better chat utility and learnability".
 - Need more tools for things (e.g. managing (creating, editing, deleting, and applying categories, and other things as well.)), more agentic capabilities and better handling and agentic workflow with said tools.
 - The Notes and documents are like a merge of onenote, obsidian, and notion. Improve the documents feature and expand/improve on the connectedness between the two features, they should basically be two halves of a whole.
 - An agent ask for permission dialogue in the chat and documents, document and note edit suggestions + before and after comparison before change?? maybe allow the agent to be accessed from anywhere in the program?? Allow the agent to control your screen within the application to navigate and make changes (with the user able to cancel it at any time - can have a cool animated border animation), these would also show in the logs and background processes.

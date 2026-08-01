@@ -58,6 +58,35 @@ bets**](#priority-map-quick-wins-bigger-bets), right below — sorted by effort
 rather than usage history, since most of it hasn't been used yet to sort the
 other way.
 
+## Next session: start here
+
+Named directly at the end of the last session, in this order:
+
+1. **§6 — other local AI backends (LM Studio, llama.cpp, Jan, vLLM).** The
+   headline ask. §6 now opens with a "read this before starting" block: the
+   context work has already staked out the four things a provider must answer
+   (`usable_context`, runtime options, tool-call shape, streaming shape) and
+   which of them already degrade gracefully when a provider cannot. LM Studio
+   reports `max_context_length` on `GET /api/v0/models`, so the window
+   budgeting carries over. Pair it with §20's async-httpx item — both rewrite
+   the same client.
+2. **Keep the agent lean.** §11a's fixed *and* variable halves are now
+   budgeted (`ai/context.py`), and §14's tool list is fitted to the model
+   rather than to a constant. **What is genuinely left is the output side:**
+   `num_predict` is a flat 1,024 for every request, and the
+   quick/normal/detailed preset in §11 is what would make it adaptive —
+   together with per-mode temperature and thinking budget, which was asked
+   for separately and is the same preset.
+3. **Possibly: read another repository and take what fits.** Worth doing the
+   way the Headroom evaluation in §11 was done — measure this app's actual
+   numbers first, then judge the import against them. That evaluation
+   *changed its own answer* halfway through on the strength of one
+   measurement, and it is the format to copy.
+
+Everything below this block is the standing backlog, unchanged.
+
+---
+
 ## Do these next, in this order
 
 Re-prioritised after a round of use. The ordering is by *how often it gets in
@@ -88,10 +117,16 @@ the way*, not by how interesting it is to build.
    halves.** A skill run offers only the tools it declared (1,963 characters
    of schema rather than 10,215); an ordinary turn is now read for what it
    plausibly needs (`tools.focus_for`), which takes the *fixed* overhead of a
-   typical question from ~3,157 tokens to ~1,439. **What is left here is the
-   variable half**: the retrieved notes and the history are still resent
-   whole on every turn, and nothing has measured which of those dominates a
-   real 3-turn chat. Log the prompt-token count per round before cutting.
+   typical question from ~3,157 tokens to ~1,439. ~~What is left here is the
+   variable half~~ **the variable half is now budgeted too — see
+   `ai/context.py`.** Every part of the prompt is a share of the model's real
+   window rather than its own constant, so the worst case fits by
+   construction instead of by luck; the measurement that motivated it (the
+   old worst case was ~11,328 tokens against a 4,096 window) is written up in
+   "Done in the most recent session". **What is genuinely left is the output
+   side** — `num_predict` is capped at a flat 1,024 now, and the
+   quick/normal/detailed preset below is what would make that adaptive rather
+   than uniform.
 4. ~~**Markdown rendering for notes** (§22)~~ **done.** Inline only — bold,
    italic, `code`, strike — because `renderMarkdown`'s block elements make a
    note list enormous, which is the problem §22 itself flagged. Wiki links and
@@ -463,7 +498,7 @@ survived contact with the actual architecture.
 
 ## How to work on this repo
 
-- `pytest` — 758 tests, fully offline, no Ollama needed (`pytest.ini` sets
+- `pytest` — 864 tests, fully offline, no Ollama needed (`pytest.ini` sets
   `pythonpath = src`, so this works without an editable install)
 - `ruff check .` — matches CI
 - `node --check frontend/app.js` — the frontend is one large plain-JS file, so a
@@ -482,6 +517,12 @@ likely to fail on you without you having broken anything visible:
   *frontend*: that `index.html` contains no `style=""` attribute, and that
   custom CSS does not inject a `<style>` tag. Both would otherwise fail
   silently in a browser and nowhere else.
+- `tests/test_context_budget.py` — that one turn's worst case still fits the
+  model's window, at every window size. This is the one that fails if a new
+  part of the prompt is added without giving it a share, or if a share is
+  raised without taking it from somewhere else. It also asserts that all four
+  Ollama generation paths send an options block, because a payload that
+  quietly omits one is a model running on the backend's defaults again.
 - the pre-paint theme table in `index.html` drifting from `THEME_PRESETS`.
 
 **Drive the app in a browser before claiming anything works.** Chromium is
@@ -630,6 +671,48 @@ thing. Don't ship one you couldn't test.
 
 Newest at the top. Everything here is on `main` (or the branch merging into
 it), verified, and must not be rebuilt.
+
+**The whole prompt is budgeted against the model's window now — this was the
+"maxed out token window" failure, and it was real.** Asked directly: *"make
+sure the AI can run as efficiently and effectively as possible… I don't want
+it being too prompt and context heavy and then taking ages to respond or
+failing due to a quickly maxed out token window."*
+
+Measured before cutting, as §11a insists. **Nothing added the parts up.** Each
+cap was individually reasonable and set in a different session against a
+different concern:
+
+| Part | Chars | Tokens |
+| --- | ---: | ---: |
+| System prompt | 2,416 | ~604 |
+| Tool schemas | 4,096 | ~1,024 |
+| History (4 turns) | 5,800 | ~1,450 |
+| Notes (10 × 900) | 9,000 | ~2,250 |
+| Tool results across a loop | 24,000 | ~6,000 |
+| **Worst case** | **45,312** | **~11,328** |
+
+Against a 4,096-token window that is **2.8× over**, and the tool-result cap
+alone exceeded the whole window by half. Overflow is dropped from the *front*,
+which is the system prompt — so it never raised, it just stopped the model
+knowing it had tools. `ai/context.py` now derives every share from what is
+actually left after the system prompt and a reserve for the reply, so the
+worst case fits every window exactly, and a 32k model gets **more** than the
+old constants ever allowed (they were sized for the smallest case and applied
+to everyone).
+
+**Two things were sent to Ollama for the first time**, and the second is the
+subtle one:
+
+- `num_predict` — the reply was unbounded. Output tokens are generated one at
+  a time, so they dominate wall-clock; an unbounded reply is the commonest
+  reason an answer "takes ages".
+- `num_ctx` — **Ollama runs a model at its own default (commonly 4,096)
+  regardless of what the model was trained for.** So reading 32k from
+  `/api/show` and budgeting against it, *without also asking for 32k*, would
+  have reproduced the exact overflow the budget exists to prevent. The number
+  budgeted against and the number requested are now the same one. Capped at
+  8k by default because the KV cache scales with the window and a 7B at 128k
+  wants gigabytes a laptop may not have — `max_context_tokens` raises it.
 
 **Tools are fitted to the model, not to a constant.** Asked directly — *"if
 adding more tools is an issue, can we change or improve how tools are used so
@@ -1256,6 +1339,45 @@ tool calls degrades to plain Q&A exactly as a tool-less Ollama model does today.
 
 Best done together with the async-httpx refactor in §10 — both rewrite the same
 client, and doing them separately means touching the streaming path twice.
+
+**Read this before starting — the context work has already staked out the
+interface.** Four things a provider must now answer, and what happens when it
+cannot:
+
+1. **`usable_context(model)`** — the window to budget against. Already reached
+   through `getattr` in `agent.run_agent` for exactly this reason: reporting a
+   context length is an Ollama feature (`/api/show`), and a provider that
+   cannot answer falls back to `DEFAULT_CONTEXT_TOKENS` rather than crashing
+   the turn. **LM Studio does expose this** — `GET /api/v0/models` returns
+   `max_context_length` and `loaded_context_length` — so the interface should
+   have it, with a `None` return meaning "ask me nothing further".
+2. **`runtime_options(model)`** — currently Ollama's `num_ctx`/`num_predict`.
+   The OpenAI shape spells these `max_tokens` (and has no `num_ctx` at all —
+   the window is fixed when the model is loaded). So this cannot stay an
+   Ollama-shaped dict on the interface: either each provider translates a
+   neutral `{context_tokens, max_output_tokens}`, or it owns the whole payload.
+   **The neutral pair is the better shape** — the agent should not learn four
+   dialects.
+3. **Tool-call shape.** `_normalise_tool_calls` and `extract_text_tool_calls`
+   already exist because Ollama models are inconsistent *among themselves*; the
+   OpenAI shape (`tool_calls[].function.arguments` as a JSON *string*) is
+   another dialect on the same axis, and `extract_text_tool_calls` already
+   handles that spelling. Reuse rather than re-derive.
+4. **Streaming shape.** Ollama sends bare JSON lines; OpenAI sends SSE
+   `data: {...}` with a `[DONE]` sentinel and deltas nested under
+   `choices[0].delta`. `_ThinkTagSplitter` and `_ToolTextGate` sit *above*
+   this and should not need to change — keep the split at "parse one chunk"
+   so they don't.
+
+The capability-detection point in the paragraph above is now cheap: a provider
+that returns `None` from `usable_context` and `[]` from a tools probe already
+degrades correctly through paths that exist and are tested.
+
+**One trap that is specific to this work.** `tests/test_context_budget.py`
+asserts that all four Ollama generation paths send an options block. A new
+provider needs the equivalent assertion of its own, or it will run on the
+backend's defaults — which is the bug §11a spent this session fixing, arriving
+again through a different door.
 
 ---
 

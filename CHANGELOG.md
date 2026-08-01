@@ -149,6 +149,34 @@ so the next audit does not have to rediscover them. The other four were real.
 
 ### Changed
 
+- **The whole prompt is now sized to the model's real context window.** Every
+  part of it — the instructions, the tool definitions, your retrieved notes,
+  the conversation so far, and the results of anything the AI looks up — used
+  to have its own separate limit, and nothing ever added them up. Together they
+  came to roughly 11,300 tokens against a window that is commonly 4,096: nearly
+  three times too big. When that overflows, the *start* of the prompt is what
+  gets discarded, which is the part telling the AI what it can do — so the
+  symptom was an assistant that suddenly forgot it had tools, rather than any
+  error you could see.
+
+  Each part is now a share of what's actually available, with room kept back
+  for the reply. Small models get a tighter, working prompt instead of a broken
+  one; large models get **more** than the old limits ever allowed, since those
+  were sized for the smallest case and applied to everyone. If notes don't fit,
+  the AI is told so it can search for the rest rather than answering as though
+  it saw everything.
+
+- **Replies are length-capped, so answers arrive instead of rambling.** Nothing
+  bounded the response before. Local models generate one token at a time, so a
+  long answer costs far more waiting than a long prompt does.
+
+- **MemoryMap now tells Ollama how much context to allocate.** It previously
+  sent no settings at all, so Ollama used its own default — typically 4,096
+  tokens — no matter what the model was capable of. Asking for the right window
+  is what makes the budgeting above true rather than optimistic. Capped at 8,192
+  by default because a larger window costs memory; raise `max_context_tokens`
+  in preferences if your machine has room.
+
 - **The AI is given as many tools as its model can actually hold.** The number
   used to be fixed, tuned for a 4,096-token context — which is what Ollama
   falls back to when a model doesn't declare a size, not a fact about any

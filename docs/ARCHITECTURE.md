@@ -233,6 +233,40 @@ records which notes came from where.
 
 *Online (opt-in, off by default):* `web_search` · `read_url`
 
+### The context budget
+
+`ai/context.py` sizes **one whole turn** against the model's window before any
+of it is assembled. Nothing else in the AI path holds a fixed character limit,
+because the bug it replaced was that each part had one and nothing added them
+up: the worst case came to ~11,328 tokens against a window that is commonly
+4,096, and overflow is dropped from the *front* — the system prompt — so a
+model that overflowed simply stopped knowing it had tools.
+
+```
+window  ──┬── reply reserve (15%)      kept back; num_ctx covers both
+          ├── system prompt            measured, not assumed (persona is editable)
+          └── the rest, split:
+                tool schemas  30%      what the agent needs to act at all
+                tool results  30%      capped by TOOL_RESULT_BUDGET_CHARS
+                notes         25%   ┐  recoverable — the model can ask for
+                history       15%   ┘  more (get_note, the visible thread)
+```
+
+Notes and history yield first when space is short *because they are
+recoverable*: `get_note` reads one in full, and the conversation is still on
+screen. Notes are dropped whole rather than all clipped shorter — ten notes cut
+to a sentence each are ten things the model cannot quote, four whole ones are
+four it can — and the model is told how many did not fit. History is kept in
+whole user/assistant pairs, since half an exchange invites the model to invent
+the missing side.
+
+`OllamaClient.runtime_options` then sends `num_ctx` **and** `num_predict` with
+every generation. Both matter, and the first is easy to miss: Ollama runs a
+model at its own `num_ctx` default regardless of what the model was trained
+for, so budgeting against a declared 32k without also *asking* for it
+reproduces the exact overflow the budget prevents. The number budgeted against
+and the number requested are the same one.
+
 **How many tools a turn actually sends** is decided in two steps, and neither
 is a fixed number:
 

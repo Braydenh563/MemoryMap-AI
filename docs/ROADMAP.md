@@ -18,6 +18,7 @@ the part that's expensive to reconstruct.
 - [2. Quick wins](#2-quick-wins)
 - [3. Chat page: Chat / Agent / Browse sub-tabs](#3-chat-page-chat-agent-browse-sub-tabs)
 - [4. Library tab: chats, documents, images, archive](#4-library-tab-chats-documents-images-archive)
+- [4a. A real whiteboard, not just a bigger sketch](#4a-a-real-whiteboard-not-just-a-bigger-sketch)
 - [5. Documents](#5-documents)
 - [6. OpenAI-compatible backends (LM Studio, llama.cpp, Jan, vLLM)](#6-openai-compatible-backends-lm-studio-llamacpp-jan-vllm)
 - [7. Desktop packaging](#7-desktop-packaging)
@@ -190,16 +191,31 @@ have a version of.
 
 - The Timeline branch/line view (§10C) — new rendering work, but reuses
   §9's clustering and §10A's date data rather than inventing new grouping
-- Chat / Agent / Browse as real sub-tabs (§3)
+- Chat / Agent / Browse as real sub-tabs (§3) — see the sequencing note
+  below before starting this one
 - The Library tab (§4)
 - The graph's utility — paths between notes, clusters, drag-to-link; the
   layouts are already done (§9)
 - An eval/benchmark harness for tokens, latency and filing accuracy
   together (§11, §31)
-- Splitting `app.js` into ES modules, one file per tab (§31) — mechanical
-  and low-risk if done incrementally, tab by tab, rather than all at once
-- A headless Playwright smoke suite in CI (§31) — the direct answer to "every
-  layout bug passes a green run"
+- A headless Playwright smoke suite in CI (§31) — **do this before the
+  module split below, not after.** It's the direct answer to "every layout
+  bug passes a green run," and it's also the safety net a mechanical refactor
+  of the frontend needs before it happens, not once it's already done.
+- Splitting `app.js` into ES modules, one file per tab (§31) — **not a
+  standalone session; ride it in on §3.** Asked directly whether this
+  refactor should happen first, ahead of everything else here, precisely
+  because every new feature adds more code to the one file. The dependency
+  runs the other way, though: touching 12k working lines with nothing
+  automated to catch a regression is the riskiest kind of change to make
+  *before* the smoke suite above exists, not after — the app's own history
+  ("every layout bug found so far passed a fully green run") is a warning
+  about exactly this. Once the smoke suite exists, the cheapest way to do
+  the split is incrementally, one module per tab, timed to land alongside
+  work that's already touching that part of the file — §3's Chat/Agent/Browse
+  split is the natural first slice, since extracting Chat into its own
+  module is close to free as a byproduct of that work, versus a dedicated
+  pass that touches the same code twice for no additional feature.
 - The app-control/health-check screen, without the tray/packaging work
   around it yet (§25)
 - First-run diagnostics folded into onboarding (§27)
@@ -228,25 +244,27 @@ decision before starting, not a session that discovers the scope midway.
 
 ## Folded in from IDEAS.md and outside review
 
-Two outside reviews of the repo (Perplexity, two passes; a similar pass from
-Gemini) and the running `IDEAS.md` parking lot are merged into the sections
-below, rather than kept as separate documents. Two things worth knowing
-before trusting any of it:
+Two outside reviews of the repo (Perplexity, two passes; Gemini, two passes)
+and the running `IDEAS.md` parking lot are merged into the sections below,
+rather than kept as separate documents. Worth knowing before trusting any of
+it:
 
-**The outside reviews were working from a stale GitHub profile blurb, not the
-repo.** Neither tool could actually fetch `README.md`/`ARCHITECTURE.md` at
-the time, so both built their picture from a one-line bio — "models bundled
-directly, no Ollama, LM Studio, or external setup required" — which describes
-a *different* project, not this one. MemoryMap AI talks to Ollama over its
-local REST API (`ai/ollama_client.py`) and has done since Phase 2; there is
-no bundled model, no hardware-aware model routing to build, no model-pack
-checksum/rollback system to build. Everything in both reviews that assumed
-bundled models is dropped rather than reframed — see §30 for the specific
-items and why. What *did* transfer are the parts that were really about
-general local-AI-app hygiene and happen to fit this repo anyway: prompt
-observability, a support bundle, an eval harness, first-run diagnostics.
-Those are folded into §1, §11 and the new §25–§28 below, in this app's actual
-shape.
+**The two reviews failed differently, and §30 tells them apart.**
+Perplexity reasoned carefully from a real but stale GitHub bio — "models
+bundled directly, no Ollama… required" — which describes a *different*
+project, not this one; MemoryMap AI talks to Ollama over its local REST API
+(`ai/ollama_client.py`) and has done since Phase 2. Gemini's *first* pass,
+denied repo access the same way, didn't hedge — it fabricated a specific
+architecture (a "Ghost Sidebar" UI, a ChromaDB/LlamaIndex pipeline) that
+matches nothing here. Its *second* pass, after reading the live GitHub Pages
+site, is accurate, and its suggestions are judged on their merits rather
+than discarded — see §4, §17, §24, §26, §29 and §21 for where they landed.
+Full breakdown, including exactly what got dropped and why, is in §30. What
+*did* transfer from the first-pass problems are the parts that were really
+about general local-AI-app hygiene and happen to fit this repo anyway:
+prompt observability, a support bundle, an eval harness, first-run
+diagnostics. Those are folded into §1, §11 and §25–§28 below, in this app's
+actual shape.
 
 **IDEAS.md was a parking lot on purpose** ("out of scope right now"), so
 folding it in here is the point of this pass — some of it duplicates work
@@ -264,8 +282,8 @@ survived contact with the actual architecture.
 |---|---|
 | Update README + GH Pages | §22 (new) |
 | "ai is cool" filed under Sketches | §8 (new) |
-| Expand sketches / whiteboard tab | §4 item 4 (new) |
-| Image/file uploads + drag-and-drop | §4 item 1 — mostly done for images; note added on the file-type gap that's left |
+| Expand sketches / whiteboard tab | §4a (new, fully scoped) |
+| Image/file uploads + drag-and-drop | §4 item 1 — fully scoped, asked for again directly |
 | Manual grouping of notes | §23 (new) |
 | Multi-category notes | §23 (new) |
 | Guided first-run setup | §27 (new) |
@@ -702,30 +720,97 @@ tab, and there is no archive at all.
 **Order matters — images first, since the gallery is a view over what they
 store:**
 
-1. **Image support.** Paste or drop an image into a note or document. The
-   `attachments` table and `routes_files.py` already store files, so this is
-   mostly a paste handler plus rendering. Decide inline markdown (`![](…)`) vs a
-   separate attachment list — inline keeps exports portable, the same reasoning
-   behind the markdown toolbar. Documents have no attachment support at all yet.
-   **What's still missing:** this is images specifically — a non-image file
-   (a PDF, a `.docx`) dropped on a plain note has nowhere to go today. `📎
-   Attach a file` exists for notes generally per §5, so the gap is narrower
-   than it first looks: drag-and-drop onto the *note capture box itself*,
-   not just the existing attach button, and a preview/icon in the note card
-   for a non-image attachment the way an image gets a thumbnail.
-2. **Archive.** A state between "active" and "binned", for things you want out
+1. **File uploads on notes — asked for again, directly: "I want to be able
+   to upload files with notes."** Worth being precise about what's already
+   there versus what isn't, since this is narrower than it sounds:
+   - **Already exists:** images can be pasted or dropped into a note or
+     document (this item, above), and `📎 Attach a file` stores an arbitrary
+     file (PDF, `.docx`, anything) against a note and gives you back a
+     download — so the storage layer and one upload path both already
+     handle non-image files.
+   - **What's actually missing:** that attach path is a button, reached
+     after the note exists — there's no drag-and-drop of an arbitrary file
+     straight onto the **capture box itself**, which is the "upload files
+     *with* notes" framing (attaching *while* writing, not as a separate
+     step afterward). And a non-image attachment shows no preview in the
+     note card — an image gets a thumbnail; a PDF gets nothing to
+     distinguish it at a glance, just the filename behind the 📎.
+   - **Scope, concretely:** extend the capture box's existing image
+     drop-handler (item above) to accept any file type rather than
+     branching on MIME type — same `attachments` table, same
+     `routes_files.py`, so this is widening an existing path rather than
+     building a second one. Multiple files in one drop should attach all of
+     them, not just the first. For the preview: a small type-specific icon
+     (PDF, doc, generic) is enough — actually rendering a PDF thumbnail is a
+     real feature on its own and not needed for this to feel finished.
+   - **A step further, genuinely new: extracting text from what's
+     uploaded, not just storing it.** An image of a whiteboard photo or a
+     handwritten page currently attaches as an opaque file — nothing reads
+     it. Local OCR (`pytesseract` or similar, no cloud call needed) run on
+     an attached image at upload time could feed its text into the same
+     search index notes already use, so "what was on that whiteboard photo
+     from March" becomes answerable. This is a genuinely separate capability
+     from the file-storage work above — it's the one part of "handle image
+     and file uploads" that isn't already half-built — worth scoping as its
+     own follow-on rather than folding into the attach-path widening, since
+     it needs a new pipeline stage (extract → index), not just a wider
+     drop-handler.
+2. **A bigger sketch board — asked for again: "improve sketches board, maybe
+   a whiteboard tab??"** See below; promoted out of this list into its own
+   full write-up given how much is actually being asked for.
+3. **Archive.** A state between "active" and "binned", for things you want out
    of the way but not deleted. Applies to notes, chats and documents: one
    `archived_at` column per table, an additive migration.
-3. **Library tab.** One place showing stored images, documents, chats and
+4. **Library tab.** One place showing stored images, documents, chats and
    archived items, with previews, sorting and search.
-4. **A bigger sketch board.** Asked for directly: "expand and improve
-   sketches board, maybe a whiteboard tab??" A sketch today is a note plus a
-   PNG (§9's bug list: "sketches don't open from the graph" was exactly this
-   pairing being unreachable from the map). A dedicated whiteboard is a
-   step further — a canvas that isn't tied 1:1 to a single note — worth
-   deciding whether that lives here as a Library item type or stays under
-   Notes as a richer sketch, since the answer decides whether it needs its
-   own storage shape or reuses `attachments`.
+
+---
+
+## 4a. A real whiteboard, not just a bigger sketch
+
+**Why, and what's actually being asked for.** The sketch pad today is one
+canvas producing one PNG, tied 1:1 to one note — closer to a Polaroid than a
+whiteboard. "Expand and improve sketches board, maybe a whiteboard tab??"
+plus the follow-up ask for it directly means something with more freedom
+than that: a canvas that isn't locked to a single note, that you can come
+back to and keep adding to, and that plausibly holds more than ink — text
+boxes, shapes, maybe pinned note cards.
+
+**Two genuinely different things live under "whiteboard," and they have very
+different costs:**
+
+- **A bigger, freestanding sketch.** Still a raster canvas producing one
+  image, same technology as today's sketch pad — the difference is it's not
+  born attached to a note (it's its own Library item, per §4 item 4 above),
+  it can be reopened and drawn on further rather than being a one-shot
+  export, and it can be arbitrarily large/pannable rather than a fixed
+  small pad. This is genuinely close to what already exists: same
+  `attachments` storage shape, same rendering approach, mostly a change in
+  *lifecycle* (persistent and reopenable, not one-and-done) rather than new
+  technology.
+- **A structured canvas** — separate movable/resizable elements (shapes,
+  text, sticky notes, embedded note cards you can drag onto it), each
+  stored as its own positioned object rather than baked into one flat
+  image. This is what tools like Excalidraw or tldraw actually are, and
+  it's a different kind of feature: an infinite-canvas scene graph with its
+  own undo model, not an extension of the sketch pad. It's also the version
+  that would let a whiteboard hold *note cards* pinned to it — which is the
+  part that would make it feel like part of this app rather than a bolted-on
+  drawing tool, since nothing else here does that.
+
+**Worth sequencing rather than picking one.** The freestanding raster
+version is a small, mostly-lifecycle change and delivers most of the
+"expand the sketch board" ask on its own. The structured version is a real
+build — a second rendering system alongside §9's graph — and is only worth
+it if the raster version turns out to not be enough. Ship the first as the
+actual whiteboard tab; treat the second as a stretch goal that depends on
+whether people actually want to move things around after drawing them,
+which is not knowable in advance.
+
+**Where it lives.** Library tab (§4) as its own item type is the better fit
+than nesting it under Notes — a whiteboard that isn't 1:1 with a note has
+nowhere natural to sit in the Notes tab, and the Library tab is already
+being built as the home for "everything that isn't a note."
 
 ---
 
@@ -796,14 +881,42 @@ like using Obsidian or Notion."* Ordered by how much each one gets in the way.
   ingests uploads, `/documents` creates, `document_links` joins — so this is
   mostly a route that does the three together, plus deciding what to do with a
   `.docx` or a PDF (probably: refuse politely rather than half-convert).
-- **Obsidian/Notion editing.** The editor is a `<textarea>` with a preview
-  beside it. What people mean by this request, roughly in order of how much
-  each is missed: `[[wiki links]]` between documents (notes already have them
-  — the parser is in `renderNoteText`), a `/` command menu at the cursor,
-  drag-and-drop images that land as markdown, backlinks ("what links here"),
-  and live-preview editing where the markup renders in place instead of in a
-  second pane. The last one is the one that would change the feel and also the
-  one that means giving up the textarea — worth doing deliberately, and last.
+- **Obsidian/Notion editing — asked for again, more emphatically: "have all
+  the features as well."** Worth being explicit about what "all the
+  features" would actually include, since Obsidian and Notion aren't the
+  same product and "all of both" isn't a coherent target. The editor is a
+  `<textarea>` with a preview beside it today. What people mean by this
+  request, roughly in order of how much each is missed:
+  - `[[wiki links]]` between documents (notes already have them — the
+    parser is in `renderNoteText`)
+  - a `/` command menu at the cursor
+  - drag-and-drop images that land as markdown
+  - backlinks ("what links here")
+  - live-preview editing where the markup renders in place instead of in a
+    second pane — the one that would change the feel and also the one that
+    means giving up the textarea; worth doing deliberately, and last
+  - **Sub-pages.** Notion's documents nest into a tree; MemoryMap's are
+    flat. Worth deciding this one early rather than late, since it's a data
+    model question (`documents` would need a `parent_id`) that every other
+    item in this list is easier to build on top of than to retrofit under.
+  - **Transclusion — embedding, not just linking.** `document_links` already
+    connects a note to a document, and `[[wiki links]]` connect document to
+    document, but both are references you click through, not content
+    rendered inline. Obsidian's `![[note]]` embeds the note's actual text
+    where you put the embed. This is the feature that would make the
+    notes/documents "two halves of a whole" framing actually true visually,
+    not just at the data layer — worth building once backlinks exist, since
+    an embed is close to a backlink that renders instead of just linking.
+  - **A full properties/database system is worth ruling out explicitly,
+    not leaving ambiguous.** Notion's defining feature is that a page can
+    carry structured properties and be queried like a database row — that's
+    a different kind of thing from a markdown document with metadata, and
+    building it properly would mean a second data model living alongside
+    notes' tags/categories rather than reusing them. Worth deciding this is
+    out of scope on purpose (tags and categories already give notes
+    lightweight structure; documents don't obviously need a second, heavier
+    system) rather than something quietly missing from an "all the
+    features" list that was never going to include it.
 - **Documents on the graph and the timeline.** Asked as *"docs should also
   probably show on the graph and timeline"*. Both views are built around
   `Entry` and would need a second node/point kind. The design question is not
@@ -1508,6 +1621,34 @@ vendors d3 and p5 locally rather than take a CDN.
   prompt change, not a new capability — the pieces (a style hint, a
   per-purpose model already existing for chat/embedding/utility) are already
   there; this is a preset over them.
+- **Temperature and sampling parameters, not just length — asked for
+  directly.** "Is it a good idea to change model temperature and other
+  parameters, as well as the amount of thinking, based off the type of
+  task?" Yes, and it's the same preset idea as the bullet above, widened:
+  quick/factual work (recalling a note, answering "when did I write X")
+  wants low temperature and a short or disabled thinking budget; open-ended
+  work (drafting, brainstorming) wants both opened up. Ollama's
+  `/api/chat` already accepts `temperature`, `top_p`, and — on models that
+  support it — a `think` toggle or budget per request; none of this needs a
+  new capability from the model side, only a place in the request that
+  today always uses whatever the default is.
+  - **Manual first, automatic second — same ordering logic as model
+    routing below, and for the same reason.** A per-mode set of parameters
+    the person picks (or accepts a sensible default for) is honest about
+    being a preset. Auto-adjusting parameters *by task* needs the same
+    "how hard is this turn" judgement call that model routing does, so it
+    inherits the same risk of being wrong confidently rather than
+    obviously.
+  - **Auto-adjusting *by model*, though, is worth doing regardless of the
+    task question, because it's not a guess.** Not every installed model
+    supports a thinking toggle, and the ones that do vary in what "off"
+    means for reasoning quality on a given task. `Settings → Models`
+    already knows which model is loaded — extending that to record what
+    the model actually supports (thinking toggle, its context length, a
+    sane default temperature) means a quick-mode preset can *fail closed*
+    gracefully on a model that doesn't support the setting instead of
+    sending a parameter Ollama silently ignores or errors on, which is a
+    real gap regardless of whether task-based auto-routing ever happens.
 - **Dynamically switch models by task complexity.** A related but separate
   ask — "optional," and worth keeping optional: a short factual question
   routed to a small fast model and an agent job routed to a larger one,
@@ -1515,6 +1656,20 @@ vendors d3 and p5 locally rather than take a CDN.
   "how hard is this turn" before picking a model, which is itself a model
   call or a heuristic that will be wrong sometimes — worth prototyping as a
   manual per-mode assignment (the bullet above) before attempting to guess.
+- **A model comparison / test-run feature — asked for directly: "test and
+  compare different models for use in the application so you can choose the
+  best one."** This is the eval harness below, pointed at a different
+  variable. The harness already needs a fixed set of representative prompts
+  to catch regressions over *time*; running that same fixed set against
+  every installed model in one pass, and showing the results side by side —
+  tokens, latency, and (for the ones with a known-good answer, like "what
+  did I write about X") whether it actually got it right — answers "which
+  model" instead of "did this get worse." One dataset, two use cases: a
+  scheduled or CI-triggered run watches for regressions on the model
+  currently in use; a manually-triggered run compares candidates before
+  switching. Worth building as one feature with two entry points rather
+  than two separate ones, since duplicating the prompt set would mean they
+  drift out of sync with each other.
 
 **Before any more of this: measure.** §11a was done by counting characters of
 tool schema, which is why it worked. "A 3-turn chat shows 8.7k tokens" is not
@@ -1557,7 +1712,11 @@ spends its time is currently a guess.
   tokens/latency/answer-still-correct would catch a regression before a user
   does. The outside review's suggestion that actually survived — not because
   of any specific tool, but because "measure first" is already this
-  section's own rule (§11a) and there's no repeatable way to do it yet.
+  section's own rule (§11a) and there's no repeatable way to do it yet. The
+  same fixed prompt set is also what the model-comparison feature further
+  down this section runs, against every installed model instead of just the
+  one in use — one dataset, watching for regressions over time and
+  differences across models with the same tool.
 
 **§11a — token usage in chats.** Asked directly: "is there a way to reduce
 excessive token usage in the chats?" A three-turn conversation showed 8.7k
@@ -1836,6 +1995,15 @@ palettes."
   surface until the password gate, not just the person at the keyboard), not
   a config flag to flip quietly — worth stating explicitly as "possible, not
   yet safe to default to" rather than leaving it unaddressed.
+  - **If sync is ever actually pursued**, the shape worth reaching for is
+    the one Gemini's (grounded) suggestion named: local-network only —
+    mDNS discovery plus a direct connection between two instances on the
+    same network, never a public relay — which keeps the "nothing leaves
+    the machine unless asked" principle intact in spirit (nothing leaves
+    *the network*) rather than quietly becoming a cloud feature. Recording
+    the shape without changing the decision above: sync is still a much
+    bigger undertaking than the mobile-access question alone, and worth
+    staying out of scope until that's a deliberate yes.
 
 ---
 
@@ -2019,7 +2187,20 @@ is what makes it reach for one.
 
 - **Re-running a past run.** A skill is repeatable; a *run* is not yet
   something you can replay over a different set of notes.
-- **Undo the whole run**, rather than one change at a time.
+- **Undo the whole run**, rather than one change at a time. Gemini's
+  (grounded) suggestion was a heavier version of this worth naming
+  explicitly: a local, silent version-control snapshot before a bulk
+  operation runs, so a bad auto-tagging pass or a skill gone wrong can be
+  rolled back wholesale rather than change by change. This sits between two
+  things that already exist rather than needing to be built from nothing —
+  daily backups (§ "Where your data lives" in the README) are too coarse
+  (once a day, not once per run) and per-change Undo above is too fine (a
+  20-note bulk tag is 20 things to individually undo); a snapshot taken
+  specifically before a skill run or bulk tool call, kept for a short
+  window, is the missing middle size. Worth building as "one more backup,
+  triggered by an event instead of a timer" rather than actually reaching
+  for git — the existing backup mechanism already solves the storage
+  question, just not the timing.
 - **Links and reminders have no inverse tool**, so those two changes are
   listed without an Undo. `unlink_notes` / `delete_reminder` would fix it, at
   the cost of two more schemas in the per-round budget (§11a) — worth doing
@@ -2159,6 +2340,18 @@ on-this-day, focus timer) — this is more of the same shape, not a new system.
 - **A "stale notes" widget** — pairs with §10A's still-open idea of nudging on
   a note whose relative-time phrase has gone stale ("this said 'tomorrow'
   three weeks ago").
+- **A "forgotten connections" widget — proactive rather than on-demand.**
+  Gemini's actually-grounded suggestion (its second pass, after reading the
+  real feature set): the graph already lets the AI suggest connections for
+  a note *you're looking at* (§9); this is the same underlying similarity
+  search run the other way — periodically, in the background, over notes
+  nobody has looked at together, surfacing "these two from months apart
+  might be related" on the dashboard rather than waiting to be asked.
+  Nothing new to build on the retrieval side — §9's clustering and the
+  embedding search both already exist; what's new is running it
+  unprompted and having somewhere to show the result. Worth capping
+  aggressively (one suggestion, not a feed) so it reads as a genuine find
+  rather than the AI narrating its own similarity scores at you.
 - Before adding more: audit which existing widgets render markdown and which
   don't (§8's ideas-parking-lot bug) so a new widget doesn't repeat the gap.
 
@@ -2224,6 +2417,15 @@ and delete everything it holds.
   likely solving a problem that doesn't exist yet at any realistic notebook
   size — worth measuring an actual `data/memorymap.db` before writing any
   compression code, not assuming it's needed.
+- **A synthesised export, not just a raw one.** Export today (JSON/CSV/MD)
+  is a dump of what's selected; Gemini's grounded suggestion was a step
+  beyond that — pick a tag or a cluster and have the AI *compile* it into
+  one coherent document (a project writeup, a portfolio piece, a README)
+  rather than a folder of separate files the person still has to assemble
+  by hand. Closer to a skill (§21) than to the export routes: it's a
+  read-many, write-one operation with a prompt behind it, not a format
+  conversion. Worth scoping as a skill once the skill system's tool
+  allowlist (§21) is solid, rather than as a fourth export format.
 
 ---
 
@@ -2275,9 +2477,9 @@ exactly the kind of thing that focusing already exists to route.
 
 ## 29. Extensibility ideas, not yet scoped
 
-Two asks that are genuinely bigger than anything else in this document and
-don't have a shape yet — recorded so they aren't lost, not because either is
-close to being built:
+Three asks that are genuinely bigger than anything else in this document and
+don't have a shape yet — recorded so they aren't lost, not because any of
+them are close to being built:
 
 - **MCP tool support** — "an in-built browser with MCP tool abilities to
   accompany the web search". The Model Context Protocol would let MemoryMap
@@ -2290,15 +2492,41 @@ close to being built:
 - **A VS Code extension.** No stated purpose yet beyond the idea itself —
   worth asking what it would let someone do that the app's own web UI, PWA
   and desktop window don't, before scoping anything.
+- **A browser clipper.** Gemini's suggestion: a lightweight extension that
+  saves a page's text, link and metadata straight from the browser, rather
+  than routing through the in-app reader (§13). Distinct enough from the
+  in-built browser idea above to list separately — a clipper is passive
+  capture from wherever you're already browsing; the in-built browser is the
+  app going out and reading on the agent's behalf. Both would land in the
+  same place (a note, or the queue in §4a's file-upload work), but they're
+  answering different questions about where "capture" happens, and building
+  a browser extension is its own packaging problem on top of anything
+  MemoryMap does today.
 
 ---
 
 ## 30. External review, filtered — what didn't make the cut
 
-The outside reviews (Perplexity, Gemini) were thorough and mostly built on a
-false premise — see the note at the top of this document. Recorded here
-rather than silently dropped, since a future review working from the same
-stale bio will suggest the same things again:
+The outside reviews (Perplexity, Gemini) were thorough, and had two
+different problems, worth telling apart rather than filing under one excuse:
+
+**Perplexity was working from a stale bio** — a real but out-of-date
+one-line GitHub profile description — and reasoned carefully from it,
+hedging what it couldn't verify. Its mistakes are all one mistake, repeated:
+assuming bundled models, which the items below correct.
+
+**Gemini's first pass fabricated an entire architecture it never saw.**
+Denied repo access the same way Perplexity was, it didn't hedge — it
+described a specific "Ghost Sidebar" UI, a ChromaDB/LlamaIndex RAG pipeline,
+and a "cinematic sci-fi… neural constellation" visual theme, none of which
+exist anywhere in this codebase. That's not staleness, it's invention, and
+none of it is corrected below because none of it needs correcting against
+real code — it was never describing real code. **Gemini's *second* pass**,
+after it read the live GitHub Pages landing page, is accurate — the
+six-tab (now seven) description matches, and the suggestions built on it are
+judged on their merits in §4, §17, §24, §26, §29 and §21, wherever they
+landed. Recorded here rather than silently dropped, since a future review
+hitting the same access wall may fabricate the same way again:
 
 - **Hardware-aware model routing, bundled model packs, checksums, delta
   updates, rollback.** All of this assumes the app ships models. It doesn't —
@@ -2334,6 +2562,27 @@ stale bio will suggest the same things again:
   retrieval quality is hybrid search and re-ranking in §11. Nothing needs a
   new "memory" abstraction layered on top of notes, tags, links and
   embeddings that already do these jobs.
+- **Dynamic LoRA adapter loading (`unsloth`), a local vision/RAG pipeline
+  built on LlamaIndex/ChromaDB, and anything else describing the fabricated
+  first-pass architecture.** Not evaluated on the merits, because there's
+  nothing to merge — MemoryMap doesn't fine-tune or swap adapters, and its
+  retrieval stack is the app's own `search/` module (keyword + local
+  embeddings), not a third-party RAG framework. Recorded so it's clear these
+  were seen and set aside deliberately, not missed.
+- **Encryption at rest for "the vector database and raw markdown files."**
+  Already answered, just under different names: private notes are already
+  encrypted individually, and full-database encryption (SQLCipher) is
+  already explicitly deferred with reasoning in the README's own
+  "Operational decisions" section — OS-level disk encryption covers the rest
+  of the file today. Nothing in Gemini's version of this changes that
+  reasoning.
+- **A weekly "learning journal" background agent.** Already exists in a
+  lighter form — the dashboard's AI digest (§24's opening list) is a
+  weekly synthesis already. Worth checking whether the digest actually
+  covers what was being asked for before treating this as a gap.
+- **Graph-to-chat interactivity** (clicking a node populates a chat query
+  about that note). Already built — the Graph tab already lets you ask for
+  related notes from a selected node. Not a gap.
 
 ---
 
@@ -2354,7 +2603,9 @@ checking, not things confirmed broken.
   in isolation. Splitting into native ES modules (`<script type="module">`,
   one file per tab plus shared utilities) costs nothing at runtime and no
   build step — it doesn't have to mean adopting a bundler to get "this
-  function is 200 lines away from anything unrelated to it" back.
+  function is 200 lines away from anything unrelated to it" back. **Do this
+  after the smoke suite below exists, not before** — see the priority map's
+  Tier 3 for the reasoning and the suggested sequencing against §3.
 - **The frontend has no CI coverage at all, only manual Playwright driving.**
   The direct consequence of the point above, and worth stating plainly since
   the project's own docs already admit it. If a handful of the driver

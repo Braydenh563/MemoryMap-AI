@@ -1,7 +1,11 @@
 """Build the FastAPI app: API routers + the static frontend.
 
 No CORS middleware: the frontend is served from the same origin as the
-API, so none is needed (plan §4).
+API, so none is needed (plan §4). Note that an absent CORS policy is not
+the same as a closed door — CORS governs whether a script may *read* a
+reply, not whether the request is sent or acted on. What actually refuses
+a request made by another site's page is the Origin check in
+core/security.py, which runs alongside the CSP from the same module.
 """
 
 from __future__ import annotations
@@ -35,7 +39,7 @@ from memorymap.api import (
     routes_voice,
 )
 from memorymap.api.routes_auth import require_unlock
-from memorymap.core import backup, deps, logbuffer
+from memorymap.core import backup, deps, logbuffer, security
 from memorymap.core.deps import init_app_state
 from memorymap.entry import manager
 
@@ -92,6 +96,16 @@ def create_app() -> FastAPI:
     embeddings.start_warmup(deps.get_embeddings(), deps.get_db().session)
 
     app = FastAPI(title="MemoryMap AI", version=__version__)
+
+    # Middleware is added inside-out: the LAST one added is the outermost, so
+    # the headers below are stamped on the origin check's own 403 too.
+    app.add_middleware(security.OriginCheckMiddleware)
+    app.add_middleware(
+        security.SecurityHeadersMiddleware,
+        csp=security.build_csp(
+            security.inline_script_hashes(FRONTEND_DIR / "index.html")
+        ),
+    )
 
     # Everything that touches the user's data sits behind the unlock
     # gate; /auth itself and /health stay open.

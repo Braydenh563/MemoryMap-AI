@@ -5122,3 +5122,27 @@ textarea.autogrow {
   cursor: pointer;
 }
 .entry-more:hover { text-decoration: underline; }
+
+/* ---------------------------------------------------------------------------
+   Rules that used to be inline style="" attributes.
+
+   They moved here so the Content-Security-Policy the server sends can refuse
+   inline styles outright (`style-src 'self'`) rather than allow them
+   everywhere. A policy carrying 'unsafe-inline' still blocks a remote
+   stylesheet, but it does nothing about a style attribute injected into the
+   page — which is the half that matters here, because note text is rendered
+   into this DOM. Eight declarations were worth that.
+--------------------------------------------------------------------------- */
+#pref-display-name { width: 12rem; }
+#pref-bin-days { width: 5rem; }
+#log-source { max-width: 11rem; }
+
+/* A heading that sits in a row beside a button supplies its own spacing. */
+.row h3.flush { margin: 0; }
+
+/* The pen swatches paint themselves from the colour they select, so the
+   value lives in one place per pen rather than two. */
+.sketch-color[data-color="#4f6df5"] { background: #4f6df5; }
+.sketch-color[data-color="#e2534b"] { background: #e2534b; }
+.sketch-color[data-color="#3a9e56"] { background: #3a9e56; }
+.sketch-color[data-color="#1c1e26"] { background: #1c1e26; }

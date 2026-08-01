@@ -7,7 +7,59 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Security
+
+The roadmap's security tier, worked through end to end. Three of its seven
+items turned out to be built already (SQLite WAL mode, the unlock-gate
+backoff, and the scrypt KDF behind private notes); all three now have tests,
+so the next audit does not have to rediscover them. The other four were real.
+
+- **SearXNG was reachable from the local network when run under Docker.** The
+  container was created with `-p 8888:8080`, which publishes on *every*
+  interface rather than just this machine — and because Docker installs its
+  own firewall rules, a host firewall set to refuse that port never saw the
+  packet. SearXNG has no authentication in front of it, so anyone on the same
+  network had both a free proxy to the internet and a view of what had been
+  searched for. It is now published to `127.0.0.1` only. Port publishing is
+  fixed when a container is created, so **a container left behind by an
+  earlier version is detected and recreated** rather than started as it was;
+  one that cannot be inspected is left alone rather than removed on a guess.
+  The from-source path was never affected — it has always set
+  `SEARXNG_BIND_ADDRESS=127.0.0.1`.
+
+- **Requests caused by another site's page are refused.** Binding to localhost
+  keeps the network out, but not a page open in another browser tab: it can
+  have the browser send requests to `http://localhost:8000` on your behalf,
+  which is how local dev servers and Ollama itself have been attacked. The API
+  now checks the `Origin` (or, failing that, `Referer`) against the host the
+  request was actually sent to. Requests carrying neither header still work —
+  that is curl, the desktop window, and a shortcut, none of which a browser
+  sends an origin for. This closes a window that was widest **before a
+  password was set**, when the unlock gate is deliberately open and a
+  drive-by `POST /auth/setup` could have claimed a new notebook outright.
+
+- **Sessions expire.** Unlock tokens lived in memory until the app restarted,
+  which on a notebook left open for weeks is not a limit. They now expire 12
+  hours after last use, and 7 days after being issued however busy they have
+  been. Expiry also forgets the private-note key, so an expired session cannot
+  leave decrypted notes behind in memory.
+
+- **Every response carries a strict Content-Security-Policy** — no inline
+  script or style, no `eval`, and no remote host named anywhere in it. The
+  project's existing "no asset from a CDN" rule is what made a policy this
+  tight affordable. Alongside it: `X-Content-Type-Options`,
+  `X-Frame-Options`, `Referrer-Policy: no-referrer`, and a `Permissions-Policy`
+  disabling geolocation, camera, payment and USB (but deliberately not the
+  microphone, which voice capture needs).
+
 ### Fixed
+
+- **Custom CSS works under the new security policy.** Settings → Appearance
+  applied your CSS by injecting a `<style>` element, which is precisely what
+  the new `Content-Security-Policy` refuses — so the feature would have
+  silently stopped working. It now uses an adopted stylesheet, which keeps the
+  feature *and* the strict policy; the alternative would have been to permit
+  inline styles everywhere, including any injected through note text.
 
 - **Renaming or moving the app folder no longer breaks the launcher.** The
   app is installed into its own `.venv` by absolute path, so a renamed folder

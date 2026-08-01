@@ -2,7 +2,8 @@
 
 One password (or PIN), bcrypt-hashed in the `users` table. Unlocking
 issues a random token the frontend sends back as X-Auth-Token; tokens
-live in memory only, so restarting the app locks it again.
+live in memory only, so restarting the app locks it again, and they
+expire on their own after a spell unused — see _SESSION_IDLE_TTL.
 
 Before a password has been set there is nothing to protect (the app is
 brand new and empty), so the API stays open and the frontend forces the
@@ -28,7 +29,57 @@ from memorymap.entry.manager import log_action
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 # In-memory sessions: fine for a single-user local app.
-_active_tokens: set[str] = set()
+#
+# Each token remembers when it was issued and when it was last used, because a
+# token that never expires is a second key to the notebook that nobody can take
+# back. Restarting the app clears them, which sounds like it covers this — but
+# the app this is built for is a desktop notebook that stays open for weeks, so
+# "until the next restart" can be a very long time. Two clocks, doing different
+# jobs:
+#
+#   idle    — you walked away. The notebook locks itself like a phone does.
+#   max age — you did not walk away, but a token issued a fortnight ago should
+#             not still be valid; this is the ceiling that a token leaked from
+#             a proxy log or a synced browser profile eventually hits.
+#
+# There is no cookie here to mark SameSite=Strict: the token travels as an
+# X-Auth-Token header the frontend sets explicitly, so a browser never attaches
+# it to a cross-site request on its own. That is a stronger position than a
+# SameSite cookie rather than a gap in one — the risk a SameSite flag addresses
+# is the browser sending credentials unprompted, and nothing here does.
+_SESSION_IDLE_TTL = 12 * 60 * 60  # unused this long → expired
+_SESSION_MAX_AGE = 7 * 24 * 60 * 60  # this old → expired, however busy
+
+# token -> [issued_at, last_used_at]
+_active_tokens: dict[str, list[float]] = {}
+
+
+def _sweep_expired() -> None:
+    """Drop dead tokens, and forget the data key once none are left.
+
+    Closing the vault matters as much as dropping the token: expiry that left
+    private notes decrypted in memory would be a lock that only locks the door
+    it is written on.
+    """
+    now = time.time()
+    dead = [
+        token
+        for token, (issued, seen) in _active_tokens.items()
+        if now - seen > _SESSION_IDLE_TTL or now - issued > _SESSION_MAX_AGE
+    ]
+    for token in dead:
+        del _active_tokens[token]
+    if dead and not _active_tokens:
+        vault.close()
+
+
+def _token_valid(token: str | None) -> bool:
+    """Is this token live? Using it also keeps it alive."""
+    _sweep_expired()
+    if not token or token not in _active_tokens:
+        return False
+    _active_tokens[token][1] = time.time()
+    return True
 
 # Brute-force throttle for unlock attempts. The app binds 127.0.0.1, but a
 # server log showed a public client address arriving through a proxy header —
@@ -84,13 +135,14 @@ def require_unlock(
     """Dependency that gates every data route once a password exists."""
     if _get_user(session) is None:
         return  # setup not done yet — nothing to protect
-    if not x_auth_token or x_auth_token not in _active_tokens:
+    if not _token_valid(x_auth_token):
         raise HTTPException(status_code=401, detail="Locked — unlock first")
 
 
 def _issue_token() -> str:
     token = secrets.token_hex(32)
-    _active_tokens.add(token)
+    now = time.time()
+    _active_tokens[token] = [now, now]
     return token
 
 
@@ -134,7 +186,7 @@ def unlock(body: PasswordBody, session: Session = Depends(get_session)) -> dict:
 @router.post("/lock")
 def lock(x_auth_token: str | None = Header(default=None)) -> dict:
     """Log out: the token stops working immediately."""
-    _active_tokens.discard(x_auth_token or "")
+    _active_tokens.pop(x_auth_token or "", None)
     # Forget the data key too, or "lock" would leave private notes readable.
     if not _active_tokens:
         vault.close()
@@ -154,6 +206,7 @@ def account(session: Session = Depends(get_session)) -> dict:
     vault is open, and how many sessions are live.
     """
     user = _get_user(session)
+    _sweep_expired()  # or the session count reports tokens that no longer work
     return {
         "configured": user is not None,
         "username": user.username if user else None,
@@ -209,7 +262,7 @@ def change_password(
     # Every other session is invalidated: a password change is exactly when
     # you want anything already open elsewhere to stop working. The caller
     # keeps working via a freshly issued token.
-    _active_tokens.discard(x_auth_token or "")
+    _active_tokens.pop(x_auth_token or "", None)
     signed_out = len(_active_tokens)
     _active_tokens.clear()
     return {"changed": True, "token": _issue_token(), "other_sessions_ended": signed_out}

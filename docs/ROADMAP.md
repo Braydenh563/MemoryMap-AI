@@ -135,23 +135,92 @@ usage history, since nobody has used most of it yet to sort it the other
 way). Four tiers. Within a tier, order doesn't mean much; between tiers, it
 does.
 
-**Security — worth doing out of turn, regardless of size.** None of these
+**Security — worth doing out of turn, regardless of size.** ~~None of these
 are large, and all of them are the kind of gap that's invisible until it
 costs something. Do these before anything else in this map, not after the
-"quick wins" below, even though most of them *are* quick wins by effort:
+"quick wins" below, even though most of them *are* quick wins by effort~~
+**all seven closed.** Three were already built and the audit is what
+established that; four were real and are done. `tests/test_security_boundaries.py`
+pins all seven, including the three that were already true — a test is what
+stops the next audit having to rediscover them.
 
-1. `PRAGMA journal_mode=WAL` (§20) — one line, and the fix for background AI
-   writes stalling foreground reads
-2. Session TTL, and `SameSite=Strict` if the session is a cookie (§20)
-3. Origin/Referer check on the API, so a page open in another tab can't
-   drive-by MemoryMap the way local dev servers and Ollama itself have been
-   attacked before (§20)
-4. Brute-force backoff on the unlock gate (§8b)
-5. A CSP header on the app's own responses (§8b)
-6. Confirm the KDF behind private notes is slow (Argon2id/PBKDF2), not a fast
-   hash (§8b)
-7. Confirm SearXNG binds to localhost, not the LAN, the same way the main
-   server does (§13)
+1. ~~`PRAGMA journal_mode=WAL` (§20)~~ **already built.** `core/database.py`
+   sets it per connection, alongside `busy_timeout=5000` and
+   `synchronous=NORMAL`. Nothing to do; now pinned by a test.
+2. ~~Session TTL, and `SameSite=Strict` if the session is a cookie (§20)~~
+   **done.** Tokens now carry an issue time and a last-used time, and expire
+   on two clocks: idle (`_SESSION_IDLE_TTL`, 12h) and absolute
+   (`_SESSION_MAX_AGE`, 7d). Expiry closes the vault too — an expiry that left
+   the data key in memory would be a lock on one door only. **SameSite does
+   not apply and its absence is not a gap:** the token travels as an
+   `X-Auth-Token` header the frontend sets explicitly, so a browser never
+   attaches it to a cross-site request on its own. That is a stronger position
+   than a SameSite cookie, not a missing flag.
+3. ~~Origin/Referer check on the API (§20)~~ **done** —
+   `core/security.py:OriginCheckMiddleware`. A request is refused when it
+   states an Origin (or, failing that, a Referer) that disagrees with the Host
+   it was sent to; a request with neither is allowed, because that is curl,
+   the pywebview shell and the desktop shortcut, and a browser attaches Origin
+   to exactly the cross-site requests this stops. `localhost` and `127.0.0.1`
+   are treated as one machine on the same port. **The window this matters most
+   in is the one that looks like it doesn't:** before a password is set the
+   unlock gate waves everything through, which is also when a drive-by POST to
+   `/auth/setup` could claim the notebook and lock the owner out of it.
+4. ~~Brute-force backoff on the unlock gate (§8b)~~ **already built.**
+   `routes_auth._refuse_if_throttled` — one global bucket, five free tries,
+   then an exponential wait to a five-minute ceiling, forgiven after 15
+   quiet minutes. Now pinned by a test.
+5. ~~A CSP header on the app's own responses (§8b)~~ **done, and it is strict:
+   no `unsafe-inline`, no `unsafe-eval`, and no host named anywhere in it** —
+   every source is `'self'` or a hash. That was only affordable because of the
+   no-CDN rule the project already follows. Two things had to move to get
+   there, both worth knowing about before editing them back:
+   - The eight `style=""` attributes in `index.html` are now rules in
+     `style.css`, so `style-src 'self'` is honest. A test asserts the file has
+     none left.
+   - **The one inline `<script>` — the pre-paint theme block — is allowed by
+     the sha256 of its own contents, computed from the file at startup rather
+     than written down.** Written down it would go stale the first time anyone
+     edited that block, which this document already expects to happen (its
+     theme table is kept in step with `THEME_PRESETS` by hand), and a stale
+     hash fails as a blank unstyled page.
+   Alongside it: `X-Content-Type-Options`, `X-Frame-Options`,
+   `Referrer-Policy: no-referrer`, and a `Permissions-Policy` that turns off
+   geolocation/camera/payment/usb — deliberately **not** the microphone, which
+   voice capture needs.
+6. ~~Confirm the KDF behind private notes is slow (§8b)~~ **already true, and
+   better than the item assumed.** `core/crypto.py` uses scrypt at n=2^15,
+   r=8, p=1 — a memory-hard KDF, so stronger against GPU guessing than the
+   PBKDF2 the item would have accepted. The envelope design (password wraps a
+   DEK; the DEK encrypts notes) is also why a password change re-wraps 32
+   bytes instead of re-encrypting every note.
+7. ~~Confirm SearXNG binds to localhost, not the LAN (§13)~~ **half of it was
+   already true and the other half was a real hole.** The source path sets
+   `SEARXNG_BIND_ADDRESS=127.0.0.1` and always did. **The docker path did not:**
+   it ran `-p 8888:8080`, and that publishes on *every* interface, which is
+   not what the plain reading suggests. Worse, docker writes its own firewall
+   rules, so the port is reachable from the LAN even behind a host firewall
+   set to refuse it — the firewall never sees the packet. An exposed SearXNG
+   is not just an open port: it is an unauthenticated proxy to the internet
+   that a stranger can run searches through, and a log of everything the owner
+   has searched for. Now `-p 127.0.0.1:8888:8080`. **Publishing is fixed when a
+   container is created**, so changing the run command only protects people who
+   never started SearXNG — a container from an earlier version is detected by
+   `docker inspect` and recreated. A container it cannot inspect is left alone
+   rather than destroyed on a guess.
+
+> **What this cost, and the lesson worth keeping.** The strict CSP broke one
+> shipped feature, and **the full test suite — 757 green — did not notice.**
+> Settings → Appearance lets you write custom CSS, and it applied it by
+> injecting a `<style>` element, which is precisely what `style-src 'self'`
+> refuses. It now adopts a constructed stylesheet (`adoptedStyleSheets`),
+> which CSP does not treat as inline content, so the feature works *and* the
+> policy stays strict — the alternative, `'unsafe-inline'`, would also have
+> re-permitted style injected through note text. It was found by driving
+> Chromium and reading the console, which is the only place a CSP violation is
+> reported. This is the same lesson §8's bug list already carries, arriving
+> again by a new route: **a green suite says nothing about what a browser
+> refuses to do.**
 
 **Tier 1 — fastest wins.** Hours, not sessions; contained to one file or one
 function; low risk of breaking something else.
@@ -329,13 +398,13 @@ survived contact with the actual architecture.
 
 ## How to work on this repo
 
-- `pytest` — 560 tests, fully offline, no Ollama needed (`pytest.ini` sets
+- `pytest` — 758 tests, fully offline, no Ollama needed (`pytest.ini` sets
   `pythonpath = src`, so this works without an editable install)
 - `ruff check .` — matches CI
 - `node --check frontend/app.js` — the frontend is one large plain-JS file, so a
   syntax check is worth running after every edit
 
-Three of those tests are guards rather than features, and are the ones most
+Four of those tests are guards rather than features, and are the ones most
 likely to fail on you without you having broken anything visible:
 
 - `tests/test_frontend_ids.py` — duplicate element ids, and `$("…")` lookups
@@ -343,6 +412,11 @@ likely to fail on you without you having broken anything visible:
   "Add Persona" silently throw.
 - `tests/test_prompt_budget.py` — the agent's fixed per-round overhead. If you
   add a tool, this is what tells you it cost something. See §11a.
+- `tests/test_security_boundaries.py` — session expiry, the origin check, the
+  CSP, and SearXNG's published port. Two of its assertions are about the
+  *frontend*: that `index.html` contains no `style=""` attribute, and that
+  custom CSS does not inject a `<style>` tag. Both would otherwise fail
+  silently in a browser and nowhere else.
 - the pre-paint theme table in `index.html` drifting from `THEME_PRESETS`.
 
 **Drive the app in a browser before claiming anything works.** Chromium is
@@ -375,6 +449,29 @@ if page.locator("#lock-overlay").is_visible():        # NOT #unlock-password
     page.wait_for_timeout(2500)
 if page.locator("#onboarding-overlay").is_visible():  # blocks every click
     page.click("#onboarding-skip")
+```
+
+**Collect the console while you drive.** The app sends a strict CSP now, and
+anything it refuses is reported *only* there — no failed request, no thrown
+error, just a thing that quietly does not happen. This is what found the
+custom-CSS regression that 757 green tests missed:
+
+```python
+violations = []
+page.on("console", lambda m: violations.append(m.text) if "Refused" in m.text else None)
+page.on("pageerror", lambda e: violations.append(f"pageerror: {e}"))
+```
+
+For a violation the console message alone will not locate, listen for the
+event instead — it carries `sourceFile` and `lineNumber`, which the console
+text does not:
+
+```python
+page.add_init_script("""
+  window.__v = [];
+  document.addEventListener('securitypolicyviolation',
+    e => window.__v.push({d: e.violatedDirective, f: e.sourceFile, l: e.lineNumber}));
+""")
 ```
 
 Start the server with `MEMORYMAP_DATA_DIR` pointed at a scratch directory so
@@ -434,7 +531,17 @@ thing. Don't ship one you couldn't test.
     delete a read-only file there, so it half-deletes the tree and reports
     success. Both ran on every settings-screen poll. The user runs Windows;
     the sandbox does not, so nothing here reproduces either one.
-12. **A control that "does nothing" is usually working.** Four reported cases,
+12. **The app sends a strict CSP, and a violation is reported in the browser
+    console and nowhere else.** No test sees it, no request fails, no error is
+    thrown — the thing simply does not happen. If a style, a script or a fetch
+    "does nothing" and the handler looks right, open the console before
+    debugging the handler. Three rules follow from the policy: an injected
+    `<style>` tag will not apply (use `adoptedStyleSheets`), a `style=""`
+    attribute in `index.html` will not apply (put it in `style.css`), and a
+    second inline `<script>` in `index.html` needs no action — its hash is
+    computed from the file at startup — but a script loaded from anywhere
+    off-origin will be refused outright.
+13. **A control that "does nothing" is usually working.** Four reported cases,
     three of which wrote correctly and were then overridden — by CSS source
     order, by a status poll repainting from the server, or by living in a
     hidden section. Check the *computed* result, not the handler.
@@ -445,6 +552,42 @@ thing. Don't ship one you couldn't test.
 
 Newest at the top. Everything here is on `main` (or the branch merging into
 it), verified, and must not be rebuilt.
+
+**The security tier at the top of the priority map is closed — all seven.**
+Full detail is up there with each item; the short version:
+
+- **Three were already built**, and the audit is what established that: WAL
+  mode, the unlock-gate backoff, and the KDF (scrypt n=2^15 — memory-hard,
+  so stronger than the PBKDF2 the item would have settled for). All three are
+  now pinned by tests rather than left to be rediscovered a fourth time. This
+  is the fourth session in a row where a "grep first" would have saved work.
+- **Session tokens expire now**, on an idle clock (12h) and an absolute one
+  (7d), and expiry closes the vault as well as dropping the token. SameSite
+  turned out not to apply: the token is an `X-Auth-Token` header, not a
+  cookie, so no browser ever attaches it cross-site on its own.
+- **An Origin/Referer check** (`core/security.py`) refuses requests another
+  site's page caused. It matters most *before* a password is set, which is
+  the case that looks like it doesn't matter: the gate is open then, and a
+  drive-by `POST /auth/setup` could have claimed the notebook.
+- **A strict CSP** — no `unsafe-inline`, no `unsafe-eval`, no host named at
+  all. The eight `style=""` attributes in `index.html` moved to `style.css`
+  to make `style-src 'self'` honest, and the one inline `<script>` (the
+  pre-paint theme block) is allowed by a **hash computed from the file at
+  startup**, so editing that block can never leave a stale hash and a blank
+  page behind.
+- **SearXNG's docker path was publishing to the LAN.** `-p 8888:8080`
+  publishes on every interface, and docker's own firewall rules mean a host
+  firewall set to refuse it never sees the packet. The source path was always
+  correct; only docker was wrong. Containers created by earlier versions are
+  detected and recreated, because publishing cannot be changed after create.
+
+**One shipped feature broke, and 757 green tests did not notice.** Custom CSS
+(Settings → Appearance) applied itself by injecting a `<style>` element —
+exactly what the new `style-src 'self'` refuses. It now adopts a constructed
+stylesheet, which keeps the feature *and* the strict policy. Found by driving
+Chromium and reading the console, which is the only place a CSP violation
+surfaces. **Don't redo:** `core/security.py`, the session TTL, the moved
+inline styles, the SearXNG publish fix, `tests/test_security_boundaries.py`.
 
 **Skills are jobs now, not saved sentences (§21, the top item).** Steps, a
 tool allowlist, declared inputs, and a plan drawn in the timeline before
@@ -1306,30 +1449,24 @@ a deliberate pass would add on top, parallel to §19's accessibility audit:
   the vendored JS, since nothing currently checks either), and a fresh look
   at this section's own three easy-to-break rules (§8b's opening) to confirm
   nothing has quietly regressed since they were written down.
-- **Brute-force protection on the unlock gate.** Single-user and local
-  doesn't mean single-*network* — if the app is ever reachable beyond
-  localhost (§17's mobile-access question already raises this), an unlimited
-  password-attempt gate is the one thing standing between an attacker and
-  everything. Worth checking whether login attempts are rate-limited or
-  backed off at all today; if not, it's a small, cheap addition — a counter
-  and an increasing delay — worth having in place *before* §17's LAN
-  question is ever answered "yes," not after.
-- **A Content-Security-Policy header on the app's own pages**, not just the
-  reader's script-stripping for third-party content. The reader already
-  strips scripts from *fetched* pages (§ Privacy and security); a CSP on
-  MemoryMap's own responses would be the equivalent guarantee for the app
-  itself — worth confirming one exists and is tight (no `unsafe-inline`,
-  no wildcard sources) given the explicit "no asset from a CDN" rule already
-  makes a strict policy cheap to write.
-- **The KDF behind private notes, named explicitly.** The README already
-  states the encryption key is derived from the password; worth confirming
-  that derivation uses a slow, purpose-built KDF (Argon2id or PBKDF2 with a
-  real iteration count) rather than a single fast hash — the difference
-  only matters if the database file itself is ever copied off the machine,
-  which is exactly the scenario private notes exist to protect against.
-- **Cross-origin requests against the local API** — real enough to also
-  live in §20 as a backend-design question, not just a search-specific one;
-  see there for the full reasoning.
+- ~~**Brute-force protection on the unlock gate.**~~ **already built** —
+  `routes_auth._refuse_if_throttled`: one global bucket (not per-IP, which is
+  exactly what a botnet has plenty of), five free tries, then an exponential
+  wait to a five-minute ceiling, forgiven after 15 quiet minutes. A correct
+  password inside the wait still waits. Pinned by a test now.
+- ~~**A Content-Security-Policy header on the app's own pages**~~ **done, and
+  tight: no `unsafe-inline`, no `unsafe-eval`, and no host named anywhere in
+  the policy** — every source is `'self'` or a hash. The "no asset from a CDN"
+  rule is what made that affordable, exactly as this item predicted. What it
+  did not predict is that it would break something: custom CSS injected a
+  `<style>` element, and a full green suite said nothing. See the note under
+  the security tier.
+- ~~**The KDF behind private notes, named explicitly.**~~ **confirmed, and
+  better than this item would have accepted:** `core/crypto.py` uses scrypt at
+  n=2^15, r=8, p=1 — memory-hard, so it resists GPU guessing in a way PBKDF2
+  does not. ~100ms and ~32MB per unlock, deliberately.
+- ~~**Cross-origin requests against the local API**~~ **done** — see §20,
+  where the full reasoning lives.
 - **Search-specific items** now live in §13, since SearXNG went from "being
   built" to "actually running" this pass.
 
@@ -1890,11 +2027,21 @@ now that SearXNG is a real running thing rather than a plan:
   before the person has chosen to visit anything. Worth confirming the result
   card ideas above don't introduce this by loading icons live rather than
   bundling a small generic set.
-- **SearXNG bound to localhost, not the LAN.** MemoryMap's own server already
-  does this on purpose (§1 of `ARCHITECTURE.md`); the SearXNG instance it
-  spawns as a subprocess should have the same property, since it's serving
-  MemoryMap alone, not the user directly — worth confirming rather than
-  assuming it inherited the same default.
+- ~~**SearXNG bound to localhost, not the LAN.**~~ **confirmed for the source
+  path, and it was wrong for docker.** The instinct behind this item — don't
+  assume it inherited the same default — was right, and the two paths had
+  drifted apart. `_start_from_source` sets `SEARXNG_BIND_ADDRESS=127.0.0.1`
+  and always did; `_start_docker` ran `-p 8888:8080`, which publishes on
+  **every** interface. That is docker's default and not what the plain reading
+  of the flag suggests, and it is worse than an ordinary open port because
+  docker installs its own firewall rules — a host firewall set to refuse 8888
+  never sees the packet. The exposure is not abstract: SearXNG has no auth in
+  front of it, so anyone on the same network gets a free proxy to the internet
+  *and* a log of everything the owner has searched for. Now
+  `-p 127.0.0.1:8888:8080`. Publishing is fixed at container-create time, so a
+  container an earlier version made is detected via `docker inspect` and
+  recreated rather than started as-is; one that cannot be inspected is left
+  alone rather than destroyed on a guess.
 - **A visible statement of what's true**, not just true in the code. The
   Privacy and security section of the README already says most of this
   clearly; worth linking it from Settings → Web search directly, next to the
@@ -2088,12 +2235,22 @@ Deserves one deliberate pass rather than more ad-hoc fixes:
   §6.
 - **Alembic migrations** — the additive auto-migrator cannot rename or drop, and
   won't survive a real schema change
-- ~~**Session TTL** — tokens live in memory and never expire~~ **real, and
-  worth pairing with the brute-force item below** — a session that never
-  expires is a second reason to lock the gate down before §17 ever considers
-  a LAN.
-- **Cross-origin requests against the local API — worth checking directly,
-  not assuming.** This is the specific way "single-user, local-only" apps
+- ~~**Session TTL** — tokens live in memory and never expire~~ **done.** Two
+  clocks doing different jobs: idle (12h — you walked away, and the notebook
+  locks itself the way a phone does) and absolute (7d — the ceiling a token
+  leaked from a proxy log or a synced browser profile eventually hits).
+  Expiry closes the vault as well, since an expiry that left the data key in
+  memory would be a lock on one door only. The brute-force item it was worth
+  pairing with turned out to be built already.
+- ~~**Cross-origin requests against the local API — worth checking directly,
+  not assuming.**~~ **checked, and it was open. Now closed** by
+  `core/security.py:OriginCheckMiddleware`; the reasoning below is why, and
+  is worth keeping. Two things the check turned up that the item did not
+  anticipate: the session is a *header*, not a cookie, so `SameSite` was never
+  the lever here — and the most exposed moment is *before* a password exists,
+  when the unlock gate is deliberately open and a drive-by `POST /auth/setup`
+  could have claimed the notebook outright. This is the specific way
+  "single-user, local-only" apps
   have actually been attacked before, Ollama included: the server isn't
   reachable from the internet, but a malicious page open in *any other
   browser tab* can still have the browser send a request to
@@ -2108,7 +2265,10 @@ Deserves one deliberate pass rather than more ad-hoc fixes:
   treating it as done — it's exactly the kind of thing that's invisible
   until someone goes looking, and the cost of being wrong is every route
   behind the unlock gate.
-- **Is SQLite in WAL mode?** Default (rollback-journal) SQLite locks the
+- ~~**Is SQLite in WAL mode?**~~ **yes, and it already was** —
+  `core/database.py` sets it on every connect, with `busy_timeout=5000` and
+  `synchronous=NORMAL` beside it. Pinned by a test now. The reasoning below
+  is still the reason it must stay. Default (rollback-journal) SQLite locks the
   whole file for the duration of a write, which matters here specifically
   because background AI work (the janitor filing a note, an embedding
   re-index) can be writing at the same moment the person is just reading

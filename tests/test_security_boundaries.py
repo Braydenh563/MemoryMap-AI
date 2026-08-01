@@ -1,0 +1,421 @@
+"""The four boundaries between "local-only" and "actually private".
+
+Each of these guards something that is invisible while it works and expensive
+once it does not, and none of them is exercised by using the app normally —
+which is the whole reason they are pinned here. The roadmap's security tier
+asked for all four; two of its seven items turned out to be built already
+(WAL mode, and the unlock-gate backoff), and those live with their own code.
+
+The through-line: binding 127.0.0.1 stops the network, not the browser. Every
+test below is about something a browser on this machine could be made to do.
+"""
+
+from __future__ import annotations
+
+import time
+
+import pytest
+
+from memorymap.api import routes_auth
+from memorymap.core import security, vault
+
+
+# --- session expiry ---------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _clear_sessions():
+    routes_auth._active_tokens.clear()
+    routes_auth._failed_unlocks.clear()
+    yield
+    routes_auth._active_tokens.clear()
+    routes_auth._failed_unlocks.clear()
+
+
+def _unlocked(client) -> str:
+    """Set a password and return a working token."""
+    response = client.post("/auth/setup", json={"password": "correct horse"})
+    assert response.status_code == 200
+    return response.json()["token"]
+
+
+def test_a_token_works_while_it_is_being_used(client):
+    token = _unlocked(client)
+    headers = {"X-Auth-Token": token}
+    assert client.get("/entries", headers=headers).status_code == 200
+    assert client.get("/entries", headers=headers).status_code == 200
+
+
+def test_a_token_left_alone_too_long_stops_working(client, monkeypatch):
+    """The notebook locks itself, the way a phone does.
+
+    Restarting the app already cleared every token, which sounds like it
+    covers this — but this app is a desktop notebook that stays open for
+    weeks, so "until the next restart" is not a limit.
+    """
+    token = _unlocked(client)
+    issued, _ = routes_auth._active_tokens[token]
+    # Rewind the clock on the token rather than sleeping through the real TTL.
+    routes_auth._active_tokens[token] = [
+        issued,
+        time.time() - routes_auth._SESSION_IDLE_TTL - 1,
+    ]
+    assert client.get("/entries", headers={"X-Auth-Token": token}).status_code == 401
+
+
+def test_a_token_kept_busy_still_expires_eventually(client):
+    """The ceiling that a leaked token hits regardless of how live it is."""
+    token = _unlocked(client)
+    routes_auth._active_tokens[token] = [
+        time.time() - routes_auth._SESSION_MAX_AGE - 1,
+        time.time(),  # used a moment ago, and still too old
+    ]
+    assert client.get("/entries", headers={"X-Auth-Token": token}).status_code == 401
+
+
+def test_using_a_token_keeps_it_alive(client):
+    token = _unlocked(client)
+    routes_auth._active_tokens[token][1] = time.time() - 60
+    client.get("/entries", headers={"X-Auth-Token": token})
+    assert time.time() - routes_auth._active_tokens[token][1] < 5
+
+
+def test_expiry_forgets_the_private_note_key_too(client):
+    """An expiry that left the vault open would be a lock on one door only."""
+    token = _unlocked(client)
+    assert vault.is_open()
+    routes_auth._active_tokens[token] = [
+        time.time(),
+        time.time() - routes_auth._SESSION_IDLE_TTL - 1,
+    ]
+    routes_auth._sweep_expired()
+    assert not vault.is_open()
+
+
+def test_the_account_screen_does_not_count_dead_sessions(client):
+    token = _unlocked(client)
+    stale = routes_auth._issue_token()
+    routes_auth._active_tokens[stale] = [
+        time.time(),
+        time.time() - routes_auth._SESSION_IDLE_TTL - 1,
+    ]
+    body = client.get("/auth/account", headers={"X-Auth-Token": token}).json()
+    assert body["active_sessions"] == 1
+
+
+# --- the origin check -------------------------------------------------------
+#
+# The attack is specific: a page on another site cannot reach a server bound to
+# 127.0.0.1 by itself, but it can ask the browser already running on this
+# machine to send the request for it. The browser complies, because refusing is
+# the target's job. Ollama and any number of local dev servers have been taken
+# this way.
+
+
+def test_a_request_from_another_site_is_refused(client):
+    token = _unlocked(client)
+    response = client.get(
+        "/entries",
+        headers={"X-Auth-Token": token, "Origin": "https://evil.example"},
+    )
+    assert response.status_code == 403
+    assert "another site" in response.json()["detail"]
+
+
+def test_a_write_from_another_site_is_refused_too(client):
+    token = _unlocked(client)
+    response = client.post(
+        "/entries",
+        json={"content": "planted by a page in another tab"},
+        headers={"X-Auth-Token": token, "Origin": "https://evil.example"},
+    )
+    assert response.status_code == 403
+
+
+def test_the_setup_route_is_protected_before_a_password_exists(client):
+    """The window that matters most, and the one that looks like it doesn't.
+
+    Until a password is set the unlock gate waves everything through, because
+    there is nothing to protect yet. That is also the moment a drive-by POST
+    could claim the notebook and lock the real owner out of their own app.
+    """
+    response = client.post(
+        "/auth/setup",
+        json={"password": "claimed by a stranger"},
+        headers={"Origin": "https://evil.example"},
+    )
+    assert response.status_code == 403
+    assert client.get("/auth/status").json()["setup_required"] is True
+
+
+def test_the_apps_own_page_is_allowed(client):
+    token = _unlocked(client)
+    response = client.get(
+        "/entries",
+        headers={
+            "X-Auth-Token": token,
+            "Origin": "http://testserver",
+            "Host": "testserver",
+        },
+    )
+    assert response.status_code == 200
+
+
+def test_a_request_with_no_origin_is_allowed(client):
+    """curl, the pywebview desktop shell and the test client all send none.
+
+    Allowing these is not the hole it looks like: a browser attaches Origin to
+    exactly the cross-site requests this rejects, so the requests arriving
+    without one are the local tools that never had an origin to state.
+    """
+    token = _unlocked(client)
+    assert client.get("/entries", headers={"X-Auth-Token": token}).status_code == 200
+
+
+def test_a_referer_from_another_site_is_refused_when_origin_is_absent(client):
+    token = _unlocked(client)
+    response = client.get(
+        "/entries",
+        headers={"X-Auth-Token": token, "Referer": "https://evil.example/post"},
+    )
+    assert response.status_code == 403
+
+
+def test_localhost_and_127_are_the_same_machine():
+    """Which one appears depends on what the user typed into the bar."""
+    assert security._is_same_site("http://localhost:8000", "127.0.0.1:8000", "http")
+    assert security._is_same_site("http://127.0.0.1:8000", "localhost:8000", "http")
+
+
+def test_a_different_port_on_loopback_is_still_another_origin():
+    """Another server on this machine is not this app."""
+    assert not security._is_same_site("http://localhost:3000", "localhost:8000", "http")
+
+
+def test_a_hostname_that_merely_starts_with_localhost_is_not_loopback():
+    assert not security._is_same_site(
+        "http://localhost.evil.example", "localhost:8000", "http"
+    )
+
+
+def test_the_null_origin_of_a_sandboxed_frame_is_not_trusted(client):
+    """A sandboxed iframe and a file:// page both send "null"; neither is us."""
+    assert not security._is_same_site("null", "localhost:8000", "http")
+
+
+# --- the content security policy --------------------------------------------
+
+
+def test_every_response_carries_the_policy(client):
+    assert "Content-Security-Policy" in client.get("/health").headers
+
+
+def test_the_policy_names_no_remote_host():
+    """Affordable only because nothing here comes from a CDN — d3 and p5 are
+    vendored. A policy this tight is normally the expensive part of adding one.
+    """
+    policy = security.build_csp([])
+    assert "http://" not in policy and "https://" not in policy
+    assert "*" not in policy
+
+
+def test_the_policy_refuses_inline_script_and_style():
+    policy = security.build_csp([])
+    assert "'unsafe-inline'" not in policy
+    assert "'unsafe-eval'" not in policy
+
+
+def test_the_policy_closes_the_usual_bypasses():
+    policy = security.build_csp([])
+    for directive in ("object-src 'none'", "base-uri 'self'", "frame-ancestors 'none'"):
+        assert directive in policy
+
+
+def test_custom_css_does_not_inject_a_style_tag():
+    """The one feature the strict policy broke, and the only thing that found
+    it was a browser — 757 green tests said nothing.
+
+    Settings → Appearance lets the user write their own CSS. It was applied by
+    creating a <style> element, which is exactly what style-src 'self' refuses,
+    so the feature silently stopped working while every test stayed green. It
+    now adopts a constructed stylesheet, which CSP does not treat as inline
+    content. This asserts the shape of the fix so a later edit cannot quietly
+    put the <style> tag back on the main path.
+    """
+    from memorymap.api.app import FRONTEND_DIR
+
+    source = (FRONTEND_DIR / "app.js").read_text(encoding="utf-8")
+    start = source.index("function applyCustomCss(")
+    end = source.index("function applyCustomCssLegacy(")
+    main_path = source[start:end]
+    assert "adoptedStyleSheets" in main_path
+    assert "createElement" not in main_path, (
+        "custom CSS is back to injecting a <style> tag, which the CSP blocks"
+    )
+
+
+def test_the_inline_theme_script_is_allowed_by_its_own_hash():
+    """index.html has exactly one inline script — the pre-paint theme block,
+    which cannot move to app.js because app.js loads too late to stop the
+    flash. It is allowed by a hash computed from the file at startup, so
+    editing the block cannot leave a stale hash behind and a blank page with
+    it. This test is what would notice a second inline script appearing.
+    """
+    from memorymap.api.app import FRONTEND_DIR
+
+    hashes = security.inline_script_hashes(FRONTEND_DIR / "index.html")
+    assert len(hashes) == 1
+    assert hashes[0].startswith("'sha256-")
+    assert hashes[0] in security.build_csp(hashes)
+
+
+def test_the_hash_tracks_the_file_rather_than_a_written_down_value(tmp_path):
+    page = tmp_path / "index.html"
+    page.write_text("<script>console.log(1)</script>")
+    before = security.inline_script_hashes(page)
+    page.write_text("<script>console.log(2)</script>")
+    assert security.inline_script_hashes(page) != before
+
+
+def test_a_script_with_a_src_needs_no_hash(tmp_path):
+    page = tmp_path / "index.html"
+    page.write_text('<script src="/app.js"></script>')
+    assert security.inline_script_hashes(page) == []
+
+
+def test_the_frontend_has_no_inline_style_attributes():
+    """style-src 'self' is only honest while this holds. The eight attributes
+    that used to be here moved into style.css."""
+    from memorymap.api.app import FRONTEND_DIR
+
+    html = (FRONTEND_DIR / "index.html").read_text(encoding="utf-8")
+    assert 'style="' not in html and "style='" not in html
+
+
+def test_the_other_headers_are_there_too(client):
+    headers = client.get("/health").headers
+    assert headers["X-Content-Type-Options"] == "nosniff"
+    assert headers["X-Frame-Options"] == "DENY"
+    assert headers["Referrer-Policy"] == "no-referrer"
+
+
+def test_the_microphone_is_not_denied(client):
+    """Voice capture is a real feature; the policy must not break it while
+    turning off the permissions the app genuinely never wants."""
+    policy = client.get("/health").headers["Permissions-Policy"]
+    assert "microphone" not in policy
+    assert "camera=()" in policy
+
+
+# --- SearXNG's published port -----------------------------------------------
+
+
+def test_searxng_is_published_to_loopback_only():
+    """`-p 8888:8080` publishes on EVERY interface, which is not what the
+    plain reading suggests. The source path always bound 127.0.0.1; the docker
+    path did not, and docker writes its own firewall rules, so a host firewall
+    set to refuse the port never sees the packet.
+
+    An exposed SearXNG is worse than an exposed port: it is an unauthenticated
+    proxy to the internet, and a log of everything the owner has searched.
+    """
+    from memorymap.search import searxng_manager
+
+    spec = searxng_manager._publish_spec()
+    assert spec.startswith("127.0.0.1:")
+    assert spec.endswith(":8080")
+
+
+def test_a_container_from_an_older_version_is_replaced(monkeypatch):
+    """Publishing is fixed when a container is CREATED, so changing the run
+    command only protects people who never started SearXNG. Anyone who ran an
+    earlier version has one published on 0.0.0.0 that `docker start` would
+    keep that way forever."""
+    from memorymap.search import searxng_manager
+
+    class _Result:
+        returncode = 0
+        stdout = "0.0.0.0\n"
+        stderr = ""
+
+    monkeypatch.setattr(searxng_manager, "_run", lambda *a, **k: _Result())
+    assert searxng_manager._docker_publishes_beyond_localhost() is True
+
+
+def test_a_loopback_container_is_left_alone(monkeypatch):
+    from memorymap.search import searxng_manager
+
+    class _Result:
+        returncode = 0
+        stdout = "127.0.0.1\n"
+        stderr = ""
+
+    monkeypatch.setattr(searxng_manager, "_run", lambda *a, **k: _Result())
+    assert searxng_manager._docker_publishes_beyond_localhost() is False
+
+
+def test_an_unreadable_container_is_not_destroyed_on_a_guess(monkeypatch):
+    """Failing to inspect is not evidence of exposure, and removing a
+    container on a guess costs the user their working search."""
+    from memorymap.search import searxng_manager
+
+    class _Result:
+        returncode = 1
+        stdout = ""
+        stderr = "no such object"
+
+    monkeypatch.setattr(searxng_manager, "_run", lambda *a, **k: _Result())
+    assert searxng_manager._docker_publishes_beyond_localhost() is False
+
+
+def test_a_container_with_no_recorded_host_ip_counts_as_exposed(monkeypatch):
+    """An empty HostIp is how docker records "all interfaces" — the same thing
+    the bare `-p 8888:8080` form produces."""
+    from memorymap.search import searxng_manager
+
+    class _Result:
+        returncode = 0
+        stdout = "\n"
+        stderr = ""
+
+    monkeypatch.setattr(searxng_manager, "_run", lambda *a, **k: _Result())
+    assert searxng_manager._docker_publishes_beyond_localhost() is True
+
+
+# --- the two items that were already built ----------------------------------
+#
+# Pinned here rather than taken on trust: the roadmap listed both as
+# outstanding, and an audit found them done. A test is what stops the next
+# audit having to rediscover that, and what would notice a silent regression.
+
+
+def test_sqlite_runs_in_wal_mode(app_state):
+    """Without it, one background write blocks every read — and FastAPI serves
+    from a threadpool, so the janitor filing a note during a page load is
+    routine rather than rare."""
+    from memorymap.core import deps
+
+    with deps.get_db().engine.connect() as connection:
+        mode = connection.exec_driver_sql("PRAGMA journal_mode").scalar()
+    assert str(mode).lower() == "wal"
+
+
+def test_the_private_note_key_uses_a_slow_kdf():
+    """The difference only matters if the database file is ever copied off the
+    machine — which is exactly the scenario private notes exist for."""
+    from memorymap.core import crypto
+
+    assert crypto.SCRYPT_N >= 2**14
+    assert crypto.KEY_BYTES == 32
+
+
+def test_wrong_passwords_earn_a_growing_wait(client):
+    """bcrypt makes one guess slow; nothing made many guesses slow, and the
+    password floor is four characters."""
+    _unlocked(client)
+    routes_auth._active_tokens.clear()
+    codes = [
+        client.post("/auth/unlock", json={"password": "wrong pass"}).status_code
+        for _ in range(routes_auth._FAILURE_ALLOWANCE + 2)
+    ]
+    assert 429 in codes, "a run of wrong passwords should start earning waits"

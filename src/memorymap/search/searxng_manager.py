@@ -1180,6 +1180,63 @@ def _docker_state() -> str:
     return "running" if state[0].strip() == "running" else "stopped"
 
 
+def _publish_spec() -> str:
+    """The -p argument, pinned to the loopback interface.
+
+    `-p 8888:8080` publishes on EVERY interface, which is not what the plain
+    reading suggests and is the one place the docker path disagreed with the
+    source path: that one sets SEARXNG_BIND_ADDRESS=127.0.0.1 and is reachable
+    only from this machine. Docker also writes its own iptables rules, so a
+    published port is reachable from the LAN even behind a host firewall that
+    is set to refuse it — the firewall never sees the packet. Naming the
+    interface is the whole fix.
+
+    It matters here more than the port number suggests. SearXNG is an open
+    proxy to the wider internet with no auth in front of it, and its /search
+    endpoint takes the query as a GET parameter — so an exposed instance is
+    both something a stranger on the café wifi can run searches through and a
+    log of everything the owner has searched for.
+    """
+    return f"127.0.0.1:{host_port()}:8080"
+
+
+def _docker_publishes_beyond_localhost() -> bool:
+    """Does the existing container publish to the world rather than loopback?
+
+    Port publishing is fixed when a container is CREATED, so changing the
+    `docker run` above only protects people who have never started SearXNG.
+    Anyone who ran an earlier version already has a container published on
+    0.0.0.0, and `docker start` would keep it that way forever. This is what
+    tells `_start_docker` to replace it instead.
+    """
+    result = _run(
+        [
+            "docker", "inspect", CONTAINER_NAME,
+            "--format", "{{range $p, $conf := .HostConfig.PortBindings}}"
+                        "{{range $conf}}{{.HostIp}}\n{{end}}{{end}}",
+        ]
+    )
+    if result.returncode != 0:
+        return False  # can't tell — don't destroy a container on a guess
+    bindings = [line.strip() for line in (result.stdout or "").splitlines()]
+    bindings = [line for line in bindings if line]
+    if not bindings:
+        # No host IP recorded at all means "all interfaces" — the same default
+        # the bare `-p 8888:8080` form produces.
+        return True
+    return any(
+        host_ip in ("", "0.0.0.0", "::") or not host_ip.startswith(("127.", "::1"))
+        for host_ip in bindings
+    )
+
+
+def _remove_container() -> None:
+    """Drop the container so the next start recreates it. Data is not lost:
+    SearXNG keeps nothing we care about inside it — the settings file lives on
+    the host and is mounted in."""
+    _run(["docker", "rm", "-f", CONTAINER_NAME], timeout=40)
+
+
 def settings_path(data_dir: Path) -> Path:
     """Where the generated settings live (mounted into the container)."""
     return Path(data_dir) / "searxng" / "settings.yml"
@@ -1528,6 +1585,16 @@ def _start_docker(data_dir: Path) -> dict:
     # exists to end.
     settings = ensure_settings(data_dir)
     state = _docker_state()
+    # A container an earlier version created is published on every interface,
+    # and no amount of starting it changes that — publishing is set at create
+    # time. Replace it rather than hand back a LAN-visible search proxy.
+    if state != "absent" and _docker_publishes_beyond_localhost():
+        logging.getLogger("memorymap.searxng").info(
+            "Recreating the SearXNG container: it was published on all "
+            "interfaces, and it should only be reachable from this machine."
+        )
+        _remove_container()
+        state = "absent"
     if state == "running":
         if websearch.probe_searxng(base_url()):
             return {"url": base_url(), "started": False}
@@ -1541,7 +1608,7 @@ def _start_docker(data_dir: Path) -> dict:
                 "docker", "run", "-d",
                 "--name", CONTAINER_NAME,
                 "--restart", "unless-stopped",
-                "-p", f"{host_port()}:8080",
+                "-p", _publish_spec(),
                 "-v", f"{settings}:/etc/searxng/settings.yml:ro",
                 "-e", f"SEARXNG_BASE_URL={base_url()}/",
                 IMAGE,

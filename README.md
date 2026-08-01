@@ -229,7 +229,28 @@ execute anywhere in the app.
 
 **Private notes** are encrypted at rest with a key wrapped by your password,
 and are excluded from search, the graph and every AI tool - the model cannot
-reach around the front door.
+reach around the front door. The key is derived with **scrypt** (n=2^15), a
+deliberately slow, memory-hard function, so a copy of the database file taken
+off the machine is not worth guessing at.
+
+**The browser on your own machine is treated as untrusted too.** Binding to
+localhost keeps the *network* out; it does nothing about a page open in
+another tab, which can ask your browser to send requests to
+`http://localhost:8000` on your behalf - this is how local dev servers and
+Ollama itself have actually been attacked. So:
+
+- requests that state an origin other than MemoryMap's own are **refused**,
+including before you have set a password, when there is otherwise nothing
+standing between a stray page and your new notebook;
+- a strict **Content-Security-Policy** on every response allows scripts and
+styles only from the app itself, no inline code, and **no remote host at
+all** - which the "no asset from a CDN" rule above makes possible;
+- **sessions expire** - after 12 hours unused, and 7 days regardless - and
+expiring forgets the private-note key, not just the token;
+- **wrong passwords earn a growing wait**, so a four-character PIN cannot be
+guessed at speed;
+- the SearXNG instance the app runs for you is published to `127.0.0.1` only,
+never the wider network.
 
 `.github/workflows/codeql.yml` runs static security analysis on every push and
 weekly. [`SECURITY.md`](https://github.com/Braydenh563/MemoryMap-AI/blob/main/SECURITY.md) has the full model and how to report an

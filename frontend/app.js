@@ -11959,8 +11959,40 @@ function applyPageBackground(hex) {
   else root.style.removeProperty("--page");
 }
 
-// User CSS lives in one <style> we own, so applying and clearing is clean.
+// User CSS lives in one stylesheet we own, so applying and clearing is clean.
+//
+// A constructed stylesheet rather than a <style> tag, because the app now
+// sends `style-src 'self'`, and an injected <style> is exactly what that
+// refuses — this feature was the one thing the strict policy broke. Adopted
+// sheets are not inline content, so they are unaffected, and this is what the
+// API was added for. Keeping the tag would have meant 'unsafe-inline' on every
+// page, which would also have re-permitted style injected through note text.
+let userCssSheet = null;
+
 function applyCustomCss(css) {
+  const supported =
+    typeof CSSStyleSheet !== "undefined" &&
+    "replaceSync" in CSSStyleSheet.prototype &&
+    "adoptedStyleSheets" in Document.prototype;
+  if (!supported) return applyCustomCssLegacy(css);
+
+  if (!userCssSheet) {
+    userCssSheet = new CSSStyleSheet();
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, userCssSheet];
+  }
+  try {
+    // Invalid CSS throws here rather than being silently dropped, which is an
+    // improvement: a <style> tag with a typo in it just did nothing.
+    userCssSheet.replaceSync(css || "");
+  } catch (err) {
+    console.warn("Custom CSS was rejected:", err);
+  }
+}
+
+// Only for a browser without constructable stylesheets (pre-2019 Chrome, or
+// Safari before 16.4). Such a browser is old enough that it likely predates
+// the CSP directive that makes this necessary in the first place.
+function applyCustomCssLegacy(css) {
   let tag = document.getElementById("user-css");
   if (!tag) {
     tag = document.createElement("style");

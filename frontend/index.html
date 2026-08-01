@@ -1463,13 +1463,13 @@ Link to another note with [[its first few words]]."></textarea>
             <h3>Your name</h3>
             <div class="row">
               <label for="pref-display-name" class="muted">Name for the dashboard greeting</label>
-              <input id="pref-display-name" type="text" maxlength="60" style="width:12rem"
+              <input id="pref-display-name" type="text" maxlength="60"
                 placeholder="e.g. Brayden">
             </div>
             <h3>Recycle bin</h3>
             <div class="row">
               <label for="pref-bin-days" class="muted">Auto-clear binned entries after</label>
-              <input id="pref-bin-days" type="number" min="1" max="365" style="width:5rem">
+              <input id="pref-bin-days" type="number" min="1" max="365">
               <span class="muted">days</span>
             </div>
             <h3>AI answer style</h3>
@@ -1727,7 +1727,7 @@ Link to another note with [[its first few words]]."></textarea>
 
           <section class="settings-section hidden" id="settings-logs">
             <div class="row">
-              <select id="log-source" style="max-width:11rem">
+              <select id="log-source">
                 <option value="server">Server logs</option>
                 <option value="browser">Browser logs</option>
               </select>
@@ -1743,7 +1743,7 @@ Link to another note with [[its first few words]]."></textarea>
           <!-- Help guide (learnability): a feature reference + re-run the tour -->
           <section class="settings-section hidden" id="settings-help">
             <div class="row space-between">
-              <h3 style="margin:0">Help &amp; guide</h3>
+              <h3 class="flush">Help &amp; guide</h3>
               <button id="show-guide-btn" class="small">▶ Replay welcome tour</button>
             </div>
             <p class="muted">A quick reference to what each part of MemoryMap does. Click a topic to expand it.</p>
@@ -1927,10 +1927,10 @@ Link to another note with [[its first few words]]."></textarea>
       </div>
       <div class="row" id="sketch-tools">
         <span class="muted">Pen</span>
-        <button class="sketch-color active" data-color="#4f6df5" style="background:#4f6df5" aria-label="Blue pen"></button>
-        <button class="sketch-color" data-color="#e2534b" style="background:#e2534b" aria-label="Red pen"></button>
-        <button class="sketch-color" data-color="#3a9e56" style="background:#3a9e56" aria-label="Green pen"></button>
-        <button class="sketch-color" data-color="#1c1e26" style="background:#1c1e26" aria-label="Black pen"></button>
+        <button class="sketch-color active" data-color="#4f6df5" aria-label="Blue pen"></button>
+        <button class="sketch-color" data-color="#e2534b" aria-label="Red pen"></button>
+        <button class="sketch-color" data-color="#3a9e56" aria-label="Green pen"></button>
+        <button class="sketch-color" data-color="#1c1e26" aria-label="Black pen"></button>
         <label class="muted">Size
           <input id="sketch-size" type="range" min="2" max="14" value="4">
         </label>

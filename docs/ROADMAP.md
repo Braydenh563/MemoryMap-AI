@@ -297,11 +297,13 @@ security tier, none of these turned out to be already built. Pinned by
 **Tier 2 — quick wins.** A session or so. Real but contained — mostly
 extending a pattern that already exists rather than inventing one.
 
-- Finish the live log console: stream via EventSource, tail/autoscroll,
-  level filter, merge the browser-side ring buffer (§1)
+- ~~Finish the live log console: stream via EventSource, tail/autoscroll,
+  level filter, merge the browser-side ring buffer (§1)~~ **done** — streamed
+  as NDJSON over `fetch` rather than EventSource; see §1 for why that swap was
+  forced rather than preferred.
 - `create_category` / `merge_categories` / `delete_category` as agent tools,
   following the existing tag-tool pattern (§14)
-- A support-bundle export button (§1)
+- ~~A support-bundle export button (§1)~~ **done**, as an allowlist.
 - Fix the specific reported bugs in §8's ideas-parking-lot list — the
   miscategorised note, the dashboard markdown gap, the constellation widget
   not redrawing on theme change, settings on a narrow viewport — each is
@@ -612,6 +614,31 @@ thing. Don't ship one you couldn't test.
 Newest at the top. Everything here is on `main` (or the branch merging into
 it), verified, and must not be rebuilt.
 
+**§1's live log console is finished, and there is a support bundle.** The
+Logs screen streams now — NDJSON over `fetch`, **not** the EventSource this
+document suggested, because EventSource cannot set headers and this app
+authenticates with `X-Auth-Token`; the usual workaround puts the token in the
+query string, which on the log endpoint would write it into the records it
+protects. Follow/tail pauses when you scroll up and resumes at the bottom;
+level, source and text filters re-draw what is held rather than refetching;
+tracebacks fold; server and browser records are merged into one time-ordered
+list; errors that land while you are elsewhere badge the nav.
+
+The **support bundle** button zips the log, redacted settings, app/model
+status and row counts. It is an **allowlist**, not a denylist: named
+diagnostic settings go in verbatim, everything else is reported as
+`"display_name": "str, 31 chars"`. A denylist would have to predict every
+sensitive key anyone ever adds; this only has to name the ones that help.
+Nothing is transmitted — that is the whole difference between this and the
+crash reporting §30 turned down.
+
+Two bugs found while building it, both by things other than the test suite:
+the live pill kept reading "● live" after the stream was deliberately closed
+(the abort path returned before updating it — found in a browser), and the
+stream dropped every record that arrived in its last poll interval before
+handing over to the client's reconnect (the deadline was checked before the
+drain — found by a test that then had to be written to catch it).
+
 **The security tier at the top of the priority map is closed — all seven.**
 Full detail is up there with each item; the short version:
 
@@ -830,17 +857,41 @@ root logger and uvicorn's. It now sanitises each message to one printable line
 (so a chat question or a page title can't forge a row) and keeps tracebacks in a
 separate `trace` field for a fold.
 
-**What's left.**
+**What's left.** ~~Everything below~~ **nothing — §1 is finished.**
 
-- Stream `/logs` while the section is open — an EventSource endpoint is cleaner
-  than polling, and the app already streams NDJSON elsewhere
-- Follow/tail mode with autoscroll, pausing the moment the user scrolls up
-- Level filter (all / warnings / errors) and a text filter
-- Render the `trace` field in a fold under its record
-- Merge the browser-side `browserLogs` ring buffer into the same view, tagged by
-  source, so one screen answers "what just happened"
-- Count errors since the screen was last opened and badge the nav item
-- **Export a support bundle.** One button that zips the log buffer,
+- ~~Stream `/logs` while the section is open — an EventSource endpoint is
+  cleaner than polling~~ **done, but NOT as EventSource, and the reason is
+  worth keeping.** EventSource cannot set request headers, and this app
+  authenticates with `X-Auth-Token`, so an EventSource here would simply 401.
+  The standard workaround is to put the token in the query string, which is a
+  bad trade anywhere and a farcical one on *this* endpoint: the token would be
+  written into the very records it protects. So NDJSON over `fetch`, which
+  matches the chat and digest streams the app already has. Server-side it
+  polls the ring buffer rather than registering subscribers on it — a
+  subscriber registry means the logging handler pushes into per-connection
+  queues, so a slow reader can stall or grow unboundedly *inside logging
+  itself*, and a logging path that can block is a far worse failure than a
+  console running 700ms behind.
+- ~~Follow/tail mode with autoscroll, pausing the moment the user scrolls
+  up~~ **done**, and scrolling back to the bottom resumes it — the same
+  gesture every terminal uses. The label says "(paused)" rather than just
+  stopping, because silently stopping has the same shape as the app freezing.
+- ~~Level filter (all / warnings / errors) and a text filter~~ **done**, plus
+  a source filter. Filters only re-draw what is already held and never
+  refetch, so changing one mid-incident cannot lose the records you were
+  looking at. When a filter hides things it says how many: "nothing matches"
+  and "nothing happened" are different answers and only one is fixed by
+  changing the filter.
+- ~~Render the `trace` field in a fold under its record~~ **done.**
+- ~~Merge the browser-side `browserLogs` ring buffer into the same view,
+  tagged by source~~ **done** — one array, sorted by time, tagged only in the
+  merged view (in a single-source view every row would carry the same tag). A
+  browser error and the request that caused it are one event seen from two
+  ends, and reading them apart was what made this screen hard to use.
+- ~~Count errors since the screen was last opened and badge the nav item~~
+  **done.**
+- ~~**Export a support bundle.**~~ **done** — see below; it is an allowlist,
+  not a denylist. One button that zips the log buffer,
   `preferences.json` with anything sensitive stripped, and Ollama/model
   status (`/models/status`) into a file the user attaches to a bug report —
   asked for indirectly ("an interface for managing the application… errors

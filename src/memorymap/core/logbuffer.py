@@ -29,6 +29,22 @@ _lock = threading.Lock()
 _dropped = 0
 _dropped_since: str | None = None
 
+# A monotonic id per record, so a live stream can say where it got to.
+#
+# Position in the deque cannot do this job: the deque shifts every time it is
+# full, so "the 400th record" means something different one message later. A
+# never-reused number means a reconnecting reader can ask for "everything after
+# 8,317" and get exactly that — no replayed lines, and no silent gap where the
+# reconnect landed.
+_next_seq = 1
+
+
+def _assign_seq() -> int:
+    global _next_seq
+    seq = _next_seq
+    _next_seq += 1
+    return seq
+
 
 # Windows' asyncio Proactor loop logs an "Exception in callback
 # _ProactorBasePipeTransport._call_connection_lost" whenever a client drops a
@@ -120,6 +136,7 @@ class BufferHandler(logging.Handler):
                 _dropped += 1
             _records.append(
                 {
+                    "seq": _assign_seq(),
                     "time": datetime.now(timezone.utc).isoformat(),
                     "level": record.levelname,
                     "logger": record.name,
@@ -161,6 +178,30 @@ def recent(limit: int = 200) -> list[dict]:
     return records[-limit:]
 
 
+def since(seq: int, limit: int = MAX_RECORDS) -> list[dict]:
+    """Records newer than `seq`, oldest first — the live stream's whole job.
+
+    A reader that has been away longer than the buffer is deep gets whatever
+    survived rather than an error: the records it missed are genuinely gone,
+    and `stats()['dropped']` is what tells it so. Returning nothing would be
+    worse than returning the tail, because a stalled-looking stream is
+    indistinguishable from a quiet server.
+    """
+    with _lock:
+        newer = [record for record in _records if record.get("seq", 0) > seq]
+    return newer[-limit:] if limit else newer
+
+
+def latest_seq() -> int:
+    """The id of the newest record, or 0 when nothing has been logged.
+
+    A viewer opening for the first time uses this to start from "now" rather
+    than replaying the buffer it has already been handed.
+    """
+    with _lock:
+        return _records[-1].get("seq", 0) if _records else 0
+
+
 def stats(limit: int = 200) -> dict:
     """What the viewer needs to say how complete its picture is.
 
@@ -182,6 +223,13 @@ def stats(limit: int = 200) -> dict:
 
 
 def clear() -> None:
+    """Empty the buffer. The sequence counter deliberately keeps counting.
+
+    Restarting it at 1 would break every stream already open: a reader holding
+    "I have seen up to 8,317" would treat the next thousand records as older
+    than what it had and show none of them — a log console that goes silent
+    the moment you press Clear.
+    """
     global _dropped, _dropped_since
     with _lock:
         _records.clear()

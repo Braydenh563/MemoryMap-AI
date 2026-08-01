@@ -320,9 +320,22 @@ but failing* rather than simply not running.
 
 **Something looks wrong and I want to see what happened**
 
-**Settings → Logs** shows the server's own log without hunting for a terminal.
-It's memory-only - nothing is written to disk - in keeping with the rest of the
-privacy posture.
+**Settings → Logs** is a live view of what the app is doing, without hunting
+for a terminal. It streams as things happen, follows the newest records (and
+pauses the moment you scroll up to read something), filters by level, source
+or text, and folds tracebacks open under the record they belong to. Server and
+browser logs appear in one time-ordered list, so an error in the page and the
+request behind it sit next to each other. It's memory-only - nothing is written
+to disk - in keeping with the rest of the privacy posture, and it says so when
+the buffer has had to drop older records rather than leaving a silent gap.
+
+**Reporting a bug?** The **⬇ Support bundle** button on the same screen saves a
+zip with the log, your settings, and app and model status - the things a bug
+report needs. Nothing is sent anywhere; the file goes to your disk and it's
+your choice whether to share it. Free-text settings are listed by name and
+length only (your display name appears as `str, 31 chars`), and no note,
+document, chat or reminder content is included. There's a README inside
+describing exactly what it holds.
 
 ## Where your data lives
 

@@ -1734,18 +1734,33 @@ Link to another note with [[its first few words]]."></textarea>
           </section>
 
           <section class="settings-section hidden" id="settings-logs">
-            <div class="row">
-              <select id="log-source">
+            <div class="row log-toolbar">
+              <select id="log-source" aria-label="Which log to show">
+                <option value="all">Everything</option>
                 <option value="server">Server logs</option>
                 <option value="browser">Browser logs</option>
               </select>
-              <button id="logs-refresh" class="ghost small">Refresh</button>
+              <select id="log-level" aria-label="Minimum level to show">
+                <option value="all">All levels</option>
+                <option value="warning">Warnings &amp; errors</option>
+                <option value="error">Errors only</option>
+              </select>
+              <input id="log-filter" type="search" placeholder="🔎 Filter…"
+                aria-label="Only show records containing this text">
+              <label class="muted tools-toggle" id="log-follow-label"
+                title="Keep the newest records in view. Scroll up to pause.">
+                <input type="checkbox" id="log-follow" checked> Follow
+              </label>
+              <span id="log-live" class="log-live" role="status">connecting…</span>
               <button id="logs-copy" class="ghost small">Copy all</button>
+              <button id="logs-bundle" class="ghost small"
+                title="Save a zip with the log, your settings and app status, for a bug report">⬇ Support bundle</button>
               <button id="logs-clear" class="ghost small">Clear</button>
             </div>
             <p id="logs-dropped" class="log-dropped hidden" role="status"></p>
             <ul id="log-list" class="log-list"></ul>
             <p id="logs-empty" class="muted hidden">No log records yet.</p>
+            <p id="logs-filtered-out" class="muted hidden"></p>
           </section>
 
           <!-- About -->

@@ -54,6 +54,36 @@ so the next audit does not have to rediscover them. The other four were real.
 
 ### Added
 
+- **The Logs screen is live.** It streams as things happen instead of showing
+  whatever was there when you opened it, which is what it was asked to be:
+  "like the terminal running in the background, with key errors flagged".
+  Alongside that:
+  - **Follow** keeps the newest records in view, and pauses the moment you
+    scroll up to read something — scrolling back to the bottom resumes it.
+  - **Filters** by level (all / warnings / errors), by source, and by text.
+    They re-draw what is already on screen rather than refetching, so changing
+    one in the middle of an incident cannot lose the records you were reading.
+    When a filter hides records it says how many, because "nothing matches"
+    and "nothing happened" are different answers.
+  - **Tracebacks** fold open under the record they belong to.
+  - **Server and browser logs are one list**, tagged by source and ordered by
+    time. A browser error and the request that caused it are the same event
+    seen from two ends.
+  - **Errors that arrive while you are on another screen** show as a count on
+    the Logs item in the settings menu.
+
+- **A support bundle button** (Settings → Logs). It saves a zip containing the
+  log, your settings, app and model status, and how many notes exist — the
+  things a bug report needs. Nothing is sent anywhere: the file lands on your
+  disk and it is entirely your choice whether to share it.
+
+  Settings are filtered by an **allowlist**, not a denylist. Diagnostic ones go
+  in as they are; everything else is described rather than disclosed, so your
+  display name appears as `"str, 31 chars"` and never as its value. No note,
+  document, chat or reminder content is included at all. The README inside the
+  zip says all of this, and suggests skimming the log before sending, since log
+  messages can quote things you typed.
+
 - **The results panel says which engine answered, and what that meant.** You
   choose an engine in Settings for a privacy reason, and until now nothing
   reported whether that choice was honoured — under *Automatic* the engine

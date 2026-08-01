@@ -5182,3 +5182,98 @@ textarea.autogrow {
 .graph-physics.is-disabled input {
   cursor: not-allowed;
 }
+
+/* --- the log console (§1) ------------------------------------------------ */
+
+.log-toolbar {
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+/* A flex item's automatic minimum size does NOT protect a <select>: it will
+   happily shrink to the width of its arrow and show none of its options, which
+   is exactly what it did here — two empty boxes where the source and level
+   pickers should be. Both need a floor of their own. */
+#log-source,
+#log-level {
+  flex: 0 0 auto;
+  min-width: 9rem;
+  /* Capped as well as floored. Without a ceiling a <select> in a flex row
+     stretches to fill whatever is spare — #log-source only looked settled
+     because it already had a max-width of its own from an earlier change,
+     and its neighbour grew to 656px beside it. */
+  max-width: 11rem;
+}
+#log-filter { min-width: 8rem; flex: 1 1 8rem; }
+
+/* The live pill. Colour carries the state, but so does the text — a pill that
+   only differed by colour would say nothing to anyone who cannot separate
+   them, and nothing at all in a screenshot pasted into a bug report. */
+.log-live {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+.log-live[data-state="live"] { color: var(--ok, #3a9e56); }
+.log-live[data-state="connecting"],
+.log-live[data-state="offline"] { color: var(--warn, #c8892b); }
+.log-live[data-state="paused"] { opacity: 0.6; }
+
+/* Follow is on but paused because the reader scrolled up. Saying so beats
+   silently stopping, which is the same shape as the app having frozen. */
+#log-follow-label.is-paused::after {
+  content: " (paused)";
+  opacity: 0.7;
+}
+
+.log-list .log-error { border-left: 3px solid var(--danger, #e2534b); }
+.log-list .log-warn { border-left: 3px solid var(--warn, #c8892b); }
+
+.log-line { display: inline; }
+.log-source-tag {
+  display: inline-block;
+  margin-right: 0.35rem;
+  padding: 0 0.3rem;
+  border-radius: 3px;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  opacity: 0.8;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+}
+.log-source-browser { color: var(--accent, #4f6df5); }
+
+/* A traceback is many lines, so it folds. Real newlines are safe here — this
+   is a block, not a row, so it cannot forge a record the way a message could. */
+.log-trace { margin: 0.25rem 0 0 0; }
+.log-trace summary {
+  cursor: pointer;
+  font-size: 0.72rem;
+  opacity: 0.75;
+}
+.log-trace pre {
+  margin: 0.25rem 0 0;
+  padding: 0.4rem 0.5rem;
+  max-height: 16rem;
+  overflow: auto;
+  border-radius: 4px;
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  font-size: 0.72rem;
+  white-space: pre;
+}
+
+/* Errors that landed while you were on another screen. */
+.log-error-badge {
+  display: inline-block;
+  margin-left: 0.4rem;
+  min-width: 1.1rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background: var(--danger, #e2534b);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-align: center;
+}

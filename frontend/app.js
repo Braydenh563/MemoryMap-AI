@@ -9951,6 +9951,9 @@ function showSettingsSection(name) {
   for (const button of document.querySelectorAll("#settings-nav button")) {
     button.classList.toggle("active", button.dataset.section === name);
   }
+  // The log stream is the only section that holds a connection open, so it is
+  // the only one that has to be told it is no longer being looked at.
+  if (name !== "logs") closeLogs();
   if (name === "logs") renderLogs();
   if (name === "preferences") renderPrefs().catch(() => {});
   if (name === "websearch") renderWebSearch().catch(() => {});
@@ -10083,6 +10086,38 @@ async function changePassword() {
 // That is worst in exactly the case the viewer exists for — chasing something
 // that keeps failing, where the repetition is what pushed the first occurrence
 // out of the window.
+// --- the log console (§1) -------------------------------------------------
+//
+// Asked for directly: this screen should read "like the terminal running in
+// the background, with key errors flagged", not a list you refresh by hand.
+//
+// One array holds both sources so a single screen answers "what just
+// happened". The server's records arrive on a stream; the browser's are
+// already in memory. They are merged and sorted by time, because a browser
+// error and the request that caused it are the same event seen from two ends,
+// and reading them apart is what made this screen hard to use.
+
+const LOG_LEVEL_RANK = { DEBUG: 0, LOG: 0, INFO: 1, WARN: 2, WARNING: 2, ERROR: 3, CRITICAL: 4 };
+const MAX_LOG_ROWS = 1000; // what the list holds; the buffers themselves are smaller
+
+let logRecords = [];
+let logStreamAbort = null;
+let logStreamCursor = 0;
+let logStreamRetry = null;
+let logFollowPinned = true; // false once the user scrolls up to read something
+let logErrorsSinceOpened = 0;
+let logScreenOpen = false;
+
+function logLevelRank(level) {
+  return LOG_LEVEL_RANK[String(level || "").toUpperCase()] ?? 1;
+}
+
+// The ring buffer discards its oldest record silently once it is full, which
+// makes a busy hour and a quiet one look identical: the same rows either way,
+// with no way to tell whether the top row is the start of the story or the
+// middle. That is worst in exactly the case the viewer exists for — chasing
+// something that keeps failing, where the repetition is what pushed the first
+// occurrence out of the window.
 function renderLogGap(stats) {
   const note = $("logs-dropped");
   if (!stats || !stats.dropped) {
@@ -10099,49 +10134,266 @@ function renderLogGap(stats) {
   note.classList.remove("hidden");
 }
 
-async function renderLogs() {
-  const source = $("log-source").value;
-  const records =
-    source === "server"
-      ? await apiJson("/logs?limit=200").catch(() => [])
-      : browserLogs.slice(-200);
+function browserLogRecords() {
+  return browserLogs.map((r, index) => ({
+    ...r,
+    source: "browser",
+    logger: r.logger || "browser",
+    key: `b${index}-${r.time}`,
+  }));
+}
 
-  // Only the server buffer drops records; the browser-side one is a plain
-  // array this page owns, so there is no gap to warn about.
-  renderLogGap(
-    source === "server" ? await apiJson("/logs/stats?limit=200").catch(() => null) : null,
-  );
+function serverLogRecord(record) {
+  return { ...record, source: "server", key: `s${record.seq}` };
+}
 
-  const list = $("log-list");
-  list.replaceChildren();
-  $("logs-empty").classList.toggle("hidden", records.length > 0);
-  for (const record of records) {
-    const li = document.createElement("li");
-    if (record.level === "ERROR" || record.level === "WARNING" || record.level === "WARN") {
-      li.classList.add("log-warn");
-    }
-    const when = document.createElement("span");
-    when.className = "when";
-    when.textContent = new Date(record.time).toLocaleTimeString();
-    const level = document.createElement("span");
-    level.className = "what";
-    level.textContent = record.level;
-    const message = document.createElement("span");
-    message.textContent = record.logger
-      ? `${record.logger} — ${record.message}`
-      : record.message;
-    li.append(when, level, message);
-    list.appendChild(li);
+function sortLogRecords() {
+  // Stable on equal timestamps, so records logged in the same millisecond keep
+  // the order they arrived rather than shuffling on every repaint.
+  logRecords.sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0));
+  if (logRecords.length > MAX_LOG_ROWS) {
+    logRecords = logRecords.slice(-MAX_LOG_ROWS);
   }
-  list.scrollTop = list.scrollHeight; // newest are at the bottom
+}
+
+function logMatchesFilters(record) {
+  if (!record) return false;
+  const source = $("log-source").value;
+  if (source !== "all" && record.source !== source) return false;
+
+  const level = $("log-level").value;
+  if (level === "warning" && logLevelRank(record.level) < 2) return false;
+  if (level === "error" && logLevelRank(record.level) < 3) return false;
+
+  const needle = $("log-filter").value.trim().toLowerCase();
+  if (!needle) return true;
+  return (
+    String(record.message || "").toLowerCase().includes(needle) ||
+    String(record.logger || "").toLowerCase().includes(needle)
+  );
+}
+
+function logRow(record) {
+  const li = document.createElement("li");
+  const rank = logLevelRank(record.level);
+  if (rank >= 3) li.classList.add("log-error");
+  else if (rank === 2) li.classList.add("log-warn");
+
+  const when = document.createElement("span");
+  when.className = "when";
+  when.textContent = new Date(record.time).toLocaleTimeString();
+
+  const level = document.createElement("span");
+  level.className = "what";
+  level.textContent = record.level;
+
+  // Which side of the app said it. Only worth showing in the merged view —
+  // in a single-source view every row would carry the same tag.
+  const line = document.createElement("span");
+  line.className = "log-line";
+  if ($("log-source").value === "all") {
+    const tag = document.createElement("span");
+    tag.className = `log-source-tag log-source-${record.source}`;
+    tag.textContent = record.source === "browser" ? "browser" : "server";
+    line.appendChild(tag);
+  }
+  const text = document.createElement("span");
+  text.textContent = record.logger ? `${record.logger} — ${record.message}` : record.message;
+  line.appendChild(text);
+
+  li.append(when, level, line);
+
+  // A traceback is the difference between "something failed" and knowing
+  // what. Folded, because it is many lines and most rows do not have one.
+  if (record.trace) {
+    const fold = document.createElement("details");
+    fold.className = "log-trace";
+    const summary = document.createElement("summary");
+    summary.textContent = "Traceback";
+    const pre = document.createElement("pre");
+    pre.textContent = record.trace; // real newlines here — it is not a row
+    fold.append(summary, pre);
+    li.appendChild(fold);
+  }
+  return li;
+}
+
+function nearLogBottom() {
+  const list = $("log-list");
+  // 40px of slack: "close enough to the bottom that you meant to be there".
+  return list.scrollHeight - list.scrollTop - list.clientHeight < 40;
+}
+
+function scrollLogToBottom() {
+  const list = $("log-list");
+  list.scrollTop = list.scrollHeight;
+}
+
+function renderLogList() {
+  const list = $("log-list");
+  const shouldStick = $("log-follow").checked && logFollowPinned;
+  const visible = logRecords.filter(logMatchesFilters);
+
+  list.replaceChildren();
+  for (const record of visible) list.appendChild(logRow(record));
+
+  $("logs-empty").classList.toggle("hidden", logRecords.length > 0);
+  // "Nothing matches" and "nothing happened" are different answers, and only
+  // the first one is fixed by changing the filter.
+  const hiddenCount = logRecords.length - visible.length;
+  const filtered = $("logs-filtered-out");
+  if (hiddenCount > 0) {
+    filtered.textContent = `${hiddenCount.toLocaleString()} record${hiddenCount === 1 ? "" : "s"} hidden by the filters above.`;
+    filtered.classList.remove("hidden");
+  } else {
+    filtered.classList.add("hidden");
+  }
+  if (shouldStick) scrollLogToBottom();
+}
+
+function setLogLive(state, detail) {
+  const pill = $("log-live");
+  pill.textContent = detail;
+  pill.dataset.state = state;
+}
+
+// Errors that have arrived since the screen was last opened, shown on the nav
+// item so a failure in the background is noticed without going looking.
+function bumpLogErrorBadge(record) {
+  if (logScreenOpen || logLevelRank(record.level) < 3) return;
+  logErrorsSinceOpened += 1;
+  renderLogErrorBadge();
+}
+
+function renderLogErrorBadge() {
+  const link = document.querySelector('#settings-nav button[data-section="logs"]');
+  if (!link) return;
+  let badge = link.querySelector(".log-error-badge");
+  if (!logErrorsSinceOpened) {
+    badge?.remove();
+    return;
+  }
+  if (!badge) {
+    badge = document.createElement("span");
+    badge.className = "log-error-badge";
+    link.appendChild(badge);
+  }
+  badge.textContent = logErrorsSinceOpened > 99 ? "99+" : String(logErrorsSinceOpened);
+  badge.title = `${logErrorsSinceOpened} error${logErrorsSinceOpened === 1 ? "" : "s"} since you last looked at the logs`;
+}
+
+// NDJSON over fetch rather than an EventSource, for one blunt reason:
+// EventSource cannot set request headers, and this app authenticates with
+// X-Auth-Token. The usual workaround is to put the token in the query string,
+// which would write it into the very log this stream is serving.
+async function startLogStream() {
+  stopLogStream();
+  const controller = new AbortController();
+  logStreamAbort = controller;
+  setLogLive("connecting", "connecting…");
+  try {
+    const response = await fetch(`/logs/stream?after=${logStreamCursor}`, {
+      headers: { "X-Auth-Token": localStorage.getItem("token") || "" },
+      signal: controller.signal,
+    });
+    if (!response.ok || !response.body) throw new Error(`stream failed (${response.status})`);
+    setLogLive("live", "● live");
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffered = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffered += decoder.decode(value, { stream: true });
+      const lines = buffered.split("\n");
+      buffered = lines.pop();
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        let event;
+        try {
+          event = JSON.parse(line);
+        } catch {
+          continue; // a torn line is not worth dropping the stream over
+        }
+        if (event.type === "open") {
+          logStreamCursor = Math.max(logStreamCursor, event.cursor || 0);
+        } else if (event.type === "record") {
+          logStreamCursor = event.record.seq || logStreamCursor;
+          logRecords.push(serverLogRecord(event.record));
+          bumpLogErrorBadge(event.record);
+          sortLogRecords();
+          if (logScreenOpen) renderLogList();
+        } else if (event.type === "ping") {
+          logStreamCursor = event.cursor || logStreamCursor;
+        } else if (event.type === "reconnect") {
+          break; // the server handed back; reconnect below picks up the cursor
+        }
+      }
+    }
+  } catch (error) {
+    if (controller.signal.aborted) return; // we closed it on purpose
+    setLogLive("offline", "reconnecting…");
+  }
+  if (controller.signal.aborted) return;
+  // Reconnect while the screen is open. The cursor means the gap is closed on
+  // the way back rather than left as a hole in the middle of the log.
+  if (logScreenOpen) {
+    logStreamRetry = setTimeout(startLogStream, 2000);
+  } else {
+    setLogLive("paused", "paused");
+  }
+}
+
+function stopLogStream() {
+  if (logStreamRetry) {
+    clearTimeout(logStreamRetry);
+    logStreamRetry = null;
+  }
+  if (logStreamAbort) {
+    logStreamAbort.abort();
+    logStreamAbort = null;
+  }
+}
+
+async function renderLogs() {
+  logScreenOpen = true;
+  logErrorsSinceOpened = 0;
+  renderLogErrorBadge();
+
+  const [records, stats] = await Promise.all([
+    apiJson("/logs?limit=500").catch(() => []),
+    apiJson("/logs/stats?limit=500").catch(() => null),
+  ]);
+  logStreamCursor = records.length ? records[records.length - 1].seq || 0 : 0;
+  logRecords = [...records.map(serverLogRecord), ...browserLogRecords()];
+  sortLogRecords();
+  renderLogGap(stats);
+  renderLogList();
+  scrollLogToBottom();
+  logFollowPinned = true;
+  startLogStream();
+}
+
+// Leaving the screen closes the connection. A stream held open by a tab
+// nobody is looking at is the kind of thing that is invisible until it is a
+// hundred of them.
+function closeLogs() {
+  logScreenOpen = false;
+  stopLogStream();
+  // Said here rather than left to the stream's own exit path: a deliberate
+  // abort returns early from there, so the pill would still read "● live"
+  // with nothing behind it — a status that lies is worse than none.
+  setLogLive("paused", "paused");
 }
 
 async function copyLogs() {
-  const source = $("log-source").value;
-  const records =
-    source === "server" ? await apiJson("/logs?limit=500").catch(() => []) : browserLogs;
-  const text = records
-    .map((r) => `${r.time} ${r.level} ${r.logger || ""} ${r.message}`)
+  const text = logRecords
+    .filter(logMatchesFilters)
+    .map(
+      (r) =>
+        `${r.time} [${r.source}] ${r.level} ${r.logger || ""} ${r.message}` +
+        (r.trace ? `\n${r.trace}` : "")
+    )
     .join("\n");
   try {
     await navigator.clipboard.writeText(text);
@@ -10152,12 +10404,46 @@ async function copyLogs() {
 }
 
 async function clearLogs() {
-  if ($("log-source").value === "server") {
+  const source = $("log-source").value;
+  if (source !== "browser") {
     await api("/logs", { method: "DELETE" }).catch(() => {});
-  } else {
+  }
+  if (source !== "server") {
     browserLogs.length = 0;
   }
-  renderLogs();
+  logRecords = [];
+  await renderLogs();
+}
+
+// The bundle is built server-side and downloaded straight to disk. Nothing is
+// transmitted anywhere — that is the whole difference between this and the
+// crash reporting the roadmap turned down.
+async function downloadSupportBundle() {
+  const button = $("logs-bundle");
+  button.disabled = true;
+  const original = button.textContent;
+  button.textContent = "Collecting…";
+  try {
+    const response = await fetch("/support-bundle", {
+      headers: { "X-Auth-Token": localStorage.getItem("token") || "" },
+    });
+    if (!response.ok) throw new Error(`Couldn't build the bundle (${response.status})`);
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "memorymap-support-bundle.zip";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    toast("Support bundle saved. Have a look inside before you send it.");
+  } catch (error) {
+    toast(error.message || "Couldn't build the support bundle.", true);
+  } finally {
+    button.disabled = false;
+    button.textContent = original;
+  }
 }
 
 async function renderBin() {
@@ -13045,10 +13331,28 @@ $("settings-modal").addEventListener("click", (event) => {
 // is the shape of "this control does nothing" that keeps getting reported.
 $("pref-web-search").addEventListener("change", saveWebSearchSettings);
 $("pref-searxng").addEventListener("change", saveWebSearchSettings);
-$("log-source").addEventListener("change", renderLogs);
-$("logs-refresh").addEventListener("click", renderLogs);
+// Filters only re-draw what is already held — they never refetch, so changing
+// one mid-incident cannot lose the records you were looking at.
+$("log-source").addEventListener("change", renderLogList);
+$("log-level").addEventListener("change", renderLogList);
+$("log-filter").addEventListener("input", renderLogList);
 $("logs-copy").addEventListener("click", copyLogs);
 $("logs-clear").addEventListener("click", clearLogs);
+$("logs-bundle").addEventListener("click", downloadSupportBundle);
+
+$("log-follow").addEventListener("change", (event) => {
+  logFollowPinned = event.target.checked;
+  if (event.target.checked) scrollLogToBottom();
+});
+
+// Scrolling up is how you say "stop moving, I am reading this" — so it pauses
+// the follow rather than fighting you for the scroll position. Scrolling back
+// to the bottom resumes it, which is the same gesture every terminal uses.
+$("log-list").addEventListener("scroll", () => {
+  if (!$("log-follow").checked) return;
+  logFollowPinned = nearLogBottom();
+  $("log-follow-label").classList.toggle("is-paused", !logFollowPinned);
+});
 
 $("bin-btn").addEventListener("click", async () => {
   showPanel("bin-panel");

@@ -18,12 +18,14 @@ from sqlalchemy.orm import Session
 from memorymap.ai.embeddings import EmbeddingService
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient
+from memorymap.ai.openai_client import OpenAICompatClient
+from memorymap.ai.provider import Provider
 from memorymap.core.config import ConfigManager
 from memorymap.core.database import DatabaseManager, Entry
 
 _config: ConfigManager | None = None
 _db: DatabaseManager | None = None
-_ollama: OllamaClient | None = None
+_ollama: Provider | None = None
 _model_manager: ModelManager | None = None
 _embeddings: EmbeddingService | None = None
 
@@ -92,6 +94,41 @@ def refuse_multiple_workers() -> None:
     )
 
 
+#: Where each dialect listens when the user hasn't said. LM Studio's port is
+#: the OpenAI default because it is the backend that was actually asked for,
+#: and it is the one of the four whose port is fixed rather than chosen at
+#: launch (llama.cpp and vLLM are whatever you passed `--port`).
+DEFAULT_BASE_URLS = {
+    "ollama": "http://localhost:11434",
+    "openai": "http://localhost:1234/v1",
+}
+
+
+def build_llm_client(config: ConfigManager) -> Provider:
+    """The chat backend the user has chosen (§6).
+
+    Two dialects, not four products: `openai` covers LM Studio, llama.cpp, Jan
+    and vLLM alike, because the only thing that differs between them is the
+    base URL. Everything downstream — the agent, the librarian, the janitor —
+    is written against `Provider` and never asks which one it got.
+
+    An unrecognised provider name falls back to Ollama rather than raising. The
+    preferences file is a JSON file the user is invited to edit by hand, and a
+    typo in it should cost the setting, not the app.
+    """
+    provider = str(config.get_preference("llm_provider", "ollama") or "ollama").lower()
+    base_url = str(config.get_preference("llm_base_url", "") or "").strip()
+    if provider == "openai":
+        return OpenAICompatClient(
+            base_url=base_url or DEFAULT_BASE_URLS["openai"],
+            api_key=str(config.get_preference("llm_api_key", "") or ""),
+        )
+    # `config.ollama_url` carries the OLLAMA_URL environment variable, which
+    # predates this setting — so it stays the default for the Ollama path
+    # rather than being overwritten by an empty preference.
+    return OllamaClient(base_url=base_url or config.ollama_url)
+
+
 def init_app_state(data_dir: str | Path | None = None) -> None:
     """Build the singletons once. Safe to call twice (later calls no-op),
     so tests can initialise with a temp dir before the app starts."""
@@ -101,7 +138,7 @@ def init_app_state(data_dir: str | Path | None = None) -> None:
     if _db is None:
         _db = DatabaseManager(_config.db_path)
     if _ollama is None:
-        _ollama = OllamaClient(base_url=_config.ollama_url)
+        _ollama = build_llm_client(_config)
     if _model_manager is None:
         _model_manager = ModelManager(_config)
     if _embeddings is None:
@@ -130,8 +167,24 @@ def reset_app_state() -> None:
     _embeddings = None
 
 
+def reload_llm_client() -> None:
+    """Rebuild the chat backend after the provider or its URL changed.
+
+    Settings → Models can switch between Ollama and an OpenAI-compatible
+    server, and the whole point of doing it there is not having to restart the
+    app. The embedding service holds the same client, so it is rebuilt too —
+    otherwise switching backend would leave embeddings still talking to the old
+    one, which presents as semantic search quietly using a server the user
+    thinks they turned off.
+    """
+    global _ollama, _embeddings
+    assert _config is not None
+    _ollama = build_llm_client(_config)
+    _embeddings = EmbeddingService(get_model_manager(), _ollama)
+
+
 def override_ai(
-    ollama: OllamaClient | None = None,
+    ollama: Provider | None = None,
     embeddings: EmbeddingService | None = None,
 ) -> None:
     """Swap in fakes — tests only. Real code never calls this."""
@@ -154,7 +207,12 @@ def get_db() -> DatabaseManager:
     return _db
 
 
-def get_ollama() -> OllamaClient:
+def get_ollama() -> Provider:
+    """The chat backend, whichever dialect it speaks.
+
+    Still named for Ollama because every call site is, and renaming it would
+    be a large diff that changes no behaviour. What it returns is a `Provider`.
+    """
     init_app_state()
     assert _ollama is not None
     return _ollama

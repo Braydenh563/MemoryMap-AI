@@ -60,28 +60,29 @@ other way.
 
 ## Next session: start here
 
-Named directly at the end of the last session, in this order:
-
-1. **§6 — other local AI backends (LM Studio, llama.cpp, Jan, vLLM).** The
-   headline ask. §6 now opens with a "read this before starting" block: the
-   context work has already staked out the four things a provider must answer
-   (`usable_context`, runtime options, tool-call shape, streaming shape) and
-   which of them already degrade gracefully when a provider cannot. LM Studio
-   reports `max_context_length` on `GET /api/v0/models`, so the window
-   budgeting carries over. Pair it with §20's async-httpx item — both rewrite
-   the same client.
+1. ~~**§6 — other local AI backends (LM Studio, llama.cpp, Jan, vLLM).**~~
+   **done.** Built as the *dialect* rather than as a product: `ai/provider.py`
+   holds what was never Ollama-specific, `ai/openai_client.py` speaks
+   `/v1/chat/completions`, and one provider covers LM Studio, llama.cpp, Jan,
+   vLLM and Ollama's own `/v1`. The four questions §6 staked out all held up.
+   What the write-up in §6 did *not* predict, and cost the most care: streamed
+   tool-call fragments are keyed by an index and interleave, and LM Studio's
+   `loaded_context_length` has to beat its `max_context_length`. Both have
+   tests. See §6 for the full account.
 2. **Keep the agent lean.** §11a's fixed *and* variable halves are now
    budgeted (`ai/context.py`), and §14's tool list is fitted to the model
    rather than to a constant. **What is genuinely left is the output side:**
    `num_predict` is a flat 1,024 for every request, and the
    quick/normal/detailed preset in §11 is what would make it adaptive —
    together with per-mode temperature and thinking budget, which was asked
-   for separately and is the same preset.
-3. **Possibly: read another repository and take what fits.** Worth doing the
-   way the Headroom evaluation in §11 was done — measure this app's actual
-   numbers first, then judge the import against them. That evaluation
-   *changed its own answer* halfway through on the strength of one
-   measurement, and it is the format to copy.
+   for separately and is the same preset. **This is now the top item.**
+3. ~~**Possibly: read another repository and take what fits.**~~ **done, and
+   it is written up in [§33](#33-odysseus-read-and-triaged).** The repository
+   was `pewdiepie-archdaemon/odysseus`. The single most important finding is
+   a licence one and it is not negotiable: **odysseus is AGPL-3.0-or-later and
+   MemoryMap is MIT, so no code can be copied across in either direction.**
+   Everything in §33 is a design lesson to be re-implemented independently,
+   which is what §6 above did.
 
 Everything below this block is the standing backlog, unchanged.
 
@@ -1325,7 +1326,89 @@ like using Obsidian or Notion."* Ordered by how much each one gets in the way.
 
 ---
 
-## 6. OpenAI-compatible backends (LM Studio, llama.cpp, Jan, vLLM)
+## 6. OpenAI-compatible backends (LM Studio, llama.cpp, Jan, vLLM) — **done**
+
+**Built.** `ai/provider.py` (the neutral seam), `ai/openai_client.py` (the
+second dialect), `deps.build_llm_client`, `POST /models/provider`, and the
+Model backend picker in Settings → Models. 47 tests in
+`tests/test_providers.py`. The original plan is kept below the status block
+because its reasoning is still the reasoning; what follows first is what the
+plan got right, what it missed, and what is left.
+
+**What the plan got right.** All four questions it staked out were the right
+four, and three of them cost almost nothing because the groundwork was already
+there. `usable_context` was already reached through `getattr` for exactly this
+reason. `extract_text_tool_calls` already handled the OpenAI spelling of
+arguments-as-a-JSON-string, because Ollama models were already inconsistent
+among themselves — so the "new" dialect was one this app could already read.
+`_ThinkTagSplitter` and `_ToolTextGate` needed no change at all, because the
+split was kept at "parse one chunk"; the SSE framing is handled below them and
+they never learned it exists.
+
+**What the plan missed, and what it cost.** Two things, both in the streaming
+path, and both silent failures rather than errors:
+
+- **Streamed tool-call fragments are keyed by an `index`.** Arguments arrive as
+  partial JSON spread over many chunks, and *two concurrent calls interleave on
+  the wire*. Folding them in arrival order rather than by index yields one
+  unparseable blob — and it only happens when the model asks for two things at
+  once, which small models do constantly, so it would have looked like "the
+  agent sometimes ignores its tools". There is no Ollama equivalent to have
+  learned this from.
+- **`loaded_context_length` has to beat `max_context_length`.** LM Studio
+  reports both, and the plan only named the latter. A 128k-capable model that
+  was *loaded* at 4k will drop the front of the prompt — the system prompt,
+  the part telling it that it has tools — if the app budgets against what it
+  could have held. This is the same class of mistake as the one §11a existed to
+  fix, one layer further out.
+
+A third thing the plan named but understated: **tool results are addressed by
+id**, and the interesting case is a model calling the same tool twice in one
+turn. Matching results to calls by name alone addresses both to the first call,
+leaves one unanswered, and the server rejects the entire turn.
+
+**Decisions worth not re-litigating.**
+
+- **`OllamaError` was aliased, not subclassed.** It *is* `ProviderError` now.
+  Introducing a neutral parent and leaving `OllamaError` as a child would have
+  looked tidier and silently stopped a dozen existing `except OllamaError`
+  handlers firing for the new provider. The tidier-looking change was the
+  broken one.
+- **The shared helpers were moved, not copied,** and a test asserts they are
+  gone from `ollama_client.py`. Two tool-text gates that drift apart is exactly
+  the failure this refactor exists to prevent.
+- **An unknown context window stays unknown.** Where neither the server nor
+  the known-model table can answer, the app budgets against
+  `DEFAULT_CONTEXT_TOKENS` and does not invent a number. A fallback 128k is not
+  proof a model holds 128k, and a budget scaled off an unverified window is
+  worse than a conservative one.
+- **Setting a backend does not require it to be up.** You set the address, then
+  you start the server. `POST /models/provider` saves either way and reports
+  what it found.
+
+**What is left.** Small, and none of it blocking:
+
+- **The async-httpx refactor (§20)** was *not* done alongside this, against the
+  plan's own advice. The reason: the second provider was already a full rewrite
+  of the streaming path, and doing both at once would have meant no version of
+  the streaming path that was known-good to bisect against. It is still worth
+  doing, and now has to touch two clients instead of one — that is the price,
+  and it was paid deliberately.
+- **Unverified against real servers.** Every test here is against a fake
+  transport. The SSE framing, the `[DONE]` sentinel and the fragment-index
+  behaviour are all from the specification rather than from a running LM Studio.
+  Worth thirty minutes with the real thing before calling it confirmed.
+- **`api_key` is stored in `preferences.json` in plain text**, like every other
+  preference. It is excluded from the support bundle. That is fine for a local
+  server that ignores it and *not* fine for a hosted gateway key; if anyone
+  points this at a paid API, the key belongs in the vault (§26) instead.
+- **Embeddings via the OpenAI backend are implemented but not wired to the
+  Settings UI** — `embedding_backend` still offers "built-in" and "ollama"
+  only. `OpenAICompatClient.embed` works; nothing calls it yet.
+
+---
+
+### The original plan, kept for its reasoning
 
 **Why.** Asked for directly. LM Studio serves an OpenAI-compatible API on
 `http://localhost:1234/v1`, and so do llama.cpp's server, Jan, vLLM — and Ollama

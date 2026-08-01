@@ -7,6 +7,64 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Added — any OpenAI-compatible backend (roadmap §6)
+
+The headline ask was "support LM Studio". What got built is the **dialect**,
+not the product: LM Studio serves the OpenAI API on `localhost:1234/v1`, and so
+do llama.cpp's server, Jan, vLLM, and Ollama's own `/v1` surface. One provider
+gets all of them, and the only thing that differs between them is an address.
+
+Pick it in **Settings → Models → Model backend**. It applies immediately — no
+restart, nothing to put in `.env` — and the setting is saved whether or not the
+server is answering yet, because "set the address, then start the server" is
+the normal order to do it in.
+
+- **`ai/provider.py` is the new seam.** Everything that was never actually
+  about Ollama moved there and is now shared: the think-tag splitter, the
+  tool-text gate and the prose-tool-call recovery, the error classes, the
+  context ceiling, the neutral `{context_tokens, max_output_tokens}` budget.
+  They were *moved*, not copied — a test asserts they are gone from the old
+  file, because two copies of a tool-call gate that drift apart is exactly the
+  bug this refactor exists to prevent.
+
+- **`OllamaError` is still the error every route catches**, because it is now
+  an alias for the neutral `ProviderError` rather than a sibling of it. A new
+  parent class would have read as tidier and quietly stopped a dozen existing
+  `except OllamaError` handlers firing for the second provider.
+
+- **Streamed tool calls arrive in fragments keyed by an index**, which has no
+  Ollama equivalent: arguments come through as partial JSON spread over many
+  chunks, and two concurrent calls interleave on the wire. Folding them by
+  arrival order instead of by index produces one unparseable blob the moment a
+  model asks for two things at once — which small models do constantly.
+
+- **The window a server *loaded* beats the window a model *could* hold.** LM
+  Studio reports both; a 128k model loaded at 4k will drop the front of the
+  prompt — the system prompt, the part telling it that it has tools — if the
+  app budgets against the bigger number. Where nothing is reported at all
+  (plain llama.cpp), a known-model table answers, and where that doesn't
+  either, the app says "unknown" and budgets conservatively rather than
+  inventing a number nobody verified.
+
+- **Tool results are addressed by id.** Ollama accepts `{"role": "tool",
+  "tool_name": …}`; the OpenAI shape wants a `tool_call_id` matching an id the
+  assistant turn issued. The agent keeps writing one dialect and the client
+  translates at the boundary — including the case where a model calls the same
+  tool twice in one turn, where matching on name alone leaves a call
+  unanswered and the server rejects the whole turn.
+
+- **The trap §6 named, closed.** `tests/test_context_budget.py` asserts all
+  four Ollama generation paths send an options block; `tests/test_providers.py`
+  now asserts the equivalent for the new provider, against the payloads that
+  actually went out. A path that omits `max_tokens` is a model running unbounded
+  on the backend's defaults — the bug the context-budget work was spent fixing,
+  arriving again through a different door.
+
+- Downloading models is an Ollama capability, so the suggested-downloads panel
+  hides itself on the other backends rather than offering a button that cannot
+  work, and the status line names whichever backend actually answered instead
+  of telling an LM Studio user to go and install Ollama.
+
 ### Security
 
 The roadmap's security tier, worked through end to end. Three of its seven

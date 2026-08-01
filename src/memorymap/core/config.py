@@ -39,6 +39,18 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     "web_search_enabled": False,
     "searxng_url": "",
     "search_provider": "auto",
+    # Which dialect the chat backend speaks (§6). "ollama" is the native
+    # `/api` shape; "openai" is `/v1/chat/completions`, which is what LM
+    # Studio, llama.cpp, Jan and vLLM all serve — one setting covers all of
+    # them, because the only thing that differs between them is the URL.
+    "llm_provider": "ollama",
+    # Empty means "the default for that provider" — OLLAMA_URL for Ollama,
+    # LM Studio's port for the OpenAI shape. Stored rather than derived so
+    # switching provider and back doesn't forget a custom address.
+    "llm_base_url": "",
+    # Only ever needed by a hosted gateway; local servers ignore it. Kept out
+    # of the support bundle by the same redaction that hides other secrets.
+    "llm_api_key": "",
 }
 
 

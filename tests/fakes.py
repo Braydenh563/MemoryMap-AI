@@ -56,6 +56,10 @@ class FakeOllama:
 
     def __init__(self, running: bool = True) -> None:
         self.running = running
+        # Every provider reports where it is and whether it can fetch a model,
+        # because Settings → Models shows both (§6). The fake stands in for the
+        # Ollama one, so it answers as Ollama does.
+        self.base_url = "http://localhost:11434"
         self.chat_calls: list[list[dict]] = []
         self.chat_models: list[str] = []  # which model each chat() used (Wave N)
         self.librarian_reply = "Here's what I found in your notebook!"
@@ -78,6 +82,9 @@ class FakeOllama:
 
     def is_running(self) -> bool:
         return self.running
+
+    def supports_pull(self) -> bool:
+        return True
 
     # The agent budgets its tool schemas against the model's real window
     # (see tools.within_budget). Generous here on purpose: a test asserting

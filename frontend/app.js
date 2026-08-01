@@ -11579,6 +11579,61 @@ function renderSearchEngineHealth(status) {
   el.className = `status ${cls}`;
 }
 
+// What to call the backend on screen. The whole UI was written when there was
+// only Ollama, and the word is in a dozen strings; this is the one place that
+// decides, so the rest read from it (§6).
+function backendLabel(status) {
+  return (status && status.provider) === "openai" ? "The model server" : "Ollama";
+}
+
+// True while the user is mid-edit, so a status poll doesn't overwrite the
+// address they are halfway through typing. The polling that keeps this screen
+// live is the reason: without it, a five-second refresh eats every third
+// keystroke.
+let backendFieldsDirty = false;
+
+function renderBackendPicker(status) {
+  const select = $("llm-provider-select");
+  const url = $("llm-base-url");
+  if (!select || !url) return;
+  if (backendFieldsDirty || document.activeElement === url) return;
+  select.value = status.provider || "ollama";
+  // Show the address actually in use, but as a placeholder when it is just the
+  // default — so the field stays empty and "blank means the usual one" keeps
+  // being true after a round trip.
+  const defaults = status.provider_default_base_urls || {};
+  const fallback = defaults[select.value] || "";
+  if (status.base_url && status.base_url !== fallback) {
+    url.value = status.base_url;
+  } else {
+    url.value = "";
+  }
+  url.placeholder = fallback || "Default address";
+}
+
+async function applyBackendChoice() {
+  const provider = $("llm-provider-select").value;
+  const baseUrl = $("llm-base-url").value.trim();
+  const note = $("llm-provider-status");
+  note.textContent = "Connecting…";
+  try {
+    const body = await apiJson("/models/provider", {
+      method: "POST",
+      body: JSON.stringify({ provider, base_url: baseUrl }),
+    });
+    backendFieldsDirty = false;
+    // The setting is saved either way — you set the address, then you start
+    // the server — so this reports what was found rather than treating an
+    // unreachable server as a rejected setting.
+    note.textContent = body.reachable
+      ? `● Connected to ${body.base_url} — ${body.installed_models.length} model(s) available.`
+      : `○ Saved, but nothing is answering at ${body.base_url} yet. Start the server and this will light up.`;
+    await refreshModelStatus();
+  } catch (err) {
+    note.textContent = err.message;
+  }
+}
+
 function renderSettings() {
   const status = modelStatus;
   const ollamaLine = $("ollama-status");
@@ -11588,9 +11643,14 @@ function renderSettings() {
     return;
   }
 
+  // Name the backend that actually answered. Saying "Ollama not detected"
+  // when the app was pointed at LM Studio sends people to install the wrong
+  // thing (§6).
+  const backend = backendLabel(status);
   ollamaLine.textContent = status.ollama_running
-    ? "● Ollama is running"
-    : "○ Ollama not detected";
+    ? `● ${backend} is running`
+    : `○ ${backend} not detected`;
+  renderBackendPicker(status);
   const embeddingError = $("embedding-error");
   embeddingError.classList.toggle("hidden", !status.embedding_error);
   if (status.embedding_error) {
@@ -11601,9 +11661,19 @@ function renderSettings() {
       "it runs fully offline. Full details in Settings → Logs.";
   }
   renderSearchEngineHealth(status);
-  $("ollama-help").classList.toggle("hidden", status.ollama_running);
+  // The "install Ollama" advice only helps someone who chose Ollama.
+  $("ollama-help").classList.toggle(
+    "hidden",
+    status.ollama_running || status.provider !== "ollama"
+  );
   $("models-config").classList.toggle("hidden", !status.ollama_running);
-  $("suggested-box").classList.toggle("hidden", !status.ollama_running);
+  // Downloads are an Ollama capability. Every other backend is handed a model
+  // that is already on disk, so the panel hides rather than offering a button
+  // that cannot work.
+  $("suggested-box").classList.toggle(
+    "hidden",
+    !status.ollama_running || status.supports_pull === false
+  );
 
   // The search engine is always adjustable: its recommended option is the
   // built-in one, which needs no Ollama. Only the Ollama half of it depends
@@ -14424,6 +14494,18 @@ $("profile-delete").addEventListener("click", deleteProfile);
 $("export-json").addEventListener("click", () => downloadExport("json"));
 $("export-csv").addEventListener("click", () => downloadExport("csv"));
 $("chat-model-apply").addEventListener("click", applyChatModel);
+$("llm-provider-apply").addEventListener("click", applyBackendChoice);
+// Mark the fields dirty on any edit so the five-second status poll stops
+// rewriting them underneath the person typing an address into them.
+$("llm-base-url").addEventListener("input", () => (backendFieldsDirty = true));
+$("llm-provider-select").addEventListener("change", () => {
+  backendFieldsDirty = true;
+  // Switching the dropdown should re-suggest that backend's usual address
+  // rather than leave the other one's sitting there looking authoritative.
+  const defaults = (modelStatus && modelStatus.provider_default_base_urls) || {};
+  $("llm-base-url").value = "";
+  $("llm-base-url").placeholder = defaults[$("llm-provider-select").value] || "Default address";
+});
 $("utility-model-apply").addEventListener("click", applyUtilityModel);
 $("embedding-apply").addEventListener("click", applyEmbeddingBackend);
 $("utility-model-select").addEventListener(

@@ -1011,6 +1011,33 @@ Link to another note with [[its first few words]]."></textarea>
               start it, and this screen will light up. Capturing notes and keyword
               search work fine without it.
             </p>
+
+            <!-- Which backend serves the model. Deliberately OUTSIDE
+                 #models-config, for the same reason the search-engine box is:
+                 this is the setting you need most when nothing is reachable,
+                 and hiding it whenever the backend is down would mean the one
+                 control that could fix the problem is the one you can't get to. -->
+            <div id="backend-config">
+              <h3>Model backend</h3>
+              <div class="row">
+                <select id="llm-provider-select">
+                  <option value="ollama">Ollama</option>
+                  <option value="openai">LM Studio / llama.cpp / Jan / vLLM</option>
+                </select>
+                <input id="llm-base-url" type="text" spellcheck="false" placeholder="Default address">
+                <button id="llm-provider-apply" class="small">Connect</button>
+              </div>
+              <p class="muted" id="llm-provider-note">
+                The second option covers any server speaking the OpenAI API —
+                LM Studio, llama.cpp's server, Jan and vLLM are all the same
+                choice, differing only by address. Leave the address blank for
+                the usual one (Ollama <code>:11434</code>, LM&nbsp;Studio
+                <code>:1234/v1</code>); fill it in if you started the server on
+                your own port.
+              </p>
+              <p id="llm-provider-status" class="status"></p>
+            </div>
+
             <div id="models-config" class="hidden">
               <h3>Chat model (answers your questions — switches instantly)</h3>
               <div class="row">

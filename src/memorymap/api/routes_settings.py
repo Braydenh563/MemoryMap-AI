@@ -426,6 +426,11 @@ DIAGNOSTIC_PREFERENCES = frozenset(
         "thinking_enabled",
         "guided_mode",
         "auto_categorise",
+        # Which backend answered is the first question any "the AI is broken"
+        # report needs. `llm_api_key` is deliberately NOT here — it stays
+        # described-not-disclosed like every other secret.
+        "llm_provider",
+        "llm_base_url",
     }
 )
 

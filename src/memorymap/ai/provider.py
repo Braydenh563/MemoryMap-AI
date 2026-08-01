@@ -1,0 +1,566 @@
+"""What every chat backend has to answer, and the parts that don't vary (§6).
+
+MemoryMap talked to Ollama and only Ollama. Ollama is not the only thing that
+serves a model on localhost any more: LM Studio, llama.cpp's server, Jan and
+vLLM all speak the OpenAI shape on some other port, and asking for "LM Studio
+support" specifically would have bought one backend instead of all of them.
+
+So the split is by *dialect*, not by product. There are two:
+
+  - Ollama's native `/api/chat` — `ai/ollama_client.py`
+  - OpenAI's `/v1/chat/completions` — `ai/openai_client.py`
+
+and every OpenAI-compatible server is the second one with a different base URL.
+
+**This module is the part that is the same either way.** Three kinds of thing
+live here:
+
+1. The stream helpers (`_ThinkTagSplitter`, `_ToolTextGate`,
+   `extract_text_tool_calls`, `split_thinking`). These were written for Ollama
+   but nothing in them is Ollama-specific — they operate on text a model wrote,
+   and a model writes `<think>` tags and prose-shaped tool calls whoever is
+   serving it. They moved here rather than being copied, and `ollama_client`
+   re-exports them so existing imports keep working.
+2. `Provider`, the base class: the four questions a backend must answer, and
+   the shared implementation of the ones whose answer doesn't depend on the
+   dialect (the context ceiling, the preference that overrides it).
+3. What the app knows *about models rather than about backends* — the
+   known-context table, and how to read a window out of a `/models` catalog.
+
+**Errors deliberately did not get a new name.** `ProviderError` is the same
+class `OllamaError` has always been, aliased; every `except OllamaError` in the
+routes therefore catches a failing LM Studio too. Introducing a parent class
+instead would have been the tidier-looking change and would have silently
+stopped those handlers firing for the new provider.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from urllib.parse import urlparse
+
+
+class ProviderError(RuntimeError):
+    """The backend is unreachable, or it returned something unusable."""
+
+
+class ToolsUnsupportedError(ProviderError):
+    """The active model can't do tool calls — the caller should fall
+    back to plain Q&A, never fail the whole chat (Wave G)."""
+
+
+# --- what the app knows about models, not about backends --------------------
+
+# Ollama's default when a model declares nothing. Everything that budgets
+# against the window falls back to this, because being wrong in this direction
+# only wastes headroom, while being wrong the other way silently drops the
+# system prompt off the front of the context.
+DEFAULT_CONTEXT_TOKENS = 4096
+
+# The largest window this app will ask a backend to allocate by default.
+#
+# A model declaring 128k does not mean asking for 128k is free: the KV cache
+# scales with the window, so a 7B at 128k wants several gigabytes that a laptop
+# may not have, and the failure is an out-of-memory rather than a slow answer.
+# 8k is comfortably more than the app's own worst-case prompt needs and costs a
+# fraction of that, so it is the default; anyone with the memory to spare can
+# raise it in preferences.
+MAX_REQUESTED_CONTEXT = 8192
+
+# Room for the reply. Unset, a backend will happily generate until it decides
+# to stop, and a local model that rambles is the single most common reason an
+# answer "takes ages" — output tokens are generated one at a time, so they cost
+# far more wall-clock each than prompt tokens do.
+DEFAULT_MAX_OUTPUT_TOKENS = 1024
+
+
+# Context windows for models whose server won't say. Ollama answers `/api/show`
+# and LM Studio answers `/api/v0/models`, but plain llama.cpp and several cloud
+# gateways report nothing at all, and the alternative to a table is budgeting
+# every one of them against 4,096 — which on a 128k model means withholding
+# tools for no reason.
+#
+# Substring-matched against the model id, so `llama3.1:8b-instruct-q4_0` finds
+# `llama3.1`. Keep keys as the shortest *unambiguous* prefix.
+KNOWN_CONTEXT_WINDOWS: dict[str, int] = {
+    # Local-first families — the ones this app is actually run with.
+    "llama3.1": 131072,
+    "llama3.2": 131072,
+    "llama3.3": 131072,
+    "llama3": 8192,
+    "llama4": 1048576,
+    "qwen2.5": 32768,
+    "qwen3": 131072,
+    "qwen3.5": 262144,
+    "gemma2": 8192,
+    "gemma3": 131072,
+    "gemma4": 131072,
+    "phi3": 131072,
+    "phi4": 16384,
+    "mistral": 32768,
+    "mistral-nemo": 131072,
+    "mixtral": 32768,
+    "codestral": 32768,
+    "granite3": 131072,
+    "granite4": 131072,
+    "deepseek-r1": 65536,
+    "deepseek-v3": 65536,
+    "smollm2": 8192,
+    "tinyllama": 2048,
+    "lfm2": 32768,
+    # Embedding models, so a mis-selected one is budgeted sanely rather than
+    # assumed to be a 128k chat model.
+    "nomic-embed-text": 8192,
+    "bge-": 512,
+    "all-minilm": 512,
+    # OpenAI-compatible gateways people point this at.
+    "gpt-4o": 128000,
+    "gpt-4.1": 1047576,
+    "gpt-5": 400000,
+    "o3": 200000,
+    "o4-mini": 200000,
+    "claude-3": 200000,
+    "claude-haiku-4": 200000,
+    "claude-sonnet-4": 200000,
+    "claude-opus-4": 200000,
+}
+
+
+def known_context(model: str) -> int | None:
+    """The window this app believes `model` has, or None if it has no idea.
+
+    Matches the *longest* key rather than the first, which is the whole reason
+    this is a loop and not a dict lookup: `llama3` and `llama3.1` both match
+    `llama3.1:8b`, they differ by 16x, and first-match order would decide which
+    one wins by dictionary insertion — a 131k model budgeted at 8k, or worse,
+    the other way round.
+
+    The tag (`:8b-q4_0`) and any registry prefix (`hf.co/user/`) are stripped
+    first: they say how the model was quantised and where it came from, not how
+    much it can hold.
+    """
+    name = (model or "").lower()
+    bare = name.split("/")[-1].split(":")[0]
+    best_key: str | None = None
+    best_context: int | None = None
+    for key, window in KNOWN_CONTEXT_WINDOWS.items():
+        if key in bare or key in name:
+            if best_key is None or len(key) > len(best_key):
+                best_key, best_context = key, window
+    return best_context
+
+
+# Fields a `/models` catalog might report a window under. Every OpenAI-compatible
+# server spells it differently — LM Studio says `max_context_length`, vLLM says
+# `max_model_len`, llama.cpp nests `n_ctx` under `meta`, OpenRouter says
+# `context_length` — so all of them are read rather than one being guessed at.
+_CONTEXT_FIELDS = (
+    "context_length",
+    "context_window",
+    "max_context_length",
+    "max_model_len",
+    "max_seq_len",
+)
+
+
+def context_from_catalog_entry(entry: dict) -> int | None:
+    """Read a positive context window out of one `/models` catalog entry."""
+    if not isinstance(entry, dict):
+        return None
+    for field in _CONTEXT_FIELDS:
+        value = entry.get(field)
+        if isinstance(value, (int, float)) and value > 0:
+            return int(value)
+    meta = entry.get("meta") or entry.get("model_extra") or {}
+    if isinstance(meta, dict):
+        # llama.cpp's `n_ctx` is the window the server was actually started
+        # with (`-c`), which beats anything the model file declares.
+        for field in ("n_ctx", *_CONTEXT_FIELDS):
+            value = meta.get(field)
+            if isinstance(value, (int, float)) and value > 0:
+                return int(value)
+    return None
+
+
+# Model ids that are not chat models. An OpenAI-shaped `/models` list is not
+# ordered and routinely puts an embedding model first, so "just use the first
+# one" picks something that cannot hold a conversation and fails at the point
+# of asking a question rather than at the point of choosing.
+_NOT_A_CHAT_MODEL = (
+    "embed",
+    "embedding",
+    "bge-",
+    "all-minilm",
+    "rerank",
+    "whisper",
+    "tts-",
+    "dall-e",
+    "stable-diffusion",
+    "clip-",
+    "moderation",
+)
+
+
+def first_chat_model(models: list[str]) -> str | None:
+    """The first id that looks like something you can chat with."""
+    for name in models or []:
+        if not any(hint in str(name).lower() for hint in _NOT_A_CHAT_MODEL):
+            return name
+    return (models or [None])[0]
+
+
+def detect_provider(base_url: str) -> str:
+    """Guess the dialect from the URL, for when the user hasn't said.
+
+    Two rules, in this order, because the second is a catch-all:
+
+      - a `/v1` path means the OpenAI shape, whoever is serving it — this is
+        how Ollama's own compatibility surface gets used deliberately;
+      - port 11434 with no `/v1` is Ollama's native API.
+
+    Anything else falls back to `openai`, because that is what the long tail
+    of servers implements. Guessing wrong is recoverable: the provider is a
+    setting, and this only supplies its default.
+    """
+    try:
+        parsed = urlparse((base_url or "").strip())
+    except ValueError:
+        return "ollama"
+    path = (parsed.path or "").rstrip("/")
+    if path == "/v1" or path.startswith("/v1/"):
+        return "openai"
+    if parsed.port == 11434 or path.startswith("/api"):
+        return "ollama"
+    return "openai" if path else "ollama"
+
+
+class Provider:
+    """The interface `agent.run_agent` and friends are written against.
+
+    Subclasses implement the dialect-specific half — `context_length`,
+    `is_running`, `list_models`, and the four generation paths (`chat`,
+    `chat_stream`, `chat_tools`, `chat_tools_stream`) plus `embed`. What is
+    shared lives here, and it is the part that took the measurements in §11a to
+    get right: the ceiling on the window, and the fact that the number the app
+    budgets against must be the same number it asks the backend for.
+    """
+
+    DEFAULT_CONTEXT_TOKENS = DEFAULT_CONTEXT_TOKENS
+    MAX_REQUESTED_CONTEXT = MAX_REQUESTED_CONTEXT
+    DEFAULT_MAX_OUTPUT_TOKENS = DEFAULT_MAX_OUTPUT_TOKENS
+
+    #: Shown in Settings → Models and in the support bundle.
+    name = "provider"
+
+    def context_length(self, model: str) -> int | None:
+        """How many tokens this model can hold, or None for "I can't tell".
+
+        None is a real answer and callers handle it: a backend that cannot
+        report a window degrades to `DEFAULT_CONTEXT_TOKENS` rather than
+        failing the turn. Returning a *made-up* number instead would be worse
+        than returning None, because the budget would then be scaled against
+        something nobody verified.
+        """
+        raise NotImplementedError
+
+    @property
+    def max_requested_context(self) -> int:
+        """The ceiling, overridable by the user who knows their own machine."""
+        try:
+            from memorymap.core import deps
+
+            wanted = int(
+                deps.get_config().get_preference(
+                    "max_context_tokens", self.MAX_REQUESTED_CONTEXT
+                )
+            )
+        except Exception:  # noqa: BLE001 — a bad preference must not stop a chat
+            return self.MAX_REQUESTED_CONTEXT
+        # Floor at the default: below it nothing works, and a typo like 40
+        # should not silently make the app unusable.
+        return max(self.DEFAULT_CONTEXT_TOKENS, wanted)
+
+    def usable_context(self, model: str) -> int:
+        """The window to budget against — and, on Ollama, to ask for.
+
+        Deliberately the same number in both places. Ollama runs a model at
+        `num_ctx`, which is its own default (commonly 4,096) *regardless of
+        what the model was trained for* — so reading a 32k context length and
+        budgeting against it, without also asking for 32k, would produce
+        exactly the overflow the budget exists to prevent.
+
+        On the OpenAI shape there is no `num_ctx` to send: the window is fixed
+        when the server loads the model. That makes this number advisory there
+        rather than instructive, which is *safe in the direction that matters*
+        — the app rations itself to at most what the server reported.
+        """
+        declared = self.context_length(model) or self.DEFAULT_CONTEXT_TOKENS
+        return max(
+            self.DEFAULT_CONTEXT_TOKENS, min(declared, self.max_requested_context)
+        )
+
+    def generation_budget(self, model: str, max_output_tokens: int | None = None) -> dict:
+        """The neutral pair every backend needs, before dialect.
+
+        §6 called this: either each provider translates a neutral
+        `{context_tokens, max_output_tokens}`, or it owns the whole payload —
+        and the agent should not learn four dialects. This is the neutral pair;
+        `runtime_options` on each subclass is the translation.
+        """
+        return {
+            "context_tokens": self.usable_context(model),
+            "max_output_tokens": max_output_tokens or self.DEFAULT_MAX_OUTPUT_TOKENS,
+        }
+
+    def runtime_options(self, model: str, max_output_tokens: int | None = None) -> dict:
+        """The dialect-specific options block sent with every generation."""
+        raise NotImplementedError
+
+    def is_running(self) -> bool:
+        raise NotImplementedError
+
+    def list_models(self) -> list[dict]:
+        raise NotImplementedError
+
+    def supports_pull(self) -> bool:
+        """Can this backend download models on request?
+
+        Only Ollama can. LM Studio, llama.cpp and vLLM are handed a model that
+        is already on disk, so the UI's download panel is meaningless there and
+        hides itself rather than offering a button that cannot work.
+        """
+        return False
+
+
+# --- stream helpers: about what a model wrote, not about who served it -------
+
+
+class _ThinkTagSplitter:
+    """Routes streamed content into thinking vs answer pieces when a
+    model reasons inline with <think>…</think> — the tags themselves can
+    arrive split across chunks, so a little state is unavoidable."""
+
+    OPEN, CLOSE = "<think>", "</think>"
+
+    def __init__(self) -> None:
+        self._buffer = ""
+        self._mode = "start"  # start → thinking? → answer
+
+    def feed(self, chunk: str) -> list[dict]:
+        self._buffer += chunk
+        pieces: list[dict] = []
+
+        if self._mode == "start":
+            candidate = self._buffer.lstrip()
+            if candidate.startswith(self.OPEN):
+                self._mode = "thinking"
+                self._buffer = candidate[len(self.OPEN) :]
+            elif self.OPEN.startswith(candidate):
+                return pieces  # could still become "<think>" — wait
+            else:
+                self._mode = "answer"
+
+        if self._mode == "thinking":
+            end = self._buffer.find(self.CLOSE)
+            if end != -1:
+                pieces.append({"thinking_delta": self._buffer[:end]})
+                self._buffer = self._buffer[end + len(self.CLOSE) :]
+                self._mode = "answer"
+            else:
+                # Keep enough back that a half-arrived "</think>" isn't
+                # emitted as thinking text.
+                safe = len(self._buffer) - (len(self.CLOSE) - 1)
+                if safe > 0:
+                    pieces.append({"thinking_delta": self._buffer[:safe]})
+                    self._buffer = self._buffer[safe:]
+                return pieces
+
+        if self._mode == "answer" and self._buffer:
+            pieces.append({"content_delta": self._buffer})
+            self._buffer = ""
+        return pieces
+
+    def flush(self) -> list[dict]:
+        """The stream ended — emit whatever is left."""
+        leftover, self._buffer = self._buffer, ""
+        if not leftover:
+            return []
+        key = "thinking_delta" if self._mode == "thinking" else "content_delta"
+        return [{key: leftover}]
+
+
+class _ToolTextGate:
+    """Holds back streamed text that might turn out to be a tool call in prose.
+
+    Some small models write ``<tool_call>{...}</tool_call>`` — or a bare JSON
+    object — instead of using the structured tool_calls field.
+    ``extract_text_tool_calls`` recovers those and strips them so they're
+    executed rather than shown, but a streaming UI would already have printed
+    the text by then. So content is gated until it's clearly *not* one of those
+    shapes, released in one go at that moment, and passed straight through from
+    then on.
+
+    The cap matters: an answer that genuinely opens with "{" must not be held
+    hostage forever, so past MAX_GATE characters the gate gives up and opens.
+    """
+
+    MAX_GATE = 1000
+    OPENER = "<tool_call>"
+
+    def __init__(self) -> None:
+        self._buffer = ""
+        self._open = False
+
+    def feed(self, text: str) -> str:
+        """Return whatever is safe to show now (possibly "")."""
+        if self._open:
+            return text
+        self._buffer += text
+        candidate = self._buffer.lstrip()
+        if not candidate:
+            return ""
+        looks_like_call = (
+            candidate.startswith("{")
+            or candidate.startswith(self.OPENER)
+            # A partially-arrived "<tool_call>" — wait for the rest.
+            or self.OPENER.startswith(candidate)
+        )
+        if looks_like_call and len(self._buffer) < self.MAX_GATE:
+            return ""
+        self._open = True
+        held, self._buffer = self._buffer, ""
+        return held
+
+    def flush(self) -> str:
+        """The stream ended while still gated — hand back what was held."""
+        held, self._buffer = self._buffer, ""
+        self._open = True
+        return held
+
+    @property
+    def gated(self) -> bool:
+        return not self._open
+
+
+def extract_text_tool_calls(
+    content: str, tool_names: set[str]
+) -> tuple[list[dict], str]:
+    """Recover tool calls that a model wrote as TEXT instead of using the
+    structured tool_calls field (Wave O bug: small models narrate/emit
+    calls in prose, so notes the AI 'creates' never actually get made).
+
+    Handles both an explicit ``<tool_call>{...}</tool_call>`` wrapper and a
+    bare JSON object that names a known tool. Returns (calls, cleaned_text)
+    where cleaned_text has the recovered JSON removed so it isn't shown to
+    the user."""
+    calls: list[dict] = []
+    cleaned = content
+
+    def _consume(blob: str, whole: str) -> None:
+        try:
+            data = json.loads(blob)
+        except ValueError:
+            return
+        candidates = data if isinstance(data, list) else [data]
+        for item in candidates:
+            if not isinstance(item, dict):
+                continue
+            # Accept {"name","arguments"} and OpenAI-ish {"function":{...}}.
+            fn = item.get("function") if isinstance(item.get("function"), dict) else item
+            name = fn.get("name") if isinstance(fn, dict) else None
+            if name in tool_names:
+                args = fn.get("arguments") or fn.get("parameters") or {}
+                if isinstance(args, str):
+                    try:
+                        args = json.loads(args)
+                    except ValueError:
+                        args = {}
+                calls.append({"name": name, "arguments": args if isinstance(args, dict) else {}})
+                nonlocal cleaned
+                cleaned = cleaned.replace(whole, "")
+
+    # 1) explicit <tool_call>…</tool_call> blocks (Qwen/Hermes style).
+    for match in re.finditer(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", content, re.S):
+        _consume(match.group(1), match.group(0))
+    # 2) a bare top-level JSON object naming a known tool.
+    if not calls:
+        for match in re.finditer(r"\{[^{}]*\"name\"[^{}]*\}", content, re.S):
+            _consume(match.group(0), match.group(0))
+
+    return calls, cleaned.strip()
+
+
+def _ns_to_ms(value) -> int | None:
+    """Ollama reports durations in nanoseconds; milliseconds read better."""
+    try:
+        return round(int(value) / 1_000_000)
+    except (TypeError, ValueError):
+        return None
+
+
+def split_thinking(text: str) -> tuple[str, str | None]:
+    """Separate a thinking model's <think>…</think> block from its answer.
+
+    Models like DeepSeek-R1 or Qwen3 reason out loud inside think-tags;
+    shown raw it looks like garbage, hidden entirely it wastes useful
+    insight — so we return both parts and let the UI decide."""
+    start = text.find("<think>")
+    end = text.find("</think>")
+    if start == -1 or end == -1 or end < start:
+        return text.strip(), None
+    thinking = text[start + len("<think>") : end].strip()
+    clean = (text[:start] + text[end + len("</think>") :]).strip()
+    return clean, thinking or None
+
+
+def normalise_tool_calls(raw_calls: list[dict]) -> list[dict]:
+    """`[{"function": {...}}]` in either dialect -> `[{"name", "arguments"}]`.
+
+    The OpenAI shape sends `arguments` as a JSON *string* where Ollama sends an
+    object — but Ollama models are inconsistent among themselves and some send
+    the string too, which is why this already handled both before there was a
+    second provider. One dialect fewer to add.
+    """
+    calls: list[dict] = []
+    for item in raw_calls or []:
+        function = item.get("function") or {}
+        arguments = function.get("arguments") or {}
+        if isinstance(arguments, str):
+            try:
+                arguments = json.loads(arguments)
+            except ValueError:
+                arguments = {}
+        calls.append(
+            {
+                "name": function.get("name", ""),
+                "arguments": arguments if isinstance(arguments, dict) else {},
+            }
+        )
+    return calls
+
+
+def offered_tool_names(tools: list[dict]) -> set[str]:
+    """The names in a tool schema list, for text-call recovery to match on."""
+    return {
+        t.get("function", {}).get("name") for t in tools or [] if isinstance(t, dict)
+    }
+
+
+__all__ = [
+    "ProviderError",
+    "ToolsUnsupportedError",
+    "Provider",
+    "DEFAULT_CONTEXT_TOKENS",
+    "MAX_REQUESTED_CONTEXT",
+    "DEFAULT_MAX_OUTPUT_TOKENS",
+    "KNOWN_CONTEXT_WINDOWS",
+    "known_context",
+    "context_from_catalog_entry",
+    "first_chat_model",
+    "detect_provider",
+    "extract_text_tool_calls",
+    "normalise_tool_calls",
+    "offered_tool_names",
+    "split_thinking",
+]

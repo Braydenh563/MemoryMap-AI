@@ -106,6 +106,7 @@ ollama pull llama3.2
 
 Any Ollama model works, and you can switch between them in-app from **Settings → Models** without restarting. Small models that do well here:
 
+
 | Model           | Why                                                            |
 | --------------- | ---------------------------------------------------------------|
 | `llama3.2`      | The default. Fast, ~2 GB, good all-rounder                     |
@@ -115,6 +116,22 @@ Any Ollama model works, and you can switch between them in-app from **Settings �
 | `lfm2.5`        | Specifically LFM2.5-8B-A1B if you're pulling from Hugging Face |
 
 *More at [huggingface.co/braydenh563](https://huggingface.co/braydenh563).*
+
+### Not using Ollama?
+
+**Settings → Models → Model backend** points MemoryMap at anything that serves
+the OpenAI API instead - **LM Studio**, **llama.cpp**'s server, **Jan** and
+**vLLM** are all the same choice, differing only by address. Pick "LM Studio /
+llama.cpp / Jan / vLLM", leave the address blank for the usual one
+(`localhost:1234/v1`) or fill in your own port, and press Connect. It applies
+straight away; no restart, and nothing to put in `.env`.
+
+Everything works the same on either backend - tool calls, streaming, thinking
+models, and the token counts on each message. Two differences worth knowing:
+downloading models is an Ollama feature (every other server is handed a model
+you already have, so that panel hides itself), and Ollama is the only one that
+lets the app *ask* for a context window - elsewhere the window is whatever the
+server was started with, so MemoryMap reads it and rations the prompt to fit.
 
 The **embedding** model for semantic search (`BAAI/bge-small-en-v1.5`)
 downloads itself the first time it's needed - Settings → Models names whichever
@@ -402,19 +419,23 @@ the graph, the platform work (command palette, backups, PWA, web search, sketch
 pad), voice and desktop, hardening, and the depth pass (documents, private
 notes, search operators, themes). Since then: a rebuilt skill system (ordered
 steps, a tool allowlist, an undoable result), SearXNG-backed web search,
-markdown rendering in the note list, and the Timeline tab above.
+markdown rendering in the note list, the Timeline tab above, and support for
+any OpenAI-compatible backend (LM Studio, llama.cpp, Jan, vLLM).
 [`CHANGELOG.md`](https://github.com/Braydenh563/MemoryMap-AI/blob/main/CHANGELOG.md) has it wave by wave.
 
 **Next up**, in order - by how often it gets in the way, not how interesting
 it is to build:
 
-1. **The graph's utility** - paths between notes, clusters, drag-to-link. The
+1. **Answer-length presets** - quick / normal / detailed, carrying their own
+reply cap, temperature and thinking budget. The prompt side is budgeted
+against the model's real window; the output side is still a flat 1,024.
+2. **The graph's utility** - paths between notes, clusters, drag-to-link. The
 layouts are done; what it can *do* for you isn't.
-2. **The live log console** - started, not finished. `/logs` is streamed but
+3. **The live log console** - started, not finished. `/logs` is streamed but
 not followed, filtered, or exportable yet.
-3. **Chat / Agent / Browse as their own sub-tabs**, so a plain question, a
+4. **Chat / Agent / Browse as their own sub-tabs**, so a plain question, a
 tool-calling run and a web page aren't sharing one column.
-4. **A Library tab** - one place for stored images, documents, chats and an
+5. **A Library tab** - one place for stored images, documents, chats and an
 archive, none of which has a home today.
 
 [`docs/ROADMAP.md`](https://github.com/Braydenh563/MemoryMap-AI/blob/main/docs/ROADMAP.md) has the reasoning behind each, which is the

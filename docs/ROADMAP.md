@@ -48,6 +48,7 @@ the part that's expensive to reconstruct.
 - [30. External review, filtered — what didn't make the cut](#30-external-review-filtered-what-didnt-make-the-cut)
 - [31. Claude's own read: what I'd flag](#31-claudes-own-read-what-id-flag)
 - [32. Product direction — asked for directly, kept short on purpose](#32-product-direction-asked-for-directly-kept-short-on-purpose)
+- [33. Odysseus, read and triaged](#33-odysseus-read-and-triaged)
 - [Answers to questions already raised](#answers-to-questions-already-raised-so-they-arent-re-asked)
 
 **New in this pass:** a proper line/branch view for the Timeline (§10C), a
@@ -669,6 +670,55 @@ thing. Don't ship one you couldn't test.
 ---
 
 ## Done in the most recent session — read this first
+
+**This session: §6, §11's output half, model specs, and odysseus read and
+triaged (§33).** Four things landed, and they are related — each one made the
+next cheaper.
+
+1. **§6 — every OpenAI-compatible backend, not an LM Studio special case.**
+   `ai/provider.py` holds what was never Ollama-specific; `ai/openai_client.py`
+   is the second dialect; LM Studio, llama.cpp, Jan, vLLM and Ollama's own
+   `/v1` all arrive together. Full write-up in §6, including the two things
+   the plan did not predict (streamed tool-call fragments are keyed by an index
+   and interleave; `loaded_context_length` has to beat `max_context_length`).
+
+2. **The window is reported, not just budgeted.** Every message says how full
+   the model's window got — `3.9k/8k window (48%)` — and turns
+   warning-coloured past 80%. A raw token count never answered the question
+   anyone has, which is whether the *next* turn is the one that starts dropping
+   the top of its own prompt. Counts a server won't report are estimated from
+   characters and marked `~`, because a guessed number the user believes was
+   measured is worse than a blank.
+
+3. **§11's output half — quick / normal / detailed.** One picker moves the
+   reply cap, the temperature, the thinking toggle and a length hint together.
+   `normal` is byte-for-byte what every turn got before, and a test says so.
+   Deliberately a preset rather than automatic routing: choosing by task needs
+   a "how hard is this turn" judgement that is itself a model call, and it
+   fails by being wrong confidently rather than obviously.
+
+4. **The model's actual specs are read.** Ollama's `/api/show` has been
+   reporting parameter count, quantisation and a `capabilities` list all along;
+   the app read one field and ignored the rest. Reading `capabilities`
+   immediately caught a bug in the preset built three hours earlier — `quick`
+   would have sent `think: false` to models that reject it, failing every turn.
+   `supports()` is **tri-state**: True, False, or None for "this backend does
+   not say", and None is never treated as False.
+
+**One security item, from odysseus's `url_safety.py`.** The backend address is
+now a setting, which makes it the one setting that can send notes off this
+machine. Link-local (the cloud metadata range) is refused; loopback and LAN are
+the normal case and are allowed; anything else is allowed and *warned about*,
+because the app's promise is that notes stay here. The check order turned out
+to be load-bearing and the first version was wrong: Python classes
+`169.254.0.0/16` as both link-local and `is_private`, so an allow-private rule
+running first waved the metadata address straight through. Both overlaps have
+a test naming them.
+
+**Everything below this line is from earlier sessions.**
+
+---
+
 
 Newest at the top. Everything here is on `main` (or the branch merging into
 it), verified, and must not be rebuilt.
@@ -3446,6 +3496,227 @@ feature list does. Everything in Tier 1–3 of the priority map earns its
 place either by fixing something broken or by deepening the part of the
 product that's already distinctive. Tier 4 is where to be honestly
 skeptical of new ideas, including this document's own.
+
+---
+
+## 33. Odysseus, read and triaged
+
+Asked for directly: *"analyse the odysseus repo, then determine what parts of
+it are valuable and can be incorporated into memorymap-ai."* Done the way §11's
+Headroom evaluation was done — look at what this app actually does first, then
+judge the import against it, rather than porting whatever looks impressive.
+
+**The repository**: `pewdiepie-archdaemon/odysseus`, a self-hosted AI workspace
+— chat, agents, deep research, documents, email, calendar, a model "cookbook",
+an image gallery. Roughly 60k lines of Python against MemoryMap's ~6k, and a
+much wider product: MemoryMap is a notebook that happens to have an AI in it,
+odysseus is an AI workspace that happens to store things.
+
+---
+
+### The constraint that governs everything below
+
+**Odysseus is AGPL-3.0-or-later. MemoryMap is MIT. No code can be copied
+across, in either direction.**
+
+This is not a formality and it is not a thing to work around by paraphrasing a
+file. Copying AGPL source into an MIT project relicenses the result and makes
+the MIT badge on this repository a false statement about what someone may do
+with it. **Everything in this section is a design lesson — an idea, a failure
+mode, a shape — to be re-implemented independently.** That is what §6 did: the
+provider work below was written from the four questions odysseus's code
+*answers*, not from its code.
+
+Two smaller things worth recording so nobody re-derives them:
+
+- Odysseus's own dependency notes and `ACKNOWLEDGMENTS.md` are worth a look
+  before adding any dependency it uses, because its licence tolerances are
+  wider than this project's.
+- The reverse direction is also closed. Nothing from MemoryMap should be
+  offered upstream to odysseus as a patch without deciding, deliberately, to
+  license that contribution under AGPL.
+
+---
+
+### Adopted this session
+
+Each of these was re-implemented from scratch. What odysseus supplied was the
+*idea* and, more valuably, the failure mode it had already hit.
+
+- **A provider layer split by dialect, not by product (§6).** Odysseus's
+  `_detect_provider` matches on hostname rather than substring, and falls back
+  to "OpenAI-compatible" for everything unknown — which is right, because that
+  is what the long tail implements. The lesson taken: build the *dialect*, and
+  LM Studio, llama.cpp, Jan and vLLM all arrive together.
+
+- **`loaded_context_length` beats `max_context_length`.** Odysseus reads both
+  and prefers the loaded one. MemoryMap's plan for §6 named only the latter; a
+  128k model *loaded* at 4k would have had its prompt budgeted at 128k and
+  quietly lost its system prompt. This one measurement changed the design.
+
+- **"Known" is a separate fact from "known value".** Odysseus carries a
+  `known` flag beside every context length, because a fallback 128k is not
+  proof a model holds 128k, and a budget scaled off an unproven number is worse
+  than a conservative one. MemoryMap's version of this is `context_length`
+  returning `None` and callers falling back rather than a made-up default
+  propagating.
+
+- **Multi-field catalog probing.** Every OpenAI-compatible server spells the
+  window differently — `max_context_length`, `max_model_len`, `context_length`,
+  nested `meta.n_ctx`. Odysseus reads all of them. So does
+  `provider.context_from_catalog_entry` now.
+
+- **Never auto-pick an embedding model as a chat model.** Odysseus's
+  `_first_chat_model` exists because an OpenAI-style `/models` list routinely
+  puts `text-embedding-ada-002` first and "use the first one" silently picks
+  something that cannot hold a conversation. Re-implemented as
+  `provider.first_chat_model`.
+
+- **Model specs and context usage surfaced in the chat.** Odysseus reports
+  `context_percent`, `usage_source: real|estimated`, and per-model metadata on
+  every turn. This was the single most transferable *product* idea in the repo,
+  and MemoryMap already had every piece needed for it. The message metadata
+  line now says how full the window got, and marks an estimate as an estimate.
+
+- **Read the capability list.** Odysseus tracks what each model supports rather
+  than assuming. MemoryMap now reads Ollama's `capabilities` from `/api/show` —
+  and it immediately caught a bug in the brand-new quick preset, which would
+  have sent `think: false` to models that reject it.
+
+- **SSRF hardening on a user-supplied backend URL.** Odysseus's `url_safety.py`
+  makes exactly the right call for a local-first app: do *not* blanket-block
+  private addresses, because pointing at a local server is the entire use case
+  — block the link-local metadata range instead. Re-implemented as
+  `security.check_backend_url`, plus a warning MemoryMap needs and odysseus
+  does not, because MemoryMap promises the notes never leave the machine.
+
+---
+
+### Worth building, not this session
+
+Ordered by value-per-effort. Each is a shape to re-implement, never a file to
+copy.
+
+1. **An `ask_user` tool that ends the turn (§18, §14).** Odysseus's agent can
+   stop mid-task and ask a multiple-choice question; the user gets clickable
+   buttons and their answer arrives as the next message. This is the honest
+   answer to a class of failure MemoryMap currently handles by guessing: an
+   ambiguous instruction ("file this properly") becomes a confident wrong
+   action. It also matches an IDEAS.md line directly ("an agent ask for
+   permission dialogue in the chat"). MemoryMap already has the hard half —
+   the destructive-action confirm card is exactly this UI — so this is mostly
+   a second event type and a tool.
+
+2. **A live plan the agent ticks off (`update_plan`).** Odysseus's agent keeps
+   a checklist the user can watch update. MemoryMap's *skill runner* already
+   does this — ordered steps, one per turn, each ticked — but an ordinary agent
+   turn does not. Generalising the skill runner's plan display to any
+   multi-round turn is a smaller job than it sounds, and it is the fix for
+   "long agent runs look like nothing is happening".
+
+3. **Semantic tool retrieval, replacing keyword `focus_for` (§11a, §14).**
+   Odysseus embeds its tool descriptions and retrieves the top-K per message,
+   with a deliberately tiny always-available core. MemoryMap's `tools.focus_for`
+   does the same job with keyword cues and already cut fixed overhead from
+   ~3,157 to ~1,439 tokens. **The honest note: this is an upgrade, not a fix.**
+   MemoryMap has the embedding service to do it, but the current version works
+   and the failure mode of the semantic one is worse — a cue that doesn't fire
+   is predictable, a retrieval that ranks wrong is not. Worth doing *with a
+   measurement*, the way §11 did: if it doesn't beat keyword cues on a set of
+   real questions, don't ship it.
+
+4. **A richer skill format.** Odysseus's `SKILL.md` carries frontmatter
+   (`description`, `version`, `tags`, `requires_toolsets`, `confidence`,
+   `source: learned|taught|imported`) and body sections: **When to Use**,
+   **Procedure**, **Pitfalls**, **Verification**. MemoryMap's skills (§21) have
+   ordered steps and a tool allowlist — the execution half — but nothing that
+   says *when* a skill applies or *how to tell it worked*. "When to Use" is the
+   one to steal first: it is what makes a skill findable by the model instead
+   of only by the user. Two more ideas from the same file: usage counts live in
+   a **sidecar** so the skill itself doesn't churn on every run, and the skill
+   *index* (name + description) is always loaded while the *body* is fetched on
+   demand — progressive disclosure, which is the same reversible-compression
+   idea §11 already adopted for notes.
+
+5. **A completion verifier for effectful turns.** After a turn that used a
+   writing tool, odysseus runs an independent check that the claimed work
+   actually happened, capped at two rounds. MemoryMap has a cheaper version of
+   this already — `_CLAIM_PATTERN` catches a model that says it saved something
+   when no write tool ran — and the cheap version covers the common case. The
+   upgrade is checking that what was written is what was *asked for*, not just
+   that something was written. Worth it only once agent turns get longer.
+
+6. **Better degraded-state reporting.** Odysseus's own roadmap asks for this
+   about its own app, which is a useful signal: it is a real gap in a system
+   with this many optional parts. MemoryMap is in better shape here (the status
+   pill, the embedding error line, the support bundle), but the same principle
+   applies to the new provider work — "reachable but wants a key" is a
+   different state from "off", and only the endpoint knows it today.
+
+---
+
+### Looked at and deliberately not taken
+
+Recording these so a future session doesn't re-evaluate them from scratch.
+
+- **The Cookbook / `services/hwfit`.** Hardware-aware model recommendation:
+  detect the GPU and RAM, score every candidate model on quantisation, VRAM
+  fit, architecture age and expected tokens/second. It is the most impressive
+  thing in the repository and it is a *product of its own* — thousands of lines
+  plus a curated model database that has to be maintained or it rots. MemoryMap
+  has `SUGGESTED_MODELS`, a hand-written list of five models that work well on
+  a laptop, and for a notebook app that is the right size of answer. Revisit
+  only if "which model should I run" becomes a question people actually ask
+  here.
+
+- **Sub-sessions, pipelines and agent-to-agent messaging** (`create_session`,
+  `send_to_session`, `pipeline`). Real capability, and completely out of scope
+  for a single-user notebook: MemoryMap deliberately refuses to run with more
+  than one worker.
+
+- **`bash` and `python` tools.** Odysseus gives its agent a shell. MemoryMap
+  should not, and this is not a close call — the whole safety story here is
+  that the agent's blast radius is the notebook, destructive actions are
+  confirmed, and everything is undoable. A shell tool ends all three properties
+  at once.
+
+- **The email, calendar and CalDAV integrations.** A different product.
+
+- **Their search ranking (`services/search/ranking.py`).** Genuinely nice —
+  recency scoring, domain quality, per-term title/snippet weighting. Not taken
+  because MemoryMap's web search is a *reader*, not a search engine: results go
+  to the model with a reader view, and the ranking that matters is the one
+  SearXNG already did. Reconsider if §13 ever grows a results page people
+  browse themselves.
+
+- **`teacher_escalation` — asking a bigger cloud model when a local one is
+  stuck.** Interesting, and squarely against this app's promise. A local model
+  failing is a thing to report, not a thing to silently escalate to somebody
+  else's computer.
+
+---
+
+### What reading it changed about how I'd judge this app
+
+Two things, both uncomfortable and both worth writing down.
+
+**Odysseus's roadmap opens by admitting the CSS is a swamp and that it doesn't
+know if its own integrations work.** That candour is the most useful thing in
+the repository. This document has the same risk in a milder form and already
+names it — the audit that found four of §2's six "quick wins" already built.
+The rule that came out of that ("check the running app before building
+anything here") is the one worth keeping, and it is worth applying to §33
+itself before starting any item above.
+
+**Almost everything odysseus does better, it does by being bigger.** The
+context tracking, the tool retrieval, the skill format, the provider layer —
+each is a more elaborate version of something MemoryMap already has, and in
+every case the elaborate version costs code that has to keep working. The
+items adopted above were the ones where the idea was small and the *failure
+mode* was the valuable part: `loaded_context_length` beating
+`max_context_length` is four lines and a comment, and it prevents a bug that
+would have been very hard to find from the symptom. That is the shape of import
+worth making, and it is the filter to apply to the "worth building" list too.
 
 ---
 

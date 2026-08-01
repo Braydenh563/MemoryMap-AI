@@ -73,9 +73,12 @@ These are the constraints that shaped every decision. When in doubt, they win.
 └───────┬──────┘   └────────┬────────┘
         │                   │
         │          ┌────────▼────────┐        ┌───────────────┐
-        │          │ ollama_client   │───────▶│  Ollama       │
-        │          │ (local REST)    │        │  (localhost)  │
-        │          └─────────────────┘        └───────────────┘
+        │          │ provider        │───────▶│  Ollama       │
+        │          │  ├ ollama_client│        │  (localhost)  │
+        │          │  └ openai_client│───────▶│  LM Studio /  │
+        │          │ (local REST)    │        │  llama.cpp /  │
+        │          └─────────────────┘        │  Jan / vLLM   │
+        │                                     └───────────────┘
         │
 ┌───────▼──────────────────────────────────────────────────────┐
 │  core/ — config · database (SQLite) · deps (singletons) ·     │
@@ -134,7 +137,14 @@ MemoryMap-AI-v0/
 │   │   ├── manager.py       # create/read/soft-delete entries, audit log
 │   │   └── timewords.py     # what "tomorrow" meant, resolved at capture
 │   ├── ai/
-│   │   ├── ollama_client.py # thin REST client for the local Ollama server
+│   │   ├── provider.py      # what every backend must answer, + what doesn't
+│   │   │                    #   vary by backend: the think-tag splitter, the
+│   │   │                    #   tool-text gate, the context ceiling (§6)
+│   │   ├── ollama_client.py # Ollama's native /api dialect
+│   │   ├── openai_client.py # the /v1/chat/completions dialect — LM Studio,
+│   │   │                    #   llama.cpp, Jan, vLLM (§6)
+│   │   ├── presets.py       # quick/normal/detailed: reply cap, temperature,
+│   │   │                    #   thinking toggle, length hint (§11)
 │   │   ├── model_manager.py # list/pull models, pick chat/embedding backend
 │   │   ├── embeddings.py    # embedding service + background warm-up
 │   │   ├── janitor.py       # LLM prompt #1: file a note into a category

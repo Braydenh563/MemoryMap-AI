@@ -17,7 +17,7 @@ import json
 
 import pytest
 
-from memorymap.ai import agent, librarian, tools
+from memorymap.ai import agent, context, librarian, tools
 
 # Ollama defaults to a 4096-token window unless the model declares otherwise,
 # and ~4 characters per token is close enough to reason with.
@@ -30,29 +30,99 @@ def _system_prompt() -> str:
     return f"{librarian.DEFAULT_PERSONA} {agent.AGENT_GROUNDING} {agent.TOOLS_GUIDE}"
 
 
-def _fixed_overhead(app_state) -> int:
-    return len(_system_prompt()) + len(json.dumps(tools.ollama_tools()))
+def test_the_untrimmable_prose_stays_small(app_state):
+    """The persona and TOOLS_GUIDE, which no per-turn trimming touches.
+
+    **This replaces an assertion that weighed the whole tool registry**, and
+    the replacement is the point. That one had to be raised three times in one
+    session — twice for a new tool and once for a single added argument —
+    because `within_budget` had long since taken over the job of fitting the
+    schemas to the model's real window. A guard that must be raised every time
+    the app legitimately grows is not a guard; it is a chore that teaches
+    people to edit the number until it stops complaining.
+
+    What is left here is the half that is genuinely fixed: this text is resent
+    on every round of every turn, before the question, the notes or the
+    history, and nothing anywhere trims it. If it trips, something was added to
+    TOOLS_GUIDE or the persona — look there rather than at the number.
+    """
+    prose = len(_system_prompt())
+    assert prose <= agent.PROSE_BUDGET_CHARS, (
+        f"The agent's un-trimmable prose is {prose} characters "
+        f"(~{prose // CHARS_PER_TOKEN} tokens), over the "
+        f"{agent.PROSE_BUDGET_CHARS} budget. Unlike the tool schemas, nothing "
+        "fits this to the window — it is sent whole to a 3B model and a 70B "
+        "one alike. Trim what was added, or raise PROSE_BUDGET_CHARS "
+        "deliberately and say why in the comment above it."
+    )
 
 
-def test_the_fixed_overhead_stays_inside_the_budget(app_state):
-    overhead = _fixed_overhead(app_state)
-    assert overhead <= agent.PROMPT_BUDGET_CHARS, (
-        f"The agent's fixed overhead is {overhead} characters "
-        f"(~{overhead // CHARS_PER_TOKEN} tokens), over the "
-        f"{agent.PROMPT_BUDGET_CHARS} budget. That is resent on every one of "
-        f"{agent.MAX_ROUNDS} rounds, before the question, the notes or the "
-        "history. Either trim it, or raise PROMPT_BUDGET_CHARS deliberately "
-        "and say why in the comment above it."
+def test_the_registry_is_capped_by_the_model_not_by_a_constant(app_state):
+    """The counterpart, stated as a property rather than a number: there is no
+    longer a constant the whole registry must fit inside, because the window
+    the model reported is the real limit and it is applied per turn."""
+    assert not hasattr(agent, "PROMPT_BUDGET_CHARS"), (
+        "PROMPT_BUDGET_CHARS was retired — see the comment where it used to "
+        "be. If it is back, the per-turn trim it replaced needs re-reading "
+        "before a constant is trusted again."
     )
 
 
 def test_the_overhead_leaves_room_for_an_actual_conversation(app_state):
-    """A budget that fills the window is not a budget."""
-    tokens = _fixed_overhead(app_state) // CHARS_PER_TOKEN
+    """A budget that fills the window is not a budget.
+
+    **Measured after the runtime trim, and that change matters.** This used to
+    weigh the *whole* registry against a 4,096-token window, which was the
+    right test when the registry was all a turn could send. It is now measuring
+    a case that never reaches a small model: `agent.run_agent` passes every
+    non-skill turn through `tools.within_budget`, which fits the schemas to the
+    window the model actually reported and drops the least relevant tools when
+    they do not fit.
+
+    Left as it was, this assertion would fail for a reason that has nothing to
+    do with a 3B model's experience — and worse, it would keep failing as the
+    registry grew, pushing whoever hit it towards trimming tools that a 32k
+    model has ample room for. What decides whether a 3B model works is what
+    goes on the wire *after* the trim, so that is what is asserted.
+    """
+    system_chars = len(_system_prompt())
+    plan = context.plan(4096, system_chars)
+    kept, _dropped = tools.within_budget(tools.ollama_tools(), plan.tool_schema_chars)
+    sent = system_chars + len(json.dumps(kept))
+    tokens = sent // CHARS_PER_TOKEN
     assert tokens < 4096 * 0.85, (
-        f"~{tokens} tokens of overhead leaves almost nothing of a 4096-token "
-        "window for the user's question and their notes."
+        f"~{tokens} tokens reach a 4096-token model even after trimming, "
+        "which leaves almost nothing for the question and the notes. The trim "
+        "cannot fix prose: look at TOOLS_GUIDE and the persona first."
     )
+
+
+def test_a_small_model_is_actually_trimmed_down_to_fit(app_state):
+    """The mechanism the test above now relies on. If `within_budget` ever
+    stopped being applied — or stopped dropping anything — the assertion above
+    would still pass while a 3B model quietly lost its system prompt off the
+    front of the context, which is the exact failure all of this exists to
+    prevent."""
+    plan = context.plan(4096, len(_system_prompt()))
+    everything = tools.ollama_tools()
+    kept, dropped = tools.within_budget(everything, plan.tool_schema_chars)
+    assert dropped, "a 4k window cannot hold the whole registry; something must go"
+    assert len(kept) < len(everything)
+    assert len(json.dumps(kept)) <= plan.tool_schema_chars
+    # The reading core survives the cull: a model that cannot search or read a
+    # note cannot answer anything at all.
+    names = {t["function"]["name"] for t in kept}
+    assert {"search_notes", "get_note"} <= names
+
+
+def test_a_large_model_is_not_trimmed_at_all(app_state):
+    """The other half, and the reason the trim is right rather than merely
+    safe: 4,096 is Ollama's fallback for a model that declares nothing, not a
+    fact about any model. A 32k model gets the whole toolbox."""
+    plan = context.plan(32768, len(_system_prompt()))
+    kept, dropped = tools.within_budget(tools.ollama_tools(), plan.tool_schema_chars)
+    assert not dropped
+    assert len(kept) == len(tools.ollama_tools())
 
 
 def test_turning_tools_off_actually_shrinks_what_is_sent(app_state):
@@ -204,7 +274,10 @@ def test_a_long_note_does_not_blow_the_prompt_budget():
     ]
     messages = agent.build_agent_messages("what did I say?", long_notes)
     total = sum(len(m["content"]) for m in messages)
-    assert total < agent.PROMPT_BUDGET_CHARS, total
+    # Ten 4,000-character notes is 40,000 characters of input; the per-note cap
+    # is what stops that reaching the model. The figure here is a sanity
+    # ceiling, not a budget — `ai/context.py` owns the real one.
+    assert total < 20_000, total
 
 
 # --- fitting the registry to the model, rather than to a constant ---------------

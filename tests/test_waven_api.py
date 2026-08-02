@@ -167,3 +167,95 @@ def test_disabled_tools_preference_roundtrips(client):
     body = client.put("/preferences", json={"disabled_tools": ["delete_tag"]}).json()
     assert body["disabled_tools"] == ["delete_tag"]
     assert client.get("/preferences").json()["disabled_tools"] == ["delete_tag"]
+
+
+# --- finished background jobs (asked for in use) -----------------------------
+#
+# The tasks screen listed only what was *running*, on the reasoning that a
+# finished job is not a task. That is tidy and it hides the one case anyone
+# cares about: a job that FAILS disappears at the moment it becomes
+# interesting, leaving exactly the same empty list as one that succeeded.
+
+
+def test_the_tasks_endpoint_reports_history_as_well(ai_client):
+    from memorymap.core import taskhistory
+
+    taskhistory.clear()
+    taskhistory.record("reindex", "Re-indexing your notes", "failed", "disk full")
+    body = ai_client.get("/tasks").json()
+    assert "tasks" in body and "history" in body
+    assert body["history"][0]["outcome"] == "failed"
+    assert body["history"][0]["detail"] == "disk full"
+
+
+def test_a_failure_keeps_its_reason(ai_client):
+    """The reason used to exist only in the log console — a different screen
+    that you have to know to look at."""
+    from memorymap.core import taskhistory
+
+    taskhistory.clear()
+    taskhistory.record("pull", "Downloading llama3.2", "failed", "connection refused")
+    assert "connection refused" in ai_client.get("/tasks").json()["history"][0]["detail"]
+
+
+def test_the_newest_ending_comes_first(ai_client):
+    from memorymap.core import taskhistory
+
+    taskhistory.clear()
+    taskhistory.record("pull", "first", "completed")
+    taskhistory.record("pull", "second", "completed")
+    assert [h["label"] for h in ai_client.get("/tasks").json()["history"]] == [
+        "second",
+        "first",
+    ]
+
+
+def test_cancelling_is_not_recorded_as_a_failure():
+    """A user stopping something is not an error, and reporting it in red is
+    how people learn to ignore red."""
+    from memorymap.core import taskhistory
+
+    taskhistory.clear()
+    taskhistory.record("reindex", "Re-indexing", "cancelled")
+    assert taskhistory.recent()[0]["outcome"] == "cancelled"
+
+
+def test_the_history_cannot_grow_without_limit():
+    """In memory, so it needs a hard bound — a machine that re-indexes on a
+    loop must not be able to grow this forever."""
+    from memorymap.core import taskhistory
+
+    taskhistory.clear()
+    for i in range(taskhistory.MAX_ENTRIES + 25):
+        taskhistory.record("pull", f"job {i}", "completed")
+    assert len(taskhistory.recent()) == taskhistory.MAX_ENTRIES
+
+
+def test_an_unknown_outcome_does_not_become_a_scary_one():
+    from memorymap.core import taskhistory
+
+    taskhistory.clear()
+    taskhistory.record("pull", "odd", "exploded")
+    assert taskhistory.recent()[0]["outcome"] == "completed"
+
+
+def test_recording_never_raises():
+    """Called from worker threads at the moment a job ends. It must not be
+    able to turn a finished job into a crashed one."""
+    from memorymap.core import taskhistory
+
+    taskhistory.record(None, None, None, None)  # type: ignore[arg-type]
+
+
+def test_the_history_can_be_cleared(ai_client):
+    from memorymap.core import taskhistory
+
+    taskhistory.record("pull", "something", "completed")
+    assert ai_client.post("/tasks/history/clear").json()["cleared"] is True
+    assert ai_client.get("/tasks").json()["history"] == []
+
+
+def test_quitting_is_a_post_not_a_get(ai_client):
+    """A GET would be reachable from a link in another tab, and "the app quit
+    when I clicked something" is a bug report nobody enjoys writing."""
+    assert ai_client.get("/shutdown").status_code in (404, 405)

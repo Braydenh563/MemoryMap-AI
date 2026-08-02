@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import agent, intent, librarian, skill_runner, skills, tools
+from memorymap.ai import agent, intent, librarian, presets, skill_runner, skills, tools
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.api.schemas import EntryOut
 from memorymap.core import deps
@@ -104,6 +104,12 @@ class ChatRequest(BaseModel):
     # Agent mode (Wave G): may the model call tools to change things?
     # None → the saved "tools_enabled" preference (default on).
     use_tools: bool | None = None
+    # How much effort this turn is worth (§11): "quick", "normal" or
+    # "detailed". None → the saved "response_mode" preference. Carries the
+    # reply cap, the temperature, the thinking toggle and a length hint, so
+    # one picker moves all four together rather than four settings that have
+    # to be kept consistent by hand.
+    mode: str | None = None
     # Notes the user attached by hand. These are always given to the model,
     # ahead of anything retrieval finds — "this note, specifically" is a
     # stronger signal than any similarity score.
@@ -114,6 +120,22 @@ class ChatRequest(BaseModel):
     # assembled in `app.js` and hoped for here.
     skill: str | None = Field(default=None, max_length=skills.MAX_NAME)
     skill_inputs: dict[str, str] | None = None
+
+
+def _resolve_mode(requested: str | None) -> str:
+    """The response preset for this turn (§11).
+
+    A request may name one; otherwise the saved preference decides, and an
+    unrecognised name in either place falls through to `normal` rather than
+    raising — `presets.resolve` does that last part, so a hand-edited
+    preferences file costs the setting and not the chat.
+    """
+    if requested:
+        return requested
+    return str(
+        deps.get_config().get_preference("response_mode", presets.DEFAULT_MODE)
+        or presets.DEFAULT_MODE
+    )
 
 
 def _resolve_persona(name: str | None) -> str | None:
@@ -262,12 +284,14 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         "history": [turn.model_dump() for turn in body.history],
         "persona_prompt": _resolve_persona(body.persona),
     }
+    mode = _resolve_mode(body.mode)
     if conversational:
         ai_response, ai_thinking = librarian.converse(
             body.question,
             prepared["intent"],
             deps.get_model_manager(),
             deps.get_ollama(),
+            mode=mode,
             **shared,
         )
     else:
@@ -276,6 +300,7 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
             prepared["notes"],
             deps.get_model_manager(),
             deps.get_ollama(),
+            mode=mode,
             **shared,
         )
     return ChatResponse(
@@ -304,6 +329,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     model_manager = deps.get_model_manager()
     history = [turn.model_dump() for turn in body.history]
     persona_prompt = _resolve_persona(body.persona)
+    mode = _resolve_mode(body.mode)
     use_tools = (
         body.use_tools
         if body.use_tools is not None
@@ -344,6 +370,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                 profile=prepared["profile"],
                 history=history,
                 persona_prompt=persona_prompt,
+                mode=mode,
             )
         elif not prepared["notes"]:
             yield {"type": "answer", "delta": librarian.NO_RESULTS_MESSAGE}
@@ -359,9 +386,10 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                 profile=prepared["profile"],
                 history=history,
                 persona_prompt=persona_prompt,
+                mode=mode,
             )
         try:
-            for piece in ollama.chat_stream(model_manager.chat_model(), messages):
+            for piece in ollama.chat_stream(model_manager.chat_model(), messages, mode):
                 if "thinking_delta" in piece:
                     yield {"type": "thinking", "delta": piece["thinking_delta"]}
                 elif "stats" in piece:
@@ -437,6 +465,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                     prepared["notes"],
                     model_manager,
                     ollama,
+                    mode=mode,
                     allowed_tools=allowed_tools,
                     **shared,
                 )
@@ -458,6 +487,27 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
         media_type="application/x-ndjson",
         headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
     )
+
+
+@router.get("/modes")
+def list_modes() -> dict:
+    """The response presets, and which one is currently the default (§11).
+
+    Served rather than hard-coded in `app.js` so the picker cannot drift from
+    what the server actually does — adding a fourth preset is then a change to
+    `ai/presets.py` alone.
+    """
+    return {
+        "modes": [
+            {
+                "id": preset.id,
+                "label": preset.label,
+                "description": preset.description,
+            }
+            for preset in presets.MODES.values()
+        ],
+        "active": _resolve_mode(None),
+    }
 
 
 @router.get("/tools")

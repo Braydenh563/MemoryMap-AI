@@ -27,7 +27,17 @@ def _kinds(client) -> list[str]:
 
 
 def test_nothing_running_is_an_empty_list_not_an_error(client):
-    assert client.get("/tasks").json() == {"tasks": []}
+    """Both halves are lists rather than nulls: a screen that has to tell
+    "nothing running" from "couldn't ask" would need two code paths for what
+    is, to the user, one sentence.
+
+    Asserted field by field rather than against the whole payload — the
+    endpoint grew a `history` key, and a test pinned to the exact dict shape
+    fails on an addition that broke nothing.
+    """
+    body = client.get("/tasks").json()
+    assert body["tasks"] == []
+    assert body["history"] == []
 
 
 def test_a_reindex_shows_up_with_its_progress(client, monkeypatch):

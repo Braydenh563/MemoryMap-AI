@@ -72,16 +72,18 @@ Seven tabs, all offline:
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Dashboard** | Greeting, capture streak, at-a-glance counts, an AI digest of your week, an activity heatmap, on-this-day, a focus timer, and a layout you can rearrange                                                 |
 | **Notes**     | Capture, browse and ask, as three sub-tabs. Auto-filing, tags, pins, threads, attachments, private notes (encrypted at rest), a recycle bin, revision history, and a search box that understands `tag:work`, `cat:recipes`, `is:pinned`, `"exact phrase"` and `-exclude` |
-| **Chat**      | A conversation with your notebook, saved and resumable. **Agent mode** lets it use 28 tools - search and read your notes, create, tag, link and organise, set reminders, open a web page - with destructive actions always confirmed. Personas change its voice; the run is shown as a timeline of thinking, tool calls and prose in the order they happened |
-| **Graph**     | Your notes as a force-directed map. Click a node to edit it in place, see its images, link it to another, or ask for related notes. The AI can suggest connections                                       |
+| **Chat**      | A conversation with your notebook, saved and resumable. **Agent mode** lets it use 35 tools - search and read your notes, walk the connections between them, create, tag, link and unlink, organise, set reminders, open a web page - with destructive actions always confirmed, and an ask-me button when it isn't sure which note you meant. Personas change its voice; the run is shown as a timeline of thinking, tool calls and prose in the order they happened |
+| **Graph**     | Your notes as a force-directed map, and a knowledge graph the AI can walk: links, reply threads and shared tags, each labelled with *how* two notes connect. It can also point out notes that read alike and were never linked                |
 | **Documents** | A markdown editor for long-form writing: live preview, autosave, table of contents, word count and reading time, `.md` and PDF export, and AI edits shown as a proposal you accept or reject             |
 | **Timeline**  | Every note plotted on a time axis - at what it's *about* when a phrase like "next week" resolves to a date, and at when it was written otherwise - in bands by category or tag, at a bucket size you pick |
 | **Reminders** | Due dates with priority, repeats, snooze and notifications - or type "call mum tomorrow evening" and let the AI schedule it                                                                              |
 
 Plus a command palette (`Ctrl`/`Cmd`+`K`), a sketch
 pad, local Whisper dictation, read-aloud, opt-in web search with a reader view,
-12 themes over 8 colour palettes with per-setting overrides, daily local
-backups, and a desktop window (`--desktop`).
+12 themes over 8 colour palettes with per-setting overrides, a scheme builder
+that works the colours out from one you pick, looks you can save by name, 16
+built-in skills including a five-part notebook audit, daily local backups, and
+a desktop window (`--desktop`).
 
 ## Quick start
 
@@ -104,17 +106,71 @@ MemoryMap works without it - you just get keyword search and `Uncategorised` fil
 ollama pull llama3.2
 ```
 
-Any Ollama model works, and you can switch between them in-app from **Settings → Models** without restarting. Small models that do well here:
+Any Ollama model works, and you can switch between them in-app from **Settings
+→ Models** without restarting - the same list is there, with a download button
+next to each.
 
-| Model           | Why                                                            |
-| --------------- | ---------------------------------------------------------------|
-| `llama3.2`      | The default. Fast, ~2 GB, good all-rounder                     |
-| `granite4.1:3b` | Strong instruction-following at a small size                   |
-| `qwen3.5:2b`    | The lightest of these; fine on a laptop with no GPU             |
-| `gemma4:e2b`    | Good summaries                                                 |
-| `lfm2.5`        | Specifically LFM2.5-8B-A1B if you're pulling from Hugging Face |
+**Sorted by size, not by quality**, because the real question is what your
+machine can run. Start at the top of the tier that fits your RAM; if answers
+feel slow, drop a tier.
 
-*More at [huggingface.co/braydenh563](https://huggingface.co/braydenh563).*
+**Runs on almost anything** - no GPU needed:
+
+| Model            | Size    | Why                                                    |
+| ---------------- | ------- | ------------------------------------------------------ |
+| `gemma4:e2b`     | ~1.6 GB | Smallest here. Try it if bigger models are too slow    |
+| `qwen3.5:2b`     | ~1.6 GB | The lightest one genuinely worth using                 |
+| `llama3.2`       | ~2.0 GB | **The default.** Fast, and a good first choice         |
+| `granite4.1:3b`  | ~2.1 GB | Strong instruction-following at a small size           |
+| `qwen3.5:4b`     | ~2.6 GB | Follows instructions closely - good for agent mode     |
+| `gemma4:e4b`     | ~3.1 GB | Noticeably better writing than the 2B models           |
+
+**8 GB of RAM, or any modern GPU** - the real step up in answer quality:
+
+| Model            | Size    | Why                                                    |
+| ---------------- | ------- | ------------------------------------------------------ |
+| `llama3.1:8b`    | ~4.7 GB | Better reasoning, and reliable tool calls in agent mode|
+| `qwen3.5:8b`     | ~5.2 GB | Best tool use at this size. Thinks, so slower per answer|
+| `mistral-nemo`   | ~7.1 GB | Long-document work - a large context window            |
+| `gemma4:12b`     | ~7.6 GB | Long-form writing and summarising                      |
+
+**16 GB and up - mixture-of-experts.** Worth understanding before you skip
+these on size: `26b-a4b` holds 26B of weights but computes with only 4B of them
+at a time, so it downloads like a big model and *answers* at roughly the speed
+of a 4B one. If you have the memory, these are the best answers on this page.
+
+| Model             | Size   | Why                                                   |
+| ----------------- | ------ | ----------------------------------------------------- |
+| `gemma4:26b-a4b`  | ~15 GB | 12B-class speed, far better answers. Needs ~16 GB     |
+| `qwen3.5:35b-a3b` | ~20 GB | The most capable here, and still quick. Needs ~24 GB  |
+
+Sizes are Ollama's default quantisation and are approximate. They matter more
+than the parameter count: a 7B at Q4 and a 3B at Q8 land in about the same
+place on an 8 GB machine.
+
+**For agent mode specifically**, prefer a model Ollama reports as tool-capable -
+Settings → Models shows this under "Can use tools", read from the model itself
+rather than guessed. `qwen3.5:8b` and `llama3.1:8b` are the most reliable of
+the list above; the 2B models can use tools but forget to.
+
+*Some of these, and a few others, are also at
+[huggingface.co/braydenh563](https://huggingface.co/braydenh563).*
+
+### Not using Ollama?
+
+**Settings → Models → Model backend** points MemoryMap at anything that serves
+the OpenAI API instead - **LM Studio**, **llama.cpp**'s server, **Jan** and
+**vLLM** are all the same choice, differing only by address. Pick "LM Studio /
+llama.cpp / Jan / vLLM", leave the address blank for the usual one
+(`localhost:1234/v1`) or fill in your own port, and press Connect. It applies
+straight away; no restart, and nothing to put in `.env`.
+
+Everything works the same on either backend - tool calls, streaming, thinking
+models, and the token counts on each message. Two differences worth knowing:
+downloading models is an Ollama feature (every other server is handed a model
+you already have, so that panel hides itself), and Ollama is the only one that
+lets the app *ask* for a context window - elsewhere the window is whatever the
+server was started with, so MemoryMap reads it and rations the prompt to fit.
 
 The **embedding** model for semantic search (`BAAI/bge-small-en-v1.5`)
 downloads itself the first time it's needed - Settings → Models names whichever
@@ -208,7 +264,29 @@ No backdoor was added, on purpose.
 The whole app is built around one rule: **nothing leaves your machine unless
 you explicitly ask it to.** The server binds to localhost, every route except `/health` sits behind the unlock gate, and no asset is ever loaded from a CDN.
 
-**Web search is the single exception**, and it is off until you turn it on in **Settings → Web search**. When it is on:
+**Is the AI itself local? Yes - and it is now enforced, not just intended.**
+Every chat and agent request goes to a model server on your own machine, and
+**Settings → Models → "Keep the AI on this machine"** is on by default: an
+address that isn't on this computer or your own network is *refused*, not
+warned about. That check runs both when you set the address and when the app
+builds its client at startup, so a hand-edited `preferences.json` or a restored
+backup can't quietly route your notes somewhere else. Turning the lock off is a
+deliberate click, for people who genuinely want a hosted API.
+
+Being precise about what "local" means here, since it's the whole promise -
+three things do touch the network, and none of them is your notes:
+
+| What | When | What goes out |
+| --- | --- | --- |
+| `ollama pull` | You download a model | The model name, to Ollama's registry |
+| The embedding model | Once, on first use | A one-off download of `bge-small-en-v1.5` |
+| Web search | Only if you turn it on | Your search words - never your notes |
+
+Your notes, your questions, and everything the AI writes about them stay on
+your machine in all three cases. Ollama's own hosted service (`ollama.com`)
+would not be local, and the lock refuses it like any other remote address.
+
+**Web search is the single exception** to "nothing leaves", and it is off until you turn it on in **Settings → Web search**. When it is on:
 
 - only your search words leave the computer - never your notes;
 - requests send an ordinary browser User-Agent rather than one naming this app,
@@ -402,19 +480,27 @@ the graph, the platform work (command palette, backups, PWA, web search, sketch
 pad), voice and desktop, hardening, and the depth pass (documents, private
 notes, search operators, themes). Since then: a rebuilt skill system (ordered
 steps, a tool allowlist, an undoable result), SearXNG-backed web search,
-markdown rendering in the note list, and the Timeline tab above.
+markdown rendering in the note list, the Timeline tab above, support for any
+OpenAI-compatible backend (LM Studio, llama.cpp, Jan, vLLM), answer-length
+presets, a walkable knowledge graph, and an AI locked to your machine by
+default.
 [`CHANGELOG.md`](https://github.com/Braydenh563/MemoryMap-AI/blob/main/CHANGELOG.md) has it wave by wave.
 
 **Next up**, in order - by how often it gets in the way, not how interesting
 it is to build:
 
-1. **The graph's utility** - paths between notes, clusters, drag-to-link. The
-layouts are done; what it can *do* for you isn't.
-2. **The live log console** - started, not finished. `/logs` is streamed but
+1. **Let the agent run a skill.** It can list them, save them, and now say
+which one fits - but starting one is still a click only you can make. The
+skill runner already takes an allowlist, so this is the smallest change with
+the biggest effect on what agent mode can actually finish.
+2. **The graph's remaining utility** - paths between two notes, clusters, and
+drag-to-link. Walking the graph and suggesting connections are done; *"how are
+these two related?"* isn't.
+3. **The live log console** - started, not finished. `/logs` is streamed but
 not followed, filtered, or exportable yet.
-3. **Chat / Agent / Browse as their own sub-tabs**, so a plain question, a
+4. **Chat / Agent / Browse as their own sub-tabs**, so a plain question, a
 tool-calling run and a web page aren't sharing one column.
-4. **A Library tab** - one place for stored images, documents, chats and an
+5. **A Library tab** - one place for stored images, documents, chats and an
 archive, none of which has a home today.
 
 [`docs/ROADMAP.md`](https://github.com/Braydenh563/MemoryMap-AI/blob/main/docs/ROADMAP.md) has the reasoning behind each, which is the

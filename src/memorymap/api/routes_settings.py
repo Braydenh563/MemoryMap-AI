@@ -47,6 +47,35 @@ class PersonaItem(BaseModel):
     prompt: str = Field(min_length=1, max_length=2000)
 
 
+class CustomThemeItem(BaseModel):
+    """One saved look: the appearance settings the browser would have applied.
+
+    `values` is deliberately a free-form string map rather than a model with a
+    field per setting. The appearance controls live entirely in the frontend
+    and are the only thing that knows what a key means — pinning the list here
+    would mean a saved theme could not carry a setting added later without a
+    matching server change, for a value the server never reads.
+
+    It is *bounded* rather than trusted: a cap on how many keys, and on how
+    long each is, so a stored theme cannot become an arbitrary blob in the
+    preferences file.
+    """
+
+    name: str = Field(min_length=1, max_length=30)
+    values: dict[str, str] = Field(default_factory=dict)
+    preset: str = Field(default="", max_length=40)
+
+    @field_validator("values")
+    @classmethod
+    def _bounded(cls, values: dict) -> dict:
+        if len(values) > 40:
+            raise ValueError("a theme carries at most 40 settings")
+        for key, value in values.items():
+            if len(str(key)) > 40 or len(str(value)) > 200:
+                raise ValueError("theme settings must be short strings")
+        return values
+
+
 class SkillInput(BaseModel):
     """One value a skill asks for before it runs (§21)."""
 
@@ -68,6 +97,9 @@ class SkillItem(BaseModel):
     name: str = Field(min_length=1, max_length=skills.MAX_NAME)
     prompt: str = Field(min_length=1, max_length=skills.MAX_PROMPT)
     description: str = Field(default="", max_length=skills.MAX_DESCRIPTION)
+    # When this skill applies. What makes it findable by the model rather than
+    # only by the person who remembered writing it (§33).
+    when_to_use: str = Field(default="", max_length=skills.MAX_WHEN)
     steps: list[str] = Field(default_factory=list, max_length=skills.MAX_STEPS)
     tools: list[str] = Field(default_factory=list, max_length=skills.MAX_TOOLS)
     inputs: list[SkillInput] = Field(default_factory=list, max_length=skills.MAX_INPUTS)
@@ -90,11 +122,17 @@ class PreferencesBody(BaseModel):
     # Personas (Wave C): custom system prompts + which one is active.
     personas: list[PersonaItem] | None = Field(default=None, max_length=20)
     active_persona: str | None = Field(default=None, max_length=40)
+    # Saved appearance looks. Server-side rather than in the browser because a
+    # theme someone built by hand is a thing they would be upset to lose to a
+    # cleared cache — and here it rides along in the daily backup too.
+    custom_themes: list[CustomThemeItem] | None = Field(default=None, max_length=20)
     # Dashboard layout (Wave D): widget order + hidden widgets.
     dashboard_layout: "DashboardLayout | None" = None
     # Wave G: user-defined skills, and whether the chat AI may use tools.
     skills: list[SkillItem] | None = Field(default=None, max_length=30)
     tools_enabled: bool | None = None
+    # The local-AI lock (§33). On by default; see core.config.
+    local_only_ai: bool | None = None
     # Which tools each turn is offered: "auto" reads the question and sends
     # what it plausibly needs (§11a — the schemas are most of the per-round
     # cost); "all" sends the whole registry, as it always did.
@@ -174,12 +212,14 @@ def get_preferences() -> dict:
         "profile_enabled": config.get_preference("profile_enabled", False),
         "custom_templates": config.get_preference("custom_templates", []),
         "personas": config.get_preference("personas", []),
+        "custom_themes": config.get_preference("custom_themes", []),
         "active_persona": config.get_preference("active_persona", "Librarian"),
         "dashboard_layout": config.get_preference(
             "dashboard_layout", {"order": [], "hidden": []}
         ),
         "skills": config.get_preference("skills", []),
         "tools_enabled": config.get_preference("tools_enabled", True),
+        "local_only_ai": config.get_preference("local_only_ai", True),
         "tool_focus": config.get_preference("tool_focus", "auto"),
         "web_search_enabled": config.get_preference("web_search_enabled", False),
         "searxng_url": config.get_preference("searxng_url", ""),
@@ -426,6 +466,15 @@ DIAGNOSTIC_PREFERENCES = frozenset(
         "thinking_enabled",
         "guided_mode",
         "auto_categorise",
+        # Which backend answered is the first question any "the AI is broken"
+        # report needs. `llm_api_key` is deliberately NOT here — it stays
+        # described-not-disclosed like every other secret.
+        "llm_provider",
+        "llm_base_url",
+        "local_only_ai",
+        # How long answers were asked to be, which is the first thing to check
+        # in a "the AI is slow" or "the AI is too terse" report (§11).
+        "response_mode",
     }
 )
 

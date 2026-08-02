@@ -56,6 +56,10 @@ class FakeOllama:
 
     def __init__(self, running: bool = True) -> None:
         self.running = running
+        # Every provider reports where it is and whether it can fetch a model,
+        # because Settings → Models shows both (§6). The fake stands in for the
+        # Ollama one, so it answers as Ollama does.
+        self.base_url = "http://localhost:11434"
         self.chat_calls: list[list[dict]] = []
         self.chat_models: list[str] = []  # which model each chat() used (Wave N)
         self.librarian_reply = "Here's what I found in your notebook!"
@@ -74,10 +78,42 @@ class FakeOllama:
             "output_tokens": 40,
             "total_ms": 900,
             "eval_ms": 800,
+            # The window the turn was budgeted against, so the UI can report
+            # how full it got rather than only how much was spent.
+            "context_tokens": 32_768,
+            "usage_source": "real",
         }
 
     def is_running(self) -> bool:
         return self.running
+
+    def supports_pull(self) -> bool:
+        return True
+
+    #: What "the model" declares it can do. Empty is the honest default for a
+    #: fake standing in for an unknown backend: `supports` then answers None
+    #: ("can't tell"), which is what every caller has to cope with anyway.
+    capabilities_declared: list[str] = []
+
+    def capabilities(self, model: str) -> set[str]:
+        return {c.lower() for c in self.capabilities_declared}
+
+    def supports(self, model: str, capability: str) -> bool | None:
+        declared = self.capabilities(model)
+        return None if not declared else capability in declared
+
+    def model_spec(self, model: str) -> dict:
+        return {
+            "name": model,
+            "family": "fake",
+            "parameters": "1B",
+            "quantisation": "Q4_K_M",
+            "context_length": self.context_tokens,
+            "usable_context": self.usable_context(model),
+            "capabilities": sorted(self.capabilities(model)),
+            "supports_tools": self.supports(model, "tools"),
+            "supports_thinking": self.supports(model, "thinking"),
+        }
 
     # The agent budgets its tool schemas against the model's real window
     # (see tools.within_budget). Generous here on purpose: a test asserting
@@ -91,11 +127,11 @@ class FakeOllama:
     def usable_context(self, model: str) -> int:
         return self.context_tokens or 4096
 
-    def chat(self, model: str, messages: list[dict]) -> dict:
+    def chat(self, model: str, messages: list[dict], mode: str | None = None) -> dict:
         self.chat_models.append(model)
         return {"content": self._reply_text(messages), "thinking": self.librarian_thinking}
 
-    def chat_stream(self, model: str, messages: list[dict]):
+    def chat_stream(self, model: str, messages: list[dict], mode: str | None = None):
         """Chunks the canned reply like real streaming would."""
         text = self._reply_text(messages)
         if self.librarian_thinking:
@@ -107,7 +143,13 @@ class FakeOllama:
         # metadata line is built from these.
         yield {"stats": dict(self.stats, model=model)}
 
-    def chat_tools(self, model: str, messages: list[dict], tools: list[dict]) -> dict:
+    def chat_tools(
+        self,
+        model: str,
+        messages: list[dict],
+        tools: list[dict],
+        mode: str | None = None,
+    ) -> dict:
         """Plays back tool_script one round at a time (Wave G)."""
         if not self.running:
             raise OllamaError("Ollama is not running (fake)")
@@ -152,7 +194,13 @@ class FakeOllama:
             "stats": dict(self.stats, model=model),
         }
 
-    def chat_tools_stream(self, model: str, messages: list[dict], tools: list[dict]):
+    def chat_tools_stream(
+        self,
+        model: str,
+        messages: list[dict],
+        tools: list[dict],
+        mode: str | None = None,
+    ):
         """The streaming shape of chat_tools — what the agent loop calls now.
 
         Delegates so both paths stay in lockstep and the existing tool_script /

@@ -2568,6 +2568,14 @@ html { font-size: 16px; }
   opacity: 0.75;
 }
 .msg-meta:empty { display: none; }
+/* The window is nearly full: the NEXT turn of this conversation is the one
+   that starts dropping the top of the prompt. Warn before it happens, not
+   after the model has already lost the plot. Colour is not the only signal —
+   the line still says the percentage in words. */
+.msg-meta-tight {
+  color: var(--warn);
+  opacity: 1;
+}
 
 /* --- web panel (search + reader) ------------------------------------------- */
 .web-panel {
@@ -5327,3 +5335,78 @@ textarea.autogrow {
   white-space: pre;
   overflow: auto;
 }
+
+/* The active model's specification, under the chat-model picker. A definition
+   list rather than a table: it is label/value pairs, it has to wrap sensibly
+   on a narrow screen, and half the rows are absent on a backend that doesn't
+   report them. */
+.model-spec {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.15rem 0.75rem;
+  margin: 0.5rem 0 0;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+.model-spec dt { color: var(--muted); }
+.model-spec dd { margin: 0; }
+.model-spec.hidden { display: none; }
+
+/* The agent stopped to ask something. Shares the confirm card's frame — it is
+   the same kind of moment, a run pausing for the person — but not its warning
+   colour: a question is not a risk. */
+.agent-ask {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.agent-ask-options { flex-wrap: wrap; gap: 0.35rem; }
+.agent-ask .muted { margin: 0.4rem 0 0; font-size: 0.75rem; }
+
+/* "Peek": fade the settings panel so a colour change can be seen on the page
+   behind it. Done with color-mix on the BACKGROUND rather than element
+   opacity — opacity fades the text, the swatches and the controls too, which
+   makes the thing you are trying to judge harder to see rather than easier.
+   The panel gets see-through; everything on it stays sharp. */
+.settings-peeking .modal-overlay,
+.modal-overlay.peeking {
+  background: color-mix(in srgb, rgba(10, 12, 18, 0.45) 25%, transparent);
+  backdrop-filter: none;
+}
+.modal-overlay.peeking .modal-card {
+  background: color-mix(in srgb, var(--panel) 45%, transparent);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* A saved look: its name applies it, the ✕ deletes it. One chip rather than a
+   row per theme, because the list is meant to stay glanceable — twenty saved
+   looks should still fit above the fold. */
+.theme-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin: 0 0.35rem 0.35rem 0;
+}
+.theme-chip button:first-child { max-width: 14rem; overflow: hidden; text-overflow: ellipsis; }
+
+/* The Chat / Agent pair in the chat toolbar. Same segmented control the
+   settings screens use, sized down to sit beside the persona dropdown. */
+.seg-compact button {
+  padding: 0.2rem 0.55rem;
+  font-size: 0.8rem;
+}
+/* Skills as a dropdown: one line instead of a wrapping wall of chips, with
+   room for a description beside it rather than hidden in a hover. */
+.chat-skill-hint {
+  font-size: 0.75rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 22rem;
+}
+
+/* A background job that ended badly. Colour is not the only signal — the row
+   carries ⚠️ and the reason in words — because a red line nobody can read the
+   cause of is just alarming. */
+.task-failed { color: var(--error); }
+.task-detail { margin: 0.15rem 0 0; font-size: 0.78rem; }

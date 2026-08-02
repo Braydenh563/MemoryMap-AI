@@ -7,6 +7,342 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Added — any OpenAI-compatible backend (roadmap §6)
+
+The headline ask was "support LM Studio". What got built is the **dialect**,
+not the product: LM Studio serves the OpenAI API on `localhost:1234/v1`, and so
+do llama.cpp's server, Jan, vLLM, and Ollama's own `/v1` surface. One provider
+gets all of them, and the only thing that differs between them is an address.
+
+Pick it in **Settings → Models → Model backend**. It applies immediately — no
+restart, nothing to put in `.env` — and the setting is saved whether or not the
+server is answering yet, because "set the address, then start the server" is
+the normal order to do it in.
+
+- **`ai/provider.py` is the new seam.** Everything that was never actually
+  about Ollama moved there and is now shared: the think-tag splitter, the
+  tool-text gate and the prose-tool-call recovery, the error classes, the
+  context ceiling, the neutral `{context_tokens, max_output_tokens}` budget.
+  They were *moved*, not copied — a test asserts they are gone from the old
+  file, because two copies of a tool-call gate that drift apart is exactly the
+  bug this refactor exists to prevent.
+
+- **`OllamaError` is still the error every route catches**, because it is now
+  an alias for the neutral `ProviderError` rather than a sibling of it. A new
+  parent class would have read as tidier and quietly stopped a dozen existing
+  `except OllamaError` handlers firing for the second provider.
+
+- **Streamed tool calls arrive in fragments keyed by an index**, which has no
+  Ollama equivalent: arguments come through as partial JSON spread over many
+  chunks, and two concurrent calls interleave on the wire. Folding them by
+  arrival order instead of by index produces one unparseable blob the moment a
+  model asks for two things at once — which small models do constantly.
+
+- **The window a server *loaded* beats the window a model *could* hold.** LM
+  Studio reports both; a 128k model loaded at 4k will drop the front of the
+  prompt — the system prompt, the part telling it that it has tools — if the
+  app budgets against the bigger number. Where nothing is reported at all
+  (plain llama.cpp), a known-model table answers, and where that doesn't
+  either, the app says "unknown" and budgets conservatively rather than
+  inventing a number nobody verified.
+
+- **Tool results are addressed by id.** Ollama accepts `{"role": "tool",
+  "tool_name": …}`; the OpenAI shape wants a `tool_call_id` matching an id the
+  assistant turn issued. The agent keeps writing one dialect and the client
+  translates at the boundary — including the case where a model calls the same
+  tool twice in one turn, where matching on name alone leaves a call
+  unanswered and the server rejects the whole turn.
+
+- **The trap §6 named, closed.** `tests/test_context_budget.py` asserts all
+  four Ollama generation paths send an options block; `tests/test_providers.py`
+  now asserts the equivalent for the new provider, against the payloads that
+  actually went out. A path that omits `max_tokens` is a model running unbounded
+  on the backend's defaults — the bug the context-budget work was spent fixing,
+  arriving again through a different door.
+
+- Downloading models is an Ollama capability, so the suggested-downloads panel
+  hides itself on the other backends rather than offering a button that cannot
+  work, and the status line names whichever backend actually answered instead
+  of telling an LM Studio user to go and install Ollama.
+
+### Added — finished background tasks, and a way to quit
+
+**Settings → Background tasks now shows what stopped, not only what is
+running.** The old rule was that a finished job isn't a task and a screen that
+accumulates them is a log — tidy, and wrong in the one way that matters: a job
+that *fails* disappeared at the moment it became interesting. A re-index that
+died halfway left exactly the same empty list as one that finished, and the
+reason existed only in the log console, a different screen you have to know to
+open. Endings are now recorded with their outcome and reason: in memory,
+bounded to the last 40, newest first. Cancelling is reported as *cancelled*
+rather than failed — a user's own decision in red is how people learn to ignore
+red.
+
+**A Quit button** stops the app and its server properly. Until now the ways out
+were Ctrl+C in a window the launcher hides, or closing the tab and leaving the
+server running — which is why a second start could find its port taken. It is a
+POST behind the unlock gate (a GET would be reachable from a link in another
+tab), it replies before it signals, and it uses SIGINT rather than a hard exit
+so uvicorn's normal shutdown runs and the SearXNG subprocess is torn down by
+the code that knows how.
+
+### Changed — many more suggested models, sorted by what your machine can run
+
+Three chat models became twelve, in three tiers — runs-on-anything, 8 GB, and
+a mixture-of-experts tier for 16 GB and up — in Settings → Models and in the
+README, on the current Gemma 4 and Qwen 3.5 families.
+
+The MoE tier is the one worth explaining rather than just listing:
+`gemma4:26b-a4b` holds 26B of weights but computes with 4B of them at a time,
+so it downloads like a big model and answers at roughly the speed of a small
+one. Judged on download size alone nobody with 16 GB would try it, and it is
+the best answer for that machine.
+
+**Sorted smallest-first rather than best-first**, which is the ordering that
+matters: someone reading the list is choosing against hardware they already
+own, and a quality-sorted list puts the model they can't run at the top and the
+one they should start with out of sight. Each says what it is *for* rather than
+how good it is, and the README points at the new "Can use tools" row for agent
+work — read from the model rather than guessed.
+
+### Added — five notebook-audit skills, and taking a link back out
+
+Asked for: *"a skill that can do a full audit and clean up of my notebook —
+linking notes, removing inaccurate links, analysing categories and tags,
+retagging, changing categories, moving notes, combining duplicates."*
+
+Built as **five skills rather than one**, and not for tidiness: a skill runs one
+step per turn and holds at most ten steps, so a single "audit everything" skill
+would either stop half-finished or have steps so broad a 3B model can't tell
+whether it has done them. Each job also wants a different toolbox, and the
+allowlist is what keeps a run cheap and safe.
+
+- **🩺 Notebook health check** — the audit. Read-only *by construction*: it is
+  offered no tool that can write, so a model that ignores "change nothing"
+  still can't. Finishes by naming which clean-up skill fixes each problem.
+- **🏷 Clean up my tags** — merges plurals, spellings and synonyms via
+  `rename_tag`, then removes tags that don't match what a note says.
+- **🗂 Reorganise my categories** — proposes a structure first, then creates,
+  renames, merges and moves notes into it. `delete_category` is deliberately
+  absent: it's destructive, so it would stop a bulk run for a confirm card, and
+  merging keeps the notes together rather than scattering them.
+- **🔗 Fix my links** — removes connections that don't hold up and adds ones
+  that should exist.
+- **🧬 Find notes worth combining** — reports the merged note it *would* write
+  and links the group. Deciding what to lose isn't a judgement to hand a model
+  across a whole notebook.
+
+**`unlink_notes`** is the tool that made the fourth possible. Its absence had a
+specific cost: an audit could add a connection and never correct one, so a wrong
+link was permanent from inside the app. It is a write but *not* destructive —
+no writing is lost, both notes survive, and the result carries the `link_notes`
+call that puts it back — because a confirm card on every correction in a tidy-up
+run is how people learn to click through confirm cards. (Removing a link by hand
+already worked: the `×` on a link chip in Notes.)
+
+### Changed — the graph tool costs half what it did
+
+Asked for: *"the knowledge graph needs to be very solid and token efficient."*
+It wasn't. Twelve neighbours came back as full `_note_summary` rows — 200-char
+previews, ISO timestamps, `pinned`, `truncated`, and a null `via` on every
+one-hop result — **~1,230 tokens for one call**, a third of a 4k window before
+the question or the notes.
+
+A graph walk's job is to say *what connects to what*; reading one in full is
+`get_note`'s job. Rows now carry an id, a 90-character preview, the category,
+how it connects and how far — with tags and `via` omitted when empty rather than
+sent as null. **633 tokens**, and a test holds the worst case under 800.
+
+### Changed — skills the model can find, and a budget guard retired
+
+A skill was findable only by the person who remembered writing it. `when_to_use`
+is a field now — *when* to reach for a skill, as opposed to what it is — and
+`list_skills` reports it along with `step_count` and `changes_notes`, so a skill
+that alters the notebook reads differently from one that only summarises. The
+note to the model also says plainly that it cannot start a skill itself, because
+a model that believes it can will narrate having done so.
+
+**`PROMPT_BUDGET_CHARS` is retired**, on its own instructions. Its comment said
+to retire it if it ever needed raising a third time for a tool rather than for
+prose — and the third time came in the same session, for one added argument on
+`save_skill`. It weighed the *whole* tool registry, and no turn has sent the
+whole registry since `within_budget` started fitting the schemas to the model's
+reported window. A guard that must be raised every time the app legitimately
+grows is not a guard; it is a chore that teaches people to edit the number.
+
+Two assertions replace it, each measuring something real: `PROSE_BUDGET_CHARS`
+covers the persona and TOOLS_GUIDE, which nothing trims and which are sent
+whole to a 3B model and a 70B one alike; and the existing post-trim test covers
+what actually reaches a 4,096-token model. The registry is capped by the
+model's real window, per turn, by code that is tested.
+
+### Added — the graph is walkable by the AI (roadmap §9)
+
+Asked directly: *"is the graph an actual knowledge graph? I want it to be one
+for the AI to have easily usable and accessible context."*
+
+It was half of one. The edges were real and persisted — explicit links, reply
+threads, shared tags — and the graph *view* has drawn them as typed edges since
+it was built. What the agent could see was `get_note`'s `links` field: a bare
+list of note ids, with no indication of what any of them meant, one note per
+tool call. It could add connections and never follow them.
+
+`related_notes` walks the neighbourhood breadth-first to depth 2, capped at 12
+notes, and **every result says how it connects** — "linked", "thread: this is a
+reply to it", "shares #recipes" — plus how many hops out and which note it hung
+off. The typing is the point: "you linked these" and "these share a tag" are
+different strengths of evidence, and a flat list of ids hides that. Sharing a
+*category* is deliberately not a connection, since nearly every note shares one.
+
+**Potential connections too**, on request: `include_suggestions` adds notes that
+*read* alike but were never linked. They come back in their own list, labelled
+"NOT linked yet", with an instruction to say so — because the one way this could
+mislead is a guess repeated to the user as a fact. Off by default, since a
+similarity sweep costs a comparison per note.
+
+### Security — the AI is locked to this machine by default
+
+The backend address is now *refused* if it isn't on this computer or your own
+network, rather than allowed with a warning. "100% offline, on your machine"
+should be a promise the app keeps, not one it reminds you that you are breaking.
+
+Enforced in two places, and the second is the one that matters:
+`preferences.json` is a plain file, and it is what a restored backup or a copied
+config brings with it — so checking only at the endpoint would let an address
+that never passed through it be used anyway, silently, on every turn. When the
+saved address is refused the app falls back to the local default and logs why,
+rather than refusing to start: it has to open so the setting can be fixed from
+inside it.
+
+Unlocking is a visible switch in Settings → Models, for anyone who genuinely
+wants a hosted API.
+
+### Fixed — "'timeout' is not recognized" on Windows
+
+Reported in use, and real. `start.bat` waited three seconds before opening the
+browser with `timeout /t 3`, and `timeout` is `System32\timeout.exe` — an
+external program, not a `cmd` builtin. On any machine whose `PATH` has lost
+System32 it fails outright, and it also refuses to run when its input is
+redirected. It now waits with the virtual environment's own Python, which the
+script has already created and checked at an absolute path, so it needs nothing
+on `PATH` at all.
+
+### Added — peek, colour schemes, and saving a look (roadmap §33)
+
+Three appearance additions, the first two taken from odysseus.
+
+- **Peek.** A checkbox in the Settings title bar fades the panel so a colour
+  change can be seen on the page behind it. The technique is the part worth
+  copying: the fade is `color-mix` on the *background*, never element
+  `opacity` — opacity fades the swatches and the controls too, which makes the
+  thing you are trying to judge harder to see rather than easier. It clears
+  itself on close and when you leave Appearance, because a panel left
+  semi-transparent on the Logs screen reads as a rendering bug.
+
+- **Build a scheme from one colour.** Picking an accent is easy; picking a page
+  background that *goes* with it is the part people give up on. Choose a colour
+  and a relationship — monochromatic, analogous, complementary, triadic — and
+  the two are worked out together: the hue rotates by the amount that
+  relationship names, the saturation drops hard (a background carrying the
+  accent's full saturation is exhausting to read against), and the lightness
+  goes to whichever end the *resolved* mode needs, so it is right under
+  "System" too.
+
+- **Save the look you built.** Everything the appearance controls write —
+  colours, font, spacing, corners, background, the selected theme — saved under
+  a name and applied again in one click. Stored server-side with the rest of
+  your preferences rather than in the browser: a look built by hand is a thing
+  you would be upset to lose to a cleared cache, and in preferences it rides
+  along in the daily backup and is there in the desktop window too.
+
+### Added — the agent can ask instead of guessing (roadmap §33)
+
+Told "delete the one about the beans" when there are three, the agent had
+exactly one move: pick one and act. A confident wrong action on someone's
+notebook is worse than a question, and the user finds out afterwards.
+
+`ask_user` offers 2-6 options as buttons and **ends the turn** — which is the
+feature, not a limitation: the model asked because it does not know what to do
+next, so carrying on would mean carrying on with the guess the question exists
+to avoid.
+
+- **No state is parked on the server.** The choice is sent as the user's next
+  message, so the answer arrives through the ordinary history the model already
+  reads. Nothing to expire, nothing lost on a reload, and the exchange saves
+  into the conversation like any other.
+- **A malformed question is recoverable, not fatal.** A model that offers one
+  option, or sends `"yes, no"` as a string instead of a list, has made a fixable
+  mistake — the string is parsed, and anything genuinely unusable goes back to
+  the model with the reason so the run continues rather than stranding the user.
+- **It cannot be run as an ordinary tool.** The handler raises, so a path that
+  bypasses the agent loop can't fabricate an answer to a question nobody saw.
+- It is offered on every turn, because a request can be ambiguous whatever it
+  is about and a keyword rule has nothing to match on. That is only defensible
+  while it stays cheap, so the schema is 507 characters and a test holds it
+  under 900.
+
+### Added — quick / normal / detailed (roadmap §11)
+
+The prompt side of a turn has been budgeted against the model's real window
+since the context work. The **output** side had one number for everything:
+`num_predict` was a flat 1,024 whether the question was "when did I write about
+beans" or "draft me a summary of the last month". Output tokens are generated
+one at a time, so they cost far more wall-clock each than prompt tokens do — a
+uniform cap means every short question pays for the possibility of a long
+answer.
+
+One picker in the chat toolbar now moves four settings together: the reply cap,
+the temperature, the thinking toggle and a length hint in the prompt. They
+belong together — capping the reply without telling the model to be brief
+truncates it mid-sentence, which reads as a crash rather than as brevity.
+
+- **`normal` is exactly what every turn got before**, and a test says so. It is
+  the default, so anything else would mean upgrading silently changed
+  everyone's chats.
+- **Settings a model can't do are never sent.** Thinking is only ever toggled
+  *off*: turning it off on a model with none is a harmless no-op, while turning
+  it on where it isn't supported is the request that errors. An unset
+  temperature is omitted rather than sent as null — absent means "your default",
+  which is what happened before presets existed.
+- **The picker is per-turn, the preference is the default.** One quick answer
+  doesn't change the setting for every answer after it, but the last choice is
+  remembered so someone who works in Quick isn't re-picking it every reload.
+- The mode list is served from `GET /chat/modes` rather than duplicated in
+  `app.js`, so adding a fourth preset is a change to `ai/presets.py` alone.
+
+### Security — the backend address is the one setting that can leave the machine
+
+Everything else about MemoryMap is local by construction: the server binds to
+localhost, the database is a file, nothing phones home. §6 made the chat
+backend an address the user types, and the server posts their notes to whatever
+it names on every turn. That is a new outbound surface, and it needs the
+*opposite* rule from the web reader's.
+
+`websearch._assert_external` refuses anything that isn't public, because it
+follows untrusted links and must never probe this machine. A model backend is
+supposed to be on localhost or the LAN, so private addresses are the normal
+case there and refusing them would break the only thing the setting is for.
+
+- **Refused: non-http(s) schemes, link-local, multicast and unspecified
+  addresses.** The one that matters is link-local: `169.254.169.254` is the
+  cloud instance-metadata service and the classic credential-theft target, and
+  nobody has ever served a language model from it. `::ffff:169.254.169.254` is
+  the same address wearing a hat and is refused too.
+- **The check order is load-bearing, and getting it wrong is a real hole.**
+  Python classes `169.254.0.0/16` as link-local *and* `is_private`, so an
+  allow-private rule running first waves the metadata address straight
+  through; `::1` is loopback *and* `is_reserved`, so a refuse-reserved rule
+  running first rejects the most ordinary backend there is. A test asserts
+  both overlaps, so a well-meaning tidy-up of the order fails loudly.
+- **A backend on the internet is allowed and said out loud.** Someone who
+  deliberately wants a hosted API is entitled to one; what they are not
+  entitled to is for it to happen quietly, because the app's headline promise
+  is that notes stay on the machine. Settings → Models shows a plain warning
+  naming what is being sent where, and it stays until the address changes.
+- A name that does not resolve yet is not an error — "set the address, then
+  start the server" is the normal order, and a container name resolves only
+  once its container is up.
+
 ### Security
 
 The roadmap's security tier, worked through end to end. Three of its seven

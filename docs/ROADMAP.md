@@ -48,6 +48,8 @@ the part that's expensive to reconstruct.
 - [30. External review, filtered — what didn't make the cut](#30-external-review-filtered-what-didnt-make-the-cut)
 - [31. Claude's own read: what I'd flag](#31-claudes-own-read-what-id-flag)
 - [32. Product direction — asked for directly, kept short on purpose](#32-product-direction-asked-for-directly-kept-short-on-purpose)
+- [33. Odysseus, read and triaged](#33-odysseus-read-and-triaged)
+- [34. Where I'd take this — an outside read](#34-where-id-take-this-an-outside-read)
 - [Answers to questions already raised](#answers-to-questions-already-raised-so-they-arent-re-asked)
 
 **New in this pass:** a proper line/branch view for the Timeline (§10C), a
@@ -60,28 +62,37 @@ other way.
 
 ## Next session: start here
 
-Named directly at the end of the last session, in this order:
+Ordered by *how much it unlocks*, not by how much is left in the section.
 
-1. **§6 — other local AI backends (LM Studio, llama.cpp, Jan, vLLM).** The
-   headline ask. §6 now opens with a "read this before starting" block: the
-   context work has already staked out the four things a provider must answer
-   (`usable_context`, runtime options, tool-call shape, streaming shape) and
-   which of them already degrade gracefully when a provider cannot. LM Studio
-   reports `max_context_length` on `GET /api/v0/models`, so the window
-   budgeting carries over. Pair it with §20's async-httpx item — both rewrite
-   the same client.
-2. **Keep the agent lean.** §11a's fixed *and* variable halves are now
-   budgeted (`ai/context.py`), and §14's tool list is fitted to the model
-   rather than to a constant. **What is genuinely left is the output side:**
-   `num_predict` is a flat 1,024 for every request, and the
-   quick/normal/detailed preset in §11 is what would make it adaptive —
-   together with per-mode temperature and thinking budget, which was asked
-   for separately and is the same preset.
-3. **Possibly: read another repository and take what fits.** Worth doing the
-   way the Headroom evaluation in §11 was done — measure this app's actual
-   numbers first, then judge the import against them. That evaluation
-   *changed its own answer* halfway through on the strength of one
-   measurement, and it is the format to copy.
+1. **Let the agent run a skill.** The largest gap in the agentic story and the
+   smallest change to close it. The agent can list skills, save them, and — as
+   of this session — read a `when_to_use` that says which one fits. It still
+   cannot start one; that is a click only the user can make, so a model that
+   works out exactly what should happen has to ask for it in prose.
+   `skill_runner` already exists and already takes an allowlist. **Shape:**
+   reuse `ends_turn` (the mechanism `ask_user` introduced) rather than nesting
+   an agent loop inside an agent loop — the tool hands control to the skill
+   runner and the turn ends, which is also the honest thing to show the user.
+   `list_skills` already tells the model it cannot do this; that sentence is
+   what to delete when it can.
+2. **The graph's last mile (§9).** Walking it and suggesting connections are
+   done and token-budgeted. What is missing is *"how are these two related?"* —
+   a path between two notes — plus clusters and drag-to-link in the view. The
+   traversal code to build a path on is now there.
+3. **§20's async-httpx refactor.** Deliberately deferred during §6 so there
+   would always be a known-good streaming path to bisect against. That reason
+   has expired, and the cost of waiting is real: it now has to touch two
+   clients instead of one, and grows with every provider added.
+4. **The live log console (§1)** — streamed, but not followed, filtered or
+   exportable.
+5. **Chat / Agent / Browse sub-tabs (§3)** and **the Library tab (§4)**, the
+   two biggest untouched UI sections.
+
+**Verify before building:** every provider test in this repo runs against a
+fake transport. The SSE framing, the `[DONE]` sentinel and the tool-call
+fragment indices are implemented from the specification, not from a running LM
+Studio. Half an hour with the real thing would move §6 from "should work" to
+"confirmed", and that is worth doing before anything is built on top of it.
 
 Everything below this block is the standing backlog, unchanged.
 
@@ -668,6 +679,55 @@ thing. Don't ship one you couldn't test.
 ---
 
 ## Done in the most recent session — read this first
+
+**This session: §6, §11's output half, model specs, and odysseus read and
+triaged (§33).** Four things landed, and they are related — each one made the
+next cheaper.
+
+1. **§6 — every OpenAI-compatible backend, not an LM Studio special case.**
+   `ai/provider.py` holds what was never Ollama-specific; `ai/openai_client.py`
+   is the second dialect; LM Studio, llama.cpp, Jan, vLLM and Ollama's own
+   `/v1` all arrive together. Full write-up in §6, including the two things
+   the plan did not predict (streamed tool-call fragments are keyed by an index
+   and interleave; `loaded_context_length` has to beat `max_context_length`).
+
+2. **The window is reported, not just budgeted.** Every message says how full
+   the model's window got — `3.9k/8k window (48%)` — and turns
+   warning-coloured past 80%. A raw token count never answered the question
+   anyone has, which is whether the *next* turn is the one that starts dropping
+   the top of its own prompt. Counts a server won't report are estimated from
+   characters and marked `~`, because a guessed number the user believes was
+   measured is worse than a blank.
+
+3. **§11's output half — quick / normal / detailed.** One picker moves the
+   reply cap, the temperature, the thinking toggle and a length hint together.
+   `normal` is byte-for-byte what every turn got before, and a test says so.
+   Deliberately a preset rather than automatic routing: choosing by task needs
+   a "how hard is this turn" judgement that is itself a model call, and it
+   fails by being wrong confidently rather than obviously.
+
+4. **The model's actual specs are read.** Ollama's `/api/show` has been
+   reporting parameter count, quantisation and a `capabilities` list all along;
+   the app read one field and ignored the rest. Reading `capabilities`
+   immediately caught a bug in the preset built three hours earlier — `quick`
+   would have sent `think: false` to models that reject it, failing every turn.
+   `supports()` is **tri-state**: True, False, or None for "this backend does
+   not say", and None is never treated as False.
+
+**One security item, from odysseus's `url_safety.py`.** The backend address is
+now a setting, which makes it the one setting that can send notes off this
+machine. Link-local (the cloud metadata range) is refused; loopback and LAN are
+the normal case and are allowed; anything else is allowed and *warned about*,
+because the app's promise is that notes stay here. The check order turned out
+to be load-bearing and the first version was wrong: Python classes
+`169.254.0.0/16` as both link-local and `is_private`, so an allow-private rule
+running first waved the metadata address straight through. Both overlaps have
+a test naming them.
+
+**Everything below this line is from earlier sessions.**
+
+---
+
 
 Newest at the top. Everything here is on `main` (or the branch merging into
 it), verified, and must not be rebuilt.
@@ -1325,7 +1385,89 @@ like using Obsidian or Notion."* Ordered by how much each one gets in the way.
 
 ---
 
-## 6. OpenAI-compatible backends (LM Studio, llama.cpp, Jan, vLLM)
+## 6. OpenAI-compatible backends (LM Studio, llama.cpp, Jan, vLLM) — **done**
+
+**Built.** `ai/provider.py` (the neutral seam), `ai/openai_client.py` (the
+second dialect), `deps.build_llm_client`, `POST /models/provider`, and the
+Model backend picker in Settings → Models. 47 tests in
+`tests/test_providers.py`. The original plan is kept below the status block
+because its reasoning is still the reasoning; what follows first is what the
+plan got right, what it missed, and what is left.
+
+**What the plan got right.** All four questions it staked out were the right
+four, and three of them cost almost nothing because the groundwork was already
+there. `usable_context` was already reached through `getattr` for exactly this
+reason. `extract_text_tool_calls` already handled the OpenAI spelling of
+arguments-as-a-JSON-string, because Ollama models were already inconsistent
+among themselves — so the "new" dialect was one this app could already read.
+`_ThinkTagSplitter` and `_ToolTextGate` needed no change at all, because the
+split was kept at "parse one chunk"; the SSE framing is handled below them and
+they never learned it exists.
+
+**What the plan missed, and what it cost.** Two things, both in the streaming
+path, and both silent failures rather than errors:
+
+- **Streamed tool-call fragments are keyed by an `index`.** Arguments arrive as
+  partial JSON spread over many chunks, and *two concurrent calls interleave on
+  the wire*. Folding them in arrival order rather than by index yields one
+  unparseable blob — and it only happens when the model asks for two things at
+  once, which small models do constantly, so it would have looked like "the
+  agent sometimes ignores its tools". There is no Ollama equivalent to have
+  learned this from.
+- **`loaded_context_length` has to beat `max_context_length`.** LM Studio
+  reports both, and the plan only named the latter. A 128k-capable model that
+  was *loaded* at 4k will drop the front of the prompt — the system prompt,
+  the part telling it that it has tools — if the app budgets against what it
+  could have held. This is the same class of mistake as the one §11a existed to
+  fix, one layer further out.
+
+A third thing the plan named but understated: **tool results are addressed by
+id**, and the interesting case is a model calling the same tool twice in one
+turn. Matching results to calls by name alone addresses both to the first call,
+leaves one unanswered, and the server rejects the entire turn.
+
+**Decisions worth not re-litigating.**
+
+- **`OllamaError` was aliased, not subclassed.** It *is* `ProviderError` now.
+  Introducing a neutral parent and leaving `OllamaError` as a child would have
+  looked tidier and silently stopped a dozen existing `except OllamaError`
+  handlers firing for the new provider. The tidier-looking change was the
+  broken one.
+- **The shared helpers were moved, not copied,** and a test asserts they are
+  gone from `ollama_client.py`. Two tool-text gates that drift apart is exactly
+  the failure this refactor exists to prevent.
+- **An unknown context window stays unknown.** Where neither the server nor
+  the known-model table can answer, the app budgets against
+  `DEFAULT_CONTEXT_TOKENS` and does not invent a number. A fallback 128k is not
+  proof a model holds 128k, and a budget scaled off an unverified window is
+  worse than a conservative one.
+- **Setting a backend does not require it to be up.** You set the address, then
+  you start the server. `POST /models/provider` saves either way and reports
+  what it found.
+
+**What is left.** Small, and none of it blocking:
+
+- **The async-httpx refactor (§20)** was *not* done alongside this, against the
+  plan's own advice. The reason: the second provider was already a full rewrite
+  of the streaming path, and doing both at once would have meant no version of
+  the streaming path that was known-good to bisect against. It is still worth
+  doing, and now has to touch two clients instead of one — that is the price,
+  and it was paid deliberately.
+- **Unverified against real servers.** Every test here is against a fake
+  transport. The SSE framing, the `[DONE]` sentinel and the fragment-index
+  behaviour are all from the specification rather than from a running LM Studio.
+  Worth thirty minutes with the real thing before calling it confirmed.
+- **`api_key` is stored in `preferences.json` in plain text**, like every other
+  preference. It is excluded from the support bundle. That is fine for a local
+  server that ignores it and *not* fine for a hosted gateway key; if anyone
+  points this at a paid API, the key belongs in the vault (§26) instead.
+- **Embeddings via the OpenAI backend are implemented but not wired to the
+  Settings UI** — `embedding_backend` still offers "built-in" and "ollama"
+  only. `OpenAICompatClient.embed` works; nothing calls it yet.
+
+---
+
+### The original plan, kept for its reasoning
 
 **Why.** Asked for directly. LM Studio serves an OpenAI-compatible API on
 `http://localhost:1234/v1`, and so do llama.cpp's server, Jan, vLLM — and Ollama
@@ -2438,6 +2580,20 @@ palettes."
 
 ## 16. Sweeping UI quality-of-life
 
+- **A status bar along the bottom** — from IDEAS.md, and the only item there
+  with no home anywhere else in this document. What the AI is doing, what
+  background jobs are running, which backend answered, and a way into the
+  command palette, in one strip that is always visible. Most of the *data*
+  already exists and is scattered: the AI dot is in the header, background jobs
+  are behind Settings → Tasks, the backend is behind Settings → Models. The
+  work is a place to put them, not new plumbing.
+- **Sorting and grouping saved chats** — also from IDEAS.md and also homeless
+  until now. Conversations sort by recency and nothing else; there is no "by
+  length", "by which model answered", no folders, no grouping by topic. The
+  data to sort by is already stored per turn (the model, the token cost, the
+  timestamps), so this is a list-rendering job. The IDEAS note suggests an
+  agent tool and a skill for it too, which would fall out of §14's shape once
+  the sort exists.
 - **Undo toasts** for anything soft-deleted, instead of confirm dialogs
 - **Optimistic UI** — a saved note appears instantly and reconciles
 - **Consistent empty states** and loading skeletons
@@ -3365,6 +3521,385 @@ product that's already distinctive. Tier 4 is where to be honestly
 skeptical of new ideas, including this document's own.
 
 ---
+
+## 33. Odysseus, read and triaged
+
+Asked for directly: *"analyse the odysseus repo, then determine what parts of
+it are valuable and can be incorporated into memorymap-ai."* Done the way §11's
+Headroom evaluation was done — look at what this app actually does first, then
+judge the import against it, rather than porting whatever looks impressive.
+
+**The repository**: `pewdiepie-archdaemon/odysseus`, a self-hosted AI workspace
+— chat, agents, deep research, documents, email, calendar, a model "cookbook",
+an image gallery. Roughly 60k lines of Python against MemoryMap's ~6k, and a
+much wider product: MemoryMap is a notebook that happens to have an AI in it,
+odysseus is an AI workspace that happens to store things.
+
+---
+
+### The constraint that governs everything below
+
+**Odysseus is AGPL-3.0-or-later. MemoryMap is MIT. No code can be copied
+across, in either direction.**
+
+This is not a formality and it is not a thing to work around by paraphrasing a
+file. Copying AGPL source into an MIT project relicenses the result and makes
+the MIT badge on this repository a false statement about what someone may do
+with it. **Everything in this section is a design lesson — an idea, a failure
+mode, a shape — to be re-implemented independently.** That is what §6 did: the
+provider work below was written from the four questions odysseus's code
+*answers*, not from its code.
+
+Two smaller things worth recording so nobody re-derives them:
+
+- Odysseus's own dependency notes and `ACKNOWLEDGMENTS.md` are worth a look
+  before adding any dependency it uses, because its licence tolerances are
+  wider than this project's.
+- The reverse direction is also closed. Nothing from MemoryMap should be
+  offered upstream to odysseus as a patch without deciding, deliberately, to
+  license that contribution under AGPL.
+
+---
+
+### Adopted this session
+
+Each of these was re-implemented from scratch. What odysseus supplied was the
+*idea* and, more valuably, the failure mode it had already hit.
+
+- **A provider layer split by dialect, not by product (§6).** Odysseus's
+  `_detect_provider` matches on hostname rather than substring, and falls back
+  to "OpenAI-compatible" for everything unknown — which is right, because that
+  is what the long tail implements. The lesson taken: build the *dialect*, and
+  LM Studio, llama.cpp, Jan and vLLM all arrive together.
+
+- **`loaded_context_length` beats `max_context_length`.** Odysseus reads both
+  and prefers the loaded one. MemoryMap's plan for §6 named only the latter; a
+  128k model *loaded* at 4k would have had its prompt budgeted at 128k and
+  quietly lost its system prompt. This one measurement changed the design.
+
+- **"Known" is a separate fact from "known value".** Odysseus carries a
+  `known` flag beside every context length, because a fallback 128k is not
+  proof a model holds 128k, and a budget scaled off an unproven number is worse
+  than a conservative one. MemoryMap's version of this is `context_length`
+  returning `None` and callers falling back rather than a made-up default
+  propagating.
+
+- **Multi-field catalog probing.** Every OpenAI-compatible server spells the
+  window differently — `max_context_length`, `max_model_len`, `context_length`,
+  nested `meta.n_ctx`. Odysseus reads all of them. So does
+  `provider.context_from_catalog_entry` now.
+
+- **Never auto-pick an embedding model as a chat model.** Odysseus's
+  `_first_chat_model` exists because an OpenAI-style `/models` list routinely
+  puts `text-embedding-ada-002` first and "use the first one" silently picks
+  something that cannot hold a conversation. Re-implemented as
+  `provider.first_chat_model`.
+
+- **Model specs and context usage surfaced in the chat.** Odysseus reports
+  `context_percent`, `usage_source: real|estimated`, and per-model metadata on
+  every turn. This was the single most transferable *product* idea in the repo,
+  and MemoryMap already had every piece needed for it. The message metadata
+  line now says how full the window got, and marks an estimate as an estimate.
+
+- **Read the capability list.** Odysseus tracks what each model supports rather
+  than assuming. MemoryMap now reads Ollama's `capabilities` from `/api/show` —
+  and it immediately caught a bug in the brand-new quick preset, which would
+  have sent `think: false` to models that reject it.
+
+- **SSRF hardening on a user-supplied backend URL.** Odysseus's `url_safety.py`
+  makes exactly the right call for a local-first app: do *not* blanket-block
+  private addresses, because pointing at a local server is the entire use case
+  — block the link-local metadata range instead. Re-implemented as
+  `security.check_backend_url`, plus a warning MemoryMap needs and odysseus
+  does not, because MemoryMap promises the notes never leave the machine.
+
+---
+
+### Tools and skills: is odysseus leaner for small models? Measured, and no
+
+Asked directly: *"does it handle tools and skills more efficiently such that
+smaller models can better use them?"* The answer is the other way round, and
+the numbers are worth keeping because they settle it.
+
+| | MemoryMap | Odysseus |
+| --- | ---: | ---: |
+| Tools in the registry | 34 | 69 |
+| Total description text | 3,849 chars | 17,792 chars |
+| Mean per tool | 113 chars | 257 chars |
+| Longest single tool | 306 chars | 1,205 chars |
+
+Odysseus carries **twice the tools and 4.6× the description text**, and its
+longest single tool description costs more than MemoryMap's ten shortest
+combined. Its RAG tool retrieval is not a refinement that MemoryMap lacks — it
+is the thing that makes a 17,792-character registry usable at all. Adopting the
+retrieval without the bloat would be adopting a cure for an illness this app
+does not have.
+
+**Why their descriptions are that long is the transferable part.** They are not
+padded; they are full of *disambiguation* — "do NOT use `app_api` for sessions",
+"use `ui_control open_email_reply`, not `reply_to_email`", "this is for
+EXISTING research; to START new research use `trigger_research`". That is the
+tax on having 69 tools with overlapping responsibilities, paid on every request.
+The lesson to keep is the inverse: **the cheapest way to keep the tool prompt
+small is to not have two tools that a model could confuse.** Every time a new
+tool here needs a sentence explaining when *not* to use it, that sentence is
+evidence the boundary is in the wrong place.
+
+**What MemoryMap already does that odysseus does not.** Worth recording so it
+does not get "improved" away:
+
+- `tools.within_budget` fits the schemas to the model's *reported* window and
+  drops the least relevant tools, so a 4k model receives ~1,450 tokens of tool
+  prompt and a 32k model receives all of it. Odysseus retrieves a fixed top-K
+  regardless of the window.
+- A skill run offers **only its declared tools** — 1,963 characters of schema
+  instead of 10,215 — and the allowlist is enforced, not merely suggested.
+- `tools.focus_for` is keyword-driven and therefore *readable and testable*.
+  A cue that doesn't fire is a predictable failure; a retrieval that ranks
+  wrong is not.
+
+**Where MemoryMap's tools genuinely could improve**, in order:
+
+1. **The agent cannot run a skill.** It can list skills and save them, but
+   running one is user-initiated through the chip UI. So the model can see a
+   job it is perfectly capable of doing and has no way to start it. This is
+   the single biggest gap in the agentic story, and it is a small change: the
+   skill runner already exists and already takes an allowlist.
+2. ~~**A skill has no "when to use".**~~ **built.** `when_to_use` is a field on
+   a skill now, the agent can set it through `save_skill`, and `list_skills`
+   returns it. This was the prerequisite for item 1: giving the agent the
+   ability to run a skill without a basis for choosing one would have been
+   worse than not giving it at all.
+3. ~~**`list_skills` returns no cost signal.**~~ **built.** It now reports
+   `step_count` and `changes_notes`, so a skill that alters the notebook reads
+   differently from one that only summarises it — and the note to the model
+   says plainly that it cannot start a skill itself, since a model that
+   believes it can will narrate having done so.
+
+### Worth building, not this session
+
+Ordered by value-per-effort. Each is a shape to re-implement, never a file to
+copy.
+
+1. ~~**An `ask_user` tool that ends the turn (§18, §14).**~~ **built.** Odysseus's agent can
+   stop mid-task and ask a multiple-choice question; the user gets clickable
+   buttons and their answer arrives as the next message. This is the honest
+   answer to a class of failure MemoryMap currently handles by guessing: an
+   ambiguous instruction ("file this properly") becomes a confident wrong
+   action. It also matches an IDEAS.md line directly ("an agent ask for
+   permission dialogue in the chat"). MemoryMap already has the hard half —
+   the destructive-action confirm card is exactly this UI — so this is mostly
+   a second event type and a tool.
+
+2. **A live plan the agent ticks off (`update_plan`).** Odysseus's agent keeps
+   a checklist the user can watch update. MemoryMap's *skill runner* already
+   does this — ordered steps, one per turn, each ticked — but an ordinary agent
+   turn does not. Generalising the skill runner's plan display to any
+   multi-round turn is a smaller job than it sounds, and it is the fix for
+   "long agent runs look like nothing is happening".
+
+3. **Semantic tool retrieval, replacing keyword `focus_for` (§11a, §14).**
+   Odysseus embeds its tool descriptions and retrieves the top-K per message,
+   with a deliberately tiny always-available core. MemoryMap's `tools.focus_for`
+   does the same job with keyword cues and already cut fixed overhead from
+   ~3,157 to ~1,439 tokens. **The honest note: this is an upgrade, not a fix.**
+   MemoryMap has the embedding service to do it, but the current version works
+   and the failure mode of the semantic one is worse — a cue that doesn't fire
+   is predictable, a retrieval that ranks wrong is not. Worth doing *with a
+   measurement*, the way §11 did: if it doesn't beat keyword cues on a set of
+   real questions, don't ship it.
+
+4. **A richer skill format.** Odysseus's `SKILL.md` carries frontmatter
+   (`description`, `version`, `tags`, `requires_toolsets`, `confidence`,
+   `source: learned|taught|imported`) and body sections: **When to Use**,
+   **Procedure**, **Pitfalls**, **Verification**. MemoryMap's skills (§21) have
+   ordered steps and a tool allowlist — the execution half — but nothing that
+   says *when* a skill applies or *how to tell it worked*. "When to Use" is the
+   one to steal first: it is what makes a skill findable by the model instead
+   of only by the user. Two more ideas from the same file: usage counts live in
+   a **sidecar** so the skill itself doesn't churn on every run, and the skill
+   *index* (name + description) is always loaded while the *body* is fetched on
+   demand — progressive disclosure, which is the same reversible-compression
+   idea §11 already adopted for notes.
+
+5. **A completion verifier for effectful turns.** After a turn that used a
+   writing tool, odysseus runs an independent check that the claimed work
+   actually happened, capped at two rounds. MemoryMap has a cheaper version of
+   this already — `_CLAIM_PATTERN` catches a model that says it saved something
+   when no write tool ran — and the cheap version covers the common case. The
+   upgrade is checking that what was written is what was *asked for*, not just
+   that something was written. Worth it only once agent turns get longer.
+
+6. **Better degraded-state reporting.** Odysseus's own roadmap asks for this
+   about its own app, which is a useful signal: it is a real gap in a system
+   with this many optional parts. MemoryMap is in better shape here (the status
+   pill, the embedding error line, the support bundle), but the same principle
+   applies to the new provider work — "reachable but wants a key" is a
+   different state from "off", and only the endpoint knows it today.
+
+---
+
+### Looked at and deliberately not taken
+
+Recording these so a future session doesn't re-evaluate them from scratch.
+
+- **The Cookbook / `services/hwfit`.** Hardware-aware model recommendation:
+  detect the GPU and RAM, score every candidate model on quantisation, VRAM
+  fit, architecture age and expected tokens/second. It is the most impressive
+  thing in the repository and it is a *product of its own* — thousands of lines
+  plus a curated model database that has to be maintained or it rots. MemoryMap
+  has `SUGGESTED_MODELS`, a hand-written list of five models that work well on
+  a laptop, and for a notebook app that is the right size of answer. Revisit
+  only if "which model should I run" becomes a question people actually ask
+  here.
+
+- **Sub-sessions, pipelines and agent-to-agent messaging** (`create_session`,
+  `send_to_session`, `pipeline`). Real capability, and completely out of scope
+  for a single-user notebook: MemoryMap deliberately refuses to run with more
+  than one worker.
+
+- **`bash` and `python` tools.** Odysseus gives its agent a shell. MemoryMap
+  should not, and this is not a close call — the whole safety story here is
+  that the agent's blast radius is the notebook, destructive actions are
+  confirmed, and everything is undoable. A shell tool ends all three properties
+  at once.
+
+- **The email, calendar and CalDAV integrations.** A different product.
+
+- **Their search ranking (`services/search/ranking.py`).** Genuinely nice —
+  recency scoring, domain quality, per-term title/snippet weighting. Not taken
+  because MemoryMap's web search is a *reader*, not a search engine: results go
+  to the model with a reader view, and the ranking that matters is the one
+  SearXNG already did. Reconsider if §13 ever grows a results page people
+  browse themselves.
+
+- **`teacher_escalation` — asking a bigger cloud model when a local one is
+  stuck.** Interesting, and squarely against this app's promise. A local model
+  failing is a thing to report, not a thing to silently escalate to somebody
+  else's computer.
+
+---
+
+### What reading it changed about how I'd judge this app
+
+Two things, both uncomfortable and both worth writing down.
+
+**Odysseus's roadmap opens by admitting the CSS is a swamp and that it doesn't
+know if its own integrations work.** That candour is the most useful thing in
+the repository. This document has the same risk in a milder form and already
+names it — the audit that found four of §2's six "quick wins" already built.
+The rule that came out of that ("check the running app before building
+anything here") is the one worth keeping, and it is worth applying to §33
+itself before starting any item above.
+
+**Almost everything odysseus does better, it does by being bigger.** The
+context tracking, the tool retrieval, the skill format, the provider layer —
+each is a more elaborate version of something MemoryMap already has, and in
+every case the elaborate version costs code that has to keep working. The
+items adopted above were the ones where the idea was small and the *failure
+mode* was the valuable part: `loaded_context_length` beating
+`max_context_length` is four lines and a comment, and it prevents a bug that
+would have been very hard to find from the symptom. That is the shape of import
+worth making, and it is the filter to apply to the "worth building" list too.
+
+---
+
+## 34. Where I'd take this — an outside read
+
+Asked for directly. Written as a working opinion rather than a plan: these are
+judgements, and the roadmap's own rule — *check the running app before building
+anything here* — applies to this section more than to any other.
+
+### The thing this app is actually good at, which is not what it says on the tin
+
+The pitch is "a local AI files your notes". That is the *capture* story, and it
+is solved. What has quietly become the more valuable half is **retrieval you
+can check**: an answer arrives beside the notes it came from, every tool result
+says where it came from, the graph says *how* two notes connect, and a turn now
+reports how full the model's window got and whether the token counts were
+measured or guessed.
+
+Almost nothing else in this space does that. Hosted assistants can't (the notes
+aren't theirs to show), and most local ones don't bother. **That is the
+differentiator, and it is worth defending explicitly** — every future feature
+should be asked "can the user check this?" before "is this clever?". The
+`might_connect` list is the model to copy: it would have been easier to mix
+guesses into the results, and worthless.
+
+### Three things I would prioritise, and why
+
+1. **Finish the agentic loop, then stop adding to it.** Running a skill is the
+   missing link (§33). After that the agent can plan, ask, act, and be checked
+   — which is a complete story. The temptation will be to keep adding tools;
+   resist it. 35 is already past the point where a 4k model gets a trimmed set,
+   and odysseus at 69 tools is the cautionary tale in §33: its descriptions are
+   4.6× longer per tool because they are full of "don't use X, use Y". **Every
+   new tool should have to displace an existing one or justify the trim.**
+
+2. **Make the notebook survive being large.** Everything here is tested against
+   tens of notes and reasoned about for thousands. `_suggested_neighbours` does
+   a full-table cosine scan; `_graph_neighbours` loads every entry to check
+   shared tags; the graph endpoint does pairwise similarity over the whole
+   notebook. All are fine at 500 notes and none is fine at 50,000. **This is
+   the failure that arrives silently, as "the app got slow", years in.** A
+   generated 50k-note fixture and a handful of timing assertions would find all
+   of it in an afternoon, and it is much cheaper now than after someone's real
+   notebook hits it.
+
+3. **Onboarding, because none of the above matters if nobody gets to it.** §27
+   is unbuilt and the first run currently is: install Python, run a script,
+   install Ollama separately, pull a model, come back. Every step is a place to
+   give up, and the app is at its least impressive precisely then — no notes, so
+   no retrieval, so no reason to trust it. The single highest-leverage version
+   is not a tour: it is **shipping something to look at**, a handful of example
+   notes that can be deleted in one click, so the graph, the timeline and the
+   dashboard have something to draw on the first screen.
+
+### Where I think the roadmap is over-invested
+
+Said plainly because a backlog this size needs someone to argue *against* parts
+of it:
+
+- **Desktop packaging (§7) is a much bigger commitment than it reads as.**
+  PyInstaller builds are the easy 20%; code signing, notarisation, an updater
+  and three platforms of support burden are the rest, and they recur forever.
+  `start.bat` and a browser tab are unglamorous and they work. I would do this
+  only once someone who is not you is asking for it.
+- **The whiteboard (§4a) and the in-built browser (§25/IDEAS) are separate
+  products** wearing this one's clothes. Each is months, and neither makes the
+  notes better.
+- **Multi-category notes (§23) is a schema change chasing a small win.** Tags
+  already do this. The honest version is "categories are a weak idea that tags
+  do better" — worth *considering removing* the tension rather than deepening
+  it.
+
+### What is missing that nobody has asked for
+
+- **An answer that says "I don't know" more often.** The hallucinated-write net
+  catches the worst case, but a model that pattern-matches four notes into a
+  confident wrong summary is the failure that damages trust in retrieval, and
+  nothing measures it. A small set of questions with known-correct answers,
+  run against each supported model, would turn "which model is good here?" from
+  opinion into a table — and that table is worth more to a user choosing a
+  model than anything in the Cookbook idea §33 rejected.
+- **Export that includes the AI's work.** Notes export; conversations,
+  reminders, links, skills and saved looks do not. "It's genuinely yours" is
+  only true to the extent you can take it all with you.
+- **A second pair of eyes on the crypto.** Private notes use scrypt and
+  AES-GCM correctly as far as I can tell, and "as far as I can tell" is not the
+  standard that claim deserves. It is the one part of the app where being
+  wrong is unrecoverable and silent.
+
+### The one process change worth making
+
+**Nothing in this app has ever been run against a real model in a test.** The
+whole suite fakes the provider, which is why it is fast and why it caught the
+tool-call-fragment bug — but it also means "works" has always meant "works
+against my idea of what Ollama does". One nightly job that pulls a 2B model and
+runs ten real turns through both providers would have caught the `think: false`
+rejection *before* I shipped it, rather than because I happened to read
+`/api/show`'s capability list an hour later.
+
 
 ## Answers to questions already raised, so they aren't re-asked
 

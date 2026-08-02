@@ -461,3 +461,191 @@ def test_an_action_skill_acts_even_with_agent_mode_off(ai_client, fake_ollama):
     )
     assert any(e["type"] == "plan" for e in events)
     assert fake_ollama.tool_rounds, "the agent never ran"
+
+
+# --- findable by the model, not only by the person who wrote it (§33) --------
+
+
+def test_a_skill_can_say_when_it_applies():
+    """The description says what a skill *is*; this says when to reach for it.
+    Without it a model reading the skill list can see that a skill exists and
+    has no basis at all for choosing it."""
+    from memorymap.ai import skills, tools
+
+    skill = skills.normalise(
+        {
+            "name": "Inbox tidy",
+            "prompt": "file the loose notes",
+            "when_to_use": "when Uncategorised is getting full",
+        },
+        set(tools.TOOLS),
+    )
+    assert skill["when_to_use"] == "when Uncategorised is getting full"
+
+
+def test_when_to_use_is_optional_so_old_skills_still_load():
+    from memorymap.ai import skills, tools
+
+    assert skills.normalise({"name": "n", "prompt": "p"}, set(tools.TOOLS))["when_to_use"] == ""
+
+
+def test_the_skill_list_tells_the_model_what_running_one_commits_to(app_state, session):
+    """A skill that changes notes is a different proposition from one that only
+    reads them, and the name alone does not say which."""
+    from memorymap.ai import tools
+
+    app_state.set_preference(
+        "skills",
+        [
+            {
+                "name": "Retagger",
+                "prompt": "retag things",
+                "when_to_use": "when tags have drifted",
+                "steps": ["find untagged notes", "tag them"],
+                "tools": ["search_notes", "tag_note"],
+            }
+        ],
+    )
+    listed = tools.TOOLS["list_skills"].handler(session, {})
+    mine = next(s for s in listed["skills"] if s["name"] == "Retagger")
+    assert mine["when_to_use"] == "when tags have drifted"
+    assert mine["step_count"] == 2
+    assert mine["changes_notes"] is True
+
+
+def test_a_read_only_skill_says_it_changes_nothing(app_state, session):
+    from memorymap.ai import tools
+
+    app_state.set_preference(
+        "skills",
+        [{"name": "Recap", "prompt": "summarise", "tools": ["search_notes", "get_note"]}],
+    )
+    listed = tools.TOOLS["list_skills"].handler(session, {})
+    assert next(s for s in listed["skills"] if s["name"] == "Recap")["changes_notes"] is False
+
+
+def test_the_model_is_told_it_cannot_start_a_skill_itself(app_state, session):
+    """Currently true, and worth saying: a model that believes it can run one
+    will narrate having done so. See §33 for the plan to change it."""
+    from memorymap.ai import tools
+
+    assert "cannot start a skill" in tools.TOOLS["list_skills"].handler(session, {})["note_to_model"]
+
+
+def test_the_agent_can_save_a_when_to_use(app_state, session):
+    from memorymap.ai import tools
+
+    tools.TOOLS["save_skill"].handler(
+        session,
+        {
+            "name": "Weekly recap",
+            "prompt": "summarise the week",
+            "when_to_use": "on a Sunday evening",
+        },
+    )
+    saved = app_state.get_preference("skills")
+    assert saved[0]["when_to_use"] == "on a Sunday evening"
+
+
+# --- the notebook audit set --------------------------------------------------
+#
+# Asked for directly: a skill that audits and cleans up the whole notebook —
+# links, tags, categories, moving notes, combining duplicates. Built as five
+# skills rather than one, and these tests are mostly about *why*.
+
+
+AUDIT_SKILLS = [
+    "🩺 Notebook health check",
+    "🏷 Clean up my tags",
+    "🗂 Reorganise my categories",
+    "🔗 Fix my links",
+    "🧬 Find notes worth combining",
+]
+
+
+def _builtin(name):
+    from memorymap.ai import skills, tools
+
+    return next(s for s in skills.builtins(set(tools.TOOLS)) if s["name"] == name)
+
+
+@pytest.mark.parametrize("name", AUDIT_SKILLS)
+def test_each_audit_skill_is_valid_and_says_when_to_use_it(name):
+    skill = _builtin(name)
+    assert skill["steps"] and skill["tools"]
+    assert skill["when_to_use"], "an audit skill nobody can find is not much use"
+
+
+@pytest.mark.parametrize("name", AUDIT_SKILLS)
+def test_every_tool_an_audit_skill_names_actually_exists(name):
+    """A skill naming a tool that isn't in the registry loses it silently at
+    run time — the run then fails on the step that needed it."""
+    from memorymap.ai import tools
+
+    assert set(_builtin(name)["tools"]) <= set(tools.TOOLS)
+
+
+@pytest.mark.parametrize("name", AUDIT_SKILLS)
+def test_no_audit_skill_exceeds_the_limits(name):
+    """One step per turn, so a skill longer than the cap cannot finish."""
+    from memorymap.ai import skills
+
+    skill = _builtin(name)
+    assert len(skill["steps"]) <= skills.MAX_STEPS
+    assert len(skill["tools"]) <= skills.MAX_TOOLS
+
+
+def test_the_health_check_cannot_change_anything():
+    """"Audit" and "clean up" are two requests. The audit is safe by
+    construction rather than by instruction: it is offered no tool that could
+    write, so a model that ignores "do not change anything" still can't."""
+    from memorymap.ai import tools
+
+    skill = _builtin("🩺 Notebook health check")
+    assert not (set(skill["tools"]) & tools.WRITE_TOOLS)
+
+
+def test_the_health_check_points_at_the_skills_that_do_the_work():
+    """A report that names problems and not their fix leaves the person to
+    guess which skill to reach for."""
+    steps = " ".join(_builtin("🩺 Notebook health check")["steps"]).lower()
+    assert "skill" in steps
+
+
+def test_no_audit_skill_can_delete_a_note():
+    """Combining and reorganising both involve deciding what to lose, and that
+    is not a judgement to hand a model across a whole notebook."""
+    for name in AUDIT_SKILLS:
+        assert "delete_note" not in _builtin(name)["tools"], name
+
+
+def test_combining_notes_proposes_rather_than_merges():
+    """It reports the combined note it would write and links the group, so the
+    person accepts the merge. Nothing is destroyed on its say-so."""
+    skill = _builtin("🧬 Find notes worth combining")
+    assert "delete_note" not in skill["tools"]
+    assert "link_notes" in skill["tools"]
+
+
+def test_reorganising_categories_merges_rather_than_deletes():
+    """`delete_category` is destructive, so it would stop a bulk run for a
+    confirm card — and merging is what was wanted anyway, since it keeps the
+    notes together instead of scattering them into Uncategorised."""
+    skill = _builtin("🗂 Reorganise my categories")
+    assert "merge_categories" in skill["tools"]
+    assert "delete_category" not in skill["tools"]
+
+
+def test_fixing_links_can_both_add_and_remove():
+    """The whole point: before `unlink_notes` existed, an audit could add a
+    connection and never correct one."""
+    tools_used = _builtin("🔗 Fix my links")["tools"]
+    assert {"link_notes", "unlink_notes", "related_notes"} <= set(tools_used)
+
+
+def test_the_audit_skills_are_offered_alongside_the_others(app_state, session):
+    from memorymap.ai import tools
+
+    listed = tools.TOOLS["list_skills"].handler(session, {})
+    names = {s["name"] for s in listed["skills"]}
+    assert set(AUDIT_SKILLS) <= names

@@ -470,6 +470,33 @@ def create_link(session: Session, source: Entry, target: Entry) -> EntryLink | N
     return link
 
 
+def remove_link(session: Session, source: Entry, target: Entry) -> bool:
+    """Disconnect two entries, whichever way round the link was made.
+
+    Returns False when there was nothing to remove, so a caller can say "those
+    aren't linked" rather than reporting a success that changed nothing.
+
+    Direction-agnostic on purpose, matching `create_link`: a link is a
+    connection rather than an arrow, and requiring the caller to know which
+    note was the source would make removal fail for half of them depending on
+    who made the link.
+    """
+    link = session.scalar(
+        select(EntryLink).where(
+            or_(
+                (EntryLink.source_entry_id == source.id)
+                & (EntryLink.target_entry_id == target.id),
+                (EntryLink.source_entry_id == target.id)
+                & (EntryLink.target_entry_id == source.id),
+            )
+        )
+    )
+    if link is None:
+        return False
+    delete_link(session, link)
+    return True
+
+
 def delete_link(session: Session, link: EntryLink) -> None:
     log_action(
         session,

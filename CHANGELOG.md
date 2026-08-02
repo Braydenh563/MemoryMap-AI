@@ -71,6 +71,33 @@ it. A summary keeps the gist of ten messages for the price of one.
 Nothing is deleted. Every message stays in the conversation and in the saved
 transcript; only what the model is *sent* changes, and one Undo puts it back.
 
+### Fixed — the desktop app could keep running an old build
+
+If a button you were told was fixed is still broken, this is why. The frontend
+was served with no `Cache-Control` header at all, which lets a cache reuse it
+without checking — and the desktop shell has no reload button, its own on-disk
+cache, and restarts the process without clearing it. After an update it could
+go on running the previous `app.js` indefinitely. The files are now served
+`no-cache`, so every start checks for a newer build (and gets a 304 when there
+isn't one).
+
+The recycle bin's **Empty now** was the report that led here. It was driven end
+to end in a real browser against this server: the confirm dialog opens, the
+notes go, the bin comes back empty. The fix has been in the code since §35F —
+what was missing was any guarantee you were running it.
+
+### Fixed — reminders were polled twice a minute, not once
+
+A rewrite left the previous poller's timer behind. Both timers ran the new
+poller, so the app asked the server for reminders twice as often as intended,
+and two polls landing together could announce the same reminder twice.
+
+### Fixed — all seven tabs stay readable
+
+When the tab strip cannot fit beside the app name and the header buttons it now
+takes a row of its own, instead of scrolling with "Dashboard" clipped against
+the left edge.
+
 ### Fixed — the Reminders tab is no longer faded at the edge
 
 Reported: *"the reminders tab in the top bar is partially faded out on the

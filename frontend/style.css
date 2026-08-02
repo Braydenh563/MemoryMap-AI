@@ -340,6 +340,25 @@ header#top-bar h1 {
      unreadable behind it. */
   --tab-fade: 1.5rem;
 }
+/* When the seven tabs cannot fit beside the wordmark and the header buttons,
+   they take a row of their own rather than scrolling out of reach. Photographed
+   on a real window: "Dashboard" clipped to "oard" against the left edge.
+   Fading that edge says the tab is there; it does not make it readable, and a
+   nav you have to drag sideways is a nav people stop using.
+
+   **This is not the wrap that was reported broken.** The header used to wrap
+   *itself*, and because `.header-controls` carries `margin-left: auto` the
+   controls were what dropped — to a second row, pinned right, at almost every
+   laptop width. Here it is the tab strip that moves, by force of a 100% basis
+   and an explicit order, and only when it has been measured not to fit
+   (`syncTabOverflowFade`). The controls stay exactly where they are, on row
+   one, with the wordmark. */
+header#top-bar.tabs-wrapped { flex-wrap: wrap; row-gap: 0.5rem; }
+header#top-bar.tabs-wrapped #tab-bar {
+  order: 3;
+  flex-basis: 100%;
+  width: 100%;
+}
 #tab-bar.fade-end {
   -webkit-mask-image: linear-gradient(
     to right, #000 calc(100% - var(--tab-fade)), transparent 100%);

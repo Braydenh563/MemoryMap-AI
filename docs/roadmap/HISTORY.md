@@ -58,9 +58,32 @@ job and does not finish it.
    stores nothing, every turn stays on screen and in the saved conversation,
    and undo is one assignment.
 
-**The standing caveat applies to 4, 5 and 6's panel in full:** no browser
-here, so the markup and CSS are reasoned, not observed. `tests/test_chat_dock.py` and
-`test_style_scale.py` are what stand in for looking at it, and they check
+7. **The app was opened in a real browser for the first time**, which is the
+   most useful thing in this list. Chromium and Playwright are in the sandbox
+   and the app runs on localhost — see CLAUDE.md for the recipe. One sitting
+   found three things reading the source had not:
+
+   - **`StaticFiles` sent no `Cache-Control`**, so a cache may reuse the
+     frontend without asking (RFC 9111 §4.2.2 heuristic freshness). The
+     desktop shell has no reload and its own on-disk cache, so after an update
+     it can keep running the old `app.js` — *the standing explanation for "that
+     button is still broken" about a button whose fix is in the file.* Now
+     `no-cache`, pinned by `tests/test_static_freshness.py`.
+   - **The reminder poll ran on two timers**: §36C's rewrite left the Wave O
+     poller's `setInterval` behind, and JS keeps the last declaration, so the
+     stray timer drove the live poller. Measured 4 → 2 requests per 65s.
+   - **The tab strip clipped "Dashboard"** at the widths a laptop window
+     actually uses. It takes its own row now when measured not to fit.
+
+   The recycle bin's *Empty now* — reported broken again — was driven end to
+   end: dialog, confirm, notes gone, server reports an empty bin. It works.
+   That is what pointed at the cache header rather than at the button.
+
+**The standing caveat is narrower now.** The provider tests still run against a
+fake transport. The UI can be looked at, and 4, 5 and the tab bar were —
+measured and screenshotted at five widths. 6's compress panel was not, and
+neither were the Continue/Resume buttons. `tests/test_chat_dock.py` and
+`test_style_scale.py` still stand in for looking at those, and they check
 structure, not appearance.
 
 **Everything below is from earlier sessions.**

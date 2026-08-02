@@ -6989,9 +6989,46 @@ window.addEventListener("resize", () => {
 // a disabled control. The question each edge answers is "is there more THIS
 // way", so each edge gets its own class and the answer is recomputed on
 // scroll as well as on resize.
+// How much room the tab strip has if it stays on the header's own row.
+//
+// Measured from the header's other children rather than guessed from a
+// breakpoint, for the same reason the fade is: whether the tabs fit depends on
+// the wordmark, the status pill's current text and which header buttons are
+// showing, none of which a width range knows about.
+function tabRowSpace() {
+  const header = document.getElementById("top-bar");
+  const bar = $("tab-bar");
+  if (!header || !bar) return 0;
+  const style = getComputedStyle(header);
+  const gap = parseFloat(style.columnGap || style.gap) || 0;
+  const padding =
+    (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
+  let others = 0;
+  let siblings = 0;
+  for (const child of header.children) {
+    if (child === bar || child.classList.contains("hidden")) continue;
+    others += child.getBoundingClientRect().width;
+    siblings += 1;
+  }
+  return header.clientWidth - padding - others - gap * siblings;
+}
+
 function syncTabOverflowFade() {
   const bar = $("tab-bar");
   if (!bar) return;
+  // A tab you have to scroll to is a tab you will not find. When the strip
+  // cannot fit beside the wordmark and the header buttons, it takes a row of
+  // its own — where all seven fit with room to spare at any width the app is
+  // usable at. Photographed on a 7-tab window: "Dashboard" clipped to "oard"
+  // at the left edge, which no amount of edge-fading makes readable.
+  //
+  // Measured, not a breakpoint, and it cannot oscillate: the space the strip
+  // would have inline is computed from the *other* children, whose widths do
+  // not depend on where the strip is.
+  const header = document.getElementById("top-bar");
+  if (header) {
+    header.classList.toggle("tabs-wrapped", bar.scrollWidth > tabRowSpace() + 1);
+  }
   // 1px of slack at each end: sub-pixel layout makes scrollWidth exceed
   // clientWidth by a fraction on plenty of widths where nothing is cut off,
   // and a scroll offset lands on .5 of a pixel as often as not.
@@ -8517,7 +8554,9 @@ async function renderFocusTimerWidget(body) {
 
 // --- reminders tab (Wave D) --------------------------------------------------------
 
-const notifiedReminderIds = new Set(); // don't re-notify within a session
+// (The session-scoped `notifiedReminderIds` set went with the dead poller
+// above. §36C keeps announced ids in localStorage instead, so a reload does
+// not re-announce everything already overdue — which a Set could not survive.)
 
 let reminderFilter = "open"; // open | all | done
 
@@ -9046,26 +9085,27 @@ async function magicAddReminder() {
   }
 }
 
-// Fire browser notifications for reminders that come due while the app
-// is open (checked every 30s).
-async function checkDueReminders() {
-  if (!authToken()) return;
-  // silent: a background reminder poll must not pop the lock screen (Wave O).
-  const reminders = await apiJson("/reminders", { silent: true }).catch(() => []);
-  const now = new Date();
-  for (const reminder of reminders) {
-    if (reminder.done || notifiedReminderIds.has(reminder.id)) continue;
-    const due = new Date(reminder.due_at);
-    if (due <= now && now - due < 12 * 60 * 60 * 1000) {
-      notifiedReminderIds.add(reminder.id);
-      toast(`⏰ Reminder: ${reminder.text}`);
-      if ("Notification" in window && Notification.permission === "granted") {
-        new Notification("MemoryMap reminder", { body: reminder.text });
-      }
-    }
-  }
-}
-setInterval(checkDueReminders, 30_000);
+// The Wave O reminder poller used to live here. **It was dead code with a
+// live timer**, and that combination is worse than either half.
+//
+// §36C rewrote `checkDueReminders` further down this file — badge, title
+// count, one-notification-per-reminder, announced ids in localStorage — and a
+// second `async function checkDueReminders` at the same scope simply replaces
+// the first. What did not get deleted was the `setInterval(...)` that sat
+// beside the old one, and since the name resolves to the surviving
+// definition, that stray timer was running the *new* poller on a second
+// 30-second interval. Two effects, both real:
+//
+// - twice the requests, for nothing;
+// - and a race on the announcement: both polls read `announcedReminders()`
+//   before either calls `rememberAnnounced`, so a reminder coming due could
+//   be announced twice — which is precisely the "notifications are noisy"
+//   shape of report this rewrite existed to fix.
+//
+// Found by opening the app in a real browser and reading the network log,
+// which also showed the other half: the surviving poller runs before the
+// unlock and 401s once per load. Its predecessor guarded on `authToken()`;
+// that guard moved with the deletion (see `checkDueReminders` below).
 
 // Default due time for new reminders: tomorrow morning, 9am.
 // The field starts at today's date and the current time, so the common case
@@ -12394,6 +12434,10 @@ function setTitleCount(count) {
 }
 
 async function checkDueReminders() {
+  // Before the unlock there is no token, and asking anyway is a guaranteed 401
+  // on every load — visible in the browser's network log, and in the server's
+  // own log, where it looks like an auth failure worth investigating.
+  if (!authToken()) return;
   const all = await apiJson("/reminders", { silent: true }).catch(() => null);
   if (!all) return; // server asleep or locked — say nothing rather than guess
   const now = Date.now();

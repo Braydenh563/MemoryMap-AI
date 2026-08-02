@@ -34,12 +34,29 @@ files cross-link, and `tests/test_docs_layout.py` enforces that.
 
 ## The standing caveat
 
-**Every provider test runs against a fake transport, and no UI change has ever
-been checked in a browser** (the dev sandbox has no display). SSE framing and
+**Every provider test runs against a fake transport.** SSE framing and
 tool-call fragment indices come from reading the spec, not from a running LM
 Studio. Reasoning about behaviour instead of reproducing it has cost real time
 more than once — when something is reported broken, reproduce it before
 theorising, and say plainly when you could not.
+
+**The UI half of that caveat is now lifted, and you should use it.** The
+sandbox has Chromium and Playwright, and the app runs on localhost:
+
+```bash
+MEMORYMAP_DATA_DIR=<scratch>/appdata .venv/bin/python -m uvicorn \
+    memorymap.api.app:create_app --factory --port 8781 &
+# then drive it: node script.js, requiring
+# /opt/node22/lib/node_modules/playwright, with PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers
+```
+
+Unlock with the password you set on first run, skip `#onboarding-overlay`, and
+you can click, measure and screenshot. One sitting of this found three bugs
+that reading the source had not: a static-file cache header that let the
+desktop app run yesterday's `app.js` (which is why a fixed button gets
+reported broken *again*), a reminder poll running on two timers, and a tab
+clipped off the left edge. **Measure and look before you claim a UI change
+works — and still say plainly what you did not check.**
 
 ## Working here
 

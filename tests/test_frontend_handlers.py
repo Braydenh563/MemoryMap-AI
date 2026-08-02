@@ -102,5 +102,50 @@ def test_both_quit_buttons_share_one_handler():
     demonstrated exactly that, twice over."""
     source = _source()
     assert source.count("async function quitApp()") == 1
+
+
+#: Functions this file must define exactly once, and what a second copy costs.
+#:
+#: JavaScript's answer to two `function foo()` declarations at the same scope is
+#: to keep the last one, silently. Nothing warns, nothing throws, and every
+#: reference — including a `setInterval` registered *next to the first one* —
+#: resolves to the survivor. So the dead half of the pair looks harmless in the
+#: diff while its timer goes on running the live half.
+ONCE_ONLY = {
+    "checkDueReminders": (
+        "the Wave O poller was replaced by §36C's, but its "
+        "setInterval was left behind — so the new poller ran on two 30s "
+        "timers: twice the requests, and a race where both polls read the "
+        "announced-ids list before either wrote to it, announcing a reminder "
+        "twice. Found by watching the network log of the running app."
+    ),
+}
+
+
+def test_a_replaced_function_took_its_timer_with_it():
+    """A rewrite that leaves the old definition behind is not dead code.
+
+    Checked by name rather than in general, because plenty of names here are
+    legitimately defined once inside a closure and once outside it (the step
+    timeline's `startPlan` and the chat's `startPlannedRun` were nearly such a
+    pair). These are the ones where a duplicate has actually bitten.
+    """
+    source = _source()
+    for name, why in ONCE_ONLY.items():
+        found = len(re.findall(rf"(?m)^(?:async )?function {name}\(", source))
+        assert found == 1, f"{name} is defined {found} times — {why}"
+
+
+def test_the_reminder_poll_waits_for_the_unlock():
+    """It runs on load, before there is a token, and a background poll that
+    401s once per start is noise in the browser console and in the server's own
+    log — where it reads as an auth failure worth investigating."""
+    source = _source()
+    body = re.search(
+        r"(?ms)^async function checkDueReminders\(\).*?\n\}", source
+    ).group(0)
+    assert "authToken()" in body.split("apiJson")[0], (
+        "checkDueReminders asks for /reminders before checking there is a token"
+    )
     assert source.count('$("app-quit").addEventListener("click", quitApp)') == 1
     assert source.count('$("quit-btn")?.addEventListener("click", quitApp)') == 1

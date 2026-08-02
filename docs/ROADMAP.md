@@ -833,6 +833,43 @@ This is the item that most deserves a real-model test rather than reasoning
 
 ---
 
+### 35E-bis. ~~"That button is still broken" — the header that explains it~~ — **fixed**
+
+Reported again after §35F fixed it: *"I think the clear trash button is still
+broken."* This time the app was **driven in a real browser** (Chromium is
+installed in the sandbox; the app runs on localhost) and the flow works end to
+end — the dialog opens, Confirm empties the bin, the server reports zero binned
+notes. So the fix is in the file and the user is not running it.
+
+**`StaticFiles` sent no `Cache-Control` at all.** A response with neither
+`Cache-Control` nor `Expires` may be reused by a cache *without asking*, for a
+heuristic fraction of its age (RFC 9111 §4.2.2). In a browser you press reload
+and never notice. The desktop shell has no reload, is a WebView2/WebKit
+instance with its own on-disk cache, and restarts the *process* without
+invalidating any of it — so after an update it can go on running the previous
+`app.js` indefinitely. `RevalidatedStatic` now sends `no-cache` (not
+`no-store`: the etag still answers 304), and `tests/test_static_freshness.py`
+pins it.
+
+**This is the standing explanation for a whole class of report here**, and it
+is worth reaching for before re-fixing a button: if the code is right and the
+user still sees the old behaviour, ask what they are running.
+
+Two more things the browser found in the same sitting, neither of them
+guessable from the source:
+
+- **The reminder poll ran twice.** §36C rewrote `checkDueReminders` further
+  down `app.js`; the Wave O version above it was left behind, and JavaScript
+  keeps the *last* declaration — so the stray `setInterval` beside the dead one
+  was running the live poller on a second 30-second timer. Twice the requests,
+  and a race where both polls read the announced-ids list before either wrote
+  to it, which announces a reminder twice. Measured before and after: two
+  `GET /reminders` per 65 seconds now, four before.
+- **It 401'd once per load**, polling before the unlock. The deleted version
+  had the `authToken()` guard; it moved across with the deletion.
+
+`tests/test_frontend_handlers.py` gained a check for both.
+
 ### 35E. The desktop app is a second product and it is not tested
 
 Every one of these is desktop-only, which is itself the finding: `pywebview`
@@ -1182,7 +1219,24 @@ one rule.
   `1.5rem`, so it fades the same amount at every width.
 
 Selecting a tab now scrolls it into view, so the fade is only ever over a tab
-you are not using. **Not checked in a browser** — no display in the sandbox.
+you are not using.
+
+**Then a photograph showed the other half of it**, which fading cannot fix:
+"Dashboard" clipped to "oard" against the left edge. A tab you have to drag
+sideways to read is a tab people stop using. **When the strip cannot fit beside
+the wordmark and the header buttons it now takes a row of its own** — measured
+(`tabRowSpace`), not a breakpoint, for the same reason the fade is.
+
+Note that the header's `flex-wrap: nowrap` is deliberate and stays: the *old*
+wrap dropped `.header-controls` — which carries `margin-left: auto` — onto a
+second row pinned right, at almost every laptop width. Here the tab strip is
+what moves, by an explicit order and a 100% basis, and only when measured not
+to fit.
+
+**Verified in a browser this time** — Chromium is in the sandbox and the app
+runs on localhost. At 1920/1600/1440 the tabs sit inline and nothing fades; at
+1280 and 1100 the strip takes its own row with all seven readable and the
+controls still on row one. Measured, then screenshotted and looked at.
 
 ### 36B. The three surfaces that need rearranging, not restyling
 

@@ -52,6 +52,36 @@ FRONTEND_DIR = Path(__file__).resolve().parents[3] / "frontend"
 # tracks running/failed state for the status pill.)
 
 
+class RevalidatedStatic(StaticFiles):
+    """The frontend, served so a cache can never hand back yesterday's build.
+
+    **This is a desktop-app bug hiding in a header.** `StaticFiles` sends
+    `last-modified` and an `etag` but no `Cache-Control` at all, and a response
+    with neither `Cache-Control` nor `Expires` is one an HTTP cache may reuse
+    *without asking* — for a heuristic fraction of its age (RFC 9111 §4.2.2).
+    In a browser you press reload and never notice. The desktop shell has no
+    reload, is a WebView2/WebKit instance with its own on-disk cache, and
+    restarts the *process* without invalidating anything — so after an update
+    the app can go on running the previous `app.js` indefinitely.
+
+    That is precisely the shape of "the recycle bin's Empty now button is still
+    broken": the fix for it (§35F's in-app confirm dialog) is in the file, and
+    the flow was driven end to end in Chromium against this server — the dialog
+    opens, the notes go, the server reports an empty bin. A user still seeing
+    the old behaviour is running the old script.
+
+    `no-cache` is not `no-store`: the file is still cached, and the conditional
+    request still answers 304 from the etag above. All it removes is the
+    guessing. Everything here is served from localhost, so the cost of a
+    revalidation round-trip is not a real cost.
+    """
+
+    async def get_response(self, path: str, scope):
+        response = await super().get_response(path, scope)
+        response.headers.setdefault("Cache-Control", "no-cache")
+        return response
+
+
 def _purge_expired_bin_entries() -> None:
     """Recycle-bin auto-clear (plan Phase 4): permanently drop entries
     binned longer than the user's configured number of days."""
@@ -170,6 +200,8 @@ def create_app() -> FastAPI:
     # Mounted last so the API routes above always win; html=True makes
     # "/" serve frontend/index.html.
     if FRONTEND_DIR.is_dir():
-        app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
+        app.mount(
+            "/", RevalidatedStatic(directory=FRONTEND_DIR, html=True), name="frontend"
+        )
 
     return app

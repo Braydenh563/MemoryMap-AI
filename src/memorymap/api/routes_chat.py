@@ -95,6 +95,19 @@ class ChatTurn(BaseModel):
     answer: str
 
 
+class PlanRun(BaseModel):
+    """A plan the model made for one request, sent back to be worked through.
+
+    Bounded here as well as in `tools.validate_make_plan`, because this arrives
+    over HTTP: the client is echoing back what the server just produced, but
+    nothing makes that true of a hand-made request, and the run it starts
+    writes to the notebook.
+    """
+
+    goal: str = Field(min_length=1, max_length=skills.MAX_GOAL)
+    steps: list[str] = Field(min_length=1, max_length=skills.MAX_STEPS)
+
+
 class ChatRequest(BaseModel):
     question: str = Field(min_length=1)
     # Prior turns for follow-up context (Round 1); the server clips this.
@@ -126,6 +139,13 @@ class ChatRequest(BaseModel):
     # them write to the notebook, so "restart" meant tagging and linking the
     # same notes a second time.
     skill_from_step: int = Field(default=0, ge=0, le=skills.MAX_STEPS)
+    # A plan the model drew for this request and handed back to be worked
+    # through (§35K). Same shape as a skill run and the same runner — the
+    # difference is only that nobody saved it. Sent by the client rather than
+    # parked on the server, exactly as `ask_user` and `run_skill` are: nothing
+    # to expire, nothing lost on a reload, and the plan is visible in the saved
+    # conversation like any other message.
+    plan: PlanRun | None = None
     # Notes-only: this turn is an interrogation of the notebook and nothing
     # else (§35A). Set by the Notes tab's Ask box, never by the Chat tab.
     #
@@ -186,6 +206,35 @@ def _resolve_skill(body: ChatRequest) -> dict | None:
         "question": skills.run_instruction(found, body.skill_inputs or {}),
         "tools": found["tools"] or None,
         "acts": skills.is_action(found),
+    }
+
+
+def _resolve_plan(body: ChatRequest) -> dict | None:
+    """Turn "work through this plan" into a run, in the same shape as a skill.
+
+    Re-validated through `tools.validate_make_plan` rather than trusted, so a
+    plan that arrives with one step, twenty steps or its own numbering is
+    refused (or tidied) by the same rules that produced it. 422 rather than a
+    silent trim: a plan that quietly loses its last two steps is exactly the
+    "did the first part and stopped" failure this whole mechanism exists to
+    prevent, arriving from the other end.
+    """
+    if body.plan is None:
+        return None
+    try:
+        checked = tools.validate_make_plan(
+            {"goal": body.plan.goal, "steps": body.plan.steps}
+        )
+    except tools.ToolError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    plan = skills.ad_hoc_plan(checked["goal"], checked["steps"])
+    return {
+        "skill": plan,
+        "question": skills.run_instruction(plan, {}),
+        # No allowlist: see `skills.ad_hoc_plan`. Each step is focused on its
+        # own text instead of on a guess made from one sentence.
+        "tools": None,
+        "acts": True,
     }
 
 
@@ -364,7 +413,10 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     # what it declared. Retrieval runs on that instruction too, so a skill
     # gets the notes its own words find rather than the ones the chip's label
     # happens to match.
-    skill = _resolve_skill(body)
+    # A plan run goes down exactly the same path as a skill run — the runner
+    # cannot tell them apart, which is what gives a plan the ticked steps, the
+    # change list and the Undo on each without a second implementation.
+    skill = _resolve_skill(body) or _resolve_plan(body)
     question = skill["question"] if skill else body.question
     allowed_tools = skill["tools"] if skill else None
     if skill and skill["acts"]:

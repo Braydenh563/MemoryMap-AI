@@ -129,6 +129,11 @@ TOOLS_GUIDE = (
     "what you found, look up anything still missing, then answer. Do not "
     "rush to an answer while something you were asked about is still "
     "unchecked. "
+    # §35K: "I will say fix my categories and it will only merge two categories
+    # and leave it at that." Short because the schema carries the rest — this
+    # is only here because the *trigger* is a property of the request, and the
+    # model has to be told to look for it.
+    "If a request covers many notes, make_plan first. "
     # It under-used read_url badly: a result snippet is a sentence, and the
     # model treated it as the page.
     "A web search result is a title and one clipped sentence — enough to "
@@ -276,6 +281,11 @@ _RECOVERY_HINTS = {
     "not_in_skill": (
         "This skill does not include that tool. Use only the tools listed for "
         "the run, or finish and tell the user what the skill could not do."
+    ),
+    "already_running": (
+        "You are already inside a run that is working through steps — you "
+        "cannot start another one from in here. Do this step with the tools "
+        "you have, and the next step will get its own turn."
     ),
 }
 
@@ -558,6 +568,7 @@ def run_agent(
     history: list[dict] | None = None,
     persona_prompt: str | None = None,
     allowed_tools: list[str] | None = None,
+    blocked_tools: frozenset[str] | set[str] | None = None,
     max_rounds: int = MAX_ROUNDS,
     earned_rounds: int = EARNED_ROUNDS,
     exhausted_note: str | None = None,
@@ -613,6 +624,15 @@ def run_agent(
     offered = tools.ollama_tools(
         allowed_tools if allowed_tools is not None else _focus(question)
     )
+    # Tools this turn may not use whatever it was offered. The one caller is a
+    # run refusing to start another run (`tools.RUN_STARTERS`): each run brings
+    # its own fresh rounds, so nesting them means the bound on a turn stops
+    # meaning anything, and the plan on screen stops describing what is
+    # happening. Withdrawn from the wire *and* refused below, because a model
+    # that calls a tool it was never offered must not get it either.
+    barred = set(blocked_tools or ())
+    if barred:
+        offered = [t for t in offered if t["function"]["name"] not in barred]
     # Then fit what is left to the window the model actually has, rather than
     # to a constant. See tools.within_budget: 4096 is Ollama's fallback, not a
     # fact, and a model declaring 32k was being rationed as if it were a 3B.
@@ -759,6 +779,32 @@ def run_agent(
         for call in calls:
             name, arguments = call["name"], call.get("arguments") or {}
             spec = tools.TOOLS.get(name)
+            if name in barred:
+                # A run trying to start a run. Refused with the reason, not
+                # silently: the model asked for this because it has decided the
+                # job is bigger than one step, and the useful answer is "you
+                # are already inside the mechanism you are reaching for".
+                signature = (name, json.dumps(arguments, sort_keys=True))
+                failed_calls.add(signature)
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_name": name,
+                        "content": json.dumps(
+                            {
+                                "error": f"{name} cannot be used inside a run",
+                                "what_to_do": _RECOVERY_HINTS["already_running"],
+                            }
+                        ),
+                    }
+                )
+                yield {
+                    "type": "tool",
+                    "label": f"⚠️ {name.replace('_', ' ')} isn't available here",
+                    "ok": False,
+                    "error": f"{name} cannot be used inside a run",
+                }
+                continue
             if permitted is not None and name not in permitted:
                 # The allowlist is a safety property, not only a prompt: a
                 # model that calls a tool it was never offered does not get to

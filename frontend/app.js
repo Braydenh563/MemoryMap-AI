@@ -2273,6 +2273,7 @@ async function streamChat({
   skill,
   skillInputs,
   skillFromStep,
+  plan,
   notesOnly,
   signal,
   onMeta,
@@ -2286,6 +2287,7 @@ async function streamChat({
   onConfirm,
   onAsk,
   onRunSkill,
+  onRunPlan,
   onHint,
   onStats,
 }) {
@@ -2308,6 +2310,10 @@ async function streamChat({
     // so the server stays the one place that knows what the steps are.
     if (skillFromStep) body.skill_from_step = skillFromStep;
   }
+  // A plan the model just made. Carries its own steps because nothing saved
+  // it — that is the only way it differs from a skill run, here and on the
+  // server.
+  if (plan && plan.steps && plan.steps.length) body.plan = plan;
   const response = await fetch("/chat/stream", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() },
@@ -2346,6 +2352,7 @@ async function streamChat({
       else if (event.type === "confirm" && onConfirm) onConfirm(event);
       else if (event.type === "ask" && onAsk) onAsk(event);
       else if (event.type === "run_skill" && onRunSkill) onRunSkill(event);
+      else if (event.type === "run_plan" && onRunPlan) onRunPlan(event);
       else if (event.type === "hint" && onHint) onHint(event);
       else if (event.type === "stats" && onStats) onStats(event);
     }
@@ -3527,7 +3534,12 @@ function agentTimeline(holder) {
     el.className = "agent-step step-plan";
     el.open = true;
     const summary = document.createElement("summary");
-    summary.textContent = `⚡ ${plan.skill}`;
+    // A saved skill and a plan the model drew for this one request run through
+    // the same code, so the card has to say which it is — "⚡ Weekly review" is
+    // a job the user set up, "🧭 fix my categories" is one the model worked out
+    // just now, and confusing the two makes the skill list look like it has
+    // entries nobody added.
+    summary.textContent = `${plan.kind === "plan" ? "🧭" : "⚡"} ${plan.skill}`;
     el.appendChild(summary);
     const items = [];
     if (plan.steps && plan.steps.length) {
@@ -4843,6 +4855,7 @@ async function sendChatMessage(preset, opts = {}) {
       skill: opts.skill,
       skillInputs: opts.skillInputs,
       skillFromStep: opts.skillFromStep,
+      plan: opts.plan,
       signal: chatController.signal,
       onMeta: (m) => {
         meta = m;
@@ -4851,7 +4864,10 @@ async function sendChatMessage(preset, opts = {}) {
       onPlan: (event) => {
         clearPending();
         timeline.plan(event);
-        status.textContent = `Running “${event.skill}”…`;
+        status.textContent =
+          event.kind === "plan"
+            ? `Working through ${(event.steps || []).length} steps…`
+            : `Running “${event.skill}”…`;
         chatScrollToEnd();
       },
       onStep: (event) => {
@@ -4920,6 +4936,17 @@ async function sendChatMessage(preset, opts = {}) {
         timeline.tool(toolChip(event.label, true));
         toolEvents.push({ label: event.label, ok: true });
         status.textContent = `Starting “${event.skill}”…`;
+        handoff = event;
+        chatScrollToEnd();
+      },
+      onRunPlan: (event) => {
+        // The model decided the job has several parts and planned it (§35K).
+        // Same handover as a skill: the turn is over and the steps run one at
+        // a time below, so nothing is left half-done.
+        clearPending();
+        timeline.tool(toolChip(event.label, true));
+        toolEvents.push({ label: event.label, ok: true });
+        status.textContent = "Working out the steps…";
         handoff = event;
         chatScrollToEnd();
       },
@@ -5017,12 +5044,16 @@ async function sendChatMessage(preset, opts = {}) {
   chatScrollToEnd();
   if (toolsActed) refreshAfterToolChanges(); // the AI changed real data
   if (handoff) {
-    // Start the skill as its own message, down the same path the ⚡ dropdown
+    // Start the run as its own message, down the same path the ⚡ dropdown
     // uses — so the plan, the ticked steps, the change list and every Undo
     // work here exactly as they do when the user picks the skill themselves.
     // Deferred by a task because this turn is still finishing: it re-enables
     // the input box in `finally`, and the run needs to disable it again.
-    setTimeout(() => startSkill({ name: handoff.skill }, handoff.inputs || {}), 0);
+    const start =
+      handoff.type === "run_plan"
+        ? () => startPlannedRun(handoff.goal, handoff.steps)
+        : () => startSkill({ name: handoff.skill }, handoff.inputs || {});
+    setTimeout(start, 0);
   }
   if (!answerRaw) {
     // The model returned nothing. This used to return early and leave the
@@ -5951,6 +5982,14 @@ function runSkill(skill) {
     return;
   }
   startSkill(skill, {});
+}
+
+// A plan the model drew for the last request, run the way a skill is run
+// (§35K). The steps are sent back rather than parked on the server, for the
+// same reason `ask_user`'s answer is: nothing to expire, nothing lost on a
+// reload, and the run is a message in the conversation like any other.
+function startPlannedRun(goal, steps) {
+  sendChatMessage(`🧭 ${goal}`, { plan: { goal, steps } });
 }
 
 function startSkill(skill, values) {

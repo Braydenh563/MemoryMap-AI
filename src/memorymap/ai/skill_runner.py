@@ -34,7 +34,7 @@ from itertools import chain
 
 from sqlalchemy.orm import Session
 
-from memorymap.ai import agent, skills
+from memorymap.ai import agent, skills, tools
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient
 
@@ -117,6 +117,12 @@ def run_skill(
             history=turn_history,
             persona_prompt=persona_prompt,
             allowed_tools=allowed,
+            # A run may not start another run. A skill that *declares* its
+            # tools is already safe (`skills.NEVER_IN_A_SKILL` refuses these at
+            # save time), but a skill with no allowlist — and every ad-hoc plan
+            # — is offered the whole registry, `make_plan` included. A plan
+            # step that plans again would nest runs with fresh rounds each.
+            blocked_tools=tools.RUN_STARTERS,
             max_rounds=STEP_ROUNDS if steps else agent.MAX_ROUNDS,
             earned_rounds=STEP_EARNED_ROUNDS if steps else agent.EARNED_ROUNDS,
             exhausted_note=note,

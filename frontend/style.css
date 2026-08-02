@@ -5932,3 +5932,57 @@ textarea.autogrow {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+
+/* --- note card density (§36B) -------------------------------------------------
+   Reported: "a massive gap between the lines… I don't want notes to look too
+   cluttered."
+
+   The gap had one cause. `.entry-meta-end` carried `margin-left: auto`, so the
+   moment the chips filled a line it wrapped — and, being auto-margined, landed
+   *alone* on the next one, hard right. A card with five tags therefore grew a
+   whole empty band containing nothing but a timestamp and four icon buttons.
+
+   Two changes. The actions leave the flow entirely, to the card's top-right
+   corner where they were already hover-revealed — so they cost no vertical
+   space at all. And the timestamp rejoins the chip run instead of being pushed
+   away from it, which is where it belongs: it is metadata like the rest. */
+.entry-list li {
+  position: relative;
+}
+.entry-list li .entry-meta-end {
+  margin-left: 0;
+  /* No longer a wrapping unit of its own — the date flows with the chips. */
+  display: contents;
+}
+.entry-list li .entry-actions {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  /* Above the card's own text, and not overlapping the first line: the card
+     has top padding, so this sits inside it. */
+  z-index: 1;
+  background: var(--inner);
+  border-radius: var(--radius-md);
+}
+.entry-list li:hover .entry-actions,
+.entry-list li:focus-within .entry-actions {
+  opacity: 1;
+}
+/* Touch has no hover, so there is nothing to reveal them — they stay visible.
+   The same rule the chat message actions already use. */
+@media (hover: none) {
+  .entry-list li .entry-actions { opacity: 1; }
+}
+/* Tighter rows now that nothing wraps to an empty band. The chips carry their
+   own vertical rhythm, so the gap between them is the gap between lines. */
+.entry-meta {
+  row-gap: var(--space-2);
+}
+/* Recycle-bin rows keep their Restore button in the flow: it is a labelled
+   text button, not an icon, and it has no hover affordance to rely on. */
+.entry-list li.bin-row .entry-actions {
+  position: static;
+  opacity: 1;
+  background: none;
+}

@@ -608,6 +608,9 @@ function entryItem(entry, options = {}) {
   meta.appendChild(metaEnd);
 
   if (options.bin) {
+    // Marked so the CSS can keep this row's Restore button in the flow: it is
+    // a labelled text button rather than a hover-revealed icon (§36B).
+    li.classList.add("bin-row");
     const actions = document.createElement("span");
     actions.className = "entry-actions";
     actions.appendChild(

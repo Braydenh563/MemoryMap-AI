@@ -12,6 +12,10 @@ rebuilt something that already existed, and an audit of one roadmap section
 found four of its six "quick wins" already done. Ten seconds of `grep` is
 cheaper than a session of rework.
 
+# EMPHASIS ON THESE INSTRUCTIONS
+1. Check the running app before building. You said: {"Three sessions rebuilt existing work. It's the single most expensive recurring mistake in this project's history."}
+2. You can't see a browser — say what you couldn't verify. You said: {"Everything visual I did this session is reasoned, not observed. A session that forgets this will report UI work as done when it's untested."}
+
 ## Where things are written down
 
 | File | What it answers |

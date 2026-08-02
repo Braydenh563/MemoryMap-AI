@@ -47,8 +47,19 @@ job and does not finish it.
 5. **The tab bar's edge fade** no longer dims the Reminders tab when there is
    nothing beyond it (§36A-bis).
 
-**The standing caveat applies to 4 and 5 in full:** no browser here, so the
-markup and CSS are reasoned, not observed. `tests/test_chat_dock.py` and
+6. **§35I's manual half — `🗜 Compress`.** *"There should be a tool as well as
+   a manual command… to compress chat context on longer chats so the AI can
+   better continue."* The button and `POST /chat/compress` are built; the
+   agent-facing tool is not, deliberately (§35I). **The useful finding is a
+   correction to the premise:** a long chat never overflowed the window — the
+   client sends at most four turns and `fit_history` drops whole pairs from the
+   oldest end — so the real failure was silent forgetting, and a summary beats
+   a drop rather than merely costing less. Nothing is deleted: the endpoint
+   stores nothing, every turn stays on screen and in the saved conversation,
+   and undo is one assignment.
+
+**The standing caveat applies to 4, 5 and 6's panel in full:** no browser
+here, so the markup and CSS are reasoned, not observed. `tests/test_chat_dock.py` and
 `test_style_scale.py` are what stand in for looking at it, and they check
 structure, not appearance.
 

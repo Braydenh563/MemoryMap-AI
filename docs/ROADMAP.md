@@ -60,8 +60,11 @@ Ordered by *how much it unlocks*, not by how much is left in the section.
    categories" doing two merges and stopping. The agent draws a 2–6 step plan,
    its turn ends, and the same runner works through it. A plan is a skill
    nobody saved: same card, same ticked steps, same Undo on each change.
-   **What is left here** is the thing neither closes — §35I's context
-   compression, so a long run's history stops being resent whole.
+   **§35I's manual half is built too** (`🗜 Compress`), and it turned up the
+   correction worth carrying: a long chat never overflowed — it *forgot its
+   own beginning*, because `fit_history` drops the oldest pairs. What is left
+   in §35I is the tool that lets the agent compress unprompted, and it now has
+   a higher bar to clear: `make_plan` has taken a CORE_TOOLS slot since.
 2. **The graph's last mile (§9).** Walking it and suggesting connections are
    done and token-budgeted. What is missing is *"how are these two related?"* —
    a path between two notes — plus clusters and drag-to-link in the view. The
@@ -916,14 +919,33 @@ overhead (tool schemas, system prompt) and the *retrieved* half (notes);
 nothing addresses a conversation that has simply got long. Two halves, and the
 manual one should ship first because it cannot misfire:
 
-- **A button**: "Summarise this chat so far" — replaces the history with a
-  summary the user can see and edit, so nothing is silently lost.
+- ~~**A button**: "Summarise this chat so far"~~ **built** — `🗜 Compress` in
+  the chat header, `POST /chat/compress`.
 - **A tool**, so the agent can do it when it notices it is running out of
-  window. §33's warning applies: this is another tool in a registry §34 says
-  should stop growing, so it has to displace something or justify the trim.
+  window. **Still open.** §33's warning applies: this is another tool in a
+  registry §34 says should stop growing, so it has to displace something or
+  justify the trim. Note that `make_plan` has since taken a CORE_TOOLS slot,
+  which makes the case harder rather than easier — and the manual button now
+  covers the case the user actually reported.
+
+**What the built half found, and it changes the framing.** The request assumes
+a long chat *overflows*. It does not: the client sends at most the last four
+turns and `context.fit_history` drops whole user/assistant pairs from the
+oldest end until the rest fits. So the failure is **silent forgetting** — the
+model stops knowing what it was told at the start and begins re-asking it.
+That is why a summary is strictly better than the current behaviour rather
+than merely cheaper: the same few hundred characters carry the gist of ten
+turns instead of the whole of one.
 
 The reversible-compression idea §11 adopted for notes is the model to copy:
-keep the original, show what was dropped, make it undoable.
+keep the original, show what was dropped, make it undoable. That is exactly
+what shipped — **nothing is deleted.** The endpoint stores nothing and touches
+no conversation; the transcript on screen and the saved conversation keep every
+turn, and `chatSummary` only changes what is *sent*. Undo is one assignment.
+The summary is editable before it is used, because it is about to be the
+model's only memory of the first half of the conversation. It is not persisted
+across a reload — re-deriving it is one click, and a summary restored against
+the wrong thread would be worse than none.
 
 ---
 

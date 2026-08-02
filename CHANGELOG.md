@@ -55,6 +55,22 @@ scrolling back to the top of a long conversation. The chat header keeps what is
 about the conversation itself — its name, what it has cost, and Export. The web
 and persona panels moved down with the buttons that open them.
 
+### Added — compress a long conversation (roadmap §35I)
+
+Asked for directly: *"there should be a tool as well as a manual command or
+something to be able to compress chat context on longer chats so the AI can
+better continue."*
+
+**🗜 Compress** in the chat header summarises the earlier messages, shows you
+the summary to read and edit, and then sends that in place of them. What it
+fixes is not what it sounds like: a long chat never overflowed the model's
+window — the oldest messages were quietly dropped to make room — so the model
+was forgetting the start of the conversation and re-asking things you had told
+it. A summary keeps the gist of ten messages for the price of one.
+
+Nothing is deleted. Every message stays in the conversation and in the saved
+transcript; only what the model is *sent* changes, and one Undo puts it back.
+
 ### Fixed — the Reminders tab is no longer faded at the edge
 
 Reported: *"the reminders tab in the top bar is partially faded out on the

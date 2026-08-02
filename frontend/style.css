@@ -2037,6 +2037,30 @@ html.modal-open body {
 .plan-step-earlier { opacity: 0.65; }
 .plan-step-earlier::after { content: " ✓"; }
 .plan-step-reason { font-style: italic; }
+/* --- compressing a long conversation (§35I) ---------------------------------
+   The summary before it is used. It sits under the chat header rather than in
+   a modal on purpose: it is a thing to read and correct, not a decision to
+   interrupt you with, and the conversation it summarises should stay visible
+   behind it. */
+.compress-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-5);
+  margin-bottom: var(--space-4);
+  background: var(--inner);
+}
+.compress-panel.hidden { display: none; }
+.compress-panel textarea { margin-bottom: var(--space-3); }
+/* The badge saying the model is reading a summary rather than the thread. */
+.chat-compressed {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.chat-compressed.hidden { display: none; }
+
 /* The way onward from a turn that stopped short (Continue / Resume). */
 .run-continue {
   display: flex;

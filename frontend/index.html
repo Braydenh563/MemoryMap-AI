@@ -502,7 +502,31 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="chat-tool-group chat-tool-group-end" role="group" aria-label="This conversation">
               <span id="chat-usage" class="chat-usage muted" hidden
                 title="Everything this conversation has sent to the model so far"></span>
+              <!-- Shown only once a summary is in use, because a compression
+                   the user cannot see is a conversation quietly answering from
+                   something they never read. Carries its own undo. -->
+              <span id="chat-compressed" class="chat-compressed hidden">
+                <span></span>
+                <button id="chat-uncompress" class="ghost small"
+                  title="Go back to sending the real messages">Undo</button>
+              </span>
+              <button id="chat-compress" class="ghost small"
+                title="Summarise the earlier messages, so the model keeps the gist instead of losing the start of a long chat">🗜 Compress</button>
               <button id="chat-export" class="ghost small" title="Download this chat as a Markdown file">⭳ Export</button>
+            </div>
+          </div>
+          <!-- The summary, before it is used. Editable on purpose: this is
+               about to be the model's only memory of the first half of the
+               conversation, and a summary you cannot correct is one you have
+               to trust blindly. -->
+          <div id="chat-compress-panel" class="compress-panel hidden">
+            <strong>Summary of the earlier messages</strong>
+            <p id="chat-compress-stats" class="muted"></p>
+            <textarea id="chat-compress-text" rows="6"
+              aria-label="Summary to send in place of the earlier messages"></textarea>
+            <div class="row">
+              <button id="chat-compress-apply" class="small">Use this summary</button>
+              <button id="chat-compress-cancel" class="ghost small">Cancel</button>
             </div>
           </div>
           <div id="chat-messages"></div>

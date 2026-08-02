@@ -611,6 +611,85 @@ def list_tools() -> list[dict]:
     return tools.tool_catalog()
 
 
+# --- compressing a long conversation (§35I) -----------------------------------
+#
+# Asked for directly: *"there should be a tool as well as a manual command or
+# something to be able to compress chat context on longer chats so the AI can
+# better continue."*
+#
+# What happens today without it is worth stating plainly, because it is not
+# "the request gets big" — the client sends at most the last four turns and
+# `context.fit_history` drops whole pairs from the *oldest* end until the rest
+# fits. So a long conversation does not overflow; it silently forgets its own
+# beginning, and the model starts re-asking things it was told an hour ago.
+#
+# A summary is strictly better than a drop: the same few hundred characters
+# carry the gist of ten turns instead of the whole of one. And it is the
+# **manual** half that ships first, exactly as §35I argues — a button the user
+# presses, whose output they can read before it is used, cannot misfire. The
+# tool that lets the agent do it unprompted is still open, and it has to
+# justify a slot in a registry §34 says should stop growing.
+
+#: Turns to summarise in one call. Beyond this the summary itself gets long
+#: enough to be worth summarising, which is the wrong direction.
+MAX_COMPRESS_TURNS = 40
+
+COMPRESS_PROMPT = (
+    "Summarise this conversation so it can be continued by someone who has "
+    "not read it. Keep: what the user asked for, what was decided, facts "
+    "established about their notes, and anything still outstanding. Drop "
+    "pleasantries and repetition. Write it as short bullet points, under 200 "
+    "words, in the third person. Do not add anything that was not said."
+)
+
+
+class CompressBody(BaseModel):
+    """The turns to summarise, oldest first."""
+
+    history: list[ChatTurn] = Field(min_length=1, max_length=MAX_COMPRESS_TURNS)
+
+
+@router.post("/compress")
+def compress_history(body: CompressBody) -> dict:
+    """A summary of these turns, for sending in place of them.
+
+    Returns the text and nothing else — the client decides whether to use it,
+    and keeps the original turns either way. Nothing is stored here, and the
+    conversation on screen is not touched: this is a *lossless* operation as
+    far as the transcript is concerned, and only the model's view narrows.
+    """
+    ollama = deps.get_ollama()
+    if not ollama.is_running():
+        raise HTTPException(status_code=503, detail=librarian.OFFLINE_MESSAGE)
+    transcript = "\n\n".join(
+        f"User: {turn.question.strip()[:1500]}\nAssistant: {turn.answer.strip()[:1500]}"
+        for turn in body.history
+    )
+    try:
+        reply = ollama.chat(
+            deps.get_model_manager().utility_model(),
+            [
+                {"role": "system", "content": COMPRESS_PROMPT},
+                {"role": "user", "content": transcript},
+            ],
+        )
+    except OllamaError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    summary = (reply.get("content") or "").strip() if isinstance(reply, dict) else ""
+    if not summary:
+        # Better to say nothing happened than to hand back an empty summary the
+        # client would send in place of ten real turns.
+        raise HTTPException(
+            status_code=502, detail="The model returned an empty summary — try again."
+        )
+    return {
+        "summary": summary,
+        "turns": len(body.history),
+        "chars_before": len(transcript),
+        "chars_after": len(summary),
+    }
+
+
 class ToolExecuteBody(BaseModel):
     """A tool call the user approved in the UI (Wave G confirm step)."""
 

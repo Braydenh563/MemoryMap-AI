@@ -2579,6 +2579,36 @@ let chatConv = { id: null, turns: [] }; // the open conversation
 let chatController = null;
 let lastChatQuestion = ""; // powers Regenerate / Edit & resend
 
+// A summary standing in for the first `covered` turns when this conversation
+// is sent to the model (§35I). Deliberately *beside* the turns rather than
+// replacing them: the transcript on screen and the saved conversation are
+// untouched, so this narrows what the model reads and loses nothing. Undo is
+// therefore setting this back to null.
+let chatSummary = null; // { text, covered }
+
+// What the model is given as history: the summary in place of the turns it
+// covers, then everything since, capped as before.
+//
+// Without a summary the tail is all the model gets — `context.fit_history`
+// drops whole pairs from the oldest end to fit, so a long conversation does
+// not overflow, it silently forgets its own beginning. A few hundred
+// characters carrying the gist of ten turns is strictly better than the whole
+// of one.
+function chatHistoryToSend() {
+  const turns = chatConv.turns;
+  if (!chatSummary || chatSummary.covered <= 0) {
+    return turns.slice(-MAX_CLIENT_HISTORY);
+  }
+  const since = turns.slice(chatSummary.covered).slice(-MAX_CLIENT_HISTORY);
+  return [
+    {
+      question: "What have we covered so far?",
+      answer: `Summary of the first ${chatSummary.covered} messages:\n${chatSummary.text}`,
+    },
+    ...since,
+  ];
+}
+
 // The persona name to label assistant bubbles with (falls back to "Assistant").
 function assistantLabel() {
   const select = $("persona-select");
@@ -3344,6 +3374,82 @@ function renderChatUsage(tokens) {
   const total = Number(tokens) || 0;
   el.hidden = total === 0;
   el.textContent = total ? `${formatTokens(total)} tokens` : "";
+}
+
+// --- compressing this conversation's context (§35I) --------------------------
+//
+// Asked for directly: *"there should be a tool as well as a manual command or
+// something to be able to compress chat context on longer chats so the AI can
+// better continue."* This is the manual half, which §35I says ships first
+// because it cannot misfire: you press it, you read what it produced, and only
+// then does the model see it instead of the turns it replaces.
+//
+// Nothing is deleted. The transcript on screen and the saved conversation keep
+// every turn — `chatSummary` only changes what `chatHistoryToSend` hands the
+// model, so Undo is one assignment.
+
+// How many turns to leave alone at the end. Compressing the exchange you are
+// still in the middle of is how a summary loses the thing you are talking
+// about right now.
+const KEEP_RECENT_TURNS = 2;
+
+async function compressChatContext() {
+  const covered = chatConv.turns.length - KEEP_RECENT_TURNS;
+  if (covered < 2) {
+    toast("There isn't enough conversation to compress yet.", true);
+    return;
+  }
+  const button = $("chat-compress");
+  button.disabled = true;
+  const previous = button.textContent;
+  button.textContent = "Summarising…";
+  try {
+    const result = await apiJson("/chat/compress", {
+      method: "POST",
+      body: JSON.stringify({ history: chatConv.turns.slice(0, covered) }),
+    });
+    showCompressReview(result, covered);
+  } finally {
+    button.disabled = false;
+    button.textContent = previous;
+  }
+}
+
+// The summary, before it is used — editable, because a summary you cannot
+// correct is one you have to trust blindly, and this one is about to be the
+// model's only memory of the first half of the conversation.
+function showCompressReview(result, covered) {
+  const panel = $("chat-compress-panel");
+  const box = $("chat-compress-text");
+  box.value = result.summary;
+  $("chat-compress-stats").textContent =
+    `${covered} messages → ${Math.round(result.chars_after / 10) / 100}k characters ` +
+    `(was ${Math.round(result.chars_before / 10) / 100}k). Edit it if it missed something.`;
+  panel.classList.remove("hidden");
+  panel.dataset.covered = String(covered);
+  box.focus();
+}
+
+function applyCompression() {
+  const text = $("chat-compress-text").value.trim();
+  const covered = Number($("chat-compress-panel").dataset.covered || 0);
+  if (!text || covered < 1) return;
+  chatSummary = { text, covered };
+  $("chat-compress-panel").classList.add("hidden");
+  renderCompressionState();
+  toast(`Using a summary in place of the first ${covered} messages.`);
+}
+
+// The badge that says the model is reading a summary rather than the thread,
+// with the way back. A compression the user cannot see is a conversation
+// quietly answering from something they never read.
+function renderCompressionState() {
+  const badge = $("chat-compressed");
+  if (!badge) return;
+  badge.classList.toggle("hidden", !chatSummary);
+  if (chatSummary) {
+    badge.firstElementChild.textContent = `🗜 first ${chatSummary.covered} summarised`;
+  }
 }
 
 // Three-dot "the model is about to speak" indicator (Wave D).
@@ -4847,7 +4953,7 @@ async function sendChatMessage(preset, opts = {}) {
   try {
     await streamChat({
       question,
-      history: chatConv.turns.slice(-MAX_CLIENT_HISTORY),
+      history: chatHistoryToSend(),
       persona: $("persona-select").value || null,
       mode: $("response-mode-select").value || null,
       useTools: opts.useTools ?? $("tools-toggle").checked,
@@ -5202,6 +5308,9 @@ async function deleteChatTurn(assistantBubble) {
 
 function newChatConversation() {
   chatConv = { id: null, turns: [] };
+  // A summary belongs to the conversation it summarised (§35I).
+  chatSummary = null;
+  renderCompressionState();
   lastChatQuestion = "";
   $("chat-messages").replaceChildren();
   $("chat-title").textContent = "New chat";
@@ -5628,6 +5737,11 @@ async function openConversation(id) {
   const full = await apiJson(`/conversations/${id}`).catch(() => null);
   if (!full) return;
   chatConv = { id: full.id, turns: [] };
+  // Not carried across conversations, and not persisted: re-deriving it is one
+  // click, and a summary restored against the wrong thread would be worse than
+  // no summary at all.
+  chatSummary = null;
+  renderCompressionState();
   $("chat-title").textContent = full.title;
   renderChatUsage(full.tokens);
   $("chat-messages").replaceChildren();
@@ -15238,6 +15352,18 @@ $("conv-search").addEventListener("input", (event) => {
   convSearchTimer = setTimeout(loadConversationList, 180);
 });
 $("chat-export").addEventListener("click", exportChatMarkdown);
+$("chat-compress").addEventListener("click", compressChatContext);
+$("chat-compress-apply").addEventListener("click", applyCompression);
+$("chat-compress-cancel").addEventListener("click", () =>
+  $("chat-compress-panel").classList.add("hidden")
+);
+$("chat-uncompress").addEventListener("click", () => {
+  // Undo is one assignment, because nothing was ever removed — the turns have
+  // been sitting there all along.
+  chatSummary = null;
+  renderCompressionState();
+  toast("Back to sending the real messages.");
+});
 $("chat-input").addEventListener("keydown", (e) => {
   // Enter sends, Shift+Enter (or Ctrl/Cmd+Enter) writes a newline. The box is
   // a textarea now, so "send" has to be chosen rather than inherited.

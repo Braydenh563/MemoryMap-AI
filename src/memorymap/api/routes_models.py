@@ -173,7 +173,46 @@ def model_spec(name: str = "") -> dict:
 
 @router.get("/suggested")
 def suggested() -> dict:
-    return SUGGESTED_MODELS
+    """The shortlist, with the real download size wherever we know it.
+
+    Reported: "the approximate sizes for the suggested models are not
+    correct" (§35J). They are hand-written — §33 defends the hand-written
+    *list* against odysseus's Cookbook, and that argument still holds — but a
+    hand-written *number* is a different thing: it goes stale every time a
+    publisher re-quantises a tag, and a wrong number is worse than none, since
+    it is the figure someone checks their free disk against.
+
+    Two halves, and only one of them is guessable. For a model that is
+    installed, the backend knows exactly how many bytes it took, so that
+    number replaces the guess and is marked `measured`. For one that is not,
+    there is no local source of truth — so the shipped figure is passed
+    through and marked `approximate` rather than quietly presented as fact.
+    The alternative, asking a registry over the network, is a call this app
+    should not make just to draw a settings list.
+    """
+    installed: dict[str, int] = {}
+    try:
+        for model in deps.get_ollama().list_models():
+            size = model.get("size")
+            if size:
+                installed[str(model.get("name", ""))] = int(size)
+    except Exception:  # noqa: BLE001 — the backend being off is not an error here
+        installed = {}
+
+    def described(entry: dict) -> dict:
+        real = installed.get(entry["name"])
+        if real:
+            return {**entry, "size": _human_bytes(real), "size_source": "measured"}
+        return {**entry, "size_source": "approximate"}
+
+    return {kind: [described(m) for m in models] for kind, models in SUGGESTED_MODELS.items()}
+
+
+def _human_bytes(count: int) -> str:
+    """Bytes as the size a download dialog would show."""
+    if count >= 1_000_000_000:
+        return f"{count / 1_000_000_000:.1f} GB"
+    return f"{round(count / 1_000_000)} MB"
 
 
 @router.post("/chat-model")

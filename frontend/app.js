@@ -12538,7 +12538,17 @@ function renderSuggested(status) {
       name.textContent = model.name;
       const info = document.createElement("span");
       info.className = "model-info";
-      info.textContent = `${kind} · ${model.size} · ${model.purpose}`;
+      // "~2.0 GB" for a figure we shipped and cannot check, the exact size for
+      // one the backend has actually measured (§35J). The tilde is the whole
+      // signal: this number is the one someone checks their free disk against
+      // before committing to a multi-gigabyte download, so presenting a stale
+      // guess as fact is the part that was wrong, not the guess itself.
+      const approximate = model.size_source !== "measured";
+      const size = approximate ? `~${String(model.size).replace(/^~/, "")}` : model.size;
+      info.textContent = `${kind} · ${size} · ${model.purpose}`;
+      info.title = approximate
+        ? "Approximate download size — the exact figure shows once it's installed."
+        : "Measured on your machine.";
       li.append(name, info);
 
       const pull = (status.pulls || {})[model.name];

@@ -5947,15 +5947,19 @@ textarea.autogrow {
    corner where they were already hover-revealed — so they cost no vertical
    space at all. And the timestamp rejoins the chip run instead of being pushed
    away from it, which is where it belongs: it is metadata like the rest. */
-.entry-list li {
+/* Scoped to the notes list by id, not to `.entry-list` — that class is shared
+   by the recycle bin, the tag list, chat search results and the reminders,
+   whose actions are labelled text buttons that belong in the flow. Corner-
+   positioning them would hide "Done" and "Snooze" behind a hover. */
+#entry-list > li {
   position: relative;
 }
-.entry-list li .entry-meta-end {
+#entry-list > li .entry-meta-end {
   margin-left: 0;
   /* No longer a wrapping unit of its own — the date flows with the chips. */
   display: contents;
 }
-.entry-list li .entry-actions {
+#entry-list > li .entry-actions {
   position: absolute;
   top: var(--space-3);
   right: var(--space-3);
@@ -5965,8 +5969,8 @@ textarea.autogrow {
   background: var(--inner);
   border-radius: var(--radius-md);
 }
-.entry-list li:hover .entry-actions,
-.entry-list li:focus-within .entry-actions {
+#entry-list > li:hover .entry-actions,
+#entry-list > li:focus-within .entry-actions {
   opacity: 1;
 }
 /* Touch has no hover, so there is nothing to reveal them — they stay visible.
@@ -5974,18 +5978,17 @@ textarea.autogrow {
 @media (hover: none) {
   .entry-list li .entry-actions { opacity: 1; }
 }
+/* The bin shares .entry-list but not the corner treatment, so it needs no
+   opt-out any more — the rules above never reach it. */
 /* Tighter rows now that nothing wraps to an empty band. The chips carry their
    own vertical rhythm, so the gap between them is the gap between lines. */
 .entry-meta {
   row-gap: var(--space-2);
 }
-/* Recycle-bin rows keep their Restore button in the flow: it is a labelled
-   text button, not an icon, and it has no hover affordance to rely on. */
-.entry-list li.bin-row .entry-actions {
-  position: static;
-  opacity: 1;
-  background: none;
-}
+/* The bin's Restore button is a labelled text button with no hover affordance,
+   so it stays visible. It never needed the corner treatment — scoping that to
+   #entry-list handles the position; this handles the fade. */
+.entry-list li.bin-row .entry-actions { opacity: 1; }
 
 
 /* --- the orphan-row pattern, everywhere else it appears (§36B) ----------------

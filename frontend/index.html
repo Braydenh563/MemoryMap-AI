@@ -1974,6 +1974,14 @@ Link to another note with [[its first few words]]."></textarea>
               this computer.
             </p>
             <p class="muted" id="about-version"></p>
+            <!-- What changed, read from CHANGELOG.md rather than kept as a
+                 second in-app list that would drift from it (§36E). Folded
+                 shut: it is long, and About is not where you go to read it
+                 unless you came looking. -->
+            <details id="changelog-fold" class="settings-fold">
+              <summary>What's new</summary>
+              <div id="changelog-body" class="changelog-body"></div>
+            </details>
             <h3>Keyboard shortcuts</h3>
             <!-- This used to be a second, static list. Someone looking for
                  "how do I change a shortcut?" naturally opens Settings, so the

@@ -149,6 +149,24 @@ def create_app() -> FastAPI:
             "desktop": os.getenv("MEMORYMAP_DESKTOP") == "1",
         }
 
+    @app.get("/changelog", tags=["system"])
+    def changelog() -> dict:
+        """CHANGELOG.md, so "what changed?" is answerable inside the app.
+
+        The file already exists and is written for people, which is the whole
+        argument for serving it rather than maintaining a second in-app list
+        that would drift from it (§36E). Read per request rather than cached:
+        it changes when the app is updated, and an update replaces the process
+        anyway — so a cache would only ever be stale in development.
+        """
+        path = Path(__file__).resolve().parents[3] / "CHANGELOG.md"
+        try:
+            return {"markdown": path.read_text(encoding="utf-8")}
+        except OSError:
+            # A packaged build may not ship it. Missing notes are not an error
+            # worth a 500 — the About panel just doesn't offer them.
+            return {"markdown": ""}
+
     # Mounted last so the API routes above always win; html=True makes
     # "/" serve frontend/index.html.
     if FRONTEND_DIR.is_dir():

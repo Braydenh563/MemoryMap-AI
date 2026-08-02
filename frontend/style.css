@@ -5734,3 +5734,15 @@ textarea.autogrow {
   z-index: 2;
   background: var(--card);
 }
+
+/* The changelog inside Settings → About (§36E). Capped and scrollable: it is
+   the whole project history, and letting it push the rest of the About panel
+   off the screen would make the version number harder to find, not easier. */
+.changelog-body {
+  max-height: 22rem;
+  overflow-y: auto;
+  padding-right: var(--space-3);
+  font-size: var(--text-md);
+}
+.changelog-body h2 { font-size: var(--text-lg); margin-top: var(--space-6); }
+.changelog-body h3 { font-size: var(--text-md); }

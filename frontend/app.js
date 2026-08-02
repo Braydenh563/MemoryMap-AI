@@ -8087,9 +8087,7 @@ function focusTimerTick() {
     if (focusTimer.remaining === 0) {
       stopFocusTimer();
       toast("⏱ Focus session complete — nice work!");
-      if ("Notification" in window && Notification.permission === "granted") {
-        new Notification("MemoryMap", { body: "Focus session complete — nice work!" });
-      }
+      notify("MemoryMap", "Focus session complete — nice work!");
     }
   }
 }
@@ -8098,9 +8096,7 @@ function startFocusTimer() {
   if (focusTimer.running) return;
   if (focusTimer.remaining <= 0) focusTimer.remaining = focusTimer.total;
   focusTimer.running = true;
-  if ("Notification" in window && Notification.permission === "default") {
-    Notification.requestPermission();
-  }
+  askNotificationPermission();
   focusTimer.handle = setInterval(focusTimerTick, 1000);
   paintFocusTimer();
 }
@@ -8660,10 +8656,10 @@ async function addReminder(text, dueValue, entryId = null, opts = {}) {
       recurring: opts.recurring || "none",
     }),
   });
-  // Ask once for notification permission, when the first reminder lands.
-  if ("Notification" in window && Notification.permission === "default") {
-    Notification.requestPermission();
-  }
+  // Asked here, when a reminder actually lands, and not on first load — a
+  // permission prompt with no context is refused by default, and a refusal is
+  // close to permanent (§36C).
+  askNotificationPermission();
   toast("Reminder set.");
   loadReminders();
   return true;
@@ -8686,9 +8682,7 @@ async function magicAddReminder() {
     });
     input.value = "";
     status.textContent = `Added “${reminder.text}” — ${relativeWhen(reminder.due_at)}. Edit it below if needed.`;
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
+    askNotificationPermission();
     loadReminders();
   } catch (error) {
     status.classList.add("error");
@@ -10734,7 +10728,29 @@ async function openSettingsModal(section = "models") {
   if (!suggestedCatalog) {
     suggestedCatalog = await apiJson("/models/suggested").catch(() => null);
   }
+  loadChangelog();
   refreshModelStatus();
+}
+
+// CHANGELOG.md, rendered in Settings → About (§36E). Loaded once per session
+// and only when the settings panel is opened — it is several thousand words
+// and nobody is waiting for it at startup.
+let changelogLoaded = false;
+async function loadChangelog() {
+  if (changelogLoaded) return;
+  const fold = $("changelog-fold");
+  const body = $("changelog-body");
+  if (!fold || !body) return;
+  const data = await apiJson("/changelog", { silent: true }).catch(() => null);
+  if (!data || !data.markdown) {
+    // A packaged build may not ship the file. Hiding the control is better
+    // than offering one that opens onto nothing.
+    fold.classList.add("hidden");
+    return;
+  }
+  changelogLoaded = true;
+  fold.classList.remove("hidden");
+  renderMarkdown(body, data.markdown);
 }
 
 function closeSettingsModal() {
@@ -11877,6 +11893,121 @@ function speakText(text) {
 }
 
 // --- toasts (Phase 5) ---------------------------------------------------------------
+
+// --- reminders you actually notice (§36C) ------------------------------------------
+//
+// Reported: "reminders when they go off aren't really noticeable and need to be
+// more evident, maybe through a browser or system/app notification?"
+//
+// The reason they were unnoticeable is simpler than it sounds: **nothing
+// checked.** A reminder's only surface was a small badge on the Reminders tab
+// button, painted by `updateReminderBadge` — which only ran when something
+// happened to call `loadReminders()`. So unless you reloaded, or visited that
+// tab, a reminder came due and the interface said nothing at all, forever.
+//
+// Three surfaces now, in increasing order of how much they interrupt:
+//   · the tab badge, as before;
+//   · a count in the document title, which is visible from another tab or a
+//     taskbar without the app being focused;
+//   · a system notification and a toast, once per reminder.
+//
+// The honest limit, stated because the alternative is implying otherwise:
+// none of this fires while the app is closed. A local-first app with no
+// background service cannot wake itself up, and pretending it can would be
+// worse than the gap.
+
+const REMINDER_POLL_MS = 30_000;
+//: Which reminders have already been announced, so a 30-second poll does not
+//: re-fire the same notification twice a minute. Kept in localStorage rather
+//: than memory: a reload would otherwise re-announce everything overdue, which
+//: is the most annoying possible version of this feature.
+const ANNOUNCED_KEY = "announcedReminders";
+
+function announcedReminders() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(ANNOUNCED_KEY) || "[]"));
+  } catch {
+    return new Set();
+  }
+}
+
+function rememberAnnounced(ids) {
+  // Bounded, and trimmed from the front: without a cap this grows forever in a
+  // notebook that has been used for years.
+  const kept = [...announcedReminders(), ...ids].slice(-200);
+  localStorage.setItem(ANNOUNCED_KEY, JSON.stringify(kept));
+}
+
+// Asked when a reminder is SET, not on first load. A permission prompt with no
+// context is refused by default, and a refusal is close to permanent — the
+// browser will not ask again, and most people never find the site settings.
+function askNotificationPermission() {
+  if ("Notification" in window && Notification.permission === "default") {
+    Notification.requestPermission().catch(() => {});
+  }
+}
+
+function notify(title, body) {
+  if ("Notification" in window && Notification.permission === "granted") {
+    try {
+      new Notification(title, { body, icon: "/favicon.svg", tag: "memorymap" });
+      return true;
+    } catch {
+      // Some embedded shells expose the constructor and then throw. Falling
+      // through to the toast is the point of returning a boolean.
+    }
+  }
+  return false;
+}
+
+// The count in the title bar — the one surface that works while the app is in
+// a background tab, which is where it usually is when a reminder comes due.
+const BASE_TITLE = "MemoryMap AI";
+function setTitleCount(count) {
+  document.title = count > 0 ? `(${count}) ${BASE_TITLE}` : BASE_TITLE;
+}
+
+async function checkDueReminders() {
+  const all = await apiJson("/reminders", { silent: true }).catch(() => null);
+  if (!all) return; // server asleep or locked — say nothing rather than guess
+  const now = Date.now();
+  const due = all.filter((r) => !r.done && new Date(r.due_at).getTime() <= now);
+  updateReminderBadge(all);
+  setTitleCount(due.length);
+
+  const already = announcedReminders();
+  const fresh = due.filter((r) => !already.has(r.id));
+  if (!fresh.length) return;
+  rememberAnnounced(fresh.map((r) => r.id));
+
+  // One notification for one reminder; a summary for several, because three
+  // separate system notifications for three reminders is worse than one.
+  if (fresh.length === 1) {
+    const text = fresh[0].text;
+    if (!notify("⏰ Reminder", text)) toast(`⏰ ${text}`);
+  } else {
+    const summary = `${fresh.length} reminders are due`;
+    if (!notify("⏰ MemoryMap", summary)) toast(`⏰ ${summary}`);
+  }
+  // Always in-app as well as out: a system notification can be suppressed by
+  // Do Not Disturb without the app ever knowing.
+  if ("Notification" in window && Notification.permission === "granted") {
+    toast(fresh.length === 1 ? `⏰ ${fresh[0].text}` : `⏰ ${fresh.length} reminders are due`);
+  }
+  loadReminders().catch(() => {});
+}
+
+function startReminderWatch() {
+  checkDueReminders();
+  setInterval(checkDueReminders, REMINDER_POLL_MS);
+  // A machine that was asleep wakes up with reminders long past due, and the
+  // interval will not have run. Checking on focus catches that immediately
+  // rather than up to thirty seconds later.
+  window.addEventListener("focus", () => checkDueReminders());
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) checkDueReminders();
+  });
+}
 
 function toast(message, isError = false) {
   const box = $("toast-box");
@@ -14554,6 +14685,9 @@ $("skip-link").addEventListener("click", (e) => {
 });
 initNotesSubtabs();
 scrollTopUpdate = initScrollTopButton();
+// Nothing used to check whether a reminder had come due, so one could pass
+// silently and stay silent (§36C).
+startReminderWatch();
 initResizableSidebars();
 watchOverlays(); // page behind a dialog must not scroll
 initAutoGrow(); // capture + magic-add boxes follow their content

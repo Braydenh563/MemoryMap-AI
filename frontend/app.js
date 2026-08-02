@@ -10320,9 +10320,20 @@ function drawTrace() {
 // undoable from the toast.
 
 //: How much of a miss still counts as a hit. Zero would demand pixel accuracy
-//: on a moving target; the node's own radius plus a few pixels is the circle
-//: you can see, which is the one people aim at.
-const DROP_SLOP = 6;
+//: on a moving target; the node's own radius plus this is the circle you are
+//: actually aiming at.
+//:
+//: Raised from 6 after driving the gesture in a browser. A note is a 9px
+//: circle, so six pixels of slop meant hitting a 15px target that is *drifting*
+//: — dragging reheats the simulation, so everything else keeps moving while
+//: you aim. Fourteen makes it a comfortable 23px and is still far short of the
+//: nearest neighbour, so a drop in open space still links nothing.
+const DROP_SLOP = 14;
+
+//: The note the current drag is hovering over, remembered from the last
+//: `drag` event so the drop can use it. See the `end` handler for why a fresh
+//: hit test at release finds nothing.
+let graphDropTarget = null;
 
 function graphNodeUnder(dragged, event) {
   for (const other of graphNodesRef || []) {
@@ -10633,12 +10644,23 @@ async function renderGraph() {
           // Drag-to-link (§9): light up whatever this note is currently over,
           // so the gesture says what it will do *before* it does it. Without
           // this, dropping is a guess and every miss is an accidental link.
-          const over = graphNodeUnder(d, event);
-          nodeGroups.classed("graph-drop-target", (other) => other === over);
+          graphDropTarget = graphNodeUnder(d, event);
+          nodeGroups.classed("graph-drop-target", (other) => other === graphDropTarget);
         })
         .on("end", (event, d) => {
           if (!event.active) graphSimulation?.alphaTarget(0);
-          const over = graphNodeUnder(d, event);
+          // **The note that was lit, not the one under the cursor now.**
+          // Dragging reheats the simulation, so every other node is still
+          // drifting — between the last mousemove and the mouse-up the target
+          // moves out from under the pointer, and a fresh hit test at release
+          // finds nothing. Driven in a browser: the highlight appeared and the
+          // link was never made, every time.
+          //
+          // Using the remembered target also matches what the person saw. The
+          // node lit up; releasing links *that* one. A gesture that can light
+          // one note and link another would be worse than one that missed.
+          const over = graphDropTarget;
+          graphDropTarget = null;
           nodeGroups.classed("graph-drop-target", false);
           if (over) linkByDrop(d, over);
           if (tree) return; // a laid-out tree keeps its shape

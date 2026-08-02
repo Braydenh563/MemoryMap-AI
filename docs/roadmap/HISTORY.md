@@ -105,6 +105,21 @@ settings sections for console errors and overflow, the bin's Delete-for-good
 end to end, a `localStorage` wipe to reproduce the desktop shell, and a paced
 NDJSON stream to settle §35H.
 
+**And drag-to-link was shipped broken, then fixed, because it was driven.** It
+was written, reviewed, committed and described in a commit message as working —
+none of which is evidence. Driven with a real mouse it did nothing: the target
+lit up, the release linked nothing, every time. **Dragging reheats the
+simulation**, so every other node keeps drifting while you aim; between the
+last mousemove and the mouse-up the target moves out from under the pointer,
+and the hit test at release finds empty space. It links the note that *was
+lit* now, which is also what the person saw happen. The slop went from 6px to
+14px for the same reason — a 9px circle that is moving is not a 15px target.
+
+Two of the three attempts to test it were wrong before the app was: pressing at
+the centre of the node's `<g>`, which is the empty space between the circle and
+its label, and reading `window.graphNodesRef` for a module-scope `let`, which
+is not a property of `window`. Worth knowing for the next session that tries.
+
 **§35H's client half turned out to be already fixed.** Driven with a stream
 emitting one line every 120ms, the answer element grew 10 → 25 → 42 → 63 → 94
 characters inside a plan run: the step timeline uses `liveMarkdownRenderer` and

@@ -4334,7 +4334,17 @@ system landed first on purpose.
 
 ---
 
-### 36A. Scrolling and sticky surfaces — the smallest, do first
+### 36A. ~~Scrolling and sticky surfaces~~ — **both done**
+
+Built. The window no longer scrolls at all: `body` is one viewport tall and
+the visible page is its own scroll container, so the scrollbar starts below the
+header. That was also the prerequisite for the sticky chat header — sticky
+resolves against the nearest scrolling ancestor, and while that was the window,
+a header inside a page could not stick to the top of the page. Four sticky
+sidebar rules that cleared `--header-h` were updated with it; the header is
+outside the scroll container now, so clearing it would offset them twice.
+
+Original notes kept below.
 
 - **The page scrollbar runs behind the top bar.** Screenshotted. The header is
   `position: sticky; top: 0`, so it floats over a window-level scrollbar that
@@ -4357,16 +4367,16 @@ They are listed smallest-first, and the rule for all three is the same: decide
 what the surface is *for* before moving anything, or the result is the same
 controls in a different order.
 
-1. **Settings — "the settings are a mess."** The most clearly true of the
-   three, and the easiest to reason about because the content is already
-   grouped into sections; what has gone wrong is that the sections accreted in
-   the order features were built (Models, Appearance, Tools, Personas, Skills,
-   Account, Data, Logs, About…) rather than in any order someone looking for a
-   setting would predict. Two changes worth making together: **group by what
-   you are trying to do** (Get it working / Make it yours / Your data / Under
-   the hood), and **make it searchable** — a settings pane with this many
-   controls needs a filter box more than it needs better grouping, because the
-   grouping is only ever right for some people.
+1. **Settings — "the settings are a mess."** ~~Two changes: group by intent,
+   and make it searchable.~~ **Half done, and the half that was left turned out
+   to be the whole of it.** An audit found the grouping already built — The AI
+   / Your notebook / System — so the remaining problem was never arrangement:
+   with fourteen sections, finding a control means guessing which one holds it.
+   **The filter is built**, and it searches each section's *rendered contents*
+   rather than its title, so "corner" finds Appearance and "backup" finds
+   Import & export. Text is read live, because several sections are filled in
+   by JS after first paint and an index built at startup would search empty
+   panels. What is left is the density *within* the longer sections.
 2. **The Chat page controls.** The toolbar has grown a control at a time —
    Chat/Agent, Web, response mode, persona, peek, export, skill picker, tools
    toggle — and they are all peers in one row despite answering completely
@@ -4381,14 +4391,26 @@ controls in a different order.
    is it the text plus its category, tags, dates, link count and privacy state?
    Currently it is all of them at equal weight, which is why it reads as busy.
 
-### 36C. Reminders that you actually notice
+### 36C. ~~Reminders that you actually notice~~ — **built**
 
 Reported: *"reminders when they go off aren't really noticeable and need to be
 more evident, maybe through a browser or system/app notification?"*
 
-Correct, and this is a genuine gap rather than a polish item — a reminder you
-do not notice has failed completely. Three layers, worth building in this
-order:
+Correct, and it turned out to be simpler and worse than "not evident enough":
+**nothing checked.** A reminder's only surface was the tab badge, painted by
+`updateReminderBadge`, which ran only when something happened to call
+`loadReminders()`. Unless you reloaded or opened that tab, a reminder came due
+and the app said nothing, indefinitely.
+
+Built: a 30-second poll plus a check on window focus and visibility change (for
+the machine-was-asleep case), a count in the document title — the one surface
+that works while the app is in a background tab, which is where it usually is
+— a system notification and a toast, once per reminder, with announced ids kept
+in localStorage so a reload does not re-announce everything overdue. Several
+due together get one summary rather than three notifications.
+
+**What is left here is the notifications centre** (§36E), as the place fired
+reminders accumulate. The three layers as originally planned:
 
 1. **The Notification API**, which is one call and works in both the browser
    and the desktop window. Needs a permission prompt asked at the right moment
@@ -4429,10 +4451,11 @@ than implying otherwise.
   MemoryMap already *produces* all of these events and shows each of them in
   its own way (a toast, a status pill, a step timeline); the centre is the
   place they persist after their moment has passed.
-- **Read `CHANGELOG.md` in the app.** Small, and it makes the app feel
-  maintained rather than static. The file already exists and is written for
-  people. Serve it and render it in Settings → About, next to the version
-  number that is already there.
+- ~~**Read `CHANGELOG.md` in the app.**~~ **done.** Served from the real file
+  and rendered in Settings → About, folded shut. Serving the file is the point:
+  a second in-app list would say roughly the same things and drift within a
+  release. A packaged build without the file hides the control rather than
+  offering one that opens onto nothing.
 
 ### 36F. The Library tab, and the tab bar it has to fit in
 

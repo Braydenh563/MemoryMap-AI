@@ -154,7 +154,16 @@ TOOLS_GUIDE = (
 # and TOOLS_GUIDE are sent whatever the window, and no per-turn trimming
 # applies to them. If it trips, look at what was added to the guide before
 # reaching for the number.
-PROMPT_BUDGET_CHARS = 13_800
+#
+# 13,800 → 14,400, for `ask_user` (§33). The guard did its job again, and the
+# useful part was *how* it tripped: the registry was sitting at 13,743 of
+# 13,800, so it would have fired on whoever added the next tool, whatever it
+# was. The first version of the schema was 784 characters of prose explaining
+# when to ask; it was cut to 507 by keeping only the two rules that stop it
+# being misused (stop after asking, don't ask what you could look up) and
+# deleting the rest. `ask_user` is in CORE_TOOLS, so unlike most tools it is
+# paid for on every single turn — which is exactly why it had to be terse.
+PROMPT_BUDGET_CHARS = 14_400
 
 # What to do about a failed tool call.
 #
@@ -326,6 +335,13 @@ def build_agent_messages(
     messages.append({"role": "user", "content": f"{body}My request: {question}"})
     return messages
 
+
+# Handed back when an `ask_user` call is malformed, so the model can recover
+# in the same turn instead of the question silently failing.
+_ASK_RECOVERY = (
+    "Fix the question and call ask_user again with 2-6 short options — or, if "
+    "you can work it out yourself, just answer without asking."
+)
 
 # What the model is told when a destructive call is parked for approval.
 AWAITING_CONFIRMATION = {
@@ -535,6 +551,43 @@ def run_agent(
                     "ok": False,
                     "error": result["error"],
                 }
+            elif spec is not None and spec.ends_turn:
+                # `ask_user`. The turn stops here, and that is the feature
+                # rather than a limitation: the model asked because it does not
+                # know what to do next, so letting it carry on would mean
+                # carrying on with the guess the question exists to avoid.
+                #
+                # No state is parked on the server. The user's choice is sent
+                # as their next message, which means the answer arrives through
+                # the ordinary history the model already reads — nothing to
+                # expire, nothing to lose on a reload, and the exchange is
+                # visible in the saved conversation like any other.
+                try:
+                    question, options = tools.validate_ask(arguments)
+                except tools.ToolError as exc:
+                    # A malformed question is a recoverable mistake, not a dead
+                    # turn: hand the model the reason and let it try again or
+                    # answer directly.
+                    signature = (name, json.dumps(arguments, sort_keys=True))
+                    failed_calls.add(signature)
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_name": name,
+                            "content": json.dumps(
+                                {"error": str(exc), "what_to_do": _ASK_RECOVERY}
+                            ),
+                        }
+                    )
+                    yield {
+                        "type": "tool",
+                        "label": "⚠️ couldn't ask that question",
+                        "ok": False,
+                        "error": str(exc),
+                    }
+                    continue
+                yield {"type": "ask", "question": question, "options": options}
+                return
             elif spec is not None and spec.destructive:
                 # Park it for the user — never auto-run a destructive tool.
                 # The confirm card is the honest signal, so count it as an

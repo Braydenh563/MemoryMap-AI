@@ -5351,3 +5351,13 @@ textarea.autogrow {
 .model-spec dt { color: var(--muted); }
 .model-spec dd { margin: 0; }
 .model-spec.hidden { display: none; }
+
+/* The agent stopped to ask something. Shares the confirm card's frame — it is
+   the same kind of moment, a run pausing for the person — but not its warning
+   colour: a question is not a risk. */
+.agent-ask {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.agent-ask-options { flex-wrap: wrap; gap: 0.35rem; }
+.agent-ask .muted { margin: 0.4rem 0 0; font-size: 0.75rem; }

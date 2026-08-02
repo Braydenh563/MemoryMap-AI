@@ -65,6 +65,32 @@ the normal order to do it in.
   work, and the status line names whichever backend actually answered instead
   of telling an LM Studio user to go and install Ollama.
 
+### Added — the agent can ask instead of guessing (roadmap §33)
+
+Told "delete the one about the beans" when there are three, the agent had
+exactly one move: pick one and act. A confident wrong action on someone's
+notebook is worse than a question, and the user finds out afterwards.
+
+`ask_user` offers 2-6 options as buttons and **ends the turn** — which is the
+feature, not a limitation: the model asked because it does not know what to do
+next, so carrying on would mean carrying on with the guess the question exists
+to avoid.
+
+- **No state is parked on the server.** The choice is sent as the user's next
+  message, so the answer arrives through the ordinary history the model already
+  reads. Nothing to expire, nothing lost on a reload, and the exchange saves
+  into the conversation like any other.
+- **A malformed question is recoverable, not fatal.** A model that offers one
+  option, or sends `"yes, no"` as a string instead of a list, has made a fixable
+  mistake — the string is parsed, and anything genuinely unusable goes back to
+  the model with the reason so the run continues rather than stranding the user.
+- **It cannot be run as an ordinary tool.** The handler raises, so a path that
+  bypasses the agent loop can't fabricate an answer to a question nobody saw.
+- It is offered on every turn, because a request can be ambiguous whatever it
+  is about and a keyword rule has nothing to match on. That is only defensible
+  while it stays cheap, so the schema is 507 characters and a test holds it
+  under 900.
+
 ### Added — quick / normal / detailed (roadmap §11)
 
 The prompt side of a turn has been budgeted against the model's real window

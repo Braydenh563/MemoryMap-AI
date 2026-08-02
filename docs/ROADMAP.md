@@ -3597,7 +3597,7 @@ Each of these was re-implemented from scratch. What odysseus supplied was the
 Ordered by value-per-effort. Each is a shape to re-implement, never a file to
 copy.
 
-1. **An `ask_user` tool that ends the turn (§18, §14).** Odysseus's agent can
+1. ~~**An `ask_user` tool that ends the turn (§18, §14).**~~ **built.** Odysseus's agent can
    stop mid-task and ask a multiple-choice question; the user gets clickable
    buttons and their answer arrives as the next message. This is the honest
    answer to a class of failure MemoryMap currently handles by guessing: an

@@ -54,6 +54,11 @@ class ToolSpec:
     parameters: dict  # JSON schema for the arguments
     handler: Callable[[Session, dict], dict]
     destructive: bool = False
+    #: This tool's whole effect is to stop and wait for the user, so the agent
+    #: loop ends the turn on it rather than feeding a result back and carrying
+    #: on. `ask_user` is the only one, and the flag exists rather than a name
+    #: check so the loop reads as "why" instead of "which" (§33).
+    ends_turn: bool = False
 
 
 # --- context budget -------------------------------------------------------------
@@ -1165,6 +1170,66 @@ def _delete_category(session: Session, args: dict) -> dict:
     }
 
 
+#: How many choices an `ask_user` question may offer. Two is the minimum for a
+#: question to be one; six is where a list of buttons stops being quicker to
+#: read than just typing the answer.
+MIN_ASK_OPTIONS = 2
+MAX_ASK_OPTIONS = 6
+MAX_ASK_QUESTION = 200
+MAX_ASK_OPTION = 80
+
+
+def _ask_user(session: Session, args: dict) -> dict:
+    """Never runs. Reaching this is a bug worth failing loudly on.
+
+    `ask_user` is not executed like other tools: the agent loop sees
+    `ends_turn` and stops, handing the question to the UI. The handler exists
+    because every `ToolSpec` has one, and it raises because the alternative —
+    returning something plausible — would let a path that bypasses the loop
+    (`POST /chat/tools/execute`, say) silently "answer" a question the user
+    never saw.
+    """
+    raise ToolError(
+        "ask_user is answered by the person, not by the app — it cannot be run "
+        "directly."
+    )
+
+
+def validate_ask(arguments: dict) -> tuple[str, list[str]]:
+    """The question and its choices, or a ToolError explaining what's wrong.
+
+    Validated here rather than trusted, because a small model will get this
+    wrong in every way available to it: one option, twelve options, options as
+    a single comma-separated string, an empty question. Each of those would
+    otherwise render as a broken card the user can only ignore — and the model
+    would be left waiting for an answer that can never come.
+    """
+    question = str(arguments.get("question") or "").strip()
+    if not question:
+        raise ToolError("ask_user needs a question to ask.")
+    raw = arguments.get("options")
+    if isinstance(raw, str):
+        # A model that sent "yes, no" instead of ["yes", "no"]. Recovering is
+        # free and the alternative is a dead card.
+        raw = [part.strip() for part in raw.split(",")]
+    if not isinstance(raw, list):
+        raise ToolError("ask_user needs a list of options to choose from.")
+    options: list[str] = []
+    for item in raw:
+        # Accept {"label": ...} too: it is the shape several models reach for,
+        # and rejecting it would fail a call that meant the right thing.
+        text = item.get("label") if isinstance(item, dict) else item
+        text = str(text or "").strip()[:MAX_ASK_OPTION]
+        if text and text not in options:
+            options.append(text)
+    if len(options) < MIN_ASK_OPTIONS:
+        raise ToolError(
+            f"ask_user needs at least {MIN_ASK_OPTIONS} different options — "
+            "if there is only one sensible answer, just do it."
+        )
+    return question[:MAX_ASK_QUESTION], options[:MAX_ASK_OPTIONS]
+
+
 # --- the registry ---------------------------------------------------------------
 
 _NOTE_ID = {"type": "integer", "description": "The note's id number"}
@@ -1172,6 +1237,30 @@ _NOTE_ID = {"type": "integer", "description": "The note's id number"}
 TOOLS: dict[str, ToolSpec] = {
     spec.name: spec
     for spec in [
+        ToolSpec(
+            "ask_user",
+            # Terse on purpose: this tool is offered on every turn, so every
+            # character is paid for on every round. The two rules that stop it
+            # being misused (stop after asking; don't ask what you could look
+            # up) are worth their space; nothing else here is.
+            "Ask which of 2-6 options the user meant, when the request is "
+            "ambiguous. Your turn ENDS; their reply comes next. Don't ask "
+            "permission, and don't ask what search_notes could tell you.",
+            {
+                "type": "object",
+                "properties": {
+                    "question": {"type": "string", "description": "One short sentence"},
+                    "options": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "2-6 short answers",
+                    },
+                },
+                "required": ["question", "options"],
+            },
+            _ask_user,
+            ends_turn=True,
+        ),
         ToolSpec(
             "search_notes",
             "Search the user's notes by meaning or keywords. Use this to find "
@@ -1668,6 +1757,11 @@ WRITE_TOOLS = {
 # the last because "save this" is the most common action there is, and the
 # cost of missing it is the model claiming a save that never happened.
 CORE_TOOLS = [
+    # Always offered, and it is the one addition to this list that is not about
+    # notes: a request can be ambiguous whatever it is about, so a cue-based
+    # rule has nothing to match on. Kept cheap — the schema is four lines —
+    # because the alternative is the model guessing which note you meant (§33).
+    "ask_user",
     "search_notes",
     "get_note",
     "list_notes",

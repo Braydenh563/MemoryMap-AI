@@ -2115,6 +2115,7 @@ async function streamChat({
   onAnswer,
   onTool,
   onConfirm,
+  onAsk,
   onStats,
 }) {
   const body = { question, history: history || [] };
@@ -2166,6 +2167,7 @@ async function streamChat({
       else if (event.type === "answer") onAnswer(event.delta);
       else if (event.type === "tool" && onTool) onTool(event);
       else if (event.type === "confirm" && onConfirm) onConfirm(event);
+      else if (event.type === "ask" && onAsk) onAsk(event);
       else if (event.type === "stats" && onStats) onStats(event);
     }
   }
@@ -3533,6 +3535,40 @@ function renderToolConfirm(holder, event) {
   chatScrollToEnd();
 }
 
+// The agent stopped to ask something. Its options become buttons, and picking
+// one sends that text as the next message — so the answer travels through the
+// ordinary conversation history rather than through any parked server state.
+// Nothing to expire, nothing lost on a reload, and the exchange reads back in
+// the saved chat like the short question-and-answer it was.
+function renderAgentQuestion(holder, event) {
+  const card = document.createElement("div");
+  card.className = "tool-confirm agent-ask";
+  const text = document.createElement("p");
+  text.textContent = `❓ ${event.question}`;
+  const row = document.createElement("div");
+  row.className = "row agent-ask-options";
+
+  let answered = false;
+  const answer = (choice) => {
+    if (answered) return; // double-click, or Enter on a focused button
+    answered = true;
+    // Replace the card rather than leave dead buttons: the exchange is
+    // already about to appear as a normal user message below.
+    card.replaceWith(toolChip(`❓ ${event.question} → ${choice}`));
+    sendChatMessage(choice);
+  };
+
+  for (const option of event.options || []) {
+    row.appendChild(smallButton(option, `Answer: ${option}`, () => answer(option), false));
+  }
+  const note = document.createElement("p");
+  note.className = "muted";
+  note.textContent = "Or type your own answer below.";
+  card.append(text, row, note);
+  holder.appendChild(card);
+  chatScrollToEnd();
+}
+
 // After the AI changes data, every list on screen may be stale.
 function refreshAfterToolChanges() {
   loadEntries().catch(() => {});
@@ -4549,6 +4585,13 @@ async function sendChatMessage(preset, opts = {}) {
         renderToolConfirm(card, event);
         timeline.tool(card.firstElementChild || card);
         status.textContent = "Waiting for your confirmation…";
+      },
+      onAsk: (event) => {
+        clearPending();
+        const card = document.createElement("div");
+        renderAgentQuestion(card, event);
+        timeline.tool(card.firstElementChild || card);
+        status.textContent = "Waiting for your answer…";
       },
       onStats: (event) => {
         // An agent turn reports once per round, so these accumulate: output

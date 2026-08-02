@@ -17,7 +17,7 @@ import json
 
 import pytest
 
-from memorymap.ai import agent, librarian, tools
+from memorymap.ai import agent, context, librarian, tools
 
 # Ollama defaults to a 4096-token window unless the model declares otherwise,
 # and ~4 characters per token is close enough to reason with.
@@ -47,12 +47,60 @@ def test_the_fixed_overhead_stays_inside_the_budget(app_state):
 
 
 def test_the_overhead_leaves_room_for_an_actual_conversation(app_state):
-    """A budget that fills the window is not a budget."""
-    tokens = _fixed_overhead(app_state) // CHARS_PER_TOKEN
+    """A budget that fills the window is not a budget.
+
+    **Measured after the runtime trim, and that change matters.** This used to
+    weigh the *whole* registry against a 4,096-token window, which was the
+    right test when the registry was all a turn could send. It is now measuring
+    a case that never reaches a small model: `agent.run_agent` passes every
+    non-skill turn through `tools.within_budget`, which fits the schemas to the
+    window the model actually reported and drops the least relevant tools when
+    they do not fit.
+
+    Left as it was, this assertion would fail for a reason that has nothing to
+    do with a 3B model's experience — and worse, it would keep failing as the
+    registry grew, pushing whoever hit it towards trimming tools that a 32k
+    model has ample room for. What decides whether a 3B model works is what
+    goes on the wire *after* the trim, so that is what is asserted.
+    """
+    system_chars = len(_system_prompt())
+    plan = context.plan(4096, system_chars)
+    kept, _dropped = tools.within_budget(tools.ollama_tools(), plan.tool_schema_chars)
+    sent = system_chars + len(json.dumps(kept))
+    tokens = sent // CHARS_PER_TOKEN
     assert tokens < 4096 * 0.85, (
-        f"~{tokens} tokens of overhead leaves almost nothing of a 4096-token "
-        "window for the user's question and their notes."
+        f"~{tokens} tokens reach a 4096-token model even after trimming, "
+        "which leaves almost nothing for the question and the notes. The trim "
+        "cannot fix prose: look at TOOLS_GUIDE and the persona first."
     )
+
+
+def test_a_small_model_is_actually_trimmed_down_to_fit(app_state):
+    """The mechanism the test above now relies on. If `within_budget` ever
+    stopped being applied — or stopped dropping anything — the assertion above
+    would still pass while a 3B model quietly lost its system prompt off the
+    front of the context, which is the exact failure all of this exists to
+    prevent."""
+    plan = context.plan(4096, len(_system_prompt()))
+    everything = tools.ollama_tools()
+    kept, dropped = tools.within_budget(everything, plan.tool_schema_chars)
+    assert dropped, "a 4k window cannot hold the whole registry; something must go"
+    assert len(kept) < len(everything)
+    assert len(json.dumps(kept)) <= plan.tool_schema_chars
+    # The reading core survives the cull: a model that cannot search or read a
+    # note cannot answer anything at all.
+    names = {t["function"]["name"] for t in kept}
+    assert {"search_notes", "get_note"} <= names
+
+
+def test_a_large_model_is_not_trimmed_at_all(app_state):
+    """The other half, and the reason the trim is right rather than merely
+    safe: 4,096 is Ollama's fallback for a model that declares nothing, not a
+    fact about any model. A 32k model gets the whole toolbox."""
+    plan = context.plan(32768, len(_system_prompt()))
+    kept, dropped = tools.within_budget(tools.ollama_tools(), plan.tool_schema_chars)
+    assert not dropped
+    assert len(kept) == len(tools.ollama_tools())
 
 
 def test_turning_tools_off_actually_shrinks_what_is_sent(app_state):

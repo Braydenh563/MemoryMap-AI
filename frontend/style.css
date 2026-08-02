@@ -5746,3 +5746,21 @@ textarea.autogrow {
 }
 .changelog-body h2 { font-size: var(--text-lg); margin-top: var(--space-6); }
 .changelog-body h3 { font-size: var(--text-md); }
+
+/* --- finding a setting (§36B) -----------------------------------------------
+   Fourteen sections in three groups. The filter searches each section's
+   rendered contents, not just its title, so "corner" finds Appearance and
+   "backup" finds Import & export — which is the question people actually
+   have. It sits at the top of the nav because that is where the eye starts. */
+.settings-search {
+  width: 100%;
+  margin-bottom: var(--space-4);
+  font-size: var(--text-md);
+}
+.settings-search-count {
+  margin: calc(var(--space-3) * -1) 0 var(--space-4);
+  font-size: var(--text-sm);
+}
+/* A group heading with everything under it filtered out is a heading for an
+   empty list, so it hides with its group. */
+#settings-nav .nav-group-label.hidden { display: none; }

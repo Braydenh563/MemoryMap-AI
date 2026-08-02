@@ -10753,7 +10753,74 @@ async function loadChangelog() {
   renderMarkdown(body, data.markdown);
 }
 
+// --- finding a setting (§36B) ------------------------------------------------------
+//
+// Fourteen sections, grouped three ways. The grouping helps, and it is only
+// ever right for some people — "where do I turn off web search?" is a guess
+// between The AI and System until you have learned the layout, and "where is
+// the corner rounding?" is a guess even after you have.
+//
+// So the search looks inside each section's rendered text rather than only at
+// its title. Typing "theme", "corner", "password" or "backup" then lands on
+// the section that actually contains that word, which is the question people
+// are really asking.
+//
+// Text is read live rather than indexed once: several sections are filled in
+// by JS after their first paint (the model list, the tool catalog, the saved
+// looks), and an index built at startup would be searching empty panels.
+function settingsSectionText(section) {
+  return (section.textContent || "").toLowerCase();
+}
+
+function filterSettings(term) {
+  const query = term.trim().toLowerCase();
+  const count = $("settings-search-count");
+  const buttons = [...document.querySelectorAll("#settings-nav button[data-section]")];
+
+  if (!query) {
+    for (const button of buttons) button.classList.remove("hidden");
+    for (const label of document.querySelectorAll("#settings-nav .nav-group-label")) {
+      label.classList.remove("hidden");
+    }
+    count.classList.add("hidden");
+    return;
+  }
+
+  let matches = 0;
+  for (const button of buttons) {
+    const section = $(`settings-${button.dataset.section}`);
+    const hit =
+      button.textContent.toLowerCase().includes(query) ||
+      (section && settingsSectionText(section).includes(query));
+    button.classList.toggle("hidden", !hit);
+    if (hit) matches += 1;
+  }
+  // A group label with nothing under it is a heading for an empty list.
+  for (const label of document.querySelectorAll("#settings-nav .nav-group-label")) {
+    const group = label.nextElementSibling;
+    const anyVisible =
+      group && [...group.querySelectorAll("button")].some((b) => !b.classList.contains("hidden"));
+    label.classList.toggle("hidden", !anyVisible);
+  }
+
+  count.classList.remove("hidden");
+  count.textContent = matches
+    ? `${matches} section${matches === 1 ? "" : "s"}`
+    : "Nothing matches that";
+  // One match is not ambiguous, so show it rather than making the user click
+  // the single remaining button.
+  if (matches === 1) {
+    const only = buttons.find((b) => !b.classList.contains("hidden"));
+    if (only) showSettingsSection(only.dataset.section);
+  }
+}
+
 function closeSettingsModal() {
+  const search = $("settings-search");
+  if (search) {
+    search.value = "";
+    filterSettings("");
+  }
   // Always cleared on the way out. A panel that reopens semi-transparent
   // reads as a rendering bug, not as a setting anyone chose.
   setSettingsPeek(false);
@@ -14751,6 +14818,16 @@ $("settings-modal").addEventListener("click", (e) => {
 for (const button of document.querySelectorAll("#settings-nav button")) {
   button.addEventListener("click", () => showSettingsSection(button.dataset.section));
 }
+$("settings-search")?.addEventListener("input", (e) => filterSettings(e.target.value));
+$("settings-search")?.addEventListener("keydown", (e) => {
+  // Escape clears the filter rather than closing the whole panel — closing on
+  // Escape while someone is mid-search loses both the search and their place.
+  if (e.key === "Escape" && e.target.value) {
+    e.stopPropagation();
+    e.target.value = "";
+    filterSettings("");
+  }
+});
 // Cross-links between settings screens ("web search lives over there").
 // Delegated, so a link added to the markup later needs no wiring.
 $("settings-modal").addEventListener("click", (event) => {

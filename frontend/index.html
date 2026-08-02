@@ -1006,6 +1006,16 @@ Link to another note with [[its first few words]]."></textarea>
              clue which screen held what, so finding anything meant reading
              every label. The groups answer "what am I changing?" first. -->
         <nav class="modal-nav" id="settings-nav" aria-label="Settings sections">
+          <!-- Fourteen sections, grouped three ways. Grouping helps and is only
+               ever right for some people: "where do I turn off web search?" is
+               a guess between The AI and System until you have learned the
+               layout. Searching the sections' actual contents turns that guess
+               into typing the word you already have in mind (§36B). -->
+          <input id="settings-search" type="search" class="settings-search"
+            placeholder="🔎 Find a setting…" aria-label="Search settings"
+            aria-describedby="settings-search-count">
+          <p id="settings-search-count" class="muted settings-search-count hidden"
+            role="status"></p>
           <p class="nav-group-label" id="nav-group-ai">The AI</p>
           <div role="group" aria-labelledby="nav-group-ai">
             <button data-section="models" class="active">Models</button>

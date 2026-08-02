@@ -21,15 +21,23 @@
 
      Use these for new work. A raw rem in a margin, padding or gap is now the
      exception that should be explaining itself in a comment. */
-  --space-1: 0.25rem;
-  --space-2: 0.4rem;
-  --space-3: 0.5rem;
-  --space-4: 0.6rem;
-  --space-5: 0.8rem;
-  --space-6: 1rem;
-  --space-7: 1.25rem;
-  --space-8: 1.5rem;
-  --space-9: 2rem;
+  /* Density is one multiplier over the whole scale, not a set of overrides.
+     It used to be nine rules in two places, each re-stating literal paddings
+     for the four components somebody remembered — .card, .layout, .dash-hero
+     and .entry-list li — so "compact" tightened those and left every dialog,
+     chip row, toolbar and settings pane at comfortable. Multiplying the scale
+     means the setting reaches everything spaced by a token, which is now
+     everything. */
+  --density: 1;
+  --space-1: calc(0.25rem * var(--density));
+  --space-2: calc(0.4rem * var(--density));
+  --space-3: calc(0.5rem * var(--density));
+  --space-4: calc(0.6rem * var(--density));
+  --space-5: calc(0.8rem * var(--density));
+  --space-6: calc(1rem * var(--density));
+  --space-7: calc(1.25rem * var(--density));
+  --space-8: calc(1.5rem * var(--density));
+  --space-9: calc(2rem * var(--density));
   /* Height of the sticky top bar. Sticky sidebars offset by this so they park
      below the header instead of underneath it. Kept as a variable because the
      header shrinks on narrow windows, where the media query overrides it. */
@@ -572,6 +580,10 @@ header#top-bar h1 {
 }
 /* The first heading in a card has the card's own padding above it already. */
 .card h3:first-child { margin-top: 0; }
+
+/* Density: the whole spacing scale, tightened or loosened at once. */
+:root[data-density="compact"] { --density: 0.75; }
+:root[data-density="spacious"] { --density: 1.35; }
 
 /* --- sidebar ------------------------------------------------------------ */
 /* Keep the Notes category sidebar pinned to the left while the notes
@@ -1401,8 +1413,6 @@ html.modal-open body {
      narrow row, and the greeting is the part that says something. */
   .dash-hero-emblem { display: none; }
 }
-:root[data-density="compact"] .dash-hero { padding: 0.8rem 1.25rem; }
-:root[data-density="spacious"] .dash-hero { padding: 1.5rem 2rem; }
 .dash-toolbar {
   display: flex;
   justify-content: space-between;
@@ -2643,9 +2653,6 @@ html { font-size: 16px; }
 :root[data-fontsize="large"] { font-size: 18px; }
 
 /* Compact density trims padding on cards and list rows. */
-:root[data-density="compact"] .card { padding: 0.6rem 0.8rem; margin-bottom: 0.6rem; }
-:root[data-density="compact"] .entry-list li { padding: 0.5rem 0.8rem; }
-:root[data-density="compact"] .layout { gap: 0.6rem; padding-top: 0.5rem; }
 
 /* Glass off → flat solid surfaces (cheaper to render). */
 :root[data-glass="off"] .card,
@@ -3522,10 +3529,6 @@ button { border-radius: calc(var(--radius) * 0.7); }
 .chip, .seg, .seg button { border-radius: calc(var(--radius) * 0.5 + var(--radius-md)); }
 
 /* --- spacious density (third option alongside comfortable/compact) --------- */
-:root[data-density="spacious"] .card { padding: 1.5rem 1.5rem; margin-bottom: 1.5rem; }
-:root[data-density="spacious"] .layout { gap: 1.5rem; padding-top: 1.25rem; }
-:root[data-density="spacious"] #dash-grid { gap: 1.5rem; }
-:root[data-density="spacious"] .entry-list li { padding: 0.8rem 1rem; }
 
 /* --- appearance settings: grouped, scannable rows -------------------------- */
 .settings-group {

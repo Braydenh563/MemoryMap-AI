@@ -47,6 +47,15 @@ All defined in `:root` in `frontend/style.css`.
 
 Use for every `margin`, `padding`, `gap`, `row-gap` and `column-gap`.
 
+Every step is wrapped in `calc(… * var(--density))`, so the density setting
+(Settings → Appearance: compact / comfortable / spacious) tightens or loosens
+the **whole interface** with one multiplier. It used to be nine rules in two
+places, each re-stating literal paddings for the four components somebody
+remembered — `.card`, `.layout`, `.dash-hero`, `.entry-list li` — so "compact"
+tightened those four and left every dialog, chip row, toolbar and settings pane
+at comfortable. **A density rule that names a component is that regression
+coming back**, and the lint says so.
+
 The scale was **extracted, not invented** — the nine steps are the modes of the
 distribution that was already in the file, which is why adopting it moved 311
 values by no more than 0.1rem each. It is deliberately denser at the small end,
@@ -231,7 +240,8 @@ it is. See ROADMAP §35L.
   single value moved more than 0.1rem — but "bounded" is not "verified", and
   the roadmap's standing caveat about reasoning instead of reproducing applies
   to this document as much as to anything else in it.
-- **Density and motion** are user settings that a few components ignore.
+- **Motion** is a user setting a few components still ignore. Density is done —
+  it is a multiplier over the spacing scale now.
 - **The tab bar** is at the width where another tab hurts, which matters for
   the unbuilt Library tab (§4) — decide whether it absorbs existing tabs or the
   bar gains an overflow *before* building it.

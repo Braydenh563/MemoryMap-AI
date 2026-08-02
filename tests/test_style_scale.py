@@ -93,8 +93,11 @@ def test_the_scale_is_actually_declared():
     """The test and the stylesheet must agree, or this passes while the
     properties it is protecting have been renamed out from under it."""
     text = _stylesheet()
+    # The steps are wrapped in calc(... * var(--density)) so one setting can
+    # tighten the whole scale — the base value is what has to be on it.
     declared = {
-        float(m) for m in re.findall(r"--space-\d+:\s*([0-9.]+)rem;", text)
+        float(m)
+        for m in re.findall(r"--space-\d+:\s*(?:calc\()?([0-9.]+)rem", text)
     }
     assert declared, "no --space-* custom properties found in style.css"
     assert declared <= SCALE, f"declared but not in SCALE: {sorted(declared - SCALE)}"
@@ -281,3 +284,30 @@ def test_the_semantic_colour_set_is_complete_in_both_themes():
         assert len(re.findall(rf"(?m)^\s*{token}\s*:", text)) >= 2, (
             f"{token} is declared once — it needs a dark-mode value too"
         )
+
+
+def test_density_is_a_multiplier_over_the_scale():
+    """It used to be nine rules in two places, each re-stating literal paddings
+    for the four components somebody happened to remember — .card, .layout,
+    .dash-hero and .entry-list li. So "compact" tightened those four and left
+    every dialog, chip row, toolbar and settings pane at comfortable.
+
+    Multiplying the scale means the setting reaches everything spaced by a
+    token, which after §35L is everything. A density rule that names a
+    component is that regression coming back.
+    """
+    text = _stylesheet()
+    assert "--density: 1;" in text
+    steps = re.findall(r"--space-\d+:\s*([^;]+);", text)
+    assert steps and all("var(--density)" in s for s in steps), (
+        "every --space-* step must scale with --density"
+    )
+    # A descendant selector after the attribute is the giveaway: `:root[...] {`
+    # sets the multiplier, `:root[...] .card {` reaches into a component.
+    component_rules = re.findall(
+        r'(?m)^:root\[data-density="[^"]+"\]\s+[^{\s][^{]*\{', text
+    )
+    assert not component_rules, (
+        "density must set --density only, never a component's padding: "
+        + ", ".join(component_rules)
+    )

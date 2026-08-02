@@ -266,8 +266,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 import ipaddress  # noqa: E402 — grouped with the code it serves
 import socket  # noqa: E402
-from concurrent.futures import ThreadPoolExecutor  # noqa: E402
-from concurrent.futures import TimeoutError as FuturesTimeout  # noqa: E402
+import threading  # noqa: E402
 
 _ALLOWED_BACKEND_SCHEMES = ("http", "https")
 
@@ -323,11 +322,29 @@ def _backend_addresses(host: str) -> list:
     if host.lower() in _LOOPBACK_HOSTS:
         return [ipaddress.ip_address("127.0.0.1")]
 
-    with ThreadPoolExecutor(max_workers=1) as pool:
-        try:
-            raw = pool.submit(_resolve, host).result(timeout=_DNS_TIMEOUT_SECONDS)
-        except FuturesTimeout:
-            return []
+    # A **daemon thread**, not a ThreadPoolExecutor, and the difference is the
+    # whole point. `with ThreadPoolExecutor(...)` calls `shutdown(wait=True)` on
+    # the way out, which blocks until the worker finishes — so timing out on
+    # `.result()` and then leaving the block still waits forever for the call
+    # being abandoned. That is not theoretical: it hung the whole test suite on
+    # a machine whose resolver did not answer, on three Python versions at once,
+    # while passing locally in 100 seconds. `concurrent.futures` also registers
+    # an atexit hook that joins its threads, so even `shutdown(wait=False)`
+    # would move the hang to interpreter exit rather than remove it.
+    #
+    # A daemon thread is abandoned cleanly: it is not joined at exit, and
+    # nothing waits on it.
+    raw: list = []
+    finished = threading.Event()
+
+    def _probe() -> None:
+        nonlocal raw
+        raw = _resolve(host)
+        finished.set()
+
+    threading.Thread(target=_probe, name=f"dns-{host}", daemon=True).start()
+    if not finished.wait(_DNS_TIMEOUT_SECONDS):
+        return []
     found = []
     for address in raw:
         try:

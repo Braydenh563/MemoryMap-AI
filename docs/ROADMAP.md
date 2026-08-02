@@ -77,8 +77,14 @@ Ordered by *how much it unlocks*, not by how much is left in the section.
    would always be a known-good streaming path to bisect against. That reason
    has expired, and the cost of waiting is real: it now has to touch two
    clients instead of one, and grows with every provider added.
-4. **The live log console (§1)** — streamed, but not followed, filtered or
-   exportable.
+4. ~~**The live log console (§1)** — streamed, but not followed, filtered or
+   exportable.~~ **All three exist and work.** Checked in a browser before
+   building anything, which is the rule this file opens with: 413 records
+   streaming live with Follow ticked, a text filter that narrowed them to 1 and
+   said "412 records hidden by the filters above", a level filter, a source
+   filter, Copy all, Clear, and a support-bundle export. Nothing here needed
+   building — the entry was simply out of date. §1's remaining items are the
+   ones about *other* surfaces, not the console.
 5. **Chat / Agent / Browse sub-tabs (§3)** and **the Library tab (§4)**, the
    two biggest untouched UI sections.
 
@@ -1431,11 +1437,24 @@ than implying otherwise.
 
 ### 36E. Notifications centre, and the changelog in-app
 
-- **A notifications centre**, as above: somewhere fired reminders, finished
-  background tasks, failed skill runs and completed re-indexes accumulate.
-  MemoryMap already *produces* all of these events and shows each of them in
-  its own way (a toast, a status pill, a step timeline); the centre is the
-  place they persist after their moment has passed.
+- ~~**A notifications centre**~~ **built.** A bell in the header, because an
+  event can arrive while you are on any tab and a notification you have to go
+  somewhere to find is one you never see. Fired reminders, finished background
+  jobs and runs that stopped early collect there, each actionable where there
+  is something to act on.
+
+  Three decisions worth not re-deriving. It is **not a second source of
+  truth**: a fired reminder is still a row in the reminders table, and opening
+  the panel folds in whatever is *currently* overdue — which is the one case an
+  event log cannot cover, a reminder that came due while nothing was running to
+  notice. It is **not stored server-side**: these are ephemeral and there can
+  be many, and the notebook's preferences file is not a log. And it **says on
+  screen** that nothing fires while the app is closed, rather than implying
+  otherwise.
+
+  Original note, kept: MemoryMap already *produces* all of these events and
+  shows each of them in its own way (a toast, a status pill, a step timeline);
+  the centre is the place they persist after their moment has passed.
 - ~~**Read `CHANGELOG.md` in the app.**~~ **done.** Served from the real file
   and rendered in Settings → About, folded shut. Serving the file is the point:
   a second in-app list would say roughly the same things and drift within a

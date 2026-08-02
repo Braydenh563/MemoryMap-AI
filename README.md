@@ -116,39 +116,42 @@ feel slow, drop a tier.
 
 **Runs on almost anything** - no GPU needed:
 
-| Model           | Size    | Why                                                        |
-| --------------- | ------- | ---------------------------------------------------------- |
-| `gemma3:1b`     | ~0.8 GB | Smallest here. Try it if 2 GB models are still too slow    |
-| `qwen3.5:2b`    | ~1.5 GB | The lightest one genuinely worth using                     |
-| `llama3.2`      | ~2.0 GB | **The default.** Fast, and a good first choice             |
-| `qwen2.5:3b`    | ~1.9 GB | Follows instructions closely - good for agent mode         |
-| `granite4.1:3b` | ~2.1 GB | Strong instruction-following at a small size               |
-| `phi3.5`        | ~2.2 GB | Sharp on summaries and Q&A for its size                    |
+| Model            | Size    | Why                                                    |
+| ---------------- | ------- | ------------------------------------------------------ |
+| `gemma4:e2b`     | ~1.6 GB | Smallest here. Try it if bigger models are too slow    |
+| `qwen3.5:2b`     | ~1.6 GB | The lightest one genuinely worth using                 |
+| `llama3.2`       | ~2.0 GB | **The default.** Fast, and a good first choice         |
+| `granite4.1:3b`  | ~2.1 GB | Strong instruction-following at a small size           |
+| `qwen3.5:4b`     | ~2.6 GB | Follows instructions closely - good for agent mode     |
+| `gemma4:e4b`     | ~3.1 GB | Noticeably better writing than the 2B models           |
 
-**8 GB of RAM, or any modern GPU** - the step up in answer quality:
+**8 GB of RAM, or any modern GPU** - the real step up in answer quality:
 
-| Model           | Size    | Why                                                        |
-| --------------- | ------- | ---------------------------------------------------------- |
-| `gemma3:4b`     | ~3.3 GB | Noticeably better writing than the 2-3B models             |
-| `llama3.1:8b`   | ~4.7 GB | Better reasoning, and reliable tool calls in agent mode    |
-| `qwen3:8b`      | ~5.2 GB | Best tool use here. A thinking model, so slower per answer |
-| `mistral-nemo`  | ~7.1 GB | Long-document work - a large context window                |
+| Model            | Size    | Why                                                    |
+| ---------------- | ------- | ------------------------------------------------------ |
+| `llama3.1:8b`    | ~4.7 GB | Better reasoning, and reliable tool calls in agent mode|
+| `qwen3.5:8b`     | ~5.2 GB | Best tool use at this size. Thinks, so slower per answer|
+| `mistral-nemo`   | ~7.1 GB | Long-document work - a large context window            |
+| `gemma4:12b`     | ~7.6 GB | Long-form writing and summarising                      |
 
-**16 GB and up:**
+**16 GB and up - mixture-of-experts.** Worth understanding before you skip
+these on size: `26b-a4b` holds 26B of weights but computes with only 4B of them
+at a time, so it downloads like a big model and *answers* at roughly the speed
+of a 4B one. If you have the memory, these are the best answers on this page.
 
-| Model           | Size    | Why                                                        |
-| --------------- | ------- | ---------------------------------------------------------- |
-| `gemma3:12b`    | ~8.1 GB | Long-form writing and summarising                          |
-| `qwen3:14b`     | ~9.3 GB | The most capable agent here. Slow without a GPU            |
+| Model             | Size   | Why                                                   |
+| ----------------- | ------ | ----------------------------------------------------- |
+| `gemma4:26b-a4b`  | ~15 GB | 12B-class speed, far better answers. Needs ~16 GB     |
+| `qwen3.5:35b-a3b` | ~20 GB | The most capable here, and still quick. Needs ~24 GB  |
 
 Sizes are Ollama's default quantisation and are approximate. They matter more
 than the parameter count: a 7B at Q4 and a 3B at Q8 land in about the same
 place on an 8 GB machine.
 
-**For agent mode specifically**, prefer a model that Ollama reports as
-tool-capable - Settings → Models shows this under "Can use tools", read from
-the model itself rather than guessed. `llama3.1:8b` and `qwen3:8b` are the most
-reliable of the list above; the 1-2B models can use tools but forget to.
+**For agent mode specifically**, prefer a model Ollama reports as tool-capable -
+Settings → Models shows this under "Can use tools", read from the model itself
+rather than guessed. `qwen3.5:8b` and `llama3.1:8b` are the most reliable of
+the list above; the 2B models can use tools but forget to.
 
 *Some of these, and a few others, are also at
 [huggingface.co/braydenh563](https://huggingface.co/braydenh563).*

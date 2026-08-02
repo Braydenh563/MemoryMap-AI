@@ -54,29 +54,40 @@ class Embedder(Protocol):
 #
 # Sizes are the default quantisation Ollama pulls (usually Q4_K_M) and are
 # approximate. They matter more than the parameter count here: a 7B at Q4 and
-# a 3B at Q8 land in the same place on a 8 GB machine.
+# a 3B at Q8 land in the same place on an 8 GB machine.
+#
+# This is a hand-maintained list against a registry that moves, so a tag here
+# can go stale. That fails safely and legibly: the pull returns Ollama's own
+# "model not found" and the Models screen shows it, rather than the app
+# pretending to know something it doesn't. Nothing else reads these names.
 SUGGESTED_MODELS: dict[str, list[dict[str, str]]] = {
     "chat": [
-        # --- runs on almost anything ---
-        {"name": "qwen3.5:2b", "size": "~1.5 GB", "purpose": "The lightest one worth using — fine on a laptop with no GPU"},
-        {"name": "gemma3:1b", "size": "~0.8 GB", "purpose": "Smallest here. Try it if 2 GB models are still too slow"},
+        # --- runs on almost anything, no GPU needed ---
+        {"name": "gemma4:e2b", "size": "~1.6 GB", "purpose": "Smallest here. Try it if bigger models are too slow"},
+        {"name": "qwen3.5:2b", "size": "~1.6 GB", "purpose": "The lightest one genuinely worth using"},
         {"name": "llama3.2", "size": "~2.0 GB", "purpose": "Fast all-rounder — the default, and a good first choice"},
-        {"name": "qwen2.5:3b", "size": "~1.9 GB", "purpose": "Follows instructions closely — good for agent mode"},
         {"name": "granite4.1:3b", "size": "~2.1 GB", "purpose": "Strong instruction-following at a small size"},
-        {"name": "phi3.5", "size": "~2.2 GB", "purpose": "Sharp on summaries and Q&A for its size"},
+        {"name": "qwen3.5:4b", "size": "~2.6 GB", "purpose": "Follows instructions closely — good for agent mode"},
+        {"name": "gemma4:e4b", "size": "~3.1 GB", "purpose": "Noticeably better writing than the 2B models"},
         # --- 8 GB of RAM, or any modern GPU ---
-        {"name": "gemma3:4b", "size": "~3.3 GB", "purpose": "Noticeably better writing than the 2-3B models"},
-        {"name": "llama3.1:8b", "size": "~4.7 GB", "purpose": "The step up: better reasoning, reliable tool calls"},
-        {"name": "qwen3:8b", "size": "~5.2 GB", "purpose": "Best tool use here — a thinking model, so slower per answer"},
+        {"name": "llama3.1:8b", "size": "~4.7 GB", "purpose": "Better reasoning and reliable tool calls"},
+        {"name": "qwen3.5:8b", "size": "~5.2 GB", "purpose": "Best tool use at this size. Thinks, so slower per answer"},
         {"name": "mistral-nemo", "size": "~7.1 GB", "purpose": "Long-document work — a large context window"},
-        # --- 16 GB and up ---
-        {"name": "gemma3:12b", "size": "~8.1 GB", "purpose": "Long-form writing and summarising, if you have the memory"},
-        {"name": "qwen3:14b", "size": "~9.3 GB", "purpose": "The most capable agent here. Slow without a GPU"},
+        {"name": "gemma4:12b", "size": "~7.6 GB", "purpose": "Long-form writing and summarising"},
+        # --- mixture-of-experts: big download, small working set ---
+        #
+        # These need the RAM of the model they are named after and run at
+        # roughly the speed of the *active* half — 26B-a4b holds 26B of weights
+        # and computes with 4B of them. That is the one thing worth explaining
+        # about them, because judged on download size alone nobody with 16 GB
+        # would try one, and they are the best answer for that machine.
+        {"name": "gemma4:26b-a4b", "size": "~15 GB", "purpose": "MoE: 12B-class speed with far better answers. Needs ~16 GB"},
+        {"name": "qwen3.5:35b-a3b", "size": "~20 GB", "purpose": "MoE: the most capable here, still quick. Needs ~24 GB"},
     ],
     "embedding": [
         {"name": "nomic-embed-text", "size": "~274 MB", "purpose": "Solid general-purpose embeddings"},
-        {"name": "bge-m3", "size": "~1.2 GB", "purpose": "Better on long notes and mixed languages"},
         {"name": "mxbai-embed-large", "size": "~670 MB", "purpose": "Higher quality, a little slower"},
+        {"name": "bge-m3", "size": "~1.2 GB", "purpose": "Better on long notes and mixed languages"},
     ],
 }
 

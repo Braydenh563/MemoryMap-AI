@@ -89,7 +89,14 @@ the code that knows how.
 ### Changed — many more suggested models, sorted by what your machine can run
 
 Three chat models became twelve, in three tiers — runs-on-anything, 8 GB, and
-16 GB and up — in Settings → Models and in the README.
+a mixture-of-experts tier for 16 GB and up — in Settings → Models and in the
+README, on the current Gemma 4 and Qwen 3.5 families.
+
+The MoE tier is the one worth explaining rather than just listing:
+`gemma4:26b-a4b` holds 26B of weights but computes with 4B of them at a time,
+so it downloads like a big model and answers at roughly the speed of a small
+one. Judged on download size alone nobody with 16 GB would try it, and it is
+the best answer for that machine.
 
 **Sorted smallest-first rather than best-first**, which is the ordering that
 matters: someone reading the list is choosing against hardware they already

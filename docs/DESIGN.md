@@ -112,6 +112,38 @@ The narrow-screen tightening happens once, in a single media query on `:root`.
 Per-page media queries shrinking to different numbers is how the desktop drift
 got faithfully reproduced on mobile.
 
+### Colour
+
+The palette is already tokenised and theme-aware — every one of these has a
+light and a dark value, and the lint enforces that:
+
+```
+--ink   --muted   --border   --card   --accent   --accent-soft   --chip-bg
+--ok / --ok-soft      --warn / --warn-soft      --error / --error-soft
+```
+
+**Never write `var(--token, #fallback)` for a colour.** That pattern looks like
+a safety net and is the opposite of one:
+
+- If the token *doesn't* exist, the fallback is what renders — silently, in
+  both themes. `var(--danger, #e2534b)` appeared in six rules and `--danger` was
+  declared nowhere, so all six ignored dark mode entirely while looking
+  perfectly correct in the stylesheet. The theme-aware `--error` had existed
+  the whole time and is a different red in dark mode.
+- If the token *does* exist, the fallback is dead code that would let a rename
+  keep working while quietly showing the wrong colour.
+
+`var(--text-muted, inherit)` was the same bug, quieter: the token was never
+declared, so the text simply inherited and was never muted at all.
+
+Fallbacks are allowed for font stacks and numeric defaults (`--mono`,
+`--ui-font`, `--bg-art-opacity`) and for two tokens that legitimately fall back
+to another token. Everything else is caught.
+
+Literal colours are still correct in exactly one place: the sketch palette,
+where the hex value *is* the data, and the accent presets, which are
+definitions.
+
 ---
 
 ## Hierarchy
@@ -172,13 +204,16 @@ in the next session reaches for whatever looks right at the time, and the drift
 starts again — which is exactly how it got here, over six tabs and as many
 sessions.
 
-`tests/test_style_scale.py` checks five things:
+`tests/test_style_scale.py` checks:
 
 - every spacing value is on the scale;
 - every font size is on the scale;
 - no corner radius is hard-coded in pixels;
 - the corner tiers stay expressed in terms of `--radius`;
-- no page container draws its own outer gutter.
+- no page container draws its own outer gutter;
+- the page shell is declared once and used;
+- no colour token is used with a fallback;
+- every semantic colour has a dark-mode value.
 
 It strips CSS comments before scanning, because the comments in this file
 explain layout decisions and therefore quote lengths — `test_frontend_ids.py`
@@ -196,9 +231,6 @@ it is. See ROADMAP §35L.
   single value moved more than 0.1rem — but "bounded" is not "verified", and
   the roadmap's standing caveat about reasoning instead of reproducing applies
   to this document as much as to anything else in it.
-- **Colour has had no pass.** The palette system works and is user-facing, but
-  there is no documented scale for surfaces, borders and states the way there
-  now is for space and type.
 - **Density and motion** are user settings that a few components ignore.
 - **The tab bar** is at the width where another tab hurts, which matters for
   the unbuilt Library tab (§4) — decide whether it absorbs existing tabs or the

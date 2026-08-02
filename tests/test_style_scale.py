@@ -231,3 +231,53 @@ def test_the_shell_is_declared_once_and_responsively():
         assert f"{token}:" in text, f"{token} is not declared"
         assert f"var({token})" in text, f"{token} is declared but never used"
     assert "padding: var(--page-top) var(--page-gutter) var(--page-bottom);" in text
+
+
+# --- colour -------------------------------------------------------------------
+
+#: Tokens whose fallback is legitimate: a font stack has to name real families,
+#: and an opacity needs a number when the art is off.
+FALLBACK_ALLOWED = {"--mono", "--ui-font", "--bg-art-opacity", "--modal-bg", "--chip-bg"}
+
+VAR_WITH_FALLBACK = re.compile(r"var\(\s*(--[\w-]+)\s*,")
+DECLARED = re.compile(r"(?m)^\s*(--[\w-]+)\s*:")
+
+
+def test_no_token_is_used_with_a_dead_fallback():
+    """`var(--danger, #e2534b)` in six rules, and `--danger` declared nowhere.
+
+    All six therefore rendered the hard-coded red in *both* themes, ignoring
+    the theme-aware `--error` that already existed and is a different colour in
+    dark mode. `var(--text-muted, inherit)` was the same bug quieter still — it
+    simply inherited, so the text was never muted at all.
+
+    A fallback on a token that IS declared is dead code with a sharper edge: it
+    looks like a safety net and is actually a way for a rename to silently stop
+    applying, since the rule keeps working while quietly showing the wrong
+    colour. Either the token exists — use it plainly — or it does not, and the
+    fallback is hiding a bug.
+    """
+    text = _stylesheet()
+    declared = set(DECLARED.findall(text))
+    offenders = sorted(
+        {
+            name
+            for name in VAR_WITH_FALLBACK.findall(text)
+            if name not in FALLBACK_ALLOWED
+        }
+    )
+    detail = [
+        f"{name} — {'declared, so the fallback is dead code' if name in declared else 'NOT DECLARED, so the fallback is what renders'}"
+        for name in offenders
+    ]
+    assert not offenders, "Tokens used with a fallback:\n  " + "\n  ".join(detail)
+
+
+def test_the_semantic_colour_set_is_complete_in_both_themes():
+    """Every state colour needs a dark-mode value, or a component using it is
+    unreadable on one of the two themes the app ships with."""
+    text = _stylesheet()
+    for token in ("--ok", "--warn", "--error", "--accent", "--muted", "--ink"):
+        assert len(re.findall(rf"(?m)^\s*{token}\s*:", text)) >= 2, (
+            f"{token} is declared once — it needs a dark-mode value too"
+        )

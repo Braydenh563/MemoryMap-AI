@@ -3842,7 +3842,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
   font-weight: 700;
   line-height: 1;
 }
-.attachment-remove:hover { color: var(--danger, #e2534b); }
+.attachment-remove:hover { color: var(--error); }
 
 /* --- the writing room -------------------------------------------------------- */
 /* Thoughts on the left, the draft on the right, so you can see the raw material
@@ -4066,7 +4066,7 @@ button.ai-unavailable {
 }
 .saved-search-apply { font-weight: 600; }
 .saved-search-remove { font-weight: 700; opacity: 0.6; }
-.saved-search-remove:hover { opacity: 1; color: var(--danger, #e2534b); }
+.saved-search-remove:hover { opacity: 1; color: var(--error); }
 .saved-search-apply:focus-visible,
 .saved-search-remove:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
@@ -5310,10 +5310,14 @@ textarea.autogrow {
 .log-dropped {
   margin: 0 0 0.5rem;
   padding: 0.4rem 0.6rem;
-  border-left: 3px solid var(--warn, #c8892b);
+  border-left: 3px solid var(--warn);
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--warn, #c8892b) 12%, transparent);
-  color: var(--text-muted, inherit);
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+  /* Was var(--text-muted, inherit) — a token that is declared nowhere, so
+     this silently inherited instead of going muted. The real one is
+     --muted; the name would also now collide with the --text-* type
+     scale, which is a second reason not to resurrect it. */
+  color: var(--muted);
   font-size: 0.8rem;
 }
 
@@ -5373,9 +5377,9 @@ textarea.autogrow {
   white-space: nowrap;
   background: color-mix(in srgb, currentColor 10%, transparent);
 }
-.log-live[data-state="live"] { color: var(--ok, #3a9e56); }
+.log-live[data-state="live"] { color: var(--ok); }
 .log-live[data-state="connecting"],
-.log-live[data-state="offline"] { color: var(--warn, #c8892b); }
+.log-live[data-state="offline"] { color: var(--warn); }
 .log-live[data-state="paused"] { opacity: 0.6; }
 
 /* Follow is on but paused because the reader scrolled up. Saying so beats
@@ -5385,8 +5389,8 @@ textarea.autogrow {
   opacity: 0.7;
 }
 
-.log-list .log-error { border-left: 3px solid var(--danger, #e2534b); }
-.log-list .log-warn { border-left: 3px solid var(--warn, #c8892b); }
+.log-list .log-error { border-left: 3px solid var(--error); }
+.log-list .log-warn { border-left: 3px solid var(--warn); }
 
 .log-line { display: inline; }
 .log-source-tag {
@@ -5400,7 +5404,7 @@ textarea.autogrow {
   opacity: 0.8;
   background: color-mix(in srgb, currentColor 14%, transparent);
 }
-.log-source-browser { color: var(--accent, #4f6df5); }
+.log-source-browser { color: var(--accent); }
 
 /* A traceback is many lines, so it folds. Real newlines are safe here — this
    is a block, not a row, so it cannot forge a record the way a message could. */
@@ -5428,7 +5432,7 @@ textarea.autogrow {
   min-width: 1.1rem;
   padding: 0 0.25rem;
   border-radius: var(--radius-pill);
-  background: var(--danger, #e2534b);
+  background: var(--error);
   color: #fff;
   font-size: 0.7rem;
   font-weight: 700;
@@ -5588,8 +5592,8 @@ textarea.autogrow {
    focused button — cancel takes focus, so a stray Enter arriving with the
    dialog can't be the thing that empties the recycle bin. */
 .confirm-actions .danger {
-  background: var(--danger, #e2534b);
-  border-color: var(--danger, #e2534b);
+  background: var(--error);
+  border-color: var(--error);
   color: #fff;
 }
 .confirm-actions .danger:hover { filter: brightness(1.1); }

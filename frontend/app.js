@@ -6910,6 +6910,13 @@ async function renderDashboard() {
 
 let artInstance = null; // the one live p5 instance, if any
 let artNonce = 0; // bumped by "Regenerate" for a fresh arrangement
+// Where the constellation is drawn, kept so a theme change can rebuild it.
+//
+// The sketch reads light-or-dark ONCE, when it is built, and paints its wash
+// from that. Nothing rebuilt it when the mode changed, so toggling to dark left
+// the one panel on the dashboard still wearing the light background until you
+// pressed Regenerate — reported, and listed in IDEAS.md.
+let artHolder = null;
 
 // Stable 0–359 hue from a category name, so a category keeps its colour.
 function hueFor(name) {
@@ -6935,6 +6942,19 @@ function stopArt() {
     artInstance.remove(); // tears down the canvas + draw loop
     artInstance = null;
   }
+}
+
+// Rebuild the constellation for the mode now in force. Safe to call whenever
+// the theme changes: it does nothing unless the widget is actually on screen,
+// and it keeps `artNonce` so the sky stays the same arrangement — this is a
+// recolour, not a reshuffle, and re-rolling someone's picture because they
+// turned on dark mode would be its own bug.
+function refreshArtForTheme() {
+  if (!artHolder || !artHolder.isConnected) {
+    artHolder = null;
+    return;
+  }
+  startArt(artHolder);
 }
 
 function buildArtParticles(p, categories, total, width, height) {
@@ -7017,6 +7037,7 @@ async function renderArtWidget(body) {
 
 async function startArt(holder) {
   stopArt();
+  artHolder = holder;
   if (typeof p5 === "undefined") {
     holder.textContent = "The art library didn't load.";
     return;
@@ -12525,6 +12546,8 @@ function toggleTheme() {
   localStorage.setItem("theme", next); // remembered across restarts
   applyResolvedMode();
   if (bgArtOn()) startBgArt(); // recolour the background for the new theme
+  refreshArtForTheme(); // …and the dashboard constellation, which reads the
+                        // mode when it is built rather than on every frame
 }
 
 // --- Wave J: accent themes + generative background --------------------------------
@@ -12579,6 +12602,7 @@ function applyAccent(name, remember = true) {
   if (remember) localStorage.setItem("accent", name);
   applyEffectiveAccent();
   if (bgArtOn()) startBgArt(); // repaint the background in the new accent
+  refreshArtForTheme(); // its wash is painted from the accent as well
   renderBrandLogo(); // recolour the emblem too
 }
 
@@ -13190,6 +13214,7 @@ window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () 
   if (effectiveTheme() === "system") {
     applyResolvedMode();
     if (bgArtOn()) startBgArt();
+    refreshArtForTheme();
   }
 });
 
@@ -13203,6 +13228,10 @@ function applyThemeChoice(choice, remember = true) {
   }
   applyResolvedMode();
   if (bgArtOn()) startBgArt();
+  // The dashboard constellation reads light-or-dark when it is built, so it
+  // has to be rebuilt too — the background art already was, which is why only
+  // this one appeared stuck on the old mode.
+  refreshArtForTheme();
   renderBrandLogo();
 }
 
@@ -13419,8 +13448,10 @@ function applyPalette(id, remember = true) {
   if (id && id !== "default") root.dataset.palette = id;
   else delete root.dataset.palette;
   if (remember) localStorage.setItem("palette", id || "default");
-  // The generative background paints from the accent, so it has to be rebuilt.
+  // The generative background paints from the accent, so it has to be rebuilt —
+  // and so does the dashboard constellation, for the same reason.
   if (bgArtOn()) startBgArt();
+  refreshArtForTheme();
 }
 
 function renderPaletteGrid() {

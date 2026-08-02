@@ -14,7 +14,7 @@ built (build plan §0: never expand scope mid-phase).
 - Better agentic web search through chat
 - A mini bar at the bottom with various statuses and quick access to the command palatte
 - Allow for saving of custom appearances and themes. 
-- Make notebook constelation regenerate on light/dark theme change. 
+- ~~Make notebook constelation regenerate on light/dark theme change.~~ **fixed** — it read light-or-dark once when built, and only the *background* art was rebuilt on a toggle. Now rebuilt on every mode, accent and palette change, keeping the same arrangement (a recolour, not a reshuffle).
 - Gravity and spread don't affect the othe rgraph configurations
 - A visual timeline like a branching line with off shoots
 - Better documents ui and utility/usability

@@ -4221,6 +4221,59 @@ theme: the agent is expensive to use and under-delivers on what it is asked.
 
 ---
 
+### 35L. The UI has no design system, and it shows
+
+Asked for directly, and it is the sharpest criticism in this document:
+
+> *"the way spacing, alignment and margins of all the ui features in each tab
+> aren't consistent and it changes each tab. I want the UI across the
+> application to be very professional, consistent and clean. not to look like
+> it is just a bunch of ai generated slop features joined together"*
+
+**That description is accurate and the cause is structural.** Every tab was
+built in its own session, each one reaching for whatever spacing looked right
+at the time, and `style.css` has grown past 5,000 lines with no shared scale
+underneath it. The `.hidden` collision fixed this session (§35F's sibling — a
+utility class losing to a component class written later in the same file) is
+the same disease showing up as a bug rather than as ugliness.
+
+**This is not a "polish pass" and should not be attempted as one.** Going tab
+by tab making things look nicer produces a seventh inconsistent tab. The order
+that actually works:
+
+1. **Extract the scale that already exists implicitly.** Every margin in the
+   file is one of about six numbers with drift around them. Write those six as
+   custom properties (`--space-1` … `--space-6`), and a type scale beside them.
+2. **Convert one tab to use only those tokens**, and keep it as the reference.
+   Notes is the right choice — it is the tab named in the same report as
+   needing layout work, and the busiest.
+3. **Then the rest, one at a time**, each a diff that only replaces hard-coded
+   values. A conversion that also redesigns something is a conversion nobody
+   can review.
+4. **A lint that fails on a raw `px` margin or padding** outside the token
+   block, so tab seven cannot reintroduce the problem. This is the step that
+   makes it stick; without it this section will be rewritten in six months.
+
+Related requests, all of which should wait for the tokens rather than land on
+top of the current state:
+
+- **The top of the dashboard** wants expanding and tidying.
+- **A bottom bar**, mentioned before and worth checking IDEAS.md for.
+- **The Notes tab layout, especially note metadata** — how a note's category,
+  tags, dates and link count are shown. This is the single most-looked-at
+  surface in the app.
+- **The chat bubble's metadata line** (§35K) is the same problem in miniature.
+
+**And the tab bar itself.** The Library tab (§4) is still unbuilt, and the
+question was asked directly: *is it coming, and will the top bar cope?* The
+honest answer is that the bar is already at the width where another tab hurts,
+so **Library should not be added as a seventh peer.** Either it absorbs
+existing tabs (documents and chats are both "things you have", which is what a
+library is), or the bar gains an overflow. Deciding that *before* building §4
+is much cheaper than deciding it afterwards.
+
+---
+
 ### The standing caveat, now with three pieces of evidence
 
 **Every provider test in this repository runs against a fake transport.** The

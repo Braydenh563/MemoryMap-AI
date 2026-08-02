@@ -3601,14 +3601,48 @@ html { font-size: 16px; }
   flex-wrap: wrap;
   margin-bottom: 0.6rem;
 }
+/* Title and its metadata are one block, so the actions align to the pair
+   rather than to whichever of them happens to be taller. */
+.chat-headline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  margin-right: auto;
+}
 .chat-toolbar #chat-title {
   margin: 0;
-  margin-right: auto;
-  max-width: 16rem;
+  max-width: 22rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* One line of quiet facts under the title: what the thread has cost, and
+   whether the model is reading a summary rather than the messages. Empty most
+   of the time, and it takes no height when it is — an always-present blank
+   line under a heading is the sort of unexplained gap §36B spent a session
+   removing from the note card. */
+.chat-subline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.chat-subline:empty { display: none; }
+/* An action that belongs in a sentence, not a button beside one. `Undo` sits
+   inside the "reading a summary" note, so it is styled as the words it is. */
+.link-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  box-shadow: none;
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.link-button:hover { filter: brightness(1.15); }
 /* These three followed the controls down into the dock — `select` especially,
    because the base rule is `width: 100%` and without an override each picker
    becomes as wide as the row allows. Written for both surfaces rather than
@@ -3637,16 +3671,70 @@ html { font-size: 16px; }
 .chat-dock {
   flex: 0 0 auto;
   border-top: 1px solid var(--border);
-  padding-top: var(--space-4);
-  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  margin-top: var(--space-3);
   background: var(--card);
 }
+/* One strip rather than three stacked rows.
+   Asked for: "make the bottom dock in the chat cleaner and better structured
+   ui wise so it's not as bulky". The height was the complaint and the cause
+   was structural — a skills row, a controls row and the composer, each with
+   its own vertical rhythm, is three bands of chrome under every conversation.
+   The first two are one line now, and the parts that made it tall are gone:
+   the skill's description (a sentence of running text, clipped mid-word, now
+   the select's tooltip) and the duplicated "⚡ Skill:" label beside a select
+   whose placeholder already says it.
+
+   `align-items: center` with one control height (--control-h) is what makes it
+   read as a strip: a segmented control, two selects and four buttons that each
+   sized themselves is what made the old row look assembled rather than
+   designed. */
 .chat-dock-controls {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-3);
   flex-wrap: wrap;
+  /* One height for everything in the strip. Not a spacing token: this is a
+     control's size, the same role --radius plays for corners, and snapping it
+     to a gap step would make it drift with density in a way a hit target
+     should not. */
+  --control-h: 1.9rem;
 }
+.chat-dock-controls select,
+.chat-dock-controls > .chat-tool-group > button,
+.chat-dock-controls .seg,
+.chat-dock-controls .seg button {
+  height: var(--control-h);
+  padding-block: 0;
+  font-size: var(--text-md);
+}
+/* The segmented control carries its own padding around its two buttons, which
+   made it four pixels taller than everything beside it — the sort of near-miss
+   DESIGN.md is about: nothing lines up, and the row reads as assembled rather
+   than designed. It keeps its inset horizontally and gives it up vertically. */
+.chat-dock-controls .seg {
+  display: inline-flex;
+  align-items: center;
+  padding-block: 0;
+}
+.chat-dock-controls select { max-width: 9rem; }
+/* The skills group is the one that varies in width — a skill name can be
+   anything — so it is the one allowed to give ground first. */
+.chat-tool-group-skills { min-width: 0; }
+.chat-tool-group-skills select { flex: 0 1 11rem; max-width: 11rem; }
+/* The group's mark, not a label. Sized and centred with the controls rather
+   than sitting on the text baseline, where a single glyph beside a select
+   reads as something that failed to load. */
+.chat-skill-mark {
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-h);
+  font-size: var(--text-lg);
+  line-height: 1;
+}
+/* Hidden as a group, not as a row: `.hidden` has to beat the flex display the
+   group otherwise carries. */
+.chat-tool-group.hidden { display: none; }
 .chat-dock .chat-composer { margin-top: var(--space-4); }
 /* The web panel opens inside the dock, next to the button that opens it. Its
    inner lists already scroll; this caps the whole thing so a page of results
@@ -4584,12 +4672,13 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 }
 .conv-divider:hover { background: var(--border); }
 
-/* The conversation's running total, beside the persona picker. */
+/* The conversation's running total. **Metadata, not a control** — it moved
+   under the title with the rest of the subline, because as a filled chip
+   between the heading and the buttons it read as a third button, and it
+   shifted the actions sideways every time the number gained a digit. */
 .chat-usage {
-  font-size: 0.75rem;
-  padding: 0.15rem 0.5rem;
-  border-radius: var(--radius-pill);
-  background: var(--chip-bg);
+  font-size: var(--text-sm);
+  color: var(--muted);
   white-space: nowrap;
 }
 
@@ -5809,15 +5898,11 @@ textarea.autogrow {
   padding: 0.25rem 0.6rem;
   font-size: 0.8rem;
 }
-/* Skills as a dropdown: one line instead of a wrapping wall of chips, with
-   room for a description beside it rather than hidden in a hover. */
-.chat-skill-hint {
-  font-size: 0.75rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 22rem;
-}
+/* (`.chat-skill-hint` lived here: the sentence of description that used to sit
+   beside the skill picker. It was the widest thing in the dock and was clipped
+   to one line anyway, so it says the same thing better as the select's own
+   tooltip — which `skillSummary` already fills with the description, the steps
+   and the tools.) */
 
 /* A background job that ended badly. Colour is not the only signal — the row
    carries ⚠️ and the reason in words — because a red line nobody can read the

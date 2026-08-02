@@ -6185,9 +6185,17 @@ async function loadChatSkills() {
   const box = $("chat-skills");
   box.replaceChildren();
 
+  // "⚡" alone, not "⚡ Skill:". The select's own placeholder already reads
+  // "Choose a skill…", so the label was saying it twice in a strip where every
+  // character costs width.
   const label = document.createElement("span");
-  label.className = "muted";
-  label.textContent = "⚡ Skill:";
+  label.className = "muted chat-skill-mark";
+  // With the emoji variation selector: bare U+26A1 renders as a thin
+  // text-style glyph on any platform whose default presentation for it is
+  // text, which beside a colour 🌐 and 🤖 in the same strip looks like a mark
+  // that failed to load. Screenshotted in Chromium on Linux, where it does.
+  label.textContent = "⚡️";
+  label.title = "Skills — saved jobs you can run over your notes";
 
   const select = document.createElement("select");
   select.className = "small-select";
@@ -6228,8 +6236,13 @@ async function loadChatSkills() {
   run.disabled = true;
   select.addEventListener("change", () => {
     run.disabled = !select.value;
+    // What the skill does moves to the select's own tooltip rather than a line
+    // of prose beside it. It was a sentence of running text in a control
+    // strip — the widest thing in the dock, and unreadable at a glance because
+    // it was clipped to 120 characters anyway. `skillSummary` already puts the
+    // full description, the steps and the tools on every option's title.
     const chosen = allSkills().find((s) => s.name === select.value);
-    hint.textContent = chosen ? (chosen.description || chosen.prompt || "").slice(0, 120) : "";
+    select.title = chosen ? skillSummary(chosen) : "Run one of your saved skills";
   });
 
   const manage = smallButton("＋", "Add or edit skills in Settings", () =>
@@ -6237,10 +6250,7 @@ async function loadChatSkills() {
   );
   manage.classList.add("ghost");
 
-  const hint = document.createElement("span");
-  hint.className = "muted chat-skill-hint";
-
-  box.append(label, select, run, manage, hint);
+  box.append(label, select, run, manage);
   box.classList.remove("hidden");
 }
 

@@ -495,21 +495,32 @@ Link to another note with [[its first few words]]."></textarea>
 
                Ids are unchanged throughout, so nothing in app.js has to know
                any of this happened. -->
+          <!-- The conversation's own header: what this thread is, what it has
+               cost, and the two things you can do to it as a whole.
+
+               Two levels, not one row of equals. The title is the heading
+               (DESIGN.md's `.card h2`); the token count sits under it as
+               metadata, in --text-sm and muted, because it is a fact about the
+               thread rather than a control. Previously it was a chip wedged
+               between the title and the buttons, which read as a third button
+               and pushed the actions around whenever the number grew a digit. -->
           <div class="chat-toolbar">
-            <h2 id="chat-title">New chat</h2>
-            <!-- This conversation, as an object: what it has cost and how to
-                 take it with you. -->
-            <div class="chat-tool-group chat-tool-group-end" role="group" aria-label="This conversation">
-              <span id="chat-usage" class="chat-usage muted" hidden
-                title="Everything this conversation has sent to the model so far"></span>
-              <!-- Shown only once a summary is in use, because a compression
-                   the user cannot see is a conversation quietly answering from
-                   something they never read. Carries its own undo. -->
-              <span id="chat-compressed" class="chat-compressed hidden">
-                <span></span>
-                <button id="chat-uncompress" class="ghost small"
-                  title="Go back to sending the real messages">Undo</button>
+            <div class="chat-headline">
+              <h2 id="chat-title">New chat</h2>
+              <span class="chat-subline">
+                <span id="chat-usage" class="chat-usage" hidden
+                  title="Everything this conversation has sent to the model so far"></span>
+                <!-- Shown only once a summary is in use, because a compression
+                     the user cannot see is a conversation quietly answering
+                     from something they never read. Carries its own undo. -->
+                <span id="chat-compressed" class="chat-compressed hidden">
+                  <span></span>
+                  <button id="chat-uncompress" class="link-button"
+                    title="Go back to sending the real messages">Undo</button>
+                </span>
               </span>
+            </div>
+            <div class="chat-tool-group chat-tool-group-end" role="group" aria-label="This conversation">
               <button id="chat-compress" class="ghost small"
                 title="Summarise the earlier messages, so the model keeps the gist instead of losing the start of a long chat">🗜 Compress</button>
               <button id="chat-export" class="ghost small" title="Download this chat as a Markdown file">⭳ Export</button>
@@ -582,12 +593,22 @@ Link to another note with [[its first few words]]."></textarea>
                 <div id="web-reader-text" class="web-reader-text"></div>
               </div>
             </div>
-            <!-- Attached notes and the skill picker are per-message controls
-                 too, so they came down with the rest. Ids unchanged. -->
+            <!-- Attached notes are per-message too. They are their own line
+                 because they are *content* — a variable number of note chips —
+                 and putting them in the control strip would make its height
+                 depend on how many notes you had clipped. -->
             <div id="chat-attachments" class="chat-attachments hidden"
               role="group" aria-label="Notes attached to your next message"></div>
-            <div id="chat-skills" class="recent hidden"></div>
+            <!-- One strip, four groups, hairlines between them.
+                 It was three stacked rows — skills, then controls, then the
+                 composer — which is most of the height of a short
+                 conversation. Each group answers one question (what the AI may
+                 use · how it answers · what job to run) and each is only as
+                 wide as its controls, so they fit on one line at any width the
+                 chat is usable at and wrap in whole groups when they don't. -->
             <div class="chat-dock-controls">
+              <div id="chat-skills" class="chat-tool-group chat-tool-group-skills hidden"
+                role="group" aria-label="Run a skill"></div>
               <!-- "Agent mode" rather than "AI can make changes": the switch
                    turns on tool use generally — reading notes, searching the
                    web, opening a page — not only writes. The old label

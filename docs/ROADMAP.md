@@ -1271,8 +1271,30 @@ controls in a different order.
    unchanged throughout, so `app.js` needed no edit; `tests/test_chat_dock.py`
    pins the arrangement, because nothing else here can see it.
 
-   Still open: the composer's own controls (📎, 🎙, Send) have not been
-   looked at, and **none of this has been checked in a browser.**
+   **Then made compact**, asked for directly: *"make the bottom dock in the
+   chat bar cleaner and better structured ui wise so it's not as bulky."* The
+   first version was three stacked bands — a skills row, a controls row and the
+   composer — which is most of the height of a short conversation. Now one
+   strip of four groups, and the two things that made it tall are gone: the
+   skill's description (a sentence of running text, clipped mid-word; it is the
+   select's tooltip now, where `skillSummary` already puts the steps and tools)
+   and a "⚡ Skill:" label beside a select whose placeholder said the same
+   thing. One `--control-h` for every select, button and segment is what makes
+   it read as a strip — the segmented control had been four pixels taller than
+   its neighbours, which is §35L's complaint in miniature.
+
+   **The header became two levels rather than one row of equals**: the title as
+   the heading, the token count and the "reading a summary" note as a quiet
+   subline under it, and only the two conversation actions on the right. The
+   usage chip used to be a filled pill between the title and the buttons, which
+   read as a third button and shoved the actions sideways whenever the number
+   gained a digit.
+
+   Measured and screenshotted in a browser, light and dark: dock 3 rows → 1,
+   every control 30px, header 41px empty / 59px with metadata.
+
+   Still open: the composer's own controls (📎, 🎙, Send) have not been looked
+   at.
 
    Original note: The toolbar has grown a control at a time —
    Chat/Agent, Web, response mode, persona, peek, export, skill picker, tools

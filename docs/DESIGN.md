@@ -230,16 +230,36 @@ had to learn the same lesson about markup comments quoting ids.
 
 ---
 
+## Control height
+
+One more thing has to match for a row of controls to read as a strip rather
+than as a pile: **their height.** The chat dock declares `--control-h` and
+every select, button and segmented control in it is that tall.
+
+It is deliberately *not* a spacing token. A hit target is a control's own size
+— the role `--radius` plays for corners — and snapping it to a gap step would
+make it move with the density setting, which is not what density is for.
+
+The failure it prevents is the one this whole document is about: the segmented
+control brought its own padding and stood four pixels taller than the selects
+beside it. Nothing lines up, no edge agrees with another, and the row reads as
+assembled rather than designed — the "slop features joined together" complaint
+in miniature, at four pixels.
+
+---
+
 ## What is not done yet
 
 Recorded honestly, because this document should not read as further along than
 it is. See ROADMAP §35L.
 
-- **Nothing here has been checked in a browser.** The sandbox is Linux with no
-  display. Every change was reasoned from the stylesheet and bounded so that no
-  single value moved more than 0.1rem — but "bounded" is not "verified", and
-  the roadmap's standing caveat about reasoning instead of reproducing applies
-  to this document as much as to anything else in it.
+- **Most of this has still not been checked in a browser** — but it now *can*
+  be, and the parts that were are marked as such. Chromium and Playwright are
+  in the sandbox and the app runs on localhost (CLAUDE.md has the recipe). The
+  chat header and dock were measured and screenshotted in both themes; the tab
+  bar was measured at five widths. Everything else here was reasoned from the
+  stylesheet and bounded so no single value moved more than 0.1rem — which is
+  not the same as verified. **Look at what you change; it costs a minute.**
 - **Motion** is a user setting a few components still ignore. Density is done —
   it is a multiplier over the spacing scale now.
 - **The tab bar** is at the width where another tab hurts, which matters for

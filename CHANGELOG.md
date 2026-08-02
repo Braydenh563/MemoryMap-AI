@@ -71,6 +71,18 @@ it. A summary keeps the gist of ten messages for the price of one.
 Nothing is deleted. Every message stays in the conversation and in the saved
 transcript; only what the model is *sent* changes, and one Undo puts it back.
 
+### Changed — the chat's controls are one strip, and its header has two levels
+
+The dock under the chat was three stacked bands — skills, controls, then the
+message box — which is most of the height of a short conversation. It is one
+line now: skills · what the AI may use · how it answers, with everything the
+same height so it reads as a single strip. The skill's description moved into
+the picker's tooltip, where the steps and tools it uses already were.
+
+The chat header shows the conversation's name as a heading with its token count
+and compression state as quiet metadata beneath, instead of a row of things
+that all looked like buttons.
+
 ### Fixed — the desktop app could keep running an old build
 
 If a button you were told was fixed is still broken, this is why. The frontend

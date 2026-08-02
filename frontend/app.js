@@ -11807,9 +11807,20 @@ function autoGrow(el) {
   // scrollHeight is measured against the height already set.
   el.style.height = "auto";
   const limit = autoGrowLimit(el);
-  const next = Math.min(el.scrollHeight, limit);
+  // **A height somebody dragged to is a floor, not just a ceiling.** Driven in
+  // a browser: dragging the composer taller stored the new height and then
+  // snapped the box straight back to one line, because this took
+  // `min(scrollHeight, limit)` and an empty box has a scrollHeight of one row.
+  // The setting was saved and instantly undone — which is worse than not
+  // offering the drag at all.
+  //
+  // So a hand-set height is the height. It is what "manually adjustable"
+  // means: the box stays where it was put, and only scrolls once the text
+  // outgrows it.
+  const chosen = Number(el.dataset.maxPx || 0);
+  const next = chosen > 0 ? chosen : Math.min(el.scrollHeight, limit);
   el.style.height = `${next}px`;
-  el.style.overflowY = el.scrollHeight > limit ? "auto" : "hidden";
+  el.style.overflowY = el.scrollHeight > next ? "auto" : "hidden";
   // What this function chose, so a later resize can be told apart from a drag
   // by the user — the two are indistinguishable to a ResizeObserver otherwise.
   el.dataset.autoHeight = String(next);

@@ -2272,18 +2272,22 @@ async function streamChat({
   noteIds,
   skill,
   skillInputs,
+  skillFromStep,
+  plan,
   notesOnly,
   signal,
   onMeta,
   onPlan,
   onStep,
   onResult,
+  onLimit,
   onThinking,
   onAnswer,
   onTool,
   onConfirm,
   onAsk,
   onRunSkill,
+  onRunPlan,
   onHint,
   onStats,
 }) {
@@ -2301,7 +2305,15 @@ async function streamChat({
   if (skill) {
     body.skill = skill;
     if (skillInputs && Object.keys(skillInputs).length) body.skill_inputs = skillInputs;
+    // Resuming: the steps before this one ran in an earlier attempt and are
+    // not repeated. Sent as an index rather than as a list of what to skip,
+    // so the server stays the one place that knows what the steps are.
+    if (skillFromStep) body.skill_from_step = skillFromStep;
   }
+  // A plan the model just made. Carries its own steps because nothing saved
+  // it — that is the only way it differs from a skill run, here and on the
+  // server.
+  if (plan && plan.steps && plan.steps.length) body.plan = plan;
   const response = await fetch("/chat/stream", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() },
@@ -2333,12 +2345,14 @@ async function streamChat({
       else if (event.type === "plan" && onPlan) onPlan(event);
       else if (event.type === "step" && onStep) onStep(event);
       else if (event.type === "result" && onResult) onResult(event);
+      else if (event.type === "limit" && onLimit) onLimit(event);
       else if (event.type === "thinking") onThinking(event.delta);
       else if (event.type === "answer") onAnswer(event.delta);
       else if (event.type === "tool" && onTool) onTool(event);
       else if (event.type === "confirm" && onConfirm) onConfirm(event);
       else if (event.type === "ask" && onAsk) onAsk(event);
       else if (event.type === "run_skill" && onRunSkill) onRunSkill(event);
+      else if (event.type === "run_plan" && onRunPlan) onRunPlan(event);
       else if (event.type === "hint" && onHint) onHint(event);
       else if (event.type === "stats" && onStats) onStats(event);
     }
@@ -2565,6 +2579,36 @@ let chatConv = { id: null, turns: [] }; // the open conversation
 let chatController = null;
 let lastChatQuestion = ""; // powers Regenerate / Edit & resend
 
+// A summary standing in for the first `covered` turns when this conversation
+// is sent to the model (§35I). Deliberately *beside* the turns rather than
+// replacing them: the transcript on screen and the saved conversation are
+// untouched, so this narrows what the model reads and loses nothing. Undo is
+// therefore setting this back to null.
+let chatSummary = null; // { text, covered }
+
+// What the model is given as history: the summary in place of the turns it
+// covers, then everything since, capped as before.
+//
+// Without a summary the tail is all the model gets — `context.fit_history`
+// drops whole pairs from the oldest end to fit, so a long conversation does
+// not overflow, it silently forgets its own beginning. A few hundred
+// characters carrying the gist of ten turns is strictly better than the whole
+// of one.
+function chatHistoryToSend() {
+  const turns = chatConv.turns;
+  if (!chatSummary || chatSummary.covered <= 0) {
+    return turns.slice(-MAX_CLIENT_HISTORY);
+  }
+  const since = turns.slice(chatSummary.covered).slice(-MAX_CLIENT_HISTORY);
+  return [
+    {
+      question: "What have we covered so far?",
+      answer: `Summary of the first ${chatSummary.covered} messages:\n${chatSummary.text}`,
+    },
+    ...since,
+  ];
+}
+
 // The persona name to label assistant bubbles with (falls back to "Assistant").
 function assistantLabel() {
   const select = $("persona-select");
@@ -2586,6 +2630,37 @@ function chatMessageActions(actions) {
     button.setAttribute("aria-label", action.title);
     button.addEventListener("click", action.onClick);
     row.appendChild(button);
+  }
+  return row;
+}
+
+// The offer to carry on, shown under a turn that stopped before it was done.
+//
+// Reported twice in the same breath: *"the agent struggles with long tasks
+// like skills then cuts out half way through and has to restart, or it hits a
+// limit for tool calls."* Both ended in a paragraph telling the user to ask it
+// to continue — so continuing meant typing the request out again from memory,
+// and resuming a six-step skill meant re-running the three steps that had
+// already changed the notebook. This is one button for each case.
+function continueRunControls({ label, hint, onClick }) {
+  const row = document.createElement("div");
+  row.className = "run-continue";
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "small";
+  button.textContent = label;
+  button.addEventListener("click", () => {
+    // One press only: a second would start a duplicate run over the same
+    // notes, and every step of it writes.
+    button.disabled = true;
+    onClick();
+  });
+  row.appendChild(button);
+  if (hint) {
+    const why = document.createElement("span");
+    why.className = "muted";
+    why.textContent = hint;
+    row.appendChild(why);
   }
   return row;
 }
@@ -3301,6 +3376,82 @@ function renderChatUsage(tokens) {
   el.textContent = total ? `${formatTokens(total)} tokens` : "";
 }
 
+// --- compressing this conversation's context (§35I) --------------------------
+//
+// Asked for directly: *"there should be a tool as well as a manual command or
+// something to be able to compress chat context on longer chats so the AI can
+// better continue."* This is the manual half, which §35I says ships first
+// because it cannot misfire: you press it, you read what it produced, and only
+// then does the model see it instead of the turns it replaces.
+//
+// Nothing is deleted. The transcript on screen and the saved conversation keep
+// every turn — `chatSummary` only changes what `chatHistoryToSend` hands the
+// model, so Undo is one assignment.
+
+// How many turns to leave alone at the end. Compressing the exchange you are
+// still in the middle of is how a summary loses the thing you are talking
+// about right now.
+const KEEP_RECENT_TURNS = 2;
+
+async function compressChatContext() {
+  const covered = chatConv.turns.length - KEEP_RECENT_TURNS;
+  if (covered < 2) {
+    toast("There isn't enough conversation to compress yet.", true);
+    return;
+  }
+  const button = $("chat-compress");
+  button.disabled = true;
+  const previous = button.textContent;
+  button.textContent = "Summarising…";
+  try {
+    const result = await apiJson("/chat/compress", {
+      method: "POST",
+      body: JSON.stringify({ history: chatConv.turns.slice(0, covered) }),
+    });
+    showCompressReview(result, covered);
+  } finally {
+    button.disabled = false;
+    button.textContent = previous;
+  }
+}
+
+// The summary, before it is used — editable, because a summary you cannot
+// correct is one you have to trust blindly, and this one is about to be the
+// model's only memory of the first half of the conversation.
+function showCompressReview(result, covered) {
+  const panel = $("chat-compress-panel");
+  const box = $("chat-compress-text");
+  box.value = result.summary;
+  $("chat-compress-stats").textContent =
+    `${covered} messages → ${Math.round(result.chars_after / 10) / 100}k characters ` +
+    `(was ${Math.round(result.chars_before / 10) / 100}k). Edit it if it missed something.`;
+  panel.classList.remove("hidden");
+  panel.dataset.covered = String(covered);
+  box.focus();
+}
+
+function applyCompression() {
+  const text = $("chat-compress-text").value.trim();
+  const covered = Number($("chat-compress-panel").dataset.covered || 0);
+  if (!text || covered < 1) return;
+  chatSummary = { text, covered };
+  $("chat-compress-panel").classList.add("hidden");
+  renderCompressionState();
+  toast(`Using a summary in place of the first ${covered} messages.`);
+}
+
+// The badge that says the model is reading a summary rather than the thread,
+// with the way back. A compression the user cannot see is a conversation
+// quietly answering from something they never read.
+function renderCompressionState() {
+  const badge = $("chat-compressed");
+  if (!badge) return;
+  badge.classList.toggle("hidden", !chatSummary);
+  if (chatSummary) {
+    badge.firstElementChild.textContent = `🗜 first ${chatSummary.covered} summarised`;
+  }
+}
+
 // Three-dot "the model is about to speak" indicator (Wave D).
 // "The model is working." Under reduced motion the bouncing dots are frozen by
 // the blanket animation rules — three motionless dots say nothing at all, and
@@ -3489,7 +3640,12 @@ function agentTimeline(holder) {
     el.className = "agent-step step-plan";
     el.open = true;
     const summary = document.createElement("summary");
-    summary.textContent = `⚡ ${plan.skill}`;
+    // A saved skill and a plan the model drew for this one request run through
+    // the same code, so the card has to say which it is — "⚡ Weekly review" is
+    // a job the user set up, "🧭 fix my categories" is one the model worked out
+    // just now, and confusing the two makes the skill list look like it has
+    // entries nobody added.
+    summary.textContent = `${plan.kind === "plan" ? "🧭" : "⚡"} ${plan.skill}`;
     el.appendChild(summary);
     const items = [];
     if (plan.steps && plan.steps.length) {
@@ -4785,6 +4941,11 @@ async function sendChatMessage(preset, opts = {}) {
   // the input box and the conversation — so it is remembered and started
   // once everything below has run.
   let handoff = null;
+  // Set when the turn stopped because it ran out of rounds, and — for a skill
+  // run — the step it did not get past. Both become a button at the end of the
+  // bubble rather than a sentence asking the user to type "carry on".
+  let ranOutOfRounds = false;
+  let stoppedAtStep = null;
   const startedAt = performance.now();
   const toolEvents = []; // {label, ok} — persisted so chips survive a reload
   chatController = new AbortController();
@@ -4792,13 +4953,15 @@ async function sendChatMessage(preset, opts = {}) {
   try {
     await streamChat({
       question,
-      history: chatConv.turns.slice(-MAX_CLIENT_HISTORY),
+      history: chatHistoryToSend(),
       persona: $("persona-select").value || null,
       mode: $("response-mode-select").value || null,
       useTools: opts.useTools ?? $("tools-toggle").checked,
       noteIds: sentAttachments,
       skill: opts.skill,
       skillInputs: opts.skillInputs,
+      skillFromStep: opts.skillFromStep,
+      plan: opts.plan,
       signal: chatController.signal,
       onMeta: (m) => {
         meta = m;
@@ -4807,7 +4970,10 @@ async function sendChatMessage(preset, opts = {}) {
       onPlan: (event) => {
         clearPending();
         timeline.plan(event);
-        status.textContent = `Running “${event.skill}”…`;
+        status.textContent =
+          event.kind === "plan"
+            ? `Working through ${(event.steps || []).length} steps…`
+            : `Running “${event.skill}”…`;
         chatScrollToEnd();
       },
       onStep: (event) => {
@@ -4821,9 +4987,18 @@ async function sendChatMessage(preset, opts = {}) {
       onResult: (event) => {
         clearPending();
         timeline.result(event);
+        // Where the run stopped, if it did. A number here means the steps
+        // after it never ran.
+        stoppedAtStep = typeof event.stopped_at === "number" ? event.stopped_at : null;
         // A skill that changed notes has just made the list on screen stale.
         if ((event.changes || []).length) loadEntries();
         chatScrollToEnd();
+      },
+      onLimit: () => {
+        // Out of rounds with tools still in flight. Only remembered here: the
+        // offer to continue belongs beneath the answer that says it stopped,
+        // and that answer has not been written yet.
+        ranOutOfRounds = true;
       },
       onThinking: (delta) => {
         clearPending();
@@ -4867,6 +5042,17 @@ async function sendChatMessage(preset, opts = {}) {
         timeline.tool(toolChip(event.label, true));
         toolEvents.push({ label: event.label, ok: true });
         status.textContent = `Starting “${event.skill}”…`;
+        handoff = event;
+        chatScrollToEnd();
+      },
+      onRunPlan: (event) => {
+        // The model decided the job has several parts and planned it (§35K).
+        // Same handover as a skill: the turn is over and the steps run one at
+        // a time below, so nothing is left half-done.
+        clearPending();
+        timeline.tool(toolChip(event.label, true));
+        toolEvents.push({ label: event.label, ok: true });
+        status.textContent = "Working out the steps…";
         handoff = event;
         chatScrollToEnd();
       },
@@ -4930,15 +5116,50 @@ async function sendChatMessage(preset, opts = {}) {
       })
     );
   }
+  // A turn that stopped short offers the way onward, in the two shapes it can
+  // take. Not shown when the user pressed Stop — they know why it ended — and
+  // not when a skill run finished every step it had.
+  if (!stopped && stoppedAtStep !== null && opts.skill) {
+    bubble.appendChild(
+      continueRunControls({
+        label: `↻ Resume from step ${stoppedAtStep + 1}`,
+        hint: "Earlier steps are not repeated.",
+        onClick: () =>
+          sendChatMessage(`⚡ ${opts.skill} — from step ${stoppedAtStep + 1}`, {
+            skill: opts.skill,
+            skillInputs: opts.skillInputs || {},
+            skillFromStep: stoppedAtStep,
+          }),
+      })
+    );
+  } else if (!stopped && ranOutOfRounds) {
+    bubble.appendChild(
+      continueRunControls({
+        label: "→ Continue",
+        hint: "Picks up from what it had already done.",
+        onClick: () =>
+          sendChatMessage(
+            "Continue from where you stopped. Don't redo what you have " +
+              "already done — carry on with what is left, and say when it is " +
+              "all finished.",
+            { useTools: true }
+          ),
+      })
+    );
+  }
   chatScrollToEnd();
   if (toolsActed) refreshAfterToolChanges(); // the AI changed real data
   if (handoff) {
-    // Start the skill as its own message, down the same path the ⚡ dropdown
+    // Start the run as its own message, down the same path the ⚡ dropdown
     // uses — so the plan, the ticked steps, the change list and every Undo
     // work here exactly as they do when the user picks the skill themselves.
     // Deferred by a task because this turn is still finishing: it re-enables
     // the input box in `finally`, and the run needs to disable it again.
-    setTimeout(() => startSkill({ name: handoff.skill }, handoff.inputs || {}), 0);
+    const start =
+      handoff.type === "run_plan"
+        ? () => startPlannedRun(handoff.goal, handoff.steps)
+        : () => startSkill({ name: handoff.skill }, handoff.inputs || {});
+    setTimeout(start, 0);
   }
   if (!answerRaw) {
     // The model returned nothing. This used to return early and leave the
@@ -5087,6 +5308,9 @@ async function deleteChatTurn(assistantBubble) {
 
 function newChatConversation() {
   chatConv = { id: null, turns: [] };
+  // A summary belongs to the conversation it summarised (§35I).
+  chatSummary = null;
+  renderCompressionState();
   lastChatQuestion = "";
   $("chat-messages").replaceChildren();
   $("chat-title").textContent = "New chat";
@@ -5513,6 +5737,11 @@ async function openConversation(id) {
   const full = await apiJson(`/conversations/${id}`).catch(() => null);
   if (!full) return;
   chatConv = { id: full.id, turns: [] };
+  // Not carried across conversations, and not persisted: re-deriving it is one
+  // click, and a summary restored against the wrong thread would be worse than
+  // no summary at all.
+  chatSummary = null;
+  renderCompressionState();
   $("chat-title").textContent = full.title;
   renderChatUsage(full.tokens);
   $("chat-messages").replaceChildren();
@@ -5869,6 +6098,14 @@ function runSkill(skill) {
   startSkill(skill, {});
 }
 
+// A plan the model drew for the last request, run the way a skill is run
+// (§35K). The steps are sent back rather than parked on the server, for the
+// same reason `ask_user`'s answer is: nothing to expire, nothing lost on a
+// reload, and the run is a message in the conversation like any other.
+function startPlannedRun(goal, steps) {
+  sendChatMessage(`🧭 ${goal}`, { plan: { goal, steps } });
+}
+
 function startSkill(skill, values) {
   // Both entry points land here — the ⚡ dropdown and a run the agent started
   // itself (§33) — so the dashboard's recent-skill buttons cover both.
@@ -5948,9 +6185,17 @@ async function loadChatSkills() {
   const box = $("chat-skills");
   box.replaceChildren();
 
+  // "⚡" alone, not "⚡ Skill:". The select's own placeholder already reads
+  // "Choose a skill…", so the label was saying it twice in a strip where every
+  // character costs width.
   const label = document.createElement("span");
-  label.className = "muted";
-  label.textContent = "⚡ Skill:";
+  label.className = "muted chat-skill-mark";
+  // With the emoji variation selector: bare U+26A1 renders as a thin
+  // text-style glyph on any platform whose default presentation for it is
+  // text, which beside a colour 🌐 and 🤖 in the same strip looks like a mark
+  // that failed to load. Screenshotted in Chromium on Linux, where it does.
+  label.textContent = "⚡️";
+  label.title = "Skills — saved jobs you can run over your notes";
 
   const select = document.createElement("select");
   select.className = "small-select";
@@ -5991,8 +6236,13 @@ async function loadChatSkills() {
   run.disabled = true;
   select.addEventListener("change", () => {
     run.disabled = !select.value;
+    // What the skill does moves to the select's own tooltip rather than a line
+    // of prose beside it. It was a sentence of running text in a control
+    // strip — the widest thing in the dock, and unreadable at a glance because
+    // it was clipped to 120 characters anyway. `skillSummary` already puts the
+    // full description, the steps and the tools on every option's title.
     const chosen = allSkills().find((s) => s.name === select.value);
-    hint.textContent = chosen ? (chosen.description || chosen.prompt || "").slice(0, 120) : "";
+    select.title = chosen ? skillSummary(chosen) : "Run one of your saved skills";
   });
 
   const manage = smallButton("＋", "Add or edit skills in Settings", () =>
@@ -6000,10 +6250,7 @@ async function loadChatSkills() {
   );
   manage.classList.add("ghost");
 
-  const hint = document.createElement("span");
-  hint.className = "muted chat-skill-hint";
-
-  box.append(label, select, run, manage, hint);
+  box.append(label, select, run, manage);
   box.classList.remove("hidden");
 }
 
@@ -6735,7 +6982,7 @@ window.addEventListener("resize", () => {
   if ($("dash-grid")) sizeDashWidgets();
 });
 
-// Fade the tab strip's right edge only while it is genuinely scrolling.
+// Fade a tab-strip edge only while there is something hidden beyond it.
 //
 // This was a media query, which is the wrong test: whether the tabs overflow
 // depends on how long the AI status pill's text currently is and whether the
@@ -6744,15 +6991,74 @@ window.addEventListener("resize", () => {
 // widths looking as though "Reminders" had been clipped — which is exactly
 // the complaint the fade exists to prevent. Measuring is both simpler and
 // correct at every width.
+//
+// Measuring *overflow* was still not enough, and it was reported: "the
+// reminders tab in the top bar is partially faded out on the right." A bar
+// scrolled to its end has nothing further right, but the old single class
+// kept fading anyway — so the last tab was permanently dimmed, which reads as
+// a disabled control. The question each edge answers is "is there more THIS
+// way", so each edge gets its own class and the answer is recomputed on
+// scroll as well as on resize.
+// How much room the tab strip has if it stays on the header's own row.
+//
+// Measured from the header's other children rather than guessed from a
+// breakpoint, for the same reason the fade is: whether the tabs fit depends on
+// the wordmark, the status pill's current text and which header buttons are
+// showing, none of which a width range knows about.
+function tabRowSpace() {
+  const header = document.getElementById("top-bar");
+  const bar = $("tab-bar");
+  if (!header || !bar) return 0;
+  const style = getComputedStyle(header);
+  const gap = parseFloat(style.columnGap || style.gap) || 0;
+  const padding =
+    (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
+  let others = 0;
+  let siblings = 0;
+  for (const child of header.children) {
+    if (child === bar || child.classList.contains("hidden")) continue;
+    others += child.getBoundingClientRect().width;
+    siblings += 1;
+  }
+  return header.clientWidth - padding - others - gap * siblings;
+}
+
 function syncTabOverflowFade() {
   const bar = $("tab-bar");
   if (!bar) return;
-  // 1px of slack: sub-pixel layout makes scrollWidth exceed clientWidth by a
-  // fraction on plenty of widths where nothing is actually cut off.
-  bar.classList.toggle("is-scrolling", bar.scrollWidth - bar.clientWidth > 1);
+  // A tab you have to scroll to is a tab you will not find. When the strip
+  // cannot fit beside the wordmark and the header buttons, it takes a row of
+  // its own — where all seven fit with room to spare at any width the app is
+  // usable at. Photographed on a 7-tab window: "Dashboard" clipped to "oard"
+  // at the left edge, which no amount of edge-fading makes readable.
+  //
+  // Measured, not a breakpoint, and it cannot oscillate: the space the strip
+  // would have inline is computed from the *other* children, whose widths do
+  // not depend on where the strip is.
+  const header = document.getElementById("top-bar");
+  if (header) {
+    header.classList.toggle("tabs-wrapped", bar.scrollWidth > tabRowSpace() + 1);
+  }
+  // 1px of slack at each end: sub-pixel layout makes scrollWidth exceed
+  // clientWidth by a fraction on plenty of widths where nothing is cut off,
+  // and a scroll offset lands on .5 of a pixel as often as not.
+  const hidden = bar.scrollWidth - bar.clientWidth;
+  bar.classList.toggle("fade-start", hidden > 1 && bar.scrollLeft > 1);
+  bar.classList.toggle("fade-end", hidden - bar.scrollLeft > 1);
+}
+
+// A tab you cannot fully see is a tab you cannot fully read. Selecting one
+// brings it into view, so the fade is only ever over a tab you are not using.
+function revealActiveTab() {
+  const active = document.querySelector("#tab-bar button.active");
+  if (active && active.scrollIntoView) {
+    active.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }
+  syncTabOverflowFade();
 }
 
 window.addEventListener("resize", syncTabOverflowFade, { passive: true });
+$("tab-bar")?.addEventListener("scroll", syncTabOverflowFade, { passive: true });
 // The pill's text arrives with the status polls, long after first paint, and
 // changes width when it does — so remeasure whenever the header changes size
 // rather than only on window resize.
@@ -8258,7 +8564,9 @@ async function renderFocusTimerWidget(body) {
 
 // --- reminders tab (Wave D) --------------------------------------------------------
 
-const notifiedReminderIds = new Set(); // don't re-notify within a session
+// (The session-scoped `notifiedReminderIds` set went with the dead poller
+// above. §36C keeps announced ids in localStorage instead, so a reload does
+// not re-announce everything already overdue — which a Set could not survive.)
 
 let reminderFilter = "open"; // open | all | done
 
@@ -8787,26 +9095,27 @@ async function magicAddReminder() {
   }
 }
 
-// Fire browser notifications for reminders that come due while the app
-// is open (checked every 30s).
-async function checkDueReminders() {
-  if (!authToken()) return;
-  // silent: a background reminder poll must not pop the lock screen (Wave O).
-  const reminders = await apiJson("/reminders", { silent: true }).catch(() => []);
-  const now = new Date();
-  for (const reminder of reminders) {
-    if (reminder.done || notifiedReminderIds.has(reminder.id)) continue;
-    const due = new Date(reminder.due_at);
-    if (due <= now && now - due < 12 * 60 * 60 * 1000) {
-      notifiedReminderIds.add(reminder.id);
-      toast(`⏰ Reminder: ${reminder.text}`);
-      if ("Notification" in window && Notification.permission === "granted") {
-        new Notification("MemoryMap reminder", { body: reminder.text });
-      }
-    }
-  }
-}
-setInterval(checkDueReminders, 30_000);
+// The Wave O reminder poller used to live here. **It was dead code with a
+// live timer**, and that combination is worse than either half.
+//
+// §36C rewrote `checkDueReminders` further down this file — badge, title
+// count, one-notification-per-reminder, announced ids in localStorage — and a
+// second `async function checkDueReminders` at the same scope simply replaces
+// the first. What did not get deleted was the `setInterval(...)` that sat
+// beside the old one, and since the name resolves to the surviving
+// definition, that stray timer was running the *new* poller on a second
+// 30-second interval. Two effects, both real:
+//
+// - twice the requests, for nothing;
+// - and a race on the announcement: both polls read `announcedReminders()`
+//   before either calls `rememberAnnounced`, so a reminder coming due could
+//   be announced twice — which is precisely the "notifications are noisy"
+//   shape of report this rewrite existed to fix.
+//
+// Found by opening the app in a real browser and reading the network log,
+// which also showed the other half: the surviving poller runs before the
+// unlock and 401s once per load. Its predecessor guarded on `authToken()`;
+// that guard moved with the deletion (see `checkDueReminders` below).
 
 // Default due time for new reminders: tomorrow morning, 9am.
 // The field starts at today's date and the current time, so the common case
@@ -10384,6 +10693,9 @@ function switchTab(name) {
     button.setAttribute("aria-selected", String(active));
     button.tabIndex = active ? 0 : -1;
   }
+  // When the strip is narrow enough to scroll, the tab you just chose is the
+  // one that must be legible — see revealActiveTab.
+  revealActiveTab?.();
   localStorage.setItem("activeTab", name); // reopen where you left off
   // A new tab starts at its own top, and the back-to-top button re-evaluates
   // (it stays off the graph). Each page keeps its own scroll position now, so
@@ -12132,6 +12444,10 @@ function setTitleCount(count) {
 }
 
 async function checkDueReminders() {
+  // Before the unlock there is no token, and asking anyway is a guaranteed 401
+  // on every load — visible in the browser's network log, and in the server's
+  // own log, where it looks like an auth failure worth investigating.
+  if (!authToken()) return;
   const all = await apiJson("/reminders", { silent: true }).catch(() => null);
   if (!all) return; // server asleep or locked — say nothing rather than guess
   const now = Date.now();
@@ -15090,6 +15406,18 @@ $("conv-search").addEventListener("input", (event) => {
   convSearchTimer = setTimeout(loadConversationList, 180);
 });
 $("chat-export").addEventListener("click", exportChatMarkdown);
+$("chat-compress").addEventListener("click", compressChatContext);
+$("chat-compress-apply").addEventListener("click", applyCompression);
+$("chat-compress-cancel").addEventListener("click", () =>
+  $("chat-compress-panel").classList.add("hidden")
+);
+$("chat-uncompress").addEventListener("click", () => {
+  // Undo is one assignment, because nothing was ever removed — the turns have
+  // been sitting there all along.
+  chatSummary = null;
+  renderCompressionState();
+  toast("Back to sending the real messages.");
+});
 $("chat-input").addEventListener("keydown", (e) => {
   // Enter sends, Shift+Enter (or Ctrl/Cmd+Enter) writes a newline. The box is
   // a textarea now, so "send" has to be chosen rather than inherited.

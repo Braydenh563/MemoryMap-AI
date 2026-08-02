@@ -95,6 +95,19 @@ class ChatTurn(BaseModel):
     answer: str
 
 
+class PlanRun(BaseModel):
+    """A plan the model made for one request, sent back to be worked through.
+
+    Bounded here as well as in `tools.validate_make_plan`, because this arrives
+    over HTTP: the client is echoing back what the server just produced, but
+    nothing makes that true of a hand-made request, and the run it starts
+    writes to the notebook.
+    """
+
+    goal: str = Field(min_length=1, max_length=skills.MAX_GOAL)
+    steps: list[str] = Field(min_length=1, max_length=skills.MAX_STEPS)
+
+
 class ChatRequest(BaseModel):
     question: str = Field(min_length=1)
     # Prior turns for follow-up context (Round 1); the server clips this.
@@ -120,6 +133,19 @@ class ChatRequest(BaseModel):
     # assembled in `app.js` and hoped for here.
     skill: str | None = Field(default=None, max_length=skills.MAX_NAME)
     skill_inputs: dict[str, str] | None = None
+    # Resuming a run that stopped part-way (reported: *"it cuts out half way
+    # through and has to restart"*). Steps before this index are marked as done
+    # in an earlier run and are not repeated — which matters because most of
+    # them write to the notebook, so "restart" meant tagging and linking the
+    # same notes a second time.
+    skill_from_step: int = Field(default=0, ge=0, le=skills.MAX_STEPS)
+    # A plan the model drew for this request and handed back to be worked
+    # through (§35K). Same shape as a skill run and the same runner — the
+    # difference is only that nobody saved it. Sent by the client rather than
+    # parked on the server, exactly as `ask_user` and `run_skill` are: nothing
+    # to expire, nothing lost on a reload, and the plan is visible in the saved
+    # conversation like any other message.
+    plan: PlanRun | None = None
     # Notes-only: this turn is an interrogation of the notebook and nothing
     # else (§35A). Set by the Notes tab's Ask box, never by the Chat tab.
     #
@@ -180,6 +206,35 @@ def _resolve_skill(body: ChatRequest) -> dict | None:
         "question": skills.run_instruction(found, body.skill_inputs or {}),
         "tools": found["tools"] or None,
         "acts": skills.is_action(found),
+    }
+
+
+def _resolve_plan(body: ChatRequest) -> dict | None:
+    """Turn "work through this plan" into a run, in the same shape as a skill.
+
+    Re-validated through `tools.validate_make_plan` rather than trusted, so a
+    plan that arrives with one step, twenty steps or its own numbering is
+    refused (or tidied) by the same rules that produced it. 422 rather than a
+    silent trim: a plan that quietly loses its last two steps is exactly the
+    "did the first part and stopped" failure this whole mechanism exists to
+    prevent, arriving from the other end.
+    """
+    if body.plan is None:
+        return None
+    try:
+        checked = tools.validate_make_plan(
+            {"goal": body.plan.goal, "steps": body.plan.steps}
+        )
+    except tools.ToolError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    plan = skills.ad_hoc_plan(checked["goal"], checked["steps"])
+    return {
+        "skill": plan,
+        "question": skills.run_instruction(plan, {}),
+        # No allowlist: see `skills.ad_hoc_plan`. Each step is focused on its
+        # own text instead of on a guess made from one sentence.
+        "tools": None,
+        "acts": True,
     }
 
 
@@ -358,7 +413,10 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     # what it declared. Retrieval runs on that instruction too, so a skill
     # gets the notes its own words find rather than the ones the chip's label
     # happens to match.
-    skill = _resolve_skill(body)
+    # A plan run goes down exactly the same path as a skill run — the runner
+    # cannot tell them apart, which is what gives a plan the ticked steps, the
+    # change list and the Undo on each without a second implementation.
+    skill = _resolve_skill(body) or _resolve_plan(body)
     question = skill["question"] if skill else body.question
     allowed_tools = skill["tools"] if skill else None
     if skill and skill["acts"]:
@@ -492,6 +550,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                     prepared["notes"],
                     model_manager,
                     ollama,
+                    start_at=body.skill_from_step,
                     **shared,
                 )
             else:
@@ -550,6 +609,85 @@ def list_modes() -> dict:
 def list_tools() -> list[dict]:
     """The agent-tool catalog for Settings → Tools toggles (Wave O)."""
     return tools.tool_catalog()
+
+
+# --- compressing a long conversation (§35I) -----------------------------------
+#
+# Asked for directly: *"there should be a tool as well as a manual command or
+# something to be able to compress chat context on longer chats so the AI can
+# better continue."*
+#
+# What happens today without it is worth stating plainly, because it is not
+# "the request gets big" — the client sends at most the last four turns and
+# `context.fit_history` drops whole pairs from the *oldest* end until the rest
+# fits. So a long conversation does not overflow; it silently forgets its own
+# beginning, and the model starts re-asking things it was told an hour ago.
+#
+# A summary is strictly better than a drop: the same few hundred characters
+# carry the gist of ten turns instead of the whole of one. And it is the
+# **manual** half that ships first, exactly as §35I argues — a button the user
+# presses, whose output they can read before it is used, cannot misfire. The
+# tool that lets the agent do it unprompted is still open, and it has to
+# justify a slot in a registry §34 says should stop growing.
+
+#: Turns to summarise in one call. Beyond this the summary itself gets long
+#: enough to be worth summarising, which is the wrong direction.
+MAX_COMPRESS_TURNS = 40
+
+COMPRESS_PROMPT = (
+    "Summarise this conversation so it can be continued by someone who has "
+    "not read it. Keep: what the user asked for, what was decided, facts "
+    "established about their notes, and anything still outstanding. Drop "
+    "pleasantries and repetition. Write it as short bullet points, under 200 "
+    "words, in the third person. Do not add anything that was not said."
+)
+
+
+class CompressBody(BaseModel):
+    """The turns to summarise, oldest first."""
+
+    history: list[ChatTurn] = Field(min_length=1, max_length=MAX_COMPRESS_TURNS)
+
+
+@router.post("/compress")
+def compress_history(body: CompressBody) -> dict:
+    """A summary of these turns, for sending in place of them.
+
+    Returns the text and nothing else — the client decides whether to use it,
+    and keeps the original turns either way. Nothing is stored here, and the
+    conversation on screen is not touched: this is a *lossless* operation as
+    far as the transcript is concerned, and only the model's view narrows.
+    """
+    ollama = deps.get_ollama()
+    if not ollama.is_running():
+        raise HTTPException(status_code=503, detail=librarian.OFFLINE_MESSAGE)
+    transcript = "\n\n".join(
+        f"User: {turn.question.strip()[:1500]}\nAssistant: {turn.answer.strip()[:1500]}"
+        for turn in body.history
+    )
+    try:
+        reply = ollama.chat(
+            deps.get_model_manager().utility_model(),
+            [
+                {"role": "system", "content": COMPRESS_PROMPT},
+                {"role": "user", "content": transcript},
+            ],
+        )
+    except OllamaError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    summary = (reply.get("content") or "").strip() if isinstance(reply, dict) else ""
+    if not summary:
+        # Better to say nothing happened than to hand back an empty summary the
+        # client would send in place of ten real turns.
+        raise HTTPException(
+            status_code=502, detail="The model returned an empty summary — try again."
+        )
+    return {
+        "summary": summary,
+        "turns": len(body.history),
+        "chars_before": len(transcript),
+        "chars_after": len(summary),
+    }
 
 
 class ToolExecuteBody(BaseModel):

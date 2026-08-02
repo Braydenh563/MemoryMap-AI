@@ -9,6 +9,88 @@ that answers "has this been done?" before anyone starts.
 
 ## Done in the most recent session — read this first
 
+**This session: long jobs finish, the agent can plan one, and the chat
+controls moved to the composer.** Three user reports and the roadmap's top
+open item, and they turned out to be one subject — an agent that starts a big
+job and does not finish it.
+
+1. **Rounds are earned, not granted (`agent.EARNED_ROUNDS`).** Reported: *"it
+   hits a limit for tool calls which has happened quite a bit."* A flat cap
+   cannot tell a model doing eight useful things from one doing the same thing
+   eight times, and "tag these eight notes" is eight writes plus a search. A
+   round that makes a *new, successful* call now buys another round, to a
+   ceiling of `MAX_ROUNDS + EARNED_ROUNDS`. A loop earns nothing and stops
+   exactly where it always did — the tests pin both directions.
+
+2. **A stalled step is not a finished one, and a run can be resumed.**
+   Reported: *"skills cut out half way through and have to restart."* Two
+   bugs. The runner could only see that a step's turn produced text, and "I
+   couldn't finish step 1" is text — so a step cut off mid-job was ticked ✓
+   and the next step ran on top of half-finished work. The `limit` event
+   separates them; a stalled step stops the run and `stopped_at` names it, so
+   **Resume from step N** re-enters there instead of re-running steps that
+   already wrote to the notebook.
+
+3. **`make_plan` — the agent plans an open-ended job (§35K).** *"I will say
+   fix my categories and it will only merge two categories and leave it at
+   that."* The model draws 2–6 steps, its turn **ends**, and the skill runner
+   works through them a step per turn. **A plan is a skill nobody saved**, so
+   there is one runner rather than two, and a plan gets the plan card, the
+   ticked steps and an Undo on every change for free. A run may not start a
+   run (`tools.RUN_STARTERS`).
+
+4. **The chat controls moved to the composer dock (§36B).** Asked for
+   directly. Anything that decides what happens to the *next* message sits
+   with the box you type it in; the header keeps only what is about the
+   conversation. Every id unchanged, so `app.js` needed no edit at all.
+
+5. **The tab bar's edge fade** no longer dims the Reminders tab when there is
+   nothing beyond it (§36A-bis).
+
+6. **§35I's manual half — `🗜 Compress`.** *"There should be a tool as well as
+   a manual command… to compress chat context on longer chats so the AI can
+   better continue."* The button and `POST /chat/compress` are built; the
+   agent-facing tool is not, deliberately (§35I). **The useful finding is a
+   correction to the premise:** a long chat never overflowed the window — the
+   client sends at most four turns and `fit_history` drops whole pairs from the
+   oldest end — so the real failure was silent forgetting, and a summary beats
+   a drop rather than merely costing less. Nothing is deleted: the endpoint
+   stores nothing, every turn stays on screen and in the saved conversation,
+   and undo is one assignment.
+
+7. **The app was opened in a real browser for the first time**, which is the
+   most useful thing in this list. Chromium and Playwright are in the sandbox
+   and the app runs on localhost — see CLAUDE.md for the recipe. One sitting
+   found three things reading the source had not:
+
+   - **`StaticFiles` sent no `Cache-Control`**, so a cache may reuse the
+     frontend without asking (RFC 9111 §4.2.2 heuristic freshness). The
+     desktop shell has no reload and its own on-disk cache, so after an update
+     it can keep running the old `app.js` — *the standing explanation for "that
+     button is still broken" about a button whose fix is in the file.* Now
+     `no-cache`, pinned by `tests/test_static_freshness.py`.
+   - **The reminder poll ran on two timers**: §36C's rewrite left the Wave O
+     poller's `setInterval` behind, and JS keeps the last declaration, so the
+     stray timer drove the live poller. Measured 4 → 2 requests per 65s.
+   - **The tab strip clipped "Dashboard"** at the widths a laptop window
+     actually uses. It takes its own row now when measured not to fit.
+
+   The recycle bin's *Empty now* — reported broken again — was driven end to
+   end: dialog, confirm, notes gone, server reports an empty bin. It works.
+   That is what pointed at the cache header rather than at the button.
+
+**The standing caveat is narrower now.** The provider tests still run against a
+fake transport. The UI can be looked at, and 4, 5 and the tab bar were —
+measured and screenshotted at five widths. 6's compress panel was not, and
+neither were the Continue/Resume buttons. `tests/test_chat_dock.py` and
+`test_style_scale.py` still stand in for looking at those, and they check
+structure, not appearance.
+
+**Everything below is from earlier sessions.**
+
+---
+
+
 **This session: §6, §11's output half, model specs, and odysseus read and
 triaged (§33).** Four things landed, and they are related — each one made the
 next cheaper.

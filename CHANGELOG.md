@@ -7,6 +7,117 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Fixed — long jobs finish, or say where they stopped (roadmap §35K)
+
+Two reports, one subject: *"the agent struggles with long tasks like skills
+then cuts out half way through and has to restart, or it hits a limit for tool
+calls which has happened quite a bit."*
+
+- **Rounds are earned now, not granted.** The cap counted rounds, which cannot
+  tell a model doing eight useful things from a model doing the same thing
+  eight times — and "tag these eight notes" is a search, a read and eight
+  writes. A round that makes a successful call it has not already made buys
+  another round, up to a ceiling. A model looping on one call earns nothing and
+  still stops where it always did.
+- **A step that ran out of rounds is no longer ticked off as done.** The runner
+  could only see that the step's turn produced text, and "I couldn't finish
+  step 1" is text — so a step cut off mid-job was marked ✓ and the next one ran
+  on top of half-finished work. It is marked stalled, the run stops there, and
+  the result says which step it stopped on.
+- **Resume from step N.** A run that stopped picks up where it stopped instead
+  of being restarted over notes it has already changed. A turn that ran out of
+  rounds gets a **Continue** button, rather than a paragraph asking you to type
+  "carry on".
+
+### Added — the agent can plan a big job and work through it (roadmap §35K)
+
+Reported: *"I will say fix my categories and it will only merge two categories
+and leave it at that, ignoring the rest."*
+
+A model given one broad instruction does the first part and reports success.
+Skills already solved this — each step is its own turn — but only for a job you
+had saved as a skill. Now the agent can call **`make_plan`**: it writes 2–6
+steps, its turn ends, and the same runner works through them one at a time,
+ticking each off and listing what changed with an Undo on each.
+
+A plan is a skill nobody saved, so it looks and behaves exactly like a skill
+run. A plan that is too long is refused rather than trimmed, because silently
+dropping the end of the job is the failure this exists to prevent.
+
+### Changed — the chat controls moved down to the chat box (roadmap §36B)
+
+Asked for directly: *"moving the majority of the ui controls like the
+chat/agent pull, web search and stuff to the bottom bar with the chat input."*
+
+Chat/Agent, Web, answer length, persona, the skill picker and attached notes
+now sit in a dock with the message box, so you set them as you write instead of
+scrolling back to the top of a long conversation. The chat header keeps what is
+about the conversation itself — its name, what it has cost, and Export. The web
+and persona panels moved down with the buttons that open them.
+
+### Added — compress a long conversation (roadmap §35I)
+
+Asked for directly: *"there should be a tool as well as a manual command or
+something to be able to compress chat context on longer chats so the AI can
+better continue."*
+
+**🗜 Compress** in the chat header summarises the earlier messages, shows you
+the summary to read and edit, and then sends that in place of them. What it
+fixes is not what it sounds like: a long chat never overflowed the model's
+window — the oldest messages were quietly dropped to make room — so the model
+was forgetting the start of the conversation and re-asking things you had told
+it. A summary keeps the gist of ten messages for the price of one.
+
+Nothing is deleted. Every message stays in the conversation and in the saved
+transcript; only what the model is *sent* changes, and one Undo puts it back.
+
+### Changed — the chat's controls are one strip, and its header has two levels
+
+The dock under the chat was three stacked bands — skills, controls, then the
+message box — which is most of the height of a short conversation. It is one
+line now: skills · what the AI may use · how it answers, with everything the
+same height so it reads as a single strip. The skill's description moved into
+the picker's tooltip, where the steps and tools it uses already were.
+
+The chat header shows the conversation's name as a heading with its token count
+and compression state as quiet metadata beneath, instead of a row of things
+that all looked like buttons.
+
+### Fixed — the desktop app could keep running an old build
+
+If a button you were told was fixed is still broken, this is why. The frontend
+was served with no `Cache-Control` header at all, which lets a cache reuse it
+without checking — and the desktop shell has no reload button, its own on-disk
+cache, and restarts the process without clearing it. After an update it could
+go on running the previous `app.js` indefinitely. The files are now served
+`no-cache`, so every start checks for a newer build (and gets a 304 when there
+isn't one).
+
+The recycle bin's **Empty now** was the report that led here. It was driven end
+to end in a real browser against this server: the confirm dialog opens, the
+notes go, the bin comes back empty. The fix has been in the code since §35F —
+what was missing was any guarantee you were running it.
+
+### Fixed — reminders were polled twice a minute, not once
+
+A rewrite left the previous poller's timer behind. Both timers ran the new
+poller, so the app asked the server for reminders twice as often as intended,
+and two polls landing together could announce the same reminder twice.
+
+### Fixed — all seven tabs stay readable
+
+When the tab strip cannot fit beside the app name and the header buttons it now
+takes a row of its own, instead of scrolling with "Dashboard" clipped against
+the left edge.
+
+### Fixed — the Reminders tab is no longer faded at the edge
+
+Reported: *"the reminders tab in the top bar is partially faded out on the
+right."* The tab strip's fade meant "this bar scrolls" rather than "there is
+more that way", so the last tab stayed dimmed with nothing hidden behind it.
+Each edge now fades only when there is something beyond it, the fade is a fixed
+width rather than a share of the bar, and choosing a tab scrolls it into view.
+
 ### Added — any OpenAI-compatible backend (roadmap §6)
 
 The headline ask was "support LM Studio". What got built is the **dialect**,

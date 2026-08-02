@@ -230,16 +230,61 @@ had to learn the same lesson about markup comments quoting ids.
 
 ---
 
+## Control height
+
+One more thing has to match for a row of controls to read as a strip rather
+than as a pile: **their height.** The chat dock declares `--control-h` and
+every select, button and segmented control in it is that tall.
+
+It is deliberately *not* a spacing token. A hit target is a control's own size
+— the role `--radius` plays for corners — and snapping it to a gap step would
+make it move with the density setting, which is not what density is for.
+
+The failure it prevents is the one this whole document is about: the segmented
+control brought its own padding and stood four pixels taller than the selects
+beside it. Nothing lines up, no edge agrees with another, and the row reads as
+assembled rather than designed — the "slop features joined together" complaint
+in miniature, at four pixels.
+
+### And zero the margins, not just the heights
+
+Reported after the first attempt, which had matched the heights and looked
+fine in the stylesheet: *"some are higher or lower than each other and
+different heights."*
+
+**A margin on a flex item is centred with the item.** `.seg` carries
+`margin-bottom: 0.5rem` from the stacked forms it was built for, and under
+`align-items: center` those 8px do not become a gap — they sit the control 4px
+*above* its neighbours and make its group 8px taller, which pushes the next
+group 4px down in turn. Two visible offsets, from one declaration in a rule
+three thousand lines away.
+
+> **The rule:** a row of controls neutralises the outside spacing its controls
+> arrive with (`margin: 0`), and the row's own `gap` is the only thing between
+> them. Anything else means every control added later has to be checked
+> against every base rule that might have given it a margin.
+
+The same applies to a control's own vertical padding: keep it horizontally,
+give it up vertically, and let the declared height decide.
+
+Where a row's box grows — a chat composer with an autogrowing textarea — align
+to `end` rather than `center`, so the buttons stay level with the line the
+caret is on instead of drifting up the side of it.
+
+---
+
 ## What is not done yet
 
 Recorded honestly, because this document should not read as further along than
 it is. See ROADMAP §35L.
 
-- **Nothing here has been checked in a browser.** The sandbox is Linux with no
-  display. Every change was reasoned from the stylesheet and bounded so that no
-  single value moved more than 0.1rem — but "bounded" is not "verified", and
-  the roadmap's standing caveat about reasoning instead of reproducing applies
-  to this document as much as to anything else in it.
+- **Most of this has still not been checked in a browser** — but it now *can*
+  be, and the parts that were are marked as such. Chromium and Playwright are
+  in the sandbox and the app runs on localhost (CLAUDE.md has the recipe). The
+  chat header and dock were measured and screenshotted in both themes; the tab
+  bar was measured at five widths. Everything else here was reasoned from the
+  stylesheet and bounded so no single value moved more than 0.1rem — which is
+  not the same as verified. **Look at what you change; it costs a minute.**
 - **Motion** is a user setting a few components still ignore. Density is done —
   it is a multiplier over the spacing scale now.
 - **The tab bar** is at the width where another tab hurts, which matters for

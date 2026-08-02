@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Callable
@@ -1716,6 +1717,104 @@ def validate_run_skill(arguments: dict) -> dict:
     }
 
 
+#: How many steps an ad-hoc plan may have.
+#:
+#: Two is the floor because a one-step plan is just the action — planning it
+#: costs a whole extra model round to say what the model could have done in
+#: that round. Six is the ceiling because every step is its own turn on a local
+#: machine: a ten-step plan on a 3B model is minutes of generation before the
+#: user sees the end of it, and a model that needs ten steps has usually
+#: written six real ones and four restatements.
+MIN_PLAN_STEPS = 2
+MAX_PLAN_STEPS = 6
+
+#: Numbering the model writes into the step text itself. It has just been asked
+#: for an ordered list, so "1." and "- " are natural things for it to include —
+#: and the plan card numbers the steps itself, so leaving them in prints
+#: "1. 1. Search for untagged notes".
+_STEP_NUMBERING = re.compile(r"^\s*(?:[-*•]|\(?\d{1,2}[.):])\s*")
+
+
+def _make_plan(session: Session, args: dict) -> dict:
+    """Never runs, for the same reason `_run_skill` never runs.
+
+    `make_plan` hands the turn to the step runner rather than returning a
+    result. Executing it here would produce a plan nobody is going to carry
+    out — the steps would come back as a JSON list, the model would summarise
+    them in the past tense, and the user would be told a job was done that
+    nothing had started. That is §35B's hallucinated write, arrived at by a
+    different route.
+    """
+    raise ToolError(
+        "make_plan starts a run rather than returning an answer — it cannot "
+        "be executed directly."
+    )
+
+
+def _plan_steps(raw) -> list[str]:
+    """The model's steps, in the several shapes models actually send them.
+
+    Recovered rather than refused, because every one of these means exactly the
+    right thing and a refused plan costs a round to say so: a JSON string
+    instead of a list, one newline-separated string, a list of
+    `{"step": "..."}` objects, and its own numbering on the front of each.
+    """
+    if isinstance(raw, str):
+        try:
+            parsed = json.loads(raw)
+        except ValueError:
+            parsed = raw.splitlines()
+        raw = parsed if isinstance(parsed, list) else str(parsed).splitlines()
+    if not isinstance(raw, list):
+        return []
+    steps: list[str] = []
+    for item in raw:
+        if isinstance(item, dict):
+            item = item.get("step") or item.get("text") or item.get("title") or ""
+        text = _STEP_NUMBERING.sub("", " ".join(str(item or "").split()))
+        text = text[: skills.MAX_STEP]
+        # A model that repeats a step is padding to reach a count it imagined,
+        # and a repeated step runs the same turn twice.
+        if text and text.lower() not in {s.lower() for s in steps}:
+            steps.append(text)
+    return steps
+
+
+def validate_make_plan(arguments: dict) -> dict:
+    """The plan a run should be built from, or a ToolError saying what's wrong.
+
+    Every failure here is recoverable *in the same turn* — the loop hands the
+    message back and the model tries again — which is why they are worded as
+    instructions rather than as complaints.
+    """
+    goal = " ".join(str(arguments.get("goal") or "").split())
+    if not goal:
+        raise ToolError("make_plan needs a goal: the whole job in one sentence.")
+    steps = _plan_steps(arguments.get("steps"))
+    if len(steps) < MIN_PLAN_STEPS:
+        raise ToolError(
+            f"A plan needs at least {MIN_PLAN_STEPS} steps. If this job is one "
+            "action, don't plan it — just call the tool that does it."
+        )
+    if len(steps) > MAX_PLAN_STEPS:
+        # Truncating would drop the end of the job silently, which is the
+        # failure this whole tool exists to prevent.
+        raise ToolError(
+            f"That is {len(steps)} steps and a plan may have at most "
+            f"{MAX_PLAN_STEPS}. Combine the small ones, or plan the first "
+            f"{MAX_PLAN_STEPS} and say what is left when they are done."
+        )
+    return {
+        "type": "run_plan",
+        "goal": goal[: skills.MAX_GOAL],
+        "steps": steps,
+        # What the user is about to watch start. The plan card lists the steps
+        # a moment later; this is the chip in the timeline that says the model
+        # chose to plan rather than answer.
+        "label": f"🧭 Planned {len(steps)} steps: {_clip(goal, 60)}",
+    }
+
+
 #: The tools whose whole effect is to end the turn and hand over, mapped to the
 #: validator that turns the model's arguments into the event the UI receives.
 #: A dispatch table rather than a chain of name checks in the agent loop: the
@@ -1725,7 +1824,15 @@ HANDOFFS: dict[str, Callable[[dict], dict]] = {
         zip(("question", "options"), validate_ask(arguments)), type="ask"
     ),
     "run_skill": validate_run_skill,
+    "make_plan": validate_make_plan,
 }
+
+#: The handovers that start a *run*. A run must not start another run: each one
+#: brings its own fresh rounds, so the budget that bounds a turn would never
+#: bind, and the plan the user is watching would stop describing what is
+#: happening. `skills.NEVER_IN_A_SKILL` refuses these in a saved allowlist; this
+#: is the same rule for a run that declared no allowlist at all.
+RUN_STARTERS = frozenset({"run_skill", "make_plan"})
 
 
 def handoff_event(name: str, arguments: dict) -> dict:
@@ -1992,6 +2099,34 @@ TOOLS: dict[str, ToolSpec] = {
                 "required": ["name"],
             },
             _run_skill,
+            ends_turn=True,
+        ),
+        ToolSpec(
+            "make_plan",
+            # Terse on purpose — this is in CORE_TOOLS, so every turn pays for
+            # it. The two facts that make it work are the trigger ("a job with
+            # several parts") and the consequence (the turn ends and the steps
+            # run one at a time). Everything else is in the validator's errors,
+            # which only cost characters when the model gets it wrong.
+            "Plan a job that has several parts, as 2-6 short steps. Your turn "
+            "ENDS and the steps then run one at a time, so nothing gets "
+            "half-done. Use it when one instruction covers many notes.",
+            {
+                "type": "object",
+                "properties": {
+                    "goal": {
+                        "type": "string",
+                        "description": "The whole job in one sentence",
+                    },
+                    "steps": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "2-6 steps, each one action, in order",
+                    },
+                },
+                "required": ["goal", "steps"],
+            },
+            _make_plan,
             ends_turn=True,
         ),
         ToolSpec(
@@ -2373,6 +2508,12 @@ CORE_TOOLS = [
     # rule has nothing to match on. Kept cheap — the schema is four lines —
     # because the alternative is the model guessing which note you meant (§33).
     "ask_user",
+    # Always offered for the same reason and with the same shape of cost: any
+    # request can turn out to have several parts, and no keyword says so — "fix
+    # my categories" reads exactly like a one-step instruction. Without it on
+    # the turn where the model realises the job is big, the model's only move
+    # is to do the first part and stop, which is the reported failure (§35K).
+    "make_plan",
     "search_notes",
     "get_note",
     "list_notes",

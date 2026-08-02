@@ -52,17 +52,19 @@ The design system has its own document: [DESIGN.md](DESIGN.md).
 
 Ordered by *how much it unlocks*, not by how much is left in the section.
 
-1. **Let the agent run a skill.** The largest gap in the agentic story and the
-   smallest change to close it. The agent can list skills, save them, and — as
-   of this session — read a `when_to_use` that says which one fits. It still
-   cannot start one; that is a click only the user can make, so a model that
-   works out exactly what should happen has to ask for it in prose.
-   `skill_runner` already exists and already takes an allowlist. **Shape:**
-   reuse `ends_turn` (the mechanism `ask_user` introduced) rather than nesting
-   an agent loop inside an agent loop — the tool hands control to the skill
-   runner and the turn ends, which is also the honest thing to show the user.
-   `list_skills` already tells the model it cannot do this; that sentence is
-   what to delete when it can.
+1. ~~**Let the agent run a skill.**~~ **built** (`run_skill`, `ends_turn`, no
+   nested loop — exactly the shape this item argued for), **and it has a
+   sibling now: `make_plan`.** The gap the first one left was that only a job
+   somebody had *saved* got the step-per-turn treatment; an open-ended request
+   still got one turn and the model's good intentions, which is §35K's "fix my
+   categories" doing two merges and stopping. The agent draws a 2–6 step plan,
+   its turn ends, and the same runner works through it. A plan is a skill
+   nobody saved: same card, same ticked steps, same Undo on each change.
+   **§35I's manual half is built too** (`🗜 Compress`), and it turned up the
+   correction worth carrying: a long chat never overflowed — it *forgot its
+   own beginning*, because `fit_history` drops the oldest pairs. What is left
+   in §35I is the tool that lets the agent compress unprompted, and it now has
+   a higher bar to clear: `make_plan` has taken a CORE_TOOLS slot since.
 2. **The graph's last mile (§9).** Walking it and suggesting connections are
    done and token-budgeted. What is missing is *"how are these two related?"* —
    a path between two notes — plus clusters and drag-to-link in the view. The
@@ -831,6 +833,43 @@ This is the item that most deserves a real-model test rather than reasoning
 
 ---
 
+### 35E-bis. ~~"That button is still broken" — the header that explains it~~ — **fixed**
+
+Reported again after §35F fixed it: *"I think the clear trash button is still
+broken."* This time the app was **driven in a real browser** (Chromium is
+installed in the sandbox; the app runs on localhost) and the flow works end to
+end — the dialog opens, Confirm empties the bin, the server reports zero binned
+notes. So the fix is in the file and the user is not running it.
+
+**`StaticFiles` sent no `Cache-Control` at all.** A response with neither
+`Cache-Control` nor `Expires` may be reused by a cache *without asking*, for a
+heuristic fraction of its age (RFC 9111 §4.2.2). In a browser you press reload
+and never notice. The desktop shell has no reload, is a WebView2/WebKit
+instance with its own on-disk cache, and restarts the *process* without
+invalidating any of it — so after an update it can go on running the previous
+`app.js` indefinitely. `RevalidatedStatic` now sends `no-cache` (not
+`no-store`: the etag still answers 304), and `tests/test_static_freshness.py`
+pins it.
+
+**This is the standing explanation for a whole class of report here**, and it
+is worth reaching for before re-fixing a button: if the code is right and the
+user still sees the old behaviour, ask what they are running.
+
+Two more things the browser found in the same sitting, neither of them
+guessable from the source:
+
+- **The reminder poll ran twice.** §36C rewrote `checkDueReminders` further
+  down `app.js`; the Wave O version above it was left behind, and JavaScript
+  keeps the *last* declaration — so the stray `setInterval` beside the dead one
+  was running the live poller on a second 30-second timer. Twice the requests,
+  and a race where both polls read the announced-ids list before either wrote
+  to it, which announces a reminder twice. Measured before and after: two
+  `GET /reminders` per 65 seconds now, four before.
+- **It 401'd once per load**, polling before the unlock. The deleted version
+  had the `authToken()` guard; it moved across with the deletion.
+
+`tests/test_frontend_handlers.py` gained a check for both.
+
 ### 35E. The desktop app is a second product and it is not tested
 
 Every one of these is desktop-only, which is itself the finding: `pywebview`
@@ -917,14 +956,33 @@ overhead (tool schemas, system prompt) and the *retrieved* half (notes);
 nothing addresses a conversation that has simply got long. Two halves, and the
 manual one should ship first because it cannot misfire:
 
-- **A button**: "Summarise this chat so far" — replaces the history with a
-  summary the user can see and edit, so nothing is silently lost.
+- ~~**A button**: "Summarise this chat so far"~~ **built** — `🗜 Compress` in
+  the chat header, `POST /chat/compress`.
 - **A tool**, so the agent can do it when it notices it is running out of
-  window. §33's warning applies: this is another tool in a registry §34 says
-  should stop growing, so it has to displace something or justify the trim.
+  window. **Still open.** §33's warning applies: this is another tool in a
+  registry §34 says should stop growing, so it has to displace something or
+  justify the trim. Note that `make_plan` has since taken a CORE_TOOLS slot,
+  which makes the case harder rather than easier — and the manual button now
+  covers the case the user actually reported.
+
+**What the built half found, and it changes the framing.** The request assumes
+a long chat *overflows*. It does not: the client sends at most the last four
+turns and `context.fit_history` drops whole user/assistant pairs from the
+oldest end until the rest fits. So the failure is **silent forgetting** — the
+model stops knowing what it was told at the start and begins re-asking it.
+That is why a summary is strictly better than the current behaviour rather
+than merely cheaper: the same few hundred characters carry the gist of ten
+turns instead of the whole of one.
 
 The reversible-compression idea §11 adopted for notes is the model to copy:
-keep the original, show what was dropped, make it undoable.
+keep the original, show what was dropped, make it undoable. That is exactly
+what shipped — **nothing is deleted.** The endpoint stores nothing and touches
+no conversation; the transcript on screen and the saved conversation keep every
+turn, and `chatSummary` only changes what is *sent*. Undo is one assignment.
+The summary is editable before it is used, because it is about to be the
+model's only memory of the first half of the conversation. It is not persisted
+across a reload — re-deriving it is one click, and a summary restored against
+the wrong thread would be worse than none.
 
 ---
 
@@ -962,16 +1020,39 @@ theme: the agent is expensive to use and under-delivers on what it is asked.
   prompt should say so; the id is the app's handle, not the user's. Cheap, and
   it makes every other answer more legible.
 
-- **A broad instruction gets a token effort.** Reported: *"I will say fix my
-  categories and it will only merge two categories and leave it at that,
-  ignoring the rest."* This is the counterpart of §21's finding about steps —
-  a model given one big instruction does the first part and reports success.
-  The skill runner solves it for skills by giving each step its own turn, and
-  **the same shape is what an open-ended request needs**: a plan, then a turn
-  per item, then a report. §33's "worth building" item 2 (`update_plan`, a
-  live plan the agent ticks off) is the mechanism, and this report is the
-  strongest argument yet for building it — it is not a progress indicator, it
+- ~~**A broad instruction gets a token effort.**~~ **built — `make_plan`.**
+  Reported: *"I will say fix my categories and it will only merge two
+  categories and leave it at that, ignoring the rest."* The counterpart of
+  §21's finding about steps, and it took the same fix: the agent draws a 2–6
+  step plan, its turn **ends**, and the skill runner works through the plan a
+  step per turn. A plan is a skill nobody saved — same plan card, same ticked
+  steps, same change list with an Undo on each — so there is one runner, not
+  two. §33's "worth building" item 2 (`update_plan`) is closed by this, and
+  the framing there was the useful part: it is not a progress indicator, it
   is what makes the model finish the job.
+
+  Three decisions worth not re-deriving. **2–6 steps**: one step is just the
+  action, and every step is its own turn on a local machine, so ten steps is
+  minutes of generation before the end is visible. **A plan that is too long
+  is refused, not truncated** — silently dropping the end of the job is the
+  exact failure the tool exists to prevent, arriving from the other end. **A
+  run may not start a run** (`tools.RUN_STARTERS`), or each nested one brings
+  fresh rounds and the bound on a turn stops meaning anything.
+
+- ~~**Long jobs cut out part-way.**~~ **fixed, and it was two bugs.** Reported
+  later than the rest: *"the agent struggles with long tasks like skills then
+  cuts out half way through and has to restart, or it hits a limit for tool
+  calls which has happened quite a bit."*
+  1. **The round cap counted rounds**, which cannot distinguish a model doing
+     eight useful things from one doing the same thing eight times. Rounds are
+     *earned* now (`agent.EARNED_ROUNDS`): a round making a successful call it
+     has not already made buys another, to a ceiling. A loop earns nothing and
+     stops where it always did.
+  2. **A step that ran out was ticked off as done** — the runner could only
+     see that the turn produced text, and "I couldn't finish step 1" is text.
+     It is `stalled` now, the run stops there, and `stopped_at` names the step
+     so the run can be **resumed from it** rather than restarted over notes it
+     has already written to.
 
 - **The token budget skyrockets on these turns**, which is the same bug seen
   from the cost side: rounds of tool results accumulate and every one is
@@ -1123,6 +1204,40 @@ Original notes kept below.
   *before* the container change means fighting the window's scroll position,
   which is why these two are one item.
 
+### 36A-bis. ~~The tab bar's fade sat on the Reminders tab~~ — **fixed**
+
+Reported: *"the reminders tab in the top bar is partially faded out on the
+right."* Reminders is the last tab, so it wore the whole of two mistakes in
+one rule.
+
+- **The fade said "this bar scrolls", not "there is more that way."** Scrolled
+  to the end — or overflowing by four pixels — the last tab was dimmed with
+  nothing hidden behind it, which reads as a disabled control rather than as a
+  hint. It is per *edge* now, painted only on a side with content beyond it,
+  and recomputed on scroll as well as on resize.
+- **12% of the bar is a whole tab, not an edge.** The ramp is a fixed
+  `1.5rem`, so it fades the same amount at every width.
+
+Selecting a tab now scrolls it into view, so the fade is only ever over a tab
+you are not using.
+
+**Then a photograph showed the other half of it**, which fading cannot fix:
+"Dashboard" clipped to "oard" against the left edge. A tab you have to drag
+sideways to read is a tab people stop using. **When the strip cannot fit beside
+the wordmark and the header buttons it now takes a row of its own** — measured
+(`tabRowSpace`), not a breakpoint, for the same reason the fade is.
+
+Note that the header's `flex-wrap: nowrap` is deliberate and stays: the *old*
+wrap dropped `.header-controls` — which carries `margin-left: auto` — onto a
+second row pinned right, at almost every laptop width. Here the tab strip is
+what moves, by an explicit order and a 100% basis, and only when measured not
+to fit.
+
+**Verified in a browser this time** — Chromium is in the sandbox and the app
+runs on localhost. At 1920/1600/1440 the tabs sit inline and nothing fades; at
+1280 and 1100 the strip takes its own row with all seven readable and the
+controls still on row one. Measured, then screenshotted and looked at.
+
 ### 36B. The three surfaces that need rearranging, not restyling
 
 Each of these was called out as needing a **new layout**, not a coat of paint.
@@ -1140,12 +1255,63 @@ controls in a different order.
    Import & export. Text is read live, because several sections are filled in
    by JS after first paint and an index built at startup would search empty
    panels. What is left is the density *within* the longer sections.
-2. ~~**The Chat page controls.**~~ **regrouped.** They are now three groups —
-   what the AI may use, how it answers, and this conversation — separated by a
-   hairline rather than boxes, with the conversation-level actions pushed to
-   the far end because they are the only two not about the *next* message. Ids
-   are unchanged, so it was a regrouping rather than a rewrite. What is left
-   here is the composer itself, which has not been looked at.
+2. ~~**The Chat page controls.**~~ **regrouped, then moved to the composer.**
+   Asked for directly after the regrouping: *"I was thinking of moving the
+   majority of the ui controls like the chat/agent pull, web search and stuff
+   to the bottom bar with the chat input."* Correct, and it is the same split
+   taken one step further — a control that decides what happens to the **next
+   message** (Chat/Agent, Web, answer length, persona, the skill picker,
+   attached notes) now lives in a **dock** at the bottom with the input box;
+   the header keeps only what is about the **conversation** (its name, its
+   cost, export). You set them as you write instead of scrolling back up.
+
+   The web and persona panels moved down with the buttons that open them — a
+   toggle at the bottom opening a panel at the top reads as a button that does
+   nothing — and the web panel is capped at 45vh inside the dock. Ids are
+   unchanged throughout, so `app.js` needed no edit; `tests/test_chat_dock.py`
+   pins the arrangement, because nothing else here can see it.
+
+   **Then made compact**, asked for directly: *"make the bottom dock in the
+   chat bar cleaner and better structured ui wise so it's not as bulky."* The
+   first version was three stacked bands — a skills row, a controls row and the
+   composer — which is most of the height of a short conversation. Now one
+   strip of four groups, and the two things that made it tall are gone: the
+   skill's description (a sentence of running text, clipped mid-word; it is the
+   select's tooltip now, where `skillSummary` already puts the steps and tools)
+   and a "⚡ Skill:" label beside a select whose placeholder said the same
+   thing. One `--control-h` for every select, button and segment is what makes
+   it read as a strip — the segmented control had been four pixels taller than
+   its neighbours, which is §35L's complaint in miniature.
+
+   **The header became two levels rather than one row of equals**: the title as
+   the heading, the token count and the "reading a summary" note as a quiet
+   subline under it, and only the two conversation actions on the right. The
+   usage chip used to be a filled pill between the title and the buttons, which
+   read as a third button and shoved the actions sideways whenever the number
+   gained a digit.
+
+   **Then reported off again, and the cause was worth writing down:** *"some
+   are higher or lower than each other and different heights."* Matching the
+   heights was not enough. **A margin on a flex item is centred with the
+   item** — `.seg` carries `margin-bottom: 0.5rem` from the stacked forms it
+   was built for, so under `align-items: center` those 8px sat it 4px above its
+   neighbours and made its group 8px taller, pushing the next group 4px down.
+   Two visible offsets from one declaration three thousand lines away, and the
+   second version of the rule reproduced it in a margin of its own. The strip
+   zeroes outside spacing for everything in it now; DESIGN.md has the rule.
+
+   The composer was worse and nobody had measured it: 📎 45.2px, the box 49.0,
+   🎙 45.2, Send 43.2, three different tops. It has its own `--composer-h`
+   (2.75rem — the 44px touch minimum, since this is the row used on a phone)
+   and aligns to `end`, so the buttons stay level with the caret's line as the
+   box grows rather than drifting up the side of it.
+
+   Measured and screenshotted in a browser, light and dark: dock 3 rows → 1,
+   one top and one height per row (strip 30.4px, composer 44px), header 41px
+   empty / 59px with metadata.
+
+   Still open: the composer's own controls (📎, 🎙, Send) have not been looked
+   at.
 
    Original note: The toolbar has grown a control at a time —
    Chat/Agent, Web, response mode, persona, peek, export, skill picker, tools

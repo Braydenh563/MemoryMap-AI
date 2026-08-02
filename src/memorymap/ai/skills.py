@@ -50,11 +50,16 @@ MAX_TOOLS = 12
 MAX_INPUTS = 5
 MAX_INPUT_VALUE = 200
 
-#: Tools a skill may never declare. `run_skill` hands a turn to a skill run,
-#: so a skill holding it could start itself: each run brings fresh rounds, and
-#: the per-turn budget that stops an ordinary loop never applies. Named here
-#: rather than imported from `tools` because `tools` imports this module.
-NEVER_IN_A_SKILL = frozenset({"run_skill"})
+#: Tools a skill may never declare. Both hand a turn to a *run*, so a skill
+#: holding one could start itself: each run brings fresh rounds, and the
+#: per-turn budget that stops an ordinary loop never applies. Named here rather
+#: than imported from `tools` because `tools` imports this module.
+NEVER_IN_A_SKILL = frozenset({"run_skill", "make_plan"})
+
+#: An ad-hoc plan's title, shown on the plan card. Longer than MAX_NAME because
+#: it is the job in the user's own words — "tidy up my categories and retag
+#: anything that got missed" — rather than a name somebody chose for a skill.
+MAX_GOAL = 120
 
 # {{tag}} — doubled braces so a skill can still talk about {json} literally.
 PLACEHOLDER = re.compile(r"\{\{\s*([a-zA-Z][a-zA-Z0-9_]{0,23})\s*\}\}")
@@ -177,6 +182,41 @@ def is_action(skill: dict) -> bool:
     return bool(skill.get("useTools") or skill.get("steps") or skill.get("tools"))
 
 
+def ad_hoc_plan(goal: str, steps: list[str]) -> dict:
+    """A plan the model drew for one request, in the shape the runner takes.
+
+    **Why this exists** (§35K, and §33's `update_plan`): *"I will say fix my
+    categories and it will only merge two categories and leave it at that,
+    ignoring the rest."* That is the same failure §21 found for skills — a
+    model given one broad instruction does the first part and reports success —
+    and the skill runner already solves it, by giving each step its own turn.
+
+    What was missing is that the fix only applied to jobs somebody had saved as
+    a skill. An open-ended request needs the identical treatment, so this is
+    the identical structure with nothing saved: a name, a job, ordered steps.
+    The runner cannot tell the difference, which is the point — a plan gets the
+    ticked steps, the change list and the Undo on each that a skill run gets.
+
+    No tool allowlist, deliberately. A skill declares its tools because its
+    author knew the job in advance; a plan is drawn for one request, and
+    guessing an allowlist from a sentence would silently refuse the tool the
+    job actually needed. Each step is focused on its own text instead
+    (`tools.focus_for`), which is the same economy without the guess.
+    """
+    text = " ".join(str(goal or "").split())[:MAX_GOAL]
+    return {
+        # Read by the runner and the plan card; `kind` is what lets the UI say
+        # "the plan it made" rather than "the skill it ran".
+        "kind": "plan",
+        "name": text,
+        "prompt": text,
+        "steps": list(steps),
+        "tools": [],
+        "inputs": [],
+        "useTools": True,
+    }
+
+
 def fill(text: str, values: dict) -> str:
     """Substitute {{input}} placeholders.
 
@@ -224,7 +264,11 @@ def run_instruction(skill: dict, values: dict | None = None) -> str:
     the tools and did not know it was meant to act.
     """
     values = input_values(skill, values)
-    parts = [f"Run my saved skill “{skill['name']}”."]
+    parts = [
+        "Carry out the job you planned."
+        if skill.get("kind") == "plan"
+        else f"Run my saved skill “{skill['name']}”."
+    ]
     if skill.get("description"):
         parts.append(fill(skill["description"], values))
     parts.append(f"What it should do: {fill(skill['prompt'], values)}")
@@ -266,9 +310,20 @@ def step_instruction(skill: dict, values: dict | None, index: int) -> str:
     values = input_values(skill, values)
     steps = skill.get("steps") or []
     total = len(steps)
+    # A plan the model drew for this request is not a skill and must not be
+    # described as one: told it is "running the skill 'fix my categories'", a
+    # small model looks for a skill by that name and reports that there isn't
+    # one. It planned this itself a moment ago, and saying so is both true and
+    # the stronger instruction.
+    opening = (
+        f"You are working through the plan you made. This is step "
+        f"{index + 1} of {total}."
+        if skill.get("kind") == "plan"
+        else f"You are running the skill “{skill['name']}” for me. "
+        f"This is step {index + 1} of {total}."
+    )
     parts = [
-        f"You are running the skill “{skill['name']}” for me. "
-        f"This is step {index + 1} of {total}.",
+        opening,
         f"The whole job: {fill(skill['prompt'], values)}",
     ]
     if index:

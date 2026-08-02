@@ -34,14 +34,26 @@ from itertools import chain
 
 from sqlalchemy.orm import Session
 
-from memorymap.ai import agent, skills
+from memorymap.ai import agent, skills, tools
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient
 
-# Rounds a single step may take. Lower than a free chat turn on purpose: a
-# step is one instruction, and a model still looping after this many rounds
-# has misunderstood it rather than run out of room.
+# Rounds a single step may take before it has to earn more. Lower than a free
+# chat turn on purpose: a step is one instruction, and a model still looping
+# after this many rounds has misunderstood it rather than run out of room.
 STEP_ROUNDS = 4
+
+# …and rounds a step can earn by getting somewhere (agent.EARNED_ROUNDS is the
+# same idea for an ordinary turn, and the reasoning is written up there).
+#
+# This is the reported failure seen from inside a run: *"the agent struggles
+# with long tasks like skills, then cuts out half way through."* A step such as
+# "tag every untagged note" is one instruction and a dozen tool calls, and four
+# flat rounds cut it off in the middle every time — with the step ticked off as
+# done, because the runner could only see that the turn had produced text.
+# Both halves of that are fixed: a step that keeps doing new things keeps
+# going, and a step that runs out is marked stalled rather than done.
+STEP_EARNED_ROUNDS = 6
 
 # How much of a step's answer is carried into the next step's history. Enough
 # to say what it found, not enough to refill the window each time.
@@ -59,16 +71,25 @@ def run_skill(
     profile: str = "",
     history: list[dict] | None = None,
     persona_prompt: str | None = None,
+    start_at: int = 0,
 ) -> Iterator[dict]:
     """Yields the agent's own event types, plus three of its own:
 
     {"type": "plan", "skill", "steps", "tools"}     — before anything runs
     {"type": "step", "index", "state", "text"}      — running | done | failed
-    {"type": "result", "changes": [...]}            — what actually changed
+                                                      | stalled | earlier
+    {"type": "result", "changes": [...], "stopped_at": int|None}
+                                                    — what actually changed,
+                                                      and where it stopped
 
     The first event is either "unsupported" (the model can't call tools, so
     the caller should fall back to plain Q&A) or "plan" — the same contract
     `run_agent` has, so the route's fallback works unchanged.
+
+    `start_at` resumes: steps before it are marked `earlier` and not re-run.
+    That is the answer to "it cuts out half way through and has to restart" —
+    restarting a six-step run to reach step four means doing steps one to three
+    again, and every one of them writes to the notebook.
     """
     steps = skill.get("steps") or []
     allowed = skill.get("tools") or None
@@ -77,6 +98,10 @@ def run_skill(
         "skill": skill["name"],
         "steps": steps,
         "tools": skill.get("tools") or [],
+        # Which shape of run this is, so the UI can title it. A saved skill and
+        # a plan the model drew for one request (§35K) both run through here.
+        "kind": skill.get("kind") or "skill",
+        "start_at": max(0, start_at),
     }
     changes: list[dict] = []
 
@@ -92,7 +117,14 @@ def run_skill(
             history=turn_history,
             persona_prompt=persona_prompt,
             allowed_tools=allowed,
+            # A run may not start another run. A skill that *declares* its
+            # tools is already safe (`skills.NEVER_IN_A_SKILL` refuses these at
+            # save time), but a skill with no allowlist — and every ad-hoc plan
+            # — is offered the whole registry, `make_plan` included. A plan
+            # step that plans again would nest runs with fresh rounds each.
+            blocked_tools=tools.RUN_STARTERS,
             max_rounds=STEP_ROUNDS if steps else agent.MAX_ROUNDS,
+            earned_rounds=STEP_EARNED_ROUNDS if steps else agent.EARNED_ROUNDS,
             exhausted_note=note,
         )
 
@@ -109,12 +141,28 @@ def run_skill(
         yield plan
         for event in _collect(chain([first], events), changes):
             yield event
-        yield {"type": "result", "changes": changes}
+        # No steps to resume from, so no `stopped_at`: a stepless skill is one
+        # turn, and re-running it is the only way to continue it. The turn's
+        # own `limit` event is still there, and the chat's Continue button
+        # reads that.
+        yield {"type": "result", "changes": changes, "stopped_at": None, "steps": 0}
         return
 
     step_history = list(history or [])
     started = False
+    stopped_at: int | None = None
+    resume_from = min(max(0, start_at), len(steps))
     for index, step in enumerate(steps):
+        if index < resume_from:
+            # Done in the run this one is resuming, so it is neither re-run nor
+            # claimed as this run's work. The plan card shows it ticked in a
+            # quieter state, because a step somebody watched succeed ten
+            # minutes ago is not the same as one this run just did.
+            if not started:
+                yield plan
+                started = True
+            yield {"type": "step", "index": index, "state": "earlier", "text": step}
+            continue
         events = turn(
             skills.step_instruction(skill, values, index),
             step_history,
@@ -135,6 +183,7 @@ def run_skill(
                 "text": step,
                 "reason": "The model stopped being able to use tools part-way through.",
             }
+            stopped_at = index
             break
         if not started:
             yield plan
@@ -143,14 +192,36 @@ def run_skill(
 
         said: list[str] = []
         failures: list[str] = []
+        ran_out = False
         for event in _collect(chain([first], events) if first else events, changes):
             if event["type"] == "answer":
                 said.append(event["delta"])
             elif event["type"] == "tool" and not event.get("ok"):
                 failures.append(str(event.get("error") or event.get("label")))
+            elif event["type"] == "limit":
+                # The step used every round it had and was still calling tools.
+                # Whatever it says next is a stopping notice, so it must not be
+                # read as the step's result.
+                ran_out = True
             yield event
 
         answer = "".join(said).strip()
+        if ran_out:
+            # **Stalled, not done.** This is the half of the reported failure
+            # that made the other half invisible: the runner could only see
+            # that the turn produced text, and the "I ran out of rounds" notice
+            # is text — so a step that was cut off mid-job was ticked green and
+            # the next step ran on top of half-finished work. It stops here
+            # instead, and `stopped_at` is what Resume picks up from.
+            yield {
+                "type": "step",
+                "index": index,
+                "state": "stalled",
+                "text": step,
+                "reason": "ran out of rounds before finishing",
+            }
+            stopped_at = index
+            break
         # A step that ran no tools and said nothing did not happen. Anything
         # else is reported as done — the model's own words are the record, and
         # calling a step failed because a tool errored mid-way would be wrong
@@ -163,6 +234,7 @@ def run_skill(
                 "text": step,
                 "reason": failures[-1],
             }
+            stopped_at = index
             break
         yield {"type": "step", "index": index, "state": "done", "text": step}
         step_history.append(
@@ -171,7 +243,15 @@ def run_skill(
 
     if not started:  # every step failed before producing anything
         yield plan
-    yield {"type": "result", "changes": changes}
+    # `stopped_at` is the index the run did not get past — None when it
+    # finished. The client turns it into "Resume from step N", which is the
+    # difference between carrying on and doing the first half again.
+    yield {
+        "type": "result",
+        "changes": changes,
+        "stopped_at": stopped_at,
+        "steps": len(steps),
+    }
 
 
 def _collect(events: Iterator[dict], changes: list[dict]) -> Iterator[dict]:

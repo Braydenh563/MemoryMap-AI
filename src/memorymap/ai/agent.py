@@ -29,6 +29,28 @@ from memorymap.ai.ollama_client import (
 # A runaway model must not loop forever on a local machine.
 MAX_ROUNDS = 6
 
+# Rounds a turn can *earn* beyond MAX_ROUNDS, one per round that got somewhere.
+#
+# **Reported, repeatedly:** *"the agent struggles with long tasks like skills,
+# then cuts out half way through and has to restart, or it hits a limit for
+# tool calls which has happened quite a bit."* A flat six is the whole cause of
+# the second half, and it binds on exactly the requests the app is for: "tag
+# these eight notes" costs one search, a read and eight writes, and the model
+# is cut off after six with the work half done and a note saying so.
+#
+# The flat cap was never really measuring "runaway" — it was counting rounds,
+# and a model doing steady useful work spends rounds for the same reason a
+# looping one does. What separates them is whether anything *new* happened: a
+# round in which at least one tool call succeeded and was not a repeat of one
+# already made this turn is progress, and it buys one more round. A model
+# calling `search_notes` with the same arguments for the fourth time earns
+# nothing and still stops at MAX_ROUNDS.
+#
+# So the ceiling is `MAX_ROUNDS + EARNED_ROUNDS` and it is only reachable by a
+# turn that did twelve distinct, successful things — which is a long job, not a
+# loop. A loop still stops at six.
+EARNED_ROUNDS = 6
+
 # How much tool output one turn may add to the conversation, in characters.
 # Local models run in small windows, and tool results accumulate: six rounds
 # of paging through a large notebook will push the question itself out of
@@ -107,6 +129,11 @@ TOOLS_GUIDE = (
     "what you found, look up anything still missing, then answer. Do not "
     "rush to an answer while something you were asked about is still "
     "unchecked. "
+    # §35K: "I will say fix my categories and it will only merge two categories
+    # and leave it at that." Short because the schema carries the rest — this
+    # is only here because the *trigger* is a property of the request, and the
+    # model has to be told to look for it.
+    "If a request covers many notes, make_plan first. "
     # It under-used read_url badly: a result snippet is a sentence, and the
     # model treated it as the page.
     "A web search result is a title and one clipped sentence — enough to "
@@ -254,6 +281,11 @@ _RECOVERY_HINTS = {
     "not_in_skill": (
         "This skill does not include that tool. Use only the tools listed for "
         "the run, or finish and tell the user what the skill could not do."
+    ),
+    "already_running": (
+        "You are already inside a run that is working through steps — you "
+        "cannot start another one from in here. Do this step with the tools "
+        "you have, and the next step will get its own turn."
     ),
 }
 
@@ -536,7 +568,9 @@ def run_agent(
     history: list[dict] | None = None,
     persona_prompt: str | None = None,
     allowed_tools: list[str] | None = None,
+    blocked_tools: frozenset[str] | set[str] | None = None,
     max_rounds: int = MAX_ROUNDS,
+    earned_rounds: int = EARNED_ROUNDS,
     exhausted_note: str | None = None,
     mode: str | None = None,
 ) -> Iterator[dict]:
@@ -547,6 +581,9 @@ def run_agent(
     {"type": "thinking", "delta": str}
     {"type": "tool", "label": str, "ok": bool, "error": str|None}
     {"type": "confirm", "name", "arguments", "label"}
+    {"type": "limit", "reason": "rounds", ...}  — ran out of rounds mid-job;
+                                                 the answer that follows is a
+                                                 stopping notice, not a result
     {"type": "answer", "delta": str}           — the final text
     """
     # Size the whole turn against the window before building any of it.
@@ -587,6 +624,15 @@ def run_agent(
     offered = tools.ollama_tools(
         allowed_tools if allowed_tools is not None else _focus(question)
     )
+    # Tools this turn may not use whatever it was offered. The one caller is a
+    # run refusing to start another run (`tools.RUN_STARTERS`): each run brings
+    # its own fresh rounds, so nesting them means the bound on a turn stops
+    # meaning anything, and the plan on screen stops describing what is
+    # happening. Withdrawn from the wire *and* refused below, because a model
+    # that calls a tool it was never offered must not get it either.
+    barred = set(blocked_tools or ())
+    if barred:
+        offered = [t for t in offered if t["function"]["name"] not in barred]
     # Then fit what is left to the window the model actually has, rather than
     # to a constant. See tools.within_budget: 4096 is Ollama's fallback, not a
     # fact, and a model declaring 32k was being rationed as if it were a 3B.
@@ -630,8 +676,26 @@ def run_agent(
     # (tool, arguments) pairs that have already failed, so a model looping on
     # the same broken call can be told so rather than burning every round.
     failed_calls: set[tuple[str, str]] = set()
+    # …and the ones that have already *succeeded*, which is the other half of
+    # the same idea: a repeat of a call that worked is not progress either. The
+    # model has that result in its context already.
+    done_calls: set[tuple[str, str]] = set()
 
-    for round_number in range(max(1, max_rounds)):
+    # Rounds are granted, then earned (see EARNED_ROUNDS). `allowance` is what
+    # this turn has so far; a round that does something new adds one to it, up
+    # to `ceiling`. A turn that loops never adds anything and stops where the
+    # flat cap always stopped it.
+    granted = max(1, max_rounds)
+    ceiling = granted + max(0, earned_rounds)
+    allowance = granted
+    round_number = -1
+
+    while round_number + 1 < allowance:
+        round_number += 1
+        # Set by any tool call that succeeded and had not been made before —
+        # the definition of "this round got somewhere". Read at the bottom of
+        # the loop, where it buys the next round.
+        progressed = False
         # Streamed: the model's prose reaches the user as it's written. The
         # non-streamed call this used to make is why an agent answer landed in
         # one lump after a visible pause (user-reported) — every other chat
@@ -715,6 +779,32 @@ def run_agent(
         for call in calls:
             name, arguments = call["name"], call.get("arguments") or {}
             spec = tools.TOOLS.get(name)
+            if name in barred:
+                # A run trying to start a run. Refused with the reason, not
+                # silently: the model asked for this because it has decided the
+                # job is bigger than one step, and the useful answer is "you
+                # are already inside the mechanism you are reaching for".
+                signature = (name, json.dumps(arguments, sort_keys=True))
+                failed_calls.add(signature)
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_name": name,
+                        "content": json.dumps(
+                            {
+                                "error": f"{name} cannot be used inside a run",
+                                "what_to_do": _RECOVERY_HINTS["already_running"],
+                            }
+                        ),
+                    }
+                )
+                yield {
+                    "type": "tool",
+                    "label": f"⚠️ {name.replace('_', ' ')} isn't available here",
+                    "ok": False,
+                    "error": f"{name} cannot be used inside a run",
+                }
+                continue
             if permitted is not None and name not in permitted:
                 # The allowlist is a safety property, not only a prompt: a
                 # model that calls a tool it was never offered does not get to
@@ -799,6 +889,14 @@ def run_agent(
                 # round of the turn.
                 undo = result.pop("undo", None)
                 change = None
+                signature = (name, json.dumps(arguments, sort_keys=True))
+                if "error" not in result and signature not in done_calls:
+                    # Something new worked. That is what buys another round —
+                    # see EARNED_ROUNDS. Reads and writes both count: paging
+                    # through a notebook to find the right note is the work,
+                    # not a preamble to it.
+                    done_calls.add(signature)
+                    progressed = True
                 if "error" not in result and name in _WRITE_TOOLS:
                     did_write = True
                     ran_writes.add(name)
@@ -810,7 +908,6 @@ def run_agent(
                     }
                 if "error" in result:
                     # Hand back advice with the error, not just the error.
-                    signature = (name, json.dumps(arguments, sort_keys=True))
                     repeated = signature in failed_calls
                     failed_calls.add(signature)
                     result = {
@@ -849,11 +946,30 @@ def run_agent(
                 {"role": "tool", "tool_name": name, "content": payload}
             )
 
+        if progressed and allowance < ceiling:
+            # This round did something new, so the turn gets another one. The
+            # cap that stops a runaway is still there — a round that repeats
+            # itself or errors buys nothing, so a loop never reaches `ceiling`.
+            allowance += 1
+
+    # Out of rounds with tools still being called: the job is unfinished, and
+    # saying so is the honest end. The `limit` event is what distinguishes this
+    # from an answer — the skill runner uses it to mark the step stalled rather
+    # than ticking it off, and the chat UI uses it to offer Continue instead of
+    # making the user type "carry on" (both reported: a run that "cuts out half
+    # way through and has to restart").
+    yield {
+        "type": "limit",
+        "reason": "rounds",
+        "rounds": round_number + 1,
+        "wrote": sorted(ran_writes),
+    }
     yield {
         "type": "answer",
         "delta": exhausted_note
         or (
-            "I stopped after using several tools in a row — here's where "
-            "things stand. Ask me to continue if there's more to do."
+            "I stopped after "
+            f"{round_number + 1} rounds of tool calls — here's where things "
+            "stand. Continue and I'll pick up from here."
         ),
     }

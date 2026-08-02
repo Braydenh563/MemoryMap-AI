@@ -321,10 +321,62 @@ header#top-bar h1 {
    range is the wrong test: whether the tabs scroll depends on the pill's
    current text and the wordmark as much as on the window, so any fixed
    breakpoint both faded a tab bar that fitted and left a scrolling one
-   looking chopped off. syncTabOverflowFade measures it instead. */
-#tab-bar.is-scrolling {
-  -webkit-mask-image: linear-gradient(to right, #000 88%, transparent 100%);
-  mask-image: linear-gradient(to right, #000 88%, transparent 100%);
+   looking chopped off. syncTabOverflowFade measures it instead.
+
+   **Reported, and it was two mistakes in one rule:** "the reminders tab in
+   the top bar is partially faded out on the right." Reminders is the last
+   tab, so it wore the whole of both.
+
+   1. The fade said "the bar scrolls", not "there is more that way". Once you
+      had scrolled to the end — or when the overflow was a handful of pixels —
+      the last tab was dimmed with nothing hidden behind it, which reads as a
+      disabled control rather than as a hint. It is now per *edge*, painted
+      only on a side that has content beyond it, and remeasured on scroll.
+   2. 12% of the bar is ~70px at a usual width: a whole tab, not an edge.
+      A ramp in px fades the same amount whatever the bar's width, which is
+      what an edge hint means. */
+#tab-bar {
+  /* Wide enough to read as a soft edge, narrow enough that no label is
+     unreadable behind it. */
+  --tab-fade: 1.5rem;
+}
+/* When the seven tabs cannot fit beside the wordmark and the header buttons,
+   they take a row of their own rather than scrolling out of reach. Photographed
+   on a real window: "Dashboard" clipped to "oard" against the left edge.
+   Fading that edge says the tab is there; it does not make it readable, and a
+   nav you have to drag sideways is a nav people stop using.
+
+   **This is not the wrap that was reported broken.** The header used to wrap
+   *itself*, and because `.header-controls` carries `margin-left: auto` the
+   controls were what dropped — to a second row, pinned right, at almost every
+   laptop width. Here it is the tab strip that moves, by force of a 100% basis
+   and an explicit order, and only when it has been measured not to fit
+   (`syncTabOverflowFade`). The controls stay exactly where they are, on row
+   one, with the wordmark. */
+header#top-bar.tabs-wrapped { flex-wrap: wrap; row-gap: 0.5rem; }
+header#top-bar.tabs-wrapped #tab-bar {
+  order: 3;
+  flex-basis: 100%;
+  width: 100%;
+}
+#tab-bar.fade-end {
+  -webkit-mask-image: linear-gradient(
+    to right, #000 calc(100% - var(--tab-fade)), transparent 100%);
+  mask-image: linear-gradient(
+    to right, #000 calc(100% - var(--tab-fade)), transparent 100%);
+}
+#tab-bar.fade-start {
+  -webkit-mask-image: linear-gradient(
+    to right, transparent 0, #000 var(--tab-fade));
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--tab-fade));
+}
+#tab-bar.fade-start.fade-end {
+  -webkit-mask-image: linear-gradient(
+    to right, transparent 0, #000 var(--tab-fade),
+    #000 calc(100% - var(--tab-fade)), transparent 100%);
+  mask-image: linear-gradient(
+    to right, transparent 0, #000 var(--tab-fade),
+    #000 calc(100% - var(--tab-fade)), transparent 100%);
 }
 .header-controls {
   display: flex;
@@ -1994,7 +2046,49 @@ html.modal-open body {
 .plan-step-done::after { content: " ✓"; color: var(--ok); }
 .plan-step-failed { color: var(--error); }
 .plan-step-failed::after { content: " ✕"; }
+/* Ran out of rounds part-way. Deliberately NOT the same mark as done or as
+   failed: the step did real work and stopped in the middle of it, and showing
+   that as a tick is what let a half-finished run report success. */
+.plan-step-stalled { color: var(--warn); }
+.plan-step-stalled::after { content: " ⏸"; }
+/* Completed by the run this one is resuming — ticked, but quietly, because it
+   is not this run's work. */
+.plan-step-earlier { opacity: 0.65; }
+.plan-step-earlier::after { content: " ✓"; }
 .plan-step-reason { font-style: italic; }
+/* --- compressing a long conversation (§35I) ---------------------------------
+   The summary before it is used. It sits under the chat header rather than in
+   a modal on purpose: it is a thing to read and correct, not a decision to
+   interrupt you with, and the conversation it summarises should stay visible
+   behind it. */
+.compress-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-5);
+  margin-bottom: var(--space-4);
+  background: var(--inner);
+}
+.compress-panel.hidden { display: none; }
+.compress-panel textarea { margin-bottom: var(--space-3); }
+/* The badge saying the model is reading a summary rather than the thread. */
+.chat-compressed {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.chat-compressed.hidden { display: none; }
+
+/* The way onward from a turn that stopped short (Continue / Resume). */
+.run-continue {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-top: var(--space-3);
+}
+.run-continue .muted { font-size: 0.85rem; }
 /* A skill's result: what changed, with a way back. */
 .skill-result {
   margin: 0;
@@ -3507,18 +3601,215 @@ html { font-size: 16px; }
   flex-wrap: wrap;
   margin-bottom: 0.6rem;
 }
+/* Title and its metadata are one block, so the actions align to the pair
+   rather than to whichever of them happens to be taller. */
+.chat-headline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  margin-right: auto;
+}
 .chat-toolbar #chat-title {
   margin: 0;
-  margin-right: auto;
-  max-width: 16rem;
+  max-width: 22rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.chat-toolbar .tools-toggle { white-space: nowrap; margin: 0; }
-.chat-toolbar button { white-space: nowrap; }
-.chat-toolbar select { margin: 0; width: auto; }
+/* One line of quiet facts under the title: what the thread has cost, and
+   whether the model is reading a summary rather than the messages. Empty most
+   of the time, and it takes no height when it is — an always-present blank
+   line under a heading is the sort of unexplained gap §36B spent a session
+   removing from the note card. */
+.chat-subline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.chat-subline:empty { display: none; }
+/* An action that belongs in a sentence, not a button beside one. `Undo` sits
+   inside the "reading a summary" note, so it is styled as the words it is. */
+.link-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  box-shadow: none;
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.link-button:hover { filter: brightness(1.15); }
+/* These three followed the controls down into the dock — `select` especially,
+   because the base rule is `width: 100%` and without an override each picker
+   becomes as wide as the row allows. Written for both surfaces rather than
+   moved, since the toolbar keeps the same shape for whatever lands in it
+   next. */
+.chat-toolbar .tools-toggle,
+.chat-dock-controls .tools-toggle { white-space: nowrap; margin: 0; }
+.chat-toolbar button,
+.chat-dock-controls button { white-space: nowrap; }
+.chat-toolbar select,
+.chat-dock-controls select { margin: 0; width: auto; }
 .chat-composer { margin-top: 0.5rem; }
+/* --- the composer dock (asked for directly) ---------------------------------
+   *"moving the majority of the ui controls like the chat/agent pull, web
+   search and stuff to the bottom bar with the chat input."*
+
+   Everything that decides what happens to the *next* message now lives here,
+   with the box you type it in; the header above keeps only what is about the
+   conversation as a whole. The dock is the last flex child of #chat-main, so
+   it holds the bottom of the card while the message list scrolls above it —
+   no fixed positioning, which would have to know the sidebar's width and would
+   sit over the messages on a short window.
+
+   The hairline is what makes it read as one block rather than as two rows that
+   happen to be adjacent. */
+.chat-dock {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-3);
+  margin-top: var(--space-3);
+  background: var(--card);
+}
+/* One strip rather than three stacked rows.
+   Asked for: "make the bottom dock in the chat cleaner and better structured
+   ui wise so it's not as bulky". The height was the complaint and the cause
+   was structural — a skills row, a controls row and the composer, each with
+   its own vertical rhythm, is three bands of chrome under every conversation.
+   The first two are one line now, and the parts that made it tall are gone:
+   the skill's description (a sentence of running text, clipped mid-word, now
+   the select's tooltip) and the duplicated "⚡ Skill:" label beside a select
+   whose placeholder already says it.
+
+   `align-items: center` with one control height (--control-h) is what makes it
+   read as a strip: a segmented control, two selects and four buttons that each
+   sized themselves is what made the old row look assembled rather than
+   designed. */
+.chat-dock-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  /* One height for everything in the strip. Not a spacing token: this is a
+     control's size, the same role --radius plays for corners, and snapping it
+     to a gap step would make it drift with density in a way a hit target
+     should not. */
+  --control-h: 1.9rem;
+}
+.chat-dock-controls select,
+.chat-dock-controls > .chat-tool-group > button,
+.chat-dock-controls .seg,
+.chat-dock-controls .seg button,
+.chat-dock-controls .chat-skill-mark {
+  height: var(--control-h);
+  padding-block: 0;
+  font-size: var(--text-md);
+  /* **The margin is the alignment bug, and it is invisible in the markup.**
+     `.seg` carries `margin-bottom: 0.5rem` from the stacked forms it was built
+     for. `align-items: center` centres a flex item's *margin box*, so an 8px
+     bottom margin makes the control sit 4px above everything beside it — and
+     it makes the group 8px taller, which pushes the next group down by 4px in
+     turn. Both offsets were visible on screen and neither is visible in a
+     stylesheet unless you go looking for the rule that set them.
+
+     So the strip states it once, for everything in it: whatever a control
+     brought with it, in here it has no outside spacing and the `gap` is the
+     only thing between them. */
+  margin: 0;
+}
+/* The segmented control also brings its own vertical padding around its two
+   buttons, which made it taller again. It keeps its inset horizontally and
+   gives it up vertically. */
+.chat-dock-controls .seg {
+  display: inline-flex;
+  align-items: center;
+  padding-block: 0;
+}
+.chat-dock-controls select { max-width: 9rem; }
+/* The skills group is the one that varies in width — a skill name can be
+   anything — so it is the one allowed to give ground first. */
+.chat-tool-group-skills { min-width: 0; }
+.chat-tool-group-skills select { flex: 0 1 11rem; max-width: 11rem; }
+/* The group's mark, not a label. Sized and centred with the controls rather
+   than sitting on the text baseline, where a single glyph beside a select
+   reads as something that failed to load. */
+.chat-skill-mark {
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-h);
+  font-size: var(--text-lg);
+  line-height: 1;
+}
+/* Hidden as a group, not as a row: `.hidden` has to beat the flex display the
+   group otherwise carries. */
+.chat-tool-group.hidden { display: none; }
+/* The composer row, on one height.
+   Measured before this rule: 📎 45.2px, the box 49.0, 🎙 45.2, Send 43.2, with
+   three different tops — four controls, four sizes, nothing agreeing with
+   anything. Each had picked up its own padding from a different base rule.
+
+   `--composer-h` is the row's control height, the same idea as `--control-h`
+   in the strip above, and 2.75rem is deliberately at the 44px touch-target
+   minimum: this is the one row of the app used on a phone.
+
+   `align-items: end` rather than `center` because the box is `autogrow` — when
+   a three-line question makes it taller, the buttons must stay level with its
+   last line, where the caret is. Centring makes them drift upward as you
+   type. */
+.chat-dock .chat-composer {
+  margin-top: var(--space-4);
+  align-items: end;
+  --composer-h: 2.75rem;
+}
+.chat-dock .chat-composer button,
+.chat-dock .chat-composer .note-picker > button {
+  height: var(--composer-h);
+  padding-block: 0;
+  margin: 0;
+}
+.chat-dock .chat-composer #chat-input {
+  min-height: var(--composer-h);
+  /* Vertically centred at one line, and the same distance from the edge at
+     three. The autogrow measures scrollHeight, so this is padding rather than
+     a line-height trick that would change with the font. */
+  padding-block: var(--space-4);
+}
+/* The picker wraps its button and the popup panel; without this it stretches
+   to the row and takes the button with it. */
+.chat-dock .chat-composer .note-picker { align-self: end; }
+/* The web panel opens inside the dock, next to the button that opens it. Its
+   inner lists already scroll; this caps the whole thing so a page of results
+   can never grow the dock until the conversation above it is a sliver. */
+.chat-dock .web-panel {
+  max-height: 45vh;
+  overflow-y: auto;
+  margin-bottom: var(--space-4);
+}
+.chat-dock .persona-prompt { margin-bottom: var(--space-4); }
+/* The attached-note chips are their own row above the strip, so they keep a
+   gap under them.
+   **The skill picker must not**, and this rule is where it went wrong: it is a
+   group *inside* the strip now, and a bottom margin on a flex item is centred
+   with the item — so 8px underneath lifted the whole group 4px above its
+   neighbours and pushed them 4px down. Exactly the `.seg` bug, in a rule
+   written one commit earlier while fixing it. Margins inside the strip are
+   the strip's business; see `--control-h`. */
+.chat-dock #chat-attachments { margin-top: 0; margin-bottom: var(--space-3); }
+/* The status line is inside the dock now, so it must not add height on every
+   idle turn — an empty <p> with a margin moves the input box by its own
+   height each time a message finishes. */
+.chat-dock #chat-status { margin: var(--space-2) 0 0; }
+.chat-dock #chat-status:empty { display: none; }
+@media (max-width: 720px) {
+  /* Two rows of controls above a composer is most of a phone screen. They stay
+     — hiding a control the user has to reach for is worse than scrolling — but
+     they tighten up. */
+  .chat-dock-controls { gap: var(--space-2); }
+}
 /* Sticky sidebars ------------------------------------------------------------
    The conversation list and the document list are navigation, and navigation
    that scrolls away is navigation you have to scroll back for (user request).
@@ -4430,12 +4721,13 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 }
 .conv-divider:hover { background: var(--border); }
 
-/* The conversation's running total, beside the persona picker. */
+/* The conversation's running total. **Metadata, not a control** — it moved
+   under the title with the rest of the subline, because as a filled chip
+   between the heading and the buttons it read as a third button, and it
+   shifted the actions sideways every time the number gained a digit. */
 .chat-usage {
-  font-size: 0.75rem;
-  padding: 0.15rem 0.5rem;
-  border-radius: var(--radius-pill);
-  background: var(--chip-bg);
+  font-size: var(--text-sm);
+  color: var(--muted);
   white-space: nowrap;
 }
 
@@ -5655,15 +5947,11 @@ textarea.autogrow {
   padding: 0.25rem 0.6rem;
   font-size: 0.8rem;
 }
-/* Skills as a dropdown: one line instead of a wrapping wall of chips, with
-   room for a description beside it rather than hidden in a hover. */
-.chat-skill-hint {
-  font-size: 0.75rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 22rem;
-}
+/* (`.chat-skill-hint` lived here: the sentence of description that used to sit
+   beside the skill picker. It was the widest thing in the dock and was clipped
+   to one line anyway, so it says the same thing better as the select's own
+   tooltip — which `skillSummary` already fills with the description, the steps
+   and the tools.) */
 
 /* A background job that ended badly. Colour is not the only signal — the row
    carries ⚠️ and the reason in words — because a red line nobody can read the

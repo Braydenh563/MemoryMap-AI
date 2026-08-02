@@ -120,6 +120,12 @@ class ChatRequest(BaseModel):
     # assembled in `app.js` and hoped for here.
     skill: str | None = Field(default=None, max_length=skills.MAX_NAME)
     skill_inputs: dict[str, str] | None = None
+    # Resuming a run that stopped part-way (reported: *"it cuts out half way
+    # through and has to restart"*). Steps before this index are marked as done
+    # in an earlier run and are not repeated — which matters because most of
+    # them write to the notebook, so "restart" meant tagging and linking the
+    # same notes a second time.
+    skill_from_step: int = Field(default=0, ge=0, le=skills.MAX_STEPS)
     # Notes-only: this turn is an interrogation of the notebook and nothing
     # else (§35A). Set by the Notes tab's Ask box, never by the Chat tab.
     #
@@ -492,6 +498,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                     prepared["notes"],
                     model_manager,
                     ollama,
+                    start_at=body.skill_from_step,
                     **shared,
                 )
             else:

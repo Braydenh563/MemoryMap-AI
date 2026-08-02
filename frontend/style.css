@@ -321,10 +321,43 @@ header#top-bar h1 {
    range is the wrong test: whether the tabs scroll depends on the pill's
    current text and the wordmark as much as on the window, so any fixed
    breakpoint both faded a tab bar that fitted and left a scrolling one
-   looking chopped off. syncTabOverflowFade measures it instead. */
-#tab-bar.is-scrolling {
-  -webkit-mask-image: linear-gradient(to right, #000 88%, transparent 100%);
-  mask-image: linear-gradient(to right, #000 88%, transparent 100%);
+   looking chopped off. syncTabOverflowFade measures it instead.
+
+   **Reported, and it was two mistakes in one rule:** "the reminders tab in
+   the top bar is partially faded out on the right." Reminders is the last
+   tab, so it wore the whole of both.
+
+   1. The fade said "the bar scrolls", not "there is more that way". Once you
+      had scrolled to the end — or when the overflow was a handful of pixels —
+      the last tab was dimmed with nothing hidden behind it, which reads as a
+      disabled control rather than as a hint. It is now per *edge*, painted
+      only on a side that has content beyond it, and remeasured on scroll.
+   2. 12% of the bar is ~70px at a usual width: a whole tab, not an edge.
+      A ramp in px fades the same amount whatever the bar's width, which is
+      what an edge hint means. */
+#tab-bar {
+  /* Wide enough to read as a soft edge, narrow enough that no label is
+     unreadable behind it. */
+  --tab-fade: 1.5rem;
+}
+#tab-bar.fade-end {
+  -webkit-mask-image: linear-gradient(
+    to right, #000 calc(100% - var(--tab-fade)), transparent 100%);
+  mask-image: linear-gradient(
+    to right, #000 calc(100% - var(--tab-fade)), transparent 100%);
+}
+#tab-bar.fade-start {
+  -webkit-mask-image: linear-gradient(
+    to right, transparent 0, #000 var(--tab-fade));
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--tab-fade));
+}
+#tab-bar.fade-start.fade-end {
+  -webkit-mask-image: linear-gradient(
+    to right, transparent 0, #000 var(--tab-fade),
+    #000 calc(100% - var(--tab-fade)), transparent 100%);
+  mask-image: linear-gradient(
+    to right, transparent 0, #000 var(--tab-fade),
+    #000 calc(100% - var(--tab-fade)), transparent 100%);
 }
 .header-controls {
   display: flex;
@@ -1994,7 +2027,25 @@ html.modal-open body {
 .plan-step-done::after { content: " ✓"; color: var(--ok); }
 .plan-step-failed { color: var(--error); }
 .plan-step-failed::after { content: " ✕"; }
+/* Ran out of rounds part-way. Deliberately NOT the same mark as done or as
+   failed: the step did real work and stopped in the middle of it, and showing
+   that as a tick is what let a half-finished run report success. */
+.plan-step-stalled { color: var(--warn); }
+.plan-step-stalled::after { content: " ⏸"; }
+/* Completed by the run this one is resuming — ticked, but quietly, because it
+   is not this run's work. */
+.plan-step-earlier { opacity: 0.65; }
+.plan-step-earlier::after { content: " ✓"; }
 .plan-step-reason { font-style: italic; }
+/* The way onward from a turn that stopped short (Continue / Resume). */
+.run-continue {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-top: var(--space-3);
+}
+.run-continue .muted { font-size: 0.85rem; }
 /* A skill's result: what changed, with a way back. */
 .skill-result {
   margin: 0;

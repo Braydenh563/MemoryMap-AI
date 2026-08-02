@@ -2272,12 +2272,14 @@ async function streamChat({
   noteIds,
   skill,
   skillInputs,
+  skillFromStep,
   notesOnly,
   signal,
   onMeta,
   onPlan,
   onStep,
   onResult,
+  onLimit,
   onThinking,
   onAnswer,
   onTool,
@@ -2301,6 +2303,10 @@ async function streamChat({
   if (skill) {
     body.skill = skill;
     if (skillInputs && Object.keys(skillInputs).length) body.skill_inputs = skillInputs;
+    // Resuming: the steps before this one ran in an earlier attempt and are
+    // not repeated. Sent as an index rather than as a list of what to skip,
+    // so the server stays the one place that knows what the steps are.
+    if (skillFromStep) body.skill_from_step = skillFromStep;
   }
   const response = await fetch("/chat/stream", {
     method: "POST",
@@ -2333,6 +2339,7 @@ async function streamChat({
       else if (event.type === "plan" && onPlan) onPlan(event);
       else if (event.type === "step" && onStep) onStep(event);
       else if (event.type === "result" && onResult) onResult(event);
+      else if (event.type === "limit" && onLimit) onLimit(event);
       else if (event.type === "thinking") onThinking(event.delta);
       else if (event.type === "answer") onAnswer(event.delta);
       else if (event.type === "tool" && onTool) onTool(event);
@@ -2586,6 +2593,37 @@ function chatMessageActions(actions) {
     button.setAttribute("aria-label", action.title);
     button.addEventListener("click", action.onClick);
     row.appendChild(button);
+  }
+  return row;
+}
+
+// The offer to carry on, shown under a turn that stopped before it was done.
+//
+// Reported twice in the same breath: *"the agent struggles with long tasks
+// like skills then cuts out half way through and has to restart, or it hits a
+// limit for tool calls."* Both ended in a paragraph telling the user to ask it
+// to continue — so continuing meant typing the request out again from memory,
+// and resuming a six-step skill meant re-running the three steps that had
+// already changed the notebook. This is one button for each case.
+function continueRunControls({ label, hint, onClick }) {
+  const row = document.createElement("div");
+  row.className = "run-continue";
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "small";
+  button.textContent = label;
+  button.addEventListener("click", () => {
+    // One press only: a second would start a duplicate run over the same
+    // notes, and every step of it writes.
+    button.disabled = true;
+    onClick();
+  });
+  row.appendChild(button);
+  if (hint) {
+    const why = document.createElement("span");
+    why.className = "muted";
+    why.textContent = hint;
+    row.appendChild(why);
   }
   return row;
 }
@@ -4785,6 +4823,11 @@ async function sendChatMessage(preset, opts = {}) {
   // the input box and the conversation — so it is remembered and started
   // once everything below has run.
   let handoff = null;
+  // Set when the turn stopped because it ran out of rounds, and — for a skill
+  // run — the step it did not get past. Both become a button at the end of the
+  // bubble rather than a sentence asking the user to type "carry on".
+  let ranOutOfRounds = false;
+  let stoppedAtStep = null;
   const startedAt = performance.now();
   const toolEvents = []; // {label, ok} — persisted so chips survive a reload
   chatController = new AbortController();
@@ -4799,6 +4842,7 @@ async function sendChatMessage(preset, opts = {}) {
       noteIds: sentAttachments,
       skill: opts.skill,
       skillInputs: opts.skillInputs,
+      skillFromStep: opts.skillFromStep,
       signal: chatController.signal,
       onMeta: (m) => {
         meta = m;
@@ -4821,9 +4865,18 @@ async function sendChatMessage(preset, opts = {}) {
       onResult: (event) => {
         clearPending();
         timeline.result(event);
+        // Where the run stopped, if it did. A number here means the steps
+        // after it never ran.
+        stoppedAtStep = typeof event.stopped_at === "number" ? event.stopped_at : null;
         // A skill that changed notes has just made the list on screen stale.
         if ((event.changes || []).length) loadEntries();
         chatScrollToEnd();
+      },
+      onLimit: () => {
+        // Out of rounds with tools still in flight. Only remembered here: the
+        // offer to continue belongs beneath the answer that says it stopped,
+        // and that answer has not been written yet.
+        ranOutOfRounds = true;
       },
       onThinking: (delta) => {
         clearPending();
@@ -4927,6 +4980,37 @@ async function sendChatMessage(preset, opts = {}) {
         stats,
         toolCount: toolEvents.length,
         rounds: (stats && stats.round) || 0,
+      })
+    );
+  }
+  // A turn that stopped short offers the way onward, in the two shapes it can
+  // take. Not shown when the user pressed Stop — they know why it ended — and
+  // not when a skill run finished every step it had.
+  if (!stopped && stoppedAtStep !== null && opts.skill) {
+    bubble.appendChild(
+      continueRunControls({
+        label: `↻ Resume from step ${stoppedAtStep + 1}`,
+        hint: "Earlier steps are not repeated.",
+        onClick: () =>
+          sendChatMessage(`⚡ ${opts.skill} — from step ${stoppedAtStep + 1}`, {
+            skill: opts.skill,
+            skillInputs: opts.skillInputs || {},
+            skillFromStep: stoppedAtStep,
+          }),
+      })
+    );
+  } else if (!stopped && ranOutOfRounds) {
+    bubble.appendChild(
+      continueRunControls({
+        label: "→ Continue",
+        hint: "Picks up from what it had already done.",
+        onClick: () =>
+          sendChatMessage(
+            "Continue from where you stopped. Don't redo what you have " +
+              "already done — carry on with what is left, and say when it is " +
+              "all finished.",
+            { useTools: true }
+          ),
       })
     );
   }
@@ -6735,7 +6819,7 @@ window.addEventListener("resize", () => {
   if ($("dash-grid")) sizeDashWidgets();
 });
 
-// Fade the tab strip's right edge only while it is genuinely scrolling.
+// Fade a tab-strip edge only while there is something hidden beyond it.
 //
 // This was a media query, which is the wrong test: whether the tabs overflow
 // depends on how long the AI status pill's text currently is and whether the
@@ -6744,15 +6828,37 @@ window.addEventListener("resize", () => {
 // widths looking as though "Reminders" had been clipped — which is exactly
 // the complaint the fade exists to prevent. Measuring is both simpler and
 // correct at every width.
+//
+// Measuring *overflow* was still not enough, and it was reported: "the
+// reminders tab in the top bar is partially faded out on the right." A bar
+// scrolled to its end has nothing further right, but the old single class
+// kept fading anyway — so the last tab was permanently dimmed, which reads as
+// a disabled control. The question each edge answers is "is there more THIS
+// way", so each edge gets its own class and the answer is recomputed on
+// scroll as well as on resize.
 function syncTabOverflowFade() {
   const bar = $("tab-bar");
   if (!bar) return;
-  // 1px of slack: sub-pixel layout makes scrollWidth exceed clientWidth by a
-  // fraction on plenty of widths where nothing is actually cut off.
-  bar.classList.toggle("is-scrolling", bar.scrollWidth - bar.clientWidth > 1);
+  // 1px of slack at each end: sub-pixel layout makes scrollWidth exceed
+  // clientWidth by a fraction on plenty of widths where nothing is cut off,
+  // and a scroll offset lands on .5 of a pixel as often as not.
+  const hidden = bar.scrollWidth - bar.clientWidth;
+  bar.classList.toggle("fade-start", hidden > 1 && bar.scrollLeft > 1);
+  bar.classList.toggle("fade-end", hidden - bar.scrollLeft > 1);
+}
+
+// A tab you cannot fully see is a tab you cannot fully read. Selecting one
+// brings it into view, so the fade is only ever over a tab you are not using.
+function revealActiveTab() {
+  const active = document.querySelector("#tab-bar button.active");
+  if (active && active.scrollIntoView) {
+    active.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }
+  syncTabOverflowFade();
 }
 
 window.addEventListener("resize", syncTabOverflowFade, { passive: true });
+$("tab-bar")?.addEventListener("scroll", syncTabOverflowFade, { passive: true });
 // The pill's text arrives with the status polls, long after first paint, and
 // changes width when it does — so remeasure whenever the header changes size
 // rather than only on window resize.
@@ -10384,6 +10490,9 @@ function switchTab(name) {
     button.setAttribute("aria-selected", String(active));
     button.tabIndex = active ? 0 : -1;
   }
+  // When the strip is narrow enough to scroll, the tab you just chose is the
+  // one that must be legible — see revealActiveTab.
+  revealActiveTab?.();
   localStorage.setItem("activeTab", name); // reopen where you left off
   // A new tab starts at its own top, and the back-to-top button re-evaluates
   // (it stays off the graph). Each page keeps its own scroll position now, so

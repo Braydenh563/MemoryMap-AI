@@ -10295,8 +10295,9 @@ function switchTab(name) {
   }
   localStorage.setItem("activeTab", name); // reopen where you left off
   // A new tab starts at its own top, and the back-to-top button re-evaluates
-  // (it stays off the graph).
-  window.scrollTo({ top: 0, behavior: "auto" });
+  // (it stays off the graph). Each page keeps its own scroll position now, so
+  // this is a deliberate reset rather than a side effect of one shared one.
+  scrollingPage()?.scrollTo({ top: 0, behavior: "auto" });
   scrollTopUpdate?.();
   // The generative-art animation only needs to run while it's on screen.
   if (name !== "dashboard") stopArt();
@@ -10532,11 +10533,18 @@ function showPanel(id) {
   if (id) scrollPageToTop();
 }
 
+// The element that actually scrolls (§36A). The window no longer does — the
+// visible .tab-page is its own scroll container, so the scrollbar starts below
+// the top bar instead of running behind it.
+function scrollingPage() {
+  return document.querySelector(".tab-page:not(.hidden)");
+}
+
 // Honour "prefers reduced motion" — a long smooth scroll is exactly the kind
 // of movement that setting exists to stop.
 function scrollPageToTop() {
   const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  window.scrollTo({ top: 0, behavior: smooth ? "smooth" : "auto" });
+  scrollingPage()?.scrollTo({ top: 0, behavior: smooth ? "smooth" : "auto" });
 }
 
 // --- back-to-top button -----------------------------------------------------------
@@ -10563,10 +10571,13 @@ function initScrollTopButton() {
 
   const update = () => {
     const tab = localStorage.getItem("activeTab") || "dashboard";
-    const show = window.scrollY > 400 && !NO_SCROLL_TOP_TABS.has(tab);
+    const show = (scrollingPage()?.scrollTop || 0) > 400 && !NO_SCROLL_TOP_TABS.has(tab);
     button.classList.toggle("visible", show);
   };
-  window.addEventListener("scroll", update, { passive: true });
+  // Capture, because scroll events do not bubble: the listener has to see them
+  // on whichever .tab-page is currently the scroll container, and that changes
+  // every time the user switches tab.
+  document.addEventListener("scroll", update, { passive: true, capture: true });
   window.addEventListener("resize", update, { passive: true });
   update();
   return update;

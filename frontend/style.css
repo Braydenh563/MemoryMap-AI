@@ -38,9 +38,11 @@
   --space-7: calc(1.25rem * var(--density));
   --space-8: calc(1.5rem * var(--density));
   --space-9: calc(2rem * var(--density));
-  /* Height of the sticky top bar. Sticky sidebars offset by this so they park
-     below the header instead of underneath it. Kept as a variable because the
-     header shrinks on narrow windows, where the media query overrides it. */
+  /* Height of the top bar. No longer used for sticky offsets — since §36A the
+     page is its own scroll container and the header sits outside it, so
+     nothing inside a page has to clear it. Kept because the media query below
+     still tracks the bar's height on narrow windows, and because anything
+     positioned against the *window* (a future bottom bar, §36D) needs it. */
   --header-h: 4.4rem;
   --page: linear-gradient(135deg, #e9edfb 0%, #f6f2ec 45%, #e6f1f2 100%);
   --blob-a: rgba(79, 109, 245, 0.20);
@@ -177,12 +179,38 @@ html {
   background-attachment: fixed;
 }
 
+/* --- the scroll container (§36A) --------------------------------------------
+   The window used to be the scrolling element, and the header sat on top of it
+   with `position: sticky`. So the page scrollbar ran the full height of the
+   viewport — starting at pixel zero, behind the top bar — and the two visibly
+   collided (screenshotted).
+
+   The fix is structural rather than cosmetic: the window does not scroll at
+   all now. `body` is exactly one viewport tall and lays its children out in a
+   column; the header takes the height it needs and the visible page takes the
+   rest, with its own scrollbar. The scrollbar therefore begins where the
+   content begins, below the header, which is what was asked for.
+
+   This is also the prerequisite for anything sticky *inside* a page (§36A's
+   chat headers): sticky positioning resolves against the nearest scrolling
+   ancestor, and while that was the window, a header inside a page could not
+   stick to the top of the page.
+
+   Safe because every other direct child of <body> — the lock screen, all seven
+   modal overlays, the toast box, the skip link — is `position: fixed`, so none
+   of them is in this flex column. */
 body {
   margin: 0;
   font-family: var(--ui-font, system-ui, -apple-system, "Segoe UI", sans-serif);
   color: var(--ink);
   line-height: 1.5;
-  min-height: 100vh;
+  height: 100vh;
+  /* dvh where it exists: on mobile 100vh is the *largest* viewport, so the
+     bottom of the page sits under the browser chrome until you scroll. */
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 /* Appearance → Font. Default (system) leaves --ui-font unset → the fallback. */
 :root[data-font="serif"] { --ui-font: Georgia, "Iowan Old Style", "Times New Roman", serif; }
@@ -201,8 +229,12 @@ body {
 /* Wave L rework: one compact, sticky top bar — brand · tabs · controls.
    The old two-row header + tab strip spent ~120px before any content. */
 header#top-bar {
+  /* Kept `sticky` rather than made `static`: it costs nothing in a
+     non-scrolling flex parent, and it means the bar still behaves if this
+     layout is ever loaded somewhere the body does scroll. */
   position: sticky;
   top: 0;
+  flex: 0 0 auto;
   z-index: 40;
   display: flex;
   align-items: center;
@@ -479,6 +511,13 @@ header#top-bar h1 {
    internal gap, never its distance from the window. */
 .tab-page {
   padding: var(--page-top) var(--page-gutter) var(--page-bottom);
+  /* The page is the scrolling element, not the window (§36A). `min-height: 0`
+     is what lets a flex item shrink below its content and therefore scroll at
+     all — without it the item grows to fit and the overflow never engages. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 /* Direct children of a page are already inside the gutter, so they carry only
    the rhythm between them. */
@@ -593,8 +632,11 @@ header#top-bar h1 {
 @media (min-width: 721px) {
   #tab-notes #sidebar {
     position: sticky;
-    top: 4.25rem;
-    max-height: calc(100vh - 5.5rem);
+    /* Was 4.25rem, clearing the floating header. The page is the scroll
+       container now (§36A) and the header is outside it, so the sidebar sticks
+       to the top of the page it lives in. */
+    top: 0;
+    max-height: 100%;
     overflow-y: auto;
   }
 }
@@ -3438,8 +3480,13 @@ html { font-size: 16px; }
 #chat-sidebar {
   align-self: start;
   position: sticky;
-  top: calc(var(--header-h) + 0.75rem);
-  height: calc(100vh - var(--header-h) - 2rem);
+  /* Was calc(var(--header-h) + 0.75rem), from when the window scrolled and the
+     header floated over it. The scroll container is the page now (§36A), and
+     the header sits outside it — so there is nothing to clear, and offsetting
+     by the header height would push the sidebar down by that much again. */
+  top: 0;
+  /* Full height of the page's viewport, not the window's. */
+  height: 100%;
 }
 
 /* --- graph: depth, halos and legible labels -------------------------------- */
@@ -3879,10 +3926,13 @@ button { border-radius: calc(var(--radius) * 0.7); }
 }
 .doc-sidebar {
   position: sticky;
-  /* Was `1rem`, which parked it underneath the sticky header. */
-  top: calc(var(--header-h) + 0.75rem);
+  /* Was calc(var(--header-h) + 0.75rem), from when the window scrolled and the
+     header floated over it. The scroll container is the page now (§36A), and
+     the header sits outside it — so there is nothing to clear, and offsetting
+     by the header height would push the sidebar down by that much again. */
+  top: 0;
   align-self: start;
-  max-height: calc(100vh - var(--header-h) - 2rem);
+  max-height: 100%;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -4174,7 +4224,7 @@ button.ai-unavailable {
 #chat-sidebar,
 #doc-sidebar {
   position: sticky;
-  top: calc(var(--header-h) + 0.75rem);
+  top: 0;
   align-self: start;
 }
 .sidebar-resize {
@@ -5651,3 +5701,36 @@ textarea.autogrow {
 /* Consecutive options are one group: collapse the gap between them so they
    read as a set rather than as separate settings that happen to be adjacent. */
 .check-row + .check-row { margin-top: calc(var(--space-1) * -1); }
+
+
+/* --- the chat page fills its height (§36A) ----------------------------------
+   Asked for: "I want the chat headers in the chat page to stay at the top of
+   the screen when scrolling down a chat."
+
+   They scrolled away because nothing gave the chat column a definite height.
+   #chat-messages already had `overflow-y: auto`, but a later rule removed its
+   `max-height`, so the card grew with the conversation and it was the *page*
+   that scrolled, carrying the toolbar off the top with it.
+
+   No percentage heights here on purpose: `height: 100%` on #chat-main could
+   not resolve, because .layout's own height was content-based. A flex chain
+   from the page down to the message list gives every link a definite size
+   without any of them having to ask a parent for one. */
+#tab-chat {
+  display: flex;
+  flex-direction: column;
+}
+#tab-chat > .layout {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+/* Sticky as well as flexed. The flex chain keeps the toolbar in place on a
+   wide window; on a narrow one the grid collapses to a single column and the
+   page scrolls again, and sticky is what keeps the header where it belongs
+   there too. Opaque, or the messages scroll visibly through it. */
+.chat-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--card);
+}

@@ -91,6 +91,60 @@ def test_the_header_keeps_only_the_conversation_level_controls():
     )
 
 
+CSS = INDEX.parent / "style.css"
+
+
+def _styles() -> str:
+    return re.sub(r"/\*.*?\*/", "", CSS.read_text(encoding="utf-8"), flags=re.S)
+
+
+def test_the_dock_neutralises_the_margins_its_controls_arrive_with():
+    """The alignment bug, and why a rule rather than a value is what fixes it.
+
+    Reported: *"the chat bottom dock ui elements are off in size and alignment.
+    Some are higher or lower than each other and different heights."* All true,
+    and none of it visible in the markup: `.seg` carries `margin-bottom: 0.5rem`
+    from the stacked forms it was built for, and `align-items: center` centres a
+    flex item's **margin box** — so 8px underneath sits the control 4px above
+    its neighbours *and* makes its group 8px taller, which pushes the next group
+    4px down in turn. Two visible offsets from one invisible declaration.
+
+    Measured in a browser before and after: three different group tops and four
+    different composer heights (45.2 / 49.0 / 45.2 / 43.2), against one top and
+    one height for each row now.
+
+    So the strip states it once for everything inside it, and this is the check
+    that it still does — a control added later inherits the neutralised margin
+    instead of re-introducing the bug.
+    """
+    css = _styles()
+    strip = re.search(r"\.chat-dock-controls select,.*?\n\}", css, re.S)
+    assert strip, "the dock's control-sizing rule is gone"
+    assert "margin: 0" in strip.group(0), (
+        "the strip must zero the margins its controls bring with them — a "
+        "margin on a flex item is centred with the item, so it becomes a "
+        "vertical offset rather than a gap"
+    )
+    assert "--control-h" in strip.group(0)
+
+
+def test_both_rows_of_the_dock_declare_one_control_height():
+    """`--control-h` for the strip, `--composer-h` for the message row. Named
+    rather than repeated, because the failure is four controls that each sized
+    themselves from a different base rule."""
+    css = _styles()
+    assert "--control-h:" in css and "--composer-h:" in css
+
+
+def test_the_composer_stays_bottom_aligned_as_the_box_grows():
+    """`align-items: end`, not centre. The box is autogrow: a three-line
+    question makes it taller, and the buttons have to stay level with the line
+    the caret is on rather than drifting up the side of it."""
+    css = _styles()
+    composer = re.search(r"\.chat-dock \.chat-composer \{.*?\n\}", css, re.S)
+    assert composer and "align-items: end" in composer.group(0)
+
+
 def test_a_panel_opens_beside_the_button_that_opens_it():
     """Both moved down with their triggers. A toggle at the bottom of the page
     that opens a panel at the top reads as a button that does nothing."""

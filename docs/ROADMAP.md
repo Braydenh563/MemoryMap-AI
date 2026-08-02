@@ -1290,8 +1290,25 @@ controls in a different order.
    read as a third button and shoved the actions sideways whenever the number
    gained a digit.
 
+   **Then reported off again, and the cause was worth writing down:** *"some
+   are higher or lower than each other and different heights."* Matching the
+   heights was not enough. **A margin on a flex item is centred with the
+   item** — `.seg` carries `margin-bottom: 0.5rem` from the stacked forms it
+   was built for, so under `align-items: center` those 8px sat it 4px above its
+   neighbours and made its group 8px taller, pushing the next group 4px down.
+   Two visible offsets from one declaration three thousand lines away, and the
+   second version of the rule reproduced it in a margin of its own. The strip
+   zeroes outside spacing for everything in it now; DESIGN.md has the rule.
+
+   The composer was worse and nobody had measured it: 📎 45.2px, the box 49.0,
+   🎙 45.2, Send 43.2, three different tops. It has its own `--composer-h`
+   (2.75rem — the 44px touch minimum, since this is the row used on a phone)
+   and aligns to `end`, so the buttons stay level with the caret's line as the
+   box grows rather than drifting up the side of it.
+
    Measured and screenshotted in a browser, light and dark: dock 3 rows → 1,
-   every control 30px, header 41px empty / 59px with metadata.
+   one top and one height per row (strip 30.4px, composer 44px), header 41px
+   empty / 59px with metadata.
 
    Still open: the composer's own controls (📎, 🎙, Send) have not been looked
    at.

@@ -3703,15 +3703,27 @@ html { font-size: 16px; }
 .chat-dock-controls select,
 .chat-dock-controls > .chat-tool-group > button,
 .chat-dock-controls .seg,
-.chat-dock-controls .seg button {
+.chat-dock-controls .seg button,
+.chat-dock-controls .chat-skill-mark {
   height: var(--control-h);
   padding-block: 0;
   font-size: var(--text-md);
+  /* **The margin is the alignment bug, and it is invisible in the markup.**
+     `.seg` carries `margin-bottom: 0.5rem` from the stacked forms it was built
+     for. `align-items: center` centres a flex item's *margin box*, so an 8px
+     bottom margin makes the control sit 4px above everything beside it — and
+     it makes the group 8px taller, which pushes the next group down by 4px in
+     turn. Both offsets were visible on screen and neither is visible in a
+     stylesheet unless you go looking for the rule that set them.
+
+     So the strip states it once, for everything in it: whatever a control
+     brought with it, in here it has no outside spacing and the `gap` is the
+     only thing between them. */
+  margin: 0;
 }
-/* The segmented control carries its own padding around its two buttons, which
-   made it four pixels taller than everything beside it — the sort of near-miss
-   DESIGN.md is about: nothing lines up, and the row reads as assembled rather
-   than designed. It keeps its inset horizontally and gives it up vertically. */
+/* The segmented control also brings its own vertical padding around its two
+   buttons, which made it taller again. It keeps its inset horizontally and
+   gives it up vertically. */
 .chat-dock-controls .seg {
   display: inline-flex;
   align-items: center;
@@ -3735,7 +3747,40 @@ html { font-size: 16px; }
 /* Hidden as a group, not as a row: `.hidden` has to beat the flex display the
    group otherwise carries. */
 .chat-tool-group.hidden { display: none; }
-.chat-dock .chat-composer { margin-top: var(--space-4); }
+/* The composer row, on one height.
+   Measured before this rule: 📎 45.2px, the box 49.0, 🎙 45.2, Send 43.2, with
+   three different tops — four controls, four sizes, nothing agreeing with
+   anything. Each had picked up its own padding from a different base rule.
+
+   `--composer-h` is the row's control height, the same idea as `--control-h`
+   in the strip above, and 2.75rem is deliberately at the 44px touch-target
+   minimum: this is the one row of the app used on a phone.
+
+   `align-items: end` rather than `center` because the box is `autogrow` — when
+   a three-line question makes it taller, the buttons must stay level with its
+   last line, where the caret is. Centring makes them drift upward as you
+   type. */
+.chat-dock .chat-composer {
+  margin-top: var(--space-4);
+  align-items: end;
+  --composer-h: 2.75rem;
+}
+.chat-dock .chat-composer button,
+.chat-dock .chat-composer .note-picker > button {
+  height: var(--composer-h);
+  padding-block: 0;
+  margin: 0;
+}
+.chat-dock .chat-composer #chat-input {
+  min-height: var(--composer-h);
+  /* Vertically centred at one line, and the same distance from the edge at
+     three. The autogrow measures scrollHeight, so this is padding rather than
+     a line-height trick that would change with the font. */
+  padding-block: var(--space-4);
+}
+/* The picker wraps its button and the popup panel; without this it stretches
+   to the row and takes the button with it. */
+.chat-dock .chat-composer .note-picker { align-self: end; }
 /* The web panel opens inside the dock, next to the button that opens it. Its
    inner lists already scroll; this caps the whole thing so a page of results
    can never grow the dock until the conversation above it is a sliver. */
@@ -3745,10 +3790,14 @@ html { font-size: 16px; }
   margin-bottom: var(--space-4);
 }
 .chat-dock .persona-prompt { margin-bottom: var(--space-4); }
-/* The skill picker and the attached-note chips are per-message controls too.
-   `.recent`'s top margin is for a row under a heading, which is not what
-   either of them is here. */
-.chat-dock #chat-skills,
+/* The attached-note chips are their own row above the strip, so they keep a
+   gap under them.
+   **The skill picker must not**, and this rule is where it went wrong: it is a
+   group *inside* the strip now, and a bottom margin on a flex item is centred
+   with the item — so 8px underneath lifted the whole group 4px above its
+   neighbours and pushed them 4px down. Exactly the `.seg` bug, in a rule
+   written one commit earlier while fixing it. Margins inside the strip are
+   the strip's business; see `--control-h`. */
 .chat-dock #chat-attachments { margin-top: 0; margin-bottom: var(--space-3); }
 /* The status line is inside the dock now, so it must not add height on every
    idle turn — an empty <p> with a margin moves the input box by its own

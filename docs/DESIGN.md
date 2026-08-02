@@ -246,6 +246,31 @@ beside it. Nothing lines up, no edge agrees with another, and the row reads as
 assembled rather than designed — the "slop features joined together" complaint
 in miniature, at four pixels.
 
+### And zero the margins, not just the heights
+
+Reported after the first attempt, which had matched the heights and looked
+fine in the stylesheet: *"some are higher or lower than each other and
+different heights."*
+
+**A margin on a flex item is centred with the item.** `.seg` carries
+`margin-bottom: 0.5rem` from the stacked forms it was built for, and under
+`align-items: center` those 8px do not become a gap — they sit the control 4px
+*above* its neighbours and make its group 8px taller, which pushes the next
+group 4px down in turn. Two visible offsets, from one declaration in a rule
+three thousand lines away.
+
+> **The rule:** a row of controls neutralises the outside spacing its controls
+> arrive with (`margin: 0`), and the row's own `gap` is the only thing between
+> them. Anything else means every control added later has to be checked
+> against every base rule that might have given it a margin.
+
+The same applies to a control's own vertical padding: keep it horizontally,
+give it up vertically, and let the declared height decide.
+
+Where a row's box grows — a chat composer with an autogrowing textarea — align
+to `end` rather than `center`, so the buttons stay level with the line the
+caret is on instead of drifting up the side of it.
+
 ---
 
 ## What is not done yet

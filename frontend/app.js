@@ -3111,6 +3111,32 @@ function toggleWebPanel(force) {
   panel.classList.toggle("hidden", !show);
   if (show) {
     $("web-reader").classList.add("hidden");
+    // Say up front when searching cannot work, rather than after a search has
+    // failed. Web access is off by default — this is a local-first app and
+    // that is the right default — so the commonest first experience of this
+    // panel is typing a query into a box that was never going to answer. The
+    // switch is one click away, and naming where it lives is the difference
+    // between a dead end and a setting.
+    const status = $("web-status");
+    if (prefsCache && !prefsCache.web_search_enabled) {
+      status.replaceChildren();
+      status.classList.remove("error");
+      status.appendChild(
+        document.createTextNode("Web access is off. Turn it on in ")
+      );
+      const link = document.createElement("button");
+      link.type = "button";
+      link.className = "link-button";
+      link.textContent = "Settings → Web search";
+      link.addEventListener("click", () => {
+        toggleWebPanel(false);
+        openSettingsModal("websearch");
+      });
+      status.appendChild(link);
+      status.appendChild(document.createTextNode(" to search from here."));
+    } else if (!$("web-results").childElementCount) {
+      status.textContent = "";
+    }
     $("web-query").focus();
   }
 }
@@ -3186,27 +3212,28 @@ async function runWebSearch() {
       row.appendChild(snippet);
     }
 
+    // The actions, in the row's corner and revealed on hover — the same
+    // pattern the note cards use, and for the same reason. Measured before:
+    // three labelled buttons under every result made each one 127px tall, so
+    // barely two and a half results fitted in the panel. **"📖 Read here" is
+    // gone entirely**: the title does exactly that, one line above, which
+    // makes it a button whose whole job was to repeat the thing next to it.
     const actions = document.createElement("div");
-    actions.className = "row";
-    actions.appendChild(
-      smallButton("📖 Read here", "Open this page as clean text", () =>
-        openWebReader(result.url)
-      )
-    );
+    actions.className = "web-result-actions";
     const open = document.createElement("a");
     open.href = result.url;
     open.target = "_blank";
     open.rel = "noopener noreferrer";
     open.className = "ghost small web-open-link";
-    open.textContent = "↗ Open in browser";
+    open.textContent = "↗";
+    open.title = "Open in your browser";
+    open.setAttribute("aria-label", `Open ${result.domain || result.url} in your browser`);
     actions.appendChild(open);
-    actions.appendChild(
-      smallButton(
-        "💬 Ask about this",
-        "Open this page and ask the AI about it",
-        () => askAboutPage(result.url, result.title)
-      )
+    const ask = smallButton("💬", "Open this page and ask the AI about it", () =>
+      askAboutPage(result.url, result.title)
     );
+    ask.setAttribute("aria-label", "Ask the AI about this page");
+    actions.appendChild(ask);
     row.appendChild(actions);
     box.appendChild(row);
   }

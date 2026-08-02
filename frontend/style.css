@@ -3035,13 +3035,35 @@ html { font-size: 16px; }
   overflow-x: hidden;
   min-width: 0;
 }
+/* A result is a title, where it came from, and two lines of what it says.
+   It was all of that *plus a row of three labelled buttons*, which measured
+   127px per result — barely two and a half of them fitted in the panel, and
+   the buttons were most of the height. The actions moved to the corner and
+   appear on hover (the note-card pattern, which this app already uses and
+   which the same reasoning produced), and "📖 Read here" went altogether: the
+   title one line above does exactly that. */
 .web-result {
-  padding: 0.6rem 0;
+  /* A grid rather than absolute positioning with a reserved padding: the
+     actions column then sizes itself to its own buttons, and there is no
+     magic number to be wrong when a button is added or its label changes.
+     (The first attempt reserved `padding-right: 4rem`, which the spacing lint
+     rightly rejected — a number off the scale is a number somebody guessed.) */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "title   actions"
+    "meta    actions"
+    "snippet actions";
+  column-gap: var(--space-3);
+  padding: var(--space-4) 0;
   border-top: 1px solid var(--border);
   min-width: 0;
   overflow-wrap: anywhere; /* wrap long URLs instead of stretching */
   word-break: break-word;
 }
+.web-result-title { grid-area: title; }
+.web-result-meta { grid-area: meta; }
+.web-result-snippet { grid-area: snippet; }
 .web-result:first-child { border-top: none; }
 .web-result-title {
   display: block;
@@ -3053,12 +3075,37 @@ html { font-size: 16px; }
   box-shadow: none;
   color: var(--accent);
   font-weight: 650;
-  font-size: 0.92rem;
+  font-size: var(--text-md);
   cursor: pointer;
 }
 .web-result-title:hover { text-decoration: underline; }
-.web-result-meta { font-size: 0.8rem; }
-.web-result-snippet { font-size: 0.85rem; margin: 0.25rem 0 0.4rem; line-height: 1.4; }
+.web-result-meta { font-size: var(--text-base); }
+/* Two lines, then an ellipsis. A snippet is there to help you choose a result,
+   and a five-line one pushes the next result off the panel — which is the
+   opposite of helping you choose. */
+.web-result-snippet {
+  font-size: var(--text-md);
+  margin: var(--space-1) 0 0;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.web-result-actions {
+  grid-area: actions;
+  align-self: start;
+  display: flex;
+  gap: var(--space-1);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.web-result:hover .web-result-actions,
+.web-result:focus-within .web-result-actions { opacity: 1; }
+@media (hover: none) {
+  /* Touch has no hover, so the actions would be unreachable. */
+  .web-result-actions { opacity: 1; }
+}
 .web-open-link {
   display: inline-flex;
   align-items: center;

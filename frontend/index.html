@@ -749,6 +749,14 @@ Link to another note with [[its first few words]]."></textarea>
           <option value="tree">Tree</option>
           <option value="radial">Radial tree</option>
         </select>
+        <!-- A layout decides where a note goes; this decides what its colour
+             means. Category is the filing; cluster is the structure — which
+             notes can actually reach each other (§9). -->
+        <label class="muted" for="graph-colour">Colour</label>
+        <select id="graph-colour" aria-label="What the note colours mean">
+          <option value="category" selected>By category</option>
+          <option value="cluster">By cluster</option>
+        </select>
         <!-- Both sliders feed the force simulation and nothing else, so they
              have no effect under Tree or Radial tree, where positions come
              from the hierarchy. setGraphPhysicsEnabled() disables them there
@@ -774,6 +782,23 @@ Link to another note with [[its first few words]]."></textarea>
           title="Let the AI suggest links between notes that mean similar things">🔗 Suggest links</button>
         <button id="graph-refresh" class="ghost small">↻ Refresh</button>
       </div>
+      <!-- Trace: the one question a graph answers better than any list —
+           "how are these two related?" (§9). Its own strip rather than a
+           tenth control in the toolbar above: it is a question you ask, not a
+           setting you leave. One --control-h for everything in it, and outside
+           margins zeroed, per DESIGN.md. -->
+      <div class="graph-trace" id="graph-trace" role="group"
+        aria-label="Trace the connection between two notes">
+        <span class="graph-trace-label">🛣 Trace</span>
+        <select id="graph-trace-from" aria-label="Trace from this note"></select>
+        <span class="graph-trace-arrow" aria-hidden="true">→</span>
+        <select id="graph-trace-to" aria-label="Trace to this note"></select>
+        <button id="graph-trace-run" class="small"
+          title="Find the chain of links, replies and shared tags between these two notes">Trace</button>
+        <button id="graph-trace-clear" class="ghost small"
+          title="Clear the traced path">Clear</button>
+      </div>
+      <p id="graph-trace-result" class="graph-trace-result hidden" role="status"></p>
       <p id="graph-stats" class="muted graph-stats" role="status"></p>
       <!-- Tucked away so it doesn't eat the map on every visit -->
       <details class="graph-help">
@@ -785,6 +810,8 @@ Link to another note with [[its first few words]]."></textarea>
           to zoom, click a note to edit it right here, double-click to pin it in
           place, and click a legend colour to hide that category. Double-click
           empty space to add a note there. Gravity and Spread reshape the layout.
+          <strong>Drop one note onto another to link them</strong>, and use
+          <strong>Trace</strong> to see how any two notes connect.
         </p>
       </details>
       <div id="link-suggestions" class="hidden"></div>

@@ -96,13 +96,22 @@ TOOLS_GUIDE = (
     "to walk through notes, get_note to read one in full. Never state a "
     "total from a page of results — count_notes is the only thing that knows "
     "the real number. "
-    "Private notes are not available to you at all; if one is asked about, "
-    "say you can't see private notes. "
+    # Was two clauses saying the same thing ("not available to you at all" /
+    # "say you can't see private notes"). One says it; the saving paid for the
+    # traversal sentence below, which is a capability the model otherwise
+    # never reaches for.
+    "Private notes are invisible to you; say so if asked about one. "
+    # §9, and the §21 finding that decided it: a small model reaches for a tool
+    # when the instruction *names* it. Without this the structural tools sit
+    # unused and "tidy my notebook" gets answered from category names, which
+    # describe the filing and say nothing about how the notes relate.
+    "For how two notes relate, path_between; for the notebook's shape — "
+    "clusters, hubs, notes joined to nothing — notebook_structure. "
     "You can also reach the user's long-form documents (list_documents / "
     "get_document — never searched automatically, so go and look when a "
     "question is about something they wrote up — and create_document to write "
-    "a new one, which is where an essay, report or write-up belongs rather "
-    "than in a note), their earlier conversations "
+    "a new one — where an essay or report belongs, not in a note), their "
+    "earlier conversations "
     "with you (search_chat_history, for when they refer to something 'we "
     "talked about' that isn't in this thread — say when you're relying on "
     "it), and their saved skills (list_skills, save_skill; run_skill starts "

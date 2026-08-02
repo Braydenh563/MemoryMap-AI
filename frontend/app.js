@@ -9467,6 +9467,10 @@ let graphNodesRef = null;
 let graphDims = { w: 0, h: 0 };
 let graphHoveredId = null; // node the pointer is over (spotlight its links)
 let graphAdjacency = null; // Map<id, Set<neighbourId>>
+// The traced path is drawn in its own layer, above the edges and the nodes: a
+// step can be a shared tag, which the map draws no edge for, so highlighting
+// the existing lines would show a chain with holes in it (§9).
+let graphTraceLayer = null;
 
 // How much of a note the list shows before clamping it. Roughly ten lines at
 // a comfortable reading width — long enough that a normal note is never
@@ -9790,6 +9794,293 @@ function frameTree(svg, zoomBehavior, canvas, nodes, width, height, radial) {
     .call(zoomBehavior.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
 }
 
+// --- tracing a path between two notes (§9) -----------------------------------
+//
+// The question a graph answers better than any list — *how are these two
+// related?* — and the one this view could not answer at all. Everything above
+// shows you **that** notes connect; this shows you the route, and names each
+// step: a link somebody made, a reply, or a tag the two share.
+//
+// The search itself is on the server (`entry/paths.py`, `GET /graph/path`) and
+// is shared with the AI's `path_between` tool, deliberately: a picture and an
+// answer that disagree about what is connected is worse than either alone.
+
+//: The traced path, or null. `{ ids: [...], steps: [...] }` — ids in order, so
+//: the drawing can look up consecutive pairs without re-deriving them.
+let graphTrace = null;
+//: The overlay lines, kept so the force simulation's tick can move them with
+//: the nodes they join.
+let graphTraceLines = null;
+
+// The two pickers, filled from whatever the map is currently showing. Rebuilt
+// on every render because the map's contents change — and the selection is
+// carried across, since a rebuild that silently forgets which notes you were
+// asking about is a control that undoes your work.
+function fillTracePickers(nodes) {
+  const notes = nodes
+    .filter((n) => !n.isGroup)
+    .sort((a, b) => a.preview.localeCompare(b.preview));
+  for (const [id, placeholder] of [
+    ["graph-trace-from", "from a note…"],
+    ["graph-trace-to", "to a note…"],
+  ]) {
+    const select = $(id);
+    if (!select) continue;
+    const previous = select.value;
+    const options = [new Option(placeholder, "")];
+    for (const node of notes) options.push(new Option(node.preview, String(node.id)));
+    select.replaceChildren(...options);
+    // Only restore a note that is still on the map; otherwise the picker would
+    // show a note the trace could never find.
+    if (previous && notes.some((n) => String(n.id) === previous)) {
+      select.value = previous;
+    }
+  }
+}
+
+// Fill one end of the trace from somewhere else in the app — the node popup's
+// two buttons, and the Notes tab. Traces as soon as both ends are set, because
+// the second click is the whole gesture: nobody picks two notes and then wants
+// nothing to happen.
+function setTraceEnd(which, noteId) {
+  const select = $(which === "from" ? "graph-trace-from" : "graph-trace-to");
+  if (!select) return;
+  select.value = String(noteId);
+  if (select.value !== String(noteId)) {
+    // The note is not on the map — filtered out by the legend, or by "hide
+    // unlinked". Said plainly rather than leaving a picker that ignored a
+    // click.
+    showTraceMessage(
+      "That note isn't on the map right now — clear the category filters or " +
+        "\"Hide unlinked\" and try again."
+    );
+    return;
+  }
+  const other = $(which === "from" ? "graph-trace-to" : "graph-trace-from");
+  if (other && other.value) runTrace();
+}
+
+function showTraceMessage(text) {
+  const box = $("graph-trace-result");
+  if (!box) return;
+  box.replaceChildren(document.createTextNode(text));
+  box.classList.remove("hidden");
+  box.classList.add("is-empty");
+}
+
+function clearTrace({ quiet = false } = {}) {
+  graphTrace = null;
+  const box = $("graph-trace-result");
+  if (box) {
+    box.replaceChildren();
+    box.classList.add("hidden");
+    box.classList.remove("is-empty");
+  }
+  if (!quiet) {
+    for (const id of ["graph-trace-from", "graph-trace-to"]) {
+      const select = $(id);
+      if (select) select.value = "";
+    }
+  }
+  drawTrace();
+  applyGraphHighlight();
+}
+
+async function runTrace() {
+  const from = $("graph-trace-from")?.value;
+  const to = $("graph-trace-to")?.value;
+  if (!from || !to) {
+    showTraceMessage("Pick two notes to trace between.");
+    return;
+  }
+  if (from === to) {
+    showTraceMessage("Those are the same note — pick two different ones.");
+    return;
+  }
+  showTraceMessage("Tracing…");
+  const result = await apiJson(
+    `/graph/path?source=${encodeURIComponent(from)}&target=${encodeURIComponent(to)}`
+  ).catch(() => null);
+  if (!result) {
+    showTraceMessage("Couldn't trace that — the server didn't answer.");
+    return;
+  }
+  if (!result.found) {
+    graphTrace = null;
+    // The server's reason, verbatim. "No path" on its own is the kind of
+    // answer that makes people assume the feature is broken; what they need is
+    // which of the three possible causes it was.
+    showTraceMessage(result.reason || "No path between those two notes.");
+    drawTrace();
+    applyGraphHighlight();
+    return;
+  }
+  graphTrace = {
+    ids: result.nodes.map((n) => n.id),
+    steps: result.steps,
+    nodes: result.nodes,
+  };
+  renderTraceReadout(result);
+  drawTrace();
+  applyGraphHighlight();
+}
+
+// The chain in words, under the strip. The map shows the shape; this says what
+// each step *is*, which the map cannot — a line between two notes looks the
+// same whether you drew it or they merely share a tag.
+function renderTraceReadout(result) {
+  const box = $("graph-trace-result");
+  if (!box) return;
+  box.classList.remove("hidden", "is-empty");
+  const pieces = [];
+  const noteButton = (node) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "graph-trace-note";
+    button.textContent = node.preview;
+    button.title = `Open this note (${node.category})`;
+    button.addEventListener("click", () => flashEntry(node.id));
+    return button;
+  };
+  const byId = new Map(result.nodes.map((n) => [n.id, n]));
+  pieces.push(noteButton(result.nodes[0]));
+  for (const step of result.steps) {
+    const joint = document.createElement("span");
+    joint.className = "graph-trace-step";
+    joint.textContent = ` — ${step.how} — `;
+    pieces.push(joint, noteButton(byId.get(step.target)));
+  }
+  const summary = document.createElement("span");
+  summary.className = "graph-trace-step";
+  summary.textContent = `  (${result.hops} step${result.hops === 1 ? "" : "s"})`;
+  pieces.push(summary);
+  box.replaceChildren(...pieces);
+}
+
+// Position the overlay from the nodes it joins. Called once for a laid-out
+// tree, and on every tick of the force simulation, which is why it is a
+// function of the current node objects rather than of stored coordinates.
+function positionTraceLines() {
+  if (!graphTraceLines) return;
+  graphTraceLines
+    .attr("x1", (d) => d.from.x)
+    .attr("y1", (d) => d.from.y)
+    .attr("x2", (d) => d.to.x)
+    .attr("y2", (d) => d.to.y);
+}
+
+// (Re)draw the overlay for the current trace. Segments whose notes are not on
+// the map are dropped rather than drawn to nowhere — the readout above still
+// names them.
+function drawTrace() {
+  if (!graphTraceLayer) return;
+  const byId = new Map((graphNodesRef || []).map((n) => [n.id, n]));
+  const segments = !graphTrace
+    ? []
+    : graphTrace.steps
+        .map((step) => ({
+          from: byId.get(step.source),
+          to: byId.get(step.target),
+          kind: step.kind,
+        }))
+        .filter((segment) => segment.from && segment.to);
+  graphTraceLines = graphTraceLayer
+    .selectAll("line")
+    .data(segments)
+    .join("line")
+    .attr("class", (d) => `graph-path-line graph-path-${d.kind}`);
+  positionTraceLines();
+  if (graphNodeSelection) {
+    const onPath = new Set(graphTrace ? graphTrace.ids : []);
+    graphNodeSelection.classed("graph-on-path", (d) => onPath.has(d.id));
+    graphNodeSelection.classed(
+      "graph-path-end",
+      (d) =>
+        graphTrace != null &&
+        (d.id === graphTrace.ids[0] || d.id === graphTrace.ids[graphTrace.ids.length - 1])
+    );
+  }
+}
+
+// --- drag one note onto another to link them (§9) ----------------------------
+//
+// The map already had a link gesture — 🔗 in the popup, then click the other
+// note — which works and is two dialogs deep. Dropping one note on another is
+// the gesture people try first, and it costs nothing to support: the drag
+// behaviour is already there to move nodes about.
+//
+// The whole risk here is an *accidental* link, since every drag now ends over
+// something or nothing. Three things answer that, and all three are needed:
+// the target lights up while you are over it, the drop has to land on the
+// note's own circle rather than near it, and the link that results is
+// undoable from the toast.
+
+//: How much of a miss still counts as a hit. Zero would demand pixel accuracy
+//: on a moving target; the node's own radius plus a few pixels is the circle
+//: you can see, which is the one people aim at.
+const DROP_SLOP = 6;
+
+function graphNodeUnder(dragged, event) {
+  for (const other of graphNodesRef || []) {
+    if (other === dragged || other.isGroup) continue;
+    const dx = (other.x ?? 0) - event.x;
+    const dy = (other.y ?? 0) - event.y;
+    if (Math.hypot(dx, dy) <= graphNodeRadius(other) + DROP_SLOP) return other;
+  }
+  return null;
+}
+
+async function linkByDrop(from, to) {
+  // Already connected: say so rather than firing a request that will 400. The
+  // adjacency map is what the map itself is drawn from, so this agrees with
+  // what the user can see.
+  if (graphAdjacency?.get(from.id)?.has(to.id)) {
+    toast("Those two are already connected.");
+    return;
+  }
+  const updated = await apiJson(`/entries/${from.id}/links`, {
+    method: "POST",
+    body: JSON.stringify({ target_id: to.id }),
+  }).catch((error) => {
+    toast(error.message, true);
+    return null;
+  });
+  if (!updated) return;
+  await loadEntries().catch(() => {});
+  renderGraph();
+  // The new link's own id, so Undo removes *this* link rather than whatever
+  // link happens to join them — they may have been linked twice by different
+  // routes, and guessing is how an undo deletes the wrong thing.
+  const made = (updated.links || []).find((link) => link.entry_id === to.id);
+  toastAction(
+    `Linked "${from.preview}" to "${to.preview}".`,
+    "Undo",
+    async () => {
+      if (!made) return;
+      await api(`/entries/${from.id}/links/${made.link_id}`, { method: "DELETE" });
+      await loadEntries().catch(() => {});
+      renderGraph();
+      toast("Link removed.");
+    }
+  );
+}
+
+// --- colouring by cluster (§9) -----------------------------------------------
+//
+// A layout says where a note goes; this says what its colour *means*. By
+// category is the filing — which is what somebody decided to call it. By
+// cluster is the structure: which notes can actually reach each other through
+// links, replies and shared tags. The two are often nothing like each other,
+// and that difference is the most useful thing the map can show.
+
+//: The last structure fetched, so the legend and the stats line agree with the
+//: colours without three round trips.
+let graphStructure = null;
+
+function graphColourMode() {
+  return $("graph-colour")?.value === "cluster" ? "cluster" : "category";
+}
+
 async function renderGraph() {
   const wantSimilarity = $("graph-similarity").checked;
   const data = await apiJson(
@@ -9811,27 +10102,105 @@ async function renderGraph() {
     data.categories,
     d3.schemeTableau10.concat(d3.schemeSet3)
   );
+  const clusterColour = d3.scaleOrdinal(
+    d3.schemeTableau10.concat(d3.schemeSet3)
+  );
+  const colourMode = graphColourMode();
+  // The structure is only fetched when something is going to show it. It is a
+  // traversal of the whole notebook, and an ordinary look at the map should
+  // not pay for an answer nobody asked for.
+  graphStructure =
+    colourMode === "cluster"
+      ? await apiJson("/graph/structure").catch(() => null)
+      : null;
+  // What a node's colour means. Category headings in a tree layout keep their
+  // category colour in both modes: they are filing by definition, and a
+  // heading is not a note that can belong to a cluster.
+  const nodeColour = (d) => {
+    if (colourMode === "category" || !graphStructure || d.isGroup) {
+      return color(d.category);
+    }
+    const cluster = graphStructure.cluster_of[String(d.id)];
+    // Connected to nothing: deliberately not a colour of its own. An orphan is
+    // the absence of structure, and giving it a bright twelfth hue would make
+    // the thing that is missing look like another kind of group.
+    return cluster === undefined ? "var(--muted)" : clusterColour(String(cluster));
+  };
+
   const legend = $("graph-legend");
   legend.replaceChildren();
-  for (const category of data.categories) {
-    // Legend entries double as filters (Wave M): click to hide/show.
-    const item = document.createElement("button");
-    item.className = "legend-item legend-toggle";
-    item.classList.toggle("legend-off", graphHiddenCategories.has(category));
-    item.title = graphHiddenCategories.has(category)
-      ? `Show ${category} again`
-      : `Hide ${category} from the map`;
-    item.setAttribute("aria-pressed", String(!graphHiddenCategories.has(category)));
-    const dot = document.createElement("span");
-    dot.className = "legend-dot";
-    dot.style.background = color(category);
-    item.append(dot, document.createTextNode(category));
-    item.addEventListener("click", () => {
-      if (graphHiddenCategories.has(category)) graphHiddenCategories.delete(category);
-      else graphHiddenCategories.add(category);
-      renderGraph();
+  if (colourMode === "cluster" && graphStructure) {
+    // In cluster mode the legend describes clusters, because a legend whose
+    // dots do not match the colours on screen is worse than no legend. Its
+    // entries highlight rather than filter — a cluster is something you want
+    // to *find*, where a category is something you want to get out of the way.
+    graphStructure.clusters.forEach((cluster, position) => {
+      const item = document.createElement("button");
+      item.className = "legend-item legend-toggle";
+      item.title =
+        `${cluster.size} notes, around "${cluster.core.preview}"` +
+        (cluster.categories.length ? ` · ${cluster.categories.join(", ")}` : "");
+      const dot = document.createElement("span");
+      dot.className = "legend-dot";
+      dot.style.background = clusterColour(String(position));
+      item.append(
+        dot,
+        document.createTextNode(`${cluster.core.preview} (${cluster.size})`)
+      );
+      item.addEventListener("click", () => {
+        graphHighlightIds = new Set(cluster.ids);
+        applyGraphHighlight();
+      });
+      legend.appendChild(item);
     });
-    legend.appendChild(item);
+    if (graphStructure.orphan_count) {
+      const item = document.createElement("button");
+      item.className = "legend-item legend-toggle";
+      item.title = "Notes with no link, no reply and no shared tag";
+      const dot = document.createElement("span");
+      dot.className = "legend-dot";
+      dot.style.background = "var(--muted)";
+      item.append(
+        dot,
+        document.createTextNode(`unconnected (${graphStructure.orphan_count})`)
+      );
+      item.addEventListener("click", () => {
+        graphHighlightIds = new Set(graphStructure.orphans.map((n) => n.id));
+        applyGraphHighlight();
+      });
+      legend.appendChild(item);
+    }
+    if (graphHiddenCategories.size) {
+      // The category filters still apply — they just have no controls in this
+      // mode. Saying so beats a map quietly missing notes.
+      const note = document.createElement("span");
+      note.className = "legend-item";
+      note.textContent = `${graphHiddenCategories.size} category filter${
+        graphHiddenCategories.size === 1 ? "" : "s"
+      } still on — switch to “By category” to change them`;
+      legend.appendChild(note);
+    }
+  } else {
+    for (const category of data.categories) {
+      // Legend entries double as filters (Wave M): click to hide/show.
+      const item = document.createElement("button");
+      item.className = "legend-item legend-toggle";
+      item.classList.toggle("legend-off", graphHiddenCategories.has(category));
+      item.title = graphHiddenCategories.has(category)
+        ? `Show ${category} again`
+        : `Hide ${category} from the map`;
+      item.setAttribute("aria-pressed", String(!graphHiddenCategories.has(category)));
+      const dot = document.createElement("span");
+      dot.className = "legend-dot";
+      dot.style.background = color(category);
+      item.append(dot, document.createTextNode(category));
+      item.addEventListener("click", () => {
+        if (graphHiddenCategories.has(category)) graphHiddenCategories.delete(category);
+        else graphHiddenCategories.add(category);
+        renderGraph();
+      });
+      legend.appendChild(item);
+    }
   }
 
   // Apply the legend filter: drop hidden categories and their edges.
@@ -9957,9 +10326,17 @@ async function renderGraph() {
         .on("drag", (event, d) => {
           d.fx = event.x;
           d.fy = event.y;
+          // Drag-to-link (§9): light up whatever this note is currently over,
+          // so the gesture says what it will do *before* it does it. Without
+          // this, dropping is a guess and every miss is an accidental link.
+          const over = graphNodeUnder(d, event);
+          nodeGroups.classed("graph-drop-target", (other) => other === over);
         })
         .on("end", (event, d) => {
           if (!event.active) graphSimulation?.alphaTarget(0);
+          const over = graphNodeUnder(d, event);
+          nodeGroups.classed("graph-drop-target", false);
+          if (over) linkByDrop(d, over);
           if (tree) return; // a laid-out tree keeps its shape
           d.fx = null;
           d.fy = null;
@@ -9989,14 +10366,14 @@ async function renderGraph() {
     .append("circle")
     .attr("class", "graph-halo")
     .attr("r", (d) => graphNodeRadius(d) + 6)
-    .attr("fill", (d) => color(d.category));
+    .attr("fill", nodeColour);
 
   nodeGroups
     .append("circle")
     .attr("class", "graph-core")
     .classed("graph-group", (d) => Boolean(d.isGroup))
     .attr("r", graphNodeRadius)
-    .attr("fill", (d) => color(d.category))
+    .attr("fill", nodeColour)
     .classed("graph-pinned", (d) => d.pinned)
     // Well-connected notes get a highlighted ring so the "hubs" of your
     // notebook stand out at a glance.
@@ -10085,6 +10462,10 @@ async function renderGraph() {
       .style("text-anchor", "start");
   }
 
+  // The traced path sits above both the edges and the nodes, because it is an
+  // answer drawn over the picture rather than another connection in it.
+  graphTraceLayer = canvas.append("g").attr("class", "graph-trace-layer");
+
   // Labels toggle: when off, labels only appear on hover (declutters a big
   // map). Driven by a class so toggling never rebuilds the simulation.
   $("graph-box").classList.toggle("graph-labels-hidden", !$("graph-labels").checked);
@@ -10099,13 +10480,24 @@ async function renderGraph() {
   if (counts.thread) parts.push(`${counts.thread} thread${counts.thread === 1 ? "" : "s"}`);
   if (counts.similar) parts.push(`${counts.similar} similarity line${counts.similar === 1 ? "" : "s"}`);
   if (counts.filing) parts.push(`${counts.filing} filed under a category`);
-  $("graph-stats").textContent =
-    parts.join(" · ") +
-    (layoutKind === "tree"
-      ? " — filed left to right; replies branch off the note they answer."
-      : layoutKind === "radial"
-        ? " — categories around the centre; replies branch off the note they answer."
-        : " — bigger, brighter notes are the ones you use most.");
+  // In cluster mode the structural facts replace the "bigger notes are the
+  // ones you use most" hint, because they are what the colours are now saying.
+  const shape =
+    colourMode === "cluster" && graphStructure
+      ? ` — ${graphStructure.clusters.length} cluster` +
+        `${graphStructure.clusters.length === 1 ? "" : "s"}` +
+        (graphStructure.small_clusters
+          ? ` + ${graphStructure.small_clusters} pair${
+              graphStructure.small_clusters === 1 ? "" : "s"
+            }`
+          : "") +
+        `, ${graphStructure.orphan_count} connected to nothing.`
+      : layoutKind === "tree"
+        ? " — filed left to right; replies branch off the note they answer."
+        : layoutKind === "radial"
+          ? " — categories around the centre; replies branch off the note they answer."
+          : " — bigger, brighter notes are the ones you use most.";
+  $("graph-stats").textContent = parts.join(" · ") + shape;
 
   // Hover-highlight (spotlight a note's connections). Uses the same dimming
   // pipeline as search so the two never fight each other.
@@ -10133,6 +10525,9 @@ async function renderGraph() {
       .attr("y1", (d) => d.source.y)
       .attr("x2", (d) => d.target.x)
       .attr("y2", (d) => d.target.y);
+    // The traced path joins the same nodes, so it moves with them. Cheap: it
+    // is a handful of lines beside every edge in the notebook.
+    positionTraceLines();
     nodeGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
     // Once the layout settles, frame all the notes so nothing sits off
     // the edge (Wave N — the old view often had nodes half-cropped).
@@ -10146,6 +10541,11 @@ async function renderGraph() {
   // query that's already typed.
   graphNodeSelection = nodeGroups;
   graphEdgeSelection = edgeLines;
+  // The pickers describe the map, so they are refilled with it — and the trace
+  // is redrawn, because a refresh (a new note, a new link, a layout change)
+  // must not silently drop the answer on screen.
+  fillTracePickers(nodes);
+  drawTrace();
   applyGraphHighlight();
   initGraphKeyboard();
 }
@@ -10342,10 +10742,17 @@ function applyGraphHighlight() {
   if (!graphNodeSelection) return;
   const query = $("graph-search").value.trim().toLowerCase();
   if (query) graphHighlightIds = null; // typing takes over the spotlight
+  // A traced path is the strongest spotlight there is: it is the answer to a
+  // question that was just asked, so it outranks a search box someone typed in
+  // earlier. Everything not on the chain dims, which is what makes a six-note
+  // route legible on a map of three hundred.
+  const onPath = graphTrace ? new Set(graphTrace.ids) : null;
   const searchOk = (d) =>
-    graphHighlightIds
-      ? graphHighlightIds.has(d.id)
-      : !query || d.preview.toLowerCase().includes(query);
+    onPath
+      ? onPath.has(d.id)
+      : graphHighlightIds
+        ? graphHighlightIds.has(d.id)
+        : !query || d.preview.toLowerCase().includes(query);
 
   const neighbours =
     graphHoveredId != null && graphAdjacency
@@ -10365,7 +10772,8 @@ function applyGraphHighlight() {
     const s = idOf(d.source);
     const t = idOf(d.target);
     const bySearch =
-      !(query || graphHighlightIds) || (searchOk(d.source) && searchOk(d.target));
+      !(query || graphHighlightIds || onPath) ||
+      (searchOk(d.source) && searchOk(d.target));
     const byHover =
       neighbours == null || s === graphHoveredId || t === graphHoveredId;
     return !(bySearch && byHover);
@@ -10534,6 +10942,24 @@ function renderGraphPopupActions(entry) {
       beginOrCompleteLink(entry);
       toast("Now click another note on the map to link them.");
     })
+  );
+  // Two clicks, the same shape as 🔗 Link: this note becomes one end of the
+  // trace, and the next one you pick becomes the other. The label says which
+  // end it will be, because a button that does two different things without
+  // saying which is a button you have to try to understand.
+  const tracingFrom = Boolean($("graph-trace-from")?.value);
+  box.appendChild(
+    smallButton(
+      tracingFrom ? "🛣 Trace to here" : "🛣 Trace from here",
+      tracingFrom
+        ? "Find how this note connects to the one you started from"
+        : "Start tracing a path from this note",
+      () => {
+        closeGraphPopup();
+        setTraceEnd(tracingFrom ? "to" : "from", entry.id);
+        if (!tracingFrom) toast("Now pick the other note — 🛣 Trace to here.");
+      }
+    )
   );
   box.appendChild(
     smallButton("⏰ Remind", "Set a reminder about this note", () => {
@@ -10712,6 +11138,12 @@ function switchTab(name) {
   if (name === "dashboard") renderDashboard();
   if (name === "graph") {
     $("graph-layout").value = graphLayout();
+    // Same for what the colours mean: a saved setting the control does not
+    // show is a control that lies about the map beside it.
+    const savedColour = localStorage.getItem("graph-colour");
+    if (savedColour === "cluster" || savedColour === "category") {
+      $("graph-colour").value = savedColour;
+    }
     // Match the saved layout on arrival, not only on change — otherwise a
     // notebook left on Tree comes back with two live-looking dead sliders.
     setGraphPhysicsEnabled(graphLayout());
@@ -15458,6 +15890,16 @@ $("graph-refresh").addEventListener("click", () => {
   renderGraph();
 });
 $("graph-similarity").addEventListener("change", renderGraph);
+// Trace (§9). The pickers themselves do not fire a trace on change: picking
+// the first of two notes should not run a search that can only fail.
+$("graph-trace-run").addEventListener("click", runTrace);
+$("graph-trace-clear").addEventListener("click", () => clearTrace());
+// What the colours mean, remembered like the layout is — it is a property of
+// how you read your notebook, not of one visit.
+$("graph-colour").addEventListener("change", (event) => {
+  localStorage.setItem("graph-colour", event.target.value);
+  renderGraph();
+});
 $("graph-hide-orphans").addEventListener("change", renderGraph);
 // Labels toggle just flips a class — no need to rebuild the whole map.
 $("graph-labels").addEventListener("change", (e) => {

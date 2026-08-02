@@ -2177,6 +2177,41 @@ html.modal-open body {
 .graph-edge-thread { stroke-dasharray: 7 4; stroke-width: 1.4; }
 .graph-edge-similar { stroke-dasharray: 2 5; stroke-width: 1.2; stroke: var(--accent); }
 
+/* --- a traced path (§9) -----------------------------------------------------
+   Drawn as its own layer rather than by highlighting the edges underneath.
+   Two reasons, and the second is the one that decided it: a step may be a
+   *shared tag*, which the map draws no line for at all — so highlighting
+   existing edges would show a chain with gaps in it, in exactly the places the
+   explanation is most needed. And a path is a different kind of thing from a
+   connection: it is an answer to a question, so it sits on top. */
+.graph-path-line {
+  stroke: var(--accent);
+  stroke-width: 4;
+  stroke-opacity: 0.85;
+  stroke-linecap: round;
+  fill: none;
+  pointer-events: none;
+}
+/* A tag step is a weaker kind of join and says so — same colour, dashed, so
+   the chain still reads as one path. */
+.graph-path-line.graph-path-tag { stroke-dasharray: 6 4; stroke-opacity: 0.6; }
+.graph-node.graph-on-path .graph-core {
+  stroke: var(--accent);
+  stroke-width: 3.5px;
+  filter: drop-shadow(0 0 6px var(--accent));
+}
+.graph-node.graph-on-path .graph-label { opacity: 1; font-weight: 600; }
+/* The two ends of the trace, which are the notes you actually asked about. */
+.graph-node.graph-path-end .graph-core { stroke-width: 5px; }
+/* Drag-to-link: the note you are hovering over lights up *before* you let go.
+   Without it the drop is a guess, and every miss makes a link nobody meant. */
+.graph-node.graph-drop-target .graph-core {
+  stroke: var(--ok);
+  stroke-width: 4px;
+  filter: drop-shadow(0 0 8px var(--ok));
+}
+.graph-node.graph-drop-target .graph-halo { opacity: 0.5; }
+
 .graph-node { cursor: pointer; }
 /* Soft coloured halo behind each node → depth, and hubs read brighter. */
 .graph-node .graph-halo {
@@ -3526,8 +3561,66 @@ html { font-size: 16px; }
 .graph-toolbar .tools-toggle { white-space: nowrap; margin: 0; }
 .graph-toolbar button { white-space: nowrap; }
 .graph-toolbar .graph-physics input[type="range"] { width: 5rem; }
-/* The two action buttons group on the right; everything else packs left. */
-.graph-toolbar #link-suggest-btn { margin-left: auto; }
+/* The two action buttons used to group on the right (`margin-left: auto`), and
+   that is the orphan-row pattern §36B names: the moment the row fills, the
+   auto-margined item wraps and lands alone on the next line, hard right, with
+   nothing beside it. Measured in a browser after the Colour picker was added —
+   at 1700px the second row was `↻ Refresh` by itself, and at 1500–1440 it was
+   an orphaned "Labels" checkbox plus the two buttons.
+
+   It was previously patched with a `max-width: 1080px` reset, and that is the
+   part worth not repeating: a breakpoint chosen to match the row's contents is
+   wrong again the next time a control is added, silently, at whatever width
+   people actually use. Packing left needs no number and cannot go stale. */
+.graph-toolbar #link-suggest-btn { margin-left: 0; }
+/* --- the trace strip --------------------------------------------------------
+   Its own row rather than a tenth control in the toolbar: everything up there
+   is a *setting you leave*, and this is a *question you ask*. Built to the
+   control-strip rule in DESIGN.md — one height for every control in it, and
+   the outside margins each control arrives with zeroed, because a margin on a
+   flex item is centred with the item and lifts it above its neighbours. */
+.graph-trace {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin: 0 0 var(--space-3);
+  --control-h: 1.9rem;
+}
+.graph-trace select,
+.graph-trace button {
+  height: var(--control-h);
+  margin: 0;
+  padding-block: 0;
+  font-size: var(--text-md);
+}
+/* A note's own words are what identifies it — the ids these options carry are
+   the app's handle, never the user's (§35K) — so the pickers need room for a
+   few words and have to stop growing before they push the buttons off the row. */
+.graph-trace select { max-width: 16rem; flex: 1 1 9rem; min-width: 0; }
+.graph-trace-label { font-size: var(--text-md); font-weight: 600; }
+.graph-trace-arrow { color: var(--muted); }
+.graph-trace-result {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-md);
+  line-height: 1.6;
+}
+/* The chain reads as a sentence: note — how it joins — note. The connector is
+   quiet and the notes are not, because the notes are what you clicked for. */
+.graph-trace-step { color: var(--muted); }
+.graph-trace-note {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: var(--accent);
+  cursor: pointer;
+  text-align: left;
+}
+.graph-trace-note:hover { text-decoration: underline; }
+.graph-trace-result.is-empty { color: var(--muted); }
+
 .graph-help { margin-bottom: 0.5rem; }
 .graph-help summary { cursor: pointer; font-size: 0.85rem; }
 .graph-help p { margin: 0.4rem 0 0; font-size: 0.85rem; line-height: 1.5; }
@@ -6287,9 +6380,14 @@ textarea.autogrow {
    The note card fixed it by taking the item out of the flow. The two toolbars
    below cannot — their items are real controls that need to stay clickable and
    in order — so they reset the auto margin at the width where wrapping starts
-   to happen, which turns an empty band into an ordinary continued row. */
+   to happen, which turns an empty band into an ordinary continued row.
+
+   The graph toolbar no longer appears here: a breakpoint fitted to a row's
+   contents goes stale the moment a control is added to that row, which is
+   exactly what happened when the Colour picker landed — the reset was at
+   1080px and the row had started wrapping at 1700px. It packs left at every
+   width now. This one is kept because the chat strip's contents are fixed. */
 @media (max-width: 1080px) {
-  .graph-toolbar #link-suggest-btn,
   .chat-tool-group-end {
     margin-left: 0;
   }

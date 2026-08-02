@@ -65,6 +65,57 @@ the normal order to do it in.
   work, and the status line names whichever backend actually answered instead
   of telling an LM Studio user to go and install Ollama.
 
+### Added — the graph is walkable by the AI (roadmap §9)
+
+Asked directly: *"is the graph an actual knowledge graph? I want it to be one
+for the AI to have easily usable and accessible context."*
+
+It was half of one. The edges were real and persisted — explicit links, reply
+threads, shared tags — and the graph *view* has drawn them as typed edges since
+it was built. What the agent could see was `get_note`'s `links` field: a bare
+list of note ids, with no indication of what any of them meant, one note per
+tool call. It could add connections and never follow them.
+
+`related_notes` walks the neighbourhood breadth-first to depth 2, capped at 12
+notes, and **every result says how it connects** — "linked", "thread: this is a
+reply to it", "shares #recipes" — plus how many hops out and which note it hung
+off. The typing is the point: "you linked these" and "these share a tag" are
+different strengths of evidence, and a flat list of ids hides that. Sharing a
+*category* is deliberately not a connection, since nearly every note shares one.
+
+**Potential connections too**, on request: `include_suggestions` adds notes that
+*read* alike but were never linked. They come back in their own list, labelled
+"NOT linked yet", with an instruction to say so — because the one way this could
+mislead is a guess repeated to the user as a fact. Off by default, since a
+similarity sweep costs a comparison per note.
+
+### Security — the AI is locked to this machine by default
+
+The backend address is now *refused* if it isn't on this computer or your own
+network, rather than allowed with a warning. "100% offline, on your machine"
+should be a promise the app keeps, not one it reminds you that you are breaking.
+
+Enforced in two places, and the second is the one that matters:
+`preferences.json` is a plain file, and it is what a restored backup or a copied
+config brings with it — so checking only at the endpoint would let an address
+that never passed through it be used anyway, silently, on every turn. When the
+saved address is refused the app falls back to the local default and logs why,
+rather than refusing to start: it has to open so the setting can be fixed from
+inside it.
+
+Unlocking is a visible switch in Settings → Models, for anyone who genuinely
+wants a hosted API.
+
+### Fixed — "'timeout' is not recognized" on Windows
+
+Reported in use, and real. `start.bat` waited three seconds before opening the
+browser with `timeout /t 3`, and `timeout` is `System32\timeout.exe` — an
+external program, not a `cmd` builtin. On any machine whose `PATH` has lost
+System32 it fails outright, and it also refuses to run when its input is
+redirected. It now waits with the virtual environment's own Python, which the
+script has already created and checked at an absolute path, so it needs nothing
+on `PATH` at all.
+
 ### Added — peek, colour schemes, and saving a look (roadmap §33)
 
 Three appearance additions, the first two taken from odysseus.

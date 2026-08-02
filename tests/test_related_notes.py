@@ -228,3 +228,78 @@ def test_it_is_a_reading_tool_not_a_writing_one():
     spec = tools.TOOLS["related_notes"]
     assert not spec.destructive
     assert "related_notes" not in tools.WRITE_TOOLS
+
+
+# --- potential connections, kept separate from real ones ---------------------
+
+
+def _suggested(session, note_id):
+    return tools.TOOLS["related_notes"].handler(
+        session, {"note_id": note_id, "include_suggestions": True}
+    )
+
+
+def test_suggestions_are_off_unless_asked_for(session, app_state, fake_embeddings):
+    """A similarity sweep costs a comparison per note. An ordinary "what
+    connects to this" question shouldn't pay for one it didn't ask for."""
+    a = _note(session, "a joke about a scarecrow")
+    _note(session, "another joke, also funny")
+    from memorymap.core import deps
+
+    deps.get_embeddings().store_for_entry(session, a)
+    session.commit()
+    assert "might_connect" not in _related(session, a.id)
+
+
+def test_a_potential_connection_is_never_reported_as_a_real_one(
+    session, app_state, fake_embeddings
+):
+    """The one way this feature could mislead: "reads similarly" repeated back
+    to the user as "these are linked". They live in separate lists, and the
+    guess list says what it is."""
+    from memorymap.core import deps
+
+    a = _note(session, "a joke about a scarecrow")
+    b = _note(session, "another scarecrow joke, very funny")
+    for entry in (a, b):
+        deps.get_embeddings().store_for_entry(session, entry)
+    session.commit()
+
+    result = _suggested(session, a.id)
+    # Nothing was ever linked, so the factual list stays empty.
+    assert result["related"] == []
+    if result.get("might_connect"):
+        assert all("NOT linked" in n["how"] for n in result["might_connect"])
+        assert "NOT connections" in result["about_might_connect"]
+
+
+def test_an_already_connected_note_is_not_also_suggested(
+    session, app_state, fake_embeddings
+):
+    """It is already in `related` as a fact. Repeating it as a guess would be
+    the same note twice, described two different ways."""
+    from memorymap.core import deps
+
+    a = _note(session, "a joke about a scarecrow")
+    b = _note(session, "another scarecrow joke, very funny")
+    session.add(EntryLink(source_entry_id=a.id, target_entry_id=b.id))
+    for entry in (a, b):
+        deps.get_embeddings().store_for_entry(session, entry)
+    session.commit()
+
+    result = _suggested(session, a.id)
+    assert [n["id"] for n in result["related"]] == [b.id]
+    assert b.id not in {n["id"] for n in result.get("might_connect", [])}
+
+
+def test_a_note_that_was_never_embedded_suggests_nothing(session, app_state):
+    """No vector means nothing to compare. Falling back to keywords here would
+    quietly change what the tool means."""
+    a = _note(session, "never embedded")
+    assert "might_connect" not in _suggested(session, a.id)
+
+
+def test_the_empty_answer_points_at_suggestions(session):
+    """"Nothing is connected" is more useful when it says what to try next."""
+    a = _note(session, "a lonely note")
+    assert "include_suggestions" in _related(session, a.id)["note"]

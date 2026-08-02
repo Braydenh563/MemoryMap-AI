@@ -3592,6 +3592,64 @@ Each of these was re-implemented from scratch. What odysseus supplied was the
 
 ---
 
+### Tools and skills: is odysseus leaner for small models? Measured, and no
+
+Asked directly: *"does it handle tools and skills more efficiently such that
+smaller models can better use them?"* The answer is the other way round, and
+the numbers are worth keeping because they settle it.
+
+| | MemoryMap | Odysseus |
+| --- | ---: | ---: |
+| Tools in the registry | 34 | 69 |
+| Total description text | 3,849 chars | 17,792 chars |
+| Mean per tool | 113 chars | 257 chars |
+| Longest single tool | 306 chars | 1,205 chars |
+
+Odysseus carries **twice the tools and 4.6× the description text**, and its
+longest single tool description costs more than MemoryMap's ten shortest
+combined. Its RAG tool retrieval is not a refinement that MemoryMap lacks — it
+is the thing that makes a 17,792-character registry usable at all. Adopting the
+retrieval without the bloat would be adopting a cure for an illness this app
+does not have.
+
+**Why their descriptions are that long is the transferable part.** They are not
+padded; they are full of *disambiguation* — "do NOT use `app_api` for sessions",
+"use `ui_control open_email_reply`, not `reply_to_email`", "this is for
+EXISTING research; to START new research use `trigger_research`". That is the
+tax on having 69 tools with overlapping responsibilities, paid on every request.
+The lesson to keep is the inverse: **the cheapest way to keep the tool prompt
+small is to not have two tools that a model could confuse.** Every time a new
+tool here needs a sentence explaining when *not* to use it, that sentence is
+evidence the boundary is in the wrong place.
+
+**What MemoryMap already does that odysseus does not.** Worth recording so it
+does not get "improved" away:
+
+- `tools.within_budget` fits the schemas to the model's *reported* window and
+  drops the least relevant tools, so a 4k model receives ~1,450 tokens of tool
+  prompt and a 32k model receives all of it. Odysseus retrieves a fixed top-K
+  regardless of the window.
+- A skill run offers **only its declared tools** — 1,963 characters of schema
+  instead of 10,215 — and the allowlist is enforced, not merely suggested.
+- `tools.focus_for` is keyword-driven and therefore *readable and testable*.
+  A cue that doesn't fire is a predictable failure; a retrieval that ranks
+  wrong is not.
+
+**Where MemoryMap's tools genuinely could improve**, in order:
+
+1. **The agent cannot run a skill.** It can list skills and save them, but
+   running one is user-initiated through the chip UI. So the model can see a
+   job it is perfectly capable of doing and has no way to start it. This is
+   the single biggest gap in the agentic story, and it is a small change: the
+   skill runner already exists and already takes an allowlist.
+2. **A skill has no "when to use".** Odysseus's `SKILL.md` carries trigger
+   conditions in plain English, which is what makes a skill findable by the
+   model rather than only by the person. Without it, item 1 above would give
+   the agent the ability to run a skill and no basis for choosing one.
+3. **`list_skills` returns names and descriptions but no cost signal** — how
+   many steps, which tools, whether it writes. A model deciding whether to run
+   a skill should be able to see what it is committing to.
+
 ### Worth building, not this session
 
 Ordered by value-per-effort. Each is a shape to re-implement, never a file to

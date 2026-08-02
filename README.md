@@ -225,7 +225,29 @@ No backdoor was added, on purpose.
 The whole app is built around one rule: **nothing leaves your machine unless
 you explicitly ask it to.** The server binds to localhost, every route except `/health` sits behind the unlock gate, and no asset is ever loaded from a CDN.
 
-**Web search is the single exception**, and it is off until you turn it on in **Settings → Web search**. When it is on:
+**Is the AI itself local? Yes - and it is now enforced, not just intended.**
+Every chat and agent request goes to a model server on your own machine, and
+**Settings → Models → "Keep the AI on this machine"** is on by default: an
+address that isn't on this computer or your own network is *refused*, not
+warned about. That check runs both when you set the address and when the app
+builds its client at startup, so a hand-edited `preferences.json` or a restored
+backup can't quietly route your notes somewhere else. Turning the lock off is a
+deliberate click, for people who genuinely want a hosted API.
+
+Being precise about what "local" means here, since it's the whole promise -
+three things do touch the network, and none of them is your notes:
+
+| What | When | What goes out |
+| --- | --- | --- |
+| `ollama pull` | You download a model | The model name, to Ollama's registry |
+| The embedding model | Once, on first use | A one-off download of `bge-small-en-v1.5` |
+| Web search | Only if you turn it on | Your search words - never your notes |
+
+Your notes, your questions, and everything the AI writes about them stay on
+your machine in all three cases. Ollama's own hosted service (`ollama.com`)
+would not be local, and the lock refuses it like any other remote address.
+
+**Web search is the single exception** to "nothing leaves", and it is off until you turn it on in **Settings → Web search**. When it is on:
 
 - only your search words leave the computer - never your notes;
 - requests send an ordinary browser User-Agent rather than one naming this app,

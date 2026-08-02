@@ -339,6 +339,67 @@ def _graph_neighbours(session: Session, entry: Entry) -> list[tuple[Entry, str]]
     return out
 
 
+# How alike two notes must read before the graph calls them *potentially*
+# connected. Deliberately higher than the graph view's own threshold: a picture
+# can afford a speculative line the eye discards, and a tool result cannot —
+# the model treats whatever it is handed as fact worth acting on.
+SUGGESTED_LINK_THRESHOLD = 0.62
+MAX_SUGGESTED_LINKS = 5
+
+
+def _suggested_neighbours(session: Session, entry: Entry, exclude: set[int]) -> list[dict]:
+    """Notes that *read* like this one but were never connected to it.
+
+    The connections above are facts — somebody made them. These are guesses,
+    and they are labelled as guesses all the way to the model, because the
+    interesting use of this tool is "what have I written that belongs together
+    and isn't linked yet" and the answer to that must not come back looking
+    like an answer to "what is linked".
+
+    Costs one embedding comparison per note, so it is opt-in per call rather
+    than always-on: an ordinary "what connects to this" question should not pay
+    for a similarity sweep it did not ask for.
+    """
+    from memorymap.ai.embeddings import bytes_to_vector, cosine_similarity
+    from memorymap.core.database import EmbeddingRecord
+    from memorymap.core import deps
+
+    embeddings = deps.get_embeddings()
+    backend = embeddings.backend_id()
+    stored = {
+        record.entry_id: record.embedding
+        for record in session.scalars(
+            select(EmbeddingRecord).where(EmbeddingRecord.model_version == backend)
+        )
+    }
+    # No vector for this note means it was never embedded (the backend was off
+    # when it was written, or has changed since). Nothing to compare against,
+    # and guessing from keywords here would quietly change what the tool means.
+    if entry.id not in stored:
+        return []
+    vector = bytes_to_vector(stored[entry.id])
+
+    scored = []
+    for other_id, blob in stored.items():
+        if other_id == entry.id or other_id in exclude:
+            continue
+        other = session.get(Entry, other_id)
+        if other is None or other.is_deleted or other.is_private:
+            continue
+        score = cosine_similarity(vector, bytes_to_vector(blob))
+        if score >= SUGGESTED_LINK_THRESHOLD:
+            scored.append((score, other))
+    scored.sort(key=lambda pair: pair[0], reverse=True)
+    return [
+        {
+            **_note_summary(session, other),
+            "how": f"reads similarly ({score:.0%}) — NOT linked yet",
+            "similarity": round(float(score), 2),
+        }
+        for score, other in scored[:MAX_SUGGESTED_LINKS]
+    ]
+
+
 def _related_notes(session: Session, args: dict) -> dict:
     """The neighbourhood around one note, as context rather than as a picture.
 
@@ -391,11 +452,28 @@ def _related_notes(session: Session, args: dict) -> dict:
             f"connected to #{entry.id}"
         ),
     }
+    # Potential connections, on request. Kept in their own list rather than
+    # mixed into `related`, because they are a different kind of claim: those
+    # are connections somebody made, these are ones nobody has. Flattening the
+    # two would let "reads similarly" be reported back to the user as "these
+    # are linked", which is the one way this feature could mislead.
+    if args.get("include_suggestions"):
+        suggestions = _suggested_neighbours(session, entry, visited)
+        result_note = (
+            "These are NOT connections — they are notes that read similarly and "
+            "have never been linked. Say so if you mention them, and use "
+            "link_notes if the user wants any of them joined up."
+        )
+        if suggestions:
+            result["might_connect"] = suggestions
+            result["about_might_connect"] = result_note
+
     if not found:
         result["note"] = (
             "Nothing is connected to this note yet — it has no links, no "
             "replies and no shared tags. link_notes and tag_note are how "
-            "connections get made."
+            "connections get made. Ask again with include_suggestions to see "
+            "notes that read similarly but were never linked."
         )
     elif len(found) >= MAX_GRAPH_NOTES:
         result["truncated"] = (
@@ -1406,8 +1484,9 @@ TOOLS: dict[str, ToolSpec] = {
             "related_notes",
             "Walk the connections around a note: what it links to, what "
             "replies to it, and what shares its tags. Each result says HOW it "
-            "connects and how many hops away it is. Use this to follow a "
-            "thread of thought, not to search by meaning.",
+            "connects and how far away it is. Set include_suggestions to also "
+            "get notes that READ alike but were never linked — those are "
+            "guesses, not connections.",
             {
                 "type": "object",
                 "properties": {
@@ -1415,6 +1494,10 @@ TOOLS: dict[str, ToolSpec] = {
                     "depth": {
                         "type": "integer",
                         "description": "1 = direct connections, 2 = their connections too",
+                    },
+                    "include_suggestions": {
+                        "type": "boolean",
+                        "description": "Also list notes that READ alike but were never linked",
                     },
                 },
                 "required": ["note_id"],

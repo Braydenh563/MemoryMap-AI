@@ -97,6 +97,9 @@ class SkillItem(BaseModel):
     name: str = Field(min_length=1, max_length=skills.MAX_NAME)
     prompt: str = Field(min_length=1, max_length=skills.MAX_PROMPT)
     description: str = Field(default="", max_length=skills.MAX_DESCRIPTION)
+    # When this skill applies. What makes it findable by the model rather than
+    # only by the person who remembered writing it (§33).
+    when_to_use: str = Field(default="", max_length=skills.MAX_WHEN)
     steps: list[str] = Field(default_factory=list, max_length=skills.MAX_STEPS)
     tools: list[str] = Field(default_factory=list, max_length=skills.MAX_TOOLS)
     inputs: list[SkillInput] = Field(default_factory=list, max_length=skills.MAX_INPUTS)

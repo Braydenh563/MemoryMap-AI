@@ -38,6 +38,12 @@ MAX_SKILLS = 30
 MAX_NAME = 40
 MAX_PROMPT = 2000
 MAX_DESCRIPTION = 200
+# When this skill applies, in the user's own words. Separate from the
+# description, which says what the skill *is* — this says when to reach for it,
+# and it is the field that makes a skill findable by the model rather than only
+# by the person who remembered writing it (§33). Short on purpose: it is
+# carried in `list_skills` output, which a turn may read before doing anything.
+MAX_WHEN = 160
 MAX_STEPS = 10
 MAX_STEP = 300
 MAX_TOOLS = 12
@@ -123,6 +129,7 @@ def normalise(raw: dict, known_tools: set[str] | None = None) -> dict:
         "name": name,
         "prompt": prompt,
         "description": _text(raw.get("description"), MAX_DESCRIPTION, "A description"),
+        "when_to_use": _text(raw.get("when_to_use"), MAX_WHEN, "A when-to-use note"),
         "steps": steps,
         "tools": tools,
         "inputs": inputs,

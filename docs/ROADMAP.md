@@ -3642,13 +3642,16 @@ does not get "improved" away:
    job it is perfectly capable of doing and has no way to start it. This is
    the single biggest gap in the agentic story, and it is a small change: the
    skill runner already exists and already takes an allowlist.
-2. **A skill has no "when to use".** Odysseus's `SKILL.md` carries trigger
-   conditions in plain English, which is what makes a skill findable by the
-   model rather than only by the person. Without it, item 1 above would give
-   the agent the ability to run a skill and no basis for choosing one.
-3. **`list_skills` returns names and descriptions but no cost signal** — how
-   many steps, which tools, whether it writes. A model deciding whether to run
-   a skill should be able to see what it is committing to.
+2. ~~**A skill has no "when to use".**~~ **built.** `when_to_use` is a field on
+   a skill now, the agent can set it through `save_skill`, and `list_skills`
+   returns it. This was the prerequisite for item 1: giving the agent the
+   ability to run a skill without a basis for choosing one would have been
+   worse than not giving it at all.
+3. ~~**`list_skills` returns no cost signal.**~~ **built.** It now reports
+   `step_count` and `changes_notes`, so a skill that alters the notebook reads
+   differently from one that only summarises it — and the note to the model
+   says plainly that it cannot start a skill itself, since a model that
+   believes it can will narrate having done so.
 
 ### Worth building, not this session
 

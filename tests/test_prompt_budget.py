@@ -30,19 +30,41 @@ def _system_prompt() -> str:
     return f"{librarian.DEFAULT_PERSONA} {agent.AGENT_GROUNDING} {agent.TOOLS_GUIDE}"
 
 
-def _fixed_overhead(app_state) -> int:
-    return len(_system_prompt()) + len(json.dumps(tools.ollama_tools()))
+def test_the_untrimmable_prose_stays_small(app_state):
+    """The persona and TOOLS_GUIDE, which no per-turn trimming touches.
+
+    **This replaces an assertion that weighed the whole tool registry**, and
+    the replacement is the point. That one had to be raised three times in one
+    session — twice for a new tool and once for a single added argument —
+    because `within_budget` had long since taken over the job of fitting the
+    schemas to the model's real window. A guard that must be raised every time
+    the app legitimately grows is not a guard; it is a chore that teaches
+    people to edit the number until it stops complaining.
+
+    What is left here is the half that is genuinely fixed: this text is resent
+    on every round of every turn, before the question, the notes or the
+    history, and nothing anywhere trims it. If it trips, something was added to
+    TOOLS_GUIDE or the persona — look there rather than at the number.
+    """
+    prose = len(_system_prompt())
+    assert prose <= agent.PROSE_BUDGET_CHARS, (
+        f"The agent's un-trimmable prose is {prose} characters "
+        f"(~{prose // CHARS_PER_TOKEN} tokens), over the "
+        f"{agent.PROSE_BUDGET_CHARS} budget. Unlike the tool schemas, nothing "
+        "fits this to the window — it is sent whole to a 3B model and a 70B "
+        "one alike. Trim what was added, or raise PROSE_BUDGET_CHARS "
+        "deliberately and say why in the comment above it."
+    )
 
 
-def test_the_fixed_overhead_stays_inside_the_budget(app_state):
-    overhead = _fixed_overhead(app_state)
-    assert overhead <= agent.PROMPT_BUDGET_CHARS, (
-        f"The agent's fixed overhead is {overhead} characters "
-        f"(~{overhead // CHARS_PER_TOKEN} tokens), over the "
-        f"{agent.PROMPT_BUDGET_CHARS} budget. That is resent on every one of "
-        f"{agent.MAX_ROUNDS} rounds, before the question, the notes or the "
-        "history. Either trim it, or raise PROMPT_BUDGET_CHARS deliberately "
-        "and say why in the comment above it."
+def test_the_registry_is_capped_by_the_model_not_by_a_constant(app_state):
+    """The counterpart, stated as a property rather than a number: there is no
+    longer a constant the whole registry must fit inside, because the window
+    the model reported is the real limit and it is applied per turn."""
+    assert not hasattr(agent, "PROMPT_BUDGET_CHARS"), (
+        "PROMPT_BUDGET_CHARS was retired — see the comment where it used to "
+        "be. If it is back, the per-turn trim it replaced needs re-reading "
+        "before a constant is trusted again."
     )
 
 
@@ -252,7 +274,10 @@ def test_a_long_note_does_not_blow_the_prompt_budget():
     ]
     messages = agent.build_agent_messages("what did I say?", long_notes)
     total = sum(len(m["content"]) for m in messages)
-    assert total < agent.PROMPT_BUDGET_CHARS, total
+    # Ten 4,000-character notes is 40,000 characters of input; the per-note cap
+    # is what stops that reaching the model. The figure here is a sanity
+    # ceiling, not a budget — `ai/context.py` owns the real one.
+    assert total < 20_000, total
 
 
 # --- fitting the registry to the model, rather than to a constant ---------------

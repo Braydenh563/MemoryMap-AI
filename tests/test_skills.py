@@ -461,3 +461,87 @@ def test_an_action_skill_acts_even_with_agent_mode_off(ai_client, fake_ollama):
     )
     assert any(e["type"] == "plan" for e in events)
     assert fake_ollama.tool_rounds, "the agent never ran"
+
+
+# --- findable by the model, not only by the person who wrote it (§33) --------
+
+
+def test_a_skill_can_say_when_it_applies():
+    """The description says what a skill *is*; this says when to reach for it.
+    Without it a model reading the skill list can see that a skill exists and
+    has no basis at all for choosing it."""
+    from memorymap.ai import skills, tools
+
+    skill = skills.normalise(
+        {
+            "name": "Inbox tidy",
+            "prompt": "file the loose notes",
+            "when_to_use": "when Uncategorised is getting full",
+        },
+        set(tools.TOOLS),
+    )
+    assert skill["when_to_use"] == "when Uncategorised is getting full"
+
+
+def test_when_to_use_is_optional_so_old_skills_still_load():
+    from memorymap.ai import skills, tools
+
+    assert skills.normalise({"name": "n", "prompt": "p"}, set(tools.TOOLS))["when_to_use"] == ""
+
+
+def test_the_skill_list_tells_the_model_what_running_one_commits_to(app_state, session):
+    """A skill that changes notes is a different proposition from one that only
+    reads them, and the name alone does not say which."""
+    from memorymap.ai import tools
+
+    app_state.set_preference(
+        "skills",
+        [
+            {
+                "name": "Retagger",
+                "prompt": "retag things",
+                "when_to_use": "when tags have drifted",
+                "steps": ["find untagged notes", "tag them"],
+                "tools": ["search_notes", "tag_note"],
+            }
+        ],
+    )
+    listed = tools.TOOLS["list_skills"].handler(session, {})
+    mine = next(s for s in listed["skills"] if s["name"] == "Retagger")
+    assert mine["when_to_use"] == "when tags have drifted"
+    assert mine["step_count"] == 2
+    assert mine["changes_notes"] is True
+
+
+def test_a_read_only_skill_says_it_changes_nothing(app_state, session):
+    from memorymap.ai import tools
+
+    app_state.set_preference(
+        "skills",
+        [{"name": "Recap", "prompt": "summarise", "tools": ["search_notes", "get_note"]}],
+    )
+    listed = tools.TOOLS["list_skills"].handler(session, {})
+    assert next(s for s in listed["skills"] if s["name"] == "Recap")["changes_notes"] is False
+
+
+def test_the_model_is_told_it_cannot_start_a_skill_itself(app_state, session):
+    """Currently true, and worth saying: a model that believes it can run one
+    will narrate having done so. See §33 for the plan to change it."""
+    from memorymap.ai import tools
+
+    assert "cannot start a skill" in tools.TOOLS["list_skills"].handler(session, {})["note_to_model"]
+
+
+def test_the_agent_can_save_a_when_to_use(app_state, session):
+    from memorymap.ai import tools
+
+    tools.TOOLS["save_skill"].handler(
+        session,
+        {
+            "name": "Weekly recap",
+            "prompt": "summarise the week",
+            "when_to_use": "on a Sunday evening",
+        },
+    )
+    saved = app_state.get_preference("skills")
+    assert saved[0]["when_to_use"] == "on a Sunday evening"

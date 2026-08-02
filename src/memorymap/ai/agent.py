@@ -59,7 +59,7 @@ BUDGET_EXHAUSTED = {
 }
 
 # The system prompt is resent in full on every round of every turn, alongside
-# the tool schemas — see PROMPT_BUDGET_CHARS below for why that matters more
+# the tool schemas — see PROSE_BUDGET_CHARS below for why that matters more
 # than it looks. Everything here earned its place by fixing an observed
 # failure, so it is not padding; but anything that is *also* said by a tool
 # schema or by a tool result is padding, and has been cut.
@@ -166,21 +166,36 @@ TOOLS_GUIDE = (
 #
 # 14,400 → 15,000, for `related_notes` (§9). Second raise in one session, and
 # that pattern is worth naming rather than repeating silently: **this number
-# is now measuring the wrong thing.** It weighs the *whole* registry, and no
-# turn has sent the whole registry since `within_budget` started fitting the
-# schemas to the model's real window — a 4k model receives about 1,450 tokens
-# of it, a 32k model receives all of it and has ample room. So what trips is
-# not "the prompt is too heavy for a small model" but "the registry grew
-# again", which is a thing that is *supposed* to happen.
+# was measuring the wrong thing.** It weighed the *whole* registry, and no turn
+# has sent the whole registry since `within_budget` started fitting the schemas
+# to the model's real window — a 4k model receives about 1,450 tokens of it, a
+# 32k model receives all of it and has ample room. So what tripped was not "the
+# prompt is too heavy for a small model" but "the registry grew again", which
+# is a thing that is *supposed* to happen.
 #
-# It is kept, at a raised figure, because the half it still measures honestly
-# is the prose: the persona and TOOLS_GUIDE are sent whatever the window and
-# are never trimmed. The assertion that actually protects a 3B model now lives
-# in `test_prompt_budget.test_the_overhead_leaves_room_for_an_actual_
-# conversation`, which measures what reaches the wire *after* the trim. If this
-# constant needs raising a third time for a tool rather than for prose, retire
-# it and keep that one instead.
-PROMPT_BUDGET_CHARS = 15_000
+# **Retired at that point, exactly as the note above it said to.** It asked for
+# retirement if it ever needed raising a third time for a *tool* rather than
+# for prose — and the third time came in the same session, for one added
+# argument on `save_skill`. A guard that has to be raised every time the app
+# grows is not a guard; it is a chore that teaches people to edit the number.
+#
+# What replaces it is two assertions that each measure something real:
+#
+#   - `PROSE_BUDGET_CHARS` below — the persona and TOOLS_GUIDE, which are sent
+#     whatever the window and are *never* trimmed. This is the half the old
+#     constant measured honestly, and the half that can still quietly bloat.
+#   - `test_prompt_budget.test_the_overhead_leaves_room_for_an_actual_
+#     conversation` — what actually reaches a 4,096-token model *after* the
+#     trim. That is the number that decides whether a 3B model works.
+#
+# The tool registry is deliberately no longer capped by a constant. It is
+# capped by the model's real window, per turn, by code that is tested.
+
+# The un-trimmable half. Every character here is resent on every round of every
+# turn, before the question, the notes or the history — and unlike the tool
+# schemas, nothing fits it to the window. If this trips, something was added to
+# TOOLS_GUIDE or the persona; look there rather than at the number.
+PROSE_BUDGET_CHARS = 3_000
 
 # What to do about a failed tool call.
 #

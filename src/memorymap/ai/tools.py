@@ -846,18 +846,31 @@ def _list_skills(session: Session, args: dict) -> dict:
         "skills": [
             {
                 "name": skill["name"],
+                # What it is, and — the part that makes it findable — when to
+                # reach for it. Without `when_to_use` a model reading this list
+                # can see that a skill exists and has no basis for choosing it.
+                "description": skill.get("description", ""),
+                "when_to_use": skill.get("when_to_use", ""),
                 "prompt": _clip(skill["prompt"], 200),
                 "steps": skill["steps"],
                 "tools": skill["tools"],
                 "inputs": [item["name"] for item in skill["inputs"]],
                 "builtin": skill["builtin"],
+                # What running it commits to, so the choice can be made on
+                # something more than the name. A skill that changes notes is a
+                # different proposition from one that only reads them.
+                "step_count": len(skill["steps"]),
+                "changes_notes": bool(set(skill["tools"]) & WRITE_TOOLS),
             }
             for skill in catalog
         ],
         "count": len(catalog),
         "note_to_model": (
             "Built-in skills can be run but not edited. A skill's steps and "
-            "tools are what it does — copy that shape when you make one."
+            "tools are what it does — copy that shape when you make one. "
+            "`when_to_use` says when a skill applies; `changes_notes` says "
+            "whether running it would alter the notebook. You cannot start a "
+            "skill yourself — tell the user which one fits and let them run it."
         ),
         "label": "⚡ Listed the saved skills",
     }
@@ -880,6 +893,7 @@ def _save_skill(session: Session, args: dict) -> dict:
                 "prompt": args.get("prompt"),
                 "steps": args.get("steps"),
                 "tools": args.get("tools"),
+                "when_to_use": args.get("when_to_use"),
             },
             set(TOOLS),
         )
@@ -1655,6 +1669,10 @@ TOOLS: dict[str, ToolSpec] = {
                         "type": "array",
                         "items": {"type": "string"},
                         "description": "Names of the tools the skill needs, e.g. tag_note",
+                    },
+                    "when_to_use": {
+                        "type": "string",
+                        "description": "When this skill applies, so it can be found later",
                     },
                 },
                 "required": ["name", "prompt"],

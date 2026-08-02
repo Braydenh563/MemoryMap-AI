@@ -65,6 +65,29 @@ the normal order to do it in.
   work, and the status line names whichever backend actually answered instead
   of telling an LM Studio user to go and install Ollama.
 
+### Changed — skills the model can find, and a budget guard retired
+
+A skill was findable only by the person who remembered writing it. `when_to_use`
+is a field now — *when* to reach for a skill, as opposed to what it is — and
+`list_skills` reports it along with `step_count` and `changes_notes`, so a skill
+that alters the notebook reads differently from one that only summarises. The
+note to the model also says plainly that it cannot start a skill itself, because
+a model that believes it can will narrate having done so.
+
+**`PROMPT_BUDGET_CHARS` is retired**, on its own instructions. Its comment said
+to retire it if it ever needed raising a third time for a tool rather than for
+prose — and the third time came in the same session, for one added argument on
+`save_skill`. It weighed the *whole* tool registry, and no turn has sent the
+whole registry since `within_budget` started fitting the schemas to the model's
+reported window. A guard that must be raised every time the app legitimately
+grows is not a guard; it is a chore that teaches people to edit the number.
+
+Two assertions replace it, each measuring something real: `PROSE_BUDGET_CHARS`
+covers the persona and TOOLS_GUIDE, which nothing trims and which are sent
+whole to a 3B model and a 70B one alike; and the existing post-trim test covers
+what actually reaches a 4,096-token model. The registry is capped by the
+model's real window, per turn, by code that is tested.
+
 ### Added — the graph is walkable by the AI (roadmap §9)
 
 Asked directly: *"is the graph an actual knowledge graph? I want it to be one

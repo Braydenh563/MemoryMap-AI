@@ -9,7 +9,116 @@ that answers "has this been done?" before anyone starts.
 
 ## Done in the most recent session — read this first
 
-**This session: long jobs finish, the agent can plan one, and the chat
+**This session: the notebook became a graph the whole app can walk, retrieval
+learned to read the question, and a pile of reported bugs turned out to have
+findable causes.** Written up longest-first, because the first item is the one
+the rest builds on.
+
+1. **§9's last mile — one traversal engine, used everywhere (`entry/paths.py`).**
+   The graph could always show you *that* notes connect and never *how*. A
+   weighted search over links, replies and shared tags answers "how are these
+   two related?", and the same index answers "what shape is my notebook?" —
+   clusters, hubs, and what is connected to nothing.
+
+   Three decisions worth not re-deriving. **Weighted, not breadth-first**: an
+   unweighted search returns the fewest hops, so one shared `#misc` beats a
+   three-step chain of deliberate links and the answer is technically a path
+   and actually noise. **A tag on more than twelve notes creates no edges** —
+   otherwise one heavily-used tag makes everything two hops from everything and
+   the feature reports a relationship between any two notes it is handed.
+   **Six hops is the cap**, and it is an honesty guard rather than a
+   performance one: six intermediaries is not a relationship.
+
+   Surfaced in three places, deliberately the same code: `GET /graph/path` and
+   `GET /graph/structure`, the `path_between` and `notebook_structure` tools,
+   and the Trace strip in the view. A picture and an answer that disagree about
+   what is connected is worse than either alone.
+
+2. **The graph is in every answer now, not just the agent's.** When a note
+   matches a search, the notes it *links to* come with it. Links and replies
+   only, never shared tags — a tag can put fifty unrelated notes one hop apart
+   and this list goes straight into a prompt. Appended rather than interleaved,
+   because a connected note is context and a match is an answer, so a budgeted
+   prompt drops the context first; the model is told which is which, since
+   reporting a linked note as a search hit is a quiet fabrication.
+
+3. **Retrieval reads the question before searching it.** Three changes:
+   - **Both searches run and their rankings are fused** (reciprocal rank
+     fusion). The old rule was either/or, so a note containing the query
+     *verbatim* lost to three notes vaguely on topic. RRF combines by rank
+     rather than score, which is what makes it robust — a cosine similarity and
+     a keyword tally are not on the same scale, so any weighted sum needs a
+     tuning constant per notebook.
+   - **A time phrase is a filter** (`search/query.py`). "What have I saved in
+     the last week" used to dilute the embedding, drag the keyword search off
+     course, and apply no range at all. A question that is *only* about time
+     lists the range instead of ranking noise.
+   - **The scaffolding comes off before embedding.** "What did I write about
+     beans" and "beans" now reach the model as the same search. Front only, so
+     "how do I prove bread" keeps its "how".
+
+4. **The agent acts when told to act (§35K).** *"I asked for suggestions on my
+   categories, and when I asked it to implement them it just gave the
+   suggestions again."* The cause was exact: `focus_for` read the current
+   message and nothing else, and "implement those suggestions" contains no
+   category word — so the turn was offered **no category tools at all**. The
+   model was not being lazy; it had nothing to call. A follow-through is now
+   read against the previous exchange.
+
+   Also: it **keeps its own reasoning** across a tool call (it was streamed to
+   the user and dropped, so every round re-derived the plan), it **stops
+   re-reading** what it already read with nothing written since, and a long
+   turn is **checkpointed each round** so a stall no longer loses the whole
+   conversation.
+
+5. **§35E — the desktop app stops forgetting.** Theme resetting every start and
+   onboarding showing every time were one bug: both lived in `localStorage`,
+   which the desktop shell does not reliably persist. Mirrored to the server
+   and seeded back for keys the browser has lost. The *store* is watched rather
+   than its twenty-two callers, so adding a key to `MIRRORED_UI_KEYS` is now
+   the whole of making a setting persistent.
+
+6. **The recycle bin, and a note you can delete for good.** "Empty now" was
+   reported broken a third time and driven end to end in Chromium again — it
+   works. What was actually wrong: **every failure was silent**, so a 401 or a
+   locked database produced exactly what was reported, a click and nothing.
+   And notes can now be purged one at a time, sharing `_hard_delete` with the
+   bulk path so neither can leave an orphaned embedding behind.
+
+7. **The UI pass.** The chat dock's "weird box shadow" was a repaint —
+   `background: var(--card)` inside a card that had already painted it, two 55%
+   layers stacking. The composer has a viewport-aware ceiling and a drag
+   handle. The metadata line was ranked rather than listed. The graph's twelve
+   toolbar controls became four plus a ⚙ fold. The top bar had **five different
+   control heights**, all centred on the same line and none agreeing; it has
+   one now. The web panel's results went 127px → 82px each.
+
+8. **The GitHub Pages site could never have worked**, and two previous fixes
+   aimed at the JavaScript could not have helped: **there was no `.nojekyll`**,
+   so Pages converted the `.md` files rather than publishing them and every
+   same-origin fetch 404'd. Verified with both CDN fallbacks blocked.
+
+**What was checked in a browser this time** — Chromium, measured: the trace
+strip at 900–1920px, the header's control heights before and after, the chat
+dock in dark + glass, the web panel's row heights, all seven tabs and fourteen
+settings sections for console errors and overflow, the bin's Delete-for-good
+end to end, a `localStorage` wipe to reproduce the desktop shell, and a paced
+NDJSON stream to settle §35H.
+
+**§35H's client half turned out to be already fixed.** Driven with a stream
+emitting one line every 120ms, the answer element grew 10 → 25 → 42 → 63 → 94
+characters inside a plan run: the step timeline uses `liveMarkdownRenderer` and
+renders each delta. The LaTeX half is done too (`unlatex`). What remains
+possible, and is *not* disproved, is the server side: `_ToolTextGate` holds
+text back while deciding whether it is a tool call, so a model that writes tool
+calls as prose would still look like it lands complete. That needs a real
+model.
+
+---
+
+## The session before that
+
+**Long jobs finish, the agent can plan one, and the chat
 controls moved to the composer.** Three user reports and the roadmap's top
 open item, and they turned out to be one subject — an agent that starts a big
 job and does not finish it.

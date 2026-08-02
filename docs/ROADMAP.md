@@ -65,10 +65,14 @@ Ordered by *how much it unlocks*, not by how much is left in the section.
    own beginning*, because `fit_history` drops the oldest pairs. What is left
    in §35I is the tool that lets the agent compress unprompted, and it now has
    a higher bar to clear: `make_plan` has taken a CORE_TOOLS slot since.
-2. **The graph's last mile (§9).** Walking it and suggesting connections are
-   done and token-budgeted. What is missing is *"how are these two related?"* —
-   a path between two notes — plus clusters and drag-to-link in the view. The
-   traversal code to build a path on is now there.
+2. ~~**The graph's last mile (§9).**~~ **built, and it went further than the
+   item asked.** Paths between two notes, clusters and drag-to-link are all in,
+   but the part worth carrying forward is that the traversal is now **one
+   engine** (`entry/paths.py`) with three surfaces — the API, two AI tools, and
+   the view — so a picture and an answer cannot disagree about what is
+   connected. And **it is in every answer**, not only the agent's: a note that
+   matches a search brings the notes it links to with it. What is left in §9 is
+   the *decorative* half (skins, minimap, PNG export) and the timeline-graph.
 3. **§20's async-httpx refactor.** Deliberately deferred during §6 so there
    would always be a known-good streaming path to bisect against. That reason
    has expired, and the cost of waiting is real: it now has to touch two
@@ -876,9 +880,18 @@ Every one of these is desktop-only, which is itself the finding: `pywebview`
 is a different browser with a different origin and different file APIs, and
 nothing in the suite touches it.
 
-- **The theme resets to default on every start.**
-- **Onboarding shows every time**, so first-run state is not persisting either
-  — almost certainly the same root cause as the theme. If preferences are
+- ~~**The theme resets to default on every start.**~~
+- ~~**Onboarding shows every time.**~~ **Both fixed, and the guess below was
+  right: two symptoms, one storage.** Both lived in `localStorage` and nowhere
+  else. The look and the onboarding flag are mirrored into the notebook's own
+  preferences (`ui_state`) and seeded back for keys the browser has lost, so a
+  shell that does not persist localStorage gets them back and one that does
+  never notices. **The store is watched rather than its callers** — twenty-two
+  sites write these keys, and a save call added to each would rot the moment
+  somebody added the twenty-third. Reproduced and verified by wiping
+  localStorage in Chromium between loads.
+
+  Original note, kept for its reasoning: If preferences are
   keyed to an origin that changes per launch (or a storage API pywebview does
   not back), both fall out of one bug. **Find the storage first**; two symptoms
   with one cause is the likely shape.
@@ -925,21 +938,29 @@ button in 35F, and worth fixing together.
 
 ---
 
-### 35H. Streaming and rendering
+### 35H. Streaming and rendering — **the client half is not the problem**
 
-- **Agent steps do not stream.** Each section lands complete instead of being
-  written out. The server yields `answer` deltas per round, so the likely
-  cause is client-side: the skill/step timeline buffers a step's text and
-  renders it on completion, where the plain answer path uses
-  `liveMarkdownRenderer`. Making the step timeline use the same renderer is
-  the fix, and it is the difference between "the app is working" and "the app
-  has frozen" on a long run (§33's item 2 makes the same point about plans).
-- **Markdown gaps.** Screenshotted: `$\rightarrow$` renders literally. That is
-  LaTeX, not markdown — the model emitted it because it was asked for an
-  arrow. Two options and they are not exclusive: translate the small set of
-  LaTeX escapes models actually reach for (`\rightarrow`, `\to`, `\times`,
-  `\leq`) into their characters, and tell the model in the prompt to write
-  plain Unicode arrows. The prompt half is cheaper and prevents the rest.
+- ~~**Agent steps do not stream.**~~ **The client-side diagnosis below is
+  wrong, and it was worth an hour to find out rather than a rewrite.** Driven
+  in Chromium against a stream emitting one NDJSON line every 120ms, the answer
+  element inside a *plan run* grew 10 → 25 → 42 → 63 → 94 characters: the step
+  timeline already routes deltas through `liveMarkdownRenderer`, exactly as the
+  plain answer path does. The plan card, the ticked steps and the tool chips
+  all appeared in order.
+
+  **What is still possible, and is not disproved:** the *server* side.
+  `ollama_client._ToolTextGate` holds prose back while it decides whether the
+  text is the beginning of a tool call — which on a model that writes tool
+  calls as prose rather than as structured calls would look precisely like
+  "lands complete". That needs a real model to see, and it is the thing to
+  measure first if this is reported again. **Do not rewrite the timeline.**
+
+  Original note, kept because it is the reasoning that was checked: The server
+  yields `answer` deltas per round, so the likely cause is client-side: the
+  skill/step timeline buffers a step's text and renders it on completion.
+- ~~**Markdown gaps.**~~ **done** — `unlatex` translates the small set of LaTeX
+  escapes models reach for, and TOOLS_GUIDE tells the model to write symbols
+  plainly. Confirmed in a browser: `$\rightarrow$` renders as →.
   The §22 note applies: this is *inline* rendering, deliberately, and block
   elements are not wanted back.
 

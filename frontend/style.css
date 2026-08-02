@@ -6,6 +6,30 @@
    preference or from the manual toggle (data-theme on <html>). */
 
 :root {
+  /* --- the spacing scale (§35L) --------------------------------------------
+     Extracted, not invented. This file had 667 margin/padding/gap
+     declarations across more than twenty-five distinct values — seven of them
+     between 0.3rem and 0.6rem, all meaning "a small gap". That is the
+     measurable form of the reported problem: "the way spacing, alignment and
+     margins of all the ui features in each tab aren't consistent and it
+     changes each tab".
+
+     The steps below are the modes of that distribution, so adopting them
+     moved every off-scale value by at most 0.1rem — invisible on its own, and
+     collectively the difference between elements that line up and elements
+     that nearly do.
+
+     Use these for new work. A raw rem in a margin, padding or gap is now the
+     exception that should be explaining itself in a comment. */
+  --space-1: 0.25rem;
+  --space-2: 0.4rem;
+  --space-3: 0.5rem;
+  --space-4: 0.6rem;
+  --space-5: 0.8rem;
+  --space-6: 1rem;
+  --space-7: 1.25rem;
+  --space-8: 1.5rem;
+  --space-9: 2rem;
   /* Height of the sticky top bar. Sticky sidebars offset by this so they park
      below the header instead of underneath it. Kept as a variable because the
      header shrinks on narrow windows, where the media query overrides it. */
@@ -141,7 +165,7 @@ header#top-bar {
      slot reserved a fixed 17.5rem that nothing was allowed to reclaim.
      Now the pill shrinks first and the tabs scroll, so nothing wraps. */
   flex-wrap: nowrap;
-  padding: 0.55rem 1.5rem;
+  padding: 0.6rem 1.5rem;
   background: var(--card);
   border-bottom: 1px solid var(--glass-border);
   backdrop-filter: blur(18px) saturate(150%);
@@ -168,7 +192,7 @@ header#top-bar h1 {
    duplicated in Settings), then tab padding, and only then do tabs scroll.
    Each step buys roughly a tab's worth of room. */
 @media (max-width: 1200px) {
-  header#top-bar { gap: 0.9rem; padding-inline: 1rem; }
+  header#top-bar { gap: 1rem; padding-inline: 1rem; }
 }
 /* The wordmark stays until the layout stacks. 1390 was tried, then 1080; both
    were still hiding the app's own name on ordinary windows, which was
@@ -182,14 +206,14 @@ header#top-bar h1 {
    scroll a little with a fade instead, which is a far smaller loss than a
    missing name. */
 @media (max-width: 1080px) {
-  #tab-bar button { padding-inline: 0.7rem; }
+  #tab-bar button { padding-inline: 0.8rem; }
 }
 @media (max-width: 720px) {
   header#top-bar h1 { display: none; }
 }
 @media (max-width: 940px) {
   header#top-bar { gap: 0.6rem; }
-  #tab-bar button { padding-inline: 0.55rem; font-size: 0.92rem; }
+  #tab-bar button { padding-inline: 0.6rem; font-size: 0.92rem; }
 }
 /* When the tabs really do scroll, say so with a fade at the edge instead of
    letting a label look chopped off.
@@ -319,7 +343,7 @@ header#top-bar h1 {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  padding: 0.6rem 0.75rem;
+  padding: 0.6rem 0.8rem;
   border-radius: 10px;
   background: var(--modal-bg);
   border: 1px solid var(--border);
@@ -354,7 +378,7 @@ header#top-bar h1 {
 #tab-bar {
   display: flex;
   gap: 0.25rem;
-  padding: 0.2rem;
+  padding: 0.25rem;
   border-radius: 12px;
   background: var(--chip-bg);
   /* Scroll rather than wrap when the window is genuinely too narrow.
@@ -383,7 +407,7 @@ header#top-bar h1 {
   border-radius: 9px;
   color: var(--muted);
   font-weight: 500;
-  padding: 0.35rem 0.95rem;
+  padding: 0.4rem 1rem;
   box-shadow: none;
 }
 #tab-bar button.active {
@@ -392,7 +416,7 @@ header#top-bar h1 {
   font-weight: 600;
 }
 :root[data-theme="dark"] #tab-bar button.active { color: #0e1017; }
-.tab-page { padding-top: 0.75rem; }
+.tab-page { padding-top: 0.8rem; }
 .tab-page > .card.placeholder { margin: 0.25rem 2rem; }
 
 .sidebar-tools {
@@ -450,7 +474,7 @@ header#top-bar h1 {
      the track carries the same auto-minimum and has to be floored too. */
   min-width: 0;
 }
-.card h2 { margin: 0 0 0.75rem; font-size: 1.05rem; }
+.card h2 { margin: 0 0 0.8rem; font-size: 1.05rem; }
 .card h3 { margin: 1rem 0 0.5rem; font-size: 0.9rem; color: var(--muted); }
 
 /* --- sidebar ------------------------------------------------------------ */
@@ -501,7 +525,7 @@ h2.collapsible-title:focus-visible {
   display: flex;
   align-items: baseline;
   gap: 0.6rem;
-  padding: 0.35rem 0.5rem;
+  padding: 0.4rem 0.5rem;
   border-radius: 8px;
   cursor: pointer;
   font-size: 0.92rem;
@@ -541,7 +565,7 @@ h2.collapsible-title:focus-visible {
 /* --- forms --------------------------------------------------------------- */
 textarea, input[type="text"], input[type="password"], input[type="number"], select {
   width: 100%;
-  padding: 0.55rem 0.7rem;
+  padding: 0.6rem 0.8rem;
   margin-bottom: 0.6rem;
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -557,7 +581,7 @@ textarea:focus, input:focus, select:focus {
 }
 
 button {
-  padding: 0.5rem 1.1rem;
+  padding: 0.5rem 1rem;
   border: none;
   border-radius: 10px;
   background: var(--accent-surface);
@@ -581,7 +605,7 @@ button.ghost {
   box-shadow: none;
   backdrop-filter: blur(8px);
 }
-button.small { padding: 0.3rem 0.8rem; font-size: 0.85rem; }
+button.small { padding: 0.25rem 0.8rem; font-size: 0.85rem; }
 
 .row { display: flex; gap: 0.6rem; align-items: center; }
 .row input, .row select { margin-bottom: 0; flex: 1; }
@@ -593,8 +617,8 @@ button.small { padding: 0.3rem 0.8rem; font-size: 0.85rem; }
 .shortcut-list li {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.35rem 0;
+  gap: 0.8rem;
+  padding: 0.4rem 0;
   border-bottom: 1px solid var(--border);
 }
 .shortcut-list li:last-child { border-bottom: none; }
@@ -656,7 +680,7 @@ progress { accent-color: var(--accent); width: 100%; }
   background: var(--accent-soft);
   border: 1px solid var(--glass-border);
   border-radius: 10px;
-  padding: 0.75rem 0.9rem;
+  padding: 0.8rem 1rem;
   white-space: pre-wrap;
   backdrop-filter: blur(8px);
 }
@@ -664,12 +688,12 @@ progress { accent-color: var(--accent); width: 100%; }
    formatted output reads as one panel, not a stack of gaps. */
 .answer p { margin: 0 0 0.6rem; }
 .answer p:last-child { margin-bottom: 0; }
-.answer h3, .answer h4, .answer h5 { margin: 0.6rem 0 0.3rem; }
-.answer ul, .answer ol { margin: 0 0 0.6rem; padding-left: 1.4rem; }
-.answer li { margin-bottom: 0.2rem; }
+.answer h3, .answer h4, .answer h5 { margin: 0.6rem 0 0.25rem; }
+.answer ul, .answer ol { margin: 0 0 0.6rem; padding-left: 1.5rem; }
+.answer li { margin-bottom: 0.25rem; }
 .answer code {
   background: var(--chip-bg);
-  padding: 0.05rem 0.3rem;
+  padding: 0.05rem 0.25rem;
   border-radius: 5px;
   font-size: 0.9em;
 }
@@ -718,7 +742,7 @@ progress { accent-color: var(--accent); width: 100%; }
 .md-table th,
 .md-table td {
   border: 1px solid var(--border);
-  padding: 0.35rem 0.6rem;
+  padding: 0.4rem 0.6rem;
   text-align: left;
   vertical-align: top;
 }
@@ -732,7 +756,7 @@ progress { accent-color: var(--accent); width: 100%; }
 .bubble-answer blockquote,
 .dash-body blockquote {
   margin: 0 0 0.6rem;
-  padding: 0.3rem 0.9rem;
+  padding: 0.25rem 1rem;
   border-left: 3px solid var(--accent);
   color: var(--muted);
   background: var(--chip-bg);
@@ -749,16 +773,16 @@ progress { accent-color: var(--accent); width: 100%; }
 .bubble-answer del,
 .dash-body del { opacity: 0.7; }
 .md-task { list-style: none; margin-left: -1.1rem; }
-.md-task input { width: auto; margin-right: 0.35rem; vertical-align: middle; }
+.md-task input { width: auto; margin-right: 0.4rem; vertical-align: middle; }
 
 /* The chat bubble reuses the same block treatments. */
 .bubble-answer h3, .bubble-answer h4, .bubble-answer h5, .bubble-answer h6 {
-  margin: 0.5rem 0 0.3rem;
+  margin: 0.5rem 0 0.25rem;
 }
-.bubble-answer ul, .bubble-answer ol { margin: 0 0 0.5rem; padding-left: 1.4rem; }
+.bubble-answer ul, .bubble-answer ol { margin: 0 0 0.5rem; padding-left: 1.5rem; }
 .bubble-answer code {
   background: var(--chip-bg);
-  padding: 0.05rem 0.3rem;
+  padding: 0.05rem 0.25rem;
   border-radius: 5px;
   font-size: 0.9em;
 }
@@ -781,7 +805,7 @@ progress { accent-color: var(--accent); width: 100%; }
 /* margin-left:auto pushes the buttons to the right edge of the heading;
    they wrap onto their own line when the title/chip get long, and never
    overlap the answer box the way the old float did. */
-.answer-actions { margin-left: auto; display: inline-flex; gap: 0.35rem; }
+.answer-actions { margin-left: auto; display: inline-flex; gap: 0.4rem; }
 .answer-actions button { padding: 0.15rem 0.5rem; font-size: 0.78rem; }
 
 /* --- entry lists ---------------------------------------------------------- */
@@ -806,7 +830,7 @@ progress { accent-color: var(--accent); width: 100%; }
 
 .chip {
   display: inline-block;
-  padding: 0.1rem 0.55rem;
+  padding: 0.1rem 0.6rem;
   border-radius: 999px;
   font-size: 0.75rem;
   background: var(--accent-soft);
@@ -880,16 +904,31 @@ progress { accent-color: var(--accent); width: 100%; }
    fix for the "Glass & effects" boxes stacking on one line.) */
 .settings-section label {
   display: flex;
-  align-items: baseline;
-  gap: 0.45rem;
-  margin-bottom: 0.4rem;
+  /* Was `baseline`, which is right for a one-line label and wrong for every
+     other one here: against a label that wraps, the control sits on the first
+     line's baseline and reads as knocked out of alignment. `flex-start` with
+     a little top padding on the control lines it up with the first line of
+     text and stays put however many lines follow (§35L). */
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
   font-size: 0.92rem;
 }
 .settings-section label input[type="radio"],
 .settings-section label input[type="checkbox"] {
-  width: auto;
+  width: 1rem;
+  height: 1rem;
   flex: 0 0 auto;
   margin: 0;
+  /* Optical, not arbitrary: nudges a 1rem control onto the centre of a
+     0.92rem line of text rather than its top edge. */
+  margin-top: 0.15rem;
+  /* Themes the native control instead of rebuilding it. A hand-built radio
+     has to reimplement focus rings, high-contrast mode and the platform's own
+     touch targets, and usually gets one of them wrong; `accent-color` gets all
+     three for free and follows the palette the user picked. */
+  accent-color: var(--accent);
+  cursor: pointer;
 }
 /* Labels that are just a caption for a following control (e.g. the accent
    picker, the intensity slider row) shouldn't force the flex row. */
@@ -899,7 +938,7 @@ progress { accent-color: var(--accent); width: 100%; }
   display: flex;
   gap: 0.6rem;
   align-items: center;
-  padding: 0.45rem 0;
+  padding: 0.4rem 0;
   border-bottom: 1px solid var(--border);
   font-size: 0.92rem;
 }
@@ -925,11 +964,11 @@ progress { accent-color: var(--accent); width: 100%; }
 
 /* --- entry actions + links (Phase 4) --------------------------------------- */
 /* No auto margin here — .entry-meta-end already owns the alignment. */
-.entry-actions { display: flex; gap: 0.35rem; }
+.entry-actions { display: flex; gap: 0.4rem; }
 .entry-actions button { padding: 0.15rem 0.5rem; font-size: 0.78rem; }
-.entry-links { margin-top: 0.35rem; display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.entry-links { margin-top: 0.4rem; display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .chip.link { cursor: default; }
-.chip.link .unlink { cursor: pointer; margin-left: 0.3rem; font-weight: 700; }
+.chip.link .unlink { cursor: pointer; margin-left: 0.25rem; font-weight: 700; }
 li.link-source { outline: 2px solid var(--accent); }
 
 /* --- activity log ----------------------------------------------------------- */
@@ -937,21 +976,21 @@ li.link-source { outline: 2px solid var(--accent); }
 .activity-list li {
   display: flex;
   gap: 0.6rem;
-  padding: 0.3rem 0;
+  padding: 0.25rem 0;
   border-bottom: 1px solid var(--border);
 }
 .activity-list .when { color: var(--muted); min-width: 9.5rem; }
 .activity-list .what { font-weight: 600; min-width: 6rem; }
 
 /* --- Phase 5: quick access + toasts ------------------------------------------ */
-.recent { margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+.recent { margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
 .recent .chip { cursor: pointer; }
 .recent .chip:hover { filter: brightness(1.08); }
 
 #most-used-box h2 { margin-top: 1rem; }
 #most-used { list-style: none; margin: 0; padding: 0; font-size: 0.85rem; }
 #most-used li {
-  padding: 0.3rem 0.5rem;
+  padding: 0.25rem 0.5rem;
   border-radius: 8px;
   cursor: pointer;
   display: flex;
@@ -977,7 +1016,7 @@ li.link-source { outline: 2px solid var(--accent); }
   border: 1px solid var(--glass-border);
   border-left: 4px solid var(--accent);
   border-radius: 10px;
-  padding: 0.6rem 0.9rem;
+  padding: 0.6rem 1rem;
   max-width: 340px;
   box-shadow: var(--glass-shadow);
   font-size: 0.9rem;
@@ -1067,8 +1106,8 @@ li.link-source { outline: 2px solid var(--accent); }
 .modal-nav > div { display: flex; flex-direction: column; gap: 0.15rem; }
 /* Group labels: quiet enough to scan past, clear enough to orient by. */
 .nav-group-label {
-  margin: 0.7rem 0 0.15rem;
-  padding: 0 0.7rem;
+  margin: 0.8rem 0 0.15rem;
+  padding: 0 0.8rem;
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -1083,7 +1122,7 @@ li.link-source { outline: 2px solid var(--accent); }
   box-shadow: none;
   color: var(--muted);
   text-align: left;
-  padding: 0.45rem 0.7rem;
+  padding: 0.4rem 0.8rem;
   border-radius: 8px;
   font-weight: 500;
 }
@@ -1108,7 +1147,7 @@ li.link-source { outline: 2px solid var(--accent); }
 /* --- account & security ------------------------------------------------------ */
 .stacked-label {
   display: block;
-  margin: 0.6rem 0 0.2rem;
+  margin: 0.6rem 0 0.25rem;
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--muted);
@@ -1168,7 +1207,7 @@ html.modal-open body {
 .log-list li {
   display: flex;
   gap: 0.5rem;
-  padding: 0.12rem 0;
+  padding: 0.15rem 0;
   border-bottom: 1px dotted var(--border);
 }
 .log-list li:last-child { border-bottom: none; }
@@ -1196,8 +1235,8 @@ html.modal-open body {
   justify-content: space-between;
   gap: 1.5rem;
   flex-wrap: wrap;
-  margin: 0.75rem 2rem 0.25rem;
-  padding: 1.25rem 1.6rem;
+  margin: 0.8rem 2rem 0.25rem;
+  padding: 1.25rem 1.5rem;
   border-radius: var(--radius);
   border: 1px solid var(--glass-border);
   background:
@@ -1237,7 +1276,7 @@ html.modal-open body {
   letter-spacing: -0.01em;
 }
 .dash-submessage {
-  margin: 0.3rem 0 0;
+  margin: 0.25rem 0 0;
   color: var(--muted);
   font-size: 0.92rem;
 }
@@ -1258,7 +1297,7 @@ html.modal-open body {
 .dash-clock-date { font-size: 0.82rem; color: var(--muted); }
 
 @media (max-width: 720px) {
-  .dash-hero { margin: 0.5rem 1rem 0.25rem; padding: 1rem 1.1rem; gap: 0.9rem; }
+  .dash-hero { margin: 0.5rem 1rem 0.25rem; padding: 1rem 1rem; gap: 1rem; }
   .dash-greeting { font-size: 1.35rem; }
   .dash-clock { align-items: flex-start; }
   .dash-clock-time { font-size: 1.7rem; }
@@ -1266,8 +1305,8 @@ html.modal-open body {
      narrow row, and the greeting is the part that says something. */
   .dash-hero-emblem { display: none; }
 }
-:root[data-density="compact"] .dash-hero { padding: 0.85rem 1.2rem; }
-:root[data-density="spacious"] .dash-hero { padding: 1.7rem 2rem; }
+:root[data-density="compact"] .dash-hero { padding: 0.8rem 1.25rem; }
+:root[data-density="spacious"] .dash-hero { padding: 1.5rem 2rem; }
 .dash-toolbar {
   display: flex;
   justify-content: space-between;
@@ -1312,7 +1351,7 @@ html.modal-open body {
 /* Consistent internal rhythm so every widget spaces the same, whatever it
    renders: the title row sits a fixed gap above a flex-column body, and the
    body's own children lose their ad-hoc margins in favour of one gap. */
-.dash-widget > .row { margin-bottom: 0.65rem; }
+.dash-widget > .row { margin-bottom: 0.6rem; }
 .dash-widget h2 { margin: 0; }
 .dash-body { display: flex; flex-direction: column; gap: 0.5rem; }
 .dash-body > * { margin: 0; }
@@ -1331,7 +1370,7 @@ html.modal-open body {
 .dash-big { font-size: 1.6rem; font-weight: 700; margin: 0 0 0.5rem; }
 .dash-list { list-style: none; margin: 0; padding: 0; font-size: 0.9rem; }
 .dash-list li {
-  padding: 0.3rem 0.4rem;
+  padding: 0.25rem 0.4rem;
   border-radius: 6px;
   cursor: pointer;
 }
@@ -1366,7 +1405,7 @@ html.modal-open body {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   text-align: center;
-  margin: 0.2rem 0 0.4rem;
+  margin: 0.25rem 0 0.4rem;
 }
 .focus-presets { flex-wrap: wrap; align-items: center; }
 .focus-custom { width: 4.5rem; }
@@ -1379,7 +1418,7 @@ html.modal-open body {
 }
 
 /* Typing indicator (Wave D): three bouncing dots until the first token */
-.typing-dots { display: inline-flex; gap: 0.25rem; padding: 0.2rem 0; }
+.typing-dots { display: inline-flex; gap: 0.25rem; padding: 0.25rem 0; }
 .typing-dots span {
   width: 0.45rem;
   height: 0.45rem;
@@ -1410,12 +1449,12 @@ html.modal-open body {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
-  padding: 0.5rem 0.2rem;
+  padding: 0.5rem 0.25rem;
   min-width: 0;
 }
 .msg {
   max-width: 82%;
-  padding: 0.6rem 0.85rem;
+  padding: 0.6rem 0.8rem;
   border-radius: 14px;
   white-space: pre-wrap;
   /* A flex item's automatic minimum is its content, which is how a pasted
@@ -1451,7 +1490,7 @@ html.modal-open body {
 .msg.assistant .bubble-answer { white-space: pre-wrap; }
 .msg.assistant .bubble-answer p { margin: 0 0 0.5rem; }
 .msg.assistant .bubble-answer p:last-child { margin-bottom: 0; }
-.msg.assistant details { font-size: 0.85rem; margin: 0.3rem 0; }
+.msg.assistant details { font-size: 0.85rem; margin: 0.25rem 0; }
 .msg.assistant details summary { cursor: pointer; color: var(--muted); }
 .msg.assistant .entry-list { margin-top: 0.4rem; }
 
@@ -1471,7 +1510,7 @@ html.modal-open body {
 .msg-actions {
   display: flex;
   gap: 0.25rem;
-  margin-top: 0.45rem;
+  margin-top: 0.4rem;
   opacity: 0;
   transition: opacity 0.12s ease;
 }
@@ -1483,7 +1522,7 @@ html.modal-open body {
   background: var(--card);
   color: var(--ink);
   border-radius: 7px;
-  padding: 0.1rem 0.45rem;
+  padding: 0.1rem 0.4rem;
   font-size: 0.82rem;
   line-height: 1.5;
   cursor: pointer;
@@ -1504,17 +1543,17 @@ html.modal-open body {
   margin: auto;
   text-align: center;
   max-width: 34ch;
-  padding: 1.75rem 1rem;
+  padding: 1.5rem 1rem;
 }
-.chat-empty .empty-title { margin: 0.4rem 0 0.3rem; }
+.chat-empty .empty-title { margin: 0.4rem 0 0.25rem; }
 .chat-empty-icon { font-size: 2.2rem; }
 #conversation-list { list-style: none; margin: 0; padding: 0; }
 #conversation-list li {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.35rem 0.5rem;
+  gap: 0.25rem;
+  padding: 0.4rem 0.5rem;
   border-radius: 8px;
   font-size: 0.9rem;
 }
@@ -1545,14 +1584,14 @@ html.modal-open body {
 }
 .inline-action textarea { margin-bottom: 0.4rem; }
 .inline-action input { margin-bottom: 0.4rem; }
-.reminder-group-head { margin: 0.9rem 0 0.35rem; font-size: 0.95rem; }
-.reminder-group-head:first-child { margin-top: 0.3rem; }
+.reminder-group-head { margin: 1rem 0 0.4rem; font-size: 0.95rem; }
+.reminder-group-head:first-child { margin-top: 0.25rem; }
 .reminder-text { flex: 1 1 auto; min-width: 8rem; }
-#reminder-presets { gap: 0.4rem; margin: 0.1rem 0 0.2rem; flex-wrap: wrap; }
-.inline-action p { margin: 0.3rem 0; }
+#reminder-presets { gap: 0.4rem; margin: 0.1rem 0 0.25rem; flex-wrap: wrap; }
+.inline-action p { margin: 0.25rem 0; }
 .reevaluate-link {
   gap: 0.5rem;
-  padding: 0.3rem 0.4rem;
+  padding: 0.25rem 0.4rem;
   border-radius: 8px;
 }
 .reevaluate-link:hover { background: var(--accent-soft); }
@@ -1580,7 +1619,7 @@ html.modal-open body {
 .tools-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.25rem;
   font-size: 0.85rem;
   cursor: pointer;
   white-space: nowrap;
@@ -1591,8 +1630,8 @@ html.modal-open body {
 .tool-chip {
   display: block;
   font-size: 0.85rem;
-  margin: 0.2rem 0;
-  padding: 0.3rem 0.6rem;
+  margin: 0.25rem 0;
+  padding: 0.25rem 0.6rem;
   border-radius: 8px;
   background: var(--accent-soft);
   color: var(--accent);
@@ -1600,7 +1639,7 @@ html.modal-open body {
 .tool-chip.tool-chip-error { background: var(--warn-soft); color: var(--warn); }
 
 .tool-confirm {
-  margin: 0.3rem 0;
+  margin: 0.25rem 0;
   padding: 0.6rem;
   border: 1px solid var(--warn);
   border-radius: 10px;
@@ -1618,7 +1657,7 @@ html.modal-open body {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: 0.4rem;
 }
 /* The rail. Drawn only when there's more than one step, so an ordinary
    single-answer reply stays as plain as it was before. */
@@ -1643,7 +1682,7 @@ html.modal-open body {
      Padding the children put the <details> disclosure marker and the tool
      chips' own background directly over the circles and the line
      (user-reported); a padded container keeps that column empty. */
-  padding-left: 1.15rem;
+  padding-left: 1.25rem;
 }
 .agent-steps:has(> :nth-child(2)) > .agent-step,
 .agent-steps:has(> :nth-child(2)) > .tool-chip,
@@ -1684,7 +1723,7 @@ html.modal-open body {
   list-style: none; /* Firefox */
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.4rem;
 }
 .agent-step.step-thinking summary::-webkit-details-marker {
   display: none; /* Safari and older Chrome */
@@ -1706,7 +1745,7 @@ html.modal-open body {
 @media (prefers-reduced-motion: reduce) {
   .agent-step.step-thinking summary::before { transition: none; }
 }
-.agent-step.step-thinking[open] summary { margin-bottom: 0.3rem; }
+.agent-step.step-thinking[open] summary { margin-bottom: 0.25rem; }
 /* A skill's plan, drawn before anything runs. It borrows the thinking step's
    folding and marker so the timeline reads as one thing, but keeps the
    accent — this is what the run is *for*, not an aside. */
@@ -1720,7 +1759,7 @@ html.modal-open body {
   list-style: none;
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.4rem;
 }
 .agent-step.step-plan summary::-webkit-details-marker { display: none; }
 /* Same reason as the thinking step: the native marker is drawn outside the
@@ -1742,8 +1781,8 @@ html.modal-open body {
   .agent-step.step-plan summary::before { transition: none; }
 }
 .agent-step.step-plan .plan-steps {
-  margin: 0.35rem 0 0;
-  padding-left: 1.2rem;
+  margin: 0.4rem 0 0;
+  padding-left: 1.25rem;
   color: var(--muted);
 }
 .agent-step.step-plan .plan-steps li { margin: 0.1rem 0; }
@@ -1758,12 +1797,12 @@ html.modal-open body {
 /* A skill's result: what changed, with a way back. */
 .skill-result {
   margin: 0;
-  padding: 0.5rem 0.65rem;
+  padding: 0.5rem 0.6rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--card);
 }
-.skill-result-title { font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem; }
+.skill-result-title { font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem; }
 .skill-change {
   display: flex;
   align-items: center;
@@ -1775,7 +1814,7 @@ html.modal-open body {
 .skill-change-label { flex: 1 1 12rem; min-width: 0; overflow-wrap: anywhere; }
 .skill-change-undone .skill-change-label { text-decoration: line-through; opacity: 0.7; }
 .agent-step.step-plan .plan-tools {
-  margin-top: 0.35rem;
+  margin-top: 0.4rem;
   color: var(--muted);
   font-size: 0.78rem;
 }
@@ -1875,7 +1914,7 @@ html.modal-open body {
 .graph-labels-hidden .graph-node .graph-label { opacity: 0; transition: opacity 0.1s ease; }
 .graph-labels-hidden .graph-node:hover .graph-label,
 .graph-labels-hidden .graph-node.graph-focus .graph-label { opacity: 1; }
-.graph-stats { margin: 0.2rem 0 0.4rem; font-size: 0.82rem; }
+.graph-stats { margin: 0.25rem 0 0.4rem; font-size: 0.82rem; }
 .graph-node text {
   font-size: 0.68rem;
   fill: var(--ink);
@@ -1892,10 +1931,10 @@ html.modal-open body {
 .legend-item {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.25rem;
   font-size: 0.8rem;
   color: var(--muted);
-  margin-right: 0.7rem;
+  margin-right: 0.8rem;
 }
 .legend-dot {
   width: 0.65rem;
@@ -1933,7 +1972,7 @@ html.modal-open body {
   overflow-y: auto;
 }
 #palette-list li {
-  padding: 0.45rem 0.6rem;
+  padding: 0.4rem 0.6rem;
   border-radius: 8px;
   cursor: pointer;
   font-size: 0.95rem;
@@ -1982,7 +2021,7 @@ html.modal-open body {
 
 /* --- Wave F: mobile / PWA responsive pass --------------------------------------- */
 @media (max-width: 720px) {
-  header { padding: 0.9rem 1rem 0.5rem; }
+  header { padding: 1rem 1rem 0.5rem; }
   #tab-bar {
     padding: 0 1rem;
     flex-wrap: nowrap;
@@ -1990,8 +2029,8 @@ html.modal-open body {
     -webkit-overflow-scrolling: touch;
   }
   #tab-bar button { white-space: nowrap; }
-  .layout { padding: 0.8rem 1rem 1.2rem; }
-  #dash-grid { padding: 0 1rem 1.2rem; grid-template-columns: 1fr; }
+  .layout { padding: 0.8rem 1rem 1.25rem; }
+  #dash-grid { padding: 0 1rem 1.25rem; grid-template-columns: 1fr; }
   .dash-toolbar { padding: 0.4rem 1rem; }
   .row { flex-wrap: wrap; }
   #chat-messages { max-height: 50vh; }
@@ -2063,17 +2102,17 @@ kbd {
 }
 .art-holder canvas { width: 100%; height: auto; display: block; border-radius: 10px; }
 .art-controls { margin-top: 0.5rem; line-height: 1.5; }
-.art-caption { margin: 0.5rem 0 0.2rem; font-size: 0.8rem; line-height: 1.4; }
+.art-caption { margin: 0.5rem 0 0.25rem; font-size: 0.8rem; line-height: 1.4; }
 .art-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.3rem 0.8rem;
+  gap: 0.25rem 0.8rem;
   margin-top: 0.5rem;
 }
 .art-legend-item {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.25rem;
   font-size: 0.78rem;
   color: var(--muted);
 }
@@ -2093,7 +2132,7 @@ kbd {
 .char-count { font-size: 0.75rem; text-align: right; margin: -0.4rem 0 0.5rem; }
 
 .toast-action {
-  margin-left: 0.75rem;
+  margin-left: 0.8rem;
   padding: 0.15rem 0.6rem;
   font-size: 0.8rem;
   background: rgba(255, 255, 255, 0.25);
@@ -2204,7 +2243,7 @@ kbd {
     min-height: 44px;
     min-width: 44px;
   }
-  .entry-actions { gap: 0.35rem; flex-wrap: wrap; }
+  .entry-actions { gap: 0.4rem; flex-wrap: wrap; }
 }
 
 /* High-contrast mode: stronger ink, solid panels, no glass blur — layered
@@ -2263,7 +2302,7 @@ kbd {
   min-width: 12.5rem;
   display: flex;
   flex-direction: column;
-  padding: 0.35rem;
+  padding: 0.4rem;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--modal-bg);
@@ -2277,7 +2316,7 @@ kbd {
   color: var(--ink);
   font-weight: 500;
   text-align: left;
-  padding: 0.5rem 0.7rem;
+  padding: 0.5rem 0.8rem;
   border-radius: 8px;
   cursor: pointer;
 }
@@ -2292,14 +2331,14 @@ html { font-size: 16px; }
 /* Inputs at 16px on touch screens so iOS doesn't zoom the page. */
 @media (max-width: 720px) {
   textarea, input, select { font-size: 16px; }
-  header#top-bar { padding: 0.5rem 0.75rem; gap: 0.6rem; flex-wrap: wrap; }
+  header#top-bar { padding: 0.5rem 0.8rem; gap: 0.6rem; flex-wrap: wrap; }
   #tab-bar { order: 3; width: 100%; overflow-x: auto; }
   /* Categories become a wrapping chip row instead of a tall list. */
-  #sidebar ul#category-list { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+  #sidebar ul#category-list { display: flex; flex-wrap: wrap; gap: 0.4rem; }
   #sidebar ul#category-list li {
     border: 1px solid var(--border);
     border-radius: 999px;
-    padding: 0.25rem 0.7rem;
+    padding: 0.25rem 0.8rem;
     gap: 0.4rem;
   }
 }
@@ -2386,8 +2425,8 @@ html { font-size: 16px; }
 }
 
 #batch-bar {
-  margin: 0 0 0.75rem;
-  padding: 0.5rem 0.7rem;
+  margin: 0 0 0.8rem;
+  padding: 0.5rem 0.8rem;
   border: 1px solid var(--accent);
   border-radius: 12px;
   background: var(--accent-soft);
@@ -2423,7 +2462,7 @@ html { font-size: 16px; }
 @media (max-width: 640px) { .improve-cols { grid-template-columns: 1fr; } }
 .improve-box {
   min-height: 6rem;
-  padding: 0.6rem 0.7rem;
+  padding: 0.6rem 0.8rem;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--input-bg);
@@ -2485,7 +2524,7 @@ html { font-size: 16px; }
 .seg {
   display: inline-flex;
   gap: 0.15rem;
-  padding: 0.2rem;
+  padding: 0.25rem;
   border-radius: 10px;
   background: var(--chip-bg);
   margin-bottom: 0.5rem;
@@ -2497,7 +2536,7 @@ html { font-size: 16px; }
   box-shadow: none;
   color: var(--muted);
   font-weight: 500;
-  padding: 0.3rem 0.8rem;
+  padding: 0.25rem 0.8rem;
   border-radius: 8px;
 }
 .seg button.active { background: var(--accent); color: #fff; }
@@ -2508,7 +2547,7 @@ html { font-size: 16px; }
 
 /* Compact density trims padding on cards and list rows. */
 :root[data-density="compact"] .card { padding: 0.6rem 0.8rem; margin-bottom: 0.6rem; }
-:root[data-density="compact"] .entry-list li { padding: 0.5rem 0.7rem; }
+:root[data-density="compact"] .entry-list li { padding: 0.5rem 0.8rem; }
 :root[data-density="compact"] .layout { gap: 0.6rem; padding-top: 0.5rem; }
 
 /* Glass off → flat solid surfaces (cheaper to render). */
@@ -2542,14 +2581,14 @@ html { font-size: 16px; }
 #tool-list li { padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
 .tool-row { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: 500; }
 .tool-row input { width: 1.15rem; height: 1.15rem; margin: 0; accent-color: var(--accent); }
-.tool-desc { display: block; margin: 0.2rem 0 0 1.65rem; font-size: 0.82rem; }
+.tool-desc { display: block; margin: 0.25rem 0 0 1.65rem; font-size: 0.82rem; }
 
 /* The tool allowlist inside the skill editor. Twenty-odd names, so it wraps
    into columns rather than becoming a page-length list. */
 .tool-picker {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(11rem, 100%), 1fr));
-  gap: 0.15rem 0.75rem;
+  gap: 0.15rem 0.8rem;
   margin-top: 0.4rem;
 }
 .check-row {
@@ -2566,12 +2605,12 @@ html { font-size: 16px; }
 
 /* A labelled box in a dialog — used by the "what does this skill need?" form. */
 .field { display: block; margin: 0.5rem 0; }
-.field > span { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.2rem; }
+.field > span { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.25rem; }
 .field > input { width: 100%; }
 
 /* Per-message metadata: model · time · tokens · speed */
 .msg-meta {
-  margin-top: 0.35rem;
+  margin-top: 0.4rem;
   font-size: 0.72rem;
   font-variant-numeric: tabular-nums;
   opacity: 0.75;
@@ -2590,7 +2629,7 @@ html { font-size: 16px; }
 .web-panel {
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 0.75rem 0.9rem;
+  padding: 0.8rem 1rem;
   margin-bottom: 0.8rem;
   background: var(--inner);
   /* Long URLs and unbroken strings must never widen the page. */
@@ -2608,7 +2647,7 @@ html { font-size: 16px; }
   min-width: 0;
 }
 .web-result {
-  padding: 0.55rem 0;
+  padding: 0.6rem 0;
   border-top: 1px solid var(--border);
   min-width: 0;
   overflow-wrap: anywhere; /* wrap long URLs instead of stretching */
@@ -2630,11 +2669,11 @@ html { font-size: 16px; }
 }
 .web-result-title:hover { text-decoration: underline; }
 .web-result-meta { font-size: 0.78rem; }
-.web-result-snippet { font-size: 0.85rem; margin: 0.2rem 0 0.35rem; line-height: 1.4; }
+.web-result-snippet { font-size: 0.85rem; margin: 0.25rem 0 0.4rem; line-height: 1.4; }
 .web-open-link {
   display: inline-flex;
   align-items: center;
-  padding: 0.3rem 0.6rem;
+  padding: 0.25rem 0.6rem;
   border-radius: calc(var(--radius) * 0.5);
   border: 1px solid var(--border);
   font-size: 0.8rem;
@@ -2653,25 +2692,25 @@ html { font-size: 16px; }
   min-width: 0;
   font-size: 0.92rem;
   line-height: 1.65;
-  padding: 0.9rem 1.1rem;
+  padding: 1rem 1rem;
   border: 1px solid var(--border);
   border-radius: calc(var(--radius) * 0.6);
   background: var(--card);
   overflow-wrap: anywhere;
 }
 .web-reader-text > * { max-width: 42rem; }
-.web-reader-text p { margin: 0 0 0.85rem; }
+.web-reader-text p { margin: 0 0 0.8rem; }
 .web-reader-text h4 {
-  margin: 1.2rem 0 0.5rem;
+  margin: 1.25rem 0 0.5rem;
   font-size: 1rem;
   font-weight: 700;
   line-height: 1.35;
 }
 .web-reader-text h4:first-child { margin-top: 0; }
-.web-reader-text ul { margin: 0 0 0.85rem; padding-left: 1.2rem; }
-.web-reader-text li { margin-bottom: 0.3rem; }
+.web-reader-text ul { margin: 0 0 0.8rem; padding-left: 1.25rem; }
+.web-reader-text li { margin-bottom: 0.25rem; }
 .web-reader-text blockquote {
-  margin: 0 0 0.85rem;
+  margin: 0 0 0.8rem;
   padding-left: 0.8rem;
   border-left: 3px solid var(--accent-soft);
   color: var(--muted);
@@ -2679,7 +2718,7 @@ html { font-size: 16px; }
 .web-reader-text pre {
   white-space: pre-wrap;
   background: var(--chip-bg);
-  padding: 0.6rem 0.7rem;
+  padding: 0.6rem 0.8rem;
   border-radius: calc(var(--radius) * 0.5);
   font-size: 0.85rem;
   overflow-x: auto;
@@ -2692,13 +2731,13 @@ html { font-size: 16px; }
   display: flex;
   flex-wrap: wrap;
   gap: 0.6rem;
-  margin: 0.9rem 2rem 0;
+  margin: 1rem 2rem 0;
 }
 .stat-tile {
   display: flex;
   align-items: baseline;
-  gap: 0.45rem;
-  padding: 0.55rem 0.95rem;
+  gap: 0.4rem;
+  padding: 0.6rem 1rem;
   background: var(--card);
   color: var(--ink);
   border: 1px solid var(--glass-border);
@@ -2715,8 +2754,8 @@ html { font-size: 16px; }
 .stat-tile.stat-alert { border-color: var(--warn); }
 .stat-tile.stat-alert .stat-value { color: var(--warn); }
 @media (max-width: 720px) {
-  .dash-stats { margin: 0.7rem 1rem 0; gap: 0.45rem; }
-  .stat-tile { padding: 0.45rem 0.7rem; }
+  .dash-stats { margin: 0.8rem 1rem 0; gap: 0.4rem; }
+  .stat-tile { padding: 0.4rem 0.8rem; }
   .stat-value { font-size: 1.05rem; }
 }
 
@@ -2724,14 +2763,14 @@ html { font-size: 16px; }
 .dash-quicklinks {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.55rem;
-  margin: 0.9rem 2rem 0.2rem;
+  gap: 0.6rem;
+  margin: 1rem 2rem 0.25rem;
 }
 .quick-link {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0.5rem 0.9rem;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
   background: var(--card);
   color: var(--ink);
   border: 1px solid var(--glass-border);
@@ -2746,17 +2785,17 @@ html { font-size: 16px; }
 .quick-link-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
 .quick-link-primary:hover { background: var(--accent); filter: brightness(1.08); }
 @media (max-width: 720px) {
-  .dash-quicklinks { margin: 0.7rem 1rem 0.2rem; }
-  .quick-link { font-size: 0.85rem; padding: 0.45rem 0.7rem; }
+  .dash-quicklinks { margin: 0.8rem 1rem 0.25rem; }
+  .quick-link { font-size: 0.85rem; padding: 0.4rem 0.8rem; }
 }
 
 /* --- tools & features browser ---------------------------------------------- */
 #features-card { max-width: 46rem; width: 100%; }
-#features-card > input { margin-bottom: 0.35rem; }
+#features-card > input { margin-bottom: 0.4rem; }
 .features-list {
   max-height: 60vh;
   overflow-y: auto;
-  padding-right: 0.3rem;
+  padding-right: 0.25rem;
 }
 .features-group {
   margin: 1rem 0 0.4rem;
@@ -2765,14 +2804,14 @@ html { font-size: 16px; }
   letter-spacing: 0.06em;
   color: var(--muted);
 }
-.features-group:first-child { margin-top: 0.2rem; }
+.features-group:first-child { margin-top: 0.25rem; }
 .feature-row {
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
   width: 100%;
   text-align: left;
-  padding: 0.55rem 0.7rem;
+  padding: 0.6rem 0.8rem;
   margin-bottom: 0.25rem;
   background: none;
   border: 1px solid transparent;
@@ -2796,7 +2835,7 @@ html { font-size: 16px; }
   grid-auto-columns: 10px;
   gap: 3px;
   overflow-x: auto;
-  padding-bottom: 0.3rem;
+  padding-bottom: 0.25rem;
 }
 .heat-cell { width: 10px; height: 10px; border-radius: 2px; background: var(--chip-bg); }
 .heat-blank { background: none; }
@@ -2812,17 +2851,17 @@ html { font-size: 16px; }
   font-size: 0.75rem;
   margin-top: 0.4rem;
 }
-.heat-legend span:first-child { margin-right: 0.2rem; }
-.heat-legend span:last-child { margin-left: 0.2rem; }
+.heat-legend span:first-child { margin-right: 0.25rem; }
+.heat-legend span:last-child { margin-left: 0.25rem; }
 /* Category breakdown bars */
-.cat-bars { display: flex; flex-direction: column; gap: 0.3rem; }
+.cat-bars { display: flex; flex-direction: column; gap: 0.25rem; }
 .cat-row {
   display: grid;
   grid-template-columns: minmax(4rem, 7rem) 1fr auto;
   align-items: center;
   gap: 0.5rem;
   width: 100%;
-  padding: 0.25rem 0.3rem;
+  padding: 0.25rem 0.25rem;
   background: none;
   border: none;
   box-shadow: none;
@@ -2855,7 +2894,7 @@ html { font-size: 16px; }
 .tag-cloud {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
+  gap: 0.4rem;
   align-items: center;
   line-height: 1.6;
 }
@@ -2869,7 +2908,7 @@ html { font-size: 16px; }
   .entry-list li .entry-actions { opacity: 1; } /* touch has no hover */
 }
 #entry-list li {
-  padding: 0.75rem 0.9rem;
+  padding: 0.8rem 1rem;
   transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
 #entry-list li:hover {
@@ -2878,7 +2917,7 @@ html { font-size: 16px; }
 }
 /* The note itself should read first; its metadata second. */
 #entry-list .entry-content { font-size: 0.97rem; line-height: 1.55; }
-#entry-list .entry-meta { margin-top: 0.45rem; gap: 0.4rem; align-items: center; }
+#entry-list .entry-meta { margin-top: 0.4rem; gap: 0.4rem; align-items: center; }
 #entry-list .entry-date { font-size: 0.76rem; }
 /* A quieter "check this" flag — informative, not alarming. */
 .chip.review { font-weight: 500; }
@@ -2887,8 +2926,8 @@ html { font-size: 16px; }
 #sidebar #most-used li { font-size: 0.85rem; line-height: 1.35; }
 
 /* --- reminders page polish -------------------------------------------------- */
-.reminders-card { margin: 0.75rem 2rem; }
-#reminder-compose { margin-bottom: 0.75rem; }
+.reminders-card { margin: 0.8rem 2rem; }
+#reminder-compose { margin-bottom: 0.8rem; }
 @media (max-width: 720px) { .reminders-card { margin: 0.5rem 1rem; } }
 /* The add form as a grid, so the fields line up instead of drifting. */
 .reminder-form {
@@ -2944,10 +2983,10 @@ html { font-size: 16px; }
 .reminder-listbar {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.8rem;
   flex-wrap: wrap;
   margin-bottom: 0.6rem;
-  padding-bottom: 0.55rem;
+  padding-bottom: 0.6rem;
   border-bottom: 1px solid var(--border);
 }
 .reminder-listbar h2 { margin: 0; margin-right: auto; }
@@ -2955,16 +2994,16 @@ html { font-size: 16px; }
 .reminder-group-head {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  margin: 0.9rem 0 0.4rem;
+  gap: 0.4rem;
+  margin: 1rem 0 0.4rem;
   font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--muted);
 }
-.reminder-group-head:first-child { margin-top: 0.2rem; }
+.reminder-group-head:first-child { margin-top: 0.25rem; }
 .reminder-group-head .group-count {
-  padding: 0.05rem 0.45rem;
+  padding: 0.05rem 0.4rem;
   border-radius: 999px;
   background: var(--chip-bg);
   font-size: 0.72rem;
@@ -2980,7 +3019,7 @@ html { font-size: 16px; }
   padding: 0.6rem 0.8rem;
   border-left-width: 3px;
 }
-#reminder-groups .entry-meta { gap: 0.55rem; align-items: center; }
+#reminder-groups .entry-meta { gap: 0.6rem; align-items: center; }
 .reminder-text { flex: 1; min-width: 0; }
 #tab-reminders .entry-actions { opacity: 0; transition: opacity 0.12s ease; }
 #tab-reminders li:hover .entry-actions,
@@ -2992,7 +3031,7 @@ html { font-size: 16px; }
   display: inline-block;
   min-width: 1.15rem;
   margin-left: 0.4rem;
-  padding: 0 0.3rem;
+  padding: 0 0.25rem;
   border-radius: 999px;
   background: var(--error);
   color: #fff;
@@ -3041,8 +3080,8 @@ html { font-size: 16px; }
 /* --- chat polish ------------------------------------------------------------ */
 #chat-messages {
   max-height: none; /* the flex layout owns the height now */
-  gap: 0.85rem;
-  padding: 0.6rem 0.4rem 0.2rem;
+  gap: 0.8rem;
+  padding: 0.6rem 0.4rem 0.25rem;
   scroll-behavior: smooth;
 }
 .msg {
@@ -3078,26 +3117,26 @@ html { font-size: 16px; }
 .msg.assistant .bubble-answer { font-size: 0.95rem; }
 .msg.assistant .bubble-answer h3,
 .msg.assistant .bubble-answer h4,
-.msg.assistant .bubble-answer h5 { margin: 0.8rem 0 0.35rem; font-size: 0.95rem; }
+.msg.assistant .bubble-answer h5 { margin: 0.8rem 0 0.4rem; font-size: 0.95rem; }
 .msg.assistant .bubble-answer ul,
-.msg.assistant .bubble-answer ol { margin: 0 0 0.6rem; padding-left: 1.2rem; }
+.msg.assistant .bubble-answer ol { margin: 0 0 0.6rem; padding-left: 1.25rem; }
 .msg.assistant .bubble-answer code {
   background: var(--chip-bg);
-  padding: 0.05rem 0.3rem;
+  padding: 0.05rem 0.25rem;
   border-radius: 5px;
   font-size: 0.86em;
 }
 /* Tool activity reads as a distinct strip of "things it did". */
-.tool-activity:not(:empty) { margin: 0.35rem 0 0.5rem; display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.tool-activity:not(:empty) { margin: 0.4rem 0 0.5rem; display: flex; flex-wrap: wrap; gap: 0.25rem; }
 /* The composer reads as one control rather than three loose boxes. */
 .chat-composer {
-  gap: 0.45rem;
+  gap: 0.4rem;
   padding-top: 0.6rem;
   border-top: 1px solid var(--border);
 }
 .chat-composer #chat-input {
   margin: 0;
-  padding: 0.7rem 0.9rem;
+  padding: 0.8rem 1rem;
   border-radius: calc(var(--radius) * 0.8);
   /* `.row input, .row select { flex: 1 }` does not match a textarea, and the
      box collapsed to its intrinsic width the moment it stopped being an
@@ -3106,11 +3145,11 @@ html { font-size: 16px; }
   flex: 1 1 auto;
   min-width: 0;
 }
-.chat-composer button { padding: 0.6rem 1.1rem; }
+.chat-composer button { padding: 0.6rem 1rem; }
 /* Conversation list: a clear active row with an accent spine. */
 #chat-sidebar h2 { margin-bottom: 0.5rem; }
 #conversation-list li {
-  padding: 0.45rem 0.55rem;
+  padding: 0.4rem 0.6rem;
   margin-bottom: 0.15rem;
   border-left: 3px solid transparent;
   transition: background 0.12s ease, border-color 0.12s ease;
@@ -3123,7 +3162,7 @@ html { font-size: 16px; }
 #conversation-list li:hover .entry-actions,
 #conversation-list li:focus-within .entry-actions { opacity: 1; }
 .chat-toolbar {
-  padding-bottom: 0.55rem;
+  padding-bottom: 0.6rem;
   border-bottom: 1px solid var(--border);
 }
 .chat-empty { padding: 1.5rem 1rem; }
@@ -3155,12 +3194,12 @@ html { font-size: 16px; }
 }
 .graph-zoom .graph-zoom-btn + .graph-zoom-btn { border-top: 1px solid var(--border); }
 /* Legend entries read as toggle pills. */
-#graph-legend { gap: 0.35rem; margin-bottom: 0.45rem; }
+#graph-legend { gap: 0.4rem; margin-bottom: 0.4rem; }
 .legend-item {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.2rem 0.6rem;
+  gap: 0.4rem;
+  padding: 0.25rem 0.6rem;
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--ink);
@@ -3188,7 +3227,7 @@ html { font-size: 16px; }
   flex-wrap: wrap;
   margin-bottom: 0.5rem;
 }
-.graph-toolbar h2 { margin: 0; margin-right: 0.2rem; }
+.graph-toolbar h2 { margin: 0; margin-right: 0.25rem; }
 .graph-toolbar #graph-search { width: 11rem; margin: 0; }
 .graph-toolbar .tools-toggle { white-space: nowrap; margin: 0; }
 .graph-toolbar button { white-space: nowrap; }
@@ -3213,11 +3252,11 @@ html { font-size: 16px; }
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  margin: 0.75rem 2rem 1rem;
+  margin: 0.8rem 2rem 1rem;
 }
 #graph-card #graph-box { flex: 1; min-height: 22rem; }
 @media (max-width: 720px) {
-  #graph-card { margin: 0.5rem 1rem 0.75rem; }
+  #graph-card { margin: 0.5rem 1rem 0.8rem; }
   .graph-toolbar #graph-search { width: 100%; }
   .graph-toolbar #graph-add-node { margin-left: 0; }
 }
@@ -3321,13 +3360,13 @@ html { font-size: 16px; }
 .graph-popup-info {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.3rem;
+  gap: 0.25rem;
   margin: 0.15rem 0 0.5rem;
 }
 .graph-popup-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.3rem;
+  gap: 0.25rem;
   margin-top: 0.5rem;
   padding-top: 0.5rem;
   border-top: 1px solid var(--border);
@@ -3341,7 +3380,7 @@ html { font-size: 16px; }
   z-index: 40;
   width: 22rem;
   max-width: calc(100% - 1rem);
-  padding: 0.7rem 0.85rem;
+  padding: 0.8rem 0.8rem;
   background: var(--modal-bg);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
@@ -3360,7 +3399,7 @@ html { font-size: 16px; }
 .md-table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
 .md-table th, .md-table td {
   border: 1px solid var(--border);
-  padding: 0.35rem 0.6rem;
+  padding: 0.4rem 0.6rem;
   text-align: left;
   vertical-align: top;
 }
@@ -3384,16 +3423,16 @@ button { border-radius: calc(var(--radius) * 0.7); }
 .chip, .seg, .seg button { border-radius: calc(var(--radius) * 0.5 + 6px); }
 
 /* --- spacious density (third option alongside comfortable/compact) --------- */
-:root[data-density="spacious"] .card { padding: 1.4rem 1.7rem; margin-bottom: 1.4rem; }
-:root[data-density="spacious"] .layout { gap: 1.4rem; padding-top: 1.3rem; }
-:root[data-density="spacious"] #dash-grid { gap: 1.4rem; }
-:root[data-density="spacious"] .entry-list li { padding: 0.85rem 1rem; }
+:root[data-density="spacious"] .card { padding: 1.5rem 1.5rem; margin-bottom: 1.5rem; }
+:root[data-density="spacious"] .layout { gap: 1.5rem; padding-top: 1.25rem; }
+:root[data-density="spacious"] #dash-grid { gap: 1.5rem; }
+:root[data-density="spacious"] .entry-list li { padding: 0.8rem 1rem; }
 
 /* --- appearance settings: grouped, scannable rows -------------------------- */
 .settings-group {
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 0.9rem 1.1rem 1rem;
+  padding: 1rem 1rem 1rem;
   margin-bottom: 1rem;
 }
 .settings-group > h3:first-child { margin-top: 0; }
@@ -3402,7 +3441,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.55rem 0;
+  padding: 0.6rem 0;
   border-top: 1px solid var(--border);
   flex-wrap: wrap;
 }
@@ -3475,7 +3514,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
   border: 1px solid var(--border);
   border-radius: 8px;
   margin-bottom: 0.5rem;
-  padding: 0.5rem 0.75rem;
+  padding: 0.5rem 0.8rem;
 }
 .help-accordion summary { cursor: pointer; font-weight: 600; }
 .help-accordion details[open] summary { margin-bottom: 0.4rem; }
@@ -3483,14 +3522,14 @@ button { border-radius: calc(var(--radius) * 0.7); }
 .searxng-host {
   border: 1px solid var(--border);
   border-radius: calc(var(--radius) * 0.7);
-  padding: 0.7rem 0.85rem;
+  padding: 0.8rem 0.8rem;
   margin-bottom: 0.6rem;
 }
 .searxng-host .row { margin: 0.4rem 0 0; align-items: center; }
-.searxng-host p { margin: 0.35rem 0 0; font-size: 0.86rem; }
+.searxng-host p { margin: 0.4rem 0 0; font-size: 0.86rem; }
 .setup-snippet {
   background: var(--chip-bg);
-  padding: 0.6rem 0.7rem;
+  padding: 0.6rem 0.8rem;
   border-radius: calc(var(--radius) * 0.5);
   font-size: 0.8rem;
   overflow-x: auto;
@@ -3508,7 +3547,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
 .provider-picker {
   display: grid;
   gap: 0.4rem;
-  margin: 0.5rem 0 0.3rem;
+  margin: 0.5rem 0 0.25rem;
 }
 .provider-option {
   display: grid;
@@ -3517,7 +3556,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
   align-items: start;
   border: 1px solid var(--border);
   border-radius: calc(var(--radius) * 0.6);
-  padding: 0.55rem 0.7rem;
+  padding: 0.6rem 0.8rem;
   cursor: pointer;
 }
 .provider-option:hover { border-color: var(--accent); }
@@ -3525,7 +3564,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
   border-color: var(--accent);
   background: var(--chip-bg);
 }
-.provider-option input { margin-top: 0.2rem; }
+.provider-option input { margin-top: 0.25rem; }
 .provider-option .muted { font-size: 0.84rem; }
 
 /* A button that reads as a link — used for "that setting lives over there"
@@ -3624,7 +3663,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
 #category-list li:hover .category-actions,
 #category-list li:focus-within .category-actions { pointer-events: auto; }
 .category-actions button {
-  padding: 0 0.3rem;
+  padding: 0 0.25rem;
   font-size: 0.75rem;
   line-height: 1.4;
 }
@@ -3654,7 +3693,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  padding: 0.7rem;
+  padding: 0.8rem;
   border-radius: var(--radius);
   border: 1px solid var(--glass-border);
   background: var(--modal-bg);
@@ -3677,7 +3716,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.35rem 0.4rem;
+  padding: 0.4rem 0.4rem;
   cursor: pointer;
   font-size: 0.85rem;
 }
@@ -3689,11 +3728,11 @@ button { border-radius: calc(var(--radius) * 0.7); }
 .chat-attachments {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
+  gap: 0.4rem;
   margin: 0 0 0.4rem;
 }
 .chat-attachments.hidden { display: none; }
-.attachment-chip { display: inline-flex; align-items: center; gap: 0.35rem; max-width: 22rem; }
+.attachment-chip { display: inline-flex; align-items: center; gap: 0.4rem; max-width: 22rem; }
 .attachment-chip > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .attachment-remove {
   border: 0;
@@ -3752,7 +3791,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.25rem;
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
@@ -3764,7 +3803,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
   gap: 0.1rem;
   width: 100%;
   text-align: left;
-  padding: 0.45rem 0.55rem;
+  padding: 0.4rem 0.6rem;
   border: 1px solid transparent;
   border-radius: 8px;
   background: none;
@@ -3787,11 +3826,11 @@ button { border-radius: calc(var(--radius) * 0.7); }
   background: none;
 }
 .doc-title-input:focus { border-color: var(--glass-border); background: var(--card); }
-.doc-actions { gap: 0.3rem; flex-wrap: wrap; align-items: center; }
+.doc-actions { gap: 0.25rem; flex-wrap: wrap; align-items: center; }
 .doc-actions .muted { font-size: 0.78rem; min-width: 4.5rem; text-align: right; }
 
 /* One pane by default; two side by side when the preview is on. */
-.doc-panes { display: grid; grid-template-columns: 1fr; gap: 0.75rem; min-height: 60vh; }
+.doc-panes { display: grid; grid-template-columns: 1fr; gap: 0.8rem; min-height: 60vh; }
 .doc-panes.split { grid-template-columns: 1fr 1fr; }
 #doc-content {
   min-height: 60vh;
@@ -3803,7 +3842,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
 .doc-preview {
   overflow-y: auto;
   max-height: 75vh;
-  padding: 0.75rem 1rem;
+  padding: 0.8rem 1rem;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   background: var(--card);
@@ -3811,7 +3850,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
 .doc-preview.hidden { display: none; }
 .doc-hint { font-size: 0.78rem; }
 .doc-hint kbd {
-  padding: 0.05rem 0.3rem;
+  padding: 0.05rem 0.25rem;
   border: 1px solid var(--border);
   border-radius: 4px;
   font-size: 0.9em;
@@ -3851,7 +3890,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
 }
 
 /* --- editing a question in place --------------------------------------------- */
-.msg-edit { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.35rem; }
+.msg-edit { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.4rem; }
 .msg-edit textarea {
   width: 100%;
   resize: vertical;
@@ -3905,7 +3944,7 @@ button.ai-unavailable {
 }
 .search-help.hidden { display: none; }
 .search-help p { margin: 0 0 0.4rem; }
-.search-help-list { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.15rem; }
+.search-help-list { margin: 0; padding-left: 1rem; display: grid; gap: 0.15rem; }
 .search-help-list code {
   background: var(--card);
   border: 1px solid var(--border);
@@ -3914,9 +3953,9 @@ button.ai-unavailable {
 }
 
 /* --- saved filters ----------------------------------------------------------- */
-.saved-searches { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0 0 0.6rem; }
+.saved-searches { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0 0 0.6rem; }
 .saved-searches.hidden { display: none; }
-.chip.saved-search { display: inline-flex; align-items: center; gap: 0.3rem; padding-right: 0.35rem; }
+.chip.saved-search { display: inline-flex; align-items: center; gap: 0.25rem; padding-right: 0.4rem; }
 .saved-search-apply,
 .saved-search-remove {
   border: 0;
@@ -3964,7 +4003,7 @@ button.ai-unavailable {
 /* --- [[ autocomplete ---------------------------------------------------------- */
 .wiki-suggest {
   list-style: none;
-  margin: 0.2rem 0 0;
+  margin: 0.25rem 0 0;
   padding: 0.25rem;
   max-height: 14rem;
   overflow-y: auto;
@@ -3975,7 +4014,7 @@ button.ai-unavailable {
 }
 .wiki-suggest.hidden { display: none; }
 .wiki-suggest li {
-  padding: 0.35rem 0.5rem;
+  padding: 0.4rem 0.5rem;
   border-radius: 6px;
   font-size: 0.86rem;
   cursor: pointer;
@@ -3989,7 +4028,7 @@ button.ai-unavailable {
 /* --- duplicate tidy-up -------------------------------------------------------- */
 .duplicate-group {
   margin: 0.6rem 0;
-  padding: 0.6rem 0.75rem;
+  padding: 0.6rem 0.8rem;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   background: var(--card);
@@ -3999,13 +4038,13 @@ button.ai-unavailable {
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
-  padding: 0.3rem 0;
+  padding: 0.25rem 0;
   font-size: 0.85rem;
   cursor: pointer;
 }
-.duplicate-note input { width: auto; margin: 0.2rem 0 0; flex: 0 0 auto; }
+.duplicate-note input { width: auto; margin: 0.25rem 0 0; flex: 0 0 auto; }
 .duplicate-group .row { margin-top: 0.5rem; align-items: center; gap: 0.6rem; }
-.duplicate-group .row label { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.82rem; }
+.duplicate-group .row label { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.82rem; }
 .duplicate-group .row label input { width: auto; margin: 0; }
 #duplicate-threshold { width: 8rem; }
 
@@ -4013,14 +4052,14 @@ button.ai-unavailable {
 #history-card { width: min(44rem, 92vw); }
 #history-list { display: flex; flex-direction: column; gap: 0.5rem; max-height: 60vh; overflow-y: auto; }
 .history-entry {
-  padding: 0.55rem 0.7rem;
+  padding: 0.6rem 0.8rem;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   background: var(--card);
 }
 /* The current text, so you can see what you'd be replacing. */
 .history-current { border-color: var(--accent); background: var(--accent-soft); }
-.history-entry > p:first-child { margin: 0 0 0.2rem; font-size: 0.76rem; }
+.history-entry > p:first-child { margin: 0 0 0.25rem; font-size: 0.76rem; }
 .history-entry > p:nth-child(2) { margin: 0 0 0.4rem; font-size: 0.88rem; white-space: pre-wrap; }
 
 /* --- resizable sidebars ------------------------------------------------------- */
@@ -4077,7 +4116,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   overflow: hidden;
   cursor: pointer;
 }
-#conversation-list li { display: flex; align-items: flex-start; gap: 0.35rem; }
+#conversation-list li { display: flex; align-items: flex-start; gap: 0.4rem; }
 
 /* No dragging on a stacked single-column layout — there's no column to size. */
 @media (max-width: 720px) {
@@ -4090,7 +4129,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 /* The reduced-motion stand-in for the typing dots: a word, not a gesture. */
 .typing-label {
   display: inline-block;
-  padding: 0.2rem 0;
+  padding: 0.25rem 0;
   color: var(--muted);
   font-size: 0.9rem;
   font-style: italic;
@@ -4101,15 +4140,15 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.2rem;
-  padding: 0.35rem 0.4rem;
+  gap: 0.25rem;
+  padding: 0.4rem 0.4rem;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   background: var(--card);
 }
 .doc-toolbar button {
   min-width: 2rem;
-  padding: 0.2rem 0.45rem;
+  padding: 0.25rem 0.4rem;
   font-size: 0.82rem;
   background: none;
   border: 1px solid transparent;
@@ -4147,7 +4186,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   padding: 0.4rem 0.6rem;
   font-size: 0.88rem;
 }
-#conversation-list li { gap: 0.35rem; align-items: center; }
+#conversation-list li { gap: 0.4rem; align-items: center; }
 /* min-width: 0 is what lets a flex child actually shrink below its content.
    Without it the title column keeps its natural width and the text is cut
    off by the sidebar's edge instead of ellipsising inside it. */
@@ -4178,7 +4217,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 .conv-divider {
   height: 1px;
   padding: 0;
-  margin: 0.45rem 0.2rem;
+  margin: 0.4rem 0.25rem;
   background: var(--border);
   border: 0;
   cursor: default;
@@ -4197,13 +4236,13 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 /* The persona's actual system prompt, on demand. */
 .persona-prompt {
   margin: 0 0 0.6rem;
-  padding: 0.6rem 0.75rem;
+  padding: 0.6rem 0.8rem;
   border-radius: calc(var(--radius) * 0.7);
   background: var(--chip-bg);
   border-left: 3px solid var(--accent);
   font-size: 0.85rem;
 }
-.persona-prompt p { margin: 0.3rem 0 0; white-space: pre-wrap; color: var(--muted); }
+.persona-prompt p { margin: 0.25rem 0 0; white-space: pre-wrap; color: var(--muted); }
 
 /* Code blocks: a header strip naming the language, with a copy button. */
 .code-block {
@@ -4218,7 +4257,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  padding: 0.25rem 0.4rem 0.25rem 0.7rem;
+  padding: 0.25rem 0.4rem 0.25rem 0.8rem;
   border-bottom: 1px solid var(--border);
 }
 .code-lang {
@@ -4230,7 +4269,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 .code-copy { padding: 0.15rem 0.5rem; font-size: 0.75rem; }
 .code-block pre {
   margin: 0;
-  padding: 0.7rem 0.85rem;
+  padding: 0.8rem 0.8rem;
   overflow-x: auto;
   background: transparent;
 }
@@ -4248,17 +4287,17 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 .edited-marker {
   display: inline-block;
   font-size: 0.72rem;
-  padding: 0.05rem 0.45rem;
+  padding: 0.05rem 0.4rem;
   border-radius: 999px;
   background: var(--warn-soft);
   color: var(--warn);
-  margin-top: 0.35rem;
+  margin-top: 0.4rem;
 }
 
 /* --- documents: outline, live stats, and where the file actually is ---------- */
 
-.doc-outline-wrap { margin-top: 0.9rem; border-top: 1px solid var(--border); padding-top: 0.6rem; }
-.doc-outline-wrap h3 { margin: 0 0 0.35rem; }
+.doc-outline-wrap { margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 0.6rem; }
+.doc-outline-wrap h3 { margin: 0 0 0.4rem; }
 .doc-outline { list-style: none; margin: 0; padding: 0; }
 .outline-link {
   background: none;
@@ -4268,7 +4307,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   font: inherit;
   font-size: 0.85rem;
   text-align: left;
-  padding: 0.16rem 0.3rem;
+  padding: 0.15rem 0.25rem;
   width: 100%;
   border-radius: 6px;
   cursor: pointer;
@@ -4279,14 +4318,14 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 .outline-link:hover { background: var(--accent-soft); color: var(--ink); }
 /* Indentation is the whole point of an outline — it shows the shape. */
 .outline-h2 .outline-link { padding-left: 1rem; }
-.outline-h3 .outline-link { padding-left: 1.7rem; font-size: 0.82rem; }
+.outline-h3 .outline-link { padding-left: 1.5rem; font-size: 0.82rem; }
 .outline-h4 .outline-link { padding-left: 2.4rem; font-size: 0.8rem; }
 
 .doc-stats { font-size: 0.78rem; white-space: nowrap; }
 
-.doc-storage { margin-top: 0.9rem; font-size: 0.85rem; }
+.doc-storage { margin-top: 1rem; font-size: 0.85rem; }
 .doc-storage summary { cursor: pointer; }
-.doc-storage p { margin: 0.45rem 0; font-size: 0.82rem; }
+.doc-storage p { margin: 0.4rem 0; font-size: 0.82rem; }
 .storage-path {
   display: block;
   padding: 0.4rem 0.5rem;
@@ -4585,7 +4624,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
   gap: 0.6rem;
-  margin: 0.4rem 0 0.9rem;
+  margin: 0.4rem 0 1rem;
 }
 .theme-card {
   display: flex;
@@ -4662,7 +4701,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
      its card and took the page with it. */
   grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr));
   gap: 0.6rem;
-  margin: 1.4rem auto 0.8rem;
+  margin: 1.5rem auto 0.8rem;
   max-width: 58rem;
   text-align: left;
   min-width: 0;
@@ -4671,7 +4710,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   display: flex;
   align-items: flex-start;
   gap: 0.6rem;
-  padding: 0.75rem 0.85rem;
+  padding: 0.8rem 0.8rem;
   /* A grid item's automatic minimum is its content, so a long step label
      widened its track past the 1fr it was given — the same cause as the
      chat-bubble overflow, in a different grid. */
@@ -4698,26 +4737,26 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 /* A comfortable measure. Full-width lines are the single biggest thing that
    makes stripped text unpleasant to read — the eye loses the line return. */
 .web-reader-text { max-width: 68ch; line-height: 1.65; }
-.web-reader-text p { margin: 0 0 0.85rem; }
+.web-reader-text p { margin: 0 0 0.8rem; }
 /* The page's own heading depth, preserved rather than flattened. */
-.web-reader-text .reader-heading { margin: 1.2rem 0 0.4rem; line-height: 1.3; }
+.web-reader-text .reader-heading { margin: 1.25rem 0 0.4rem; line-height: 1.3; }
 .web-reader-text h3.reader-heading { font-size: 1.12rem; }
 .web-reader-text h4.reader-heading { font-size: 1rem; }
 .web-reader-text h5.reader-heading,
 .web-reader-text h6.reader-heading { font-size: 0.92rem; color: var(--muted); }
 .web-reader-text blockquote {
   margin: 0.8rem 0;
-  padding: 0.2rem 0 0.2rem 0.9rem;
+  padding: 0.25rem 0 0.25rem 1rem;
   border-left: 3px solid var(--accent);
   color: var(--muted);
 }
 .web-reader-text pre {
   background: var(--chip-bg);
-  padding: 0.7rem 0.85rem;
+  padding: 0.8rem 0.8rem;
   border-radius: calc(var(--radius) * 0.6);
   overflow-x: auto;
 }
-.web-reader-text ul { margin: 0 0 0.85rem; padding-left: 1.3rem; }
+.web-reader-text ul { margin: 0 0 0.8rem; padding-left: 1.25rem; }
 .web-reader-text li { margin-bottom: 0.25rem; }
 
 /* Keyboard focus on the map. The graph takes one tab stop and the arrows move
@@ -4749,7 +4788,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
    ============================================================================= */
 @media (max-width: 720px) {
   header#top-bar {
-    padding: 0.45rem 0.8rem;
+    padding: 0.4rem 0.8rem;
     gap: 0.6rem;
     /* On a phone the tab bar deliberately takes a row of its own (order: 3
        below), which needs the wrapping the desktop rule turns off. */
@@ -4766,14 +4805,14 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
     -webkit-overflow-scrolling: touch;
   }
   #tab-bar::-webkit-scrollbar { display: none; }
-  #tab-bar button { flex: 0 0 auto; padding: 0.35rem 0.75rem; }
-  .header-controls { margin-left: auto; gap: 0.35rem; }
+  #tab-bar button { flex: 0 0 auto; padding: 0.4rem 0.8rem; }
+  .header-controls { margin-left: auto; gap: 0.4rem; }
   /* Give content the screen back: 2rem of side padding is a tenth of a phone. */
-  .layout, .doc-layout { padding-left: 0.75rem; padding-right: 0.75rem; }
-  #dash-grid { padding-left: 0.75rem; padding-right: 0.75rem; }
+  .layout, .doc-layout { padding-left: 0.8rem; padding-right: 0.8rem; }
+  #dash-grid { padding-left: 0.8rem; padding-right: 0.8rem; }
   #dash-grid { grid-template-columns: minmax(0, 1fr); }
-  .dash-hero { margin-left: 0.75rem; margin-right: 0.75rem; padding: 1rem; }
-  .card { padding: 0.85rem 0.9rem; }
+  .dash-hero { margin-left: 0.8rem; margin-right: 0.8rem; padding: 1rem; }
+  .card { padding: 0.8rem 1rem; }
 
   /* Rows of controls wrap instead of pushing the page sideways. */
   .doc-actions, .chat-toolbar, .graph-toolbar { flex-wrap: wrap; }
@@ -4834,7 +4873,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
    Four full-height cards on one page meant scrolling past three forms you
    weren't using to reach your notes. One section at a time, remembered. */
 .notes-subtabs {
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.8rem;
   width: 100%;
   overflow-x: auto;
   flex-wrap: nowrap;
@@ -4848,7 +4887,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   box-shadow: none;
   color: var(--muted);
   font-weight: 500;
-  padding: 0.4rem 0.9rem;
+  padding: 0.4rem 1rem;
   border-radius: 9px;
 }
 .notes-subtabs button.active {
@@ -4884,7 +4923,7 @@ textarea.autogrow {
   margin-left: 0.6rem;
   vertical-align: middle;
 }
-.name-nudge button { font-size: 0.78rem; padding: 0.2rem 0.55rem; }
+.name-nudge button { font-size: 0.78rem; padding: 0.25rem 0.6rem; }
 
 /* On a phone the header wraps to two or three rows and the sidebars stack
    above the content, where sticking them would pin a full-height panel over
@@ -4922,8 +4961,8 @@ textarea.autogrow {
   height: 2rem;
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  padding-inline: 0.7rem;
+  gap: 0.25rem;
+  padding-inline: 0.8rem;
 }
 #top-bar #brand-logo { flex: 0 0 auto; }
 
@@ -4931,7 +4970,7 @@ textarea.autogrow {
 /* --- assistant message layout ------------------------------------------------
    Asked for: bring the generated content further left, and stop long links
    escaping the bubble on the right. */
-.msg.assistant { padding-left: 0.75rem; }
+.msg.assistant { padding-left: 0.8rem; }
 .msg.assistant .agent-steps { margin-left: 0; }
 /* A URL has no spaces, so without this it sets the bubble's minimum width and
    pushes itself past the right edge (user-reported). */
@@ -4960,7 +4999,7 @@ textarea.autogrow {
   display: block;
   width: 100%;
   height: 0.5rem;
-  margin: 0.4rem 0 0.2rem;
+  margin: 0.4rem 0 0.25rem;
   accent-color: var(--accent);
 }
 .install-line {
@@ -4975,7 +5014,7 @@ textarea.autogrow {
 .task-log-lines {
   max-height: 9rem;
   overflow: auto;
-  margin: 0.3rem 0 0;
+  margin: 0.25rem 0 0;
   padding: 0.4rem 0.5rem;
   background: var(--chip-bg);
   border-radius: var(--radius);
@@ -5017,7 +5056,7 @@ textarea.autogrow {
   font-weight: 600;
   color: var(--muted);
   text-align: center;
-  padding: 0.25rem 0.2rem;
+  padding: 0.25rem 0.25rem;
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
@@ -5028,7 +5067,7 @@ textarea.autogrow {
   background: var(--card);
   font-size: 0.8rem;
   font-weight: 600;
-  padding: 0.35rem 0.5rem 0.35rem 0;
+  padding: 0.4rem 0.5rem 0.4rem 0;
   border-right: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
@@ -5039,7 +5078,7 @@ textarea.autogrow {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 0.2rem;
+  padding: 0.25rem;
   min-width: 0;
   border-bottom: 1px solid var(--border);
 }
@@ -5050,7 +5089,7 @@ textarea.autogrow {
   font: inherit;
   font-size: 0.7rem;
   line-height: 1.25;
-  padding: 0.2rem 0.3rem;
+  padding: 0.25rem 0.25rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--chip-bg);
@@ -5102,7 +5141,7 @@ textarea.autogrow {
 
 /* The notes a document draws on, beside its outline. The row is the note plus
    a detach button, so the two can't run into each other on a long preview. */
-#doc-notes li { display: flex; align-items: center; gap: 0.3rem; }
+#doc-notes li { display: flex; align-items: center; gap: 0.25rem; }
 #doc-notes .outline-link { flex: 1 1 auto; min-width: 0; }
 
 /* The chat box grows with the question (capped by AUTOGROW_MAX_PX in JS).
@@ -5135,7 +5174,7 @@ textarea.autogrow {
   font-size: 0.8rem;
   font-weight: 600;
   padding: 0.1rem 0;
-  margin-top: -0.2rem;
+  margin-top: -0.25rem;
   cursor: pointer;
 }
 .entry-more:hover { text-decoration: underline; }
@@ -5228,7 +5267,7 @@ textarea.autogrow {
    them, and nothing at all in a screenshot pasted into a bug report. */
 .log-live {
   font-size: 0.75rem;
-  padding: 0.15rem 0.45rem;
+  padding: 0.15rem 0.4rem;
   border-radius: 999px;
   white-space: nowrap;
   background: color-mix(in srgb, currentColor 10%, transparent);
@@ -5251,8 +5290,8 @@ textarea.autogrow {
 .log-line { display: inline; }
 .log-source-tag {
   display: inline-block;
-  margin-right: 0.35rem;
-  padding: 0 0.3rem;
+  margin-right: 0.4rem;
+  padding: 0 0.25rem;
   border-radius: 3px;
   font-size: 0.65rem;
   text-transform: uppercase;
@@ -5310,7 +5349,7 @@ textarea.autogrow {
 .log-copy {
   opacity: 0;
   flex: 0 0 auto;
-  padding: 0 0.3rem;
+  padding: 0 0.25rem;
   line-height: 1.4;
   transition: opacity 120ms ease;
 }
@@ -5325,7 +5364,7 @@ textarea.autogrow {
 }
 
 .log-trace button {
-  margin-top: 0.3rem;
+  margin-top: 0.25rem;
 }
 
 .log-error-badge { cursor: pointer; }
@@ -5352,7 +5391,7 @@ textarea.autogrow {
 .model-spec {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 0.15rem 0.75rem;
+  gap: 0.15rem 0.8rem;
   margin: 0.5rem 0 0;
   font-size: 0.78rem;
   font-variant-numeric: tabular-nums;
@@ -5368,7 +5407,7 @@ textarea.autogrow {
   border-color: var(--accent);
   background: var(--accent-soft);
 }
-.agent-ask-options { flex-wrap: wrap; gap: 0.35rem; }
+.agent-ask-options { flex-wrap: wrap; gap: 0.4rem; }
 .agent-ask .muted { margin: 0.4rem 0 0; font-size: 0.75rem; }
 
 /* "Peek": fade the settings panel so a colour change can be seen on the page
@@ -5394,14 +5433,14 @@ textarea.autogrow {
   display: inline-flex;
   align-items: center;
   gap: 0.15rem;
-  margin: 0 0.35rem 0.35rem 0;
+  margin: 0 0.4rem 0.4rem 0;
 }
 .theme-chip button:first-child { max-width: 14rem; overflow: hidden; text-overflow: ellipsis; }
 
 /* The Chat / Agent pair in the chat toolbar. Same segmented control the
    settings screens use, sized down to sit beside the persona dropdown. */
 .seg-compact button {
-  padding: 0.2rem 0.55rem;
+  padding: 0.25rem 0.6rem;
   font-size: 0.8rem;
 }
 /* Skills as a dropdown: one line instead of a wrapping wall of chips, with
@@ -5462,11 +5501,11 @@ textarea.autogrow {
 .ask-hint {
   border: 1px dashed var(--border);
   border-radius: 10px;
-  padding: 0.9rem 1rem;
+  padding: 1rem 1rem;
   background: var(--accent-soft);
 }
 .ask-hint-text {
-  margin: 0 0 0.7rem;
+  margin: 0 0 0.8rem;
   color: var(--muted);
   line-height: 1.5;
 }
@@ -5475,3 +5514,32 @@ textarea.autogrow {
   gap: 0.4rem;
   margin: 0;
 }
+
+/* --- radio groups as choices, not as a list of dots (§35L) -----------------
+   Reported: "a lot of the radio buttons are ugly". They were the browser's
+   defaults on a bare flex row, so a group of them read as loose furniture
+   rather than as one control with one answer.
+
+   Each option is now a hit area with a hover and a selected state, which is
+   what makes a group scannable — you can see which one is chosen without
+   hunting for a filled dot. `:has()` does the selected state in CSS, so
+   nothing in app.js has to track it. */
+.check-row {
+  align-items: flex-start;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.check-row input { margin-top: 0.15rem; }
+.check-row:hover { background: var(--accent-soft); }
+.check-row:has(input:checked) {
+  background: var(--accent-soft);
+  border-color: var(--glass-border);
+}
+/* The whole option is clickable, so its text must not be selectable-dragged
+   into a selection every time someone clicks it. */
+.check-row span { user-select: none; }
+/* Consecutive options are one group: collapse the gap between them so they
+   read as a set rather than as separate settings that happen to be adjacent. */
+.check-row + .check-row { margin-top: calc(var(--space-1) * -1); }

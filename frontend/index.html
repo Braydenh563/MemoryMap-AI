@@ -1126,13 +1126,16 @@ Link to another note with [[its first few words]]."></textarea>
                  was the one you could never reach (user-reported). -->
             <div id="search-engine-config">
               <h3>Search engine (how your notes are understood)</h3>
-              <label>
+              <!-- Same treatment as the tool-focus group in Settings → Tools:
+                   one control with one answer, rather than two loose dots
+                   (§35L). `.check-row` is where that lives. -->
+              <label class="check-row">
                 <input type="radio" name="emb-backend" value="sentence-transformers">
-                Built-in (recommended) — <span id="builtin-model-name" class="muted">…</span>
+                <span>Built-in (recommended) — <span id="builtin-model-name" class="muted">…</span></span>
               </label>
-              <label>
+              <label class="check-row">
                 <input type="radio" name="emb-backend" value="ollama">
-                Ollama embedding model:
+                <span>Ollama embedding model:</span>
               </label>
               <div class="row">
                 <select id="embedding-model-select"></select>

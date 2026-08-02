@@ -7,8 +7,10 @@
 """
 
 import argparse
+import os
 import threading
 import time
+from pathlib import Path
 
 import uvicorn
 
@@ -45,7 +47,34 @@ def _run_desktop() -> None:
         height=800,
         min_size=(420, 500),
     )
-    webview.start()  # blocks until the window closes; daemon thread dies with us
+    # `private_mode` defaults to True in pywebview, which throws away
+    # localStorage and cookies when the window closes. The browser build keeps
+    # a great deal in localStorage — the theme and every appearance key, the
+    # "onboardingDone" flag, the auth token, the active tab, sidebar widths —
+    # so the desktop app was starting from scratch every single time. That is
+    # one cause behind three separate reports (§35E): the theme resetting to
+    # default, the onboarding tour showing on every launch, and having to sign
+    # in again each time.
+    #
+    # The storage lives beside the notes rather than in pywebview's own
+    # default, so "where your data is" stays one answer, and deleting the data
+    # directory really does remove everything.
+    storage = Path(os.getenv("MEMORYMAP_DATA_DIR", "data")).resolve() / "webview"
+    storage.mkdir(parents=True, exist_ok=True)
+    try:
+        webview.start(  # blocks until the window closes; daemon dies with us
+            private_mode=False,
+            storage_path=str(storage),
+        )
+    except TypeError:
+        # An older pywebview without one of these arguments. Starting with a
+        # forgetful window is much better than not starting at all — the
+        # desktop app is the only way in for someone who installed it that way.
+        print(
+            "This pywebview is too old to keep settings between launches "
+            "(pip install -U pywebview). Starting anyway."
+        )
+        webview.start()
 
 
 def _reset_password() -> int:

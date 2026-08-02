@@ -6980,6 +6980,10 @@ async function renderDashboard() {
 
 let artInstance = null; // the one live p5 instance, if any
 let artNonce = 0; // bumped by "Regenerate" for a fresh arrangement
+// Bumped on every startArt call. A run that finds it has changed while it was
+// waiting knows it was superseded and must not mount its canvas — see the
+// comment in startArt for the stacking bug this fixes (§35G).
+let artRun = 0;
 // Where the constellation is drawn, kept so a theme change can rebuild it.
 //
 // The sketch reads light-or-dark ONCE, when it is built, and paints its wash
@@ -7106,6 +7110,15 @@ async function renderArtWidget(body) {
 }
 
 async function startArt(holder) {
+  // Which run this is. `startArt` awaits /insights/stats before it mounts
+  // anything, and `stopArt()` above that await can only remove an instance
+  // that already exists — so two overlapping calls each found `artInstance`
+  // null, each waited, and each mounted a canvas into the same holder. That
+  // is the four-or-five stacked constellations that were screenshotted
+  // (§35G), and the same bug is why Regenerate read as "broken and severely
+  // glitchy": every click added a canvas and `artInstance` only ever tracked
+  // the last one, so nothing could tear the others down.
+  const run = ++artRun;
   stopArt();
   artHolder = holder;
   if (typeof p5 === "undefined") {
@@ -7184,6 +7197,15 @@ async function startArt(holder) {
     p.draw = () => scene(p.frameCount * 0.005);
   };
 
+  // Superseded while we waited, or the widget was re-rendered out from under
+  // us. Either way this run must not mount: it would be the second canvas.
+  if (run !== artRun || !holder.isConnected) return;
+  // Belt and braces. `stopArt` handles the instance we know about; clearing
+  // the holder removes any canvas a previous version of this bug left behind,
+  // so an already-stacked dashboard heals on the next render rather than
+  // needing a reload.
+  stopArt();
+  holder.replaceChildren();
   artInstance = new p5(sketch, holder);
 }
 
@@ -13125,9 +13147,19 @@ function applyHarmony() {
 
 const MAX_CUSTOM_THEMES = 20;
 
+//: Everything a saved look captures: every manual override, plus the
+//: background-art switch. `bgArt` is deliberately NOT in OVERRIDABLE_KEYS —
+//: that list also drives "clear my manual changes", and turning someone's
+//: background off is not what clearing a colour override should do. But a
+//: look that remembers *which* art and how intense, and not whether it is on,
+//: can never turn it on when applied. Which is exactly what was reported
+//: (§35J): the generative background had to be switched on by hand, separately
+//: from the saved theme it belongs to.
+const LOOK_KEYS = [...OVERRIDABLE_KEYS, "bgArt"];
+
 function currentLookValues() {
   const values = {};
-  for (const key of OVERRIDABLE_KEYS) {
+  for (const key of LOOK_KEYS) {
     const value = localStorage.getItem(key);
     if (value !== null) values[key] = value;
   }
@@ -13183,6 +13215,10 @@ function applySavedTheme(theme) {
   // the path that would have applied it on a fresh load.
   applyThemeChoice(theme.values?.theme || "system", false);
   applyAppearance();
+  // The art is a running p5 sketch, not a CSS variable, so applyAppearance
+  // marking the root "on" is not enough to start or stop one.
+  if (bgArtOn()) startBgArt();
+  else stopBgArt();
   renderAppearance();
   toast(`Applied “${theme.name}”.`);
 }

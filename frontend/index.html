@@ -345,6 +345,14 @@ Link to another note with [[its first few words]]."></textarea>
           <div class="row">
             <input id="question" type="text"
               placeholder="e.g. What jokes have I saved?">
+            <!-- The same three presets the Chat tab offers, and the same
+                 stored preference behind them — not a second setting. This
+                 box always honoured the saved mode; it just had no way to
+                 change it, so "make this one quick" meant going to another
+                 tab to do it. Picking here moves the Chat tab's picker too. -->
+            <select id="ask-mode-select" class="small-select"
+              aria-label="Answer length"
+              title="How much effort to spend on the answer. Quick is short and literal; detailed is longer and slower."></select>
             <button id="ask-btn">Ask</button>
             <button id="stop-btn" class="ghost hidden" title="Stop the answer">Stop</button>
           </div>

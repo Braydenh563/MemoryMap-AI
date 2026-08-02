@@ -266,10 +266,10 @@ def test_a_bad_skill_name_is_recoverable_rather_than_fatal(ai_client, fake_ollam
     """A named skill that doesn't exist is a mistake the model can fix inside
     the same turn — so the loop hands back the reason and carries on, rather
     than ending on a tool that was supposed to end it."""
-    fake_ollama.tool_script = [
-        [{"name": "run_skill", "arguments": {"name": "No such skill"}}],
-        [],
-    ]
+    # One scripted round, then the fake runs dry and gives its text answer —
+    # which is the point: the turn carries on rather than ending on a tool
+    # that was supposed to end it.
+    fake_ollama.tool_script = [[{"name": "run_skill", "arguments": {"name": "No such skill"}}]]
     events = _events(ai_client, "run a skill for me please", use_tools=True)
     assert not any(e["type"] == "run_skill" for e in events)
     failed = [e for e in events if e["type"] == "tool" and not e.get("ok")]

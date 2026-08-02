@@ -524,12 +524,17 @@ def test_a_read_only_skill_says_it_changes_nothing(app_state, session):
     assert next(s for s in listed["skills"] if s["name"] == "Recap")["changes_notes"] is False
 
 
-def test_the_model_is_told_it_cannot_start_a_skill_itself(app_state, session):
-    """Currently true, and worth saying: a model that believes it can run one
-    will narrate having done so. See §33 for the plan to change it."""
+def test_the_model_is_told_how_to_start_a_skill(app_state, session):
+    """This used to assert the note said the model *cannot* start a skill,
+    which was true and worth saying then — a model that believes it can run
+    one will narrate having done so. §33's plan is built now, so the note has
+    to say the opposite: leaving the old sentence in beside a working
+    `run_skill` would be worse than either state on its own."""
     from memorymap.ai import tools
 
-    assert "cannot start a skill" in tools.TOOLS["list_skills"].handler(session, {})["note_to_model"]
+    note = tools.TOOLS["list_skills"].handler(session, {})["note_to_model"]
+    assert "cannot start" not in note.lower()
+    assert "run_skill" in note
 
 
 def test_the_agent_can_save_a_when_to_use(app_state, session):

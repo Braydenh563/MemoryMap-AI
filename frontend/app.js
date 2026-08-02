@@ -2289,6 +2289,11 @@ async function askQuestion(preset) {
     await streamChat({
       question,
       history: conversation.slice(-MAX_CLIENT_HISTORY),
+      // Sent per turn now that this box has its own picker. It always obeyed
+      // the *saved* mode via the server's fallback; carrying it explicitly is
+      // what makes changing the box's dropdown affect the very next answer
+      // rather than only the one after the preference round-trips.
+      mode: $("ask-mode-select")?.value || null,
       useTools: false, // the quick-ask box is pure Q&A; actions live in the Chat tab
       signal: askController.signal,
       onMeta: (meta) => {
@@ -2995,24 +3000,54 @@ async function renderModelSpec(modelName) {
   box.classList.toggle("hidden", rows.length === 0);
 }
 
+// Both pickers for the response preset: the Chat toolbar's and the Notes
+// quick-ask box's. Two controls, one stored preference — the quick-ask box
+// always obeyed the saved mode and simply had no way to set it, so this is a
+// second way in rather than a second setting. Listed rather than found by
+// class so a stray `.small-select` can never join by accident.
+const RESPONSE_MODE_SELECTS = ["response-mode-select", "ask-mode-select"];
+
 // The response presets, fetched once. Served by /chat/modes rather than
 // listed here so adding a fourth is a change to `ai/presets.py` alone (§11).
 async function loadResponseModes() {
-  const select = $("response-mode-select");
-  if (!select) return;
+  const selects = RESPONSE_MODE_SELECTS.map((id) => $(id)).filter(Boolean);
+  if (!selects.length) return;
   const body = await apiJson("/chat/modes", { silent: true }).catch(() => null);
   if (!body || !body.modes) return;
-  select.replaceChildren();
-  for (const mode of body.modes) {
-    const option = document.createElement("option");
-    option.value = mode.id;
-    option.textContent = mode.label;
-    option.title = mode.description;
-    if (mode.id === body.active) option.selected = true;
-    select.appendChild(option);
-  }
   const active = body.modes.find((m) => m.id === body.active);
-  if (active) select.title = active.description;
+  for (const select of selects) {
+    select.replaceChildren();
+    for (const mode of body.modes) {
+      const option = document.createElement("option");
+      option.value = mode.id;
+      option.textContent = mode.label;
+      option.title = mode.description;
+      if (mode.id === body.active) option.selected = true;
+      select.appendChild(option);
+    }
+    if (active) select.title = active.description;
+  }
+}
+
+// Picking in one picker moves the other. Without this the two would drift
+// apart the moment either was touched, and the one you weren't looking at
+// would be lying about what the next answer will do.
+async function setResponseMode(chosen) {
+  for (const id of RESPONSE_MODE_SELECTS) {
+    const select = $(id);
+    if (!select) continue;
+    select.value = chosen;
+    const option = select.selectedOptions[0];
+    select.title = (option && option.title) || "";
+  }
+  // Changing the picker changes the default too — otherwise someone who works
+  // in Quick would re-pick it on every reload. The *request* still carries the
+  // mode per turn, so this is "remember what I chose" rather than a second
+  // setting that can disagree with the dropdown.
+  await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ response_mode: chosen }),
+  }).catch(() => {});
 }
 
 function personaOptions() {
@@ -14445,19 +14480,9 @@ $("persona-select").addEventListener("change", async () => {
     body: JSON.stringify({ active_persona: $("persona-select").value }),
   }).catch(() => {});
 });
-$("response-mode-select").addEventListener("change", async (e) => {
-  // Changing the picker changes the default too — otherwise someone who
-  // works in Quick would re-pick it on every reload. The *request* still
-  // carries the mode per turn, so this is "remember what I chose" rather
-  // than a second setting that can disagree with the dropdown.
-  const chosen = e.target.value;
-  const option = e.target.selectedOptions[0];
-  e.target.title = (option && option.title) || "";
-  await apiJson("/preferences", {
-    method: "PUT",
-    body: JSON.stringify({ response_mode: chosen }),
-  }).catch(() => {});
-});
+for (const id of RESPONSE_MODE_SELECTS) {
+  $(id)?.addEventListener("change", (e) => setResponseMode(e.target.value));
+}
 // The AI status dot. Hover is CSS; these are the paths hover doesn't cover —
 // touch, where there is no hover at all, and keyboards.
 $("ai-status").addEventListener("click", () => toggleAiStatusPopup());

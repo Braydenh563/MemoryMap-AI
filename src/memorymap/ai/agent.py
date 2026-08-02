@@ -78,7 +78,9 @@ TOOLS_GUIDE = (
     "say you can't see private notes. "
     "You can also reach the user's long-form documents (list_documents / "
     "get_document — never searched automatically, so go and look when a "
-    "question is about something they wrote up), their earlier conversations "
+    "question is about something they wrote up — and create_document to write "
+    "a new one, which is where an essay, report or write-up belongs rather "
+    "than in a note), their earlier conversations "
     "with you (search_chat_history, for when they refer to something 'we "
     "talked about' that isn't in this thread — say when you're relying on "
     "it), and their saved skills (list_skills, save_skill). A skill is a job "
@@ -311,7 +313,14 @@ _CLAIMANT = r"(?:i|we)(?:'ve)?\s+(?:have\s+|just\s+|now\s+|also\s+|then\s+|succe
 #: The label is written to be shown to the user, because a warning that says
 #: *which* claim was unsupported is actionable where "something" is not.
 _CLAIMED_ACTIONS: tuple[tuple[str, str, frozenset[str]], ...] = (
-    ("saved a note", r"(?:created|added|saved|made|wrote)", frozenset({"create_note"})),
+    (
+        # `create_document` counts here too: "I wrote that up for you" is a
+        # true claim when the document tool ran, and warning about it would be
+        # the net crying wolf on work that really happened.
+        "saved a note",
+        r"(?:created|added|saved|made|wrote)",
+        frozenset({"create_note", "create_document"}),
+    ),
     ("edited a note", r"(?:edited|updated|rewrote|amended|revised)", frozenset({"edit_note"})),
     ("deleted a note", r"(?:deleted|removed|binned|trashed)", frozenset({"delete_note"})),
     (

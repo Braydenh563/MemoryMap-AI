@@ -801,6 +801,82 @@ def _get_document(session: Session, args: dict) -> dict:
     }
 
 
+#: A document the agent writes. Generous next to a note's cap because a
+#: document is long-form by definition — but still a cap, since the content
+#: comes back through the model's own output and an unbounded one would mean a
+#: single tool call could fill the window on the next round.
+MAX_NEW_DOCUMENT_CHARS = 20_000
+
+
+def _create_document(session: Session, args: dict) -> dict:
+    """Write a long-form document.
+
+    The asymmetry this closes: there was `list_documents` and `get_document`
+    and no way to make one, so a model asked to "write this up properly" could
+    read every document the user had and then had nowhere to put the result.
+    Reported directly — "the agent can't create a document either" (§35J) —
+    and it was a gap nobody noticed rather than a deliberate limit, because
+    §5's document work was built UI-first.
+
+    Deliberately a separate tool from `create_note` rather than a flag on it.
+    A note is a captured thought and a document is something you sat down to
+    write; the database keeps them apart precisely so half-written documents
+    do not turn up in search results and in the graph, and one tool covering
+    both would hand the model the decision that separation exists to make.
+    """
+    from memorymap.core.database import Document
+
+    title = str(args.get("title") or "").strip()[:200]
+    content = str(args.get("content") or "")
+    if not title:
+        raise ToolError("A document needs a title.")
+    if not content.strip():
+        # A titled empty document is the shape of a model that called the tool
+        # to announce its intention. Refusing is what makes it write first.
+        raise ToolError(
+            "A document needs its text in `content` — write the document, then "
+            "save it in one call."
+        )
+    if len(content) > MAX_NEW_DOCUMENT_CHARS:
+        raise ToolError(
+            f"That document is too long to save in one call "
+            f"({len(content):,} characters, limit {MAX_NEW_DOCUMENT_CHARS:,})."
+        )
+    document = Document(title=title, content=content)
+    session.add(document)
+    session.flush()
+    manager.log_action(session, "created", "document", document.id, title[:80])
+    session.commit()
+    return {
+        "id": document.id,
+        "title": document.title,
+        "words": len(content.split()),
+        "label": f"📄 Created the document “{_clip(title, 40)}”",
+        # Same contract every other write follows, so the run summary can offer
+        # an Undo beside it rather than listing a change nobody can take back.
+        "undo": {"tool": "delete_document", "arguments": {"document_id": document.id}},
+    }
+
+
+def _delete_document(session: Session, args: dict) -> dict:
+    """Remove a document. Destructive, so the user confirms it first.
+
+    Exists mainly so `create_document` has an inverse — §21 lists "links and
+    reminders have no inverse tool" as a real cost, and shipping a new write
+    without one would be adding to that list rather than working it down.
+    """
+    from memorymap.core.database import Document
+
+    document = session.get(Document, int(args.get("document_id") or 0))
+    if document is None:
+        raise ToolError(f"No document with id {args.get('document_id')}")
+    title = document.title
+    session.delete(document)
+    manager.log_action(session, "deleted", "document", None, title[:80])
+    session.commit()
+    return {"title": title, "label": f"🗑 Deleted the document “{_clip(title, 40)}”"}
+
+
 def _search_chat_history(session: Session, args: dict) -> dict:
     """Past conversations. "What did we decide last week?" was unanswerable:
     each turn only ever saw its own thread, so the assistant had no memory of
@@ -1823,6 +1899,37 @@ TOOLS: dict[str, ToolSpec] = {
             _list_documents,
         ),
         ToolSpec(
+            "create_document",
+            "Write a new long-form document (an essay, a report, a write-up) "
+            "and save it. For short captured thoughts use create_note "
+            "instead — a document is something sat down and written.",
+            {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "A title, up to 200 characters"},
+                    "content": {
+                        "type": "string",
+                        "description": "The whole document, in Markdown",
+                    },
+                },
+                "required": ["title", "content"],
+            },
+            _create_document,
+        ),
+        ToolSpec(
+            "delete_document",
+            "Delete a document by id. The app asks the user to confirm first.",
+            {
+                "type": "object",
+                "properties": {
+                    "document_id": {"type": "integer", "description": "The document's id"}
+                },
+                "required": ["document_id"],
+            },
+            _delete_document,
+            destructive=True,
+        ),
+        ToolSpec(
             "get_document",
             "Read one document in full, by id. Use after list_documents, "
             "whose results are only previews.",
@@ -2235,6 +2342,8 @@ WRITE_TOOLS = {
     "delete_tag",
     "save_skill",
     "delete_skill",
+    "create_document",
+    "delete_document",
 }
 
 
@@ -2326,8 +2435,13 @@ TOOL_GROUPS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
         ("delete", "remove", "bin", "trash", "restore", "undelete", "recycle"),
     ),
     (
-        ("list_documents", "get_document"),
-        ("document", "doc ", "docs", "write-up", "essay", "report", "chapter"),
+        ("list_documents", "get_document", "create_document"),
+        (
+            "document", "doc ", "docs", "write-up", "essay", "report", "chapter",
+            # The words that mean "make me one", which cued nothing before
+            # `create_document` existed to be cued.
+            "write up", "draft", "compose", "long-form",
+        ),
     ),
     (
         ("search_chat_history",),

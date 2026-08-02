@@ -201,6 +201,29 @@ function startApp() {
     }
   };
 
+  // Before anything reads a stored setting: bring back whatever this browser
+  // has lost. A shell that does not keep localStorage — the desktop window is
+  // the reported one (§35E) — starts every launch with the default theme and
+  // an onboarding tour it has already been through, because both live there
+  // and nowhere else. The server's copy fills the gaps, then the look is
+  // re-applied so the app settles into the remembered theme rather than
+  // staying on the default it painted a moment ago.
+  const looksReady = step("restore your settings", async () => {
+    if (!prefsCache) {
+      prefsCache = await apiJson("/preferences", { silent: true }).catch(() => null);
+    }
+    if (prefsCache && seedUiStateFromServer(prefsCache.ui_state)) {
+      // The same three calls the theme picker makes, in the same order: the
+      // root attributes, then the light/dark choice and the palette, neither
+      // of which re-records itself as a manual override.
+      applyAppearance();
+      applyThemeChoice(appearancePref("theme"), false);
+      applyPalette(appearancePref("palette"), false);
+      renderBrandLogo();
+      if (bgArtOn()) startBgArt();
+    }
+  });
+
   const entriesReady = step("load entries", loadEntries);
   step("load recent questions", loadRecentQuestions);
   step("load suggestions", loadSuggestions);
@@ -234,7 +257,13 @@ function startApp() {
   entriesReady.then(() => step("load this tab", () => refreshActiveTab()));
 
   // First-run welcome tour (guarded by localStorage; re-runnable from Help).
-  maybeShowOnboarding();
+  //
+  // **After the settings are restored, not alongside them.** This is the
+  // second half of the reported "onboarding shows every time": the flag lives
+  // in localStorage, so a shell that lost it needs the server's copy back
+  // *before* this asks — otherwise the tour opens, the flag arrives a moment
+  // later, and the person is welcomed to an app they have used for a month.
+  looksReady.then(maybeShowOnboarding);
 }
 
 // The browser is the only thing that knows where the user actually is. The
@@ -14547,6 +14576,107 @@ function activeThemePreset() {
   return THEME_PRESETS[name] ? name : "";
 }
 
+// --- keeping the look across restarts (§35E) --------------------------------
+//
+// Reported as two bugs: *"the theme resets to default on every start"* and
+// *"onboarding shows every time"*. They are one bug. Both were stored in
+// `localStorage` and nowhere else, and the desktop shell does not reliably
+// persist it — pywebview is a different browser with its own profile, and if
+// that profile is not stable across launches then everything kept there is
+// something the app forgets. Two symptoms, one storage, exactly as §35E
+// predicted.
+//
+// The fix is a mirror, not a move. localStorage stays the thing every
+// `appearancePref` read goes through: it is synchronous, it works with the
+// server unreachable, and moving the reads would mean rewriting the whole
+// appearance system to be async. The server keeps a copy, seeded back into
+// localStorage on load when the local one is empty — so a shell that loses it
+// gets it back, and a browser that keeps it never notices.
+
+//: The keys worth surviving a restart. Explicit rather than "everything in
+//: localStorage": this is written to the notebook's own preferences file, and
+//: scroll positions and one-visit UI state have no business in there.
+const MIRRORED_UI_KEYS = [
+  "theme", "themePreset", "palette", "accent", "font", "fontsize", "density",
+  "glass", "glass-blur", "motion", "radius", "bgart", "bgart-motion",
+  "onboardingDone", "activeTab", "graph-layout", "graph-colour",
+  "graph-options-open", "chat-composer-height",
+];
+
+let uiStateSaveTimer = null;
+
+// Write the mirrored keys to the server, coalesced. Debounced because the
+// appearance panel fires a change per slider tick, and a preferences write per
+// tick would be a write per pixel of a corner-radius drag.
+function saveUiState() {
+  clearTimeout(uiStateSaveTimer);
+  uiStateSaveTimer = setTimeout(() => {
+    const state = {};
+    for (const key of MIRRORED_UI_KEYS) {
+      const value = localStorage.getItem(key);
+      if (value != null) state[key] = String(value).slice(0, 400);
+    }
+    // Silent and best-effort. This is a backup of something that already
+    // worked locally; a toast about it would be noise about a copy.
+    apiJson("/preferences", {
+      method: "PUT",
+      body: JSON.stringify({ ui_state: state }),
+      silent: true,
+    }).catch(() => {});
+  }, 800);
+}
+
+// Mirror every write to a watched key, from one place.
+//
+// There are twenty-odd sites that write these — a theme toggle, eight
+// appearance controls, the graph's pickers, onboarding. Adding a `saveUiState()`
+// call to each would work today and rot the moment somebody adds the
+// twenty-third and forgets: the setting would keep working in a browser and
+// quietly stop surviving a desktop restart, which is a bug nobody would
+// connect to the commit that caused it.
+//
+// So the *store* is watched instead of its callers. Adding a key to
+// MIRRORED_UI_KEYS is then the whole of making a new setting persistent, which
+// is the property worth having. Only the listed keys trigger a save; every
+// other `localStorage` write in the app is untouched and unwatched.
+function watchMirroredUiKeys() {
+  const mirrored = new Set(MIRRORED_UI_KEYS);
+  const store = window.localStorage;
+  const setItem = store.setItem.bind(store);
+  const removeItem = store.removeItem.bind(store);
+  // Own properties shadowing Storage.prototype — the storage itself is
+  // untouched, so anything else reading it (including these two) is unaffected.
+  store.setItem = (key, value) => {
+    setItem(key, value);
+    if (mirrored.has(String(key))) saveUiState();
+  };
+  store.removeItem = (key) => {
+    removeItem(key);
+    // A removal is a change too: clearing an explicit theme to fall back to
+    // the system one has to survive a restart just as setting one does.
+    if (mirrored.has(String(key))) saveUiState();
+  };
+}
+
+// Seed localStorage from the server's copy, for keys the browser has lost.
+// Called once, before the look is applied, so the app paints in the remembered
+// theme rather than flashing the default and correcting itself.
+//
+// **Local wins.** If a key exists in both, the local one is newer by
+// definition — it is what the person set in this browser — and overwriting it
+// with a copy saved from another window would make two open windows fight.
+function seedUiStateFromServer(state) {
+  if (!state || typeof state !== "object") return false;
+  let restored = 0;
+  for (const key of MIRRORED_UI_KEYS) {
+    if (localStorage.getItem(key) == null && state[key] != null) {
+      localStorage.setItem(key, String(state[key]));
+      restored += 1;
+    }
+  }
+  return restored > 0;
+}
+
 // What the selected theme says about one setting, or undefined.
 function themeValue(key) {
   const preset = THEME_PRESETS[activeThemePreset()];
@@ -15842,6 +15972,12 @@ for (const id of ["account-current", "account-new", "account-confirm"]) {
   });
 }
 $("theme-clear-overrides").addEventListener("click", clearManualOverrides);
+
+// Watch the settings worth surviving a restart *before* anything can write
+// one (§35E). Installed here rather than inside startApp because the tab
+// restore below writes `activeTab`, and a write that happens before the watch
+// is a write the server never hears about.
+watchMirroredUiKeys();
 
 // Apply saved appearance prefs immediately, then start the background.
 applyAppearance();

@@ -121,20 +121,17 @@
           <span id="ai-status-detail" class="ai-status-detail"></span>
         </span>
       </span>
-      <button id="settings-btn" class="ghost small" title="Settings">⚙ Settings</button>
+      <!-- Ordered by how often you press it and what happens if you miss
+           (§36D). Was: Settings, Lock, Quit, Theme — which put the one
+           irreversible action directly beside the light/dark toggle, the most
+           pressed control in the bar. Now the everyday toggles lead, the
+           labelled control follows, and Quit is last behind a divider. -->
+      <button id="theme-btn" class="ghost small" title="Toggle light/dark" aria-label="Toggle light or dark theme">🌓</button>
       <button id="lock-btn" class="ghost small hidden" title="Lock the app" aria-label="Lock the app">🔒</button>
-      <!-- Quit lives up here, not only in Settings → System (§36D). Closing
-           an app is a top-level action, and burying it four clicks deep in a
-           settings panel is the one place nobody looks for it — especially in
-           the desktop window, where closing the window is not the same thing
-           as stopping the server behind it.
-
-           Last in the row and ghost-styled, so it is reachable without being
-           the thing your hand finds by accident next to Settings. The confirm
-           dialog is the real guard; position is the second one. -->
+      <button id="settings-btn" class="ghost small" title="Settings">⚙ Settings</button>
+      <span class="header-divider" aria-hidden="true"></span>
       <button id="quit-btn" class="ghost small" title="Quit MemoryMap — stops the app and its server"
         aria-label="Quit MemoryMap">⏻</button>
-      <button id="theme-btn" class="ghost small" title="Toggle light/dark" aria-label="Toggle light or dark theme">🌓</button>
     </div>
   </header>
 

@@ -6003,3 +6003,18 @@ textarea.autogrow {
     margin-left: 0;
   }
 }
+
+
+/* Separates the one irreversible control in the header from the everyday ones
+   (§36D). Distance is the cheap half of not clicking Quit by accident; the
+   confirm dialog is the half that actually stops it. */
+.header-divider {
+  width: 1px;
+  align-self: stretch;
+  margin-inline: var(--space-2);
+  background: var(--border);
+}
+#quit-btn:hover {
+  border-color: var(--error);
+  color: var(--error);
+}

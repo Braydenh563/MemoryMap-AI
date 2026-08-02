@@ -51,6 +51,7 @@ the part that's expensive to reconstruct.
 - [33. Odysseus, read and triaged](#33-odysseus-read-and-triaged)
 - [34. Where I'd take this — an outside read](#34-where-id-take-this-an-outside-read)
 - [**35. Reported in one session — the big batch, triaged**](#35-reported-in-one-session-the-big-batch-triaged)
+- [**36. UI layout and surfaces — the reported list**](#36-ui-layout-and-surfaces-the-reported-list)
 - [Answers to questions already raised](#answers-to-questions-already-raised-so-they-arent-re-asked)
 
 **New in this pass:** a proper line/branch view for the Timeline (§10C), a
@@ -4317,6 +4318,149 @@ have since made it sharper:
 The nightly job §34 asks for (pull a small model, run ten real turns through
 both providers) would have caught 35D directly. It is no longer a nice-to-have
 in the "worth building" list; it is the reason this section exists.
+
+---
+
+## 36. UI layout and surfaces — the reported list
+
+§35L is the *system* (tokens, scales, the lint). This is the **layout** work
+that sits on top of it, reported directly and gathered here so it is one list
+rather than a dozen remarks scattered through a chat log.
+
+**Order matters between the two.** Every item below is a change to how a
+surface is arranged, and each one is cheaper and more likely to stay right once
+it is built from tokens rather than from whatever looked correct that day. The
+system landed first on purpose.
+
+---
+
+### 36A. Scrolling and sticky surfaces — the smallest, do first
+
+- **The page scrollbar runs behind the top bar.** Screenshotted. The header is
+  `position: sticky; top: 0`, so it floats over a window-level scrollbar that
+  starts at pixel zero — the bar and the scrollbar visually collide. The fix is
+  structural rather than cosmetic: **the window should not be the scrolling
+  element.** Make `body` fixed-height and give the page region below the header
+  its own `overflow-y: auto`, so the scrollbar begins where the content does.
+  Worth doing early because several items below assume a scroll container that
+  is not the window — sticky chat headers especially.
+- **Chat headers should stay put while a chat scrolls.** Asked for directly.
+  Once the scroll container is the message list rather than the window, this is
+  `position: sticky` on the conversation header and nothing else. Doing it
+  *before* the container change means fighting the window's scroll position,
+  which is why these two are one item.
+
+### 36B. The three surfaces that need rearranging, not restyling
+
+Each of these was called out as needing a **new layout**, not a coat of paint.
+They are listed smallest-first, and the rule for all three is the same: decide
+what the surface is *for* before moving anything, or the result is the same
+controls in a different order.
+
+1. **Settings — "the settings are a mess."** The most clearly true of the
+   three, and the easiest to reason about because the content is already
+   grouped into sections; what has gone wrong is that the sections accreted in
+   the order features were built (Models, Appearance, Tools, Personas, Skills,
+   Account, Data, Logs, About…) rather than in any order someone looking for a
+   setting would predict. Two changes worth making together: **group by what
+   you are trying to do** (Get it working / Make it yours / Your data / Under
+   the hood), and **make it searchable** — a settings pane with this many
+   controls needs a filter box more than it needs better grouping, because the
+   grouping is only ever right for some people.
+2. **The Chat page controls.** The toolbar has grown a control at a time —
+   Chat/Agent, Web, response mode, persona, peek, export, skill picker, tools
+   toggle — and they are all peers in one row despite answering completely
+   different questions (*who* is answering, *how hard* it should work, *what it
+   may touch*, *what to do with this conversation*). Grouping them by that
+   question, and demoting the per-conversation actions (export, peek) out of
+   the per-message row, is most of the work.
+3. **The Notes tab.** Called out twice — once for layout generally and once
+   specifically for **note metadata and how it is visualised** (§35K). This is
+   the most-looked-at surface in the app and the hardest to get right; it wants
+   a decision about what a note card is *for* at a glance — is it the text, or
+   is it the text plus its category, tags, dates, link count and privacy state?
+   Currently it is all of them at equal weight, which is why it reads as busy.
+
+### 36C. Reminders that you actually notice
+
+Reported: *"reminders when they go off aren't really noticeable and need to be
+more evident, maybe through a browser or system/app notification?"*
+
+Correct, and this is a genuine gap rather than a polish item — a reminder you
+do not notice has failed completely. Three layers, worth building in this
+order:
+
+1. **The Notification API**, which is one call and works in both the browser
+   and the desktop window. Needs a permission prompt asked at the right moment
+   — when a reminder is *set*, not on first load, because a permission request
+   with no context is refused by default and cannot easily be asked again.
+2. **An in-app presence that does not depend on the tab being focused** — the
+   title bar counter, and a sound the user can turn off.
+3. **A notifications centre** (asked for separately below) as the place they
+   accumulate, so a reminder that fired while the app was closed is not lost.
+
+The honest note: nothing here should fire while the app is not running, which
+is a real limit of a local-first app with no background service. Say so rather
+than implying otherwise.
+
+### 36D. The dashboard's quick access, and a status bar
+
+- **Expand the quick-access buttons** at the top of the dashboard. They are the
+  first thing on the first screen, and there are currently six that were chosen
+  early. Worth making them **reflect what you actually do** — most-used
+  actions, recently-used skills — rather than a fixed list.
+- **A bottom bar, "like in VS Code but stylised for the application."** Worth
+  building, with one caveat recorded up front: VS Code's status bar works
+  because every item is either a *state you need at a glance* (branch, errors,
+  line number) or a *command you use constantly*. A bottom bar filled with
+  things that are neither is a permanent strip of decoration. The candidates
+  here that genuinely qualify: **AI/backend status** (currently a pill in the
+  header), **reminder count**, **notebook size**, **the current background
+  task**, and a **command entry point**. That is enough for a bar; anything
+  beyond it should have to displace one of those.
+- Note that the bar and the header are competing for the same job for some of
+  these — the AI status pill in particular. Moving it down is better than
+  showing it twice.
+
+### 36E. Notifications centre, and the changelog in-app
+
+- **A notifications centre**, as above: somewhere fired reminders, finished
+  background tasks, failed skill runs and completed re-indexes accumulate.
+  MemoryMap already *produces* all of these events and shows each of them in
+  its own way (a toast, a status pill, a step timeline); the centre is the
+  place they persist after their moment has passed.
+- **Read `CHANGELOG.md` in the app.** Small, and it makes the app feel
+  maintained rather than static. The file already exists and is written for
+  people. Serve it and render it in Settings → About, next to the version
+  number that is already there.
+
+### 36F. The Library tab, and the tab bar it has to fit in
+
+**The Library (§4) is part of this work, not a separate feature to build
+afterwards.** Asked for directly. It is the only major surface still unbuilt,
+which makes it the one chance to get a tab right *from* the design system
+rather than retrofitted into it — and the test of whether §35L actually holds:
+if a new tab built from the tokens still needs its own gutter, its own
+heading sizes and its own spacing, the system has not worked.
+
+Two decisions to make before any of it is built, because both are much more
+expensive afterwards:
+
+1. **What the Library absorbs.** §4 describes it as chats, documents, images
+   and archive. Documents is already a tab; conversations already have a
+   sidebar. A "library" that duplicates two surfaces that exist is worse than
+   no library — the honest version is that it *replaces* them, and the tab bar
+   gets shorter rather than longer.
+2. **What the tab bar becomes.** It is already at the width where another tab
+   hurts, and the **bottom bar (§36D)** changes what belongs up there anyway.
+   Either the Library absorbs tabs as above, or the bar gains an overflow.
+   Deciding this while the Library is still on paper is the cheap moment.
+
+Its layout should follow the same rule as §36B: decide what the surface is
+*for* first. A library is for **finding something you made before** — which is
+a different job from the Notes tab's "work with what I have", and should look
+like it: bigger units, more metadata, sort and filter as first-class controls
+rather than an afterthought.
 
 ---
 

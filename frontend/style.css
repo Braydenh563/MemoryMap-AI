@@ -6,9 +6,43 @@
    preference or from the manual toggle (data-theme on <html>). */
 
 :root {
-  /* Height of the sticky top bar. Sticky sidebars offset by this so they park
-     below the header instead of underneath it. Kept as a variable because the
-     header shrinks on narrow windows, where the media query overrides it. */
+  /* --- the spacing scale (§35L) --------------------------------------------
+     Extracted, not invented. This file had 667 margin/padding/gap
+     declarations across more than twenty-five distinct values — seven of them
+     between 0.3rem and 0.6rem, all meaning "a small gap". That is the
+     measurable form of the reported problem: "the way spacing, alignment and
+     margins of all the ui features in each tab aren't consistent and it
+     changes each tab".
+
+     The steps below are the modes of that distribution, so adopting them
+     moved every off-scale value by at most 0.1rem — invisible on its own, and
+     collectively the difference between elements that line up and elements
+     that nearly do.
+
+     Use these for new work. A raw rem in a margin, padding or gap is now the
+     exception that should be explaining itself in a comment. */
+  /* Density is one multiplier over the whole scale, not a set of overrides.
+     It used to be nine rules in two places, each re-stating literal paddings
+     for the four components somebody remembered — .card, .layout, .dash-hero
+     and .entry-list li — so "compact" tightened those and left every dialog,
+     chip row, toolbar and settings pane at comfortable. Multiplying the scale
+     means the setting reaches everything spaced by a token, which is now
+     everything. */
+  --density: 1;
+  --space-1: calc(0.25rem * var(--density));
+  --space-2: calc(0.4rem * var(--density));
+  --space-3: calc(0.5rem * var(--density));
+  --space-4: calc(0.6rem * var(--density));
+  --space-5: calc(0.8rem * var(--density));
+  --space-6: calc(1rem * var(--density));
+  --space-7: calc(1.25rem * var(--density));
+  --space-8: calc(1.5rem * var(--density));
+  --space-9: calc(2rem * var(--density));
+  /* Height of the top bar. No longer used for sticky offsets — since §36A the
+     page is its own scroll container and the header sits outside it, so
+     nothing inside a page has to clear it. Kept because the media query below
+     still tracks the bar's height on narrow windows, and because anything
+     positioned against the *window* (a future bottom bar, §36D) needs it. */
   --header-h: 4.4rem;
   --page: linear-gradient(135deg, #e9edfb 0%, #f6f2ec 45%, #e6f1f2 100%);
   --blob-a: rgba(79, 109, 245, 0.20);
@@ -34,7 +68,57 @@
   --border: rgba(31, 36, 48, 0.10);
   --chip-bg: rgba(31, 36, 48, 0.07);
   /* User-tunable in Settings → Appearance (set inline on <html> by JS). */
+  /* --- the type scale (§35L) ------------------------------------------------
+     Ten steps, extracted the same way the spacing scale was. This file had
+     thirty-seven distinct font sizes, nine of them between 0.74rem and
+     0.85rem — text that is *almost* the same size in adjacent components is
+     precisely the texture the report called "a bunch of ai generated slop
+     features joined together", because nothing quite lines up and no size
+     means anything.
+
+     Snapping moved nothing by more than 0.05rem, except 1.6→1.7rem. Sizes
+     above 2.2rem are single hero elements and are left alone. */
+  --text-xs: 0.7rem;     /* badges, counters */
+  --text-sm: 0.75rem;    /* dense metadata */
+  --text-base: 0.8rem;   /* secondary UI text */
+  --text-md: 0.85rem;    /* the workhorse: chips, list rows, controls */
+  --text-lg: 0.92rem;    /* labels and settings copy */
+  --text-body: 1rem;     /* prose */
+  --text-h3: 1.15rem;
+  --text-h2: 1.3rem;
+  --text-h1: 1.7rem;
+  --text-display: 2.2rem;
+
+  /* How tall the scrolling page area is — the viewport minus the top bar.
+     Sidebars need this as a *definite* length: they are sticky, and a sticky
+     box only scrolls internally if it has a height that does not depend on its
+     own content. `max-height: 100%` cannot do it, because inside a grid whose
+     row is sized by its content, 100% *is* the content height — which is why
+     the Notes sidebar stopped scrolling independently when it was tried. */
+  --page-viewport: calc(100dvh - var(--header-h));
+
+  /* The page shell. One inset for every tab — see .tab-page. */
+  --page-gutter: var(--space-9);   /* 2rem, the inset five rules had by hand */
+  --page-top: var(--space-6);
+  --page-bottom: var(--space-9);
+
   --radius: 14px;
+  /* --- the corner scale (§35L) ---------------------------------------------
+     Three tiers derived from --radius, which is the slider in Settings →
+     Appearance. Everything rounded used to be one of twelve hard-coded pixel
+     values — 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14 — none of which moved when
+     that slider did. So choosing square corners squared the cards and left
+     every chip, popup and button rounded, and adjacent surfaces at 8px and
+     10px read as belonging to different applications.
+
+     The multipliers are picked so that at the default 14px each tier lands
+     within a pixel of the value it replaced (4.2, 8.4, 11.2) — so this
+     changes almost nothing today and makes the whole interface respond to
+     the setting from now on. */
+  --radius-sm: calc(var(--radius) * 0.3);   /* chips, inputs, small controls */
+  --radius-md: calc(var(--radius) * 0.6);   /* buttons, inner panels */
+  --radius-lg: calc(var(--radius) * 0.8);   /* cards, dialogs */
+  --radius-pill: 999px;                     /* pills and round buttons */
   --glass-blur: 18px;
 }
 
@@ -103,12 +187,38 @@ html {
   background-attachment: fixed;
 }
 
+/* --- the scroll container (§36A) --------------------------------------------
+   The window used to be the scrolling element, and the header sat on top of it
+   with `position: sticky`. So the page scrollbar ran the full height of the
+   viewport — starting at pixel zero, behind the top bar — and the two visibly
+   collided (screenshotted).
+
+   The fix is structural rather than cosmetic: the window does not scroll at
+   all now. `body` is exactly one viewport tall and lays its children out in a
+   column; the header takes the height it needs and the visible page takes the
+   rest, with its own scrollbar. The scrollbar therefore begins where the
+   content begins, below the header, which is what was asked for.
+
+   This is also the prerequisite for anything sticky *inside* a page (§36A's
+   chat headers): sticky positioning resolves against the nearest scrolling
+   ancestor, and while that was the window, a header inside a page could not
+   stick to the top of the page.
+
+   Safe because every other direct child of <body> — the lock screen, all seven
+   modal overlays, the toast box, the skip link — is `position: fixed`, so none
+   of them is in this flex column. */
 body {
   margin: 0;
   font-family: var(--ui-font, system-ui, -apple-system, "Segoe UI", sans-serif);
   color: var(--ink);
   line-height: 1.5;
-  min-height: 100vh;
+  height: 100vh;
+  /* dvh where it exists: on mobile 100vh is the *largest* viewport, so the
+     bottom of the page sits under the browser chrome until you scroll. */
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 /* Appearance → Font. Default (system) leaves --ui-font unset → the fallback. */
 :root[data-font="serif"] { --ui-font: Georgia, "Iowan Old Style", "Times New Roman", serif; }
@@ -127,8 +237,12 @@ body {
 /* Wave L rework: one compact, sticky top bar — brand · tabs · controls.
    The old two-row header + tab strip spent ~120px before any content. */
 header#top-bar {
+  /* Kept `sticky` rather than made `static`: it costs nothing in a
+     non-scrolling flex parent, and it means the bar still behaves if this
+     layout is ever loaded somewhere the body does scroll. */
   position: sticky;
   top: 0;
+  flex: 0 0 auto;
   z-index: 40;
   display: flex;
   align-items: center;
@@ -141,7 +255,7 @@ header#top-bar {
      slot reserved a fixed 17.5rem that nothing was allowed to reclaim.
      Now the pill shrinks first and the tabs scroll, so nothing wraps. */
   flex-wrap: nowrap;
-  padding: 0.55rem 1.5rem;
+  padding: 0.6rem 1.5rem;
   background: var(--card);
   border-bottom: 1px solid var(--glass-border);
   backdrop-filter: blur(18px) saturate(150%);
@@ -151,7 +265,7 @@ header#top-bar {
    tabs, and reclaiming it buys a whole tab's worth of room. */
 header#top-bar h1 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   letter-spacing: 0.01em;
   white-space: nowrap;
   /* Never shrinks. `flex: 0 1 auto` with `min-width: 0` let the box get
@@ -168,7 +282,7 @@ header#top-bar h1 {
    duplicated in Settings), then tab padding, and only then do tabs scroll.
    Each step buys roughly a tab's worth of room. */
 @media (max-width: 1200px) {
-  header#top-bar { gap: 0.9rem; padding-inline: 1rem; }
+  header#top-bar { gap: 1rem; padding-inline: 1rem; }
 }
 /* The wordmark stays until the layout stacks. 1390 was tried, then 1080; both
    were still hiding the app's own name on ordinary windows, which was
@@ -182,14 +296,14 @@ header#top-bar h1 {
    scroll a little with a fade instead, which is a far smaller loss than a
    missing name. */
 @media (max-width: 1080px) {
-  #tab-bar button { padding-inline: 0.7rem; }
+  #tab-bar button { padding-inline: 0.8rem; }
 }
 @media (max-width: 720px) {
   header#top-bar h1 { display: none; }
 }
 @media (max-width: 940px) {
   header#top-bar { gap: 0.6rem; }
-  #tab-bar button { padding-inline: 0.55rem; font-size: 0.92rem; }
+  #tab-bar button { padding-inline: 0.6rem; font-size: 0.92rem; }
 }
 /* When the tabs really do scroll, say so with a fade at the edge instead of
    letting a label look chopped off.
@@ -297,7 +411,7 @@ header#top-bar h1 {
    baseline rather than the cap height — so it needs the opposite correction
    to the other three. Measured the same way: 2px low before this. */
 .ai-status[data-level="idle"] .ai-status-dot {
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   transform: translateY(-0.16em);
 }
 .ai-status[data-level="ok"] { background: var(--ok-soft); color: var(--ok); }
@@ -319,12 +433,12 @@ header#top-bar h1 {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  padding: 0.6rem 0.75rem;
-  border-radius: 10px;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--radius-lg);
   background: var(--modal-bg);
   border: 1px solid var(--border);
   box-shadow: var(--glass-shadow);
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 400;
   text-align: left;
   /* visibility, not display: it keeps the box measurable and lets the fade
@@ -354,8 +468,8 @@ header#top-bar h1 {
 #tab-bar {
   display: flex;
   gap: 0.25rem;
-  padding: 0.2rem;
-  border-radius: 12px;
+  padding: 0.25rem;
+  border-radius: var(--radius-lg);
   background: var(--chip-bg);
   /* Scroll rather than wrap when the window is genuinely too narrow.
      min-width:0 is what actually lets a flex item shrink below its content.
@@ -380,10 +494,10 @@ header#top-bar h1 {
 #tab-bar button {
   background: transparent;
   border: none;
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   color: var(--muted);
   font-weight: 500;
-  padding: 0.35rem 0.95rem;
+  padding: 0.4rem 1rem;
   box-shadow: none;
 }
 #tab-bar button.active {
@@ -392,8 +506,33 @@ header#top-bar h1 {
   font-weight: 600;
 }
 :root[data-theme="dark"] #tab-bar button.active { color: #0e1017; }
-.tab-page { padding-top: 0.75rem; }
-.tab-page > .card.placeholder { margin: 0.25rem 2rem; }
+/* --- the page shell (§35L) --------------------------------------------------
+   Every tab used to draw its own outer gutter, and no two agreed. The side
+   inset was 2rem in five different rules, but the space above the first
+   element was 1rem on Notes and Chat (.layout), 0 on Documents (.doc-layout),
+   and 0.8rem on the Dashboard, Reminders and Graph — each of them *on top of*
+   .tab-page's own 0.8rem. So content began 1.8rem down one tab and 0.8rem
+   down the next, which is the page-level form of the reported problem:
+   "spacing, alignment and margins… changes each tab".
+
+   One shell owns the inset now. A page's own container contributes only its
+   internal gap, never its distance from the window. */
+.tab-page {
+  padding: var(--page-top) var(--page-gutter) var(--page-bottom);
+  /* The page is the scrolling element, not the window (§36A). `min-height: 0`
+     is what lets a flex item shrink below its content and therefore scroll at
+     all — without it the item grows to fit and the overflow never engages. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+/* Direct children of a page are already inside the gutter, so they carry only
+   the rhythm between them. */
+.tab-page > .card,
+.tab-page > .card.placeholder {
+  margin: 0 0 var(--space-6);
+}
 
 .sidebar-tools {
   margin-top: 1rem;
@@ -416,7 +555,8 @@ header#top-bar h1 {
      widest child so `overflow-x: auto` on that child can do its job. */
   grid-template-columns: 260px minmax(0, 1fr);
   gap: 1rem;
-  padding: 1rem 2rem 2rem;
+  /* The gutter belongs to .tab-page now; this is only the column gap. */
+  padding: 0;
   /* stretch, not start: with `start` the sidebar shrank to its content and sat
      visibly shorter than the panel beside it, which reads as a broken layout
      rather than a deliberate one. */
@@ -429,6 +569,13 @@ header#top-bar h1 {
 /* Stack the sidebar on small screens. minmax(0,…) + min-width let the
    column actually shrink below its content's natural width. */
 @media (max-width: 720px) {
+  /* The shell tightens once, for every tab, instead of each page shrinking its
+     own gutter to a different number (§35L). */
+  :root {
+    --page-gutter: var(--space-6);
+    --page-top: var(--space-3);
+    --page-bottom: var(--space-6);
+  }
   .layout { grid-template-columns: minmax(0, 1fr); }
   .layout > * { min-width: 0; }
 }
@@ -439,10 +586,10 @@ header#top-bar h1 {
   backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   border: 1px solid var(--glass-border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   box-shadow: var(--glass-shadow);
-  padding: 1rem 1.25rem;
-  margin-bottom: 1rem;
+  padding: var(--space-6) var(--space-7);
+  margin-bottom: var(--space-6);
   /* Cards are flex/grid items nearly everywhere they appear, and a flex item's
      automatic minimum is its content — so a card holding one wide code block
      grew past the column that was supposed to contain it, taking the page
@@ -450,8 +597,40 @@ header#top-bar h1 {
      the track carries the same auto-minimum and has to be floored too. */
   min-width: 0;
 }
-.card h2 { margin: 0 0 0.75rem; font-size: 1.05rem; }
-.card h3 { margin: 1rem 0 0.5rem; font-size: 0.9rem; color: var(--muted); }
+/* --- heading hierarchy (§35L) ----------------------------------------------
+   The levels have to be visibly ordered, and they were not: h2 ranged from
+   0.92rem to 1.15rem depending on where it sat, while h3 was a flat 0.92rem —
+   so in the sidebar a section title was the *same size* as the subsection
+   titles beneath it, and on the dashboard's getting-started panel an h2 was
+   larger than the h2 on the card next to it.
+
+   One rule per level, stated here, with the difference carried by weight and
+   colour as well as by size. Two sizes 0.08rem apart cannot do the job on
+   their own — that is what made the old hierarchy invisible. */
+.card h2 {
+  margin: 0 0 var(--space-5);
+  font-size: var(--text-body);
+  font-weight: 650;
+  letter-spacing: -0.005em;
+}
+.card h3 {
+  margin: var(--space-6) 0 var(--space-3);
+  /* A subsection is a label for what follows, not a title competing with the
+     card's own. Small caps carry that distinction, which frees the size to go
+     *down* rather than needing another step between h2 and h3 — two sizes
+     0.08rem apart was what made the old hierarchy invisible. */
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+/* The first heading in a card has the card's own padding above it already. */
+.card h3:first-child { margin-top: 0; }
+
+/* Density: the whole spacing scale, tightened or loosened at once. */
+:root[data-density="compact"] { --density: 0.75; }
+:root[data-density="spacious"] { --density: 1.35; }
 
 /* --- sidebar ------------------------------------------------------------ */
 /* Keep the Notes category sidebar pinned to the left while the notes
@@ -461,8 +640,11 @@ header#top-bar h1 {
 @media (min-width: 721px) {
   #tab-notes #sidebar {
     position: sticky;
-    top: 4.25rem;
-    max-height: calc(100vh - 5.5rem);
+    /* Was 4.25rem, clearing the floating header. The page is the scroll
+       container now (§36A) and the header is outside it, so the sidebar sticks
+       to the top of the page it lives in. */
+    top: 0;
+    max-height: calc(var(--page-viewport) - var(--page-top) - var(--space-4));
     overflow-y: auto;
   }
 }
@@ -485,7 +667,7 @@ h2.collapsible-title:hover .collapse-chevron { color: var(--accent); }
 h2.collapsible-title:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 @media (prefers-reduced-motion: reduce) {
   .collapse-chevron { transition: none; }
@@ -501,8 +683,8 @@ h2.collapsible-title:focus-visible {
   display: flex;
   align-items: baseline;
   gap: 0.6rem;
-  padding: 0.35rem 0.5rem;
-  border-radius: 8px;
+  padding: 0.4rem 0.5rem;
+  border-radius: var(--radius-md);
   cursor: pointer;
   font-size: 0.92rem;
   line-height: 1.35;
@@ -539,17 +721,61 @@ h2.collapsible-title:focus-visible {
    declared twice, identically, in the same file.) */
 
 /* --- forms --------------------------------------------------------------- */
-textarea, input[type="text"], input[type="password"], input[type="number"], select {
+/* --- text inputs (§36B) -------------------------------------------------------
+   Reported: "can you stylise the text input boxes as well? all the ui elements
+   need the same style otherwise they look out of place."
+
+   They did, and the cause was a selector list that had been extended a type at
+   a time: text, password, number, select, textarea. Every *other* text-like
+   input fell through to the browser's default — a different border, a
+   different height, a different background, sitting next to a styled one.
+   `search` covers the note filter, the conversation search and the settings
+   search; `date` and `time` are the whole reminder form.
+
+   Listed explicitly rather than as `input:not([type=checkbox])`, because the
+   controls that must NOT get this treatment — checkbox, radio, range, color,
+   file — are exactly the ones a negation would be forever chasing. */
+textarea,
+select,
+input[type="text"],
+input[type="password"],
+input[type="number"],
+input[type="search"],
+input[type="email"],
+input[type="url"],
+input[type="tel"],
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
   width: 100%;
-  padding: 0.55rem 0.7rem;
-  margin-bottom: 0.6rem;
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-4);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   font: inherit;
   background: var(--input-bg);
   color: var(--ink);
   resize: vertical;
   backdrop-filter: blur(8px);
+}
+/* Safari draws its own rounded box and an inner shadow on a search field, and
+   ignores the border-radius above until this is turned off. */
+input[type="search"] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+/* Date and time pickers are single-line controls, not paragraphs. */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  width: auto;
+  resize: none;
+}
+/* The placeholder was inheriting the body colour at full strength in some
+   themes, so an empty box read as a filled one. */
+::placeholder {
+  color: var(--muted);
+  opacity: 0.85;
 }
 textarea:focus, input:focus, select:focus {
   outline: 2px solid var(--accent-soft);
@@ -557,9 +783,9 @@ textarea:focus, input:focus, select:focus {
 }
 
 button {
-  padding: 0.5rem 1.1rem;
+  padding: 0.5rem 1rem;
   border: none;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   background: var(--accent-surface);
   color: var(--on-accent);
   font: inherit;
@@ -581,7 +807,7 @@ button.ghost {
   box-shadow: none;
   backdrop-filter: blur(8px);
 }
-button.small { padding: 0.3rem 0.8rem; font-size: 0.85rem; }
+button.small { padding: 0.25rem 0.8rem; font-size: 0.85rem; }
 
 .row { display: flex; gap: 0.6rem; align-items: center; }
 .row input, .row select { margin-bottom: 0; flex: 1; }
@@ -593,25 +819,25 @@ button.small { padding: 0.3rem 0.8rem; font-size: 0.85rem; }
 .shortcut-list li {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.35rem 0;
+  gap: 0.8rem;
+  padding: 0.4rem 0;
   border-bottom: 1px solid var(--border);
 }
 .shortcut-list li:last-child { border-bottom: none; }
-.shortcut-list span { color: var(--muted); font-size: 0.9rem; }
+.shortcut-list span { color: var(--muted); font-size: 0.92rem; }
 kbd {
   font-family: ui-monospace, Consolas, monospace;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   padding: 0.1rem 0.4rem;
   border: 1px solid var(--glass-border);
   border-bottom-width: 2px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: var(--chip-bg);
   color: var(--ink);
   white-space: nowrap;
 }
 
-.status { font-size: 0.88rem; color: var(--muted); }
+.status { font-size: 0.85rem; color: var(--muted); }
 .status.error { color: var(--error); }
 .status.ok { color: var(--ok); }
 .status.busy { color: var(--warn); }
@@ -646,7 +872,7 @@ progress { accent-color: var(--accent); width: 100%; }
   margin-top: 0.4rem;
   padding: 0.6rem 0.8rem;
   border: 1px dashed var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   color: var(--muted);
   white-space: pre-wrap;
   max-height: 14rem;
@@ -655,8 +881,8 @@ progress { accent-color: var(--accent); width: 100%; }
 .answer {
   background: var(--accent-soft);
   border: 1px solid var(--glass-border);
-  border-radius: 10px;
-  padding: 0.75rem 0.9rem;
+  border-radius: var(--radius-lg);
+  padding: 0.8rem 1rem;
   white-space: pre-wrap;
   backdrop-filter: blur(8px);
 }
@@ -664,18 +890,18 @@ progress { accent-color: var(--accent); width: 100%; }
    formatted output reads as one panel, not a stack of gaps. */
 .answer p { margin: 0 0 0.6rem; }
 .answer p:last-child { margin-bottom: 0; }
-.answer h3, .answer h4, .answer h5 { margin: 0.6rem 0 0.3rem; }
-.answer ul, .answer ol { margin: 0 0 0.6rem; padding-left: 1.4rem; }
-.answer li { margin-bottom: 0.2rem; }
+.answer h3, .answer h4, .answer h5 { margin: 0.6rem 0 0.25rem; }
+.answer ul, .answer ol { margin: 0 0 0.6rem; padding-left: 1.5rem; }
+.answer li { margin-bottom: 0.25rem; }
 .answer code {
   background: var(--chip-bg);
-  padding: 0.05rem 0.3rem;
-  border-radius: 5px;
+  padding: 0.05rem 0.25rem;
+  border-radius: var(--radius-sm);
   font-size: 0.9em;
 }
 .answer pre {
   background: var(--chip-bg);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 0.6rem 0.8rem;
   overflow-x: auto;
   white-space: pre;
@@ -692,7 +918,7 @@ progress { accent-color: var(--accent); width: 100%; }
 .dash-body .md-table-wrap {
   overflow-x: auto;
   margin: 0 0 0.6rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   /* Without a cap the wrapper grows to the table instead of scrolling it. */
   max-width: 100%;
 }
@@ -718,7 +944,7 @@ progress { accent-color: var(--accent); width: 100%; }
 .md-table th,
 .md-table td {
   border: 1px solid var(--border);
-  padding: 0.35rem 0.6rem;
+  padding: 0.4rem 0.6rem;
   text-align: left;
   vertical-align: top;
 }
@@ -732,11 +958,11 @@ progress { accent-color: var(--accent); width: 100%; }
 .bubble-answer blockquote,
 .dash-body blockquote {
   margin: 0 0 0.6rem;
-  padding: 0.3rem 0.9rem;
+  padding: 0.25rem 1rem;
   border-left: 3px solid var(--accent);
   color: var(--muted);
   background: var(--chip-bg);
-  border-radius: 0 8px 8px 0;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
 }
 .answer hr,
 .bubble-answer hr,
@@ -749,22 +975,22 @@ progress { accent-color: var(--accent); width: 100%; }
 .bubble-answer del,
 .dash-body del { opacity: 0.7; }
 .md-task { list-style: none; margin-left: -1.1rem; }
-.md-task input { width: auto; margin-right: 0.35rem; vertical-align: middle; }
+.md-task input { width: auto; margin-right: 0.4rem; vertical-align: middle; }
 
 /* The chat bubble reuses the same block treatments. */
 .bubble-answer h3, .bubble-answer h4, .bubble-answer h5, .bubble-answer h6 {
-  margin: 0.5rem 0 0.3rem;
+  margin: 0.5rem 0 0.25rem;
 }
-.bubble-answer ul, .bubble-answer ol { margin: 0 0 0.5rem; padding-left: 1.4rem; }
+.bubble-answer ul, .bubble-answer ol { margin: 0 0 0.5rem; padding-left: 1.5rem; }
 .bubble-answer code {
   background: var(--chip-bg);
-  padding: 0.05rem 0.3rem;
-  border-radius: 5px;
+  padding: 0.05rem 0.25rem;
+  border-radius: var(--radius-sm);
   font-size: 0.9em;
 }
 .bubble-answer pre {
   background: var(--chip-bg);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 0.6rem 0.8rem;
   overflow-x: auto;
   white-space: pre;
@@ -781,15 +1007,15 @@ progress { accent-color: var(--accent); width: 100%; }
 /* margin-left:auto pushes the buttons to the right edge of the heading;
    they wrap onto their own line when the title/chip get long, and never
    overlap the answer box the way the old float did. */
-.answer-actions { margin-left: auto; display: inline-flex; gap: 0.35rem; }
-.answer-actions button { padding: 0.15rem 0.5rem; font-size: 0.78rem; }
+.answer-actions { margin-left: auto; display: inline-flex; gap: 0.4rem; }
+.answer-actions button { padding: 0.15rem 0.5rem; font-size: 0.8rem; }
 
 /* --- entry lists ---------------------------------------------------------- */
 .entry-list { list-style: none; margin: 0; padding: 0; }
 .entry-list li {
   background: var(--inner);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   padding: 0.6rem 0.8rem;
   margin-bottom: 0.6rem;
 }
@@ -806,8 +1032,8 @@ progress { accent-color: var(--accent); width: 100%; }
 
 .chip {
   display: inline-block;
-  padding: 0.1rem 0.55rem;
-  border-radius: 999px;
+  padding: 0.1rem 0.6rem;
+  border-radius: var(--radius-pill);
   font-size: 0.75rem;
   background: var(--accent-soft);
   color: var(--accent);
@@ -842,7 +1068,7 @@ progress { accent-color: var(--accent); width: 100%; }
 }
 .entry-date {
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   min-width: 7ch;
   text-align: right;
   white-space: nowrap;
@@ -880,16 +1106,31 @@ progress { accent-color: var(--accent); width: 100%; }
    fix for the "Glass & effects" boxes stacking on one line.) */
 .settings-section label {
   display: flex;
-  align-items: baseline;
-  gap: 0.45rem;
-  margin-bottom: 0.4rem;
+  /* Was `baseline`, which is right for a one-line label and wrong for every
+     other one here: against a label that wraps, the control sits on the first
+     line's baseline and reads as knocked out of alignment. `flex-start` with
+     a little top padding on the control lines it up with the first line of
+     text and stays put however many lines follow (§35L). */
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
   font-size: 0.92rem;
 }
 .settings-section label input[type="radio"],
 .settings-section label input[type="checkbox"] {
-  width: auto;
+  width: 1rem;
+  height: 1rem;
   flex: 0 0 auto;
   margin: 0;
+  /* Optical, not arbitrary: nudges a 1rem control onto the centre of a
+     0.92rem line of text rather than its top edge. */
+  margin-top: 0.15rem;
+  /* Themes the native control instead of rebuilding it. A hand-built radio
+     has to reimplement focus rings, high-contrast mode and the platform's own
+     touch targets, and usually gets one of them wrong; `accent-color` gets all
+     three for free and follows the palette the user picked. */
+  accent-color: var(--accent);
+  cursor: pointer;
 }
 /* Labels that are just a caption for a following control (e.g. the accent
    picker, the intensity slider row) shouldn't force the flex row. */
@@ -899,7 +1140,7 @@ progress { accent-color: var(--accent); width: 100%; }
   display: flex;
   gap: 0.6rem;
   align-items: center;
-  padding: 0.45rem 0;
+  padding: 0.4rem 0;
   border-bottom: 1px solid var(--border);
   font-size: 0.92rem;
 }
@@ -925,34 +1166,34 @@ progress { accent-color: var(--accent); width: 100%; }
 
 /* --- entry actions + links (Phase 4) --------------------------------------- */
 /* No auto margin here — .entry-meta-end already owns the alignment. */
-.entry-actions { display: flex; gap: 0.35rem; }
-.entry-actions button { padding: 0.15rem 0.5rem; font-size: 0.78rem; }
-.entry-links { margin-top: 0.35rem; display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.entry-actions { display: flex; gap: 0.4rem; }
+.entry-actions button { padding: 0.15rem 0.5rem; font-size: 0.8rem; }
+.entry-links { margin-top: 0.4rem; display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .chip.link { cursor: default; }
-.chip.link .unlink { cursor: pointer; margin-left: 0.3rem; font-weight: 700; }
+.chip.link .unlink { cursor: pointer; margin-left: 0.25rem; font-weight: 700; }
 li.link-source { outline: 2px solid var(--accent); }
 
 /* --- activity log ----------------------------------------------------------- */
-.activity-list { list-style: none; margin: 0; padding: 0; font-size: 0.88rem; }
+.activity-list { list-style: none; margin: 0; padding: 0; font-size: 0.85rem; }
 .activity-list li {
   display: flex;
   gap: 0.6rem;
-  padding: 0.3rem 0;
+  padding: 0.25rem 0;
   border-bottom: 1px solid var(--border);
 }
 .activity-list .when { color: var(--muted); min-width: 9.5rem; }
 .activity-list .what { font-weight: 600; min-width: 6rem; }
 
 /* --- Phase 5: quick access + toasts ------------------------------------------ */
-.recent { margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+.recent { margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
 .recent .chip { cursor: pointer; }
 .recent .chip:hover { filter: brightness(1.08); }
 
 #most-used-box h2 { margin-top: 1rem; }
 #most-used { list-style: none; margin: 0; padding: 0; font-size: 0.85rem; }
 #most-used li {
-  padding: 0.3rem 0.5rem;
-  border-radius: 8px;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-md);
   cursor: pointer;
   display: flex;
   justify-content: space-between;
@@ -976,11 +1217,11 @@ li.link-source { outline: 2px solid var(--accent); }
   -webkit-backdrop-filter: blur(18px) saturate(150%);
   border: 1px solid var(--glass-border);
   border-left: 4px solid var(--accent);
-  border-radius: 10px;
-  padding: 0.6rem 0.9rem;
+  border-radius: var(--radius-lg);
+  padding: 0.6rem 1rem;
   max-width: 340px;
   box-shadow: var(--glass-shadow);
-  font-size: 0.9rem;
+  font-size: 0.92rem;
 }
 .toast.error { border-left-color: var(--error); }
 
@@ -1067,9 +1308,9 @@ li.link-source { outline: 2px solid var(--accent); }
 .modal-nav > div { display: flex; flex-direction: column; gap: 0.15rem; }
 /* Group labels: quiet enough to scan past, clear enough to orient by. */
 .nav-group-label {
-  margin: 0.7rem 0 0.15rem;
-  padding: 0 0.7rem;
-  font-size: 0.68rem;
+  margin: 0.8rem 0 0.15rem;
+  padding: 0 0.8rem;
+  font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1083,8 +1324,8 @@ li.link-source { outline: 2px solid var(--accent); }
   box-shadow: none;
   color: var(--muted);
   text-align: left;
-  padding: 0.45rem 0.7rem;
-  border-radius: 8px;
+  padding: 0.4rem 0.8rem;
+  border-radius: var(--radius-md);
   font-weight: 500;
 }
 .modal-nav button:hover { background: var(--accent-soft); }
@@ -1108,7 +1349,7 @@ li.link-source { outline: 2px solid var(--accent); }
 /* --- account & security ------------------------------------------------------ */
 .stacked-label {
   display: block;
-  margin: 0.6rem 0 0.2rem;
+  margin: 0.6rem 0 0.25rem;
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--muted);
@@ -1116,11 +1357,11 @@ li.link-source { outline: 2px solid var(--accent); }
 .code-block {
   margin: 0.4rem 0;
   padding: 0.6rem 0.8rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--chip-bg);
   border: 1px solid var(--border);
   font-family: ui-monospace, Consolas, monospace;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   overflow-x: auto; /* a long command scrolls rather than widening the dialog */
 }
 .code-block code { background: none; padding: 0; }
@@ -1139,7 +1380,7 @@ li.link-source { outline: 2px solid var(--accent); }
 }
 .theme-swatch {
   height: 38px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
   box-sizing: border-box;
 }
@@ -1161,14 +1402,14 @@ html.modal-open body {
   max-height: 46vh;
   overflow-y: auto;
   font-family: ui-monospace, Consolas, monospace;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   background: var(--chip-bg);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
 }
 .log-list li {
   display: flex;
   gap: 0.5rem;
-  padding: 0.12rem 0;
+  padding: 0.15rem 0;
   border-bottom: 1px dotted var(--border);
 }
 .log-list li:last-child { border-bottom: none; }
@@ -1181,12 +1422,12 @@ html.modal-open body {
 .live-clock { text-align: right; line-height: 1.2; }
 .live-clock .clock-time {
   display: block;
-  font-size: 1.35rem;
+  font-size: 1.3rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
 }
-.live-clock .clock-date { display: block; font-size: 0.78rem; }
+.live-clock .clock-date { display: block; font-size: 0.8rem; }
 .reminders-head { align-items: flex-start; }
 
 /* Full-width welcome banner across the top of the dashboard. */
@@ -1196,8 +1437,8 @@ html.modal-open body {
   justify-content: space-between;
   gap: 1.5rem;
   flex-wrap: wrap;
-  margin: 0.75rem 2rem 0.25rem;
-  padding: 1.25rem 1.6rem;
+  margin: 0 0 var(--space-6);
+  padding: var(--space-7) var(--space-8);
   border-radius: var(--radius);
   border: 1px solid var(--glass-border);
   background:
@@ -1222,7 +1463,7 @@ html.modal-open body {
 }
 .dash-wordmark {
   margin: 0 0 0.1rem;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -1237,7 +1478,7 @@ html.modal-open body {
   letter-spacing: -0.01em;
 }
 .dash-submessage {
-  margin: 0.3rem 0 0;
+  margin: 0.25rem 0 0;
   color: var(--muted);
   font-size: 0.92rem;
 }
@@ -1250,24 +1491,22 @@ html.modal-open body {
   flex: 0 0 auto;
 }
 .dash-clock-time {
-  font-size: 2.1rem;
+  font-size: 2.2rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--accent);
 }
-.dash-clock-date { font-size: 0.82rem; color: var(--muted); }
+.dash-clock-date { font-size: 0.8rem; color: var(--muted); }
 
 @media (max-width: 720px) {
-  .dash-hero { margin: 0.5rem 1rem 0.25rem; padding: 1rem 1.1rem; gap: 0.9rem; }
-  .dash-greeting { font-size: 1.35rem; }
+  .dash-hero { margin: 0 0 var(--space-6); padding: var(--space-6); gap: var(--space-6); }
+  .dash-greeting { font-size: 1.3rem; }
   .dash-clock { align-items: flex-start; }
   .dash-clock-time { font-size: 1.7rem; }
   /* On a phone the emblem is decoration competing with the greeting for a
      narrow row, and the greeting is the part that says something. */
   .dash-hero-emblem { display: none; }
 }
-:root[data-density="compact"] .dash-hero { padding: 0.85rem 1.2rem; }
-:root[data-density="spacious"] .dash-hero { padding: 1.7rem 2rem; }
 .dash-toolbar {
   display: flex;
   justify-content: space-between;
@@ -1312,7 +1551,7 @@ html.modal-open body {
 /* Consistent internal rhythm so every widget spaces the same, whatever it
    renders: the title row sits a fixed gap above a flex-column body, and the
    body's own children lose their ad-hoc margins in favour of one gap. */
-.dash-widget > .row { margin-bottom: 0.65rem; }
+.dash-widget > .row { margin-bottom: 0.6rem; }
 .dash-widget h2 { margin: 0; }
 .dash-body { display: flex; flex-direction: column; gap: 0.5rem; }
 .dash-body > * { margin: 0; }
@@ -1328,11 +1567,11 @@ html.modal-open body {
   color: var(--muted);
   font-size: 0.85rem;
 }
-.dash-big { font-size: 1.6rem; font-weight: 700; margin: 0 0 0.5rem; }
-.dash-list { list-style: none; margin: 0; padding: 0; font-size: 0.9rem; }
+.dash-big { font-size: 1.7rem; font-weight: 700; margin: 0 0 0.5rem; }
+.dash-list { list-style: none; margin: 0; padding: 0; font-size: 0.92rem; }
 .dash-list li {
-  padding: 0.3rem 0.4rem;
-  border-radius: 6px;
+  padding: 0.25rem 0.4rem;
+  border-radius: var(--radius-md);
   cursor: pointer;
 }
 .dash-list li:hover { background: var(--accent-soft); }
@@ -1346,12 +1585,13 @@ html.modal-open body {
 }
 .activity-strip span {
   flex: 1;
-  border-radius: 3px 3px 0 0;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   background: var(--accent);
   opacity: 0.85;
 }
 .activity-strip span.empty { background: var(--chip-bg); }
-.reminders-card { margin: 0.25rem 2rem; }
+/* (A second .reminders-card margin rule lived here and was overridden by
+   the one below it — both are replaced by the page shell.) */
 .reminders-card .row input[type="datetime-local"] { flex: 0 1 auto; }
 .entry-list li.overdue { border-color: var(--warn); }
 /* Priority colour-coding for reminders — a coloured left edge, calm but clear. */
@@ -1366,7 +1606,7 @@ html.modal-open body {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   text-align: center;
-  margin: 0.2rem 0 0.4rem;
+  margin: 0.25rem 0 0.4rem;
 }
 .focus-presets { flex-wrap: wrap; align-items: center; }
 .focus-custom { width: 4.5rem; }
@@ -1379,7 +1619,7 @@ html.modal-open body {
 }
 
 /* Typing indicator (Wave D): three bouncing dots until the first token */
-.typing-dots { display: inline-flex; gap: 0.25rem; padding: 0.2rem 0; }
+.typing-dots { display: inline-flex; gap: 0.25rem; padding: 0.25rem 0; }
 .typing-dots span {
   width: 0.45rem;
   height: 0.45rem;
@@ -1410,13 +1650,13 @@ html.modal-open body {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
-  padding: 0.5rem 0.2rem;
+  padding: 0.5rem 0.25rem;
   min-width: 0;
 }
 .msg {
   max-width: 82%;
-  padding: 0.6rem 0.85rem;
-  border-radius: 14px;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--radius-lg);
   white-space: pre-wrap;
   /* A flex item's automatic minimum is its content, which is how a pasted
      URL or a wide table stretched the bubble past the column. */
@@ -1451,13 +1691,13 @@ html.modal-open body {
 .msg.assistant .bubble-answer { white-space: pre-wrap; }
 .msg.assistant .bubble-answer p { margin: 0 0 0.5rem; }
 .msg.assistant .bubble-answer p:last-child { margin-bottom: 0; }
-.msg.assistant details { font-size: 0.85rem; margin: 0.3rem 0; }
+.msg.assistant details { font-size: 0.85rem; margin: 0.25rem 0; }
 .msg.assistant details summary { cursor: pointer; color: var(--muted); }
 .msg.assistant .entry-list { margin-top: 0.4rem; }
 
 /* Role label above each bubble — makes the thread readable at a glance. */
 .msg-role {
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -1471,7 +1711,7 @@ html.modal-open body {
 .msg-actions {
   display: flex;
   gap: 0.25rem;
-  margin-top: 0.45rem;
+  margin-top: 0.4rem;
   opacity: 0;
   transition: opacity 0.12s ease;
 }
@@ -1482,9 +1722,9 @@ html.modal-open body {
   border: 1px solid var(--glass-border);
   background: var(--card);
   color: var(--ink);
-  border-radius: 7px;
-  padding: 0.1rem 0.45rem;
-  font-size: 0.82rem;
+  border-radius: var(--radius-md);
+  padding: 0.1rem 0.4rem;
+  font-size: 0.8rem;
   line-height: 1.5;
   cursor: pointer;
   transition: background 0.12s ease;
@@ -1504,19 +1744,19 @@ html.modal-open body {
   margin: auto;
   text-align: center;
   max-width: 34ch;
-  padding: 1.75rem 1rem;
+  padding: 1.5rem 1rem;
 }
-.chat-empty .empty-title { margin: 0.4rem 0 0.3rem; }
+.chat-empty .empty-title { margin: 0.4rem 0 0.25rem; }
 .chat-empty-icon { font-size: 2.2rem; }
 #conversation-list { list-style: none; margin: 0; padding: 0; }
 #conversation-list li {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.35rem 0.5rem;
-  border-radius: 8px;
-  font-size: 0.9rem;
+  gap: 0.25rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: var(--radius-md);
+  font-size: 0.92rem;
 }
 #conversation-list li:hover { background: var(--accent-soft); }
 #conversation-list li.active-conv { background: var(--accent-soft); font-weight: 600; }
@@ -1541,19 +1781,19 @@ html.modal-open body {
   margin-top: 0.5rem;
   padding: 0.6rem;
   border: 1px dashed var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
 }
 .inline-action textarea { margin-bottom: 0.4rem; }
 .inline-action input { margin-bottom: 0.4rem; }
-.reminder-group-head { margin: 0.9rem 0 0.35rem; font-size: 0.95rem; }
-.reminder-group-head:first-child { margin-top: 0.3rem; }
+.reminder-group-head { margin: 1rem 0 0.4rem; font-size: 0.92rem; }
+.reminder-group-head:first-child { margin-top: 0.25rem; }
 .reminder-text { flex: 1 1 auto; min-width: 8rem; }
-#reminder-presets { gap: 0.4rem; margin: 0.1rem 0 0.2rem; flex-wrap: wrap; }
-.inline-action p { margin: 0.3rem 0; }
+#reminder-presets { gap: 0.4rem; margin: 0.1rem 0 0.25rem; flex-wrap: wrap; }
+.inline-action p { margin: 0.25rem 0; }
 .reevaluate-link {
   gap: 0.5rem;
-  padding: 0.3rem 0.4rem;
-  border-radius: 8px;
+  padding: 0.25rem 0.4rem;
+  border-radius: var(--radius-md);
 }
 .reevaluate-link:hover { background: var(--accent-soft); }
 .reevaluate-link span {
@@ -1565,13 +1805,22 @@ html.modal-open body {
 .row .small-select { flex: 0 1 auto; }
 
 .muted { color: var(--muted); }
-.hidden { display: none; }
+/* `!important` on a utility class, deliberately. `.hidden` is one class, so
+   any other single class that sets `display` and happens to be written later
+   in this file beats it — which is how the hidden "🤖 Agent mode" checkbox
+   came back on screen next to the Chat/Agent buttons that replaced it
+   (`.tools-toggle` is three lines below and sets `display: inline-flex`).
+   The one-off `#id.hidden` / `.class.hidden` rules further down this file are
+   each a previous instance of the same collision, patched one at a time; this
+   is the rule that stops the next one. "Hidden" has no case where something
+   else should win. */
+.hidden { display: none !important; }
 
 /* --- Wave G: agentic tools + skills ------------------------------------------ */
 .tools-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.25rem;
   font-size: 0.85rem;
   cursor: pointer;
   white-space: nowrap;
@@ -1582,22 +1831,22 @@ html.modal-open body {
 .tool-chip {
   display: block;
   font-size: 0.85rem;
-  margin: 0.2rem 0;
-  padding: 0.3rem 0.6rem;
-  border-radius: 8px;
+  margin: 0.25rem 0;
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-md);
   background: var(--accent-soft);
   color: var(--accent);
 }
 .tool-chip.tool-chip-error { background: var(--warn-soft); color: var(--warn); }
 
 .tool-confirm {
-  margin: 0.3rem 0;
+  margin: 0.25rem 0;
   padding: 0.6rem;
   border: 1px solid var(--warn);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   background: var(--warn-soft);
 }
-.tool-confirm p { margin: 0 0 0.5rem; font-size: 0.9rem; }
+.tool-confirm p { margin: 0 0 0.5rem; font-size: 0.92rem; }
 
 /* --- the agent's run, as a timeline -------------------------------------------
    A turn used to render into three fixed slots — all the thinking, then all the
@@ -1609,7 +1858,7 @@ html.modal-open body {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: 0.4rem;
 }
 /* The rail. Drawn only when there's more than one step, so an ordinary
    single-answer reply stays as plain as it was before. */
@@ -1620,7 +1869,7 @@ html.modal-open body {
   top: 0.5rem;
   bottom: 0.5rem;
   width: 2px;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   background: linear-gradient(
     to bottom,
     var(--accent-soft),
@@ -1634,7 +1883,7 @@ html.modal-open body {
      Padding the children put the <details> disclosure marker and the tool
      chips' own background directly over the circles and the line
      (user-reported); a padded container keeps that column empty. */
-  padding-left: 1.15rem;
+  padding-left: 1.25rem;
 }
 .agent-steps:has(> :nth-child(2)) > .agent-step,
 .agent-steps:has(> :nth-child(2)) > .tool-chip,
@@ -1675,7 +1924,7 @@ html.modal-open body {
   list-style: none; /* Firefox */
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.4rem;
 }
 .agent-step.step-thinking summary::-webkit-details-marker {
   display: none; /* Safari and older Chrome */
@@ -1697,7 +1946,7 @@ html.modal-open body {
 @media (prefers-reduced-motion: reduce) {
   .agent-step.step-thinking summary::before { transition: none; }
 }
-.agent-step.step-thinking[open] summary { margin-bottom: 0.3rem; }
+.agent-step.step-thinking[open] summary { margin-bottom: 0.25rem; }
 /* A skill's plan, drawn before anything runs. It borrows the thinking step's
    folding and marker so the timeline reads as one thing, but keeps the
    accent — this is what the run is *for*, not an aside. */
@@ -1711,7 +1960,7 @@ html.modal-open body {
   list-style: none;
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.4rem;
 }
 .agent-step.step-plan summary::-webkit-details-marker { display: none; }
 /* Same reason as the thinking step: the native marker is drawn outside the
@@ -1733,8 +1982,8 @@ html.modal-open body {
   .agent-step.step-plan summary::before { transition: none; }
 }
 .agent-step.step-plan .plan-steps {
-  margin: 0.35rem 0 0;
-  padding-left: 1.2rem;
+  margin: 0.4rem 0 0;
+  padding-left: 1.25rem;
   color: var(--muted);
 }
 .agent-step.step-plan .plan-steps li { margin: 0.1rem 0; }
@@ -1749,12 +1998,12 @@ html.modal-open body {
 /* A skill's result: what changed, with a way back. */
 .skill-result {
   margin: 0;
-  padding: 0.5rem 0.65rem;
+  padding: 0.5rem 0.6rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--card);
 }
-.skill-result-title { font-weight: 600; font-size: 0.85rem; margin-bottom: 0.35rem; }
+.skill-result-title { font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem; }
 .skill-change {
   display: flex;
   align-items: center;
@@ -1766,9 +2015,9 @@ html.modal-open body {
 .skill-change-label { flex: 1 1 12rem; min-width: 0; overflow-wrap: anywhere; }
 .skill-change-undone .skill-change-label { text-decoration: line-through; opacity: 0.7; }
 .agent-step.step-plan .plan-tools {
-  margin-top: 0.35rem;
+  margin-top: 0.4rem;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.8rem;
 }
 .agent-steps > .tool-chip { margin: 0; }
 .agent-step.step-answer { margin: 0; }
@@ -1781,7 +2030,7 @@ html.modal-open body {
   position: relative;
   height: min(65vh, 620px);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   /* A soft radial wash gives the map depth without competing with nodes. */
   background:
@@ -1809,7 +2058,7 @@ html.modal-open body {
   font-size: 1rem;
   line-height: 1;
   border: 1px solid var(--glass-border);
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   background: var(--card);
   color: var(--ink);
   cursor: pointer;
@@ -1866,9 +2115,9 @@ html.modal-open body {
 .graph-labels-hidden .graph-node .graph-label { opacity: 0; transition: opacity 0.1s ease; }
 .graph-labels-hidden .graph-node:hover .graph-label,
 .graph-labels-hidden .graph-node.graph-focus .graph-label { opacity: 1; }
-.graph-stats { margin: 0.2rem 0 0.4rem; font-size: 0.82rem; }
+.graph-stats { margin: 0.25rem 0 0.4rem; font-size: 0.8rem; }
 .graph-node text {
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   fill: var(--ink);
   text-anchor: middle;
   pointer-events: none;
@@ -1883,10 +2132,10 @@ html.modal-open body {
 .legend-item {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.25rem;
   font-size: 0.8rem;
   color: var(--muted);
-  margin-right: 0.7rem;
+  margin-right: 0.8rem;
 }
 .legend-dot {
   width: 0.65rem;
@@ -1924,10 +2173,10 @@ html.modal-open body {
   overflow-y: auto;
 }
 #palette-list li {
-  padding: 0.45rem 0.6rem;
-  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
 }
 #palette-list li:hover,
 #palette-list li.active { background: var(--accent-soft); }
@@ -1954,7 +2203,7 @@ html.modal-open body {
 #sketch-canvas {
   width: 100%;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   background: #fff;
   touch-action: none; /* the pen, not the page, gets touch moves */
   cursor: crosshair;
@@ -1973,7 +2222,7 @@ html.modal-open body {
 
 /* --- Wave F: mobile / PWA responsive pass --------------------------------------- */
 @media (max-width: 720px) {
-  header { padding: 0.9rem 1rem 0.5rem; }
+  header { padding: 1rem 1rem 0.5rem; }
   #tab-bar {
     padding: 0 1rem;
     flex-wrap: nowrap;
@@ -1981,8 +2230,8 @@ html.modal-open body {
     -webkit-overflow-scrolling: touch;
   }
   #tab-bar button { white-space: nowrap; }
-  .layout { padding: 0.8rem 1rem 1.2rem; }
-  #dash-grid { padding: 0 1rem 1.2rem; grid-template-columns: 1fr; }
+  .layout { padding: 0.8rem 1rem 1.25rem; }
+  #dash-grid { padding: 0 1rem 1.25rem; grid-template-columns: 1fr; }
   .dash-toolbar { padding: 0.4rem 1rem; }
   .row { flex-wrap: wrap; }
   #chat-messages { max-height: 50vh; }
@@ -2006,7 +2255,7 @@ button.recording {
 /* --- Wave I: skeletons, focus, reduced motion ------------------------------------ */
 .entry-list li.skeleton {
   height: 3.2rem;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   background: linear-gradient(90deg, var(--chip-bg) 25%, var(--inner) 50%, var(--chip-bg) 75%);
   background-size: 200% 100%;
@@ -2028,13 +2277,13 @@ kbd {
   padding: 0.1rem 0.4rem;
   border: 1px solid var(--border);
   border-bottom-width: 2px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: var(--chip-bg);
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-family: inherit;
 }
 .shortcut-list { list-style: none; padding: 0; }
-.shortcut-list li { margin-bottom: 0.4rem; color: var(--muted); font-size: 0.9rem; }
+.shortcut-list li { margin-bottom: 0.4rem; color: var(--muted); font-size: 0.92rem; }
 
 /* Vestibular safety: kill every animation when the OS asks for calm. */
 @media (prefers-reduced-motion: reduce) {
@@ -2048,24 +2297,24 @@ kbd {
 
 /* --- Wave J: generative art + note tools + undo toast --------------------------- */
 .art-holder {
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   line-height: 0; /* no stray gap under the canvas */
 }
-.art-holder canvas { width: 100%; height: auto; display: block; border-radius: 10px; }
+.art-holder canvas { width: 100%; height: auto; display: block; border-radius: var(--radius-lg); }
 .art-controls { margin-top: 0.5rem; line-height: 1.5; }
-.art-caption { margin: 0.5rem 0 0.2rem; font-size: 0.8rem; line-height: 1.4; }
+.art-caption { margin: 0.5rem 0 0.25rem; font-size: 0.8rem; line-height: 1.4; }
 .art-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.3rem 0.8rem;
+  gap: 0.25rem 0.8rem;
   margin-top: 0.5rem;
 }
 .art-legend-item {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  font-size: 0.78rem;
+  gap: 0.25rem;
+  font-size: 0.8rem;
   color: var(--muted);
 }
 .art-legend-dot {
@@ -2084,7 +2333,7 @@ kbd {
 .char-count { font-size: 0.75rem; text-align: right; margin: -0.4rem 0 0.5rem; }
 
 .toast-action {
-  margin-left: 0.75rem;
+  margin-left: 0.8rem;
   padding: 0.15rem 0.6rem;
   font-size: 0.8rem;
   background: rgba(255, 255, 255, 0.25);
@@ -2195,7 +2444,7 @@ kbd {
     min-height: 44px;
     min-width: 44px;
   }
-  .entry-actions { gap: 0.35rem; flex-wrap: wrap; }
+  .entry-actions { gap: 0.4rem; flex-wrap: wrap; }
 }
 
 /* High-contrast mode: stronger ink, solid panels, no glass blur — layered
@@ -2228,7 +2477,7 @@ kbd {
   top: 0.5rem;
   z-index: 100;
   padding: 0.5rem 1rem;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   background: var(--accent-surface);
   color: var(--on-accent);
   font-weight: 600;
@@ -2254,9 +2503,9 @@ kbd {
   min-width: 12.5rem;
   display: flex;
   flex-direction: column;
-  padding: 0.35rem;
+  padding: 0.4rem;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--modal-bg);
   box-shadow: var(--glass-shadow);
 }
@@ -2268,8 +2517,8 @@ kbd {
   color: var(--ink);
   font-weight: 500;
   text-align: left;
-  padding: 0.5rem 0.7rem;
-  border-radius: 8px;
+  padding: 0.5rem 0.8rem;
+  border-radius: var(--radius-md);
   cursor: pointer;
 }
 .menu-item:hover, .menu-item:focus-visible { background: var(--accent-soft); }
@@ -2283,14 +2532,14 @@ html { font-size: 16px; }
 /* Inputs at 16px on touch screens so iOS doesn't zoom the page. */
 @media (max-width: 720px) {
   textarea, input, select { font-size: 16px; }
-  header#top-bar { padding: 0.5rem 0.75rem; gap: 0.6rem; flex-wrap: wrap; }
+  header#top-bar { padding: 0.5rem 0.8rem; gap: 0.6rem; flex-wrap: wrap; }
   #tab-bar { order: 3; width: 100%; overflow-x: auto; }
   /* Categories become a wrapping chip row instead of a tall list. */
-  #sidebar ul#category-list { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+  #sidebar ul#category-list { display: flex; flex-wrap: wrap; gap: 0.4rem; }
   #sidebar ul#category-list li {
     border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: 0.25rem 0.7rem;
+    border-radius: var(--radius-pill);
+    padding: 0.25rem 0.8rem;
     gap: 0.4rem;
   }
 }
@@ -2301,7 +2550,7 @@ html { font-size: 16px; }
   background: none;
   box-shadow: none;
   padding: 0.15rem 0.4rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   font: inherit;
   font-size: 0.8rem;
@@ -2318,7 +2567,7 @@ html { font-size: 16px; }
 .attachment-thumb {
   max-height: 110px;
   max-width: 180px;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   cursor: zoom-in;
   display: block;
@@ -2341,7 +2590,7 @@ html { font-size: 16px; }
      would otherwise be an unclickable speck rather than a preview. */
   min-height: 44px;
   object-fit: contain;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: #fff; /* a transparent PNG stays legible on a dark theme */
   cursor: zoom-in;
@@ -2372,15 +2621,15 @@ html { font-size: 16px; }
 .lightbox img {
   max-width: 92vw;
   max-height: 92vh;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
 }
 
 #batch-bar {
-  margin: 0 0 0.75rem;
-  padding: 0.5rem 0.7rem;
+  margin: 0 0 0.8rem;
+  padding: 0.5rem 0.8rem;
   border: 1px solid var(--accent);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--accent-soft);
   flex-wrap: wrap;
 }
@@ -2414,9 +2663,9 @@ html { font-size: 16px; }
 @media (max-width: 640px) { .improve-cols { grid-template-columns: 1fr; } }
 .improve-box {
   min-height: 6rem;
-  padding: 0.6rem 0.7rem;
+  padding: 0.6rem 0.8rem;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   background: var(--input-bg);
   white-space: pre-wrap;
   font-size: 0.92rem;
@@ -2431,8 +2680,8 @@ html { font-size: 16px; }
   padding: 0.5rem 0.6rem;
   margin-bottom: 0.4rem;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  font-size: 0.9rem;
+  border-radius: var(--radius-lg);
+  font-size: 0.92rem;
 }
 .link-suggestion span:first-child { flex: 1; min-width: 12rem; }
 #link-suggestions { margin: 0.5rem 0; }
@@ -2476,8 +2725,8 @@ html { font-size: 16px; }
 .seg {
   display: inline-flex;
   gap: 0.15rem;
-  padding: 0.2rem;
-  border-radius: 10px;
+  padding: 0.25rem;
+  border-radius: var(--radius-lg);
   background: var(--chip-bg);
   margin-bottom: 0.5rem;
   flex-wrap: wrap;
@@ -2488,8 +2737,8 @@ html { font-size: 16px; }
   box-shadow: none;
   color: var(--muted);
   font-weight: 500;
-  padding: 0.3rem 0.8rem;
-  border-radius: 8px;
+  padding: 0.25rem 0.8rem;
+  border-radius: var(--radius-md);
 }
 .seg button.active { background: var(--accent); color: #fff; }
 
@@ -2498,9 +2747,6 @@ html { font-size: 16px; }
 :root[data-fontsize="large"] { font-size: 18px; }
 
 /* Compact density trims padding on cards and list rows. */
-:root[data-density="compact"] .card { padding: 0.6rem 0.8rem; margin-bottom: 0.6rem; }
-:root[data-density="compact"] .entry-list li { padding: 0.5rem 0.7rem; }
-:root[data-density="compact"] .layout { gap: 0.6rem; padding-top: 0.5rem; }
 
 /* Glass off → flat solid surfaces (cheaper to render). */
 :root[data-glass="off"] .card,
@@ -2520,7 +2766,7 @@ html { font-size: 16px; }
 #task-list li { padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
 #task-list .entry-meta { align-items: center; gap: 0.6rem; }
 #task-list .entry-meta > strong { flex: 1 1 12rem; min-width: 0; overflow-wrap: anywhere; }
-.task-detail { margin: 0.15rem 0 0; font-size: 0.82rem; }
+.task-detail { margin: 0.15rem 0 0; font-size: 0.8rem; }
 /* Full width, on its own line: inline after the label it ran off the right
    edge of the card as soon as the job name got long. */
 .task-progress {
@@ -2533,14 +2779,14 @@ html { font-size: 16px; }
 #tool-list li { padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
 .tool-row { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: 500; }
 .tool-row input { width: 1.15rem; height: 1.15rem; margin: 0; accent-color: var(--accent); }
-.tool-desc { display: block; margin: 0.2rem 0 0 1.65rem; font-size: 0.82rem; }
+.tool-desc { display: block; margin: 0.25rem 0 0 1.65rem; font-size: 0.8rem; }
 
 /* The tool allowlist inside the skill editor. Twenty-odd names, so it wraps
    into columns rather than becoming a page-length list. */
 .tool-picker {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(11rem, 100%), 1fr));
-  gap: 0.15rem 0.75rem;
+  gap: 0.15rem 0.8rem;
   margin-top: 0.4rem;
 }
 .check-row {
@@ -2557,13 +2803,13 @@ html { font-size: 16px; }
 
 /* A labelled box in a dialog — used by the "what does this skill need?" form. */
 .field { display: block; margin: 0.5rem 0; }
-.field > span { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.2rem; }
+.field > span { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.25rem; }
 .field > input { width: 100%; }
 
 /* Per-message metadata: model · time · tokens · speed */
 .msg-meta {
-  margin-top: 0.35rem;
-  font-size: 0.72rem;
+  margin-top: 0.4rem;
+  font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
   opacity: 0.75;
 }
@@ -2581,7 +2827,7 @@ html { font-size: 16px; }
 .web-panel {
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 0.75rem 0.9rem;
+  padding: 0.8rem 1rem;
   margin-bottom: 0.8rem;
   background: var(--inner);
   /* Long URLs and unbroken strings must never widen the page. */
@@ -2599,7 +2845,7 @@ html { font-size: 16px; }
   min-width: 0;
 }
 .web-result {
-  padding: 0.55rem 0;
+  padding: 0.6rem 0;
   border-top: 1px solid var(--border);
   min-width: 0;
   overflow-wrap: anywhere; /* wrap long URLs instead of stretching */
@@ -2616,16 +2862,16 @@ html { font-size: 16px; }
   box-shadow: none;
   color: var(--accent);
   font-weight: 650;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   cursor: pointer;
 }
 .web-result-title:hover { text-decoration: underline; }
-.web-result-meta { font-size: 0.78rem; }
-.web-result-snippet { font-size: 0.85rem; margin: 0.2rem 0 0.35rem; line-height: 1.4; }
+.web-result-meta { font-size: 0.8rem; }
+.web-result-snippet { font-size: 0.85rem; margin: 0.25rem 0 0.4rem; line-height: 1.4; }
 .web-open-link {
   display: inline-flex;
   align-items: center;
-  padding: 0.3rem 0.6rem;
+  padding: 0.25rem 0.6rem;
   border-radius: calc(var(--radius) * 0.5);
   border: 1px solid var(--border);
   font-size: 0.8rem;
@@ -2644,25 +2890,25 @@ html { font-size: 16px; }
   min-width: 0;
   font-size: 0.92rem;
   line-height: 1.65;
-  padding: 0.9rem 1.1rem;
+  padding: 1rem 1rem;
   border: 1px solid var(--border);
   border-radius: calc(var(--radius) * 0.6);
   background: var(--card);
   overflow-wrap: anywhere;
 }
 .web-reader-text > * { max-width: 42rem; }
-.web-reader-text p { margin: 0 0 0.85rem; }
+.web-reader-text p { margin: 0 0 0.8rem; }
 .web-reader-text h4 {
-  margin: 1.2rem 0 0.5rem;
+  margin: 1.25rem 0 0.5rem;
   font-size: 1rem;
   font-weight: 700;
   line-height: 1.35;
 }
 .web-reader-text h4:first-child { margin-top: 0; }
-.web-reader-text ul { margin: 0 0 0.85rem; padding-left: 1.2rem; }
-.web-reader-text li { margin-bottom: 0.3rem; }
+.web-reader-text ul { margin: 0 0 0.8rem; padding-left: 1.25rem; }
+.web-reader-text li { margin-bottom: 0.25rem; }
 .web-reader-text blockquote {
-  margin: 0 0 0.85rem;
+  margin: 0 0 0.8rem;
   padding-left: 0.8rem;
   border-left: 3px solid var(--accent-soft);
   color: var(--muted);
@@ -2670,7 +2916,7 @@ html { font-size: 16px; }
 .web-reader-text pre {
   white-space: pre-wrap;
   background: var(--chip-bg);
-  padding: 0.6rem 0.7rem;
+  padding: 0.6rem 0.8rem;
   border-radius: calc(var(--radius) * 0.5);
   font-size: 0.85rem;
   overflow-x: auto;
@@ -2683,13 +2929,13 @@ html { font-size: 16px; }
   display: flex;
   flex-wrap: wrap;
   gap: 0.6rem;
-  margin: 0.9rem 2rem 0;
+  margin: 1rem 2rem 0;
 }
 .stat-tile {
   display: flex;
   align-items: baseline;
-  gap: 0.45rem;
-  padding: 0.55rem 0.95rem;
+  gap: 0.4rem;
+  padding: 0.6rem 1rem;
   background: var(--card);
   color: var(--ink);
   border: 1px solid var(--glass-border);
@@ -2700,70 +2946,70 @@ html { font-size: 16px; }
   font-weight: 500;
 }
 .stat-tile:hover { border-color: var(--accent); background: var(--accent-soft); }
-.stat-icon { font-size: 0.95rem; align-self: center; }
-.stat-value { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-.stat-label { font-size: 0.82rem; color: var(--muted); }
+.stat-icon { font-size: 0.92rem; align-self: center; }
+.stat-value { font-size: 1.3rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stat-label { font-size: 0.8rem; color: var(--muted); }
 .stat-tile.stat-alert { border-color: var(--warn); }
 .stat-tile.stat-alert .stat-value { color: var(--warn); }
 @media (max-width: 720px) {
-  .dash-stats { margin: 0.7rem 1rem 0; gap: 0.45rem; }
-  .stat-tile { padding: 0.45rem 0.7rem; }
-  .stat-value { font-size: 1.05rem; }
+  .dash-stats { margin: 0.8rem 1rem 0; gap: 0.4rem; }
+  .stat-tile { padding: 0.4rem 0.8rem; }
+  .stat-value { font-size: 1rem; }
 }
 
 /* --- dashboard quick links ------------------------------------------------- */
 .dash-quicklinks {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.55rem;
-  margin: 0.9rem 2rem 0.2rem;
+  gap: 0.6rem;
+  margin: 1rem 2rem 0.25rem;
 }
 .quick-link {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0.5rem 0.9rem;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
   background: var(--card);
   color: var(--ink);
   border: 1px solid var(--glass-border);
   border-radius: calc(var(--radius) * 0.7);
   box-shadow: none;
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   font-weight: 600;
   backdrop-filter: blur(var(--glass-blur));
 }
 .quick-link:hover { background: var(--accent-soft); border-color: var(--accent); }
-.quick-link-icon { font-size: 1.05rem; }
+.quick-link-icon { font-size: 1rem; }
 .quick-link-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
 .quick-link-primary:hover { background: var(--accent); filter: brightness(1.08); }
 @media (max-width: 720px) {
-  .dash-quicklinks { margin: 0.7rem 1rem 0.2rem; }
-  .quick-link { font-size: 0.85rem; padding: 0.45rem 0.7rem; }
+  .dash-quicklinks { margin: 0.8rem 1rem 0.25rem; }
+  .quick-link { font-size: 0.85rem; padding: 0.4rem 0.8rem; }
 }
 
 /* --- tools & features browser ---------------------------------------------- */
 #features-card { max-width: 46rem; width: 100%; }
-#features-card > input { margin-bottom: 0.35rem; }
+#features-card > input { margin-bottom: 0.4rem; }
 .features-list {
   max-height: 60vh;
   overflow-y: auto;
-  padding-right: 0.3rem;
+  padding-right: 0.25rem;
 }
 .features-group {
   margin: 1rem 0 0.4rem;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--muted);
 }
-.features-group:first-child { margin-top: 0.2rem; }
+.features-group:first-child { margin-top: 0.25rem; }
 .feature-row {
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
   width: 100%;
   text-align: left;
-  padding: 0.55rem 0.7rem;
+  padding: 0.6rem 0.8rem;
   margin-bottom: 0.25rem;
   background: none;
   border: 1px solid transparent;
@@ -2776,8 +3022,8 @@ html { font-size: 16px; }
   background: var(--accent-soft);
   border-color: var(--accent);
 }
-.feature-name { font-weight: 650; font-size: 0.93rem; }
-.feature-desc { font-size: 0.83rem; line-height: 1.4; }
+.feature-name { font-weight: 650; font-size: 0.92rem; }
+.feature-desc { font-size: 0.85rem; line-height: 1.4; }
 
 /* --- activity heatmap + tag cloud widgets ---------------------------------- */
 .heatmap {
@@ -2787,9 +3033,9 @@ html { font-size: 16px; }
   grid-auto-columns: 10px;
   gap: 3px;
   overflow-x: auto;
-  padding-bottom: 0.3rem;
+  padding-bottom: 0.25rem;
 }
-.heat-cell { width: 10px; height: 10px; border-radius: 2px; background: var(--chip-bg); }
+.heat-cell { width: 10px; height: 10px; border-radius: var(--radius-sm); background: var(--chip-bg); }
 .heat-blank { background: none; }
 .heat-0 { background: var(--chip-bg); }
 .heat-1 { background: var(--accent); opacity: 0.30; }
@@ -2803,17 +3049,17 @@ html { font-size: 16px; }
   font-size: 0.75rem;
   margin-top: 0.4rem;
 }
-.heat-legend span:first-child { margin-right: 0.2rem; }
-.heat-legend span:last-child { margin-left: 0.2rem; }
+.heat-legend span:first-child { margin-right: 0.25rem; }
+.heat-legend span:last-child { margin-left: 0.25rem; }
 /* Category breakdown bars */
-.cat-bars { display: flex; flex-direction: column; gap: 0.3rem; }
+.cat-bars { display: flex; flex-direction: column; gap: 0.25rem; }
 .cat-row {
   display: grid;
   grid-template-columns: minmax(4rem, 7rem) 1fr auto;
   align-items: center;
   gap: 0.5rem;
   width: 100%;
-  padding: 0.25rem 0.3rem;
+  padding: 0.25rem 0.25rem;
   background: none;
   border: none;
   box-shadow: none;
@@ -2828,11 +3074,11 @@ html { font-size: 16px; }
 .cat-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cat-track {
   height: 0.5rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--chip-bg);
   overflow: hidden;
 }
-.cat-fill { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+.cat-fill { display: block; height: 100%; background: var(--accent); border-radius: var(--radius-pill); }
 .cat-count { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 0.8rem; }
 
 /* Rediscover widget */
@@ -2846,7 +3092,7 @@ html { font-size: 16px; }
 .tag-cloud {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
+  gap: 0.4rem;
   align-items: center;
   line-height: 1.6;
 }
@@ -2860,7 +3106,7 @@ html { font-size: 16px; }
   .entry-list li .entry-actions { opacity: 1; } /* touch has no hover */
 }
 #entry-list li {
-  padding: 0.75rem 0.9rem;
+  padding: 0.8rem 1rem;
   transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
 #entry-list li:hover {
@@ -2868,18 +3114,20 @@ html { font-size: 16px; }
   box-shadow: 0 2px 10px rgba(31, 38, 135, 0.07);
 }
 /* The note itself should read first; its metadata second. */
-#entry-list .entry-content { font-size: 0.97rem; line-height: 1.55; }
-#entry-list .entry-meta { margin-top: 0.45rem; gap: 0.4rem; align-items: center; }
-#entry-list .entry-date { font-size: 0.76rem; }
+#entry-list .entry-content { font-size: 1rem; line-height: 1.55; }
+#entry-list .entry-meta { margin-top: 0.4rem; gap: 0.4rem; align-items: center; }
+#entry-list .entry-date { font-size: 0.75rem; }
 /* A quieter "check this" flag — informative, not alarming. */
 .chip.review { font-weight: 500; }
 #sidebar { align-self: flex-start; }
-#sidebar h2 { font-size: 0.95rem; }
+/* Was 0.92rem — the same size as the h3s under it, so the sidebar had a
+   heading level that looked like its own children (§35L). */
+#sidebar h2 { font-size: var(--text-lg); }
 #sidebar #most-used li { font-size: 0.85rem; line-height: 1.35; }
 
 /* --- reminders page polish -------------------------------------------------- */
-.reminders-card { margin: 0.75rem 2rem; }
-#reminder-compose { margin-bottom: 0.75rem; }
+.reminders-card { margin: 0 0 var(--space-6); }
+#reminder-compose { margin-bottom: 0.8rem; }
 @media (max-width: 720px) { .reminders-card { margin: 0.5rem 1rem; } }
 /* The add form as a grid, so the fields line up instead of drifting. */
 .reminder-form {
@@ -2902,7 +3150,7 @@ html { font-size: 16px; }
   min-height: 2.75rem;
   margin-bottom: 0;
   padding-block: 0;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   box-sizing: border-box;
 }
 .reminder-form input[type="date"],
@@ -2915,7 +3163,7 @@ html { font-size: 16px; }
   background: var(--input-bg);
   color: var(--ink);
   font: inherit;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
 }
 @media (max-width: 860px) {
   .reminder-form { grid-template-columns: 1fr 1fr; }
@@ -2923,7 +3171,7 @@ html { font-size: 16px; }
   .reminder-form #reminder-date { grid-column: 1 / -1; }
 }
 #reminder-presets { align-items: center; flex-wrap: wrap; }
-.reminder-hint { margin-left: auto; font-size: 0.82rem; }
+.reminder-hint { margin-left: auto; font-size: 0.8rem; }
 /* The plain-English echo of the chosen time, plus the nudge buttons. */
 #reminder-due-row { align-items: center; flex-wrap: wrap; gap: 0.4rem; }
 #reminder-due-readout {
@@ -2935,10 +3183,10 @@ html { font-size: 16px; }
 .reminder-listbar {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.8rem;
   flex-wrap: wrap;
   margin-bottom: 0.6rem;
-  padding-bottom: 0.55rem;
+  padding-bottom: 0.6rem;
   border-bottom: 1px solid var(--border);
 }
 .reminder-listbar h2 { margin: 0; margin-right: auto; }
@@ -2946,19 +3194,19 @@ html { font-size: 16px; }
 .reminder-group-head {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  margin: 0.9rem 0 0.4rem;
-  font-size: 0.78rem;
+  gap: 0.4rem;
+  margin: 1rem 0 0.4rem;
+  font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--muted);
 }
-.reminder-group-head:first-child { margin-top: 0.2rem; }
+.reminder-group-head:first-child { margin-top: 0.25rem; }
 .reminder-group-head .group-count {
-  padding: 0.05rem 0.45rem;
-  border-radius: 999px;
+  padding: 0.05rem 0.4rem;
+  border-radius: var(--radius-pill);
   background: var(--chip-bg);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   letter-spacing: 0;
 }
 .reminder-group-head.group-overdue { color: var(--warn); }
@@ -2971,7 +3219,7 @@ html { font-size: 16px; }
   padding: 0.6rem 0.8rem;
   border-left-width: 3px;
 }
-#reminder-groups .entry-meta { gap: 0.55rem; align-items: center; }
+#reminder-groups .entry-meta { gap: 0.6rem; align-items: center; }
 .reminder-text { flex: 1; min-width: 0; }
 #tab-reminders .entry-actions { opacity: 0; transition: opacity 0.12s ease; }
 #tab-reminders li:hover .entry-actions,
@@ -2983,8 +3231,8 @@ html { font-size: 16px; }
   display: inline-block;
   min-width: 1.15rem;
   margin-left: 0.4rem;
-  padding: 0 0.3rem;
-  border-radius: 999px;
+  padding: 0 0.25rem;
+  border-radius: var(--radius-pill);
   background: var(--error);
   color: #fff;
   font-size: 0.7rem;
@@ -3032,8 +3280,8 @@ html { font-size: 16px; }
 /* --- chat polish ------------------------------------------------------------ */
 #chat-messages {
   max-height: none; /* the flex layout owns the height now */
-  gap: 0.85rem;
-  padding: 0.6rem 0.4rem 0.2rem;
+  gap: 0.8rem;
+  padding: 0.6rem 0.4rem 0.25rem;
   scroll-behavior: smooth;
 }
 .msg {
@@ -3041,10 +3289,10 @@ html { font-size: 16px; }
   line-height: 1.55;
 }
 .msg.user {
-  border-radius: var(--radius) var(--radius) 5px var(--radius);
+  border-radius: var(--radius) var(--radius) var(--radius-sm) var(--radius);
 }
 .msg.assistant {
-  border-radius: var(--radius) var(--radius) var(--radius) 5px;
+  border-radius: var(--radius) var(--radius) var(--radius) var(--radius-sm);
   background: var(--card);
 }
 /* Give the two voices real visual identity rather than two grey boxes. */
@@ -3066,29 +3314,29 @@ html { font-size: 16px; }
   to { opacity: 1; transform: none; }
 }
 .msg { animation: msg-in 0.18s ease-out; }
-.msg.assistant .bubble-answer { font-size: 0.95rem; }
+.msg.assistant .bubble-answer { font-size: 0.92rem; }
 .msg.assistant .bubble-answer h3,
 .msg.assistant .bubble-answer h4,
-.msg.assistant .bubble-answer h5 { margin: 0.8rem 0 0.35rem; font-size: 0.95rem; }
+.msg.assistant .bubble-answer h5 { margin: 0.8rem 0 0.4rem; font-size: 0.92rem; }
 .msg.assistant .bubble-answer ul,
-.msg.assistant .bubble-answer ol { margin: 0 0 0.6rem; padding-left: 1.2rem; }
+.msg.assistant .bubble-answer ol { margin: 0 0 0.6rem; padding-left: 1.25rem; }
 .msg.assistant .bubble-answer code {
   background: var(--chip-bg);
-  padding: 0.05rem 0.3rem;
-  border-radius: 5px;
+  padding: 0.05rem 0.25rem;
+  border-radius: var(--radius-sm);
   font-size: 0.86em;
 }
 /* Tool activity reads as a distinct strip of "things it did". */
-.tool-activity:not(:empty) { margin: 0.35rem 0 0.5rem; display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.tool-activity:not(:empty) { margin: 0.4rem 0 0.5rem; display: flex; flex-wrap: wrap; gap: 0.25rem; }
 /* The composer reads as one control rather than three loose boxes. */
 .chat-composer {
-  gap: 0.45rem;
+  gap: 0.4rem;
   padding-top: 0.6rem;
   border-top: 1px solid var(--border);
 }
 .chat-composer #chat-input {
   margin: 0;
-  padding: 0.7rem 0.9rem;
+  padding: 0.8rem 1rem;
   border-radius: calc(var(--radius) * 0.8);
   /* `.row input, .row select { flex: 1 }` does not match a textarea, and the
      box collapsed to its intrinsic width the moment it stopped being an
@@ -3097,11 +3345,11 @@ html { font-size: 16px; }
   flex: 1 1 auto;
   min-width: 0;
 }
-.chat-composer button { padding: 0.6rem 1.1rem; }
+.chat-composer button { padding: 0.6rem 1rem; }
 /* Conversation list: a clear active row with an accent spine. */
 #chat-sidebar h2 { margin-bottom: 0.5rem; }
 #conversation-list li {
-  padding: 0.45rem 0.55rem;
+  padding: 0.4rem 0.6rem;
   margin-bottom: 0.15rem;
   border-left: 3px solid transparent;
   transition: background 0.12s ease, border-color 0.12s ease;
@@ -3114,7 +3362,7 @@ html { font-size: 16px; }
 #conversation-list li:hover .entry-actions,
 #conversation-list li:focus-within .entry-actions { opacity: 1; }
 .chat-toolbar {
-  padding-bottom: 0.55rem;
+  padding-bottom: 0.6rem;
   border-bottom: 1px solid var(--border);
 }
 .chat-empty { padding: 1.5rem 1rem; }
@@ -3146,18 +3394,18 @@ html { font-size: 16px; }
 }
 .graph-zoom .graph-zoom-btn + .graph-zoom-btn { border-top: 1px solid var(--border); }
 /* Legend entries read as toggle pills. */
-#graph-legend { gap: 0.35rem; margin-bottom: 0.45rem; }
+#graph-legend { gap: 0.4rem; margin-bottom: 0.4rem; }
 .legend-item {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.2rem 0.6rem;
-  font-size: 0.78rem;
+  gap: 0.4rem;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: var(--ink);
   background: var(--chip-bg);
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   box-shadow: none;
 }
 .legend-item:hover { border-color: var(--accent); }
@@ -3179,7 +3427,7 @@ html { font-size: 16px; }
   flex-wrap: wrap;
   margin-bottom: 0.5rem;
 }
-.graph-toolbar h2 { margin: 0; margin-right: 0.2rem; }
+.graph-toolbar h2 { margin: 0; margin-right: 0.25rem; }
 .graph-toolbar #graph-search { width: 11rem; margin: 0; }
 .graph-toolbar .tools-toggle { white-space: nowrap; margin: 0; }
 .graph-toolbar button { white-space: nowrap; }
@@ -3188,7 +3436,7 @@ html { font-size: 16px; }
 .graph-toolbar #link-suggest-btn { margin-left: auto; }
 .graph-help { margin-bottom: 0.5rem; }
 .graph-help summary { cursor: pointer; font-size: 0.85rem; }
-.graph-help p { margin: 0.4rem 0 0; font-size: 0.86rem; line-height: 1.5; }
+.graph-help p { margin: 0.4rem 0 0; font-size: 0.85rem; line-height: 1.5; }
 
 /* :not(.hidden) so these never override the hide rule — an ID selector would
    otherwise beat .hidden and leave every tab visible at once. */
@@ -3204,11 +3452,11 @@ html { font-size: 16px; }
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  margin: 0.75rem 2rem 1rem;
+  margin: 0 0 var(--space-6);
 }
 #graph-card #graph-box { flex: 1; min-height: 22rem; }
 @media (max-width: 720px) {
-  #graph-card { margin: 0.5rem 1rem 0.75rem; }
+  #graph-card { margin: 0.5rem 1rem 0.8rem; }
   .graph-toolbar #graph-search { width: 100%; }
   .graph-toolbar #graph-add-node { margin-left: 0; }
 }
@@ -3284,8 +3532,15 @@ html { font-size: 16px; }
 #chat-sidebar {
   align-self: start;
   position: sticky;
-  top: calc(var(--header-h) + 0.75rem);
-  height: calc(100vh - var(--header-h) - 2rem);
+  /* Was calc(var(--header-h) + 0.75rem), from when the window scrolled and the
+     header floated over it. The scroll container is the page now (§36A), and
+     the header sits outside it — so there is nothing to clear, and offsetting
+     by the header height would push the sidebar down by that much again. */
+  top: 0;
+  /* A definite height, not 100%: this is a grid item with `align-self: start`,
+     so 100% would resolve against a row sized by its own content and the list
+     inside would never scroll. */
+  height: calc(var(--page-viewport) - var(--page-top) - var(--space-4));
 }
 
 /* --- graph: depth, halos and legible labels -------------------------------- */
@@ -3300,7 +3555,7 @@ html { font-size: 16px; }
 .graph-node:hover circle.graph-halo,
 .graph-node.graph-focus circle.graph-halo { opacity: 0.34; }
 .graph-node text.graph-pin-badge {
-  font-size: 0.6rem;
+  font-size: 0.7rem;
   stroke: none;
   pointer-events: none;
 }
@@ -3312,27 +3567,27 @@ html { font-size: 16px; }
 .graph-popup-info {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.3rem;
+  gap: 0.25rem;
   margin: 0.15rem 0 0.5rem;
 }
 .graph-popup-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.3rem;
+  gap: 0.25rem;
   margin-top: 0.5rem;
   padding-top: 0.5rem;
   border-top: 1px solid var(--border);
 }
-.graph-popup-actions button { font-size: 0.78rem; padding: 0.25rem 0.5rem; }
+.graph-popup-actions button { font-size: 0.8rem; padding: 0.25rem 0.5rem; }
 .graph-physics { display: inline-flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
 .graph-physics input[type="range"] { width: 6.5rem; margin: 0; }
-.graph-physics label { font-size: 0.82rem; }
+.graph-physics label { font-size: 0.8rem; }
 .graph-popup {
   position: absolute;
   z-index: 40;
   width: 22rem;
   max-width: calc(100% - 1rem);
-  padding: 0.7rem 0.85rem;
+  padding: 0.8rem 0.8rem;
   background: var(--modal-bg);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
@@ -3348,10 +3603,10 @@ html { font-size: 16px; }
 
 /* --- markdown tables ------------------------------------------------------- */
 .md-table-wrap { overflow-x: auto; margin: 0.5rem 0; }
-.md-table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+.md-table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
 .md-table th, .md-table td {
   border: 1px solid var(--border);
-  padding: 0.35rem 0.6rem;
+  padding: 0.4rem 0.6rem;
   text-align: left;
   vertical-align: top;
 }
@@ -3372,19 +3627,15 @@ input[type="number"],
 input[type="datetime-local"],
 select,
 button { border-radius: calc(var(--radius) * 0.7); }
-.chip, .seg, .seg button { border-radius: calc(var(--radius) * 0.5 + 6px); }
+.chip, .seg, .seg button { border-radius: calc(var(--radius) * 0.5 + var(--radius-md)); }
 
 /* --- spacious density (third option alongside comfortable/compact) --------- */
-:root[data-density="spacious"] .card { padding: 1.4rem 1.7rem; margin-bottom: 1.4rem; }
-:root[data-density="spacious"] .layout { gap: 1.4rem; padding-top: 1.3rem; }
-:root[data-density="spacious"] #dash-grid { gap: 1.4rem; }
-:root[data-density="spacious"] .entry-list li { padding: 0.85rem 1rem; }
 
 /* --- appearance settings: grouped, scannable rows -------------------------- */
 .settings-group {
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 0.9rem 1.1rem 1rem;
+  padding: 1rem 1rem 1rem;
   margin-bottom: 1rem;
 }
 .settings-group > h3:first-child { margin-top: 0; }
@@ -3393,7 +3644,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.55rem 0;
+  padding: 0.6rem 0;
   border-top: 1px solid var(--border);
   flex-wrap: wrap;
 }
@@ -3416,7 +3667,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
   cursor: pointer;
 }
 .slider-value {
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
   min-width: 2.8rem;
@@ -3464,24 +3715,24 @@ button { border-radius: calc(var(--radius) * 0.7); }
 /* --- help guide accordion ------------------------------------------------------ */
 .help-accordion details {
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   margin-bottom: 0.5rem;
-  padding: 0.5rem 0.75rem;
+  padding: 0.5rem 0.8rem;
 }
 .help-accordion summary { cursor: pointer; font-weight: 600; }
 .help-accordion details[open] summary { margin-bottom: 0.4rem; }
-.help-accordion p { margin: 0 0 0.5rem; font-size: 0.9rem; }
+.help-accordion p { margin: 0 0 0.5rem; font-size: 0.92rem; }
 .searxng-host {
   border: 1px solid var(--border);
   border-radius: calc(var(--radius) * 0.7);
-  padding: 0.7rem 0.85rem;
+  padding: 0.8rem 0.8rem;
   margin-bottom: 0.6rem;
 }
 .searxng-host .row { margin: 0.4rem 0 0; align-items: center; }
-.searxng-host p { margin: 0.35rem 0 0; font-size: 0.86rem; }
+.searxng-host p { margin: 0.4rem 0 0; font-size: 0.85rem; }
 .setup-snippet {
   background: var(--chip-bg);
-  padding: 0.6rem 0.7rem;
+  padding: 0.6rem 0.8rem;
   border-radius: calc(var(--radius) * 0.5);
   font-size: 0.8rem;
   overflow-x: auto;
@@ -3499,7 +3750,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
 .provider-picker {
   display: grid;
   gap: 0.4rem;
-  margin: 0.5rem 0 0.3rem;
+  margin: 0.5rem 0 0.25rem;
 }
 .provider-option {
   display: grid;
@@ -3508,7 +3759,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
   align-items: start;
   border: 1px solid var(--border);
   border-radius: calc(var(--radius) * 0.6);
-  padding: 0.55rem 0.7rem;
+  padding: 0.6rem 0.8rem;
   cursor: pointer;
 }
 .provider-option:hover { border-color: var(--accent); }
@@ -3516,8 +3767,8 @@ button { border-radius: calc(var(--radius) * 0.7); }
   border-color: var(--accent);
   background: var(--chip-bg);
 }
-.provider-option input { margin-top: 0.2rem; }
-.provider-option .muted { font-size: 0.84rem; }
+.provider-option input { margin-top: 0.25rem; }
+.provider-option .muted { font-size: 0.85rem; }
 
 /* A button that reads as a link — used for "that setting lives over there"
    cross-links, which must be buttons for the keyboard but must not look like
@@ -3547,7 +3798,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
   border: 1px solid var(--glass-border);
   background: var(--card);
   color: var(--ink);
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   line-height: 1;
   box-shadow: var(--glass-shadow);
   backdrop-filter: blur(var(--glass-blur)) saturate(150%);
@@ -3615,7 +3866,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
 #category-list li:hover .category-actions,
 #category-list li:focus-within .category-actions { pointer-events: auto; }
 .category-actions button {
-  padding: 0 0.3rem;
+  padding: 0 0.25rem;
   font-size: 0.75rem;
   line-height: 1.4;
 }
@@ -3645,7 +3896,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  padding: 0.7rem;
+  padding: 0.8rem;
   border-radius: var(--radius);
   border: 1px solid var(--glass-border);
   background: var(--modal-bg);
@@ -3662,13 +3913,13 @@ button { border-radius: calc(var(--radius) * 0.7); }
   flex: 1 1 auto;
   min-height: 4rem;
 }
-.note-picker-list li { border-radius: 6px; }
+.note-picker-list li { border-radius: var(--radius-md); }
 .note-picker-list li:hover { background: var(--accent-soft); }
 .note-picker-list label {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.35rem 0.4rem;
+  padding: 0.4rem 0.4rem;
   cursor: pointer;
   font-size: 0.85rem;
 }
@@ -3680,11 +3931,11 @@ button { border-radius: calc(var(--radius) * 0.7); }
 .chat-attachments {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
+  gap: 0.4rem;
   margin: 0 0 0.4rem;
 }
 .chat-attachments.hidden { display: none; }
-.attachment-chip { display: inline-flex; align-items: center; gap: 0.35rem; max-width: 22rem; }
+.attachment-chip { display: inline-flex; align-items: center; gap: 0.4rem; max-width: 22rem; }
 .attachment-chip > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .attachment-remove {
   border: 0;
@@ -3695,7 +3946,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
   font-weight: 700;
   line-height: 1;
 }
-.attachment-remove:hover { color: var(--danger, #e2534b); }
+.attachment-remove:hover { color: var(--error); }
 
 /* --- the writing room -------------------------------------------------------- */
 /* Thoughts on the left, the draft on the right, so you can see the raw material
@@ -3710,8 +3961,8 @@ button { border-radius: calc(var(--radius) * 0.7); }
 .draft-column textarea { resize: vertical; }
 .draft-controls { gap: 0.4rem; flex-wrap: wrap; }
 .draft-controls input { flex: 1 1 10rem; min-width: 0; }
-#draft-text { font-family: var(--mono, ui-monospace, monospace); font-size: 0.9rem; line-height: 1.5; }
-#draft-count { font-size: 0.78rem; }
+#draft-text { font-family: var(--mono, ui-monospace, monospace); font-size: 0.92rem; line-height: 1.5; }
+#draft-count { font-size: 0.8rem; }
 
 /* One column on narrow screens — side-by-side textareas become unusable
    well before the phone breakpoint. */
@@ -3723,16 +3974,19 @@ button { border-radius: calc(var(--radius) * 0.7); }
 .doc-layout {
   display: grid;
   grid-template-columns: minmax(14rem, 18rem) 1fr;
-  gap: 1rem;
+  gap: var(--space-6);
   align-items: start;
-  padding: 0 2rem 1.5rem;
+  padding: 0;
 }
 .doc-sidebar {
   position: sticky;
-  /* Was `1rem`, which parked it underneath the sticky header. */
-  top: calc(var(--header-h) + 0.75rem);
+  /* Was calc(var(--header-h) + 0.75rem), from when the window scrolled and the
+     header floated over it. The scroll container is the page now (§36A), and
+     the header sits outside it — so there is nothing to clear, and offsetting
+     by the header height would push the sidebar down by that much again. */
+  top: 0;
   align-self: start;
-  max-height: calc(100vh - var(--header-h) - 2rem);
+  max-height: calc(var(--page-viewport) - var(--page-top) - var(--space-4));
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -3743,7 +3997,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.25rem;
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
@@ -3755,16 +4009,16 @@ button { border-radius: calc(var(--radius) * 0.7); }
   gap: 0.1rem;
   width: 100%;
   text-align: left;
-  padding: 0.45rem 0.55rem;
+  padding: 0.4rem 0.6rem;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: none;
   color: inherit;
   cursor: pointer;
 }
 .doc-item-button:hover { background: var(--accent-soft); }
 .doc-item.active .doc-item-button { background: var(--accent-soft); border-color: var(--accent); }
-.doc-item-title { font-weight: 600; font-size: 0.9rem; }
+.doc-item-title { font-weight: 600; font-size: 0.92rem; }
 .doc-item-meta { font-size: 0.75rem; }
 
 .doc-main { display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; }
@@ -3778,11 +4032,11 @@ button { border-radius: calc(var(--radius) * 0.7); }
   background: none;
 }
 .doc-title-input:focus { border-color: var(--glass-border); background: var(--card); }
-.doc-actions { gap: 0.3rem; flex-wrap: wrap; align-items: center; }
-.doc-actions .muted { font-size: 0.78rem; min-width: 4.5rem; text-align: right; }
+.doc-actions { gap: 0.25rem; flex-wrap: wrap; align-items: center; }
+.doc-actions .muted { font-size: 0.8rem; min-width: 4.5rem; text-align: right; }
 
 /* One pane by default; two side by side when the preview is on. */
-.doc-panes { display: grid; grid-template-columns: 1fr; gap: 0.75rem; min-height: 60vh; }
+.doc-panes { display: grid; grid-template-columns: 1fr; gap: 0.8rem; min-height: 60vh; }
 .doc-panes.split { grid-template-columns: 1fr 1fr; }
 #doc-content {
   min-height: 60vh;
@@ -3794,17 +4048,17 @@ button { border-radius: calc(var(--radius) * 0.7); }
 .doc-preview {
   overflow-y: auto;
   max-height: 75vh;
-  padding: 0.75rem 1rem;
+  padding: 0.8rem 1rem;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   background: var(--card);
 }
 .doc-preview.hidden { display: none; }
-.doc-hint { font-size: 0.78rem; }
+.doc-hint { font-size: 0.8rem; }
 .doc-hint kbd {
-  padding: 0.05rem 0.3rem;
+  padding: 0.05rem 0.25rem;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-size: 0.9em;
 }
 .doc-ai-card { width: min(46rem, 92vw); display: flex; flex-direction: column; gap: 0.5rem; }
@@ -3842,14 +4096,14 @@ button { border-radius: calc(var(--radius) * 0.7); }
 }
 
 /* --- editing a question in place --------------------------------------------- */
-.msg-edit { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.35rem; }
+.msg-edit { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.4rem; }
 .msg-edit textarea {
   width: 100%;
   resize: vertical;
   font: inherit;
   line-height: 1.5;
 }
-.msg-edit-hint { font-size: 0.76rem; margin: 0; }
+.msg-edit-hint { font-size: 0.75rem; margin: 0; }
 .msg-edit-actions { gap: 0.4rem; }
 .msg-body.hidden, .msg-actions.hidden { display: none; }
 
@@ -3868,7 +4122,7 @@ button.ai-unavailable {
    scroll past them. */
 .entry-content code {
   background: var(--chip-bg);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   padding: 0.05em 0.32em;
   font-size: 0.92em;
   /* Without this, one long backticked path widens the note, the list and the
@@ -3880,7 +4134,7 @@ button.ai-unavailable {
 .entry-content mark {
   background: var(--accent-soft);
   color: inherit;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   padding: 0 0.12em;
   font-weight: 600;
 }
@@ -3896,18 +4150,18 @@ button.ai-unavailable {
 }
 .search-help.hidden { display: none; }
 .search-help p { margin: 0 0 0.4rem; }
-.search-help-list { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.15rem; }
+.search-help-list { margin: 0; padding-left: 1rem; display: grid; gap: 0.15rem; }
 .search-help-list code {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   padding: 0 0.3em;
 }
 
 /* --- saved filters ----------------------------------------------------------- */
-.saved-searches { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0 0 0.6rem; }
+.saved-searches { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0 0 0.6rem; }
 .saved-searches.hidden { display: none; }
-.chip.saved-search { display: inline-flex; align-items: center; gap: 0.3rem; padding-right: 0.35rem; }
+.chip.saved-search { display: inline-flex; align-items: center; gap: 0.25rem; padding-right: 0.4rem; }
 .saved-search-apply,
 .saved-search-remove {
   border: 0;
@@ -3919,7 +4173,7 @@ button.ai-unavailable {
 }
 .saved-search-apply { font-weight: 600; }
 .saved-search-remove { font-weight: 700; opacity: 0.6; }
-.saved-search-remove:hover { opacity: 1; color: var(--danger, #e2534b); }
+.saved-search-remove:hover { opacity: 1; color: var(--error); }
 .saved-search-apply:focus-visible,
 .saved-search-remove:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
@@ -3944,7 +4198,7 @@ button.ai-unavailable {
   font: inherit;
   font-weight: 600;
   padding: 0 0.3em;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 2px;
@@ -3955,7 +4209,7 @@ button.ai-unavailable {
 /* --- [[ autocomplete ---------------------------------------------------------- */
 .wiki-suggest {
   list-style: none;
-  margin: 0.2rem 0 0;
+  margin: 0.25rem 0 0;
   padding: 0.25rem;
   max-height: 14rem;
   overflow-y: auto;
@@ -3966,9 +4220,9 @@ button.ai-unavailable {
 }
 .wiki-suggest.hidden { display: none; }
 .wiki-suggest li {
-  padding: 0.35rem 0.5rem;
-  border-radius: 6px;
-  font-size: 0.86rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
@@ -3980,7 +4234,7 @@ button.ai-unavailable {
 /* --- duplicate tidy-up -------------------------------------------------------- */
 .duplicate-group {
   margin: 0.6rem 0;
-  padding: 0.6rem 0.75rem;
+  padding: 0.6rem 0.8rem;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   background: var(--card);
@@ -3990,13 +4244,13 @@ button.ai-unavailable {
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
-  padding: 0.3rem 0;
+  padding: 0.25rem 0;
   font-size: 0.85rem;
   cursor: pointer;
 }
-.duplicate-note input { width: auto; margin: 0.2rem 0 0; flex: 0 0 auto; }
+.duplicate-note input { width: auto; margin: 0.25rem 0 0; flex: 0 0 auto; }
 .duplicate-group .row { margin-top: 0.5rem; align-items: center; gap: 0.6rem; }
-.duplicate-group .row label { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.82rem; }
+.duplicate-group .row label { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; }
 .duplicate-group .row label input { width: auto; margin: 0; }
 #duplicate-threshold { width: 8rem; }
 
@@ -4004,15 +4258,15 @@ button.ai-unavailable {
 #history-card { width: min(44rem, 92vw); }
 #history-list { display: flex; flex-direction: column; gap: 0.5rem; max-height: 60vh; overflow-y: auto; }
 .history-entry {
-  padding: 0.55rem 0.7rem;
+  padding: 0.6rem 0.8rem;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   background: var(--card);
 }
 /* The current text, so you can see what you'd be replacing. */
 .history-current { border-color: var(--accent); background: var(--accent-soft); }
-.history-entry > p:first-child { margin: 0 0 0.2rem; font-size: 0.76rem; }
-.history-entry > p:nth-child(2) { margin: 0 0 0.4rem; font-size: 0.88rem; white-space: pre-wrap; }
+.history-entry > p:first-child { margin: 0 0 0.25rem; font-size: 0.75rem; }
+.history-entry > p:nth-child(2) { margin: 0 0 0.4rem; font-size: 0.85rem; white-space: pre-wrap; }
 
 /* --- resizable sidebars ------------------------------------------------------- */
 /* The resize handle is absolutely positioned, so its sidebar has to be a
@@ -4024,7 +4278,7 @@ button.ai-unavailable {
 #chat-sidebar,
 #doc-sidebar {
   position: sticky;
-  top: calc(var(--header-h) + 0.75rem);
+  top: 0;
   align-self: start;
 }
 .sidebar-resize {
@@ -4048,7 +4302,7 @@ button.ai-unavailable {
     to right, transparent 40%, var(--border) 40%, var(--border) 60%, transparent 60%
   );
   opacity: 0.5;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   transition: background 0.12s ease, opacity 0.12s ease;
   touch-action: none;
 }
@@ -4068,7 +4322,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   overflow: hidden;
   cursor: pointer;
 }
-#conversation-list li { display: flex; align-items: flex-start; gap: 0.35rem; }
+#conversation-list li { display: flex; align-items: flex-start; gap: 0.4rem; }
 
 /* No dragging on a stacked single-column layout — there's no column to size. */
 @media (max-width: 720px) {
@@ -4081,9 +4335,9 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 /* The reduced-motion stand-in for the typing dots: a word, not a gesture. */
 .typing-label {
   display: inline-block;
-  padding: 0.2rem 0;
+  padding: 0.25rem 0;
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   font-style: italic;
 }
 
@@ -4092,22 +4346,22 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.2rem;
-  padding: 0.35rem 0.4rem;
+  gap: 0.25rem;
+  padding: 0.4rem 0.4rem;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   background: var(--card);
 }
 .doc-toolbar button {
   min-width: 2rem;
-  padding: 0.2rem 0.45rem;
-  font-size: 0.82rem;
+  padding: 0.25rem 0.4rem;
+  font-size: 0.8rem;
   background: none;
   border: 1px solid transparent;
   box-shadow: none;
   color: var(--ink);
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
 }
 .doc-toolbar button:hover { background: var(--accent-soft); border-color: var(--accent); }
 .doc-toolbar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -4136,9 +4390,9 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 .conv-search {
   margin: 0 0 0.5rem;
   padding: 0.4rem 0.6rem;
-  font-size: 0.88rem;
+  font-size: 0.85rem;
 }
-#conversation-list li { gap: 0.35rem; align-items: center; }
+#conversation-list li { gap: 0.4rem; align-items: center; }
 /* min-width: 0 is what lets a flex child actually shrink below its content.
    Without it the title column keeps its natural width and the text is cut
    off by the sidebar's edge instead of ellipsising inside it. */
@@ -4149,13 +4403,13 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   -webkit-box-orient: vertical;
   overflow: hidden;
   overflow-wrap: anywhere;
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   line-height: 1.3;
 }
 /* Date · turns · tokens, small enough to scan past and there when wanted.
    One line, ellipsised — it's context, never worth stealing a second row. */
 .conv-meta {
-  font-size: 0.74rem;
+  font-size: 0.75rem;
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
@@ -4169,7 +4423,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 .conv-divider {
   height: 1px;
   padding: 0;
-  margin: 0.45rem 0.2rem;
+  margin: 0.4rem 0.25rem;
   background: var(--border);
   border: 0;
   cursor: default;
@@ -4180,7 +4434,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 .chat-usage {
   font-size: 0.75rem;
   padding: 0.15rem 0.5rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--chip-bg);
   white-space: nowrap;
 }
@@ -4188,13 +4442,13 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 /* The persona's actual system prompt, on demand. */
 .persona-prompt {
   margin: 0 0 0.6rem;
-  padding: 0.6rem 0.75rem;
+  padding: 0.6rem 0.8rem;
   border-radius: calc(var(--radius) * 0.7);
   background: var(--chip-bg);
   border-left: 3px solid var(--accent);
   font-size: 0.85rem;
 }
-.persona-prompt p { margin: 0.3rem 0 0; white-space: pre-wrap; color: var(--muted); }
+.persona-prompt p { margin: 0.25rem 0 0; white-space: pre-wrap; color: var(--muted); }
 
 /* Code blocks: a header strip naming the language, with a copy button. */
 .code-block {
@@ -4209,11 +4463,11 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  padding: 0.25rem 0.4rem 0.25rem 0.7rem;
+  padding: 0.25rem 0.4rem 0.25rem 0.8rem;
   border-bottom: 1px solid var(--border);
 }
 .code-lang {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
@@ -4221,35 +4475,35 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 .code-copy { padding: 0.15rem 0.5rem; font-size: 0.75rem; }
 .code-block pre {
   margin: 0;
-  padding: 0.7rem 0.85rem;
+  padding: 0.8rem 0.8rem;
   overflow-x: auto;
   background: transparent;
 }
-.code-block pre code { background: none; padding: 0; font-size: 0.84rem; }
+.code-block pre code { background: none; padding: 0; font-size: 0.85rem; }
 
 /* Editing an answer in place. */
 .answer-editor { margin-top: 0.4rem; }
 .answer-editor textarea {
   width: 100%;
   font-family: inherit;
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   margin-bottom: 0.4rem;
 }
 /* Never let an edited answer pass as the model's own words. */
 .edited-marker {
   display: inline-block;
-  font-size: 0.72rem;
-  padding: 0.05rem 0.45rem;
-  border-radius: 999px;
+  font-size: 0.75rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: var(--radius-pill);
   background: var(--warn-soft);
   color: var(--warn);
-  margin-top: 0.35rem;
+  margin-top: 0.4rem;
 }
 
 /* --- documents: outline, live stats, and where the file actually is ---------- */
 
-.doc-outline-wrap { margin-top: 0.9rem; border-top: 1px solid var(--border); padding-top: 0.6rem; }
-.doc-outline-wrap h3 { margin: 0 0 0.35rem; }
+.doc-outline-wrap { margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 0.6rem; }
+.doc-outline-wrap h3 { margin: 0 0 0.4rem; }
 .doc-outline { list-style: none; margin: 0; padding: 0; }
 .outline-link {
   background: none;
@@ -4259,9 +4513,9 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   font: inherit;
   font-size: 0.85rem;
   text-align: left;
-  padding: 0.16rem 0.3rem;
+  padding: 0.15rem 0.25rem;
   width: 100%;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4270,19 +4524,19 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 .outline-link:hover { background: var(--accent-soft); color: var(--ink); }
 /* Indentation is the whole point of an outline — it shows the shape. */
 .outline-h2 .outline-link { padding-left: 1rem; }
-.outline-h3 .outline-link { padding-left: 1.7rem; font-size: 0.82rem; }
+.outline-h3 .outline-link { padding-left: 1.5rem; font-size: 0.8rem; }
 .outline-h4 .outline-link { padding-left: 2.4rem; font-size: 0.8rem; }
 
-.doc-stats { font-size: 0.78rem; white-space: nowrap; }
+.doc-stats { font-size: 0.8rem; white-space: nowrap; }
 
-.doc-storage { margin-top: 0.9rem; font-size: 0.85rem; }
+.doc-storage { margin-top: 1rem; font-size: 0.85rem; }
 .doc-storage summary { cursor: pointer; }
-.doc-storage p { margin: 0.45rem 0; font-size: 0.82rem; }
+.doc-storage p { margin: 0.4rem 0; font-size: 0.8rem; }
 .storage-path {
   display: block;
   padding: 0.4rem 0.5rem;
   background: var(--chip-bg);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   font-size: 0.75rem;
   overflow-wrap: anywhere;
 }
@@ -4576,7 +4830,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
   gap: 0.6rem;
-  margin: 0.4rem 0 0.9rem;
+  margin: 0.4rem 0 1rem;
 }
 .theme-card {
   display: flex;
@@ -4612,7 +4866,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   top: 30%;
   width: 52%;
   height: 42%;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: var(--sw-card);
   border: 1px solid var(--sw-border);
 }
@@ -4626,8 +4880,8 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   border-radius: 50%;
   background: var(--sw-accent);
 }
-.theme-name { font-size: 0.82rem; font-weight: 600; }
-.theme-note { font-size: 0.72rem; color: var(--muted); line-height: 1.25; }
+.theme-name { font-size: 0.8rem; font-weight: 600; }
+.theme-note { font-size: 0.75rem; color: var(--muted); line-height: 1.25; }
 @media (prefers-reduced-motion: reduce) {
   .theme-card, .theme-card:hover { transition: none; transform: none; }
 }
@@ -4644,7 +4898,9 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   text-align: center;
   padding: 2rem 1.5rem;
 }
-.dash-getting-started h2 { margin: 0.6rem 0 0.4rem; font-size: 1.2rem; }
+/* A panel-level heading, deliberately one step up from a card's h2 — it
+   titles the whole first-run panel rather than a card within it. */
+.dash-getting-started h2 { margin: var(--space-4) 0 var(--space-2); font-size: var(--text-h3); }
 .dash-getting-started > p.muted { max-width: 46rem; margin: 0 auto; }
 .start-steps {
   display: grid;
@@ -4653,7 +4909,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
      its card and took the page with it. */
   grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr));
   gap: 0.6rem;
-  margin: 1.4rem auto 0.8rem;
+  margin: 1.5rem auto 0.8rem;
   max-width: 58rem;
   text-align: left;
   min-width: 0;
@@ -4662,7 +4918,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   display: flex;
   align-items: flex-start;
   gap: 0.6rem;
-  padding: 0.75rem 0.85rem;
+  padding: 0.8rem 0.8rem;
   /* A grid item's automatic minimum is its content, so a long step label
      widened its track past the 1fr it was given — the same cause as the
      chat-bubble overflow, in a different grid. */
@@ -4679,8 +4935,8 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 .start-step:hover { border-color: var(--accent); transform: translateY(-2px); }
 .start-step-icon { font-size: 1.3rem; line-height: 1.2; }
 .start-step strong { display: block; font-size: 0.92rem; }
-.start-step .muted { font-size: 0.78rem; line-height: 1.3; }
-.start-footer { font-size: 0.82rem; max-width: 46rem; margin: 0.4rem auto 0; }
+.start-step .muted { font-size: 0.8rem; line-height: 1.3; }
+.start-footer { font-size: 0.8rem; max-width: 46rem; margin: 0.4rem auto 0; }
 @media (prefers-reduced-motion: reduce) {
   .start-step, .start-step:hover { transition: none; transform: none; }
 }
@@ -4689,26 +4945,26 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 /* A comfortable measure. Full-width lines are the single biggest thing that
    makes stripped text unpleasant to read — the eye loses the line return. */
 .web-reader-text { max-width: 68ch; line-height: 1.65; }
-.web-reader-text p { margin: 0 0 0.85rem; }
+.web-reader-text p { margin: 0 0 0.8rem; }
 /* The page's own heading depth, preserved rather than flattened. */
-.web-reader-text .reader-heading { margin: 1.2rem 0 0.4rem; line-height: 1.3; }
-.web-reader-text h3.reader-heading { font-size: 1.12rem; }
+.web-reader-text .reader-heading { margin: 1.25rem 0 0.4rem; line-height: 1.3; }
+.web-reader-text h3.reader-heading { font-size: 1.15rem; }
 .web-reader-text h4.reader-heading { font-size: 1rem; }
 .web-reader-text h5.reader-heading,
 .web-reader-text h6.reader-heading { font-size: 0.92rem; color: var(--muted); }
 .web-reader-text blockquote {
   margin: 0.8rem 0;
-  padding: 0.2rem 0 0.2rem 0.9rem;
+  padding: 0.25rem 0 0.25rem 1rem;
   border-left: 3px solid var(--accent);
   color: var(--muted);
 }
 .web-reader-text pre {
   background: var(--chip-bg);
-  padding: 0.7rem 0.85rem;
+  padding: 0.8rem 0.8rem;
   border-radius: calc(var(--radius) * 0.6);
   overflow-x: auto;
 }
-.web-reader-text ul { margin: 0 0 0.85rem; padding-left: 1.3rem; }
+.web-reader-text ul { margin: 0 0 0.8rem; padding-left: 1.25rem; }
 .web-reader-text li { margin-bottom: 0.25rem; }
 
 /* Keyboard focus on the map. The graph takes one tab stop and the arrows move
@@ -4740,7 +4996,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
    ============================================================================= */
 @media (max-width: 720px) {
   header#top-bar {
-    padding: 0.45rem 0.8rem;
+    padding: 0.4rem 0.8rem;
     gap: 0.6rem;
     /* On a phone the tab bar deliberately takes a row of its own (order: 3
        below), which needs the wrapping the desktop rule turns off. */
@@ -4757,14 +5013,14 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
     -webkit-overflow-scrolling: touch;
   }
   #tab-bar::-webkit-scrollbar { display: none; }
-  #tab-bar button { flex: 0 0 auto; padding: 0.35rem 0.75rem; }
-  .header-controls { margin-left: auto; gap: 0.35rem; }
+  #tab-bar button { flex: 0 0 auto; padding: 0.4rem 0.8rem; }
+  .header-controls { margin-left: auto; gap: 0.4rem; }
   /* Give content the screen back: 2rem of side padding is a tenth of a phone. */
-  .layout, .doc-layout { padding-left: 0.75rem; padding-right: 0.75rem; }
-  #dash-grid { padding-left: 0.75rem; padding-right: 0.75rem; }
+  .layout, .doc-layout { padding-left: 0.8rem; padding-right: 0.8rem; }
+  #dash-grid { padding-left: 0.8rem; padding-right: 0.8rem; }
   #dash-grid { grid-template-columns: minmax(0, 1fr); }
-  .dash-hero { margin-left: 0.75rem; margin-right: 0.75rem; padding: 1rem; }
-  .card { padding: 0.85rem 0.9rem; }
+  .dash-hero { margin-left: 0.8rem; margin-right: 0.8rem; padding: 1rem; }
+  .card { padding: 0.8rem 1rem; }
 
   /* Rows of controls wrap instead of pushing the page sideways. */
   .doc-actions, .chat-toolbar, .graph-toolbar { flex-wrap: wrap; }
@@ -4825,7 +5081,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
    Four full-height cards on one page meant scrolling past three forms you
    weren't using to reach your notes. One section at a time, remembered. */
 .notes-subtabs {
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.8rem;
   width: 100%;
   overflow-x: auto;
   flex-wrap: nowrap;
@@ -4839,8 +5095,8 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   box-shadow: none;
   color: var(--muted);
   font-weight: 500;
-  padding: 0.4rem 0.9rem;
-  border-radius: 9px;
+  padding: 0.4rem 1rem;
+  border-radius: var(--radius-md);
 }
 .notes-subtabs button.active {
   background: var(--accent-surface);
@@ -4875,7 +5131,7 @@ textarea.autogrow {
   margin-left: 0.6rem;
   vertical-align: middle;
 }
-.name-nudge button { font-size: 0.78rem; padding: 0.2rem 0.55rem; }
+.name-nudge button { font-size: 0.8rem; padding: 0.25rem 0.6rem; }
 
 /* On a phone the header wraps to two or three rows and the sidebars stack
    above the content, where sticking them would pin a full-height panel over
@@ -4895,7 +5151,7 @@ textarea.autogrow {
 }
 
 /* "Go to it" beside the save confirmation. */
-.jump-to-note { font-size: 0.78rem; padding: 0.15rem 0.5rem; }
+.jump-to-note { font-size: 0.8rem; padding: 0.15rem 0.5rem; }
 
 
 /* --- top bar polish ----------------------------------------------------------
@@ -4913,8 +5169,8 @@ textarea.autogrow {
   height: 2rem;
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  padding-inline: 0.7rem;
+  gap: 0.25rem;
+  padding-inline: 0.8rem;
 }
 #top-bar #brand-logo { flex: 0 0 auto; }
 
@@ -4922,7 +5178,7 @@ textarea.autogrow {
 /* --- assistant message layout ------------------------------------------------
    Asked for: bring the generated content further left, and stop long links
    escaping the bubble on the right. */
-.msg.assistant { padding-left: 0.75rem; }
+.msg.assistant { padding-left: 0.8rem; }
 .msg.assistant .agent-steps { margin-left: 0; }
 /* A URL has no spaces, so without this it sets the bubble's minimum width and
    pushes itself past the right edge (user-reported). */
@@ -4951,7 +5207,7 @@ textarea.autogrow {
   display: block;
   width: 100%;
   height: 0.5rem;
-  margin: 0.4rem 0 0.2rem;
+  margin: 0.4rem 0 0.25rem;
   accent-color: var(--accent);
 }
 .install-line {
@@ -4966,11 +5222,11 @@ textarea.autogrow {
 .task-log-lines {
   max-height: 9rem;
   overflow: auto;
-  margin: 0.3rem 0 0;
+  margin: 0.25rem 0 0;
   padding: 0.4rem 0.5rem;
   background: var(--chip-bg);
   border-radius: var(--radius);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -5008,7 +5264,7 @@ textarea.autogrow {
   font-weight: 600;
   color: var(--muted);
   text-align: center;
-  padding: 0.25rem 0.2rem;
+  padding: 0.25rem 0.25rem;
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
@@ -5019,7 +5275,7 @@ textarea.autogrow {
   background: var(--card);
   font-size: 0.8rem;
   font-weight: 600;
-  padding: 0.35rem 0.5rem 0.35rem 0;
+  padding: 0.4rem 0.5rem 0.4rem 0;
   border-right: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
@@ -5030,7 +5286,7 @@ textarea.autogrow {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 0.2rem;
+  padding: 0.25rem;
   min-width: 0;
   border-bottom: 1px solid var(--border);
 }
@@ -5041,7 +5297,7 @@ textarea.autogrow {
   font: inherit;
   font-size: 0.7rem;
   line-height: 1.25;
-  padding: 0.2rem 0.3rem;
+  padding: 0.25rem 0.25rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--chip-bg);
@@ -5076,7 +5332,7 @@ textarea.autogrow {
    `.graph-node text` sets `text-anchor: middle` and a stylesheet rule beats
    the presentation attribute it would otherwise be. */
 .graph-node text.graph-label-tree {
-  font-size: 0.76rem;
+  font-size: 0.75rem;
   /* A tree label lies *along* the edge running to its children, so the halo
      is doing real work here: it has to be wide enough to cover the line in
      the gaps between glyphs, and opaque. `--card` is 55% white — the dashes
@@ -5093,7 +5349,7 @@ textarea.autogrow {
 
 /* The notes a document draws on, beside its outline. The row is the note plus
    a detach button, so the two can't run into each other on a long preview. */
-#doc-notes li { display: flex; align-items: center; gap: 0.3rem; }
+#doc-notes li { display: flex; align-items: center; gap: 0.25rem; }
 #doc-notes .outline-link { flex: 1 1 auto; min-width: 0; }
 
 /* The chat box grows with the question (capped by AUTOGROW_MAX_PX in JS).
@@ -5126,7 +5382,7 @@ textarea.autogrow {
   font-size: 0.8rem;
   font-weight: 600;
   padding: 0.1rem 0;
-  margin-top: -0.2rem;
+  margin-top: -0.25rem;
   cursor: pointer;
 }
 .entry-more:hover { text-decoration: underline; }
@@ -5161,10 +5417,14 @@ textarea.autogrow {
 .log-dropped {
   margin: 0 0 0.5rem;
   padding: 0.4rem 0.6rem;
-  border-left: 3px solid var(--warn, #c8892b);
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--warn, #c8892b) 12%, transparent);
-  color: var(--text-muted, inherit);
+  border-left: 3px solid var(--warn);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+  /* Was var(--text-muted, inherit) — a token that is declared nowhere, so
+     this silently inherited instead of going muted. The real one is
+     --muted; the name would also now collide with the --text-* type
+     scale, which is a second reason not to resurrect it. */
+  color: var(--muted);
   font-size: 0.8rem;
 }
 
@@ -5219,14 +5479,14 @@ textarea.autogrow {
    them, and nothing at all in a screenshot pasted into a bug report. */
 .log-live {
   font-size: 0.75rem;
-  padding: 0.15rem 0.45rem;
-  border-radius: 999px;
+  padding: 0.15rem 0.4rem;
+  border-radius: var(--radius-pill);
   white-space: nowrap;
   background: color-mix(in srgb, currentColor 10%, transparent);
 }
-.log-live[data-state="live"] { color: var(--ok, #3a9e56); }
+.log-live[data-state="live"] { color: var(--ok); }
 .log-live[data-state="connecting"],
-.log-live[data-state="offline"] { color: var(--warn, #c8892b); }
+.log-live[data-state="offline"] { color: var(--warn); }
 .log-live[data-state="paused"] { opacity: 0.6; }
 
 /* Follow is on but paused because the reader scrolled up. Saying so beats
@@ -5236,29 +5496,29 @@ textarea.autogrow {
   opacity: 0.7;
 }
 
-.log-list .log-error { border-left: 3px solid var(--danger, #e2534b); }
-.log-list .log-warn { border-left: 3px solid var(--warn, #c8892b); }
+.log-list .log-error { border-left: 3px solid var(--error); }
+.log-list .log-warn { border-left: 3px solid var(--warn); }
 
 .log-line { display: inline; }
 .log-source-tag {
   display: inline-block;
-  margin-right: 0.35rem;
-  padding: 0 0.3rem;
-  border-radius: 3px;
-  font-size: 0.65rem;
+  margin-right: 0.4rem;
+  padding: 0 0.25rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.03em;
   opacity: 0.8;
   background: color-mix(in srgb, currentColor 14%, transparent);
 }
-.log-source-browser { color: var(--accent, #4f6df5); }
+.log-source-browser { color: var(--accent); }
 
 /* A traceback is many lines, so it folds. Real newlines are safe here — this
    is a block, not a row, so it cannot forge a record the way a message could. */
 .log-trace { margin: 0.25rem 0 0 0; }
 .log-trace summary {
   cursor: pointer;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   opacity: 0.75;
 }
 .log-trace pre {
@@ -5266,9 +5526,9 @@ textarea.autogrow {
   padding: 0.4rem 0.5rem;
   max-height: 16rem;
   overflow: auto;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: color-mix(in srgb, currentColor 7%, transparent);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   white-space: pre;
 }
 
@@ -5278,10 +5538,10 @@ textarea.autogrow {
   margin-left: 0.4rem;
   min-width: 1.1rem;
   padding: 0 0.25rem;
-  border-radius: 999px;
-  background: var(--danger, #e2534b);
+  border-radius: var(--radius-pill);
+  background: var(--error);
   color: #fff;
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   font-weight: 700;
   text-align: center;
 }
@@ -5301,7 +5561,7 @@ textarea.autogrow {
 .log-copy {
   opacity: 0;
   flex: 0 0 auto;
-  padding: 0 0.3rem;
+  padding: 0 0.25rem;
   line-height: 1.4;
   transition: opacity 120ms ease;
 }
@@ -5316,7 +5576,7 @@ textarea.autogrow {
 }
 
 .log-trace button {
-  margin-top: 0.3rem;
+  margin-top: 0.25rem;
 }
 
 .log-error-badge { cursor: pointer; }
@@ -5331,7 +5591,7 @@ textarea.autogrow {
 .copy-fallback-text {
   width: 100%;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   white-space: pre;
   overflow: auto;
 }
@@ -5343,9 +5603,9 @@ textarea.autogrow {
 .model-spec {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 0.15rem 0.75rem;
+  gap: 0.15rem 0.8rem;
   margin: 0.5rem 0 0;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-variant-numeric: tabular-nums;
 }
 .model-spec dt { color: var(--muted); }
@@ -5359,7 +5619,7 @@ textarea.autogrow {
   border-color: var(--accent);
   background: var(--accent-soft);
 }
-.agent-ask-options { flex-wrap: wrap; gap: 0.35rem; }
+.agent-ask-options { flex-wrap: wrap; gap: 0.4rem; }
 .agent-ask .muted { margin: 0.4rem 0 0; font-size: 0.75rem; }
 
 /* "Peek": fade the settings panel so a colour change can be seen on the page
@@ -5385,14 +5645,14 @@ textarea.autogrow {
   display: inline-flex;
   align-items: center;
   gap: 0.15rem;
-  margin: 0 0.35rem 0.35rem 0;
+  margin: 0 0.4rem 0.4rem 0;
 }
 .theme-chip button:first-child { max-width: 14rem; overflow: hidden; text-overflow: ellipsis; }
 
 /* The Chat / Agent pair in the chat toolbar. Same segmented control the
    settings screens use, sized down to sit beside the persona dropdown. */
 .seg-compact button {
-  padding: 0.2rem 0.55rem;
+  padding: 0.25rem 0.6rem;
   font-size: 0.8rem;
 }
 /* Skills as a dropdown: one line instead of a wrapping wall of chips, with
@@ -5409,4 +5669,355 @@ textarea.autogrow {
    carries ⚠️ and the reason in words — because a red line nobody can read the
    cause of is just alarming. */
 .task-failed { color: var(--error); }
-.task-detail { margin: 0.15rem 0 0; font-size: 0.78rem; }
+.task-detail { margin: 0.15rem 0 0; font-size: 0.8rem; }
+
+/* --- the in-app confirm dialog (§35F) --------------------------------------
+   Replaces window.confirm, which pywebview's backends do not all implement —
+   one that doesn't returns undefined, and every `if (!confirm(...)) return;`
+   in app.js reads that as "no", so the button silently does nothing.
+
+   It reuses .modal-overlay and .modal-card rather than inventing a parallel
+   set of styles, so it inherits the blur, the z-index and the dark-mode
+   treatment every other overlay here already has. Only the narrower width and
+   the button row are its own. */
+.confirm-card {
+  width: min(30rem, 92vw);
+  max-height: none;
+  gap: 1rem;
+  padding: 1.25rem;
+}
+.confirm-text {
+  margin: 0;
+  line-height: 1.5;
+}
+.confirm-actions {
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin: 0;
+}
+/* The destructive choice is coloured as destructive. It is also NOT the
+   focused button — cancel takes focus, so a stray Enter arriving with the
+   dialog can't be the thing that empties the recycle bin. */
+.confirm-actions .danger {
+  background: var(--error);
+  border-color: var(--error);
+  color: #fff;
+}
+.confirm-actions .danger:hover { filter: brightness(1.1); }
+
+/* --- the Ask box explaining itself (§35A) ----------------------------------
+   Shown when someone types a greeting into a box that searches notes. It is
+   styled as a prompt, NOT as an answer or an error: the first version put a
+   paragraph of instructions where the answer goes, beside a results panel
+   reading "No matching records", and it read as the app having broken. */
+.ask-hint {
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1rem;
+  background: var(--accent-soft);
+}
+.ask-hint-text {
+  margin: 0 0 0.8rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.ask-hint-examples {
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+}
+
+/* --- radio groups as choices, not as a list of dots (§35L) -----------------
+   Reported: "a lot of the radio buttons are ugly". They were the browser's
+   defaults on a bare flex row, so a group of them read as loose furniture
+   rather than as one control with one answer.
+
+   Each option is now a hit area with a hover and a selected state, which is
+   what makes a group scannable — you can see which one is chosen without
+   hunting for a filled dot. `:has()` does the selected state in CSS, so
+   nothing in app.js has to track it. */
+.check-row {
+  align-items: flex-start;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.check-row input { margin-top: 0.15rem; }
+.check-row:hover { background: var(--accent-soft); }
+.check-row:has(input:checked) {
+  background: var(--accent-soft);
+  border-color: var(--glass-border);
+}
+/* The whole option is clickable, so its text must not be selectable-dragged
+   into a selection every time someone clicks it. */
+.check-row span { user-select: none; }
+/* Consecutive options are one group: collapse the gap between them so they
+   read as a set rather than as separate settings that happen to be adjacent. */
+.check-row + .check-row { margin-top: calc(var(--space-1) * -1); }
+
+
+/* --- the chat page fills its height (§36A) ----------------------------------
+   Asked for: "I want the chat headers in the chat page to stay at the top of
+   the screen when scrolling down a chat."
+
+   They scrolled away because nothing gave the chat column a definite height.
+   #chat-messages already had `overflow-y: auto`, but a later rule removed its
+   `max-height`, so the card grew with the conversation and it was the *page*
+   that scrolled, carrying the toolbar off the top with it.
+
+   No percentage heights here on purpose: `height: 100%` on #chat-main could
+   not resolve, because .layout's own height was content-based. A flex chain
+   from the page down to the message list gives every link a definite size
+   without any of them having to ask a parent for one. */
+#tab-chat {
+  display: flex;
+  flex-direction: column;
+}
+#tab-chat > .layout {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+/* Sticky as well as flexed. The flex chain keeps the toolbar in place on a
+   wide window; on a narrow one the grid collapses to a single column and the
+   page scrolls again, and sticky is what keeps the header where it belongs
+   there too. Opaque, or the messages scroll visibly through it. */
+.chat-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--card);
+}
+
+/* The changelog inside Settings → About (§36E). Capped and scrollable: it is
+   the whole project history, and letting it push the rest of the About panel
+   off the screen would make the version number harder to find, not easier. */
+.changelog-body {
+  max-height: 22rem;
+  overflow-y: auto;
+  padding-right: var(--space-3);
+  font-size: var(--text-md);
+}
+.changelog-body h2 { font-size: var(--text-lg); margin-top: var(--space-6); }
+.changelog-body h3 { font-size: var(--text-md); }
+
+/* --- finding a setting (§36B) -----------------------------------------------
+   Fourteen sections in three groups. The filter searches each section's
+   rendered contents, not just its title, so "corner" finds Appearance and
+   "backup" finds Import & export — which is the question people actually
+   have. It sits at the top of the nav because that is where the eye starts. */
+.settings-search {
+  width: 100%;
+  margin-bottom: var(--space-4);
+  font-size: var(--text-md);
+}
+.settings-search-count {
+  margin: calc(var(--space-3) * -1) 0 var(--space-4);
+  font-size: var(--text-sm);
+}
+/* A group heading with everything under it filtered out is a heading for an
+   empty list, so it hides with its group. */
+#settings-nav .nav-group-label.hidden { display: none; }
+
+
+/* --- the chat toolbar, grouped (§36B) ---------------------------------------
+   Eight controls used to sit as peers in one row despite answering four
+   different questions — what the AI may touch, how it should sound, how hard
+   it should work, and what to do with this conversation. Reading the row meant
+   reading all eight and sorting them yourself.
+
+   Grouping is done with proximity and a hairline, not with boxes: a toolbar of
+   bordered panels is heavier than the row it replaces, and the point is to
+   make it quicker to scan, not more decorated. */
+.chat-tool-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+/* A separator between groups, drawn on the group rather than between them so
+   it survives any of them being hidden — Web disappears when the online
+   opt-in is off, and a stranded divider is worse than none. */
+.chat-tool-group + .chat-tool-group::before {
+  content: "";
+  align-self: stretch;
+  width: 1px;
+  margin-inline: var(--space-3);
+  background: var(--border);
+}
+/* Conversation-level actions sit at the far end: they are the only two that
+   are not about the *next* message. */
+.chat-tool-group-end {
+  margin-left: auto;
+}
+@media (max-width: 720px) {
+  /* Wrapped onto several lines the dividers stop meaning anything — they would
+     separate whatever happened to land beside them rather than the groups. */
+  .chat-tool-group + .chat-tool-group::before { display: none; }
+  .chat-tool-group-end { margin-left: 0; }
+}
+
+/* A recently-run skill promoted onto the dashboard (§36D). Marked, because a
+   button that runs a job on your notebook should not look identical to one
+   that just switches tab — the two rows either side of it do nothing on their
+   own, and this one might tag forty notes. */
+.quick-link-skill {
+  border-style: dashed;
+  max-width: 14rem;
+}
+.quick-link-skill span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+/* --- the note card's metadata, ordered (§36B) -------------------------------
+   Screenshotted: a note with six chips in a row — category, four tags, an AI
+   confidence badge and a date — all the same size and shape, with the *green*
+   one catching the eye first. So the loudest thing on the card was the AI's
+   confidence score, which is diagnostic, while the category — the filing
+   decision, the single most useful fact about a note — looked like a tag.
+
+   Three levels now, and the size stays constant: hierarchy is carried by
+   weight and colour, per docs/DESIGN.md. Making the category bigger would just
+   start a second type scale inside the card. */
+
+/* 1. Category. The bare `.chip` with no variant is the category — it earns the
+      accent because it is the answer to "where does this note live?". */
+.entry-meta > .chip:not(.tag):not(.confidence):not(.review):not(.when):not(.link) {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* 2. Tags stay as they are: muted, regular weight, clearly secondary. */
+
+/* 3. Diagnostics. A high confidence score is reassurance nobody asked for —
+      it should be legible when you look for it and invisible when you are not.
+      The LOW-confidence badge stays loud, because that one is a request to
+      check something, and it is the whole reason the badge exists. */
+.chip.confidence {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-weight: 400;
+}
+.entry-meta .chip.review { font-weight: 600; }
+
+/* Chips sit on one optical line. Padding alone does not do it — a chip with a
+   descender and one without were a pixel out, which is the kind of thing that
+   reads as "nothing quite lines up" without ever being noticeable on its own. */
+.entry-meta > .chip,
+.entry-meta > .entry-date {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.45rem;
+  line-height: 1.2;
+}
+/* The timestamp is metadata, not a column: it was right-aligned with a
+   min-width, which pushed it onto its own line whenever the chips wrapped and
+   left a gap the width of "23 September" on every card that didn't. */
+.entry-date {
+  min-width: 0;
+  text-align: left;
+  font-size: var(--text-sm);
+}
+/* Links to other notes are the least important thing on the card and were the
+   widest — full sentences of the linked note's text. Capped, so a card is a
+   card and not a paragraph of somewhere else. */
+.entry-meta .chip.link {
+  max-width: 18rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+/* --- note card density (§36B) -------------------------------------------------
+   Reported: "a massive gap between the lines… I don't want notes to look too
+   cluttered."
+
+   The gap had one cause. `.entry-meta-end` carried `margin-left: auto`, so the
+   moment the chips filled a line it wrapped — and, being auto-margined, landed
+   *alone* on the next one, hard right. A card with five tags therefore grew a
+   whole empty band containing nothing but a timestamp and four icon buttons.
+
+   Two changes. The actions leave the flow entirely, to the card's top-right
+   corner where they were already hover-revealed — so they cost no vertical
+   space at all. And the timestamp rejoins the chip run instead of being pushed
+   away from it, which is where it belongs: it is metadata like the rest. */
+/* Scoped to the notes list by id, not to `.entry-list` — that class is shared
+   by the recycle bin, the tag list, chat search results and the reminders,
+   whose actions are labelled text buttons that belong in the flow. Corner-
+   positioning them would hide "Done" and "Snooze" behind a hover. */
+#entry-list > li {
+  position: relative;
+}
+#entry-list > li .entry-meta-end {
+  margin-left: 0;
+  /* No longer a wrapping unit of its own — the date flows with the chips. */
+  display: contents;
+}
+#entry-list > li .entry-actions {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  /* Above the card's own text, and not overlapping the first line: the card
+     has top padding, so this sits inside it. */
+  z-index: 1;
+  background: var(--inner);
+  border-radius: var(--radius-md);
+}
+#entry-list > li:hover .entry-actions,
+#entry-list > li:focus-within .entry-actions {
+  opacity: 1;
+}
+/* Touch has no hover, so there is nothing to reveal them — they stay visible.
+   The same rule the chat message actions already use. */
+@media (hover: none) {
+  .entry-list li .entry-actions { opacity: 1; }
+}
+/* The bin shares .entry-list but not the corner treatment, so it needs no
+   opt-out any more — the rules above never reach it. */
+/* Tighter rows now that nothing wraps to an empty band. The chips carry their
+   own vertical rhythm, so the gap between them is the gap between lines. */
+.entry-meta {
+  row-gap: var(--space-2);
+}
+/* The bin's Restore button is a labelled text button with no hover affordance,
+   so it stays visible. It never needed the corner treatment — scoping that to
+   #entry-list handles the position; this handles the fade. */
+.entry-list li.bin-row .entry-actions { opacity: 1; }
+
+
+/* --- the orphan-row pattern, everywhere else it appears (§36B) ----------------
+   `margin-left: auto` inside a *wrapping* flex row is the bug that put an empty
+   band on every note card: the moment the row fills, the auto-margined item
+   wraps and lands alone on the next line, hard right, with nothing beside it.
+
+   The note card fixed it by taking the item out of the flow. The two toolbars
+   below cannot — their items are real controls that need to stay clickable and
+   in order — so they reset the auto margin at the width where wrapping starts
+   to happen, which turns an empty band into an ordinary continued row. */
+@media (max-width: 1080px) {
+  .graph-toolbar #link-suggest-btn,
+  .chat-tool-group-end {
+    margin-left: 0;
+  }
+}
+
+
+/* Separates the one irreversible control in the header from the everyday ones
+   (§36D). Distance is the cheap half of not clicking Quit by accident; the
+   confirm dialog is the half that actually stops it. */
+.header-divider {
+  width: 1px;
+  align-self: stretch;
+  margin-inline: var(--space-2);
+  background: var(--border);
+}
+#quit-btn:hover {
+  border-color: var(--error);
+  color: var(--error);
+}

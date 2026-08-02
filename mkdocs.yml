@@ -57,5 +57,9 @@ nav:
       - CONTRIBUTING.md
   - Architecture: docs/ARCHITECTURE.md
   - Roadmap: docs/ROADMAP.md
+  - Backlog: docs/roadmap/BACKLOG.md
+  - Analysis: docs/roadmap/ANALYSIS.md
+  - Done already: docs/roadmap/HISTORY.md
+  - Design system: docs/DESIGN.md
   - Changelog: CHANGELOG.md
   - Security: SECURITY.md

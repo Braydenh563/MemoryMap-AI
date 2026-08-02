@@ -78,10 +78,14 @@ TOOLS_GUIDE = (
     "say you can't see private notes. "
     "You can also reach the user's long-form documents (list_documents / "
     "get_document — never searched automatically, so go and look when a "
-    "question is about something they wrote up), their earlier conversations "
+    "question is about something they wrote up — and create_document to write "
+    "a new one, which is where an essay, report or write-up belongs rather "
+    "than in a note), their earlier conversations "
     "with you (search_chat_history, for when they refer to something 'we "
     "talked about' that isn't in this thread — say when you're relying on "
-    "it), and their saved skills (list_skills, save_skill). "
+    "it), and their saved skills (list_skills, save_skill; run_skill starts "
+    "one and takes over from you, so use it when a saved skill already "
+    "describes the job). "
     # Kept, not trimmed: the schema says due_at is an ISO date-time, but not
     # that it must be computed from the clock given below. Without that, a
     # model resolves "in 10 minutes" against whatever it imagines the time is,
@@ -90,10 +94,11 @@ TOOLS_GUIDE = (
     "For \"remind me… in 10 minutes / tomorrow at 9 / tonight\", call "
     "set_reminder with due_at computed from the current time given below, as "
     "an ISO 8601 datetime. "
-    "After acting, tell the user briefly what you did. NEVER claim you "
-    "created, added, saved, edited, deleted, or tagged a note unless you "
-    "actually called the tool to do it — describing a note in text does "
-    "NOT save it. To save a note you MUST call create_note. "
+    "After acting, tell the user briefly what you did. NEVER say you created, "
+    "saved, edited, deleted, tagged, linked or unlinked anything unless you "
+    "called the tool — \"we linked…\" is claiming it just as much as \"I "
+    "linked…\", and a list of work you did not do is the worst thing you can "
+    "write. Planning is fine: say it in the future tense, then call the tools. "
     # Asked for directly: "I need agents to use tools more and better if they
     # are required." The loop already allows several rounds; nothing told the
     # model that using them was expected rather than a failure to answer
@@ -111,6 +116,15 @@ TOOLS_GUIDE = (
     "The user can already see which tools you ran, in order. Do not narrate "
     "your process back to them ('let me search…', 'I will now check…') — just "
     "do it, then give the answer. "
+    # Reported: "I don't know what 'Note #12' is when the ai refers to it."
+    # Ids are the app's handle, not the user's — nothing in the interface shows
+    # one, so a bare id names a note the user has no way to identify.
+    "Users never see note ids: name a note by a few of its own words (\"your "
+    "gym routine note\"), not \"note 28\". "
+    # Screenshotted: a bullet reading "Jokes $\rightarrow$ Social Skills".
+    # The renderer translates the common escapes now, but not writing them is
+    # cheaper than translating them.
+    "Write symbols plainly (→ × ≤), never as LaTeX. "
     "If a tool fails, its result carries a 'what_to_do' field. Follow it. "
     "Never repeat a call that has just failed in exactly the same way."
 )
@@ -276,12 +290,113 @@ REPEATED_CALL_NOTE = (
 # "this one changes things" from the same list rather than a second copy.
 _WRITE_TOOLS = tools.WRITE_TOOLS
 
-# Phrases that mean the model thinks it performed a write action.
+# --- claiming work that never happened -------------------------------------------
+#
+# The failure this catches is the one that costs the most trust, because the
+# user has no way to see it: the model writes a confident list of what it did
+# and calls no tool at all. A reported turn (§35B) narrated linking note 12 to
+# three others and unlinking a fourth, having called `related_notes` once.
+#
+# That turn got past the original net twice over, and both gaps are worth
+# naming because they are the shape of the next one:
+#
+# 1. The pattern only knew the first person singular — "I linked". The model
+#    wrote "**Linked Notes:** We connected your main Social Skills Guide to…"
+#    and "we" matched nothing.
+# 2. It asked one question of the whole turn — "did *any* write run?" — so a
+#    turn that legitimately linked one pair and then claimed four more passed
+#    on the strength of the one that was real.
+#
+# So claims are matched *per action* and checked against the tools that
+# actually ran. That is §33's "completion verifier" in its cheap form: no
+# second model round, just what was said against what was called.
+
+#: Who the model says did it. Past and perfect only — "we could link these" is
+#: a suggestion and must not be reported as a false claim.
+_CLAIMANT = r"(?:i|we)(?:'ve)?\s+(?:have\s+|just\s+|now\s+|also\s+|then\s+|successfully\s+)*"
+
+#: What was claimed, how it reads, and the tools that would make it true.
+#: The label is written to be shown to the user, because a warning that says
+#: *which* claim was unsupported is actionable where "something" is not.
+_CLAIMED_ACTIONS: tuple[tuple[str, str, frozenset[str]], ...] = (
+    (
+        # `create_document` counts here too: "I wrote that up for you" is a
+        # true claim when the document tool ran, and warning about it would be
+        # the net crying wolf on work that really happened.
+        "saved a note",
+        r"(?:created|added|saved|made|wrote)",
+        frozenset({"create_note", "create_document"}),
+    ),
+    ("edited a note", r"(?:edited|updated|rewrote|amended|revised)", frozenset({"edit_note"})),
+    ("deleted a note", r"(?:deleted|removed|binned|trashed)", frozenset({"delete_note"})),
+    (
+        "tagged a note",
+        r"(?:tagged|re-?tagged|labelled|labeled)",
+        frozenset({"tag_note", "rename_tag"}),
+    ),
+    ("pinned a note", r"(?:pinned|unpinned)", frozenset({"pin_note"})),
+    # Checked before "linked": \b keeps "linked" from matching inside
+    # "unlinked", but the ordering makes that guarantee visible rather than
+    # something a reader has to work out from the regex.
+    (
+        "unlinked notes",
+        r"(?:unlinked|disconnected|detached)",
+        frozenset({"unlink_notes"}),
+    ),
+    ("linked notes", r"(?:linked|connected)", frozenset({"link_notes"})),
+    (
+        "set a reminder",
+        r"(?:set|scheduled|added)\s+(?:a|the|your)?\s*remind",
+        frozenset({"set_reminder"}),
+    ),
+)
+
+#: A verb carried on from an earlier subject: "I linked 12 to 13 **and
+#: tagged** them both". Models write this constantly, and requiring an
+#: explicit "I"/"we" in front of every verb missed the whole second half of
+#: such a sentence. Only trusted once the answer has claimed something
+#: outright somewhere — otherwise "the notes you tagged in March" would read
+#: as a claim.
+_CARRIED_ON = r"(?:and|then|,)\s+(?:also\s+|successfully\s+|later\s+)*"
+
+_CLAIM_MATCHERS = tuple(
+    (
+        label,
+        re.compile(rf"\b{_CLAIMANT}{verb}\b", re.IGNORECASE),
+        re.compile(rf"\b{_CARRIED_ON}{verb}\b", re.IGNORECASE),
+        needs,
+    )
+    for label, verb, needs in _CLAIMED_ACTIONS
+)
+
+# Kept because it is the cheapest check for the commonest case — a model that
+# describes a note it never saved — and it catches phrasings with no claimant
+# at all. Widened from the original to cover "we" as well as "I".
 _CLAIM_PATTERN = re.compile(
-    r"\b(i\s+(?:have\s+|just\s+)?(?:created|added|saved|made|updated|edited|"
-    r"deleted|tagged|pinned|linked)|new note titled|created a? ?note)\b",
+    rf"\b({_CLAIMANT}(?:created|added|saved|made|updated|edited|deleted|tagged|"
+    r"pinned|linked)|new note titled|created a? ?note)\b",
     re.IGNORECASE,
 )
+
+
+def unsupported_claims(answer: str, ran: set[str]) -> list[str]:
+    """Actions the answer says happened that no tool call performed.
+
+    `ran` is the write tools that actually executed this turn (or were parked
+    for the user's approval, which is its own visible signal). A claim whose
+    tool is in there is taken at face value — this is a net for fabrication,
+    not an auditor of whether the right note was edited.
+    """
+    # Whether this answer speaks in the claiming voice at all. A carried-on
+    # verb is only a claim inside a sentence that already made one, so this is
+    # checked first and gates the looser half of every matcher below.
+    claiming = any(direct.search(answer) for _, direct, _, _ in _CLAIM_MATCHERS)
+    said = []
+    for label, direct, carried, needs in _CLAIM_MATCHERS:
+        hit = direct.search(answer) or (claiming and carried.search(answer))
+        if hit and not (needs & ran):
+            said.append(label)
+    return said
 
 # Agent-mode grounding: tool results are a legitimate second source.
 AGENT_GROUNDING = (
@@ -370,10 +485,21 @@ def build_agent_messages(
 
 # Handed back when an `ask_user` call is malformed, so the model can recover
 # in the same turn instead of the question silently failing.
-_ASK_RECOVERY = (
-    "Fix the question and call ask_user again with 2-6 short options — or, if "
-    "you can work it out yourself, just answer without asking."
-)
+# What a turn-ending tool is told when its handover was malformed. Per tool,
+# because the useful advice differs: a bad question is worth re-asking, a
+# skill that doesn't exist usually means there was no skill for this job.
+_HANDOFF_RECOVERY = {
+    "ask_user": (
+        "Fix the question and call ask_user again with 2-6 short options — or, "
+        "if you can work it out yourself, just answer without asking."
+    ),
+    "run_skill": (
+        "Call list_skills to see the exact names and what each one needs, then "
+        "run_skill again — or, if none of them fits, just do the job yourself "
+        "with the ordinary tools."
+    ),
+}
+_ASK_RECOVERY = _HANDOFF_RECOVERY["ask_user"]  # kept: named in tests and §33
 
 # What the model is told when a destructive call is parked for approval.
 AWAITING_CONFIRMATION = {
@@ -495,6 +621,11 @@ def run_agent(
     permitted = set(allowed_tools) if allowed_tools else None
     model = model_manager.chat_model()
     did_write = False  # did any real write tool run this turn?
+    # *Which* ones ran, so a claim can be checked against the action that
+    # would have made it true rather than against the turn as a whole. A
+    # turn that legitimately linked one pair and then claimed four more
+    # passed the old boolean on the strength of the one that was real.
+    ran_writes: set[str] = set()
     spent = 0  # characters of tool output added to the conversation so far
     # (tool, arguments) pairs that have already failed, so a model looping on
     # the same broken call can be told so rather than burning every round.
@@ -541,7 +672,26 @@ def run_agent(
             # Safety net: if the model claims it saved/created something but no
             # write tool actually ran, it hallucinated — say so instead of
             # letting the user believe a note exists that doesn't (Wave O).
-            if not did_write and _CLAIM_PATTERN.search(answer):
+            unsupported = unsupported_claims(answer, ran_writes)
+            if unsupported:
+                # Named, not vague. "It looks like I didn't actually save it"
+                # is useless when the answer claimed five different things —
+                # the user needs to know which of them did not happen, because
+                # the rest of the list may well be true.
+                listed = ", ".join(unsupported)
+                yield {
+                    "type": "answer",
+                    "delta": (
+                        f"\n\n⚠️ Heads up: I said I {listed}, but I didn't "
+                        "actually run the tool that does it — so that part did "
+                        "not happen and nothing was changed by it. Ask me again "
+                        "and I'll do it properly."
+                    ),
+                }
+            elif not did_write and _CLAIM_PATTERN.search(answer):
+                # The looser net, for a claim with no recognisable action in
+                # it ("new note titled…"). Only when nothing at all was
+                # written, since it can't say which action it means.
                 yield {
                     "type": "answer",
                     "delta": (
@@ -584,22 +734,24 @@ def run_agent(
                     "error": result["error"],
                 }
             elif spec is not None and spec.ends_turn:
-                # `ask_user`. The turn stops here, and that is the feature
-                # rather than a limitation: the model asked because it does not
-                # know what to do next, so letting it carry on would mean
-                # carrying on with the guess the question exists to avoid.
+                # `ask_user` and `run_skill`. The turn stops here, and in both
+                # cases that is the feature rather than a limitation: the model
+                # asked because it does not know what to do next, or it handed
+                # the job to a skill that will do it step by step. Carrying on
+                # after either would mean carrying on with the guess the
+                # handover exists to avoid.
                 #
-                # No state is parked on the server. The user's choice is sent
-                # as their next message, which means the answer arrives through
-                # the ordinary history the model already reads — nothing to
-                # expire, nothing to lose on a reload, and the exchange is
-                # visible in the saved conversation like any other.
+                # No state is parked on the server. The user's choice — or the
+                # skill run — is sent as the next message, which means it
+                # arrives through the ordinary history the model already reads:
+                # nothing to expire, nothing to lose on a reload, and the
+                # exchange is visible in the saved conversation like any other.
                 try:
-                    question, options = tools.validate_ask(arguments)
+                    handover = tools.handoff_event(name, arguments)
                 except tools.ToolError as exc:
-                    # A malformed question is a recoverable mistake, not a dead
-                    # turn: hand the model the reason and let it try again or
-                    # answer directly.
+                    # A malformed question, or a skill named that doesn't
+                    # exist. Recoverable mistakes, not dead turns: hand the
+                    # model the reason and let it try again or answer directly.
                     signature = (name, json.dumps(arguments, sort_keys=True))
                     failed_calls.add(signature)
                     messages.append(
@@ -607,24 +759,31 @@ def run_agent(
                             "role": "tool",
                             "tool_name": name,
                             "content": json.dumps(
-                                {"error": str(exc), "what_to_do": _ASK_RECOVERY}
+                                {
+                                    "error": str(exc),
+                                    "what_to_do": _HANDOFF_RECOVERY.get(
+                                        name, _ASK_RECOVERY
+                                    ),
+                                }
                             ),
                         }
                     )
                     yield {
                         "type": "tool",
-                        "label": "⚠️ couldn't ask that question",
+                        "label": f"⚠️ couldn't {name.replace('_', ' ')}",
                         "ok": False,
                         "error": str(exc),
                     }
                     continue
-                yield {"type": "ask", "question": question, "options": options}
+                yield handover
                 return
             elif spec is not None and spec.destructive:
                 # Park it for the user — never auto-run a destructive tool.
                 # The confirm card is the honest signal, so count it as an
-                # action (don't fire the "nothing happened" safety net).
+                # action (don't fire the "nothing happened" safety net) — the
+                # user can see for themselves that it is waiting on them.
                 did_write = True
+                ran_writes.add(name)
                 yield {
                     "type": "confirm",
                     "name": name,
@@ -642,6 +801,7 @@ def run_agent(
                 change = None
                 if "error" not in result and name in _WRITE_TOOLS:
                     did_write = True
+                    ran_writes.add(name)
                     change = {
                         "tool": name,
                         "label": result.get("label") or name,

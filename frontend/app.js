@@ -365,6 +365,82 @@ function buildSelect(options, selected) {
   return select;
 }
 
+// --- asking before something irreversible (§35F) ----------------------------------
+//
+// `window.confirm` is not dependable in the shell this app also runs in.
+// pywebview's backends vary in whether they implement it at all, and one that
+// does not returns `undefined` — which every `if (!confirm(...)) return;` in
+// this file reads as "the user said no". The button then does nothing, says
+// nothing, and looks broken. That is the reported shape of "the recycle bin
+// empty now button doesn't work either": the endpoint behind it is fine, and
+// the click never got past the gate.
+//
+// A promise-based dialog fixes that and is better in the browser too — it is
+// styled like the app, it says what the action is in a heading rather than a
+// system font, and the dangerous option can be marked as dangerous.
+function confirmDialog(message, options = {}) {
+  const { confirmLabel = "OK", cancelLabel = "Cancel", danger = true } = options;
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay confirm-overlay";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+
+    const card = document.createElement("div");
+    card.className = "card modal-card confirm-card";
+    const text = document.createElement("p");
+    text.className = "confirm-text";
+    // Blank lines in these messages are deliberate paragraphs — the second is
+    // usually the consequence ("This cannot be undone"), which is the part
+    // worth reading, so it is not run together with the first.
+    for (const part of String(message).split(/\n{2,}/)) {
+      const line = document.createElement("span");
+      line.textContent = part;
+      text.append(line, document.createElement("br"));
+    }
+    const row = document.createElement("div");
+    row.className = "row confirm-actions";
+
+    let settled = false;
+    const close = (answer) => {
+      if (settled) return;
+      settled = true;
+      document.removeEventListener("keydown", onKey, true);
+      overlay.remove();
+      returnFocus?.focus?.();
+      resolve(answer);
+    };
+    const onKey = (event) => {
+      // Escape cancels and Enter confirms, but only while this dialog is up —
+      // captured, so a keyboard shortcut elsewhere can't fire underneath it.
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        close(false);
+      } else if (event.key === "Enter" && event.target.tagName !== "BUTTON") {
+        event.stopPropagation();
+        close(true);
+      }
+    };
+
+    const returnFocus = document.activeElement;
+    const cancel = smallButton(cancelLabel, cancelLabel, () => close(false));
+    const go = smallButton(confirmLabel, confirmLabel, () => close(true), false);
+    if (danger) go.classList.add("danger");
+    row.append(cancel, go);
+    card.append(text, row);
+    overlay.appendChild(card);
+    // Clicking the backdrop cancels, the way every other overlay here behaves.
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) close(false);
+    });
+    document.addEventListener("keydown", onKey, true);
+    document.body.appendChild(overlay);
+    // Cancel takes focus, not the dangerous one: a stray Enter or Space
+    // arriving with the dialog must not be the thing that deletes the notes.
+    cancel.focus();
+  });
+}
+
 function smallButton(label, title, onClick, ghost = true) {
   // (Wave I) icon-only buttons need a name for screen readers — the
   // title doubles as one.
@@ -532,6 +608,9 @@ function entryItem(entry, options = {}) {
   meta.appendChild(metaEnd);
 
   if (options.bin) {
+    // Marked so the CSS can keep this row's Restore button in the flow: it is
+    // a labelled text button rather than a hover-revealed icon (§36B).
+    li.classList.add("bin-row");
     const actions = document.createElement("span");
     actions.className = "entry-actions";
     actions.appendChild(
@@ -585,7 +664,7 @@ function entryItem(entry, options = {}) {
         remove.title = "Remove this file";
         remove.addEventListener("click", async (e) => {
           e.stopPropagation();
-          if (!confirm(`Remove ${attachment.filename}?`)) return;
+          if (!(await confirmDialog(`Remove ${attachment.filename}?`))) return;
           await api(`/files/${attachment.id}`, { method: "DELETE" });
           await loadEntries();
         });
@@ -708,7 +787,7 @@ async function openEntryHistory(entry) {
     const body = document.createElement("p");
     body.textContent = notePreviewText(revision.content);
     const restore = smallButton("↩ Put this back", "Restore this version", async () => {
-      if (!confirm("Replace the note with this version?\n\nThe current text is kept in the history, so this is undoable.")) return;
+      if (!(await confirmDialog("Replace the note with this version?\n\nThe current text is kept in the history, so this is undoable."))) return;
       try {
         await apiJson(`/entries/${entry.id}/history/${revision.id}/restore`, { method: "POST" });
         overlay.classList.add("hidden");
@@ -728,14 +807,14 @@ async function openEntryHistory(entry) {
 async function toggleEntryPrivacy(entry) {
   const makingPrivate = !entry.is_private;
   if (makingPrivate) {
-    const ok = confirm(
+    const ok = (await confirmDialog(
       "Make this note private?\n\n" +
         "It gets encrypted with a key derived from your password, so it stays " +
         "unreadable in the database, in backups, and to anyone without that " +
         "password.\n\n" +
         "It also stops appearing in search and stops being given to the AI.\n\n" +
         "There is no recovery: if you forget your password this note is gone."
-    );
+    ));
     if (!ok) return;
   }
   try {
@@ -1173,13 +1252,7 @@ function openLightbox(url, alt) {
 
 async function downloadAttachment(attachment) {
   const response = await api(`/files/${attachment.id}`);
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = attachment.filename;
-  a.click();
-  URL.revokeObjectURL(url);
+  await saveFile(attachment.filename, await response.blob());
 }
 
 let relatedOpenId = null; // entry currently showing its similar notes
@@ -1415,8 +1488,62 @@ function matchesSearch(entry) {
 // notes and `_` italics would eat them.
 const INLINE_MD = /`([^`\n]+)`|\*\*([^*\n]+?)\*\*|~~([^~\n]+?)~~|\*([^*\n]+?)\*/g;
 
+// LaTeX escapes that models reach for when they want a symbol (§35H).
+//
+// Screenshotted: a bullet reading "Jokes $\\rightarrow$ Social Skills", with
+// the LaTeX printed literally. That is not a markdown gap — the model was
+// asked for an arrow and reached for the notation it saw most in training.
+// Rendering a whole maths engine for this would be absurd; translating the
+// dozen symbols that actually show up costs nothing and covers all of it.
+//
+// The prompt also asks for plain Unicode, which prevents most of these. This
+// is the half that catches the model doing it anyway.
+const LATEX_SYMBOLS = {
+  rightarrow: "\u2192", to: "\u2192", longrightarrow: "\u27f6", Rightarrow: "\u21d2",
+  leftarrow: "\u2190", gets: "\u2190", Leftarrow: "\u21d0",
+  leftrightarrow: "\u2194", Leftrightarrow: "\u21d4", uparrow: "\u2191", downarrow: "\u2193",
+  times: "\u00d7", div: "\u00f7", pm: "\u00b1", mp: "\u2213", cdot: "\u00b7",
+  leq: "\u2264", le: "\u2264", geq: "\u2265", ge: "\u2265",
+  neq: "\u2260", ne: "\u2260", approx: "\u2248", equiv: "\u2261", sim: "\u223c",
+  ldots: "\u2026", dots: "\u2026", cdots: "\u22ef",
+  infty: "\u221e", deg: "\u00b0", bullet: "\u2022", star: "\u2605",
+  checkmark: "\u2713", surd: "\u221a", propto: "\u221d", therefore: "\u2234",
+  alpha: "\u03b1", beta: "\u03b2", gamma: "\u03b3", delta: "\u03b4",
+  lambda: "\u03bb", mu: "\u03bc", pi: "\u03c0", sigma: "\u03c3", omega: "\u03c9",
+  Delta: "\u0394", Sigma: "\u03a3", Omega: "\u03a9",
+};
+
+function unlatex(text) {
+  // The overwhelmingly common case: nothing to do, and not worth two regex
+  // passes over every note and every streaming frame to find that out.
+  if (!text || (!text.includes("\\") && !text.includes("$"))) return text;
+  const swap = (s) =>
+    s.replace(/\\([A-Za-z]+)/g, (whole, name) =>
+      Object.prototype.hasOwnProperty.call(LATEX_SYMBOLS, name)
+        ? LATEX_SYMBOLS[name]
+        : whole
+    );
+  // Inline maths delimiters are dropped only when the span is actually maths
+  // *and* everything in it became plain characters.
+  //
+  // Both halves are load-bearing. Without the first, "cost $5 and $10 today"
+  // is a matching span containing no commands, and the dollars vanish — a
+  // notebook full of prices is a much more likely thing than a notebook full
+  // of LaTeX. Without the second, a span still holding \frac or \sum gets
+  // stripped of its delimiters and left as half-translated notation, which is
+  // worse than leaving it alone: the user can at least read the source.
+  return swap(
+    text.replace(/\$([^$\n]{1,200})\$/g, (whole, inner) => {
+      if (!/\\[A-Za-z]/.test(inner)) return whole; // not maths — currency, prose
+      const plain = swap(inner);
+      return /\\[A-Za-z]/.test(plain) ? whole : plain;
+    })
+  );
+}
+
 function renderInlineMarkdown(element, text, terms) {
   element.replaceChildren();
+  text = unlatex(text);
   const pattern = new RegExp(INLINE_MD.source, "g");
   let cursor = 0;
   let match;
@@ -1677,11 +1804,11 @@ async function renameCategory(meta, currentName) {
   // usually the point — but it's destructive-looking, so it's confirmed.
   if (categoryMeta.has(name)) {
     const target = categoryMeta.get(name);
-    const ok = confirm(
+    const ok = (await confirmDialog(
       `"${name}" already exists. Merge "${currentName}" into it?\n\n` +
         `Its notes move across — nothing is deleted. "${name}" would then ` +
         `hold ${target.count + meta.count} notes.`
-    );
+    ));
     if (!ok) return;
   }
 
@@ -1700,13 +1827,13 @@ async function renameCategory(meta, currentName) {
 }
 
 async function deleteCategory(meta, name, count) {
-  const ok = confirm(
+  const ok = (await confirmDialog(
     `Delete the category "${name}"?\n\n` +
       (count
         ? `Its ${count} note${count === 1 ? "" : "s"} are kept and become ` +
           `Uncategorised — deleting a category never deletes notes.`
         : "It has no notes in it.")
-  );
+  ));
   if (!ok) return;
   try {
     await apiJson(`/categories/${meta.id}`, { method: "DELETE" });
@@ -2075,6 +2202,35 @@ function clickableResult(entry) {
   return li;
 }
 
+// The Ask box's "that isn't a question about your notes" card (§35A).
+//
+// Deliberately not rendered as an answer. Reported after the first version:
+// a paragraph of instructions where the answer goes, next to a results panel
+// saying "No matching records", reads as the app having broken rather than as
+// guidance. Here the examples are buttons — a way forward from the same place,
+// which also teaches the shape of a question that works.
+function renderAskHint(box, hint) {
+  box.replaceChildren();
+  const card = document.createElement("div");
+  card.className = "ask-hint";
+  const text = document.createElement("p");
+  text.className = "ask-hint-text";
+  text.textContent = hint.text;
+  card.appendChild(text);
+  const row = document.createElement("div");
+  row.className = "row ask-hint-examples";
+  for (const example of hint.examples || []) {
+    row.appendChild(
+      smallButton(example, `Ask: ${example}`, () => {
+        $("question").value = example;
+        askQuestion(example);
+      })
+    );
+  }
+  if (row.childElementCount) card.appendChild(row);
+  box.appendChild(card);
+}
+
 function renderChatMeta(meta) {
   $("search-mode").textContent = SEARCH_MODE_LABELS[meta.search_mode] || meta.search_mode;
   // "offline" only when Ollama is genuinely down — not merely because a
@@ -2086,6 +2242,15 @@ function renderChatMeta(meta) {
       : "";
   const rawList = $("raw-results");
   rawList.replaceChildren();
+  if (meta.raw_results.length === 0 && meta.search_mode === "none") {
+    // Nothing was searched for — the message was not a question about the
+    // notes. "No matching records" would report a failed search that never
+    // happened, which is the half of the greeting case that read as broken.
+    $("chat-results").classList.remove("hidden");
+    document.querySelector(".chat-half:last-child")?.classList.add("hidden");
+    return;
+  }
+  document.querySelector(".chat-half:last-child")?.classList.remove("hidden");
   if (meta.raw_results.length === 0) {
     const li = document.createElement("li");
     li.className = "muted";
@@ -2107,6 +2272,7 @@ async function streamChat({
   noteIds,
   skill,
   skillInputs,
+  notesOnly,
   signal,
   onMeta,
   onPlan,
@@ -2117,6 +2283,8 @@ async function streamChat({
   onTool,
   onConfirm,
   onAsk,
+  onRunSkill,
+  onHint,
   onStats,
 }) {
   const body = { question, history: history || [] };
@@ -2125,6 +2293,7 @@ async function streamChat({
   // for every answer after it.
   if (mode) body.mode = mode;
   if (typeof useTools === "boolean") body.use_tools = useTools;
+  if (notesOnly) body.notes_only = true;
   if (noteIds && noteIds.length) body.note_ids = noteIds;
   // Running a skill sends its name, not its prompt: the server owns what a
   // skill is — the steps, the values, the tools it may use — so the two
@@ -2169,6 +2338,8 @@ async function streamChat({
       else if (event.type === "tool" && onTool) onTool(event);
       else if (event.type === "confirm" && onConfirm) onConfirm(event);
       else if (event.type === "ask" && onAsk) onAsk(event);
+      else if (event.type === "run_skill" && onRunSkill) onRunSkill(event);
+      else if (event.type === "hint" && onHint) onHint(event);
       else if (event.type === "stats" && onStats) onStats(event);
     }
   }
@@ -2280,6 +2451,9 @@ async function askQuestion(preset) {
 
   let answerRaw = "";
   let stopped = false;
+  // The box explained itself instead of answering — so the final markdown
+  // pass, the saved turn and the answer actions all sit this one out.
+  let hinted = false;
   const renderLive = liveMarkdownRenderer(answerBox);
   askController = new AbortController();
   try {
@@ -2287,7 +2461,16 @@ async function askQuestion(preset) {
     await streamChat({
       question,
       history: conversation.slice(-MAX_CLIENT_HISTORY),
+      // Sent per turn now that this box has its own picker. It always obeyed
+      // the *saved* mode via the server's fallback; carrying it explicitly is
+      // what makes changing the box's dropdown affect the very next answer
+      // rather than only the one after the preference round-trips.
+      mode: $("ask-mode-select")?.value || null,
       useTools: false, // the quick-ask box is pure Q&A; actions live in the Chat tab
+      // This box interrogates the notebook and nothing else (§35A). Sent as a
+      // flag rather than left to the classifier, which is right about "hey"
+      // being small talk — it is this surface that doesn't want small talk.
+      notesOnly: true,
       signal: askController.signal,
       onMeta: (meta) => {
         renderChatMeta(meta);
@@ -2299,6 +2482,7 @@ async function askQuestion(preset) {
         thinkingBox.classList.remove("hidden");
         thinkingBox.open = true;
         thinkingText.textContent += delta;
+        keepAtBottom(thinkingText); // follow the reasoning, unless scrolled away
         status.textContent = "The model is thinking…";
       },
       onAnswer: (delta) => {
@@ -2307,13 +2491,22 @@ async function askQuestion(preset) {
         renderLive(answerRaw); // markdown renders AS it streams (user request)
         status.textContent = "The model is writing…";
       },
+      onHint: (event) => {
+        // Not an answer, so it does not go through the markdown renderer or
+        // into the conversation — it is the box explaining itself.
+        hinted = true;
+        renderAskHint(answerBox, event);
+        status.textContent = "";
+      },
     });
 
     // Final render (catches anything after the last animation frame).
-    renderMarkdown(answerBox, answerRaw);
-    conversation.push({ question, answer: answerRaw });
+    if (!hinted) renderMarkdown(answerBox, answerRaw);
+    if (!hinted) {
+      conversation.push({ question, answer: answerRaw });
+      show("retry-btn", "copy-btn", "speak-btn", "new-chat-btn");
+    }
     status.textContent = "";
-    show("retry-btn", "copy-btn", "speak-btn", "new-chat-btn");
     // Asking changes both quick-access lists.
     loadRecentQuestions();
     loadMostUsed();
@@ -2979,7 +3172,13 @@ async function renderModelSpec(modelName) {
     ],
     ["Loaded at", spec.loaded_context_length ? compactTokens(spec.loaded_context_length) : null],
     ["Can use tools", canDo(spec.supports_tools)],
-    ["Can think", canDo(spec.supports_thinking)],
+    // "Can think: no" was reported for a model that visibly thinks (§35C),
+    // and the label was the lie rather than the value: this is the *declared*
+    // capability — whether the backend supports a thinking toggle — and a
+    // model can still emit inline <think> tags without declaring it, which
+    // `split_thinking` picks up and shows. Saying "declared" makes the two
+    // facts distinguishable instead of contradictory.
+    ["Thinking mode declared", canDo(spec.supports_thinking)],
   ].filter(([, value]) => value != null && value !== "");
 
   box.replaceChildren();
@@ -2993,24 +3192,54 @@ async function renderModelSpec(modelName) {
   box.classList.toggle("hidden", rows.length === 0);
 }
 
+// Both pickers for the response preset: the Chat toolbar's and the Notes
+// quick-ask box's. Two controls, one stored preference — the quick-ask box
+// always obeyed the saved mode and simply had no way to set it, so this is a
+// second way in rather than a second setting. Listed rather than found by
+// class so a stray `.small-select` can never join by accident.
+const RESPONSE_MODE_SELECTS = ["response-mode-select", "ask-mode-select"];
+
 // The response presets, fetched once. Served by /chat/modes rather than
 // listed here so adding a fourth is a change to `ai/presets.py` alone (§11).
 async function loadResponseModes() {
-  const select = $("response-mode-select");
-  if (!select) return;
+  const selects = RESPONSE_MODE_SELECTS.map((id) => $(id)).filter(Boolean);
+  if (!selects.length) return;
   const body = await apiJson("/chat/modes", { silent: true }).catch(() => null);
   if (!body || !body.modes) return;
-  select.replaceChildren();
-  for (const mode of body.modes) {
-    const option = document.createElement("option");
-    option.value = mode.id;
-    option.textContent = mode.label;
-    option.title = mode.description;
-    if (mode.id === body.active) option.selected = true;
-    select.appendChild(option);
-  }
   const active = body.modes.find((m) => m.id === body.active);
-  if (active) select.title = active.description;
+  for (const select of selects) {
+    select.replaceChildren();
+    for (const mode of body.modes) {
+      const option = document.createElement("option");
+      option.value = mode.id;
+      option.textContent = mode.label;
+      option.title = mode.description;
+      if (mode.id === body.active) option.selected = true;
+      select.appendChild(option);
+    }
+    if (active) select.title = active.description;
+  }
+}
+
+// Picking in one picker moves the other. Without this the two would drift
+// apart the moment either was touched, and the one you weren't looking at
+// would be lying about what the next answer will do.
+async function setResponseMode(chosen) {
+  for (const id of RESPONSE_MODE_SELECTS) {
+    const select = $(id);
+    if (!select) continue;
+    select.value = chosen;
+    const option = select.selectedOptions[0];
+    select.title = (option && option.title) || "";
+  }
+  // Changing the picker changes the default too — otherwise someone who works
+  // in Quick would re-pick it on every reload. The *request* still carries the
+  // mode per turn, so this is "remember what I chose" rather than a second
+  // setting that can disagree with the dropdown.
+  await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ response_mode: chosen }),
+  }).catch(() => {});
 }
 
 function personaOptions() {
@@ -3124,13 +3353,50 @@ function typingLine(label) {
 // on every streamed token, forcing a synchronous reflow each time — a big
 // source of jank on long answers.
 let chatScrollQueued = false;
+// --- following a stream without fighting the reader -------------------------------
+//
+// Asked for directly: the chat and the thinking box should scroll themselves
+// as the model writes, "but if the user tries to scroll up it will release the
+// lock". Both halves matter — a pane that does not follow makes a long answer
+// look frozen, and one that follows unconditionally yanks you back to the
+// bottom the moment you try to read what scrolled past.
+//
+// No "is this scroll programmatic?" flag is needed, which is the usual way
+// this gets complicated. Distance from the bottom answers it on its own: a
+// scroll we caused lands at zero and stays stuck, and a scroll the reader
+// caused moves away from zero and unsticks. Scrolling back down re-sticks,
+// so getting the follow behaviour back is the obvious gesture rather than a
+// button.
+const SCROLL_STICK_SLACK = 40; // px — a scrollbar rarely lands exactly at 0
+
+function followBottom(element) {
+  if (!element || element.dataset.followBound === "1") return;
+  element.dataset.followBound = "1";
+  element.dataset.stuck = "1";
+  element.addEventListener(
+    "scroll",
+    () => {
+      const distance =
+        element.scrollHeight - element.scrollTop - element.clientHeight;
+      element.dataset.stuck = distance <= SCROLL_STICK_SLACK ? "1" : "0";
+    },
+    { passive: true }
+  );
+}
+
+// Scroll to the bottom, unless the reader has scrolled away from it.
+function keepAtBottom(element) {
+  if (!element) return;
+  followBottom(element);
+  if (element.dataset.stuck !== "0") element.scrollTop = element.scrollHeight;
+}
+
 function chatScrollToEnd() {
   if (chatScrollQueued) return;
   chatScrollQueued = true;
   requestAnimationFrame(() => {
     chatScrollQueued = false;
-    const box = $("chat-messages");
-    box.scrollTop = box.scrollHeight;
+    keepAtBottom($("chat-messages"));
   });
 }
 
@@ -3305,6 +3571,9 @@ function agentTimeline(holder) {
       const step = current?.kind === "thinking" ? current : startThinking();
       step.raw += delta;
       step.body.textContent = step.raw;
+      // The pane has its own max-height and scrollbar, so following the chat
+      // is not enough — reasoning would scroll out of sight inside it.
+      keepAtBottom(step.body);
     },
     answer(delta) {
       const step = current?.kind === "answer" ? current : startAnswer();
@@ -4017,15 +4286,7 @@ async function exportDocumentMarkdown() {
     // The filename is decided server-side, so read it back off the header.
     const disposition = response.headers.get("content-disposition") || "";
     const match = disposition.match(/filename="([^"]+)"/);
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = match ? match[1] : "document.md";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+    await saveFile(match ? match[1] : "document.md", await response.blob());
   } catch (error) {
     $("doc-status").classList.add("error");
     $("doc-status").textContent = error.message;
@@ -4052,7 +4313,7 @@ function exportDocumentPdf() {
 
 async function deleteCurrentDocument() {
   if (!currentDoc) return;
-  if (!confirm(`Delete "${currentDoc.title}"? This can't be undone.`)) return;
+  if (!(await confirmDialog(`Delete "${currentDoc.title}"? This can't be undone.`))) return;
   await apiJson(`/documents/${currentDoc.id}`, { method: "DELETE" });
   toast("Document deleted.");
   currentDoc = null;
@@ -4519,6 +4780,11 @@ async function sendChatMessage(preset, opts = {}) {
   // Whether the user pressed Stop. An empty answer they asked for needs no
   // explanation; one they didn't ask for does.
   let stopped = false;
+  // Set when the agent ends its turn by handing the job to a saved skill.
+  // The run can't start from inside the stream — this turn is still holding
+  // the input box and the conversation — so it is remembered and started
+  // once everything below has run.
+  let handoff = null;
   const startedAt = performance.now();
   const toolEvents = []; // {label, ok} — persisted so chips survive a reload
   chatController = new AbortController();
@@ -4594,6 +4860,16 @@ async function sendChatMessage(preset, opts = {}) {
         timeline.tool(card.firstElementChild || card);
         status.textContent = "Waiting for your answer…";
       },
+      onRunSkill: (event) => {
+        // The model picked a saved skill for this job (§33). Its turn is over;
+        // the run starts below, once this one has finished tidying up.
+        clearPending();
+        timeline.tool(toolChip(event.label, true));
+        toolEvents.push({ label: event.label, ok: true });
+        status.textContent = `Starting “${event.skill}”…`;
+        handoff = event;
+        chatScrollToEnd();
+      },
       onStats: (event) => {
         // An agent turn reports once per round, so these accumulate: output
         // tokens and generation time add up, while the prompt size is the
@@ -4656,6 +4932,14 @@ async function sendChatMessage(preset, opts = {}) {
   }
   chatScrollToEnd();
   if (toolsActed) refreshAfterToolChanges(); // the AI changed real data
+  if (handoff) {
+    // Start the skill as its own message, down the same path the ⚡ dropdown
+    // uses — so the plan, the ticked steps, the change list and every Undo
+    // work here exactly as they do when the user picks the skill themselves.
+    // Deferred by a task because this turn is still finishing: it re-enables
+    // the input box in `finally`, and the run needs to disable it again.
+    setTimeout(() => startSkill({ name: handoff.skill }, handoff.inputs || {}), 0);
+  }
   if (!answerRaw) {
     // The model returned nothing. This used to return early and leave the
     // bubble sitting there with the notes disclosure, no answer, no error and
@@ -4667,7 +4951,11 @@ async function sendChatMessage(preset, opts = {}) {
       toast("The model returned nothing that time. Try again.", true);
       return;
     }
-    if (!stopped) {
+    // A turn that ended by starting a skill said nothing on purpose — the run
+    // below is the answer. Complaining that the model wrote nothing would be
+    // wrong, and the retry button would re-run the choosing turn rather than
+    // the skill.
+    if (!stopped && !handoff) {
       const note = document.createElement("p");
       note.className = "muted";
       note.textContent =
@@ -4771,7 +5059,7 @@ async function deleteChatTurn(assistantBubble) {
   const bubbles = [...$("chat-messages").querySelectorAll(".msg.assistant")];
   const index = bubbles.indexOf(assistantBubble);
   if (index === -1) return;
-  if (!confirm("Delete this message?")) return;
+  if (!(await confirmDialog("Delete this message?"))) return;
 
   if (chatConv.id !== null) {
     try {
@@ -4808,7 +5096,7 @@ function newChatConversation() {
 }
 
 // Download the open conversation as clean Markdown (questions + answers).
-function exportChatMarkdown() {
+async function exportChatMarkdown() {
   if (!chatConv.turns.length) {
     toast("Nothing to export yet — ask something first.");
     return;
@@ -4821,13 +5109,7 @@ function exportChatMarkdown() {
   const slug =
     title.toLowerCase().replace(/[^\w]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) ||
     "chat";
-  const blob = new Blob([md], { type: "text/markdown" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${slug}.md`;
-  a.click();
-  URL.revokeObjectURL(url);
+  await saveFile(`${slug}.md`, new Blob([md], { type: "text/markdown" }));
 }
 
 // --- resizable sidebars ----------------------------------------------------------
@@ -5032,7 +5314,11 @@ function relativeTime(iso) {
   const days = Math.round(hours / 24);
   if (days === 1) return "yesterday";
   if (days < 7) return `${days} days ago`;
-  if (days < 30) return `${Math.round(days / 7)} weeks ago`;
+  // Screenshotted as "1 weeks ago". Rounding 8 days gives 1, and the plural
+  // was hard-coded — the only branch here that forgot to agree with its own
+  // number.
+  const weeks = Math.round(days / 7);
+  if (days < 30) return `${weeks} week${weeks === 1 ? "" : "s"} ago`;
   return then.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
@@ -5135,7 +5421,7 @@ async function loadConversationList() {
     );
     items.push(
       makeMenuItem("🗑 Delete", "Delete this chat", async () => {
-        if (!confirm("Delete this saved chat?")) return;
+        if (!(await confirmDialog("Delete this saved chat?"))) return;
         await apiJson(`/conversations/${conversation.id}`, { method: "DELETE" });
         if (chatConv.id === conversation.id) newChatConversation();
         loadConversationList();
@@ -5426,7 +5712,7 @@ async function renderPersonas() {
     if (!persona.builtin) {
       actions.appendChild(
         smallButton("Delete", "Remove this persona", async () => {
-          if (!confirm(`Delete the “${persona.name}” persona?`)) return;
+          if (!(await confirmDialog(`Delete the “${persona.name}” persona?`))) return;
           await savePersonaList(custom.filter((p) => p.name !== persona.name));
         })
       );
@@ -5584,6 +5870,9 @@ function runSkill(skill) {
 }
 
 function startSkill(skill, values) {
+  // Both entry points land here — the ⚡ dropdown and a run the agent started
+  // itself (§33) — so the dashboard's recent-skill buttons cover both.
+  noteSkillRun(skill.name);
   const given = Object.values(values).filter(Boolean).join(", ");
   sendChatMessage(`⚡ ${skill.name}${given ? ` — ${given}` : ""}`, {
     skill: skill.name,
@@ -5767,7 +6056,7 @@ function skillRow(skill) {
     );
     actions.appendChild(
       smallButton("Delete", "Remove this skill", async () => {
-        if (!confirm(`Delete the “${skill.name}” skill?`)) return;
+        if (!(await confirmDialog(`Delete the “${skill.name}” skill?`))) return;
         await saveSkillList(customSkills().filter((s) => s.name !== skill.name));
       })
     );
@@ -5896,15 +6185,78 @@ async function renderToolSettings() {
 // --- Wave M: share skills/personas as JSON ------------------------------------------
 
 function downloadJson(filename, payload) {
-  const blob = new Blob([JSON.stringify(payload, null, 2)], {
-    type: "application/json",
+  return saveFile(
+    filename,
+    new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" })
+  );
+}
+
+// --- saving a generated file (§35E) ----------------------------------------------
+//
+// Every export here used to build a Blob and click a hidden `<a download>`.
+// That works in a browser tab and does nothing whatsoever in the desktop
+// window: pywebview has no download handler, so the click is swallowed and
+// the user gets no file and no error. Reported as "I don't think any of the
+// file save features in the whole application work on the python desktop app",
+// which was exactly right and true of all of them at once.
+//
+// So there are two paths, chosen by asking the server which shell it is
+// serving rather than by sniffing the user agent — pywebview's user agent is
+// not reliably distinguishable, and a wrong guess here is a silent failure in
+// the direction we are trying to fix.
+let isDesktopShell = null; // null = not yet asked
+
+async function desktopShell() {
+  if (isDesktopShell === null) {
+    const health = await apiJson("/health", { silent: true }).catch(() => null);
+    isDesktopShell = !!(health && health.desktop);
+  }
+  return isDesktopShell;
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    // readAsDataURL gives "data:<type>;base64,<payload>" — take the payload.
+    reader.onload = () => resolve(String(reader.result).split(",", 2)[1] || "");
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
   });
+}
+
+// Save a Blob under `filename`. Resolves once the file is somewhere the user
+// can find it, and says where when that isn't the browser's own downloads.
+async function saveFile(filename, blob) {
+  if (await desktopShell()) {
+    try {
+      const saved = await apiJson("/files/save", {
+        method: "POST",
+        body: JSON.stringify({
+          filename,
+          content_base64: await blobToBase64(blob),
+        }),
+      });
+      // Where it went matters more here than in a browser: there is no
+      // downloads shelf to look at, so an unannounced file is a lost one.
+      toast(`Saved to ${saved.path}`);
+      return saved;
+    } catch (error) {
+      toast(`Couldn't save ${filename}: ${error.message}`, true);
+      return null;
+    }
+  }
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
+  // In the document, not detached: some engines ignore a click on an anchor
+  // that was never in the DOM.
+  a.style.display = "none";
+  document.body.appendChild(a);
   a.click();
+  a.remove();
   URL.revokeObjectURL(url);
+  return { filename };
 }
 
 // Open a picker, parse the chosen file, hand the object to `apply`.
@@ -6031,7 +6383,7 @@ async function batchTag() {
 async function batchDelete() {
   const ids = batchSelection();
   if (!ids.length) return;
-  if (!confirm(`Move ${ids.length} note${ids.length === 1 ? "" : "s"} to the recycle bin?`))
+  if (!(await confirmDialog(`Move ${ids.length} note${ids.length === 1 ? "" : "s"} to the recycle bin?`)))
     return;
   for (const id of ids) await api(`/entries/${id}`, { method: "DELETE" });
   exitSelectMode();
@@ -6509,14 +6861,98 @@ const QUICK_LINKS = [
   { icon: "🧰", label: "Tools & features", run: () => openFeatures(), primary: true },
 ];
 
+// --- quick access that follows what you actually do (§36D) ------------------------
+//
+// These are the first thing on the first screen, and they were a fixed list
+// chosen early. Someone who lives in the graph and someone who never opens it
+// got the same row.
+//
+// The row is ordered by use now, with two fixed points: **New note stays
+// first** and **Tools & features stays last**. That is deliberate — a row that
+// reorders completely is a row you have to re-read every time, and the whole
+// value of a fixed position is that your hand learns it. Only the middle
+// moves, and only by how often you actually press it.
+const QUICK_USE_KEY = "quickLinkUse";
+//: How many recently-run skills get a button. Two, because they are competing
+//: for the same row as the fixed actions and a skill you ran once last month
+//: is not quick access to anything.
+const QUICK_SKILL_SLOTS = 2;
+
+function quickLinkUse() {
+  try {
+    return JSON.parse(localStorage.getItem(QUICK_USE_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function noteQuickLinkUse(label) {
+  const counts = quickLinkUse();
+  counts[label] = (counts[label] || 0) + 1;
+  localStorage.setItem(QUICK_USE_KEY, JSON.stringify(counts));
+}
+
+//: Skills that have actually been run, most recent first. Written by
+//: `startSkill`, so it covers both the dropdown and a run the agent started
+//: itself (§33) — if the model keeps reaching for a skill, that is evidence it
+//: belongs on the dashboard too.
+const RECENT_SKILLS_KEY = "recentSkills";
+
+function noteSkillRun(name) {
+  let recent = [];
+  try {
+    recent = JSON.parse(localStorage.getItem(RECENT_SKILLS_KEY) || "[]");
+  } catch {
+    recent = [];
+  }
+  recent = [name, ...recent.filter((n) => n !== name)].slice(0, 8);
+  localStorage.setItem(RECENT_SKILLS_KEY, JSON.stringify(recent));
+}
+
+function recentSkillLinks() {
+  let recent = [];
+  try {
+    recent = JSON.parse(localStorage.getItem(RECENT_SKILLS_KEY) || "[]");
+  } catch {
+    return [];
+  }
+  return recent.slice(0, QUICK_SKILL_SLOTS).map((name) => ({
+    icon: "⚡",
+    label: name,
+    skill: true,
+    run: () => {
+      const known = allSkills().find((s) => s.name === name);
+      // A skill can be deleted between runs. Sending the user to the picker is
+      // more use than a button that fails.
+      if (known) runSkill(known);
+      else switchTab("chat");
+    },
+  }));
+}
+
+function orderedQuickLinks() {
+  const counts = quickLinkUse();
+  const first = QUICK_LINKS[0];
+  const last = QUICK_LINKS.find((l) => l.primary);
+  const middle = QUICK_LINKS.filter((l) => l !== first && l !== last);
+  // Stable sort: equal counts keep the order they were declared in, so an
+  // untouched dashboard looks exactly as it always did.
+  middle.sort((a, b) => (counts[b.label] || 0) - (counts[a.label] || 0));
+  return [first, ...middle, ...recentSkillLinks(), last].filter(Boolean);
+}
+
 function renderQuickLinks() {
   const box = $("dash-quicklinks");
   if (!box) return;
   box.replaceChildren();
-  for (const link of QUICK_LINKS) {
+  for (const link of orderedQuickLinks()) {
     const button = document.createElement("button");
-    button.className = "quick-link" + (link.primary ? " quick-link-primary" : "");
+    button.className =
+      "quick-link" +
+      (link.primary ? " quick-link-primary" : "") +
+      (link.skill ? " quick-link-skill" : "");
     button.type = "button";
+    if (link.skill) button.title = `Run the skill “${link.label}”`;
     const icon = document.createElement("span");
     icon.className = "quick-link-icon";
     icon.textContent = link.icon;
@@ -6524,7 +6960,10 @@ function renderQuickLinks() {
     const label = document.createElement("span");
     label.textContent = link.label;
     button.append(icon, label);
-    button.addEventListener("click", link.run);
+    button.addEventListener("click", () => {
+      noteQuickLinkUse(link.label);
+      link.run();
+    });
     box.appendChild(button);
   }
 }
@@ -6910,6 +7349,10 @@ async function renderDashboard() {
 
 let artInstance = null; // the one live p5 instance, if any
 let artNonce = 0; // bumped by "Regenerate" for a fresh arrangement
+// Bumped on every startArt call. A run that finds it has changed while it was
+// waiting knows it was superseded and must not mount its canvas — see the
+// comment in startArt for the stacking bug this fixes (§35G).
+let artRun = 0;
 // Where the constellation is drawn, kept so a theme change can rebuild it.
 //
 // The sketch reads light-or-dark ONCE, when it is built, and paints its wash
@@ -7036,6 +7479,15 @@ async function renderArtWidget(body) {
 }
 
 async function startArt(holder) {
+  // Which run this is. `startArt` awaits /insights/stats before it mounts
+  // anything, and `stopArt()` above that await can only remove an instance
+  // that already exists — so two overlapping calls each found `artInstance`
+  // null, each waited, and each mounted a canvas into the same holder. That
+  // is the four-or-five stacked constellations that were screenshotted
+  // (§35G), and the same bug is why Regenerate read as "broken and severely
+  // glitchy": every click added a canvas and `artInstance` only ever tracked
+  // the last one, so nothing could tear the others down.
+  const run = ++artRun;
   stopArt();
   artHolder = holder;
   if (typeof p5 === "undefined") {
@@ -7114,6 +7566,15 @@ async function startArt(holder) {
     p.draw = () => scene(p.frameCount * 0.005);
   };
 
+  // Superseded while we waited, or the widget was re-rendered out from under
+  // us. Either way this run must not mount: it would be the second canvas.
+  if (run !== artRun || !holder.isConnected) return;
+  // Belt and braces. `stopArt` handles the instance we know about; clearing
+  // the holder removes any canvas a previous version of this bug left behind,
+  // so an already-stacked dashboard heals on the next render rather than
+  // needing a reload.
+  stopArt();
+  holder.replaceChildren();
   artInstance = new p5(sketch, holder);
 }
 
@@ -7723,9 +8184,7 @@ function focusTimerTick() {
     if (focusTimer.remaining === 0) {
       stopFocusTimer();
       toast("⏱ Focus session complete — nice work!");
-      if ("Notification" in window && Notification.permission === "granted") {
-        new Notification("MemoryMap", { body: "Focus session complete — nice work!" });
-      }
+      notify("MemoryMap", "Focus session complete — nice work!");
     }
   }
 }
@@ -7734,9 +8193,7 @@ function startFocusTimer() {
   if (focusTimer.running) return;
   if (focusTimer.remaining <= 0) focusTimer.remaining = focusTimer.total;
   focusTimer.running = true;
-  if ("Notification" in window && Notification.permission === "default") {
-    Notification.requestPermission();
-  }
+  askNotificationPermission();
   focusTimer.handle = setInterval(focusTimerTick, 1000);
   paintFocusTimer();
 }
@@ -7887,7 +8344,7 @@ async function clearDoneReminders() {
   const all = await apiJson("/reminders").catch(() => []);
   const done = all.filter((r) => r.done);
   if (!done.length) return;
-  if (!confirm(`Delete ${done.length} completed reminder${done.length === 1 ? "" : "s"}?`)) {
+  if (!(await confirmDialog(`Delete ${done.length} completed reminder${done.length === 1 ? "" : "s"}?`))) {
     return;
   }
   await Promise.all(
@@ -8296,10 +8753,10 @@ async function addReminder(text, dueValue, entryId = null, opts = {}) {
       recurring: opts.recurring || "none",
     }),
   });
-  // Ask once for notification permission, when the first reminder lands.
-  if ("Notification" in window && Notification.permission === "default") {
-    Notification.requestPermission();
-  }
+  // Asked here, when a reminder actually lands, and not on first load — a
+  // permission prompt with no context is refused by default, and a refusal is
+  // close to permanent (§36C).
+  askNotificationPermission();
   toast("Reminder set.");
   loadReminders();
   return true;
@@ -8322,9 +8779,7 @@ async function magicAddReminder() {
     });
     input.value = "";
     status.textContent = `Added “${reminder.text}” — ${relativeWhen(reminder.due_at)}. Edit it below if needed.`;
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
+    askNotificationPermission();
     loadReminders();
   } catch (error) {
     status.classList.add("error");
@@ -8419,7 +8874,7 @@ function columnAlign(spec) {
 
 function renderMarkdown(container, text) {
   container.replaceChildren();
-  const lines = text.replace(/\r\n/g, "\n").split("\n");
+  const lines = unlatex(text).replace(/\r\n/g, "\n").split("\n");
   let i = 0;
   let list = null; // the <ul>/<ol> currently being filled, or null
 
@@ -9789,7 +10244,7 @@ function renderGraphPopupActions(entry) {
   );
   box.appendChild(
     smallButton("🗑 Bin", "Move this note to the recycle bin", async () => {
-      if (!confirm("Move this note to the recycle bin?")) return;
+      if (!(await confirmDialog("Move this note to the recycle bin?"))) return;
       await api(`/entries/${entry.id}`, { method: "DELETE" }).catch((e) =>
         toast(e.message, true)
       );
@@ -9931,8 +10386,9 @@ function switchTab(name) {
   }
   localStorage.setItem("activeTab", name); // reopen where you left off
   // A new tab starts at its own top, and the back-to-top button re-evaluates
-  // (it stays off the graph).
-  window.scrollTo({ top: 0, behavior: "auto" });
+  // (it stays off the graph). Each page keeps its own scroll position now, so
+  // this is a deliberate reset rather than a side effect of one shared one.
+  scrollingPage()?.scrollTo({ top: 0, behavior: "auto" });
   scrollTopUpdate?.();
   // The generative-art animation only needs to run while it's on screen.
   if (name !== "dashboard") stopArt();
@@ -10168,11 +10624,18 @@ function showPanel(id) {
   if (id) scrollPageToTop();
 }
 
+// The element that actually scrolls (§36A). The window no longer does — the
+// visible .tab-page is its own scroll container, so the scrollbar starts below
+// the top bar instead of running behind it.
+function scrollingPage() {
+  return document.querySelector(".tab-page:not(.hidden)");
+}
+
 // Honour "prefers reduced motion" — a long smooth scroll is exactly the kind
 // of movement that setting exists to stop.
 function scrollPageToTop() {
   const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  window.scrollTo({ top: 0, behavior: smooth ? "smooth" : "auto" });
+  scrollingPage()?.scrollTo({ top: 0, behavior: smooth ? "smooth" : "auto" });
 }
 
 // --- back-to-top button -----------------------------------------------------------
@@ -10199,10 +10662,13 @@ function initScrollTopButton() {
 
   const update = () => {
     const tab = localStorage.getItem("activeTab") || "dashboard";
-    const show = window.scrollY > 400 && !NO_SCROLL_TOP_TABS.has(tab);
+    const show = (scrollingPage()?.scrollTop || 0) > 400 && !NO_SCROLL_TOP_TABS.has(tab);
     button.classList.toggle("visible", show);
   };
-  window.addEventListener("scroll", update, { passive: true });
+  // Capture, because scroll events do not bubble: the listener has to see them
+  // on whichever .tab-page is currently the scroll container, and that changes
+  // every time the user switches tab.
+  document.addEventListener("scroll", update, { passive: true, capture: true });
   window.addEventListener("resize", update, { passive: true });
   update();
   return update;
@@ -10359,10 +10825,99 @@ async function openSettingsModal(section = "models") {
   if (!suggestedCatalog) {
     suggestedCatalog = await apiJson("/models/suggested").catch(() => null);
   }
+  loadChangelog();
   refreshModelStatus();
 }
 
+// CHANGELOG.md, rendered in Settings → About (§36E). Loaded once per session
+// and only when the settings panel is opened — it is several thousand words
+// and nobody is waiting for it at startup.
+let changelogLoaded = false;
+async function loadChangelog() {
+  if (changelogLoaded) return;
+  const fold = $("changelog-fold");
+  const body = $("changelog-body");
+  if (!fold || !body) return;
+  const data = await apiJson("/changelog", { silent: true }).catch(() => null);
+  if (!data || !data.markdown) {
+    // A packaged build may not ship the file. Hiding the control is better
+    // than offering one that opens onto nothing.
+    fold.classList.add("hidden");
+    return;
+  }
+  changelogLoaded = true;
+  fold.classList.remove("hidden");
+  renderMarkdown(body, data.markdown);
+}
+
+// --- finding a setting (§36B) ------------------------------------------------------
+//
+// Fourteen sections, grouped three ways. The grouping helps, and it is only
+// ever right for some people — "where do I turn off web search?" is a guess
+// between The AI and System until you have learned the layout, and "where is
+// the corner rounding?" is a guess even after you have.
+//
+// So the search looks inside each section's rendered text rather than only at
+// its title. Typing "theme", "corner", "password" or "backup" then lands on
+// the section that actually contains that word, which is the question people
+// are really asking.
+//
+// Text is read live rather than indexed once: several sections are filled in
+// by JS after their first paint (the model list, the tool catalog, the saved
+// looks), and an index built at startup would be searching empty panels.
+function settingsSectionText(section) {
+  return (section.textContent || "").toLowerCase();
+}
+
+function filterSettings(term) {
+  const query = term.trim().toLowerCase();
+  const count = $("settings-search-count");
+  const buttons = [...document.querySelectorAll("#settings-nav button[data-section]")];
+
+  if (!query) {
+    for (const button of buttons) button.classList.remove("hidden");
+    for (const label of document.querySelectorAll("#settings-nav .nav-group-label")) {
+      label.classList.remove("hidden");
+    }
+    count.classList.add("hidden");
+    return;
+  }
+
+  let matches = 0;
+  for (const button of buttons) {
+    const section = $(`settings-${button.dataset.section}`);
+    const hit =
+      button.textContent.toLowerCase().includes(query) ||
+      (section && settingsSectionText(section).includes(query));
+    button.classList.toggle("hidden", !hit);
+    if (hit) matches += 1;
+  }
+  // A group label with nothing under it is a heading for an empty list.
+  for (const label of document.querySelectorAll("#settings-nav .nav-group-label")) {
+    const group = label.nextElementSibling;
+    const anyVisible =
+      group && [...group.querySelectorAll("button")].some((b) => !b.classList.contains("hidden"));
+    label.classList.toggle("hidden", !anyVisible);
+  }
+
+  count.classList.remove("hidden");
+  count.textContent = matches
+    ? `${matches} section${matches === 1 ? "" : "s"}`
+    : "Nothing matches that";
+  // One match is not ambiguous, so show it rather than making the user click
+  // the single remaining button.
+  if (matches === 1) {
+    const only = buttons.find((b) => !b.classList.contains("hidden"));
+    if (only) showSettingsSection(only.dataset.section);
+  }
+}
+
 function closeSettingsModal() {
+  const search = $("settings-search");
+  if (search) {
+    search.value = "";
+    filterSettings("");
+  }
   // Always cleared on the way out. A panel that reopens semi-transparent
   // reads as a rendering bug, not as a setting anyone chose.
   setSettingsPeek(false);
@@ -10874,15 +11429,7 @@ async function downloadSupportBundle() {
       headers: { "X-Auth-Token": localStorage.getItem("token") || "" },
     });
     if (!response.ok) throw new Error(`Couldn't build the bundle (${response.status})`);
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "memorymap-support-bundle.zip";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+    await saveFile("memorymap-support-bundle.zip", await response.blob());
     toast("Support bundle saved. Have a look inside before you send it.");
   } catch (error) {
     toast(error.message || "Couldn't build the support bundle.", true);
@@ -10958,7 +11505,7 @@ async function renderTags() {
     );
     actions.appendChild(
       smallButton("Delete", "Remove this tag from every entry", async () => {
-        if (!confirm(`Remove the tag “${name}” from all entries?`)) return;
+        if (!(await confirmDialog(`Remove the tag “${name}” from all entries?`))) return;
         await apiJson("/tags/delete", { method: "POST", body: JSON.stringify({ name }) });
         await Promise.all([renderTags(), loadEntries()]);
       })
@@ -11079,7 +11626,7 @@ async function savePrefs() {
 }
 
 async function deleteProfile() {
-  if (!confirm("Delete your profile text? The AI will stop personalising answers.")) return;
+  if (!(await confirmDialog("Delete your profile text? The AI will stop personalising answers."))) return;
   prefsCache = await apiJson("/preferences", {
     method: "PUT",
     body: JSON.stringify({ user_profile: "", profile_enabled: false }),
@@ -11092,14 +11639,10 @@ async function deleteProfile() {
 // bytes and hand the browser a blob instead.
 async function downloadExport(kind) {
   const response = await api(`/export/${kind}`);
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
   // Markdown arrives as a zip of .md files; the rest are single files.
-  a.download = kind === "markdown" ? "memorymap-markdown.zip" : `memorymap-export.${kind}`;
-  a.click();
-  URL.revokeObjectURL(url);
+  const name =
+    kind === "markdown" ? "memorymap-markdown.zip" : `memorymap-export.${kind}`;
+  await saveFile(name, await response.blob());
 }
 
 // --- Wave F: backups UI -------------------------------------------------------------
@@ -11122,10 +11665,10 @@ async function renderBackups() {
     actions.appendChild(
       smallButton("Restore", "Roll the notebook back to this backup", async () => {
         if (
-          !confirm(
+          !(await confirmDialog(
             "Restore this backup? Your current notebook is snapshotted first, " +
               "then replaced by the backup."
-          )
+          ))
         )
           return;
         try {
@@ -11143,7 +11686,7 @@ async function renderBackups() {
     );
     actions.appendChild(
       smallButton("×", "Delete this backup", async () => {
-        if (!confirm("Delete this backup file?")) return;
+        if (!(await confirmDialog("Delete this backup file?"))) return;
         await apiJson(`/backups/${item.name}`, { method: "DELETE" }).catch(() => {});
         renderBackups();
       })
@@ -11366,8 +11909,8 @@ function openSketch() {
   $("sketch-status").textContent = "";
 }
 
-function closeSketch() {
-  if (sketchDirty && !confirm("Close without saving your sketch?")) return;
+async function closeSketch() {
+  if (sketchDirty && !(await confirmDialog("Close without saving your sketch?"))) return;
   $("sketch-overlay").classList.add("hidden");
   overlayReturnFocus?.focus?.();
   overlayReturnFocus = null;
@@ -11514,6 +12057,121 @@ function speakText(text) {
 }
 
 // --- toasts (Phase 5) ---------------------------------------------------------------
+
+// --- reminders you actually notice (§36C) ------------------------------------------
+//
+// Reported: "reminders when they go off aren't really noticeable and need to be
+// more evident, maybe through a browser or system/app notification?"
+//
+// The reason they were unnoticeable is simpler than it sounds: **nothing
+// checked.** A reminder's only surface was a small badge on the Reminders tab
+// button, painted by `updateReminderBadge` — which only ran when something
+// happened to call `loadReminders()`. So unless you reloaded, or visited that
+// tab, a reminder came due and the interface said nothing at all, forever.
+//
+// Three surfaces now, in increasing order of how much they interrupt:
+//   · the tab badge, as before;
+//   · a count in the document title, which is visible from another tab or a
+//     taskbar without the app being focused;
+//   · a system notification and a toast, once per reminder.
+//
+// The honest limit, stated because the alternative is implying otherwise:
+// none of this fires while the app is closed. A local-first app with no
+// background service cannot wake itself up, and pretending it can would be
+// worse than the gap.
+
+const REMINDER_POLL_MS = 30_000;
+//: Which reminders have already been announced, so a 30-second poll does not
+//: re-fire the same notification twice a minute. Kept in localStorage rather
+//: than memory: a reload would otherwise re-announce everything overdue, which
+//: is the most annoying possible version of this feature.
+const ANNOUNCED_KEY = "announcedReminders";
+
+function announcedReminders() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(ANNOUNCED_KEY) || "[]"));
+  } catch {
+    return new Set();
+  }
+}
+
+function rememberAnnounced(ids) {
+  // Bounded, and trimmed from the front: without a cap this grows forever in a
+  // notebook that has been used for years.
+  const kept = [...announcedReminders(), ...ids].slice(-200);
+  localStorage.setItem(ANNOUNCED_KEY, JSON.stringify(kept));
+}
+
+// Asked when a reminder is SET, not on first load. A permission prompt with no
+// context is refused by default, and a refusal is close to permanent — the
+// browser will not ask again, and most people never find the site settings.
+function askNotificationPermission() {
+  if ("Notification" in window && Notification.permission === "default") {
+    Notification.requestPermission().catch(() => {});
+  }
+}
+
+function notify(title, body) {
+  if ("Notification" in window && Notification.permission === "granted") {
+    try {
+      new Notification(title, { body, icon: "/favicon.svg", tag: "memorymap" });
+      return true;
+    } catch {
+      // Some embedded shells expose the constructor and then throw. Falling
+      // through to the toast is the point of returning a boolean.
+    }
+  }
+  return false;
+}
+
+// The count in the title bar — the one surface that works while the app is in
+// a background tab, which is where it usually is when a reminder comes due.
+const BASE_TITLE = "MemoryMap AI";
+function setTitleCount(count) {
+  document.title = count > 0 ? `(${count}) ${BASE_TITLE}` : BASE_TITLE;
+}
+
+async function checkDueReminders() {
+  const all = await apiJson("/reminders", { silent: true }).catch(() => null);
+  if (!all) return; // server asleep or locked — say nothing rather than guess
+  const now = Date.now();
+  const due = all.filter((r) => !r.done && new Date(r.due_at).getTime() <= now);
+  updateReminderBadge(all);
+  setTitleCount(due.length);
+
+  const already = announcedReminders();
+  const fresh = due.filter((r) => !already.has(r.id));
+  if (!fresh.length) return;
+  rememberAnnounced(fresh.map((r) => r.id));
+
+  // One notification for one reminder; a summary for several, because three
+  // separate system notifications for three reminders is worse than one.
+  if (fresh.length === 1) {
+    const text = fresh[0].text;
+    if (!notify("⏰ Reminder", text)) toast(`⏰ ${text}`);
+  } else {
+    const summary = `${fresh.length} reminders are due`;
+    if (!notify("⏰ MemoryMap", summary)) toast(`⏰ ${summary}`);
+  }
+  // Always in-app as well as out: a system notification can be suppressed by
+  // Do Not Disturb without the app ever knowing.
+  if ("Notification" in window && Notification.permission === "granted") {
+    toast(fresh.length === 1 ? `⏰ ${fresh[0].text}` : `⏰ ${fresh.length} reminders are due`);
+  }
+  loadReminders().catch(() => {});
+}
+
+function startReminderWatch() {
+  checkDueReminders();
+  setInterval(checkDueReminders, REMINDER_POLL_MS);
+  // A machine that was asleep wakes up with reminders long past due, and the
+  // interval will not have run. Checking on focus catches that immediately
+  // rather than up to thirty seconds later.
+  window.addEventListener("focus", () => checkDueReminders());
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) checkDueReminders();
+  });
+}
 
 function toast(message, isError = false) {
   const box = $("toast-box");
@@ -11859,29 +12517,14 @@ function renderSearchEngineHealth(status) {
 // it and set it.
 function renderChatModeSeg() {
   const agent = $("tools-toggle").checked;
-  $("task-history-clear").addEventListener("click", async () => {
-  await apiJson("/tasks/history/clear", { method: "POST" }).catch((e) =>
-    toast(e.message, true)
-  );
-  renderTasks();
-});
-$("app-quit").addEventListener("click", async () => {
-  // Confirmed, because it is not undoable from inside the app: once the
-  // server is down, the button that would bring it back is on the page that
-  // just stopped being served.
-  if (!confirm("Quit MemoryMap? The app and its server will stop.")) return;
-  try {
-    await apiJson("/shutdown", { method: "POST" });
-  } catch {
-    // The server may drop the connection as it goes. That is the request
-    // succeeding, not failing, so it is not worth an error toast.
-  }
-  document.body.innerHTML =
-    '<div style="padding:3rem;text-align:center;font-family:system-ui">' +
-    "<h1>MemoryMap has stopped.</h1>" +
-    "<p>Your notes are saved. You can close this tab.</p></div>";
-});
-for (const button of document.querySelectorAll("#chat-mode-seg button")) {
+  // Two `addEventListener` calls for Quit and Clear-history used to sit here,
+  // spliced into the middle of this function by an editing accident. It parsed,
+  // so nothing complained — but this function runs on every chat-mode change,
+  // so each call bound *another* listener to both buttons. Clicking Quit after
+  // switching modes a few times opened that many confirm dialogs and fired
+  // that many shutdown requests. The correctly-placed copies of both are
+  // registered once, at the bottom of this file, where every other handler is.
+  for (const button of document.querySelectorAll("#chat-mode-seg button")) {
     const active = button.dataset.chatMode === (agent ? "agent" : "chat");
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", active ? "true" : "false");
@@ -12320,10 +12963,10 @@ function renderInstalledModels(status) {
       li.appendChild(
         smallButton("Remove", `Uninstall ${model.name}`, async (event) => {
           if (
-            !confirm(
+            !(await confirmDialog(
               `Remove “${model.name}” from Ollama? This frees its disk space — ` +
                 "you can re-download it any time."
-            )
+            ))
           )
             return;
           event.target.disabled = true;
@@ -12361,7 +13004,17 @@ function renderSuggested(status) {
       name.textContent = model.name;
       const info = document.createElement("span");
       info.className = "model-info";
-      info.textContent = `${kind} · ${model.size} · ${model.purpose}`;
+      // "~2.0 GB" for a figure we shipped and cannot check, the exact size for
+      // one the backend has actually measured (§35J). The tilde is the whole
+      // signal: this number is the one someone checks their free disk against
+      // before committing to a multi-gigabyte download, so presenting a stale
+      // guess as fact is the part that was wrong, not the guess itself.
+      const approximate = model.size_source !== "measured";
+      const size = approximate ? `~${String(model.size).replace(/^~/, "")}` : model.size;
+      info.textContent = `${kind} · ${size} · ${model.purpose}`;
+      info.title = approximate
+        ? "Approximate download size — the exact figure shows once it's installed."
+        : "Measured on your machine.";
       li.append(name, info);
 
       const pull = (status.pulls || {})[model.name];
@@ -12557,19 +13210,19 @@ async function applyEmbeddingBackend() {
       return;
     }
     if (!looksLikeEmbeddingModel(model)) {
-      const proceed = confirm(
+      const proceed = (await confirmDialog(
         `"${model}" doesn't look like an embedding model. Chat models can't create ` +
           "embeddings, so semantic search will fail (Ollama returns 501). Download and " +
           "pick a dedicated embedding model like nomic-embed-text instead.\n\nApply anyway?"
-      );
+      ));
       if (!proceed) return;
     }
   }
-  const ok = confirm(
+  const ok = (await confirmDialog(
     `Switching the search engine re-indexes all ${allEntries.length} of your ` +
       "notes so search keeps making sense. Notes and keyword search stay " +
       "available while it runs. Continue?"
-  );
+  ));
   if (!ok) {
     // Backing out puts the saved backend back on screen, rather than leaving
     // a radio selected for a switch that never happened.
@@ -13055,9 +13708,19 @@ function applyHarmony() {
 
 const MAX_CUSTOM_THEMES = 20;
 
+//: Everything a saved look captures: every manual override, plus the
+//: background-art switch. `bgArt` is deliberately NOT in OVERRIDABLE_KEYS —
+//: that list also drives "clear my manual changes", and turning someone's
+//: background off is not what clearing a colour override should do. But a
+//: look that remembers *which* art and how intense, and not whether it is on,
+//: can never turn it on when applied. Which is exactly what was reported
+//: (§35J): the generative background had to be switched on by hand, separately
+//: from the saved theme it belongs to.
+const LOOK_KEYS = [...OVERRIDABLE_KEYS, "bgArt"];
+
 function currentLookValues() {
   const values = {};
-  for (const key of OVERRIDABLE_KEYS) {
+  for (const key of LOOK_KEYS) {
     const value = localStorage.getItem(key);
     if (value !== null) values[key] = value;
   }
@@ -13113,6 +13776,10 @@ function applySavedTheme(theme) {
   // the path that would have applied it on a fresh load.
   applyThemeChoice(theme.values?.theme || "system", false);
   applyAppearance();
+  // The art is a running p5 sketch, not a CSS variable, so applyAppearance
+  // marking the root "on" is not enough to start or stop one.
+  if (bgArtOn()) startBgArt();
+  else stopBgArt();
   renderAppearance();
   toast(`Applied “${theme.name}”.`);
 }
@@ -14126,7 +14793,7 @@ $("appearance-reset").addEventListener("click", resetAppearance);
 $("theme-reset").addEventListener("click", resetThemeOnly);
 $("account-change").addEventListener("click", changePassword);
 $("account-lock-all").addEventListener("click", async () => {
-  if (!confirm("End every session, including this one? You'll need your password to get back in.")) return;
+  if (!(await confirmDialog("End every session, including this one? You'll need your password to get back in."))) return;
   await apiJson("/auth/lock-all", { method: "POST" }).catch(() => {});
   localStorage.removeItem("token");
   location.reload();
@@ -14167,6 +14834,9 @@ $("skip-link").addEventListener("click", (e) => {
 });
 initNotesSubtabs();
 scrollTopUpdate = initScrollTopButton();
+// Nothing used to check whether a reminder had come due, so one could pass
+// silently and stay silent (§36C).
+startReminderWatch();
 initResizableSidebars();
 watchOverlays(); // page behind a dialog must not scroll
 initAutoGrow(); // capture + magic-add boxes follow their content
@@ -14198,11 +14868,18 @@ $("task-history-clear").addEventListener("click", async () => {
   );
   renderTasks();
 });
-$("app-quit").addEventListener("click", async () => {
+// Quit, from either place it is offered: the top bar (§36D) and Settings →
+// System. One handler, bound to both, rather than two copies that drift.
+async function quitApp() {
   // Confirmed, because it is not undoable from inside the app: once the
   // server is down, the button that would bring it back is on the page that
   // just stopped being served.
-  if (!confirm("Quit MemoryMap? The app and its server will stop.")) return;
+  if (!(await confirmDialog(
+    "Quit MemoryMap?\n\nThe app and its server will stop. Your notes are already saved.",
+    { confirmLabel: "Quit" }
+  ))) {
+    return;
+  }
   try {
     await apiJson("/shutdown", { method: "POST" });
   } catch {
@@ -14213,7 +14890,9 @@ $("app-quit").addEventListener("click", async () => {
     '<div style="padding:3rem;text-align:center;font-family:system-ui">' +
     "<h1>MemoryMap has stopped.</h1>" +
     "<p>Your notes are saved. You can close this tab.</p></div>";
-});
+}
+$("app-quit").addEventListener("click", quitApp);
+$("quit-btn")?.addEventListener("click", quitApp);
 for (const button of document.querySelectorAll("#chat-mode-seg button")) {
   button.addEventListener("click", () => setChatMode(button.dataset.chatMode));
 }
@@ -14230,6 +14909,16 @@ $("settings-modal").addEventListener("click", (e) => {
 for (const button of document.querySelectorAll("#settings-nav button")) {
   button.addEventListener("click", () => showSettingsSection(button.dataset.section));
 }
+$("settings-search")?.addEventListener("input", (e) => filterSettings(e.target.value));
+$("settings-search")?.addEventListener("keydown", (e) => {
+  // Escape clears the filter rather than closing the whole panel — closing on
+  // Escape while someone is mid-search loses both the search and their place.
+  if (e.key === "Escape" && e.target.value) {
+    e.stopPropagation();
+    e.target.value = "";
+    filterSettings("");
+  }
+});
 // Cross-links between settings screens ("web search lives over there").
 // Delegated, so a link added to the markup later needs no wiring.
 $("settings-modal").addEventListener("click", (event) => {
@@ -14334,9 +15023,9 @@ $("draft-thoughts").addEventListener("keydown", (event) => {
     composeDraft();
   }
 });
-$("draft-discard").addEventListener("click", () => {
+$("draft-discard").addEventListener("click", async () => {
   if (!$("draft-text").value.trim() && !$("draft-thoughts").value.trim()) return;
-  if (!confirm("Discard this draft? It hasn't been saved as a note.")) return;
+  if (!(await confirmDialog("Discard this draft? It hasn't been saved as a note."))) return;
   foldedThoughts = "";
   $("draft-thoughts").value = "";
   $("draft-text").value = "";
@@ -14416,19 +15105,9 @@ $("persona-select").addEventListener("change", async () => {
     body: JSON.stringify({ active_persona: $("persona-select").value }),
   }).catch(() => {});
 });
-$("response-mode-select").addEventListener("change", async (e) => {
-  // Changing the picker changes the default too — otherwise someone who
-  // works in Quick would re-pick it on every reload. The *request* still
-  // carries the mode per turn, so this is "remember what I chose" rather
-  // than a second setting that can disagree with the dropdown.
-  const chosen = e.target.value;
-  const option = e.target.selectedOptions[0];
-  e.target.title = (option && option.title) || "";
-  await apiJson("/preferences", {
-    method: "PUT",
-    body: JSON.stringify({ response_mode: chosen }),
-  }).catch(() => {});
-});
+for (const id of RESPONSE_MODE_SELECTS) {
+  $(id)?.addEventListener("change", (e) => setResponseMode(e.target.value));
+}
 // The AI status dot. Hover is CSS; these are the paths hover doesn't cover —
 // touch, where there is no hover at all, and keyboards.
 $("ai-status").addEventListener("click", () => toggleAiStatusPopup());
@@ -14653,7 +15332,7 @@ for (const button of document.querySelectorAll(".panel-close")) {
   button.addEventListener("click", () => showPanel(null));
 }
 $("bin-empty").addEventListener("click", async () => {
-  if (!confirm("Permanently delete everything in the bin? This cannot be undone.")) return;
+  if (!(await confirmDialog("Permanently delete everything in the bin? This cannot be undone."))) return;
   const result = await apiJson("/recycle-bin/empty", { method: "POST" });
   toast(`${result.removed} entr${result.removed === 1 ? "y" : "ies"} permanently deleted.`);
   await renderBin();
@@ -14867,12 +15546,12 @@ async function mergeDuplicateGroup(ids, card) {
   }
   status.textContent = "";
 
-  const ok = confirm(
+  const ok = (await confirmDialog(
     `Merge ${ids.length} notes into one?\n\n` +
       `The merged note will read:\n\n${preview.merged.slice(0, 400)}` +
       `${preview.merged.length > 400 ? "…" : ""}\n\n` +
       `The other ${ids.length - 1} go to the recycle bin, so this is undoable.`
-  );
+  ));
   if (!ok) return;
 
   try {
@@ -15098,11 +15777,11 @@ async function refreshSearxngHost() {
 
 $("searxng-reinstall").addEventListener("click", async () => {
   if (
-    !confirm(
+    !(await confirmDialog(
       "Delete the SearXNG install and set it up again from scratch?\n\n" +
         "Your settings file is kept — only the downloaded copy and its " +
         "virtualenv are removed. Reinstalling takes a few minutes."
-    )
+    ))
   )
     return;
   const status = $("searxng-host-status");

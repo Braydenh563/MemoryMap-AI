@@ -15,11 +15,22 @@ step is its own bounded agent turn, so:
 - what changed is collected as it happens, with the call that would undo it.
 
 A skill with no steps is one turn — exactly what it was before the rebuild.
+
+**Everything here has to stay lazy.** The events are consumed by a streaming
+NDJSON response, so anything that materialises the iterator holds the whole
+step back and releases it in one block. That was a real bug (§35H): putting
+the first event back with `[first, *events]` looks harmless and is not — the
+`*` runs the generator to exhaustion before the list even exists, so a step's
+prose, tool chips and all arrived together once the step had finished. Reported
+as "the steps don't stream visually as they are written and are instead dumped
+once each section of the response is finished". `chain` is the version of that
+line which does not.
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterator
+from itertools import chain
 
 from sqlalchemy.orm import Session
 
@@ -96,7 +107,7 @@ def run_skill(
             yield first
             return
         yield plan
-        for event in _collect([first, *events], changes):
+        for event in _collect(chain([first], events), changes):
             yield event
         yield {"type": "result", "changes": changes}
         return
@@ -132,7 +143,7 @@ def run_skill(
 
         said: list[str] = []
         failures: list[str] = []
-        for event in _collect([first, *events] if first else events, changes):
+        for event in _collect(chain([first], events) if first else events, changes):
             if event["type"] == "answer":
                 said.append(event["delta"])
             elif event["type"] == "tool" and not event.get("ok"):

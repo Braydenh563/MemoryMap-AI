@@ -801,6 +801,82 @@ def _get_document(session: Session, args: dict) -> dict:
     }
 
 
+#: A document the agent writes. Generous next to a note's cap because a
+#: document is long-form by definition — but still a cap, since the content
+#: comes back through the model's own output and an unbounded one would mean a
+#: single tool call could fill the window on the next round.
+MAX_NEW_DOCUMENT_CHARS = 20_000
+
+
+def _create_document(session: Session, args: dict) -> dict:
+    """Write a long-form document.
+
+    The asymmetry this closes: there was `list_documents` and `get_document`
+    and no way to make one, so a model asked to "write this up properly" could
+    read every document the user had and then had nowhere to put the result.
+    Reported directly — "the agent can't create a document either" (§35J) —
+    and it was a gap nobody noticed rather than a deliberate limit, because
+    §5's document work was built UI-first.
+
+    Deliberately a separate tool from `create_note` rather than a flag on it.
+    A note is a captured thought and a document is something you sat down to
+    write; the database keeps them apart precisely so half-written documents
+    do not turn up in search results and in the graph, and one tool covering
+    both would hand the model the decision that separation exists to make.
+    """
+    from memorymap.core.database import Document
+
+    title = str(args.get("title") or "").strip()[:200]
+    content = str(args.get("content") or "")
+    if not title:
+        raise ToolError("A document needs a title.")
+    if not content.strip():
+        # A titled empty document is the shape of a model that called the tool
+        # to announce its intention. Refusing is what makes it write first.
+        raise ToolError(
+            "A document needs its text in `content` — write the document, then "
+            "save it in one call."
+        )
+    if len(content) > MAX_NEW_DOCUMENT_CHARS:
+        raise ToolError(
+            f"That document is too long to save in one call "
+            f"({len(content):,} characters, limit {MAX_NEW_DOCUMENT_CHARS:,})."
+        )
+    document = Document(title=title, content=content)
+    session.add(document)
+    session.flush()
+    manager.log_action(session, "created", "document", document.id, title[:80])
+    session.commit()
+    return {
+        "id": document.id,
+        "title": document.title,
+        "words": len(content.split()),
+        "label": f"📄 Created the document “{_clip(title, 40)}”",
+        # Same contract every other write follows, so the run summary can offer
+        # an Undo beside it rather than listing a change nobody can take back.
+        "undo": {"tool": "delete_document", "arguments": {"document_id": document.id}},
+    }
+
+
+def _delete_document(session: Session, args: dict) -> dict:
+    """Remove a document. Destructive, so the user confirms it first.
+
+    Exists mainly so `create_document` has an inverse — §21 lists "links and
+    reminders have no inverse tool" as a real cost, and shipping a new write
+    without one would be adding to that list rather than working it down.
+    """
+    from memorymap.core.database import Document
+
+    document = session.get(Document, int(args.get("document_id") or 0))
+    if document is None:
+        raise ToolError(f"No document with id {args.get('document_id')}")
+    title = document.title
+    session.delete(document)
+    manager.log_action(session, "deleted", "document", None, title[:80])
+    session.commit()
+    return {"title": title, "label": f"🗑 Deleted the document “{_clip(title, 40)}”"}
+
+
 def _search_chat_history(session: Session, args: dict) -> dict:
     """Past conversations. "What did we decide last week?" was unanswerable:
     each turn only ever saw its own thread, so the assistant had no memory of
@@ -913,8 +989,11 @@ def _list_skills(session: Session, args: dict) -> dict:
             "Built-in skills can be run but not edited. A skill's steps and "
             "tools are what it does — copy that shape when you make one. "
             "`when_to_use` says when a skill applies; `changes_notes` says "
-            "whether running it would alter the notebook. You cannot start a "
-            "skill yourself — tell the user which one fits and let them run it."
+            "whether running it would alter the notebook. Start one with "
+            "run_skill, passing its name exactly as written here and values "
+            "for any `inputs` — that ends your turn and the run takes over. "
+            "Only start one that matches what was asked; a skill that changes "
+            "notes is not the way to answer a question."
         ),
         "label": "⚡ Listed the saved skills",
     }
@@ -1524,6 +1603,140 @@ def validate_ask(arguments: dict) -> tuple[str, list[str]]:
     return question[:MAX_ASK_QUESTION], options[:MAX_ASK_OPTIONS]
 
 
+#: How many skill names a "no such skill" error hands back. Enough to pick
+#: from, short enough that a mistyped name doesn't cost a round's worth of
+#: window.
+MAX_SKILL_NAMES = 12
+MAX_NAME_ECHO = 40
+
+
+def _run_skill(session: Session, args: dict) -> dict:
+    """Never runs, for the same reason `_ask_user` never runs.
+
+    `run_skill` hands the turn to the skill runner instead of returning a
+    result: the agent loop sees `ends_turn` and stops. Executing it here would
+    let a path that bypasses the loop (`POST /chat/tools/execute`) start a run
+    with no plan drawn, no steps ticked off and no list of what changed —
+    which is every part of §21 that makes a run reviewable.
+    """
+    raise ToolError(
+        "run_skill starts a run rather than returning an answer — it cannot "
+        "be executed directly."
+    )
+
+
+def _skill_key(name: str) -> str:
+    """A skill name reduced to what a model can be relied on to reproduce.
+
+    The built-ins are named "🏷 Auto-tag my notes", and a model asked to pass
+    that back will drop the emoji, change the case, or both. Matching on
+    letters and digits alone costs nothing and turns the single most likely
+    mistake into a run that works.
+    """
+    return "".join(ch for ch in str(name or "").lower() if ch.isalnum())
+
+
+def _match_skill(catalog: list[dict], wanted: str) -> dict | None:
+    """Exact name first, then the forgiving match. Exact wins on purpose: two
+    skills whose names differ only by punctuation must still be reachable."""
+    for skill in catalog:
+        if skill["name"] == wanted:
+            return skill
+    key = _skill_key(wanted)
+    if not key:
+        return None
+    for skill in catalog:
+        if _skill_key(skill["name"]) == key:
+            return skill
+    return None
+
+
+def validate_run_skill(arguments: dict) -> dict:
+    """The skill a run should start on and the values to run it with.
+
+    Resolved against the catalog here rather than trusted, because every way a
+    model can get this wrong is recoverable *if it is told which way*: a name
+    that matches nothing (hand back the names), a required input left blank
+    (name it), an input the skill never declared (drop it silently — an
+    invented key is noise, not an error worth a round).
+
+    The alternative is a run that starts on a guess, and unlike a question, a
+    run changes notes.
+    """
+    catalog = skills.catalog(deps.get_config(), set(TOOLS))
+    wanted = str(arguments.get("name") or "").strip()
+    if not wanted:
+        raise ToolError("run_skill needs the name of a skill to run.")
+    skill = _match_skill(catalog, wanted)
+    if skill is None:
+        known = ", ".join(f"“{item['name']}”" for item in catalog[:MAX_SKILL_NAMES])
+        raise ToolError(
+            f"There is no skill called “{_clip(wanted, MAX_NAME_ECHO)}”. "
+            + (f"The ones that exist are: {known}." if known else "There are none saved.")
+            + " Call list_skills to see them, or don't run one."
+        )
+
+    raw = arguments.get("inputs")
+    if isinstance(raw, str):
+        # A model that sent the whole object as a JSON string. Free to
+        # recover, and the alternative is a run refused for a quoting mistake.
+        try:
+            raw = json.loads(raw)
+        except ValueError:
+            raw = None
+    declared = {item["name"] for item in skill.get("inputs") or []}
+    values = {
+        str(key): str(value or "").strip()[: skills.MAX_INPUT_VALUE]
+        for key, value in (raw or {}).items()
+        if str(key) in declared
+    } if isinstance(raw, dict) else {}
+
+    missing = skills.missing_inputs(skill, values)
+    if missing:
+        # Named, not guessed. A skill run with a blank {{topic}} searches the
+        # whole notebook for nothing and reads to the user as being ignored —
+        # the same reason `_resolve_skill` returns 422 rather than running.
+        labels = {item["name"]: item.get("label") or item["name"] for item in skill["inputs"]}
+        raise ToolError(
+            f"“{skill['name']}” needs "
+            + ", ".join(f"{name} ({labels[name]})" for name in missing)
+            + ". Pass them in `inputs`, or ask the user with ask_user first."
+        )
+
+    return {
+        "type": "run_skill",
+        "skill": skill["name"],
+        "inputs": values,
+        # What the user is about to watch start, in the words the chip UI
+        # would have used. The run itself announces its plan; this is the line
+        # that says *the model chose it*, which the plan cannot say.
+        "label": f"⚡ Running “{skill['name']}”"
+        + (f" — {', '.join(v for v in values.values() if v)}" if any(values.values()) else ""),
+        "changes_notes": bool(set(skill.get("tools") or []) & WRITE_TOOLS),
+    }
+
+
+#: The tools whose whole effect is to end the turn and hand over, mapped to the
+#: validator that turns the model's arguments into the event the UI receives.
+#: A dispatch table rather than a chain of name checks in the agent loop: the
+#: loop's job is "this tool ends the turn", not "which one".
+HANDOFFS: dict[str, Callable[[dict], dict]] = {
+    "ask_user": lambda arguments: dict(
+        zip(("question", "options"), validate_ask(arguments)), type="ask"
+    ),
+    "run_skill": validate_run_skill,
+}
+
+
+def handoff_event(name: str, arguments: dict) -> dict:
+    """The event a turn-ending tool hands to the UI, or a ToolError explaining
+    why it can't — which the agent loop feeds back so the model can retry."""
+    build = HANDOFFS.get(name)
+    if build is None:  # a spec marked ends_turn with nothing to hand over
+        raise ToolError(f"{name} cannot end the turn — it has no handover.")
+    return build(arguments)
+
+
 # --- the registry ---------------------------------------------------------------
 
 _NOTE_ID = {"type": "integer", "description": "The note's id number"}
@@ -1686,6 +1899,37 @@ TOOLS: dict[str, ToolSpec] = {
             _list_documents,
         ),
         ToolSpec(
+            "create_document",
+            "Write a new long-form document (an essay, a report, a write-up) "
+            "and save it. For short captured thoughts use create_note "
+            "instead — a document is something sat down and written.",
+            {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "A title, up to 200 characters"},
+                    "content": {
+                        "type": "string",
+                        "description": "The whole document, in Markdown",
+                    },
+                },
+                "required": ["title", "content"],
+            },
+            _create_document,
+        ),
+        ToolSpec(
+            "delete_document",
+            "Delete a document by id. The app asks the user to confirm first.",
+            {
+                "type": "object",
+                "properties": {
+                    "document_id": {"type": "integer", "description": "The document's id"}
+                },
+                "required": ["document_id"],
+            },
+            _delete_document,
+            destructive=True,
+        ),
+        ToolSpec(
             "get_document",
             "Read one document in full, by id. Use after list_documents, "
             "whose results are only previews.",
@@ -1717,10 +1961,38 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             "list_skills",
-            "List the user's saved skills — their own one-click requests for "
-            "this chat.",
+            "List the user's saved skills — repeatable jobs you can start "
+            "with run_skill. Each says when_to_use and whether it changes "
+            "notes.",
             {"type": "object", "properties": {}},
             _list_skills,
+        ),
+        ToolSpec(
+            "run_skill",
+            # Terse for the same reason ask_user is: this is offered whenever
+            # skills are in play. The two facts that stop it being misused —
+            # the turn ends, and a skill is not a substitute for doing the
+            # thing — are worth their characters; nothing else here is.
+            "Start one of the user's saved skills, by name from list_skills. "
+            "Your turn ENDS and the run takes over, step by step. Use it for "
+            "a job a skill already describes, not for a one-off you can just "
+            "do.",
+            {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "The skill's name, exactly as list_skills gave it",
+                    },
+                    "inputs": {
+                        "type": "object",
+                        "description": "Values for the skill's declared inputs, by name",
+                    },
+                },
+                "required": ["name"],
+            },
+            _run_skill,
+            ends_turn=True,
         ),
         ToolSpec(
             "save_skill",
@@ -2070,6 +2342,8 @@ WRITE_TOOLS = {
     "delete_tag",
     "save_skill",
     "delete_skill",
+    "create_document",
+    "delete_document",
 }
 
 
@@ -2161,8 +2435,13 @@ TOOL_GROUPS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
         ("delete", "remove", "bin", "trash", "restore", "undelete", "recycle"),
     ),
     (
-        ("list_documents", "get_document"),
-        ("document", "doc ", "docs", "write-up", "essay", "report", "chapter"),
+        ("list_documents", "get_document", "create_document"),
+        (
+            "document", "doc ", "docs", "write-up", "essay", "report", "chapter",
+            # The words that mean "make me one", which cued nothing before
+            # `create_document` existed to be cued.
+            "write up", "draft", "compose", "long-form",
+        ),
     ),
     (
         ("search_chat_history",),
@@ -2172,7 +2451,7 @@ TOOL_GROUPS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
         ),
     ),
     (
-        ("list_skills", "save_skill", "delete_skill"),
+        ("list_skills", "run_skill", "save_skill", "delete_skill"),
         ("skill", "shortcut"),
     ),
     (

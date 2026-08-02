@@ -90,8 +90,15 @@ def test_the_window_is_the_same_whichever_mode(ollama):
 
 
 def test_an_explicit_cap_still_beats_the_preset(ollama):
-    """A caller that names a number has a reason the preset cannot know."""
-    assert ollama.runtime_options("m", 77, mode="detailed")["num_predict"] == 77
+    """A caller that names a number has a reason the preset cannot know.
+
+    It names an *answer* length, though, so the thinking headroom (§35A.3) is
+    still added on top — the caller has no more idea than the preset does how
+    long the model will deliberate first, and a cap shared between the two is
+    what produced a turn that thought and then said nothing.
+    """
+    expected = 77 + ollama.thinking_allowance("detailed", "m")
+    assert ollama.runtime_options("m", 77, mode="detailed")["num_predict"] == expected
 
 
 # --- failing closed on a model that can't ------------------------------------
@@ -164,7 +171,12 @@ def test_the_openai_payload_carries_the_preset(openai_client, capture_post):
     )
     openai_client.chat("m", [{"role": "user", "content": "hi"}], mode="quick")
     sent = capture_post.sent[0]["json"]
-    assert sent["max_tokens"] == presets.resolve("quick").max_output_tokens
+    # The preset's answer budget plus room to think (§35A.3). The OpenAI shape
+    # has no thinking toggle to send, so the headroom always applies there.
+    assert sent["max_tokens"] == (
+        presets.resolve("quick").max_output_tokens
+        + openai_client.thinking_allowance("quick", "m")
+    )
     assert sent["temperature"] == presets.resolve("quick").temperature
 
 

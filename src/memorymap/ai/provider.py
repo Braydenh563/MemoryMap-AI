@@ -320,11 +320,47 @@ class Provider:
         from memorymap.ai import presets
 
         preset = presets.resolve(mode)
+        cap = max_output_tokens or preset.max_output_tokens
         return {
             "context_tokens": self.usable_context(model),
-            "max_output_tokens": max_output_tokens or preset.max_output_tokens,
+            "max_output_tokens": cap + self.thinking_allowance(mode, model),
             **presets.sampling_options(preset),
         }
+
+    #: Tokens a reasoning model may spend deliberating before its answer
+    #: starts. **Added to the reply cap rather than taken out of it**, which is
+    #: the whole point: the reply cap becomes `num_predict`, and `num_predict`
+    #: bounds *everything the model generates* — thinking included. A flat cap
+    #: therefore means a model that thinks for 256 tokens has nothing left to
+    #: answer with, which is precisely the reported failure (§35A.3): Quick
+    #: mode on a thinking model, twice, thought for a while and then emitted no
+    #: answer at all.
+    THINKING_ALLOWANCE_TOKENS = 1_024
+
+    def thinking_allowance(self, mode: str | None, model: str) -> int:
+        """Headroom for deliberation, unless thinking was actually turned off.
+
+        Keyed on **what was sent**, not on what the model declares. That is
+        deliberate: §35C is a report of a thinking model whose capability list
+        says otherwise, and the capability list is the only thing
+        `request_extras` can consult before deciding to send `think: False`.
+        Trusting it twice would mean a model that lies about thinking gets a
+        flat cap *and* thinks anyway — the failure above.
+
+        The two ways to be wrong are not symmetric, which settles it:
+
+        - allowance added but unused → the reply *may* run longer than the
+          preset intended, and `length_hint` is still telling the model to
+          answer in two or three sentences. `num_predict` is a ceiling, not a
+          target, so an unused ceiling costs nothing;
+        - allowance missing when needed → no answer at all.
+
+        A total failure on one side and a slightly long answer on the other is
+        not a close call.
+        """
+        return 0 if self.request_extras(mode, model).get("think") is False else (
+            self.THINKING_ALLOWANCE_TOKENS
+        )
 
     def runtime_options(
         self,

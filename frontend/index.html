@@ -121,9 +121,17 @@
           <span id="ai-status-detail" class="ai-status-detail"></span>
         </span>
       </span>
-      <button id="settings-btn" class="ghost small" title="Settings">⚙ Settings</button>
-      <button id="lock-btn" class="ghost small hidden" title="Lock the app" aria-label="Lock the app">🔒</button>
+      <!-- Ordered by how often you press it and what happens if you miss
+           (§36D). Was: Settings, Lock, Quit, Theme — which put the one
+           irreversible action directly beside the light/dark toggle, the most
+           pressed control in the bar. Now the everyday toggles lead, the
+           labelled control follows, and Quit is last behind a divider. -->
       <button id="theme-btn" class="ghost small" title="Toggle light/dark" aria-label="Toggle light or dark theme">🌓</button>
+      <button id="lock-btn" class="ghost small hidden" title="Lock the app" aria-label="Lock the app">🔒</button>
+      <button id="settings-btn" class="ghost small" title="Settings">⚙ Settings</button>
+      <span class="header-divider" aria-hidden="true"></span>
+      <button id="quit-btn" class="ghost small" title="Quit MemoryMap — stops the app and its server"
+        aria-label="Quit MemoryMap">⏻</button>
     </div>
   </header>
 
@@ -345,6 +353,14 @@ Link to another note with [[its first few words]]."></textarea>
           <div class="row">
             <input id="question" type="text"
               placeholder="e.g. What jokes have I saved?">
+            <!-- The same three presets the Chat tab offers, and the same
+                 stored preference behind them — not a second setting. This
+                 box always honoured the saved mode; it just had no way to
+                 change it, so "make this one quick" meant going to another
+                 tab to do it. Picking here moves the Chat tab's picker too. -->
+            <select id="ask-mode-select" class="small-select"
+              aria-label="Answer length"
+              title="How much effort to spend on the answer. Quick is short and literal; detailed is longer and slower."></select>
             <button id="ask-btn">Ask</button>
             <button id="stop-btn" class="ghost hidden" title="Stop the answer">Stop</button>
           </div>
@@ -477,6 +493,16 @@ Link to another note with [[its first few words]]."></textarea>
                  having to work out what the absence of a tick means. The
                  checkbox itself stays, hidden, because it is the thing the
                  rest of the app reads and stores. -->
+            <!-- Grouped by the question each control answers, rather than as
+                 eight peers in one row (§36B). The toolbar had grown a control
+                 at a time and they sat side by side despite answering
+                 completely different things: what the AI may touch, how it
+                 should sound, how hard it should work, and what to do with
+                 this conversation. Reading it meant reading all eight.
+
+                 Ids are unchanged throughout — this is a regrouping, not a
+                 rewrite, so nothing in app.js has to know about it. -->
+            <div class="chat-tool-group" role="group" aria-label="What the AI may use">
             <div class="seg seg-compact" id="chat-mode-seg" role="group" aria-label="Chat mode">
               <button data-chat-mode="chat" type="button"
                 title="Ask questions about your notes. The AI reads and answers; it never changes anything.">💬 Chat</button>
@@ -490,6 +516,11 @@ Link to another note with [[its first few words]]."></textarea>
             </label>
             <button id="web-search-toggle" class="ghost small" aria-pressed="false"
               title="Search the web here, and let the AI search when you ask it to">🌐 Web</button>
+            </div>
+
+            <!-- How the answer comes out: who is speaking, and how hard they
+                 work at it. Neighbouring questions, so they stay neighbours. -->
+            <div class="chat-tool-group" role="group" aria-label="How it answers">
             <!-- How much effort this turn is worth. Sits next to the persona
                  because they answer neighbouring questions — who is answering,
                  and how hard they should work at it. Filled from /chat/modes
@@ -503,9 +534,18 @@ Link to another note with [[its first few words]]."></textarea>
             <button id="persona-peek" class="ghost small" type="button"
               aria-expanded="false"
               title="Show the instructions this persona gives the AI">👁</button>
-            <span id="chat-usage" class="chat-usage muted" hidden
-              title="Everything this conversation has sent to the model so far"></span>
-            <button id="chat-export" class="ghost small" title="Download this chat as a Markdown file">⭳ Export</button>
+            </div>
+
+            <!-- This conversation, as an object: what it has cost and how to
+                 take it with you. Pushed to the far end because these are the
+                 only two that are not about the *next* message — mixing them
+                 in with the per-turn controls is what made the row read as an
+                 undifferentiated list. -->
+            <div class="chat-tool-group chat-tool-group-end" role="group" aria-label="This conversation">
+              <span id="chat-usage" class="chat-usage muted" hidden
+                title="Everything this conversation has sent to the model so far"></span>
+              <button id="chat-export" class="ghost small" title="Download this chat as a Markdown file">⭳ Export</button>
+            </div>
           </div>
           <!-- id is persona-peek-panel, NOT persona-prompt: the Settings
                screen has a <textarea id="persona-prompt"> for writing a new
@@ -998,6 +1038,16 @@ Link to another note with [[its first few words]]."></textarea>
              clue which screen held what, so finding anything meant reading
              every label. The groups answer "what am I changing?" first. -->
         <nav class="modal-nav" id="settings-nav" aria-label="Settings sections">
+          <!-- Fourteen sections, grouped three ways. Grouping helps and is only
+               ever right for some people: "where do I turn off web search?" is
+               a guess between The AI and System until you have learned the
+               layout. Searching the sections' actual contents turns that guess
+               into typing the word you already have in mind (§36B). -->
+          <input id="settings-search" type="search" class="settings-search"
+            placeholder="🔎 Find a setting…" aria-label="Search settings"
+            aria-describedby="settings-search-count">
+          <p id="settings-search-count" class="muted settings-search-count hidden"
+            role="status"></p>
           <p class="nav-group-label" id="nav-group-ai">The AI</p>
           <div role="group" aria-labelledby="nav-group-ai">
             <button data-section="models" class="active">Models</button>
@@ -1118,13 +1168,16 @@ Link to another note with [[its first few words]]."></textarea>
                  was the one you could never reach (user-reported). -->
             <div id="search-engine-config">
               <h3>Search engine (how your notes are understood)</h3>
-              <label>
+              <!-- Same treatment as the tool-focus group in Settings → Tools:
+                   one control with one answer, rather than two loose dots
+                   (§35L). `.check-row` is where that lives. -->
+              <label class="check-row">
                 <input type="radio" name="emb-backend" value="sentence-transformers">
-                Built-in (recommended) — <span id="builtin-model-name" class="muted">…</span>
+                <span>Built-in (recommended) — <span id="builtin-model-name" class="muted">…</span></span>
               </label>
-              <label>
+              <label class="check-row">
                 <input type="radio" name="emb-backend" value="ollama">
-                Ollama embedding model:
+                <span>Ollama embedding model:</span>
               </label>
               <div class="row">
                 <select id="embedding-model-select"></select>
@@ -1963,6 +2016,14 @@ Link to another note with [[its first few words]]."></textarea>
               this computer.
             </p>
             <p class="muted" id="about-version"></p>
+            <!-- What changed, read from CHANGELOG.md rather than kept as a
+                 second in-app list that would drift from it (§36E). Folded
+                 shut: it is long, and About is not where you go to read it
+                 unless you came looking. -->
+            <details id="changelog-fold" class="settings-fold">
+              <summary>What's new</summary>
+              <div id="changelog-body" class="changelog-body"></div>
+            </details>
             <h3>Keyboard shortcuts</h3>
             <!-- This used to be a second, static list. Someone looking for
                  "how do I change a shortcut?" naturally opens Settings, so the

@@ -149,7 +149,7 @@ class OriginCheckMiddleware(BaseHTTPMiddleware):
 # `\s*` in both places closes them. It is still not an HTML parser and is not
 # trying to be; it is a deliberately narrow reader of one known file.
 _INLINE_SCRIPT = re.compile(
-    rb"<script(?![^>]*\ssrc\s*=)[^>]*>(.*?)</script\s*>", re.DOTALL | re.IGNORECASE
+    rb"<script(?![^>]*\ssrc\s*=)[^>]*>(.*?)</script(?:\s+[^>]*)?>", re.DOTALL | re.IGNORECASE
 )
 
 

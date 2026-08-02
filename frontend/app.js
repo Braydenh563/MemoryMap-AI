@@ -14429,6 +14429,10 @@ $("persona-import").addEventListener("click", () =>
   })
 );
 $("tools-toggle").addEventListener("change", async () => {
+  // The pill reads from this checkbox, so anything else that flips it — a
+  // skill that needs tools, a restored preference — has to redraw the pair or
+  // the two disagree about which mode you are in.
+  renderChatModeSeg();
   // Remember the choice so it survives restarts.
   await apiJson("/preferences", {
     method: "PUT",

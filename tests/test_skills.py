@@ -545,3 +545,107 @@ def test_the_agent_can_save_a_when_to_use(app_state, session):
     )
     saved = app_state.get_preference("skills")
     assert saved[0]["when_to_use"] == "on a Sunday evening"
+
+
+# --- the notebook audit set --------------------------------------------------
+#
+# Asked for directly: a skill that audits and cleans up the whole notebook —
+# links, tags, categories, moving notes, combining duplicates. Built as five
+# skills rather than one, and these tests are mostly about *why*.
+
+
+AUDIT_SKILLS = [
+    "🩺 Notebook health check",
+    "🏷 Clean up my tags",
+    "🗂 Reorganise my categories",
+    "🔗 Fix my links",
+    "🧬 Find notes worth combining",
+]
+
+
+def _builtin(name):
+    from memorymap.ai import skills, tools
+
+    return next(s for s in skills.builtins(set(tools.TOOLS)) if s["name"] == name)
+
+
+@pytest.mark.parametrize("name", AUDIT_SKILLS)
+def test_each_audit_skill_is_valid_and_says_when_to_use_it(name):
+    skill = _builtin(name)
+    assert skill["steps"] and skill["tools"]
+    assert skill["when_to_use"], "an audit skill nobody can find is not much use"
+
+
+@pytest.mark.parametrize("name", AUDIT_SKILLS)
+def test_every_tool_an_audit_skill_names_actually_exists(name):
+    """A skill naming a tool that isn't in the registry loses it silently at
+    run time — the run then fails on the step that needed it."""
+    from memorymap.ai import tools
+
+    assert set(_builtin(name)["tools"]) <= set(tools.TOOLS)
+
+
+@pytest.mark.parametrize("name", AUDIT_SKILLS)
+def test_no_audit_skill_exceeds_the_limits(name):
+    """One step per turn, so a skill longer than the cap cannot finish."""
+    from memorymap.ai import skills
+
+    skill = _builtin(name)
+    assert len(skill["steps"]) <= skills.MAX_STEPS
+    assert len(skill["tools"]) <= skills.MAX_TOOLS
+
+
+def test_the_health_check_cannot_change_anything():
+    """"Audit" and "clean up" are two requests. The audit is safe by
+    construction rather than by instruction: it is offered no tool that could
+    write, so a model that ignores "do not change anything" still can't."""
+    from memorymap.ai import tools
+
+    skill = _builtin("🩺 Notebook health check")
+    assert not (set(skill["tools"]) & tools.WRITE_TOOLS)
+
+
+def test_the_health_check_points_at_the_skills_that_do_the_work():
+    """A report that names problems and not their fix leaves the person to
+    guess which skill to reach for."""
+    steps = " ".join(_builtin("🩺 Notebook health check")["steps"]).lower()
+    assert "skill" in steps
+
+
+def test_no_audit_skill_can_delete_a_note():
+    """Combining and reorganising both involve deciding what to lose, and that
+    is not a judgement to hand a model across a whole notebook."""
+    for name in AUDIT_SKILLS:
+        assert "delete_note" not in _builtin(name)["tools"], name
+
+
+def test_combining_notes_proposes_rather_than_merges():
+    """It reports the combined note it would write and links the group, so the
+    person accepts the merge. Nothing is destroyed on its say-so."""
+    skill = _builtin("🧬 Find notes worth combining")
+    assert "delete_note" not in skill["tools"]
+    assert "link_notes" in skill["tools"]
+
+
+def test_reorganising_categories_merges_rather_than_deletes():
+    """`delete_category` is destructive, so it would stop a bulk run for a
+    confirm card — and merging is what was wanted anyway, since it keeps the
+    notes together instead of scattering them into Uncategorised."""
+    skill = _builtin("🗂 Reorganise my categories")
+    assert "merge_categories" in skill["tools"]
+    assert "delete_category" not in skill["tools"]
+
+
+def test_fixing_links_can_both_add_and_remove():
+    """The whole point: before `unlink_notes` existed, an audit could add a
+    connection and never correct one."""
+    tools_used = _builtin("🔗 Fix my links")["tools"]
+    assert {"link_notes", "unlink_notes", "related_notes"} <= set(tools_used)
+
+
+def test_the_audit_skills_are_offered_alongside_the_others(app_state, session):
+    from memorymap.ai import tools
+
+    listed = tools.TOOLS["list_skills"].handler(session, {})
+    names = {s["name"] for s in listed["skills"]}
+    assert set(AUDIT_SKILLS) <= names

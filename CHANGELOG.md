@@ -65,6 +65,54 @@ the normal order to do it in.
   work, and the status line names whichever backend actually answered instead
   of telling an LM Studio user to go and install Ollama.
 
+### Added — five notebook-audit skills, and taking a link back out
+
+Asked for: *"a skill that can do a full audit and clean up of my notebook —
+linking notes, removing inaccurate links, analysing categories and tags,
+retagging, changing categories, moving notes, combining duplicates."*
+
+Built as **five skills rather than one**, and not for tidiness: a skill runs one
+step per turn and holds at most ten steps, so a single "audit everything" skill
+would either stop half-finished or have steps so broad a 3B model can't tell
+whether it has done them. Each job also wants a different toolbox, and the
+allowlist is what keeps a run cheap and safe.
+
+- **🩺 Notebook health check** — the audit. Read-only *by construction*: it is
+  offered no tool that can write, so a model that ignores "change nothing"
+  still can't. Finishes by naming which clean-up skill fixes each problem.
+- **🏷 Clean up my tags** — merges plurals, spellings and synonyms via
+  `rename_tag`, then removes tags that don't match what a note says.
+- **🗂 Reorganise my categories** — proposes a structure first, then creates,
+  renames, merges and moves notes into it. `delete_category` is deliberately
+  absent: it's destructive, so it would stop a bulk run for a confirm card, and
+  merging keeps the notes together rather than scattering them.
+- **🔗 Fix my links** — removes connections that don't hold up and adds ones
+  that should exist.
+- **🧬 Find notes worth combining** — reports the merged note it *would* write
+  and links the group. Deciding what to lose isn't a judgement to hand a model
+  across a whole notebook.
+
+**`unlink_notes`** is the tool that made the fourth possible. Its absence had a
+specific cost: an audit could add a connection and never correct one, so a wrong
+link was permanent from inside the app. It is a write but *not* destructive —
+no writing is lost, both notes survive, and the result carries the `link_notes`
+call that puts it back — because a confirm card on every correction in a tidy-up
+run is how people learn to click through confirm cards. (Removing a link by hand
+already worked: the `×` on a link chip in Notes.)
+
+### Changed — the graph tool costs half what it did
+
+Asked for: *"the knowledge graph needs to be very solid and token efficient."*
+It wasn't. Twelve neighbours came back as full `_note_summary` rows — 200-char
+previews, ISO timestamps, `pinned`, `truncated`, and a null `via` on every
+one-hop result — **~1,230 tokens for one call**, a third of a 4k window before
+the question or the notes.
+
+A graph walk's job is to say *what connects to what*; reading one in full is
+`get_note`'s job. Rows now carry an id, a 90-character preview, the category,
+how it connects and how far — with tags and `via` omitted when empty rather than
+sent as null. **633 tokens**, and a test holds the worst case under 800.
+
 ### Changed — skills the model can find, and a budget guard retired
 
 A skill was findable only by the person who remembered writing it. `when_to_use`

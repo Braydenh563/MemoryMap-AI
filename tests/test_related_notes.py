@@ -303,3 +303,138 @@ def test_the_empty_answer_points_at_suggestions(session):
     """"Nothing is connected" is more useful when it says what to try next."""
     a = _note(session, "a lonely note")
     assert "include_suggestions" in _related(session, a.id)["note"]
+
+
+# --- taking a link back out ---------------------------------------------------
+
+
+def test_a_link_can_be_removed(session):
+    """The missing half of link_notes. Without it an audit could add a
+    connection and never correct one, so a wrong link was permanent."""
+    a = _note(session, "a")
+    b = _note(session, "b")
+    session.add(EntryLink(source_entry_id=a.id, target_entry_id=b.id))
+    session.commit()
+
+    result = tools.TOOLS["unlink_notes"].handler(
+        session, {"note_id": a.id, "other_note_id": b.id}
+    )
+    assert result["unlinked"] == [a.id, b.id]
+    assert _related(session, a.id)["related"] == []
+
+
+def test_a_link_can_be_removed_from_either_end(session):
+    """A link is a connection, not an arrow. Requiring the caller to know
+    which note was the source would fail for half of them."""
+    a = _note(session, "a")
+    b = _note(session, "b")
+    session.add(EntryLink(source_entry_id=a.id, target_entry_id=b.id))
+    session.commit()
+
+    tools.TOOLS["unlink_notes"].handler(session, {"note_id": b.id, "other_note_id": a.id})
+    assert _related(session, a.id)["related"] == []
+
+
+def test_unlinking_offers_the_call_that_puts_it_back(session):
+    """It is not destructive — no writing is lost, both notes survive — so the
+    undo is what makes it safe to run in bulk without a confirm card on every
+    correction."""
+    a = _note(session, "a")
+    b = _note(session, "b")
+    session.add(EntryLink(source_entry_id=a.id, target_entry_id=b.id))
+    session.commit()
+
+    undo = tools.TOOLS["unlink_notes"].handler(
+        session, {"note_id": a.id, "other_note_id": b.id}
+    )["undo"]
+    assert undo["tool"] == "link_notes"
+    tools.TOOLS["link_notes"].handler(session, undo["arguments"])
+    assert [n["id"] for n in _related(session, a.id)["related"]] == [b.id]
+
+
+def test_unlinking_notes_that_are_not_linked_says_so(session):
+    """Reporting a success that changed nothing is how a model concludes it
+    fixed something it did not."""
+    a = _note(session, "a")
+    b = _note(session, "b")
+    with pytest.raises(tools.ToolError, match="aren't linked"):
+        tools.TOOLS["unlink_notes"].handler(
+            session, {"note_id": a.id, "other_note_id": b.id}
+        )
+
+
+def test_unlinking_counts_as_a_change_but_never_needs_confirming(session):
+    """A write, so the "nothing actually happened" safety net knows about it;
+    not destructive, so a tidy-up run isn't a wall of confirm cards — which is
+    how people learn to click through them."""
+    assert "unlink_notes" in tools.WRITE_TOOLS
+    assert not tools.TOOLS["unlink_notes"].destructive
+
+
+# --- token cost, which is the difference between usable and not --------------
+#
+# Asked directly: *"the knowledge graph needs to be very solid and token
+# efficient — everything should be lightweight and easy for the AI to handle."*
+#
+# The first version returned `_note_summary` for each neighbour: full 200-char
+# previews, ISO timestamps, `pinned`, `truncated`, and a null `via` on every
+# one-hop row. Twelve neighbours came to ~1,230 tokens — a third of a 4k
+# window spent on a single tool result, before the question or the notes.
+
+
+def _payload_tokens(session, note_id, **args):
+    return len(json.dumps(
+        tools.TOOLS["related_notes"].handler(session, {"note_id": note_id, **args})
+    )) // 4
+
+
+def test_a_full_neighbourhood_stays_affordable_on_a_small_model(session):
+    """Twelve neighbours is the cap, so this is the worst case. It has to leave
+    room for the system prompt, the tools, the question and the notes inside a
+    4,096-token window."""
+    hub = _note(session, "planning the spring garden", tags=["garden"])
+    for i in range(20):
+        _note(session, f"garden note {i}: " + ("a reasonably long line about it. " * 4),
+              tags=["garden"])
+    tokens = _payload_tokens(session, hub.id)
+    assert tokens < 800, f"{tokens} tokens is too much of a 4k window for one call"
+
+
+def test_a_row_carries_only_what_choosing_a_note_needs(session):
+    """Each field left out was measured out. The job of a graph walk is to say
+    what connects to what; reading one in full is `get_note`'s job."""
+    a = _note(session, "a", tags=["x"])
+    b = _note(session, "b", tags=["x"])
+    row = _related(session, a.id)["related"][0]
+    assert set(row) == {"id", "preview", "category", "how", "hops", "tags"}
+    for absent in ("created_at", "pinned", "truncated", "content"):
+        assert absent not in row
+
+
+def test_an_empty_field_is_absent_rather_than_empty(session):
+    """An empty tag list per row, and a null `via` on every one-hop result, are
+    pure structure — they cost tokens to say nothing."""
+    a = _note(session, "a")
+    b = _note(session, "b")
+    session.add(EntryLink(source_entry_id=a.id, target_entry_id=b.id))
+    session.commit()
+    row = _related(session, a.id)["related"][0]
+    assert "tags" not in row   # b has none
+    assert "via" not in row    # one hop: it hangs off the note you asked about
+
+
+def test_via_appears_where_it_actually_says_something(session):
+    a = _note(session, "a")
+    b = _note(session, "b")
+    c = _note(session, "c")
+    session.add(EntryLink(source_entry_id=a.id, target_entry_id=b.id))
+    session.add(EntryLink(source_entry_id=b.id, target_entry_id=c.id))
+    session.commit()
+    two_hop = _related(session, a.id, depth=2)["related"][1]
+    assert two_hop["via"] == b.id
+
+
+def test_the_preview_is_shorter_than_a_search_result(session):
+    """A search returns a handful of notes and is choosing between them; a
+    graph walk returns twelve and is only saying which ones exist."""
+    assert tools.GRAPH_PREVIEW_CHARS < tools.PREVIEW_CHARS

@@ -284,6 +284,47 @@ MAX_GRAPH_DEPTH = 2
 MAX_GRAPH_NOTES = 12
 
 
+# How much of a neighbour's text comes back. Shorter than `PREVIEW_CHARS`
+# deliberately: a graph walk returns up to twelve notes at once, and its job is
+# to say *what connects to what* — the model calls `get_note` on the one that
+# turns out to matter. At 200 characters each, twelve neighbours cost ~1,230
+# tokens, a third of a 4k window for a single tool result.
+GRAPH_PREVIEW_CHARS = 90
+
+
+def _graph_summary(session: Session, entry: Entry, how: str, hops: int, via: int | None) -> dict:
+    """One neighbour, in the smallest shape that is still useful.
+
+    A trimmed `_note_summary` rather than the whole thing, and every field left
+    out was left out for a reason:
+
+    - **`created_at`** — a 32-character ISO timestamp on every row, to answer a
+      question ("when was this written?") that a graph walk is not asking.
+    - **`pinned`, `truncated`** — a boolean each, true for almost none of them.
+    - **`via` when it is `None`** — every one-hop result carried a null field
+      naming the note it hung off, which for one hop is the note you asked
+      about.
+    - **`tags` when empty** — an empty list per row is pure structure.
+
+    Together these were roughly half the payload. What remains is what the
+    model needs to decide which neighbour to read in full.
+    """
+    text = _readable(entry)
+    summary = {
+        "id": entry.id,
+        "preview": _clip(text, GRAPH_PREVIEW_CHARS),
+        "category": manager.category_name_for(session, entry),
+        "how": how,
+        "hops": hops,
+    }
+    tags = manager.entry_tags(entry)
+    if tags:
+        summary["tags"] = tags
+    if via is not None:
+        summary["via"] = via
+    return summary
+
+
 def _graph_neighbours(session: Session, entry: Entry) -> list[tuple[Entry, str]]:
     """This note's direct neighbours, each with *how* it is connected.
 
@@ -391,11 +432,9 @@ def _suggested_neighbours(session: Session, entry: Entry, exclude: set[int]) -> 
             scored.append((score, other))
     scored.sort(key=lambda pair: pair[0], reverse=True)
     return [
-        {
-            **_note_summary(session, other),
-            "how": f"reads similarly ({score:.0%}) — NOT linked yet",
-            "similarity": round(float(score), 2),
-        }
+        _graph_summary(
+            session, other, f"reads similarly ({score:.0%}) — NOT linked yet", 0, None
+        )
         for score, other in scored[:MAX_SUGGESTED_LINKS]
     ]
 
@@ -424,14 +463,16 @@ def _related_notes(session: Session, args: dict) -> dict:
                 visited.add(other.id)
                 next_frontier.append(other)
                 found.append(
-                    {
-                        **_note_summary(session, other),
-                        "how": how,
-                        "hops": distance,
+                    _graph_summary(
+                        session,
+                        other,
+                        how,
+                        distance,
                         # Which note it hangs off, so a two-hop result is not
-                        # mysteriously floating.
-                        "via": node.id if node.id != entry.id else None,
-                    }
+                        # mysteriously floating. Omitted at one hop, where the
+                        # answer is always the note you asked about.
+                        via=node.id if node.id != entry.id else None,
+                    )
                 )
                 if len(found) >= MAX_GRAPH_NOTES:
                     break
@@ -446,7 +487,10 @@ def _related_notes(session: Session, args: dict) -> dict:
     result = {
         "note_id": entry.id,
         "related": found,
-        "how_to_read_more": _READ_MORE,
+        # Deliberately no `how_to_read_more` paragraph here. Every other
+        # reading tool carries one, and repeating it in a result that already
+        # holds twelve rows spends tokens restating something the previews
+        # themselves imply — each row is 90 characters and an id.
         "label": (
             f"🕸 Found {len(found)} note{'' if len(found) == 1 else 's'} "
             f"connected to #{entry.id}"
@@ -1032,6 +1076,37 @@ def _link_notes(session: Session, args: dict) -> dict:
     return {
         "linked": [source.id, target.id],
         "label": f"🔗 Linked note #{source.id} to note #{target.id}",
+    }
+
+
+def _unlink_notes(session: Session, args: dict) -> dict:
+    """Take a connection back out.
+
+    The missing half of `link_notes`, and its absence had a specific cost: a
+    notebook audit could add connections and never correct one, so a wrong
+    link — from a model's earlier guess, or a topic that turned out to be two
+    topics — was permanent from inside the app.
+
+    Not destructive, and that is a deliberate call rather than an oversight: a
+    link carries no writing of its own, both notes survive untouched, and the
+    result carries the `link_notes` call that puts it straight back. Making it
+    ask first would have meant a confirm card for every correction in a tidy-up
+    run, which is how people learn to click through confirm cards.
+    """
+    source = _require_note(session, args)
+    target = manager.get_entry(session, int(args["other_note_id"]))
+    if target is None or target.is_deleted:
+        raise ToolError(f"No note with id {args.get('other_note_id')}")
+    removed = manager.remove_link(session, source, target)
+    if not removed:
+        raise ToolError(f"Notes #{source.id} and #{target.id} aren't linked")
+    return {
+        "unlinked": [source.id, target.id],
+        "undo": {
+            "tool": "link_notes",
+            "arguments": {"note_id": source.id, "other_note_id": target.id},
+        },
+        "label": f"✂️ Unlinked note #{source.id} from note #{target.id}",
     }
 
 
@@ -1798,6 +1873,20 @@ TOOLS: dict[str, ToolSpec] = {
             _link_notes,
         ),
         ToolSpec(
+            "unlink_notes",
+            "Remove a connection between two notes that shouldn't be linked. "
+            "The notes themselves are untouched.",
+            {
+                "type": "object",
+                "properties": {
+                    "note_id": _NOTE_ID,
+                    "other_note_id": {"type": "integer", "description": "The other note's id"},
+                },
+                "required": ["note_id", "other_note_id"],
+            },
+            _unlink_notes,
+        ),
+        ToolSpec(
             "delete_note",
             "Move a note to the recycle bin (recoverable). The app asks the "
             "user to confirm before this runs.",
@@ -1972,6 +2061,7 @@ WRITE_TOOLS = {
     "tag_note",
     "pin_note",
     "link_notes",
+    "unlink_notes",
     "delete_note",
     "restore_note",
     "set_reminder",
@@ -2051,8 +2141,13 @@ TOOL_GROUPS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
         ),
     ),
     (
-        ("link_notes", "related_notes"),
-        ("link", "connect", "related", "relate", "join", "graph", "together"),
+        ("link_notes", "unlink_notes", "related_notes"),
+        (
+            "link", "connect", "related", "relate", "join", "graph", "together",
+            # The words people use when a connection is WRONG rather than
+            # missing. Without them "unlink these" offered no way to do it.
+            "unlink", "disconnect", "detach", "separate", "unrelated",
+        ),
     ),
     (
         ("edit_note", "pin_note"),

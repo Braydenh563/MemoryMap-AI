@@ -118,18 +118,18 @@ feel slow, drop a tier.
 
 | Model            | Size    | Why                                                    |
 | ---------------- | ------- | ------------------------------------------------------ |
-| `gemma4:e2b`     | ~1.6 GB | Smallest here. Try it if bigger models are too slow    |
 | `qwen3.5:2b`     | ~1.6 GB | The lightest one genuinely worth using                 |
 | `llama3.2`       | ~2.0 GB | **The default.** Fast, and a good first choice         |
 | `granite4.1:3b`  | ~2.1 GB | Strong instruction-following at a small size           |
 | `qwen3.5:4b`     | ~2.6 GB | Follows instructions closely - good for agent mode     |
-| `gemma4:e4b`     | ~3.1 GB | Noticeably better writing than the 2B models           |
+| `gemma4:e2b`     | ~3.5 GB | Fast & more reliable. Try it if bigger models are too slow |
+| `gemma4:e4b`     | ~5 GB | Even more reliable, slightly slower. Noticeably better writing than the 2B models |
 
 **8 GB of RAM, or any modern GPU** - the real step up in answer quality:
 
 | Model            | Size    | Why                                                    |
 | ---------------- | ------- | ------------------------------------------------------ |
-| `llama3.1:8b`    | ~4.7 GB | Better reasoning, and reliable tool calls in agent mode|
+| `llama3.1:8b`    | ~4.9 GB | Better reasoning, and reliable tool calls in agent mode|
 | `qwen3.5:8b`     | ~5.2 GB | Best tool use at this size. Thinks, so slower per answer|
 | `mistral-nemo`   | ~7.1 GB | Long-document work - a large context window            |
 | `gemma4:12b`     | ~7.6 GB | Long-form writing and summarising                      |

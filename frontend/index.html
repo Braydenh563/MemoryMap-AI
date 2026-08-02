@@ -968,7 +968,17 @@ Link to another note with [[its first few words]]."></textarea>
     <div class="card modal-card">
       <div class="row space-between">
         <h2>Settings</h2>
-        <button id="settings-close" class="ghost small">Close</button>
+        <div class="row">
+          <!-- Only meaningful on Appearance, so it is shown there and hidden
+               everywhere else: a control that does nothing on nine screens out
+               of ten is a control people learn to ignore. -->
+          <label class="muted tools-toggle hidden" id="settings-peek-wrap"
+            title="Fade this panel so you can see your colour changes on the page behind it">
+            <input type="checkbox" id="settings-peek">
+            <span>👁 Peek</span>
+          </label>
+          <button id="settings-close" class="ghost small">Close</button>
+        </div>
       </div>
       <div class="modal-body">
         <!-- Grouped rather than a flat list of eleven. The old nav gave no
@@ -1235,6 +1245,27 @@ Link to another note with [[its first few words]]."></textarea>
               </p>
               <div id="theme-presets" class="theme-presets"></div>
               <p class="muted" id="theme-override-note"></p>
+
+              <!-- Your own themes. Saved server-side with the rest of your
+                   preferences rather than in the browser, so they survive a
+                   cleared cache, ride along in the daily backup, and are there
+                   in the desktop window as well as the browser tab. -->
+              <div class="setting-row setting-row-stack">
+                <div class="setting-label">
+                  <span>Your themes</span>
+                  <small class="muted">
+                    Save everything you've set — colours, font, spacing, corners,
+                    background — as one look you can come back to.
+                  </small>
+                </div>
+                <div id="custom-themes" class="theme-presets"></div>
+                <div class="row">
+                  <input id="custom-theme-name" type="text" maxlength="30"
+                    placeholder="Name this look (e.g. Late night)"
+                    aria-label="Name for the saved theme">
+                  <button id="custom-theme-save" class="small">Save current look</button>
+                </div>
+              </div>
               <div class="row">
                 <button id="theme-reset" class="ghost small"
                   title="Go back to the app's default look, keeping your own changes">
@@ -1301,6 +1332,32 @@ Link to another note with [[its first few words]]."></textarea>
                   <input id="page-bg-custom" type="color" aria-label="Page background colour">
                   <button id="page-bg-clear" class="ghost small">Clear</button>
                 </div>
+              </div>
+
+              <!-- Build a whole colour scheme from one colour. Picking an
+                   accent is easy; picking a background that goes with it is
+                   the part people give up on, so the relationships are done
+                   arithmetically rather than by eye. -->
+              <div class="setting-row setting-row-stack">
+                <div class="setting-label">
+                  <span>Build a scheme from one colour</span>
+                  <small class="muted">
+                    Choose a colour and how the rest should relate to it, and
+                    the accent and page background are worked out together.
+                  </small>
+                </div>
+                <div class="row setting-control">
+                  <input id="harmony-base" type="color" value="#4f6df5"
+                    aria-label="Colour to build the scheme from">
+                  <select id="harmony-kind" class="small-select" aria-label="Colour relationship">
+                    <option value="monochromatic">Monochromatic — one hue</option>
+                    <option value="analogous">Analogous — neighbouring hues</option>
+                    <option value="complementary">Complementary — opposite hue</option>
+                    <option value="triadic">Triadic — three even hues</option>
+                  </select>
+                  <button id="harmony-apply" class="small">Apply</button>
+                </div>
+                <p class="muted" id="harmony-note"></p>
               </div>
             </div>
 

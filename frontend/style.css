@@ -5361,3 +5361,30 @@ textarea.autogrow {
 }
 .agent-ask-options { flex-wrap: wrap; gap: 0.35rem; }
 .agent-ask .muted { margin: 0.4rem 0 0; font-size: 0.75rem; }
+
+/* "Peek": fade the settings panel so a colour change can be seen on the page
+   behind it. Done with color-mix on the BACKGROUND rather than element
+   opacity — opacity fades the text, the swatches and the controls too, which
+   makes the thing you are trying to judge harder to see rather than easier.
+   The panel gets see-through; everything on it stays sharp. */
+.settings-peeking .modal-overlay,
+.modal-overlay.peeking {
+  background: color-mix(in srgb, rgba(10, 12, 18, 0.45) 25%, transparent);
+  backdrop-filter: none;
+}
+.modal-overlay.peeking .modal-card {
+  background: color-mix(in srgb, var(--panel) 45%, transparent);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* A saved look: its name applies it, the ✕ deletes it. One chip rather than a
+   row per theme, because the list is meant to stay glanceable — twenty saved
+   looks should still fit above the fold. */
+.theme-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin: 0 0.35rem 0.35rem 0;
+}
+.theme-chip button:first-child { max-width: 14rem; overflow: hidden; text-overflow: ellipsis; }

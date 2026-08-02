@@ -10240,6 +10240,7 @@ function showSettingsSection(name) {
   for (const button of document.querySelectorAll("#settings-nav button")) {
     button.classList.toggle("active", button.dataset.section === name);
   }
+  updatePeekAvailability(name);
   // The log stream is the only section that holds a connection open, so it is
   // the only one that has to be told it is no longer being looked at.
   if (name !== "logs") closeLogs();
@@ -10254,6 +10255,26 @@ function showSettingsSection(name) {
   if (name === "account") renderAccount().catch(() => {});
   if (name === "data") renderBackups();
   if (name === "tasks") renderTasks(); // fill it in now, then poll
+}
+
+// Peek fades the settings panel so a colour change is visible on the page
+// behind it. Two details make it work: the fade is on the BACKGROUND via
+// color-mix rather than element opacity (opacity would fade the swatches and
+// controls too, making the thing you are judging harder to see), and it clears
+// itself whenever the panel is closed or you leave Appearance — a settings
+// panel left semi-transparent on the Logs screen just looks broken.
+function setSettingsPeek(on) {
+  const modal = $("settings-modal");
+  const box = $("settings-peek");
+  modal.classList.toggle("peeking", !!on);
+  if (box) box.checked = !!on;
+}
+
+function updatePeekAvailability(section) {
+  const wrap = $("settings-peek-wrap");
+  const appearance = section === "appearance";
+  if (wrap) wrap.classList.toggle("hidden", !appearance);
+  if (!appearance) setSettingsPeek(false);
 }
 
 async function openSettingsModal(section = "models") {
@@ -10271,6 +10292,9 @@ async function openSettingsModal(section = "models") {
 }
 
 function closeSettingsModal() {
+  // Always cleared on the way out. A panel that reopens semi-transparent
+  // reads as a rendering bug, not as a setting anyone chose.
+  setSettingsPeek(false);
   $("settings-modal").classList.add("hidden");
   overlayReturnFocus?.focus?.();
   overlayReturnFocus = null;
@@ -12746,6 +12770,219 @@ function resetThemeOnly() {
   toast("Theme reset to the app default. Your own changes are still applied.");
 }
 
+// --- building a scheme from one colour ---------------------------------------
+//
+// Picking an accent is easy. Picking a page background that *goes* with it is
+// the part people give up on and end up with a default they didn't choose — so
+// the relationship is arithmetic rather than judgement: rotate the hue by a
+// known amount, drop the saturation hard, and push the lightness to whichever
+// end the current mode needs.
+//
+// Only two things are written: the accent and the page background. It would be
+// easy to generate a dozen variables and much harder to undo, and both of
+// these already have a Clear button and a place in the override layer that the
+// rest of the appearance settings understand.
+
+function hexToHsl(hex) {
+  const clean = String(hex || "").replace("#", "");
+  if (clean.length !== 6) return null;
+  const n = Number.parseInt(clean, 16);
+  if (Number.isNaN(n)) return null;
+  const r = ((n >> 16) & 255) / 255;
+  const g = ((n >> 8) & 255) / 255;
+  const b = (n & 255) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return [0, 0, l * 100];
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h;
+  if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+  else if (max === g) h = ((b - r) / d + 2) / 6;
+  else h = ((r - g) / d + 4) / 6;
+  return [h * 360, s * 100, l * 100];
+}
+
+function hslToHex(h, s, l) {
+  const sat = Math.max(0, Math.min(100, s)) / 100;
+  const light = Math.max(0, Math.min(100, l)) / 100;
+  const hue = ((h % 360) + 360) % 360;
+  const c = (1 - Math.abs(2 * light - 1)) * sat;
+  const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
+  const m = light - c / 2;
+  const [r, g, b] =
+    hue < 60 ? [c, x, 0] :
+    hue < 120 ? [x, c, 0] :
+    hue < 180 ? [0, c, x] :
+    hue < 240 ? [0, x, c] :
+    hue < 300 ? [x, 0, c] : [c, 0, x];
+  const to = (v) => Math.round((v + m) * 255).toString(16).padStart(2, "0");
+  return `#${to(r)}${to(g)}${to(b)}`;
+}
+
+// How far to rotate the background's hue away from the accent's. The names are
+// the standard colour-wheel relationships; the numbers are what those names
+// mean in degrees.
+const HARMONY_ROTATIONS = {
+  monochromatic: 0,
+  analogous: -30,
+  complementary: 180,
+  triadic: 120,
+};
+
+function harmonyScheme(baseHex, kind, dark) {
+  const hsl = hexToHsl(baseHex);
+  if (!hsl) return null;
+  const [h, s] = hsl;
+  const rotation = HARMONY_ROTATIONS[kind] ?? 0;
+  // A page background carrying the accent's full saturation is exhausting to
+  // read against, so it keeps only a trace of it — enough to feel related, far
+  // too little to compete with the text.
+  const bgSaturation = Math.max(3, s * 0.14);
+  const bgLightness = dark ? 12 : 96;
+  return {
+    accent: baseHex,
+    page: hslToHex(h + rotation, bgSaturation, bgLightness),
+  };
+}
+
+// `resolvedTheme` rather than the raw preference: under "System" there is no
+// stored light/dark to read, and generating a light background for someone
+// looking at a dark page is the one way this feature can be obviously wrong.
+
+function applyHarmony() {
+  const base = $("harmony-base").value;
+  const kind = $("harmony-kind").value;
+  const scheme = harmonyScheme(base, kind, resolvedTheme() === "dark");
+  const note = $("harmony-note");
+  if (!scheme) {
+    note.textContent = "That colour didn't parse — try picking it again.";
+    return;
+  }
+  localStorage.setItem("accent-custom", scheme.accent);
+  localStorage.setItem("page-bg", scheme.page);
+  applyCustomAccent(scheme.accent);
+  applyPageBackground(scheme.page);
+  renderAppearance();
+  note.textContent =
+    `Accent ${scheme.accent}, background ${scheme.page}. ` +
+    "Both have their own Clear buttons above if you'd rather start again.";
+}
+
+// --- your own saved themes ---------------------------------------------------
+//
+// A saved theme is a snapshot of the same localStorage keys every appearance
+// control already writes, so it is not a second system that could drift from
+// them — the same idea as the built-in presets, which are also just bundles of
+// those values.
+//
+// Stored server-side with the rest of the preferences rather than in the
+// browser. The look itself lives in localStorage because it has to be applied
+// before first paint, but a *saved* look is something you would be upset to
+// lose to a cleared cache — and in preferences it also rides along in the
+// daily backup and is there in the desktop window as well as the browser tab.
+
+const MAX_CUSTOM_THEMES = 20;
+
+function currentLookValues() {
+  const values = {};
+  for (const key of OVERRIDABLE_KEYS) {
+    const value = localStorage.getItem(key);
+    if (value !== null) values[key] = value;
+  }
+  // The chosen preset is part of the look: without it, saving while "Manuscript"
+  // is active and then applying the save would drop back to whatever preset
+  // happened to be selected at the time.
+  const preset = localStorage.getItem("themePreset");
+  return { values, preset: preset || "" };
+}
+
+function savedThemes() {
+  const saved = prefsCache && prefsCache.custom_themes;
+  return Array.isArray(saved) ? saved : [];
+}
+
+async function saveCurrentLook() {
+  const input = $("custom-theme-name");
+  const name = input.value.trim().slice(0, 30);
+  if (!name) {
+    toast("Give the look a name first.", true);
+    input.focus();
+    return;
+  }
+  const existing = savedThemes();
+  if (existing.length >= MAX_CUSTOM_THEMES && !existing.some((t) => t.name === name)) {
+    toast(`You can keep ${MAX_CUSTOM_THEMES} saved looks — delete one first.`, true);
+    return;
+  }
+  const snapshot = { name, ...currentLookValues() };
+  // Saving under an existing name replaces it, which is what "save" means when
+  // you have just tweaked a look you already saved.
+  const next = [...existing.filter((t) => t.name !== name), snapshot];
+  await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ custom_themes: next }),
+  });
+  if (prefsCache) prefsCache.custom_themes = next;
+  input.value = "";
+  renderCustomThemes();
+  toast(`Saved “${name}”.`);
+}
+
+function applySavedTheme(theme) {
+  // Everything the snapshot named is restored; everything it didn't is left
+  // alone rather than reset, so applying a saved look never silently changes a
+  // setting the snapshot had nothing to say about.
+  for (const [key, value] of Object.entries(theme.values || {})) {
+    localStorage.setItem(key, value);
+  }
+  if (theme.preset) localStorage.setItem("themePreset", theme.preset);
+  else localStorage.removeItem("themePreset");
+  // The same function startup uses, so a restored look is applied by exactly
+  // the path that would have applied it on a fresh load.
+  applyThemeChoice(theme.values?.theme || "system", false);
+  applyAppearance();
+  renderAppearance();
+  toast(`Applied “${theme.name}”.`);
+}
+
+async function deleteSavedTheme(name) {
+  const next = savedThemes().filter((t) => t.name !== name);
+  await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ custom_themes: next }),
+  });
+  if (prefsCache) prefsCache.custom_themes = next;
+  renderCustomThemes();
+  toast(`Deleted “${name}”.`);
+}
+
+function renderCustomThemes() {
+  const box = $("custom-themes");
+  if (!box) return;
+  const themes = savedThemes();
+  box.replaceChildren();
+  if (!themes.length) {
+    const empty = document.createElement("p");
+    empty.className = "muted";
+    empty.textContent = "Nothing saved yet — set the app up how you like it, then save it here.";
+    box.appendChild(empty);
+    return;
+  }
+  for (const theme of themes) {
+    const chip = document.createElement("div");
+    chip.className = "theme-chip";
+    const apply = smallButton(theme.name, `Apply “${theme.name}”`, () => applySavedTheme(theme), false);
+    const remove = smallButton("✕", `Delete “${theme.name}”`, () => {
+      deleteSavedTheme(theme.name).catch((e) => toast(e.message, true));
+    });
+    remove.classList.add("ghost");
+    chip.append(apply, remove);
+    box.appendChild(chip);
+  }
+}
+
 // "#rrggbb" -> "r, g, b" so a custom colour can drive rgba() softs.
 function hexToRgbParts(hex) {
   const clean = String(hex || "").replace("#", "");
@@ -12965,6 +13202,14 @@ function renderAppearance() {
     });
     holder.appendChild(button);
   }
+  renderCustomThemes();
+  // Seed the harmony picker from whatever accent is showing, so "Apply" on an
+  // untouched picker keeps the colour you already have rather than jumping to
+  // an arbitrary default.
+  const showing = getComputedStyle(document.documentElement)
+    .getPropertyValue("--accent")
+    .trim();
+  if (/^#[0-9a-f]{6}$/i.test(showing)) $("harmony-base").value = showing;
   $("contrast-toggle").checked = contrastOn();
   $("reduce-motion-toggle").checked = appearancePref("motion") === "reduced";
   $("bg-art-toggle").checked = bgArtOn();
@@ -13753,6 +13998,14 @@ switchTab(localStorage.getItem("activeTab") || "notes");
 // Settings modal (Wave A).
 $("settings-btn").addEventListener("click", () => openSettingsModal());
 $("settings-close").addEventListener("click", closeSettingsModal);
+$("settings-peek").addEventListener("change", (e) => setSettingsPeek(e.target.checked));
+$("harmony-apply").addEventListener("click", applyHarmony);
+$("custom-theme-save").addEventListener("click", () => {
+  saveCurrentLook().catch((error) => toast(error.message, true));
+});
+$("custom-theme-name").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") $("custom-theme-save").click();
+});
 $("settings-modal").addEventListener("click", (e) => {
   if (e.target === $("settings-modal")) closeSettingsModal(); // backdrop click
 });

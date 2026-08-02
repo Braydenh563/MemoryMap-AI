@@ -65,6 +65,34 @@ the normal order to do it in.
   work, and the status line names whichever backend actually answered instead
   of telling an LM Studio user to go and install Ollama.
 
+### Added — peek, colour schemes, and saving a look (roadmap §33)
+
+Three appearance additions, the first two taken from odysseus.
+
+- **Peek.** A checkbox in the Settings title bar fades the panel so a colour
+  change can be seen on the page behind it. The technique is the part worth
+  copying: the fade is `color-mix` on the *background*, never element
+  `opacity` — opacity fades the swatches and the controls too, which makes the
+  thing you are trying to judge harder to see rather than easier. It clears
+  itself on close and when you leave Appearance, because a panel left
+  semi-transparent on the Logs screen reads as a rendering bug.
+
+- **Build a scheme from one colour.** Picking an accent is easy; picking a page
+  background that *goes* with it is the part people give up on. Choose a colour
+  and a relationship — monochromatic, analogous, complementary, triadic — and
+  the two are worked out together: the hue rotates by the amount that
+  relationship names, the saturation drops hard (a background carrying the
+  accent's full saturation is exhausting to read against), and the lightness
+  goes to whichever end the *resolved* mode needs, so it is right under
+  "System" too.
+
+- **Save the look you built.** Everything the appearance controls write —
+  colours, font, spacing, corners, background, the selected theme — saved under
+  a name and applied again in one click. Stored server-side with the rest of
+  your preferences rather than in the browser: a look built by hand is a thing
+  you would be upset to lose to a cleared cache, and in preferences it rides
+  along in the daily backup and is there in the desktop window too.
+
 ### Added — the agent can ask instead of guessing (roadmap §33)
 
 Told "delete the one about the beans" when there are three, the agent had

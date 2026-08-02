@@ -2700,49 +2700,126 @@ function continueRunControls({ label, hint, onClick }) {
 // A small "what this answer cost" line under an assistant bubble: which model
 // answered, how long it took, and — when Ollama reports them — token counts
 // and generation speed.
+// One fact on the metadata line. Its own element rather than a slice of one
+// long string, which is what "modular" buys: each item carries its own
+// tooltip, can be styled by what it *is* rather than by where it sits, and a
+// new field added later cannot silently change the meaning of the separator
+// beside it.
+function metaItem(text, { title = "", kind = "", icon = "" } = {}) {
+  const item = document.createElement("span");
+  item.className = `msg-meta-item${kind ? ` msg-meta-${kind}` : ""}`;
+  if (icon) {
+    const mark = document.createElement("span");
+    mark.className = "msg-meta-icon";
+    mark.textContent = icon;
+    mark.setAttribute("aria-hidden", "true");
+    item.appendChild(mark);
+  }
+  item.appendChild(document.createTextNode(text));
+  if (title) item.title = title;
+  return item;
+}
+
+// §35K: *"the chat bubble's metadata line is not visually appealing. It has
+// grown a field at a time — model, elapsed, tokens, rounds, context percent,
+// whether the count was estimated — and never had a pass."*
+//
+// The pass, and the rule behind it: **a metadata line is read at a glance or
+// not at all.** Six equal facts joined by dots is a sentence you have to
+// parse, so the fields are ranked instead — what the turn *cost you* (time,
+// and how full the window got) reads first, what it *was* (model, tools) sits
+// quieter beside it, and the numbers only a debugging session wants (exact
+// tokens, tokens/second) are one hover away rather than on screen.
+//
+// Nothing was removed: every field is still here, and the ones that moved into
+// tooltips moved because they answer a question nobody asks mid-conversation.
 function messageMetaLine({ model, elapsedMs, stats, toolCount = 0, rounds = 0 }) {
   const row = document.createElement("div");
   row.className = "msg-meta muted";
-  const bits = [];
-  if (model) bits.push(model);
+
+  // 1. What it cost. First, because it is the only field anyone looks for
+  //    while actually using the app.
   if (elapsedMs != null) {
-    bits.push(elapsedMs < 1000 ? `${elapsedMs} ms` : `${(elapsedMs / 1000).toFixed(1)}s`);
+    row.appendChild(
+      metaItem(
+        elapsedMs < 1000 ? `${elapsedMs} ms` : `${(elapsedMs / 1000).toFixed(1)}s`,
+        { title: "How long this answer took, end to end", kind: "time" }
+      )
+    );
   }
+
+  // 2. How full the model's window got — a meter, not a percentage in prose.
+  //    A raw token count never answered the question anyone has, which is
+  //    whether the *next* turn is the one that starts dropping the top of its
+  //    own prompt.
   let fill = null;
-  if (stats) {
-    const inTok = stats.prompt_tokens;
-    const outTok = stats.output_tokens;
-    if (inTok != null || outTok != null) {
-      const approx = stats.usage_source === "estimated" ? "~" : "";
-      bits.push(`${approx}${inTok ?? "?"}→${outTok ?? "?"} tokens`);
-    }
-    if (outTok && stats.eval_ms) {
-      bits.push(`${(outTok / (stats.eval_ms / 1000)).toFixed(1)} tok/s`);
-    }
-    // How full the window got. A raw token count doesn't tell you whether an
-    // answer was comfortable or nearly lost the top of its own prompt —
-    // "3.9k of 8k (48%)" does, and it is the number that explains a turn that
-    // suddenly forgot its instructions.
-    if (inTok != null && stats.context_tokens) {
-      fill = Math.min(100, Math.round((inTok / stats.context_tokens) * 100));
-      bits.push(`${compactTokens(inTok)}/${compactTokens(stats.context_tokens)} window (${fill}%)`);
-    }
+  const inTok = stats ? stats.prompt_tokens : null;
+  const outTok = stats ? stats.output_tokens : null;
+  if (stats && inTok != null && stats.context_tokens) {
+    fill = Math.min(100, Math.round((inTok / stats.context_tokens) * 100));
+    const approx = stats.usage_source === "estimated" ? "~" : "";
+    const meter = metaItem(`${fill}%`, {
+      title:
+        `${approx}${compactTokens(inTok)} of this model's ${compactTokens(stats.context_tokens)} ` +
+        "context window was used by this turn." +
+        (fill >= 80
+          ? "\n\nPast about 80%, the next turn is the one that starts dropping " +
+            "the oldest part of its own prompt — 🗜 Compress in the header " +
+            "summarises the conversation so far instead."
+          : ""),
+      kind: "window",
+    });
+    const bar = document.createElement("span");
+    bar.className = "msg-meta-bar";
+    const level = document.createElement("span");
+    level.className = "msg-meta-bar-level";
+    level.style.width = `${fill}%`;
+    bar.appendChild(level);
+    meter.insertBefore(bar, meter.firstChild);
+    row.appendChild(meter);
   }
-  // What the agent actually did, so a turn that used tools says so rather
-  // than looking identical to one that didn't.
-  if (toolCount) bits.push(`${toolCount} tool${toolCount === 1 ? "" : "s"}`);
-  if (rounds > 1) bits.push(`${rounds} rounds`);
-  row.textContent = bits.join(" · ");
+
+  // 3. What answered, and what it did. Quieter: this is the same for every
+  //    turn in a conversation, so it is context rather than news.
+  if (model) {
+    row.appendChild(
+      metaItem(model, { title: "The model that answered", kind: "model" })
+    );
+  }
+  if (toolCount) {
+    row.appendChild(
+      metaItem(String(toolCount), {
+        icon: "🔧",
+        title:
+          `${toolCount} tool call${toolCount === 1 ? "" : "s"}` +
+          (rounds > 1 ? ` over ${rounds} rounds` : "") +
+          ". The steps above show which.",
+        kind: "tools",
+      })
+    );
+  }
+
+  // 4. The numbers a debugging session wants, and nobody else. On the row's
+  //    own tooltip rather than in it — this is where the line had grown to
+  //    three lines of digits on a narrow window.
+  const detail = [];
+  if (inTok != null || outTok != null) {
+    const approx = stats && stats.usage_source === "estimated" ? "~" : "";
+    detail.push(`${approx}${inTok ?? "?"} tokens in → ${outTok ?? "?"} out`);
+  }
+  if (outTok && stats && stats.eval_ms) {
+    detail.push(`${(outTok / (stats.eval_ms / 1000)).toFixed(1)} tokens/second`);
+  }
+  if (rounds > 1) detail.push(`${rounds} rounds`);
+  if (stats && stats.usage_source === "estimated") {
+    detail.push("~ means the server didn't report counts, so these are estimated");
+  }
+  if (detail.length) row.title = detail.join("\n");
+
   // Past ~80% the next turn of the same conversation is the one that starts
   // dropping things, so the warning belongs on the turn *before* it happens
   // rather than after the model has already lost the plot.
   if (fill != null && fill >= 80) row.classList.add("msg-meta-tight");
-  row.title =
-    "Model · response time · prompt→output tokens · generation speed · " +
-    "how much of the model's context window this turn used · tools used" +
-    (stats && stats.usage_source === "estimated"
-      ? "\n\n~ means the server didn't report token counts, so these are estimated from the text."
-      : "");
   return row;
 }
 
@@ -11558,14 +11635,74 @@ function syncScrollLock() {
 // cap so the page never gets pushed around; past that it scrolls.
 const AUTOGROW_MAX_PX = 340;
 
+// How much of the window a growing box may take before it scrolls instead.
+//
+// A flat 340px is most of a laptop window's chat area and nearly all of a
+// phone's: the box kept growing and the conversation it was about disappeared
+// above it. The cap is the *smaller* of the two, so a tall screen keeps the
+// familiar 340 and a short one keeps its conversation.
+const AUTOGROW_MAX_VIEWPORT = 0.35;
+
+//: Where a hand-dragged composer height is remembered. A preference about how
+//: you write, so it outlives the session that set it.
+const COMPOSER_HEIGHT_KEY = "chat-composer-height";
+
+function autoGrowLimit(el) {
+  // A height the user dragged to wins over both defaults — they have said, in
+  // the most direct way an interface allows, how tall they want this box.
+  const chosen = Number(el.dataset.maxPx || 0);
+  if (chosen > 0) return chosen;
+  return Math.min(AUTOGROW_MAX_PX, Math.round(window.innerHeight * AUTOGROW_MAX_VIEWPORT));
+}
+
 function autoGrow(el) {
   if (!el) return;
   // Reset first: without it the height only ever ratchets upwards, because
   // scrollHeight is measured against the height already set.
   el.style.height = "auto";
-  const next = Math.min(el.scrollHeight, AUTOGROW_MAX_PX);
+  const limit = autoGrowLimit(el);
+  const next = Math.min(el.scrollHeight, limit);
   el.style.height = `${next}px`;
-  el.style.overflowY = el.scrollHeight > AUTOGROW_MAX_PX ? "auto" : "hidden";
+  el.style.overflowY = el.scrollHeight > limit ? "auto" : "hidden";
+  // What this function chose, so a later resize can be told apart from a drag
+  // by the user — the two are indistinguishable to a ResizeObserver otherwise.
+  el.dataset.autoHeight = String(next);
+}
+
+// The chat composer can be dragged taller, and remembers it.
+//
+// Asked for directly: *"there should be a max height that the chat text bar
+// can grow to before it gets a scrollbar. the height should also be manually
+// adjustable."* Both halves — the cap above, and this.
+//
+// The native resize grabber does the dragging; all this has to do is notice
+// the result and stop `autoGrow` from immediately undoing it on the next
+// keystroke. A drag is told from a grow by comparing against the height
+// autoGrow last set: anything else was a hand on the corner.
+function initComposerResize() {
+  const box = $("chat-input");
+  if (!box || box.dataset.resizeReady) return;
+  box.dataset.resizeReady = "1";
+
+  const saved = Number(localStorage.getItem(COMPOSER_HEIGHT_KEY) || 0);
+  if (saved > 0) {
+    box.dataset.maxPx = String(saved);
+    autoGrow(box);
+  }
+
+  if (typeof ResizeObserver !== "function") return;
+  const observer = new ResizeObserver(() => {
+    const height = Math.round(box.getBoundingClientRect().height);
+    const automatic = Number(box.dataset.autoHeight || 0);
+    // Two pixels of slack for sub-pixel layout; a drag is always more.
+    if (!height || Math.abs(height - automatic) <= 2) return;
+    box.dataset.maxPx = String(height);
+    localStorage.setItem(COMPOSER_HEIGHT_KEY, String(height));
+    // Re-run so overflow matches the new ceiling straight away rather than at
+    // the next keystroke.
+    autoGrow(box);
+  });
+  observer.observe(box);
 }
 
 function initAutoGrow() {
@@ -11577,6 +11714,7 @@ function initAutoGrow() {
     el.addEventListener("focus", () => autoGrow(el));
     autoGrow(el);
   }
+  initComposerResize();
 }
 
 function watchOverlays() {

@@ -2935,14 +2935,53 @@ html { font-size: 16px; }
 .field > span { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.25rem; }
 .field > input { width: 100%; }
 
-/* Per-message metadata: model · time · tokens · speed */
+/* Per-message metadata (§35K).
+   Was one run of dot-separated facts that had grown a field at a time — model,
+   elapsed, tokens, rounds, context percent, whether the count was estimated —
+   which on a narrow window wrapped to three lines of digits under every
+   answer. It is a row of ranked items now: the cost of the turn reads first,
+   what answered sits quieter beside it, and the numbers only a debugging
+   session wants live in the tooltip. */
 .msg-meta {
-  margin-top: 0.4rem;
-  font-size: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+  font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
   opacity: 0.75;
 }
 .msg-meta:empty { display: none; }
+.msg-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  white-space: nowrap;
+}
+/* The model is the same on every turn of a conversation, so it is context
+   rather than news — present, and never the thing your eye lands on. */
+.msg-meta-model { opacity: 0.7; }
+.msg-meta-icon { font-size: var(--text-xs); }
+/* How full the window got, as a meter. A percentage in prose is a number you
+   have to convert; a bar is one you glance at — and this is the field that
+   answers the only question anyone asks of this line, which is whether the
+   next turn is the one that starts forgetting. */
+.msg-meta-bar {
+  display: inline-block;
+  width: 2.5rem;
+  height: 0.3rem;
+  border-radius: var(--radius-pill);
+  background: var(--chip-bg);
+  overflow: hidden;
+}
+.msg-meta-bar-level {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
+.msg-meta-tight .msg-meta-bar-level { background: var(--warn); }
 /* The window is nearly full: the NEXT turn of this conversation is the one
    that starts dropping the top of the prompt. Warn before it happens, not
    after the model has already lost the plot. Colour is not the only signal —
@@ -3766,7 +3805,18 @@ html { font-size: 16px; }
   border-top: 1px solid var(--border);
   padding-top: var(--space-3);
   margin-top: var(--space-3);
-  background: var(--card);
+  /* **No background.** Reported as "a weird box shadow behind the bottom dock",
+     and that is what it looked like, but the cause was a repaint rather than a
+     shadow: this said `background: var(--card)` while sitting *inside* a card
+     that had already painted it. Under a glass theme `--card` is ~55% opaque,
+     so two of them stack into a visibly denser rectangle with the card's own
+     shadow showing round its edge — a panel inside a panel of the same colour.
+     Measured in dark + glass: #chat-main and .chat-dock both painted
+     rgba(29, 33, 46, 0.55).
+
+     The background was never needed. The dock is the last flex child of the
+     card, not a sticky overlay, so nothing scrolls underneath it — the
+     hairline above is what separates it, and that is enough. */
 }
 /* One strip rather than three stacked rows.
    Asked for: "make the bottom dock in the chat cleaner and better structured
@@ -3857,6 +3907,11 @@ html { font-size: 16px; }
   margin-top: var(--space-4);
   align-items: end;
   --composer-h: 2.75rem;
+  /* One hairline for the block, not two. `.chat-composer` draws its own
+     `border-top` for the surfaces where it stands alone; inside the dock that
+     put a second rule 49px below the dock's own, which is what made one strip
+     of controls read as a stack of bands. */
+  border-top: 0;
 }
 .chat-dock .chat-composer button,
 .chat-dock .chat-composer .note-picker > button {
@@ -3866,6 +3921,11 @@ html { font-size: 16px; }
 }
 .chat-dock .chat-composer #chat-input {
   min-height: var(--composer-h);
+  /* Draggable, and only vertically — a horizontal drag would take it out of
+     the flex row it shares with 📎, 🎙 and Send. `initComposerResize` notices
+     the drag and keeps it, so the box does not spring back on the next
+     keystroke. */
+  resize: vertical;
   /* Vertically centred at one line, and the same distance from the edge at
      three. The autogrow measures scrollHeight, so this is padding rather than
      a line-height trick that would change with the font. */

@@ -254,16 +254,37 @@ def _refresh_embedding(session: Session, entry: Entry) -> None:
 
 def _search_notes(session: Session, args: dict) -> dict:
     limit = _limit_arg(args, default=5)
-    entries, mode = search_manager.retrieve(
+    found = search_manager.retrieve_detailed(
         session, str(args["query"]), deps.get_embeddings(), limit=limit
     )
-    return {
-        "found": len(entries),
-        "search_mode": mode,
-        "notes": [_note_summary(session, e) for e in entries],
+    notes = []
+    for entry in found.entries:
+        summary = _note_summary(session, entry)
+        if entry.id in found.connected_ids:
+            # **Why this note is here.** It did not match the search — it is
+            # connected to something that did. Without saying so the model
+            # reports it as a result, which is a quiet fabrication: the user
+            # asked about X and is told a note about Y "came up", when what
+            # actually happened is that they once linked the two.
+            summary["why"] = "not a match — connected to one of the matches above"
+        notes.append(summary)
+    result = {
+        "found": len(found.entries),
+        "search_mode": found.mode,
+        "notes": notes,
         "how_to_read_more": _READ_MORE,
         "label": f"🔍 Searched notes for “{_clip(str(args['query']), 40)}”",
     }
+    if found.when_phrase:
+        # The question carried a date range and it was applied. Said out loud
+        # so the model does not answer "you have no notes about that" when the
+        # truthful answer is "none in that week".
+        result["filtered_by_date"] = (
+            f"Only notes written {found.when_phrase} were considered"
+            + (f" ({found.since} to {found.until})" if found.since else "")
+            + ". Say so if the answer is that there are none in that period."
+        )
+    return result
 
 
 def _get_note_tool(session: Session, args: dict) -> dict:

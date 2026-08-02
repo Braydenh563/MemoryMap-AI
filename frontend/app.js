@@ -2171,6 +2171,11 @@ let lastQuestion = ""; // powers the Retry button
 
 // Honest label for how the matching notes were found.
 const SEARCH_MODE_LABELS = {
+  // Both searches ran and their rankings were fused, which is the normal case
+  // whenever an embedding backend is up. Named for what it is: "semantic
+  // search" would now be a half-truth, and the label is the app's own account
+  // of how it found what it is showing you.
+  hybrid: "meaning + keywords",
   semantic: "semantic search",
   keyword: "keyword search",
   recent: "recent notes", // broad question → showing recent entries

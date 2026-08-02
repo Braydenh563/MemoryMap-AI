@@ -50,6 +50,12 @@ MAX_TOOLS = 12
 MAX_INPUTS = 5
 MAX_INPUT_VALUE = 200
 
+#: Tools a skill may never declare. `run_skill` hands a turn to a skill run,
+#: so a skill holding it could start itself: each run brings fresh rounds, and
+#: the per-turn budget that stops an ordinary loop never applies. Named here
+#: rather than imported from `tools` because `tools` imports this module.
+NEVER_IN_A_SKILL = frozenset({"run_skill"})
+
 # {{tag}} — doubled braces so a skill can still talk about {json} literally.
 PLACEHOLDER = re.compile(r"\{\{\s*([a-zA-Z][a-zA-Z0-9_]{0,23})\s*\}\}")
 INPUT_NAME = re.compile(r"^[a-zA-Z][a-zA-Z0-9_]{0,23}$")
@@ -94,6 +100,15 @@ def normalise(raw: dict, known_tools: set[str] | None = None) -> dict:
         tool = str(tool or "").strip()
         if not tool or tool in tools:
             continue
+        if tool in NEVER_IN_A_SKILL:
+            # A skill that can start a skill is a loop with no bottom: each
+            # run gets its own rounds, so the budget that bounds a turn never
+            # binds. Refused at save rather than at execution, because the
+            # allowlist would only refuse it once the run was already going.
+            raise SkillError(
+                f"A skill can't use “{tool}” — a skill that starts another "
+                "skill would never have to stop. Put the steps in this one."
+            )
         if known_tools is not None and tool not in known_tools:
             raise SkillError(
                 f"There is no tool called “{tool}”. Call list_tools, or pick "

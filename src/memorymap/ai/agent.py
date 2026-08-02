@@ -81,7 +81,10 @@ TOOLS_GUIDE = (
     "question is about something they wrote up), their earlier conversations "
     "with you (search_chat_history, for when they refer to something 'we "
     "talked about' that isn't in this thread — say when you're relying on "
-    "it), and their saved skills (list_skills, save_skill). "
+    "it), and their saved skills (list_skills, save_skill). A skill is a job "
+    "they have already described — if one matches what they asked for, "
+    "run_skill starts it and takes over from you, rather than you doing the "
+    "same work by hand. "
     # Kept, not trimmed: the schema says due_at is an ISO date-time, but not
     # that it must be computed from the clock given below. Without that, a
     # model resolves "in 10 minutes" against whatever it imagines the time is,
@@ -370,10 +373,21 @@ def build_agent_messages(
 
 # Handed back when an `ask_user` call is malformed, so the model can recover
 # in the same turn instead of the question silently failing.
-_ASK_RECOVERY = (
-    "Fix the question and call ask_user again with 2-6 short options — or, if "
-    "you can work it out yourself, just answer without asking."
-)
+# What a turn-ending tool is told when its handover was malformed. Per tool,
+# because the useful advice differs: a bad question is worth re-asking, a
+# skill that doesn't exist usually means there was no skill for this job.
+_HANDOFF_RECOVERY = {
+    "ask_user": (
+        "Fix the question and call ask_user again with 2-6 short options — or, "
+        "if you can work it out yourself, just answer without asking."
+    ),
+    "run_skill": (
+        "Call list_skills to see the exact names and what each one needs, then "
+        "run_skill again — or, if none of them fits, just do the job yourself "
+        "with the ordinary tools."
+    ),
+}
+_ASK_RECOVERY = _HANDOFF_RECOVERY["ask_user"]  # kept: named in tests and §33
 
 # What the model is told when a destructive call is parked for approval.
 AWAITING_CONFIRMATION = {
@@ -584,22 +598,24 @@ def run_agent(
                     "error": result["error"],
                 }
             elif spec is not None and spec.ends_turn:
-                # `ask_user`. The turn stops here, and that is the feature
-                # rather than a limitation: the model asked because it does not
-                # know what to do next, so letting it carry on would mean
-                # carrying on with the guess the question exists to avoid.
+                # `ask_user` and `run_skill`. The turn stops here, and in both
+                # cases that is the feature rather than a limitation: the model
+                # asked because it does not know what to do next, or it handed
+                # the job to a skill that will do it step by step. Carrying on
+                # after either would mean carrying on with the guess the
+                # handover exists to avoid.
                 #
-                # No state is parked on the server. The user's choice is sent
-                # as their next message, which means the answer arrives through
-                # the ordinary history the model already reads — nothing to
-                # expire, nothing to lose on a reload, and the exchange is
-                # visible in the saved conversation like any other.
+                # No state is parked on the server. The user's choice — or the
+                # skill run — is sent as the next message, which means it
+                # arrives through the ordinary history the model already reads:
+                # nothing to expire, nothing to lose on a reload, and the
+                # exchange is visible in the saved conversation like any other.
                 try:
-                    question, options = tools.validate_ask(arguments)
+                    handover = tools.handoff_event(name, arguments)
                 except tools.ToolError as exc:
-                    # A malformed question is a recoverable mistake, not a dead
-                    # turn: hand the model the reason and let it try again or
-                    # answer directly.
+                    # A malformed question, or a skill named that doesn't
+                    # exist. Recoverable mistakes, not dead turns: hand the
+                    # model the reason and let it try again or answer directly.
                     signature = (name, json.dumps(arguments, sort_keys=True))
                     failed_calls.add(signature)
                     messages.append(
@@ -607,18 +623,23 @@ def run_agent(
                             "role": "tool",
                             "tool_name": name,
                             "content": json.dumps(
-                                {"error": str(exc), "what_to_do": _ASK_RECOVERY}
+                                {
+                                    "error": str(exc),
+                                    "what_to_do": _HANDOFF_RECOVERY.get(
+                                        name, _ASK_RECOVERY
+                                    ),
+                                }
                             ),
                         }
                     )
                     yield {
                         "type": "tool",
-                        "label": "⚠️ couldn't ask that question",
+                        "label": f"⚠️ couldn't {name.replace('_', ' ')}",
                         "ok": False,
                         "error": str(exc),
                     }
                     continue
-                yield {"type": "ask", "question": question, "options": options}
+                yield handover
                 return
             elif spec is not None and spec.destructive:
                 # Park it for the user — never auto-run a destructive tool.

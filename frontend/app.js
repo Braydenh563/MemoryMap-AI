@@ -2117,6 +2117,7 @@ async function streamChat({
   onTool,
   onConfirm,
   onAsk,
+  onRunSkill,
   onStats,
 }) {
   const body = { question, history: history || [] };
@@ -2169,6 +2170,7 @@ async function streamChat({
       else if (event.type === "tool" && onTool) onTool(event);
       else if (event.type === "confirm" && onConfirm) onConfirm(event);
       else if (event.type === "ask" && onAsk) onAsk(event);
+      else if (event.type === "run_skill" && onRunSkill) onRunSkill(event);
       else if (event.type === "stats" && onStats) onStats(event);
     }
   }
@@ -4519,6 +4521,11 @@ async function sendChatMessage(preset, opts = {}) {
   // Whether the user pressed Stop. An empty answer they asked for needs no
   // explanation; one they didn't ask for does.
   let stopped = false;
+  // Set when the agent ends its turn by handing the job to a saved skill.
+  // The run can't start from inside the stream — this turn is still holding
+  // the input box and the conversation — so it is remembered and started
+  // once everything below has run.
+  let handoff = null;
   const startedAt = performance.now();
   const toolEvents = []; // {label, ok} — persisted so chips survive a reload
   chatController = new AbortController();
@@ -4594,6 +4601,16 @@ async function sendChatMessage(preset, opts = {}) {
         timeline.tool(card.firstElementChild || card);
         status.textContent = "Waiting for your answer…";
       },
+      onRunSkill: (event) => {
+        // The model picked a saved skill for this job (§33). Its turn is over;
+        // the run starts below, once this one has finished tidying up.
+        clearPending();
+        timeline.tool(toolChip(event.label, true));
+        toolEvents.push({ label: event.label, ok: true });
+        status.textContent = `Starting “${event.skill}”…`;
+        handoff = event;
+        chatScrollToEnd();
+      },
       onStats: (event) => {
         // An agent turn reports once per round, so these accumulate: output
         // tokens and generation time add up, while the prompt size is the
@@ -4656,6 +4673,14 @@ async function sendChatMessage(preset, opts = {}) {
   }
   chatScrollToEnd();
   if (toolsActed) refreshAfterToolChanges(); // the AI changed real data
+  if (handoff) {
+    // Start the skill as its own message, down the same path the ⚡ dropdown
+    // uses — so the plan, the ticked steps, the change list and every Undo
+    // work here exactly as they do when the user picks the skill themselves.
+    // Deferred by a task because this turn is still finishing: it re-enables
+    // the input box in `finally`, and the run needs to disable it again.
+    setTimeout(() => startSkill({ name: handoff.skill }, handoff.inputs || {}), 0);
+  }
   if (!answerRaw) {
     // The model returned nothing. This used to return early and leave the
     // bubble sitting there with the notes disclosure, no answer, no error and
@@ -4667,7 +4692,11 @@ async function sendChatMessage(preset, opts = {}) {
       toast("The model returned nothing that time. Try again.", true);
       return;
     }
-    if (!stopped) {
+    // A turn that ended by starting a skill said nothing on purpose — the run
+    // below is the answer. Complaining that the model wrote nothing would be
+    // wrong, and the retry button would re-run the choosing turn rather than
+    // the skill.
+    if (!stopped && !handoff) {
       const note = document.createElement("p");
       note.className = "muted";
       note.textContent =

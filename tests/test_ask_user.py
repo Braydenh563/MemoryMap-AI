@@ -97,11 +97,19 @@ def test_the_tool_is_marked_as_ending_the_turn():
     assert not tools.TOOLS["ask_user"].destructive  # a question is not a risk
 
 
-def test_it_is_the_only_tool_that_ends_a_turn():
-    """If a second one ever appears, the agent-loop branch that handles this
-    needs re-reading rather than reusing on faith."""
-    ending = [name for name, spec in tools.TOOLS.items() if spec.ends_turn]
-    assert ending == ["ask_user"]
+def test_every_turn_ending_tool_has_a_handover():
+    """This used to assert `ask_user` was the only one, with the note that a
+    second would mean re-reading the agent-loop branch rather than reusing it
+    on faith. `run_skill` is that second one, and the branch was rewritten: it
+    now asks `tools.handoff_event` what to hand over instead of knowing.
+
+    So the property worth holding is no longer "there is one", it is "every
+    tool that stops a turn has something to stop it *for*" — a spec marked
+    `ends_turn` with no entry in HANDOFFS would end turns and yield nothing.
+    """
+    ending = {name for name, spec in tools.TOOLS.items() if spec.ends_turn}
+    assert ending == set(tools.HANDOFFS)
+    assert "ask_user" in ending
 
 
 def test_running_it_directly_fails_loudly(session):

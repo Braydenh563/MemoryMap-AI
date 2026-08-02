@@ -27,6 +27,8 @@ from pathlib import Path
 
 import pytest
 
+from fakes_http import FakeResponse, sse
+
 from memorymap.ai import provider as provider_module
 from memorymap.ai.ollama_client import OllamaClient, OllamaError
 from memorymap.ai.openai_client import OpenAICompatClient
@@ -39,68 +41,6 @@ from memorymap.ai.provider import (
     known_context,
     normalise_tool_calls,
 )
-
-
-# --- fakes ------------------------------------------------------------------
-
-
-class FakeResponse:
-    """Just enough `requests.Response` for the paths under test."""
-
-    def __init__(self, *, lines=None, payload=None, status=200, text=""):
-        self._lines = lines or []
-        self._payload = payload
-        self.status_code = status
-        self.text = text
-
-    def raise_for_status(self):
-        if self.status_code >= 400:
-            import requests
-
-            raise requests.HTTPError(f"HTTP {self.status_code}", response=self)
-
-    def json(self):
-        if self._payload is None:
-            raise ValueError("no JSON body")
-        return self._payload
-
-    def iter_lines(self):
-        for line in self._lines:
-            yield line.encode("utf-8")
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *exc):
-        return False
-
-
-def sse(*objects) -> list[str]:
-    """The wire format: `data: {...}` lines, then the `[DONE]` sentinel."""
-    return [f"data: {json.dumps(o)}" for o in objects] + ["data: [DONE]"]
-
-
-@pytest.fixture
-def capture_post(monkeypatch):
-    """Swap `requests.post` inside the OpenAI client and record the payloads."""
-    sent: list[dict] = []
-    queued: list[FakeResponse] = []
-
-    def fake_post(url, json=None, headers=None, stream=False, timeout=None):
-        sent.append({"url": url, "json": json})
-        return queued.pop(0) if queued else FakeResponse(payload={})
-
-    monkeypatch.setattr("memorymap.ai.openai_client.requests.post", fake_post)
-    return type("Capture", (), {"sent": sent, "queue": queued})()
-
-
-@pytest.fixture
-def client():
-    c = OpenAICompatClient(base_url="http://localhost:1234/v1")
-    # Never let a test reach the network to discover a context window.
-    c._catalog = []
-    c._context_lengths = {"m": 8192}
-    return c
 
 
 # --- what the app knows about models ----------------------------------------
@@ -204,11 +144,11 @@ def test_an_unknown_model_on_a_silent_server_is_budgeted_at_the_default():
     assert c.usable_context("mystery-model") == c.DEFAULT_CONTEXT_TOKENS
 
 
-def test_a_huge_window_is_still_capped(client):
+def test_a_huge_window_is_still_capped(openai_client):
     """The ceiling is about the KV cache, which is a property of the machine
     rather than of the dialect — so it applies to both providers."""
-    client._context_lengths = {"m": 131072}
-    assert client.usable_context("m") == OpenAICompatClient.MAX_REQUESTED_CONTEXT
+    openai_client._context_lengths = {"m": 131072}
+    assert openai_client.usable_context("m") == OpenAICompatClient.MAX_REQUESTED_CONTEXT
 
 
 def test_ollama_falls_back_to_the_table_when_api_show_says_nothing():
@@ -299,7 +239,7 @@ def test_ordinary_messages_are_stripped_to_the_fields_the_api_knows():
 # --- streaming --------------------------------------------------------------
 
 
-def test_a_streamed_answer_arrives_in_pieces(client, capture_post):
+def test_a_streamed_answer_arrives_in_pieces(openai_client, capture_post):
     capture_post.queue.append(
         FakeResponse(
             lines=sse(
@@ -309,13 +249,13 @@ def test_a_streamed_answer_arrives_in_pieces(client, capture_post):
             )
         )
     )
-    pieces = list(client.chat_stream("m", [{"role": "user", "content": "hi"}]))
+    pieces = list(openai_client.chat_stream("m", [{"role": "user", "content": "hi"}]))
     assert [p["content_delta"] for p in pieces if "content_delta" in p] == ["Hel", "lo"]
     stats = [p["stats"] for p in pieces if "stats" in p][0]
     assert stats["prompt_tokens"] == 7 and stats["output_tokens"] == 2
 
 
-def test_think_tags_still_split_on_the_new_transport(client, capture_post):
+def test_think_tags_still_split_on_the_new_transport(openai_client, capture_post):
     """The splitter sits above the wire format and needed no change — the
     split is kept at "parse one chunk" precisely so it wouldn't."""
     capture_post.queue.append(
@@ -326,12 +266,12 @@ def test_think_tags_still_split_on_the_new_transport(client, capture_post):
             )
         )
     )
-    pieces = list(client.chat_stream("m", [{"role": "user", "content": "hi"}]))
+    pieces = list(openai_client.chat_stream("m", [{"role": "user", "content": "hi"}]))
     assert "".join(p.get("thinking_delta", "") for p in pieces) == "hmm"
     assert "".join(p.get("content_delta", "") for p in pieces) == "Answer"
 
 
-def test_reasoning_content_is_thinking_too(client, capture_post):
+def test_reasoning_content_is_thinking_too(openai_client, capture_post):
     """DeepSeek-R1 and several servers send thinking as its own field rather
     than as inline tags — the same distinction Ollama's `thinking` draws."""
     capture_post.queue.append(
@@ -342,11 +282,11 @@ def test_reasoning_content_is_thinking_too(client, capture_post):
             )
         )
     )
-    pieces = list(client.chat_stream("m", [{"role": "user", "content": "hi"}]))
+    pieces = list(openai_client.chat_stream("m", [{"role": "user", "content": "hi"}]))
     assert any(p.get("thinking_delta") == "weighing it up" for p in pieces)
 
 
-def test_streamed_tool_call_fragments_are_reassembled_by_index(client, capture_post):
+def test_streamed_tool_call_fragments_are_reassembled_by_index(openai_client, capture_post):
     """The piece with no Ollama equivalent. Arguments arrive as a partial JSON
     string spread over many chunks, and two concurrent calls interleave — the
     index is the only thing tying a fragment to the call it belongs to."""
@@ -364,14 +304,14 @@ def test_streamed_tool_call_fragments_are_reassembled_by_index(client, capture_p
             )
         )
     )
-    final = [p["final"] for p in client.chat_tools_stream("m", [], []) if "final" in p][0]
+    final = [p["final"] for p in openai_client.chat_tools_stream("m", [], []) if "final" in p][0]
     assert final["tool_calls"] == [
         {"name": "search", "arguments": {"q": "x"}},
         {"name": "create", "arguments": {"text": "n"}},
     ]
 
 
-def test_calls_come_back_in_the_order_the_model_asked_for_them(client, capture_post):
+def test_calls_come_back_in_the_order_the_model_asked_for_them(openai_client, capture_post):
     """A model that says "search, then create" means it, and arrival order of
     the last fragment is not that order."""
     capture_post.queue.append(
@@ -386,11 +326,11 @@ def test_calls_come_back_in_the_order_the_model_asked_for_them(client, capture_p
             )
         )
     )
-    final = [p["final"] for p in client.chat_tools_stream("m", [], []) if "final" in p][0]
+    final = [p["final"] for p in openai_client.chat_tools_stream("m", [], []) if "final" in p][0]
     assert [c["name"] for c in final["tool_calls"]] == ["first", "second"]
 
 
-def test_a_keepalive_line_is_not_fatal(client, capture_post):
+def test_a_keepalive_line_is_not_fatal(openai_client, capture_post):
     """Servers send comments and blank frames; a parse failure mid-answer
     must not lose the answer."""
     capture_post.queue.append(
@@ -398,21 +338,21 @@ def test_a_keepalive_line_is_not_fatal(client, capture_post):
             lines=[": ping", "", "data: not json", 'data: {"choices":[{"delta":{"content":"ok"}}]}', "data: [DONE]"]
         )
     )
-    pieces = list(client.chat_stream("m", [{"role": "user", "content": "hi"}]))
+    pieces = list(openai_client.chat_stream("m", [{"role": "user", "content": "hi"}]))
     assert "".join(p.get("content_delta", "") for p in pieces) == "ok"
 
 
-def test_a_model_without_tool_support_is_a_gap_not_an_outage(client, capture_post):
+def test_a_model_without_tool_support_is_a_gap_not_an_outage(openai_client, capture_post):
     """Plain Q&A still works, so the agent falls back rather than failing the
     chat — the same distinction the Ollama path draws."""
     capture_post.queue.append(
         FakeResponse(status=400, text="This model does not support tools")
     )
     with pytest.raises(ToolsUnsupportedError):
-        list(client.chat_tools_stream("m", [], []))
+        list(openai_client.chat_tools_stream("m", [], []))
 
 
-def test_an_unreachable_server_raises_the_error_the_routes_already_catch(client, capture_post):
+def test_an_unreachable_server_raises_the_error_the_routes_already_catch(openai_client, capture_post):
     """`OllamaError` IS the neutral error, aliased. Every `except OllamaError`
     in the routes was written to mean "the AI backend failed", and a new parent
     class would have quietly stopped them firing for the second provider."""
@@ -420,7 +360,7 @@ def test_an_unreachable_server_raises_the_error_the_routes_already_catch(client,
 
     capture_post.queue.append(FakeResponse(status=500, text="boom"))
     with pytest.raises(OllamaError):
-        client.chat("m", [{"role": "user", "content": "hi"}])
+        openai_client.chat("m", [{"role": "user", "content": "hi"}])
     assert OllamaError is ProviderError
     assert issubclass(ToolsUnsupportedError, OllamaError)
     assert issubclass(requests.HTTPError, Exception)  # sanity
@@ -484,7 +424,7 @@ def test_the_ollama_env_var_still_wins_when_no_url_is_set(app_state):
 # --- the trap §6 named ------------------------------------------------------
 
 
-def test_every_generation_path_sends_the_output_cap(client, capture_post):
+def test_every_generation_path_sends_the_output_cap(openai_client, capture_post):
     """The equivalent of `test_context_budget.test_every_generation_path_sends_the_options`,
     for the second provider.
 
@@ -503,22 +443,22 @@ def test_every_generation_path_sends_the_output_cap(client, capture_post):
         ]
     )
     messages = [{"role": "user", "content": "hi"}]
-    client.chat("m", messages)
-    list(client.chat_stream("m", messages))
-    client.chat_tools("m", messages, [])
-    list(client.chat_tools_stream("m", messages, []))
+    openai_client.chat("m", messages)
+    list(openai_client.chat_stream("m", messages))
+    openai_client.chat_tools("m", messages, [])
+    list(openai_client.chat_tools_stream("m", messages, []))
 
     assert len(capture_post.sent) == 4
     for call in capture_post.sent:
         assert call["json"]["max_tokens"] > 0, call["url"]
 
 
-def test_there_is_no_num_ctx_to_send(client):
+def test_there_is_no_num_ctx_to_send(openai_client):
     """The window is fixed when the server loads the model, so unlike Ollama
     there is nothing to ask for — only something to discover and ration
     against. Sending Ollama's spelling here would be silently ignored, which
     reads as working."""
-    options = client.runtime_options("m")
+    options = openai_client.runtime_options("m")
     assert "num_ctx" not in options
     assert "num_predict" not in options
     assert options["max_tokens"] > 0

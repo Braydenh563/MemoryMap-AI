@@ -27,7 +27,6 @@ import pytest
 
 from memorymap.ai import tools
 from memorymap.core.database import Entry, EntryLink
-from memorymap.entry import manager
 
 
 def _note(session, content, tags=None, parent_id=None):
@@ -404,7 +403,7 @@ def test_a_row_carries_only_what_choosing_a_note_needs(session):
     """Each field left out was measured out. The job of a graph walk is to say
     what connects to what; reading one in full is `get_note`'s job."""
     a = _note(session, "a", tags=["x"])
-    b = _note(session, "b", tags=["x"])
+    _note(session, "b", tags=["x"])  # the neighbour; reached via the shared tag
     row = _related(session, a.id)["related"][0]
     assert set(row) == {"id", "preview", "category", "how", "hops", "tags"}
     for absent in ("created_at", "pinned", "truncated", "content"):

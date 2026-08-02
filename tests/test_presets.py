@@ -24,9 +24,8 @@ import pytest
 
 from memorymap.ai import librarian, presets
 from memorymap.ai.ollama_client import OllamaClient
-from memorymap.ai.openai_client import OpenAICompatClient
 
-from test_providers import FakeResponse, capture_post, client, sse  # noqa: F401
+from fakes_http import FakeResponse
 
 
 @pytest.fixture
@@ -141,29 +140,29 @@ def test_an_unset_sampling_option_is_omitted_not_nulled():
     assert "temperature" in presets.sampling_options(presets.resolve("quick"))
 
 
-def test_the_openai_dialect_has_no_thinking_toggle_to_send(client):
+def test_the_openai_dialect_has_no_thinking_toggle_to_send(openai_client):
     """There is no standard spelling for it in the OpenAI shape, so nothing is
     sent rather than something guessed at."""
-    assert client.request_extras("quick") == {}
+    assert openai_client.request_extras("quick") == {}
 
 
 # --- both dialects translate the same preset ---------------------------------
 
 
-def test_both_providers_cap_the_reply_the_same(client, ollama):
-    client._context_lengths = {"m": 8192}
+def test_both_providers_cap_the_reply_the_same(openai_client, ollama):
+    openai_client._context_lengths = {"m": 8192}
     for mode in ("quick", "normal", "detailed"):
         assert (
             ollama.runtime_options("m", mode=mode)["num_predict"]
-            == client.runtime_options("m", mode=mode)["max_tokens"]
+            == openai_client.runtime_options("m", mode=mode)["max_tokens"]
         )
 
 
-def test_the_openai_payload_carries_the_preset(client, capture_post):
+def test_the_openai_payload_carries_the_preset(openai_client, capture_post):
     capture_post.queue.append(
         FakeResponse(payload={"choices": [{"message": {"content": "hi"}}]})
     )
-    client.chat("m", [{"role": "user", "content": "hi"}], mode="quick")
+    openai_client.chat("m", [{"role": "user", "content": "hi"}], mode="quick")
     sent = capture_post.sent[0]["json"]
     assert sent["max_tokens"] == presets.resolve("quick").max_output_tokens
     assert sent["temperature"] == presets.resolve("quick").temperature

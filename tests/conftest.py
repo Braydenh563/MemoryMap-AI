@@ -77,3 +77,39 @@ def ai_client(app_state, fake_ollama, fake_embeddings):
     from memorymap.api.app import create_app
 
     return TestClient(create_app())
+
+
+# --- a fake OpenAI-compatible transport (§6) ---------------------------------
+#
+# The fixtures live here so pytest finds them by name; `FakeResponse` and `sse`
+# are ordinary helpers and live in `fakes_http.py`, because importing a *test*
+# module to get them re-binds everything else that import carries — which is
+# how `client` from `test_providers` came to shadow the `client` fixture above
+# and silently decide which HTTP client three files' tests were handed.
+
+
+@pytest.fixture
+def capture_post(monkeypatch):
+    """Swap `requests.post` inside the OpenAI client and record the payloads."""
+    from fakes_http import FakeResponse
+
+    sent: list[dict] = []
+    queued: list = []
+
+    def fake_post(url, json=None, headers=None, stream=False, timeout=None):
+        sent.append({"url": url, "json": json})
+        return queued.pop(0) if queued else FakeResponse(payload={})
+
+    monkeypatch.setattr("memorymap.ai.openai_client.requests.post", fake_post)
+    return type("Capture", (), {"sent": sent, "queue": queued})()
+
+
+@pytest.fixture
+def openai_client():
+    """An `OpenAICompatClient` that can never reach the network."""
+    from memorymap.ai.openai_client import OpenAICompatClient
+
+    c = OpenAICompatClient(base_url="http://localhost:1234/v1")
+    c._catalog = []
+    c._context_lengths = {"m": 8192}
+    return c

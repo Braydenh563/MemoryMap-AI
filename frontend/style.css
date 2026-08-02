@@ -3357,6 +3357,16 @@ html { font-size: 16px; }
 #entry-list .entry-date { font-size: 0.75rem; }
 /* A quieter "check this" flag — informative, not alarming. */
 .chip.review { font-weight: 500; }
+/* A result that did not match — it is here because it is linked to one that
+   did. Quieter than a match, and labelled: showing a note about something else
+   with no explanation reads as the search having misfired, when in fact it is
+   the graph doing the one thing this app is for. */
+.result-connected { opacity: 0.85; }
+.result-connected-chip {
+  font-size: var(--text-xs);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
 #sidebar { align-self: flex-start; }
 /* Was 0.92rem — the same size as the h3s under it, so the sidebar had a
    heading level that looked like its own children (§35L). */

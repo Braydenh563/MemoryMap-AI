@@ -243,8 +243,10 @@ class ChatResponse(BaseModel):
     # A thinking model's reasoning, when it produced any.
     ai_thinking: str | None = None
     raw_results: list[EntryOut]
-    # 'semantic', 'keyword', or 'recent' — how the notes were found.
+    # 'hybrid', 'semantic', 'keyword', 'dated' or 'recent' — how they were found.
     search_mode: str
+    # Which of raw_results are here by connection rather than by matching.
+    connected_ids: list[int] = []
     # Which chat model wrote the answer, or None when it didn't answer.
     answered_by: str | None = None
     # Whether Ollama is reachable — lets the UI distinguish "offline"
@@ -284,10 +286,18 @@ def _prepare(session: Session, question: str, note_ids: list[int] | None = None)
     attached = _attached_notes(session, note_ids or [])
     if attached:
         detected = intent.NOTES
+    connected_ids: set[int] = set()
     if intent.needs_retrieval(detected):
-        entries, mode = search_manager.retrieve(
+        found = search_manager.retrieve_detailed(
             session, question, deps.get_embeddings(), limit=5
         )
+        entries, mode = found.entries, found.mode
+        # Which of these are here because they are *connected* to a match
+        # rather than because they matched. The user asked about one thing and
+        # is being shown notes about another; without saying why, the panel
+        # looks like the search misfired — and the model, told nothing, would
+        # report them as results.
+        connected_ids = found.connected_ids
     else:
         entries, mode = [], "none"
 
@@ -307,6 +317,10 @@ def _prepare(session: Session, question: str, note_ids: list[int] | None = None)
             "category": manager.category_name_for(session, entry),
             # Marked so the prompt can say which notes the user chose.
             "attached": entry.id in attached_ids,
+            # …and which arrived by the graph rather than by the search. The
+            # prompt renders this as a caveat, so an answer can say "you linked
+            # this to the note about X" instead of implying it was a hit.
+            "connected": entry.id in connected_ids,
         }
 
     notes = [as_note(entry) for entry in entries]
@@ -336,6 +350,13 @@ def _prepare(session: Session, question: str, note_ids: list[int] | None = None)
         "intent": detected,
         "raw_results": [_to_out(session, entry) for entry in entries],
         "search_mode": mode,
+        # Ids that came along because they are *connected* to a match, so the
+        # results panel can label them rather than presenting a note about
+        # something else as though the search had found it. Sent beside the
+        # results rather than as a field on EntryOut: it is a fact about this
+        # search, not about the note, and every other route that returns an
+        # entry would otherwise carry a field that is always false.
+        "connected_ids": sorted(connected_ids),
         "style": config.get_preference("communication_style", "friendly"),
         "profile": profile,
     }
@@ -381,6 +402,7 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         ai_thinking=ai_thinking,
         raw_results=prepared["raw_results"],
         search_mode=prepared["search_mode"],
+        connected_ids=prepared["connected_ids"],
         answered_by=deps.get_model_manager().chat_model() if answered else None,
         ollama_running=ollama_running,
     )
@@ -523,6 +545,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                 "type": "meta",
                 "raw_results": [r.model_dump(mode="json") for r in prepared["raw_results"]],
                 "search_mode": prepared["search_mode"],
+                "connected_ids": prepared["connected_ids"],
                 "answered_by": model_manager.chat_model() if will_answer else None,
                 "ollama_running": ollama_running,
             }

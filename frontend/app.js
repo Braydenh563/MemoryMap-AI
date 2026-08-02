@@ -2323,7 +2323,25 @@ function renderChatMeta(meta) {
     li.textContent = "No matching records.";
     rawList.appendChild(li);
   }
-  for (const entry of meta.raw_results) rawList.appendChild(clickableResult(entry));
+  // Notes that came along because they are *connected* to a match are labelled
+  // as such. Without it the panel shows notes about something else with no
+  // explanation, which reads as the search having misfired — and the whole
+  // point of pulling them in is that the person can see the connection.
+  const connected = new Set(meta.connected_ids || []);
+  for (const entry of meta.raw_results) {
+    const row = clickableResult(entry);
+    if (connected.has(entry.id)) {
+      row.classList.add("result-connected");
+      const mark = document.createElement("span");
+      mark.className = "chip result-connected-chip";
+      mark.textContent = "🔗 linked to a match";
+      mark.title =
+        "This note didn't match your question — it's here because it is " +
+        "linked to one that did.";
+      row.appendChild(mark);
+    }
+    rawList.appendChild(row);
+  }
   $("chat-results").classList.remove("hidden");
 }
 

@@ -1231,7 +1231,7 @@ def _docker_publishes_beyond_localhost() -> bool:
     result = _run(
         [
             "docker", "inspect", CONTAINER_NAME,
-            "--format", "{{range $p, $conf := .HostConfig.PortBindings}}"
+            "--format", "{{range $p, $conf := .HostConfig.PortBindings}}" +
                         "{{range $conf}}{{.HostIp}}\n{{end}}{{end}}",
         ]
     )

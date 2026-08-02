@@ -311,3 +311,56 @@ def test_density_is_a_multiplier_over_the_scale():
         "density must set --density only, never a component's padding: "
         + ", ".join(component_rules)
     )
+
+
+# --- form controls ------------------------------------------------------------
+
+#: Input types that are text boxes and must share one look.
+TEXTUAL_INPUTS = {
+    "text", "password", "number", "search", "email", "url", "tel",
+    "date", "time", "datetime-local",
+}
+#: Types that are their own kind of control and must NOT get the text-box
+#: treatment — a checkbox with `width: 100%` and 0.8rem of padding is not a
+#: checkbox any more.
+NON_TEXTUAL_INPUTS = {"checkbox", "radio", "range", "color", "file", "hidden", "submit", "button"}
+
+
+def test_every_text_input_in_the_markup_is_styled():
+    """Reported: "all the ui elements need the same style otherwise they look
+    out of place."
+
+    The base rule had been extended a type at a time — text, password, number —
+    so every other text-like input fell through to the browser's default and
+    sat next to a styled one with a different border, height and background.
+    `search` was the note filter, the conversation search and the settings
+    search; `date` and `time` were the whole reminder form.
+
+    This checks the markup against the stylesheet rather than the stylesheet
+    against itself, so adding an `<input type="email">` to a page fails here
+    until it is given the same look as everything around it.
+    """
+    markup = re.sub(r"<!--.*?-->", "", (STYLE.parent / "index.html").read_text(encoding="utf-8"), flags=re.S)
+    used = set(re.findall(r'<input[^>]*type="([\w-]+)"', markup))
+    styled = set(re.findall(r'input\[type="([\w-]+)"\]', _stylesheet()))
+    missing = sorted((used & TEXTUAL_INPUTS) - styled)
+    assert not missing, (
+        f"These input types are used in index.html but never styled: {missing}. "
+        "Add them to the shared text-input rule in style.css."
+    )
+
+
+def test_the_shared_rule_never_swallows_a_non_text_control():
+    """A checkbox with `width: 100%` and 0.8rem of padding stops being a
+    checkbox. The rule lists its types explicitly for exactly this reason —
+    a negation would be forever chasing the next control that isn't a text
+    box."""
+    block = re.search(
+        r"((?:(?:textarea|select|input\[type=\"[\w-]+\"\]),?\s*)+)\{[^}]*width:\s*100%",
+        _stylesheet(),
+    )
+    assert block, "the shared text-input rule was not found"
+    listed = set(re.findall(r'input\[type="([\w-]+)"\]', block.group(1)))
+    assert not (listed & NON_TEXTUAL_INPUTS), (
+        f"non-text controls in the shared text-input rule: {sorted(listed & NON_TEXTUAL_INPUTS)}"
+    )

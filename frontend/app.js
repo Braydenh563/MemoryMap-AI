@@ -5311,7 +5311,11 @@ function relativeTime(iso) {
   const days = Math.round(hours / 24);
   if (days === 1) return "yesterday";
   if (days < 7) return `${days} days ago`;
-  if (days < 30) return `${Math.round(days / 7)} weeks ago`;
+  // Screenshotted as "1 weeks ago". Rounding 8 days gives 1, and the plural
+  // was hard-coded — the only branch here that forgot to agree with its own
+  // number.
+  const weeks = Math.round(days / 7);
+  if (days < 30) return `${weeks} week${weeks === 1 ? "" : "s"} ago`;
   return then.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 

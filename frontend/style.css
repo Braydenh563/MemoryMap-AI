@@ -721,10 +721,35 @@ h2.collapsible-title:focus-visible {
    declared twice, identically, in the same file.) */
 
 /* --- forms --------------------------------------------------------------- */
-textarea, input[type="text"], input[type="password"], input[type="number"], select {
+/* --- text inputs (§36B) -------------------------------------------------------
+   Reported: "can you stylise the text input boxes as well? all the ui elements
+   need the same style otherwise they look out of place."
+
+   They did, and the cause was a selector list that had been extended a type at
+   a time: text, password, number, select, textarea. Every *other* text-like
+   input fell through to the browser's default — a different border, a
+   different height, a different background, sitting next to a styled one.
+   `search` covers the note filter, the conversation search and the settings
+   search; `date` and `time` are the whole reminder form.
+
+   Listed explicitly rather than as `input:not([type=checkbox])`, because the
+   controls that must NOT get this treatment — checkbox, radio, range, color,
+   file — are exactly the ones a negation would be forever chasing. */
+textarea,
+select,
+input[type="text"],
+input[type="password"],
+input[type="number"],
+input[type="search"],
+input[type="email"],
+input[type="url"],
+input[type="tel"],
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
   width: 100%;
-  padding: 0.6rem 0.8rem;
-  margin-bottom: 0.6rem;
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-4);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   font: inherit;
@@ -732,6 +757,25 @@ textarea, input[type="text"], input[type="password"], input[type="number"], sele
   color: var(--ink);
   resize: vertical;
   backdrop-filter: blur(8px);
+}
+/* Safari draws its own rounded box and an inner shadow on a search field, and
+   ignores the border-radius above until this is turned off. */
+input[type="search"] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+/* Date and time pickers are single-line controls, not paragraphs. */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  width: auto;
+  resize: none;
+}
+/* The placeholder was inheriting the body colour at full strength in some
+   themes, so an empty box read as a filled one. */
+::placeholder {
+  color: var(--muted);
+  opacity: 0.85;
 }
 textarea:focus, input:focus, select:focus {
   outline: 2px solid var(--accent-soft);
@@ -5822,6 +5866,68 @@ textarea.autogrow {
   max-width: 14rem;
 }
 .quick-link-skill span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+/* --- the note card's metadata, ordered (§36B) -------------------------------
+   Screenshotted: a note with six chips in a row — category, four tags, an AI
+   confidence badge and a date — all the same size and shape, with the *green*
+   one catching the eye first. So the loudest thing on the card was the AI's
+   confidence score, which is diagnostic, while the category — the filing
+   decision, the single most useful fact about a note — looked like a tag.
+
+   Three levels now, and the size stays constant: hierarchy is carried by
+   weight and colour, per docs/DESIGN.md. Making the category bigger would just
+   start a second type scale inside the card. */
+
+/* 1. Category. The bare `.chip` with no variant is the category — it earns the
+      accent because it is the answer to "where does this note live?". */
+.entry-meta > .chip:not(.tag):not(.confidence):not(.review):not(.when):not(.link) {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* 2. Tags stay as they are: muted, regular weight, clearly secondary. */
+
+/* 3. Diagnostics. A high confidence score is reassurance nobody asked for —
+      it should be legible when you look for it and invisible when you are not.
+      The LOW-confidence badge stays loud, because that one is a request to
+      check something, and it is the whole reason the badge exists. */
+.chip.confidence {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-weight: 400;
+}
+.entry-meta .chip.review { font-weight: 600; }
+
+/* Chips sit on one optical line. Padding alone does not do it — a chip with a
+   descender and one without were a pixel out, which is the kind of thing that
+   reads as "nothing quite lines up" without ever being noticeable on its own. */
+.entry-meta > .chip,
+.entry-meta > .entry-date {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.45rem;
+  line-height: 1.2;
+}
+/* The timestamp is metadata, not a column: it was right-aligned with a
+   min-width, which pushed it onto its own line whenever the chips wrapped and
+   left a gap the width of "23 September" on every card that didn't. */
+.entry-date {
+  min-width: 0;
+  text-align: left;
+  font-size: var(--text-sm);
+}
+/* Links to other notes are the least important thing on the card and were the
+   widest — full sentences of the linked note's text. Capped, so a card is a
+   card and not a paragraph of somewhere else. */
+.entry-meta .chip.link {
+  max-width: 18rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

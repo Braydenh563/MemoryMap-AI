@@ -5453,3 +5453,25 @@ textarea.autogrow {
   color: #fff;
 }
 .confirm-actions .danger:hover { filter: brightness(1.1); }
+
+/* --- the Ask box explaining itself (§35A) ----------------------------------
+   Shown when someone types a greeting into a box that searches notes. It is
+   styled as a prompt, NOT as an answer or an error: the first version put a
+   paragraph of instructions where the answer goes, beside a results panel
+   reading "No matching records", and it read as the app having broken. */
+.ask-hint {
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+  background: var(--accent-soft);
+}
+.ask-hint-text {
+  margin: 0 0 0.7rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.ask-hint-examples {
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+}

@@ -44,11 +44,35 @@ def _text(events):
 # --- small talk belongs in the Chat tab -------------------------------------
 
 
-def test_a_greeting_is_told_what_the_box_is_for(ai_client, fake_ollama):
+def test_a_greeting_gets_a_hint_not_an_answer(ai_client, fake_ollama):
+    """Its own event type, deliberately. Reported after the first version
+    shipped as an `answer`: a paragraph of instructions sitting where the
+    answer goes, beside a results panel reading "No matching records", reads
+    as the app having failed rather than as guidance."""
     fake_ollama.librarian_reply = "Hello there! How are you today?"
-    text = _text(_events(ai_client, "hey", notes_only=True))
-    assert text == librarian.ASK_IS_FOR_NOTES
-    assert "How are you today" not in text
+    events = _events(ai_client, "hey", notes_only=True)
+    hints = [e for e in events if e["type"] == "hint"]
+    assert len(hints) == 1
+    assert hints[0]["text"] == librarian.ASK_IS_FOR_NOTES
+    assert _text(events) == ""  # nothing rendered as an answer
+    assert "How are you today" not in json.dumps(events)
+
+
+def test_the_hint_carries_questions_you_can_click(ai_client, fake_ollama):
+    """A way forward from the same place, rather than a description of what
+    you did wrong — and it teaches the shape of a question that works better
+    than prose about one does."""
+    hint = next(e for e in _events(ai_client, "hey", notes_only=True) if e["type"] == "hint")
+    assert len(hint["examples"]) >= 2
+    assert all(isinstance(x, str) and x.strip() for x in hint["examples"])
+
+
+def test_nothing_was_searched_for(ai_client, fake_ollama):
+    """`search_mode` is "none", which is what lets the client leave out the
+    empty results panel instead of reporting a failed search that never ran."""
+    meta = next(e for e in _events(ai_client, "hey", notes_only=True) if e["type"] == "meta")
+    assert meta["search_mode"] == "none"
+    assert meta["raw_results"] == []
 
 
 def test_it_costs_no_model_round(ai_client, fake_ollama):
@@ -59,11 +83,11 @@ def test_it_costs_no_model_round(ai_client, fake_ollama):
     assert fake_ollama.chat_models == []
 
 
-def test_the_reply_suggests_the_kind_of_question_that_works():
-    """Written as a prompt, not a scolding — the useful thing for someone who
-    typed the wrong sort of thing is an example of the right sort."""
-    assert "?" in librarian.ASK_IS_FOR_NOTES
+def test_the_reply_points_somewhere_rather_than_scolding():
+    """The useful thing for someone who typed the wrong sort of thing is where
+    the right sort goes, not a description of their mistake."""
     assert "Chat tab" in librarian.ASK_IS_FOR_NOTES
+    assert "?" in " ".join(librarian.ASK_EXAMPLES)
 
 
 def test_the_chat_tab_is_completely_unaffected(ai_client, fake_ollama):

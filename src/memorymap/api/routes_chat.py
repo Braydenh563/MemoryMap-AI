@@ -374,7 +374,19 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
             # The Notes tab's Ask box has one job (§35A). A greeting is the one
             # input it has nothing to do with, so it says what it is for rather
             # than spending a model round chatting back.
-            yield {"type": "answer", "delta": librarian.ASK_IS_FOR_NOTES}
+            #
+            # Its own event type, not an "answer". Reported after the first
+            # version shipped: a paragraph of instructions sitting where the
+            # answer goes, beside a results panel reading "No matching
+            # records", reads as the app having failed. As a hint the client
+            # can render it as what it is — a prompt with questions you can
+            # click — and can leave the empty results panel out, since nothing
+            # was searched for.
+            yield {
+                "type": "hint",
+                "text": librarian.ASK_IS_FOR_NOTES,
+                "examples": librarian.ASK_EXAMPLES,
+            }
             return
         if conversational:
             # Small talk: no notes, no grounding, no "I couldn't find any

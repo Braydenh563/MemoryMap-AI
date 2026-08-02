@@ -349,10 +349,20 @@ OFFLINE_SMALLTALK = "Hello. The AI model isn't running, but your notes are all s
 #: Written as a prompt rather than a scolding: the useful thing here is an
 #: example of the kind of question that works.
 ASK_IS_FOR_NOTES = (
-    "This is where you ask about your notes — try “what did I write about "
-    "the garden?”, “summarise my notes from last week”, or “when did I first "
-    "mention the beans?”. For a chat, the Chat tab is through the sidebar."
+    "This box searches your notes and answers from them. Try one of these, or "
+    "ask about anything you've written. For a general chat, use the Chat tab."
 )
+
+#: Offered as buttons, not prose. The first version of this said the same
+#: thing in a paragraph and read as a dead end beside an empty results panel —
+#: a wall of text telling someone what they did wrong. A question they can
+#: click is a way forward from the same place, and it teaches the shape of a
+#: question that works better than a description of one does.
+ASK_EXAMPLES = [
+    "What have I written about recently?",
+    "Summarise my notes from last week",
+    "What are my most common tags?",
+]
 OFFLINE_ABOUT_APP = (
     "I help you work with your notebook — finding, writing, tagging and "
     "summarising notes, and setting reminders. The AI model isn't running "

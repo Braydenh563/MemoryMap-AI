@@ -2199,6 +2199,35 @@ function clickableResult(entry) {
   return li;
 }
 
+// The Ask box's "that isn't a question about your notes" card (§35A).
+//
+// Deliberately not rendered as an answer. Reported after the first version:
+// a paragraph of instructions where the answer goes, next to a results panel
+// saying "No matching records", reads as the app having broken rather than as
+// guidance. Here the examples are buttons — a way forward from the same place,
+// which also teaches the shape of a question that works.
+function renderAskHint(box, hint) {
+  box.replaceChildren();
+  const card = document.createElement("div");
+  card.className = "ask-hint";
+  const text = document.createElement("p");
+  text.className = "ask-hint-text";
+  text.textContent = hint.text;
+  card.appendChild(text);
+  const row = document.createElement("div");
+  row.className = "row ask-hint-examples";
+  for (const example of hint.examples || []) {
+    row.appendChild(
+      smallButton(example, `Ask: ${example}`, () => {
+        $("question").value = example;
+        askQuestion(example);
+      })
+    );
+  }
+  if (row.childElementCount) card.appendChild(row);
+  box.appendChild(card);
+}
+
 function renderChatMeta(meta) {
   $("search-mode").textContent = SEARCH_MODE_LABELS[meta.search_mode] || meta.search_mode;
   // "offline" only when Ollama is genuinely down — not merely because a
@@ -2210,6 +2239,15 @@ function renderChatMeta(meta) {
       : "";
   const rawList = $("raw-results");
   rawList.replaceChildren();
+  if (meta.raw_results.length === 0 && meta.search_mode === "none") {
+    // Nothing was searched for — the message was not a question about the
+    // notes. "No matching records" would report a failed search that never
+    // happened, which is the half of the greeting case that read as broken.
+    $("chat-results").classList.remove("hidden");
+    document.querySelector(".chat-half:last-child")?.classList.add("hidden");
+    return;
+  }
+  document.querySelector(".chat-half:last-child")?.classList.remove("hidden");
   if (meta.raw_results.length === 0) {
     const li = document.createElement("li");
     li.className = "muted";
@@ -2243,6 +2281,7 @@ async function streamChat({
   onConfirm,
   onAsk,
   onRunSkill,
+  onHint,
   onStats,
 }) {
   const body = { question, history: history || [] };
@@ -2297,6 +2336,7 @@ async function streamChat({
       else if (event.type === "confirm" && onConfirm) onConfirm(event);
       else if (event.type === "ask" && onAsk) onAsk(event);
       else if (event.type === "run_skill" && onRunSkill) onRunSkill(event);
+      else if (event.type === "hint" && onHint) onHint(event);
       else if (event.type === "stats" && onStats) onStats(event);
     }
   }
@@ -2408,6 +2448,9 @@ async function askQuestion(preset) {
 
   let answerRaw = "";
   let stopped = false;
+  // The box explained itself instead of answering — so the final markdown
+  // pass, the saved turn and the answer actions all sit this one out.
+  let hinted = false;
   const renderLive = liveMarkdownRenderer(answerBox);
   askController = new AbortController();
   try {
@@ -2436,6 +2479,7 @@ async function askQuestion(preset) {
         thinkingBox.classList.remove("hidden");
         thinkingBox.open = true;
         thinkingText.textContent += delta;
+        keepAtBottom(thinkingText); // follow the reasoning, unless scrolled away
         status.textContent = "The model is thinking…";
       },
       onAnswer: (delta) => {
@@ -2444,13 +2488,22 @@ async function askQuestion(preset) {
         renderLive(answerRaw); // markdown renders AS it streams (user request)
         status.textContent = "The model is writing…";
       },
+      onHint: (event) => {
+        // Not an answer, so it does not go through the markdown renderer or
+        // into the conversation — it is the box explaining itself.
+        hinted = true;
+        renderAskHint(answerBox, event);
+        status.textContent = "";
+      },
     });
 
     // Final render (catches anything after the last animation frame).
-    renderMarkdown(answerBox, answerRaw);
-    conversation.push({ question, answer: answerRaw });
+    if (!hinted) renderMarkdown(answerBox, answerRaw);
+    if (!hinted) {
+      conversation.push({ question, answer: answerRaw });
+      show("retry-btn", "copy-btn", "speak-btn", "new-chat-btn");
+    }
     status.textContent = "";
-    show("retry-btn", "copy-btn", "speak-btn", "new-chat-btn");
     // Asking changes both quick-access lists.
     loadRecentQuestions();
     loadMostUsed();
@@ -3297,13 +3350,50 @@ function typingLine(label) {
 // on every streamed token, forcing a synchronous reflow each time — a big
 // source of jank on long answers.
 let chatScrollQueued = false;
+// --- following a stream without fighting the reader -------------------------------
+//
+// Asked for directly: the chat and the thinking box should scroll themselves
+// as the model writes, "but if the user tries to scroll up it will release the
+// lock". Both halves matter — a pane that does not follow makes a long answer
+// look frozen, and one that follows unconditionally yanks you back to the
+// bottom the moment you try to read what scrolled past.
+//
+// No "is this scroll programmatic?" flag is needed, which is the usual way
+// this gets complicated. Distance from the bottom answers it on its own: a
+// scroll we caused lands at zero and stays stuck, and a scroll the reader
+// caused moves away from zero and unsticks. Scrolling back down re-sticks,
+// so getting the follow behaviour back is the obvious gesture rather than a
+// button.
+const SCROLL_STICK_SLACK = 40; // px — a scrollbar rarely lands exactly at 0
+
+function followBottom(element) {
+  if (!element || element.dataset.followBound === "1") return;
+  element.dataset.followBound = "1";
+  element.dataset.stuck = "1";
+  element.addEventListener(
+    "scroll",
+    () => {
+      const distance =
+        element.scrollHeight - element.scrollTop - element.clientHeight;
+      element.dataset.stuck = distance <= SCROLL_STICK_SLACK ? "1" : "0";
+    },
+    { passive: true }
+  );
+}
+
+// Scroll to the bottom, unless the reader has scrolled away from it.
+function keepAtBottom(element) {
+  if (!element) return;
+  followBottom(element);
+  if (element.dataset.stuck !== "0") element.scrollTop = element.scrollHeight;
+}
+
 function chatScrollToEnd() {
   if (chatScrollQueued) return;
   chatScrollQueued = true;
   requestAnimationFrame(() => {
     chatScrollQueued = false;
-    const box = $("chat-messages");
-    box.scrollTop = box.scrollHeight;
+    keepAtBottom($("chat-messages"));
   });
 }
 
@@ -3478,6 +3568,9 @@ function agentTimeline(holder) {
       const step = current?.kind === "thinking" ? current : startThinking();
       step.raw += delta;
       step.body.textContent = step.raw;
+      // The pane has its own max-height and scrollbar, so following the chat
+      // is not enough — reasoning would scroll out of sight inside it.
+      keepAtBottom(step.body);
     },
     answer(delta) {
       const step = current?.kind === "answer" ? current : startAnswer();

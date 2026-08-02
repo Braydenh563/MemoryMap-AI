@@ -58,7 +58,44 @@
   --border: rgba(31, 36, 48, 0.10);
   --chip-bg: rgba(31, 36, 48, 0.07);
   /* User-tunable in Settings → Appearance (set inline on <html> by JS). */
+  /* --- the type scale (§35L) ------------------------------------------------
+     Ten steps, extracted the same way the spacing scale was. This file had
+     thirty-seven distinct font sizes, nine of them between 0.74rem and
+     0.85rem — text that is *almost* the same size in adjacent components is
+     precisely the texture the report called "a bunch of ai generated slop
+     features joined together", because nothing quite lines up and no size
+     means anything.
+
+     Snapping moved nothing by more than 0.05rem, except 1.6→1.7rem. Sizes
+     above 2.2rem are single hero elements and are left alone. */
+  --text-xs: 0.7rem;     /* badges, counters */
+  --text-sm: 0.75rem;    /* dense metadata */
+  --text-base: 0.8rem;   /* secondary UI text */
+  --text-md: 0.85rem;    /* the workhorse: chips, list rows, controls */
+  --text-lg: 0.92rem;    /* labels and settings copy */
+  --text-body: 1rem;     /* prose */
+  --text-h3: 1.15rem;
+  --text-h2: 1.3rem;
+  --text-h1: 1.7rem;
+  --text-display: 2.2rem;
+
   --radius: 14px;
+  /* --- the corner scale (§35L) ---------------------------------------------
+     Three tiers derived from --radius, which is the slider in Settings →
+     Appearance. Everything rounded used to be one of twelve hard-coded pixel
+     values — 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14 — none of which moved when
+     that slider did. So choosing square corners squared the cards and left
+     every chip, popup and button rounded, and adjacent surfaces at 8px and
+     10px read as belonging to different applications.
+
+     The multipliers are picked so that at the default 14px each tier lands
+     within a pixel of the value it replaced (4.2, 8.4, 11.2) — so this
+     changes almost nothing today and makes the whole interface respond to
+     the setting from now on. */
+  --radius-sm: calc(var(--radius) * 0.3);   /* chips, inputs, small controls */
+  --radius-md: calc(var(--radius) * 0.6);   /* buttons, inner panels */
+  --radius-lg: calc(var(--radius) * 0.8);   /* cards, dialogs */
+  --radius-pill: 999px;                     /* pills and round buttons */
   --glass-blur: 18px;
 }
 
@@ -175,7 +212,7 @@ header#top-bar {
    tabs, and reclaiming it buys a whole tab's worth of room. */
 header#top-bar h1 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   letter-spacing: 0.01em;
   white-space: nowrap;
   /* Never shrinks. `flex: 0 1 auto` with `min-width: 0` let the box get
@@ -321,7 +358,7 @@ header#top-bar h1 {
    baseline rather than the cap height — so it needs the opposite correction
    to the other three. Measured the same way: 2px low before this. */
 .ai-status[data-level="idle"] .ai-status-dot {
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   transform: translateY(-0.16em);
 }
 .ai-status[data-level="ok"] { background: var(--ok-soft); color: var(--ok); }
@@ -344,11 +381,11 @@ header#top-bar h1 {
   flex-direction: column;
   gap: 0.25rem;
   padding: 0.6rem 0.8rem;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   background: var(--modal-bg);
   border: 1px solid var(--border);
   box-shadow: var(--glass-shadow);
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 400;
   text-align: left;
   /* visibility, not display: it keeps the box measurable and lets the fade
@@ -379,7 +416,7 @@ header#top-bar h1 {
   display: flex;
   gap: 0.25rem;
   padding: 0.25rem;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--chip-bg);
   /* Scroll rather than wrap when the window is genuinely too narrow.
      min-width:0 is what actually lets a flex item shrink below its content.
@@ -404,7 +441,7 @@ header#top-bar h1 {
 #tab-bar button {
   background: transparent;
   border: none;
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   color: var(--muted);
   font-weight: 500;
   padding: 0.4rem 1rem;
@@ -474,8 +511,8 @@ header#top-bar h1 {
      the track carries the same auto-minimum and has to be floored too. */
   min-width: 0;
 }
-.card h2 { margin: 0 0 0.8rem; font-size: 1.05rem; }
-.card h3 { margin: 1rem 0 0.5rem; font-size: 0.9rem; color: var(--muted); }
+.card h2 { margin: 0 0 0.8rem; font-size: 1rem; }
+.card h3 { margin: 1rem 0 0.5rem; font-size: 0.92rem; color: var(--muted); }
 
 /* --- sidebar ------------------------------------------------------------ */
 /* Keep the Notes category sidebar pinned to the left while the notes
@@ -509,7 +546,7 @@ h2.collapsible-title:hover .collapse-chevron { color: var(--accent); }
 h2.collapsible-title:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 @media (prefers-reduced-motion: reduce) {
   .collapse-chevron { transition: none; }
@@ -526,7 +563,7 @@ h2.collapsible-title:focus-visible {
   align-items: baseline;
   gap: 0.6rem;
   padding: 0.4rem 0.5rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   font-size: 0.92rem;
   line-height: 1.35;
@@ -568,7 +605,7 @@ textarea, input[type="text"], input[type="password"], input[type="number"], sele
   padding: 0.6rem 0.8rem;
   margin-bottom: 0.6rem;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   font: inherit;
   background: var(--input-bg);
   color: var(--ink);
@@ -583,7 +620,7 @@ textarea:focus, input:focus, select:focus {
 button {
   padding: 0.5rem 1rem;
   border: none;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   background: var(--accent-surface);
   color: var(--on-accent);
   font: inherit;
@@ -622,20 +659,20 @@ button.small { padding: 0.25rem 0.8rem; font-size: 0.85rem; }
   border-bottom: 1px solid var(--border);
 }
 .shortcut-list li:last-child { border-bottom: none; }
-.shortcut-list span { color: var(--muted); font-size: 0.9rem; }
+.shortcut-list span { color: var(--muted); font-size: 0.92rem; }
 kbd {
   font-family: ui-monospace, Consolas, monospace;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   padding: 0.1rem 0.4rem;
   border: 1px solid var(--glass-border);
   border-bottom-width: 2px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: var(--chip-bg);
   color: var(--ink);
   white-space: nowrap;
 }
 
-.status { font-size: 0.88rem; color: var(--muted); }
+.status { font-size: 0.85rem; color: var(--muted); }
 .status.error { color: var(--error); }
 .status.ok { color: var(--ok); }
 .status.busy { color: var(--warn); }
@@ -670,7 +707,7 @@ progress { accent-color: var(--accent); width: 100%; }
   margin-top: 0.4rem;
   padding: 0.6rem 0.8rem;
   border: 1px dashed var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   color: var(--muted);
   white-space: pre-wrap;
   max-height: 14rem;
@@ -679,7 +716,7 @@ progress { accent-color: var(--accent); width: 100%; }
 .answer {
   background: var(--accent-soft);
   border: 1px solid var(--glass-border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   padding: 0.8rem 1rem;
   white-space: pre-wrap;
   backdrop-filter: blur(8px);
@@ -694,12 +731,12 @@ progress { accent-color: var(--accent); width: 100%; }
 .answer code {
   background: var(--chip-bg);
   padding: 0.05rem 0.25rem;
-  border-radius: 5px;
+  border-radius: var(--radius-sm);
   font-size: 0.9em;
 }
 .answer pre {
   background: var(--chip-bg);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 0.6rem 0.8rem;
   overflow-x: auto;
   white-space: pre;
@@ -716,7 +753,7 @@ progress { accent-color: var(--accent); width: 100%; }
 .dash-body .md-table-wrap {
   overflow-x: auto;
   margin: 0 0 0.6rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   /* Without a cap the wrapper grows to the table instead of scrolling it. */
   max-width: 100%;
 }
@@ -760,7 +797,7 @@ progress { accent-color: var(--accent); width: 100%; }
   border-left: 3px solid var(--accent);
   color: var(--muted);
   background: var(--chip-bg);
-  border-radius: 0 8px 8px 0;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
 }
 .answer hr,
 .bubble-answer hr,
@@ -783,12 +820,12 @@ progress { accent-color: var(--accent); width: 100%; }
 .bubble-answer code {
   background: var(--chip-bg);
   padding: 0.05rem 0.25rem;
-  border-radius: 5px;
+  border-radius: var(--radius-sm);
   font-size: 0.9em;
 }
 .bubble-answer pre {
   background: var(--chip-bg);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 0.6rem 0.8rem;
   overflow-x: auto;
   white-space: pre;
@@ -806,14 +843,14 @@ progress { accent-color: var(--accent); width: 100%; }
    they wrap onto their own line when the title/chip get long, and never
    overlap the answer box the way the old float did. */
 .answer-actions { margin-left: auto; display: inline-flex; gap: 0.4rem; }
-.answer-actions button { padding: 0.15rem 0.5rem; font-size: 0.78rem; }
+.answer-actions button { padding: 0.15rem 0.5rem; font-size: 0.8rem; }
 
 /* --- entry lists ---------------------------------------------------------- */
 .entry-list { list-style: none; margin: 0; padding: 0; }
 .entry-list li {
   background: var(--inner);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   padding: 0.6rem 0.8rem;
   margin-bottom: 0.6rem;
 }
@@ -831,7 +868,7 @@ progress { accent-color: var(--accent); width: 100%; }
 .chip {
   display: inline-block;
   padding: 0.1rem 0.6rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 0.75rem;
   background: var(--accent-soft);
   color: var(--accent);
@@ -866,7 +903,7 @@ progress { accent-color: var(--accent); width: 100%; }
 }
 .entry-date {
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   min-width: 7ch;
   text-align: right;
   white-space: nowrap;
@@ -965,14 +1002,14 @@ progress { accent-color: var(--accent); width: 100%; }
 /* --- entry actions + links (Phase 4) --------------------------------------- */
 /* No auto margin here — .entry-meta-end already owns the alignment. */
 .entry-actions { display: flex; gap: 0.4rem; }
-.entry-actions button { padding: 0.15rem 0.5rem; font-size: 0.78rem; }
+.entry-actions button { padding: 0.15rem 0.5rem; font-size: 0.8rem; }
 .entry-links { margin-top: 0.4rem; display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .chip.link { cursor: default; }
 .chip.link .unlink { cursor: pointer; margin-left: 0.25rem; font-weight: 700; }
 li.link-source { outline: 2px solid var(--accent); }
 
 /* --- activity log ----------------------------------------------------------- */
-.activity-list { list-style: none; margin: 0; padding: 0; font-size: 0.88rem; }
+.activity-list { list-style: none; margin: 0; padding: 0; font-size: 0.85rem; }
 .activity-list li {
   display: flex;
   gap: 0.6rem;
@@ -991,7 +1028,7 @@ li.link-source { outline: 2px solid var(--accent); }
 #most-used { list-style: none; margin: 0; padding: 0; font-size: 0.85rem; }
 #most-used li {
   padding: 0.25rem 0.5rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   display: flex;
   justify-content: space-between;
@@ -1015,11 +1052,11 @@ li.link-source { outline: 2px solid var(--accent); }
   -webkit-backdrop-filter: blur(18px) saturate(150%);
   border: 1px solid var(--glass-border);
   border-left: 4px solid var(--accent);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   padding: 0.6rem 1rem;
   max-width: 340px;
   box-shadow: var(--glass-shadow);
-  font-size: 0.9rem;
+  font-size: 0.92rem;
 }
 .toast.error { border-left-color: var(--error); }
 
@@ -1108,7 +1145,7 @@ li.link-source { outline: 2px solid var(--accent); }
 .nav-group-label {
   margin: 0.8rem 0 0.15rem;
   padding: 0 0.8rem;
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1123,7 +1160,7 @@ li.link-source { outline: 2px solid var(--accent); }
   color: var(--muted);
   text-align: left;
   padding: 0.4rem 0.8rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-weight: 500;
 }
 .modal-nav button:hover { background: var(--accent-soft); }
@@ -1155,11 +1192,11 @@ li.link-source { outline: 2px solid var(--accent); }
 .code-block {
   margin: 0.4rem 0;
   padding: 0.6rem 0.8rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--chip-bg);
   border: 1px solid var(--border);
   font-family: ui-monospace, Consolas, monospace;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   overflow-x: auto; /* a long command scrolls rather than widening the dialog */
 }
 .code-block code { background: none; padding: 0; }
@@ -1178,7 +1215,7 @@ li.link-source { outline: 2px solid var(--accent); }
 }
 .theme-swatch {
   height: 38px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
   box-sizing: border-box;
 }
@@ -1200,9 +1237,9 @@ html.modal-open body {
   max-height: 46vh;
   overflow-y: auto;
   font-family: ui-monospace, Consolas, monospace;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   background: var(--chip-bg);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
 }
 .log-list li {
   display: flex;
@@ -1220,12 +1257,12 @@ html.modal-open body {
 .live-clock { text-align: right; line-height: 1.2; }
 .live-clock .clock-time {
   display: block;
-  font-size: 1.35rem;
+  font-size: 1.3rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
 }
-.live-clock .clock-date { display: block; font-size: 0.78rem; }
+.live-clock .clock-date { display: block; font-size: 0.8rem; }
 .reminders-head { align-items: flex-start; }
 
 /* Full-width welcome banner across the top of the dashboard. */
@@ -1261,7 +1298,7 @@ html.modal-open body {
 }
 .dash-wordmark {
   margin: 0 0 0.1rem;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -1289,16 +1326,16 @@ html.modal-open body {
   flex: 0 0 auto;
 }
 .dash-clock-time {
-  font-size: 2.1rem;
+  font-size: 2.2rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--accent);
 }
-.dash-clock-date { font-size: 0.82rem; color: var(--muted); }
+.dash-clock-date { font-size: 0.8rem; color: var(--muted); }
 
 @media (max-width: 720px) {
   .dash-hero { margin: 0.5rem 1rem 0.25rem; padding: 1rem 1rem; gap: 1rem; }
-  .dash-greeting { font-size: 1.35rem; }
+  .dash-greeting { font-size: 1.3rem; }
   .dash-clock { align-items: flex-start; }
   .dash-clock-time { font-size: 1.7rem; }
   /* On a phone the emblem is decoration competing with the greeting for a
@@ -1367,11 +1404,11 @@ html.modal-open body {
   color: var(--muted);
   font-size: 0.85rem;
 }
-.dash-big { font-size: 1.6rem; font-weight: 700; margin: 0 0 0.5rem; }
-.dash-list { list-style: none; margin: 0; padding: 0; font-size: 0.9rem; }
+.dash-big { font-size: 1.7rem; font-weight: 700; margin: 0 0 0.5rem; }
+.dash-list { list-style: none; margin: 0; padding: 0; font-size: 0.92rem; }
 .dash-list li {
   padding: 0.25rem 0.4rem;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   cursor: pointer;
 }
 .dash-list li:hover { background: var(--accent-soft); }
@@ -1385,7 +1422,7 @@ html.modal-open body {
 }
 .activity-strip span {
   flex: 1;
-  border-radius: 3px 3px 0 0;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   background: var(--accent);
   opacity: 0.85;
 }
@@ -1455,7 +1492,7 @@ html.modal-open body {
 .msg {
   max-width: 82%;
   padding: 0.6rem 0.8rem;
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   white-space: pre-wrap;
   /* A flex item's automatic minimum is its content, which is how a pasted
      URL or a wide table stretched the bubble past the column. */
@@ -1496,7 +1533,7 @@ html.modal-open body {
 
 /* Role label above each bubble — makes the thread readable at a glance. */
 .msg-role {
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -1521,9 +1558,9 @@ html.modal-open body {
   border: 1px solid var(--glass-border);
   background: var(--card);
   color: var(--ink);
-  border-radius: 7px;
+  border-radius: var(--radius-md);
   padding: 0.1rem 0.4rem;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   line-height: 1.5;
   cursor: pointer;
   transition: background 0.12s ease;
@@ -1554,8 +1591,8 @@ html.modal-open body {
   align-items: center;
   gap: 0.25rem;
   padding: 0.4rem 0.5rem;
-  border-radius: 8px;
-  font-size: 0.9rem;
+  border-radius: var(--radius-md);
+  font-size: 0.92rem;
 }
 #conversation-list li:hover { background: var(--accent-soft); }
 #conversation-list li.active-conv { background: var(--accent-soft); font-weight: 600; }
@@ -1580,11 +1617,11 @@ html.modal-open body {
   margin-top: 0.5rem;
   padding: 0.6rem;
   border: 1px dashed var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
 }
 .inline-action textarea { margin-bottom: 0.4rem; }
 .inline-action input { margin-bottom: 0.4rem; }
-.reminder-group-head { margin: 1rem 0 0.4rem; font-size: 0.95rem; }
+.reminder-group-head { margin: 1rem 0 0.4rem; font-size: 0.92rem; }
 .reminder-group-head:first-child { margin-top: 0.25rem; }
 .reminder-text { flex: 1 1 auto; min-width: 8rem; }
 #reminder-presets { gap: 0.4rem; margin: 0.1rem 0 0.25rem; flex-wrap: wrap; }
@@ -1592,7 +1629,7 @@ html.modal-open body {
 .reevaluate-link {
   gap: 0.5rem;
   padding: 0.25rem 0.4rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
 }
 .reevaluate-link:hover { background: var(--accent-soft); }
 .reevaluate-link span {
@@ -1632,7 +1669,7 @@ html.modal-open body {
   font-size: 0.85rem;
   margin: 0.25rem 0;
   padding: 0.25rem 0.6rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--accent-soft);
   color: var(--accent);
 }
@@ -1642,10 +1679,10 @@ html.modal-open body {
   margin: 0.25rem 0;
   padding: 0.6rem;
   border: 1px solid var(--warn);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   background: var(--warn-soft);
 }
-.tool-confirm p { margin: 0 0 0.5rem; font-size: 0.9rem; }
+.tool-confirm p { margin: 0 0 0.5rem; font-size: 0.92rem; }
 
 /* --- the agent's run, as a timeline -------------------------------------------
    A turn used to render into three fixed slots — all the thinking, then all the
@@ -1668,7 +1705,7 @@ html.modal-open body {
   top: 0.5rem;
   bottom: 0.5rem;
   width: 2px;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   background: linear-gradient(
     to bottom,
     var(--accent-soft),
@@ -1816,7 +1853,7 @@ html.modal-open body {
 .agent-step.step-plan .plan-tools {
   margin-top: 0.4rem;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.8rem;
 }
 .agent-steps > .tool-chip { margin: 0; }
 .agent-step.step-answer { margin: 0; }
@@ -1829,7 +1866,7 @@ html.modal-open body {
   position: relative;
   height: min(65vh, 620px);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   /* A soft radial wash gives the map depth without competing with nodes. */
   background:
@@ -1857,7 +1894,7 @@ html.modal-open body {
   font-size: 1rem;
   line-height: 1;
   border: 1px solid var(--glass-border);
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   background: var(--card);
   color: var(--ink);
   cursor: pointer;
@@ -1914,9 +1951,9 @@ html.modal-open body {
 .graph-labels-hidden .graph-node .graph-label { opacity: 0; transition: opacity 0.1s ease; }
 .graph-labels-hidden .graph-node:hover .graph-label,
 .graph-labels-hidden .graph-node.graph-focus .graph-label { opacity: 1; }
-.graph-stats { margin: 0.25rem 0 0.4rem; font-size: 0.82rem; }
+.graph-stats { margin: 0.25rem 0 0.4rem; font-size: 0.8rem; }
 .graph-node text {
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   fill: var(--ink);
   text-anchor: middle;
   pointer-events: none;
@@ -1973,9 +2010,9 @@ html.modal-open body {
 }
 #palette-list li {
   padding: 0.4rem 0.6rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
 }
 #palette-list li:hover,
 #palette-list li.active { background: var(--accent-soft); }
@@ -2002,7 +2039,7 @@ html.modal-open body {
 #sketch-canvas {
   width: 100%;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   background: #fff;
   touch-action: none; /* the pen, not the page, gets touch moves */
   cursor: crosshair;
@@ -2054,7 +2091,7 @@ button.recording {
 /* --- Wave I: skeletons, focus, reduced motion ------------------------------------ */
 .entry-list li.skeleton {
   height: 3.2rem;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   background: linear-gradient(90deg, var(--chip-bg) 25%, var(--inner) 50%, var(--chip-bg) 75%);
   background-size: 200% 100%;
@@ -2076,13 +2113,13 @@ kbd {
   padding: 0.1rem 0.4rem;
   border: 1px solid var(--border);
   border-bottom-width: 2px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: var(--chip-bg);
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-family: inherit;
 }
 .shortcut-list { list-style: none; padding: 0; }
-.shortcut-list li { margin-bottom: 0.4rem; color: var(--muted); font-size: 0.9rem; }
+.shortcut-list li { margin-bottom: 0.4rem; color: var(--muted); font-size: 0.92rem; }
 
 /* Vestibular safety: kill every animation when the OS asks for calm. */
 @media (prefers-reduced-motion: reduce) {
@@ -2096,11 +2133,11 @@ kbd {
 
 /* --- Wave J: generative art + note tools + undo toast --------------------------- */
 .art-holder {
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   line-height: 0; /* no stray gap under the canvas */
 }
-.art-holder canvas { width: 100%; height: auto; display: block; border-radius: 10px; }
+.art-holder canvas { width: 100%; height: auto; display: block; border-radius: var(--radius-lg); }
 .art-controls { margin-top: 0.5rem; line-height: 1.5; }
 .art-caption { margin: 0.5rem 0 0.25rem; font-size: 0.8rem; line-height: 1.4; }
 .art-legend {
@@ -2113,7 +2150,7 @@ kbd {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   color: var(--muted);
 }
 .art-legend-dot {
@@ -2276,7 +2313,7 @@ kbd {
   top: 0.5rem;
   z-index: 100;
   padding: 0.5rem 1rem;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   background: var(--accent-surface);
   color: var(--on-accent);
   font-weight: 600;
@@ -2304,7 +2341,7 @@ kbd {
   flex-direction: column;
   padding: 0.4rem;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--modal-bg);
   box-shadow: var(--glass-shadow);
 }
@@ -2317,7 +2354,7 @@ kbd {
   font-weight: 500;
   text-align: left;
   padding: 0.5rem 0.8rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
 }
 .menu-item:hover, .menu-item:focus-visible { background: var(--accent-soft); }
@@ -2337,7 +2374,7 @@ html { font-size: 16px; }
   #sidebar ul#category-list { display: flex; flex-wrap: wrap; gap: 0.4rem; }
   #sidebar ul#category-list li {
     border: 1px solid var(--border);
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     padding: 0.25rem 0.8rem;
     gap: 0.4rem;
   }
@@ -2349,7 +2386,7 @@ html { font-size: 16px; }
   background: none;
   box-shadow: none;
   padding: 0.15rem 0.4rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   font: inherit;
   font-size: 0.8rem;
@@ -2366,7 +2403,7 @@ html { font-size: 16px; }
 .attachment-thumb {
   max-height: 110px;
   max-width: 180px;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   cursor: zoom-in;
   display: block;
@@ -2389,7 +2426,7 @@ html { font-size: 16px; }
      would otherwise be an unclickable speck rather than a preview. */
   min-height: 44px;
   object-fit: contain;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: #fff; /* a transparent PNG stays legible on a dark theme */
   cursor: zoom-in;
@@ -2420,7 +2457,7 @@ html { font-size: 16px; }
 .lightbox img {
   max-width: 92vw;
   max-height: 92vh;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
 }
 
@@ -2428,7 +2465,7 @@ html { font-size: 16px; }
   margin: 0 0 0.8rem;
   padding: 0.5rem 0.8rem;
   border: 1px solid var(--accent);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--accent-soft);
   flex-wrap: wrap;
 }
@@ -2464,7 +2501,7 @@ html { font-size: 16px; }
   min-height: 6rem;
   padding: 0.6rem 0.8rem;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   background: var(--input-bg);
   white-space: pre-wrap;
   font-size: 0.92rem;
@@ -2479,8 +2516,8 @@ html { font-size: 16px; }
   padding: 0.5rem 0.6rem;
   margin-bottom: 0.4rem;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  font-size: 0.9rem;
+  border-radius: var(--radius-lg);
+  font-size: 0.92rem;
 }
 .link-suggestion span:first-child { flex: 1; min-width: 12rem; }
 #link-suggestions { margin: 0.5rem 0; }
@@ -2525,7 +2562,7 @@ html { font-size: 16px; }
   display: inline-flex;
   gap: 0.15rem;
   padding: 0.25rem;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   background: var(--chip-bg);
   margin-bottom: 0.5rem;
   flex-wrap: wrap;
@@ -2537,7 +2574,7 @@ html { font-size: 16px; }
   color: var(--muted);
   font-weight: 500;
   padding: 0.25rem 0.8rem;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
 }
 .seg button.active { background: var(--accent); color: #fff; }
 
@@ -2568,7 +2605,7 @@ html { font-size: 16px; }
 #task-list li { padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
 #task-list .entry-meta { align-items: center; gap: 0.6rem; }
 #task-list .entry-meta > strong { flex: 1 1 12rem; min-width: 0; overflow-wrap: anywhere; }
-.task-detail { margin: 0.15rem 0 0; font-size: 0.82rem; }
+.task-detail { margin: 0.15rem 0 0; font-size: 0.8rem; }
 /* Full width, on its own line: inline after the label it ran off the right
    edge of the card as soon as the job name got long. */
 .task-progress {
@@ -2581,7 +2618,7 @@ html { font-size: 16px; }
 #tool-list li { padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
 .tool-row { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: 500; }
 .tool-row input { width: 1.15rem; height: 1.15rem; margin: 0; accent-color: var(--accent); }
-.tool-desc { display: block; margin: 0.25rem 0 0 1.65rem; font-size: 0.82rem; }
+.tool-desc { display: block; margin: 0.25rem 0 0 1.65rem; font-size: 0.8rem; }
 
 /* The tool allowlist inside the skill editor. Twenty-odd names, so it wraps
    into columns rather than becoming a page-length list. */
@@ -2611,7 +2648,7 @@ html { font-size: 16px; }
 /* Per-message metadata: model · time · tokens · speed */
 .msg-meta {
   margin-top: 0.4rem;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
   opacity: 0.75;
 }
@@ -2664,11 +2701,11 @@ html { font-size: 16px; }
   box-shadow: none;
   color: var(--accent);
   font-weight: 650;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   cursor: pointer;
 }
 .web-result-title:hover { text-decoration: underline; }
-.web-result-meta { font-size: 0.78rem; }
+.web-result-meta { font-size: 0.8rem; }
 .web-result-snippet { font-size: 0.85rem; margin: 0.25rem 0 0.4rem; line-height: 1.4; }
 .web-open-link {
   display: inline-flex;
@@ -2748,15 +2785,15 @@ html { font-size: 16px; }
   font-weight: 500;
 }
 .stat-tile:hover { border-color: var(--accent); background: var(--accent-soft); }
-.stat-icon { font-size: 0.95rem; align-self: center; }
-.stat-value { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-.stat-label { font-size: 0.82rem; color: var(--muted); }
+.stat-icon { font-size: 0.92rem; align-self: center; }
+.stat-value { font-size: 1.3rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stat-label { font-size: 0.8rem; color: var(--muted); }
 .stat-tile.stat-alert { border-color: var(--warn); }
 .stat-tile.stat-alert .stat-value { color: var(--warn); }
 @media (max-width: 720px) {
   .dash-stats { margin: 0.8rem 1rem 0; gap: 0.4rem; }
   .stat-tile { padding: 0.4rem 0.8rem; }
-  .stat-value { font-size: 1.05rem; }
+  .stat-value { font-size: 1rem; }
 }
 
 /* --- dashboard quick links ------------------------------------------------- */
@@ -2776,12 +2813,12 @@ html { font-size: 16px; }
   border: 1px solid var(--glass-border);
   border-radius: calc(var(--radius) * 0.7);
   box-shadow: none;
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   font-weight: 600;
   backdrop-filter: blur(var(--glass-blur));
 }
 .quick-link:hover { background: var(--accent-soft); border-color: var(--accent); }
-.quick-link-icon { font-size: 1.05rem; }
+.quick-link-icon { font-size: 1rem; }
 .quick-link-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
 .quick-link-primary:hover { background: var(--accent); filter: brightness(1.08); }
 @media (max-width: 720px) {
@@ -2799,7 +2836,7 @@ html { font-size: 16px; }
 }
 .features-group {
   margin: 1rem 0 0.4rem;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--muted);
@@ -2824,8 +2861,8 @@ html { font-size: 16px; }
   background: var(--accent-soft);
   border-color: var(--accent);
 }
-.feature-name { font-weight: 650; font-size: 0.93rem; }
-.feature-desc { font-size: 0.83rem; line-height: 1.4; }
+.feature-name { font-weight: 650; font-size: 0.92rem; }
+.feature-desc { font-size: 0.85rem; line-height: 1.4; }
 
 /* --- activity heatmap + tag cloud widgets ---------------------------------- */
 .heatmap {
@@ -2837,7 +2874,7 @@ html { font-size: 16px; }
   overflow-x: auto;
   padding-bottom: 0.25rem;
 }
-.heat-cell { width: 10px; height: 10px; border-radius: 2px; background: var(--chip-bg); }
+.heat-cell { width: 10px; height: 10px; border-radius: var(--radius-sm); background: var(--chip-bg); }
 .heat-blank { background: none; }
 .heat-0 { background: var(--chip-bg); }
 .heat-1 { background: var(--accent); opacity: 0.30; }
@@ -2876,11 +2913,11 @@ html { font-size: 16px; }
 .cat-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cat-track {
   height: 0.5rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--chip-bg);
   overflow: hidden;
 }
-.cat-fill { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+.cat-fill { display: block; height: 100%; background: var(--accent); border-radius: var(--radius-pill); }
 .cat-count { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 0.8rem; }
 
 /* Rediscover widget */
@@ -2916,13 +2953,13 @@ html { font-size: 16px; }
   box-shadow: 0 2px 10px rgba(31, 38, 135, 0.07);
 }
 /* The note itself should read first; its metadata second. */
-#entry-list .entry-content { font-size: 0.97rem; line-height: 1.55; }
+#entry-list .entry-content { font-size: 1rem; line-height: 1.55; }
 #entry-list .entry-meta { margin-top: 0.4rem; gap: 0.4rem; align-items: center; }
-#entry-list .entry-date { font-size: 0.76rem; }
+#entry-list .entry-date { font-size: 0.75rem; }
 /* A quieter "check this" flag — informative, not alarming. */
 .chip.review { font-weight: 500; }
 #sidebar { align-self: flex-start; }
-#sidebar h2 { font-size: 0.95rem; }
+#sidebar h2 { font-size: 0.92rem; }
 #sidebar #most-used li { font-size: 0.85rem; line-height: 1.35; }
 
 /* --- reminders page polish -------------------------------------------------- */
@@ -2950,7 +2987,7 @@ html { font-size: 16px; }
   min-height: 2.75rem;
   margin-bottom: 0;
   padding-block: 0;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   box-sizing: border-box;
 }
 .reminder-form input[type="date"],
@@ -2963,7 +3000,7 @@ html { font-size: 16px; }
   background: var(--input-bg);
   color: var(--ink);
   font: inherit;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
 }
 @media (max-width: 860px) {
   .reminder-form { grid-template-columns: 1fr 1fr; }
@@ -2971,7 +3008,7 @@ html { font-size: 16px; }
   .reminder-form #reminder-date { grid-column: 1 / -1; }
 }
 #reminder-presets { align-items: center; flex-wrap: wrap; }
-.reminder-hint { margin-left: auto; font-size: 0.82rem; }
+.reminder-hint { margin-left: auto; font-size: 0.8rem; }
 /* The plain-English echo of the chosen time, plus the nudge buttons. */
 #reminder-due-row { align-items: center; flex-wrap: wrap; gap: 0.4rem; }
 #reminder-due-readout {
@@ -2996,7 +3033,7 @@ html { font-size: 16px; }
   align-items: center;
   gap: 0.4rem;
   margin: 1rem 0 0.4rem;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--muted);
@@ -3004,9 +3041,9 @@ html { font-size: 16px; }
 .reminder-group-head:first-child { margin-top: 0.25rem; }
 .reminder-group-head .group-count {
   padding: 0.05rem 0.4rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--chip-bg);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   letter-spacing: 0;
 }
 .reminder-group-head.group-overdue { color: var(--warn); }
@@ -3032,7 +3069,7 @@ html { font-size: 16px; }
   min-width: 1.15rem;
   margin-left: 0.4rem;
   padding: 0 0.25rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--error);
   color: #fff;
   font-size: 0.7rem;
@@ -3089,10 +3126,10 @@ html { font-size: 16px; }
   line-height: 1.55;
 }
 .msg.user {
-  border-radius: var(--radius) var(--radius) 5px var(--radius);
+  border-radius: var(--radius) var(--radius) var(--radius-sm) var(--radius);
 }
 .msg.assistant {
-  border-radius: var(--radius) var(--radius) var(--radius) 5px;
+  border-radius: var(--radius) var(--radius) var(--radius) var(--radius-sm);
   background: var(--card);
 }
 /* Give the two voices real visual identity rather than two grey boxes. */
@@ -3114,16 +3151,16 @@ html { font-size: 16px; }
   to { opacity: 1; transform: none; }
 }
 .msg { animation: msg-in 0.18s ease-out; }
-.msg.assistant .bubble-answer { font-size: 0.95rem; }
+.msg.assistant .bubble-answer { font-size: 0.92rem; }
 .msg.assistant .bubble-answer h3,
 .msg.assistant .bubble-answer h4,
-.msg.assistant .bubble-answer h5 { margin: 0.8rem 0 0.4rem; font-size: 0.95rem; }
+.msg.assistant .bubble-answer h5 { margin: 0.8rem 0 0.4rem; font-size: 0.92rem; }
 .msg.assistant .bubble-answer ul,
 .msg.assistant .bubble-answer ol { margin: 0 0 0.6rem; padding-left: 1.25rem; }
 .msg.assistant .bubble-answer code {
   background: var(--chip-bg);
   padding: 0.05rem 0.25rem;
-  border-radius: 5px;
+  border-radius: var(--radius-sm);
   font-size: 0.86em;
 }
 /* Tool activity reads as a distinct strip of "things it did". */
@@ -3200,12 +3237,12 @@ html { font-size: 16px; }
   align-items: center;
   gap: 0.4rem;
   padding: 0.25rem 0.6rem;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: var(--ink);
   background: var(--chip-bg);
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   box-shadow: none;
 }
 .legend-item:hover { border-color: var(--accent); }
@@ -3236,7 +3273,7 @@ html { font-size: 16px; }
 .graph-toolbar #link-suggest-btn { margin-left: auto; }
 .graph-help { margin-bottom: 0.5rem; }
 .graph-help summary { cursor: pointer; font-size: 0.85rem; }
-.graph-help p { margin: 0.4rem 0 0; font-size: 0.86rem; line-height: 1.5; }
+.graph-help p { margin: 0.4rem 0 0; font-size: 0.85rem; line-height: 1.5; }
 
 /* :not(.hidden) so these never override the hide rule — an ID selector would
    otherwise beat .hidden and leave every tab visible at once. */
@@ -3348,7 +3385,7 @@ html { font-size: 16px; }
 .graph-node:hover circle.graph-halo,
 .graph-node.graph-focus circle.graph-halo { opacity: 0.34; }
 .graph-node text.graph-pin-badge {
-  font-size: 0.6rem;
+  font-size: 0.7rem;
   stroke: none;
   pointer-events: none;
 }
@@ -3371,10 +3408,10 @@ html { font-size: 16px; }
   padding-top: 0.5rem;
   border-top: 1px solid var(--border);
 }
-.graph-popup-actions button { font-size: 0.78rem; padding: 0.25rem 0.5rem; }
+.graph-popup-actions button { font-size: 0.8rem; padding: 0.25rem 0.5rem; }
 .graph-physics { display: inline-flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
 .graph-physics input[type="range"] { width: 6.5rem; margin: 0; }
-.graph-physics label { font-size: 0.82rem; }
+.graph-physics label { font-size: 0.8rem; }
 .graph-popup {
   position: absolute;
   z-index: 40;
@@ -3396,7 +3433,7 @@ html { font-size: 16px; }
 
 /* --- markdown tables ------------------------------------------------------- */
 .md-table-wrap { overflow-x: auto; margin: 0.5rem 0; }
-.md-table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+.md-table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
 .md-table th, .md-table td {
   border: 1px solid var(--border);
   padding: 0.4rem 0.6rem;
@@ -3420,7 +3457,7 @@ input[type="number"],
 input[type="datetime-local"],
 select,
 button { border-radius: calc(var(--radius) * 0.7); }
-.chip, .seg, .seg button { border-radius: calc(var(--radius) * 0.5 + 6px); }
+.chip, .seg, .seg button { border-radius: calc(var(--radius) * 0.5 + var(--radius-md)); }
 
 /* --- spacious density (third option alongside comfortable/compact) --------- */
 :root[data-density="spacious"] .card { padding: 1.5rem 1.5rem; margin-bottom: 1.5rem; }
@@ -3464,7 +3501,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
   cursor: pointer;
 }
 .slider-value {
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
   min-width: 2.8rem;
@@ -3512,13 +3549,13 @@ button { border-radius: calc(var(--radius) * 0.7); }
 /* --- help guide accordion ------------------------------------------------------ */
 .help-accordion details {
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   margin-bottom: 0.5rem;
   padding: 0.5rem 0.8rem;
 }
 .help-accordion summary { cursor: pointer; font-weight: 600; }
 .help-accordion details[open] summary { margin-bottom: 0.4rem; }
-.help-accordion p { margin: 0 0 0.5rem; font-size: 0.9rem; }
+.help-accordion p { margin: 0 0 0.5rem; font-size: 0.92rem; }
 .searxng-host {
   border: 1px solid var(--border);
   border-radius: calc(var(--radius) * 0.7);
@@ -3526,7 +3563,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
   margin-bottom: 0.6rem;
 }
 .searxng-host .row { margin: 0.4rem 0 0; align-items: center; }
-.searxng-host p { margin: 0.4rem 0 0; font-size: 0.86rem; }
+.searxng-host p { margin: 0.4rem 0 0; font-size: 0.85rem; }
 .setup-snippet {
   background: var(--chip-bg);
   padding: 0.6rem 0.8rem;
@@ -3565,7 +3602,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
   background: var(--chip-bg);
 }
 .provider-option input { margin-top: 0.25rem; }
-.provider-option .muted { font-size: 0.84rem; }
+.provider-option .muted { font-size: 0.85rem; }
 
 /* A button that reads as a link — used for "that setting lives over there"
    cross-links, which must be buttons for the keyboard but must not look like
@@ -3595,7 +3632,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
   border: 1px solid var(--glass-border);
   background: var(--card);
   color: var(--ink);
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   line-height: 1;
   box-shadow: var(--glass-shadow);
   backdrop-filter: blur(var(--glass-blur)) saturate(150%);
@@ -3710,7 +3747,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
   flex: 1 1 auto;
   min-height: 4rem;
 }
-.note-picker-list li { border-radius: 6px; }
+.note-picker-list li { border-radius: var(--radius-md); }
 .note-picker-list li:hover { background: var(--accent-soft); }
 .note-picker-list label {
   display: flex;
@@ -3758,8 +3795,8 @@ button { border-radius: calc(var(--radius) * 0.7); }
 .draft-column textarea { resize: vertical; }
 .draft-controls { gap: 0.4rem; flex-wrap: wrap; }
 .draft-controls input { flex: 1 1 10rem; min-width: 0; }
-#draft-text { font-family: var(--mono, ui-monospace, monospace); font-size: 0.9rem; line-height: 1.5; }
-#draft-count { font-size: 0.78rem; }
+#draft-text { font-family: var(--mono, ui-monospace, monospace); font-size: 0.92rem; line-height: 1.5; }
+#draft-count { font-size: 0.8rem; }
 
 /* One column on narrow screens — side-by-side textareas become unusable
    well before the phone breakpoint. */
@@ -3805,14 +3842,14 @@ button { border-radius: calc(var(--radius) * 0.7); }
   text-align: left;
   padding: 0.4rem 0.6rem;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: none;
   color: inherit;
   cursor: pointer;
 }
 .doc-item-button:hover { background: var(--accent-soft); }
 .doc-item.active .doc-item-button { background: var(--accent-soft); border-color: var(--accent); }
-.doc-item-title { font-weight: 600; font-size: 0.9rem; }
+.doc-item-title { font-weight: 600; font-size: 0.92rem; }
 .doc-item-meta { font-size: 0.75rem; }
 
 .doc-main { display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; }
@@ -3827,7 +3864,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
 }
 .doc-title-input:focus { border-color: var(--glass-border); background: var(--card); }
 .doc-actions { gap: 0.25rem; flex-wrap: wrap; align-items: center; }
-.doc-actions .muted { font-size: 0.78rem; min-width: 4.5rem; text-align: right; }
+.doc-actions .muted { font-size: 0.8rem; min-width: 4.5rem; text-align: right; }
 
 /* One pane by default; two side by side when the preview is on. */
 .doc-panes { display: grid; grid-template-columns: 1fr; gap: 0.8rem; min-height: 60vh; }
@@ -3848,11 +3885,11 @@ button { border-radius: calc(var(--radius) * 0.7); }
   background: var(--card);
 }
 .doc-preview.hidden { display: none; }
-.doc-hint { font-size: 0.78rem; }
+.doc-hint { font-size: 0.8rem; }
 .doc-hint kbd {
   padding: 0.05rem 0.25rem;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-size: 0.9em;
 }
 .doc-ai-card { width: min(46rem, 92vw); display: flex; flex-direction: column; gap: 0.5rem; }
@@ -3897,7 +3934,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
   font: inherit;
   line-height: 1.5;
 }
-.msg-edit-hint { font-size: 0.76rem; margin: 0; }
+.msg-edit-hint { font-size: 0.75rem; margin: 0; }
 .msg-edit-actions { gap: 0.4rem; }
 .msg-body.hidden, .msg-actions.hidden { display: none; }
 
@@ -3916,7 +3953,7 @@ button.ai-unavailable {
    scroll past them. */
 .entry-content code {
   background: var(--chip-bg);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   padding: 0.05em 0.32em;
   font-size: 0.92em;
   /* Without this, one long backticked path widens the note, the list and the
@@ -3928,7 +3965,7 @@ button.ai-unavailable {
 .entry-content mark {
   background: var(--accent-soft);
   color: inherit;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   padding: 0 0.12em;
   font-weight: 600;
 }
@@ -3948,7 +3985,7 @@ button.ai-unavailable {
 .search-help-list code {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   padding: 0 0.3em;
 }
 
@@ -3992,7 +4029,7 @@ button.ai-unavailable {
   font: inherit;
   font-weight: 600;
   padding: 0 0.3em;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 2px;
@@ -4015,8 +4052,8 @@ button.ai-unavailable {
 .wiki-suggest.hidden { display: none; }
 .wiki-suggest li {
   padding: 0.4rem 0.5rem;
-  border-radius: 6px;
-  font-size: 0.86rem;
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
@@ -4044,7 +4081,7 @@ button.ai-unavailable {
 }
 .duplicate-note input { width: auto; margin: 0.25rem 0 0; flex: 0 0 auto; }
 .duplicate-group .row { margin-top: 0.5rem; align-items: center; gap: 0.6rem; }
-.duplicate-group .row label { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.82rem; }
+.duplicate-group .row label { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; }
 .duplicate-group .row label input { width: auto; margin: 0; }
 #duplicate-threshold { width: 8rem; }
 
@@ -4059,8 +4096,8 @@ button.ai-unavailable {
 }
 /* The current text, so you can see what you'd be replacing. */
 .history-current { border-color: var(--accent); background: var(--accent-soft); }
-.history-entry > p:first-child { margin: 0 0 0.25rem; font-size: 0.76rem; }
-.history-entry > p:nth-child(2) { margin: 0 0 0.4rem; font-size: 0.88rem; white-space: pre-wrap; }
+.history-entry > p:first-child { margin: 0 0 0.25rem; font-size: 0.75rem; }
+.history-entry > p:nth-child(2) { margin: 0 0 0.4rem; font-size: 0.85rem; white-space: pre-wrap; }
 
 /* --- resizable sidebars ------------------------------------------------------- */
 /* The resize handle is absolutely positioned, so its sidebar has to be a
@@ -4096,7 +4133,7 @@ button.ai-unavailable {
     to right, transparent 40%, var(--border) 40%, var(--border) 60%, transparent 60%
   );
   opacity: 0.5;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   transition: background 0.12s ease, opacity 0.12s ease;
   touch-action: none;
 }
@@ -4131,7 +4168,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   display: inline-block;
   padding: 0.25rem 0;
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   font-style: italic;
 }
 
@@ -4149,13 +4186,13 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 .doc-toolbar button {
   min-width: 2rem;
   padding: 0.25rem 0.4rem;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   background: none;
   border: 1px solid transparent;
   box-shadow: none;
   color: var(--ink);
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
 }
 .doc-toolbar button:hover { background: var(--accent-soft); border-color: var(--accent); }
 .doc-toolbar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -4184,7 +4221,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 .conv-search {
   margin: 0 0 0.5rem;
   padding: 0.4rem 0.6rem;
-  font-size: 0.88rem;
+  font-size: 0.85rem;
 }
 #conversation-list li { gap: 0.4rem; align-items: center; }
 /* min-width: 0 is what lets a flex child actually shrink below its content.
@@ -4197,13 +4234,13 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   -webkit-box-orient: vertical;
   overflow: hidden;
   overflow-wrap: anywhere;
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   line-height: 1.3;
 }
 /* Date · turns · tokens, small enough to scan past and there when wanted.
    One line, ellipsised — it's context, never worth stealing a second row. */
 .conv-meta {
-  font-size: 0.74rem;
+  font-size: 0.75rem;
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
@@ -4228,7 +4265,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 .chat-usage {
   font-size: 0.75rem;
   padding: 0.15rem 0.5rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--chip-bg);
   white-space: nowrap;
 }
@@ -4261,7 +4298,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   border-bottom: 1px solid var(--border);
 }
 .code-lang {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
@@ -4273,22 +4310,22 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   overflow-x: auto;
   background: transparent;
 }
-.code-block pre code { background: none; padding: 0; font-size: 0.84rem; }
+.code-block pre code { background: none; padding: 0; font-size: 0.85rem; }
 
 /* Editing an answer in place. */
 .answer-editor { margin-top: 0.4rem; }
 .answer-editor textarea {
   width: 100%;
   font-family: inherit;
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   margin-bottom: 0.4rem;
 }
 /* Never let an edited answer pass as the model's own words. */
 .edited-marker {
   display: inline-block;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   padding: 0.05rem 0.4rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--warn-soft);
   color: var(--warn);
   margin-top: 0.4rem;
@@ -4309,7 +4346,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   text-align: left;
   padding: 0.15rem 0.25rem;
   width: 100%;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4318,19 +4355,19 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 .outline-link:hover { background: var(--accent-soft); color: var(--ink); }
 /* Indentation is the whole point of an outline — it shows the shape. */
 .outline-h2 .outline-link { padding-left: 1rem; }
-.outline-h3 .outline-link { padding-left: 1.5rem; font-size: 0.82rem; }
+.outline-h3 .outline-link { padding-left: 1.5rem; font-size: 0.8rem; }
 .outline-h4 .outline-link { padding-left: 2.4rem; font-size: 0.8rem; }
 
-.doc-stats { font-size: 0.78rem; white-space: nowrap; }
+.doc-stats { font-size: 0.8rem; white-space: nowrap; }
 
 .doc-storage { margin-top: 1rem; font-size: 0.85rem; }
 .doc-storage summary { cursor: pointer; }
-.doc-storage p { margin: 0.4rem 0; font-size: 0.82rem; }
+.doc-storage p { margin: 0.4rem 0; font-size: 0.8rem; }
 .storage-path {
   display: block;
   padding: 0.4rem 0.5rem;
   background: var(--chip-bg);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   font-size: 0.75rem;
   overflow-wrap: anywhere;
 }
@@ -4660,7 +4697,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   top: 30%;
   width: 52%;
   height: 42%;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: var(--sw-card);
   border: 1px solid var(--sw-border);
 }
@@ -4674,8 +4711,8 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   border-radius: 50%;
   background: var(--sw-accent);
 }
-.theme-name { font-size: 0.82rem; font-weight: 600; }
-.theme-note { font-size: 0.72rem; color: var(--muted); line-height: 1.25; }
+.theme-name { font-size: 0.8rem; font-weight: 600; }
+.theme-note { font-size: 0.75rem; color: var(--muted); line-height: 1.25; }
 @media (prefers-reduced-motion: reduce) {
   .theme-card, .theme-card:hover { transition: none; transform: none; }
 }
@@ -4692,7 +4729,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   text-align: center;
   padding: 2rem 1.5rem;
 }
-.dash-getting-started h2 { margin: 0.6rem 0 0.4rem; font-size: 1.2rem; }
+.dash-getting-started h2 { margin: 0.6rem 0 0.4rem; font-size: 1.15rem; }
 .dash-getting-started > p.muted { max-width: 46rem; margin: 0 auto; }
 .start-steps {
   display: grid;
@@ -4727,8 +4764,8 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 .start-step:hover { border-color: var(--accent); transform: translateY(-2px); }
 .start-step-icon { font-size: 1.3rem; line-height: 1.2; }
 .start-step strong { display: block; font-size: 0.92rem; }
-.start-step .muted { font-size: 0.78rem; line-height: 1.3; }
-.start-footer { font-size: 0.82rem; max-width: 46rem; margin: 0.4rem auto 0; }
+.start-step .muted { font-size: 0.8rem; line-height: 1.3; }
+.start-footer { font-size: 0.8rem; max-width: 46rem; margin: 0.4rem auto 0; }
 @media (prefers-reduced-motion: reduce) {
   .start-step, .start-step:hover { transition: none; transform: none; }
 }
@@ -4740,7 +4777,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 .web-reader-text p { margin: 0 0 0.8rem; }
 /* The page's own heading depth, preserved rather than flattened. */
 .web-reader-text .reader-heading { margin: 1.25rem 0 0.4rem; line-height: 1.3; }
-.web-reader-text h3.reader-heading { font-size: 1.12rem; }
+.web-reader-text h3.reader-heading { font-size: 1.15rem; }
 .web-reader-text h4.reader-heading { font-size: 1rem; }
 .web-reader-text h5.reader-heading,
 .web-reader-text h6.reader-heading { font-size: 0.92rem; color: var(--muted); }
@@ -4888,7 +4925,7 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   color: var(--muted);
   font-weight: 500;
   padding: 0.4rem 1rem;
-  border-radius: 9px;
+  border-radius: var(--radius-md);
 }
 .notes-subtabs button.active {
   background: var(--accent-surface);
@@ -4923,7 +4960,7 @@ textarea.autogrow {
   margin-left: 0.6rem;
   vertical-align: middle;
 }
-.name-nudge button { font-size: 0.78rem; padding: 0.25rem 0.6rem; }
+.name-nudge button { font-size: 0.8rem; padding: 0.25rem 0.6rem; }
 
 /* On a phone the header wraps to two or three rows and the sidebars stack
    above the content, where sticking them would pin a full-height panel over
@@ -4943,7 +4980,7 @@ textarea.autogrow {
 }
 
 /* "Go to it" beside the save confirmation. */
-.jump-to-note { font-size: 0.78rem; padding: 0.15rem 0.5rem; }
+.jump-to-note { font-size: 0.8rem; padding: 0.15rem 0.5rem; }
 
 
 /* --- top bar polish ----------------------------------------------------------
@@ -5018,7 +5055,7 @@ textarea.autogrow {
   padding: 0.4rem 0.5rem;
   background: var(--chip-bg);
   border-radius: var(--radius);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -5124,7 +5161,7 @@ textarea.autogrow {
    `.graph-node text` sets `text-anchor: middle` and a stylesheet rule beats
    the presentation attribute it would otherwise be. */
 .graph-node text.graph-label-tree {
-  font-size: 0.76rem;
+  font-size: 0.75rem;
   /* A tree label lies *along* the edge running to its children, so the halo
      is doing real work here: it has to be wide enough to cover the line in
      the gaps between glyphs, and opaque. `--card` is 55% white — the dashes
@@ -5210,7 +5247,7 @@ textarea.autogrow {
   margin: 0 0 0.5rem;
   padding: 0.4rem 0.6rem;
   border-left: 3px solid var(--warn, #c8892b);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--warn, #c8892b) 12%, transparent);
   color: var(--text-muted, inherit);
   font-size: 0.8rem;
@@ -5268,7 +5305,7 @@ textarea.autogrow {
 .log-live {
   font-size: 0.75rem;
   padding: 0.15rem 0.4rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   white-space: nowrap;
   background: color-mix(in srgb, currentColor 10%, transparent);
 }
@@ -5292,8 +5329,8 @@ textarea.autogrow {
   display: inline-block;
   margin-right: 0.4rem;
   padding: 0 0.25rem;
-  border-radius: 3px;
-  font-size: 0.65rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.03em;
   opacity: 0.8;
@@ -5306,7 +5343,7 @@ textarea.autogrow {
 .log-trace { margin: 0.25rem 0 0 0; }
 .log-trace summary {
   cursor: pointer;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   opacity: 0.75;
 }
 .log-trace pre {
@@ -5314,9 +5351,9 @@ textarea.autogrow {
   padding: 0.4rem 0.5rem;
   max-height: 16rem;
   overflow: auto;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: color-mix(in srgb, currentColor 7%, transparent);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   white-space: pre;
 }
 
@@ -5326,10 +5363,10 @@ textarea.autogrow {
   margin-left: 0.4rem;
   min-width: 1.1rem;
   padding: 0 0.25rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--danger, #e2534b);
   color: #fff;
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   font-weight: 700;
   text-align: center;
 }
@@ -5379,7 +5416,7 @@ textarea.autogrow {
 .copy-fallback-text {
   width: 100%;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   white-space: pre;
   overflow: auto;
 }
@@ -5393,7 +5430,7 @@ textarea.autogrow {
   grid-template-columns: auto 1fr;
   gap: 0.15rem 0.8rem;
   margin: 0.5rem 0 0;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-variant-numeric: tabular-nums;
 }
 .model-spec dt { color: var(--muted); }
@@ -5457,7 +5494,7 @@ textarea.autogrow {
    carries ⚠️ and the reason in words — because a red line nobody can read the
    cause of is just alarming. */
 .task-failed { color: var(--error); }
-.task-detail { margin: 0.15rem 0 0; font-size: 0.78rem; }
+.task-detail { margin: 0.15rem 0 0; font-size: 0.8rem; }
 
 /* --- the in-app confirm dialog (§35F) --------------------------------------
    Replaces window.confirm, which pywebview's backends do not all implement —
@@ -5500,7 +5537,7 @@ textarea.autogrow {
    reading "No matching records", and it read as the app having broken. */
 .ask-hint {
   border: 1px dashed var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   padding: 1rem 1rem;
   background: var(--accent-soft);
 }
@@ -5528,7 +5565,7 @@ textarea.autogrow {
   align-items: flex-start;
   padding: var(--space-2) var(--space-3);
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 .check-row input { margin-top: 0.15rem; }

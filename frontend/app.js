@@ -365,6 +365,82 @@ function buildSelect(options, selected) {
   return select;
 }
 
+// --- asking before something irreversible (§35F) ----------------------------------
+//
+// `window.confirm` is not dependable in the shell this app also runs in.
+// pywebview's backends vary in whether they implement it at all, and one that
+// does not returns `undefined` — which every `if (!confirm(...)) return;` in
+// this file reads as "the user said no". The button then does nothing, says
+// nothing, and looks broken. That is the reported shape of "the recycle bin
+// empty now button doesn't work either": the endpoint behind it is fine, and
+// the click never got past the gate.
+//
+// A promise-based dialog fixes that and is better in the browser too — it is
+// styled like the app, it says what the action is in a heading rather than a
+// system font, and the dangerous option can be marked as dangerous.
+function confirmDialog(message, options = {}) {
+  const { confirmLabel = "OK", cancelLabel = "Cancel", danger = true } = options;
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay confirm-overlay";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+
+    const card = document.createElement("div");
+    card.className = "card modal-card confirm-card";
+    const text = document.createElement("p");
+    text.className = "confirm-text";
+    // Blank lines in these messages are deliberate paragraphs — the second is
+    // usually the consequence ("This cannot be undone"), which is the part
+    // worth reading, so it is not run together with the first.
+    for (const part of String(message).split(/\n{2,}/)) {
+      const line = document.createElement("span");
+      line.textContent = part;
+      text.append(line, document.createElement("br"));
+    }
+    const row = document.createElement("div");
+    row.className = "row confirm-actions";
+
+    let settled = false;
+    const close = (answer) => {
+      if (settled) return;
+      settled = true;
+      document.removeEventListener("keydown", onKey, true);
+      overlay.remove();
+      returnFocus?.focus?.();
+      resolve(answer);
+    };
+    const onKey = (event) => {
+      // Escape cancels and Enter confirms, but only while this dialog is up —
+      // captured, so a keyboard shortcut elsewhere can't fire underneath it.
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        close(false);
+      } else if (event.key === "Enter" && event.target.tagName !== "BUTTON") {
+        event.stopPropagation();
+        close(true);
+      }
+    };
+
+    const returnFocus = document.activeElement;
+    const cancel = smallButton(cancelLabel, cancelLabel, () => close(false));
+    const go = smallButton(confirmLabel, confirmLabel, () => close(true), false);
+    if (danger) go.classList.add("danger");
+    row.append(cancel, go);
+    card.append(text, row);
+    overlay.appendChild(card);
+    // Clicking the backdrop cancels, the way every other overlay here behaves.
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) close(false);
+    });
+    document.addEventListener("keydown", onKey, true);
+    document.body.appendChild(overlay);
+    // Cancel takes focus, not the dangerous one: a stray Enter or Space
+    // arriving with the dialog must not be the thing that deletes the notes.
+    cancel.focus();
+  });
+}
+
 function smallButton(label, title, onClick, ghost = true) {
   // (Wave I) icon-only buttons need a name for screen readers — the
   // title doubles as one.
@@ -585,7 +661,7 @@ function entryItem(entry, options = {}) {
         remove.title = "Remove this file";
         remove.addEventListener("click", async (e) => {
           e.stopPropagation();
-          if (!confirm(`Remove ${attachment.filename}?`)) return;
+          if (!(await confirmDialog(`Remove ${attachment.filename}?`))) return;
           await api(`/files/${attachment.id}`, { method: "DELETE" });
           await loadEntries();
         });
@@ -708,7 +784,7 @@ async function openEntryHistory(entry) {
     const body = document.createElement("p");
     body.textContent = notePreviewText(revision.content);
     const restore = smallButton("↩ Put this back", "Restore this version", async () => {
-      if (!confirm("Replace the note with this version?\n\nThe current text is kept in the history, so this is undoable.")) return;
+      if (!(await confirmDialog("Replace the note with this version?\n\nThe current text is kept in the history, so this is undoable."))) return;
       try {
         await apiJson(`/entries/${entry.id}/history/${revision.id}/restore`, { method: "POST" });
         overlay.classList.add("hidden");
@@ -728,14 +804,14 @@ async function openEntryHistory(entry) {
 async function toggleEntryPrivacy(entry) {
   const makingPrivate = !entry.is_private;
   if (makingPrivate) {
-    const ok = confirm(
+    const ok = (await confirmDialog(
       "Make this note private?\n\n" +
         "It gets encrypted with a key derived from your password, so it stays " +
         "unreadable in the database, in backups, and to anyone without that " +
         "password.\n\n" +
         "It also stops appearing in search and stops being given to the AI.\n\n" +
         "There is no recovery: if you forget your password this note is gone."
-    );
+    ));
     if (!ok) return;
   }
   try {
@@ -1725,11 +1801,11 @@ async function renameCategory(meta, currentName) {
   // usually the point — but it's destructive-looking, so it's confirmed.
   if (categoryMeta.has(name)) {
     const target = categoryMeta.get(name);
-    const ok = confirm(
+    const ok = (await confirmDialog(
       `"${name}" already exists. Merge "${currentName}" into it?\n\n` +
         `Its notes move across — nothing is deleted. "${name}" would then ` +
         `hold ${target.count + meta.count} notes.`
-    );
+    ));
     if (!ok) return;
   }
 
@@ -1748,13 +1824,13 @@ async function renameCategory(meta, currentName) {
 }
 
 async function deleteCategory(meta, name, count) {
-  const ok = confirm(
+  const ok = (await confirmDialog(
     `Delete the category "${name}"?\n\n` +
       (count
         ? `Its ${count} note${count === 1 ? "" : "s"} are kept and become ` +
           `Uncategorised — deleting a category never deletes notes.`
         : "It has no notes in it.")
-  );
+  ));
   if (!ok) return;
   try {
     await apiJson(`/categories/${meta.id}`, { method: "DELETE" });
@@ -4141,7 +4217,7 @@ function exportDocumentPdf() {
 
 async function deleteCurrentDocument() {
   if (!currentDoc) return;
-  if (!confirm(`Delete "${currentDoc.title}"? This can't be undone.`)) return;
+  if (!(await confirmDialog(`Delete "${currentDoc.title}"? This can't be undone.`))) return;
   await apiJson(`/documents/${currentDoc.id}`, { method: "DELETE" });
   toast("Document deleted.");
   currentDoc = null;
@@ -4887,7 +4963,7 @@ async function deleteChatTurn(assistantBubble) {
   const bubbles = [...$("chat-messages").querySelectorAll(".msg.assistant")];
   const index = bubbles.indexOf(assistantBubble);
   if (index === -1) return;
-  if (!confirm("Delete this message?")) return;
+  if (!(await confirmDialog("Delete this message?"))) return;
 
   if (chatConv.id !== null) {
     try {
@@ -5245,7 +5321,7 @@ async function loadConversationList() {
     );
     items.push(
       makeMenuItem("🗑 Delete", "Delete this chat", async () => {
-        if (!confirm("Delete this saved chat?")) return;
+        if (!(await confirmDialog("Delete this saved chat?"))) return;
         await apiJson(`/conversations/${conversation.id}`, { method: "DELETE" });
         if (chatConv.id === conversation.id) newChatConversation();
         loadConversationList();
@@ -5536,7 +5612,7 @@ async function renderPersonas() {
     if (!persona.builtin) {
       actions.appendChild(
         smallButton("Delete", "Remove this persona", async () => {
-          if (!confirm(`Delete the “${persona.name}” persona?`)) return;
+          if (!(await confirmDialog(`Delete the “${persona.name}” persona?`))) return;
           await savePersonaList(custom.filter((p) => p.name !== persona.name));
         })
       );
@@ -5877,7 +5953,7 @@ function skillRow(skill) {
     );
     actions.appendChild(
       smallButton("Delete", "Remove this skill", async () => {
-        if (!confirm(`Delete the “${skill.name}” skill?`)) return;
+        if (!(await confirmDialog(`Delete the “${skill.name}” skill?`))) return;
         await saveSkillList(customSkills().filter((s) => s.name !== skill.name));
       })
     );
@@ -6204,7 +6280,7 @@ async function batchTag() {
 async function batchDelete() {
   const ids = batchSelection();
   if (!ids.length) return;
-  if (!confirm(`Move ${ids.length} note${ids.length === 1 ? "" : "s"} to the recycle bin?`))
+  if (!(await confirmDialog(`Move ${ids.length} note${ids.length === 1 ? "" : "s"} to the recycle bin?`)))
     return;
   for (const id of ids) await api(`/entries/${id}`, { method: "DELETE" });
   exitSelectMode();
@@ -8082,7 +8158,7 @@ async function clearDoneReminders() {
   const all = await apiJson("/reminders").catch(() => []);
   const done = all.filter((r) => r.done);
   if (!done.length) return;
-  if (!confirm(`Delete ${done.length} completed reminder${done.length === 1 ? "" : "s"}?`)) {
+  if (!(await confirmDialog(`Delete ${done.length} completed reminder${done.length === 1 ? "" : "s"}?`))) {
     return;
   }
   await Promise.all(
@@ -9984,7 +10060,7 @@ function renderGraphPopupActions(entry) {
   );
   box.appendChild(
     smallButton("🗑 Bin", "Move this note to the recycle bin", async () => {
-      if (!confirm("Move this note to the recycle bin?")) return;
+      if (!(await confirmDialog("Move this note to the recycle bin?"))) return;
       await api(`/entries/${entry.id}`, { method: "DELETE" }).catch((e) =>
         toast(e.message, true)
       );
@@ -11145,7 +11221,7 @@ async function renderTags() {
     );
     actions.appendChild(
       smallButton("Delete", "Remove this tag from every entry", async () => {
-        if (!confirm(`Remove the tag “${name}” from all entries?`)) return;
+        if (!(await confirmDialog(`Remove the tag “${name}” from all entries?`))) return;
         await apiJson("/tags/delete", { method: "POST", body: JSON.stringify({ name }) });
         await Promise.all([renderTags(), loadEntries()]);
       })
@@ -11266,7 +11342,7 @@ async function savePrefs() {
 }
 
 async function deleteProfile() {
-  if (!confirm("Delete your profile text? The AI will stop personalising answers.")) return;
+  if (!(await confirmDialog("Delete your profile text? The AI will stop personalising answers."))) return;
   prefsCache = await apiJson("/preferences", {
     method: "PUT",
     body: JSON.stringify({ user_profile: "", profile_enabled: false }),
@@ -11305,10 +11381,10 @@ async function renderBackups() {
     actions.appendChild(
       smallButton("Restore", "Roll the notebook back to this backup", async () => {
         if (
-          !confirm(
+          !(await confirmDialog(
             "Restore this backup? Your current notebook is snapshotted first, " +
               "then replaced by the backup."
-          )
+          ))
         )
           return;
         try {
@@ -11326,7 +11402,7 @@ async function renderBackups() {
     );
     actions.appendChild(
       smallButton("×", "Delete this backup", async () => {
-        if (!confirm("Delete this backup file?")) return;
+        if (!(await confirmDialog("Delete this backup file?"))) return;
         await apiJson(`/backups/${item.name}`, { method: "DELETE" }).catch(() => {});
         renderBackups();
       })
@@ -11549,8 +11625,8 @@ function openSketch() {
   $("sketch-status").textContent = "";
 }
 
-function closeSketch() {
-  if (sketchDirty && !confirm("Close without saving your sketch?")) return;
+async function closeSketch() {
+  if (sketchDirty && !(await confirmDialog("Close without saving your sketch?"))) return;
   $("sketch-overlay").classList.add("hidden");
   overlayReturnFocus?.focus?.();
   overlayReturnFocus = null;
@@ -12052,7 +12128,7 @@ $("app-quit").addEventListener("click", async () => {
   // Confirmed, because it is not undoable from inside the app: once the
   // server is down, the button that would bring it back is on the page that
   // just stopped being served.
-  if (!confirm("Quit MemoryMap? The app and its server will stop.")) return;
+  if (!(await confirmDialog("Quit MemoryMap? The app and its server will stop."))) return;
   try {
     await apiJson("/shutdown", { method: "POST" });
   } catch {
@@ -12503,10 +12579,10 @@ function renderInstalledModels(status) {
       li.appendChild(
         smallButton("Remove", `Uninstall ${model.name}`, async (event) => {
           if (
-            !confirm(
+            !(await confirmDialog(
               `Remove “${model.name}” from Ollama? This frees its disk space — ` +
                 "you can re-download it any time."
-            )
+            ))
           )
             return;
           event.target.disabled = true;
@@ -12750,19 +12826,19 @@ async function applyEmbeddingBackend() {
       return;
     }
     if (!looksLikeEmbeddingModel(model)) {
-      const proceed = confirm(
+      const proceed = (await confirmDialog(
         `"${model}" doesn't look like an embedding model. Chat models can't create ` +
           "embeddings, so semantic search will fail (Ollama returns 501). Download and " +
           "pick a dedicated embedding model like nomic-embed-text instead.\n\nApply anyway?"
-      );
+      ));
       if (!proceed) return;
     }
   }
-  const ok = confirm(
+  const ok = (await confirmDialog(
     `Switching the search engine re-indexes all ${allEntries.length} of your ` +
       "notes so search keeps making sense. Notes and keyword search stay " +
       "available while it runs. Continue?"
-  );
+  ));
   if (!ok) {
     // Backing out puts the saved backend back on screen, rather than leaving
     // a radio selected for a switch that never happened.
@@ -14333,7 +14409,7 @@ $("appearance-reset").addEventListener("click", resetAppearance);
 $("theme-reset").addEventListener("click", resetThemeOnly);
 $("account-change").addEventListener("click", changePassword);
 $("account-lock-all").addEventListener("click", async () => {
-  if (!confirm("End every session, including this one? You'll need your password to get back in.")) return;
+  if (!(await confirmDialog("End every session, including this one? You'll need your password to get back in."))) return;
   await apiJson("/auth/lock-all", { method: "POST" }).catch(() => {});
   localStorage.removeItem("token");
   location.reload();
@@ -14409,7 +14485,7 @@ $("app-quit").addEventListener("click", async () => {
   // Confirmed, because it is not undoable from inside the app: once the
   // server is down, the button that would bring it back is on the page that
   // just stopped being served.
-  if (!confirm("Quit MemoryMap? The app and its server will stop.")) return;
+  if (!(await confirmDialog("Quit MemoryMap? The app and its server will stop."))) return;
   try {
     await apiJson("/shutdown", { method: "POST" });
   } catch {
@@ -14541,9 +14617,9 @@ $("draft-thoughts").addEventListener("keydown", (event) => {
     composeDraft();
   }
 });
-$("draft-discard").addEventListener("click", () => {
+$("draft-discard").addEventListener("click", async () => {
   if (!$("draft-text").value.trim() && !$("draft-thoughts").value.trim()) return;
-  if (!confirm("Discard this draft? It hasn't been saved as a note.")) return;
+  if (!(await confirmDialog("Discard this draft? It hasn't been saved as a note."))) return;
   foldedThoughts = "";
   $("draft-thoughts").value = "";
   $("draft-text").value = "";
@@ -14850,7 +14926,7 @@ for (const button of document.querySelectorAll(".panel-close")) {
   button.addEventListener("click", () => showPanel(null));
 }
 $("bin-empty").addEventListener("click", async () => {
-  if (!confirm("Permanently delete everything in the bin? This cannot be undone.")) return;
+  if (!(await confirmDialog("Permanently delete everything in the bin? This cannot be undone."))) return;
   const result = await apiJson("/recycle-bin/empty", { method: "POST" });
   toast(`${result.removed} entr${result.removed === 1 ? "y" : "ies"} permanently deleted.`);
   await renderBin();
@@ -15064,12 +15140,12 @@ async function mergeDuplicateGroup(ids, card) {
   }
   status.textContent = "";
 
-  const ok = confirm(
+  const ok = (await confirmDialog(
     `Merge ${ids.length} notes into one?\n\n` +
       `The merged note will read:\n\n${preview.merged.slice(0, 400)}` +
       `${preview.merged.length > 400 ? "…" : ""}\n\n` +
       `The other ${ids.length - 1} go to the recycle bin, so this is undoable.`
-  );
+  ));
   if (!ok) return;
 
   try {
@@ -15295,11 +15371,11 @@ async function refreshSearxngHost() {
 
 $("searxng-reinstall").addEventListener("click", async () => {
   if (
-    !confirm(
+    !(await confirmDialog(
       "Delete the SearXNG install and set it up again from scratch?\n\n" +
         "Your settings file is kept — only the downloaded copy and its " +
         "virtualenv are removed. Reinstalling takes a few minutes."
-    )
+    ))
   )
     return;
   const status = $("searxng-host-status");

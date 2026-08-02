@@ -5419,3 +5419,37 @@ textarea.autogrow {
    cause of is just alarming. */
 .task-failed { color: var(--error); }
 .task-detail { margin: 0.15rem 0 0; font-size: 0.78rem; }
+
+/* --- the in-app confirm dialog (§35F) --------------------------------------
+   Replaces window.confirm, which pywebview's backends do not all implement —
+   one that doesn't returns undefined, and every `if (!confirm(...)) return;`
+   in app.js reads that as "no", so the button silently does nothing.
+
+   It reuses .modal-overlay and .modal-card rather than inventing a parallel
+   set of styles, so it inherits the blur, the z-index and the dark-mode
+   treatment every other overlay here already has. Only the narrower width and
+   the button row are its own. */
+.confirm-card {
+  width: min(30rem, 92vw);
+  max-height: none;
+  gap: 1rem;
+  padding: 1.25rem;
+}
+.confirm-text {
+  margin: 0;
+  line-height: 1.5;
+}
+.confirm-actions {
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin: 0;
+}
+/* The destructive choice is coloured as destructive. It is also NOT the
+   focused button — cancel takes focus, so a stray Enter arriving with the
+   dialog can't be the thing that empties the recycle bin. */
+.confirm-actions .danger {
+  background: var(--danger, #e2534b);
+  border-color: var(--danger, #e2534b);
+  color: #fff;
+}
+.confirm-actions .danger:hover { filter: brightness(1.1); }

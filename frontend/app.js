@@ -212,9 +212,11 @@ function startApp() {
       // same prefsCache that loadTemplates just filled.
       loadChatSkills();
       $("tools-toggle").checked = !prefsCache || prefsCache.tools_enabled !== false;
+      renderChatModeSeg();
       renderWebSearchToggle();
     })
   );
+  step("load answer-length options", loadResponseModes);
   step("tell the server your timezone", reportTimezone);
   step("load conversations", loadConversationList);
   step("check the AI model status", refreshModelStatus);
@@ -2100,6 +2102,7 @@ async function streamChat({
   question,
   history,
   persona,
+  mode,
   useTools,
   noteIds,
   skill,
@@ -2113,10 +2116,14 @@ async function streamChat({
   onAnswer,
   onTool,
   onConfirm,
+  onAsk,
   onStats,
 }) {
   const body = { question, history: history || [] };
   if (persona) body.persona = persona;
+  // Per-turn, not a setting: one quick answer shouldn't change the default
+  // for every answer after it.
+  if (mode) body.mode = mode;
   if (typeof useTools === "boolean") body.use_tools = useTools;
   if (noteIds && noteIds.length) body.note_ids = noteIds;
   // Running a skill sends its name, not its prompt: the server owns what a
@@ -2161,6 +2168,7 @@ async function streamChat({
       else if (event.type === "answer") onAnswer(event.delta);
       else if (event.type === "tool" && onTool) onTool(event);
       else if (event.type === "confirm" && onConfirm) onConfirm(event);
+      else if (event.type === "ask" && onAsk) onAsk(event);
       else if (event.type === "stats" && onStats) onStats(event);
     }
   }
@@ -2400,14 +2408,24 @@ function messageMetaLine({ model, elapsedMs, stats, toolCount = 0, rounds = 0 })
   if (elapsedMs != null) {
     bits.push(elapsedMs < 1000 ? `${elapsedMs} ms` : `${(elapsedMs / 1000).toFixed(1)}s`);
   }
+  let fill = null;
   if (stats) {
     const inTok = stats.prompt_tokens;
     const outTok = stats.output_tokens;
     if (inTok != null || outTok != null) {
-      bits.push(`${inTok ?? "?"}→${outTok ?? "?"} tokens`);
+      const approx = stats.usage_source === "estimated" ? "~" : "";
+      bits.push(`${approx}${inTok ?? "?"}→${outTok ?? "?"} tokens`);
     }
     if (outTok && stats.eval_ms) {
       bits.push(`${(outTok / (stats.eval_ms / 1000)).toFixed(1)} tok/s`);
+    }
+    // How full the window got. A raw token count doesn't tell you whether an
+    // answer was comfortable or nearly lost the top of its own prompt —
+    // "3.9k of 8k (48%)" does, and it is the number that explains a turn that
+    // suddenly forgot its instructions.
+    if (inTok != null && stats.context_tokens) {
+      fill = Math.min(100, Math.round((inTok / stats.context_tokens) * 100));
+      bits.push(`${compactTokens(inTok)}/${compactTokens(stats.context_tokens)} window (${fill}%)`);
     }
   }
   // What the agent actually did, so a turn that used tools says so rather
@@ -2415,9 +2433,25 @@ function messageMetaLine({ model, elapsedMs, stats, toolCount = 0, rounds = 0 })
   if (toolCount) bits.push(`${toolCount} tool${toolCount === 1 ? "" : "s"}`);
   if (rounds > 1) bits.push(`${rounds} rounds`);
   row.textContent = bits.join(" · ");
+  // Past ~80% the next turn of the same conversation is the one that starts
+  // dropping things, so the warning belongs on the turn *before* it happens
+  // rather than after the model has already lost the plot.
+  if (fill != null && fill >= 80) row.classList.add("msg-meta-tight");
   row.title =
-    "Model · response time · prompt→output tokens · generation speed · tools used";
+    "Model · response time · prompt→output tokens · generation speed · " +
+    "how much of the model's context window this turn used · tools used" +
+    (stats && stats.usage_source === "estimated"
+      ? "\n\n~ means the server didn't report token counts, so these are estimated from the text."
+      : "");
   return row;
+}
+
+// "8192" is a number you have to read; "8k" is one you can glance at. Under a
+// thousand stays exact, because rounding 900 to "1k" would be a lie in the
+// direction that matters when the window is nearly full.
+function compactTokens(n) {
+  if (n == null) return "?";
+  return n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n);
 }
 
 // Remove a message from the live transcript. A saved conversation stores
@@ -2908,6 +2942,75 @@ async function saveWebPageAsNote() {
   } catch (error) {
     toast(error.message, true);
   }
+}
+
+// What the backend says about the model in use. Fetched when the Models
+// screen is drawn rather than polled: none of it changes while the app runs.
+async function renderModelSpec(modelName) {
+  const box = $("model-spec");
+  if (!box) return;
+  const spec = await apiJson(`/models/spec?name=${encodeURIComponent(modelName || "")}`, {
+    silent: true,
+  }).catch(() => null);
+  if (!spec) {
+    box.classList.add("hidden");
+    return;
+  }
+  // Tri-state, and the third state is the point: null means "this backend
+  // doesn't report capabilities", which is not the same as "no". Saying "no"
+  // about a model that works fine would send someone chasing a problem that
+  // isn't there.
+  const canDo = (value) => (value === null ? "not reported" : value ? "yes" : "no");
+  const rows = [
+    ["Size", spec.parameters],
+    ["Quantisation", spec.quantisation],
+    ["Family", spec.family],
+    // Two windows, deliberately. A 128k model is *run* at less because the KV
+    // cache scales with the window — without both numbers the percentage on
+    // each message looks wrong to anyone who knows what the model can hold.
+    [
+      "Context window",
+      spec.context_length
+        ? `${compactTokens(spec.usable_context)} in use` +
+          (spec.context_length > spec.usable_context
+            ? ` (of ${compactTokens(spec.context_length)} it can hold)`
+            : "")
+        : null,
+    ],
+    ["Loaded at", spec.loaded_context_length ? compactTokens(spec.loaded_context_length) : null],
+    ["Can use tools", canDo(spec.supports_tools)],
+    ["Can think", canDo(spec.supports_thinking)],
+  ].filter(([, value]) => value != null && value !== "");
+
+  box.replaceChildren();
+  for (const [label, value] of rows) {
+    const dt = document.createElement("dt");
+    dt.textContent = label;
+    const dd = document.createElement("dd");
+    dd.textContent = String(value);
+    box.append(dt, dd);
+  }
+  box.classList.toggle("hidden", rows.length === 0);
+}
+
+// The response presets, fetched once. Served by /chat/modes rather than
+// listed here so adding a fourth is a change to `ai/presets.py` alone (§11).
+async function loadResponseModes() {
+  const select = $("response-mode-select");
+  if (!select) return;
+  const body = await apiJson("/chat/modes", { silent: true }).catch(() => null);
+  if (!body || !body.modes) return;
+  select.replaceChildren();
+  for (const mode of body.modes) {
+    const option = document.createElement("option");
+    option.value = mode.id;
+    option.textContent = mode.label;
+    option.title = mode.description;
+    if (mode.id === body.active) option.selected = true;
+    select.appendChild(option);
+  }
+  const active = body.modes.find((m) => m.id === body.active);
+  if (active) select.title = active.description;
 }
 
 function personaOptions() {
@@ -3429,6 +3532,40 @@ function renderToolConfirm(holder, event) {
     })
   );
   card.append(text, row);
+  holder.appendChild(card);
+  chatScrollToEnd();
+}
+
+// The agent stopped to ask something. Its options become buttons, and picking
+// one sends that text as the next message — so the answer travels through the
+// ordinary conversation history rather than through any parked server state.
+// Nothing to expire, nothing lost on a reload, and the exchange reads back in
+// the saved chat like the short question-and-answer it was.
+function renderAgentQuestion(holder, event) {
+  const card = document.createElement("div");
+  card.className = "tool-confirm agent-ask";
+  const text = document.createElement("p");
+  text.textContent = `❓ ${event.question}`;
+  const row = document.createElement("div");
+  row.className = "row agent-ask-options";
+
+  let answered = false;
+  const answer = (choice) => {
+    if (answered) return; // double-click, or Enter on a focused button
+    answered = true;
+    // Replace the card rather than leave dead buttons: the exchange is
+    // already about to appear as a normal user message below.
+    card.replaceWith(toolChip(`❓ ${event.question} → ${choice}`));
+    sendChatMessage(choice);
+  };
+
+  for (const option of event.options || []) {
+    row.appendChild(smallButton(option, `Answer: ${option}`, () => answer(option), false));
+  }
+  const note = document.createElement("p");
+  note.className = "muted";
+  note.textContent = "Or type your own answer below.";
+  card.append(text, row, note);
   holder.appendChild(card);
   chatScrollToEnd();
 }
@@ -4391,6 +4528,7 @@ async function sendChatMessage(preset, opts = {}) {
       question,
       history: chatConv.turns.slice(-MAX_CLIENT_HISTORY),
       persona: $("persona-select").value || null,
+      mode: $("response-mode-select").value || null,
       useTools: opts.useTools ?? $("tools-toggle").checked,
       noteIds: sentAttachments,
       skill: opts.skill,
@@ -4449,6 +4587,13 @@ async function sendChatMessage(preset, opts = {}) {
         timeline.tool(card.firstElementChild || card);
         status.textContent = "Waiting for your confirmation…";
       },
+      onAsk: (event) => {
+        clearPending();
+        const card = document.createElement("div");
+        renderAgentQuestion(card, event);
+        timeline.tool(card.firstElementChild || card);
+        status.textContent = "Waiting for your answer…";
+      },
       onStats: (event) => {
         // An agent turn reports once per round, so these accumulate: output
         // tokens and generation time add up, while the prompt size is the
@@ -4463,6 +4608,13 @@ async function sendChatMessage(preset, opts = {}) {
         stats.eval_ms = (stats.eval_ms || 0) + (event.eval_ms || 0);
         // The agent tags each round; the highest is how many it took.
         stats.round = Math.max(stats.round || 0, event.round || 0);
+        // The window doesn't change between rounds, but the peak prompt does —
+        // and the peak is the one worth reporting, because it is the round
+        // that came closest to overflowing.
+        stats.context_tokens = event.context_tokens || stats.context_tokens;
+        // One estimated round makes the whole total an estimate. Reporting a
+        // mixed figure as measured would be the dishonest way round.
+        if (event.usage_source === "estimated") stats.usage_source = "estimated";
       },
     });
     status.textContent = "";
@@ -4565,6 +4717,15 @@ async function sendChatMessage(preset, opts = {}) {
       tokens: stats
         ? (stats.prompt_tokens || 0) + (stats.output_tokens || 0)
         : null,
+      // The whole metadata line, not just its total. `tokens` above is a sum,
+      // which is right for the conversation's running total and useless for
+      // rebuilding "3.9k/8k window · 12 tok/s · llama3.2" — so on reload the
+      // line used to vanish and the answer looked like it came from nowhere.
+      stats: stats || null,
+      // How long the answer took, measured here because the client is the only
+      // thing that saw the whole turn: the server reports per-round timings,
+      // and an agent turn is several rounds plus the tool calls between them.
+      elapsed_ms: elapsedMs,
     };
     if (chatConv.id === null) {
       const created = await apiJson("/conversations", {
@@ -5097,6 +5258,22 @@ async function openConversation(id) {
         }
       }
       handles.timeline.finalise();
+      // Rebuild the metadata line. Reported in IDEAS.md as "chat message
+      // metadata disappears on reload": it was only ever built from the live
+      // stream, so reopening a chat showed answers with nothing to say which
+      // model wrote them or what they cost. Turns saved before this stored no
+      // stats and correctly get no line, rather than a row of "?"s.
+      if (message.stats) {
+        handles.bubble.appendChild(
+          messageMetaLine({
+            model: message.stats.model,
+            elapsedMs: message.elapsed_ms,
+            stats: message.stats,
+            toolCount: (message.tools || []).length,
+            rounds: message.stats.round || 0,
+          })
+        );
+      }
       const turnIndex = chatConv.turns.length; // index this pair will occupy
       if (message.edited) handles.bubble.appendChild(editedMarker());
       handles.bubble.appendChild(
@@ -5471,24 +5648,73 @@ function askSkillInputs(skill, done) {
   inputs[0]?.box.focus();
 }
 
+// Skills as a dropdown rather than a row of chips. Ten built-ins plus up to
+// thirty of your own is a wrapping wall of buttons that pushes the message box
+// off the screen, and every one of them is a click you can make by accident
+// while reaching for the text area. A select is one line, groups "yours" apart
+// from the built-ins, and — the part that matters — leaves room to say what a
+// skill DOES next to its name instead of hiding it in a hover.
 async function loadChatSkills() {
   await loadSkills();
   const box = $("chat-skills");
   box.replaceChildren();
+
   const label = document.createElement("span");
   label.className = "muted";
-  label.textContent = "⚡ Skills:";
-  box.appendChild(label);
+  label.textContent = "⚡ Skill:";
+
+  const select = document.createElement("select");
+  select.className = "small-select";
+  select.id = "chat-skill-select";
+  select.setAttribute("aria-label", "Run a skill");
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "Choose a skill…";
+  select.appendChild(placeholder);
+
+  const groups = { builtin: [], mine: [] };
   for (const skill of allSkills()) {
-    // ⚙ means "this one changes your notebook", not "this one uses tools" —
-    // nearly every skill uses tools, and a marker on all of them says nothing.
-    const chipEl = chip(skill.name + (skill.changes ? " ⚙" : ""), "", () => runSkill(skill));
-    chipEl.title = skillSummary(skill);
-    box.appendChild(chipEl);
+    groups[skill.builtin ? "builtin" : "mine"].push(skill);
   }
-  const manage = chip("＋ manage", "", () => openSettingsModal("skills"));
-  manage.title = "Add or edit skills in Settings";
-  box.appendChild(manage);
+  for (const [key, title] of [["mine", "Yours"], ["builtin", "Built-in"]]) {
+    if (!groups[key].length) continue;
+    const group = document.createElement("optgroup");
+    group.label = title;
+    for (const skill of groups[key]) {
+      const option = document.createElement("option");
+      option.value = skill.name;
+      // ⚙ means "this one changes your notebook", not "this one uses tools" —
+      // nearly every skill uses tools, and a marker on all of them says nothing.
+      option.textContent = skill.name + (skill.changes ? " ⚙" : "");
+      option.title = skillSummary(skill);
+      group.appendChild(option);
+    }
+    select.appendChild(group);
+  }
+
+  // Chosen, then run — rather than running on change. A dropdown that fires an
+  // action the instant it changes cannot be browsed, and these actions edit
+  // the notebook.
+  const run = smallButton("Run", "Run the selected skill", () => {
+    const chosen = allSkills().find((s) => s.name === select.value);
+    if (chosen) runSkill(chosen);
+  });
+  run.disabled = true;
+  select.addEventListener("change", () => {
+    run.disabled = !select.value;
+    const chosen = allSkills().find((s) => s.name === select.value);
+    hint.textContent = chosen ? (chosen.description || chosen.prompt || "").slice(0, 120) : "";
+  });
+
+  const manage = smallButton("＋", "Add or edit skills in Settings", () =>
+    openSettingsModal("skills")
+  );
+  manage.classList.add("ghost");
+
+  const hint = document.createElement("span");
+  hint.className = "muted chat-skill-hint";
+
+  box.append(label, select, run, manage, hint);
   box.classList.remove("hidden");
 }
 
@@ -6684,6 +6910,13 @@ async function renderDashboard() {
 
 let artInstance = null; // the one live p5 instance, if any
 let artNonce = 0; // bumped by "Regenerate" for a fresh arrangement
+// Where the constellation is drawn, kept so a theme change can rebuild it.
+//
+// The sketch reads light-or-dark ONCE, when it is built, and paints its wash
+// from that. Nothing rebuilt it when the mode changed, so toggling to dark left
+// the one panel on the dashboard still wearing the light background until you
+// pressed Regenerate — reported, and listed in IDEAS.md.
+let artHolder = null;
 
 // Stable 0–359 hue from a category name, so a category keeps its colour.
 function hueFor(name) {
@@ -6709,6 +6942,19 @@ function stopArt() {
     artInstance.remove(); // tears down the canvas + draw loop
     artInstance = null;
   }
+}
+
+// Rebuild the constellation for the mode now in force. Safe to call whenever
+// the theme changes: it does nothing unless the widget is actually on screen,
+// and it keeps `artNonce` so the sky stays the same arrangement — this is a
+// recolour, not a reshuffle, and re-rolling someone's picture because they
+// turned on dark mode would be its own bug.
+function refreshArtForTheme() {
+  if (!artHolder || !artHolder.isConnected) {
+    artHolder = null;
+    return;
+  }
+  startArt(artHolder);
 }
 
 function buildArtParticles(p, categories, total, width, height) {
@@ -6791,6 +7037,7 @@ async function renderArtWidget(body) {
 
 async function startArt(holder) {
   stopArt();
+  artHolder = holder;
   if (typeof p5 === "undefined") {
     holder.textContent = "The art library didn't load.";
     return;
@@ -10064,6 +10311,7 @@ function showSettingsSection(name) {
   for (const button of document.querySelectorAll("#settings-nav button")) {
     button.classList.toggle("active", button.dataset.section === name);
   }
+  updatePeekAvailability(name);
   // The log stream is the only section that holds a connection open, so it is
   // the only one that has to be told it is no longer being looked at.
   if (name !== "logs") closeLogs();
@@ -10078,6 +10326,26 @@ function showSettingsSection(name) {
   if (name === "account") renderAccount().catch(() => {});
   if (name === "data") renderBackups();
   if (name === "tasks") renderTasks(); // fill it in now, then poll
+}
+
+// Peek fades the settings panel so a colour change is visible on the page
+// behind it. Two details make it work: the fade is on the BACKGROUND via
+// color-mix rather than element opacity (opacity would fade the swatches and
+// controls too, making the thing you are judging harder to see), and it clears
+// itself whenever the panel is closed or you leave Appearance — a settings
+// panel left semi-transparent on the Logs screen just looks broken.
+function setSettingsPeek(on) {
+  const modal = $("settings-modal");
+  const box = $("settings-peek");
+  modal.classList.toggle("peeking", !!on);
+  if (box) box.checked = !!on;
+}
+
+function updatePeekAvailability(section) {
+  const wrap = $("settings-peek-wrap");
+  const appearance = section === "appearance";
+  if (wrap) wrap.classList.toggle("hidden", !appearance);
+  if (!appearance) setSettingsPeek(false);
 }
 
 async function openSettingsModal(section = "models") {
@@ -10095,6 +10363,9 @@ async function openSettingsModal(section = "models") {
 }
 
 function closeSettingsModal() {
+  // Always cleared on the way out. A panel that reopens semi-transparent
+  // reads as a rendering bug, not as a setting anyone chose.
+  setSettingsPeek(false);
   $("settings-modal").classList.add("hidden");
   overlayReturnFocus?.focus?.();
   overlayReturnFocus = null;
@@ -11579,6 +11850,128 @@ function renderSearchEngineHealth(status) {
   el.className = `status ${cls}`;
 }
 
+// What to call the backend on screen. The whole UI was written when there was
+// only Ollama, and the word is in a dozen strings; this is the one place that
+// decides, so the rest read from it (§6).
+// The Chat / Agent pair. The hidden checkbox stays the single source of truth
+// — every other reader in the app already consults it, and a second store for
+// the same fact is how two of them end up disagreeing. These buttons just show
+// it and set it.
+function renderChatModeSeg() {
+  const agent = $("tools-toggle").checked;
+  $("task-history-clear").addEventListener("click", async () => {
+  await apiJson("/tasks/history/clear", { method: "POST" }).catch((e) =>
+    toast(e.message, true)
+  );
+  renderTasks();
+});
+$("app-quit").addEventListener("click", async () => {
+  // Confirmed, because it is not undoable from inside the app: once the
+  // server is down, the button that would bring it back is on the page that
+  // just stopped being served.
+  if (!confirm("Quit MemoryMap? The app and its server will stop.")) return;
+  try {
+    await apiJson("/shutdown", { method: "POST" });
+  } catch {
+    // The server may drop the connection as it goes. That is the request
+    // succeeding, not failing, so it is not worth an error toast.
+  }
+  document.body.innerHTML =
+    '<div style="padding:3rem;text-align:center;font-family:system-ui">' +
+    "<h1>MemoryMap has stopped.</h1>" +
+    "<p>Your notes are saved. You can close this tab.</p></div>";
+});
+for (const button of document.querySelectorAll("#chat-mode-seg button")) {
+    const active = button.dataset.chatMode === (agent ? "agent" : "chat");
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+  }
+}
+
+async function setChatMode(mode) {
+  const agent = mode === "agent";
+  $("tools-toggle").checked = agent;
+  renderChatModeSeg();
+  // Remembered, because it is a way of working rather than a per-message
+  // choice — the same preference the checkbox always wrote.
+  await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ tools_enabled: agent }),
+  }).catch(() => {});
+}
+
+function backendLabel(status) {
+  return (status && status.provider) === "openai" ? "The model server" : "Ollama";
+}
+
+// True while the user is mid-edit, so a status poll doesn't overwrite the
+// address they are halfway through typing. The polling that keeps this screen
+// live is the reason: without it, a five-second refresh eats every third
+// keystroke.
+let backendFieldsDirty = false;
+
+function renderBackendPicker(status) {
+  const select = $("llm-provider-select");
+  const url = $("llm-base-url");
+  if (!select || !url) return;
+  if (backendFieldsDirty || document.activeElement === url) return;
+  select.value = status.provider || "ollama";
+  // Show the address actually in use, but as a placeholder when it is just the
+  // default — so the field stays empty and "blank means the usual one" keeps
+  // being true after a round trip.
+  const defaults = status.provider_default_base_urls || {};
+  const fallback = defaults[select.value] || "";
+  if (status.base_url && status.base_url !== fallback) {
+    url.value = status.base_url;
+  } else {
+    url.value = "";
+  }
+  url.placeholder = fallback || "Default address";
+
+  // Drawn from the status poll, not only from the Connect response. A warning
+  // that shows once and disappears on the next reload is a warning about a
+  // condition that has not gone away — and this one says the notes are leaving
+  // the machine, which is the promise the whole app is built on.
+  const privacy = $("llm-privacy-warning");
+  if (privacy) {
+    privacy.textContent = status.privacy_note || "";
+    privacy.classList.toggle("hidden", !status.privacy_note);
+  }
+  const lock = $("local-only-ai");
+  if (lock && document.activeElement !== lock) {
+    lock.checked = status.local_only_ai !== false;
+  }
+}
+
+async function applyBackendChoice() {
+  const provider = $("llm-provider-select").value;
+  const baseUrl = $("llm-base-url").value.trim();
+  const note = $("llm-provider-status");
+  note.textContent = "Connecting…";
+  try {
+    const body = await apiJson("/models/provider", {
+      method: "POST",
+      body: JSON.stringify({ provider, base_url: baseUrl }),
+    });
+    backendFieldsDirty = false;
+    // The setting is saved either way — you set the address, then you start
+    // the server — so this reports what was found rather than treating an
+    // unreachable server as a rejected setting.
+    note.textContent = body.reachable
+      ? `● Connected to ${body.base_url} — ${body.installed_models.length} model(s) available.`
+      : `○ Saved, but nothing is answering at ${body.base_url} yet. Start the server and this will light up.`;
+    // This app's headline promise is that notes stay on the machine. A backend
+    // somewhere else is allowed — someone may want it — but never quietly, so
+    // the warning is loud and stays until the address changes.
+    const privacy = $("llm-privacy-warning");
+    privacy.textContent = body.privacy_note || "";
+    privacy.classList.toggle("hidden", !body.privacy_note);
+    await refreshModelStatus();
+  } catch (err) {
+    note.textContent = err.message;
+  }
+}
+
 function renderSettings() {
   const status = modelStatus;
   const ollamaLine = $("ollama-status");
@@ -11588,9 +11981,14 @@ function renderSettings() {
     return;
   }
 
+  // Name the backend that actually answered. Saying "Ollama not detected"
+  // when the app was pointed at LM Studio sends people to install the wrong
+  // thing (§6).
+  const backend = backendLabel(status);
   ollamaLine.textContent = status.ollama_running
-    ? "● Ollama is running"
-    : "○ Ollama not detected";
+    ? `● ${backend} is running`
+    : `○ ${backend} not detected`;
+  renderBackendPicker(status);
   const embeddingError = $("embedding-error");
   embeddingError.classList.toggle("hidden", !status.embedding_error);
   if (status.embedding_error) {
@@ -11601,9 +11999,19 @@ function renderSettings() {
       "it runs fully offline. Full details in Settings → Logs.";
   }
   renderSearchEngineHealth(status);
-  $("ollama-help").classList.toggle("hidden", status.ollama_running);
+  // The "install Ollama" advice only helps someone who chose Ollama.
+  $("ollama-help").classList.toggle(
+    "hidden",
+    status.ollama_running || status.provider !== "ollama"
+  );
   $("models-config").classList.toggle("hidden", !status.ollama_running);
-  $("suggested-box").classList.toggle("hidden", !status.ollama_running);
+  // Downloads are an Ollama capability. Every other backend is handed a model
+  // that is already on disk, so the panel hides rather than offering a button
+  // that cannot work.
+  $("suggested-box").classList.toggle(
+    "hidden",
+    !status.ollama_running || status.supports_pull === false
+  );
 
   // The search engine is always adjustable: its recommended option is the
   // built-in one, which needs no Ollama. Only the Ollama half of it depends
@@ -11614,8 +12022,10 @@ function renderSettings() {
     renderUtilityModelPicker(status);
     renderInstalledModels(status);
     renderSuggested(status);
+    renderModelSpec(status.chat_model);
   } else {
     $("installed-box").classList.add("hidden");
+    $("model-spec").classList.add("hidden");
   }
   renderReindex(status);
   // Only while the section is actually on screen: /tasks is its own call, and
@@ -11705,6 +12115,51 @@ async function renderTasks() {
       li.appendChild(fold);
       // Follow the tail, the way a terminal does.
       if (fold.open) pre.scrollTop = pre.scrollHeight;
+    }
+    list.appendChild(li);
+  }
+  renderTaskHistory((body && body.history) || []);
+}
+
+// What has stopped, newest first. Separate from the running list on purpose:
+// mixing them means a finished job and a running one look alike at a glance,
+// and the question this screen answers most often is "is it still going?".
+const TASK_OUTCOMES = {
+  completed: { icon: "✅", className: "" },
+  failed: { icon: "⚠️", className: "task-failed" },
+  // Not an error. Reporting a user's own decision in red is how people learn
+  // to ignore red.
+  cancelled: { icon: "✖", className: "muted" },
+};
+
+function renderTaskHistory(history) {
+  const box = $("task-history-box");
+  const list = $("task-history");
+  if (!box || !list) return;
+  box.classList.toggle("hidden", history.length === 0);
+  list.replaceChildren();
+  for (const item of history) {
+    const style = TASK_OUTCOMES[item.outcome] || TASK_OUTCOMES.completed;
+    const li = document.createElement("li");
+    if (style.className) li.className = style.className;
+
+    const row = document.createElement("div");
+    row.className = "entry-meta";
+    const name = document.createElement("strong");
+    name.textContent = `${style.icon} ${item.label}`;
+    const when = document.createElement("span");
+    when.className = "muted";
+    when.textContent = relativeTime(item.at);
+    row.append(name, when);
+    li.appendChild(row);
+
+    // The reason, which is the whole point for a failure — until now it
+    // existed only in the log console, a screen you have to know to open.
+    if (item.detail) {
+      const detail = document.createElement("p");
+      detail.className = "muted task-detail";
+      detail.textContent = item.detail;
+      li.appendChild(detail);
     }
     list.appendChild(li);
   }
@@ -12158,6 +12613,8 @@ function toggleTheme() {
   localStorage.setItem("theme", next); // remembered across restarts
   applyResolvedMode();
   if (bgArtOn()) startBgArt(); // recolour the background for the new theme
+  refreshArtForTheme(); // …and the dashboard constellation, which reads the
+                        // mode when it is built rather than on every frame
 }
 
 // --- Wave J: accent themes + generative background --------------------------------
@@ -12212,6 +12669,7 @@ function applyAccent(name, remember = true) {
   if (remember) localStorage.setItem("accent", name);
   applyEffectiveAccent();
   if (bgArtOn()) startBgArt(); // repaint the background in the new accent
+  refreshArtForTheme(); // its wash is painted from the accent as well
   renderBrandLogo(); // recolour the emblem too
 }
 
@@ -12482,6 +12940,219 @@ function resetThemeOnly() {
   toast("Theme reset to the app default. Your own changes are still applied.");
 }
 
+// --- building a scheme from one colour ---------------------------------------
+//
+// Picking an accent is easy. Picking a page background that *goes* with it is
+// the part people give up on and end up with a default they didn't choose — so
+// the relationship is arithmetic rather than judgement: rotate the hue by a
+// known amount, drop the saturation hard, and push the lightness to whichever
+// end the current mode needs.
+//
+// Only two things are written: the accent and the page background. It would be
+// easy to generate a dozen variables and much harder to undo, and both of
+// these already have a Clear button and a place in the override layer that the
+// rest of the appearance settings understand.
+
+function hexToHsl(hex) {
+  const clean = String(hex || "").replace("#", "");
+  if (clean.length !== 6) return null;
+  const n = Number.parseInt(clean, 16);
+  if (Number.isNaN(n)) return null;
+  const r = ((n >> 16) & 255) / 255;
+  const g = ((n >> 8) & 255) / 255;
+  const b = (n & 255) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return [0, 0, l * 100];
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h;
+  if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+  else if (max === g) h = ((b - r) / d + 2) / 6;
+  else h = ((r - g) / d + 4) / 6;
+  return [h * 360, s * 100, l * 100];
+}
+
+function hslToHex(h, s, l) {
+  const sat = Math.max(0, Math.min(100, s)) / 100;
+  const light = Math.max(0, Math.min(100, l)) / 100;
+  const hue = ((h % 360) + 360) % 360;
+  const c = (1 - Math.abs(2 * light - 1)) * sat;
+  const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
+  const m = light - c / 2;
+  const [r, g, b] =
+    hue < 60 ? [c, x, 0] :
+    hue < 120 ? [x, c, 0] :
+    hue < 180 ? [0, c, x] :
+    hue < 240 ? [0, x, c] :
+    hue < 300 ? [x, 0, c] : [c, 0, x];
+  const to = (v) => Math.round((v + m) * 255).toString(16).padStart(2, "0");
+  return `#${to(r)}${to(g)}${to(b)}`;
+}
+
+// How far to rotate the background's hue away from the accent's. The names are
+// the standard colour-wheel relationships; the numbers are what those names
+// mean in degrees.
+const HARMONY_ROTATIONS = {
+  monochromatic: 0,
+  analogous: -30,
+  complementary: 180,
+  triadic: 120,
+};
+
+function harmonyScheme(baseHex, kind, dark) {
+  const hsl = hexToHsl(baseHex);
+  if (!hsl) return null;
+  const [h, s] = hsl;
+  const rotation = HARMONY_ROTATIONS[kind] ?? 0;
+  // A page background carrying the accent's full saturation is exhausting to
+  // read against, so it keeps only a trace of it — enough to feel related, far
+  // too little to compete with the text.
+  const bgSaturation = Math.max(3, s * 0.14);
+  const bgLightness = dark ? 12 : 96;
+  return {
+    accent: baseHex,
+    page: hslToHex(h + rotation, bgSaturation, bgLightness),
+  };
+}
+
+// `resolvedTheme` rather than the raw preference: under "System" there is no
+// stored light/dark to read, and generating a light background for someone
+// looking at a dark page is the one way this feature can be obviously wrong.
+
+function applyHarmony() {
+  const base = $("harmony-base").value;
+  const kind = $("harmony-kind").value;
+  const scheme = harmonyScheme(base, kind, resolvedTheme() === "dark");
+  const note = $("harmony-note");
+  if (!scheme) {
+    note.textContent = "That colour didn't parse — try picking it again.";
+    return;
+  }
+  localStorage.setItem("accent-custom", scheme.accent);
+  localStorage.setItem("page-bg", scheme.page);
+  applyCustomAccent(scheme.accent);
+  applyPageBackground(scheme.page);
+  renderAppearance();
+  note.textContent =
+    `Accent ${scheme.accent}, background ${scheme.page}. ` +
+    "Both have their own Clear buttons above if you'd rather start again.";
+}
+
+// --- your own saved themes ---------------------------------------------------
+//
+// A saved theme is a snapshot of the same localStorage keys every appearance
+// control already writes, so it is not a second system that could drift from
+// them — the same idea as the built-in presets, which are also just bundles of
+// those values.
+//
+// Stored server-side with the rest of the preferences rather than in the
+// browser. The look itself lives in localStorage because it has to be applied
+// before first paint, but a *saved* look is something you would be upset to
+// lose to a cleared cache — and in preferences it also rides along in the
+// daily backup and is there in the desktop window as well as the browser tab.
+
+const MAX_CUSTOM_THEMES = 20;
+
+function currentLookValues() {
+  const values = {};
+  for (const key of OVERRIDABLE_KEYS) {
+    const value = localStorage.getItem(key);
+    if (value !== null) values[key] = value;
+  }
+  // The chosen preset is part of the look: without it, saving while "Manuscript"
+  // is active and then applying the save would drop back to whatever preset
+  // happened to be selected at the time.
+  const preset = localStorage.getItem("themePreset");
+  return { values, preset: preset || "" };
+}
+
+function savedThemes() {
+  const saved = prefsCache && prefsCache.custom_themes;
+  return Array.isArray(saved) ? saved : [];
+}
+
+async function saveCurrentLook() {
+  const input = $("custom-theme-name");
+  const name = input.value.trim().slice(0, 30);
+  if (!name) {
+    toast("Give the look a name first.", true);
+    input.focus();
+    return;
+  }
+  const existing = savedThemes();
+  if (existing.length >= MAX_CUSTOM_THEMES && !existing.some((t) => t.name === name)) {
+    toast(`You can keep ${MAX_CUSTOM_THEMES} saved looks — delete one first.`, true);
+    return;
+  }
+  const snapshot = { name, ...currentLookValues() };
+  // Saving under an existing name replaces it, which is what "save" means when
+  // you have just tweaked a look you already saved.
+  const next = [...existing.filter((t) => t.name !== name), snapshot];
+  await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ custom_themes: next }),
+  });
+  if (prefsCache) prefsCache.custom_themes = next;
+  input.value = "";
+  renderCustomThemes();
+  toast(`Saved “${name}”.`);
+}
+
+function applySavedTheme(theme) {
+  // Everything the snapshot named is restored; everything it didn't is left
+  // alone rather than reset, so applying a saved look never silently changes a
+  // setting the snapshot had nothing to say about.
+  for (const [key, value] of Object.entries(theme.values || {})) {
+    localStorage.setItem(key, value);
+  }
+  if (theme.preset) localStorage.setItem("themePreset", theme.preset);
+  else localStorage.removeItem("themePreset");
+  // The same function startup uses, so a restored look is applied by exactly
+  // the path that would have applied it on a fresh load.
+  applyThemeChoice(theme.values?.theme || "system", false);
+  applyAppearance();
+  renderAppearance();
+  toast(`Applied “${theme.name}”.`);
+}
+
+async function deleteSavedTheme(name) {
+  const next = savedThemes().filter((t) => t.name !== name);
+  await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ custom_themes: next }),
+  });
+  if (prefsCache) prefsCache.custom_themes = next;
+  renderCustomThemes();
+  toast(`Deleted “${name}”.`);
+}
+
+function renderCustomThemes() {
+  const box = $("custom-themes");
+  if (!box) return;
+  const themes = savedThemes();
+  box.replaceChildren();
+  if (!themes.length) {
+    const empty = document.createElement("p");
+    empty.className = "muted";
+    empty.textContent = "Nothing saved yet — set the app up how you like it, then save it here.";
+    box.appendChild(empty);
+    return;
+  }
+  for (const theme of themes) {
+    const chip = document.createElement("div");
+    chip.className = "theme-chip";
+    const apply = smallButton(theme.name, `Apply “${theme.name}”`, () => applySavedTheme(theme), false);
+    const remove = smallButton("✕", `Delete “${theme.name}”`, () => {
+      deleteSavedTheme(theme.name).catch((e) => toast(e.message, true));
+    });
+    remove.classList.add("ghost");
+    chip.append(apply, remove);
+    box.appendChild(chip);
+  }
+}
+
 // "#rrggbb" -> "r, g, b" so a custom colour can drive rgba() softs.
 function hexToRgbParts(hex) {
   const clean = String(hex || "").replace("#", "");
@@ -12610,6 +13281,7 @@ window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () 
   if (effectiveTheme() === "system") {
     applyResolvedMode();
     if (bgArtOn()) startBgArt();
+    refreshArtForTheme();
   }
 });
 
@@ -12623,6 +13295,10 @@ function applyThemeChoice(choice, remember = true) {
   }
   applyResolvedMode();
   if (bgArtOn()) startBgArt();
+  // The dashboard constellation reads light-or-dark when it is built, so it
+  // has to be rebuilt too — the background art already was, which is why only
+  // this one appeared stuck on the old mode.
+  refreshArtForTheme();
   renderBrandLogo();
 }
 
@@ -12701,6 +13377,14 @@ function renderAppearance() {
     });
     holder.appendChild(button);
   }
+  renderCustomThemes();
+  // Seed the harmony picker from whatever accent is showing, so "Apply" on an
+  // untouched picker keeps the colour you already have rather than jumping to
+  // an arbitrary default.
+  const showing = getComputedStyle(document.documentElement)
+    .getPropertyValue("--accent")
+    .trim();
+  if (/^#[0-9a-f]{6}$/i.test(showing)) $("harmony-base").value = showing;
   $("contrast-toggle").checked = contrastOn();
   $("reduce-motion-toggle").checked = appearancePref("motion") === "reduced";
   $("bg-art-toggle").checked = bgArtOn();
@@ -12831,8 +13515,10 @@ function applyPalette(id, remember = true) {
   if (id && id !== "default") root.dataset.palette = id;
   else delete root.dataset.palette;
   if (remember) localStorage.setItem("palette", id || "default");
-  // The generative background paints from the accent, so it has to be rebuilt.
+  // The generative background paints from the accent, so it has to be rebuilt —
+  // and so does the dashboard constellation, for the same reason.
   if (bgArtOn()) startBgArt();
+  refreshArtForTheme();
 }
 
 function renderPaletteGrid() {
@@ -13489,6 +14175,55 @@ switchTab(localStorage.getItem("activeTab") || "notes");
 // Settings modal (Wave A).
 $("settings-btn").addEventListener("click", () => openSettingsModal());
 $("settings-close").addEventListener("click", closeSettingsModal);
+$("settings-peek").addEventListener("change", (e) => setSettingsPeek(e.target.checked));
+$("local-only-ai").addEventListener("change", async (e) => {
+  const on = e.target.checked;
+  await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ local_only_ai: on }),
+  }).catch((error) => toast(error.message, true));
+  // Say it plainly on the way out of the safe state. Turning the lock ON is
+  // unremarkable; turning it OFF is the moment worth naming, because the app's
+  // central promise stops being enforced at exactly that click.
+  toast(
+    on
+      ? "The AI is locked to this machine."
+      : "Off — MemoryMap will now let you point the AI at a server on the internet."
+  );
+  refreshModelStatus();
+});
+$("task-history-clear").addEventListener("click", async () => {
+  await apiJson("/tasks/history/clear", { method: "POST" }).catch((e) =>
+    toast(e.message, true)
+  );
+  renderTasks();
+});
+$("app-quit").addEventListener("click", async () => {
+  // Confirmed, because it is not undoable from inside the app: once the
+  // server is down, the button that would bring it back is on the page that
+  // just stopped being served.
+  if (!confirm("Quit MemoryMap? The app and its server will stop.")) return;
+  try {
+    await apiJson("/shutdown", { method: "POST" });
+  } catch {
+    // The server may drop the connection as it goes. That is the request
+    // succeeding, not failing, so it is not worth an error toast.
+  }
+  document.body.innerHTML =
+    '<div style="padding:3rem;text-align:center;font-family:system-ui">' +
+    "<h1>MemoryMap has stopped.</h1>" +
+    "<p>Your notes are saved. You can close this tab.</p></div>";
+});
+for (const button of document.querySelectorAll("#chat-mode-seg button")) {
+  button.addEventListener("click", () => setChatMode(button.dataset.chatMode));
+}
+$("harmony-apply").addEventListener("click", applyHarmony);
+$("custom-theme-save").addEventListener("click", () => {
+  saveCurrentLook().catch((error) => toast(error.message, true));
+});
+$("custom-theme-name").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") $("custom-theme-save").click();
+});
 $("settings-modal").addEventListener("click", (e) => {
   if (e.target === $("settings-modal")) closeSettingsModal(); // backdrop click
 });
@@ -13681,6 +14416,19 @@ $("persona-select").addEventListener("change", async () => {
     body: JSON.stringify({ active_persona: $("persona-select").value }),
   }).catch(() => {});
 });
+$("response-mode-select").addEventListener("change", async (e) => {
+  // Changing the picker changes the default too — otherwise someone who
+  // works in Quick would re-pick it on every reload. The *request* still
+  // carries the mode per turn, so this is "remember what I chose" rather
+  // than a second setting that can disagree with the dropdown.
+  const chosen = e.target.value;
+  const option = e.target.selectedOptions[0];
+  e.target.title = (option && option.title) || "";
+  await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ response_mode: chosen }),
+  }).catch(() => {});
+});
 // The AI status dot. Hover is CSS; these are the paths hover doesn't cover —
 // touch, where there is no hover at all, and keyboards.
 $("ai-status").addEventListener("click", () => toggleAiStatusPopup());
@@ -13801,6 +14549,10 @@ $("persona-import").addEventListener("click", () =>
   })
 );
 $("tools-toggle").addEventListener("change", async () => {
+  // The pill reads from this checkbox, so anything else that flips it — a
+  // skill that needs tools, a restored preference — has to redraw the pair or
+  // the two disagree about which mode you are in.
+  renderChatModeSeg();
   // Remember the choice so it survives restarts.
   await apiJson("/preferences", {
     method: "PUT",
@@ -14424,6 +15176,18 @@ $("profile-delete").addEventListener("click", deleteProfile);
 $("export-json").addEventListener("click", () => downloadExport("json"));
 $("export-csv").addEventListener("click", () => downloadExport("csv"));
 $("chat-model-apply").addEventListener("click", applyChatModel);
+$("llm-provider-apply").addEventListener("click", applyBackendChoice);
+// Mark the fields dirty on any edit so the five-second status poll stops
+// rewriting them underneath the person typing an address into them.
+$("llm-base-url").addEventListener("input", () => (backendFieldsDirty = true));
+$("llm-provider-select").addEventListener("change", () => {
+  backendFieldsDirty = true;
+  // Switching the dropdown should re-suggest that backend's usual address
+  // rather than leave the other one's sitting there looking authoritative.
+  const defaults = (modelStatus && modelStatus.provider_default_base_urls) || {};
+  $("llm-base-url").value = "";
+  $("llm-base-url").placeholder = defaults[$("llm-provider-select").value] || "Default address";
+});
 $("utility-model-apply").addEventListener("click", applyUtilityModel);
 $("embedding-apply").addEventListener("click", applyEmbeddingBackend);
 $("utility-model-select").addEventListener(

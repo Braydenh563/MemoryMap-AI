@@ -13,8 +13,11 @@ given. The point is the next job: anything long enough to need a background
 thread should be added to `collect()` and it appears on the screen, rather
 than being invisible until someone remembers to teach the UI about it.
 
-Only *running* work is listed. A finished job is not a task, and a screen that
-accumulates them is a log — which the app already has.
+Running work is listed first, and what recently *stopped* below it. The second
+half was added after the first proved to hide the one case anyone cares about:
+a job that fails vanishes at the instant it becomes interesting, leaving the
+same empty list as a job that succeeded. The history is in-memory, bounded,
+and records endings only — see `core/taskhistory.py`.
 """
 
 from __future__ import annotations
@@ -25,7 +28,7 @@ from fastapi import APIRouter
 
 from memorymap.ai import embeddings as embeddings_module
 from memorymap.ai import model_manager as jobs
-from memorymap.core import deps
+from memorymap.core import deps, taskhistory
 
 router = APIRouter(tags=["tasks"])
 
@@ -142,5 +145,62 @@ def collect() -> list[dict]:
 
 @router.get("/tasks")
 def list_tasks() -> dict:
-    """Everything running in the background right now."""
-    return {"tasks": collect()}
+    """What is running, and what has recently stopped.
+
+    The history is the half that was missing, and the reason is narrow: a job
+    that *fails* used to disappear at the moment it became interesting. A
+    re-index that died halfway left exactly the same empty list as one that
+    finished, and the only record of why was the log console — a different
+    screen that you have to know to look at.
+    """
+    return {"tasks": collect(), "history": taskhistory.recent()}
+
+
+@router.post("/tasks/history/clear")
+def clear_history() -> dict:
+    """Forget the finished-job list.
+
+    It is in-memory and bounded, so this is a tidiness button rather than a
+    maintenance one — but a screen you cannot clear is a screen people stop
+    reading.
+    """
+    taskhistory.clear()
+    return {"cleared": True}
+
+
+# --- shutting the app down cleanly -------------------------------------------
+
+
+@router.post("/shutdown")
+def shutdown() -> dict:
+    """Stop the server on purpose, from inside the app.
+
+    Asked for: *"a way to cleanly exit the program and quit the backend."*
+    Until now the only ways out were Ctrl+C in a terminal window the launcher
+    hides, or closing the window and leaving the server running — which is why
+    a second start could find the port taken by the first.
+
+    Three properties this deliberately has:
+
+    - **It is a POST behind the unlock gate and the origin check.** A GET would
+      be reachable from a link, and "the app quit when I clicked something in
+      another tab" is a bug report nobody enjoys writing.
+    - **It replies first, then exits.** Signalling the process inline means the
+      browser gets a dropped connection and shows an error for a thing that
+      worked. The signal goes out on a short timer so the response is already
+      on the wire.
+    - **SIGINT, not `os._exit`.** It is the same signal Ctrl+C sends, so
+      uvicorn runs its normal shutdown: in-flight requests finish, lifespan
+      handlers run, and the SearXNG subprocess this app may own is torn down
+      by the code that already knows how. A hard exit would skip all of that
+      and leave the orphan it was trying to avoid.
+    """
+    import os
+    import signal
+    import threading
+
+    def _stop() -> None:
+        os.kill(os.getpid(), signal.SIGINT)
+
+    threading.Timer(0.35, _stop).start()
+    return {"stopping": True}

@@ -155,3 +155,41 @@ def test_custom_templates_roundtrip(client):
         json={"custom_templates": [{"name": "Journal", "content": "Today I…"}]},
     ).json()
     assert updated["custom_templates"] == [{"name": "Journal", "content": "Today I…"}]
+
+
+# --- saved appearance looks (§33 / IDEAS.md) ---------------------------------
+
+
+def test_a_look_can_be_saved_and_read_back(ai_client):
+    """Stored server-side rather than in the browser: a theme someone built by
+    hand is a thing they would be upset to lose to a cleared cache, and here it
+    rides along in the daily backup too."""
+    theme = {
+        "name": "Late night",
+        "values": {"theme": "dark", "accent-custom": "#8b5cf6", "radius": "4"},
+        "preset": "midnight",
+    }
+    assert ai_client.put("/preferences", json={"custom_themes": [theme]}).status_code == 200
+    saved = ai_client.get("/preferences").json()["custom_themes"]
+    assert saved == [theme]
+
+
+def test_a_theme_cannot_become_an_arbitrary_blob(ai_client):
+    """`values` is a free-form map because only the frontend knows what a
+    setting key means — so it is bounded rather than trusted."""
+    huge = {"name": "Too much", "values": {f"k{i}": "v" for i in range(60)}}
+    assert ai_client.put("/preferences", json={"custom_themes": [huge]}).status_code == 422
+
+    long_value = {"name": "Long", "values": {"accent": "x" * 500}}
+    assert ai_client.put("/preferences", json={"custom_themes": [long_value]}).status_code == 422
+
+
+def test_a_theme_needs_a_name(ai_client):
+    assert (
+        ai_client.put("/preferences", json={"custom_themes": [{"name": ""}]}).status_code
+        == 422
+    )
+
+
+def test_saved_looks_default_to_empty(ai_client):
+    assert ai_client.get("/preferences").json()["custom_themes"] == []

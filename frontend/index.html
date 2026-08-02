@@ -470,13 +470,33 @@ Link to another note with [[its first few words]]."></textarea>
                  turns on tool use generally — reading notes, searching the
                  web, opening a page — not only writes. The old label
                  undersold what it enabled and overstated the risk. -->
-            <label class="muted tools-toggle agent-toggle"
+            <!-- Two modes, shown as two options rather than as one checkbox.
+                 A tickbox states one of them and leaves the other implied, so
+                 "not Agent mode" had no name and no description; a pair makes
+                 both readable at a glance and says which you are in without
+                 having to work out what the absence of a tick means. The
+                 checkbox itself stays, hidden, because it is the thing the
+                 rest of the app reads and stores. -->
+            <div class="seg seg-compact" id="chat-mode-seg" role="group" aria-label="Chat mode">
+              <button data-chat-mode="chat" type="button"
+                title="Ask questions about your notes. The AI reads and answers; it never changes anything.">💬 Chat</button>
+              <button data-chat-mode="agent" type="button"
+                title="The AI can use tools — search and read your notes, open web pages, create, tag, link and organise. Destructive actions always ask you first.">🤖 Agent</button>
+            </div>
+            <label class="muted tools-toggle agent-toggle hidden"
               title="Agent mode: the AI can use tools — search and read your notes, open web pages, create, tag, link and organise. Destructive actions always ask you first.">
               <input type="checkbox" id="tools-toggle">
               <span class="agent-toggle-label">🤖 Agent mode</span>
             </label>
             <button id="web-search-toggle" class="ghost small" aria-pressed="false"
               title="Search the web here, and let the AI search when you ask it to">🌐 Web</button>
+            <!-- How much effort this turn is worth. Sits next to the persona
+                 because they answer neighbouring questions — who is answering,
+                 and how hard they should work at it. Filled from /chat/modes
+                 so the list can't drift from what the server does. -->
+            <select id="response-mode-select" class="small-select"
+              aria-label="Answer length"
+              title="How much effort to spend on the answer. Quick is short and literal; detailed is longer and slower."></select>
             <select id="persona-select" class="small-select" aria-label="Persona"></select>
             <!-- You could pick a persona but never see what it actually told
                  the model to do. -->
@@ -961,7 +981,17 @@ Link to another note with [[its first few words]]."></textarea>
     <div class="card modal-card">
       <div class="row space-between">
         <h2>Settings</h2>
-        <button id="settings-close" class="ghost small">Close</button>
+        <div class="row">
+          <!-- Only meaningful on Appearance, so it is shown there and hidden
+               everywhere else: a control that does nothing on nine screens out
+               of ten is a control people learn to ignore. -->
+          <label class="muted tools-toggle hidden" id="settings-peek-wrap"
+            title="Fade this panel so you can see your colour changes on the page behind it">
+            <input type="checkbox" id="settings-peek">
+            <span>👁 Peek</span>
+          </label>
+          <button id="settings-close" class="ghost small">Close</button>
+        </div>
       </div>
       <div class="modal-body">
         <!-- Grouped rather than a flat list of eleven. The old nav gave no
@@ -1011,6 +1041,50 @@ Link to another note with [[its first few words]]."></textarea>
               start it, and this screen will light up. Capturing notes and keyword
               search work fine without it.
             </p>
+
+            <!-- Which backend serves the model. Deliberately OUTSIDE
+                 #models-config, for the same reason the search-engine box is:
+                 this is the setting you need most when nothing is reachable,
+                 and hiding it whenever the backend is down would mean the one
+                 control that could fix the problem is the one you can't get to. -->
+            <div id="backend-config">
+              <h3>Model backend</h3>
+              <div class="row">
+                <select id="llm-provider-select">
+                  <option value="ollama">Ollama</option>
+                  <option value="openai">LM Studio / llama.cpp / Jan / vLLM</option>
+                </select>
+                <input id="llm-base-url" type="text" spellcheck="false" placeholder="Default address">
+                <button id="llm-provider-apply" class="small">Connect</button>
+              </div>
+              <p class="muted" id="llm-provider-note">
+                The second option covers any server speaking the OpenAI API —
+                LM Studio, llama.cpp's server, Jan and vLLM are all the same
+                choice, differing only by address. Leave the address blank for
+                the usual one (Ollama <code>:11434</code>, LM&nbsp;Studio
+                <code>:1234/v1</code>); fill it in if you started the server on
+                your own port.
+              </p>
+              <label class="setting-check" id="local-only-wrap">
+                <input type="checkbox" id="local-only-ai" checked>
+                <span>
+                  Keep the AI on this machine
+                  <small class="muted">
+                    Recommended, and on by default. Refuses any model backend
+                    that isn't on this computer or your own network, so your
+                    notes can't be sent over the internet by a mistyped
+                    address. Turn it off only if you deliberately want to use a
+                    hosted API.
+                  </small>
+                </span>
+              </label>
+              <p id="llm-provider-status" class="status"></p>
+              <!-- Everything else in this app is local by construction. A
+                   backend address is the one setting that can change that, so
+                   it is the one setting that warns. -->
+              <p id="llm-privacy-warning" class="status error hidden"></p>
+            </div>
+
             <div id="models-config" class="hidden">
               <h3>Chat model (answers your questions — switches instantly)</h3>
               <div class="row">
@@ -1018,6 +1092,12 @@ Link to another note with [[its first few words]]."></textarea>
                 <button id="chat-model-apply" class="small">Use this model</button>
               </div>
               <p id="chat-model-note" class="status"></p>
+              <!-- What the backend actually says about the model in use: its
+                   size, quantisation, the window it will run at, and whether
+                   it can call tools. That last one is the first thing worth
+                   knowing when "agent mode does nothing", and used to be
+                   discoverable only by trying it. -->
+              <dl id="model-spec" class="model-spec hidden"></dl>
               <h3>Utility model (filing, digest &amp; writing fixes)</h3>
               <div class="row">
                 <select id="utility-model-select"></select>
@@ -1191,6 +1271,27 @@ Link to another note with [[its first few words]]."></textarea>
               </p>
               <div id="theme-presets" class="theme-presets"></div>
               <p class="muted" id="theme-override-note"></p>
+
+              <!-- Your own themes. Saved server-side with the rest of your
+                   preferences rather than in the browser, so they survive a
+                   cleared cache, ride along in the daily backup, and are there
+                   in the desktop window as well as the browser tab. -->
+              <div class="setting-row setting-row-stack">
+                <div class="setting-label">
+                  <span>Your themes</span>
+                  <small class="muted">
+                    Save everything you've set — colours, font, spacing, corners,
+                    background — as one look you can come back to.
+                  </small>
+                </div>
+                <div id="custom-themes" class="theme-presets"></div>
+                <div class="row">
+                  <input id="custom-theme-name" type="text" maxlength="30"
+                    placeholder="Name this look (e.g. Late night)"
+                    aria-label="Name for the saved theme">
+                  <button id="custom-theme-save" class="small">Save current look</button>
+                </div>
+              </div>
               <div class="row">
                 <button id="theme-reset" class="ghost small"
                   title="Go back to the app's default look, keeping your own changes">
@@ -1257,6 +1358,32 @@ Link to another note with [[its first few words]]."></textarea>
                   <input id="page-bg-custom" type="color" aria-label="Page background colour">
                   <button id="page-bg-clear" class="ghost small">Clear</button>
                 </div>
+              </div>
+
+              <!-- Build a whole colour scheme from one colour. Picking an
+                   accent is easy; picking a background that goes with it is
+                   the part people give up on, so the relationships are done
+                   arithmetically rather than by eye. -->
+              <div class="setting-row setting-row-stack">
+                <div class="setting-label">
+                  <span>Build a scheme from one colour</span>
+                  <small class="muted">
+                    Choose a colour and how the rest should relate to it, and
+                    the accent and page background are worked out together.
+                  </small>
+                </div>
+                <div class="row setting-control">
+                  <input id="harmony-base" type="color" value="#4f6df5"
+                    aria-label="Colour to build the scheme from">
+                  <select id="harmony-kind" class="small-select" aria-label="Colour relationship">
+                    <option value="monochromatic">Monochromatic — one hue</option>
+                    <option value="analogous">Analogous — neighbouring hues</option>
+                    <option value="complementary">Complementary — opposite hue</option>
+                    <option value="triadic">Triadic — three even hues</option>
+                  </select>
+                  <button id="harmony-apply" class="small">Apply</button>
+                </div>
+                <p class="muted" id="harmony-note"></p>
               </div>
             </div>
 
@@ -1610,6 +1737,26 @@ Link to another note with [[its first few words]]."></textarea>
             </p>
             <ul id="task-list" class="entry-list"></ul>
             <p id="tasks-empty" class="muted">Nothing running right now.</p>
+
+            <!-- What stopped. The half that was missing: a job that FAILS used
+                 to vanish at the moment it became interesting, leaving the
+                 same empty list as one that finished. -->
+            <div id="task-history-box" class="hidden">
+              <h3>Recently finished</h3>
+              <p class="muted">
+                What has stopped since the app started, and how it went. Kept in
+                memory only — it clears itself when you restart.
+              </p>
+              <ul id="task-history" class="entry-list"></ul>
+              <button id="task-history-clear" class="ghost small">Clear this list</button>
+            </div>
+
+            <h3>Quit MemoryMap</h3>
+            <p class="muted">
+              Stops the app and its server properly, so nothing is left running
+              in the background and the next start finds its port free.
+            </p>
+            <button id="app-quit" class="ghost small">⏻ Quit the app</button>
           </section>
 
           <!-- Data (Wave F: markdown + backups join the exports) -->

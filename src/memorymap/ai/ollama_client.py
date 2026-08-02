@@ -1,207 +1,60 @@
-"""Thin wrapper over the local Ollama REST API (plan §6.5).
+"""Ollama's native `/api` dialect (plan §6.5, generalised in §6).
 
-Every AI module talks to Ollama through this class, so "is Ollama even
-running?" is answered in exactly one place and tests only have to fake
-one object.
+One of two backends MemoryMap speaks. The parts of this file that were never
+about Ollama — the think-tag splitter, the tool-text gate and recovery, the
+error classes, the context ceiling — now live in `ai/provider.py` and are
+shared with `ai/openai_client.py`; they are re-exported below so the imports
+that already point here keep working.
+
+What stays is genuinely Ollama's own: `/api/chat` with a JSON-lines stream, an
+`options` block carrying `num_ctx` and `num_predict`, `/api/show` for the
+context window, and `/api/pull` — the one thing no OpenAI-compatible server
+can do, because those are handed a model that is already on disk.
 """
 
 from __future__ import annotations
 
 import json
-import re
 from collections.abc import Iterator
 
 import requests
 
+from memorymap.ai.provider import (
+    Provider,
+    ProviderError,
+    ToolsUnsupportedError,
+    _ThinkTagSplitter,
+    _ToolTextGate,
+    _ns_to_ms,
+    extract_text_tool_calls,
+    known_context,
+    normalise_tool_calls,
+    offered_tool_names,
+    split_thinking,
+)
 
-class OllamaError(RuntimeError):
-    """Ollama unreachable, or it returned something unusable."""
+# `OllamaError` is not a subclass of the neutral error — it *is* the neutral
+# error. Every `except OllamaError` in the routes was written to mean "the AI
+# backend failed", and aliasing keeps all of them catching a failing LM Studio
+# too. A new parent class would have looked tidier and quietly stopped those
+# handlers firing for the second provider.
+OllamaError = ProviderError
 
-
-class ToolsUnsupportedError(OllamaError):
-    """The active model can't do tool calls — the caller should fall
-    back to plain Q&A, never fail the whole chat (Wave G)."""
-
-
-class _ThinkTagSplitter:
-    """Routes streamed content into thinking vs answer pieces when a
-    model reasons inline with <think>…</think> — the tags themselves can
-    arrive split across chunks, so a little state is unavoidable."""
-
-    OPEN, CLOSE = "<think>", "</think>"
-
-    def __init__(self) -> None:
-        self._buffer = ""
-        self._mode = "start"  # start → thinking? → answer
-
-    def feed(self, chunk: str) -> list[dict]:
-        self._buffer += chunk
-        pieces: list[dict] = []
-
-        if self._mode == "start":
-            candidate = self._buffer.lstrip()
-            if candidate.startswith(self.OPEN):
-                self._mode = "thinking"
-                self._buffer = candidate[len(self.OPEN) :]
-            elif self.OPEN.startswith(candidate):
-                return pieces  # could still become "<think>" — wait
-            else:
-                self._mode = "answer"
-
-        if self._mode == "thinking":
-            end = self._buffer.find(self.CLOSE)
-            if end != -1:
-                pieces.append({"thinking_delta": self._buffer[:end]})
-                self._buffer = self._buffer[end + len(self.CLOSE) :]
-                self._mode = "answer"
-            else:
-                # Keep enough back that a half-arrived "</think>" isn't
-                # emitted as thinking text.
-                safe = len(self._buffer) - (len(self.CLOSE) - 1)
-                if safe > 0:
-                    pieces.append({"thinking_delta": self._buffer[:safe]})
-                    self._buffer = self._buffer[safe:]
-                return pieces
-
-        if self._mode == "answer" and self._buffer:
-            pieces.append({"content_delta": self._buffer})
-            self._buffer = ""
-        return pieces
-
-    def flush(self) -> list[dict]:
-        """The stream ended — emit whatever is left."""
-        leftover, self._buffer = self._buffer, ""
-        if not leftover:
-            return []
-        key = "thinking_delta" if self._mode == "thinking" else "content_delta"
-        return [{key: leftover}]
+__all__ = [
+    "OllamaClient",
+    "OllamaError",
+    "ProviderError",
+    "ToolsUnsupportedError",
+    "extract_text_tool_calls",
+    "split_thinking",
+    "_ThinkTagSplitter",
+    "_ToolTextGate",
+]
 
 
-class _ToolTextGate:
-    """Holds back streamed text that might turn out to be a tool call in prose.
+class OllamaClient(Provider):
+    name = "ollama"
 
-    Some small models write ``<tool_call>{...}</tool_call>`` — or a bare JSON
-    object — instead of using the structured tool_calls field.
-    ``extract_text_tool_calls`` recovers those and strips them so they're
-    executed rather than shown, but a streaming UI would already have printed
-    the text by then. So content is gated until it's clearly *not* one of those
-    shapes, released in one go at that moment, and passed straight through from
-    then on.
-
-    The cap matters: an answer that genuinely opens with "{" must not be held
-    hostage forever, so past MAX_GATE characters the gate gives up and opens.
-    """
-
-    MAX_GATE = 1000
-    OPENER = "<tool_call>"
-
-    def __init__(self) -> None:
-        self._buffer = ""
-        self._open = False
-
-    def feed(self, text: str) -> str:
-        """Return whatever is safe to show now (possibly "")."""
-        if self._open:
-            return text
-        self._buffer += text
-        candidate = self._buffer.lstrip()
-        if not candidate:
-            return ""
-        looks_like_call = (
-            candidate.startswith("{")
-            or candidate.startswith(self.OPENER)
-            # A partially-arrived "<tool_call>" — wait for the rest.
-            or self.OPENER.startswith(candidate)
-        )
-        if looks_like_call and len(self._buffer) < self.MAX_GATE:
-            return ""
-        self._open = True
-        held, self._buffer = self._buffer, ""
-        return held
-
-    def flush(self) -> str:
-        """The stream ended while still gated — hand back what was held."""
-        held, self._buffer = self._buffer, ""
-        self._open = True
-        return held
-
-    @property
-    def gated(self) -> bool:
-        return not self._open
-
-
-def extract_text_tool_calls(
-    content: str, tool_names: set[str]
-) -> tuple[list[dict], str]:
-    """Recover tool calls that a model wrote as TEXT instead of using the
-    structured tool_calls field (Wave O bug: small models narrate/emit
-    calls in prose, so notes the AI 'creates' never actually get made).
-
-    Handles both an explicit ``<tool_call>{...}</tool_call>`` wrapper and a
-    bare JSON object that names a known tool. Returns (calls, cleaned_text)
-    where cleaned_text has the recovered JSON removed so it isn't shown to
-    the user."""
-    calls: list[dict] = []
-    cleaned = content
-
-    def _consume(blob: str, whole: str) -> None:
-        try:
-            data = json.loads(blob)
-        except ValueError:
-            return
-        candidates = data if isinstance(data, list) else [data]
-        for item in candidates:
-            if not isinstance(item, dict):
-                continue
-            # Accept {"name","arguments"} and OpenAI-ish {"function":{...}}.
-            fn = item.get("function") if isinstance(item.get("function"), dict) else item
-            name = fn.get("name") if isinstance(fn, dict) else None
-            if name in tool_names:
-                args = fn.get("arguments") or fn.get("parameters") or {}
-                if isinstance(args, str):
-                    try:
-                        args = json.loads(args)
-                    except ValueError:
-                        args = {}
-                calls.append({"name": name, "arguments": args if isinstance(args, dict) else {}})
-                nonlocal cleaned
-                cleaned = cleaned.replace(whole, "")
-
-    # 1) explicit <tool_call>…</tool_call> blocks (Qwen/Hermes style).
-    for match in re.finditer(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", content, re.S):
-        _consume(match.group(1), match.group(0))
-    # 2) a bare top-level JSON object naming a known tool.
-    if not calls:
-        for match in re.finditer(r"\{[^{}]*\"name\"[^{}]*\}", content, re.S):
-            _consume(match.group(0), match.group(0))
-
-    return calls, cleaned.strip()
-
-
-def _ns_to_ms(value) -> int | None:
-    """Ollama reports durations in nanoseconds; milliseconds read better."""
-    try:
-        return round(int(value) / 1_000_000)
-    except (TypeError, ValueError):
-        return None
-
-
-def split_thinking(text: str) -> tuple[str, str | None]:
-    """Separate a thinking model's <think>…</think> block from its answer.
-
-    Models like DeepSeek-R1 or Qwen3 reason out loud inside think-tags;
-    shown raw it looks like garbage, hidden entirely it wastes useful
-    insight — so we return both parts and let the UI decide."""
-    start = text.find("<think>")
-    end = text.find("</think>")
-    if start == -1 or end == -1 or end < start:
-        return text.strip(), None
-    thinking = text[start + len("<think>") : end].strip()
-    clean = (text[:start] + text[end + len("</think>") :]).strip()
-    return clean, thinking or None
-
-
-class OllamaClient:
     def __init__(
         self, base_url: str = "http://localhost:11434", timeout: float = 120.0
     ) -> None:
@@ -212,12 +65,98 @@ class OllamaClient:
         # process: it cannot change without the model being re-pulled, and the
         # answer is needed on every agent round.
         self._context_lengths: dict[str, int | None] = {}
+        # The whole `/api/show` payload, cached alongside it: the context
+        # length, the parameter count, and the capability list all come from
+        # the same call, and asking three times for one answer each is three
+        # round trips on the path that already feels slowest.
+        self._shown: dict[str, dict] = {}
 
-    # Ollama's default when a model declares nothing. Everything that budgets
-    # against the window falls back to this, because being wrong in this
-    # direction only wastes headroom, while being wrong the other way silently
-    # drops the system prompt off the front of the context.
-    DEFAULT_CONTEXT_TOKENS = 4096
+    def supports_pull(self) -> bool:
+        """Ollama is the only backend that can fetch a model it doesn't have."""
+        return True
+
+    def show(self, model: str) -> dict:
+        """Everything `/api/show` says about a model, cached per process.
+
+        One call answers several questions the app used to guess at or ignore:
+        the context length, the parameter count and quantisation, and — the
+        one that changes behaviour — `capabilities`, where Ollama lists what
+        the model can actually do (`tools`, `thinking`, `vision`, …).
+
+        Cached because none of it can change without the model being re-pulled,
+        and `context_length` is needed on every agent round.
+
+        An empty dict means "couldn't ask". Every caller treats that as
+        "unknown" rather than as "no", because an older Ollama build reports no
+        `capabilities` field at all, and reading its silence as "this model
+        can't use tools" would disable agent mode for everyone on it.
+        """
+        if model in self._shown:
+            return self._shown[model]
+        info: dict = {}
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/show", json={"model": model}, timeout=5
+            )
+            response.raise_for_status()
+            payload = response.json()
+            info = payload if isinstance(payload, dict) else {}
+        except (requests.RequestException, ValueError, AttributeError):
+            info = {}
+        self._shown[model] = info
+        return info
+
+    def capabilities(self, model: str) -> set[str]:
+        """What Ollama says this model can do, or an empty set if it won't say.
+
+        Empty means *unknown*, never *none* — see `show`. Callers must fail
+        open on an empty set: the alternative is an older Ollama build turning
+        off tools and thinking for every model it serves.
+        """
+        declared = self.show(model).get("capabilities")
+        if not isinstance(declared, list):
+            return set()
+        return {str(c).lower() for c in declared}
+
+    def supports(self, model: str, capability: str) -> bool | None:
+        """True / False / None-for-unknown, so a caller can tell the three apart.
+
+        The distinction is the whole point. "This model has no thinking to turn
+        off" and "I have no idea whether it does" want different behaviour: the
+        first means don't bother sending the toggle, the second means send
+        nothing rather than guess.
+        """
+        declared = self.capabilities(model)
+        if not declared:
+            return None
+        return capability in declared
+
+    def model_spec(self, model: str) -> dict:
+        """The model's own specification, in one flat shape for the UI (§11).
+
+        Reading these was the gap: the app knew the context length and nothing
+        else, so Settings → Models could not say how big a model was, how it
+        was quantised, or whether it could use tools at all — which is the
+        first thing to check when "agent mode does nothing".
+        """
+        info = self.show(model)
+        details = info.get("details") or {}
+        model_info = info.get("model_info") or {}
+        declared = self.context_length(model)
+        return {
+            "name": model,
+            "family": details.get("family") or model_info.get("general.architecture"),
+            "parameters": details.get("parameter_size"),
+            "quantisation": details.get("quantization_level"),
+            "context_length": declared,
+            # What the app will actually run it at, which is the number the
+            # window percentage on each message is measured against — and is
+            # often *lower* than the declared one, deliberately (KV cache).
+            "usable_context": self.usable_context(model),
+            "capabilities": sorted(self.capabilities(model)),
+            "supports_tools": self.supports(model, "tools"),
+            "supports_thinking": self.supports(model, "thinking"),
+        }
 
     def context_length(self, model: str) -> int | None:
         """How many tokens this model can actually hold, or None if unknown.
@@ -232,84 +171,72 @@ class OllamaClient:
         Reported by `/api/show` under `model_info` as `<architecture>.
         context_length` — the prefix varies by model family, so the key is
         found by suffix rather than guessed.
+
+        When Ollama says nothing — an old build, or a model whose manifest
+        omits it — the shared known-model table is asked before giving up. That
+        table is a guess and `/api/show` is a fact, so it is only ever the
+        fallback, never the first answer.
         """
         if model in self._context_lengths:
             return self._context_lengths[model]
         length: int | None = None
-        try:
-            response = requests.post(
-                f"{self.base_url}/api/show", json={"model": model}, timeout=5
-            )
-            response.raise_for_status()
-            info = response.json().get("model_info") or {}
-            for key, value in info.items():
-                if key.endswith(".context_length") and isinstance(value, int):
-                    length = value
-                    break
-        except (requests.RequestException, ValueError, AttributeError):
-            length = None  # unknown is a fine answer; the caller has a default
+        info = self.show(model).get("model_info") or {}
+        for key, value in info.items():
+            if key.endswith(".context_length") and isinstance(value, int):
+                length = value
+                break
+        if length is None:
+            length = known_context(model)
         self._context_lengths[model] = length
         return length
 
-    # The largest window this app will ask Ollama to allocate by default.
-    #
-    # A model declaring 128k does not mean asking for 128k is free: the KV
-    # cache scales with the window, so a 7B at 128k wants several gigabytes
-    # that a laptop may not have, and the failure is an out-of-memory rather
-    # than a slow answer. 8k is comfortably more than the app's own worst-case
-    # prompt needs and costs a fraction of that, so it is the default; anyone
-    # with the memory to spare can raise it in preferences.
-    MAX_REQUESTED_CONTEXT = 8192
-
-    # Room for the reply. Unset, Ollama will happily generate until it decides
-    # to stop, and a local model that rambles is the single most common reason
-    # an answer "takes ages" — output tokens are generated one at a time, so
-    # they cost far more wall-clock each than prompt tokens do.
-    DEFAULT_MAX_OUTPUT_TOKENS = 1024
-
-    def usable_context(self, model: str) -> int:
-        """The window to budget against — and to ask Ollama for.
-
-        Deliberately the same number in both places. Ollama runs a model at
-        `num_ctx`, which is its own default (commonly 4,096) *regardless of
-        what the model was trained for* — so reading a 32k context length from
-        /api/show and budgeting against it, without also asking for 32k, would
-        produce exactly the overflow the budget exists to prevent. This is the
-        one number, and `runtime_options` sends it.
-        """
-        declared = self.context_length(model) or self.DEFAULT_CONTEXT_TOKENS
-        return max(
-            self.DEFAULT_CONTEXT_TOKENS, min(declared, self.max_requested_context)
-        )
-
-    @property
-    def max_requested_context(self) -> int:
-        """The ceiling, overridable by the user who knows their own machine."""
-        try:
-            from memorymap.core import deps
-
-            wanted = int(
-                deps.get_config().get_preference(
-                    "max_context_tokens", self.MAX_REQUESTED_CONTEXT
-                )
-            )
-        except Exception:  # noqa: BLE001 — a bad preference must not stop a chat
-            return self.MAX_REQUESTED_CONTEXT
-        # Floor at Ollama's own default: below it nothing works, and a typo
-        # like 40 should not silently make the app unusable.
-        return max(self.DEFAULT_CONTEXT_TOKENS, wanted)
-
-    def runtime_options(self, model: str, max_output_tokens: int | None = None) -> dict:
-        """The `options` block sent with every generation.
+    def runtime_options(
+        self,
+        model: str,
+        max_output_tokens: int | None = None,
+        mode: str | None = None,
+    ) -> dict:
+        """The neutral budget, translated into Ollama's `options` block.
 
         Nothing was sent before this, which meant two things at once: the
         window was whatever Ollama felt like (not what the app had budgeted
         for), and the reply length was unbounded.
         """
-        return {
-            "num_ctx": self.usable_context(model),
-            "num_predict": max_output_tokens or self.DEFAULT_MAX_OUTPUT_TOKENS,
+        budget = self.generation_budget(model, max_output_tokens, mode)
+        options = {
+            "num_ctx": budget["context_tokens"],
+            "num_predict": budget["max_output_tokens"],
         }
+        if "temperature" in budget:
+            options["temperature"] = budget["temperature"]
+        return options
+
+    def request_extras(self, mode: str | None = None, model: str = "") -> dict:
+        """Ollama's thinking toggle, which is top-level rather than an option.
+
+        Only ever sent to turn thinking *off*, and only to a model that has
+        thinking to turn off. Two separate guards, because they fail for
+        different reasons:
+
+        - **Direction.** Turning it *on* where it isn't supported is the
+          request that errors, so that direction is never sent at all.
+        - **Capability.** Ollama rejects `think` outright for a model without
+          the `thinking` capability on recent builds, so `quick` mode on an
+          ordinary model would have failed *every* turn — the preset breaking
+          the chat it was meant to speed up. `capabilities` is what makes the
+          check possible; before it, the app could only guess.
+
+        An *unknown* capability (an older Ollama that reports none) sends
+        nothing. Not sending means "whatever the model does by default", which
+        is exactly what happened before presets existed — so unknown degrades
+        to the old behaviour rather than to a broken one.
+        """
+        from memorymap.ai import presets
+
+        preset = presets.resolve(mode)
+        if preset.think is not False:
+            return {}
+        return {"think": False} if self.supports(model, "thinking") else {}
 
     def is_running(self) -> bool:
         """Cheap reachability probe — short timeout so the UI never hangs
@@ -359,7 +286,7 @@ class OllamaClient:
         except requests.RequestException as exc:
             raise OllamaError(f"Removing '{name}' failed: {exc}") from exc
 
-    def chat(self, model: str, messages: list[dict]) -> dict:
+    def chat(self, model: str, messages: list[dict], mode: str | None = None) -> dict:
         """One non-streamed chat turn.
 
         Returns {"content": str, "thinking": str | None} — thinking is
@@ -372,7 +299,8 @@ class OllamaClient:
                     "model": model,
                     "messages": messages,
                     "stream": False,
-                    "options": self.runtime_options(model),
+                    "options": self.runtime_options(model, mode=mode),
+                    **self.request_extras(mode, model),
                 },
                 timeout=self.timeout,
             )
@@ -386,7 +314,9 @@ class OllamaClient:
         except (requests.RequestException, KeyError, TypeError, ValueError) as exc:
             raise OllamaError(f"Chat with '{model}' failed: {exc}") from exc
 
-    def chat_stream(self, model: str, messages: list[dict]) -> Iterator[dict]:
+    def chat_stream(
+        self, model: str, messages: list[dict], mode: str | None = None
+    ) -> Iterator[dict]:
         """Streamed chat turn: yields {"thinking_delta": str} and
         {"content_delta": str} pieces as the model produces them.
         Inline <think> tags are routed to thinking_delta too, even when
@@ -399,7 +329,8 @@ class OllamaClient:
                     "model": model,
                     "messages": messages,
                     "stream": True,
-                    "options": self.runtime_options(model),
+                    "options": self.runtime_options(model, mode=mode),
+                    **self.request_extras(mode, model),
                 },
                 stream=True,
                 timeout=self.timeout,
@@ -419,54 +350,43 @@ class OllamaClient:
                         # Ollama's final chunk carries token counts and
                         # timings — worth surfacing, so the UI can show
                         # what the answer actually cost.
-                        yield {
-                            "stats": {
-                                "model": data.get("model") or model,
-                                "prompt_tokens": data.get("prompt_eval_count"),
-                                "output_tokens": data.get("eval_count"),
-                                "total_ms": _ns_to_ms(data.get("total_duration")),
-                                "eval_ms": _ns_to_ms(data.get("eval_duration")),
-                            }
-                        }
+                        yield {"stats": self._stats_from(data, model)}
         except (requests.RequestException, KeyError, TypeError, ValueError) as exc:
             raise OllamaError(f"Chat with '{model}' failed: {exc}") from exc
 
-    @staticmethod
-    def _normalise_tool_calls(raw_calls: list[dict]) -> list[dict]:
-        """Ollama's tool_calls -> [{"name": str, "arguments": dict}]."""
-        calls = []
-        for item in raw_calls:
-            function = item.get("function") or {}
-            arguments = function.get("arguments") or {}
-            if isinstance(arguments, str):  # some models emit JSON text
-                try:
-                    arguments = json.loads(arguments)
-                except ValueError:
-                    arguments = {}
-            calls.append(
-                {"name": function.get("name", ""), "arguments": arguments if isinstance(arguments, dict) else {}}
-            )
-        return calls
+    # Both dialects normalise the same way — see `provider.normalise_tool_calls`.
+    _normalise_tool_calls = staticmethod(normalise_tool_calls)
 
-    @staticmethod
-    def _stats_from(payload: dict, model: str) -> dict:
-        """Token counts + timings, in the one shape the UI's metadata line wants."""
+    def _stats_from(self, payload: dict, model: str) -> dict:
+        """Token counts + timings, in the one shape the UI's metadata line wants.
+
+        `context_tokens` is the window the turn was budgeted against, carried
+        alongside the counts so the UI can say *how full* the window got rather
+        than only how many tokens were spent. 3,900 tokens means nothing on its
+        own; "3,900 of 8,192" is the number that tells you an answer is about
+        to start losing the top of its own prompt.
+        """
         return {
             "model": payload.get("model") or model,
             "prompt_tokens": payload.get("prompt_eval_count"),
             "output_tokens": payload.get("eval_count"),
             "total_ms": _ns_to_ms(payload.get("total_duration")),
             "eval_ms": _ns_to_ms(payload.get("eval_duration")),
+            "context_tokens": self.usable_context(model),
+            # Ollama counts tokens itself, so these are measured rather than
+            # guessed. The OpenAI path cannot always say the same, and the UI
+            # marks an estimate as one.
+            "usage_source": "real",
         }
 
-    @staticmethod
-    def _offered_names(tools: list[dict]) -> set[str]:
-        return {
-            t.get("function", {}).get("name") for t in tools if isinstance(t, dict)
-        }
+    _offered_names = staticmethod(offered_tool_names)
 
     def chat_tools_stream(
-        self, model: str, messages: list[dict], tools: list[dict]
+        self,
+        model: str,
+        messages: list[dict],
+        tools: list[dict],
+        mode: str | None = None,
     ) -> Iterator[dict]:
         """Streamed tool-calling turn — the agent loop's normal path.
 
@@ -496,7 +416,8 @@ class OllamaClient:
                     "messages": messages,
                     "stream": True,
                     "tools": tools,
-                    "options": self.runtime_options(model),
+                    "options": self.runtime_options(model, mode=mode),
+                    **self.request_extras(mode, model),
                 },
                 stream=True,
                 timeout=self.timeout,
@@ -577,7 +498,13 @@ class OllamaClient:
             }
         }
 
-    def chat_tools(self, model: str, messages: list[dict], tools: list[dict]) -> dict:
+    def chat_tools(
+        self,
+        model: str,
+        messages: list[dict],
+        tools: list[dict],
+        mode: str | None = None,
+    ) -> dict:
         """One non-streamed chat turn with tools offered (Wave G).
 
         Returns {"content", "thinking", "tool_calls", "raw_tool_calls"}.
@@ -593,7 +520,8 @@ class OllamaClient:
                     "messages": messages,
                     "stream": False,
                     "tools": tools,
-                    "options": self.runtime_options(model),
+                    "options": self.runtime_options(model, mode=mode),
+                    **self.request_extras(mode, model),
                 },
                 timeout=self.timeout,
             )
@@ -643,13 +571,7 @@ class OllamaClient:
                 # Same shape chat_stream reports, so the message metadata line
                 # can be filled in from an agent turn too. Without this, using
                 # tools (the default) silently dropped the token counts.
-                "stats": {
-                    "model": payload.get("model") or model,
-                    "prompt_tokens": payload.get("prompt_eval_count"),
-                    "output_tokens": payload.get("eval_count"),
-                    "total_ms": _ns_to_ms(payload.get("total_duration")),
-                    "eval_ms": _ns_to_ms(payload.get("eval_duration")),
-                },
+                "stats": self._stats_from(payload, model),
             }
         except ToolsUnsupportedError:
             raise

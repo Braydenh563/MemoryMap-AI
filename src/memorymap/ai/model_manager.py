@@ -17,6 +17,7 @@ from sqlalchemy import delete, select
 
 from memorymap.ai.ollama_client import OllamaClient, OllamaError
 from memorymap.core.config import ConfigManager
+from memorymap.core import taskhistory
 from memorymap.core.database import DatabaseManager, EmbeddingRecord, Entry
 from memorymap.entry.manager import log_action
 
@@ -40,15 +41,53 @@ class Embedder(Protocol):
 
 # Curated catalog, stored as data so it's trivial to edit (plan §6.5).
 # There's no Ollama API to browse the online library, hence hardcoded.
+#
+# **Ordered smallest-first within each purpose, and that is the ordering that
+# matters.** Someone reading this list is choosing hardware they already own.
+# A list sorted by quality puts the model they cannot run at the top and the
+# one they should start with out of sight; sorted by size, the first thing they
+# see is the thing most likely to work.
+#
+# `purpose` says what the model is *for* rather than how good it is. "Strong
+# all-rounder" is not a decision anyone can act on; "the smallest one worth
+# using — fine on a laptop with no GPU" is.
+#
+# Sizes are the default quantisation Ollama pulls (usually Q4_K_M) and are
+# approximate. They matter more than the parameter count here: a 7B at Q4 and
+# a 3B at Q8 land in the same place on an 8 GB machine.
+#
+# This is a hand-maintained list against a registry that moves, so a tag here
+# can go stale. That fails safely and legibly: the pull returns Ollama's own
+# "model not found" and the Models screen shows it, rather than the app
+# pretending to know something it doesn't. Nothing else reads these names.
 SUGGESTED_MODELS: dict[str, list[dict[str, str]]] = {
     "chat": [
-        {"name": "llama3.2", "size": "~2.0 GB", "purpose": "Fast all-rounder — the default"},
-        {"name": "qwen2.5:3b", "size": "~1.9 GB", "purpose": "Strong all-rounder, follows instructions well"},
-        {"name": "phi3.5", "size": "~2.2 GB", "purpose": "Small and sharp — good summaries and Q&A"},
+        # --- runs on almost anything, no GPU needed ---
+        {"name": "gemma4:e2b", "size": "~1.6 GB", "purpose": "Smallest here. Try it if bigger models are too slow"},
+        {"name": "qwen3.5:2b", "size": "~1.6 GB", "purpose": "The lightest one genuinely worth using"},
+        {"name": "llama3.2", "size": "~2.0 GB", "purpose": "Fast all-rounder — the default, and a good first choice"},
+        {"name": "granite4.1:3b", "size": "~2.1 GB", "purpose": "Strong instruction-following at a small size"},
+        {"name": "qwen3.5:4b", "size": "~2.6 GB", "purpose": "Follows instructions closely — good for agent mode"},
+        {"name": "gemma4:e4b", "size": "~3.1 GB", "purpose": "Noticeably better writing than the 2B models"},
+        # --- 8 GB of RAM, or any modern GPU ---
+        {"name": "llama3.1:8b", "size": "~4.7 GB", "purpose": "Better reasoning and reliable tool calls"},
+        {"name": "qwen3.5:8b", "size": "~5.2 GB", "purpose": "Best tool use at this size. Thinks, so slower per answer"},
+        {"name": "mistral-nemo", "size": "~7.1 GB", "purpose": "Long-document work — a large context window"},
+        {"name": "gemma4:12b", "size": "~7.6 GB", "purpose": "Long-form writing and summarising"},
+        # --- mixture-of-experts: big download, small working set ---
+        #
+        # These need the RAM of the model they are named after and run at
+        # roughly the speed of the *active* half — 26B-a4b holds 26B of weights
+        # and computes with 4B of them. That is the one thing worth explaining
+        # about them, because judged on download size alone nobody with 16 GB
+        # would try one, and they are the best answer for that machine.
+        {"name": "gemma4:26b-a4b", "size": "~15 GB", "purpose": "MoE: 12B-class speed with far better answers. Needs ~16 GB"},
+        {"name": "qwen3.5:35b-a3b", "size": "~20 GB", "purpose": "MoE: the most capable here, still quick. Needs ~24 GB"},
     ],
     "embedding": [
         {"name": "nomic-embed-text", "size": "~274 MB", "purpose": "Solid general-purpose embeddings"},
         {"name": "mxbai-embed-large", "size": "~670 MB", "purpose": "Higher quality, a little slower"},
+        {"name": "bge-m3", "size": "~1.2 GB", "purpose": "Better on long notes and mixed languages"},
     ],
 }
 
@@ -189,6 +228,12 @@ def _run_reindex(db: DatabaseManager, embeddings: Embedder, job: Job) -> None:
         for entry in entries:
             if job.cancel_requested:  # user quit it from the tasks manager
                 job.status = "cancelled"
+                taskhistory.record(
+                    "reindex",
+                    "Re-indexing your notes",
+                    "cancelled",
+                    f"stopped after {job.done} of {job.total}",
+                )
                 return
             # Drop the stale vector first so a failed re-embed never
             # leaves an old-model vector looking current.
@@ -206,9 +251,21 @@ def _run_reindex(db: DatabaseManager, embeddings: Embedder, job: Job) -> None:
         )
         session.commit()
         job.status = "success"
+        taskhistory.record(
+            "reindex",
+            "Re-indexing your notes",
+            "completed",
+            f"{job.done} notes re-embedded with {embeddings.backend_id()}",
+        )
     except Exception as exc:  # a failed job must report, never crash the app
         job.status = "error"
         job.error = str(exc)
+        # The ending that mattered most and was hardest to see: a re-index that
+        # dies halfway used to leave exactly the same empty screen as one that
+        # finished, with the reason only in the log console.
+        taskhistory.record(
+            "reindex", "Re-indexing your notes", "failed", str(exc)
+        )
     finally:
         session.close()
 
@@ -234,6 +291,9 @@ def _run_pull(client: OllamaClient, name: str, job: Job) -> None:
         for update in client.pull(name):
             if job.cancel_requested:  # user quit it from the tasks manager
                 job.status = "cancelled"
+                taskhistory.record(
+                    "pull", f"Downloading {name}", "cancelled", name=name
+                )
                 return
             if update.get("error"):
                 raise OllamaError(update["error"])
@@ -241,8 +301,12 @@ def _run_pull(client: OllamaClient, name: str, job: Job) -> None:
                 job.total = int(update["total"])
                 job.done = int(update.get("completed", job.done))
         job.status = "success"
+        taskhistory.record("pull", f"Downloaded {name}", "completed", name=name)
     except OllamaError as exc:
         # Surface the failure so the UI can offer a retry — never leave
         # a half-download looking installed (§6.5).
         job.status = "error"
         job.error = str(exc)
+        taskhistory.record(
+            "pull", f"Downloading {name}", "failed", str(exc), name=name
+        )

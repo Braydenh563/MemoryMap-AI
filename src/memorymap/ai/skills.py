@@ -38,6 +38,12 @@ MAX_SKILLS = 30
 MAX_NAME = 40
 MAX_PROMPT = 2000
 MAX_DESCRIPTION = 200
+# When this skill applies, in the user's own words. Separate from the
+# description, which says what the skill *is* — this says when to reach for it,
+# and it is the field that makes a skill findable by the model rather than only
+# by the person who remembered writing it (§33). Short on purpose: it is
+# carried in `list_skills` output, which a turn may read before doing anything.
+MAX_WHEN = 160
 MAX_STEPS = 10
 MAX_STEP = 300
 MAX_TOOLS = 12
@@ -123,6 +129,7 @@ def normalise(raw: dict, known_tools: set[str] | None = None) -> dict:
         "name": name,
         "prompt": prompt,
         "description": _text(raw.get("description"), MAX_DESCRIPTION, "A description"),
+        "when_to_use": _text(raw.get("when_to_use"), MAX_WHEN, "A when-to-use note"),
         "steps": steps,
         "tools": tools,
         "inputs": inputs,
@@ -287,7 +294,159 @@ def step_instruction(skill: dict, values: dict | None, index: int) -> str:
 # most of the fixed per-round overhead on a 3B model.
 _READING_TOOLS = ["search_notes", "list_notes", "get_note", "count_notes"]
 
+# --- the notebook audit set ---------------------------------------------------
+#
+# Asked for directly: *"a skill that can do a full audit and clean up of my
+# notebook — linking notes, removing inaccurate links, analysing categories and
+# tags, retagging notes, adding and removing tags, changing categories, moving
+# notes around, combining notes to declutter."*
+#
+# Deliberately **five skills rather than one**, and the reason is not tidiness:
+#
+# - A skill runs one step per turn, and a skill has at most ten steps. That
+#   whole list is comfortably more than ten steps, so one "audit everything"
+#   skill would either stop half-finished or have steps so broad that a 3B
+#   model cannot tell whether it has done them.
+# - Each of those jobs wants a *different* toolbox, and the allowlist is what
+#   keeps a run cheap and safe. One skill needing every write tool in the app
+#   is one skill that can do anything, offered the schemas to match.
+# - They fail independently. A tag clean-up that goes wrong should not leave a
+#   category reorganisation half-applied.
+#
+# The first is read-only on purpose. "Audit" and "clean up" are two requests,
+# and running the one that changes 400 notes before you have read what it plans
+# to do is not a thing anyone means to do twice.
+_AUDIT_SKILLS: list[dict] = [
+    {
+        "name": "🩺 Notebook health check",
+        "description": "A full audit — reports what needs fixing, changes nothing.",
+        "when_to_use": "before a clean-up, or when the notebook feels disorganised",
+        "prompt": (
+            "Audit my whole notebook and report what needs attention. Do NOT "
+            "change anything — this is a report, not a clean-up."
+        ),
+        "steps": [
+            "Count my notes, then list my categories and tags with their counts.",
+            "Name the categories that are nearly empty, and any that hold so "
+            "much they are not really sorting anything.",
+            "Name the tags that look like duplicates of each other (singular "
+            "and plural, different spellings, near-synonyms).",
+            "Sample the notes in Uncategorised and say what they are actually "
+            "about, so I can see what categories are missing.",
+            "Finish with a short numbered list of what to fix, worst first, "
+            "naming which of the clean-up skills would fix each one. Remind me "
+            "you changed nothing.",
+        ],
+        # No write tool at all. The safety property here is structural rather
+        # than promised: the run cannot alter the notebook because it was never
+        # offered anything that could.
+        "tools": [*_READING_TOOLS, "list_categories", "list_tags"],
+    },
+    {
+        "name": "🏷 Clean up my tags",
+        "description": "Merges duplicate tags and removes ones that don't fit.",
+        "when_to_use": "when tags have drifted — plurals, synonyms, one-offs",
+        "prompt": "Go through my tags, merge the duplicates, and remove the ones that don't fit.",
+        "steps": [
+            "List every tag I use with its count.",
+            "Group the ones that mean the same thing — singular and plural, "
+            "different spellings, near-synonyms — and pick the best name for "
+            "each group.",
+            "Use rename_tag to merge each group onto the name you picked. "
+            "Renaming a tag onto an existing one merges them.",
+            "Find notes whose tags do not match what the note actually says, "
+            "reading each one before judging it.",
+            "Use tag_note to remove the tags that do not fit, and add better "
+            "ones where a note is under-tagged.",
+            "Tell me every change you made, grouped by what kind it was.",
+        ],
+        "tools": ["list_notes", "get_note", "list_tags", "rename_tag", "tag_note"],
+    },
+    {
+        "name": "🗂 Reorganise my categories",
+        "description": "Proposes a category structure, then moves notes into it.",
+        "when_to_use": "when Uncategorised is full or categories have stopped fitting",
+        "prompt": "Reorganise my categories so they actually fit what I write about.",
+        "steps": [
+            "List my categories with their counts, and read a sample of notes "
+            "from the biggest and from Uncategorised.",
+            "Tell me the structure you propose — which categories to add, "
+            "which to rename, which to merge — and why, before changing "
+            "anything.",
+            "Create the new categories you proposed.",
+            "Rename the ones whose names no longer fit, and merge the ones "
+            "that are really the same thing.",
+            "Move notes into the right category with edit_note, reading each "
+            "note first so the choice is based on what it says.",
+            "Tell me what you changed and how many notes moved.",
+        ],
+        # `delete_category` is deliberately absent. It is destructive, so it
+        # would stop the run for a confirm card on a step that is meant to be
+        # bulk work — and merging is the operation that was actually wanted
+        # anyway, since it keeps the notes together rather than scattering them
+        # back into Uncategorised.
+        "tools": [
+            *_READING_TOOLS,
+            "list_categories",
+            "create_category",
+            "rename_category",
+            "merge_categories",
+            "edit_note",
+        ],
+    },
+    {
+        "name": "🔗 Fix my links",
+        "description": "Removes connections that don't hold up, and adds ones that should exist.",
+        "when_to_use": "when the graph has links that no longer make sense",
+        "prompt": "Check the links between my notes: remove the ones that don't hold up, add the ones that should be there.",
+        "steps": [
+            "Pick a well-connected note and use related_notes to see what it "
+            "connects to and how.",
+            "Read the notes on both ends of each existing link and judge "
+            "whether they genuinely belong together.",
+            "Use unlink_notes on the ones that do not. Say why for each.",
+            "Use related_notes with include_suggestions to find notes that "
+            "read alike but were never linked.",
+            "Read those pairs and use link_notes only where the connection is "
+            "real — a similar score is a hint, not a reason.",
+            "Report what you unlinked and what you linked, with the reason for "
+            "each.",
+        ],
+        "tools": [
+            *_READING_TOOLS,
+            "related_notes",
+            "link_notes",
+            "unlink_notes",
+        ],
+    },
+    {
+        "name": "🧬 Find notes worth combining",
+        "description": "Spots fragments and duplicates that should be one note. Reports only.",
+        "when_to_use": "when the same thing has been written down several times",
+        "prompt": (
+            "Find notes that are really the same thing written more than once, "
+            "and show me what combining them would look like. Do not merge or "
+            "delete anything yourself."
+        ),
+        "steps": [
+            "Use related_notes with include_suggestions on a few notes to find "
+            "ones that read alike but were never linked.",
+            "Read each candidate pair or group in full — a similar score is a "
+            "hint and often wrong.",
+            "For each group that is genuinely the same thing, show me the "
+            "combined note you would write, with the note ids it came from.",
+            "Link the members of each group together so they are easy to find "
+            "again, and tell me you have not deleted or merged anything.",
+        ],
+        # Links, but no deletes: combining notes means deciding what to lose,
+        # and that is not a judgement to hand a model over a whole notebook.
+        # The proposed text comes back for the person to accept.
+        "tools": [*_READING_TOOLS, "related_notes", "link_notes"],
+    },
+]
+
 BUILTIN_SKILLS: list[dict] = [
+    *_AUDIT_SKILLS,
     {
         "name": "📋 Summarise my week",
         "description": "The last seven days, in a paragraph.",

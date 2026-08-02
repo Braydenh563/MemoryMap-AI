@@ -39,6 +39,31 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     "web_search_enabled": False,
     "searxng_url": "",
     "search_provider": "auto",
+    # Which dialect the chat backend speaks (§6). "ollama" is the native
+    # `/api` shape; "openai" is `/v1/chat/completions`, which is what LM
+    # Studio, llama.cpp, Jan and vLLM all serve — one setting covers all of
+    # them, because the only thing that differs between them is the URL.
+    "llm_provider": "ollama",
+    # Empty means "the default for that provider" — OLLAMA_URL for Ollama,
+    # LM Studio's port for the OpenAI shape. Stored rather than derived so
+    # switching provider and back doesn't forget a custom address.
+    "llm_base_url": "",
+    # Only ever needed by a hosted gateway; local servers ignore it. Kept out
+    # of the support bundle by the same redaction that hides other secrets.
+    "llm_api_key": "",
+    # How much effort a chat turn is worth by default (§11): "quick", "normal"
+    # or "detailed". One dial over the reply cap, the temperature, the thinking
+    # toggle and a length hint — see `ai/presets.py`. "normal" reproduces the
+    # behaviour that predates presets exactly, so upgrading changes nothing
+    # until someone chooses otherwise.
+    "response_mode": "normal",
+    # Keep the AI on this machine. ON by default, and the default is the point:
+    # "100% offline, on your machine" is a promise the app keeps rather than
+    # one it reminds you that you are breaking. With this on, a backend address
+    # that is not local or LAN is refused outright — see
+    # `core.security.check_backend_url`. Turning it off is a deliberate act
+    # with a visible switch, for someone who genuinely wants a hosted API.
+    "local_only_ai": True,
 }
 
 

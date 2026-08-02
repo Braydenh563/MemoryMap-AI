@@ -63,7 +63,7 @@ class _FakeOllama:
         self.rounds = list(rounds)
         self.sent: list[dict] = []
 
-    def chat_tools_stream(self, model, messages, offered):
+    def chat_tools_stream(self, model, messages, offered, mode=None):
         self.sent = list(messages)
         calls = self.rounds.pop(0) if self.rounds else []
         yield {"final": {"content": "", "tool_calls": calls, "raw_tool_calls": calls}}

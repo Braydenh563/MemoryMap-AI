@@ -125,8 +125,31 @@ class OriginCheckMiddleware(BaseHTTPMiddleware):
 # would be wrong the first time anyone edited the block (which the roadmap
 # already expects: the theme table in it is kept in step with THEME_PRESETS by
 # hand), and a stale hash fails as a blank unstyled page.
+# Two loosenesses here were flagged by CodeQL (`py/bad-tag-filter`), and the
+# *reported* risk does not apply while the real bug does — worth writing down
+# so the next person does not re-litigate it.
+#
+# **Not an XSS filter.** This reads `frontend/index.html`, a file shipped with
+# the app, to compute the hash of its own inline script. Nothing user-supplied
+# reaches it, so "an attacker crafts markup that slips past the regex" has no
+# route in. Parsing HTML with a regex is only defensible for exactly that
+# reason.
+#
+# **But the failure mode is real, and it is a blank page.** If the pattern
+# misses the script, its hash never enters the CSP and the browser refuses to
+# run it — which is the pre-paint theme block, so the app opens unstyled. Both
+# gaps below did that:
+#
+#   - `</script >` — HTML permits whitespace before the closing `>`, and the
+#     old pattern required them adjacent, so the match failed outright.
+#   - `src = "…"` — the old exclusion looked for `src=` with no spaces, so a
+#     spaced attribute made an *external* script look inline and contributed a
+#     hash of the empty string.
+#
+# `\s*` in both places closes them. It is still not an HTML parser and is not
+# trying to be; it is a deliberately narrow reader of one known file.
 _INLINE_SCRIPT = re.compile(
-    rb"<script(?![^>]*\ssrc=)[^>]*>(.*?)</script>", re.DOTALL | re.IGNORECASE
+    rb"<script(?![^>]*\ssrc\s*=)[^>]*>(.*?)</script\s*>", re.DOTALL | re.IGNORECASE
 )
 
 
@@ -211,3 +234,204 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "Permissions-Policy", "geolocation=(), camera=(), payment=(), usb=()"
         )
         return response
+
+
+# --- where the AI backend is allowed to live --------------------------------
+#
+# The chat backend's address is a *setting* now (§6), not a constant, and the
+# server posts the user's notes to whatever it names on every turn. That makes
+# it a new outbound surface, and it needs a different rule from the web-search
+# one above.
+#
+# The web reader refuses anything that ISN'T public, because it follows
+# untrusted links and must never probe this machine. This is the mirror image:
+# a backend is *supposed* to be on localhost or the LAN — that is the whole
+# product — so private addresses are the normal case and blocking them would
+# break it.
+#
+# What is refused is the narrow set nobody ever serves a model from, where
+# being pointed at one is a sign of a mistake or of something worse:
+#
+#   - a scheme that isn't http(s), so `file://` can't be read back by a
+#     library that helpfully supports it;
+#   - link-local (169.254.0.0/16, fe80::/10), which on every major cloud is
+#     the instance-metadata address — the classic credential-theft target,
+#     and never a model server;
+#   - multicast, reserved and unspecified addresses, which are not endpoints.
+#
+# Anything else is allowed and *reported* rather than blocked. Someone who
+# deliberately points this at a hosted API is entitled to; what they are not
+# entitled to is for it to happen quietly, because the app's headline promise
+# is that notes stay on the machine. `is_local` is what the UI warns from.
+
+import ipaddress  # noqa: E402 — grouped with the code it serves
+import socket  # noqa: E402
+from concurrent.futures import ThreadPoolExecutor  # noqa: E402
+from concurrent.futures import TimeoutError as FuturesTimeout  # noqa: E402
+
+_ALLOWED_BACKEND_SCHEMES = ("http", "https")
+
+
+#: How long to wait for DNS before giving up on judging a hostname.
+#:
+#: `socket.getaddrinfo` takes **no timeout argument** and ignores
+#: `socket.setdefaulttimeout`, so a slow or unreachable resolver blocks the
+#: calling thread for however long the platform's resolver decides — tens of
+#: seconds is normal. This function runs on a request thread (saving a backend
+#: address) and on startup (building the client), so an unbounded wait there is
+#: the app hanging, not a slow answer.
+_DNS_TIMEOUT_SECONDS = 2.0
+
+
+def _resolve(host: str) -> list:
+    """`getaddrinfo`, or [] if it fails."""
+    try:
+        return [info[4][0] for info in socket.getaddrinfo(host, None)]
+    except (socket.gaierror, UnicodeError, OSError):
+        return []
+
+
+def _backend_addresses(host: str) -> list:
+    """Every IP a backend hostname resolves to, or [] if it doesn't resolve.
+
+    A name that doesn't resolve is not an error here: "set the address, then
+    start the server" is the normal order, and a docker-compose service name
+    resolves only once its container is up. An empty list means "can't judge",
+    and the caller decides — under the lock that means refuse, without it that
+    means allow-but-unverified.
+
+    **Bounded, because `getaddrinfo` is not.** It takes no timeout and ignores
+    `socket.setdefaulttimeout`, so it is run on a worker thread and abandoned
+    after `_DNS_TIMEOUT_SECONDS`. A resolver that is slow or absent then reads
+    as "couldn't judge" — which is the same answer as a name that doesn't
+    exist, and the safe one — instead of holding the request open.
+    """
+    if not host:
+        return []
+    # A literal address needs no resolver at all — 127.0.0.1, a LAN IP.
+    try:
+        return [ipaddress.ip_address(host)]
+    except ValueError:
+        pass
+
+    # Nor do the loopback *names*, and this is the hot path: `/models/status`
+    # judges the backend address on every poll, and the backend is `localhost`
+    # for almost everybody. Asking the resolver what `localhost` means, several
+    # times a second, to be told what it means on every machine, is a round
+    # trip for nothing — and on a host with a slow or misconfigured resolver it
+    # is a round trip for nothing that takes seconds.
+    if host.lower() in _LOOPBACK_HOSTS:
+        return [ipaddress.ip_address("127.0.0.1")]
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        try:
+            raw = pool.submit(_resolve, host).result(timeout=_DNS_TIMEOUT_SECONDS)
+        except FuturesTimeout:
+            return []
+    found = []
+    for address in raw:
+        try:
+            found.append(ipaddress.ip_address(address))
+        except ValueError:
+            continue
+    return found
+
+
+def _refuses(address) -> str | None:
+    """Why this address can't be a model backend, or None if it can be."""
+    if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped:
+        # ::ffff:169.254.169.254 is the metadata address wearing a hat.
+        address = address.ipv4_mapped
+    # The order of these three blocks is load-bearing, because Python's
+    # categories overlap in two places that would each flip an answer:
+    #
+    #   - 169.254.0.0/16 is link-local AND `is_private`, so an allow-private
+    #     rule running first would wave through the cloud metadata address —
+    #     the exact thing this function exists to stop.
+    #   - `::1` is loopback AND `is_reserved`, so a refuse-reserved rule
+    #     running first would reject the most ordinary backend there is.
+    #
+    # So: refuse the specific bad things, then allow local, then refuse the
+    # leftovers.
+    if address.is_link_local:
+        return (
+            f"{address} is a link-local address. On a cloud machine that is "
+            "the instance-metadata service, not a model server."
+        )
+    if address.is_multicast or address.is_unspecified:
+        return f"{address} isn't an address something can listen on."
+    if address.is_loopback or address.is_private:
+        return None
+    if address.is_reserved:
+        return f"{address} isn't an address something can listen on."
+    return None
+
+
+def check_backend_url(url: str, local_only: bool = False) -> tuple[bool, str, bool]:
+    """Judge a model-backend address.
+
+    Returns `(allowed, reason, is_local)`. `reason` is empty when there is
+    nothing to say; `is_local` is False for a backend that would take the
+    user's notes off this machine.
+
+    `local_only` is the lock, and it is **on by default in the app** (the
+    `local_only_ai` preference). With it on, a backend that is not on this
+    machine or this network is *refused* rather than warned about — which is
+    the honest reading of "100% offline, on your machine": a promise the app
+    keeps, not one it reminds you that you are breaking.
+
+    Turning it off is a deliberate act with a visible switch, and only then
+    does the warning-not-refusal behaviour apply. The default direction
+    matters more than the choice: someone who wants a hosted API will find the
+    switch, and someone who does not will never be one typo away from sending
+    their notebook to a stranger.
+    """
+    parts = urlsplit((url or "").strip())
+    if parts.scheme not in _ALLOWED_BACKEND_SCHEMES:
+        return (
+            False,
+            f"A model backend has to be an http:// or https:// address"
+            f"{f' — “{parts.scheme}:” is not' if parts.scheme else ''}.",
+            False,
+        )
+    host = (parts.hostname or "").strip()
+    if not host:
+        return False, "That address has no host in it.", False
+
+    addresses = _backend_addresses(host)
+    for address in addresses:
+        refusal = _refuses(address)
+        if refusal:
+            return False, refusal, False
+
+    if not addresses:
+        # Unresolvable for now — "set the address, then start the server" is
+        # the normal order. Treated as non-local, which is the safe direction:
+        # under the lock an unverifiable name is refused rather than trusted,
+        # and without it the honest warning is the one that shows.
+        unresolved_local = host in _LOOPBACK_HOSTS
+        if local_only and not unresolved_local:
+            return False, _LOCKED_REASON.format(host=host), False
+        return True, "", unresolved_local
+
+    is_local = all(
+        address.is_loopback or address.is_private for address in addresses
+    )
+    if is_local:
+        return True, "", True
+    if local_only:
+        return False, _LOCKED_REASON.format(host=host), False
+    return (
+        True,
+        "This backend is not on your machine or your local network. Your "
+        "notes and questions will be sent to it over the internet.",
+        False,
+    )
+
+
+_LOCKED_REASON = (
+    "“{host}” is not on this machine or your local network, and MemoryMap is "
+    "set to keep the AI local — so your notes are never sent anywhere. If you "
+    "really do want to use a hosted API, turn off “Keep the AI on this "
+    "machine” in Settings → Models first."
+)

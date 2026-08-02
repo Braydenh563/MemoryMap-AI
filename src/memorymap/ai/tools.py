@@ -54,6 +54,11 @@ class ToolSpec:
     parameters: dict  # JSON schema for the arguments
     handler: Callable[[Session, dict], dict]
     destructive: bool = False
+    #: This tool's whole effect is to stop and wait for the user, so the agent
+    #: loop ends the turn on it rather than feeding a result back and carrying
+    #: on. `ask_user` is the only one, and the flag exists rather than a name
+    #: check so the loop reads as "why" instead of "which" (§33).
+    ends_turn: bool = False
 
 
 # --- context budget -------------------------------------------------------------
@@ -269,6 +274,255 @@ def _get_note_tool(session: Session, args: dict) -> dict:
         other.id for _link, other in manager.links_for_entry(session, entry)
     ]
     result["label"] = f"📄 Read note #{entry.id} in full"
+    return result
+
+
+# How far `related_notes` will walk, and how much it may bring back. A
+# neighbourhood is only useful if it fits in the prompt beside everything else,
+# and the second hop of a well-connected note can be most of the notebook.
+MAX_GRAPH_DEPTH = 2
+MAX_GRAPH_NOTES = 12
+
+
+# How much of a neighbour's text comes back. Shorter than `PREVIEW_CHARS`
+# deliberately: a graph walk returns up to twelve notes at once, and its job is
+# to say *what connects to what* — the model calls `get_note` on the one that
+# turns out to matter. At 200 characters each, twelve neighbours cost ~1,230
+# tokens, a third of a 4k window for a single tool result.
+GRAPH_PREVIEW_CHARS = 90
+
+
+def _graph_summary(session: Session, entry: Entry, how: str, hops: int, via: int | None) -> dict:
+    """One neighbour, in the smallest shape that is still useful.
+
+    A trimmed `_note_summary` rather than the whole thing, and every field left
+    out was left out for a reason:
+
+    - **`created_at`** — a 32-character ISO timestamp on every row, to answer a
+      question ("when was this written?") that a graph walk is not asking.
+    - **`pinned`, `truncated`** — a boolean each, true for almost none of them.
+    - **`via` when it is `None`** — every one-hop result carried a null field
+      naming the note it hung off, which for one hop is the note you asked
+      about.
+    - **`tags` when empty** — an empty list per row is pure structure.
+
+    Together these were roughly half the payload. What remains is what the
+    model needs to decide which neighbour to read in full.
+    """
+    text = _readable(entry)
+    summary = {
+        "id": entry.id,
+        "preview": _clip(text, GRAPH_PREVIEW_CHARS),
+        "category": manager.category_name_for(session, entry),
+        "how": how,
+        "hops": hops,
+    }
+    tags = manager.entry_tags(entry)
+    if tags:
+        summary["tags"] = tags
+    if via is not None:
+        summary["via"] = via
+    return summary
+
+
+def _graph_neighbours(session: Session, entry: Entry) -> list[tuple[Entry, str]]:
+    """This note's direct neighbours, each with *how* it is connected.
+
+    The "how" is the whole point, and it is what the app had and the model
+    didn't. The graph view has drawn typed edges — an explicit link, a reply
+    thread, a similarity line — since it was built, but the only thing the
+    agent could see was `get_note`'s bare list of connected ids: a set of
+    numbers with no indication of what any of them meant, one note at a time.
+
+    Three kinds, deliberately, and no fourth:
+
+    - **linked** — someone (or the model) said these two belong together. The
+      strongest signal in the notebook, because it was a decision.
+    - **thread** — a reply, so the two are one train of thought.
+    - **tag** — a shared tag, named in the answer, so "shares #recipes" reads
+      differently from "you linked these".
+
+    *Same category* is not here. Nearly every note shares a category with
+    dozens of others, so including it would drown the two signals that mean
+    something under one that means "these are both notes".
+    """
+    seen: dict[int, str] = {}
+    out: list[tuple[Entry, str]] = []
+
+    def add(other: Entry, how: str) -> None:
+        # First reason wins, and the order below is strongest-first, so a note
+        # that is both linked and tagged reports the link.
+        if other.id == entry.id or other.id in seen or other.is_deleted:
+            return
+        seen[other.id] = how
+        out.append((other, how))
+
+    for _link, other in manager.links_for_entry(session, entry):
+        add(other, "linked")
+
+    if entry.parent_id:
+        parent = session.get(Entry, entry.parent_id)
+        if parent is not None:
+            add(parent, "thread: this is a reply to it")
+    for child in session.scalars(
+        select(Entry).where(Entry.parent_id == entry.id, Entry.is_deleted == False)  # noqa: E712
+    ):
+        add(child, "thread: it is a reply to this")
+
+    tags = set(manager.entry_tags(entry))
+    if tags:
+        for other in session.scalars(
+            select(Entry).where(Entry.is_deleted == False)  # noqa: E712
+        ):
+            shared = tags & set(manager.entry_tags(other))
+            if shared:
+                add(other, f"shares {', '.join('#' + t for t in sorted(shared))}")
+    return out
+
+
+# How alike two notes must read before the graph calls them *potentially*
+# connected. Deliberately higher than the graph view's own threshold: a picture
+# can afford a speculative line the eye discards, and a tool result cannot —
+# the model treats whatever it is handed as fact worth acting on.
+SUGGESTED_LINK_THRESHOLD = 0.62
+MAX_SUGGESTED_LINKS = 5
+
+
+def _suggested_neighbours(session: Session, entry: Entry, exclude: set[int]) -> list[dict]:
+    """Notes that *read* like this one but were never connected to it.
+
+    The connections above are facts — somebody made them. These are guesses,
+    and they are labelled as guesses all the way to the model, because the
+    interesting use of this tool is "what have I written that belongs together
+    and isn't linked yet" and the answer to that must not come back looking
+    like an answer to "what is linked".
+
+    Costs one embedding comparison per note, so it is opt-in per call rather
+    than always-on: an ordinary "what connects to this" question should not pay
+    for a similarity sweep it did not ask for.
+    """
+    from memorymap.ai.embeddings import bytes_to_vector, cosine_similarity
+    from memorymap.core.database import EmbeddingRecord
+    from memorymap.core import deps
+
+    embeddings = deps.get_embeddings()
+    backend = embeddings.backend_id()
+    stored = {
+        record.entry_id: record.embedding
+        for record in session.scalars(
+            select(EmbeddingRecord).where(EmbeddingRecord.model_version == backend)
+        )
+    }
+    # No vector for this note means it was never embedded (the backend was off
+    # when it was written, or has changed since). Nothing to compare against,
+    # and guessing from keywords here would quietly change what the tool means.
+    if entry.id not in stored:
+        return []
+    vector = bytes_to_vector(stored[entry.id])
+
+    scored = []
+    for other_id, blob in stored.items():
+        if other_id == entry.id or other_id in exclude:
+            continue
+        other = session.get(Entry, other_id)
+        if other is None or other.is_deleted or other.is_private:
+            continue
+        score = cosine_similarity(vector, bytes_to_vector(blob))
+        if score >= SUGGESTED_LINK_THRESHOLD:
+            scored.append((score, other))
+    scored.sort(key=lambda pair: pair[0], reverse=True)
+    return [
+        _graph_summary(
+            session, other, f"reads similarly ({score:.0%}) — NOT linked yet", 0, None
+        )
+        for score, other in scored[:MAX_SUGGESTED_LINKS]
+    ]
+
+
+def _related_notes(session: Session, args: dict) -> dict:
+    """The neighbourhood around one note, as context rather than as a picture.
+
+    Breadth-first so the nearest notes arrive first and the cap cuts the
+    furthest, which is the right thing to lose. Every result says how far away
+    it is and how it got there, so the model can weigh "you linked these" above
+    "these share a tag two hops out" instead of treating a flat list as equally
+    relevant.
+    """
+    entry = _require_note(session, args)
+    depth = max(1, min(MAX_GRAPH_DEPTH, int(args.get("depth") or 1)))
+
+    frontier = [entry]
+    visited = {entry.id}
+    found: list[dict] = []
+    for distance in range(1, depth + 1):
+        next_frontier: list[Entry] = []
+        for node in frontier:
+            for other, how in _graph_neighbours(session, node):
+                if other.id in visited:
+                    continue
+                visited.add(other.id)
+                next_frontier.append(other)
+                found.append(
+                    _graph_summary(
+                        session,
+                        other,
+                        how,
+                        distance,
+                        # Which note it hangs off, so a two-hop result is not
+                        # mysteriously floating. Omitted at one hop, where the
+                        # answer is always the note you asked about.
+                        via=node.id if node.id != entry.id else None,
+                    )
+                )
+                if len(found) >= MAX_GRAPH_NOTES:
+                    break
+            if len(found) >= MAX_GRAPH_NOTES:
+                break
+        if len(found) >= MAX_GRAPH_NOTES:
+            break
+        frontier = next_frontier
+        if not frontier:
+            break
+
+    result = {
+        "note_id": entry.id,
+        "related": found,
+        # Deliberately no `how_to_read_more` paragraph here. Every other
+        # reading tool carries one, and repeating it in a result that already
+        # holds twelve rows spends tokens restating something the previews
+        # themselves imply — each row is 90 characters and an id.
+        "label": (
+            f"🕸 Found {len(found)} note{'' if len(found) == 1 else 's'} "
+            f"connected to #{entry.id}"
+        ),
+    }
+    # Potential connections, on request. Kept in their own list rather than
+    # mixed into `related`, because they are a different kind of claim: those
+    # are connections somebody made, these are ones nobody has. Flattening the
+    # two would let "reads similarly" be reported back to the user as "these
+    # are linked", which is the one way this feature could mislead.
+    if args.get("include_suggestions"):
+        suggestions = _suggested_neighbours(session, entry, visited)
+        result_note = (
+            "These are NOT connections — they are notes that read similarly and "
+            "have never been linked. Say so if you mention them, and use "
+            "link_notes if the user wants any of them joined up."
+        )
+        if suggestions:
+            result["might_connect"] = suggestions
+            result["about_might_connect"] = result_note
+
+    if not found:
+        result["note"] = (
+            "Nothing is connected to this note yet — it has no links, no "
+            "replies and no shared tags. link_notes and tag_note are how "
+            "connections get made. Ask again with include_suggestions to see "
+            "notes that read similarly but were never linked."
+        )
+    elif len(found) >= MAX_GRAPH_NOTES:
+        result["truncated"] = (
+            f"Stopped at {MAX_GRAPH_NOTES} notes, nearest first. There may be more."
+        )
     return result
 
 
@@ -636,18 +890,31 @@ def _list_skills(session: Session, args: dict) -> dict:
         "skills": [
             {
                 "name": skill["name"],
+                # What it is, and — the part that makes it findable — when to
+                # reach for it. Without `when_to_use` a model reading this list
+                # can see that a skill exists and has no basis for choosing it.
+                "description": skill.get("description", ""),
+                "when_to_use": skill.get("when_to_use", ""),
                 "prompt": _clip(skill["prompt"], 200),
                 "steps": skill["steps"],
                 "tools": skill["tools"],
                 "inputs": [item["name"] for item in skill["inputs"]],
                 "builtin": skill["builtin"],
+                # What running it commits to, so the choice can be made on
+                # something more than the name. A skill that changes notes is a
+                # different proposition from one that only reads them.
+                "step_count": len(skill["steps"]),
+                "changes_notes": bool(set(skill["tools"]) & WRITE_TOOLS),
             }
             for skill in catalog
         ],
         "count": len(catalog),
         "note_to_model": (
             "Built-in skills can be run but not edited. A skill's steps and "
-            "tools are what it does — copy that shape when you make one."
+            "tools are what it does — copy that shape when you make one. "
+            "`when_to_use` says when a skill applies; `changes_notes` says "
+            "whether running it would alter the notebook. You cannot start a "
+            "skill yourself — tell the user which one fits and let them run it."
         ),
         "label": "⚡ Listed the saved skills",
     }
@@ -670,6 +937,7 @@ def _save_skill(session: Session, args: dict) -> dict:
                 "prompt": args.get("prompt"),
                 "steps": args.get("steps"),
                 "tools": args.get("tools"),
+                "when_to_use": args.get("when_to_use"),
             },
             set(TOOLS),
         )
@@ -808,6 +1076,37 @@ def _link_notes(session: Session, args: dict) -> dict:
     return {
         "linked": [source.id, target.id],
         "label": f"🔗 Linked note #{source.id} to note #{target.id}",
+    }
+
+
+def _unlink_notes(session: Session, args: dict) -> dict:
+    """Take a connection back out.
+
+    The missing half of `link_notes`, and its absence had a specific cost: a
+    notebook audit could add connections and never correct one, so a wrong
+    link — from a model's earlier guess, or a topic that turned out to be two
+    topics — was permanent from inside the app.
+
+    Not destructive, and that is a deliberate call rather than an oversight: a
+    link carries no writing of its own, both notes survive untouched, and the
+    result carries the `link_notes` call that puts it straight back. Making it
+    ask first would have meant a confirm card for every correction in a tidy-up
+    run, which is how people learn to click through confirm cards.
+    """
+    source = _require_note(session, args)
+    target = manager.get_entry(session, int(args["other_note_id"]))
+    if target is None or target.is_deleted:
+        raise ToolError(f"No note with id {args.get('other_note_id')}")
+    removed = manager.remove_link(session, source, target)
+    if not removed:
+        raise ToolError(f"Notes #{source.id} and #{target.id} aren't linked")
+    return {
+        "unlinked": [source.id, target.id],
+        "undo": {
+            "tool": "link_notes",
+            "arguments": {"note_id": source.id, "other_note_id": target.id},
+        },
+        "label": f"✂️ Unlinked note #{source.id} from note #{target.id}",
     }
 
 
@@ -1165,6 +1464,66 @@ def _delete_category(session: Session, args: dict) -> dict:
     }
 
 
+#: How many choices an `ask_user` question may offer. Two is the minimum for a
+#: question to be one; six is where a list of buttons stops being quicker to
+#: read than just typing the answer.
+MIN_ASK_OPTIONS = 2
+MAX_ASK_OPTIONS = 6
+MAX_ASK_QUESTION = 200
+MAX_ASK_OPTION = 80
+
+
+def _ask_user(session: Session, args: dict) -> dict:
+    """Never runs. Reaching this is a bug worth failing loudly on.
+
+    `ask_user` is not executed like other tools: the agent loop sees
+    `ends_turn` and stops, handing the question to the UI. The handler exists
+    because every `ToolSpec` has one, and it raises because the alternative —
+    returning something plausible — would let a path that bypasses the loop
+    (`POST /chat/tools/execute`, say) silently "answer" a question the user
+    never saw.
+    """
+    raise ToolError(
+        "ask_user is answered by the person, not by the app — it cannot be run "
+        "directly."
+    )
+
+
+def validate_ask(arguments: dict) -> tuple[str, list[str]]:
+    """The question and its choices, or a ToolError explaining what's wrong.
+
+    Validated here rather than trusted, because a small model will get this
+    wrong in every way available to it: one option, twelve options, options as
+    a single comma-separated string, an empty question. Each of those would
+    otherwise render as a broken card the user can only ignore — and the model
+    would be left waiting for an answer that can never come.
+    """
+    question = str(arguments.get("question") or "").strip()
+    if not question:
+        raise ToolError("ask_user needs a question to ask.")
+    raw = arguments.get("options")
+    if isinstance(raw, str):
+        # A model that sent "yes, no" instead of ["yes", "no"]. Recovering is
+        # free and the alternative is a dead card.
+        raw = [part.strip() for part in raw.split(",")]
+    if not isinstance(raw, list):
+        raise ToolError("ask_user needs a list of options to choose from.")
+    options: list[str] = []
+    for item in raw:
+        # Accept {"label": ...} too: it is the shape several models reach for,
+        # and rejecting it would fail a call that meant the right thing.
+        text = item.get("label") if isinstance(item, dict) else item
+        text = str(text or "").strip()[:MAX_ASK_OPTION]
+        if text and text not in options:
+            options.append(text)
+    if len(options) < MIN_ASK_OPTIONS:
+        raise ToolError(
+            f"ask_user needs at least {MIN_ASK_OPTIONS} different options — "
+            "if there is only one sensible answer, just do it."
+        )
+    return question[:MAX_ASK_QUESTION], options[:MAX_ASK_OPTIONS]
+
+
 # --- the registry ---------------------------------------------------------------
 
 _NOTE_ID = {"type": "integer", "description": "The note's id number"}
@@ -1172,6 +1531,30 @@ _NOTE_ID = {"type": "integer", "description": "The note's id number"}
 TOOLS: dict[str, ToolSpec] = {
     spec.name: spec
     for spec in [
+        ToolSpec(
+            "ask_user",
+            # Terse on purpose: this tool is offered on every turn, so every
+            # character is paid for on every round. The two rules that stop it
+            # being misused (stop after asking; don't ask what you could look
+            # up) are worth their space; nothing else here is.
+            "Ask which of 2-6 options the user meant, when the request is "
+            "ambiguous. Your turn ENDS; their reply comes next. Don't ask "
+            "permission, and don't ask what search_notes could tell you.",
+            {
+                "type": "object",
+                "properties": {
+                    "question": {"type": "string", "description": "One short sentence"},
+                    "options": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "2-6 short answers",
+                    },
+                },
+                "required": ["question", "options"],
+            },
+            _ask_user,
+            ends_turn=True,
+        ),
         ToolSpec(
             "search_notes",
             "Search the user's notes by meaning or keywords. Use this to find "
@@ -1185,6 +1568,30 @@ TOOLS: dict[str, ToolSpec] = {
                 "required": ["query"],
             },
             _search_notes,
+        ),
+        ToolSpec(
+            "related_notes",
+            "Walk the connections around a note: what it links to, what "
+            "replies to it, and what shares its tags. Each result says HOW it "
+            "connects and how far away it is. Set include_suggestions to also "
+            "get notes that READ alike but were never linked — those are "
+            "guesses, not connections.",
+            {
+                "type": "object",
+                "properties": {
+                    "note_id": _NOTE_ID,
+                    "depth": {
+                        "type": "integer",
+                        "description": "1 = direct connections, 2 = their connections too",
+                    },
+                    "include_suggestions": {
+                        "type": "boolean",
+                        "description": "Also list notes that READ alike but were never linked",
+                    },
+                },
+                "required": ["note_id"],
+            },
+            _related_notes,
         ),
         ToolSpec(
             "get_note",
@@ -1338,6 +1745,10 @@ TOOLS: dict[str, ToolSpec] = {
                         "items": {"type": "string"},
                         "description": "Names of the tools the skill needs, e.g. tag_note",
                     },
+                    "when_to_use": {
+                        "type": "string",
+                        "description": "When this skill applies, so it can be found later",
+                    },
                 },
                 "required": ["name", "prompt"],
             },
@@ -1460,6 +1871,20 @@ TOOLS: dict[str, ToolSpec] = {
                 "required": ["note_id", "other_note_id"],
             },
             _link_notes,
+        ),
+        ToolSpec(
+            "unlink_notes",
+            "Remove a connection between two notes that shouldn't be linked. "
+            "The notes themselves are untouched.",
+            {
+                "type": "object",
+                "properties": {
+                    "note_id": _NOTE_ID,
+                    "other_note_id": {"type": "integer", "description": "The other note's id"},
+                },
+                "required": ["note_id", "other_note_id"],
+            },
+            _unlink_notes,
         ),
         ToolSpec(
             "delete_note",
@@ -1636,6 +2061,7 @@ WRITE_TOOLS = {
     "tag_note",
     "pin_note",
     "link_notes",
+    "unlink_notes",
     "delete_note",
     "restore_note",
     "set_reminder",
@@ -1668,6 +2094,11 @@ WRITE_TOOLS = {
 # the last because "save this" is the most common action there is, and the
 # cost of missing it is the model claiming a save that never happened.
 CORE_TOOLS = [
+    # Always offered, and it is the one addition to this list that is not about
+    # notes: a request can be ambiguous whatever it is about, so a cue-based
+    # rule has nothing to match on. Kept cheap — the schema is four lines —
+    # because the alternative is the model guessing which note you meant (§33).
+    "ask_user",
     "search_notes",
     "get_note",
     "list_notes",
@@ -1710,8 +2141,13 @@ TOOL_GROUPS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
         ),
     ),
     (
-        ("link_notes",),
-        ("link", "connect", "related", "relate", "join", "graph", "together"),
+        ("link_notes", "unlink_notes", "related_notes"),
+        (
+            "link", "connect", "related", "relate", "join", "graph", "together",
+            # The words people use when a connection is WRONG rather than
+            # missing. Without them "unlink these" offered no way to do it.
+            "unlink", "disconnect", "detach", "separate", "unrelated",
+        ),
     ),
     (
         ("edit_note", "pin_note"),

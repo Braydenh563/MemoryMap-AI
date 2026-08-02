@@ -16,7 +16,7 @@ from memorymap.ai import embeddings as embeddings_module
 from memorymap.ai import model_manager as jobs
 from memorymap.ai.model_manager import SUGGESTED_MODELS
 from memorymap.ai.ollama_client import OllamaError
-from memorymap.core import deps
+from memorymap.core import deps, security
 from memorymap.core.deps import get_session
 from memorymap.entry.manager import log_action
 
@@ -39,6 +39,31 @@ class PullBody(BaseModel):
 class UtilityModelBody(BaseModel):
     # "" means "use the chat model" (Wave N).
     name: str = ""
+
+
+class ProviderBody(BaseModel):
+    """Which backend serves the chat model, and where it lives (§6).
+
+    `base_url` empty means "the default for that provider", which is the
+    common case: Ollama on 11434, LM Studio on 1234. Anyone running llama.cpp
+    or vLLM has chosen their own port and fills it in.
+    """
+
+    provider: Literal["ollama", "openai"]
+    base_url: str = ""
+    api_key: str | None = None  # None = leave whatever is stored alone
+
+
+#: What to call the backend in a message the user reads. "Ollama isn't
+#: running" is confusing advice when the app was pointed at LM Studio.
+_BACKEND_LABELS = {"ollama": "Ollama", "openai": "the model server"}
+
+
+def _backend_label() -> str:
+    provider = str(
+        deps.get_config().get_preference("llm_provider", "ollama") or "ollama"
+    )
+    return _BACKEND_LABELS.get(provider, "the model server")
 
 
 def _installed_models(running: bool) -> list[dict]:
@@ -72,8 +97,34 @@ def status() -> dict:
     installed = _installed_models(running)
     chat_model = manager.chat_model()
 
+    config = deps.get_config()
+    provider = str(config.get_preference("llm_provider", "ollama") or "ollama")
+    # Judged on every status poll, not only when the address is changed. A
+    # warning that appears once and vanishes on the next reload is a warning
+    # about a condition that has not gone away — and this one is about notes
+    # leaving the machine, which is the app's central promise.
+    local_only = bool(config.get_preference("local_only_ai", True))
+    _, privacy_note, is_local = security.check_backend_url(ollama.base_url)
+
     return {
+        # Named for Ollama because the whole UI is, and it means "the chat
+        # backend is answering" — which is the question the pill asks whoever
+        # is answering it.
         "ollama_running": running,
+        # Which dialect is actually in use (§6), so the UI can say so rather
+        # than claiming Ollama when the answers came from LM Studio.
+        "provider": provider,
+        "base_url": ollama.base_url,
+        "provider_default_base_urls": deps.DEFAULT_BASE_URLS,
+        # False means notes leave this machine to be answered. Reported on
+        # every poll so the warning persists rather than showing once.
+        "is_local": is_local,
+        "privacy_note": privacy_note,
+        "local_only_ai": local_only,
+        # Only Ollama can download a model on request; the others are handed
+        # one that is already on disk. The download panel hides itself rather
+        # than offering a button that cannot work.
+        "supports_pull": ollama.supports_pull(),
         "installed_models": installed,
         "chat_model": chat_model,
         # None = unknown because Ollama is off (don't warn about nothing)
@@ -96,6 +147,30 @@ def status() -> dict:
     }
 
 
+@router.get("/spec")
+def model_spec(name: str = "") -> dict:
+    """What the backend says about one model — size, quantisation, window,
+    and what it can actually do.
+
+    The app read a context length and nothing else, so Settings → Models could
+    not tell you how big a model was, how it was quantised, or whether it
+    supports tool calls — which is the first thing worth knowing when "agent
+    mode does nothing", and until now was only discoverable by trying it and
+    reading the failure.
+
+    `supports_tools` and `supports_thinking` are deliberately tri-state: True,
+    False, or null for "this backend doesn't say". Null is not False — an older
+    Ollama reports no capability list at all, and rendering its silence as
+    "can't use tools" would be a confident lie about a model that works fine.
+    """
+    client = deps.get_ollama()
+    model = name.strip() or deps.get_model_manager().chat_model()
+    try:
+        return client.model_spec(model)
+    except OllamaError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
 @router.get("/suggested")
 def suggested() -> dict:
     return SUGGESTED_MODELS
@@ -106,11 +181,13 @@ def set_chat_model(body: ChatModelBody, session: Session = Depends(get_session))
     """Switching the chat model applies immediately — no re-index (§6.5)."""
     ollama = deps.get_ollama()
     if not ollama.is_running():
-        raise HTTPException(status_code=409, detail="Ollama isn't running")
+        raise HTTPException(
+            status_code=409, detail=f"{_backend_label()} isn't running"
+        )
     if not _name_matches(body.name, _installed_models(True)):
         raise HTTPException(
             status_code=400,
-            detail=f"'{body.name}' isn't installed in Ollama — download it first",
+            detail=f"'{body.name}' isn't available on {_backend_label()}",
         )
     deps.get_model_manager().set_chat_model(body.name)
     log_action(session, "edited", "preferences", detail=f"chat_model={body.name}")
@@ -128,12 +205,78 @@ def set_utility_model(body: UtilityModelBody, session: Session = Depends(get_ses
         if not _name_matches(name, _installed_models(True)):
             raise HTTPException(
                 status_code=400,
-                detail=f"'{name}' isn't installed in Ollama — download it first",
+                detail=f"'{name}' isn't available on {_backend_label()}",
             )
     deps.get_model_manager().set_utility_model(name)
     log_action(session, "edited", "preferences", detail=f"utility_model={name or '(chat)'}")
     session.commit()
     return {"utility_model": name}
+
+
+@router.post("/provider")
+def set_provider(body: ProviderBody, session: Session = Depends(get_session)) -> dict:
+    """Point the app at a different chat backend (§6).
+
+    Applies immediately rather than at the next restart — switching backend is
+    exactly the moment someone wants to see whether it worked, and "restart the
+    app to find out" turns one question into three.
+
+    The probe result is reported, not enforced. A server that is down right now
+    is a perfectly reasonable thing to configure — you set the URL, then you
+    start LM Studio — so this saves the setting either way and tells the UI
+    what it found, rather than refusing a setting that will be correct in
+    thirty seconds.
+    """
+    config = deps.get_config()
+    base_url = body.base_url.strip()
+
+    # A backend address is a new outbound surface: the server posts the user's
+    # notes to whatever it names, on every turn. Private and loopback
+    # addresses are the *normal* case here and are allowed — that is the whole
+    # product — but the narrow set nobody serves a model from is refused, and
+    # a backend that would take notes off this machine is reported rather than
+    # blocked. See core.security.check_backend_url.
+    effective = base_url or deps.DEFAULT_BASE_URLS.get(body.provider, "")
+    allowed, reason, is_local = security.check_backend_url(
+        effective, local_only=bool(config.get_preference("local_only_ai", True))
+    )
+    if not allowed:
+        raise HTTPException(status_code=400, detail=reason)
+
+    config.set_preference("llm_provider", body.provider)
+    config.set_preference("llm_base_url", base_url)
+    if body.api_key is not None:
+        config.set_preference("llm_api_key", body.api_key.strip())
+    deps.reload_llm_client()
+
+    client = deps.get_ollama()
+    running = client.is_running()
+    models: list[dict] = []
+    if running:
+        try:
+            models = client.list_models()
+        except OllamaError:
+            models = []
+
+    log_action(
+        session,
+        "edited",
+        "preferences",
+        detail=f"llm_provider={body.provider} base_url={base_url or '(default)'}",
+    )
+    session.commit()
+    return {
+        "provider": body.provider,
+        "base_url": client.base_url,
+        "reachable": running,
+        "supports_pull": client.supports_pull(),
+        "installed_models": models,
+        # False means the notes leave this machine to be answered. The app's
+        # headline promise is that they don't, so this is said out loud rather
+        # than decided on the user's behalf.
+        "is_local": is_local,
+        "privacy_note": reason,
+    }
 
 
 @router.post("/jobs/cancel")
@@ -189,7 +332,9 @@ def delete_model(body: PullBody, session: Session = Depends(get_session)) -> dic
     the app can't be left pointing at a model that no longer exists."""
     ollama = deps.get_ollama()
     if not ollama.is_running():
-        raise HTTPException(status_code=409, detail="Ollama isn't running")
+        raise HTTPException(
+            status_code=409, detail=f"{_backend_label()} isn't running"
+        )
     manager = deps.get_model_manager()
     in_use = {manager.chat_model()}
     if manager._config.get_preference("utility_model", ""):
@@ -214,7 +359,9 @@ def delete_model(body: PullBody, session: Session = Depends(get_session)) -> dic
 @router.post("/pull")
 def pull_model(body: PullBody, session: Session = Depends(get_session)) -> dict:
     if not deps.get_ollama().is_running():
-        raise HTTPException(status_code=409, detail="Ollama isn't running")
+        raise HTTPException(
+            status_code=409, detail=f"{_backend_label()} isn't running"
+        )
     if not jobs.start_pull(deps.get_ollama(), body.name):
         raise HTTPException(status_code=409, detail=f"Already downloading {body.name}")
     log_action(session, "downloaded", "model", detail=body.name)

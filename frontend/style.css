@@ -79,6 +79,11 @@
   --text-h1: 1.7rem;
   --text-display: 2.2rem;
 
+  /* The page shell. One inset for every tab — see .tab-page. */
+  --page-gutter: var(--space-9);   /* 2rem, the inset five rules had by hand */
+  --page-top: var(--space-6);
+  --page-bottom: var(--space-9);
+
   --radius: 14px;
   /* --- the corner scale (§35L) ---------------------------------------------
      Three tiers derived from --radius, which is the slider in Settings →
@@ -453,8 +458,26 @@ header#top-bar h1 {
   font-weight: 600;
 }
 :root[data-theme="dark"] #tab-bar button.active { color: #0e1017; }
-.tab-page { padding-top: 0.8rem; }
-.tab-page > .card.placeholder { margin: 0.25rem 2rem; }
+/* --- the page shell (§35L) --------------------------------------------------
+   Every tab used to draw its own outer gutter, and no two agreed. The side
+   inset was 2rem in five different rules, but the space above the first
+   element was 1rem on Notes and Chat (.layout), 0 on Documents (.doc-layout),
+   and 0.8rem on the Dashboard, Reminders and Graph — each of them *on top of*
+   .tab-page's own 0.8rem. So content began 1.8rem down one tab and 0.8rem
+   down the next, which is the page-level form of the reported problem:
+   "spacing, alignment and margins… changes each tab".
+
+   One shell owns the inset now. A page's own container contributes only its
+   internal gap, never its distance from the window. */
+.tab-page {
+  padding: var(--page-top) var(--page-gutter) var(--page-bottom);
+}
+/* Direct children of a page are already inside the gutter, so they carry only
+   the rhythm between them. */
+.tab-page > .card,
+.tab-page > .card.placeholder {
+  margin: 0 0 var(--space-6);
+}
 
 .sidebar-tools {
   margin-top: 1rem;
@@ -477,7 +500,8 @@ header#top-bar h1 {
      widest child so `overflow-x: auto` on that child can do its job. */
   grid-template-columns: 260px minmax(0, 1fr);
   gap: 1rem;
-  padding: 1rem 2rem 2rem;
+  /* The gutter belongs to .tab-page now; this is only the column gap. */
+  padding: 0;
   /* stretch, not start: with `start` the sidebar shrank to its content and sat
      visibly shorter than the panel beside it, which reads as a broken layout
      rather than a deliberate one. */
@@ -490,6 +514,13 @@ header#top-bar h1 {
 /* Stack the sidebar on small screens. minmax(0,…) + min-width let the
    column actually shrink below its content's natural width. */
 @media (max-width: 720px) {
+  /* The shell tightens once, for every tab, instead of each page shrinking its
+     own gutter to a different number (§35L). */
+  :root {
+    --page-gutter: var(--space-6);
+    --page-top: var(--space-3);
+    --page-bottom: var(--space-6);
+  }
   .layout { grid-template-columns: minmax(0, 1fr); }
   .layout > * { min-width: 0; }
 }
@@ -500,10 +531,10 @@ header#top-bar h1 {
   backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   border: 1px solid var(--glass-border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   box-shadow: var(--glass-shadow);
-  padding: 1rem 1.25rem;
-  margin-bottom: 1rem;
+  padding: var(--space-6) var(--space-7);
+  margin-bottom: var(--space-6);
   /* Cards are flex/grid items nearly everywhere they appear, and a flex item's
      automatic minimum is its content — so a card holding one wide code block
      grew past the column that was supposed to contain it, taking the page
@@ -511,8 +542,36 @@ header#top-bar h1 {
      the track carries the same auto-minimum and has to be floored too. */
   min-width: 0;
 }
-.card h2 { margin: 0 0 0.8rem; font-size: 1rem; }
-.card h3 { margin: 1rem 0 0.5rem; font-size: 0.92rem; color: var(--muted); }
+/* --- heading hierarchy (§35L) ----------------------------------------------
+   The levels have to be visibly ordered, and they were not: h2 ranged from
+   0.92rem to 1.15rem depending on where it sat, while h3 was a flat 0.92rem —
+   so in the sidebar a section title was the *same size* as the subsection
+   titles beneath it, and on the dashboard's getting-started panel an h2 was
+   larger than the h2 on the card next to it.
+
+   One rule per level, stated here, with the difference carried by weight and
+   colour as well as by size. Two sizes 0.08rem apart cannot do the job on
+   their own — that is what made the old hierarchy invisible. */
+.card h2 {
+  margin: 0 0 var(--space-5);
+  font-size: var(--text-body);
+  font-weight: 650;
+  letter-spacing: -0.005em;
+}
+.card h3 {
+  margin: var(--space-6) 0 var(--space-3);
+  /* A subsection is a label for what follows, not a title competing with the
+     card's own. Small caps carry that distinction, which frees the size to go
+     *down* rather than needing another step between h2 and h3 — two sizes
+     0.08rem apart was what made the old hierarchy invisible. */
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+/* The first heading in a card has the card's own padding above it already. */
+.card h3:first-child { margin-top: 0; }
 
 /* --- sidebar ------------------------------------------------------------ */
 /* Keep the Notes category sidebar pinned to the left while the notes
@@ -1272,8 +1331,8 @@ html.modal-open body {
   justify-content: space-between;
   gap: 1.5rem;
   flex-wrap: wrap;
-  margin: 0.8rem 2rem 0.25rem;
-  padding: 1.25rem 1.5rem;
+  margin: 0 0 var(--space-6);
+  padding: var(--space-7) var(--space-8);
   border-radius: var(--radius);
   border: 1px solid var(--glass-border);
   background:
@@ -1334,7 +1393,7 @@ html.modal-open body {
 .dash-clock-date { font-size: 0.8rem; color: var(--muted); }
 
 @media (max-width: 720px) {
-  .dash-hero { margin: 0.5rem 1rem 0.25rem; padding: 1rem 1rem; gap: 1rem; }
+  .dash-hero { margin: 0 0 var(--space-6); padding: var(--space-6); gap: var(--space-6); }
   .dash-greeting { font-size: 1.3rem; }
   .dash-clock { align-items: flex-start; }
   .dash-clock-time { font-size: 1.7rem; }
@@ -1427,7 +1486,8 @@ html.modal-open body {
   opacity: 0.85;
 }
 .activity-strip span.empty { background: var(--chip-bg); }
-.reminders-card { margin: 0.25rem 2rem; }
+/* (A second .reminders-card margin rule lived here and was overridden by
+   the one below it — both are replaced by the page shell.) */
 .reminders-card .row input[type="datetime-local"] { flex: 0 1 auto; }
 .entry-list li.overdue { border-color: var(--warn); }
 /* Priority colour-coding for reminders — a coloured left edge, calm but clear. */
@@ -2959,11 +3019,13 @@ html { font-size: 16px; }
 /* A quieter "check this" flag — informative, not alarming. */
 .chip.review { font-weight: 500; }
 #sidebar { align-self: flex-start; }
-#sidebar h2 { font-size: 0.92rem; }
+/* Was 0.92rem — the same size as the h3s under it, so the sidebar had a
+   heading level that looked like its own children (§35L). */
+#sidebar h2 { font-size: var(--text-lg); }
 #sidebar #most-used li { font-size: 0.85rem; line-height: 1.35; }
 
 /* --- reminders page polish -------------------------------------------------- */
-.reminders-card { margin: 0.8rem 2rem; }
+.reminders-card { margin: 0 0 var(--space-6); }
 #reminder-compose { margin-bottom: 0.8rem; }
 @media (max-width: 720px) { .reminders-card { margin: 0.5rem 1rem; } }
 /* The add form as a grid, so the fields line up instead of drifting. */
@@ -3289,7 +3351,7 @@ html { font-size: 16px; }
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  margin: 0.8rem 2rem 1rem;
+  margin: 0 0 var(--space-6);
 }
 #graph-card #graph-box { flex: 1; min-height: 22rem; }
 @media (max-width: 720px) {
@@ -3808,9 +3870,9 @@ button { border-radius: calc(var(--radius) * 0.7); }
 .doc-layout {
   display: grid;
   grid-template-columns: minmax(14rem, 18rem) 1fr;
-  gap: 1rem;
+  gap: var(--space-6);
   align-items: start;
-  padding: 0 2rem 1.5rem;
+  padding: 0;
 }
 .doc-sidebar {
   position: sticky;
@@ -4729,7 +4791,9 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   text-align: center;
   padding: 2rem 1.5rem;
 }
-.dash-getting-started h2 { margin: 0.6rem 0 0.4rem; font-size: 1.15rem; }
+/* A panel-level heading, deliberately one step up from a card's h2 — it
+   titles the whole first-run panel rather than a card within it. */
+.dash-getting-started h2 { margin: var(--space-4) 0 var(--space-2); font-size: var(--text-h3); }
 .dash-getting-started > p.muted { max-width: 46rem; margin: 0 auto; }
 .start-steps {
   display: grid;

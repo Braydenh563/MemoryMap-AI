@@ -4237,6 +4237,33 @@ underneath it. The `.hidden` collision fixed this session (§35F's sibling — a
 utility class losing to a component class written later in the same file) is
 the same disease showing up as a bug rather than as ugliness.
 
+**Started — the foundation is built. See [docs/DESIGN.md](DESIGN.md),** which
+is the contract new features are written against. Done so far:
+
+| | Before | After |
+| --- | ---: | ---: |
+| Distinct spacing values | 25+ | 9 |
+| Distinct font sizes | 37 | 10 (+3 hero one-offs) |
+| Distinct corner radii | 12 hard-coded px | 3 tiers, all derived from `--radius` |
+| Page gutter treatments | 4 across 7 tabs | 1 |
+
+Four of those were invisible as *bugs* and visible as ugliness. The corner one
+was both: `--radius` is a user setting ranging 2–16px, and ~90 declarations
+ignored it — so choosing square corners squared the cards and left every chip,
+popup and button rounded. The page shell was the same shape of problem: content
+began 1.8rem down one tab and 0.8rem down the next, because five rules drew the
+same 2rem side gutter with five different tops.
+
+`tests/test_style_scale.py` is the part that makes it hold, and it is worth
+more than the conversion: without it the next tab reaches for whatever looks
+right and the drift restarts, which is precisely how six tabs got here.
+
+**Still open**, in order: colour has had no equivalent pass (surfaces, borders
+and states have no documented scale); density and motion are settings a few
+components ignore; and **none of this has been checked in a browser** — the
+sandbox is Linux with no display, so every change was bounded to move no single
+value more than 0.1rem, which is not the same as verified.
+
 **This is not a "polish pass" and should not be attempted as one.** Going tab
 by tab making things look nicer produces a seventh inconsistent tab. The order
 that actually works:

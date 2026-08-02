@@ -179,3 +179,55 @@ def test_the_corner_tiers_are_derived_from_the_setting():
         line = re.search(rf"{tier}:\s*([^;]+);", text)
         assert line, f"{tier} is not declared"
         assert "var(--radius)" in line.group(1), f"{tier} does not follow --radius"
+
+
+# --- the page shell -----------------------------------------------------------
+
+#: Containers that sit directly inside a tab page. Each one used to draw its
+#: own outer gutter, and no two agreed — see .tab-page in style.css.
+PAGE_CONTAINERS = (".layout", ".doc-layout", ".dash-hero", ".reminders-card", "#graph-card")
+
+
+def test_no_page_draws_its_own_outer_gutter():
+    """Seven tabs had four gutter treatments between them.
+
+    The side inset was 2rem in five separate rules, but the space above the
+    first element was 1rem on Notes and Chat, 0 on Documents and 0.8rem on the
+    Dashboard, Reminders and Graph — each *on top of* .tab-page's own 0.8rem.
+    Content therefore began 1.8rem down one tab and 0.8rem down the next,
+    which is the page-level form of "spacing… changes each tab".
+
+    A page container may set its internal gap. The distance from the window is
+    the shell's business, and only the shell's.
+    """
+    text = _stylesheet()
+    offenders = []
+    for selector in PAGE_CONTAINERS:
+        # `margin` is what holds a box away from the window, so a horizontal
+        # margin on a page container *is* a gutter however it is spelled.
+        # `padding` is internal — .dash-hero is a visible panel and its own
+        # padding is none of the shell's business — except on the pure grid
+        # wrappers below, which have no background and nothing to pad.
+        props = "padding|margin" if selector in (".layout", ".doc-layout") else "margin"
+        for m in re.finditer(rf"(?m)^{re.escape(selector)}[^{{,]*\{{([^}}]*)\}}", text):
+            for prop, value in re.findall(rf"\b({props})\s*:\s*([^;]+);", m.group(1)):
+                parts = value.split()
+                horizontal = parts[1] if len(parts) > 1 else parts[0]
+                if horizontal not in ("0", "auto"):
+                    offenders.append(f"{selector} {{ {prop}: {value}; }}")
+    assert not offenders, (
+        "These page containers set their own outer inset:\n  "
+        + "\n  ".join(offenders)
+        + "\n\nThe gutter belongs to .tab-page (--page-gutter). Set only the "
+        "internal gap here."
+    )
+
+
+def test_the_shell_is_declared_once_and_responsively():
+    """One place to tighten on a narrow window. Per-page media queries shrinking
+    to different numbers is how the desktop drift got reproduced on mobile."""
+    text = _stylesheet()
+    for token in ("--page-gutter", "--page-top", "--page-bottom"):
+        assert f"{token}:" in text, f"{token} is not declared"
+        assert f"var({token})" in text, f"{token} is declared but never used"
+    assert "padding: var(--page-top) var(--page-gutter) var(--page-bottom);" in text

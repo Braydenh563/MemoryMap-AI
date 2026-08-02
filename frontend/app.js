@@ -1409,8 +1409,62 @@ function matchesSearch(entry) {
 // notes and `_` italics would eat them.
 const INLINE_MD = /`([^`\n]+)`|\*\*([^*\n]+?)\*\*|~~([^~\n]+?)~~|\*([^*\n]+?)\*/g;
 
+// LaTeX escapes that models reach for when they want a symbol (§35H).
+//
+// Screenshotted: a bullet reading "Jokes $\\rightarrow$ Social Skills", with
+// the LaTeX printed literally. That is not a markdown gap — the model was
+// asked for an arrow and reached for the notation it saw most in training.
+// Rendering a whole maths engine for this would be absurd; translating the
+// dozen symbols that actually show up costs nothing and covers all of it.
+//
+// The prompt also asks for plain Unicode, which prevents most of these. This
+// is the half that catches the model doing it anyway.
+const LATEX_SYMBOLS = {
+  rightarrow: "\u2192", to: "\u2192", longrightarrow: "\u27f6", Rightarrow: "\u21d2",
+  leftarrow: "\u2190", gets: "\u2190", Leftarrow: "\u21d0",
+  leftrightarrow: "\u2194", Leftrightarrow: "\u21d4", uparrow: "\u2191", downarrow: "\u2193",
+  times: "\u00d7", div: "\u00f7", pm: "\u00b1", mp: "\u2213", cdot: "\u00b7",
+  leq: "\u2264", le: "\u2264", geq: "\u2265", ge: "\u2265",
+  neq: "\u2260", ne: "\u2260", approx: "\u2248", equiv: "\u2261", sim: "\u223c",
+  ldots: "\u2026", dots: "\u2026", cdots: "\u22ef",
+  infty: "\u221e", deg: "\u00b0", bullet: "\u2022", star: "\u2605",
+  checkmark: "\u2713", surd: "\u221a", propto: "\u221d", therefore: "\u2234",
+  alpha: "\u03b1", beta: "\u03b2", gamma: "\u03b3", delta: "\u03b4",
+  lambda: "\u03bb", mu: "\u03bc", pi: "\u03c0", sigma: "\u03c3", omega: "\u03c9",
+  Delta: "\u0394", Sigma: "\u03a3", Omega: "\u03a9",
+};
+
+function unlatex(text) {
+  // The overwhelmingly common case: nothing to do, and not worth two regex
+  // passes over every note and every streaming frame to find that out.
+  if (!text || (!text.includes("\\") && !text.includes("$"))) return text;
+  const swap = (s) =>
+    s.replace(/\\([A-Za-z]+)/g, (whole, name) =>
+      Object.prototype.hasOwnProperty.call(LATEX_SYMBOLS, name)
+        ? LATEX_SYMBOLS[name]
+        : whole
+    );
+  // Inline maths delimiters are dropped only when the span is actually maths
+  // *and* everything in it became plain characters.
+  //
+  // Both halves are load-bearing. Without the first, "cost $5 and $10 today"
+  // is a matching span containing no commands, and the dollars vanish — a
+  // notebook full of prices is a much more likely thing than a notebook full
+  // of LaTeX. Without the second, a span still holding \frac or \sum gets
+  // stripped of its delimiters and left as half-translated notation, which is
+  // worse than leaving it alone: the user can at least read the source.
+  return swap(
+    text.replace(/\$([^$\n]{1,200})\$/g, (whole, inner) => {
+      if (!/\\[A-Za-z]/.test(inner)) return whole; // not maths — currency, prose
+      const plain = swap(inner);
+      return /\\[A-Za-z]/.test(plain) ? whole : plain;
+    })
+  );
+}
+
 function renderInlineMarkdown(element, text, terms) {
   element.replaceChildren();
+  text = unlatex(text);
   const pattern = new RegExp(INLINE_MD.source, "g");
   let cursor = 0;
   let match;
@@ -8554,7 +8608,7 @@ function columnAlign(spec) {
 
 function renderMarkdown(container, text) {
   container.replaceChildren();
-  const lines = text.replace(/\r\n/g, "\n").split("\n");
+  const lines = unlatex(text).replace(/\r\n/g, "\n").split("\n");
   let i = 0;
   let list = null; // the <ul>/<ol> currently being filled, or null
 

@@ -334,7 +334,14 @@ def test_agent_recovers_text_emitted_tool_call(ai_client, fake_ollama):
 def test_agent_warns_on_hallucinated_write(ai_client, fake_ollama):
     # No tool call at all, but the model claims it created a note → the
     # safety net appends an honest warning (Wave O).
+    #
+    # The wording changed in §35B: the warning now names *which* claim was
+    # unsupported, because a turn that claims five things and did one needs to
+    # say which four did not happen. The property under test is unchanged —
+    # the user is told, in the answer, that nothing was saved.
     fake_ollama.librarian_reply = "I created a new note titled “Jokes”. Enjoy!"
     events = _stream_events(ai_client, "add a note of jokes")
     answer = "".join(e["delta"] for e in events if e["type"] == "answer")
-    assert "didn't actually save" in answer
+    assert "⚠️" in answer
+    assert "saved a note" in answer
+    assert "didn't actually run the tool" in answer

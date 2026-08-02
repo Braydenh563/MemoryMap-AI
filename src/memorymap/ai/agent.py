@@ -94,9 +94,12 @@ TOOLS_GUIDE = (
     "set_reminder with due_at computed from the current time given below, as "
     "an ISO 8601 datetime. "
     "After acting, tell the user briefly what you did. NEVER claim you "
-    "created, added, saved, edited, deleted, or tagged a note unless you "
-    "actually called the tool to do it — describing a note in text does "
-    "NOT save it. To save a note you MUST call create_note. "
+    "created, added, saved, edited, deleted, tagged, linked or unlinked "
+    "anything unless you actually called the tool to do it — describing it in "
+    "text does NOT do it, and \"we linked…\" is the same claim as \"I "
+    "linked…\". Writing a numbered list of what was done, when the tools were "
+    "not called, is the worst thing you can do here. If you only plan to act, "
+    "say so in the future tense and then call the tools. "
     # Asked for directly: "I need agents to use tools more and better if they
     # are required." The loop already allows several rounds; nothing told the
     # model that using them was expected rather than a failure to answer
@@ -279,12 +282,106 @@ REPEATED_CALL_NOTE = (
 # "this one changes things" from the same list rather than a second copy.
 _WRITE_TOOLS = tools.WRITE_TOOLS
 
-# Phrases that mean the model thinks it performed a write action.
+# --- claiming work that never happened -------------------------------------------
+#
+# The failure this catches is the one that costs the most trust, because the
+# user has no way to see it: the model writes a confident list of what it did
+# and calls no tool at all. A reported turn (§35B) narrated linking note 12 to
+# three others and unlinking a fourth, having called `related_notes` once.
+#
+# That turn got past the original net twice over, and both gaps are worth
+# naming because they are the shape of the next one:
+#
+# 1. The pattern only knew the first person singular — "I linked". The model
+#    wrote "**Linked Notes:** We connected your main Social Skills Guide to…"
+#    and "we" matched nothing.
+# 2. It asked one question of the whole turn — "did *any* write run?" — so a
+#    turn that legitimately linked one pair and then claimed four more passed
+#    on the strength of the one that was real.
+#
+# So claims are matched *per action* and checked against the tools that
+# actually ran. That is §33's "completion verifier" in its cheap form: no
+# second model round, just what was said against what was called.
+
+#: Who the model says did it. Past and perfect only — "we could link these" is
+#: a suggestion and must not be reported as a false claim.
+_CLAIMANT = r"(?:i|we)(?:'ve)?\s+(?:have\s+|just\s+|now\s+|also\s+|then\s+|successfully\s+)*"
+
+#: What was claimed, how it reads, and the tools that would make it true.
+#: The label is written to be shown to the user, because a warning that says
+#: *which* claim was unsupported is actionable where "something" is not.
+_CLAIMED_ACTIONS: tuple[tuple[str, str, frozenset[str]], ...] = (
+    ("saved a note", r"(?:created|added|saved|made|wrote)", frozenset({"create_note"})),
+    ("edited a note", r"(?:edited|updated|rewrote|amended|revised)", frozenset({"edit_note"})),
+    ("deleted a note", r"(?:deleted|removed|binned|trashed)", frozenset({"delete_note"})),
+    (
+        "tagged a note",
+        r"(?:tagged|re-?tagged|labelled|labeled)",
+        frozenset({"tag_note", "rename_tag"}),
+    ),
+    ("pinned a note", r"(?:pinned|unpinned)", frozenset({"pin_note"})),
+    # Checked before "linked": \b keeps "linked" from matching inside
+    # "unlinked", but the ordering makes that guarantee visible rather than
+    # something a reader has to work out from the regex.
+    (
+        "unlinked notes",
+        r"(?:unlinked|disconnected|detached)",
+        frozenset({"unlink_notes"}),
+    ),
+    ("linked notes", r"(?:linked|connected)", frozenset({"link_notes"})),
+    (
+        "set a reminder",
+        r"(?:set|scheduled|added)\s+(?:a|the|your)?\s*remind",
+        frozenset({"set_reminder"}),
+    ),
+)
+
+#: A verb carried on from an earlier subject: "I linked 12 to 13 **and
+#: tagged** them both". Models write this constantly, and requiring an
+#: explicit "I"/"we" in front of every verb missed the whole second half of
+#: such a sentence. Only trusted once the answer has claimed something
+#: outright somewhere — otherwise "the notes you tagged in March" would read
+#: as a claim.
+_CARRIED_ON = r"(?:and|then|,)\s+(?:also\s+|successfully\s+|later\s+)*"
+
+_CLAIM_MATCHERS = tuple(
+    (
+        label,
+        re.compile(rf"\b{_CLAIMANT}{verb}\b", re.IGNORECASE),
+        re.compile(rf"\b{_CARRIED_ON}{verb}\b", re.IGNORECASE),
+        needs,
+    )
+    for label, verb, needs in _CLAIMED_ACTIONS
+)
+
+# Kept because it is the cheapest check for the commonest case — a model that
+# describes a note it never saved — and it catches phrasings with no claimant
+# at all. Widened from the original to cover "we" as well as "I".
 _CLAIM_PATTERN = re.compile(
-    r"\b(i\s+(?:have\s+|just\s+)?(?:created|added|saved|made|updated|edited|"
-    r"deleted|tagged|pinned|linked)|new note titled|created a? ?note)\b",
+    rf"\b({_CLAIMANT}(?:created|added|saved|made|updated|edited|deleted|tagged|"
+    r"pinned|linked)|new note titled|created a? ?note)\b",
     re.IGNORECASE,
 )
+
+
+def unsupported_claims(answer: str, ran: set[str]) -> list[str]:
+    """Actions the answer says happened that no tool call performed.
+
+    `ran` is the write tools that actually executed this turn (or were parked
+    for the user's approval, which is its own visible signal). A claim whose
+    tool is in there is taken at face value — this is a net for fabrication,
+    not an auditor of whether the right note was edited.
+    """
+    # Whether this answer speaks in the claiming voice at all. A carried-on
+    # verb is only a claim inside a sentence that already made one, so this is
+    # checked first and gates the looser half of every matcher below.
+    claiming = any(direct.search(answer) for _, direct, _, _ in _CLAIM_MATCHERS)
+    said = []
+    for label, direct, carried, needs in _CLAIM_MATCHERS:
+        hit = direct.search(answer) or (claiming and carried.search(answer))
+        if hit and not (needs & ran):
+            said.append(label)
+    return said
 
 # Agent-mode grounding: tool results are a legitimate second source.
 AGENT_GROUNDING = (
@@ -509,6 +606,11 @@ def run_agent(
     permitted = set(allowed_tools) if allowed_tools else None
     model = model_manager.chat_model()
     did_write = False  # did any real write tool run this turn?
+    # *Which* ones ran, so a claim can be checked against the action that
+    # would have made it true rather than against the turn as a whole. A
+    # turn that legitimately linked one pair and then claimed four more
+    # passed the old boolean on the strength of the one that was real.
+    ran_writes: set[str] = set()
     spent = 0  # characters of tool output added to the conversation so far
     # (tool, arguments) pairs that have already failed, so a model looping on
     # the same broken call can be told so rather than burning every round.
@@ -555,7 +657,26 @@ def run_agent(
             # Safety net: if the model claims it saved/created something but no
             # write tool actually ran, it hallucinated — say so instead of
             # letting the user believe a note exists that doesn't (Wave O).
-            if not did_write and _CLAIM_PATTERN.search(answer):
+            unsupported = unsupported_claims(answer, ran_writes)
+            if unsupported:
+                # Named, not vague. "It looks like I didn't actually save it"
+                # is useless when the answer claimed five different things —
+                # the user needs to know which of them did not happen, because
+                # the rest of the list may well be true.
+                listed = ", ".join(unsupported)
+                yield {
+                    "type": "answer",
+                    "delta": (
+                        f"\n\n⚠️ Heads up: I said I {listed}, but I didn't "
+                        "actually run the tool that does it — so that part did "
+                        "not happen and nothing was changed by it. Ask me again "
+                        "and I'll do it properly."
+                    ),
+                }
+            elif not did_write and _CLAIM_PATTERN.search(answer):
+                # The looser net, for a claim with no recognisable action in
+                # it ("new note titled…"). Only when nothing at all was
+                # written, since it can't say which action it means.
                 yield {
                     "type": "answer",
                     "delta": (
@@ -644,8 +765,10 @@ def run_agent(
             elif spec is not None and spec.destructive:
                 # Park it for the user — never auto-run a destructive tool.
                 # The confirm card is the honest signal, so count it as an
-                # action (don't fire the "nothing happened" safety net).
+                # action (don't fire the "nothing happened" safety net) — the
+                # user can see for themselves that it is waiting on them.
                 did_write = True
+                ran_writes.add(name)
                 yield {
                     "type": "confirm",
                     "name": name,
@@ -663,6 +786,7 @@ def run_agent(
                 change = None
                 if "error" not in result and name in _WRITE_TOOLS:
                     did_write = True
+                    ran_writes.add(name)
                     change = {
                         "tool": name,
                         "label": result.get("label") or name,

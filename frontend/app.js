@@ -212,6 +212,7 @@ function startApp() {
       // same prefsCache that loadTemplates just filled.
       loadChatSkills();
       $("tools-toggle").checked = !prefsCache || prefsCache.tools_enabled !== false;
+      renderChatModeSeg();
       renderWebSearchToggle();
     })
   );
@@ -5647,24 +5648,73 @@ function askSkillInputs(skill, done) {
   inputs[0]?.box.focus();
 }
 
+// Skills as a dropdown rather than a row of chips. Ten built-ins plus up to
+// thirty of your own is a wrapping wall of buttons that pushes the message box
+// off the screen, and every one of them is a click you can make by accident
+// while reaching for the text area. A select is one line, groups "yours" apart
+// from the built-ins, and — the part that matters — leaves room to say what a
+// skill DOES next to its name instead of hiding it in a hover.
 async function loadChatSkills() {
   await loadSkills();
   const box = $("chat-skills");
   box.replaceChildren();
+
   const label = document.createElement("span");
   label.className = "muted";
-  label.textContent = "⚡ Skills:";
-  box.appendChild(label);
+  label.textContent = "⚡ Skill:";
+
+  const select = document.createElement("select");
+  select.className = "small-select";
+  select.id = "chat-skill-select";
+  select.setAttribute("aria-label", "Run a skill");
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "Choose a skill…";
+  select.appendChild(placeholder);
+
+  const groups = { builtin: [], mine: [] };
   for (const skill of allSkills()) {
-    // ⚙ means "this one changes your notebook", not "this one uses tools" —
-    // nearly every skill uses tools, and a marker on all of them says nothing.
-    const chipEl = chip(skill.name + (skill.changes ? " ⚙" : ""), "", () => runSkill(skill));
-    chipEl.title = skillSummary(skill);
-    box.appendChild(chipEl);
+    groups[skill.builtin ? "builtin" : "mine"].push(skill);
   }
-  const manage = chip("＋ manage", "", () => openSettingsModal("skills"));
-  manage.title = "Add or edit skills in Settings";
-  box.appendChild(manage);
+  for (const [key, title] of [["mine", "Yours"], ["builtin", "Built-in"]]) {
+    if (!groups[key].length) continue;
+    const group = document.createElement("optgroup");
+    group.label = title;
+    for (const skill of groups[key]) {
+      const option = document.createElement("option");
+      option.value = skill.name;
+      // ⚙ means "this one changes your notebook", not "this one uses tools" —
+      // nearly every skill uses tools, and a marker on all of them says nothing.
+      option.textContent = skill.name + (skill.changes ? " ⚙" : "");
+      option.title = skillSummary(skill);
+      group.appendChild(option);
+    }
+    select.appendChild(group);
+  }
+
+  // Chosen, then run — rather than running on change. A dropdown that fires an
+  // action the instant it changes cannot be browsed, and these actions edit
+  // the notebook.
+  const run = smallButton("Run", "Run the selected skill", () => {
+    const chosen = allSkills().find((s) => s.name === select.value);
+    if (chosen) runSkill(chosen);
+  });
+  run.disabled = true;
+  select.addEventListener("change", () => {
+    run.disabled = !select.value;
+    const chosen = allSkills().find((s) => s.name === select.value);
+    hint.textContent = chosen ? (chosen.description || chosen.prompt || "").slice(0, 120) : "";
+  });
+
+  const manage = smallButton("＋", "Add or edit skills in Settings", () =>
+    openSettingsModal("skills")
+  );
+  manage.classList.add("ghost");
+
+  const hint = document.createElement("span");
+  hint.className = "muted chat-skill-hint";
+
+  box.append(label, select, run, manage, hint);
   box.classList.remove("hidden");
 }
 
@@ -11782,6 +11832,31 @@ function renderSearchEngineHealth(status) {
 // What to call the backend on screen. The whole UI was written when there was
 // only Ollama, and the word is in a dozen strings; this is the one place that
 // decides, so the rest read from it (§6).
+// The Chat / Agent pair. The hidden checkbox stays the single source of truth
+// — every other reader in the app already consults it, and a second store for
+// the same fact is how two of them end up disagreeing. These buttons just show
+// it and set it.
+function renderChatModeSeg() {
+  const agent = $("tools-toggle").checked;
+  for (const button of document.querySelectorAll("#chat-mode-seg button")) {
+    const active = button.dataset.chatMode === (agent ? "agent" : "chat");
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+  }
+}
+
+async function setChatMode(mode) {
+  const agent = mode === "agent";
+  $("tools-toggle").checked = agent;
+  renderChatModeSeg();
+  // Remembered, because it is a way of working rather than a per-message
+  // choice — the same preference the checkbox always wrote.
+  await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ tools_enabled: agent }),
+  }).catch(() => {});
+}
+
 function backendLabel(status) {
   return (status && status.provider) === "openai" ? "The model server" : "Ollama";
 }
@@ -14019,6 +14094,9 @@ $("local-only-ai").addEventListener("change", async (e) => {
   );
   refreshModelStatus();
 });
+for (const button of document.querySelectorAll("#chat-mode-seg button")) {
+  button.addEventListener("click", () => setChatMode(button.dataset.chatMode));
+}
 $("harmony-apply").addEventListener("click", applyHarmony);
 $("custom-theme-save").addEventListener("click", () => {
   saveCurrentLook().catch((error) => toast(error.message, true));

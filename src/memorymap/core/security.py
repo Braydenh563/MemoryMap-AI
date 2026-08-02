@@ -125,8 +125,31 @@ class OriginCheckMiddleware(BaseHTTPMiddleware):
 # would be wrong the first time anyone edited the block (which the roadmap
 # already expects: the theme table in it is kept in step with THEME_PRESETS by
 # hand), and a stale hash fails as a blank unstyled page.
+# Two loosenesses here were flagged by CodeQL (`py/bad-tag-filter`), and the
+# *reported* risk does not apply while the real bug does — worth writing down
+# so the next person does not re-litigate it.
+#
+# **Not an XSS filter.** This reads `frontend/index.html`, a file shipped with
+# the app, to compute the hash of its own inline script. Nothing user-supplied
+# reaches it, so "an attacker crafts markup that slips past the regex" has no
+# route in. Parsing HTML with a regex is only defensible for exactly that
+# reason.
+#
+# **But the failure mode is real, and it is a blank page.** If the pattern
+# misses the script, its hash never enters the CSP and the browser refuses to
+# run it — which is the pre-paint theme block, so the app opens unstyled. Both
+# gaps below did that:
+#
+#   - `</script >` — HTML permits whitespace before the closing `>`, and the
+#     old pattern required them adjacent, so the match failed outright.
+#   - `src = "…"` — the old exclusion looked for `src=` with no spaces, so a
+#     spaced attribute made an *external* script look inline and contributed a
+#     hash of the empty string.
+#
+# `\s*` in both places closes them. It is still not an HTML parser and is not
+# trying to be; it is a deliberately narrow reader of one known file.
 _INLINE_SCRIPT = re.compile(
-    rb"<script(?![^>]*\ssrc=)[^>]*>(.*?)</script>", re.DOTALL | re.IGNORECASE
+    rb"<script(?![^>]*\ssrc\s*=)[^>]*>(.*?)</script\s*>", re.DOTALL | re.IGNORECASE
 )
 
 

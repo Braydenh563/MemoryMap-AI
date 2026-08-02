@@ -470,7 +470,20 @@ Link to another note with [[its first few words]]."></textarea>
                  turns on tool use generally — reading notes, searching the
                  web, opening a page — not only writes. The old label
                  undersold what it enabled and overstated the risk. -->
-            <label class="muted tools-toggle agent-toggle"
+            <!-- Two modes, shown as two options rather than as one checkbox.
+                 A tickbox states one of them and leaves the other implied, so
+                 "not Agent mode" had no name and no description; a pair makes
+                 both readable at a glance and says which you are in without
+                 having to work out what the absence of a tick means. The
+                 checkbox itself stays, hidden, because it is the thing the
+                 rest of the app reads and stores. -->
+            <div class="seg seg-compact" id="chat-mode-seg" role="group" aria-label="Chat mode">
+              <button data-chat-mode="chat" type="button"
+                title="Ask questions about your notes. The AI reads and answers; it never changes anything.">💬 Chat</button>
+              <button data-chat-mode="agent" type="button"
+                title="The AI can use tools — search and read your notes, open web pages, create, tag, link and organise. Destructive actions always ask you first.">🤖 Agent</button>
+            </div>
+            <label class="muted tools-toggle agent-toggle hidden"
               title="Agent mode: the AI can use tools — search and read your notes, open web pages, create, tag, link and organise. Destructive actions always ask you first.">
               <input type="checkbox" id="tools-toggle">
               <span class="agent-toggle-label">🤖 Agent mode</span>

@@ -419,3 +419,60 @@ def test_wrong_passwords_earn_a_growing_wait(client):
         for _ in range(routes_auth._FAILURE_ALLOWANCE + 2)
     ]
     assert 429 in codes, "a run of wrong passwords should start earning waits"
+
+
+# --- the inline-script reader (CodeQL py/bad-tag-filter) ---------------------
+#
+# CodeQL flagged this pattern as a "bad HTML filtering regexp". The reported
+# risk — an attacker crafting markup that slips past a sanitiser — does not
+# apply: this reads `frontend/index.html`, a file shipped with the app, to hash
+# its own pre-paint theme script. Nothing user-supplied reaches it.
+#
+# The bug it pointed at was real, though, and its failure mode is the app
+# opening as a blank unstyled page: a script the pattern misses gets no hash in
+# the CSP, so the browser refuses to run it.
+
+
+def _hashes_of(tmp_path, markup: bytes):
+    page = tmp_path / "page.html"
+    page.write_bytes(markup)
+    return security.inline_script_hashes(page)
+
+
+def test_whitespace_before_the_closing_bracket_still_matches(tmp_path):
+    """HTML permits `</script >`. The old pattern required them adjacent, so
+    the match failed outright and the script silently lost its hash."""
+    assert _hashes_of(tmp_path, b"<script>go()</script >")
+    assert _hashes_of(tmp_path, b"<script>go()</script\n>")
+
+
+def test_the_same_script_hashes_the_same_however_the_tag_is_spelled(tmp_path):
+    """The hash is of the *body*, so tag whitespace must not change it."""
+    tight = _hashes_of(tmp_path, b"<script>go()</script>")
+    loose = _hashes_of(tmp_path, b"<script>go()</script >")
+    assert tight == loose
+
+
+def test_an_external_script_is_never_hashed(tmp_path):
+    """It has no inline body to hash, and `src` with spaces around the `=` used
+    to slip past the exclusion and contribute a hash of the empty string."""
+    assert _hashes_of(tmp_path, b'<script src="/app.js"></script>') == []
+    assert _hashes_of(tmp_path, b'<script src = "/app.js"></script>') == []
+    assert _hashes_of(tmp_path, b'<script SRC="/app.js"></script>') == []
+
+
+def test_an_inline_script_with_attributes_is_still_hashed(tmp_path):
+    assert _hashes_of(tmp_path, b'<script type="module">go()</script>')
+
+
+def test_several_inline_scripts_each_get_their_own_hash(tmp_path):
+    hashes = _hashes_of(tmp_path, b"<script>a()</script><script>b()</script>")
+    assert len(hashes) == 2
+    assert len(set(hashes)) == 2
+
+
+def test_the_real_page_still_yields_a_hash():
+    """The point of all of the above: the app's own page must keep working."""
+    from memorymap.api.app import FRONTEND_DIR
+
+    assert security.inline_script_hashes(FRONTEND_DIR / "index.html")

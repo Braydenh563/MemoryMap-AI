@@ -5388,3 +5388,19 @@ textarea.autogrow {
   margin: 0 0.35rem 0.35rem 0;
 }
 .theme-chip button:first-child { max-width: 14rem; overflow: hidden; text-overflow: ellipsis; }
+
+/* The Chat / Agent pair in the chat toolbar. Same segmented control the
+   settings screens use, sized down to sit beside the persona dropdown. */
+.seg-compact button {
+  padding: 0.2rem 0.55rem;
+  font-size: 0.8rem;
+}
+/* Skills as a dropdown: one line instead of a wrapping wall of chips, with
+   room for a description beside it rather than hidden in a hover. */
+.chat-skill-hint {
+  font-size: 0.75rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 22rem;
+}

@@ -7,6 +7,62 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Fixed — long jobs finish, or say where they stopped (roadmap §35K)
+
+Two reports, one subject: *"the agent struggles with long tasks like skills
+then cuts out half way through and has to restart, or it hits a limit for tool
+calls which has happened quite a bit."*
+
+- **Rounds are earned now, not granted.** The cap counted rounds, which cannot
+  tell a model doing eight useful things from a model doing the same thing
+  eight times — and "tag these eight notes" is a search, a read and eight
+  writes. A round that makes a successful call it has not already made buys
+  another round, up to a ceiling. A model looping on one call earns nothing and
+  still stops where it always did.
+- **A step that ran out of rounds is no longer ticked off as done.** The runner
+  could only see that the step's turn produced text, and "I couldn't finish
+  step 1" is text — so a step cut off mid-job was marked ✓ and the next one ran
+  on top of half-finished work. It is marked stalled, the run stops there, and
+  the result says which step it stopped on.
+- **Resume from step N.** A run that stopped picks up where it stopped instead
+  of being restarted over notes it has already changed. A turn that ran out of
+  rounds gets a **Continue** button, rather than a paragraph asking you to type
+  "carry on".
+
+### Added — the agent can plan a big job and work through it (roadmap §35K)
+
+Reported: *"I will say fix my categories and it will only merge two categories
+and leave it at that, ignoring the rest."*
+
+A model given one broad instruction does the first part and reports success.
+Skills already solved this — each step is its own turn — but only for a job you
+had saved as a skill. Now the agent can call **`make_plan`**: it writes 2–6
+steps, its turn ends, and the same runner works through them one at a time,
+ticking each off and listing what changed with an Undo on each.
+
+A plan is a skill nobody saved, so it looks and behaves exactly like a skill
+run. A plan that is too long is refused rather than trimmed, because silently
+dropping the end of the job is the failure this exists to prevent.
+
+### Changed — the chat controls moved down to the chat box (roadmap §36B)
+
+Asked for directly: *"moving the majority of the ui controls like the
+chat/agent pull, web search and stuff to the bottom bar with the chat input."*
+
+Chat/Agent, Web, answer length, persona, the skill picker and attached notes
+now sit in a dock with the message box, so you set them as you write instead of
+scrolling back to the top of a long conversation. The chat header keeps what is
+about the conversation itself — its name, what it has cost, and Export. The web
+and persona panels moved down with the buttons that open them.
+
+### Fixed — the Reminders tab is no longer faded at the edge
+
+Reported: *"the reminders tab in the top bar is partially faded out on the
+right."* The tab strip's fade meant "this bar scrolls" rather than "there is
+more that way", so the last tab stayed dimmed with nothing hidden behind it.
+Each edge now fades only when there is something beyond it, the fade is a fixed
+width rather than a share of the bar, and choosing a tab scrolls it into view.
+
 ### Added — any OpenAI-compatible backend (roadmap §6)
 
 The headline ask was "support LM Studio". What got built is the **dialect**,

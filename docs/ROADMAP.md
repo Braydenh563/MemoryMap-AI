@@ -52,17 +52,16 @@ The design system has its own document: [DESIGN.md](DESIGN.md).
 
 Ordered by *how much it unlocks*, not by how much is left in the section.
 
-1. **Let the agent run a skill.** The largest gap in the agentic story and the
-   smallest change to close it. The agent can list skills, save them, and — as
-   of this session — read a `when_to_use` that says which one fits. It still
-   cannot start one; that is a click only the user can make, so a model that
-   works out exactly what should happen has to ask for it in prose.
-   `skill_runner` already exists and already takes an allowlist. **Shape:**
-   reuse `ends_turn` (the mechanism `ask_user` introduced) rather than nesting
-   an agent loop inside an agent loop — the tool hands control to the skill
-   runner and the turn ends, which is also the honest thing to show the user.
-   `list_skills` already tells the model it cannot do this; that sentence is
-   what to delete when it can.
+1. ~~**Let the agent run a skill.**~~ **built** (`run_skill`, `ends_turn`, no
+   nested loop — exactly the shape this item argued for), **and it has a
+   sibling now: `make_plan`.** The gap the first one left was that only a job
+   somebody had *saved* got the step-per-turn treatment; an open-ended request
+   still got one turn and the model's good intentions, which is §35K's "fix my
+   categories" doing two merges and stopping. The agent draws a 2–6 step plan,
+   its turn ends, and the same runner works through it. A plan is a skill
+   nobody saved: same card, same ticked steps, same Undo on each change.
+   **What is left here** is the thing neither closes — §35I's context
+   compression, so a long run's history stops being resent whole.
 2. **The graph's last mile (§9).** Walking it and suggesting connections are
    done and token-budgeted. What is missing is *"how are these two related?"* —
    a path between two notes — plus clusters and drag-to-link in the view. The
@@ -962,16 +961,39 @@ theme: the agent is expensive to use and under-delivers on what it is asked.
   prompt should say so; the id is the app's handle, not the user's. Cheap, and
   it makes every other answer more legible.
 
-- **A broad instruction gets a token effort.** Reported: *"I will say fix my
-  categories and it will only merge two categories and leave it at that,
-  ignoring the rest."* This is the counterpart of §21's finding about steps —
-  a model given one big instruction does the first part and reports success.
-  The skill runner solves it for skills by giving each step its own turn, and
-  **the same shape is what an open-ended request needs**: a plan, then a turn
-  per item, then a report. §33's "worth building" item 2 (`update_plan`, a
-  live plan the agent ticks off) is the mechanism, and this report is the
-  strongest argument yet for building it — it is not a progress indicator, it
+- ~~**A broad instruction gets a token effort.**~~ **built — `make_plan`.**
+  Reported: *"I will say fix my categories and it will only merge two
+  categories and leave it at that, ignoring the rest."* The counterpart of
+  §21's finding about steps, and it took the same fix: the agent draws a 2–6
+  step plan, its turn **ends**, and the skill runner works through the plan a
+  step per turn. A plan is a skill nobody saved — same plan card, same ticked
+  steps, same change list with an Undo on each — so there is one runner, not
+  two. §33's "worth building" item 2 (`update_plan`) is closed by this, and
+  the framing there was the useful part: it is not a progress indicator, it
   is what makes the model finish the job.
+
+  Three decisions worth not re-deriving. **2–6 steps**: one step is just the
+  action, and every step is its own turn on a local machine, so ten steps is
+  minutes of generation before the end is visible. **A plan that is too long
+  is refused, not truncated** — silently dropping the end of the job is the
+  exact failure the tool exists to prevent, arriving from the other end. **A
+  run may not start a run** (`tools.RUN_STARTERS`), or each nested one brings
+  fresh rounds and the bound on a turn stops meaning anything.
+
+- ~~**Long jobs cut out part-way.**~~ **fixed, and it was two bugs.** Reported
+  later than the rest: *"the agent struggles with long tasks like skills then
+  cuts out half way through and has to restart, or it hits a limit for tool
+  calls which has happened quite a bit."*
+  1. **The round cap counted rounds**, which cannot distinguish a model doing
+     eight useful things from one doing the same thing eight times. Rounds are
+     *earned* now (`agent.EARNED_ROUNDS`): a round making a successful call it
+     has not already made buys another, to a ceiling. A loop earns nothing and
+     stops where it always did.
+  2. **A step that ran out was ticked off as done** — the runner could only
+     see that the turn produced text, and "I couldn't finish step 1" is text.
+     It is `stalled` now, the run stops there, and `stopped_at` names the step
+     so the run can be **resumed from it** rather than restarted over notes it
+     has already written to.
 
 - **The token budget skyrockets on these turns**, which is the same bug seen
   from the cost side: rounds of tool results accumulate and every one is
@@ -1123,6 +1145,23 @@ Original notes kept below.
   *before* the container change means fighting the window's scroll position,
   which is why these two are one item.
 
+### 36A-bis. ~~The tab bar's fade sat on the Reminders tab~~ — **fixed**
+
+Reported: *"the reminders tab in the top bar is partially faded out on the
+right."* Reminders is the last tab, so it wore the whole of two mistakes in
+one rule.
+
+- **The fade said "this bar scrolls", not "there is more that way."** Scrolled
+  to the end — or overflowing by four pixels — the last tab was dimmed with
+  nothing hidden behind it, which reads as a disabled control rather than as a
+  hint. It is per *edge* now, painted only on a side with content beyond it,
+  and recomputed on scroll as well as on resize.
+- **12% of the bar is a whole tab, not an edge.** The ramp is a fixed
+  `1.5rem`, so it fades the same amount at every width.
+
+Selecting a tab now scrolls it into view, so the fade is only ever over a tab
+you are not using. **Not checked in a browser** — no display in the sandbox.
+
 ### 36B. The three surfaces that need rearranging, not restyling
 
 Each of these was called out as needing a **new layout**, not a coat of paint.
@@ -1140,12 +1179,24 @@ controls in a different order.
    Import & export. Text is read live, because several sections are filled in
    by JS after first paint and an index built at startup would search empty
    panels. What is left is the density *within* the longer sections.
-2. ~~**The Chat page controls.**~~ **regrouped.** They are now three groups —
-   what the AI may use, how it answers, and this conversation — separated by a
-   hairline rather than boxes, with the conversation-level actions pushed to
-   the far end because they are the only two not about the *next* message. Ids
-   are unchanged, so it was a regrouping rather than a rewrite. What is left
-   here is the composer itself, which has not been looked at.
+2. ~~**The Chat page controls.**~~ **regrouped, then moved to the composer.**
+   Asked for directly after the regrouping: *"I was thinking of moving the
+   majority of the ui controls like the chat/agent pull, web search and stuff
+   to the bottom bar with the chat input."* Correct, and it is the same split
+   taken one step further — a control that decides what happens to the **next
+   message** (Chat/Agent, Web, answer length, persona, the skill picker,
+   attached notes) now lives in a **dock** at the bottom with the input box;
+   the header keeps only what is about the **conversation** (its name, its
+   cost, export). You set them as you write instead of scrolling back up.
+
+   The web and persona panels moved down with the buttons that open them — a
+   toggle at the bottom opening a panel at the top reads as a button that does
+   nothing — and the web panel is capped at 45vh inside the dock. Ids are
+   unchanged throughout, so `app.js` needed no edit; `tests/test_chat_dock.py`
+   pins the arrangement, because nothing else here can see it.
+
+   Still open: the composer's own controls (📎, 🎙, Send) have not been
+   looked at, and **none of this has been checked in a browser.**
 
    Original note: The toolbar has grown a control at a time —
    Chat/Agent, Web, response mode, persona, peek, export, skill picker, tools

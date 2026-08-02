@@ -9,6 +9,54 @@ that answers "has this been done?" before anyone starts.
 
 ## Done in the most recent session — read this first
 
+**This session: long jobs finish, the agent can plan one, and the chat
+controls moved to the composer.** Three user reports and the roadmap's top
+open item, and they turned out to be one subject — an agent that starts a big
+job and does not finish it.
+
+1. **Rounds are earned, not granted (`agent.EARNED_ROUNDS`).** Reported: *"it
+   hits a limit for tool calls which has happened quite a bit."* A flat cap
+   cannot tell a model doing eight useful things from one doing the same thing
+   eight times, and "tag these eight notes" is eight writes plus a search. A
+   round that makes a *new, successful* call now buys another round, to a
+   ceiling of `MAX_ROUNDS + EARNED_ROUNDS`. A loop earns nothing and stops
+   exactly where it always did — the tests pin both directions.
+
+2. **A stalled step is not a finished one, and a run can be resumed.**
+   Reported: *"skills cut out half way through and have to restart."* Two
+   bugs. The runner could only see that a step's turn produced text, and "I
+   couldn't finish step 1" is text — so a step cut off mid-job was ticked ✓
+   and the next step ran on top of half-finished work. The `limit` event
+   separates them; a stalled step stops the run and `stopped_at` names it, so
+   **Resume from step N** re-enters there instead of re-running steps that
+   already wrote to the notebook.
+
+3. **`make_plan` — the agent plans an open-ended job (§35K).** *"I will say
+   fix my categories and it will only merge two categories and leave it at
+   that."* The model draws 2–6 steps, its turn **ends**, and the skill runner
+   works through them a step per turn. **A plan is a skill nobody saved**, so
+   there is one runner rather than two, and a plan gets the plan card, the
+   ticked steps and an Undo on every change for free. A run may not start a
+   run (`tools.RUN_STARTERS`).
+
+4. **The chat controls moved to the composer dock (§36B).** Asked for
+   directly. Anything that decides what happens to the *next* message sits
+   with the box you type it in; the header keeps only what is about the
+   conversation. Every id unchanged, so `app.js` needed no edit at all.
+
+5. **The tab bar's edge fade** no longer dims the Reminders tab when there is
+   nothing beyond it (§36A-bis).
+
+**The standing caveat applies to 4 and 5 in full:** no browser here, so the
+markup and CSS are reasoned, not observed. `tests/test_chat_dock.py` and
+`test_style_scale.py` are what stand in for looking at it, and they check
+structure, not appearance.
+
+**Everything below is from earlier sessions.**
+
+---
+
+
 **This session: §6, §11's output half, model specs, and odysseus read and
 triaged (§33).** Four things landed, and they are related — each one made the
 next cheaper.

@@ -5863,6 +5863,9 @@ function runSkill(skill) {
 }
 
 function startSkill(skill, values) {
+  // Both entry points land here — the ⚡ dropdown and a run the agent started
+  // itself (§33) — so the dashboard's recent-skill buttons cover both.
+  noteSkillRun(skill.name);
   const given = Object.values(values).filter(Boolean).join(", ");
   sendChatMessage(`⚡ ${skill.name}${given ? ` — ${given}` : ""}`, {
     skill: skill.name,
@@ -6851,14 +6854,98 @@ const QUICK_LINKS = [
   { icon: "🧰", label: "Tools & features", run: () => openFeatures(), primary: true },
 ];
 
+// --- quick access that follows what you actually do (§36D) ------------------------
+//
+// These are the first thing on the first screen, and they were a fixed list
+// chosen early. Someone who lives in the graph and someone who never opens it
+// got the same row.
+//
+// The row is ordered by use now, with two fixed points: **New note stays
+// first** and **Tools & features stays last**. That is deliberate — a row that
+// reorders completely is a row you have to re-read every time, and the whole
+// value of a fixed position is that your hand learns it. Only the middle
+// moves, and only by how often you actually press it.
+const QUICK_USE_KEY = "quickLinkUse";
+//: How many recently-run skills get a button. Two, because they are competing
+//: for the same row as the fixed actions and a skill you ran once last month
+//: is not quick access to anything.
+const QUICK_SKILL_SLOTS = 2;
+
+function quickLinkUse() {
+  try {
+    return JSON.parse(localStorage.getItem(QUICK_USE_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function noteQuickLinkUse(label) {
+  const counts = quickLinkUse();
+  counts[label] = (counts[label] || 0) + 1;
+  localStorage.setItem(QUICK_USE_KEY, JSON.stringify(counts));
+}
+
+//: Skills that have actually been run, most recent first. Written by
+//: `startSkill`, so it covers both the dropdown and a run the agent started
+//: itself (§33) — if the model keeps reaching for a skill, that is evidence it
+//: belongs on the dashboard too.
+const RECENT_SKILLS_KEY = "recentSkills";
+
+function noteSkillRun(name) {
+  let recent = [];
+  try {
+    recent = JSON.parse(localStorage.getItem(RECENT_SKILLS_KEY) || "[]");
+  } catch {
+    recent = [];
+  }
+  recent = [name, ...recent.filter((n) => n !== name)].slice(0, 8);
+  localStorage.setItem(RECENT_SKILLS_KEY, JSON.stringify(recent));
+}
+
+function recentSkillLinks() {
+  let recent = [];
+  try {
+    recent = JSON.parse(localStorage.getItem(RECENT_SKILLS_KEY) || "[]");
+  } catch {
+    return [];
+  }
+  return recent.slice(0, QUICK_SKILL_SLOTS).map((name) => ({
+    icon: "⚡",
+    label: name,
+    skill: true,
+    run: () => {
+      const known = allSkills().find((s) => s.name === name);
+      // A skill can be deleted between runs. Sending the user to the picker is
+      // more use than a button that fails.
+      if (known) runSkill(known);
+      else switchTab("chat");
+    },
+  }));
+}
+
+function orderedQuickLinks() {
+  const counts = quickLinkUse();
+  const first = QUICK_LINKS[0];
+  const last = QUICK_LINKS.find((l) => l.primary);
+  const middle = QUICK_LINKS.filter((l) => l !== first && l !== last);
+  // Stable sort: equal counts keep the order they were declared in, so an
+  // untouched dashboard looks exactly as it always did.
+  middle.sort((a, b) => (counts[b.label] || 0) - (counts[a.label] || 0));
+  return [first, ...middle, ...recentSkillLinks(), last].filter(Boolean);
+}
+
 function renderQuickLinks() {
   const box = $("dash-quicklinks");
   if (!box) return;
   box.replaceChildren();
-  for (const link of QUICK_LINKS) {
+  for (const link of orderedQuickLinks()) {
     const button = document.createElement("button");
-    button.className = "quick-link" + (link.primary ? " quick-link-primary" : "");
+    button.className =
+      "quick-link" +
+      (link.primary ? " quick-link-primary" : "") +
+      (link.skill ? " quick-link-skill" : "");
     button.type = "button";
+    if (link.skill) button.title = `Run the skill “${link.label}”`;
     const icon = document.createElement("span");
     icon.className = "quick-link-icon";
     icon.textContent = link.icon;
@@ -6866,7 +6953,10 @@ function renderQuickLinks() {
     const label = document.createElement("span");
     label.textContent = link.label;
     button.append(icon, label);
-    button.addEventListener("click", link.run);
+    button.addEventListener("click", () => {
+      noteQuickLinkUse(link.label);
+      link.run();
+    });
     box.appendChild(button);
   }
 }
@@ -12420,29 +12510,14 @@ function renderSearchEngineHealth(status) {
 // it and set it.
 function renderChatModeSeg() {
   const agent = $("tools-toggle").checked;
-  $("task-history-clear").addEventListener("click", async () => {
-  await apiJson("/tasks/history/clear", { method: "POST" }).catch((e) =>
-    toast(e.message, true)
-  );
-  renderTasks();
-});
-$("app-quit").addEventListener("click", async () => {
-  // Confirmed, because it is not undoable from inside the app: once the
-  // server is down, the button that would bring it back is on the page that
-  // just stopped being served.
-  if (!(await confirmDialog("Quit MemoryMap? The app and its server will stop."))) return;
-  try {
-    await apiJson("/shutdown", { method: "POST" });
-  } catch {
-    // The server may drop the connection as it goes. That is the request
-    // succeeding, not failing, so it is not worth an error toast.
-  }
-  document.body.innerHTML =
-    '<div style="padding:3rem;text-align:center;font-family:system-ui">' +
-    "<h1>MemoryMap has stopped.</h1>" +
-    "<p>Your notes are saved. You can close this tab.</p></div>";
-});
-for (const button of document.querySelectorAll("#chat-mode-seg button")) {
+  // Two `addEventListener` calls for Quit and Clear-history used to sit here,
+  // spliced into the middle of this function by an editing accident. It parsed,
+  // so nothing complained — but this function runs on every chat-mode change,
+  // so each call bound *another* listener to both buttons. Clicking Quit after
+  // switching modes a few times opened that many confirm dialogs and fired
+  // that many shutdown requests. The correctly-placed copies of both are
+  // registered once, at the bottom of this file, where every other handler is.
+  for (const button of document.querySelectorAll("#chat-mode-seg button")) {
     const active = button.dataset.chatMode === (agent ? "agent" : "chat");
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", active ? "true" : "false");
@@ -14786,11 +14861,18 @@ $("task-history-clear").addEventListener("click", async () => {
   );
   renderTasks();
 });
-$("app-quit").addEventListener("click", async () => {
+// Quit, from either place it is offered: the top bar (§36D) and Settings →
+// System. One handler, bound to both, rather than two copies that drift.
+async function quitApp() {
   // Confirmed, because it is not undoable from inside the app: once the
   // server is down, the button that would bring it back is on the page that
   // just stopped being served.
-  if (!(await confirmDialog("Quit MemoryMap? The app and its server will stop."))) return;
+  if (!(await confirmDialog(
+    "Quit MemoryMap?\n\nThe app and its server will stop. Your notes are already saved.",
+    { confirmLabel: "Quit" }
+  ))) {
+    return;
+  }
   try {
     await apiJson("/shutdown", { method: "POST" });
   } catch {
@@ -14801,7 +14883,9 @@ $("app-quit").addEventListener("click", async () => {
     '<div style="padding:3rem;text-align:center;font-family:system-ui">' +
     "<h1>MemoryMap has stopped.</h1>" +
     "<p>Your notes are saved. You can close this tab.</p></div>";
-});
+}
+$("app-quit").addEventListener("click", quitApp);
+$("quit-btn")?.addEventListener("click", quitApp);
 for (const button of document.querySelectorAll("#chat-mode-seg button")) {
   button.addEventListener("click", () => setChatMode(button.dataset.chatMode));
 }

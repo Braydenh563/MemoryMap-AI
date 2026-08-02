@@ -123,6 +123,17 @@
       </span>
       <button id="settings-btn" class="ghost small" title="Settings">⚙ Settings</button>
       <button id="lock-btn" class="ghost small hidden" title="Lock the app" aria-label="Lock the app">🔒</button>
+      <!-- Quit lives up here, not only in Settings → System (§36D). Closing
+           an app is a top-level action, and burying it four clicks deep in a
+           settings panel is the one place nobody looks for it — especially in
+           the desktop window, where closing the window is not the same thing
+           as stopping the server behind it.
+
+           Last in the row and ghost-styled, so it is reachable without being
+           the thing your hand finds by accident next to Settings. The confirm
+           dialog is the real guard; position is the second one. -->
+      <button id="quit-btn" class="ghost small" title="Quit MemoryMap — stops the app and its server"
+        aria-label="Quit MemoryMap">⏻</button>
       <button id="theme-btn" class="ghost small" title="Toggle light/dark" aria-label="Toggle light or dark theme">🌓</button>
     </div>
   </header>
@@ -485,6 +496,16 @@ Link to another note with [[its first few words]]."></textarea>
                  having to work out what the absence of a tick means. The
                  checkbox itself stays, hidden, because it is the thing the
                  rest of the app reads and stores. -->
+            <!-- Grouped by the question each control answers, rather than as
+                 eight peers in one row (§36B). The toolbar had grown a control
+                 at a time and they sat side by side despite answering
+                 completely different things: what the AI may touch, how it
+                 should sound, how hard it should work, and what to do with
+                 this conversation. Reading it meant reading all eight.
+
+                 Ids are unchanged throughout — this is a regrouping, not a
+                 rewrite, so nothing in app.js has to know about it. -->
+            <div class="chat-tool-group" role="group" aria-label="What the AI may use">
             <div class="seg seg-compact" id="chat-mode-seg" role="group" aria-label="Chat mode">
               <button data-chat-mode="chat" type="button"
                 title="Ask questions about your notes. The AI reads and answers; it never changes anything.">💬 Chat</button>
@@ -498,6 +519,11 @@ Link to another note with [[its first few words]]."></textarea>
             </label>
             <button id="web-search-toggle" class="ghost small" aria-pressed="false"
               title="Search the web here, and let the AI search when you ask it to">🌐 Web</button>
+            </div>
+
+            <!-- How the answer comes out: who is speaking, and how hard they
+                 work at it. Neighbouring questions, so they stay neighbours. -->
+            <div class="chat-tool-group" role="group" aria-label="How it answers">
             <!-- How much effort this turn is worth. Sits next to the persona
                  because they answer neighbouring questions — who is answering,
                  and how hard they should work at it. Filled from /chat/modes
@@ -511,9 +537,18 @@ Link to another note with [[its first few words]]."></textarea>
             <button id="persona-peek" class="ghost small" type="button"
               aria-expanded="false"
               title="Show the instructions this persona gives the AI">👁</button>
-            <span id="chat-usage" class="chat-usage muted" hidden
-              title="Everything this conversation has sent to the model so far"></span>
-            <button id="chat-export" class="ghost small" title="Download this chat as a Markdown file">⭳ Export</button>
+            </div>
+
+            <!-- This conversation, as an object: what it has cost and how to
+                 take it with you. Pushed to the far end because these are the
+                 only two that are not about the *next* message — mixing them
+                 in with the per-turn controls is what made the row read as an
+                 undifferentiated list. -->
+            <div class="chat-tool-group chat-tool-group-end" role="group" aria-label="This conversation">
+              <span id="chat-usage" class="chat-usage muted" hidden
+                title="Everything this conversation has sent to the model so far"></span>
+              <button id="chat-export" class="ghost small" title="Download this chat as a Markdown file">⭳ Export</button>
+            </div>
           </div>
           <!-- id is persona-peek-panel, NOT persona-prompt: the Settings
                screen has a <textarea id="persona-prompt"> for writing a new

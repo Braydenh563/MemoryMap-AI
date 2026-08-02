@@ -89,6 +89,14 @@
   --text-h1: 1.7rem;
   --text-display: 2.2rem;
 
+  /* How tall the scrolling page area is — the viewport minus the top bar.
+     Sidebars need this as a *definite* length: they are sticky, and a sticky
+     box only scrolls internally if it has a height that does not depend on its
+     own content. `max-height: 100%` cannot do it, because inside a grid whose
+     row is sized by its content, 100% *is* the content height — which is why
+     the Notes sidebar stopped scrolling independently when it was tried. */
+  --page-viewport: calc(100dvh - var(--header-h));
+
   /* The page shell. One inset for every tab — see .tab-page. */
   --page-gutter: var(--space-9);   /* 2rem, the inset five rules had by hand */
   --page-top: var(--space-6);
@@ -636,7 +644,7 @@ header#top-bar h1 {
        container now (§36A) and the header is outside it, so the sidebar sticks
        to the top of the page it lives in. */
     top: 0;
-    max-height: 100%;
+    max-height: calc(var(--page-viewport) - var(--page-top) - var(--space-4));
     overflow-y: auto;
   }
 }
@@ -3485,8 +3493,10 @@ html { font-size: 16px; }
      the header sits outside it — so there is nothing to clear, and offsetting
      by the header height would push the sidebar down by that much again. */
   top: 0;
-  /* Full height of the page's viewport, not the window's. */
-  height: 100%;
+  /* A definite height, not 100%: this is a grid item with `align-self: start`,
+     so 100% would resolve against a row sized by its own content and the list
+     inside would never scroll. */
+  height: calc(var(--page-viewport) - var(--page-top) - var(--space-4));
 }
 
 /* --- graph: depth, halos and legible labels -------------------------------- */
@@ -3932,7 +3942,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
      by the header height would push the sidebar down by that much again. */
   top: 0;
   align-self: start;
-  max-height: 100%;
+  max-height: calc(var(--page-viewport) - var(--page-top) - var(--space-4));
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -5764,3 +5774,55 @@ textarea.autogrow {
 /* A group heading with everything under it filtered out is a heading for an
    empty list, so it hides with its group. */
 #settings-nav .nav-group-label.hidden { display: none; }
+
+
+/* --- the chat toolbar, grouped (§36B) ---------------------------------------
+   Eight controls used to sit as peers in one row despite answering four
+   different questions — what the AI may touch, how it should sound, how hard
+   it should work, and what to do with this conversation. Reading the row meant
+   reading all eight and sorting them yourself.
+
+   Grouping is done with proximity and a hairline, not with boxes: a toolbar of
+   bordered panels is heavier than the row it replaces, and the point is to
+   make it quicker to scan, not more decorated. */
+.chat-tool-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+/* A separator between groups, drawn on the group rather than between them so
+   it survives any of them being hidden — Web disappears when the online
+   opt-in is off, and a stranded divider is worse than none. */
+.chat-tool-group + .chat-tool-group::before {
+  content: "";
+  align-self: stretch;
+  width: 1px;
+  margin-inline: var(--space-3);
+  background: var(--border);
+}
+/* Conversation-level actions sit at the far end: they are the only two that
+   are not about the *next* message. */
+.chat-tool-group-end {
+  margin-left: auto;
+}
+@media (max-width: 720px) {
+  /* Wrapped onto several lines the dividers stop meaning anything — they would
+     separate whatever happened to land beside them rather than the groups. */
+  .chat-tool-group + .chat-tool-group::before { display: none; }
+  .chat-tool-group-end { margin-left: 0; }
+}
+
+/* A recently-run skill promoted onto the dashboard (§36D). Marked, because a
+   button that runs a job on your notebook should not look identical to one
+   that just switches tab — the two rows either side of it do nothing on their
+   own, and this one might tag forty notes. */
+.quick-link-skill {
+  border-style: dashed;
+  max-width: 14rem;
+}
+.quick-link-skill span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

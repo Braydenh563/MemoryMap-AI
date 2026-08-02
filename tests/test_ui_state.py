@@ -75,13 +75,20 @@ def test_the_frontend_watches_the_keys_it_promises_to(client):
     source = (Path(__file__).resolve().parents[1] / "frontend" / "app.js").read_text(
         encoding="utf-8"
     )
-    block = re.search(r"const MIRRORED_UI_KEYS = \[(.*?)\];", source, re.S)
-    assert block, "MIRRORED_UI_KEYS not found in app.js"
-    keys = set(re.findall(r'"([^"]+)"', block.group(1)))
-    assert {"theme", "onboardingDone"} <= keys, (
-        "the two settings this whole mechanism was reported for must be in the "
-        "watched list"
+    # The watched list is the look's own keys plus these extras — derived, not
+    # a second hand-written copy. The first draft *was* a copy and guessed two
+    # key names wrong, which would have left the background art as the one
+    # setting that still did not survive a restart.
+    extras = re.search(r"const MIRRORED_UI_EXTRAS = \[(.*?)\];", source, re.S)
+    assert extras, "MIRRORED_UI_EXTRAS not found in app.js"
+    assert "onboardingDone" in extras.group(1)
+    assert "return [...LOOK_KEYS, ...MIRRORED_UI_EXTRAS];" in source, (
+        "the appearance half of the watched list must be derived from "
+        "LOOK_KEYS rather than re-typed"
     )
+    # And `theme` reaches it through LOOK_KEYS → OVERRIDABLE_KEYS.
+    overridable = re.search(r"const OVERRIDABLE_KEYS = \[(.*?)\];", source, re.S)
+    assert overridable and '"theme"' in overridable.group(1)
     # And the watch has to be installed before anything can write one.
     assert "watchMirroredUiKeys();" in source
     assert source.index("watchMirroredUiKeys();") < source.index(

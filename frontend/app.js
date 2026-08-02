@@ -3416,7 +3416,12 @@ async function renderModelSpec(modelName) {
   // doesn't report capabilities", which is not the same as "no". Saying "no"
   // about a model that works fine would send someone chasing a problem that
   // isn't there.
-  const canDo = (value) => (value === null ? "not reported" : value ? "yes" : "no");
+  // `== null`, not `=== null`: the whole point of this helper is that "not
+  // declared" must never render as a confident "no" (§35C), and a *missing*
+  // key is exactly as unknown as an explicit null. With `===` an absent field
+  // fell through to the falsy branch and printed "no" — the reported bug,
+  // surviving in the one case nobody checked.
+  const canDo = (value) => (value == null ? "not reported" : value ? "yes" : "no");
   const rows = [
     ["Size", spec.parameters],
     ["Quantisation", spec.quantisation],
@@ -14614,12 +14619,34 @@ function activeThemePreset() {
 //: The keys worth surviving a restart. Explicit rather than "everything in
 //: localStorage": this is written to the notebook's own preferences file, and
 //: scroll positions and one-visit UI state have no business in there.
-const MIRRORED_UI_KEYS = [
-  "theme", "themePreset", "palette", "accent", "font", "fontsize", "density",
-  "glass", "glass-blur", "motion", "radius", "bgart", "bgart-motion",
-  "onboardingDone", "activeTab", "graph-layout", "graph-colour",
-  "graph-options-open", "chat-composer-height",
+// The appearance half is `LOOK_KEYS` — the same list a saved custom theme
+// snapshots — rather than a second hand-written copy of it. The first draft
+// *was* a hand-written copy, and it guessed two key names wrong ("bgart",
+// "bgart-motion" for what are really `bgArt`, `bg-style`, `bg-motion` and
+// `bg-intensity`), so the background art would have been the one setting that
+// still did not survive a restart. Deriving it cannot be wrong.
+// Everything not covered by the look: the tour flag, and the few view
+// settings that are properties of how you use the app rather than of one
+// visit.
+const MIRRORED_UI_EXTRAS = [
+  "themePreset",
+  "motion",
+  "custom-css",
+  "onboardingDone",
+  "activeTab",
+  "graph-layout",
+  "graph-colour",
+  "graph-options-open",
+  "chat-composer-height",
 ];
+
+// A function rather than a `const` array, because `LOOK_KEYS` is declared
+// several hundred lines below this one and a top-level spread of it would be
+// read before its initialiser had run — a temporal-dead-zone error at load,
+// which in a file with no bundler means a blank app.
+function mirroredUiKeys() {
+  return [...LOOK_KEYS, ...MIRRORED_UI_EXTRAS];
+}
 
 let uiStateSaveTimer = null;
 
@@ -14630,7 +14657,7 @@ function saveUiState() {
   clearTimeout(uiStateSaveTimer);
   uiStateSaveTimer = setTimeout(() => {
     const state = {};
-    for (const key of MIRRORED_UI_KEYS) {
+    for (const key of mirroredUiKeys()) {
       const value = localStorage.getItem(key);
       if (value != null) state[key] = String(value).slice(0, 400);
     }
@@ -14658,7 +14685,7 @@ function saveUiState() {
 // is the property worth having. Only the listed keys trigger a save; every
 // other `localStorage` write in the app is untouched and unwatched.
 function watchMirroredUiKeys() {
-  const mirrored = new Set(MIRRORED_UI_KEYS);
+  const mirrored = new Set(mirroredUiKeys());
   const store = window.localStorage;
   const setItem = store.setItem.bind(store);
   const removeItem = store.removeItem.bind(store);
@@ -14686,7 +14713,7 @@ function watchMirroredUiKeys() {
 function seedUiStateFromServer(state) {
   if (!state || typeof state !== "object") return false;
   let restored = 0;
-  for (const key of MIRRORED_UI_KEYS) {
+  for (const key of mirroredUiKeys()) {
     if (localStorage.getItem(key) == null && state[key] != null) {
       localStorage.setItem(key, String(state[key]));
       restored += 1;

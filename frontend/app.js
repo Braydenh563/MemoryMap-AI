@@ -770,7 +770,22 @@ function entryItem(entry, options = {}) {
     const linkRow = document.createElement("div");
     linkRow.className = "entry-links";
     for (const link of entry.links) {
-      const linkChip = chip(`↔ ${link.preview}`, "link");
+      // **A link is navigation, not content.** Measured on the busiest screen
+      // in the app: a card was 25px of its own note, 23px of metadata and 21px
+      // of link chips — and the chips were the loudest thing on it, filled and
+      // bold, each carrying the *whole first line of another note*. On a
+      // well-linked note the links were wider than the note and read first,
+      // which is §36B.3's "everything at equal weight" with the weights
+      // actually inverted.
+      //
+      // Clipped to a glanceable length, quiet by default, with the full text
+      // on hover for when the clip is not enough.
+      const label = link.preview || "";
+      const short = label.length > LINK_CHIP_CHARS
+        ? `${label.slice(0, LINK_CHIP_CHARS - 1).trimEnd()}…`
+        : label;
+      const linkChip = chip(`↔ ${short}`, "link");
+      linkChip.title = label;
       if (options.actions) {
         const unlink = document.createElement("span");
         unlink.className = "unlink";
@@ -9754,6 +9769,12 @@ let graphAdjacency = null; // Map<id, Set<neighbourId>>
 // step can be a shared tag, which the map draws no edge for, so highlighting
 // the existing lines would show a chain with holes in it (§9).
 let graphTraceLayer = null;
+
+// How much of a linked note's text a link chip shows. Long enough to know
+// which note it is, short enough that four of them are a row rather than a
+// paragraph — a chip is a signpost, and a signpost with a sentence on it is
+// not a signpost. The full text is the chip's tooltip.
+const LINK_CHIP_CHARS = 28;
 
 // How much of a note the list shows before clamping it. Roughly ten lines at
 // a comfortable reading width — long enough that a normal note is never

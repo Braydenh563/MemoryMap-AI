@@ -1243,9 +1243,36 @@ progress { accent-color: var(--accent); width: 100%; }
 /* No auto margin here — .entry-meta-end already owns the alignment. */
 .entry-actions { display: flex; gap: 0.4rem; }
 .entry-actions button { padding: 0.15rem 0.5rem; font-size: 0.8rem; }
-.entry-links { margin-top: 0.4rem; display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.entry-links { margin-top: var(--space-2); display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .chip.link { cursor: default; }
+/* A note card's links, quietened (§36B.3). The base `.chip` is accent-coloured
+   and weight 600 — right for a category, which is one word and a fact about
+   this note; wrong for a link, which carries another note's words and appears
+   several times. Measured before: on a card with two links the chips were
+   wider than the note itself and read first.
+
+   Scoped to `#entry-list` on purpose. The same chip elsewhere — a reminder's
+   note, a document's attachment — is the *subject* of the row it sits in
+   rather than an aside, and quietening those would be the opposite fix. */
+#entry-list .chip.link {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-weight: 400;
+}
+#entry-list li:hover .chip.link,
+#entry-list li:focus-within .chip.link { color: var(--ink); }
 .chip.link .unlink { cursor: pointer; margin-left: 0.25rem; font-weight: 700; }
+/* The ✕ follows the card's own actions: present on hover and focus, out of the
+   way while reading. It stays reachable by keyboard because focus-within
+   covers a tabbed-to chip, and on touch because there is no hover there. */
+#entry-list .chip.link .unlink { opacity: 0; transition: opacity 0.12s ease; }
+#entry-list li:hover .chip.link .unlink,
+#entry-list li:focus-within .chip.link .unlink { opacity: 0.7; }
+#entry-list .chip.link .unlink:hover { opacity: 1; color: var(--error); }
+@media (hover: none) {
+  #entry-list .chip.link .unlink { opacity: 0.7; }
+}
 li.link-source { outline: 2px solid var(--accent); }
 
 /* --- activity log ----------------------------------------------------------- */

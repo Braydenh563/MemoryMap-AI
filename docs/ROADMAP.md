@@ -1362,12 +1362,26 @@ controls in a different order.
    toolbar and the chat toolbar's end group; both now reset it at the width
    where wrapping starts. Any new toolbar wants checking for it.
 
-   Still open — the original note: Called out twice — once for layout generally and once
+   **The layout half is done now, and the decision it asked for is: the card is
+   the note.** Everything else supports it. What the measurement found was not
+   "equal weight" but weights *inverted* — a card was 25px of its own note,
+   23px of metadata and 21px of link chips, and the chips were the loudest
+   thing on it: filled, accent-coloured, weight 600, each carrying the whole
+   first line of another note. On a well-linked card the links were wider than
+   the note and read first.
+
+   A link is **navigation, not content**. The chips are clipped to 28
+   characters with the full text on hover, outlined rather than filled, muted
+   until the card is hovered, and their ✕ follows the card's other actions —
+   present on hover and focus, out of the way while reading. Scoped to
+   `#entry-list`, because the same chip on a reminder or a document *is* the
+   subject of its row and quietening those would be the opposite fix.
+
+   Original note: Called out twice — once for layout generally and once
    specifically for **note metadata and how it is visualised** (§35K). This is
    the most-looked-at surface in the app and the hardest to get right; it wants
    a decision about what a note card is *for* at a glance — is it the text, or
    is it the text plus its category, tags, dates, link count and privacy state?
-   Currently it is all of them at equal weight, which is why it reads as busy.
 
 ### 36C. ~~Reminders that you actually notice~~ — **built**
 

@@ -4377,14 +4377,36 @@ controls in a different order.
    Import & export. Text is read live, because several sections are filled in
    by JS after first paint and an index built at startup would search empty
    panels. What is left is the density *within* the longer sections.
-2. **The Chat page controls.** The toolbar has grown a control at a time —
+2. ~~**The Chat page controls.**~~ **regrouped.** They are now three groups —
+   what the AI may use, how it answers, and this conversation — separated by a
+   hairline rather than boxes, with the conversation-level actions pushed to
+   the far end because they are the only two not about the *next* message. Ids
+   are unchanged, so it was a regrouping rather than a rewrite. What is left
+   here is the composer itself, which has not been looked at.
+
+   Original note: The toolbar has grown a control at a time —
    Chat/Agent, Web, response mode, persona, peek, export, skill picker, tools
    toggle — and they are all peers in one row despite answering completely
    different questions (*who* is answering, *how hard* it should work, *what it
    may touch*, *what to do with this conversation*). Grouping them by that
    question, and demoting the per-conversation actions (export, peek) out of
    the per-message row, is most of the work.
-3. **The Notes tab.** Called out twice — once for layout generally and once
+3. **The Notes tab.** *Metadata done, layout still open.* The card's chips had
+   no hierarchy — category, tags, an AI confidence badge and a date all at one
+   weight, with the green confidence badge loudest of all despite being the
+   least important. Three levels now, at one size, carried by weight and
+   colour. And the reported "massive gap between the lines" had a single
+   cause: `.entry-meta-end` carried `margin-left: auto`, so once the chips
+   filled a line it wrapped and landed alone on the next one — an empty band
+   on every card with more than a few tags. The actions moved out of the flow
+   to the card's corner.
+
+   **That pattern is worth knowing about**: `margin-left: auto` inside a
+   *wrapping* flex row orphans whenever the row fills. It was also in the graph
+   toolbar and the chat toolbar's end group; both now reset it at the width
+   where wrapping starts. Any new toolbar wants checking for it.
+
+   Still open — the original note: Called out twice — once for layout generally and once
    specifically for **note metadata and how it is visualised** (§35K). This is
    the most-looked-at surface in the app and the hardest to get right; it wants
    a decision about what a note card is *for* at a glance — is it the text, or
@@ -4427,7 +4449,20 @@ than implying otherwise.
 
 ### 36D. The dashboard's quick access, and a status bar
 
-- **Expand the quick-access buttons** at the top of the dashboard. They are the
+- ~~**Expand the quick-access buttons.**~~ **done.** The row orders by how
+  often you press each one, and promotes up to two recently-run skills — with
+  New note pinned first and Tools & features pinned last, because a row that
+  reorders completely is a row you have to re-read every time, and the value of
+  a fixed position is that your hand learns it. Skill runs are recorded from
+  `startSkill`, so a run the agent started itself (§33) counts too.
+- ~~**Make Quit reachable.**~~ **done**, and it uncovered a real bug that
+  predates this work: `$("app-quit").addEventListener` had been spliced into
+  the middle of `renderChatModeSeg()`, which runs on every chat-mode change —
+  so each call bound another listener, and clicking Quit opened one confirm
+  dialog per mode switch. `tests/test_frontend_handlers.py` now catches the
+  class.
+
+  Original note: Expand the quick-access buttons at the top of the dashboard. They are the
   first thing on the first screen, and there are currently six that were chosen
   early. Worth making them **reflect what you actually do** — most-used
   actions, recently-used skills — rather than a fixed list.

@@ -5986,3 +5986,20 @@ textarea.autogrow {
   opacity: 1;
   background: none;
 }
+
+
+/* --- the orphan-row pattern, everywhere else it appears (§36B) ----------------
+   `margin-left: auto` inside a *wrapping* flex row is the bug that put an empty
+   band on every note card: the moment the row fills, the auto-margined item
+   wraps and lands alone on the next line, hard right, with nothing beside it.
+
+   The note card fixed it by taking the item out of the flow. The two toolbars
+   below cannot — their items are real controls that need to stay clickable and
+   in order — so they reset the auto margin at the width where wrapping starts
+   to happen, which turns an empty band into an ordinary continued row. */
+@media (max-width: 1080px) {
+  .graph-toolbar #link-suggest-btn,
+  .chat-tool-group-end {
+    margin-left: 0;
+  }
+}

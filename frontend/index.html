@@ -736,13 +736,19 @@ Link to another note with [[its first few words]]."></textarea>
 
   <div class="tab-page hidden" id="tab-graph" role="tabpanel" aria-labelledby="tab-btn-graph" tabindex="-1">
     <section class="card" id="graph-card">
-      <!-- One toolbar instead of three stacked rows -->
+      <!-- Two rows, split by *how often you touch them* — reported as "the ui
+           elements above the graph are messy and a lot to take in", and it was
+           twelve controls in one wrapping row.
+
+           Up here: the four things you change while reading the map — what you
+           are looking for, how it is arranged, what the colours mean, and
+           adding a note. Everything that is tuned once and left (physics,
+           three display toggles, the AI's link suggestions) is behind ⚙, which
+           remembers whether it was open. Nothing was removed. -->
       <div class="graph-toolbar">
         <h2>Graph</h2>
         <input id="graph-search" type="search" placeholder="🔎 Highlight notes…"
           aria-label="Highlight matching notes in the graph">
-        <button id="graph-add-node" class="small"
-          title="Add a new note straight onto the map">＋ New note</button>
         <label class="muted" for="graph-layout">Layout</label>
         <select id="graph-layout" aria-label="How the notes are arranged">
           <option value="force" selected>Force (web)</option>
@@ -757,6 +763,17 @@ Link to another note with [[its first few words]]."></textarea>
           <option value="category" selected>By category</option>
           <option value="cluster">By cluster</option>
         </select>
+        <button id="graph-add-node" class="small"
+          title="Add a new note straight onto the map">＋ New note</button>
+        <button id="graph-options-toggle" class="ghost small" aria-expanded="false"
+          aria-controls="graph-options"
+          title="Physics, labels, similarity lines and link suggestions">⚙ Options</button>
+        <button id="graph-refresh" class="ghost small">↻ Refresh</button>
+      </div>
+      <!-- The tuned-once controls. One row, one control height, margins
+           zeroed — the control-strip rule in DESIGN.md. -->
+      <div class="graph-options hidden" id="graph-options" role="group"
+        aria-label="Map display options">
         <!-- Both sliders feed the force simulation and nothing else, so they
              have no effect under Tree or Radial tree, where positions come
              from the hierarchy. setGraphPhysicsEnabled() disables them there
@@ -780,7 +797,6 @@ Link to another note with [[its first few words]]."></textarea>
         </label>
         <button id="link-suggest-btn" class="ghost small"
           title="Let the AI suggest links between notes that mean similar things">🔗 Suggest links</button>
-        <button id="graph-refresh" class="ghost small">↻ Refresh</button>
       </div>
       <!-- Trace: the one question a graph answers better than any list —
            "how are these two related?" (§9). Its own strip rather than a
@@ -1118,11 +1134,15 @@ Link to another note with [[its first few words]]."></textarea>
           <!-- Only meaningful on Appearance, so it is shown there and hidden
                everywhere else: a control that does nothing on nine screens out
                of ten is a control people learn to ignore. -->
-          <label class="muted tools-toggle hidden" id="settings-peek-wrap"
-            title="Fade this panel so you can see your colour changes on the page behind it">
-            <input type="checkbox" id="settings-peek">
-            <span>👁 Peek</span>
-          </label>
+          <!-- A button, not a checkbox. Asked for directly, and it is the
+               right shape: Peek is something you *do* for a moment while you
+               judge a colour, not a setting you leave on — it clears itself
+               when the panel closes or you leave Appearance. A checkbox
+               promises a persistent state this does not have. `aria-pressed`
+               is what keeps it announced as a toggle for a screen reader. -->
+          <button type="button" class="ghost small hidden" id="settings-peek"
+            aria-pressed="false"
+            title="Hold the panel back so you can see your colour changes on the page behind it">👁 Peek</button>
           <button id="settings-close" class="ghost small">Close</button>
         </div>
       </div>

@@ -237,6 +237,14 @@ body {
 /* Wave L rework: one compact, sticky top bar — brand · tabs · controls.
    The old two-row header + tab strip spent ~120px before any content. */
 header#top-bar {
+  /* One height for every control in the bar — the tabs, the theme toggle, the
+     lock, Settings and Quit. Not a spacing token, for the same reason
+     `--control-h` in the chat dock is not one: a hit target is a control's own
+     size, and snapping it to a gap step would make it drift with the density
+     setting. 2rem is what the header buttons already were, so this levels the
+     others up to the value the majority already used rather than moving
+     everything. */
+  --header-control-h: 2rem;
   /* Kept `sticky` rather than made `static`: it costs nothing in a
      non-scrolling flex parent, and it means the bar still behaves if this
      layout is ever loaded somewhere the body does scroll. */
@@ -399,8 +407,15 @@ header#top-bar.tabs-wrapped #tab-bar {
      The tab strip is what gives up space now, by scrolling. */
   flex: 0 0 auto;
 }
-/* The buttons keep their size; only the pill beside them collapses. */
-.header-controls > button { flex: 0 0 auto; }
+/* The buttons keep their size; only the pill beside them collapses. And they
+   are the same height as the tabs, which is the whole point of
+   `--header-control-h` — see the note on it above. */
+.header-controls > button {
+  flex: 0 0 auto;
+  height: var(--header-control-h);
+  padding-block: 0;
+  margin: 0;
+}
 
 /* Live "what is the AI doing?" indicator.
    Its text changes as status polls land ("checking…" → "word search on · AI
@@ -549,7 +564,15 @@ header#top-bar.tabs-wrapped #tab-bar {
   border-radius: var(--radius-md);
   color: var(--muted);
   font-weight: 500;
-  padding: 0.4rem 1rem;
+  /* Height declared, padding only horizontal — the control-strip rule from
+     DESIGN.md, applied to the one strip in the app that had never had it.
+     Measured before: the bar held five different control heights (wordmark
+     27.6, tab strip 44.8, tabs 36.8, buttons 32, status 28, emblem 24), every
+     one of them centred on the same line and none of them agreeing with
+     another. That is exactly the "nothing lines up" complaint, in the most
+     looked-at strip in the app. */
+  height: var(--header-control-h);
+  padding: 0 var(--space-6);
   box-shadow: none;
 }
 #tab-bar button.active {
@@ -3612,6 +3635,27 @@ html { font-size: 16px; }
    wrong again the next time a control is added, silently, at whatever width
    people actually use. Packing left needs no number and cannot go stale. */
 .graph-toolbar #link-suggest-btn { margin-left: 0; }
+/* The tuned-once controls, folded away behind ⚙. Same control-strip rule as
+   the trace row and the chat dock: one height, no outside margins, the row's
+   own gap between them. */
+.graph-options {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin: 0 0 var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--chip-bg);
+  --control-h: 1.9rem;
+}
+.graph-options button { height: var(--control-h); margin: 0; padding-block: 0; }
+.graph-options .tools-toggle { margin: 0; }
+/* An id rule outranks the generic .hidden helper — restate it, the same trap
+   `#graph-empty.hidden` had to be dug out of. */
+#graph-options.hidden { display: none; }
+
 /* --- the trace strip --------------------------------------------------------
    Its own row rather than a tenth control in the toolbar: everything up there
    is a *setting you leave*, and this is a *question you ask*. Built to the
@@ -5292,6 +5336,16 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   transition: border-color 0.14s ease, transform 0.14s ease;
 }
 .theme-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+/* A ghost button that is currently *on*. Peek is the first of these: it is an
+   action you hold rather than a setting you leave, so it needs to look pressed
+   while it is doing something and ordinary the rest of the time. Both signals,
+   never colour alone. */
+button.is-on {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
 .theme-card[aria-pressed="true"] {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-soft);
@@ -5458,7 +5512,10 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
     -webkit-overflow-scrolling: touch;
   }
   #tab-bar::-webkit-scrollbar { display: none; }
-  #tab-bar button { flex: 0 0 auto; padding: 0.4rem 0.8rem; }
+  /* Horizontal only. The height stays `--header-control-h` so a phone's tabs
+     line up with its buttons exactly as a desktop's do — re-stating a vertical
+     padding here is how one breakpoint quietly grows its own control size. */
+  #tab-bar button { flex: 0 0 auto; padding-inline: 0.8rem; }
   .header-controls { margin-left: auto; gap: 0.4rem; }
   /* Give content the screen back: 2rem of side padding is a tenth of a phone. */
   .layout, .doc-layout { padding-left: 0.8rem; padding-right: 0.8rem; }

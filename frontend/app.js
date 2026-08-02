@@ -11336,6 +11336,10 @@ function switchTab(name) {
     // Match the saved layout on arrival, not only on change — otherwise a
     // notebook left on Tree comes back with two live-looking dead sliders.
     setGraphPhysicsEnabled(graphLayout());
+    const optionsOpen = localStorage.getItem("graph-options-open") === "1";
+    $("graph-options").classList.toggle("hidden", !optionsOpen);
+    $("graph-options-toggle").setAttribute("aria-expanded", String(optionsOpen));
+    $("graph-options-toggle").classList.toggle("is-on", optionsOpen);
     renderGraph();
   }
   if (name === "timeline") renderTimeline();
@@ -11796,15 +11800,24 @@ function showSettingsSection(name) {
 // panel left semi-transparent on the Logs screen just looks broken.
 function setSettingsPeek(on) {
   const modal = $("settings-modal");
-  const box = $("settings-peek");
+  const button = $("settings-peek");
   modal.classList.toggle("peeking", !!on);
-  if (box) box.checked = !!on;
+  // A button that toggles has to *say* it is pressed — the class on the modal
+  // is the visible half, and `aria-pressed` is the half a screen reader hears.
+  if (button) {
+    button.setAttribute("aria-pressed", String(!!on));
+    button.classList.toggle("is-on", !!on);
+  }
+}
+
+function settingsPeekIsOn() {
+  return $("settings-modal").classList.contains("peeking");
 }
 
 function updatePeekAvailability(section) {
-  const wrap = $("settings-peek-wrap");
+  const button = $("settings-peek");
   const appearance = section === "appearance";
-  if (wrap) wrap.classList.toggle("hidden", !appearance);
+  if (button) button.classList.toggle("hidden", !appearance);
   if (!appearance) setSettingsPeek(false);
 }
 
@@ -15843,7 +15856,7 @@ switchTab(localStorage.getItem("activeTab") || "notes");
 // Settings modal (Wave A).
 $("settings-btn").addEventListener("click", () => openSettingsModal());
 $("settings-close").addEventListener("click", closeSettingsModal);
-$("settings-peek").addEventListener("change", (e) => setSettingsPeek(e.target.checked));
+$("settings-peek").addEventListener("click", () => setSettingsPeek(!settingsPeekIsOn()));
 $("local-only-ai").addEventListener("change", async (e) => {
   const on = e.target.checked;
   await apiJson("/preferences", {
@@ -16140,6 +16153,17 @@ $("graph-refresh").addEventListener("click", () => {
   renderGraph();
 });
 $("graph-similarity").addEventListener("change", renderGraph);
+// The tuned-once controls, folded away. Remembered, because whether you want
+// physics sliders on screen is a property of how you use the map rather than
+// of one visit — and because a panel that reopens closed every time is one
+// people stop opening.
+$("graph-options-toggle").addEventListener("click", () => {
+  const panel = $("graph-options");
+  const open = panel.classList.toggle("hidden") === false;
+  $("graph-options-toggle").setAttribute("aria-expanded", String(open));
+  $("graph-options-toggle").classList.toggle("is-on", open);
+  localStorage.setItem("graph-options-open", open ? "1" : "0");
+});
 // Trace (§9). The pickers themselves do not fire a trace on change: picking
 // the first of two notes should not run a search that can only fail.
 $("graph-trace-run").addEventListener("click", runTrace);

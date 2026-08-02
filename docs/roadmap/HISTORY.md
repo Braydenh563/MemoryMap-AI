@@ -120,6 +120,21 @@ the centre of the node's `<g>`, which is the empty space between the circle and
 its label, and reading `window.graphNodesRef` for a module-scope `let`, which
 is not a property of `window`. Worth knowing for the next session that tries.
 
+**So every other gesture built this session was driven too, and a second one
+was broken.** Dragging the chat composer taller stored the new height and
+snapped the box straight back to one line — immediately, before a keystroke —
+because `autoGrow` took `min(scrollHeight, limit)` and an empty box is one row
+tall. A hand-set height only ever worked as a ceiling. It is a **floor** now,
+which is what "manually adjustable" means. The other three held: Trace from the
+node popup, the cluster legend, and a notification row from the keyboard.
+
+**The pattern is worth naming.** Both failures were in code that reads
+correctly, was reviewed, and was described in a commit message as working.
+Neither was findable by reading — one needed a moving target, the other needed
+an empty box — and both took under five minutes to find with a pointer. *Two
+out of five gestures built in one session were broken on arrival.* That is the
+base rate to assume, not zero.
+
 **§35H's client half turned out to be already fixed.** Driven with a stream
 emitting one line every 120ms, the answer element grew 10 → 25 → 42 → 63 → 94
 characters inside a plan run: the step timeline uses `liveMarkdownRenderer` and

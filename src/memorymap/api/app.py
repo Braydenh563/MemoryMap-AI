@@ -11,6 +11,7 @@ core/security.py, which runs alongside the CSP from the same module.
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 
 from fastapi import Depends, FastAPI
@@ -135,8 +136,18 @@ def create_app() -> FastAPI:
     app.include_router(routes_timeline.router, dependencies=locked)
 
     @app.get("/health", tags=["system"])
-    def health() -> dict[str, str]:
-        return {"status": "ok", "app": "MemoryMap AI", "version": __version__}
+    def health() -> dict[str, str | bool]:
+        return {
+            "status": "ok",
+            "app": "MemoryMap AI",
+            "version": __version__,
+            # Whether we are being viewed through the pywebview window rather
+            # than a browser tab. The frontend needs to know because a
+            # `<a download>` click does nothing there — pywebview has no
+            # download handler — so exports have to be written by the server
+            # instead (§35E). Set by `python -m memorymap --desktop`.
+            "desktop": os.getenv("MEMORYMAP_DESKTOP") == "1",
+        }
 
     # Mounted last so the API routes above always win; html=True makes
     # "/" serve frontend/index.html.

@@ -6,11 +6,16 @@ possible); the original filename is kept only for downloads.
 
 from __future__ import annotations
 
+import base64
+import binascii
+import re
 import uuid
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from memorymap.api.routes_entries import _existing_entry, _to_out
@@ -86,3 +91,71 @@ def delete_file(attachment_id: int, session: Session = Depends(get_session)) -> 
     entry = _existing_entry(session, attachment.entry_id)
     manager.delete_attachment(session, attachment, deps.get_config().uploads_dir)
     return _to_out(session, entry)
+
+
+# --- saving a file the app generated (§35E) ---------------------------------------
+#
+# Every export in this app builds a Blob in the browser and clicks a hidden
+# `<a download>`. That works in a browser tab and does nothing at all in the
+# desktop window: pywebview has no download handler, so the click is swallowed
+# and the user gets no file and no error. Reported as "I don't think any of the
+# file save features in the whole application work on the python desktop app".
+#
+# The fix is available because this app already runs a local server — it can
+# write the file itself and say where it went. That is strictly more reliable
+# than a download in every shell, and it is the only thing that works in the
+# window.
+
+#: Where generated files land. Beside the notes rather than in the OS Downloads
+#: folder, so "where your data is" stays one answer and nothing is written
+#: outside the directory the user pointed the app at.
+EXPORTS_DIRNAME = "exports"
+
+#: A generated export is text or a small archive, never a media library.
+MAX_SAVE_BYTES = 50 * 1024 * 1024
+
+
+class SaveFileBody(BaseModel):
+    """One file the browser built and wants written to disk."""
+
+    filename: str = Field(min_length=1, max_length=120)
+    #: Base64, because the same route has to carry a .zip as well as a .md.
+    content_base64: str
+
+
+def safe_filename(name: str) -> str:
+    """A filename that cannot escape the exports folder.
+
+    Not a sanitiser that tries to be clever — a whitelist. The name arrives
+    from the browser, and the browser is not the trust boundary here even
+    though the app is single-user: the AI writes some of these names.
+    """
+    cleaned = Path(str(name)).name  # drops any directory part, "..", drive letters
+    cleaned = re.sub(r"[^A-Za-z0-9._ -]", "_", cleaned).strip(". ")
+    if not cleaned:
+        raise HTTPException(status_code=422, detail="That filename can't be used.")
+    return cleaned[:120]
+
+
+@router.post("/files/save")
+def save_generated_file(body: SaveFileBody) -> dict:
+    """Write a generated export next to the notes and say where it went."""
+    try:
+        data = base64.b64decode(body.content_base64, validate=True)
+    except (ValueError, binascii.Error) as exc:
+        raise HTTPException(status_code=422, detail="That file couldn't be read.") from exc
+    if len(data) > MAX_SAVE_BYTES:
+        raise HTTPException(status_code=413, detail="That file is too large to save.")
+
+    exports: Path = deps.get_config().data_dir / EXPORTS_DIRNAME
+    exports.mkdir(parents=True, exist_ok=True)
+    name = safe_filename(body.filename)
+    target = exports / name
+    # Never silently overwrite: two exports of the same chat on the same day
+    # are two files someone may want to compare.
+    if target.exists():
+        stem, suffix = target.stem, target.suffix
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        target = exports / f"{stem}-{stamp}{suffix}"
+    target.write_bytes(data)
+    return {"path": str(target), "filename": target.name, "bytes": len(data)}

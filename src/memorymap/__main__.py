@@ -37,6 +37,11 @@ def _run_desktop() -> None:
         _run_server()
         return
 
+    # Tells /health — and through it the frontend — that this is the window
+    # rather than a browser tab, so exports get written by the server instead
+    # of clicking an `<a download>` that pywebview silently swallows (§35E).
+    # Set before the server thread starts, so the app never sees it unset.
+    os.environ["MEMORYMAP_DESKTOP"] = "1"
     server = threading.Thread(target=_run_server, daemon=True)
     server.start()
     time.sleep(1.0)  # give uvicorn a moment to bind before the window loads

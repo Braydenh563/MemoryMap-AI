@@ -1173,13 +1173,7 @@ function openLightbox(url, alt) {
 
 async function downloadAttachment(attachment) {
   const response = await api(`/files/${attachment.id}`);
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = attachment.filename;
-  a.click();
-  URL.revokeObjectURL(url);
+  await saveFile(attachment.filename, await response.blob());
 }
 
 let relatedOpenId = null; // entry currently showing its similar notes
@@ -4060,15 +4054,7 @@ async function exportDocumentMarkdown() {
     // The filename is decided server-side, so read it back off the header.
     const disposition = response.headers.get("content-disposition") || "";
     const match = disposition.match(/filename="([^"]+)"/);
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = match ? match[1] : "document.md";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+    await saveFile(match ? match[1] : "document.md", await response.blob());
   } catch (error) {
     $("doc-status").classList.add("error");
     $("doc-status").textContent = error.message;
@@ -4878,7 +4864,7 @@ function newChatConversation() {
 }
 
 // Download the open conversation as clean Markdown (questions + answers).
-function exportChatMarkdown() {
+async function exportChatMarkdown() {
   if (!chatConv.turns.length) {
     toast("Nothing to export yet — ask something first.");
     return;
@@ -4891,13 +4877,7 @@ function exportChatMarkdown() {
   const slug =
     title.toLowerCase().replace(/[^\w]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) ||
     "chat";
-  const blob = new Blob([md], { type: "text/markdown" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${slug}.md`;
-  a.click();
-  URL.revokeObjectURL(url);
+  await saveFile(`${slug}.md`, new Blob([md], { type: "text/markdown" }));
 }
 
 // --- resizable sidebars ----------------------------------------------------------
@@ -5966,15 +5946,78 @@ async function renderToolSettings() {
 // --- Wave M: share skills/personas as JSON ------------------------------------------
 
 function downloadJson(filename, payload) {
-  const blob = new Blob([JSON.stringify(payload, null, 2)], {
-    type: "application/json",
+  return saveFile(
+    filename,
+    new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" })
+  );
+}
+
+// --- saving a generated file (§35E) ----------------------------------------------
+//
+// Every export here used to build a Blob and click a hidden `<a download>`.
+// That works in a browser tab and does nothing whatsoever in the desktop
+// window: pywebview has no download handler, so the click is swallowed and
+// the user gets no file and no error. Reported as "I don't think any of the
+// file save features in the whole application work on the python desktop app",
+// which was exactly right and true of all of them at once.
+//
+// So there are two paths, chosen by asking the server which shell it is
+// serving rather than by sniffing the user agent — pywebview's user agent is
+// not reliably distinguishable, and a wrong guess here is a silent failure in
+// the direction we are trying to fix.
+let isDesktopShell = null; // null = not yet asked
+
+async function desktopShell() {
+  if (isDesktopShell === null) {
+    const health = await apiJson("/health", { silent: true }).catch(() => null);
+    isDesktopShell = !!(health && health.desktop);
+  }
+  return isDesktopShell;
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    // readAsDataURL gives "data:<type>;base64,<payload>" — take the payload.
+    reader.onload = () => resolve(String(reader.result).split(",", 2)[1] || "");
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
   });
+}
+
+// Save a Blob under `filename`. Resolves once the file is somewhere the user
+// can find it, and says where when that isn't the browser's own downloads.
+async function saveFile(filename, blob) {
+  if (await desktopShell()) {
+    try {
+      const saved = await apiJson("/files/save", {
+        method: "POST",
+        body: JSON.stringify({
+          filename,
+          content_base64: await blobToBase64(blob),
+        }),
+      });
+      // Where it went matters more here than in a browser: there is no
+      // downloads shelf to look at, so an unannounced file is a lost one.
+      toast(`Saved to ${saved.path}`);
+      return saved;
+    } catch (error) {
+      toast(`Couldn't save ${filename}: ${error.message}`, true);
+      return null;
+    }
+  }
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
+  // In the document, not detached: some engines ignore a click on an anchor
+  // that was never in the DOM.
+  a.style.display = "none";
+  document.body.appendChild(a);
   a.click();
+  a.remove();
   URL.revokeObjectURL(url);
+  return { filename };
 }
 
 // Open a picker, parse the chosen file, hand the object to `apply`.
@@ -10966,15 +11009,7 @@ async function downloadSupportBundle() {
       headers: { "X-Auth-Token": localStorage.getItem("token") || "" },
     });
     if (!response.ok) throw new Error(`Couldn't build the bundle (${response.status})`);
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "memorymap-support-bundle.zip";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+    await saveFile("memorymap-support-bundle.zip", await response.blob());
     toast("Support bundle saved. Have a look inside before you send it.");
   } catch (error) {
     toast(error.message || "Couldn't build the support bundle.", true);
@@ -11184,14 +11219,10 @@ async function deleteProfile() {
 // bytes and hand the browser a blob instead.
 async function downloadExport(kind) {
   const response = await api(`/export/${kind}`);
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
   // Markdown arrives as a zip of .md files; the rest are single files.
-  a.download = kind === "markdown" ? "memorymap-markdown.zip" : `memorymap-export.${kind}`;
-  a.click();
-  URL.revokeObjectURL(url);
+  const name =
+    kind === "markdown" ? "memorymap-markdown.zip" : `memorymap-export.${kind}`;
+  await saveFile(name, await response.blob());
 }
 
 // --- Wave F: backups UI -------------------------------------------------------------

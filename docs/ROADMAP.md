@@ -50,6 +50,7 @@ the part that's expensive to reconstruct.
 - [32. Product direction — asked for directly, kept short on purpose](#32-product-direction-asked-for-directly-kept-short-on-purpose)
 - [33. Odysseus, read and triaged](#33-odysseus-read-and-triaged)
 - [34. Where I'd take this — an outside read](#34-where-id-take-this-an-outside-read)
+- [**35. Reported in one session — the big batch, triaged**](#35-reported-in-one-session-the-big-batch-triaged)
 - [Answers to questions already raised](#answers-to-questions-already-raised-so-they-arent-re-asked)
 
 **New in this pass:** a proper line/branch view for the Timeline (§10C), a
@@ -99,6 +100,31 @@ Everything below this block is the standing backlog, unchanged.
 ---
 
 ## Do these next, in this order
+
+> ### ⚠️ Superseded by [§35](#35-reported-in-one-session-the-big-batch-triaged) — read that first
+>
+> A single round of real use produced twenty-odd reports, most of them in the
+> desktop app and most of them invisible to this suite. **§35 is the live
+> list**; the six items below are the *previous* round and are all closed.
+>
+> The order §35 argues for, shortest reason first:
+>
+> 1. **Hallucinated writes** (§35B) — the agent narrated linking five notes
+>    and called no write tool. This is the failure that destroys trust in
+>    every other feature, and the net written to catch it did not fire.
+> 2. **Quick + a thinking model returns nothing** (§35A.3 / §35D) — a total
+>    failure, reproduced twice by the user, with a plausible one-line cause
+>    (`num_predict` shared between thinking and answer).
+> 3. **The Ask section** (§35A) — four reports on one box, and the direction
+>    is clear: it is for interrogating the notebook, not for chatting.
+> 4. **The broken buttons and the stacked constellation** (§35F, §35G) —
+>    probably one cause between them, and "again" in the report means the
+>    last fix was not held by a test.
+> 5. **Desktop persistence and file saves** (§35E) — two symptoms, likely
+>    one storage bug; the file-save half needs a server-side route.
+> 6. Everything else in §35, which is written up in place.
+>
+> The rule below still governs all of it: **check the running app first.**
 
 Re-prioritised after a round of use. The ordering is by *how often it gets in
 the way*, not by how interesting it is to build.
@@ -3900,6 +3926,283 @@ runs ten real turns through both providers would have caught the `think: false`
 rejection *before* I shipped it, rather than because I happened to read
 `/api/show`'s capability list an hour later.
 
+
+## 35. Reported in one session — the big batch, triaged
+
+Everything below came from one round of real use, mostly in the desktop app.
+It is written up before any of it is fixed, because the session that collected
+it was running out of room and an unwritten bug report is a bug that gets
+rediscovered.
+
+**Read this first: almost none of it is verified here.** The sandbox is Linux
+with no Ollama and no pywebview, so "desktop app" and "thinking model" reports
+are taken on the user's word. That is not a hedge, it is the same lesson §34
+closes on and it has now cost real time twice — see "The standing caveat" at
+the end of this section. Where I have found the cause in code, I say so and
+name the line. Where I have not, it says **unreproduced**.
+
+---
+
+### 35A. The Ask section is the priority — it is a core feature behaving like a toy
+
+Asked for directly and at length: *"the ask tab should be for reviewing,
+revisiting, and searching up/asking about your notes, the chatbot can be for
+the chat tab… make sure the ask section works properly and can be used
+effectively… it is one of the core features of the program."*
+
+Four separate reports land on this one box, and together they say the Ask
+section was built as a cut-down Chat tab rather than as its own thing.
+
+1. **"hey" gets a chatbot answer.** `intent.classify` routes smalltalk away
+   from retrieval and `librarian.converse` answers it as an assistant would —
+   correct for the Chat tab, wrong here. The Ask box has one job. **The fix is
+   not a better classifier**: it is that this box should not offer the
+   conversational path at all. A greeting here should say what the box is for
+   and get out of the way, which costs no model round and cannot misfire.
+   Note that `/chat/stream` is shared by both surfaces, so this is a request
+   flag (an "only about the notes" mode), not a change to `classify`.
+
+2. **The retrieved notes look truncated.** Worth confirming before fixing:
+   `_prepare` retrieves with `limit=5` and `as_note` passes `entry.content`
+   whole, so the truncation is not there — the likely culprits are
+   `librarian.build_messages` and `ai/context.py`'s budget, which is *supposed*
+   to clip and may be clipping much harder than the window requires. If it is
+   the budget, the honest fix is to spend the Ask box's budget differently
+   (fewer notes, more of each) rather than to raise the cap: five heavily
+   clipped notes are worse than three whole ones for a question about what
+   you wrote.
+
+3. **Quick + a thinking model produces nothing at all.** Reported twice, same
+   shape both times: it thinks, stops about three-quarters through, and emits
+   no answer. This is the most serious item in the whole section — it is a
+   total failure, not a degradation. The strong suspicion is `num_predict`:
+   §"Do these next" item 3 records it as a flat 1,024 cap, and a thinking
+   model spends that budget on *thinking* and then has nothing left for the
+   answer. If so the fix is that the cap must be a floor for the answer, not
+   a ceiling on both — thinking tokens should not be able to starve the reply.
+   See 35D, which is the same bug family from a different angle.
+
+4. **Make it a real feature, not a lesser Chat.** The direction to take: this
+   box is for *interrogating the notebook*. That means the things a chat
+   window does not do — say which notes it used and let you open them, offer
+   a follow-up that narrows rather than continues, filter the search before
+   asking, and be honest when the notes do not contain the answer (§34's "an
+   answer that says I don't know"). Everything conversational belongs in the
+   Chat tab, and removing it from here is what makes room for the rest.
+
+---
+
+### 35B. Hallucinated writes got through the net
+
+The report includes a full transcript: the agent said it had linked notes 12
+to 13, 15 and 16, unlinked 28, and suggested retags — narrated in the past
+tense, as a numbered list of completed work — having called `related_notes`
+once and no write tool at all.
+
+**This is the failure the app most needs not to have**, because it is the one
+that quietly destroys trust in everything else. `_CLAIM_PATTERN` exists for
+exactly this (`agent.py`, the "Heads up: I described that…" branch) and did
+not fire, so the first job is to find out why:
+
+- the pattern very likely does not match "**Linked Notes:** We connected…" —
+  it looks for first-person claims like "I saved", and this model wrote "we",
+  in a bolded markdown list;
+- and the net only runs when `did_write` is false for the *whole turn*. One
+  successful `related_notes` call is not a write, so that part should have
+  held — meaning the pattern itself is the gap.
+
+Two fixes, and both are worth doing:
+1. **Widen the pattern** — "we linked", "we connected", past-tense verbs for
+   every write tool, and markdown-bolded headings. Cheap, and testable.
+2. **Check the claim against the tools that actually ran**, which is §33's
+   "completion verifier" (item 5) arriving early because a real user hit the
+   case it was written for. If the turn claims a link and `link_notes` never
+   ran, that is knowable without a second model round.
+
+The prompt is also implicated: this model was told what it *could* do and
+narrated doing it. §21's finding — that naming the tools in the instruction is
+what makes a small model reach for them — is the lever here too.
+
+---
+
+### 35C. "Can Think: No" for a model that thinks
+
+Reported for `gemma4 e2b`. `model_specs`/`supports` read Ollama's `/api/show`
+`capabilities` list, which is exactly the mechanism §33 adopted from odysseus
+and which caught the `think: false` bug. The likely causes, in order:
+
+- the model genuinely does not declare `thinking` in its capabilities, in
+  which case **the UI is wrong to print "No"** — `supports()` returns `None`
+  for "can't tell", and §33's own lesson is that *known* is a separate fact
+  from *known value*. "No" and "not declared" must not render the same;
+- or the capability name differs (`reasoning` vs `thinking`) and the lookup
+  misses it.
+
+Either way the immediate fix is the honest one: never print a confident "No"
+from an absent declaration. **Unreproduced** — needs a machine with the model.
+
+---
+
+### 35D. The response presets need to be model-aware
+
+Asked directly: *"on the quick setting for the ai settings, it should be like
+a flash model, I don't know if it is a good idea to disable thinking or make
+it minimal thinking."*
+
+The honest answer is that this is now two questions, and the second one is a
+bug (35A.3):
+
+- **Should Quick disable thinking?** Yes for models where it is optional, and
+  §33 already found the trap: sending `think: false` to a model that rejects
+  it is an error, which is why the capability list gets read first. So Quick
+  should ask for no thinking *where the model says that is supported* and
+  otherwise leave it alone.
+- **`num_predict` must stop being flat.** A single 1,024 cap shared between
+  thinking and answer is what plausibly produces "thought, then nothing".
+  Quick, Normal and Detailed should each carry their own output budget, and
+  the answer needs a reserved floor within it.
+
+This is the item that most deserves a real-model test rather than reasoning
+(see the standing caveat).
+
+---
+
+### 35E. The desktop app is a second product and it is not tested
+
+Every one of these is desktop-only, which is itself the finding: `pywebview`
+is a different browser with a different origin and different file APIs, and
+nothing in the suite touches it.
+
+- **The theme resets to default on every start.**
+- **Onboarding shows every time**, so first-run state is not persisting either
+  — almost certainly the same root cause as the theme. If preferences are
+  keyed to an origin that changes per launch (or a storage API pywebview does
+  not back), both fall out of one bug. **Find the storage first**; two symptoms
+  with one cause is the likely shape.
+- **No file-save feature works at all** — the report is "any of the file save
+  features in the whole application". Downloads via `<a download>` / blob URLs
+  are the usual casualty in an embedded webview, and every export in the app
+  uses that path. Needs a save that goes through the *server* (write the file
+  and tell the user where it went) rather than through the browser.
+- **Markdown export of a chat does not work**, which may be the same download
+  problem or may be its own bug. Test it in a browser first to find out which.
+
+**§7 (desktop packaging) is listed in §34 as over-invested, and this section
+does not change that** — but it does sharpen it. The app already *ships* a
+desktop mode; the argument against §7 was about signing and updaters, not
+about leaving the existing mode broken.
+
+---
+
+### 35F. Broken buttons, gathered together
+
+Three reports of the same class — a control that does nothing:
+
+- **The Rediscover widget's buttons, "again"** — the word matters: this has
+  regressed at least once before, which means whatever fixed it last time was
+  not held by a test.
+- **The recycle bin's "Empty now"** (reported twice in one message).
+- **The constellation's Regenerate**, "broken and severely glitchy".
+
+Handled as one job, because the cause is probably shared: these are all
+handlers bound to elements that are re-rendered, and a listener attached to a
+node that a later `replaceChildren` throws away is exactly a button that
+silently stops working. The fix that holds is delegation (bind to the
+container, not the node) plus a test that would notice — `test_frontend_ids.py`
+is the precedent for cheap static checks on this file.
+
+---
+
+### 35G. The constellation renders four or five stacked copies
+
+Screenshotted, so this one is not in doubt. A render that appends instead of
+replacing, called once per something — a resize observer, a tab switch, a
+theme change. Almost certainly the same root cause as its broken Regenerate
+button in 35F, and worth fixing together.
+
+---
+
+### 35H. Streaming and rendering
+
+- **Agent steps do not stream.** Each section lands complete instead of being
+  written out. The server yields `answer` deltas per round, so the likely
+  cause is client-side: the skill/step timeline buffers a step's text and
+  renders it on completion, where the plain answer path uses
+  `liveMarkdownRenderer`. Making the step timeline use the same renderer is
+  the fix, and it is the difference between "the app is working" and "the app
+  has frozen" on a long run (§33's item 2 makes the same point about plans).
+- **Markdown gaps.** Screenshotted: `$\rightarrow$` renders literally. That is
+  LaTeX, not markdown — the model emitted it because it was asked for an
+  arrow. Two options and they are not exclusive: translate the small set of
+  LaTeX escapes models actually reach for (`\rightarrow`, `\to`, `\times`,
+  `\leq`) into their characters, and tell the model in the prompt to write
+  plain Unicode arrows. The prompt half is cheaper and prevents the rest.
+  The §22 note applies: this is *inline* rendering, deliberately, and block
+  elements are not wanted back.
+
+---
+
+### 35I. Context compression for long chats
+
+Asked for directly: *"there should be a tool as well as a manual command or
+something to be able to compress chat context on longer chats so the AI can
+better continue."*
+
+This is the missing piece of §11a. Everything there is about the *fixed*
+overhead (tool schemas, system prompt) and the *retrieved* half (notes);
+nothing addresses a conversation that has simply got long. Two halves, and the
+manual one should ship first because it cannot misfire:
+
+- **A button**: "Summarise this chat so far" — replaces the history with a
+  summary the user can see and edit, so nothing is silently lost.
+- **A tool**, so the agent can do it when it notices it is running out of
+  window. §33's warning applies: this is another tool in a registry §34 says
+  should stop growing, so it has to displace something or justify the trim.
+
+The reversible-compression idea §11 adopted for notes is the model to copy:
+keep the original, show what was dropped, make it undoable.
+
+---
+
+### 35J. Smaller, but recorded so they are not lost
+
+- **The agent cannot create a document.** There is `list_documents` and
+  `get_document` but no `create_document` — an asymmetry nobody noticed
+  because §5's document work was UI-first. This is a genuine gap rather than
+  a deliberate limit, and it is the one *new* tool this section asks for.
+- **The suggested models' approximate sizes are wrong.** `SUGGESTED_MODELS`
+  is hand-written (§33 defends it as the right size of answer against
+  odysseus's Cookbook) — but a hand-written number that is wrong is worse
+  than no number. Check them against the registry, or drop the sizes.
+- **The generative background art is not saved with a custom theme.** It is
+  part of a look and should travel with one. Small, and it belongs to whatever
+  fix 35E finds for theme persistence.
+- **Quick sketch should be expanded.** Asked for directly. Note the tension
+  worth resolving *before* building: §34 argues the whiteboard (§4a) is a
+  separate product wearing this one's clothes. Expanding the existing sketch
+  is the cheap version of that idea and is probably the right size — decide
+  which of the two this is before starting.
+
+---
+
+### The standing caveat, now with three pieces of evidence
+
+**Every provider test in this repository runs against a fake transport.** The
+SSE framing and the tool-call fragment indices come from reading the
+specification, not from a running LM Studio. §34 already says this. Two things
+have since made it sharper:
+
+- an hour was spent last session attributing a real bug to GitHub's
+  infrastructure by reasoning about it instead of reproducing it;
+- and this whole section is a list of failures that a fake transport, a Linux
+  sandbox and no desktop shell could not have found — 35C, 35D and every part
+  of 35E are invisible to the suite as it stands.
+
+The nightly job §34 asks for (pull a small model, run ten real turns through
+both providers) would have caught 35D directly. It is no longer a nice-to-have
+in the "worth building" list; it is the reason this section exists.
+
+---
 
 ## Answers to questions already raised, so they aren't re-asked
 

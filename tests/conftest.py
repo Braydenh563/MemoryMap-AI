@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from memorymap.ai import model_manager
-from memorymap.core import deps
+from memorymap.core import deps, taskhistory
 
 
 @pytest.fixture()
@@ -20,10 +20,15 @@ def app_state(tmp_path, monkeypatch):
     monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path / "data"))
     deps.reset_app_state()
     model_manager.reset_jobs()
+    # Process-global like the log buffer, so it leaks between tests exactly the
+    # way the job registry does — and a test asserting "no jobs have finished"
+    # would otherwise pass or fail on what ran before it.
+    taskhistory.clear()
     deps.init_app_state(data_dir=tmp_path / "data")
     yield deps.get_config()
     deps.reset_app_state()
     model_manager.reset_jobs()
+    taskhistory.clear()
 
 
 @pytest.fixture()

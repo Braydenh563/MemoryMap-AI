@@ -65,6 +65,39 @@ the normal order to do it in.
   work, and the status line names whichever backend actually answered instead
   of telling an LM Studio user to go and install Ollama.
 
+### Added — finished background tasks, and a way to quit
+
+**Settings → Background tasks now shows what stopped, not only what is
+running.** The old rule was that a finished job isn't a task and a screen that
+accumulates them is a log — tidy, and wrong in the one way that matters: a job
+that *fails* disappeared at the moment it became interesting. A re-index that
+died halfway left exactly the same empty list as one that finished, and the
+reason existed only in the log console, a different screen you have to know to
+open. Endings are now recorded with their outcome and reason: in memory,
+bounded to the last 40, newest first. Cancelling is reported as *cancelled*
+rather than failed — a user's own decision in red is how people learn to ignore
+red.
+
+**A Quit button** stops the app and its server properly. Until now the ways out
+were Ctrl+C in a window the launcher hides, or closing the tab and leaving the
+server running — which is why a second start could find its port taken. It is a
+POST behind the unlock gate (a GET would be reachable from a link in another
+tab), it replies before it signals, and it uses SIGINT rather than a hard exit
+so uvicorn's normal shutdown runs and the SearXNG subprocess is torn down by
+the code that knows how.
+
+### Changed — many more suggested models, sorted by what your machine can run
+
+Three chat models became twelve, in three tiers — runs-on-anything, 8 GB, and
+16 GB and up — in Settings → Models and in the README.
+
+**Sorted smallest-first rather than best-first**, which is the ordering that
+matters: someone reading the list is choosing against hardware they already
+own, and a quality-sorted list puts the model they can't run at the top and the
+one they should start with out of sight. Each says what it is *for* rather than
+how good it is, and the README points at the new "Can use tools" row for agent
+work — read from the model rather than guessed.
+
 ### Added — five notebook-audit skills, and taking a link back out
 
 Asked for: *"a skill that can do a full audit and clean up of my notebook —

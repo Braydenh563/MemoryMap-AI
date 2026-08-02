@@ -306,9 +306,12 @@ front, and a model that overflows stops knowing it has tools at all.
 A skill's declared tool list is exempt from step 2: it asked for exactly those,
 and silently dropping one would break the run rather than trim it.
 
-> `agent.PROMPT_BUDGET_CHARS` and `tests/test_prompt_budget.py` still exist as
-> a backstop on the **prose** — the system prompt and `TOOLS_GUIDE` are sent
-> whatever the window and no per-turn trimming applies to them.
+> `agent.PROSE_BUDGET_CHARS` and `tests/test_prompt_budget.py` are the backstop
+> on the **prose** — the system prompt and `TOOLS_GUIDE` are sent whatever the
+> window and no per-turn trimming applies to them. There is deliberately no
+> constant capping the tool *registry* any more: `within_budget` caps it
+> against the model's real window instead, which is the only number that was
+> ever a fact about anything.
 
 `search_notes` and `list_notes` return **previews**, which is why `get_note`
 exists and its description says so — a model that quoted a note from a preview
@@ -332,11 +335,16 @@ round of every turn**, alongside the system prompt. That fixed overhead is
 `TOOLS_GUIDE`** — so a verbose new tool description costs more than a verbose
 new paragraph.
 
-`agent.PROMPT_BUDGET_CHARS` caps the total and `tests/test_prompt_budget.py`
-enforces it. It exists because Ollama defaults to a 4096-token window and
-drops overflow from the *front*: a 3B model that overflows loses the system
-prompt and stops knowing it has tools, which presents as "the AI won't use
-tools" rather than as anything to do with length. Settings → Tools
+`tools.within_budget` caps it against the window the model reported, per turn,
+and `tests/test_prompt_budget.py` asserts what reaches a 4,096-token model
+after that trim. A constant used to cap the whole registry; it was retired
+after being raised three times for legitimate growth, because it measured a
+case no turn has sent since the per-turn trim existed.
+
+Why any of this matters: Ollama defaults to a 4096-token window and drops
+overflow from the *front*, so a 3B model that overflows loses the system prompt
+and stops knowing it has tools — which presents as "the AI won't use tools"
+rather than as anything to do with length. Settings → Tools
 (`disabled_tools`) is the user-facing escape hatch, and it filters at
 `ollama_tools()` — the wire — not just at execution.
 

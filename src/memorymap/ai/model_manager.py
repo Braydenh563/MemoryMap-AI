@@ -17,6 +17,7 @@ from sqlalchemy import delete, select
 
 from memorymap.ai.ollama_client import OllamaClient, OllamaError
 from memorymap.core.config import ConfigManager
+from memorymap.core import taskhistory
 from memorymap.core.database import DatabaseManager, EmbeddingRecord, Entry
 from memorymap.entry.manager import log_action
 
@@ -40,14 +41,41 @@ class Embedder(Protocol):
 
 # Curated catalog, stored as data so it's trivial to edit (plan §6.5).
 # There's no Ollama API to browse the online library, hence hardcoded.
+#
+# **Ordered smallest-first within each purpose, and that is the ordering that
+# matters.** Someone reading this list is choosing hardware they already own.
+# A list sorted by quality puts the model they cannot run at the top and the
+# one they should start with out of sight; sorted by size, the first thing they
+# see is the thing most likely to work.
+#
+# `purpose` says what the model is *for* rather than how good it is. "Strong
+# all-rounder" is not a decision anyone can act on; "the smallest one worth
+# using — fine on a laptop with no GPU" is.
+#
+# Sizes are the default quantisation Ollama pulls (usually Q4_K_M) and are
+# approximate. They matter more than the parameter count here: a 7B at Q4 and
+# a 3B at Q8 land in the same place on a 8 GB machine.
 SUGGESTED_MODELS: dict[str, list[dict[str, str]]] = {
     "chat": [
-        {"name": "llama3.2", "size": "~2.0 GB", "purpose": "Fast all-rounder — the default"},
-        {"name": "qwen2.5:3b", "size": "~1.9 GB", "purpose": "Strong all-rounder, follows instructions well"},
-        {"name": "phi3.5", "size": "~2.2 GB", "purpose": "Small and sharp — good summaries and Q&A"},
+        # --- runs on almost anything ---
+        {"name": "qwen3.5:2b", "size": "~1.5 GB", "purpose": "The lightest one worth using — fine on a laptop with no GPU"},
+        {"name": "gemma3:1b", "size": "~0.8 GB", "purpose": "Smallest here. Try it if 2 GB models are still too slow"},
+        {"name": "llama3.2", "size": "~2.0 GB", "purpose": "Fast all-rounder — the default, and a good first choice"},
+        {"name": "qwen2.5:3b", "size": "~1.9 GB", "purpose": "Follows instructions closely — good for agent mode"},
+        {"name": "granite4.1:3b", "size": "~2.1 GB", "purpose": "Strong instruction-following at a small size"},
+        {"name": "phi3.5", "size": "~2.2 GB", "purpose": "Sharp on summaries and Q&A for its size"},
+        # --- 8 GB of RAM, or any modern GPU ---
+        {"name": "gemma3:4b", "size": "~3.3 GB", "purpose": "Noticeably better writing than the 2-3B models"},
+        {"name": "llama3.1:8b", "size": "~4.7 GB", "purpose": "The step up: better reasoning, reliable tool calls"},
+        {"name": "qwen3:8b", "size": "~5.2 GB", "purpose": "Best tool use here — a thinking model, so slower per answer"},
+        {"name": "mistral-nemo", "size": "~7.1 GB", "purpose": "Long-document work — a large context window"},
+        # --- 16 GB and up ---
+        {"name": "gemma3:12b", "size": "~8.1 GB", "purpose": "Long-form writing and summarising, if you have the memory"},
+        {"name": "qwen3:14b", "size": "~9.3 GB", "purpose": "The most capable agent here. Slow without a GPU"},
     ],
     "embedding": [
         {"name": "nomic-embed-text", "size": "~274 MB", "purpose": "Solid general-purpose embeddings"},
+        {"name": "bge-m3", "size": "~1.2 GB", "purpose": "Better on long notes and mixed languages"},
         {"name": "mxbai-embed-large", "size": "~670 MB", "purpose": "Higher quality, a little slower"},
     ],
 }
@@ -189,6 +217,12 @@ def _run_reindex(db: DatabaseManager, embeddings: Embedder, job: Job) -> None:
         for entry in entries:
             if job.cancel_requested:  # user quit it from the tasks manager
                 job.status = "cancelled"
+                taskhistory.record(
+                    "reindex",
+                    "Re-indexing your notes",
+                    "cancelled",
+                    f"stopped after {job.done} of {job.total}",
+                )
                 return
             # Drop the stale vector first so a failed re-embed never
             # leaves an old-model vector looking current.
@@ -206,9 +240,21 @@ def _run_reindex(db: DatabaseManager, embeddings: Embedder, job: Job) -> None:
         )
         session.commit()
         job.status = "success"
+        taskhistory.record(
+            "reindex",
+            "Re-indexing your notes",
+            "completed",
+            f"{job.done} notes re-embedded with {embeddings.backend_id()}",
+        )
     except Exception as exc:  # a failed job must report, never crash the app
         job.status = "error"
         job.error = str(exc)
+        # The ending that mattered most and was hardest to see: a re-index that
+        # dies halfway used to leave exactly the same empty screen as one that
+        # finished, with the reason only in the log console.
+        taskhistory.record(
+            "reindex", "Re-indexing your notes", "failed", str(exc)
+        )
     finally:
         session.close()
 
@@ -234,6 +280,9 @@ def _run_pull(client: OllamaClient, name: str, job: Job) -> None:
         for update in client.pull(name):
             if job.cancel_requested:  # user quit it from the tasks manager
                 job.status = "cancelled"
+                taskhistory.record(
+                    "pull", f"Downloading {name}", "cancelled", name=name
+                )
                 return
             if update.get("error"):
                 raise OllamaError(update["error"])
@@ -241,8 +290,12 @@ def _run_pull(client: OllamaClient, name: str, job: Job) -> None:
                 job.total = int(update["total"])
                 job.done = int(update.get("completed", job.done))
         job.status = "success"
+        taskhistory.record("pull", f"Downloaded {name}", "completed", name=name)
     except OllamaError as exc:
         # Surface the failure so the UI can offer a retry — never leave
         # a half-download looking installed (§6.5).
         job.status = "error"
         job.error = str(exc)
+        taskhistory.record(
+            "pull", f"Downloading {name}", "failed", str(exc), name=name
+        )

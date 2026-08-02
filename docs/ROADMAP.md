@@ -49,6 +49,7 @@ the part that's expensive to reconstruct.
 - [31. Claude's own read: what I'd flag](#31-claudes-own-read-what-id-flag)
 - [32. Product direction — asked for directly, kept short on purpose](#32-product-direction-asked-for-directly-kept-short-on-purpose)
 - [33. Odysseus, read and triaged](#33-odysseus-read-and-triaged)
+- [34. Where I'd take this — an outside read](#34-where-id-take-this-an-outside-read)
 - [Answers to questions already raised](#answers-to-questions-already-raised-so-they-arent-re-asked)
 
 **New in this pass:** a proper line/branch view for the Timeline (§10C), a
@@ -61,29 +62,37 @@ other way.
 
 ## Next session: start here
 
-1. ~~**§6 — other local AI backends (LM Studio, llama.cpp, Jan, vLLM).**~~
-   **done.** Built as the *dialect* rather than as a product: `ai/provider.py`
-   holds what was never Ollama-specific, `ai/openai_client.py` speaks
-   `/v1/chat/completions`, and one provider covers LM Studio, llama.cpp, Jan,
-   vLLM and Ollama's own `/v1`. The four questions §6 staked out all held up.
-   What the write-up in §6 did *not* predict, and cost the most care: streamed
-   tool-call fragments are keyed by an index and interleave, and LM Studio's
-   `loaded_context_length` has to beat its `max_context_length`. Both have
-   tests. See §6 for the full account.
-2. **Keep the agent lean.** §11a's fixed *and* variable halves are now
-   budgeted (`ai/context.py`), and §14's tool list is fitted to the model
-   rather than to a constant. **What is genuinely left is the output side:**
-   `num_predict` is a flat 1,024 for every request, and the
-   quick/normal/detailed preset in §11 is what would make it adaptive —
-   together with per-mode temperature and thinking budget, which was asked
-   for separately and is the same preset. **This is now the top item.**
-3. ~~**Possibly: read another repository and take what fits.**~~ **done, and
-   it is written up in [§33](#33-odysseus-read-and-triaged).** The repository
-   was `pewdiepie-archdaemon/odysseus`. The single most important finding is
-   a licence one and it is not negotiable: **odysseus is AGPL-3.0-or-later and
-   MemoryMap is MIT, so no code can be copied across in either direction.**
-   Everything in §33 is a design lesson to be re-implemented independently,
-   which is what §6 above did.
+Ordered by *how much it unlocks*, not by how much is left in the section.
+
+1. **Let the agent run a skill.** The largest gap in the agentic story and the
+   smallest change to close it. The agent can list skills, save them, and — as
+   of this session — read a `when_to_use` that says which one fits. It still
+   cannot start one; that is a click only the user can make, so a model that
+   works out exactly what should happen has to ask for it in prose.
+   `skill_runner` already exists and already takes an allowlist. **Shape:**
+   reuse `ends_turn` (the mechanism `ask_user` introduced) rather than nesting
+   an agent loop inside an agent loop — the tool hands control to the skill
+   runner and the turn ends, which is also the honest thing to show the user.
+   `list_skills` already tells the model it cannot do this; that sentence is
+   what to delete when it can.
+2. **The graph's last mile (§9).** Walking it and suggesting connections are
+   done and token-budgeted. What is missing is *"how are these two related?"* —
+   a path between two notes — plus clusters and drag-to-link in the view. The
+   traversal code to build a path on is now there.
+3. **§20's async-httpx refactor.** Deliberately deferred during §6 so there
+   would always be a known-good streaming path to bisect against. That reason
+   has expired, and the cost of waiting is real: it now has to touch two
+   clients instead of one, and grows with every provider added.
+4. **The live log console (§1)** — streamed, but not followed, filtered or
+   exportable.
+5. **Chat / Agent / Browse sub-tabs (§3)** and **the Library tab (§4)**, the
+   two biggest untouched UI sections.
+
+**Verify before building:** every provider test in this repo runs against a
+fake transport. The SSE framing, the `[DONE]` sentinel and the tool-call
+fragment indices are implemented from the specification, not from a running LM
+Studio. Half an hour with the real thing would move §6 from "should work" to
+"confirmed", and that is worth doing before anything is built on top of it.
 
 Everything below this block is the standing backlog, unchanged.
 
@@ -2571,6 +2580,20 @@ palettes."
 
 ## 16. Sweeping UI quality-of-life
 
+- **A status bar along the bottom** — from IDEAS.md, and the only item there
+  with no home anywhere else in this document. What the AI is doing, what
+  background jobs are running, which backend answered, and a way into the
+  command palette, in one strip that is always visible. Most of the *data*
+  already exists and is scattered: the AI dot is in the header, background jobs
+  are behind Settings → Tasks, the backend is behind Settings → Models. The
+  work is a place to put them, not new plumbing.
+- **Sorting and grouping saved chats** — also from IDEAS.md and also homeless
+  until now. Conversations sort by recency and nothing else; there is no "by
+  length", "by which model answered", no folders, no grouping by topic. The
+  data to sort by is already stored per turn (the model, the token cost, the
+  timestamps), so this is a list-rendering job. The IDEAS note suggests an
+  agent tool and a skill for it too, which would fall out of §14's shape once
+  the sort exists.
 - **Undo toasts** for anything soft-deleted, instead of confirm dialogs
 - **Optimistic UI** — a saved note appears instantly and reconciles
 - **Consistent empty states** and loading skeletons
@@ -3780,6 +3803,103 @@ would have been very hard to find from the symptom. That is the shape of import
 worth making, and it is the filter to apply to the "worth building" list too.
 
 ---
+
+## 34. Where I'd take this — an outside read
+
+Asked for directly. Written as a working opinion rather than a plan: these are
+judgements, and the roadmap's own rule — *check the running app before building
+anything here* — applies to this section more than to any other.
+
+### The thing this app is actually good at, which is not what it says on the tin
+
+The pitch is "a local AI files your notes". That is the *capture* story, and it
+is solved. What has quietly become the more valuable half is **retrieval you
+can check**: an answer arrives beside the notes it came from, every tool result
+says where it came from, the graph says *how* two notes connect, and a turn now
+reports how full the model's window got and whether the token counts were
+measured or guessed.
+
+Almost nothing else in this space does that. Hosted assistants can't (the notes
+aren't theirs to show), and most local ones don't bother. **That is the
+differentiator, and it is worth defending explicitly** — every future feature
+should be asked "can the user check this?" before "is this clever?". The
+`might_connect` list is the model to copy: it would have been easier to mix
+guesses into the results, and worthless.
+
+### Three things I would prioritise, and why
+
+1. **Finish the agentic loop, then stop adding to it.** Running a skill is the
+   missing link (§33). After that the agent can plan, ask, act, and be checked
+   — which is a complete story. The temptation will be to keep adding tools;
+   resist it. 35 is already past the point where a 4k model gets a trimmed set,
+   and odysseus at 69 tools is the cautionary tale in §33: its descriptions are
+   4.6× longer per tool because they are full of "don't use X, use Y". **Every
+   new tool should have to displace an existing one or justify the trim.**
+
+2. **Make the notebook survive being large.** Everything here is tested against
+   tens of notes and reasoned about for thousands. `_suggested_neighbours` does
+   a full-table cosine scan; `_graph_neighbours` loads every entry to check
+   shared tags; the graph endpoint does pairwise similarity over the whole
+   notebook. All are fine at 500 notes and none is fine at 50,000. **This is
+   the failure that arrives silently, as "the app got slow", years in.** A
+   generated 50k-note fixture and a handful of timing assertions would find all
+   of it in an afternoon, and it is much cheaper now than after someone's real
+   notebook hits it.
+
+3. **Onboarding, because none of the above matters if nobody gets to it.** §27
+   is unbuilt and the first run currently is: install Python, run a script,
+   install Ollama separately, pull a model, come back. Every step is a place to
+   give up, and the app is at its least impressive precisely then — no notes, so
+   no retrieval, so no reason to trust it. The single highest-leverage version
+   is not a tour: it is **shipping something to look at**, a handful of example
+   notes that can be deleted in one click, so the graph, the timeline and the
+   dashboard have something to draw on the first screen.
+
+### Where I think the roadmap is over-invested
+
+Said plainly because a backlog this size needs someone to argue *against* parts
+of it:
+
+- **Desktop packaging (§7) is a much bigger commitment than it reads as.**
+  PyInstaller builds are the easy 20%; code signing, notarisation, an updater
+  and three platforms of support burden are the rest, and they recur forever.
+  `start.bat` and a browser tab are unglamorous and they work. I would do this
+  only once someone who is not you is asking for it.
+- **The whiteboard (§4a) and the in-built browser (§25/IDEAS) are separate
+  products** wearing this one's clothes. Each is months, and neither makes the
+  notes better.
+- **Multi-category notes (§23) is a schema change chasing a small win.** Tags
+  already do this. The honest version is "categories are a weak idea that tags
+  do better" — worth *considering removing* the tension rather than deepening
+  it.
+
+### What is missing that nobody has asked for
+
+- **An answer that says "I don't know" more often.** The hallucinated-write net
+  catches the worst case, but a model that pattern-matches four notes into a
+  confident wrong summary is the failure that damages trust in retrieval, and
+  nothing measures it. A small set of questions with known-correct answers,
+  run against each supported model, would turn "which model is good here?" from
+  opinion into a table — and that table is worth more to a user choosing a
+  model than anything in the Cookbook idea §33 rejected.
+- **Export that includes the AI's work.** Notes export; conversations,
+  reminders, links, skills and saved looks do not. "It's genuinely yours" is
+  only true to the extent you can take it all with you.
+- **A second pair of eyes on the crypto.** Private notes use scrypt and
+  AES-GCM correctly as far as I can tell, and "as far as I can tell" is not the
+  standard that claim deserves. It is the one part of the app where being
+  wrong is unrecoverable and silent.
+
+### The one process change worth making
+
+**Nothing in this app has ever been run against a real model in a test.** The
+whole suite fakes the provider, which is why it is fast and why it caught the
+tool-call-fragment bug — but it also means "works" has always meant "works
+against my idea of what Ollama does". One nightly job that pulls a 2B model and
+runs ten real turns through both providers would have caught the `think: false`
+rejection *before* I shipped it, rather than because I happened to read
+`/api/show`'s capability list an hour later.
+
 
 ## Answers to questions already raised, so they aren't re-asked
 

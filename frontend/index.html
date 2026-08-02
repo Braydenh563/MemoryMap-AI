@@ -1737,6 +1737,26 @@ Link to another note with [[its first few words]]."></textarea>
             </p>
             <ul id="task-list" class="entry-list"></ul>
             <p id="tasks-empty" class="muted">Nothing running right now.</p>
+
+            <!-- What stopped. The half that was missing: a job that FAILS used
+                 to vanish at the moment it became interesting, leaving the
+                 same empty list as one that finished. -->
+            <div id="task-history-box" class="hidden">
+              <h3>Recently finished</h3>
+              <p class="muted">
+                What has stopped since the app started, and how it went. Kept in
+                memory only — it clears itself when you restart.
+              </p>
+              <ul id="task-history" class="entry-list"></ul>
+              <button id="task-history-clear" class="ghost small">Clear this list</button>
+            </div>
+
+            <h3>Quit MemoryMap</h3>
+            <p class="muted">
+              Stops the app and its server properly, so nothing is left running
+              in the background and the next start finds its port free.
+            </p>
+            <button id="app-quit" class="ghost small">⏻ Quit the app</button>
           </section>
 
           <!-- Data (Wave F: markdown + backups join the exports) -->

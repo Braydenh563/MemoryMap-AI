@@ -5404,3 +5404,9 @@ textarea.autogrow {
   white-space: nowrap;
   max-width: 22rem;
 }
+
+/* A background job that ended badly. Colour is not the only signal — the row
+   carries ⚠️ and the reason in words — because a red line nobody can read the
+   cause of is just alarming. */
+.task-failed { color: var(--error); }
+.task-detail { margin: 0.15rem 0 0; font-size: 0.78rem; }

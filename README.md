@@ -72,16 +72,18 @@ Seven tabs, all offline:
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Dashboard** | Greeting, capture streak, at-a-glance counts, an AI digest of your week, an activity heatmap, on-this-day, a focus timer, and a layout you can rearrange                                                 |
 | **Notes**     | Capture, browse and ask, as three sub-tabs. Auto-filing, tags, pins, threads, attachments, private notes (encrypted at rest), a recycle bin, revision history, and a search box that understands `tag:work`, `cat:recipes`, `is:pinned`, `"exact phrase"` and `-exclude` |
-| **Chat**      | A conversation with your notebook, saved and resumable. **Agent mode** lets it use 28 tools - search and read your notes, create, tag, link and organise, set reminders, open a web page - with destructive actions always confirmed. Personas change its voice; the run is shown as a timeline of thinking, tool calls and prose in the order they happened |
-| **Graph**     | Your notes as a force-directed map. Click a node to edit it in place, see its images, link it to another, or ask for related notes. The AI can suggest connections                                       |
+| **Chat**      | A conversation with your notebook, saved and resumable. **Agent mode** lets it use 35 tools - search and read your notes, walk the connections between them, create, tag, link and unlink, organise, set reminders, open a web page - with destructive actions always confirmed, and an ask-me button when it isn't sure which note you meant. Personas change its voice; the run is shown as a timeline of thinking, tool calls and prose in the order they happened |
+| **Graph**     | Your notes as a force-directed map, and a knowledge graph the AI can walk: links, reply threads and shared tags, each labelled with *how* two notes connect. It can also point out notes that read alike and were never linked                |
 | **Documents** | A markdown editor for long-form writing: live preview, autosave, table of contents, word count and reading time, `.md` and PDF export, and AI edits shown as a proposal you accept or reject             |
 | **Timeline**  | Every note plotted on a time axis - at what it's *about* when a phrase like "next week" resolves to a date, and at when it was written otherwise - in bands by category or tag, at a bucket size you pick |
 | **Reminders** | Due dates with priority, repeats, snooze and notifications - or type "call mum tomorrow evening" and let the AI schedule it                                                                              |
 
 Plus a command palette (`Ctrl`/`Cmd`+`K`), a sketch
 pad, local Whisper dictation, read-aloud, opt-in web search with a reader view,
-12 themes over 8 colour palettes with per-setting overrides, daily local
-backups, and a desktop window (`--desktop`).
+12 themes over 8 colour palettes with per-setting overrides, a scheme builder
+that works the colours out from one you pick, looks you can save by name, 16
+built-in skills including a five-part notebook audit, daily local backups, and
+a desktop window (`--desktop`).
 
 ## Quick start
 
@@ -104,18 +106,52 @@ MemoryMap works without it - you just get keyword search and `Uncategorised` fil
 ollama pull llama3.2
 ```
 
-Any Ollama model works, and you can switch between them in-app from **Settings → Models** without restarting. Small models that do well here:
+Any Ollama model works, and you can switch between them in-app from **Settings
+→ Models** without restarting - the same list is there, with a download button
+next to each.
 
+**Sorted by size, not by quality**, because the real question is what your
+machine can run. Start at the top of the tier that fits your RAM; if answers
+feel slow, drop a tier.
 
-| Model           | Why                                                            |
-| --------------- | ---------------------------------------------------------------|
-| `llama3.2`      | The default. Fast, ~2 GB, good all-rounder                     |
-| `granite4.1:3b` | Strong instruction-following at a small size                   |
-| `qwen3.5:2b`    | The lightest of these; fine on a laptop with no GPU             |
-| `gemma4:e2b`    | Good summaries                                                 |
-| `lfm2.5`        | Specifically LFM2.5-8B-A1B if you're pulling from Hugging Face |
+**Runs on almost anything** - no GPU needed:
 
-*More at [huggingface.co/braydenh563](https://huggingface.co/braydenh563).*
+| Model           | Size    | Why                                                        |
+| --------------- | ------- | ---------------------------------------------------------- |
+| `gemma3:1b`     | ~0.8 GB | Smallest here. Try it if 2 GB models are still too slow    |
+| `qwen3.5:2b`    | ~1.5 GB | The lightest one genuinely worth using                     |
+| `llama3.2`      | ~2.0 GB | **The default.** Fast, and a good first choice             |
+| `qwen2.5:3b`    | ~1.9 GB | Follows instructions closely - good for agent mode         |
+| `granite4.1:3b` | ~2.1 GB | Strong instruction-following at a small size               |
+| `phi3.5`        | ~2.2 GB | Sharp on summaries and Q&A for its size                    |
+
+**8 GB of RAM, or any modern GPU** - the step up in answer quality:
+
+| Model           | Size    | Why                                                        |
+| --------------- | ------- | ---------------------------------------------------------- |
+| `gemma3:4b`     | ~3.3 GB | Noticeably better writing than the 2-3B models             |
+| `llama3.1:8b`   | ~4.7 GB | Better reasoning, and reliable tool calls in agent mode    |
+| `qwen3:8b`      | ~5.2 GB | Best tool use here. A thinking model, so slower per answer |
+| `mistral-nemo`  | ~7.1 GB | Long-document work - a large context window                |
+
+**16 GB and up:**
+
+| Model           | Size    | Why                                                        |
+| --------------- | ------- | ---------------------------------------------------------- |
+| `gemma3:12b`    | ~8.1 GB | Long-form writing and summarising                          |
+| `qwen3:14b`     | ~9.3 GB | The most capable agent here. Slow without a GPU            |
+
+Sizes are Ollama's default quantisation and are approximate. They matter more
+than the parameter count: a 7B at Q4 and a 3B at Q8 land in about the same
+place on an 8 GB machine.
+
+**For agent mode specifically**, prefer a model that Ollama reports as
+tool-capable - Settings → Models shows this under "Can use tools", read from
+the model itself rather than guessed. `llama3.1:8b` and `qwen3:8b` are the most
+reliable of the list above; the 1-2B models can use tools but forget to.
+
+*Some of these, and a few others, are also at
+[huggingface.co/braydenh563](https://huggingface.co/braydenh563).*
 
 ### Not using Ollama?
 
@@ -441,18 +477,22 @@ the graph, the platform work (command palette, backups, PWA, web search, sketch
 pad), voice and desktop, hardening, and the depth pass (documents, private
 notes, search operators, themes). Since then: a rebuilt skill system (ordered
 steps, a tool allowlist, an undoable result), SearXNG-backed web search,
-markdown rendering in the note list, the Timeline tab above, and support for
-any OpenAI-compatible backend (LM Studio, llama.cpp, Jan, vLLM).
+markdown rendering in the note list, the Timeline tab above, support for any
+OpenAI-compatible backend (LM Studio, llama.cpp, Jan, vLLM), answer-length
+presets, a walkable knowledge graph, and an AI locked to your machine by
+default.
 [`CHANGELOG.md`](https://github.com/Braydenh563/MemoryMap-AI/blob/main/CHANGELOG.md) has it wave by wave.
 
 **Next up**, in order - by how often it gets in the way, not how interesting
 it is to build:
 
-1. **Answer-length presets** - quick / normal / detailed, carrying their own
-reply cap, temperature and thinking budget. The prompt side is budgeted
-against the model's real window; the output side is still a flat 1,024.
-2. **The graph's utility** - paths between notes, clusters, drag-to-link. The
-layouts are done; what it can *do* for you isn't.
+1. **Let the agent run a skill.** It can list them, save them, and now say
+which one fits - but starting one is still a click only you can make. The
+skill runner already takes an allowlist, so this is the smallest change with
+the biggest effect on what agent mode can actually finish.
+2. **The graph's remaining utility** - paths between two notes, clusters, and
+drag-to-link. Walking the graph and suggesting connections are done; *"how are
+these two related?"* isn't.
 3. **The live log console** - started, not finished. `/logs` is streamed but
 not followed, filtered, or exportable yet.
 4. **Chat / Agent / Browse as their own sub-tabs**, so a plain question, a

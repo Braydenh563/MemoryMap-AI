@@ -11859,7 +11859,29 @@ function renderSearchEngineHealth(status) {
 // it and set it.
 function renderChatModeSeg() {
   const agent = $("tools-toggle").checked;
-  for (const button of document.querySelectorAll("#chat-mode-seg button")) {
+  $("task-history-clear").addEventListener("click", async () => {
+  await apiJson("/tasks/history/clear", { method: "POST" }).catch((e) =>
+    toast(e.message, true)
+  );
+  renderTasks();
+});
+$("app-quit").addEventListener("click", async () => {
+  // Confirmed, because it is not undoable from inside the app: once the
+  // server is down, the button that would bring it back is on the page that
+  // just stopped being served.
+  if (!confirm("Quit MemoryMap? The app and its server will stop.")) return;
+  try {
+    await apiJson("/shutdown", { method: "POST" });
+  } catch {
+    // The server may drop the connection as it goes. That is the request
+    // succeeding, not failing, so it is not worth an error toast.
+  }
+  document.body.innerHTML =
+    '<div style="padding:3rem;text-align:center;font-family:system-ui">' +
+    "<h1>MemoryMap has stopped.</h1>" +
+    "<p>Your notes are saved. You can close this tab.</p></div>";
+});
+for (const button of document.querySelectorAll("#chat-mode-seg button")) {
     const active = button.dataset.chatMode === (agent ? "agent" : "chat");
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", active ? "true" : "false");
@@ -12093,6 +12115,51 @@ async function renderTasks() {
       li.appendChild(fold);
       // Follow the tail, the way a terminal does.
       if (fold.open) pre.scrollTop = pre.scrollHeight;
+    }
+    list.appendChild(li);
+  }
+  renderTaskHistory((body && body.history) || []);
+}
+
+// What has stopped, newest first. Separate from the running list on purpose:
+// mixing them means a finished job and a running one look alike at a glance,
+// and the question this screen answers most often is "is it still going?".
+const TASK_OUTCOMES = {
+  completed: { icon: "✅", className: "" },
+  failed: { icon: "⚠️", className: "task-failed" },
+  // Not an error. Reporting a user's own decision in red is how people learn
+  // to ignore red.
+  cancelled: { icon: "✖", className: "muted" },
+};
+
+function renderTaskHistory(history) {
+  const box = $("task-history-box");
+  const list = $("task-history");
+  if (!box || !list) return;
+  box.classList.toggle("hidden", history.length === 0);
+  list.replaceChildren();
+  for (const item of history) {
+    const style = TASK_OUTCOMES[item.outcome] || TASK_OUTCOMES.completed;
+    const li = document.createElement("li");
+    if (style.className) li.className = style.className;
+
+    const row = document.createElement("div");
+    row.className = "entry-meta";
+    const name = document.createElement("strong");
+    name.textContent = `${style.icon} ${item.label}`;
+    const when = document.createElement("span");
+    when.className = "muted";
+    when.textContent = relativeTime(item.at);
+    row.append(name, when);
+    li.appendChild(row);
+
+    // The reason, which is the whole point for a failure — until now it
+    // existed only in the log console, a screen you have to know to open.
+    if (item.detail) {
+      const detail = document.createElement("p");
+      detail.className = "muted task-detail";
+      detail.textContent = item.detail;
+      li.appendChild(detail);
     }
     list.appendChild(li);
   }
@@ -14124,6 +14191,28 @@ $("local-only-ai").addEventListener("change", async (e) => {
       : "Off — MemoryMap will now let you point the AI at a server on the internet."
   );
   refreshModelStatus();
+});
+$("task-history-clear").addEventListener("click", async () => {
+  await apiJson("/tasks/history/clear", { method: "POST" }).catch((e) =>
+    toast(e.message, true)
+  );
+  renderTasks();
+});
+$("app-quit").addEventListener("click", async () => {
+  // Confirmed, because it is not undoable from inside the app: once the
+  // server is down, the button that would bring it back is on the page that
+  // just stopped being served.
+  if (!confirm("Quit MemoryMap? The app and its server will stop.")) return;
+  try {
+    await apiJson("/shutdown", { method: "POST" });
+  } catch {
+    // The server may drop the connection as it goes. That is the request
+    // succeeding, not failing, so it is not worth an error toast.
+  }
+  document.body.innerHTML =
+    '<div style="padding:3rem;text-align:center;font-family:system-ui">' +
+    "<h1>MemoryMap has stopped.</h1>" +
+    "<p>Your notes are saved. You can close this tab.</p></div>";
 });
 for (const button of document.querySelectorAll("#chat-mode-seg button")) {
   button.addEventListener("click", () => setChatMode(button.dataset.chatMode));

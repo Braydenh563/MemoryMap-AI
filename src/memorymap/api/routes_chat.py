@@ -120,6 +120,20 @@ class ChatRequest(BaseModel):
     # assembled in `app.js` and hoped for here.
     skill: str | None = Field(default=None, max_length=skills.MAX_NAME)
     skill_inputs: dict[str, str] | None = None
+    # Notes-only: this turn is an interrogation of the notebook and nothing
+    # else (§35A). Set by the Notes tab's Ask box, never by the Chat tab.
+    #
+    # Reported directly: *"the ask tab should be for reviewing, revisiting, and
+    # searching up/asking about your notes, the chatbot can be for the chat
+    # tab"*. Saying "hey" there was answered like a chatbot, because both
+    # surfaces share this endpoint and `intent.classify` correctly routes
+    # small talk away from retrieval.
+    #
+    # The fix is deliberately NOT a better classifier. The classifier is right;
+    # what was missing is that one of the two callers does not *want* the
+    # conversational path to exist. A flag on the request cannot misfire, costs
+    # no model round, and leaves the Chat tab exactly as it was.
+    notes_only: bool = False
 
 
 def _resolve_mode(requested: str | None) -> str:
@@ -285,7 +299,11 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         "persona_prompt": _resolve_persona(body.persona),
     }
     mode = _resolve_mode(body.mode)
-    if conversational:
+    if conversational and body.notes_only:
+        # Same rule as the streaming route: this box interrogates the
+        # notebook and does not chat (§35A).
+        ai_response, ai_thinking = librarian.ASK_IS_FOR_NOTES, None
+    elif conversational:
         ai_response, ai_thinking = librarian.converse(
             body.question,
             prepared["intent"],
@@ -352,6 +370,12 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     def plain_events(prepared: dict, ollama_running: bool) -> Iterator[dict]:
         """The pre-Wave-G behaviour: stream a grounded answer, no tools."""
         conversational = not intent.needs_retrieval(prepared["intent"])
+        if conversational and body.notes_only:
+            # The Notes tab's Ask box has one job (§35A). A greeting is the one
+            # input it has nothing to do with, so it says what it is for rather
+            # than spending a model round chatting back.
+            yield {"type": "answer", "delta": librarian.ASK_IS_FOR_NOTES}
+            return
         if conversational:
             # Small talk: no notes, no grounding, no "I couldn't find any
             # notes matching that" in reply to "hey".

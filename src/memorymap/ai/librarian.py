@@ -165,17 +165,43 @@ def history_messages(history: list[dict] | None) -> list[dict]:
 # (see ROADMAP §11).
 MAX_NOTE_CHARS = 900
 
+# The same cut, for a turn with no tools on the wire — the Notes tab's Ask box.
+#
+# Reported (§35A): "the notes that come up in the semantic search that are
+# given to the ai when asked smth in the ask section are cut off or truncated."
+# They were, and the escape hatch above did not exist there: a clipped note
+# said "call get_note(12) to read it in full" to a model that had been offered
+# no tools at all, so the missing text was simply missing and the instruction
+# was noise.
+#
+# Two things follow. The marker has to stop naming a tool that isn't there,
+# and the allowance can be much larger, because this turn is not paying for
+# any tool schemas — the ~1,400-2,500 tokens the agent spends on those is
+# budget the Ask box has and was not using. Five notes at this size is still
+# far inside the window `ai/context.py` rations for them.
+UNTOOLED_NOTE_CHARS = 2_400
 
-def note_for_prompt(note: dict) -> str:
-    """A note's text, short enough to sit beside nine others."""
+
+def note_for_prompt(note: dict, limit: int = MAX_NOTE_CHARS, can_fetch: bool = True) -> str:
+    """A note's text, short enough to sit beside nine others.
+
+    `can_fetch` says whether the model has `get_note` available. It changes
+    only the marker, and the marker is the whole difference between a cut the
+    model can undo and a hole it cannot see the shape of.
+    """
     content = str(note.get("content", ""))
-    if len(content) <= MAX_NOTE_CHARS:
+    if len(content) <= limit:
         return content
-    # Naming the tool and the id in the marker: a truncation the model cannot
-    # act on is just a missing piece of the note.
     note_id = note.get("id")
-    where = f" — call get_note({note_id}) to read it in full" if note_id else ""
-    return f"{content[:MAX_NOTE_CHARS].rstrip()}… [cut{where}]"
+    if can_fetch and note_id:
+        # Naming the tool and the id: a truncation the model cannot act on is
+        # just a missing piece of the note.
+        where = f" — call get_note({note_id}) to read it in full"
+    else:
+        # No tools this turn. Say it is cut and say nothing about fixing it,
+        # so the model reports the gap instead of promising to look.
+        where = " — the rest is in the note itself"
+    return f"{content[:limit].rstrip()}… [cut{where}]"
 
 
 def build_conversational_messages(
@@ -245,7 +271,9 @@ def build_messages(
         # A note the user attached by hand is flagged, so the model treats it
         # as the subject rather than as one more search hit.
         f"{i}. [{note['category']}]{' (attached by me)' if note.get('attached') else ''} "
-        f"{note_for_prompt(note)}"
+        # No tools on this path by definition — it is the plain librarian
+        # prompt — so notes get the larger allowance and an honest marker.
+        f"{note_for_prompt(note, UNTOOLED_NOTE_CHARS, can_fetch=False)}"
         for i, note in enumerate(notes, start=1)
     )
     attached_hint = (
@@ -310,6 +338,21 @@ def answer(
 # Said without the model, when Ollama isn't up. A greeting shouldn't produce an
 # error message — the assistant can still say hello.
 OFFLINE_SMALLTALK = "Hello. The AI model isn't running, but your notes are all still here."
+
+#: What the Notes tab's Ask box says instead of chatting back (§35A).
+#:
+#: Reported: saying "hey" there got a chatbot answer. That box is for
+#: interrogating the notebook, and a greeting is the one input it has nothing
+#: to do with — so it says what it is for and gets out of the way, which costs
+#: no model round and cannot misfire the way a classifier can.
+#:
+#: Written as a prompt rather than a scolding: the useful thing here is an
+#: example of the kind of question that works.
+ASK_IS_FOR_NOTES = (
+    "This is where you ask about your notes — try “what did I write about "
+    "the garden?”, “summarise my notes from last week”, or “when did I first "
+    "mention the beans?”. For a chat, the Chat tab is through the sidebar."
+)
 OFFLINE_ABOUT_APP = (
     "I help you work with your notebook — finding, writing, tagging and "
     "summarising notes, and setting reminders. The AI model isn't running "

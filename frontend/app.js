@@ -2155,6 +2155,7 @@ async function streamChat({
   noteIds,
   skill,
   skillInputs,
+  notesOnly,
   signal,
   onMeta,
   onPlan,
@@ -2174,6 +2175,7 @@ async function streamChat({
   // for every answer after it.
   if (mode) body.mode = mode;
   if (typeof useTools === "boolean") body.use_tools = useTools;
+  if (notesOnly) body.notes_only = true;
   if (noteIds && noteIds.length) body.note_ids = noteIds;
   // Running a skill sends its name, not its prompt: the server owns what a
   // skill is — the steps, the values, the tools it may use — so the two
@@ -2343,6 +2345,10 @@ async function askQuestion(preset) {
       // rather than only the one after the preference round-trips.
       mode: $("ask-mode-select")?.value || null,
       useTools: false, // the quick-ask box is pure Q&A; actions live in the Chat tab
+      // This box interrogates the notebook and nothing else (§35A). Sent as a
+      // flag rather than left to the classifier, which is right about "hey"
+      // being small talk — it is this surface that doesn't want small talk.
+      notesOnly: true,
       signal: askController.signal,
       onMeta: (meta) => {
         renderChatMeta(meta);

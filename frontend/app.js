@@ -14210,7 +14210,6 @@ async function loadLinkSuggestions() {
     const row = document.createElement("div");
     row.className = "link-suggestion";
     const text = document.createElement("span");
-    text.innerHTML = "";
     text.append(
       document.createTextNode(`“${s.source_preview}” ↔ “${s.target_preview}” `)
     );

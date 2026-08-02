@@ -6568,6 +6568,73 @@ textarea.autogrow {
 }
 
 
+/* --- the notifications centre (§36E) ----------------------------------------
+   A popup anchored to its own button rather than a modal: this is something
+   you glance at, and a full-screen overlay for a three-line list is the kind
+   of ceremony that makes people stop glancing. */
+.notif-wrap { position: relative; display: inline-flex; }
+/* The count, as a dot on the bell. Drawn from a data attribute so the number
+   and the button's own label stay one element — a separate badge span would
+   need its own position, and would be the thing that drifts when the header's
+   control height changes. */
+#notif-btn.has-unread::after {
+  content: attr(data-count);
+  position: absolute;
+  top: -0.15rem;
+  right: -0.15rem;
+  min-width: 0.95rem;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--card);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: 0.95rem;
+  text-align: center;
+}
+.notif-panel {
+  position: absolute;
+  top: calc(100% + var(--space-3));
+  right: 0;
+  z-index: 60;
+  width: 22rem;
+  max-width: min(22rem, calc(100vw - var(--space-8)));
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  box-shadow: var(--glass-shadow);
+  /* **Inherited from `.header-controls`, which sets `nowrap` so "⚙ Settings"
+     cannot break in two and make the whole bar taller.** That is right for the
+     buttons and wrong for a panel of prose hanging off one: every reminder
+     title ran off the right edge on one unwrappable line and was clipped
+     mid-word. Seen in a screenshot; the measurement said the panel was on
+     screen, because it was — the *text* was not. */
+  white-space: normal;
+}
+.notif-panel.hidden { display: none; }
+.notif-head { margin-bottom: var(--space-3); }
+.notif-list { list-style: none; margin: 0; padding: 0; }
+.notif-row {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border);
+}
+.notif-list > li:first-child { border-top: none; }
+.notif-icon { flex: 0 0 auto; }
+.notif-body { min-width: 0; }
+.notif-title { font-size: var(--text-md); overflow-wrap: anywhere; }
+.notif-meta { font-size: var(--text-xs); }
+/* Unread, by weight and a spine rather than by colour alone. */
+.notif-unread { border-left: 2px solid var(--accent); padding-left: var(--space-3); }
+.notif-unread .notif-title { font-weight: 650; }
+.notif-actionable { cursor: pointer; border-radius: var(--radius-sm); }
+.notif-actionable:hover { background: var(--chip-bg); }
+.notif-foot { margin: var(--space-4) 0 0; font-size: var(--text-xs); }
+
 /* Separates the one irreversible control in the header from the everyday ones
    (§36D). Distance is the cheap half of not clicking Quit by accident; the
    confirm dialog is the half that actually stops it. */

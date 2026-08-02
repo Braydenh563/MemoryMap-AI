@@ -5383,6 +5383,21 @@ async function sendChatMessage(preset, opts = {}) {
   // A turn that stopped short offers the way onward, in the two shapes it can
   // take. Not shown when the user pressed Stop — they know why it ended — and
   // not when a skill run finished every step it had.
+  // A run that stopped early is exactly the kind of thing you find out about
+  // ten minutes later, having walked away from a long job (§36E). The Resume
+  // button below is the fix in the moment; this is the record afterwards.
+  if (!stopped && (stoppedAtStep !== null || ranOutOfRounds)) {
+    recordNotification({
+      kind: "run",
+      title: opts.skill ? `“${opts.skill}” stopped early` : "A long answer stopped early",
+      detail:
+        stoppedAtStep !== null
+          ? `Got as far as step ${stoppedAtStep + 1}. Reopen the chat to resume.`
+          : "It ran out of rounds. Reopen the chat to continue.",
+      key: `run:${opts.skill || "answer"}:${Date.now()}`,
+      action: { tab: "chat" },
+    });
+  }
   if (!stopped && stoppedAtStep !== null && opts.skill) {
     bubble.appendChild(
       continueRunControls({
@@ -13188,6 +13203,173 @@ function rememberAnnounced(ids) {
   localStorage.setItem(ANNOUNCED_KEY, JSON.stringify(kept));
 }
 
+// --- the notifications centre (§36E) ----------------------------------------
+//
+// MemoryMap already *produces* all of these events — a reminder comes due, a
+// background task finishes, a skill run stalls — and shows each of them in its
+// own way: a system notification, a toast, a status pill, a step timeline.
+// Every one of those is a moment. Miss the moment and the event is gone.
+//
+// This is the place they persist after their moment has passed, which is the
+// whole of what §36E asks for. Three things it is deliberately *not*:
+//
+// - **Not a second source of truth.** A fired reminder is still a row in the
+//   reminders table; this records that it was announced, and the panel folds
+//   in whatever is *currently* overdue from the server when it opens. So a
+//   reminder that came due while the app was closed is not lost, even though
+//   nothing was running to record it — which is the one case a purely
+//   event-driven log cannot cover.
+// - **Not persisted to the server.** These are ephemeral by nature and there
+//   can be many of them; the notebook's preferences file is not a log.
+// - **Not a promise that anything fires while the app is shut.** A local-first
+//   app with no background service cannot do that, and §36C says so plainly
+//   rather than implying otherwise.
+
+const NOTIFICATIONS_KEY = "notifications";
+const NOTIFICATIONS_READ_KEY = "notificationsReadAt";
+//: Enough to answer "what did I miss?" and not enough to become a log file.
+const MAX_NOTIFICATIONS = 50;
+
+function storedNotifications() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(NOTIFICATIONS_KEY) || "[]");
+    return Array.isArray(raw) ? raw : [];
+  } catch {
+    return []; // hand-edited or truncated storage costs the history, not the app
+  }
+}
+
+// Record something worth remembering. `key` de-duplicates: the reminder poll
+// runs every thirty seconds and must not add the same fired reminder twice.
+function recordNotification({ kind, title, detail = "", key = "", action = null }) {
+  const items = storedNotifications();
+  const id = key || `${kind}:${title}:${Date.now()}`;
+  if (key && items.some((n) => n.id === id)) return;
+  items.push({ id, kind, title, detail, at: Date.now(), action });
+  localStorage.setItem(
+    NOTIFICATIONS_KEY,
+    JSON.stringify(items.slice(-MAX_NOTIFICATIONS))
+  );
+  renderNotificationBadge();
+}
+
+function notificationsReadAt() {
+  return Number(localStorage.getItem(NOTIFICATIONS_READ_KEY) || 0);
+}
+
+function unreadNotifications() {
+  const since = notificationsReadAt();
+  return storedNotifications().filter((n) => n.at > since);
+}
+
+function renderNotificationBadge() {
+  const button = $("notif-btn");
+  if (!button) return;
+  const count = unreadNotifications().length;
+  button.dataset.count = count > 9 ? "9+" : String(count || "");
+  button.classList.toggle("has-unread", count > 0);
+  button.setAttribute(
+    "aria-label",
+    count ? `Notifications — ${count} unread` : "Notifications"
+  );
+}
+
+//: Which icon a kind gets. Colour alone is never the signal (DESIGN.md), and
+//: these read as a list of *kinds* rather than a list of times.
+const NOTIFICATION_ICONS = {
+  reminder: "⏰",
+  task: "⚙",
+  run: "⚡",
+  error: "⚠️",
+  info: "•",
+};
+
+async function openNotifications() {
+  const panel = $("notif-panel");
+  const list = $("notif-list");
+  panel.classList.remove("hidden");
+
+  // Fold in anything currently overdue on the server. This is what makes the
+  // centre honest about time it was not running for: the event log can only
+  // know what happened while a tab was open, and the reminders table knows
+  // what is due regardless.
+  const all = await apiJson("/reminders", { silent: true }).catch(() => null);
+  for (const reminder of all || []) {
+    if (reminder.done) continue;
+    if (new Date(reminder.due_at).getTime() > Date.now()) continue;
+    recordNotification({
+      kind: "reminder",
+      title: reminder.text,
+      detail: `Due ${relativeTime(reminder.due_at)}`,
+      key: `reminder:${reminder.id}`,
+      action: { tab: "reminders" },
+    });
+  }
+
+  const items = storedNotifications().slice().reverse();
+  const readAt = notificationsReadAt();
+  list.replaceChildren();
+  if (!items.length) {
+    const empty = document.createElement("li");
+    empty.className = "muted";
+    empty.textContent =
+      "Nothing yet. Reminders that come due, finished background jobs and " +
+      "runs that stopped early will collect here.";
+    list.appendChild(empty);
+  }
+  for (const item of items) {
+    const row = document.createElement("li");
+    row.className = "notif-row";
+    if (item.at > readAt) row.classList.add("notif-unread");
+
+    const icon = document.createElement("span");
+    icon.className = "notif-icon";
+    icon.textContent = NOTIFICATION_ICONS[item.kind] || NOTIFICATION_ICONS.info;
+    icon.setAttribute("aria-hidden", "true");
+
+    const body = document.createElement("div");
+    body.className = "notif-body";
+    const title = document.createElement("div");
+    title.className = "notif-title";
+    title.textContent = item.title;
+    const meta = document.createElement("div");
+    meta.className = "notif-meta muted";
+    meta.textContent = [item.detail, relativeTime(new Date(item.at).toISOString())]
+      .filter(Boolean)
+      .join(" · ");
+    body.append(title, meta);
+    row.append(icon, body);
+
+    // A notification you cannot act on is a notification you learn to ignore.
+    if (item.action && item.action.tab) {
+      row.classList.add("notif-actionable");
+      row.tabIndex = 0;
+      row.title = "Open";
+      const go = () => {
+        closeNotifications();
+        switchTab(item.action.tab);
+      };
+      row.addEventListener("click", go);
+      row.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          go();
+        }
+      });
+    }
+    list.appendChild(row);
+  }
+
+  // Opening the panel *is* reading them. Marked after rendering, so the
+  // unread ones are still highlighted in the list you are looking at.
+  localStorage.setItem(NOTIFICATIONS_READ_KEY, String(Date.now()));
+  renderNotificationBadge();
+}
+
+function closeNotifications() {
+  $("notif-panel").classList.add("hidden");
+}
+
 // Asked when a reminder is SET, not on first load. A permission prompt with no
 // context is refused by default, and a refusal is close to permanent — the
 // browser will not ask again, and most people never find the site settings.
@@ -13233,6 +13415,19 @@ async function checkDueReminders() {
   const fresh = due.filter((r) => !already.has(r.id));
   if (!fresh.length) return;
   rememberAnnounced(fresh.map((r) => r.id));
+
+  // Into the centre as well as onto the screen (§36E). A toast and a system
+  // notification are both moments; this is the record that outlives them, and
+  // it is the difference between "I think something was due" and knowing what.
+  for (const reminder of fresh) {
+    recordNotification({
+      kind: "reminder",
+      title: reminder.text,
+      detail: "Came due",
+      key: `reminder:${reminder.id}`,
+      action: { tab: "reminders" },
+    });
+  }
 
   // One notification for one reminder; a summary for several, because three
   // separate system notifications for three reminders is worse than one.
@@ -13868,6 +14063,22 @@ const TASK_OUTCOMES = {
 function renderTaskHistory(history) {
   const box = $("task-history-box");
   const list = $("task-history");
+  // A finished background job goes into the notifications centre whether or
+  // not this screen is open — which is the point of the centre (§36E). These
+  // jobs are long: an install or a re-index finishes minutes after you stopped
+  // watching it, and until now the only record was a screen inside Settings
+  // that you had to know to open. Recorded first, so it happens even when the
+  // Tasks panel is not on screen and the two elements below are missing.
+  for (const item of history) {
+    recordNotification({
+      kind: item.outcome === "failed" ? "error" : "task",
+      title: `${(TASK_OUTCOMES[item.outcome] || TASK_OUTCOMES.completed).icon} ${item.label}`,
+      detail: item.detail || "",
+      // Keyed on the job and when it stopped, so the three-second re-render
+      // does not add the same finished job over and over.
+      key: `task:${item.kind || item.label}:${item.at}`,
+    });
+  }
   if (!box || !list) return;
   box.classList.toggle("hidden", history.length === 0);
   list.replaceChildren();
@@ -14656,6 +14867,13 @@ let uiStateSaveTimer = null;
 function saveUiState() {
   clearTimeout(uiStateSaveTimer);
   uiStateSaveTimer = setTimeout(() => {
+    // Not before the unlock. The tab restore writes `activeTab` at module
+    // level, which schedules a save that would land while the lock screen is
+    // still up — a guaranteed 401 on every cold load, visible in the browser's
+    // network log and in the server's, where it reads as an auth failure worth
+    // investigating. §35E-bis found exactly this in the reminder poll; the
+    // guard is the same one, for the same reason.
+    if (!authToken()) return;
     const state = {};
     for (const key of mirroredUiKeys()) {
       const value = localStorage.getItem(key);
@@ -16018,6 +16236,32 @@ for (const id of ["account-current", "account-new", "account-confirm"]) {
 }
 $("theme-clear-overrides").addEventListener("click", clearManualOverrides);
 
+// --- the notifications centre's controls (§36E) -----------------------------
+$("notif-btn").addEventListener("click", () => {
+  const open = $("notif-panel").classList.contains("hidden");
+  $("notif-btn").setAttribute("aria-expanded", String(open));
+  if (open) openNotifications();
+  else closeNotifications();
+});
+$("notif-close").addEventListener("click", () => {
+  closeNotifications();
+  $("notif-btn").setAttribute("aria-expanded", "false");
+});
+$("notif-clear").addEventListener("click", () => {
+  localStorage.removeItem(NOTIFICATIONS_KEY);
+  localStorage.setItem(NOTIFICATIONS_READ_KEY, String(Date.now()));
+  openNotifications(); // redraw in place: the panel stays open, now empty
+});
+// Click-away and Escape, the same two gestures every other popup here honours.
+document.addEventListener("click", (event) => {
+  const panel = $("notif-panel");
+  if (panel.classList.contains("hidden")) return;
+  if (event.target.closest(".notif-wrap")) return;
+  closeNotifications();
+  $("notif-btn").setAttribute("aria-expanded", "false");
+});
+renderNotificationBadge();
+
 // Watch the settings worth surviving a restart *before* anything can write
 // one (§35E). Installed here rather than inside startApp because the tab
 // restore below writes `activeTab`, and a write that happens before the watch
@@ -17223,6 +17467,11 @@ document.addEventListener("keydown", (e) => {
         return;
       }
     }
+  }
+  if (e.key === "Escape" && !$("notif-panel").classList.contains("hidden")) {
+    closeNotifications();
+    $("notif-btn").setAttribute("aria-expanded", "false");
+    return;
   }
   if (e.key === "Escape" && !$("onboarding-overlay").classList.contains("hidden")) {
     closeOnboarding();

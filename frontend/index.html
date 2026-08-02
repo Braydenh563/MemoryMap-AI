@@ -126,6 +126,32 @@
            irreversible action directly beside the light/dark toggle, the most
            pressed control in the bar. Now the everyday toggles lead, the
            labelled control follows, and Quit is last behind a divider. -->
+      <!-- The notifications centre (§36E). Reminders that came due, background
+           jobs that finished and runs that stopped early each have their own
+           moment — a toast, a system notification, a step timeline — and this
+           is where they persist once that moment has passed. The count is a
+           state worth having at a glance, which is the test §36D sets for
+           anything that earns a permanent place in the chrome. -->
+      <span class="notif-wrap">
+        <button id="notif-btn" class="ghost small" title="Notifications"
+          aria-label="Notifications" aria-expanded="false"
+          aria-controls="notif-panel">🔔</button>
+        <div id="notif-panel" class="notif-panel hidden" role="dialog"
+          aria-label="Notifications">
+          <div class="row space-between notif-head">
+            <strong>Notifications</strong>
+            <span class="row">
+              <button id="notif-clear" class="ghost small">Clear</button>
+              <button id="notif-close" class="ghost small" aria-label="Close">✕</button>
+            </span>
+          </div>
+          <ul id="notif-list" class="notif-list"></ul>
+          <p class="muted notif-foot">
+            Nothing fires while MemoryMap is closed — it has no background
+            service, by design.
+          </p>
+        </div>
+      </span>
       <button id="theme-btn" class="ghost small" title="Toggle light/dark" aria-label="Toggle light or dark theme">🌓</button>
       <button id="lock-btn" class="ghost small hidden" title="Lock the app" aria-label="Lock the app">🔒</button>
       <button id="settings-btn" class="ghost small" title="Settings">⚙ Settings</button>

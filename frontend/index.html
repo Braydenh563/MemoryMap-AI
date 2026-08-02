@@ -480,118 +480,134 @@ Link to another note with [[its first few words]]."></textarea>
       </aside>
       <main>
         <section class="card" id="chat-main">
+          <!-- The header is now *only* about this conversation: its name, what
+               it has cost, and how to take it away. Everything that decides
+               what happens to the NEXT message moved down to the composer dock
+               below (asked for directly: "moving the majority of the ui
+               controls like the chat/agent pull, web search and stuff to the
+               bottom bar with the chat input").
+
+               That split is the same one §36B argued for, taken one step
+               further. Grouping the controls made the row readable; moving the
+               per-message half to where you type puts each control beside the
+               thing it acts on — you set them as you write, not by looking
+               back up to the top of a scrolled conversation.
+
+               Ids are unchanged throughout, so nothing in app.js has to know
+               any of this happened. -->
           <div class="chat-toolbar">
             <h2 id="chat-title">New chat</h2>
-            <!-- "Agent mode" rather than "AI can make changes": the switch
-                 turns on tool use generally — reading notes, searching the
-                 web, opening a page — not only writes. The old label
-                 undersold what it enabled and overstated the risk. -->
-            <!-- Two modes, shown as two options rather than as one checkbox.
-                 A tickbox states one of them and leaves the other implied, so
-                 "not Agent mode" had no name and no description; a pair makes
-                 both readable at a glance and says which you are in without
-                 having to work out what the absence of a tick means. The
-                 checkbox itself stays, hidden, because it is the thing the
-                 rest of the app reads and stores. -->
-            <!-- Grouped by the question each control answers, rather than as
-                 eight peers in one row (§36B). The toolbar had grown a control
-                 at a time and they sat side by side despite answering
-                 completely different things: what the AI may touch, how it
-                 should sound, how hard it should work, and what to do with
-                 this conversation. Reading it meant reading all eight.
-
-                 Ids are unchanged throughout — this is a regrouping, not a
-                 rewrite, so nothing in app.js has to know about it. -->
-            <div class="chat-tool-group" role="group" aria-label="What the AI may use">
-            <div class="seg seg-compact" id="chat-mode-seg" role="group" aria-label="Chat mode">
-              <button data-chat-mode="chat" type="button"
-                title="Ask questions about your notes. The AI reads and answers; it never changes anything.">💬 Chat</button>
-              <button data-chat-mode="agent" type="button"
-                title="The AI can use tools — search and read your notes, open web pages, create, tag, link and organise. Destructive actions always ask you first.">🤖 Agent</button>
-            </div>
-            <label class="muted tools-toggle agent-toggle hidden"
-              title="Agent mode: the AI can use tools — search and read your notes, open web pages, create, tag, link and organise. Destructive actions always ask you first.">
-              <input type="checkbox" id="tools-toggle">
-              <span class="agent-toggle-label">🤖 Agent mode</span>
-            </label>
-            <button id="web-search-toggle" class="ghost small" aria-pressed="false"
-              title="Search the web here, and let the AI search when you ask it to">🌐 Web</button>
-            </div>
-
-            <!-- How the answer comes out: who is speaking, and how hard they
-                 work at it. Neighbouring questions, so they stay neighbours. -->
-            <div class="chat-tool-group" role="group" aria-label="How it answers">
-            <!-- How much effort this turn is worth. Sits next to the persona
-                 because they answer neighbouring questions — who is answering,
-                 and how hard they should work at it. Filled from /chat/modes
-                 so the list can't drift from what the server does. -->
-            <select id="response-mode-select" class="small-select"
-              aria-label="Answer length"
-              title="How much effort to spend on the answer. Quick is short and literal; detailed is longer and slower."></select>
-            <select id="persona-select" class="small-select" aria-label="Persona"></select>
-            <!-- You could pick a persona but never see what it actually told
-                 the model to do. -->
-            <button id="persona-peek" class="ghost small" type="button"
-              aria-expanded="false"
-              title="Show the instructions this persona gives the AI">👁</button>
-            </div>
-
             <!-- This conversation, as an object: what it has cost and how to
-                 take it with you. Pushed to the far end because these are the
-                 only two that are not about the *next* message — mixing them
-                 in with the per-turn controls is what made the row read as an
-                 undifferentiated list. -->
+                 take it with you. -->
             <div class="chat-tool-group chat-tool-group-end" role="group" aria-label="This conversation">
               <span id="chat-usage" class="chat-usage muted" hidden
                 title="Everything this conversation has sent to the model so far"></span>
               <button id="chat-export" class="ghost small" title="Download this chat as a Markdown file">⭳ Export</button>
             </div>
           </div>
-          <!-- id is persona-peek-panel, NOT persona-prompt: the Settings
-               screen has a <textarea id="persona-prompt"> for writing a new
-               persona, and two elements sharing an id is not a duplicate
-               that browsers complain about — getElementById simply returns
-               the first, which is this div. That made "Add persona" read
-               `.value` off a <div>, throw, and do nothing at all. -->
-          <div id="persona-peek-panel" class="persona-prompt hidden">
-            <strong>What this persona tells the AI</strong>
-            <p id="persona-prompt-text"></p>
-          </div>
-          <!-- Web panel: search the web and read a page as clean text,
-               without embedding a browser. -->
-          <div id="web-panel" class="web-panel hidden">
-            <div class="row space-between">
-              <strong id="web-panel-title">🌐 Web</strong>
-              <button id="web-panel-close" class="ghost small" aria-label="Close web panel">✕</button>
-            </div>
-            <div class="row">
-              <input id="web-query" type="text" placeholder="Search the web…"
-                aria-label="Search the web">
-              <button id="web-go" class="small">Search</button>
-            </div>
-            <p id="web-status" class="status" role="status"></p>
-            <div id="web-results" class="web-results"></div>
-            <div id="web-reader" class="web-reader hidden">
-              <div class="row space-between">
-                <strong id="web-reader-title"></strong>
-                <span class="row">
-                  <button id="web-reader-ask" class="ghost small"
-                    title="Ask the AI about this page">💬 Ask about this</button>
-                  <button id="web-reader-save" class="ghost small">＋ Save as note</button>
-                  <button id="web-reader-back" class="ghost small">← Results</button>
-                </span>
-              </div>
-              <p class="muted" id="web-reader-source"></p>
-              <div id="web-reader-text" class="web-reader-text"></div>
-            </div>
-          </div>
           <div id="chat-messages"></div>
           <div id="chat-suggest" class="recent hidden"></div>
-          <div id="chat-skills" class="recent hidden"></div>
-          <!-- Notes clipped to the next message, as removable chips. -->
-          <div id="chat-attachments" class="chat-attachments hidden"
-            role="group" aria-label="Notes attached to your next message"></div>
-          <div class="row chat-composer">
+          <!-- The dock: everything about the message you are about to send,
+               in one block fixed to the bottom of the chat.
+
+               Two rows, and the order is deliberate — the controls sit above
+               the input rather than below it, so the box you type in is the
+               last thing before the send button and nothing moves between
+               reading the controls and typing.
+
+               The web and persona panels came down with the buttons that open
+               them. A toggle at the bottom of the page that opens a panel at
+               the top is worse than either arrangement on its own — you press
+               it and nothing appears to happen. -->
+          <div class="chat-dock">
+            <!-- id is persona-peek-panel, NOT persona-prompt: the Settings
+                 screen has a <textarea id="persona-prompt"> for writing a new
+                 persona, and two elements sharing an id is not a duplicate
+                 that browsers complain about — getElementById simply returns
+                 the first, which is this div. That made "Add persona" read
+                 `.value` off a <div>, throw, and do nothing at all. -->
+            <div id="persona-peek-panel" class="persona-prompt hidden">
+              <strong>What this persona tells the AI</strong>
+              <p id="persona-prompt-text"></p>
+            </div>
+            <!-- Web panel: search the web and read a page as clean text,
+                 without embedding a browser. -->
+            <div id="web-panel" class="web-panel hidden">
+              <div class="row space-between">
+                <strong id="web-panel-title">🌐 Web</strong>
+                <button id="web-panel-close" class="ghost small" aria-label="Close web panel">✕</button>
+              </div>
+              <div class="row">
+                <input id="web-query" type="text" placeholder="Search the web…"
+                  aria-label="Search the web">
+                <button id="web-go" class="small">Search</button>
+              </div>
+              <p id="web-status" class="status" role="status"></p>
+              <div id="web-results" class="web-results"></div>
+              <div id="web-reader" class="web-reader hidden">
+                <div class="row space-between">
+                  <strong id="web-reader-title"></strong>
+                  <span class="row">
+                    <button id="web-reader-ask" class="ghost small"
+                      title="Ask the AI about this page">💬 Ask about this</button>
+                    <button id="web-reader-save" class="ghost small">＋ Save as note</button>
+                    <button id="web-reader-back" class="ghost small">← Results</button>
+                  </span>
+                </div>
+                <p class="muted" id="web-reader-source"></p>
+                <div id="web-reader-text" class="web-reader-text"></div>
+              </div>
+            </div>
+            <!-- Attached notes and the skill picker are per-message controls
+                 too, so they came down with the rest. Ids unchanged. -->
+            <div id="chat-attachments" class="chat-attachments hidden"
+              role="group" aria-label="Notes attached to your next message"></div>
+            <div id="chat-skills" class="recent hidden"></div>
+            <div class="chat-dock-controls">
+              <!-- "Agent mode" rather than "AI can make changes": the switch
+                   turns on tool use generally — reading notes, searching the
+                   web, opening a page — not only writes. The old label
+                   undersold what it enabled and overstated the risk. -->
+              <!-- Two modes, shown as two options rather than as one checkbox.
+                   A tickbox states one of them and leaves the other implied, so
+                   "not Agent mode" had no name and no description; a pair makes
+                   both readable at a glance and says which you are in without
+                   having to work out what the absence of a tick means. The
+                   checkbox itself stays, hidden, because it is the thing the
+                   rest of the app reads and stores. -->
+              <div class="chat-tool-group" role="group" aria-label="What the AI may use">
+                <div class="seg seg-compact" id="chat-mode-seg" role="group" aria-label="Chat mode">
+                  <button data-chat-mode="chat" type="button"
+                    title="Ask questions about your notes. The AI reads and answers; it never changes anything.">💬 Chat</button>
+                  <button data-chat-mode="agent" type="button"
+                    title="The AI can use tools — search and read your notes, open web pages, create, tag, link and organise. Destructive actions always ask you first.">🤖 Agent</button>
+                </div>
+                <label class="muted tools-toggle agent-toggle hidden"
+                  title="Agent mode: the AI can use tools — search and read your notes, open web pages, create, tag, link and organise. Destructive actions always ask you first.">
+                  <input type="checkbox" id="tools-toggle">
+                  <span class="agent-toggle-label">🤖 Agent mode</span>
+                </label>
+                <button id="web-search-toggle" class="ghost small" aria-pressed="false"
+                  title="Search the web here, and let the AI search when you ask it to">🌐 Web</button>
+              </div>
+
+              <!-- How the answer comes out: who is speaking, and how hard they
+                   work at it. Neighbouring questions, so they stay neighbours.
+                   Filled from /chat/modes so the list can't drift from what the
+                   server actually does. -->
+              <div class="chat-tool-group" role="group" aria-label="How it answers">
+                <select id="response-mode-select" class="small-select"
+                  aria-label="Answer length"
+                  title="How much effort to spend on the answer. Quick is short and literal; detailed is longer and slower."></select>
+                <select id="persona-select" class="small-select" aria-label="Persona"></select>
+                <!-- You could pick a persona but never see what it actually
+                     told the model to do. -->
+                <button id="persona-peek" class="ghost small" type="button"
+                  aria-expanded="false"
+                  title="Show the instructions this persona gives the AI">👁</button>
+              </div>
+            </div>
+            <div class="row chat-composer">
             <div class="note-picker">
               <button id="attach-note" class="ghost" type="button"
                 aria-haspopup="dialog" aria-expanded="false"
@@ -619,8 +635,13 @@ Link to another note with [[its first few words]]."></textarea>
             <button id="mic-chat" class="ghost" title="Dictate your question (local Whisper)" aria-label="Dictate your question">🎙</button>
             <button id="chat-send">Send</button>
             <button id="chat-stop" class="ghost hidden" title="Stop the answer">Stop</button>
+            </div>
+            <!-- Inside the dock, because it is about the message being sent —
+                 "Step 3: tag the untagged notes" belongs next to the box that
+                 asked for it, not at the bottom of a card you have scrolled
+                 away from. -->
+            <p id="chat-status" class="status" role="status"></p>
           </div>
-          <p id="chat-status" class="status" role="status"></p>
         </section>
       </main>
     </div>

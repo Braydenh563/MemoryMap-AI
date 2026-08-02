@@ -3566,10 +3566,70 @@ html { font-size: 16px; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.chat-toolbar .tools-toggle { white-space: nowrap; margin: 0; }
-.chat-toolbar button { white-space: nowrap; }
-.chat-toolbar select { margin: 0; width: auto; }
+/* These three followed the controls down into the dock — `select` especially,
+   because the base rule is `width: 100%` and without an override each picker
+   becomes as wide as the row allows. Written for both surfaces rather than
+   moved, since the toolbar keeps the same shape for whatever lands in it
+   next. */
+.chat-toolbar .tools-toggle,
+.chat-dock-controls .tools-toggle { white-space: nowrap; margin: 0; }
+.chat-toolbar button,
+.chat-dock-controls button { white-space: nowrap; }
+.chat-toolbar select,
+.chat-dock-controls select { margin: 0; width: auto; }
 .chat-composer { margin-top: 0.5rem; }
+/* --- the composer dock (asked for directly) ---------------------------------
+   *"moving the majority of the ui controls like the chat/agent pull, web
+   search and stuff to the bottom bar with the chat input."*
+
+   Everything that decides what happens to the *next* message now lives here,
+   with the box you type it in; the header above keeps only what is about the
+   conversation as a whole. The dock is the last flex child of #chat-main, so
+   it holds the bottom of the card while the message list scrolls above it —
+   no fixed positioning, which would have to know the sidebar's width and would
+   sit over the messages on a short window.
+
+   The hairline is what makes it read as one block rather than as two rows that
+   happen to be adjacent. */
+.chat-dock {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-4);
+  margin-top: var(--space-4);
+  background: var(--card);
+}
+.chat-dock-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+.chat-dock .chat-composer { margin-top: var(--space-4); }
+/* The web panel opens inside the dock, next to the button that opens it. Its
+   inner lists already scroll; this caps the whole thing so a page of results
+   can never grow the dock until the conversation above it is a sliver. */
+.chat-dock .web-panel {
+  max-height: 45vh;
+  overflow-y: auto;
+  margin-bottom: var(--space-4);
+}
+.chat-dock .persona-prompt { margin-bottom: var(--space-4); }
+/* The skill picker and the attached-note chips are per-message controls too.
+   `.recent`'s top margin is for a row under a heading, which is not what
+   either of them is here. */
+.chat-dock #chat-skills,
+.chat-dock #chat-attachments { margin-top: 0; margin-bottom: var(--space-3); }
+/* The status line is inside the dock now, so it must not add height on every
+   idle turn — an empty <p> with a margin moves the input box by its own
+   height each time a message finishes. */
+.chat-dock #chat-status { margin: var(--space-2) 0 0; }
+.chat-dock #chat-status:empty { display: none; }
+@media (max-width: 720px) {
+  /* Two rows of controls above a composer is most of a phone screen. They stay
+     — hiding a control the user has to reach for is worse than scrolling — but
+     they tighten up. */
+  .chat-dock-controls { gap: var(--space-2); }
+}
 /* Sticky sidebars ------------------------------------------------------------
    The conversation list and the document list are navigation, and navigation
    that scrolls away is navigation you have to scroll back for (user request).

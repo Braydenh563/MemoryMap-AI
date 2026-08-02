@@ -2835,20 +2835,85 @@ BROAD_REQUESTS = (
 )
 
 
-def focus_for(question: str) -> list[str] | None:
+# "Now do the thing we just talked about." The reported failure this exists
+# for: *"I asked it for suggestions on modifying my categories, and when I
+# asked it to implement the suggestions it just gave me the suggestions again
+# and no tool calls."*
+#
+# The cause was here and it is exact. `focus_for` read the current message and
+# nothing else, and "implement those suggestions" contains no category word —
+# so the turn was offered the reading core and no category tools at all. The
+# model was not being lazy; it had no `merge_categories` to call. The only
+# thing it *could* do was write the suggestions out again.
+#
+# A follow-through carries its subject in the turn before it, by definition.
+# So on these, the cue matching runs over the previous exchange as well, and
+# if that still finds nothing the turn gets everything — losing the tool the
+# user just asked for is far worse than sending schemas that go unused.
+FOLLOW_THROUGH = (
+    "do it", "do that", "do this", "go ahead", "go for it", "implement",
+    "apply", "make those", "make these", "make the changes", "carry on",
+    "proceed", "please do", "sounds good", "yes do", "action those",
+    "execute", "run it", "run them", "get on with", "let's do", "lets do",
+    "all of them", "both of them", "the first one", "the second one",
+    "that one", "option ", "your suggestion", "those suggestion",
+    "these suggestion", "as you suggested", "what you suggested",
+)
+
+#: A bare "yes", "ok", "sure" is a follow-through too, but only when it is the
+#: *whole* message — "yes, remind me tomorrow" says what it wants and should be
+#: read on its own terms.
+BARE_AGREEMENT = {
+    "yes", "yep", "yeah", "ok", "okay", "sure", "please", "go", "do it",
+    "y", "confirmed", "correct", "right", "agreed", "perfect", "great",
+}
+
+
+def is_follow_through(question: str) -> bool:
+    """Does this message mean "act on what we just discussed"?"""
+    text = f" {(question or '').lower().strip()} "
+    stripped = text.strip().strip(".!,").strip()
+    if stripped in BARE_AGREEMENT:
+        return True
+    return any(cue in text for cue in FOLLOW_THROUGH)
+
+
+def focus_for(question: str, recent: str = "") -> list[str] | None:
     """The tools worth offering for this question, or None for all of them.
 
     Deliberately keyword-driven rather than another model call: an extra
     round-trip to decide what to send would cost more than it saves, and a
     deterministic rule can be read, tested, and argued with.
+
+    `recent` is the previous exchange, and it is only consulted for a message
+    that means "now do it" — see FOLLOW_THROUGH. Reading history on *every*
+    turn would be worse than reading none: a question about beans, asked after
+    a conversation about deleting things, would be offered delete_note.
     """
     text = f" {(question or '').lower()} "
     if any(cue in text for cue in BROAD_REQUESTS):
         return None
+    # A follow-through's subject is in the turn before it. Matched over both,
+    # so "implement those suggestions" after a conversation about categories
+    # gets the category tools — and so an instruction that names its own
+    # subject ("apply that and also tag them") keeps its own cues too.
+    following = is_follow_through(question)
+    if following and recent:
+        text = f"{text} {recent.lower()} "
+        if any(cue in text for cue in BROAD_REQUESTS):
+            return None
     wanted = list(CORE_TOOLS)
+    matched = False
     for group, cues in TOOL_GROUPS:
         if any(cue in text for cue in cues):
             wanted.extend(group)
+            matched = True
+    if following and not matched:
+        # "Do it" and nothing in the conversation says what "it" is. The safe
+        # answer is the whole toolbox: this is precisely the turn where the
+        # user is expecting an action, so being unable to act is the one
+        # outcome that is certainly wrong.
+        return None
     # The web tools are the user's own opt-in, made per-notebook rather than
     # per-question; `tool_enabled` already hides them otherwise, and second-
     # guessing that switch here would mean "web search is on but I didn't

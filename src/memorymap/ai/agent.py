@@ -51,6 +51,17 @@ MAX_ROUNDS = 6
 # loop. A loop still stops at six.
 EARNED_ROUNDS = 6
 
+# How much of a round's own reasoning is carried into the next one.
+#
+# Asked for directly, and the reasoning behind the number: a plan is worth a
+# paragraph, not a page. Carrying the whole of a thinking model's output would
+# double the prompt every round — the thing §11a exists to prevent — and the
+# part that stops the model re-deriving its plan is the plan, which is short.
+# What gets clipped is the end, because a reasoning trace states its
+# conclusion last only when it is finished; here it was interrupted by a tool
+# call, so the useful half is the beginning.
+THINKING_CARRIED_CHARS = 700
+
 # How much tool output one turn may add to the conversation, in characters.
 # Local models run in small windows, and tool results accumulate: six rounds
 # of paging through a large notebook will push the question itself out of
@@ -552,18 +563,49 @@ AWAITING_CONFIRMATION = {
 }
 
 
-def _focus(question: str) -> list[str] | None:
+#: How much of the previous exchange a follow-through turn is read against.
+#: Two turns' worth of text, capped — this is only ever used for keyword
+#: matching, so the whole of a long answer adds nothing but false positives
+#: from words the model happened to use in passing.
+FOLLOW_THROUGH_CONTEXT_CHARS = 1_200
+
+
+def _recent_text(history: list[dict] | None) -> str:
+    """The last exchange, as plain text, for reading a follow-through against.
+
+    Newest first and clipped, so what survives the cap is the turn the user is
+    actually following through *on* rather than the start of the conversation.
+    """
+    if not history:
+        return ""
+    parts: list[str] = []
+    for turn in reversed(history[-2:]):
+        for key in ("question", "answer", "content"):
+            value = turn.get(key)
+            if isinstance(value, str) and value:
+                parts.append(value)
+    # Clipped once, at the end, rather than per piece: clipping each and then
+    # joining put the separators outside the budget, so the cap was not a cap.
+    return " ".join(parts)[:FOLLOW_THROUGH_CONTEXT_CHARS]
+
+
+def _focus(question: str, history: list[dict] | None = None) -> list[str] | None:
     """Which tools this turn is offered, unless the user asked for all of them.
 
     Settings → Tools has the switch, because the honest failure mode of a
     keyword rule is a request phrased in words it doesn't know, and the fix
     for that has to be reachable without editing code.
+
+    `history` is passed so a turn that means "now do what we just discussed"
+    can be read against what was discussed — reported directly, and the cause
+    of an agent that answered "implement those suggestions" with the same
+    suggestions again. See `tools.focus_for`.
     """
     from memorymap.core import deps
 
     if str(deps.get_config().get_preference("tool_focus", "auto")) == "all":
         return None
-    return tools.focus_for(question)
+    return tools.focus_for(question, _recent_text(history))
 
 
 def run_agent(
@@ -631,7 +673,7 @@ def run_agent(
     # tool left out because a cue didn't fire must still run if the model
     # somehow calls it.
     offered = tools.ollama_tools(
-        allowed_tools if allowed_tools is not None else _focus(question)
+        allowed_tools if allowed_tools is not None else _focus(question, history)
     )
     # Tools this turn may not use whatever it was offered. The one caller is a
     # run refusing to start another run (`tools.RUN_STARTERS`): each run brings
@@ -689,6 +731,13 @@ def run_agent(
     # the same idea: a repeat of a call that worked is not progress either. The
     # model has that result in its context already.
     done_calls: set[tuple[str, str]] = set()
+
+    # Reads whose result is already in this turn's messages and still current.
+    # Separate from `done_calls` on purpose: that one is the earned-round
+    # ledger and must never be cleared, while this is a freshness cache and is
+    # emptied the moment a write makes the notebook different from what these
+    # reads saw.
+    fresh_reads: set[tuple[str, str]] = set()
 
     # Rounds are granted, then earned (see EARNED_ROUNDS). `allowance` is what
     # this turn has so far; a round that does something new adds one to it, up
@@ -778,10 +827,31 @@ def run_agent(
 
         # Replay the assistant turn (with its calls) so the model keeps
         # its own context, then answer each call.
+        #
+        # **Including the round's own reasoning**, asked for directly: *"it
+        # often thinks up this whole plan, then it does a tool call and either
+        # loses track or has to rethink the plan again."* That is exactly what
+        # happened — `thinking` was streamed to the user and then dropped, so
+        # the next round saw its own tool calls with no record of why it made
+        # them, and a thinking model spent its output budget re-deriving the
+        # same plan every round.
+        #
+        # Carried as content rather than as a `thinking` field because that
+        # field is not portable: Ollama accepts one, the OpenAI-compatible
+        # dialect does not, and a message shape one backend rejects is an
+        # outage rather than a degradation. Marked and clipped, so it reads as
+        # a note-to-self and cannot grow into the round's whole budget.
+        replay = reply.get("content") or ""
+        reasoning = (reply.get("thinking") or "").strip()
+        if reasoning:
+            clipped = reasoning[:THINKING_CARRIED_CHARS]
+            if len(reasoning) > THINKING_CARRIED_CHARS:
+                clipped += "…"
+            replay = f"[my reasoning so far: {clipped}]{chr(10) if replay else ''}{replay}"
         messages.append(
             {
                 "role": "assistant",
-                "content": reply.get("content") or "",
+                "content": replay,
                 "tool_calls": reply.get("raw_tool_calls") or [],
             }
         )
@@ -890,6 +960,38 @@ def run_agent(
                     "label": tools.confirm_label(name, arguments),
                 }
                 result = AWAITING_CONFIRMATION
+            elif (name, json.dumps(arguments, sort_keys=True)) in fresh_reads:
+                # **A read it has already done, with the same arguments, and
+                # nothing has changed since.** Reported directly: *"it often
+                # calls the same tools to read all notes, or to read the same
+                # note's context in full, after no changes."*
+                #
+                # Re-running it is not merely wasted time — the result is
+                # identical and gets appended to the prompt a second time, so
+                # the round that repeats a read costs the window twice and
+                # brings back nothing. Handing back a pointer instead is
+                # cheaper than the data by an order of magnitude and says the
+                # one thing the model needs to hear: you already have this,
+                # move on.
+                #
+                # `done_calls` is emptied whenever a write succeeds (below), so
+                # this can never serve a stale read of something the turn
+                # itself just changed — which is the only way a cache here
+                # could produce a wrong answer rather than a slow one.
+                result = {
+                    "already_done": True,
+                    "note": (
+                        f"You already called {name} with these exact arguments "
+                        "earlier in this turn and the result is above — nothing "
+                        "has changed since. Use it rather than reading it again, "
+                        "and move on to the next part of the job."
+                    ),
+                }
+                yield {
+                    "type": "tool",
+                    "label": f"↩︎ {name.replace('_', ' ')} — already read",
+                    "ok": True,
+                }
             else:
                 result = tools.execute_tool(session, name, arguments)
                 # What changed, and the call that would put it back. Popped
@@ -906,9 +1008,24 @@ def run_agent(
                     # not a preamble to it.
                     done_calls.add(signature)
                     progressed = True
+                if "error" not in result and name not in _WRITE_TOOLS:
+                    # Its result is now in the messages above, and stays valid
+                    # until something writes.
+                    fresh_reads.add(signature)
                 if "error" not in result and name in _WRITE_TOOLS:
                     did_write = True
                     ran_writes.add(name)
+                    # The notebook just changed, so every read taken before now
+                    # may be out of date. Clearing this is what keeps the
+                    # repeat-suppression above from ever serving a stale
+                    # answer: after a write, re-reading is legitimate work
+                    # rather than a loop, and it has to be allowed through.
+                    #
+                    # Deliberately *not* `done_calls`, which is the earned-round
+                    # ledger: clearing that would let a model repeating one
+                    # identical write buy a fresh round every time it did so,
+                    # which is the exact loop EARNED_ROUNDS exists to starve.
+                    fresh_reads.clear()
                     change = {
                         "tool": name,
                         "label": result.get("label") or name,

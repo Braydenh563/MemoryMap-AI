@@ -615,8 +615,40 @@ function entryItem(entry, options = {}) {
     actions.className = "entry-actions";
     actions.appendChild(
       smallButton("Restore", "Take this entry out of the bin", async () => {
-        await api(`/entries/${entry.id}/restore`, { method: "POST" });
-        await Promise.all([loadEntries(), renderBin()]);
+        try {
+          await api(`/entries/${entry.id}/restore`, { method: "POST" });
+          await Promise.all([loadEntries(), renderBin()]);
+        } catch (error) {
+          toast(`Couldn't restore that note: ${error.message}`, true);
+        }
+      })
+    );
+    // Asked for directly: a way to get rid of ONE note for good. Emptying the
+    // bin was all-or-nothing, so removing a single note permanently meant
+    // destroying everything else in there — which is why a bin fills up and
+    // stops being a bin.
+    //
+    // No undo is offered here and none is implied: the wording says "for
+    // good", the dialog quotes the note back so there is no doubt which one it
+    // is, and the note is already in the bin, so this is the second deliberate
+    // step rather than the first.
+    actions.appendChild(
+      smallButton("Delete for good", "Permanently delete this note — no undo", async () => {
+        const quoted = entry.content.trim().split("\n")[0].slice(0, 80);
+        if (
+          !(await confirmDialog(
+            `Permanently delete “${quoted}”?\n\nThis cannot be undone.`
+          ))
+        ) {
+          return;
+        }
+        try {
+          await api(`/entries/${entry.id}/purge`, { method: "DELETE" });
+          toast("Deleted for good.");
+          await Promise.all([loadEntries(), renderBin()]);
+        } catch (error) {
+          toast(`Couldn't delete that note: ${error.message}`, true);
+        }
       })
     );
     metaEnd.appendChild(actions);
@@ -4950,6 +4982,63 @@ async function sendChatMessage(preset, opts = {}) {
   const toolEvents = []; // {label, ok} — persisted so chips survive a reload
   chatController = new AbortController();
 
+  // --- checkpointing a long turn --------------------------------------------
+  // A row for this turn already exists, so the save at the end has to update
+  // it rather than append a second copy of the same exchange.
+  let checkpointed = false;
+  let checkpointInFlight = false;
+
+  // Write what the turn has so far. Called at each agent round boundary, so a
+  // ten-minute run that dies at minute nine leaves nine minutes of work in the
+  // conversation instead of nothing.
+  //
+  // One in flight at a time: rounds can finish close together, and two
+  // creates racing each other would make two conversations out of one thread.
+  async function checkpointTurn() {
+    if (checkpointInFlight) return;
+    checkpointInFlight = true;
+    try {
+      const partial = {
+        question,
+        answer: timeline.text(),
+        thinking: timeline.thinkingText() || null,
+        tools: toolEvents.length ? toolEvents : null,
+        steps: timeline.serialise(),
+        // No stats or elapsed yet — the turn is not over, and a half-turn's
+        // numbers reported as final would be wrong rather than incomplete.
+      };
+      if (chatConv.id === null) {
+        const created = await apiJson("/conversations", {
+          method: "POST",
+          body: JSON.stringify(partial),
+          silent: true,
+        });
+        chatConv.id = created.id;
+        $("chat-title").textContent = created.title;
+        loadConversationList();
+      } else if (checkpointed || opts.replaceLast) {
+        await apiJson(`/conversations/${chatConv.id}/turns/last`, {
+          method: "PUT",
+          body: JSON.stringify(partial),
+          silent: true,
+        });
+      } else {
+        await apiJson(`/conversations/${chatConv.id}/turns`, {
+          method: "POST",
+          body: JSON.stringify(partial),
+          silent: true,
+        });
+      }
+      checkpointed = true;
+    } catch {
+      // Deliberately silent. This is insurance running behind a live answer;
+      // a toast here would interrupt the thing it exists to protect, and the
+      // save at the end of the turn reports its own failure.
+    } finally {
+      checkpointInFlight = false;
+    }
+  }
+
   try {
     await streamChat({
       question,
@@ -5057,6 +5146,20 @@ async function sendChatMessage(preset, opts = {}) {
         chatScrollToEnd();
       },
       onStats: (event) => {
+        // A round finished. Asked for directly: *"a new chat should be saved
+        // after agent turns as well, not after the whole response is
+        // complete."* Correct, and the reason is that an agent turn is minutes
+        // of work on a local model — closing the window, a stall, or the
+        // server going away halfway through used to lose **the entire
+        // conversation**, because nothing was written until the last round
+        // returned. A checkpoint per round means the worst case is losing the
+        // round in progress rather than the thread.
+        //
+        // Fire-and-forget, and silent: a checkpoint that interrupts the answer
+        // to complain about the network would be worse than the data loss it
+        // is preventing. The turn's real save still happens at the end and
+        // overwrites this with the finished version.
+        if (event.round) checkpointTurn();
         // An agent turn reports once per round, so these accumulate: output
         // tokens and generation time add up, while the prompt size is the
         // largest context the model was given rather than the sum.
@@ -5252,7 +5355,11 @@ async function sendChatMessage(preset, opts = {}) {
           loadConversationList();
         })
         .catch(() => {});
-    } else if (opts.replaceLast) {
+    } else if (opts.replaceLast || checkpointed) {
+      // `checkpointed` matters as much as `replaceLast` here: a long agent
+      // turn has already written a row for this exchange (see checkpointTurn),
+      // so appending would leave the conversation holding the same question
+      // twice — once half-finished and once complete.
       const saved = await apiJson(`/conversations/${chatConv.id}/turns/last`, {
         method: "PUT",
         body: JSON.stringify(payload),
@@ -16101,11 +16208,37 @@ $("reminder-time").addEventListener("input", syncDueFromParts);
 for (const button of document.querySelectorAll(".panel-close")) {
   button.addEventListener("click", () => showPanel(null));
 }
+// Reported broken three times, and driven end to end in a real browser twice
+// with the whole flow working — dialog, POST, empty bin, toast. So the button
+// is not what is wrong on the machine reporting it, and the third report is
+// really about this: **every way this could fail was silent.**
+//
+// `apiJson` throws on a non-2xx, and there was no catch, so a 401 from an
+// expired token, a 500 from a locked database, or an unreachable server all
+// produced exactly what was reported — a click, and nothing. No toast, no
+// change, nothing in the panel. A button that says "Couldn't empty the bin:
+// …" is a bug report; a button that says nothing is three sessions of
+// guessing.
+//
+// The in-flight state matters for the same reason: purging a large bin
+// deletes files from disk, which on a slow or network drive is seconds of
+// looking broken.
 $("bin-empty").addEventListener("click", async () => {
   if (!(await confirmDialog("Permanently delete everything in the bin? This cannot be undone."))) return;
-  const result = await apiJson("/recycle-bin/empty", { method: "POST" });
-  toast(`${result.removed} entr${result.removed === 1 ? "y" : "ies"} permanently deleted.`);
-  await renderBin();
+  const button = $("bin-empty");
+  const original = button.textContent;
+  button.disabled = true;
+  button.textContent = "Emptying…";
+  try {
+    const result = await apiJson("/recycle-bin/empty", { method: "POST" });
+    toast(`${result.removed} entr${result.removed === 1 ? "y" : "ies"} permanently deleted.`);
+    await renderBin();
+  } catch (error) {
+    toast(`Couldn't empty the bin: ${error.message}`, true);
+  } finally {
+    button.disabled = false;
+    button.textContent = original;
+  }
 });
 // --- [[ autocomplete ------------------------------------------------------------
 // The links work, but only if you remember how a note starts. Typing "[[" now

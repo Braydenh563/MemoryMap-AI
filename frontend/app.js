@@ -2986,7 +2986,13 @@ async function renderModelSpec(modelName) {
     ],
     ["Loaded at", spec.loaded_context_length ? compactTokens(spec.loaded_context_length) : null],
     ["Can use tools", canDo(spec.supports_tools)],
-    ["Can think", canDo(spec.supports_thinking)],
+    // "Can think: no" was reported for a model that visibly thinks (§35C),
+    // and the label was the lie rather than the value: this is the *declared*
+    // capability — whether the backend supports a thinking toggle — and a
+    // model can still emit inline <think> tags without declaring it, which
+    // `split_thinking` picks up and shows. Saying "declared" makes the two
+    // facts distinguishable instead of contradictory.
+    ["Thinking mode declared", canDo(spec.supports_thinking)],
   ].filter(([, value]) => value != null && value !== "");
 
   box.replaceChildren();

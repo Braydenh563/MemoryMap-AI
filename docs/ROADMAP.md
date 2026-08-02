@@ -4185,6 +4185,42 @@ keep the original, show what was dropped, make it undoable.
 
 ---
 
+### 35K. "Annoying and slow to get to do things, and then it only does a little"
+
+A second round of reports, and this one is about the agent's *character*
+rather than about individual bugs. Recorded together because they have one
+theme: the agent is expensive to use and under-delivers on what it is asked.
+
+- **"Note #12" means nothing to the user.** The model says it because every
+  tool result carries an id and ids are what the tools take. But the user has
+  never seen an id — the UI shows notes by their text. **Every id the model
+  says out loud should be accompanied by the note's first few words**, and the
+  prompt should say so; the id is the app's handle, not the user's. Cheap, and
+  it makes every other answer more legible.
+
+- **A broad instruction gets a token effort.** Reported: *"I will say fix my
+  categories and it will only merge two categories and leave it at that,
+  ignoring the rest."* This is the counterpart of §21's finding about steps —
+  a model given one big instruction does the first part and reports success.
+  The skill runner solves it for skills by giving each step its own turn, and
+  **the same shape is what an open-ended request needs**: a plan, then a turn
+  per item, then a report. §33's "worth building" item 2 (`update_plan`, a
+  live plan the agent ticks off) is the mechanism, and this report is the
+  strongest argument yet for building it — it is not a progress indicator, it
+  is what makes the model finish the job.
+
+- **The token budget skyrockets on these turns**, which is the same bug seen
+  from the cost side: rounds of tool results accumulate and every one is
+  resent. §11a's fixed-overhead work is done; this is the *conversation* half
+  and it is what §35I's compression is for. The two should be built together.
+
+- **The chat bubble's metadata line is not visually appealing.** It has grown
+  a field at a time — model, elapsed, tokens, rounds, context percent, whether
+  the count was estimated — and never had a pass. Worth doing *after* the
+  above, because what it should show depends on what the turns look like.
+
+---
+
 ### The standing caveat, now with three pieces of evidence
 
 **Every provider test in this repository runs against a fake transport.** The

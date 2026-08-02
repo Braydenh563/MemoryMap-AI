@@ -128,6 +128,8 @@ class PreferencesBody(BaseModel):
     # Wave G: user-defined skills, and whether the chat AI may use tools.
     skills: list[SkillItem] | None = Field(default=None, max_length=30)
     tools_enabled: bool | None = None
+    # The local-AI lock (§33). On by default; see core.config.
+    local_only_ai: bool | None = None
     # Which tools each turn is offered: "auto" reads the question and sends
     # what it plausibly needs (§11a — the schemas are most of the per-round
     # cost); "all" sends the whole registry, as it always did.
@@ -214,6 +216,7 @@ def get_preferences() -> dict:
         ),
         "skills": config.get_preference("skills", []),
         "tools_enabled": config.get_preference("tools_enabled", True),
+        "local_only_ai": config.get_preference("local_only_ai", True),
         "tool_focus": config.get_preference("tool_focus", "auto"),
         "web_search_enabled": config.get_preference("web_search_enabled", False),
         "searxng_url": config.get_preference("searxng_url", ""),
@@ -465,6 +468,7 @@ DIAGNOSTIC_PREFERENCES = frozenset(
         # described-not-disclosed like every other secret.
         "llm_provider",
         "llm_base_url",
+        "local_only_ai",
         # How long answers were asked to be, which is the first thing to check
         # in a "the AI is slow" or "the AI is too terse" report (§11).
         "response_mode",

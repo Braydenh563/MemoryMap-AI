@@ -118,6 +118,29 @@ def build_llm_client(config: ConfigManager) -> Provider:
     """
     provider = str(config.get_preference("llm_provider", "ollama") or "ollama").lower()
     base_url = str(config.get_preference("llm_base_url", "") or "").strip()
+
+    # The lock is enforced here as well as at the endpoint, and that is not
+    # belt-and-braces for its own sake: `preferences.json` is a plain file the
+    # user is invited to edit by hand, and it is what a restored backup or a
+    # copied config brings with it. Checking only on the way in would mean a
+    # remote address that never passed through the endpoint is used anyway —
+    # silently, and on every turn.
+    #
+    # Falling back to the provider's local default rather than refusing to
+    # start: the app must still open so the setting can be fixed from inside it.
+    if base_url and config.get_preference("local_only_ai", True):
+        from memorymap.core import security
+
+        allowed, reason, _ = security.check_backend_url(base_url, local_only=True)
+        if not allowed:
+            logging.getLogger("memorymap.config").warning(
+                "refusing the saved AI backend %r and using the local default "
+                "instead — %s",
+                base_url,
+                reason,
+            )
+            base_url = ""
+
     if provider == "openai":
         return OpenAICompatClient(
             base_url=base_url or DEFAULT_BASE_URLS["openai"],

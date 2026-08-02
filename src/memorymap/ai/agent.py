@@ -163,7 +163,24 @@ TOOLS_GUIDE = (
 # being misused (stop after asking, don't ask what you could look up) and
 # deleting the rest. `ask_user` is in CORE_TOOLS, so unlike most tools it is
 # paid for on every single turn — which is exactly why it had to be terse.
-PROMPT_BUDGET_CHARS = 14_400
+#
+# 14,400 → 15,000, for `related_notes` (§9). Second raise in one session, and
+# that pattern is worth naming rather than repeating silently: **this number
+# is now measuring the wrong thing.** It weighs the *whole* registry, and no
+# turn has sent the whole registry since `within_budget` started fitting the
+# schemas to the model's real window — a 4k model receives about 1,450 tokens
+# of it, a 32k model receives all of it and has ample room. So what trips is
+# not "the prompt is too heavy for a small model" but "the registry grew
+# again", which is a thing that is *supposed* to happen.
+#
+# It is kept, at a raised figure, because the half it still measures honestly
+# is the prose: the persona and TOOLS_GUIDE are sent whatever the window and
+# are never trimmed. The assertion that actually protects a 3B model now lives
+# in `test_prompt_budget.test_the_overhead_leaves_room_for_an_actual_
+# conversation`, which measures what reaches the wire *after* the trim. If this
+# constant needs raising a third time for a tool rather than for prose, retire
+# it and keep that one instead.
+PROMPT_BUDGET_CHARS = 15_000
 
 # What to do about a failed tool call.
 #

@@ -277,6 +277,133 @@ def _get_note_tool(session: Session, args: dict) -> dict:
     return result
 
 
+# How far `related_notes` will walk, and how much it may bring back. A
+# neighbourhood is only useful if it fits in the prompt beside everything else,
+# and the second hop of a well-connected note can be most of the notebook.
+MAX_GRAPH_DEPTH = 2
+MAX_GRAPH_NOTES = 12
+
+
+def _graph_neighbours(session: Session, entry: Entry) -> list[tuple[Entry, str]]:
+    """This note's direct neighbours, each with *how* it is connected.
+
+    The "how" is the whole point, and it is what the app had and the model
+    didn't. The graph view has drawn typed edges — an explicit link, a reply
+    thread, a similarity line — since it was built, but the only thing the
+    agent could see was `get_note`'s bare list of connected ids: a set of
+    numbers with no indication of what any of them meant, one note at a time.
+
+    Three kinds, deliberately, and no fourth:
+
+    - **linked** — someone (or the model) said these two belong together. The
+      strongest signal in the notebook, because it was a decision.
+    - **thread** — a reply, so the two are one train of thought.
+    - **tag** — a shared tag, named in the answer, so "shares #recipes" reads
+      differently from "you linked these".
+
+    *Same category* is not here. Nearly every note shares a category with
+    dozens of others, so including it would drown the two signals that mean
+    something under one that means "these are both notes".
+    """
+    seen: dict[int, str] = {}
+    out: list[tuple[Entry, str]] = []
+
+    def add(other: Entry, how: str) -> None:
+        # First reason wins, and the order below is strongest-first, so a note
+        # that is both linked and tagged reports the link.
+        if other.id == entry.id or other.id in seen or other.is_deleted:
+            return
+        seen[other.id] = how
+        out.append((other, how))
+
+    for _link, other in manager.links_for_entry(session, entry):
+        add(other, "linked")
+
+    if entry.parent_id:
+        parent = session.get(Entry, entry.parent_id)
+        if parent is not None:
+            add(parent, "thread: this is a reply to it")
+    for child in session.scalars(
+        select(Entry).where(Entry.parent_id == entry.id, Entry.is_deleted == False)  # noqa: E712
+    ):
+        add(child, "thread: it is a reply to this")
+
+    tags = set(manager.entry_tags(entry))
+    if tags:
+        for other in session.scalars(
+            select(Entry).where(Entry.is_deleted == False)  # noqa: E712
+        ):
+            shared = tags & set(manager.entry_tags(other))
+            if shared:
+                add(other, f"shares {', '.join('#' + t for t in sorted(shared))}")
+    return out
+
+
+def _related_notes(session: Session, args: dict) -> dict:
+    """The neighbourhood around one note, as context rather than as a picture.
+
+    Breadth-first so the nearest notes arrive first and the cap cuts the
+    furthest, which is the right thing to lose. Every result says how far away
+    it is and how it got there, so the model can weigh "you linked these" above
+    "these share a tag two hops out" instead of treating a flat list as equally
+    relevant.
+    """
+    entry = _require_note(session, args)
+    depth = max(1, min(MAX_GRAPH_DEPTH, int(args.get("depth") or 1)))
+
+    frontier = [entry]
+    visited = {entry.id}
+    found: list[dict] = []
+    for distance in range(1, depth + 1):
+        next_frontier: list[Entry] = []
+        for node in frontier:
+            for other, how in _graph_neighbours(session, node):
+                if other.id in visited:
+                    continue
+                visited.add(other.id)
+                next_frontier.append(other)
+                found.append(
+                    {
+                        **_note_summary(session, other),
+                        "how": how,
+                        "hops": distance,
+                        # Which note it hangs off, so a two-hop result is not
+                        # mysteriously floating.
+                        "via": node.id if node.id != entry.id else None,
+                    }
+                )
+                if len(found) >= MAX_GRAPH_NOTES:
+                    break
+            if len(found) >= MAX_GRAPH_NOTES:
+                break
+        if len(found) >= MAX_GRAPH_NOTES:
+            break
+        frontier = next_frontier
+        if not frontier:
+            break
+
+    result = {
+        "note_id": entry.id,
+        "related": found,
+        "how_to_read_more": _READ_MORE,
+        "label": (
+            f"🕸 Found {len(found)} note{'' if len(found) == 1 else 's'} "
+            f"connected to #{entry.id}"
+        ),
+    }
+    if not found:
+        result["note"] = (
+            "Nothing is connected to this note yet — it has no links, no "
+            "replies and no shared tags. link_notes and tag_note are how "
+            "connections get made."
+        )
+    elif len(found) >= MAX_GRAPH_NOTES:
+        result["truncated"] = (
+            f"Stopped at {MAX_GRAPH_NOTES} notes, nearest first. There may be more."
+        )
+    return result
+
+
 def _list_notes(session: Session, args: dict) -> dict:
     """Walk the notebook: filter, page, previews only.
 
@@ -1276,6 +1403,25 @@ TOOLS: dict[str, ToolSpec] = {
             _search_notes,
         ),
         ToolSpec(
+            "related_notes",
+            "Walk the connections around a note: what it links to, what "
+            "replies to it, and what shares its tags. Each result says HOW it "
+            "connects and how many hops away it is. Use this to follow a "
+            "thread of thought, not to search by meaning.",
+            {
+                "type": "object",
+                "properties": {
+                    "note_id": _NOTE_ID,
+                    "depth": {
+                        "type": "integer",
+                        "description": "1 = direct connections, 2 = their connections too",
+                    },
+                },
+                "required": ["note_id"],
+            },
+            _related_notes,
+        ),
+        ToolSpec(
             "get_note",
             "Read one note in full, by id. Use this after search_notes or "
             "list_notes, whose results are only short previews — read the note "
@@ -1804,7 +1950,7 @@ TOOL_GROUPS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
         ),
     ),
     (
-        ("link_notes",),
+        ("link_notes", "related_notes"),
         ("link", "connect", "related", "relate", "join", "graph", "together"),
     ),
     (

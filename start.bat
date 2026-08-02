@@ -170,7 +170,20 @@ if defined MM_DESKTOP (
   echo        A browser tab opens in a moment. Close THIS window, or press
   echo        Ctrl+C in it, to stop the app.
   echo.
-  start "" /b cmd /c "timeout /t 3 >nul & start http://localhost:8000"
+  REM  Wait a moment, then open the browser — done with the venv Python
+  REM  rather than `timeout` and `start`.
+  REM
+  REM  `timeout` is an EXTERNAL program (System32\timeout.exe), not a cmd
+  REM  builtin, so it fails with "'timeout' is not recognized as an internal
+  REM  or external command" on any machine whose PATH has lost System32 —
+  REM  which a badly-behaved installer or a hand-edited PATH does more often
+  REM  than you would think. It also refuses to run at all when its input is
+  REM  redirected. Reported in use.
+  REM
+  REM  `%VENV_PY%` is an absolute path this script has already created and
+  REM  checked, so it needs nothing on PATH at all, and `webbrowser` picks the
+  REM  default browser the same way `start` does.
+  start "" /b "%VENV_PY%" -c "import time, webbrowser; time.sleep(3); webbrowser.open('http://localhost:8000')"
   "%VENV_PY%" -m memorymap
 )
 

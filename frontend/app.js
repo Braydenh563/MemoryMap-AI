@@ -11819,6 +11819,10 @@ function renderBackendPicker(status) {
     privacy.textContent = status.privacy_note || "";
     privacy.classList.toggle("hidden", !status.privacy_note);
   }
+  const lock = $("local-only-ai");
+  if (lock && document.activeElement !== lock) {
+    lock.checked = status.local_only_ai !== false;
+  }
 }
 
 async function applyBackendChoice() {
@@ -13999,6 +14003,22 @@ switchTab(localStorage.getItem("activeTab") || "notes");
 $("settings-btn").addEventListener("click", () => openSettingsModal());
 $("settings-close").addEventListener("click", closeSettingsModal);
 $("settings-peek").addEventListener("change", (e) => setSettingsPeek(e.target.checked));
+$("local-only-ai").addEventListener("change", async (e) => {
+  const on = e.target.checked;
+  await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ local_only_ai: on }),
+  }).catch((error) => toast(error.message, true));
+  // Say it plainly on the way out of the safe state. Turning the lock ON is
+  // unremarkable; turning it OFF is the moment worth naming, because the app's
+  // central promise stops being enforced at exactly that click.
+  toast(
+    on
+      ? "The AI is locked to this machine."
+      : "Off — MemoryMap will now let you point the AI at a server on the internet."
+  );
+  refreshModelStatus();
+});
 $("harmony-apply").addEventListener("click", applyHarmony);
 $("custom-theme-save").addEventListener("click", () => {
   saveCurrentLook().catch((error) => toast(error.message, true));

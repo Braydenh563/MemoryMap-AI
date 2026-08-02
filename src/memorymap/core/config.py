@@ -57,6 +57,13 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     # behaviour that predates presets exactly, so upgrading changes nothing
     # until someone chooses otherwise.
     "response_mode": "normal",
+    # Keep the AI on this machine. ON by default, and the default is the point:
+    # "100% offline, on your machine" is a promise the app keeps rather than
+    # one it reminds you that you are breaking. With this on, a backend address
+    # that is not local or LAN is refused outright — see
+    # `core.security.check_backend_url`. Turning it off is a deliberate act
+    # with a visible switch, for someone who genuinely wants a hosted API.
+    "local_only_ai": True,
 }
 
 

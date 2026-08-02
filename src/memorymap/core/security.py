@@ -299,13 +299,24 @@ def _refuses(address) -> str | None:
     return None
 
 
-def check_backend_url(url: str) -> tuple[bool, str, bool]:
+def check_backend_url(url: str, local_only: bool = False) -> tuple[bool, str, bool]:
     """Judge a model-backend address.
 
     Returns `(allowed, reason, is_local)`. `reason` is empty when there is
     nothing to say; `is_local` is False for a backend that would take the
-    user's notes off this machine, which the UI says out loud rather than
-    refusing on their behalf.
+    user's notes off this machine.
+
+    `local_only` is the lock, and it is **on by default in the app** (the
+    `local_only_ai` preference). With it on, a backend that is not on this
+    machine or this network is *refused* rather than warned about — which is
+    the honest reading of "100% offline, on your machine": a promise the app
+    keeps, not one it reminds you that you are breaking.
+
+    Turning it off is a deliberate act with a visible switch, and only then
+    does the warning-not-refusal behaviour apply. The default direction
+    matters more than the choice: someone who wants a hosted API will find the
+    switch, and someone who does not will never be one typo away from sending
+    their notebook to a stranger.
     """
     parts = urlsplit((url or "").strip())
     if parts.scheme not in _ALLOWED_BACKEND_SCHEMES:
@@ -326,18 +337,33 @@ def check_backend_url(url: str) -> tuple[bool, str, bool]:
             return False, refusal, False
 
     if not addresses:
-        # Unresolvable for now. Treat a name we can't check as non-local, so
-        # the honest warning is the one that shows.
-        return True, "", host in _LOOPBACK_HOSTS
+        # Unresolvable for now — "set the address, then start the server" is
+        # the normal order. Treated as non-local, which is the safe direction:
+        # under the lock an unverifiable name is refused rather than trusted,
+        # and without it the honest warning is the one that shows.
+        unresolved_local = host in _LOOPBACK_HOSTS
+        if local_only and not unresolved_local:
+            return False, _LOCKED_REASON.format(host=host), False
+        return True, "", unresolved_local
+
     is_local = all(
         address.is_loopback or address.is_private for address in addresses
     )
-    reason = (
-        ""
-        if is_local
-        else (
-            "This backend is not on your machine or your local network. Your "
-            "notes and questions will be sent to it over the internet."
-        )
+    if is_local:
+        return True, "", True
+    if local_only:
+        return False, _LOCKED_REASON.format(host=host), False
+    return (
+        True,
+        "This backend is not on your machine or your local network. Your "
+        "notes and questions will be sent to it over the internet.",
+        False,
     )
-    return True, reason, is_local
+
+
+_LOCKED_REASON = (
+    "“{host}” is not on this machine or your local network, and MemoryMap is "
+    "set to keep the AI local — so your notes are never sent anywhere. If you "
+    "really do want to use a hosted API, turn off “Keep the AI on this "
+    "machine” in Settings → Models first."
+)

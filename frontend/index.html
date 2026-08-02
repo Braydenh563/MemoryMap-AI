@@ -1052,6 +1052,19 @@ Link to another note with [[its first few words]]."></textarea>
                 <code>:1234/v1</code>); fill it in if you started the server on
                 your own port.
               </p>
+              <label class="setting-check" id="local-only-wrap">
+                <input type="checkbox" id="local-only-ai" checked>
+                <span>
+                  Keep the AI on this machine
+                  <small class="muted">
+                    Recommended, and on by default. Refuses any model backend
+                    that isn't on this computer or your own network, so your
+                    notes can't be sent over the internet by a mistyped
+                    address. Turn it off only if you deliberately want to use a
+                    hosted API.
+                  </small>
+                </span>
+              </label>
               <p id="llm-provider-status" class="status"></p>
               <!-- Everything else in this app is local by construction. A
                    backend address is the one setting that can change that, so

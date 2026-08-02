@@ -103,6 +103,7 @@ def status() -> dict:
     # warning that appears once and vanishes on the next reload is a warning
     # about a condition that has not gone away — and this one is about notes
     # leaving the machine, which is the app's central promise.
+    local_only = bool(config.get_preference("local_only_ai", True))
     _, privacy_note, is_local = security.check_backend_url(ollama.base_url)
 
     return {
@@ -119,6 +120,7 @@ def status() -> dict:
         # every poll so the warning persists rather than showing once.
         "is_local": is_local,
         "privacy_note": privacy_note,
+        "local_only_ai": local_only,
         # Only Ollama can download a model on request; the others are handed
         # one that is already on disk. The download panel hides itself rather
         # than offering a button that cannot work.
@@ -235,7 +237,9 @@ def set_provider(body: ProviderBody, session: Session = Depends(get_session)) ->
     # a backend that would take notes off this machine is reported rather than
     # blocked. See core.security.check_backend_url.
     effective = base_url or deps.DEFAULT_BASE_URLS.get(body.provider, "")
-    allowed, reason, is_local = security.check_backend_url(effective)
+    allowed, reason, is_local = security.check_backend_url(
+        effective, local_only=bool(config.get_preference("local_only_ai", True))
+    )
     if not allowed:
         raise HTTPException(status_code=400, detail=reason)
 

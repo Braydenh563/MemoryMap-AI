@@ -24,7 +24,28 @@ from __future__ import annotations
 
 import pytest
 
+from memorymap.core import security
 from memorymap.core.security import check_backend_url
+
+
+@pytest.fixture(autouse=True)
+def _no_real_dns(monkeypatch):
+    """Answer hostname lookups from a table instead of the network.
+
+    These tests were resolving `api.openai.com` and `*.invalid` for real. That
+    made them depend on the machine's resolver — fast here, unbounded on a CI
+    runner whose DNS is slow or absent, and `getaddrinfo` takes no timeout. A
+    test suite that is "fully offline" (the project's own rule, and the reason
+    CI needs no network beyond pip) should not have been asking DNS anything.
+
+    Literal addresses never reach this: `_backend_addresses` parses those
+    directly, which is the common case anyway.
+    """
+    table = {
+        "api.openai.com": ["104.18.7.192"],
+        "ollama.com": ["34.36.133.15"],
+    }
+    monkeypatch.setattr(security, "_resolve", lambda host: table.get(host, []))
 
 
 def allowed(url):

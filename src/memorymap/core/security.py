@@ -266,27 +266,72 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 import ipaddress  # noqa: E402 — grouped with the code it serves
 import socket  # noqa: E402
+from concurrent.futures import ThreadPoolExecutor  # noqa: E402
+from concurrent.futures import TimeoutError as FuturesTimeout  # noqa: E402
 
 _ALLOWED_BACKEND_SCHEMES = ("http", "https")
+
+
+#: How long to wait for DNS before giving up on judging a hostname.
+#:
+#: `socket.getaddrinfo` takes **no timeout argument** and ignores
+#: `socket.setdefaulttimeout`, so a slow or unreachable resolver blocks the
+#: calling thread for however long the platform's resolver decides — tens of
+#: seconds is normal. This function runs on a request thread (saving a backend
+#: address) and on startup (building the client), so an unbounded wait there is
+#: the app hanging, not a slow answer.
+_DNS_TIMEOUT_SECONDS = 2.0
+
+
+def _resolve(host: str) -> list:
+    """`getaddrinfo`, or [] if it fails."""
+    try:
+        return [info[4][0] for info in socket.getaddrinfo(host, None)]
+    except (socket.gaierror, UnicodeError, OSError):
+        return []
 
 
 def _backend_addresses(host: str) -> list:
     """Every IP a backend hostname resolves to, or [] if it doesn't resolve.
 
-    A name that doesn't resolve yet is not an error here: "set the address,
-    then start the server" is the normal order, and a docker-compose service
-    name resolves only once its container is up. So an empty list means "can't
-    judge", and the caller treats that as allowed-but-unverified rather than
-    as a failure — the request will simply fail later if the name is wrong.
+    A name that doesn't resolve is not an error here: "set the address, then
+    start the server" is the normal order, and a docker-compose service name
+    resolves only once its container is up. An empty list means "can't judge",
+    and the caller decides — under the lock that means refuse, without it that
+    means allow-but-unverified.
+
+    **Bounded, because `getaddrinfo` is not.** It takes no timeout and ignores
+    `socket.setdefaulttimeout`, so it is run on a worker thread and abandoned
+    after `_DNS_TIMEOUT_SECONDS`. A resolver that is slow or absent then reads
+    as "couldn't judge" — which is the same answer as a name that doesn't
+    exist, and the safe one — instead of holding the request open.
     """
-    try:
-        infos = socket.getaddrinfo(host, None)
-    except (socket.gaierror, UnicodeError):
+    if not host:
         return []
-    found = []
-    for info in infos:
+    # A literal address needs no resolver at all — 127.0.0.1, a LAN IP.
+    try:
+        return [ipaddress.ip_address(host)]
+    except ValueError:
+        pass
+
+    # Nor do the loopback *names*, and this is the hot path: `/models/status`
+    # judges the backend address on every poll, and the backend is `localhost`
+    # for almost everybody. Asking the resolver what `localhost` means, several
+    # times a second, to be told what it means on every machine, is a round
+    # trip for nothing — and on a host with a slow or misconfigured resolver it
+    # is a round trip for nothing that takes seconds.
+    if host.lower() in _LOOPBACK_HOSTS:
+        return [ipaddress.ip_address("127.0.0.1")]
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
         try:
-            found.append(ipaddress.ip_address(info[4][0]))
+            raw = pool.submit(_resolve, host).result(timeout=_DNS_TIMEOUT_SECONDS)
+        except FuturesTimeout:
+            return []
+    found = []
+    for address in raw:
+        try:
+            found.append(ipaddress.ip_address(address))
         except ValueError:
             continue
     return found

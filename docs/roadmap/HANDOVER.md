@@ -2,9 +2,14 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the AGPL/MIT constraint) · [HISTORY.md](HISTORY.md) (already built).
 
-Written at the end of the session that built the status bar and the Library.
-Everything here is either a fact you can check or a thing I could not check and
-am saying so about.
+Written at the end of the session that built the status bar, the Library and
+the optional-extras installer. Everything here is either a fact you can check
+or a thing I could not check and am saying so about.
+
+**Start at [Where to start next](#where-to-start-next--ranked-with-the-reason).**
+The two items at the top are the ones with the most leverage, and the first of
+them is the first chance this project has had to *remove* a surface rather than
+add one.
 
 ---
 
@@ -98,6 +103,22 @@ rows against 13 things), so activity is out of the mixed list and lives on its
 own chip. And the log read "Edited a preferences" — the verbs were translated
 into English and the nouns were not.
 
+### Optional extras install from Settings
+
+Five of them — faster-whisper, pywebview, sentence-transformers, markitdown,
+llama-cpp-python — each with install, reinstall and remove, reported through
+`/tasks` like every other background job.
+
+**The security property is the design and must survive any change here:** the
+request names an entry in the allowlist in `core/extras.py`, and the package
+spec is never anything the client sent. `pip install <a name from a request>`
+is arbitrary code execution by design, and validating the string afterwards
+does not fix it. Four of the ten tests are about exactly that.
+
+Detection is `find_spec` — "can this interpreter import it", not "did pip put
+it somewhere". **Reinstall exists because that answers "is it there", not "is
+it sound"**: a wheel built for the wrong platform imports and does not work.
+
 ### Retrieval reads vague words as leans, not boundaries
 
 `"recently"` was a hard 14-day filter. It **ranks** now and does not exclude;
@@ -133,22 +154,75 @@ failure it was fixing was right and is kept; its remedy was the bug.
 
 ---
 
-## Where I would start next
+## Where to start next — ranked, with the reason
 
-1. **§36G, in the order it lists.** The Library's next pieces are named there:
-   the old Tags/Activity/Bin *panels* can be deleted once their Library
-   versions have every control the panels had, and that is what shortens the
-   Notes sidebar for real.
-2. **The document editor.** It is reached only from the Library now, so it can
-   stop pretending to be a tab — a wider writing column, and the outline and
-   linked-notes panels earning their place beside it rather than folded shut
-   under a list that has left.
-3. **§36G's answer on absorbing Notes is "no", and the reasoning is written
-   down.** Do not re-derive it: the Library manages, the Notes tab *works*, and
-   putting ticks and bulk bars on the one screen that wants none of them would
-   make the Library the app rather than making the app smaller.
-4. **§9's decorative half** (skins, minimap, PNG/SVG export) and **§10's
-   `events` table** are still the largest untouched things.
+The ordering is by *how much it unlocks or how often it gets in the way*, not
+by how interesting it is. Items 1 and 2 are the ones I would actually do first.
+
+### 1. Delete the three old panels the Library replaced — **highest impact, lowest risk**
+
+The Notes sidebar's 🗑 Recycle bin, 📜 Activity and 🏷 Tags buttons now open the
+Library, but **the old panels are still in `index.html` and still rendered**
+(`#bin-panel`, `#activity-panel`, `#tags-panel`, plus `renderBin`,
+`renderActivity`, `renderTags`). So each of those three things currently has
+two implementations, which is the exact duplication the Library was built to
+end — and the one that bites is the bin, because the Library's version and the
+panel's version can disagree about what is in it.
+
+The order that makes this safe:
+
+1. Check the Library's Bin/Tags/Activity have **every** control the panel had.
+   Bin: restore, delete-for-good, empty — all three are there. Tags: rename,
+   merge-on-rename, remove-everywhere — there. Activity is read-only in both.
+2. `openLibraryItem("archived")` still routes to the bin panel to *read* a
+   binned note in full. Give the Library card an expand instead, or that is the
+   one reason the panel has to stay.
+3. Then delete the markup, the render functions and their CSS.
+
+**Expect this to shorten `app.js` by several hundred lines**, which is the real
+prize — it is the first time this project has removed a surface rather than
+added one.
+
+### 2. The document editor, now that it is not a tab
+
+It is reached only from the Library. That frees it to stop being a page laid
+out around a list that has left: a wider writing column, and the outline and
+"notes it draws on" panels earning their place beside the text instead of
+sitting folded shut under a switcher. Asked for directly ("the documents tab UI
+also needs a rework") and only half done — the sidebar is fixed, the editor
+itself is untouched.
+
+### 3. §36G's bookshelf theme, the next two pieces
+
+The spine is built. Next, in the order they add most: **shelf rows** with a
+rule under each group when sorting by kind, and an **empty state drawn as an
+empty shelf** rather than a sentence. The rule to hold to is written in §36G —
+anything decorative that makes a card harder to scan loses to the scan.
+
+### 4. Two things that are decided, so do not re-derive them
+
+- **Absorbing the Notes tab into the Library: no.** The reasoning is in §36G.
+  The Library *manages*, the Notes tab *works*, and putting ticks and bulk bars
+  on the one screen that wants none of them would make the Library the app
+  rather than making the app smaller.
+- **The tab bar is the right length.** It wraps below ~1350px and that is
+  measured, not guessed. Anything that wants to be a tab has to displace one.
+
+### 5. The largest untouched things
+
+**§9's decorative half** (skins, minimap, PNG/SVG export of the current view)
+and **§10's `events` table**, so the Timeline's bands can be events and places
+rather than only categories and tags.
+
+### Two loose ends from this session, both small
+
+- **`markitdown` and `llama-cpp-python` are installable and unused.** Both
+  cards say so in as many words, which is honest but is a debt: the first
+  wants a "bring in a PDF as notes" button, the second wants wiring into the
+  chat backend beside Ollama.
+- **The chat dock still wraps to two rows below ~1200px.** Acceptable — it is a
+  genuinely narrow chat column with six control groups — but it is the next
+  thing to notice if that strip gains anything else.
 
 ---
 

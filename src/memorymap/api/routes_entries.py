@@ -521,6 +521,32 @@ def restore_entry(entry_id: int, session: Session = Depends(get_session)) -> Ent
     return _to_out(session, entry)
 
 
+@router.delete("/{entry_id}/purge")
+def purge_entry(entry_id: int, session: Session = Depends(get_session)) -> dict:
+    """Permanently delete ONE note from the recycle bin. Asked for directly.
+
+    Emptying the whole bin was all-or-nothing, so getting rid of a single note
+    for good meant destroying everything else in there too — which is why
+    people leave the bin full instead, and then the bin is not a bin.
+
+    **Only a binned note can be purged.** A note still in the notebook has to
+    go through `DELETE /entries/{id}` first, so there is always the soft-delete
+    step between an ordinary click and permanent loss. Enforced here rather
+    than trusted to the UI: this is the one route in the app that destroys
+    something with no undo.
+    """
+    entry = _existing_entry(session, entry_id)
+    if not entry.is_deleted:
+        raise HTTPException(
+            status_code=400,
+            detail="Only notes in the recycle bin can be permanently deleted",
+        )
+    removed = manager.purge_entries(
+        session, [entry], uploads_dir=deps.get_config().uploads_dir
+    )
+    return {"purged": removed, "id": entry_id}
+
+
 class LinkBody(BaseModel):
     target_id: int
 

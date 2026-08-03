@@ -21,7 +21,7 @@ from memorymap.ai.embeddings import bytes_to_vector, cosine_similarity
 from memorymap.core import deps
 from memorymap.core.database import EmbeddingRecord, Entry, EntryLink
 from memorymap.core.deps import get_session
-from memorymap.entry import manager
+from memorymap.entry import manager, paths
 
 router = APIRouter(tags=["graph"])
 
@@ -92,7 +92,13 @@ def graph(similarity: bool = False, session: Session = Depends(get_session)) -> 
     nodes = [
         {
             "id": e.id,
-            "preview": _preview(e.content),
+            # Through the manager, never off the column: a private note's
+            # `content` is ciphertext at rest, so `_preview(e.content)` labelled
+            # it with a base64 blob. `readable_content` names the graph in its
+            # own docstring as one of the places that must not break on a
+            # private note — it decrypts while the vault is open and hands back
+            # "🔒 Private note — unlock to read it." while it is locked.
+            "preview": _preview(manager.readable_content(e)),
             "category": manager.category_name_for(session, e),
             "access_count": e.access_count,
             "pinned": e.pinned,
@@ -133,3 +139,158 @@ def graph(similarity: bool = False, session: Session = Depends(get_session)) -> 
     # Stable category order so the frontend assigns stable colours.
     categories = sorted({n["category"] for n in nodes})
     return {"nodes": nodes, "edges": edges, "categories": categories}
+
+
+def _path_node(session: Session, entry: Entry) -> dict:
+    """One note on a path or in a structural list. The same shape the graph's
+    nodes use, so the view can highlight by id without a second lookup, plus
+    enough text to read a chain as a sentence when the graph is not on screen."""
+    return {
+        "id": entry.id,
+        "preview": _preview(manager.readable_content(entry), 60),
+        "category": manager.category_name_for(session, entry),
+    }
+
+
+@router.get("/graph/structure")
+def graph_structure(session: Session = Depends(get_session)) -> dict:
+    """The shape of the notebook: clusters, hubs and orphans (§9).
+
+    One call, because all three come off the same index and the view wants them
+    together — colouring by cluster and listing the orphans are the same
+    question asked twice. `cluster_of` is what makes the colouring a lookup
+    rather than a second traversal in JavaScript.
+    """
+    index = paths.build(session)
+
+    def category_of(entry: Entry) -> str:
+        return manager.category_name_for(session, entry)
+
+    groups = paths.clusters(index, category_of)
+    cluster_of: dict[str, int] = {}
+    for position, cluster in enumerate(groups):
+        for note_id in cluster.ids:
+            # String keys: this is JSON, where an object's keys are strings
+            # whatever they started as, and a client reading `cluster_of[id]`
+            # with a numeric id gets undefined. Being explicit here beats
+            # discovering it in the browser.
+            cluster_of[str(note_id)] = position
+
+    loose = paths.orphans(index)
+    return {
+        "notes": len(index.entries),
+        "connected": len(index.entries) - len(loose),
+        "clusters": [
+            {
+                "size": len(cluster.ids),
+                "core": _path_node(session, index.entries[cluster.core_id]),
+                "categories": cluster.categories[:3],
+                "ids": cluster.ids,
+            }
+            for cluster in groups
+            if len(cluster.ids) >= paths.MIN_CLUSTER_NOTES
+        ],
+        # Counted separately rather than listed: a notebook with thirty pairs
+        # is a different shape from one with two big clusters, and that fact is
+        # worth a number even though the pairs are not worth thirty rows.
+        "small_clusters": sum(
+            1 for cluster in groups if len(cluster.ids) < paths.MIN_CLUSTER_NOTES
+        ),
+        "cluster_of": cluster_of,
+        "hubs": [
+            {**_path_node(session, index.entries[note_id]), "links": count}
+            for note_id, count in paths.hubs(index)
+        ],
+        "orphans": [_path_node(session, index.entries[note_id]) for note_id in loose[:20]],
+        "orphan_count": len(loose),
+        "hub_tags": index.hub_tags,
+    }
+
+
+@router.get("/graph/path")
+def graph_path(
+    source: int, target: int, session: Session = Depends(get_session)
+) -> dict:
+    """The chain of connections between two notes (§9).
+
+    The one question a graph answers better than a list, and the one the view
+    could not answer: *how are these two related?* Returns the notes in order
+    with the reason for each step, or `found: false` and — this is the part
+    that makes it usable — **why** there is no path, since "no" is only a
+    useful answer when it says what to do about it.
+
+    Deliberately a GET with two ids: it reads nothing but the notebook's own
+    structure, so it is cacheable, linkable and safe to re-issue.
+    """
+    index = paths.build(session)
+    missing = [
+        note_id for note_id in (source, target) if note_id not in index.entries
+    ]
+    if missing:
+        return {
+            "found": False,
+            "source": source,
+            "target": target,
+            "reason": (
+                "That note isn't in the map — it may have been deleted."
+                if len(missing) == 1
+                else "Neither note is in the map."
+            ),
+        }
+    if source == target:
+        return {
+            "found": False,
+            "source": source,
+            "target": target,
+            "reason": "Those are the same note.",
+        }
+
+    chain = paths.find(index, source, target)
+    if chain is None:
+        ends = [
+            (note_id, paths.degree(index, note_id)) for note_id in (source, target)
+        ]
+        lonely = [note_id for note_id, count in ends if count == 0]
+        if lonely:
+            reason = (
+                "Neither note is connected to anything yet."
+                if len(lonely) == 2
+                else "One of these notes isn't connected to anything yet."
+            )
+        else:
+            reason = (
+                "They're both connected to other notes, but there's no route "
+                f"between them within {paths.MAX_PATH_HOPS} steps."
+            )
+        if index.hub_tags:
+            # Said plainly, because otherwise this reads as a wrong answer: the
+            # two notes may well share a tag and still get "no path" back.
+            listed = ", ".join("#" + tag for tag in index.hub_tags[:3])
+            reason += (
+                f" Tags on more than {paths.HUB_TAG_NOTES} notes ({listed}) are "
+                "treated as filing rather than as a connection."
+            )
+        return {
+            "found": False,
+            "source": source,
+            "target": target,
+            "reason": reason,
+        }
+
+    order = [source] + [step.target for step in chain]
+    return {
+        "found": True,
+        "source": source,
+        "target": target,
+        "hops": len(chain),
+        "nodes": [_path_node(session, index.entries[note_id]) for note_id in order],
+        "steps": [
+            {
+                "source": step.source,
+                "target": step.target,
+                "kind": step.kind,
+                "how": step.how,
+            }
+            for step in chain
+        ],
+    }

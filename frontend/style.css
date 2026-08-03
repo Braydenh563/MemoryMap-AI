@@ -237,6 +237,14 @@ body {
 /* Wave L rework: one compact, sticky top bar — brand · tabs · controls.
    The old two-row header + tab strip spent ~120px before any content. */
 header#top-bar {
+  /* One height for every control in the bar — the tabs, the theme toggle, the
+     lock, Settings and Quit. Not a spacing token, for the same reason
+     `--control-h` in the chat dock is not one: a hit target is a control's own
+     size, and snapping it to a gap step would make it drift with the density
+     setting. 2rem is what the header buttons already were, so this levels the
+     others up to the value the majority already used rather than moving
+     everything. */
+  --header-control-h: 2rem;
   /* Kept `sticky` rather than made `static`: it costs nothing in a
      non-scrolling flex parent, and it means the bar still behaves if this
      layout is ever loaded somewhere the body does scroll. */
@@ -399,8 +407,15 @@ header#top-bar.tabs-wrapped #tab-bar {
      The tab strip is what gives up space now, by scrolling. */
   flex: 0 0 auto;
 }
-/* The buttons keep their size; only the pill beside them collapses. */
-.header-controls > button { flex: 0 0 auto; }
+/* The buttons keep their size; only the pill beside them collapses. And they
+   are the same height as the tabs, which is the whole point of
+   `--header-control-h` — see the note on it above. */
+.header-controls > button {
+  flex: 0 0 auto;
+  height: var(--header-control-h);
+  padding-block: 0;
+  margin: 0;
+}
 
 /* Live "what is the AI doing?" indicator.
    Its text changes as status polls land ("checking…" → "word search on · AI
@@ -549,7 +564,15 @@ header#top-bar.tabs-wrapped #tab-bar {
   border-radius: var(--radius-md);
   color: var(--muted);
   font-weight: 500;
-  padding: 0.4rem 1rem;
+  /* Height declared, padding only horizontal — the control-strip rule from
+     DESIGN.md, applied to the one strip in the app that had never had it.
+     Measured before: the bar held five different control heights (wordmark
+     27.6, tab strip 44.8, tabs 36.8, buttons 32, status 28, emblem 24), every
+     one of them centred on the same line and none of them agreeing with
+     another. That is exactly the "nothing lines up" complaint, in the most
+     looked-at strip in the app. */
+  height: var(--header-control-h);
+  padding: 0 var(--space-6);
   box-shadow: none;
 }
 #tab-bar button.active {
@@ -1220,9 +1243,36 @@ progress { accent-color: var(--accent); width: 100%; }
 /* No auto margin here — .entry-meta-end already owns the alignment. */
 .entry-actions { display: flex; gap: 0.4rem; }
 .entry-actions button { padding: 0.15rem 0.5rem; font-size: 0.8rem; }
-.entry-links { margin-top: 0.4rem; display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.entry-links { margin-top: var(--space-2); display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .chip.link { cursor: default; }
+/* A note card's links, quietened (§36B.3). The base `.chip` is accent-coloured
+   and weight 600 — right for a category, which is one word and a fact about
+   this note; wrong for a link, which carries another note's words and appears
+   several times. Measured before: on a card with two links the chips were
+   wider than the note itself and read first.
+
+   Scoped to `#entry-list` on purpose. The same chip elsewhere — a reminder's
+   note, a document's attachment — is the *subject* of the row it sits in
+   rather than an aside, and quietening those would be the opposite fix. */
+#entry-list .chip.link {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-weight: 400;
+}
+#entry-list li:hover .chip.link,
+#entry-list li:focus-within .chip.link { color: var(--ink); }
 .chip.link .unlink { cursor: pointer; margin-left: 0.25rem; font-weight: 700; }
+/* The ✕ follows the card's own actions: present on hover and focus, out of the
+   way while reading. It stays reachable by keyboard because focus-within
+   covers a tabbed-to chip, and on touch because there is no hover there. */
+#entry-list .chip.link .unlink { opacity: 0; transition: opacity 0.12s ease; }
+#entry-list li:hover .chip.link .unlink,
+#entry-list li:focus-within .chip.link .unlink { opacity: 0.7; }
+#entry-list .chip.link .unlink:hover { opacity: 1; color: var(--error); }
+@media (hover: none) {
+  #entry-list .chip.link .unlink { opacity: 0.7; }
+}
 li.link-source { outline: 2px solid var(--accent); }
 
 /* --- activity log ----------------------------------------------------------- */
@@ -2177,6 +2227,41 @@ html.modal-open body {
 .graph-edge-thread { stroke-dasharray: 7 4; stroke-width: 1.4; }
 .graph-edge-similar { stroke-dasharray: 2 5; stroke-width: 1.2; stroke: var(--accent); }
 
+/* --- a traced path (§9) -----------------------------------------------------
+   Drawn as its own layer rather than by highlighting the edges underneath.
+   Two reasons, and the second is the one that decided it: a step may be a
+   *shared tag*, which the map draws no line for at all — so highlighting
+   existing edges would show a chain with gaps in it, in exactly the places the
+   explanation is most needed. And a path is a different kind of thing from a
+   connection: it is an answer to a question, so it sits on top. */
+.graph-path-line {
+  stroke: var(--accent);
+  stroke-width: 4;
+  stroke-opacity: 0.85;
+  stroke-linecap: round;
+  fill: none;
+  pointer-events: none;
+}
+/* A tag step is a weaker kind of join and says so — same colour, dashed, so
+   the chain still reads as one path. */
+.graph-path-line.graph-path-tag { stroke-dasharray: 6 4; stroke-opacity: 0.6; }
+.graph-node.graph-on-path .graph-core {
+  stroke: var(--accent);
+  stroke-width: 3.5px;
+  filter: drop-shadow(0 0 6px var(--accent));
+}
+.graph-node.graph-on-path .graph-label { opacity: 1; font-weight: 600; }
+/* The two ends of the trace, which are the notes you actually asked about. */
+.graph-node.graph-path-end .graph-core { stroke-width: 5px; }
+/* Drag-to-link: the note you are hovering over lights up *before* you let go.
+   Without it the drop is a guess, and every miss makes a link nobody meant. */
+.graph-node.graph-drop-target .graph-core {
+  stroke: var(--ok);
+  stroke-width: 4px;
+  filter: drop-shadow(0 0 8px var(--ok));
+}
+.graph-node.graph-drop-target .graph-halo { opacity: 0.5; }
+
 .graph-node { cursor: pointer; }
 /* Soft coloured halo behind each node → depth, and hubs read brighter. */
 .graph-node .graph-halo {
@@ -2900,14 +2985,53 @@ html { font-size: 16px; }
 .field > span { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.25rem; }
 .field > input { width: 100%; }
 
-/* Per-message metadata: model · time · tokens · speed */
+/* Per-message metadata (§35K).
+   Was one run of dot-separated facts that had grown a field at a time — model,
+   elapsed, tokens, rounds, context percent, whether the count was estimated —
+   which on a narrow window wrapped to three lines of digits under every
+   answer. It is a row of ranked items now: the cost of the turn reads first,
+   what answered sits quieter beside it, and the numbers only a debugging
+   session wants live in the tooltip. */
 .msg-meta {
-  margin-top: 0.4rem;
-  font-size: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+  font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
   opacity: 0.75;
 }
 .msg-meta:empty { display: none; }
+.msg-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  white-space: nowrap;
+}
+/* The model is the same on every turn of a conversation, so it is context
+   rather than news — present, and never the thing your eye lands on. */
+.msg-meta-model { opacity: 0.7; }
+.msg-meta-icon { font-size: var(--text-xs); }
+/* How full the window got, as a meter. A percentage in prose is a number you
+   have to convert; a bar is one you glance at — and this is the field that
+   answers the only question anyone asks of this line, which is whether the
+   next turn is the one that starts forgetting. */
+.msg-meta-bar {
+  display: inline-block;
+  width: 2.5rem;
+  height: 0.3rem;
+  border-radius: var(--radius-pill);
+  background: var(--chip-bg);
+  overflow: hidden;
+}
+.msg-meta-bar-level {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
+.msg-meta-tight .msg-meta-bar-level { background: var(--warn); }
 /* The window is nearly full: the NEXT turn of this conversation is the one
    that starts dropping the top of the prompt. Warn before it happens, not
    after the model has already lost the plot. Colour is not the only signal —
@@ -2938,13 +3062,35 @@ html { font-size: 16px; }
   overflow-x: hidden;
   min-width: 0;
 }
+/* A result is a title, where it came from, and two lines of what it says.
+   It was all of that *plus a row of three labelled buttons*, which measured
+   127px per result — barely two and a half of them fitted in the panel, and
+   the buttons were most of the height. The actions moved to the corner and
+   appear on hover (the note-card pattern, which this app already uses and
+   which the same reasoning produced), and "📖 Read here" went altogether: the
+   title one line above does exactly that. */
 .web-result {
-  padding: 0.6rem 0;
+  /* A grid rather than absolute positioning with a reserved padding: the
+     actions column then sizes itself to its own buttons, and there is no
+     magic number to be wrong when a button is added or its label changes.
+     (The first attempt reserved `padding-right: 4rem`, which the spacing lint
+     rightly rejected — a number off the scale is a number somebody guessed.) */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "title   actions"
+    "meta    actions"
+    "snippet actions";
+  column-gap: var(--space-3);
+  padding: var(--space-4) 0;
   border-top: 1px solid var(--border);
   min-width: 0;
   overflow-wrap: anywhere; /* wrap long URLs instead of stretching */
   word-break: break-word;
 }
+.web-result-title { grid-area: title; }
+.web-result-meta { grid-area: meta; }
+.web-result-snippet { grid-area: snippet; }
 .web-result:first-child { border-top: none; }
 .web-result-title {
   display: block;
@@ -2956,12 +3102,37 @@ html { font-size: 16px; }
   box-shadow: none;
   color: var(--accent);
   font-weight: 650;
-  font-size: 0.92rem;
+  font-size: var(--text-md);
   cursor: pointer;
 }
 .web-result-title:hover { text-decoration: underline; }
-.web-result-meta { font-size: 0.8rem; }
-.web-result-snippet { font-size: 0.85rem; margin: 0.25rem 0 0.4rem; line-height: 1.4; }
+.web-result-meta { font-size: var(--text-base); }
+/* Two lines, then an ellipsis. A snippet is there to help you choose a result,
+   and a five-line one pushes the next result off the panel — which is the
+   opposite of helping you choose. */
+.web-result-snippet {
+  font-size: var(--text-md);
+  margin: var(--space-1) 0 0;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.web-result-actions {
+  grid-area: actions;
+  align-self: start;
+  display: flex;
+  gap: var(--space-1);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.web-result:hover .web-result-actions,
+.web-result:focus-within .web-result-actions { opacity: 1; }
+@media (hover: none) {
+  /* Touch has no hover, so the actions would be unreachable. */
+  .web-result-actions { opacity: 1; }
+}
 .web-open-link {
   display: inline-flex;
   align-items: center;
@@ -3213,6 +3384,16 @@ html { font-size: 16px; }
 #entry-list .entry-date { font-size: 0.75rem; }
 /* A quieter "check this" flag — informative, not alarming. */
 .chip.review { font-weight: 500; }
+/* A result that did not match — it is here because it is linked to one that
+   did. Quieter than a match, and labelled: showing a note about something else
+   with no explanation reads as the search having misfired, when in fact it is
+   the graph doing the one thing this app is for. */
+.result-connected { opacity: 0.85; }
+.result-connected-chip {
+  font-size: var(--text-xs);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
 #sidebar { align-self: flex-start; }
 /* Was 0.92rem — the same size as the h3s under it, so the sidebar had a
    heading level that looked like its own children (§35L). */
@@ -3526,8 +3707,87 @@ html { font-size: 16px; }
 .graph-toolbar .tools-toggle { white-space: nowrap; margin: 0; }
 .graph-toolbar button { white-space: nowrap; }
 .graph-toolbar .graph-physics input[type="range"] { width: 5rem; }
-/* The two action buttons group on the right; everything else packs left. */
-.graph-toolbar #link-suggest-btn { margin-left: auto; }
+/* The two action buttons used to group on the right (`margin-left: auto`), and
+   that is the orphan-row pattern §36B names: the moment the row fills, the
+   auto-margined item wraps and lands alone on the next line, hard right, with
+   nothing beside it. Measured in a browser after the Colour picker was added —
+   at 1700px the second row was `↻ Refresh` by itself, and at 1500–1440 it was
+   an orphaned "Labels" checkbox plus the two buttons.
+
+   It was previously patched with a `max-width: 1080px` reset, and that is the
+   part worth not repeating: a breakpoint chosen to match the row's contents is
+   wrong again the next time a control is added, silently, at whatever width
+   people actually use. Packing left needs no number and cannot go stale. */
+.graph-toolbar #link-suggest-btn { margin-left: 0; }
+/* The tuned-once controls, folded away behind ⚙. Same control-strip rule as
+   the trace row and the chat dock: one height, no outside margins, the row's
+   own gap between them. */
+.graph-options {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin: 0 0 var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--chip-bg);
+  --control-h: 1.9rem;
+}
+.graph-options button { height: var(--control-h); margin: 0; padding-block: 0; }
+.graph-options .tools-toggle { margin: 0; }
+/* An id rule outranks the generic .hidden helper — restate it, the same trap
+   `#graph-empty.hidden` had to be dug out of. */
+#graph-options.hidden { display: none; }
+
+/* --- the trace strip --------------------------------------------------------
+   Its own row rather than a tenth control in the toolbar: everything up there
+   is a *setting you leave*, and this is a *question you ask*. Built to the
+   control-strip rule in DESIGN.md — one height for every control in it, and
+   the outside margins each control arrives with zeroed, because a margin on a
+   flex item is centred with the item and lifts it above its neighbours. */
+.graph-trace {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin: 0 0 var(--space-3);
+  --control-h: 1.9rem;
+}
+.graph-trace select,
+.graph-trace button {
+  height: var(--control-h);
+  margin: 0;
+  padding-block: 0;
+  font-size: var(--text-md);
+}
+/* A note's own words are what identifies it — the ids these options carry are
+   the app's handle, never the user's (§35K) — so the pickers need room for a
+   few words and have to stop growing before they push the buttons off the row. */
+.graph-trace select { max-width: 16rem; flex: 1 1 9rem; min-width: 0; }
+.graph-trace-label { font-size: var(--text-md); font-weight: 600; }
+.graph-trace-arrow { color: var(--muted); }
+.graph-trace-result {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-md);
+  line-height: 1.6;
+}
+/* The chain reads as a sentence: note — how it joins — note. The connector is
+   quiet and the notes are not, because the notes are what you clicked for. */
+.graph-trace-step { color: var(--muted); }
+.graph-trace-note {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: var(--accent);
+  cursor: pointer;
+  text-align: left;
+}
+.graph-trace-note:hover { text-decoration: underline; }
+.graph-trace-result.is-empty { color: var(--muted); }
+
 .graph-help { margin-bottom: 0.5rem; }
 .graph-help summary { cursor: pointer; font-size: 0.85rem; }
 .graph-help p { margin: 0.4rem 0 0; font-size: 0.85rem; line-height: 1.5; }
@@ -3673,7 +3933,18 @@ html { font-size: 16px; }
   border-top: 1px solid var(--border);
   padding-top: var(--space-3);
   margin-top: var(--space-3);
-  background: var(--card);
+  /* **No background.** Reported as "a weird box shadow behind the bottom dock",
+     and that is what it looked like, but the cause was a repaint rather than a
+     shadow: this said `background: var(--card)` while sitting *inside* a card
+     that had already painted it. Under a glass theme `--card` is ~55% opaque,
+     so two of them stack into a visibly denser rectangle with the card's own
+     shadow showing round its edge — a panel inside a panel of the same colour.
+     Measured in dark + glass: #chat-main and .chat-dock both painted
+     rgba(29, 33, 46, 0.55).
+
+     The background was never needed. The dock is the last flex child of the
+     card, not a sticky overlay, so nothing scrolls underneath it — the
+     hairline above is what separates it, and that is enough. */
 }
 /* One strip rather than three stacked rows.
    Asked for: "make the bottom dock in the chat cleaner and better structured
@@ -3764,6 +4035,11 @@ html { font-size: 16px; }
   margin-top: var(--space-4);
   align-items: end;
   --composer-h: 2.75rem;
+  /* One hairline for the block, not two. `.chat-composer` draws its own
+     `border-top` for the surfaces where it stands alone; inside the dock that
+     put a second rule 49px below the dock's own, which is what made one strip
+     of controls read as a stack of bands. */
+  border-top: 0;
 }
 .chat-dock .chat-composer button,
 .chat-dock .chat-composer .note-picker > button {
@@ -3773,6 +4049,11 @@ html { font-size: 16px; }
 }
 .chat-dock .chat-composer #chat-input {
   min-height: var(--composer-h);
+  /* Draggable, and only vertically — a horizontal drag would take it out of
+     the flex row it shares with 📎, 🎙 and Send. `initComposerResize` notices
+     the drag and keeps it, so the box does not spring back on the next
+     keystroke. */
+  resize: vertical;
   /* Vertically centred at one line, and the same distance from the edge at
      three. The autogrow measures scrollHeight, so this is padding rather than
      a line-height trick that would change with the font. */
@@ -5139,6 +5420,16 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
   transition: border-color 0.14s ease, transform 0.14s ease;
 }
 .theme-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+/* A ghost button that is currently *on*. Peek is the first of these: it is an
+   action you hold rather than a setting you leave, so it needs to look pressed
+   while it is doing something and ordinary the rest of the time. Both signals,
+   never colour alone. */
+button.is-on {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
 .theme-card[aria-pressed="true"] {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-soft);
@@ -5305,7 +5596,10 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
     -webkit-overflow-scrolling: touch;
   }
   #tab-bar::-webkit-scrollbar { display: none; }
-  #tab-bar button { flex: 0 0 auto; padding: 0.4rem 0.8rem; }
+  /* Horizontal only. The height stays `--header-control-h` so a phone's tabs
+     line up with its buttons exactly as a desktop's do — re-stating a vertical
+     padding here is how one breakpoint quietly grows its own control size. */
+  #tab-bar button { flex: 0 0 auto; padding-inline: 0.8rem; }
   .header-controls { margin-left: auto; gap: 0.4rem; }
   /* Give content the screen back: 2rem of side padding is a tenth of a phone. */
   .layout, .doc-layout { padding-left: 0.8rem; padding-right: 0.8rem; }
@@ -6287,14 +6581,86 @@ textarea.autogrow {
    The note card fixed it by taking the item out of the flow. The two toolbars
    below cannot — their items are real controls that need to stay clickable and
    in order — so they reset the auto margin at the width where wrapping starts
-   to happen, which turns an empty band into an ordinary continued row. */
+   to happen, which turns an empty band into an ordinary continued row.
+
+   The graph toolbar no longer appears here: a breakpoint fitted to a row's
+   contents goes stale the moment a control is added to that row, which is
+   exactly what happened when the Colour picker landed — the reset was at
+   1080px and the row had started wrapping at 1700px. It packs left at every
+   width now. This one is kept because the chat strip's contents are fixed. */
 @media (max-width: 1080px) {
-  .graph-toolbar #link-suggest-btn,
   .chat-tool-group-end {
     margin-left: 0;
   }
 }
 
+
+/* --- the notifications centre (§36E) ----------------------------------------
+   A popup anchored to its own button rather than a modal: this is something
+   you glance at, and a full-screen overlay for a three-line list is the kind
+   of ceremony that makes people stop glancing. */
+.notif-wrap { position: relative; display: inline-flex; }
+/* The count, as a dot on the bell. Drawn from a data attribute so the number
+   and the button's own label stay one element — a separate badge span would
+   need its own position, and would be the thing that drifts when the header's
+   control height changes. */
+#notif-btn.has-unread::after {
+  content: attr(data-count);
+  position: absolute;
+  top: -0.15rem;
+  right: -0.15rem;
+  min-width: 0.95rem;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--card);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: 0.95rem;
+  text-align: center;
+}
+.notif-panel {
+  position: absolute;
+  top: calc(100% + var(--space-3));
+  right: 0;
+  z-index: 60;
+  width: 22rem;
+  max-width: min(22rem, calc(100vw - var(--space-8)));
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  box-shadow: var(--glass-shadow);
+  /* **Inherited from `.header-controls`, which sets `nowrap` so "⚙ Settings"
+     cannot break in two and make the whole bar taller.** That is right for the
+     buttons and wrong for a panel of prose hanging off one: every reminder
+     title ran off the right edge on one unwrappable line and was clipped
+     mid-word. Seen in a screenshot; the measurement said the panel was on
+     screen, because it was — the *text* was not. */
+  white-space: normal;
+}
+.notif-panel.hidden { display: none; }
+.notif-head { margin-bottom: var(--space-3); }
+.notif-list { list-style: none; margin: 0; padding: 0; }
+.notif-row {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border);
+}
+.notif-list > li:first-child { border-top: none; }
+.notif-icon { flex: 0 0 auto; }
+.notif-body { min-width: 0; }
+.notif-title { font-size: var(--text-md); overflow-wrap: anywhere; }
+.notif-meta { font-size: var(--text-xs); }
+/* Unread, by weight and a spine rather than by colour alone. */
+.notif-unread { border-left: 2px solid var(--accent); padding-left: var(--space-3); }
+.notif-unread .notif-title { font-weight: 650; }
+.notif-actionable { cursor: pointer; border-radius: var(--radius-sm); }
+.notif-actionable:hover { background: var(--chip-bg); }
+.notif-foot { margin: var(--space-4) 0 0; font-size: var(--text-xs); }
 
 /* Separates the one irreversible control in the header from the everyday ones
    (§36D). Distance is the cheap half of not clicking Quit by accident; the

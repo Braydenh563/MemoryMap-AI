@@ -71,7 +71,10 @@ def test_chat_stream_order_and_content(ai_client, fake_ollama):
     # immediately; the meta line follows once retrieval completes.
     assert events[0]["type"] == "status"
     meta = next(e for e in events if e["type"] == "meta")
-    assert meta["search_mode"] == "semantic"
+    # "hybrid", not "semantic": both searches run now and their rankings are
+    # fused, so a note that matches by meaning *and* by words is found by both.
+    # `semantic` is still reported when the keyword side finds nothing at all.
+    assert meta["search_mode"] == "hybrid"
     assert meta["answered_by"] == "llama3.2"
     assert [r["content"] for r in meta["raw_results"]] == ["a funny scarecrow joke"]
 

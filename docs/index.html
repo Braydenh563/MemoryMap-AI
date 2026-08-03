@@ -391,7 +391,7 @@
   <div id="pane-dashboard" class="tab-pane on g tab-card" role="tabpanel"><h3>Dashboard</h3><p>Greeting, capture streak, at-a-glance counts, an AI digest of your week, an activity heatmap, on-this-day, a focus timer, and a layout you can rearrange.</p></div>
   <div id="pane-notes" class="tab-pane g tab-card" role="tabpanel"><h3>Notes</h3><p>Capture, browse and ask &mdash; three sub-tabs. Auto-filing, tags, pins, threads, attachments, private notes encrypted at rest, a recycle bin, revision history, and a search box that understands <code>tag:work</code>, <code>cat:recipes</code>, <code>is:pinned</code>, <code>"exact phrase"</code> and <code>-exclude</code>.</p></div>
   <div id="pane-chat" class="tab-pane g tab-card" role="tabpanel"><h3>Chat</h3><p>A conversation with your notebook, saved and resumable. Agent mode uses 28 tools &mdash; search and read your notes, create, tag, link and organise, set reminders, open a web page &mdash; with destructive actions always confirmed. Personas change its voice; the run shows thinking, tool calls, and prose in the order they happened.</p></div>
-  <div id="pane-graph" class="tab-pane g tab-card" role="tabpanel"><h3>Graph</h3><p>Your notes as a force-directed map. Click a node to edit it in place, see its images, link it to another, or ask for related notes. The AI can suggest connections.</p></div>
+  <div id="pane-graph" class="tab-pane g tab-card" role="tabpanel"><h3>Graph</h3><p>Your notes as a map &mdash; force-directed, or as a tree or radial tree. Click a node to edit it in place, see its images, or drop one note onto another to link them. <strong>Trace</strong> answers the question a graph is uniquely good at: pick any two notes and see the chain of links, replies and shared tags that connects them, named step by step. Colour by cluster to see which notes can actually reach each other, and how many are connected to nothing at all. The same traversal is what the AI uses &mdash; it can trace a path and read your notebook's structure, not just search it.</p></div>
   <div id="pane-documents" class="tab-pane g tab-card" role="tabpanel"><h3>Documents</h3><p>A markdown editor for long-form writing: live preview, autosave, table of contents, word count and reading time, <code>.md</code> and PDF export, and AI edits shown as a proposal you accept or reject.</p></div>
   <div id="pane-reminders" class="tab-pane g tab-card" role="tabpanel"><h3>Reminders</h3><p>Due dates with priority, repeats, snooze and notifications &mdash; or type <em>"call mum tomorrow evening"</em> and let the AI schedule it.</p></div>
 </section>
@@ -425,6 +425,12 @@ python -m memorymap</pre></div>
   <div class="ref-pick">
     <button class="dpill on" data-doc="architecture">Architecture</button>
     <button class="dpill" data-doc="roadmap">Roadmap</button>
+    <!-- The roadmap was split when it passed 4,500 lines; these three are the
+         other parts of it, and without them this panel offered the index and
+         hid the contents. -->
+    <button class="dpill" data-doc="backlog">Backlog</button>
+    <button class="dpill" data-doc="history">Built so far</button>
+    <button class="dpill" data-doc="design">Design system</button>
     <button class="dpill" data-doc="changelog">Changelog</button>
     <button class="dpill" data-doc="contributing">Contributing</button>
     <button class="dpill" data-doc="security">Security</button>
@@ -505,6 +511,18 @@ document.querySelectorAll('.reveal').forEach(el => ro.observe(el));
 //  cross-origin CDN/proxy-style domains), so the two docs that can load
 //  same-origin now do, unconditionally. A last-resort localStorage cache covers
 //  genuine outages so a repeat visitor still sees content instead of a dead panel.
+//
+//  3. THE ONE THAT WAS STILL BREAKING IT, and neither of the above could fix:
+//     **there was no `.nojekyll`.** GitHub Pages runs Jekyll over /docs by
+//     default, and Jekyll does not publish source `.md` files — it *converts*
+//     them, so `ARCHITECTURE.md` was never at this origin at all and the
+//     same-origin candidate 404'd on every load, every time, for everyone.
+//     That left the two cross-origin fallbacks carrying the whole feature,
+//     which is exactly the shape of "it won't load even with my adblocker off".
+//     Jekyll was also parsing `{{placeholders}}` in the docs as Liquid
+//     variables and rendering them away. `docs/.nojekyll` turns the whole
+//     pipeline off: the markdown is served byte-for-byte, same-origin, and the
+//     braces stay literal.
 const BRANCH    = 'main';
 const PAGE_BASE = location.pathname.replace(/[^/]*$/, ''); // same-origin site root (= repo's /docs folder)
 const RAW_BASE  = 'https://raw.githubusercontent.com/Braydenh563/MemoryMap-AI/' + BRANCH + '/';
@@ -514,11 +532,19 @@ const GH_BASE   = 'https://github.com/Braydenh563/MemoryMap-AI/blob/' + BRANCH +
 // path: where it lives in the repo (used for raw/jsdelivr + the "Read on GitHub" link)
 // same: filename relative to THIS page, only set for docs Pages actually publishes
 const DOC_MAP = {
-  architecture: { path: 'docs/ARCHITECTURE.md', same: 'ARCHITECTURE.md' },
-  roadmap:      { path: 'docs/ROADMAP.md',      same: 'ROADMAP.md' },
-  changelog:    { path: 'CHANGELOG.md',         same: null },
-  contributing: { path: 'CONTRIBUTING.md',      same: null },
-  security:     { path: 'SECURITY.md',          same: null },
+  architecture: { path: 'docs/ARCHITECTURE.md',      same: 'ARCHITECTURE.md' },
+  roadmap:      { path: 'docs/ROADMAP.md',           same: 'ROADMAP.md' },
+  backlog:      { path: 'docs/roadmap/BACKLOG.md',   same: 'roadmap/BACKLOG.md' },
+  history:      { path: 'docs/roadmap/HISTORY.md',   same: 'roadmap/HISTORY.md' },
+  design:       { path: 'docs/DESIGN.md',            same: 'DESIGN.md' },
+  // These three live at the repo root, which Pages never publishes under this
+  // source setting — so a copy sits in /docs beside this page and
+  // `tests/test_docs_site.py` fails the build if the two ever differ. Before
+  // that they were the only tabs that *had* to reach a cross-origin host, and
+  // they were the ones that stayed broken.
+  changelog:    { path: 'CHANGELOG.md',              same: 'CHANGELOG.md' },
+  contributing: { path: 'CONTRIBUTING.md',           same: 'CONTRIBUTING.md' },
+  security:     { path: 'SECURITY.md',               same: 'SECURITY.md' },
 };
 
 const mmCache = {};

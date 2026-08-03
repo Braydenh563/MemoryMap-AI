@@ -153,6 +153,29 @@ class PreferencesBody(BaseModel):
     # the person is not. Validated on the way in — an unknown zone name would
     # otherwise sit in preferences and silently fall back forever.
     timezone: str | None = Field(default=None, max_length=64)
+    # The interface's own local state — theme, palette, corner rounding,
+    # whether onboarding has been seen (§35E). A flat map of short strings,
+    # deliberately: this is the browser's `localStorage` mirrored so that a
+    # shell which does not persist it still remembers. Validated for *shape*
+    # rather than for meaning — the keys are the frontend's business and it
+    # would be worse to have the server reject a setting the UI has just added
+    # than to store a key nobody reads.
+    ui_state: dict[str, str] | None = None
+
+    @field_validator("ui_state")
+    @classmethod
+    def _small_ui_state(cls, value: dict | None) -> dict | None:
+        """A bounded map. Nothing here should ever be large, and a preference
+        file that can be grown without limit from the browser is a way to fill
+        a disk."""
+        if value is None:
+            return value
+        if len(value) > 60:
+            raise ValueError("Too many interface settings")
+        for key, item in value.items():
+            if len(str(key)) > 40 or len(str(item)) > 400:
+                raise ValueError(f"Interface setting {key!r} is too long")
+        return value
 
     @field_validator("timezone")
     @classmethod
@@ -232,6 +255,21 @@ def get_preferences() -> dict:
         # detected is already the stored one, and skip a pointless write on
         # every startup.
         "timezone": config.get_preference("timezone", ""),
+        # Everything the interface keeps in localStorage — the theme, the
+        # palette, corner rounding, whether onboarding has been seen (§35E).
+        #
+        # **Reported as two bugs and it is one:** *"the theme resets to default
+        # on every start"* and *"onboarding shows every time"*. Both were kept
+        # in localStorage and nowhere else, and the desktop shell does not
+        # reliably persist it — pywebview is a different browser with its own
+        # profile, and if that profile is not stable across launches then every
+        # setting stored there is a setting the app forgets.
+        #
+        # The browser still writes localStorage first: it is synchronous, it
+        # works with the server unreachable, and it is what every existing
+        # `appearancePref` read already goes through. This is the copy that
+        # survives, seeded back on first load when the local one is empty.
+        "ui_state": config.get_preference("ui_state", {}),
     }
 
 

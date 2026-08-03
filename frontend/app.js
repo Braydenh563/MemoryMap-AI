@@ -201,6 +201,29 @@ function startApp() {
     }
   };
 
+  // Before anything reads a stored setting: bring back whatever this browser
+  // has lost. A shell that does not keep localStorage — the desktop window is
+  // the reported one (§35E) — starts every launch with the default theme and
+  // an onboarding tour it has already been through, because both live there
+  // and nowhere else. The server's copy fills the gaps, then the look is
+  // re-applied so the app settles into the remembered theme rather than
+  // staying on the default it painted a moment ago.
+  const looksReady = step("restore your settings", async () => {
+    if (!prefsCache) {
+      prefsCache = await apiJson("/preferences", { silent: true }).catch(() => null);
+    }
+    if (prefsCache && seedUiStateFromServer(prefsCache.ui_state)) {
+      // The same three calls the theme picker makes, in the same order: the
+      // root attributes, then the light/dark choice and the palette, neither
+      // of which re-records itself as a manual override.
+      applyAppearance();
+      applyThemeChoice(appearancePref("theme"), false);
+      applyPalette(appearancePref("palette"), false);
+      renderBrandLogo();
+      if (bgArtOn()) startBgArt();
+    }
+  });
+
   const entriesReady = step("load entries", loadEntries);
   step("load recent questions", loadRecentQuestions);
   step("load suggestions", loadSuggestions);
@@ -234,7 +257,13 @@ function startApp() {
   entriesReady.then(() => step("load this tab", () => refreshActiveTab()));
 
   // First-run welcome tour (guarded by localStorage; re-runnable from Help).
-  maybeShowOnboarding();
+  //
+  // **After the settings are restored, not alongside them.** This is the
+  // second half of the reported "onboarding shows every time": the flag lives
+  // in localStorage, so a shell that lost it needs the server's copy back
+  // *before* this asks — otherwise the tour opens, the flag arrives a moment
+  // later, and the person is welcomed to an app they have used for a month.
+  looksReady.then(maybeShowOnboarding);
 }
 
 // The browser is the only thing that knows where the user actually is. The
@@ -615,8 +644,40 @@ function entryItem(entry, options = {}) {
     actions.className = "entry-actions";
     actions.appendChild(
       smallButton("Restore", "Take this entry out of the bin", async () => {
-        await api(`/entries/${entry.id}/restore`, { method: "POST" });
-        await Promise.all([loadEntries(), renderBin()]);
+        try {
+          await api(`/entries/${entry.id}/restore`, { method: "POST" });
+          await Promise.all([loadEntries(), renderBin()]);
+        } catch (error) {
+          toast(`Couldn't restore that note: ${error.message}`, true);
+        }
+      })
+    );
+    // Asked for directly: a way to get rid of ONE note for good. Emptying the
+    // bin was all-or-nothing, so removing a single note permanently meant
+    // destroying everything else in there — which is why a bin fills up and
+    // stops being a bin.
+    //
+    // No undo is offered here and none is implied: the wording says "for
+    // good", the dialog quotes the note back so there is no doubt which one it
+    // is, and the note is already in the bin, so this is the second deliberate
+    // step rather than the first.
+    actions.appendChild(
+      smallButton("Delete for good", "Permanently delete this note — no undo", async () => {
+        const quoted = entry.content.trim().split("\n")[0].slice(0, 80);
+        if (
+          !(await confirmDialog(
+            `Permanently delete “${quoted}”?\n\nThis cannot be undone.`
+          ))
+        ) {
+          return;
+        }
+        try {
+          await api(`/entries/${entry.id}/purge`, { method: "DELETE" });
+          toast("Deleted for good.");
+          await Promise.all([loadEntries(), renderBin()]);
+        } catch (error) {
+          toast(`Couldn't delete that note: ${error.message}`, true);
+        }
       })
     );
     metaEnd.appendChild(actions);
@@ -709,7 +770,22 @@ function entryItem(entry, options = {}) {
     const linkRow = document.createElement("div");
     linkRow.className = "entry-links";
     for (const link of entry.links) {
-      const linkChip = chip(`↔ ${link.preview}`, "link");
+      // **A link is navigation, not content.** Measured on the busiest screen
+      // in the app: a card was 25px of its own note, 23px of metadata and 21px
+      // of link chips — and the chips were the loudest thing on it, filled and
+      // bold, each carrying the *whole first line of another note*. On a
+      // well-linked note the links were wider than the note and read first,
+      // which is §36B.3's "everything at equal weight" with the weights
+      // actually inverted.
+      //
+      // Clipped to a glanceable length, quiet by default, with the full text
+      // on hover for when the clip is not enough.
+      const label = link.preview || "";
+      const short = label.length > LINK_CHIP_CHARS
+        ? `${label.slice(0, LINK_CHIP_CHARS - 1).trimEnd()}…`
+        : label;
+      const linkChip = chip(`↔ ${short}`, "link");
+      linkChip.title = label;
       if (options.actions) {
         const unlink = document.createElement("span");
         unlink.className = "unlink";
@@ -2139,6 +2215,11 @@ let lastQuestion = ""; // powers the Retry button
 
 // Honest label for how the matching notes were found.
 const SEARCH_MODE_LABELS = {
+  // Both searches ran and their rankings were fused, which is the normal case
+  // whenever an embedding backend is up. Named for what it is: "semantic
+  // search" would now be a half-truth, and the label is the app's own account
+  // of how it found what it is showing you.
+  hybrid: "meaning + keywords",
   semantic: "semantic search",
   keyword: "keyword search",
   recent: "recent notes", // broad question → showing recent entries
@@ -2257,7 +2338,25 @@ function renderChatMeta(meta) {
     li.textContent = "No matching records.";
     rawList.appendChild(li);
   }
-  for (const entry of meta.raw_results) rawList.appendChild(clickableResult(entry));
+  // Notes that came along because they are *connected* to a match are labelled
+  // as such. Without it the panel shows notes about something else with no
+  // explanation, which reads as the search having misfired — and the whole
+  // point of pulling them in is that the person can see the connection.
+  const connected = new Set(meta.connected_ids || []);
+  for (const entry of meta.raw_results) {
+    const row = clickableResult(entry);
+    if (connected.has(entry.id)) {
+      row.classList.add("result-connected");
+      const mark = document.createElement("span");
+      mark.className = "chip result-connected-chip";
+      mark.textContent = "🔗 linked to a match";
+      mark.title =
+        "This note didn't match your question — it's here because it is " +
+        "linked to one that did.";
+      row.appendChild(mark);
+    }
+    rawList.appendChild(row);
+  }
   $("chat-results").classList.remove("hidden");
 }
 
@@ -2668,49 +2767,126 @@ function continueRunControls({ label, hint, onClick }) {
 // A small "what this answer cost" line under an assistant bubble: which model
 // answered, how long it took, and — when Ollama reports them — token counts
 // and generation speed.
+// One fact on the metadata line. Its own element rather than a slice of one
+// long string, which is what "modular" buys: each item carries its own
+// tooltip, can be styled by what it *is* rather than by where it sits, and a
+// new field added later cannot silently change the meaning of the separator
+// beside it.
+function metaItem(text, { title = "", kind = "", icon = "" } = {}) {
+  const item = document.createElement("span");
+  item.className = `msg-meta-item${kind ? ` msg-meta-${kind}` : ""}`;
+  if (icon) {
+    const mark = document.createElement("span");
+    mark.className = "msg-meta-icon";
+    mark.textContent = icon;
+    mark.setAttribute("aria-hidden", "true");
+    item.appendChild(mark);
+  }
+  item.appendChild(document.createTextNode(text));
+  if (title) item.title = title;
+  return item;
+}
+
+// §35K: *"the chat bubble's metadata line is not visually appealing. It has
+// grown a field at a time — model, elapsed, tokens, rounds, context percent,
+// whether the count was estimated — and never had a pass."*
+//
+// The pass, and the rule behind it: **a metadata line is read at a glance or
+// not at all.** Six equal facts joined by dots is a sentence you have to
+// parse, so the fields are ranked instead — what the turn *cost you* (time,
+// and how full the window got) reads first, what it *was* (model, tools) sits
+// quieter beside it, and the numbers only a debugging session wants (exact
+// tokens, tokens/second) are one hover away rather than on screen.
+//
+// Nothing was removed: every field is still here, and the ones that moved into
+// tooltips moved because they answer a question nobody asks mid-conversation.
 function messageMetaLine({ model, elapsedMs, stats, toolCount = 0, rounds = 0 }) {
   const row = document.createElement("div");
   row.className = "msg-meta muted";
-  const bits = [];
-  if (model) bits.push(model);
+
+  // 1. What it cost. First, because it is the only field anyone looks for
+  //    while actually using the app.
   if (elapsedMs != null) {
-    bits.push(elapsedMs < 1000 ? `${elapsedMs} ms` : `${(elapsedMs / 1000).toFixed(1)}s`);
+    row.appendChild(
+      metaItem(
+        elapsedMs < 1000 ? `${elapsedMs} ms` : `${(elapsedMs / 1000).toFixed(1)}s`,
+        { title: "How long this answer took, end to end", kind: "time" }
+      )
+    );
   }
+
+  // 2. How full the model's window got — a meter, not a percentage in prose.
+  //    A raw token count never answered the question anyone has, which is
+  //    whether the *next* turn is the one that starts dropping the top of its
+  //    own prompt.
   let fill = null;
-  if (stats) {
-    const inTok = stats.prompt_tokens;
-    const outTok = stats.output_tokens;
-    if (inTok != null || outTok != null) {
-      const approx = stats.usage_source === "estimated" ? "~" : "";
-      bits.push(`${approx}${inTok ?? "?"}→${outTok ?? "?"} tokens`);
-    }
-    if (outTok && stats.eval_ms) {
-      bits.push(`${(outTok / (stats.eval_ms / 1000)).toFixed(1)} tok/s`);
-    }
-    // How full the window got. A raw token count doesn't tell you whether an
-    // answer was comfortable or nearly lost the top of its own prompt —
-    // "3.9k of 8k (48%)" does, and it is the number that explains a turn that
-    // suddenly forgot its instructions.
-    if (inTok != null && stats.context_tokens) {
-      fill = Math.min(100, Math.round((inTok / stats.context_tokens) * 100));
-      bits.push(`${compactTokens(inTok)}/${compactTokens(stats.context_tokens)} window (${fill}%)`);
-    }
+  const inTok = stats ? stats.prompt_tokens : null;
+  const outTok = stats ? stats.output_tokens : null;
+  if (stats && inTok != null && stats.context_tokens) {
+    fill = Math.min(100, Math.round((inTok / stats.context_tokens) * 100));
+    const approx = stats.usage_source === "estimated" ? "~" : "";
+    const meter = metaItem(`${fill}%`, {
+      title:
+        `${approx}${compactTokens(inTok)} of this model's ${compactTokens(stats.context_tokens)} ` +
+        "context window was used by this turn." +
+        (fill >= 80
+          ? "\n\nPast about 80%, the next turn is the one that starts dropping " +
+            "the oldest part of its own prompt — 🗜 Compress in the header " +
+            "summarises the conversation so far instead."
+          : ""),
+      kind: "window",
+    });
+    const bar = document.createElement("span");
+    bar.className = "msg-meta-bar";
+    const level = document.createElement("span");
+    level.className = "msg-meta-bar-level";
+    level.style.width = `${fill}%`;
+    bar.appendChild(level);
+    meter.insertBefore(bar, meter.firstChild);
+    row.appendChild(meter);
   }
-  // What the agent actually did, so a turn that used tools says so rather
-  // than looking identical to one that didn't.
-  if (toolCount) bits.push(`${toolCount} tool${toolCount === 1 ? "" : "s"}`);
-  if (rounds > 1) bits.push(`${rounds} rounds`);
-  row.textContent = bits.join(" · ");
+
+  // 3. What answered, and what it did. Quieter: this is the same for every
+  //    turn in a conversation, so it is context rather than news.
+  if (model) {
+    row.appendChild(
+      metaItem(model, { title: "The model that answered", kind: "model" })
+    );
+  }
+  if (toolCount) {
+    row.appendChild(
+      metaItem(String(toolCount), {
+        icon: "🔧",
+        title:
+          `${toolCount} tool call${toolCount === 1 ? "" : "s"}` +
+          (rounds > 1 ? ` over ${rounds} rounds` : "") +
+          ". The steps above show which.",
+        kind: "tools",
+      })
+    );
+  }
+
+  // 4. The numbers a debugging session wants, and nobody else. On the row's
+  //    own tooltip rather than in it — this is where the line had grown to
+  //    three lines of digits on a narrow window.
+  const detail = [];
+  if (inTok != null || outTok != null) {
+    const approx = stats && stats.usage_source === "estimated" ? "~" : "";
+    detail.push(`${approx}${inTok ?? "?"} tokens in → ${outTok ?? "?"} out`);
+  }
+  if (outTok && stats && stats.eval_ms) {
+    detail.push(`${(outTok / (stats.eval_ms / 1000)).toFixed(1)} tokens/second`);
+  }
+  if (rounds > 1) detail.push(`${rounds} rounds`);
+  if (stats && stats.usage_source === "estimated") {
+    detail.push("~ means the server didn't report counts, so these are estimated");
+  }
+  if (detail.length) row.title = detail.join("\n");
+
   // Past ~80% the next turn of the same conversation is the one that starts
   // dropping things, so the warning belongs on the turn *before* it happens
   // rather than after the model has already lost the plot.
   if (fill != null && fill >= 80) row.classList.add("msg-meta-tight");
-  row.title =
-    "Model · response time · prompt→output tokens · generation speed · " +
-    "how much of the model's context window this turn used · tools used" +
-    (stats && stats.usage_source === "estimated"
-      ? "\n\n~ means the server didn't report token counts, so these are estimated from the text."
-      : "");
   return row;
 }
 
@@ -2997,6 +3173,32 @@ function toggleWebPanel(force) {
   panel.classList.toggle("hidden", !show);
   if (show) {
     $("web-reader").classList.add("hidden");
+    // Say up front when searching cannot work, rather than after a search has
+    // failed. Web access is off by default — this is a local-first app and
+    // that is the right default — so the commonest first experience of this
+    // panel is typing a query into a box that was never going to answer. The
+    // switch is one click away, and naming where it lives is the difference
+    // between a dead end and a setting.
+    const status = $("web-status");
+    if (prefsCache && !prefsCache.web_search_enabled) {
+      status.replaceChildren();
+      status.classList.remove("error");
+      status.appendChild(
+        document.createTextNode("Web access is off. Turn it on in ")
+      );
+      const link = document.createElement("button");
+      link.type = "button";
+      link.className = "link-button";
+      link.textContent = "Settings → Web search";
+      link.addEventListener("click", () => {
+        toggleWebPanel(false);
+        openSettingsModal("websearch");
+      });
+      status.appendChild(link);
+      status.appendChild(document.createTextNode(" to search from here."));
+    } else if (!$("web-results").childElementCount) {
+      status.textContent = "";
+    }
     $("web-query").focus();
   }
 }
@@ -3072,27 +3274,28 @@ async function runWebSearch() {
       row.appendChild(snippet);
     }
 
+    // The actions, in the row's corner and revealed on hover — the same
+    // pattern the note cards use, and for the same reason. Measured before:
+    // three labelled buttons under every result made each one 127px tall, so
+    // barely two and a half results fitted in the panel. **"📖 Read here" is
+    // gone entirely**: the title does exactly that, one line above, which
+    // makes it a button whose whole job was to repeat the thing next to it.
     const actions = document.createElement("div");
-    actions.className = "row";
-    actions.appendChild(
-      smallButton("📖 Read here", "Open this page as clean text", () =>
-        openWebReader(result.url)
-      )
-    );
+    actions.className = "web-result-actions";
     const open = document.createElement("a");
     open.href = result.url;
     open.target = "_blank";
     open.rel = "noopener noreferrer";
     open.className = "ghost small web-open-link";
-    open.textContent = "↗ Open in browser";
+    open.textContent = "↗";
+    open.title = "Open in your browser";
+    open.setAttribute("aria-label", `Open ${result.domain || result.url} in your browser`);
     actions.appendChild(open);
-    actions.appendChild(
-      smallButton(
-        "💬 Ask about this",
-        "Open this page and ask the AI about it",
-        () => askAboutPage(result.url, result.title)
-      )
+    const ask = smallButton("💬", "Open this page and ask the AI about it", () =>
+      askAboutPage(result.url, result.title)
     );
+    ask.setAttribute("aria-label", "Ask the AI about this page");
+    actions.appendChild(ask);
     row.appendChild(actions);
     box.appendChild(row);
   }
@@ -3228,7 +3431,12 @@ async function renderModelSpec(modelName) {
   // doesn't report capabilities", which is not the same as "no". Saying "no"
   // about a model that works fine would send someone chasing a problem that
   // isn't there.
-  const canDo = (value) => (value === null ? "not reported" : value ? "yes" : "no");
+  // `== null`, not `=== null`: the whole point of this helper is that "not
+  // declared" must never render as a confident "no" (§35C), and a *missing*
+  // key is exactly as unknown as an explicit null. With `===` an absent field
+  // fell through to the falsy branch and printed "no" — the reported bug,
+  // surviving in the one case nobody checked.
+  const canDo = (value) => (value == null ? "not reported" : value ? "yes" : "no");
   const rows = [
     ["Size", spec.parameters],
     ["Quantisation", spec.quantisation],
@@ -4950,6 +5158,63 @@ async function sendChatMessage(preset, opts = {}) {
   const toolEvents = []; // {label, ok} — persisted so chips survive a reload
   chatController = new AbortController();
 
+  // --- checkpointing a long turn --------------------------------------------
+  // A row for this turn already exists, so the save at the end has to update
+  // it rather than append a second copy of the same exchange.
+  let checkpointed = false;
+  let checkpointInFlight = false;
+
+  // Write what the turn has so far. Called at each agent round boundary, so a
+  // ten-minute run that dies at minute nine leaves nine minutes of work in the
+  // conversation instead of nothing.
+  //
+  // One in flight at a time: rounds can finish close together, and two
+  // creates racing each other would make two conversations out of one thread.
+  async function checkpointTurn() {
+    if (checkpointInFlight) return;
+    checkpointInFlight = true;
+    try {
+      const partial = {
+        question,
+        answer: timeline.text(),
+        thinking: timeline.thinkingText() || null,
+        tools: toolEvents.length ? toolEvents : null,
+        steps: timeline.serialise(),
+        // No stats or elapsed yet — the turn is not over, and a half-turn's
+        // numbers reported as final would be wrong rather than incomplete.
+      };
+      if (chatConv.id === null) {
+        const created = await apiJson("/conversations", {
+          method: "POST",
+          body: JSON.stringify(partial),
+          silent: true,
+        });
+        chatConv.id = created.id;
+        $("chat-title").textContent = created.title;
+        loadConversationList();
+      } else if (checkpointed || opts.replaceLast) {
+        await apiJson(`/conversations/${chatConv.id}/turns/last`, {
+          method: "PUT",
+          body: JSON.stringify(partial),
+          silent: true,
+        });
+      } else {
+        await apiJson(`/conversations/${chatConv.id}/turns`, {
+          method: "POST",
+          body: JSON.stringify(partial),
+          silent: true,
+        });
+      }
+      checkpointed = true;
+    } catch {
+      // Deliberately silent. This is insurance running behind a live answer;
+      // a toast here would interrupt the thing it exists to protect, and the
+      // save at the end of the turn reports its own failure.
+    } finally {
+      checkpointInFlight = false;
+    }
+  }
+
   try {
     await streamChat({
       question,
@@ -5057,6 +5322,20 @@ async function sendChatMessage(preset, opts = {}) {
         chatScrollToEnd();
       },
       onStats: (event) => {
+        // A round finished. Asked for directly: *"a new chat should be saved
+        // after agent turns as well, not after the whole response is
+        // complete."* Correct, and the reason is that an agent turn is minutes
+        // of work on a local model — closing the window, a stall, or the
+        // server going away halfway through used to lose **the entire
+        // conversation**, because nothing was written until the last round
+        // returned. A checkpoint per round means the worst case is losing the
+        // round in progress rather than the thread.
+        //
+        // Fire-and-forget, and silent: a checkpoint that interrupts the answer
+        // to complain about the network would be worse than the data loss it
+        // is preventing. The turn's real save still happens at the end and
+        // overwrites this with the finished version.
+        if (event.round) checkpointTurn();
         // An agent turn reports once per round, so these accumulate: output
         // tokens and generation time add up, while the prompt size is the
         // largest context the model was given rather than the sum.
@@ -5119,6 +5398,21 @@ async function sendChatMessage(preset, opts = {}) {
   // A turn that stopped short offers the way onward, in the two shapes it can
   // take. Not shown when the user pressed Stop — they know why it ended — and
   // not when a skill run finished every step it had.
+  // A run that stopped early is exactly the kind of thing you find out about
+  // ten minutes later, having walked away from a long job (§36E). The Resume
+  // button below is the fix in the moment; this is the record afterwards.
+  if (!stopped && (stoppedAtStep !== null || ranOutOfRounds)) {
+    recordNotification({
+      kind: "run",
+      title: opts.skill ? `“${opts.skill}” stopped early` : "A long answer stopped early",
+      detail:
+        stoppedAtStep !== null
+          ? `Got as far as step ${stoppedAtStep + 1}. Reopen the chat to resume.`
+          : "It ran out of rounds. Reopen the chat to continue.",
+      key: `run:${opts.skill || "answer"}:${Date.now()}`,
+      action: { tab: "chat" },
+    });
+  }
   if (!stopped && stoppedAtStep !== null && opts.skill) {
     bubble.appendChild(
       continueRunControls({
@@ -5252,7 +5546,11 @@ async function sendChatMessage(preset, opts = {}) {
           loadConversationList();
         })
         .catch(() => {});
-    } else if (opts.replaceLast) {
+    } else if (opts.replaceLast || checkpointed) {
+      // `checkpointed` matters as much as `replaceLast` here: a long agent
+      // turn has already written a row for this exchange (see checkpointTurn),
+      // so appending would leave the conversation holding the same question
+      // twice — once half-finished and once complete.
       const saved = await apiJson(`/conversations/${chatConv.id}/turns/last`, {
         method: "PUT",
         body: JSON.stringify(payload),
@@ -9467,6 +9765,16 @@ let graphNodesRef = null;
 let graphDims = { w: 0, h: 0 };
 let graphHoveredId = null; // node the pointer is over (spotlight its links)
 let graphAdjacency = null; // Map<id, Set<neighbourId>>
+// The traced path is drawn in its own layer, above the edges and the nodes: a
+// step can be a shared tag, which the map draws no edge for, so highlighting
+// the existing lines would show a chain with holes in it (§9).
+let graphTraceLayer = null;
+
+// How much of a linked note's text a link chip shows. Long enough to know
+// which note it is, short enough that four of them are a row rather than a
+// paragraph — a chip is a signpost, and a signpost with a sentence on it is
+// not a signpost. The full text is the chip's tooltip.
+const LINK_CHIP_CHARS = 28;
 
 // How much of a note the list shows before clamping it. Roughly ten lines at
 // a comfortable reading width — long enough that a normal note is never
@@ -9790,6 +10098,304 @@ function frameTree(svg, zoomBehavior, canvas, nodes, width, height, radial) {
     .call(zoomBehavior.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
 }
 
+// --- tracing a path between two notes (§9) -----------------------------------
+//
+// The question a graph answers better than any list — *how are these two
+// related?* — and the one this view could not answer at all. Everything above
+// shows you **that** notes connect; this shows you the route, and names each
+// step: a link somebody made, a reply, or a tag the two share.
+//
+// The search itself is on the server (`entry/paths.py`, `GET /graph/path`) and
+// is shared with the AI's `path_between` tool, deliberately: a picture and an
+// answer that disagree about what is connected is worse than either alone.
+
+//: The traced path, or null. `{ ids: [...], steps: [...] }` — ids in order, so
+//: the drawing can look up consecutive pairs without re-deriving them.
+let graphTrace = null;
+//: The overlay lines, kept so the force simulation's tick can move them with
+//: the nodes they join.
+let graphTraceLines = null;
+
+// The two pickers, filled from whatever the map is currently showing. Rebuilt
+// on every render because the map's contents change — and the selection is
+// carried across, since a rebuild that silently forgets which notes you were
+// asking about is a control that undoes your work.
+function fillTracePickers(nodes) {
+  const notes = nodes
+    .filter((n) => !n.isGroup)
+    .sort((a, b) => a.preview.localeCompare(b.preview));
+  for (const [id, placeholder] of [
+    ["graph-trace-from", "from a note…"],
+    ["graph-trace-to", "to a note…"],
+  ]) {
+    const select = $(id);
+    if (!select) continue;
+    const previous = select.value;
+    const options = [new Option(placeholder, "")];
+    for (const node of notes) options.push(new Option(node.preview, String(node.id)));
+    select.replaceChildren(...options);
+    // Only restore a note that is still on the map; otherwise the picker would
+    // show a note the trace could never find.
+    if (previous && notes.some((n) => String(n.id) === previous)) {
+      select.value = previous;
+    }
+  }
+}
+
+// Fill one end of the trace from somewhere else in the app — the node popup's
+// two buttons, and the Notes tab. Traces as soon as both ends are set, because
+// the second click is the whole gesture: nobody picks two notes and then wants
+// nothing to happen.
+function setTraceEnd(which, noteId) {
+  const select = $(which === "from" ? "graph-trace-from" : "graph-trace-to");
+  if (!select) return;
+  select.value = String(noteId);
+  if (select.value !== String(noteId)) {
+    // The note is not on the map — filtered out by the legend, or by "hide
+    // unlinked". Said plainly rather than leaving a picker that ignored a
+    // click.
+    showTraceMessage(
+      "That note isn't on the map right now — clear the category filters or " +
+        "\"Hide unlinked\" and try again."
+    );
+    return;
+  }
+  const other = $(which === "from" ? "graph-trace-to" : "graph-trace-from");
+  if (other && other.value) runTrace();
+}
+
+function showTraceMessage(text) {
+  const box = $("graph-trace-result");
+  if (!box) return;
+  box.replaceChildren(document.createTextNode(text));
+  box.classList.remove("hidden");
+  box.classList.add("is-empty");
+}
+
+function clearTrace({ quiet = false } = {}) {
+  graphTrace = null;
+  const box = $("graph-trace-result");
+  if (box) {
+    box.replaceChildren();
+    box.classList.add("hidden");
+    box.classList.remove("is-empty");
+  }
+  if (!quiet) {
+    for (const id of ["graph-trace-from", "graph-trace-to"]) {
+      const select = $(id);
+      if (select) select.value = "";
+    }
+  }
+  drawTrace();
+  applyGraphHighlight();
+}
+
+async function runTrace() {
+  const from = $("graph-trace-from")?.value;
+  const to = $("graph-trace-to")?.value;
+  if (!from || !to) {
+    showTraceMessage("Pick two notes to trace between.");
+    return;
+  }
+  if (from === to) {
+    showTraceMessage("Those are the same note — pick two different ones.");
+    return;
+  }
+  showTraceMessage("Tracing…");
+  const result = await apiJson(
+    `/graph/path?source=${encodeURIComponent(from)}&target=${encodeURIComponent(to)}`
+  ).catch(() => null);
+  if (!result) {
+    showTraceMessage("Couldn't trace that — the server didn't answer.");
+    return;
+  }
+  if (!result.found) {
+    graphTrace = null;
+    // The server's reason, verbatim. "No path" on its own is the kind of
+    // answer that makes people assume the feature is broken; what they need is
+    // which of the three possible causes it was.
+    showTraceMessage(result.reason || "No path between those two notes.");
+    drawTrace();
+    applyGraphHighlight();
+    return;
+  }
+  graphTrace = {
+    ids: result.nodes.map((n) => n.id),
+    steps: result.steps,
+    nodes: result.nodes,
+  };
+  renderTraceReadout(result);
+  drawTrace();
+  applyGraphHighlight();
+}
+
+// The chain in words, under the strip. The map shows the shape; this says what
+// each step *is*, which the map cannot — a line between two notes looks the
+// same whether you drew it or they merely share a tag.
+function renderTraceReadout(result) {
+  const box = $("graph-trace-result");
+  if (!box) return;
+  box.classList.remove("hidden", "is-empty");
+  const pieces = [];
+  const noteButton = (node) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "graph-trace-note";
+    button.textContent = node.preview;
+    button.title = `Open this note (${node.category})`;
+    button.addEventListener("click", () => flashEntry(node.id));
+    return button;
+  };
+  const byId = new Map(result.nodes.map((n) => [n.id, n]));
+  pieces.push(noteButton(result.nodes[0]));
+  for (const step of result.steps) {
+    const joint = document.createElement("span");
+    joint.className = "graph-trace-step";
+    joint.textContent = ` — ${step.how} — `;
+    pieces.push(joint, noteButton(byId.get(step.target)));
+  }
+  const summary = document.createElement("span");
+  summary.className = "graph-trace-step";
+  summary.textContent = `  (${result.hops} step${result.hops === 1 ? "" : "s"})`;
+  pieces.push(summary);
+  box.replaceChildren(...pieces);
+}
+
+// Position the overlay from the nodes it joins. Called once for a laid-out
+// tree, and on every tick of the force simulation, which is why it is a
+// function of the current node objects rather than of stored coordinates.
+function positionTraceLines() {
+  if (!graphTraceLines) return;
+  graphTraceLines
+    .attr("x1", (d) => d.from.x)
+    .attr("y1", (d) => d.from.y)
+    .attr("x2", (d) => d.to.x)
+    .attr("y2", (d) => d.to.y);
+}
+
+// (Re)draw the overlay for the current trace. Segments whose notes are not on
+// the map are dropped rather than drawn to nowhere — the readout above still
+// names them.
+function drawTrace() {
+  if (!graphTraceLayer) return;
+  const byId = new Map((graphNodesRef || []).map((n) => [n.id, n]));
+  const segments = !graphTrace
+    ? []
+    : graphTrace.steps
+        .map((step) => ({
+          from: byId.get(step.source),
+          to: byId.get(step.target),
+          kind: step.kind,
+        }))
+        .filter((segment) => segment.from && segment.to);
+  graphTraceLines = graphTraceLayer
+    .selectAll("line")
+    .data(segments)
+    .join("line")
+    .attr("class", (d) => `graph-path-line graph-path-${d.kind}`);
+  positionTraceLines();
+  if (graphNodeSelection) {
+    const onPath = new Set(graphTrace ? graphTrace.ids : []);
+    graphNodeSelection.classed("graph-on-path", (d) => onPath.has(d.id));
+    graphNodeSelection.classed(
+      "graph-path-end",
+      (d) =>
+        graphTrace != null &&
+        (d.id === graphTrace.ids[0] || d.id === graphTrace.ids[graphTrace.ids.length - 1])
+    );
+  }
+}
+
+// --- drag one note onto another to link them (§9) ----------------------------
+//
+// The map already had a link gesture — 🔗 in the popup, then click the other
+// note — which works and is two dialogs deep. Dropping one note on another is
+// the gesture people try first, and it costs nothing to support: the drag
+// behaviour is already there to move nodes about.
+//
+// The whole risk here is an *accidental* link, since every drag now ends over
+// something or nothing. Three things answer that, and all three are needed:
+// the target lights up while you are over it, the drop has to land on the
+// note's own circle rather than near it, and the link that results is
+// undoable from the toast.
+
+//: How much of a miss still counts as a hit. Zero would demand pixel accuracy
+//: on a moving target; the node's own radius plus this is the circle you are
+//: actually aiming at.
+//:
+//: Raised from 6 after driving the gesture in a browser. A note is a 9px
+//: circle, so six pixels of slop meant hitting a 15px target that is *drifting*
+//: — dragging reheats the simulation, so everything else keeps moving while
+//: you aim. Fourteen makes it a comfortable 23px and is still far short of the
+//: nearest neighbour, so a drop in open space still links nothing.
+const DROP_SLOP = 14;
+
+//: The note the current drag is hovering over, remembered from the last
+//: `drag` event so the drop can use it. See the `end` handler for why a fresh
+//: hit test at release finds nothing.
+let graphDropTarget = null;
+
+function graphNodeUnder(dragged, event) {
+  for (const other of graphNodesRef || []) {
+    if (other === dragged || other.isGroup) continue;
+    const dx = (other.x ?? 0) - event.x;
+    const dy = (other.y ?? 0) - event.y;
+    if (Math.hypot(dx, dy) <= graphNodeRadius(other) + DROP_SLOP) return other;
+  }
+  return null;
+}
+
+async function linkByDrop(from, to) {
+  // Already connected: say so rather than firing a request that will 400. The
+  // adjacency map is what the map itself is drawn from, so this agrees with
+  // what the user can see.
+  if (graphAdjacency?.get(from.id)?.has(to.id)) {
+    toast("Those two are already connected.");
+    return;
+  }
+  const updated = await apiJson(`/entries/${from.id}/links`, {
+    method: "POST",
+    body: JSON.stringify({ target_id: to.id }),
+  }).catch((error) => {
+    toast(error.message, true);
+    return null;
+  });
+  if (!updated) return;
+  await loadEntries().catch(() => {});
+  renderGraph();
+  // The new link's own id, so Undo removes *this* link rather than whatever
+  // link happens to join them — they may have been linked twice by different
+  // routes, and guessing is how an undo deletes the wrong thing.
+  const made = (updated.links || []).find((link) => link.entry_id === to.id);
+  toastAction(
+    `Linked "${from.preview}" to "${to.preview}".`,
+    "Undo",
+    async () => {
+      if (!made) return;
+      await api(`/entries/${from.id}/links/${made.link_id}`, { method: "DELETE" });
+      await loadEntries().catch(() => {});
+      renderGraph();
+      toast("Link removed.");
+    }
+  );
+}
+
+// --- colouring by cluster (§9) -----------------------------------------------
+//
+// A layout says where a note goes; this says what its colour *means*. By
+// category is the filing — which is what somebody decided to call it. By
+// cluster is the structure: which notes can actually reach each other through
+// links, replies and shared tags. The two are often nothing like each other,
+// and that difference is the most useful thing the map can show.
+
+//: The last structure fetched, so the legend and the stats line agree with the
+//: colours without three round trips.
+let graphStructure = null;
+
+function graphColourMode() {
+  return $("graph-colour")?.value === "cluster" ? "cluster" : "category";
+}
+
 async function renderGraph() {
   const wantSimilarity = $("graph-similarity").checked;
   const data = await apiJson(
@@ -9811,27 +10417,105 @@ async function renderGraph() {
     data.categories,
     d3.schemeTableau10.concat(d3.schemeSet3)
   );
+  const clusterColour = d3.scaleOrdinal(
+    d3.schemeTableau10.concat(d3.schemeSet3)
+  );
+  const colourMode = graphColourMode();
+  // The structure is only fetched when something is going to show it. It is a
+  // traversal of the whole notebook, and an ordinary look at the map should
+  // not pay for an answer nobody asked for.
+  graphStructure =
+    colourMode === "cluster"
+      ? await apiJson("/graph/structure").catch(() => null)
+      : null;
+  // What a node's colour means. Category headings in a tree layout keep their
+  // category colour in both modes: they are filing by definition, and a
+  // heading is not a note that can belong to a cluster.
+  const nodeColour = (d) => {
+    if (colourMode === "category" || !graphStructure || d.isGroup) {
+      return color(d.category);
+    }
+    const cluster = graphStructure.cluster_of[String(d.id)];
+    // Connected to nothing: deliberately not a colour of its own. An orphan is
+    // the absence of structure, and giving it a bright twelfth hue would make
+    // the thing that is missing look like another kind of group.
+    return cluster === undefined ? "var(--muted)" : clusterColour(String(cluster));
+  };
+
   const legend = $("graph-legend");
   legend.replaceChildren();
-  for (const category of data.categories) {
-    // Legend entries double as filters (Wave M): click to hide/show.
-    const item = document.createElement("button");
-    item.className = "legend-item legend-toggle";
-    item.classList.toggle("legend-off", graphHiddenCategories.has(category));
-    item.title = graphHiddenCategories.has(category)
-      ? `Show ${category} again`
-      : `Hide ${category} from the map`;
-    item.setAttribute("aria-pressed", String(!graphHiddenCategories.has(category)));
-    const dot = document.createElement("span");
-    dot.className = "legend-dot";
-    dot.style.background = color(category);
-    item.append(dot, document.createTextNode(category));
-    item.addEventListener("click", () => {
-      if (graphHiddenCategories.has(category)) graphHiddenCategories.delete(category);
-      else graphHiddenCategories.add(category);
-      renderGraph();
+  if (colourMode === "cluster" && graphStructure) {
+    // In cluster mode the legend describes clusters, because a legend whose
+    // dots do not match the colours on screen is worse than no legend. Its
+    // entries highlight rather than filter — a cluster is something you want
+    // to *find*, where a category is something you want to get out of the way.
+    graphStructure.clusters.forEach((cluster, position) => {
+      const item = document.createElement("button");
+      item.className = "legend-item legend-toggle";
+      item.title =
+        `${cluster.size} notes, around "${cluster.core.preview}"` +
+        (cluster.categories.length ? ` · ${cluster.categories.join(", ")}` : "");
+      const dot = document.createElement("span");
+      dot.className = "legend-dot";
+      dot.style.background = clusterColour(String(position));
+      item.append(
+        dot,
+        document.createTextNode(`${cluster.core.preview} (${cluster.size})`)
+      );
+      item.addEventListener("click", () => {
+        graphHighlightIds = new Set(cluster.ids);
+        applyGraphHighlight();
+      });
+      legend.appendChild(item);
     });
-    legend.appendChild(item);
+    if (graphStructure.orphan_count) {
+      const item = document.createElement("button");
+      item.className = "legend-item legend-toggle";
+      item.title = "Notes with no link, no reply and no shared tag";
+      const dot = document.createElement("span");
+      dot.className = "legend-dot";
+      dot.style.background = "var(--muted)";
+      item.append(
+        dot,
+        document.createTextNode(`unconnected (${graphStructure.orphan_count})`)
+      );
+      item.addEventListener("click", () => {
+        graphHighlightIds = new Set(graphStructure.orphans.map((n) => n.id));
+        applyGraphHighlight();
+      });
+      legend.appendChild(item);
+    }
+    if (graphHiddenCategories.size) {
+      // The category filters still apply — they just have no controls in this
+      // mode. Saying so beats a map quietly missing notes.
+      const note = document.createElement("span");
+      note.className = "legend-item";
+      note.textContent = `${graphHiddenCategories.size} category filter${
+        graphHiddenCategories.size === 1 ? "" : "s"
+      } still on — switch to “By category” to change them`;
+      legend.appendChild(note);
+    }
+  } else {
+    for (const category of data.categories) {
+      // Legend entries double as filters (Wave M): click to hide/show.
+      const item = document.createElement("button");
+      item.className = "legend-item legend-toggle";
+      item.classList.toggle("legend-off", graphHiddenCategories.has(category));
+      item.title = graphHiddenCategories.has(category)
+        ? `Show ${category} again`
+        : `Hide ${category} from the map`;
+      item.setAttribute("aria-pressed", String(!graphHiddenCategories.has(category)));
+      const dot = document.createElement("span");
+      dot.className = "legend-dot";
+      dot.style.background = color(category);
+      item.append(dot, document.createTextNode(category));
+      item.addEventListener("click", () => {
+        if (graphHiddenCategories.has(category)) graphHiddenCategories.delete(category);
+        else graphHiddenCategories.add(category);
+        renderGraph();
+      });
+      legend.appendChild(item);
+    }
   }
 
   // Apply the legend filter: drop hidden categories and their edges.
@@ -9957,9 +10641,28 @@ async function renderGraph() {
         .on("drag", (event, d) => {
           d.fx = event.x;
           d.fy = event.y;
+          // Drag-to-link (§9): light up whatever this note is currently over,
+          // so the gesture says what it will do *before* it does it. Without
+          // this, dropping is a guess and every miss is an accidental link.
+          graphDropTarget = graphNodeUnder(d, event);
+          nodeGroups.classed("graph-drop-target", (other) => other === graphDropTarget);
         })
         .on("end", (event, d) => {
           if (!event.active) graphSimulation?.alphaTarget(0);
+          // **The note that was lit, not the one under the cursor now.**
+          // Dragging reheats the simulation, so every other node is still
+          // drifting — between the last mousemove and the mouse-up the target
+          // moves out from under the pointer, and a fresh hit test at release
+          // finds nothing. Driven in a browser: the highlight appeared and the
+          // link was never made, every time.
+          //
+          // Using the remembered target also matches what the person saw. The
+          // node lit up; releasing links *that* one. A gesture that can light
+          // one note and link another would be worse than one that missed.
+          const over = graphDropTarget;
+          graphDropTarget = null;
+          nodeGroups.classed("graph-drop-target", false);
+          if (over) linkByDrop(d, over);
           if (tree) return; // a laid-out tree keeps its shape
           d.fx = null;
           d.fy = null;
@@ -9989,14 +10692,14 @@ async function renderGraph() {
     .append("circle")
     .attr("class", "graph-halo")
     .attr("r", (d) => graphNodeRadius(d) + 6)
-    .attr("fill", (d) => color(d.category));
+    .attr("fill", nodeColour);
 
   nodeGroups
     .append("circle")
     .attr("class", "graph-core")
     .classed("graph-group", (d) => Boolean(d.isGroup))
     .attr("r", graphNodeRadius)
-    .attr("fill", (d) => color(d.category))
+    .attr("fill", nodeColour)
     .classed("graph-pinned", (d) => d.pinned)
     // Well-connected notes get a highlighted ring so the "hubs" of your
     // notebook stand out at a glance.
@@ -10085,6 +10788,10 @@ async function renderGraph() {
       .style("text-anchor", "start");
   }
 
+  // The traced path sits above both the edges and the nodes, because it is an
+  // answer drawn over the picture rather than another connection in it.
+  graphTraceLayer = canvas.append("g").attr("class", "graph-trace-layer");
+
   // Labels toggle: when off, labels only appear on hover (declutters a big
   // map). Driven by a class so toggling never rebuilds the simulation.
   $("graph-box").classList.toggle("graph-labels-hidden", !$("graph-labels").checked);
@@ -10099,13 +10806,24 @@ async function renderGraph() {
   if (counts.thread) parts.push(`${counts.thread} thread${counts.thread === 1 ? "" : "s"}`);
   if (counts.similar) parts.push(`${counts.similar} similarity line${counts.similar === 1 ? "" : "s"}`);
   if (counts.filing) parts.push(`${counts.filing} filed under a category`);
-  $("graph-stats").textContent =
-    parts.join(" · ") +
-    (layoutKind === "tree"
-      ? " — filed left to right; replies branch off the note they answer."
-      : layoutKind === "radial"
-        ? " — categories around the centre; replies branch off the note they answer."
-        : " — bigger, brighter notes are the ones you use most.");
+  // In cluster mode the structural facts replace the "bigger notes are the
+  // ones you use most" hint, because they are what the colours are now saying.
+  const shape =
+    colourMode === "cluster" && graphStructure
+      ? ` — ${graphStructure.clusters.length} cluster` +
+        `${graphStructure.clusters.length === 1 ? "" : "s"}` +
+        (graphStructure.small_clusters
+          ? ` + ${graphStructure.small_clusters} pair${
+              graphStructure.small_clusters === 1 ? "" : "s"
+            }`
+          : "") +
+        `, ${graphStructure.orphan_count} connected to nothing.`
+      : layoutKind === "tree"
+        ? " — filed left to right; replies branch off the note they answer."
+        : layoutKind === "radial"
+          ? " — categories around the centre; replies branch off the note they answer."
+          : " — bigger, brighter notes are the ones you use most.";
+  $("graph-stats").textContent = parts.join(" · ") + shape;
 
   // Hover-highlight (spotlight a note's connections). Uses the same dimming
   // pipeline as search so the two never fight each other.
@@ -10133,6 +10851,9 @@ async function renderGraph() {
       .attr("y1", (d) => d.source.y)
       .attr("x2", (d) => d.target.x)
       .attr("y2", (d) => d.target.y);
+    // The traced path joins the same nodes, so it moves with them. Cheap: it
+    // is a handful of lines beside every edge in the notebook.
+    positionTraceLines();
     nodeGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
     // Once the layout settles, frame all the notes so nothing sits off
     // the edge (Wave N — the old view often had nodes half-cropped).
@@ -10146,6 +10867,11 @@ async function renderGraph() {
   // query that's already typed.
   graphNodeSelection = nodeGroups;
   graphEdgeSelection = edgeLines;
+  // The pickers describe the map, so they are refilled with it — and the trace
+  // is redrawn, because a refresh (a new note, a new link, a layout change)
+  // must not silently drop the answer on screen.
+  fillTracePickers(nodes);
+  drawTrace();
   applyGraphHighlight();
   initGraphKeyboard();
 }
@@ -10342,10 +11068,17 @@ function applyGraphHighlight() {
   if (!graphNodeSelection) return;
   const query = $("graph-search").value.trim().toLowerCase();
   if (query) graphHighlightIds = null; // typing takes over the spotlight
+  // A traced path is the strongest spotlight there is: it is the answer to a
+  // question that was just asked, so it outranks a search box someone typed in
+  // earlier. Everything not on the chain dims, which is what makes a six-note
+  // route legible on a map of three hundred.
+  const onPath = graphTrace ? new Set(graphTrace.ids) : null;
   const searchOk = (d) =>
-    graphHighlightIds
-      ? graphHighlightIds.has(d.id)
-      : !query || d.preview.toLowerCase().includes(query);
+    onPath
+      ? onPath.has(d.id)
+      : graphHighlightIds
+        ? graphHighlightIds.has(d.id)
+        : !query || d.preview.toLowerCase().includes(query);
 
   const neighbours =
     graphHoveredId != null && graphAdjacency
@@ -10365,7 +11098,8 @@ function applyGraphHighlight() {
     const s = idOf(d.source);
     const t = idOf(d.target);
     const bySearch =
-      !(query || graphHighlightIds) || (searchOk(d.source) && searchOk(d.target));
+      !(query || graphHighlightIds || onPath) ||
+      (searchOk(d.source) && searchOk(d.target));
     const byHover =
       neighbours == null || s === graphHoveredId || t === graphHoveredId;
     return !(bySearch && byHover);
@@ -10534,6 +11268,24 @@ function renderGraphPopupActions(entry) {
       beginOrCompleteLink(entry);
       toast("Now click another note on the map to link them.");
     })
+  );
+  // Two clicks, the same shape as 🔗 Link: this note becomes one end of the
+  // trace, and the next one you pick becomes the other. The label says which
+  // end it will be, because a button that does two different things without
+  // saying which is a button you have to try to understand.
+  const tracingFrom = Boolean($("graph-trace-from")?.value);
+  box.appendChild(
+    smallButton(
+      tracingFrom ? "🛣 Trace to here" : "🛣 Trace from here",
+      tracingFrom
+        ? "Find how this note connects to the one you started from"
+        : "Start tracing a path from this note",
+      () => {
+        closeGraphPopup();
+        setTraceEnd(tracingFrom ? "to" : "from", entry.id);
+        if (!tracingFrom) toast("Now pick the other note — 🛣 Trace to here.");
+      }
+    )
   );
   box.appendChild(
     smallButton("⏰ Remind", "Set a reminder about this note", () => {
@@ -10712,9 +11464,19 @@ function switchTab(name) {
   if (name === "dashboard") renderDashboard();
   if (name === "graph") {
     $("graph-layout").value = graphLayout();
+    // Same for what the colours mean: a saved setting the control does not
+    // show is a control that lies about the map beside it.
+    const savedColour = localStorage.getItem("graph-colour");
+    if (savedColour === "cluster" || savedColour === "category") {
+      $("graph-colour").value = savedColour;
+    }
     // Match the saved layout on arrival, not only on change — otherwise a
     // notebook left on Tree comes back with two live-looking dead sliders.
     setGraphPhysicsEnabled(graphLayout());
+    const optionsOpen = localStorage.getItem("graph-options-open") === "1";
+    $("graph-options").classList.toggle("hidden", !optionsOpen);
+    $("graph-options-toggle").setAttribute("aria-expanded", String(optionsOpen));
+    $("graph-options-toggle").classList.toggle("is-on", optionsOpen);
     renderGraph();
   }
   if (name === "timeline") renderTimeline();
@@ -11019,14 +11781,85 @@ function syncScrollLock() {
 // cap so the page never gets pushed around; past that it scrolls.
 const AUTOGROW_MAX_PX = 340;
 
+// How much of the window a growing box may take before it scrolls instead.
+//
+// A flat 340px is most of a laptop window's chat area and nearly all of a
+// phone's: the box kept growing and the conversation it was about disappeared
+// above it. The cap is the *smaller* of the two, so a tall screen keeps the
+// familiar 340 and a short one keeps its conversation.
+const AUTOGROW_MAX_VIEWPORT = 0.35;
+
+//: Where a hand-dragged composer height is remembered. A preference about how
+//: you write, so it outlives the session that set it.
+const COMPOSER_HEIGHT_KEY = "chat-composer-height";
+
+function autoGrowLimit(el) {
+  // A height the user dragged to wins over both defaults — they have said, in
+  // the most direct way an interface allows, how tall they want this box.
+  const chosen = Number(el.dataset.maxPx || 0);
+  if (chosen > 0) return chosen;
+  return Math.min(AUTOGROW_MAX_PX, Math.round(window.innerHeight * AUTOGROW_MAX_VIEWPORT));
+}
+
 function autoGrow(el) {
   if (!el) return;
   // Reset first: without it the height only ever ratchets upwards, because
   // scrollHeight is measured against the height already set.
   el.style.height = "auto";
-  const next = Math.min(el.scrollHeight, AUTOGROW_MAX_PX);
+  const limit = autoGrowLimit(el);
+  // **A height somebody dragged to is a floor, not just a ceiling.** Driven in
+  // a browser: dragging the composer taller stored the new height and then
+  // snapped the box straight back to one line, because this took
+  // `min(scrollHeight, limit)` and an empty box has a scrollHeight of one row.
+  // The setting was saved and instantly undone — which is worse than not
+  // offering the drag at all.
+  //
+  // So a hand-set height is the height. It is what "manually adjustable"
+  // means: the box stays where it was put, and only scrolls once the text
+  // outgrows it.
+  const chosen = Number(el.dataset.maxPx || 0);
+  const next = chosen > 0 ? chosen : Math.min(el.scrollHeight, limit);
   el.style.height = `${next}px`;
-  el.style.overflowY = el.scrollHeight > AUTOGROW_MAX_PX ? "auto" : "hidden";
+  el.style.overflowY = el.scrollHeight > next ? "auto" : "hidden";
+  // What this function chose, so a later resize can be told apart from a drag
+  // by the user — the two are indistinguishable to a ResizeObserver otherwise.
+  el.dataset.autoHeight = String(next);
+}
+
+// The chat composer can be dragged taller, and remembers it.
+//
+// Asked for directly: *"there should be a max height that the chat text bar
+// can grow to before it gets a scrollbar. the height should also be manually
+// adjustable."* Both halves — the cap above, and this.
+//
+// The native resize grabber does the dragging; all this has to do is notice
+// the result and stop `autoGrow` from immediately undoing it on the next
+// keystroke. A drag is told from a grow by comparing against the height
+// autoGrow last set: anything else was a hand on the corner.
+function initComposerResize() {
+  const box = $("chat-input");
+  if (!box || box.dataset.resizeReady) return;
+  box.dataset.resizeReady = "1";
+
+  const saved = Number(localStorage.getItem(COMPOSER_HEIGHT_KEY) || 0);
+  if (saved > 0) {
+    box.dataset.maxPx = String(saved);
+    autoGrow(box);
+  }
+
+  if (typeof ResizeObserver !== "function") return;
+  const observer = new ResizeObserver(() => {
+    const height = Math.round(box.getBoundingClientRect().height);
+    const automatic = Number(box.dataset.autoHeight || 0);
+    // Two pixels of slack for sub-pixel layout; a drag is always more.
+    if (!height || Math.abs(height - automatic) <= 2) return;
+    box.dataset.maxPx = String(height);
+    localStorage.setItem(COMPOSER_HEIGHT_KEY, String(height));
+    // Re-run so overflow matches the new ceiling straight away rather than at
+    // the next keystroke.
+    autoGrow(box);
+  });
+  observer.observe(box);
 }
 
 function initAutoGrow() {
@@ -11038,6 +11871,7 @@ function initAutoGrow() {
     el.addEventListener("focus", () => autoGrow(el));
     autoGrow(el);
   }
+  initComposerResize();
 }
 
 function watchOverlays() {
@@ -11114,15 +11948,24 @@ function showSettingsSection(name) {
 // panel left semi-transparent on the Logs screen just looks broken.
 function setSettingsPeek(on) {
   const modal = $("settings-modal");
-  const box = $("settings-peek");
+  const button = $("settings-peek");
   modal.classList.toggle("peeking", !!on);
-  if (box) box.checked = !!on;
+  // A button that toggles has to *say* it is pressed — the class on the modal
+  // is the visible half, and `aria-pressed` is the half a screen reader hears.
+  if (button) {
+    button.setAttribute("aria-pressed", String(!!on));
+    button.classList.toggle("is-on", !!on);
+  }
+}
+
+function settingsPeekIsOn() {
+  return $("settings-modal").classList.contains("peeking");
 }
 
 function updatePeekAvailability(section) {
-  const wrap = $("settings-peek-wrap");
+  const button = $("settings-peek");
   const appearance = section === "appearance";
-  if (wrap) wrap.classList.toggle("hidden", !appearance);
+  if (button) button.classList.toggle("hidden", !appearance);
   if (!appearance) setSettingsPeek(false);
 }
 
@@ -12414,6 +13257,173 @@ function rememberAnnounced(ids) {
   localStorage.setItem(ANNOUNCED_KEY, JSON.stringify(kept));
 }
 
+// --- the notifications centre (§36E) ----------------------------------------
+//
+// MemoryMap already *produces* all of these events — a reminder comes due, a
+// background task finishes, a skill run stalls — and shows each of them in its
+// own way: a system notification, a toast, a status pill, a step timeline.
+// Every one of those is a moment. Miss the moment and the event is gone.
+//
+// This is the place they persist after their moment has passed, which is the
+// whole of what §36E asks for. Three things it is deliberately *not*:
+//
+// - **Not a second source of truth.** A fired reminder is still a row in the
+//   reminders table; this records that it was announced, and the panel folds
+//   in whatever is *currently* overdue from the server when it opens. So a
+//   reminder that came due while the app was closed is not lost, even though
+//   nothing was running to record it — which is the one case a purely
+//   event-driven log cannot cover.
+// - **Not persisted to the server.** These are ephemeral by nature and there
+//   can be many of them; the notebook's preferences file is not a log.
+// - **Not a promise that anything fires while the app is shut.** A local-first
+//   app with no background service cannot do that, and §36C says so plainly
+//   rather than implying otherwise.
+
+const NOTIFICATIONS_KEY = "notifications";
+const NOTIFICATIONS_READ_KEY = "notificationsReadAt";
+//: Enough to answer "what did I miss?" and not enough to become a log file.
+const MAX_NOTIFICATIONS = 50;
+
+function storedNotifications() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(NOTIFICATIONS_KEY) || "[]");
+    return Array.isArray(raw) ? raw : [];
+  } catch {
+    return []; // hand-edited or truncated storage costs the history, not the app
+  }
+}
+
+// Record something worth remembering. `key` de-duplicates: the reminder poll
+// runs every thirty seconds and must not add the same fired reminder twice.
+function recordNotification({ kind, title, detail = "", key = "", action = null }) {
+  const items = storedNotifications();
+  const id = key || `${kind}:${title}:${Date.now()}`;
+  if (key && items.some((n) => n.id === id)) return;
+  items.push({ id, kind, title, detail, at: Date.now(), action });
+  localStorage.setItem(
+    NOTIFICATIONS_KEY,
+    JSON.stringify(items.slice(-MAX_NOTIFICATIONS))
+  );
+  renderNotificationBadge();
+}
+
+function notificationsReadAt() {
+  return Number(localStorage.getItem(NOTIFICATIONS_READ_KEY) || 0);
+}
+
+function unreadNotifications() {
+  const since = notificationsReadAt();
+  return storedNotifications().filter((n) => n.at > since);
+}
+
+function renderNotificationBadge() {
+  const button = $("notif-btn");
+  if (!button) return;
+  const count = unreadNotifications().length;
+  button.dataset.count = count > 9 ? "9+" : String(count || "");
+  button.classList.toggle("has-unread", count > 0);
+  button.setAttribute(
+    "aria-label",
+    count ? `Notifications — ${count} unread` : "Notifications"
+  );
+}
+
+//: Which icon a kind gets. Colour alone is never the signal (DESIGN.md), and
+//: these read as a list of *kinds* rather than a list of times.
+const NOTIFICATION_ICONS = {
+  reminder: "⏰",
+  task: "⚙",
+  run: "⚡",
+  error: "⚠️",
+  info: "•",
+};
+
+async function openNotifications() {
+  const panel = $("notif-panel");
+  const list = $("notif-list");
+  panel.classList.remove("hidden");
+
+  // Fold in anything currently overdue on the server. This is what makes the
+  // centre honest about time it was not running for: the event log can only
+  // know what happened while a tab was open, and the reminders table knows
+  // what is due regardless.
+  const all = await apiJson("/reminders", { silent: true }).catch(() => null);
+  for (const reminder of all || []) {
+    if (reminder.done) continue;
+    if (new Date(reminder.due_at).getTime() > Date.now()) continue;
+    recordNotification({
+      kind: "reminder",
+      title: reminder.text,
+      detail: `Due ${relativeTime(reminder.due_at)}`,
+      key: `reminder:${reminder.id}`,
+      action: { tab: "reminders" },
+    });
+  }
+
+  const items = storedNotifications().slice().reverse();
+  const readAt = notificationsReadAt();
+  list.replaceChildren();
+  if (!items.length) {
+    const empty = document.createElement("li");
+    empty.className = "muted";
+    empty.textContent =
+      "Nothing yet. Reminders that come due, finished background jobs and " +
+      "runs that stopped early will collect here.";
+    list.appendChild(empty);
+  }
+  for (const item of items) {
+    const row = document.createElement("li");
+    row.className = "notif-row";
+    if (item.at > readAt) row.classList.add("notif-unread");
+
+    const icon = document.createElement("span");
+    icon.className = "notif-icon";
+    icon.textContent = NOTIFICATION_ICONS[item.kind] || NOTIFICATION_ICONS.info;
+    icon.setAttribute("aria-hidden", "true");
+
+    const body = document.createElement("div");
+    body.className = "notif-body";
+    const title = document.createElement("div");
+    title.className = "notif-title";
+    title.textContent = item.title;
+    const meta = document.createElement("div");
+    meta.className = "notif-meta muted";
+    meta.textContent = [item.detail, relativeTime(new Date(item.at).toISOString())]
+      .filter(Boolean)
+      .join(" · ");
+    body.append(title, meta);
+    row.append(icon, body);
+
+    // A notification you cannot act on is a notification you learn to ignore.
+    if (item.action && item.action.tab) {
+      row.classList.add("notif-actionable");
+      row.tabIndex = 0;
+      row.title = "Open";
+      const go = () => {
+        closeNotifications();
+        switchTab(item.action.tab);
+      };
+      row.addEventListener("click", go);
+      row.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          go();
+        }
+      });
+    }
+    list.appendChild(row);
+  }
+
+  // Opening the panel *is* reading them. Marked after rendering, so the
+  // unread ones are still highlighted in the list you are looking at.
+  localStorage.setItem(NOTIFICATIONS_READ_KEY, String(Date.now()));
+  renderNotificationBadge();
+}
+
+function closeNotifications() {
+  $("notif-panel").classList.add("hidden");
+}
+
 // Asked when a reminder is SET, not on first load. A permission prompt with no
 // context is refused by default, and a refusal is close to permanent — the
 // browser will not ask again, and most people never find the site settings.
@@ -12459,6 +13469,19 @@ async function checkDueReminders() {
   const fresh = due.filter((r) => !already.has(r.id));
   if (!fresh.length) return;
   rememberAnnounced(fresh.map((r) => r.id));
+
+  // Into the centre as well as onto the screen (§36E). A toast and a system
+  // notification are both moments; this is the record that outlives them, and
+  // it is the difference between "I think something was due" and knowing what.
+  for (const reminder of fresh) {
+    recordNotification({
+      kind: "reminder",
+      title: reminder.text,
+      detail: "Came due",
+      key: `reminder:${reminder.id}`,
+      action: { tab: "reminders" },
+    });
+  }
 
   // One notification for one reminder; a summary for several, because three
   // separate system notifications for three reminders is worse than one.
@@ -13094,6 +14117,22 @@ const TASK_OUTCOMES = {
 function renderTaskHistory(history) {
   const box = $("task-history-box");
   const list = $("task-history");
+  // A finished background job goes into the notifications centre whether or
+  // not this screen is open — which is the point of the centre (§36E). These
+  // jobs are long: an install or a re-index finishes minutes after you stopped
+  // watching it, and until now the only record was a screen inside Settings
+  // that you had to know to open. Recorded first, so it happens even when the
+  // Tasks panel is not on screen and the two elements below are missing.
+  for (const item of history) {
+    recordNotification({
+      kind: item.outcome === "failed" ? "error" : "task",
+      title: `${(TASK_OUTCOMES[item.outcome] || TASK_OUTCOMES.completed).icon} ${item.label}`,
+      detail: item.detail || "",
+      // Keyed on the job and when it stopped, so the three-second re-render
+      // does not add the same finished job over and over.
+      key: `task:${item.kind || item.label}:${item.at}`,
+    });
+  }
   if (!box || !list) return;
   box.classList.toggle("hidden", history.length === 0);
   list.replaceChildren();
@@ -13488,7 +14527,6 @@ async function loadLinkSuggestions() {
     const row = document.createElement("div");
     row.className = "link-suggestion";
     const text = document.createElement("span");
-    text.innerHTML = "";
     text.append(
       document.createTextNode(`“${s.source_preview}” ↔ “${s.target_preview}” `)
     );
@@ -13824,6 +14862,136 @@ function themeSwatch(preset) {
 function activeThemePreset() {
   const name = localStorage.getItem("themePreset");
   return THEME_PRESETS[name] ? name : "";
+}
+
+// --- keeping the look across restarts (§35E) --------------------------------
+//
+// Reported as two bugs: *"the theme resets to default on every start"* and
+// *"onboarding shows every time"*. They are one bug. Both were stored in
+// `localStorage` and nowhere else, and the desktop shell does not reliably
+// persist it — pywebview is a different browser with its own profile, and if
+// that profile is not stable across launches then everything kept there is
+// something the app forgets. Two symptoms, one storage, exactly as §35E
+// predicted.
+//
+// The fix is a mirror, not a move. localStorage stays the thing every
+// `appearancePref` read goes through: it is synchronous, it works with the
+// server unreachable, and moving the reads would mean rewriting the whole
+// appearance system to be async. The server keeps a copy, seeded back into
+// localStorage on load when the local one is empty — so a shell that loses it
+// gets it back, and a browser that keeps it never notices.
+
+//: The keys worth surviving a restart. Explicit rather than "everything in
+//: localStorage": this is written to the notebook's own preferences file, and
+//: scroll positions and one-visit UI state have no business in there.
+// The appearance half is `LOOK_KEYS` — the same list a saved custom theme
+// snapshots — rather than a second hand-written copy of it. The first draft
+// *was* a hand-written copy, and it guessed two key names wrong ("bgart",
+// "bgart-motion" for what are really `bgArt`, `bg-style`, `bg-motion` and
+// `bg-intensity`), so the background art would have been the one setting that
+// still did not survive a restart. Deriving it cannot be wrong.
+// Everything not covered by the look: the tour flag, and the few view
+// settings that are properties of how you use the app rather than of one
+// visit.
+const MIRRORED_UI_EXTRAS = [
+  "themePreset",
+  "motion",
+  "custom-css",
+  "onboardingDone",
+  "activeTab",
+  "graph-layout",
+  "graph-colour",
+  "graph-options-open",
+  "chat-composer-height",
+];
+
+// A function rather than a `const` array, because `LOOK_KEYS` is declared
+// several hundred lines below this one and a top-level spread of it would be
+// read before its initialiser had run — a temporal-dead-zone error at load,
+// which in a file with no bundler means a blank app.
+function mirroredUiKeys() {
+  return [...LOOK_KEYS, ...MIRRORED_UI_EXTRAS];
+}
+
+let uiStateSaveTimer = null;
+
+// Write the mirrored keys to the server, coalesced. Debounced because the
+// appearance panel fires a change per slider tick, and a preferences write per
+// tick would be a write per pixel of a corner-radius drag.
+function saveUiState() {
+  clearTimeout(uiStateSaveTimer);
+  uiStateSaveTimer = setTimeout(() => {
+    // Not before the unlock. The tab restore writes `activeTab` at module
+    // level, which schedules a save that would land while the lock screen is
+    // still up — a guaranteed 401 on every cold load, visible in the browser's
+    // network log and in the server's, where it reads as an auth failure worth
+    // investigating. §35E-bis found exactly this in the reminder poll; the
+    // guard is the same one, for the same reason.
+    if (!authToken()) return;
+    const state = {};
+    for (const key of mirroredUiKeys()) {
+      const value = localStorage.getItem(key);
+      if (value != null) state[key] = String(value).slice(0, 400);
+    }
+    // Silent and best-effort. This is a backup of something that already
+    // worked locally; a toast about it would be noise about a copy.
+    apiJson("/preferences", {
+      method: "PUT",
+      body: JSON.stringify({ ui_state: state }),
+      silent: true,
+    }).catch(() => {});
+  }, 800);
+}
+
+// Mirror every write to a watched key, from one place.
+//
+// There are twenty-odd sites that write these — a theme toggle, eight
+// appearance controls, the graph's pickers, onboarding. Adding a `saveUiState()`
+// call to each would work today and rot the moment somebody adds the
+// twenty-third and forgets: the setting would keep working in a browser and
+// quietly stop surviving a desktop restart, which is a bug nobody would
+// connect to the commit that caused it.
+//
+// So the *store* is watched instead of its callers. Adding a key to
+// MIRRORED_UI_KEYS is then the whole of making a new setting persistent, which
+// is the property worth having. Only the listed keys trigger a save; every
+// other `localStorage` write in the app is untouched and unwatched.
+function watchMirroredUiKeys() {
+  const mirrored = new Set(mirroredUiKeys());
+  const store = window.localStorage;
+  const setItem = store.setItem.bind(store);
+  const removeItem = store.removeItem.bind(store);
+  // Own properties shadowing Storage.prototype — the storage itself is
+  // untouched, so anything else reading it (including these two) is unaffected.
+  store.setItem = (key, value) => {
+    setItem(key, value);
+    if (mirrored.has(String(key))) saveUiState();
+  };
+  store.removeItem = (key) => {
+    removeItem(key);
+    // A removal is a change too: clearing an explicit theme to fall back to
+    // the system one has to survive a restart just as setting one does.
+    if (mirrored.has(String(key))) saveUiState();
+  };
+}
+
+// Seed localStorage from the server's copy, for keys the browser has lost.
+// Called once, before the look is applied, so the app paints in the remembered
+// theme rather than flashing the default and correcting itself.
+//
+// **Local wins.** If a key exists in both, the local one is newer by
+// definition — it is what the person set in this browser — and overwriting it
+// with a copy saved from another window would make two open windows fight.
+function seedUiStateFromServer(state) {
+  if (!state || typeof state !== "object") return false;
+  let restored = 0;
+  for (const key of mirroredUiKeys()) {
+    if (localStorage.getItem(key) == null && state[key] != null) {
+      localStorage.setItem(key, String(state[key]));
+      restored += 1;
+    }
+  }
+  return restored > 0;
 }
 
 // What the selected theme says about one setting, or undefined.
@@ -15122,6 +16290,38 @@ for (const id of ["account-current", "account-new", "account-confirm"]) {
 }
 $("theme-clear-overrides").addEventListener("click", clearManualOverrides);
 
+// --- the notifications centre's controls (§36E) -----------------------------
+$("notif-btn").addEventListener("click", () => {
+  const open = $("notif-panel").classList.contains("hidden");
+  $("notif-btn").setAttribute("aria-expanded", String(open));
+  if (open) openNotifications();
+  else closeNotifications();
+});
+$("notif-close").addEventListener("click", () => {
+  closeNotifications();
+  $("notif-btn").setAttribute("aria-expanded", "false");
+});
+$("notif-clear").addEventListener("click", () => {
+  localStorage.removeItem(NOTIFICATIONS_KEY);
+  localStorage.setItem(NOTIFICATIONS_READ_KEY, String(Date.now()));
+  openNotifications(); // redraw in place: the panel stays open, now empty
+});
+// Click-away and Escape, the same two gestures every other popup here honours.
+document.addEventListener("click", (event) => {
+  const panel = $("notif-panel");
+  if (panel.classList.contains("hidden")) return;
+  if (event.target.closest(".notif-wrap")) return;
+  closeNotifications();
+  $("notif-btn").setAttribute("aria-expanded", "false");
+});
+renderNotificationBadge();
+
+// Watch the settings worth surviving a restart *before* anything can write
+// one (§35E). Installed here rather than inside startApp because the tab
+// restore below writes `activeTab`, and a write that happens before the watch
+// is a write the server never hears about.
+watchMirroredUiKeys();
+
 // Apply saved appearance prefs immediately, then start the background.
 applyAppearance();
 if (bgArtOn()) startBgArt();
@@ -15161,7 +16361,7 @@ switchTab(localStorage.getItem("activeTab") || "notes");
 // Settings modal (Wave A).
 $("settings-btn").addEventListener("click", () => openSettingsModal());
 $("settings-close").addEventListener("click", closeSettingsModal);
-$("settings-peek").addEventListener("change", (e) => setSettingsPeek(e.target.checked));
+$("settings-peek").addEventListener("click", () => setSettingsPeek(!settingsPeekIsOn()));
 $("local-only-ai").addEventListener("change", async (e) => {
   const on = e.target.checked;
   await apiJson("/preferences", {
@@ -15458,6 +16658,27 @@ $("graph-refresh").addEventListener("click", () => {
   renderGraph();
 });
 $("graph-similarity").addEventListener("change", renderGraph);
+// The tuned-once controls, folded away. Remembered, because whether you want
+// physics sliders on screen is a property of how you use the map rather than
+// of one visit — and because a panel that reopens closed every time is one
+// people stop opening.
+$("graph-options-toggle").addEventListener("click", () => {
+  const panel = $("graph-options");
+  const open = panel.classList.toggle("hidden") === false;
+  $("graph-options-toggle").setAttribute("aria-expanded", String(open));
+  $("graph-options-toggle").classList.toggle("is-on", open);
+  localStorage.setItem("graph-options-open", open ? "1" : "0");
+});
+// Trace (§9). The pickers themselves do not fire a trace on change: picking
+// the first of two notes should not run a search that can only fail.
+$("graph-trace-run").addEventListener("click", runTrace);
+$("graph-trace-clear").addEventListener("click", () => clearTrace());
+// What the colours mean, remembered like the layout is — it is a property of
+// how you read your notebook, not of one visit.
+$("graph-colour").addEventListener("change", (event) => {
+  localStorage.setItem("graph-colour", event.target.value);
+  renderGraph();
+});
 $("graph-hide-orphans").addEventListener("change", renderGraph);
 // Labels toggle just flips a class — no need to rebuild the whole map.
 $("graph-labels").addEventListener("change", (e) => {
@@ -15659,11 +16880,37 @@ $("reminder-time").addEventListener("input", syncDueFromParts);
 for (const button of document.querySelectorAll(".panel-close")) {
   button.addEventListener("click", () => showPanel(null));
 }
+// Reported broken three times, and driven end to end in a real browser twice
+// with the whole flow working — dialog, POST, empty bin, toast. So the button
+// is not what is wrong on the machine reporting it, and the third report is
+// really about this: **every way this could fail was silent.**
+//
+// `apiJson` throws on a non-2xx, and there was no catch, so a 401 from an
+// expired token, a 500 from a locked database, or an unreachable server all
+// produced exactly what was reported — a click, and nothing. No toast, no
+// change, nothing in the panel. A button that says "Couldn't empty the bin:
+// …" is a bug report; a button that says nothing is three sessions of
+// guessing.
+//
+// The in-flight state matters for the same reason: purging a large bin
+// deletes files from disk, which on a slow or network drive is seconds of
+// looking broken.
 $("bin-empty").addEventListener("click", async () => {
   if (!(await confirmDialog("Permanently delete everything in the bin? This cannot be undone."))) return;
-  const result = await apiJson("/recycle-bin/empty", { method: "POST" });
-  toast(`${result.removed} entr${result.removed === 1 ? "y" : "ies"} permanently deleted.`);
-  await renderBin();
+  const button = $("bin-empty");
+  const original = button.textContent;
+  button.disabled = true;
+  button.textContent = "Emptying…";
+  try {
+    const result = await apiJson("/recycle-bin/empty", { method: "POST" });
+    toast(`${result.removed} entr${result.removed === 1 ? "y" : "ies"} permanently deleted.`);
+    await renderBin();
+  } catch (error) {
+    toast(`Couldn't empty the bin: ${error.message}`, true);
+  } finally {
+    button.disabled = false;
+    button.textContent = original;
+  }
 });
 // --- [[ autocomplete ------------------------------------------------------------
 // The links work, but only if you remember how a note starts. Typing "[[" now
@@ -16274,6 +17521,11 @@ document.addEventListener("keydown", (e) => {
         return;
       }
     }
+  }
+  if (e.key === "Escape" && !$("notif-panel").classList.contains("hidden")) {
+    closeNotifications();
+    $("notif-btn").setAttribute("aria-expanded", "false");
+    return;
   }
   if (e.key === "Escape" && !$("onboarding-overlay").classList.contains("hidden")) {
     closeOnboarding();

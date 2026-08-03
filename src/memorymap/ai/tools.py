@@ -28,7 +28,7 @@ from memorymap.ai import skills
 from memorymap.core import deps
 from memorymap.core.database import Category, EmbeddingRecord, Entry, Reminder
 from memorymap.core.logbuffer import safe_value
-from memorymap.entry import manager
+from memorymap.entry import manager, paths
 from memorymap.search import search_manager
 
 
@@ -254,16 +254,37 @@ def _refresh_embedding(session: Session, entry: Entry) -> None:
 
 def _search_notes(session: Session, args: dict) -> dict:
     limit = _limit_arg(args, default=5)
-    entries, mode = search_manager.retrieve(
+    found = search_manager.retrieve_detailed(
         session, str(args["query"]), deps.get_embeddings(), limit=limit
     )
-    return {
-        "found": len(entries),
-        "search_mode": mode,
-        "notes": [_note_summary(session, e) for e in entries],
+    notes = []
+    for entry in found.entries:
+        summary = _note_summary(session, entry)
+        if entry.id in found.connected_ids:
+            # **Why this note is here.** It did not match the search — it is
+            # connected to something that did. Without saying so the model
+            # reports it as a result, which is a quiet fabrication: the user
+            # asked about X and is told a note about Y "came up", when what
+            # actually happened is that they once linked the two.
+            summary["why"] = "not a match — connected to one of the matches above"
+        notes.append(summary)
+    result = {
+        "found": len(found.entries),
+        "search_mode": found.mode,
+        "notes": notes,
         "how_to_read_more": _READ_MORE,
         "label": f"🔍 Searched notes for “{_clip(str(args['query']), 40)}”",
     }
+    if found.when_phrase:
+        # The question carried a date range and it was applied. Said out loud
+        # so the model does not answer "you have no notes about that" when the
+        # truthful answer is "none in that week".
+        result["filtered_by_date"] = (
+            f"Only notes written {found.when_phrase} were considered"
+            + (f" ({found.since} to {found.until})" if found.since else "")
+            + ". Say so if the answer is that there are none in that period."
+        )
+    return result
 
 
 def _get_note_tool(session: Session, args: dict) -> dict:
@@ -524,6 +545,183 @@ def _related_notes(session: Session, args: dict) -> dict:
         result["truncated"] = (
             f"Stopped at {MAX_GRAPH_NOTES} notes, nearest first. There may be more."
         )
+    return result
+
+
+def _path_between(session: Session, args: dict) -> dict:
+    """"How are these two related?" — the chain, not the neighbourhood (§9).
+
+    `related_notes` answers "what is near this note". This answers "what joins
+    these two", which the model could previously only attempt by walking one
+    note's neighbourhood, then another's, and eyeballing the overlap — three
+    rounds and a guess for something the notebook knows exactly.
+
+    Private notes are not in the graph this searches (`include_private=False`).
+    The model may not read one, so a route *through* one would put a preview it
+    is barred from into an answer, and a route *to* one would hand it an id it
+    cannot open.
+
+    The failure case is written out as prose deliberately. "No path" with no
+    reason invites the model to invent one — the notebook's most-used tag being
+    ignored is exactly the kind of thing it would otherwise explain away.
+    """
+    source = _require_note(session, args, "note_id")
+    target = _require_note(session, args, "other_note_id")
+    index = paths.build(session, include_private=False)
+
+    if source.id == target.id:
+        raise ToolError("Those are the same note — pick two different ones.")
+    chain = paths.find(index, source.id, target.id)
+    if chain is None:
+        both_connected = all(
+            paths.degree(index, note.id) > 0 for note in (source, target)
+        )
+        return {
+            "found": False,
+            "from": source.id,
+            "to": target.id,
+            "label": f"🚫 No path between #{source.id} and #{target.id}",
+            "note": (
+                "These two notes are not connected — not by a link, not by a "
+                "reply, and not by a shared tag, within "
+                f"{paths.MAX_PATH_HOPS} steps. "
+                + (
+                    "Both are connected to other notes, just not to each other. "
+                    if both_connected
+                    else "At least one of them is connected to nothing at all. "
+                )
+                + "Say so plainly rather than describing a connection you "
+                "cannot see; use link_notes if the user wants them joined up."
+            ),
+        }
+
+    hops = [
+        {
+            "from": step.source,
+            "to": step.target,
+            "how": step.how,
+            # The words the answer should use. A step's kind is what the model
+            # must not get wrong: reporting a shared tag as "you linked these"
+            # is the same class of mistake as claiming a write that never
+            # happened (§35B), one degree quieter.
+            "kind": step.kind,
+        }
+        for step in chain
+    ]
+    order = [source.id] + [step.target for step in chain]
+    return {
+        "found": True,
+        "from": source.id,
+        "to": target.id,
+        "hops": len(chain),
+        # Not `_graph_summary`: its `how`/`hops` fields answer "how far is this
+        # from the note you asked about", which on a path is said by the
+        # position in the list and by the step beside it.
+        "path": [
+            {
+                "id": note_id,
+                "preview": _clip(
+                    _readable(index.entries[note_id]), GRAPH_PREVIEW_CHARS
+                ),
+                "category": manager.category_name_for(session, index.entries[note_id]),
+            }
+            for note_id in order
+        ],
+        "steps": hops,
+        "label": (
+            f"🛣 {len(chain)} step{'' if len(chain) == 1 else 's'} from "
+            f"#{source.id} to #{target.id}"
+        ),
+        "how_to_read_more": (
+            "Each step says how the two notes are joined: a link somebody made, "
+            "a reply thread, or a tag they share. Describe the chain in that "
+            "order and name the notes by their text, not only by id."
+        ),
+    }
+
+
+#: How many clusters and orphans come back. A structural answer is a summary by
+#: definition — "you have 43 unconnected notes, here are the first eight" is
+#: the useful shape, and listing all 43 spends the window on a list nobody
+#: reads to the end.
+MAX_STRUCTURE_ROWS = 8
+
+
+def _notebook_structure(session: Session, args: dict) -> dict:
+    """What the notebook *looks like* — clusters, hubs, and what is adrift.
+
+    The gap this closes is bigger than it sounds. The model could count notes,
+    list categories and list tags, all of which describe the **filing**. Nothing
+    described the **structure**: which notes are actually joined up, where they
+    cluster, which one everything hangs off, and which are connected to nothing
+    at all. So "tidy up my notebook" was answered by looking at category names,
+    which is the one view of a notebook that says nothing about how its ideas
+    relate.
+
+    This is the tool behind an honest answer to "what should I link?" — the
+    orphan list is the answer, and it is a fact rather than a guess.
+    """
+    index = paths.build(session, include_private=False)
+
+    def category_of(entry) -> str:  # noqa: ANN001 — Entry, kept off the signature
+        return manager.category_name_for(session, entry)
+
+    groups = paths.clusters(index, category_of)
+    big = [c for c in groups if len(c.ids) >= paths.MIN_CLUSTER_NOTES]
+    loose = paths.orphans(index)
+
+    def row(note_id: int, extra: dict | None = None) -> dict:
+        entry = index.entries[note_id]
+        out = {
+            "id": note_id,
+            "preview": _clip(_readable(entry), GRAPH_PREVIEW_CHARS),
+        }
+        out.update(extra or {})
+        return out
+
+    result = {
+        "notes": len(index.entries),
+        "connected": len(index.entries) - len(loose),
+        "orphan_count": len(loose),
+        "cluster_count": len(groups),
+        "clusters": [
+            {
+                "size": len(cluster.ids),
+                "categories": cluster.categories[:3],
+                # The best-connected member, named rather than numbered. A
+                # cluster the model can only call "cluster 2" is one the user
+                # cannot picture.
+                "centre": row(cluster.core_id),
+            }
+            for cluster in big[:MAX_STRUCTURE_ROWS]
+        ],
+        "hubs": [
+            row(note_id, {"connections": count})
+            for note_id, count in paths.hubs(index, MAX_STRUCTURE_ROWS)
+        ],
+        "orphans": [row(note_id) for note_id in loose[:MAX_STRUCTURE_ROWS]],
+        "label": (
+            f"🕸 {len(index.entries)} notes, {len(groups)} cluster"
+            f"{'' if len(groups) == 1 else 's'}, {len(loose)} unconnected"
+        ),
+        "how_to_read_more": (
+            "A cluster is a group of notes all reachable from each other by "
+            "links, replies or shared tags. An orphan has none of the three. "
+            "Use path_between to explain how two notes connect, related_notes "
+            "to explore around one, and link_notes to join two up. Name notes "
+            "by their text as well as their id."
+        ),
+    }
+    if index.hub_tags:
+        result["ignored_tags"] = index.hub_tags[:5]
+        result["about_ignored_tags"] = (
+            f"Tags on more than {paths.HUB_TAG_NOTES} notes are treated as "
+            "filing rather than as connections — otherwise every note sharing "
+            "one would count as connected to every other. Notes joined only by "
+            "these are still reported as unconnected here."
+        )
+    if not loose and len(groups) <= 1:
+        result["note"] = "Every note is connected, in one web. That is unusual and good."
     return result
 
 
@@ -1914,6 +2112,37 @@ TOOLS: dict[str, ToolSpec] = {
             _related_notes,
         ),
         ToolSpec(
+            "path_between",
+            "Answer 'how are these two notes related?'. Returns the chain of "
+            "connections joining them — each step says whether it is a link "
+            "somebody made, a reply thread, or a tag the two share. Use this "
+            "for a question about two specific notes; use related_notes for "
+            "what surrounds one.",
+            {
+                "type": "object",
+                "properties": {
+                    "note_id": _NOTE_ID,
+                    "other_note_id": {
+                        "type": "integer",
+                        "description": "The note to find a route to",
+                    },
+                },
+                "required": ["note_id", "other_note_id"],
+            },
+            _path_between,
+        ),
+        ToolSpec(
+            "notebook_structure",
+            "See the SHAPE of the notebook rather than its filing: which notes "
+            "are clustered together, which are the best-connected hubs, and "
+            "which are connected to nothing at all. Use this before "
+            "reorganising, when asked what to link, or for 'what does my "
+            "notebook look like' — list_categories describes filing, this "
+            "describes structure.",
+            {"type": "object", "properties": {}},
+            _notebook_structure,
+        ),
+        ToolSpec(
             "get_note",
             "Read one note in full, by id. Use this after search_notes or "
             "list_notes, whose results are only short previews — read the note "
@@ -2556,9 +2785,26 @@ TOOL_GROUPS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
         ),
     ),
     (
-        ("link_notes", "unlink_notes", "related_notes"),
+        (
+            "link_notes",
+            "unlink_notes",
+            "related_notes",
+            "path_between",
+            "notebook_structure",
+        ),
         (
             "link", "connect", "related", "relate", "join", "graph", "together",
+            # What the notebook's shape gets called when somebody asks about
+            # it. "orphan" and "cluster" are the words the answer uses, so they
+            # are also the words the follow-up question uses.
+            "structure", "shape", "cluster", "orphan", "unconnected",
+            "disconnected", "isolated", "web", "map of",
+            # "how are these two related" and its phrasings. `path_between` is
+            # cued by the group rather than by a slot in CORE_TOOLS on purpose
+            # (§34 on a registry that should stop growing): a question about two
+            # notes always says one of these words, so the schema is only ever
+            # paid for on a turn that is already about connections.
+            "between", "path", "route", "how are", "what links",
             # The words people use when a connection is WRONG rather than
             # missing. Without them "unlink these" offered no way to do it.
             "unlink", "disconnect", "detach", "separate", "unrelated",
@@ -2610,20 +2856,85 @@ BROAD_REQUESTS = (
 )
 
 
-def focus_for(question: str) -> list[str] | None:
+# "Now do the thing we just talked about." The reported failure this exists
+# for: *"I asked it for suggestions on modifying my categories, and when I
+# asked it to implement the suggestions it just gave me the suggestions again
+# and no tool calls."*
+#
+# The cause was here and it is exact. `focus_for` read the current message and
+# nothing else, and "implement those suggestions" contains no category word —
+# so the turn was offered the reading core and no category tools at all. The
+# model was not being lazy; it had no `merge_categories` to call. The only
+# thing it *could* do was write the suggestions out again.
+#
+# A follow-through carries its subject in the turn before it, by definition.
+# So on these, the cue matching runs over the previous exchange as well, and
+# if that still finds nothing the turn gets everything — losing the tool the
+# user just asked for is far worse than sending schemas that go unused.
+FOLLOW_THROUGH = (
+    "do it", "do that", "do this", "go ahead", "go for it", "implement",
+    "apply", "make those", "make these", "make the changes", "carry on",
+    "proceed", "please do", "sounds good", "yes do", "action those",
+    "execute", "run it", "run them", "get on with", "let's do", "lets do",
+    "all of them", "both of them", "the first one", "the second one",
+    "that one", "option ", "your suggestion", "those suggestion",
+    "these suggestion", "as you suggested", "what you suggested",
+)
+
+#: A bare "yes", "ok", "sure" is a follow-through too, but only when it is the
+#: *whole* message — "yes, remind me tomorrow" says what it wants and should be
+#: read on its own terms.
+BARE_AGREEMENT = {
+    "yes", "yep", "yeah", "ok", "okay", "sure", "please", "go", "do it",
+    "y", "confirmed", "correct", "right", "agreed", "perfect", "great",
+}
+
+
+def is_follow_through(question: str) -> bool:
+    """Does this message mean "act on what we just discussed"?"""
+    text = f" {(question or '').lower().strip()} "
+    stripped = text.strip().strip(".!,").strip()
+    if stripped in BARE_AGREEMENT:
+        return True
+    return any(cue in text for cue in FOLLOW_THROUGH)
+
+
+def focus_for(question: str, recent: str = "") -> list[str] | None:
     """The tools worth offering for this question, or None for all of them.
 
     Deliberately keyword-driven rather than another model call: an extra
     round-trip to decide what to send would cost more than it saves, and a
     deterministic rule can be read, tested, and argued with.
+
+    `recent` is the previous exchange, and it is only consulted for a message
+    that means "now do it" — see FOLLOW_THROUGH. Reading history on *every*
+    turn would be worse than reading none: a question about beans, asked after
+    a conversation about deleting things, would be offered delete_note.
     """
     text = f" {(question or '').lower()} "
     if any(cue in text for cue in BROAD_REQUESTS):
         return None
+    # A follow-through's subject is in the turn before it. Matched over both,
+    # so "implement those suggestions" after a conversation about categories
+    # gets the category tools — and so an instruction that names its own
+    # subject ("apply that and also tag them") keeps its own cues too.
+    following = is_follow_through(question)
+    if following and recent:
+        text = f"{text} {recent.lower()} "
+        if any(cue in text for cue in BROAD_REQUESTS):
+            return None
     wanted = list(CORE_TOOLS)
+    matched = False
     for group, cues in TOOL_GROUPS:
         if any(cue in text for cue in cues):
             wanted.extend(group)
+            matched = True
+    if following and not matched:
+        # "Do it" and nothing in the conversation says what "it" is. The safe
+        # answer is the whole toolbox: this is precisely the turn where the
+        # user is expecting an action, so being unable to act is the one
+        # outcome that is certainly wrong.
+        return None
     # The web tools are the user's own opt-in, made per-notebook rather than
     # per-question; `tool_enabled` already hides them otherwise, and second-
     # guessing that switch here would mean "web search is on but I didn't

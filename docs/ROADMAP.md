@@ -65,16 +65,26 @@ Ordered by *how much it unlocks*, not by how much is left in the section.
    own beginning*, because `fit_history` drops the oldest pairs. What is left
    in §35I is the tool that lets the agent compress unprompted, and it now has
    a higher bar to clear: `make_plan` has taken a CORE_TOOLS slot since.
-2. **The graph's last mile (§9).** Walking it and suggesting connections are
-   done and token-budgeted. What is missing is *"how are these two related?"* —
-   a path between two notes — plus clusters and drag-to-link in the view. The
-   traversal code to build a path on is now there.
+2. ~~**The graph's last mile (§9).**~~ **built, and it went further than the
+   item asked.** Paths between two notes, clusters and drag-to-link are all in,
+   but the part worth carrying forward is that the traversal is now **one
+   engine** (`entry/paths.py`) with three surfaces — the API, two AI tools, and
+   the view — so a picture and an answer cannot disagree about what is
+   connected. And **it is in every answer**, not only the agent's: a note that
+   matches a search brings the notes it links to with it. What is left in §9 is
+   the *decorative* half (skins, minimap, PNG export) and the timeline-graph.
 3. **§20's async-httpx refactor.** Deliberately deferred during §6 so there
    would always be a known-good streaming path to bisect against. That reason
    has expired, and the cost of waiting is real: it now has to touch two
    clients instead of one, and grows with every provider added.
-4. **The live log console (§1)** — streamed, but not followed, filtered or
-   exportable.
+4. ~~**The live log console (§1)** — streamed, but not followed, filtered or
+   exportable.~~ **All three exist and work.** Checked in a browser before
+   building anything, which is the rule this file opens with: 413 records
+   streaming live with Follow ticked, a text filter that narrowed them to 1 and
+   said "412 records hidden by the filters above", a level filter, a source
+   filter, Copy all, Clear, and a support-bundle export. Nothing here needed
+   building — the entry was simply out of date. §1's remaining items are the
+   ones about *other* surfaces, not the console.
 5. **Chat / Agent / Browse sub-tabs (§3)** and **the Library tab (§4)**, the
    two biggest untouched UI sections.
 
@@ -876,9 +886,18 @@ Every one of these is desktop-only, which is itself the finding: `pywebview`
 is a different browser with a different origin and different file APIs, and
 nothing in the suite touches it.
 
-- **The theme resets to default on every start.**
-- **Onboarding shows every time**, so first-run state is not persisting either
-  — almost certainly the same root cause as the theme. If preferences are
+- ~~**The theme resets to default on every start.**~~
+- ~~**Onboarding shows every time.**~~ **Both fixed, and the guess below was
+  right: two symptoms, one storage.** Both lived in `localStorage` and nowhere
+  else. The look and the onboarding flag are mirrored into the notebook's own
+  preferences (`ui_state`) and seeded back for keys the browser has lost, so a
+  shell that does not persist localStorage gets them back and one that does
+  never notices. **The store is watched rather than its callers** — twenty-two
+  sites write these keys, and a save call added to each would rot the moment
+  somebody added the twenty-third. Reproduced and verified by wiping
+  localStorage in Chromium between loads.
+
+  Original note, kept for its reasoning: If preferences are
   keyed to an origin that changes per launch (or a storage API pywebview does
   not back), both fall out of one bug. **Find the storage first**; two symptoms
   with one cause is the likely shape.
@@ -925,21 +944,29 @@ button in 35F, and worth fixing together.
 
 ---
 
-### 35H. Streaming and rendering
+### 35H. Streaming and rendering — **the client half is not the problem**
 
-- **Agent steps do not stream.** Each section lands complete instead of being
-  written out. The server yields `answer` deltas per round, so the likely
-  cause is client-side: the skill/step timeline buffers a step's text and
-  renders it on completion, where the plain answer path uses
-  `liveMarkdownRenderer`. Making the step timeline use the same renderer is
-  the fix, and it is the difference between "the app is working" and "the app
-  has frozen" on a long run (§33's item 2 makes the same point about plans).
-- **Markdown gaps.** Screenshotted: `$\rightarrow$` renders literally. That is
-  LaTeX, not markdown — the model emitted it because it was asked for an
-  arrow. Two options and they are not exclusive: translate the small set of
-  LaTeX escapes models actually reach for (`\rightarrow`, `\to`, `\times`,
-  `\leq`) into their characters, and tell the model in the prompt to write
-  plain Unicode arrows. The prompt half is cheaper and prevents the rest.
+- ~~**Agent steps do not stream.**~~ **The client-side diagnosis below is
+  wrong, and it was worth an hour to find out rather than a rewrite.** Driven
+  in Chromium against a stream emitting one NDJSON line every 120ms, the answer
+  element inside a *plan run* grew 10 → 25 → 42 → 63 → 94 characters: the step
+  timeline already routes deltas through `liveMarkdownRenderer`, exactly as the
+  plain answer path does. The plan card, the ticked steps and the tool chips
+  all appeared in order.
+
+  **What is still possible, and is not disproved:** the *server* side.
+  `ollama_client._ToolTextGate` holds prose back while it decides whether the
+  text is the beginning of a tool call — which on a model that writes tool
+  calls as prose rather than as structured calls would look precisely like
+  "lands complete". That needs a real model to see, and it is the thing to
+  measure first if this is reported again. **Do not rewrite the timeline.**
+
+  Original note, kept because it is the reasoning that was checked: The server
+  yields `answer` deltas per round, so the likely cause is client-side: the
+  skill/step timeline buffers a step's text and renders it on completion.
+- ~~**Markdown gaps.**~~ **done** — `unlatex` translates the small set of LaTeX
+  escapes models reach for, and TOOLS_GUIDE tells the model to write symbols
+  plainly. Confirmed in a browser: `$\rightarrow$` renders as →.
   The §22 note applies: this is *inline* rendering, deliberately, and block
   elements are not wanted back.
 
@@ -1335,12 +1362,26 @@ controls in a different order.
    toolbar and the chat toolbar's end group; both now reset it at the width
    where wrapping starts. Any new toolbar wants checking for it.
 
-   Still open — the original note: Called out twice — once for layout generally and once
+   **The layout half is done now, and the decision it asked for is: the card is
+   the note.** Everything else supports it. What the measurement found was not
+   "equal weight" but weights *inverted* — a card was 25px of its own note,
+   23px of metadata and 21px of link chips, and the chips were the loudest
+   thing on it: filled, accent-coloured, weight 600, each carrying the whole
+   first line of another note. On a well-linked card the links were wider than
+   the note and read first.
+
+   A link is **navigation, not content**. The chips are clipped to 28
+   characters with the full text on hover, outlined rather than filled, muted
+   until the card is hovered, and their ✕ follows the card's other actions —
+   present on hover and focus, out of the way while reading. Scoped to
+   `#entry-list`, because the same chip on a reminder or a document *is* the
+   subject of its row and quietening those would be the opposite fix.
+
+   Original note: Called out twice — once for layout generally and once
    specifically for **note metadata and how it is visualised** (§35K). This is
    the most-looked-at surface in the app and the hardest to get right; it wants
    a decision about what a note card is *for* at a glance — is it the text, or
    is it the text plus its category, tags, dates, link count and privacy state?
-   Currently it is all of them at equal weight, which is why it reads as busy.
 
 ### 36C. ~~Reminders that you actually notice~~ — **built**
 
@@ -1410,11 +1451,24 @@ than implying otherwise.
 
 ### 36E. Notifications centre, and the changelog in-app
 
-- **A notifications centre**, as above: somewhere fired reminders, finished
-  background tasks, failed skill runs and completed re-indexes accumulate.
-  MemoryMap already *produces* all of these events and shows each of them in
-  its own way (a toast, a status pill, a step timeline); the centre is the
-  place they persist after their moment has passed.
+- ~~**A notifications centre**~~ **built.** A bell in the header, because an
+  event can arrive while you are on any tab and a notification you have to go
+  somewhere to find is one you never see. Fired reminders, finished background
+  jobs and runs that stopped early collect there, each actionable where there
+  is something to act on.
+
+  Three decisions worth not re-deriving. It is **not a second source of
+  truth**: a fired reminder is still a row in the reminders table, and opening
+  the panel folds in whatever is *currently* overdue — which is the one case an
+  event log cannot cover, a reminder that came due while nothing was running to
+  notice. It is **not stored server-side**: these are ephemeral and there can
+  be many, and the notebook's preferences file is not a log. And it **says on
+  screen** that nothing fires while the app is closed, rather than implying
+  otherwise.
+
+  Original note, kept: MemoryMap already *produces* all of these events and
+  shows each of them in its own way (a toast, a status pill, a step timeline);
+  the centre is the place they persist after their moment has passed.
 - ~~**Read `CHANGELOG.md` in the app.**~~ **done.** Served from the real file
   and rendered in Settings → About, folded shut. Serving the file is the point:
   a second in-app list would say roughly the same things and drift within a

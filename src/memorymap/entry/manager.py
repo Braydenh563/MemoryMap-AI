@@ -320,6 +320,24 @@ def _hard_delete(session: Session, entries: list[Entry], uploads_dir: Path | Non
     return len(ids)
 
 
+def purge_entries(
+    session: Session, entries: list[Entry], uploads_dir: Path | None = None
+) -> int:
+    """Permanently delete specific notes. Commits.
+
+    The named half of `_hard_delete`, so "delete this one for good" and "empty
+    the bin" destroy a note by exactly the same code — vectors, links, files,
+    and re-parenting any replies. Two implementations of permanent deletion is
+    how one of them ends up leaving an orphaned embedding behind, which is a
+    note that is gone from the list and still findable by search.
+    """
+    count = _hard_delete(session, entries, uploads_dir=uploads_dir)
+    if count:
+        log_action(session, "purged", "entry", entries[0].id, f"{count} entries")
+    session.commit()
+    return count
+
+
 def empty_recycle_bin(session: Session, uploads_dir: Path | None = None) -> int:
     """Manual 'empty now' (plan Phase 4). Commits."""
     binned = list(session.scalars(select(Entry).where(Entry.is_deleted == True)))  # noqa: E712

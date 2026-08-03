@@ -269,8 +269,14 @@ def build_messages(
 
     numbered = "\n".join(
         # A note the user attached by hand is flagged, so the model treats it
-        # as the subject rather than as one more search hit.
-        f"{i}. [{note['category']}]{' (attached by me)' if note.get('attached') else ''} "
+        # as the subject rather than as one more search hit — and a note that
+        # arrived because it is *linked* to a hit is flagged too, for the
+        # opposite reason: it did not match, and an answer that presents it as
+        # though it did is telling the user their search found something it
+        # did not.
+        f"{i}. [{note['category']}]"
+        f"{' (attached by me)' if note.get('attached') else ''}"
+        f"{' (not a match — linked to one of the above)' if note.get('connected') else ''} "
         # No tools on this path by definition — it is the plain librarian
         # prompt — so notes get the larger allowance and an honest marker.
         f"{note_for_prompt(note, UNTOOLED_NOTE_CHARS, can_fetch=False)}"

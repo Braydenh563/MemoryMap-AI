@@ -18,7 +18,7 @@ from memorymap.ai.ollama_client import OllamaError
 from memorymap.core import deps
 from memorymap.core.database import Category, Entry, utcnow
 from memorymap.core.deps import get_session
-from memorymap.entry import manager
+from memorymap.entry import manager, paths
 
 router = APIRouter(prefix="/insights", tags=["insights"])
 
@@ -303,6 +303,50 @@ def _digest_notes(session: Session) -> list[dict]:
     ]
 
 
+def digest_structure_note(session: Session) -> str:
+    """One sentence about how this week's notes sit in the notebook, or "".
+
+    The digest could see the week's notes and their categories and nothing
+    else — which means it could summarise *what* you wrote and never notice
+    that five of those notes are joined to nothing, or that three of them
+    landed in the same corner of the notebook. That is the thing a weekly recap
+    is actually for, and it is exactly what the graph knows.
+
+    Deliberately **facts, not adjectives**: counts the model can repeat and the
+    user can verify by clicking, rather than a judgement it would have to take
+    on trust. And deliberately one sentence — this rides in the prompt of a
+    background job on a utility model, and §11a's budget applies here as much
+    as anywhere.
+    """
+    cutoff = utcnow() - timedelta(days=7)
+    fresh = list(
+        session.scalars(
+            select(Entry).where(
+                Entry.is_deleted == False,  # noqa: E712
+                Entry.is_private == False,  # noqa: E712
+                Entry.created_at >= cutoff,
+            )
+        )
+    )
+    if not fresh:
+        return ""
+    index = paths.build(session, include_private=False)
+    loose = set(paths.orphans(index))
+    unconnected = [entry for entry in fresh if entry.id in loose]
+    if not unconnected:
+        return (
+            f" Every one of this week's {len(fresh)} notes is connected to "
+            "something else in the notebook — say so briefly, it is worth "
+            "knowing."
+        )
+    return (
+        f" Of this week's {len(fresh)} notes, {len(unconnected)} are connected "
+        "to nothing else in the notebook — no link, no reply, no shared tag. "
+        "Mention that count and name one or two of them, so they can be tied "
+        "in. Do not guess at connections that are not there."
+    )
+
+
 @router.post("/digest/stream")
 def weekly_digest_stream(session: Session = Depends(get_session)) -> StreamingResponse:
     """The weekly digest, streamed token by token (NDJSON).
@@ -329,7 +373,7 @@ def weekly_digest_stream(session: Session = Depends(get_session)) -> StreamingRe
             return
 
         messages = librarian.build_messages(
-            DIGEST_QUESTION,
+            DIGEST_QUESTION + digest_structure_note(session),
             notes,
             style=config.get_preference("communication_style", "friendly"),
             profile="",
@@ -380,8 +424,7 @@ def weekly_digest(session: Session = Depends(get_session)) -> dict:
     # frozen for the day (Wave J follow-up).
     ollama_running = deps.get_ollama().is_running()
     digest, thinking = librarian.answer(
-        "Give me a short digest of what I saved this week — group by topic and "
-        "call out anything that looks important or unfinished.",
+        DIGEST_QUESTION + digest_structure_note(session),
         notes,
         deps.get_model_manager(),
         deps.get_ollama(),

@@ -2,13 +2,15 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the AGPL/MIT constraint) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session: §37's top four, done
+## Latest session: §37's top five, done
 
-Worked §37's own priority list in order. **37B decided (no lock-screen Quit
-button — the LAN-DoS trade-off wasn't worth a convenience button, decided with
-the user directly). 37D.1, 37J and 37F are built and verified in Chromium** —
-details and the reasoning are in ROADMAP.md's §37B/§37D/§37F/§37J, updated in
-place rather than duplicated here.
+Worked §37's own priority list in order, straight through 37B–37E. **37B
+decided (no lock-screen Quit button — the LAN-DoS trade-off wasn't worth a
+convenience button, decided with the user directly). 37D.1, 37J, 37F and 37E
+are built and verified in Chromium** — details and reasoning are in
+ROADMAP.md's §37B/§37D/§37F/§37J/§37E, updated in place rather than duplicated
+here. **Next up per §37's own ranking: 37C, the chat dock density pass** —
+37C's own note says to re-look at it only after 37E ships, which it now has.
 
 **37F had a real surprise worth internalising**: most of "the graph toolbar is
 bulky" was already fixed the *day before* that section was written
@@ -18,16 +20,24 @@ grep, an actual look) is what caught it; building against the roadmap
 paragraph instead would have redone finished work. The one genuine gap —
 Trace as a permanent row — was real and is now fixed.
 
-**Next up per §37's own ranking: 37E, the zoom setting.** It needs a design
-spike (CSS `zoom` vs a root `font-size` percentage vs `transform: scale`)
-before code — see §37E in ROADMAP.md for the trade-offs already written out.
+**37E (zoom) turned out to need less new design than its own write-up
+expected**, because a check answered the "which CSS mechanism" question before
+any prototype branch was needed: `data-fontsize="small"/"large"` already
+scales the root font in production, and control heights/icons are already in
+rem, so a root-`font-size` percentage was already proven to reach everything.
+The one real design question — zoom fighting Text size over the same
+`font-size` property, not zoom fighting density as §37E's write-up predicted —
+was solved with one multiplying custom property (`--zoom`, composed via
+`calc()`), not a rethink of either control.
 
 **What I could not check:** anything about a real model (unchanged, standing
-caveat), and the desktop shell. Everything UI in this session's four items
+caveat), and the desktop shell. Everything UI in this session's five items
 *was* driven in Chromium — screenshots, a resize drag measured before and
-after, a full page reload to confirm `graph-trace-open`/web-panel-width
-persistence, and a full `pytest tests/` (~1,600 tests) plus `ruff check .`
-green afterward.
+after, root `font-size` measured in the DOM at three zoom levels, full page
+reloads to confirm `graph-trace-open`/web-panel-width/zoom persistence
+(including via the server-mirrored `ui_state` path, not just `localStorage`),
+and a full `pytest tests/` (~1,600 tests) plus `ruff check .` green after each
+batch.
 
 ---
 

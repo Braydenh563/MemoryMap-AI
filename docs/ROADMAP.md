@@ -1782,7 +1782,7 @@ buttons need some ui adjustments."* Three distinct asks:
    under the column layout. Worth a screenshot from the user showing the
    specific awkwardness rather than re-deriving blind.
 
-### 37E. A UI zoom setting in Appearance
+### 37E. A UI zoom setting in Appearance — done
 
 *"my computer is a small 13-inch laptop so I need to go to like 80% browser
 zoom to see everything and not have it so squished or narrow."* A real,
@@ -1790,35 +1790,40 @@ common case the app currently has no answer for beyond the browser's own
 Ctrl+/Ctrl- — which resets on every launch and is not a MemoryMap setting at
 all.
 
-This needs actual design before it is built, not just a slider:
+**Built on the third option this section weighed** — a root `font-size`
+percentage, not CSS `zoom` or `transform: scale` — because a check made the
+choice easy: `data-fontsize="small"/"large"` already scales the root font and
+ships today, and control heights/icons are already in rem (§35L's spacing
+scale), so a root-font-size change was already proven to reach them for free.
+`zoom`'s bad interaction with `--page-viewport`/`--page-sticky-h` and
+`transform: scale`'s "shrinks a fixed page instead of fitting more on it"
+were real risks the other two carried; this one doesn't.
 
-- **It is not the same axis as `--density`.** Density changes *spacing*
-  between controls at a fixed font size; a zoom setting needs to shrink
-  *everything* — type scale, control heights, icons, the graph and timeline —
-  proportionally, the way a browser's own zoom does. The two will fight each
-  other if not designed together: a "compact" density at 80% zoom and a
-  "spacious" density at 120% zoom are different requests answered by the same
-  two controls, and the settings screen needs to make that legible rather
-  than presenting two sliders that quietly interact.
-- **CSS `zoom` vs a root `font-size` percentage vs a `transform: scale` on
-  `<body>`.** All three have real trade-offs: `zoom` (non-standard but
-  supported everywhere that matters here) rescales layout *and* input, which
-  is closest to what a browser's own zoom does, but interacts oddly with
-  `100dvh`/`100vw` measurements this codebase already leans on heavily
-  (`--page-viewport`, `--page-sticky-h` from §36). `transform: scale` does not
-  reflow layout at all — it visually shrinks a fixed-size page, which is wrong
-  for "see more at once." A root `font-size` percentage is the least
-  surprising for a codebase already built on rem, but does not touch
-  hard-coded px values (there are some — `test_style_scale.py`'s corner-radius
-  lint exists because there used to be many more) and would need those
-  checked.
-- **Persisted like density** — `ui_state`, mirrored to the server the way
-  theme/palette already are (§35E), so it survives a shell that loses
-  `localStorage`.
+**The `--density`-vs-zoom collision this section worried about turned out to
+be a `--fontsize`-vs-zoom collision instead** — both want the same `font-size`
+property; density only touches spacing. Solved with one custom property:
+`--zoom` (percent/100, default `1`) multiplies into every `font-size` rule via
+`calc()` — `:root { font-size: calc(16px * var(--zoom)); }`, same pattern for
+`data-fontsize="small"/"large"` — so "Large text at 80% zoom" and "Normal text
+at 100%" land at related, non-fighting sizes. The settings row says so:
+*"Combines with Text size above."*
 
-Recommend starting with a small prototype of the `zoom` CSS property on a
-branch and running `test_style_scale.py` plus a Chromium screenshot at three
-zoom levels before committing to the approach.
+Wired exactly like `radius`/`glass-blur` (`APPEARANCE_DEFAULTS.zoom = "100"`,
+in `OVERRIDABLE_KEYS`, mirrored to `ui_state` the same as every other manual
+tweak, a 70–130% slider in Settings → Appearance → Typography & layout). No
+new persistence mechanism needed.
+
+Verified in Chromium at 1280×800 (the reported 13" case): root `font-size`
+measured 16/12.8/20.8px at 100/80/130%, `--zoom` matched (1/0.8/1.3), the
+value survived a full reload including via the server-mirrored path (a fresh
+browser with empty `localStorage` picked it back up from `ui_state`), and the
+chat dock and graph toolbar (§37F) both stayed legible and unclipped at 80%
+with real headroom. `test_style_scale.py` (unaffected — margin/padding/gap
+only) and the full suite stayed green.
+
+**Not done, worth naming:** JS pixel constants (`SIDEBAR_MIN`/`MAX`,
+`WEB_PANEL_MIN`/`MAX` from §37D.1, the timeline's grid-template maths) don't
+scale with `--zoom` — container floors, not text sizing, out of scope here.
 
 ### 37F. The graph toolbar — bulky, and specifically why — done
 
@@ -1973,21 +1978,19 @@ the way §36 itself was.
 ---
 
 **Priority order for the next session**, all of the above folded in. **Items
-1–4 below are now done** — 37B decided (no), 37D.1/37J/37F built and verified
-in Chromium — this session picked up the list in exactly this order:
+1–5 are now done** (37B decided no; 37D.1/37J/37F/37E built, verified in
+Chromium) across two sessions picking up this list in order:
 
-1. ~~**37B's decision**~~ **Decided: no.** See §37B above.
-2. ~~**37D.1** (resizable web panel)~~ **Done.** See §37D above.
-3. ~~**37J** (Timeline)~~ **Done.** See §37J above.
-4. ~~**37F** (graph toolbar)~~ **Mostly already done before this session
-   started** (§37F's correction note); the one real gap — Trace as a
-   permanent row — is now fixed too.
-5. **37E** (zoom setting) — **start here next.** The highest-leverage single
-   feature on the list (fixes "everything feels cramped" for one user on one
-   machine, at the root, once) but needs the design spike described above
-   before code.
-6. **37C** (chat dock density pass) — re-look at it *after* 37E ships, per
-   37C's own note.
+1. ~~**37B's decision**~~ **Decided: no.** See §37B.
+2. ~~**37D.1** (resizable web panel)~~ **Done.** See §37D.
+3. ~~**37J** (Timeline)~~ **Done.** See §37J.
+4. ~~**37F** (graph toolbar)~~ **Mostly already done before it was picked
+   up** (§37F's correction note); the real gap — Trace as a permanent row —
+   is fixed too.
+5. ~~**37E** (zoom setting)~~ **Done.** See §37E — built on the root
+   `font-size` option, composing with `data-fontsize` via `--zoom`.
+6. **37C** (chat dock density pass) — **start here next**, now that 37E has
+   shipped, per 37C's own note.
 7. **37I** (compress as a tool) — needs the review-step decision first.
 8. **37G / 37H / 37K** — each needs one clarifying question answered before
    it can be scoped; ask, then schedule.

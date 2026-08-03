@@ -1793,6 +1793,26 @@ Link to another note with [[its first few words]]."></textarea>
                   <span class="slider-value" id="radius-value">14px</span>
                 </div>
               </div>
+
+              <!-- §37E: "my computer is a small 13-inch laptop so I need to go
+                   to like 80% browser zoom to see everything." A browser's own
+                   zoom resets on every launch and isn't a MemoryMap setting —
+                   this is. Scales the root font-size, not a CSS `zoom` or
+                   `transform: scale`: the whole app is already built on rem,
+                   so control heights, icons and spacing (all in rem) follow
+                   for free, the same way Text size above already proves this
+                   approach works for this codebase. -->
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Zoom</span>
+                  <small class="muted">Scales the whole interface, like a browser zoom that stays set. Combines with Text size above.</small>
+                </div>
+                <div class="row setting-control">
+                  <input id="zoom-slider" type="range" min="70" max="130" step="5" value="100"
+                    aria-label="Interface zoom">
+                  <span class="slider-value" id="zoom-value">100%</span>
+                </div>
+              </div>
             </div>
 
             <!-- ---------- Effects & accessibility ---------- -->

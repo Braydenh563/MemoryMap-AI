@@ -29,6 +29,13 @@
      means the setting reaches everything spaced by a token, which is now
      everything. */
   --density: 1;
+  /* §37E: the interface-wide zoom, a percentage/100 set from JS. Multiplies
+     the root font-size below rather than using CSS `zoom` or `transform:
+     scale` — the app's control heights, icons and gaps are already in rem
+     (§35L), so they follow a root-font-size change for free, and this avoids
+     `zoom`'s known bad interactions with the `100dvh`/`100vw` measurements
+     `--page-viewport`/`--page-sticky-h` (§36) lean on. */
+  --zoom: 1;
   --space-1: calc(0.25rem * var(--density));
   --space-2: calc(0.4rem * var(--density));
   --space-3: calc(0.5rem * var(--density));
@@ -3625,9 +3632,15 @@ html { font-size: 16px; }
 }
 .seg button.active { background: var(--accent); color: #fff; }
 
-/* Text size scales the root font (rem-based layout follows). */
-:root[data-fontsize="small"] { font-size: 14.5px; }
-:root[data-fontsize="large"] { font-size: 18px; }
+/* Text size scales the root font (rem-based layout follows). Composed with
+   --zoom multiplicatively (§37E) rather than as a second, competing driver of
+   font-size — "Large text" at 80% zoom and "Normal text" at 100% zoom are
+   both legible requests, not a fight over the same property. The attribute
+   selectors' higher specificity beats the bare :root rule below regardless of
+   sheet order, so zoom applies whichever text size is active. */
+:root { font-size: calc(16px * var(--zoom)); }
+:root[data-fontsize="small"] { font-size: calc(14.5px * var(--zoom)); }
+:root[data-fontsize="large"] { font-size: calc(18px * var(--zoom)); }
 
 /* Compact density trims padding on cards and list rows. */
 

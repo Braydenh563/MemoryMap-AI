@@ -16469,6 +16469,7 @@ const APPEARANCE_DEFAULTS = {
   "bg-intensity": "90",
   radius: "14", // global corner rounding, px
   "glass-blur": "18", // frosted-glass blur strength, px
+  zoom: "100", // §37E: interface-wide scale, percent — multiplies the root font-size
   "bg-style": "aurora", // aurora | constellation | waves | bubbles | mesh
   palette: "default", // which curated colour set; themes select one
   // No accent by default: the palette supplies the colour until you pick one
@@ -16766,7 +16767,7 @@ function applyThemePreset(name, chosenByUser = false) {
 const OVERRIDABLE_KEYS = [
   "theme", "palette", "accent", "accent-custom", "page-bg", "font", "fontsize",
   "density", "radius", "glass", "glass-blur", "bg-style", "bg-motion",
-  "bg-intensity",
+  "bg-intensity", "zoom",
 ];
 
 function manualOverrides() {
@@ -17110,6 +17111,7 @@ function applyAppearance() {
   root.dataset.bgArt = bgArtOn() ? "on" : "off";
   root.style.setProperty("--radius", `${appearancePref("radius")}px`);
   root.style.setProperty("--glass-blur", `${appearancePref("glass-blur")}px`);
+  root.style.setProperty("--zoom", Number(appearancePref("zoom")) / 100);
   applyResolvedMode();
   // remember=false: this runs on every startup, and recording the resolved
   // value would pin whatever the theme supplied as a manual override — after
@@ -17269,6 +17271,8 @@ function renderAppearance() {
   $("radius-value").textContent = `${appearancePref("radius")}px`;
   $("glass-blur").value = appearancePref("glass-blur");
   $("glass-blur-value").textContent = `${appearancePref("glass-blur")}px`;
+  $("zoom-slider").value = appearancePref("zoom");
+  $("zoom-value").textContent = `${appearancePref("zoom")}%`;
   $("accent-custom").value = localStorage.getItem("accent-custom") || "#4f6df5";
   $("page-bg-custom").value = localStorage.getItem("page-bg") || "#f5f7fb";
   $("custom-css").value = localStorage.getItem("custom-css") || "";
@@ -17446,7 +17450,7 @@ function resetAppearance() {
     "fontsize", "font", "density", "glass", "motion", "bg-intensity", "accent",
     "contrast", "bgArt", "theme", "radius", "glass-blur", "bg-style",
     "bg-motion", "palette", "themePreset",
-    "accent-custom", "page-bg", "custom-css",
+    "accent-custom", "page-bg", "custom-css", "zoom",
   ]) {
     localStorage.removeItem(key);
   }
@@ -17941,6 +17945,11 @@ $("radius-slider").addEventListener("input", (e) => {
 $("glass-blur").addEventListener("input", (e) => {
   localStorage.setItem("glass-blur", e.target.value);
   $("glass-blur-value").textContent = `${e.target.value}px`;
+  applyAppearance();
+});
+$("zoom-slider").addEventListener("input", (e) => {
+  localStorage.setItem("zoom", e.target.value);
+  $("zoom-value").textContent = `${e.target.value}%`;
   applyAppearance();
 });
 // Custom accent + page background.

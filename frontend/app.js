@@ -10319,7 +10319,7 @@ function graphNodeRadius(node) {
 
 function graphLayout() {
   const saved = localStorage.getItem("graph-layout");
-  return ["force", "tree", "radial"].includes(saved) ? saved : "force";
+  return ["force", "tree", "radial", "arc"].includes(saved) ? saved : "force";
 }
 
 // Gravity and Spread scale the force simulation, and the tree layouts do not
@@ -10332,7 +10332,7 @@ function setGraphPhysicsEnabled(layoutKind) {
   if (!box) return;
   const why = applies
     ? ""
-    : "Only applies to the Force (web) layout — a tree's positions come from its branches.";
+    : "Only applies to the Force (web) layout — the other layouts' positions come from the filing hierarchy, not physics.";
   box.classList.toggle("is-disabled", !applies);
   for (const id of ["graph-gravity", "graph-spread"]) {
     const slider = $(id);
@@ -10396,6 +10396,17 @@ const RADIAL_GAP = 82;
 const REPLY_RING = 78;
 const RADIAL_STEM = 10; // characters, for a label written down a shared spoke
 
+// The arc layout (§9's third hierarchy view, beside tree and radial): every
+// node — category, note and reply alike — sits on one baseline, in the same
+// left-to-right order a depth-first walk of the filing hierarchy would print
+// them in (so a category's notes stay contiguous), and a parent-child edge is
+// a shallow arc under the line instead of a tree's elbow or a radial's ring.
+// It reads at a glance what tree/radial cannot: how many branches a
+// notebook's filing has and how deep any one of them runs, in the width of a
+// single row rather than the height of a tree or the footprint of a circle.
+const ARC_STEP = 46; // horizontal spacing per node
+const ARC_LABEL_LIMIT = 20; // characters — diagonal labels have less room before they cross the next node's arc
+
 // Labels on the left half of the circle would read upside down, so they are
 // turned around — which swaps which way "outward" is for everything after.
 function radialFlip(node) {
@@ -10448,7 +10459,20 @@ function layoutHierarchy(nodes, kind, width, height) {
 
   const laid = d3.hierarchy(root, (d) => children.get(d.id) || []);
   const radial = kind === "radial";
-  if (radial) {
+  const arc = kind === "arc";
+  if (arc) {
+    // Pre-order: a category is visited before any of its notes, and each
+    // note before its own replies — so walking the hierarchy in this order
+    // and handing out one baseline slot per stop keeps every branch
+    // contiguous, the same property `separation` gives the tree and radial
+    // layouts a different way.
+    let slot = 0;
+    laid.eachBefore((point) => {
+      point.x = slot * ARC_STEP;
+      point.y = 0;
+      slot += 1;
+    });
+  } else if (radial) {
     // `d3.tree`, not `d3.cluster`: cluster rings a node by its *height*, so a
     // category that happened to contain a thread was drawn one ring closer in
     // than its siblings and the circle came out ragged. Here a ring means a
@@ -10495,6 +10519,11 @@ function layoutHierarchy(nodes, kind, width, height) {
       node.radius = point.y;
       node.x = point.y * Math.cos(point.x - Math.PI / 2);
       node.y = point.y * Math.sin(point.x - Math.PI / 2);
+    } else if (arc) {
+      // Already the real coordinates — assigned above, once, in traversal
+      // order, and never touched again.
+      node.x = point.x;
+      node.y = point.y;
     } else {
       node.x = point.y; // depth runs left → right
       node.y = point.x;
@@ -10516,7 +10545,7 @@ function layoutHierarchy(nodes, kind, width, height) {
       });
     }
   });
-  return { nodes: placed, links, radial };
+  return { nodes: placed, links, radial, arc };
 }
 
 // A tree drawn with straight diagonals reads as a fan of loose string. Elbows
@@ -10532,6 +10561,20 @@ function hierarchyPath(link, radial) {
   }
   const mid = (a.x + b.x) / 2;
   return `M${a.x},${a.y}C${mid},${a.y} ${mid},${b.y} ${b.x},${b.y}`;
+}
+
+// The arc layout's own edge shape: every node sits on the same baseline (see
+// `layoutHierarchy`'s `arc` branch), so a parent-child edge is a flattened
+// half-ellipse dipping below the line rather than a tree's elbow or a
+// radial's ring-following curve. A pre-order walk always visits a parent
+// before its children, so `a.x < b.x` here always — the arc only ever needs
+// to sweep one way.
+function arcPath(link) {
+  const { source: a, target: b } = link;
+  const rx = Math.max((b.x - a.x) / 2, 1);
+  const ry = rx * 0.6; // flatter than a true semicircle — a full one over a
+  // long span dominates the map more than the connection it is drawing.
+  return `M${a.x},${a.y}A${rx},${ry} 0 0,1 ${b.x},${b.y}`;
 }
 
 // A tall tree does not want to be squeezed into the panel: zoomed to fit, 29
@@ -11138,7 +11181,7 @@ async function renderGraph() {
         .join("path")
         .attr("class", (d) => `graph-edge graph-edge-${d.kind}`)
         .attr("fill", "none")
-        .attr("d", (d) => hierarchyPath(d, tree.radial))
+        .attr("d", (d) => (tree.arc ? arcPath(d) : hierarchyPath(d, tree.radial)))
     : edgeLayer
         .selectAll("line")
         .data(edges)
@@ -11291,15 +11334,28 @@ async function renderGraph() {
       // has a reply hanging off it — are the ones that have to stay short.
       const limit = !tree
         ? 22
-        : !tree.radial
-          ? 30
-          : d.isGroup || d.shared
-            ? RADIAL_STEM
-            : 16;
+        : tree.arc
+          ? ARC_LABEL_LIMIT
+          : !tree.radial
+            ? 30
+            : d.isGroup || d.shared
+              ? RADIAL_STEM
+              : 16;
       return d.preview.length > limit ? d.preview.slice(0, limit - 1) + "…" : d.preview;
     });
   if (!tree) {
     labels.attr("dy", (d) => graphNodeRadius(d) + 13);
+  } else if (tree.arc) {
+    // Every node sits on one baseline, so a label straight above or below it
+    // would collide with its neighbours within a single ARC_STEP. Tilted and
+    // pivoted on its own anchor point (not the origin), it reads outward from
+    // the node instead of overlapping the one next to it.
+    labels
+      .attr("x", (d) => graphNodeRadius(d) + 6)
+      .attr("y", 0)
+      .attr("dy", "0.31em")
+      .attr("transform", (d) => `rotate(-40, ${graphNodeRadius(d) + 6}, 0)`)
+      .style("text-anchor", "start");
   } else if (tree.radial) {
     // Rotated to its own radius and flipped on the left half, or every label
     // past the halfway point reads upside down. The hub is the exception: it
@@ -11373,7 +11429,9 @@ async function renderGraph() {
         ? " — filed left to right; replies branch off the note they answer."
         : layoutKind === "radial"
           ? " — categories around the centre; replies branch off the note they answer."
-          : " — bigger, brighter notes are the ones you use most.";
+          : layoutKind === "arc"
+            ? " — one line, filed left to right; arcs below show what answers what."
+            : " — bigger, brighter notes are the ones you use most.";
   $("graph-stats").textContent = parts.join(" · ") + shape;
 
   // Hover-highlight (spotlight a note's connections). Uses the same dimming

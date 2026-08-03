@@ -1900,16 +1900,24 @@ in front of them:
    interaction (capture a note, see it in Browse). **Start here next: §3's
    sub-tabs or §9's graph layouts below now have a safety net to build
    against**, which is the whole reason this was ranked ahead of them.
-3. **Graph layouts beyond tree/radial** (§9) — mind map / treemap / arc;
-   named the differentiator in ANALYSIS §30/§34, and nothing beyond the two
-   existing layouts has been built. **Checked this session and deliberately
-   not started**: `renderGraph()` is tightly integrated across drag, zoom-to-
-   fit, hover-adjacency highlighting, the trace overlay and the physics
-   sliders — a new layout means plugging into all of it, not writing one
-   D3 function, and doing that at the tail end of a long session risked
-   exactly the half-integrated feature CLAUDE.md warns against. Budget this
-   as its own session with room to verify visually against every one of
-   those interactions, not a slot at the end of another task.
+3. ~~**Graph layouts beyond tree/radial**~~ **one built — Arc — the rest
+   still open** (§9); named the differentiator in ANALYSIS §30/§34. A
+   previous session found `renderGraph()` tightly integrated across drag,
+   zoom-to-fit, hover-adjacency, the trace overlay and the physics sliders,
+   and deliberately did not start rather than risk a half-integrated layout.
+   This session budgeted the dedicated time that called for: Arc extends
+   `layoutHierarchy`/`hierarchyPath`/`frameTree` with a third static-position
+   case (nodes on one baseline in hierarchy-traversal order, parent-child
+   edges as flattened arcs under the line) rather than a separate rendering
+   path, so it inherits drag-pin, zoom-to-fit, hover-adjacency and the
+   physics-disable check for free — the same reuse tree and radial already
+   share. Full details and the "hierarchy, not `entry_links`" scoping
+   decision are in BACKLOG.md §9. **Mind map (from one note, by
+   `entry_links` hops), treemap/sunburst and adjacency matrix are still
+   unbuilt** — each is a materially different rendering approach (area-based,
+   or matrix-based, or link- rather than hierarchy-based) rather than a
+   fourth case slotted into the same static-hierarchy shape Arc reused, so
+   none of them inherit today's integration for free the way Arc did.
 4. **Timeline branch/line view** (§10C) — asked for twice directly; §37J
    already fixed the existing view's bugs, so this is additive, not a second
    pass over the same two problems.

@@ -856,8 +856,24 @@ different picture:
 - **Treemap / sunburst** — area as weight, so a category with 200 notes looks
   like one. Best for "where does my writing actually go?", and the only layout
   here that answers a question about proportion.
-- **Arc diagram** — notes on one line, links as arcs above it. Ugly for
-  browsing, excellent for spotting the one note everything connects to.
+- ~~**Arc diagram**~~ **built, on the filing hierarchy rather than
+  `entry_links`.** Every node — category, note, reply — sits on one baseline
+  in the order a depth-first walk of the hierarchy visits them (so a
+  category's notes stay contiguous), with a parent-child edge as a flattened
+  half-ellipse under the line instead of tree's elbow or radial's ring. That
+  is a deliberate departure from this bullet's original "links as arcs"
+  description: tree and radial already draw the *filing* hierarchy rather
+  than `entry_links` — overlaying real links "turns the tree back into a web"
+  per `layoutHierarchy`'s own comment — and a third hierarchy view stays
+  consistent with that and reuses `layoutHierarchy`/`frameTree`/the drag-pin
+  behaviour those two already have, rather than building a second, parallel
+  rendering path for link-based arcs alongside the tree-based ones. A links-
+  as-arcs view is still a real, different possible layout — it just isn't
+  this one. Verified in Chromium against a seeded notebook with categories
+  and multi-level reply threads: renders with no invalid paths, labels read
+  diagonally without colliding within a step, physics sliders correctly
+  disable, and switching away to force/tree/radial and back regresses none
+  of them.
 - **Adjacency matrix** — no crossing edges at all, so it stays readable when a
   force graph has turned into wool. Worth it only once there are hundreds of
   links.

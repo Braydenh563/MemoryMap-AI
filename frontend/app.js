@@ -10949,6 +10949,19 @@ async function renderGraph() {
     .force("x", d3.forceX(width / 2).strength(0.04))
     .force("y", d3.forceY(height / 2).strength(0.06))
     .force("collide", d3.forceCollide().radius((d) => graphNodeRadius(d) + 24));
+  // How much larger than the visible frame the simulation may spread. 1.8 is
+  // not arbitrary: the clamp below has to be loose enough that the repulsion
+  // and collide forces, not the walls, decide where a node ends up — at 1.0
+  // (the frame itself) they packed into a lattice — and tight enough that the
+  // drift the clamp exists to stop is still bounded. Zoom-to-fit means a
+  // larger world is only ever a smaller starting zoom, never lost notes.
+  const GRAPH_WORLD_SCALE = 1.8;
+  const worldW = width * GRAPH_WORLD_SCALE;
+  const worldH = height * GRAPH_WORLD_SCALE;
+  const worldLeft = (width - worldW) / 2;
+  const worldTop = (height - worldH) / 2;
+  const worldRight = worldLeft + worldW;
+  const worldBottom = worldTop + worldH;
   if (tree) graphSimulation = null;
 
   // A tree's edges are curves between fixed points; the web's are lines that
@@ -11235,10 +11248,24 @@ async function renderGraph() {
     // map is open. The padding is the node radius plus room for its label,
     // which is drawn below the circle — a node clamped exactly to the edge
     // would have its own name outside the frame.
+    //
+    // **The box is the world, not the viewport**, and that distinction was
+    // the second bug. Clamping to `width`/`height` meant the simulation was
+    // solving inside the visible rectangle, and a graph box is wide and short
+    // — so a notebook of seventeen notes, each with a collide radius of about
+    // 50px, had nowhere to go but a lattice. Reported exactly as it looked:
+    // *"the graph nodes are like locked into a box"*. They were: repulsion
+    // pushed everything outwards, the walls pushed back, and what settles
+    // between those two is a grid.
+    //
+    // The world is a generous multiple of the frame instead, so the forces
+    // decide the shape and the clamp only stops the endless outward drift it
+    // was written for. Zoom-to-fit frames whatever they end up occupying, so
+    // a bigger world costs nothing on screen.
     for (const node of nodes) {
       const pad = graphNodeRadius(node) + 28;
-      node.x = Math.max(pad, Math.min(width - pad, node.x));
-      node.y = Math.max(pad, Math.min(height - pad, node.y));
+      node.x = Math.max(worldLeft + pad, Math.min(worldRight - pad, node.x));
+      node.y = Math.max(worldTop + pad, Math.min(worldBottom - pad, node.y));
     }
     edgeLines
       .attr("x1", (d) => d.source.x)

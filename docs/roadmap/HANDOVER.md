@@ -134,7 +134,18 @@ the dashboard streamed into a tab nobody was looking at.
    plumbing and the startup hook are wired and the thread is started; the
    container coming up is unverified.
 4. **The desktop shell and Windows.** Unchanged.
-5. **The Library's ⋯ menu positioning.** Reported this session as "off in
+5. **The graph's new world box.** The clamp that keeps nodes in frame used to
+   clamp to the *viewport*, which is wide and short — so repulsion pushed
+   outwards, the walls pushed back, and seventeen notes settled into a
+   lattice. Reported as *"the graph nodes are like locked into a box"*, which
+   is exactly what it was. The world is `1.8 ×` the frame now, so the forces
+   decide the shape and the clamp only bounds the endless drift it was written
+   for. **The reasoning is solid and I could not observe it** — the sandbox
+   reclaimed the server three times at the end of the session. `ruff`, the
+   full suite and `node --check` pass; the change is one constant and two
+   comparisons in the tick handler. Look at it first if the graph is reported
+   wrong, and if 1.8 is too loose the fit will simply start further out.
+6. **The Library's ⋯ menu positioning.** Reported this session as "off in
    positioning" on the cards view. I could not reproduce it before the session
    ended — `.menu-wrap` is already `position: relative`, so `right: 0` should
    anchor the menu to the ⋯ button, and what the screenshot shows may be the
@@ -156,7 +167,7 @@ done — the sidebar is fixed, the editor itself is untouched.
 
 ### 2. The Library's ⋯ menu, properly measured
 
-See caveat 5. It is a live report and it is unresolved. Half an hour with
+See caveat 6. It is a live report and it is unresolved. Half an hour with
 `elementFromPoint` settles whether there is a bug at all, which is worth more
 than a blind fix.
 

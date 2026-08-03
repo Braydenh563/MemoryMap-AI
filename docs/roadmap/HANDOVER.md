@@ -2,6 +2,127 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the AGPL/MIT constraint) · [HISTORY.md](HISTORY.md) (already built).
 
+## Latest session: four reported bugs, then §38's ranked list worked straight through
+
+Started with three quick user-reported UI bugs, found a second session
+mid-edit on the same branch fixing one of them (the web-result buttons) —
+resolved by asking the user, who kept this session going and stopped the
+other. From there, worked §38's ranked priority list top to bottom without
+stopping to ask, per the standing authorisation recorded lower in this file.
+Seven commits, each with its own full pytest run, `ruff check .`, and real
+Chromium verification (a running `uvicorn` + Playwright with a fake
+microphone device where audio was involved) before being pushed.
+
+**The three reported bugs, fixed first:**
+
+1. **Web search result buttons squeezed the title/snippet column.**
+   `.web-result-actions` was `display: flex` (row); two buttons made the
+   grid's `auto` actions column as wide as both combined. Changed to
+   `flex-direction: column; align-items: stretch`, and unified the ↗ link's
+   bespoke pill styling with the 💬 button's `.ghost.small` look — the two
+   were different radii/padding/weights stacked directly on top of each
+   other, which is likely what "need to be better formatted" was pointing at
+   in the follow-up round.
+2. **Notes sidebar height grew without bound.** `syncNotesSidebarHeight`
+   mirrored `main`'s `offsetHeight` into the sidebar's `min-height` via a
+   `ResizeObserver` on `main` — but growing the sidebar grows the shared
+   grid row (`align-items: stretch`), which grows `main`'s *stretched*
+   height, which re-fires the observer with a bigger number. Classic
+   self-triggering feedback loop. Deleted the JS entirely; `.layout`'s own
+   `align-items: stretch` plus the CSS floor already produces the right
+   height with nothing to loop. Verified stable across repeated
+   measurements and tab-away-and-back with 25 seeded notes — the exact
+   interaction a previous handover flagged as untried.
+3. **No back-to-top button on Chat.** The existing button already existed
+   app-wide, keyed off `.tab-page`'s own scroll position — but the chat
+   page's own `.tab-page` never scrolls (the *messages* pane does), so the
+   button was permanently invisible there without ever being in the
+   exclusion list. Made the button chat-aware: it now tracks and scrolls
+   `#chat-messages` specifically when that tab is active.
+
+**A second round of feedback** (chat dock "bulky", web buttons still
+"need better formatting", web panel "a little wider") turned out to already
+be written up, reasoned through and ranked in `ROADMAP.md §37C`/`§37D` from
+a previous session — built rather than re-derived: a `⚙` disclosure now
+holds the answer-length/persona pair (collapses the dock from two wrapped
+rows to one at normal widths), the two action buttons `align-items: stretch`
+to equal width, and `#web-panel`'s default width moved up a clamp step and
+gained a `min-width` floor after profiling showed `flex-shrink` was quietly
+pulling it below even its *old* minimum in a moderate window.
+
+**Then §38's ranked list, in order — items 3 through 7:**
+
+- **§9, the graph's Arc layout.** A previous session deliberately did not
+  start any new graph layout, flagging the integration risk across drag,
+  zoom-to-fit, hover-adjacency, the trace overlay and the physics sliders.
+  Built as a third case inside the *existing* `layoutHierarchy`/
+  `hierarchyPath`/`frameTree` machinery rather than a new rendering path, so
+  it inherited all of that integration the same way tree/radial already
+  share it, instead of re-earning it. Scoped to the filing hierarchy
+  (category/`parent_id`), matching tree/radial's own convention, not
+  `entry_links` — a deliberate departure from BACKLOG.md §9's original "arc
+  = links as arcs" line, written up there as such rather than silently
+  reinterpreted. Mind map, treemap/sunburst and adjacency matrix are still
+  unbuilt; none of them reuse today's static-hierarchy shape for free the
+  way Arc did, so each is its own scoping question.
+- **§10C, the Timeline's branch/line view.** A `View: Grid / Line` picker;
+  the line reuses the grid's own category/tag bands rather than §9's
+  separate cluster-detection endpoint — a deliberate scoping call, written
+  up in BACKLOG.md §10, over the original sketch's "linked-note cluster"
+  option. **Found and fixed a real bug while verifying in Chromium**: the
+  spine and branch-stub SVG lines have `fill: none` but are still
+  hit-tested along their stroke by default, and a deep band's stub runs
+  *past* every shallower lane on its way down — painted later, it silently
+  ate clicks meant for their dots. `pointer-events: none` on all three
+  decorative line types fixed it. This is the same shape of bug this file's
+  own trap list already warns about (a private stacking/hit-testing quirk
+  no amount of reading the code would have surfaced) — driving it in a
+  browser is what found it.
+- **§17, meeting notes.** Record → transcribe → review → save, a new
+  `/voice/transcribe-meeting` endpoint (300MB ceiling, vs. the existing
+  spoken-note endpoint's 25MB) sharing one `_transcribe_upload` helper with
+  it. **Action-item extraction — the feature's other half — was
+  deliberately not built**: it needs a real model call parsing free text
+  into several structured reminders, and this sandbox has neither
+  faster-whisper nor a running Ollama to check a new prompt's behaviour
+  against. Verified everything that could be verified without either: the
+  full record → (mocked) transcribe → review → save round trip in Chromium
+  with `--use-fake-device-for-media-stream`, the timer ticking in real
+  time, the graceful "faster-whisper not installed" path (genuinely true
+  here), and the saved note existing via the API with the right tag.
+- **§27, onboarding diagnostics.** A new "Your setup" slide reports Ollama
+  reachability and where the notebook lives/how big it is — needed **no new
+  backend**, since `/models/status` and `/storage` already existed and
+  already power the header pill and Settings → Data. Placed second (before
+  the capture slide), so a first capture landing in `Uncategorised` reads as
+  "Ollama isn't on yet" rather than "broken". The former "Explore your
+  graph" slide now also names the Timeline's Line view, closing
+  ANALYSIS.md's "product differentiation" gap with existing slide
+  machinery. Offering to pull a model, a `MEMORYMAP_DATA_DIR` writability
+  check, and the name/first-note/model-choice steps are still open —
+  BACKLOG.md §27 draws the line precisely.
+
+**What's next, and why this session stopped here rather than continuing
+down the list:** §38's remaining two items both genuinely need something
+this session couldn't supply itself. **Item 8, the `app.js` module split**,
+is a large mechanical refactor of a ~20k-line file with no single
+obviously-safe next slice — the roadmap's own sequencing says it should
+ride in on the sub-tabs work, which hasn't started as its own initiative.
+**Item 9, the rest of §37** (37G sketch image-upload vs. markitdown, 37H
+llama.cpp wiring, 37I compress-as-agent-tool, 37K emoji rendering, 37L the
+full-UI-audit umbrella) each explicitly need one clarifying question
+answered before they can be scoped at all, per §37's own writeup — guessing
+at the answer rather than asking would be exactly the kind of ungrounded
+work this file's standing caveats warn against.
+
+**What I could not check, unchanged from previous sessions**: anything
+involving a real model's actual behaviour (Arc's and the Timeline line
+view's *rendering* was verified with real seeded data; the meeting
+recorder's *transcription* itself was not, for the reason above), and the
+desktop shell.
+
+---
+
 ## Same session, continued again: four reported bugs, fixed as a bounded side-trip
 
 After §38's audit and its first three items landed, four real bugs were

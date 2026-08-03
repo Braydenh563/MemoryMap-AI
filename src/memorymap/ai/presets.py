@@ -85,13 +85,29 @@ MODES: dict[str, ResponseMode] = {
     "normal": ResponseMode(
         id="normal",
         label="Normal",
-        description="The balanced default.",
+        description="The balanced default — a full answer, not a summary.",
         # The value every turn used before presets existed, kept deliberately:
         # the default mode must not change anyone's experience on upgrade.
         max_output_tokens=1024,
         temperature=None,
         think=None,
-        length_hint="",
+        # **It used to say nothing at all, and that was the bug.** Reported:
+        # *"the normal (balanced) setting writes too concisely, it is closer to
+        # the quick setting."* Exactly right, and an empty hint is why — the
+        # two neighbouring modes both steer, so with no sentence of its own
+        # Normal inherited whatever the base prompt implied, and the base
+        # prompt is written for a local model on a budget and leans terse. A
+        # default that is the absence of an instruction is not a middle
+        # setting; it is whichever end the surrounding text happens to pull to.
+        #
+        # This asks for the middle explicitly. It does not raise the cap: 1024
+        # tokens is ~750 words and the old answers were nowhere near it, so the
+        # ceiling was never what was binding — the instruction was.
+        length_hint=(
+            " Give a complete answer in a short paragraph or two: say what the "
+            "notes actually say, with the specifics, rather than summarising "
+            "them in a sentence. Stop once the question is answered."
+        ),
     ),
     "detailed": ResponseMode(
         id="detailed",

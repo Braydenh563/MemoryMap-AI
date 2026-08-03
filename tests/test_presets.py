@@ -38,14 +38,17 @@ def ollama():
 # --- the default must not have moved ----------------------------------------
 
 
-def test_normal_is_exactly_what_every_turn_used_to_get(ollama):
-    """1,024 output tokens, no temperature, no thinking toggle. If this test
-    ever needs updating, upgrading changed everyone's chats without asking."""
+def test_normal_still_sends_exactly_the_runtime_options_it_always_did(ollama):
+    """1,024 output tokens, no temperature, no thinking toggle.
+
+    The *runtime* half of "upgrading must not change everyone's chats" still
+    holds and is what this pins. The prompt half deliberately no longer does —
+    see the next test.
+    """
     preset = presets.resolve("normal")
     assert preset.max_output_tokens == OllamaClient.DEFAULT_MAX_OUTPUT_TOKENS
     assert preset.temperature is None
     assert preset.think is None
-    assert preset.length_hint == ""
 
     options = ollama.runtime_options("m", mode="normal")
     assert options == ollama.runtime_options("m")
@@ -184,11 +187,33 @@ def test_the_openai_payload_carries_the_preset(openai_client, capture_post):
 
 
 def test_a_cap_without_a_hint_would_truncate_rather_than_shorten():
-    """The cap stops the model; the hint is what makes it produce a short
-    answer that *ends*. Quick has to say so in words."""
+    """The cap stops the model; the hint is what makes it produce an answer
+    that *ends*. Every mode has to say so in words."""
     assert librarian.length_hint("quick")
     assert librarian.length_hint("detailed")
-    assert librarian.length_hint("normal") == ""
+
+
+def test_normal_steers_too_rather_than_saying_nothing():
+    """This asserted `== ""` until a user reported what that costs:
+
+        *"I want the normal (balanced) setting to write a bit more. It writes
+        too concisely and it is closer to the quick setting."*
+
+    Correct, and the empty hint is the reason. Quick and Detailed both steer,
+    so with no sentence of its own Normal inherited whatever the base prompt
+    implied — and the base prompt is written for a local model on a token
+    budget and leans terse. **A default that is the absence of an instruction
+    is not a middle setting; it is whichever end the surrounding text pulls
+    to.** The middle has to be asked for like the other two.
+
+    The cap is untouched at 1,024 tokens (~750 words), which the short answers
+    were nowhere near — the ceiling was never what was binding.
+    """
+    hint = librarian.length_hint("normal")
+    assert hint, "Normal must steer, or it drifts to whatever the base prompt implies"
+    assert hint != librarian.length_hint("quick")
+    assert hint != librarian.length_hint("detailed")
+    assert presets.resolve("normal").max_output_tokens == 1024
 
 
 def test_the_hint_reaches_the_system_prompt():

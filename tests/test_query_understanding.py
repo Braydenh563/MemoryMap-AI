@@ -199,14 +199,30 @@ def test_expansion_never_reaches_a_private_note(session, fake_embeddings):
     assert secret.id not in {e.id for e in found}
 
 
-def test_a_dated_question_that_finds_nothing_stays_in_its_range(session, fake_embeddings):
-    """The "never look empty" fallback must not quietly drop the one constraint
-    the person actually stated.
+def test_a_dated_question_that_finds_nothing_answers_nothing(session, fake_embeddings):
+    """The "never look empty" fallback must not quietly drop *either* of the
+    constraints the person stated.
 
-    Asking about the allotment *last week*, with nothing about the allotment
-    that week, used to fall back to recent notes from any time at all — labelled
-    `recent`, with no sign the date had been ignored. Answering the wrong
-    question confidently is worse than answering none.
+    This test asserted the opposite until a user hit the case it was protecting.
+    The original half still holds and is still tested: asking about the allotment
+    *last week*, with nothing about the allotment that week, must not fall back
+    to notes from any time at all labelled `recent`. What was wrong was the
+    remedy — it fell back to *everything in the window*, which drops the subject
+    instead of the date and is the same mistake facing the other way.
+
+    Reported, in the shape that makes it obvious:
+
+        *"I have a note with a joke in it … when I go into the ask section and
+        say 'jokes I have saved recently', it doesn't show."*
+
+    It did not show. A note about a **gym routine** showed, because it was the
+    only thing inside the fortnight. From the outside that is indistinguishable
+    from the notebook claiming that gym routine is a joke it has on file.
+
+    Two constraints, and the answer to satisfying neither is not to satisfy the
+    less specific one — it is to say so. `dated` with nothing in it is a true
+    answer the caller renders as "nothing matching 'last week'", naming the
+    phrase so the next thing to try is obvious.
     """
     _note(session, "the allotment, everything about it", days_ago=90)
     this_week = _note(session, "unrelated, but from this week", days_ago=2)
@@ -215,9 +231,76 @@ def test_a_dated_question_that_finds_nothing_stays_in_its_range(session, fake_em
         session, "what did I write about the allotment last week", fake_embeddings
     )
     assert mode == "dated"
+    # Not the out-of-window match — the date was a real constraint.
     assert all(e.id != 90 for e in found)
-    # What it *can* honestly offer is what is in the window.
+    # And not the in-window non-match either — so was the subject.
+    assert this_week.id not in {e.id for e in found}
+    assert found == []
+
+
+def test_a_question_only_about_time_still_lists_its_window(session, fake_embeddings):
+    """The fallback above is narrowed, not removed.
+
+    With no subject there is only one constraint, so listing the window is not
+    dropping anything — it is the whole question, answered.
+    """
+    _note(session, "the allotment, everything about it", days_ago=90)
+    this_week = _note(session, "written this week", days_ago=2)
+
+    found, mode = search_manager.retrieve(
+        session, "what did I write last week", fake_embeddings
+    )
+    assert mode == "dated"
     assert this_week.id in {e.id for e in found}
+
+
+def test_recently_is_a_lean_not_a_boundary(session, fake_embeddings):
+    """"Recently" must not exclude, only prefer.
+
+    The reported case, reduced: two notes tagged as jokes, both older than the
+    fortnight that "recently" resolves to, and a recent note about something
+    else. Filtering on the vague word answered a question about jokes with the
+    gym routine. Nobody who says "recently" has a boundary in mind, and any
+    number this codebase picks for it is wrong for somebody by a day — so it
+    orders the matches and does not remove them.
+
+    "Last week" is a different kind of word and keeps its teeth: see
+    `test_a_dated_question_that_finds_nothing_answers_nothing` above.
+    """
+    # Tagged rather than worded, which is the reported case exactly: the note
+    # is a joke and never uses the word.
+    old_joke = _note(
+        session, "why did the student eat his homework", tags=["joke", "jokes"], days_ago=16
+    )
+    older_joke = _note(
+        session, "the one about a chicken crossing a road", tags=["joke", "jokes"], days_ago=30
+    )
+    _note(session, "gym routine: push, pull, legs", tags=["gym"], days_ago=2)
+
+    found, mode = search_manager.retrieve(
+        session, "jokes I have saved recently", fake_embeddings
+    )
+    ids = [e.id for e in found]
+    assert mode != "dated", "a subject question must not be answered by date alone"
+    assert old_joke.id in ids and older_joke.id in ids
+    # Newest first: that is what the word was actually asking for.
+    assert ids.index(old_joke.id) < ids.index(older_joke.id)
+
+
+def test_the_subject_survives_a_time_phrase_in_the_middle(session, fake_embeddings):
+    """Scaffolding is peeled off both ends, not only the front.
+
+    "jokes I have saved recently" left `jokes I have saved` once the time phrase
+    was lifted out, and "jokes from the last month" left a dangling `jokes from`
+    — both then reached the keyword search as several required terms and the
+    embedder as a sentence about saving rather than about jokes.
+    """
+    from memorymap.search import query as query_understanding
+
+    assert query_understanding.understand("jokes I have saved recently").subject == "jokes"
+    assert query_understanding.understand("jokes from the last month").subject == "jokes"
+    # And a real subject word that merely looks like filler is never eaten.
+    assert query_understanding.understand("notes about my day").subject == "day"
 
 
 def test_an_empty_window_returns_nothing_rather_than_something_else(session, fake_embeddings):

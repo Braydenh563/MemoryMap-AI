@@ -26,6 +26,8 @@ from memorymap.core.database import (
     DocumentLink,
     EntryDate,
     EntryLink,
+    EntryRevision,
+    Reminder,
     utcnow,
 )
 from memorymap.entry import timewords
@@ -309,6 +311,33 @@ def _hard_delete(session: Session, entries: list[Entry], uploads_dir: Path | Non
         delete(EntryLink).where(
             or_(EntryLink.source_entry_id.in_(ids), EntryLink.target_entry_id.in_(ids))
         )
+    )
+    # **Everything else that points at an entry, or the delete fails outright.**
+    #
+    # Reported twice in one sitting — "request failed (500) when I tried to
+    # empty the bin", and two particular notes that could not be deleted at
+    # all. One cause: `PRAGMA foreign_keys=ON` is set (database.py), so a row
+    # left behind in *any* of these tables makes `DELETE FROM entries` raise
+    # IntegrityError, which surfaces as a 500 and leaves the bin exactly as it
+    # was. The notes in the report both carried a resolved time phrase — the
+    # `🕓 this week → week of 27 July` chip is an `entry_dates` row — which is
+    # why those two and not the rest.
+    #
+    # These four were added to the schema after `_hard_delete` was written, and
+    # each was invisible until a note happened to have one. Anything that gains
+    # a `ForeignKey("entries.id")` from here has to be listed here too; the
+    # test added alongside this fails if one is missed.
+    session.execute(delete(EntryRevision).where(EntryRevision.entry_id.in_(ids)))
+    session.execute(delete(EntryDate).where(EntryDate.entry_id.in_(ids)))
+    session.execute(delete(DocumentLink).where(DocumentLink.entry_id.in_(ids)))
+    # A reminder's entry is optional, so it is detached rather than deleted:
+    # "water the tomatoes" is still a thing you asked to be reminded of after
+    # the note that prompted it has gone, and deleting the reminder would throw
+    # away something the user set by hand.
+    session.execute(
+        Reminder.__table__.update()
+        .where(Reminder.entry_id.in_(ids))
+        .values(entry_id=None)
     )
     # Orphan children of a purged parent become thread roots.
     session.execute(

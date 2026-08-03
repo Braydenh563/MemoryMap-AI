@@ -75,7 +75,10 @@ works — and still say plainly what you did not check.**
       cryptography python-multipart pytest httpx ruff
   ```
 
-- `python -m pytest tests/` — ~1,440 tests, ~3 minutes, all green. Keep it that way.
+- `python -m pytest tests/` — ~1,600 tests, ~3 minutes, all green. Keep it that way.
+- **Restart the server after any Python change.** A stale uvicorn is why a
+  correct fix "didn't work" twice in one session — the browser was running the
+  old code and the diff looked wrong.
 - `.venv/bin/ruff check .` before pushing — **CI runs it and it fails the
   build.** CI also runs CodeQL, which has caught a real polynomial-ReDoS in
   code written the same session; an anchored `[…]+$` is the shape to avoid.

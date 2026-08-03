@@ -296,6 +296,7 @@ function refreshActiveTab() {
   if (name === "dashboard") return renderDashboard();
   if (name === "graph") return renderGraph();
   if (name === "documents") return loadDocuments();
+  if (name === "library") return loadLibrary();
   if (name === "reminders") {
     refreshReminderDefaults();
     return loadReminders();
@@ -467,6 +468,75 @@ function confirmDialog(message, options = {}) {
     // Cancel takes focus, not the dangerous one: a stray Enter or Space
     // arriving with the dialog must not be the thing that deletes the notes.
     cancel.focus();
+  });
+}
+
+// `confirmDialog`'s missing sibling: ask for a line of text.
+//
+// DESIGN.md bans `window.confirm` because the desktop shell does not reliably
+// implement it, and a button gated behind one that returns `undefined`
+// silently does nothing. `window.prompt` is the same trap with the same shell,
+// and the app has been calling it for every rename — so this is not a new
+// dialog for a new feature, it is the one the rule always implied.
+//
+// Resolves to the trimmed text, or "" for cancel/empty. "" rather than null so
+// every caller's guard is the same shape as the confirm one.
+function promptDialog(message, initial = "", { confirmLabel = "Save" } = {}) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay confirm-overlay";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+
+    const card = document.createElement("div");
+    card.className = "card modal-card confirm-card";
+    const text = document.createElement("p");
+    text.className = "confirm-text";
+    text.textContent = message;
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = initial;
+    input.setAttribute("aria-label", message);
+
+    let settled = false;
+    const close = (answer) => {
+      if (settled) return;
+      settled = true;
+      document.removeEventListener("keydown", onKey, true);
+      overlay.remove();
+      returnFocus?.focus?.();
+      resolve(answer);
+    };
+    const onKey = (event) => {
+      // Captured, so a shortcut elsewhere cannot fire underneath the dialog —
+      // the same reason confirmDialog captures.
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        close("");
+      } else if (event.key === "Enter") {
+        event.stopPropagation();
+        close(input.value.trim());
+      }
+    };
+
+    const returnFocus = document.activeElement;
+    const row = document.createElement("div");
+    row.className = "row confirm-actions";
+    row.append(
+      smallButton("Cancel", "Cancel", () => close("")),
+      smallButton(confirmLabel, confirmLabel, () => close(input.value.trim()), false)
+    );
+    card.append(text, input, row);
+    overlay.appendChild(card);
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) close("");
+    });
+    document.addEventListener("keydown", onKey, true);
+    document.body.appendChild(overlay);
+    // The text, selected: a rename usually replaces the name rather than
+    // editing it, and a caret at position 0 makes you clear it by hand first.
+    input.focus();
+    input.select();
   });
 }
 
@@ -815,6 +885,40 @@ function closeActionMenus() {
     const opener = menu.parentElement.querySelector("[aria-haspopup]");
     if (opener) opener.setAttribute("aria-expanded", "false");
   }
+  for (const strip of document.querySelectorAll(".menu-open")) {
+    strip.classList.remove("menu-open");
+  }
+}
+
+// Opening one, shared by the note cards and the sidebar kebabs so the two
+// cannot drift apart.
+//
+// **`menu-open` is the fix for a reported bug, and it is not cosmetic.** On a
+// note card, `.entry-actions` is `position: absolute; z-index: 1` — which
+// makes it a *stacking context*, so the menu's own `z-index: 30` is resolved
+// inside it and counts for nothing outside it. Every other note's action strip
+// is also `z-index: 1`, and later in the document, so it paints on top of an
+// open menu. Reported as "the other buttons in notes go over the popup options
+// from above notes", and measured: with the first note's menu open, the topmost
+// element at three separate points *inside* the menu was a button belonging to
+// a different note. So it was not only a menu with buttons drawn over it — it
+// was a menu whose items clicked the wrong note's controls.
+//
+// Raising the owning strip lifts the whole context, menu included. 5 rather
+// than something larger because the only thing it has to beat is the 1 on its
+// siblings; the page's own chrome is a different context and a big number here
+// would only be a number waiting to collide with one.
+function openActionMenu(menu, opener) {
+  closeActionMenus(); // only one open at a time
+  menu.classList.remove("hidden");
+  opener.setAttribute("aria-expanded", "true");
+  // Whichever ancestor is the stacking context this menu is trapped in. On a
+  // note card that is `.entry-actions` (positioned, z-index 1); on a Library
+  // card it is the card itself, because `backdrop-filter` creates a stacking
+  // context too — which is why the same "menu behind the next card" bug turned
+  // up again on a surface with no z-index in sight.
+  menu.closest(".entry-actions, .library-card")?.classList.add("menu-open");
+  menu.querySelector("button")?.focus();
 }
 
 // The ⋯ overflow menu on each note card (Wave L rework).
@@ -915,12 +1019,8 @@ function entryOverflowMenu(entry) {
 
   const opener = smallButton("⋯", "More actions", () => {
     const willOpen = menu.classList.contains("hidden");
-    closeActionMenus(); // only one menu open at a time
-    if (willOpen) {
-      menu.classList.remove("hidden");
-      opener.setAttribute("aria-expanded", "true");
-      menu.querySelector("button")?.focus();
-    }
+    if (willOpen) openActionMenu(menu, opener);
+    else closeActionMenus();
   });
   opener.setAttribute("aria-haspopup", "menu");
   opener.setAttribute("aria-expanded", "false");
@@ -1429,9 +1529,10 @@ function fillCategoryOptions(select, selected) {
 async function resolveCategoryChoice(select) {
   if (select.value === "") return null;
   if (select.value !== "__new__") return select.value;
-  const name = prompt("Name for the new category:");
-  if (name === null) return undefined;
-  return name.trim() || undefined;
+  // promptDialog resolves to trimmed text, or "" for cancel — one shape for
+  // both, so there is no null to check the way window.prompt needed.
+  const name = await promptDialog("Name for the new category:", "", { confirmLabel: "Create" });
+  return name || undefined;
 }
 
 function beginOrCompleteLink(entry) {
@@ -1839,6 +1940,14 @@ function renderSidebar() {
     li.append(name, badge);
     li.addEventListener("click", () => {
       activeCategory = category;
+      // The list this filters lives in the "browse" sub-tab, and the sidebar
+      // is visible from all four — so picking a category while writing a note
+      // or asking a question filtered a list that was `display: none`, and the
+      // click appeared to do nothing at all. Reported. The same fix
+      // `flashEntry` already carries for jumping to a note, for the same
+      // reason: a sidebar that is always on screen must be able to bring the
+      // thing it controls on screen with it.
+      showNotesSection("browse");
       renderSidebar();
       renderEntries();
     });
@@ -1871,9 +1980,7 @@ function renderSidebar() {
 }
 
 async function renameCategory(meta, currentName) {
-  const next = prompt(`Rename "${currentName}" to:`, currentName);
-  if (next === null) return;
-  const name = next.trim();
+  const name = await promptDialog(`Rename "${currentName}" to:`, currentName);
   if (!name || name === currentName) return;
 
   // Renaming onto a category that already exists merges them, which is
@@ -1939,6 +2046,7 @@ async function loadEntries() {
   showEntrySkeletons();
   allEntries = await apiJson("/entries");
   entriesEverLoaded = true;
+  renderStatusBar(); // the notebook's size changed, and the bar reads it here
   renderSidebar();
   // Categories the AI has filed notes into since the last load need their ids
   // fetched before rename/delete can work on them. Deliberately not awaited:
@@ -2021,7 +2129,7 @@ const NEW_DOCUMENT = "new";
 // Ask for a title and start an empty document. Shared by the capture box and
 // the note card's "Add to a document", so both offer the same thing.
 async function createDocumentNamed(suggestion = "") {
-  const title = (prompt("Title for the new document:", suggestion) || "").trim();
+  const title = await promptDialog("Title for the new document:", suggestion, { confirmLabel: "Create" });
   if (!title) return null;
   try {
     const doc = await apiJson("/documents", {
@@ -2223,6 +2331,11 @@ const SEARCH_MODE_LABELS = {
   semantic: "semantic search",
   keyword: "keyword search",
   recent: "recent notes", // broad question → showing recent entries
+  // These two were missing and rendered raw, so the panel said "dated" — the
+  // internal name, in a strip whose whole job is telling you in plain words how
+  // the app found what it is showing you.
+  dated: "by date",
+  none: "nothing searched",
 };
 
 // Say something to a screen reader without putting anything on screen. Used
@@ -2335,7 +2448,15 @@ function renderChatMeta(meta) {
   if (meta.raw_results.length === 0) {
     const li = document.createElement("li");
     li.className = "muted";
-    li.textContent = "No matching records.";
+    // A dated question that found nothing has *two* facts to report, and only
+    // saying the first is what makes an empty result look like a broken
+    // search: nothing matched, **and** the window you named is why it was
+    // looking so narrowly. Naming the phrase is also the fastest route to the
+    // fix, because the next thing to try is asking again without it.
+    li.textContent =
+      meta.search_mode === "dated" && meta.when_phrase
+        ? `Nothing matching “${meta.when_phrase}”. Try asking without it.`
+        : "No matching records.";
     rawList.appendChild(li);
   }
   // Notes that came along because they are *connected* to a match are labelled
@@ -4245,11 +4366,21 @@ async function loadDocuments(selectId = null) {
   if (!docs.length) showNoDocument();
 }
 
+//: How many documents the switcher shows. Searching and sorting all of them
+//: is the Library's job (§36G); this list is here so the document you were in
+//: ten minutes ago is one click away without leaving the page you are writing
+//: on. The one you have *open* is always in it, however old, or the sidebar
+//: would stop showing you where you are.
+const RECENT_DOCS_SHOWN = 8;
+
 function renderDocList() {
-  const filter = $("doc-filter").value.trim().toLowerCase();
   const list = $("doc-list");
   list.replaceChildren();
-  const shown = docs.filter((d) => !filter || d.title.toLowerCase().includes(filter));
+  const shown = docs.slice(0, RECENT_DOCS_SHOWN);
+  if (currentDoc && !shown.some((d) => d.id === currentDoc.id)) {
+    const open = docs.find((d) => d.id === currentDoc.id);
+    if (open) shown[shown.length - 1] = open;
+  }
   $("doc-empty").classList.toggle("hidden", docs.length > 0);
 
   for (const doc of shown) {
@@ -5772,12 +5903,8 @@ function kebabMenu(items, ariaLabel) {
 
   const opener = smallButton("⋯", ariaLabel, () => {
     const willOpen = menu.classList.contains("hidden");
-    closeActionMenus();
-    if (willOpen) {
-      menu.classList.remove("hidden");
-      opener.setAttribute("aria-expanded", "true");
-      menu.querySelector("button")?.focus();
-    }
+    if (willOpen) openActionMenu(menu, opener);
+    else closeActionMenus();
   });
   opener.setAttribute("aria-haspopup", "menu");
   opener.setAttribute("aria-expanded", "false");
@@ -5844,18 +5971,23 @@ function relativeTime(iso) {
   return then.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
-let conversationQuery = "";
+//: How many chats the switcher shows. Searching and sorting all of them is
+//: the Library's job now (§36F); this list exists so the chat you were in ten
+//: minutes ago is one click away without leaving the tab you are typing in,
+//: and eight is comfortably more than "the one before this one" while still
+//: fitting beside a conversation.
+const RECENT_CHATS_SHOWN = 8;
 
 async function loadConversationList() {
-  const params = conversationQuery ? `?q=${encodeURIComponent(conversationQuery)}` : "";
-  const conversations = await apiJson(`/conversations${params}`).catch(() => []);
+  const conversations = (await apiJson("/conversations").catch(() => [])).slice(
+    0,
+    RECENT_CHATS_SHOWN
+  );
   const list = $("conversation-list");
   list.replaceChildren();
   const empty = $("conv-empty");
   empty.classList.toggle("hidden", conversations.length > 0);
-  empty.textContent = conversationQuery
-    ? `No chats mention “${conversationQuery}”.`
-    : "No saved chats yet — ask something!";
+  empty.textContent = "No saved chats yet — ask something!";
 
   let sawUnpinned = false;
   for (const conversation of conversations) {
@@ -5918,7 +6050,7 @@ async function loadConversationList() {
     );
     items.push(
       makeMenuItem("✎ Rename", "Rename this chat", async () => {
-        const next = prompt("Rename this chat:", conversation.title);
+        const next = await promptDialog("Rename this chat:", conversation.title);
         if (!next || !next.trim()) return;
         await apiJson(`/conversations/${conversation.id}`, {
           method: "PUT",
@@ -6893,7 +7025,7 @@ async function batchMove() {
     return;
   }
   if (category === "__new__") {
-    category = (prompt("New category name:") || "").trim();
+    category = await promptDialog("New category name:", "", { confirmLabel: "Move" });
     if (!category) return;
   }
   for (const id of ids) {
@@ -6910,7 +7042,7 @@ async function batchMove() {
 async function batchTag() {
   const ids = batchSelection();
   if (!ids.length) return;
-  const tag = (prompt("Tag to add to the selected notes:") || "").trim();
+  const tag = await promptDialog("Tag to add to the selected notes:", "", { confirmLabel: "Add tag" });
   if (!tag) return;
   for (const id of ids) {
     const entry = allEntries.find((e) => e.id === id);
@@ -7321,6 +7453,43 @@ function tabRowSpace() {
   return header.clientWidth - padding - others - gap * siblings;
 }
 
+// What the tab strip actually needs, summed from the buttons rather than read
+// off the strip's own box.
+//
+// **This is the fix for a reported bug, and the distinction is the whole
+// bug.** The wrap test used `bar.scrollWidth`, which is `max(content,
+// clientWidth)` — and the wrapped rule gives the strip `flex-basis: 100%`. So
+// the moment it wrapped, its scrollWidth became the *width of the header*,
+// which is by definition larger than the room beside the header's other
+// children, and the test that decided wrapping was measuring its own output.
+// It could not oscillate, as the old comment said. It latched, which is worse:
+// one transient narrow moment — a drag of the window edge, a font arriving
+// late — and the header stayed two rows tall for the rest of the session.
+// Measured: at 900px it wraps and scrollWidth reads 868; widened to 2000px it
+// reads 1952 and stays wrapped at 102px tall, where a fresh load at the same
+// width renders one row at 60px. That is "the top bar keeps switching and
+// permanently changing layout", exactly.
+//
+// The buttons are `flex: 0 0 auto`, so their widths are the same whichever row
+// the strip is on. That is what makes this measurement independent of the
+// state it is being used to decide.
+function tabContentWidth() {
+  const bar = $("tab-bar");
+  if (!bar) return 0;
+  const style = getComputedStyle(bar);
+  const gap = parseFloat(style.columnGap || style.gap) || 0;
+  const padding =
+    (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
+  let total = 0;
+  let count = 0;
+  for (const child of bar.children) {
+    if (child.classList.contains("hidden")) continue;
+    total += child.getBoundingClientRect().width;
+    count += 1;
+  }
+  return total + padding + gap * Math.max(0, count - 1);
+}
+
 function syncTabOverflowFade() {
   const bar = $("tab-bar");
   if (!bar) return;
@@ -7329,13 +7498,21 @@ function syncTabOverflowFade() {
   // its own — where all seven fit with room to spare at any width the app is
   // usable at. Photographed on a 7-tab window: "Dashboard" clipped to "oard"
   // at the left edge, which no amount of edge-fading makes readable.
-  //
-  // Measured, not a breakpoint, and it cannot oscillate: the space the strip
-  // would have inline is computed from the *other* children, whose widths do
-  // not depend on where the strip is.
   const header = document.getElementById("top-bar");
   if (header) {
-    header.classList.toggle("tabs-wrapped", bar.scrollWidth > tabRowSpace() + 1);
+    const needed = tabContentWidth();
+    const space = tabRowSpace();
+    // Asymmetric thresholds, and only for jitter: both measurements are now
+    // independent of which row the strip is on, so there is no feedback to
+    // oscillate. What remains is sub-pixel rounding at the exact width where
+    // the two are equal, and a header that flickers between one and two rows
+    // while you drag the window edge is its own kind of broken. 8px is under
+    // half a character and well over the rounding.
+    const wrapped = header.classList.contains("tabs-wrapped");
+    header.classList.toggle(
+      "tabs-wrapped",
+      wrapped ? needed > space - 8 : needed > space + 1
+    );
   }
   // 1px of slack at each end: sub-pixel layout makes scrollWidth exceed
   // clientWidth by a fraction on plenty of widths where nothing is cut off,
@@ -7361,7 +7538,29 @@ $("tab-bar")?.addEventListener("scroll", syncTabOverflowFade, { passive: true })
 // changes width when it does — so remeasure whenever the header changes size
 // rather than only on window resize.
 if (typeof ResizeObserver !== "undefined") {
-  const headerObserver = new ResizeObserver(syncTabOverflowFade);
+  // Measured on the next frame rather than inside the callback.
+  //
+  // Reported from the desktop shell's console: "ResizeObserver loop completed
+  // with undelivered notifications." That warning is the browser saying an
+  // observer callback changed the layout of something it observes, and this
+  // one does exactly that — deciding `.tabs-wrapped` changes the header's
+  // height and the strip's width, which is what it is watching. The loop
+  // terminates (both measurements are independent of the class now, so the
+  // second pass agrees with the first), but it costs a wasted layout every
+  // resize and prints an error that looks like a fault.
+  //
+  // Deferring breaks the cycle: the write lands after the observation phase,
+  // and the `queued` flag collapses a burst of resize notifications into one
+  // measurement instead of one per element per frame.
+  let queued = false;
+  const headerObserver = new ResizeObserver(() => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => {
+      queued = false;
+      syncTabOverflowFade();
+    });
+  });
   const bar = $("tab-bar");
   if (bar) {
     headerObserver.observe(bar);
@@ -7513,6 +7712,25 @@ function noteSkillRun(name) {
   localStorage.setItem(RECENT_SKILLS_KEY, JSON.stringify(recent));
 }
 
+//: A skill's name usually starts with its own emoji — "🩺 Notebook health
+//: check", "🏷 Clean up my tags" — and the quick-link then put ⚡ in front of
+//: it, so those two chips wore two icons each while every other chip in the
+//: row wore one. Reported as clutter, and it was: measured at 224px and 216px
+//: against 107–169px for the fixed chips, i.e. the two least important buttons
+//: in the row were the two widest.
+//:
+//: The ⚡ is the one that stays, because it carries what the row does not
+//: otherwise say — this chip *runs* something rather than opening a page. The
+//: skill's own emoji is still on it everywhere skills are listed.
+const LEADING_EMOJI = /^(\p{Extended_Pictographic}(?:️|‍\p{Extended_Pictographic})*)\s*/u;
+
+function withoutLeadingEmoji(name) {
+  const stripped = name.replace(LEADING_EMOJI, "");
+  // A skill named with nothing but an emoji would otherwise become a blank
+  // chip; keeping the original is the lesser of the two.
+  return stripped.trim() || name;
+}
+
 function recentSkillLinks() {
   let recent = [];
   try {
@@ -7522,7 +7740,11 @@ function recentSkillLinks() {
   }
   return recent.slice(0, QUICK_SKILL_SLOTS).map((name) => ({
     icon: "⚡",
-    label: name,
+    label: withoutLeadingEmoji(name),
+    // The full name, unaltered, is what the button remembers itself by: the
+    // use counter and `runSkill` both key off it, and stripping the emoji from
+    // either would silently start a second tally or fail to find the skill.
+    skillName: name,
     skill: true,
     run: () => {
       const known = allSkills().find((s) => s.name === name);
@@ -7556,7 +7778,14 @@ function renderQuickLinks() {
       (link.primary ? " quick-link-primary" : "") +
       (link.skill ? " quick-link-skill" : "");
     button.type = "button";
-    if (link.skill) button.title = `Run the skill “${link.label}”`;
+    // Every chip gets a title, not only the skills: the labels truncate now
+    // that the row is equal columns, so hovering has to be able to finish the
+    // sentence. A chip whose label fits shows a tooltip repeating it, which is
+    // harmless; a chip whose label does not fit and has no tooltip is a button
+    // you cannot read at all.
+    button.title = link.skill
+      ? `Run the skill “${link.skillName}”`
+      : link.label;
     const icon = document.createElement("span");
     icon.className = "quick-link-icon";
     icon.textContent = link.icon;
@@ -7565,7 +7794,7 @@ function renderQuickLinks() {
     label.textContent = link.label;
     button.append(icon, label);
     button.addEventListener("click", () => {
-      noteQuickLinkUse(link.label);
+      noteQuickLinkUse(link.skillName || link.label);
       link.run();
     });
     box.appendChild(button);
@@ -8932,6 +9161,16 @@ function updateReminderBadge(reminders) {
   const due = (reminders || []).filter(
     (r) => !r.done && new Date(r.due_at) <= now
   ).length;
+  // The status bar's reminder slot is fed from here rather than from its own
+  // fetch: this function is the one place both callers of /reminders land, so
+  // the bar and the tab badge cannot disagree and no second timer exists to
+  // drift from the first.
+  reminderCounts = {
+    open: (reminders || []).filter((r) => !r.done).length,
+    due,
+  };
+  renderStatusBar();
+
   let badge = button.querySelector(".tab-badge");
   if (!due) {
     badge?.remove();
@@ -10335,6 +10574,12 @@ const DROP_SLOP = 14;
 //: hit test at release finds nothing.
 let graphDropTarget = null;
 
+//: The nodes a drag pinned so they would hold still while it aimed. Kept as a
+//: list rather than inferred at release, because "was pinned by this drag" and
+//: "was held by the user" are the same `fx != null` afterwards, and releasing
+//: the second kind would silently undo a double-click hold.
+let graphDragPinned = [];
+
 function graphNodeUnder(dragged, event) {
   for (const other of graphNodesRef || []) {
     if (other === dragged || other.isGroup) continue;
@@ -10637,6 +10882,29 @@ async function renderGraph() {
           if (!event.active) graphSimulation?.alphaTarget(0.3).restart();
           d.fx = d.x;
           d.fy = d.y;
+          // **Everything else stands still for the length of the drag.**
+          // Reported: "how does the drag to connect work if the nodes are
+          // constantly pushed away from each other?" It didn't, and that is
+          // the honest answer — reheating the simulation set every *other*
+          // note moving at exactly the moment you were trying to aim at one.
+          // The code below already carried a workaround for the symptom
+          // (remembering the lit target rather than hit-testing at release,
+          // because the target moved out from under the pointer); this
+          // removes the cause. Aiming at a moving target is not a gesture, it
+          // is a reflex test.
+          //
+          // Pinned by hand here rather than by stopping the simulation,
+          // because the ticks are what keep the edges attached to the node
+          // you *are* dragging. And only the nodes this pins are released —
+          // a note double-clicked to hold its place stays held, which is the
+          // whole point of that gesture.
+          graphDragPinned = [];
+          for (const other of nodes) {
+            if (other === d || other.fx != null) continue;
+            other.fx = other.x;
+            other.fy = other.y;
+            graphDragPinned.push(other);
+          }
         })
         .on("drag", (event, d) => {
           d.fx = event.x;
@@ -10663,6 +10931,13 @@ async function renderGraph() {
           graphDropTarget = null;
           nodeGroups.classed("graph-drop-target", false);
           if (over) linkByDrop(d, over);
+          // Let the layout breathe again — but only the nodes this drag
+          // pinned. A node the user held with a double-click keeps its place.
+          for (const other of graphDragPinned) {
+            other.fx = null;
+            other.fy = null;
+          }
+          graphDragPinned = [];
           if (tree) return; // a laid-out tree keeps its shape
           d.fx = null;
           d.fy = null;
@@ -10846,6 +11121,26 @@ async function renderGraph() {
 
   let fitted = false;
   graphSimulation?.on("tick", () => {
+    // Keep the layout inside its own frame. Reported as "the graph ui is out
+    // of bounds", and the mechanism is that the view is framed exactly *once*
+    // — the first time the simulation settles — while the simulation itself
+    // never stops for good: every drag reheats it (`alphaTarget(0.3)`), and a
+    // reheated repulsion force pushes the outermost notes a little further out
+    // each time. Nothing ever pulls them back, and after a few drags the notes
+    // at the edge of the map are off the edge of the box, with no way to know
+    // they are there.
+    //
+    // A clamp rather than a repeated re-fit, because a re-fit would zoom the
+    // map out from under someone who had just zoomed in on purpose. This bounds
+    // the world instead, so the one framing stays correct for as long as the
+    // map is open. The padding is the node radius plus room for its label,
+    // which is drawn below the circle — a node clamped exactly to the edge
+    // would have its own name outside the frame.
+    for (const node of nodes) {
+      const pad = graphNodeRadius(node) + 28;
+      node.x = Math.max(pad, Math.min(width - pad, node.x));
+      node.y = Math.max(pad, Math.min(height - pad, node.y));
+    }
     edgeLines
       .attr("x1", (d) => d.source.x)
       .attr("y1", (d) => d.source.y)
@@ -11431,7 +11726,11 @@ async function saveGraphNewNote() {
 
 // --- tabs (Wave A) ----------------------------------------------------------------
 
-const TABS = ["dashboard", "notes", "chat", "graph", "timeline", "documents", "reminders"];
+// "documents" is still a page and still switchable-to — it is the document
+// editor, opened from the Library (§36F). It is no longer in the tab *bar*, so
+// it sits at the end here: TABS drives which pages hide, and the arrow-key
+// order comes from the bar's own buttons.
+const TABS = ["dashboard", "notes", "chat", "graph", "library", "timeline", "reminders", "documents"];
 
 function switchTab(name) {
   for (const tab of TABS) {
@@ -11484,6 +11783,7 @@ function switchTab(name) {
     loadDocuments();
     renderDocStorage();
   }
+  if (name === "library") loadLibrary();
   if (name === "reminders") {
     refreshReminderDefaults();
     loadReminders();
@@ -11750,7 +12050,11 @@ function initScrollTopButton() {
 
 // --- settings modal (Wave A) ------------------------------------------------------
 
-const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "websearch", "appearance", "shortcuts", "preferences", "account", "tasks", "data", "logs", "help", "about"];
+//: Every section id, and a new one is invisible until it is in this list —
+//: `showSettingsSection` un-hides by iterating it, so a section left out is
+//: rendered, in the DOM, and never shown. Found by driving it: the Extras
+//: panel had five rows in it and a nav button that appeared to do nothing.
+const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "websearch", "appearance", "shortcuts", "preferences", "account", "extras", "tasks", "data", "logs", "help", "about"];
 
 // Where to send focus back when a dialog closes (Wave L).
 let overlayReturnFocus = null;
@@ -11938,6 +12242,7 @@ function showSettingsSection(name) {
   if (name === "account") renderAccount().catch(() => {});
   if (name === "data") renderBackups();
   if (name === "tasks") renderTasks(); // fill it in now, then poll
+  if (name === "extras") renderExtras();
 }
 
 // Peek fades the settings panel so a colour change is visible on the page
@@ -12648,7 +12953,7 @@ async function renderTags() {
     actions.className = "entry-actions";
     actions.appendChild(
       smallButton("Rename", "Rename this tag everywhere (merge if the name exists)", async () => {
-        const next = prompt(`Rename tag “${name}” to:`, name);
+        const next = await promptDialog(`Rename tag “${name}” to:`, name);
         if (!next || next.trim() === name) return;
         const result = await apiJson("/tags/rename", {
           method: "POST",
@@ -13623,6 +13928,10 @@ async function refreshModelStatus() {
   }
   renderAiPill();
   syncAiOnlyControls();
+  // The status bar's job slot rides this loop rather than starting one of its
+  // own, so it inherits the whole cadence: one second while something is
+  // running, twenty when idle, two minutes behind a hidden tab.
+  await refreshBackgroundTasks();
   if (settingsOpen()) renderSettings();
 
   clearTimeout(statusTimer);
@@ -13803,6 +14112,719 @@ function renderAiPill() {
   button.title = `${state.title}\n\n${state.detail}`;
   $("ai-status-title").textContent = state.title;
   $("ai-status-detail").textContent = state.detail;
+}
+
+// --- the Library (§4, §36F) ---------------------------------------------------
+//
+// The one surface for finding something you made before. It **replaces** the
+// Documents tab's list and the chat sidebar's list rather than joining them —
+// a library that duplicates two lists that already exist is a third place to
+// look, which is worse than no library. The tab bar is the same length it was.
+//
+// A library is for *finding*, which is a different job from the Notes tab's
+// "work with what I have", so it is built differently: bigger units, more
+// metadata per unit, and sort and filter at the top as controls rather than at
+// the side as an afterthought.
+//
+// The list itself is assembled by the server (GET /library) — see
+// routes_library.py for why. Filtering and sorting are **not**: they have to
+// feel instant as you type, so the client owns them and holds the whole list.
+
+//: The last payload from GET /library, so typing in the search box re-filters
+//: what is already here instead of asking the server on every keystroke.
+let libraryItems = [];
+let libraryCounts = {};
+let libraryOverview = {};
+let libraryKind = "all";
+
+//: Order matters: it is the order of the chips. "All" first because it is the
+//: default and the one you come back to, then by how often you would reach for
+//: the kind — a document is something you sat down to write, a binned note is
+//: something you threw away.
+const LIBRARY_KINDS = [
+  { key: "all", icon: "📚", label: "Everything" },
+  { key: "note", icon: "📝", label: "Notes" },
+  { key: "document", icon: "📄", label: "Documents" },
+  { key: "chat", icon: "💬", label: "Chats" },
+  { key: "file", icon: "📎", label: "Files" },
+  { key: "tag", icon: "🏷", label: "Tags" },
+  { key: "archived", icon: "🗑", label: "Bin" },
+  { key: "activity", icon: "📜", label: "Activity" },
+];
+
+//: The overview strip. Each tile is a *state worth knowing*, and each one goes
+//: somewhere — the same test the status bar had to pass, for the same reason:
+//: a number you cannot act on is decoration, and a management screen made of
+//: decoration is a dashboard nobody opens twice.
+const LIBRARY_OVERVIEW_TILES = [
+  { key: "notes", icon: "📝", label: "notes", kind: "note" },
+  { key: "documents", icon: "📄", label: "documents", kind: "document" },
+  { key: "chats", icon: "💬", label: "chats", kind: "chat" },
+  { key: "tags", icon: "🏷", label: "tags", kind: "tag" },
+  { key: "binned", icon: "🗑", label: "in the bin", kind: "archived" },
+];
+
+//: What is ticked. Ids alone would collide — a tag's id 3 and a note's id 3 are
+//: different things — so the key is kind + id, and it survives a re-render
+//: because it is not read off the DOM.
+let librarySelection = new Set();
+
+const LIBRARY_VIEW_KEY = "libraryView";
+
+function libraryView() {
+  return localStorage.getItem(LIBRARY_VIEW_KEY) === "list" ? "list" : "grid";
+}
+
+function libraryKeyOf(item) {
+  return `${item.kind}:${item.id}`;
+}
+
+function renderLibraryView() {
+  const current = libraryView();
+  for (const button of document.querySelectorAll("#library-view button")) {
+    const active = button.dataset.libraryView === current;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  }
+}
+
+async function loadLibrary() {
+  const body = await apiJson("/library").catch(() => null);
+  libraryItems = (body && body.items) || [];
+  libraryCounts = (body && body.counts) || {};
+  libraryOverview = (body && body.overview) || {};
+  // A selection that survives a reload is a selection that can act on
+  // something already deleted. Cleared here rather than merged, because the
+  // safe half of "delete nine things" is knowing exactly which nine.
+  librarySelection = new Set();
+  renderLibraryOverview();
+  renderLibraryFilters();
+  renderLibraryView();
+  renderLibrary();
+}
+
+function renderLibraryOverview() {
+  const box = $("library-overview");
+  if (!box) return;
+  box.replaceChildren();
+  for (const tile of LIBRARY_OVERVIEW_TILES) {
+    const value = libraryOverview[tile.key] || 0;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "library-stat" + (libraryKind === tile.kind ? " active" : "");
+    const icon = document.createElement("span");
+    icon.className = "library-stat-icon";
+    icon.textContent = tile.icon;
+    icon.setAttribute("aria-hidden", "true");
+    const number = document.createElement("strong");
+    number.className = "library-stat-value";
+    number.textContent = value;
+    const label = document.createElement("span");
+    label.className = "library-stat-label";
+    label.textContent = tile.label;
+    button.append(icon, number, label);
+    button.title = `Show ${tile.label}`;
+    // Every tile is a filter. That is what stops it being decoration.
+    button.addEventListener("click", () => {
+      libraryKind = tile.kind;
+      if (tile.kind === "archived") $("library-show-binned").checked = true;
+      renderLibraryOverview();
+      renderLibraryFilters();
+      renderLibrary();
+    });
+    box.appendChild(button);
+  }
+  // One line of plain prose about the things that are not counts: how much
+  // disk the attachments take, and how much writing is in the documents.
+  const note = document.createElement("p");
+  note.className = "muted library-overview-note";
+  const parts = [];
+  if (libraryOverview.attachment_bytes) {
+    parts.push(`${libraryOverview.attachment_size} of attachments`);
+  }
+  if (libraryOverview.words) parts.push(`${libraryOverview.words.toLocaleString()} words written`);
+  if (libraryOverview.private_notes) {
+    parts.push(`${libraryOverview.private_notes} private (locked, never previewed here)`);
+  }
+  note.textContent = parts.length
+    ? parts.join(" · ")
+    : "Everything you make — notes, documents, chats, files — is managed from here.";
+  box.appendChild(note);
+}
+
+function renderLibraryFilters() {
+  const box = $("library-filters");
+  if (!box) return;
+  box.replaceChildren();
+  for (const kind of LIBRARY_KINDS) {
+    const count =
+      kind.key === "all" ? libraryItems.length : libraryCounts[kind.key] || 0;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className =
+      "library-chip" + (libraryKind === kind.key ? " active" : "");
+    button.setAttribute("aria-pressed", String(libraryKind === kind.key));
+    const icon = document.createElement("span");
+    icon.textContent = kind.icon;
+    icon.setAttribute("aria-hidden", "true");
+    const label = document.createElement("span");
+    label.textContent = kind.label;
+    // The count is on the chip, not discovered by pressing it. A filter you
+    // have to try before you learn it is empty is a filter that wastes a click
+    // every time — and with five of them that is most of the toolbar.
+    const badge = document.createElement("span");
+    badge.className = "library-chip-count";
+    badge.textContent = count;
+    button.append(icon, label, badge);
+    button.addEventListener("click", () => {
+      libraryKind = kind.key;
+      renderLibraryFilters();
+      renderLibrary();
+    });
+    box.appendChild(button);
+  }
+}
+
+function librarySorted(items) {
+  const sort = $("library-sort")?.value || "recent";
+  const copy = [...items];
+  if (sort === "az") {
+    copy.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: "base" }));
+  } else if (sort === "biggest") {
+    // Within a kind this is words, turns or bytes; across a mixed list it is
+    // whichever of those each card is showing. Deliberately not normalised —
+    // a number that made a document's words comparable with an image's bytes
+    // would sort cleanly and mean nothing.
+    copy.sort((a, b) => (b.size || 0) - (a.size || 0));
+  } else {
+    copy.sort((a, b) => {
+      const cmp = String(a.updated_at).localeCompare(String(b.updated_at));
+      return sort === "oldest" ? cmp : -cmp;
+    });
+  }
+  return copy;
+}
+
+function renderLibrary() {
+  const grid = $("library-grid");
+  if (!grid) return;
+  const query = ($("library-search")?.value || "").trim().toLowerCase();
+  let items = libraryItems;
+  if (libraryKind !== "all") items = items.filter((i) => i.kind === libraryKind);
+  else {
+    // Two kinds stay out of the mixed list. Deleted things are not part of
+    // "everything you have made" — they are things you decided you had not —
+    // and the Include-bin toggle is how you ask for them anyway.
+    //
+    // **Activity is out unconditionally, and that is not a toggle worth
+    // offering.** Measured on a small notebook: 164 activity rows against 13
+    // things, so "Everything" was 93% log. A log is a record *about* the
+    // notebook rather than a thing in it, and burying twelve documents under
+    // it would make the default view useless in exactly the way a management
+    // screen must not be. Its own chip shows it in full.
+    items = items.filter((i) => i.kind !== "activity");
+    if (!$("library-show-binned")?.checked) {
+      items = items.filter((i) => i.kind !== "archived");
+    }
+  }
+  if (query) {
+    // Title *and* preview, for the same reason the conversation search reads
+    // message text: you remember what a thing was about far more often than
+    // what it ended up being called.
+    items = items.filter(
+      (i) =>
+        (i.title || "").toLowerCase().includes(query) ||
+        (i.preview || "").toLowerCase().includes(query)
+    );
+  }
+  items = librarySorted(items);
+
+  grid.replaceChildren();
+  grid.classList.toggle("library-list", libraryView() === "list");
+  for (const item of items) grid.appendChild(libraryCard(item));
+  renderLibraryContextBars();
+
+  const empty = $("library-empty");
+  empty.classList.toggle("hidden", items.length > 0);
+  if (!items.length) {
+    // Three different empties, because the fix for each is different: nothing
+    // made yet, nothing of this kind, or nothing matching what you typed. One
+    // message for all three is how "the library is broken" gets reported.
+    empty.textContent = !libraryItems.length
+      ? "Nothing here yet. Write a document, start a chat, or attach a file to a note."
+      : query
+        ? `Nothing matching “${$("library-search").value.trim()}”.`
+        : "Nothing of this kind yet.";
+  }
+}
+
+// What you can do to a thing without leaving the surface you found it on. A
+// library that could only *show* you a document would send you to the Documents
+// page to rename it and to the bin panel to restore a note — which is the
+// scatter it was built to end.
+//
+// One ⋯ per card rather than a row of icons, the same choice the note cards
+// and the chat list already make: three buttons on a card this size is most of
+// the card, and the actions are things you do occasionally to a thing you are
+// mostly here to open.
+function libraryActions(item) {
+  const reload = () => loadLibrary();
+  if (item.kind === "chat") {
+    return [
+      makeMenuItem(
+        item.pinned ? "📌 Unpin" : "📌 Pin",
+        item.pinned ? "Let this chat sort by date again" : "Keep this chat at the top",
+        async () => {
+          await apiJson(`/conversations/${item.id}/pin`, {
+            method: "PUT",
+            body: JSON.stringify({ pinned: !item.pinned }),
+          }).catch((e) => toast(e.message, true));
+          reload();
+        }
+      ),
+      makeMenuItem("✎ Rename", "Rename this chat", async () => {
+        const next = await promptDialog("Rename this chat:", item.title);
+        if (!next) return;
+        await apiJson(`/conversations/${item.id}`, {
+          method: "PUT",
+          body: JSON.stringify({ title: next }),
+        }).catch((e) => toast(e.message, true));
+        reload();
+        loadConversationList();
+      }),
+      makeMenuItem("🗑 Delete", "Delete this chat", async () => {
+        if (!(await confirmDialog("Delete this saved chat?"))) return;
+        await apiJson(`/conversations/${item.id}`, { method: "DELETE" }).catch((e) =>
+          toast(e.message, true)
+        );
+        if (chatConv && chatConv.id === item.id) newChatConversation();
+        reload();
+        loadConversationList();
+      }),
+    ];
+  }
+  if (item.kind === "document") {
+    return [
+      makeMenuItem("✎ Rename", "Rename this document", async () => {
+        const next = await promptDialog("Rename this document:", item.title);
+        if (!next) return;
+        await apiJson(`/documents/${item.id}`, {
+          method: "PUT",
+          body: JSON.stringify({ title: next }),
+        }).catch((e) => toast(e.message, true));
+        reload();
+      }),
+      makeMenuItem("⬇ Download .md", "Save a copy as a markdown file", () => {
+        window.open(`/documents/${item.id}/export.md`, "_blank");
+      }),
+      makeMenuItem("🗑 Delete", "Delete this document", async () => {
+        if (!(await confirmDialog(`Delete “${item.title}”? This cannot be undone.`))) return;
+        await apiJson(`/documents/${item.id}`, { method: "DELETE" }).catch((e) =>
+          toast(e.message, true)
+        );
+        reload();
+      }),
+    ];
+  }
+  if (item.kind === "archived") {
+    return [
+      makeMenuItem("↩ Restore", "Put this note back in your notebook", async () => {
+        await apiJson(`/entries/${item.id}/restore`, { method: "POST" }).catch((e) =>
+          toast(e.message, true)
+        );
+        toast("Restored.");
+        reload();
+        loadEntries();
+      }),
+      // The bin's other half. Without it the Library can show you a binned
+      // note and take you back to the old panel to get rid of it, which is the
+      // two-places problem the move was for.
+      makeMenuItem("🗑 Delete for good", "Permanently delete this note", async () => {
+        if (!(await confirmDialog("Delete this note permanently?\n\nThis cannot be undone."))) return;
+        await apiJson(`/entries/${item.id}/purge`, { method: "DELETE" }).catch((e) =>
+          toast(e.message, true)
+        );
+        reload();
+      }),
+    ];
+  }
+  if (item.kind === "note") {
+    return [
+      makeMenuItem("↗ Open in Notes", "Show this note in the list", () => flashEntry(item.id)),
+      makeMenuItem("🗑 Move to bin", "Bin this note — recoverable", async () => {
+        await apiJson(`/entries/${item.id}`, { method: "DELETE" }).catch((e) =>
+          toast(e.message, true)
+        );
+        toast("Moved to the bin.");
+        reload();
+        loadEntries();
+      }),
+    ];
+  }
+  if (item.kind === "tag") {
+    return [
+      makeMenuItem("✎ Rename", "Rename this tag everywhere (merge if it exists)", async () => {
+        const next = await promptDialog(`Rename tag “${item.title}” to:`, item.title);
+        if (!next || next === item.title) return;
+        const result = await apiJson("/tags/rename", {
+          method: "POST",
+          body: JSON.stringify({ old: item.title, new: next }),
+        }).catch((e) => {
+          toast(e.message, true);
+          return null;
+        });
+        if (result) toast(`Renamed on ${result.changed} note${result.changed === 1 ? "" : "s"}.`);
+        reload();
+        loadEntries();
+      }),
+      makeMenuItem("🗑 Remove everywhere", "Take this tag off every note", async () => {
+        if (!(await confirmDialog(`Remove the tag “${item.title}” from every note?\n\nThe notes are untouched.`))) return;
+        await apiJson("/tags/delete", {
+          method: "POST",
+          body: JSON.stringify({ name: item.title }),
+        }).catch((e) => toast(e.message, true));
+        reload();
+        loadEntries();
+      }),
+    ];
+  }
+  // An activity row is a record of something that already happened. There is
+  // nothing to do to it, so it gets no menu at all rather than an empty one.
+  if (item.kind === "activity") return [];
+  return [
+    makeMenuItem("⬇ Download", "Save this file", () => {
+      window.open(`/files/${item.id}`, "_blank");
+    }),
+  ];
+}
+
+// The two strips that only appear when they have something to say.
+function renderLibraryContextBars() {
+  // The bin's own controls, where the bin now is. "Empty now" used to live in
+  // a panel behind a sidebar button; a Bin filter you can look at but not
+  // empty is half a move, and half a move leaves the user with two places.
+  const binBar = $("library-binbar");
+  const showingBin = libraryKind === "archived";
+  binBar.classList.toggle("hidden", !showingBin);
+  if (showingBin) {
+    const count = libraryCounts.archived || 0;
+    $("library-bin-note").textContent = count
+      ? `${count} note${count === 1 ? "" : "s"} in the bin. Restore one from its ⋯ menu, ` +
+        "or empty the bin to delete them all for good."
+      : "The bin is empty.";
+    $("library-bin-empty").disabled = !count;
+  }
+
+  const bar = $("library-selectbar");
+  const chosen = [...librarySelection];
+  bar.classList.toggle("hidden", chosen.length === 0);
+  if (!chosen.length) return;
+  $("library-selected-count").textContent =
+    `${chosen.length} selected`;
+  // Restore only makes sense for binned notes, and offering it for a document
+  // is offering a button that cannot work.
+  const allBinned = chosen.every((key) => key.startsWith("archived:"));
+  $("library-bulk-restore").classList.toggle("hidden", !allBinned);
+}
+
+function librarySelectedItems() {
+  return libraryItems.filter((item) => librarySelection.has(libraryKeyOf(item)));
+}
+
+function toggleLibrarySelection(item, on) {
+  const key = libraryKeyOf(item);
+  if (on) librarySelection.add(key);
+  else librarySelection.delete(key);
+  renderLibraryContextBars();
+}
+
+function libraryCard(item) {
+  // An `<article>` rather than a `<button>`: the card carries its own ⋯ menu,
+  // and a button inside a button is invalid markup that browsers resolve by
+  // dropping one of them. The click, the keyboard and the role are all here
+  // explicitly instead, which is what the button element was giving us.
+  const card = document.createElement("article");
+  card.className =
+    `library-card library-${item.kind}` + (item.private ? " library-private" : "");
+  card.tabIndex = 0;
+  card.setAttribute("role", "button");
+  const meta = LIBRARY_KINDS.find((k) => k.key === item.kind);
+
+  // A thumbnail where there is one to show. A grid of picture files that shows
+  // the word "PNG" seven times is a list pretending to be a gallery — and this
+  // is the one kind whose content *is* what it looks like.
+  if (item.kind === "file" && (item.mime || "").startsWith("image/")) {
+    const thumb = document.createElement("img");
+    thumb.className = "library-card-thumb";
+    thumb.src = `/files/${item.id}`;
+    thumb.alt = "";
+    thumb.loading = "lazy";
+    // A file whose bytes have gone leaves a broken-image glyph, which reads as
+    // a bug in the Library rather than as a missing file.
+    thumb.addEventListener("error", () => thumb.remove());
+    card.appendChild(thumb);
+  }
+
+  const top = document.createElement("div");
+  top.className = "library-card-top";
+  // Tick to select. Only for the kinds a bulk action can actually do something
+  // to — an activity row is a record of the past and a tag is not a file, so
+  // offering either a checkbox would be offering a Delete that does nothing.
+  if (item.kind !== "activity" && item.kind !== "tag") {
+    const tick = document.createElement("input");
+    tick.type = "checkbox";
+    tick.className = "library-card-tick";
+    tick.checked = librarySelection.has(libraryKeyOf(item));
+    tick.setAttribute("aria-label", `Select ${item.title}`);
+    tick.addEventListener("click", (event) => event.stopPropagation());
+    tick.addEventListener("change", () => toggleLibrarySelection(item, tick.checked));
+    top.appendChild(tick);
+  }
+  const icon = document.createElement("span");
+  icon.className = "library-card-icon";
+  icon.textContent = meta ? meta.icon : "•";
+  icon.setAttribute("aria-hidden", "true");
+  const title = document.createElement("strong");
+  title.className = "library-card-title";
+  // A note's title is its first line, so it carries the note's own markup too.
+  // Everything else has a real title and renders as plain text through the
+  // same call, which is harmless.
+  renderInlineMarkdown(title, item.title, []);
+  top.append(icon, title);
+  if (item.pinned) {
+    const pin = document.createElement("span");
+    pin.textContent = "📌";
+    pin.title = "Pinned";
+    top.appendChild(pin);
+  }
+  card.appendChild(top);
+
+  // A chat's title *is* its first question, so its preview would be the same
+  // sentence again one line down and one shade greyer — a card that looks like
+  // a bug rather than one with more metadata on it.
+  //
+  // **But "starts with the title" was the wrong test**, and it is what was
+  // behind "I can't see a lot of the response in the cards": a *note's* title
+  // is the first 60 characters of the note, so every note card matched and
+  // every note card lost its preview entirely — leaving 60 characters of a
+  // 420-character card. The question is not whether the preview begins with
+  // the title, it is whether it goes on to say anything more.
+  const bare = item.title.replace(/…$/, "").trim();
+  const sameAsTitle =
+    item.preview &&
+    bare &&
+    item.preview.startsWith(bare) &&
+    item.preview.trim().length <= bare.length + 1;
+  if (item.preview && !sameAsTitle) {
+    const preview = document.createElement("p");
+    preview.className = "library-card-preview";
+    // Inline markdown, the same renderer the note list uses (§22): a note
+    // written with **bold** and `code` in it was showing its asterisks and
+    // backticks here, which is the Library rendering the *source* of a note
+    // while every other surface renders the note. Inline only — block elements
+    // would turn a card into a document, which is what the clamp is for.
+    renderInlineMarkdown(preview, item.preview, []);
+    card.appendChild(preview);
+  }
+
+  const foot = document.createElement("div");
+  foot.className = "library-card-meta";
+  const detail = document.createElement("span");
+  detail.textContent = item.detail;
+  const when = document.createElement("span");
+  when.textContent = relativeTime(item.updated_at);
+  when.title = new Date(item.updated_at).toLocaleString();
+  foot.append(detail, when);
+  card.appendChild(foot);
+
+  const kindWord = meta ? meta.label.replace(/s$/, "") : item.kind;
+  card.title = `${kindWord} · ${item.title}`;
+  card.setAttribute("aria-label", `${kindWord}: ${item.title}. ${item.detail}.`);
+
+  const actions = libraryActions(item);
+  if (actions.length) {
+    const menu = kebabMenu(actions, `Actions for ${item.title}`);
+    menu.classList.add("library-card-menu");
+  // The menu is inside the card and the card is a click target, so every click
+  // in the menu would also open the thing. Stopped here rather than on each
+  // item: the opener, the popup's padding and its backdrop are all inside this
+  // element, and only one of the three is a button.
+    menu.addEventListener("click", (event) => event.stopPropagation());
+    card.appendChild(menu);
+  }
+
+  card.addEventListener("click", () => openLibraryItem(item));
+  // An <article role="button"> gets neither of these for free — this is the
+  // half of the button element we gave up to be allowed a menu inside.
+  card.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    if (event.target !== card) return; // a key pressed inside the menu is the menu's
+    event.preventDefault();
+    openLibraryItem(item);
+  });
+  return card;
+}
+
+// Each kind opens where it is actually worked on. The Library finds things; it
+// is not a fifth editor.
+function openLibraryItem(item) {
+  if (item.kind === "document") {
+    openDocumentFromNote(item.id); // the Documents page, on this document
+  } else if (item.kind === "chat") {
+    switchTab("chat");
+    openConversation(item.id);
+  } else if (item.kind === "file") {
+    // The note, not the raw file: a download is one click further and the note
+    // is the thing that says why the file was kept.
+    flashEntry(item.entry_id);
+  } else if (item.kind === "note") {
+    flashEntry(item.id);
+  } else if (item.kind === "tag") {
+    // A tag's job is finding the notes that carry it, so opening one does
+    // exactly that rather than opening a tag editor nobody asked for.
+    switchTab("notes");
+    showNotesSection("browse");
+    const box = $("note-search");
+    if (box) {
+      box.value = `tag:${item.title}`;
+      box.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  } else if (item.kind === "activity" && item.entry_id) {
+    // The note the entry in the log is about, when it still exists.
+    flashEntry(item.entry_id);
+  } else if (item.kind === "archived") {
+    // Restore and permanent delete are both on this card's own ⋯ menu now, so
+    // there is nothing to send the user elsewhere for. Opening a binned note
+    // shows it in the bin panel, which is the one place it can be read in full.
+    switchTab("notes");
+    showNotesSection("browse");
+    showPanel("bin-panel");
+    renderBin();
+  }
+}
+
+// --- the status bar (§36D) ---------------------------------------------------
+//
+// Five items, and the roadmap's own test for what may be here: each one is
+// either a state worth knowing at a glance or a command you use constantly.
+// Anything else is a permanent strip of decoration, so anything added later
+// should have to displace one of these rather than sit beside them.
+//
+// **Nothing here polls.** Every value arrives on a loop that already existed:
+// the AI state and the background job on `refreshModelStatus`, the reminder
+// counts wherever the tab badge is painted, the notebook size when the notes
+// are loaded. That is deliberate and it is not a micro-optimisation — a
+// reminder poll running on two timers is a bug this project has already had
+// and had to find in a browser, and a bar with five values is five chances to
+// repeat it.
+
+//: What the reminder poll last saw. Two numbers rather than a list: the bar
+//: needs counts, and holding the reminders themselves here would be a second
+//: copy of state the Reminders tab already owns.
+let reminderCounts = { open: 0, due: 0 };
+
+//: The running background jobs, straight from GET /tasks. Not reassembled from
+//: `modelStatus` — routes_tasks.py exists precisely because the frontend used
+//: to build this list out of the two jobs that happened to be in the status
+//: payload, and everything else (the embedding warm-up, the SearXNG install)
+//: was invisible.
+let backgroundTasks = [];
+
+//: ⌘ on a Mac, Ctrl everywhere else. `userAgentData` where it exists because
+//: `navigator.platform` is deprecated and lies inside some embedded shells;
+//: the fallback is what the desktop window still answers.
+const STATUS_META_KEY = /Mac|iPhone|iPad/.test(
+  (navigator.userAgentData && navigator.userAgentData.platform) ||
+    navigator.platform ||
+    ""
+)
+  ? "⌘K"
+  : "Ctrl K";
+
+// One item: an icon, a number, and a word. The number is bold and tabular so
+// the row does not twitch sideways as counts change — a status bar that moves
+// while you are reading it is the thing the header was rebuilt to stop doing.
+function paintStatusItem(id, { icon, value, label, title, tone = "" }) {
+  const button = $(id);
+  if (!button) return;
+  button.replaceChildren();
+  if (icon) {
+    const glyph = document.createElement("span");
+    glyph.textContent = icon;
+    glyph.setAttribute("aria-hidden", "true");
+    button.appendChild(glyph);
+  }
+  if (value !== undefined && value !== null) {
+    const strong = document.createElement("b");
+    strong.textContent = String(value);
+    button.appendChild(strong);
+  }
+  if (label) {
+    const text = document.createElement("span");
+    text.textContent = label;
+    button.appendChild(text);
+  }
+  button.title = title || "";
+  button.classList.toggle("status-due", tone === "due");
+}
+
+function renderStatusBar() {
+  if (!$("status-bar")) return;
+
+  // The notebook's size, from the list the app has already loaded rather than
+  // from /insights/stats — an unpaginated GET /entries *is* the notebook, so
+  // this is exact and costs nothing. Before the first load it says nothing
+  // rather than "0 notes", which would be a lie for the second it is up.
+  paintStatusItem("status-notes", {
+    icon: "📝",
+    value: entriesEverLoaded ? allEntries.length : "–",
+    label: allEntries.length === 1 && entriesEverLoaded ? "note" : "notes",
+    title: "Your notebook — click to browse it",
+  });
+
+  // Due, or open. The same choice the dashboard's tile makes, and it has to
+  // stay the same choice: two counters visible at once that count differently
+  // is worse than either alone.
+  const { open, due } = reminderCounts;
+  paintStatusItem("status-reminders", {
+    icon: due ? "⏰" : "✅",
+    value: due || open,
+    label: due ? "due" : "open",
+    title: due
+      ? `${due} reminder${due === 1 ? "" : "s"} due now`
+      : `${open} open reminder${open === 1 ? "" : "s"}`,
+    tone: due ? "due" : "",
+  });
+
+  // The job slot appears only while there is one. Where several run at once it
+  // shows the first — /tasks orders them newest-concern-first — and says how
+  // many are behind it, because a bar is one line and a queue is not.
+  const task = backgroundTasks[0];
+  const slot = $("status-task");
+  slot.classList.toggle("hidden", !task);
+  if (task) {
+    const others = backgroundTasks.length - 1;
+    paintStatusItem("status-task", {
+      icon: "⚙",
+      label: others > 0 ? `${task.label} (+${others})` : task.label,
+      title:
+        `${task.label}${task.detail ? ` — ${task.detail}` : ""}` +
+        "\n\nClick to open Background tasks.",
+    });
+  }
+
+  // The palette already exists and is already on Ctrl/⌘-K; what it did not
+  // have was anywhere on screen saying so. A shortcut nobody can see is a
+  // shortcut only the person who wrote it uses.
+  const command = $("status-command");
+  command.replaceChildren();
+  const key = document.createElement("span");
+  key.className = "status-key";
+  key.textContent = STATUS_META_KEY;
+  const word = document.createElement("span");
+  word.textContent = "Commands";
+  command.append(key, word);
+  command.title = `Search everything and jump anywhere (${STATUS_META_KEY})`;
 }
 
 // Hover is handled in CSS. This is the click half — needed for touch, where
@@ -14010,9 +15032,172 @@ function renderSettings() {
     $("model-spec").classList.add("hidden");
   }
   renderReindex(status);
-  // Only while the section is actually on screen: /tasks is its own call, and
-  // polling it behind a closed panel is work nobody is looking at.
-  if (settingsModalOpen() && currentSettingsSection === "tasks") renderTasks();
+}
+
+// GET /tasks, once per status poll, feeding everything that wants to know what
+// is running: the status bar's job slot, the Background tasks panel when it is
+// open, and the notifications centre.
+//
+// That last one was a real gap rather than a tidy-up. `renderTaskHistory`
+// records a finished job into the centre "whether or not this screen is open —
+// which is the point of the centre", but the only thing that called it was
+// `renderTasks`, and the only thing that called *that* was the panel being on
+// screen. So a re-index that finished while you were anywhere else — which is
+// most of them, since these jobs run for minutes — was recorded nowhere. It is
+// polled from here now, so the record does not depend on being watched.
+async function refreshBackgroundTasks() {
+  // Before the unlock there is no token and this is a guaranteed 401 on every
+  // poll — noise in the browser's network log and in the server's, where it
+  // reads as an auth failure worth investigating.
+  if (!authToken()) {
+    backgroundTasks = [];
+    return;
+  }
+  const body = await apiJson("/tasks", { silent: true }).catch(() => null);
+  backgroundTasks = (body && body.tasks) || [];
+  renderStatusBar();
+  // One fetch, not two: the panel renders from this payload rather than asking
+  // again a few milliseconds later.
+  if (settingsModalOpen() && currentSettingsSection === "tasks") renderTasks(body);
+  else renderTaskHistory((body && body.history) || []);
+}
+
+// --- optional extras (Settings → Optional extras) -----------------------------
+//
+// Each of these is a feature the app already offers and cannot run: the 🎙
+// buttons need faster-whisper, the desktop window needs pywebview, search by
+// meaning needs sentence-transformers. The only way to switch one on was a
+// terminal and a README.
+//
+// The catalogue is the **server's**, and the install is chosen by id from an
+// allowlist there — the client never sends a package name. See
+// `core/extras.py` for why that is the whole security property.
+let extrasPollTimer = null;
+
+async function renderExtras() {
+  const list = $("extras-list");
+  if (!list) return;
+  const body = await apiJson("/extras", { silent: true }).catch(() => null);
+  if (!body) return;
+
+  list.replaceChildren();
+  for (const extra of body.extras) {
+    const li = document.createElement("li");
+    li.className = "extras-row";
+
+    const head = document.createElement("div");
+    head.className = "entry-meta";
+    const name = document.createElement("strong");
+    name.textContent = extra.label;
+    head.appendChild(name);
+
+    const actions = document.createElement("span");
+    actions.className = "entry-actions";
+    if (extra.installed) {
+      // A tick, not a disabled button. "Installed" is the answer to the only
+      // question this row asks, and a greyed-out Install invites a click that
+      // will do nothing.
+      const done = document.createElement("span");
+      done.className = "extras-installed";
+      done.textContent = "✓ Installed";
+      actions.appendChild(done);
+      // And a way back out of the state detection cannot see. `find_spec`
+      // answers "is it there", not "is it sound" — a half-finished download or
+      // a wheel built for the wrong platform imports and does not work, and
+      // this is the button for that. Quiet, because it is the rarer need.
+      actions.appendChild(
+        smallButton("↻ Reinstall", `Reinstall ${extra.label}`, async () => {
+          const ok = await confirmDialog(
+            `Reinstall ${extra.label}?\n\nUse this if the feature is switched ` +
+              "on but not working — it downloads the package again from " +
+              "scratch rather than trusting what is already there."
+          );
+          if (!ok) return;
+          const result = await apiJson(`/extras/${extra.id}/install?reinstall=true`, {
+            method: "POST",
+          }).catch((e) => ({ started: false, message: e.message }));
+          toast(result.message, !result.started);
+          renderExtras();
+        })
+      );
+      actions.appendChild(
+        smallButton("🗑 Remove", `Uninstall ${extra.label}`, async () => {
+          const ok = await confirmDialog(
+            `Remove ${extra.label}?\n\nThe feature it turns on stops working. ` +
+              "Only the package itself is removed — anything it pulled in is " +
+              "left alone, since something else may be using it."
+          );
+          if (!ok) return;
+          const result = await apiJson(`/extras/${extra.id}/uninstall`, {
+            method: "POST",
+          }).catch((e) => ({ started: false, message: e.message }));
+          toast(result.message, !result.started);
+          renderExtras();
+        })
+      );
+    } else if (extra.installing) {
+      const busy = document.createElement("span");
+      busy.className = "muted";
+      busy.textContent = "Installing…";
+      actions.appendChild(busy);
+    } else {
+      actions.appendChild(
+        smallButton("⬇ Install", `Install ${extra.label}`, async () => {
+          const ok = await confirmDialog(
+            `Install ${extra.label}?\n\n${extra.size}. It is downloaded from ` +
+              "PyPI to this machine, and MemoryMap needs a restart afterwards " +
+              "before the feature works."
+          );
+          if (!ok) return;
+          const result = await apiJson(`/extras/${extra.id}/install`, {
+            method: "POST",
+          }).catch((e) => ({ started: false, message: e.message }));
+          toast(result.message, !result.started);
+          renderExtras();
+        })
+      );
+    }
+    head.appendChild(actions);
+    li.appendChild(head);
+
+    const enables = document.createElement("p");
+    enables.className = "muted extras-enables";
+    enables.textContent = extra.enables;
+    li.appendChild(enables);
+
+    const meta = document.createElement("p");
+    meta.className = "muted extras-meta";
+    meta.textContent = `${extra.packages.join(", ")} · ${extra.size}`;
+    li.appendChild(meta);
+
+    // Said before the button is pressed, not after: "this installs the library
+    // but nothing uses it yet" is exactly the sort of thing that turns into a
+    // bug report if it is discovered afterwards.
+    if (extra.caveat) {
+      const caveat = document.createElement("p");
+      caveat.className = "muted extras-caveat";
+      caveat.textContent = `⚠ ${extra.caveat}`;
+      li.appendChild(caveat);
+    }
+    list.appendChild(li);
+  }
+
+  $("extras-status").textContent = body.running
+    ? body.step
+    : body.outcome === "completed"
+      ? `${body.step}`
+      : body.outcome === "failed"
+        ? `Install failed. ${body.step}`
+        : "";
+  const logWrap = $("extras-log-wrap");
+  logWrap.classList.toggle("hidden", !body.log.length);
+  $("extras-log").textContent = body.log.join("\n");
+
+  // Poll only while something is running, and only while the panel is open.
+  clearTimeout(extrasPollTimer);
+  if (body.running && settingsModalOpen() && currentSettingsSection === "extras") {
+    extrasPollTimer = setTimeout(renderExtras, 1500);
+  }
 }
 
 // --- Wave N: tasks manager (see and quit background jobs) ---------------------------
@@ -14023,9 +15208,13 @@ function renderSettings() {
 // at startup and the SearXNG install, which is minutes long, ran with nothing
 // on this screen to say so. Rendering whatever the server sends means the
 // next background job appears here without touching this file.
-async function renderTasks() {
+// `payload` is the /tasks body when the caller has already fetched it — the
+// status poll has, once, for the bar. Opening the panel passes nothing and
+// fetches, so the list is filled the moment you get there rather than at the
+// next tick.
+async function renderTasks(payload) {
   const list = $("task-list");
-  const body = await apiJson("/tasks", { silent: true }).catch(() => null);
+  const body = payload || (await apiJson("/tasks", { silent: true }).catch(() => null));
   const jobs = (body && body.tasks) || [];
   list.replaceChildren();
   $("tasks-empty").classList.toggle("hidden", jobs.length > 0);
@@ -16331,17 +17520,26 @@ for (const button of document.querySelectorAll("#tab-bar button")) {
   button.addEventListener("click", () => switchTab(button.dataset.tab));
 }
 // Arrow keys walk the tablist; Home/End jump to the ends (Wave L).
+//
+// Read from the bar itself rather than from TABS. Since the Library absorbed
+// the Documents tab (§36F) the two lists are no longer the same: `documents`
+// is still a page you can switch to — it is the editor the Library opens — but
+// it has no button, so walking TABS would land on a tab that does not exist
+// and `.focus()` on the null it returned would throw on an arrow key.
 $("tab-bar").addEventListener("keydown", (e) => {
   const keys = { ArrowRight: 1, ArrowLeft: -1, Home: 0, End: 0 };
   if (!(e.key in keys)) return;
   e.preventDefault();
-  const index = TABS.indexOf(localStorage.getItem("activeTab") || "notes");
+  const buttons = [...document.querySelectorAll("#tab-bar button")];
+  if (!buttons.length) return;
+  const names = buttons.map((b) => b.dataset.tab);
+  const index = Math.max(0, names.indexOf(localStorage.getItem("activeTab") || "notes"));
   let next;
   if (e.key === "Home") next = 0;
-  else if (e.key === "End") next = TABS.length - 1;
-  else next = (index + keys[e.key] + TABS.length) % TABS.length;
-  switchTab(TABS[next]);
-  document.querySelector(`#tab-bar [data-tab="${TABS[next]}"]`).focus();
+  else if (e.key === "End") next = names.length - 1;
+  else next = (index + keys[e.key] + names.length) % names.length;
+  switchTab(names[next]);
+  buttons[next].focus();
 });
 // Skip link (Wave L): jump keyboard focus straight into the open panel.
 $("skip-link").addEventListener("click", (e) => {
@@ -16469,18 +17667,27 @@ $("log-list").addEventListener("scroll", () => {
   $("log-follow-label").classList.toggle("is-paused", !logFollowPinned);
 });
 
-$("bin-btn").addEventListener("click", async () => {
-  showPanel("bin-panel");
-  await renderBin();
-});
-$("activity-btn").addEventListener("click", async () => {
-  showPanel("activity-panel");
-  await renderActivity();
-});
-$("tags-btn").addEventListener("click", async () => {
-  showPanel("tags-panel");
-  await renderTags();
-});
+// The three sidebar buttons open the Library on their kind now (§36G). Each
+// was a panel that only existed on the Notes tab, and each is a *finding*
+// surface — the bin, the activity log and the tag list are all "show me the
+// things of this sort", which is the Library's whole job. Keeping the panels
+// as well would leave two places for each of them, which is the problem the
+// Library was built to end.
+function openLibraryOn(kind) {
+  switchTab("library");
+  libraryKind = kind;
+  if (kind === "archived" && $("library-show-binned")) {
+    $("library-show-binned").checked = true;
+  }
+  // loadLibrary re-renders from the server; these paint the chosen chip
+  // immediately so the tab does not flash "Everything" on the way there.
+  renderLibraryOverview();
+  renderLibraryFilters();
+  renderLibrary();
+}
+$("bin-btn").addEventListener("click", () => openLibraryOn("archived"));
+$("activity-btn").addEventListener("click", () => openLibraryOn("activity"));
+$("tags-btn").addEventListener("click", () => openLibraryOn("tag"));
 $("entry-template").addEventListener("change", applyTemplate);
 
 // Chat tab (Wave C).
@@ -16488,7 +17695,16 @@ $("chat-send").addEventListener("click", () => sendChatMessage());
 
 // --- documents wiring ---
 $("doc-new").addEventListener("click", createDocument);
-$("doc-filter").addEventListener("input", renderDocList);
+// Searching and sorting every document lives in the Library now (§36G), with
+// the notes, chats and files beside them. This is the way there, said out loud
+// — a list that silently stops at eight is a list that has lost your writing.
+$("doc-browse-all").addEventListener("click", () => {
+  switchTab("library");
+  libraryKind = "document";
+  renderLibraryOverview();
+  renderLibraryFilters();
+  renderLibrary();
+});
 $("doc-title").addEventListener("input", () => { markDocDirty(); renderDocPreview(); });
 $("doc-content").addEventListener("input", () => { markDocDirty(); renderDocPreview(); });
 for (const button of document.querySelectorAll("#doc-toolbar button")) {
@@ -16597,13 +17813,15 @@ $("note-picker-panel").addEventListener("keydown", (event) => {
 $("chat-stop").addEventListener("click", () => chatController && chatController.abort());
 $("chat-new").addEventListener("click", newChatConversation);
 $("persona-peek").addEventListener("click", togglePersonaPrompt);
-// Debounced: this hits the server, and searching as you type shouldn't mean
-// a request per keystroke.
-let convSearchTimer = null;
-$("conv-search").addEventListener("input", (event) => {
-  conversationQuery = event.target.value.trim();
-  clearTimeout(convSearchTimer);
-  convSearchTimer = setTimeout(loadConversationList, 180);
+// Searching your chats lives in the Library now (§36F) — with the documents,
+// the files and the bin, and with sort beside it. This is the way there, said
+// out loud, because a list that silently stops at eight is a list that has
+// lost your chats.
+$("conv-browse-all").addEventListener("click", () => {
+  switchTab("library");
+  libraryKind = "chat";
+  renderLibraryFilters();
+  renderLibrary();
 });
 $("chat-export").addEventListener("click", exportChatMarkdown);
 $("chat-compress").addEventListener("click", compressChatContext);
@@ -16649,6 +17867,116 @@ $("ai-status").addEventListener("keydown", (event) => {
     $("ai-status").focus();
   }
 });
+
+// The status bar (§36D). Every item goes somewhere: a count you cannot act on
+// is a number, and a number in permanent furniture is the decoration the
+// roadmap warned this bar would become if anything was added without a job.
+$("status-notes").addEventListener("click", () => {
+  switchTab("notes");
+  showNotesSection("browse"); // or you land on whichever sub-tab was last open
+});
+$("status-reminders").addEventListener("click", () => switchTab("reminders"));
+$("status-task").addEventListener("click", () => openSettingsModal("tasks"));
+$("status-command").addEventListener("click", () => openPalette());
+
+// The Library (§4, §36F). Filter and sort are first-class here rather than an
+// afterthought, so they are wired like controls: every change re-renders from
+// the list already in memory, with no round trip.
+$("library-search").addEventListener("input", renderLibrary);
+$("library-sort").addEventListener("change", renderLibrary);
+$("library-show-binned").addEventListener("change", renderLibrary);
+for (const button of document.querySelectorAll("#library-view button")) {
+  button.addEventListener("click", () => {
+    localStorage.setItem(LIBRARY_VIEW_KEY, button.dataset.libraryView);
+    renderLibraryView();
+    renderLibrary();
+  });
+}
+// The bin's own control, on the bin's own screen.
+$("library-bin-empty").addEventListener("click", async () => {
+  const count = libraryCounts.archived || 0;
+  const ok = await confirmDialog(
+    `Permanently delete ${count} note${count === 1 ? "" : "s"} in the bin?\n\n` +
+      "This cannot be undone."
+  );
+  if (!ok) return;
+  await apiJson("/recycle-bin/empty", { method: "POST" }).catch((e) => toast(e.message, true));
+  toast("The bin is empty.");
+  loadLibrary();
+  loadEntries();
+});
+
+// --- bulk actions -------------------------------------------------------------
+// The reason the Library is a management screen rather than a nicer list:
+// doing one thing to nine things. Every one of these confirms with a *count*,
+// because "delete 9 items" is the sentence that stops a mistake and "are you
+// sure?" is the one that doesn't.
+$("library-clear-selection").addEventListener("click", () => {
+  librarySelection = new Set();
+  renderLibrary();
+});
+$("library-bulk-open").addEventListener("click", () => {
+  const chosen = librarySelectedItems();
+  if (!chosen.length) return;
+  // One thing opens; several would be several tab switches ending wherever the
+  // last one landed, so the honest answer is to open the first and say so.
+  if (chosen.length > 1) toast(`Opening the first of ${chosen.length}.`);
+  openLibraryItem(chosen[0]);
+});
+$("library-bulk-restore").addEventListener("click", async () => {
+  const chosen = librarySelectedItems().filter((i) => i.kind === "archived");
+  if (!chosen.length) return;
+  for (const item of chosen) {
+    await apiJson(`/entries/${item.id}/restore`, { method: "POST" }).catch(() => {});
+  }
+  toast(`Restored ${chosen.length} note${chosen.length === 1 ? "" : "s"}.`);
+  loadLibrary();
+  loadEntries();
+});
+$("library-bulk-delete").addEventListener("click", async () => {
+  const chosen = librarySelectedItems();
+  if (!chosen.length) return;
+  // Binned notes are destroyed; everything else is deleted the way its own
+  // menu deletes it. Saying which is which in the confirmation matters —
+  // "delete" means recoverable for a note and permanent for one already binned.
+  const permanent = chosen.filter((i) => i.kind === "archived").length;
+  const ok = await confirmDialog(
+    `Delete ${chosen.length} item${chosen.length === 1 ? "" : "s"}?\n\n` +
+      (permanent
+        ? `${permanent} of them ${permanent === 1 ? "is" : "are"} already in the bin and will be destroyed permanently.`
+        : "Notes go to the bin; documents and chats are deleted for good.")
+  );
+  if (!ok) return;
+  for (const item of chosen) {
+    const route =
+      item.kind === "archived"
+        ? [`/entries/${item.id}/purge`, "DELETE"]
+        : item.kind === "note"
+          ? [`/entries/${item.id}`, "DELETE"]
+          : item.kind === "document"
+            ? [`/documents/${item.id}`, "DELETE"]
+            : item.kind === "chat"
+              ? [`/conversations/${item.id}`, "DELETE"]
+              : item.kind === "file"
+                ? [`/files/${item.id}`, "DELETE"]
+                : null;
+    if (!route) continue;
+    await apiJson(route[0], { method: route[1] }).catch(() => {});
+  }
+  toast(`Deleted ${chosen.length} item${chosen.length === 1 ? "" : "s"}.`);
+  loadLibrary();
+  loadEntries();
+});
+$("library-refresh").addEventListener("click", loadLibrary);
+$("library-new-doc").addEventListener("click", () => {
+  switchTab("documents");
+  // The Documents page's own loader opens the last document otherwise, and a
+  // new one would be replaced a moment after it appeared.
+  setTimeout(() => $("doc-new").click(), 160);
+});
+// Paint it before any poll lands, so the bar is furniture from the first frame
+// rather than four boxes that pop into existence a second later.
+renderStatusBar();
 
 $("persona-add").addEventListener("click", addPersona);
 $("skill-add").addEventListener("click", addSkill);
@@ -17198,7 +18526,7 @@ async function persistSavedSearches(next) {
 async function saveCurrentSearch() {
   const query = $("note-search").value.trim();
   if (!query) return;
-  const name = (prompt("Name this filter:", query.slice(0, 40)) || "").trim();
+  const name = await promptDialog("Name this filter:", query.slice(0, 40), { confirmLabel: "Save filter" });
   if (!name) return;
   // Re-saving an existing name updates it rather than adding a duplicate you
   // then have to hunt down and remove.

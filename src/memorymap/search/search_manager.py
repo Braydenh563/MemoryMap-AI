@@ -344,6 +344,14 @@ def in_range(
     )
 
 
+def _written_at(entry: Entry):
+    """When a note was written, for sorting. A note with no timestamp sorts
+    oldest rather than crashing the comparison — the same choice `_within`
+    makes when it keeps an undated note rather than filtering on an absence."""
+    written = getattr(entry, "created_at", None)
+    return written or datetime.min
+
+
 def _within(entry: Entry, since, until) -> bool:
     """Was this note written in the range? Notes with no timestamp are kept —
     dropping a note because its date is missing would be filtering on an
@@ -462,7 +470,15 @@ def _retrieve(
     # A range alongside a subject narrows the candidates before they are
     # ranked, so "the allotment, last week" cannot be answered with a note from
     # March that happens to be a better match.
-    if asked.has_range:
+    #
+    # **Except when the range is soft.** "Recently" is a lean, not a boundary —
+    # see `Understood.soft` — and filtering on it is what made "jokes I have
+    # saved recently" come back with a note about a gym routine: the two notes
+    # tagged `jokes` were 16 and 30 days old, the fortnight window dropped both,
+    # and the empty-handed fallback below listed whatever *was* in the window.
+    # A soft range still sorts (newest first, below) and still labels; it does
+    # not exclude.
+    if asked.has_range and not asked.soft:
         if semantic is not None:
             semantic = [
                 (entry, score)
@@ -470,6 +486,13 @@ def _retrieve(
                 if _within(entry, asked.since, asked.until)
             ]
         keyword = [e for e in keyword if _within(e, asked.since, asked.until)]
+    elif asked.soft:
+        # Recency as a tiebreak rather than a gate: of the notes that match the
+        # subject, the newer ones come first, which is the whole of what the
+        # word was asking for.
+        keyword = sorted(keyword, key=_written_at, reverse=True)
+        if semantic is not None:
+            semantic = sorted(semantic, key=lambda pair: _written_at(pair[0]), reverse=True)
 
     if semantic is None:
         # No embedding backend at all: keyword search is the whole of search,
@@ -496,9 +519,21 @@ def _retrieve(
         # and if the range is genuinely empty it returns nothing and says
         # `dated` — which is a true answer the caller can render as "nothing
         # that week".
-        if asked.has_range:
+        #
+        # **Only when the question was about time alone.** With a subject, this
+        # fallback drops the more specific of the two constraints and hands
+        # back every note in the window — which is how "jokes I have saved
+        # recently" was answered with a gym routine. Listing the window is a
+        # true answer to "what did I write last week"; presented as the answer
+        # to "which jokes", it is a confident answer to a question nobody
+        # asked, and the person has no way to tell it apart from a real hit.
+        # Nothing, labelled `dated`, is the honest reply, and the caller
+        # renders it as "nothing about that in this window".
+        if asked.has_range and not asked.subject:
             in_window = in_range(session, asked.since, asked.until, limit=limit)
             return _without_private(in_window), "dated"
+        if asked.has_range:
+            return [], "dated"
         recent = recent_entries(session, limit=RECENT_FALLBACK_LIMIT)
         if recent:
             return _without_private(recent), "recent"

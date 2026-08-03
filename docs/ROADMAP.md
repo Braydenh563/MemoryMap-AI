@@ -1476,7 +1476,109 @@ than implying otherwise.
   release. A packaged build without the file hides the control rather than
   offering one that opens onto nothing.
 
-### 36F. The Library tab, and the tab bar it has to fit in
+### 36G. The Library as the app's management area — **the decided direction**
+
+**§36F's two questions are answered and the first version is built** (see
+§36F below, and `routes_library.py`). What follows is the direction the user
+set immediately afterwards, in their words: *"I want the library to assimilate
+the activity and rubbish bin. The library should also probably assimilate
+multiple other features. It will be the central management area for the
+application."*
+
+That is a bigger claim than §4 made and it is the right one, so it is written
+down before anyone builds the next piece against the old, smaller idea.
+
+**What is built.** Documents, chats, files and the bin in one grid; filter
+chips with counts; search across titles *and* previews; four sorts; a ⋯ menu
+per card (pin/rename/delete for a chat, rename/download/delete for a document,
+restore for a binned note, download for a file); an **Include bin** toggle,
+off by default, because deleted things are not part of "everything you have
+made". Assembled server-side so a new kind appears without touching `app.js`.
+
+**What is next, in order:**
+
+1. **The bin, in full.** The Library shows binned notes and restores them, and
+   that is all — the bin panel still owns *Empty now*, the "kept for N days"
+   line, and permanent delete. Reported directly: *"in the bin section it
+   should have all the features of the rubbish bin."* Those move here, and the
+   sidebar's 🗑 button follows the 📚 pattern — it opens the Library on the Bin
+   chip rather than opening a second panel.
+2. **Activity.** The audit log is a list of things you did, which is the same
+   shape as the Library's list of things you made, and it is currently a panel
+   behind a sidebar button that nobody finds. It becomes a kind: `activity`,
+   read-only, with the same filter chip and the same card.
+3. **Then decide what else.** "Multiple other features" is right in spirit and
+   dangerous as an instruction — the Library earns its place by *replacing*
+   surfaces, not by collecting them. The test each candidate has to pass is
+   §36F's: does moving it here make the app **smaller**? Tags and Saved
+   searches both pass (both are finding surfaces, both are behind buttons in
+   one sidebar). Reminders does not — a reminder is a thing that happens to
+   you, not a thing you go and find.
+4. **Then the tab bar.** Once Bin and Activity are here, the Notes sidebar
+   loses three of its buttons, and that is the moment to look at the bar again.
+
+**One trap, recorded because it has now cost two sessions.** A popup inside a
+card is trapped by the card's stacking context, and `backdrop-filter` creates
+one — no `z-index` has to be in sight. The note cards hit it via
+`.entry-actions` and the Library cards hit it via the blur; both are fixed by
+lifting the *owning element* (`.menu-open`), never the menu. If a menu is
+reported behind something, that is the first thing to check.
+
+#### Should the Library absorb Notes and Documents too?
+
+Asked directly, with the honest caveat attached: *"I did have a thought that it
+could absorb the notes and documents tab as well but I don't know if that's a
+good idea or not."* Here is the reasoning, so the next session does not have to
+re-derive it.
+
+**Documents: yes, and it is now done to the same shape as Chat.** *(An earlier
+draft of this paragraph said the Documents tab had no list of its own. It did —
+the tab button had gone but the full list and its filter box were still in the
+sidebar, so there really were two. That is fixed rather than re-described.)*
+The filter box moved to the Library, the list is capped at eight recent, and
+the sidebar is otherwise about the document you have **open**: its outline, the
+notes it draws on, where it is kept. A `📚 Browse all in Library →` button says
+where the rest went, exactly as the chat sidebar does.
+
+What is left for the editor itself: it is reached only from the Library now, so
+it can stop pretending to be a tab — a wider writing column, and the outline
+and linked-notes panels earning their place beside it rather than sitting
+folded shut under a list.
+
+**Notes: no — and the reason is not sentiment.** The Library is a *finding and
+managing* surface: you arrive knowing roughly what you want and leave having
+done something to it. The Notes tab is a *working* surface: capture, ask,
+write, browse, four sub-tabs you move between while thinking. Those are
+different jobs and the same argument that justified absorbing the others cuts
+the other way here — absorbing Notes would not make the app smaller, it would
+make the Library the app, with the Library's own management furniture (ticks,
+bulk bars, kind chips) sitting on top of the one surface where you want none of
+it.
+
+What Notes *should* lose is what it was already lending: its sidebar's Tags,
+Recycle bin and Activity buttons now open the Library, and the panels behind
+them can go once the Library's versions have every control they had. That is
+the absorption worth doing — it shortens Notes without moving it.
+
+**The theme.** Asked for: *"a library bookshelf kinda theme."* The first piece
+is built and it is deliberately structural rather than decorative — every card
+wears a coloured **spine** down its left edge, one colour per kind, so a shelf
+of mixed things is scannable by edge alone before a single title is read. The
+next pieces, in the order they add most: shelf *rows* with a rule under each
+group when sorting by kind, a warmer paper/board treatment for the card face
+that survives both themes, and the grid's own empty state drawn as an empty
+shelf rather than a sentence. Anything decorative that makes a card harder to
+scan should lose to the scan — this is a management screen wearing a theme,
+not a bookshelf that happens to hold data.
+
+### 36F. The Library tab, and the tab bar it has to fit in — **decided, and built**
+
+> **Both questions below are answered.** 1: the Library **absorbs** — it
+> replaced the Documents tab and the chat sidebar's list, and the bar is the
+> same length it was. 2: therefore no overflow was needed. The chat sidebar
+> kept a *switcher* (eight recent, no search) because switching mid-conversation
+> is a different job from finding; browsing moved here. See §36G for where it
+> goes next.
 
 **The Library (§4) is part of this work, not a separate feature to build
 afterwards.** Asked for directly. It is the only major surface still unbuilt,

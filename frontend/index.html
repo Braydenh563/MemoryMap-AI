@@ -91,10 +91,15 @@
         aria-selected="false" aria-controls="tab-chat" tabindex="-1">Chat</button>
       <button role="tab" id="tab-btn-graph" data-tab="graph"
         aria-selected="false" aria-controls="tab-graph" tabindex="-1">Graph</button>
+      <!-- Library replaces Documents in the bar rather than joining it (§36F).
+           The Documents *page* is still here and is still where you write; it
+           is reached by opening a document from the Library, the same way the
+           editor was always reached by clicking a title in its sidebar. What
+           went is the second list. -->
+      <button role="tab" id="tab-btn-library" data-tab="library"
+        aria-selected="false" aria-controls="tab-library" tabindex="-1">Library</button>
       <button role="tab" id="tab-btn-timeline" data-tab="timeline"
         aria-selected="false" aria-controls="tab-timeline" tabindex="-1">Timeline</button>
-      <button role="tab" id="tab-btn-documents" data-tab="documents"
-        aria-selected="false" aria-controls="tab-documents" tabindex="-1">Documents</button>
       <button role="tab" id="tab-btn-reminders" data-tab="reminders"
         aria-selected="false" aria-controls="tab-reminders" tabindex="-1">Reminders</button>
     </nav>
@@ -106,21 +111,11 @@
            squeezed the tabs and the wordmark. The state is now a colour and a
            glyph; the sentence appears on hover, focus or click. The glyph
            matters as much as the colour — colour alone is not a status. -->
-      <!-- The generated emblem: an AI presence on every tab rather than a
-           per-tab decoration, and next to the AI status dot because that is
-           what it is about. -->
-      <span id="ai-mark" class="emblem emblem-mark" title="MemoryMap's AI, running on this machine" aria-hidden="true"></span>
-      <span class="ai-status-wrap">
-        <button id="ai-status" class="ai-status" type="button"
-          aria-expanded="false" aria-describedby="ai-status-popup">
-          <span class="ai-status-dot" aria-hidden="true"></span>
-          <span class="visually-hidden" id="ai-status-label">Checking what the AI is doing</span>
-        </button>
-        <span id="ai-status-popup" class="ai-status-popup" role="tooltip">
-          <strong id="ai-status-title"></strong>
-          <span id="ai-status-detail" class="ai-status-detail"></span>
-        </span>
-      </span>
+      <!-- The AI status dot and the emblem beside it used to live here. Both
+           are in the status bar at the foot of the window now (§36D) — moved,
+           not copied, which is the decision the roadmap had already made: two
+           indicators for one state is worse than either alone, because the
+           moment they disagree neither can be trusted. -->
       <!-- Ordered by how often you press it and what happens if you miss
            (§36D). Was: Settings, Lock, Quit, Theme — which put the one
            irreversible action directly beside the light/dark toggle, the most
@@ -491,18 +486,24 @@ Link to another note with [[its first few words]]."></textarea>
   <!-- ======================= CHAT TAB (Wave C) ============================ -->
   <div class="tab-page hidden" id="tab-chat" role="tabpanel" aria-labelledby="tab-btn-chat" tabindex="-1">
     <div class="layout">
+      <!-- **Recent chats, not every chat (§36F).** Browsing what you have ever
+           asked is the Library's job now, and two lists of the same thing is
+           what the Library was built to stop. What stays here is switching,
+           because that is a different job from finding: mid-conversation you
+           want the one you were in ten minutes ago, in one click, without
+           leaving the tab you are typing in.
+           So the search box moved to the Library and the list is capped — and
+           the link at the foot says where the rest went, because a list that
+           silently stops at eight is a list that has lost your chats. -->
       <aside class="card" id="chat-sidebar">
         <div class="row space-between">
-          <h2>Chats</h2>
+          <h2>Recent chats</h2>
           <button id="chat-new" class="ghost small" title="Start a fresh conversation">+ New</button>
         </div>
-        <!-- Searches what was said, not just titles: you remember the
-             subject long after you've forgotten what the chat was called. -->
-        <input id="conv-search" type="search" class="conv-search"
-          placeholder="🔎 Search your chats…"
-          aria-label="Search your chats by title or by what was said">
         <ul id="conversation-list"></ul>
         <p id="conv-empty" class="muted">No saved chats yet — ask something!</p>
+        <button id="conv-browse-all" class="ghost small conv-browse-all" type="button"
+          title="Search and sort everything you have ever asked">📚 Browse all in Library →</button>
       </aside>
       <main>
         <section class="card" id="chat-main">
@@ -648,10 +649,20 @@ Link to another note with [[its first few words]]."></textarea>
                    rest of the app reads and stores. -->
               <div class="chat-tool-group" role="group" aria-label="What the AI may use">
                 <div class="seg seg-compact" id="chat-mode-seg" role="group" aria-label="Chat mode">
+                  <!-- Named for the difference between them rather than for
+                       the machinery. "Chat" and "Agent" describe how the app
+                       is built; "Ask" and "Request" describe what you get —
+                       one reads your notes and answers, the other goes and
+                       does something to them. The Librarian is already this
+                       app's own voice (it has a Librarian persona and an
+                       `ai/librarian` module), so the pair reads as one idea
+                       instead of as two settings. -->
                   <button data-chat-mode="chat" type="button"
-                    title="Ask questions about your notes. The AI reads and answers; it never changes anything.">💬 Chat</button>
+                    title="Ask the Librarian about your notes. It reads and answers; it never changes anything."
+                    aria-label="Ask the Librarian">💬 Ask<span class="chat-mode-long"> the Librarian</span></button>
                   <button data-chat-mode="agent" type="button"
-                    title="The AI can use tools — search and read your notes, open web pages, create, tag, link and organise. Destructive actions always ask you first.">🤖 Agent</button>
+                    title="Request something of the Librarian. It can use tools — search and read your notes, open web pages, create, tag, link and organise. Destructive actions always ask you first."
+                    aria-label="Request the Librarian">🤖 Request<span class="chat-mode-long"> the Librarian</span></button>
                 </div>
                 <label class="muted tools-toggle agent-toggle hidden"
                   title="Agent mode: the AI can use tools — search and read your notes, open web pages, create, tag, link and organise. Destructive actions always ask you first.">
@@ -839,6 +850,12 @@ Link to another note with [[its first few words]]."></textarea>
           title="Find the chain of links, replies and shared tags between these two notes">Trace</button>
         <button id="graph-trace-clear" class="ghost small"
           title="Clear the traced path">Clear</button>
+        <!-- Asked directly: "what's the point of the trace feature". Fair — the
+             answer existed only in a tooltip and inside a folded-shut help
+             panel, and a control whose purpose is hidden is a control nobody
+             presses. It is the one question a map answers better than any
+             list, so it says so on the strip. -->
+        <span class="graph-trace-hint muted">how two notes connect — or that they don't</span>
       </div>
       <p id="graph-trace-result" class="graph-trace-result hidden" role="status"></p>
       <p id="graph-stats" class="muted graph-stats" role="status"></p>
@@ -927,15 +944,23 @@ Link to another note with [[its first few words]]."></textarea>
        results and the graph. -->
   <div class="tab-page hidden" id="tab-documents" role="tabpanel" aria-labelledby="tab-btn-documents" tabindex="-1">
     <div class="doc-layout">
+      <!-- **Recent documents, not every document.** The same split the chat
+           sidebar makes, for the same reason: browsing everything you have
+           written is the Library's job, and two lists of one thing is what the
+           Library was built to end — but switching while you are writing is a
+           different job from finding, and wants one click without leaving the
+           page. So the filter box moved to the Library, the list is capped,
+           and the rest of this sidebar is about the document you have *open*:
+           its outline, the notes it draws on, and where it is kept. -->
       <aside class="card doc-sidebar" id="doc-sidebar">
         <div class="row space-between">
-          <h2>Documents</h2>
+          <h2>Recent</h2>
           <button id="doc-new" class="small" type="button" title="Start a new document">＋ New</button>
         </div>
-        <input id="doc-filter" type="search" placeholder="🔎 Filter documents…"
-          aria-label="Filter documents by title">
         <ul id="doc-list" class="doc-list"></ul>
         <p id="doc-empty" class="muted hidden">No documents yet — start typing on the right, or press ＋ New.</p>
+        <button id="doc-browse-all" class="ghost small conv-browse-all" type="button"
+          title="Search, sort and manage every document">📚 Browse all in Library →</button>
 
         <!-- Built from the document's own headings: past two screens of text
              the scrollbar stops being a way to navigate. -->
@@ -1150,6 +1175,137 @@ Link to another note with [[its first few words]]."></textarea>
     </section>
   </div>
 
+  <!-- ======================= LIBRARY TAB (§4, §36F) =======================
+       Everything you made before, in one place. A library is for **finding
+       something you made**, which is a different job from the Notes tab's
+       "work with what I have" — so it looks different: bigger units, more
+       metadata on each, and sort and filter as first-class controls at the top
+       rather than an afterthought at the side.
+
+       It absorbs two surfaces rather than joining them: the Documents tab's
+       list and the chat sidebar's list are both here, and the tab bar is the
+       same length it was. A library that duplicated two lists that already
+       existed would be a third place to look. -->
+  <div class="tab-page hidden" id="tab-library" role="tabpanel" aria-labelledby="tab-btn-library" tabindex="-1">
+    <section class="card library-controls">
+      <div class="row space-between library-head">
+        <h2>Library</h2>
+        <span class="row">
+          <button id="library-new-doc" class="small" type="button"
+            title="Start a new document">＋ New document</button>
+          <button id="library-refresh" class="ghost small" type="button"
+            title="Reload the list">↻</button>
+        </span>
+      </div>
+      <!-- The state of the notebook, as the numbers a management screen opens
+           with. Derived from the same payload the grid renders, so the header
+           and the grid can never disagree. -->
+      <div id="library-overview" class="library-overview" role="group"
+        aria-label="Your notebook at a glance"></div>
+      <div class="library-toolbar">
+        <input id="library-search" type="search" class="library-search"
+          placeholder="🔎 Search titles and previews…"
+          aria-label="Search the library">
+        <!-- Binned things are out of "Everything" unless you ask for them:
+             the Library is where you find what you have, and what you threw
+             away is not that. The Bin chip still shows them whatever this
+             says, because pressing a filter called Bin is asking. -->
+        <label class="library-sort">
+          <input type="checkbox" id="library-show-binned">
+          <span class="muted">Include bin</span>
+        </label>
+        <label class="library-sort">
+          <span class="muted">Sort</span>
+          <select id="library-sort" aria-label="Sort the library">
+            <option value="recent">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="az">A–Z</option>
+            <option value="biggest">Biggest first</option>
+          </select>
+        </label>
+        <!-- Cards to browse, rows to manage. A grid shows you what a thing is;
+             a list shows you forty of them at once with their metadata in
+             columns, which is what you want when the job is tidying up. -->
+        <div class="seg seg-compact library-view" id="library-view" role="group"
+          aria-label="How to show the library">
+          <button data-library-view="grid" type="button" title="Cards">▦</button>
+          <button data-library-view="list" type="button" title="Rows">☰</button>
+        </div>
+      </div>
+      <!-- Filled by renderLibraryFilters: one chip per kind, each with its
+           count, so an empty kind says so before you press it. -->
+      <div id="library-filters" class="library-filters" role="group"
+        aria-label="Filter by kind"></div>
+      <!-- Two strips that appear only when they have something to say: the
+           bin's own controls when you are looking at the bin, and the bulk
+           actions when something is selected. A management screen that shows
+           every control it *could* offer is a toolbar you have to read. -->
+      <div id="library-binbar" class="library-contextbar hidden">
+        <span class="muted" id="library-bin-note"></span>
+        <span class="library-contextbar-end">
+          <button id="library-bin-empty" class="ghost small" type="button"
+            title="Permanently delete everything in the bin">🗑 Empty the bin</button>
+        </span>
+      </div>
+      <div id="library-selectbar" class="library-contextbar hidden" role="group"
+        aria-label="Actions for the selected items">
+        <span id="library-selected-count" class="library-selected-count"></span>
+        <span class="library-contextbar-end">
+          <button id="library-bulk-open" class="ghost small" type="button">↗ Open</button>
+          <button id="library-bulk-restore" class="ghost small hidden" type="button">↩ Restore</button>
+          <button id="library-bulk-delete" class="ghost small" type="button">🗑 Delete</button>
+          <button id="library-clear-selection" class="ghost small" type="button">Clear</button>
+        </span>
+      </div>
+    </section>
+    <div id="library-grid" class="library-grid"></div>
+    <p id="library-empty" class="muted library-empty hidden"></p>
+  </div>
+
+  <!-- ======================= STATUS BAR (§36D) ============================
+       "Like in VS Code but stylised for the application", with the caveat the
+       roadmap recorded before any of it was built: VS Code's bar works because
+       every item is either a state you need at a glance or a command you use
+       constantly, and a bar filled with anything else is a permanent strip of
+       decoration. Five items earn a place under that test and nothing else is
+       here:
+
+         · what the AI is doing      (moved down from the header, not copied)
+         · how big the notebook is
+         · how many reminders are waiting
+         · what is running in the background   (only while something is)
+         · the way into the command palette
+
+       It is the last flex child of <body>, not `position: fixed`: the body is
+       already a flex column whose middle child scrolls, so a real row costs no
+       overlap, no reserved padding, and nothing to keep in sync when the bar's
+       height changes. -->
+  <footer id="status-bar">
+    <!-- The generated emblem, which followed the status dot down: it is an AI
+         presence marker and it belongs beside the thing that says what the AI
+         is doing, which is the reason it was next to it in the header. -->
+    <span id="ai-mark" class="emblem emblem-mark" title="MemoryMap's AI, running on this machine" aria-hidden="true"></span>
+    <span class="ai-status-wrap">
+      <button id="ai-status" class="ai-status" type="button"
+        aria-expanded="false" aria-describedby="ai-status-popup">
+        <span class="ai-status-dot" aria-hidden="true"></span>
+        <span class="visually-hidden" id="ai-status-label">Checking what the AI is doing</span>
+      </button>
+      <span id="ai-status-popup" class="ai-status-popup" role="tooltip">
+        <strong id="ai-status-title"></strong>
+        <span id="ai-status-detail" class="ai-status-detail"></span>
+      </span>
+    </span>
+    <button id="status-notes" class="status-item" type="button"></button>
+    <button id="status-reminders" class="status-item" type="button"></button>
+    <!-- Hidden until something is actually running. A slot that says "nothing
+         is happening" for hours is the decoration the caveat above warns
+         about; a slot that appears is a thing you notice. -->
+    <button id="status-task" class="status-item status-task hidden" type="button"></button>
+    <span class="status-spacer"></span>
+    <button id="status-command" class="status-item" type="button"></button>
+  </footer>
+
   <!-- ======================= SETTINGS MODAL (Wave A) ====================== -->
   <div id="settings-modal" class="modal-overlay hidden" role="dialog"
     aria-modal="true" aria-label="Settings">
@@ -1207,6 +1363,7 @@ Link to another note with [[its first few words]]."></textarea>
           <p class="nav-group-label" id="nav-group-system">System</p>
           <div role="group" aria-labelledby="nav-group-system">
             <button data-section="account">Account &amp; security</button>
+            <button data-section="extras">Optional extras</button>
             <button data-section="tasks">Background tasks</button>
             <button data-section="logs">Logs</button>
           </div>
@@ -1754,6 +1911,27 @@ Link to another note with [[its first few words]]."></textarea>
                overlay, so anyone looking for it in Settings — where every
                other preference lives — found nothing and reported it missing.
                Same list, same code, a second place to reach it. -->
+          <!-- Optional extras. Every one of these is a feature the app already
+               has a button for and cannot run — dictation, the desktop window,
+               search by meaning. The only way to turn one on used to be a
+               terminal and a README, which for a local-first app is the same
+               as not having the feature at all. -->
+          <section class="settings-section hidden" id="settings-extras">
+            <h3>Optional extras</h3>
+            <p class="muted">
+              Things MemoryMap can do with one more package installed. Nothing
+              here is needed to write, search, tag or organise your notes —
+              each one turns on a feature that is otherwise switched off, and
+              everything is downloaded from PyPI to this machine.
+            </p>
+            <ul id="extras-list" class="extras-list"></ul>
+            <p id="extras-status" class="status" role="status"></p>
+            <details id="extras-log-wrap" class="task-log hidden">
+              <summary class="muted">What pip is doing</summary>
+              <pre id="extras-log" class="task-log-lines"></pre>
+            </details>
+          </section>
+
           <section class="settings-section hidden" id="settings-shortcuts">
             <p class="muted">
               Click <strong>Change</strong> and press the keys you want. Press

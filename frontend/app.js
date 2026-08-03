@@ -296,6 +296,7 @@ function refreshActiveTab() {
   if (name === "dashboard") return renderDashboard();
   if (name === "graph") return renderGraph();
   if (name === "documents") return loadDocuments();
+  if (name === "library") return loadLibrary();
   if (name === "reminders") {
     refreshReminderDefaults();
     return loadReminders();
@@ -467,6 +468,75 @@ function confirmDialog(message, options = {}) {
     // Cancel takes focus, not the dangerous one: a stray Enter or Space
     // arriving with the dialog must not be the thing that deletes the notes.
     cancel.focus();
+  });
+}
+
+// `confirmDialog`'s missing sibling: ask for a line of text.
+//
+// DESIGN.md bans `window.confirm` because the desktop shell does not reliably
+// implement it, and a button gated behind one that returns `undefined`
+// silently does nothing. `window.prompt` is the same trap with the same shell,
+// and the app has been calling it for every rename — so this is not a new
+// dialog for a new feature, it is the one the rule always implied.
+//
+// Resolves to the trimmed text, or "" for cancel/empty. "" rather than null so
+// every caller's guard is the same shape as the confirm one.
+function promptDialog(message, initial = "", { confirmLabel = "Save" } = {}) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay confirm-overlay";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+
+    const card = document.createElement("div");
+    card.className = "card modal-card confirm-card";
+    const text = document.createElement("p");
+    text.className = "confirm-text";
+    text.textContent = message;
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = initial;
+    input.setAttribute("aria-label", message);
+
+    let settled = false;
+    const close = (answer) => {
+      if (settled) return;
+      settled = true;
+      document.removeEventListener("keydown", onKey, true);
+      overlay.remove();
+      returnFocus?.focus?.();
+      resolve(answer);
+    };
+    const onKey = (event) => {
+      // Captured, so a shortcut elsewhere cannot fire underneath the dialog —
+      // the same reason confirmDialog captures.
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        close("");
+      } else if (event.key === "Enter") {
+        event.stopPropagation();
+        close(input.value.trim());
+      }
+    };
+
+    const returnFocus = document.activeElement;
+    const row = document.createElement("div");
+    row.className = "row confirm-actions";
+    row.append(
+      smallButton("Cancel", "Cancel", () => close("")),
+      smallButton(confirmLabel, confirmLabel, () => close(input.value.trim()), false)
+    );
+    card.append(text, input, row);
+    overlay.appendChild(card);
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) close("");
+    });
+    document.addEventListener("keydown", onKey, true);
+    document.body.appendChild(overlay);
+    // The text, selected: a rename usually replaces the name rather than
+    // editing it, and a caret at position 0 makes you clear it by hand first.
+    input.focus();
+    input.select();
   });
 }
 
@@ -1454,9 +1524,10 @@ function fillCategoryOptions(select, selected) {
 async function resolveCategoryChoice(select) {
   if (select.value === "") return null;
   if (select.value !== "__new__") return select.value;
-  const name = prompt("Name for the new category:");
-  if (name === null) return undefined;
-  return name.trim() || undefined;
+  // promptDialog resolves to trimmed text, or "" for cancel — one shape for
+  // both, so there is no null to check the way window.prompt needed.
+  const name = await promptDialog("Name for the new category:", "", { confirmLabel: "Create" });
+  return name || undefined;
 }
 
 function beginOrCompleteLink(entry) {
@@ -1904,9 +1975,7 @@ function renderSidebar() {
 }
 
 async function renameCategory(meta, currentName) {
-  const next = prompt(`Rename "${currentName}" to:`, currentName);
-  if (next === null) return;
-  const name = next.trim();
+  const name = await promptDialog(`Rename "${currentName}" to:`, currentName);
   if (!name || name === currentName) return;
 
   // Renaming onto a category that already exists merges them, which is
@@ -2055,7 +2124,7 @@ const NEW_DOCUMENT = "new";
 // Ask for a title and start an empty document. Shared by the capture box and
 // the note card's "Add to a document", so both offer the same thing.
 async function createDocumentNamed(suggestion = "") {
-  const title = (prompt("Title for the new document:", suggestion) || "").trim();
+  const title = await promptDialog("Title for the new document:", suggestion, { confirmLabel: "Create" });
   if (!title) return null;
   try {
     const doc = await apiJson("/documents", {
@@ -5887,18 +5956,23 @@ function relativeTime(iso) {
   return then.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
-let conversationQuery = "";
+//: How many chats the switcher shows. Searching and sorting all of them is
+//: the Library's job now (§36F); this list exists so the chat you were in ten
+//: minutes ago is one click away without leaving the tab you are typing in,
+//: and eight is comfortably more than "the one before this one" while still
+//: fitting beside a conversation.
+const RECENT_CHATS_SHOWN = 8;
 
 async function loadConversationList() {
-  const params = conversationQuery ? `?q=${encodeURIComponent(conversationQuery)}` : "";
-  const conversations = await apiJson(`/conversations${params}`).catch(() => []);
+  const conversations = (await apiJson("/conversations").catch(() => [])).slice(
+    0,
+    RECENT_CHATS_SHOWN
+  );
   const list = $("conversation-list");
   list.replaceChildren();
   const empty = $("conv-empty");
   empty.classList.toggle("hidden", conversations.length > 0);
-  empty.textContent = conversationQuery
-    ? `No chats mention “${conversationQuery}”.`
-    : "No saved chats yet — ask something!";
+  empty.textContent = "No saved chats yet — ask something!";
 
   let sawUnpinned = false;
   for (const conversation of conversations) {
@@ -5961,7 +6035,7 @@ async function loadConversationList() {
     );
     items.push(
       makeMenuItem("✎ Rename", "Rename this chat", async () => {
-        const next = prompt("Rename this chat:", conversation.title);
+        const next = await promptDialog("Rename this chat:", conversation.title);
         if (!next || !next.trim()) return;
         await apiJson(`/conversations/${conversation.id}`, {
           method: "PUT",
@@ -6936,7 +7010,7 @@ async function batchMove() {
     return;
   }
   if (category === "__new__") {
-    category = (prompt("New category name:") || "").trim();
+    category = await promptDialog("New category name:", "", { confirmLabel: "Move" });
     if (!category) return;
   }
   for (const id of ids) {
@@ -6953,7 +7027,7 @@ async function batchMove() {
 async function batchTag() {
   const ids = batchSelection();
   if (!ids.length) return;
-  const tag = (prompt("Tag to add to the selected notes:") || "").trim();
+  const tag = await promptDialog("Tag to add to the selected notes:", "", { confirmLabel: "Add tag" });
   if (!tag) return;
   for (const id of ids) {
     const entry = allEntries.find((e) => e.id === id);
@@ -11615,7 +11689,11 @@ async function saveGraphNewNote() {
 
 // --- tabs (Wave A) ----------------------------------------------------------------
 
-const TABS = ["dashboard", "notes", "chat", "graph", "timeline", "documents", "reminders"];
+// "documents" is still a page and still switchable-to — it is the document
+// editor, opened from the Library (§36F). It is no longer in the tab *bar*, so
+// it sits at the end here: TABS drives which pages hide, and the arrow-key
+// order comes from the bar's own buttons.
+const TABS = ["dashboard", "notes", "chat", "graph", "timeline", "library", "reminders", "documents"];
 
 function switchTab(name) {
   for (const tab of TABS) {
@@ -11668,6 +11746,7 @@ function switchTab(name) {
     loadDocuments();
     renderDocStorage();
   }
+  if (name === "library") loadLibrary();
   if (name === "reminders") {
     refreshReminderDefaults();
     loadReminders();
@@ -12832,7 +12911,7 @@ async function renderTags() {
     actions.className = "entry-actions";
     actions.appendChild(
       smallButton("Rename", "Rename this tag everywhere (merge if the name exists)", async () => {
-        const next = prompt(`Rename tag “${name}” to:`, name);
+        const next = await promptDialog(`Rename tag “${name}” to:`, name);
         if (!next || next.trim() === name) return;
         const result = await apiJson("/tags/rename", {
           method: "POST",
@@ -13991,6 +14070,325 @@ function renderAiPill() {
   button.title = `${state.title}\n\n${state.detail}`;
   $("ai-status-title").textContent = state.title;
   $("ai-status-detail").textContent = state.detail;
+}
+
+// --- the Library (§4, §36F) ---------------------------------------------------
+//
+// The one surface for finding something you made before. It **replaces** the
+// Documents tab's list and the chat sidebar's list rather than joining them —
+// a library that duplicates two lists that already exist is a third place to
+// look, which is worse than no library. The tab bar is the same length it was.
+//
+// A library is for *finding*, which is a different job from the Notes tab's
+// "work with what I have", so it is built differently: bigger units, more
+// metadata per unit, and sort and filter at the top as controls rather than at
+// the side as an afterthought.
+//
+// The list itself is assembled by the server (GET /library) — see
+// routes_library.py for why. Filtering and sorting are **not**: they have to
+// feel instant as you type, so the client owns them and holds the whole list.
+
+//: The last payload from GET /library, so typing in the search box re-filters
+//: what is already here instead of asking the server on every keystroke.
+let libraryItems = [];
+let libraryCounts = {};
+let libraryKind = "all";
+
+//: Order matters: it is the order of the chips. "All" first because it is the
+//: default and the one you come back to, then by how often you would reach for
+//: the kind — a document is something you sat down to write, a binned note is
+//: something you threw away.
+const LIBRARY_KINDS = [
+  { key: "all", icon: "📚", label: "Everything" },
+  { key: "document", icon: "📄", label: "Documents" },
+  { key: "chat", icon: "💬", label: "Chats" },
+  { key: "file", icon: "📎", label: "Files" },
+  { key: "archived", icon: "🗑", label: "Bin" },
+];
+
+async function loadLibrary() {
+  const body = await apiJson("/library").catch(() => null);
+  libraryItems = (body && body.items) || [];
+  libraryCounts = (body && body.counts) || {};
+  renderLibraryFilters();
+  renderLibrary();
+}
+
+function renderLibraryFilters() {
+  const box = $("library-filters");
+  if (!box) return;
+  box.replaceChildren();
+  for (const kind of LIBRARY_KINDS) {
+    const count =
+      kind.key === "all" ? libraryItems.length : libraryCounts[kind.key] || 0;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className =
+      "library-chip" + (libraryKind === kind.key ? " active" : "");
+    button.setAttribute("aria-pressed", String(libraryKind === kind.key));
+    const icon = document.createElement("span");
+    icon.textContent = kind.icon;
+    icon.setAttribute("aria-hidden", "true");
+    const label = document.createElement("span");
+    label.textContent = kind.label;
+    // The count is on the chip, not discovered by pressing it. A filter you
+    // have to try before you learn it is empty is a filter that wastes a click
+    // every time — and with five of them that is most of the toolbar.
+    const badge = document.createElement("span");
+    badge.className = "library-chip-count";
+    badge.textContent = count;
+    button.append(icon, label, badge);
+    button.addEventListener("click", () => {
+      libraryKind = kind.key;
+      renderLibraryFilters();
+      renderLibrary();
+    });
+    box.appendChild(button);
+  }
+}
+
+function librarySorted(items) {
+  const sort = $("library-sort")?.value || "recent";
+  const copy = [...items];
+  if (sort === "az") {
+    copy.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: "base" }));
+  } else if (sort === "biggest") {
+    // Within a kind this is words, turns or bytes; across a mixed list it is
+    // whichever of those each card is showing. Deliberately not normalised —
+    // a number that made a document's words comparable with an image's bytes
+    // would sort cleanly and mean nothing.
+    copy.sort((a, b) => (b.size || 0) - (a.size || 0));
+  } else {
+    copy.sort((a, b) => {
+      const cmp = String(a.updated_at).localeCompare(String(b.updated_at));
+      return sort === "oldest" ? cmp : -cmp;
+    });
+  }
+  return copy;
+}
+
+function renderLibrary() {
+  const grid = $("library-grid");
+  if (!grid) return;
+  const query = ($("library-search")?.value || "").trim().toLowerCase();
+  let items = libraryItems;
+  if (libraryKind !== "all") items = items.filter((i) => i.kind === libraryKind);
+  if (query) {
+    // Title *and* preview, for the same reason the conversation search reads
+    // message text: you remember what a thing was about far more often than
+    // what it ended up being called.
+    items = items.filter(
+      (i) =>
+        (i.title || "").toLowerCase().includes(query) ||
+        (i.preview || "").toLowerCase().includes(query)
+    );
+  }
+  items = librarySorted(items);
+
+  grid.replaceChildren();
+  for (const item of items) grid.appendChild(libraryCard(item));
+
+  const empty = $("library-empty");
+  empty.classList.toggle("hidden", items.length > 0);
+  if (!items.length) {
+    // Three different empties, because the fix for each is different: nothing
+    // made yet, nothing of this kind, or nothing matching what you typed. One
+    // message for all three is how "the library is broken" gets reported.
+    empty.textContent = !libraryItems.length
+      ? "Nothing here yet. Write a document, start a chat, or attach a file to a note."
+      : query
+        ? `Nothing matching “${$("library-search").value.trim()}”.`
+        : "Nothing of this kind yet.";
+  }
+}
+
+// What you can do to a thing without leaving the surface you found it on. A
+// library that could only *show* you a document would send you to the Documents
+// page to rename it and to the bin panel to restore a note — which is the
+// scatter it was built to end.
+//
+// One ⋯ per card rather than a row of icons, the same choice the note cards
+// and the chat list already make: three buttons on a card this size is most of
+// the card, and the actions are things you do occasionally to a thing you are
+// mostly here to open.
+function libraryActions(item) {
+  const reload = () => loadLibrary();
+  if (item.kind === "chat") {
+    return [
+      makeMenuItem(
+        item.pinned ? "📌 Unpin" : "📌 Pin",
+        item.pinned ? "Let this chat sort by date again" : "Keep this chat at the top",
+        async () => {
+          await apiJson(`/conversations/${item.id}/pin`, {
+            method: "PUT",
+            body: JSON.stringify({ pinned: !item.pinned }),
+          }).catch((e) => toast(e.message, true));
+          reload();
+        }
+      ),
+      makeMenuItem("✎ Rename", "Rename this chat", async () => {
+        const next = await promptDialog("Rename this chat:", item.title);
+        if (!next) return;
+        await apiJson(`/conversations/${item.id}`, {
+          method: "PUT",
+          body: JSON.stringify({ title: next }),
+        }).catch((e) => toast(e.message, true));
+        reload();
+        loadConversationList();
+      }),
+      makeMenuItem("🗑 Delete", "Delete this chat", async () => {
+        if (!(await confirmDialog("Delete this saved chat?"))) return;
+        await apiJson(`/conversations/${item.id}`, { method: "DELETE" }).catch((e) =>
+          toast(e.message, true)
+        );
+        if (chatConv && chatConv.id === item.id) newChatConversation();
+        reload();
+        loadConversationList();
+      }),
+    ];
+  }
+  if (item.kind === "document") {
+    return [
+      makeMenuItem("✎ Rename", "Rename this document", async () => {
+        const next = await promptDialog("Rename this document:", item.title);
+        if (!next) return;
+        await apiJson(`/documents/${item.id}`, {
+          method: "PUT",
+          body: JSON.stringify({ title: next }),
+        }).catch((e) => toast(e.message, true));
+        reload();
+      }),
+      makeMenuItem("⬇ Download .md", "Save a copy as a markdown file", () => {
+        window.open(`/documents/${item.id}/export.md`, "_blank");
+      }),
+      makeMenuItem("🗑 Delete", "Delete this document", async () => {
+        if (!(await confirmDialog(`Delete “${item.title}”? This cannot be undone.`))) return;
+        await apiJson(`/documents/${item.id}`, { method: "DELETE" }).catch((e) =>
+          toast(e.message, true)
+        );
+        reload();
+      }),
+    ];
+  }
+  if (item.kind === "archived") {
+    return [
+      makeMenuItem("↩ Restore", "Put this note back in your notebook", async () => {
+        await apiJson(`/entries/${item.id}/restore`, { method: "POST" }).catch((e) =>
+          toast(e.message, true)
+        );
+        toast("Restored.");
+        reload();
+        loadEntries();
+      }),
+    ];
+  }
+  return [
+    makeMenuItem("⬇ Download", "Save this file", () => {
+      window.open(`/files/${item.id}`, "_blank");
+    }),
+  ];
+}
+
+function libraryCard(item) {
+  // An `<article>` rather than a `<button>`: the card carries its own ⋯ menu,
+  // and a button inside a button is invalid markup that browsers resolve by
+  // dropping one of them. The click, the keyboard and the role are all here
+  // explicitly instead, which is what the button element was giving us.
+  const card = document.createElement("article");
+  card.className = `library-card library-${item.kind}`;
+  card.tabIndex = 0;
+  card.setAttribute("role", "button");
+  const meta = LIBRARY_KINDS.find((k) => k.key === item.kind);
+
+  const top = document.createElement("div");
+  top.className = "library-card-top";
+  const icon = document.createElement("span");
+  icon.className = "library-card-icon";
+  icon.textContent = meta ? meta.icon : "•";
+  icon.setAttribute("aria-hidden", "true");
+  const title = document.createElement("strong");
+  title.className = "library-card-title";
+  title.textContent = item.title;
+  top.append(icon, title);
+  if (item.pinned) {
+    const pin = document.createElement("span");
+    pin.textContent = "📌";
+    pin.title = "Pinned";
+    top.appendChild(pin);
+  }
+  card.appendChild(top);
+
+  // A chat's title *is* its first question, clipped — so on most chat cards the
+  // preview was the title again, one line down and one shade greyer. Two
+  // renderings of the same sentence is not a card with more metadata on it, it
+  // is a card that looks like a bug.
+  const sameAsTitle =
+    item.preview &&
+    item.title.replace(/…$/, "").trim() &&
+    item.preview.startsWith(item.title.replace(/…$/, "").trim());
+  if (item.preview && !sameAsTitle) {
+    const preview = document.createElement("p");
+    preview.className = "library-card-preview";
+    preview.textContent = item.preview;
+    card.appendChild(preview);
+  }
+
+  const foot = document.createElement("div");
+  foot.className = "library-card-meta";
+  const detail = document.createElement("span");
+  detail.textContent = item.detail;
+  const when = document.createElement("span");
+  when.textContent = relativeTime(item.updated_at);
+  when.title = new Date(item.updated_at).toLocaleString();
+  foot.append(detail, when);
+  card.appendChild(foot);
+
+  const kindWord = meta ? meta.label.replace(/s$/, "") : item.kind;
+  card.title = `${kindWord} · ${item.title}`;
+  card.setAttribute("aria-label", `${kindWord}: ${item.title}. ${item.detail}.`);
+
+  const menu = kebabMenu(libraryActions(item), `Actions for ${item.title}`);
+  menu.classList.add("library-card-menu");
+  // The menu is inside the card and the card is a click target, so every click
+  // in the menu would also open the thing. Stopped here rather than on each
+  // item: the opener, the popup's padding and its backdrop are all inside this
+  // element, and only one of the three is a button.
+  menu.addEventListener("click", (event) => event.stopPropagation());
+  card.appendChild(menu);
+
+  card.addEventListener("click", () => openLibraryItem(item));
+  // An <article role="button"> gets neither of these for free — this is the
+  // half of the button element we gave up to be allowed a menu inside.
+  card.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    if (event.target !== card) return; // a key pressed inside the menu is the menu's
+    event.preventDefault();
+    openLibraryItem(item);
+  });
+  return card;
+}
+
+// Each kind opens where it is actually worked on. The Library finds things; it
+// is not a fifth editor.
+function openLibraryItem(item) {
+  if (item.kind === "document") {
+    openDocumentFromNote(item.id); // the Documents page, on this document
+  } else if (item.kind === "chat") {
+    switchTab("chat");
+    openConversation(item.id);
+  } else if (item.kind === "file") {
+    // The note, not the raw file: a download is one click further and the note
+    // is the thing that says why the file was kept.
+    flashEntry(item.entry_id);
+  } else if (item.kind === "archived") {
+    // The bin panel, where Restore lives. The Library can show you that a
+    // binned note exists; getting it back is the bin's job and duplicating
+    // that button here would be a second way to do one thing.
+    switchTab("notes");
+    showNotesSection("browse");
+    showPanel("bin-panel");
+    renderBin();
+  }
 }
 
 // --- the status bar (§36D) ---------------------------------------------------
@@ -16672,17 +17070,26 @@ for (const button of document.querySelectorAll("#tab-bar button")) {
   button.addEventListener("click", () => switchTab(button.dataset.tab));
 }
 // Arrow keys walk the tablist; Home/End jump to the ends (Wave L).
+//
+// Read from the bar itself rather than from TABS. Since the Library absorbed
+// the Documents tab (§36F) the two lists are no longer the same: `documents`
+// is still a page you can switch to — it is the editor the Library opens — but
+// it has no button, so walking TABS would land on a tab that does not exist
+// and `.focus()` on the null it returned would throw on an arrow key.
 $("tab-bar").addEventListener("keydown", (e) => {
   const keys = { ArrowRight: 1, ArrowLeft: -1, Home: 0, End: 0 };
   if (!(e.key in keys)) return;
   e.preventDefault();
-  const index = TABS.indexOf(localStorage.getItem("activeTab") || "notes");
+  const buttons = [...document.querySelectorAll("#tab-bar button")];
+  if (!buttons.length) return;
+  const names = buttons.map((b) => b.dataset.tab);
+  const index = Math.max(0, names.indexOf(localStorage.getItem("activeTab") || "notes"));
   let next;
   if (e.key === "Home") next = 0;
-  else if (e.key === "End") next = TABS.length - 1;
-  else next = (index + keys[e.key] + TABS.length) % TABS.length;
-  switchTab(TABS[next]);
-  document.querySelector(`#tab-bar [data-tab="${TABS[next]}"]`).focus();
+  else if (e.key === "End") next = names.length - 1;
+  else next = (index + keys[e.key] + names.length) % names.length;
+  switchTab(names[next]);
+  buttons[next].focus();
 });
 // Skip link (Wave L): jump keyboard focus straight into the open panel.
 $("skip-link").addEventListener("click", (e) => {
@@ -16938,13 +17345,15 @@ $("note-picker-panel").addEventListener("keydown", (event) => {
 $("chat-stop").addEventListener("click", () => chatController && chatController.abort());
 $("chat-new").addEventListener("click", newChatConversation);
 $("persona-peek").addEventListener("click", togglePersonaPrompt);
-// Debounced: this hits the server, and searching as you type shouldn't mean
-// a request per keystroke.
-let convSearchTimer = null;
-$("conv-search").addEventListener("input", (event) => {
-  conversationQuery = event.target.value.trim();
-  clearTimeout(convSearchTimer);
-  convSearchTimer = setTimeout(loadConversationList, 180);
+// Searching your chats lives in the Library now (§36F) — with the documents,
+// the files and the bin, and with sort beside it. This is the way there, said
+// out loud, because a list that silently stops at eight is a list that has
+// lost your chats.
+$("conv-browse-all").addEventListener("click", () => {
+  switchTab("library");
+  libraryKind = "chat";
+  renderLibraryFilters();
+  renderLibrary();
 });
 $("chat-export").addEventListener("click", exportChatMarkdown);
 $("chat-compress").addEventListener("click", compressChatContext);
@@ -17001,6 +17410,19 @@ $("status-notes").addEventListener("click", () => {
 $("status-reminders").addEventListener("click", () => switchTab("reminders"));
 $("status-task").addEventListener("click", () => openSettingsModal("tasks"));
 $("status-command").addEventListener("click", () => openPalette());
+
+// The Library (§4, §36F). Filter and sort are first-class here rather than an
+// afterthought, so they are wired like controls: every change re-renders from
+// the list already in memory, with no round trip.
+$("library-search").addEventListener("input", renderLibrary);
+$("library-sort").addEventListener("change", renderLibrary);
+$("library-refresh").addEventListener("click", loadLibrary);
+$("library-new-doc").addEventListener("click", () => {
+  switchTab("documents");
+  // The Documents page's own loader opens the last document otherwise, and a
+  // new one would be replaced a moment after it appeared.
+  setTimeout(() => $("doc-new").click(), 160);
+});
 // Paint it before any poll lands, so the bar is furniture from the first frame
 // rather than four boxes that pop into existence a second later.
 renderStatusBar();
@@ -17553,7 +17975,7 @@ async function persistSavedSearches(next) {
 async function saveCurrentSearch() {
   const query = $("note-search").value.trim();
   if (!query) return;
-  const name = (prompt("Name this filter:", query.slice(0, 40)) || "").trim();
+  const name = await promptDialog("Name this filter:", query.slice(0, 40), { confirmLabel: "Save filter" });
   if (!name) return;
   // Re-saving an existing name updates it rather than adding a duplicate you
   // then have to hunt down and remove.

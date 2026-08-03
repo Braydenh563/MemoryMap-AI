@@ -12131,7 +12131,10 @@ function switchTab(name) {
     setTracePanelOpen(localStorage.getItem("graph-trace-open") === "1");
     renderGraph();
   }
-  if (name === "timeline") renderTimeline();
+  if (name === "timeline") {
+    $("timeline-view").value = timelineView();
+    renderTimeline();
+  }
   if (name === "documents") {
     loadDocuments();
     renderDocStorage();
@@ -12155,12 +12158,23 @@ function switchTab(name) {
 // scrollable, selectable, keyboard-reachable and readable by a screen reader
 // without any of that being built by hand.
 
+// §10C: which view is showing — the grid (what happened around this date,
+// across every band) or the line (the shape of one thread over time). A
+// preference, like the graph's layout picker, not a migration.
+function timelineView() {
+  const saved = localStorage.getItem("timeline-view");
+  return saved === "line" ? "line" : "grid";
+}
+
 async function renderTimeline() {
   const grid = $("timeline-grid");
   const body = await apiJson(
     `/timeline?scale=${$("timeline-scale").value}` +
       `&group=${$("timeline-group").value}&days=${$("timeline-days").value}`
   ).catch(() => null);
+  const line = timelineView() === "line";
+  $("timeline-scroll").classList.toggle("hidden", line);
+  $("timeline-branch-wrap").classList.toggle("hidden", !line);
   grid.replaceChildren();
   if (!body || !body.notes.length) {
     $("timeline-empty").classList.remove("hidden");
@@ -12168,7 +12182,14 @@ async function renderTimeline() {
     return;
   }
   $("timeline-empty").classList.add("hidden");
-  $("timeline-count").textContent = `${body.notes.length} notes · ${body.buckets.length} columns`;
+  $("timeline-count").textContent = line
+    ? `${body.notes.length} notes · ${body.bands.length} band${body.bands.length === 1 ? "" : "s"}`
+    : `${body.notes.length} notes · ${body.buckets.length} columns`;
+
+  if (line) {
+    renderTimelineBranch(body);
+    return;
+  }
 
   const buckets = body.buckets;
   const byId = new Map(body.notes.map((note) => [note.id, note]));
@@ -12219,6 +12240,167 @@ async function renderTimeline() {
   // The most recent column is the interesting one, so start there.
   $("timeline-scroll").scrollLeft = $("timeline-scroll").scrollWidth;
   void byId;
+}
+
+// --- Timeline: the branch/line view (§10C) -----------------------------------
+//
+// "Make sure the timeline has the additional aspect of like a line or
+// branching line/tree-like graph view because right now it is more like a
+// calendar" — accurate, and not a defect in the grid so much as the grid
+// answering a different question well. A grid answers "what happened around
+// this date, across every band at once"; this answers "what was the shape of
+// this one thread over time" — two notes three months apart in the same band
+// read as unrelated dots in a grid, and as one continuous line here.
+//
+// Branches come from the same bands the grid already computes (category or
+// tag, whichever is picked) rather than a second grouping. BACKLOG.md §10C
+// named §9's cluster detection as the other candidate signal; that is a
+// different structure (link/similarity, behind a separate endpoint) from the
+// filing this reads, and reusing the grouping already on screen keeps the two
+// Timeline views showing the same notebook two ways rather than two
+// different stories about it. "None" collapses to a single lane — the spine
+// itself, with every note directly on it.
+const TIMELINE_LANE_GAP = 42;
+const TIMELINE_MARGIN_X = 110; // left room for a band's label
+const TIMELINE_MARGIN_TOP = 28;
+const TIMELINE_DOT_R = 5;
+
+function renderTimelineBranch(body) {
+  const svg = d3.select("#timeline-branch-svg");
+  svg.selectAll("*").remove();
+  const width = Math.max($("timeline-branch-wrap").clientWidth || 800, 480);
+
+  const notes = body.notes;
+  const times = notes.map((n) => new Date(n.at));
+  const minT = d3.min(times);
+  const maxT = d3.max(times);
+  // A single moment in time has no span to scale against — give it a day
+  // either side rather than let every note collapse onto the same x.
+  const domain =
+    minT.getTime() === maxT.getTime()
+      ? [new Date(minT.getTime() - 864e5), new Date(maxT.getTime() + 864e5)]
+      : [minT, maxT];
+  const scale = d3.scaleTime().domain(domain).range([TIMELINE_MARGIN_X, width - 24]).nice();
+
+  const bands = body.bands;
+  const single = bands.length <= 1;
+  const spineY = TIMELINE_MARGIN_TOP;
+  const height = spineY + (single ? 1 : bands.length + 1) * TIMELINE_LANE_GAP + 20;
+  svg.attr("viewBox", `0 0 ${width} ${height}`).attr("width", width).attr("height", height);
+
+  const color = d3.scaleOrdinal(
+    bands.map((b) => b.name),
+    d3.schemeTableau10.concat(d3.schemeSet3)
+  );
+
+  // The plain chronological reading — every note in order — is what a grid
+  // gives you for free, and a branch view still owes it: it is the line every
+  // band's stub actually branches off of.
+  svg
+    .append("line")
+    .attr("class", "timeline-spine")
+    .attr("x1", scale.range()[0])
+    .attr("x2", scale.range()[1])
+    .attr("y1", spineY)
+    .attr("y2", spineY);
+
+  bands.forEach((band, index) => {
+    const laneY = single ? spineY : spineY + (index + 1) * TIMELINE_LANE_GAP;
+    const inBand = new Set(band.ids);
+    const here = notes
+      .filter((n) => inBand.has(n.id))
+      .sort((a, b) => new Date(a.at) - new Date(b.at));
+    if (!here.length) return;
+
+    const laneGroup = svg.append("g").attr("class", "timeline-branch-lane");
+    const tint = color(band.name);
+
+    if (!single) {
+      // Where a branch starts: it peels off the spine at its first note's
+      // time, not at some arbitrary point (BACKLOG.md §10C's own rule).
+      const startX = scale(new Date(here[0].at));
+      const midY = (spineY + laneY) / 2;
+      laneGroup
+        .append("path")
+        .attr("class", "timeline-branch-stub")
+        .attr("fill", "none")
+        .attr("stroke", tint)
+        .attr("d", `M${startX},${spineY}C${startX},${midY} ${startX},${midY} ${startX},${laneY}`);
+    }
+
+    // The thread itself — the one thing a grid cannot show at all: every
+    // note in this band, joined in time order, however far apart they sit.
+    if (here.length > 1) {
+      const linePath = d3
+        .line()
+        .x((n) => scale(new Date(n.at)))
+        .y(() => laneY);
+      laneGroup
+        .append("path")
+        .attr("class", "timeline-branch-line")
+        .attr("fill", "none")
+        .attr("stroke", tint)
+        .attr("d", linePath(here));
+    }
+
+    if (!single) {
+      const label = laneGroup
+        .append("text")
+        .attr("class", "timeline-branch-label")
+        .attr("x", 8)
+        .attr("y", laneY)
+        .attr("dy", "0.32em")
+        .attr("fill", tint)
+        .text(band.name);
+      label.append("title").text(`${band.count} note${band.count === 1 ? "" : "s"}`);
+    }
+
+    const dots = laneGroup
+      .selectAll("circle")
+      .data(here)
+      .join("circle")
+      .attr(
+        "class",
+        (n) => `timeline-branch-dot${n.placed_by === "mentioned" ? " timeline-branch-dot-mentioned" : ""}`
+      )
+      .attr("cx", (n) => scale(new Date(n.at)))
+      .attr("cy", laneY)
+      .attr("r", TIMELINE_DOT_R)
+      .attr("fill", tint)
+      .on("click", (_event, n) => {
+        switchTab("notes");
+        showNotesSection("browse"); // focusing inside a hidden section does nothing
+        flashEntry(n.id);
+      });
+    dots.append("title").text((n) => {
+      // Same honesty rule as the grid's dots: say when a note is here because
+      // of what it says rather than when it was typed.
+      const when =
+        n.placed_by === "mentioned"
+          ? `“${n.phrase}” meant ${new Date(n.at).toLocaleDateString()}`
+          : new Date(n.written_at).toLocaleString();
+      return `${stripMarkdownPreview(n.preview)}\n${when}`;
+    });
+  });
+
+  // A handful of date ticks along the spine — an unlabelled line reads as a
+  // decoration, not an axis.
+  const tickGroup = svg.append("g").attr("class", "timeline-branch-ticks");
+  for (const tick of scale.ticks(Math.min(6, notes.length))) {
+    const x = scale(tick);
+    tickGroup
+      .append("line")
+      .attr("x1", x)
+      .attr("x2", x)
+      .attr("y1", spineY - 4)
+      .attr("y2", spineY + 4);
+    tickGroup
+      .append("text")
+      .attr("x", x)
+      .attr("y", spineY - 10)
+      .attr("text-anchor", "middle")
+      .text(tick.toLocaleDateString(undefined, { month: "short", day: "numeric" }));
+  }
 }
 
 function bucketLabel(iso, scale) {
@@ -12309,6 +12491,10 @@ function openTimelineBand(band, group) {
 for (const id of ["timeline-scale", "timeline-group", "timeline-days"]) {
   $(id).addEventListener("change", renderTimeline);
 }
+$("timeline-view").addEventListener("change", (event) => {
+  localStorage.setItem("timeline-view", event.target.value);
+  renderTimeline();
+});
 
 $("entry-document").addEventListener("change", async (event) => {
   const value = event.target.value;

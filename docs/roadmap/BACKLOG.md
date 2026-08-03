@@ -964,56 +964,89 @@ scrolls, tabs and reads aloud without any of that being hand-built. Bands are
 capped at eight plus an "Everything else" lane — a chart with forty lanes is
 not a chart.
 
-**C. A branch/line view — asked for again, more directly, because B reads as
-a calendar rather than a timeline.** "Make sure the timeline has the
-additional aspect of like a line or branching line/tree-like graph view
-because right now it is more like a calendar" — accurate, and not a defect in
-B so much as B answering a different question well. A grid answers "what
-happened around this date, across every category at once." A line answers
-"what was the shape of this one thread over time" — and that's the thing a
-grid genuinely cannot show: two notes three months apart in the same project
-read as unrelated dots in a grid, and as one continuous line in a flow view.
-They're both real questions; this is the second view, not a replacement for
-the first.
+~~**C. A branch/line view**~~ **built — asked for again, more directly,
+because B reads as a calendar rather than a timeline.** "Make sure the
+timeline has the additional aspect of like a line or branching line/tree-like
+graph view because right now it is more like a calendar" — accurate, and not
+a defect in B so much as B answering a different question well. A grid
+answers "what happened around this date, across every category at once." A
+line answers "what was the shape of this one thread over time" — the thing a
+grid genuinely cannot show: two notes three months apart in the same band
+read as unrelated dots in a grid, and as one continuous line in the new view.
+Both stay — a `#timeline-view` picker (Grid / Line) beside the existing
+scale/bands/days controls, sharing the same `/timeline` fetch and the same
+`entry_dates`-driven data (§10A) — this is a second reading of it, not a
+second request.
 
-**Shape.** A spine running through time (main axis, chronological, same
-underlying `entry_dates` data as B) with **branches** peeling off it for
-threads that run in parallel — a tag, a category, or a linked-note cluster
-(§9 already computes these for the graph, so this reuses that grouping rather
-than inventing a second one). A branch starts where its first note in the
-thread sits on the spine, carries every note in that thread along its own
-line rather than back on the shared axis, and either rejoins the spine (the
-thread ended, nothing more tags into it) or runs off the visible edge (still
-open). Visually closer to a git commit graph or a river/Sankey diagram than
-to the force-directed graph in §9 — the *x*-axis is always time, never
-force-simulated, which is what makes it still readable as a timeline and not
-just the graph with a clock added.
+**What actually shipped, against the shape sketched above:**
 
-**Why this can't reuse B's CSS grid.** A grid cell is discrete — a bucket, a
-band, a note in it. A branch is a continuous path that has to curve away from
-the spine and back, at an arbitrary vertical offset that depends on how many
-other branches are active at that moment (two projects running at once need
-two lanes; the spine has to reserve space before it knows how many). That's
-an SVG-path layout problem — closer to what §9's graph already renders than
-to a table — so this is new rendering work, not a CSS change to the existing
-one. Reasonable to build as: **one shared time-scale function** (date →
-x-position) used by both B and C, so the two views can be toggled without
-recomputing anything, and C is additive to §10's existing data shape, not a
-rework of it.
+- **The spine and branches are real** — an SVG line at the top for the plain
+  chronological reading, and one lane per band below it, each connected to
+  the spine by a stub at the x-position of that band's *first* note, exactly
+  the rule this section originally specified.
+- **The branch source is category/tag, not §9's cluster detection.** This
+  section named linked-note clusters as the other candidate signal and
+  reasoned that §9 "already does the hard part of what goes together" — true,
+  but that hard part lives behind a separate endpoint (`/graph/structure`,
+  built from `entry_links`/similarity) with its own async cost, while the
+  grid's own bands (already fetched, already ranked, already capped at eight
+  plus "Everything else") were sitting right there. Reusing them keeps grid
+  and line as two readings of *the same* grouping the toolbar already lets
+  you pick, rather than the grid silently meaning one thing and the line
+  meaning another. A cluster-based branch view is still a real, different
+  option — it would want its own `group=cluster` value alongside
+  category/tag/none, not a replacement for this one.
+- **Branch start is automatic and literal, not a windowed heuristic.** The
+  "automatic vs manual, and what counts as a gap" question this section left
+  open turned out to have a simpler answer once the branch source was a
+  *band* rather than a detected cluster: a band's membership is already
+  decided (by category or tag, not by recency), so there is no "does this
+  note still belong to the thread" judgement call left to make — every note
+  in the band is on its lane, in date order, full stop. The one automatic
+  decision that's left — a band with a single note draws no line and no
+  stub, just a dot on the spine height itself if it's the only band, since a
+  "thread" of one note is not a shape — falls out of the same "no note
+  history, nothing to show" cases §37J and others already established
+  rather than needing a rule of its own.
+- **"Rejoins the spine" wasn't built.** A branch runs its full length at its
+  own lane height and never returns to the spine — reads closer to a
+  git-log's parallel refs than a river diagram, which is a smaller, more
+  honest shape for what "these notes share a category, some of it long ago"
+  actually is. A visual rejoin would have implied "this thread concluded",
+  which the underlying data — did anything stop being tagged this way, or did
+  the user just stop writing — has no way to tell apart.
 
-**What decides where a branch starts and ends** is the open design question,
-more than the rendering: automatic (a branch appears the moment three-plus
-notes share a tag within some window, ends after a gap with nothing added) is
-closest to "do this for me," but will branch on things the user didn't mean
-as a thread and miss things they did. Manual (pick a tag or cluster and
-"make this a branch") is predictable but is another thing to maintain.
-Worth prototyping automatic first, since §9's cluster detection already does
-the hard part of "what goes together" — the only new question is *when* a
-cluster starts and stops being active enough to draw as a branch.
+**A real bug found and fixed while verifying in Chromium**: the connector
+stub between the spine and a deep lane is a plain vertical SVG line with
+`fill: none`, which does not stop it from being hit-tested along its stroke —
+and a deep band's stub runs from the spine down *past* every shallower band's
+lane on the way there. Painted after them (later bands sit lower, later in
+the DOM), it silently ate clicks meant for dots in the lanes above it: the
+first click attempt on a real note resolved to the stub underneath instead.
+Fixed with `pointer-events: none` on the spine, every stub and every
+connecting line — none of the three is meant to be interactive, only the
+dots and labels are, and a decorative stroke has no business intercepting a
+click through to what's under it.
 
-**Data shape:** no new table — this reads `entry_dates` (§10A) and the
-existing tag/cluster grouping (§9) the same way B does; the only new state is
-per-view (grid vs branch), which is a preference, not a migration.
+**Verified in Chromium**, not just read: grid and line against real seeded
+notes across four categories and a multi-level reply thread, both grouping
+modes (category giving four lanes, tag collapsing to the single-band/no-stub
+case since the test notes were untagged), no `NaN` in any drawn coordinate,
+switching Grid → Line → Grid back doesn't lose or duplicate anything, and a
+dispatched click on a dot correctly opens it in Notes → Browse. **One thing
+the verification could not show**: the seeded test notes were all created
+within the same short run, so every date tick along the spine rendered as
+the same day and same-band dots mostly overlapped — the date-scale math
+itself checked out (confirmed via the coordinate check above, and the
+correctly-shaped result at whatever span `d3.scaleTime` was actually given),
+but nobody has looked at this view against a notebook that genuinely spans
+weeks or months. Look there first if the tick labels or spacing are ever
+reported as wrong.
+
+**Data shape:** no new table, as planned — this reads `entry_dates` (§10A)
+and the existing category/tag grouping (§9's cluster grouping is not used,
+see above) the same way B does; the only new state is per-view (grid vs
+line), a `localStorage` preference (`timeline-view`), not a migration.
 
 **Still open in B (the grid view):**
 

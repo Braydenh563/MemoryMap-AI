@@ -777,6 +777,15 @@ Link to another note with [[its first few words]]."></textarea>
           <option value="365" selected>Last year</option>
           <option value="0">Everything</option>
         </select>
+        <!-- §10C: a grid answers "what happened around this date, across
+             every band at once"; a line answers "what was the shape of this
+             one thread over time" — both real questions, so both stay, picked
+             here rather than one replacing the other. -->
+        <label class="muted" for="timeline-view">View</label>
+        <select id="timeline-view" aria-label="Grid or line view">
+          <option value="grid" selected>Grid</option>
+          <option value="line">Line</option>
+        </select>
         <span id="timeline-count" class="muted"></span>
       </div>
       <p class="muted">
@@ -786,6 +795,13 @@ Link to another note with [[its first few words]]."></textarea>
       </p>
       <div id="timeline-scroll" class="timeline-scroll">
         <div id="timeline-grid" class="timeline-grid"></div>
+      </div>
+      <!-- The line view (§10C): one spine, chronological, with a lane per
+           band peeling off it — same underlying notes as the grid above,
+           just answering "what was the shape of this thread" instead of
+           "what happened around this date". -->
+      <div id="timeline-branch-wrap" class="timeline-branch-wrap hidden">
+        <svg id="timeline-branch-svg" class="timeline-branch-svg"></svg>
       </div>
       <p id="timeline-empty" class="muted hidden">Nothing to plot yet.</p>
     </section>

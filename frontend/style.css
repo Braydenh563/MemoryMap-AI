@@ -7096,6 +7096,40 @@ textarea.autogrow {
 /* A note placed by what it says rather than when it was typed. */
 .timeline-dot-mentioned { border-style: dashed; }
 
+/* --- Timeline: the branch/line view (§10C) -----------------------------------
+   One spine plus a lane per band, rather than the grid's rows-of-cells — see
+   `renderTimelineBranch` in app.js for the layout math. Scrolls horizontally
+   like the grid, for the same reason: a year of notes is wider than any panel. */
+.timeline-branch-wrap { overflow-x: auto; overflow-y: hidden; min-width: 0; }
+.timeline-branch-wrap.hidden { display: none; }
+.timeline-branch-svg { display: block; min-width: 100%; }
+/* None of these three are clickable, and each is a plain vertical/horizontal
+   stroke with `fill: none` — which does not stop SVG from hit-testing along
+   it. A deeper band's stub runs from the spine down past every shallower
+   band's own lane on the way, and being painted after them, silently ate
+   their dots' clicks (found by driving it: the first dot in the topmost lane
+   couldn't be clicked at all). Decorative lines have no business intercepting
+   pointer events in the first place. */
+.timeline-spine,
+.timeline-branch-stub,
+.timeline-branch-line { pointer-events: none; }
+.timeline-spine { stroke: var(--border); stroke-width: 2; }
+.timeline-branch-stub { stroke-width: 1.5; opacity: 0.55; }
+.timeline-branch-line { stroke-width: 2; opacity: 0.85; }
+.timeline-branch-label { font-size: 0.75rem; font-weight: 600; }
+.timeline-branch-dot {
+  stroke: var(--card);
+  stroke-width: 1.5;
+  cursor: pointer;
+}
+.timeline-branch-dot:hover { stroke: var(--accent); }
+/* A note placed by what it says rather than when it was typed — the same
+   fact the grid marks with a dashed border, drawn here as a dashed ring
+   instead, since a filled circle has no border to dash. */
+.timeline-branch-dot-mentioned { stroke-dasharray: 2 1.5; stroke-width: 2; }
+.timeline-branch-ticks line { stroke: var(--border); }
+.timeline-branch-ticks text { font-size: 0.7rem; fill: var(--muted); text-anchor: middle; }
+
 /* A category heading in a tree layout — a real node in the drawing, but not
    a note: hollow, so it never reads as something you can open. */
 .graph-core.graph-group {

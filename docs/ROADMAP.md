@@ -186,11 +186,10 @@ extending a pattern that already exists rather than inventing one.
 each is scoped and none needs a new abstraction the codebase doesn't already
 have a version of.
 
-- The Timeline branch/line view (§10C) — new rendering work, but reuses
-  §9's clustering and §10A's date data rather than inventing new grouping.
-  **§37J is nearer-term and should happen first**: the Timeline's *existing*
-  view clips text and doesn't render markdown, which is worth fixing before
-  building a second view with the same two bugs in it.
+- ~~The Timeline branch/line view (§10C)~~ **built — see §38's ranked list
+  and BACKLOG.md §10 for what shipped and the "band, not §9 cluster" scoping
+  correction.** §37J (fixing the grid view's clipping/markdown bugs) landed
+  first, as this bullet said it should.
 - Chat / Agent / Browse as real sub-tabs (§3) — see the sequencing note
   below before starting this one, and see the correction above: the chat tab
   resolved part of this differently (a mode toggle, not separate tabs), so
@@ -1902,25 +1901,22 @@ in front of them:
    against**, which is the whole reason this was ranked ahead of them.
 3. ~~**Graph layouts beyond tree/radial**~~ **one built — Arc — the rest
    still open** (§9); named the differentiator in ANALYSIS §30/§34. A
-   previous session found `renderGraph()` tightly integrated across drag,
-   zoom-to-fit, hover-adjacency, the trace overlay and the physics sliders,
-   and deliberately did not start rather than risk a half-integrated layout.
-   This session budgeted the dedicated time that called for: Arc extends
-   `layoutHierarchy`/`hierarchyPath`/`frameTree` with a third static-position
-   case (nodes on one baseline in hierarchy-traversal order, parent-child
-   edges as flattened arcs under the line) rather than a separate rendering
-   path, so it inherits drag-pin, zoom-to-fit, hover-adjacency and the
-   physics-disable check for free — the same reuse tree and radial already
-   share. Full details and the "hierarchy, not `entry_links`" scoping
-   decision are in BACKLOG.md §9. **Mind map (from one note, by
-   `entry_links` hops), treemap/sunburst and adjacency matrix are still
-   unbuilt** — each is a materially different rendering approach (area-based,
-   or matrix-based, or link- rather than hierarchy-based) rather than a
-   fourth case slotted into the same static-hierarchy shape Arc reused, so
-   none of them inherit today's integration for free the way Arc did.
-4. **Timeline branch/line view** (§10C) — asked for twice directly; §37J
-   already fixed the existing view's bugs, so this is additive, not a second
-   pass over the same two problems.
+   previous session deliberately did not start this, flagging the risk of a
+   half-integrated layout; this session built Arc as a third case inside the
+   existing `layoutHierarchy`/`hierarchyPath`/`frameTree` machinery instead of
+   a separate rendering path, so it inherits drag-pin, zoom-to-fit,
+   hover-adjacency and the physics-disable check the way tree/radial already
+   do. Full reasoning, the "hierarchy not `entry_links`" scoping call, and
+   Chromium verification are in BACKLOG.md §9. **Mind map, treemap/sunburst
+   and adjacency matrix are still unbuilt** — each is a materially different
+   rendering approach, not a fourth case Arc's reuse covers for free.
+4. ~~**Timeline branch/line view**~~ **built** (§10C) — asked for twice
+   directly; §37J fixed the grid view's bugs first, as planned. A `View: Grid
+   / Line` picker; the line reuses the grid's own band data (category/tag)
+   rather than §9's separate cluster-detection endpoint. Full reasoning for
+   that scoping choice, what shipped against the original sketch, a real
+   click-interception bug found and fixed in Chromium, and what verification
+   could not cover are in BACKLOG.md §10's own correction.
 5. ~~**Chat/Agent/Browse sub-tabs**~~ **checked, and substantially done —
    see §3's correction in BACKLOG.md.** The Ask/Request mode toggle, the web
    panel column and `make_plan`'s ticked-step display already satisfy this

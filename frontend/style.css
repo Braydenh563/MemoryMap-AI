@@ -5090,6 +5090,16 @@ button { border-radius: calc(var(--radius) * 0.7); }
   align-items: start;
   padding: 0;
 }
+/* The heading row does not wrap. In a 260px column "Recent documents" broke
+   over two lines and took "＋ New" with it, so the sidebar opened with a
+   three-line header above a three-item list. The heading is the part that
+   gives way — the button is a fixed hit target. */
+.doc-sidebar .row.space-between,
+#chat-sidebar .row.space-between { flex-wrap: nowrap; gap: var(--space-3); }
+.doc-sidebar .row.space-between h2,
+#chat-sidebar .row.space-between h2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.doc-sidebar .row.space-between button,
+#chat-sidebar .row.space-between button { flex: 0 0 auto; }
 .doc-sidebar {
   position: sticky;
   /* Was calc(var(--header-h) + 0.75rem), from when the window scrolled and the
@@ -5177,7 +5187,17 @@ button { border-radius: calc(var(--radius) * 0.7); }
 
 @media (max-width: 900px) {
   .doc-layout { grid-template-columns: 1fr; }
-  .doc-sidebar { position: static; }
+  /* The heading row does not wrap. In a 260px column "Recent documents" broke
+   over two lines and took "＋ New" with it, so the sidebar opened with a
+   three-line header above a three-item list. The heading is the part that
+   gives way — the button is a fixed hit target. */
+.doc-sidebar .row.space-between,
+#chat-sidebar .row.space-between { flex-wrap: nowrap; gap: var(--space-3); }
+.doc-sidebar .row.space-between h2,
+#chat-sidebar .row.space-between h2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.doc-sidebar .row.space-between button,
+#chat-sidebar .row.space-between button { flex: 0 0 auto; }
+.doc-sidebar { position: static; }
   #chat-sidebar, #doc-sidebar { position: static; align-self: stretch; }
   .doc-panes.split { grid-template-columns: 1fr; }
 }

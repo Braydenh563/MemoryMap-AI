@@ -4366,11 +4366,21 @@ async function loadDocuments(selectId = null) {
   if (!docs.length) showNoDocument();
 }
 
+//: How many documents the switcher shows. Searching and sorting all of them
+//: is the Library's job (§36G); this list is here so the document you were in
+//: ten minutes ago is one click away without leaving the page you are writing
+//: on. The one you have *open* is always in it, however old, or the sidebar
+//: would stop showing you where you are.
+const RECENT_DOCS_SHOWN = 8;
+
 function renderDocList() {
-  const filter = $("doc-filter").value.trim().toLowerCase();
   const list = $("doc-list");
   list.replaceChildren();
-  const shown = docs.filter((d) => !filter || d.title.toLowerCase().includes(filter));
+  const shown = docs.slice(0, RECENT_DOCS_SHOWN);
+  if (currentDoc && !shown.some((d) => d.id === currentDoc.id)) {
+    const open = docs.find((d) => d.id === currentDoc.id);
+    if (open) shown[shown.length - 1] = open;
+  }
   $("doc-empty").classList.toggle("hidden", docs.length > 0);
 
   for (const doc of shown) {
@@ -17526,7 +17536,16 @@ $("chat-send").addEventListener("click", () => sendChatMessage());
 
 // --- documents wiring ---
 $("doc-new").addEventListener("click", createDocument);
-$("doc-filter").addEventListener("input", renderDocList);
+// Searching and sorting every document lives in the Library now (§36G), with
+// the notes, chats and files beside them. This is the way there, said out loud
+// — a list that silently stops at eight is a list that has lost your writing.
+$("doc-browse-all").addEventListener("click", () => {
+  switchTab("library");
+  libraryKind = "document";
+  renderLibraryOverview();
+  renderLibraryFilters();
+  renderLibrary();
+});
 $("doc-title").addEventListener("input", () => { markDocDirty(); renderDocPreview(); });
 $("doc-content").addEventListener("input", () => { markDocDirty(); renderDocPreview(); });
 for (const button of document.querySelectorAll("#doc-toolbar button")) {

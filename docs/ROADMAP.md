@@ -1531,13 +1531,19 @@ could absorb the notes and documents tab as well but I don't know if that's a
 good idea or not."* Here is the reasoning, so the next session does not have to
 re-derive it.
 
-**Documents: yes, and it is already half done.** The Documents tab has no list
-of its own any more — the Library is its list. What is left in that tab is the
-*editor*, and an editor is not a tab, it is what opens when you pick something.
-The finish is: make the document editor a full-page surface the Library opens
-(the tab button is already gone), and give it the rework it needs — the sidebar
-in there is now three collapsed panels stacked under a heading with no list
-above them, which is a layout built around a list that left.
+**Documents: yes, and it is now done to the same shape as Chat.** *(An earlier
+draft of this paragraph said the Documents tab had no list of its own. It did —
+the tab button had gone but the full list and its filter box were still in the
+sidebar, so there really were two. That is fixed rather than re-described.)*
+The filter box moved to the Library, the list is capped at eight recent, and
+the sidebar is otherwise about the document you have **open**: its outline, the
+notes it draws on, where it is kept. A `📚 Browse all in Library →` button says
+where the rest went, exactly as the chat sidebar does.
+
+What is left for the editor itself: it is reached only from the Library now, so
+it can stop pretending to be a tab — a wider writing column, and the outline
+and linked-notes panels earning their place beside it rather than sitting
+folded shut under a list.
 
 **Notes: no — and the reason is not sentiment.** The Library is a *finding and
 managing* surface: you arrive knowing roughly what you want and leave having

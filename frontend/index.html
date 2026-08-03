@@ -942,15 +942,23 @@ Link to another note with [[its first few words]]."></textarea>
        results and the graph. -->
   <div class="tab-page hidden" id="tab-documents" role="tabpanel" aria-labelledby="tab-btn-documents" tabindex="-1">
     <div class="doc-layout">
+      <!-- **Recent documents, not every document.** The same split the chat
+           sidebar makes, for the same reason: browsing everything you have
+           written is the Library's job, and two lists of one thing is what the
+           Library was built to end — but switching while you are writing is a
+           different job from finding, and wants one click without leaving the
+           page. So the filter box moved to the Library, the list is capped,
+           and the rest of this sidebar is about the document you have *open*:
+           its outline, the notes it draws on, and where it is kept. -->
       <aside class="card doc-sidebar" id="doc-sidebar">
         <div class="row space-between">
-          <h2>Documents</h2>
+          <h2>Recent</h2>
           <button id="doc-new" class="small" type="button" title="Start a new document">＋ New</button>
         </div>
-        <input id="doc-filter" type="search" placeholder="🔎 Filter documents…"
-          aria-label="Filter documents by title">
         <ul id="doc-list" class="doc-list"></ul>
         <p id="doc-empty" class="muted hidden">No documents yet — start typing on the right, or press ＋ New.</p>
+        <button id="doc-browse-all" class="ghost small conv-browse-all" type="button"
+          title="Search, sort and manage every document">📚 Browse all in Library →</button>
 
         <!-- Built from the document's own headings: past two screens of text
              the scrollbar stops being a way to navigate. -->

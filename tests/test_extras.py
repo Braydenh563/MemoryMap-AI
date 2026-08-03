@@ -157,3 +157,54 @@ def test_a_reinstall_does_not_trust_the_cache(client, monkeypatch):
     assert "--force-reinstall" in seen["command"]
     assert "--no-cache-dir" in seen["command"]
     assert "faster-whisper" in seen["command"]
+
+
+# --- extras nothing calls yet -------------------------------------------------
+#
+# markitdown and llama-cpp-python install a library the app never imports: there
+# is no "bring in a PDF" button and the chat backend does not know about
+# llama.cpp. Both said so in a caveat *under a working Install button*, which
+# spends the user's disk and their time on a feature that does not exist and
+# then asks for a restart. Asked for directly: grey them out until they are
+# real.
+
+
+def test_an_extra_nothing_calls_yet_says_so(client):
+    extras = {e["id"]: e for e in client.get("/extras").json()["extras"]}
+    assert extras["documents"]["unavailable"]
+    assert extras["localllm"]["unavailable"]
+
+
+def test_a_ready_extra_carries_no_such_reason(client):
+    extras = {e["id"]: e for e in client.get("/extras").json()["extras"]}
+    assert extras["voice"]["unavailable"] == ""
+    assert extras["desktop"]["unavailable"] == ""
+
+
+def test_an_unavailable_extra_is_refused_by_the_server_not_only_the_button(client):
+    """The greyed-out button is a courtesy; this is the rule. `core/extras.py`
+    is the allowlist, so whether something may be installed belongs there and
+    not in app.js — a POST straight at the endpoint has to be refused too."""
+    body = client.post("/extras/documents/install").json()
+    assert body["started"] is False
+    assert "isn't ready" in body["message"]
+
+
+def test_asking_twice_does_not_make_it_ready(client):
+    """`reinstall=true` is the escape hatch for a package that is installed and
+    broken. An extra nothing calls cannot be in that state, so the flag must
+    not be a way round the refusal."""
+    body = client.post("/extras/localllm/install?reinstall=true").json()
+    assert body["started"] is False
+
+
+def test_removal_is_never_blocked(client, monkeypatch):
+    """Somebody who installed markitdown by hand, or before it was marked,
+    still needs the way out. Refusing removal would strand them."""
+    started = {}
+    monkeypatch.setattr(
+        "memorymap.core.extras.threading.Thread",
+        lambda **kw: type("T", (), {"start": lambda self: started.setdefault("go", True)})(),
+    )
+    body = client.post("/extras/documents/uninstall").json()
+    assert body["started"] is True

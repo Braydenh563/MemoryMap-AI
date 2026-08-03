@@ -146,8 +146,35 @@ def test_the_composer_stays_bottom_aligned_as_the_box_grows():
 
 
 def test_a_panel_opens_beside_the_button_that_opens_it():
-    """Both moved down with their triggers. A toggle at the bottom of the page
-    that opens a panel at the top reads as a button that does nothing."""
+    """A toggle at the bottom of the page that opens a panel at the top reads
+    as a button that does nothing, so a disclosure lives with its trigger.
+
+    The persona peek is a *disclosure*: two lines saying what the select next
+    to it does. It stays in the dock.
+    """
     dock = _block(_markup(), '<div class="chat-dock">')
-    assert 'id="web-panel"' in dock
     assert 'id="persona-peek-panel"' in dock
+
+
+def test_the_web_panel_is_a_column_not_a_drawer_in_the_dock():
+    """It used to be in the dock, and this test used to require that.
+
+    The rule above is about *disclosures*, and the web panel is not one — it is
+    a search box, a list of results and the full text of a web page. Inside the
+    dock it had to be capped, because the dock's job is to stay short, and the
+    cap made it unusable: reported as "squashed ugly … what it is right now
+    isn't working". The two symptoms it produced — pushing the composer off the
+    bottom, then being too small to read — were the same mistake from either
+    side.
+
+    So it is a sibling of #chat-main inside the chat page's <main>: a column,
+    the full height of the page, beside the conversation rather than under it.
+    """
+    markup = _markup()
+    dock = _block(markup, '<div class="chat-dock">')
+    assert 'id="web-panel"' not in dock, "the web panel is a column, not a dock drawer"
+    # Still on the chat page, and still a sibling of the conversation card —
+    # the point of the move is *where* it went, not merely that it left.
+    chat_page = _block(markup, '<div class="tab-page hidden" id="tab-chat"')
+    assert 'id="web-panel"' in chat_page
+    assert chat_page.index('id="chat-main"') < chat_page.index('id="web-panel"')

@@ -5261,7 +5261,13 @@ async function sendChatMessage(preset, opts = {}) {
   status.textContent = "Searching your notes…";
 
   // Regenerate re-runs the same question without adding a duplicate "you".
-  if (!opts.skipUserBubble) addBubble("user", question);
+  //
+  // `displayText` is what the *user* said when the message carries an
+  // instruction they did not type — 🧭 Plan appends one. Showing the appended
+  // sentence back to them would read as the app putting words in their mouth,
+  // and hiding the request entirely would leave the plan looking as though it
+  // came from nowhere; the button they pressed is the explanation.
+  if (!opts.skipUserBubble) addBubble("user", opts.displayText || question);
   const { bubble, stepsHolder, recordsHolder, timeline } = addAssistantBubble();
   // A placeholder until the first event arrives; the first real step evicts it.
   const pending = document.createElement("div");
@@ -6260,6 +6266,9 @@ async function loadChatSuggestions() {
     const chipEl = chip(question, "", () => sendChatMessage(question));
     box.appendChild(chipEl);
   }
+  // These chips arrive after the tab is drawn and are a row or two of height
+  // the composer's fit was measured without.
+  refitComposer();
 }
 
 // Personas section in Settings (Wave C, editing + reset in Wave D).
@@ -6533,6 +6542,7 @@ function runSkill(skill) {
 // same reason `ask_user`'s answer is: nothing to expire, nothing lost on a
 // reload, and the run is a message in the conversation like any other.
 function startPlannedRun(goal, steps) {
+  switchTab("chat"); // same reason as startSkill: the run happens in the chat
   sendChatMessage(`🧭 ${goal}`, { plan: { goal, steps } });
 }
 
@@ -6540,6 +6550,14 @@ function startSkill(skill, values) {
   // Both entry points land here — the ⚡ dropdown and a run the agent started
   // itself (§33) — so the dashboard's recent-skill buttons cover both.
   noteSkillRun(skill.name);
+  // **And so does the dashboard's ⚡ chip, which is why this is here.**
+  // Reported: *"when I click on the suggested skills in the dashboard, it runs
+  // the skill but doesn't navigate me to it."* Exactly right — the run started,
+  // the answer streamed into a tab nobody was looking at, and the dashboard sat
+  // there as though the button had done nothing. A skill *is* a message in the
+  // conversation, so starting one has to take you to the conversation. From
+  // the ⚡ dropdown, where you are already here, this is a no-op.
+  switchTab("chat");
   const given = Object.values(values).filter(Boolean).join(", ");
   sendChatMessage(`⚡ ${skill.name}${given ? ` — ${given}` : ""}`, {
     skill: skill.name,
@@ -7410,6 +7428,8 @@ function watchDashWidgets() {
 
 window.addEventListener("resize", () => {
   if ($("dash-grid")) sizeDashWidgets();
+  // A dragged composer height is only valid for the window it was dragged in.
+  refitComposer();
 });
 
 // Fade a tab-strip edge only while there is something hidden beyond it.
@@ -7636,20 +7656,61 @@ async function renderDashStats() {
 // starting sections — found "New note" failing in exactly the same way from
 // two of the three, with the capture box hidden and nothing focused. It is
 // the most-used button on the dashboard.
-const QUICK_LINKS = [
+// **Three groups, because there were three kinds of button pretending to be
+// one.** Reported: *"can you just completely redo, improve on and expand that
+// whole top section."*
+//
+// What was there was one grid of seven identical chips. "Graph" only changes
+// which tab you are looking at; "New note" puts a cursor in an empty box;
+// "⚡ Clean up my tags" sends a message to a model and waits for it. Those are
+// three different commitments and they were drawn the same, in one row, sorted
+// by a use counter that mixed them together — so the row said nothing about
+// what pressing anything in it would do, and the only way to find out was to
+// press it.
+//
+// Now: **Start** something (an action, and the row that owns the accent),
+// **Jump to** somewhere (navigation, quiet pills — nothing happens that you
+// cannot undo by pressing the tab you came from), and **Run a skill** (the
+// expensive one, marked ⚡, and the only group that talks to the model).
+//
+// The use-ordering that was here stays, but it is applied *inside* Jump to
+// only. That was the point of it — the middle of a navigation row is exactly
+// where reordering helps and never surprises — and applying it across the
+// whole strip is what let an action drift into the middle of the navigation.
+const QUICK_START = [
   {
     icon: "✏️",
     label: "New note",
+    hint: "Capture a thought — the AI files it",
+    primary: true,
     run: () => {
       switchTab("notes");
       showNotesSection("capture"); // or the box you're about to focus is hidden
       $("entry-content").focus();
     },
   },
-  { icon: "💬", label: "Ask AI", run: () => { switchTab("chat"); $("chat-input").focus(); } },
-  { icon: "🕸", label: "Graph", run: () => switchTab("graph") },
-  { icon: "⏰", label: "Reminders", run: () => switchTab("reminders") },
-  { icon: "🎨", label: "Sketch", run: () => openSketch() },
+  {
+    icon: "💬",
+    label: "Ask AI",
+    hint: "A question answered from your own notes",
+    run: () => {
+      switchTab("chat");
+      $("chat-input").focus();
+    },
+  },
+  { icon: "🎨", label: "Sketch", hint: "Draw something and save it as a note", run: () => openSketch() },
+  {
+    icon: "⏰",
+    label: "Remind me",
+    hint: "Type it in plain English and the AI schedules it",
+    run: () => {
+      switchTab("reminders");
+      $("reminder-magic").focus();
+    },
+  },
+];
+
+const QUICK_GO = [
   {
     icon: "🔍",
     label: "Search notes",
@@ -7661,7 +7722,19 @@ const QUICK_LINKS = [
       $("note-search").focus();
     },
   },
-  { icon: "🧰", label: "Tools & features", run: () => openFeatures(), primary: true },
+  { icon: "📚", label: "Notes", run: () => { switchTab("notes"); showNotesSection("browse"); } },
+  { icon: "💬", label: "Chat", run: () => switchTab("chat") },
+  // The Library, the Timeline and Reminders were all reachable only from the
+  // tab bar. A "quick access" strip that skips three of the app's seven tabs
+  // is a strip that has stopped being an index of the app.
+  { icon: "📖", label: "Library", run: () => switchTab("library") },
+  { icon: "🕸", label: "Graph", run: () => switchTab("graph") },
+  { icon: "🗓", label: "Timeline", run: () => switchTab("timeline") },
+  { icon: "⏰", label: "Reminders", run: () => switchTab("reminders") },
+  { icon: "🧰", label: "Tools & features", run: () => openFeatures() },
+  // The palette is the fastest route to anything at all, and it was findable
+  // only by already knowing Ctrl+K. A button is how you learn a shortcut.
+  { icon: "⌘", label: "Commands", run: () => openPalette() },
 ];
 
 // --- quick access that follows what you actually do (§36D) ------------------------
@@ -7756,48 +7829,108 @@ function recentSkillLinks() {
   }));
 }
 
-function orderedQuickLinks() {
+// Navigation only — see the note on QUICK_START. Search stays first because it
+// is the one entry in the row that is a *destination for anything*, and a
+// fixed first position is what lets a hand learn it.
+function orderedGoLinks() {
   const counts = quickLinkUse();
-  const first = QUICK_LINKS[0];
-  const last = QUICK_LINKS.find((l) => l.primary);
-  const middle = QUICK_LINKS.filter((l) => l !== first && l !== last);
+  const [first, ...rest] = QUICK_GO;
   // Stable sort: equal counts keep the order they were declared in, so an
   // untouched dashboard looks exactly as it always did.
-  middle.sort((a, b) => (counts[b.label] || 0) - (counts[a.label] || 0));
-  return [first, ...middle, ...recentSkillLinks(), last].filter(Boolean);
+  rest.sort((a, b) => (counts[b.label] || 0) - (counts[a.label] || 0));
+  return [first, ...rest];
+}
+
+function quickLinkButton(link, className) {
+  const button = document.createElement("button");
+  button.className = className + (link.primary ? " quick-link-primary" : "");
+  button.type = "button";
+  // Every chip gets a title, not only the skills: the labels truncate, so
+  // hovering has to be able to finish the sentence. A chip whose label fits
+  // shows a tooltip repeating it, which is harmless; a chip whose label does
+  // not fit and has no tooltip is a button you cannot read at all.
+  button.title = link.skill
+    ? `Run the skill “${link.skillName}” — it answers in the chat`
+    : link.hint || link.label;
+  const icon = document.createElement("span");
+  icon.className = "quick-link-icon";
+  icon.textContent = link.icon;
+  icon.setAttribute("aria-hidden", "true");
+  const text = document.createElement("span");
+  text.className = "quick-link-text";
+  const label = document.createElement("span");
+  label.className = "quick-link-label";
+  label.textContent = link.label;
+  text.appendChild(label);
+  // The hint is what turns a row of verbs into a row you can choose from
+  // without pressing anything. Only the Start group carries one — the
+  // navigation pills say where they go by being named after the tab, and a
+  // sentence under each would be six sentences saying "goes to the tab".
+  if (link.hint) {
+    const hint = document.createElement("span");
+    hint.className = "quick-link-hint";
+    hint.textContent = link.hint;
+    text.appendChild(hint);
+  }
+  button.append(icon, text);
+  button.addEventListener("click", () => {
+    noteQuickLinkUse(link.skillName || link.label);
+    link.run();
+  });
+  return button;
+}
+
+function launchGroup(label, className) {
+  const group = document.createElement("div");
+  group.className = "launch-group";
+  const heading = document.createElement("p");
+  heading.className = "launch-label";
+  heading.textContent = label;
+  const row = document.createElement("div");
+  row.className = className;
+  group.append(heading, row);
+  return { group, row };
 }
 
 function renderQuickLinks() {
   const box = $("dash-quicklinks");
   if (!box) return;
   box.replaceChildren();
-  for (const link of orderedQuickLinks()) {
-    const button = document.createElement("button");
-    button.className =
-      "quick-link" +
-      (link.primary ? " quick-link-primary" : "") +
-      (link.skill ? " quick-link-skill" : "");
-    button.type = "button";
-    // Every chip gets a title, not only the skills: the labels truncate now
-    // that the row is equal columns, so hovering has to be able to finish the
-    // sentence. A chip whose label fits shows a tooltip repeating it, which is
-    // harmless; a chip whose label does not fit and has no tooltip is a button
-    // you cannot read at all.
-    button.title = link.skill
-      ? `Run the skill “${link.skillName}”`
-      : link.label;
-    const icon = document.createElement("span");
-    icon.className = "quick-link-icon";
-    icon.textContent = link.icon;
-    icon.setAttribute("aria-hidden", "true");
-    const label = document.createElement("span");
-    label.textContent = link.label;
-    button.append(icon, label);
-    button.addEventListener("click", () => {
-      noteQuickLinkUse(link.skillName || link.label);
-      link.run();
-    });
-    box.appendChild(button);
+
+  const start = launchGroup("Start something", "launch-row launch-row-start");
+  for (const link of QUICK_START) {
+    start.row.appendChild(quickLinkButton(link, "quick-link quick-action"));
+  }
+  box.appendChild(start.group);
+
+  const go = launchGroup("Jump to", "launch-row launch-row-go");
+  for (const link of orderedGoLinks()) {
+    go.row.appendChild(quickLinkButton(link, "quick-link quick-pill"));
+  }
+  box.appendChild(go.group);
+
+  // The skills group is only drawn when there is a skill to put in it. An
+  // empty "Run a skill" heading over one "Choose a skill…" button is a section
+  // that exists to advertise itself, and this strip is already the busiest
+  // thing on the page.
+  const skills = recentSkillLinks();
+  const skillGroup = launchGroup("Run a skill", "launch-row launch-row-skills");
+  for (const link of skills) {
+    skillGroup.row.appendChild(quickLinkButton(link, "quick-link quick-pill quick-link-skill"));
+  }
+  if (skills.length) {
+    skillGroup.row.appendChild(
+      quickLinkButton(
+        {
+          icon: "⚡",
+          label: "All skills…",
+          hint: "Every skill, in the chat's ⚡ picker",
+          run: () => switchTab("chat"),
+        },
+        "quick-link quick-pill quick-link-more"
+      )
+    );
+    box.appendChild(skillGroup.group);
   }
 }
 
@@ -11759,6 +11892,10 @@ function switchTab(name) {
     renderChatEmptyState(); // welcome placeholder when the thread is empty
     loadChatSuggestions();
     $("chat-input").focus();
+    // Nothing in a hidden tab can be measured, so the composer's fit is done
+    // here rather than at startup — the window may well have changed size
+    // since the last time this tab was visible.
+    refitComposer();
   }
   if (name === "dashboard") renderDashboard();
   if (name === "graph") {
@@ -12128,6 +12265,65 @@ function autoGrow(el) {
   // What this function chose, so a later resize can be told apart from a drag
   // by the user — the two are indistinguishable to a ResizeObserver otherwise.
   el.dataset.autoHeight = String(next);
+  fitComposerToDock(el);
+}
+
+//: A composer smaller than this is not a composer. The floor exists so a very
+//: short window trims the box rather than erasing it — at that point the
+//: conversation scrolls and the user can drag the window instead.
+const MIN_COMPOSER_PX = 44;
+
+// A hand-dragged composer height, trimmed to the room the chat card has.
+//
+// The drag is a preference and it is kept as one: `dataset.maxPx` and
+// localStorage are **not** touched here. Only the applied height is trimmed,
+// so a box dragged to 380px on a large monitor comes back to 380px the moment
+// there is room for it again. Writing the trimmed value back would be the app
+// quietly forgetting a setting because the window was small once.
+//
+// The measurement is the card's own overflow rather than any sum of the
+// furniture above it. Every number this file has ever guessed at — a viewport
+// fraction, a rem cap, the dock's height — has been wrong within two sessions,
+// because the dock gains controls and the tab strip wraps. `scrollHeight -
+// clientHeight` is the browser answering "by how much does this not fit",
+// which needs no maintenance and is exact.
+// It iterates because one subtraction does not converge. The conversation
+// above the dock is `flex: 1 1 auto` with a floor, so some of the height the
+// composer gives back is immediately taken by the message list growing into
+// it — measured: a 56px trim cleared only 24px of a 88px overflow. Each pass
+// is exact about what it can see, and three of them have been enough at every
+// size driven so far; the cap is there so a layout that somehow oscillates
+// costs four reflows rather than the frame.
+const COMPOSER_FIT_PASSES = 4;
+
+function fitComposerToDock(box) {
+  if (!box || box.id !== "chat-input") return;
+  const card = document.getElementById("chat-main");
+  // Nothing to measure while the tab is hidden; switchTab re-runs this.
+  if (!card || !card.getClientRects().length) return;
+  for (let pass = 0; pass < COMPOSER_FIT_PASSES; pass += 1) {
+    const overflow = Math.round(card.scrollHeight - card.clientHeight);
+    if (overflow <= 0) return;
+    const now = Math.round(box.getBoundingClientRect().height);
+    const next = Math.max(MIN_COMPOSER_PX, now - overflow);
+    if (next >= now) return; // already as small as it is allowed to be
+    // Set before the style write: the ResizeObserver below reads this to
+    // decide whether a height change was a drag, and a trim must never be
+    // recorded as one — that is how a preference gets eaten.
+    box.dataset.autoHeight = String(next);
+    box.style.height = `${next}px`;
+    box.style.overflowY = box.scrollHeight > next ? "auto" : "hidden";
+  }
+}
+
+// The trim depends on the window, so it has to be redone when the window
+// changes. Re-running `autoGrow` rather than `fitComposerToDock` alone is what
+// lets the box grow *back* towards the dragged height when the window gets
+// bigger: autoGrow re-applies the preference, and the fit trims it again only
+// if it still does not fit.
+function refitComposer() {
+  const box = document.getElementById("chat-input");
+  if (box) autoGrow(box);
 }
 
 // The chat composer can be dragged taller, and remembers it.
@@ -15105,7 +15301,9 @@ async function renderExtras() {
       // answers "is it there", not "is it sound" — a half-finished download or
       // a wheel built for the wrong platform imports and does not work, and
       // this is the button for that. Quiet, because it is the rarer need.
-      actions.appendChild(
+      // …except when nothing calls the package. Reinstalling a library the app
+      // never imports cannot fix anything, because there is nothing to fix.
+      if (!extra.unavailable) actions.appendChild(
         smallButton("↻ Reinstall", `Reinstall ${extra.label}`, async () => {
           const ok = await confirmDialog(
             `Reinstall ${extra.label}?\n\nUse this if the feature is switched ` +
@@ -15140,6 +15338,19 @@ async function renderExtras() {
       busy.className = "muted";
       busy.textContent = "Installing…";
       actions.appendChild(busy);
+    } else if (extra.unavailable) {
+      // Greyed out rather than hidden. The row still earns its place — it says
+      // what the app *will* be able to do — and hiding the two unfinished
+      // extras would be tidier and less honest. The reason travels with the
+      // button as its tooltip and is spelled out in full underneath, because a
+      // disabled control whose reason is not visible is just a broken one.
+      const blocked = smallButton("⬇ Install", extra.unavailable, () => {});
+      blocked.disabled = true;
+      actions.appendChild(blocked);
+      const soon = document.createElement("span");
+      soon.className = "muted extras-soon";
+      soon.textContent = "Not ready yet";
+      actions.appendChild(soon);
     } else {
       actions.appendChild(
         smallButton("⬇ Install", `Install ${extra.label}`, async () => {
@@ -15178,6 +15389,16 @@ async function renderExtras() {
       caveat.className = "muted extras-caveat";
       caveat.textContent = `⚠ ${extra.caveat}`;
       li.appendChild(caveat);
+    }
+    // The reason the button is grey, in full. Same shape as the caveat because
+    // it is the same kind of sentence — the difference is that this one is
+    // also enforced by `core/extras.py`, so it is a fact about the app rather
+    // than advice about a choice.
+    if (extra.unavailable) {
+      const why = document.createElement("p");
+      why.className = "muted extras-caveat";
+      why.textContent = `🚧 ${extra.unavailable}`;
+      li.appendChild(why);
     }
     list.appendChild(li);
   }
@@ -18124,6 +18345,39 @@ function renderWebSearchToggle() {
   button.classList.toggle("active", on);
   button.setAttribute("aria-pressed", on ? "true" : "false");
 }
+// 🧭 Plan — send what is in the box as a request that must be planned first.
+//
+// The instruction is a sentence rather than a flag on the request because the
+// planning path is the model's own `make_plan` tool: the server already knows
+// how to receive a plan, show it, tick its steps and let the user stop it
+// mid-run (§35K). What was missing was any way to *ask* for one. Adding a
+// parameter would mean a second route into the same behaviour that could drift
+// from the first; asking in words uses the machinery that is already proven.
+//
+// Agent mode is turned on rather than required. A plan whose steps cannot be
+// carried out is a list, and "why did nothing happen?" is a worse experience
+// than a mode that changed under you and said so.
+const PLAN_PREFIX =
+  "Plan this before you do any of it. Call make_plan with the goal and the " +
+  "steps, then carry the plan out.";
+
+$("chat-plan").addEventListener("click", async () => {
+  const input = $("chat-input");
+  const question = input.value.trim();
+  if (!question) {
+    toast("Type what you want done, then press Plan.", true);
+    input.focus();
+    return;
+  }
+  if (!$("tools-toggle").checked) {
+    await setChatMode("agent");
+    toast("Switched to Request — a plan needs to be able to act.");
+  }
+  input.value = "";
+  autoGrow(input);
+  sendChatMessage(`${question}\n\n${PLAN_PREFIX}`, { displayText: question });
+});
+
 $("web-search-toggle").addEventListener("click", async () => {
   const next = !(prefsCache && prefsCache.web_search_enabled);
   prefsCache = await apiJson("/preferences", {

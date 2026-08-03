@@ -3877,7 +3877,11 @@ html { font-size: 16px; }
      the wider single button (user-reported: "squished the text like crazy"). */
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  /* stretch, not flex-end: the two buttons used to be different widths
+     (a bespoke pill for ↗, the app's standard ghost/small for 💬), so a
+     right-aligned column had a ragged left edge — "better formatted"
+     (user-reported) meant matching widths as much as matching direction. */
+  align-items: stretch;
   gap: var(--space-1);
   opacity: 0;
   transition: opacity 0.12s ease;
@@ -3888,18 +3892,26 @@ html { font-size: 16px; }
   /* Touch has no hover, so the actions would be unreachable. */
   .web-result-actions { opacity: 1; }
 }
+/* Matches `button.ghost.small`'s own look (chip-bg, glass border, the app's
+   pill-ish radius) rather than its own one-off pill: it sits stacked right
+   above/below a real `button.ghost.small` (the 💬 ask action) now, and two
+   different radii/paddings/weights in the same two-button column is exactly
+   the "looks assembled" problem the chat dock strip already solved once
+   (see `.chat-dock-controls`'s own comment above). */
 .web-open-link {
   display: inline-flex;
   align-items: center;
-  padding: 0.25rem 0.6rem;
-  border-radius: calc(var(--radius) * 0.5);
-  border: 1px solid var(--border);
-  font-size: 0.8rem;
-  font-weight: 600;
+  justify-content: center;
+  padding: 0.25rem 0.8rem;
+  border-radius: calc(var(--radius) * 0.7);
+  border: 1px solid var(--glass-border);
+  background: var(--chip-bg);
+  font-size: 0.85rem;
+  font-weight: 500;
   text-decoration: none;
   color: var(--ink);
 }
-.web-open-link:hover { background: var(--accent-soft); }
+.web-open-link:hover { background: var(--accent-soft); border-color: var(--accent); }
 /* The reader takes over the column when a page is open: it is a *different
    screen*, not a section under the results, and the ← Results button is what
    goes back. Sharing the column with a results list was half of what made the
@@ -4776,10 +4788,19 @@ html { font-size: 16px; }
    different reading measure on every screen. `clamp` keeps it between "wide
    enough for a headline and a snippet" and "not wider than a page of text
    wants to be", and `flex-shrink` lets the conversation win when the window
-   is genuinely narrow. */
+   is genuinely narrow. Widened a step (was 19/26rem, user-reported "a little
+   wider") — still well inside the drag range's own ceiling
+   (`WEB_PANEL_MAX` = 640px = 40rem in app.js). */
 #web-panel {
-  flex: 0 1 clamp(19rem, 30%, 26rem);
-  min-width: 0;
+  flex: 0 1 clamp(21rem, 32%, 30rem);
+  /* Was 0 — with #chat-main's own auto flex-basis competing for room in a
+     moderate-width window, flex-shrink took the panel well below its own
+     clamp() minimum (measured 259px against a 336px floor at 1400px wide),
+     quietly undoing "wider" the moment the window wasn't huge. 17.5rem
+     matches `WEB_PANEL_MIN` in app.js — the floor the drag handle already
+     enforces — so the panel can't get any narrower non-interactively than a
+     manual resize would ever leave it. */
+  min-width: 17.5rem;
   overflow: hidden;
   /* Containing block for .web-panel-resize (§37D.1), same reason #sidebar
      gets it above. */
@@ -4937,6 +4958,7 @@ html { font-size: 16px; }
 }
 .chat-dock-controls select,
 .chat-dock-controls > .chat-tool-group > button,
+.chat-dock-controls .chat-dock-more > button,
 .chat-dock-controls .seg,
 .chat-dock-controls .seg button,
 .chat-dock-controls .chat-skill-mark {
@@ -4992,6 +5014,7 @@ html { font-size: 16px; }
    the operating system's grey. */
 .chat-dock-controls select,
 .chat-dock-controls > .chat-tool-group > button,
+.chat-dock-controls .chat-dock-more > button,
 .chat-dock-controls .seg {
   border-radius: var(--radius-pill);
   border: 1px solid var(--glass-border);
@@ -5012,7 +5035,8 @@ html { font-size: 16px; }
   background-repeat: no-repeat;
 }
 .chat-dock-controls select:hover,
-.chat-dock-controls > .chat-tool-group > button:hover {
+.chat-dock-controls > .chat-tool-group > button:hover,
+.chat-dock-controls .chat-dock-more > button:hover {
   border-color: var(--accent);
   background-color: var(--accent-soft);
 }
@@ -5042,6 +5066,44 @@ html { font-size: 16px; }
 /* Hidden as a group, not as a row: `.hidden` has to beat the flex display the
    group otherwise carries. */
 .chat-tool-group.hidden { display: none; }
+
+/* --- chat dock density pass (§37C) -------------------------------------------
+   Answer length and persona used to be a permanently-drawn row beside the
+   mode/web/plan group — reported repeatedly as "the bottom dock ... is verrry
+   bulky". Neither changes turn to turn the way mode/web/plan can, so they move
+   behind a disclosure (the note picker's own pattern: `position: relative` on
+   the trigger's wrapper, `position: absolute` on the panel above it) and the
+   strip is left with only what you're likely to touch on a normal message. */
+.chat-dock-more { position: relative; flex: 0 0 auto; }
+.chat-dock-more-panel {
+  position: absolute;
+  bottom: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 45;
+  width: max-content;
+  min-width: 14rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: 0.8rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+  background: var(--modal-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(var(--glass-blur));
+}
+.chat-dock-more-panel.hidden { display: none; }
+.chat-dock-more-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.chat-dock-more-row select { width: auto; }
+#chat-dock-more-btn[aria-expanded="true"] {
+  background-color: var(--accent-soft);
+  border-color: var(--accent);
+}
 /* The composer row, on one height.
    Measured before this rule: 📎 45.2px, the box 49.0, 🎙 45.2, Send 43.2, with
    three different tops — four controls, four sizes, nothing agreeing with

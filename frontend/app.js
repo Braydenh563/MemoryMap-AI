@@ -5218,6 +5218,22 @@ function notePickerOpen() {
   return !$("note-picker-panel").classList.contains("hidden");
 }
 
+// The answer-length/persona disclosure (§37C) — same open/close shape as the
+// note picker above, just for a settings pair instead of a list.
+function chatDockMoreOpen() {
+  return !$("chat-dock-more-panel").classList.contains("hidden");
+}
+
+function openChatDockMore() {
+  $("chat-dock-more-panel").classList.remove("hidden");
+  $("chat-dock-more-btn").setAttribute("aria-expanded", "true");
+}
+
+function closeChatDockMore() {
+  $("chat-dock-more-panel").classList.add("hidden");
+  $("chat-dock-more-btn").setAttribute("aria-expanded", "false");
+}
+
 async function sendChatMessage(preset, opts = {}) {
   const input = $("chat-input");
   const status = $("chat-status");
@@ -18403,6 +18419,24 @@ $("note-picker-panel").addEventListener("keydown", (event) => {
     event.stopPropagation();
     closeNotePicker();
     $("attach-note").focus();
+  }
+});
+
+// --- chat dock "more" disclosure wiring (§37C) ---
+$("chat-dock-more-btn").addEventListener("click", () => {
+  if (chatDockMoreOpen()) closeChatDockMore();
+  else openChatDockMore();
+});
+document.addEventListener("click", (event) => {
+  if (!chatDockMoreOpen()) return;
+  if (event.target.closest(".chat-dock-more")) return;
+  closeChatDockMore();
+});
+$("chat-dock-more-panel").addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    event.stopPropagation();
+    closeChatDockMore();
+    $("chat-dock-more-btn").focus();
   }
 });
 $("chat-stop").addEventListener("click", () => chatController && chatController.abort());

@@ -14119,6 +14119,7 @@ function renderAiPill() {
 //: what is already here instead of asking the server on every keystroke.
 let libraryItems = [];
 let libraryCounts = {};
+let libraryOverview = {};
 let libraryKind = "all";
 
 //: Order matters: it is the order of the chips. "All" first because it is the
@@ -14127,18 +14128,113 @@ let libraryKind = "all";
 //: something you threw away.
 const LIBRARY_KINDS = [
   { key: "all", icon: "📚", label: "Everything" },
+  { key: "note", icon: "📝", label: "Notes" },
   { key: "document", icon: "📄", label: "Documents" },
   { key: "chat", icon: "💬", label: "Chats" },
   { key: "file", icon: "📎", label: "Files" },
+  { key: "tag", icon: "🏷", label: "Tags" },
   { key: "archived", icon: "🗑", label: "Bin" },
+  { key: "activity", icon: "📜", label: "Activity" },
 ];
+
+//: The overview strip. Each tile is a *state worth knowing*, and each one goes
+//: somewhere — the same test the status bar had to pass, for the same reason:
+//: a number you cannot act on is decoration, and a management screen made of
+//: decoration is a dashboard nobody opens twice.
+const LIBRARY_OVERVIEW_TILES = [
+  { key: "notes", icon: "📝", label: "notes", kind: "note" },
+  { key: "documents", icon: "📄", label: "documents", kind: "document" },
+  { key: "chats", icon: "💬", label: "chats", kind: "chat" },
+  { key: "tags", icon: "🏷", label: "tags", kind: "tag" },
+  { key: "binned", icon: "🗑", label: "in the bin", kind: "archived" },
+];
+
+//: What is ticked. Ids alone would collide — a tag's id 3 and a note's id 3 are
+//: different things — so the key is kind + id, and it survives a re-render
+//: because it is not read off the DOM.
+let librarySelection = new Set();
+
+const LIBRARY_VIEW_KEY = "libraryView";
+
+function libraryView() {
+  return localStorage.getItem(LIBRARY_VIEW_KEY) === "list" ? "list" : "grid";
+}
+
+function libraryKeyOf(item) {
+  return `${item.kind}:${item.id}`;
+}
+
+function renderLibraryView() {
+  const current = libraryView();
+  for (const button of document.querySelectorAll("#library-view button")) {
+    const active = button.dataset.libraryView === current;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  }
+}
 
 async function loadLibrary() {
   const body = await apiJson("/library").catch(() => null);
   libraryItems = (body && body.items) || [];
   libraryCounts = (body && body.counts) || {};
+  libraryOverview = (body && body.overview) || {};
+  // A selection that survives a reload is a selection that can act on
+  // something already deleted. Cleared here rather than merged, because the
+  // safe half of "delete nine things" is knowing exactly which nine.
+  librarySelection = new Set();
+  renderLibraryOverview();
   renderLibraryFilters();
+  renderLibraryView();
   renderLibrary();
+}
+
+function renderLibraryOverview() {
+  const box = $("library-overview");
+  if (!box) return;
+  box.replaceChildren();
+  for (const tile of LIBRARY_OVERVIEW_TILES) {
+    const value = libraryOverview[tile.key] || 0;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "library-stat" + (libraryKind === tile.kind ? " active" : "");
+    const icon = document.createElement("span");
+    icon.className = "library-stat-icon";
+    icon.textContent = tile.icon;
+    icon.setAttribute("aria-hidden", "true");
+    const number = document.createElement("strong");
+    number.className = "library-stat-value";
+    number.textContent = value;
+    const label = document.createElement("span");
+    label.className = "library-stat-label";
+    label.textContent = tile.label;
+    button.append(icon, number, label);
+    button.title = `Show ${tile.label}`;
+    // Every tile is a filter. That is what stops it being decoration.
+    button.addEventListener("click", () => {
+      libraryKind = tile.kind;
+      if (tile.kind === "archived") $("library-show-binned").checked = true;
+      renderLibraryOverview();
+      renderLibraryFilters();
+      renderLibrary();
+    });
+    box.appendChild(button);
+  }
+  // One line of plain prose about the things that are not counts: how much
+  // disk the attachments take, and how much writing is in the documents.
+  const note = document.createElement("p");
+  note.className = "muted library-overview-note";
+  const parts = [];
+  if (libraryOverview.attachment_bytes) {
+    parts.push(`${libraryOverview.attachment_size} of attachments`);
+  }
+  if (libraryOverview.words) parts.push(`${libraryOverview.words.toLocaleString()} words written`);
+  if (libraryOverview.private_notes) {
+    parts.push(`${libraryOverview.private_notes} private (locked, never previewed here)`);
+  }
+  note.textContent = parts.length
+    ? parts.join(" · ")
+    : "Everything you make — notes, documents, chats, files — is managed from here.";
+  box.appendChild(note);
 }
 
 function renderLibraryFilters() {
@@ -14200,11 +14296,21 @@ function renderLibrary() {
   const query = ($("library-search")?.value || "").trim().toLowerCase();
   let items = libraryItems;
   if (libraryKind !== "all") items = items.filter((i) => i.kind === libraryKind);
-  // Deleted things are not part of "everything you have made" — they are
-  // things you decided you had not. They stay out of the mixed list unless
-  // asked for, and the Bin chip is itself an asking.
-  else if (!$("library-show-binned")?.checked) {
-    items = items.filter((i) => i.kind !== "archived");
+  else {
+    // Two kinds stay out of the mixed list. Deleted things are not part of
+    // "everything you have made" — they are things you decided you had not —
+    // and the Include-bin toggle is how you ask for them anyway.
+    //
+    // **Activity is out unconditionally, and that is not a toggle worth
+    // offering.** Measured on a small notebook: 164 activity rows against 13
+    // things, so "Everything" was 93% log. A log is a record *about* the
+    // notebook rather than a thing in it, and burying twelve documents under
+    // it would make the default view useless in exactly the way a management
+    // screen must not be. Its own chip shows it in full.
+    items = items.filter((i) => i.kind !== "activity");
+    if (!$("library-show-binned")?.checked) {
+      items = items.filter((i) => i.kind !== "archived");
+    }
   }
   if (query) {
     // Title *and* preview, for the same reason the conversation search reads
@@ -14219,7 +14325,9 @@ function renderLibrary() {
   items = librarySorted(items);
 
   grid.replaceChildren();
+  grid.classList.toggle("library-list", libraryView() === "list");
   for (const item of items) grid.appendChild(libraryCard(item));
+  renderLibraryContextBars();
 
   const empty = $("library-empty");
   empty.classList.toggle("hidden", items.length > 0);
@@ -14313,13 +14421,106 @@ function libraryActions(item) {
         reload();
         loadEntries();
       }),
+      // The bin's other half. Without it the Library can show you a binned
+      // note and take you back to the old panel to get rid of it, which is the
+      // two-places problem the move was for.
+      makeMenuItem("🗑 Delete for good", "Permanently delete this note", async () => {
+        if (!(await confirmDialog("Delete this note permanently?\n\nThis cannot be undone."))) return;
+        await apiJson(`/entries/${item.id}/purge`, { method: "DELETE" }).catch((e) =>
+          toast(e.message, true)
+        );
+        reload();
+      }),
     ];
   }
+  if (item.kind === "note") {
+    return [
+      makeMenuItem("↗ Open in Notes", "Show this note in the list", () => flashEntry(item.id)),
+      makeMenuItem("🗑 Move to bin", "Bin this note — recoverable", async () => {
+        await apiJson(`/entries/${item.id}`, { method: "DELETE" }).catch((e) =>
+          toast(e.message, true)
+        );
+        toast("Moved to the bin.");
+        reload();
+        loadEntries();
+      }),
+    ];
+  }
+  if (item.kind === "tag") {
+    return [
+      makeMenuItem("✎ Rename", "Rename this tag everywhere (merge if it exists)", async () => {
+        const next = await promptDialog(`Rename tag “${item.title}” to:`, item.title);
+        if (!next || next === item.title) return;
+        const result = await apiJson("/tags/rename", {
+          method: "POST",
+          body: JSON.stringify({ old: item.title, new: next }),
+        }).catch((e) => {
+          toast(e.message, true);
+          return null;
+        });
+        if (result) toast(`Renamed on ${result.changed} note${result.changed === 1 ? "" : "s"}.`);
+        reload();
+        loadEntries();
+      }),
+      makeMenuItem("🗑 Remove everywhere", "Take this tag off every note", async () => {
+        if (!(await confirmDialog(`Remove the tag “${item.title}” from every note?\n\nThe notes are untouched.`))) return;
+        await apiJson("/tags/delete", {
+          method: "POST",
+          body: JSON.stringify({ name: item.title }),
+        }).catch((e) => toast(e.message, true));
+        reload();
+        loadEntries();
+      }),
+    ];
+  }
+  // An activity row is a record of something that already happened. There is
+  // nothing to do to it, so it gets no menu at all rather than an empty one.
+  if (item.kind === "activity") return [];
   return [
     makeMenuItem("⬇ Download", "Save this file", () => {
       window.open(`/files/${item.id}`, "_blank");
     }),
   ];
+}
+
+// The two strips that only appear when they have something to say.
+function renderLibraryContextBars() {
+  // The bin's own controls, where the bin now is. "Empty now" used to live in
+  // a panel behind a sidebar button; a Bin filter you can look at but not
+  // empty is half a move, and half a move leaves the user with two places.
+  const binBar = $("library-binbar");
+  const showingBin = libraryKind === "archived";
+  binBar.classList.toggle("hidden", !showingBin);
+  if (showingBin) {
+    const count = libraryCounts.archived || 0;
+    $("library-bin-note").textContent = count
+      ? `${count} note${count === 1 ? "" : "s"} in the bin. Restore one from its ⋯ menu, ` +
+        "or empty the bin to delete them all for good."
+      : "The bin is empty.";
+    $("library-bin-empty").disabled = !count;
+  }
+
+  const bar = $("library-selectbar");
+  const chosen = [...librarySelection];
+  bar.classList.toggle("hidden", chosen.length === 0);
+  if (!chosen.length) return;
+  $("library-selected-count").textContent =
+    `${chosen.length} selected`;
+  // Restore only makes sense for binned notes, and offering it for a document
+  // is offering a button that cannot work.
+  const allBinned = chosen.every((key) => key.startsWith("archived:"));
+  $("library-bulk-restore").classList.toggle("hidden", !allBinned);
+}
+
+function librarySelectedItems() {
+  return libraryItems.filter((item) => librarySelection.has(libraryKeyOf(item)));
+}
+
+function toggleLibrarySelection(item, on) {
+  const key = libraryKeyOf(item);
+  if (on) librarySelection.add(key);
+  else librarySelection.delete(key);
+  renderLibraryContextBars();
 }
 
 function libraryCard(item) {
@@ -14328,13 +14529,42 @@ function libraryCard(item) {
   // dropping one of them. The click, the keyboard and the role are all here
   // explicitly instead, which is what the button element was giving us.
   const card = document.createElement("article");
-  card.className = `library-card library-${item.kind}`;
+  card.className =
+    `library-card library-${item.kind}` + (item.private ? " library-private" : "");
   card.tabIndex = 0;
   card.setAttribute("role", "button");
   const meta = LIBRARY_KINDS.find((k) => k.key === item.kind);
 
+  // A thumbnail where there is one to show. A grid of picture files that shows
+  // the word "PNG" seven times is a list pretending to be a gallery — and this
+  // is the one kind whose content *is* what it looks like.
+  if (item.kind === "file" && (item.mime || "").startsWith("image/")) {
+    const thumb = document.createElement("img");
+    thumb.className = "library-card-thumb";
+    thumb.src = `/files/${item.id}`;
+    thumb.alt = "";
+    thumb.loading = "lazy";
+    // A file whose bytes have gone leaves a broken-image glyph, which reads as
+    // a bug in the Library rather than as a missing file.
+    thumb.addEventListener("error", () => thumb.remove());
+    card.appendChild(thumb);
+  }
+
   const top = document.createElement("div");
   top.className = "library-card-top";
+  // Tick to select. Only for the kinds a bulk action can actually do something
+  // to — an activity row is a record of the past and a tag is not a file, so
+  // offering either a checkbox would be offering a Delete that does nothing.
+  if (item.kind !== "activity" && item.kind !== "tag") {
+    const tick = document.createElement("input");
+    tick.type = "checkbox";
+    tick.className = "library-card-tick";
+    tick.checked = librarySelection.has(libraryKeyOf(item));
+    tick.setAttribute("aria-label", `Select ${item.title}`);
+    tick.addEventListener("click", (event) => event.stopPropagation());
+    tick.addEventListener("change", () => toggleLibrarySelection(item, tick.checked));
+    top.appendChild(tick);
+  }
   const icon = document.createElement("span");
   icon.className = "library-card-icon";
   icon.textContent = meta ? meta.icon : "•";
@@ -14380,14 +14610,17 @@ function libraryCard(item) {
   card.title = `${kindWord} · ${item.title}`;
   card.setAttribute("aria-label", `${kindWord}: ${item.title}. ${item.detail}.`);
 
-  const menu = kebabMenu(libraryActions(item), `Actions for ${item.title}`);
-  menu.classList.add("library-card-menu");
+  const actions = libraryActions(item);
+  if (actions.length) {
+    const menu = kebabMenu(actions, `Actions for ${item.title}`);
+    menu.classList.add("library-card-menu");
   // The menu is inside the card and the card is a click target, so every click
   // in the menu would also open the thing. Stopped here rather than on each
   // item: the opener, the popup's padding and its backdrop are all inside this
   // element, and only one of the three is a button.
-  menu.addEventListener("click", (event) => event.stopPropagation());
-  card.appendChild(menu);
+    menu.addEventListener("click", (event) => event.stopPropagation());
+    card.appendChild(menu);
+  }
 
   card.addEventListener("click", () => openLibraryItem(item));
   // An <article role="button"> gets neither of these for free — this is the
@@ -14413,10 +14646,25 @@ function openLibraryItem(item) {
     // The note, not the raw file: a download is one click further and the note
     // is the thing that says why the file was kept.
     flashEntry(item.entry_id);
+  } else if (item.kind === "note") {
+    flashEntry(item.id);
+  } else if (item.kind === "tag") {
+    // A tag's job is finding the notes that carry it, so opening one does
+    // exactly that rather than opening a tag editor nobody asked for.
+    switchTab("notes");
+    showNotesSection("browse");
+    const box = $("note-search");
+    if (box) {
+      box.value = `tag:${item.title}`;
+      box.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  } else if (item.kind === "activity" && item.entry_id) {
+    // The note the entry in the log is about, when it still exists.
+    flashEntry(item.entry_id);
   } else if (item.kind === "archived") {
-    // The bin panel, where Restore lives. The Library can show you that a
-    // binned note exists; getting it back is the bin's job and duplicating
-    // that button here would be a second way to do one thing.
+    // Restore and permanent delete are both on this card's own ⋯ menu now, so
+    // there is nothing to send the user elsewhere for. Opening a binned note
+    // shows it in the bin panel, which is the one place it can be read in full.
     switchTab("notes");
     showNotesSection("browse");
     showPanel("bin-panel");
@@ -17250,18 +17498,27 @@ $("log-list").addEventListener("scroll", () => {
   $("log-follow-label").classList.toggle("is-paused", !logFollowPinned);
 });
 
-$("bin-btn").addEventListener("click", async () => {
-  showPanel("bin-panel");
-  await renderBin();
-});
-$("activity-btn").addEventListener("click", async () => {
-  showPanel("activity-panel");
-  await renderActivity();
-});
-$("tags-btn").addEventListener("click", async () => {
-  showPanel("tags-panel");
-  await renderTags();
-});
+// The three sidebar buttons open the Library on their kind now (§36G). Each
+// was a panel that only existed on the Notes tab, and each is a *finding*
+// surface — the bin, the activity log and the tag list are all "show me the
+// things of this sort", which is the Library's whole job. Keeping the panels
+// as well would leave two places for each of them, which is the problem the
+// Library was built to end.
+function openLibraryOn(kind) {
+  switchTab("library");
+  libraryKind = kind;
+  if (kind === "archived" && $("library-show-binned")) {
+    $("library-show-binned").checked = true;
+  }
+  // loadLibrary re-renders from the server; these paint the chosen chip
+  // immediately so the tab does not flash "Everything" on the way there.
+  renderLibraryOverview();
+  renderLibraryFilters();
+  renderLibrary();
+}
+$("bin-btn").addEventListener("click", () => openLibraryOn("archived"));
+$("activity-btn").addEventListener("click", () => openLibraryOn("activity"));
+$("tags-btn").addEventListener("click", () => openLibraryOn("tag"));
 $("entry-template").addEventListener("change", applyTemplate);
 
 // Chat tab (Wave C).
@@ -17450,6 +17707,88 @@ $("status-command").addEventListener("click", () => openPalette());
 $("library-search").addEventListener("input", renderLibrary);
 $("library-sort").addEventListener("change", renderLibrary);
 $("library-show-binned").addEventListener("change", renderLibrary);
+for (const button of document.querySelectorAll("#library-view button")) {
+  button.addEventListener("click", () => {
+    localStorage.setItem(LIBRARY_VIEW_KEY, button.dataset.libraryView);
+    renderLibraryView();
+    renderLibrary();
+  });
+}
+// The bin's own control, on the bin's own screen.
+$("library-bin-empty").addEventListener("click", async () => {
+  const count = libraryCounts.archived || 0;
+  const ok = await confirmDialog(
+    `Permanently delete ${count} note${count === 1 ? "" : "s"} in the bin?\n\n` +
+      "This cannot be undone."
+  );
+  if (!ok) return;
+  await apiJson("/recycle-bin/empty", { method: "POST" }).catch((e) => toast(e.message, true));
+  toast("The bin is empty.");
+  loadLibrary();
+  loadEntries();
+});
+
+// --- bulk actions -------------------------------------------------------------
+// The reason the Library is a management screen rather than a nicer list:
+// doing one thing to nine things. Every one of these confirms with a *count*,
+// because "delete 9 items" is the sentence that stops a mistake and "are you
+// sure?" is the one that doesn't.
+$("library-clear-selection").addEventListener("click", () => {
+  librarySelection = new Set();
+  renderLibrary();
+});
+$("library-bulk-open").addEventListener("click", () => {
+  const chosen = librarySelectedItems();
+  if (!chosen.length) return;
+  // One thing opens; several would be several tab switches ending wherever the
+  // last one landed, so the honest answer is to open the first and say so.
+  if (chosen.length > 1) toast(`Opening the first of ${chosen.length}.`);
+  openLibraryItem(chosen[0]);
+});
+$("library-bulk-restore").addEventListener("click", async () => {
+  const chosen = librarySelectedItems().filter((i) => i.kind === "archived");
+  if (!chosen.length) return;
+  for (const item of chosen) {
+    await apiJson(`/entries/${item.id}/restore`, { method: "POST" }).catch(() => {});
+  }
+  toast(`Restored ${chosen.length} note${chosen.length === 1 ? "" : "s"}.`);
+  loadLibrary();
+  loadEntries();
+});
+$("library-bulk-delete").addEventListener("click", async () => {
+  const chosen = librarySelectedItems();
+  if (!chosen.length) return;
+  // Binned notes are destroyed; everything else is deleted the way its own
+  // menu deletes it. Saying which is which in the confirmation matters —
+  // "delete" means recoverable for a note and permanent for one already binned.
+  const permanent = chosen.filter((i) => i.kind === "archived").length;
+  const ok = await confirmDialog(
+    `Delete ${chosen.length} item${chosen.length === 1 ? "" : "s"}?\n\n` +
+      (permanent
+        ? `${permanent} of them ${permanent === 1 ? "is" : "are"} already in the bin and will be destroyed permanently.`
+        : "Notes go to the bin; documents and chats are deleted for good.")
+  );
+  if (!ok) return;
+  for (const item of chosen) {
+    const route =
+      item.kind === "archived"
+        ? [`/entries/${item.id}/purge`, "DELETE"]
+        : item.kind === "note"
+          ? [`/entries/${item.id}`, "DELETE"]
+          : item.kind === "document"
+            ? [`/documents/${item.id}`, "DELETE"]
+            : item.kind === "chat"
+              ? [`/conversations/${item.id}`, "DELETE"]
+              : item.kind === "file"
+                ? [`/files/${item.id}`, "DELETE"]
+                : null;
+    if (!route) continue;
+    await apiJson(route[0], { method: route[1] }).catch(() => {});
+  }
+  toast(`Deleted ${chosen.length} item${chosen.length === 1 ? "" : "s"}.`);
+  loadLibrary();
+  loadEntries();
+});
 $("library-refresh").addEventListener("click", loadLibrary);
 $("library-new-doc").addEventListener("click", () => {
   switchTab("documents");

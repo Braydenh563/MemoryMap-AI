@@ -1187,11 +1187,11 @@ Link to another note with [[its first few words]]."></textarea>
             title="Reload the list">↻</button>
         </span>
       </div>
-      <p class="muted library-blurb">
-        Everything you have made — documents, chats, files and what is in the
-        bin. Ask the Librarian anything about it from
-        <strong>Chat</strong>.
-      </p>
+      <!-- The state of the notebook, as the numbers a management screen opens
+           with. Derived from the same payload the grid renders, so the header
+           and the grid can never disagree. -->
+      <div id="library-overview" class="library-overview" role="group"
+        aria-label="Your notebook at a glance"></div>
       <div class="library-toolbar">
         <input id="library-search" type="search" class="library-search"
           placeholder="🔎 Search titles and previews…"
@@ -1213,11 +1213,40 @@ Link to another note with [[its first few words]]."></textarea>
             <option value="biggest">Biggest first</option>
           </select>
         </label>
+        <!-- Cards to browse, rows to manage. A grid shows you what a thing is;
+             a list shows you forty of them at once with their metadata in
+             columns, which is what you want when the job is tidying up. -->
+        <div class="seg seg-compact library-view" id="library-view" role="group"
+          aria-label="How to show the library">
+          <button data-library-view="grid" type="button" title="Cards">▦</button>
+          <button data-library-view="list" type="button" title="Rows">☰</button>
+        </div>
       </div>
       <!-- Filled by renderLibraryFilters: one chip per kind, each with its
            count, so an empty kind says so before you press it. -->
       <div id="library-filters" class="library-filters" role="group"
         aria-label="Filter by kind"></div>
+      <!-- Two strips that appear only when they have something to say: the
+           bin's own controls when you are looking at the bin, and the bulk
+           actions when something is selected. A management screen that shows
+           every control it *could* offer is a toolbar you have to read. -->
+      <div id="library-binbar" class="library-contextbar hidden">
+        <span class="muted" id="library-bin-note"></span>
+        <span class="library-contextbar-end">
+          <button id="library-bin-empty" class="ghost small" type="button"
+            title="Permanently delete everything in the bin">🗑 Empty the bin</button>
+        </span>
+      </div>
+      <div id="library-selectbar" class="library-contextbar hidden" role="group"
+        aria-label="Actions for the selected items">
+        <span id="library-selected-count" class="library-selected-count"></span>
+        <span class="library-contextbar-end">
+          <button id="library-bulk-open" class="ghost small" type="button">↗ Open</button>
+          <button id="library-bulk-restore" class="ghost small hidden" type="button">↩ Restore</button>
+          <button id="library-bulk-delete" class="ghost small" type="button">🗑 Delete</button>
+          <button id="library-clear-selection" class="ghost small" type="button">Clear</button>
+        </span>
+      </div>
     </section>
     <div id="library-grid" class="library-grid"></div>
     <p id="library-empty" class="muted library-empty hidden"></p>

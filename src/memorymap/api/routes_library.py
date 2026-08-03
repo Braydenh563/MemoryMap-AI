@@ -27,7 +27,14 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.core.database import Attachment, Conversation, Document, Entry
+from memorymap.core.database import (
+    Attachment,
+    AuditLog,
+    Category,
+    Conversation,
+    Document,
+    Entry,
+)
 from memorymap.core.deps import get_session
 
 router = APIRouter(tags=["library"])
@@ -199,17 +206,210 @@ def _archive(session: Session) -> list[dict]:
     return items
 
 
+def _notes(session: Session) -> list[dict]:
+    """Your live notes.
+
+    The Notes tab is where you *work with* them; this is where you manage them
+    — the same distinction the Library draws everywhere else. It is what makes
+    the bulk controls mean anything: selecting nine notes and retagging them is
+    a management act, and there was nowhere in the app to do it across kinds.
+
+    Private notes appear as a *count* and never as content: hiding them
+    entirely would make the Library quietly disagree with the notebook's own
+    total, and showing their text would defeat the encryption.
+    """
+    rows = session.execute(
+        select(Entry, Category.name)
+        .outerjoin(Category, Entry.category_id == Category.id)
+        .where(Entry.is_deleted == False)  # noqa: E712
+        .order_by(Entry.pinned.desc(), Entry.created_at.desc())
+        .limit(PER_KIND_LIMIT)
+    ).all()
+    items = []
+    for entry, category in rows:
+        private = bool(getattr(entry, "is_private", False))
+        text = "" if private else (entry.content or "")
+        items.append(
+            {
+                "kind": "note",
+                "id": entry.id,
+                "title": (_clip(text)[:60] if text else "🔒 Private note") or "Empty note",
+                "preview": "" if private else _clip(text),
+                "updated_at": entry.created_at.isoformat(),
+                "detail": category or "Uncategorised",
+                "size": len(text),
+                "entry_id": entry.id,
+                "mime": None,
+                "pinned": bool(entry.pinned),
+                "private": private,
+            }
+        )
+    return items
+
+
+#: What the audit log's verbs mean to a person. The raw values are the app's
+#: own vocabulary ("queried", "purged") and reading them back is how a log
+#: becomes something only its author can use.
+_ACTION_WORDS = {
+    "created": "Created",
+    "edited": "Edited",
+    "deleted": "Moved to the bin",
+    "restored": "Restored",
+    "purged": "Deleted for good",
+    "queried": "Asked",
+    "linked": "Linked",
+    "unlinked": "Unlinked",
+    "pinned": "Pinned",
+    "renamed": "Renamed",
+    "merged": "Merged",
+}
+
+#: What the log's *nouns* are called, article included.
+#:
+#: The first version glued the verb to the raw `entity_type` and produced
+#: "Edited a preferences" and "Unlocked a user". A record of what you did that
+#: is written in the schema's vocabulary is a record only its author can read,
+#: which is the same reason the verbs above are translated — and getting it
+#: half right is arguably worse, because it reads as a bug rather than as
+#: jargon. The article lives in the phrase so uncountable things can simply not
+#: have one, and an unknown type falls back to itself with no article rather
+#: than to broken grammar.
+_ENTITY_WORDS = {
+    "entry": "a note",
+    "category": "a category",
+    "document": "a document",
+    "conversation": "a chat",
+    "chat": "a chat",
+    "reminder": "a reminder",
+    "skill": "a skill",
+    "tag": "a tag",
+    "attachment": "a file",
+    "preferences": "your settings",
+    "user": "the notebook",
+    "recycle_bin": "the bin",
+}
+
+
+def _activity(session: Session) -> list[dict]:
+    """What you did, as a kind rather than as a panel.
+
+    It was behind a button in the Notes sidebar, which is a strange place for a
+    record of everything you did *anywhere* — and a list of things you did is
+    the same shape as a list of things you made, so it costs one entry in this
+    function rather than a surface of its own.
+    """
+    rows = session.scalars(
+        select(AuditLog).order_by(AuditLog.created_at.desc(), AuditLog.id.desc()).limit(
+            PER_KIND_LIMIT
+        )
+    )
+    items = []
+    for row in rows:
+        word = _ACTION_WORDS.get(row.action, row.action.capitalize())
+        thing = _ENTITY_WORDS.get(row.entity_type, row.entity_type)
+        items.append(
+            {
+                "kind": "activity",
+                "id": row.id,
+                "title": f"{word} {thing}",
+                "preview": _clip(row.detail or ""),
+                "updated_at": row.created_at.isoformat(),
+                "detail": row.entity_type,
+                # An event has no size. Its recency is the only ordering that
+                # means anything, and "biggest first" falls back to it.
+                "size": 0,
+                "entry_id": row.entity_id if row.entity_type == "entry" else None,
+                "mime": None,
+                "pinned": False,
+            }
+        )
+    return items
+
+
+def _tags(session: Session) -> list[dict]:
+    """Tags, with how many notes carry each.
+
+    A tag manager is a finding surface behind a sidebar button, which is the
+    exact description of everything else that moved here. Renaming and merging
+    still happen through /tags — this is the list, not a second implementation.
+    """
+    from memorymap.entry import manager
+
+    counts = manager.all_tags(session)
+    return [
+        {
+            "kind": "tag",
+            "id": index,
+            "title": name,
+            "preview": "",
+            # Tags have no timestamp of their own. The list is sorted by use,
+            # and this keeps "newest first" from shuffling it into nonsense.
+            "updated_at": "",
+            "detail": f"{count} note{'' if count == 1 else 's'}",
+            "size": count,
+            "entry_id": None,
+            "mime": None,
+            "pinned": False,
+        }
+        for index, (name, count) in enumerate(counts.items())
+    ]
+
+
+def _overview(session: Session, items: list[dict]) -> dict:
+    """The state of the notebook, in the numbers a management screen opens with.
+
+    Derived from the list that was just built wherever possible, so the panel
+    and the grid can never disagree — a header saying "12 documents" above a
+    grid showing 11 is worse than no header.
+    """
+    kinds: dict[str, int] = {}
+    for item in items:
+        kinds[item["kind"]] = kinds.get(item["kind"], 0) + 1
+    stored = sum(item["size"] for item in items if item["kind"] == "file")
+    private = sum(1 for item in items if item.get("private"))
+    return {
+        "notes": kinds.get("note", 0),
+        "private_notes": private,
+        "documents": kinds.get("document", 0),
+        "chats": kinds.get("chat", 0),
+        "files": kinds.get("file", 0),
+        "tags": kinds.get("tag", 0),
+        "binned": kinds.get("archived", 0),
+        "attachment_bytes": stored,
+        "attachment_size": _human_size(stored),
+        "words": sum(
+            item["size"] for item in items if item["kind"] == "document"
+        ),
+    }
+
+
 @router.get("/library")
 def library(session: Session = Depends(get_session)) -> dict:
-    """Everything you made before, newest first within each kind.
+    """Everything you made, newest first within each kind.
+
+    One call for seven kinds, because the Library is now the app's management
+    screen rather than a browser for two lists: a client assembling this from
+    seven endpoints would fire seven requests to paint one page and would still
+    miss the eighth kind the next person adds.
 
     `counts` is sent alongside rather than left for the client to derive: the
-    filter chips show them, and a chip that reads "Files 0" is a useful thing
-    to see *before* pressing it — the alternative is pressing a chip to find
-    out it was empty.
+    filter chips show them, and a chip reading "Files 0" is a useful thing to
+    see *before* pressing it. `overview` is the same argument one level up.
     """
-    items = _documents(session) + _chats(session) + _images(session) + _archive(session)
+    items = (
+        _notes(session)
+        + _documents(session)
+        + _chats(session)
+        + _images(session)
+        + _tags(session)
+        + _archive(session)
+        + _activity(session)
+    )
     counts: dict[str, int] = {}
     for item in items:
         counts[item["kind"]] = counts.get(item["kind"], 0) + 1
-    return {"items": items, "counts": counts}
+    return {
+        "items": items,
+        "counts": counts,
+        "overview": _overview(session, items),
+    }

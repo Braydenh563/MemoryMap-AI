@@ -1524,6 +1524,47 @@ one — no `z-index` has to be in sight. The note cards hit it via
 lifting the *owning element* (`.menu-open`), never the menu. If a menu is
 reported behind something, that is the first thing to check.
 
+#### Should the Library absorb Notes and Documents too?
+
+Asked directly, with the honest caveat attached: *"I did have a thought that it
+could absorb the notes and documents tab as well but I don't know if that's a
+good idea or not."* Here is the reasoning, so the next session does not have to
+re-derive it.
+
+**Documents: yes, and it is already half done.** The Documents tab has no list
+of its own any more — the Library is its list. What is left in that tab is the
+*editor*, and an editor is not a tab, it is what opens when you pick something.
+The finish is: make the document editor a full-page surface the Library opens
+(the tab button is already gone), and give it the rework it needs — the sidebar
+in there is now three collapsed panels stacked under a heading with no list
+above them, which is a layout built around a list that left.
+
+**Notes: no — and the reason is not sentiment.** The Library is a *finding and
+managing* surface: you arrive knowing roughly what you want and leave having
+done something to it. The Notes tab is a *working* surface: capture, ask,
+write, browse, four sub-tabs you move between while thinking. Those are
+different jobs and the same argument that justified absorbing the others cuts
+the other way here — absorbing Notes would not make the app smaller, it would
+make the Library the app, with the Library's own management furniture (ticks,
+bulk bars, kind chips) sitting on top of the one surface where you want none of
+it.
+
+What Notes *should* lose is what it was already lending: its sidebar's Tags,
+Recycle bin and Activity buttons now open the Library, and the panels behind
+them can go once the Library's versions have every control they had. That is
+the absorption worth doing — it shortens Notes without moving it.
+
+**The theme.** Asked for: *"a library bookshelf kinda theme."* The first piece
+is built and it is deliberately structural rather than decorative — every card
+wears a coloured **spine** down its left edge, one colour per kind, so a shelf
+of mixed things is scannable by edge alone before a single title is read. The
+next pieces, in the order they add most: shelf *rows* with a rule under each
+group when sorting by kind, a warmer paper/board treatment for the card face
+that survives both themes, and the grid's own empty state drawn as an empty
+shelf rather than a sentence. Anything decorative that makes a card harder to
+scan should lose to the scan — this is a management screen wearing a theme,
+not a bookshelf that happens to hold data.
+
 ### 36F. The Library tab, and the tab bar it has to fit in — **decided, and built**
 
 > **Both questions below are answered.** 1: the Library **absorbs** — it

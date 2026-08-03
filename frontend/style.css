@@ -95,7 +95,14 @@
      own content. `max-height: 100%` cannot do it, because inside a grid whose
      row is sized by its content, 100% *is* the content height — which is why
      the Notes sidebar stopped scrolling independently when it was tried. */
-  --page-viewport: calc(100dvh - var(--header-h));
+  /* How tall a page's own box is. Subtracts the status bar as well as the
+     header — it did not, and the chat sidebar was the one element in the app
+     still running 17px underneath the bar (measured across all seven tabs).
+     One token, three users: the chat sidebar, the document sidebar and the
+     graph's box, all of which would have needed the same correction by hand.
+     Anything sized against the window has to come through here for exactly
+     that reason. */
+  --page-viewport: calc(100dvh - var(--header-h) - var(--status-bar-h));
 
   /* The page shell. One inset for every tab — see .tab-page. */
   --page-gutter: var(--space-9);   /* 2rem, the inset five rules had by hand */
@@ -559,7 +566,57 @@ header#top-bar.tabs-wrapped #tab-bar {
    metadata on each, and the controls at the top instead of down the side. */
 .library-controls { --control-h: 2.2rem; }
 .library-head { margin-bottom: var(--space-2); }
-.library-blurb { margin: 0 0 var(--space-5); }
+
+/* --- the overview strip ------------------------------------------------------
+   A management screen opens with the state of the thing it manages. Each tile
+   is a filter, which is what keeps it from being decoration — the same test
+   the status bar had to pass. */
+.library-overview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+.library-stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  height: var(--control-h);
+  padding: 0 var(--space-5);
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: none;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: var(--text-md);
+  font-weight: 500;
+}
+.library-stat:hover { border-color: var(--accent); color: var(--ink); }
+.library-stat.active { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); }
+.library-stat-icon { align-self: center; }
+.library-stat-value { color: var(--ink); font-size: var(--text-h3); font-variant-numeric: tabular-nums; }
+.library-stat-label { font-size: var(--text-sm); }
+.library-overview-note { flex-basis: 100%; margin: 0; font-size: var(--text-sm); }
+
+/* --- the strips that appear only when they apply ---------------------------- */
+.library-contextbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-top: var(--space-4);
+  padding: var(--space-3) var(--space-5);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  font-size: var(--text-md);
+}
+.library-contextbar.hidden { display: none; }
+.library-contextbar-end { display: flex; gap: var(--space-2); margin-left: auto; }
+.library-contextbar button { height: var(--control-h); margin: 0; padding-block: 0; }
+.library-selected-count { font-weight: 650; }
+.library-view button { height: var(--control-h); margin: 0; padding-block: 0; }
 .library-toolbar {
   display: flex;
   align-items: center;
@@ -614,6 +671,9 @@ header#top-bar.tabs-wrapped #tab-bar {
   opacity: 0.75;
 }
 .library-grid {
+  /* How wide a card's spine is. One value, so the seven kind-colours below
+     cannot drift apart — see the note on the spine. */
+  --library-spine: 4px;
   display: grid;
   /* 17rem is the width at which a two-line preview of ~160 characters stops
      needing a third line — the card's content decides this, not the scale.
@@ -697,13 +757,73 @@ header#top-bar.tabs-wrapped #tab-bar {
   color: var(--muted);
   font-size: var(--text-sm);
 }
-/* The kind, by a spine rather than by colour alone — the same idiom the
-   notifications centre and the reminder priorities already use. */
-.library-document { box-shadow: inset 3px 0 0 var(--accent); }
-.library-chat { box-shadow: inset 3px 0 0 var(--ok); }
-.library-file { box-shadow: inset 3px 0 0 var(--warn); }
-.library-archived { box-shadow: inset 3px 0 0 var(--border); }
+/* --- the spine ---------------------------------------------------------------
+   Asked for directly: *"I want the library to have a library bookshelf kinda
+   theme."* This is that idea taken literally and kept useful — every card wears
+   a coloured **spine** down its left edge, the way a book on a shelf shows you
+   its spine and nothing else. The colour is the kind, so a shelf of mixed
+   things is scannable by edge alone before you read a single title.
+
+   It is `inset box-shadow` rather than `border-left` because a border changes
+   the box and would shift every title by 4px relative to a card that has no
+   spine. And it is a shape *plus* a colour — the icon beside the title carries
+   the same meaning — because colour alone is never the signal (DESIGN.md). */
+.library-note { box-shadow: inset var(--library-spine) 0 0 var(--accent); }
+.library-document { box-shadow: inset var(--library-spine) 0 0 var(--ok); }
+.library-chat { box-shadow: inset var(--library-spine) 0 0 var(--warn); }
+.library-file { box-shadow: inset var(--library-spine) 0 0 var(--error); }
+.library-tag { box-shadow: inset var(--library-spine) 0 0 var(--muted); }
+.library-archived { box-shadow: inset var(--library-spine) 0 0 var(--border); }
+.library-activity { box-shadow: inset var(--library-spine) 0 0 var(--chip-bg); }
 .library-archived .library-card-title { text-decoration: line-through; }
+/* An activity row is a record, not a thing — flat, quieter, and it does not
+   pretend to be pressable furniture the way the others do. */
+.library-activity { background: none; cursor: default; }
+.library-activity:hover { background: var(--chip-bg); border-color: var(--glass-border); }
+/* A private note shows that it is one and nothing else. */
+.library-card.library-private .library-card-title { color: var(--muted); font-style: italic; }
+
+/* The image a file actually is. Fixed height so a shelf of photos keeps its
+   rows level — a grid whose rows are different heights is the thing that reads
+   as unconsidered, and it is worse here than anywhere because these cards are
+   deliberately uniform. */
+.library-card-thumb {
+  width: 100%;
+  height: 6.5rem;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  background: var(--chip-bg);
+}
+.library-card-tick { width: auto; margin: 0; flex: 0 0 auto; align-self: center; }
+
+/* --- rows instead of cards ---------------------------------------------------
+   Cards to browse, rows to manage: a list shows forty things at once with
+   their metadata lined up in columns, which is what you want when the job is
+   tidying rather than finding. One class on the container — every card is
+   already a flex column, so this turns it on its side rather than re-styling
+   it. */
+.library-grid.library-list { grid-template-columns: 1fr; gap: var(--space-2); }
+.library-list .library-card {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-3) var(--space-5);
+}
+.library-list .library-card-top { flex: 1 1 40%; padding-right: 0; }
+.library-list .library-card-preview {
+  flex: 1 1 40%;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  margin: 0;
+}
+.library-list .library-card-meta {
+  flex: 0 0 auto;
+  margin-top: 0;
+  padding-top: 0;
+  gap: var(--space-5);
+}
+.library-list .library-card-thumb { width: 3rem; height: 2.2rem; flex: 0 0 auto; order: -1; }
+.library-list .library-card-menu { position: static; opacity: 1; }
 .library-empty { margin: var(--space-6) 0 0; }
 @media (max-width: 720px) {
   .library-toolbar { gap: var(--space-2); }

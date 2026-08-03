@@ -186,11 +186,10 @@ extending a pattern that already exists rather than inventing one.
 each is scoped and none needs a new abstraction the codebase doesn't already
 have a version of.
 
-- The Timeline branch/line view (§10C) — new rendering work, but reuses
-  §9's clustering and §10A's date data rather than inventing new grouping.
-  **§37J is nearer-term and should happen first**: the Timeline's *existing*
-  view clips text and doesn't render markdown, which is worth fixing before
-  building a second view with the same two bugs in it.
+- ~~The Timeline branch/line view (§10C)~~ **built — see §38's ranked list
+  and BACKLOG.md §10 for what shipped and the "band, not §9 cluster" scoping
+  correction.** §37J (fixing the grid view's clipping/markdown bugs) landed
+  first, as this bullet said it should.
 - Chat / Agent / Browse as real sub-tabs (§3) — see the sequencing note
   below before starting this one, and see the correction above: the chat tab
   resolved part of this differently (a mode toggle, not separate tabs), so
@@ -1900,19 +1899,24 @@ in front of them:
    interaction (capture a note, see it in Browse). **Start here next: §3's
    sub-tabs or §9's graph layouts below now have a safety net to build
    against**, which is the whole reason this was ranked ahead of them.
-3. **Graph layouts beyond tree/radial** (§9) — mind map / treemap / arc;
-   named the differentiator in ANALYSIS §30/§34, and nothing beyond the two
-   existing layouts has been built. **Checked this session and deliberately
-   not started**: `renderGraph()` is tightly integrated across drag, zoom-to-
-   fit, hover-adjacency highlighting, the trace overlay and the physics
-   sliders — a new layout means plugging into all of it, not writing one
-   D3 function, and doing that at the tail end of a long session risked
-   exactly the half-integrated feature CLAUDE.md warns against. Budget this
-   as its own session with room to verify visually against every one of
-   those interactions, not a slot at the end of another task.
-4. **Timeline branch/line view** (§10C) — asked for twice directly; §37J
-   already fixed the existing view's bugs, so this is additive, not a second
-   pass over the same two problems.
+3. ~~**Graph layouts beyond tree/radial**~~ **one built — Arc — the rest
+   still open** (§9); named the differentiator in ANALYSIS §30/§34. A
+   previous session deliberately did not start this, flagging the risk of a
+   half-integrated layout; this session built Arc as a third case inside the
+   existing `layoutHierarchy`/`hierarchyPath`/`frameTree` machinery instead of
+   a separate rendering path, so it inherits drag-pin, zoom-to-fit,
+   hover-adjacency and the physics-disable check the way tree/radial already
+   do. Full reasoning, the "hierarchy not `entry_links`" scoping call, and
+   Chromium verification are in BACKLOG.md §9. **Mind map, treemap/sunburst
+   and adjacency matrix are still unbuilt** — each is a materially different
+   rendering approach, not a fourth case Arc's reuse covers for free.
+4. ~~**Timeline branch/line view**~~ **built** (§10C) — asked for twice
+   directly; §37J fixed the grid view's bugs first, as planned. A `View: Grid
+   / Line` picker; the line reuses the grid's own band data (category/tag)
+   rather than §9's separate cluster-detection endpoint. Full reasoning for
+   that scoping choice, what shipped against the original sketch, a real
+   click-interception bug found and fixed in Chromium, and what verification
+   could not cover are in BACKLOG.md §10's own correction.
 5. ~~**Chat/Agent/Browse sub-tabs**~~ **checked, and substantially done —
    see §3's correction in BACKLOG.md.** The Ask/Request mode toggle, the web
    panel column and `make_plan`'s ticked-step display already satisfy this
@@ -1921,13 +1925,18 @@ in front of them:
    user-facing control for "which tools this turn / max rounds" in Agent
    mode — `agent.py` already takes both as parameters, nothing in `app.js`
    exposes them. Not worth a session on its own.
-6. **Meeting notes / transcription** (§17) — `faster-whisper` already powers
-   the 🎙 single-note dictation buttons; a longer recording transcribed into
-   structured notes is a different, larger feature on the same engine, and
-   the backlog calls it the highest-value single addition still unbuilt.
-7. **Onboarding diagnostics + example notes** (§27) — ANALYSIS §34 ranks
-   this its #3 priority: first run today is "install Python, run a script,
-   install Ollama, pull a model" with nothing to look at until you do.
+6. ~~**Meeting notes / transcription**~~ **record → transcribe → note built**
+   (§17) — a dashboard card opens a recorder with its own timer and a review
+   step before saving, hitting a new higher-ceiling `/voice/transcribe-
+   meeting` endpoint alongside the existing single-note one. **Extracting
+   action items into reminders is still open**, deliberately: it needs a
+   real model call this sandbox cannot verify. Full scope in BACKLOG.md §17.
+7. ~~**Onboarding diagnostics**~~ **built — reachability half** (§27,
+   ANALYSIS §34's #3 priority). A new slide reports Ollama reachability and
+   where the notebook lives/how big it is, reusing two endpoints that
+   already existed; the graph slide now names the Timeline too. **Still
+   open**: offering to pull a model, the writability check, "example notes"
+   — BACKLOG.md §27.
 8. **`app.js` module split** (§31/§32), riding in on #5 above rather than as
    its own session, once #2's smoke suite exists — the sequencing reasoning
    in "Priority map" Tier 3 above still holds.

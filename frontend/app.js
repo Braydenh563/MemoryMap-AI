@@ -5218,6 +5218,22 @@ function notePickerOpen() {
   return !$("note-picker-panel").classList.contains("hidden");
 }
 
+// The answer-length/persona disclosure (§37C) — same open/close shape as the
+// note picker above, just for a settings pair instead of a list.
+function chatDockMoreOpen() {
+  return !$("chat-dock-more-panel").classList.contains("hidden");
+}
+
+function openChatDockMore() {
+  $("chat-dock-more-panel").classList.remove("hidden");
+  $("chat-dock-more-btn").setAttribute("aria-expanded", "true");
+}
+
+function closeChatDockMore() {
+  $("chat-dock-more-panel").classList.add("hidden");
+  $("chat-dock-more-btn").setAttribute("aria-expanded", "false");
+}
+
 async function sendChatMessage(preset, opts = {}) {
   const input = $("chat-input");
   const status = $("chat-status");
@@ -5880,42 +5896,16 @@ function initResizableSidebars() {
   makeWebPanelResizable(document.getElementById("web-panel"));
 }
 
-// The Notes sidebar's `min-height: var(--page-sticky-h)` (style.css) is a
-// floor for a short category list — without it, a notebook with few
-// categories left a band of empty page below a sidebar shorter than `main`
-// beside it. `.layout`'s `align-items: stretch` is supposed to grow the
-// sidebar to match `main` when *that's* the taller one instead (many notes,
-// several stacked cards) — reported again as the same gap, just measured on
-// the other side of the same coin. Stretch reliably didn't fire for this
-// specific combination (`position: sticky` + `overflow-y: auto` on an
-// auto-sized grid track) in testing, for a reason not worth chasing further
-// than "measure `main` directly and mirror it" — the same instinct
-// `applySidebarWidth`/`fitComposerToDock` already use elsewhere in this file
-// where CSS alone proved fragile.
-function syncNotesSidebarHeight() {
-  const sidebar = document.getElementById("sidebar");
-  const main = document.querySelector("#tab-notes .layout > main");
-  if (!sidebar || !main) return;
-  // Back to the stylesheet's own floor first, so it's re-measured fresh —
-  // otherwise a note count that used to need the taller inline override
-  // would keep it forever, even after notes were deleted back down.
-  sidebar.style.removeProperty("min-height");
-  if (layoutIsStacked()) return; // no fixed height on the stacked mobile layout
-  const floor = sidebar.offsetHeight;
-  const wanted = Math.max(floor, main.offsetHeight);
-  if (wanted > floor) sidebar.style.minHeight = `${wanted}px`;
-}
-
-function initNotesSidebarHeight() {
-  const main = document.querySelector("#tab-notes .layout > main");
-  if (!main) return;
-  syncNotesSidebarHeight();
-  new ResizeObserver(syncNotesSidebarHeight).observe(main);
-  // A window resize that changes the viewport height without changing
-  // `main`'s own box size (nothing reflowed) wouldn't otherwise trigger the
-  // observer above, and the CSS floor itself is viewport-relative.
-  window.addEventListener("resize", syncNotesSidebarHeight);
-}
+// The Notes sidebar used to mirror `main`'s height into its own `min-height`
+// via a ResizeObserver watching `main`. That's exactly backwards for a grid
+// row with `align-items: stretch`: setting the sidebar's height taller grows
+// the shared row, which stretches `main` to fill it, which re-fires the
+// observer with a bigger `main.offsetHeight` — an unbounded feedback loop
+// (reported as the sidebar "continuously expanding"). The chat sidebar never
+// needed this: it just sets `height: 100%` and lets the grid resolve it (see
+// `#chat-sidebar` in style.css). Removed here too — `.layout`'s own
+// `align-items: stretch` plus the `min-height: var(--page-sticky-h)` floor in
+// style.css already produces the right height with no JS and nothing to loop.
 
 // The web panel (§36G) isn't a grid column like the three sidebars above — it
 // is a flex sibling of #chat-main inside <main>, sized by `flex-basis:
@@ -7825,6 +7815,12 @@ const QUICK_START = [
       switchTab("reminders");
       $("reminder-magic").focus();
     },
+  },
+  {
+    icon: "🎙️",
+    label: "Meeting notes",
+    hint: "Record something longer and file the transcript",
+    run: () => openMeetingRecorder(),
   },
 ];
 
@@ -10329,7 +10325,7 @@ function graphNodeRadius(node) {
 
 function graphLayout() {
   const saved = localStorage.getItem("graph-layout");
-  return ["force", "tree", "radial"].includes(saved) ? saved : "force";
+  return ["force", "tree", "radial", "arc"].includes(saved) ? saved : "force";
 }
 
 // Gravity and Spread scale the force simulation, and the tree layouts do not
@@ -10342,7 +10338,7 @@ function setGraphPhysicsEnabled(layoutKind) {
   if (!box) return;
   const why = applies
     ? ""
-    : "Only applies to the Force (web) layout — a tree's positions come from its branches.";
+    : "Only applies to the Force (web) layout — the other layouts' positions come from the filing hierarchy, not physics.";
   box.classList.toggle("is-disabled", !applies);
   for (const id of ["graph-gravity", "graph-spread"]) {
     const slider = $(id);
@@ -10406,6 +10402,17 @@ const RADIAL_GAP = 82;
 const REPLY_RING = 78;
 const RADIAL_STEM = 10; // characters, for a label written down a shared spoke
 
+// The arc layout (§9's third hierarchy view, beside tree and radial): every
+// node — category, note and reply alike — sits on one baseline, in the same
+// left-to-right order a depth-first walk of the filing hierarchy would print
+// them in (so a category's notes stay contiguous), and a parent-child edge is
+// a shallow arc under the line instead of a tree's elbow or a radial's ring.
+// It reads at a glance what tree/radial cannot: how many branches a
+// notebook's filing has and how deep any one of them runs, in the width of a
+// single row rather than the height of a tree or the footprint of a circle.
+const ARC_STEP = 46; // horizontal spacing per node
+const ARC_LABEL_LIMIT = 20; // characters — diagonal labels have less room before they cross the next node's arc
+
 // Labels on the left half of the circle would read upside down, so they are
 // turned around — which swaps which way "outward" is for everything after.
 function radialFlip(node) {
@@ -10458,7 +10465,20 @@ function layoutHierarchy(nodes, kind, width, height) {
 
   const laid = d3.hierarchy(root, (d) => children.get(d.id) || []);
   const radial = kind === "radial";
-  if (radial) {
+  const arc = kind === "arc";
+  if (arc) {
+    // Pre-order: a category is visited before any of its notes, and each
+    // note before its own replies — so walking the hierarchy in this order
+    // and handing out one baseline slot per stop keeps every branch
+    // contiguous, the same property `separation` gives the tree and radial
+    // layouts a different way.
+    let slot = 0;
+    laid.eachBefore((point) => {
+      point.x = slot * ARC_STEP;
+      point.y = 0;
+      slot += 1;
+    });
+  } else if (radial) {
     // `d3.tree`, not `d3.cluster`: cluster rings a node by its *height*, so a
     // category that happened to contain a thread was drawn one ring closer in
     // than its siblings and the circle came out ragged. Here a ring means a
@@ -10505,6 +10525,11 @@ function layoutHierarchy(nodes, kind, width, height) {
       node.radius = point.y;
       node.x = point.y * Math.cos(point.x - Math.PI / 2);
       node.y = point.y * Math.sin(point.x - Math.PI / 2);
+    } else if (arc) {
+      // Already the real coordinates — assigned above, once, in traversal
+      // order, and never touched again.
+      node.x = point.x;
+      node.y = point.y;
     } else {
       node.x = point.y; // depth runs left → right
       node.y = point.x;
@@ -10526,7 +10551,7 @@ function layoutHierarchy(nodes, kind, width, height) {
       });
     }
   });
-  return { nodes: placed, links, radial };
+  return { nodes: placed, links, radial, arc };
 }
 
 // A tree drawn with straight diagonals reads as a fan of loose string. Elbows
@@ -10542,6 +10567,20 @@ function hierarchyPath(link, radial) {
   }
   const mid = (a.x + b.x) / 2;
   return `M${a.x},${a.y}C${mid},${a.y} ${mid},${b.y} ${b.x},${b.y}`;
+}
+
+// The arc layout's own edge shape: every node sits on the same baseline (see
+// `layoutHierarchy`'s `arc` branch), so a parent-child edge is a flattened
+// half-ellipse dipping below the line rather than a tree's elbow or a
+// radial's ring-following curve. A pre-order walk always visits a parent
+// before its children, so `a.x < b.x` here always — the arc only ever needs
+// to sweep one way.
+function arcPath(link) {
+  const { source: a, target: b } = link;
+  const rx = Math.max((b.x - a.x) / 2, 1);
+  const ry = rx * 0.6; // flatter than a true semicircle — a full one over a
+  // long span dominates the map more than the connection it is drawing.
+  return `M${a.x},${a.y}A${rx},${ry} 0 0,1 ${b.x},${b.y}`;
 }
 
 // A tall tree does not want to be squeezed into the panel: zoomed to fit, 29
@@ -11148,7 +11187,7 @@ async function renderGraph() {
         .join("path")
         .attr("class", (d) => `graph-edge graph-edge-${d.kind}`)
         .attr("fill", "none")
-        .attr("d", (d) => hierarchyPath(d, tree.radial))
+        .attr("d", (d) => (tree.arc ? arcPath(d) : hierarchyPath(d, tree.radial)))
     : edgeLayer
         .selectAll("line")
         .data(edges)
@@ -11301,15 +11340,28 @@ async function renderGraph() {
       // has a reply hanging off it — are the ones that have to stay short.
       const limit = !tree
         ? 22
-        : !tree.radial
-          ? 30
-          : d.isGroup || d.shared
-            ? RADIAL_STEM
-            : 16;
+        : tree.arc
+          ? ARC_LABEL_LIMIT
+          : !tree.radial
+            ? 30
+            : d.isGroup || d.shared
+              ? RADIAL_STEM
+              : 16;
       return d.preview.length > limit ? d.preview.slice(0, limit - 1) + "…" : d.preview;
     });
   if (!tree) {
     labels.attr("dy", (d) => graphNodeRadius(d) + 13);
+  } else if (tree.arc) {
+    // Every node sits on one baseline, so a label straight above or below it
+    // would collide with its neighbours within a single ARC_STEP. Tilted and
+    // pivoted on its own anchor point (not the origin), it reads outward from
+    // the node instead of overlapping the one next to it.
+    labels
+      .attr("x", (d) => graphNodeRadius(d) + 6)
+      .attr("y", 0)
+      .attr("dy", "0.31em")
+      .attr("transform", (d) => `rotate(-40, ${graphNodeRadius(d) + 6}, 0)`)
+      .style("text-anchor", "start");
   } else if (tree.radial) {
     // Rotated to its own radius and flipped on the left half, or every label
     // past the halfway point reads upside down. The hub is the exception: it
@@ -11383,7 +11435,9 @@ async function renderGraph() {
         ? " — filed left to right; replies branch off the note they answer."
         : layoutKind === "radial"
           ? " — categories around the centre; replies branch off the note they answer."
-          : " — bigger, brighter notes are the ones you use most.";
+          : layoutKind === "arc"
+            ? " — one line, filed left to right; arcs below show what answers what."
+            : " — bigger, brighter notes are the ones you use most.";
   $("graph-stats").textContent = parts.join(" · ") + shape;
 
   // Hover-highlight (spotlight a note's connections). Uses the same dimming
@@ -12083,7 +12137,10 @@ function switchTab(name) {
     setTracePanelOpen(localStorage.getItem("graph-trace-open") === "1");
     renderGraph();
   }
-  if (name === "timeline") renderTimeline();
+  if (name === "timeline") {
+    $("timeline-view").value = timelineView();
+    renderTimeline();
+  }
   if (name === "documents") {
     loadDocuments();
     renderDocStorage();
@@ -12107,12 +12164,23 @@ function switchTab(name) {
 // scrollable, selectable, keyboard-reachable and readable by a screen reader
 // without any of that being built by hand.
 
+// §10C: which view is showing — the grid (what happened around this date,
+// across every band) or the line (the shape of one thread over time). A
+// preference, like the graph's layout picker, not a migration.
+function timelineView() {
+  const saved = localStorage.getItem("timeline-view");
+  return saved === "line" ? "line" : "grid";
+}
+
 async function renderTimeline() {
   const grid = $("timeline-grid");
   const body = await apiJson(
     `/timeline?scale=${$("timeline-scale").value}` +
       `&group=${$("timeline-group").value}&days=${$("timeline-days").value}`
   ).catch(() => null);
+  const line = timelineView() === "line";
+  $("timeline-scroll").classList.toggle("hidden", line);
+  $("timeline-branch-wrap").classList.toggle("hidden", !line);
   grid.replaceChildren();
   if (!body || !body.notes.length) {
     $("timeline-empty").classList.remove("hidden");
@@ -12120,7 +12188,14 @@ async function renderTimeline() {
     return;
   }
   $("timeline-empty").classList.add("hidden");
-  $("timeline-count").textContent = `${body.notes.length} notes · ${body.buckets.length} columns`;
+  $("timeline-count").textContent = line
+    ? `${body.notes.length} notes · ${body.bands.length} band${body.bands.length === 1 ? "" : "s"}`
+    : `${body.notes.length} notes · ${body.buckets.length} columns`;
+
+  if (line) {
+    renderTimelineBranch(body);
+    return;
+  }
 
   const buckets = body.buckets;
   const byId = new Map(body.notes.map((note) => [note.id, note]));
@@ -12171,6 +12246,167 @@ async function renderTimeline() {
   // The most recent column is the interesting one, so start there.
   $("timeline-scroll").scrollLeft = $("timeline-scroll").scrollWidth;
   void byId;
+}
+
+// --- Timeline: the branch/line view (§10C) -----------------------------------
+//
+// "Make sure the timeline has the additional aspect of like a line or
+// branching line/tree-like graph view because right now it is more like a
+// calendar" — accurate, and not a defect in the grid so much as the grid
+// answering a different question well. A grid answers "what happened around
+// this date, across every band at once"; this answers "what was the shape of
+// this one thread over time" — two notes three months apart in the same band
+// read as unrelated dots in a grid, and as one continuous line here.
+//
+// Branches come from the same bands the grid already computes (category or
+// tag, whichever is picked) rather than a second grouping. BACKLOG.md §10C
+// named §9's cluster detection as the other candidate signal; that is a
+// different structure (link/similarity, behind a separate endpoint) from the
+// filing this reads, and reusing the grouping already on screen keeps the two
+// Timeline views showing the same notebook two ways rather than two
+// different stories about it. "None" collapses to a single lane — the spine
+// itself, with every note directly on it.
+const TIMELINE_LANE_GAP = 42;
+const TIMELINE_MARGIN_X = 110; // left room for a band's label
+const TIMELINE_MARGIN_TOP = 28;
+const TIMELINE_DOT_R = 5;
+
+function renderTimelineBranch(body) {
+  const svg = d3.select("#timeline-branch-svg");
+  svg.selectAll("*").remove();
+  const width = Math.max($("timeline-branch-wrap").clientWidth || 800, 480);
+
+  const notes = body.notes;
+  const times = notes.map((n) => new Date(n.at));
+  const minT = d3.min(times);
+  const maxT = d3.max(times);
+  // A single moment in time has no span to scale against — give it a day
+  // either side rather than let every note collapse onto the same x.
+  const domain =
+    minT.getTime() === maxT.getTime()
+      ? [new Date(minT.getTime() - 864e5), new Date(maxT.getTime() + 864e5)]
+      : [minT, maxT];
+  const scale = d3.scaleTime().domain(domain).range([TIMELINE_MARGIN_X, width - 24]).nice();
+
+  const bands = body.bands;
+  const single = bands.length <= 1;
+  const spineY = TIMELINE_MARGIN_TOP;
+  const height = spineY + (single ? 1 : bands.length + 1) * TIMELINE_LANE_GAP + 20;
+  svg.attr("viewBox", `0 0 ${width} ${height}`).attr("width", width).attr("height", height);
+
+  const color = d3.scaleOrdinal(
+    bands.map((b) => b.name),
+    d3.schemeTableau10.concat(d3.schemeSet3)
+  );
+
+  // The plain chronological reading — every note in order — is what a grid
+  // gives you for free, and a branch view still owes it: it is the line every
+  // band's stub actually branches off of.
+  svg
+    .append("line")
+    .attr("class", "timeline-spine")
+    .attr("x1", scale.range()[0])
+    .attr("x2", scale.range()[1])
+    .attr("y1", spineY)
+    .attr("y2", spineY);
+
+  bands.forEach((band, index) => {
+    const laneY = single ? spineY : spineY + (index + 1) * TIMELINE_LANE_GAP;
+    const inBand = new Set(band.ids);
+    const here = notes
+      .filter((n) => inBand.has(n.id))
+      .sort((a, b) => new Date(a.at) - new Date(b.at));
+    if (!here.length) return;
+
+    const laneGroup = svg.append("g").attr("class", "timeline-branch-lane");
+    const tint = color(band.name);
+
+    if (!single) {
+      // Where a branch starts: it peels off the spine at its first note's
+      // time, not at some arbitrary point (BACKLOG.md §10C's own rule).
+      const startX = scale(new Date(here[0].at));
+      const midY = (spineY + laneY) / 2;
+      laneGroup
+        .append("path")
+        .attr("class", "timeline-branch-stub")
+        .attr("fill", "none")
+        .attr("stroke", tint)
+        .attr("d", `M${startX},${spineY}C${startX},${midY} ${startX},${midY} ${startX},${laneY}`);
+    }
+
+    // The thread itself — the one thing a grid cannot show at all: every
+    // note in this band, joined in time order, however far apart they sit.
+    if (here.length > 1) {
+      const linePath = d3
+        .line()
+        .x((n) => scale(new Date(n.at)))
+        .y(() => laneY);
+      laneGroup
+        .append("path")
+        .attr("class", "timeline-branch-line")
+        .attr("fill", "none")
+        .attr("stroke", tint)
+        .attr("d", linePath(here));
+    }
+
+    if (!single) {
+      const label = laneGroup
+        .append("text")
+        .attr("class", "timeline-branch-label")
+        .attr("x", 8)
+        .attr("y", laneY)
+        .attr("dy", "0.32em")
+        .attr("fill", tint)
+        .text(band.name);
+      label.append("title").text(`${band.count} note${band.count === 1 ? "" : "s"}`);
+    }
+
+    const dots = laneGroup
+      .selectAll("circle")
+      .data(here)
+      .join("circle")
+      .attr(
+        "class",
+        (n) => `timeline-branch-dot${n.placed_by === "mentioned" ? " timeline-branch-dot-mentioned" : ""}`
+      )
+      .attr("cx", (n) => scale(new Date(n.at)))
+      .attr("cy", laneY)
+      .attr("r", TIMELINE_DOT_R)
+      .attr("fill", tint)
+      .on("click", (_event, n) => {
+        switchTab("notes");
+        showNotesSection("browse"); // focusing inside a hidden section does nothing
+        flashEntry(n.id);
+      });
+    dots.append("title").text((n) => {
+      // Same honesty rule as the grid's dots: say when a note is here because
+      // of what it says rather than when it was typed.
+      const when =
+        n.placed_by === "mentioned"
+          ? `“${n.phrase}” meant ${new Date(n.at).toLocaleDateString()}`
+          : new Date(n.written_at).toLocaleString();
+      return `${stripMarkdownPreview(n.preview)}\n${when}`;
+    });
+  });
+
+  // A handful of date ticks along the spine — an unlabelled line reads as a
+  // decoration, not an axis.
+  const tickGroup = svg.append("g").attr("class", "timeline-branch-ticks");
+  for (const tick of scale.ticks(Math.min(6, notes.length))) {
+    const x = scale(tick);
+    tickGroup
+      .append("line")
+      .attr("x1", x)
+      .attr("x2", x)
+      .attr("y1", spineY - 4)
+      .attr("y2", spineY + 4);
+    tickGroup
+      .append("text")
+      .attr("x", x)
+      .attr("y", spineY - 10)
+      .attr("text-anchor", "middle")
+      .text(tick.toLocaleDateString(undefined, { month: "short", day: "numeric" }));
+  }
 }
 
 function bucketLabel(iso, scale) {
@@ -12261,6 +12497,10 @@ function openTimelineBand(band, group) {
 for (const id of ["timeline-scale", "timeline-group", "timeline-days"]) {
   $(id).addEventListener("change", renderTimeline);
 }
+$("timeline-view").addEventListener("change", (event) => {
+  localStorage.setItem("timeline-view", event.target.value);
+  renderTimeline();
+});
 
 $("entry-document").addEventListener("change", async (event) => {
   const value = event.target.value;
@@ -12385,8 +12625,20 @@ function scrollPageToTop() {
 // --- back-to-top button -----------------------------------------------------------
 // Shown on every tab except the graph, where the page itself doesn't scroll
 // and the button would just sit on top of the map.
+//
+// Chat is a special case, not an exclusion: `.tab-page` itself never scrolls
+// there (`#tab-chat > .layout` fills the page, §36A), so the page-scroll
+// button would just sit permanently hidden even in a long conversation
+// (user-reported: "I want a back-to-top button in chat pages"). The actual
+// scrolling element on that tab is `#chat-messages`, so the button tracks
+// that instead of the page whenever chat is active — same button, same
+// corner, just a different scroll target depending on which tab is up.
 const NO_SCROLL_TOP_TABS = new Set(["graph"]);
 let scrollTopUpdate = null;
+
+function chatMessagesEl() {
+  return document.getElementById("chat-messages");
+}
 
 function initScrollTopButton() {
   const button = document.createElement("button");
@@ -12397,7 +12649,13 @@ function initScrollTopButton() {
   button.title = "Back to top";
   button.setAttribute("aria-label", "Back to top");
   button.addEventListener("click", () => {
-    scrollPageToTop();
+    const tab = localStorage.getItem("activeTab") || "dashboard";
+    if (tab === "chat") {
+      const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      chatMessagesEl()?.scrollTo({ top: 0, behavior: smooth ? "smooth" : "auto" });
+    } else {
+      scrollPageToTop();
+    }
     // Send focus somewhere sensible rather than leaving it on a button that
     // is about to hide itself.
     document.querySelector(".tab-page:not(.hidden)")?.focus();
@@ -12406,7 +12664,9 @@ function initScrollTopButton() {
 
   const update = () => {
     const tab = localStorage.getItem("activeTab") || "dashboard";
-    const show = (scrollingPage()?.scrollTop || 0) > 400 && !NO_SCROLL_TOP_TABS.has(tab);
+    const scrollTop =
+      tab === "chat" ? chatMessagesEl()?.scrollTop || 0 : scrollingPage()?.scrollTop || 0;
+    const show = scrollTop > 400 && !NO_SCROLL_TOP_TABS.has(tab);
     button.classList.toggle("visible", show);
   };
   // Capture, because scroll events do not bubble: the listener has to see them
@@ -13853,6 +14113,185 @@ async function toggleDictation(button, targetInput) {
   recorder.start();
   button.classList.add("recording");
   button.textContent = "⏹";
+}
+
+// --- meeting notes (§17) -------------------------------------------------------------
+//
+// The backlog's own "highest-value single addition still unbuilt": the quick
+// 🎙 button above is sized for a spoken note (server caps it at 25MB,
+// `routes_voice.py`'s own comment says "a spoken note, not a podcast") — a
+// meeting or a lecture needs a separate flow with its own recording cap, a
+// visible elapsed timer so a long recording doesn't feel stalled, and a
+// review step before the transcript becomes a note, the same "you're in
+// control before it's saved" shape the persona-peek and compression-summary
+// features already use elsewhere.
+//
+// Action-item extraction (the other half of §17's ask, "extract action items
+// into reminders") is deliberately not built here. It needs a real model
+// call this sandbox cannot exercise — faster-whisper itself is not installed
+// here either, so even the transcription step is untested past its request
+// shape — and guessing at that prompt's behaviour without a way to check it
+// is exactly what CLAUDE.md's standing caveat warns against. Recording it as
+// open rather than quietly shipping an unverified guess.
+
+let meetingRecorder = null;
+let meetingStream = null;
+let meetingChunks = [];
+let meetingTimerHandle = null;
+let meetingStartedAt = 0;
+
+function meetingElapsedText() {
+  const seconds = Math.max(0, Math.round((Date.now() - meetingStartedAt) / 1000));
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function stopMeetingTimer() {
+  if (meetingTimerHandle) clearInterval(meetingTimerHandle);
+  meetingTimerHandle = null;
+}
+
+// Resets the overlay to "ready to record", whether it's opening fresh or
+// coming back after a discard — the same state either way.
+function resetMeetingUI() {
+  $("meeting-timer").textContent = "0:00";
+  $("meeting-status").textContent = "";
+  $("meeting-status").classList.remove("error");
+  $("meeting-transcript").value = "";
+  $("meeting-transcript").classList.add("hidden");
+  $("meeting-save-row").classList.add("hidden");
+  $("meeting-record").disabled = false;
+  $("meeting-record").classList.remove("recording");
+  $("meeting-record").textContent = "⏺ Record";
+}
+
+async function openMeetingRecorder() {
+  overlayReturnFocus = document.activeElement;
+  resetMeetingUI();
+  $("meeting-overlay").classList.remove("hidden");
+  $("meeting-record").focus();
+}
+
+// Recording is stopped (discarded, not transcribed) rather than left running
+// in the background — a MediaRecorder with no owner is a live microphone
+// nobody is looking at.
+function closeMeetingRecorder() {
+  if (meetingRecorder && meetingRecorder.state !== "inactive") {
+    meetingRecorder.onstop = null; // don't also try to transcribe a discard
+    meetingRecorder.stop();
+  }
+  meetingStream?.getTracks().forEach((t) => t.stop());
+  meetingRecorder = null;
+  meetingStream = null;
+  stopMeetingTimer();
+  $("meeting-overlay").classList.add("hidden");
+  overlayReturnFocus?.focus?.();
+  overlayReturnFocus = null;
+}
+
+async function toggleMeetingRecording() {
+  const button = $("meeting-record");
+  if (meetingRecorder) {
+    button.disabled = true; // one press, not a double-fire while it stops
+    meetingRecorder.stop();
+    return;
+  }
+  if (voiceStatus === null) {
+    voiceStatus = await apiJson("/voice/status").catch(() => ({ available: false }));
+  }
+  if (!voiceStatus.available) {
+    $("meeting-status").textContent = voiceStatus.hint || "Voice capture isn't available.";
+    $("meeting-status").classList.add("error");
+    return;
+  }
+  try {
+    meetingStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch {
+    $("meeting-status").textContent = "Microphone access was blocked — allow it in your browser.";
+    $("meeting-status").classList.add("error");
+    return;
+  }
+  meetingChunks = [];
+  meetingRecorder = new MediaRecorder(meetingStream);
+  meetingRecorder.addEventListener("dataavailable", (e) => meetingChunks.push(e.data));
+  meetingRecorder.addEventListener("stop", async () => {
+    meetingStream?.getTracks().forEach((t) => t.stop());
+    meetingStream = null;
+    meetingRecorder = null;
+    stopMeetingTimer();
+    button.classList.remove("recording");
+    button.textContent = "⏺ Record";
+    button.disabled = false;
+    const blob = new Blob(meetingChunks, { type: meetingChunks[0]?.type || "audio/webm" });
+    const form = new FormData();
+    form.append("file", blob, "meeting.webm");
+    $("meeting-status").classList.remove("error");
+    $("meeting-status").textContent =
+      "Transcribing… a long recording can take a while on CPU.";
+    try {
+      const response = await fetch("/voice/transcribe-meeting", {
+        method: "POST",
+        headers: { "X-Auth-Token": authToken() },
+        body: form,
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.detail || "Transcription failed");
+      $("meeting-status").textContent = "Transcribed — review it below before saving.";
+      $("meeting-transcript").value = body.text;
+      $("meeting-transcript").classList.remove("hidden");
+      $("meeting-save-row").classList.remove("hidden");
+      $("meeting-transcript").focus();
+    } catch (error) {
+      $("meeting-status").textContent = error.message;
+      $("meeting-status").classList.add("error");
+    }
+  });
+  meetingRecorder.start();
+  meetingStartedAt = Date.now();
+  $("meeting-timer").textContent = meetingElapsedText();
+  meetingTimerHandle = setInterval(() => {
+    $("meeting-timer").textContent = meetingElapsedText();
+  }, 1000);
+  button.classList.add("recording");
+  button.textContent = "⏹ Stop";
+  $("meeting-status").textContent = "";
+  $("meeting-status").classList.remove("error");
+}
+
+async function saveMeetingNote() {
+  const content = $("meeting-transcript").value.trim();
+  if (!content) return;
+  const status = $("meeting-status");
+  const button = $("meeting-save");
+  button.disabled = true;
+  status.classList.remove("error");
+  status.textContent = "Filing…";
+  try {
+    // Tagged, not force-categorised: filing still goes through the same
+    // AI-or-keyword pipeline as any other capture (routes_entries.py), so a
+    // meeting about a specific project lands there rather than in a generic
+    // "Meetings" bucket regardless of what it was actually about. The tag is
+    // what makes every meeting findable as a class either way.
+    const saved = await apiJson("/entries", {
+      method: "POST",
+      body: JSON.stringify({ content, tags: ["meeting"] }),
+    });
+    toast(filedByText(saved));
+    await loadEntries();
+    // The overlay is about to close, so this jumps straight to the note
+    // rather than leaving an "offer" button behind in a dialog nobody is
+    // looking at anymore (`offerJumpToNewNote`'s pattern, used from the
+    // Capture tab you're still sitting on) — `flashEntry` handles its own
+    // navigation to Notes → Browse.
+    closeMeetingRecorder();
+    flashEntry(saved.id);
+  } catch (error) {
+    status.textContent = error.message;
+    status.classList.add("error");
+  } finally {
+    button.disabled = false;
+  }
 }
 
 // --- Wave H: read-aloud (the browser's local voices) --------------------------------
@@ -18148,7 +18587,6 @@ scrollTopUpdate = initScrollTopButton();
 // silently and stay silent (§36C).
 startReminderWatch();
 initResizableSidebars();
-initNotesSidebarHeight();
 watchOverlays(); // page behind a dialog must not scroll
 initAutoGrow(); // capture + magic-add boxes follow their content
 // A returning visit still opens on whichever tab was last active — that is
@@ -18410,6 +18848,24 @@ $("note-picker-panel").addEventListener("keydown", (event) => {
     event.stopPropagation();
     closeNotePicker();
     $("attach-note").focus();
+  }
+});
+
+// --- chat dock "more" disclosure wiring (§37C) ---
+$("chat-dock-more-btn").addEventListener("click", () => {
+  if (chatDockMoreOpen()) closeChatDockMore();
+  else openChatDockMore();
+});
+document.addEventListener("click", (event) => {
+  if (!chatDockMoreOpen()) return;
+  if (event.target.closest(".chat-dock-more")) return;
+  closeChatDockMore();
+});
+$("chat-dock-more-panel").addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    event.stopPropagation();
+    closeChatDockMore();
+    $("chat-dock-more-btn").focus();
   }
 });
 $("chat-stop").addEventListener("click", () => chatController && chatController.abort());
@@ -19505,6 +19961,10 @@ document.addEventListener("keydown", (e) => {
     closeSketch();
     return;
   }
+  if (e.key === "Escape" && !$("meeting-overlay").classList.contains("hidden")) {
+    closeMeetingRecorder();
+    return;
+  }
   if (e.key === "Escape" && !$("improve-overlay").classList.contains("hidden")) {
     closeImprove();
     return;
@@ -19559,6 +20019,7 @@ function activeOverlay() {
     "features-overlay",
     "palette-overlay",
     "sketch-overlay",
+    "meeting-overlay",
     "improve-overlay",
     "shortcuts-overlay",
     "settings-modal",
@@ -19576,6 +20037,17 @@ const ONBOARDING_SLIDES = [
     title: "Welcome to MemoryMap",
     text: "A 100% offline notebook where a local AI files your thoughts and answers questions about them. Nothing ever leaves this computer.",
   },
+  // §27: "before the person's first capture fails silently into
+  // Uncategorised and they assume the AI is broken rather than absent" — so
+  // this sits before the capture slide, not after. `dynamic` is filled in by
+  // `loadOnboardingDiagnostics` once the overlay is actually showing it,
+  // reusing /models/status and /storage rather than a new endpoint — both
+  // already exist and are already polled elsewhere in the app.
+  {
+    icon: "🩺",
+    title: "Your setup",
+    dynamic: true,
+  },
   {
     icon: "📝",
     title: "Capture your thoughts",
@@ -19586,10 +20058,14 @@ const ONBOARDING_SLIDES = [
     title: "Ask your notebook",
     text: "Ask questions in plain English and get answers grounded in your own notes. Switch on Agent mode and it can use its tools — searching your notes, opening a web page, and organising things for you.",
   },
+  // Was "Explore your graph" — named just the Graph tab, which is only half
+  // of what the app's own name refers to. Naming both here, once, is cheap;
+  // leaving a first-time user to discover the Timeline's Line view (§10C) on
+  // their own is not (ANALYSIS §30's "product differentiation" note).
   {
-    icon: "🕸",
-    title: "Explore your graph",
-    text: "The Graph tab shows how your notes connect. Search, drag, and zoom to rediscover things you'd forgotten you saved.",
+    icon: "🗺️",
+    title: "Explore your map",
+    text: "The Graph tab draws how your notes connect; the Timeline's Line view draws the shape of one thread over time. Together, they're the map MemoryMap is named for — search, drag and zoom to rediscover things you'd forgotten you saved.",
   },
   {
     icon: "🎨",
@@ -19599,12 +20075,55 @@ const ONBOARDING_SLIDES = [
 ];
 
 let onboardingIndex = 0;
+// A stale diagnostics fetch (the user clicked Next or Skip before it
+// resolved) must never overwrite whichever slide is showing by the time it
+// lands — this is what tells a resolved probe whether it still applies.
+let onboardingDiagnosticsToken = 0;
+
+// §27's first-run diagnostics: Ollama reachability and where the notebook
+// actually lives, both already computed for other UI (the AI-status pill,
+// Settings → Data) and just not surfaced before a first capture could fail
+// silently into Uncategorised.
+async function loadOnboardingDiagnostics(forSlide) {
+  const token = ++onboardingDiagnosticsToken;
+  const [models, storage] = await Promise.all([
+    apiJson("/models/status").catch(() => null),
+    apiJson("/storage").catch(() => null),
+  ]);
+  if (token !== onboardingDiagnosticsToken) return; // superseded by a later slide
+  if (onboardingIndex !== forSlide) return; // the user moved on already
+  if ($("onboarding-overlay").classList.contains("hidden")) return; // or closed it
+
+  const lines = [];
+  lines.push(
+    models && models.ollama_running
+      ? "✅ Ollama is running, so the AI will file your notes and answer questions."
+      : "⚠️ Ollama isn't running right now — MemoryMap still works without it. " +
+          "Notes are still searched by keyword, and everything catches up the moment it's on."
+  );
+  if (storage) {
+    const mb = storage.database_bytes
+      ? (storage.database_bytes / (1024 * 1024)).toFixed(1)
+      : "0";
+    lines.push(
+      `Your notebook lives at ${storage.data_dir} (${mb} MB so far) — nothing here ever leaves this machine.`
+    );
+  } else {
+    lines.push("Couldn't check where your notebook lives just now.");
+  }
+  $("onboarding-text").textContent = lines.join(" ");
+}
 
 function renderOnboardingSlide() {
   const slide = ONBOARDING_SLIDES[onboardingIndex];
   $("onboarding-icon").textContent = slide.icon;
   $("onboarding-title").textContent = slide.title;
-  $("onboarding-text").textContent = slide.text;
+  if (slide.dynamic) {
+    $("onboarding-text").textContent = "Checking Ollama and where your notebook lives…";
+    loadOnboardingDiagnostics(onboardingIndex);
+  } else {
+    $("onboarding-text").textContent = slide.text;
+  }
   const dots = $("onboarding-dots");
   dots.replaceChildren();
   ONBOARDING_SLIDES.forEach((_, i) => {
@@ -20009,6 +20528,15 @@ $("mic-chat").addEventListener("click", () =>
   toggleDictation($("mic-chat"), $("chat-input"))
 );
 $("speak-btn").addEventListener("click", () => speakText($("ai-answer").textContent));
+
+// Meeting notes (§17).
+$("meeting-close").addEventListener("click", closeMeetingRecorder);
+$("meeting-overlay").addEventListener("click", (e) => {
+  if (e.target === $("meeting-overlay")) closeMeetingRecorder();
+});
+$("meeting-record").addEventListener("click", toggleMeetingRecording);
+$("meeting-save").addEventListener("click", saveMeetingNote);
+$("meeting-discard").addEventListener("click", resetMeetingUI);
 
 // PWA: the shell caches itself so the app opens instantly (Wave F).
 // When a new service worker takes over (after an update), reload once so

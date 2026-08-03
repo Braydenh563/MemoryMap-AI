@@ -625,19 +625,35 @@ Link to another note with [[its first few words]]."></textarea>
               </div>
 
               <!-- How the answer comes out: who is speaking, and how hard they
-                   work at it. Neighbouring questions, so they stay neighbours.
-                   Filled from /chat/modes so the list can't drift from what the
-                   server actually does. -->
-              <div class="chat-tool-group" role="group" aria-label="How it answers">
-                <select id="response-mode-select" class="small-select"
-                  aria-label="Answer length"
-                  title="How much effort to spend on the answer. Quick is short and literal; detailed is longer and slower."></select>
-                <select id="persona-select" class="small-select" aria-label="Persona"></select>
-                <!-- You could pick a persona but never see what it actually
-                     told the model to do. -->
-                <button id="persona-peek" class="ghost small" type="button"
-                  aria-expanded="false"
-                  title="Show the instructions this persona gives the AI">👁</button>
+                   work at it (§37C density pass). These change far less often
+                   than the mode/web/plan group beside them, so they live
+                   behind a disclosure instead of a permanently-drawn row —
+                   the same instinct as the note picker, just for a settings
+                   pair rather than a list. Filled from /chat/modes so the
+                   list can't drift from what the server actually does. -->
+              <div class="chat-dock-more">
+                <button id="chat-dock-more-btn" class="ghost small" type="button"
+                  aria-haspopup="dialog" aria-expanded="false"
+                  aria-controls="chat-dock-more-panel"
+                  title="Answer length and persona">⚙</button>
+                <div id="chat-dock-more-panel" class="chat-dock-more-panel hidden"
+                  role="dialog" aria-label="How it answers">
+                  <label class="chat-dock-more-row">
+                    <span class="muted">Length</span>
+                    <select id="response-mode-select" class="small-select"
+                      aria-label="Answer length"
+                      title="How much effort to spend on the answer. Quick is short and literal; detailed is longer and slower."></select>
+                  </label>
+                  <label class="chat-dock-more-row">
+                    <span class="muted">Persona</span>
+                    <select id="persona-select" class="small-select" aria-label="Persona"></select>
+                  </label>
+                  <!-- You could pick a persona but never see what it actually
+                       told the model to do. -->
+                  <button id="persona-peek" class="ghost small" type="button"
+                    aria-expanded="false"
+                    title="Show the instructions this persona gives the AI">👁 What this persona tells the AI</button>
+                </div>
               </div>
             </div>
             <div class="row chat-composer">
@@ -761,6 +777,15 @@ Link to another note with [[its first few words]]."></textarea>
           <option value="365" selected>Last year</option>
           <option value="0">Everything</option>
         </select>
+        <!-- §10C: a grid answers "what happened around this date, across
+             every band at once"; a line answers "what was the shape of this
+             one thread over time" — both real questions, so both stay, picked
+             here rather than one replacing the other. -->
+        <label class="muted" for="timeline-view">View</label>
+        <select id="timeline-view" aria-label="Grid or line view">
+          <option value="grid" selected>Grid</option>
+          <option value="line">Line</option>
+        </select>
         <span id="timeline-count" class="muted"></span>
       </div>
       <p class="muted">
@@ -770,6 +795,13 @@ Link to another note with [[its first few words]]."></textarea>
       </p>
       <div id="timeline-scroll" class="timeline-scroll">
         <div id="timeline-grid" class="timeline-grid"></div>
+      </div>
+      <!-- The line view (§10C): one spine, chronological, with a lane per
+           band peeling off it — same underlying notes as the grid above,
+           just answering "what was the shape of this thread" instead of
+           "what happened around this date". -->
+      <div id="timeline-branch-wrap" class="timeline-branch-wrap hidden">
+        <svg id="timeline-branch-svg" class="timeline-branch-svg"></svg>
       </div>
       <p id="timeline-empty" class="muted hidden">Nothing to plot yet.</p>
     </section>
@@ -795,6 +827,7 @@ Link to another note with [[its first few words]]."></textarea>
           <option value="force" selected>Force (web)</option>
           <option value="tree">Tree</option>
           <option value="radial">Radial tree</option>
+          <option value="arc">Arc</option>
         </select>
         <!-- A layout decides where a note goes; this decides what its colour
              means. Category is the filing; cluster is the structure — which
@@ -2585,6 +2618,46 @@ Link to another note with [[its first few words]]."></textarea>
         <input id="sketch-caption" type="text" maxlength="200" placeholder="Caption (becomes the note text)">
         <button id="sketch-save">Save as note</button>
         <span id="sketch-status" class="status" role="status"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Meeting notes (§17, the backlog's own "highest-value single addition
+       still unbuilt"): a longer recording than the quick 🎙 dictation button
+       in the composer is built for, transcribed locally, then handed back
+       for review before it becomes a note — the same "capture, then look at
+       what came out" shape the sketch pad's caption step already uses.
+       `.modal-overlay` (not a bespoke overlay like the sketch pad's own) so
+       it gets scroll-lock for free and sits at the shared z-index tier a
+       confirm dialog can safely open on top of, per the trap the sketch
+       pad's own history recorded. -->
+  <div id="meeting-overlay" class="modal-overlay hidden" role="dialog"
+    aria-modal="true" aria-label="Meeting notes">
+    <div class="card modal-card" id="meeting-card">
+      <div class="row space-between">
+        <h2>🎙️ Meeting notes</h2>
+        <button id="meeting-close" class="ghost small">Close</button>
+      </div>
+      <p class="muted">
+        Record a meeting, a lecture, or anything longer than a quick note —
+        transcribed locally with Whisper, the same engine behind the mic
+        button. Nothing leaves this machine.
+      </p>
+      <div class="row" id="meeting-controls">
+        <button id="meeting-record" type="button">⏺ Record</button>
+        <span id="meeting-timer" class="meeting-timer muted" aria-live="polite">0:00</span>
+      </div>
+      <p id="meeting-status" class="status" role="status"></p>
+      <!-- Editable, not saved straight away: a raw transcript carries every
+           "um" and false start, and the app's whole capture pattern is
+           "you're in control before it's saved" (persona peek, the
+           compression summary before it replaces anything). -->
+      <textarea id="meeting-transcript" rows="10" class="hidden"
+        placeholder="The transcript will appear here once recording stops — review and trim it before saving."
+        aria-label="Transcript — edit before saving"></textarea>
+      <div class="row hidden" id="meeting-save-row">
+        <button id="meeting-save">Save as a note</button>
+        <button id="meeting-discard" class="ghost">Discard</button>
       </div>
     </div>
   </div>

@@ -197,3 +197,47 @@ def test_expansion_never_reaches_a_private_note(session, fake_embeddings):
 
     found, _mode = search_manager.retrieve(session, "beans netting", fake_embeddings, limit=2)
     assert secret.id not in {e.id for e in found}
+
+
+def test_a_dated_question_that_finds_nothing_stays_in_its_range(session, fake_embeddings):
+    """The "never look empty" fallback must not quietly drop the one constraint
+    the person actually stated.
+
+    Asking about the allotment *last week*, with nothing about the allotment
+    that week, used to fall back to recent notes from any time at all — labelled
+    `recent`, with no sign the date had been ignored. Answering the wrong
+    question confidently is worse than answering none.
+    """
+    _note(session, "the allotment, everything about it", days_ago=90)
+    this_week = _note(session, "unrelated, but from this week", days_ago=2)
+
+    found, mode = search_manager.retrieve(
+        session, "what did I write about the allotment last week", fake_embeddings
+    )
+    assert mode == "dated"
+    assert all(e.id != 90 for e in found)
+    # What it *can* honestly offer is what is in the window.
+    assert this_week.id in {e.id for e in found}
+
+
+def test_an_empty_window_returns_nothing_rather_than_something_else(session, fake_embeddings):
+    """A true empty answer the caller can render as "nothing that week" beats a
+    list of notes from three months ago."""
+    _note(session, "the allotment, everything about it", days_ago=90)
+
+    found, mode = search_manager.retrieve(
+        session, "what did I write about the allotment last week", fake_embeddings
+    )
+    assert mode == "dated"
+    assert found == []
+
+
+def test_an_undated_question_still_falls_back_to_recent(session, fake_embeddings):
+    """The original behaviour, unchanged where it was right: a notebook must
+    never look empty when it isn't."""
+    _note(session, "a note about something else entirely")
+    found, mode = search_manager.retrieve(
+        session, "zzz nothing matches this zzz", fake_embeddings
+    )
+    assert mode == "recent"
+    assert found

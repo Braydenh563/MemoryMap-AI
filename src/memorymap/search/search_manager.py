@@ -484,6 +484,21 @@ def _retrieve(
         entries, mode = keyword[:limit], "keyword"
 
     if not entries:
+        # Nothing matched. The "never look empty" fallback is recent notes —
+        # but **not when the question named a date range.** "What did I write
+        # about the allotment last week", with nothing about the allotment that
+        # week, would otherwise come back with unrelated notes from any time at
+        # all, labelled `recent`, silently dropping the one constraint the
+        # person actually stated. Answering the wrong question confidently is
+        # worse than answering none.
+        #
+        # So a dated question that finds nothing falls back *within its range*,
+        # and if the range is genuinely empty it returns nothing and says
+        # `dated` — which is a true answer the caller can render as "nothing
+        # that week".
+        if asked.has_range:
+            in_window = in_range(session, asked.since, asked.until, limit=limit)
+            return _without_private(in_window), "dated"
         recent = recent_entries(session, limit=RECENT_FALLBACK_LIMIT)
         if recent:
             return _without_private(recent), "recent"

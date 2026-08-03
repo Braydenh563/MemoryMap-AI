@@ -1,0 +1,11 @@
+{
+  "name": "memorymap-e2e",
+  "private": true,
+  "description": "Headless Playwright smoke suite (roadmap ANALYSIS.md §31/§34, ROADMAP.md §38.2). Not the app's frontend build - the frontend stays no-build-step, per CLAUDE.md. This is CI tooling only.",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1"
+  }
+}

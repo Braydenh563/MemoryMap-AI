@@ -1939,6 +1939,7 @@ async function loadEntries() {
   showEntrySkeletons();
   allEntries = await apiJson("/entries");
   entriesEverLoaded = true;
+  renderStatusBar(); // the notebook's size changed, and the bar reads it here
   renderSidebar();
   // Categories the AI has filed notes into since the last load need their ids
   // fetched before rename/delete can work on them. Deliberately not awaited:
@@ -8962,6 +8963,16 @@ function updateReminderBadge(reminders) {
   const due = (reminders || []).filter(
     (r) => !r.done && new Date(r.due_at) <= now
   ).length;
+  // The status bar's reminder slot is fed from here rather than from its own
+  // fetch: this function is the one place both callers of /reminders land, so
+  // the bar and the tab badge cannot disagree and no second timer exists to
+  // drift from the first.
+  reminderCounts = {
+    open: (reminders || []).filter((r) => !r.done).length,
+    due,
+  };
+  renderStatusBar();
+
   let badge = button.querySelector(".tab-badge");
   if (!due) {
     badge?.remove();
@@ -13653,6 +13664,10 @@ async function refreshModelStatus() {
   }
   renderAiPill();
   syncAiOnlyControls();
+  // The status bar's job slot rides this loop rather than starting one of its
+  // own, so it inherits the whole cadence: one second while something is
+  // running, twenty when idle, two minutes behind a hidden tab.
+  await refreshBackgroundTasks();
   if (settingsOpen()) renderSettings();
 
   clearTimeout(statusTimer);
@@ -13833,6 +13848,130 @@ function renderAiPill() {
   button.title = `${state.title}\n\n${state.detail}`;
   $("ai-status-title").textContent = state.title;
   $("ai-status-detail").textContent = state.detail;
+}
+
+// --- the status bar (§36D) ---------------------------------------------------
+//
+// Five items, and the roadmap's own test for what may be here: each one is
+// either a state worth knowing at a glance or a command you use constantly.
+// Anything else is a permanent strip of decoration, so anything added later
+// should have to displace one of these rather than sit beside them.
+//
+// **Nothing here polls.** Every value arrives on a loop that already existed:
+// the AI state and the background job on `refreshModelStatus`, the reminder
+// counts wherever the tab badge is painted, the notebook size when the notes
+// are loaded. That is deliberate and it is not a micro-optimisation — a
+// reminder poll running on two timers is a bug this project has already had
+// and had to find in a browser, and a bar with five values is five chances to
+// repeat it.
+
+//: What the reminder poll last saw. Two numbers rather than a list: the bar
+//: needs counts, and holding the reminders themselves here would be a second
+//: copy of state the Reminders tab already owns.
+let reminderCounts = { open: 0, due: 0 };
+
+//: The running background jobs, straight from GET /tasks. Not reassembled from
+//: `modelStatus` — routes_tasks.py exists precisely because the frontend used
+//: to build this list out of the two jobs that happened to be in the status
+//: payload, and everything else (the embedding warm-up, the SearXNG install)
+//: was invisible.
+let backgroundTasks = [];
+
+//: ⌘ on a Mac, Ctrl everywhere else. `userAgentData` where it exists because
+//: `navigator.platform` is deprecated and lies inside some embedded shells;
+//: the fallback is what the desktop window still answers.
+const STATUS_META_KEY = /Mac|iPhone|iPad/.test(
+  (navigator.userAgentData && navigator.userAgentData.platform) ||
+    navigator.platform ||
+    ""
+)
+  ? "⌘K"
+  : "Ctrl K";
+
+// One item: an icon, a number, and a word. The number is bold and tabular so
+// the row does not twitch sideways as counts change — a status bar that moves
+// while you are reading it is the thing the header was rebuilt to stop doing.
+function paintStatusItem(id, { icon, value, label, title, tone = "" }) {
+  const button = $(id);
+  if (!button) return;
+  button.replaceChildren();
+  if (icon) {
+    const glyph = document.createElement("span");
+    glyph.textContent = icon;
+    glyph.setAttribute("aria-hidden", "true");
+    button.appendChild(glyph);
+  }
+  if (value !== undefined && value !== null) {
+    const strong = document.createElement("b");
+    strong.textContent = String(value);
+    button.appendChild(strong);
+  }
+  if (label) {
+    const text = document.createElement("span");
+    text.textContent = label;
+    button.appendChild(text);
+  }
+  button.title = title || "";
+  button.classList.toggle("status-due", tone === "due");
+}
+
+function renderStatusBar() {
+  if (!$("status-bar")) return;
+
+  // The notebook's size, from the list the app has already loaded rather than
+  // from /insights/stats — an unpaginated GET /entries *is* the notebook, so
+  // this is exact and costs nothing. Before the first load it says nothing
+  // rather than "0 notes", which would be a lie for the second it is up.
+  paintStatusItem("status-notes", {
+    icon: "📝",
+    value: entriesEverLoaded ? allEntries.length : "–",
+    label: allEntries.length === 1 && entriesEverLoaded ? "note" : "notes",
+    title: "Your notebook — click to browse it",
+  });
+
+  // Due, or open. The same choice the dashboard's tile makes, and it has to
+  // stay the same choice: two counters visible at once that count differently
+  // is worse than either alone.
+  const { open, due } = reminderCounts;
+  paintStatusItem("status-reminders", {
+    icon: due ? "⏰" : "✅",
+    value: due || open,
+    label: due ? "due" : "open",
+    title: due
+      ? `${due} reminder${due === 1 ? "" : "s"} due now`
+      : `${open} open reminder${open === 1 ? "" : "s"}`,
+    tone: due ? "due" : "",
+  });
+
+  // The job slot appears only while there is one. Where several run at once it
+  // shows the first — /tasks orders them newest-concern-first — and says how
+  // many are behind it, because a bar is one line and a queue is not.
+  const task = backgroundTasks[0];
+  const slot = $("status-task");
+  slot.classList.toggle("hidden", !task);
+  if (task) {
+    const others = backgroundTasks.length - 1;
+    paintStatusItem("status-task", {
+      icon: "⚙",
+      label: others > 0 ? `${task.label} (+${others})` : task.label,
+      title:
+        `${task.label}${task.detail ? ` — ${task.detail}` : ""}` +
+        "\n\nClick to open Background tasks.",
+    });
+  }
+
+  // The palette already exists and is already on Ctrl/⌘-K; what it did not
+  // have was anywhere on screen saying so. A shortcut nobody can see is a
+  // shortcut only the person who wrote it uses.
+  const command = $("status-command");
+  command.replaceChildren();
+  const key = document.createElement("span");
+  key.className = "status-key";
+  key.textContent = STATUS_META_KEY;
+  const word = document.createElement("span");
+  word.textContent = "Commands";
+  command.append(key, word);
+  command.title = `Search everything and jump anywhere (${STATUS_META_KEY})`;
 }
 
 // Hover is handled in CSS. This is the click half — needed for touch, where
@@ -14040,9 +14179,34 @@ function renderSettings() {
     $("model-spec").classList.add("hidden");
   }
   renderReindex(status);
-  // Only while the section is actually on screen: /tasks is its own call, and
-  // polling it behind a closed panel is work nobody is looking at.
-  if (settingsModalOpen() && currentSettingsSection === "tasks") renderTasks();
+}
+
+// GET /tasks, once per status poll, feeding everything that wants to know what
+// is running: the status bar's job slot, the Background tasks panel when it is
+// open, and the notifications centre.
+//
+// That last one was a real gap rather than a tidy-up. `renderTaskHistory`
+// records a finished job into the centre "whether or not this screen is open —
+// which is the point of the centre", but the only thing that called it was
+// `renderTasks`, and the only thing that called *that* was the panel being on
+// screen. So a re-index that finished while you were anywhere else — which is
+// most of them, since these jobs run for minutes — was recorded nowhere. It is
+// polled from here now, so the record does not depend on being watched.
+async function refreshBackgroundTasks() {
+  // Before the unlock there is no token and this is a guaranteed 401 on every
+  // poll — noise in the browser's network log and in the server's, where it
+  // reads as an auth failure worth investigating.
+  if (!authToken()) {
+    backgroundTasks = [];
+    return;
+  }
+  const body = await apiJson("/tasks", { silent: true }).catch(() => null);
+  backgroundTasks = (body && body.tasks) || [];
+  renderStatusBar();
+  // One fetch, not two: the panel renders from this payload rather than asking
+  // again a few milliseconds later.
+  if (settingsModalOpen() && currentSettingsSection === "tasks") renderTasks(body);
+  else renderTaskHistory((body && body.history) || []);
 }
 
 // --- Wave N: tasks manager (see and quit background jobs) ---------------------------
@@ -14053,9 +14217,13 @@ function renderSettings() {
 // at startup and the SearXNG install, which is minutes long, ran with nothing
 // on this screen to say so. Rendering whatever the server sends means the
 // next background job appears here without touching this file.
-async function renderTasks() {
+// `payload` is the /tasks body when the caller has already fetched it — the
+// status poll has, once, for the bar. Opening the panel passes nothing and
+// fetches, so the list is filled the moment you get there rather than at the
+// next tick.
+async function renderTasks(payload) {
   const list = $("task-list");
-  const body = await apiJson("/tasks", { silent: true }).catch(() => null);
+  const body = payload || (await apiJson("/tasks", { silent: true }).catch(() => null));
   const jobs = (body && body.tasks) || [];
   list.replaceChildren();
   $("tasks-empty").classList.toggle("hidden", jobs.length > 0);
@@ -16679,6 +16847,20 @@ $("ai-status").addEventListener("keydown", (event) => {
     $("ai-status").focus();
   }
 });
+
+// The status bar (§36D). Every item goes somewhere: a count you cannot act on
+// is a number, and a number in permanent furniture is the decoration the
+// roadmap warned this bar would become if anything was added without a job.
+$("status-notes").addEventListener("click", () => {
+  switchTab("notes");
+  showNotesSection("browse"); // or you land on whichever sub-tab was last open
+});
+$("status-reminders").addEventListener("click", () => switchTab("reminders"));
+$("status-task").addEventListener("click", () => openSettingsModal("tasks"));
+$("status-command").addEventListener("click", () => openPalette());
+// Paint it before any poll lands, so the bar is furniture from the first frame
+// rather than four boxes that pop into existence a second later.
+renderStatusBar();
 
 $("persona-add").addEventListener("click", addPersona);
 $("skill-add").addEventListener("click", addSkill);

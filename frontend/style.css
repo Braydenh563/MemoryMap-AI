@@ -487,13 +487,16 @@ header#top-bar.tabs-wrapped #tab-bar {
 .ai-status:hover,
 .ai-status:focus-visible { border-color: currentColor; }
 
-/* The message. Anchored under the dot and right-aligned to it, because the dot
-   sits near the right-hand edge of the header — a left-anchored popup would
-   run off the screen. */
+/* The message. It now hangs *upward* from the dot, because the dot moved to
+   the status bar at the foot of the window (§36D) — anchored below, it would
+   open off the bottom of the screen every time.
+   Left-aligned to the dot for the same reason it used to be right-aligned to
+   it: the dot sits at the left-hand end of the bar now, and a popup anchored
+   to the far side runs off the other edge. */
 .ai-status-popup {
   position: absolute;
-  top: calc(100% + 0.5rem);
-  right: 0;
+  bottom: calc(100% + 0.5rem);
+  left: 0;
   z-index: 60;
   width: max-content;
   max-width: min(22rem, 80vw);
@@ -529,6 +532,94 @@ header#top-bar.tabs-wrapped #tab-bar {
   /* The embedding error is a real multi-line message. */
   white-space: pre-line;
   line-height: 1.45;
+}
+
+/* --- the status bar (§36D) ---------------------------------------------------
+   A real flex row at the foot of the body, not a fixed overlay. The body is
+   already `display: flex; flex-direction: column; overflow: hidden` with
+   `.tab-page` as the scrolling middle child, so a row here is simply the last
+   child: nothing overlaps the page, no tab needs padding reserved for it, and
+   a change to the bar's height cannot desynchronise from a padding constant
+   somewhere else. A fixed bar would need all three. */
+#status-bar {
+  /* One height for the strip and everything in it — DESIGN.md's control-height
+     rule, the same reason `--header-control-h` exists. Not a spacing token: a
+     hit target is a control's own size and must not move with density. */
+  --status-h: 1.75rem;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-6);
+  background: var(--card);
+  border-top: 1px solid var(--glass-border);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  /* Above the page, below the header's popups and every modal. */
+  z-index: 30;
+  font-size: var(--text-sm);
+  /* The bar is one line and stays one line: a wrapped status bar is a status
+     bar that changes the height of the window's furniture as its own text
+     changes, which is exactly what the header was rebuilt to stop doing. */
+  white-space: nowrap;
+}
+.status-spacer { flex: 1 1 auto; }
+.status-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--status-h);
+  /* Padding horizontal only, margin zeroed: a row of controls neutralises the
+     spacing its controls arrive with and lets the declared height decide. */
+  padding: 0 var(--space-3);
+  margin: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  /* An item that shrinks before it wraps: the notebook count and the reminder
+     count are short and fixed, but a background job's label is the server's
+     text and can be long. */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.status-item:hover,
+.status-item:focus-visible {
+  background: var(--chip-bg);
+  color: var(--ink);
+}
+.status-item b { color: var(--ink); font-weight: 650; font-variant-numeric: tabular-nums; }
+/* Something is waiting on you. Warn rather than error: a due reminder is the
+   app working, not the app broken — the same distinction the AI status dot
+   draws between "no AI at all" (amber) and "the model failed to load" (red). */
+.status-item.status-due,
+.status-item.status-due b { color: var(--warn); }
+.status-task { color: var(--accent); }
+.status-task b { color: var(--accent); }
+.status-key {
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-family: var(--mono, ui-monospace, monospace);
+  line-height: 1.35;
+}
+/* In the bar the dot is one item among several rather than the only round
+   thing in a row of squares, so it comes down to the strip's own height. */
+#status-bar .ai-status { width: var(--status-h); height: var(--status-h); }
+#status-bar .emblem-mark { flex: 0 0 auto; }
+@media (max-width: 720px) {
+  /* A phone's scarce dimension is height, and two of these five are the two a
+     phone can least use: the keyboard hint needs a keyboard, and the notebook
+     size is on the dashboard's first screen anyway. What survives is what you
+     cannot get at otherwise — the AI's state, what is waiting, what is
+     running. */
+  #status-bar { padding-inline: var(--space-5); gap: var(--space-2); }
+  #status-notes, #status-command { display: none; }
 }
 
 /* --- tab navigation (Wave A; pill style inside the top bar in Wave L) ------- */

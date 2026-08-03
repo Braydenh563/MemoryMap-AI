@@ -106,21 +106,11 @@
            squeezed the tabs and the wordmark. The state is now a colour and a
            glyph; the sentence appears on hover, focus or click. The glyph
            matters as much as the colour — colour alone is not a status. -->
-      <!-- The generated emblem: an AI presence on every tab rather than a
-           per-tab decoration, and next to the AI status dot because that is
-           what it is about. -->
-      <span id="ai-mark" class="emblem emblem-mark" title="MemoryMap's AI, running on this machine" aria-hidden="true"></span>
-      <span class="ai-status-wrap">
-        <button id="ai-status" class="ai-status" type="button"
-          aria-expanded="false" aria-describedby="ai-status-popup">
-          <span class="ai-status-dot" aria-hidden="true"></span>
-          <span class="visually-hidden" id="ai-status-label">Checking what the AI is doing</span>
-        </button>
-        <span id="ai-status-popup" class="ai-status-popup" role="tooltip">
-          <strong id="ai-status-title"></strong>
-          <span id="ai-status-detail" class="ai-status-detail"></span>
-        </span>
-      </span>
+      <!-- The AI status dot and the emblem beside it used to live here. Both
+           are in the status bar at the foot of the window now (§36D) — moved,
+           not copied, which is the decision the roadmap had already made: two
+           indicators for one state is worse than either alone, because the
+           moment they disagree neither can be trusted. -->
       <!-- Ordered by how often you press it and what happens if you miss
            (§36D). Was: Settings, Lock, Quit, Theme — which put the one
            irreversible action directly beside the light/dark toggle, the most
@@ -1149,6 +1139,50 @@ Link to another note with [[its first few words]]."></textarea>
       </div>
     </section>
   </div>
+
+  <!-- ======================= STATUS BAR (§36D) ============================
+       "Like in VS Code but stylised for the application", with the caveat the
+       roadmap recorded before any of it was built: VS Code's bar works because
+       every item is either a state you need at a glance or a command you use
+       constantly, and a bar filled with anything else is a permanent strip of
+       decoration. Five items earn a place under that test and nothing else is
+       here:
+
+         · what the AI is doing      (moved down from the header, not copied)
+         · how big the notebook is
+         · how many reminders are waiting
+         · what is running in the background   (only while something is)
+         · the way into the command palette
+
+       It is the last flex child of <body>, not `position: fixed`: the body is
+       already a flex column whose middle child scrolls, so a real row costs no
+       overlap, no reserved padding, and nothing to keep in sync when the bar's
+       height changes. -->
+  <footer id="status-bar">
+    <!-- The generated emblem, which followed the status dot down: it is an AI
+         presence marker and it belongs beside the thing that says what the AI
+         is doing, which is the reason it was next to it in the header. -->
+    <span id="ai-mark" class="emblem emblem-mark" title="MemoryMap's AI, running on this machine" aria-hidden="true"></span>
+    <span class="ai-status-wrap">
+      <button id="ai-status" class="ai-status" type="button"
+        aria-expanded="false" aria-describedby="ai-status-popup">
+        <span class="ai-status-dot" aria-hidden="true"></span>
+        <span class="visually-hidden" id="ai-status-label">Checking what the AI is doing</span>
+      </button>
+      <span id="ai-status-popup" class="ai-status-popup" role="tooltip">
+        <strong id="ai-status-title"></strong>
+        <span id="ai-status-detail" class="ai-status-detail"></span>
+      </span>
+    </span>
+    <button id="status-notes" class="status-item" type="button"></button>
+    <button id="status-reminders" class="status-item" type="button"></button>
+    <!-- Hidden until something is actually running. A slot that says "nothing
+         is happening" for hours is the decoration the caveat above warns
+         about; a slot that appears is a thing you notice. -->
+    <button id="status-task" class="status-item status-task hidden" type="button"></button>
+    <span class="status-spacer"></span>
+    <button id="status-command" class="status-item" type="button"></button>
+  </footer>
 
   <!-- ======================= SETTINGS MODAL (Wave A) ====================== -->
   <div id="settings-modal" class="modal-overlay hidden" role="dialog"

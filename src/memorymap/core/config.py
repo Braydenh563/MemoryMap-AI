@@ -37,6 +37,9 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     # than something inferred from whether a SearXNG address happens to be
     # filled in. See `search/websearch.PROVIDERS`.
     "web_search_enabled": False,
+    # Bring the user's own SearXNG up with the app. Off by default: starting a
+    # container is not something a local-first app does unasked.
+    "searxng_autostart": False,
     "searxng_url": "",
     "search_provider": "auto",
     # Which dialect the chat backend speaks (§6). "ollama" is the native

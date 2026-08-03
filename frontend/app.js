@@ -13197,6 +13197,7 @@ async function renderWebSearch() {
   prefsCache = await apiJson("/preferences");
   $("pref-web-search").checked = Boolean(prefsCache.web_search_enabled);
   $("pref-searxng").value = prefsCache.searxng_url || "";
+  $("searxng-autostart").checked = Boolean(prefsCache.searxng_autostart);
   $("search-provider-status").textContent = "";
 
   const picker = $("search-provider-picker");
@@ -15418,6 +15419,132 @@ async function renderExtras() {
   clearTimeout(extrasPollTimer);
   if (body.running && settingsModalOpen() && currentSettingsSection === "extras") {
     extrasPollTimer = setTimeout(renderExtras, 1500);
+  }
+  renderEmbedModels();
+}
+
+// --- embedding models, on the same screen as the packages ------------------------
+//
+// Reuses `.extras-row` deliberately. These are two lists of "things downloaded
+// to this machine, with a way to undo it", and giving the second one its own
+// row style would make them look like different kinds of thing when the whole
+// argument for putting them together is that they are not.
+let embedPollTimer = null;
+
+async function renderEmbedModels() {
+  const list = $("embed-models-list");
+  if (!list) return;
+  const body = await apiJson("/embedding-models", { silent: true }).catch(() => null);
+  if (!body) return;
+
+  list.replaceChildren();
+  for (const model of body.models) {
+    const li = document.createElement("li");
+    li.className = "extras-row";
+
+    const head = document.createElement("div");
+    head.className = "entry-meta";
+    const name = document.createElement("strong");
+    name.textContent = model.label + (model.default ? " · default" : "");
+    head.appendChild(name);
+
+    const actions = document.createElement("span");
+    actions.className = "entry-actions";
+    if (model.downloading) {
+      const busy = document.createElement("span");
+      busy.className = "muted";
+      busy.textContent = "Downloading…";
+      actions.appendChild(busy);
+    } else if (model.installed) {
+      const done = document.createElement("span");
+      done.className = "extras-installed";
+      done.textContent = `✓ ${model.on_disk} on disk`;
+      actions.appendChild(done);
+      // The same argument the packages' Reinstall makes: "the directory is
+      // there" is not "the model is sound". A download interrupted halfway
+      // leaves a snapshot that loads and produces nonsense, and fetching over
+      // the top of it resumes the same broken files — so this removes first.
+      if (body.can_download) {
+        actions.appendChild(
+          smallButton("↻ Re-download", `Fetch ${model.label} again from scratch`, async () => {
+            if (!(await confirmDialog(
+              `Download ${model.label} again?\n\nThe copy on this machine is ` +
+                "deleted first, so this is the fix for one that arrived broken."
+            ))) return;
+            const result = await apiJson(
+              `/embedding-models/${model.id}/download?reinstall=true`,
+              { method: "POST" }
+            ).catch((e) => ({ started: false, message: e.message }));
+            toast(result.message, !result.started);
+            renderEmbedModels();
+          })
+        );
+      }
+      actions.appendChild(
+        smallButton("🗑 Remove", `Delete ${model.label} from this machine`, async () => {
+          if (!(await confirmDialog(
+            `Remove ${model.label}?\n\nIt frees ${model.on_disk}. Nothing is ` +
+              "lost that a download cannot bring back — but if this is the " +
+              "model in use, searching falls back to keywords until it returns."
+          ))) return;
+          const result = await apiJson(`/embedding-models/${model.id}`, {
+            method: "DELETE",
+          }).catch((e) => ({ removed: false, message: e.message }));
+          toast(result.message, !result.removed);
+          renderEmbedModels();
+        })
+      );
+    } else {
+      const get = smallButton("⬇ Download", `Fetch ${model.label}`, async () => {
+        if (!(await confirmDialog(
+          `Download ${model.label}?\n\n${model.size}, fetched from HuggingFace ` +
+            "to this machine. It is the one thing on this screen that needs " +
+            "the internet."
+        ))) return;
+        const result = await apiJson(`/embedding-models/${model.id}/download`, {
+          method: "POST",
+        }).catch((e) => ({ started: false, message: e.message }));
+        toast(result.message, !result.started);
+        renderEmbedModels();
+      });
+      // Without huggingface_hub there is nothing to download *with*, so the
+      // button says so rather than failing on an ImportError nobody can read.
+      if (!body.can_download) {
+        get.disabled = true;
+        get.title =
+          "Needs the huggingface_hub library — it arrives with “Search by " +
+          "meaning” in the list above.";
+      }
+      actions.appendChild(get);
+    }
+    head.appendChild(actions);
+    li.appendChild(head);
+
+    const about = document.createElement("p");
+    about.className = "muted extras-enables";
+    about.textContent = model.about;
+    li.appendChild(about);
+
+    const meta = document.createElement("p");
+    meta.className = "muted extras-meta";
+    meta.textContent = `${model.repo} · ${model.size}`;
+    li.appendChild(meta);
+    list.appendChild(li);
+  }
+
+  // Where they are, in as many words. "Somewhere in your home directory" is
+  // the answer people are given everywhere else and it is the reason this
+  // screen had to exist.
+  $("embed-models-cache").textContent = `Kept in ${body.cache}`;
+  $("embed-models-status").textContent = body.running
+    ? body.step
+    : body.outcome
+      ? body.step
+      : "";
+
+  clearTimeout(embedPollTimer);
+  if (body.running && settingsModalOpen() && currentSettingsSection === "extras") {
+    embedPollTimer = setTimeout(renderEmbedModels, 1500);
   }
 }
 
@@ -18376,6 +18503,25 @@ $("chat-plan").addEventListener("click", async () => {
   input.value = "";
   autoGrow(input);
   sendChatMessage(`${question}\n\n${PLAN_PREFIX}`, { displayText: question });
+});
+
+// Start the user's own engine with the app. See the markup for why this is the
+// answer to "web search keeps disabling itself" — it was the container going
+// away, not the setting.
+$("searxng-autostart").addEventListener("change", async (event) => {
+  const on = event.target.checked;
+  prefsCache = await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ searxng_autostart: on }),
+  }).catch((error) => {
+    toast(error.message, true);
+    return prefsCache;
+  });
+  toast(
+    on
+      ? "SearXNG will start with MemoryMap from now on."
+      : "SearXNG will only start when you press Start."
+  );
 });
 
 $("web-search-toggle").addEventListener("click", async () => {

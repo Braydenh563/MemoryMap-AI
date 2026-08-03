@@ -109,6 +109,25 @@
   --page-top: var(--space-6);
   --page-bottom: var(--space-9);
 
+  /* How tall a sticky sidebar may be: the page, minus the page's own padding.
+     Both ends of it.
+
+     Three rules used to write this out by hand as
+     `calc(var(--page-viewport) - var(--page-top) - var(--space-4))` — the top
+     padding, and then a gap step standing in for the bottom one. `--space-4`
+     is 9.6px and `--page-bottom` is 32px, so every sticky sidebar in the app
+     was 22px taller than the page it sits in, and each of them ended that far
+     under the status bar. Reported twice on the same day, for the chat
+     sidebar and then the notes sidebar, because it was never one sidebar's
+     bug: it was one expression written three times with the same term
+     missing.
+
+     Named and derived, so the next sidebar cannot get it wrong and a change to
+     the page's padding reaches all of them. This is the same argument
+     `--page-viewport` itself makes one comment above; the lesson is that a
+     `calc` repeated in three rules is a constant that has not been named yet. */
+  --page-sticky-h: calc(var(--page-viewport) - var(--page-top) - var(--page-bottom));
+
   /* How tall the status bar is (§36D). Declared here rather than left to the
      bar's own content, because two kinds of thing need to agree with it and
      neither is inside it: the bar itself, and every `position: fixed` control
@@ -1205,7 +1224,7 @@ header#top-bar.tabs-wrapped #tab-bar {
        container now (§36A) and the header is outside it, so the sidebar sticks
        to the top of the page it lives in. */
     top: 0;
-    max-height: calc(var(--page-viewport) - var(--page-top) - var(--space-4));
+    max-height: var(--page-sticky-h);
     overflow-y: auto;
   }
 }
@@ -4543,7 +4562,25 @@ html { font-size: 16px; }
   min-height: 0;
   margin: 0 0 var(--space-6);
 }
-#graph-card #graph-box { flex: 1; min-height: 22rem; }
+/* 12rem, not 22, and the card clips.
+
+   Reported twice now as the graph "being out of the main ui panel", and the
+   cause was a floor rather than the map: the card holds a toolbar, a trace
+   row, a help disclosure and a legend, and the legend's height is however many
+   categories the notebook has. With nine of them it wraps to two rows, and
+   toolbar + trace + legend + a 22rem map is taller than a 700px window — so
+   the card's content drew past the card, and what you see then is the map's
+   own border floating loose with the card's chrome scrolled off above it.
+
+   The map is the one thing here that can be any size: it has zoom, fit, and a
+   layout that reflows. So it takes what is left rather than demanding a share,
+   and `overflow: hidden` on the card makes that a promise instead of a hope —
+   the failure mode this replaces was silent, because nothing clipped. */
+#graph-card { overflow: hidden; }
+#graph-card #graph-box { flex: 1 1 0; min-height: 12rem; }
+/* A legend is a key, not a list to browse: past a couple of rows it is eating
+   the thing it explains. It scrolls at that point instead. */
+#graph-legend { flex: 0 1 auto; max-height: 5.5rem; overflow-y: auto; min-height: 0; }
 @media (max-width: 720px) {
   #graph-card { margin: 0 0 var(--space-5); }
   .graph-toolbar #graph-search { width: 100%; }
@@ -4955,10 +4992,19 @@ html { font-size: 16px; }
      the header sits outside it — so there is nothing to clear, and offsetting
      by the header height would push the sidebar down by that much again. */
   top: 0;
-  /* A definite height, not 100%: this is a grid item with `align-self: start`,
-     so 100% would resolve against a row sized by its own content and the list
-     inside would never scroll. */
-  height: calc(var(--page-viewport) - var(--page-top) - var(--space-4));
+  /* `100%` now, and no arithmetic at all — which is better than the corrected
+     `--page-sticky-h` the other two sidebars use, because this one does not
+     have to be right about the window.
+
+     The old comment here said 100% "would resolve against a row sized by its
+     own content". That was true when it was written and stopped being true
+     when `#tab-chat > .layout` gained `height: 100%` and
+     `grid-template-rows: minmax(0, 1fr)`: the grid area is now exactly the
+     height this sidebar should be, and a percentage on a grid item resolves
+     against its grid area. So the correct height is available for free, and
+     the sum that was being maintained by hand was maintaining a number the
+     layout already knew. */
+  height: 100%;
 }
 
 /* --- graph: depth, halos and legible labels -------------------------------- */
@@ -5417,7 +5463,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
      by the header height would push the sidebar down by that much again. */
   top: 0;
   align-self: start;
-  max-height: calc(var(--page-viewport) - var(--page-top) - var(--space-4));
+  max-height: var(--page-sticky-h);
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -7265,11 +7311,27 @@ textarea.autogrow {
    rendered contents, not just its title, so "corner" finds Appearance and
    "backup" finds Import & export — which is the question people actually
    have. It sits at the top of the nav because that is where the eye starts. */
+/* The box was the full width of a nav that scrolls, so the scrollbar sat on
+   top of it — the placeholder read "🔎 Find a s" with a scrollbar where the
+   rest of the sentence should be, and the box's right-hand corners were cut
+   off by it. Reported: "the settings search bar could be improved visually."
+
+   `scrollbar-gutter` on the nav is the fix rather than a margin here, because
+   the same overlap was happening to every button in the list; the margin would
+   have moved one of them out from under it. It reserves the space whether or
+   not the nav is currently scrolling, so nothing shifts sideways as sections
+   are filtered in and out. */
 .settings-search {
   width: 100%;
   margin-bottom: var(--space-4);
   font-size: var(--text-md);
+  /* It is the first thing in the panel and the thing you aim at, so it says so
+     — the nav's buttons are borderless and this is not one of them. */
+  border-radius: var(--radius-pill);
+  padding-inline: var(--space-5);
 }
+.settings-search:focus { border-color: var(--accent); }
+.modal-nav { scrollbar-gutter: stable; padding-right: var(--space-2); }
 .settings-search-count {
   margin: calc(var(--space-3) * -1) 0 var(--space-4);
   font-size: var(--text-sm);

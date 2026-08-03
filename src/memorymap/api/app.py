@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 from pathlib import Path
 
 from fastapi import Depends, FastAPI
@@ -19,6 +20,7 @@ from fastapi.staticfiles import StaticFiles
 
 from memorymap import __version__
 from memorymap.ai import embeddings
+from memorymap.search import searxng_manager
 from memorymap.api import (
     routes_auth,
     routes_categories,
@@ -118,6 +120,38 @@ def _backup_if_due() -> None:
         )
 
 
+def _start_searxng_if_asked() -> None:
+    """Bring the user's own search engine up with the app, when they asked.
+
+    Reported: *"maybe a setting for allowing the searxng or web search to be on
+    or automatically started which is togglable? it keeps disabling itself."*
+    Web search was not disabling itself — the *engine* was gone. SearXNG runs
+    as a container this app starts on demand, and nothing restarted it after a
+    reboot or a `docker` restart, so every search after that fell back to
+    DuckDuckGo, which rate-limits and answers with an error. From the outside
+    those are indistinguishable from the setting having switched itself off.
+
+    Off by default, because starting a container is not something a local-first
+    app should do to a machine without being asked. In a thread, because the
+    start can take tens of seconds pulling an image and a slow engine must not
+    be a slow app — and inside a try, for the reason the two functions above
+    give: a failure here must never stop MemoryMap from opening.
+    """
+    try:
+        config = deps.get_config()
+        if not config.get_preference("searxng_autostart", False):
+            return
+        threading.Thread(
+            target=lambda: searxng_manager.start(config.data_dir),
+            name="searxng-autostart",
+            daemon=True,
+        ).start()
+    except Exception:  # noqa: BLE001 — a failed autostart must never block startup
+        logging.getLogger("memorymap.startup").warning(
+            "SearXNG autostart didn't run this start", exc_info=True
+        )
+
+
 def create_app() -> FastAPI:
     # First, before any singleton is built. This catches `uvicorn … --workers 4`
     # run directly against this factory, which is the only way the app can be
@@ -128,6 +162,7 @@ def create_app() -> FastAPI:
     init_app_state()
     _purge_expired_bin_entries()
     _backup_if_due()
+    _start_searxng_if_asked()
     # The session factory is handed in so embeddings never has to import the
     # dependency container that imports it.
     embeddings.start_warmup(deps.get_embeddings(), deps.get_db().session)

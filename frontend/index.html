@@ -1968,6 +1968,26 @@ Link to another note with [[its first few words]]."></textarea>
               <summary class="muted">What pip is doing</summary>
               <pre id="extras-log" class="task-log-lines"></pre>
             </details>
+
+            <!-- Embedding models. On this screen rather than its own, because
+                 the question it answers — "what has this app put on my disk,
+                 and can I have it back?" — is the same question the packages
+                 above answer, and one screen that says "everything downloaded"
+                 beats two that each say half of it.
+
+                 Asked for after a look at Settings → Logs, where the hub's
+                 cache-validation requests on every start read as a re-download.
+                 They are not one; the note below says so where it will be read. -->
+            <h3>Embedding models</h3>
+            <p class="muted">
+              What “search by meaning” uses to understand a note. The model is
+              downloaded <strong>once</strong> and kept on this machine —
+              the HuggingFace requests in the log on every start are checking
+              the copy you already have, not fetching it again.
+            </p>
+            <ul id="embed-models-list" class="extras-list"></ul>
+            <p id="embed-models-cache" class="muted extras-meta"></p>
+            <p id="embed-models-status" class="status" role="status"></p>
           </section>
 
           <section class="settings-section hidden" id="settings-shortcuts">
@@ -2104,6 +2124,20 @@ Link to another note with [[its first few words]]."></textarea>
                   title="Delete the SearXNG install and set it up again from scratch">↻ Reinstall</button>
                 <span id="searxng-host-status" class="status" role="status"></span>
               </div>
+              <!-- Reported as web search "disabling itself". It was not the
+                   setting: SearXNG is a container this app starts on demand,
+                   and nothing brought it back after a reboot — so searches
+                   fell through to DuckDuckGo, which rate-limits and answers
+                   with an error. From outside, that is indistinguishable from
+                   the switch having flipped.
+
+                   Off by default. Starting a container is not something a
+                   local-first app should do to a machine unasked, so this is a
+                   thing you turn on once and then stop thinking about. -->
+              <label class="muted">
+                <input type="checkbox" id="searxng-autostart">
+                Start SearXNG automatically when MemoryMap opens
+              </label>
               <!-- An install runs for minutes. Without a bar and a live line
                    from the tool itself, slow and stuck look identical. -->
               <progress id="searxng-install-progress" class="install-progress hidden"

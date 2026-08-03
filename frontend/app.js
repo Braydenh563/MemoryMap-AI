@@ -815,6 +815,35 @@ function closeActionMenus() {
     const opener = menu.parentElement.querySelector("[aria-haspopup]");
     if (opener) opener.setAttribute("aria-expanded", "false");
   }
+  for (const strip of document.querySelectorAll(".entry-actions.menu-open")) {
+    strip.classList.remove("menu-open");
+  }
+}
+
+// Opening one, shared by the note cards and the sidebar kebabs so the two
+// cannot drift apart.
+//
+// **`menu-open` is the fix for a reported bug, and it is not cosmetic.** On a
+// note card, `.entry-actions` is `position: absolute; z-index: 1` — which
+// makes it a *stacking context*, so the menu's own `z-index: 30` is resolved
+// inside it and counts for nothing outside it. Every other note's action strip
+// is also `z-index: 1`, and later in the document, so it paints on top of an
+// open menu. Reported as "the other buttons in notes go over the popup options
+// from above notes", and measured: with the first note's menu open, the topmost
+// element at three separate points *inside* the menu was a button belonging to
+// a different note. So it was not only a menu with buttons drawn over it — it
+// was a menu whose items clicked the wrong note's controls.
+//
+// Raising the owning strip lifts the whole context, menu included. 5 rather
+// than something larger because the only thing it has to beat is the 1 on its
+// siblings; the page's own chrome is a different context and a big number here
+// would only be a number waiting to collide with one.
+function openActionMenu(menu, opener) {
+  closeActionMenus(); // only one open at a time
+  menu.classList.remove("hidden");
+  opener.setAttribute("aria-expanded", "true");
+  menu.closest(".entry-actions")?.classList.add("menu-open");
+  menu.querySelector("button")?.focus();
 }
 
 // The ⋯ overflow menu on each note card (Wave L rework).
@@ -915,12 +944,8 @@ function entryOverflowMenu(entry) {
 
   const opener = smallButton("⋯", "More actions", () => {
     const willOpen = menu.classList.contains("hidden");
-    closeActionMenus(); // only one menu open at a time
-    if (willOpen) {
-      menu.classList.remove("hidden");
-      opener.setAttribute("aria-expanded", "true");
-      menu.querySelector("button")?.focus();
-    }
+    if (willOpen) openActionMenu(menu, opener);
+    else closeActionMenus();
   });
   opener.setAttribute("aria-haspopup", "menu");
   opener.setAttribute("aria-expanded", "false");
@@ -1839,6 +1864,14 @@ function renderSidebar() {
     li.append(name, badge);
     li.addEventListener("click", () => {
       activeCategory = category;
+      // The list this filters lives in the "browse" sub-tab, and the sidebar
+      // is visible from all four — so picking a category while writing a note
+      // or asking a question filtered a list that was `display: none`, and the
+      // click appeared to do nothing at all. Reported. The same fix
+      // `flashEntry` already carries for jumping to a note, for the same
+      // reason: a sidebar that is always on screen must be able to bring the
+      // thing it controls on screen with it.
+      showNotesSection("browse");
       renderSidebar();
       renderEntries();
     });
@@ -5773,12 +5806,8 @@ function kebabMenu(items, ariaLabel) {
 
   const opener = smallButton("⋯", ariaLabel, () => {
     const willOpen = menu.classList.contains("hidden");
-    closeActionMenus();
-    if (willOpen) {
-      menu.classList.remove("hidden");
-      opener.setAttribute("aria-expanded", "true");
-      menu.querySelector("button")?.focus();
-    }
+    if (willOpen) openActionMenu(menu, opener);
+    else closeActionMenus();
   });
   opener.setAttribute("aria-haspopup", "menu");
   opener.setAttribute("aria-expanded", "false");
@@ -7322,6 +7351,43 @@ function tabRowSpace() {
   return header.clientWidth - padding - others - gap * siblings;
 }
 
+// What the tab strip actually needs, summed from the buttons rather than read
+// off the strip's own box.
+//
+// **This is the fix for a reported bug, and the distinction is the whole
+// bug.** The wrap test used `bar.scrollWidth`, which is `max(content,
+// clientWidth)` — and the wrapped rule gives the strip `flex-basis: 100%`. So
+// the moment it wrapped, its scrollWidth became the *width of the header*,
+// which is by definition larger than the room beside the header's other
+// children, and the test that decided wrapping was measuring its own output.
+// It could not oscillate, as the old comment said. It latched, which is worse:
+// one transient narrow moment — a drag of the window edge, a font arriving
+// late — and the header stayed two rows tall for the rest of the session.
+// Measured: at 900px it wraps and scrollWidth reads 868; widened to 2000px it
+// reads 1952 and stays wrapped at 102px tall, where a fresh load at the same
+// width renders one row at 60px. That is "the top bar keeps switching and
+// permanently changing layout", exactly.
+//
+// The buttons are `flex: 0 0 auto`, so their widths are the same whichever row
+// the strip is on. That is what makes this measurement independent of the
+// state it is being used to decide.
+function tabContentWidth() {
+  const bar = $("tab-bar");
+  if (!bar) return 0;
+  const style = getComputedStyle(bar);
+  const gap = parseFloat(style.columnGap || style.gap) || 0;
+  const padding =
+    (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
+  let total = 0;
+  let count = 0;
+  for (const child of bar.children) {
+    if (child.classList.contains("hidden")) continue;
+    total += child.getBoundingClientRect().width;
+    count += 1;
+  }
+  return total + padding + gap * Math.max(0, count - 1);
+}
+
 function syncTabOverflowFade() {
   const bar = $("tab-bar");
   if (!bar) return;
@@ -7330,13 +7396,21 @@ function syncTabOverflowFade() {
   // its own — where all seven fit with room to spare at any width the app is
   // usable at. Photographed on a 7-tab window: "Dashboard" clipped to "oard"
   // at the left edge, which no amount of edge-fading makes readable.
-  //
-  // Measured, not a breakpoint, and it cannot oscillate: the space the strip
-  // would have inline is computed from the *other* children, whose widths do
-  // not depend on where the strip is.
   const header = document.getElementById("top-bar");
   if (header) {
-    header.classList.toggle("tabs-wrapped", bar.scrollWidth > tabRowSpace() + 1);
+    const needed = tabContentWidth();
+    const space = tabRowSpace();
+    // Asymmetric thresholds, and only for jitter: both measurements are now
+    // independent of which row the strip is on, so there is no feedback to
+    // oscillate. What remains is sub-pixel rounding at the exact width where
+    // the two are equal, and a header that flickers between one and two rows
+    // while you drag the window edge is its own kind of broken. 8px is under
+    // half a character and well over the rounding.
+    const wrapped = header.classList.contains("tabs-wrapped");
+    header.classList.toggle(
+      "tabs-wrapped",
+      wrapped ? needed > space - 8 : needed > space + 1
+    );
   }
   // 1px of slack at each end: sub-pixel layout makes scrollWidth exceed
   // clientWidth by a fraction on plenty of widths where nothing is cut off,
@@ -10376,6 +10450,12 @@ const DROP_SLOP = 14;
 //: hit test at release finds nothing.
 let graphDropTarget = null;
 
+//: The nodes a drag pinned so they would hold still while it aimed. Kept as a
+//: list rather than inferred at release, because "was pinned by this drag" and
+//: "was held by the user" are the same `fx != null` afterwards, and releasing
+//: the second kind would silently undo a double-click hold.
+let graphDragPinned = [];
+
 function graphNodeUnder(dragged, event) {
   for (const other of graphNodesRef || []) {
     if (other === dragged || other.isGroup) continue;
@@ -10678,6 +10758,29 @@ async function renderGraph() {
           if (!event.active) graphSimulation?.alphaTarget(0.3).restart();
           d.fx = d.x;
           d.fy = d.y;
+          // **Everything else stands still for the length of the drag.**
+          // Reported: "how does the drag to connect work if the nodes are
+          // constantly pushed away from each other?" It didn't, and that is
+          // the honest answer — reheating the simulation set every *other*
+          // note moving at exactly the moment you were trying to aim at one.
+          // The code below already carried a workaround for the symptom
+          // (remembering the lit target rather than hit-testing at release,
+          // because the target moved out from under the pointer); this
+          // removes the cause. Aiming at a moving target is not a gesture, it
+          // is a reflex test.
+          //
+          // Pinned by hand here rather than by stopping the simulation,
+          // because the ticks are what keep the edges attached to the node
+          // you *are* dragging. And only the nodes this pins are released —
+          // a note double-clicked to hold its place stays held, which is the
+          // whole point of that gesture.
+          graphDragPinned = [];
+          for (const other of nodes) {
+            if (other === d || other.fx != null) continue;
+            other.fx = other.x;
+            other.fy = other.y;
+            graphDragPinned.push(other);
+          }
         })
         .on("drag", (event, d) => {
           d.fx = event.x;
@@ -10704,6 +10807,13 @@ async function renderGraph() {
           graphDropTarget = null;
           nodeGroups.classed("graph-drop-target", false);
           if (over) linkByDrop(d, over);
+          // Let the layout breathe again — but only the nodes this drag
+          // pinned. A node the user held with a double-click keeps its place.
+          for (const other of graphDragPinned) {
+            other.fx = null;
+            other.fy = null;
+          }
+          graphDragPinned = [];
           if (tree) return; // a laid-out tree keeps its shape
           d.fx = null;
           d.fy = null;
@@ -10887,6 +10997,26 @@ async function renderGraph() {
 
   let fitted = false;
   graphSimulation?.on("tick", () => {
+    // Keep the layout inside its own frame. Reported as "the graph ui is out
+    // of bounds", and the mechanism is that the view is framed exactly *once*
+    // — the first time the simulation settles — while the simulation itself
+    // never stops for good: every drag reheats it (`alphaTarget(0.3)`), and a
+    // reheated repulsion force pushes the outermost notes a little further out
+    // each time. Nothing ever pulls them back, and after a few drags the notes
+    // at the edge of the map are off the edge of the box, with no way to know
+    // they are there.
+    //
+    // A clamp rather than a repeated re-fit, because a re-fit would zoom the
+    // map out from under someone who had just zoomed in on purpose. This bounds
+    // the world instead, so the one framing stays correct for as long as the
+    // map is open. The padding is the node radius plus room for its label,
+    // which is drawn below the circle — a node clamped exactly to the edge
+    // would have its own name outside the frame.
+    for (const node of nodes) {
+      const pad = graphNodeRadius(node) + 28;
+      node.x = Math.max(pad, Math.min(width - pad, node.x));
+      node.y = Math.max(pad, Math.min(height - pad, node.y));
+    }
     edgeLines
       .attr("x1", (d) => d.source.x)
       .attr("y1", (d) => d.source.y)

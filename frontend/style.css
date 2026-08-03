@@ -3919,6 +3919,12 @@ html { font-size: 16px; }
 .graph-trace select { max-width: 16rem; flex: 1 1 9rem; min-width: 0; }
 .graph-trace-label { font-size: var(--text-md); font-weight: 600; }
 .graph-trace-arrow { color: var(--muted); }
+/* The strip's own caption. `flex: 0 1 auto` with a floor rather than a fixed
+   size: it is the least important thing on the row, so it is the first to give
+   its space back to the pickers, and it drops out entirely rather than wrapping
+   the strip onto a second line for a sentence. */
+.graph-trace-hint { font-size: var(--text-sm); flex: 0 1 auto; min-width: 0; }
+@media (max-width: 1080px) { .graph-trace-hint { display: none; } }
 .graph-trace-result {
   margin: 0 0 var(--space-3);
   font-size: var(--text-md);
@@ -6708,6 +6714,12 @@ textarea.autogrow {
   background: var(--inner);
   border-radius: var(--radius-md);
 }
+/* The strip whose ⋯ menu is open, lifted above the other notes' strips.
+   Positioning this strip made it a stacking context, so the menu inside it
+   could never rise past a sibling strip on the same z-index that happened to
+   come later in the document — which is every note below this one. See
+   `openActionMenu` in app.js for what that cost. */
+#entry-list > li .entry-actions.menu-open { z-index: 5; }
 #entry-list > li:hover .entry-actions,
 #entry-list > li:focus-within .entry-actions {
   opacity: 1;

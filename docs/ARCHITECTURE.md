@@ -510,6 +510,43 @@ SQLite via SQLAlchemy 2.0 (`core/database.py`). Main tables:
 columns are added to existing databases in place. You never delete your data to
 upgrade. Rename/removal-style migrations are out of scope until genuinely needed.
 
+### Storage headroom, measured not guessed
+
+Asked directly whether storage becomes a problem for a notebook that grows
+for years. Measured with `scripts/scale_test.py` (roadmap ANALYSIS.md §34,
+item 2) rather than estimated: a real 50,000-note SQLite file, checkpointed
+out of WAL before measuring, was **12MB** — its `embeddings` table is the
+only part that scales with vector size, and this fixture's vectors are 4
+floats (16 bytes) rather than a real backend's 384–1024 dims. Re-priced at a
+common local model's 384 dims (1536 bytes/vector), the same 50,000 notes come
+to **~88MB**, or **~1.8KB per note** including its content, tags and
+metadata. Extrapolated linearly (`entries`/`embeddings` are the only tables
+that grow with note count, and both are simple fixed-width-ish rows — no
+per-note table fan-out) that's **~350MB at 200,000 notes**, comfortably
+inside "a notebook nobody will ever actually finish filling."
+
+**What doesn't fit this rate, and isn't bounded by it:**
+
+- **Attachments** (`data/uploads/`) — arbitrary files, kept whole, with no
+  cap and no relationship to note count. A notebook with a handful of large
+  PDFs can outweigh 200,000 notes' worth of text easily; this is a
+  per-attachment decision the user makes, not something the schema can
+  budget for.
+- **`entry_revisions`** — one row per edit, not per note. A note edited a
+  hundred times costs a hundred times what one written once does; nothing
+  currently prunes old revisions.
+- **The `audit_log`** — one row per meaningful action, unbounded, growing
+  with *usage* over time rather than with notebook size — a notebook used
+  daily for years accumulates this independently of how many notes are in
+  it.
+
+None of the three above were sized in this pass — they're flagged, not
+measured, because none of them is proportional to note count the way
+`entries`/`embeddings` are, so a single "bytes per note" figure would
+misrepresent them. Worth a dedicated look if either is ever reported as
+actually large in practice; nothing today prunes `entry_revisions` or
+`audit_log`, and neither has surfaced as a real complaint yet.
+
 ## 8b. Anything that leaves the machine
 
 One module, `search/websearch.py`, owns every outbound request, and it has

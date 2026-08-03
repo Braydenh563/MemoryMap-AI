@@ -252,6 +252,11 @@ class ChatResponse(BaseModel):
     # Whether Ollama is reachable — lets the UI distinguish "offline"
     # from "nothing to answer" honestly.
     ollama_running: bool = False
+    # The time phrase the search narrowed on ("last week", "recently"), or "".
+    # An empty dated result has two facts to report and only saying the first
+    # — "no matching records" — is what makes a working narrow search look
+    # like a broken one. The client needs the phrase to say the second.
+    when_phrase: str = ""
 
 
 def _attached_notes(session: Session, note_ids: list[int]) -> list[dict]:
@@ -287,6 +292,7 @@ def _prepare(session: Session, question: str, note_ids: list[int] | None = None)
     if attached:
         detected = intent.NOTES
     connected_ids: set[int] = set()
+    when_phrase = ""
     if intent.needs_retrieval(detected):
         found = search_manager.retrieve_detailed(
             session, question, deps.get_embeddings(), limit=5
@@ -298,6 +304,7 @@ def _prepare(session: Session, question: str, note_ids: list[int] | None = None)
         # looks like the search misfired — and the model, told nothing, would
         # report them as results.
         connected_ids = found.connected_ids
+        when_phrase = found.when_phrase
     else:
         entries, mode = [], "none"
 
@@ -357,6 +364,7 @@ def _prepare(session: Session, question: str, note_ids: list[int] | None = None)
         # search, not about the note, and every other route that returns an
         # entry would otherwise carry a field that is always false.
         "connected_ids": sorted(connected_ids),
+        "when_phrase": when_phrase,
         "style": config.get_preference("communication_style", "friendly"),
         "profile": profile,
     }
@@ -403,6 +411,7 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         raw_results=prepared["raw_results"],
         search_mode=prepared["search_mode"],
         connected_ids=prepared["connected_ids"],
+        when_phrase=prepared["when_phrase"],
         answered_by=deps.get_model_manager().chat_model() if answered else None,
         ollama_running=ollama_running,
     )
@@ -546,6 +555,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                 "raw_results": [r.model_dump(mode="json") for r in prepared["raw_results"]],
                 "search_mode": prepared["search_mode"],
                 "connected_ids": prepared["connected_ids"],
+                "when_phrase": prepared["when_phrase"],
                 "answered_by": model_manager.chat_model() if will_answer else None,
                 "ollama_running": ollama_running,
             }

@@ -52,6 +52,21 @@ class Understood:
     #: last week?"). There is no subject to search for, so the honest answer is
     #: every note in the range rather than a similarity ranking of noise.
     time_only: bool = False
+    #: True when the time word was **vague** rather than stated — "recently",
+    #: "recent". Reported, and it is a real distinction rather than a nicety:
+    #:
+    #:   *"I have a note with a joke in it … when I go into the ask section and
+    #:   say 'jokes I have saved recently', it doesn't show. Granted I did make
+    #:   it 2 weeks ago but that is still kinda recent."*
+    #:
+    #: "Last Tuesday" is a **constraint** — the person knows when, and a note
+    #: from Wednesday is not what they asked for. "Recently" is a **lean**:
+    #: nobody saying it has a boundary in mind, and whatever number this file
+    #: picks for it will be wrong for somebody by a day. Turning a lean into a
+    #: hard filter is how a notebook tells you it has no jokes when it has two.
+    #:
+    #: So a soft range still orders and still labels; it just does not exclude.
+    soft: bool = False
 
     @property
     def has_range(self) -> bool:
@@ -177,8 +192,29 @@ def _tidy(text: str) -> str:
     return " ".join(text.split()).rstrip(_TRAILING_CHARS)
 
 
+#: The same idea from the other end, and it was a real gap. Front-stripping
+#: alone assumes the time phrase is at the end of the sentence, and it usually
+#: is not: lifting "recently" out of "jokes I have saved recently" leaves
+#: "jokes I have saved", and lifting "the last month" out of "jokes from the
+#: last month" leaves a dangling "jokes from". Both then went to the keyword
+#: search as *two* required terms and to the embedder as a sentence about
+#: saving rather than about jokes.
+#:
+#: Only filler is taken, and only from the very end, so a real subject can
+#: never be eaten: "notes about my day" keeps "day" because "day" is not in the
+#: list, while "jokes I have saved" loses three words that are.
+_TRAILING_SCAFFOLD = re.compile(
+    r"[\s,]*\b(?:"
+    r"i|me|my|have|has|had|did|do|does|was|were|been|get|got|"
+    r"save[ds]?|note[ds]?|wrote|written|write|say|said|about|"
+    r"from|in|on|at|for|of|with|any|all|the|a|an"
+    r")\s*$",
+    re.IGNORECASE,
+)
+
+
 def _strip_scaffolding(text: str) -> str:
-    """Peel question words off the front, repeatedly.
+    """Peel question words off both ends, repeatedly.
 
     Repeatedly, because they stack: "what did I write about…" is three of these
     in a row. It stops as soon as nothing matches, and it never empties the
@@ -192,6 +228,7 @@ def _strip_scaffolding(text: str) -> str:
     cleaned = _tidy(text)
     for _ in range(8):
         stripped = _tidy(_SCAFFOLD.sub("", cleaned, count=1))
+        stripped = _tidy(_TRAILING_SCAFFOLD.sub("", stripped, count=1))
         if not stripped or stripped == cleaned:
             break
         cleaned = stripped
@@ -212,12 +249,14 @@ def understand(question: str, now: datetime | date | None = None) -> Understood:
 
     since = until = None
     phrase = ""
+    soft = False
     remainder = text
     for pattern, kind in _COMPILED_RANGES:
         match = pattern.search(remainder)
         if not match:
             continue
         since, until = _range_for(kind, match, today)
+        soft = kind == "recent"  # a lean, not a boundary — see `Understood.soft`
         phrase = match.group(0).strip()
         remainder = (remainder[: match.start()] + " " + remainder[match.end():]).strip()
         break
@@ -245,6 +284,7 @@ def understand(question: str, now: datetime | date | None = None) -> Understood:
         until=until,
         when_phrase=phrase,
         time_only=time_only,
+        soft=soft,
     )
 
 

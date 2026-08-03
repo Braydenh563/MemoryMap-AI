@@ -2257,6 +2257,11 @@ const SEARCH_MODE_LABELS = {
   semantic: "semantic search",
   keyword: "keyword search",
   recent: "recent notes", // broad question → showing recent entries
+  // These two were missing and rendered raw, so the panel said "dated" — the
+  // internal name, in a strip whose whole job is telling you in plain words how
+  // the app found what it is showing you.
+  dated: "by date",
+  none: "nothing searched",
 };
 
 // Say something to a screen reader without putting anything on screen. Used
@@ -2369,7 +2374,15 @@ function renderChatMeta(meta) {
   if (meta.raw_results.length === 0) {
     const li = document.createElement("li");
     li.className = "muted";
-    li.textContent = "No matching records.";
+    // A dated question that found nothing has *two* facts to report, and only
+    // saying the first is what makes an empty result look like a broken
+    // search: nothing matched, **and** the window you named is why it was
+    // looking so narrowly. Naming the phrase is also the fastest route to the
+    // fix, because the next thing to try is asking again without it.
+    li.textContent =
+      meta.search_mode === "dated" && meta.when_phrase
+        ? `Nothing matching “${meta.when_phrase}”. Try asking without it.`
+        : "No matching records.";
     rawList.appendChild(li);
   }
   // Notes that came along because they are *connected* to a match are labelled

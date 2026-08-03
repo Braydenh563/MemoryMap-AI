@@ -11,6 +11,7 @@ import json
 import platform
 import re
 import sys
+import tempfile
 import zipfile
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -29,7 +30,7 @@ from memorymap.ai import skills
 from memorymap.core import backup, deps, embedmodels, extras, logbuffer
 from memorymap.core.database import AuditLog, Category, Entry, EntryLink, utcnow
 from memorymap.core.deps import get_session
-from memorymap.entry import manager
+from memorymap.entry import importer, manager
 from memorymap.search import searxng_manager, websearch
 
 router = APIRouter(tags=["settings"])
@@ -915,6 +916,78 @@ def import_markdown(
     manager.log_action(session, "imported", "data", detail=f"markdown x{imported}")
     session.commit()
     return {"imported": imported, "skipped": skipped}
+
+
+#: A PDF or slide deck, not a video — well past what a document-conversion
+#: library is for.
+MAX_DOCUMENT_IMPORT_BYTES = 20 * 1024 * 1024
+#: A very long deck splits into one note per slide; a sane ceiling on how
+#: many notes one upload can create, the same instinct as `tools.py`'s
+#: MAX_PLAN_STEPS — a huge number here is usually a converter emitting one
+#: heading per page rather than someone wanting 200 new notes at once.
+MAX_DOCUMENT_IMPORT_NOTES = 25
+
+
+@router.post("/import/document", status_code=201)
+def import_document(file: UploadFile, session: Session = Depends(get_session)) -> dict:
+    """Turn an uploaded PDF/Word/slide file into one or more notes, via
+    markitdown (§37G) — the button `core/extras.py`'s `documents` extra
+    installed for and had nothing behind, until this.
+
+    One note per top-level heading when the converted markdown has more than
+    one (a deck, a document with real chapters); the whole file as one note
+    otherwise — `import_markdown`'s "each file becomes a note" for the common
+    case, once markitdown has turned it into something with that shape.
+    """
+    if not importer.markitdown_available():
+        raise HTTPException(status_code=503, detail=importer.INSTALL_HINT)
+
+    data = file.file.read(MAX_DOCUMENT_IMPORT_BYTES + 1)
+    if len(data) > MAX_DOCUMENT_IMPORT_BYTES:
+        raise HTTPException(status_code=413, detail="File is larger than 20 MB")
+    if not data:
+        raise HTTPException(status_code=400, detail="The file is empty")
+
+    suffix = Path(file.filename or "document").suffix[:12] or ".txt"
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=True) as saved:
+        saved.write(data)
+        saved.flush()
+        try:
+            text = importer.convert_to_markdown(Path(saved.name))
+        except Exception as exc:  # a file markitdown can't parse must not 500
+            raise HTTPException(
+                status_code=422, detail=f"Couldn't read that file: {exc}"
+            ) from exc
+
+    all_sections = importer.split_into_sections(text)
+    if not all_sections:
+        raise HTTPException(
+            status_code=422, detail="That file had no readable text in it"
+        )
+    sections = all_sections[:MAX_DOCUMENT_IMPORT_NOTES]
+
+    imported = 0
+    for section in sections:
+        entry = manager.create_entry(
+            session,
+            section,
+            category_name="Imports",
+            tags=["imported"],
+            ai_confidence=100,
+        )
+        entry.user_filed = True  # this file said where it came from, not the janitor
+        session.commit()
+        deps.store_quietly(session, entry)
+        imported += 1
+    manager.log_action(
+        session, "imported", "data", detail=f"document x{imported} ({file.filename})"
+    )
+    session.commit()
+    return {
+        "imported": imported,
+        "truncated": len(all_sections) > len(sections),
+        "filename": file.filename,
+    }
 
 
 # --- web search (Wave F) -----------------------------------------------------------

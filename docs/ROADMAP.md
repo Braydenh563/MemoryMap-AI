@@ -1562,19 +1562,19 @@ not correctness.** Bug fixes and a density pass are different jobs, and this
 one is still owed the second.
 
 Concretely, in the order they'd help most:
-1. **Fewer rows at rest.** The skills group, the mode segment, the length/
-   persona pair and the composer are four visual bands even though the first
-   three now share one strip — collapsing infrequently-changed choices (length,
-   persona) behind a single "⚙" disclosure next to Send would leave the
-   composer as almost the whole dock on a normal turn, with the rest one click
-   away rather than always drawn.
-2. **A compact/expanded toggle**, remembered like the composer height already
-   is, rather than one fixed density for everyone — the same instinct behind
-   the Appearance density setting (37E below), scoped to this one surface.
-3. Re-measure against **37E's zoom setting** once it exists: some of "bulky"
-   may be "too large for a 13-inch screen at 100%," which a zoom control fixes
-   for the whole app rather than one row at a time. Build 37E first and
-   re-look at this before spending more effort here.
+1. ~~**Fewer rows at rest.**~~ **Done** (commit `46df305`) — length/persona
+   moved behind a "⚙" disclosure, collapsing the control area from two
+   wrapped rows to one. **Marked "start here next" below after it had
+   already shipped** — corrected in place rather than left to be rebuilt.
+2. ~~**A compact/expanded toggle**~~. **Checked in Chromium, not built**: with
+   item 1's disclosure in place, an 800px window shows the whole dock at
+   103px (`.chat-dock top:611.6 bottom:714.2` vs `innerHeight:800`) — one
+   control row, one composer row, already the shape item 1 was meant to
+   produce. Re-open only against a specific narrower-window report.
+3. Re-measure against **37E's zoom setting**, which now exists — item 2's
+   check covers this too.
+
+**§37C is done.**
 
 ### 37D. The web panel — resizable, and the reader refined
 
@@ -1684,25 +1684,30 @@ The shape, still worth keeping: group by question, not list by feature (§36B).
 "Layout"/"Colour" answer *how it's drawn*; New note/Options/Refresh answer
 *what to do with it*; Trace is its own mode, not a setting left on.
 
-### 37G. Quick sketch — bring in images and documents
+### 37G. Quick sketch — bring in images and documents — done, both halves
 
 *"I want to expand on and improve the quick sketch feature. I want to be able
-to upload documents and images."* Two different features wearing one request:
+to upload documents and images."* Asked which was meant; the user said both:
 
-- **Upload an image into the sketch pad**, to annotate over it (mark up a
-  screenshot, trace over a photo) rather than only drawing on a blank canvas.
-  Scoped to Sketch specifically and a reasonably contained addition — a file
-  input, drawn onto the canvas as a background layer before the pen tool
-  starts.
-- **"Upload documents"** is very likely the same feature the README's "Next
-  up" list and `core/extras.py` already name and flag as a debt: `markitdown`
-  installs and does nothing, because *"the app has no import button for these
-  yet."* Don't build two separate importers — this is the button that extra
-  has been waiting for, turning a PDF/Word file/slide deck into markdown and
-  bringing it in as a note (or notes). Worth confirming with the user whether
-  they meant this, or specifically documents *inside* the sketch pad (e.g., a
-  PDF page as a background to annotate) — the two are different amounts of
-  work and the wording could mean either.
+- **Sketch pad image upload.** A second canvas (`#sketch-bg-canvas`) sits
+  under the strokes canvas; an "🖼️ Add image" button draws the chosen file
+  onto it, fit-inside and centred. The Eraser switches to
+  `globalCompositeOperation: "destination-out"` rather than painting white, so
+  erasing a stroke reveals the image underneath instead of punching a white
+  hole through it — verified pixel-by-pixel in Chromium (alpha 0 on the
+  stroke layer, the image's own colour on the background layer beneath it).
+  Clear wipes strokes only; Save composites both layers into the one PNG
+  attachment.
+- **The markitdown importer.** `core/extras.py`'s `documents` extra had
+  nothing calling it since it was added; `POST /import/document`
+  (routes_settings.py, beside the existing markdown importer) does now —
+  MarkItDown converts the file, and a result with more than one top-level
+  heading becomes one note per heading (a deck, a document with chapters)
+  rather than one long note, capped at 25 notes per upload. Settings →
+  Import & export has the button. Verified end to end with the real package
+  (installed for this session only, per its own "optional, from the app"
+  design) and with it faked for the suite, the same convention
+  `test_waveh_voice.py` uses for faster-whisper.
 
 ### 37H. llama.cpp, actually wired in
 
@@ -1715,25 +1720,22 @@ disk, not a registry to pull from — different UX from both existing
 providers), and `core/extras.py`'s `unavailable` string comes off once it is
 real. This is a backend feature, not a UI one — budget a full session.
 
-### 37I. Compress the chat — as a tool the agent can call, not only a button
+### 37I. Compress the chat — as a tool the agent can call — done
 
 *"make compressing the chat an agent tool so the agent can do it
-automatically."* The machinery exists — `POST /chat/compress` already
-summarises, `compressChatContext()` already calls it — but it is built as a
-**human-gated** two-step flow on purpose: the code comment on
-`showCompressReview` is explicit that a summary is shown *before* it is used
-because *"a summary you cannot correct is one you have to trust blindly."*
-
-Turning this into an agent tool (alongside `make_plan`, `run_skill`,
-`ask_user` in `ai/tools.py`'s `HANDOFFS` table) raises the same tension §35K
-already reasoned through for skills: does the agent's own compression skip
-the review step (fast, but the safeguard this feature was built around is
-gone for exactly the runs where the summary matters most — a long agentic
-session compressing its own history) or does it still hand off to a human
-mid-run (safe, but "automatically" is the word the user actually used, and a
-handoff mid-agent-run is a pause the agent did not ask for)? Decide which
-before writing the tool, the way §36G's rule says: write the trade-off down
-once, don't re-derive it.
+automatically."* Raised the tension §35K already reasoned through for
+skills: skip the review step (fast, but the safeguard this feature was built
+around is gone for exactly the runs where it matters most) or still hand off
+to a human mid-run (safe, but a pause the agent didn't ask for). **Decided
+with the user: still hand off.** `compress_chat` joins `ask_user`/
+`run_skill`/`make_plan` in `ai/tools.py`'s `HANDOFFS` table, `ends_turn=True`
+— the model's turn ends on a `compress_review` event, and `app.js`'s
+`onCompressReview` opens the exact same `showCompressReview` panel the manual
+button already fills in, so a summary the agent asked for gets the identical
+edit-before-Apply review as one the user pressed a button for. The
+summarising logic moved to `tools.summarise_turns` (was inline in
+`routes_chat.py`) so the endpoint and the tool share one prompt and one
+ceiling rather than two that could drift.
 
 ### 37J. The Timeline — narrow columns, clipped text, no markdown, low utility — done
 
@@ -1774,20 +1776,19 @@ Chromium** (`renderTimeline`/`timelineDot`/`openTimelineBand` in `app.js`):
    "Everything else" band. **Not done:** seeing a band's whole list without
    scrolling sideways, or reading a note inline without leaving the tab.
 
-### 37K. Emoji rendering — needs a decision, not a guess
+### 37K. Emoji rendering — done, the bounded reading
 
 *"I want to change how text emoji characters are rendered."* Too open to build
-against blind. The one concrete precedent in this codebase is the ⚡️
-variation-selector fix (HISTORY: a bare U+26A1 renders as a thin text-style
-glyph on platforms whose default presentation for it is text, which beside a
-colour 🌐 and 🤖 in the same strip looks like something that failed to load) —
-if that is the shape of the complaint, an app-wide audit for emoji missing
-their variation selector is a bounded, mechanical fix. But "how they're
-rendered" could equally mean: a different emoji *font* entirely (bundling
-Twemoji/Noto so the app looks identical across Windows/Mac/Linux rather than
-using each OS's native glyphs, which is a real and much bigger asset-and-CSP
-decision), or turning emoji into plain-text alternatives for a low-vision/
-high-contrast mode. **Ask which, before spending a session on the wrong one.**
+against blind — asked which of three readings (the variation-selector shape
+below, a bundled Twemoji/Noto font, or plain-text alternatives for a
+low-vision mode) was meant. **Decided: the variation-selector audit**, the one
+concrete precedent already in this codebase (the ⚡️ fix — a bare U+26A1
+renders as a thin text-style glyph on platforms whose default presentation
+for it is text). Swept `app.js`/`index.html` for the classic list (⚡ ▶ ✖ ☑ ⚠
+and others) and added the missing U+FE0F to every UI-visible hit — the
+several that were only in comments were left alone, and ✉ ☎ ✂ ♻ ❤ ✔ don't
+appear in the frontend at all. A different emoji font or a plain-text mode are
+still open, undecided reinterpretations of the same original request.
 
 ### 37L. Dashboard widgets — shorter, and the full-audit umbrella
 
@@ -1814,18 +1815,17 @@ Chromium) across two sessions picking up this list in order:
 1. ~~**37B's decision**~~ **Decided: no.** See §37B.
 2. ~~**37D.1** (resizable web panel)~~ **Done.** See §37D.
 3. ~~**37J** (Timeline)~~ **Done.** See §37J.
-4. ~~**37F** (graph toolbar)~~ **Mostly already done before it was picked
-   up** (§37F's correction note); the real gap — Trace as a permanent row —
-   is fixed too.
-5. ~~**37E** (zoom setting)~~ **Done.** See §37E — built on the root
-   `font-size` option, composing with `data-fontsize` via `--zoom`.
-6. **37C** (chat dock density pass) — **start here next**, now that 37E has
-   shipped, per 37C's own note.
-7. **37I** (compress as a tool) — needs the review-step decision first.
-8. **37G / 37H / 37K** — each needs one clarifying question answered before
-   it can be scoped; ask, then schedule.
-9. **37L** — the umbrella program; break into dated sub-items as capacity
-   allows, don't start a session on "full UI overview" itself.
+4. ~~**37F** (graph toolbar)~~ **Mostly already done before it was picked up**
+   (§37F's correction note); the real gap — Trace as a permanent row — fixed.
+5. ~~**37E** (zoom setting)~~ **Done** — root `font-size` composing with
+   `data-fontsize` via `--zoom`. See §37E.
+6. ~~**37C**~~ **Done.** Item 1 had already shipped when this list was
+   written (corrected in place); item 2/3 checked in Chromium, not needed.
+7. ~~**37I**~~ **Done** — `compress_chat`, still hand off to a human, not auto-apply.
+8. ~~**37G**~~ **Done, both halves** — sketch image upload, the markitdown importer.
+9. ~~**37K**~~ **Done** — the variation-selector audit, the bounded reading.
+10. **37H** — asked directly; user chose not this session. Still queued.
+11. **37L** — the umbrella program; break into dated sub-items.
 
 ---
 
@@ -1940,9 +1940,9 @@ in front of them:
 8. **`app.js` module split** (§31/§32), riding in on #5 above rather than as
    its own session, once #2's smoke suite exists — the sequencing reasoning
    in "Priority map" Tier 3 above still holds.
-9. Everything still open in §37 (37C/37G/37H/37I/37K/37L) — small,
-   secondary, or blocked on a clarifying question; pick these up between the
-   items above, not instead of them.
+9. What's left of §37 — **37H** (llama.cpp, a full backend session, asked
+   about and deferred) and **37L** (the umbrella "full UI audit," break into
+   dated sub-items). 37C/37G/37I/37K are all done — see each section.
 
 **Being worked through now, in this order, without stopping to ask** — per
 explicit instruction. See HANDOVER.md for what was actually built each

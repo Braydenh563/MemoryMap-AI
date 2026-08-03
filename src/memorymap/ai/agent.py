@@ -550,6 +550,10 @@ _HANDOFF_RECOVERY = {
         "run_skill again — or, if none of them fits, just do the job yourself "
         "with the ordinary tools."
     ),
+    "compress_chat": (
+        "There isn't enough conversation yet to compress — keep going, or "
+        "just answer without calling this."
+    ),
 }
 _ASK_RECOVERY = _HANDOFF_RECOVERY["ask_user"]  # kept: named in tests and §33
 
@@ -916,7 +920,7 @@ def run_agent(
                 # nothing to expire, nothing to lose on a reload, and the
                 # exchange is visible in the saved conversation like any other.
                 try:
-                    handover = tools.handoff_event(name, arguments)
+                    handover = tools.handoff_event(name, arguments, history)
                 except tools.ToolError as exc:
                     # A malformed question, or a skill named that doesn't
                     # exist. Recoverable mistakes, not dead turns: hand the

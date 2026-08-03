@@ -111,15 +111,11 @@ EXTRAS: tuple[Extra, ...] = (
     Extra(
         id="documents",
         label="Import documents (markitdown)",
-        enables="Turns PDFs, Word files and slides into markdown so they can "
-        "be brought in as notes.",
+        enables="Turns PDFs, Word files and slides into notes — the "
+        "'Import a document' button in Settings → Import & export.",
         packages=("markitdown",),
         module="markitdown",
         size="~20 MB",
-        unavailable="Nothing in the app calls it yet — there is no “bring in a "
-        "PDF” button for it to sit behind, so installing it would use your "
-        "disk and change nothing you can see. This unlocks when that button "
-        "is built.",
     ),
     Extra(
         id="localllm",

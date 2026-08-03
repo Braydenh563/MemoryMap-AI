@@ -2,7 +2,80 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the AGPL/MIT constraint) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session: four reported bugs, then §38's ranked list worked straight through
+## Latest session: §37's four remaining clarifying-question items, all four asked and built
+
+Started by checking the running app and git history against the previous
+handover before touching anything — confirmed §38 items 3–7 (Arc layout,
+Timeline branch/line, meeting notes, onboarding diagnostics) were already
+merged (PR #70), and found one real staleness bug in the process: §37C's
+density pass (the ⚙ disclosure collapsing the dock to one row) had already
+shipped in commit `46df305`, but ROADMAP.md still listed all three of its
+sub-items as open and named it "start here next" — corrected in place, and
+checking the remaining two sub-items in Chromium found the dock already at a
+single 103px-tall row, so no further work was needed there.
+
+That left §37's four items explicitly blocked on a clarifying question
+(37G, 37H, 37I, 37K) — the previous handover's own instruction was "ask, then
+schedule," so this session did: asked all four in one batch. Three came back
+with a build decision; the fourth (37H, llama.cpp) came back "not this
+session." All four now closed out or correctly deferred:
+
+- **§37G, both halves.** The sketch pad's canvas is now two layers —
+  `#sketch-bg-canvas` for an uploaded image, `#sketch-canvas` for pen strokes
+  above it. The Eraser switched from painting white to
+  `globalCompositeOperation: "destination-out"`, so erasing a stroke reveals
+  the photo underneath instead of punching a white hole through it — checked
+  with a pixel read (`alpha: 0` on the stroke layer, the image's own colour
+  on the background layer) rather than assumed from reading the canvas code.
+  Save composites both layers into one PNG attachment; the *downloaded*
+  attachment was fetched back through the real API and visually confirmed to
+  show the photo, the stroke, and the eraser gap. Separately: `POST
+  /import/document` (`routes_settings.py`, next to the existing markdown
+  importer) turns a PDF/Word/slide file into notes via `markitdown` — one
+  note per top-level heading when there's more than one, capped at 25 per
+  upload. `core/extras.py`'s `documents` extra lost its `unavailable` flag,
+  since there's now a real button behind it. Verified two ways: the whole
+  suite fakes `markitdown_available`/`convert_to_markdown` (the package isn't
+  in CLAUDE.md's install recipe, same as faster-whisper), and separately
+  `pip install markitdown` (lightweight, unlike torch/sentence-transformers)
+  and a real conversion end to end, both via the API directly and driven
+  through the actual Settings → Import & export UI in Chromium.
+- **§37I.** `compress_chat` joined `ask_user`/`run_skill`/`make_plan` in
+  `ai/tools.py`'s `HANDOFFS` table. Decided with the user: still hand off to
+  a human for review rather than auto-apply — the agent's turn ends on a
+  `compress_review` SSE event, and `app.js`'s new `onCompressReview` opens
+  the *same* `showCompressReview` panel the manual Compress button already
+  fills in, so the two paths share one review UI rather than two that could
+  drift. The summarising logic moved from `routes_chat.py` into
+  `tools.summarise_turns`, shared by both the endpoint and the tool — the
+  route's own tests (which pin its exact 502-vs-503 status codes) stayed
+  green through the move.
+- **§37K.** Decided: the bounded reading (the variation-selector audit), not
+  a font swap or an accessibility mode. Swept `app.js`/`index.html` for the
+  classic list of emoji with a text-default presentation and added the
+  missing U+FE0F wherever one appeared in UI-visible text — left comments
+  alone, since a comment rendering as a thin glyph costs nothing.
+- **§37H.** Asked directly whether to spend this session on it (a full
+  backend session: a new `ai/provider.py` entry, a GGUF file picker); the
+  user said no. Still queued, unchanged.
+
+ROADMAP.md's §37 subsections, its own priority-order list, and §38's item 9
+are all updated in place to match — a session that reads only the "next
+steps" list at the bottom would otherwise see 37G/37I/37K as still open.
+Stayed under the 2,000-line lint the whole way by trimming as it went, not by
+skipping the correction.
+
+Full `pytest tests/` (~1,600+ tests), `ruff check .`, and `node --check
+frontend/app.js` all green. **What's next:** §37H (llama.cpp, still needs its
+own session) and §37L (the "full UI audit" umbrella — break into dated
+sub-items, don't start a session on the phrase itself). Beyond §37, §38's own
+item 8 (the `app.js` module split) is the next standing item — see its own
+note below about why "ride in on sub-tabs" may need re-thinking now that §3
+turned out to be substantially done a different way.
+
+---
+
+## Previous session: four reported bugs, then §38's ranked list worked straight through
 
 Started with three quick user-reported UI bugs, found a second session
 mid-edit on the same branch fixing one of them (the web-result buttons) —

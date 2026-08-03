@@ -7513,6 +7513,25 @@ function noteSkillRun(name) {
   localStorage.setItem(RECENT_SKILLS_KEY, JSON.stringify(recent));
 }
 
+//: A skill's name usually starts with its own emoji — "🩺 Notebook health
+//: check", "🏷 Clean up my tags" — and the quick-link then put ⚡ in front of
+//: it, so those two chips wore two icons each while every other chip in the
+//: row wore one. Reported as clutter, and it was: measured at 224px and 216px
+//: against 107–169px for the fixed chips, i.e. the two least important buttons
+//: in the row were the two widest.
+//:
+//: The ⚡ is the one that stays, because it carries what the row does not
+//: otherwise say — this chip *runs* something rather than opening a page. The
+//: skill's own emoji is still on it everywhere skills are listed.
+const LEADING_EMOJI = /^(\p{Extended_Pictographic}(?:️|‍\p{Extended_Pictographic})*)\s*/u;
+
+function withoutLeadingEmoji(name) {
+  const stripped = name.replace(LEADING_EMOJI, "");
+  // A skill named with nothing but an emoji would otherwise become a blank
+  // chip; keeping the original is the lesser of the two.
+  return stripped.trim() || name;
+}
+
 function recentSkillLinks() {
   let recent = [];
   try {
@@ -7522,7 +7541,11 @@ function recentSkillLinks() {
   }
   return recent.slice(0, QUICK_SKILL_SLOTS).map((name) => ({
     icon: "⚡",
-    label: name,
+    label: withoutLeadingEmoji(name),
+    // The full name, unaltered, is what the button remembers itself by: the
+    // use counter and `runSkill` both key off it, and stripping the emoji from
+    // either would silently start a second tally or fail to find the skill.
+    skillName: name,
     skill: true,
     run: () => {
       const known = allSkills().find((s) => s.name === name);
@@ -7556,7 +7579,14 @@ function renderQuickLinks() {
       (link.primary ? " quick-link-primary" : "") +
       (link.skill ? " quick-link-skill" : "");
     button.type = "button";
-    if (link.skill) button.title = `Run the skill “${link.label}”`;
+    // Every chip gets a title, not only the skills: the labels truncate now
+    // that the row is equal columns, so hovering has to be able to finish the
+    // sentence. A chip whose label fits shows a tooltip repeating it, which is
+    // harmless; a chip whose label does not fit and has no tooltip is a button
+    // you cannot read at all.
+    button.title = link.skill
+      ? `Run the skill “${link.skillName}”`
+      : link.label;
     const icon = document.createElement("span");
     icon.className = "quick-link-icon";
     icon.textContent = link.icon;
@@ -7565,7 +7595,7 @@ function renderQuickLinks() {
     label.textContent = link.label;
     button.append(icon, label);
     button.addEventListener("click", () => {
-      noteQuickLinkUse(link.label);
+      noteQuickLinkUse(link.skillName || link.label);
       link.run();
     });
     box.appendChild(button);

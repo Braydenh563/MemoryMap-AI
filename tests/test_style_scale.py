@@ -188,7 +188,32 @@ def test_the_corner_tiers_are_derived_from_the_setting():
 
 #: Containers that sit directly inside a tab page. Each one used to draw its
 #: own outer gutter, and no two agreed — see .tab-page in style.css.
-PAGE_CONTAINERS = (".layout", ".doc-layout", ".dash-hero", ".reminders-card", "#graph-card")
+#:
+#: The four dashboard rows joined this list after the gutter they draw was
+#: *photographed* rather than found by the lint: the hero banner began at x=32
+#: and every row beneath it at x=64, on the same screen, because each added
+#: 2rem of its own on top of --page-gutter. One tab disagreeing with itself is
+#: worse than two tabs disagreeing with each other — both edges are visible at
+#: once — and the rule this file already enforced would have caught it if the
+#: list had named them.
+PAGE_CONTAINERS = (
+    ".layout",
+    ".doc-layout",
+    ".dash-hero",
+    ".reminders-card",
+    "#graph-card",
+    ".dash-quicklinks",
+    ".dash-stats",
+    ".dash-toolbar",
+    "#dash-grid",
+)
+
+#: Selectors with no background of their own: a pure wrapper's padding is an
+#: outer inset by another name, so both properties are checked. A container
+#: that paints something — .dash-hero is a visible panel — owns its padding.
+PURE_WRAPPERS = frozenset(
+    {".layout", ".doc-layout", ".dash-quicklinks", ".dash-stats", ".dash-toolbar", "#dash-grid"}
+)
 
 
 def test_no_page_draws_its_own_outer_gutter():
@@ -209,10 +234,20 @@ def test_no_page_draws_its_own_outer_gutter():
         # `margin` is what holds a box away from the window, so a horizontal
         # margin on a page container *is* a gutter however it is spelled.
         # `padding` is internal — .dash-hero is a visible panel and its own
-        # padding is none of the shell's business — except on the pure grid
-        # wrappers below, which have no background and nothing to pad.
-        props = "padding|margin" if selector in (".layout", ".doc-layout") else "margin"
-        for m in re.finditer(rf"(?m)^{re.escape(selector)}[^{{,]*\{{([^}}]*)\}}", text):
+        # padding is none of the shell's business — except on the pure
+        # wrappers, which have no background and nothing to pad.
+        props = "padding|margin" if selector in PURE_WRAPPERS else "margin"
+        # Leading whitespace is allowed so a rule *inside* a media query is
+        # checked too. That is not hypothetical: the dashboard's 720px block
+        # re-declared `margin: 0.8rem 1rem 0`, putting the gutter back on
+        # exactly the screens with the least room for it, and the anchored
+        # pattern never saw it.
+        # The boundary stops a prefix from matching a longer name — without it
+        # `.dash-hero` claims `.dash-hero-emblem` and reports its rules under
+        # the wrong selector.
+        for m in re.finditer(
+            rf"(?m)^\s*{re.escape(selector)}(?![\w-])[^{{,]*\{{([^}}]*)\}}", text
+        ):
             for prop, value in re.findall(rf"\b({props})\s*:\s*([^;]+);", m.group(1)):
                 parts = value.split()
                 horizontal = parts[1] if len(parts) > 1 else parts[0]

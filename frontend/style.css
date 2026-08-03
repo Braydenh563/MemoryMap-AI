@@ -1613,8 +1613,9 @@ html.modal-open body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 1rem;
-  padding: 0 2rem 0.5rem;
+  gap: var(--space-6);
+  /* No side inset: .tab-page's --page-gutter is the only one. See .dash-stats. */
+  padding: 0 0 var(--space-3);
 }
 /* Masonry-style packing: a fine row unit plus a JS-measured row span per card
    means each widget takes only the height it needs, and short ones stack
@@ -1628,7 +1629,10 @@ html.modal-open body {
   grid-auto-rows: var(--dash-row);
   grid-auto-flow: row dense; /* pack short widgets into the gaps */
   gap: var(--dash-gap);
-  padding: 0 2rem 2rem;
+  /* Neither inset is this grid's to draw: the sides are --page-gutter and the
+     bottom is --page-bottom, both already on .tab-page. The 2rem bottom here
+     was doubling that, so the dashboard scrolled 4rem past its last widget. */
+  padding: 0;
   align-items: start;
 }
 .dash-widget { display: flex; flex-direction: column; }
@@ -2409,9 +2413,8 @@ html.modal-open body {
     -webkit-overflow-scrolling: touch;
   }
   #tab-bar button { white-space: nowrap; }
-  .layout { padding: 0.8rem 1rem 1.25rem; }
-  #dash-grid { padding: 0 1rem 1.25rem; grid-template-columns: 1fr; }
-  .dash-toolbar { padding: 0.4rem 1rem; }
+  #dash-grid { grid-template-columns: 1fr; }
+  .dash-toolbar { padding: var(--space-2) 0; }
   .row { flex-wrap: wrap; }
   #chat-messages { max-height: 50vh; }
   .msg { max-width: 92%; }
@@ -3193,8 +3196,15 @@ html { font-size: 16px; }
 .dash-stats {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.6rem;
-  margin: 1rem 2rem 0;
+  gap: var(--space-4);
+  /* Vertical rhythm only. The 2rem side margin this used to carry sat on top
+     of .tab-page's own --page-gutter, so the strip — and the quick links, the
+     toolbar and the widget grid, all of which did the same — began 64px in
+     while the hero banner directly above them began at 32px. Measured, not
+     guessed: hero x=32, everything below it x=64, on one page. That is the
+     "spacing and alignment change per tab" complaint happening *within* a
+     single tab, which is worse, because both edges are on screen together. */
+  margin: var(--space-6) 0 0;
 }
 .stat-tile {
   display: flex;
@@ -3217,39 +3227,90 @@ html { font-size: 16px; }
 .stat-tile.stat-alert { border-color: var(--warn); }
 .stat-tile.stat-alert .stat-value { color: var(--warn); }
 @media (max-width: 720px) {
-  .dash-stats { margin: 0.8rem 1rem 0; gap: 0.4rem; }
-  .stat-tile { padding: 0.4rem 0.8rem; }
-  .stat-value { font-size: 1rem; }
+  .dash-stats { gap: var(--space-2); }
+  .stat-tile { padding: var(--space-2) var(--space-5); }
+  .stat-value { font-size: var(--text-body); }
 }
 
 /* --- dashboard quick links ------------------------------------------------- */
+/* A grid, not a wrapping flex row (§36D).
+ *
+ * As a flex row these were nine chips of nine different widths that wrapped
+ * wherever they ran out of room, which at 1440px left the accent-filled
+ * "Tools & features" alone on a second line — the loudest thing on the first
+ * screen, orphaned, reading as a rendering fault rather than as a row that
+ * happens to be long. Reported as exactly that.
+ *
+ * Equal columns fix it without hiding anything: whatever wraps lands in
+ * column one, directly under the chip above it, so a second line reads as the
+ * next line of a grid instead of as a stray. It also means the row cannot
+ * re-flow into a different shape when a skill with a long name is promoted
+ * into it — the columns are set by the window, not by the labels.
+ *
+ * auto-fit rather than auto-fill: with fewer chips than columns the empty
+ * tracks collapse and the row stays snug against the left edge instead of
+ * stretching six chips across the whole window. */
 .dash-quicklinks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-  margin: 1rem 2rem 0.25rem;
+  /* One height for the strip, declared once — DESIGN.md's control-height rule.
+     Not a spacing token: a hit target is a control's own size and must not
+     move with the density setting. 2.6rem is what the chips already measured
+     (42px), so this pins what was there rather than changing it. */
+  --quick-h: 2.6rem;
+  display: grid;
+  /* 12.5rem is measured, not guessed. The widest chip the *app* ships needs
+     196px — "Tools & features" and "Clean up my tags", both exactly — so 200px
+     is the narrowest track on which none of MemoryMap's own labels truncates.
+     A first attempt at 11rem produced "Tools & featu…", which is the failure
+     equal columns invite: a track sized to the shortest label clips the
+     longest, and that is worse than the wrap it was fixing.
+     A *skill's* name is the user's text and has no bound — "Notebook health
+     check" wants 243px — so that one truncates and carries the full name in
+     its tooltip. Sizing every column to the longest name anybody might type is
+     how six buttons end up three per row.
+     min() so a phone gets one full-width column rather than a track wider than
+     the screen, which would push the whole page into a horizontal scroll. */
+  grid-template-columns: repeat(auto-fit, minmax(min(12.5rem, 100%), 1fr));
+  gap: var(--space-4);
+  /* Rhythm only — the gutter belongs to .tab-page. See .dash-stats above. */
+  margin: var(--space-6) 0 var(--space-1);
 }
 .quick-link {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.5rem 1rem;
+  gap: var(--space-2);
+  /* Height declared, padding horizontal only: the control-strip rule. With
+     vertical padding the chips' heights would be decided by whether a label
+     wrapped, and one two-line chip would set the height of its whole row. */
+  height: var(--quick-h);
+  padding: 0 var(--space-6);
   background: var(--card);
   color: var(--ink);
   border: 1px solid var(--glass-border);
-  border-radius: calc(var(--radius) * 0.7);
+  border-radius: var(--radius-md);
   box-shadow: none;
-  font-size: 0.92rem;
+  font-size: var(--text-lg);
   font-weight: 600;
   backdrop-filter: blur(var(--glass-blur));
+  /* A grid item's automatic minimum is its content, so a long skill name would
+     widen its own track and take every other column with it. */
+  min-width: 0;
+}
+/* The label truncates; the icon never does. Without this the flex row shrinks
+   both, and an icon squeezed to nothing is a chip that looks broken rather
+   than one that looks abbreviated. The full text is in the title attribute. */
+.quick-link > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .quick-link:hover { background: var(--accent-soft); border-color: var(--accent); }
-.quick-link-icon { font-size: 1rem; }
+.quick-link-icon { font-size: var(--text-body); flex: 0 0 auto; }
 .quick-link-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
 .quick-link-primary:hover { background: var(--accent); filter: brightness(1.08); }
 @media (max-width: 720px) {
-  .dash-quicklinks { margin: 0.8rem 1rem 0.25rem; }
-  .quick-link { font-size: 0.85rem; padding: 0.4rem 0.8rem; }
+  .dash-quicklinks { --quick-h: 2.2rem; gap: var(--space-2); }
+  .quick-link { font-size: var(--text-md); padding: 0 var(--space-5); }
 }
 
 /* --- tools & features browser ---------------------------------------------- */
@@ -3810,7 +3871,7 @@ html { font-size: 16px; }
 }
 #graph-card #graph-box { flex: 1; min-height: 22rem; }
 @media (max-width: 720px) {
-  #graph-card { margin: 0.5rem 1rem 0.8rem; }
+  #graph-card { margin: 0 0 var(--space-5); }
   .graph-toolbar #graph-search { width: 100%; }
   .graph-toolbar #graph-add-node { margin-left: 0; }
 }
@@ -4636,7 +4697,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
 .doc-ai-card { width: min(46rem, 92vw); display: flex; flex-direction: column; gap: 0.5rem; }
 
 @media (max-width: 900px) {
-  .doc-layout { grid-template-columns: 1fr; padding: 0 1rem 1.5rem; }
+  .doc-layout { grid-template-columns: 1fr; }
   .doc-sidebar { position: static; }
   #chat-sidebar, #doc-sidebar { position: static; align-self: stretch; }
   .doc-panes.split { grid-template-columns: 1fr; }
@@ -5601,11 +5662,16 @@ button.is-on {
      padding here is how one breakpoint quietly grows its own control size. */
   #tab-bar button { flex: 0 0 auto; padding-inline: 0.8rem; }
   .header-controls { margin-left: auto; gap: 0.4rem; }
-  /* Give content the screen back: 2rem of side padding is a tenth of a phone. */
-  .layout, .doc-layout { padding-left: 0.8rem; padding-right: 0.8rem; }
-  #dash-grid { padding-left: 0.8rem; padding-right: 0.8rem; }
+  /* Give content the screen back: 2rem of side padding is a tenth of a phone.
+     One declaration, on the shell — this used to be four rules naming four
+     containers (.layout, .doc-layout, #dash-grid, .dash-hero) at 0.8rem, in a
+     block that sits *after* the 720px `:root` tightening to 1rem. Same
+     breakpoint, later source, so those four got 0.8rem and every other tab got
+     1rem: the desktop's per-page gutter drift, faithfully reproduced on the
+     screen with the least room to absorb it. */
+  :root { --page-gutter: var(--space-5); }
   #dash-grid { grid-template-columns: minmax(0, 1fr); }
-  .dash-hero { margin-left: 0.8rem; margin-right: 0.8rem; padding: 1rem; }
+  .dash-hero { padding: var(--space-6); }
   .card { padding: 0.8rem 1rem; }
 
   /* Rows of controls wrap instead of pushing the page sideways. */
@@ -6631,7 +6697,19 @@ textarea.autogrow {
   padding: var(--space-4) var(--space-5);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  background: var(--card);
+  /* **Reported as hard to read, and the cause was a missing blur rather than a
+     thin colour.** `--card` is 55% opaque *and assumes the frosting that
+     `.card` applies over it* — every other glass surface in the app pairs the
+     two. This panel took the colour without the filter, so it was 45% plain
+     transparent: the "Ask" sub-tab button and a chat message showed straight
+     through the word "Notifications".
+     `--modal-bg` is the token for a surface that floats over arbitrary content
+     and has to be legible against all of it (0.96 light / 0.97 dark). The blur
+     stays as well, so the panel still reads as part of the same material as
+     the header it hangs from rather than as a flat card pasted on top. */
+  background: var(--modal-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   box-shadow: var(--glass-shadow);
   /* **Inherited from `.header-controls`, which sets `nowrap` so "⚙ Settings"
      cannot break in two and make the whole bar taller.** That is right for the

@@ -1254,7 +1254,18 @@ header#top-bar.tabs-wrapped #tab-bar {
        container now (§36A) and the header is outside it, so the sidebar sticks
        to the top of the page it lives in. */
     top: 0;
-    max-height: var(--page-sticky-h);
+    /* `height`, not `max-height` — the same full-height sidebar the chat tab
+       has, reached a different way because this page scrolls and that one does
+       not. A `max-height` only *caps*: the card was still sized by its own
+       content, so a short category list left a band of empty page between the
+       sidebar and the bottom of the window while the chat sidebar beside it
+       (which is `height: 100%` of a bounded grid area) filled its column.
+       Two sidebars that behave differently is the thing that reads as broken.
+
+       `--page-sticky-h` is the page minus its own padding, so this is exactly
+       what `height: 100%` resolves to over on the chat tab; the list inside
+       already scrolls. */
+    height: var(--page-sticky-h);
     overflow-y: auto;
   }
 }

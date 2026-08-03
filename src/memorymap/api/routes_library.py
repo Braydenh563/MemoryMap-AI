@@ -47,10 +47,20 @@ PER_KIND_LIMIT = 200
 #: Enough of a thing to recognise it, not enough to render a card that scrolls.
 PREVIEW_CHARS = 160
 
+#: A note's own words *are* the note — there is no title to fall back on and no
+#: filename to recognise it by, so 160 characters was cutting most cards off
+#: mid-sentence. Reported: "I can't see a lot of the response in the cards."
+NOTE_PREVIEW_CHARS = 420
 
-def _clip(text: str) -> str:
+#: A log line's detail is the whole of what it says. Clipping it to a preview
+#: length made "majority of the logs cut off in half", which is a log that has
+#: stopped being a record.
+ACTIVITY_DETAIL_CHARS = 400
+
+
+def _clip(text: str, limit: int = PREVIEW_CHARS) -> str:
     text = " ".join((text or "").split())
-    return text if len(text) <= PREVIEW_CHARS else text[: PREVIEW_CHARS - 1] + "…"
+    return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
 def _human_size(size: int) -> str:
@@ -234,7 +244,7 @@ def _notes(session: Session) -> list[dict]:
                 "kind": "note",
                 "id": entry.id,
                 "title": (_clip(text)[:60] if text else "🔒 Private note") or "Empty note",
-                "preview": "" if private else _clip(text),
+                "preview": "" if private else _clip(text, NOTE_PREVIEW_CHARS),
                 "updated_at": entry.created_at.isoformat(),
                 "detail": category or "Uncategorised",
                 "size": len(text),
@@ -312,9 +322,9 @@ def _activity(session: Session) -> list[dict]:
                 "kind": "activity",
                 "id": row.id,
                 "title": f"{word} {thing}",
-                "preview": _clip(row.detail or ""),
+                "preview": _clip(row.detail or "", ACTIVITY_DETAIL_CHARS),
                 "updated_at": row.created_at.isoformat(),
-                "detail": row.entity_type,
+                "detail": thing,
                 # An event has no size. Its recency is the only ordering that
                 # means anything, and "biggest first" falls back to it.
                 "size": 0,

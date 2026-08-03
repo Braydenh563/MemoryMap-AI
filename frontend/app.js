@@ -14581,7 +14581,10 @@ function libraryCard(item) {
   icon.setAttribute("aria-hidden", "true");
   const title = document.createElement("strong");
   title.className = "library-card-title";
-  title.textContent = item.title;
+  // A note's title is its first line, so it carries the note's own markup too.
+  // Everything else has a real title and renders as plain text through the
+  // same call, which is harmless.
+  renderInlineMarkdown(title, item.title, []);
   top.append(icon, title);
   if (item.pinned) {
     const pin = document.createElement("span");
@@ -14591,18 +14594,31 @@ function libraryCard(item) {
   }
   card.appendChild(top);
 
-  // A chat's title *is* its first question, clipped — so on most chat cards the
-  // preview was the title again, one line down and one shade greyer. Two
-  // renderings of the same sentence is not a card with more metadata on it, it
-  // is a card that looks like a bug.
+  // A chat's title *is* its first question, so its preview would be the same
+  // sentence again one line down and one shade greyer — a card that looks like
+  // a bug rather than one with more metadata on it.
+  //
+  // **But "starts with the title" was the wrong test**, and it is what was
+  // behind "I can't see a lot of the response in the cards": a *note's* title
+  // is the first 60 characters of the note, so every note card matched and
+  // every note card lost its preview entirely — leaving 60 characters of a
+  // 420-character card. The question is not whether the preview begins with
+  // the title, it is whether it goes on to say anything more.
+  const bare = item.title.replace(/…$/, "").trim();
   const sameAsTitle =
     item.preview &&
-    item.title.replace(/…$/, "").trim() &&
-    item.preview.startsWith(item.title.replace(/…$/, "").trim());
+    bare &&
+    item.preview.startsWith(bare) &&
+    item.preview.trim().length <= bare.length + 1;
   if (item.preview && !sameAsTitle) {
     const preview = document.createElement("p");
     preview.className = "library-card-preview";
-    preview.textContent = item.preview;
+    // Inline markdown, the same renderer the note list uses (§22): a note
+    // written with **bold** and `code` in it was showing its asterisks and
+    // backticks here, which is the Library rendering the *source* of a note
+    // while every other surface renders the note. Inline only — block elements
+    // would turn a card into a document, which is what the clamp is for.
+    renderInlineMarkdown(preview, item.preview, []);
     card.appendChild(preview);
   }
 

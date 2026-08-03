@@ -746,6 +746,22 @@ header#top-bar.tabs-wrapped #tab-bar {
   line-clamp: 3;
   -webkit-box-orient: vertical;
 }
+/* A note has no title and no filename — its own words are the only way to
+   recognise it, so three lines was showing a third of what the card had room
+   for. Reported as "I can't see a lot of the response in the cards". Eight,
+   with the server sending 420 characters rather than 160 to fill them. The
+   other kinds keep three: a document has a title, a file has a name, and their
+   preview is a reminder rather than the thing itself. */
+.library-note .library-card-preview { -webkit-line-clamp: 8; line-clamp: 8; }
+/* Markdown rendered inline inside a preview must not change the line height —
+   a clamp counts lines, and a card whose emphasis made it taller would break
+   the row it sits in. */
+.library-card-preview code {
+  font-size: 0.92em;
+  padding: 0 0.2em;
+  border-radius: var(--radius-sm);
+  background: var(--chip-bg);
+}
 .library-card-meta {
   display: flex;
   justify-content: space-between;
@@ -776,10 +792,62 @@ header#top-bar.tabs-wrapped #tab-bar {
 .library-archived { box-shadow: inset var(--library-spine) 0 0 var(--border); }
 .library-activity { box-shadow: inset var(--library-spine) 0 0 var(--chip-bg); }
 .library-archived .library-card-title { text-decoration: line-through; }
-/* An activity row is a record, not a thing — flat, quieter, and it does not
-   pretend to be pressable furniture the way the others do. */
-.library-activity { background: none; cursor: default; }
+/* --- activity, as a timeline rather than as cards -----------------------------
+   Reported: *"the activity should be visualised better and it cuts off half of
+   the majority of the logs."* Both halves had the same cause — a log line was
+   being rendered as a **card**, so it got a card's width (a quarter of the
+   grid) and a card's three-line clamp, and a log line's detail is the whole of
+   what it says.
+
+   A log is a sequence, not a collection. So an activity row spans the grid,
+   keeps its detail on one unclamped line, and reads left to right as
+   *when · what · about what* — the shape every log you have ever read uses,
+   and the reason you can scan one at all. It is flat and not pressable,
+   because a record of something that already happened is not a thing you open. */
+.library-activity {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--space-5);
+  padding: var(--space-2) var(--space-5);
+  background: none;
+  box-shadow: inset var(--library-spine) 0 0 var(--border);
+  cursor: default;
+  font-size: var(--text-md);
+}
 .library-activity:hover { background: var(--chip-bg); border-color: var(--glass-border); }
+/* Time first and in a fixed column, so the eye reads down a straight edge
+   instead of hunting for it at the end of a sentence of variable length. */
+.library-activity .library-card-meta {
+  order: -1;
+  flex: 0 0 7rem;
+  justify-content: flex-start;
+  margin-top: 0;
+  padding-top: 0;
+  font-variant-numeric: tabular-nums;
+}
+/* The "a note" / "your settings" half is already in the title, so the meta
+   line would say it twice. */
+.library-activity .library-card-meta span:first-child { display: none; }
+.library-activity .library-card-top { flex: 0 0 auto; padding-right: 0; }
+.library-activity .library-card-title { font-weight: 600; white-space: nowrap; }
+/* The detail is the record. It takes the rest of the row and is never clamped;
+   a long one wraps rather than disappearing. */
+.library-activity .library-card-preview {
+  flex: 1 1 auto;
+  display: block;
+  -webkit-line-clamp: none;
+  line-clamp: none;
+  overflow: visible;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 720px) {
+  /* Stacked on a phone: three columns in 390px would leave the detail four
+     characters wide, which is the clipping this rule set out to fix. */
+  .library-activity { flex-direction: column; align-items: stretch; gap: var(--space-1); }
+  .library-activity .library-card-meta { flex: 0 0 auto; }
+  .library-activity .library-card-title { white-space: normal; }
+}
 /* A private note shows that it is one and nothing else. */
 .library-card.library-private .library-card-title { color: var(--muted); font-style: italic; }
 

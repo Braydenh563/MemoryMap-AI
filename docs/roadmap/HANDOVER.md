@@ -2,146 +2,177 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the AGPL/MIT constraint) · [HISTORY.md](HISTORY.md) (already built).
 
-Written at the end of the session that landed PR #54. Everything here is either
-a fact you can check or a thing I could not check and am saying so about.
+Written at the end of the session that built the status bar and the Library.
+Everything here is either a fact you can check or a thing I could not check and
+am saying so about.
 
 ---
 
 ## Read this before you touch anything
 
-**Two of the five gestures built this session were broken on arrival**, and
-both were found by driving them in Chromium — not by reading, not by tests,
-not by review. Drag-to-link never linked anything; the composer's drag handle
-saved a height and instantly undid it. Both read correctly. Both were already
-committed with commit messages saying they worked.
+**Every bug in this session was reproduced in Chromium before it was touched,
+and every one of them was different from what reading the code suggested.**
+That is not a slogan, it is the session's actual record:
 
-That is the base rate to assume for anything involving a pointer, a drag, or a
-moving target: **not zero, about 40%.** The sandbox has Chromium and the app
-runs on localhost — the recipe is in CLAUDE.md and there are working scripts to
-copy in the scratchpad notes below.
+| Reported as | What it actually was |
+| --- | --- |
+| "the top bar keeps permanently changing layout" | The wrap test measured `scrollWidth` — which the wrapped rule *sets*. It could never un-wrap. |
+| "buttons go over the popup options" | The menu's items were *clicking the wrong note's controls*, not merely drawn under them. |
+| "jokes I have saved recently doesn't show" | The notebook answered a question about jokes with a **gym routine**. |
+| "500 when I tried to empty the bin" | `FOREIGN KEY constraint failed` — four of seven referencing tables were never cleaned. |
+| "the web panel pushes the dock off the bottom" | Composer at y=878–931 in a 900px window. Unreachable, not just awkward. |
 
-**Four roadmap entries turned out to be already done.** §1's log console (fully
-built — follow, both filters, copy, support-bundle export), §35H's streaming
-claim, §35C's confident "No", and half of §35A. Each is struck through now with
-what was measured. *Check before building* is the rule this repo opens with and
-it paid four times in one session.
+The app runs on localhost and the sandbox has Chromium. **Reproduce first.** The
+recipe is in CLAUDE.md; there are working probe scripts in the notes below.
+
+---
+
+## The three traps that will cost you an hour each
+
+1. **A stacking context you cannot see.** `backdrop-filter` creates one. So
+   does `position: absolute` with any `z-index`. A popup inside such an element
+   can never rise above a *sibling* of that element, whatever its own z-index
+   is. This bit twice in one session — the note cards via `.entry-actions`, the
+   Library cards via the blur. **The fix is always to lift the owning element**
+   (`.menu-open`), never the menu. If a menu is reported behind something, this
+   is the first thing to check and it takes thirty seconds.
+
+2. **Any `100vh` sum is already wrong.** There were four of them, each a guess
+   at the app's own furniture (`calc(100vh - 4.5rem)`, `- 9rem`,
+   `--page-viewport`). Every one was out by 42px whenever the tab strip wrapped
+   to two rows, and out by another 37px once the status bar existed. Two of
+   them were what pushed the chat composer under the bar. **Anything sized
+   against the window goes through `--page-viewport`**, which now subtracts
+   both the header and `--status-bar-h`.
+
+3. **A grid track sized `auto` refuses to shrink below its content.** The chat
+   page's row did, so `main` stretched to 804px inside a 713px grid and the
+   dock's `flex: 0 1 auto` had nothing to shrink into. `minmax(0, 1fr)` in the
+   block axis is the fix, and it is the twin of the `minmax(0, 1fr)` the base
+   `.layout` rule already uses for columns and explains at length.
 
 ---
 
 ## What is now true that wasn't
 
-### The notebook is a graph the whole app walks
+### There is a status bar, and it owns the bottom of the window (§36D)
 
-`src/memorymap/entry/paths.py` is one engine with **five** surfaces. If you add
-a sixth, use this rather than writing another traversal — a picture and an
-answer that disagree about what is connected is worse than either alone.
+Five items, and the test each had to pass: *a state you need at a glance, or a
+command you use constantly.* AI status (**moved** down from the header, not
+copied — two indicators for one state is worse than either), notebook size,
+reminders, the running background job, and the command palette.
 
-| Surface | What it does |
-| --- | --- |
-| `GET /graph/path` | The chain between two notes, or *why* there isn't one |
-| `GET /graph/structure` | Clusters, hubs, orphans, and `cluster_of` for colouring |
-| `path_between` (tool) | "How are these two related?" for the agent |
-| `notebook_structure` (tool) | The notebook's *shape*, as opposed to its filing |
-| `search_manager.graph_expansion` | A match brings the notes it links to, in **every** answer |
-| `digest_structure_note` | The weekly digest counts what is joined to nothing |
+**Nothing in it polls.** Every value rides a loop that already existed. A
+reminder poll running on two timers is a bug this project has already had and
+had to find in a browser; a bar with five values is five chances to repeat it.
 
-Three constants encode judgements, not tuning. Do not "optimise" them without
-reading why:
+It is a real flex child of `<body>`, not a fixed overlay — so nothing overlaps,
+no page reserves padding for it, and there is no constant to desynchronise.
+`--status-bar-h` is what the fixed controls (back-to-top, toasts) offset from.
 
-- **Weighted, not breadth-first.** An unweighted search returns fewest hops, so
-  one shared `#misc` beats a three-step chain of deliberate links — technically
-  a path, actually noise.
-- **`HUB_TAG_NOTES = 12`.** A tag on more notes than this creates *no* edges.
-  Otherwise one heavily-used tag makes everything two hops from everything and
-  the feature reports a relationship between any two notes it is handed.
-- **`MAX_PATH_HOPS = 6`.** An honesty cap, not a performance one. Six
-  intermediaries is not a relationship.
+**An audit script exists for this** and it is worth re-running after any layout
+change: it walks every fixed/sticky element on all seven tabs and reports
+anything whose bottom passes the bar. It found the chat sidebar 17px under it.
 
-### Retrieval reads the question before searching it
+### The Library is the notebook's management screen (§4, §36F, §36G)
 
-`search/query.py` is new. A time phrase becomes a **filter**; the question's
-scaffolding comes off before anything is embedded; both searches run and their
-rankings are fused by reciprocal rank (`RRF_K`, `FUSION_DEPTH`). RRF combines by
-*rank* rather than score deliberately — a cosine similarity and a keyword tally
-are not on the same scale, so any weighted sum needs a constant tuned per
-notebook, and RRF needs none.
+Seven kinds in one call — notes, documents, chats, files, tags, bin, activity —
+assembled server-side (`routes_library.py`) for the reason `routes_tasks.py`
+gives: a client that stitches its own list from whatever endpoints exist misses
+the next kind anyone adds.
 
-The `search_mode` values a client must handle are now `hybrid`, `semantic`,
-`keyword`, `dated`, `recent`, `none`, and `attached + …`.
+It **replaces** rather than joins, which is the whole justification:
 
-### The agent
+- the Documents tab's list and the chat sidebar's list are both here; each kept
+  a capped *switcher* (eight recent, no search) because switching mid-work is a
+  different job from finding;
+- the Notes sidebar's 🗑, 📜 and 🏷 buttons open the Library on their kind;
+- the tab bar is the same length it was.
 
-- A follow-through ("implement those suggestions", "do it", "yes") is read
-  against the previous exchange. **This was the reported bug**: `focus_for` saw
-  only the current message, so a follow-up was offered no category tools at all
-  and prose was the only thing it *could* produce.
-- It keeps its own reasoning across a tool call (`THINKING_CARRIED_CHARS`),
-  carried as content because a `thinking` field is not portable across the two
-  dialects.
-- An identical read with nothing written since is answered from the turn's own
-  history. `fresh_reads` is cleared by a write; `done_calls` — the earned-round
-  ledger — never is, or a model repeating one write would buy a round each time.
-- A long turn is checkpointed every round, so a stall loses the round rather
-  than the conversation.
+Overview tiles, bulk selection with counted confirmations, grid ⇄ list, and a
+coloured **spine** per kind — the bookshelf theme, taken structurally so a
+shelf of mixed things is scannable by edge before a title is read.
+
+**Two things only the browser found.** "Everything" was 93% activity log (164
+rows against 13 things), so activity is out of the mixed list and lives on its
+own chip. And the log read "Edited a preferences" — the verbs were translated
+into English and the nouns were not.
+
+### Retrieval reads vague words as leans, not boundaries
+
+`"recently"` was a hard 14-day filter. It **ranks** now and does not exclude;
+`"last week"` keeps its teeth. A subject question can no longer be answered by
+date alone — that fallback dropped the more specific of two constraints, which
+is how the gym note happened. And scaffolding comes off **both ends** of a
+question, so "jokes I have saved recently" searches for `jokes` rather than
+`jokes I have saved`.
+
+This overturned a previous session's test on purpose. Its reasoning about the
+failure it was fixing was right and is kept; its remedy was the bug.
 
 ---
 
 ## What I could not check, and you should not assume
 
-1. **Anything involving a real model.** Every provider test runs against a fake
-   transport. The follow-through fix, the carried reasoning and the read cache
-   are all verified by scripted turns — the *plumbing* is proven, the model's
-   behaviour with it is not. Half an hour with a real Ollama would settle it.
-2. **§35H's server half.** The client streams — measured, 10 → 25 → 42 → 63 → 94
-   characters against a stream paced at one line per 120 ms. What is *not*
-   disproved is `ollama_client._ToolTextGate`, which holds prose back while
-   deciding whether it is the start of a tool call. On a model that writes tool
-   calls as prose that would look exactly like a section landing complete.
-   **Do not rewrite the timeline** — measure the gate.
-3. **The desktop shell.** §35E is fixed by reproducing the *behaviour* (wiping
-   localStorage between loads), not by running pywebview, which is not in this
-   sandbox. The remaining §35E items — file saves and markdown export in the
-   desktop window — are untested and unfixed.
-4. **Windows.** §8b's two fixes remain unverified on Windows itself.
+1. **Anything involving a real model.** Unchanged from the last handover and
+   still the standing caveat. In particular the **Normal preset** now carries a
+   length hint it never had — the *reasoning* is solid (an empty hint means the
+   base prompt decides, and that prompt leans terse) but the wording has not
+   been tried against a running Ollama. If answers come back too long, the hint
+   is one string in `ai/presets.py`.
+2. **The desktop shell.** Everything here was driven in Chromium on localhost.
+   Note that eight `window.prompt` calls became `promptDialog` this session —
+   DESIGN.md bans `window.confirm` because the shell does not implement it
+   reliably, and `prompt` is the same trap. **If renaming worked in the desktop
+   app before, it was working by luck; if it did nothing, that is now fixed.**
+   Worth confirming with the user either way.
+3. **Windows.** §8b's fixes remain unverified on Windows itself.
+4. **A big notebook.** `PER_KIND_LIMIT` is 200 per kind and the Library holds
+   the whole list client-side to keep filtering instant. That is right for a
+   personal notebook and untested at, say, 5,000 notes.
 
 ---
 
 ## Where I would start next
 
-1. **§36D's bottom bar.** The roadmap has already made the hard decision: the
-   AI status pill moves *down* rather than appearing twice. Note the header is
-   now consistent (one `--header-control-h` for every control) and has gained a
-   notifications bell — so this is a move, not an addition, and it will touch
-   what was just tidied.
-2. **§4 the Library, and the tab bar it lives in.** Still gated on the decision
-   §36F asks for: does Library *absorb* Documents and the conversation sidebar,
-   or does the bar gain an overflow? Decide before building; it is much more
-   expensive afterwards.
-3. **§9's decorative half** — skins, minimap, PNG/SVG export of the current
-   view. The utility half is done.
-4. **§10's `events` table**, so the Timeline's bands can be events and places
-   rather than only categories and tags.
+1. **§36G, in the order it lists.** The Library's next pieces are named there:
+   the old Tags/Activity/Bin *panels* can be deleted once their Library
+   versions have every control the panels had, and that is what shortens the
+   Notes sidebar for real.
+2. **The document editor.** It is reached only from the Library now, so it can
+   stop pretending to be a tab — a wider writing column, and the outline and
+   linked-notes panels earning their place beside it rather than folded shut
+   under a list that has left.
+3. **§36G's answer on absorbing Notes is "no", and the reasoning is written
+   down.** Do not re-derive it: the Library manages, the Notes tab *works*, and
+   putting ticks and bulk bars on the one screen that wants none of them would
+   make the Library the app rather than making the app smaller.
+4. **§9's decorative half** (skins, minimap, PNG/SVG export) and **§10's
+   `events` table** are still the largest untouched things.
 
 ---
 
 ## Practical notes for the next session
 
 - **Running the app:** `PYTHONPATH=src MEMORYMAP_DATA_DIR=<scratch> .venv/bin/python -m uvicorn memorymap.api.app:create_app --factory --port 8781`.
-  The `PYTHONPATH` is required and is not in CLAUDE.md's recipe.
-- **Do not install torch.** It has failed to install in several sessions. The
-  suite passes without it and without `sentence-transformers`.
-- **Driving the graph in Playwright**, both traps I hit:
-  - press the `.graph-core` circle, **not** the `.graph-node` group — a group's
-    bounding box includes the label below it, so its centre is empty space;
-  - a module-scope `let` is **not** a property of `window`. `graphNodesRef`
-    works as a bare identifier inside `page.evaluate`; `window.graphNodesRef`
-    is `undefined` and will quietly tell you the graph is empty.
-- **Pacing a stream:** Playwright's `route.fulfill` delivers one body at once
-  and cannot show whether a client renders incrementally. Replace `window.fetch`
-  with a `ReadableStream` instead.
+  The `PYTHONPATH` is required and is not in CLAUDE.md's recipe. **Restart it
+  after any Python change** — a stale server is why a fix "didn't work" twice.
+- **Do not install torch** or `sentence-transformers`. The suite passes without
+  both.
+- **Driving it:** a small `drive.js` that launches Chromium, does first-run
+  setup and skips the onboarding overlay is the whole harness; every probe is
+  ten lines on top of it. `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`, require
+  `/opt/node22/lib/node_modules/playwright`.
+- **Graph traps, still true:** press the `.graph-core` circle, not the
+  `.graph-node` group; a module-scope `let` is not a property of `window`, so
+  `graphNodesRef` works as a bare identifier inside `page.evaluate` and
+  `window.graphNodesRef` is `undefined`.
+- **`elementFromPoint` is how you prove a stacking bug.** "Is the menu on
+  top?" is not answerable by looking at a screenshot — ask the browser what is
+  actually at three points inside the menu.
 - **Lints that are load-bearing:** `test_style_scale.py`, `test_frontend_ids.py`,
-  `test_frontend_handlers.py`, `test_docs_layout.py`, and now
-  `test_docs_site.py` (the Pages site) and `test_ui_state.py` (the settings
-  mirror). If one fails it has found something real.
-- **CI runs `ruff check .`** and CodeQL. Run ruff locally before pushing; CodeQL
-  caught a genuine polynomial-ReDoS in code I had written that same session.
+  `test_frontend_handlers.py`, `test_docs_layout.py`, `test_docs_site.py`,
+  `test_ui_state.py`. `test_style_scale.py` gained the four dashboard
+  containers and learned to look *inside media queries*, which immediately
+  found three more real offenders. If one fails it has found something.
+- **CI runs `ruff check .`** and CodeQL. Run ruff before pushing.

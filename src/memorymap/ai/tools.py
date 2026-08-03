@@ -442,23 +442,36 @@ def _suggested_neighbours(session: Session, entry: Entry, exclude: set[int]) -> 
         return []
     vector = bytes_to_vector(stored[entry.id])
 
+    # Score against the raw vectors first — pure numpy, no database at all —
+    # and only fetch an `Entry` for a candidate that already cleared the
+    # threshold. The old order fetched every embedded note's `Entry` before
+    # checking its score, which is a `session.get()` per note in the whole
+    # notebook regardless of how few ever pass; ANALYSIS.md §34's scale-test
+    # measured that as the dominant cost of this call at 10k notes (~4s for
+    # one tool invocation). Same filtering, same threshold, same order —
+    # just cheap-check-before-expensive-fetch.
     scored = []
     for other_id, blob in stored.items():
         if other_id == entry.id or other_id in exclude:
             continue
+        score = cosine_similarity(vector, bytes_to_vector(blob))
+        if score >= SUGGESTED_LINK_THRESHOLD:
+            scored.append((score, other_id))
+    scored.sort(key=lambda pair: pair[0], reverse=True)
+
+    results = []
+    for score, other_id in scored:
         other = session.get(Entry, other_id)
         if other is None or other.is_deleted or other.is_private:
             continue
-        score = cosine_similarity(vector, bytes_to_vector(blob))
-        if score >= SUGGESTED_LINK_THRESHOLD:
-            scored.append((score, other))
-    scored.sort(key=lambda pair: pair[0], reverse=True)
-    return [
-        _graph_summary(
-            session, other, f"reads similarly ({score:.0%}) — NOT linked yet", 0, None
+        results.append(
+            _graph_summary(
+                session, other, f"reads similarly ({score:.0%}) — NOT linked yet", 0, None
+            )
         )
-        for score, other in scored[:MAX_SUGGESTED_LINKS]
-    ]
+        if len(results) >= MAX_SUGGESTED_LINKS:
+            break
+    return results
 
 
 def _related_notes(session: Session, args: dict) -> dict:

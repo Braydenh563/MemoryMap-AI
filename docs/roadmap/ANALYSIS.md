@@ -555,15 +555,45 @@ guesses into the results, and worthless.
    get to retire just because the tool list it was warning about stopped
    growing for a while.
 
-2. **Make the notebook survive being large.** Everything here is tested against
-   tens of notes and reasoned about for thousands. `_suggested_neighbours` does
-   a full-table cosine scan; `_graph_neighbours` loads every entry to check
-   shared tags; the graph endpoint does pairwise similarity over the whole
-   notebook. All are fine at 500 notes and none is fine at 50,000. **This is
-   the failure that arrives silently, as "the app got slow", years in.** A
-   generated 50k-note fixture and a handful of timing assertions would find all
-   of it in an afternoon, and it is much cheaper now than after someone's real
-   notebook hits it.
+2. ~~**Make the notebook survive being large.**~~ **Measured, and two of the
+   three predicted failures were real** — `scripts/scale_test.py`, a
+   generated fixture up to 50,000 notes, run by hand (it isn't a pytest test;
+   see the script's own docstring for why). The actual numbers, not the
+   guess:
+
+   | Call | at 50k notes, before | after |
+   | --- | ---: | ---: |
+   | `GET /graph` (no similarity) | ~19s (extrapolated) | 1.8s |
+   | `search_manager.retrieve` — every chat turn's search | 6.6s | 0.5s |
+   | `_suggested_neighbours` — one agent tool call | ~20s (extrapolated) | 1.3s |
+   | `GET /graph?similarity=true` | O(n²), already known, off by default | unchanged |
+   | `_graph_neighbours` / `_related_notes` | 1.3-1.5s, bounded by `MAX_GRAPH_NOTES` | unchanged, judged acceptable |
+
+   Both fixed causes were the same shape: an ORM object (a full `Entry`, or a
+   `Category` via `session.get()`) materialised for every row in a table
+   scan, when only a handful were ever going to be used. `routes_graph.graph()`
+   was resolving each note's category with its own query (10,000 calls of it
+   were 87% of the endpoint's time on a 10k-note notebook, found by
+   profiling, not by guessing); `semantic_search()`'s own docstring already
+   said "revisit only if it ever feels slow" — it did. Both fixed by scoring
+   or matching against raw ids/vectors first, and only fetching the small set
+   of `Entry` rows that actually rank. Pinned by
+   `tests/test_scale_query_counts.py` (query *count*, not wall-clock —
+   deterministic under CI load where a timing assertion isn't).
+
+   **`GET /graph?similarity=true`'s O(n²) is real and untouched** — 30
+   seconds at just 2,000 notes in the same measurement run, which is well
+   within an active user's actual reach (unlike 50k). It's off by default and
+   the route's own comment already names the tradeoff ("it's personal-
+   notebook scale"); worth a real fix (cap the comparison pool, or drop the
+   pairwise scan for a nearest-neighbour index) before recommending anyone
+   turn the toggle on, not before then.
+
+   **Storage was not a problem** — 50,000 notes measured at 12MB (this
+   fixture's small vectors); rescaled to a real ~384-dim embedding model,
+   ~1.8KB/note, ~360MB for 200,000 notes. Attachments are separate and
+   unbounded, but nothing here suggests the database itself is a concern at
+   any size a real notebook would reach.
 
 3. **Onboarding, because none of the above matters if nobody gets to it.** §27
    is unbuilt and the first run currently is: install Python, run a script,

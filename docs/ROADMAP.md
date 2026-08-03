@@ -1876,12 +1876,17 @@ flagged by the project's own outside review — not by how contained the fix
 is, which is what let three sessions in a row default to the smallest thing
 in front of them:
 
-1. **Scale-test the notebook** (ANALYSIS §34, item 2) — cheap now (a
-   generated 50k-note fixture, a handful of timing assertions, "an afternoon"
-   per the outside review), expensive later. `_suggested_neighbours`,
-   `_graph_neighbours` and the graph endpoint are all untested past a few
-   hundred notes.
-2. **A headless Playwright smoke suite in CI** (§31) — every layout bug this
+1. ~~**Scale-test the notebook**~~ **done.** `scripts/scale_test.py`, a
+   generated fixture up to 50,000 notes, found two real N+1 query patterns
+   (`GET /graph` resolving each note's category with its own query;
+   `search_manager.semantic_search` materialising a full `Entry` for every
+   embedded note just to score most of them away) — both were multi-second,
+   N-proportional costs and are now sub-2-second, near-constant ones. Full
+   numbers and what's still open (the O(n²) similarity-graph toggle, storage
+   headroom) are in ANALYSIS §34, item 2. Pinned by
+   `tests/test_scale_query_counts.py`.
+2. **A headless Playwright smoke suite in CI** (§31) — **start here next.**
+   Every layout bug this
    project has found has passed a fully green run; this is the actual fix
    for that, and the prerequisite the module split below needs before it's
    safe to attempt.

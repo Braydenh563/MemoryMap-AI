@@ -172,30 +172,55 @@ def semantic_search(
     """Best-matching entries with scores, or None when embeddings are
     unavailable (caller should fall back to keyword search).
 
-    The MVP compares against every stored vector in Python — fine for
-    thousands of personal notes; revisit only if it ever feels slow."""
+    The MVP compared against every stored vector *and joined in the full
+    `Entry` for each one* in Python — this docstring used to say "revisit
+    only if it ever feels slow", and ANALYSIS.md §34's scale-test found it
+    does: materialising every entry as an ORM object just to score and throw
+    most of them away was ~85% of one search's cost at 20k+ notes (~6.6s of
+    a ~7.3s call at 50k). The vector scan itself is still brute-force — there
+    is no index to avoid it — but scoring needs only `(entry_id, embedding)`
+    tuples, not full mapped entities, so that part is now a plain column
+    query and only the handful of notes that actually rank get a real
+    `Entry` fetched."""
     query_vector = embeddings.embed_text(query)
     if query_vector is None:
         return None
 
-    rows = session.execute(
-        select(EmbeddingRecord, Entry)
-        .join(Entry, EmbeddingRecord.entry_id == Entry.id)
-        .where(
-            Entry.is_deleted == False,  # noqa: E712
+    records = session.execute(
+        select(EmbeddingRecord.entry_id, EmbeddingRecord.embedding).where(
             # Vectors from other backends live in a different space —
             # comparing them would give nonsense (plan §6.5).
-            EmbeddingRecord.model_version == embeddings.backend_id(),
+            EmbeddingRecord.model_version
+            == embeddings.backend_id()
         )
     ).all()
 
-    scored = [
-        (entry, cosine_similarity(query_vector, bytes_to_vector(record.embedding)))
-        for record, entry in rows
+    scored_ids = [
+        (entry_id, cosine_similarity(query_vector, bytes_to_vector(blob)))
+        for entry_id, blob in records
     ]
-    scored = [(entry, score) for entry, score in scored if score >= MIN_SIMILARITY]
-    scored.sort(key=lambda pair: pair[1], reverse=True)
-    return scored[:limit]
+    scored_ids = [(eid, score) for eid, score in scored_ids if score >= MIN_SIMILARITY]
+    scored_ids.sort(key=lambda pair: pair[1], reverse=True)
+    if not scored_ids:
+        return []
+
+    # A generous pool before the is_deleted filter below: a deleted note's
+    # embedding can still be sitting in the table (nothing prunes it), and
+    # over-fetching candidates is cheap next to under-returning matches.
+    candidates = scored_ids[: max(limit * 4, 40)]
+    entries_by_id = {
+        e.id: e
+        for e in session.scalars(
+            select(Entry).where(
+                Entry.id.in_([eid for eid, _ in candidates]),
+                Entry.is_deleted == False,  # noqa: E712
+            )
+        )
+    }
+    result = [
+        (entries_by_id[eid], score) for eid, score in candidates if eid in entries_by_id
+    ]
+    return result[:limit]
 
 
 # --- fusing the two searches ---------------------------------------------------

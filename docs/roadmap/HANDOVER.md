@@ -23,6 +23,24 @@ place, not just noted in ROADMAP.md. §38 is the new live front door and
 supersedes §37's own priority list; **read §38 first**, before anything else
 in this file including the section below.
 
+**§38's first item is done too, same session:** the notebook was actually
+scale-tested (`scripts/scale_test.py`, a generated fixture up to 50,000
+notes), not just flagged as untested. Found two real N+1 query patterns —
+`GET /graph` resolving each note's category with its own `session.get()`
+call, `search_manager.semantic_search` materialising a full `Entry` ORM
+object for every embedded note just to score most of them away — profiled,
+not guessed at (10,000 category lookups were 87% of one `GET /graph` call's
+time on a 10k-note notebook). Both fixed the same way: score or match against
+raw ids first, fetch the real `Entry` rows only for what survives. Real
+numbers at 50k notes: `GET /graph` 19s→1.8s, chat's search 6.6s→0.5s, the
+`related_notes` agent tool's neighbour-suggestion call ~20s→1.3s. Pinned by
+`tests/test_scale_query_counts.py` (a query *count*, not a timing — timing
+assertions are flaky under CI load). Full writeup, including what's still
+open (`GET /graph?similarity=true` is a real O(n²) — 30 seconds at just 2,000
+notes — and is off by default rather than fixed), is in ANALYSIS.md §34,
+item 2. **Next: ROADMAP.md §38's item 2, a headless Playwright smoke suite
+in CI.**
+
 **The corrected order, top of it:** scale-test the notebook past a few
 hundred notes (cheap, flagged by the outside review, never done), a headless
 Playwright smoke suite in CI (the actual fix for "every layout bug passed a

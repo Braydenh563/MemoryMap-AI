@@ -200,10 +200,7 @@ have a version of.
   layouts are already done (§9)
 - An eval/benchmark harness for tokens, latency and filing accuracy
   together (§11, §31)
-- A headless Playwright smoke suite in CI (§31) — **do this before the
-  module split below, not after.** It's the direct answer to "every layout
-  bug passes a green run," and it's also the safety net a mechanical refactor
-  of the frontend needs before it happens, not once it's already done.
+- ~~A headless Playwright smoke suite in CI (§31)~~ **done — see §38, item 2.**
 - Splitting `app.js` into ES modules, one file per tab (§31) — **not a
   standalone session; ride it in on §3.** Asked directly whether this
   refactor should happen first, ahead of everything else here, precisely
@@ -1885,11 +1882,19 @@ in front of them:
    numbers and what's still open (the O(n²) similarity-graph toggle, storage
    headroom) are in ANALYSIS §34, item 2. Pinned by
    `tests/test_scale_query_counts.py`.
-2. **A headless Playwright smoke suite in CI** (§31) — **start here next.**
-   Every layout bug this
-   project has found has passed a fully green run; this is the actual fix
-   for that, and the prerequisite the module split below needs before it's
-   safe to attempt.
+2. ~~**A headless Playwright smoke suite in CI**~~ **done.** `tests-e2e/` —
+   `@playwright/test`, run against a real `uvicorn` instance via Playwright's
+   own `webServer` config, a new `e2e` job in `.github/workflows/ci.yml`.
+   Verified locally, not just authored: it caught a real thing on its first
+   run — "documents" is in `app.js`'s own `TABS` array but has had no
+   `#tab-btn-documents` in the nav since §36F replaced it with Library, which
+   a test written from the array alone would have gotten wrong. Covers every
+   tab reachable from the bar (console errors, uncaught exceptions, and
+   horizontal overflow — the exact `--page-viewport` shape of bug this
+   project's own handovers describe finding by hand) plus one real
+   interaction (capture a note, see it in Browse). **Start here next: §3's
+   sub-tabs or §9's graph layouts below now have a safety net to build
+   against**, which is the whole reason this was ranked ahead of them.
 3. **Graph layouts beyond tree/radial** (§9) — mind map / treemap / arc;
    named the differentiator in ANALYSIS §30/§34, and nothing beyond the two
    existing layouts has been built.

@@ -38,8 +38,20 @@ numbers at 50k notes: `GET /graph` 19s→1.8s, chat's search 6.6s→0.5s, the
 assertions are flaky under CI load). Full writeup, including what's still
 open (`GET /graph?similarity=true` is a real O(n²) — 30 seconds at just 2,000
 notes — and is off by default rather than fixed), is in ANALYSIS.md §34,
-item 2. **Next: ROADMAP.md §38's item 2, a headless Playwright smoke suite
-in CI.**
+item 2.
+
+**§38's second item is done too:** a headless Playwright smoke suite,
+`tests-e2e/` (own `package.json`, doesn't touch the no-build-step frontend),
+wired into `.github/workflows/ci.yml` as a new `e2e` job. Verified locally
+against a real running app before being trusted, not just authored — and it
+paid off immediately: it caught that "documents" is in `app.js`'s own `TABS`
+array but has had no `#tab-btn-documents` in the nav bar since §36F replaced
+it with Library, which a test written from the array alone (what a first
+draft did) would have silently gotten wrong. Covers every tab actually
+reachable from the bar for console errors, uncaught exceptions and
+horizontal overflow, plus one real interaction (capture a note, see it in
+Browse). **Next: ROADMAP.md §38's item 3, graph layouts beyond tree/radial —
+now with a smoke suite to build against.**
 
 **The corrected order, top of it:** scale-test the notebook past a few
 hundred notes (cheap, flagged by the outside review, never done), a headless

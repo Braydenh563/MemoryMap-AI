@@ -7,6 +7,42 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Fixed — a second round of reported UI bugs
+
+- **Quick sketch's Close button darkened the background instead of closing.**
+  `#sketch-overlay` sat at `z-index: 60`, the toast/popup tier; the "close
+  without saving?" confirm dialog is a `.modal-overlay` at `z-index: 55` and
+  painted behind it. Lowered to 55, matching every other modal.
+  `#improve-overlay` had the identical latent bug and is fixed alongside it.
+- **Dropdown arrows clashed with option text app-wide.** The shared
+  `input`/`select` rule gave equal padding on both sides, with nothing
+  reserved for the browser's own arrow. Every `<select>` now gets a painted
+  chevron in reserved padding, not just the chat dock's.
+- **The notes-list toolbar's controls were four different heights.** Same fix
+  as the Library toolbar: one declared `--control-h` for the filter box, the
+  sort select and both buttons.
+- **The category sidebar's ✎/🗑 buttons overlapped the note count** instead of
+  replacing it — `background: inherit` was meant to hide the count underneath
+  but a glass card is never fully opaque. The count now fades out exactly
+  when the actions fade in.
+- **A stale login token produced a toast storm before the lock screen.**
+  Every parallel bootstrap request hitting the same 401 toasted its own
+  "Couldn't load X: Locked" on top of the lock screen that had already,
+  correctly, explained the one real state. The 401 now carries a marker the
+  bootstrap loop checks before toasting.
+- **First load now defaults to the Dashboard**, not Notes. Only the fallback
+  changed — a returning visit still opens on whichever tab was last active.
+
+### Roadmap
+
+- §37 triages a longer list of reported work (chat dock density, a
+  resizable/refined web panel, a UI zoom setting, the graph toolbar, sketch
+  image/document upload, llama.cpp wiring, chat compression as an agent tool,
+  a real Timeline fix, emoji rendering) in priority order, and corrects three
+  stale claims in the roadmap's own top-level priority sections — including
+  "the Library tab" listed as an open Tier 3 item after it had been built and
+  partly deleted.
+
 ### Removed — the three panels the Library replaced (roadmap §36G)
 
 **The first surface this project has taken away rather than added.** The Notes

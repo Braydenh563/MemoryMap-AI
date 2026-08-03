@@ -29,8 +29,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
-
 from memorymap.ai import tools
 from memorymap.core.database import Entry, EntryLink
 from memorymap.entry import paths

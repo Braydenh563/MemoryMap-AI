@@ -22,8 +22,6 @@ the plan again."* The reasoning was streamed to the user and then dropped.
 
 from __future__ import annotations
 
-import json
-
 import pytest
 
 from memorymap.ai import agent, tools

@@ -155,8 +155,26 @@ _SCAFFOLD = re.compile(
     re.IGNORECASE,
 )
 
-_TRAILING = re.compile(r"[\s,.?!]+$")
-_SPACES = re.compile(r"\s{2,}")
+#: Punctuation a question can end with, dropped along with trailing space.
+_TRAILING_CHARS = " \t\r\n,.?!"
+
+
+def _tidy(text: str) -> str:
+    """Collapse whitespace and drop trailing punctuation. No regex, on purpose.
+
+    This was `re.sub(r"[\\s,.?!]+$", "", re.sub(r"\\s{2,}", " ", text).strip())`
+    and CodeQL was right to flag it (`py/polynomial-redos`, high): an anchored
+    `[…]+$` makes the engine retry the quantifier from every position, so a
+    query of many tabs costs O(n²) — and this runs on text that arrives
+    straight from a search box, which is as uncontrolled as input gets in this
+    app.
+
+    `str.split` and `str.rstrip` are linear, do the same job, and are easier to
+    read than the pattern they replace. `split()` with no argument also folds
+    newlines and tabs into the single spaces the front-anchored matcher below
+    expects, which the old `\\s{2,}` did not do for a *single* stray tab.
+    """
+    return " ".join(text.split()).rstrip(_TRAILING_CHARS)
 
 
 def _strip_scaffolding(text: str) -> str:
@@ -171,10 +189,9 @@ def _strip_scaffolding(text: str) -> str:
     leaves a double space, and a double space stops the front-anchored pattern
     matching the word that is now at the front.
     """
-    cleaned = _TRAILING.sub("", _SPACES.sub(" ", text).strip())
+    cleaned = _tidy(text)
     for _ in range(8):
-        stripped = _SCAFFOLD.sub("", cleaned, count=1)
-        stripped = _TRAILING.sub("", _SPACES.sub(" ", stripped).strip())
+        stripped = _tidy(_SCAFFOLD.sub("", cleaned, count=1))
         if not stripped or stripped == cleaned:
             break
         cleaned = stripped

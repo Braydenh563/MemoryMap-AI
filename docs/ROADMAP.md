@@ -1855,13 +1855,17 @@ shape of it:
   (§37B–§37F) are done as of this session, and 37C/37G/37H/37I/37K/37L are
   each small, secondary, or blocked on a clarifying question, not work that
   should keep occupying a session on its own.
-- **Real, substantive backlog work has gone untouched for a long time**: no
-  graph layout beyond tree/radial (§9, named the product's own
-  differentiator), no Timeline branch/line view (§10C, asked for twice), no
-  Chat/Agent/Browse sub-tabs (§3, asked for repeatedly), no meeting-notes/
-  transcription (§17, the backlog's own "highest-value single addition," and
-  Whisper is already a dependency), `app.js` still one ~20k-line file with
-  zero CI coverage (§31/§32), and the notebook has never been tested past a
+- **Real, substantive backlog work had gone untouched for a long time** (items
+  below are as this audit first found them; see the corrected priority order
+  for what's since been done): no graph layout beyond tree/radial (§9, named
+  the product's own differentiator), no Timeline branch/line view (§10C,
+  asked for twice), Chat/Agent/Browse sub-tabs (§3, asked for repeatedly —
+  turned out to be substantially resolved already, see item 5 below), no
+  meeting-notes/transcription (§17, the backlog's own "highest-value single
+  addition," and Whisper is already a dependency), `app.js` still one
+  ~20k-line file with zero CI coverage (§31/§32 — the coverage half is fixed,
+  see item 2 below; the file is still unsplit), and the notebook had never
+  been tested past a
   few hundred notes despite ANALYSIS §34 flagging that as "the failure that
   arrives silently, as 'the app got slow,' years in."
 
@@ -1897,14 +1901,25 @@ in front of them:
    against**, which is the whole reason this was ranked ahead of them.
 3. **Graph layouts beyond tree/radial** (§9) — mind map / treemap / arc;
    named the differentiator in ANALYSIS §30/§34, and nothing beyond the two
-   existing layouts has been built.
+   existing layouts has been built. **Checked this session and deliberately
+   not started**: `renderGraph()` is tightly integrated across drag, zoom-to-
+   fit, hover-adjacency highlighting, the trace overlay and the physics
+   sliders — a new layout means plugging into all of it, not writing one
+   D3 function, and doing that at the tail end of a long session risked
+   exactly the half-integrated feature CLAUDE.md warns against. Budget this
+   as its own session with room to verify visually against every one of
+   those interactions, not a slot at the end of another task.
 4. **Timeline branch/line view** (§10C) — asked for twice directly; §37J
    already fixed the existing view's bugs, so this is additive, not a second
    pass over the same two problems.
-5. **Chat/Agent/Browse sub-tabs** (§3) — asked for repeatedly (§22 too);
-   needs a short check first, since the Ask/Request mode toggle may have
-   already resolved part of what this was asking for — re-read §3 before
-   assuming the full original scope still applies.
+5. ~~**Chat/Agent/Browse sub-tabs**~~ **checked, and substantially done —
+   see §3's correction in BACKLOG.md.** The Ask/Request mode toggle, the web
+   panel column and `make_plan`'s ticked-step display already satisfy this
+   item's substance via a different (and, per §36G's own reasoning, better)
+   shape than literal sub-tabs. One small, real, genuinely open gap: no
+   user-facing control for "which tools this turn / max rounds" in Agent
+   mode — `agent.py` already takes both as parameters, nothing in `app.js`
+   exposes them. Not worth a session on its own.
 6. **Meeting notes / transcription** (§17) — Whisper is already a
    dependency; the backlog calls this the highest-value single addition, and
    none of it is built.

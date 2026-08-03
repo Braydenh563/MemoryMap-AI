@@ -127,6 +127,40 @@ assumed, since three sessions have now rebuilt something that already existed:
 
 ## 3. Chat page: Chat / Agent / Browse sub-tabs
 
+> **Status (audited this session, ROADMAP.md §38 item 5): substantially done,
+> via a different — and, on the evidence, better — shape than "three
+> sub-tabs".** Checked against the actual code rather than re-reading this
+> section's original wording as a spec:
+>
+> - **Chat vs Agent** → the Ask/Request mode toggle in the chat dock, not a
+>   tab switch. Same distinction, one click instead of a navigation.
+> - **Browse** → the web panel (§36G), a persistent column beside the
+>   conversation rather than a third tab — and §36G's own reasoning
+>   ("a reading surface cannot live inside a control strip... as a column it
+>   needs no cap and sits beside the composer") is a real argument *against*
+>   folding it back into a tab, not just a different implementation of the
+>   same idea.
+> - **Cross-linking** ("the agent hands a page to Browse, Browse hands a page
+>   to chat") → `askAboutPage()` does the Browse-to-chat direction (💬 Ask
+>   about this closes the panel, asks the agent to `read_url` the page).
+> - **Visible plan/progress** → `make_plan`'s ticked-step display, built
+>   since (§35's "Next session: start here" item 1), satisfies this more
+>   generally than a per-tab progress view would have.
+> - **Independent web-search gating** ("works even when the chat/agent
+>   web_search tool is off") → there is one `web_search_enabled` pref
+>   already, not two competing toggles to decouple; the panel opens
+>   regardless and says plainly why a search won't work if it's off, rather
+>   than being blocked by a separate "Agent mode" switch.
+>
+> **The one genuine, real, small gap:** "which tools are allowed this turn,
+> max rounds" as a **user-facing** Agent-mode control. `agent.py`'s
+> `_agentic_reply` already takes `allowed_tools`/`max_rounds` as real
+> parameters — the backend has the knob — but nothing in `app.js` exposes it;
+> tool selection is automatic (`tools.focus_for`) with no manual override UI.
+> Worth building only if a real use case shows up wanting it (most users want
+> automatic selection, not a per-turn allowlist to manage); not worth a
+> session on its own.
+
 **Why.** Asked for directly. The page mixes three activities in one column, and
 the web panel is bolted on top of the message list.
 

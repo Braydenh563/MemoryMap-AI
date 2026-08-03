@@ -50,8 +50,26 @@ it with Library, which a test written from the array alone (what a first
 draft did) would have silently gotten wrong. Covers every tab actually
 reachable from the bar for console errors, uncaught exceptions and
 horizontal overflow, plus one real interaction (capture a note, see it in
-Browse). **Next: ROADMAP.md §38's item 3, graph layouts beyond tree/radial —
-now with a smoke suite to build against.**
+Browse).
+
+**§38 item 3 (graph layouts) was checked, not built — a deliberate stop, not
+a skip.** `renderGraph()` is tightly integrated across drag, zoom-to-fit,
+hover-adjacency, the trace overlay and the physics sliders; a new layout
+means plugging into all of that, not writing one D3 function. Attempting it
+at the tail end of an already long session risked exactly the
+half-integrated feature CLAUDE.md warns against, so it's written up in
+ROADMAP.md §38 as needing its own session with room to verify visually
+against every one of those interactions — the same shape of call as §37E's
+design-spike recommendation, not an excuse.
+
+**§38 item 5 (Chat/Agent/Browse) turned out to be substantially done
+already**, checked rather than assumed either way: the Ask/Request mode
+toggle, the web panel column and `make_plan`'s ticked-step display satisfy
+its substance through a different — and per §36G's own reasoning, better —
+shape than literal sub-tabs. One small real gap noted in BACKLOG.md §3 (no
+user-facing tool-allowlist/max-rounds control in Agent mode) and left
+unbuilt as not worth its own session. **Next: §38 item 3 (graph layouts, now
+properly scoped) or item 4 (Timeline branch/line view).**
 
 **The corrected order, top of it:** scale-test the notebook past a few
 hundred notes (cheap, flagged by the outside review, never done), a headless

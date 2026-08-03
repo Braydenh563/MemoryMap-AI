@@ -700,58 +700,13 @@ function entryItem(entry, options = {}) {
 
   const date = document.createElement("span");
   date.className = "entry-date";
-  const stamp = options.bin ? entry.deleted_at : entry.created_at;
+  const stamp = entry.created_at;
   date.textContent = relativeTime(stamp);
   date.title = new Date(stamp).toLocaleString(); // exact on hover
   metaEnd.appendChild(date);
   meta.appendChild(metaEnd);
 
-  if (options.bin) {
-    // Marked so the CSS can keep this row's Restore button in the flow: it is
-    // a labelled text button rather than a hover-revealed icon (§36B).
-    li.classList.add("bin-row");
-    const actions = document.createElement("span");
-    actions.className = "entry-actions";
-    actions.appendChild(
-      smallButton("Restore", "Take this entry out of the bin", async () => {
-        try {
-          await api(`/entries/${entry.id}/restore`, { method: "POST" });
-          await Promise.all([loadEntries(), renderBin()]);
-        } catch (error) {
-          toast(`Couldn't restore that note: ${error.message}`, true);
-        }
-      })
-    );
-    // Asked for directly: a way to get rid of ONE note for good. Emptying the
-    // bin was all-or-nothing, so removing a single note permanently meant
-    // destroying everything else in there — which is why a bin fills up and
-    // stops being a bin.
-    //
-    // No undo is offered here and none is implied: the wording says "for
-    // good", the dialog quotes the note back so there is no doubt which one it
-    // is, and the note is already in the bin, so this is the second deliberate
-    // step rather than the first.
-    actions.appendChild(
-      smallButton("Delete for good", "Permanently delete this note — no undo", async () => {
-        const quoted = entry.content.trim().split("\n")[0].slice(0, 80);
-        if (
-          !(await confirmDialog(
-            `Permanently delete “${quoted}”?\n\nThis cannot be undone.`
-          ))
-        ) {
-          return;
-        }
-        try {
-          await api(`/entries/${entry.id}/purge`, { method: "DELETE" });
-          toast("Deleted for good.");
-          await Promise.all([loadEntries(), renderBin()]);
-        } catch (error) {
-          toast(`Couldn't delete that note: ${error.message}`, true);
-        }
-      })
-    );
-    metaEnd.appendChild(actions);
-  } else if (options.actions) {
+  if (options.actions) {
     // Wave L rework: two everyday actions stay visible; the rest live in
     // one ⋯ menu — the old row of nine icons was unscannable noise.
     const actions = document.createElement("span");
@@ -9059,10 +9014,21 @@ async function renderRandomNoteWidget(body) {
       Math.floor(Math.random() * (pool.length || entries.length))
     ];
     current = note;
-    const text = document.createElement("p");
+    // Rendered as markdown, like every other place a note's text is shown.
+    // It was `textContent`, so a note written with a heading, a list or any
+    // emphasis surfaced here as its raw source — `## Schedule` and `**bold**`
+    // spelled out — which makes the one widget whose whole job is to make an
+    // old note appealing show it at its least readable.
+    //
+    // A <div>, not a <p>: renderMarkdown appends block elements, and a <p>
+    // containing a <ul> is invalid markup that browsers fix by closing the
+    // paragraph early, which drops the styling this class carries.
+    const text = document.createElement("div");
     text.className = "random-note";
-    text.textContent =
-      note.content.length > 240 ? note.content.slice(0, 239) + "…" : note.content;
+    renderMarkdown(
+      text,
+      note.content.length > 240 ? note.content.slice(0, 239) + "…" : note.content
+    );
     body.appendChild(text);
 
     const meta = document.createElement("div");
@@ -12121,19 +12087,18 @@ function initNotesSubtabs() {
   showNotesSection(activeNotesSection());
 }
 
-// --- panels inside the Notes tab (bin / activity) ---------------------------------
-
-const PANELS = ["bin-panel", "activity-panel", "tags-panel"];
-
-function showPanel(id) {
-  for (const panel of PANELS) {
-    $(panel).classList.toggle("hidden", panel !== id);
-  }
-  // These open above the note list, so opening one from halfway down the page
-  // used to leave you looking at the notes you'd scrolled to instead of the
-  // panel you just asked for.
-  if (id) scrollPageToTop();
-}
+// The Notes tab's bin, activity and tag panels are gone (§36G).
+//
+// Each of them had a second implementation in the Library — the same list,
+// the same controls — and the bin's two could disagree about what was in it,
+// because each fetched its own. Three surfaces, three render functions, three
+// blocks of markup and a `showPanel` that hid whichever two you were not
+// looking at, all replaced by a filter chip on a screen built for exactly
+// this. The last thing the panel could do that the Library could not was show
+// a binned note in full; `openBinnedNote` above is that, and it is the reason
+// this could finally go.
+//
+// This is the first surface this project has *removed* rather than added.
 
 // The element that actually scrolls (§36A). The window no longer does — the
 // visible .tab-page is its own scroll container, so the scrollbar starts below
@@ -13092,83 +13057,6 @@ async function downloadSupportBundle() {
   } finally {
     button.disabled = false;
     button.textContent = original;
-  }
-}
-
-async function renderBin() {
-  const entries = await apiJson("/entries?deleted=true");
-  const list = $("bin-list");
-  list.replaceChildren();
-  $("bin-empty-message").classList.toggle("hidden", entries.length > 0);
-  const days = prefsCache ? prefsCache.recycle_bin_days : 30;
-  $("bin-note").textContent =
-    `Deleted entries are kept for ${days} days (change this in Preferences), ` +
-    "then cleared automatically.";
-  for (const entry of entries) list.appendChild(entryItem(entry, { bin: true }));
-}
-
-async function renderActivity() {
-  const rows = await apiJson("/audit?limit=100");
-  const list = $("activity-list");
-  list.replaceChildren();
-  for (const row of rows) {
-    const li = document.createElement("li");
-    const when = document.createElement("span");
-    when.className = "when";
-    when.textContent = new Date(row.created_at).toLocaleString();
-    const what = document.createElement("span");
-    what.className = "what";
-    what.textContent = row.action;
-    const detail = document.createElement("span");
-    detail.className = "muted";
-    detail.textContent =
-      `${row.entity_type}${row.entity_id ? " #" + row.entity_id : ""}` +
-      (row.detail ? ` — ${row.detail}` : "");
-    li.append(when, what, detail);
-    list.appendChild(li);
-  }
-}
-
-// Tag manager panel (Wave B).
-async function renderTags() {
-  const tags = await apiJson("/tags").catch(() => ({}));
-  const list = $("tags-list");
-  list.replaceChildren();
-  const names = Object.keys(tags);
-  $("tags-empty").classList.toggle("hidden", names.length > 0);
-  for (const name of names) {
-    const li = document.createElement("li");
-    const row = document.createElement("div");
-    row.className = "entry-meta";
-    row.appendChild(chip(name, "tag"));
-    const count = document.createElement("span");
-    count.className = "muted";
-    count.textContent = `${tags[name]} entr${tags[name] === 1 ? "y" : "ies"}`;
-    row.appendChild(count);
-    const actions = document.createElement("span");
-    actions.className = "entry-actions";
-    actions.appendChild(
-      smallButton("Rename", "Rename this tag everywhere (merge if the name exists)", async () => {
-        const next = await promptDialog(`Rename tag “${name}” to:`, name);
-        if (!next || next.trim() === name) return;
-        const result = await apiJson("/tags/rename", {
-          method: "POST",
-          body: JSON.stringify({ old: name, new: next.trim() }),
-        });
-        toast(`Updated ${result.changed} entr${result.changed === 1 ? "y" : "ies"}.`);
-        await Promise.all([renderTags(), loadEntries()]);
-      })
-    );
-    actions.appendChild(
-      smallButton("Delete", "Remove this tag from every entry", async () => {
-        if (!(await confirmDialog(`Remove the tag “${name}” from all entries?`))) return;
-        await apiJson("/tags/delete", { method: "POST", body: JSON.stringify({ name }) });
-        await Promise.all([renderTags(), loadEntries()]);
-      })
-    );
-    row.appendChild(actions);
-    li.appendChild(row);
-    list.appendChild(li);
   }
 }
 
@@ -14705,10 +14593,15 @@ function renderLibraryContextBars() {
   binBar.classList.toggle("hidden", !showingBin);
   if (showingBin) {
     const count = libraryCounts.archived || 0;
+    // "Kept for N days" came down from the deleted #bin-panel, which is the
+    // one thing it said that this bar did not. It is the difference between a
+    // bin you can trust to clear itself and one you assume you have to empty.
+    const days = prefsCache ? prefsCache.recycle_bin_days : 30;
     $("library-bin-note").textContent = count
-      ? `${count} note${count === 1 ? "" : "s"} in the bin. Restore one from its ⋯ menu, ` +
-        "or empty the bin to delete them all for good."
-      : "The bin is empty.";
+      ? `${count} note${count === 1 ? "" : "s"} in the bin, kept for ${days} days ` +
+        "then cleared automatically. Open one to read it, or use its ⋯ menu."
+      : `The bin is empty. Deleted notes are kept here for ${days} days ` +
+        "(change that in Preferences) before they clear.";
     $("library-bin-empty").disabled = !count;
   }
 
@@ -14890,15 +14783,92 @@ function openLibraryItem(item) {
     // The note the entry in the log is about, when it still exists.
     flashEntry(item.entry_id);
   } else if (item.kind === "archived") {
-    // Restore and permanent delete are both on this card's own ⋯ menu now, so
-    // there is nothing to send the user elsewhere for. Opening a binned note
-    // shows it in the bin panel, which is the one place it can be read in full.
-    switchTab("notes");
-    showNotesSection("browse");
-    showPanel("bin-panel");
-    renderBin();
+    // Restore and permanent delete are both on this card's own ⋯ menu, and
+    // reading the note in full is the one thing a card cannot do — so that is
+    // all this opens. It used to send the user to #bin-panel, which is the
+    // only reason that panel outlived the Library's Bin chip.
+    openBinnedNote(item.id);
   }
 }
+
+// --- reading a binned note in full (§36G) ----------------------------------
+//
+// **This is what let #bin-panel be deleted.** The Library card shows a
+// preview, which is right for a grid of mixed things and wrong as the only
+// way to see a note you are about to destroy — "restore or delete for good?"
+// is a question you answer by reading the note, and the panel was the last
+// place in the app that could still show one.
+//
+// Read-only. Editing a binned note would mean deciding whether the edit
+// un-deletes it, and the honest answer is that you restore it first.
+let binnedNoteId = null;
+
+async function openBinnedNote(entryId) {
+  binnedNoteId = entryId;
+  const overlay = $("binned-overlay");
+  const body = $("binned-body");
+  body.replaceChildren();
+  $("binned-meta").textContent = "Loading…";
+  overlay.classList.remove("hidden");
+  $("binned-close").focus();
+  let entry;
+  try {
+    // `?deleted=true` — an ordinary read still 404s on a binned note, so
+    // reaching into the bin is something the caller says it means to do.
+    entry = await apiJson(`/entries/${entryId}?deleted=true`);
+  } catch (error) {
+    $("binned-meta").textContent = `Couldn't open that note: ${error.message}`;
+    return;
+  }
+  if (binnedNoteId !== entryId) return; // a second open overtook this one
+  const days = prefsCache ? prefsCache.recycle_bin_days : 30;
+  const binned = entry.deleted_at ? relativeTime(entry.deleted_at) : "recently";
+  $("binned-meta").textContent =
+    `Deleted ${binned} · written ${relativeTime(entry.created_at)} · ` +
+    `kept for ${days} days from deletion, then cleared automatically.`;
+  // The note's own markdown, as the notebook renders it everywhere else. A
+  // binned note is still a note, and showing it as flat text here would make
+  // it look like a different, lesser thing than the one you deleted.
+  renderMarkdown(body, entry.content || "");
+}
+
+function closeBinnedReader() {
+  binnedNoteId = null;
+  $("binned-overlay").classList.add("hidden");
+}
+
+$("binned-close").addEventListener("click", closeBinnedReader);
+$("binned-restore").addEventListener("click", async () => {
+  const id = binnedNoteId;
+  if (!id) return;
+  try {
+    await apiJson(`/entries/${id}/restore`, { method: "POST" });
+    toast("Restored.");
+  } catch (error) {
+    toast(`Couldn't restore that note: ${error.message}`, true);
+    return;
+  }
+  closeBinnedReader();
+  loadLibrary();
+  loadEntries();
+});
+$("binned-purge").addEventListener("click", async () => {
+  const id = binnedNoteId;
+  if (!id) return;
+  // The note is on screen and has just been read, so the dialog does not have
+  // to quote it back the way the old bin row's did — "this cannot be undone"
+  // is the whole of what is left to say.
+  if (!(await confirmDialog("Permanently delete this note?\n\nThis cannot be undone."))) return;
+  try {
+    await apiJson(`/entries/${id}/purge`, { method: "DELETE" });
+    toast("Deleted for good.");
+  } catch (error) {
+    toast(`Couldn't delete that note: ${error.message}`, true);
+    return;
+  }
+  closeBinnedReader();
+  loadLibrary();
+});
 
 // --- the status bar (§36D) ---------------------------------------------------
 //
@@ -18605,41 +18575,6 @@ $("reminder-due-day-up").addEventListener("click", () => nudgeDue(60 * 24));
 // The two visible fields drive the hidden value.
 $("reminder-date").addEventListener("input", syncDueFromParts);
 $("reminder-time").addEventListener("input", syncDueFromParts);
-for (const button of document.querySelectorAll(".panel-close")) {
-  button.addEventListener("click", () => showPanel(null));
-}
-// Reported broken three times, and driven end to end in a real browser twice
-// with the whole flow working — dialog, POST, empty bin, toast. So the button
-// is not what is wrong on the machine reporting it, and the third report is
-// really about this: **every way this could fail was silent.**
-//
-// `apiJson` throws on a non-2xx, and there was no catch, so a 401 from an
-// expired token, a 500 from a locked database, or an unreachable server all
-// produced exactly what was reported — a click, and nothing. No toast, no
-// change, nothing in the panel. A button that says "Couldn't empty the bin:
-// …" is a bug report; a button that says nothing is three sessions of
-// guessing.
-//
-// The in-flight state matters for the same reason: purging a large bin
-// deletes files from disk, which on a slow or network drive is seconds of
-// looking broken.
-$("bin-empty").addEventListener("click", async () => {
-  if (!(await confirmDialog("Permanently delete everything in the bin? This cannot be undone."))) return;
-  const button = $("bin-empty");
-  const original = button.textContent;
-  button.disabled = true;
-  button.textContent = "Emptying…";
-  try {
-    const result = await apiJson("/recycle-bin/empty", { method: "POST" });
-    toast(`${result.removed} entr${result.removed === 1 ? "y" : "ies"} permanently deleted.`);
-    await renderBin();
-  } catch (error) {
-    toast(`Couldn't empty the bin: ${error.message}`, true);
-  } finally {
-    button.disabled = false;
-    button.textContent = original;
-  }
-});
 // --- [[ autocomplete ------------------------------------------------------------
 // The links work, but only if you remember how a note starts. Typing "[[" now
 // offers the notes you could mean, so linking is a thing you do while writing

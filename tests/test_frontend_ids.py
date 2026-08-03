@@ -113,7 +113,11 @@ def test_rediscover_disables_another_when_there_is_nothing_else_to_show():
     "this control is broken" — trap 12, arriving by a new route."""
     app = (INDEX.parent / "app.js").read_text(encoding="utf-8")
     start = app.index("async function renderRandomNoteWidget(")
-    body = app[start : start + 2600]
+    # The end of the function, not a fixed character count. A 2600-char window
+    # was doing this job and a comment added inside the function pushed the
+    # line being asserted past it — a lint that fails on prose is a lint people
+    # learn to weaken.
+    body = app[start : app.index("\n}\n", start)]
     assert "entries.length < 2" in body
     assert "disabled = true" in body
 

@@ -659,10 +659,18 @@ header#top-bar.tabs-wrapped #tab-bar {
 .library-toolbar {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  /* --space-6, not --space-3. The row holds four *separate* controls, and at
+     a small-gap step "Include bin" and "Sort" sat close enough to read as one
+     phrase — "Include bin Sort" — with the switch apparently belonging to the
+     select. The gap between unrelated controls has to be larger than the gap
+     inside one, which is the whole of what `.library-sort` sets below. */
+  gap: var(--space-6);
   flex-wrap: wrap;
   margin-bottom: var(--space-4);
 }
+/* A label and the control it names are one thing, so they sit closer to each
+   other than to anything else in the row. */
+.library-sort { display: inline-flex; align-items: center; gap: var(--space-3); margin: 0; }
 .library-search {
   flex: 1 1 16rem;
   min-width: 0;
@@ -1159,6 +1167,88 @@ header#top-bar.tabs-wrapped #tab-bar {
   .layout { grid-template-columns: minmax(0, 1fr); }
   .layout > * { min-width: 0; }
 }
+
+/* --- one switch, everywhere a checkbox means "on or off" ---------------------
+   Asked for: *"I want to ditch the radio buttons mostly application wide …
+   the ui needs to match and be the same style, shape size and alignment."*
+
+   A native checkbox is the operating system's control, and this app draws
+   everything else itself — so a settings screen full of them read as a form
+   embedded in an application rather than part of it, and the three sizes they
+   came in (1rem here, 1.05rem there, the browser default in the Library) never
+   lined up with the text beside them.
+
+   Switches, because that is what these *are*: every one of them is a thing
+   that is on or off right now, which is exactly what a switch says and what a
+   tick does not. Radios keep `accent-color` and stay as they are — a radio is
+   one-of-several rather than on-or-off, and drawing it as a switch would be
+   the same category error in the other direction.
+
+   Deliberately **not** applied to every checkbox in the app. A checkbox in a
+   list — the note picker's rows, the Library's card selection — means "this
+   one is chosen", which is a tick, and a column of switches down the side of a
+   list would read as a column of settings. Those keep the native control.
+
+   Built from the input itself rather than a wrapper span: no markup changes,
+   so it reaches the controls built at runtime too, and the browser keeps
+   ownership of focus, keyboard and the accessibility tree. */
+.settings-section label > input[type="checkbox"],
+.setting-check input[type="checkbox"],
+.tools-toggle input[type="checkbox"],
+.library-toolbar label > input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  /* A control's own size — not a spacing token, and it must not move with the
+     density setting, for the reason `--control-h` gives in the chat dock. */
+  width: 2rem;
+  height: 1.15rem;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--chip-bg);
+  box-shadow: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+  /* Optical: centres a 1.15rem control on a line of body text rather than
+     sitting it on the baseline. */
+  vertical-align: -0.2em;
+}
+.settings-section label > input[type="checkbox"]::after,
+.setting-check input[type="checkbox"]::after,
+.tools-toggle input[type="checkbox"]::after,
+.library-toolbar label > input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0.15rem;
+  width: 0.8rem;
+  height: 0.8rem;
+  transform: translateY(-50%);
+  border-radius: var(--radius-pill);
+  background: var(--muted);
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+.settings-section label > input[type="checkbox"]:checked,
+.setting-check input[type="checkbox"]:checked,
+.tools-toggle input[type="checkbox"]:checked,
+.library-toolbar label > input[type="checkbox"]:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.settings-section label > input[type="checkbox"]:checked::after,
+.setting-check input[type="checkbox"]:checked::after,
+.tools-toggle input[type="checkbox"]:checked::after,
+.library-toolbar label > input[type="checkbox"]:checked::after {
+  transform: translateY(-50%) translateX(0.85rem);
+  background: #fff;
+}
+/* The label's own alignment has to change with the control: `flex-start` was
+   right for a 1rem tick that needed nudging onto the text's cap height, and
+   puts a 1.15rem switch above the line. */
+.settings-section label:has(> input[type="checkbox"]) { align-items: center; }
 
 /* --- the glass card -------------------------------------------------------- */
 .card {
@@ -1830,15 +1920,29 @@ progress { accent-color: var(--accent); width: 100%; }
 li.link-source { outline: 2px solid var(--accent); }
 
 /* --- activity log ----------------------------------------------------------- */
-.activity-list { list-style: none; margin: 0; padding: 0; font-size: 0.85rem; }
-.activity-list li {
-  display: flex;
-  gap: 0.6rem;
-  padding: 0.25rem 0;
-  border-bottom: 1px solid var(--border);
+/* Reading a binned note (§36G). The one thing the deleted bin panel could do
+   that a Library card cannot, so it is the reason that panel could go.
+
+   It scrolls its own text rather than growing the dialog: a binned note can be
+   any length, and a modal that grows past the window puts its Restore and
+   Delete buttons somewhere you cannot reach. */
+.binned-body {
+  flex: 1 1 auto;
+  min-height: 4rem;
+  max-height: 55vh;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  padding: var(--space-5) var(--space-6);
+  margin: var(--space-4) 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--inner);
+  line-height: 1.6;
 }
-.activity-list .when { color: var(--muted); min-width: 9.5rem; }
-.activity-list .what { font-weight: 600; min-width: 6rem; }
+#binned-meta { margin: 0; font-size: var(--text-sm); }
+
+/* `.activity-list` and `.entry-list li.bin-row` went with the Notes tab's
+   activity and bin panels (§36G) — the Library renders both now. */
 
 /* --- Phase 5: quick access + toasts ------------------------------------------ */
 .recent { margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
@@ -7519,7 +7623,6 @@ textarea.autogrow {
 /* The bin's Restore button is a labelled text button with no hover affordance,
    so it stays visible. It never needed the corner treatment — scoping that to
    #entry-list handles the position; this handles the fade. */
-.entry-list li.bin-row .entry-actions { opacity: 1; }
 
 
 /* --- the orphan-row pattern, everywhere else it appears (§36B) ----------------

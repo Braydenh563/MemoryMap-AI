@@ -4,6 +4,20 @@ Everything outstanding, in the order I'd do it. Written so a fresh session can
 pick up without re-deriving context. Each item says **why** it matters, not just
 what to build — the reasoning is the part that's expensive to reconstruct.
 
+> **The live front door is [§37](#37-reported-in-one-session-the-second-big-batch-reprioritised).**
+> This file accreted three earlier "here's the current priority" sections —
+> "Next session: start here", "Do these next, in this order", and "Priority
+> map" — each written for its own round and each now a mix of correct history
+> and claims that have since gone stale (the Library tab is listed as an open
+> Tier 3 item below; it is built, and three of its own panels have since been
+> *deleted* as redundant — see §36G). Rather than rewrite three sections' worth
+> of prose to match, each has a correction note at its own top. **If you read
+> nothing else in this file, read §37's own "Priority order for the next
+> session" at the end of that section** — it is current as of the session that
+> wrote it, folds in everything reported since, and is reprioritised at the
+> user's explicit request. Everything before it is worth reading for the
+> reasoning, not for the ranking.
+
 ## This file, and its three companions
 
 At 4,500 lines and 47 sections this had stopped being readable in one sitting,
@@ -23,6 +37,12 @@ Section numbers did not change, so every §-reference in the code still resolves
 The design system has its own document: [DESIGN.md](DESIGN.md).
 
 ## Next session: start here
+
+> **This section's own numbered list is stale in one place: item 5 below still
+> lists "the Library tab" as one of the two biggest untouched sections. It is
+> built (§36F/§36G), and this session deleted three of the panels it replaced.
+> §3's sub-tab split is the one part of this list still genuinely open — see
+> the correction inline below.**
 
 > ### Read all four files before deciding anything
 >
@@ -86,8 +106,16 @@ Ordered by *how much it unlocks*, not by how much is left in the section.
    filter, Copy all, Clear, and a support-bundle export. Nothing here needed
    building — the entry was simply out of date. §1's remaining items are the
    ones about *other* surfaces, not the console.
-5. **Chat / Agent / Browse sub-tabs (§3)** and **the Library tab (§4)**, the
-   two biggest untouched UI sections.
+5. ~~**The Library tab (§4).**~~ **Built** (§36F), then built *out* into the
+   app's management screen for notes, documents, chats, files, tags, the bin
+   and the activity log (§36G) — and the Notes tab's old Bin/Activity/Tags
+   panels have since been **deleted**, the two implementations of each having
+   been the exact duplication the Library was meant to end. **Chat / Agent /
+   Browse sub-tabs (§3) is the one genuinely open half of this item** — the
+   chat tab resolved "Chat vs Agent" as a mode toggle (Ask/Request) rather
+   than as separate tabs, which may or may not still be what §3 was asking
+   for; worth a quick re-read of §3 before assuming it is either done or
+   still wanted as originally scoped.
 
 **Verify before building:** every provider test in this repo runs against a
 fake transport. The SSE framing, the `[DONE]` sentinel and the tool-call
@@ -101,7 +129,13 @@ Everything below this block is the standing backlog, unchanged.
 
 ## Do these next, in this order
 
-> ### ⚠️ Superseded by [§35](#35-reported-in-one-session-the-big-batch-triaged) — read that first
+> ### ⚠️ Superseded twice — by [§35](#35-reported-in-one-session-the-big-batch-triaged), then by [§37](#37-reported-in-one-session-the-second-big-batch-reprioritised)
+>
+> §35's own callout below is left as it was written. Two rounds of work have
+> landed since — §36 (the Library, the status bar, three panels deleted) and
+> §37 (this session's UI batch). **§37's own priority order is the current
+> one.** What follows here is kept for the reasoning, which is still good;
+> the ranking is not current.
 >
 > A single round of real use produced twenty-odd reports, most of them in the
 > desktop app and most of them invisible to this suite. **§35 is the live
@@ -200,6 +234,14 @@ sub-tabs) and §4 (the Library tab). §5's "attach documents to notes" is done
 
 ## Priority map: quick wins → bigger bets
 
+> **Two corrections before reading this map**, both confirmed while writing
+> §37: **Tier 3's "The Library tab (§4)" is built**, and its own follow-on
+> work is tracked in §36G, not here — leaving it listed below as an open
+> medium bet would send a session to rebuild something with a Library card
+> and a bin bar already sitting in `routes_library.py`. **Tier 3's "Chat /
+> Agent / Browse as real sub-tabs (§3)" is the one part of that pairing still
+> open** — see the note on it in "Next session: start here" above.
+
 Asked for directly — a triage across *everything* in this document, not just
 the six items above (those are the ones already proven to matter most in
 actual use; this is the rest of the backlog, sorted by effort rather than
@@ -207,92 +249,7 @@ usage history, since nobody has used most of it yet to sort it the other
 way). Four tiers. Within a tier, order doesn't mean much; between tiers, it
 does.
 
-**Security — worth doing out of turn, regardless of size.** ~~None of these
-are large, and all of them are the kind of gap that's invisible until it
-costs something. Do these before anything else in this map, not after the
-"quick wins" below, even though most of them *are* quick wins by effort~~
-**all seven closed.** Three were already built and the audit is what
-established that; four were real and are done. `tests/test_security_boundaries.py`
-pins all seven, including the three that were already true — a test is what
-stops the next audit having to rediscover them.
-
-1. ~~`PRAGMA journal_mode=WAL` (§20)~~ **already built.** `core/database.py`
-   sets it per connection, alongside `busy_timeout=5000` and
-   `synchronous=NORMAL`. Nothing to do; now pinned by a test.
-2. ~~Session TTL, and `SameSite=Strict` if the session is a cookie (§20)~~
-   **done.** Tokens now carry an issue time and a last-used time, and expire
-   on two clocks: idle (`_SESSION_IDLE_TTL`, 12h) and absolute
-   (`_SESSION_MAX_AGE`, 7d). Expiry closes the vault too — an expiry that left
-   the data key in memory would be a lock on one door only. **SameSite does
-   not apply and its absence is not a gap:** the token travels as an
-   `X-Auth-Token` header the frontend sets explicitly, so a browser never
-   attaches it to a cross-site request on its own. That is a stronger position
-   than a SameSite cookie, not a missing flag.
-3. ~~Origin/Referer check on the API (§20)~~ **done** —
-   `core/security.py:OriginCheckMiddleware`. A request is refused when it
-   states an Origin (or, failing that, a Referer) that disagrees with the Host
-   it was sent to; a request with neither is allowed, because that is curl,
-   the pywebview shell and the desktop shortcut, and a browser attaches Origin
-   to exactly the cross-site requests this stops. `localhost` and `127.0.0.1`
-   are treated as one machine on the same port. **The window this matters most
-   in is the one that looks like it doesn't:** before a password is set the
-   unlock gate waves everything through, which is also when a drive-by POST to
-   `/auth/setup` could claim the notebook and lock the owner out of it.
-4. ~~Brute-force backoff on the unlock gate (§8b)~~ **already built.**
-   `routes_auth._refuse_if_throttled` — one global bucket, five free tries,
-   then an exponential wait to a five-minute ceiling, forgiven after 15
-   quiet minutes. Now pinned by a test.
-5. ~~A CSP header on the app's own responses (§8b)~~ **done, and it is strict:
-   no `unsafe-inline`, no `unsafe-eval`, and no host named anywhere in it** —
-   every source is `'self'` or a hash. That was only affordable because of the
-   no-CDN rule the project already follows. Two things had to move to get
-   there, both worth knowing about before editing them back:
-   - The eight `style=""` attributes in `index.html` are now rules in
-     `style.css`, so `style-src 'self'` is honest. A test asserts the file has
-     none left.
-   - **The one inline `<script>` — the pre-paint theme block — is allowed by
-     the sha256 of its own contents, computed from the file at startup rather
-     than written down.** Written down it would go stale the first time anyone
-     edited that block, which this document already expects to happen (its
-     theme table is kept in step with `THEME_PRESETS` by hand), and a stale
-     hash fails as a blank unstyled page.
-   Alongside it: `X-Content-Type-Options`, `X-Frame-Options`,
-   `Referrer-Policy: no-referrer`, and a `Permissions-Policy` that turns off
-   geolocation/camera/payment/usb — deliberately **not** the microphone, which
-   voice capture needs.
-6. ~~Confirm the KDF behind private notes is slow (§8b)~~ **already true, and
-   better than the item assumed.** `core/crypto.py` uses scrypt at n=2^15,
-   r=8, p=1 — a memory-hard KDF, so stronger against GPU guessing than the
-   PBKDF2 the item would have accepted. The envelope design (password wraps a
-   DEK; the DEK encrypts notes) is also why a password change re-wraps 32
-   bytes instead of re-encrypting every note.
-7. ~~Confirm SearXNG binds to localhost, not the LAN (§13)~~ **half of it was
-   already true and the other half was a real hole.** The source path sets
-   `SEARXNG_BIND_ADDRESS=127.0.0.1` and always did. **The docker path did not:**
-   it ran `-p 8888:8080`, and that publishes on *every* interface, which is
-   not what the plain reading suggests. Worse, docker writes its own firewall
-   rules, so the port is reachable from the LAN even behind a host firewall
-   set to refuse it — the firewall never sees the packet. An exposed SearXNG
-   is not just an open port: it is an unauthenticated proxy to the internet
-   that a stranger can run searches through, and a log of everything the owner
-   has searched for. Now `-p 127.0.0.1:8888:8080`. **Publishing is fixed when a
-   container is created**, so changing the run command only protects people who
-   never started SearXNG — a container from an earlier version is detected by
-   `docker inspect` and recreated. A container it cannot inspect is left alone
-   rather than destroyed on a guess.
-
-> **What this cost, and the lesson worth keeping.** The strict CSP broke one
-> shipped feature, and **the full test suite — 757 green — did not notice.**
-> Settings → Appearance lets you write custom CSS, and it applied it by
-> injecting a `<style>` element, which is precisely what `style-src 'self'`
-> refuses. It now adopts a constructed stylesheet (`adoptedStyleSheets`),
-> which CSP does not treat as inline content, so the feature works *and* the
-> policy stays strict — the alternative, `'unsafe-inline'`, would also have
-> re-permitted style injected through note text. It was found by driving
-> Chromium and reading the console, which is the only place a CSP violation is
-> reported. This is the same lesson §8's bug list already carries, arriving
-> again by a new route: **a green suite says nothing about what a browser
-> refuses to do.**
+**Security — worth doing out of turn, regardless of size.** All seven closed; the full audit and what each one turned out to be moved to [HISTORY.md](roadmap/HISTORY.md) once every item was done — this map is for what's still open, not an archive of what isn't.
 
 **Tier 1 — fastest wins.** ~~Hours, not sessions; contained to one file or one
 function; low risk of breaking something else.~~ **all six done.** Unlike the
@@ -397,10 +354,15 @@ each is scoped and none needs a new abstraction the codebase doesn't already
 have a version of.
 
 - The Timeline branch/line view (§10C) — new rendering work, but reuses
-  §9's clustering and §10A's date data rather than inventing new grouping
+  §9's clustering and §10A's date data rather than inventing new grouping.
+  **§37J is nearer-term and should happen first**: the Timeline's *existing*
+  view clips text and doesn't render markdown, which is worth fixing before
+  building a second view with the same two bugs in it.
 - Chat / Agent / Browse as real sub-tabs (§3) — see the sequencing note
-  below before starting this one
-- The Library tab (§4)
+  below before starting this one, and see the correction above: the chat tab
+  resolved part of this differently (a mode toggle, not separate tabs), so
+  re-read §3 before assuming the whole item is still wanted as scoped
+- ~~The Library tab (§4)~~ **built — see §36F/§36G, and the correction above.**
 - The graph's utility — paths between notes, clusters, drag-to-link; the
   layouts are already done (§9)
 - An eval/benchmark harness for tokens, latency and filing accuracy
@@ -1641,3 +1603,350 @@ like it: bigger units, more metadata, sort and filter as first-class controls
 rather than an afterthought.
 
 ---
+
+## 37. Reported in one session — the second big batch, reprioritised
+
+A long list arrived in one sitting, most of it about UI polish. Written up
+**before** most of it is built, at the user's explicit request: *"first
+reprioritise the roadmap development plan so that all the key features and
+fixes are appropriately prioritised and ordered for the next session."* Six
+items were small and clear enough to fix the same session — those are marked
+**done** with the reasoning, so the next session does not re-derive them. The
+rest is ordered by how much it unlocks or how often it gets in the way, the
+same rule §36's handover ranking uses, not by how interesting it is.
+
+**Read the standing caveat before touching anything visual.** §35's own
+warning still applies to part of this list: nothing here was driven against a
+real Ollama, and the desktop shell was not available to reproduce any of it in.
+Everything marked **done** below *was* reproduced in Chromium — the two things
+kept separate deliberately.
+
+---
+
+### 37A. Done this session
+
+1. ~~**Quick sketch's Close button just darkened the background.**~~ **Fixed
+   and verified with `elementFromPoint`.** `#sketch-overlay` sat at
+   `z-index: 60` — the toast/notification tier — while `closeSketch()`'s
+   "close without saving?" confirm dialog is a `.modal-overlay` at
+   `z-index: 55`. Equal or lower z-index paints *behind* a higher one
+   regardless of DOM order, so the confirm dialog's own darkened backdrop
+   rendered underneath the sketch pad, its card hidden beneath the canvas —
+   which is exactly *"darkens the background"* instead of showing a dialog to
+   click. Lowered to `z-index: 55`, matching every other modal, so a nested
+   confirm (later in the DOM, equal z-index) now correctly paints on top.
+   **`#improve-overlay` had the identical latent bug** — same private
+   `z-index: 60`, just no confirm dialog wired to it yet — fixed alongside it
+   so the next feature that adds one does not rediscover this.
+2. ~~**Dropdown/select boxes are tight; the arrow clashes with the text.**~~
+   **Fixed at the base `select` rule**, app-wide, not just the chat dock (which
+   already had this treatment from the previous session). `appearance: none`
+   plus a painted two-line chevron in reserved padding (`--space-8` on the
+   inline-end side), so the arrow can never sit under a long option — a
+   persona name, "Newest first", a model id.
+3. ~~**UI elements above the notes list are different heights.**~~ **Fixed.**
+   `.browse-tools` (the filter box, `?`, the sort select, Select) now declares
+   one `--control-h: 2.3rem` the way `.library-toolbar` already does — the
+   same three-heights-on-one-line bug, same fix, different toolbar. Verified:
+   all four controls measure 37px.
+4. ~~**Popup buttons in the notes sidebar clash with the category note
+   numbers.**~~ **Fixed and verified.** `.category-actions` (✎/🗑) is
+   `position: absolute; right: 0.5rem`, overlaying the row on hover; `.count`
+   is a normal-flow sibling at the same spot, kept hidden underneath only by
+   `background: inherit` — which a glass card is never fully opaque enough to
+   guarantee, and `.active`/hover both change the background anyway. The count
+   now fades out exactly when the actions fade in (`:has(.category-actions)`),
+   rather than trusting paint order to hide it. The touch fallback had a worse
+   version of the same bug — `opacity: 1` with no hover on touch meant the
+   icons sat on top of the number *permanently*, not just while pointed at —
+   fixed by taking the actions out of absolute positioning entirely on
+   `(hover: none)`, so the row makes room for both.
+5. ~~**Before signing in, a popup says "failed to load entries."**~~ **Fixed
+   and verified with a stale-token reload: lock screen shows, zero toasts.**
+   A token left over in `localStorage` (server restarted since the last visit)
+   makes `startApp()` fire a dozen bootstrap requests in parallel before
+   anyone has unlocked anything. Every one hits the same 401, `api()`
+   correctly shows the lock screen — and then threw a plain `Error("Locked")`
+   that `startApp()`'s per-step `.catch()` *also* toasted, once per step:
+   "Couldn't load entries: Locked", "Couldn't load recent questions: Locked",
+   and so on, stacked in front of the lock screen that had already, correctly,
+   explained the one real state. The 401 error now carries `isLockout = true`
+   and the step wrapper skips its own toast when that flag is set — the lock
+   screen is the single source of truth for "you are not logged in."
+6. ~~**On first load I want it to show the Dashboard.**~~ **Fixed.** Only the
+   *fallback* changed — `switchTab(localStorage.getItem("activeTab") ||
+   "dashboard")`, was `"notes"`. A returning visit still opens on whichever
+   tab was last active; that is the point of remembering it. The odd choice
+   was defaulting a genuinely first-ever run, with nothing in the notebook
+   yet, to a list with nothing to browse.
+
+### 37B. Decided against building silently — a real trade-off, not a quick fix
+
+**A Quit button on the lock/login screen.** Asked for, and worth building —
+but wiring it to the existing `quitApp()` without a backend change would
+silently do nothing: `/shutdown` lives in `routes_tasks.router`, mounted with
+`dependencies=locked`, so a click before unlocking hits the same 401 every
+other pre-auth request does, and `quitApp()`'s `catch {}` swallows it. Making
+the button work means one of:
+
+- **A second, unauthenticated route** (`POST /auth/shutdown`, reusing the
+  three-property shutdown documented on the existing endpoint: POST-only,
+  behind `OriginCheckMiddleware`, SIGINT not a hard exit). The origin check
+  already runs globally and already protects `/auth/setup` before a password
+  exists — the exact analogous case — so this does not open a new *kind* of
+  hole against a browser-based cross-site attacker.
+- **The trade-off that is real:** it removes the requirement to know the
+  password before the process can be killed remotely. On `localhost` that
+  changes nothing a terminal `Ctrl+C` could not already do — the app's whole
+  threat model is single-user, local-first. If MemoryMap is ever bound to
+  `0.0.0.0` for phone access (hinted at elsewhere in the settings), an
+  unauthenticated shutdown becomes a denial-of-service anyone on the LAN can
+  trigger without the password. That is a deliberate choice about the auth
+  model, not a UI bug — **make it with the user in the room**, not folded into
+  a batch of forty other fixes.
+
+If it goes ahead: reuse the existing SIGINT-via-timer logic (factor it out of
+`routes_tasks.shutdown` rather than duplicating it) and mount the new route
+in `routes_auth.py`, which already has the pattern for pre-auth endpoints.
+
+### 37C. The chat dock — asked for again, and the reason is worth naming
+
+Reported repeatedly across this list: *"full redesign and improvement of the
+bottom dock,"* *"the bottom dock in the chat is verrry bulky and needs re
+designing."* Two sessions have now fixed real bugs in it (the overflow that
+drew outside the card, the web panel that had to leave, the controls unified
+into one visual family, a Plan button added) without it stopping being
+reported as bulky — which means **the remaining complaint is about density,
+not correctness.** Bug fixes and a density pass are different jobs, and this
+one is still owed the second.
+
+Concretely, in the order they'd help most:
+1. **Fewer rows at rest.** The skills group, the mode segment, the length/
+   persona pair and the composer are four visual bands even though the first
+   three now share one strip — collapsing infrequently-changed choices (length,
+   persona) behind a single "⚙" disclosure next to Send would leave the
+   composer as almost the whole dock on a normal turn, with the rest one click
+   away rather than always drawn.
+2. **A compact/expanded toggle**, remembered like the composer height already
+   is, rather than one fixed density for everyone — the same instinct behind
+   the Appearance density setting (37E below), scoped to this one surface.
+3. Re-measure against **37E's zoom setting** once it exists: some of "bulky"
+   may be "too large for a 13-inch screen at 100%," which a zoom control fixes
+   for the whole app rather than one row at a time. Build 37E first and
+   re-look at this before spending more effort here.
+
+### 37D. The web panel — resizable, and the reader refined
+
+Landed this session as a column beside the conversation (§36G-adjacent, see
+the handover); asked for more work on the same afternoon: *"the web browser
+popup still needs some work and I want the web browser sidebar to be
+adjustable in width, the in-app render feature needs refining and the popup
+buttons need some ui adjustments."* Three distinct asks:
+
+1. **Resizable width.** `makeSidebarResizable()` already does exactly this for
+   `#sidebar`, `#chat-sidebar` and `#doc-sidebar` (`initResizableSidebars()`
+   in `app.js`) — the web panel just isn't in that list. Since it currently
+   sizes itself with `flex: 0 1 clamp(19rem, 30%, 26rem)` rather than a grid
+   track, it needs the same treatment `#chat-sidebar` gets (a drag handle that
+   writes an inline width) rather than literally being added to the existing
+   function, which assumes a grid column. Should be close to free once looked
+   at directly.
+2. **The reader view "needs refining."** No specifics given — this needs a
+   short round of the user actually reading a page in it and saying what is
+   wrong (too narrow now that it has a whole column instead of 20rem? typography
+   too small? the ← Results / 💬 Ask about this / ＋ Save row cramped?) before
+   guessing at a fix.
+3. **"Popup buttons need UI adjustments"** — likely the same three
+   (← Results, Ask about this, Save as note) now stacked in `.web-reader-actions`
+   under the column layout. Worth a screenshot from the user showing the
+   specific awkwardness rather than re-deriving blind.
+
+### 37E. A UI zoom setting in Appearance
+
+*"my computer is a small 13-inch laptop so I need to go to like 80% browser
+zoom to see everything and not have it so squished or narrow."* A real,
+common case the app currently has no answer for beyond the browser's own
+Ctrl+/Ctrl- — which resets on every launch and is not a MemoryMap setting at
+all.
+
+This needs actual design before it is built, not just a slider:
+
+- **It is not the same axis as `--density`.** Density changes *spacing*
+  between controls at a fixed font size; a zoom setting needs to shrink
+  *everything* — type scale, control heights, icons, the graph and timeline —
+  proportionally, the way a browser's own zoom does. The two will fight each
+  other if not designed together: a "compact" density at 80% zoom and a
+  "spacious" density at 120% zoom are different requests answered by the same
+  two controls, and the settings screen needs to make that legible rather
+  than presenting two sliders that quietly interact.
+- **CSS `zoom` vs a root `font-size` percentage vs a `transform: scale` on
+  `<body>`.** All three have real trade-offs: `zoom` (non-standard but
+  supported everywhere that matters here) rescales layout *and* input, which
+  is closest to what a browser's own zoom does, but interacts oddly with
+  `100dvh`/`100vw` measurements this codebase already leans on heavily
+  (`--page-viewport`, `--page-sticky-h` from §36). `transform: scale` does not
+  reflow layout at all — it visually shrinks a fixed-size page, which is wrong
+  for "see more at once." A root `font-size` percentage is the least
+  surprising for a codebase already built on rem, but does not touch
+  hard-coded px values (there are some — `test_style_scale.py`'s corner-radius
+  lint exists because there used to be many more) and would need those
+  checked.
+- **Persisted like density** — `ui_state`, mirrored to the server the way
+  theme/palette already are (§35E), so it survives a shell that loses
+  `localStorage`.
+
+Recommend starting with a small prototype of the `zoom` CSS property on a
+branch and running `test_style_scale.py` plus a Chromium screenshot at three
+zoom levels before committing to the approach.
+
+### 37F. The graph toolbar — bulky, and specifically why
+
+*"redesign the ui layout of the controls above the graph as they are very
+bulky and take up a lot of space."* The toolbar holds, in one row: a heading,
+a highlight-search box, a Layout label + select, a Colour label + select, New
+note, Options, Refresh — then a second row for Trace (two selects, a button,
+Clear, a caption) — then a "How to use this map" disclosure — then the legend
+chips. Four bands of chrome before the map itself, on the one tab whose whole
+point is the map.
+
+The shape of the fix is the one §36B already applied elsewhere in this app:
+group by question, not list by feature. "Layout" + "Colour" answer *how it's
+drawn*; New note + Options + Refresh answer *what to do with it*; Trace is its
+own distinct mode (finding a path between two named notes) and arguably
+belongs behind a toggle rather than a permanently-drawn second row, the same
+way the web/agent-mode toggles in the chat dock replaced a permanent row.
+"How to use this map" should be discoverable, not open by default taking a
+fixed slice of height on every visit.
+
+### 37G. Quick sketch — bring in images and documents
+
+*"I want to expand on and improve the quick sketch feature. I want to be able
+to upload documents and images."* Two different features wearing one request:
+
+- **Upload an image into the sketch pad**, to annotate over it (mark up a
+  screenshot, trace over a photo) rather than only drawing on a blank canvas.
+  Scoped to Sketch specifically and a reasonably contained addition — a file
+  input, drawn onto the canvas as a background layer before the pen tool
+  starts.
+- **"Upload documents"** is very likely the same feature the README's "Next
+  up" list and `core/extras.py` already name and flag as a debt: `markitdown`
+  installs and does nothing, because *"the app has no import button for these
+  yet."* Don't build two separate importers — this is the button that extra
+  has been waiting for, turning a PDF/Word file/slide deck into markdown and
+  bringing it in as a note (or notes). Worth confirming with the user whether
+  they meant this, or specifically documents *inside* the sketch pad (e.g., a
+  PDF page as a background to annotate) — the two are different amounts of
+  work and the wording could mean either.
+
+### 37H. llama.cpp, actually wired in
+
+Flagged as `unavailable` this session in Settings → Optional extras — installs
+the library, does nothing, because *"not wired into the chat backend yet."*
+Building the wiring is the next-up item the README already names. Shape of the
+work: a new provider in the `ai/provider.py` family (alongside the Ollama and
+OpenAI-compatible ones), a model file picker (GGUF files are just files on
+disk, not a registry to pull from — different UX from both existing
+providers), and `core/extras.py`'s `unavailable` string comes off once it is
+real. This is a backend feature, not a UI one — budget a full session.
+
+### 37I. Compress the chat — as a tool the agent can call, not only a button
+
+*"make compressing the chat an agent tool so the agent can do it
+automatically."* The machinery exists — `POST /chat/compress` already
+summarises, `compressChatContext()` already calls it — but it is built as a
+**human-gated** two-step flow on purpose: the code comment on
+`showCompressReview` is explicit that a summary is shown *before* it is used
+because *"a summary you cannot correct is one you have to trust blindly."*
+
+Turning this into an agent tool (alongside `make_plan`, `run_skill`,
+`ask_user` in `ai/tools.py`'s `HANDOFFS` table) raises the same tension §35K
+already reasoned through for skills: does the agent's own compression skip
+the review step (fast, but the safeguard this feature was built around is
+gone for exactly the runs where the summary matters most — a long agentic
+session compressing its own history) or does it still hand off to a human
+mid-run (safe, but "automatically" is the word the user actually used, and a
+handoff mid-agent-run is a pause the agent did not ask for)? Decide which
+before writing the tool, the way §36G's rule says: write the trade-off down
+once, don't re-derive it.
+
+### 37J. The Timeline — narrow columns, clipped text, no markdown, low utility
+
+Screenshotted: day columns of `minmax(5.5rem, 1fr)` — about 88px at minimum —
+holding note chips clamped to two lines via `-webkit-line-clamp`, rendered
+with `textContent` rather than `renderMarkdown`, so a note written with
+`**bold**` or a heading shows the raw syntax in the one place it is smallest
+and most cramped to read. *"text is cut off, it is tight, not very visually
+pleasing, and there is a lack of utility as well as md rendering."*
+
+**Note for whoever picks this up:** the *other* screenshot in this same
+report — coloured circles with heavily overlapping labels — is the **Graph**
+tab, not the Timeline, and is the lattice bug this session already fixed by
+widening the simulation's world box (§36's handover, "the graph's new world
+box"). Keep the two separate; re-diagnosing the graph screenshot as a Timeline
+bug would rebuild something already done.
+
+The Timeline's real, distinct list:
+1. Markdown-rendered previews (`renderMarkdown` into the dot instead of
+   `textContent`), or at minimum strip markdown syntax before clamping —
+   showing literal `**` is worse than showing the words plain.
+2. Wider columns, or a per-tab zoom/density the same instinct as 37E but
+   local to this grid, since `5.5rem` was sized for a bucket label and not for
+   two lines of prose.
+3. More utility: the band row only ever opens the note in Notes → Browse
+   today (`timelineDot`'s click handler). Filtering, a way to see a band's
+   whole list without scrolling sideways through empty columns, and reading a
+   note inline rather than always leaving the tab are all on the table.
+
+### 37K. Emoji rendering — needs a decision, not a guess
+
+*"I want to change how text emoji characters are rendered."* Too open to build
+against blind. The one concrete precedent in this codebase is the ⚡️
+variation-selector fix (HISTORY: a bare U+26A1 renders as a thin text-style
+glyph on platforms whose default presentation for it is text, which beside a
+colour 🌐 and 🤖 in the same strip looks like something that failed to load) —
+if that is the shape of the complaint, an app-wide audit for emoji missing
+their variation selector is a bounded, mechanical fix. But "how they're
+rendered" could equally mean: a different emoji *font* entirely (bundling
+Twemoji/Noto so the app looks identical across Windows/Mac/Linux rather than
+using each OS's native glyphs, which is a real and much bigger asset-and-CSP
+decision), or turning emoji into plain-text alternatives for a low-vision/
+high-contrast mode. **Ask which, before spending a session on the wrong one.**
+
+### 37L. Dashboard widgets — shorter, and the full-audit umbrella
+
+*"the widgets in the application being a little shorter or not taking up so
+much space"* and, separately, the broad ask this whole batch sits under:
+*"do a full ui overview, refine and make consistent... make sure the ui is
+properly adaptable for all screen sizes and aesthetic configurations."* The
+second is not a task, it is a **program** — the same shape as §35L (the
+spacing-scale work) and worth exactly that kind of session: pick one
+dimension (heights, this time, given how many of 37A–37J are height/spacing
+mismatches on adjacent controls), sweep the whole app for it, and — the step
+that made §35L stick — add the lint that stops it drifting back. §37E's zoom
+setting and a genuine widget-density pass are the two concrete pieces of this
+umbrella worth scheduling; "full UI overview" on its own is too broad to start
+a session with and should be broken into dated sub-items as each is tackled,
+the way §36 itself was.
+
+---
+
+**Priority order for the next session**, all of the above folded in:
+
+1. **37B's decision** — five minutes with the user, before anything else in
+   this list, because two other items (the lock-screen quit button, and
+   whatever else touches auth) are blocked on it.
+2. **37D.1** (resizable web panel) — small, and the pattern already exists.
+3. **37J** (Timeline) — genuinely broken (clipped, unrendered markdown), not
+   only unpolished, and self-contained.
+4. **37F** (graph toolbar) — same §36B grouping technique already proven
+   twice in this codebase, bounded to one screen.
+5. **37E** (zoom setting) — the highest-leverage single feature on the list
+   (fixes "everything feels cramped" for one user on one machine, at the
+   root, once) but needs the design spike described above before code.
+6. **37C** (chat dock density pass) — re-look at it *after* 37E ships, per
+   37C's own note.
+7. **37I** (compress as a tool) — needs the review-step decision first.
+8. **37G / 37H / 37K** — each needs one clarifying question answered before
+   it can be scoped; ask, then schedule.
+9. **37L** — the umbrella program; break into dated sub-items as capacity
+   allows, don't start a session on "full UI overview" itself.

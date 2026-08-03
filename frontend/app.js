@@ -97,7 +97,18 @@ async function api(path, options = {}) {
   }
   if (response.status === 401 && !ownsAuthErrors) {
     if (!silent) showLockScreen(false); // token expired (e.g. app restarted)
-    throw new Error("Locked");
+    const locked = new Error("Locked");
+    // Marked, so `startApp()`'s bootstrap loop can tell "the session expired"
+    // apart from "this one endpoint failed". Reported: *"before signing in, a
+    // popup shows a message saying failed to load entries"* — a stale token
+    // in localStorage (server restarted since the last visit) makes `startApp`
+    // fire a dozen requests in parallel before the user has unlocked
+    // anything, every one of them hits this 401, and every one of them used
+    // to toast its own "Couldn't load X: Locked" on top of the lock screen
+    // that had already, correctly, just appeared. One state — not logged in
+    // — was being reported as a dozen unrelated failures.
+    locked.isLockout = true;
+    throw locked;
   }
   if (!response.ok) {
     const detail = await response.json().catch(() => ({}));
@@ -191,12 +202,15 @@ function startApp() {
       const result = fn();
       if (result && typeof result.catch === "function") {
         return result.catch((error) => {
-          toast(`Couldn't ${label}: ${error.message}`, true);
+          // The lock screen already said what happened; a toast under it
+          // repeating "Couldn't X: Locked" for every parallel step is noise
+          // about one state dressed up as several failures.
+          if (!error.isLockout) toast(`Couldn't ${label}: ${error.message}`, true);
         });
       }
       return Promise.resolve(result);
     } catch (error) {
-      toast(`Couldn't ${label}: ${error.message}`, true);
+      if (!error.isLockout) toast(`Couldn't ${label}: ${error.message}`, true);
       return Promise.resolve();
     }
   };
@@ -17899,7 +17913,12 @@ startReminderWatch();
 initResizableSidebars();
 watchOverlays(); // page behind a dialog must not scroll
 initAutoGrow(); // capture + magic-add boxes follow their content
-switchTab(localStorage.getItem("activeTab") || "notes");
+// A returning visit still opens on whichever tab was last active — that is
+// the point of remembering it at all. Only the fallback changed: a genuinely
+// first run (nothing in `localStorage` yet) used to default to Notes, an odd
+// choice for the one visit where there is nothing to browse. Asked for
+// directly: "on first load I want it to show the dashboard."
+switchTab(localStorage.getItem("activeTab") || "dashboard");
 
 // Settings modal (Wave A).
 $("settings-btn").addEventListener("click", () => openSettingsModal());

@@ -1398,6 +1398,34 @@ input[type="datetime-local"] {
   color: var(--muted);
   opacity: 0.85;
 }
+/* Every `<select>` in the app, not just the chat dock's — the same fix
+   `.chat-dock-controls select` needed, applied at the base rule instead of
+   copied to every screen that has one. Reported: *"the dropdown combo boxes
+   are a little tight and the arrow is often nearly off the side or clashing
+   with the text."* The shared input/select rule above gives equal padding on
+   both sides, which is right for a text box and wrong for a select — the
+   browser's own arrow sits inside that right-hand padding with nothing
+   reserved for it, so a long option (a persona name, "Newest first", a model
+   id) runs up against it or under it depending on the platform's rendering.
+
+   `appearance: none` plus a painted caret — the same two-line chevron the
+   chat dock uses — replaces the platform arrow with one that is always inside
+   its own reserved space and always the same colour as the text, so it dims
+   and brightens with the control instead of staying the OS's grey. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-inline-end: var(--space-8);
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-size: 0.3rem 0.3rem, 0.3rem 0.3rem;
+  background-position: right 0.85rem center, right 0.65rem center;
+  background-repeat: no-repeat;
+}
+/* Firefox draws its own focus ring inside the control on top of the painted
+   arrow otherwise. */
+select:-moz-focusring { color: transparent; text-shadow: 0 0 0 var(--ink); }
+
 textarea:focus, input:focus, select:focus {
   outline: 2px solid var(--accent-soft);
   border-color: var(--accent);
@@ -3020,7 +3048,19 @@ html.modal-open body {
   justify-content: center;
   align-items: center;
   padding: 1rem;
-  z-index: 60;
+  /* z-index 55, not 60 — matching `.modal-overlay`. This used to be 60, the
+     same tier as toasts and the AI-status popup, and that was the bug behind
+     *"the close button on quick sketch doesn't work, it just darkens the
+     background."* `closeSketch` asks a confirm dialog before discarding a
+     drawing, and that dialog is a `.modal-overlay` (z-index 55) appended to
+     `<body>` — so it painted *behind* this overlay's higher z-index. Its
+     backdrop darkened the screen further, its card was hidden underneath, and
+     the click had nothing visible to land on. Matching the tier is what lets
+     a confirm dialog raised from inside a modal stack correctly: equal
+     z-index, later in the DOM, paints on top. `#improve-overlay` had the
+     identical bug waiting for the day it grew a confirm of its own; fixed
+     alongside this one for the same reason. */
+  z-index: 55;
 }
 #sketch-card {
   width: min(900px, 96vw);
@@ -3153,7 +3193,22 @@ kbd {
 }
 
 .browse-header { align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-.browse-tools { gap: 0.4rem; flex: 0 1 auto; }
+/* One control height for the row, the same fix `.library-toolbar` needed.
+   `#note-search` took its height from the shared input rule's padding,
+   `#note-sort` from the shared select rule, and `#search-help` / `#select-btn`
+   from `button.small` — three different rules, none of them agreeing, so the
+   row read as four controls of four heights rather than one toolbar. */
+.browse-tools {
+  gap: 0.4rem;
+  flex: 0 1 auto;
+  --control-h: 2.3rem;
+}
+.browse-tools input,
+.browse-tools select,
+.browse-tools button {
+  height: var(--control-h);
+  padding-block: 0;
+}
 #note-search { margin-bottom: 0; min-width: 8rem; }
 #note-sort { margin-bottom: 0; max-width: 10rem; }
 
@@ -3475,7 +3530,8 @@ html { font-size: 16px; }
 #improve-overlay {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  /* See #sketch-overlay's comment — same tier, same reason. */
+  z-index: 55;
   background: rgba(10, 12, 24, 0.45);
   backdrop-filter: blur(3px);
   display: flex;
@@ -5402,9 +5458,32 @@ button { border-radius: calc(var(--radius) * 0.7); }
 }
 #category-list li:hover .category-actions,
 #category-list li:focus-within .category-actions { opacity: 1; }
-/* Touch has no hover, so the controls are simply always there. */
+/* The count badge is a normal-flow sibling sitting at the same spot the
+   actions overlay, and `background: inherit` on `.category-actions` was
+   meant to hide it underneath — reported as *"the popup buttons in the notes
+   sidebar clash with the category note numbers"*, which is what a background
+   that does not fully cover the row (a glass card is never fully opaque, and
+   `.active`/hover both change it) looks like. Fading the number out exactly
+   when the buttons fade in is the same transition already used for the
+   buttons themselves, just run on the thing it is replacing rather than
+   trusting a paint order to hide it.
+
+   Scoped to rows that actually have actions — "All" and "Uncategorised" have
+   no `.category-actions` and nothing to reveal, so their count must not
+   vanish on hover. */
+#category-list li:has(.category-actions):hover .count,
+#category-list li:has(.category-actions):focus-within .count {
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+/* Touch has no hover, so the controls are simply always there — which used
+   to mean permanently overlaying the count rather than only while the row was
+   being pointed at, since `position: absolute` does not care whether opacity
+   is a hover state or a constant. In flow instead, so the row makes room for
+   both rather than stacking them: `li` is already `display: flex` for the
+   name/count pair, so a non-absolute child just becomes a third column. */
 @media (hover: none) {
-  .category-actions { opacity: 1; }
+  #category-list li:has(.category-actions) .category-actions { position: static; opacity: 1; }
 }
 @media (prefers-reduced-motion: reduce) {
   .category-actions { transition: none; }

@@ -506,6 +506,97 @@ budget, note markdown, the dashboard hero.
 
 ---
 
+## A security audit across the whole backlog — all seven closed
+
+Asked for directly: a triage across *everything* in the roadmap for security gaps, not just what had already been reported. Moved here from ROADMAP.md's priority map once every item was done, so that file stays about what's still open.
+
+**Security — worth doing out of turn, regardless of size.** ~~None of these
+are large, and all of them are the kind of gap that's invisible until it
+costs something. Do these before anything else in this map, not after the
+"quick wins" below, even though most of them *are* quick wins by effort~~
+**all seven closed.** Three were already built and the audit is what
+established that; four were real and are done. `tests/test_security_boundaries.py`
+pins all seven, including the three that were already true — a test is what
+stops the next audit having to rediscover them.
+
+1. ~~`PRAGMA journal_mode=WAL` (§20)~~ **already built.** `core/database.py`
+   sets it per connection, alongside `busy_timeout=5000` and
+   `synchronous=NORMAL`. Nothing to do; now pinned by a test.
+2. ~~Session TTL, and `SameSite=Strict` if the session is a cookie (§20)~~
+   **done.** Tokens now carry an issue time and a last-used time, and expire
+   on two clocks: idle (`_SESSION_IDLE_TTL`, 12h) and absolute
+   (`_SESSION_MAX_AGE`, 7d). Expiry closes the vault too — an expiry that left
+   the data key in memory would be a lock on one door only. **SameSite does
+   not apply and its absence is not a gap:** the token travels as an
+   `X-Auth-Token` header the frontend sets explicitly, so a browser never
+   attaches it to a cross-site request on its own. That is a stronger position
+   than a SameSite cookie, not a missing flag.
+3. ~~Origin/Referer check on the API (§20)~~ **done** —
+   `core/security.py:OriginCheckMiddleware`. A request is refused when it
+   states an Origin (or, failing that, a Referer) that disagrees with the Host
+   it was sent to; a request with neither is allowed, because that is curl,
+   the pywebview shell and the desktop shortcut, and a browser attaches Origin
+   to exactly the cross-site requests this stops. `localhost` and `127.0.0.1`
+   are treated as one machine on the same port. **The window this matters most
+   in is the one that looks like it doesn't:** before a password is set the
+   unlock gate waves everything through, which is also when a drive-by POST to
+   `/auth/setup` could claim the notebook and lock the owner out of it.
+4. ~~Brute-force backoff on the unlock gate (§8b)~~ **already built.**
+   `routes_auth._refuse_if_throttled` — one global bucket, five free tries,
+   then an exponential wait to a five-minute ceiling, forgiven after 15
+   quiet minutes. Now pinned by a test.
+5. ~~A CSP header on the app's own responses (§8b)~~ **done, and it is strict:
+   no `unsafe-inline`, no `unsafe-eval`, and no host named anywhere in it** —
+   every source is `'self'` or a hash. That was only affordable because of the
+   no-CDN rule the project already follows. Two things had to move to get
+   there, both worth knowing about before editing them back:
+   - The eight `style=""` attributes in `index.html` are now rules in
+     `style.css`, so `style-src 'self'` is honest. A test asserts the file has
+     none left.
+   - **The one inline `<script>` — the pre-paint theme block — is allowed by
+     the sha256 of its own contents, computed from the file at startup rather
+     than written down.** Written down it would go stale the first time anyone
+     edited that block, which this document already expects to happen (its
+     theme table is kept in step with `THEME_PRESETS` by hand), and a stale
+     hash fails as a blank unstyled page.
+   Alongside it: `X-Content-Type-Options`, `X-Frame-Options`,
+   `Referrer-Policy: no-referrer`, and a `Permissions-Policy` that turns off
+   geolocation/camera/payment/usb — deliberately **not** the microphone, which
+   voice capture needs.
+6. ~~Confirm the KDF behind private notes is slow (§8b)~~ **already true, and
+   better than the item assumed.** `core/crypto.py` uses scrypt at n=2^15,
+   r=8, p=1 — a memory-hard KDF, so stronger against GPU guessing than the
+   PBKDF2 the item would have accepted. The envelope design (password wraps a
+   DEK; the DEK encrypts notes) is also why a password change re-wraps 32
+   bytes instead of re-encrypting every note.
+7. ~~Confirm SearXNG binds to localhost, not the LAN (§13)~~ **half of it was
+   already true and the other half was a real hole.** The source path sets
+   `SEARXNG_BIND_ADDRESS=127.0.0.1` and always did. **The docker path did not:**
+   it ran `-p 8888:8080`, and that publishes on *every* interface, which is
+   not what the plain reading suggests. Worse, docker writes its own firewall
+   rules, so the port is reachable from the LAN even behind a host firewall
+   set to refuse it — the firewall never sees the packet. An exposed SearXNG
+   is not just an open port: it is an unauthenticated proxy to the internet
+   that a stranger can run searches through, and a log of everything the owner
+   has searched for. Now `-p 127.0.0.1:8888:8080`. **Publishing is fixed when a
+   container is created**, so changing the run command only protects people who
+   never started SearXNG — a container from an earlier version is detected by
+   `docker inspect` and recreated. A container it cannot inspect is left alone
+   rather than destroyed on a guess.
+
+> **What this cost, and the lesson worth keeping.** The strict CSP broke one
+> shipped feature, and **the full test suite — 757 green — did not notice.**
+> Settings → Appearance lets you write custom CSS, and it applied it by
+> injecting a `<style>` element, which is precisely what `style-src 'self'`
+> refuses. It now adopts a constructed stylesheet (`adoptedStyleSheets`),
+> which CSP does not treat as inline content, so the feature works *and* the
+> policy stays strict — the alternative, `'unsafe-inline'`, would also have
+> re-permitted style injected through note text. It was found by driving
+> Chromium and reading the console, which is the only place a CSP violation is
+> reported. This is the same lesson §8's bug list already carries, arriving
+> again by a new route: **a green suite says nothing about what a browser
+> refuses to do.**
+
 ## Done in earlier sessions — don't redo
 
 **Bugs fixed** (each reproduced and verified in a browser):

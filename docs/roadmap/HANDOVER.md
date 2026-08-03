@@ -3,11 +3,15 @@
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the AGPL/MIT constraint) · [HISTORY.md](HISTORY.md) (already built).
 
 Written at the end of the session that **deleted three surfaces**, moved web
-search out of the chat dock, and added embedding-model management. Everything
-here is either a fact you can check or a thing I could not check and am saying
-so about.
+search out of the chat dock, added embedding-model management, and — in a long
+follow-on round the same session — fixed six more reported bugs and triaged a
+much bigger list into [ROADMAP.md §37](../ROADMAP.md#37-reported-in-one-session--the-second-big-batch-reprioritised).
+Everything here is either a fact you can check or a thing I could not check and
+am saying so about.
 
 **Start at [Where to start next](#where-to-start-next--ranked-with-the-reason).**
+That section now leads with §37 — read it first, the ranked list below it is
+what came before.
 
 ---
 
@@ -23,11 +27,17 @@ measurement was the fix each time.** Not a slogan — the record:
 | "the graph is out of the main ui panel again" | `min-height: 22rem` under the map + a two-row legend > a 700px window. |
 | "the notes sidebar too" (a second sidebar, same day) | Both were 22px too tall. One `calc`, written by hand in three rules, each missing the page's bottom padding. |
 | "the embedding model doesn't redownload every time, right?" | Right — those are HuggingFace *metadata* requests, not the weights. |
+| "quick sketch's Close button just darkens the background" | Confirm dialog at z-index 55, sketch overlay at z-index 60 — the dialog painted behind it. `elementFromPoint` on the confirm card returned the sketch card underneath it. |
+| "before signing in, a popup says failed to load entries" | A stale token in `localStorage` fires a dozen bootstrap requests before unlock; each 401 correctly showed the lock screen *and* was separately toasted. |
 
-**The last two are the lesson.** A bug reported twice on two different
-surfaces is usually one bug in a shared expression, and a `calc` repeated in
-three rules is a constant that has not been named yet. It is
-`--page-sticky-h` now.
+A bug reported twice on two different
+surfaces is usually one bug in a shared expression (the sidebar heights, both
+missing the same padding term), and a bug that darkens a whole screen with no
+visible dialog is usually two elements at the same z-index tier fighting over
+which paints on top, not something actually broken inside the dialog itself.
+`--page-sticky-h` names the first kind now; look for the second kind — a
+private `z-index` outside the shared 55/60 tiers — before assuming a reported
+"nothing happens" click is a logic bug.
 
 The app runs on localhost and the sandbox has Chromium. **Reproduce first.**
 
@@ -60,6 +70,28 @@ The app runs on localhost and the sandbox has Chromium. **Reproduce first.**
 4. **A lint that slices a fixed number of characters will fail on a
    comment.** `test_frontend_ids.py` did, and a lint that fails on prose is a
    lint people learn to weaken. It slices to the end of the function now.
+
+5. **Two overlays at a private `z-index: 60` will eat a nested confirm
+   dialog.** `#sketch-overlay` and `#improve-overlay` both sat above
+   `.modal-overlay`'s shared `z-index: 55` — the same tier toasts and popups
+   use, for a reason that had nothing to do with either overlay. Any modal
+   that might one day open a `confirmDialog()`/`promptDialog()` on top of
+   itself has to be at 55, not 60, or the confirm paints underneath it and
+   looks like a click that did nothing. **Grep for `z-index: 60` before
+   building a new full-screen overlay** — it is currently only toasts, the
+   command palette, the notification panel and the AI-status popup, and none
+   of those ever open a nested dialog on top of themselves; a new overlay
+   that copies the number without copying that property is this bug again.
+
+6. **A per-step `.catch()` in a bootstrap loop will re-report a session-wide
+   condition as N separate failures.** `startApp()`'s `step()` helper toasts
+   whatever error each parallel request throws, which is right for a request
+   that actually failed on its own and wrong for "the token expired," which
+   `api()` already announces once by showing the lock screen. **Any error
+   that is really "this whole session is in state X," not "this one call
+   failed," needs a marker property** (`error.isLockout` is the one example
+   now) so a generic retry/report loop can tell the two apart — the loop
+   cannot know from the error's `.message` alone.
 
 ---
 
@@ -115,6 +147,33 @@ route into it could drift from the first.
 `startSkill` now switches to the chat tab. It did not, so a skill started from
 the dashboard streamed into a tab nobody was looking at.
 
+### A second round: six more reported bugs fixed, a much longer list triaged
+
+The same session, after the handover above was mostly written, took a long
+follow-on list of reports. Six were small and clear enough to fix on the spot
+(§37A: the sketch close bug, the app-wide select-arrow fix, the notes-list
+toolbar heights, the category-actions/count clash, the pre-auth toast noise,
+the dashboard-first-load default) and are described with their reasoning in
+[ROADMAP.md §37](../ROADMAP.md#37-reported-in-one-session--the-second-big-batch-reprioritised).
+The rest — a chat-dock density pass, a resizable/refined web panel, a UI zoom
+setting, the graph toolbar, sketch image/document upload, llama.cpp, chat
+compression as an agent tool, a real Timeline fix, emoji rendering, and the
+"full UI audit" umbrella — is triaged there too, in priority order.
+
+**One deliberate non-decision:** a Quit button on the lock screen was asked
+for and is not built. It needs `/shutdown` reachable without the unlock
+token, which is a real trade-off (§37B) — building it silently inside a batch
+of forty other fixes would have hidden a decision about the auth model that
+deserves to be made in the open.
+
+**The roadmap's own top-level "here's what to do" sections had also drifted**,
+and this was the session that found it: "Priority map" listed the Library tab
+as an open Tier 3 item after it had been built *and* had panels deleted from
+it. All three legacy priority sections (`Next session: start here`, `Do these
+next`, `Priority map`) now carry a correction note pointing at what's actually
+still open, and the fully-closed security-audit tier moved to HISTORY.md so
+ROADMAP.md stayed under its own 2,000-line lint.
+
 ---
 
 ## What I could not check, and you should not assume
@@ -152,12 +211,73 @@ the dashboard streamed into a tab nobody was looking at.
    menu correctly covering the card *below* rather than being mispositioned.
    **Not fixed, and not investigated to a conclusion.** Measure it with
    `elementFromPoint` before changing anything.
+7. **"The notes sidebar keeps changing its height slightly, increasing the
+   gap at the bottom."** Checked and *not* reproduced: `#sidebar`'s height
+   measured identically 1.5 seconds apart, idle, on the browse section with
+   two categories. That is not the same as confirming there is no bug — it
+   means whatever triggers it is an interaction I did not try (switching
+   sub-tabs and back, a widget re-render after `loadCategories()`'s
+   deliberately-unawaited fetch resolves late, a tag-suggestion refresh). The
+   sidebar's own height rule (`height: var(--page-sticky-h)`, fixed this
+   session) should make this structurally impossible now regardless of cause
+   — it no longer sizes to its own content — but say so only after it is
+   re-reported, don't assume it's already covered.
 
 ---
 
 ## Where to start next — ranked, with the reason
 
-### 1. The document editor, now that it is not a tab
+**A second, larger batch arrived after most of this handover was written —
+start with that.** It is triaged and ordered in
+[ROADMAP.md §37](../ROADMAP.md#37-reported-in-one-session--the-second-big-batch-reprioritised),
+at the user's explicit request to reprioritise before doing anything else.
+Six items in it are already fixed this session (§37A) and verified in
+Chromium; the rest is ranked in §37's own "Priority order for the next
+session" list at the end of that section. The short version, so you don't have
+to follow the link immediately:
+
+1. **§37B — a five-minute decision with the user**, before anything else: does
+   the lock screen get a working Quit button, which means an unauthenticated
+   `/shutdown`-equivalent route. The trade-off (local-only vs LAN exposure) is
+   written out in full there. Two other things are blocked on the answer.
+2. **§37D.1** — make the web panel resizable. `makeSidebarResizable()` already
+   does this for three sidebars; the web panel isn't in that function's list
+   yet, and it doesn't size itself the way the other three do (a `flex` clamp
+   rather than a grid column), so it needs the drag-handle treatment adapted
+   rather than a one-line addition.
+3. **§37J — the Timeline.** Genuinely broken, not merely unpolished: clipped
+   two-line chips in ~88px columns, showing raw `**markdown**` syntax via
+   `textContent` instead of `renderMarkdown`. **One correction to make before
+   starting:** the overlapping-labels screenshot in that same report is the
+   *Graph* tab, already fixed this session by widening the simulation's world
+   box (below) — don't re-diagnose it as a Timeline bug.
+4. **§37F — the graph toolbar.** Four bands of chrome (heading+search,
+   layout/colour, trace row, legend) before the map on the one tab whose job
+   is the map. Same grouping technique §36B already proved twice.
+5. **§37E — a UI zoom setting.** The single highest-leverage item on the list
+   (asked for because a 13" laptop needs ~80% browser zoom to see the app
+   comfortably) but it needs a real design spike first — `zoom` vs a root
+   `font-size` percentage vs `transform: scale`, each with different
+   interactions with `--page-viewport`/`--page-sticky-h`. §37E has the
+   trade-offs written out; do the spike before committing to an approach.
+6. **§37C — the chat dock, again.** Two sessions have fixed real bugs in it
+   without the "bulky" report going away, which means what's left is a density
+   pass, not a bug — and §37C says to re-look at it *after* §37E ships, since
+   some of "bulky" may resolve once zoom exists.
+7. **§37I — compress-as-an-agent-tool.** Needs one design decision first (does
+   the agent's own compression skip the human review step the feature was
+   built around, or hand off mid-run?) — §37I lays out both sides.
+8. **§37G / §37H / §37K** each need one clarifying question answered before
+   they can be scoped (sketch image-upload vs the markitdown PDF-importer
+   already on the books; llama.cpp wiring, which is a full backend session;
+   what "change how emoji render" actually means). Ask, then schedule.
+9. **§37L** is the umbrella "full UI audit" ask — deliberately not a task to
+   start a session with. Break it into dated sub-items as capacity allows, the
+   way §36 itself was built up piece by piece.
+
+### Also still open, from before this batch
+
+#### 1. The document editor, now that it is not a tab
 
 It is reached only from the Library. That frees it to stop being a page laid
 out around a list that has left: a wider writing column, and the outline and
@@ -165,37 +285,41 @@ out around a list that has left: a wider writing column, and the outline and
 sitting folded shut under a switcher. Asked for directly and still only half
 done — the sidebar is fixed, the editor itself is untouched.
 
-### 2. The Library's ⋯ menu, properly measured
+#### 2. The Library's ⋯ menu, properly measured
 
-See caveat 6. It is a live report and it is unresolved. Half an hour with
-`elementFromPoint` settles whether there is a bug at all, which is worth more
-than a blind fix.
+See caveat 6 above. It is a live report and it is unresolved. Half an hour
+with `elementFromPoint` settles whether there is a bug at all, which is worth
+more than a blind fix.
 
-### 3. §36G's bookshelf theme, the next two pieces
+#### 3. §36G's bookshelf theme, the next two pieces
 
 The spine is built. Next: **shelf rows** with a rule under each group when
 sorting by kind, and an **empty state drawn as an empty shelf**. The rule to
 hold to is in §36G — anything decorative that makes a card harder to scan
 loses to the scan.
 
-### 4. The two extras that are greyed out
+#### 4. markitdown, and the sketch pad's image upload — now linked (§37G)
 
-`markitdown` wants a "bring in a PDF as notes" button; `llama-cpp-python`
-wants wiring into the chat backend beside Ollama. Both now say so on their
-card and both refuse to install, which is honest and is still a debt. Building
-either one is what un-greys it: delete the `unavailable` string.
+`markitdown` wants a "bring in a PDF as notes" button; §37G's sketch-pad ask
+("upload documents and images") may be asking for exactly that button, or for
+something scoped inside the sketch pad only — worth confirming with the user
+which, since the two are different amounts of work. `llama-cpp-python`'s wiring
+is now §37H, with its own scope written out (a new provider, a GGUF file
+picker — budget a full session).
 
-### 5. Two things that are decided, so do not re-derive them
+#### 5. Two things that are decided, so do not re-derive them
 
 - **Absorbing the Notes tab into the Library: no.** Reasoning in §36G. The
   Library *manages*, the Notes tab *works*.
 - **The tab bar is the right length.** It wraps below ~1350px, measured.
 
-### 6. The largest untouched things
+#### 6. The largest untouched things
 
 **§9's decorative half** (skins, minimap, PNG/SVG export of the current view)
 and **§10's `events` table**, so the Timeline's bands can be events and places
-rather than only categories and tags.
+rather than only categories and tags. §37J is a nearer-term Timeline pass and
+should probably happen first, since it fixes what's broken before adding what's
+missing.
 
 ---
 

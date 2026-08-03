@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from memorymap.ai.embeddings import bytes_to_vector, cosine_similarity
 from memorymap.core import deps
-from memorymap.core.database import EmbeddingRecord, Entry, EntryLink
+from memorymap.core.database import Category, EmbeddingRecord, Entry, EntryLink
 from memorymap.core.deps import get_session
 from memorymap.entry import manager, paths
 
@@ -83,12 +83,32 @@ def _similarity_edges(
     return scored[:MAX_SIMILARITY_EDGES]
 
 
+def _category_names(session: Session, entries: list[Entry]) -> dict[int | None, str]:
+    """`entry.category_id -> name` for every category the given entries use,
+    in one query rather than one per entry.
+
+    `manager.category_name_for` does the equivalent lookup with
+    `session.get()`, which is the right call for a single entry — but
+    `session.get()` still round-trips to the database even for an id it has
+    already loaded (confirmed by profiling the scale-test in ANALYSIS.md
+    §34: 10,000 calls of it were 87% of this endpoint's time on a 10k-note
+    notebook). A bulk endpoint like this one has to fetch categories once."""
+    ids = {e.category_id for e in entries if e.category_id is not None}
+    if not ids:
+        return {}
+    return {
+        c.id: c.name
+        for c in session.scalars(select(Category).where(Category.id.in_(ids)))
+    }
+
+
 @router.get("/graph")
 def graph(similarity: bool = False, session: Session = Depends(get_session)) -> dict:
     entries = list(
         session.scalars(select(Entry).where(Entry.is_deleted == False))  # noqa: E712
     )
     node_ids = {e.id for e in entries}
+    category_names = _category_names(session, entries)
     nodes = [
         {
             "id": e.id,
@@ -99,7 +119,7 @@ def graph(similarity: bool = False, session: Session = Depends(get_session)) -> 
             # private note — it decrypts while the vault is open and hands back
             # "🔒 Private note — unlock to read it." while it is locked.
             "preview": _preview(manager.readable_content(e)),
-            "category": manager.category_name_for(session, e),
+            "category": category_names.get(e.category_id, manager.UNCATEGORISED),
             "access_count": e.access_count,
             "pinned": e.pinned,
             # A note's reply-to, so the tree layouts can nest a train of

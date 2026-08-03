@@ -127,6 +127,40 @@ assumed, since three sessions have now rebuilt something that already existed:
 
 ## 3. Chat page: Chat / Agent / Browse sub-tabs
 
+> **Status (audited this session, ROADMAP.md §38 item 5): substantially done,
+> via a different — and, on the evidence, better — shape than "three
+> sub-tabs".** Checked against the actual code rather than re-reading this
+> section's original wording as a spec:
+>
+> - **Chat vs Agent** → the Ask/Request mode toggle in the chat dock, not a
+>   tab switch. Same distinction, one click instead of a navigation.
+> - **Browse** → the web panel (§36G), a persistent column beside the
+>   conversation rather than a third tab — and §36G's own reasoning
+>   ("a reading surface cannot live inside a control strip... as a column it
+>   needs no cap and sits beside the composer") is a real argument *against*
+>   folding it back into a tab, not just a different implementation of the
+>   same idea.
+> - **Cross-linking** ("the agent hands a page to Browse, Browse hands a page
+>   to chat") → `askAboutPage()` does the Browse-to-chat direction (💬 Ask
+>   about this closes the panel, asks the agent to `read_url` the page).
+> - **Visible plan/progress** → `make_plan`'s ticked-step display, built
+>   since (§35's "Next session: start here" item 1), satisfies this more
+>   generally than a per-tab progress view would have.
+> - **Independent web-search gating** ("works even when the chat/agent
+>   web_search tool is off") → there is one `web_search_enabled` pref
+>   already, not two competing toggles to decouple; the panel opens
+>   regardless and says plainly why a search won't work if it's off, rather
+>   than being blocked by a separate "Agent mode" switch.
+>
+> **The one genuine, real, small gap:** "which tools are allowed this turn,
+> max rounds" as a **user-facing** Agent-mode control. `agent.py`'s
+> `_agentic_reply` already takes `allowed_tools`/`max_rounds` as real
+> parameters — the backend has the knob — but nothing in `app.js` exposes it;
+> tool selection is automatic (`tools.focus_for`) with no manual override UI.
+> Worth building only if a real use case shows up wanting it (most users want
+> automatic selection, not a per-turn allowlist to manage); not worth a
+> session on its own.
+
 **Why.** Asked for directly. The page mixes three activities in one column, and
 the web panel is bolted on top of the message list.
 
@@ -153,6 +187,15 @@ navigate anywhere. **This ties §3 to §7.**
 ---
 
 ## 4. Library tab: chats, documents, images, archive
+
+> **Status (audited this session): item 4 (the Library tab itself) is done —
+> §36F/G built it and it now absorbed the Notes tab's Bin/Activity/Tags panels
+> too, well past this section's original scope. Items 1 (drag-drop any file
+> type onto the capture box, OCR on uploaded images) and 3 (`archived_at` —
+> confirmed absent from the schema) are still genuinely open.** This section
+> read as entirely unbuilt before the audit, which is exactly the kind of
+> staleness that costs a session; check `routes_library.py` and the `Entry`/
+> `Document`/`Conversation` models before assuming otherwise.
 
 **Why.** Asked for directly. Everything that isn't a note lives only in its own
 tab, and there is no archive at all.
@@ -1122,13 +1165,17 @@ spends its time is currently a guess.
 - **Prompt reuse.** Every agent round resends the whole message list; Ollama's
   `keep_alive` and prompt-prefix reuse are never set.
 - **Cap tool output.** Return previews by default, full text only on request.
-- **Hybrid retrieval** (semantic + keyword, reciprocal-rank fusion) — a
-  well-established accuracy win, and the keyword search already exists.
+- ~~**Hybrid retrieval** (semantic + keyword, reciprocal-rank fusion)~~ **done**
+  — HISTORY.md's "Retrieval reads the question before searching it": both
+  searches run and their rankings fuse by RRF, not either/or. Flagged stale in
+  this session's backlog audit; was still marked open here.
 - **Re-ranking** with a small cross-encoder over the top-20, behind a setting.
 - **Batch embeddings** — the backfill embeds one note at a time.
 - **Warm the model** so the first chat doesn't pay the load cost.
-- **Frontend**: `app.js` is ~12k lines parsed on every load, and
-  `renderEntries` rebuilds the entire list on any change.
+- **Frontend**: `app.js` is now ~20k lines (was ~12k when this line was
+  written — it has not shrunk) parsed on every load, and `renderEntries`
+  rebuilds the entire list on any change. See §31's module-split
+  recommendation in ANALYSIS.md, still unaddressed.
 - **Context warning** as the window fills — the per-turn cost is already shown.
 - **A per-chat token/context meter the user can actually see.** Asked twice,
   once directly ("a better way to track tokens and other things") and once
@@ -1430,13 +1477,10 @@ palettes."
 
 ## 16. Sweeping UI quality-of-life
 
-- **A status bar along the bottom** — from IDEAS.md, and the only item there
-  with no home anywhere else in this document. What the AI is doing, what
-  background jobs are running, which backend answered, and a way into the
-  command palette, in one strip that is always visible. Most of the *data*
-  already exists and is scattered: the AI dot is in the header, background jobs
-  are behind Settings → Tasks, the backend is behind Settings → Models. The
-  work is a place to put them, not new plumbing.
+- ~~**A status bar along the bottom**~~ **done.** Flagged stale by this
+  session's backlog audit — `#status-bar`/`renderStatusBar()` in `app.js`
+  already exist and render. See the correction on the second, near-duplicate
+  bullet further down this list too.
 - **Sorting and grouping saved chats** — also from IDEAS.md and also homeless
   until now. Conversations sort by recency and nothing else; there is no "by
   length", "by which model answered", no folders, no grouping by topic. The
@@ -1460,13 +1504,9 @@ palettes."
   sidebars are fixed-width; a narrow window (or someone who just wants the
   reading room back) has no way to fold them, distinct from the mobile
   breakpoint that already hides them entirely.
-- **A status bar pinned to the bottom.** Asked for as "various statuses and
-  quick access to the command palette". The header already carries the AI
-  status dot and background-task summary (§1); this would be a persistent
-  strip rather than something you open Settings to check, with the command
-  palette's `Ctrl/Cmd-K` hint living there too. Overlaps enough with the
-  header that it's worth deciding which one owns "what is the app doing right
-  now" before building both.
+- ~~**A status bar pinned to the bottom.**~~ **done, same item as above** —
+  a second, near-duplicate bullet for the same ask; both are satisfied by the
+  one `#status-bar` that now exists.
 - **Keyboard-only navigation, confirmed end to end rather than assumed.**
   §19 already covers focus traps and screen-reader gaps; this is narrower
   and more basic — can someone move through the note list, open a note, edit

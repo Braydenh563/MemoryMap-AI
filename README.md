@@ -511,26 +511,27 @@ a bin can disagree about what is in it.
 
 [`CHANGELOG.md`](https://github.com/Braydenh563/MemoryMap-AI/blob/main/CHANGELOG.md) has it wave by wave.
 
-**Next up**, in order — by how often it gets in the way, not how interesting
-it is to build:
+**Next up**, in order — by how much it unlocks, not how contained the fix is.
+A backlog audit found three sessions in a row had been extending the newest
+UI-polish batch instead of touching the standing backlog underneath it; this
+list is what replaced that:
 
-1. **The document editor.** It is reached only from the Library now, which
-frees it to stop being a page laid out around a list that has left: a wider
-writing column, and the outline and "notes it draws on" panels beside the text
-rather than folded shut under a switcher.
-2. **The bookshelf theme's next two pieces** — shelf *rows* with a rule under
-each group when sorting by kind, and an empty state drawn as an empty shelf.
-The coloured spine down each card's edge is built.
-3. **`markitdown` and `llama-cpp-python` have nothing calling them.** Both are
+1. **Graph layouts beyond force/tree/radial** — a mind map, treemap or arc
+diagram. Named this project's own differentiator and nothing beyond the two
+existing layouts has been built.
+2. **The Timeline's branch/line view**, additive to the grid view that
+already exists.
+3. **Meeting notes / transcription.** `faster-whisper` already powers the 🎙
+dictation buttons for a single note; a longer recording transcribed into
+structured notes is a different, larger feature built on the same engine.
+4. **Onboarding diagnostics + example notes**, so the first screen has
+something to show before you've written anything.
+5. **`markitdown` and `llama-cpp-python` have nothing calling them.** Both are
 greyed out in Settings → Optional extras and say why. The first wants a "bring
 in a PDF as notes" button; the second wants wiring into the chat backend
 beside Ollama.
-4. **An `events` table**, so the Timeline's bands can be events and places
-rather than only categories and tags.
-5. **The graph's decorative half** — skins, a minimap, and PNG/SVG export of
-the current view.
 
-[`docs/ROADMAP.md`](https://github.com/Braydenh563/MemoryMap-AI/blob/main/docs/ROADMAP.md) has the reasoning behind each, which is the
+[`docs/ROADMAP.md`](https://github.com/Braydenh563/MemoryMap-AI/blob/main/docs/ROADMAP.md) §38 has the reasoning behind each, which is the
 expensive part to reconstruct.
 
 ## Documentation

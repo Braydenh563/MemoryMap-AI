@@ -4,19 +4,17 @@ Everything outstanding, in the order I'd do it. Written so a fresh session can
 pick up without re-deriving context. Each item says **why** it matters, not just
 what to build — the reasoning is the part that's expensive to reconstruct.
 
-> **The live front door is [§37](#37-reported-in-one-session-the-second-big-batch-reprioritised).**
-> This file accreted three earlier "here's the current priority" sections —
-> "Next session: start here", "Do these next, in this order", and "Priority
-> map" — each written for its own round and each now a mix of correct history
-> and claims that have since gone stale (the Library tab is listed as an open
-> Tier 3 item below; it is built, and three of its own panels have since been
-> *deleted* as redundant — see §36G). Rather than rewrite three sections' worth
-> of prose to match, each has a correction note at its own top. **If you read
-> nothing else in this file, read §37's own "Priority order for the next
-> session" at the end of that section** — it is current as of the session that
-> wrote it, folds in everything reported since, and is reprioritised at the
-> user's explicit request. Everything before it is worth reading for the
-> reasoning, not for the ranking.
+> **The live front door is [§38, "Where this actually stands"](#38-where-this-actually-stands--the-backlog-audit).**
+> §35–§37 were three consecutive rounds of reported bugs and UI polish, and by
+> the end of §37 all of them were done — which is exactly the trap: three
+> sessions in a row kept extending the *newest* section instead of stepping
+> back to the other 34 sections waiting underneath it. §38 is that step back:
+> a full audit of BACKLOG.md (§1–§29) and ANALYSIS.md (§30–§34) against the
+> actual code, done because the backlog itself had gone stale in both
+> directions (things marked open that were built, and the project's own
+> outside review's top recommendation already satisfied but not marked so).
+> **Read §38 first — it supersedes the ranking in every section before it,
+> including §37's own "priority order for the next session."**
 
 ## This file, and its three companions
 
@@ -127,201 +125,36 @@ Everything below this block is the standing backlog, unchanged.
 
 ---
 
-## Do these next, in this order
+## Do these next, in this order — closed out; kept as a record
 
-> ### ⚠️ Superseded twice — by [§35](#35-reported-in-one-session-the-big-batch-triaged), then by [§37](#37-reported-in-one-session-the-second-big-batch-reprioritised)
->
-> §35's own callout below is left as it was written. Two rounds of work have
-> landed since — §36 (the Library, the status bar, three panels deleted) and
-> §37 (this session's UI batch). **§37's own priority order is the current
-> one.** What follows here is kept for the reasoning, which is still good;
-> the ranking is not current.
->
-> A single round of real use produced twenty-odd reports, most of them in the
-> desktop app and most of them invisible to this suite. **§35 is the live
-> list**; the six items below are the *previous* round and are all closed.
->
-> The order §35 argues for, shortest reason first:
->
-> 1. **Hallucinated writes** (§35B) — the agent narrated linking five notes
->    and called no write tool. This is the failure that destroys trust in
->    every other feature, and the net written to catch it did not fire.
-> 2. **Quick + a thinking model returns nothing** (§35A.3 / §35D) — a total
->    failure, reproduced twice by the user, with a plausible one-line cause
->    (`num_predict` shared between thinking and answer).
-> 3. **The Ask section** (§35A) — four reports on one box, and the direction
->    is clear: it is for interrogating the notebook, not for chatting.
-> 4. **The broken buttons and the stacked constellation** (§35F, §35G) —
->    probably one cause between them, and "again" in the report means the
->    last fix was not held by a test.
-> 5. **Desktop persistence and file saves** (§35E) — two symptoms, likely
->    one storage bug; the file-save half needs a server-side route.
-> 6. Everything else in §35, which is written up in place.
->
-> The rule below still governs all of it: **check the running app first.**
-
-Re-prioritised after a round of use. The ordering is by *how often it gets in
-the way*, not by how interesting it is to build.
-
-1. ~~**Skills are not skills** (§21)~~ **rebuilt, and running one is a job
-   now.** A skill has ordered steps, a tool allowlist and declared inputs;
-   `save_skill` takes steps and tools, so "make me a skill that files my inbox
-   notes" has somewhere to put them. Running one executes **a step per turn**,
-   ticking each off, naming the step that failed, and ending in a list of what
-   changed with an Undo on each. The allowlist is both the safety property and
-   the §11a win: a run offers its own tools instead of all 28 (1,963
-   characters of schema instead of 10,215). What is left is small — see §21.
-2. **Web search still returns nothing** (§8b). **Two causes found and fixed
-   this session, both Windows-only, both reported by the user rather than
-   found in the log** — see §8b. The install error (`does not appear to be a
-   Python project`) and "started but never answered" were the same class of
-   mistake: a POSIX idiom that does something else on Windows. Unverified on
-   Windows itself — the sandbox is Linux — so the next session should confirm
-   with the user before assuming this one is closed.
-3. **Token usage in chats** (§11a). Asked directly: "is there a way to reduce
-   excessive token usage in the chats?" A 3-turn chat is showing 8.7k tokens.
-   The history and the retrieved notes are resent whole on every turn.
-   *Measured since:* the fixed overhead alone — system prompt plus all 28 tool
-   schemas — is ~3,050 tokens per round, and 77% of that is the schemas, not
-   the prose. `agent.PROMPT_BUDGET_CHARS` now caps it and a test enforces the
-   cap. ~~The remaining win is offering fewer tools per turn~~ **done, both
-   halves.** A skill run offers only the tools it declared (1,963 characters
-   of schema rather than 10,215); an ordinary turn is now read for what it
-   plausibly needs (`tools.focus_for`), which takes the *fixed* overhead of a
-   typical question from ~3,157 tokens to ~1,439. ~~What is left here is the
-   variable half~~ **the variable half is now budgeted too — see
-   `ai/context.py`.** Every part of the prompt is a share of the model's real
-   window rather than its own constant, so the worst case fits by
-   construction instead of by luck; the measurement that motivated it (the
-   old worst case was ~11,328 tokens against a 4,096 window) is written up in
-   "Done in the most recent session". **What is genuinely left is the output
-   side** — `num_predict` is capped at a flat 1,024 now, and the
-   quick/normal/detailed preset below is what would make that adaptive rather
-   than uniform.
-4. ~~**Markdown rendering for notes** (§22)~~ **done.** Inline only — bold,
-   italic, `code`, strike — because `renderMarkdown`'s block elements make a
-   note list enormous, which is the problem §22 itself flagged. Wiki links and
-   filter highlighting both still work inside emphasis. The dashboard's little
-   note lists *strip* the markers instead, since they clip at ~70 characters.
-5. ~~**Note timeline** (§10)~~ **both halves built.** Relative time is
-   resolved at capture (`entry/timewords.py` → `entry_dates`) and there is a
-   **Timeline tab**: a time axis across, bands down the side (category, tag or
-   none), and every note plotted at what it is *about* where it says so —
-   "the beans need netting next week" sits on that week, marked 🕓 — and at
-   when it was written otherwise. What is left is in §10: an `events` table so
-   the bands can be events and places rather than only categories and tags.
-6. ~~**A hero header on the dashboard** (§22)~~ **done** — emblem and wordmark
-   inside the greeting card, hidden below 720px.
-
-**Where this session got to.** Items 1–6 above are all closed. The body
-sections below are the backlog now, and the ones with the most left in them
-are §9 (the graph's *utility* — paths between notes, clusters, drag-to-link;
-the layouts are done), §1 (the live log console), §3 (Chat/Agent/Browse
-sub-tabs) and §4 (the Library tab). §5's "attach documents to notes" is done
-— see below.
-
-> **Check the running app before building anything here.** This document
-> describes intent, and it drifts. An audit of §2 found four of its six "quick
-> wins" already built — the sticky sidebar, the per-code-block copy button,
-> conversation search by content, and the whole document outline with word
-> count and reading time. §5 and §18 each had a completed item still listed as
-> outstanding. Three sessions have now independently rebuilt something that
-> already existed. Items verified against the code are marked ~~struck
-> through~~ with what was found; anything not marked is worth ten seconds of
-> grep first.
+Three consecutive superseding rounds (§35, then §36, then §37) all landed on
+the same six items below, and every one of them is done: skills rebuilt with
+a tool allowlist and a step-per-turn runner (§21), the two Windows web-search
+bugs found and fixed (§8b), token usage budgeted end to end rather than
+resent whole (§11a — `agent.PROMPT_BUDGET_CHARS`, `ai/context.py`), inline
+markdown rendering for notes (§22), both halves of the note timeline (§10A's
+relative-date resolution and the Timeline tab itself), and the dashboard hero
+header (§22). Nothing here needs re-deriving. See **§38 below** for what
+replaced this list as the live priority order.
 
 ---
 
 ## Priority map: quick wins → bigger bets
 
-> **Two corrections before reading this map**, both confirmed while writing
-> §37: **Tier 3's "The Library tab (§4)" is built**, and its own follow-on
-> work is tracked in §36G, not here — leaving it listed below as an open
-> medium bet would send a session to rebuild something with a Library card
-> and a bin bar already sitting in `routes_library.py`. **Tier 3's "Chat /
-> Agent / Browse as real sub-tabs (§3)" is the one part of that pairing still
-> open** — see the note on it in "Next session: start here" above.
+Asked for directly — a triage across *everything* in this document. Four
+tiers. Within a tier, order doesn't mean much; between tiers, it does. **See
+§38 below for the current live ranking** — this map is kept for tiers 2–4,
+which are still an accurate shape of what's left; tier 1 and the security
+tier are historical (all closed) and trimmed to a pointer.
 
-Asked for directly — a triage across *everything* in this document, not just
-the six items above (those are the ones already proven to matter most in
-actual use; this is the rest of the backlog, sorted by effort rather than
-usage history, since nobody has used most of it yet to sort it the other
-way). Four tiers. Within a tier, order doesn't mean much; between tiers, it
-does.
+**Security — all seven closed.** Full audit in [HISTORY.md](roadmap/HISTORY.md).
 
-**Security — worth doing out of turn, regardless of size.** All seven closed; the full audit and what each one turned out to be moved to [HISTORY.md](roadmap/HISTORY.md) once every item was done — this map is for what's still open, not an archive of what isn't.
-
-**Tier 1 — fastest wins.** ~~Hours, not sessions; contained to one file or one
-function; low risk of breaking something else.~~ **all six done.** Unlike the
-security tier, none of these turned out to be already built. Pinned by
-`tests/test_security_boundaries.py` and `tests/test_tier1_refinements.py`.
-
-- ~~Say which search engine answered a query (§13)~~ **done, and it needed
-  more than surfacing a field.** A raw slug already appeared in the status line
-  ("8 results via searxng"), which is not the same as saying what the choice
-  *meant*. Now: a readable name plus a plain-English privacy note ("SearXNG —
-  your own instance, the query stayed on your machine" / "DuckDuckGo — a third
-  party saw this query, but not your notes"), said **on an empty result too**,
-  which is when it matters most and was exactly when the panel went quiet.
-  Per-result, the **upstream engines** SearXNG actually used are now shown —
-  it is a metasearch engine, so "via SearXNG" says where the query was
-  assembled, not who answered it.
-- ~~"N records dropped" visibility in the log console (§1)~~ **done.**
-  `GET /logs/stats` reports `dropped`, `dropped_since`, `held`, `capacity` and
-  `truncated`, and the viewer shows a caution line above the list. `dropped`
-  and `truncated` are deliberately separate numbers: one is gone for good, the
-  other is one bigger `limit` away, and conflating them sends a reader looking
-  in the wrong place. `/logs` itself is untouched and still a plain list.
-- ~~Grey out Gravity/Spread under layouts they don't affect (§8/§9)~~ **done.**
-  Both only ever fed `d3.forceSimulation`, which the tree layouts skip
-  entirely — so under Tree or Radial they moved, saved, and changed nothing.
-  Disabled and dimmed there, with the reason on hover, and restored (along
-  with their own tooltips) on the way back to Force. Set on arrival as well as
-  on change, or a notebook left on Tree returns with two live-looking dead
-  sliders.
-- ~~Flip SearXNG to the recommended default (§13)~~ **done — but not the way
-  this item says, and the difference matters.** Read literally, "flip the
-  default to SearXNG" means the `searxng` provider, which exists precisely so
-  it will **not** fall back. As a default that would make every search fail on
-  a fresh notebook, which has no SearXNG yet — turning a working feature off
-  for everyone who has not installed one. `auto` *already* prefers SearXNG
-  whenever it is running, so the behaviour this item wanted was in place; what
-  was missing was **saying so**. The provider is now labelled "Automatic
-  (recommended)" and its detail explains the preference and the fallback, and
-  the settings copy calls SearXNG "the recommended way to search" and mentions
-  the one-click install, rather than "an optional, self-hosted search engine".
-  README updated to match. A test pins the default at `auto` with the reason.
-- ~~Enforce (or at minimum document) single-worker at startup (§20)~~ **both.**
-  `deps.refuse_multiple_workers()` runs at the top of `create_app()` and raises
-  on `--workers N` (N > 1), `--workers=N`, `-w N` or `WEB_CONCURRENCY`. An
-  exception rather than a warning, because every failure it prevents is silent:
-  a halved log, an unlock that works only sometimes, two workers each believing
-  they own the SearXNG they started. `python -m memorymap` cannot reach this
-  (it hands uvicorn an app object, which uvicorn cannot fork); running
-  `uvicorn` against the factory can, and is the case it exists for.
-  `ARCHITECTURE.md` §13 now has the constraint and a table of what each
-  duplicated singleton would actually do.
-- ~~Audit SearXNG's generated `settings.yml` (§13)~~ **done; less was wrong
-  than feared, and the reasoning is now in the file.** One change:
-  `autocomplete` is pinned to `""` rather than merely left at SearXNG's
-  default, because it is the one thing in a search UI that leaks *without a
-  search being run* — a fragment of every query goes to a third-party
-  suggestion endpoint as it is typed — and this file is rewritten on every
-  start anyway, so pinning costs nothing and survives both a hand edit and an
-  upstream default change. Confirmed already correct: `image_proxy: true`
-  (result images come via SearXNG, so rendering a page does not tell every
-  pictured site you searched — this is also the answer to the "no client-side
-  favicon fetching" worry below), and the engine list, which removes the
-  tracking-heavy defaults and adds two that run their own indexes.
-  `limiter: false` now carries a comment tying it to the loopback bind: it is
-  safe **only** because nothing off this machine can reach the port, and if
-  that ever changes the limiter has to come on in the same edit.
-
-> **Unverified against a live SearXNG.** The sandbox has no route to SearXNG's
-> archive, so the settings change above was checked by parsing the generated
-> file, not by starting an instance on it. It adds one key under an existing
-> section, which is the low-risk shape, but a real start is still worth
-> watching the first time.
+**Tier 1 — fastest wins — all six closed.** Say-which-search-engine-answered
+(§13), log-console drop-count (§1), grey out dead Gravity/Spread controls
+under tree layouts (§9), SearXNG as the explained default (§13), single-worker
+startup enforcement (§20), SearXNG `settings.yml` audit (§13). Pinned by
+`tests/test_security_boundaries.py` and `tests/test_tier1_refinements.py`;
+detail in HISTORY.md if the reasoning is needed again.
 
 **Tier 2 — quick wins.** A session or so. Real but contained — mostly
 extending a pattern that already exists rather than inventing one.
@@ -367,15 +200,13 @@ have a version of.
   layouts are already done (§9)
 - An eval/benchmark harness for tokens, latency and filing accuracy
   together (§11, §31)
-- A headless Playwright smoke suite in CI (§31) — **do this before the
-  module split below, not after.** It's the direct answer to "every layout
-  bug passes a green run," and it's also the safety net a mechanical refactor
-  of the frontend needs before it happens, not once it's already done.
+- ~~A headless Playwright smoke suite in CI (§31)~~ **done — see §38, item 2.**
 - Splitting `app.js` into ES modules, one file per tab (§31) — **not a
   standalone session; ride it in on §3.** Asked directly whether this
   refactor should happen first, ahead of everything else here, precisely
   because every new feature adds more code to the one file. The dependency
-  runs the other way, though: touching 12k working lines with nothing
+  runs the other way, though: touching ~20k working lines (grown from ~12k
+  when this note was written — it has not shrunk while unsplit) with nothing
   automated to catch a regression is the riskiest kind of change to make
   *before* the smoke suite above exists, not after — the app's own history
   ("every layout bug found so far passed a fully green run") is a warning
@@ -1680,7 +1511,18 @@ kept separate deliberately.
    was defaulting a genuinely first-ever run, with nothing in the notebook
    yet, to a list with nothing to browse.
 
-### 37B. Decided against building silently — a real trade-off, not a quick fix
+### 37B. Decided — no. Skip the lock-screen Quit button
+
+**Answered with the user in the room, as this section asked.** No unauthenticated
+`/auth/shutdown` route, no lock-screen Quit button. The trade-off below is why:
+on `localhost` a working Quit changes nothing a terminal `Ctrl+C` couldn't
+already do, but the app already hints at LAN/phone access elsewhere in
+Settings, and an unauthenticated shutdown route is a standing DoS the moment
+that happens. Not worth it for a convenience button. Leave `quitApp()`
+unwired on the lock screen — its `catch {}` swallowing the 401 is now the
+correct behaviour, not a bug to fix.
+
+The original write-up, for the reasoning:
 
 **A Quit button on the lock/login screen.** Asked for, and worth building —
 but wiring it to the existing `quitApp()` without a backend change would
@@ -1743,14 +1585,24 @@ popup still needs some work and I want the web browser sidebar to be
 adjustable in width, the in-app render feature needs refining and the popup
 buttons need some ui adjustments."* Three distinct asks:
 
-1. **Resizable width.** `makeSidebarResizable()` already does exactly this for
-   `#sidebar`, `#chat-sidebar` and `#doc-sidebar` (`initResizableSidebars()`
-   in `app.js`) — the web panel just isn't in that list. Since it currently
-   sizes itself with `flex: 0 1 clamp(19rem, 30%, 26rem)` rather than a grid
-   track, it needs the same treatment `#chat-sidebar` gets (a drag handle that
-   writes an inline width) rather than literally being added to the existing
-   function, which assumes a grid column. Should be close to free once looked
-   at directly.
+1. ~~**Resizable width.**~~ **Done.** `#web-panel` isn't a grid column like
+   the three sidebars `makeSidebarResizable()` handles — it's a flex sibling of
+   `#chat-main` inside `<main>`, sized by `flex-basis: clamp(19rem, 30%,
+   26rem)` — so it gets its own `makeWebPanelResizable()` rather than a line
+   added to the existing function. The handle sits on the panel's *left*
+   (leading) edge, the mirror of the sidebars' trailing-edge handles, since
+   the panel is the right-hand column. Deliberately does **not** apply an
+   inline width on load the way the sidebars do: the `clamp()` is a
+   considered default (see the comment above the CSS rule), so only a drag
+   overrides it, and Home/dblclick *remove* the inline style rather than
+   reapplying a remembered number — the responsive default comes back rather
+   than a frozen copy of it. Below the 1100px breakpoint where `#web-panel`
+   takes all of `<main>`, the inline override is suppressed (an inline style
+   would otherwise beat that media query regardless of screen width) and
+   restored via a `matchMedia` listener when the window widens back past it.
+   Verified in Chromium: drag either direction moves the panel edge, the
+   width survives a reload, and the mobile breakpoint still takes over full
+   width regardless of a saved drag.
 2. **The reader view "needs refining."** No specifics given — this needs a
    short round of the user actually reading a page in it and saying what is
    wrong (too narrow now that it has a whole column instead of 20rem? typography
@@ -1761,7 +1613,7 @@ buttons need some ui adjustments."* Three distinct asks:
    under the column layout. Worth a screenshot from the user showing the
    specific awkwardness rather than re-deriving blind.
 
-### 37E. A UI zoom setting in Appearance
+### 37E. A UI zoom setting in Appearance — done
 
 *"my computer is a small 13-inch laptop so I need to go to like 80% browser
 zoom to see everything and not have it so squished or narrow."* A real,
@@ -1769,54 +1621,69 @@ common case the app currently has no answer for beyond the browser's own
 Ctrl+/Ctrl- — which resets on every launch and is not a MemoryMap setting at
 all.
 
-This needs actual design before it is built, not just a slider:
+**Built on the third option this section weighed** — a root `font-size`
+percentage, not CSS `zoom` or `transform: scale` — because a check made the
+choice easy: `data-fontsize="small"/"large"` already scales the root font and
+ships today, and control heights/icons are already in rem (§35L's spacing
+scale), so a root-font-size change was already proven to reach them for free.
+`zoom`'s bad interaction with `--page-viewport`/`--page-sticky-h` and
+`transform: scale`'s "shrinks a fixed page instead of fitting more on it"
+were real risks the other two carried; this one doesn't.
 
-- **It is not the same axis as `--density`.** Density changes *spacing*
-  between controls at a fixed font size; a zoom setting needs to shrink
-  *everything* — type scale, control heights, icons, the graph and timeline —
-  proportionally, the way a browser's own zoom does. The two will fight each
-  other if not designed together: a "compact" density at 80% zoom and a
-  "spacious" density at 120% zoom are different requests answered by the same
-  two controls, and the settings screen needs to make that legible rather
-  than presenting two sliders that quietly interact.
-- **CSS `zoom` vs a root `font-size` percentage vs a `transform: scale` on
-  `<body>`.** All three have real trade-offs: `zoom` (non-standard but
-  supported everywhere that matters here) rescales layout *and* input, which
-  is closest to what a browser's own zoom does, but interacts oddly with
-  `100dvh`/`100vw` measurements this codebase already leans on heavily
-  (`--page-viewport`, `--page-sticky-h` from §36). `transform: scale` does not
-  reflow layout at all — it visually shrinks a fixed-size page, which is wrong
-  for "see more at once." A root `font-size` percentage is the least
-  surprising for a codebase already built on rem, but does not touch
-  hard-coded px values (there are some — `test_style_scale.py`'s corner-radius
-  lint exists because there used to be many more) and would need those
-  checked.
-- **Persisted like density** — `ui_state`, mirrored to the server the way
-  theme/palette already are (§35E), so it survives a shell that loses
-  `localStorage`.
+**The `--density`-vs-zoom collision this section worried about turned out to
+be a `--fontsize`-vs-zoom collision instead** — both want the same `font-size`
+property; density only touches spacing. Solved with one custom property:
+`--zoom` (percent/100, default `1`) multiplies into every `font-size` rule via
+`calc()` — `:root { font-size: calc(16px * var(--zoom)); }`, same pattern for
+`data-fontsize="small"/"large"` — so "Large text at 80% zoom" and "Normal text
+at 100%" land at related, non-fighting sizes. The settings row says so:
+*"Combines with Text size above."*
 
-Recommend starting with a small prototype of the `zoom` CSS property on a
-branch and running `test_style_scale.py` plus a Chromium screenshot at three
-zoom levels before committing to the approach.
+Wired exactly like `radius`/`glass-blur` (`APPEARANCE_DEFAULTS.zoom = "100"`,
+in `OVERRIDABLE_KEYS`, mirrored to `ui_state` the same as every other manual
+tweak, a 70–130% slider in Settings → Appearance → Typography & layout). No
+new persistence mechanism needed.
 
-### 37F. The graph toolbar — bulky, and specifically why
+Verified in Chromium at 1280×800 (the reported 13" case): root `font-size`
+measured 16/12.8/20.8px at 100/80/130%, `--zoom` matched (1/0.8/1.3), the
+value survived a full reload including via the server-mirrored path (a fresh
+browser with empty `localStorage` picked it back up from `ui_state`), and the
+chat dock and graph toolbar (§37F) both stayed legible and unclipped at 80%
+with real headroom. `test_style_scale.py` (unaffected — margin/padding/gap
+only) and the full suite stayed green.
+
+**Not done, worth naming:** JS pixel constants (`SIDEBAR_MIN`/`MAX`,
+`WEB_PANEL_MIN`/`MAX` from §37D.1, the timeline's grid-template maths) don't
+scale with `--zoom` — container floors, not text sizing, out of scope here.
+
+### 37F. The graph toolbar — bulky, and specifically why — done
 
 *"redesign the ui layout of the controls above the graph as they are very
-bulky and take up a lot of space."* The toolbar holds, in one row: a heading,
-a highlight-search box, a Layout label + select, a Colour label + select, New
-note, Options, Refresh — then a second row for Trace (two selects, a button,
-Clear, a caption) — then a "How to use this map" disclosure — then the legend
-chips. Four bands of chrome before the map itself, on the one tab whose whole
-point is the map.
+bulky and take up a lot of space."* **Correction: most of this was already
+fixed the day before this section was written** (`3e77f57`, "One control
+height in the top bar, and the graph's options folded away") — the
+twelve-controls-in-one-row toolbar described below no longer existed by the
+time this session picked it up. Toolbar was already one row of nine (heading,
+search, Layout, Colour, New note, ⚙ Options, ↻ Refresh), the tuned-once
+controls were already folded behind ⚙ Options, and "How to use this map" was
+already a closed `<details>`. Check the running app before a roadmap
+paragraph, per CLAUDE.md — this section's own premise had gone stale.
 
-The shape of the fix is the one §36B already applied elsewhere in this app:
-group by question, not list by feature. "Layout" + "Colour" answer *how it's
-drawn*; New note + Options + Refresh answer *what to do with it*; Trace is its
-own distinct mode (finding a path between two named notes) and arguably
-belongs behind a toggle rather than a permanently-drawn second row, the same
-way the web/agent-mode toggles in the chat dock replaced a permanent row.
-"How to use this map" should be discoverable, not open by default taking a
-fixed slice of height on every visit.
+**The one real gap — now fixed too:** Trace was still a permanently-drawn
+second row, exactly what "belongs behind a toggle" (below) argued for. It now
+gets the same ⚙ Options treatment: a `🛣 Trace` toggle button, `#graph-trace`
+starts `hidden`, state remembered (`graph-trace-open`, added to
+`MIRRORED_UI_EXTRAS` alongside `graph-options-open`) and restored per visit.
+One wrinkle: the node popup's "Trace from/to here" buttons call
+`setTraceEnd()`, which can fire a trace immediately — a hidden row would make
+that click look like it did nothing, so `setTraceEnd()` opens the panel too,
+via a `setTracePanelOpen()` shared with the toggle button and the tab-switch
+restore. Verified in Chromium: hidden by default, `is-on` highlight on open,
+survives a reload.
+
+The shape, still worth keeping: group by question, not list by feature (§36B).
+"Layout"/"Colour" answer *how it's drawn*; New note/Options/Refresh answer
+*what to do with it*; Trace is its own mode, not a setting left on.
 
 ### 37G. Quick sketch — bring in images and documents
 
@@ -1869,7 +1736,7 @@ handoff mid-agent-run is a pause the agent did not ask for)? Decide which
 before writing the tool, the way §36G's rule says: write the trade-off down
 once, don't re-derive it.
 
-### 37J. The Timeline — narrow columns, clipped text, no markdown, low utility
+### 37J. The Timeline — narrow columns, clipped text, no markdown, low utility — done
 
 Screenshotted: day columns of `minmax(5.5rem, 1fr)` — about 88px at minimum —
 holding note chips clamped to two lines via `-webkit-line-clamp`, rendered
@@ -1885,17 +1752,28 @@ widening the simulation's world box (§36's handover, "the graph's new world
 box"). Keep the two separate; re-diagnosing the graph screenshot as a Timeline
 bug would rebuild something already done.
 
-The Timeline's real, distinct list:
-1. Markdown-rendered previews (`renderMarkdown` into the dot instead of
-   `textContent`), or at minimum strip markdown syntax before clamping —
-   showing literal `**` is worse than showing the words plain.
-2. Wider columns, or a per-tab zoom/density the same instinct as 37E but
-   local to this grid, since `5.5rem` was sized for a bucket label and not for
-   two lines of prose.
-3. More utility: the band row only ever opens the note in Notes → Browse
-   today (`timelineDot`'s click handler). Filtering, a way to see a band's
-   whole list without scrolling sideways through empty columns, and reading a
-   note inline rather than always leaving the tab are all on the table.
+The Timeline's real, distinct list, **all three now done and verified in
+Chromium** (`renderTimeline`/`timelineDot`/`openTimelineBand` in `app.js`):
+
+1. ~~Markdown-rendered previews~~ **Done, by stripping rather than
+   rendering.** A `stripMarkdownPreview()` helper deletes markdown delimiter
+   characters (`#`, `` ` ``, `**`, `__`, `~~`, list/quote markers, link
+   brackets), not matched opening/closing pairs — the preview is already
+   sliced to 120 chars server-side, so a pair can be truncated mid-token, and
+   deleting delimiters outright handles that the same as a complete one. Full
+   `renderMarkdown` was deliberately **not** used: it builds block-level DOM
+   (headings, a fenced-code block with its own copy button) that doesn't
+   clamp sensibly to two lines inside a `<button>`. Verified: a note saved as
+   `"Buy milk **tomorrow** at the store"` shows as plain words, no `*`.
+2. ~~Wider columns~~ **Done.** `minmax(5.5rem, 1fr)` → `minmax(9rem, 1fr)` —
+   5.5rem was sized for a bucket's date label, not two lines of note text.
+3. ~~More utility~~ **Done, for the "band row does nothing" half.** A band
+   name is now a `<button>` that filters Notes → Browse to that band —
+   `activeCategory` for a category band (the sidebar's own click pattern),
+   `tag:`/`is:untagged` in the search box for a tag band (the Library tag
+   card's pattern via `openLibraryItem`), clears filters for the long-tail
+   "Everything else" band. **Not done:** seeing a band's whole list without
+   scrolling sideways, or reading a note inline without leaving the tab.
 
 ### 37K. Emoji rendering — needs a decision, not a guess
 
@@ -1930,23 +1808,182 @@ the way §36 itself was.
 
 ---
 
-**Priority order for the next session**, all of the above folded in:
+**Priority order for the next session**, all of the above folded in. **Items
+1–5 are now done** (37B decided no; 37D.1/37J/37F/37E built, verified in
+Chromium) across two sessions picking up this list in order:
 
-1. **37B's decision** — five minutes with the user, before anything else in
-   this list, because two other items (the lock-screen quit button, and
-   whatever else touches auth) are blocked on it.
-2. **37D.1** (resizable web panel) — small, and the pattern already exists.
-3. **37J** (Timeline) — genuinely broken (clipped, unrendered markdown), not
-   only unpolished, and self-contained.
-4. **37F** (graph toolbar) — same §36B grouping technique already proven
-   twice in this codebase, bounded to one screen.
-5. **37E** (zoom setting) — the highest-leverage single feature on the list
-   (fixes "everything feels cramped" for one user on one machine, at the
-   root, once) but needs the design spike described above before code.
-6. **37C** (chat dock density pass) — re-look at it *after* 37E ships, per
-   37C's own note.
+1. ~~**37B's decision**~~ **Decided: no.** See §37B.
+2. ~~**37D.1** (resizable web panel)~~ **Done.** See §37D.
+3. ~~**37J** (Timeline)~~ **Done.** See §37J.
+4. ~~**37F** (graph toolbar)~~ **Mostly already done before it was picked
+   up** (§37F's correction note); the real gap — Trace as a permanent row —
+   is fixed too.
+5. ~~**37E** (zoom setting)~~ **Done.** See §37E — built on the root
+   `font-size` option, composing with `data-fontsize` via `--zoom`.
+6. **37C** (chat dock density pass) — **start here next**, now that 37E has
+   shipped, per 37C's own note.
 7. **37I** (compress as a tool) — needs the review-step decision first.
 8. **37G / 37H / 37K** — each needs one clarifying question answered before
    it can be scoped; ask, then schedule.
 9. **37L** — the umbrella program; break into dated sub-items as capacity
    allows, don't start a session on "full UI overview" itself.
+
+---
+
+## 38. Where this actually stands — the backlog audit
+
+Written because the user flagged, correctly, that three sessions in a row
+(§35 → §36 → §37) kept extending the newest polish batch instead of touching
+the other 34 sections underneath it, and asked for the roadmap to be honestly
+re-prioritised and then worked through without stopping to ask. This is that:
+a full audit of BACKLOG.md (§1–§29) and ANALYSIS.md (§30–§34) against the
+actual code — not the backlog's own prose, which is exactly what goes
+stale — and the corrected order that follows from it.
+
+### What the audit found
+
+Each stale entry is corrected in place in BACKLOG.md/ANALYSIS.md themselves,
+not just noted here (§4, §11, §16 in BACKLOG.md; §33/§34 in ANALYSIS.md). The
+shape of it:
+
+- **Several sections marked "open" are done**: the Library tab (§4's own
+  headline item), hybrid retrieval/RRF (§11), the status bar (§16, listed
+  twice), and — the one that matters most — the project's own outside
+  review's (§34) #1 recommendation, "finish the agentic loop," which
+  `run_skill` and `make_plan` already satisfy.
+- **§37's polish batch is genuinely finished** — all five of its ranked items
+  (§37B–§37F) are done as of this session, and 37C/37G/37H/37I/37K/37L are
+  each small, secondary, or blocked on a clarifying question, not work that
+  should keep occupying a session on its own.
+- **Real, substantive backlog work had gone untouched for a long time** (items
+  below are as this audit first found them; see the corrected priority order
+  for what's since been done): no graph layout beyond tree/radial (§9, named
+  the product's own differentiator), no Timeline branch/line view (§10C,
+  asked for twice), Chat/Agent/Browse sub-tabs (§3, asked for repeatedly —
+  turned out to be substantially resolved already, see item 5 below), no
+  meeting-notes/transcription (§17, the backlog's own "highest-value single
+  addition," built on the same `faster-whisper` engine already powering
+  single-note dictation), `app.js` still one
+  ~20k-line file with zero CI coverage (§31/§32 — the coverage half is fixed,
+  see item 2 below; the file is still unsplit), and the notebook had never
+  been tested past a
+  few hundred notes despite ANALYSIS §34 flagging that as "the failure that
+  arrives silently, as 'the app got slow,' years in."
+
+### The corrected priority order
+
+Supersedes §37's own list and everything before it in this file. Ranked by
+unlocking real functionality, favouring things asked for repeatedly or
+flagged by the project's own outside review — not by how contained the fix
+is, which is what let three sessions in a row default to the smallest thing
+in front of them:
+
+1. ~~**Scale-test the notebook**~~ **done.** `scripts/scale_test.py`, a
+   generated fixture up to 50,000 notes, found two real N+1 query patterns
+   (`GET /graph` resolving each note's category with its own query;
+   `search_manager.semantic_search` materialising a full `Entry` for every
+   embedded note just to score most of them away) — both were multi-second,
+   N-proportional costs and are now sub-2-second, near-constant ones. Full
+   numbers and what's still open (the O(n²) similarity-graph toggle, storage
+   headroom) are in ANALYSIS §34, item 2. Pinned by
+   `tests/test_scale_query_counts.py`.
+2. ~~**A headless Playwright smoke suite in CI**~~ **done.** `tests-e2e/` —
+   `@playwright/test`, run against a real `uvicorn` instance via Playwright's
+   own `webServer` config, a new `e2e` job in `.github/workflows/ci.yml`.
+   Verified locally, not just authored: it caught a real thing on its first
+   run — "documents" is in `app.js`'s own `TABS` array but has had no
+   `#tab-btn-documents` in the nav since §36F replaced it with Library, which
+   a test written from the array alone would have gotten wrong. Covers every
+   tab reachable from the bar (console errors, uncaught exceptions, and
+   horizontal overflow — the exact `--page-viewport` shape of bug this
+   project's own handovers describe finding by hand) plus one real
+   interaction (capture a note, see it in Browse). **Start here next: §3's
+   sub-tabs or §9's graph layouts below now have a safety net to build
+   against**, which is the whole reason this was ranked ahead of them.
+3. **Graph layouts beyond tree/radial** (§9) — mind map / treemap / arc;
+   named the differentiator in ANALYSIS §30/§34, and nothing beyond the two
+   existing layouts has been built. **Checked this session and deliberately
+   not started**: `renderGraph()` is tightly integrated across drag, zoom-to-
+   fit, hover-adjacency highlighting, the trace overlay and the physics
+   sliders — a new layout means plugging into all of it, not writing one
+   D3 function, and doing that at the tail end of a long session risked
+   exactly the half-integrated feature CLAUDE.md warns against. Budget this
+   as its own session with room to verify visually against every one of
+   those interactions, not a slot at the end of another task.
+4. **Timeline branch/line view** (§10C) — asked for twice directly; §37J
+   already fixed the existing view's bugs, so this is additive, not a second
+   pass over the same two problems.
+5. ~~**Chat/Agent/Browse sub-tabs**~~ **checked, and substantially done —
+   see §3's correction in BACKLOG.md.** The Ask/Request mode toggle, the web
+   panel column and `make_plan`'s ticked-step display already satisfy this
+   item's substance via a different (and, per §36G's own reasoning, better)
+   shape than literal sub-tabs. One small, real, genuinely open gap: no
+   user-facing control for "which tools this turn / max rounds" in Agent
+   mode — `agent.py` already takes both as parameters, nothing in `app.js`
+   exposes them. Not worth a session on its own.
+6. **Meeting notes / transcription** (§17) — `faster-whisper` already powers
+   the 🎙 single-note dictation buttons; a longer recording transcribed into
+   structured notes is a different, larger feature on the same engine, and
+   the backlog calls it the highest-value single addition still unbuilt.
+7. **Onboarding diagnostics + example notes** (§27) — ANALYSIS §34 ranks
+   this its #3 priority: first run today is "install Python, run a script,
+   install Ollama, pull a model" with nothing to look at until you do.
+8. **`app.js` module split** (§31/§32), riding in on #5 above rather than as
+   its own session, once #2's smoke suite exists — the sequencing reasoning
+   in "Priority map" Tier 3 above still holds.
+9. Everything still open in §37 (37C/37G/37H/37I/37K/37L) — small,
+   secondary, or blocked on a clarifying question; pick these up between the
+   items above, not instead of them.
+
+**Being worked through now, in this order, without stopping to ask** — per
+explicit instruction. See HANDOVER.md for what was actually built each
+session versus what's still ahead on this list.
+
+### §38a. Four user-reported bugs, fixed the same session — done
+
+Reported directly, worked as a bounded side-trip rather than a new priority
+list — see HANDOVER.md for the "don't let this become the next §35–37" note.
+
+1. **Notes tab sidebar gap, worse than other tabs.** Two stacked causes: an
+   old `#sidebar { align-self: flex-start; }` (no comment, predates the
+   "stretch, not start" fix `.layout`'s own comment describes, silently
+   overrode it) and `--page-sticky-h` being a fixed viewport guess that
+   main's real content can exceed. Fixed with a `ResizeObserver` that mirrors
+   `main`'s actual height (`syncNotesSidebarHeight` in `app.js`) — the same
+   instinct `applySidebarWidth`/`fitComposerToDock` already use where CSS
+   alone proved fragile.
+2. **Timeline text still cut off after §37J.** The column widen (5.5rem →
+   9rem) wasn't enough against a 120-char preview at 2 lines. 13rem + a
+   3-line clamp gets close to the full preview instead of a marginal gain on
+   the same shape of cut-off.
+3. **A note found by tag but missed because the remembered date was
+   wrong.** "That joke I wrote about two weeks ago" (tagged joke/jokes/funny,
+   word "joke" not in the content) found nothing because it was actually
+   three weeks old — a hard date filter excluded it, by design, per the
+   comment on the fallback this extends (§35's "jokes... recently" fix only
+   covered vague words like "recently", not specific-sounding-but-wrong ones
+   like "two weeks ago"). `search_manager._retrieve` now retries the subject
+   alone within a *widened* window (one window-span either side, not the
+   whole notebook) when the in-window search comes up empty — labelled
+   `outside_range`, never silently presented as an in-window match. The
+   bound matters: an early unbounded version broke an existing, deliberately-
+   tested case ("the allotment, last week" with only a 90-day-old allotment
+   note must still answer nothing — a subject match three months from a
+   7-day window is a different note weighing in on a question it wasn't
+   asked, not a memory that was "a little off"). Pinned by four tests total
+   (two new in `test_ai.py`, two pre-existing in `test_query_understanding.py`
+   that now stay green), including one confirming the *rejected*
+   fallback (drop subject, keep date) still doesn't come back.
+4. **`GET /entries/link-suggestions` was a second O(n²) trap**, found by the
+   sweep the search fix prompted: it called `semantic_search` — a full
+   embedding scan — once *per entry*, each call also re-embedding that
+   entry's own content from scratch. Rewritten to match
+   `routes_graph._similarity_edges`'s already-correct shape: fetch every
+   stored vector once, compare all pairs in memory. `GET /graph?similarity=
+   true`'s O(n²) (ANALYSIS §34) remains open and known — it's off by default,
+   this one wasn't.
+
+Storage was checked too, not just performance — see ARCHITECTURE.md's new
+"Storage headroom, measured not guessed" (§8): ~350MB at 200,000 real-embedding
+notes, attachments and `entry_revisions`/`audit_log` flagged as the parts that
+don't scale with note count and weren't sized in this pass.

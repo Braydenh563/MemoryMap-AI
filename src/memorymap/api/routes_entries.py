@@ -13,6 +13,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import delete as sa_delete
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from memorymap.ai import janitor, librarian
@@ -367,10 +368,25 @@ def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
     """Pairs of notes that mean similar things but aren't linked yet —
     the auto-linker (Wave N). Suggestion-only: it never links anything on
     its own, it hands the pairs to the UI to approve. Empty when the
-    embedding backend is unavailable (semantic search off)."""
-    from sqlalchemy import select
+    embedding backend is unavailable (semantic search off).
+
+    Used to call `semantic_search` once *per entry* — a full embedding scan,
+    for every entry, so O(entries) database round-trips each doing O(entries)
+    work, and each one **re-embedding that entry's own content from scratch**
+    on top of the scan. At any real notebook size that's the O(n^2) trap this
+    file was checked for after §38.1's scale-test found two others: found by
+    the same kind of sweep, not by profiling this one specifically, since a
+    75k-note notebook running this by hand was not something worth actually
+    waiting out. Rewritten to match `routes_graph._similarity_edges`'s
+    already-correct shape — fetch every stored vector once, compare all
+    pairs in memory — which turns O(n) queries plus O(n) re-embeddings into
+    one query and zero re-embedding calls."""
+    from itertools import combinations
+
+    from memorymap.ai.embeddings import bytes_to_vector, cosine_similarity
 
     entries = manager.list_entries(session)
+    entries_by_id = {e.id: e for e in entries if not e.is_private}
     already_linked: set[frozenset[int]] = set()
     for link in session.scalars(select(EntryLink)):
         already_linked.add(frozenset((link.source_entry_id, link.target_entry_id)))
@@ -379,29 +395,31 @@ def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
         if entry.parent_id is not None:
             already_linked.add(frozenset((entry.parent_id, entry.id)))
 
+    embeddings = deps.get_embeddings()
+    if not embeddings.is_ready():
+        return []
+    records = session.execute(
+        select(EmbeddingRecord.entry_id, EmbeddingRecord.embedding).where(
+            EmbeddingRecord.model_version == embeddings.backend_id()
+        )
+    ).all()
+    vectors = {eid: bytes_to_vector(blob) for eid, blob in records if eid in entries_by_id}
+
     suggestions: dict[frozenset[int], dict] = {}
-    for entry in entries:
-        try:
-            results = search_manager.semantic_search(
-                session, entry.content, deps.get_embeddings(), limit=4
-            )
-        except Exception:
-            results = None
-        if not results:
+    for a, b in combinations(sorted(vectors), 2):
+        pair = frozenset((a, b))
+        if pair in already_linked:
             continue
-        for other, score in results:
-            if other.id == entry.id or score < LINK_SUGGESTION_THRESHOLD:
-                continue
-            pair = frozenset((entry.id, other.id))
-            if pair in already_linked or pair in suggestions:
-                continue
-            suggestions[pair] = {
-                "source_id": entry.id,
-                "target_id": other.id,
-                "source_preview": _preview(entry.content),
-                "target_preview": _preview(other.content),
-                "similarity": round(score, 2),
-            }
+        score = cosine_similarity(vectors[a], vectors[b])
+        if score < LINK_SUGGESTION_THRESHOLD:
+            continue
+        suggestions[pair] = {
+            "source_id": a,
+            "target_id": b,
+            "source_preview": _preview(entries_by_id[a].content),
+            "target_preview": _preview(entries_by_id[b].content),
+            "similarity": round(score, 2),
+        }
     ranked = sorted(suggestions.values(), key=lambda s: s["similarity"], reverse=True)
     return ranked[:12]
 

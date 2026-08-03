@@ -809,6 +809,14 @@ Link to another note with [[its first few words]]."></textarea>
         <button id="graph-options-toggle" class="ghost small" aria-expanded="false"
           aria-controls="graph-options"
           title="Physics, labels, similarity lines and link suggestions">⚙ Options</button>
+        <!-- §37F: Trace used to be a permanently-drawn second row — the one
+             control here that is a distinct mode (finding a path between two
+             named notes) rather than a setting left on, so it gets the same
+             ⚙ Options treatment: folded away, remembered whether it was open,
+             nothing removed. -->
+        <button id="graph-trace-toggle" class="ghost small" aria-expanded="false"
+          aria-controls="graph-trace"
+          title="Find how two notes connect">🛣 Trace</button>
         <button id="graph-refresh" class="ghost small">↻ Refresh</button>
       </div>
       <!-- The tuned-once controls. One row, one control height, margins
@@ -844,7 +852,7 @@ Link to another note with [[its first few words]]."></textarea>
            tenth control in the toolbar above: it is a question you ask, not a
            setting you leave. One --control-h for everything in it, and outside
            margins zeroed, per DESIGN.md. -->
-      <div class="graph-trace" id="graph-trace" role="group"
+      <div class="graph-trace hidden" id="graph-trace" role="group"
         aria-label="Trace the connection between two notes">
         <span class="graph-trace-label">🛣 Trace</span>
         <select id="graph-trace-from" aria-label="Trace from this note"></select>
@@ -1783,6 +1791,26 @@ Link to another note with [[its first few words]]."></textarea>
                   <input id="radius-slider" type="range" min="0" max="22" value="14"
                     aria-label="Corner rounding">
                   <span class="slider-value" id="radius-value">14px</span>
+                </div>
+              </div>
+
+              <!-- §37E: "my computer is a small 13-inch laptop so I need to go
+                   to like 80% browser zoom to see everything." A browser's own
+                   zoom resets on every launch and isn't a MemoryMap setting —
+                   this is. Scales the root font-size, not a CSS `zoom` or
+                   `transform: scale`: the whole app is already built on rem,
+                   so control heights, icons and spacing (all in rem) follow
+                   for free, the same way Text size above already proves this
+                   approach works for this codebase. -->
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Zoom</span>
+                  <small class="muted">Scales the whole interface, like a browser zoom that stays set. Combines with Text size above.</small>
+                </div>
+                <div class="row setting-control">
+                  <input id="zoom-slider" type="range" min="70" max="130" step="5" value="100"
+                    aria-label="Interface zoom">
+                  <span class="slider-value" id="zoom-value">100%</span>
                 </div>
               </div>
             </div>

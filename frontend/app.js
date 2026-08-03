@@ -11730,7 +11730,7 @@ async function saveGraphNewNote() {
 // editor, opened from the Library (§36F). It is no longer in the tab *bar*, so
 // it sits at the end here: TABS drives which pages hide, and the arrow-key
 // order comes from the bar's own buttons.
-const TABS = ["dashboard", "notes", "chat", "graph", "timeline", "library", "reminders", "documents"];
+const TABS = ["dashboard", "notes", "chat", "graph", "library", "timeline", "reminders", "documents"];
 
 function switchTab(name) {
   for (const tab of TABS) {
@@ -12050,7 +12050,11 @@ function initScrollTopButton() {
 
 // --- settings modal (Wave A) ------------------------------------------------------
 
-const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "websearch", "appearance", "shortcuts", "preferences", "account", "tasks", "data", "logs", "help", "about"];
+//: Every section id, and a new one is invisible until it is in this list —
+//: `showSettingsSection` un-hides by iterating it, so a section left out is
+//: rendered, in the DOM, and never shown. Found by driving it: the Extras
+//: panel had five rows in it and a nav button that appeared to do nothing.
+const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "websearch", "appearance", "shortcuts", "preferences", "account", "extras", "tasks", "data", "logs", "help", "about"];
 
 // Where to send focus back when a dialog closes (Wave L).
 let overlayReturnFocus = null;
@@ -12238,6 +12242,7 @@ function showSettingsSection(name) {
   if (name === "account") renderAccount().catch(() => {});
   if (name === "data") renderBackups();
   if (name === "tasks") renderTasks(); // fill it in now, then poll
+  if (name === "extras") renderExtras();
 }
 
 // Peek fades the settings panel so a colour change is visible on the page
@@ -15055,6 +15060,144 @@ async function refreshBackgroundTasks() {
   // again a few milliseconds later.
   if (settingsModalOpen() && currentSettingsSection === "tasks") renderTasks(body);
   else renderTaskHistory((body && body.history) || []);
+}
+
+// --- optional extras (Settings → Optional extras) -----------------------------
+//
+// Each of these is a feature the app already offers and cannot run: the 🎙
+// buttons need faster-whisper, the desktop window needs pywebview, search by
+// meaning needs sentence-transformers. The only way to switch one on was a
+// terminal and a README.
+//
+// The catalogue is the **server's**, and the install is chosen by id from an
+// allowlist there — the client never sends a package name. See
+// `core/extras.py` for why that is the whole security property.
+let extrasPollTimer = null;
+
+async function renderExtras() {
+  const list = $("extras-list");
+  if (!list) return;
+  const body = await apiJson("/extras", { silent: true }).catch(() => null);
+  if (!body) return;
+
+  list.replaceChildren();
+  for (const extra of body.extras) {
+    const li = document.createElement("li");
+    li.className = "extras-row";
+
+    const head = document.createElement("div");
+    head.className = "entry-meta";
+    const name = document.createElement("strong");
+    name.textContent = extra.label;
+    head.appendChild(name);
+
+    const actions = document.createElement("span");
+    actions.className = "entry-actions";
+    if (extra.installed) {
+      // A tick, not a disabled button. "Installed" is the answer to the only
+      // question this row asks, and a greyed-out Install invites a click that
+      // will do nothing.
+      const done = document.createElement("span");
+      done.className = "extras-installed";
+      done.textContent = "✓ Installed";
+      actions.appendChild(done);
+      // And a way back out of the state detection cannot see. `find_spec`
+      // answers "is it there", not "is it sound" — a half-finished download or
+      // a wheel built for the wrong platform imports and does not work, and
+      // this is the button for that. Quiet, because it is the rarer need.
+      actions.appendChild(
+        smallButton("↻ Reinstall", `Reinstall ${extra.label}`, async () => {
+          const ok = await confirmDialog(
+            `Reinstall ${extra.label}?\n\nUse this if the feature is switched ` +
+              "on but not working — it downloads the package again from " +
+              "scratch rather than trusting what is already there."
+          );
+          if (!ok) return;
+          const result = await apiJson(`/extras/${extra.id}/install?reinstall=true`, {
+            method: "POST",
+          }).catch((e) => ({ started: false, message: e.message }));
+          toast(result.message, !result.started);
+          renderExtras();
+        })
+      );
+      actions.appendChild(
+        smallButton("🗑 Remove", `Uninstall ${extra.label}`, async () => {
+          const ok = await confirmDialog(
+            `Remove ${extra.label}?\n\nThe feature it turns on stops working. ` +
+              "Only the package itself is removed — anything it pulled in is " +
+              "left alone, since something else may be using it."
+          );
+          if (!ok) return;
+          const result = await apiJson(`/extras/${extra.id}/uninstall`, {
+            method: "POST",
+          }).catch((e) => ({ started: false, message: e.message }));
+          toast(result.message, !result.started);
+          renderExtras();
+        })
+      );
+    } else if (extra.installing) {
+      const busy = document.createElement("span");
+      busy.className = "muted";
+      busy.textContent = "Installing…";
+      actions.appendChild(busy);
+    } else {
+      actions.appendChild(
+        smallButton("⬇ Install", `Install ${extra.label}`, async () => {
+          const ok = await confirmDialog(
+            `Install ${extra.label}?\n\n${extra.size}. It is downloaded from ` +
+              "PyPI to this machine, and MemoryMap needs a restart afterwards " +
+              "before the feature works."
+          );
+          if (!ok) return;
+          const result = await apiJson(`/extras/${extra.id}/install`, {
+            method: "POST",
+          }).catch((e) => ({ started: false, message: e.message }));
+          toast(result.message, !result.started);
+          renderExtras();
+        })
+      );
+    }
+    head.appendChild(actions);
+    li.appendChild(head);
+
+    const enables = document.createElement("p");
+    enables.className = "muted extras-enables";
+    enables.textContent = extra.enables;
+    li.appendChild(enables);
+
+    const meta = document.createElement("p");
+    meta.className = "muted extras-meta";
+    meta.textContent = `${extra.packages.join(", ")} · ${extra.size}`;
+    li.appendChild(meta);
+
+    // Said before the button is pressed, not after: "this installs the library
+    // but nothing uses it yet" is exactly the sort of thing that turns into a
+    // bug report if it is discovered afterwards.
+    if (extra.caveat) {
+      const caveat = document.createElement("p");
+      caveat.className = "muted extras-caveat";
+      caveat.textContent = `⚠ ${extra.caveat}`;
+      li.appendChild(caveat);
+    }
+    list.appendChild(li);
+  }
+
+  $("extras-status").textContent = body.running
+    ? body.step
+    : body.outcome === "completed"
+      ? `${body.step}`
+      : body.outcome === "failed"
+        ? `Install failed. ${body.step}`
+        : "";
+  const logWrap = $("extras-log-wrap");
+  logWrap.classList.toggle("hidden", !body.log.length);
+  $("extras-log").textContent = body.log.join("\n");
+
+  // Poll only while something is running, and only while the panel is open.
+  clearTimeout(extrasPollTimer);
+  if (body.running && settingsModalOpen() && currentSettingsSection === "extras") {
+    extrasPollTimer = setTimeout(renderExtras, 1500);
+  }
 }
 
 // --- Wave N: tasks manager (see and quit background jobs) ---------------------------

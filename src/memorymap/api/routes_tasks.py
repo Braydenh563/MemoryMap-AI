@@ -28,7 +28,7 @@ from fastapi import APIRouter
 
 from memorymap.ai import embeddings as embeddings_module
 from memorymap.ai import model_manager as jobs
-from memorymap.core import deps, taskhistory
+from memorymap.core import deps, extras, taskhistory
 
 router = APIRouter(tags=["tasks"])
 
@@ -117,6 +117,28 @@ def collect() -> list[dict]:
                 "progress": min(waited / max(searxng_manager.START_TIMEOUT, 1), 1.0),
                 "cancellable": False,
                 "log": [],
+            }
+        )
+
+    # Installing an optional extra (Settings → Extras). Here rather than on its
+    # own screen for the reason this module exists: anything long enough to
+    # need a background thread belongs in one list, and the status bar and the
+    # Tasks panel then show it without learning anything new.
+    pip = extras.current()
+    if pip.running:
+        tasks.append(
+            {
+                "kind": "extra",
+                "name": pip.extra_id,
+                "label": f"Installing {extras.EXTRAS_BY_ID[pip.extra_id].label}"
+                if pip.extra_id in extras.EXTRAS_BY_ID
+                else "Installing an optional extra",
+                "detail": pip.step or "starting pip…",
+                # pip does not report a fraction it is worth believing, and a
+                # bar that guesses is worse than one that admits it can't say.
+                "progress": None,
+                "cancellable": False,
+                "log": list(pip.log),
             }
         )
 

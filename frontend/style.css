@@ -551,6 +551,18 @@ header#top-bar.tabs-wrapped #tab-bar {
   line-height: 1.45;
 }
 
+/* --- optional extras (Settings) ---------------------------------------------- */
+.extras-list { list-style: none; margin: var(--space-5) 0 0; padding: 0; }
+.extras-row {
+  padding: var(--space-5) 0;
+  border-top: 1px solid var(--border);
+}
+.extras-row:first-child { border-top: none; }
+.extras-enables { margin: var(--space-2) 0 0; font-size: var(--text-md); }
+.extras-meta { margin: var(--space-1) 0 0; font-size: var(--text-sm); font-family: var(--mono, ui-monospace, monospace); }
+.extras-caveat { margin: var(--space-2) 0 0; font-size: var(--text-sm); color: var(--warn); }
+.extras-installed { color: var(--ok); font-weight: 600; font-size: var(--text-md); }
+
 /* --- the Library (§4, §36F) --------------------------------------------------
    §36F set this tab a test as well as a job: *"the test of whether §35L
    actually holds — if a new tab built from the tokens still needs its own
@@ -1688,6 +1700,55 @@ progress { accent-color: var(--accent); width: 100%; }
 #suggested-list li:last-child { border-bottom: none; }
 #suggested-list .model-name { font-weight: 600; }
 #suggested-list .model-info { color: var(--muted); flex: 1; }
+
+/* The models you already have. Reported as a formatting problem and it was
+   simply *unstyled* — a bare <ul>, so it rendered with browser bullets, no row
+   layout, and the name, the size and the Remove button stacked or ran into
+   each other. The suggested list beside it had all of this; this one had none.
+
+   The size gets a column of its own rather than sitting in the flow: sizes are
+   the thing you scan this list for when you are looking for disk space to
+   reclaim, and numbers you scan have to share a right edge. Tabular figures so
+   "1.9 GB" and "11.4 GB" line up on the decimal point rather than on whichever
+   glyphs happen to be wide. */
+#installed-list { list-style: none; margin: 0; padding: 0; }
+#installed-list li {
+  display: flex;
+  gap: var(--space-4);
+  align-items: center;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--text-lg);
+}
+#installed-list li:last-child { border-bottom: none; }
+#installed-list .model-name {
+  font-weight: 600;
+  /* The name gives way, not the size or the button: a long tag is the least
+     important part of a row whose other two items are fixed and small. */
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+#installed-list .model-info {
+  /* A fixed column, so the *actions* beside it share a left edge too — with an
+     auto width the "in use" chip and the "Remove" button started at different
+     x on every row, which is the ragged edge that reads as unformatted even
+     once the rows themselves are right. */
+  flex: 0 0 5rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+/* The action column is fixed too, and right-aligned inside itself. Without
+   this the narrower "in use" chip and the wider "Remove" button each sized
+   their own column, so no two rows agreed on where either the size or the
+   action began — measured at x=980/1070 on one row and 953/1042 on the next. */
+#installed-list li > :last-child {
+  flex: 0 0 5.5rem;
+  display: inline-flex;
+  justify-content: flex-end;
+  margin: 0;
+}
 
 /* --- lock screen (Phase 4) ------------------------------------------------- */
 .lock-overlay {
@@ -4580,6 +4641,15 @@ html { font-size: 16px; }
 /* The segmented control also brings its own vertical padding around its two
    buttons, which made it taller again. It keeps its inset horizontally and
    gives it up vertically. */
+/* The mode buttons say "Ask the Librarian" where there is room and "Ask" where
+   there is not. Naming them for what you get rather than for the machinery is
+   the point — but two labels of that length are ~350px of a strip that also
+   holds a skill picker, a length preset, a persona and a web toggle, and the
+   whole strip wrapped to two rows below about 1500px. Measured: 30px tall at
+   1900, 69px at 1440. The full phrase stays in the tooltip and in the
+   accessible name at every width, so nothing is lost but the pixels. */
+@media (max-width: 1500px) { .chat-mode-long { display: none; } }
+
 .chat-dock-controls .seg {
   display: inline-flex;
   align-items: center;

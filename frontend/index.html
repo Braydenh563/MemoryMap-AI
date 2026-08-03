@@ -91,8 +91,6 @@
         aria-selected="false" aria-controls="tab-chat" tabindex="-1">Chat</button>
       <button role="tab" id="tab-btn-graph" data-tab="graph"
         aria-selected="false" aria-controls="tab-graph" tabindex="-1">Graph</button>
-      <button role="tab" id="tab-btn-timeline" data-tab="timeline"
-        aria-selected="false" aria-controls="tab-timeline" tabindex="-1">Timeline</button>
       <!-- Library replaces Documents in the bar rather than joining it (§36F).
            The Documents *page* is still here and is still where you write; it
            is reached by opening a document from the Library, the same way the
@@ -100,6 +98,8 @@
            went is the second list. -->
       <button role="tab" id="tab-btn-library" data-tab="library"
         aria-selected="false" aria-controls="tab-library" tabindex="-1">Library</button>
+      <button role="tab" id="tab-btn-timeline" data-tab="timeline"
+        aria-selected="false" aria-controls="tab-timeline" tabindex="-1">Timeline</button>
       <button role="tab" id="tab-btn-reminders" data-tab="reminders"
         aria-selected="false" aria-controls="tab-reminders" tabindex="-1">Reminders</button>
     </nav>
@@ -658,9 +658,11 @@ Link to another note with [[its first few words]]."></textarea>
                        `ai/librarian` module), so the pair reads as one idea
                        instead of as two settings. -->
                   <button data-chat-mode="chat" type="button"
-                    title="Ask the Librarian about your notes. It reads and answers; it never changes anything.">💬 Ask the Librarian</button>
+                    title="Ask the Librarian about your notes. It reads and answers; it never changes anything."
+                    aria-label="Ask the Librarian">💬 Ask<span class="chat-mode-long"> the Librarian</span></button>
                   <button data-chat-mode="agent" type="button"
-                    title="Request something of the Librarian. It can use tools — search and read your notes, open web pages, create, tag, link and organise. Destructive actions always ask you first.">🤖 Request the Librarian</button>
+                    title="Request something of the Librarian. It can use tools — search and read your notes, open web pages, create, tag, link and organise. Destructive actions always ask you first."
+                    aria-label="Request the Librarian">🤖 Request<span class="chat-mode-long"> the Librarian</span></button>
                 </div>
                 <label class="muted tools-toggle agent-toggle hidden"
                   title="Agent mode: the AI can use tools — search and read your notes, open web pages, create, tag, link and organise. Destructive actions always ask you first.">
@@ -1361,6 +1363,7 @@ Link to another note with [[its first few words]]."></textarea>
           <p class="nav-group-label" id="nav-group-system">System</p>
           <div role="group" aria-labelledby="nav-group-system">
             <button data-section="account">Account &amp; security</button>
+            <button data-section="extras">Optional extras</button>
             <button data-section="tasks">Background tasks</button>
             <button data-section="logs">Logs</button>
           </div>
@@ -1908,6 +1911,27 @@ Link to another note with [[its first few words]]."></textarea>
                overlay, so anyone looking for it in Settings — where every
                other preference lives — found nothing and reported it missing.
                Same list, same code, a second place to reach it. -->
+          <!-- Optional extras. Every one of these is a feature the app already
+               has a button for and cannot run — dictation, the desktop window,
+               search by meaning. The only way to turn one on used to be a
+               terminal and a README, which for a local-first app is the same
+               as not having the feature at all. -->
+          <section class="settings-section hidden" id="settings-extras">
+            <h3>Optional extras</h3>
+            <p class="muted">
+              Things MemoryMap can do with one more package installed. Nothing
+              here is needed to write, search, tag or organise your notes —
+              each one turns on a feature that is otherwise switched off, and
+              everything is downloaded from PyPI to this machine.
+            </p>
+            <ul id="extras-list" class="extras-list"></ul>
+            <p id="extras-status" class="status" role="status"></p>
+            <details id="extras-log-wrap" class="task-log hidden">
+              <summary class="muted">What pip is doing</summary>
+              <pre id="extras-log" class="task-log-lines"></pre>
+            </details>
+          </section>
+
           <section class="settings-section hidden" id="settings-shortcuts">
             <p class="muted">
               Click <strong>Change</strong> and press the keys you want. Press

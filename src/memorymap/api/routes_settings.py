@@ -26,7 +26,7 @@ from sqlalchemy.orm import Session
 
 from memorymap import __version__
 from memorymap.ai import skills
-from memorymap.core import backup, deps, logbuffer
+from memorymap.core import backup, deps, extras, logbuffer
 from memorymap.core.database import AuditLog, Category, Entry, EntryLink, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
@@ -376,6 +376,47 @@ def empty_recycle_bin(session: Session = Depends(get_session)) -> dict:
         session, uploads_dir=deps.get_config().uploads_dir
     )
     return {"removed": removed}
+
+
+# --- optional extras ---------------------------------------------------------
+
+
+@router.get("/extras")
+def list_extras() -> dict:
+    """What can be installed, and what already is.
+
+    The install itself reports through /tasks like every other background job,
+    so this is only the catalogue and the current state.
+    """
+    state = extras.current()
+    return {
+        "extras": extras.status(),
+        "running": state.running,
+        "installing": state.extra_id if state.running else "",
+        "step": state.step,
+        "outcome": state.outcome,
+        "log": list(state.log),
+    }
+
+
+@router.post("/extras/{extra_id}/install")
+def install_extra(extra_id: str, reinstall: bool = False) -> dict:
+    """Start installing one extra **from the allowlist**.
+
+    The path names an entry in `core/extras.py`; the package spec handed to pip
+    is never anything the client sent. That is the whole security property here
+    — `pip install <a name from a request body>` is arbitrary code execution by
+    design, and validating the string afterwards does not fix it.
+    """
+    started, message = extras.start(extra_id, reinstall=reinstall)
+    return {"started": started, "message": message}
+
+
+@router.post("/extras/{extra_id}/uninstall")
+def uninstall_extra(extra_id: str) -> dict:
+    """Remove one extra, by the same allowlist id the install uses."""
+    started, message = extras.remove(extra_id)
+    return {"started": started, "message": message}
 
 
 @router.get("/logs")

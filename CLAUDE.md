@@ -20,7 +20,8 @@ cheaper than a session of rework.
 
 | File | What it answers |
 | --- | --- |
-| [`docs/ROADMAP.md`](docs/ROADMAP.md) | **Start here.** The live list, plus §35 and §36 — the freshly reported work. |
+| [`docs/roadmap/HANDOVER.md`](docs/roadmap/HANDOVER.md) | **Read this first.** The last session's handover: what changed, what could not be verified and why, where to start, and the traps that cost an hour each. |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | The live list, plus §35 and §36 — the freshly reported work. |
 | [`docs/roadmap/BACKLOG.md`](docs/roadmap/BACKLOG.md) | The standing backlog, §1–§29. |
 | [`docs/roadmap/ANALYSIS.md`](docs/roadmap/ANALYSIS.md) | §30–§34. Judgements and a competitor read — **including that odysseus is AGPL and this project is MIT, so no code crosses in either direction.** |
 | [`docs/roadmap/HISTORY.md`](docs/roadmap/HISTORY.md) | What is already built. Read it before starting anything. |
@@ -60,7 +61,26 @@ works — and still say plainly what you did not check.**
 
 ## Working here
 
-- `python -m pytest tests/` — ~660 tests, ~3½ minutes, all green. Keep it that way.
+- **Do not install torch, and do not install `sentence-transformers` (which
+  pulls it in).** It has failed to install in several sessions and costs a long
+  time before it does. You said: {"When installing dependencies in prev
+  sessions torch hasn't installed properly so skip it."} The suite passes
+  without both — semantic search falls back to keywords, and the tests that
+  care use a fake embedding backend. Install the rest by hand rather than
+  `-r requirements.txt`:
+
+  ```bash
+  python3 -m venv .venv && .venv/bin/pip install fastapi "uvicorn[standard]" \
+      SQLAlchemy python-dotenv requests numpy "fsspec[http]" bcrypt \
+      cryptography python-multipart pytest httpx ruff
+  ```
+
+- `python -m pytest tests/` — ~1,440 tests, ~3 minutes, all green. Keep it that way.
+- `.venv/bin/ruff check .` before pushing — **CI runs it and it fails the
+  build.** CI also runs CodeQL, which has caught a real polynomial-ReDoS in
+  code written the same session; an anchored `[…]+$` is the shape to avoid.
+- Running the app needs `PYTHONPATH=src`, which the recipe below omits:
+  `PYTHONPATH=src MEMORYMAP_DATA_DIR=<scratch> .venv/bin/python -m uvicorn memorymap.api.app:create_app --factory --port 8781`
 - `node --check frontend/app.js` after any JS edit; there is no bundler to catch you.
 - Several tests are **lints, not behaviour tests**, and exist because browsers
   and this Python suite cannot see the DOM: `test_style_scale.py` (design

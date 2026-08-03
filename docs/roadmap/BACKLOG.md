@@ -2164,42 +2164,55 @@ first note etc)". There already is an `onboarding-overlay` (referenced by
 every Playwright driver script in this document as something to dismiss
 before testing), so this is about what it covers, not whether it exists.
 
-- **Confirm what the current onboarding actually walks through** before
-  extending it — the driver script only knows it exists and blocks clicks
-  until dismissed, not its content.
-- **Fold in first-run diagnostics.** The outside review's strongest surviving
-  suggestion: check Ollama is reachable, offer to pull a small model
-  (`llama3.2`) if none is installed, and check `MEMORYMAP_DATA_DIR` is
-  writable — before the person's first capture fails silently into
-  `Uncategorised` and they assume the AI is broken rather than absent. The
-  app already degrades gracefully when Ollama is off (design principle 2);
-  onboarding is where to explain that's what's happening, once, rather than
-  leaving the header's status dot to say it quietly forever after.
-- **Name, first note, model choice** — as asked. The dashboard's name-nudge
-  work ("empty by default and buried among a dozen fields") already solved
-  the *name* half; onboarding doing it once at the start is the same fix
-  moved earlier, not a new one.
-- **Say what the graph and timeline actually are, once, early.** Not asked
-  for directly, but the natural place to close the gap identified in §30's
-  "product differentiation" note: a first-time user who captures a note and
-  asks a question has seen the core loop, but nothing tells them the graph
-  and the branch/line timeline are the "map" the app's own name refers to.
-  A single onboarding step showing the graph forming around their first
-  couple of notes would do more for the product's identity than any new
-  feature — it's pointing at something that already exists, not building
-  something new.
-- **What stays local, and how much space it's using** — the disk-usage half
-  of the outside review's onboarding suggestion. Cheap to add alongside the
-  Ollama-reachability check above: the data folder's size and path, stated
-  plainly, once.
+- ~~**Confirm what the current onboarding actually walks through**~~ **done —
+  five static slides** (welcome, capture, ask, graph, appearance), no
+  diagnostics anywhere, confirmed by reading `ONBOARDING_SLIDES` directly
+  rather than inferring it from what the driver scripts click past.
+- ~~**Fold in first-run diagnostics.**~~ **built — Ollama reachability and
+  where the notebook lives.** A new slide (`{icon: "🩺", title: "Your
+  setup", dynamic: true}`), placed second — before the capture slide, so it
+  lands before a first capture could fail silently into `Uncategorised` and
+  read as broken rather than absent. It fetches `/models/status` and
+  `/storage` — **both already existed**, already powering the header's
+  AI-status pill and Settings → Data, so this needed no new backend at all,
+  just surfacing state nobody was shown at the moment it would have mattered
+  most. Text is genuinely dynamic (fetched, not templated once): "✅ Ollama
+  is running…" or "⚠️ Ollama isn't running… MemoryMap still works without
+  it", plus the data directory's path and the database file's size. A
+  staleness guard (a request token plus checking the overlay is still on
+  that slide and still open) stops a slow fetch from overwriting whatever's
+  showing by the time it lands — verified directly, not just reasoned about:
+  closing the tour before the fetch resolves leaves it closed rather than
+  reopening or throwing.
+  - **Offering to pull a small model (`llama3.2`) if none is installed, and
+    checking `MEMORYMAP_DATA_DIR` is writable specifically, are still open.**
+    The reachability half shipped; the "fix it for me" half (a pull button)
+    and the writability check are real, separate pieces of work — a stalled
+    `ollama pull` needs its own progress UI, and a writability check needs a
+    backend probe that doesn't exist yet (`/storage` reports the path, not
+    whether it's writable).
+- **Name, first note, model choice** — as asked, still open. The dashboard's
+  name-nudge work ("empty by default and buried among a dozen fields")
+  already solved the *name* half; onboarding doing it once at the start
+  would be the same fix moved earlier, not a new one.
+- ~~**Say what the graph and timeline actually are, once, early.**~~ **built**
+  — the former "Explore your graph" slide is now "Explore your map" and
+  names both the Graph tab and the Timeline's Line view (§10C, itself built
+  this session) as the two halves of "the map MemoryMap is named for". A
+  smaller version of the idea than "showing the graph forming around their
+  first couple of notes" (that would need the tour to run *after* a note
+  exists, which conflicts with running once at first launch before any note
+  does) — naming the two views, once, in words rather than a live demo is
+  the same product-identity gap closed with what the existing slide
+  mechanism can actually do.
+- ~~**What stays local, and how much space it's using**~~ **built as part of
+  the diagnostics slide above** rather than a separate step — `/storage`'s
+  `data_dir` and `database_bytes` answer exactly this, and splitting it into
+  its own slide would have repeated the "nothing leaves this machine"
+  framing the diagnostics slide already carries.
 - **Benchmark installed models on first run, to suggest a default rather
-  than assuming one.** If more than one Ollama model is already installed
-  when MemoryMap first runs, the model-comparison feature (§11) run once,
-  quietly, against a couple of trivial prompts is a better way to suggest a
-  default than always defaulting to whichever model §11's own
-  recommendations table happens to name — worth wiring the two together
-  once the comparison feature exists, rather than duplicating the "which
-  model is fastest" logic.
+  than assuming one** — still open, blocked on §11's model-comparison
+  feature existing to wire into, as originally scoped.
 
 ---
 

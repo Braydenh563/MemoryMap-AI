@@ -20037,6 +20037,17 @@ const ONBOARDING_SLIDES = [
     title: "Welcome to MemoryMap",
     text: "A 100% offline notebook where a local AI files your thoughts and answers questions about them. Nothing ever leaves this computer.",
   },
+  // §27: "before the person's first capture fails silently into
+  // Uncategorised and they assume the AI is broken rather than absent" — so
+  // this sits before the capture slide, not after. `dynamic` is filled in by
+  // `loadOnboardingDiagnostics` once the overlay is actually showing it,
+  // reusing /models/status and /storage rather than a new endpoint — both
+  // already exist and are already polled elsewhere in the app.
+  {
+    icon: "🩺",
+    title: "Your setup",
+    dynamic: true,
+  },
   {
     icon: "📝",
     title: "Capture your thoughts",
@@ -20047,10 +20058,14 @@ const ONBOARDING_SLIDES = [
     title: "Ask your notebook",
     text: "Ask questions in plain English and get answers grounded in your own notes. Switch on Agent mode and it can use its tools — searching your notes, opening a web page, and organising things for you.",
   },
+  // Was "Explore your graph" — named just the Graph tab, which is only half
+  // of what the app's own name refers to. Naming both here, once, is cheap;
+  // leaving a first-time user to discover the Timeline's Line view (§10C) on
+  // their own is not (ANALYSIS §30's "product differentiation" note).
   {
-    icon: "🕸",
-    title: "Explore your graph",
-    text: "The Graph tab shows how your notes connect. Search, drag, and zoom to rediscover things you'd forgotten you saved.",
+    icon: "🗺️",
+    title: "Explore your map",
+    text: "The Graph tab draws how your notes connect; the Timeline's Line view draws the shape of one thread over time. Together, they're the map MemoryMap is named for — search, drag and zoom to rediscover things you'd forgotten you saved.",
   },
   {
     icon: "🎨",
@@ -20060,12 +20075,55 @@ const ONBOARDING_SLIDES = [
 ];
 
 let onboardingIndex = 0;
+// A stale diagnostics fetch (the user clicked Next or Skip before it
+// resolved) must never overwrite whichever slide is showing by the time it
+// lands — this is what tells a resolved probe whether it still applies.
+let onboardingDiagnosticsToken = 0;
+
+// §27's first-run diagnostics: Ollama reachability and where the notebook
+// actually lives, both already computed for other UI (the AI-status pill,
+// Settings → Data) and just not surfaced before a first capture could fail
+// silently into Uncategorised.
+async function loadOnboardingDiagnostics(forSlide) {
+  const token = ++onboardingDiagnosticsToken;
+  const [models, storage] = await Promise.all([
+    apiJson("/models/status").catch(() => null),
+    apiJson("/storage").catch(() => null),
+  ]);
+  if (token !== onboardingDiagnosticsToken) return; // superseded by a later slide
+  if (onboardingIndex !== forSlide) return; // the user moved on already
+  if ($("onboarding-overlay").classList.contains("hidden")) return; // or closed it
+
+  const lines = [];
+  lines.push(
+    models && models.ollama_running
+      ? "✅ Ollama is running, so the AI will file your notes and answer questions."
+      : "⚠️ Ollama isn't running right now — MemoryMap still works without it. " +
+          "Notes are still searched by keyword, and everything catches up the moment it's on."
+  );
+  if (storage) {
+    const mb = storage.database_bytes
+      ? (storage.database_bytes / (1024 * 1024)).toFixed(1)
+      : "0";
+    lines.push(
+      `Your notebook lives at ${storage.data_dir} (${mb} MB so far) — nothing here ever leaves this machine.`
+    );
+  } else {
+    lines.push("Couldn't check where your notebook lives just now.");
+  }
+  $("onboarding-text").textContent = lines.join(" ");
+}
 
 function renderOnboardingSlide() {
   const slide = ONBOARDING_SLIDES[onboardingIndex];
   $("onboarding-icon").textContent = slide.icon;
   $("onboarding-title").textContent = slide.title;
-  $("onboarding-text").textContent = slide.text;
+  if (slide.dynamic) {
+    $("onboarding-text").textContent = "Checking Ollama and where your notebook lives…";
+    loadOnboardingDiagnostics(onboardingIndex);
+  } else {
+    $("onboarding-text").textContent = slide.text;
+  }
   const dots = $("onboarding-dots");
   dots.replaceChildren();
   ONBOARDING_SLIDES.forEach((_, i) => {

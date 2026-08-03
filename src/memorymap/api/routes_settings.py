@@ -26,7 +26,7 @@ from sqlalchemy.orm import Session
 
 from memorymap import __version__
 from memorymap.ai import skills
-from memorymap.core import backup, deps, extras, logbuffer
+from memorymap.core import backup, deps, embedmodels, extras, logbuffer
 from memorymap.core.database import AuditLog, Category, Entry, EntryLink, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
@@ -139,6 +139,7 @@ class PreferencesBody(BaseModel):
     tool_focus: Literal["auto", "all"] | None = None
     # Wave F: the ONE feature that goes online — off unless the user opts in.
     web_search_enabled: bool | None = None
+    searxng_autostart: bool | None = None
     # Optional self-hosted SearXNG instance; empty string = use DuckDuckGo.
     searxng_url: str | None = Field(default=None, max_length=200)
     # Which engine answers: "auto" | "searxng" | "duckduckgo". Validated
@@ -246,6 +247,7 @@ def get_preferences() -> dict:
         "tool_focus": config.get_preference("tool_focus", "auto"),
         "web_search_enabled": config.get_preference("web_search_enabled", False),
         "searxng_url": config.get_preference("searxng_url", ""),
+        "searxng_autostart": config.get_preference("searxng_autostart", False),
         "search_provider": websearch.normalise_provider(
             config.get_preference("search_provider", websearch.DEFAULT_PROVIDER)
         ),
@@ -419,6 +421,57 @@ def uninstall_extra(extra_id: str) -> dict:
     return {"started": started, "message": message}
 
 
+# --- embedding models ---------------------------------------------------------
+
+
+@router.get("/embedding-models")
+def list_embedding_models() -> dict:
+    """Which embedding models are on this machine, and what they cost.
+
+    `can_download` is here rather than left for the client to infer: without
+    `huggingface_hub` (which arrives with the semantic-search extra) every
+    button on this screen would start something that cannot finish, and a
+    disabled button with a reason beats a download that fails on an ImportError.
+    """
+    state = embedmodels.current()
+    return {
+        "models": embedmodels.status(),
+        "cache": str(embedmodels.cache_root()),
+        "can_download": embedmodels.can_download(),
+        "running": state.running,
+        "downloading": state.model_id if state.running else "",
+        "step": state.step,
+        "outcome": state.outcome,
+        "log": list(state.log),
+    }
+
+
+@router.post("/embedding-models/{model_id}/download")
+def download_embedding_model(model_id: str, reinstall: bool = False) -> dict:
+    """Fetch one model **from the allowlist** in `core/embedmodels.py`.
+
+    Same property as the extras installer: the repo id handed to the hub is
+    never anything the client sent. A repo id from a request is a path that
+    gets fetched and written to disk.
+
+    A reinstall removes first, because that is the state the button exists for
+    — a half-finished download leaves a directory that looks installed and
+    loads as a corrupt model, and fetching over the top of it resumes the same
+    broken snapshot.
+    """
+    if reinstall:
+        embedmodels.remove(model_id)
+    started, message = embedmodels.start(model_id)
+    return {"started": started, "message": message}
+
+
+@router.delete("/embedding-models/{model_id}")
+def remove_embedding_model(model_id: str) -> dict:
+    """Delete one model from the cache, by the same allowlist id."""
+    removed, message = embedmodels.remove(model_id)
+    return {"removed": removed, "message": message}
+
+
 @router.get("/logs")
 def server_logs(limit: int = 200) -> list[dict]:
     """Recent server-side log records for the Settings → Logs viewer."""
@@ -541,6 +594,7 @@ DIAGNOSTIC_PREFERENCES = frozenset(
         "recycle_bin_days",
         "timezone",
         "web_search_enabled",
+        "searxng_autostart",
         "search_provider",
         "thinking_enabled",
         "guided_mode",

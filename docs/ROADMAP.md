@@ -1495,15 +1495,16 @@ restore for a binned note, download for a file); an **Include bin** toggle,
 off by default, because deleted things are not part of "everything you have
 made". Assembled server-side so a new kind appears without touching `app.js`.
 
-**What is next, in order:**
+**What is next, in order.** *(1 and 2 are done, and 4 has happened: the three
+panels are deleted — see the end of this section.)*
 
-1. **The bin, in full.** The Library shows binned notes and restores them, and
+1. ~~**The bin, in full.**~~ **done.** The Library shows binned notes and restores them, and
    that is all — the bin panel still owns *Empty now*, the "kept for N days"
    line, and permanent delete. Reported directly: *"in the bin section it
    should have all the features of the rubbish bin."* Those move here, and the
    sidebar's 🗑 button follows the 📚 pattern — it opens the Library on the Bin
    chip rather than opening a second panel.
-2. **Activity.** The audit log is a list of things you did, which is the same
+2. ~~**Activity.**~~ **done.** The audit log is a list of things you did, which is the same
    shape as the Library's list of things you made, and it is currently a panel
    behind a sidebar button that nobody finds. It becomes a kind: `activity`,
    read-only, with the same filter chip and the same card.
@@ -1523,6 +1524,39 @@ one — no `z-index` has to be in sight. The note cards hit it via
 `.entry-actions` and the Library cards hit it via the blur; both are fixed by
 lifting the *owning element* (`.menu-open`), never the menu. If a menu is
 reported behind something, that is the first thing to check.
+
+#### The panels are deleted — the first surface this project has removed
+
+`#bin-panel`, `#activity-panel` and `#tags-panel` are gone from `index.html`,
+and `renderBin`, `renderActivity`, `renderTags`, `PANELS`, `showPanel`, the
+`.panel-close` wiring, the `#bin-empty` handler and `entryItem`'s
+`options.bin` branch are gone from `app.js`.
+
+**Why it was the top item and not merely tidying:** each of those three things
+had two implementations, and the bin's two could *disagree about what was in
+it*, because each fetched its own list. Two surfaces that can contradict each
+other about whether a note still exists is a correctness bug wearing a
+duplication costume.
+
+**What had to be built first**, and the one thing that kept the panel alive
+past its chip: reading a binned note **in full**. A Library card shows a
+preview — right for a grid of mixed things, wrong as the only way to see a
+note you are about to destroy, because "restore or delete for good?" is a
+question you answer by reading it. So `#binned-overlay`: read-only, the note's
+own markdown, Restore and Delete for good, backed by
+`GET /entries/{id}?deleted=true`. That read is deliberately opt-in (an
+ordinary read still 404s on a binned note) and deliberately does not count
+towards "most accessed".
+
+"Kept for N days" came down with it, into the Library's bin bar. It was the
+one thing the panel said that the Library did not, and it is the difference
+between a bin you trust to clear itself and one you assume you must empty.
+
+**The rule this establishes.** A surface may be replaced without being
+deleted, but only for as long as it can still do something its replacement
+cannot. Write that thing down when the replacement ships, because it is the
+whole of the remaining work — here it was one sentence ("read a binned note in
+full") and one overlay.
 
 #### Should the Library absorb Notes and Documents too?
 

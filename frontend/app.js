@@ -700,58 +700,13 @@ function entryItem(entry, options = {}) {
 
   const date = document.createElement("span");
   date.className = "entry-date";
-  const stamp = options.bin ? entry.deleted_at : entry.created_at;
+  const stamp = entry.created_at;
   date.textContent = relativeTime(stamp);
   date.title = new Date(stamp).toLocaleString(); // exact on hover
   metaEnd.appendChild(date);
   meta.appendChild(metaEnd);
 
-  if (options.bin) {
-    // Marked so the CSS can keep this row's Restore button in the flow: it is
-    // a labelled text button rather than a hover-revealed icon (§36B).
-    li.classList.add("bin-row");
-    const actions = document.createElement("span");
-    actions.className = "entry-actions";
-    actions.appendChild(
-      smallButton("Restore", "Take this entry out of the bin", async () => {
-        try {
-          await api(`/entries/${entry.id}/restore`, { method: "POST" });
-          await Promise.all([loadEntries(), renderBin()]);
-        } catch (error) {
-          toast(`Couldn't restore that note: ${error.message}`, true);
-        }
-      })
-    );
-    // Asked for directly: a way to get rid of ONE note for good. Emptying the
-    // bin was all-or-nothing, so removing a single note permanently meant
-    // destroying everything else in there — which is why a bin fills up and
-    // stops being a bin.
-    //
-    // No undo is offered here and none is implied: the wording says "for
-    // good", the dialog quotes the note back so there is no doubt which one it
-    // is, and the note is already in the bin, so this is the second deliberate
-    // step rather than the first.
-    actions.appendChild(
-      smallButton("Delete for good", "Permanently delete this note — no undo", async () => {
-        const quoted = entry.content.trim().split("\n")[0].slice(0, 80);
-        if (
-          !(await confirmDialog(
-            `Permanently delete “${quoted}”?\n\nThis cannot be undone.`
-          ))
-        ) {
-          return;
-        }
-        try {
-          await api(`/entries/${entry.id}/purge`, { method: "DELETE" });
-          toast("Deleted for good.");
-          await Promise.all([loadEntries(), renderBin()]);
-        } catch (error) {
-          toast(`Couldn't delete that note: ${error.message}`, true);
-        }
-      })
-    );
-    metaEnd.appendChild(actions);
-  } else if (options.actions) {
+  if (options.actions) {
     // Wave L rework: two everyday actions stay visible; the rest live in
     // one ⋯ menu — the old row of nine icons was unscannable noise.
     const actions = document.createElement("span");
@@ -5261,7 +5216,13 @@ async function sendChatMessage(preset, opts = {}) {
   status.textContent = "Searching your notes…";
 
   // Regenerate re-runs the same question without adding a duplicate "you".
-  if (!opts.skipUserBubble) addBubble("user", question);
+  //
+  // `displayText` is what the *user* said when the message carries an
+  // instruction they did not type — 🧭 Plan appends one. Showing the appended
+  // sentence back to them would read as the app putting words in their mouth,
+  // and hiding the request entirely would leave the plan looking as though it
+  // came from nowhere; the button they pressed is the explanation.
+  if (!opts.skipUserBubble) addBubble("user", opts.displayText || question);
   const { bubble, stepsHolder, recordsHolder, timeline } = addAssistantBubble();
   // A placeholder until the first event arrives; the first real step evicts it.
   const pending = document.createElement("div");
@@ -6260,6 +6221,9 @@ async function loadChatSuggestions() {
     const chipEl = chip(question, "", () => sendChatMessage(question));
     box.appendChild(chipEl);
   }
+  // These chips arrive after the tab is drawn and are a row or two of height
+  // the composer's fit was measured without.
+  refitComposer();
 }
 
 // Personas section in Settings (Wave C, editing + reset in Wave D).
@@ -6533,6 +6497,7 @@ function runSkill(skill) {
 // same reason `ask_user`'s answer is: nothing to expire, nothing lost on a
 // reload, and the run is a message in the conversation like any other.
 function startPlannedRun(goal, steps) {
+  switchTab("chat"); // same reason as startSkill: the run happens in the chat
   sendChatMessage(`🧭 ${goal}`, { plan: { goal, steps } });
 }
 
@@ -6540,6 +6505,14 @@ function startSkill(skill, values) {
   // Both entry points land here — the ⚡ dropdown and a run the agent started
   // itself (§33) — so the dashboard's recent-skill buttons cover both.
   noteSkillRun(skill.name);
+  // **And so does the dashboard's ⚡ chip, which is why this is here.**
+  // Reported: *"when I click on the suggested skills in the dashboard, it runs
+  // the skill but doesn't navigate me to it."* Exactly right — the run started,
+  // the answer streamed into a tab nobody was looking at, and the dashboard sat
+  // there as though the button had done nothing. A skill *is* a message in the
+  // conversation, so starting one has to take you to the conversation. From
+  // the ⚡ dropdown, where you are already here, this is a no-op.
+  switchTab("chat");
   const given = Object.values(values).filter(Boolean).join(", ");
   sendChatMessage(`⚡ ${skill.name}${given ? ` — ${given}` : ""}`, {
     skill: skill.name,
@@ -7410,6 +7383,8 @@ function watchDashWidgets() {
 
 window.addEventListener("resize", () => {
   if ($("dash-grid")) sizeDashWidgets();
+  // A dragged composer height is only valid for the window it was dragged in.
+  refitComposer();
 });
 
 // Fade a tab-strip edge only while there is something hidden beyond it.
@@ -7636,20 +7611,61 @@ async function renderDashStats() {
 // starting sections — found "New note" failing in exactly the same way from
 // two of the three, with the capture box hidden and nothing focused. It is
 // the most-used button on the dashboard.
-const QUICK_LINKS = [
+// **Three groups, because there were three kinds of button pretending to be
+// one.** Reported: *"can you just completely redo, improve on and expand that
+// whole top section."*
+//
+// What was there was one grid of seven identical chips. "Graph" only changes
+// which tab you are looking at; "New note" puts a cursor in an empty box;
+// "⚡ Clean up my tags" sends a message to a model and waits for it. Those are
+// three different commitments and they were drawn the same, in one row, sorted
+// by a use counter that mixed them together — so the row said nothing about
+// what pressing anything in it would do, and the only way to find out was to
+// press it.
+//
+// Now: **Start** something (an action, and the row that owns the accent),
+// **Jump to** somewhere (navigation, quiet pills — nothing happens that you
+// cannot undo by pressing the tab you came from), and **Run a skill** (the
+// expensive one, marked ⚡, and the only group that talks to the model).
+//
+// The use-ordering that was here stays, but it is applied *inside* Jump to
+// only. That was the point of it — the middle of a navigation row is exactly
+// where reordering helps and never surprises — and applying it across the
+// whole strip is what let an action drift into the middle of the navigation.
+const QUICK_START = [
   {
     icon: "✏️",
     label: "New note",
+    hint: "Capture a thought — the AI files it",
+    primary: true,
     run: () => {
       switchTab("notes");
       showNotesSection("capture"); // or the box you're about to focus is hidden
       $("entry-content").focus();
     },
   },
-  { icon: "💬", label: "Ask AI", run: () => { switchTab("chat"); $("chat-input").focus(); } },
-  { icon: "🕸", label: "Graph", run: () => switchTab("graph") },
-  { icon: "⏰", label: "Reminders", run: () => switchTab("reminders") },
-  { icon: "🎨", label: "Sketch", run: () => openSketch() },
+  {
+    icon: "💬",
+    label: "Ask AI",
+    hint: "A question answered from your own notes",
+    run: () => {
+      switchTab("chat");
+      $("chat-input").focus();
+    },
+  },
+  { icon: "🎨", label: "Sketch", hint: "Draw something and save it as a note", run: () => openSketch() },
+  {
+    icon: "⏰",
+    label: "Remind me",
+    hint: "Type it in plain English and the AI schedules it",
+    run: () => {
+      switchTab("reminders");
+      $("reminder-magic").focus();
+    },
+  },
+];
+
+const QUICK_GO = [
   {
     icon: "🔍",
     label: "Search notes",
@@ -7661,7 +7677,19 @@ const QUICK_LINKS = [
       $("note-search").focus();
     },
   },
-  { icon: "🧰", label: "Tools & features", run: () => openFeatures(), primary: true },
+  { icon: "📚", label: "Notes", run: () => { switchTab("notes"); showNotesSection("browse"); } },
+  { icon: "💬", label: "Chat", run: () => switchTab("chat") },
+  // The Library, the Timeline and Reminders were all reachable only from the
+  // tab bar. A "quick access" strip that skips three of the app's seven tabs
+  // is a strip that has stopped being an index of the app.
+  { icon: "📖", label: "Library", run: () => switchTab("library") },
+  { icon: "🕸", label: "Graph", run: () => switchTab("graph") },
+  { icon: "🗓", label: "Timeline", run: () => switchTab("timeline") },
+  { icon: "⏰", label: "Reminders", run: () => switchTab("reminders") },
+  { icon: "🧰", label: "Tools & features", run: () => openFeatures() },
+  // The palette is the fastest route to anything at all, and it was findable
+  // only by already knowing Ctrl+K. A button is how you learn a shortcut.
+  { icon: "⌘", label: "Commands", run: () => openPalette() },
 ];
 
 // --- quick access that follows what you actually do (§36D) ------------------------
@@ -7756,48 +7784,108 @@ function recentSkillLinks() {
   }));
 }
 
-function orderedQuickLinks() {
+// Navigation only — see the note on QUICK_START. Search stays first because it
+// is the one entry in the row that is a *destination for anything*, and a
+// fixed first position is what lets a hand learn it.
+function orderedGoLinks() {
   const counts = quickLinkUse();
-  const first = QUICK_LINKS[0];
-  const last = QUICK_LINKS.find((l) => l.primary);
-  const middle = QUICK_LINKS.filter((l) => l !== first && l !== last);
+  const [first, ...rest] = QUICK_GO;
   // Stable sort: equal counts keep the order they were declared in, so an
   // untouched dashboard looks exactly as it always did.
-  middle.sort((a, b) => (counts[b.label] || 0) - (counts[a.label] || 0));
-  return [first, ...middle, ...recentSkillLinks(), last].filter(Boolean);
+  rest.sort((a, b) => (counts[b.label] || 0) - (counts[a.label] || 0));
+  return [first, ...rest];
+}
+
+function quickLinkButton(link, className) {
+  const button = document.createElement("button");
+  button.className = className + (link.primary ? " quick-link-primary" : "");
+  button.type = "button";
+  // Every chip gets a title, not only the skills: the labels truncate, so
+  // hovering has to be able to finish the sentence. A chip whose label fits
+  // shows a tooltip repeating it, which is harmless; a chip whose label does
+  // not fit and has no tooltip is a button you cannot read at all.
+  button.title = link.skill
+    ? `Run the skill “${link.skillName}” — it answers in the chat`
+    : link.hint || link.label;
+  const icon = document.createElement("span");
+  icon.className = "quick-link-icon";
+  icon.textContent = link.icon;
+  icon.setAttribute("aria-hidden", "true");
+  const text = document.createElement("span");
+  text.className = "quick-link-text";
+  const label = document.createElement("span");
+  label.className = "quick-link-label";
+  label.textContent = link.label;
+  text.appendChild(label);
+  // The hint is what turns a row of verbs into a row you can choose from
+  // without pressing anything. Only the Start group carries one — the
+  // navigation pills say where they go by being named after the tab, and a
+  // sentence under each would be six sentences saying "goes to the tab".
+  if (link.hint) {
+    const hint = document.createElement("span");
+    hint.className = "quick-link-hint";
+    hint.textContent = link.hint;
+    text.appendChild(hint);
+  }
+  button.append(icon, text);
+  button.addEventListener("click", () => {
+    noteQuickLinkUse(link.skillName || link.label);
+    link.run();
+  });
+  return button;
+}
+
+function launchGroup(label, className) {
+  const group = document.createElement("div");
+  group.className = "launch-group";
+  const heading = document.createElement("p");
+  heading.className = "launch-label";
+  heading.textContent = label;
+  const row = document.createElement("div");
+  row.className = className;
+  group.append(heading, row);
+  return { group, row };
 }
 
 function renderQuickLinks() {
   const box = $("dash-quicklinks");
   if (!box) return;
   box.replaceChildren();
-  for (const link of orderedQuickLinks()) {
-    const button = document.createElement("button");
-    button.className =
-      "quick-link" +
-      (link.primary ? " quick-link-primary" : "") +
-      (link.skill ? " quick-link-skill" : "");
-    button.type = "button";
-    // Every chip gets a title, not only the skills: the labels truncate now
-    // that the row is equal columns, so hovering has to be able to finish the
-    // sentence. A chip whose label fits shows a tooltip repeating it, which is
-    // harmless; a chip whose label does not fit and has no tooltip is a button
-    // you cannot read at all.
-    button.title = link.skill
-      ? `Run the skill “${link.skillName}”`
-      : link.label;
-    const icon = document.createElement("span");
-    icon.className = "quick-link-icon";
-    icon.textContent = link.icon;
-    icon.setAttribute("aria-hidden", "true");
-    const label = document.createElement("span");
-    label.textContent = link.label;
-    button.append(icon, label);
-    button.addEventListener("click", () => {
-      noteQuickLinkUse(link.skillName || link.label);
-      link.run();
-    });
-    box.appendChild(button);
+
+  const start = launchGroup("Start something", "launch-row launch-row-start");
+  for (const link of QUICK_START) {
+    start.row.appendChild(quickLinkButton(link, "quick-link quick-action"));
+  }
+  box.appendChild(start.group);
+
+  const go = launchGroup("Jump to", "launch-row launch-row-go");
+  for (const link of orderedGoLinks()) {
+    go.row.appendChild(quickLinkButton(link, "quick-link quick-pill"));
+  }
+  box.appendChild(go.group);
+
+  // The skills group is only drawn when there is a skill to put in it. An
+  // empty "Run a skill" heading over one "Choose a skill…" button is a section
+  // that exists to advertise itself, and this strip is already the busiest
+  // thing on the page.
+  const skills = recentSkillLinks();
+  const skillGroup = launchGroup("Run a skill", "launch-row launch-row-skills");
+  for (const link of skills) {
+    skillGroup.row.appendChild(quickLinkButton(link, "quick-link quick-pill quick-link-skill"));
+  }
+  if (skills.length) {
+    skillGroup.row.appendChild(
+      quickLinkButton(
+        {
+          icon: "⚡",
+          label: "All skills…",
+          hint: "Every skill, in the chat's ⚡ picker",
+          run: () => switchTab("chat"),
+        },
+        "quick-link quick-pill quick-link-more"
+      )
+    );
+    box.appendChild(skillGroup.group);
   }
 }
 
@@ -8926,10 +9014,21 @@ async function renderRandomNoteWidget(body) {
       Math.floor(Math.random() * (pool.length || entries.length))
     ];
     current = note;
-    const text = document.createElement("p");
+    // Rendered as markdown, like every other place a note's text is shown.
+    // It was `textContent`, so a note written with a heading, a list or any
+    // emphasis surfaced here as its raw source — `## Schedule` and `**bold**`
+    // spelled out — which makes the one widget whose whole job is to make an
+    // old note appealing show it at its least readable.
+    //
+    // A <div>, not a <p>: renderMarkdown appends block elements, and a <p>
+    // containing a <ul> is invalid markup that browsers fix by closing the
+    // paragraph early, which drops the styling this class carries.
+    const text = document.createElement("div");
     text.className = "random-note";
-    text.textContent =
-      note.content.length > 240 ? note.content.slice(0, 239) + "…" : note.content;
+    renderMarkdown(
+      text,
+      note.content.length > 240 ? note.content.slice(0, 239) + "…" : note.content
+    );
     body.appendChild(text);
 
     const meta = document.createElement("div");
@@ -10850,6 +10949,19 @@ async function renderGraph() {
     .force("x", d3.forceX(width / 2).strength(0.04))
     .force("y", d3.forceY(height / 2).strength(0.06))
     .force("collide", d3.forceCollide().radius((d) => graphNodeRadius(d) + 24));
+  // How much larger than the visible frame the simulation may spread. 1.8 is
+  // not arbitrary: the clamp below has to be loose enough that the repulsion
+  // and collide forces, not the walls, decide where a node ends up — at 1.0
+  // (the frame itself) they packed into a lattice — and tight enough that the
+  // drift the clamp exists to stop is still bounded. Zoom-to-fit means a
+  // larger world is only ever a smaller starting zoom, never lost notes.
+  const GRAPH_WORLD_SCALE = 1.8;
+  const worldW = width * GRAPH_WORLD_SCALE;
+  const worldH = height * GRAPH_WORLD_SCALE;
+  const worldLeft = (width - worldW) / 2;
+  const worldTop = (height - worldH) / 2;
+  const worldRight = worldLeft + worldW;
+  const worldBottom = worldTop + worldH;
   if (tree) graphSimulation = null;
 
   // A tree's edges are curves between fixed points; the web's are lines that
@@ -11136,10 +11248,24 @@ async function renderGraph() {
     // map is open. The padding is the node radius plus room for its label,
     // which is drawn below the circle — a node clamped exactly to the edge
     // would have its own name outside the frame.
+    //
+    // **The box is the world, not the viewport**, and that distinction was
+    // the second bug. Clamping to `width`/`height` meant the simulation was
+    // solving inside the visible rectangle, and a graph box is wide and short
+    // — so a notebook of seventeen notes, each with a collide radius of about
+    // 50px, had nowhere to go but a lattice. Reported exactly as it looked:
+    // *"the graph nodes are like locked into a box"*. They were: repulsion
+    // pushed everything outwards, the walls pushed back, and what settles
+    // between those two is a grid.
+    //
+    // The world is a generous multiple of the frame instead, so the forces
+    // decide the shape and the clamp only stops the endless outward drift it
+    // was written for. Zoom-to-fit frames whatever they end up occupying, so
+    // a bigger world costs nothing on screen.
     for (const node of nodes) {
       const pad = graphNodeRadius(node) + 28;
-      node.x = Math.max(pad, Math.min(width - pad, node.x));
-      node.y = Math.max(pad, Math.min(height - pad, node.y));
+      node.x = Math.max(worldLeft + pad, Math.min(worldRight - pad, node.x));
+      node.y = Math.max(worldTop + pad, Math.min(worldBottom - pad, node.y));
     }
     edgeLines
       .attr("x1", (d) => d.source.x)
@@ -11759,6 +11885,10 @@ function switchTab(name) {
     renderChatEmptyState(); // welcome placeholder when the thread is empty
     loadChatSuggestions();
     $("chat-input").focus();
+    // Nothing in a hidden tab can be measured, so the composer's fit is done
+    // here rather than at startup — the window may well have changed size
+    // since the last time this tab was visible.
+    refitComposer();
   }
   if (name === "dashboard") renderDashboard();
   if (name === "graph") {
@@ -11984,19 +12114,18 @@ function initNotesSubtabs() {
   showNotesSection(activeNotesSection());
 }
 
-// --- panels inside the Notes tab (bin / activity) ---------------------------------
-
-const PANELS = ["bin-panel", "activity-panel", "tags-panel"];
-
-function showPanel(id) {
-  for (const panel of PANELS) {
-    $(panel).classList.toggle("hidden", panel !== id);
-  }
-  // These open above the note list, so opening one from halfway down the page
-  // used to leave you looking at the notes you'd scrolled to instead of the
-  // panel you just asked for.
-  if (id) scrollPageToTop();
-}
+// The Notes tab's bin, activity and tag panels are gone (§36G).
+//
+// Each of them had a second implementation in the Library — the same list,
+// the same controls — and the bin's two could disagree about what was in it,
+// because each fetched its own. Three surfaces, three render functions, three
+// blocks of markup and a `showPanel` that hid whichever two you were not
+// looking at, all replaced by a filter chip on a screen built for exactly
+// this. The last thing the panel could do that the Library could not was show
+// a binned note in full; `openBinnedNote` above is that, and it is the reason
+// this could finally go.
+//
+// This is the first surface this project has *removed* rather than added.
 
 // The element that actually scrolls (§36A). The window no longer does — the
 // visible .tab-page is its own scroll container, so the scrollbar starts below
@@ -12128,6 +12257,65 @@ function autoGrow(el) {
   // What this function chose, so a later resize can be told apart from a drag
   // by the user — the two are indistinguishable to a ResizeObserver otherwise.
   el.dataset.autoHeight = String(next);
+  fitComposerToDock(el);
+}
+
+//: A composer smaller than this is not a composer. The floor exists so a very
+//: short window trims the box rather than erasing it — at that point the
+//: conversation scrolls and the user can drag the window instead.
+const MIN_COMPOSER_PX = 44;
+
+// A hand-dragged composer height, trimmed to the room the chat card has.
+//
+// The drag is a preference and it is kept as one: `dataset.maxPx` and
+// localStorage are **not** touched here. Only the applied height is trimmed,
+// so a box dragged to 380px on a large monitor comes back to 380px the moment
+// there is room for it again. Writing the trimmed value back would be the app
+// quietly forgetting a setting because the window was small once.
+//
+// The measurement is the card's own overflow rather than any sum of the
+// furniture above it. Every number this file has ever guessed at — a viewport
+// fraction, a rem cap, the dock's height — has been wrong within two sessions,
+// because the dock gains controls and the tab strip wraps. `scrollHeight -
+// clientHeight` is the browser answering "by how much does this not fit",
+// which needs no maintenance and is exact.
+// It iterates because one subtraction does not converge. The conversation
+// above the dock is `flex: 1 1 auto` with a floor, so some of the height the
+// composer gives back is immediately taken by the message list growing into
+// it — measured: a 56px trim cleared only 24px of a 88px overflow. Each pass
+// is exact about what it can see, and three of them have been enough at every
+// size driven so far; the cap is there so a layout that somehow oscillates
+// costs four reflows rather than the frame.
+const COMPOSER_FIT_PASSES = 4;
+
+function fitComposerToDock(box) {
+  if (!box || box.id !== "chat-input") return;
+  const card = document.getElementById("chat-main");
+  // Nothing to measure while the tab is hidden; switchTab re-runs this.
+  if (!card || !card.getClientRects().length) return;
+  for (let pass = 0; pass < COMPOSER_FIT_PASSES; pass += 1) {
+    const overflow = Math.round(card.scrollHeight - card.clientHeight);
+    if (overflow <= 0) return;
+    const now = Math.round(box.getBoundingClientRect().height);
+    const next = Math.max(MIN_COMPOSER_PX, now - overflow);
+    if (next >= now) return; // already as small as it is allowed to be
+    // Set before the style write: the ResizeObserver below reads this to
+    // decide whether a height change was a drag, and a trim must never be
+    // recorded as one — that is how a preference gets eaten.
+    box.dataset.autoHeight = String(next);
+    box.style.height = `${next}px`;
+    box.style.overflowY = box.scrollHeight > next ? "auto" : "hidden";
+  }
+}
+
+// The trim depends on the window, so it has to be redone when the window
+// changes. Re-running `autoGrow` rather than `fitComposerToDock` alone is what
+// lets the box grow *back* towards the dragged height when the window gets
+// bigger: autoGrow re-applies the preference, and the fit trims it again only
+// if it still does not fit.
+function refitComposer() {
+  const box = document.getElementById("chat-input");
+  if (box) autoGrow(box);
 }
 
 // The chat composer can be dragged taller, and remembers it.
@@ -12899,83 +13087,6 @@ async function downloadSupportBundle() {
   }
 }
 
-async function renderBin() {
-  const entries = await apiJson("/entries?deleted=true");
-  const list = $("bin-list");
-  list.replaceChildren();
-  $("bin-empty-message").classList.toggle("hidden", entries.length > 0);
-  const days = prefsCache ? prefsCache.recycle_bin_days : 30;
-  $("bin-note").textContent =
-    `Deleted entries are kept for ${days} days (change this in Preferences), ` +
-    "then cleared automatically.";
-  for (const entry of entries) list.appendChild(entryItem(entry, { bin: true }));
-}
-
-async function renderActivity() {
-  const rows = await apiJson("/audit?limit=100");
-  const list = $("activity-list");
-  list.replaceChildren();
-  for (const row of rows) {
-    const li = document.createElement("li");
-    const when = document.createElement("span");
-    when.className = "when";
-    when.textContent = new Date(row.created_at).toLocaleString();
-    const what = document.createElement("span");
-    what.className = "what";
-    what.textContent = row.action;
-    const detail = document.createElement("span");
-    detail.className = "muted";
-    detail.textContent =
-      `${row.entity_type}${row.entity_id ? " #" + row.entity_id : ""}` +
-      (row.detail ? ` — ${row.detail}` : "");
-    li.append(when, what, detail);
-    list.appendChild(li);
-  }
-}
-
-// Tag manager panel (Wave B).
-async function renderTags() {
-  const tags = await apiJson("/tags").catch(() => ({}));
-  const list = $("tags-list");
-  list.replaceChildren();
-  const names = Object.keys(tags);
-  $("tags-empty").classList.toggle("hidden", names.length > 0);
-  for (const name of names) {
-    const li = document.createElement("li");
-    const row = document.createElement("div");
-    row.className = "entry-meta";
-    row.appendChild(chip(name, "tag"));
-    const count = document.createElement("span");
-    count.className = "muted";
-    count.textContent = `${tags[name]} entr${tags[name] === 1 ? "y" : "ies"}`;
-    row.appendChild(count);
-    const actions = document.createElement("span");
-    actions.className = "entry-actions";
-    actions.appendChild(
-      smallButton("Rename", "Rename this tag everywhere (merge if the name exists)", async () => {
-        const next = await promptDialog(`Rename tag “${name}” to:`, name);
-        if (!next || next.trim() === name) return;
-        const result = await apiJson("/tags/rename", {
-          method: "POST",
-          body: JSON.stringify({ old: name, new: next.trim() }),
-        });
-        toast(`Updated ${result.changed} entr${result.changed === 1 ? "y" : "ies"}.`);
-        await Promise.all([renderTags(), loadEntries()]);
-      })
-    );
-    actions.appendChild(
-      smallButton("Delete", "Remove this tag from every entry", async () => {
-        if (!(await confirmDialog(`Remove the tag “${name}” from all entries?`))) return;
-        await apiJson("/tags/delete", { method: "POST", body: JSON.stringify({ name }) });
-        await Promise.all([renderTags(), loadEntries()]);
-      })
-    );
-    row.appendChild(actions);
-    li.appendChild(row);
-    list.appendChild(li);
-  }
-}
-
 let prefsCache = null;
 
 async function renderPrefs() {
@@ -13001,6 +13112,7 @@ async function renderWebSearch() {
   prefsCache = await apiJson("/preferences");
   $("pref-web-search").checked = Boolean(prefsCache.web_search_enabled);
   $("pref-searxng").value = prefsCache.searxng_url || "";
+  $("searxng-autostart").checked = Boolean(prefsCache.searxng_autostart);
   $("search-provider-status").textContent = "";
 
   const picker = $("search-provider-picker");
@@ -14508,10 +14620,15 @@ function renderLibraryContextBars() {
   binBar.classList.toggle("hidden", !showingBin);
   if (showingBin) {
     const count = libraryCounts.archived || 0;
+    // "Kept for N days" came down from the deleted #bin-panel, which is the
+    // one thing it said that this bar did not. It is the difference between a
+    // bin you can trust to clear itself and one you assume you have to empty.
+    const days = prefsCache ? prefsCache.recycle_bin_days : 30;
     $("library-bin-note").textContent = count
-      ? `${count} note${count === 1 ? "" : "s"} in the bin. Restore one from its ⋯ menu, ` +
-        "or empty the bin to delete them all for good."
-      : "The bin is empty.";
+      ? `${count} note${count === 1 ? "" : "s"} in the bin, kept for ${days} days ` +
+        "then cleared automatically. Open one to read it, or use its ⋯ menu."
+      : `The bin is empty. Deleted notes are kept here for ${days} days ` +
+        "(change that in Preferences) before they clear.";
     $("library-bin-empty").disabled = !count;
   }
 
@@ -14693,15 +14810,92 @@ function openLibraryItem(item) {
     // The note the entry in the log is about, when it still exists.
     flashEntry(item.entry_id);
   } else if (item.kind === "archived") {
-    // Restore and permanent delete are both on this card's own ⋯ menu now, so
-    // there is nothing to send the user elsewhere for. Opening a binned note
-    // shows it in the bin panel, which is the one place it can be read in full.
-    switchTab("notes");
-    showNotesSection("browse");
-    showPanel("bin-panel");
-    renderBin();
+    // Restore and permanent delete are both on this card's own ⋯ menu, and
+    // reading the note in full is the one thing a card cannot do — so that is
+    // all this opens. It used to send the user to #bin-panel, which is the
+    // only reason that panel outlived the Library's Bin chip.
+    openBinnedNote(item.id);
   }
 }
+
+// --- reading a binned note in full (§36G) ----------------------------------
+//
+// **This is what let #bin-panel be deleted.** The Library card shows a
+// preview, which is right for a grid of mixed things and wrong as the only
+// way to see a note you are about to destroy — "restore or delete for good?"
+// is a question you answer by reading the note, and the panel was the last
+// place in the app that could still show one.
+//
+// Read-only. Editing a binned note would mean deciding whether the edit
+// un-deletes it, and the honest answer is that you restore it first.
+let binnedNoteId = null;
+
+async function openBinnedNote(entryId) {
+  binnedNoteId = entryId;
+  const overlay = $("binned-overlay");
+  const body = $("binned-body");
+  body.replaceChildren();
+  $("binned-meta").textContent = "Loading…";
+  overlay.classList.remove("hidden");
+  $("binned-close").focus();
+  let entry;
+  try {
+    // `?deleted=true` — an ordinary read still 404s on a binned note, so
+    // reaching into the bin is something the caller says it means to do.
+    entry = await apiJson(`/entries/${entryId}?deleted=true`);
+  } catch (error) {
+    $("binned-meta").textContent = `Couldn't open that note: ${error.message}`;
+    return;
+  }
+  if (binnedNoteId !== entryId) return; // a second open overtook this one
+  const days = prefsCache ? prefsCache.recycle_bin_days : 30;
+  const binned = entry.deleted_at ? relativeTime(entry.deleted_at) : "recently";
+  $("binned-meta").textContent =
+    `Deleted ${binned} · written ${relativeTime(entry.created_at)} · ` +
+    `kept for ${days} days from deletion, then cleared automatically.`;
+  // The note's own markdown, as the notebook renders it everywhere else. A
+  // binned note is still a note, and showing it as flat text here would make
+  // it look like a different, lesser thing than the one you deleted.
+  renderMarkdown(body, entry.content || "");
+}
+
+function closeBinnedReader() {
+  binnedNoteId = null;
+  $("binned-overlay").classList.add("hidden");
+}
+
+$("binned-close").addEventListener("click", closeBinnedReader);
+$("binned-restore").addEventListener("click", async () => {
+  const id = binnedNoteId;
+  if (!id) return;
+  try {
+    await apiJson(`/entries/${id}/restore`, { method: "POST" });
+    toast("Restored.");
+  } catch (error) {
+    toast(`Couldn't restore that note: ${error.message}`, true);
+    return;
+  }
+  closeBinnedReader();
+  loadLibrary();
+  loadEntries();
+});
+$("binned-purge").addEventListener("click", async () => {
+  const id = binnedNoteId;
+  if (!id) return;
+  // The note is on screen and has just been read, so the dialog does not have
+  // to quote it back the way the old bin row's did — "this cannot be undone"
+  // is the whole of what is left to say.
+  if (!(await confirmDialog("Permanently delete this note?\n\nThis cannot be undone."))) return;
+  try {
+    await apiJson(`/entries/${id}/purge`, { method: "DELETE" });
+    toast("Deleted for good.");
+  } catch (error) {
+    toast(`Couldn't delete that note: ${error.message}`, true);
+    return;
+  }
+  closeBinnedReader();
+  loadLibrary();
+});
 
 // --- the status bar (§36D) ---------------------------------------------------
 //
@@ -15105,7 +15299,9 @@ async function renderExtras() {
       // answers "is it there", not "is it sound" — a half-finished download or
       // a wheel built for the wrong platform imports and does not work, and
       // this is the button for that. Quiet, because it is the rarer need.
-      actions.appendChild(
+      // …except when nothing calls the package. Reinstalling a library the app
+      // never imports cannot fix anything, because there is nothing to fix.
+      if (!extra.unavailable) actions.appendChild(
         smallButton("↻ Reinstall", `Reinstall ${extra.label}`, async () => {
           const ok = await confirmDialog(
             `Reinstall ${extra.label}?\n\nUse this if the feature is switched ` +
@@ -15140,6 +15336,19 @@ async function renderExtras() {
       busy.className = "muted";
       busy.textContent = "Installing…";
       actions.appendChild(busy);
+    } else if (extra.unavailable) {
+      // Greyed out rather than hidden. The row still earns its place — it says
+      // what the app *will* be able to do — and hiding the two unfinished
+      // extras would be tidier and less honest. The reason travels with the
+      // button as its tooltip and is spelled out in full underneath, because a
+      // disabled control whose reason is not visible is just a broken one.
+      const blocked = smallButton("⬇ Install", extra.unavailable, () => {});
+      blocked.disabled = true;
+      actions.appendChild(blocked);
+      const soon = document.createElement("span");
+      soon.className = "muted extras-soon";
+      soon.textContent = "Not ready yet";
+      actions.appendChild(soon);
     } else {
       actions.appendChild(
         smallButton("⬇ Install", `Install ${extra.label}`, async () => {
@@ -15179,6 +15388,16 @@ async function renderExtras() {
       caveat.textContent = `⚠ ${extra.caveat}`;
       li.appendChild(caveat);
     }
+    // The reason the button is grey, in full. Same shape as the caveat because
+    // it is the same kind of sentence — the difference is that this one is
+    // also enforced by `core/extras.py`, so it is a fact about the app rather
+    // than advice about a choice.
+    if (extra.unavailable) {
+      const why = document.createElement("p");
+      why.className = "muted extras-caveat";
+      why.textContent = `🚧 ${extra.unavailable}`;
+      li.appendChild(why);
+    }
     list.appendChild(li);
   }
 
@@ -15197,6 +15416,132 @@ async function renderExtras() {
   clearTimeout(extrasPollTimer);
   if (body.running && settingsModalOpen() && currentSettingsSection === "extras") {
     extrasPollTimer = setTimeout(renderExtras, 1500);
+  }
+  renderEmbedModels();
+}
+
+// --- embedding models, on the same screen as the packages ------------------------
+//
+// Reuses `.extras-row` deliberately. These are two lists of "things downloaded
+// to this machine, with a way to undo it", and giving the second one its own
+// row style would make them look like different kinds of thing when the whole
+// argument for putting them together is that they are not.
+let embedPollTimer = null;
+
+async function renderEmbedModels() {
+  const list = $("embed-models-list");
+  if (!list) return;
+  const body = await apiJson("/embedding-models", { silent: true }).catch(() => null);
+  if (!body) return;
+
+  list.replaceChildren();
+  for (const model of body.models) {
+    const li = document.createElement("li");
+    li.className = "extras-row";
+
+    const head = document.createElement("div");
+    head.className = "entry-meta";
+    const name = document.createElement("strong");
+    name.textContent = model.label + (model.default ? " · default" : "");
+    head.appendChild(name);
+
+    const actions = document.createElement("span");
+    actions.className = "entry-actions";
+    if (model.downloading) {
+      const busy = document.createElement("span");
+      busy.className = "muted";
+      busy.textContent = "Downloading…";
+      actions.appendChild(busy);
+    } else if (model.installed) {
+      const done = document.createElement("span");
+      done.className = "extras-installed";
+      done.textContent = `✓ ${model.on_disk} on disk`;
+      actions.appendChild(done);
+      // The same argument the packages' Reinstall makes: "the directory is
+      // there" is not "the model is sound". A download interrupted halfway
+      // leaves a snapshot that loads and produces nonsense, and fetching over
+      // the top of it resumes the same broken files — so this removes first.
+      if (body.can_download) {
+        actions.appendChild(
+          smallButton("↻ Re-download", `Fetch ${model.label} again from scratch`, async () => {
+            if (!(await confirmDialog(
+              `Download ${model.label} again?\n\nThe copy on this machine is ` +
+                "deleted first, so this is the fix for one that arrived broken."
+            ))) return;
+            const result = await apiJson(
+              `/embedding-models/${model.id}/download?reinstall=true`,
+              { method: "POST" }
+            ).catch((e) => ({ started: false, message: e.message }));
+            toast(result.message, !result.started);
+            renderEmbedModels();
+          })
+        );
+      }
+      actions.appendChild(
+        smallButton("🗑 Remove", `Delete ${model.label} from this machine`, async () => {
+          if (!(await confirmDialog(
+            `Remove ${model.label}?\n\nIt frees ${model.on_disk}. Nothing is ` +
+              "lost that a download cannot bring back — but if this is the " +
+              "model in use, searching falls back to keywords until it returns."
+          ))) return;
+          const result = await apiJson(`/embedding-models/${model.id}`, {
+            method: "DELETE",
+          }).catch((e) => ({ removed: false, message: e.message }));
+          toast(result.message, !result.removed);
+          renderEmbedModels();
+        })
+      );
+    } else {
+      const get = smallButton("⬇ Download", `Fetch ${model.label}`, async () => {
+        if (!(await confirmDialog(
+          `Download ${model.label}?\n\n${model.size}, fetched from HuggingFace ` +
+            "to this machine. It is the one thing on this screen that needs " +
+            "the internet."
+        ))) return;
+        const result = await apiJson(`/embedding-models/${model.id}/download`, {
+          method: "POST",
+        }).catch((e) => ({ started: false, message: e.message }));
+        toast(result.message, !result.started);
+        renderEmbedModels();
+      });
+      // Without huggingface_hub there is nothing to download *with*, so the
+      // button says so rather than failing on an ImportError nobody can read.
+      if (!body.can_download) {
+        get.disabled = true;
+        get.title =
+          "Needs the huggingface_hub library — it arrives with “Search by " +
+          "meaning” in the list above.";
+      }
+      actions.appendChild(get);
+    }
+    head.appendChild(actions);
+    li.appendChild(head);
+
+    const about = document.createElement("p");
+    about.className = "muted extras-enables";
+    about.textContent = model.about;
+    li.appendChild(about);
+
+    const meta = document.createElement("p");
+    meta.className = "muted extras-meta";
+    meta.textContent = `${model.repo} · ${model.size}`;
+    li.appendChild(meta);
+    list.appendChild(li);
+  }
+
+  // Where they are, in as many words. "Somewhere in your home directory" is
+  // the answer people are given everywhere else and it is the reason this
+  // screen had to exist.
+  $("embed-models-cache").textContent = `Kept in ${body.cache}`;
+  $("embed-models-status").textContent = body.running
+    ? body.step
+    : body.outcome
+      ? body.step
+      : "";
+
+  clearTimeout(embedPollTimer);
+  if (body.running && settingsModalOpen() && currentSettingsSection === "extras") {
+    embedPollTimer = setTimeout(renderEmbedModels, 1500);
   }
 }
 
@@ -18124,6 +18469,58 @@ function renderWebSearchToggle() {
   button.classList.toggle("active", on);
   button.setAttribute("aria-pressed", on ? "true" : "false");
 }
+// 🧭 Plan — send what is in the box as a request that must be planned first.
+//
+// The instruction is a sentence rather than a flag on the request because the
+// planning path is the model's own `make_plan` tool: the server already knows
+// how to receive a plan, show it, tick its steps and let the user stop it
+// mid-run (§35K). What was missing was any way to *ask* for one. Adding a
+// parameter would mean a second route into the same behaviour that could drift
+// from the first; asking in words uses the machinery that is already proven.
+//
+// Agent mode is turned on rather than required. A plan whose steps cannot be
+// carried out is a list, and "why did nothing happen?" is a worse experience
+// than a mode that changed under you and said so.
+const PLAN_PREFIX =
+  "Plan this before you do any of it. Call make_plan with the goal and the " +
+  "steps, then carry the plan out.";
+
+$("chat-plan").addEventListener("click", async () => {
+  const input = $("chat-input");
+  const question = input.value.trim();
+  if (!question) {
+    toast("Type what you want done, then press Plan.", true);
+    input.focus();
+    return;
+  }
+  if (!$("tools-toggle").checked) {
+    await setChatMode("agent");
+    toast("Switched to Request — a plan needs to be able to act.");
+  }
+  input.value = "";
+  autoGrow(input);
+  sendChatMessage(`${question}\n\n${PLAN_PREFIX}`, { displayText: question });
+});
+
+// Start the user's own engine with the app. See the markup for why this is the
+// answer to "web search keeps disabling itself" — it was the container going
+// away, not the setting.
+$("searxng-autostart").addEventListener("change", async (event) => {
+  const on = event.target.checked;
+  prefsCache = await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ searxng_autostart: on }),
+  }).catch((error) => {
+    toast(error.message, true);
+    return prefsCache;
+  });
+  toast(
+    on
+      ? "SearXNG will start with MemoryMap from now on."
+      : "SearXNG will only start when you press Start."
+  );
+});
+
 $("web-search-toggle").addEventListener("click", async () => {
   const next = !(prefsCache && prefsCache.web_search_enabled);
   prefsCache = await apiJson("/preferences", {
@@ -18205,41 +18602,6 @@ $("reminder-due-day-up").addEventListener("click", () => nudgeDue(60 * 24));
 // The two visible fields drive the hidden value.
 $("reminder-date").addEventListener("input", syncDueFromParts);
 $("reminder-time").addEventListener("input", syncDueFromParts);
-for (const button of document.querySelectorAll(".panel-close")) {
-  button.addEventListener("click", () => showPanel(null));
-}
-// Reported broken three times, and driven end to end in a real browser twice
-// with the whole flow working — dialog, POST, empty bin, toast. So the button
-// is not what is wrong on the machine reporting it, and the third report is
-// really about this: **every way this could fail was silent.**
-//
-// `apiJson` throws on a non-2xx, and there was no catch, so a 401 from an
-// expired token, a 500 from a locked database, or an unreachable server all
-// produced exactly what was reported — a click, and nothing. No toast, no
-// change, nothing in the panel. A button that says "Couldn't empty the bin:
-// …" is a bug report; a button that says nothing is three sessions of
-// guessing.
-//
-// The in-flight state matters for the same reason: purging a large bin
-// deletes files from disk, which on a slow or network drive is seconds of
-// looking broken.
-$("bin-empty").addEventListener("click", async () => {
-  if (!(await confirmDialog("Permanently delete everything in the bin? This cannot be undone."))) return;
-  const button = $("bin-empty");
-  const original = button.textContent;
-  button.disabled = true;
-  button.textContent = "Emptying…";
-  try {
-    const result = await apiJson("/recycle-bin/empty", { method: "POST" });
-    toast(`${result.removed} entr${result.removed === 1 ? "y" : "ies"} permanently deleted.`);
-    await renderBin();
-  } catch (error) {
-    toast(`Couldn't empty the bin: ${error.message}`, true);
-  } finally {
-    button.disabled = false;
-    button.textContent = original;
-  }
-});
 // --- [[ autocomplete ------------------------------------------------------------
 // The links work, but only if you remember how a note starts. Typing "[[" now
 // offers the notes you could mean, so linking is a thing you do while writing

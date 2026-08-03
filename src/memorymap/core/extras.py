@@ -56,6 +56,23 @@ class Extra:
     size: str
     #: Said on the card, before the button is pressed.
     caveat: str = ""
+    #: Why this cannot be installed *yet*, or "" when it can be.
+    #:
+    #: Two of these extras install a library the app does not call anywhere:
+    #: markitdown has no import button behind it and llama-cpp-python is not
+    #: wired into the chat backend. Both said so in their caveat and both still
+    #: offered a working Install — which spends the user's disk and their time
+    #: on a feature that does not exist, and then asks them to restart for it.
+    #: A caveat under an enabled button is a warning people click past; a
+    #: disabled button with the reason beside it is the same sentence made
+    #: true.
+    #:
+    #: It is enforced in `start()` as well as drawn in the interface. The
+    #: greyed-out button is a courtesy, the refusal is the rule — this file is
+    #: the allowlist, so "installable" belongs here and not in `app.js`.
+    #: Removal is deliberately *not* blocked: an extra installed before it was
+    #: marked unavailable, or installed by hand, still needs its way out.
+    unavailable: str = ""
 
 
 #: The allowlist. Adding an entry here is the only way to make something
@@ -99,8 +116,10 @@ EXTRAS: tuple[Extra, ...] = (
         packages=("markitdown",),
         module="markitdown",
         size="~20 MB",
-        caveat="The app has no import button for these yet — installing this "
-        "makes the feature possible, not present.",
+        unavailable="Nothing in the app calls it yet — there is no “bring in a "
+        "PDF” button for it to sit behind, so installing it would use your "
+        "disk and change nothing you can see. This unlocks when that button "
+        "is built.",
     ),
     Extra(
         id="localllm",
@@ -110,9 +129,10 @@ EXTRAS: tuple[Extra, ...] = (
         packages=("llama-cpp-python",),
         module="llama_cpp",
         size="~30 MB, and it compiles on some platforms",
-        caveat="Not wired into the chat backend yet — Ollama and any "
-        "OpenAI-compatible server are the supported paths today. This "
-        "installs the library only.",
+        unavailable="Not wired into the chat backend yet — Ollama and any "
+        "OpenAI-compatible server are the supported paths today, so this "
+        "would install a library nothing asks for. It compiles on some "
+        "platforms, which makes it an expensive thing to install for nothing.",
     ),
 )
 
@@ -165,6 +185,7 @@ def status() -> list[dict]:
             "enables": extra.enables,
             "size": extra.size,
             "caveat": extra.caveat,
+            "unavailable": extra.unavailable,
             "packages": list(extra.packages),
             "installed": is_installed(extra),
             "installing": _state.running and _state.extra_id == extra.id,
@@ -289,6 +310,10 @@ def start(extra_id: str, reinstall: bool = False) -> tuple[bool, str]:
     extra = EXTRAS_BY_ID.get(extra_id)
     if extra is None:
         return False, "No such extra."
+    # Checked before the lock and before `reinstall` is considered: an extra
+    # nothing calls is not made installable by asking twice.
+    if extra.unavailable:
+        return False, f"{extra.label} isn't ready to install yet. {extra.unavailable}"
     with _lock:
         if _state.running:
             return False, "Another install is already running."

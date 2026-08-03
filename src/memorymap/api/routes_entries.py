@@ -446,12 +446,30 @@ def most_accessed(session: Session = Depends(get_session)) -> list[EntryOut]:
 
 
 @router.get("/{entry_id}", response_model=EntryOut)
-def get_entry(entry_id: int, session: Session = Depends(get_session)) -> EntryOut:
+def get_entry(
+    entry_id: int, deleted: bool = False, session: Session = Depends(get_session)
+) -> EntryOut:
+    """One entry. `?deleted=true` also reaches into the bin.
+
+    The bin used to be a panel that listed every deleted note with its full
+    text, so "read a binned note before deciding whether to restore it" came
+    free. The Library shows a preview instead, which is right for a grid of
+    mixed things and wrong as the *only* way to see a note you are about to
+    delete for good — so the reader needs a way to fetch one binned note.
+
+    Two things stay different from a live read, and both are deliberate:
+    a deleted note is only reachable when the caller says so (a stale link to
+    a binned note should still 404 rather than quietly resurrect it), and
+    reading one does **not** count as using it. `access_count` feeds
+    "most accessed", and a note in the bin climbing that list because you
+    looked at it on the way to deleting it is the counter lying.
+    """
     entry = _existing_entry(session, entry_id)
-    if entry.is_deleted:
+    if entry.is_deleted and not deleted:
         raise HTTPException(status_code=404, detail="Entry not found")
-    entry.access_count += 1  # opening an entry counts as using it
-    session.commit()
+    if not entry.is_deleted:
+        entry.access_count += 1  # opening an entry counts as using it
+        session.commit()
     return _to_out(session, entry)
 
 

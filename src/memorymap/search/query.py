@@ -203,14 +203,40 @@ def _tidy(text: str) -> str:
 #: Only filler is taken, and only from the very end, so a real subject can
 #: never be eaten: "notes about my day" keeps "day" because "day" is not in the
 #: list, while "jokes I have saved" loses three words that are.
-_TRAILING_SCAFFOLD = re.compile(
-    r"[\s,]*\b(?:"
-    r"i|me|my|have|has|had|did|do|does|was|were|been|get|got|"
-    r"save[ds]?|note[ds]?|wrote|written|write|say|said|about|"
-    r"from|in|on|at|for|of|with|any|all|the|a|an"
-    r")\s*$",
-    re.IGNORECASE,
+#: A set and a `split()`, not a pattern — and for the same reason `_tidy`
+#: above is not one. The regex this replaces was
+#: `[\s,]*\b(?:i|me|my|…)\s*$`, and CodeQL flagged it as a second
+#: `py/polynomial-redos` (high, alert #112) within a session of the first: an
+#: unanchored `[\s,]*` in front of an alternation that must reach `$` makes the
+#: engine retry from every position, so a query of many tabs costs O(n²). This
+#: runs on whatever is typed into the search box, so "uncontrolled data" is
+#: exactly right.
+#:
+#: The lesson is worth writing down because the same shape has now been written
+#: twice in this one file: **a character class with `*` or `+` next to an
+#: anchor is the shape to avoid**, and in both cases the linear replacement was
+#: also the more readable one.
+_TRAILING_SCAFFOLD_WORDS = frozenset(
+    """
+    i me my have has had did do does was were been get got
+    save saved saves note noted notes wrote written write say said about
+    from in on at for of with any all the a an
+    """.split()
 )
+
+
+def _strip_trailing_scaffold(text: str) -> str:
+    """Drop one filler word from the end, or return the text unchanged.
+
+    One word per call, because the caller loops — the same contract the
+    `count=1` on the old pattern had.
+    """
+    words = text.split()
+    if not words:
+        return text
+    if words[-1].strip(",").lower() not in _TRAILING_SCAFFOLD_WORDS:
+        return text
+    return " ".join(words[:-1])
 
 
 def _strip_scaffolding(text: str) -> str:
@@ -228,7 +254,7 @@ def _strip_scaffolding(text: str) -> str:
     cleaned = _tidy(text)
     for _ in range(8):
         stripped = _tidy(_SCAFFOLD.sub("", cleaned, count=1))
-        stripped = _tidy(_TRAILING_SCAFFOLD.sub("", stripped, count=1))
+        stripped = _tidy(_strip_trailing_scaffold(stripped))
         if not stripped or stripped == cleaned:
             break
         cleaned = stripped

@@ -74,16 +74,25 @@ Seven tabs, all offline:
 | **Notes**     | Capture, browse and ask, as three sub-tabs. Auto-filing, tags, pins, threads, attachments, private notes (encrypted at rest), a recycle bin, revision history, and a search box that understands `tag:work`, `cat:recipes`, `is:pinned`, `"exact phrase"` and `-exclude` |
 | **Chat**      | A conversation with your notebook, saved and resumable. **Agent mode** lets it use 35 tools - search and read your notes, walk the connections between them, create, tag, link and unlink, organise, set reminders, open a web page - with destructive actions always confirmed, and an ask-me button when it isn't sure which note you meant. Personas change its voice; the run is shown as a timeline of thinking, tool calls and prose in the order they happened |
 | **Graph**     | Your notes as a force-directed map, and a knowledge graph the AI can walk: links, reply threads and shared tags, each labelled with *how* two notes connect. It can also point out notes that read alike and were never linked                |
-| **Documents** | A markdown editor for long-form writing: live preview, autosave, table of contents, word count and reading time, `.md` and PDF export, and AI edits shown as a proposal you accept or reject             |
+| **Library**   | Everything you have made, in one place: notes, documents, chats, files, tags, the recycle bin and the activity log. Overview tiles that are also filters, search across titles *and* previews, four sorts, bulk selection with counted confirmations, grid ⇄ list, and a coloured spine per kind so a shelf of mixed things is scannable by edge. The long-form **document editor** opens from here |
 | **Timeline**  | Every note plotted on a time axis - at what it's *about* when a phrase like "next week" resolves to a date, and at when it was written otherwise - in bands by category or tag, at a bucket size you pick |
 | **Reminders** | Due dates with priority, repeats, snooze and notifications - or type "call mum tomorrow evening" and let the AI schedule it                                                                              |
 
-Plus a command palette (`Ctrl`/`Cmd`+`K`), a sketch
-pad, local Whisper dictation, read-aloud, opt-in web search with a reader view,
-12 themes over 8 colour palettes with per-setting overrides, a scheme builder
-that works the colours out from one you pick, looks you can save by name, 16
-built-in skills including a five-part notebook audit, daily local backups, and
-a desktop window (`--desktop`).
+Plus a **status bar** along the foot of the window — AI state, notebook size,
+reminders, the running background job and the command palette, none of which
+polls on its own timer — a command palette (`Ctrl`/`Cmd`+`K`), a sketch pad,
+local Whisper dictation, read-aloud, opt-in web search that opens as a **column
+beside the conversation** with a reader view, 12 themes over 8 colour palettes
+with per-setting overrides, a scheme builder that works the colours out from
+one you pick, looks you can save by name, 16 built-in skills including a
+five-part notebook audit, daily local backups, and a desktop window
+(`--desktop`).
+
+**Settings → Optional extras** installs the packages that turn optional
+features on — dictation, the desktop window, search-by-meaning — and shows the
+**embedding models** on this machine with their real size on disk and a way to
+remove them. Nothing there is needed to write, search, tag or organise notes,
+and anything that has nothing calling it yet is greyed out and says so.
 
 ## Quick start
 
@@ -478,30 +487,48 @@ Phases 1–5 and waves A–P are done: the walking skeleton, the AI, the web
 interface, the model manager, the core MVP, then the app shell, agentic tools,
 the graph, the platform work (command palette, backups, PWA, web search, sketch
 pad), voice and desktop, hardening, and the depth pass (documents, private
-notes, search operators, themes). Since then: a rebuilt skill system (ordered
-steps, a tool allowlist, an undoable result), SearXNG-backed web search,
-markdown rendering in the note list, the Timeline tab above, support for any
-OpenAI-compatible backend (LM Studio, llama.cpp, Jan, vLLM), answer-length
-presets, a walkable knowledge graph, and an AI locked to your machine by
-default.
+notes, search operators, themes).
+
+Everything the previous version of this section listed as "next up" is built:
+the agent can start a skill, the graph traces a path between two notes and
+supports drag-to-link, the log console follows and filters and exports, and
+**the Library tab exists** — one place for notes, documents, chats, files,
+tags, the bin and the activity log, with overview tiles, bulk actions and a
+grid/list switch.
+
+Since then, in the order they landed: a rebuilt skill system (ordered steps, a
+tool allowlist, an undoable result), SearXNG-backed web search, the Timeline
+tab, support for any OpenAI-compatible backend (LM Studio, llama.cpp, Jan,
+vLLM), answer-length presets, an AI locked to your machine by default, a
+**status bar** that owns the foot of the window, **optional extras** you can
+install from Settings, and **embedding models** you can see the size of and
+remove.
+
+The most recent work is the first time this project has *removed* a surface
+rather than added one: the Notes tab's separate Recycle bin, Activity and Tags
+panels are gone, because the Library does all three and two implementations of
+a bin can disagree about what is in it.
+
 [`CHANGELOG.md`](https://github.com/Braydenh563/MemoryMap-AI/blob/main/CHANGELOG.md) has it wave by wave.
 
-**Next up**, in order - by how often it gets in the way, not how interesting
+**Next up**, in order — by how often it gets in the way, not how interesting
 it is to build:
 
-1. **Let the agent run a skill.** It can list them, save them, and now say
-which one fits - but starting one is still a click only you can make. The
-skill runner already takes an allowlist, so this is the smallest change with
-the biggest effect on what agent mode can actually finish.
-2. **The graph's remaining utility** - paths between two notes, clusters, and
-drag-to-link. Walking the graph and suggesting connections are done; *"how are
-these two related?"* isn't.
-3. **The live log console** - started, not finished. `/logs` is streamed but
-not followed, filtered, or exportable yet.
-4. **Chat / Agent / Browse as their own sub-tabs**, so a plain question, a
-tool-calling run and a web page aren't sharing one column.
-5. **A Library tab** - one place for stored images, documents, chats and an
-archive, none of which has a home today.
+1. **The document editor.** It is reached only from the Library now, which
+frees it to stop being a page laid out around a list that has left: a wider
+writing column, and the outline and "notes it draws on" panels beside the text
+rather than folded shut under a switcher.
+2. **The bookshelf theme's next two pieces** — shelf *rows* with a rule under
+each group when sorting by kind, and an empty state drawn as an empty shelf.
+The coloured spine down each card's edge is built.
+3. **`markitdown` and `llama-cpp-python` have nothing calling them.** Both are
+greyed out in Settings → Optional extras and say why. The first wants a "bring
+in a PDF as notes" button; the second wants wiring into the chat backend
+beside Ollama.
+4. **An `events` table**, so the Timeline's bands can be events and places
+rather than only categories and tags.
+5. **The graph's decorative half** — skins, a minimap, and PNG/SVG export of
+the current view.
 
 [`docs/ROADMAP.md`](https://github.com/Braydenh563/MemoryMap-AI/blob/main/docs/ROADMAP.md) has the reasoning behind each, which is the
 expensive part to reconstruct.

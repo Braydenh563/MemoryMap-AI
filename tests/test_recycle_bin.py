@@ -226,3 +226,48 @@ def test_emptying_the_bin_survives_a_note_with_a_resolved_date(client, session):
     assert response.status_code == 200, response.text
     session.expunge_all()
     assert session.query(Entry).filter_by(is_deleted=True).count() == 0
+
+
+# --- reading a binned note in full (§36G) -------------------------------------
+#
+# The bin panel listed every deleted note with its whole text, so "read it
+# before deciding whether to restore it" came free. Deleting that panel means
+# the Library's reader is the only way left, and it needs one note at a time.
+
+
+def test_a_binned_note_can_be_read_when_the_caller_asks_for_it(client, session):
+    entry = _note(session, "The note I am deciding about.")
+    client.delete(f"/entries/{entry.id}")
+    body = client.get(f"/entries/{entry.id}?deleted=true").json()
+    assert body["content"] == "The note I am deciding about."
+
+
+def test_a_binned_note_is_still_absent_from_an_ordinary_read(client, session):
+    """The default has to stay a 404. A stale link to a note somebody deleted
+    should not quietly resurrect it — reaching into the bin is something the
+    caller says it means to do."""
+    entry = _note(session, "Deleted, and staying deleted.")
+    client.delete(f"/entries/{entry.id}")
+    assert client.get(f"/entries/{entry.id}").status_code == 404
+
+
+def test_reading_a_binned_note_does_not_count_as_using_it(client, session):
+    """`access_count` feeds "most accessed". A note climbing that list because
+    you looked at it on the way to deleting it for good is the counter lying
+    about what you use."""
+    entry = _note(session, "On its way out.")
+    client.delete(f"/entries/{entry.id}")
+    before = session.get(Entry, entry.id).access_count
+    client.get(f"/entries/{entry.id}?deleted=true")
+    session.expire_all()
+    assert session.get(Entry, entry.id).access_count == before
+
+
+def test_reading_a_live_note_still_counts_as_using_it(client, session):
+    """The other half of the rule above — the counter must keep working for
+    every note that is not in the bin."""
+    entry = _note(session, "Very much in use.")
+    before = session.get(Entry, entry.id).access_count
+    client.get(f"/entries/{entry.id}?deleted=true")
+    session.expire_all()
+    assert session.get(Entry, entry.id).access_count == before + 1

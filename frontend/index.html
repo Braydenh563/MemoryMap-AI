@@ -219,40 +219,6 @@
       </aside>
 
       <main>
-        <!-- Recycle bin (Phase 4) -->
-        <section class="card hidden panel" id="bin-panel">
-          <div class="row space-between">
-            <h2>Recycle bin</h2>
-            <div class="row">
-              <button id="bin-empty" class="ghost small">Empty now</button>
-              <button class="ghost small panel-close">Close</button>
-            </div>
-          </div>
-          <p class="muted" id="bin-note"></p>
-          <ul id="bin-list" class="entry-list"></ul>
-          <p id="bin-empty-message" class="muted hidden">The bin is empty.</p>
-        </section>
-
-        <!-- Activity log (Phase 4) -->
-        <section class="card hidden panel" id="activity-panel">
-          <div class="row space-between">
-            <h2>Activity log</h2>
-            <button class="ghost small panel-close">Close</button>
-          </div>
-          <ul id="activity-list" class="activity-list"></ul>
-        </section>
-
-        <!-- Tag manager (Wave B) -->
-        <section class="card hidden panel" id="tags-panel">
-          <div class="row space-between">
-            <h2>Tags</h2>
-            <button class="ghost small panel-close">Close</button>
-          </div>
-          <p class="muted">Rename a tag onto an existing one to merge them.</p>
-          <ul id="tags-list" class="entry-list"></ul>
-          <p id="tags-empty" class="muted hidden">No tags yet — add some when you capture a note.</p>
-        </section>
-
         <!-- Sub-tabs. The Notes tab was four full-height cards stacked on one
              page, so reaching your notes meant scrolling past three forms you
              weren't using. One at a time, remembered. -->
@@ -592,34 +558,6 @@ Link to another note with [[its first few words]]."></textarea>
               <strong>What this persona tells the AI</strong>
               <p id="persona-prompt-text"></p>
             </div>
-            <!-- Web panel: search the web and read a page as clean text,
-                 without embedding a browser. -->
-            <div id="web-panel" class="web-panel hidden">
-              <div class="row space-between">
-                <strong id="web-panel-title">🌐 Web</strong>
-                <button id="web-panel-close" class="ghost small" aria-label="Close web panel">✕</button>
-              </div>
-              <div class="row">
-                <input id="web-query" type="text" placeholder="Search the web…"
-                  aria-label="Search the web">
-                <button id="web-go" class="small">Search</button>
-              </div>
-              <p id="web-status" class="status" role="status"></p>
-              <div id="web-results" class="web-results"></div>
-              <div id="web-reader" class="web-reader hidden">
-                <div class="row space-between">
-                  <strong id="web-reader-title"></strong>
-                  <span class="row">
-                    <button id="web-reader-ask" class="ghost small"
-                      title="Ask the AI about this page">💬 Ask about this</button>
-                    <button id="web-reader-save" class="ghost small">＋ Save as note</button>
-                    <button id="web-reader-back" class="ghost small">← Results</button>
-                  </span>
-                </div>
-                <p class="muted" id="web-reader-source"></p>
-                <div id="web-reader-text" class="web-reader-text"></div>
-              </div>
-            </div>
             <!-- Attached notes are per-message too. They are their own line
                  because they are *content* — a variable number of note chips —
                  and putting them in the control strip would make its height
@@ -671,6 +609,19 @@ Link to another note with [[its first few words]]."></textarea>
                 </label>
                 <button id="web-search-toggle" class="ghost small" aria-pressed="false"
                   title="Search the web here, and let the AI search when you ask it to">🌐 Web</button>
+                <!-- Plan first (§35K). The `make_plan` tool has existed since
+                     §35K and the only way to reach it was to hope the model
+                     chose it — a capability with no control is a capability
+                     most people never meet. This is that control: it sends
+                     what you have typed as a *planned* request, so the steps
+                     are drawn and shown before anything touches your notes.
+
+                     An action, not a toggle. "Plan this one" is a decision
+                     about the message in the box; a sticky setting would put
+                     every later question through a planning round it did not
+                     need, and planning costs a model round-trip. -->
+                <button id="chat-plan" class="ghost small" type="button"
+                  title="Plan this request first — the Librarian draws the steps and shows them before it starts">🧭 Plan</button>
               </div>
 
               <!-- How the answer comes out: who is speaking, and how hard they
@@ -725,6 +676,59 @@ Link to another note with [[its first few words]]."></textarea>
             <p id="chat-status" class="status" role="status"></p>
           </div>
         </section>
+
+        <!-- Web search and the page reader, as a **column beside the
+             conversation** rather than a drawer inside the dock.
+
+             It lived in the dock because the 🌐 button that opens it is there,
+             and that reasoning was right about the button and wrong about the
+             panel. The dock is a strip: it holds the controls for the message
+             you are about to send, and it has to stay short or the
+             conversation above it disappears. So the panel was capped at
+             `min(38vh, 20rem)` and everything it contains — a search box, a
+             list of results, and the full text of a web page — was squeezed
+             into that. Reported, accurately: *"the web search panel dock is
+             squashed ugly … what it is right now isn't working."* The cap was
+             not the bug; a reading surface inside a control strip was.
+
+             As a column it gets the full height of the page for free, the
+             reader can show a page as a page, and the dock goes back to being
+             one strip. It is also the arrangement the job actually wants: you
+             read a source on the right and type about it on the left, both
+             visible at once, which is impossible when one is stacked on the
+             other.
+
+             Still a sibling of #chat-main inside <main>, not a third grid
+             column: `.layout`'s columns are written inline by the sidebar
+             resizer, and a third track would mean teaching that code about
+             this panel. <main> is already a flex row. -->
+        <aside id="web-panel" class="card web-panel hidden"
+          aria-label="Web search">
+          <div class="row space-between web-panel-head">
+            <strong id="web-panel-title">🌐 Web</strong>
+            <button id="web-panel-close" class="ghost small" aria-label="Close web panel">✕</button>
+          </div>
+          <div class="row web-panel-search">
+            <input id="web-query" type="text" placeholder="Search the web…"
+              aria-label="Search the web">
+            <button id="web-go" class="small">Search</button>
+          </div>
+          <p id="web-status" class="status" role="status"></p>
+          <div id="web-results" class="web-results"></div>
+          <div id="web-reader" class="web-reader hidden">
+            <div class="row space-between web-reader-head">
+              <strong id="web-reader-title"></strong>
+              <button id="web-reader-back" class="ghost small">← Results</button>
+            </div>
+            <p class="muted" id="web-reader-source"></p>
+            <div class="row web-reader-actions">
+              <button id="web-reader-ask" class="ghost small"
+                title="Ask the AI about this page">💬 Ask about this</button>
+              <button id="web-reader-save" class="ghost small">＋ Save as note</button>
+            </div>
+            <div id="web-reader-text" class="web-reader-text"></div>
+          </div>
+        </aside>
       </main>
     </div>
   </div>
@@ -1930,6 +1934,26 @@ Link to another note with [[its first few words]]."></textarea>
               <summary class="muted">What pip is doing</summary>
               <pre id="extras-log" class="task-log-lines"></pre>
             </details>
+
+            <!-- Embedding models. On this screen rather than its own, because
+                 the question it answers — "what has this app put on my disk,
+                 and can I have it back?" — is the same question the packages
+                 above answer, and one screen that says "everything downloaded"
+                 beats two that each say half of it.
+
+                 Asked for after a look at Settings → Logs, where the hub's
+                 cache-validation requests on every start read as a re-download.
+                 They are not one; the note below says so where it will be read. -->
+            <h3>Embedding models</h3>
+            <p class="muted">
+              What “search by meaning” uses to understand a note. The model is
+              downloaded <strong>once</strong> and kept on this machine —
+              the HuggingFace requests in the log on every start are checking
+              the copy you already have, not fetching it again.
+            </p>
+            <ul id="embed-models-list" class="extras-list"></ul>
+            <p id="embed-models-cache" class="muted extras-meta"></p>
+            <p id="embed-models-status" class="status" role="status"></p>
           </section>
 
           <section class="settings-section hidden" id="settings-shortcuts">
@@ -2066,6 +2090,20 @@ Link to another note with [[its first few words]]."></textarea>
                   title="Delete the SearXNG install and set it up again from scratch">↻ Reinstall</button>
                 <span id="searxng-host-status" class="status" role="status"></span>
               </div>
+              <!-- Reported as web search "disabling itself". It was not the
+                   setting: SearXNG is a container this app starts on demand,
+                   and nothing brought it back after a reboot — so searches
+                   fell through to DuckDuckGo, which rate-limits and answers
+                   with an error. From outside, that is indistinguishable from
+                   the switch having flipped.
+
+                   Off by default. Starting a container is not something a
+                   local-first app should do to a machine unasked, so this is a
+                   thing you turn on once and then stop thinking about. -->
+              <label class="muted">
+                <input type="checkbox" id="searxng-autostart">
+                Start SearXNG automatically when MemoryMap opens
+              </label>
               <!-- An install runs for minutes. Without a bar and a live line
                    from the tool itself, slow and stuck look identical. -->
               <progress id="searxng-install-progress" class="install-progress hidden"
@@ -2386,6 +2424,34 @@ Link to another note with [[its first few words]]."></textarea>
       </div>
       <p id="history-status" class="status" role="status"></p>
       <div id="history-list"></div>
+    </div>
+  </div>
+
+  <!-- A binned note, in full (§36G).
+
+       This is what let the old #bin-panel be deleted. The Library shows a
+       preview of everything, which is right for a grid of mixed things and
+       wrong as the only way to see a note you are about to delete for good —
+       "restore or destroy?" is a question you answer by reading the note, and
+       the panel was the one place left in the app that could still show it.
+
+       Read-only on purpose. A binned note is not a note you are working on;
+       editing one would mean deciding whether the edit un-deletes it, and the
+       honest answer is that you restore it first. So the only two things you
+       can do from here are the two the bin has always offered. -->
+  <div id="binned-overlay" class="modal-overlay hidden" role="dialog"
+    aria-modal="true" aria-label="A note in the bin">
+    <div class="card modal-card" id="binned-card">
+      <div class="row space-between">
+        <h2>🗑 In the bin</h2>
+        <button id="binned-close" class="ghost small">Close</button>
+      </div>
+      <p id="binned-meta" class="muted"></p>
+      <div id="binned-body" class="binned-body"></div>
+      <div class="row">
+        <button id="binned-restore" class="small">↩ Restore</button>
+        <button id="binned-purge" class="ghost small">🗑 Delete for good</button>
+      </div>
     </div>
   </div>
 

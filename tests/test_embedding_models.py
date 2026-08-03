@@ -135,3 +135,50 @@ def test_the_size_on_disk_ignores_the_cache_symlinks(tmp_path, monkeypatch):
     row = next(m for m in embedmodels.status() if m["id"] == "bge-small")
     assert row["installed"] is True
     assert row["on_disk"] == "2 KB"
+
+
+def test_a_dropped_connection_is_retried_and_then_explained(monkeypatch):
+    """Reported from a real download: `[WinError 10054] An existing connection
+    was forcibly closed by the remote host`. That is one TCP connection dying
+    part-way through several hundred megabytes, not a broken install — and
+    `snapshot_download` resumes from the cache, so a retry costs the bytes
+    since the last completed file rather than starting again."""
+    calls = []
+
+    def _boom(repo_id):
+        calls.append(repo_id)
+        raise OSError("[WinError 10054] An existing connection was forcibly closed")
+
+    import sys
+    import types
+
+    fake = types.ModuleType("huggingface_hub")
+    fake.snapshot_download = _boom
+    monkeypatch.setitem(sys.modules, "huggingface_hub", fake)
+    embedmodels._run_download(embedmodels.EMBED_MODELS_BY_ID["minilm"])
+    assert len(calls) == embedmodels.DOWNLOAD_ATTEMPTS
+    state = embedmodels.current()
+    assert state.outcome == "failed"
+    # The advice has to be actionable and true: resuming is what pressing the
+    # button again actually does.
+    assert "resumes rather than starting over" in state.step
+
+
+def test_a_failure_that_is_not_the_network_is_not_retried(monkeypatch):
+    """Retrying a wrong repo id three times wastes the user's time and buries
+    the real reason under two identical attempts."""
+    calls = []
+
+    def _boom(repo_id):
+        calls.append(repo_id)
+        raise ValueError("Repository Not Found for url")
+
+    import sys
+    import types
+
+    fake = types.ModuleType("huggingface_hub")
+    fake.snapshot_download = _boom
+    monkeypatch.setitem(sys.modules, "huggingface_hub", fake)
+    embedmodels._run_download(embedmodels.EMBED_MODELS_BY_ID["minilm"])
+    assert len(calls) == 1
+    assert embedmodels.current().outcome == "failed"

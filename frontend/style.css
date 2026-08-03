@@ -671,6 +671,28 @@ header#top-bar.tabs-wrapped #tab-bar {
 /* A label and the control it names are one thing, so they sit closer to each
    other than to anything else in the row. */
 .library-sort { display: inline-flex; align-items: center; gap: var(--space-3); margin: 0; }
+/* **One height for everything in the row**, declared once — the same rule the
+   chat dock's `--control-h` states and for the same reason. The search box,
+   the sort select and the grid/list segment each arrived from a different base
+   rule and each sized itself: measured, they were three different heights on
+   one line, with the switch beside them on a fourth. A row of controls that
+   do not share a height cannot be aligned by any amount of `align-items`.
+
+   Not a spacing token: a hit target is a control's own size and must not move
+   with the density setting. */
+.library-toolbar {
+  --control-h: 2.3rem;
+}
+.library-toolbar .library-search,
+.library-toolbar select,
+.library-toolbar .seg,
+.library-toolbar .seg button {
+  height: var(--control-h);
+  padding-block: 0;
+  margin: 0;
+  font-size: var(--text-md);
+}
+.library-toolbar .seg { display: inline-flex; align-items: center; }
 .library-search {
   flex: 1 1 16rem;
   min-width: 0;
@@ -1167,88 +1189,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   .layout { grid-template-columns: minmax(0, 1fr); }
   .layout > * { min-width: 0; }
 }
-
-/* --- one switch, everywhere a checkbox means "on or off" ---------------------
-   Asked for: *"I want to ditch the radio buttons mostly application wide …
-   the ui needs to match and be the same style, shape size and alignment."*
-
-   A native checkbox is the operating system's control, and this app draws
-   everything else itself — so a settings screen full of them read as a form
-   embedded in an application rather than part of it, and the three sizes they
-   came in (1rem here, 1.05rem there, the browser default in the Library) never
-   lined up with the text beside them.
-
-   Switches, because that is what these *are*: every one of them is a thing
-   that is on or off right now, which is exactly what a switch says and what a
-   tick does not. Radios keep `accent-color` and stay as they are — a radio is
-   one-of-several rather than on-or-off, and drawing it as a switch would be
-   the same category error in the other direction.
-
-   Deliberately **not** applied to every checkbox in the app. A checkbox in a
-   list — the note picker's rows, the Library's card selection — means "this
-   one is chosen", which is a tick, and a column of switches down the side of a
-   list would read as a column of settings. Those keep the native control.
-
-   Built from the input itself rather than a wrapper span: no markup changes,
-   so it reaches the controls built at runtime too, and the browser keeps
-   ownership of focus, keyboard and the accessibility tree. */
-.settings-section label > input[type="checkbox"],
-.setting-check input[type="checkbox"],
-.tools-toggle input[type="checkbox"],
-.library-toolbar label > input[type="checkbox"] {
-  appearance: none;
-  -webkit-appearance: none;
-  /* A control's own size — not a spacing token, and it must not move with the
-     density setting, for the reason `--control-h` gives in the chat dock. */
-  width: 2rem;
-  height: 1.15rem;
-  flex: 0 0 auto;
-  margin: 0;
-  padding: 0;
-  position: relative;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--border);
-  background: var(--chip-bg);
-  box-shadow: none;
-  cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
-  /* Optical: centres a 1.15rem control on a line of body text rather than
-     sitting it on the baseline. */
-  vertical-align: -0.2em;
-}
-.settings-section label > input[type="checkbox"]::after,
-.setting-check input[type="checkbox"]::after,
-.tools-toggle input[type="checkbox"]::after,
-.library-toolbar label > input[type="checkbox"]::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 0.15rem;
-  width: 0.8rem;
-  height: 0.8rem;
-  transform: translateY(-50%);
-  border-radius: var(--radius-pill);
-  background: var(--muted);
-  transition: transform 0.15s ease, background-color 0.15s ease;
-}
-.settings-section label > input[type="checkbox"]:checked,
-.setting-check input[type="checkbox"]:checked,
-.tools-toggle input[type="checkbox"]:checked,
-.library-toolbar label > input[type="checkbox"]:checked {
-  background: var(--accent);
-  border-color: var(--accent);
-}
-.settings-section label > input[type="checkbox"]:checked::after,
-.setting-check input[type="checkbox"]:checked::after,
-.tools-toggle input[type="checkbox"]:checked::after,
-.library-toolbar label > input[type="checkbox"]:checked::after {
-  transform: translateY(-50%) translateX(0.85rem);
-  background: #fff;
-}
-/* The label's own alignment has to change with the control: `flex-start` was
-   right for a 1rem tick that needed nudging onto the text's cap height, and
-   puts a 1.15rem switch above the line. */
-.settings-section label:has(> input[type="checkbox"]) { align-items: center; }
 
 /* --- the glass card -------------------------------------------------------- */
 .card {
@@ -1786,14 +1726,16 @@ progress { accent-color: var(--accent); width: 100%; }
   margin-bottom: var(--space-2);
   font-size: 0.92rem;
 }
-.settings-section label input[type="radio"],
-.settings-section label input[type="checkbox"] {
+.settings-section label input[type="radio"] {
   width: 1rem;
   height: 1rem;
   flex: 0 0 auto;
   margin: 0;
   /* Optical, not arbitrary: nudges a 1rem control onto the centre of a
-     0.92rem line of text rather than its top edge. */
+     0.92rem line of text rather than its top edge. Radios only now — the
+     switch block at the end of this file owns checkboxes, and it used to lose
+     a specificity *tie* to this rule purely because this one comes later,
+     which is why a checkbox rendered as a 1rem circle instead of a switch. */
   margin-top: 0.15rem;
   /* Themes the native control instead of rebuilding it. A hand-built radio
      has to reimplement focus rings, high-contrast mode and the platform's own
@@ -4664,7 +4606,13 @@ html { font-size: 16px; }
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  margin: 0 0 var(--space-6);
+  /* No bottom margin. `.card` carries one for stacked cards on a scrolling
+     page; this card is the *only* thing on a page that fills its space, so the
+     margin was added to the page's own `--page-bottom` and left a band of
+     empty background between the map and the status bar — reported as "quite a
+     big gap at the bottom". The same reasoning zeroes it on the chat tab's two
+     columns; the page's padding is what spaces a full-height card. */
+  margin: 0;
 }
 /* 12rem, not 22, and the card clips.
 
@@ -7739,3 +7687,85 @@ textarea.autogrow {
   border-color: var(--error);
   color: var(--error);
 }
+
+/* --- one switch, everywhere a checkbox means "on or off" ---------------------
+   Asked for: *"I want to ditch the radio buttons mostly application wide …
+   the ui needs to match and be the same style, shape size and alignment."*
+
+   A native checkbox is the operating system's control, and this app draws
+   everything else itself — so a settings screen full of them read as a form
+   embedded in an application rather than part of it, and the three sizes they
+   came in (1rem here, 1.05rem there, the browser default in the Library) never
+   lined up with the text beside them.
+
+   Switches, because that is what these *are*: every one of them is a thing
+   that is on or off right now, which is exactly what a switch says and what a
+   tick does not. Radios keep `accent-color` and stay as they are — a radio is
+   one-of-several rather than on-or-off, and drawing it as a switch would be
+   the same category error in the other direction.
+
+   Deliberately **not** applied to every checkbox in the app. A checkbox in a
+   list — the note picker's rows, the Library's card selection — means "this
+   one is chosen", which is a tick, and a column of switches down the side of a
+   list would read as a column of settings. Those keep the native control.
+
+   Built from the input itself rather than a wrapper span: no markup changes,
+   so it reaches the controls built at runtime too, and the browser keeps
+   ownership of focus, keyboard and the accessibility tree. */
+.settings-section label > input[type="checkbox"],
+.setting-check input[type="checkbox"],
+.tools-toggle input[type="checkbox"],
+.library-toolbar label > input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  /* A control's own size — not a spacing token, and it must not move with the
+     density setting, for the reason `--control-h` gives in the chat dock. */
+  width: 2rem;
+  height: 1.15rem;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--chip-bg);
+  box-shadow: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+  /* Optical: centres a 1.15rem control on a line of body text rather than
+     sitting it on the baseline. */
+  vertical-align: -0.2em;
+}
+.settings-section label > input[type="checkbox"]::after,
+.setting-check input[type="checkbox"]::after,
+.tools-toggle input[type="checkbox"]::after,
+.library-toolbar label > input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0.15rem;
+  width: 0.8rem;
+  height: 0.8rem;
+  transform: translateY(-50%);
+  border-radius: var(--radius-pill);
+  background: var(--muted);
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+.settings-section label > input[type="checkbox"]:checked,
+.setting-check input[type="checkbox"]:checked,
+.tools-toggle input[type="checkbox"]:checked,
+.library-toolbar label > input[type="checkbox"]:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.settings-section label > input[type="checkbox"]:checked::after,
+.setting-check input[type="checkbox"]:checked::after,
+.tools-toggle input[type="checkbox"]:checked::after,
+.library-toolbar label > input[type="checkbox"]:checked::after {
+  transform: translateY(-50%) translateX(0.85rem);
+  background: #fff;
+}
+/* The label's own alignment has to change with the control: `flex-start` was
+   right for a 1rem tick that needed nudging onto the text's cap height, and
+   puts a 1.15rem switch above the line. */
+.settings-section label:has(> input[type="checkbox"]) { align-items: center; }

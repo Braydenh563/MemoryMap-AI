@@ -131,6 +131,12 @@ MemoryMap-AI-v0/
 │   │   │                    #   + store_quietly(): best-effort embed, lives
 │   │   │                    #   here because it needs the shared service
 │   │   ├── backup.py        # daily local snapshot + restore
+│   │   ├── extras.py        # the ALLOWLIST of pip-installable optional
+│   │   │                    #   extras. The request names an entry here; the
+│   │   │                    #   package spec is never client text
+│   │   ├── embedmodels.py   # the same shape for embedding models: an
+│   │   │                    #   allowlist, their real size in the HuggingFace
+│   │   │                    #   cache, and download / re-download / remove
 │   │   └── logbuffer.py     # in-memory log capture + safe_value() for
 │   │                        #   anything untrusted going into a log line
 │   ├── entry/
@@ -186,7 +192,7 @@ are grouped by feature area:
 | `routes_chat` | `/chat` | ask questions, streaming answers, agentic tools, suggestions |
 | `routes_conversations` | `/conversations` | saved chat threads |
 | `routes_models` | `/models` | Ollama status, pull models, switch chat/embedding/utility model |
-| `routes_settings` | `/` | preferences, skills (`GET /skills`), audit log, JSON/CSV/Markdown export & import, backups, logs, web search + SearXNG lifecycle |
+| `routes_settings` | `/` | preferences, skills (`GET /skills`), audit log, JSON/CSV/Markdown export & import, backups, logs, web search + SearXNG lifecycle, optional extras (`/extras`), embedding models (`/embedding-models`) |
 | `routes_documents` | `/documents` | long-form markdown documents, export, AI edit |
 | `routes_duplicates` | `/duplicates` | near-duplicate finder + AI merge |
 | `routes_drafts` | `/drafts` | the writing room's compose/rewrite calls |
@@ -198,6 +204,7 @@ are grouped by feature area:
 | `routes_voice` | `/voice` | local Whisper transcription |
 | `routes_timeline` | `/timeline` | the notebook on a time axis, in bands |
 | `routes_tasks` | `/tasks` | what is running in the background right now |
+| `routes_library` | `/library` | **everything you have made, in one list** — notes, documents, chats, files, tags, bin, activity, assembled server-side |
 | system | `/health` | liveness + version (open, no unlock) |
 
 Interactive API docs live at `http://localhost:8000/docs` when the app is
@@ -804,6 +811,10 @@ and embedding, and both already run off the request thread.
 | Log something a user or a website typed | `logbuffer.safe_value()` at the call site; `sanitise` only protects the in-app viewer |
 | Work out why SearXNG won't start | `data/searxng/searxng.log`, surfaced in Settings → Web search |
 | Add a background job | `api/routes_tasks.collect()` — otherwise it runs invisibly |
+| Add a kind to the Library | `api/routes_library.py` — one builder function, and `app.js` needs no change |
+| Make something installable | `core/extras.py`'s allowlist, never a package name from a request. `unavailable` greys it out *and* refuses it server-side |
+| Add an embedding model | `core/embedmodels.py`'s allowlist. The `org/name` → `models--org--name` flattening is the traversal defence, not formatting |
+| Size something against the window | `--page-viewport` / `--page-sticky-h`, never a fresh `calc`. Three rules once wrote the same sum by hand and all three were wrong by the page's bottom padding |
 | Add a test | `tests/` — copy an existing `test_*.py` and reuse the fakes |
 
 ---

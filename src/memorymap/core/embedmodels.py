@@ -201,18 +201,69 @@ def _log(line: str) -> None:
     _state.step = line[:120]
 
 
+#: How many times a dropped connection is retried before giving up.
+#:
+#: Reported from a real download: *"[WinError 10054] An existing connection was
+#: forcibly closed by the remote host."* That is not a broken install or a
+#: wrong repo — it is one TCP connection dying part-way through several
+#: hundred megabytes, which on a domestic line is ordinary. `snapshot_download`
+#: resumes from what is already in the cache, so a retry costs the bytes since
+#: the last completed file rather than starting again.
+DOWNLOAD_ATTEMPTS = 3
+
+#: What a dropped connection looks like, in the words the user will see. The
+#: raw exception names a Windows error code and then tells them to "check your
+#: internet connection and try again" — which is advice, not an explanation,
+#: and it is the *second* half of a two-part message whose first half was a
+#: socket error. Worth replacing, because the two failures behind it need
+#: opposite responses: a drop is worth retrying, and a genuinely offline
+#: machine is not.
+_CONNECTION_WORDS = (
+    "connection",
+    "connect",
+    "timed out",
+    "timeout",
+    "temporarily",
+    "network",
+    "10054",
+)
+
+
+def _looks_like_a_dropped_connection(exc: Exception) -> bool:
+    return any(word in str(exc).lower() for word in _CONNECTION_WORDS)
+
+
 def _run_download(model: EmbedModel) -> None:
     try:
         from huggingface_hub import snapshot_download
 
-        _log(f"Fetching {model.repo}…")
-        snapshot_download(repo_id=model.repo)
-        _state.outcome = "completed"
+        last: Exception | None = None
+        for attempt in range(1, DOWNLOAD_ATTEMPTS + 1):
+            try:
+                _log(
+                    f"Fetching {model.repo}…"
+                    if attempt == 1
+                    else f"Connection dropped — resuming ({attempt} of {DOWNLOAD_ATTEMPTS})…"
+                )
+                snapshot_download(repo_id=model.repo)
+                _state.outcome = "completed"
+                _state.step = (
+                    f"{model.label} is on this machine. Searching by meaning "
+                    "uses it from here on — no restart needed."
+                )
+                return
+            except Exception as exc:  # noqa: BLE001 — retry decides, not the type
+                last = exc
+                if not _looks_like_a_dropped_connection(exc):
+                    raise
+        _state.outcome = "failed"
         _state.step = (
-            f"{model.label} is on this machine. Searching by meaning uses it "
-            "from here on — no restart needed."
+            f"Couldn't finish downloading {model.label}: the connection kept "
+            f"dropping after {DOWNLOAD_ATTEMPTS} attempts. What is already "
+            "downloaded is kept, so pressing Download again resumes rather "
+            f"than starting over. ({last})"
         )
-    except Exception as exc:  # noqa: BLE001 — any failure is the same report
+    except Exception as exc:  # noqa: BLE001 — any other failure is one report
         _state.outcome = "failed"
         _state.step = f"Couldn't download {model.label}: {exc}"
     finally:

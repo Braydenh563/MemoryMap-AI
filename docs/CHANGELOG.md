@@ -7,6 +7,88 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Removed — the three panels the Library replaced (roadmap §36G)
+
+**The first surface this project has taken away rather than added.** The Notes
+sidebar's 🗑, 📜 and 🏷 buttons opened the Library, but `#bin-panel`,
+`#activity-panel` and `#tags-panel` were still in the markup and still
+rendered, so each of those three things had two implementations — and the
+bin's two could disagree about what was in it, because each fetched its own
+list. Gone with them: `renderBin`, `renderActivity`, `renderTags`, `showPanel`,
+the `#bin-empty` handler and `entryItem`'s `options.bin` branch.
+
+- **Reading a binned note in full** is what had to exist first, and is the only
+  reason the bin panel had outlived its chip: a Library card shows a preview,
+  which is the wrong thing to decide "restore or delete for good?" from. A
+  Library card now opens a read-only reader with the note's own markdown,
+  Restore, and Delete for good.
+- `GET /entries/{id}?deleted=true` reaches into the bin when the caller asks.
+  An ordinary read still 404s on a binned note, and reading one does **not**
+  count towards "most accessed".
+- "Kept for N days" moved to the Library's bin bar. It was the one thing the
+  panel said that the Library did not.
+
+### Added
+
+- **Embedding models you can see and remove** (Settings → Optional extras).
+  Which models are on this machine, their real size on disk, where the cache
+  is, and download / re-download / remove. Answers a question the logs made
+  look alarming: the model is fetched **once** — the HuggingFace requests on
+  every start are checking the copy you already have.
+- **A 🧭 Plan button in the chat.** The `make_plan` tool has existed since
+  §35K and the only way to reach it was to hope the model chose it. An action
+  rather than a toggle: planning costs a round-trip, and "plan this one" is a
+  decision about the message in the box.
+- **SearXNG can start with the app** (Settings → Web search, off by default).
+  Reported as web search "disabling itself" — it was the container going away
+  after a reboot, and every search after that fell through to a rate-limited
+  DuckDuckGo.
+- **The dashboard's launcher is three labelled groups** — Start something, Jump
+  to, Run a skill — instead of one grid of seven identical chips doing three
+  different jobs. The Library, the Timeline and the command palette are
+  reachable from it at last.
+- **Optional extras that nothing calls yet are greyed out** and refused
+  server-side, with the reason on the card. `markitdown` and
+  `llama-cpp-python` install a library the app never imports.
+
+### Changed
+
+- **Web search opens as a column beside the conversation**, not a drawer inside
+  the composer dock. Inside the dock it had to be capped at `min(38vh, 20rem)`
+  — a search box, a results list and a whole web page in 20rem — reported as
+  *"squashed ugly … what it is right now isn't working"*. As a column it needs
+  no cap at all, and the reader takes the column over rather than sharing it.
+- **The dock's controls are one visual family**: one corner radius, one border,
+  one hover, and selects that give up the platform's chrome. A toggle that is
+  on now says so with the accent.
+- **Switches instead of checkboxes** wherever a checkbox means on-or-off.
+  Radios keep `accent-color` — one-of-several is not on-or-off — and
+  checkboxes in a *list* stay ticks.
+- The **Rediscover** widget renders markdown instead of showing `## Schedule`
+  and `**bold**` spelled out.
+- The **logs screen** fills its pane instead of stopping at 46vh.
+
+### Fixed
+
+- **The chat dock drew outside its own card.** Measured at 1849×700 with a
+  hand-dragged composer: the dock's box ended at y=614 and the composer at
+  y=814, with Send below the window. A dragged height is now trimmed to the
+  room the card has — measured, not guessed — and the *preference* is never
+  rewritten, so the box comes back when there is room.
+- **Starting a skill from the dashboard didn't take you to it.** The run began
+  and streamed into a tab nobody was looking at.
+- **Every sticky sidebar was 22px too tall.** Three rules wrote the same
+  `calc` by hand and all three left out the page's bottom padding, so each
+  sidebar ended that far under the status bar. Reported twice in one day, for
+  two different sidebars, because it was never one sidebar's bug.
+- **The graph drew outside its card** when the legend wrapped: a `22rem` floor
+  under the map plus a legend as tall as the notebook has categories is more
+  than a short window has.
+- **The settings search box** was drawn under the nav's scrollbar.
+- A second `py/polynomial-redos` in `search/query.py` (CodeQL, high). A
+  character class with `*` next to an anchor is the shape to avoid; the linear
+  replacement is again the more readable one.
+
 ### Fixed — long jobs finish, or say where they stopped (roadmap §35K)
 
 Two reports, one subject: *"the agent struggles with long tasks like skills

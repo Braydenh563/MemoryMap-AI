@@ -7816,6 +7816,12 @@ const QUICK_START = [
       $("reminder-magic").focus();
     },
   },
+  {
+    icon: "🎙️",
+    label: "Meeting notes",
+    hint: "Record something longer and file the transcript",
+    run: () => openMeetingRecorder(),
+  },
 ];
 
 const QUICK_GO = [
@@ -14109,6 +14115,185 @@ async function toggleDictation(button, targetInput) {
   button.textContent = "⏹";
 }
 
+// --- meeting notes (§17) -------------------------------------------------------------
+//
+// The backlog's own "highest-value single addition still unbuilt": the quick
+// 🎙 button above is sized for a spoken note (server caps it at 25MB,
+// `routes_voice.py`'s own comment says "a spoken note, not a podcast") — a
+// meeting or a lecture needs a separate flow with its own recording cap, a
+// visible elapsed timer so a long recording doesn't feel stalled, and a
+// review step before the transcript becomes a note, the same "you're in
+// control before it's saved" shape the persona-peek and compression-summary
+// features already use elsewhere.
+//
+// Action-item extraction (the other half of §17's ask, "extract action items
+// into reminders") is deliberately not built here. It needs a real model
+// call this sandbox cannot exercise — faster-whisper itself is not installed
+// here either, so even the transcription step is untested past its request
+// shape — and guessing at that prompt's behaviour without a way to check it
+// is exactly what CLAUDE.md's standing caveat warns against. Recording it as
+// open rather than quietly shipping an unverified guess.
+
+let meetingRecorder = null;
+let meetingStream = null;
+let meetingChunks = [];
+let meetingTimerHandle = null;
+let meetingStartedAt = 0;
+
+function meetingElapsedText() {
+  const seconds = Math.max(0, Math.round((Date.now() - meetingStartedAt) / 1000));
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function stopMeetingTimer() {
+  if (meetingTimerHandle) clearInterval(meetingTimerHandle);
+  meetingTimerHandle = null;
+}
+
+// Resets the overlay to "ready to record", whether it's opening fresh or
+// coming back after a discard — the same state either way.
+function resetMeetingUI() {
+  $("meeting-timer").textContent = "0:00";
+  $("meeting-status").textContent = "";
+  $("meeting-status").classList.remove("error");
+  $("meeting-transcript").value = "";
+  $("meeting-transcript").classList.add("hidden");
+  $("meeting-save-row").classList.add("hidden");
+  $("meeting-record").disabled = false;
+  $("meeting-record").classList.remove("recording");
+  $("meeting-record").textContent = "⏺ Record";
+}
+
+async function openMeetingRecorder() {
+  overlayReturnFocus = document.activeElement;
+  resetMeetingUI();
+  $("meeting-overlay").classList.remove("hidden");
+  $("meeting-record").focus();
+}
+
+// Recording is stopped (discarded, not transcribed) rather than left running
+// in the background — a MediaRecorder with no owner is a live microphone
+// nobody is looking at.
+function closeMeetingRecorder() {
+  if (meetingRecorder && meetingRecorder.state !== "inactive") {
+    meetingRecorder.onstop = null; // don't also try to transcribe a discard
+    meetingRecorder.stop();
+  }
+  meetingStream?.getTracks().forEach((t) => t.stop());
+  meetingRecorder = null;
+  meetingStream = null;
+  stopMeetingTimer();
+  $("meeting-overlay").classList.add("hidden");
+  overlayReturnFocus?.focus?.();
+  overlayReturnFocus = null;
+}
+
+async function toggleMeetingRecording() {
+  const button = $("meeting-record");
+  if (meetingRecorder) {
+    button.disabled = true; // one press, not a double-fire while it stops
+    meetingRecorder.stop();
+    return;
+  }
+  if (voiceStatus === null) {
+    voiceStatus = await apiJson("/voice/status").catch(() => ({ available: false }));
+  }
+  if (!voiceStatus.available) {
+    $("meeting-status").textContent = voiceStatus.hint || "Voice capture isn't available.";
+    $("meeting-status").classList.add("error");
+    return;
+  }
+  try {
+    meetingStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch {
+    $("meeting-status").textContent = "Microphone access was blocked — allow it in your browser.";
+    $("meeting-status").classList.add("error");
+    return;
+  }
+  meetingChunks = [];
+  meetingRecorder = new MediaRecorder(meetingStream);
+  meetingRecorder.addEventListener("dataavailable", (e) => meetingChunks.push(e.data));
+  meetingRecorder.addEventListener("stop", async () => {
+    meetingStream?.getTracks().forEach((t) => t.stop());
+    meetingStream = null;
+    meetingRecorder = null;
+    stopMeetingTimer();
+    button.classList.remove("recording");
+    button.textContent = "⏺ Record";
+    button.disabled = false;
+    const blob = new Blob(meetingChunks, { type: meetingChunks[0]?.type || "audio/webm" });
+    const form = new FormData();
+    form.append("file", blob, "meeting.webm");
+    $("meeting-status").classList.remove("error");
+    $("meeting-status").textContent =
+      "Transcribing… a long recording can take a while on CPU.";
+    try {
+      const response = await fetch("/voice/transcribe-meeting", {
+        method: "POST",
+        headers: { "X-Auth-Token": authToken() },
+        body: form,
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.detail || "Transcription failed");
+      $("meeting-status").textContent = "Transcribed — review it below before saving.";
+      $("meeting-transcript").value = body.text;
+      $("meeting-transcript").classList.remove("hidden");
+      $("meeting-save-row").classList.remove("hidden");
+      $("meeting-transcript").focus();
+    } catch (error) {
+      $("meeting-status").textContent = error.message;
+      $("meeting-status").classList.add("error");
+    }
+  });
+  meetingRecorder.start();
+  meetingStartedAt = Date.now();
+  $("meeting-timer").textContent = meetingElapsedText();
+  meetingTimerHandle = setInterval(() => {
+    $("meeting-timer").textContent = meetingElapsedText();
+  }, 1000);
+  button.classList.add("recording");
+  button.textContent = "⏹ Stop";
+  $("meeting-status").textContent = "";
+  $("meeting-status").classList.remove("error");
+}
+
+async function saveMeetingNote() {
+  const content = $("meeting-transcript").value.trim();
+  if (!content) return;
+  const status = $("meeting-status");
+  const button = $("meeting-save");
+  button.disabled = true;
+  status.classList.remove("error");
+  status.textContent = "Filing…";
+  try {
+    // Tagged, not force-categorised: filing still goes through the same
+    // AI-or-keyword pipeline as any other capture (routes_entries.py), so a
+    // meeting about a specific project lands there rather than in a generic
+    // "Meetings" bucket regardless of what it was actually about. The tag is
+    // what makes every meeting findable as a class either way.
+    const saved = await apiJson("/entries", {
+      method: "POST",
+      body: JSON.stringify({ content, tags: ["meeting"] }),
+    });
+    toast(filedByText(saved));
+    await loadEntries();
+    // The overlay is about to close, so this jumps straight to the note
+    // rather than leaving an "offer" button behind in a dialog nobody is
+    // looking at anymore (`offerJumpToNewNote`'s pattern, used from the
+    // Capture tab you're still sitting on) — `flashEntry` handles its own
+    // navigation to Notes → Browse.
+    closeMeetingRecorder();
+    flashEntry(saved.id);
+  } catch (error) {
+    status.textContent = error.message;
+    status.classList.add("error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
 // --- Wave H: read-aloud (the browser's local voices) --------------------------------
 
 function speakText(text) {
@@ -19776,6 +19961,10 @@ document.addEventListener("keydown", (e) => {
     closeSketch();
     return;
   }
+  if (e.key === "Escape" && !$("meeting-overlay").classList.contains("hidden")) {
+    closeMeetingRecorder();
+    return;
+  }
   if (e.key === "Escape" && !$("improve-overlay").classList.contains("hidden")) {
     closeImprove();
     return;
@@ -19830,6 +20019,7 @@ function activeOverlay() {
     "features-overlay",
     "palette-overlay",
     "sketch-overlay",
+    "meeting-overlay",
     "improve-overlay",
     "shortcuts-overlay",
     "settings-modal",
@@ -20280,6 +20470,15 @@ $("mic-chat").addEventListener("click", () =>
   toggleDictation($("mic-chat"), $("chat-input"))
 );
 $("speak-btn").addEventListener("click", () => speakText($("ai-answer").textContent));
+
+// Meeting notes (§17).
+$("meeting-close").addEventListener("click", closeMeetingRecorder);
+$("meeting-overlay").addEventListener("click", (e) => {
+  if (e.target === $("meeting-overlay")) closeMeetingRecorder();
+});
+$("meeting-record").addEventListener("click", toggleMeetingRecording);
+$("meeting-save").addEventListener("click", saveMeetingNote);
+$("meeting-discard").addEventListener("click", resetMeetingUI);
 
 // PWA: the shell caches itself so the app opens instantly (Wave F).
 // When a new service worker takes over (after an update), reload once so

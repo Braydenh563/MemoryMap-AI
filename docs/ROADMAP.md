@@ -1925,10 +1925,14 @@ in front of them:
    user-facing control for "which tools this turn / max rounds" in Agent
    mode — `agent.py` already takes both as parameters, nothing in `app.js`
    exposes them. Not worth a session on its own.
-6. **Meeting notes / transcription** (§17) — `faster-whisper` already powers
-   the 🎙 single-note dictation buttons; a longer recording transcribed into
-   structured notes is a different, larger feature on the same engine, and
-   the backlog calls it the highest-value single addition still unbuilt.
+6. ~~**Meeting notes / transcription**~~ **record → transcribe → note built**
+   (§17) — a dashboard card opens a recorder with its own elapsed timer and a
+   review step before saving, hitting a new higher-ceiling
+   `/voice/transcribe-meeting` endpoint alongside the existing single-note
+   one. **Extracting action items into reminders — the other half of this
+   item — is still open**, deliberately: it needs a real model call this
+   sandbox cannot verify. Full scope, what was and wasn't tested, and why
+   are in BACKLOG.md §17.
 7. **Onboarding diagnostics + example notes** (§27) — ANALYSIS §34 ranks
    this its #3 priority: first run today is "install Python, run a script,
    install Ollama, pull a model" with nothing to look at until you do.

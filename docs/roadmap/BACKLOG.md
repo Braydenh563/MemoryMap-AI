@@ -1580,9 +1580,30 @@ palettes."
 
 ## 17. Use cases the app can't serve yet
 
-- **Meeting notes** — record/transcribe into a note (Whisper is already a
-  dependency), extract action items into reminders. Highest-value single
-  addition.
+- ~~**Meeting notes**~~ **record → transcribe → note built; action-item
+  extraction still open.** A "🎙️ Meeting notes" dashboard card opens a
+  `#meeting-overlay` with its own record/stop/elapsed-timer controls, POSTs
+  the clip to a new `/voice/transcribe-meeting` endpoint (a 300MB ceiling
+  against `/transcribe`'s existing 25MB — "a meeting, not a podcast" needed
+  its own sanity limit, not the spoken-note one raised), then hands the
+  transcript back in an editable textarea before it becomes a note — the
+  same "review before it's saved" shape the persona-peek and
+  compression-summary features already use. Saved with a `meeting` tag so
+  every meeting note stays findable as a class regardless of what category
+  the AI files it under. **Extracting action items into reminders was
+  deliberately not built**: it needs a real model call parsing free text
+  into multiple structured reminders, which is a different shape from the
+  single-phrase parser `POST /reminders/parse` already does, and this
+  sandbox has neither faster-whisper nor a running Ollama to verify a new
+  prompt's behaviour against — guessing at it blind is exactly what
+  CLAUDE.md's standing caveat warns against. Verified everything that could
+  be: the full record → (faked) transcribe → review → save round trip in
+  Chromium with a fake microphone device (`--use-fake-device-for-media-
+  stream`), the graceful "faster-whisper not installed" path (real, since
+  it genuinely isn't installed here), and the saved note landing in Notes →
+  Browse with the right tag via the API. **Not verified**: a real
+  faster-whisper transcription of real audio — the same gap the pre-
+  existing single-note dictation feature already has and documents.
 - **Reading and research** — the Browse section (§3) plus highlights saved as
   notes back-linked to their source
 - **Journalling** — a daily-note pattern; the pieces exist, nothing ties them

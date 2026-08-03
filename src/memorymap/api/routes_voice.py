@@ -18,6 +18,11 @@ from memorymap.entry.manager import log_action
 router = APIRouter(prefix="/voice", tags=["voice"])
 
 MAX_AUDIO_BYTES = 25 * 1024 * 1024  # a spoken note, not a podcast
+# A meeting or a lecture runs far longer than a spoken note — 300MB covers
+# several hours of compressed voice audio (WebM/Opus at typical browser
+# bitrates), well past what CPU-based Whisper could transcribe in a sitting
+# anyway, so this is a sanity ceiling, not the expected common case.
+MAX_MEETING_AUDIO_BYTES = 300 * 1024 * 1024
 
 
 @router.get("/status")
@@ -30,14 +35,15 @@ def status() -> dict:
     }
 
 
-@router.post("/transcribe")
-def transcribe(file: UploadFile, session: Session = Depends(get_session)) -> dict:
+def _transcribe_upload(
+    file: UploadFile, session: Session, max_bytes: int, over_limit_detail: str
+) -> dict:
     if not voice.whisper_available():
         raise HTTPException(status_code=503, detail=voice.INSTALL_HINT)
 
-    data = file.file.read(MAX_AUDIO_BYTES + 1)
-    if len(data) > MAX_AUDIO_BYTES:
-        raise HTTPException(status_code=413, detail="Recording is larger than 25 MB")
+    data = file.file.read(max_bytes + 1)
+    if len(data) > max_bytes:
+        raise HTTPException(status_code=413, detail=over_limit_detail)
     if not data:
         raise HTTPException(status_code=400, detail="The recording is empty")
 
@@ -60,3 +66,23 @@ def transcribe(file: UploadFile, session: Session = Depends(get_session)) -> dic
     log_action(session, "transcribed", "voice", detail=f"{len(data)} bytes")
     session.commit()
     return {"text": text}
+
+
+@router.post("/transcribe")
+def transcribe(file: UploadFile, session: Session = Depends(get_session)) -> dict:
+    return _transcribe_upload(
+        file, session, MAX_AUDIO_BYTES, "Recording is larger than 25 MB"
+    )
+
+
+@router.post("/transcribe-meeting")
+def transcribe_meeting(file: UploadFile, session: Session = Depends(get_session)) -> dict:
+    """The longer-recording sibling of `/transcribe` (§17 — meeting notes):
+    same engine, same response shape, just a ceiling sized for a meeting or a
+    lecture rather than a spoken note."""
+    return _transcribe_upload(
+        file,
+        session,
+        MAX_MEETING_AUDIO_BYTES,
+        "Recording is larger than 300 MB",
+    )

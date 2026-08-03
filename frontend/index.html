@@ -2622,6 +2622,46 @@ Link to another note with [[its first few words]]."></textarea>
     </div>
   </div>
 
+  <!-- Meeting notes (§17, the backlog's own "highest-value single addition
+       still unbuilt"): a longer recording than the quick 🎙 dictation button
+       in the composer is built for, transcribed locally, then handed back
+       for review before it becomes a note — the same "capture, then look at
+       what came out" shape the sketch pad's caption step already uses.
+       `.modal-overlay` (not a bespoke overlay like the sketch pad's own) so
+       it gets scroll-lock for free and sits at the shared z-index tier a
+       confirm dialog can safely open on top of, per the trap the sketch
+       pad's own history recorded. -->
+  <div id="meeting-overlay" class="modal-overlay hidden" role="dialog"
+    aria-modal="true" aria-label="Meeting notes">
+    <div class="card modal-card" id="meeting-card">
+      <div class="row space-between">
+        <h2>🎙️ Meeting notes</h2>
+        <button id="meeting-close" class="ghost small">Close</button>
+      </div>
+      <p class="muted">
+        Record a meeting, a lecture, or anything longer than a quick note —
+        transcribed locally with Whisper, the same engine behind the mic
+        button. Nothing leaves this machine.
+      </p>
+      <div class="row" id="meeting-controls">
+        <button id="meeting-record" type="button">⏺ Record</button>
+        <span id="meeting-timer" class="meeting-timer muted" aria-live="polite">0:00</span>
+      </div>
+      <p id="meeting-status" class="status" role="status"></p>
+      <!-- Editable, not saved straight away: a raw transcript carries every
+           "um" and false start, and the app's whole capture pattern is
+           "you're in control before it's saved" (persona peek, the
+           compression summary before it replaces anything). -->
+      <textarea id="meeting-transcript" rows="10" class="hidden"
+        placeholder="The transcript will appear here once recording stops — review and trim it before saving."
+        aria-label="Transcript — edit before saving"></textarea>
+      <div class="row hidden" id="meeting-save-row">
+        <button id="meeting-save">Save as a note</button>
+        <button id="meeting-discard" class="ghost">Discard</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Everything the app can do, searchable — opened from the dashboard -->
   <div id="features-overlay" class="modal-overlay hidden" role="dialog"
     aria-modal="true" aria-label="Tools and features">

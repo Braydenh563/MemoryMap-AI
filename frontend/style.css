@@ -3131,6 +3131,13 @@ button.recording {
 }
 .bubble-speak { margin-top: 0.4rem; }
 
+/* --- meeting notes (§17) ---------------------------------------------------------- */
+.meeting-timer {
+  font-variant-numeric: tabular-nums; /* mm:ss must not shift width every second */
+  font-size: var(--text-h3);
+}
+#meeting-transcript { min-height: 12rem; }
+
 /* --- Wave I: skeletons, focus, reduced motion ------------------------------------ */
 .entry-list li.skeleton {
   height: 3.2rem;

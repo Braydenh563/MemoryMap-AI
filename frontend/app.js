@@ -5880,42 +5880,16 @@ function initResizableSidebars() {
   makeWebPanelResizable(document.getElementById("web-panel"));
 }
 
-// The Notes sidebar's `min-height: var(--page-sticky-h)` (style.css) is a
-// floor for a short category list — without it, a notebook with few
-// categories left a band of empty page below a sidebar shorter than `main`
-// beside it. `.layout`'s `align-items: stretch` is supposed to grow the
-// sidebar to match `main` when *that's* the taller one instead (many notes,
-// several stacked cards) — reported again as the same gap, just measured on
-// the other side of the same coin. Stretch reliably didn't fire for this
-// specific combination (`position: sticky` + `overflow-y: auto` on an
-// auto-sized grid track) in testing, for a reason not worth chasing further
-// than "measure `main` directly and mirror it" — the same instinct
-// `applySidebarWidth`/`fitComposerToDock` already use elsewhere in this file
-// where CSS alone proved fragile.
-function syncNotesSidebarHeight() {
-  const sidebar = document.getElementById("sidebar");
-  const main = document.querySelector("#tab-notes .layout > main");
-  if (!sidebar || !main) return;
-  // Back to the stylesheet's own floor first, so it's re-measured fresh —
-  // otherwise a note count that used to need the taller inline override
-  // would keep it forever, even after notes were deleted back down.
-  sidebar.style.removeProperty("min-height");
-  if (layoutIsStacked()) return; // no fixed height on the stacked mobile layout
-  const floor = sidebar.offsetHeight;
-  const wanted = Math.max(floor, main.offsetHeight);
-  if (wanted > floor) sidebar.style.minHeight = `${wanted}px`;
-}
-
-function initNotesSidebarHeight() {
-  const main = document.querySelector("#tab-notes .layout > main");
-  if (!main) return;
-  syncNotesSidebarHeight();
-  new ResizeObserver(syncNotesSidebarHeight).observe(main);
-  // A window resize that changes the viewport height without changing
-  // `main`'s own box size (nothing reflowed) wouldn't otherwise trigger the
-  // observer above, and the CSS floor itself is viewport-relative.
-  window.addEventListener("resize", syncNotesSidebarHeight);
-}
+// The Notes sidebar used to mirror `main`'s height into its own `min-height`
+// via a ResizeObserver watching `main`. That's exactly backwards for a grid
+// row with `align-items: stretch`: setting the sidebar's height taller grows
+// the shared row, which stretches `main` to fill it, which re-fires the
+// observer with a bigger `main.offsetHeight` — an unbounded feedback loop
+// (reported as the sidebar "continuously expanding"). The chat sidebar never
+// needed this: it just sets `height: 100%` and lets the grid resolve it (see
+// `#chat-sidebar` in style.css). Removed here too — `.layout`'s own
+// `align-items: stretch` plus the `min-height: var(--page-sticky-h)` floor in
+// style.css already produces the right height with no JS and nothing to loop.
 
 // The web panel (§36G) isn't a grid column like the three sidebars above — it
 // is a flex sibling of #chat-main inside <main>, sized by `flex-basis:
@@ -12385,8 +12359,20 @@ function scrollPageToTop() {
 // --- back-to-top button -----------------------------------------------------------
 // Shown on every tab except the graph, where the page itself doesn't scroll
 // and the button would just sit on top of the map.
+//
+// Chat is a special case, not an exclusion: `.tab-page` itself never scrolls
+// there (`#tab-chat > .layout` fills the page, §36A), so the page-scroll
+// button would just sit permanently hidden even in a long conversation
+// (user-reported: "I want a back-to-top button in chat pages"). The actual
+// scrolling element on that tab is `#chat-messages`, so the button tracks
+// that instead of the page whenever chat is active — same button, same
+// corner, just a different scroll target depending on which tab is up.
 const NO_SCROLL_TOP_TABS = new Set(["graph"]);
 let scrollTopUpdate = null;
+
+function chatMessagesEl() {
+  return document.getElementById("chat-messages");
+}
 
 function initScrollTopButton() {
   const button = document.createElement("button");
@@ -12397,7 +12383,13 @@ function initScrollTopButton() {
   button.title = "Back to top";
   button.setAttribute("aria-label", "Back to top");
   button.addEventListener("click", () => {
-    scrollPageToTop();
+    const tab = localStorage.getItem("activeTab") || "dashboard";
+    if (tab === "chat") {
+      const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      chatMessagesEl()?.scrollTo({ top: 0, behavior: smooth ? "smooth" : "auto" });
+    } else {
+      scrollPageToTop();
+    }
     // Send focus somewhere sensible rather than leaving it on a button that
     // is about to hide itself.
     document.querySelector(".tab-page:not(.hidden)")?.focus();
@@ -12406,7 +12398,9 @@ function initScrollTopButton() {
 
   const update = () => {
     const tab = localStorage.getItem("activeTab") || "dashboard";
-    const show = (scrollingPage()?.scrollTop || 0) > 400 && !NO_SCROLL_TOP_TABS.has(tab);
+    const scrollTop =
+      tab === "chat" ? chatMessagesEl()?.scrollTop || 0 : scrollingPage()?.scrollTop || 0;
+    const show = scrollTop > 400 && !NO_SCROLL_TOP_TABS.has(tab);
     button.classList.toggle("visible", show);
   };
   // Capture, because scroll events do not bubble: the listener has to see them
@@ -18148,7 +18142,6 @@ scrollTopUpdate = initScrollTopButton();
 // silently and stay silent (§36C).
 startReminderWatch();
 initResizableSidebars();
-initNotesSidebarHeight();
 watchOverlays(); // page behind a dialog must not scroll
 initAutoGrow(); // capture + magic-add boxes follow their content
 // A returning visit still opens on whichever tab was last active — that is

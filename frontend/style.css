@@ -3870,7 +3870,14 @@ html { font-size: 16px; }
 .web-result-actions {
   grid-area: actions;
   align-self: start;
+  /* Column, not row: side by side, two buttons made the "auto" actions
+     column as wide as both combined, squeezing minmax(0, 1fr) — the
+     title/meta/snippet column — down to a sliver in the web panel's own
+     narrow, resizable width. Stacked, the column is only ever as wide as
+     the wider single button (user-reported: "squished the text like crazy"). */
   display: flex;
+  flex-direction: column;
+  align-items: flex-end;
   gap: var(--space-1);
   opacity: 0;
   transition: opacity 0.12s ease;

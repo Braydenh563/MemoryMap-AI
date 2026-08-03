@@ -1680,7 +1680,18 @@ kept separate deliberately.
    was defaulting a genuinely first-ever run, with nothing in the notebook
    yet, to a list with nothing to browse.
 
-### 37B. Decided against building silently — a real trade-off, not a quick fix
+### 37B. Decided — no. Skip the lock-screen Quit button
+
+**Answered with the user in the room, as this section asked.** No unauthenticated
+`/auth/shutdown` route, no lock-screen Quit button. The trade-off below is why:
+on `localhost` a working Quit changes nothing a terminal `Ctrl+C` couldn't
+already do, but the app already hints at LAN/phone access elsewhere in
+Settings, and an unauthenticated shutdown route is a standing DoS the moment
+that happens. Not worth it for a convenience button. Leave `quitApp()`
+unwired on the lock screen — its `catch {}` swallowing the 401 is now the
+correct behaviour, not a bug to fix.
+
+The original write-up, for the reasoning:
 
 **A Quit button on the lock/login screen.** Asked for, and worth building —
 but wiring it to the existing `quitApp()` without a backend change would
@@ -1743,14 +1754,24 @@ popup still needs some work and I want the web browser sidebar to be
 adjustable in width, the in-app render feature needs refining and the popup
 buttons need some ui adjustments."* Three distinct asks:
 
-1. **Resizable width.** `makeSidebarResizable()` already does exactly this for
-   `#sidebar`, `#chat-sidebar` and `#doc-sidebar` (`initResizableSidebars()`
-   in `app.js`) — the web panel just isn't in that list. Since it currently
-   sizes itself with `flex: 0 1 clamp(19rem, 30%, 26rem)` rather than a grid
-   track, it needs the same treatment `#chat-sidebar` gets (a drag handle that
-   writes an inline width) rather than literally being added to the existing
-   function, which assumes a grid column. Should be close to free once looked
-   at directly.
+1. ~~**Resizable width.**~~ **Done.** `#web-panel` isn't a grid column like
+   the three sidebars `makeSidebarResizable()` handles — it's a flex sibling of
+   `#chat-main` inside `<main>`, sized by `flex-basis: clamp(19rem, 30%,
+   26rem)` — so it gets its own `makeWebPanelResizable()` rather than a line
+   added to the existing function. The handle sits on the panel's *left*
+   (leading) edge, the mirror of the sidebars' trailing-edge handles, since
+   the panel is the right-hand column. Deliberately does **not** apply an
+   inline width on load the way the sidebars do: the `clamp()` is a
+   considered default (see the comment above the CSS rule), so only a drag
+   overrides it, and Home/dblclick *remove* the inline style rather than
+   reapplying a remembered number — the responsive default comes back rather
+   than a frozen copy of it. Below the 1100px breakpoint where `#web-panel`
+   takes all of `<main>`, the inline override is suppressed (an inline style
+   would otherwise beat that media query regardless of screen width) and
+   restored via a `matchMedia` listener when the window widens back past it.
+   Verified in Chromium: drag either direction moves the panel edge, the
+   width survives a reload, and the mobile breakpoint still takes over full
+   width regardless of a saved drag.
 2. **The reader view "needs refining."** No specifics given — this needs a
    short round of the user actually reading a page in it and saying what is
    wrong (too narrow now that it has a whole column instead of 20rem? typography
@@ -1799,24 +1820,34 @@ Recommend starting with a small prototype of the `zoom` CSS property on a
 branch and running `test_style_scale.py` plus a Chromium screenshot at three
 zoom levels before committing to the approach.
 
-### 37F. The graph toolbar — bulky, and specifically why
+### 37F. The graph toolbar — bulky, and specifically why — done
 
 *"redesign the ui layout of the controls above the graph as they are very
-bulky and take up a lot of space."* The toolbar holds, in one row: a heading,
-a highlight-search box, a Layout label + select, a Colour label + select, New
-note, Options, Refresh — then a second row for Trace (two selects, a button,
-Clear, a caption) — then a "How to use this map" disclosure — then the legend
-chips. Four bands of chrome before the map itself, on the one tab whose whole
-point is the map.
+bulky and take up a lot of space."* **Correction: most of this was already
+fixed the day before this section was written** (`3e77f57`, "One control
+height in the top bar, and the graph's options folded away") — the
+twelve-controls-in-one-row toolbar described below no longer existed by the
+time this session picked it up. Toolbar was already one row of nine (heading,
+search, Layout, Colour, New note, ⚙ Options, ↻ Refresh), the tuned-once
+controls were already folded behind ⚙ Options, and "How to use this map" was
+already a closed `<details>`. Check the running app before a roadmap
+paragraph, per CLAUDE.md — this section's own premise had gone stale.
 
-The shape of the fix is the one §36B already applied elsewhere in this app:
-group by question, not list by feature. "Layout" + "Colour" answer *how it's
-drawn*; New note + Options + Refresh answer *what to do with it*; Trace is its
-own distinct mode (finding a path between two named notes) and arguably
-belongs behind a toggle rather than a permanently-drawn second row, the same
-way the web/agent-mode toggles in the chat dock replaced a permanent row.
-"How to use this map" should be discoverable, not open by default taking a
-fixed slice of height on every visit.
+**The one real gap — now fixed too:** Trace was still a permanently-drawn
+second row, exactly what "belongs behind a toggle" (below) argued for. It now
+gets the same ⚙ Options treatment: a `🛣 Trace` toggle button, `#graph-trace`
+starts `hidden`, state remembered (`graph-trace-open`, added to
+`MIRRORED_UI_EXTRAS` alongside `graph-options-open`) and restored per visit.
+One wrinkle: the node popup's "Trace from/to here" buttons call
+`setTraceEnd()`, which can fire a trace immediately — a hidden row would make
+that click look like it did nothing, so `setTraceEnd()` opens the panel too,
+via a `setTracePanelOpen()` shared with the toggle button and the tab-switch
+restore. Verified in Chromium: hidden by default, `is-on` highlight on open,
+survives a reload.
+
+The shape, still worth keeping: group by question, not list by feature (§36B).
+"Layout"/"Colour" answer *how it's drawn*; New note/Options/Refresh answer
+*what to do with it*; Trace is its own mode, not a setting left on.
 
 ### 37G. Quick sketch — bring in images and documents
 
@@ -1869,7 +1900,7 @@ handoff mid-agent-run is a pause the agent did not ask for)? Decide which
 before writing the tool, the way §36G's rule says: write the trade-off down
 once, don't re-derive it.
 
-### 37J. The Timeline — narrow columns, clipped text, no markdown, low utility
+### 37J. The Timeline — narrow columns, clipped text, no markdown, low utility — done
 
 Screenshotted: day columns of `minmax(5.5rem, 1fr)` — about 88px at minimum —
 holding note chips clamped to two lines via `-webkit-line-clamp`, rendered
@@ -1885,17 +1916,28 @@ widening the simulation's world box (§36's handover, "the graph's new world
 box"). Keep the two separate; re-diagnosing the graph screenshot as a Timeline
 bug would rebuild something already done.
 
-The Timeline's real, distinct list:
-1. Markdown-rendered previews (`renderMarkdown` into the dot instead of
-   `textContent`), or at minimum strip markdown syntax before clamping —
-   showing literal `**` is worse than showing the words plain.
-2. Wider columns, or a per-tab zoom/density the same instinct as 37E but
-   local to this grid, since `5.5rem` was sized for a bucket label and not for
-   two lines of prose.
-3. More utility: the band row only ever opens the note in Notes → Browse
-   today (`timelineDot`'s click handler). Filtering, a way to see a band's
-   whole list without scrolling sideways through empty columns, and reading a
-   note inline rather than always leaving the tab are all on the table.
+The Timeline's real, distinct list, **all three now done and verified in
+Chromium** (`renderTimeline`/`timelineDot`/`openTimelineBand` in `app.js`):
+
+1. ~~Markdown-rendered previews~~ **Done, by stripping rather than
+   rendering.** A `stripMarkdownPreview()` helper deletes markdown delimiter
+   characters (`#`, `` ` ``, `**`, `__`, `~~`, list/quote markers, link
+   brackets), not matched opening/closing pairs — the preview is already
+   sliced to 120 chars server-side, so a pair can be truncated mid-token, and
+   deleting delimiters outright handles that the same as a complete one. Full
+   `renderMarkdown` was deliberately **not** used: it builds block-level DOM
+   (headings, a fenced-code block with its own copy button) that doesn't
+   clamp sensibly to two lines inside a `<button>`. Verified: a note saved as
+   `"Buy milk **tomorrow** at the store"` shows as plain words, no `*`.
+2. ~~Wider columns~~ **Done.** `minmax(5.5rem, 1fr)` → `minmax(9rem, 1fr)` —
+   5.5rem was sized for a bucket's date label, not two lines of note text.
+3. ~~More utility~~ **Done, for the "band row does nothing" half.** A band
+   name is now a `<button>` that filters Notes → Browse to that band —
+   `activeCategory` for a category band (the sidebar's own click pattern),
+   `tag:`/`is:untagged` in the search box for a tag band (the Library tag
+   card's pattern via `openLibraryItem`), clears filters for the long-tail
+   "Everything else" band. **Not done:** seeing a band's whole list without
+   scrolling sideways, or reading a note inline without leaving the tab.
 
 ### 37K. Emoji rendering — needs a decision, not a guess
 
@@ -1930,19 +1972,20 @@ the way §36 itself was.
 
 ---
 
-**Priority order for the next session**, all of the above folded in:
+**Priority order for the next session**, all of the above folded in. **Items
+1–4 below are now done** — 37B decided (no), 37D.1/37J/37F built and verified
+in Chromium — this session picked up the list in exactly this order:
 
-1. **37B's decision** — five minutes with the user, before anything else in
-   this list, because two other items (the lock-screen quit button, and
-   whatever else touches auth) are blocked on it.
-2. **37D.1** (resizable web panel) — small, and the pattern already exists.
-3. **37J** (Timeline) — genuinely broken (clipped, unrendered markdown), not
-   only unpolished, and self-contained.
-4. **37F** (graph toolbar) — same §36B grouping technique already proven
-   twice in this codebase, bounded to one screen.
-5. **37E** (zoom setting) — the highest-leverage single feature on the list
-   (fixes "everything feels cramped" for one user on one machine, at the
-   root, once) but needs the design spike described above before code.
+1. ~~**37B's decision**~~ **Decided: no.** See §37B above.
+2. ~~**37D.1** (resizable web panel)~~ **Done.** See §37D above.
+3. ~~**37J** (Timeline)~~ **Done.** See §37J above.
+4. ~~**37F** (graph toolbar)~~ **Mostly already done before this session
+   started** (§37F's correction note); the one real gap — Trace as a
+   permanent row — is now fixed too.
+5. **37E** (zoom setting) — **start here next.** The highest-leverage single
+   feature on the list (fixes "everything feels cramped" for one user on one
+   machine, at the root, once) but needs the design spike described above
+   before code.
 6. **37C** (chat dock density pass) — re-look at it *after* 37E ships, per
    37C's own note.
 7. **37I** (compress as a tool) — needs the review-step decision first.

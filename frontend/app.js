@@ -5859,6 +5859,100 @@ function initResizableSidebars() {
     const aside = document.getElementById(id);
     if (aside) makeSidebarResizable(aside);
   }
+  makeWebPanelResizable(document.getElementById("web-panel"));
+}
+
+// The web panel (§36G) isn't a grid column like the three sidebars above — it
+// is a flex sibling of #chat-main inside <main>, sized by `flex-basis:
+// clamp(19rem, 30%, 26rem)` (see style.css). That clamp is a considered
+// default, not a placeholder — it keeps the column readable without a drag —
+// so unlike the sidebars, this only overrides it once the user actually asks
+// to, and "reset" removes the inline style entirely rather than reapplying a
+// remembered default. Below WEB_PANEL_NARROW the panel takes the whole of
+// <main> (see the media query in style.css); an inline flex-basis would beat
+// that stylesheet rule regardless of the media query; so it stays suppressed
+// there and comes back once the window is wide enough again.
+const WEB_PANEL_MIN = 280;
+const WEB_PANEL_MAX = 640;
+const WEB_PANEL_NARROW = "(max-width: 1100px)";
+
+function webPanelIsNarrow() {
+  return window.matchMedia(WEB_PANEL_NARROW).matches;
+}
+
+function applyWebPanelWidth(panel, width) {
+  const clamped = Math.min(Math.max(Math.round(width), WEB_PANEL_MIN), WEB_PANEL_MAX);
+  localStorage.setItem("webPanelWidth", String(clamped));
+  panel.style.flexBasis = webPanelIsNarrow() ? "" : `${clamped}px`;
+  return clamped;
+}
+
+function resetWebPanelWidth(panel) {
+  localStorage.removeItem("webPanelWidth");
+  panel.style.removeProperty("flex-basis");
+}
+
+window.matchMedia(WEB_PANEL_NARROW).addEventListener("change", () => {
+  const panel = document.getElementById("web-panel");
+  if (!panel?.dataset.resizable) return;
+  const saved = Number(localStorage.getItem("webPanelWidth"));
+  panel.style.flexBasis =
+    Number.isFinite(saved) && saved >= WEB_PANEL_MIN && !webPanelIsNarrow()
+      ? `${saved}px`
+      : "";
+});
+
+function makeWebPanelResizable(panel) {
+  if (!panel || panel.dataset.resizable) return;
+  panel.dataset.resizable = "1";
+
+  const saved = Number(localStorage.getItem("webPanelWidth"));
+  if (Number.isFinite(saved) && saved >= WEB_PANEL_MIN) applyWebPanelWidth(panel, saved);
+
+  const handle = document.createElement("div");
+  handle.className = "sidebar-resize web-panel-resize";
+  handle.setAttribute("role", "separator");
+  handle.setAttribute("aria-orientation", "vertical");
+  handle.setAttribute("tabindex", "0");
+  handle.setAttribute("aria-label", "Resize the web panel — arrow keys, or drag");
+  panel.appendChild(handle);
+
+  const startDrag = (event) => {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = panel.getBoundingClientRect().width;
+    document.body.classList.add("resizing-sidebar");
+
+    // The panel sits to the *right* of the conversation, so dragging the
+    // handle left (a negative clientX delta) is what widens it — the mirror
+    // image of the sidebars, whose handle is on their trailing (right) edge.
+    const move = (e) => applyWebPanelWidth(panel, startWidth - (e.clientX - startX));
+    const stop = () => {
+      document.body.classList.remove("resizing-sidebar");
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop);
+  };
+  handle.addEventListener("pointerdown", startDrag);
+
+  handle.addEventListener("keydown", (event) => {
+    const step = event.shiftKey ? 40 : 12;
+    const current = panel.getBoundingClientRect().width;
+    // Same mirrored direction as the drag: ArrowLeft widens, ArrowRight narrows.
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      applyWebPanelWidth(panel, current + step);
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      applyWebPanelWidth(panel, current - step);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      resetWebPanelWidth(panel);
+    }
+  });
+  handle.addEventListener("dblclick", () => resetWebPanelWidth(panel));
 }
 
 // A ⋯ button that opens a small menu. Built from the same pieces as the note
@@ -10494,11 +10588,22 @@ function fillTracePickers(nodes) {
   }
 }
 
+// Shared by the ⚙-style toggle button (§37F) and by every other entry point
+// that starts a trace without the user having opened the panel first — a
+// picker set behind a hidden row is a click that looks like it did nothing.
+function setTracePanelOpen(open) {
+  $("graph-trace").classList.toggle("hidden", !open);
+  $("graph-trace-toggle")?.setAttribute("aria-expanded", String(open));
+  $("graph-trace-toggle")?.classList.toggle("is-on", open);
+  localStorage.setItem("graph-trace-open", open ? "1" : "0");
+}
+
 // Fill one end of the trace from somewhere else in the app — the node popup's
 // two buttons, and the Notes tab. Traces as soon as both ends are set, because
 // the second click is the whole gesture: nobody picks two notes and then wants
 // nothing to happen.
 function setTraceEnd(which, noteId) {
+  setTracePanelOpen(true); // the pickers below are about to change; show them
   const select = $(which === "from" ? "graph-trace-from" : "graph-trace-to");
   if (!select) return;
   select.value = String(noteId);
@@ -11920,6 +12025,7 @@ function switchTab(name) {
     $("graph-options").classList.toggle("hidden", !optionsOpen);
     $("graph-options-toggle").setAttribute("aria-expanded", String(optionsOpen));
     $("graph-options-toggle").classList.toggle("is-on", optionsOpen);
+    setTracePanelOpen(localStorage.getItem("graph-trace-open") === "1");
     renderGraph();
   }
   if (name === "timeline") renderTimeline();
@@ -11964,7 +12070,10 @@ async function renderTimeline() {
   const buckets = body.buckets;
   const byId = new Map(body.notes.map((note) => [note.id, note]));
   // Columns: one label column for the band names, then one per bucket.
-  grid.style.gridTemplateColumns = `minmax(7rem, auto) repeat(${buckets.length}, minmax(5.5rem, 1fr))`;
+  // 5.5rem was sized for a bucket's date label, not for two lines of note
+  // preview text sharing the same track — 9rem is roughly what a two-line
+  // clamp needs to hold more than three or four words per line (§37J).
+  grid.style.gridTemplateColumns = `minmax(7rem, auto) repeat(${buckets.length}, minmax(9rem, 1fr))`;
 
   const corner = document.createElement("div");
   corner.className = "timeline-corner";
@@ -11977,13 +12086,16 @@ async function renderTimeline() {
   }
 
   for (const band of body.bands) {
-    const name = document.createElement("div");
+    const name = document.createElement("button");
+    name.type = "button";
     name.className = "timeline-band";
-    name.textContent = band.name;
+    name.title = `Show the ${band.name} notes`;
+    name.append(band.name);
     const count = document.createElement("span");
     count.className = "muted";
     count.textContent = ` ${band.count}`;
     name.appendChild(count);
+    name.addEventListener("click", () => openTimelineBand(band, body.group));
     grid.appendChild(name);
 
     const inBand = new Set(band.ids);
@@ -12011,13 +12123,37 @@ function bucketLabel(iso, scale) {
   return day.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
+// The preview is the raw note text sliced to 120 chars server-side (§37J) —
+// `**bold**` and `# a heading` showed their literal punctuation in the one
+// place they're smallest and most cramped to read. Full `renderMarkdown`
+// builds block-level DOM (headings, code blocks with a copy button) that
+// doesn't make sense clamped to two lines inside a button, so this strips the
+// syntax to plain words instead. The slice can land mid-token — `**bold te`
+// with no closing `**` — so every rule here deletes delimiter characters
+// outright rather than matching opening/closing pairs, which handles a
+// truncated run the same way as a complete one.
+function stripMarkdownPreview(text) {
+  return text
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^>\s?/gm, "")
+    .replace(/^[-*+]\s+/gm, "")
+    .replace(/^\d+\.\s+/gm, "")
+    .replace(/`{1,3}/g, "")
+    .replace(/\*\*/g, "")
+    .replace(/__/g, "")
+    .replace(/~~/g, "")
+    .replace(/[*_](?=\S)|(?<=\S)[*_]/g, "")
+    .replace(/!?\[([^\]]*)\]\([^)]*\)?/g, "$1");
+}
+
 function timelineDot(note) {
   const dot = document.createElement("button");
   dot.className = `timeline-dot${note.placed_by === "mentioned" ? " timeline-dot-mentioned" : ""}`;
   dot.type = "button";
   // 🕓 marks a note that is here because of what it says, not when it was
   // typed. Without it the timeline quietly moves notes and looks wrong.
-  dot.textContent = (note.placed_by === "mentioned" ? "🕓 " : "") + note.preview;
+  dot.textContent =
+    (note.placed_by === "mentioned" ? "🕓 " : "") + stripMarkdownPreview(note.preview);
   dot.title =
     note.placed_by === "mentioned"
       ? `“${note.phrase}” in this note meant ${new Date(note.at).toLocaleDateString()}.` +
@@ -12029,6 +12165,38 @@ function timelineDot(note) {
     flashEntry(note.id);
   });
   return dot;
+}
+
+// Matches routes_timeline.py's OTHER_BAND — the long-tail lane has no single
+// category or tag to filter by, so clicking it just clears filters instead.
+const TIMELINE_OTHER_BAND = "Everything else";
+
+// A band names a category or a tag; clicking it should do what clicking
+// either already does elsewhere in the app (the sidebar's category rows, a
+// Library tag card) rather than only ever opening the note the click
+// happened to land on — the Timeline's whole complaint was "low utility".
+function openTimelineBand(band, group) {
+  switchTab("notes");
+  showNotesSection("browse");
+  const box = $("note-search");
+  if (group === "category" && band.name !== TIMELINE_OTHER_BAND) {
+    activeCategory = band.name;
+    if (box) box.value = "";
+  } else {
+    activeCategory = null;
+    if (box) {
+      box.value =
+        group === "tag" && band.name !== TIMELINE_OTHER_BAND
+          ? band.name === "untagged"
+            ? "is:untagged"
+            : `tag:${band.name}`
+          : "";
+    }
+  }
+  noteSearch = box ? box.value.trim() : "";
+  $("save-search")?.classList.toggle("hidden", !noteSearch);
+  renderSidebar();
+  renderEntries();
 }
 
 for (const id of ["timeline-scale", "timeline-group", "timeline-days"]) {
@@ -16450,6 +16618,7 @@ const MIRRORED_UI_EXTRAS = [
   "graph-layout",
   "graph-colour",
   "graph-options-open",
+  "graph-trace-open",
   "chat-composer-height",
 ];
 
@@ -18361,6 +18530,13 @@ $("graph-options-toggle").addEventListener("click", () => {
   $("graph-options-toggle").classList.toggle("is-on", open);
   localStorage.setItem("graph-options-open", open ? "1" : "0");
 });
+// Trace (§9), folded away the same way Options is (§37F) — it is a mode you
+// step into to ask one question, not a strip worth drawing on every visit.
+// Closing it does not clear an active trace: the path stays drawn on the map
+// itself, the same as Options' sliders keep their values while hidden.
+$("graph-trace-toggle").addEventListener("click", () =>
+  setTracePanelOpen($("graph-trace").classList.contains("hidden"))
+);
 // Trace (§9). The pickers themselves do not fire a trace on change: picking
 // the first of two notes should not run a search that can only fail.
 $("graph-trace-run").addEventListener("click", runTrace);

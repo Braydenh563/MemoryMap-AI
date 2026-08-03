@@ -4748,6 +4748,9 @@ html { font-size: 16px; }
   flex: 0 1 clamp(19rem, 30%, 26rem);
   min-width: 0;
   overflow: hidden;
+  /* Containing block for .web-panel-resize (§37D.1), same reason #sidebar
+     gets it above. */
+  position: relative;
 }
 /* Below this the two columns are both too narrow to use, so the panel takes
    the whole of <main> and the conversation waits behind it. The ✕ is right
@@ -5957,6 +5960,16 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 @media (max-width: 720px) {
   .sidebar-resize { display: none; }
 }
+
+/* The web panel (§37D.1) sits to the right of the conversation, not the
+   left, so its handle is on the *leading* edge — the mirror of the three
+   sidebars above, which all grow away from the content beside them. */
+.web-panel-resize { left: 0; right: auto; }
+@media (max-width: 1100px) {
+  /* Below this #web-panel takes the whole of <main> (see the layout rule) —
+     there is no room beside it to resize into. */
+  .web-panel-resize { display: none; }
+}
 @media (prefers-reduced-motion: reduce) {
   .sidebar-resize { transition: none; }
 }
@@ -6919,19 +6932,35 @@ textarea.autogrow {
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
+/* A band names a category or a tag (§37J) — clicking it filters Notes →
+   Browse to that band, the same "clicking a grouping opens what's in it"
+   pattern the sidebar's category rows and a Library tag card already use.
+   It's a <button> now rather than a <div>, so every rule a plain block got
+   for free (font, border, background, text alignment) needs restating. */
 .timeline-band {
   position: sticky;
   left: 0;
   z-index: 1;
   background: var(--card);
+  font: inherit;
   font-size: 0.8rem;
   font-weight: 600;
+  color: var(--text);
+  text-align: left;
   padding: 0.4rem 0.5rem 0.4rem 0;
+  border: none;
   border-right: 1px solid var(--border);
+  border-radius: 0;
   display: flex;
   justify-content: space-between;
   gap: 0.4rem;
   align-items: baseline;
+  width: 100%;
+  cursor: pointer;
+}
+.timeline-band:hover, .timeline-band:focus-visible {
+  color: var(--accent);
+  outline: none;
 }
 .timeline-cell {
   display: flex;

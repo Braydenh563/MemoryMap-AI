@@ -2,6 +2,35 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the AGPL/MIT constraint) · [HISTORY.md](HISTORY.md) (already built).
 
+## Latest session: §37's top four, done
+
+Worked §37's own priority list in order. **37B decided (no lock-screen Quit
+button — the LAN-DoS trade-off wasn't worth a convenience button, decided with
+the user directly). 37D.1, 37J and 37F are built and verified in Chromium** —
+details and the reasoning are in ROADMAP.md's §37B/§37D/§37F/§37J, updated in
+place rather than duplicated here.
+
+**37F had a real surprise worth internalising**: most of "the graph toolbar is
+bulky" was already fixed the *day before* that section was written
+(`3e77f57`) — the roadmap text describing twelve controls in one row was
+stale the moment it was committed. Checking the running app first (not just
+grep, an actual look) is what caught it; building against the roadmap
+paragraph instead would have redone finished work. The one genuine gap —
+Trace as a permanent row — was real and is now fixed.
+
+**Next up per §37's own ranking: 37E, the zoom setting.** It needs a design
+spike (CSS `zoom` vs a root `font-size` percentage vs `transform: scale`)
+before code — see §37E in ROADMAP.md for the trade-offs already written out.
+
+**What I could not check:** anything about a real model (unchanged, standing
+caveat), and the desktop shell. Everything UI in this session's four items
+*was* driven in Chromium — screenshots, a resize drag measured before and
+after, a full page reload to confirm `graph-trace-open`/web-panel-width
+persistence, and a full `pytest tests/` (~1,600 tests) plus `ruff check .`
+green afterward.
+
+---
+
 Written at the end of the session that **deleted three surfaces**, moved web
 search out of the chat dock, added embedding-model management, and — in a long
 follow-on round the same session — fixed six more reported bugs and triaged a

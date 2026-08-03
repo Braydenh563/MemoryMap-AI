@@ -13,6 +13,7 @@ which defeats the point of a document written for a fresh session. Split by
 | | What's in it |
 | --- | --- |
 | **ROADMAP.md** (here) | The live list: what to do next, and the two sections of freshly reported work (§35, §36). Start here. |
+| [roadmap/HANDOVER.md](roadmap/HANDOVER.md) | **The last session's handover.** What is now true that wasn't, what could *not* be checked and why, where to start, and the two Playwright traps that will otherwise cost you an hour. Shorter than the rest; read it first. |
 | [roadmap/BACKLOG.md](roadmap/BACKLOG.md) | The standing backlog — §1–§29, numbered exactly as before. |
 | [roadmap/ANALYSIS.md](roadmap/ANALYSIS.md) | §30–§34. Judgements, the odysseus read, what was deliberately not taken. Reference, not work. |
 | [roadmap/HISTORY.md](roadmap/HISTORY.md) | What is already done. **Read before building anything** — three sessions have rebuilt something that already existed. |

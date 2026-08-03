@@ -4,19 +4,17 @@ Everything outstanding, in the order I'd do it. Written so a fresh session can
 pick up without re-deriving context. Each item says **why** it matters, not just
 what to build — the reasoning is the part that's expensive to reconstruct.
 
-> **The live front door is [§37](#37-reported-in-one-session-the-second-big-batch-reprioritised).**
-> This file accreted three earlier "here's the current priority" sections —
-> "Next session: start here", "Do these next, in this order", and "Priority
-> map" — each written for its own round and each now a mix of correct history
-> and claims that have since gone stale (the Library tab is listed as an open
-> Tier 3 item below; it is built, and three of its own panels have since been
-> *deleted* as redundant — see §36G). Rather than rewrite three sections' worth
-> of prose to match, each has a correction note at its own top. **If you read
-> nothing else in this file, read §37's own "Priority order for the next
-> session" at the end of that section** — it is current as of the session that
-> wrote it, folds in everything reported since, and is reprioritised at the
-> user's explicit request. Everything before it is worth reading for the
-> reasoning, not for the ranking.
+> **The live front door is [§38, "Where this actually stands"](#38-where-this-actually-stands--the-backlog-audit).**
+> §35–§37 were three consecutive rounds of reported bugs and UI polish, and by
+> the end of §37 all of them were done — which is exactly the trap: three
+> sessions in a row kept extending the *newest* section instead of stepping
+> back to the other 34 sections waiting underneath it. §38 is that step back:
+> a full audit of BACKLOG.md (§1–§29) and ANALYSIS.md (§30–§34) against the
+> actual code, done because the backlog itself had gone stale in both
+> directions (things marked open that were built, and the project's own
+> outside review's top recommendation already satisfied but not marked so).
+> **Read §38 first — it supersedes the ranking in every section before it,
+> including §37's own "priority order for the next session."**
 
 ## This file, and its three companions
 
@@ -127,201 +125,36 @@ Everything below this block is the standing backlog, unchanged.
 
 ---
 
-## Do these next, in this order
+## Do these next, in this order — closed out; kept as a record
 
-> ### ⚠️ Superseded twice — by [§35](#35-reported-in-one-session-the-big-batch-triaged), then by [§37](#37-reported-in-one-session-the-second-big-batch-reprioritised)
->
-> §35's own callout below is left as it was written. Two rounds of work have
-> landed since — §36 (the Library, the status bar, three panels deleted) and
-> §37 (this session's UI batch). **§37's own priority order is the current
-> one.** What follows here is kept for the reasoning, which is still good;
-> the ranking is not current.
->
-> A single round of real use produced twenty-odd reports, most of them in the
-> desktop app and most of them invisible to this suite. **§35 is the live
-> list**; the six items below are the *previous* round and are all closed.
->
-> The order §35 argues for, shortest reason first:
->
-> 1. **Hallucinated writes** (§35B) — the agent narrated linking five notes
->    and called no write tool. This is the failure that destroys trust in
->    every other feature, and the net written to catch it did not fire.
-> 2. **Quick + a thinking model returns nothing** (§35A.3 / §35D) — a total
->    failure, reproduced twice by the user, with a plausible one-line cause
->    (`num_predict` shared between thinking and answer).
-> 3. **The Ask section** (§35A) — four reports on one box, and the direction
->    is clear: it is for interrogating the notebook, not for chatting.
-> 4. **The broken buttons and the stacked constellation** (§35F, §35G) —
->    probably one cause between them, and "again" in the report means the
->    last fix was not held by a test.
-> 5. **Desktop persistence and file saves** (§35E) — two symptoms, likely
->    one storage bug; the file-save half needs a server-side route.
-> 6. Everything else in §35, which is written up in place.
->
-> The rule below still governs all of it: **check the running app first.**
-
-Re-prioritised after a round of use. The ordering is by *how often it gets in
-the way*, not by how interesting it is to build.
-
-1. ~~**Skills are not skills** (§21)~~ **rebuilt, and running one is a job
-   now.** A skill has ordered steps, a tool allowlist and declared inputs;
-   `save_skill` takes steps and tools, so "make me a skill that files my inbox
-   notes" has somewhere to put them. Running one executes **a step per turn**,
-   ticking each off, naming the step that failed, and ending in a list of what
-   changed with an Undo on each. The allowlist is both the safety property and
-   the §11a win: a run offers its own tools instead of all 28 (1,963
-   characters of schema instead of 10,215). What is left is small — see §21.
-2. **Web search still returns nothing** (§8b). **Two causes found and fixed
-   this session, both Windows-only, both reported by the user rather than
-   found in the log** — see §8b. The install error (`does not appear to be a
-   Python project`) and "started but never answered" were the same class of
-   mistake: a POSIX idiom that does something else on Windows. Unverified on
-   Windows itself — the sandbox is Linux — so the next session should confirm
-   with the user before assuming this one is closed.
-3. **Token usage in chats** (§11a). Asked directly: "is there a way to reduce
-   excessive token usage in the chats?" A 3-turn chat is showing 8.7k tokens.
-   The history and the retrieved notes are resent whole on every turn.
-   *Measured since:* the fixed overhead alone — system prompt plus all 28 tool
-   schemas — is ~3,050 tokens per round, and 77% of that is the schemas, not
-   the prose. `agent.PROMPT_BUDGET_CHARS` now caps it and a test enforces the
-   cap. ~~The remaining win is offering fewer tools per turn~~ **done, both
-   halves.** A skill run offers only the tools it declared (1,963 characters
-   of schema rather than 10,215); an ordinary turn is now read for what it
-   plausibly needs (`tools.focus_for`), which takes the *fixed* overhead of a
-   typical question from ~3,157 tokens to ~1,439. ~~What is left here is the
-   variable half~~ **the variable half is now budgeted too — see
-   `ai/context.py`.** Every part of the prompt is a share of the model's real
-   window rather than its own constant, so the worst case fits by
-   construction instead of by luck; the measurement that motivated it (the
-   old worst case was ~11,328 tokens against a 4,096 window) is written up in
-   "Done in the most recent session". **What is genuinely left is the output
-   side** — `num_predict` is capped at a flat 1,024 now, and the
-   quick/normal/detailed preset below is what would make that adaptive rather
-   than uniform.
-4. ~~**Markdown rendering for notes** (§22)~~ **done.** Inline only — bold,
-   italic, `code`, strike — because `renderMarkdown`'s block elements make a
-   note list enormous, which is the problem §22 itself flagged. Wiki links and
-   filter highlighting both still work inside emphasis. The dashboard's little
-   note lists *strip* the markers instead, since they clip at ~70 characters.
-5. ~~**Note timeline** (§10)~~ **both halves built.** Relative time is
-   resolved at capture (`entry/timewords.py` → `entry_dates`) and there is a
-   **Timeline tab**: a time axis across, bands down the side (category, tag or
-   none), and every note plotted at what it is *about* where it says so —
-   "the beans need netting next week" sits on that week, marked 🕓 — and at
-   when it was written otherwise. What is left is in §10: an `events` table so
-   the bands can be events and places rather than only categories and tags.
-6. ~~**A hero header on the dashboard** (§22)~~ **done** — emblem and wordmark
-   inside the greeting card, hidden below 720px.
-
-**Where this session got to.** Items 1–6 above are all closed. The body
-sections below are the backlog now, and the ones with the most left in them
-are §9 (the graph's *utility* — paths between notes, clusters, drag-to-link;
-the layouts are done), §1 (the live log console), §3 (Chat/Agent/Browse
-sub-tabs) and §4 (the Library tab). §5's "attach documents to notes" is done
-— see below.
-
-> **Check the running app before building anything here.** This document
-> describes intent, and it drifts. An audit of §2 found four of its six "quick
-> wins" already built — the sticky sidebar, the per-code-block copy button,
-> conversation search by content, and the whole document outline with word
-> count and reading time. §5 and §18 each had a completed item still listed as
-> outstanding. Three sessions have now independently rebuilt something that
-> already existed. Items verified against the code are marked ~~struck
-> through~~ with what was found; anything not marked is worth ten seconds of
-> grep first.
+Three consecutive superseding rounds (§35, then §36, then §37) all landed on
+the same six items below, and every one of them is done: skills rebuilt with
+a tool allowlist and a step-per-turn runner (§21), the two Windows web-search
+bugs found and fixed (§8b), token usage budgeted end to end rather than
+resent whole (§11a — `agent.PROMPT_BUDGET_CHARS`, `ai/context.py`), inline
+markdown rendering for notes (§22), both halves of the note timeline (§10A's
+relative-date resolution and the Timeline tab itself), and the dashboard hero
+header (§22). Nothing here needs re-deriving. See **§38 below** for what
+replaced this list as the live priority order.
 
 ---
 
 ## Priority map: quick wins → bigger bets
 
-> **Two corrections before reading this map**, both confirmed while writing
-> §37: **Tier 3's "The Library tab (§4)" is built**, and its own follow-on
-> work is tracked in §36G, not here — leaving it listed below as an open
-> medium bet would send a session to rebuild something with a Library card
-> and a bin bar already sitting in `routes_library.py`. **Tier 3's "Chat /
-> Agent / Browse as real sub-tabs (§3)" is the one part of that pairing still
-> open** — see the note on it in "Next session: start here" above.
+Asked for directly — a triage across *everything* in this document. Four
+tiers. Within a tier, order doesn't mean much; between tiers, it does. **See
+§38 below for the current live ranking** — this map is kept for tiers 2–4,
+which are still an accurate shape of what's left; tier 1 and the security
+tier are historical (all closed) and trimmed to a pointer.
 
-Asked for directly — a triage across *everything* in this document, not just
-the six items above (those are the ones already proven to matter most in
-actual use; this is the rest of the backlog, sorted by effort rather than
-usage history, since nobody has used most of it yet to sort it the other
-way). Four tiers. Within a tier, order doesn't mean much; between tiers, it
-does.
+**Security — all seven closed.** Full audit in [HISTORY.md](roadmap/HISTORY.md).
 
-**Security — worth doing out of turn, regardless of size.** All seven closed; the full audit and what each one turned out to be moved to [HISTORY.md](roadmap/HISTORY.md) once every item was done — this map is for what's still open, not an archive of what isn't.
-
-**Tier 1 — fastest wins.** ~~Hours, not sessions; contained to one file or one
-function; low risk of breaking something else.~~ **all six done.** Unlike the
-security tier, none of these turned out to be already built. Pinned by
-`tests/test_security_boundaries.py` and `tests/test_tier1_refinements.py`.
-
-- ~~Say which search engine answered a query (§13)~~ **done, and it needed
-  more than surfacing a field.** A raw slug already appeared in the status line
-  ("8 results via searxng"), which is not the same as saying what the choice
-  *meant*. Now: a readable name plus a plain-English privacy note ("SearXNG —
-  your own instance, the query stayed on your machine" / "DuckDuckGo — a third
-  party saw this query, but not your notes"), said **on an empty result too**,
-  which is when it matters most and was exactly when the panel went quiet.
-  Per-result, the **upstream engines** SearXNG actually used are now shown —
-  it is a metasearch engine, so "via SearXNG" says where the query was
-  assembled, not who answered it.
-- ~~"N records dropped" visibility in the log console (§1)~~ **done.**
-  `GET /logs/stats` reports `dropped`, `dropped_since`, `held`, `capacity` and
-  `truncated`, and the viewer shows a caution line above the list. `dropped`
-  and `truncated` are deliberately separate numbers: one is gone for good, the
-  other is one bigger `limit` away, and conflating them sends a reader looking
-  in the wrong place. `/logs` itself is untouched and still a plain list.
-- ~~Grey out Gravity/Spread under layouts they don't affect (§8/§9)~~ **done.**
-  Both only ever fed `d3.forceSimulation`, which the tree layouts skip
-  entirely — so under Tree or Radial they moved, saved, and changed nothing.
-  Disabled and dimmed there, with the reason on hover, and restored (along
-  with their own tooltips) on the way back to Force. Set on arrival as well as
-  on change, or a notebook left on Tree returns with two live-looking dead
-  sliders.
-- ~~Flip SearXNG to the recommended default (§13)~~ **done — but not the way
-  this item says, and the difference matters.** Read literally, "flip the
-  default to SearXNG" means the `searxng` provider, which exists precisely so
-  it will **not** fall back. As a default that would make every search fail on
-  a fresh notebook, which has no SearXNG yet — turning a working feature off
-  for everyone who has not installed one. `auto` *already* prefers SearXNG
-  whenever it is running, so the behaviour this item wanted was in place; what
-  was missing was **saying so**. The provider is now labelled "Automatic
-  (recommended)" and its detail explains the preference and the fallback, and
-  the settings copy calls SearXNG "the recommended way to search" and mentions
-  the one-click install, rather than "an optional, self-hosted search engine".
-  README updated to match. A test pins the default at `auto` with the reason.
-- ~~Enforce (or at minimum document) single-worker at startup (§20)~~ **both.**
-  `deps.refuse_multiple_workers()` runs at the top of `create_app()` and raises
-  on `--workers N` (N > 1), `--workers=N`, `-w N` or `WEB_CONCURRENCY`. An
-  exception rather than a warning, because every failure it prevents is silent:
-  a halved log, an unlock that works only sometimes, two workers each believing
-  they own the SearXNG they started. `python -m memorymap` cannot reach this
-  (it hands uvicorn an app object, which uvicorn cannot fork); running
-  `uvicorn` against the factory can, and is the case it exists for.
-  `ARCHITECTURE.md` §13 now has the constraint and a table of what each
-  duplicated singleton would actually do.
-- ~~Audit SearXNG's generated `settings.yml` (§13)~~ **done; less was wrong
-  than feared, and the reasoning is now in the file.** One change:
-  `autocomplete` is pinned to `""` rather than merely left at SearXNG's
-  default, because it is the one thing in a search UI that leaks *without a
-  search being run* — a fragment of every query goes to a third-party
-  suggestion endpoint as it is typed — and this file is rewritten on every
-  start anyway, so pinning costs nothing and survives both a hand edit and an
-  upstream default change. Confirmed already correct: `image_proxy: true`
-  (result images come via SearXNG, so rendering a page does not tell every
-  pictured site you searched — this is also the answer to the "no client-side
-  favicon fetching" worry below), and the engine list, which removes the
-  tracking-heavy defaults and adds two that run their own indexes.
-  `limiter: false` now carries a comment tying it to the loopback bind: it is
-  safe **only** because nothing off this machine can reach the port, and if
-  that ever changes the limiter has to come on in the same edit.
-
-> **Unverified against a live SearXNG.** The sandbox has no route to SearXNG's
-> archive, so the settings change above was checked by parsing the generated
-> file, not by starting an instance on it. It adds one key under an existing
-> section, which is the low-risk shape, but a real start is still worth
-> watching the first time.
+**Tier 1 — fastest wins — all six closed.** Say-which-search-engine-answered
+(§13), log-console drop-count (§1), grey out dead Gravity/Spread controls
+under tree layouts (§9), SearXNG as the explained default (§13), single-worker
+startup enforcement (§20), SearXNG `settings.yml` audit (§13). Pinned by
+`tests/test_security_boundaries.py` and `tests/test_tier1_refinements.py`;
+detail in HISTORY.md if the reasoning is needed again.
 
 **Tier 2 — quick wins.** A session or so. Real but contained — mostly
 extending a pattern that already exists rather than inventing one.
@@ -375,7 +208,8 @@ have a version of.
   standalone session; ride it in on §3.** Asked directly whether this
   refactor should happen first, ahead of everything else here, precisely
   because every new feature adds more code to the one file. The dependency
-  runs the other way, though: touching 12k working lines with nothing
+  runs the other way, though: touching ~20k working lines (grown from ~12k
+  when this note was written — it has not shrunk while unsplit) with nothing
   automated to catch a regression is the riskiest kind of change to make
   *before* the smoke suite above exists, not after — the app's own history
   ("every layout bug found so far passed a fully green run") is a warning
@@ -1996,3 +1830,84 @@ Chromium) across two sessions picking up this list in order:
    it can be scoped; ask, then schedule.
 9. **37L** — the umbrella program; break into dated sub-items as capacity
    allows, don't start a session on "full UI overview" itself.
+
+---
+
+## 38. Where this actually stands — the backlog audit
+
+Written because the user flagged, correctly, that three sessions in a row
+(§35 → §36 → §37) kept extending the newest polish batch instead of touching
+the other 34 sections underneath it, and asked for the roadmap to be honestly
+re-prioritised and then worked through without stopping to ask. This is that:
+a full audit of BACKLOG.md (§1–§29) and ANALYSIS.md (§30–§34) against the
+actual code — not the backlog's own prose, which is exactly what goes
+stale — and the corrected order that follows from it.
+
+### What the audit found
+
+Each stale entry is corrected in place in BACKLOG.md/ANALYSIS.md themselves,
+not just noted here (§4, §11, §16 in BACKLOG.md; §33/§34 in ANALYSIS.md). The
+shape of it:
+
+- **Several sections marked "open" are done**: the Library tab (§4's own
+  headline item), hybrid retrieval/RRF (§11), the status bar (§16, listed
+  twice), and — the one that matters most — the project's own outside
+  review's (§34) #1 recommendation, "finish the agentic loop," which
+  `run_skill` and `make_plan` already satisfy.
+- **§37's polish batch is genuinely finished** — all five of its ranked items
+  (§37B–§37F) are done as of this session, and 37C/37G/37H/37I/37K/37L are
+  each small, secondary, or blocked on a clarifying question, not work that
+  should keep occupying a session on its own.
+- **Real, substantive backlog work has gone untouched for a long time**: no
+  graph layout beyond tree/radial (§9, named the product's own
+  differentiator), no Timeline branch/line view (§10C, asked for twice), no
+  Chat/Agent/Browse sub-tabs (§3, asked for repeatedly), no meeting-notes/
+  transcription (§17, the backlog's own "highest-value single addition," and
+  Whisper is already a dependency), `app.js` still one ~20k-line file with
+  zero CI coverage (§31/§32), and the notebook has never been tested past a
+  few hundred notes despite ANALYSIS §34 flagging that as "the failure that
+  arrives silently, as 'the app got slow,' years in."
+
+### The corrected priority order
+
+Supersedes §37's own list and everything before it in this file. Ranked by
+unlocking real functionality, favouring things asked for repeatedly or
+flagged by the project's own outside review — not by how contained the fix
+is, which is what let three sessions in a row default to the smallest thing
+in front of them:
+
+1. **Scale-test the notebook** (ANALYSIS §34, item 2) — cheap now (a
+   generated 50k-note fixture, a handful of timing assertions, "an afternoon"
+   per the outside review), expensive later. `_suggested_neighbours`,
+   `_graph_neighbours` and the graph endpoint are all untested past a few
+   hundred notes.
+2. **A headless Playwright smoke suite in CI** (§31) — every layout bug this
+   project has found has passed a fully green run; this is the actual fix
+   for that, and the prerequisite the module split below needs before it's
+   safe to attempt.
+3. **Graph layouts beyond tree/radial** (§9) — mind map / treemap / arc;
+   named the differentiator in ANALYSIS §30/§34, and nothing beyond the two
+   existing layouts has been built.
+4. **Timeline branch/line view** (§10C) — asked for twice directly; §37J
+   already fixed the existing view's bugs, so this is additive, not a second
+   pass over the same two problems.
+5. **Chat/Agent/Browse sub-tabs** (§3) — asked for repeatedly (§22 too);
+   needs a short check first, since the Ask/Request mode toggle may have
+   already resolved part of what this was asking for — re-read §3 before
+   assuming the full original scope still applies.
+6. **Meeting notes / transcription** (§17) — Whisper is already a
+   dependency; the backlog calls this the highest-value single addition, and
+   none of it is built.
+7. **Onboarding diagnostics + example notes** (§27) — ANALYSIS §34 ranks
+   this its #3 priority: first run today is "install Python, run a script,
+   install Ollama, pull a model" with nothing to look at until you do.
+8. **`app.js` module split** (§31/§32), riding in on #5 above rather than as
+   its own session, once #2's smoke suite exists — the sequencing reasoning
+   in "Priority map" Tier 3 above still holds.
+9. Everything still open in §37 (37C/37G/37H/37I/37K/37L) — small,
+   secondary, or blocked on a clarifying question; pick these up between the
+   items above, not instead of them.
+
+**Being worked through now, in this order, without stopping to ask** — per
+explicit instruction. See HANDOVER.md for what was actually built each
+session versus what's still ahead on this list.

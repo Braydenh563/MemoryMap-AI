@@ -2,7 +2,38 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the AGPL/MIT constraint) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session: §37's top five, done
+## Same session, continued: the roadmap was re-audited and re-prioritised
+
+The user pushed back, correctly: three sessions in a row (§35 → §36 → §37) had
+kept extending the newest polish batch instead of touching the other 34
+sections underneath it. Asked for the roadmap to be honestly re-prioritised
+and then worked through **without stopping to ask** — treat that as standing
+authorisation for this and future sessions to keep pulling from
+[ROADMAP.md §38](../ROADMAP.md#38-where-this-actually-stands--the-backlog-audit)
+until told otherwise.
+
+**What happened:** a full audit of BACKLOG.md (§1–§29) and ANALYSIS.md
+(§30–§34) against the actual code, not the backlog's own prose. Found real
+staleness in both directions — §4 (Library tab), §11 (hybrid retrieval), §16
+(status bar, listed twice) in BACKLOG.md, and §33/§34 in ANALYSIS.md were all
+marked open for things that are built, including the project's own outside
+review's #1 recommendation ("finish the agentic loop") being satisfied by
+`run_skill`/`make_plan` without ever being marked so. Each is corrected in
+place, not just noted in ROADMAP.md. §38 is the new live front door and
+supersedes §37's own priority list; **read §38 first**, before anything else
+in this file including the section below.
+
+**The corrected order, top of it:** scale-test the notebook past a few
+hundred notes (cheap, flagged by the outside review, never done), a headless
+Playwright smoke suite in CI (the actual fix for "every layout bug passed a
+green run"), graph layouts beyond tree/radial, the Timeline branch/line view,
+Chat/Agent/Browse sub-tabs, meeting-notes/transcription, onboarding
+diagnostics, then the `app.js` module split riding in on the sub-tabs work.
+Full reasoning for each is in §38.
+
+---
+
+## Previous entry in this session: §37's top five, done
 
 Worked §37's own priority list in order, straight through 37B–37E. **37B
 decided (no lock-screen Quit button — the LAN-DoS trade-off wasn't worth a

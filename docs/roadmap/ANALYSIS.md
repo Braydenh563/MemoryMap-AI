@@ -377,11 +377,13 @@ does not get "improved" away:
 
 **Where MemoryMap's tools genuinely could improve**, in order:
 
-1. **The agent cannot run a skill.** It can list skills and save them, but
-   running one is user-initiated through the chip UI. So the model can see a
-   job it is perfectly capable of doing and has no way to start it. This is
-   the single biggest gap in the agentic story, and it is a small change: the
-   skill runner already exists and already takes an allowlist.
+1. ~~**The agent cannot run a skill.**~~ **built.** Flagged stale by this
+   session's backlog audit — `run_skill` exists in `ai/tools.py`'s `HANDOFFS`
+   table (§35 area of ROADMAP.md), so this section's own "single biggest gap"
+   claim no longer holds. `make_plan` shipped alongside it: an open-ended
+   request nobody saved as a skill gets a 2–6 step plan drawn by the agent,
+   its turn ends, and the same runner works through it — which is also item 2
+   below, "a live plan the agent ticks off", done the same way.
 2. ~~**A skill has no "when to use".**~~ **built.** `when_to_use` is a field on
    a skill now, the agent can set it through `save_skill`, and `list_skills`
    returns it. This was the prerequisite for item 1: giving the agent the
@@ -408,12 +410,10 @@ copy.
    the destructive-action confirm card is exactly this UI — so this is mostly
    a second event type and a tool.
 
-2. **A live plan the agent ticks off (`update_plan`).** Odysseus's agent keeps
-   a checklist the user can watch update. MemoryMap's *skill runner* already
-   does this — ordered steps, one per turn, each ticked — but an ordinary agent
-   turn does not. Generalising the skill runner's plan display to any
-   multi-round turn is a smaller job than it sounds, and it is the fix for
-   "long agent runs look like nothing is happening".
+2. ~~**A live plan the agent ticks off (`update_plan`).**~~ **built, via
+   `make_plan`** — see the correction on item 1 above. The skill runner's
+   ticked-step display is now what any open-ended agent turn gets too, not
+   only a saved skill.
 
 3. **Semantic tool retrieval, replacing keyword `focus_for` (§11a, §14).**
    Odysseus embeds its tool descriptions and retrieves the top-K per message,
@@ -545,13 +545,15 @@ guesses into the results, and worthless.
 
 ### Three things I would prioritise, and why
 
-1. **Finish the agentic loop, then stop adding to it.** Running a skill is the
-   missing link (§33). After that the agent can plan, ask, act, and be checked
-   — which is a complete story. The temptation will be to keep adding tools;
-   resist it. 35 is already past the point where a 4k model gets a trimmed set,
-   and odysseus at 69 tools is the cautionary tale in §33: its descriptions are
-   4.6× longer per tool because they are full of "don't use X, use Y". **Every
-   new tool should have to displace an existing one or justify the trim.**
+1. ~~**Finish the agentic loop, then stop adding to it.**~~ **Done — the
+   "then stop" half is now the live instruction.** `run_skill` and `make_plan`
+   both shipped (§33's correction, this session's audit); the agent can plan,
+   ask, act, and be checked. What's left of this recommendation is the second
+   half, which is a standing constraint rather than a task: odysseus at 69
+   tools is still the cautionary tale, so **every new tool should still have
+   to displace an existing one or justify the trim** — that sentence doesn't
+   get to retire just because the tool list it was warning about stopped
+   growing for a while.
 
 2. **Make the notebook survive being large.** Everything here is tested against
    tens of notes and reasoned about for thousands. `_suggested_neighbours` does

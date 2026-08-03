@@ -1196,6 +1196,14 @@ Link to another note with [[its first few words]]."></textarea>
         <input id="library-search" type="search" class="library-search"
           placeholder="🔎 Search titles and previews…"
           aria-label="Search the library">
+        <!-- Binned things are out of "Everything" unless you ask for them:
+             the Library is where you find what you have, and what you threw
+             away is not that. The Bin chip still shows them whatever this
+             says, because pressing a filter called Bin is asking. -->
+        <label class="library-sort">
+          <input type="checkbox" id="library-show-binned">
+          <span class="muted">Include bin</span>
+        </label>
         <label class="library-sort">
           <span class="muted">Sort</span>
           <select id="library-sort" aria-label="Sort the library">

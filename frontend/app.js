@@ -885,7 +885,7 @@ function closeActionMenus() {
     const opener = menu.parentElement.querySelector("[aria-haspopup]");
     if (opener) opener.setAttribute("aria-expanded", "false");
   }
-  for (const strip of document.querySelectorAll(".entry-actions.menu-open")) {
+  for (const strip of document.querySelectorAll(".menu-open")) {
     strip.classList.remove("menu-open");
   }
 }
@@ -912,7 +912,12 @@ function openActionMenu(menu, opener) {
   closeActionMenus(); // only one open at a time
   menu.classList.remove("hidden");
   opener.setAttribute("aria-expanded", "true");
-  menu.closest(".entry-actions")?.classList.add("menu-open");
+  // Whichever ancestor is the stacking context this menu is trapped in. On a
+  // note card that is `.entry-actions` (positioned, z-index 1); on a Library
+  // card it is the card itself, because `backdrop-filter` creates a stacking
+  // context too — which is why the same "menu behind the next card" bug turned
+  // up again on a surface with no z-index in sight.
+  menu.closest(".entry-actions, .library-card")?.classList.add("menu-open");
   menu.querySelector("button")?.focus();
 }
 
@@ -7523,7 +7528,29 @@ $("tab-bar")?.addEventListener("scroll", syncTabOverflowFade, { passive: true })
 // changes width when it does — so remeasure whenever the header changes size
 // rather than only on window resize.
 if (typeof ResizeObserver !== "undefined") {
-  const headerObserver = new ResizeObserver(syncTabOverflowFade);
+  // Measured on the next frame rather than inside the callback.
+  //
+  // Reported from the desktop shell's console: "ResizeObserver loop completed
+  // with undelivered notifications." That warning is the browser saying an
+  // observer callback changed the layout of something it observes, and this
+  // one does exactly that — deciding `.tabs-wrapped` changes the header's
+  // height and the strip's width, which is what it is watching. The loop
+  // terminates (both measurements are independent of the class now, so the
+  // second pass agrees with the first), but it costs a wasted layout every
+  // resize and prints an error that looks like a fault.
+  //
+  // Deferring breaks the cycle: the write lands after the observation phase,
+  // and the `queued` flag collapses a burst of resize notifications into one
+  // measurement instead of one per element per frame.
+  let queued = false;
+  const headerObserver = new ResizeObserver(() => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => {
+      queued = false;
+      syncTabOverflowFade();
+    });
+  });
   const bar = $("tab-bar");
   if (bar) {
     headerObserver.observe(bar);
@@ -14173,6 +14200,12 @@ function renderLibrary() {
   const query = ($("library-search")?.value || "").trim().toLowerCase();
   let items = libraryItems;
   if (libraryKind !== "all") items = items.filter((i) => i.kind === libraryKind);
+  // Deleted things are not part of "everything you have made" — they are
+  // things you decided you had not. They stay out of the mixed list unless
+  // asked for, and the Bin chip is itself an asking.
+  else if (!$("library-show-binned")?.checked) {
+    items = items.filter((i) => i.kind !== "archived");
+  }
   if (query) {
     // Title *and* preview, for the same reason the conversation search reads
     // message text: you remember what a thing was about far more often than
@@ -17416,6 +17449,7 @@ $("status-command").addEventListener("click", () => openPalette());
 // the list already in memory, with no round trip.
 $("library-search").addEventListener("input", renderLibrary);
 $("library-sort").addEventListener("change", renderLibrary);
+$("library-show-binned").addEventListener("change", renderLibrary);
 $("library-refresh").addEventListener("click", loadLibrary);
 $("library-new-doc").addEventListener("click", () => {
   switchTab("documents");

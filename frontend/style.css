@@ -102,6 +102,16 @@
   --page-top: var(--space-6);
   --page-bottom: var(--space-9);
 
+  /* How tall the status bar is (§36D). Declared here rather than left to the
+     bar's own content, because two kinds of thing need to agree with it and
+     neither is inside it: the bar itself, and every `position: fixed` control
+     measured from the bottom of the window — the back-to-top button and the
+     toast stack, both of which sat *on top of* the bar until this existed.
+     Reported as exactly that.
+     Not a spacing token: it is a component's size, the role --header-control-h
+     and --control-h play for the header and the chat dock. */
+  --status-bar-h: 2.3rem;
+
   --radius: 14px;
   /* --- the corner scale (§35L) ---------------------------------------------
      Three tiers derived from --radius, which is the slider in Settings →
@@ -716,8 +726,19 @@ header#top-bar.tabs-wrapped #tab-bar {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-1) var(--space-6);
-  background: var(--card);
+  /* Exactly --status-bar-h, border included, so the offsets the fixed controls
+     compute from it are right rather than nearly right. */
+  height: var(--status-bar-h);
+  box-sizing: border-box;
+  padding: 0 var(--space-6);
+  /* **Opaque, not glass.** Reported: the notes sidebar and its buttons showing
+     through the bar, and it is the same fault the notifications panel had —
+     `--card` is 55% and assumes the frosting `.card` puts over it, so a
+     surface that takes the colour and adds only a blur is half see-through.
+     A status bar is the one surface in the app that must never be ambiguous
+     about what is furniture and what is content: it is always there, at the
+     edge, with a scrolling page ending against it. */
+  background: var(--modal-bg);
   border-top: 1px solid var(--glass-border);
   backdrop-filter: blur(18px) saturate(150%);
   -webkit-backdrop-filter: blur(18px) saturate(150%);
@@ -1564,7 +1585,10 @@ li.link-source { outline: 2px solid var(--accent); }
 #toast-box {
   position: fixed;
   right: 1rem;
-  bottom: 1rem;
+  /* Clear of the status bar for the same reason the back-to-top button is: a
+     toast is a message you are meant to read, and half of one behind the bar
+     is a message you are meant to guess at. */
+  bottom: calc(var(--status-bar-h) + var(--space-3));
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -3312,12 +3336,34 @@ html { font-size: 16px; }
   min-width: 0;
   max-width: 100%;
   overflow-x: hidden;
+  /* **And must never make the page taller, either.** Reported: opening this
+     pushed the chat dock off the bottom of the window. Measured at 1440x900:
+     the dock grew to 556px and ended at y=931 — past the status bar at 863 and
+     past the window at 900 — with the composer at 878-931, entirely behind the
+     bar. The Send button was not merely awkward, it was unreachable.
+
+     The panel sits inside `.chat-dock`, which is `flex: 0 0 auto` on purpose:
+     the dock must not be squashed by a long conversation. So a panel that can
+     grow without limit inside it grows the one thing in the column that
+     refuses to give way, and the composer is pushed out of the card.
+
+     Bounded here instead. `min()` so it is a share of a tall window and a
+     fixed cap on a short one, and it scrolls its own results rather than
+     scrolling the page. */
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: min(38vh, 20rem);
 }
 .web-panel.hidden { display: none; }
 .web-panel .row { margin: 0 0 0.4rem; min-width: 0; flex-wrap: wrap; }
 .web-panel #web-query { min-width: 0; flex: 1; }
 .web-results {
-  max-height: 20rem;
+  /* The panel owns the height now; this takes what is left of it. A second
+     max-height here would be a number that has to agree with the one above,
+     and the one that lost the argument would silently clip. */
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   min-width: 0;
@@ -4122,7 +4168,13 @@ html { font-size: 16px; }
 #tab-chat:not(.hidden) {
   display: flex;
   flex-direction: column;
-  min-height: calc(100vh - 9rem);
+  /* No `min-height: calc(100vh - 9rem)` any more. Every one of these viewport
+     sums was a guess at the app's own furniture, and each was wrong the moment
+     the furniture changed: 9rem assumed a 60px header, so it was already out
+     by 42px whenever the tab strip wrapped to two rows, and out by another
+     37px once the status bar existed. The page is a flex child of a flex
+     column that fills the window — its size is the space it is given, and
+     `100%` is how you say that without arithmetic that can go stale. */
 }
 #tab-chat:not(.hidden) > .layout { flex: 1; min-height: 0; }
 #graph-card {
@@ -4144,11 +4196,25 @@ html { font-size: 16px; }
    transcript scrolling between them. */
 #tab-chat:not(.hidden) > .layout {
   align-items: stretch;
-  /* Fill the window rather than growing with the transcript: the composer
-     belongs at the bottom of the screen, not wherever the conversation
-     happens to end. */
-  height: calc(100vh - 4.5rem);
-  min-height: 32rem;
+  /* Fill the *page*, not a guess at the window minus some furniture (see
+     above). The composer belongs at the bottom of the space this tab has, and
+     that is what 100% of the page's content box is.
+     `min-height: 0` rather than 32rem: a floor taller than the box it is in is
+     an overflow by another name, and it was this one — the grid was asked for
+     828px inside 713px, so `main` overflowed its row, and the dock's ability
+     to shrink had nothing to shrink into. That is why the composer sat below
+     the status bar even after the web panel was capped. */
+  height: 100%;
+  min-height: 0;
+  /* The block-axis twin of the `minmax(0, 1fr)` the base `.layout` rule uses
+     for its columns, and it exists for exactly the same reason: an auto-sized
+     track refuses to shrink below its content, so `align-items: stretch` was
+     stretching `main` to an 804px row inside a 713px grid. The page then
+     scrolled to compensate and the composer ended up under the status bar —
+     which is the reported symptom, and why capping the web panel alone did not
+     fix it. A row that is allowed to be shorter than its content is what lets
+     the dock's `flex: 0 1 auto` actually shrink something. */
+  grid-template-rows: minmax(0, 1fr);
 }
 /* Both columns are .card, and .card carries `margin-bottom: 1rem`. On a
    stretched grid row that made the sidebar end exactly 16px above the panel
@@ -4175,9 +4241,16 @@ html { font-size: 16px; }
 }
 #chat-messages {
   flex: 1 1 auto;
+  /* 12rem is a floor for the normal case: a conversation squeezed to two lines
+     is not a conversation. It is not a floor worth keeping the composer off
+     the screen for, though — so while the web panel is open the messages give
+     way first. They are the one thing in this column that scrolls; the dock's
+     controls and the composer do not, and cannot be shrunk without being cut
+     off. */
   min-height: 12rem;
   overflow-y: auto;
 }
+#chat-main:has(.web-panel:not(.hidden)) #chat-messages { min-height: 4rem; }
 .chat-toolbar {
   display: flex;
   align-items: center;
@@ -4389,9 +4462,29 @@ html { font-size: 16px; }
 /* The web panel opens inside the dock, next to the button that opens it. Its
    inner lists already scroll; this caps the whole thing so a page of results
    can never grow the dock until the conversation above it is a sliver. */
+/* **The dock gives way, and the panel is the only part of it that can.**
+   A `max-height` in vh was the previous answer and it cannot be right: the
+   dock also holds the controls strip, the composer and a status line, none of
+   which can shrink without being cut off, so any fraction of the window large
+   enough to be a useful results list is also large enough to push the composer
+   out once the messages hit their floor. Measured before this: composer at
+   878-931 against a window of 900 and a status bar at 863.
+
+   No number here at all now. The dock may shrink (`flex: 0 1 auto`), the panel
+   is the one child that yields, and the cap below is a *preference* — don't
+   eat the whole conversation when there is plenty of room — rather than the
+   thing keeping the composer on screen. */
+.chat-dock {
+  flex: 0 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.chat-dock > * { flex: 0 0 auto; }
 .chat-dock .web-panel {
-  max-height: 45vh;
-  overflow-y: auto;
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: min(45vh, 22rem);
   margin-bottom: var(--space-4);
 }
 .chat-dock .persona-prompt { margin-bottom: var(--space-4); }
@@ -4685,7 +4778,10 @@ button { border-radius: calc(var(--radius) * 0.7); }
 .scroll-top {
   position: fixed;
   right: 1.5rem;
-  bottom: 1.5rem;
+  /* Above the status bar, not on it. Reported. Measured from the bar's own
+     declared height so the two cannot drift apart — the failure a hard-coded
+     offset guarantees the first time the bar's padding changes. */
+  bottom: calc(var(--status-bar-h) + var(--space-4));
   z-index: 40;
   width: 2.75rem;
   height: 2.75rem;
@@ -4711,7 +4807,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
 .scroll-top:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 @media (max-width: 720px) {
-  .scroll-top { right: 1rem; bottom: 1rem; }
+  .scroll-top { right: 1rem; bottom: calc(var(--status-bar-h) + var(--space-3)); }
 }
 @media (prefers-reduced-motion: reduce) {
   .scroll-top { transition: none; }
@@ -6889,6 +6985,10 @@ textarea.autogrow {
    come later in the document — which is every note below this one. See
    `openActionMenu` in app.js for what that cost. */
 #entry-list > li .entry-actions.menu-open { z-index: 5; }
+/* And the Library's cards, for the same reason with a different cause: each
+   card carries `backdrop-filter`, which creates a stacking context of its own,
+   so a menu inside one can never rise above the card that comes after it. */
+.library-card.menu-open { z-index: 5; }
 #entry-list > li:hover .entry-actions,
 #entry-list > li:focus-within .entry-actions {
   opacity: 1;

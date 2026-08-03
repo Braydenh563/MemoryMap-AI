@@ -16,7 +16,18 @@ from __future__ import annotations
 
 import json
 
-from memorymap.core.database import Attachment, EmbeddingRecord, Entry, EntryLink
+from memorymap.core.database import (
+    Attachment,
+    Document,
+    DocumentLink,
+    EmbeddingRecord,
+    Entry,
+    EntryDate,
+    EntryLink,
+    EntryRevision,
+    Reminder,
+    utcnow,
+)
 
 
 def _note(session, content, tags=None, parent_id=None):
@@ -129,3 +140,89 @@ def test_purging_a_parent_leaves_its_replies_as_roots(client, session):
 
     session.expunge_all()
     assert session.get(Entry, reply.id).parent_id is None
+
+
+def test_a_note_with_every_kind_of_attached_row_can_still_be_destroyed(client, session):
+    """Reported twice in one sitting: "request failed (500) when I tried to
+    empty the bin", and two particular notes that would not delete at all.
+
+    One cause. `PRAGMA foreign_keys=ON` is set, and `_hard_delete` cleaned
+    three of the seven tables that point at an entry — so a row left in any of
+    the other four made `DELETE FROM entries` raise IntegrityError, which the
+    API returned as a 500 and the bin was left exactly as it had been. The two
+    notes in the report both carried a resolved time phrase (the `🕓 this week
+    → week of 27 July` chip is an `entry_dates` row), which is why those two
+    and not the rest.
+
+    This builds a note with **one row in every table that references an
+    entry** and destroys it. Anything that gains a `ForeignKey("entries.id")`
+    later has to be handled in `_hard_delete`, and this fails until it is.
+    """
+    goner = _note(session, "a note with everything hanging off it")
+    other = _note(session, "another note")
+    document = Document(title="Compiled notes", content="x")
+    session.add(document)
+    session.flush()
+    session.add_all(
+        [
+            EntryDate(entry_id=goner.id, phrase="this week", at=utcnow(), precision="week"),
+            EntryRevision(entry_id=goner.id, content="an earlier draft", tags="[]"),
+            DocumentLink(document_id=document.id, entry_id=goner.id),
+            Reminder(entry_id=goner.id, text="water the tomatoes", due_at=utcnow()),
+            EntryLink(source_entry_id=goner.id, target_entry_id=other.id),
+            EmbeddingRecord(entry_id=goner.id, embedding=b"\x00" * 4, dim=1, model_version="test"),
+            Attachment(
+                entry_id=goner.id,
+                filename="x.png",
+                stored_name="stored-x.png",
+                mime="image/png",
+                size=1,
+            ),
+        ]
+    )
+    session.commit()
+    client.delete(f"/entries/{goner.id}")
+
+    response = client.delete(f"/entries/{goner.id}/purge")
+
+    assert response.status_code == 200, response.text
+    session.expunge_all()
+    assert session.get(Entry, goner.id) is None
+    assert session.query(EntryDate).filter_by(entry_id=goner.id).count() == 0
+    assert session.query(EntryRevision).filter_by(entry_id=goner.id).count() == 0
+    assert session.query(DocumentLink).filter_by(entry_id=goner.id).count() == 0
+
+
+def test_a_reminder_outlives_the_note_it_came_from(client, session):
+    """Detached, not deleted. "Water the tomatoes" is still something the user
+    asked to be reminded of after the note that prompted it has gone, and
+    deleting it would throw away something they set by hand — which is a
+    different act from emptying a bin, and not one they asked for."""
+    goner = _note(session, "the note that prompted a reminder")
+    session.add(Reminder(entry_id=goner.id, text="water the tomatoes", due_at=utcnow()))
+    session.commit()
+    client.delete(f"/entries/{goner.id}")
+
+    client.delete(f"/entries/{goner.id}/purge")
+
+    session.expunge_all()
+    surviving = session.query(Reminder).all()
+    assert [(r.text, r.entry_id) for r in surviving] == [("water the tomatoes", None)]
+
+
+def test_emptying_the_bin_survives_a_note_with_a_resolved_date(client, session):
+    """The reported route, not just the per-note one: "Empty now" walks the
+    same `_hard_delete`, so it returned 500 and emptied nothing."""
+    for text in ["classes this week", "a plain note"]:
+        note = _note(session, text)
+        session.add(
+            EntryDate(entry_id=note.id, phrase="this week", at=utcnow(), precision="week")
+        )
+        session.commit()
+        client.delete(f"/entries/{note.id}")
+
+    response = client.post("/recycle-bin/empty")
+
+    assert response.status_code == 200, response.text
+    session.expunge_all()
+    assert session.query(Entry).filter_by(is_deleted=True).count() == 0

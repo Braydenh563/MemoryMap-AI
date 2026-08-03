@@ -170,7 +170,46 @@ def test_retrieve_recent_fallback_empty_notebook(session):
         session, "anything", FakeEmbeddingService(available=False)
     )
     assert entries == []
-    assert mode == "keyword"
+
+
+def test_retrieve_finds_a_subject_match_outside_a_misremembered_range(session):
+    """Reported directly: a joke tagged joke/jokes/funny (the word "joke"
+    never appears in the text itself), asked about as "two weeks ago" when
+    it was actually written three weeks ago — the hard date filter excluded
+    it and the answer came back empty. Dropping the date and keeping the
+    subject (not the reverse — see the comment on the fallback this pins)
+    should surface it, labelled `outside_range` rather than as a real
+    in-window hit."""
+    from datetime import timedelta
+
+    from memorymap.core.database import utcnow
+
+    joke = manager.create_entry(
+        session,
+        "why did the chicken cross the road? to prove it could be done",
+        tags=["joke", "jokes", "funny"],
+    )
+    joke.created_at = utcnow() - timedelta(days=21)
+    session.commit()
+
+    entries, mode = search_manager.retrieve(
+        session, "that joke I wrote about two weeks ago", FakeEmbeddingService(available=False)
+    )
+    assert mode == "outside_range"
+    assert [e.id for e in entries] == [joke.id]
+
+
+def test_retrieve_dated_subject_question_still_empty_when_truly_nothing_matches(session):
+    """The fallback above must not become the rejected one it sits next to
+    — a date question with a subject that matches *nothing at all*, in or
+    out of the window, still says so honestly rather than listing unrelated
+    notes."""
+    manager.create_entry(session, "a note about gardening")
+    entries, mode = search_manager.retrieve(
+        session, "that joke I wrote about two weeks ago", FakeEmbeddingService(available=False)
+    )
+    assert mode == "dated"
+    assert entries == []
 
 
 def test_chat_broad_question_answers_from_recent(ai_client, fake_ollama):

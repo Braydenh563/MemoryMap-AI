@@ -29,6 +29,13 @@
      means the setting reaches everything spaced by a token, which is now
      everything. */
   --density: 1;
+  /* §37E: the interface-wide zoom, a percentage/100 set from JS. Multiplies
+     the root font-size below rather than using CSS `zoom` or `transform:
+     scale` — the app's control heights, icons and gaps are already in rem
+     (§35L), so they follow a root-font-size change for free, and this avoids
+     `zoom`'s known bad interactions with the `100dvh`/`100vw` measurements
+     `--page-viewport`/`--page-sticky-h` (§36) lean on. */
+  --zoom: 1;
   --space-1: calc(0.25rem * var(--density));
   --space-2: calc(0.4rem * var(--density));
   --space-3: calc(0.5rem * var(--density));
@@ -1254,18 +1261,23 @@ header#top-bar.tabs-wrapped #tab-bar {
        container now (§36A) and the header is outside it, so the sidebar sticks
        to the top of the page it lives in. */
     top: 0;
-    /* `height`, not `max-height` — the same full-height sidebar the chat tab
-       has, reached a different way because this page scrolls and that one does
-       not. A `max-height` only *caps*: the card was still sized by its own
-       content, so a short category list left a band of empty page between the
-       sidebar and the bottom of the window while the chat sidebar beside it
-       (which is `height: 100%` of a bounded grid area) filled its column.
-       Two sidebars that behave differently is the thing that reads as broken.
-
-       `--page-sticky-h` is the page minus its own padding, so this is exactly
-       what `height: 100%` resolves to over on the chat tab; the list inside
-       already scrolls. */
-    height: var(--page-sticky-h);
+    /* `min-height`, not `height` (reported again — a fixed `height` only
+       fixed the case it was measured against). `--page-sticky-h` is a
+       *guess* at the viewport's usable height; `main` beside this sidebar
+       is a stack of ordinary cards that isn't capped the way `#chat-main`
+       is, so on a Notes tab with a few notes it's shorter than the guess —
+       exactly the "short category list, empty band below" case `height`
+       was written to fix — but with enough notes it's *taller* than the
+       guess, and a fixed `height` doesn't grow to follow it: the grid row
+       stretches to fit `main`, the sidebar stays pinned at the shorter
+       fixed number, and the gap this was reported against is the space
+       between them, on top of the page's own bottom margin.
+       `min-height` keeps the floor for the short case and lets `.layout`'s
+       own `align-items: stretch` (only suppressed by an explicit `height`)
+       take over for the tall one — the sidebar matches whichever of the
+       two is actually taller, instead of asserting a number that's only
+       sometimes right. */
+    min-height: var(--page-sticky-h);
     overflow-y: auto;
   }
 }
@@ -3625,9 +3637,15 @@ html { font-size: 16px; }
 }
 .seg button.active { background: var(--accent); color: #fff; }
 
-/* Text size scales the root font (rem-based layout follows). */
-:root[data-fontsize="small"] { font-size: 14.5px; }
-:root[data-fontsize="large"] { font-size: 18px; }
+/* Text size scales the root font (rem-based layout follows). Composed with
+   --zoom multiplicatively (§37E) rather than as a second, competing driver of
+   font-size — "Large text" at 80% zoom and "Normal text" at 100% zoom are
+   both legible requests, not a fight over the same property. The attribute
+   selectors' higher specificity beats the bare :root rule below regardless of
+   sheet order, so zoom applies whichever text size is active. */
+:root { font-size: calc(16px * var(--zoom)); }
+:root[data-fontsize="small"] { font-size: calc(14.5px * var(--zoom)); }
+:root[data-fontsize="large"] { font-size: calc(18px * var(--zoom)); }
 
 /* Compact density trims padding on cards and list rows. */
 
@@ -4249,7 +4267,15 @@ html { font-size: 16px; }
   background: var(--accent-soft);
   color: var(--accent);
 }
-#sidebar { align-self: flex-start; }
+/* Was `align-self: flex-start;` — predates, and silently overrode, the
+   `.layout`/`#tab-notes #sidebar` "stretch, not start" fix those two rules'
+   own comments describe: `align-self` on the item always wins over the
+   grid's `align-items`, so this alone was why the sidebar never stretched
+   to match a taller `main`, no matter what either of those two rules said.
+   Reported again as "a gap below the sidebar" after the `height`→
+   `min-height` fix on `#tab-notes #sidebar` still didn't close it — this is
+   why: that fix set a correct floor, but this rule was still refusing to
+   let the box grow past it. */
 /* Was 0.92rem — the same size as the h3s under it, so the sidebar had a
    heading level that looked like its own children (§35L). */
 #sidebar h2 { font-size: var(--text-lg); }
@@ -4748,6 +4774,9 @@ html { font-size: 16px; }
   flex: 0 1 clamp(19rem, 30%, 26rem);
   min-width: 0;
   overflow: hidden;
+  /* Containing block for .web-panel-resize (§37D.1), same reason #sidebar
+     gets it above. */
+  position: relative;
 }
 /* Below this the two columns are both too narrow to use, so the panel takes
    the whole of <main> and the conversation waits behind it. The ✕ is right
@@ -5957,6 +5986,16 @@ body.resizing-sidebar { cursor: col-resize; user-select: none; }
 @media (max-width: 720px) {
   .sidebar-resize { display: none; }
 }
+
+/* The web panel (§37D.1) sits to the right of the conversation, not the
+   left, so its handle is on the *leading* edge — the mirror of the three
+   sidebars above, which all grow away from the content beside them. */
+.web-panel-resize { left: 0; right: auto; }
+@media (max-width: 1100px) {
+  /* Below this #web-panel takes the whole of <main> (see the layout rule) —
+     there is no room beside it to resize into. */
+  .web-panel-resize { display: none; }
+}
 @media (prefers-reduced-motion: reduce) {
   .sidebar-resize { transition: none; }
 }
@@ -6919,19 +6958,35 @@ textarea.autogrow {
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
+/* A band names a category or a tag (§37J) — clicking it filters Notes →
+   Browse to that band, the same "clicking a grouping opens what's in it"
+   pattern the sidebar's category rows and a Library tag card already use.
+   It's a <button> now rather than a <div>, so every rule a plain block got
+   for free (font, border, background, text alignment) needs restating. */
 .timeline-band {
   position: sticky;
   left: 0;
   z-index: 1;
   background: var(--card);
+  font: inherit;
   font-size: 0.8rem;
   font-weight: 600;
+  color: var(--text);
+  text-align: left;
   padding: 0.4rem 0.5rem 0.4rem 0;
+  border: none;
   border-right: 1px solid var(--border);
+  border-radius: 0;
   display: flex;
   justify-content: space-between;
   gap: 0.4rem;
   align-items: baseline;
+  width: 100%;
+  cursor: pointer;
+}
+.timeline-band:hover, .timeline-band:focus-visible {
+  color: var(--accent);
+  outline: none;
 }
 .timeline-cell {
   display: flex;
@@ -6954,9 +7009,14 @@ textarea.autogrow {
   background: var(--chip-bg);
   color: var(--text);
   cursor: pointer;
-  /* Two lines, then clip: a timeline is a shape to scan, not a reading view. */
+  /* Three lines, then clip — not two: reported as still cut off after §37J
+     widened the column, because the preview is up to 120 characters
+     (routes_timeline.py's PREVIEW_CHARS) and 2 lines at any chip-sized width
+     only ever showed a third to a half of that. A timeline chip is still a
+     shape to scan, not a reading view, so this clips rather than growing
+     without bound — just further out than before. */
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }

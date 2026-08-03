@@ -2,6 +2,170 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the AGPL/MIT constraint) · [HISTORY.md](HISTORY.md) (already built).
 
+## Same session, continued again: four reported bugs, fixed as a bounded side-trip
+
+After §38's audit and its first three items landed, four real bugs were
+reported live against this branch (not `main` — confirmed before touching
+anything, since a mismatch there would have meant the fixes were already in
+and just unmerged). Treated deliberately as **contained work**, not a new
+priority list, given the whole point of this session was that §35–37 kept
+doing exactly that. All four are in ROADMAP.md §38a with the full reasoning;
+short version:
+
+1. **Notes sidebar gap** — an uncommented `align-self: flex-start` silently
+   overrode the "stretch, not start" fix .layout's own comment already
+   describes, plus a fixed-height CSS var that couldn't grow past its own
+   guess. Fixed with a `ResizeObserver` mirroring `main`'s real height.
+2. **Timeline text still cut off** — §37J's column widen wasn't enough
+   against a 120-char preview at 2 lines; 13rem + 3 lines gets close to the
+   full text instead of a marginal gain.
+3. **A tagged note missed because the remembered date was wrong** — "that
+   joke... two weeks ago" (actually three) hard-filtered to empty. Added an
+   un-dated subject-only fallback, labelled `outside_range` so it's never
+   mistaken for an in-window match — deliberately the mirror image of a
+   fallback already rejected in the code for good reason (dropping the
+   *subject* and keeping the date instead), not a reopening of that decision.
+4. **A second O(n²) trap**, found because the user asked for a backend
+   sweep after the third fix: `GET /entries/link-suggestions` called a full
+   embedding scan once per entry. Rewritten to fetch every vector once and
+   compare pairs in memory, matching `routes_graph._similarity_edges`'s
+   already-correct shape.
+
+**Storage was also checked** (asked for directly): ARCHITECTURE.md §8 now
+has real numbers from `scripts/scale_test.py` — ~350MB at 200,000 notes with
+real embeddings, attachments/`entry_revisions`/`audit_log` flagged as the
+parts that don't scale with note count and weren't sized this pass.
+
+**Also fixed while checking accuracy**: README.md's "Next up" list was stale
+(items already done, like the Library tab work, still listed as pending) and
+its Whisper claim was wrong — `faster-whisper` already powers single-note
+dictation, it's *longer* transcription that's unbuilt. Corrected in
+README.md and the two spots in ROADMAP.md that repeated the same claim.
+
+Full suite green, `ruff` clean, all new/existing tests covering the four
+fixes pass. **Next: back to §38's own list** — item 3 (graph layouts,
+properly scoped for its own session) or item 4 (Timeline branch/line view).
+
+---
+
+## Same session, continued: the roadmap was re-audited and re-prioritised
+
+The user pushed back, correctly: three sessions in a row (§35 → §36 → §37) had
+kept extending the newest polish batch instead of touching the other 34
+sections underneath it. Asked for the roadmap to be honestly re-prioritised
+and then worked through **without stopping to ask** — treat that as standing
+authorisation for this and future sessions to keep pulling from
+[ROADMAP.md §38](../ROADMAP.md#38-where-this-actually-stands--the-backlog-audit)
+until told otherwise.
+
+**What happened:** a full audit of BACKLOG.md (§1–§29) and ANALYSIS.md
+(§30–§34) against the actual code, not the backlog's own prose. Found real
+staleness in both directions — §4 (Library tab), §11 (hybrid retrieval), §16
+(status bar, listed twice) in BACKLOG.md, and §33/§34 in ANALYSIS.md were all
+marked open for things that are built, including the project's own outside
+review's #1 recommendation ("finish the agentic loop") being satisfied by
+`run_skill`/`make_plan` without ever being marked so. Each is corrected in
+place, not just noted in ROADMAP.md. §38 is the new live front door and
+supersedes §37's own priority list; **read §38 first**, before anything else
+in this file including the section below.
+
+**§38's first item is done too, same session:** the notebook was actually
+scale-tested (`scripts/scale_test.py`, a generated fixture up to 50,000
+notes), not just flagged as untested. Found two real N+1 query patterns —
+`GET /graph` resolving each note's category with its own `session.get()`
+call, `search_manager.semantic_search` materialising a full `Entry` ORM
+object for every embedded note just to score most of them away — profiled,
+not guessed at (10,000 category lookups were 87% of one `GET /graph` call's
+time on a 10k-note notebook). Both fixed the same way: score or match against
+raw ids first, fetch the real `Entry` rows only for what survives. Real
+numbers at 50k notes: `GET /graph` 19s→1.8s, chat's search 6.6s→0.5s, the
+`related_notes` agent tool's neighbour-suggestion call ~20s→1.3s. Pinned by
+`tests/test_scale_query_counts.py` (a query *count*, not a timing — timing
+assertions are flaky under CI load). Full writeup, including what's still
+open (`GET /graph?similarity=true` is a real O(n²) — 30 seconds at just 2,000
+notes — and is off by default rather than fixed), is in ANALYSIS.md §34,
+item 2.
+
+**§38's second item is done too:** a headless Playwright smoke suite,
+`tests-e2e/` (own `package.json`, doesn't touch the no-build-step frontend),
+wired into `.github/workflows/ci.yml` as a new `e2e` job. Verified locally
+against a real running app before being trusted, not just authored — and it
+paid off immediately: it caught that "documents" is in `app.js`'s own `TABS`
+array but has had no `#tab-btn-documents` in the nav bar since §36F replaced
+it with Library, which a test written from the array alone (what a first
+draft did) would have silently gotten wrong. Covers every tab actually
+reachable from the bar for console errors, uncaught exceptions and
+horizontal overflow, plus one real interaction (capture a note, see it in
+Browse).
+
+**§38 item 3 (graph layouts) was checked, not built — a deliberate stop, not
+a skip.** `renderGraph()` is tightly integrated across drag, zoom-to-fit,
+hover-adjacency, the trace overlay and the physics sliders; a new layout
+means plugging into all of that, not writing one D3 function. Attempting it
+at the tail end of an already long session risked exactly the
+half-integrated feature CLAUDE.md warns against, so it's written up in
+ROADMAP.md §38 as needing its own session with room to verify visually
+against every one of those interactions — the same shape of call as §37E's
+design-spike recommendation, not an excuse.
+
+**§38 item 5 (Chat/Agent/Browse) turned out to be substantially done
+already**, checked rather than assumed either way: the Ask/Request mode
+toggle, the web panel column and `make_plan`'s ticked-step display satisfy
+its substance through a different — and per §36G's own reasoning, better —
+shape than literal sub-tabs. One small real gap noted in BACKLOG.md §3 (no
+user-facing tool-allowlist/max-rounds control in Agent mode) and left
+unbuilt as not worth its own session. **Next: §38 item 3 (graph layouts, now
+properly scoped) or item 4 (Timeline branch/line view).**
+
+**The corrected order, top of it:** scale-test the notebook past a few
+hundred notes (cheap, flagged by the outside review, never done), a headless
+Playwright smoke suite in CI (the actual fix for "every layout bug passed a
+green run"), graph layouts beyond tree/radial, the Timeline branch/line view,
+Chat/Agent/Browse sub-tabs, meeting-notes/transcription, onboarding
+diagnostics, then the `app.js` module split riding in on the sub-tabs work.
+Full reasoning for each is in §38.
+
+---
+
+## Previous entry in this session: §37's top five, done
+
+Worked §37's own priority list in order, straight through 37B–37E. **37B
+decided (no lock-screen Quit button — the LAN-DoS trade-off wasn't worth a
+convenience button, decided with the user directly). 37D.1, 37J, 37F and 37E
+are built and verified in Chromium** — details and reasoning are in
+ROADMAP.md's §37B/§37D/§37F/§37J/§37E, updated in place rather than duplicated
+here. **Next up per §37's own ranking: 37C, the chat dock density pass** —
+37C's own note says to re-look at it only after 37E ships, which it now has.
+
+**37F had a real surprise worth internalising**: most of "the graph toolbar is
+bulky" was already fixed the *day before* that section was written
+(`3e77f57`) — the roadmap text describing twelve controls in one row was
+stale the moment it was committed. Checking the running app first (not just
+grep, an actual look) is what caught it; building against the roadmap
+paragraph instead would have redone finished work. The one genuine gap —
+Trace as a permanent row — was real and is now fixed.
+
+**37E (zoom) turned out to need less new design than its own write-up
+expected**, because a check answered the "which CSS mechanism" question before
+any prototype branch was needed: `data-fontsize="small"/"large"` already
+scales the root font in production, and control heights/icons are already in
+rem, so a root-`font-size` percentage was already proven to reach everything.
+The one real design question — zoom fighting Text size over the same
+`font-size` property, not zoom fighting density as §37E's write-up predicted —
+was solved with one multiplying custom property (`--zoom`, composed via
+`calc()`), not a rethink of either control.
+
+**What I could not check:** anything about a real model (unchanged, standing
+caveat), and the desktop shell. Everything UI in this session's five items
+*was* driven in Chromium — screenshots, a resize drag measured before and
+after, root `font-size` measured in the DOM at three zoom levels, full page
+reloads to confirm `graph-trace-open`/web-panel-width/zoom persistence
+(including via the server-mirrored `ui_state` path, not just `localStorage`),
+and a full `pytest tests/` (~1,600 tests) plus `ruff check .` green after each
+batch.
+
+---
+
 Written at the end of the session that **deleted three surfaces**, moved web
 search out of the chat dock, added embedding-model management, and — in a long
 follow-on round the same session — fixed six more reported bugs and triaged a

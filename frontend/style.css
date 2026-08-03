@@ -1261,18 +1261,23 @@ header#top-bar.tabs-wrapped #tab-bar {
        container now (§36A) and the header is outside it, so the sidebar sticks
        to the top of the page it lives in. */
     top: 0;
-    /* `height`, not `max-height` — the same full-height sidebar the chat tab
-       has, reached a different way because this page scrolls and that one does
-       not. A `max-height` only *caps*: the card was still sized by its own
-       content, so a short category list left a band of empty page between the
-       sidebar and the bottom of the window while the chat sidebar beside it
-       (which is `height: 100%` of a bounded grid area) filled its column.
-       Two sidebars that behave differently is the thing that reads as broken.
-
-       `--page-sticky-h` is the page minus its own padding, so this is exactly
-       what `height: 100%` resolves to over on the chat tab; the list inside
-       already scrolls. */
-    height: var(--page-sticky-h);
+    /* `min-height`, not `height` (reported again — a fixed `height` only
+       fixed the case it was measured against). `--page-sticky-h` is a
+       *guess* at the viewport's usable height; `main` beside this sidebar
+       is a stack of ordinary cards that isn't capped the way `#chat-main`
+       is, so on a Notes tab with a few notes it's shorter than the guess —
+       exactly the "short category list, empty band below" case `height`
+       was written to fix — but with enough notes it's *taller* than the
+       guess, and a fixed `height` doesn't grow to follow it: the grid row
+       stretches to fit `main`, the sidebar stays pinned at the shorter
+       fixed number, and the gap this was reported against is the space
+       between them, on top of the page's own bottom margin.
+       `min-height` keeps the floor for the short case and lets `.layout`'s
+       own `align-items: stretch` (only suppressed by an explicit `height`)
+       take over for the tall one — the sidebar matches whichever of the
+       two is actually taller, instead of asserting a number that's only
+       sometimes right. */
+    min-height: var(--page-sticky-h);
     overflow-y: auto;
   }
 }
@@ -4262,7 +4267,15 @@ html { font-size: 16px; }
   background: var(--accent-soft);
   color: var(--accent);
 }
-#sidebar { align-self: flex-start; }
+/* Was `align-self: flex-start;` — predates, and silently overrode, the
+   `.layout`/`#tab-notes #sidebar` "stretch, not start" fix those two rules'
+   own comments describe: `align-self` on the item always wins over the
+   grid's `align-items`, so this alone was why the sidebar never stretched
+   to match a taller `main`, no matter what either of those two rules said.
+   Reported again as "a gap below the sidebar" after the `height`→
+   `min-height` fix on `#tab-notes #sidebar` still didn't close it — this is
+   why: that fix set a correct floor, but this rule was still refusing to
+   let the box grow past it. */
 /* Was 0.92rem — the same size as the h3s under it, so the sidebar had a
    heading level that looked like its own children (§35L). */
 #sidebar h2 { font-size: var(--text-lg); }
@@ -6996,9 +7009,14 @@ textarea.autogrow {
   background: var(--chip-bg);
   color: var(--text);
   cursor: pointer;
-  /* Two lines, then clip: a timeline is a shape to scan, not a reading view. */
+  /* Three lines, then clip — not two: reported as still cut off after §37J
+     widened the column, because the preview is up to 120 characters
+     (routes_timeline.py's PREVIEW_CHARS) and 2 lines at any chip-sized width
+     only ever showed a third to a half of that. A timeline chip is still a
+     shape to scan, not a reading view, so this clips rather than growing
+     without bound — just further out than before. */
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }

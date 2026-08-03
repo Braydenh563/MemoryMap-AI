@@ -1862,7 +1862,8 @@ shape of it:
   asked for twice), Chat/Agent/Browse sub-tabs (§3, asked for repeatedly —
   turned out to be substantially resolved already, see item 5 below), no
   meeting-notes/transcription (§17, the backlog's own "highest-value single
-  addition," and Whisper is already a dependency), `app.js` still one
+  addition," built on the same `faster-whisper` engine already powering
+  single-note dictation), `app.js` still one
   ~20k-line file with zero CI coverage (§31/§32 — the coverage half is fixed,
   see item 2 below; the file is still unsplit), and the notebook had never
   been tested past a
@@ -1920,9 +1921,10 @@ in front of them:
    user-facing control for "which tools this turn / max rounds" in Agent
    mode — `agent.py` already takes both as parameters, nothing in `app.js`
    exposes them. Not worth a session on its own.
-6. **Meeting notes / transcription** (§17) — Whisper is already a
-   dependency; the backlog calls this the highest-value single addition, and
-   none of it is built.
+6. **Meeting notes / transcription** (§17) — `faster-whisper` already powers
+   the 🎙 single-note dictation buttons; a longer recording transcribed into
+   structured notes is a different, larger feature on the same engine, and
+   the backlog calls it the highest-value single addition still unbuilt.
 7. **Onboarding diagnostics + example notes** (§27) — ANALYSIS §34 ranks
    this its #3 priority: first run today is "install Python, run a script,
    install Ollama, pull a model" with nothing to look at until you do.
@@ -1936,3 +1938,52 @@ in front of them:
 **Being worked through now, in this order, without stopping to ask** — per
 explicit instruction. See HANDOVER.md for what was actually built each
 session versus what's still ahead on this list.
+
+### §38a. Four user-reported bugs, fixed the same session — done
+
+Reported directly, worked as a bounded side-trip rather than a new priority
+list — see HANDOVER.md for the "don't let this become the next §35–37" note.
+
+1. **Notes tab sidebar gap, worse than other tabs.** Two stacked causes: an
+   old `#sidebar { align-self: flex-start; }` (no comment, predates the
+   "stretch, not start" fix `.layout`'s own comment describes, silently
+   overrode it) and `--page-sticky-h` being a fixed viewport guess that
+   main's real content can exceed. Fixed with a `ResizeObserver` that mirrors
+   `main`'s actual height (`syncNotesSidebarHeight` in `app.js`) — the same
+   instinct `applySidebarWidth`/`fitComposerToDock` already use where CSS
+   alone proved fragile.
+2. **Timeline text still cut off after §37J.** The column widen (5.5rem →
+   9rem) wasn't enough against a 120-char preview at 2 lines. 13rem + a
+   3-line clamp gets close to the full preview instead of a marginal gain on
+   the same shape of cut-off.
+3. **A note found by tag but missed because the remembered date was
+   wrong.** "That joke I wrote about two weeks ago" (tagged joke/jokes/funny,
+   word "joke" not in the content) found nothing because it was actually
+   three weeks old — a hard date filter excluded it, by design, per the
+   comment on the fallback this extends (§35's "jokes... recently" fix only
+   covered vague words like "recently", not specific-sounding-but-wrong ones
+   like "two weeks ago"). `search_manager._retrieve` now retries the subject
+   alone within a *widened* window (one window-span either side, not the
+   whole notebook) when the in-window search comes up empty — labelled
+   `outside_range`, never silently presented as an in-window match. The
+   bound matters: an early unbounded version broke an existing, deliberately-
+   tested case ("the allotment, last week" with only a 90-day-old allotment
+   note must still answer nothing — a subject match three months from a
+   7-day window is a different note weighing in on a question it wasn't
+   asked, not a memory that was "a little off"). Pinned by four tests total
+   (two new in `test_ai.py`, two pre-existing in `test_query_understanding.py`
+   that now stay green), including one confirming the *rejected*
+   fallback (drop subject, keep date) still doesn't come back.
+4. **`GET /entries/link-suggestions` was a second O(n²) trap**, found by the
+   sweep the search fix prompted: it called `semantic_search` — a full
+   embedding scan — once *per entry*, each call also re-embedding that
+   entry's own content from scratch. Rewritten to match
+   `routes_graph._similarity_edges`'s already-correct shape: fetch every
+   stored vector once, compare all pairs in memory. `GET /graph?similarity=
+   true`'s O(n²) (ANALYSIS §34) remains open and known — it's off by default,
+   this one wasn't.
+
+Storage was checked too, not just performance — see ARCHITECTURE.md's new
+"Storage headroom, measured not guessed" (§8): ~350MB at 200,000 real-embedding
+notes, attachments and `entry_revisions`/`audit_log` flagged as the parts that
+don't scale with note count and weren't sized in this pass.

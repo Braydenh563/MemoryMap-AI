@@ -458,6 +458,24 @@ def retrieve(
     return _retrieve(session, query, embeddings, limit, expand_graph, {})
 
 
+def _rank(
+    semantic: list[tuple[Entry, float]] | None, keyword: list[Entry], limit: int
+) -> tuple[list[Entry], str]:
+    """Combine a semantic and a keyword result list into one ranked answer,
+    with an honest label for how it was found. Factored out so the
+    date-range fallback in `_retrieve` (searching again with the same two
+    lists, minus the range) can reuse it instead of repeating the branch."""
+    if semantic is None:
+        # No embedding backend at all: keyword search is the whole of search,
+        # not a fallback, and saying "keyword" is the honest label.
+        return keyword[:limit], "keyword"
+    if semantic and keyword:
+        return _fuse([[entry for entry, _s in semantic], keyword], limit), "hybrid"
+    if semantic:
+        return [entry for entry, _s in semantic][:limit], "semantic"
+    return keyword[:limit], "keyword"
+
+
 def _retrieve(
     session: Session,
     query: str,
@@ -491,6 +509,10 @@ def _retrieve(
     subject = asked.subject or query
     semantic = semantic_search(session, subject, embeddings, limit=FUSION_DEPTH)
     keyword = keyword_search(session, subject, limit=FUSION_DEPTH)
+    # Kept before the range narrows them below, so a subject match outside
+    # the stated window is still reachable as a fallback (see "outside the
+    # window you named" further down) without a second, identical search.
+    semantic_any_time, keyword_any_time = semantic, keyword
 
     # A range alongside a subject narrows the candidates before they are
     # ranked, so "the allotment, last week" cannot be answered with a note from
@@ -519,17 +541,7 @@ def _retrieve(
         if semantic is not None:
             semantic = sorted(semantic, key=lambda pair: _written_at(pair[0]), reverse=True)
 
-    if semantic is None:
-        # No embedding backend at all: keyword search is the whole of search,
-        # not a fallback, and saying "keyword" is the honest label.
-        entries, mode = keyword[:limit], "keyword"
-    elif semantic and keyword:
-        entries = _fuse([[entry for entry, _s in semantic], keyword], limit)
-        mode = "hybrid"
-    elif semantic:
-        entries, mode = [entry for entry, _s in semantic][:limit], "semantic"
-    else:
-        entries, mode = keyword[:limit], "keyword"
+    entries, mode = _rank(semantic, keyword, limit)
 
     if not entries:
         # Nothing matched. The "never look empty" fallback is recent notes —
@@ -558,6 +570,38 @@ def _retrieve(
             in_window = in_range(session, asked.since, asked.until, limit=limit)
             return _without_private(in_window), "dated"
         if asked.has_range:
+            # A subject was named and nothing matched it *inside* the
+            # window — reported directly: a note tagged joke/jokes/funny,
+            # asked about as "two weeks ago", was actually written three
+            # weeks ago, and came back empty rather than found-but-
+            # mislabelled. This is not the fallback rejected above: that one
+            # dropped the *subject* and kept the date ("jokes... recently"
+            # answered with a gym routine); this drops the date and keeps
+            # the subject, so it can never return something unrelated to
+            # what was asked for — only the same match, outside the window
+            # the person's memory of *when* turned out to be wrong about.
+            #
+            # **Bounded, not unbounded** — widened by the window's own span
+            # rather than searched across the whole notebook. Without a
+            # bound this reintroduces the *other* shape of the rejected
+            # fallback: "the allotment, last week" must still answer nothing
+            # when the only allotment note is three months old, the same
+            # test that pins the fallback above pins this one too (a
+            # subject match 90 days from a 7-day window is not "the person's
+            # memory was a little off", it's a different note weighing in
+            # on a question it wasn't asked). "Two weeks" that was actually
+            # three is one window-span away; that's the case this catches.
+            since_wide = asked.since - (asked.until - asked.since) if asked.since and asked.until else asked.since
+            until_wide = asked.until + (asked.until - asked.since) if asked.since and asked.until else asked.until
+            outside, _mode = _rank(
+                [(e, s) for e, s in semantic_any_time if _within(e, since_wide, until_wide)]
+                if semantic_any_time is not None
+                else None,
+                [e for e in keyword_any_time if _within(e, since_wide, until_wide)],
+                limit,
+            )
+            if outside:
+                return _without_private(outside), "outside_range"
             return [], "dated"
         recent = recent_entries(session, limit=RECENT_FALLBACK_LIMIT)
         if recent:

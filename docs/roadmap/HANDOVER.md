@@ -2,6 +2,52 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the AGPL/MIT constraint) · [HISTORY.md](HISTORY.md) (already built).
 
+## Same session, continued again: four reported bugs, fixed as a bounded side-trip
+
+After §38's audit and its first three items landed, four real bugs were
+reported live against this branch (not `main` — confirmed before touching
+anything, since a mismatch there would have meant the fixes were already in
+and just unmerged). Treated deliberately as **contained work**, not a new
+priority list, given the whole point of this session was that §35–37 kept
+doing exactly that. All four are in ROADMAP.md §38a with the full reasoning;
+short version:
+
+1. **Notes sidebar gap** — an uncommented `align-self: flex-start` silently
+   overrode the "stretch, not start" fix .layout's own comment already
+   describes, plus a fixed-height CSS var that couldn't grow past its own
+   guess. Fixed with a `ResizeObserver` mirroring `main`'s real height.
+2. **Timeline text still cut off** — §37J's column widen wasn't enough
+   against a 120-char preview at 2 lines; 13rem + 3 lines gets close to the
+   full text instead of a marginal gain.
+3. **A tagged note missed because the remembered date was wrong** — "that
+   joke... two weeks ago" (actually three) hard-filtered to empty. Added an
+   un-dated subject-only fallback, labelled `outside_range` so it's never
+   mistaken for an in-window match — deliberately the mirror image of a
+   fallback already rejected in the code for good reason (dropping the
+   *subject* and keeping the date instead), not a reopening of that decision.
+4. **A second O(n²) trap**, found because the user asked for a backend
+   sweep after the third fix: `GET /entries/link-suggestions` called a full
+   embedding scan once per entry. Rewritten to fetch every vector once and
+   compare pairs in memory, matching `routes_graph._similarity_edges`'s
+   already-correct shape.
+
+**Storage was also checked** (asked for directly): ARCHITECTURE.md §8 now
+has real numbers from `scripts/scale_test.py` — ~350MB at 200,000 notes with
+real embeddings, attachments/`entry_revisions`/`audit_log` flagged as the
+parts that don't scale with note count and weren't sized this pass.
+
+**Also fixed while checking accuracy**: README.md's "Next up" list was stale
+(items already done, like the Library tab work, still listed as pending) and
+its Whisper claim was wrong — `faster-whisper` already powers single-note
+dictation, it's *longer* transcription that's unbuilt. Corrected in
+README.md and the two spots in ROADMAP.md that repeated the same claim.
+
+Full suite green, `ruff` clean, all new/existing tests covering the four
+fixes pass. **Next: back to §38's own list** — item 3 (graph layouts,
+properly scoped for its own session) or item 4 (Timeline branch/line view).
+
+---
+
 ## Same session, continued: the roadmap was re-audited and re-prioritised
 
 The user pushed back, correctly: three sessions in a row (§35 → §36 → §37) had

@@ -2305,6 +2305,11 @@ const SEARCH_MODE_LABELS = {
   // the app found what it is showing you.
   dated: "by date",
   none: "nothing searched",
+  // Matched the subject, not the stated time — see the note above
+  // renderChatMeta's empty-results branch for the reasoning (§38 bug report:
+  // a joke tagged joke/jokes/funny, asked about as "two weeks ago", was
+  // actually three).
+  outside_range: "matched, wrong time",
 };
 
 // Say something to a screen reader without putting anything on screen. Used
@@ -2414,6 +2419,19 @@ function renderChatMeta(meta) {
     return;
   }
   document.querySelector(".chat-half:last-child")?.classList.remove("hidden");
+  if (meta.search_mode === "outside_range" && meta.raw_results.length) {
+    // Matched what was asked about, not when it was asked about — the note
+    // is real, the stated time was just wrong (reported directly: a joke
+    // asked about as "two weeks ago" that was actually three). Said before
+    // the results, not folded silently into them, so this never reads as a
+    // date-scoped answer it isn't.
+    const li = document.createElement("li");
+    li.className = "muted";
+    li.textContent = meta.when_phrase
+      ? `Nothing about this in “${meta.when_phrase}” — here's what matched from another time:`
+      : "Nothing in that time range — here's what matched from another time:";
+    rawList.appendChild(li);
+  }
   if (meta.raw_results.length === 0) {
     const li = document.createElement("li");
     li.className = "muted";
@@ -5860,6 +5878,43 @@ function initResizableSidebars() {
     if (aside) makeSidebarResizable(aside);
   }
   makeWebPanelResizable(document.getElementById("web-panel"));
+}
+
+// The Notes sidebar's `min-height: var(--page-sticky-h)` (style.css) is a
+// floor for a short category list — without it, a notebook with few
+// categories left a band of empty page below a sidebar shorter than `main`
+// beside it. `.layout`'s `align-items: stretch` is supposed to grow the
+// sidebar to match `main` when *that's* the taller one instead (many notes,
+// several stacked cards) — reported again as the same gap, just measured on
+// the other side of the same coin. Stretch reliably didn't fire for this
+// specific combination (`position: sticky` + `overflow-y: auto` on an
+// auto-sized grid track) in testing, for a reason not worth chasing further
+// than "measure `main` directly and mirror it" — the same instinct
+// `applySidebarWidth`/`fitComposerToDock` already use elsewhere in this file
+// where CSS alone proved fragile.
+function syncNotesSidebarHeight() {
+  const sidebar = document.getElementById("sidebar");
+  const main = document.querySelector("#tab-notes .layout > main");
+  if (!sidebar || !main) return;
+  // Back to the stylesheet's own floor first, so it's re-measured fresh —
+  // otherwise a note count that used to need the taller inline override
+  // would keep it forever, even after notes were deleted back down.
+  sidebar.style.removeProperty("min-height");
+  if (layoutIsStacked()) return; // no fixed height on the stacked mobile layout
+  const floor = sidebar.offsetHeight;
+  const wanted = Math.max(floor, main.offsetHeight);
+  if (wanted > floor) sidebar.style.minHeight = `${wanted}px`;
+}
+
+function initNotesSidebarHeight() {
+  const main = document.querySelector("#tab-notes .layout > main");
+  if (!main) return;
+  syncNotesSidebarHeight();
+  new ResizeObserver(syncNotesSidebarHeight).observe(main);
+  // A window resize that changes the viewport height without changing
+  // `main`'s own box size (nothing reflowed) wouldn't otherwise trigger the
+  // observer above, and the CSS floor itself is viewport-relative.
+  window.addEventListener("resize", syncNotesSidebarHeight);
 }
 
 // The web panel (§36G) isn't a grid column like the three sidebars above — it
@@ -12070,10 +12125,14 @@ async function renderTimeline() {
   const buckets = body.buckets;
   const byId = new Map(body.notes.map((note) => [note.id, note]));
   // Columns: one label column for the band names, then one per bucket.
-  // 5.5rem was sized for a bucket's date label, not for two lines of note
-  // preview text sharing the same track — 9rem is roughly what a two-line
-  // clamp needs to hold more than three or four words per line (§37J).
-  grid.style.gridTemplateColumns = `minmax(7rem, auto) repeat(${buckets.length}, minmax(9rem, 1fr))`;
+  // 5.5rem was sized for a bucket's date label, not for note preview text
+  // sharing the same track. 9rem (§37J's first pass) was still reported cut
+  // off — the preview is up to 120 characters (routes_timeline.py's
+  // PREVIEW_CHARS) and a 2-line clamp at 9rem only ever showed 40-50 of
+  // them, so "wider" wasn't wide enough to matter. 13rem + a 3-line clamp
+  // (below, .timeline-dot) gets close to the full preview for a typical
+  // note instead of a marginal improvement on the same shape of cut-off.
+  grid.style.gridTemplateColumns = `minmax(7rem, auto) repeat(${buckets.length}, minmax(13rem, 1fr))`;
 
   const corner = document.createElement("div");
   corner.className = "timeline-corner";
@@ -18089,6 +18148,7 @@ scrollTopUpdate = initScrollTopButton();
 // silently and stay silent (§36C).
 startReminderWatch();
 initResizableSidebars();
+initNotesSidebarHeight();
 watchOverlays(); // page behind a dialog must not scroll
 initAutoGrow(); // capture + magic-add boxes follow their content
 // A returning visit still opens on whichever tab was last active — that is

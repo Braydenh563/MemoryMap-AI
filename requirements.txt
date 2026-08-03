@@ -16,7 +16,7 @@
 
 # Web server
 fastapi>=0.139.2,<1.0
-uvicorn[standard]>=0.51.0,<1.0
+uvicorn[standard]>=0.52.0,<1.0
 
 # Database (SQLite via ORM)
 SQLAlchemy>=2.0.51,<3.0
@@ -27,7 +27,7 @@ python-dotenv>=1.2.2,<2.0
 # AI (Phase 2)
 requests>=2.34.2,<3.0      # talks to the local Ollama REST API
 numpy>=2.4.6,<3.0           # vectors stored as raw float32 bytes
-sentence-transformers>=2.7,<6.0
+sentence-transformers>=5.6.1,<6.0
 
 # torch: on Windows, force the CPU-only build. The default Windows torch wheel
 # now ships Intel's torch_xpu.dll, which fails to load on many machines with
@@ -51,7 +51,7 @@ bcrypt>=5.0.0,<6.0
 cryptography>=41.0,<47.0
 
 # File attachments (Wave B) — multipart form parsing
-python-multipart>=0.0.9,<1.0
+python-multipart>=0.0.32,<1.0
 
 # Tests
 pytest>=9.1.1,<10.0

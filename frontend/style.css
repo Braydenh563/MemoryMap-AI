@@ -1281,9 +1281,12 @@ header#top-bar.tabs-wrapped #tab-bar {
     align-self: start;  
     /* min-height: var(--page-sticky-h); */
     /* max-height: var(--page-sticky-h); */
-    overflow-y: auto;
+    /* overflow-y: auto;
     height: var(--page-sticky-h);
+    margin-bottom: 0; */
+    height: 100%; 
     margin-bottom: 0;
+    overflow-y: auto;
   }
 }
 
@@ -4728,10 +4731,10 @@ html { font-size: 16px; }
 
 /* :not(.hidden) so these never override the hide rule — an ID selector would
    otherwise beat .hidden and leave every tab visible at once. */
-#tab-graph:not(.hidden),
+/* #tab-graph:not(.hidden),
 #tab-chat:not(.hidden) {
   display: flex;
-  flex-direction: column;
+  flex-direction: column; */
   /* No `min-height: calc(100vh - 9rem)` any more. Every one of these viewport
      sums was a guess at the app's own furniture, and each was wrong the moment
      the furniture changed: 9rem assumed a 60px header, so it was already out
@@ -4739,8 +4742,32 @@ html { font-size: 16px; }
      37px once the status bar existed. The page is a flex child of a flex
      column that fills the window — its size is the space it is given, and
      `100%` is how you say that without arithmetic that can go stale. */
+/* } */
+/* #tab-chat:not(.hidden) > .layout { flex: 1; min-height: 0; } */
+
+/* :not(.hidden) so these never override the hide rule — an ID selector would
+   otherwise beat .hidden and leave every tab visible at once. */
+#tab-notes:not(.hidden),
+#tab-graph:not(.hidden),
+#tab-chat:not(.hidden) {
+  display: flex;
+  flex-direction: column;
 }
-#tab-chat:not(.hidden) > .layout { flex: 1; min-height: 0; }
+
+/* Let the layout container fill the available flex space */
+#tab-notes:not(.hidden) > .layout,
+#tab-chat:not(.hidden) > .layout { 
+  flex: 1; 
+  min-height: 0; 
+}
+
+/* Make the main notes area scroll independently, exactly like Chat messages */
+#tab-notes .layout > main {
+  overflow-y: auto;
+  min-height: 0;
+  padding-right: 0.25rem; /* Optional: keeps scrollbar off the edge */
+}
+
 #graph-card {
   display: flex;
   flex-direction: column;
@@ -6939,9 +6966,6 @@ textarea.autogrow {
      class one. On a phone the sidebars stack above the content, and pinning a
      full-height panel over what you're reading is worse than losing it. */
   #chat-sidebar,
-  #note-sidebar,
-  #sidebar
-  #tab-notes #sidebar,
   #doc-sidebar {
     position: static;
     align-self: stretch;

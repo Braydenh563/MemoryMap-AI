@@ -307,6 +307,17 @@ async function reportTimezone() {
 // Kept beside switchTab's own dispatch so the two can't drift apart.
 function refreshActiveTab() {
   const name = localStorage.getItem("activeTab") || "notes";
+
+  // Relocate the back-to-top button so it aligns with the chat area bounds
+  const scrollTopBtn = document.querySelector(".scroll-top");
+  if (scrollTopBtn) {
+    if (name === "chat") {
+      document.querySelector(".chat-dock")?.appendChild(scrollTopBtn);
+    } else {
+      document.body.appendChild(scrollTopBtn);
+    }
+  }
+  
   if (name === "dashboard") return renderDashboard();
   if (name === "graph") return renderGraph();
   if (name === "documents") return loadDocuments();
@@ -5941,26 +5952,62 @@ function webPanelIsNarrow() {
   return window.matchMedia(WEB_PANEL_NARROW).matches;
 }
 
+// function applyWebPanelWidth(panel, width) {
+//   const clamped = Math.min(Math.max(Math.round(width), WEB_PANEL_MIN), WEB_PANEL_MAX);
+//   localStorage.setItem("webPanelWidth", String(clamped));
+//   panel.style.flexBasis = webPanelIsNarrow() ? "" : `${clamped}px`;
+//   // panel.style.flex = webPanelIsNarrow() ? "" : `0 1 ${clamped}px`;
+//   return clamped;
+// }
+
 function applyWebPanelWidth(panel, width) {
   const clamped = Math.min(Math.max(Math.round(width), WEB_PANEL_MIN), WEB_PANEL_MAX);
   localStorage.setItem("webPanelWidth", String(clamped));
-  panel.style.flexBasis = webPanelIsNarrow() ? "" : `${clamped}px`;
+  
+  if (webPanelIsNarrow()) {
+    panel.style.removeProperty("flex");
+    panel.style.removeProperty("width");
+  } else {
+    // 0 0 prevents flex shrinkage so the drag math stays pixel-perfect
+    panel.style.flex = `0 0 ${clamped}px`;
+    panel.style.width = `${clamped}px`;
+  }
   return clamped;
 }
 
+// function resetWebPanelWidth(panel) {
+//   localStorage.removeItem("webPanelWidth");
+//   panel.style.removeProperty("flex-basis");
+// }
+
 function resetWebPanelWidth(panel) {
   localStorage.removeItem("webPanelWidth");
-  panel.style.removeProperty("flex-basis");
+  panel.style.removeProperty("flex");
+  panel.style.removeProperty("width");
 }
+
+// window.matchMedia(WEB_PANEL_NARROW).addEventListener("change", () => {
+//   const panel = document.getElementById("web-panel");
+//   if (!panel?.dataset.resizable) return;
+//   const saved = Number(localStorage.getItem("webPanelWidth"));
+//   panel.style.flexBasis =
+//     Number.isFinite(saved) && saved >= WEB_PANEL_MIN && !webPanelIsNarrow()
+//       ? `${saved}px`
+//       : "";
+// });
 
 window.matchMedia(WEB_PANEL_NARROW).addEventListener("change", () => {
   const panel = document.getElementById("web-panel");
   if (!panel?.dataset.resizable) return;
+  
   const saved = Number(localStorage.getItem("webPanelWidth"));
-  panel.style.flexBasis =
-    Number.isFinite(saved) && saved >= WEB_PANEL_MIN && !webPanelIsNarrow()
-      ? `${saved}px`
-      : "";
+  if (Number.isFinite(saved) && saved >= WEB_PANEL_MIN && !webPanelIsNarrow()) {
+    panel.style.flex = `0 0 ${saved}px`;
+    panel.style.width = `${saved}px`;
+  } else {
+    panel.style.removeProperty("flex");
+    panel.style.removeProperty("width");
+  }
 });
 
 function makeWebPanelResizable(panel) {

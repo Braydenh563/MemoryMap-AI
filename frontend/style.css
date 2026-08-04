@@ -50,7 +50,8 @@
      nothing inside a page has to clear it. Kept because the media query below
      still tracks the bar's height on narrow windows, and because anything
      positioned against the *window* (a future bottom bar, §36D) needs it. */
-  --header-h: 4.4rem;
+  /* --header-h: 4.4rem; */
+  --header-h: calc(3.7rem + 1px);
   --page: linear-gradient(135deg, #e9edfb 0%, #f6f2ec 45%, #e6f1f2 100%);
   --blob-a: rgba(79, 109, 245, 0.20);
   --blob-b: rgba(157, 88, 245, 0.14);
@@ -1277,8 +1278,12 @@ header#top-bar.tabs-wrapped #tab-bar {
        take over for the tall one — the sidebar matches whichever of the
        two is actually taller, instead of asserting a number that's only
        sometimes right. */
-    min-height: var(--page-sticky-h);
+    align-self: start;  
+    /* min-height: var(--page-sticky-h); */
+    /* max-height: var(--page-sticky-h); */
     overflow-y: auto;
+    height: var(--page-sticky-h);
+    margin-bottom: 0;
   }
 }
 
@@ -5191,6 +5196,16 @@ html { font-size: 16px; }
   min-height: 0;
   display: flex;
   flex-direction: column;
+  position: relative;
+}
+/* Override the global fixed position when inside the chat dock */
+.chat-dock .scroll-top {
+  position: absolute;
+  right: 1.5rem;
+  
+  /* Float exactly 1rem above the dock's top edge, regardless of how tall the textarea grows */
+  bottom: calc(100% + 1rem); 
+  z-index: 40;
 }
 .chat-dock > * { flex: 0 0 auto; }
 .chat-dock .persona-prompt { margin-bottom: var(--space-4); }
@@ -6924,6 +6939,9 @@ textarea.autogrow {
      class one. On a phone the sidebars stack above the content, and pinning a
      full-height panel over what you're reading is worse than losing it. */
   #chat-sidebar,
+  #note-sidebar,
+  #sidebar
+  #tab-notes #sidebar,
   #doc-sidebar {
     position: static;
     align-self: stretch;
@@ -7094,8 +7112,10 @@ textarea.autogrow {
   text-align: left;
   font: inherit;
   font-size: 0.7rem;
-  line-height: 1.25;
-  padding: 0.25rem 0.25rem;
+  line-height: 1.4;
+  padding: 0.35rem 0.4rem 0rem 0.4rem;
+  /* line-height: 1.25;
+  padding: 0.25rem 0.25rem; */
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--chip-bg);

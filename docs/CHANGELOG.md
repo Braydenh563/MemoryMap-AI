@@ -7,6 +7,23 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Fixed — agent robustness pass
+
+- **A skill/plan step now hands the next step the actual notes and
+  documents it touched, not just its own prose summary.** Reported as the
+  agent "losing the plot half way through a job": a step's own narration
+  ("tagged the relevant notes") was all the next step ever saw, so a later
+  step needing "those notes" had nothing to act on but a sentence.
+  `skill_runner._step_answer` now appends the real ids from the step's own
+  `change` events.
+- **A skill step that created a document could produce a change whose
+  `note_id` was actually that document's id.** `agent.py` read every
+  write tool's result `"id"` field and called it a note id unconditionally;
+  `create_document`'s `"id"` is a document's. The chat UI's existing View
+  button (§21/§22) would then navigate to the wrong note, or nowhere.
+  `agent._change_note_id`/`_change_document_id` now resolve each tool's id
+  from the field it actually uses.
+
 ### Added — §37G, §37I, §37K
 
 - **A document importer.** `markitdown` had been an installable extra with

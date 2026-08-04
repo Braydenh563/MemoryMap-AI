@@ -75,6 +75,116 @@ turned out to be substantially done a different way.
 
 ---
 
+## Continued the same session: an agent-robustness pass, asked for directly
+
+*"design the agent to be more robust. It is still very unreliable."* Asked
+what "unreliable" actually meant before touching anything, since this
+sandbox has no live Ollama to reproduce against and the standing caveat is
+explicit that behaviour has to be checked, not guessed. The answers, in
+order: **watched it happen**, on **Ollama with a small (3B–8B) model**,
+across **all** of "doesn't finish multi-step jobs," "calls tools wrong,"
+"claims things it didn't do," and "just breaks." A first pass down that path
+(the tool-call text-recovery regex in `ai/provider.py`) was dropped after
+the user corrected it directly: *"the tool calls generally work but it's
+how they are used and the agent process that gets screwed up."* That
+redirected the session from parsing to orchestration — a fair criticism, the
+loop's tool-call recovery is already thorough (small-model prose calls,
+`<think>` splitting, string-vs-object arguments); the actual gap was
+upstream of that.
+
+A third round narrowed it further: *"loses the plot half way, does actions
+that don't make sense, and often says it did or will do something it did or
+doesn't do."* That is a description of **skill/plan multi-step runs
+specifically** — a single ordinary turn already has a lot of defence
+(`EARNED_ROUNDS`, per-error recovery hints, the hallucinated-write net in
+`agent.unsupported_claims`), and reading `skill_runner.py` end to end found
+the real gap in the one place none of that reaches: **what one step hands
+the next.**
+
+### The bug: a step's own narration was all the next step ever saw
+
+`step_history.append({"question": step, "answer": answer[:600] or "(nothing
+said)"})` — the model's own prose summary of what it did, clipped, and
+*nothing else*. If step 1 was "tag every untagged note" and its own wrap-up
+said "Done, I tagged the relevant notes," step 2 ("now link those notes to
+the itinerary") had no way to know **which** notes "those" meant — no ids,
+just a sentence. It could re-search (and plausibly find a different set —
+"does actions that don't make sense") or guess. `agent.py`'s own `change`
+events (the same ones already backing the chat UI's View/Undo buttons) carry
+the real note id every write tool touched; they were being collected into
+the run's `changes` list for the final summary and then **thrown away**
+before the next step's turn.
+
+Fixed in `skill_runner.py`: each step now hands the next one the actual ids
+its own `change` events named, appended to (not replacing) its prose —
+`"Tagged them. [Notes touched this step: #5, #12]"` — truncating the prose
+first if the two don't both fit in the existing 600-char budget, since the
+ids are the fact the next step needs and the prose is what it can afford to
+lose. Verified with a real multi-step run through `test_skills.py`'s
+existing `ai_client`/`fake_ollama` harness: tag a note in step 1, assert
+step 5's own message history (the one actually sent to the model) contains
+`#<that note's id>` — not just that history exists, which the *pre-existing*
+test only checked.
+
+### The second bug the read turned up: `change.note_id` was sometimes a lie
+
+Building that fix required looking at where `change` events come from, and
+`agent.py`'s own construction was `"note_id": result.get("id")` —
+**unconditional**. `create_document`'s own result also has an `"id"` key,
+and it is a *document's* id. A skill step that wrote a document produced a
+change whose `note_id` was that document's id, and the chat UI's existing
+View button (§21/§22 — `changeRow` in `app.js`, already built, already
+wired to `change.note_id`) would then take the user to whatever note
+happened to share that id, or nowhere. That is exactly "does something that
+doesn't make sense," reachable **today**, not hypothetically — any skill
+that both creates a document and shows its change list hits it.
+
+`agent._change_note_id(name, result)` now resolves the id from the field
+each tool's own result actually uses (`link_notes` says `linked`,
+`delete_note` says `deleted`, `create_document` isn't a note at all — `None`
+rather than a wrong number) instead of assuming every write's `"id"` means
+the same thing. A parallel `_change_document_id` fills in the equivalent for
+`create_document`, and `skill_runner._step_answer` now names touched
+documents the same way it names touched notes — `"Wrote it up. [Documents
+touched this step: #41]"`. `delete_document` is destructive and never
+reaches this code path (it's parked for a confirm card, not executed here),
+so it needed no entry.
+
+**Reminders, tags and categories still go through the old unconditional
+path in spirit** — they were not in scope this pass (no report named them,
+and `set_reminder`'s own id is rarely something a *later* step needs to
+reference the way a note or document is), but the same `_NOTE_ID_FIELD` /
+`_DOCUMENT_ID_FIELD` shape is now the pattern to extend if one shows up.
+
+### What this does not claim to fix
+
+The claim-specificity half of "says it did something it doesn't do" is
+still open: `unsupported_claims`'s own docstring already says plainly it is
+"a net for fabrication, not an auditor of whether the right note was
+edited" — a claim like "I tagged it as Work" when the tool actually applied
+a different tag would not be caught, only a claim with **no** matching write
+at all. A future-tense-promise check ("I'll do that now" that never gets a
+following tool call) was considered and **not built**: the existing net
+deliberately excludes future tense ("we could link these" must never read
+as a false claim), and distinguishing a genuine dangling promise from a
+hedge or a question needs real model output to tune against, which this
+sandbox cannot provide. Flagging it here rather than guessing at a regex
+that could start crying wolf on legitimate suggestions.
+
+Six new tests (`tests/test_document_tools.py`,
+`tests/test_skills.py`) pin both fixes at the unit level (`_change_note_id`,
+`_change_document_id`, `_step_answer`'s truncation/dedup/cap behaviour) and
+one integration level (a real multi-step run through the streaming
+endpoint). Full `pytest tests/` and `ruff check .` green.
+
+**What's next on this thread, if picked back up:** the claim-specificity
+gap above, and — if a report ever names it — extending the same
+`_NOTE_ID_FIELD`/`_DOCUMENT_ID_FIELD` pattern to reminders. Neither is
+guessed at here; both are named so a future session doesn't have to
+re-derive that they were considered.
+
+---
+
 ## Previous session: four reported bugs, then §38's ranked list worked straight through
 
 Started with three quick user-reported UI bugs, found a second session

@@ -342,6 +342,62 @@ REPEATED_CALL_NOTE = (
 # "this one changes things" from the same list rather than a second copy.
 _WRITE_TOOLS = tools.WRITE_TOOLS
 
+# Which key each note-touching write tool's own result carries the note's id
+# under. Not "id" for all of them (`link_notes` says `linked`, `delete_note`
+# says `deleted`) and not present at all for tools that touch something else
+# entirely (`create_document`'s "id" is a *document* id).
+#
+# **Reported as "the agent does things that don't make sense":** a change
+# event used to read `result.get("id")` unconditionally and call it
+# `note_id`, so creating a document during a skill run produced a change
+# whose "note_id" was really that document's id — the change list's own View
+# button (§21/§22) would then take you to whatever note happened to share
+# that id, or nowhere. `_change_note_id` only fills the field in for tools
+# that actually touched a note, and reads it from the field that tool really
+# uses.
+_NOTE_ID_FIELD = {
+    "create_note": "id",
+    "edit_note": "id",
+    "tag_note": "id",
+    "pin_note": "id",
+    "restore_note": "id",
+    "link_notes": "linked",  # [source_id, target_id] — the note the call was made on
+    "unlink_notes": "unlinked",
+    "delete_note": "deleted",
+}
+
+
+def _change_note_id(name: str, result: dict) -> int | None:
+    """The note this write actually touched, or None for a write that
+    touched something else (a document, a reminder, a tag, a skill)."""
+    field = _NOTE_ID_FIELD.get(name)
+    if field is None:
+        return None
+    value = result.get(field)
+    if isinstance(value, list):
+        value = value[0] if value else None
+    return value if isinstance(value, int) else None
+
+
+# The document equivalent of `_NOTE_ID_FIELD` above — only `create_document`
+# needs one: `delete_document` is destructive, so it never reaches this code
+# path at all (it is parked for a confirm, not executed here).
+_DOCUMENT_ID_FIELD = {"create_document": "id"}
+
+
+def _change_document_id(name: str, result: dict) -> int | None:
+    """The document this write actually created, or None otherwise. A
+    sibling of `_change_note_id` for the same reason: a later skill step
+    that needs to reference "the document I just wrote" is working from
+    `step_history`, not from this turn's own tool results, so the id has to
+    survive into the next step's context under a field that names what it
+    actually is."""
+    field = _DOCUMENT_ID_FIELD.get(name)
+    if field is None:
+        return None
+    value = result.get(field)
+    return value if isinstance(value, int) else None
+
 # --- claiming work that never happened -------------------------------------------
 #
 # The failure this catches is the one that costs the most trust, because the
@@ -1033,7 +1089,8 @@ def run_agent(
                     change = {
                         "tool": name,
                         "label": result.get("label") or name,
-                        "note_id": result.get("id"),
+                        "note_id": _change_note_id(name, result),
+                        "document_id": _change_document_id(name, result),
                         "undo": undo,
                     }
                 if "error" in result:

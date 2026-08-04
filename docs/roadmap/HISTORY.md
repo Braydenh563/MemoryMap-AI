@@ -848,3 +848,43 @@ can't be reached) are both real states. Asked as "does the X status ever
 happen? I've never seen it" — if you've only ever seen amber or green,
 that's consistent: red needs Ollama to be *reachable but failing*, which is
 rarer than it simply not running.
+
+## 35. Reported in one session — the big batch, triaged — done
+
+One round of real use, mostly the desktop app, triaged into thirteen
+sub-items (35A–35L) and worked through. All resolved:
+
+- **The Ask section** (35A): stopped answering smalltalk conversationally,
+  fixed retrieval clipping, and the "Quick mode + thinking model produces
+  nothing" bug — `num_predict` was one flat cap shared between thinking and
+  answer tokens; thinking allowance is now added on top, not carved out of it.
+- **Hallucinated writes** (35B): the claim-pattern net widened to catch
+  first-person-plural and markdown-bolded claims, and checked per-action
+  against the tools that actually ran, not just "did anything write at all."
+- **Thinking-model capability reporting** (35C), **response-mode presets**
+  (35D), **desktop-app localStorage persistence** (35E), **broken buttons**
+  from listeners bound to re-rendered nodes (35F), **a stacking-render bug**
+  in the constellation widget (35G), and a **streaming diagnosis** that ruled
+  out the client (35H) were each found and fixed.
+- **Chat compression's manual half** shipped (35I; the agent tool followed
+  in a later session — see the entry below). **Document creation** closed a
+  read/write asymmetry (35J). **The agent's character** — long jobs cutting
+  out mid-way, a flat round cap unable to tell progress from a loop — got
+  earned rounds and resumable skill steps (35K). **The design-token
+  foundation** (35L) landed as `DESIGN.md`, with `tests/test_style_scale.py`
+  enforcing it against drift.
+
+Full detail, including what verification could and could not cover: git log
+for this range, and [CHANGELOG.md](../CHANGELOG.md).
+
+## 36. UI layout and surfaces — the reported list — done
+
+The layout work built on top of §35's design tokens, gathered into one list
+rather than scattered remarks: scrolling and sticky surfaces made structural
+(the window itself stopped scrolling, so sticky headers resolve against the
+right ancestor), and the tab-by-tab layout passes that followed — Notes,
+the Library, the graph and Timeline, the chat dock — each converted to the
+token scale rather than to whatever looked right that day, per §35L's own
+warned-against failure mode.
+
+Full detail: git log for this range, and [CHANGELOG.md](../CHANGELOG.md).

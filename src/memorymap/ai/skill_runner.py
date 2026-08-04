@@ -59,6 +59,59 @@ STEP_EARNED_ROUNDS = 6
 # to say what it found, not enough to refill the window each time.
 STEP_ANSWER_CHARS = 600
 
+# How many touched-note ids one step's summary names before it just says
+# "and N more" — a step that tags a hundred notes must not spend the whole
+# STEP_ANSWER_CHARS budget on ids and leave no room for the model's own words.
+MAX_TOUCHED_IDS_NAMED = 15
+
+
+def _touched_ids(step_changes: list[dict], field: str) -> list[int]:
+    return sorted({c[field] for c in step_changes if c.get(field) is not None})
+
+
+def _touched_clause(label: str, ids: list[int]) -> str:
+    """`" [Notes touched this step: #3, #9]"`, or `""` if `ids` is empty."""
+    if not ids:
+        return ""
+    named = ids[:MAX_TOUCHED_IDS_NAMED]
+    text = ", ".join(f"#{i}" for i in named)
+    if len(ids) > len(named):
+        text += f", and {len(ids) - len(named)} more"
+    return f" [{label} touched this step: {text}]"
+
+
+def _step_answer(answer: str, step_changes: list[dict]) -> str:
+    """What the next step's history records for this one: the model's own
+    words, plus which notes and documents it actually touched, if any did.
+
+    **Reported, in the shape of "the agent loses the plot half way through a
+    job":** a step's own narration ("tagged the relevant notes") is a prose
+    summary the model wrote about itself, not a record of what happened —
+    and it is *all* the next step saw. A later step that needed "those notes"
+    had nothing but that sentence to work from: too vague to act on, so it
+    either re-searched (and could easily find a different set) or guessed.
+    The ids in `step_changes` (`agent.py`'s own `change` events, the same
+    ones that already back the chat UI's View/Undo buttons) are the ground
+    truth of what this step did — appending them is handing the next step
+    the same fact a human reading the transcript would have.
+
+    Ids are the right thing to carry between steps even though the system
+    prompt tells the model never to show one to the *user* — that rule is
+    about what appears in an answer, not about how steps refer to things
+    internally, which is exactly how every id-targeting tool (`edit_note`,
+    `tag_note`, `link_notes`...) already works.
+    """
+    summary = _touched_clause("Notes", _touched_ids(step_changes, "note_id")) + _touched_clause(
+        "Documents", _touched_ids(step_changes, "document_id")
+    )
+    if not summary:
+        return (answer[:STEP_ANSWER_CHARS] if answer else "") or "(nothing said)"
+    # Truncate the model's own words first, not the ids — a next step that
+    # cannot see what happened is guessing; the prose is what it can afford
+    # to lose.
+    base = answer[: max(0, STEP_ANSWER_CHARS - len(summary))] if answer else ""
+    return (base or "(nothing said)") + summary
+
 
 def run_skill(
     session: Session,
@@ -193,6 +246,9 @@ def run_skill(
         said: list[str] = []
         failures: list[str] = []
         ran_out = False
+        # Where this step's own changes start in the run's running list, so
+        # they can be told apart from every earlier step's — see _step_answer.
+        changes_before = len(changes)
         for event in _collect(chain([first], events) if first else events, changes):
             if event["type"] == "answer":
                 said.append(event["delta"])
@@ -238,7 +294,7 @@ def run_skill(
             break
         yield {"type": "step", "index": index, "state": "done", "text": step}
         step_history.append(
-            {"question": step, "answer": answer[:STEP_ANSWER_CHARS] or "(nothing said)"}
+            {"question": step, "answer": _step_answer(answer, changes[changes_before:])}
         )
 
     if not started:  # every step failed before producing anything

@@ -513,23 +513,26 @@ a bin can disagree about what is in it.
 
 **Next up**, in order — by how much it unlocks, not how contained the fix is.
 A backlog audit found three sessions in a row had been extending the newest
-UI-polish batch instead of touching the standing backlog underneath it; this
-list is what replaced that:
+UI-polish batch instead of touching the standing backlog underneath it; most
+of that corrected list is now done — Arc joined force/tree/radial as a graph
+layout, the Timeline has a branch/line view, meeting notes record → transcribe
+→ review → save, onboarding reports Ollama reachability, and `markitdown` now
+powers a real "import a document as notes" button in Settings → Import &
+export. What's left:
 
-1. **Graph layouts beyond force/tree/radial** — a mind map, treemap or arc
-diagram. Named this project's own differentiator and nothing beyond the two
-existing layouts has been built.
-2. **The Timeline's branch/line view**, additive to the grid view that
-already exists.
-3. **Meeting notes / transcription.** `faster-whisper` already powers the 🎙
-dictation buttons for a single note; a longer recording transcribed into
-structured notes is a different, larger feature built on the same engine.
-4. **Onboarding diagnostics + example notes**, so the first screen has
-something to show before you've written anything.
-5. **`markitdown` and `llama-cpp-python` have nothing calling them.** Both are
-greyed out in Settings → Optional extras and say why. The first wants a "bring
-in a PDF as notes" button; the second wants wiring into the chat backend
-beside Ollama.
+1. **Graph layouts beyond force/tree/radial/arc** — a mind map, treemap or
+adjacency matrix. Named this project's own differentiator; arc reused the
+existing hierarchy machinery, but each of these is a materially different
+rendering approach.
+2. **Meeting notes' action-item extraction** — the recorder saves a note
+today; turning it into structured reminders needs a real model call this
+project's own sandbox can't verify against a running Ollama.
+3. **`llama-cpp-python` has nothing calling it.** Greyed out in Settings →
+Optional extras and says why: it wants wiring into the chat backend beside
+Ollama, a new provider plus a GGUF file picker — its own session's worth of
+work.
+4. **Onboarding's remaining pieces** — offering to pull a model, a data-dir
+writability check, example notes for a first-run screen.
 
 [`docs/ROADMAP.md`](https://github.com/Braydenh563/MemoryMap-AI/blob/main/docs/ROADMAP.md) §38 has the reasoning behind each, which is the
 expensive part to reconstruct.

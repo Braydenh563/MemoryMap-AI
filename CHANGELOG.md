@@ -7,6 +7,49 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Fixed — agent robustness pass
+
+- **A skill/plan step now hands the next step the actual notes and
+  documents it touched, not just its own prose summary.** Reported as the
+  agent "losing the plot half way through a job": a step's own narration
+  ("tagged the relevant notes") was all the next step ever saw, so a later
+  step needing "those notes" had nothing to act on but a sentence.
+  `skill_runner._step_answer` now appends the real ids from the step's own
+  `change` events.
+- **A skill step that created a document could produce a change whose
+  `note_id` was actually that document's id.** `agent.py` read every
+  write tool's result `"id"` field and called it a note id unconditionally;
+  `create_document`'s `"id"` is a document's. The chat UI's existing View
+  button (§21/§22) would then navigate to the wrong note, or nowhere.
+  `agent._change_note_id`/`_change_document_id` now resolve each tool's id
+  from the field it actually uses.
+
+### Added — §37G, §37I, §37K
+
+- **A document importer.** `markitdown` had been an installable extra with
+  nothing calling it since it was added; Settings → Import & export now has
+  an "Import a document" button (PDF, Word, slides) alongside the existing
+  markdown importer. A converted file with more than one top-level heading
+  becomes one note per heading — a deck or a document with real chapters —
+  otherwise the whole thing is one note, capped at 25 notes per upload.
+- **The sketch pad accepts a background image.** An "🖼️ Add image" button
+  draws a chosen photo onto its own canvas layer beneath the pen strokes, so
+  drawing over a screenshot or a photo works the way annotating one would be
+  expected to. The Eraser now clears pixels to transparent rather than
+  painting white, so erasing a stroke reveals the image underneath instead of
+  punching a white hole through it.
+- **`compress_chat`, an agent tool.** The agent can now ask to compress the
+  older part of a long conversation — `POST /chat/compress`'s summarising
+  logic, reused rather than duplicated — but the turn still ends on a review
+  card the user approves before it replaces anything, the same human-gated
+  flow the manual Compress button already used. Deciding *not* to let the
+  agent auto-apply its own summary was the point: a summary nobody can
+  correct is one they have to trust blindly.
+- **A handful of emoji were missing their colour variation selector**
+  (⚡️ ✖️ ▶️ ☑️ ⚠️), rendering as thin text-style glyphs on some platforms next
+  to fully-qualified emoji in the same row — the same bug one of them was
+  already fixed for once, audited across the rest of the frontend.
+
 ### Fixed — a second round of reported UI bugs
 
 - **Quick sketch's Close button darkened the background instead of closing.**

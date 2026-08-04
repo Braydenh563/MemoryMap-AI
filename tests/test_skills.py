@@ -15,7 +15,7 @@ import json
 
 import pytest
 
-from memorymap.ai import agent, skills, tools
+from memorymap.ai import agent, skill_runner, skills, tools
 
 
 def _known() -> set[str]:
@@ -376,6 +376,86 @@ def test_a_step_only_sees_what_the_earlier_steps_said(ai_client, fake_ollama):
     # The history the last step was given carries the earlier steps as turns.
     earlier = [m for m in last_turn if m.get("role") == "user"]
     assert len(earlier) > 1, "the last step was given no earlier context"
+
+
+def test_a_later_step_sees_which_notes_an_earlier_step_actually_touched(
+    ai_client, fake_ollama
+):
+    """Robustness pass, reported as the run "losing the plot" partway
+    through: a step's own narration ("tagged the relevant notes") is a
+    summary the model wrote about itself, not a record of what happened, and
+    it used to be *all* the next step saw. A later step that needed "those
+    notes" had only that sentence to work from — too vague to act on. The
+    actual note id (from the same `change` event that already backs the
+    chat UI's View/Undo buttons) now travels with it."""
+    note = _saved(ai_client, "a note that wants tagging")
+    fake_ollama.tool_script = [
+        [{"name": "tag_note", "arguments": {"note_id": note["id"], "add": ["filed"]}}]
+    ]
+    _stream_events(ai_client, "run", skill="🏷 Auto-tag my notes")
+    last_turn = fake_ollama.tool_rounds[-1]
+    history_text = " ".join(
+        str(m.get("content", "")) for m in last_turn if m.get("role") == "assistant"
+    )
+    assert f"#{note['id']}" in history_text
+
+
+def test_step_answer_with_nothing_touched_is_just_the_prose():
+    assert skill_runner._step_answer("Looked, found nothing.", []) == "Looked, found nothing."
+
+
+def test_step_answer_with_no_prose_says_so():
+    assert skill_runner._step_answer("", []) == "(nothing said)"
+
+
+def test_step_answer_names_the_notes_touched():
+    changes = [{"note_id": 12}, {"note_id": 5}]
+    result = skill_runner._step_answer("Tagged them.", changes)
+    assert result == "Tagged them. [Notes touched this step: #5, #12]"
+
+
+def test_step_answer_ignores_changes_with_no_id_of_either_kind():
+    changes = [{"note_id": None}, {}]
+    assert skill_runner._step_answer("Nothing to show.", changes) == "Nothing to show."
+
+
+def test_step_answer_names_documents_too():
+    """The same "loses the plot" fix as notes, for a step that wrote a
+    document — a later step told to "attach that document" needs its id,
+    not a re-told sentence about writing it."""
+    changes = [{"document_id": 41}]
+    result = skill_runner._step_answer("Wrote it up.", changes)
+    assert result == "Wrote it up. [Documents touched this step: #41]"
+
+
+def test_step_answer_names_both_kinds_together():
+    changes = [{"note_id": 5}, {"document_id": 41}]
+    result = skill_runner._step_answer("Done.", changes)
+    assert result == (
+        "Done. [Notes touched this step: #5] [Documents touched this step: #41]"
+    )
+
+
+def test_step_answer_deduplicates_and_sorts_ids():
+    changes = [{"note_id": 9}, {"note_id": 3}, {"note_id": 9}]
+    result = skill_runner._step_answer("Done.", changes)
+    assert result == "Done. [Notes touched this step: #3, #9]"
+
+
+def test_step_answer_caps_how_many_ids_it_names():
+    changes = [{"note_id": n} for n in range(20)]
+    result = skill_runner._step_answer("Tagged a lot.", changes)
+    assert result.endswith(", and 5 more]")
+    assert result.count("#") == skill_runner.MAX_TOUCHED_IDS_NAMED
+
+
+def test_step_answer_truncates_prose_before_dropping_ids():
+    """The ids are the fact the next step needs; the model's own words are
+    what it can afford to lose if the two don't both fit."""
+    long_answer = "x" * 1000
+    result = skill_runner._step_answer(long_answer, [{"note_id": 1}])
+    assert len(result) <= skill_runner.STEP_ANSWER_CHARS
+    assert "[Notes touched this step: #1]" in result
 
 
 def test_what_changed_comes_back_as_a_list_with_a_way_to_undo_it(

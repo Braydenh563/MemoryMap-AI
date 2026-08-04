@@ -24,7 +24,8 @@ from datetime import timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import skills
+from memorymap.ai import librarian, skills
+from memorymap.ai.ollama_client import OllamaError
 from memorymap.core import deps
 from memorymap.core.database import Category, EmbeddingRecord, Entry, Reminder
 from memorymap.core.logbuffer import safe_value
@@ -57,8 +58,9 @@ class ToolSpec:
     destructive: bool = False
     #: This tool's whole effect is to stop and wait for the user, so the agent
     #: loop ends the turn on it rather than feeding a result back and carrying
-    #: on. `ask_user` is the only one, and the flag exists rather than a name
-    #: check so the loop reads as "why" instead of "which" (§33).
+    #: on. `ask_user`, `run_skill`, `make_plan` and `compress_chat` all set
+    #: this, and the flag exists rather than a name check so the loop reads
+    #: as "why" instead of "which" (§33).
     ends_turn: bool = False
 
 
@@ -1991,6 +1993,110 @@ def _plan_steps(raw) -> list[str]:
     return steps
 
 
+#: Turns to summarise in one call. Beyond this the summary itself gets long
+#: enough to be worth summarising, which is the wrong direction. Lives here,
+#: not in routes_chat.py, because `summarise_turns` below is shared by
+#: POST /chat/compress (the manual button) and compress_chat (this tool) —
+#: one ceiling, so the two paths can't quietly drift apart.
+MAX_COMPRESS_TURNS = 40
+
+COMPRESS_PROMPT = (
+    "Summarise this conversation so it can be continued by someone who has "
+    "not read it. Keep: what the user asked for, what was decided, facts "
+    "established about their notes, and anything still outstanding. Drop "
+    "pleasantries and repetition. Write it as short bullet points, under 200 "
+    "words, in the third person. Do not add anything that was not said."
+)
+
+#: How many of the most recent turns compress_chat leaves alone. Matches the
+#: manual button's KEEP_RECENT_TURNS in app.js: compressing the exchange
+#: still in progress is how a summary loses the thing being talked about
+#: right now.
+COMPRESS_KEEP_RECENT = 2
+
+
+def summarise_turns(turns: list[tuple[str, str]]) -> dict:
+    """A summary of these question/answer pairs.
+
+    Raises `OllamaError` when there is no model to ask (offline, or the call
+    itself failed) and `ToolError` when the model answered with nothing — the
+    two calling paths (the HTTP route and this tool's validator) map each to
+    a different response, so the distinction is preserved rather than
+    collapsed into one exception type.
+    """
+    ollama = deps.get_ollama()
+    if not ollama.is_running():
+        raise OllamaError(librarian.OFFLINE_MESSAGE)
+    transcript = "\n\n".join(
+        f"User: {q.strip()[:1500]}\nAssistant: {a.strip()[:1500]}" for q, a in turns
+    )
+    reply = ollama.chat(
+        deps.get_model_manager().utility_model(),
+        [
+            {"role": "system", "content": COMPRESS_PROMPT},
+            {"role": "user", "content": transcript},
+        ],
+    )
+    summary = (reply.get("content") or "").strip() if isinstance(reply, dict) else ""
+    if not summary:
+        # Better to say nothing happened than to hand back an empty summary
+        # the caller would send in place of real turns.
+        raise ToolError("The model returned an empty summary — try again.")
+    return {
+        "summary": summary,
+        "turns": len(turns),
+        "chars_before": len(transcript),
+        "chars_after": len(summary),
+    }
+
+
+def _compress_chat(session: Session, args: dict) -> dict:
+    """Never runs, for the same reason `_ask_user` never runs.
+
+    `compress_chat` hands the summary to the human for review rather than
+    applying it — the code this mirrors (`showCompressReview` in app.js) is
+    explicit that a summary nobody can correct is one they have to trust
+    blindly, and that safeguard applies exactly as much to a summary the
+    agent asked for as to one the user pressed a button for (§37I: decided
+    to keep the hand-off, not skip it for the tool path).
+    """
+    raise ToolError(
+        "compress_chat hands the summary to the user for review — it cannot "
+        "be executed directly."
+    )
+
+
+def validate_compress_chat(arguments: dict, history: list[dict] | None) -> dict:
+    """The summary to show the user, or a ToolError explaining why not yet.
+
+    Takes no arguments from the model — the conversation itself already has
+    the turns to summarise, and asking a small model to restate them as
+    arguments would be slower, more expensive, and less faithful than reading
+    the history the loop already has in hand.
+
+    Always summarises a *prefix* of `history`, starting at turn 0, the same
+    shape POST /chat/compress and `applyCompression` in app.js assume:
+    `chatSummary.covered` folds `chatConv.turns.slice(0, covered)`, so a
+    window starting anywhere else would make the client fold the wrong turns.
+    """
+    turns = [(str(t.get("question") or ""), str(t.get("answer") or "")) for t in (history or [])]
+    covered = len(turns) - COMPRESS_KEEP_RECENT
+    if covered < 2:
+        raise ToolError(
+            "There isn't enough conversation yet to compress — keep going, or "
+            "just answer without calling this."
+        )
+    # Beyond the ceiling, cover only the first MAX_COMPRESS_TURNS rather than
+    # refuse outright — the rest stays in the visible, uncompressed tail.
+    covered = min(covered, MAX_COMPRESS_TURNS)
+    try:
+        result = summarise_turns(turns[:covered])
+    except OllamaError as exc:
+        raise ToolError(str(exc)) from exc
+    result["type"] = "compress_review"
+    return result
+
+
 def validate_make_plan(arguments: dict) -> dict:
     """The plan a run should be built from, or a ToolError saying what's wrong.
 
@@ -2029,13 +2135,17 @@ def validate_make_plan(arguments: dict) -> dict:
 #: The tools whose whole effect is to end the turn and hand over, mapped to the
 #: validator that turns the model's arguments into the event the UI receives.
 #: A dispatch table rather than a chain of name checks in the agent loop: the
-#: loop's job is "this tool ends the turn", not "which one".
-HANDOFFS: dict[str, Callable[[dict], dict]] = {
-    "ask_user": lambda arguments: dict(
+#: loop's job is "this tool ends the turn", not "which one". Every validator
+#: takes `(arguments, history)` even though only `compress_chat` reads the
+#: second one — one call shape in `handoff_event` below, rather than a
+#: special case for the one handoff that needs the conversation itself.
+HANDOFFS: dict[str, Callable[[dict, list[dict] | None], dict]] = {
+    "ask_user": lambda arguments, history: dict(
         zip(("question", "options"), validate_ask(arguments)), type="ask"
     ),
-    "run_skill": validate_run_skill,
-    "make_plan": validate_make_plan,
+    "run_skill": lambda arguments, history: validate_run_skill(arguments),
+    "make_plan": lambda arguments, history: validate_make_plan(arguments),
+    "compress_chat": validate_compress_chat,
 }
 
 #: The handovers that start a *run*. A run must not start another run: each one
@@ -2046,13 +2156,17 @@ HANDOFFS: dict[str, Callable[[dict], dict]] = {
 RUN_STARTERS = frozenset({"run_skill", "make_plan"})
 
 
-def handoff_event(name: str, arguments: dict) -> dict:
+def handoff_event(name: str, arguments: dict, history: list[dict] | None = None) -> dict:
     """The event a turn-ending tool hands to the UI, or a ToolError explaining
-    why it can't — which the agent loop feeds back so the model can retry."""
+    why it can't — which the agent loop feeds back so the model can retry.
+
+    `history` is the conversation `run_agent` already has in scope; only
+    `compress_chat` reads it, but every handoff is called the same way.
+    """
     build = HANDOFFS.get(name)
     if build is None:  # a spec marked ends_turn with nothing to hand over
         raise ToolError(f"{name} cannot end the turn — it has no handover.")
-    return build(arguments)
+    return build(arguments, history)
 
 
 # --- the registry ---------------------------------------------------------------
@@ -2369,6 +2483,21 @@ TOOLS: dict[str, ToolSpec] = {
                 "required": ["goal", "steps"],
             },
             _make_plan,
+            ends_turn=True,
+        ),
+        ToolSpec(
+            "compress_chat",
+            # Offered by cue, not in CORE_TOOLS (§34's "the registry should
+            # stop growing" — this only needs to be on the wire for the rare
+            # turn that's actually about the chat getting long).
+            "Summarise the older part of this conversation so it takes less "
+            "of the context window. Your turn ENDS — the user reviews and "
+            "edits the summary before it replaces anything, same as pressing "
+            "Compress themselves. Use this when the user asks to shorten, "
+            "compress, or condense the chat itself — not for summarising "
+            "notes.",
+            {"type": "object", "properties": {}},
+            _compress_chat,
             ends_turn=True,
         ),
         ToolSpec(
@@ -2857,6 +2986,19 @@ TOOL_GROUPS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     (
         ("summarize_notes",),
         ("summarise", "summarize", "summary", "recap", "overview", "gist"),
+    ),
+    (
+        ("compress_chat",),
+        (
+            # About the CONVERSATION getting long, not about summarising
+            # notes — "summarise my notes" must not offer this, so it shares
+            # no words with the summarize_notes group above.
+            "compress the chat", "compress this chat", "compress our chat",
+            "compress the conversation", "condense the chat",
+            "condense this conversation", "shorten the chat",
+            "shorten this conversation", "running out of context",
+            "context window",
+        ),
     ),
 ]
 

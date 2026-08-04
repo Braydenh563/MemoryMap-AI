@@ -406,7 +406,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <option value="most-used">Most used</option>
               </select>
               <button id="select-btn" class="ghost small"
-                title="Select several notes to move, tag, or delete together">☑ Select</button>
+                title="Select several notes to move, tag, or delete together">☑️ Select</button>
             </div>
           </div>
           <!-- Batch actions bar (Wave M): appears in select mode -->
@@ -1073,7 +1073,7 @@ Link to another note with [[its first few words]]."></textarea>
           <span class="doc-toolbar-sep" aria-hidden="true"></span>
           <button type="button" data-md="ul" title="Bulleted list">• List</button>
           <button type="button" data-md="ol" title="Numbered list">1. List</button>
-          <button type="button" data-md="task" title="Task list">☑ Task</button>
+          <button type="button" data-md="task" title="Task list">☑️ Task</button>
           <button type="button" data-md="quote" title="Quote">❝</button>
           <span class="doc-toolbar-sep" aria-hidden="true"></span>
           <button type="button" data-md="link" title="Link">🔗</button>
@@ -2145,7 +2145,7 @@ Link to another note with [[its first few words]]."></textarea>
                    and check, which was the only advice a failed start had. -->
               <p class="muted" id="searxng-port"></p>
               <div class="row">
-                <button id="searxng-start" class="small">▶ Start SearXNG</button>
+                <button id="searxng-start" class="small">▶️ Start SearXNG</button>
                 <button id="searxng-stop" class="ghost small">■ Stop</button>
                 <button id="searxng-reinstall" class="ghost small"
                   title="Delete the SearXNG install and set it up again from scratch">↻ Reinstall</button>
@@ -2263,6 +2263,18 @@ Link to another note with [[its first few words]]."></textarea>
             <p class="muted">
               Each file becomes a note. Obsidian-style frontmatter
               (category, tags) is understood.
+            </p>
+
+            <h3>Import a document</h3>
+            <div class="row">
+              <input id="import-document-file" type="file" accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.html,.htm">
+              <button id="import-document" class="small">Import</button>
+            </div>
+            <p id="import-document-status" class="status" role="status"></p>
+            <p class="muted">
+              Turns a PDF, Word file or slide deck into notes — one per
+              chapter or slide when the file has that shape, one note
+              otherwise. Needs the markitdown extra below.
             </p>
 
             <h3>Backups</h3>
@@ -2384,7 +2396,7 @@ Link to another note with [[its first few words]]."></textarea>
           <section class="settings-section hidden" id="settings-help">
             <div class="row space-between">
               <h3 class="flush">Help &amp; guide</h3>
-              <button id="show-guide-btn" class="small">▶ Replay welcome tour</button>
+              <button id="show-guide-btn" class="small">▶️ Replay welcome tour</button>
             </div>
             <p class="muted">A quick reference to what each part of MemoryMap does. Click a topic to expand it.</p>
             <div class="help-accordion">
@@ -2397,7 +2409,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <p>“Ask your notebook” (Notes tab) and the <strong>Chat</strong> tab both answer from your saved notes. Turn on <strong>Agent mode</strong> to let the assistant use its tools — searching and reading your notes, opening a web page, creating, tagging, linking and organising. Destructive actions always ask first. Save, rename, and switch between conversations in the sidebar.</p>
               </details>
               <details>
-                <summary>⚡ Skills</summary>
+                <summary>⚡️ Skills</summary>
                 <p>Skills are one-click requests above the chat box (e.g. “Summarise my week”). Add your own in <em>Settings → Skills</em>; a skill can use the AI’s tools so it actually does the work, not just describes it.</p>
               </details>
               <details>
@@ -2612,8 +2624,13 @@ Link to another note with [[its first few words]]."></textarea>
         </label>
         <button id="sketch-eraser" class="ghost small">Eraser</button>
         <button id="sketch-clear" class="ghost small">Clear</button>
+        <button id="sketch-upload-image" class="ghost small">🖼️ Add image</button>
+        <input id="sketch-image-input" type="file" accept="image/*" class="hidden">
       </div>
-      <canvas id="sketch-canvas" width="820" height="480"></canvas>
+      <div id="sketch-canvas-wrap">
+        <canvas id="sketch-bg-canvas" width="820" height="480"></canvas>
+        <canvas id="sketch-canvas" width="820" height="480"></canvas>
+      </div>
       <div class="row">
         <input id="sketch-caption" type="text" maxlength="200" placeholder="Caption (becomes the note text)">
         <button id="sketch-save">Save as note</button>

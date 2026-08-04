@@ -3080,12 +3080,28 @@ html.modal-open body {
   overflow-y: auto;
   background: var(--modal-bg);
 }
-#sketch-canvas {
+/* Two stacked canvases, not one: an uploaded image lives on #sketch-bg-canvas
+   and pen strokes live on #sketch-canvas above it. Kept apart so the Eraser
+   can punch transparent holes in the strokes layer (`destination-out`) and
+   reveal the image underneath, instead of painting white over a photo. */
+#sketch-canvas-wrap {
+  position: relative;
   width: 100%;
-  border: 1px solid var(--border);
+  aspect-ratio: 820 / 480; /* matches the canvases' own pixel size */
+}
+#sketch-canvas-wrap canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   border-radius: var(--radius-lg);
-  background: #fff;
   touch-action: none; /* the pen, not the page, gets touch moves */
+}
+#sketch-bg-canvas {
+  border: 1px solid var(--border);
+  background: #fff;
+}
+#sketch-canvas {
   cursor: crosshair;
 }
 .sketch-color {

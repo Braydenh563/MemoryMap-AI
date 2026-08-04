@@ -2495,6 +2495,7 @@ async function streamChat({
   onAsk,
   onRunSkill,
   onRunPlan,
+  onCompressReview,
   onHint,
   onStats,
 }) {
@@ -2560,6 +2561,7 @@ async function streamChat({
       else if (event.type === "ask" && onAsk) onAsk(event);
       else if (event.type === "run_skill" && onRunSkill) onRunSkill(event);
       else if (event.type === "run_plan" && onRunPlan) onRunPlan(event);
+      else if (event.type === "compress_review" && onCompressReview) onCompressReview(event);
       else if (event.type === "hint" && onHint) onHint(event);
       else if (event.type === "stats" && onStats) onStats(event);
     }
@@ -3961,7 +3963,7 @@ function agentTimeline(holder) {
     // a job the user set up, "🧭 fix my categories" is one the model worked out
     // just now, and confusing the two makes the skill list look like it has
     // entries nobody added.
-    summary.textContent = `${plan.kind === "plan" ? "🧭" : "⚡"} ${plan.skill}`;
+    summary.textContent = `${plan.kind === "plan" ? "🧭" : "⚡️"} ${plan.skill}`;
     el.appendChild(summary);
     const items = [];
     if (plan.steps && plan.steps.length) {
@@ -4269,7 +4271,7 @@ function renderToolConfirm(holder, event) {
   );
   row.appendChild(
     smallButton("Cancel", "Don't do this", () => {
-      card.replaceWith(toolChip("✖ Cancelled — nothing was changed."));
+      card.replaceWith(toolChip("✖️ Cancelled — nothing was changed."));
     })
   );
   card.append(text, row);
@@ -5461,6 +5463,20 @@ async function sendChatMessage(preset, opts = {}) {
         handoff = event;
         chatScrollToEnd();
       },
+      onCompressReview: (event) => {
+        // The model asked to compress the chat (§37I). Unlike run_skill/
+        // run_plan this isn't a run to start — it opens the same review
+        // panel the manual Compress button fills in, and the summary is
+        // used only if the user presses Apply there. Not set on `handoff`:
+        // that path always starts something; this one waits for a person.
+        clearPending();
+        const label = "🗜 Suggested compressing the earlier messages";
+        timeline.tool(toolChip(label, true));
+        toolEvents.push({ label, ok: true });
+        showCompressReview(event, event.turns);
+        status.textContent = "Waiting for you to review the summary…";
+        chatScrollToEnd();
+      },
       onStats: (event) => {
         // A round finished. Asked for directly: *"a new chat should be saved
         // after agent turns as well, not after the whole response is
@@ -5559,7 +5575,7 @@ async function sendChatMessage(preset, opts = {}) {
         label: `↻ Resume from step ${stoppedAtStep + 1}`,
         hint: "Earlier steps are not repeated.",
         onClick: () =>
-          sendChatMessage(`⚡ ${opts.skill} — from step ${stoppedAtStep + 1}`, {
+          sendChatMessage(`⚡️ ${opts.skill} — from step ${stoppedAtStep + 1}`, {
             skill: opts.skill,
             skillInputs: opts.skillInputs || {},
             skillFromStep: stoppedAtStep,
@@ -6667,7 +6683,7 @@ function startSkill(skill, values) {
   // the ⚡ dropdown, where you are already here, this is a no-op.
   switchTab("chat");
   const given = Object.values(values).filter(Boolean).join(", ");
-  sendChatMessage(`⚡ ${skill.name}${given ? ` — ${given}` : ""}`, {
+  sendChatMessage(`⚡️ ${skill.name}${given ? ` — ${given}` : ""}`, {
     skill: skill.name,
     skillInputs: values,
   });
@@ -7926,7 +7942,7 @@ function recentSkillLinks() {
     return [];
   }
   return recent.slice(0, QUICK_SKILL_SLOTS).map((name) => ({
-    icon: "⚡",
+    icon: "⚡️",
     label: withoutLeadingEmoji(name),
     // The full name, unaltered, is what the button remembers itself by: the
     // use counter and `runSkill` both key off it, and stripping the emoji from
@@ -8036,9 +8052,9 @@ function renderQuickLinks() {
     skillGroup.row.appendChild(
       quickLinkButton(
         {
-          icon: "⚡",
+          icon: "⚡️",
           label: "All skills…",
-          hint: "Every skill, in the chat's ⚡ picker",
+          hint: "Every skill, in the chat's ⚡️ picker",
           run: () => switchTab("chat"),
         },
         "quick-link quick-pill quick-link-more"
@@ -13808,6 +13824,42 @@ async function importMarkdown() {
   }
 }
 
+// §37G: a document (PDF/Word/slide deck) becomes one or more notes, via the
+// markitdown extra — the same "Import" pattern as importMarkdown above, one
+// file at a time rather than several, since a document commonly becomes
+// several notes on its own (one per chapter or slide).
+async function importDocument() {
+  const input = $("import-document-file");
+  const status = $("import-document-status");
+  const file = input.files[0];
+  if (!file) {
+    status.textContent = "Choose a file first.";
+    return;
+  }
+  const form = new FormData();
+  form.append("file", file);
+  try {
+    const response = await fetch("/import/document", {
+      method: "POST",
+      headers: { "X-Auth-Token": authToken() }, // browser sets the multipart type
+      body: form,
+    });
+    if (!response.ok) {
+      const detail = await response.json().catch(() => ({}));
+      throw new Error(detail.detail || `Import failed (${response.status})`);
+    }
+    const result = await response.json();
+    status.textContent =
+      `Imported ${result.imported} note${result.imported === 1 ? "" : "s"}` +
+      ` from ${result.filename}.` +
+      (result.truncated ? " (Stopped at the note limit — the rest wasn't imported.)" : "");
+    input.value = "";
+    loadEntries().catch(() => {});
+  } catch (error) {
+    status.textContent = error.message;
+  }
+}
+
 // --- Wave F: command palette (Ctrl/Cmd-K) -------------------------------------------
 
 let paletteIndex = 0;
@@ -13873,7 +13925,7 @@ function paletteCommands() {
     },
     { label: "⚙️ Settings → Models", run: () => openSettingsModal("models") },
     { label: "🎭 Settings → Personas", run: () => openSettingsModal("personas") },
-    { label: "⚡ Settings → Skills", run: () => openSettingsModal("skills") },
+    { label: "⚡️ Settings → Skills", run: () => openSettingsModal("skills") },
     { label: "🧰 Settings → Tools it can use", run: () => openSettingsModal("tools") },
     { label: "🎨 Settings → Appearance", run: () => openSettingsModal("appearance") },
     { label: "🎛 Settings → Preferences", run: () => openSettingsModal("preferences") },
@@ -13965,21 +14017,56 @@ function paletteKeydown(event) {
 let sketchPen = { color: "#4f6df5", size: 4, eraser: false };
 let sketchDrawing = false;
 let sketchDirty = false;
+// §37G: an image the user brought in to annotate over — an `ImageBitmap`, or
+// null for a blank page. Lives on its own layer (`#sketch-bg-canvas`) below
+// the pen strokes (`#sketch-canvas`), so Clear and the eraser can affect the
+// strokes without touching it.
+let sketchBackgroundImage = null;
 
 function sketchContext() {
   return $("sketch-canvas").getContext("2d");
+}
+
+// Redraws the background layer from scratch: white, then the uploaded image
+// (if any) scaled to fit inside the canvas without cropping or stretching.
+// Called after every change to `sketchBackgroundImage`, rather than patched
+// in place, because "fit inside and centre" isn't otherwise idempotent.
+function sketchDrawBackground() {
+  const canvas = $("sketch-bg-canvas");
+  const context = canvas.getContext("2d");
+  context.fillStyle = "#ffffff"; // a white page in both themes
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  const img = sketchBackgroundImage;
+  if (!img) return;
+  const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+  const w = img.width * scale;
+  const h = img.height * scale;
+  context.drawImage(img, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
 }
 
 function openSketch() {
   overlayReturnFocus = document.activeElement;
   $("sketch-overlay").classList.remove("hidden");
   $("sketch-close").focus();
+  sketchBackgroundImage = null;
+  sketchDrawBackground();
   const canvas = $("sketch-canvas");
-  const context = canvas.getContext("2d");
-  context.fillStyle = "#ffffff"; // a white page in both themes
-  context.fillRect(0, 0, canvas.width, canvas.height);
+  canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
   sketchDirty = false;
   $("sketch-status").textContent = "";
+}
+
+async function sketchUploadImage(file) {
+  if (!file) return;
+  const status = $("sketch-status");
+  try {
+    sketchBackgroundImage = await createImageBitmap(file);
+    sketchDrawBackground();
+    sketchDirty = true; // an image is as much a change as a pen stroke
+    status.textContent = "";
+  } catch {
+    status.textContent = "Couldn't load that image.";
+  }
 }
 
 async function closeSketch() {
@@ -14014,7 +14101,12 @@ function sketchMove(event) {
   const context = sketchContext();
   context.lineCap = "round";
   context.lineJoin = "round";
-  context.strokeStyle = sketchPen.eraser ? "#ffffff" : sketchPen.color;
+  // Strokes live on their own transparent layer now (§37G), so an eraser
+  // that painted white would punch a white hole through an uploaded image
+  // rather than revealing it. `destination-out` clears pixels on THIS layer
+  // to transparent instead, which lets the background layer show through.
+  context.globalCompositeOperation = sketchPen.eraser ? "destination-out" : "source-over";
+  context.strokeStyle = sketchPen.color;
   context.lineWidth = sketchPen.eraser ? sketchPen.size * 4 : sketchPen.size;
   context.lineTo(x, y);
   context.stroke();
@@ -14036,9 +14128,16 @@ async function saveSketch() {
       method: "POST",
       body: JSON.stringify({ content: caption, category: "Sketches" }),
     });
-    const blob = await new Promise((resolve) =>
-      $("sketch-canvas").toBlob(resolve, "image/png")
-    );
+    // Strokes and any uploaded image live on separate canvases (§37G); the
+    // saved PNG has to be both together, composited onto a throwaway canvas
+    // rather than either layer alone.
+    const composite = document.createElement("canvas");
+    composite.width = $("sketch-canvas").width;
+    composite.height = $("sketch-canvas").height;
+    const compositeContext = composite.getContext("2d");
+    compositeContext.drawImage($("sketch-bg-canvas"), 0, 0);
+    compositeContext.drawImage($("sketch-canvas"), 0, 0);
+    const blob = await new Promise((resolve) => composite.toBlob(resolve, "image/png"));
     const form = new FormData();
     form.append("file", blob, "sketch.png");
     const response = await fetch(`/entries/${entry.id}/files`, {
@@ -14430,7 +14529,7 @@ function renderNotificationBadge() {
 const NOTIFICATION_ICONS = {
   reminder: "⏰",
   task: "⚙",
-  run: "⚡",
+  run: "⚡️",
   error: "⚠️",
   info: "•",
 };
@@ -15736,7 +15835,7 @@ function renderSearchEngineHealth(status) {
   } else if (status.embedding_warming) {
     state = "… warming up";
   } else if (status.embedding_error) {
-    state = "⚠ unavailable — using keyword search (details below)";
+    state = "⚠️ unavailable — using keyword search (details below)";
     cls = "error";
   }
   el.textContent = `Search engine: ${engine} — ${state}`;
@@ -16065,7 +16164,7 @@ async function renderExtras() {
     if (extra.caveat) {
       const caveat = document.createElement("p");
       caveat.className = "muted extras-caveat";
-      caveat.textContent = `⚠ ${extra.caveat}`;
+      caveat.textContent = `⚠️ ${extra.caveat}`;
       li.appendChild(caveat);
     }
     // The reason the button is grey, in full. Same shape as the caveat because
@@ -16325,7 +16424,7 @@ const TASK_OUTCOMES = {
   failed: { icon: "⚠️", className: "task-failed" },
   // Not an error. Reporting a user's own decision in red is how people learn
   // to ignore red.
-  cancelled: { icon: "✖", className: "muted" },
+  cancelled: { icon: "✖️", className: "muted" },
 };
 
 function renderTaskHistory(history) {
@@ -19738,7 +19837,7 @@ async function refreshSearxngHost() {
   badge.className = `chip ${running ? "confidence" : ""}`.trim();
   start.disabled = running;
   stop.disabled = info.state === "absent";
-  start.textContent = info.state === "absent" ? "▶ Install & start" : "▶ Start SearXNG";
+  start.textContent = info.state === "absent" ? "▶️ Install & start" : "▶️ Start SearXNG";
   // Keep polling while it's starting, so "Starting…" can't stick forever with
   // no way to tell whether anything is still happening.
   if (info.state === "running" && !info.responding) {
@@ -20477,6 +20576,7 @@ $("entry-content").addEventListener("input", (e) => {
 
 $("export-md").addEventListener("click", () => downloadExport("markdown"));
 $("import-md").addEventListener("click", importMarkdown);
+$("import-document").addEventListener("click", importDocument);
 $("backup-now").addEventListener("click", backupNow);
 
 $("palette-input").addEventListener("input", () => {
@@ -20492,10 +20592,16 @@ $("sketch-btn").addEventListener("click", openSketch);
 $("sketch-close").addEventListener("click", closeSketch);
 $("sketch-save").addEventListener("click", saveSketch);
 $("sketch-clear").addEventListener("click", () => {
+  // Clears strokes only — the background layer (§37G's uploaded image, or
+  // blank white) is untouched, so Clear can't lose the photo being annotated.
   const canvas = $("sketch-canvas");
-  const context = canvas.getContext("2d");
-  context.fillStyle = "#ffffff";
-  context.fillRect(0, 0, canvas.width, canvas.height);
+  canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
+});
+$("sketch-upload-image").addEventListener("click", () => $("sketch-image-input").click());
+$("sketch-image-input").addEventListener("change", () => {
+  const file = $("sketch-image-input").files[0];
+  $("sketch-image-input").value = ""; // lets the same file be picked again
+  sketchUploadImage(file);
 });
 $("sketch-eraser").addEventListener("click", () => {
   sketchPen.eraser = !sketchPen.eraser;

@@ -54,6 +54,31 @@ def test_deleting_a_document_asks_first():
     assert tools.TOOLS["create_document"].destructive is False
 
 
+def test_a_created_document_is_not_mistaken_for_a_note():
+    """Robustness pass, reported as the agent "doing things that don't make
+    sense": the run summary's `change` event used to read
+    `result.get("id")` unconditionally and call it `note_id`, whatever the
+    tool actually touched. A skill that wrote a document during a run would
+    then produce a change whose "note_id" was really that document's id —
+    the chat UI's own View button (§21/§22) would take you to whatever note
+    happened to share that id, or nowhere. `create_document`'s own id must
+    never be read back out as a note's."""
+    result = {"id": 41, "title": "Bean report", "label": "created"}
+    assert agent._change_note_id("create_document", result) is None
+
+
+def test_note_tools_still_carry_their_own_note_id():
+    """The inverse of the bug above: a genuine note write must still resolve
+    — link_notes and unlink_notes use their own field names ("linked" /
+    "unlinked") rather than "id", and delete_note uses "deleted"."""
+    assert agent._change_note_id("create_note", {"id": 7}) == 7
+    assert agent._change_note_id("link_notes", {"linked": [3, 9]}) == 3
+    assert agent._change_note_id("unlink_notes", {"unlinked": [3, 9]}) == 3
+    assert agent._change_note_id("delete_note", {"deleted": 12}) == 12
+    assert agent._change_note_id("set_reminder", {"id": 5}) is None
+    assert agent._change_note_id("link_notes", {"linked": []}) is None
+
+
 def test_an_empty_document_is_refused(session, app_state):
     """A titled empty document is the shape of a model that called the tool to
     announce its intention. Refusing is what makes it write first."""

@@ -658,22 +658,21 @@ def list_tools() -> list[dict]:
 #
 # A summary is strictly better than a drop: the same few hundred characters
 # carry the gist of ten turns instead of the whole of one. And it is the
-# **manual** half that ships first, exactly as §35I argues — a button the user
-# presses, whose output they can read before it is used, cannot misfire. The
-# tool that lets the agent do it unprompted is still open, and it has to
-# justify a slot in a registry §34 says should stop growing.
+# **manual** half that shipped first, exactly as §35I argued — a button the
+# user presses, whose output they can read before it is used, cannot misfire.
+#
+# §37I: the tool that lets the agent do it unprompted (`compress_chat` in
+# ai/tools.py) shares this endpoint's summarising logic via
+# `tools.summarise_turns`, and keeps the same human-review step — the model's
+# turn ends and `showCompressReview` renders exactly the panel this endpoint
+# already feeds, so a summary the agent asked for is never applied unread any
+# more than one this button produced would be.
 
 #: Turns to summarise in one call. Beyond this the summary itself gets long
-#: enough to be worth summarising, which is the wrong direction.
-MAX_COMPRESS_TURNS = 40
-
-COMPRESS_PROMPT = (
-    "Summarise this conversation so it can be continued by someone who has "
-    "not read it. Keep: what the user asked for, what was decided, facts "
-    "established about their notes, and anything still outstanding. Drop "
-    "pleasantries and repetition. Write it as short bullet points, under 200 "
-    "words, in the third person. Do not add anything that was not said."
-)
+#: enough to be worth summarising, which is the wrong direction. Re-exported
+#: from ai/tools.py, the one place the ceiling is defined, so this route and
+#: the agent's own compress_chat tool can't drift to different limits.
+MAX_COMPRESS_TURNS = tools.MAX_COMPRESS_TURNS
 
 
 class CompressBody(BaseModel):
@@ -691,36 +690,16 @@ def compress_history(body: CompressBody) -> dict:
     conversation on screen is not touched: this is a *lossless* operation as
     far as the transcript is concerned, and only the model's view narrows.
     """
-    ollama = deps.get_ollama()
-    if not ollama.is_running():
-        raise HTTPException(status_code=503, detail=librarian.OFFLINE_MESSAGE)
-    transcript = "\n\n".join(
-        f"User: {turn.question.strip()[:1500]}\nAssistant: {turn.answer.strip()[:1500]}"
-        for turn in body.history
-    )
     try:
-        reply = ollama.chat(
-            deps.get_model_manager().utility_model(),
-            [
-                {"role": "system", "content": COMPRESS_PROMPT},
-                {"role": "user", "content": transcript},
-            ],
-        )
+        return tools.summarise_turns([(t.question, t.answer) for t in body.history])
     except OllamaError as exc:
+        # Offline, or the call itself failed — either way there is no summary
+        # to show, distinct from the model answering with nothing (below).
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-    summary = (reply.get("content") or "").strip() if isinstance(reply, dict) else ""
-    if not summary:
-        # Better to say nothing happened than to hand back an empty summary the
-        # client would send in place of ten real turns.
-        raise HTTPException(
-            status_code=502, detail="The model returned an empty summary — try again."
-        )
-    return {
-        "summary": summary,
-        "turns": len(body.history),
-        "chars_before": len(transcript),
-        "chars_after": len(summary),
-    }
+    except tools.ToolError as exc:
+        # An empty reply. Better to say nothing happened than to hand back an
+        # empty summary the client would send in place of ten real turns.
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 class ToolExecuteBody(BaseModel):

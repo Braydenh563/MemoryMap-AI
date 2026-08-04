@@ -12741,6 +12741,21 @@ function initScrollTopButton() {
   return update;
 }
 
+const chatTabNode = document.getElementById("tab-chat");
+if (chatTabNode) {
+  new MutationObserver(() => {
+    const btn = document.querySelector(".scroll-top");
+    const dock = document.querySelector(".chat-dock");
+    if (!btn || !dock) return;
+    
+    if (!chatTabNode.classList.contains("hidden")) {
+      dock.appendChild(btn);
+    } else {
+      document.body.appendChild(btn);
+    }
+  }).observe(chatTabNode, { attributes: true, attributeFilter: ["class"] });
+}
+
 // --- settings modal (Wave A) ------------------------------------------------------
 
 //: Every section id, and a new one is invisible until it is in this list —

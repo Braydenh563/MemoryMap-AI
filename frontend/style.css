@@ -4765,7 +4765,7 @@ html { font-size: 16px; }
 #tab-notes .layout > main {
   overflow-y: auto;
   min-height: 0;
-  padding-right: 0.25rem; /* Optional: keeps scrollbar off the edge */
+  padding-right: var(--space-1); /* Optional: keeps scrollbar off the edge */
 }
 
 #graph-card {
@@ -7137,7 +7137,7 @@ textarea.autogrow {
   font: inherit;
   font-size: 0.7rem;
   line-height: 1.4;
-  padding: 0.35rem 0.4rem 0rem 0.4rem;
+  padding: 0.4rem 0.4rem 0rem 0.4rem;
   /* line-height: 1.25;
   padding: 0.25rem 0.25rem; */
   border: 1px solid var(--border);

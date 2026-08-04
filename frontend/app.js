@@ -15000,7 +15000,7 @@ function renderAiPill() {
   // the information is reachable without opening anything.
   const summary = `AI status: ${state.title}`;
   $("ai-status-label").textContent = summary;
-  button.title = `${state.title}\n\n${state.detail}`;
+  // button.title = `${state.title}\n\n${state.detail}`;
   $("ai-status-title").textContent = state.title;
   $("ai-status-detail").textContent = state.detail;
 }

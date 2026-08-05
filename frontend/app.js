@@ -14228,6 +14228,20 @@ function paletteKeydown(event) {
 let sketchPen = { color: "#4f6df5", size: 4, eraser: false };
 let sketchDrawing = false;
 let sketchDirty = false;
+let sketchTool = "pen"; // "pen", "rect", "circ", "arrow", "text"
+let sketchHistory = [];
+let sketchRedoStack = [];
+let sketchStartX = 0;
+let sketchStartY = 0;
+
+function sketchSaveSnapshot() {
+  const canvas = $("sketch-canvas");
+  const ctx = canvas.getContext("2d");
+  sketchHistory.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+  if (sketchHistory.length > 30) sketchHistory.shift();
+  sketchRedoStack = [];
+}
+
 // §37G: an image the user brought in to annotate over — an `ImageBitmap`, or
 // null for a blank page. Lives on its own layer (`#sketch-bg-canvas`) below
 // the pen strokes (`#sketch-canvas`), so Clear and the eraser can affect the
@@ -14264,6 +14278,9 @@ function openSketch() {
   const canvas = $("sketch-canvas");
   canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
   sketchDirty = false;
+  sketchHistory = [];
+  sketchRedoStack = [];
+  sketchTool = "pen";
   $("sketch-status").textContent = "";
 }
 
@@ -14296,13 +14313,35 @@ function sketchPointer(event) {
   };
 }
 
+let sketchMoved = false;
+
 function sketchStart(event) {
   sketchDrawing = true;
   sketchDirty = true;
+  sketchMoved = false;
   const { x, y } = sketchPointer(event);
+  sketchStartX = x;
+  sketchStartY = y;
+  
+  if (sketchTool === "text") {
+    const text = prompt("Enter text:");
+    if (text) {
+      sketchSaveSnapshot();
+      const context = sketchContext();
+      context.font = `${sketchPen.size * 6}px sans-serif`;
+      context.fillStyle = sketchPen.color;
+      context.fillText(text, x, y);
+    }
+    sketchDrawing = false;
+    return;
+  }
+
+  sketchSaveSnapshot();
   const context = sketchContext();
-  context.beginPath();
-  context.moveTo(x, y);
+  if (sketchTool === "pen" || sketchTool === "highlighter") {
+    context.beginPath();
+    context.moveTo(x, y);
+  }
   event.target.setPointerCapture(event.pointerId);
 }
 
@@ -14310,20 +14349,91 @@ function sketchMove(event) {
   if (!sketchDrawing) return;
   const { x, y } = sketchPointer(event);
   const context = sketchContext();
+  if (x === sketchStartX && y === sketchStartY) return;
+  sketchMoved = true;
+  
+  if (sketchTool !== "pen" && sketchTool !== "highlighter") {
+    const last = sketchHistory[sketchHistory.length - 1];
+    if (last) context.putImageData(last, 0, 0);
+    else context.clearRect(0, 0, context.canvas.width, context.canvas.height);
+  }
+
   context.lineCap = "round";
   context.lineJoin = "round";
-  // Strokes live on their own transparent layer now (§37G), so an eraser
-  // that painted white would punch a white hole through an uploaded image
-  // rather than revealing it. `destination-out` clears pixels on THIS layer
-  // to transparent instead, which lets the background layer show through.
-  context.globalCompositeOperation = sketchPen.eraser ? "destination-out" : "source-over";
+  context.globalCompositeOperation = sketchTool === "highlighter" ? "multiply" : (sketchPen.eraser && sketchTool === "pen" ? "destination-out" : "source-over");
   context.strokeStyle = sketchPen.color;
-  context.lineWidth = sketchPen.eraser ? sketchPen.size * 4 : sketchPen.size;
-  context.lineTo(x, y);
-  context.stroke();
+  context.lineWidth = sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size;
+
+  if (sketchTool === "pen" || sketchTool === "highlighter") {
+    context.lineTo(x, y);
+    context.stroke();
+  } else if (sketchTool === "rect") {
+    context.beginPath();
+    context.rect(sketchStartX, sketchStartY, x - sketchStartX, y - sketchStartY);
+    context.stroke();
+  } else if (sketchTool === "circ") {
+    context.beginPath();
+    const r = Math.sqrt(Math.pow(x - sketchStartX, 2) + Math.pow(y - sketchStartY, 2));
+    context.arc(sketchStartX, sketchStartY, r, 0, 2 * Math.PI);
+    context.stroke();
+  } else if (sketchTool === "arrow") {
+    context.beginPath();
+    context.moveTo(sketchStartX, sketchStartY);
+    context.lineTo(x, y);
+    context.stroke();
+    const angle = Math.atan2(y - sketchStartY, x - sketchStartX);
+    const headLen = sketchPen.size * 3 + 5;
+    context.beginPath();
+    context.moveTo(x, y);
+    context.lineTo(x - headLen * Math.cos(angle - Math.PI / 6), y - headLen * Math.sin(angle - Math.PI / 6));
+    context.moveTo(x, y);
+    context.lineTo(x - headLen * Math.cos(angle + Math.PI / 6), y - headLen * Math.sin(angle + Math.PI / 6));
+    context.stroke();
+  }
 }
 
-function sketchEnd() {
+function sketchEnd(event) {
+  if (sketchDrawing && !sketchMoved && event && (event.type === "pointerup" || event.type === "click")) {
+    const context = sketchContext();
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    context.globalCompositeOperation = sketchTool === "highlighter" ? "multiply" : (sketchPen.eraser && sketchTool === "pen" ? "destination-out" : "source-over");
+    context.strokeStyle = sketchPen.color;
+    
+    if (sketchTool === "pen" || sketchTool === "highlighter") {
+      context.lineWidth = sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size;
+      context.beginPath();
+      context.moveTo(sketchStartX, sketchStartY);
+      context.lineTo(sketchStartX, sketchStartY + 0.1);
+      context.stroke();
+    } else if (sketchTool === "rect") {
+      context.lineWidth = sketchPen.size;
+      context.beginPath();
+      const s = sketchPen.size * 10 + 20;
+      context.rect(sketchStartX - s/2, sketchStartY - s/2, s, s);
+      context.stroke();
+    } else if (sketchTool === "circ") {
+      context.lineWidth = sketchPen.size;
+      context.beginPath();
+      const r = sketchPen.size * 5 + 10;
+      context.arc(sketchStartX, sketchStartY, r, 0, 2 * Math.PI);
+      context.stroke();
+    } else if (sketchTool === "arrow") {
+      context.lineWidth = sketchPen.size;
+      const len = sketchPen.size * 10 + 20;
+      context.beginPath();
+      context.moveTo(sketchStartX - len/2, sketchStartY);
+      context.lineTo(sketchStartX + len/2, sketchStartY);
+      context.stroke();
+      const headLen = sketchPen.size * 3 + 5;
+      context.beginPath();
+      context.moveTo(sketchStartX + len/2, sketchStartY);
+      context.lineTo(sketchStartX + len/2 - headLen * Math.cos(Math.PI / 6), sketchStartY - headLen * Math.sin(Math.PI / 6));
+      context.moveTo(sketchStartX + len/2, sketchStartY);
+      context.lineTo(sketchStartX + len/2 - headLen * Math.cos(-Math.PI / 6), sketchStartY - headLen * Math.sin(-Math.PI / 6));
+      context.stroke();
+    }
+  }
   sketchDrawing = false;
 }
 
@@ -16213,6 +16323,7 @@ function renderSettings() {
   if (status.ollama_running) {
     renderChatModelPicker(status);
     renderUtilityModelPicker(status);
+    renderAutonomousModelPicker(status);
     renderInstalledModels(status);
     renderSuggested(status);
     renderModelSpec(status.chat_model);
@@ -16757,6 +16868,16 @@ function renderUtilityModelPicker(status) {
   );
 }
 
+function renderAutonomousModelPicker(status) {
+  const names = status.installed_models.map((m) => m.name);
+  fillModelSelect(
+    $("pref-autonomous-model"),
+    names,
+    { value: "", label: "Same as utility model" },
+    (window.prefsCache && window.prefsCache.autonomous_tasks_model) || ""
+  );
+}
+
 function renderEmbeddingPicker(status) {
   // Name the built-in model rather than describing it. "Works out of the box,
   // no download" was wrong on both counts: it fetches ~130 MB from Hugging
@@ -17048,9 +17169,22 @@ async function loadLinkSuggestions() {
       "No new links to suggest — either everything related is already linked, or semantic search is off.";
     return;
   }
-  const heading = document.createElement("p");
-  heading.className = "muted";
-  heading.textContent = "Notes that look related — link the ones you agree with:";
+  const heading = document.createElement("div");
+  heading.style.display = "flex";
+  heading.style.justifyContent = "space-between";
+  heading.style.alignItems = "center";
+  heading.style.marginBottom = "var(--space-3)";
+  
+  const headingText = document.createElement("span");
+  headingText.className = "muted";
+  headingText.textContent = "Notes that look related — link the ones you agree with:";
+  
+  const closeAll = smallButton("✕", "Close suggestions", () => {
+    box.classList.add("hidden");
+    box.replaceChildren();
+  });
+  
+  heading.append(headingText, closeAll);
   box.appendChild(heading);
   for (const s of suggestions) {
     const row = document.createElement("div");
@@ -17068,8 +17202,16 @@ async function loadLinkSuggestions() {
       row.remove();
       toast("Linked.");
       loadEntries().catch(() => {});
+      if (!box.querySelector(".link-suggestion")) {
+        box.classList.add("hidden");
+      }
     });
-    const dismiss = smallButton("✕", "Dismiss this suggestion", () => row.remove());
+    const dismiss = smallButton("✕", "Dismiss this suggestion", () => {
+      row.remove();
+      if (!box.querySelector(".link-suggestion")) {
+        box.classList.add("hidden");
+      }
+    });
     row.append(text, score, link, dismiss);
     box.appendChild(row);
   }
@@ -17316,67 +17458,56 @@ const APPEARANCE_DEFAULTS = {
 // work. Picking a theme never erases a manual setting, and clearing a manual
 // setting falls back to the theme rather than to the app default.
 const THEME_PRESETS = {
-  midnight: {
-    label: "Midnight",
-    values: { theme: "dark", palette: "default", glass: "on", radius: "14" },
-  },
-  daylight: {
-    label: "Daylight",
-    values: { theme: "light", palette: "default", glass: "on", radius: "14" },
+  default: {
+    label: "Default",
+    values: { palette: "default", glass: "on", radius: "14" },
   },
   manuscript: {
     label: "Manuscript",
     values: {
-      theme: "light", palette: "parchment", font: "serif", glass: "off",
+      palette: "parchment", font: "serif", glass: "off",
       radius: "6", density: "spacious",
     },
   },
   terminal: {
     label: "Terminal",
     values: {
-      theme: "dark", palette: "carbon", font: "mono", glass: "off",
+      palette: "carbon", font: "mono", glass: "off",
       radius: "2", density: "compact",
     },
   },
   study: {
     label: "Sage Study",
-    values: { theme: "light", palette: "sage", font: "serif", glass: "on", radius: "16" },
+    values: { palette: "sage", font: "serif", glass: "on", radius: "16" },
   },
   abyss: {
     label: "Deep Ocean",
     values: {
-      theme: "dark", palette: "ocean", glass: "on", "glass-blur": "26", radius: "14",
+      palette: "ocean", glass: "on", "glass-blur": "26", radius: "14",
     },
   },
-  evening: {
-    label: "Ember Evening",
-    values: { theme: "dark", palette: "ember", glass: "on", radius: "12" },
+  ember: {
+    label: "Ember",
+    values: { palette: "ember", glass: "on", radius: "12" },
   },
   orchid: {
     label: "Orchid",
-    values: { theme: "dark", palette: "plum", glass: "on", radius: "18" },
+    values: { palette: "plum", glass: "on", radius: "18" },
   },
   blueprint: {
     label: "Blueprint",
     values: {
-      theme: "light", palette: "ocean", font: "mono", glass: "off",
+      palette: "ocean", font: "mono", glass: "off",
       radius: "4", density: "compact",
     },
   },
   graphite: {
     label: "Graphite",
-    values: { theme: "dark", palette: "carbon", glass: "off", radius: "4" },
+    values: { palette: "carbon", glass: "off", radius: "4" },
   },
-  // Asked for directly: an indigo-and-teal dark theme, and a teal light one.
-  // Two themes over one palette, which is exactly what the palette/theme split
-  // is for — same colours, different light/dark commitment.
   lagoon: {
     label: "Lagoon",
-    values: { theme: "dark", palette: "lagoon", glass: "on", radius: "14" },
-  },
-  shallows: {
-    label: "Shallows",
-    values: { theme: "light", palette: "lagoon", glass: "on", radius: "14" },
+    values: { palette: "lagoon", glass: "on", radius: "14" },
   },
 };
 
@@ -17385,7 +17516,8 @@ const THEME_PRESETS = {
 // the theme cards advertising a colour the app no longer uses.
 function themeSwatch(preset) {
   const palette = PALETTES.find((p) => p.id === preset.values.palette) || PALETTES[0];
-  const set = preset.values.theme === "dark" ? palette.dark : palette.light;
+  const isDark = document.documentElement.dataset.mode === "dark";
+  const set = isDark ? palette.dark : palette.light;
   return [set.page, set.accent];
 }
 
@@ -17925,6 +18057,8 @@ function applyAppearance() {
   root.style.setProperty("--radius", `${appearancePref("radius")}px`);
   root.style.setProperty("--glass-blur", `${appearancePref("glass-blur")}px`);
   root.style.setProperty("--zoom", Number(appearancePref("zoom")) / 100);
+  root.style.setProperty("--border-style", appearancePref("border-style", "solid"));
+  root.style.setProperty("--shadow-intensity", Number(appearancePref("shadow-intensity", "5")) / 100);
   applyResolvedMode();
   // remember=false: this runs on every startup, and recording the resolved
   // value would pin whatever the theme supplied as a manual override — after
@@ -18086,6 +18220,9 @@ function renderAppearance() {
   $("glass-blur-value").textContent = `${appearancePref("glass-blur")}px`;
   $("zoom-slider").value = appearancePref("zoom");
   $("zoom-value").textContent = `${appearancePref("zoom")}%`;
+  _segActive("border-style-seg", "data-border-choice", appearancePref("border-style", "solid"));
+  $("shadow-intensity").value = appearancePref("shadow-intensity", "5");
+  $("shadow-intensity-value").textContent = `${appearancePref("shadow-intensity", "5")}%`;
   $("accent-custom").value = localStorage.getItem("accent-custom") || "#4f6df5";
   $("page-bg-custom").value = localStorage.getItem("page-bg") || "#f5f7fb";
   $("custom-css").value = localStorage.getItem("custom-css") || "";
@@ -18763,6 +18900,18 @@ $("glass-blur").addEventListener("input", (e) => {
 $("zoom-slider").addEventListener("input", (e) => {
   localStorage.setItem("zoom", e.target.value);
   $("zoom-value").textContent = `${e.target.value}%`;
+  applyAppearance();
+});
+for (const btn of document.querySelectorAll("#border-style-seg button")) {
+  btn.addEventListener("click", () => {
+    localStorage.setItem("border-style", btn.dataset.borderChoice);
+    applyAppearance();
+    renderAppearance();
+  });
+}
+$("shadow-intensity").addEventListener("input", (e) => {
+  localStorage.setItem("shadow-intensity", e.target.value);
+  $("shadow-intensity-value").textContent = `${e.target.value}%`;
   applyAppearance();
 });
 // Custom accent + page background.
@@ -19475,9 +19624,23 @@ function toggleGraphFullscreen() {
     const isFull = card.classList.toggle("graph-fullscreen");
     // Trigger a resize event to ensure D3 SVG rescales properly
     window.dispatchEvent(new Event('resize'));
-    if (isFull && graphNodesRef && graphNodesRef.length) {
+    if (graphNodesRef && graphNodesRef.length) {
       setTimeout(() => {
-        fitGraphToView(graphSvg, graphCanvas, graphZoom, graphNodesRef, graphDims.w, graphDims.h);
+        const box = $("graph-box");
+        graphDims.w = box.clientWidth || 800;
+        graphDims.h = box.clientHeight || 540;
+        if (graphSvg) {
+          graphSvg.attr("viewBox", [0, 0, graphDims.w, graphDims.h]);
+        }
+        if (graphSimulation) {
+          graphSimulation.force("center", d3.forceCenter(graphDims.w / 2, graphDims.h / 2));
+          graphSimulation.force("x", d3.forceX(graphDims.w / 2).strength(0.04));
+          graphSimulation.force("y", d3.forceY(graphDims.h / 2).strength(0.06));
+          graphSimulation.alpha(0.3).restart();
+        }
+        if (isFull) {
+          fitGraphToView(graphSvg, graphCanvas, graphZoom, graphNodesRef, graphDims.w, graphDims.h);
+        }
       }, 50);
     }
   }
@@ -20869,6 +21032,13 @@ $("sketch-image-input").addEventListener("change", () => {
 $("sketch-eraser").addEventListener("click", () => {
   sketchPen.eraser = !sketchPen.eraser;
   $("sketch-eraser").classList.toggle("active", sketchPen.eraser);
+  if (sketchPen.eraser) {
+    sketchTool = "pen";
+    const toolsList = ["pen", "rect", "circ", "arrow", "text"];
+    for (const t of toolsList) {
+      $(`sketch-tool-${t}`).classList.toggle("active", t === "pen");
+    }
+  }
 });
 $("sketch-size").addEventListener("input", () => {
   sketchPen.size = Number($("sketch-size").value);
@@ -20888,6 +21058,54 @@ sketchCanvas.addEventListener("pointerdown", sketchStart);
 sketchCanvas.addEventListener("pointermove", sketchMove);
 sketchCanvas.addEventListener("pointerup", sketchEnd);
 sketchCanvas.addEventListener("pointerleave", sketchEnd);
+
+$("sketch-undo").addEventListener("click", () => {
+  if (sketchHistory.length === 0) return;
+  const canvas = $("sketch-canvas");
+  const ctx = canvas.getContext("2d");
+  sketchRedoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+  const last = sketchHistory.pop();
+  ctx.putImageData(last, 0, 0);
+  sketchDirty = true;
+});
+$("sketch-redo").addEventListener("click", () => {
+  if (sketchRedoStack.length === 0) return;
+  const canvas = $("sketch-canvas");
+  const ctx = canvas.getContext("2d");
+  sketchHistory.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+  const next = sketchRedoStack.pop();
+  ctx.putImageData(next, 0, 0);
+  sketchDirty = true;
+});
+
+const sketchToolsList = ["pen", "highlighter", "rect", "circ", "arrow", "text"];
+for (const tool of sketchToolsList) {
+  const btn = $(`sketch-tool-${tool}`);
+  if (btn) {
+    btn.addEventListener("click", () => {
+      sketchTool = tool;
+      sketchPen.eraser = false;
+      $("sketch-eraser").classList.remove("active");
+      for (const t of sketchToolsList) {
+        const tBtn = $(`sketch-tool-${t}`);
+        if (tBtn) tBtn.classList.toggle("active", t === tool);
+      }
+    });
+  }
+}
+
+document.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && !$("sketch-overlay").classList.contains("hidden")) {
+    if (e.key === "z") {
+      if (e.shiftKey) $("sketch-redo").click();
+      else $("sketch-undo").click();
+      e.preventDefault();
+    } else if (e.key === "y") {
+      $("sketch-redo").click();
+      e.preventDefault();
+    }
+  }
+});
 
 // Wave H: dictation + read-aloud.
 $("mic-note").addEventListener("click", () =>

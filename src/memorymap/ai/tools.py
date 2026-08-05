@@ -179,14 +179,14 @@ _READ_MORE = (
 )
 
 
-def _limit_arg(args: dict, default: int) -> int:
+def _limit_arg(args: dict, default: int, max_limit: int = MAX_LIST_LIMIT) -> int:
     """Clamp whatever the model asked for into the budget. A model that asks
-    for 500 notes gets MAX_LIST_LIMIT and is told so by `has_more`."""
+    for 500 notes gets max_limit and is told so by `has_more`."""
     try:
         wanted = int(args.get("limit") or default)
     except (TypeError, ValueError):
         wanted = default
-    return max(1, min(wanted, MAX_LIST_LIMIT))
+    return max(1, min(wanted, max_limit))
 
 
 def _category_clause(session: Session, name: str):
@@ -258,7 +258,11 @@ def _refresh_embedding(session: Session, entry: Entry) -> None:
 
 
 def _search_notes(session: Session, args: dict) -> dict:
-    limit = _limit_arg(args, default=5)
+    ctx = args.get("__context_tokens__", 4096)
+    # Give semantic search about 15% of the context window by default.
+    dynamic_default = max(5, int((ctx * 0.15 * CHARS_PER_TOKEN) / PREVIEW_CHARS))
+    dynamic_max = max(MAX_LIST_LIMIT, dynamic_default * 2)
+    limit = _limit_arg(args, default=dynamic_default, max_limit=dynamic_max)
     found = search_manager.retrieve_detailed(
         session, str(args["query"]), deps.get_embeddings(), limit=limit
     )
@@ -3390,7 +3394,7 @@ def confirm_label(name: str, arguments: dict) -> str:
     return f"Run {name}"
 
 
-def execute_tool(session: Session, name: str, arguments: dict) -> dict:
+def execute_tool(session: Session, name: str, arguments: dict, context_tokens: int | None = None) -> dict:
     """Run one tool call. Errors come back as {"error": ...} so the
     agent loop can hand them to the model instead of crashing.
 
@@ -3407,7 +3411,10 @@ def execute_tool(session: Session, name: str, arguments: dict) -> dict:
     if not tool_enabled(name):
         return {"error": f"The '{name}' tool is turned off in Settings → Tools"}
     try:
-        result = spec.handler(session, dict(arguments or {}))
+        args = dict(arguments or {})
+        if context_tokens is not None:
+            args["__context_tokens__"] = context_tokens
+        result = spec.handler(session, args)
     except ToolError as exc:
         # An explanation the handler wrote on purpose — safe to hand back.
         session.rollback()

@@ -26,18 +26,16 @@
     (function () {
       const _r = document.documentElement;
       const THEMES = {
-        midnight: { theme: "dark", palette: "default", glass: "on", radius: "14" },
-        daylight: { theme: "light", palette: "default", glass: "on", radius: "14" },
-        manuscript: { theme: "light", palette: "parchment", font: "serif", glass: "off", radius: "6", density: "spacious" },
-        terminal: { theme: "dark", palette: "carbon", font: "mono", glass: "off", radius: "2", density: "compact" },
-        study: { theme: "light", palette: "sage", font: "serif", glass: "on", radius: "16" },
-        abyss: { theme: "dark", palette: "ocean", glass: "on", "glass-blur": "26", radius: "14" },
-        evening: { theme: "dark", palette: "ember", glass: "on", radius: "12" },
-        orchid: { theme: "dark", palette: "plum", glass: "on", radius: "18" },
-        blueprint: { theme: "light", palette: "ocean", font: "mono", glass: "off", radius: "4", density: "compact" },
-        graphite: { theme: "dark", palette: "carbon", glass: "off", radius: "4" },
-        lagoon: { theme: "dark", palette: "lagoon", glass: "on", radius: "14" },
-        shallows: { theme: "light", palette: "lagoon", glass: "on", radius: "14" },
+        default: { palette: "default", glass: "on", radius: "14" },
+        manuscript: { palette: "parchment", font: "serif", glass: "off", radius: "6", density: "spacious" },
+        terminal: { palette: "carbon", font: "mono", glass: "off", radius: "2", density: "compact" },
+        study: { palette: "sage", font: "serif", glass: "on", radius: "16" },
+        abyss: { palette: "ocean", glass: "on", "glass-blur": "26", radius: "14" },
+        ember: { palette: "ember", glass: "on", radius: "12" },
+        orchid: { palette: "plum", glass: "on", radius: "18" },
+        blueprint: { palette: "ocean", font: "mono", glass: "off", radius: "4", density: "compact" },
+        graphite: { palette: "carbon", glass: "off", radius: "4" },
+        lagoon: { palette: "lagoon", glass: "on", radius: "14" },
       };
       const preset = THEMES[localStorage.getItem("themePreset")] || {};
       const pref = (key, fallback) =>
@@ -1875,6 +1873,28 @@ Link to another note with [[its first few words]]."></textarea>
                   <span class="slider-value" id="zoom-value">100%</span>
                 </div>
               </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Border style</span>
+                  <small class="muted">Lines around cards and inputs.</small>
+                </div>
+                <div class="seg" id="border-style-seg" role="group" aria-label="Border style">
+                  <button data-border-choice="solid">Solid</button>
+                  <button data-border-choice="dashed">Dashed</button>
+                  <button data-border-choice="none">None</button>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Shadow intensity</span>
+                </div>
+                <div class="row setting-control">
+                  <input id="shadow-intensity" type="range" min="0" max="50" step="5" value="5"
+                    aria-label="Shadow intensity">
+                  <span class="slider-value" id="shadow-intensity-value">5%</span>
+                </div>
+              </div>
             </div>
 
             <!-- ---------- Effects & accessibility ---------- -->
@@ -2276,8 +2296,10 @@ Link to another note with [[its first few words]]."></textarea>
                 <label for="pref-autonomous-interval" class="form-label" style="margin-top: 1rem;">Run every (hours)</label>
                 <input type="number" id="pref-autonomous-interval" class="wide" min="1" max="168" placeholder="6">
                 
-                <label for="pref-autonomous-model" class="form-label">Model override (leave blank to use Utility model)</label>
-                <input type="text" id="pref-autonomous-model" class="wide" placeholder="e.g. llama3.2:3b">
+                <label for="pref-autonomous-model" class="form-label">Model override</label>
+                <select id="pref-autonomous-model" class="wide">
+                  <option value="">Same as Utility model</option>
+                </select>
                 
                 <div class="row" style="margin-top: 1rem;">
                   <button id="autonomous-trigger" class="small ghost">▶ Run optimization now</button>
@@ -2689,17 +2711,32 @@ Link to another note with [[its first few words]]."></textarea>
         <h2>Quick sketch</h2>
         <button id="sketch-close" class="ghost small">Close</button>
       </div>
-      <div class="row" id="sketch-tools">
-        <span class="muted">Pen</span>
-        <button class="sketch-color active" data-color="#4f6df5" aria-label="Blue pen"></button>
-        <button class="sketch-color" data-color="#e2534b" aria-label="Red pen"></button>
-        <button class="sketch-color" data-color="#3a9e56" aria-label="Green pen"></button>
-        <button class="sketch-color" data-color="#1c1e26" aria-label="Black pen"></button>
+      <div class="row" id="sketch-tools" style="flex-wrap: wrap; gap: var(--space-2);">
+        <button id="sketch-tool-pen" class="ghost small active" title="Pen">🖊️</button>
+        <button id="sketch-tool-highlighter" class="ghost small" title="Highlighter">🖍️</button>
+        <button id="sketch-tool-rect" class="ghost small" title="Rectangle">⬜</button>
+        <button id="sketch-tool-circ" class="ghost small" title="Circle">⭕</button>
+        <button id="sketch-tool-arrow" class="ghost small" title="Arrow">↗️</button>
+        <button id="sketch-tool-text" class="ghost small" title="Text">T</button>
+        <div style="width: 1px; height: 1.5rem; background: var(--border); margin-inline: var(--space-1);"></div>
+        <span class="muted">Color</span>
+        <button class="sketch-color active" data-color="#4f6df5" aria-label="Blue"></button>
+        <button class="sketch-color" data-color="#e2534b" aria-label="Red"></button>
+        <button class="sketch-color" data-color="#3a9e56" aria-label="Green"></button>
+        <button class="sketch-color" data-color="#f59e0b" aria-label="Yellow"></button>
+        <button class="sketch-color" data-color="#9333ea" aria-label="Purple"></button>
+        <button class="sketch-color" data-color="#ec4899" aria-label="Pink"></button>
+        <button class="sketch-color" data-color="#1c1e26" aria-label="Black"></button>
+        <button class="sketch-color" data-color="#ffffff" aria-label="White"></button>
         <label class="muted">Size
           <input id="sketch-size" type="range" min="2" max="14" value="4">
         </label>
         <button id="sketch-eraser" class="ghost small">Eraser</button>
         <button id="sketch-clear" class="ghost small">Clear</button>
+        <div style="width: 1px; height: 1.5rem; background: var(--border); margin-inline: var(--space-1);"></div>
+        
+        <button id="sketch-undo" class="ghost small" title="Undo (Ctrl+Z)">↩️</button>
+        <button id="sketch-redo" class="ghost small" title="Redo (Ctrl+Y)">↪️</button>
         <button id="sketch-upload-image" class="ghost small">🖼️ Add image</button>
         <input id="sketch-image-input" type="file" accept="image/*" class="hidden">
       </div>

@@ -571,15 +571,10 @@ def build_agent_messages(
         f" The current date and time is {local.replace(second=0, microsecond=0).isoformat()}"
         f" ({local.tzname() or 'local time'})."
     )
-    behavior_prompt = ""
-    if agent_model and model_manager:
-        behavior = presets.behavior_for(model_manager._config, agent_model, mode)
-        behavior_prompt = behavior.system_prompt + " "
-        
     messages = [
         {
             "role": "system",
-            "content": f"{persona} {behavior_prompt}{AGENT_GROUNDING} {TOOLS_GUIDE}{now_hint} "
+            "content": f"{persona} {AGENT_GROUNDING} {TOOLS_GUIDE}{now_hint} "
             f"{style_hint}{profile_hint}{librarian.length_hint(mode)}",
         }
     ]
@@ -732,12 +727,8 @@ def run_agent(
     agent_model = model_manager.utility_model() if use_utility_model else model_manager.chat_model()
     window = report(agent_model) if callable(report) else None
     
-    # The model setting matters for behavior tweaks, like disabling thinking.
-    behavior = presets.behavior_for(model_manager._config, agent_model, mode)
-    
     system_chars = len(
         f"{(persona_prompt or librarian.DEFAULT_PERSONA).strip()} "
-        f"{behavior.system_prompt} "
         f"{AGENT_GROUNDING} {TOOLS_GUIDE}{librarian.length_hint(mode)}"
     )
     budget = context.plan(
@@ -950,12 +941,12 @@ def run_agent(
         for call in calls:
             name, arguments = call["name"], call.get("arguments") or {}
             spec = tools.TOOLS.get(name)
+            signature = (name, json.dumps(arguments, sort_keys=True))
             if name in barred:
                 # A run trying to start a run. Refused with the reason, not
                 # silently: the model asked for this because it has decided the
                 # job is bigger than one step, and the useful answer is "you
                 # are already inside the mechanism you are reaching for".
-                signature = (name, json.dumps(arguments, sort_keys=True))
                 failed_calls.add(signature)
                 messages.append(
                     {
@@ -981,7 +972,6 @@ def run_agent(
                 # model that calls a tool it was never offered does not get to
                 # run it just because the registry has one by that name.
                 result = {"error": f"{name} is not part of this skill's tools"}
-                signature = (name, json.dumps(arguments, sort_keys=True))
                 result["what_to_do"] = (
                     REPEATED_CALL_NOTE
                     if signature in failed_calls
@@ -1013,7 +1003,6 @@ def run_agent(
                     # A malformed question, or a skill named that doesn't
                     # exist. Recoverable mistakes, not dead turns: hand the
                     # model the reason and let it try again or answer directly.
-                    signature = (name, json.dumps(arguments, sort_keys=True))
                     failed_calls.add(signature)
                     messages.append(
                         {
@@ -1061,7 +1050,7 @@ def run_agent(
                         "and it failed. You must try a different approach, "
                         "change your arguments, or stop and ask the user."
                     ),
-                    "what_to_do": _RECOVERY_HINTS.get(name, _ASK_RECOVERY),
+                    "what_to_do": REPEATED_CALL_NOTE,
                 }
                 yield {
                     "type": "tool",
@@ -1117,7 +1106,7 @@ def run_agent(
                     "ok": True,
                 }
             else:
-                result = tools.execute_tool(session, name, arguments)
+                result = tools.execute_tool(session, name, arguments, context_tokens=window)
                 # What changed, and the call that would put it back. Popped
                 # rather than read: `undo` is for the user, and every field
                 # left in the result is resent to the model on every later

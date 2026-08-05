@@ -36,6 +36,8 @@
      `zoom`'s known bad interactions with the `100dvh`/`100vw` measurements
      `--page-viewport`/`--page-sticky-h` (§36) lean on. */
   --zoom: 1;
+  --border-style: solid;
+  --shadow-intensity: 0.05;
   --space-1: calc(0.25rem * var(--density));
   --space-2: calc(0.4rem * var(--density));
   --space-3: calc(0.5rem * var(--density));
@@ -60,7 +62,7 @@
   --input-bg: rgba(255, 255, 255, 0.55);
   --glass-border: rgba(255, 255, 255, 0.65);
   --modal-bg: rgba(252, 253, 255, 0.96);
-  --glass-shadow: 0 8px 32px rgba(31, 38, 135, 0.14);
+  --glass-shadow: 0 8px 32px rgba(31, 38, 135, var(--shadow-intensity));
   --ink: #1f2430;
   --muted: #5b6472;
   --accent: #4f6df5;
@@ -164,6 +166,19 @@
   --radius-lg: calc(var(--radius) * 0.8);   /* cards, dialogs */
   --radius-pill: 999px;                     /* pills and round buttons */
   --glass-blur: 18px;
+
+  /* Fallback mode when glass is turned off. Overrides the semi-transparent
+     backgrounds and borders with solid colours so contrast holds up without
+     the blur behind it. */
+  --fallback-card: #ffffff;
+  --fallback-input: #ffffff;
+  --fallback-inner: #f8f9fa;
+  --fallback-modal: #ffffff;
+}
+
+/* Base application of Appearance settings */
+.card, input:not([type="color"]):not([type="range"]):not([type="checkbox"]), textarea, select, .modal, .composer, .doc-main, .sidebar {
+  border-style: var(--border-style) !important;
 }
 
 /* Dark palette. CSS has no variables-for-variables, so the block
@@ -2915,7 +2930,7 @@ html.modal-open body {
 }
 .graph-fullscreen .graph-options {
   position: fixed;
-  top: 3.5rem;
+  top: 4.5rem;
   left: 1rem;
   z-index: 1001;
 }
@@ -6945,11 +6960,20 @@ button.is-on {
    Four full-height cards on one page meant scrolling past three forms you
    weren't using to reach your notes. One section at a time, remembered. */
 .notes-subtabs {
-  margin-bottom: 0.8rem;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  margin-bottom: var(--space-5);
   width: 100%;
   overflow-x: auto;
   flex-wrap: nowrap;
   scrollbar-width: none;
+  background: var(--card);
+  backdrop-filter: blur(16px);
+  border-radius: var(--radius-lg);
+  padding: var(--space-2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border);
 }
 .notes-subtabs::-webkit-scrollbar { display: none; }
 .notes-subtabs button {
@@ -6959,15 +6983,21 @@ button.is-on {
   box-shadow: none;
   color: var(--muted);
   font-weight: 500;
-  padding: 0.4rem 1rem;
+  padding: 0.5rem 1.25rem;
   border-radius: var(--radius-md);
+  transition: background 0.2s, color 0.2s, transform 0.1s, box-shadow 0.2s;
 }
 .notes-subtabs button.active {
-  background: var(--accent-surface);
-  color: var(--on-accent);
+  background: var(--accent);
+  color: #ffffff;
   font-weight: 600;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
 }
-.notes-subtabs button:not(.active):hover { background: var(--accent-soft); color: var(--ink); }
+.notes-subtabs button:not(.active):hover { 
+  background: var(--inner); 
+  color: var(--ink); 
+}
 
 /* Agent mode reads as a mode you switch into, not a checkbox you tick, so the
    label carries a little more weight than the other toolbar controls. */
@@ -7175,16 +7205,16 @@ textarea.autogrow {
   width: 100%;
   text-align: left;
   font: inherit;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   line-height: 1.4;
-  padding: 0.5rem;
+  padding: 0.75rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--card);
   color: var(--text);
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   cursor: pointer;
-  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s;
+  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), border-color 0.2s, box-shadow 0.2s, opacity 0.2s;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
@@ -7192,7 +7222,7 @@ textarea.autogrow {
 }
 .timeline-dot:hover, .timeline-dot:focus-visible {
   border-color: var(--accent);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
   transform: translateY(-2px);
   outline: none;
 }
@@ -7765,6 +7795,7 @@ textarea.autogrow {
 .chat-tool-group {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-2);
   min-width: 0;
 }

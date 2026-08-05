@@ -178,6 +178,12 @@ def list_tasks() -> dict:
     return {"tasks": collect(), "history": taskhistory.recent()}
 
 
+@router.post("/tasks/trigger-autonomous")
+def trigger_autonomous() -> dict:
+    """Manually start the background autonomous optimization task."""
+    from memorymap.ai import autonomous
+    autonomous.trigger_now()
+    return {"status": "ok"}
 @router.post("/tasks/history/clear")
 def clear_history() -> dict:
     """Forget the finished-job list.

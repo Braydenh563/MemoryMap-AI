@@ -141,6 +141,7 @@ def status() -> dict:
         "embedding_ready": embeddings.is_ready(),
         # Lets the UI tell "still loading" from "failed" (pill fix).
         "embedding_warming": embeddings_module.warmup_running(),
+        "embedding_warming_failed": embeddings_module.warmup_failed(),
         "embedding_error": embeddings.last_error,
         "reindex": jobs.reindex_status(),
         "pulls": jobs.pull_statuses(),

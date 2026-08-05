@@ -147,6 +147,15 @@ class PreferencesBody(BaseModel):
     # rather than free text, so a bad value is rejected at the door instead of
     # sitting in preferences quietly meaning "auto" forever.
     search_provider: str | None = None
+    # Autonomous Tasks settings
+    autonomous_tasks_enabled: bool | None = None
+    auto_tag_enabled: bool | None = None
+    auto_link_enabled: bool | None = None
+    auto_dedupe_enabled: bool | None = None
+    autonomous_tasks_interval_hours: int | None = Field(default=None, ge=1, le=168)
+    autonomous_tasks_model: str | None = Field(default=None, max_length=100)
+    battery_efficient_mode: bool | None = None
+    smart_model_routing_enabled: bool | None = None
     # Wave O: agent tools the user has switched off (by tool name).
     disabled_tools: list[str] | None = Field(default=None, max_length=50)
     # The user's IANA timezone, reported by the browser at startup. Anything
@@ -774,33 +783,32 @@ def export_json(session: Session = Depends(get_session)) -> Response:
         "version": __version__,
         "exported_at": utcnow().isoformat(),
         "categories": [{"id": c.id, "name": c.name} for c in categories],
-        "entries": [
-            {
-                "id": e.id,
-                # Exports decrypt while the app is unlocked. An export is for
-                # taking your notes elsewhere, and ciphertext with no key is
-                # not your notes. (The app's own backups keep the database
-                # file as-is, so those stay encrypted.)
-                "content": manager.readable_content(e),
-                "category": manager.category_name_for(session, e),
-                "tags": manager.entry_tags(e),
-                "ai_confidence": e.ai_confidence,
-                "created_at": e.created_at.isoformat(),
-                "updated_at": e.updated_at.isoformat(),
-                "is_deleted": e.is_deleted,
-                "deleted_at": e.deleted_at.isoformat() if e.deleted_at else None,
-            }
-            for e in entries
-        ],
-        "links": [
-            {
-                "id": link.id,
-                "source_entry_id": link.source_entry_id,
-                "target_entry_id": link.target_entry_id,
-            }
-            for link in links
-        ],
+        "entries": [],
+        "links": [],
     }
+    
+    category_names = manager.bulk_category_names(session, entries)
+    
+    for e in entries:
+        payload["entries"].append({
+            "id": e.id,
+            "content": manager.readable_content(e),
+            "category": category_names.get(e.category_id, manager.UNCATEGORISED),
+            "tags": manager.entry_tags(e),
+            "ai_confidence": e.ai_confidence,
+            "created_at": e.created_at.isoformat(),
+                "updated_at": e.updated_at.isoformat(),
+            "deleted_at": e.deleted_at.isoformat() if e.deleted_at else None,
+        })
+        
+    payload["links"] = [
+        {
+            "id": link.id,
+            "source_entry_id": link.source_entry_id,
+            "target_entry_id": link.target_entry_id,
+        }
+        for link in links
+    ]
     manager.log_action(session, "exported", "data", detail="json")
     session.commit()
     return Response(
@@ -822,18 +830,21 @@ def export_markdown(session: Session = Depends(get_session)) -> Response:
     folder per category, YAML frontmatter carrying the metadata. Binned
     notes go under _recycle-bin/ — exports never silently drop data."""
     _categories, entries, _links = _export_rows(session)
+    category_names = manager.bulk_category_names(session, entries)
+    
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
         for entry in entries:
+            cat_name = category_names.get(entry.category_id, manager.UNCATEGORISED)
             folder = (
                 "_recycle-bin"
                 if entry.is_deleted
-                else _slug(manager.category_name_for(session, entry), 40)
+                else _slug(cat_name, 40)
             )
             tags = manager.entry_tags(entry)
             front = [
                 "---",
-                f"category: {manager.category_name_for(session, entry)}",
+                f"category: {cat_name}",
                 f"created: {entry.created_at.isoformat()}",
             ]
             if tags:
@@ -1284,12 +1295,15 @@ def export_csv(session: Session = Depends(get_session)) -> Response:
     writer.writerow(
         ["id", "content", "category", "tags", "ai_confidence", "created_at", "is_deleted"]
     )
+    
+    category_names = manager.bulk_category_names(session, entries)
+    
     for e in entries:
         writer.writerow(
             [
                 e.id,
                 manager.readable_content(e),
-                manager.category_name_for(session, e),
+                category_names.get(e.category_id, manager.UNCATEGORISED),
                 "|".join(manager.entry_tags(e)),
                 e.ai_confidence,
                 e.created_at.isoformat(),

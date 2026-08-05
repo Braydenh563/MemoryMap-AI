@@ -394,6 +394,9 @@ Link to another note with [[its first few words]]."></textarea>
                 placeholder="🔎 Filter — try tag:work or &quot;exact phrase&quot;"
                 aria-label="Filter notes. Supports tag:, cat:, is:pinned, -exclude and quoted phrases"
                 aria-describedby="search-help-hint">
+              <label class="row align-center checkbox-label" style="gap:0.25rem; font-size:0.85em; cursor:pointer;" title="Search by concept instead of exact keywords">
+                <input type="checkbox" id="semantic-search-toggle"> ✨ Semantic
+              </label>
               <button id="save-search" class="ghost small hidden" type="button"
                 title="Save this filter so you can come back to it">☆ Save filter</button>
               <button id="search-help" class="ghost small" type="button"
@@ -635,6 +638,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <button id="chat-dock-more-btn" class="ghost small" type="button"
                   aria-haspopup="dialog" aria-expanded="false"
                   aria-controls="chat-dock-more-panel"
+                  aria-label="Settings"
                   title="Answer length and persona">⚙</button>
                 <div id="chat-dock-more-panel" class="chat-dock-more-panel hidden"
                   role="dialog" aria-label="How it answers">
@@ -786,6 +790,9 @@ Link to another note with [[its first few words]]."></textarea>
           <option value="grid" selected>Grid</option>
           <option value="line">Line</option>
         </select>
+        <div style="flex-grow: 1;"></div>
+        <label class="muted" for="timeline-search">Highlight</label>
+        <input type="text" id="timeline-search" placeholder="Type to filter..." style="max-width: 12rem; margin-bottom: 0;">
         <span id="timeline-count" class="muted"></span>
       </div>
       <p class="muted">
@@ -804,6 +811,20 @@ Link to another note with [[its first few words]]."></textarea>
         <svg id="timeline-branch-svg" class="timeline-branch-svg"></svg>
       </div>
       <p id="timeline-empty" class="muted hidden">Nothing to plot yet.</p>
+      
+      <!-- Unified Timeline Popup (Read-only view with Open button) -->
+      <div id="timeline-popup" class="graph-popup hidden" role="dialog" aria-label="View note">
+        <div class="row space-between">
+          <strong id="timeline-popup-title">Note</strong>
+          <button id="timeline-popup-close" class="ghost small" aria-label="Close">✕</button>
+        </div>
+        <div id="timeline-popup-info" class="graph-popup-info" style="margin-bottom: 0.5rem;"></div>
+        <div id="timeline-popup-media" class="graph-popup-media hidden"></div>
+        <div id="timeline-popup-content" style="white-space: pre-wrap; font-size: 0.9rem; max-height: 200px; overflow-y: auto; margin-bottom: 0.8rem;"></div>
+        <div class="row">
+          <button id="timeline-popup-open" class="small">Open in Editor</button>
+        </div>
+      </div>
     </section>
   </div>
 
@@ -851,6 +872,7 @@ Link to another note with [[its first few words]]."></textarea>
           aria-controls="graph-trace"
           title="Find how two notes connect">🛣 Trace</button>
         <button id="graph-refresh" class="ghost small">↻ Refresh</button>
+        <button id="graph-fullscreen-close" class="ghost small graph-fullscreen-close">✕ Close Full Screen</button>
       </div>
       <!-- The tuned-once controls. One row, one control height, margins
            zeroed — the control-strip rule in DESIGN.md. -->
@@ -969,6 +991,7 @@ Link to another note with [[its first few words]]."></textarea>
           <button id="graph-zoom-in" class="graph-zoom-btn" title="Zoom in" aria-label="Zoom in">＋</button>
           <button id="graph-zoom-out" class="graph-zoom-btn" title="Zoom out" aria-label="Zoom out">－</button>
           <button id="graph-zoom-fit" class="graph-zoom-btn" title="Fit the whole map to view" aria-label="Fit map to view">⤢</button>
+          <button id="graph-fullscreen" class="graph-zoom-btn" title="Toggle Full Screen" aria-label="Toggle full screen">⛶</button>
         </div>
         <div id="graph-empty" class="empty-state hidden">
           <div id="graph-empty-emblem" class="emblem emblem-centred" aria-hidden="true"></div>
@@ -1493,6 +1516,12 @@ Link to another note with [[its first few words]]."></textarea>
               <div class="row">
                 <select id="utility-model-select"></select>
                 <button id="utility-model-apply" class="small">Use this model</button>
+              </div>
+              <div style="margin-top:0.5rem">
+                <label class="checkbox-label row align-center">
+                  <input type="checkbox" id="pref-smart-model-routing">
+                  <span>Use Smart Model Routing for Background Tasks</span>
+                </label>
               </div>
               <p class="muted">
                 Quick background jobs run on this model, so a big slow chat
@@ -2218,6 +2247,53 @@ Link to another note with [[its first few words]]."></textarea>
               </p>
               <ul id="task-history" class="entry-list"></ul>
               <button id="task-history-clear" class="ghost small">Clear this list</button>
+            </div>
+
+            <div class="settings-group">
+              <h3>Autonomous Background AI</h3>
+              <p class="muted">
+                Have the agent automatically optimize your notes in the background — tagging untagged notes, finding duplicates, and linking related items.
+              </p>
+              <label class="check-row">
+                <input type="checkbox" id="pref-autonomous-tasks">
+                <span>Enable autonomous optimization</span>
+              </label>
+              
+              <div id="autonomous-settings-panel" class="settings-indent hidden">
+                <label class="check-row">
+                  <input type="checkbox" id="pref-auto-tag">
+                  <span>Auto-tag untagged notes</span>
+                </label>
+                <label class="check-row">
+                  <input type="checkbox" id="pref-auto-link">
+                  <span>Auto-link related notes</span>
+                </label>
+                <label class="check-row">
+                  <input type="checkbox" id="pref-auto-dedupe">
+                  <span>Identify duplicates</span>
+                </label>
+                
+                <label for="pref-autonomous-interval" class="form-label" style="margin-top: 1rem;">Run every (hours)</label>
+                <input type="number" id="pref-autonomous-interval" class="wide" min="1" max="168" placeholder="6">
+                
+                <label for="pref-autonomous-model" class="form-label">Model override (leave blank to use Utility model)</label>
+                <input type="text" id="pref-autonomous-model" class="wide" placeholder="e.g. llama3.2:3b">
+                
+                <div class="row" style="margin-top: 1rem;">
+                  <button id="autonomous-trigger" class="small ghost">▶ Run optimization now</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-group">
+              <h3>Battery Efficient Mode</h3>
+              <p class="muted">
+                Pause background AI tasks and heavy graph calculations to save power. When enabled, autonomous background tasks will not run, and the graph may be slower to update connections.
+              </p>
+              <label class="check-row">
+                <input type="checkbox" id="pref-battery-mode">
+                <span>Enable Battery Efficient Mode</span>
+              </label>
             </div>
 
             <h3>Quit MemoryMap</h3>

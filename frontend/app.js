@@ -2024,7 +2024,13 @@ function showEntrySkeletons() {
 
 async function loadEntries() {
   showEntrySkeletons();
-  allEntries = await apiJson("/entries");
+  
+  const isSemantic = $("semantic-search-toggle")?.checked;
+  const url = (isSemantic && noteSearch) 
+      ? `/entries?q=${encodeURIComponent(noteSearch)}&semantic=true` 
+      : "/entries";
+      
+  allEntries = await apiJson(url);
   entriesEverLoaded = true;
   renderStatusBar(); // the notebook's size changed, and the bar reads it here
   renderSidebar();
@@ -6425,6 +6431,10 @@ async function loadChatSuggestions() {
   // Only the welcome placeholder may be present — real messages hide the chips.
   if ($("chat-messages").querySelector(".msg")) return;
   const picks = await apiJson("/chat/suggestions").catch(() => []);
+
+  // Re-check after the await in case a message was sent while we waited
+  if ($("chat-messages").querySelector(".msg")) return;
+
   const box = $("chat-suggest");
   box.replaceChildren();
   box.classList.toggle("hidden", picks.length === 0);
@@ -11801,9 +11811,14 @@ function applyGraphHighlight() {
   // After forceLink binds, edge.source/target are node objects, not ids.
   const idOf = (end) => (end && end.id != null ? end.id : end);
 
+  const isSearchActive = !!(query || graphHighlightIds || onPath);
   graphNodeSelection.classed(
     "graph-dim",
     (d) => !(searchOk(d) && hoverOk(d.id))
+  );
+  graphNodeSelection.classed(
+    "graph-match",
+    (d) => isSearchActive && searchOk(d)
   );
   graphNodeSelection.classed("graph-focus", (d) => d.id === graphHoveredId);
   graphEdgeSelection.classed("graph-dim", (d) => {
@@ -12404,12 +12419,21 @@ function renderTimelineBranch(body) {
         .line()
         .x((n) => scale(new Date(n.at)))
         .y(() => laneY);
-      laneGroup
+      const path = laneGroup
         .append("path")
         .attr("class", "timeline-branch-line")
         .attr("fill", "none")
         .attr("stroke", tint)
         .attr("d", linePath(here));
+      
+      const length = path.node().getTotalLength();
+      path
+        .attr("stroke-dasharray", length + " " + length)
+        .attr("stroke-dashoffset", length)
+        .transition()
+        .duration(800)
+        .ease(d3.easeCubicOut)
+        .attr("stroke-dashoffset", 0);
     }
 
     if (!single) {
@@ -12420,7 +12444,10 @@ function renderTimelineBranch(body) {
         .attr("y", laneY)
         .attr("dy", "0.32em")
         .attr("fill", tint)
-        .text(band.name);
+        .text(band.name)
+        .style("opacity", 0);
+
+      label.transition().duration(600).style("opacity", 1);
       label.append("title").text(`${band.count} note${band.count === 1 ? "" : "s"}`);
     }
 
@@ -12434,13 +12461,27 @@ function renderTimelineBranch(body) {
       )
       .attr("cx", (n) => scale(new Date(n.at)))
       .attr("cy", laneY)
-      .attr("r", TIMELINE_DOT_R)
       .attr("fill", tint)
-      .on("click", (_event, n) => {
-        switchTab("notes");
-        showNotesSection("browse"); // focusing inside a hidden section does nothing
-        flashEntry(n.id);
+      .attr("r", 0)
+      .on("mouseover", function() {
+        d3.select(this).transition().duration(150).attr("r", TIMELINE_DOT_R * 1.5);
+        d3.selectAll(".timeline-branch-lane").transition().duration(150).style("opacity", function() {
+          return (this === laneGroup.node()) ? 1 : 0.2;
+        });
+      })
+      .on("mouseout", function() {
+        d3.select(this).transition().duration(150).attr("r", TIMELINE_DOT_R);
+        d3.selectAll(".timeline-branch-lane").transition().duration(150).style("opacity", 1);
+      })
+      .on("click", (event, n) => {
+        openTimelinePopup(event, n);
       });
+      
+    dots.transition()
+      .delay((_, i) => Math.min(i * 30, 800))
+      .duration(400)
+      .ease(d3.easeElasticOut)
+      .attr("r", TIMELINE_DOT_R);
     dots.append("title").text((n) => {
       // Same honesty rule as the grid's dots: say when a note is here because
       // of what it says rather than when it was typed.
@@ -12517,10 +12558,8 @@ function timelineDot(note) {
       ? `“${note.phrase}” in this note meant ${new Date(note.at).toLocaleDateString()}.` +
         `\nWritten ${new Date(note.written_at).toLocaleDateString()}.`
       : `Written ${new Date(note.written_at).toLocaleString()}`;
-  dot.addEventListener("click", () => {
-    switchTab("notes");
-    showNotesSection("browse"); // focusing inside a hidden section does nothing
-    flashEntry(note.id);
+  dot.addEventListener("click", (event) => {
+    openTimelinePopup(event, note);
   });
   return dot;
 }
@@ -12564,6 +12603,95 @@ $("timeline-view").addEventListener("change", (event) => {
   localStorage.setItem("timeline-view", event.target.value);
   renderTimeline();
 });
+
+$("timeline-popup-close").addEventListener("click", () => {
+  $("timeline-popup").classList.add("hidden");
+});
+
+// Hide timeline popup when clicking outside
+$("tab-timeline").addEventListener("click", (e) => {
+  if (e.target === $("tab-timeline") || e.target.closest(".timeline-scroll") || e.target.closest(".timeline-branch-svg")) {
+    $("timeline-popup").classList.add("hidden");
+  }
+});
+
+let timelinePopupId = null;
+
+async function openTimelinePopup(event, noteSummary) {
+  event.stopPropagation();
+  timelinePopupId = noteSummary.id;
+  const popup = $("timeline-popup");
+  
+  $("timeline-popup-title").textContent = noteSummary.category || "Note";
+  $("timeline-popup-content").textContent = "Loading…";
+  
+  const box = $("timeline-popup-info");
+  box.replaceChildren();
+  const dateStr = noteSummary.placed_by === "mentioned"
+      ? `“${noteSummary.phrase}” meant ${new Date(noteSummary.at).toLocaleDateString()}. Written ${new Date(noteSummary.written_at).toLocaleDateString()}.`
+      : `Written ${new Date(noteSummary.written_at).toLocaleString()}`;
+  box.appendChild(chip(`🕐 ${dateStr}`, "tag"));
+
+  popup.classList.remove("hidden");
+  
+  const bounds = $("tab-timeline").getBoundingClientRect();
+  const size = popup.getBoundingClientRect();
+  const left = Math.min(
+    Math.max(event.clientX - bounds.left + 12, 8),
+    Math.max(8, bounds.width - size.width - 8)
+  );
+  const top = Math.min(
+    Math.max(event.clientY - bounds.top + 12, 8),
+    Math.max(8, bounds.height - size.height - 8)
+  );
+  popup.style.left = `${left}px`;
+  popup.style.top = `${top}px`;
+
+  const entry = await apiJson(`/entries/${noteSummary.id}`).catch(() => null);
+  if (!entry || timelinePopupId !== noteSummary.id) {
+    if (timelinePopupId === noteSummary.id) {
+      $("timeline-popup-content").textContent = "Couldn't load this note.";
+    }
+    return;
+  }
+  
+  $("timeline-popup-content").textContent = entry.content;
+  
+  const openBtn = $("timeline-popup-open");
+  const newOpenBtn = openBtn.cloneNode(true);
+  openBtn.replaceWith(newOpenBtn);
+  newOpenBtn.addEventListener("click", () => {
+    popup.classList.add("hidden");
+    switchTab("notes");
+    showNotesSection("browse");
+    flashEntry(noteSummary.id);
+  });
+}
+
+function applyTimelineSearch() {
+  const query = $("timeline-search").value.trim().toLowerCase();
+  
+  // Grid View dots
+  const gridDots = document.querySelectorAll(".timeline-dot");
+  gridDots.forEach(dot => {
+    const text = (dot.textContent || "").toLowerCase();
+    dot.classList.toggle("timeline-dim", query && !text.includes(query));
+  });
+
+  // Branch View dots (D3)
+  d3.selectAll(".timeline-branch-dot")
+    .classed("timeline-dim", function(d) {
+      const matchText = (d.preview || "").toLowerCase();
+      return query && !matchText.includes(query);
+    });
+}
+
+let timelineSearchDebounceTimeout;
+$("timeline-search").addEventListener("input", () => {
+  clearTimeout(timelineSearchDebounceTimeout);
+  timelineSearchDebounceTimeout = setTimeout(applyTimelineSearch, 150);
+});
+
 
 $("entry-document").addEventListener("change", async (event) => {
   const value = event.target.value;
@@ -13596,6 +13724,10 @@ function closeLogs() {
 }
 
 async function copyLogs() {
+  const url = noteSearch 
+      ? `/entries?q=${encodeURIComponent(noteSearch)}&semantic=${$("semantic-search-toggle")?.checked || false}` 
+      : "/entries";
+    const response = await fetch(url);
   const shown = logRecords.filter(logMatchesFilters);
   if (!shown.length) {
     toast("Nothing to copy — the filters above are hiding every record.", true);
@@ -13691,6 +13823,15 @@ async function renderWebSearch() {
   prefsCache = await apiJson("/preferences");
   $("pref-web-search").checked = Boolean(prefsCache.web_search_enabled);
   $("pref-searxng").value = prefsCache.searxng_url || "";
+  $("pref-autonomous-tasks").checked = Boolean(prefsCache.autonomous_tasks_enabled);
+  $("pref-auto-tag").checked = prefsCache.auto_tag_enabled ?? true;
+  $("pref-auto-link").checked = prefsCache.auto_link_enabled ?? true;
+  $("pref-auto-dedupe").checked = prefsCache.auto_dedupe_enabled ?? true;
+  $("pref-autonomous-interval").value = prefsCache.autonomous_tasks_interval_hours || 6;
+  $("pref-autonomous-model").value = prefsCache.autonomous_tasks_model || "";
+  $("pref-battery-mode").checked = Boolean(prefsCache.battery_efficient_mode);
+  $("pref-smart-model-routing").checked = prefsCache.smart_model_routing_enabled ?? true;
+  toggleAutonomousPanel();
   $("searxng-autostart").checked = Boolean(prefsCache.searxng_autostart);
   $("search-provider-status").textContent = "";
 
@@ -13766,6 +13907,14 @@ async function savePrefs() {
         communication_style: $("pref-style").value,
         user_profile: $("pref-profile").value,
         profile_enabled: $("pref-profile-enabled").checked,
+        autonomous_tasks_enabled: $("pref-autonomous-tasks").checked,
+        auto_tag_enabled: $("pref-auto-tag").checked,
+        auto_link_enabled: $("pref-auto-link").checked,
+        auto_dedupe_enabled: $("pref-auto-dedupe").checked,
+        autonomous_tasks_interval_hours: Number($("pref-autonomous-interval").value) || 6,
+        autonomous_tasks_model: $("pref-autonomous-model").value.trim(),
+        battery_efficient_mode: $("pref-battery-mode").checked,
+        smart_model_routing_enabled: $("pref-smart-model-routing").checked,
       }),
     });
     $("prefs-status").textContent = "Saved.";
@@ -15541,7 +15690,12 @@ function libraryCard(item) {
   const icon = document.createElement("span");
   icon.className = "library-card-icon";
   icon.textContent = meta ? meta.icon : "•";
-  icon.setAttribute("aria-hidden", "true");
+  if (meta && meta.label) {
+    icon.setAttribute("role", "img");
+    icon.setAttribute("aria-label", meta.label);
+  } else {
+    icon.setAttribute("aria-hidden", "true");
+  }
   const title = document.createElement("strong");
   title.className = "library-card-title";
   // A note's title is its first line, so it carries the note's own markup too.
@@ -18845,6 +18999,31 @@ $("settings-modal").addEventListener("click", (event) => {
 // is the shape of "this control does nothing" that keeps getting reported.
 $("pref-web-search").addEventListener("change", saveWebSearchSettings);
 $("pref-searxng").addEventListener("change", saveWebSearchSettings);
+
+function toggleAutonomousPanel() {
+  const panel = $("autonomous-settings-panel");
+  if (panel) panel.classList.toggle("hidden", !$("pref-autonomous-tasks").checked);
+}
+$("pref-autonomous-tasks").addEventListener("change", () => {
+  toggleAutonomousPanel();
+  savePrefs();
+});
+$("pref-auto-tag").addEventListener("change", savePrefs);
+$("pref-auto-link").addEventListener("change", savePrefs);
+$("pref-auto-dedupe").addEventListener("change", savePrefs);
+$("pref-battery-mode").addEventListener("change", savePrefs);
+$("pref-autonomous-interval").addEventListener("change", savePrefs);
+$("pref-autonomous-model").addEventListener("change", savePrefs);
+$("pref-smart-model-routing").addEventListener("change", savePrefs);
+
+$("semantic-search-toggle")?.addEventListener("change", () => {
+  if (noteSearch) loadAllNotes();
+});
+$("autonomous-trigger").addEventListener("click", () => {
+  api("/tasks/trigger-autonomous", { method: "POST" })
+    .then(() => toast("Optimization task started in the background."))
+    .catch((err) => toast(err.message, true));
+});
 // Filters only re-draw what is already held — they never refetch, so changing
 // one mid-incident cannot lose the records you were looking at.
 $("log-source").addEventListener("change", renderLogList);
@@ -19238,7 +19417,11 @@ $("graph-hide-orphans").addEventListener("change", renderGraph);
 $("graph-labels").addEventListener("change", (e) => {
   $("graph-box").classList.toggle("graph-labels-hidden", !e.target.checked);
 });
-$("graph-search").addEventListener("input", applyGraphHighlight);
+let graphSearchDebounceTimeout;
+$("graph-search").addEventListener("input", () => {
+  clearTimeout(graphSearchDebounceTimeout);
+  graphSearchDebounceTimeout = setTimeout(applyGraphHighlight, 150);
+});
 
 // Physics sliders: persist, then rebuild the simulation with the new forces.
 for (const key of ["gravity", "spread"]) {
@@ -19285,6 +19468,23 @@ $("graph-zoom-fit").addEventListener("click", () => {
     fitGraphToView(graphSvg, graphCanvas, graphZoom, graphNodesRef, graphDims.w, graphDims.h);
   }
 });
+
+function toggleGraphFullscreen() {
+  const card = $("graph-card");
+  if (card) {
+    const isFull = card.classList.toggle("graph-fullscreen");
+    // Trigger a resize event to ensure D3 SVG rescales properly
+    window.dispatchEvent(new Event('resize'));
+    if (isFull && graphNodesRef && graphNodesRef.length) {
+      setTimeout(() => {
+        fitGraphToView(graphSvg, graphCanvas, graphZoom, graphNodesRef, graphDims.w, graphDims.h);
+      }, 50);
+    }
+  }
+}
+
+$("graph-fullscreen")?.addEventListener("click", toggleGraphFullscreen);
+$("graph-fullscreen-close")?.addEventListener("click", toggleGraphFullscreen);
 
 // Wave M: batch operations + skill/persona sharing.
 $("select-btn").addEventListener("click", () =>
@@ -20604,6 +20804,7 @@ document.addEventListener("keydown", (e) => {
 // Wave J: note search + sort, capture char count.
 $("note-search").addEventListener("input", (e) => {
   noteSearch = e.target.value.trim();
+  if ($("semantic-search-toggle")?.checked) loadEntries(); // trigger semantic backend search
   // Nothing to save when the box is empty; the button appears when it isn't.
   $("save-search").classList.toggle("hidden", !noteSearch);
   renderEntries();

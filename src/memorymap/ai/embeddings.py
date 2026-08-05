@@ -33,7 +33,7 @@ logger = logging.getLogger("memorymap.embeddings")
 
 # Warm-up bookkeeping so the UI can tell "still loading" from "failed"
 # (a silently failed load used to look like eternal "warming up…").
-_warmup = {"running": False, "started": False}
+_warmup = {"running": False, "started": False, "error": False}
 
 
 def start_warmup(service: "EmbeddingService", session_factory=None) -> None:  # noqa: ANN001
@@ -50,12 +50,23 @@ def start_warmup(service: "EmbeddingService", session_factory=None) -> None:  # 
 
     def run() -> None:
         _warmup["running"] = True
+        _warmup["error"] = False
         try:
             service.embed_text("warm up")
+        except Exception:
+            _warmup["error"] = True
         finally:
             _warmup["running"] = False
+            from memorymap.core import taskhistory
+            outcome = "failed" if _warmup["error"] else "completed"
+            taskhistory.record(
+                "embeddings",
+                "Loading embedding model",
+                outcome,
+                "Model is ready" if outcome == "completed" else "Failed to load",
+            )
         # Now that the model is up, catch any notes that missed out.
-        if session_factory is not None:
+        if session_factory is not None and not _warmup["error"]:
             backfill_missing(service, session_factory)
 
     threading.Thread(target=run, name="embedding-warmup", daemon=True).start()
@@ -123,6 +134,10 @@ def backfill_missing(
 
 def warmup_running() -> bool:
     return _warmup["running"]
+
+
+def warmup_failed() -> bool:
+    return _warmup["error"]
 
 
 def vector_to_bytes(vector: np.ndarray) -> bytes:

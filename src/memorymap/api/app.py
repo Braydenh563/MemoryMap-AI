@@ -19,7 +19,7 @@ from fastapi import Depends, FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from memorymap import __version__
-from memorymap.ai import embeddings
+from memorymap.ai import embeddings, autonomous
 from memorymap.search import searxng_manager
 from memorymap.api import (
     routes_auth,

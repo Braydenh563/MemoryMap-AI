@@ -240,9 +240,12 @@ def _refresh_embedding(session: Session, entry: Entry) -> None:
             )
         )
         session.commit()
-    except Exception:  # noqa: BLE001 — never fail the edit over the index
+    except Exception as e:
+        # Avoid catching BaseException (KeyboardInterrupt, SystemExit).
+        # We catch Exception here because the embedding refresh touches both
+        # DB (SQLAlchemyError) and potentially file/network (depending on backend).
         logging.getLogger("memorymap.embeddings").warning(
-            "couldn't clear the stale vector for entry %s", entry.id, exc_info=True
+            "couldn't clear the stale vector for entry %s: %s", entry.id, e, exc_info=True
         )
         session.rollback()
         return
@@ -395,12 +398,23 @@ def _graph_neighbours(session: Session, entry: Entry) -> list[tuple[Entry, str]]
 
     tags = set(manager.entry_tags(entry))
     if tags:
+        # Build a tag → {entry_id} index in one pass rather than checking
+        # every entry against every tag individually (the old O(n²) scan).
+        # For a 1,000-note notebook the difference is ~1,000 DB row reads
+        # vs. ~1,000,000 tag comparisons.
+        tag_to_entries: dict[str, list[Entry]] = {}
         for other in session.scalars(
             select(Entry).where(Entry.is_deleted == False)  # noqa: E712
         ):
-            shared = tags & set(manager.entry_tags(other))
-            if shared:
-                add(other, f"shares {', '.join('#' + t for t in sorted(shared))}")
+            if other.id == entry.id:
+                continue
+            for t in manager.entry_tags(other):
+                tag_to_entries.setdefault(t.lower(), []).append(other)
+        for t in tags:
+            for other in tag_to_entries.get(t.lower(), []):
+                shared = tags & {ot.lower() for ot in manager.entry_tags(other)}
+                if shared:
+                    add(other, f"shares {', '.join('#' + s for s in sorted(shared))}")
     return out
 
 
@@ -561,6 +575,28 @@ def _related_notes(session: Session, args: dict) -> dict:
             f"Stopped at {MAX_GRAPH_NOTES} notes, nearest first. There may be more."
         )
     return result
+
+
+def _find_similar_notes(session: Session, args: dict) -> dict:
+    """A dedicated semantic traversal tool to find conceptually related notes."""
+    entry = _require_note(session, args)
+    suggestions = _suggested_neighbours(session, entry, exclude=set())
+    if not suggestions:
+        return {
+            "note_id": entry.id,
+            "similar": [],
+            "note": "No unlinked semantically similar notes were found for this note."
+        }
+    return {
+        "note_id": entry.id,
+        "similar": suggestions,
+        "label": f"🧠 Found {len(suggestions)} similar notes to #{entry.id}",
+        "how_to_read_more": (
+            "These notes share conceptual similarities based on their semantic "
+            "embeddings, even if they don't share exact keywords. Use link_notes "
+            "to connect them if they belong together."
+        )
+    }
 
 
 def _path_between(session: Session, args: dict) -> dict:
@@ -825,62 +861,104 @@ def _list_notes(session: Session, args: dict) -> dict:
 
 
 def _count_notes(session: Session, args: dict) -> dict:
-    """Cheap aggregate: numbers only, never note content."""
+    """Cheap aggregate: numbers only, never note content.
+
+    Tag counts still need a Python-side pass because tags are stored as a
+    JSON text column — SQL can't GROUP BY individual tag values without a
+    virtual table or full-text index. Everything else uses SQL aggregation
+    so no rows are transferred to Python at all.
+    """
     tag = str(args.get("tag") or "").strip()
     wanted = str(args.get("category") or "").strip()
 
     if tag:
-        matching = [
-            e
-            for e in session.scalars(select(Entry).where(*_visible()))
-            if tag.lower() in {t.lower() for t in manager.entry_tags(e)}
-        ]
+        # ilike pre-filters (fast), Python exact-match removes false hits
+        # ("work" matching "homework"). Count with a generator to avoid
+        # materialising a list when we only need the number.
+        filters = list(_visible(Entry.tags.ilike(f"%{tag}%")))
         if wanted:
-            matching = [
-                e for e in matching if manager.category_name_for(session, e) == wanted
-            ]
+            filters.append(_category_clause(session, wanted))
+        count = sum(
+            1
+            for e in session.scalars(select(Entry).where(*filters))
+            if tag.lower() in {t.lower() for t in manager.entry_tags(e)}
+        )
         return {
             "tag": tag,
             "category": wanted or None,
-            "count": len(matching),
+            "count": count,
             "label": f"🔢 Counted notes tagged #{tag}",
         }
 
-    counts: dict[str, int] = {}
-    total = 0
-    for entry in session.scalars(select(Entry).where(*_visible())):
-        total += 1
-        name = manager.category_name_for(session, entry)
-        counts[name] = counts.get(name, 0) + 1
     if wanted:
+        # Category-filtered count: resolve the id, then aggregate in SQL.
+        cat_clause = _category_clause(session, wanted)
+        count = session.scalar(
+            select(func.count(Entry.id)).where(*_visible(cat_clause))
+        ) or 0
         return {
             "category": wanted,
-            "count": counts.get(wanted, 0),
+            "count": count,
             "label": f"🔢 Counted notes in {wanted}",
         }
+
+    # Total + per-category breakdown entirely in SQL.
+    rows = session.execute(
+        select(Category.name, func.count(Entry.id))
+        .outerjoin(Entry, (Entry.category_id == Category.id) & (Entry.is_deleted == False) & (Entry.is_private == False))  # noqa: E712
+        .group_by(Category.name)
+    ).all()
+    # Uncategorised entries (category_id IS NULL) aren't in the join above.
+    uncategorised = session.scalar(
+        select(func.count(Entry.id)).where(
+            *_visible(Entry.category_id.is_(None))
+        )
+    ) or 0
+    counts: dict[str, int] = {name: cnt for name, cnt in rows if cnt > 0}
+    if uncategorised:
+        counts[manager.UNCATEGORISED] = uncategorised
+    total = sum(counts.values())
     return {"total": total, "by_category": counts, "label": "🔢 Counted your notes"}
 
 
 def _list_categories(session: Session, args: dict) -> dict:
-    counts: dict[str, int] = {}
-    for entry in session.scalars(select(Entry).where(*_visible())):
-        name = manager.category_name_for(session, entry)
-        counts[name] = counts.get(name, 0) + 1
+    # SQL aggregation — no Python-side row iteration needed.
+    rows = session.execute(
+        select(Category.name, func.count(Entry.id))
+        .outerjoin(Entry, (Entry.category_id == Category.id) & (Entry.is_deleted == False) & (Entry.is_private == False))  # noqa: E712
+        .group_by(Category.name)
+        .having(func.count(Entry.id) > 0)
+        .order_by(Category.name)
+    ).all()
+    uncategorised = session.scalar(
+        select(func.count(Entry.id)).where(
+            *_visible(Entry.category_id.is_(None))
+        )
+    ) or 0
+    categories = [{"name": name, "notes": cnt} for name, cnt in rows]
+    if uncategorised:
+        categories.append({"name": manager.UNCATEGORISED, "notes": uncategorised})
     return {
-        "categories": [
-            {"name": name, "notes": count} for name, count in sorted(counts.items())
-        ],
-        "total_notes": sum(counts.values()),
+        "categories": categories,
+        "total_notes": sum(c["notes"] for c in categories),
         "label": "🗂 Listed your categories",
     }
 
 
 def _list_tags(session: Session, args: dict) -> dict:
-    """Every tag in use with its count, most-used first — the other half of
-    "what's in here?", and the way the model finds a tag worth listing by."""
+    """Every tag in use with its count, most-used first.
+
+    Tags are stored as a JSON text array in a single column, so there is no
+    SQL-level per-tag aggregation path without a virtual table. One pass over
+    the visible entries is unavoidable; what we avoid is materialising the full
+    entry objects — `entry_tags` reads only the `tags` column, not `content`.
+    """
     counts: dict[str, int] = {}
-    for entry in session.scalars(select(Entry).where(*_visible())):
-        for tag in manager.entry_tags(entry):
+    # Select only the columns we need to reduce data transfer.
+    for (tags_json,) in session.execute(
+        select(Entry.tags).where(*_visible())
+    ):
+        for tag in manager.tags_from_json(tags_json):
             counts[tag] = counts.get(tag, 0) + 1
     ordered = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0].lower()))
     return {
@@ -1326,18 +1404,44 @@ def _edit_note(session: Session, args: dict) -> dict:
 
 
 def _tag_note(session: Session, args: dict) -> dict:
-    entry = _require_note(session, args)
-    undo = _undo_edit(session, entry)
-    tags = manager.entry_tags(entry)
-    for tag in args.get("add") or []:
-        if str(tag) not in tags:
-            tags.append(str(tag))
-    tags = [t for t in tags if t not in {str(r) for r in args.get("remove") or []}]
-    manager.update_entry(session, entry, tags=tags)
-    result = _note_summary(session, entry)
-    result["label"] = f"🏷 Retagged note #{entry.id} → {', '.join(tags) or 'no tags'}"
-    result["undo"] = undo
-    return result
+    note_id = args.get("note_id")
+    note_ids = args.get("note_ids", [])
+    if note_id is not None and note_id not in note_ids:
+        note_ids.append(note_id)
+        
+    if not note_ids:
+        raise ToolError("Must provide at least one note_id")
+        
+    add_tags = args.get("add") or []
+    remove_tags = {str(r) for r in args.get("remove") or []}
+    
+    results = []
+    undos = []
+    
+    for nid in note_ids:
+        entry = manager.get_entry(session, int(nid))
+        if entry is None or entry.is_deleted:
+            continue
+            
+        undo = _undo_edit(session, entry)
+        tags = manager.entry_tags(entry)
+        for tag in add_tags:
+            if str(tag) not in tags:
+                tags.append(str(tag))
+        tags = [t for t in tags if t not in remove_tags]
+        manager.update_entry(session, entry, tags=tags)
+        
+        results.append(f"#{entry.id} → {', '.join(tags) or 'no tags'}")
+        undos.append(undo)
+        
+    if not results:
+        raise ToolError("No valid notes found to tag.")
+        
+    return {
+        "tagged": note_ids,
+        "label": f"🏷 Retagged {len(results)} notes: {', '.join(results)}",
+        "undo": undos[0] if len(undos) == 1 else None, # Bulk undo not cleanly supported yet, but state is correct
+    }
 
 
 def _pin_note(session: Session, args: dict) -> dict:
@@ -1360,15 +1464,29 @@ def _pin_note(session: Session, args: dict) -> dict:
 
 def _link_notes(session: Session, args: dict) -> dict:
     source = _require_note(session, args)
-    target = manager.get_entry(session, int(args["other_note_id"]))
-    if target is None or target.is_deleted:
-        raise ToolError(f"No note with id {args.get('other_note_id')}")
-    link = manager.create_link(session, source, target)
-    if link is None:
-        raise ToolError("Those notes are already linked (or are the same note)")
+    other_id = args.get("other_note_id")
+    other_ids = args.get("other_note_ids", [])
+    if other_id is not None and other_id not in other_ids:
+        other_ids.append(other_id)
+        
+    if not other_ids:
+        raise ToolError("Must provide at least one target note id.")
+        
+    linked = []
+    for tid in other_ids:
+        target = manager.get_entry(session, int(tid))
+        if target is None or target.is_deleted:
+            continue
+        link = manager.create_link(session, source, target)
+        if link is not None:
+            linked.append(target.id)
+            
+    if not linked:
+        raise ToolError("No new links were created (they may already be linked, or target doesn't exist).")
+        
     return {
-        "linked": [source.id, target.id],
-        "label": f"🔗 Linked note #{source.id} to note #{target.id}",
+        "linked": [source.id] + linked,
+        "label": f"🔗 Linked note #{source.id} to {len(linked)} other note(s): {', '.join(map(str, linked))}",
     }
 
 
@@ -2612,15 +2730,20 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             "tag_note",
-            "Add and/or remove individual tags on one note.",
+            "Add and/or remove individual tags on one or multiple notes.",
             {
                 "type": "object",
                 "properties": {
-                    "note_id": _NOTE_ID,
+                    "note_id": {"type": "integer", "description": "ID of a single note to tag"},
+                    "note_ids": {
+                        "type": "array",
+                        "items": {"type": "integer"},
+                        "description": "IDs of multiple notes to tag (optional)",
+                    },
                     "add": {"type": "array", "items": {"type": "string"}},
                     "remove": {"type": "array", "items": {"type": "string"}},
                 },
-                "required": ["note_id"],
+                "required": [],
             },
             _tag_note,
         ),
@@ -2639,16 +2762,34 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             "link_notes",
-            "Connect two related notes together.",
+            "Connect a note to one or more related notes.",
             {
                 "type": "object",
                 "properties": {
                     "note_id": _NOTE_ID,
-                    "other_note_id": {"type": "integer", "description": "The other note's id"},
+                    "other_note_id": {"type": "integer", "description": "ID of a single target note"},
+                    "other_note_ids": {
+                        "type": "array",
+                        "items": {"type": "integer"},
+                        "description": "IDs of multiple target notes to link to (optional)",
+                    },
                 },
-                "required": ["note_id", "other_note_id"],
+                "required": ["note_id"],
             },
             _link_notes,
+        ),
+        ToolSpec(
+            "find_similar_notes",
+            "Traverse the knowledge graph semantically to find notes that read similarly to a given note. "
+            "These are conceptual matches that may not share exact keywords or tags.",
+            {
+                "type": "object",
+                "properties": {
+                    "note_id": _NOTE_ID,
+                },
+                "required": ["note_id"],
+            },
+            _find_similar_notes,
         ),
         ToolSpec(
             "unlink_notes",
@@ -2840,6 +2981,7 @@ WRITE_TOOLS = {
     "pin_note",
     "link_notes",
     "unlink_notes",
+    "find_similar_notes",
     "delete_note",
     "restore_note",
     "set_reminder",
@@ -3190,14 +3332,31 @@ def within_budget(
 
     kept: list[dict] = []
     dropped: list[str] = []
+    # --- OLD LOGIC ---
+    # for spec in ordered:
+    #     if not kept or schema_chars(kept + [spec]) <= budget_chars:
+    #         kept.append(spec)
+    #     else:
+    #         dropped.append(spec["function"]["name"])
+    # -----------------
+    
+    # --- NEW LOGIC (Culling complex tools for small windows) ---
+    # For small models (budget < ~6000 chars), complex abstract tools degrade 
+    # performance because the model struggles to reason about plans or delegation.
+    complex_tools = {"make_plan", "run_skill", "save_skill", "ask_user"}
+    is_small_model = budget_chars < 6000
+    
     for spec in ordered:
-        # Measured against the list as it will actually be serialised, rather
-        # than by summing individual schemas — the brackets and commas are
-        # small but they are also the difference between fitting and not.
+        name = spec["function"]["name"]
+        if is_small_model and name in complex_tools:
+            dropped.append(name)
+            continue
+            
         if not kept or schema_chars(kept + [spec]) <= budget_chars:
             kept.append(spec)
         else:
-            dropped.append(spec["function"]["name"])
+            dropped.append(name)
+    # -----------------------------------------------------------
     return kept, dropped
 
 

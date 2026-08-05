@@ -22,6 +22,7 @@ from dotenv import load_dotenv
 # place so the future Preferences screen (Phase 4) has one list to show.
 DEFAULT_PREFERENCES: dict[str, Any] = {
     "chat_model": "llama3.2",  # any installed Ollama model (Phase 2+)
+    "smart_model_routing_enabled": True, # Toggle to use the utility model for background tasks
     "embedding_backend": "sentence-transformers",  # or "ollama" (Phase 3.5)
     "embedding_model": "nomic-embed-text",  # only used when backend == "ollama"
     "recycle_bin_days": 30,

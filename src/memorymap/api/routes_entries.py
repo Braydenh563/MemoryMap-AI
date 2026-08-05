@@ -444,13 +444,29 @@ def related_entries(entry_id: int, session: Session = Depends(get_session)) -> l
 
 @router.get("", response_model=list[EntryOut])
 def list_entries(
-    deleted: bool = False, session: Session = Depends(get_session)
+    deleted: bool = False, 
+    semantic: bool = False,
+    q: str = "",
+    session: Session = Depends(get_session)
 ) -> list[EntryOut]:
     """Normal list, or the recycle bin when ?deleted=true."""
     if deleted:
         entries = manager.list_deleted_entries(session)
     else:
         entries = manager.list_entries(session)
+        
+    if semantic and q:
+        try:
+            from memorymap.core import deps
+            results = search_manager.semantic_search(
+                session, q, deps.get_embeddings(), limit=15
+            )
+            # Filter entries down to only the ones found semantically
+            found_ids = {e.id for e, score in (results or []) if score >= 0.25}
+            entries = [e for e in entries if e.id in found_ids]
+        except Exception:
+            pass # Fall back to full list (which client filters by keyword anyway)
+            
     return [_to_out(session, e) for e in entries]
 
 

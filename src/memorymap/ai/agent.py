@@ -307,6 +307,18 @@ _RECOVERY_HINTS = {
         "cannot start another one from in here. Do this step with the tools "
         "you have, and the next step will get its own turn."
     ),
+    "empty_result": (
+        "That search or list returned nothing. Do not repeat the same call. "
+        "Try a different, broader search term, or tell the user you couldn't find it."
+    ),
+    "timeout": (
+        "That tool call took too long and was aborted. Do not retry it right now. "
+        "Tell the user the operation timed out and they may need to try again later."
+    ),
+    "rate_limited": (
+        "The model or service is currently rate limited. Stop making tool calls "
+        "and tell the user they are being rate limited."
+    ),
 }
 
 
@@ -321,7 +333,11 @@ def _recovery_hint(name: str, message: str) -> str:
         return _RECOVERY_HINTS["disabled"]
     if "web search is disabled" in lowered:
         return _RECOVERY_HINTS["web_off"]
-    if "not found" in lowered or "no note" in lowered or "no such" in lowered:
+    if "rate limit" in lowered or "too many requests" in lowered or "429" in lowered:
+        return _RECOVERY_HINTS["rate_limited"]
+    if "timeout" in lowered or "timed out" in lowered:
+        return _RECOVERY_HINTS["timeout"]
+    if "not found" in lowered or "no note" in lowered or "no such" in lowered or "empty" in lowered or "nothing found" in lowered:
         return _RECOVERY_HINTS["not_found"]
     # ValueError/KeyError/TypeError from a handler are argument problems, and
     # execute_tool prefixes those with the tool's own name.
@@ -522,6 +538,8 @@ def build_agent_messages(
     persona_prompt: str | None = None,
     budget: "context.ContextBudget | None" = None,
     mode: str | None = None,
+    agent_model: str = "",
+    model_manager = None,
 ) -> list[dict]:
     """Like librarian.build_messages, but the system prompt allows
     acting, and each note shows its id so tools can target it.
@@ -553,10 +571,15 @@ def build_agent_messages(
         f" The current date and time is {local.replace(second=0, microsecond=0).isoformat()}"
         f" ({local.tzname() or 'local time'})."
     )
+    behavior_prompt = ""
+    if agent_model and model_manager:
+        behavior = presets.behavior_for(model_manager._config, agent_model, mode)
+        behavior_prompt = behavior.system_prompt + " "
+        
     messages = [
         {
             "role": "system",
-            "content": f"{persona} {AGENT_GROUNDING} {TOOLS_GUIDE}{now_hint} "
+            "content": f"{persona} {behavior_prompt}{AGENT_GROUNDING} {TOOLS_GUIDE}{now_hint} "
             f"{style_hint}{profile_hint}{librarian.length_hint(mode)}",
         }
     ]
@@ -684,6 +707,7 @@ def run_agent(
     earned_rounds: int = EARNED_ROUNDS,
     exhausted_note: str | None = None,
     mode: str | None = None,
+    use_utility_model: bool = False,
 ) -> Iterator[dict]:
     """Yields event dicts:
     {"type": "unsupported"}                    — model can't do tools; caller
@@ -705,9 +729,15 @@ def run_agent(
     # Overflow is dropped from the FRONT, so the failure is not an error — it
     # is the model quietly losing its system prompt and answering from nothing.
     report = getattr(ollama, "usable_context", None)
-    window = report(model_manager.chat_model()) if callable(report) else None
+    agent_model = model_manager.utility_model() if use_utility_model else model_manager.chat_model()
+    window = report(agent_model) if callable(report) else None
+    
+    # The model setting matters for behavior tweaks, like disabling thinking.
+    behavior = presets.behavior_for(model_manager._config, agent_model, mode)
+    
     system_chars = len(
         f"{(persona_prompt or librarian.DEFAULT_PERSONA).strip()} "
+        f"{behavior.system_prompt} "
         f"{AGENT_GROUNDING} {TOOLS_GUIDE}{librarian.length_hint(mode)}"
     )
     budget = context.plan(
@@ -724,6 +754,8 @@ def run_agent(
         persona_prompt=persona_prompt,
         budget=budget,
         mode=mode,
+        agent_model=agent_model,
+        model_manager=model_manager,
     )
     # A skill's declared tools are the only ones offered for its run: fewer
     # schemas on the wire (roadmap §11a) and a narrower thing to go wrong.
@@ -821,7 +853,7 @@ def run_agent(
         reply: dict = {}
         streamed_any = False
         try:
-            for piece in ollama.chat_tools_stream(model, messages, offered, mode=mode):
+            for piece in ollama.chat_tools_stream(agent_model, messages, offered, mode=mode):
                 if "thinking_delta" in piece:
                     yield {"type": "thinking", "delta": piece["thinking_delta"]}
                 elif "content_delta" in piece:
@@ -1020,10 +1052,42 @@ def run_agent(
                     "label": tools.confirm_label(name, arguments),
                 }
                 result = AWAITING_CONFIRMATION
+            elif signature in failed_calls:
+                # --- NEW INTERCEPTION: Duplicate Failed Calls ---
+                # The model is looping on a broken call. Intercept before execution.
+                result = {
+                    "error": (
+                        f"You already called {name} with these exact arguments "
+                        "and it failed. You must try a different approach, "
+                        "change your arguments, or stop and ask the user."
+                    ),
+                    "what_to_do": _RECOVERY_HINTS.get(name, _ASK_RECOVERY),
+                }
+                yield {
+                    "type": "tool",
+                    "label": f"⚠️ {name.replace('_', ' ')} — repeated failure",
+                    "ok": False,
+                    "error": "Repeated failure intercepted",
+                }
+            elif signature in done_calls and name in _WRITE_TOOLS:
+                # --- NEW INTERCEPTION: Duplicate Writes ---
+                # A write that already succeeded this turn. Intercept before executing again.
+                result = {
+                    "error": (
+                        f"You already called {name} with these exact arguments "
+                        "earlier in this turn and it succeeded. Do not run the same "
+                        "write tool twice with the same arguments."
+                    ),
+                    "what_to_do": "Move on to the next step of your plan.",
+                }
+                yield {
+                    "type": "tool",
+                    "label": f"⚠️ {name.replace('_', ' ')} — already done",
+                    "ok": False,
+                    "error": "Duplicate write intercepted",
+                }
+            # --- OLD: elif (name, json.dumps(arguments, sort_keys=True)) in fresh_reads: ---
             elif (name, json.dumps(arguments, sort_keys=True)) in fresh_reads:
-                # **A read it has already done, with the same arguments, and
-                # nothing has changed since.** Reported directly: *"it often
-                # calls the same tools to read all notes, or to read the same
                 # note's context in full, after no changes."*
                 #
                 # Re-running it is not merely wasted time — the result is
@@ -1041,10 +1105,10 @@ def run_agent(
                 result = {
                     "already_done": True,
                     "note": (
-                        f"You already called {name} with these exact arguments "
-                        "earlier in this turn and the result is above — nothing "
-                        "has changed since. Use it rather than reading it again, "
-                        "and move on to the next part of the job."
+                        f"You already called {name} with these exact arguments. "
+                        "The information was provided in your previous tool calls "
+                        "above. Please refer to your chat history to find it, rather "
+                        "than running the tool again, and move on."
                     ),
                 }
                 yield {
@@ -1081,11 +1145,13 @@ def run_agent(
                     # answer: after a write, re-reading is legitimate work
                     # rather than a loop, and it has to be allowed through.
                     #
+                    #
                     # Deliberately *not* `done_calls`, which is the earned-round
                     # ledger: clearing that would let a model repeating one
                     # identical write buy a fresh round every time it did so,
                     # which is the exact loop EARNED_ROUNDS exists to starve.
                     fresh_reads.clear()
+                    failed_calls.clear()
                     change = {
                         "tool": name,
                         "label": result.get("label") or name,

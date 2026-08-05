@@ -83,24 +83,6 @@ def _similarity_edges(
     return scored[:MAX_SIMILARITY_EDGES]
 
 
-def _category_names(session: Session, entries: list[Entry]) -> dict[int | None, str]:
-    """`entry.category_id -> name` for every category the given entries use,
-    in one query rather than one per entry.
-
-    `manager.category_name_for` does the equivalent lookup with
-    `session.get()`, which is the right call for a single entry — but
-    `session.get()` still round-trips to the database even for an id it has
-    already loaded (confirmed by profiling the scale-test in ANALYSIS.md
-    §34: 10,000 calls of it were 87% of this endpoint's time on a 10k-note
-    notebook). A bulk endpoint like this one has to fetch categories once."""
-    ids = {e.category_id for e in entries if e.category_id is not None}
-    if not ids:
-        return {}
-    return {
-        c.id: c.name
-        for c in session.scalars(select(Category).where(Category.id.in_(ids)))
-    }
-
 
 @router.get("/graph")
 def graph(similarity: bool = False, session: Session = Depends(get_session)) -> dict:
@@ -108,7 +90,7 @@ def graph(similarity: bool = False, session: Session = Depends(get_session)) -> 
         session.scalars(select(Entry).where(Entry.is_deleted == False))  # noqa: E712
     )
     node_ids = {e.id for e in entries}
-    category_names = _category_names(session, entries)
+    category_names = manager.bulk_category_names(session, entries)
     nodes = [
         {
             "id": e.id,
@@ -153,7 +135,8 @@ def graph(similarity: bool = False, session: Session = Depends(get_session)) -> 
                 taken.add(pair)
                 edges.append({"source": e.parent_id, "target": e.id, "kind": "thread"})
 
-    if similarity:
+    config = deps.get_config()
+    if similarity and not config.get_preference("battery_efficient_mode"):
         edges.extend(_similarity_edges(session, node_ids, taken))
 
     # Stable category order so the frontend assigns stable colours.
@@ -161,14 +144,14 @@ def graph(similarity: bool = False, session: Session = Depends(get_session)) -> 
     return {"nodes": nodes, "edges": edges, "categories": categories}
 
 
-def _path_node(session: Session, entry: Entry) -> dict:
+def _path_node(entry: Entry, category_names: dict[int | None, str]) -> dict:
     """One note on a path or in a structural list. The same shape the graph's
     nodes use, so the view can highlight by id without a second lookup, plus
     enough text to read a chain as a sentence when the graph is not on screen."""
     return {
         "id": entry.id,
         "preview": _preview(manager.readable_content(entry), 60),
-        "category": manager.category_name_for(session, entry),
+        "category": category_names.get(entry.category_id, manager.UNCATEGORISED),
     }
 
 
@@ -182,9 +165,10 @@ def graph_structure(session: Session = Depends(get_session)) -> dict:
     rather than a second traversal in JavaScript.
     """
     index = paths.build(session)
+    category_names = manager.bulk_category_names(session, list(index.entries.values()))
 
     def category_of(entry: Entry) -> str:
-        return manager.category_name_for(session, entry)
+        return category_names.get(entry.category_id, manager.UNCATEGORISED)
 
     groups = paths.clusters(index, category_of)
     cluster_of: dict[str, int] = {}
@@ -203,7 +187,7 @@ def graph_structure(session: Session = Depends(get_session)) -> dict:
         "clusters": [
             {
                 "size": len(cluster.ids),
-                "core": _path_node(session, index.entries[cluster.core_id]),
+                "core": _path_node(index.entries[cluster.core_id], category_names),
                 "categories": cluster.categories[:3],
                 "ids": cluster.ids,
             }
@@ -218,10 +202,10 @@ def graph_structure(session: Session = Depends(get_session)) -> dict:
         ),
         "cluster_of": cluster_of,
         "hubs": [
-            {**_path_node(session, index.entries[note_id]), "links": count}
+            {**_path_node(index.entries[note_id], category_names), "links": count}
             for note_id, count in paths.hubs(index)
         ],
-        "orphans": [_path_node(session, index.entries[note_id]) for note_id in loose[:20]],
+        "orphans": [_path_node(index.entries[note_id], category_names) for note_id in loose[:20]],
         "orphan_count": len(loose),
         "hub_tags": index.hub_tags,
     }
@@ -298,12 +282,14 @@ def graph_path(
         }
 
     order = [source] + [step.target for step in chain]
+    category_names = manager.bulk_category_names(session, [index.entries[note_id] for note_id in order])
+
     return {
         "found": True,
         "source": source,
         "target": target,
         "hops": len(chain),
-        "nodes": [_path_node(session, index.entries[note_id]) for note_id in order],
+        "nodes": [_path_node(index.entries[note_id], category_names) for note_id in order],
         "steps": [
             {
                 "source": step.source,

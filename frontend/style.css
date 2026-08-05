@@ -212,6 +212,7 @@
     --ok: #4ade80;
     --ok-soft: rgba(74, 222, 128, 0.15);
     --error: #f87171;
+    --error-soft: rgba(248, 113, 113, 0.16);
     --border: rgba(255, 255, 255, 0.10);
     --chip-bg: rgba(255, 255, 255, 0.08);
   }
@@ -298,7 +299,7 @@ header#top-bar {
   z-index: 40;
   display: flex;
   align-items: center;
-  gap: 1.25rem;
+  gap: var(--space-7);
   /* One row, always — below the mobile breakpoint this is a single bar and it
      must stay one. It used to wrap, and because .header-controls carries
      margin-left:auto the controls dropped to a second row pinned right, which
@@ -307,7 +308,7 @@ header#top-bar {
      slot reserved a fixed 17.5rem that nothing was allowed to reclaim.
      Now the pill shrinks first and the tabs scroll, so nothing wraps. */
   flex-wrap: nowrap;
-  padding: 0.6rem 1.5rem;
+  padding: var(--space-4) var(--space-8);
   background: var(--card);
   border-bottom: 1px solid var(--glass-border);
   backdrop-filter: blur(18px) saturate(150%);
@@ -334,7 +335,7 @@ header#top-bar h1 {
    duplicated in Settings), then tab padding, and only then do tabs scroll.
    Each step buys roughly a tab's worth of room. */
 @media (max-width: 1200px) {
-  header#top-bar { gap: 1rem; padding-inline: 1rem; }
+  header#top-bar { gap: var(--space-6); padding-inline: var(--space-6); }
 }
 /* The wordmark stays until the layout stacks. 1390 was tried, then 1080; both
    were still hiding the app's own name on ordinary windows, which was
@@ -348,14 +349,14 @@ header#top-bar h1 {
    scroll a little with a fade instead, which is a far smaller loss than a
    missing name. */
 @media (max-width: 1080px) {
-  #tab-bar button { padding-inline: 0.8rem; }
+  #tab-bar button { padding-inline: var(--space-5); }
+}
+@media (max-width: 940px) {
+  header#top-bar { gap: var(--space-4); }
+  #tab-bar button { padding-inline: var(--space-4); font-size: 0.92rem; }
 }
 @media (max-width: 720px) {
   header#top-bar h1 { display: none; }
-}
-@media (max-width: 940px) {
-  header#top-bar { gap: 0.6rem; }
-  #tab-bar button { padding-inline: 0.6rem; font-size: 0.92rem; }
 }
 /* When the tabs really do scroll, say so with a fade at the edge instead of
    letting a label look chopped off.
@@ -2881,6 +2882,44 @@ html.modal-open body {
 #graph-svg { width: 100%; height: 100%; display: block; cursor: grab; }
 #graph-svg:active { cursor: grabbing; }
 
+/* Fullscreen mode for the graph map */
+.graph-fullscreen {
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 1000;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  background: var(--bg) !important;
+  display: flex;
+  flex-direction: column;
+}
+.graph-fullscreen #graph-box {
+  flex: 1 1 100%;
+  height: auto;
+  border: none;
+  border-radius: 0;
+}
+.graph-fullscreen .graph-toolbar {
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+}
+.graph-fullscreen-close {
+  display: none;
+}
+.graph-fullscreen .graph-fullscreen-close {
+  display: inline-flex;
+}
+.graph-fullscreen .graph-options {
+  position: fixed;
+  top: 3.5rem;
+  left: 1rem;
+  z-index: 1001;
+}
+
 /* On-screen zoom controls, bottom-right of the map. */
 .graph-zoom {
   position: absolute;
@@ -3485,6 +3524,7 @@ html { font-size: 16px; }
 
 .graph-node.graph-dim { opacity: 0.15; }
 .graph-edge.graph-dim { opacity: 0.06; }
+.graph-node.graph-match .graph-core { stroke: var(--accent); stroke-width: 3px; filter: drop-shadow(0 0 4px var(--accent-soft)); }
 .graph-node.graph-held .graph-core { stroke: var(--ink); stroke-dasharray: 3 2; }
 #graph-search { max-width: 13rem; margin-bottom: 0; }
 
@@ -7137,20 +7177,14 @@ textarea.autogrow {
   font: inherit;
   font-size: 0.7rem;
   line-height: 1.4;
-  padding: 0.4rem 0.4rem 0rem 0.4rem;
-  /* line-height: 1.25;
-  padding: 0.25rem 0.25rem; */
+  padding: 0.5rem;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--chip-bg);
+  border-radius: var(--radius-lg);
+  background: var(--card);
   color: var(--text);
+  box-shadow: var(--shadow-sm);
   cursor: pointer;
-  /* Three lines, then clip — not two: reported as still cut off after §37J
-     widened the column, because the preview is up to 120 characters
-     (routes_timeline.py's PREVIEW_CHARS) and 2 lines at any chip-sized width
-     only ever showed a third to a half of that. A timeline chip is still a
-     shape to scan, not a reading view, so this clips rather than growing
-     without bound — just further out than before. */
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
@@ -7158,8 +7192,14 @@ textarea.autogrow {
 }
 .timeline-dot:hover, .timeline-dot:focus-visible {
   border-color: var(--accent);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
   outline: none;
 }
+/* Search Highlighting */
+.timeline-dim { opacity: 0.2; pointer-events: none; }
+.timeline-branch-dot.timeline-dim { opacity: 0.15; }
+
 /* A note placed by what it says rather than when it was typed. */
 .timeline-dot-mentioned { border-style: dashed; }
 

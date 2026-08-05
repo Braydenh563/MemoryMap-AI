@@ -7290,7 +7290,11 @@ textarea.autogrow {
 .sketch-color[data-color="#4f6df5"] { background: #4f6df5; }
 .sketch-color[data-color="#e2534b"] { background: #e2534b; }
 .sketch-color[data-color="#3a9e56"] { background: #3a9e56; }
+.sketch-color[data-color="#f59e0b"] { background: #f59e0b; }
+.sketch-color[data-color="#9333ea"] { background: #9333ea; }
+.sketch-color[data-color="#ec4899"] { background: #ec4899; }
 .sketch-color[data-color="#1c1e26"] { background: #1c1e26; }
+.sketch-color[data-color="#ffffff"] { background: #ffffff; }
 
 /* The "N earlier records dropped" line above the log list. Styled as a
    caution rather than an error: the log is working, it is just not the whole

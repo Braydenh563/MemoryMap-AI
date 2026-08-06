@@ -905,6 +905,7 @@ header#top-bar.tabs-wrapped #tab-bar {
    because a record of something that already happened is not a thing you open. */
 .library-activity {
   grid-column: 1 / -1;
+  column-span: all;
   flex-direction: row;
   align-items: baseline;
   gap: var(--space-5);
@@ -2941,9 +2942,9 @@ html.modal-open body {
   z-index: 1001;
   max-height: calc(100vh - 6rem);
   overflow-y: auto;
-  background: var(--card);
+  background: var(--modal-bg);
   box-shadow: var(--shadow-lg);
-  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
 }
 
 /* On-screen zoom controls, bottom-right of the map. */
@@ -3189,25 +3190,19 @@ html.modal-open body {
   cursor: crosshair;
 }
 /* --- Quick Sketch Floating Toolbar --- */
-.sketch-floating-toolbar {
-  position: absolute;
-  top: var(--space-4);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10;
+.sketch-docked-toolbar {
   display: flex;
   align-items: center;
   gap: var(--space-4);
   background: var(--card);
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--border);
   padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-lg);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
+  margin-bottom: var(--space-4);
+  box-shadow: var(--shadow-sm);
 }
 
-.sketch-floating-toolbar .seg {
+.sketch-docked-toolbar .seg {
   margin: 0;
 }
 
@@ -3813,7 +3808,7 @@ html { font-size: 16px; }
 :root[data-glass="off"] button.ghost,
 :root[data-glass="off"] #tab-bar button,
 :root[data-glass="off"] .library-card,
-:root[data-glass="off"] .sketch-floating-toolbar,
+:root[data-glass="off"] .sketch-docked-toolbar,
 :root[data-glass="off"] .chat-toolbar,
 :root[data-glass="off"] .graph-toolbar,
 :root[data-glass="off"] .library-toolbar,
@@ -5506,7 +5501,16 @@ html { font-size: 16px; }
   stroke: none;
   pointer-events: none;
 }
-.graph-node text.graph-label { font-weight: 500; }
+.graph-node text.graph-label { 
+  font-weight: 500; 
+  fill: var(--ink); 
+  paint-order: stroke;
+  stroke: var(--page);
+  stroke-width: 4px;
+  stroke-opacity: 0.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 /* Dimmed nodes fade rather than vanish, so context is never lost. */
 .graph-node.graph-dim { opacity: 0.18; }
 
@@ -7399,7 +7403,7 @@ textarea.autogrow {
 .timeline-spine { stroke: var(--border); stroke-width: 3; stroke-linecap: round; opacity: 0.8; }
 .timeline-branch-stub { stroke-width: 2.5; opacity: 0.7; stroke-linecap: round; }
 .timeline-branch-line { stroke-width: 3; opacity: 0.9; stroke-linecap: round; stroke-linejoin: round; }
-.timeline-branch-label { font-size: 0.85rem; font-weight: 700; letter-spacing: 0.02em; }
+.timeline-branch-label { font-size: 0.85rem; font-weight: 700; letter-spacing: 0.02em; padding-left: 0.5rem; }
 .timeline-branch-dot {
   stroke: var(--card);
   stroke-width: 2;
@@ -7507,10 +7511,13 @@ textarea.autogrow {
 
 /* The pen swatches paint themselves from the colour they select, so the
    value lives in one place per pen rather than two. */
-.sketch-color[data-color="#4f6df5"] { background: #4f6df5; }
-.sketch-color[data-color="#e2534b"] { background: #e2534b; }
-.sketch-color[data-color="#3a9e56"] { background: #3a9e56; }
-.sketch-color[data-color="#1c1e26"] { background: #1c1e26; }
+.sketch-color[data-color="#3b82f6"] { background: #3b82f6; } /* Blue */
+.sketch-color[data-color="#ef4444"] { background: #ef4444; } /* Red */
+.sketch-color[data-color="#22c55e"] { background: #22c55e; } /* Green */
+.sketch-color[data-color="#eab308"] { background: #eab308; } /* Yellow */
+.sketch-color[data-color="#a855f7"] { background: #a855f7; } /* Purple */
+.sketch-color[data-color="#111827"] { background: #111827; } /* Black */
+.sketch-color[data-color="#f9fafb"] { background: #f9fafb; } /* White */
 
 /* The "N earlier records dropped" line above the log list. Styled as a
    caution rather than an error: the log is working, it is just not the whole
@@ -8310,3 +8317,289 @@ textarea.autogrow {
    right for a 1rem tick that needed nudging onto the text's cap height, and
    puts a 1.15rem switch above the line. */
 .settings-section label:has(> input[type="checkbox"]) { align-items: center; }
+
+/* ======================= WHITEBOARD TAB ======================= */
+#tab-whiteboard {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.whiteboard-container {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  position: absolute;
+  top: 0;
+  left: 0;
+  cursor: grab;
+}
+
+.whiteboard-container:active {
+  cursor: grabbing;
+}
+
+.whiteboard-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform-origin: 0 0;
+}
+
+.whiteboard-toolbar {
+  position: absolute;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  z-index: 10;
+  align-items: center;
+  border-radius: var(--radius-pill);
+}
+
+.whiteboard-sidebar {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 300px;
+  height: calc(100% - 2rem);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+  gap: 1rem;
+}
+
+.wb-library-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  overflow-y: auto;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.wb-library-item {
+  padding: 0.75rem;
+  background: var(--inner);
+  border-radius: var(--radius-sm);
+  cursor: grab;
+  font-size: 0.85rem;
+  user-select: none;
+}
+
+.wb-card {
+  position: absolute;
+  width: 250px;
+  min-height: 100px;
+  padding: 1rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--glass-shadow);
+  cursor: grab;
+  user-select: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  /* Disable pointer events on children so drag events fire on the card itself */
+}
+
+.wb-card:active {
+  cursor: grabbing;
+  z-index: 100;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+}
+
+.wb-card-content {
+  font-size: 0.9rem;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+}
+
+.wb-card-sketch {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* ======================= SIDEBAR COLLAPSE & PEEK ======================= */
+.sidebar-collapse-toggle {
+  position: absolute;
+  top: 1rem;
+  right: 1.5rem;
+  z-index: 20;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.sidebar-collapse-toggle:hover {
+  background: var(--chip-bg);
+  color: var(--ink);
+}
+
+.sidebar-collapsed .sidebar-collapse-toggle {
+  /* Center it in the collapsed 48px width */
+  right: auto;
+  left: 10px;
+}
+
+.sidebar-collapsed {
+  width: 48px !important;
+  white-space: nowrap;
+  overflow: hidden !important;
+  transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
+  box-shadow: none;
+  border-right: 1px solid var(--border);
+}
+
+.sidebar-collapsed > *:not(.sidebar-collapse-toggle):not(.sidebar-resize) {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.1s ease;
+}
+
+/* Hover-peek */
+.layout-sidebar-collapsed > .sidebar-collapsed:hover {
+  width: var(--saved-width, 280px) !important;
+  box-shadow: var(--glass-shadow);
+  z-index: 100;
+  position: absolute; /* absolute on hover so it pops over */
+  height: calc(100% - var(--space-6)); /* keep it within the layout */
+}
+
+.layout-sidebar-collapsed > .sidebar-collapsed:hover > *:not(.sidebar-collapse-toggle):not(.sidebar-resize) {
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 0.2s ease 0.1s;
+}
+
+/* Ensure the layout container creates a positioning context for the absolute peek */
+.layout-sidebar-collapsed {
+  position: relative;
+}
+
+/* ======================= FLOATING FORMAT MENU ======================= */
+.floating-format-menu {
+  position: absolute;
+  z-index: 1000;
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: var(--radius-pill);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  transform: translate(-50%, -100%);
+  margin-top: -8px;
+  align-items: center;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.floating-format-menu.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -80%);
+}
+
+.floating-format-menu button {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ======================= MICRO-ANIMATIONS ======================= */
+/* Interactive cards get a slight upward lift and shadow pop on hover */
+.card.interactive,
+.wb-card,
+.library-chip {
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), 
+              box-shadow 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
+              border-color 0.2s ease;
+  will-change: transform, box-shadow;
+}
+
+.card.interactive:hover,
+.wb-card:hover:not(.dragging) {
+  transform: translateY(-4px) scale(1.01);
+  box-shadow: 0 16px 48px rgba(31, 38, 135, calc(var(--shadow-intensity) * 1.8));
+  border-color: var(--accent);
+}
+
+.library-chip:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(31, 38, 135, calc(var(--shadow-intensity) * 1.5));
+}
+
+/* ======================= SKILLS TAB ======================= */
+.skills-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--space-5);
+  margin-top: var(--space-6);
+}
+
+.skill-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  background: var(--inner);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.skill-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+}
+
+.skill-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.skill-card-title {
+  font-weight: 600;
+  font-size: var(--text-md);
+}
+
+.skill-card-desc {
+  font-size: var(--text-sm);
+  color: var(--muted);
+  flex: 1;
+}
+
+.skill-card-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-light);
+}
+

@@ -21,6 +21,7 @@ from sqlalchemy import (
     DateTime as SaDateTime,
     ForeignKey,
     Integer,
+    Float,
     LargeBinary,
     String,
     Text,
@@ -316,6 +317,46 @@ class DocumentLink(Base):
     document_id: Mapped[int] = mapped_column(ForeignKey("documents.id"), index=True)
     entry_id: Mapped[int] = mapped_column(ForeignKey("entries.id"), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class WhiteboardNode(Base):
+    """A note card placed on the whiteboard canvas."""
+
+    __tablename__ = "whiteboard_nodes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entry_id: Mapped[int] = mapped_column(ForeignKey("entries.id"))
+    x: Mapped[float] = mapped_column(Float, default=0.0)
+    y: Mapped[float] = mapped_column(Float, default=0.0)
+    z: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+
+
+class WhiteboardSketch(Base):
+    """A freehand sketch placed on the whiteboard canvas."""
+
+    __tablename__ = "whiteboard_sketches"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # The strokes data (JSON/SVG). Can be encrypted at rest later if needed.
+    data: Mapped[str] = mapped_column(Text)
+    x: Mapped[float] = mapped_column(Float, default=0.0)
+    y: Mapped[float] = mapped_column(Float, default=0.0)
+    z: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+
+
+class UserPreference(Base):
+    """Agent Memory Streams: Learned preferences and instructions appended by the AI."""
+
+    __tablename__ = "user_preferences"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    content: Mapped[str] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
 class AuditLog(Base):

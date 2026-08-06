@@ -2298,6 +2298,17 @@ def handoff_event(name: str, arguments: dict, history: list[dict] | None = None)
     return build(arguments, history)
 
 
+def _save_user_preference(session: Session, args: dict) -> dict:
+    from memorymap.core.database import UserPreference
+    pref = args.get("preference")
+    if not pref:
+        raise ToolError("Must provide 'preference'.")
+    record = UserPreference(content=pref)
+    session.add(record)
+    session.commit()
+    return {"message": f"Saved preference: {pref}"}
+
+
 # --- the registry ---------------------------------------------------------------
 
 _NOTE_ID = {"type": "integer", "description": "The note's id number"}
@@ -2305,6 +2316,19 @@ _NOTE_ID = {"type": "integer", "description": "The note's id number"}
 TOOLS: dict[str, ToolSpec] = {
     spec.name: spec
     for spec in [
+        ToolSpec(
+            "save_user_preference",
+            "Quietly append a learned preference to the user's permanent preferences (Memory Stream). "
+            "Use this when the user tells you about their preferences, work style, or rules they want you to remember.",
+            {
+                "type": "object",
+                "properties": {
+                    "preference": {"type": "string", "description": "A clear, concise rule or fact to remember."},
+                },
+                "required": ["preference"],
+            },
+            _save_user_preference,
+        ),
         ToolSpec(
             "ask_user",
             # Terse on purpose: this tool is offered on every turn, so every
@@ -3046,6 +3070,7 @@ CORE_TOOLS = [
     "list_tags",
     "get_current_time",
     "create_note",
+    "save_user_preference",
 ]
 
 # Groups, and the words that ask for them. Generous on purpose: a cue that

@@ -726,9 +726,15 @@ def run_agent(
     report = getattr(ollama, "usable_context", None)
     agent_model = model_manager.utility_model() if use_utility_model else model_manager.chat_model()
     window = report(agent_model) if callable(report) else None
+    from sqlalchemy import select
+    from memorymap.core.database import UserPreference
     
+    prefs = session.scalars(select(UserPreference).filter_by(active=True)).all()
+    mem_stream = " ".join(f"USER PREFERENCE: {p.content}" for p in prefs)
+    persona = f"{(persona_prompt or librarian.DEFAULT_PERSONA).strip()} {mem_stream}".strip()
+
     system_chars = len(
-        f"{(persona_prompt or librarian.DEFAULT_PERSONA).strip()} "
+        f"{persona} "
         f"{AGENT_GROUNDING} {TOOLS_GUIDE}{librarian.length_hint(mode)}"
     )
     budget = context.plan(
@@ -742,7 +748,7 @@ def run_agent(
         style=style,
         profile=profile,
         history=history,
-        persona_prompt=persona_prompt,
+        persona_prompt=persona,
         budget=budget,
         mode=mode,
         agent_model=agent_model,

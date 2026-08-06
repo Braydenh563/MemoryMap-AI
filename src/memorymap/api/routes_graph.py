@@ -125,6 +125,7 @@ def graph(similarity: bool = False, session: Session = Depends(get_session)) -> 
             # thought under the note that started it instead of laying every
             # note out as a sibling (§9).
             "parent_id": e.parent_id if e.parent_id in node_ids else None,
+            "created_at": e.created_at.isoformat() + "Z",
         }
         for e in entries
     ]
@@ -222,6 +223,7 @@ def graph_local(
             "access_count": index.entries[e_id].access_count,
             "pinned": index.entries[e_id].pinned,
             "parent_id": index.entries[e_id].parent_id if index.entries[e_id].parent_id in visited else None,
+            "created_at": index.entries[e_id].created_at.isoformat() + "Z",
         }
         for e_id in visited
     ]

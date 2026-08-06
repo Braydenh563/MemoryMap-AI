@@ -89,6 +89,8 @@
         aria-selected="false" aria-controls="tab-chat" tabindex="-1">Chat</button>
       <button role="tab" id="tab-btn-graph" data-tab="graph"
         aria-selected="false" aria-controls="tab-graph" tabindex="-1">Graph</button>
+      <button role="tab" id="tab-btn-whiteboard" data-tab="whiteboard"
+        aria-selected="false" aria-controls="tab-whiteboard" tabindex="-1">Whiteboard</button>
       <!-- Library replaces Documents in the bar rather than joining it (§36F).
            The Documents *page* is still here and is still where you write; it
            is reached by opening a document from the Library, the same way the
@@ -100,9 +102,10 @@
         aria-selected="false" aria-controls="tab-timeline" tabindex="-1">Timeline</button>
       <button role="tab" id="tab-btn-reminders" data-tab="reminders"
         aria-selected="false" aria-controls="tab-reminders" tabindex="-1">Reminders</button>
+      <button role="tab" id="tab-btn-skills" data-tab="skills"
+        aria-selected="false" aria-controls="tab-skills" tabindex="-1">Skills</button>
     </nav>
     <div class="header-controls">
-      <span id="power-saver-indicator" class="chip warning hidden" title="Power Saver Mode is On">🔋 Saver On</span>
       <!-- Fixed-width slot: the pill's text changes as status polls land, and
            without a reserved box every change nudged the buttons beside it. -->
       <!-- A dot, not a sentence. The pill reserved 17.5rem of header for a
@@ -199,8 +202,31 @@
     <div id="dash-grid"></div>
   </div>
 
+  <!-- ======================= WHITEBOARD TAB ======================= -->
+  <div class="tab-page hidden" id="tab-whiteboard" role="tabpanel" aria-labelledby="tab-btn-whiteboard" tabindex="-1">
+    <div class="whiteboard-container" id="whiteboard-container">
+      <!-- The pannable/zoomable D3 layer -->
+      <div id="whiteboard-canvas" class="whiteboard-canvas"></div>
+    </div>
+    
+    <div class="whiteboard-toolbar card glass">
+      <button id="wb-zoom-in" class="ghost small" title="Zoom In">➕</button>
+      <button id="wb-zoom-out" class="ghost small" title="Zoom Out">➖</button>
+      <button id="wb-zoom-fit" class="ghost small" title="Fit to Screen">⛶</button>
+      <span class="header-divider" aria-hidden="true"></span>
+      <button id="wb-add-sketch" class="ghost small" title="Add Sketch Card">🎨</button>
+      <button id="wb-add-note" class="ghost small" title="Add Note Card">📝</button>
+    </div>
+    
+    <aside class="whiteboard-sidebar card glass hidden" id="whiteboard-sidebar">
+      <h3>Library</h3>
+      <input type="search" id="wb-search" placeholder="Search notes...">
+      <ul id="wb-library-list" class="wb-library-list"></ul>
+    </aside>
+  </div>
+
   <!-- ======================= NOTES TAB (the current app) ================== -->
-  <div class="tab-page" id="tab-notes" role="tabpanel" aria-labelledby="tab-btn-notes" tabindex="-1">
+  <div class="tab-page hidden" id="tab-notes" role="tabpanel" aria-labelledby="tab-btn-notes" tabindex="-1">
     <div class="layout">
       <!-- Category sidebar: built from the loaded entries, click to filter -->
       <aside class="card" id="sidebar">
@@ -881,6 +907,11 @@ Link to another note with [[its first few words]]."></textarea>
           <input id="graph-spread" type="range" min="0" max="100" value="50"
             title="How far apart linked notes sit">
         </span>
+        <span class="graph-temporal" id="graph-temporal" style="display: flex; align-items: center; gap: 0.5rem; flex: 1; max-width: 300px;">
+          <label for="graph-time-slider" class="muted">Time Filter</label>
+          <input id="graph-time-slider" type="range" min="0" max="100" value="100" title="Slide back in time to hide newer notes" style="flex: 1;">
+          <span id="graph-time-label" class="muted text-sm" style="min-width: 6rem; text-align: right; white-space: nowrap;">All Time</span>
+        </span>
         <label class="muted tools-toggle" title="Draw dotted lines between notes that mean similar things (needs semantic search)">
           <input type="checkbox" id="graph-similarity"> Similarity
         </label>
@@ -900,10 +931,10 @@ Link to another note with [[its first few words]]."></textarea>
            margins zeroed, per DESIGN.md. -->
       <div class="graph-trace hidden" id="graph-trace" role="group"
         aria-label="Trace the connection between two notes">
-        <span class="graph-trace-label">🛣 Trace Mode</span>
+        <span class="graph-trace-label">🔍 Trace Mode</span>
+        <span class="graph-trace-hint muted">Click two nodes to find the shortest path between them.</span>
         <span id="graph-trace-status" class="graph-trace-status">Click a starting note</span>
         <button id="graph-trace-clear" class="ghost small" title="Cancel or clear the traced path">Cancel</button>
-        <span class="graph-trace-hint muted">how two notes connect — or that they don't</span>
       </div>
       <p id="graph-trace-result" class="graph-trace-result hidden" role="status"></p>
       <p id="graph-stats" class="muted graph-stats" role="status"></p>
@@ -1354,6 +1385,7 @@ Link to another note with [[its first few words]]."></textarea>
          is happening" for hours is the decoration the caveat above warns
          about; a slot that appears is a thing you notice. -->
     <button id="status-task" class="status-item status-task hidden" type="button"></button>
+    <span id="power-saver-indicator" class="chip warning hidden" title="Power Saver Mode is On">🔋 Saver On</span>
     <span class="status-spacer"></span>
     <button id="status-command" class="status-item" type="button"></button>
   </footer>
@@ -2697,68 +2729,68 @@ Link to another note with [[its first few words]]."></textarea>
         <h2>Quick sketch</h2>
         <button id="sketch-close" class="ghost small">Close</button>
       </div>
-      <div id="sketch-canvas-wrap" class="sketch-canvas-wrap">
-        <div id="sketch-toolbar" class="sketch-floating-toolbar">
-          <div class="seg seg-compact">
-            <button id="sketch-tool-pen" class="active" title="Pen">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>
-            </button>
-            <button id="sketch-tool-highlighter" title="Highlighter">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l-6 6v3h9l3-3"></path><path d="M22 12l-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"></path></svg>
-            </button>
-            <button id="sketch-tool-eraser" title="Eraser">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16C2.5 15.5 2.5 14.5 3 14L13 4C13.5 3.5 14.5 3.5 15 4L20 9C20.5 9.5 20.5 10.5 20 11L11 20"></path><path d="M17 14L7 14"></path></svg>
-            </button>
-          </div>
-          
-          <div class="seg seg-compact">
-            <button id="sketch-tool-line" title="Line">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="19" x2="19" y2="5"></line></svg>
-            </button>
-            <button id="sketch-tool-arrow" title="Arrow">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-            </button>
-            <button id="sketch-tool-rect" title="Rectangle">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
-            </button>
-            <button id="sketch-tool-circ" title="Circle">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle></svg>
-            </button>
-            <button id="sketch-tool-text" title="Text">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>
-            </button>
-          </div>
-          
-          <div class="sketch-colors">
-            <button class="sketch-color active" data-color="#3b82f6" aria-label="Blue"></button>
-            <button class="sketch-color" data-color="#ef4444" aria-label="Red"></button>
-            <button class="sketch-color" data-color="#22c55e" aria-label="Green"></button>
-            <button class="sketch-color" data-color="#eab308" aria-label="Yellow"></button>
-            <button class="sketch-color" data-color="#a855f7" aria-label="Purple"></button>
-            <button class="sketch-color" data-color="#111827" aria-label="Black"></button>
-            <button class="sketch-color" data-color="#f9fafb" aria-label="White"></button>
-          </div>
-
-          <label class="sketch-size-wrapper" title="Brush Size">
-            <input id="sketch-size" type="range" min="2" max="24" value="4" class="sketch-slider">
-          </label>
-          
-          <div class="seg seg-compact">
-            <button id="sketch-undo" title="Undo (Ctrl+Z)">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>
-            </button>
-            <button id="sketch-redo" title="Redo (Ctrl+Y)">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 14 20 9 15 4"></polyline><path d="M4 20v-7a4 4 0 0 1 4-4h12"></path></svg>
-            </button>
-            <button id="sketch-clear" title="Clear Canvas">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-            </button>
-            <button id="sketch-upload-image" title="Add Background Image">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-            </button>
-          </div>
-          <input id="sketch-image-input" type="file" accept="image/*" class="hidden">
+      <div id="sketch-toolbar" class="sketch-docked-toolbar">
+        <div class="seg seg-compact">
+          <button id="sketch-tool-pen" class="active" title="Pen">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>
+          </button>
+          <button id="sketch-tool-highlighter" title="Highlighter">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l-6 6v3h9l3-3"></path><path d="M22 12l-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"></path></svg>
+          </button>
+          <button id="sketch-tool-eraser" title="Eraser">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16C2.5 15.5 2.5 14.5 3 14L13 4C13.5 3.5 14.5 3.5 15 4L20 9C20.5 9.5 20.5 10.5 20 11L11 20"></path><path d="M17 14L7 14"></path></svg>
+          </button>
         </div>
+        
+        <div class="seg seg-compact">
+          <button id="sketch-tool-line" title="Line">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="19" x2="19" y2="5"></line></svg>
+          </button>
+          <button id="sketch-tool-arrow" title="Arrow">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+          </button>
+          <button id="sketch-tool-rect" title="Rectangle">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+          </button>
+          <button id="sketch-tool-circ" title="Circle">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle></svg>
+          </button>
+          <button id="sketch-tool-text" title="Text">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>
+          </button>
+        </div>
+        
+        <div class="sketch-colors">
+          <button class="sketch-color active" data-color="#3b82f6" aria-label="Blue"></button>
+          <button class="sketch-color" data-color="#ef4444" aria-label="Red"></button>
+          <button class="sketch-color" data-color="#22c55e" aria-label="Green"></button>
+          <button class="sketch-color" data-color="#eab308" aria-label="Yellow"></button>
+          <button class="sketch-color" data-color="#a855f7" aria-label="Purple"></button>
+          <button class="sketch-color" data-color="#111827" aria-label="Black"></button>
+          <button class="sketch-color" data-color="#f9fafb" aria-label="White"></button>
+        </div>
+
+        <label class="sketch-size-wrapper" title="Brush Size">
+          <input id="sketch-size" type="range" min="2" max="24" value="4" class="sketch-slider">
+        </label>
+        
+        <div class="seg seg-compact">
+          <button id="sketch-undo" title="Undo (Ctrl+Z)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>
+          </button>
+          <button id="sketch-redo" title="Redo (Ctrl+Y)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 14 20 9 15 4"></polyline><path d="M4 20v-7a4 4 0 0 1 4-4h12"></path></svg>
+          </button>
+          <button id="sketch-clear" title="Clear Canvas">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
+          <button id="sketch-upload-image" title="Add Background Image">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+          </button>
+        </div>
+        <input id="sketch-image-input" type="file" accept="image/*" class="hidden">
+      </div>
+      <div id="sketch-canvas-wrap" class="sketch-canvas-wrap">
         
         <canvas id="sketch-bg-canvas" width="820" height="480"></canvas>
         <canvas id="sketch-canvas" width="820" height="480"></canvas>
@@ -2845,6 +2877,36 @@ Link to another note with [[its first few words]]."></textarea>
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- ======================= SKILLS TAB ======================= -->
+  <div class="tab-page hidden" id="tab-skills" role="tabpanel" aria-labelledby="tab-btn-skills" tabindex="-1">
+    <div class="layout">
+      <main>
+        <section class="card glass">
+          <div class="row space-between">
+            <h2>AI Skill Library</h2>
+            <button id="skills-add-new" class="small">+ New Skill</button>
+          </div>
+          <p class="muted">Manage the capabilities of your AI agent. Enable, configure, and review execution logs.</p>
+          <div id="skills-dashboard-list" class="skills-grid"></div>
+        </section>
+      </main>
+      <aside class="card" id="skills-sidebar">
+        <h2>Skill Logs</h2>
+        <div id="skills-logs-list" class="entry-list"></div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- Contextual Floating Formatting Menu -->
+  <div id="floating-format-menu" class="floating-format-menu hidden card glass" role="toolbar" aria-label="Formatting tools">
+    <button type="button" data-format="bold" class="ghost small" title="Bold (Ctrl+B)"><b>B</b></button>
+    <button type="button" data-format="italic" class="ghost small" title="Italic (Ctrl+I)"><i>I</i></button>
+    <button type="button" data-format="strikethrough" class="ghost small" title="Strikethrough"><s>S</s></button>
+    <span class="header-divider" aria-hidden="true"></span>
+    <button type="button" data-format="code" class="ghost small" title="Inline Code (Ctrl+E)"><code>&lt;/&gt;</code></button>
+    <button type="button" data-format="link" class="ghost small" title="Link (Ctrl+K)">🔗</button>
   </div>
 
   <!-- D3 v7 + p5.js, both vendored locally — the offline rule: no CDNs, ever -->

@@ -10,7 +10,7 @@ const browserLogs = [];
 const MAX_BROWSER_LOGS = 500;
 
 function recordBrowserLog(level, parts) {
-  browserLogs.push({
+  const record = {
     time: new Date().toISOString(),
     level,
     message: parts
@@ -23,8 +23,26 @@ function recordBrowserLog(level, parts) {
         }
       })
       .join(" "),
-  });
+  };
+  browserLogs.push(record);
   if (browserLogs.length > MAX_BROWSER_LOGS) browserLogs.shift();
+
+  // Live-push into the Logs page if it is currently open.
+  // `logRecords`, `logScreenOpen`, and `renderLogList` are defined later in
+  // this file, so guard with typeof to avoid errors during early boot.
+  if (typeof logRecords !== "undefined" && typeof logScreenOpen !== "undefined") {
+    const liveRecord = { ...record, source: "browser", logger: "browser",
+      key: `b-live-${Date.now()}-${Math.random()}` };
+    logRecords.push(liveRecord);
+    if (typeof sortLogRecords === "function") sortLogRecords();
+    if (logScreenOpen && typeof renderLogList === "function") {
+      renderLogList();
+      // Scroll to bottom so the new error is visible without manual scroll.
+      if (typeof scrollLogToBottom === "function") scrollLogToBottom();
+    }
+    // Bump the error badge in the Logs button so the user knows to check.
+    if (typeof bumpLogErrorBadge === "function") bumpLogErrorBadge(record);
+  }
 }
 
 for (const level of ["log", "info", "warn", "error"]) {
@@ -92,6 +110,15 @@ async function api(path, options = {}) {
       headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() },
       ...fetchOptions,
     });
+  } catch (networkErr) {
+    // fetch() itself threw — this is a real network failure (offline, CORS,
+    // connection refused). Log it explicitly so it always appears in Logs.
+    if (!networkErr?.name === 'AbortError') {
+      recordBrowserLog("ERROR", [
+        `[Network] ${fetchOptions.method || 'GET'} ${path} — ${networkErr.message}`
+      ]);
+    }
+    throw networkErr;
   } finally {
     if (timer) clearTimeout(timer);
   }
@@ -112,7 +139,14 @@ async function api(path, options = {}) {
   }
   if (!response.ok) {
     const detail = await response.json().catch(() => ({}));
-    throw new Error(detail.detail || `Request failed (${response.status})`);
+    const errMsg = detail.detail || `Request failed (${response.status})`;
+    if (!silent) {
+      // Log HTTP errors so they always appear in Settings → Logs for debugging.
+      recordBrowserLog("ERROR", [
+        `[HTTP ${response.status}] ${fetchOptions.method || 'GET'} ${path} — ${errMsg}`
+      ]);
+    }
+    throw new Error(errMsg);
   }
   return response;
 }
@@ -2554,33 +2588,60 @@ async function streamChat({
   // it — that is the only way it differs from a skill run, here and on the
   // server.
   if (plan && plan.steps && plan.steps.length) body.plan = plan;
-  const response = await fetch("/chat/stream", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() },
-    body: JSON.stringify(body),
-    signal,
-  });
-  if (response.status === 401) {
-    showLockScreen(false);
-    throw new Error("Locked");
-  }
-  if (!response.ok) {
-    const detail = await response.json().catch(() => ({}));
-    throw new Error(detail.detail || `Request failed (${response.status})`);
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffered = "";
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffered += decoder.decode(value, { stream: true });
-    const lines = buffered.split("\n");
-    buffered = lines.pop(); // last piece may be a partial line
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      const event = JSON.parse(line);
+  return new Promise((resolve, reject) => {
+    let ws;
+    let heartbeatInterval;
+    let done = false;
+    
+    const cleanup = () => {
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
+      if (ws && ws.readyState === WebSocket.OPEN) ws.close();
+      if (signal) signal.removeEventListener("abort", handleAbort);
+    };
+    
+    const handleAbort = () => {
+      if (done) return;
+      done = true;
+      cleanup();
+      reject(new Error("aborted"));
+    };
+    
+    if (signal) {
+      if (signal.aborted) return handleAbort();
+      signal.addEventListener("abort", handleAbort);
+    }
+    
+    const wsUrl = new URL("/chat/stream", window.location.href);
+    wsUrl.protocol = wsUrl.protocol === "https:" ? "wss:" : "ws:";
+    
+    try {
+      ws = new WebSocket(wsUrl.toString());
+    } catch (e) {
+      return reject(e);
+    }
+    
+    ws.onopen = () => {
+      body.token = authToken();
+      ws.send(JSON.stringify(body));
+      
+      // Ping-pong heartbeat keeps the connection alive for long LLM generations
+      heartbeatInterval = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: "ping" }));
+        }
+      }, 30000);
+    };
+    
+    ws.onmessage = (msgEvent) => {
+      if (done) return;
+      let event;
+      try {
+        event = JSON.parse(msgEvent.data);
+      } catch (parseErr) {
+        recordBrowserLog("WARN", [`[Chat stream] Unparseable message: ${msgEvent.data.slice(0, 80)}`]);
+        return;
+      }
+      
       if (event.type === "meta") onMeta(event);
       else if (event.type === "plan" && onPlan) onPlan(event);
       else if (event.type === "step" && onStep) onStep(event);
@@ -2596,8 +2657,43 @@ async function streamChat({
       else if (event.type === "compress_review" && onCompressReview) onCompressReview(event);
       else if (event.type === "hint" && onHint) onHint(event);
       else if (event.type === "stats" && onStats) onStats(event);
-    }
-  }
+      else if (event.type === "error") {
+        done = true;
+        cleanup();
+        reject(new Error(event.message || "Agent disconnected or failed."));
+      } else if (event.type === "done") {
+        done = true;
+        cleanup();
+        resolve();
+      }
+      
+      if (event.type === "tool" && event.ok === false) {
+        recordBrowserLog("WARN", [
+          `[Agent tool error] ${event.label || event.name || '?'}: ${event.error || 'unknown error'}`
+        ]);
+      }
+    };
+    
+    ws.onerror = (e) => {
+      if (done) return;
+      done = true;
+      cleanup();
+      recordBrowserLog("ERROR", ["[Chat stream error] Connection lost mid-response: WebSocket error"]);
+      reject(new Error("WebSocket connection error"));
+    };
+    
+    ws.onclose = (e) => {
+      if (done) return;
+      done = true;
+      cleanup();
+      if (!e.wasClean) {
+        recordBrowserLog("ERROR", [`[Chat stream error] Connection dropped: ${e.code}`]);
+        reject(new Error("WebSocket disconnected unexpectedly."));
+      } else {
+        resolve(); // Fallback if no done event was sent
+      }
+    };
+  });
 }
 
 // Live markdown while streaming. Re-parsing the WHOLE accumulated answer on
@@ -4056,6 +4152,13 @@ function agentTimeline(holder) {
       // sentence lands on the end of step 1's paragraph ("…with no tags.Read
       // them.") because nothing between them closed the step.
       current = null;
+    },
+    failRunningStep(reason) {
+      const entry = plans.at(-1);
+      if (!entry) return;
+      for (const [index, state] of Object.entries(entry.plan.states)) {
+        if (state.state === "running") markStep(entry, Number(index), "failed", reason);
+      }
     },
     // What the run actually changed, with the call that puts each one back.
     // Prose claiming something happened is exactly what this replaces.
@@ -5560,6 +5663,7 @@ async function sendChatMessage(preset, opts = {}) {
     } else {
       status.textContent = error.message;
       status.classList.add("error");
+      timeline.failRunningStep("Failed due to error");
     }
   } finally {
     clearTimeout(slowLoadTimeout);
@@ -5861,23 +5965,19 @@ function layoutIsStacked() {
 
 function applySidebarWidth(aside, width) {
   const clamped = Math.min(Math.max(Math.round(width), SIDEBAR_MIN), SIDEBAR_MAX);
-  // The remembered width is still saved on a phone — it belongs to the
-  // desktop layout and should survive being looked at on a small screen.
   localStorage.setItem(`sidebarWidth:${aside.id}`, String(clamped));
-  // But it is not applied there. This writes an inline grid-template-columns,
-  // and an inline style beats any stylesheet rule — so a 300px sidebar
-  // remembered from a desktop session kept the Notes and Chat tabs two
-  // columns wide on a phone, pushing the whole page sideways no matter what
-  // the media query said.
+  aside.style.setProperty("--saved-width", `${clamped}px`);
+  
   if (layoutIsStacked()) {
     aside.parentElement.style.removeProperty("grid-template-columns");
     return clamped;
   }
-  // minmax(0, 1fr), never plain 1fr: a bare `1fr` track refuses to shrink
-  // below its content's min-content width, so one wide code block or table in
-  // a chat answer pushed the whole page sideways. This inline style overrides
-  // the stylesheet, so it has to carry the same floor the stylesheet does.
-  aside.parentElement.style.gridTemplateColumns = `${clamped}px minmax(0, 1fr)`;
+  
+  if (aside.classList.contains("sidebar-collapsed")) {
+    aside.parentElement.style.gridTemplateColumns = `48px minmax(0, 1fr)`;
+  } else {
+    aside.parentElement.style.gridTemplateColumns = `${clamped}px minmax(0, 1fr)`;
+  }
   return clamped;
 }
 
@@ -5905,6 +6005,29 @@ function makeSidebarResizable(aside) {
   handle.setAttribute("tabindex", "0");
   handle.setAttribute("aria-label", "Resize the sidebar — arrow keys, or drag");
   aside.appendChild(handle);
+
+  const collapseBtn = document.createElement("button");
+  collapseBtn.className = "sidebar-collapse-toggle";
+  collapseBtn.title = "Toggle Sidebar";
+  collapseBtn.innerHTML = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+      <line x1="9" y1="3" x2="9" y2="21"></line>
+    </svg>
+  `;
+  collapseBtn.addEventListener("click", () => {
+    aside.classList.toggle("sidebar-collapsed");
+    aside.parentElement.classList.toggle("layout-sidebar-collapsed");
+    
+    // We update the grid column based on whether it is now collapsed or not
+    if (aside.classList.contains("sidebar-collapsed")) {
+      aside.parentElement.style.gridTemplateColumns = \`48px minmax(0, 1fr)\`;
+    } else {
+      const saved = Number(localStorage.getItem(\`sidebarWidth:\${aside.id}\`)) || sidebarDefault(aside.id);
+      aside.parentElement.style.gridTemplateColumns = \`\${saved}px minmax(0, 1fr)\`;
+    }
+  });
+  aside.appendChild(collapseBtn);
 
   const startDrag = (event) => {
     event.preventDefault();
@@ -5973,7 +6096,7 @@ function initResizableSidebars() {
 // that stylesheet rule regardless of the media query; so it stays suppressed
 // there and comes back once the window is wide enough again.
 const WEB_PANEL_MIN = 280;
-const WEB_PANEL_MAX = 640;
+const WEB_PANEL_MAX = 900;
 const WEB_PANEL_NARROW = "(max-width: 1100px)";
 
 function webPanelIsNarrow() {
@@ -5989,7 +6112,9 @@ function webPanelIsNarrow() {
 // }
 
 function applyWebPanelWidth(panel, width) {
-  const clamped = Math.min(Math.max(Math.round(width), WEB_PANEL_MIN), WEB_PANEL_MAX);
+  // Constrain max width to 900px OR 60% of the window width, whichever is smaller.
+  const dynamicMax = Math.min(WEB_PANEL_MAX, window.innerWidth * 0.6);
+  const clamped = Math.min(Math.max(Math.round(width), WEB_PANEL_MIN), dynamicMax);
   localStorage.setItem("webPanelWidth", String(clamped));
   
   if (webPanelIsNarrow()) {
@@ -10901,6 +11026,25 @@ function renderTraceReadout(result) {
   summary.className = "graph-trace-step";
   summary.textContent = `  (${result.hops} step${result.hops === 1 ? "" : "s"})`;
   pieces.push(summary);
+  
+  // Story Mode: Synthesize the path into a narrative
+  const storyBtn = document.createElement("button");
+  storyBtn.className = "graph-trace-note story-mode-btn";
+  storyBtn.style.marginLeft = "12px";
+  storyBtn.style.background = "var(--primary)";
+  storyBtn.style.color = "var(--primary-fg)";
+  storyBtn.style.fontWeight = "bold";
+  storyBtn.textContent = "✨ Generate Story from Path";
+  storyBtn.title = "Weave these notes into a cohesive narrative using the AI locally";
+  storyBtn.addEventListener("click", () => {
+    switchTab("chat");
+    sendChatMessage(
+      "Write a cohesive, publishable narrative weaving together these specific thoughts. Follow the exact chronological sequence in which these notes are attached.",
+      { noteIds: graphTrace.ids }
+    );
+  });
+  pieces.push(storyBtn);
+
   box.replaceChildren(...pieces);
 }
 
@@ -11215,8 +11359,25 @@ async function renderGraph() {
   const canvas = svg.append("g");
   const zoomBehavior = d3
     .zoom()
-    .scaleExtent([0.2, 5])
-    .on("zoom", (event) => canvas.attr("transform", event.transform));
+    .scaleExtent([0.05, 5])
+    .on("zoom", (event) => {
+      canvas.attr("transform", event.transform);
+      // Semantic Zoom logic
+      const isZoomedOut = event.transform.k < 0.45;
+      if (canvas.classed("semantic-zoom-out") !== isZoomedOut) {
+        canvas.classed("semantic-zoom-out", isZoomedOut);
+        const duration = 250;
+        
+        // Use try/catch or typeof since these are initialized after zoom setup
+        if (typeof nodeGroups !== "undefined") {
+          nodeGroups.transition().duration(duration).style("opacity", isZoomedOut ? 0 : 1).style("pointer-events", isZoomedOut ? "none" : "all");
+          if (typeof labelLayer !== "undefined") labelLayer.transition().duration(duration).style("opacity", isZoomedOut ? 0 : 1);
+          if (typeof edgeLayer !== "undefined") edgeLayer.transition().duration(duration).style("opacity", isZoomedOut ? 0 : 1);
+          if (typeof graphTraceLayer !== "undefined" && graphTraceLayer) graphTraceLayer.transition().duration(duration).style("opacity", isZoomedOut ? 0 : 1);
+          if (typeof clusterLayer !== "undefined" && clusterLayer) clusterLayer.transition().duration(duration).style("opacity", isZoomedOut ? 1 : 0).style("pointer-events", isZoomedOut ? "all" : "none");
+        }
+      }
+    });
   svg.call(zoomBehavior).on("dblclick.zoom", null); // dblclick pins, not zooms
 
   // Keep refs so the +/−/fit buttons drive this same zoom behaviour.
@@ -11301,6 +11462,41 @@ async function renderGraph() {
         .data(edges)
         .join("line")
         .attr("class", (d) => `graph-edge graph-edge-${d.kind}`);
+
+  // Semantic Zoom: Clustering super-nodes
+  const categoryGroups = d3.group(nodes, d => d.category || "Uncategorized");
+  const clustersData = Array.from(categoryGroups, ([key, values]) => ({ id: key, category: key, nodes: values }));
+  
+  const clusterLayer = canvas.append("g")
+    .attr("class", "graph-clusters-layer")
+    .style("opacity", 0) // Hidden by default (zoomed in)
+    .style("pointer-events", "none");
+    
+  const clusterGroups = clusterLayer
+    .selectAll("g")
+    .data(clustersData)
+    .join("g")
+    .attr("class", "graph-cluster");
+    
+  clusterGroups.append("circle")
+    .attr("r", d => 25 + Math.sqrt(d.nodes.length) * 12)
+    .attr("fill", d => clusterColour(d.category))
+    .attr("fill-opacity", 0.6)
+    .attr("stroke", d => d3.color(clusterColour(d.category)).darker(1))
+    .attr("stroke-width", 2);
+    
+  clusterGroups.append("text")
+    .text(d => d.category)
+    .attr("text-anchor", "middle")
+    .attr("dy", "0.3em")
+    .style("font-size", "16px")
+    .style("font-weight", "bold")
+    .style("fill", "var(--text-main)")
+    .style("paint-order", "stroke")
+    .style("stroke", "var(--bg-main)")
+    .style("stroke-width", "4px")
+    .style("stroke-linecap", "round")
+    .style("stroke-linejoin", "round");
 
   const nodeGroups = canvas
     .append("g")
@@ -11624,6 +11820,11 @@ async function renderGraph() {
     positionTraceLines();
     nodeGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
     labelGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
+    clusterGroups.attr("transform", (d) => {
+      const cx = d3.mean(d.nodes, n => n.x) || 0;
+      const cy = d3.mean(d.nodes, n => n.y) || 0;
+      return `translate(${cx},${cy})`;
+    });
     // Once the layout settles, frame all the notes so nothing sits off
     // the edge (Wave N — the old view often had nodes half-cropped).
     if (!fitted && graphSimulation.alpha() < 0.08) {
@@ -11642,6 +11843,46 @@ async function renderGraph() {
   fillTracePickers(nodes);
   drawTrace();
   applyGraphHighlight();
+  
+  // Set up temporal filter slider bounds based on data
+  if (data.nodes.length > 0) {
+    const timestamps = data.nodes.map(n => new Date(n.created_at || Date.now()).getTime());
+    const minTime = Math.min(...timestamps);
+    const maxTime = Math.max(...timestamps);
+    const slider = $("graph-time-slider");
+    if (slider) {
+      if (!window.graphSliderInitialized) {
+        window.graphSliderInitialized = true;
+        slider.min = minTime;
+        slider.max = maxTime;
+        slider.value = maxTime;
+        slider.step = (maxTime - minTime) / 100 || 1;
+      }
+       
+      slider.oninput = (e) => {
+        const val = Number(e.target.value);
+        $("graph-time-label").textContent = new Date(val).toLocaleDateString();
+        
+        // Apply temporal filter without rebuilding simulation
+        nodeGroups.style("visibility", d => new Date(d.created_at || Date.now()).getTime() <= val ? "visible" : "hidden");
+        labelGroups.style("visibility", d => new Date(d.created_at || Date.now()).getTime() <= val ? "visible" : "hidden");
+        
+        edgeLines.style("visibility", d => {
+          const srcTime = new Date(d.source.created_at || Date.now()).getTime();
+          const tgtTime = new Date(d.target.created_at || Date.now()).getTime();
+          return srcTime <= val && tgtTime <= val ? "visible" : "hidden";
+        });
+      };
+      
+      // Initialize label
+      $("graph-time-label").textContent = new Date(Number(slider.value)).toLocaleDateString();
+      // Apply initial filter if the slider was already moved
+      if (Number(slider.value) < maxTime) {
+         slider.oninput({ target: slider });
+      }
+    }
+  }
+
   initGraphKeyboard();
 }
 
@@ -12221,7 +12462,7 @@ async function saveGraphNewNote() {
 // editor, opened from the Library (§36F). It is no longer in the tab *bar*, so
 // it sits at the end here: TABS drives which pages hide, and the arrow-key
 // order comes from the bar's own buttons.
-const TABS = ["dashboard", "notes", "chat", "graph", "library", "timeline", "reminders", "documents"];
+const TABS = ["dashboard", "notes", "chat", "graph", "whiteboard", "library", "timeline", "reminders", "documents"];
 
 function switchTab(name) {
   for (const tab of TABS) {
@@ -12408,7 +12649,7 @@ async function renderTimeline() {
 // different stories about it. "None" collapses to a single lane — the spine
 // itself, with every note directly on it.
 const TIMELINE_LANE_GAP = 52;
-const TIMELINE_MARGIN_X = 180; // left room for a band's label (increased so they don't cut off)
+const TIMELINE_MARGIN_X = 250; // left room for a band's label (increased so they don't cut off)
 const TIMELINE_MARGIN_TOP = 40;
 const TIMELINE_DOT_R = 10; // increased for better visibility and access
 
@@ -14325,7 +14566,7 @@ function paletteKeydown(event) {
 
 // --- Wave F: whiteboard-lite --------------------------------------------------------
 
-let sketchPen = { color: "#4f6df5", size: 4, eraser: false };
+let sketchPen = { color: "#3b82f6", size: 4, eraser: false };
 let sketchDrawing = false;
 let sketchDirty = false;
 let sketchTool = "pen"; // "pen", "rect", "circ", "arrow", "text"
@@ -14460,9 +14701,10 @@ function sketchMove(event) {
 
   context.lineCap = "round";
   context.lineJoin = "round";
-  context.globalCompositeOperation = sketchTool === "highlighter" ? "multiply" : (sketchPen.eraser && sketchTool === "pen" ? "destination-out" : "source-over");
+  context.globalCompositeOperation = sketchPen.eraser && sketchTool === "pen" ? "destination-out" : "source-over";
+  context.globalAlpha = sketchTool === "highlighter" ? 0.4 : 1.0;
   context.strokeStyle = sketchPen.color;
-  context.lineWidth = sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size;
+  context.lineWidth = sketchTool === "highlighter" ? sketchPen.size * 4 : (sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size);
 
   if (sketchTool === "pen" || sketchTool === "highlighter") {
     context.lineTo(x, y);
@@ -14502,11 +14744,12 @@ function sketchEnd(event) {
     const context = sketchContext();
     context.lineCap = "round";
     context.lineJoin = "round";
-    context.globalCompositeOperation = sketchTool === "highlighter" ? "multiply" : (sketchPen.eraser && sketchTool === "pen" ? "destination-out" : "source-over");
+    context.globalCompositeOperation = sketchPen.eraser && sketchTool === "pen" ? "destination-out" : "source-over";
+    context.globalAlpha = sketchTool === "highlighter" ? 0.4 : 1.0;
     context.strokeStyle = sketchPen.color;
     
     if (sketchTool === "pen" || sketchTool === "highlighter") {
-      context.lineWidth = sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size;
+      context.lineWidth = sketchTool === "highlighter" ? sketchPen.size * 4 : (sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size);
       context.beginPath();
       context.moveTo(sketchStartX, sketchStartY);
       context.lineTo(sketchStartX, sketchStartY + 0.1);
@@ -17400,6 +17643,14 @@ function toggleTheme() {
   const next = current === "dark" ? "light" : "dark";
   root.dataset.theme = next;
   localStorage.setItem("theme", next); // remembered across restarts
+  
+  // Clear any custom background colour that would otherwise override the new theme
+  localStorage.removeItem("page-bg");
+  applyPageBackground(null);
+  if (document.getElementById("page-bg-custom")) {
+    document.getElementById("page-bg-custom").value = "#f5f7fb";
+  }
+  
   applyResolvedMode();
   if (bgArtOn()) startBgArt(); // recolour the background for the new theme
   refreshArtForTheme(); // …and the dashboard constellation, which reads the
@@ -17802,6 +18053,7 @@ function applyThemePreset(name, chosenByUser = false) {
     if (THEME_PRESETS[name].values.palette) {
       localStorage.removeItem("accent");
       localStorage.removeItem("accent-custom");
+      localStorage.removeItem("page-bg");
       applyCustomAccent(null);
       applyPageBackground(null);
     }
@@ -18220,6 +18472,14 @@ function applyThemeChoice(choice, remember = true) {
   } else {
     document.documentElement.dataset.theme = choice;
     if (remember) localStorage.setItem("theme", choice);
+  }
+  // Clear any custom background colour when explicitly switching themes,
+  // otherwise the user thinks the theme toggle is broken because the custom
+  // colour is overriding the new theme's native background.
+  if (remember) {
+    localStorage.removeItem("page-bg");
+    applyPageBackground(null);
+    if ($("page-bg-custom")) $("page-bg-custom").value = "#f5f7fb";
   }
   applyResolvedMode();
   if (bgArtOn()) startBgArt();
@@ -18766,10 +19026,7 @@ function startBgArt() {
   // Intensity drives how much is on screen, not just the CSS opacity.
   const intensity = Number(appearancePref("bg-intensity")) || 90;
   const densityScale = Math.max(0.25, intensity / 90);
-  const dark =
-    document.documentElement.dataset.theme === "dark" ||
-    (!document.documentElement.dataset.theme &&
-      window.matchMedia("(prefers-color-scheme: dark)").matches);
+  const dark = document.documentElement.dataset.mode === "dark";
   const build = BG_ART_BUILDERS[bgStyle] || BG_ART_BUILDERS.aurora;
 
   const sketch = (p) => {
@@ -18812,7 +19069,7 @@ function startBgArt() {
 
       if (reduceMotion) {
         // One calm static frame — no motion for reduced-motion users.
-        p.background(dark ? 12 : 250);
+        p.background(0, 0, dark ? 12 : 98);
         style.frame(0);
         p.noLoop();
       }
@@ -18824,7 +19081,7 @@ function startBgArt() {
       // Kept light so the art reads clearly on every tab (and the page
       // gradient shows through) rather than flattening to near-solid.
       p.noStroke();
-      p.fill(dark ? 12 : 250, dark ? 0.10 : 0.12);
+      p.fill(0, 0, dark ? 12 : 98, dark ? 0.10 : 0.12);
       p.rect(0, 0, p.width, p.height);
       style.frame(t);
     };
@@ -21275,3 +21532,395 @@ if ("serviceWorker" in navigator) {
 renderBrandLogo();
 
 initAuth();
+
+// ======================= WHITEBOARD LOGIC =======================
+let wbZoom = d3.zoom().scaleExtent([0.1, 4]).on("zoom", handleWbZoom);
+let wbState = { nodes: [], sketches: [] };
+let wbInitialized = false;
+
+function handleWbZoom(e) {
+  d3.select("#whiteboard-canvas").style("transform", `translate(${e.transform.x}px, ${e.transform.y}px) scale(${e.transform.k})`);
+}
+
+async function initWhiteboard() {
+  if (wbInitialized) return;
+  wbInitialized = true;
+  
+  const container = d3.select("#whiteboard-container");
+  container.call(wbZoom).on("dblclick.zoom", null);
+  
+  // Toolbar hooks
+  document.getElementById("wb-zoom-in").addEventListener("click", () => container.transition().call(wbZoom.scaleBy, 1.2));
+  document.getElementById("wb-zoom-out").addEventListener("click", () => container.transition().call(wbZoom.scaleBy, 0.8));
+  document.getElementById("wb-zoom-fit").addEventListener("click", () => container.transition().call(wbZoom.transform, d3.zoomIdentity));
+  
+  // Sidebar toggling
+  document.getElementById("wb-add-note").addEventListener("click", () => {
+    const sidebar = document.getElementById("whiteboard-sidebar");
+    sidebar.classList.toggle("hidden");
+    if (!sidebar.classList.contains("hidden")) {
+      renderWbLibrary();
+    }
+  });
+
+  // Handle drop from library to canvas
+  const canvasEl = document.getElementById("whiteboard-container");
+  canvasEl.addEventListener("dragover", (e) => e.preventDefault());
+  canvasEl.addEventListener("drop", async (e) => {
+    e.preventDefault();
+    const entryId = e.dataTransfer.getData("text/plain");
+    if (!entryId) return;
+
+    // Convert screen coordinates to canvas coordinates based on zoom/pan
+    const transform = d3.zoomTransform(canvasEl);
+    const rect = canvasEl.getBoundingClientRect();
+    const x = (e.clientX - rect.left - transform.x) / transform.k;
+    const y = (e.clientY - rect.top - transform.y) / transform.k;
+    const z = 10;
+
+    try {
+      await fetch("/whiteboard/nodes/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entry_id: entryId, x, y, z })
+      });
+      await fetchWhiteboardState();
+      renderWhiteboard();
+    } catch (err) {
+      console.error("Failed to add node to whiteboard:", err);
+    }
+  });
+  
+  await fetchWhiteboardState();
+  renderWhiteboard();
+}
+
+function renderWbLibrary() {
+  const list = document.getElementById("wb-library-list");
+  list.innerHTML = "";
+  for (const entry of allEntries) {
+    const li = document.createElement("li");
+    li.className = "wb-library-item";
+    li.textContent = entry.text ? entry.text.substring(0, 40) + "..." : entry.id;
+    li.draggable = true;
+    li.addEventListener("dragstart", (e) => {
+      e.dataTransfer.setData("text/plain", entry.id);
+      e.dataTransfer.effectAllowed = "copy";
+    });
+    list.appendChild(li);
+  }
+}
+
+async function fetchWhiteboardState() {
+  try {
+    const res = await fetch("/whiteboard/");
+    if (!res.ok) throw new Error("Failed to load whiteboard state");
+    wbState = await res.json();
+  } catch (err) {
+    console.error("Whiteboard fetch error:", err);
+  }
+}
+
+function renderWhiteboard() {
+  const canvas = d3.select("#whiteboard-canvas");
+  
+  // Render Nodes (Cards)
+  const nodeSelection = canvas.selectAll(".wb-card.node-card")
+    .data(wbState.nodes, d => d.id);
+    
+  const nodeEnter = nodeSelection.enter()
+    .append("div")
+    .attr("class", "wb-card node-card")
+    .style("transform", d => `translate(${d.x}px, ${d.y}px)`)
+    .style("z-index", d => d.z)
+    .call(d3.drag()
+      .on("start", dragStart)
+      .on("drag", dragging)
+      .on("end", dragEndNode));
+      
+  nodeEnter.append("div")
+    .attr("class", "wb-card-content")
+    .html(d => {
+      const entry = allEntries.find(e => e.id === d.entry_id);
+      return entry ? (entry.text ? entry.text.substring(0, 100) + "..." : "No text") : "Loading...";
+    });
+    
+  nodeSelection.merge(nodeEnter)
+    .style("transform", d => `translate(${d.x}px, ${d.y}px)`)
+    .style("z-index", d => d.z);
+    
+  nodeSelection.exit().remove();
+}
+
+function dragStart(event, d) {
+  d3.select(this).raise();
+}
+
+function dragging(event, d) {
+  d.x += event.dx;
+  d.y += event.dy;
+  d3.select(this).style("transform", `translate(${d.x}px, ${d.y}px)`);
+}
+
+async function dragEndNode(event, d) {
+  // Sync back to API
+  try {
+    await fetch(`/whiteboard/nodes/${d.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ entry_id: d.entry_id, x: d.x, y: d.y, z: d.z })
+    });
+  } catch (err) {
+    console.error("Failed to update node coordinates", err);
+  }
+}
+
+// Hook into the tab switching logic to initialize whiteboard when selected
+document.addEventListener("DOMContentLoaded", () => {
+  const wbBtn = document.getElementById("tab-btn-whiteboard");
+  if (wbBtn) {
+    wbBtn.addEventListener("click", () => {
+      // Small timeout to allow tab to become visible so D3 can calculate dimensions
+      setTimeout(initWhiteboard, 50);
+    });
+  }
+});
+
+// ======================= FLOATING FORMAT MENU =======================
+function initFloatingFormatMenu() {
+  const menu = document.getElementById("floating-format-menu");
+  if (!menu) return;
+
+  const validTargets = ["doc-content", "entry-content", "chat-input", "draft-text"];
+  let activeTextarea = null;
+
+  document.addEventListener("selectionchange", () => {
+    const active = document.activeElement;
+    if (active && active.tagName === "TEXTAREA" && validTargets.includes(active.id)) {
+      if (active.selectionStart !== active.selectionEnd) {
+        // Text is selected
+        activeTextarea = active;
+        // Approximation for popup: center top of textarea or near mouse
+        // We'll use getBoundingClientRect of textarea as a fallback
+        const rect = active.getBoundingClientRect();
+        // Just put it above the textarea for simplicity, or ideally above the selection.
+        // Doing exact caret coords in textarea requires a library, so we center it on the textarea horizontally,
+        // and place it near the top of the textarea.
+        menu.style.left = `${rect.left + rect.width / 2}px`;
+        menu.style.top = `${rect.top}px`;
+        menu.classList.remove("hidden");
+      } else {
+        menu.classList.add("hidden");
+        activeTextarea = null;
+      }
+    } else {
+      menu.classList.add("hidden");
+    }
+  });
+
+  menu.addEventListener("mousedown", (e) => {
+    // Prevent menu mousedown from stealing focus from the textarea
+    e.preventDefault();
+  });
+
+  menu.addEventListener("click", (e) => {
+    const btn = e.target.closest("button");
+    if (!btn || !activeTextarea) return;
+    
+    const format = btn.dataset.format;
+    const start = activeTextarea.selectionStart;
+    const end = activeTextarea.selectionEnd;
+    const text = activeTextarea.value;
+    const selectedText = text.substring(start, end);
+    let wrapped = selectedText;
+    let offset = 0;
+
+    switch (format) {
+      case "bold":
+        wrapped = `**${selectedText}**`;
+        offset = 2;
+        break;
+      case "italic":
+        wrapped = `*${selectedText}*`;
+        offset = 1;
+        break;
+      case "strikethrough":
+        wrapped = `~~${selectedText}~~`;
+        offset = 2;
+        break;
+      case "code":
+        wrapped = `\`${selectedText}\``;
+        offset = 1;
+        break;
+      case "link":
+        wrapped = `[${selectedText}](url)`;
+        offset = 1;
+        break;
+    }
+
+    activeTextarea.setRangeText(wrapped, start, end, "select");
+    // Move selection inside the markdown tags
+    if (format === "link") {
+      activeTextarea.setSelectionRange(start + selectedText.length + 3, start + selectedText.length + 6);
+    } else {
+      activeTextarea.setSelectionRange(start + offset, start + offset + selectedText.length);
+    }
+    
+    // Trigger input event so React/app knows it changed
+    activeTextarea.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
+document.addEventListener("DOMContentLoaded", initFloatingFormatMenu);
+
+// ======================= SKILLS DASHBOARD TAB =======================
+
+async function renderSkillsDashboard() {
+  const container = document.getElementById("skills-dashboard-list");
+  if (!container) return;
+  
+  const skills = await loadSkills();
+  const prefs = await apiJson("/preferences").catch(() => ({}));
+  container.innerHTML = "";
+  
+  // Render Autonomous Workers section at the top
+  const autoDiv = document.createElement("div");
+  autoDiv.className = "card";
+  autoDiv.style.marginBottom = "var(--space-6)";
+  autoDiv.innerHTML = `
+    <div class="row space-between">
+      <h3>Autonomous Background Workers</h3>
+      <label class="switch">
+        <input type="checkbox" id="skills-auto-toggle" ${prefs.autonomous_tasks_enabled ? "checked" : ""}>
+        <span class="slider"></span>
+      </label>
+    </div>
+    <p class="muted text-sm">Allow the AI to run tasks in the background automatically.</p>
+    <div class="row" style="margin-top: 1rem;">
+      <label><input type="checkbox" id="skills-auto-tag" ${prefs.auto_tag_enabled !== false ? "checked" : ""}> Auto-tag notes</label>
+      <label><input type="checkbox" id="skills-auto-link" ${prefs.auto_link_enabled !== false ? "checked" : ""}> Auto-link ideas</label>
+    </div>
+  `;
+  container.appendChild(autoDiv);
+
+  // Hook up autonomous toggles
+  setTimeout(() => {
+    const autoToggle = document.getElementById("skills-auto-toggle");
+    if (autoToggle) autoToggle.addEventListener("change", async (e) => {
+      await apiJson("/preferences", "PUT", { autonomous_tasks_enabled: e.target.checked });
+      toast("Autonomous workers updated");
+    });
+    
+    document.getElementById("skills-auto-tag")?.addEventListener("change", async (e) => {
+      await apiJson("/preferences", "PUT", { auto_tag_enabled: e.target.checked });
+    });
+    document.getElementById("skills-auto-link")?.addEventListener("change", async (e) => {
+      await apiJson("/preferences", "PUT", { auto_link_enabled: e.target.checked });
+    });
+  }, 50);
+  
+  const grid = document.createElement("div");
+  grid.className = "skills-grid";
+  container.appendChild(grid);
+  
+  if (!skills.length) {
+    grid.innerHTML = `<p class="muted">No skills found.</p>`;
+    return;
+  }
+  
+  for (const skill of skills) {
+    const card = document.createElement("div");
+    card.className = "skill-card";
+    
+    // Header: Title and Type badge
+    const header = document.createElement("div");
+    header.className = "skill-card-header";
+    const title = document.createElement("div");
+    title.className = "skill-card-title";
+    title.textContent = skill.name;
+    const badge = document.createElement("span");
+    badge.className = "status badge";
+    badge.textContent = skill.builtin ? "Built-in" : "Custom";
+    header.appendChild(title);
+    header.appendChild(badge);
+    
+    // Description
+    const desc = document.createElement("div");
+    desc.className = "skill-card-desc";
+    desc.textContent = skill.description || "No description provided.";
+    
+    // Footer: Run button
+    const footer = document.createElement("div");
+    footer.className = "skill-card-footer";
+    const runBtn = document.createElement("button");
+    runBtn.className = "small";
+    runBtn.textContent = "Run Skill";
+    runBtn.onclick = () => {
+      // Switch to chat and run it
+      switchTab("chat");
+      startSkill(skill.name);
+    };
+    
+    const schedBtn = document.createElement("button");
+    schedBtn.className = "small ghost";
+    schedBtn.textContent = "Schedule";
+    schedBtn.onclick = () => {
+      toast("Scheduler functionality coming soon!"); // Placeholder for Phase 5 implementation
+    };
+    
+    footer.appendChild(schedBtn);
+    footer.appendChild(runBtn);
+    
+    card.appendChild(header);
+    card.appendChild(desc);
+    card.appendChild(footer);
+    container.appendChild(card);
+  }
+}
+
+// Hook into switchTab by overriding it to catch the skills tab
+const originalSwitchTab = switchTab;
+window.switchTab = function(name) {
+  originalSwitchTab(name);
+  if (name === "skills") {
+    renderSkillsDashboard();
+    renderSkillLogs();
+  }
+};
+
+async function renderSkillLogs() {
+  const logList = document.getElementById("skills-logs-list");
+  if (!logList) return;
+  logList.innerHTML = "<p class='muted'>Loading logs...</p>";
+  
+  const logs = await apiJson("/audit?limit=20").catch(() => null);
+  logList.innerHTML = "";
+  
+  if (!logs || !logs.length) {
+    logList.innerHTML = "<p class='muted'>No logs found.</p>";
+    return;
+  }
+  
+  // Filter for skill executions if possible, or just show agent actions
+  const skillLogs = logs.filter(log => log.entity_type === "skill" || log.action === "skill_run" || log.action.includes("agent"));
+  
+  if (!skillLogs.length) {
+    logList.innerHTML = "<p class='muted'>No skill execution logs found.</p>";
+    return;
+  }
+  
+  for (const log of skillLogs) {
+    const div = document.createElement("div");
+    div.className = "entry-item";
+    div.innerHTML = `
+      <div class="row space-between">
+        <strong>${escapeHtml(log.action)}</strong>
+        <span class="muted text-sm">${new Date(log.created_at).toLocaleString()}</span>
+      </div>
+      <div class="muted text-sm" style="margin-top: 0.25rem;">${escapeHtml(log.detail || log.entity_id || "")}</div>
+    `;
+    logList.appendChild(div);
+  }
+}
+
+

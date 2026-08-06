@@ -835,7 +835,12 @@ function entryItem(entry, options = {}) {
         ? `${label.slice(0, LINK_CHIP_CHARS - 1).trimEnd()}…`
         : label;
       const linkChip = chip(`↔ ${short}`, "link");
-      linkChip.title = label;
+      linkChip.title = `Go to note: ${label}`;
+      linkChip.style.cursor = "pointer";
+      linkChip.addEventListener("click", (e) => {
+        if (e.target.classList.contains("unlink")) return;
+        flashEntry(link.entry_id);
+      });
       if (options.actions) {
         const unlink = document.createElement("span");
         unlink.className = "unlink";
@@ -5374,7 +5379,13 @@ async function sendChatMessage(preset, opts = {}) {
     }
   }
 
+  let slowLoadTimeout;
   try {
+    slowLoadTimeout = setTimeout(() => {
+      if (!meta && !stopped) {
+        status.textContent = "Loading model... (this may take a moment)";
+      }
+    }, 5000);
     await streamChat({
       question,
       history: chatHistoryToSend(),
@@ -5541,6 +5552,7 @@ async function sendChatMessage(preset, opts = {}) {
       status.classList.add("error");
     }
   } finally {
+    clearTimeout(slowLoadTimeout);
     chatController = null;
     input.disabled = false;
     show("chat-send");
@@ -6922,7 +6934,7 @@ function skillRow(skill) {
   for (const item of skill.inputs || []) row.appendChild(chip(`asks: ${item.name}`, "tag"));
   const note = document.createElement("span");
   note.className = "muted persona-preview";
-  note.textContent = (skill.description || skill.prompt).slice(0, 70);
+  note.textContent = skill.description || skill.prompt;
   row.appendChild(note);
   if (!skill.builtin) {
     const actions = document.createElement("span");
@@ -10380,8 +10392,13 @@ function graphNodeRadius(node) {
   // A category heading in a tree layout is a fixed size — it has no access
   // count of its own, and sizing it by one would be inventing a number.
   if (node.isGroup) return node.id === "root" ? 14 : 11;
-  // Much-used notes draw the eye: base size + a gentle access bonus.
-  return 9 + Math.min(9, Math.sqrt(node.access_count || 0) * 2);
+  
+  // Sized dynamically based on PageRank centrality (hub importance) and usage.
+  // This physically represents the most important notes in the Knowledge Graph.
+  const centralityBonus = node.centrality ? Math.min(12, node.centrality * 800) : 0;
+  const accessBonus = Math.min(6, Math.sqrt(node.access_count || 0) * 1.5);
+  
+  return 9 + Math.max(centralityBonus, accessBonus);
 }
 
 // --- graph layouts (§9) -----------------------------------------------------------
@@ -10733,59 +10750,53 @@ let graphTraceLines = null;
 // on every render because the map's contents change — and the selection is
 // carried across, since a rebuild that silently forgets which notes you were
 // asking about is a control that undoes your work.
+let traceModeActive = false;
+let traceFromNode = null;
+let traceToNode = null;
+
 function fillTracePickers(nodes) {
-  const notes = nodes
-    .filter((n) => !n.isGroup)
-    .sort((a, b) => a.preview.localeCompare(b.preview));
-  for (const [id, placeholder] of [
-    ["graph-trace-from", "from a note…"],
-    ["graph-trace-to", "to a note…"],
-  ]) {
-    const select = $(id);
-    if (!select) continue;
-    const previous = select.value;
-    const options = [new Option(placeholder, "")];
-    for (const node of notes) options.push(new Option(node.preview, String(node.id)));
-    select.replaceChildren(...options);
-    // Only restore a note that is still on the map; otherwise the picker would
-    // show a note the trace could never find.
-    if (previous && notes.some((n) => String(n.id) === previous)) {
-      select.value = previous;
-    }
-  }
+  // Pickers are gone; this is now a no-op kept so old calls don't throw.
 }
 
-// Shared by the ⚙-style toggle button (§37F) and by every other entry point
-// that starts a trace without the user having opened the panel first — a
-// picker set behind a hidden row is a click that looks like it did nothing.
 function setTracePanelOpen(open) {
+  traceModeActive = open;
+  if (!open) clearTrace({ quiet: false });
   $("graph-trace").classList.toggle("hidden", !open);
   $("graph-trace-toggle")?.setAttribute("aria-expanded", String(open));
   $("graph-trace-toggle")?.classList.toggle("is-on", open);
   localStorage.setItem("graph-trace-open", open ? "1" : "0");
+  if (open) {
+    $("graph-trace-status").textContent = "Click a starting note";
+    showTraceMessage("Select a note on the graph to begin.");
+  }
 }
 
-// Fill one end of the trace from somewhere else in the app — the node popup's
-// two buttons, and the Notes tab. Traces as soon as both ends are set, because
-// the second click is the whole gesture: nobody picks two notes and then wants
-// nothing to happen.
+function handleTraceClick(d) {
+  if (!traceFromNode) {
+    traceFromNode = d;
+    $("graph-trace-status").textContent = `Click a destination note (from ${d.preview})`;
+    showTraceMessage(`Start: ${d.preview}. Now select a destination note.`);
+  } else if (!traceToNode) {
+    traceToNode = d;
+    $("graph-trace-status").textContent = "Tracing...";
+    runTrace();
+  }
+}
+
 function setTraceEnd(which, noteId) {
-  setTracePanelOpen(true); // the pickers below are about to change; show them
-  const select = $(which === "from" ? "graph-trace-from" : "graph-trace-to");
-  if (!select) return;
-  select.value = String(noteId);
-  if (select.value !== String(noteId)) {
-    // The note is not on the map — filtered out by the legend, or by "hide
-    // unlinked". Said plainly rather than leaving a picker that ignored a
-    // click.
-    showTraceMessage(
-      "That note isn't on the map right now — clear the category filters or " +
-        "\"Hide unlinked\" and try again."
-    );
+  setTracePanelOpen(true);
+  const node = graphNodeSelection.data().find(n => String(n.id) === String(noteId));
+  if (!node) {
+    showTraceMessage("That note isn't on the map right now — clear filters and try again.");
     return;
   }
-  const other = $(which === "from" ? "graph-trace-to" : "graph-trace-from");
-  if (other && other.value) runTrace();
+  if (which === "from") {
+    traceFromNode = node;
+    $("graph-trace-status").textContent = `Click a destination note (from ${node.preview})`;
+  } else {
+    traceToNode = node;
+  }
+  if (traceFromNode && traceToNode) runTrace();
 }
 
 function showTraceMessage(text) {
@@ -10798,26 +10809,24 @@ function showTraceMessage(text) {
 
 function clearTrace({ quiet = false } = {}) {
   graphTrace = null;
+  traceFromNode = null;
+  traceToNode = null;
+  if (traceModeActive && !quiet) {
+    const status = $("graph-trace-status");
+    if (status) status.textContent = "Click a starting note";
+  }
   const box = $("graph-trace-result");
   if (box) {
     box.replaceChildren();
     box.classList.add("hidden");
     box.classList.remove("is-empty");
   }
-  if (!quiet) {
-    for (const id of ["graph-trace-from", "graph-trace-to"]) {
-      const select = $(id);
-      if (select) select.value = "";
-    }
-  }
   drawTrace();
   applyGraphHighlight();
 }
 
 async function runTrace() {
-  const from = $("graph-trace-from")?.value;
-  const to = $("graph-trace-to")?.value;
-  if (!from || !to) {
+  if (!traceFromNode || !traceToNode) {
     showTraceMessage("Pick two notes to trace between.");
     return;
   }
@@ -11023,19 +11032,35 @@ async function linkByDrop(from, to) {
 let graphStructure = null;
 
 function graphColourMode() {
-  return $("graph-colour")?.value === "cluster" ? "cluster" : "category";
+  return document.querySelector('input[name="graph-colour"]:checked')?.value === "cluster" ? "cluster" : "category";
 }
+
+let graphFocusModeId = null;
 
 async function renderGraph() {
   const wantSimilarity = $("graph-similarity").checked;
-  const data = await apiJson(
-    `/graph${wantSimilarity ? "?similarity=true" : ""}`
-  ).catch(() => null);
+  const endpoint = graphFocusModeId 
+    ? `/graph/local/${graphFocusModeId}?depth=2&similarity=${wantSimilarity}` 
+    : `/graph${wantSimilarity ? "?similarity=true" : ""}`;
+    
+  const data = await apiJson(endpoint).catch(() => null);
   if (!data) return;
 
   if (graphSimulation) graphSimulation.stop();
   const svg = d3.select("#graph-svg");
+  svg.on(".zoom", null); // Prevent memory leak from duplicate zoom listeners
   svg.selectAll("*").remove();
+
+  // Premium UI: Orb gradient definitions for tactile nodes
+  const defs = svg.append("defs");
+  const orbGrad = defs.append("radialGradient")
+    .attr("id", "orb-shine")
+    .attr("cx", "35%")
+    .attr("cy", "30%")
+    .attr("r", "65%");
+  orbGrad.append("stop").attr("offset", "0%").attr("stop-color", "white").attr("stop-opacity", "0.65");
+  orbGrad.append("stop").attr("offset", "100%").attr("stop-color", "white").attr("stop-opacity", "0");
+
   // Inline display beats every stylesheet rule — the overlay can never
   // float over a populated graph again (user-reported, Wave O).
   const empty = $("graph-empty");
@@ -11377,6 +11402,14 @@ async function renderGraph() {
     // Well-connected notes get a highlighted ring so the "hubs" of your
     // notebook stand out at a glance.
     .classed("graph-hub", (d) => (graphAdjacency.get(d.id)?.size || 0) >= 3);
+
+  // Apply the premium orb shine over the core for a 3D tactile aesthetic
+  nodeGroups
+    .append("circle")
+    .attr("class", "graph-orb-shine")
+    .attr("r", graphNodeRadius)
+    .attr("fill", "url(#orb-shine)")
+    .attr("pointer-events", "none");
   // A pin badge, so pinned notes are identifiable at a glance.
   nodeGroups
     .filter((d) => d.pinned)
@@ -11396,7 +11429,9 @@ async function renderGraph() {
   // pile of overlapping text. Under the node is right for the web, where
   // nodes are spread in two dimensions; in a tree the rows are only
   // TREE_ROW apart, so it has to sit *beside* the node instead.
-  const labels = nodeGroups
+  const labelLayer = canvas.append("g").attr("class", "graph-label-layer");
+  const labelGroups = labelLayer.selectAll("g").data(nodes).join("g");
+  const labels = labelGroups
     .append("text")
     .attr(
       "class",
@@ -11529,6 +11564,7 @@ async function renderGraph() {
     // Laid out, not simulated: the paths are already drawn, so this only has
     // to place the nodes and frame the result.
     nodeGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
+    labelGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
     frameTree(svg, zoomBehavior, canvas, nodes, width, height, tree.radial);
   }
 
@@ -11577,6 +11613,7 @@ async function renderGraph() {
     // is a handful of lines beside every edge in the notebook.
     positionTraceLines();
     nodeGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
+    labelGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
     // Once the layout settles, frame all the notes so nothing sits off
     // the edge (Wave N — the old view often had nodes half-cropped).
     if (!fitted && graphSimulation.alpha() < 0.08) {
@@ -11975,6 +12012,18 @@ function renderGraphPopupActions(entry) {
       openGraphNewNote(event, entry.id)
     )
   );
+  
+  if (graphFocusModeId !== entry.id) {
+    box.appendChild(
+      smallButton("🎯 Focus", "Isolate this note's neighborhood", () => {
+        graphFocusModeId = entry.id;
+        $("graph-focus-clear")?.classList.remove("hidden");
+        closeGraphPopup();
+        renderGraph();
+        toast("Focus Mode active. Showing local neighborhood.");
+      })
+    );
+  }
   box.appendChild(
     smallButton("≈ Similar", "Highlight notes that mean something similar", async () => {
       const related = await apiJson(`/entries/${entry.id}/related`).catch(() => []);
@@ -12198,12 +12247,16 @@ function switchTab(name) {
   }
   if (name === "dashboard") renderDashboard();
   if (name === "graph") {
-    $("graph-layout").value = graphLayout();
+    const layout = graphLayout();
+    const layoutInput = document.querySelector(`input[name="graph-layout"][value="${layout}"]`);
+    if (layoutInput) layoutInput.checked = true;
+    
     // Same for what the colours mean: a saved setting the control does not
     // show is a control that lies about the map beside it.
     const savedColour = localStorage.getItem("graph-colour");
     if (savedColour === "cluster" || savedColour === "category") {
-      $("graph-colour").value = savedColour;
+      const colourInput = document.querySelector(`input[name="graph-colour"][value="${savedColour}"]`);
+      if (colourInput) colourInput.checked = true;
     }
     // Match the saved layout on arrival, not only on change — otherwise a
     // notebook left on Tree comes back with two live-looking dead sliders.
@@ -12344,10 +12397,10 @@ async function renderTimeline() {
 // Timeline views showing the same notebook two ways rather than two
 // different stories about it. "None" collapses to a single lane — the spine
 // itself, with every note directly on it.
-const TIMELINE_LANE_GAP = 42;
+const TIMELINE_LANE_GAP = 52;
 const TIMELINE_MARGIN_X = 110; // left room for a band's label
-const TIMELINE_MARGIN_TOP = 28;
-const TIMELINE_DOT_R = 5;
+const TIMELINE_MARGIN_TOP = 40;
+const TIMELINE_DOT_R = 6;
 
 function renderTimelineBranch(body) {
   const svg = d3.select("#timeline-branch-svg");
@@ -12400,16 +12453,17 @@ function renderTimelineBranch(body) {
     const tint = color(band.name);
 
     if (!single) {
-      // Where a branch starts: it peels off the spine at its first note's
-      // time, not at some arbitrary point (BACKLOG.md §10C's own rule).
+      // Where a branch starts: it peels off the spine slightly before its first
+      // note to form a smooth organic S-curve instead of a sharp vertical line.
       const startX = scale(new Date(here[0].at));
-      const midY = (spineY + laneY) / 2;
+      const branchX = Math.max(scale.range()[0], startX - 45);
+      const midX = (branchX + startX) / 2;
       laneGroup
         .append("path")
         .attr("class", "timeline-branch-stub")
         .attr("fill", "none")
         .attr("stroke", tint)
-        .attr("d", `M${startX},${spineY}C${startX},${midY} ${startX},${midY} ${startX},${laneY}`);
+        .attr("d", `M${branchX},${spineY}C${midX},${spineY} ${midX},${laneY} ${startX},${laneY}`);
     }
 
     // The thread itself — the one thing a grid cannot show at all: every
@@ -12440,9 +12494,10 @@ function renderTimelineBranch(body) {
       const label = laneGroup
         .append("text")
         .attr("class", "timeline-branch-label")
-        .attr("x", 8)
-        .attr("y", laneY)
-        .attr("dy", "0.32em")
+        .attr("x", scale.range()[0] - 10)
+        .attr("y", laneY - 14)
+        .attr("dy", "0")
+        .attr("text-anchor", "end")
         .attr("fill", tint)
         .text(band.name)
         .style("opacity", 0);
@@ -14367,6 +14422,11 @@ function sketchMove(event) {
   if (sketchTool === "pen" || sketchTool === "highlighter") {
     context.lineTo(x, y);
     context.stroke();
+  } else if (sketchTool === "line") {
+    context.beginPath();
+    context.moveTo(sketchStartX, sketchStartY);
+    context.lineTo(x, y);
+    context.stroke();
   } else if (sketchTool === "rect") {
     context.beginPath();
     context.rect(sketchStartX, sketchStartY, x - sketchStartX, y - sketchStartY);
@@ -15551,22 +15611,28 @@ function renderLibrary() {
   }
   items = librarySorted(items);
 
-  grid.replaceChildren();
-  grid.classList.toggle("library-list", libraryView() === "list");
-  for (const item of items) grid.appendChild(libraryCard(item));
-  renderLibraryContextBars();
+  const updateDOM = () => {
+    grid.replaceChildren();
+    grid.classList.toggle("library-list", libraryView() === "list");
+    for (const item of items) grid.appendChild(libraryCard(item));
+    renderLibraryContextBars();
 
-  const empty = $("library-empty");
-  empty.classList.toggle("hidden", items.length > 0);
-  if (!items.length) {
-    // Three different empties, because the fix for each is different: nothing
-    // made yet, nothing of this kind, or nothing matching what you typed. One
-    // message for all three is how "the library is broken" gets reported.
-    empty.textContent = !libraryItems.length
-      ? "Nothing here yet. Write a document, start a chat, or attach a file to a note."
-      : query
-        ? `Nothing matching “${$("library-search").value.trim()}”.`
-        : "Nothing of this kind yet.";
+    const empty = $("library-empty");
+    empty.classList.toggle("hidden", items.length > 0);
+    if (!items.length) {
+      empty.textContent = !libraryItems.length
+        ? "Nothing here yet. Write a document, start a chat, or attach a file to a note."
+        : query
+          ? `Nothing matching “${$("library-search").value.trim()}”.`
+          : "Nothing of this kind yet.";
+    }
+  };
+
+  // Premium UI: Use native View Transitions for buttery smooth layout animations
+  if (!document.startViewTransition) {
+    updateDOM();
+  } else {
+    document.startViewTransition(() => updateDOM());
   }
 }
 
@@ -19429,8 +19495,21 @@ $("status-command").addEventListener("click", () => openPalette());
 // The Library (§4, §36F). Filter and sort are first-class here rather than an
 // afterthought, so they are wired like controls: every change re-renders from
 // the list already in memory, with no round trip.
-$("library-search").addEventListener("input", renderLibrary);
+let librarySearchDebounceTimeout;
+$("library-search").addEventListener("input", () => {
+  clearTimeout(librarySearchDebounceTimeout);
+  librarySearchDebounceTimeout = setTimeout(renderLibrary, 150);
+});
 $("library-sort").addEventListener("change", renderLibrary);
+for (const button of document.querySelectorAll("#library-sort-seg button")) {
+  button.addEventListener("click", () => {
+    document.querySelectorAll("#library-sort-seg button").forEach(b => b.classList.remove("active"));
+    button.classList.add("active");
+    const select = $("library-sort");
+    if (select) select.value = button.dataset.sort;
+    renderLibrary();
+  });
+}
 $("library-show-binned").addEventListener("change", renderLibrary);
 for (const button of document.querySelectorAll("#library-view button")) {
   button.addEventListener("click", () => {
@@ -19551,9 +19630,12 @@ $("graph-options-toggle").addEventListener("click", () => {
 $("graph-trace-toggle").addEventListener("click", () =>
   setTracePanelOpen($("graph-trace").classList.contains("hidden"))
 );
-// Trace (§9). The pickers themselves do not fire a trace on change: picking
-// the first of two notes should not run a search that can only fail.
-$("graph-trace-run").addEventListener("click", runTrace);
+$("graph-focus-clear").addEventListener("click", () => {
+  graphFocusModeId = null;
+  $("graph-focus-clear").classList.add("hidden");
+  renderGraph();
+  toast("Exited Focus Mode.");
+});
 $("graph-trace-clear").addEventListener("click", () => clearTrace());
 // What the colours mean, remembered like the layout is — it is a property of
 // how you read your notebook, not of one visit.
@@ -21034,7 +21116,7 @@ $("sketch-eraser").addEventListener("click", () => {
   $("sketch-eraser").classList.toggle("active", sketchPen.eraser);
   if (sketchPen.eraser) {
     sketchTool = "pen";
-    const toolsList = ["pen", "rect", "circ", "arrow", "text"];
+    const toolsList = ["pen", "highlighter", "line", "rect", "circ", "arrow", "text"];
     for (const t of toolsList) {
       $(`sketch-tool-${t}`).classList.toggle("active", t === "pen");
     }
@@ -21078,7 +21160,7 @@ $("sketch-redo").addEventListener("click", () => {
   sketchDirty = true;
 });
 
-const sketchToolsList = ["pen", "highlighter", "rect", "circ", "arrow", "text"];
+const sketchToolsList = ["pen", "highlighter", "line", "rect", "circ", "arrow", "text"];
 for (const tool of sketchToolsList) {
   const btn = $(`sketch-tool-${tool}`);
   if (btn) {

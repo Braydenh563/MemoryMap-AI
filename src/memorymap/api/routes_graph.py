@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import re
 from itertools import combinations
+import numpy as np
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
@@ -70,15 +71,31 @@ def _similarity_edges(
         for r in records
         if r.entry_id in node_ids
     }
+    if not vectors:
+        return []
+
+    node_list = sorted(vectors)
+    vec_matrix = np.array([vectors[n] for n in node_list])
+    
+    norms = np.linalg.norm(vec_matrix, axis=1, keepdims=True)
+    vec_matrix = vec_matrix / np.where(norms == 0, 1e-10, norms)
+    
+    # Upper triangular matrix of dot products
+    sim_matrix = np.triu(np.dot(vec_matrix, vec_matrix.T), k=1)
+    
+    # Find indices where similarity >= SIMILARITY_EDGE_THRESHOLD
+    rows, cols = np.where(sim_matrix >= SIMILARITY_EDGE_THRESHOLD)
+    
     scored = []
-    for a, b in combinations(sorted(vectors), 2):
-        if frozenset((a, b)) in taken:
-            continue
-        score = cosine_similarity(vectors[a], vectors[b])
-        if score >= SIMILARITY_EDGE_THRESHOLD:
+    for r, c in zip(rows, cols):
+        a = node_list[r]
+        b = node_list[c]
+        if frozenset((a, b)) not in taken:
+            score = float(sim_matrix[r, c])
             scored.append(
                 {"source": a, "target": b, "kind": "similar", "score": round(score, 2)}
             )
+            
     scored.sort(key=lambda e: e["score"], reverse=True)
     return scored[:MAX_SIMILARITY_EDGES]
 
@@ -139,7 +156,80 @@ def graph(similarity: bool = False, session: Session = Depends(get_session)) -> 
     if similarity and not config.get_preference("battery_efficient_mode"):
         edges.extend(_similarity_edges(session, node_ids, taken))
 
+    index = paths.build(session, extra_edges=edges)
+    centrality_scores = paths.pagerank(index)
+
     # Stable category order so the frontend assigns stable colours.
+    categories = sorted({n["category"] for n in nodes})
+    
+    # Attach PageRank centrality to nodes for dynamic sizing
+    for n in nodes:
+        n["centrality"] = centrality_scores.get(n["id"], 0)
+        
+    return {"nodes": nodes, "edges": edges, "categories": categories}
+
+@router.get("/graph/local/{entry_id}")
+def graph_local(
+    entry_id: int, 
+    depth: int = 2, 
+    similarity: bool = False,
+    session: Session = Depends(get_session)
+) -> dict:
+    """Focus Mode API: Gets the local neighborhood up to N degrees."""
+    config = deps.get_config()
+    extra_edges = []
+    
+    entries = list(session.scalars(select(Entry).where(Entry.is_deleted == False)))
+    node_ids = {e.id for e in entries}
+    
+    if similarity and not config.get_preference("battery_efficient_mode"):
+        extra_edges = _similarity_edges(session, node_ids, set())
+        
+    index = paths.build(session, extra_edges=extra_edges)
+    
+    if entry_id not in index.entries:
+        return {"nodes": [], "edges": [], "categories": []}
+        
+    # BFS up to `depth`
+    visited = {entry_id}
+    queue = [entry_id]
+    edges = []
+    taken = set()
+    
+    for _ in range(depth):
+        next_queue = []
+        for n in queue:
+            for neighbor, step in index.neighbours(n).items():
+                pair = frozenset((n, neighbor))
+                if pair not in taken:
+                    taken.add(pair)
+                    edges.append({
+                        "source": n,
+                        "target": neighbor,
+                        "kind": step.kind
+                    })
+                if neighbor not in visited:
+                    visited.add(neighbor)
+                    next_queue.append(neighbor)
+        queue = next_queue
+        
+    category_names = manager.bulk_category_names(session, [index.entries[n] for n in visited])
+    nodes = [
+        {
+            "id": e_id,
+            "preview": _preview(manager.readable_content(index.entries[e_id])),
+            "category": category_names.get(index.entries[e_id].category_id, manager.UNCATEGORISED),
+            "access_count": index.entries[e_id].access_count,
+            "pinned": index.entries[e_id].pinned,
+            "parent_id": index.entries[e_id].parent_id if index.entries[e_id].parent_id in visited else None,
+        }
+        for e_id in visited
+    ]
+    
+    centrality_scores = paths.pagerank(index)
+    for n in nodes:
+        n["centrality"] = centrality_scores.get(n["id"], 0)
+        
     categories = sorted({n["category"] for n in nodes})
     return {"nodes": nodes, "edges": edges, "categories": categories}
 
@@ -226,7 +316,16 @@ def graph_path(
     Deliberately a GET with two ids: it reads nothing but the notebook's own
     structure, so it is cacheable, linkable and safe to re-issue.
     """
-    index = paths.build(session)
+    config = deps.get_config()
+    similarity = not config.get_preference("battery_efficient_mode")
+    extra_edges = []
+    
+    if similarity:
+        entries = list(session.scalars(select(Entry).where(Entry.is_deleted == False)))
+        node_ids = {e.id for e in entries}
+        extra_edges = _similarity_edges(session, node_ids, set())
+        
+    index = paths.build(session, extra_edges=extra_edges)
     missing = [
         note_id for note_id in (source, target) if note_id not in index.entries
     ]

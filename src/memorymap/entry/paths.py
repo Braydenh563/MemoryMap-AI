@@ -63,6 +63,7 @@ from memorymap.core.database import Entry, EntryLink
 LINK_WEIGHT = 1
 THREAD_WEIGHT = 1
 TAG_WEIGHT = 4
+SIMILAR_WEIGHT = 6
 
 #: Above this many notes, a tag is a filing label rather than a connection.
 #: Twelve is the point where "everyone I tagged #recipes" stops being a group
@@ -131,7 +132,7 @@ class Connections:
         return self.edges.get(node_id, {})
 
 
-def build(session: Session, include_private: bool = True) -> Connections:
+def build(session: Session, include_private: bool = True, extra_edges: list[dict] = None) -> Connections:
     """Index the notebook's connections.
 
     `include_private` is False for the AI, which may not read private notes at
@@ -182,6 +183,13 @@ def build(session: Session, include_private: bool = True) -> Connections:
             for second in ids[position + 1 :]:
                 index._add(first, second, "tag", phrase, phrase, TAG_WEIGHT)
     index.hub_tags.sort()
+
+    if extra_edges:
+        for edge in extra_edges:
+            # Treat dynamic extra edges (like similarity) with their appropriate weight
+            weight = SIMILAR_WEIGHT if edge.get("kind") == "similar" else LINK_WEIGHT
+            index._add(edge["source"], edge["target"], edge.get("kind", "similar"), "is related to", "is related to", weight)
+
     return index
 
 
@@ -262,6 +270,28 @@ MIN_CLUSTER_NOTES = 3
 #: threshold, deliberately — two definitions of "hub" that disagree is how the
 #: picture and the answer start contradicting each other.
 HUB_DEGREE = 3
+
+def pagerank(index: Connections, iterations: int = 15, damping: float = 0.85) -> dict[int, float]:
+    """Computes PageRank to mathematically identify the true hubs of the notebook."""
+    nodes = list(index.entries.keys())
+    N = len(nodes)
+    if N == 0:
+        return {}
+    
+    ranks = {n: 1.0 / N for n in nodes}
+    out_degrees = {n: len(index.neighbours(n)) for n in nodes}
+    
+    for _ in range(iterations):
+        new_ranks = {}
+        for n in nodes:
+            rank_sum = 0.0
+            for neighbor in index.neighbours(n):
+                if out_degrees[neighbor] > 0:
+                    rank_sum += ranks[neighbor] / out_degrees[neighbor]
+            new_ranks[n] = (1.0 - damping) / N + damping * rank_sum
+        ranks = new_ranks
+        
+    return ranks
 
 
 @dataclass(frozen=True)

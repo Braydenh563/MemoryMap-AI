@@ -78,7 +78,7 @@ def _drive(monkeypatch, rounds, results):
     """Run one agent turn and hand back the messages the model last saw."""
     fake = _FakeOllama(rounds)
     monkeypatch.setattr(agent.tools, "ollama_tools", lambda allowed=None: [])
-    monkeypatch.setattr(agent.tools, "execute_tool", lambda s, n, a: results.pop(0))
+    monkeypatch.setattr(agent.tools, "execute_tool", lambda s, n, a, **kwargs: results.pop(0))
     list(agent.run_agent(_Session(), "q", [], _FakeModels(), fake))
     return [m for m in fake.sent if m.get("role") == "tool"]
 

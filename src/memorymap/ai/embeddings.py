@@ -57,14 +57,14 @@ def start_warmup(service: "EmbeddingService", session_factory=None) -> None:  # 
             _warmup["error"] = True
         finally:
             _warmup["running"] = False
-            from memorymap.core import taskhistory
-            outcome = "failed" if _warmup["error"] else "completed"
-            taskhistory.record(
-                "embeddings",
-                "Loading embedding model",
-                outcome,
-                "Model is ready" if outcome == "completed" else "Failed to load",
-            )
+            if _warmup["error"]:
+                from memorymap.core import taskhistory
+                taskhistory.record(
+                    "embeddings",
+                    "Loading embedding model",
+                    "failed",
+                    "Failed to load",
+                )
         # Now that the model is up, catch any notes that missed out.
         if session_factory is not None and not _warmup["error"]:
             backfill_missing(service, session_factory)

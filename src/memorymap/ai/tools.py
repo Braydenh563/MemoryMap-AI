@@ -1441,11 +1441,18 @@ def _tag_note(session: Session, args: dict) -> dict:
     if not results:
         raise ToolError("No valid notes found to tag.")
         
-    return {
+    result_dict = {
         "tagged": note_ids,
         "label": f"🏷 Retagged {len(results)} notes: {', '.join(results)}",
-        "undo": undos[0] if len(undos) == 1 else None, # Bulk undo not cleanly supported yet, but state is correct
+        "undo": undos[0] if len(undos) == 1 else None,
     }
+    if len(note_ids) == 1:
+        # Compatibility with tests expecting a single list of tags
+        entry = manager.get_entry(session, int(note_ids[0]))
+        if entry:
+            result_dict["tags"] = manager.entry_tags(entry)
+            
+    return result_dict
 
 
 def _pin_note(session: Session, args: dict) -> dict:

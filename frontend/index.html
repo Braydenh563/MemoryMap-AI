@@ -209,11 +209,6 @@
           <h2>Most used</h2>
           <ul id="most-used"></ul>
         </div>
-        <div class="sidebar-tools">
-          <button id="tags-btn" class="ghost small">🏷 Tags</button>
-          <button id="bin-btn" class="ghost small">🗑 Recycle bin</button>
-          <button id="activity-btn" class="ghost small">📜 Activity</button>
-        </div>
       </aside>
 
       <main>
@@ -842,20 +837,19 @@ Link to another note with [[its first few words]]."></textarea>
         <input id="graph-search" type="search" placeholder="🔎 Highlight notes…"
           aria-label="Highlight matching notes in the graph">
         <label class="muted" for="graph-layout">Layout</label>
-        <select id="graph-layout" aria-label="How the notes are arranged">
-          <option value="force" selected>Force (web)</option>
-          <option value="tree">Tree</option>
-          <option value="radial">Radial tree</option>
-          <option value="arc">Arc</option>
-        </select>
+        <div id="graph-layout" class="segmented-control" aria-label="How the notes are arranged">
+          <label><input type="radio" name="graph-layout" value="force" checked> Force</label>
+          <label><input type="radio" name="graph-layout" value="tree"> Tree</label>
+          <label><input type="radio" name="graph-layout" value="radial"> Radial</label>
+          <label><input type="radio" name="graph-layout" value="arc"> Arc</label>
+        </div>
         <!-- A layout decides where a note goes; this decides what its colour
              means. Category is the filing; cluster is the structure — which
              notes can actually reach each other (§9). -->
-        <label class="muted" for="graph-colour">Colour</label>
-        <select id="graph-colour" aria-label="What the note colours mean">
-          <option value="category" selected>By category</option>
-          <option value="cluster">By cluster</option>
-        </select>
+        <div id="graph-colour" class="segmented-control" aria-label="What the note colours mean">
+          <label><input type="radio" name="graph-colour" value="category" checked> Category</label>
+          <label><input type="radio" name="graph-colour" value="cluster"> Cluster</label>
+        </div>
         <button id="graph-add-node" class="small"
           title="Add a new note straight onto the map">＋ New note</button>
         <button id="graph-options-toggle" class="ghost small" aria-expanded="false"
@@ -869,6 +863,7 @@ Link to another note with [[its first few words]]."></textarea>
         <button id="graph-trace-toggle" class="ghost small" aria-expanded="false"
           aria-controls="graph-trace"
           title="Find how two notes connect">🛣 Trace</button>
+        <button id="graph-focus-clear" class="ghost small hidden" title="Exit Focus Mode and return to the global map">✕ Exit Focus</button>
         <button id="graph-refresh" class="ghost small">↻ Refresh</button>
         <button id="graph-fullscreen-close" class="ghost small graph-fullscreen-close">✕ Close Full Screen</button>
       </div>
@@ -907,19 +902,9 @@ Link to another note with [[its first few words]]."></textarea>
            margins zeroed, per DESIGN.md. -->
       <div class="graph-trace hidden" id="graph-trace" role="group"
         aria-label="Trace the connection between two notes">
-        <span class="graph-trace-label">🛣 Trace</span>
-        <select id="graph-trace-from" aria-label="Trace from this note"></select>
-        <span class="graph-trace-arrow" aria-hidden="true">→</span>
-        <select id="graph-trace-to" aria-label="Trace to this note"></select>
-        <button id="graph-trace-run" class="small"
-          title="Find the chain of links, replies and shared tags between these two notes">Trace</button>
-        <button id="graph-trace-clear" class="ghost small"
-          title="Clear the traced path">Clear</button>
-        <!-- Asked directly: "what's the point of the trace feature". Fair — the
-             answer existed only in a tooltip and inside a folded-shut help
-             panel, and a control whose purpose is hidden is a control nobody
-             presses. It is the one question a map answers better than any
-             list, so it says so on the strip. -->
+        <span class="graph-trace-label">🛣 Trace Mode</span>
+        <span id="graph-trace-status" class="graph-trace-status">Click a starting note</span>
+        <button id="graph-trace-clear" class="ghost small" title="Cancel or clear the traced path">Cancel</button>
         <span class="graph-trace-hint muted">how two notes connect — or that they don't</span>
       </div>
       <p id="graph-trace-result" class="graph-trace-result hidden" role="status"></p>
@@ -1276,19 +1261,22 @@ Link to another note with [[its first few words]]."></textarea>
              the Library is where you find what you have, and what you threw
              away is not that. The Bin chip still shows them whatever this
              says, because pressing a filter called Bin is asking. -->
-        <label class="library-sort">
-          <input type="checkbox" id="library-show-binned">
+        <label class="library-sort" style="cursor: pointer; display: flex; align-items: center; gap: 6px;">
+          <input type="checkbox" id="library-show-binned" style="accent-color: var(--accent);">
           <span class="muted">Include bin</span>
         </label>
-        <label class="library-sort">
-          <span class="muted">Sort</span>
-          <select id="library-sort" aria-label="Sort the library">
-            <option value="recent">Newest first</option>
-            <option value="oldest">Oldest first</option>
-            <option value="az">A–Z</option>
-            <option value="biggest">Biggest first</option>
-          </select>
-        </label>
+        <div class="seg seg-compact library-sort-seg" id="library-sort-seg" role="group" aria-label="Sort the library">
+          <button data-sort="recent" class="active" type="button" title="Newest first">Newest</button>
+          <button data-sort="oldest" type="button" title="Oldest first">Oldest</button>
+          <button data-sort="az" type="button" title="A-Z">A-Z</button>
+          <button data-sort="biggest" type="button" title="Biggest first">Biggest</button>
+        </div>
+        <select id="library-sort" hidden>
+          <option value="recent">Newest first</option>
+          <option value="oldest">Oldest first</option>
+          <option value="az">A–Z</option>
+          <option value="biggest">Biggest first</option>
+        </select>
         <!-- Cards to browse, rows to manage. A grid shows you what a thing is;
              a list shows you forty of them at once with their metadata in
              columns, which is what you want when the job is tidying up. -->
@@ -2711,36 +2699,69 @@ Link to another note with [[its first few words]]."></textarea>
         <h2>Quick sketch</h2>
         <button id="sketch-close" class="ghost small">Close</button>
       </div>
-      <div class="row" id="sketch-tools" style="flex-wrap: wrap; gap: var(--space-2);">
-        <button id="sketch-tool-pen" class="ghost small active" title="Pen">🖊️</button>
-        <button id="sketch-tool-highlighter" class="ghost small" title="Highlighter">🖍️</button>
-        <button id="sketch-tool-rect" class="ghost small" title="Rectangle">⬜</button>
-        <button id="sketch-tool-circ" class="ghost small" title="Circle">⭕</button>
-        <button id="sketch-tool-arrow" class="ghost small" title="Arrow">↗️</button>
-        <button id="sketch-tool-text" class="ghost small" title="Text">T</button>
-        <div style="width: 1px; height: 1.5rem; background: var(--border); margin-inline: var(--space-1);"></div>
-        <span class="muted">Color</span>
-        <button class="sketch-color active" data-color="#4f6df5" aria-label="Blue"></button>
-        <button class="sketch-color" data-color="#e2534b" aria-label="Red"></button>
-        <button class="sketch-color" data-color="#3a9e56" aria-label="Green"></button>
-        <button class="sketch-color" data-color="#f59e0b" aria-label="Yellow"></button>
-        <button class="sketch-color" data-color="#9333ea" aria-label="Purple"></button>
-        <button class="sketch-color" data-color="#ec4899" aria-label="Pink"></button>
-        <button class="sketch-color" data-color="#1c1e26" aria-label="Black"></button>
-        <button class="sketch-color" data-color="#ffffff" aria-label="White"></button>
-        <label class="muted">Size
-          <input id="sketch-size" type="range" min="2" max="14" value="4">
-        </label>
-        <button id="sketch-eraser" class="ghost small">Eraser</button>
-        <button id="sketch-clear" class="ghost small">Clear</button>
-        <div style="width: 1px; height: 1.5rem; background: var(--border); margin-inline: var(--space-1);"></div>
+      <div id="sketch-canvas-wrap" class="sketch-canvas-wrap">
+        <div id="sketch-toolbar" class="sketch-floating-toolbar">
+          <div class="seg seg-compact">
+            <button id="sketch-tool-pen" class="active" title="Pen">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>
+            </button>
+            <button id="sketch-tool-highlighter" title="Highlighter">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l-6 6v3h9l3-3"></path><path d="M22 12l-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"></path></svg>
+            </button>
+            <button id="sketch-tool-eraser" title="Eraser">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16C2.5 15.5 2.5 14.5 3 14L13 4C13.5 3.5 14.5 3.5 15 4L20 9C20.5 9.5 20.5 10.5 20 11L11 20"></path><path d="M17 14L7 14"></path></svg>
+            </button>
+          </div>
+          
+          <div class="seg seg-compact">
+            <button id="sketch-tool-line" title="Line">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="19" x2="19" y2="5"></line></svg>
+            </button>
+            <button id="sketch-tool-arrow" title="Arrow">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+            </button>
+            <button id="sketch-tool-rect" title="Rectangle">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+            </button>
+            <button id="sketch-tool-circ" title="Circle">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle></svg>
+            </button>
+            <button id="sketch-tool-text" title="Text">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>
+            </button>
+          </div>
+          
+          <div class="sketch-colors">
+            <button class="sketch-color active" data-color="#3b82f6" aria-label="Blue"></button>
+            <button class="sketch-color" data-color="#ef4444" aria-label="Red"></button>
+            <button class="sketch-color" data-color="#22c55e" aria-label="Green"></button>
+            <button class="sketch-color" data-color="#eab308" aria-label="Yellow"></button>
+            <button class="sketch-color" data-color="#a855f7" aria-label="Purple"></button>
+            <button class="sketch-color" data-color="#111827" aria-label="Black"></button>
+            <button class="sketch-color" data-color="#f9fafb" aria-label="White"></button>
+          </div>
+
+          <label class="sketch-size-wrapper" title="Brush Size">
+            <input id="sketch-size" type="range" min="2" max="24" value="4" class="sketch-slider">
+          </label>
+          
+          <div class="seg seg-compact">
+            <button id="sketch-undo" title="Undo (Ctrl+Z)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>
+            </button>
+            <button id="sketch-redo" title="Redo (Ctrl+Y)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 14 20 9 15 4"></polyline><path d="M4 20v-7a4 4 0 0 1 4-4h12"></path></svg>
+            </button>
+            <button id="sketch-clear" title="Clear Canvas">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </button>
+            <button id="sketch-upload-image" title="Add Background Image">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+            </button>
+          </div>
+          <input id="sketch-image-input" type="file" accept="image/*" class="hidden">
+        </div>
         
-        <button id="sketch-undo" class="ghost small" title="Undo (Ctrl+Z)">↩️</button>
-        <button id="sketch-redo" class="ghost small" title="Redo (Ctrl+Y)">↪️</button>
-        <button id="sketch-upload-image" class="ghost small">🖼️ Add image</button>
-        <input id="sketch-image-input" type="file" accept="image/*" class="hidden">
-      </div>
-      <div id="sketch-canvas-wrap">
         <canvas id="sketch-bg-canvas" width="820" height="480"></canvas>
         <canvas id="sketch-canvas" width="820" height="480"></canvas>
       </div>

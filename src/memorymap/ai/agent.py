@@ -136,11 +136,11 @@ TOOLS_GUIDE = (
     "For \"remind me… in 10 minutes / tomorrow at 9 / tonight\", call "
     "set_reminder with due_at computed from the current time given below, as "
     "an ISO 8601 datetime. "
-    "After acting, tell the user briefly what you did. NEVER say you created, "
+    "NEVER say you created, "
     "saved, edited, deleted, tagged, linked or unlinked anything unless you "
     "called the tool — \"we linked…\" is claiming it just as much as \"I "
     "linked…\", and a list of work you did not do is the worst thing you can "
-    "write. Planning is fine: say it in the future tense, then call the tools. "
+    "write. "
     # Asked for directly: "I need agents to use tools more and better if they
     # are required." The loop already allows several rounds; nothing told the
     # model that using them was expected rather than a failure to answer
@@ -374,7 +374,7 @@ _WRITE_TOOLS = tools.WRITE_TOOLS
 _NOTE_ID_FIELD = {
     "create_note": "id",
     "edit_note": "id",
-    "tag_note": "id",
+    "tag_note": "tagged",
     "pin_note": "id",
     "restore_note": "id",
     "link_notes": "linked",  # [source_id, target_id] — the note the call was made on

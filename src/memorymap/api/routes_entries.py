@@ -405,23 +405,40 @@ def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
     ).all()
     vectors = {eid: bytes_to_vector(blob) for eid, blob in records if eid in entries_by_id}
 
-    suggestions: dict[frozenset[int], dict] = {}
-    for a, b in combinations(sorted(vectors), 2):
+    if not vectors:
+        return []
+        
+    import numpy as np
+    
+    node_list = sorted(vectors)
+    vec_matrix = np.array([vectors[n] for n in node_list])
+    
+    norms = np.linalg.norm(vec_matrix, axis=1, keepdims=True)
+    vec_matrix = vec_matrix / np.where(norms == 0, 1e-10, norms)
+    
+    # Upper triangular matrix of dot products
+    sim_matrix = np.triu(np.dot(vec_matrix, vec_matrix.T), k=1)
+    
+    # Find indices where similarity >= LINK_SUGGESTION_THRESHOLD
+    rows, cols = np.where(sim_matrix >= LINK_SUGGESTION_THRESHOLD)
+    
+    suggestions = []
+    for r, c in zip(rows, cols):
+        a = node_list[r]
+        b = node_list[c]
         pair = frozenset((a, b))
-        if pair in already_linked:
-            continue
-        score = cosine_similarity(vectors[a], vectors[b])
-        if score < LINK_SUGGESTION_THRESHOLD:
-            continue
-        suggestions[pair] = {
-            "source_id": a,
-            "target_id": b,
-            "source_preview": _preview(entries_by_id[a].content),
-            "target_preview": _preview(entries_by_id[b].content),
-            "similarity": round(score, 2),
-        }
-    ranked = sorted(suggestions.values(), key=lambda s: s["similarity"], reverse=True)
-    return ranked[:12]
+        if pair not in already_linked:
+            score = float(sim_matrix[r, c])
+            suggestions.append({
+                "source_id": a,
+                "target_id": b,
+                "source_preview": _preview(entries_by_id[a].content),
+                "target_preview": _preview(entries_by_id[b].content),
+                "similarity": round(score, 2),
+            })
+            
+    suggestions.sort(key=lambda s: s["similarity"], reverse=True)
+    return suggestions[:12]
 
 
 @router.get("/{entry_id}/related", response_model=list[EntryOut])

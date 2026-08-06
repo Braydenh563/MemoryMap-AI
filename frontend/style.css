@@ -767,21 +767,18 @@ header#top-bar.tabs-wrapped #tab-bar {
   /* How wide a card's spine is. One value, so the seven kind-colours below
      cannot drift apart — see the note on the spine. */
   --library-spine: 4px;
-  display: grid;
-  /* 17rem is the width at which a two-line preview of ~160 characters stops
-     needing a third line — the card's content decides this, not the scale.
-     min() so a phone gets one full-width column rather than a track wider
-     than the screen. */
-  grid-template-columns: repeat(auto-fill, minmax(min(17rem, 100%), 1fr));
-  gap: var(--space-6);
-  align-items: start;
+  /* Masonry layout (columns) so cards pack tightly regardless of their height.
+     This replaces the rigid CSS Grid which forced ragged rows. */
+  column-width: 17rem;
+  column-gap: var(--space-6);
 }
 .library-card {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   min-width: 0;
-  height: 100%;
+  margin-bottom: var(--space-6);
+  break-inside: avoid;
   padding: var(--space-6);
   text-align: left;
   background: var(--card);
@@ -795,6 +792,15 @@ header#top-bar.tabs-wrapped #tab-bar {
 .library-card:hover,
 .library-card:focus-visible { border-color: var(--accent); background: var(--accent-soft); }
 .library-card { position: relative; }
+.library-card-thumb {
+  width: calc(100% + var(--space-6) * 2);
+  margin: calc(var(--space-6) * -1) calc(var(--space-6) * -1) 0;
+  max-height: 240px;
+  object-fit: cover;
+  border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0;
+  border-bottom: 1px solid var(--border);
+  display: block;
+}
 /* The ⋯, top-right, revealed on hover or focus the way the note cards' actions
    are — a permanent one on every card in a grid is a column of dots down the
    page competing with the titles beside them. `focus-within` rather than
@@ -2933,6 +2939,11 @@ html.modal-open body {
   top: 4.5rem;
   left: 1rem;
   z-index: 1001;
+  max-height: calc(100vh - 6rem);
+  overflow-y: auto;
+  background: var(--card);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(12px);
 }
 
 /* On-screen zoom controls, bottom-right of the map. */
@@ -2954,12 +2965,19 @@ html.modal-open body {
   line-height: 1;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
-  background: var(--card);
+  background: var(--glass-bg);
   color: var(--ink);
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
-  backdrop-filter: blur(6px);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   transition: background 0.12s ease, transform 0.12s ease;
+}
+:root[data-glass="off"] .graph-zoom-btn {
+  background: var(--card);
+  border: 1px solid var(--border);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 .graph-zoom-btn:hover { background: var(--accent-soft); }
 .graph-zoom-btn:active { transform: scale(0.94); }
@@ -3047,16 +3065,20 @@ html.modal-open body {
 .graph-labels-hidden .graph-node.graph-focus .graph-label { opacity: 1; }
 .graph-stats { margin: 0.25rem 0 0.4rem; font-size: 0.8rem; }
 .graph-node text {
-  font-size: 0.7rem;
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 500;
   fill: var(--ink);
   text-anchor: middle;
   pointer-events: none;
   user-select: none;
-  /* A halo so labels stay legible over edges and other nodes (Wave N). */
+  /* A subtle halo so labels stay legible over edges and other nodes */
   paint-order: stroke;
   stroke: var(--card);
-  stroke-width: 3px;
+  stroke-width: 4px;
   stroke-linejoin: round;
+  stroke-linecap: round;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.1));
 }
 
 .legend-item {
@@ -3166,18 +3188,64 @@ html.modal-open body {
 #sketch-canvas {
   cursor: crosshair;
 }
+/* --- Quick Sketch Floating Toolbar --- */
+.sketch-floating-toolbar {
+  position: absolute;
+  top: var(--space-4);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  background: var(--card);
+  border: 1px solid var(--glass-border);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+
+.sketch-floating-toolbar .seg {
+  margin: 0;
+}
+
+.sketch-colors {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-2);
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+
 .sketch-color {
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 1.25rem;
+  height: 1.25rem;
   border-radius: 50%;
   border: 2px solid transparent;
   cursor: pointer;
   padding: 0;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-.sketch-color.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
-#sketch-eraser.active { background: var(--accent-soft); }
-#sketch-tools { flex-wrap: wrap; }
+.sketch-color:hover { transform: scale(1.2); }
+.sketch-color.active { 
+  border-color: var(--accent); 
+  box-shadow: 0 0 0 2px var(--accent-soft); 
+  transform: scale(1.1);
+}
 
+.sketch-size-wrapper {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-2);
+}
+.sketch-slider {
+  accent-color: var(--accent);
+  width: 80px;
+  cursor: pointer;
+}
 /* --- Wave F: mobile / PWA responsive pass --------------------------------------- */
 @media (max-width: 720px) {
   header { padding: 1rem 1rem 0.5rem; }
@@ -3743,7 +3811,9 @@ html { font-size: 16px; }
 :root[data-glass="off"] select,
 :root[data-glass="off"] .ai-status,
 :root[data-glass="off"] button.ghost,
-:root[data-glass="off"] #tab-bar button {
+:root[data-glass="off"] #tab-bar button,
+:root[data-glass="off"] .library-card,
+:root[data-glass="off"] .sketch-floating-toolbar {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
@@ -4715,10 +4785,19 @@ html { font-size: 16px; }
   flex-wrap: wrap;
   margin: 0 0 var(--space-3);
   padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--border);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
-  background: var(--chip-bg);
+  background: var(--glass-bg);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   --control-h: 1.9rem;
+}
+:root[data-glass="off"] .graph-options {
+  background: var(--card);
+  border: 1px solid var(--border);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 .graph-options button { height: var(--control-h); margin: 0; padding-block: 0; }
 .graph-options .tools-toggle { margin: 0; }
@@ -4738,7 +4817,20 @@ html { font-size: 16px; }
   gap: var(--space-3);
   flex-wrap: wrap;
   margin: 0 0 var(--space-3);
+  padding: var(--space-3);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   --control-h: 1.9rem;
+}
+:root[data-glass="off"] .graph-trace {
+  background: var(--card);
+  border: 1px solid var(--border);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 .graph-trace select,
 .graph-trace button {
@@ -4747,10 +4839,22 @@ html { font-size: 16px; }
   padding-block: 0;
   font-size: var(--text-md);
 }
-/* A note's own words are what identifies it — the ids these options carry are
-   the app's handle, never the user's (§35K) — so the pickers need room for a
-   few words and have to stop growing before they push the buttons off the row. */
-.graph-trace select { max-width: 16rem; flex: 1 1 9rem; min-width: 0; }
+.graph-trace-status {
+  font-size: var(--text-md);
+  padding: 0 var(--space-3);
+  height: var(--control-h);
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  border: 1px solid var(--border);
+  flex: 1 1 auto;
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .graph-trace-label { font-size: var(--text-md); font-weight: 600; }
 .graph-trace-arrow { color: var(--muted); }
 /* The strip's own caption. `flex: 0 1 auto` with a floor rather than a fixed
@@ -4820,7 +4924,6 @@ html { font-size: 16px; }
 #tab-notes .layout > main {
   overflow-y: auto;
   min-height: 0;
-  padding-right: var(--space-1); /* Optional: keeps scrollbar off the edge */
 }
 
 #graph-card {
@@ -7205,9 +7308,9 @@ textarea.autogrow {
   width: 100%;
   text-align: left;
   font: inherit;
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   line-height: 1.4;
-  padding: 0.75rem;
+  padding: var(--space-5);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--card);
@@ -7250,22 +7353,26 @@ textarea.autogrow {
 .timeline-spine,
 .timeline-branch-stub,
 .timeline-branch-line { pointer-events: none; }
-.timeline-spine { stroke: var(--border); stroke-width: 2; }
-.timeline-branch-stub { stroke-width: 1.5; opacity: 0.55; }
-.timeline-branch-line { stroke-width: 2; opacity: 0.85; }
-.timeline-branch-label { font-size: 0.75rem; font-weight: 600; }
+.timeline-spine { stroke: var(--border); stroke-width: 3; stroke-linecap: round; opacity: 0.8; }
+.timeline-branch-stub { stroke-width: 2.5; opacity: 0.7; stroke-linecap: round; }
+.timeline-branch-line { stroke-width: 3; opacity: 0.9; stroke-linecap: round; stroke-linejoin: round; }
+.timeline-branch-label { font-size: 0.85rem; font-weight: 700; letter-spacing: 0.02em; }
 .timeline-branch-dot {
   stroke: var(--card);
-  stroke-width: 1.5;
+  stroke-width: 2;
   cursor: pointer;
+  transition: r 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), stroke 0.2s;
 }
-.timeline-branch-dot:hover { stroke: var(--accent); }
+.timeline-branch-dot:hover { 
+  stroke: var(--accent);
+  filter: drop-shadow(0 0 6px var(--accent));
+}
 /* A note placed by what it says rather than when it was typed — the same
    fact the grid marks with a dashed border, drawn here as a dashed ring
    instead, since a filled circle has no border to dash. */
-.timeline-branch-dot-mentioned { stroke-dasharray: 2 1.5; stroke-width: 2; }
-.timeline-branch-ticks line { stroke: var(--border); }
-.timeline-branch-ticks text { font-size: 0.7rem; fill: var(--muted); text-anchor: middle; }
+.timeline-branch-dot-mentioned { stroke-dasharray: 3 2; stroke-width: 2.5; }
+.timeline-branch-ticks line { stroke: var(--border); opacity: 0.5; }
+.timeline-branch-ticks text { font-size: 0.75rem; fill: var(--muted); text-anchor: middle; font-weight: 500; }
 
 /* A category heading in a tree layout — a real node in the drawing, but not
    a note: hollow, so it never reads as something you can open. */

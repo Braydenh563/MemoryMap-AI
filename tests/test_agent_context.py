@@ -62,7 +62,7 @@ def _drive(monkeypatch, rounds, results, thinking=None):
     fake = _FakeOllama(rounds, thinking)
     executed: list[tuple[str, dict]] = []
 
-    def execute(session, name, arguments):
+    def execute(session, name, arguments, **kwargs):
         executed.append((name, arguments))
         return results.pop(0)
 

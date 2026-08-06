@@ -14,6 +14,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime, time
 
+import numpy as np
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
@@ -195,11 +196,29 @@ def semantic_search(
         )
     ).all()
 
+    if not records:
+        return []
+
+    # Vectorized similarity (O(1) in NumPy instead of O(N) in Python loops)
+    entry_ids = [r[0] for r in records]
+    vectors = np.array([bytes_to_vector(r[1]) for r in records])
+    
+    query_norm = np.linalg.norm(query_vector)
+    if query_norm == 0:
+        return []
+        
+    norms = np.linalg.norm(vectors, axis=1)
+    valid = norms > 0
+    
+    scores = np.zeros(len(vectors), dtype=np.float32)
+    if np.any(valid):
+        scores[valid] = np.dot(vectors[valid], query_vector) / (norms[valid] * query_norm)
+    
     scored_ids = [
-        (entry_id, cosine_similarity(query_vector, bytes_to_vector(blob)))
-        for entry_id, blob in records
+        (entry_ids[i], float(scores[i])) 
+        for i in range(len(entry_ids)) 
+        if scores[i] >= MIN_SIMILARITY
     ]
-    scored_ids = [(eid, score) for eid, score in scored_ids if score >= MIN_SIMILARITY]
     scored_ids.sort(key=lambda pair: pair[1], reverse=True)
     if not scored_ids:
         return []

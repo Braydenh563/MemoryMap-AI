@@ -68,6 +68,13 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     # `core.security.check_backend_url`. Turning it off is a deliberate act
     # with a visible switch, for someone who genuinely wants a hosted API.
     "local_only_ai": True,
+    "autonomous_tasks_enabled": False,
+    "auto_tag_enabled": True,
+    "auto_link_enabled": True,
+    "auto_dedupe_enabled": True,
+    "autonomous_tasks_interval_hours": 6,
+    "battery_efficient_mode": False,
+    "smart_model_routing_enabled": True,
 }
 
 

@@ -92,6 +92,21 @@ def collect() -> list[dict]:
             }
         )
 
+    # Autonomous optimization task
+    from memorymap.ai import autonomous
+    if autonomous.is_running():
+        tasks.append(
+            {
+                "kind": "autonomous",
+                "name": "",
+                "label": "Autonomous optimization",
+                "detail": "Analyzing notes in the background...",
+                "progress": None,
+                "cancellable": False,
+                "log": [],
+            }
+        )
+
     # Minutes long, on a worker thread, and previously visible only on the Web
     # search screen — so "is it still doing anything?" had no answer anywhere
     # else. Imported here rather than at module level: it pulls in the search

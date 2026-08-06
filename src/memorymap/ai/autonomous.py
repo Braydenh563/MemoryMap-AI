@@ -10,6 +10,10 @@ from memorymap.ai import agent
 _lock = threading.Lock()
 _state = {"running": False, "thread": None, "stop_event": None}
 
+def is_running() -> bool:
+    with _lock:
+        return _state["running"]
+
 def _run_optimization():
     config = deps.get_config()
     db = deps.get_db()

@@ -3813,7 +3813,12 @@ html { font-size: 16px; }
 :root[data-glass="off"] button.ghost,
 :root[data-glass="off"] #tab-bar button,
 :root[data-glass="off"] .library-card,
-:root[data-glass="off"] .sketch-floating-toolbar {
+:root[data-glass="off"] .sketch-floating-toolbar,
+:root[data-glass="off"] .chat-toolbar,
+:root[data-glass="off"] .graph-toolbar,
+:root[data-glass="off"] .library-toolbar,
+:root[data-glass="off"] .browse-tools,
+:root[data-glass="off"] .graph-options {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
@@ -4746,6 +4751,44 @@ html { font-size: 16px; }
   padding: 0 0.6rem;
   border-left: 1px solid var(--border);
   border-right: 1px solid var(--border);
+}
+
+/* Segmented Controls (replaces native radio buttons) */
+.segmented-control {
+  display: inline-flex;
+  align-items: center;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 0.15rem;
+  gap: 0.1rem;
+}
+:root[data-glass="off"] .segmented-control {
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+.segmented-control label {
+  cursor: pointer;
+  padding: 0.25rem 0.6rem;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--muted);
+  border-radius: calc(var(--radius-md) - 0.15rem);
+  transition: all 0.2s ease;
+  user-select: none;
+}
+.segmented-control label:hover {
+  color: var(--ink);
+  background: var(--chip-bg);
+}
+.segmented-control input[type="radio"] {
+  display: none; /* Hide the native radio circle */
+}
+.segmented-control input[type="radio"]:checked + span, /* If there's a span inside */
+.segmented-control label:has(input[type="radio"]:checked) {
+  color: var(--ink);
+  background: var(--accent-soft);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 
 /* --- graph page layout ------------------------------------------------------

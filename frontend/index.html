@@ -102,6 +102,7 @@
         aria-selected="false" aria-controls="tab-reminders" tabindex="-1">Reminders</button>
     </nav>
     <div class="header-controls">
+      <span id="power-saver-indicator" class="chip warning hidden" title="Power Saver Mode is On">🔋 Saver On</span>
       <!-- Fixed-width slot: the pill's text changes as status polls land, and
            without a reserved box every change nudged the buttons beside it. -->
       <!-- A dot, not a sentence. The pill reserved 17.5rem of header for a
@@ -377,33 +378,30 @@ Link to another note with [[its first few words]]."></textarea>
 
         <!-- Browse: everything you've saved -->
         <section class="card" id="browse">
-          <div class="row space-between browse-header">
+          <div class="library-toolbar">
             <!-- The label lives in its own span: the heading also carries the
                  collapse chevron, and writing textContent on the h2 would
                  delete it on every re-render. -->
-            <h2 id="entries-heading"><span id="entries-heading-label">All entries</span></h2>
-            <div class="row browse-tools">
-              <input id="note-search" type="search"
-                placeholder="🔎 Filter — try tag:work or &quot;exact phrase&quot;"
-                aria-label="Filter notes. Supports tag:, cat:, is:pinned, -exclude and quoted phrases"
-                aria-describedby="search-help-hint">
-              <label class="row align-center checkbox-label" style="gap:0.25rem; font-size:0.85em; cursor:pointer;" title="Search by concept instead of exact keywords">
-                <input type="checkbox" id="semantic-search-toggle"> ✨ Semantic
-              </label>
-              <button id="save-search" class="ghost small hidden" type="button"
-                title="Save this filter so you can come back to it">☆ Save filter</button>
-              <button id="search-help" class="ghost small" type="button"
-                aria-expanded="false" aria-controls="search-help-hint"
-                title="What can I type here?">?</button>
-              <select id="note-sort" aria-label="Sort notes" title="Sort notes">
-                <option value="newest">Newest first</option>
-                <option value="oldest">Oldest first</option>
-                <option value="az">A → Z</option>
-                <option value="most-used">Most used</option>
-              </select>
-              <button id="select-btn" class="ghost small"
-                title="Select several notes to move, tag, or delete together">☑️ Select</button>
-            </div>
+            <h2 id="entries-heading" style="margin: 0; margin-right: 0.25rem;"><span id="entries-heading-label">All entries</span></h2>
+            <button id="select-btn" class="ghost small" title="Select several notes to move, tag, or delete together">☑️ Select</button>
+            <input id="note-search" class="library-search" type="search"
+              placeholder="🔎 Filter — try tag:work or &quot;exact phrase&quot;"
+              aria-label="Filter notes. Supports tag:, cat:, is:pinned, -exclude and quoted phrases"
+              aria-describedby="search-help-hint">
+            <label class="row align-center checkbox-label" style="gap:0.25rem; font-size:0.85em; cursor:pointer;" title="Search by concept instead of exact keywords">
+              <input type="checkbox" id="semantic-search-toggle"> ✨ Semantic
+            </label>
+            <button id="save-search" class="ghost small hidden" type="button"
+              title="Save this filter so you can come back to it">☆ Save filter</button>
+            <button id="search-help" class="ghost small" type="button"
+              aria-expanded="false" aria-controls="search-help-hint"
+              title="What can I type here?">?</button>
+            <select id="note-sort" aria-label="Sort notes" title="Sort notes">
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="az">A → Z</option>
+              <option value="most-used">Most used</option>
+            </select>
           </div>
           <!-- Batch actions bar (Wave M): appears in select mode -->
           <div id="batch-bar" class="row hidden">

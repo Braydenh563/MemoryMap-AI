@@ -231,6 +231,16 @@ function startApp() {
       // root attributes, then the light/dark choice and the palette, neither
       // of which re-records itself as a manual override.
       applyAppearance();
+      
+      const indicator = $("power-saver-indicator");
+      if (indicator) {
+        if (prefsCache && prefsCache.battery_efficient_mode) {
+          indicator.classList.remove("hidden");
+        } else {
+          indicator.classList.add("hidden");
+        }
+      }
+
       applyThemeChoice(appearancePref("theme"), false);
       applyPalette(appearancePref("palette"), false);
       renderBrandLogo();
@@ -12398,9 +12408,9 @@ async function renderTimeline() {
 // different stories about it. "None" collapses to a single lane — the spine
 // itself, with every note directly on it.
 const TIMELINE_LANE_GAP = 52;
-const TIMELINE_MARGIN_X = 110; // left room for a band's label
+const TIMELINE_MARGIN_X = 180; // left room for a band's label (increased so they don't cut off)
 const TIMELINE_MARGIN_TOP = 40;
-const TIMELINE_DOT_R = 6;
+const TIMELINE_DOT_R = 10; // increased for better visibility and access
 
 function renderTimelineBranch(body) {
   const svg = d3.select("#timeline-branch-svg");
@@ -12506,6 +12516,31 @@ function renderTimelineBranch(body) {
       label.append("title").text(`${band.count} note${band.count === 1 ? "" : "s"}`);
     }
 
+    // Calculate vertical staggering to prevent physical overlap
+    const placed = [];
+    const minDistance = TIMELINE_DOT_R * 2 + 2; // 2px padding
+    
+    here.forEach(n => {
+      n.cx = scale(new Date(n.at));
+      
+      // Find what dy offsets are already taken at this cx
+      const taken = placed
+        .filter(p => Math.abs(p.cx - n.cx) < minDistance)
+        .map(p => p._dy);
+        
+      // Try dy offsets: 0, 15, -15, 30, -30...
+      let step = TIMELINE_DOT_R * 1.5;
+      let offsetIdx = 0;
+      let dy = 0;
+      while (taken.includes(dy)) {
+        offsetIdx++;
+        const sign = offsetIdx % 2 === 0 ? 1 : -1;
+        dy = Math.ceil(offsetIdx / 2) * step * sign;
+      }
+      n._dy = dy;
+      placed.push(n);
+    });
+
     const dots = laneGroup
       .selectAll("circle")
       .data(here)
@@ -12514,8 +12549,8 @@ function renderTimelineBranch(body) {
         "class",
         (n) => `timeline-branch-dot${n.placed_by === "mentioned" ? " timeline-branch-dot-mentioned" : ""}`
       )
-      .attr("cx", (n) => scale(new Date(n.at)))
-      .attr("cy", laneY)
+      .attr("cx", (n) => n.cx)
+      .attr("cy", (n) => laneY + (n._dy || 0))
       .attr("fill", tint)
       .attr("r", 0)
       .on("mouseover", function() {
@@ -13973,6 +14008,16 @@ async function savePrefs() {
       }),
     });
     $("prefs-status").textContent = "Saved.";
+    
+    const indicator = $("power-saver-indicator");
+    if (indicator) {
+      if (prefsCache && prefsCache.battery_efficient_mode) {
+        indicator.classList.remove("hidden");
+      } else {
+        indicator.classList.add("hidden");
+      }
+    }
+    
     // Reflect a name change immediately if the dashboard is showing.
     if (typeof renderDashboardGreeting === "function") renderDashboardGreeting();
   } catch (error) {
@@ -19280,9 +19325,9 @@ function openLibraryOn(kind) {
   renderLibraryFilters();
   renderLibrary();
 }
-$("bin-btn").addEventListener("click", () => openLibraryOn("archived"));
-$("activity-btn").addEventListener("click", () => openLibraryOn("activity"));
-$("tags-btn").addEventListener("click", () => openLibraryOn("tag"));
+$("bin-btn")?.addEventListener("click", () => openLibraryOn("archived"));
+$("activity-btn")?.addEventListener("click", () => openLibraryOn("activity"));
+$("tags-btn")?.addEventListener("click", () => openLibraryOn("tag"));
 $("entry-template").addEventListener("change", applyTemplate);
 
 // Chat tab (Wave C).
@@ -21111,7 +21156,7 @@ $("sketch-image-input").addEventListener("change", () => {
   $("sketch-image-input").value = ""; // lets the same file be picked again
   sketchUploadImage(file);
 });
-$("sketch-eraser").addEventListener("click", () => {
+$("sketch-eraser")?.addEventListener("click", () => {
   sketchPen.eraser = !sketchPen.eraser;
   $("sketch-eraser").classList.toggle("active", sketchPen.eraser);
   if (sketchPen.eraser) {
@@ -21129,7 +21174,7 @@ for (const button of document.querySelectorAll(".sketch-color")) {
   button.addEventListener("click", () => {
     sketchPen.color = button.dataset.color;
     sketchPen.eraser = false;
-    $("sketch-eraser").classList.remove("active");
+    $("sketch-eraser")?.classList.remove("active");
     document
       .querySelectorAll(".sketch-color")
       .forEach((b) => b.classList.toggle("active", b === button));
@@ -21167,7 +21212,7 @@ for (const tool of sketchToolsList) {
     btn.addEventListener("click", () => {
       sketchTool = tool;
       sketchPen.eraser = false;
-      $("sketch-eraser").classList.remove("active");
+      $("sketch-eraser")?.classList.remove("active");
       for (const t of sketchToolsList) {
         const tBtn = $(`sketch-tool-${t}`);
         if (tBtn) tBtn.classList.toggle("active", t === tool);

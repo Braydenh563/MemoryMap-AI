@@ -159,3 +159,36 @@ def save_generated_file(body: SaveFileBody) -> dict:
         target = exports / f"{stem}-{stamp}{suffix}"
     target.write_bytes(data)
     return {"path": str(target), "filename": target.name, "bytes": len(data)}
+
+
+@router.post("/media/upload")
+def upload_media(file: UploadFile) -> dict:
+    """General file/image upload for drag-and-drop in markdown (documents & notes)."""
+    media_dir = deps.get_config().data_dir / "media"
+    media_dir.mkdir(parents=True, exist_ok=True)
+
+    suffix = Path(file.filename or "file").suffix[:12]
+    stored_name = f"{uuid.uuid4().hex}{suffix}"
+    destination = media_dir / stored_name
+
+    size = 0
+    with destination.open("wb") as out:
+        while chunk := file.file.read(1024 * 1024):
+            size += len(chunk)
+            if size > MAX_FILE_BYTES:
+                out.close()
+                destination.unlink(missing_ok=True)
+                raise HTTPException(status_code=413, detail="File is larger than 50 MB")
+            out.write(chunk)
+
+    return {"url": f"/media/{stored_name}", "filename": file.filename or stored_name}
+
+
+@router.get("/media/{filename}")
+def get_media(filename: str) -> FileResponse:
+    """Serve generic uploaded media."""
+    name = safe_filename(filename)
+    path = deps.get_config().data_dir / "media" / name
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Media file not found")
+    return FileResponse(path)

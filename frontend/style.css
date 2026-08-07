@@ -183,7 +183,7 @@
 
 /* Dark palette. CSS has no variables-for-variables, so the block
    appears twice: once for the manual toggle, once for the OS default. */
-:root[data-theme="dark"] {
+:root[data-mode="dark"] {
   --page: linear-gradient(135deg, #0e1017 0%, #171a26 45%, #0f1720 100%);
   --blob-a: rgba(123, 144, 247, 0.16);
   --blob-b: rgba(88, 235, 245, 0.07);
@@ -757,7 +757,7 @@ header#top-bar.tabs-wrapped #tab-bar {
   color: #fff;
   font-weight: 600;
 }
-:root[data-theme="dark"] .library-chip.active { color: #0e1017; }
+:root[data-mode="dark"] .library-chip.active { color: #0e1017; }
 .library-chip-count {
   font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
@@ -1146,7 +1146,7 @@ header#top-bar.tabs-wrapped #tab-bar {
   color: #fff;
   font-weight: 600;
 }
-:root[data-theme="dark"] #tab-bar button.active { color: #0e1017; }
+:root[data-mode="dark"] #tab-bar button.active { color: #0e1017; }
 /* --- the page shell (§35L) --------------------------------------------------
    Every tab used to draw its own outer gutter, and no two agreed. The side
    inset was 2rem in five different rules, but the space above the first
@@ -3530,7 +3530,7 @@ kbd {
 /* Slightly darker muted text — the old values sat under the 4.5:1
    contrast guideline on the glass backgrounds. */
 :root { --muted: #4c5563; }
-:root[data-theme="dark"] { --muted: #a8b0bd; }
+:root[data-mode="dark"] { --muted: #a8b0bd; }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) { --muted: #a8b0bd; }
 }
@@ -3799,6 +3799,11 @@ html { font-size: 16px; }
 /* Compact density trims padding on cards and list rows. */
 
 /* Glass off → flat solid surfaces (cheaper to render). */
+.glass {
+  background: var(--bg-glass);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+}
 :root[data-glass="off"] .card,
 :root[data-glass="off"] header#top-bar,
 :root[data-glass="off"] input,
@@ -3813,9 +3818,10 @@ html { font-size: 16px; }
 :root[data-glass="off"] .graph-toolbar,
 :root[data-glass="off"] .library-toolbar,
 :root[data-glass="off"] .browse-tools,
-:root[data-glass="off"] .graph-options {
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+:root[data-glass="off"] .graph-options,
+:root[data-glass="off"] .glass {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 :root[data-glass="off"] { --card: var(--modal-bg); }
 
@@ -4453,7 +4459,7 @@ html { font-size: 16px; }
    let the box grow past it. */
 /* Was 0.92rem — the same size as the h3s under it, so the sidebar had a
    heading level that looked like its own children (§35L). */
-#sidebar h2 { font-size: var(--text-lg); }
+#sidebar h2 { font-size: var(--text-lg); padding-right: 32px; }
 #sidebar #most-used li { font-size: 0.85rem; line-height: 1.35; }
 
 /* --- reminders page polish -------------------------------------------------- */
@@ -4580,7 +4586,7 @@ html { font-size: 16px; }
   --card: rgba(255, 255, 255, 0.42);
   --inner: rgba(255, 255, 255, 0.34);
 }
-:root[data-bg-art="on"][data-theme="dark"]:not([data-glass="off"]):not([data-contrast="on"]) {
+:root[data-bg-art="on"][data-mode="dark"]:not([data-glass="off"]):not([data-contrast="on"]) {
   --card: rgba(29, 33, 46, 0.44);
   --inner: rgba(29, 33, 46, 0.34);
 }
@@ -5386,15 +5392,8 @@ html { font-size: 16px; }
 }
 .chat-dock .chat-composer #chat-input {
   min-height: var(--composer-h);
-  /* Draggable, and only vertically — a horizontal drag would take it out of
-     the flex row it shares with 📎, 🎙 and Send. `initComposerResize` notices
-     the drag and keeps it, so the box does not spring back on the next
-     keystroke. */
   resize: vertical;
-  /* Vertically centred at one line, and the same distance from the edge at
-     three. The autogrow measures scrollHeight, so this is padding rather than
-     a line-height trick that would change with the font. */
-  padding-block: var(--space-4);
+  padding: 0.4rem 1rem;
 }
 /* The picker wraps its button and the popup panel; without this it stretches
    to the row and takes the button with it. */
@@ -5505,11 +5504,15 @@ html { font-size: 16px; }
   font-weight: 500; 
   fill: var(--ink); 
   paint-order: stroke;
-  stroke: var(--page);
+  stroke: #ffffff;
   stroke-width: 4px;
   stroke-opacity: 0.8;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+:root[data-mode="dark"] .graph-node text.graph-label {
+  fill: #ffffff;
+  stroke: #000000;
 }
 /* Dimmed nodes fade rather than vanish, so context is never lost. */
 .graph-node.graph-dim { opacity: 0.18; }
@@ -6057,7 +6060,7 @@ button { border-radius: calc(var(--radius) * 0.7); }
    three-line header above a three-item list. The heading is the part that
    gives way — the button is a fixed hit target. */
 .doc-sidebar .row.space-between,
-#chat-sidebar .row.space-between { flex-wrap: nowrap; gap: var(--space-3); }
+#chat-sidebar .row.space-between { flex-wrap: nowrap; gap: var(--space-3); padding-right: 32px; }
 .doc-sidebar .row.space-between h2,
 #chat-sidebar .row.space-between h2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .doc-sidebar .row.space-between button,
@@ -8319,10 +8322,11 @@ textarea.autogrow {
 .settings-section label:has(> input[type="checkbox"]) { align-items: center; }
 
 /* ======================= WHITEBOARD TAB ======================= */
-#tab-whiteboard {
+#library-view-whiteboard {
   position: relative;
   width: 100%;
   height: 100%;
+  flex: 1;
   overflow: hidden;
 }
 
@@ -8603,3 +8607,27 @@ textarea.autogrow {
   border-top: 1px solid var(--border-light);
 }
 
+textarea.drag-over {
+  border-color: var(--accent);
+  background-color: var(--card-bg-hover);
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+
+.agent-monitor {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 350px;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  animation: slide-up 0.3s ease-out;
+}
+.monitor-log-item {
+  animation: fade-in 0.2s ease-out;
+  border-left: 3px solid var(--accent);
+  padding-left: 8px;
+}
+.monitor-log-item.error { border-left-color: var(--error); color: var(--error); }
+.monitor-log-item.warn { border-left-color: var(--warn); color: var(--warn); }
+@keyframes slide-up { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }

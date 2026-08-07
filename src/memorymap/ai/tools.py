@@ -2313,9 +2313,78 @@ def _save_user_preference(session: Session, args: dict) -> dict:
 
 _NOTE_ID = {"type": "integer", "description": "The note's id number"}
 
+def _generate_skill(session: Session, args: dict) -> dict:
+    name = args.get("name")
+    prompt = args.get("prompt")
+    description = args.get("description", "")
+    when_to_use = args.get("when_to_use", "")
+    steps = args.get("steps", [])
+    tools_list = args.get("tools", [])
+    inputs = args.get("inputs", [])
+    
+    new_skill = {
+        "name": name,
+        "prompt": prompt,
+        "description": description,
+        "when_to_use": when_to_use,
+        "steps": steps,
+        "tools": tools_list,
+        "inputs": inputs
+    }
+    
+    config = deps.get_config()
+    current_skills = config.get_preference("skills", [])
+    
+    updated = False
+    for i, s in enumerate(current_skills):
+        if s.get("name") == name:
+            current_skills[i] = new_skill
+            updated = True
+            break
+            
+    if not updated:
+        current_skills.append(new_skill)
+        
+    config.save_preference("skills", current_skills)
+    
+    return {
+        "label": f"🛠️ Generated and saved skill '{name}'",
+        "undo": None,
+    }
+
 TOOLS: dict[str, ToolSpec] = {
     spec.name: spec
+
     for spec in [
+        ToolSpec(
+            "generate_skill",
+            "Generate and save a new custom skill. Use this when the user asks you to learn a new task.",
+            {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Short name for the skill"},
+                    "prompt": {"type": "string", "description": "Instruction prompt for what the skill does"},
+                    "description": {"type": "string", "description": "Short description of the skill"},
+                    "when_to_use": {"type": "string", "description": "When should this skill be used? (e.g. 'User wants to clean up tags')"},
+                    "steps": {"type": "array", "items": {"type": "string"}, "description": "Step-by-step instructions for the skill"},
+                    "tools": {"type": "array", "items": {"type": "string"}, "description": "List of tool names this skill is allowed to use"},
+                    "inputs": {
+                        "type": "array", 
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string"},
+                                "description": {"type": "string"}
+                            }
+                        },
+                        "description": "Any variables/inputs the skill needs"
+                    }
+                },
+                "required": ["name", "prompt", "steps"]
+            },
+            _generate_skill,
+            destructive=True
+        ),
         ToolSpec(
             "save_user_preference",
             "Quietly append a learned preference to the user's permanent preferences (Memory Stream). "
@@ -2762,6 +2831,7 @@ TOOLS: dict[str, ToolSpec] = {
                 "required": ["note_id"],
             },
             _edit_note,
+            destructive=True,
         ),
         ToolSpec(
             "tag_note",

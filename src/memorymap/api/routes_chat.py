@@ -36,7 +36,11 @@ from memorymap.entry.manager import UNCATEGORISED
 from memorymap.search import search_manager
 from sqlalchemy import func
 
+from memorymap.api.routes_auth import _get_user, _token_valid
+from fastapi import status
+
 router = APIRouter(prefix="/chat", tags=["chat"])
+ws_router = APIRouter(prefix="/chat", tags=["chat"])
 
 
 @router.get("/recent", response_model=list[str])
@@ -419,7 +423,7 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
     )
 
 
-@router.websocket("/stream")
+@ws_router.websocket("/stream")
 async def chat_stream(websocket: WebSocket, session: Session = Depends(get_session)):
     """WebSocket stream. JSON events, in order:
     {"type":"status", "stage": "searching"}   (sent immediately)
@@ -432,6 +436,14 @@ async def chat_stream(websocket: WebSocket, session: Session = Depends(get_sessi
     
     try:
         data = await websocket.receive_json()
+        
+        # Manually check auth to avoid global dependencies blocking the WS upgrade
+        if _get_user(session) is not None:
+            token = data.get("token")
+            if not _token_valid(token):
+                await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+                return
+                
         body = ChatRequest(**data)
     except Exception:
         await websocket.close()
@@ -642,6 +654,8 @@ async def chat_stream(websocket: WebSocket, session: Session = Depends(get_sessi
         pass
     finally:
         try:
+            import asyncio
+            await asyncio.sleep(0.1)
             await websocket.close()
         except Exception:
             pass

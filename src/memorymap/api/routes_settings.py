@@ -138,6 +138,15 @@ class PreferencesBody(BaseModel):
     # what it plausibly needs (§11a — the schemas are most of the per-round
     # cost); "all" sends the whole registry, as it always did.
     tool_focus: Literal["auto", "all"] | None = None
+    # Additional AI preferences
+    autonomous_tasks_enabled: bool | None = None
+    auto_tag_enabled: bool | None = None
+    auto_link_enabled: bool | None = None
+    auto_dedupe_enabled: bool | None = None
+    autonomous_tasks_interval_hours: int | None = None
+    autonomous_tasks_model: str | None = None
+    battery_efficient_mode: bool | None = None
+    smart_model_routing_enabled: bool | None = None
     # Wave F: the ONE feature that goes online — off unless the user opts in.
     web_search_enabled: bool | None = None
     searxng_autostart: bool | None = None

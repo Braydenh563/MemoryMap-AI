@@ -265,20 +265,20 @@ function startApp() {
       // root attributes, then the light/dark choice and the palette, neither
       // of which re-records itself as a manual override.
       applyAppearance();
-      
-      const indicator = $("power-saver-indicator");
-      if (indicator) {
-        if (prefsCache && prefsCache.battery_efficient_mode) {
-          indicator.classList.remove("hidden");
-        } else {
-          indicator.classList.add("hidden");
-        }
-      }
-
       applyThemeChoice(appearancePref("theme"), false);
       applyPalette(appearancePref("palette"), false);
       renderBrandLogo();
       if (bgArtOn()) startBgArt();
+    }
+    
+    // Always check battery efficient mode regardless of ui_state seeding
+    const indicator = $("power-saver-indicator");
+    if (indicator) {
+      if (prefsCache && prefsCache.battery_efficient_mode) {
+        indicator.classList.remove("hidden");
+      } else {
+        indicator.classList.add("hidden");
+      }
     }
   });
 
@@ -4381,7 +4381,24 @@ function renderToolConfirm(holder, event) {
   const card = document.createElement("div");
   card.className = "tool-confirm";
   const text = document.createElement("p");
-  text.textContent = `⚠️ The AI wants to: ${event.label}`;
+  text.textContent = `⚠️ The AI wants to: ${event.label || event.name}`;
+  
+  const contentArea = document.createElement("div");
+  
+  if (event.name === "edit_note" && event.arguments.content) {
+    // async fetch for diff
+    apiJson(`/entries/${event.arguments.note_id}`).then(res => {
+      const oldContent = res.content || "";
+      const newContent = event.arguments.content;
+      if (oldContent !== newContent) {
+        contentArea.innerHTML = `<div class="diff-viewer" style="font-family: monospace; font-size: 0.85em; background: var(--inner); padding: 8px; margin: 8px 0; max-height: 200px; overflow-y: auto; white-space: pre-wrap; border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
+          <div style="color: var(--error); text-decoration: line-through; margin-bottom: 4px;">- ${escapeHtml(oldContent)}</div>
+          <div style="color: var(--success);">+ ${escapeHtml(newContent)}</div>
+        </div>`;
+      }
+    }).catch(() => {});
+  }
+
   const row = document.createElement("div");
   row.className = "row";
   row.appendChild(
@@ -4394,7 +4411,7 @@ function renderToolConfirm(holder, event) {
             method: "POST",
             body: JSON.stringify({ name: event.name, arguments: event.arguments }),
           });
-          card.replaceWith(toolChip(`✅ ${result.label || event.label}`));
+          card.replaceWith(toolChip(`✅ ${result.label || event.label || event.name}`));
           toast("Done — check Activity for the audit trail.");
           refreshAfterToolChanges();
         } catch (error) {
@@ -4409,7 +4426,7 @@ function renderToolConfirm(holder, event) {
       card.replaceWith(toolChip("✖️ Cancelled — nothing was changed."));
     })
   );
-  card.append(text, row);
+  card.append(text, contentArea, row);
   holder.appendChild(card);
   chatScrollToEnd();
 }
@@ -6021,10 +6038,10 @@ function makeSidebarResizable(aside) {
     
     // We update the grid column based on whether it is now collapsed or not
     if (aside.classList.contains("sidebar-collapsed")) {
-      aside.parentElement.style.gridTemplateColumns = \`48px minmax(0, 1fr)\`;
+      aside.parentElement.style.gridTemplateColumns = `48px minmax(0, 1fr)`;
     } else {
-      const saved = Number(localStorage.getItem(\`sidebarWidth:\${aside.id}\`)) || sidebarDefault(aside.id);
-      aside.parentElement.style.gridTemplateColumns = \`\${saved}px minmax(0, 1fr)\`;
+      const saved = Number(localStorage.getItem(`sidebarWidth:${aside.id}`)) || sidebarDefault(aside.id);
+      aside.parentElement.style.gridTemplateColumns = `${saved}px minmax(0, 1fr)`;
     }
   });
   aside.appendChild(collapseBtn);
@@ -12462,7 +12479,7 @@ async function saveGraphNewNote() {
 // editor, opened from the Library (§36F). It is no longer in the tab *bar*, so
 // it sits at the end here: TABS drives which pages hide, and the arrow-key
 // order comes from the bar's own buttons.
-const TABS = ["dashboard", "notes", "chat", "graph", "whiteboard", "library", "timeline", "reminders", "documents"];
+const TABS = ["dashboard", "notes", "chat", "graph", "library", "timeline", "reminders", "documents"];
 
 function switchTab(name) {
   for (const tab of TABS) {
@@ -14252,7 +14269,7 @@ async function savePrefs() {
     
     const indicator = $("power-saver-indicator");
     if (indicator) {
-      if (prefsCache && prefsCache.battery_efficient_mode) {
+      if ($("pref-battery-mode").checked) {
         indicator.classList.remove("hidden");
       } else {
         indicator.classList.add("hidden");
@@ -21413,17 +21430,6 @@ $("sketch-image-input").addEventListener("change", () => {
   $("sketch-image-input").value = ""; // lets the same file be picked again
   sketchUploadImage(file);
 });
-$("sketch-eraser")?.addEventListener("click", () => {
-  sketchPen.eraser = !sketchPen.eraser;
-  $("sketch-eraser").classList.toggle("active", sketchPen.eraser);
-  if (sketchPen.eraser) {
-    sketchTool = "pen";
-    const toolsList = ["pen", "highlighter", "line", "rect", "circ", "arrow", "text"];
-    for (const t of toolsList) {
-      $(`sketch-tool-${t}`).classList.toggle("active", t === "pen");
-    }
-  }
-});
 $("sketch-size").addEventListener("input", () => {
   sketchPen.size = Number($("sketch-size").value);
 });
@@ -21462,14 +21468,13 @@ $("sketch-redo").addEventListener("click", () => {
   sketchDirty = true;
 });
 
-const sketchToolsList = ["pen", "highlighter", "line", "rect", "circ", "arrow", "text"];
+const sketchToolsList = ["pen", "highlighter", "eraser", "line", "rect", "circ", "arrow", "text"];
 for (const tool of sketchToolsList) {
   const btn = $(`sketch-tool-${tool}`);
   if (btn) {
     btn.addEventListener("click", () => {
-      sketchTool = tool;
-      sketchPen.eraser = false;
-      $("sketch-eraser")?.classList.remove("active");
+      sketchTool = tool === "eraser" ? "pen" : tool;
+      sketchPen.eraser = (tool === "eraser");
       for (const t of sketchToolsList) {
         const tBtn = $(`sketch-tool-${t}`);
         if (tBtn) tBtn.classList.toggle("active", t === tool);
@@ -21613,9 +21618,8 @@ function renderWbLibrary() {
 
 async function fetchWhiteboardState() {
   try {
-    const res = await fetch("/whiteboard/");
-    if (!res.ok) throw new Error("Failed to load whiteboard state");
-    wbState = await res.json();
+    const res = await apiJson("/whiteboard/");
+    wbState = res;
   } catch (err) {
     console.error("Whiteboard fetch error:", err);
   }
@@ -21675,13 +21679,38 @@ async function dragEndNode(event, d) {
   }
 }
 
-// Hook into the tab switching logic to initialize whiteboard when selected
+// Hook into the library subtabs to switch views and initialize whiteboard
 document.addEventListener("DOMContentLoaded", () => {
-  const wbBtn = document.getElementById("tab-btn-whiteboard");
-  if (wbBtn) {
-    wbBtn.addEventListener("click", () => {
-      // Small timeout to allow tab to become visible so D3 can calculate dimensions
-      setTimeout(initWhiteboard, 50);
+  const librarySubtabs = document.getElementById("library-subtabs");
+  if (librarySubtabs) {
+    const buttons = librarySubtabs.querySelectorAll("button");
+    const sections = ["library-view-documents", "library-view-skills", "library-view-whiteboard"];
+    
+    buttons.forEach(btn => {
+      btn.addEventListener("click", () => {
+        buttons.forEach(b => {
+          b.classList.remove("active");
+          b.setAttribute("aria-selected", "false");
+        });
+        btn.classList.add("active");
+        btn.setAttribute("aria-selected", "true");
+        
+        const targetId = btn.getAttribute("data-target");
+        sections.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) {
+            if (id === targetId) {
+              el.classList.remove("hidden");
+            } else {
+              el.classList.add("hidden");
+            }
+          }
+        });
+        
+        if (targetId === "library-view-whiteboard") {
+          setTimeout(initWhiteboard, 50);
+        }
+      });
     });
   }
 });
@@ -21807,15 +21836,15 @@ async function renderSkillsDashboard() {
   setTimeout(() => {
     const autoToggle = document.getElementById("skills-auto-toggle");
     if (autoToggle) autoToggle.addEventListener("change", async (e) => {
-      await apiJson("/preferences", "PUT", { autonomous_tasks_enabled: e.target.checked });
+      await apiJson("/preferences", { method: "PUT", body: JSON.stringify({ autonomous_tasks_enabled: e.target.checked }) });
       toast("Autonomous workers updated");
     });
     
     document.getElementById("skills-auto-tag")?.addEventListener("change", async (e) => {
-      await apiJson("/preferences", "PUT", { auto_tag_enabled: e.target.checked });
+      await apiJson("/preferences", { method: "PUT", body: JSON.stringify({ auto_tag_enabled: e.target.checked }) });
     });
     document.getElementById("skills-auto-link")?.addEventListener("change", async (e) => {
-      await apiJson("/preferences", "PUT", { auto_link_enabled: e.target.checked });
+      await apiJson("/preferences", { method: "PUT", body: JSON.stringify({ auto_link_enabled: e.target.checked }) });
     });
   }, 50);
   
@@ -21878,11 +21907,11 @@ async function renderSkillsDashboard() {
   }
 }
 
-// Hook into switchTab by overriding it to catch the skills tab
+// Hook into switchTab by overriding it to catch the library tab
 const originalSwitchTab = switchTab;
 window.switchTab = function(name) {
   originalSwitchTab(name);
-  if (name === "skills") {
+  if (name === "library") {
     renderSkillsDashboard();
     renderSkillLogs();
   }
@@ -21918,9 +21947,263 @@ async function renderSkillLogs() {
         <span class="muted text-sm">${new Date(log.created_at).toLocaleString()}</span>
       </div>
       <div class="muted text-sm" style="margin-top: 0.25rem;">${escapeHtml(log.detail || log.entity_id || "")}</div>
+    </div>
     `;
     logList.appendChild(div);
   }
 }
 
+// --- Global Drag and Drop & Paste Image Upload for Textareas ---
+document.addEventListener("dragover", (e) => {
+  if (e.target.tagName && e.target.tagName.toLowerCase() === 'textarea') {
+    e.preventDefault();
+    e.target.classList.add("drag-over");
+  }
+});
 
+document.addEventListener("dragleave", (e) => {
+  if (e.target.tagName && e.target.tagName.toLowerCase() === 'textarea') {
+    e.preventDefault();
+    e.target.classList.remove("drag-over");
+  }
+});
+
+document.addEventListener("drop", async (e) => {
+  if (!e.target.tagName || e.target.tagName.toLowerCase() !== 'textarea') return;
+  e.preventDefault();
+  e.target.classList.remove("drag-over");
+  
+  const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/") || f.type.startsWith("application/") || f.type.startsWith("text/") || f.type.startsWith("video/") || f.type.startsWith("audio/"));
+  if (!files.length) return;
+
+  await handleFileUpload(e.target, files);
+});
+
+document.addEventListener("paste", async (e) => {
+  if (!e.target.tagName || e.target.tagName.toLowerCase() !== 'textarea') return;
+  const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+  const files = [];
+  for (const item of items) {
+    if (item.kind === 'file') {
+      files.push(item.getAsFile());
+    }
+  }
+  if (!files.length) return;
+  // Don't prevent default entirely unless we have files, otherwise normal paste breaks
+  e.preventDefault();
+  await handleFileUpload(e.target, files);
+});
+
+async function handleFileUpload(textarea, files) {
+  const cursorPosition = textarea.selectionStart;
+  let textToInsert = "";
+  
+  for (const file of files) {
+    textToInsert += `![Uploading ${file.name}...]()\n`;
+  }
+  
+  const originalText = textarea.value;
+  textarea.value = originalText.substring(0, cursorPosition) + textToInsert + originalText.substring(textarea.selectionEnd);
+  textarea.dispatchEvent(new Event('input', { bubbles: true }));
+
+  for (const file of files) {
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const res = await apiJson("/media/upload", {
+        method: "POST",
+        headers: { "X-Auth-Token": authToken() },
+        body: formData
+      });
+      const imgMarkdown = `![${res.filename}](${res.url})\n`;
+      textarea.value = textarea.value.replace(`![Uploading ${file.name}...]()\n`, imgMarkdown);
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    } catch (err) {
+      console.error("Upload failed", err);
+      textarea.value = textarea.value.replace(`![Uploading ${file.name}...]()\n`, `*(Failed to upload ${file.name})*\n`);
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }
+}
+
+// --- Twitch-style Agent Monitor ---
+const agentMonitor = $("agent-monitor");
+const agentMonitorLogs = $("agent-monitor-logs");
+const agentMonitorClose = $("agent-monitor-close");
+
+if (agentMonitorClose) {
+  agentMonitorClose.addEventListener("click", () => {
+    agentMonitor.classList.add("hidden");
+  });
+}
+
+function appendAgentLog(record) {
+  // Only show autonomous/background agent logs
+  const isAgent = record.logger && (record.logger.includes("memorymap.ai") || record.message.includes("Agent") || record.logger.includes("autonomous"));
+  if (!isAgent && record.level !== "ERROR") return;
+  
+  if (agentMonitor.classList.contains("hidden")) {
+    agentMonitor.classList.remove("hidden");
+  }
+
+  const div = document.createElement("div");
+  div.className = "monitor-log-item " + record.level.toLowerCase();
+  div.textContent = record.message;
+  
+  agentMonitorLogs.appendChild(div);
+  
+  if (agentMonitorLogs.children.length > 50) {
+    agentMonitorLogs.removeChild(agentMonitorLogs.firstChild);
+  }
+  
+  agentMonitorLogs.scrollTop = agentMonitorLogs.scrollHeight;
+}
+
+let agentLogStreamStarted = false;
+async function streamAgentLogs() {
+  if (agentLogStreamStarted) return;
+  agentLogStreamStarted = true;
+  let cursor = 0;
+  while (true) {
+    try {
+      const response = await fetch(`/logs/stream?after=${cursor}`, {
+        headers: { "X-Auth-Token": authToken() }
+      });
+      if (response.status === 401) {
+         await new Promise(r => setTimeout(r, 5000));
+         continue;
+      }
+      if (!response.ok) throw new Error("stream failed");
+      
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop(); // keep last incomplete line
+        
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const msg = JSON.parse(line);
+          if (msg.cursor) cursor = msg.cursor;
+          
+          if (msg.type === "open") {
+            cursor = msg.latest || cursor;
+          } else if (msg.type === "record") {
+            appendAgentLog(msg.record);
+          }
+        }
+      }
+    } catch (e) {
+      await new Promise(r => setTimeout(r, 5000));
+    }
+  }
+}
+
+// Hook it into startApp
+const originalStartAppAgentHook = window.startApp;
+window.startApp = async function() {
+  if (originalStartAppAgentHook) {
+    await originalStartAppAgentHook.apply(this, arguments);
+  }
+  streamAgentLogs();
+}
+
+// --- Global Command Palette (Ctrl+K) ---
+const cmdPaletteOverlay = $("command-palette-overlay");
+const cmdPaletteInput = $("command-palette-input");
+const cmdPaletteResults = $("command-palette-results");
+
+document.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+    e.preventDefault();
+    if (cmdPaletteOverlay.classList.contains("hidden")) {
+      cmdPaletteOverlay.classList.remove("hidden");
+      cmdPaletteInput.focus();
+    } else {
+      cmdPaletteOverlay.classList.add("hidden");
+    }
+  }
+  if (e.key === "Escape" && !cmdPaletteOverlay.classList.contains("hidden")) {
+    cmdPaletteOverlay.classList.add("hidden");
+  }
+});
+
+cmdPaletteOverlay.addEventListener("click", (e) => {
+  if (e.target === cmdPaletteOverlay) {
+    cmdPaletteOverlay.classList.add("hidden");
+  }
+});
+
+let cmdPaletteConversationId = null;
+
+cmdPaletteInput.addEventListener("keydown", async (e) => {
+  if (e.key === "Enter" && cmdPaletteInput.value.trim()) {
+    const text = cmdPaletteInput.value.trim();
+    cmdPaletteInput.value = "";
+    
+    // Create user bubble
+    const userMsg = document.createElement("div");
+    userMsg.className = "msg user";
+    userMsg.textContent = text;
+    cmdPaletteResults.appendChild(userMsg);
+    
+    // Create agent thinking bubble
+    const agentMsg = document.createElement("div");
+    agentMsg.className = "msg assistant";
+    agentMsg.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+    cmdPaletteResults.appendChild(agentMsg);
+    cmdPaletteResults.scrollTop = cmdPaletteResults.scrollHeight;
+    
+    try {
+      const res = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() },
+        body: JSON.stringify({
+          question: text,
+          conversation_id: cmdPaletteConversationId,
+          mode: "agent", // Command palette is specifically agent mode
+          response_mode: "quick",
+          attachments: []
+        })
+      });
+      if (!res.ok) throw new Error("Chat failed");
+      
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      
+      let answerText = "";
+      agentMsg.innerHTML = "";
+      
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop();
+        
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const msg = JSON.parse(line);
+          
+          if (msg.type === "meta") {
+             cmdPaletteConversationId = msg.conversation_id;
+          } else if (msg.type === "content") {
+             answerText += msg.text;
+             // extremely basic markdown render for palette
+             agentMsg.innerHTML = answerText.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+             cmdPaletteResults.scrollTop = cmdPaletteResults.scrollHeight;
+          }
+        }
+      }
+    } catch (err) {
+      agentMsg.textContent = "Error communicating with agent.";
+      agentMsg.classList.add("error");
+    }
+  }
+});

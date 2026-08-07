@@ -89,8 +89,6 @@
         aria-selected="false" aria-controls="tab-chat" tabindex="-1">Chat</button>
       <button role="tab" id="tab-btn-graph" data-tab="graph"
         aria-selected="false" aria-controls="tab-graph" tabindex="-1">Graph</button>
-      <button role="tab" id="tab-btn-whiteboard" data-tab="whiteboard"
-        aria-selected="false" aria-controls="tab-whiteboard" tabindex="-1">Whiteboard</button>
       <!-- Library replaces Documents in the bar rather than joining it (§36F).
            The Documents *page* is still here and is still where you write; it
            is reached by opening a document from the Library, the same way the
@@ -102,8 +100,6 @@
         aria-selected="false" aria-controls="tab-timeline" tabindex="-1">Timeline</button>
       <button role="tab" id="tab-btn-reminders" data-tab="reminders"
         aria-selected="false" aria-controls="tab-reminders" tabindex="-1">Reminders</button>
-      <button role="tab" id="tab-btn-skills" data-tab="skills"
-        aria-selected="false" aria-controls="tab-skills" tabindex="-1">Skills</button>
     </nav>
     <div class="header-controls">
       <!-- Fixed-width slot: the pill's text changes as status polls land, and
@@ -170,6 +166,28 @@
     </div>
   </div>
 
+  <!-- Global Command Palette -->
+  <div id="command-palette-overlay" class="lock-overlay hidden" style="z-index: 2000; align-items: flex-start; padding-top: 15vh; background: rgba(0,0,0,0.5);">
+    <div class="card glass" style="width: 100%; max-width: 600px; padding: 0;">
+      <div style="padding: 16px; border-bottom: 1px solid var(--border-light); display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 1.2rem;">✨</span>
+        <input id="command-palette-input" type="text" placeholder="Ask the agent to do something... (Esc to close)" style="flex: 1; border: none; background: transparent; font-size: 1.1rem; outline: none; padding: 4px;">
+      </div>
+      <div id="command-palette-results" style="max-height: 400px; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 8px;">
+        <p class="muted" style="margin: 0; text-align: center; font-size: 0.9rem;">Press Enter to send.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Agent Monitor (Twitch-style) -->
+  <aside id="agent-monitor" class="card glass agent-monitor hidden">
+    <div class="row space-between monitor-header" style="padding-bottom: 8px; border-bottom: 1px solid var(--border-light);">
+      <h3 style="margin: 0; font-size: 0.9rem;">🤖 Agent Activity</h3>
+      <button id="agent-monitor-close" class="ghost small">✕</button>
+    </div>
+    <div id="agent-monitor-logs" class="monitor-logs" style="max-height: 200px; overflow-y: auto; padding-top: 8px; font-size: 0.85rem; display: flex; flex-direction: column; gap: 4px;"></div>
+  </aside>
+
   <!-- ======================= DASHBOARD TAB (Wave D) ======================= -->
   <div class="tab-page hidden" id="tab-dashboard" role="tabpanel" aria-labelledby="tab-btn-dashboard" tabindex="-1">
     <!-- Full-width welcome banner: greeting + a line about your notebook,
@@ -200,29 +218,6 @@
       <button id="dash-edit" class="ghost small">Edit layout</button>
     </div>
     <div id="dash-grid"></div>
-  </div>
-
-  <!-- ======================= WHITEBOARD TAB ======================= -->
-  <div class="tab-page hidden" id="tab-whiteboard" role="tabpanel" aria-labelledby="tab-btn-whiteboard" tabindex="-1">
-    <div class="whiteboard-container" id="whiteboard-container">
-      <!-- The pannable/zoomable D3 layer -->
-      <div id="whiteboard-canvas" class="whiteboard-canvas"></div>
-    </div>
-    
-    <div class="whiteboard-toolbar card glass">
-      <button id="wb-zoom-in" class="ghost small" title="Zoom In">➕</button>
-      <button id="wb-zoom-out" class="ghost small" title="Zoom Out">➖</button>
-      <button id="wb-zoom-fit" class="ghost small" title="Fit to Screen">⛶</button>
-      <span class="header-divider" aria-hidden="true"></span>
-      <button id="wb-add-sketch" class="ghost small" title="Add Sketch Card">🎨</button>
-      <button id="wb-add-note" class="ghost small" title="Add Note Card">📝</button>
-    </div>
-    
-    <aside class="whiteboard-sidebar card glass hidden" id="whiteboard-sidebar">
-      <h3>Library</h3>
-      <input type="search" id="wb-search" placeholder="Search notes...">
-      <ul id="wb-library-list" class="wb-library-list"></ul>
-    </aside>
   </div>
 
   <!-- ======================= NOTES TAB (the current app) ================== -->
@@ -1266,83 +1261,137 @@ Link to another note with [[its first few words]]."></textarea>
        list and the chat sidebar's list are both here, and the tab bar is the
        same length it was. A library that duplicated two lists that already
        existed would be a third place to look. -->
-  <div class="tab-page hidden" id="tab-library" role="tabpanel" aria-labelledby="tab-btn-library" tabindex="-1">
-    <section class="card library-controls">
-      <div class="row space-between library-head">
-        <h2>Library</h2>
-        <span class="row">
-          <button id="library-new-doc" class="small" type="button"
-            title="Start a new document">＋ New document</button>
-          <button id="library-refresh" class="ghost small" type="button"
-            title="Reload the list">↻</button>
-        </span>
+  <div class="tab-page hidden" id="tab-library" role="tabpanel" aria-labelledby="tab-btn-library" tabindex="-1" style="flex-direction: column;">
+    <div class="seg library-subtabs" id="library-subtabs" role="tablist" style="margin: 0 0 1.5rem 0; flex-shrink: 0;">
+      <button role="tab" aria-selected="true" data-target="library-view-documents" class="active">Documents</button>
+      <button role="tab" aria-selected="false" data-target="library-view-skills">AI Skills</button>
+      <button role="tab" aria-selected="false" data-target="library-view-whiteboard">Whiteboard</button>
+    </div>
+
+    <div id="library-view-documents" class="library-view-section" style="flex: 1; overflow-y: auto;">
+      <section class="card library-controls glass" style="margin-bottom: 2rem;">
+          <div class="row space-between library-head">
+            <h2>Library</h2>
+            <span class="row">
+              <button id="library-new-doc" class="small" type="button"
+                title="Start a new document">＋ New document</button>
+              <button id="library-refresh" class="ghost small" type="button"
+                title="Reload the list">↻</button>
+            </span>
+          </div>
+          <!-- The state of the notebook, as the numbers a management screen opens
+               with. Derived from the same payload the grid renders, so the header
+               and the grid can never disagree. -->
+          <div id="library-overview" class="library-overview" role="group"
+            aria-label="Your notebook at a glance"></div>
+          <div class="library-toolbar">
+            <input id="library-search" type="search" class="library-search"
+              placeholder="🔎 Search titles and previews…"
+              aria-label="Search the library">
+            <!-- Binned things are out of "Everything" unless you ask for them:
+                 the Library is where you find what you have, and what you threw
+                 away is not that. The Bin chip still shows them whatever this
+                 says, because pressing a filter called Bin is asking. -->
+            <label class="library-sort" style="cursor: pointer; display: flex; align-items: center; gap: 6px;">
+              <input type="checkbox" id="library-show-binned" style="accent-color: var(--accent);">
+              <span class="muted">Include bin</span>
+            </label>
+            <div class="seg seg-compact library-sort-seg" id="library-sort-seg" role="group" aria-label="Sort the library">
+              <button data-sort="recent" class="active" type="button" title="Newest first">Newest</button>
+              <button data-sort="oldest" type="button" title="Oldest first">Oldest</button>
+              <button data-sort="az" type="button" title="A-Z">A-Z</button>
+              <button data-sort="biggest" type="button" title="Biggest first">Biggest</button>
+            </div>
+            <select id="library-sort" hidden>
+              <option value="recent">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="az">A–Z</option>
+              <option value="biggest">Biggest first</option>
+            </select>
+            <!-- Cards to browse, rows to manage. A grid shows you what a thing is;
+                 a list shows you forty of them at once with their metadata in
+                 columns, which is what you want when the job is tidying up. -->
+            <div class="seg seg-compact library-view" id="library-view" role="group"
+              aria-label="How to show the library">
+              <button data-library-view="grid" type="button" title="Cards">▦</button>
+              <button data-library-view="list" type="button" title="Rows">☰</button>
+            </div>
+          </div>
+          <!-- Filled by renderLibraryFilters: one chip per kind, each with its
+               count, so an empty kind says so before you press it. -->
+          <div id="library-filters" class="library-filters" role="group"
+            aria-label="Filter by kind"></div>
+          <!-- Two strips that appear only when they have something to say: the
+               bin's own controls when you are looking at the bin, and the bulk
+               actions when something is selected. A management screen that shows
+               every control it *could* offer is a toolbar you have to read. -->
+          <div id="library-binbar" class="library-contextbar hidden">
+            <span class="muted" id="library-bin-note"></span>
+            <span class="library-contextbar-end">
+              <button id="library-bin-empty" class="ghost small" type="button"
+                title="Permanently delete everything in the bin">🗑 Empty the bin</button>
+            </span>
+          </div>
+          <div id="library-selectbar" class="library-contextbar hidden" role="group"
+            aria-label="Actions for the selected items">
+            <span id="library-selected-count" class="library-selected-count"></span>
+            <span class="library-contextbar-end">
+              <button id="library-bulk-open" class="ghost small" type="button">↗ Open</button>
+              <button id="library-bulk-restore" class="ghost small hidden" type="button">↩ Restore</button>
+              <button id="library-bulk-delete" class="ghost small" type="button">🗑 Delete</button>
+              <button id="library-clear-selection" class="ghost small" type="button">Clear</button>
+            </span>
+          </div>
+        </section>
+        <div id="library-grid" class="library-grid" style="margin-bottom: 3rem;"></div>
+        <p id="library-empty" class="muted library-empty hidden"></p>
+
+        <!-- Inject the Skills section here -->
+    </div>
+
+    <div id="library-view-skills" class="library-view-section hidden" style="flex: 1; overflow-y: auto;">
+      <div style="display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 1rem; align-items: stretch; min-height: 0;">
+        <main>
+          <section id="library-skills-section" class="card glass">
+          <div class="row space-between">
+            <h2>AI Skill Library</h2>
+            <button id="skills-add-new" class="small">+ New Skill</button>
+          </div>
+          <p class="muted">Manage the capabilities of your AI agent. Enable, configure, and review execution logs.</p>
+          <div id="skills-dashboard-list" class="skills-grid"></div>
+        </section>
+
+      
+        </main>
+        <aside class="card glass" id="skills-sidebar">
+        <h2>Skill Logs</h2>
+        <div id="skills-logs-list" class="entry-list"></div>
+      </aside>
       </div>
-      <!-- The state of the notebook, as the numbers a management screen opens
-           with. Derived from the same payload the grid renders, so the header
-           and the grid can never disagree. -->
-      <div id="library-overview" class="library-overview" role="group"
-        aria-label="Your notebook at a glance"></div>
-      <div class="library-toolbar">
-        <input id="library-search" type="search" class="library-search"
-          placeholder="🔎 Search titles and previews…"
-          aria-label="Search the library">
-        <!-- Binned things are out of "Everything" unless you ask for them:
-             the Library is where you find what you have, and what you threw
-             away is not that. The Bin chip still shows them whatever this
-             says, because pressing a filter called Bin is asking. -->
-        <label class="library-sort" style="cursor: pointer; display: flex; align-items: center; gap: 6px;">
-          <input type="checkbox" id="library-show-binned" style="accent-color: var(--accent);">
-          <span class="muted">Include bin</span>
-        </label>
-        <div class="seg seg-compact library-sort-seg" id="library-sort-seg" role="group" aria-label="Sort the library">
-          <button data-sort="recent" class="active" type="button" title="Newest first">Newest</button>
-          <button data-sort="oldest" type="button" title="Oldest first">Oldest</button>
-          <button data-sort="az" type="button" title="A-Z">A-Z</button>
-          <button data-sort="biggest" type="button" title="Biggest first">Biggest</button>
-        </div>
-        <select id="library-sort" hidden>
-          <option value="recent">Newest first</option>
-          <option value="oldest">Oldest first</option>
-          <option value="az">A–Z</option>
-          <option value="biggest">Biggest first</option>
-        </select>
-        <!-- Cards to browse, rows to manage. A grid shows you what a thing is;
-             a list shows you forty of them at once with their metadata in
-             columns, which is what you want when the job is tidying up. -->
-        <div class="seg seg-compact library-view" id="library-view" role="group"
-          aria-label="How to show the library">
-          <button data-library-view="grid" type="button" title="Cards">▦</button>
-          <button data-library-view="list" type="button" title="Rows">☰</button>
-        </div>
-      </div>
-      <!-- Filled by renderLibraryFilters: one chip per kind, each with its
-           count, so an empty kind says so before you press it. -->
-      <div id="library-filters" class="library-filters" role="group"
-        aria-label="Filter by kind"></div>
-      <!-- Two strips that appear only when they have something to say: the
-           bin's own controls when you are looking at the bin, and the bulk
-           actions when something is selected. A management screen that shows
-           every control it *could* offer is a toolbar you have to read. -->
-      <div id="library-binbar" class="library-contextbar hidden">
-        <span class="muted" id="library-bin-note"></span>
-        <span class="library-contextbar-end">
-          <button id="library-bin-empty" class="ghost small" type="button"
-            title="Permanently delete everything in the bin">🗑 Empty the bin</button>
-        </span>
-      </div>
-      <div id="library-selectbar" class="library-contextbar hidden" role="group"
-        aria-label="Actions for the selected items">
-        <span id="library-selected-count" class="library-selected-count"></span>
-        <span class="library-contextbar-end">
-          <button id="library-bulk-open" class="ghost small" type="button">↗ Open</button>
-          <button id="library-bulk-restore" class="ghost small hidden" type="button">↩ Restore</button>
-          <button id="library-bulk-delete" class="ghost small" type="button">🗑 Delete</button>
-          <button id="library-clear-selection" class="ghost small" type="button">Clear</button>
-        </span>
-      </div>
-    </section>
-    <div id="library-grid" class="library-grid"></div>
-    <p id="library-empty" class="muted library-empty hidden"></p>
+    </div>
+
+  <!-- ======================= WHITEBOARD TAB ======================= -->
+  <div id="library-view-whiteboard" class="library-view-section hidden" style="height: 100%;">
+    <div class="whiteboard-container" id="whiteboard-container">
+      <!-- The pannable/zoomable D3 layer -->
+      <div id="whiteboard-canvas" class="whiteboard-canvas"></div>
+    </div>
+    
+    <div class="whiteboard-toolbar card glass">
+      <button id="wb-zoom-in" class="ghost small" title="Zoom In">➕</button>
+      <button id="wb-zoom-out" class="ghost small" title="Zoom Out">➖</button>
+      <button id="wb-zoom-fit" class="ghost small" title="Fit to Screen">⛶</button>
+      <span class="header-divider" aria-hidden="true"></span>
+      <button id="wb-add-sketch" class="ghost small" title="Add Sketch Card">🎨</button>
+      <button id="wb-add-note" class="ghost small" title="Add Note Card">📝</button>
+    </div>
+    
+    <aside class="whiteboard-sidebar card glass hidden" id="whiteboard-sidebar">
+      <h3>Library</h3>
+      <input type="search" id="wb-search" placeholder="Search notes...">
+      <ul id="wb-library-list" class="wb-library-list"></ul>
+    </aside>
+  </div>
   </div>
 
   <!-- ======================= STATUS BAR (§36D) ============================
@@ -2724,7 +2773,7 @@ Link to another note with [[its first few words]]."></textarea>
   </div>
 
   <div id="sketch-overlay" class="hidden" role="dialog" aria-label="Sketch pad">
-    <div class="card" id="sketch-card">
+    <div class="card glass" id="sketch-card">
       <div class="row space-between">
         <h2>Quick sketch</h2>
         <button id="sketch-close" class="ghost small">Close</button>
@@ -2879,25 +2928,7 @@ Link to another note with [[its first few words]]."></textarea>
     </div>
   </div>
 
-  <!-- ======================= SKILLS TAB ======================= -->
-  <div class="tab-page hidden" id="tab-skills" role="tabpanel" aria-labelledby="tab-btn-skills" tabindex="-1">
-    <div class="layout">
-      <main>
-        <section class="card glass">
-          <div class="row space-between">
-            <h2>AI Skill Library</h2>
-            <button id="skills-add-new" class="small">+ New Skill</button>
-          </div>
-          <p class="muted">Manage the capabilities of your AI agent. Enable, configure, and review execution logs.</p>
-          <div id="skills-dashboard-list" class="skills-grid"></div>
-        </section>
-      </main>
-      <aside class="card" id="skills-sidebar">
-        <h2>Skill Logs</h2>
-        <div id="skills-logs-list" class="entry-list"></div>
-      </aside>
-    </div>
-  </div>
+
 
   <!-- Contextual Floating Formatting Menu -->
   <div id="floating-format-menu" class="floating-format-menu hidden card glass" role="toolbar" aria-label="Formatting tools">

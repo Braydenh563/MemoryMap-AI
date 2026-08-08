@@ -53,11 +53,19 @@ Things that are wrong, lose work, or make the app feel unreliable.
    tells the model to take several turns and use tools; `intent.SMALLTALK`
    routes "hey" away from the agent entirely. Reconcile them — the prompt is
    resent every round, so a contradiction is paid for constantly.
-5. **Decide what notifications are for.** Asked directly: "do they actually
-   work? what appears there and when?" — the right question, and the one to
-   answer before adding to them. Audit what raises one today, move the
-   embedding-model-ready message into Background tasks where it belongs, then
-   add reminders. An indicator nobody can predict is noise.
+5. ~~**Decide what notifications are for.**~~ **Already done** — found stale
+   while auditing the list this session (checked before building, per this
+   file's own standing rule). The audit itself: `recordNotification` has
+   exactly three call sites — a chat/skill run that stopped early
+   (`app.js` ~5743), a reminder coming due (~15648, plus folding in anything
+   overdue on the server when the panel opens, ~15525), and every finished
+   background job via `renderTaskHistory` (~17427), which is *every* job
+   `routes_tasks.collect()` lists — including the embedding-model download
+   this session added to that list (§6 below), so it reached the
+   notification centre automatically rather than needing its own wiring.
+   Nothing raises a notification outside those three paths. Verified by
+   tracing every call site, not by driving it in a browser — say so plainly:
+   if this is re-reported, that is the half still worth checking live.
 6. **Background tasks that never appear.** The list is built from
    `routes_tasks.collect()`; anything on a worker thread not registered there
    is invisible. Sweep for unregistered threads and make registration the rule

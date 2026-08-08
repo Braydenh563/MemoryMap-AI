@@ -114,3 +114,34 @@ def test_greeting_without_the_model_still_greets(ai_client, fake_ollama):
     body = ai_client.post("/chat", json={"question": "hey"}).json()
     assert "Hello" in body["ai_response"]
     assert "notes are all still here" in body["ai_response"]
+
+
+# --- answering_agent (Tier 1 §4) -----------------------------------------------
+#
+# The reverse of the bug this file is otherwise about: the agent's own
+# `ask_user` question gets a one-word reply — "yes", "ok" — that
+# intent.classify correctly calls small talk in isolation. Routed as small
+# talk it lands in the tool-less conversational path, so even a model that
+# understood the reply perfectly could not act on it.
+
+
+def test_a_bare_yes_is_ordinarily_smalltalk_not_the_agent(ai_client, fake_ollama):
+    """The baseline the fix has to preserve: without the flag, "yes" behaves
+    exactly as intent.classify says it should — no tools offered."""
+    with ai_client.stream("POST", "/chat/stream", json={"question": "yes"}) as response:
+        list(response.iter_lines())  # drain
+    assert not fake_ollama.tool_rounds  # chat_tools_stream was never reached
+
+
+def test_answering_agent_routes_a_bare_yes_through_the_agent(ai_client, fake_ollama):
+    """With the flag the client sets when a reply answers a pending `ask`
+    event, the same bare "yes" reaches the tool-enabled agent instead."""
+    fake_ollama.tool_script = [
+        [{"name": "tag_note", "arguments": {"note_id": 1, "add": ["confirmed"]}}]
+    ]
+    with ai_client.stream(
+        "POST", "/chat/stream", json={"question": "yes", "answering_agent": True}
+    ) as response:
+        events = [json.loads(line) for line in response.iter_lines() if line]
+    assert fake_ollama.tool_rounds  # reached the agent, not the conversational path
+    assert any(e["type"] == "tool" for e in events)

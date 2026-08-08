@@ -2553,6 +2553,7 @@ async function streamChat({
   skillFromStep,
   plan,
   notesOnly,
+  answeringAgent,
   signal,
   onMeta,
   onPlan,
@@ -2577,6 +2578,13 @@ async function streamChat({
   if (mode) body.mode = mode;
   if (typeof useTools === "boolean") body.use_tools = useTools;
   if (notesOnly) body.notes_only = true;
+  // A reply to the agent's own question ("yes", "ok") reads as small talk to
+  // intent.classify — correctly, in isolation — which would otherwise route
+  // it to the tool-less conversational path and strand whatever the model
+  // was asking about (Tier 1 §4). The caller already knows this reply is
+  // answering a pending `ask` event, so it says so rather than making the
+  // classifier guess from three letters.
+  if (answeringAgent) body.answering_agent = true;
   if (noteIds && noteIds.length) body.note_ids = noteIds;
   // Running a skill sends its name, not its prompt: the server owns what a
   // skill is — the steps, the values, the tools it may use — so the two
@@ -2914,6 +2922,13 @@ async function loadSuggestions() {
 let chatConv = { id: null, turns: [] }; // the open conversation
 let chatController = null;
 let lastChatQuestion = ""; // powers Regenerate / Edit & resend
+// Set while an `ask` card (renderAgentQuestion) is on screen waiting for a
+// reply. Covers typing a free-text answer into the composer, not just
+// clicking one of the option buttons — both are "answering the agent's
+// question" and both need answering_agent set (Tier 1 §4), or a typed "yes"
+// reads as small talk and strands the thing it was actually answering.
+// Consumed (read once, then reset) by the very next sendChatMessage call.
+let chatAwaitingAgentAnswer = false;
 
 // A summary standing in for the first `covered` turns when this conversation
 // is sent to the model (§35I). Deliberately *beside* the turns rather than
@@ -5394,6 +5409,12 @@ async function sendChatMessage(preset, opts = {}) {
   if (!question) return;
   lastChatQuestion = question;
 
+  // Consumed once: this send — button click or free-typed reply alike — is
+  // the answer to whatever question was pending, and the next one after it
+  // is an ordinary message again.
+  const answeringAgent = opts.answeringAgent ?? chatAwaitingAgentAnswer;
+  chatAwaitingAgentAnswer = false;
+
   // Snapshot the attachments for this message. A regenerate re-uses the same
   // ones; a fresh send clears them, so they don't silently ride along on
   // every later question.
@@ -5526,6 +5547,7 @@ async function sendChatMessage(preset, opts = {}) {
       skillInputs: opts.skillInputs,
       skillFromStep: opts.skillFromStep,
       plan: opts.plan,
+      answeringAgent,
       signal: chatController.signal,
       onMeta: (m) => {
         meta = m;
@@ -5598,6 +5620,7 @@ async function sendChatMessage(preset, opts = {}) {
         renderAgentQuestion(card, event);
         timeline.tool(card.firstElementChild || card);
         status.textContent = "Waiting for your answer…";
+        chatAwaitingAgentAnswer = true;
       },
       onRunSkill: (event) => {
         // The model picked a saved skill for this job (§33). Its turn is over;
@@ -5925,6 +5948,9 @@ function newChatConversation() {
   chatSummary = null;
   renderCompressionState();
   lastChatQuestion = "";
+  // A pending question belongs to the conversation that asked it — starting
+  // a new one must not silently answering_agent-tag whatever gets typed first.
+  chatAwaitingAgentAnswer = false;
   $("chat-messages").replaceChildren();
   $("chat-title").textContent = "New chat";
   renderChatUsage(0);
@@ -6521,6 +6547,7 @@ async function openConversation(id) {
   const full = await apiJson(`/conversations/${id}`).catch(() => null);
   if (!full) return;
   chatConv = { id: full.id, turns: [] };
+  chatAwaitingAgentAnswer = false; // a saved thread's own pending ask, if any, isn't answerable live
   // Not carried across conversations, and not persisted: re-deriving it is one
   // click, and a summary restored against the wrong thread would be worse than
   // no summary at all.

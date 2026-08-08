@@ -140,3 +140,20 @@ def test_a_window_can_be_asked_for(client, session):
 def test_a_scale_or_grouping_it_does_not_know_is_refused(client):
     assert client.get("/timeline?scale=fortnight").status_code == 422
     assert client.get("/timeline?group=vibes").status_code == 422
+
+
+def test_a_truncated_preview_says_so(client):
+    """A bare `[:120]` slice cuts a long note off mid-word with nothing on
+    screen to say there's more — reported as the grid view's cards missing
+    an ellipsis. A short note is untouched; a long one ends in one."""
+    from memorymap.api.routes_timeline import PREVIEW_CHARS
+
+    short = _save(client, "a short note well under the preview limit")
+    long_note = _save(client, "x" * (PREVIEW_CHARS + 50))
+
+    body = client.get("/timeline").json()
+    previews = {n["id"]: n["preview"] for n in body["notes"]}
+
+    assert previews[short["id"]] == "a short note well under the preview limit"
+    assert previews[long_note["id"]].endswith("…")
+    assert len(previews[long_note["id"]]) == PREVIEW_CHARS

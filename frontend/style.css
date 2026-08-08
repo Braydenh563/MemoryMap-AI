@@ -11044,7 +11044,17 @@ textarea.autogrow {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   cursor: pointer;
   transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), border-color 0.2s, box-shadow 0.2s, opacity 0.2s;
+  /* Reported as text cut off with no ellipsis. It was worse than missing
+     the "…" — the unprefixed `line-clamp` here paired with a `-webkit-box`
+     display doesn't do anything in this Chromium (`-webkit-line-clamp`
+     computed to `none`), so nothing was actually clamping to 3 lines at
+     all; the card just happened to render one row tall and hard-cropped
+     whatever didn't fit via `overflow: hidden`, mid-word, with no visual
+     sign there was more. `-webkit-line-clamp` is the property this display
+     mode actually reads; kept alongside the standard property for whatever
+     future engine wants that one instead. */
   display: -webkit-box;
+  -webkit-line-clamp: 3;
   line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;

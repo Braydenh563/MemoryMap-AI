@@ -11278,16 +11278,41 @@ function renderTraceReadout(result) {
   box.replaceChildren(...pieces);
 }
 
+// Arc layout puts every node on one shared baseline (`layoutHierarchy`'s
+// `arc` branch — see `arcPath`), which is why *its* edges are curves in the
+// first place: a straight line between two nodes on that baseline is just
+// the baseline itself. The trace overlay drew a straight chord regardless of
+// layout, so in Arc specifically the "highlighted path" sat exactly where
+// the row of ordinary nodes already was — reported as connections being
+// hard to see on non-tree layouts, and this is the layout where the overlay
+// was not just hard to see but nearly the same line as no overlay at all.
+//
+// Taller than `arcPath`'s own curve (0.9 vs 0.6) so the highlighted route
+// arches visibly clear of the row instead of tracking the same shape as the
+// muted, thin edges underneath it — and unlike `arcPath`, which can assume
+// `a.x < b.x` because a pre-order walk always visits a parent before its
+// children, a traced path can run either direction through the hierarchy.
+function tracePath(a, b) {
+  const rx = Math.max(Math.abs(b.x - a.x) / 2, 1);
+  const ry = rx * 0.9;
+  const sweep = a.x <= b.x ? 1 : 0;
+  return `M${a.x},${a.y}A${rx},${ry} 0 0,${sweep} ${b.x},${b.y}`;
+}
+
 // Position the overlay from the nodes it joins. Called once for a laid-out
 // tree, and on every tick of the force simulation, which is why it is a
 // function of the current node objects rather than of stored coordinates.
 function positionTraceLines() {
   if (!graphTraceLines) return;
-  graphTraceLines
-    .attr("x1", (d) => d.from.x)
-    .attr("y1", (d) => d.from.y)
-    .attr("x2", (d) => d.to.x)
-    .attr("y2", (d) => d.to.y);
+  if (graphLayout() === "arc") {
+    graphTraceLines.attr("d", (d) => tracePath(d.from, d.to));
+  } else {
+    graphTraceLines
+      .attr("x1", (d) => d.from.x)
+      .attr("y1", (d) => d.from.y)
+      .attr("x2", (d) => d.to.x)
+      .attr("y2", (d) => d.to.y);
+  }
 }
 
 // (Re)draw the overlay for the current trace. Segments whose notes are not on
@@ -11305,10 +11330,18 @@ function drawTrace() {
           kind: step.kind,
         }))
         .filter((segment) => segment.from && segment.to);
+  // Arc draws the overlay as a <path> (see `tracePath`); every other layout
+  // draws it as a <line>. Switching layout while a trace is active must not
+  // leave the previous shape's elements behind — `.selectAll(tag)` only ever
+  // sees its own tag, so the other one is removed by hand first.
+  const isArc = graphLayout() === "arc";
+  graphTraceLayer.selectAll(isArc ? "line" : "path").remove();
   graphTraceLines = graphTraceLayer
-    .selectAll("line")
+    .selectAll(isArc ? "path" : "line")
     .data(segments)
-    .join("line")
+    .join(isArc ? "path" : "line")
+    // `.graph-path-line` already sets `fill: none` — needed for the <path>
+    // case, harmless on a <line>.
     .attr("class", (d) => `graph-path-line graph-path-${d.kind}`);
   positionTraceLines();
   if (graphNodeSelection) {

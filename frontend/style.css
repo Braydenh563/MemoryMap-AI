@@ -12974,3 +12974,196 @@ textarea.drag-over {
   margin: 0 0 var(--space-4);
   font-size: var(--text-md);
 }
+
+/* --- Trace mode on the graph (§41) --------------------------------------------
+   Trace changes what a click on the map does, so it has to look like a mode
+   while it is on. It was reported as unusable, and the largest part of that
+   was that the map never responded at all — the two ends were chosen from
+   select boxes listing every note in the notebook. */
+#graph-card.is-tracing .graph-node {
+  cursor: crosshair;
+}
+
+#graph-card.is-tracing {
+  outline: 2px solid var(--accent-soft);
+  outline-offset: -2px;
+}
+
+.graph-trace-ends {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* The two ends, read back as chips. An unset end says what the next click
+   does rather than sitting empty — the mode's whole job is to be legible
+   halfway through. */
+.trace-chip {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 14rem;
+}
+
+.trace-chip.is-set {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+.trace-chip.is-empty {
+  border-style: dashed;
+  color: var(--muted);
+}
+
+/* The agent monitor is fixed in the bottom-right corner and the whiteboard's
+   zoom controls sit in the same place, so while the monitor was open the zoom
+   buttons were behind it and could not be clicked at all. Measured in
+   Chromium, not guessed: the monitor is 350px wide and the panel's right edge
+   sat inside it. Lift the panel clear rather than move the monitor — the
+   monitor's corner is consistent across every tab, and the whiteboard is the
+   only surface that competes for it. */
+body.has-agent-monitor .whiteboard-floating-panel.bottom-right {
+  bottom: 14rem;
+}
+
+/* A skill's description wraps onto its own line under the chips. It used to
+   share `.persona-preview`, which is a single nowrap line with an ellipsis —
+   correct for a persona, and for a skill it meant the one field that says what
+   the skill *does* got whatever width five chips had left over, which was
+   about three words. Reported twice. */
+.skill-row {
+  flex-wrap: wrap;
+}
+
+.skill-blurb {
+  flex: 1 0 100%;
+  margin-top: var(--space-2);
+  font-size: var(--text-md);
+  line-height: 1.45;
+  white-space: normal;
+}
+
+/* --- whiteboard fixes (§41) ---------------------------------------------------
+   The selected tool had an `.active` class and no rule to render it, so the
+   toolbar gave no indication of which tool you were holding — you found out by
+   dragging and seeing what happened. */
+.wb-tool-group button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.wb-tool-group button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Closer to the bottom edge, as asked: the palette was floating a whole
+   1rem + panel padding clear of it and reading as unanchored. */
+.whiteboard-floating-panel.bottom-center {
+  bottom: var(--space-3);
+}
+
+/* The library toggle stays clickable while the library is open. The panel is
+   pinned top-right and so is the toggle, so the list covered the only control
+   that would dismiss it — which is why it "can't be closed". The sidebar also
+   starts below the toggle now rather than on top of it, and it has its own ✕. */
+.whiteboard-floating-panel.top-right {
+  z-index: 20;
+}
+
+.whiteboard-sidebar {
+  top: 4.5rem;
+  height: calc(100% - 5.5rem);
+  max-height: calc(100% - 5.5rem);
+}
+
+.wb-sidebar-head {
+  flex: 0 0 auto;
+}
+
+.wb-sidebar-head h3 {
+  margin: 0;
+}
+
+#wb-add-note.is-on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* The "add a preference by hand" row above the list. */
+.memory-add {
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.memory-add input {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+/* --- the documents sidebar's vertical budget (§41) ----------------------------
+   Reported as "the documents list on the side gets crushed", and it was: the
+   list is `flex: 1 1 auto` with `min-height: 0`, and the outline and the help
+   block below it are natural-height siblings that never shrink. So a document
+   with a few headings squeezed the *list of documents* — the thing the sidebar
+   is for — down to two rows with a scrollbar, while a collapsible help panel
+   sat below it at full height.
+
+   The fix is to say what each part is worth. The list gets a floor; the
+   outline gets a ceiling and scrolls inside it; the help block is last in the
+   queue for space because it is a thing you read once. */
+.doc-list {
+  /* About four documents, so the list is still a list at its smallest. */
+  min-height: 9rem;
+}
+
+.doc-outline-wrap {
+  flex: 0 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.doc-outline {
+  min-height: 0;
+  max-height: 14rem;
+  overflow-y: auto;
+}
+
+/* The help disclosure gives up its space first and never forces the column
+   taller than the sidebar. */
+.doc-sidebar > details {
+  flex: 0 0 auto;
+  min-height: 0;
+}
+
+/* Nothing in here may push the column wider than the track it sits in — a
+   long heading, an un-spaced path, or a document title without spaces. */
+.doc-sidebar,
+.doc-sidebar * {
+  min-width: 0;
+}
+
+.doc-item-button,
+.doc-outline a,
+.doc-outline button,
+.doc-outline li {
+  overflow-wrap: anywhere;
+}
+
+.doc-sidebar code,
+.doc-sidebar pre {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}

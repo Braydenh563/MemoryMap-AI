@@ -7046,7 +7046,7 @@ async function saveSkillList(skills) {
 function skillRow(skill) {
   const li = document.createElement("li");
   const row = document.createElement("div");
-  row.className = "entry-meta";
+  row.className = "entry-meta skill-row";
   row.appendChild(chip(skill.name));
   if (skill.builtin) row.appendChild(chip("built-in", "tag"));
   if (skill.changes) row.appendChild(chip("changes notes", "tag"));
@@ -7057,8 +7057,13 @@ function skillRow(skill) {
     row.appendChild(chip(`${skill.tools.length} tools`, "tag"));
   }
   for (const item of skill.inputs || []) row.appendChild(chip(`asks: ${item.name}`, "tag"));
+  // Its own class, not `persona-preview`. That one is `white-space: nowrap`
+  // with an ellipsis, which is right for a persona (one line of voice) and
+  // wrong here: a skill's description is the only thing that says what it
+  // *does*, and clipping it to the width left over after five chips showed
+  // three words. Reported twice. It wraps onto its own line now.
   const note = document.createElement("span");
-  note.className = "muted persona-preview";
+  note.className = "muted skill-blurb";
   note.textContent = skill.description || skill.prompt;
   row.appendChild(note);
   if (!skill.builtin) {
@@ -10879,59 +10884,163 @@ let traceModeActive = false;
 let traceFromNode = null;
 let traceToNode = null;
 
+// The graph was redrawn, so the two picked nodes are stale objects from the
+// previous layout. Re-point them at the new ones by id — dropping them instead
+// would mean a filter change silently threw away the trace you were reading.
 function fillTracePickers(nodes) {
-  const fromSel = $("graph-trace-from");
-  const toSel = $("graph-trace-to");
-  if (!fromSel || !toSel) return;
-  
-  const fromVal = fromSel.value;
-  const toVal = toSel.value;
-  
-  const sorted = [...nodes].sort((a, b) => (a.preview || "").localeCompare(b.preview || ""));
-  const options = `<option value="" disabled selected>Select note...</option>` + 
-    sorted.map(n => `<option value="${n.id}">${escapeHtml(n.preview || String(n.id))}</option>`).join("");
-    
-  fromSel.innerHTML = options;
-  toSel.innerHTML = options;
-  if (fromVal) fromSel.value = fromVal;
-  if (toVal) toSel.value = toVal;
+  const byId = new Map(nodes.map((n) => [String(n.id), n]));
+  if (traceFromNode) traceFromNode = byId.get(String(traceFromNode.id)) || null;
+  if (traceToNode) traceToNode = byId.get(String(traceToNode.id)) || null;
+  renderTraceState();
 }
 
 function setTracePanelOpen(open) {
   traceModeActive = open;
-  if (!open) clearTrace({ quiet: false });
+  if (!open) clearTrace({ quiet: true });
   $("graph-trace").classList.toggle("hidden", !open);
   $("graph-trace-toggle")?.setAttribute("aria-expanded", String(open));
   $("graph-trace-toggle")?.classList.toggle("is-on", open);
+  // A mode has to look like one. Without this the map behaves differently
+  // from a moment ago with nothing on screen saying so, which is the
+  // difference between a tool and a glitch: the cursor becomes a crosshair
+  // over the nodes and the graph card picks up a tinted edge.
+  $("graph-card")?.classList.toggle("is-tracing", open);
   localStorage.setItem("graph-trace-open", open ? "1" : "0");
+  if (open) {
+    renderTraceState();
+    showTraceMessage("Click a note to start.");
+  }
 }
 
-$("graph-trace-from")?.addEventListener("change", (e) => {
-  traceFromNode = graphNodeSelection.data().find(n => String(n.id) === e.target.value);
-  if (traceFromNode && traceToNode) runTrace();
+// Escape leaves the mode. A mode you can only leave by finding the button
+// that started it is a trap, and this one changes what clicking does.
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape" || !traceModeActive) return;
+  // Any *visible* overlay, not merely a present one — and `querySelectorAll`,
+  // not `querySelector`. Nine `.modal-overlay` elements sit in the markup
+  // permanently with `.hidden` on them, so asking for the first one matched a
+  // hidden element every time and Escape appeared to do nothing; asking
+  // whether *the first* is visible would then miss a dialog further down the
+  // document. Escape belongs to whatever is on top of the trace panel.
+  const overlays = [...document.querySelectorAll(".modal-overlay, .confirm-overlay")];
+  if (overlays.some((el) => !el.classList.contains("hidden"))) return;
+  setTracePanelOpen(false);
 });
 
-$("graph-trace-to")?.addEventListener("change", (e) => {
-  traceToNode = graphNodeSelection.data().find(n => String(n.id) === e.target.value);
-  if (traceFromNode && traceToNode) runTrace();
-});
+// --- Trace, redesigned (§41) ------------------------------------------------------
+//
+// Reported as "annoying and pretty much unusable", and it was, for one reason
+// that made everything else about it worse: **the map did not respond.**
+// `traceModeActive` was set and consulted nowhere, so picking the two ends
+// meant using two `<select>` elements that listed every note in the notebook
+// by its opening words. On any real notebook that is a scroll through hundreds
+// of near-identical lines, to choose two notes that are visible on screen.
+//
+// It is a two-click mode now: turn Trace on, click a note, click another. The
+// panel stops being a form and becomes a readout of where you are — which end
+// you are choosing, what is chosen, and a way to swap or undo it. Escape
+// leaves. The rules that make a mode bearable rather than a trap:
+//
+// - it always says what the next click will do (`renderTraceState`);
+// - one click back — Undo removes the last end rather than resetting both;
+// - Swap, because "actually, the other direction" is the commonest correction
+//   and re-picking both to get it is the thing that made this infuriating;
+// - clicking the same note twice is a no-op with a reason, not a silent
+//   failure or a path from a note to itself.
 
+function pickTraceEnd(node) {
+  if (!node) return;
+  if (traceFromNode && String(traceFromNode.id) === String(node.id)) {
+    showTraceMessage("That's already the start — pick a different note to end at.");
+    return;
+  }
+  if (!traceFromNode || traceToNode) {
+    // Starting over: a third click begins a new trace rather than doing
+    // nothing, which is what someone who has read the answer wants next.
+    traceFromNode = node;
+    traceToNode = null;
+    graphTrace = null;
+    drawTrace();
+    applyGraphHighlight();
+  } else {
+    traceToNode = node;
+  }
+  renderTraceState();
+  if (traceFromNode && traceToNode) runTrace();
+}
+
+function traceLabel(node) {
+  const text = (node?.preview || "").trim();
+  return text.length > 32 ? `${text.slice(0, 31)}…` : text || `note #${node?.id}`;
+}
+
+// The panel as a readout: what is chosen, what the next click does, and the
+// two corrections worth having.
+function renderTraceState() {
+  const holder = $("graph-trace-ends");
+  if (!holder) return;
+  holder.replaceChildren();
+
+  const chip = (node, role) => {
+    const span = document.createElement("span");
+    span.className = "trace-chip" + (node ? " is-set" : " is-empty");
+    span.textContent = node ? traceLabel(node) : role;
+    if (node) span.title = node.preview || "";
+    return span;
+  };
+
+  const arrow = document.createElement("span");
+  arrow.className = "graph-trace-arrow";
+  arrow.textContent = "→";
+  arrow.setAttribute("aria-hidden", "true");
+  holder.append(chip(traceFromNode, "click a note to start"), arrow,
+                chip(traceToNode, "then click where to end"));
+
+  if (traceFromNode && traceToNode) {
+    const swap = document.createElement("button");
+    swap.type = "button";
+    swap.className = "ghost small";
+    swap.textContent = "⇄ Swap";
+    swap.title = "Trace the other way round";
+    swap.addEventListener("click", () => {
+      [traceFromNode, traceToNode] = [traceToNode, traceFromNode];
+      renderTraceState();
+      runTrace();
+    });
+    holder.appendChild(swap);
+  }
+  if (traceFromNode) {
+    const back = document.createElement("button");
+    back.type = "button";
+    back.className = "ghost small";
+    back.textContent = "↩ Undo";
+    back.title = "Unpick the last note";
+    back.addEventListener("click", () => {
+      // One step back, not a reset. Mis-clicking the second note should not
+      // cost you the first one.
+      if (traceToNode) traceToNode = null;
+      else traceFromNode = null;
+      graphTrace = null;
+      renderTraceState();
+      drawTrace();
+      applyGraphHighlight();
+      showTraceMessage(traceFromNode ? "Click where to end." : "Click a note to start.");
+    });
+    holder.appendChild(back);
+  }
+}
+
+// Kept for the note context menu, which offers "trace from here".
 function setTraceEnd(which, noteId) {
   setTracePanelOpen(true);
-  const node = graphNodeSelection.data().find(n => String(n.id) === String(noteId));
+  const node = graphNodeSelection?.data().find(n => String(n.id) === String(noteId));
   if (!node) {
     showTraceMessage("That note isn't on the map right now — clear filters and try again.");
     return;
   }
-  if (which === "from") {
-    traceFromNode = node;
-    const sel = $("graph-trace-from");
-    if (sel) sel.value = node.id;
-  } else {
-    traceToNode = node;
-    const sel = $("graph-trace-to");
-    if (sel) sel.value = node.id;
-  }
+  if (which === "from") traceFromNode = node;
+  else traceToNode = node;
+  renderTraceState();
   if (traceFromNode && traceToNode) runTrace();
 }
 
@@ -11588,6 +11697,16 @@ async function renderGraph() {
     )
     .on("click", (event, d) => {
       if (d.isGroup) return; // a category heading, not a note to open
+      // Trace is a *mode*: while it is on, clicking the map picks the two ends
+      // rather than opening notes. This branch is the whole reason Trace was
+      // unusable — `traceModeActive` was set and then consulted nowhere, so
+      // the map stayed inert and the only way to choose a note was two
+      // select boxes listing every note in the notebook by its first words.
+      if (traceModeActive) {
+        event.stopPropagation();
+        pickTraceEnd(d);
+        return;
+      }
       openGraphPopup(event, d);
     })
     // Double-click pins a node where it is; again releases it (Wave M).
@@ -12314,7 +12433,7 @@ function renderGraphPopupActions(entry) {
   // trace, and the next one you pick becomes the other. The label says which
   // end it will be, because a button that does two different things without
   // saying which is a button you have to try to understand.
-  const tracingFrom = Boolean($("graph-trace-from")?.value);
+  const tracingFrom = Boolean(traceFromNode);
   box.appendChild(
     smallButton(
       tracingFrom ? "🛣 Trace to here" : "🛣 Trace from here",
@@ -14317,6 +14436,40 @@ async function saveWebSearchSettings() {
   } catch (error) {
     status.classList.add("error");
     status.textContent = error.message;
+  }
+}
+
+//: Which checkbox in Settings mirrors which one elsewhere in the app. Two
+//: controls for one preference is a reasonable convenience and a reliable way
+//: to get them out of step; this is the list that keeps them honest.
+const MIRRORED_PREFS = {
+  autonomous_tasks_enabled: ["pref-autonomous-tasks", "skills-auto-toggle"],
+  auto_tag_enabled: ["pref-auto-tag", "skills-auto-tag"],
+  auto_link_enabled: ["pref-auto-link", "skills-auto-link"],
+};
+
+// Save one preference without rebuilding the whole object from the DOM.
+//
+// `savePrefs` reads every control on the Preferences screen and PUTs the lot,
+// which is fine when that screen is what you are looking at and wrong when it
+// is not: a control on another panel that saved directly left `prefsCache`
+// stale, and the next `savePrefs` overwrote it from a checkbox nobody had
+// touched. Anything outside the Preferences form should come through here.
+async function setPreference(key, value) {
+  try {
+    prefsCache = await apiJson("/preferences", {
+      method: "PUT",
+      body: JSON.stringify({ [key]: value }),
+    });
+    for (const id of MIRRORED_PREFS[key] || []) {
+      const box = $(id);
+      if (box && box.checked !== value) box.checked = value;
+    }
+    if (key === "autonomous_tasks_enabled") {
+      $("autonomous-settings-panel")?.classList.toggle("hidden", !value);
+    }
+  } catch (error) {
+    toast(error.message || "Couldn't save that setting.", true);
   }
 }
 
@@ -17738,6 +17891,7 @@ function toggleTheme() {
   
   // Clear any custom background colour that would otherwise override the new theme
   localStorage.removeItem("page-bg");
+  localStorage.removeItem("page-bg-dark");
   applyPageBackground(null);
   if (document.getElementById("page-bg-custom")) {
     document.getElementById("page-bg-custom").value = "#f5f7fb";
@@ -18179,6 +18333,7 @@ function applyThemePreset(name, chosenByUser = false) {
       localStorage.removeItem("accent");
       localStorage.removeItem("accent-custom");
       localStorage.removeItem("page-bg");
+      localStorage.removeItem("page-bg-dark");
       applyCustomAccent(null);
       applyPageBackground(null);
     }
@@ -18319,9 +18474,20 @@ function applyHarmony() {
     return;
   }
   localStorage.setItem("accent-custom", scheme.accent);
-  localStorage.setItem("page-bg", scheme.page);
+  // A scheme's background is worked out *for a mode* — the same accent wants a
+  // near-white page in light and a near-black one in dark. Storing only the one
+  // for whichever mode happened to be on is what made the light/dark toggle
+  // "stop working on the background": the stored value is written inline on
+  // <html>, and an inline custom property outranks every `[data-mode="dark"]`
+  // rule in the stylesheet, so the page stayed put while the rest of the UI
+  // changed around it. Both are computed and stored; `currentPageBackground`
+  // picks the right one whenever the mode changes.
+  const dark = harmonyScheme(base, kind, true);
+  const light = harmonyScheme(base, kind, false);
+  localStorage.setItem("page-bg", light ? light.page : scheme.page);
+  localStorage.setItem("page-bg-dark", dark ? dark.page : scheme.page);
   applyCustomAccent(scheme.accent);
-  applyPageBackground(scheme.page);
+  applyPageBackground(currentPageBackground());
   renderAppearance();
   note.textContent =
     `Accent ${scheme.accent}, background ${scheme.page}. ` +
@@ -18486,6 +18652,17 @@ function applyPageBackground(hex) {
   else root.style.removeProperty("--page");
 }
 
+// The custom page background for the mode that is actually showing.
+//
+// `page-bg-dark` is only set by the scheme builder, which knows both. A
+// background picked by hand from the colour input stays one colour in both
+// modes, which is what picking one colour means.
+function currentPageBackground() {
+  const dark = localStorage.getItem("page-bg-dark");
+  if (dark && resolvedTheme() === "dark") return dark;
+  return appearancePref("page-bg");
+}
+
 // User CSS lives in one stylesheet we own, so applying and clearing is clean.
 //
 // A constructed stylesheet rather than a <style> tag, because the app now
@@ -18563,7 +18740,7 @@ function applyAppearance() {
   // whatever colour the palette just supplied.
   applyEffectiveAccent();
   // A theme may set the page colour; your own pick overrides it.
-  applyPageBackground(appearancePref("page-bg"));
+  applyPageBackground(currentPageBackground());
   applyCustomCss(localStorage.getItem("custom-css"));
 }
 
@@ -18586,6 +18763,10 @@ function resolvedTheme() {
 
 function applyResolvedMode() {
   document.documentElement.dataset.mode = resolvedTheme();
+  // Light and dark can want different custom backgrounds, and the stored one
+  // is written inline — so it has to be re-picked here rather than left to the
+  // stylesheet, which cannot outrank it.
+  applyPageBackground(currentPageBackground());
 }
 
 // Follow the OS while the choice is "System", without a reload.
@@ -18610,6 +18791,7 @@ function applyThemeChoice(choice, remember = true) {
   // colour is overriding the new theme's native background.
   if (remember) {
     localStorage.removeItem("page-bg");
+    localStorage.removeItem("page-bg-dark");
     applyPageBackground(null);
     if ($("page-bg-custom")) $("page-bg-custom").value = "#f5f7fb";
   }
@@ -19435,6 +19617,7 @@ $("page-bg-custom").addEventListener("input", (e) => {
 });
 $("page-bg-clear").addEventListener("click", () => {
   localStorage.removeItem("page-bg");
+  localStorage.removeItem("page-bg-dark");
   applyPageBackground(null);
   renderAppearance();
 });
@@ -19694,6 +19877,31 @@ async function renderAutonomousReview() {
   list.replaceChildren(...changes.map((change) => changeRow(change)));
 }
 
+async function addMemoryByHand() {
+  const input = $("memory-new");
+  const status = $("memory-status");
+  const text = (input?.value || "").trim();
+  status.classList.add("hidden");
+  status.classList.remove("error");
+  if (!text) return;
+  try {
+    await apiJson("/memory", { method: "POST", body: JSON.stringify({ content: text }) });
+    input.value = "";
+    renderMemorySettings();
+  } catch (error) {
+    status.textContent = error.message || "Couldn't save that.";
+    status.classList.remove("hidden");
+    status.classList.add("error");
+  }
+}
+
+$("memory-add")?.addEventListener("click", addMemoryByHand);
+$("memory-new")?.addEventListener("keydown", (e) => {
+  // Enter saves. Typing a one-line rule and having to reach for the mouse is
+  // the kind of small friction that stops people using a feature at all.
+  if (e.key === "Enter") { e.preventDefault(); addMemoryByHand(); }
+});
+
 $("autonomous-review-clear")?.addEventListener("click", async () => {
   await api("/tasks/autonomous/last/clear", { method: "POST" }).catch(() => {});
   renderAutonomousReview();
@@ -19737,27 +19945,19 @@ $("log-list").addEventListener("scroll", () => {
   $("log-follow-label").classList.toggle("is-paused", !logFollowPinned);
 });
 
-// The three sidebar buttons open the Library on their kind now (§36G). Each
-// was a panel that only existed on the Notes tab, and each is a *finding*
-// surface — the bin, the activity log and the tag list are all "show me the
-// things of this sort", which is the Library's whole job. Keeping the panels
-// as well would leave two places for each of them, which is the problem the
-// Library was built to end.
-function openLibraryOn(kind) {
-  switchTab("library");
-  libraryKind = kind;
-  if (kind === "archived" && $("library-show-binned")) {
-    $("library-show-binned").checked = true;
-  }
-  // loadLibrary re-renders from the server; these paint the chosen chip
-  // immediately so the tab does not flash "Everything" on the way there.
-  renderLibraryOverview();
-  renderLibraryFilters();
-  renderLibrary();
-}
-$("bin-btn")?.addEventListener("click", () => openLibraryOn("archived"));
-$("activity-btn")?.addEventListener("click", () => openLibraryOn("activity"));
-$("tags-btn")?.addEventListener("click", () => openLibraryOn("tag"));
+// There is no Tags / Recycle bin / Activity shortcut in the notes sidebar, and
+// `openLibraryOn` went with them. The buttons were dropped once with their
+// handlers left behind (which is how `test_frontend_ids` found three ids that
+// nothing defined), briefly restored during the §40 audit on the assumption
+// the removal had been accidental, and then removed again — deliberately this
+// time, because the owner asked for it.
+//
+// The reasoning is the Library's own (§36G): the bin, the activity log and the
+// tag list are all "show me the things of this sort", which is what the
+// Library is, and it reaches each of them through its own filter chips. A
+// second door in a sidebar that is meant to be a category list is exactly the
+// "too much in one place, clashing with the text beside it" this app has been
+// asked to stop doing.
 $("entry-template").addEventListener("change", applyTemplate);
 
 // Chat tab (Wave C).
@@ -21747,13 +21947,18 @@ async function initWhiteboard() {
   document.getElementById("wb-zoom-fit").addEventListener("click", () => container.transition().call(wbZoom.transform, d3.zoomIdentity));
   
   // Sidebar toggling
-  document.getElementById("wb-add-note").addEventListener("click", () => {
-    const sidebar = document.getElementById("whiteboard-sidebar");
-    sidebar.classList.toggle("hidden");
-    if (!sidebar.classList.contains("hidden")) {
-      renderWbLibrary();
-    }
+  const setWbLibraryOpen = (open) => {
+    const sidebar = $("whiteboard-sidebar");
+    sidebar.classList.toggle("hidden", !open);
+    $("wb-add-note")?.classList.toggle("is-on", open);
+    if (open) renderWbLibrary();
+  };
+  $("wb-add-note").addEventListener("click", () => {
+    // Toggling on the class rather than reading it back: the panel covers the
+    // toggle, so "click it again to close" was not reachable.
+    setWbLibraryOpen($("whiteboard-sidebar").classList.contains("hidden"));
   });
+  $("wb-library-close")?.addEventListener("click", () => setWbLibraryOpen(false));
 
   const btnAddSketch = document.getElementById("wb-add-sketch");
   if (btnAddSketch) {
@@ -21984,7 +22189,12 @@ async function fetchWhiteboardState() {
         allEntries.forEach(e => {
           const opt = document.createElement("option");
           opt.value = e.id;
-          opt.textContent = `Board: ${e.title || e.preview || "Note " + e.id}`;
+          // `title`/`preview` are not fields on an entry — the only text an
+          // entry carries is `content` — so this always fell through to
+          // "Note 25", and a list of id numbers is not a list of boards.
+          const words = notePreviewText ? notePreviewText(e.content || "") : (e.content || "");
+          const label = words.trim().slice(0, 38) || `Note ${e.id}`;
+          opt.textContent = words.length > 38 ? `${label}…` : label;
           select.appendChild(opt);
         });
       }
@@ -22179,11 +22389,30 @@ async function dragEndNode(event, d) {
        }
     }
   } else {
-    // Sync back to API
+    // Sync back to API.
+    //
+    // `board_id` has to go with it. The server takes the whole node on a PUT,
+    // so omitting it read as "move this to the global board" — dragging a card
+    // on a named board silently moved it off that board.
+    //
+    // And a 404 here is recoverable rather than fatal: it means this client's
+    // copy of the board is stale (the note was purged, or the board was
+    // rebuilt). Refetching puts the screen back in step; leaving it, as this
+    // did, shows a card sitting where you dropped it that is not saved
+    // anywhere — the worst of both answers.
     try {
-      await apiJson(`/whiteboard/nodes/${d.id}`, { method: "PUT", body: JSON.stringify({ entry_id: d.entry_id, x: d.x, y: d.y, z: d.z }) });
+      await apiJson(`/whiteboard/nodes/${d.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          entry_id: d.entry_id,
+          board_id: d.board_id ?? window.currentBoardId ?? null,
+          x: d.x, y: d.y, z: d.z,
+        }),
+      });
     } catch (err) {
-      console.error("Failed to update node coordinates", err);
+      recordBrowserLog("WARN", [`[Whiteboard] card ${d.id} is stale — reloading the board`]);
+      await fetchWhiteboardState();
+      renderWhiteboard();
     }
   }
 }
@@ -22341,21 +22570,27 @@ async function renderSkillsDashboard() {
   `;
   container.appendChild(autoDiv);
 
-  // Hook up autonomous toggles
-  setTimeout(() => {
-    const autoToggle = document.getElementById("skills-auto-toggle");
-    if (autoToggle) autoToggle.addEventListener("change", async (e) => {
-      await apiJson("/preferences", { method: "PUT", body: JSON.stringify({ autonomous_tasks_enabled: e.target.checked }) });
-      toast("Autonomous workers updated");
-    });
-    
-    document.getElementById("skills-auto-tag")?.addEventListener("change", async (e) => {
-      await apiJson("/preferences", { method: "PUT", body: JSON.stringify({ auto_tag_enabled: e.target.checked }) });
-    });
-    document.getElementById("skills-auto-link")?.addEventListener("change", async (e) => {
-      await apiJson("/preferences", { method: "PUT", body: JSON.stringify({ auto_link_enabled: e.target.checked }) });
-    });
-  }, 50);
+  // The autonomous toggles that live on this panel as well as in Settings →
+  // Background tasks. Reported as **"the automated tasks option keeps
+  // automatically disabling itself even when turned on"**, and it did:
+  //
+  // These wrote straight to the server and updated nothing locally. `savePrefs`
+  // — which seven other controls call on every change — then rebuilt the whole
+  // preferences object from the DOM, reading `#pref-autonomous-tasks`, the
+  // *other* checkbox, which nobody had ticked. So enabling it here and then
+  // touching any unrelated setting silently switched it back off.
+  //
+  // `setPreference` is the fix in one place: it saves, updates `prefsCache` so
+  // the next `savePrefs` sends the right value, and reconciles the mirrored
+  // control so the two screens cannot disagree.
+  for (const [id, key] of [
+    ["skills-auto-toggle", "autonomous_tasks_enabled"],
+    ["skills-auto-tag", "auto_tag_enabled"],
+    ["skills-auto-link", "auto_link_enabled"],
+  ]) {
+    const box = $(id);
+    if (box) box.addEventListener("change", (e) => setPreference(key, e.target.checked));
+  }
   
   const grid = document.createElement("div");
   grid.className = "skills-grid";
@@ -22540,10 +22775,18 @@ const agentMonitor = $("agent-monitor");
 const agentMonitorLogs = $("agent-monitor-logs");
 const agentMonitorClose = $("agent-monitor-close");
 
+// The monitor is `position: fixed` in the bottom-right corner, which is also
+// where the whiteboard keeps its zoom controls — so while it was open those
+// controls were behind it and simply could not be clicked. A floating panel
+// that covers a fixed control is a broken control, so the app is told when the
+// monitor is showing and the whiteboard lifts its panel clear.
+function setAgentMonitorVisible(visible) {
+  agentMonitor.classList.toggle("hidden", !visible);
+  document.body.classList.toggle("has-agent-monitor", visible);
+}
+
 if (agentMonitorClose) {
-  agentMonitorClose.addEventListener("click", () => {
-    agentMonitor.classList.add("hidden");
-  });
+  agentMonitorClose.addEventListener("click", () => setAgentMonitorVisible(false));
 }
 
 function appendAgentLog(record) {
@@ -22551,9 +22794,7 @@ function appendAgentLog(record) {
   const isAgent = record.logger && (record.logger.includes("memorymap.ai") || record.message.includes("Agent") || record.logger.includes("autonomous"));
   if (!isAgent && record.level !== "ERROR") return;
   
-  if (agentMonitor.classList.contains("hidden")) {
-    agentMonitor.classList.remove("hidden");
-  }
+  if (agentMonitor.classList.contains("hidden")) setAgentMonitorVisible(true);
 
   const div = document.createElement("div");
   div.className = "monitor-log-item " + record.level.toLowerCase();

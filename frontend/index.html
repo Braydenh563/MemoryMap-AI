@@ -231,17 +231,6 @@
           <h2>Most used</h2>
           <ul id="most-used"></ul>
         </div>
-        <!-- One tap from the notes list to the three Library views people
-             actually go looking for. These were dropped from the markup while
-             their click handlers stayed in app.js, so the shortcuts vanished
-             and `test_frontend_ids` started reporting three ids that nothing
-             defined. The views are still reachable through the Library's own
-             filter chips; this is the shortcut, not the only door. -->
-        <div class="sidebar-tools">
-          <button id="tags-btn" class="ghost small">🏷 Tags</button>
-          <button id="bin-btn" class="ghost small">🗑 Recycle bin</button>
-          <button id="activity-btn" class="ghost small">📜 Activity</button>
-        </div>
       </aside>
 
       <main>
@@ -938,14 +927,13 @@ Link to another note with [[its first few words]]."></textarea>
       <div class="graph-trace hidden" id="graph-trace" role="group"
         aria-label="Trace the connection between two notes">
         <span class="graph-trace-label">🔍 Trace</span>
-        <select id="graph-trace-from" aria-label="Starting note">
-          <option value="" disabled selected>Start from...</option>
-        </select>
-        <span class="graph-trace-arrow">→</span>
-        <select id="graph-trace-to" aria-label="Destination note">
-          <option value="" disabled selected>End at...</option>
-        </select>
-        <button id="graph-trace-clear" class="ghost small" title="Cancel or clear the traced path">Clear</button>
+        <!-- Two chips and, once both ends are picked, Swap and Undo. These
+             replaced two <select>s that listed every note in the notebook by
+             its opening words — the reason Trace was reported as unusable. The
+             ends are chosen by clicking the map now; this reads back what you
+             chose and what the next click will do. -->
+        <div class="graph-trace-ends" id="graph-trace-ends"></div>
+        <button id="graph-trace-clear" class="ghost small" title="Leave trace mode (Esc)">Done</button>
       </div>
       <p id="graph-trace-result" class="graph-trace-result hidden" role="status"></p>
       <p id="graph-stats" class="muted graph-stats" role="status"></p>
@@ -1432,8 +1420,14 @@ Link to another note with [[its first few words]]."></textarea>
     </div>
     
     <aside class="whiteboard-sidebar card glass hidden" id="whiteboard-sidebar">
-      <h3>Library</h3>
-      <input type="search" id="wb-search" placeholder="Search notes...">
+      <!-- Its own close button. The panel sits at top-right, which is exactly
+           where the 📝 Library toggle is, so the list covered the only control
+           that would have dismissed it. -->
+      <div class="row space-between wb-sidebar-head">
+        <h3>Library</h3>
+        <button id="wb-library-close" class="ghost small" title="Close the library">✕</button>
+      </div>
+      <input type="search" id="wb-search" placeholder="Search notes…">
       <ul id="wb-library-list" class="wb-library-list"></ul>
     </aside>
   </div>
@@ -1770,6 +1764,14 @@ Link to another note with [[its first few words]]."></textarea>
               list, and you can switch any of them off or delete them.
             </p>
             <p class="muted" id="memory-budget"></p>
+            <!-- Adding one by hand. The tool covers "tell it in conversation";
+                 this covers "I already know what I want it to always do". -->
+            <div class="row memory-add">
+              <input id="memory-new" type="text" maxlength="200"
+                placeholder="e.g. Always answer in British English">
+              <button id="memory-add" class="small">Remember this</button>
+            </div>
+            <p class="status hidden" id="memory-status" role="status"></p>
             <div id="memory-list" class="memory-list"></div>
             <p class="muted hidden" id="memory-empty">
               Nothing saved yet. Tell the AI a preference in chat and ask it to

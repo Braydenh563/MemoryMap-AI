@@ -416,6 +416,49 @@ def list_memory(session: Session = Depends(get_session)) -> dict:
     }
 
 
+@router.post("/memory", status_code=201)
+def add_memory(body: PreferenceBody, session: Session = Depends(get_session)) -> dict:
+    """Write a standing instruction by hand.
+
+    `save_user_preference` lets the *model* add one when you tell it something
+    in conversation. This is the other direction, and it is the one people
+    reach for first: "I want it to always do X" is a thing you know before you
+    have had the conversation that would teach it.
+
+    Same limits as the tool, deliberately — the cap exists because every active
+    preference is replayed into the system prompt on every round, and that is
+    true whoever typed it.
+    """
+    from memorymap.ai.tools import MAX_ACTIVE_PREFERENCES
+    from memorymap.core.database import UserPreference
+
+    text_ = (body.content or "").strip()
+    if not text_:
+        raise HTTPException(status_code=422, detail="A preference can't be empty.")
+
+    active = list(
+        session.scalars(
+            select(UserPreference).where(UserPreference.active == True)  # noqa: E712
+        )
+    )
+    if any((row.content or "").strip().lower() == text_.lower() for row in active):
+        raise HTTPException(status_code=409, detail="That one is already saved.")
+    if len(active) >= MAX_ACTIVE_PREFERENCES:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"There are already {len(active)} saved preferences, which is the "
+                "limit. Turn one off before adding another."
+            ),
+        )
+
+    row = UserPreference(content=text_)
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return _preference_out(row)
+
+
 @router.patch("/memory/{preference_id}")
 def update_memory(
     preference_id: int, body: PreferenceBody, session: Session = Depends(get_session)

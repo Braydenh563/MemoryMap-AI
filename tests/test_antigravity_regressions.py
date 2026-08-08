@@ -568,3 +568,80 @@ def deps_backend_id_patch(monkeypatch):
     service = deps.get_embeddings()
     monkeypatch.setattr(service, "backend_id", lambda: "some-other-model")
     return "some-other-model"
+
+
+# --- reported directly, after the audit (§41) ------------------------------------
+
+
+def test_a_preference_can_be_added_by_hand(ai_client):
+    """`save_user_preference` is the model's door in. "I already know what I
+    want it to always do" needed one too, and was the first thing asked for
+    once the list became visible."""
+    made = ai_client.post("/memory", json={"content": "Never use emoji"})
+    assert made.status_code == 201
+    assert made.json()["content"] == "Never use emoji"
+    assert [p["content"] for p in ai_client.get("/memory").json()["preferences"]] == [
+        "Never use emoji"
+    ]
+
+
+def test_adding_the_same_preference_twice_is_refused(ai_client):
+    ai_client.post("/memory", json={"content": "Be brief"})
+    assert ai_client.post("/memory", json={"content": "  be BRIEF "}).status_code == 409
+
+
+def test_an_empty_preference_is_refused(ai_client):
+    assert ai_client.post("/memory", json={"content": "   "}).status_code == 422
+
+
+def test_a_hand_written_preference_is_capped_like_the_tools(ai_client):
+    from memorymap.ai.tools import MAX_ACTIVE_PREFERENCES
+
+    for i in range(MAX_ACTIVE_PREFERENCES):
+        assert ai_client.post("/memory", json={"content": f"rule {i}"}).status_code == 201
+    # The cap exists because every active preference is replayed into the
+    # system prompt on every round — true whoever typed it.
+    assert ai_client.post("/memory", json={"content": "one too many"}).status_code == 409
+
+
+def test_moving_a_card_keeps_it_on_its_board(ai_client, session):
+    """`PUT /whiteboard/nodes/{id}` takes the whole node, and the browser was
+    not sending `board_id` — so dragging a card on a named board read as "move
+    this to the global board" and it vanished from the board you were looking
+    at."""
+    entry = _note(session, "a note")
+    board = _note(session, "a board")
+    node = ai_client.post(
+        "/whiteboard/nodes", json={"entry_id": entry.id, "board_id": board.id}
+    ).json()
+
+    moved = ai_client.put(
+        f"/whiteboard/nodes/{node['id']}",
+        json={"entry_id": entry.id, "board_id": board.id, "x": 40, "y": 50},
+    )
+    assert moved.status_code == 200
+    assert moved.json()["board_id"] == board.id
+    on_board = ai_client.get(f"/whiteboard/?board_id={board.id}").json()
+    assert [n["id"] for n in on_board["nodes"]] == [node["id"]]
+
+
+def test_the_frontend_sends_the_board_when_it_moves_a_card():
+    """The guard for the half of that bug that lives in the browser."""
+    from memorymap.api.app import FRONTEND_DIR
+
+    app_js = (FRONTEND_DIR / "app.js").read_text(encoding="utf-8")
+    save = app_js[app_js.index("// Sync back to API.") :][:900]
+    assert "board_id" in save, "the coordinate save must carry the card's board"
+
+
+def test_a_skill_description_is_not_clipped_to_one_line():
+    """Reported twice. The row reused `.persona-preview`, which is nowrap with
+    an ellipsis — so the only field saying what a skill *does* got whatever
+    width was left after five chips."""
+    from memorymap.api.app import FRONTEND_DIR
+
+    app_js = (FRONTEND_DIR / "app.js").read_text(encoding="utf-8")
+    css = (FRONTEND_DIR / "style.css").read_text(encoding="utf-8")
+    assert 'note.className = "muted skill-blurb"' in app_js
+    blurb = css[css.index(".skill-blurb {") :][: css[css.index(".skill-blurb {") :].index("}")]
+    assert "white-space: normal" in blurb

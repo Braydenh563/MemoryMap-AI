@@ -45,11 +45,20 @@ theorising, and say plainly when you could not.
 sandbox has Chromium and Playwright, and the app runs on localhost:
 
 ```bash
-MEMORYMAP_DATA_DIR=<scratch>/appdata .venv/bin/python -m uvicorn \
-    memorymap.api.app:create_app --factory --port 8781 &
+# setsid, not plain &. `pkill -f uvicorn` kills your own shell here (same
+# process group, exit 144) — start it detached and leave it running.
+setsid env PYTHONPATH=src MEMORYMAP_DATA_DIR=<scratch>/appdata \
+    .venv/bin/python -m uvicorn memorymap.api.app:create_app \
+    --factory --port 8781 > <scratch>/server.log 2>&1 < /dev/null &
 # then drive it: node script.js, requiring
 # /opt/node22/lib/node_modules/playwright, with PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers
 ```
+
+**Two Playwright traps, each worth an hour:** `waitUntil: "networkidle"` never
+settles against this app — it polls reminders, model status and tasks, so
+`goto` and `reload` both time out at 30s. Use `domcontentloaded` plus an
+explicit `waitForTimeout`. And the login is *one* field in two modes, not a
+setup/confirm pair: fill `#lock-password`, click `#lock-submit`.
 
 Unlock with the password you set on first run, skip `#onboarding-overlay`, and
 you can click, measure and screenshot. One sitting of this found three bugs
@@ -58,6 +67,41 @@ desktop app run yesterday's `app.js` (which is why a fixed button gets
 reported broken *again*), a reminder poll running on two timers, and a tab
 clipped off the left edge. **Measure and look before you claim a UI change
 works — and still say plainly what you did not check.**
+
+A later sitting found the worst UI bug in the project's history the same way,
+and it is the best argument for this rule: two settings were missing from
+`APPEARANCE_DEFAULTS`, so `undefined` and `NaN` were written into two CSS
+custom properties, and **every card, field and dialog in the app rendered flat
+and borderless on every fresh profile.** Nothing logged, nothing threw, and the
+source reads as correct at every single line involved. One `getComputedStyle`
+found it. The shape to remember: *a value that is invalid where it is used, not
+where it is set, does its damage nowhere near the code that caused it.*
+
+## Reviewing work that came from somewhere else
+
+A week of another agent's work was merged-in and audited (§40). It was not bad
+work — the features were good ideas and several are now core — but it arrived
+with 90 failing tests, and the failures had four recurring shapes. Look for
+these first, in this order, because they are cheap to check and expensive to
+miss:
+
+1. **A working thing rewritten into a riskier thing**, with no stated reason.
+   `/chat/stream` became a WebSocket: nothing gained, and it cost thread-safety,
+   the auth gate and the same-origin policy.
+2. **Features that never ran once.** Not buggy — never executed. A `start()`
+   never called, a function that does not exist called inside a broad `except`,
+   a method name that appears nowhere else in the codebase. Grep for the call
+   site of anything new before believing it works.
+3. **A guard removed while the shape around it was kept.** Two tools grew batch
+   arguments and quietly stopped calling `_require_note`, which is the only
+   thing that refuses a private note. The code still looked right.
+4. **A policy silently refusing the work.** Thirty-five inline `style`
+   attributes, all rejected by this app's own CSP, all invisible until a
+   browser was pointed at them.
+
+**Run the suite against the base branch first.** Knowing `main` had exactly two
+failures — both a time-bomb in a dated test, not the other agent's doing — was
+what made "everything else here is new" a fact rather than a guess.
 
 ## Working here
 

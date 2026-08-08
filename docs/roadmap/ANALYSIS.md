@@ -648,3 +648,61 @@ against my idea of what Ollama does". One nightly job that pulls a 2B model and
 runs ten real turns through both providers would have caught the `think: false`
 rejection *before* I shipped it, rather than because I happened to read
 `/api/show`'s capability list an hour later.
+
+
+---
+
+## 34b. Judging another agent's branch — what was kept, and on what grounds
+
+Companions: [../ROADMAP.md](../ROADMAP.md) · [BACKLOG.md](BACKLOG.md) ·
+[HISTORY.md](HISTORY.md) · [HANDOVER.md](HANDOVER.md).
+
+The `fix/Antigravity-Audit` branch was ~9,600 insertions from a different
+coding agent with no tests. The temptation with a branch like that is to judge
+it as a whole — either trust it or throw it out. Both are wrong, and the ratio
+is why: **one thing was reverted and everything else was kept.**
+
+The test applied to each piece, in order:
+
+1. **Does it do something the app wanted?** Almost everything did. The
+   whiteboard, memory streams, semantic note search, the command palette, the
+   background librarian and the activity monitor between them close five items
+   that had been sitting in IDEAS.md for months.
+2. **Is the mechanism defensible, separately from the feature?** This is where
+   the WebSocket failed and nothing else did. The feature ("stream the answer")
+   was already working; the new mechanism cost thread-safety, the auth gate and
+   the same-origin policy, and bought nothing on a local-first app. A feature
+   can be right and its mechanism still be the wrong trade.
+3. **What does it cost at scale?** Several pieces were vectorised with NumPy,
+   which was a real improvement over per-pair Python loops — but two of them
+   allocated an N×N matrix to do it, which is a memory regression hiding inside
+   a speed win. Kept the vectorisation, blocked the matrix (§34's O(n²) note
+   now has a resolution for two of its three sites).
+4. **Would anyone notice if it silently did nothing?** This is the question
+   that found the most. Four separate features had never executed once, and
+   every one of them was invisible: an exception swallowed by a broad `except`,
+   a `start()` never called, a method that does not exist, a CSP quietly
+   refusing thirty-five declarations.
+
+### The general lesson, which is not about this agent
+
+Every failure in categories 2–4 above shares a property: **the code reads as
+correct.** A reviewer checking "does this look right" passes all of them. What
+caught them was running the suite, running the linter, and pointing a browser
+at the result — three things that take minutes and that the branch had never
+had done to it, because it shipped without tests and CI never ran.
+
+So the process conclusion is narrower and more useful than "review harder":
+**a branch that cannot run CI has not been reviewed, however carefully it has
+been read.** The 46 tests and 4 lints added in §40 exist so that the next such
+branch is judged in minutes rather than in a session.
+
+### The one thing deliberately not decided
+
+`edit_note` was changed to `destructive=True`, so the agent now pauses for
+confirmation on every edit rather than only on deletes. That is defensible —
+an edit overwrites content — and it is also an unannounced change to how
+multi-step agent work feels, and it interacts badly with the background
+librarian, which abandons a run rather than ask. Left as it arrived, and
+flagged in §40's open list, because "which of those two costs more" is a
+product judgement rather than a correctness one.

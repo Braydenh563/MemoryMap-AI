@@ -2265,3 +2265,40 @@ them are close to being built:
   MemoryMap does today.
 
 ---
+
+
+## 29b. Carried out of the §40 audit
+
+Full context in [../ROADMAP.md §40](../ROADMAP.md#40-the-antigravity-audit);
+the features these attach to are described in §39. Companions:
+[ANALYSIS.md](ANALYSIS.md) · [HISTORY.md](HISTORY.md) ·
+[HANDOVER.md](HANDOVER.md).
+
+Ranked. The first two are the same problem wearing two hats — a feature that
+changes the app's behaviour without showing the user what it did:
+
+1. **A memory-stream screen.** `save_user_preference` lets the model write
+   standing instructions into its own future system prompts. There is no UI:
+   the user cannot list them, edit one, or turn one off. The `user_preferences.
+   active` column exists precisely for that and nothing sets it. Small piece of
+   work, and it is the difference between a helpful feature and an
+   unexplainable one.
+2. **A dry-run for the background librarian.** Turning it on lets an agent edit
+   the notebook unattended. There is no preview. `taskhistory` records each run
+   and the agent already emits `change` events with undo payloads, so "here is
+   what the last pass did, undo any of it" is mostly assembly.
+3. **Whiteboard cards outlive their notes.** No cascade on `whiteboard_nodes.
+   entry_id`, no sweep. `embeddings.clean_orphaned_vectors` is the pattern.
+4. **`graph_local` costs a full notebook scan** to draw a local neighbourhood:
+   every entry loaded, a full similarity sweep, and a PageRank over every node.
+   Correct, and the opposite of what "focus mode" should cost.
+5. **PageRank runs on every `/graph` call, uncached.** With similarity edges on,
+   this is now the most expensive endpoint in the app. Centrality changes when
+   the graph changes, so it wants invalidation on write rather than a TTL.
+6. **`/media/{filename}` serves uploads same-origin with no type restriction.**
+   No traversal — the name goes through `safe_filename` — but an uploaded
+   `.svg` or `.html` is served from the app's own origin, and the AI can write
+   here too. A `Content-Disposition: attachment` and an extension allowlist.
+7. **Decide on `edit_note` being destructive.** See ANALYSIS §34b.
+
+---

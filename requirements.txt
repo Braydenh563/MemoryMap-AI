@@ -48,7 +48,16 @@ bcrypt>=5.0.0,<6.0
 
 # Encryption at rest for notes marked private (AES-GCM). scrypt comes from
 # the stdlib; this is only needed for the cipher itself.
-cryptography>=41.0,<47.0
+#
+# Floor is 49.0 because two advisories against <= 48.0.0 are fixed there: an
+# exponential blowup in certificate path building on chains with duplicated
+# self-signed intermediates (a DoS amplification), and a verifier that accepted
+# a wildcard SAN escaping an intermediate's permittedSubtrees. Neither is
+# reachable from this app — nothing here builds or verifies an X.509 chain; it
+# uses the AES-GCM cipher and nothing else — but the floor costs nothing and
+# Dependabot was blocked by our own `<47.0` ceiling rather than by any real
+# incompatibility. Verified against 50.0.0, which the suite runs on.
+cryptography>=49.0,<51.0
 
 # File attachments (Wave B) — multipart form parsing
 python-multipart>=0.0.32,<1.0

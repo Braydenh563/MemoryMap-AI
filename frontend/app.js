@@ -19895,6 +19895,17 @@ async function addMemoryByHand() {
   }
 }
 
+// "+ New Skill" on the Library's AI Skills page. Reported as doing nothing,
+// and it did nothing: the button was in the markup and no handler was ever
+// attached to it. The skill editor lives in Settings → Skills, so this opens
+// that with a blank form rather than growing a second editor that would then
+// have to be kept in step with the first.
+$("skills-add-new")?.addEventListener("click", async () => {
+  await openSettingsModal("skills");
+  stopEditingSkill();           // clears the form and resets the button label
+  $("skill-name")?.focus();
+});
+
 $("memory-add")?.addEventListener("click", addMemoryByHand);
 $("memory-new")?.addEventListener("keydown", (e) => {
   // Enter saves. Typing a one-line rule and having to reach for the mouse is

@@ -7430,10 +7430,31 @@ html {
   min-height: 0;
 }
 
-/* Make the main notes area scroll independently, exactly like Chat messages */
+/* The Notes column scrolls itself, so the sidebar stays put while the list
+   moves — the same shape as Chat.
+   
+   Reported as "the main notes part isn't refined in the border, there's a
+   weird shadow behind it, the corners aren't rounded, and the scroll bar is
+   too far left, making the sub-menu bar look shifted right." All four are one
+   cause: making `main` the scroll container without giving it any of a scroll
+   container's furniture.
+   
+   - The scrollbar is laid *inside* the column, so it eats width from the
+     content and the sub-tab bar above it stops lining up. `scrollbar-gutter`
+     reserves that width permanently, so nothing shifts when the bar appears.
+   - `main` is not a `.card`, so it has no radius of its own — but the cards
+     inside it now slide under the sub-tab bar as you scroll, which is the
+     "weird shadow": their own shadow, against an edge that has no business
+     being hard. A little padding and a rounded clip give the column an edge
+     that matches every other surface. */
 #tab-notes .layout>main {
   overflow-y: auto;
   min-height: 0;
+  /* Reserve the scrollbar's width whether or not it is showing, so the
+     sub-tab bar above never shifts. `stable` keeps the gutter on one side. */
+  scrollbar-gutter: stable;
+  padding-right: var(--space-2);
+  border-radius: var(--radius-lg);
 }
 
 #graph-card {

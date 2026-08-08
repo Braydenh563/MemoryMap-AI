@@ -7,6 +7,52 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Fixed — the owner's reported list
+
+Diagnosed in the running app rather than from the report. Full triage, with
+what was checked and found already correct, in [ROADMAP.md §41](docs/ROADMAP.md).
+
+- **Trace on the graph is rebuilt.** Reported as "annoying and pretty much
+  unusable". `traceModeActive` was set and consulted nowhere, so the map never
+  responded to a click and both ends had to be picked from `<select>` elements
+  listing every note in the notebook by its opening words. Two clicks on the
+  map now, with a readout instead of a form: Swap for the other direction,
+  Undo for one step back rather than a reset, Escape to leave, crosshair
+  cursor so the mode looks like one.
+- **The autonomous-tasks switch turned itself off.** Two controls write that
+  preference and the one on the skills panel saved straight to the server
+  without updating `prefsCache` — so the next `savePrefs`, which rebuilds the
+  whole object from the DOM, read the other checkbox and switched it back.
+- **Light/dark stopped affecting the page background** after using the colour
+  scheme selector. The builder computes a page colour *for a mode* and stored
+  only the current one, written inline on `<html>`, where it outranks every
+  `[data-mode="dark"]` rule. Both are stored and re-picked on mode change.
+- **Whiteboard:** dragging a card sent no `board_id`, so a card on a named
+  board was silently moved to the global one, and a 404 left it on screen
+  unsaved; the board list showed "Note 25" because it read two fields an entry
+  does not have; the library panel covered its own toggle so it could not be
+  closed; the selected tool had no visual indicator; the zoom controls sat
+  behind the agent activity monitor.
+- **Skill descriptions** were clipped to one line by `.persona-preview`'s
+  `white-space: nowrap` (reported twice).
+- **The documents sidebar** crushed its own document list to two rows, because
+  the outline and help block below it never shrink.
+- Tags / Recycle bin / Activity removed from the notes sidebar, as asked.
+
+### Added
+
+- **A text box in "What it remembers".** `save_user_preference` is the model's
+  way in; this is the one people reach for first.
+
+### Checked and found correct — not changed
+
+- **Password, token and secret storage.** bcrypt with a per-password salt;
+  `secrets.token_hex(32)` session tokens held in memory and swept on expiry;
+  private notes encrypted with a key wrapped by a password-derived key.
+- The three sketch swatches reported as identical are three distinct colours.
+  The real defect underneath is the highlighter at 5% opacity.
+
+
 ### Audited — a week of another agent's work, brought to a mergeable state
 
 `fix/Antigravity-Audit` arrived with 8 commits, ~9,600 insertions and no test

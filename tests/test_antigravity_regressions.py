@@ -645,3 +645,53 @@ def test_a_skill_description_is_not_clipped_to_one_line():
     assert 'note.className = "muted skill-blurb"' in app_js
     blurb = css[css.index(".skill-blurb {") :][: css[css.index(".skill-blurb {") :].index("}")]
     assert "white-space: normal" in blurb
+
+
+# --- security scanner findings (§41) ---------------------------------------------
+
+
+def test_removing_a_model_never_returns_the_filesystem_path(app_state, monkeypatch):
+    """CodeQL `py/stack-trace-exposure` at routes_settings.py:473.
+
+    `embedmodels.remove` returned `f"...: {exc}"` for an OSError, and that
+    string goes straight to the browser as the API response. An OSError's text
+    carries the full path it failed on — so a failed delete published where the
+    model cache lives. The detail belongs in the log, where only the owner of
+    the machine reads it.
+    """
+    import shutil
+
+    from memorymap.core import embedmodels
+
+    model = next(iter(embedmodels.EMBED_MODELS_BY_ID.values()))
+    path = embedmodels._model_dir(model)
+    path.mkdir(parents=True, exist_ok=True)
+
+    secret = str(path)
+
+    def explode(*args, **kwargs):
+        raise OSError(f"Permission denied: {secret}/blobs/deadbeef")
+
+    monkeypatch.setattr(shutil, "rmtree", explode)
+    removed, message = embedmodels.remove(model.id)
+
+    assert removed is False
+    assert secret not in message
+    assert "deadbeef" not in message
+
+
+def test_cryptography_is_pinned_past_the_two_advisories():
+    """<= 48.0.0 has an exponential path-building DoS and a wildcard-SAN
+    escape from an intermediate's permittedSubtrees. Neither is reachable from
+    this app — nothing here builds or verifies an X.509 chain — but the floor
+    is free, and Dependabot was blocked by *our own* ceiling rather than by a
+    real conflict, which is the part worth pinning so it cannot recur.
+    """
+    import re
+    from pathlib import Path
+
+    requirements = (Path(__file__).resolve().parents[1] / "requirements.txt").read_text()
+    spec = re.search(r"^cryptography([^\n]*)$", requirements, re.M)
+    assert spec, "cryptography is no longer in requirements.txt"
+    floor = re.search(r">=(\d+)", spec.group(1))
+    assert floor and int(floor.group(1)) >= 49, spec.group(0)

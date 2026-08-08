@@ -4,7 +4,14 @@ Everything outstanding, in the order I'd do it. Written so a fresh session can
 pick up without re-deriving context. Each item says **why** it matters, not just
 what to build — the reasoning is the part that's expensive to reconstruct.
 
-> **Start with [§40, "The antigravity audit"](#40-the-antigravity-audit).** A
+> **Start with [§41, "The reported list, triaged — and the ordered plan"](#41-the-reported-list-triaged--and-the-ordered-plan).**
+> It is the live front door: every reported item with its real status, and the
+> build order in four tiers. **Work top-down and do not skip** — the failure
+> this project actually has is a later session picking something interesting
+> from further down while a Tier 1 correctness bug sits unattended. §41 also
+> lists what was *checked and found already fine*, so nothing gets rebuilt.
+>
+> **[§40, "The antigravity audit"](#40-the-antigravity-audit).** A
 > week of work from a different coding agent landed on `fix/Antigravity-Audit`
 > — ~9,600 insertions and no tests — and arrived with 90 failing tests and 20
 > ruff errors. §40 is what the audit of it found and, more usefully, the four
@@ -34,7 +41,7 @@ which defeats the point of a document written for a fresh session. Split by
 
 | | What's in it |
 | --- | --- |
-| **ROADMAP.md** (here) | The live list: what to do next, and the two sections of freshly reported work (§35, §36). Start here. |
+| **ROADMAP.md** (here) | The live list. **§41 is the front door** — every reported item, triaged, in the order to build. §38–§40 are the audits behind it. Start here. |
 | [roadmap/HANDOVER.md](roadmap/HANDOVER.md) | **The last session's handover.** What is now true that wasn't, what could *not* be checked and why, where to start, and the two Playwright traps that will otherwise cost you an hour. Shorter than the rest; read it first. |
 | [roadmap/BACKLOG.md](roadmap/BACKLOG.md) | The standing backlog — §1–§29, numbered exactly as before. |
 | [roadmap/ANALYSIS.md](roadmap/ANALYSIS.md) | §30–§34. Judgements, the odysseus read, what was deliberately not taken. Reference, not work. |
@@ -861,3 +868,163 @@ Ranked, and each is a real piece of work rather than a nit:
 two smallest and the one ranked first. What is left is one product judgement
 (7) and three performance items (2, 4, 5) that want measurement on a real
 notebook before anyone picks a design.
+
+## 41. The reported list, triaged — and the ordered plan
+
+Two things at once, because they answer the same question. First: **every item
+from the owner's reported list, with its real status** — several were said to
+be fixed and were not, and a list you cannot trust is worse than no list.
+Second: **the order to build in**, which is the part that has gone wrong
+before. Three sessions running extended the newest section instead of looking
+at what was underneath it, and §38 exists because of that. This section is
+ordered by *what it unlocks*, and the ordering is the deliverable.
+
+### How to use this section
+
+**Work top-down and do not skip.** If an item is blocked, say so in the
+handover and take the next one — do not quietly start something further down
+because it is more interesting. The tiers below are not equal:
+
+- **Tier 1 — correctness and trust.** Things that are wrong, lose data, or
+  make the app feel unreliable. Nothing in Tier 2 is worth more than any of
+  these.
+- **Tier 2 — the features that are half-built.** Each is already paid for; a
+  small amount of work turns a frustrating surface into a good one.
+- **Tier 3 — new capability.** Worth doing, worth doing *after* the above.
+- **Tier 4 — deliberately deferred**, with the reason. Not a backlog dump:
+  each says why it is not Tier 3.
+
+### Fixed in the audit session (do not rebuild)
+
+Checked against the code, not against the report. §40 covers the antigravity
+audit itself; these are from the owner's list:
+
+| Reported | What it actually was |
+| --- | --- |
+| Automated tasks "keeps disabling itself" | Two controls wrote the preference; the skills-panel one never updated `prefsCache`, so the next `savePrefs` read the other checkbox and switched it back off. |
+| Light/dark stops affecting the background after using the scheme selector | The scheme builder stored one page colour for the mode that happened to be on, written *inline* — which outranks every `[data-mode]` rule. Both modes are stored now. |
+| Trace is unusable | The map never responded: `traceModeActive` was consulted nowhere. Rebuilt as a two-click mode with Swap/Undo/Escape. |
+| Skill descriptions cut off in Settings | `.persona-preview` is `white-space: nowrap`. They wrap now. |
+| Three sketch swatches the same green | They were `#22c55e`, `#eab308`, `#a855f7` — distinct. The *highlighter* at `globalAlpha: 0.05` is the real complaint; see Tier 2. |
+| Tags / Recycle bin / Activity in the notes sidebar | Removed, with the dead `openLibraryOn` they were the only callers of. |
+| Whiteboard library can't be closed | The panel covered its own toggle. It has a ✕ and the toggle sits above it. |
+| Whiteboard boards named "Note 25" | Read `e.title || e.preview`; neither is a field on an entry. Shows the note's words. |
+| No indicator for the selected whiteboard tool | The `.active` class was set with no CSS to render it. |
+| `PUT /whiteboard/nodes/N — Node not found` | The drag sent no `board_id`, so a card on a named board was moved to the global one; a 404 now reloads the board rather than leaving an unsaved card on screen. |
+| Documents list crushed | The list is `flex: 1 1 auto` and the outline below it never shrinks. Floor on the list, ceiling on the outline. |
+| Password/token/secret storage | Checked: bcrypt with per-password salt for the password, `secrets.token_hex(32)` for session tokens (in memory, swept on expiry), private notes encrypted with a key wrapped by a password-derived key. No plaintext anywhere. Nothing to fix. |
+
+### Tier 1 — correctness and trust
+
+1. **Meeting transcription errors out.** Reported as simply not working, and it
+   is a feature with a button in the UI. Reproduce first — `faster-whisper` is
+   an optional extra, so the likeliest answer is that the failure path when it
+   is missing is an error rather than an explanation. Until this is diagnosed
+   nothing else in the meetings area is worth touching.
+2. **"The AI fails to respond while still saying it is writing", and the skill
+   step counted as done.** Two bugs in one report: no timeout on the stream, and
+   a step marked complete on a turn that produced nothing. The second is worse —
+   it makes the skill's own progress list lie, which is the surface the user is
+   asked to trust. Needs a real timeout, a visible "this stopped" state, and a
+   step that only ticks on a completed turn.
+3. **Skills producing network errors / models that cannot run them.** Same
+   family. A skill that fails needs to say *which* step and *why*, and offer
+   the resume that `skill_from_step` already supports.
+4. **Contradictions in the agent prompt around small talk.** `TOOLS_GUIDE`
+   tells the model to take several turns and use tools; `intent.SMALLTALK`
+   routes "hey" away from the agent entirely. Read both together and reconcile
+   them — the prompt is resent every round, so a contradiction is paid for
+   constantly.
+5. **Notifications: work out what they are for.** The owner asks "do they
+   actually work? what appears there and when?" — which is the question to
+   answer before adding to them. Audit what raises one today, move the
+   embedding-model-ready message into Background tasks where it belongs, then
+   add reminders. An indicator nobody can predict is noise.
+6. **Background tasks that never appear.** The task list is built from
+   `routes_tasks.collect()`; anything on a worker thread that is not in there
+   is invisible. Sweep for threads that are not registered, and make
+   registration the rule rather than a thing each feature remembers.
+
+### Tier 2 — half-built features, cheap to finish
+
+7. **The sketch pad.** The highlighter at 5% opacity is effectively invisible
+   (about twenty passes before anything shows) — that is the "completely wrong"
+   in the report. Then: a size control that is reachable, a background colour,
+   and a selection tool. The toolbar redesign comes *after* those, not before.
+8. **The whiteboard, properly.** It works now and is thin. Wanted: an empty
+   state that says how to start, a legible explanation of what a "board" is
+   (a board is a note — that is a good idea nobody is told), resizable cards,
+   and the same edge-labelling the graph has. See item 10.
+9. **Skill runs: an auto/manual mode.** Explicitly requested and never built —
+   `skill_from_step` is resume-after-failure, not a step-through. On manual, a
+   skill pauses after each step with a Continue button and a text box, so the
+   user can add what the agent missed or answer a question it raised. This is
+   the single most-requested unbuilt thing on the list.
+10. **A reason on every link.** "A note about uni and gym might still be
+    related if they are both about scheduling." Optional free text on
+    `entry_links`, shown on the edge and in Trace's readout, and writable by
+    `link_notes`. Turns the graph from "these are connected" into "these are
+    connected *because*", which is also what makes Trace worth reading.
+11. **Note metadata and hyperlinked links.** A note's linked notes should be
+    clickable through to those notes. Currently they are decoration.
+12. **Timeline line view, and text placement in grid view.** Both reported as
+    unrefined; both are layout work with a clear target.
+13. **Arc view: labels behind nodes.** A z-order bug plus a general refinement
+    pass on that layout.
+14. **Documents in the graph.** They are notes' equal everywhere else and
+    absent here.
+15. **Battery-saver: an indicator and an honest description.** It silently
+    changes what the graph shows and whether the librarian runs. A mode with
+    invisible effects is a mode people distrust.
+16. **The full-screen graph's Options panel**, the sketch/image toggles, and a
+    suggested-links list that runs off the bottom without scrolling.
+
+### Tier 3 — new capability
+
+17. **Files and images on notes, and standalone in the Library.** The plumbing
+    exists (`/media`, attachments); what is missing is the Library surface and
+    drag-to-attach.
+18. **A persona on the welcome messages.** Small, and it makes the app feel
+    like one thing rather than a chat bolted to a notebook.
+19. **Meeting recordings as first-class objects**: pause/resume, replay, save
+    as a voice note, transcribe in the background. Blocked on Tier 1 item 1.
+20. **Notification expansion**: reminders, and opt-in AI-generated nudges from
+    the utility model. Blocked on Tier 1 item 5 — decide what notifications
+    *are* first.
+21. **Widgets: a picker.** A popup to add and remove dashboard widgets, and
+    more of them.
+22. **Customisable sidebars**, and note view options in the Notes tab.
+23. **A mapping tab** — mind maps and linked diagrams. Overlaps the whiteboard
+    heavily; decide whether it is a mode of the whiteboard rather than a tab
+    before building it.
+24. **Better-looking theme previews** in Appearance.
+
+### Tier 4 — deferred, with reasons
+
+- **"Make everything faster."** Not actionable as written, and the specific
+  slow paths are now measured and fixed (§40 items 4–5: PageRank and the
+  similarity sweep are cached; three N+1s and two O(n²) traps are gone). The
+  next real work here needs a profile against a large notebook, not a sweep.
+- **A second React frontend.** A second implementation of every screen, kept
+  in step by hand, for an app whose whole design brief is "no build step". The
+  cost is not the first version, it is every change afterwards having two
+  homes. If the motive is component structure rather than React itself, the
+  cheaper answer is to split `app.js` — see below.
+- **Refactor `app.js` and `style.css`.** Both are past 20,000 lines. Worth
+  doing, and worth doing *deliberately*: a mechanical split makes review
+  harder for a session and gains nothing on its own. Do it when a feature
+  needs it, one region at a time.
+- **A pass over "the Gemini improvements".** Superseded — §40 is exactly that
+  audit, done, with 46 tests and 4 lints so the next one is cheaper.
+- **Spacing and clashing controls across the app.** Real, and too broad to
+  action as one item. The design tokens and the four lints now make each
+  instance a small fix; raise them as they are noticed rather than as a
+  project.
+
+### The rule this section exists to enforce
+
+Anything reported goes in here with a tier, immediately, even if it is not
+being worked on. The failure mode this project actually has is not forgetting
+to write things down — it is **writing them down somewhere a later session
+does not read**, then rebuilding or re-deriving them. One ordered list, at the
+end of the file a session is told to start from.

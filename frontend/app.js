@@ -4356,9 +4356,9 @@ function renderToolConfirm(holder, event) {
       const oldContent = res.content || "";
       const newContent = event.arguments.content;
       if (oldContent !== newContent) {
-        contentArea.innerHTML = `<div class="diff-viewer" style="font-family: monospace; font-size: 0.85em; background: var(--inner); padding: 8px; margin: 8px 0; max-height: 200px; overflow-y: auto; white-space: pre-wrap; border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
-          <div style="color: var(--error); text-decoration: line-through; margin-bottom: 4px;">- ${escapeHtml(oldContent)}</div>
-          <div style="color: var(--success);">+ ${escapeHtml(newContent)}</div>
+        contentArea.innerHTML = `<div class="diff-viewer">
+          <div class="diff-removed">- ${escapeHtml(oldContent)}</div>
+          <div class="diff-added">+ ${escapeHtml(newContent)}</div>
         </div>`;
       }
     }).catch(() => {});
@@ -17807,6 +17807,27 @@ const APPEARANCE_DEFAULTS = {
   // yourself. Named here so appearancePref("accent") has a defined answer
   // rather than returning undefined and relying on a lookup miss.
   accent: "indigo",
+  // Both of these arrived with their Settings controls and neither was listed
+  // here, which is not a cosmetic omission — it took the borders and shadows
+  // off the entire interface. `applyAppearance` writes them onto <html> as
+  // custom properties, so a missing default became the literal strings
+  // "undefined" and "NaN" on the root element. `border-style: undefined` is
+  // invalid, so `border-style: var(--border-style) !important` — which is
+  // `!important` and matches .card, input, textarea, select, .modal and
+  // .sidebar — computed to `none` for all of them. `--shadow-intensity: NaN`
+  // poisoned `--glass-shadow`'s rgba(), so every card's box-shadow computed to
+  // `none` as well. The app rendered completely flat and borderless on a fresh
+  // profile, and stayed that way until you happened to touch both controls.
+  "border-style": "solid", // solid | dashed | none
+  "shadow-intensity": "5", // percent; divided by 100 into --shadow-intensity
+  // Matches the pre-paint script's own `pref("theme", "system")`. Without it
+  // `applyThemeChoice(undefined)` took the else branch and stamped
+  // `data-theme="undefined"` onto <html> on every fresh profile. The app still
+  // looked right, because the palettes key off the resolved `data-mode` — but
+  // it left a live element attribute that is neither "light", "dark" nor
+  // absent, so any rule written as `:root:not([data-theme])` to mean "following
+  // the system" would quietly never match.
+  theme: "system", // light | dark | system
 };
 
 // --- curated visual themes ---------------------------------------------------------
@@ -18041,8 +18062,20 @@ function themeValue(key) {
 
 // The three layers, in order. `??` rather than `||` so a legitimate "0"
 // (corner rounding) isn't treated as unset.
-function appearancePref(key) {
-  return localStorage.getItem(key) ?? themeValue(key) ?? APPEARANCE_DEFAULTS[key];
+function appearancePref(key, fallback) {
+  // `fallback` is the last resort, after the stored value, the active theme
+  // and APPEARANCE_DEFAULTS. It exists because five call sites were already
+  // passing one to a function that took a single parameter and dropped it on
+  // the floor — so two settings resolved to `undefined` and wrote that word
+  // into a CSS custom property. A defaulted parameter that is silently ignored
+  // is worse than no parameter at all: it reads as a guarantee.
+  //
+  // The table is still the right place for a new setting's default. This just
+  // means forgetting it degrades to the caller's intent rather than to
+  // "undefined".
+  return (
+    localStorage.getItem(key) ?? themeValue(key) ?? APPEARANCE_DEFAULTS[key] ?? fallback
+  );
 }
 
 // Applying a theme only records WHICH theme. Because every read goes through
@@ -18435,7 +18468,14 @@ function applyAppearance() {
   root.style.setProperty("--glass-blur", `${appearancePref("glass-blur")}px`);
   root.style.setProperty("--zoom", Number(appearancePref("zoom")) / 100);
   root.style.setProperty("--border-style", appearancePref("border-style", "solid"));
-  root.style.setProperty("--shadow-intensity", Number(appearancePref("shadow-intensity", "5")) / 100);
+  // Belt and braces over the two fixes above. A custom property will happily
+  // hold the string "NaN"; it is only invalid where it gets *used*, which here
+  // is inside `--glass-shadow`'s rgba() — so a bad number silently removes
+  // every shadow in the app rather than failing anywhere near this line.
+  const shadow = Number(appearancePref("shadow-intensity", "5"));
+  root.style.setProperty(
+    "--shadow-intensity", String((Number.isFinite(shadow) ? shadow : 5) / 100)
+  );
   applyResolvedMode();
   // remember=false: this runs on every startup, and recording the resolved
   // value would pin whatever the theme supplied as a manual override — after
@@ -19487,7 +19527,7 @@ async function quitApp() {
     // succeeding, not failing, so it is not worth an error toast.
   }
   document.body.innerHTML =
-    '<div style="padding:3rem;text-align:center;font-family:system-ui">' +
+    '<div class="farewell">' +
     "<h1>MemoryMap has stopped.</h1>" +
     "<p>Your notes are saved. You can close this tab.</p></div>";
 }
@@ -22175,7 +22215,7 @@ async function renderSkillsDashboard() {
       </label>
     </div>
     <p class="muted text-sm">Allow the AI to run tasks in the background automatically.</p>
-    <div class="row" style="margin-top: 1rem;">
+    <div class="row row-top-gap">
       <label><input type="checkbox" id="skills-auto-tag" ${prefs.auto_tag_enabled !== false ? "checked" : ""}> Auto-tag notes</label>
       <label><input type="checkbox" id="skills-auto-link" ${prefs.auto_link_enabled !== false ? "checked" : ""}> Auto-link ideas</label>
     </div>
@@ -22296,7 +22336,7 @@ async function renderSkillLogs() {
         <strong>${escapeHtml(log.action)}</strong>
         <span class="muted text-sm">${new Date(log.created_at).toLocaleString()}</span>
       </div>
-      <div class="muted text-sm" style="margin-top: 0.25rem;">${escapeHtml(log.detail || log.entity_id || "")}</div>
+      <div class="muted text-sm log-detail">${escapeHtml(log.detail || log.entity_id || "")}</div>
     </div>
     `;
     logList.appendChild(div);

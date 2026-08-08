@@ -179,6 +179,34 @@
   /* cards, dialogs */
   --radius-pill: 999px;
 
+  /* --- aliases for a second set of token names (audit of §40) ---------------
+     Twenty-three declarations across the newer components reached for names
+     from a different vocabulary — `--card-bg`, `--glass-bg`, `--text`, `--bg`,
+     `--panel`, `--shadow-sm/md`, `--font-sans`, `--border-light`, `--sw-*`.
+     None of them were ever declared, so every one of those declarations was
+     invalid at computed-value time and dropped: backgrounds that painted
+     nothing, borders that drew nothing, shadows that cast nothing. Nothing
+     complained, because a stylesheet has no way to say "I meant a token that
+     exists" — hence the new lint in test_style_scale.
+
+     Aliased rather than rewritten at all twenty-three sites: the names are
+     reasonable and someone will reach for them again, and pointing them at the
+     real tokens makes them theme-aware for free, in all twelve palettes. */
+  --bg: var(--page);
+  --text: var(--ink);
+  --panel: var(--card);
+  --card-bg: var(--card);
+  --card-bg-hover: var(--inner);
+  --glass-bg: var(--card);
+  --border-light: var(--glass-border);
+  --font-sans: var(--ui-font);
+  --shadow-sm: 0 2px 8px rgba(31, 38, 135, var(--shadow-intensity));
+  --shadow-md: var(--glass-shadow);
+  /* The sketch/whiteboard surface set. */
+  --sw-card: var(--card);
+  --sw-border: var(--border);
+  --sw-accent: var(--accent);
+
   /* The width a collapsed sidebar springs back to when you hover it. JS
      overrides this per-sidebar (`applySidebarWidth` sets it on the element
      from the saved width), but the default belongs here: written only as a
@@ -5554,9 +5582,20 @@ html {
 
 /* Compact density trims padding on cards and list rows. */
 
-/* Glass off → flat solid surfaces (cheaper to render). */
+/* Glass off → flat solid surfaces (cheaper to render).
+
+   `--card`, not `--bg-glass`. `--bg-glass` was never declared in any theme, so
+   this line resolved to nothing and computed as transparent — and because it
+   sits after `.card` at equal specificity, it *won*, wiping the background off
+   every `class="card glass"` element in the app. The command palette was the
+   visible casualty: its input and hint floated over the notes list with no
+   surface behind them at all.
+
+   `--card` is the right token regardless: all twelve palettes define it, and
+   `[data-glass="off"]` already swaps it for a solid colour, so glass-off keeps
+   working here for free. */
 .glass {
-  background: var(--bg-glass);
+  background: var(--card);
   backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
 }
@@ -12839,4 +12878,45 @@ textarea.drag-over {
 .row-top-gap,
 .form-label-spaced {
   margin-top: var(--space-6);
+}
+
+/* The agent's before/after preview when it proposes an edit, and two other
+   fragments that app.js builds with innerHTML. These carried inline `style`
+   attributes inside their template literals, which the CSP refuses exactly
+   as it refuses them in index.html — the difference is that nothing was
+   looking, because the inline-style lint only read index.html. So the diff
+   viewer rendered as three unstyled lines with no colour to tell the removal
+   from the addition, which is the entire point of a diff. */
+.diff-viewer {
+  max-height: 12.5rem;
+  margin: var(--space-3) 0;
+  padding: var(--space-3);
+  overflow-y: auto;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  background: var(--inner);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: var(--text-md);
+  white-space: pre-wrap;
+}
+
+.diff-removed {
+  margin-bottom: var(--space-1);
+  color: var(--error);
+  text-decoration: line-through;
+}
+
+.diff-added {
+  color: var(--ok);
+}
+
+/* The page the app leaves behind after Quit. Deliberately plain: style.css
+   may already be gone from cache by the time anyone reads it. */
+.farewell {
+  padding: var(--space-9);
+  text-align: center;
+}
+
+.log-detail {
+  margin-top: var(--space-1);
 }

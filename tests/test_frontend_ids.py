@@ -134,3 +134,42 @@ def test_a_widget_does_not_stack_class_names_on_every_render():
     """`className += " muted"` appends again each time the dashboard redraws."""
     app = (INDEX.parent / "app.js").read_text(encoding="utf-8")
     assert 'className += " muted"' not in app
+
+
+APPEARANCE_KEY = re.compile(r'appearancePref\(\s*"([\w-]+)"')
+DEFAULTS_BLOCK = re.compile(r"const APPEARANCE_DEFAULTS = \{(.*?)\n\};", re.S)
+DEFAULT_KEY = re.compile(r'(?m)^\s*"?([\w-]+)"?\s*:')
+
+
+def test_every_appearance_setting_has_a_default():
+    """A missing default is not a missing default — it is the string
+    "undefined" written into a CSS custom property.
+
+    `applyAppearance` pipes these straight into `root.style.setProperty`, so a
+    key absent from `APPEARANCE_DEFAULTS` reaches the stylesheet as literal
+    `undefined` (or `NaN`, once it goes through `Number()`). That is invalid
+    wherever it is *used*, not where it is set, so the damage lands far from
+    the cause: `border-style` and `shadow-intensity` shipped without defaults,
+    and between them took the border off every card, input, textarea, select
+    and modal in the app — `border-style: var(--border-style) !important`
+    matches all of those — and the shadow off every card, by poisoning the
+    rgba() inside `--glass-shadow`. The app rendered flat and borderless on
+    every fresh profile and nothing anywhere reported an error.
+    """
+    app = (INDEX.parent / "app.js").read_text(encoding="utf-8")
+    block = DEFAULTS_BLOCK.search(app)
+    assert block, "APPEARANCE_DEFAULTS wasn't found in app.js — has it moved?"
+
+    #: Settings whose "unset" state is meaningful, so a default would be wrong.
+    #: `page-bg` unset means "let the palette supply the page", and
+    #: `applyPageBackground` reads a falsy value as exactly that.
+    OPTIONAL = {"page-bg"}
+
+    declared = set(DEFAULT_KEY.findall(block.group(1)))
+    used = set(APPEARANCE_KEY.findall(app))
+    missing = sorted(used - declared - OPTIONAL)
+    assert not missing, (
+        "These appearance settings are read but have no entry in "
+        f"APPEARANCE_DEFAULTS: {missing}. Each one resolves to undefined and is "
+        "written into a CSS custom property as that word."
+    )

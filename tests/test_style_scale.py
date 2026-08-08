@@ -311,6 +311,37 @@ def test_no_token_is_used_with_a_dead_fallback():
     assert not offenders, "Tokens used with a fallback:\n  " + "\n  ".join(detail)
 
 
+#: `var(--x)` with no fallback. The fallback form is the sibling test's job.
+VAR_NO_FALLBACK = re.compile(r"var\(\s*(--[\w-]+)\s*\)")
+
+
+def test_every_token_the_stylesheet_uses_is_declared_somewhere():
+    """A `var(--x)` with no fallback and no declaration renders as *nothing*.
+
+    The sibling test above only sees tokens written with a fallback, and that
+    gap cost the app a visible bug: `.glass` set `background: var(--bg-glass)`
+    against a token no theme declares. It resolved to the guaranteed-invalid
+    value, computed to transparent, and — sitting after `.card` at equal
+    specificity — won, so every `class="card glass"` element in the app painted
+    no background at all. The command palette showed an input and a hint
+    floating over the page with no surface behind them.
+
+    Undeclared-with-a-fallback is a wrong colour; undeclared-without-one is an
+    erased declaration that can take a working rule down with it. This catches
+    the second kind.
+    """
+    text = _stylesheet()
+    declared = set(DECLARED.findall(text))
+    # Set from JavaScript rather than in the stylesheet. Each one is written
+    # with `setProperty` on an element, so the sheet never declares it.
+    SET_BY_JS = {"--zoom", "--density", "--glass-blur", "--radius", "--page", "--bg-art-opacity"}
+    missing = sorted({n for n in VAR_NO_FALLBACK.findall(text) if n not in declared} - SET_BY_JS)
+    assert not missing, (
+        "These tokens are used but declared nowhere, so they render as nothing "
+        "and can override a rule that worked:\n  " + "\n  ".join(missing)
+    )
+
+
 def test_the_semantic_colour_set_is_complete_in_both_themes():
     """Every state colour needs a dark-mode value, or a component using it is
     unreadable on one of the two themes the app ships with."""

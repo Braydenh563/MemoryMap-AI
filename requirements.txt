@@ -24,6 +24,16 @@ SQLAlchemy>=2.0.51,<3.0
 # Config
 python-dotenv>=1.2.2,<2.0
 
+# zoneinfo (stdlib) has no bundled tz database of its own — on Linux/macOS it
+# reads the system's /usr/share/zoneinfo, which is usually present, but
+# Windows ships no IANA tz data at all, so `ZoneInfo("Australia/Brisbane")`
+# (or any non-UTC zone) raises ZoneInfoNotFoundError there every time,
+# silently falling back to the server's own zone (core/config.py's
+# `user_now`). This is that fallback's actual cause on Windows, not a bad
+# zone name. tzdata is pure data, ~500KB, and safe to install unconditionally
+# on every platform (Python prefers the system database when one exists).
+tzdata>=2025.2
+
 # AI (Phase 2)
 requests>=2.34.2,<3.0      # talks to the local Ollama REST API
 numpy>=2.4.6,<3.0           # vectors stored as raw float32 bytes

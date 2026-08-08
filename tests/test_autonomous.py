@@ -56,6 +56,36 @@ def test_stopping_the_scheduler_actually_stops_it(app_state):
     assert not autonomous.scheduler_alive()
 
 
+def test_wake_interrupts_the_sleep_instead_of_waiting_out_the_interval(
+    app_state, monkeypatch
+):
+    """Reported as "background tasks skip things thinking battery mode is on"
+    and "finishing a task disables automatic tasks, forcing a re-toggle" —
+    neither preference was actually wrong; the loop just would not look again
+    until whatever multi-hour sleep it was already in ran out. `wake()` is
+    the fix: it cuts that sleep short so a preference change is picked up on
+    the very next tick.
+    """
+    app_state.set_preference("autonomous_tasks_interval_hours", 6)
+    app_state.set_preference("autonomous_tasks_enabled", False)
+
+    ran = threading.Event()
+    monkeypatch.setattr(autonomous, "_run_optimization", ran.set)
+
+    autonomous.start()
+    try:
+        # With tasks disabled, the loop should be asleep for the full
+        # (long) interval, not spinning — this is the "before wake()" state.
+        assert not ran.wait(timeout=0.5)
+
+        app_state.set_preference("autonomous_tasks_enabled", True)
+        autonomous.wake()
+
+        assert ran.wait(timeout=5), "wake() should cut the interval sleep short"
+    finally:
+        autonomous.stop()
+
+
 def test_a_second_run_is_refused_while_one_is_going(app_state, monkeypatch):
     """`trigger_now` span up a thread unconditionally, so holding down "Run
     now" in Settings started as many concurrent agent loops as you had

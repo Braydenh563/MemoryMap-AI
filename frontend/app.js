@@ -14536,11 +14536,16 @@ async function setPreference(key, value) {
 
 async function savePrefs() {
   try {
+    const binDaysRaw = Number($("pref-bin-days").value);
+    const recycleBinDays = Number.isFinite(binDaysRaw) && binDaysRaw >= 1
+      ? Math.min(365, Math.round(binDaysRaw))
+      : 30;
+    $("pref-bin-days").value = recycleBinDays;
     prefsCache = await apiJson("/preferences", {
       method: "PUT",
       body: JSON.stringify({
         display_name: $("pref-display-name").value.trim(),
-        recycle_bin_days: Number($("pref-bin-days").value),
+        recycle_bin_days: recycleBinDays,
         communication_style: $("pref-style").value,
         user_profile: $("pref-profile").value,
         profile_enabled: $("pref-profile-enabled").checked,

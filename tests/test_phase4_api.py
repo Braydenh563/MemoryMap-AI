@@ -200,3 +200,21 @@ def test_preferences_validated(client):
         client.put("/preferences", json={"communication_style": "sarcastic"}).status_code
         == 422
     )
+
+
+def test_saving_an_autonomous_preference_wakes_the_scheduler(client, monkeypatch):
+    """Battery mode, the on/off toggle and the interval used to only be read
+    once per scheduled tick — up to six hours away — so switching one off
+    (or back on) silently did nothing until then. Saving one now has to wake
+    the loop so the change is read on the very next tick."""
+    from memorymap.ai import autonomous
+
+    woken = []
+    monkeypatch.setattr(autonomous, "wake", lambda: woken.append(True))
+
+    client.put("/preferences", json={"battery_efficient_mode": True})
+    assert woken == [True]
+
+    woken.clear()
+    client.put("/preferences", json={"display_name": "unrelated change"})
+    assert woken == []

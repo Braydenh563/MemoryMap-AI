@@ -25,6 +25,15 @@ Three things this module learned the hard way, all worth keeping written down:
   unconditionally, so holding down the button in Settings started as many
   concurrent agent runs as you had patience for, all writing to the same
   notebook.
+- **The loop has to be woken, not just started.** It used to sleep for the
+  whole interval (default 6 hours) between preference reads, so turning
+  Battery Efficient Mode off, switching the toggle back on, or shortening the
+  interval did nothing until whatever sleep was already in progress ran out —
+  reported as "background tasks skip things thinking battery mode is on [after
+  it was turned off]" and "finishing a task disables automatic tasks, forcing
+  a re-toggle": neither was true, the loop just hadn't looked again yet.
+  `wake()` interrupts the current sleep so a preference change the user just
+  made is read on the next tick, not the next scheduled one.
 """
 
 from __future__ import annotations
@@ -50,6 +59,10 @@ MAX_ROUNDS = 15
 
 _lock = threading.Lock()
 _stop_event: threading.Event | None = None
+#: Interrupts the interval sleep without stopping the loop — set by `wake()`
+#: whenever a preference the loop cares about changes, and by `stop()` itself
+#: so shutdown does not wait out the sleep too.
+_wake_event: threading.Event | None = None
 _loop_thread: threading.Thread | None = None
 #: Set while an optimisation pass is actually executing, by whichever path
 #: started it. `routes_tasks` reads this to show the job in the task list, and
@@ -280,7 +293,7 @@ def clean_orphaned_board_cards() -> int:
     return len(orphans)
 
 
-def _loop(stop_event: threading.Event) -> None:
+def _loop(stop_event: threading.Event, wake_event: threading.Event) -> None:
     while not stop_event.is_set():
         config = deps.get_config()
         if config.get_preference("autonomous_tasks_enabled", False):
@@ -299,35 +312,59 @@ def _loop(stop_event: threading.Event) -> None:
             hours = int(config.get_preference("autonomous_tasks_interval_hours") or 6)
         except (TypeError, ValueError):
             hours = 6
+        # Waited on `wake_event`, not `stop_event`: the old version blocked on
+        # `stop_event.wait()` directly, so a preference changed mid-sleep (the
+        # toggle, battery mode, the interval itself) was invisible until the
+        # *whole* sleep ran out — up to six hours by default. `wake()` sets
+        # this event to cut the sleep short without touching `stop_event`,
+        # so the loop re-reads preferences on the next line without exiting.
         # `Event.wait` rather than a loop of one-second sleeps: the old version
         # woke 21,600 times to check a flag it could have been woken for, and
         # stopping the app meant waiting out the last of those seconds.
-        stop_event.wait(max(1, hours) * 3600)
+        wake_event.clear()
+        wake_event.wait(max(1, hours) * 3600)
 
 
 def start() -> None:
     """Start the interval loop. Idempotent — a second call is a no-op."""
-    global _stop_event, _loop_thread
+    global _stop_event, _wake_event, _loop_thread
     with _lock:
         if _loop_thread is not None and _loop_thread.is_alive():
             return
         _stop_event = threading.Event()
+        _wake_event = threading.Event()
         _loop_thread = threading.Thread(
-            target=_loop, args=(_stop_event,), daemon=True, name="autonomous-agent"
+            target=_loop, args=(_stop_event, _wake_event), daemon=True, name="autonomous-agent"
         )
         _loop_thread.start()
 
 
 def stop() -> None:
     """Ask the loop to finish. Used at shutdown and by the tests."""
-    global _stop_event, _loop_thread
+    global _stop_event, _wake_event, _loop_thread
     with _lock:
-        event, thread = _stop_event, _loop_thread
-        _stop_event = _loop_thread = None
+        event, wake, thread = _stop_event, _wake_event, _loop_thread
+        _stop_event = _wake_event = _loop_thread = None
     if event is not None:
         event.set()
+    # The loop blocks on `wake_event`, not `stop_event` — without this it
+    # would not notice `stop_event` was set until its current sleep expired.
+    if wake is not None:
+        wake.set()
     if thread is not None and thread.is_alive():
         thread.join(timeout=_JOIN_TIMEOUT)
+
+
+def wake() -> None:
+    """Cut the current interval sleep short so a preference change the user
+    just made (enabling autonomous tasks, turning battery mode off, a shorter
+    interval) is read on the next tick instead of the next scheduled one.
+    A no-op if the scheduler isn't running — `start()` always creates a fresh
+    `_wake_event`, so nothing is lost by calling this before the first start.
+    """
+    event = _wake_event
+    if event is not None:
+        event.set()
 
 
 def trigger_now() -> bool:

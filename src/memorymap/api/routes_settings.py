@@ -288,11 +288,28 @@ def get_preferences() -> dict:
     }
 
 
+#: Preferences the autonomous loop reads at the top of each pass. Changing
+#: any of these should take effect on the loop's next tick, not its next
+#: *scheduled* tick — which could be hours away — so writing one of these
+#: wakes the loop early instead of leaving it asleep on a stale value.
+_AUTONOMOUS_PREFS = frozenset(
+    {
+        "autonomous_tasks_enabled",
+        "battery_efficient_mode",
+        "autonomous_tasks_interval_hours",
+        "auto_tag_enabled",
+        "auto_link_enabled",
+        "auto_dedupe_enabled",
+    }
+)
+
+
 @router.put("/preferences")
 def update_preferences(
     body: PreferencesBody, session: Session = Depends(get_session)
 ) -> dict:
     config = deps.get_config()
+    changed_keys = set()
     for key, value in body.model_dump(exclude_none=True).items():
         if key == "skills":
             # One validator for both ways in. A skill saved from the editor
@@ -301,10 +318,15 @@ def update_preferences(
             # store one that won't run.
             value = _validated_skills(value)
         config.set_preference(key, value)
+        changed_keys.add(key)
         # Don't copy profile text into the audit log — it's personal.
         detail = f"{key}=…" if key == "user_profile" else f"{key}={value}"
         manager.log_action(session, "edited", "preferences", detail=detail)
     session.commit()
+    if changed_keys & _AUTONOMOUS_PREFS:
+        from memorymap.ai import autonomous
+
+        autonomous.wake()
     return get_preferences()
 
 

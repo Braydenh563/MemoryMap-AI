@@ -7552,6 +7552,24 @@ html {
   grid-template-rows: minmax(0, 1fr);
 }
 
+/* Below 720px `.layout` stacks aside and main into two rows instead of one
+   row of two columns (the base rule's own `@media (max-width: 720px)`
+   block), but this rule's `grid-template-rows: minmax(0, 1fr)` still names
+   only one explicit row. The sidebar (row 1, the explicit `1fr` track) was
+   losing almost all of it to `main`'s implicit auto row claiming its full
+   content height first — measured at 25px tall for a sidebar whose content
+   needed 5-6x that, with the overflow (its own "Browse all"/collapse-toggle
+   children) spilling out past its own card background since nothing clips
+   it. That read as "a dark rectangle behind the chat header": a sliver of
+   card background floating above `chat-main`'s real header, its own content
+   rendered outside its box. Each row sizes to its own content when stacked,
+   same as `#tab-notes` (which never set an explicit row template at all). */
+@media (max-width: 720px) {
+  #tab-chat:not(.hidden)>.layout {
+    grid-template-rows: none;
+  }
+}
+
 /* Both columns are .card, and .card carries `margin-bottom: 1rem`. On a
    stretched grid row that made the sidebar end exactly 16px above the panel
    beside it — the mismatched heights that were reported. Neither column

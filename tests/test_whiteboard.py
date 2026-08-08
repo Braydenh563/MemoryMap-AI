@@ -103,8 +103,10 @@ def test_a_card_can_be_moved_to_another_board(board_client, session):
 def test_deleting_a_card_that_is_already_gone_says_so(board_client):
     """A cheerful `{"status": "ok"}` for a node that isn't there is how a
     stale board keeps its ghost cards until someone reloads the page."""
-    assert board_client.delete("/whiteboard/nodes/4321").status_code == 404
-    assert board_client.delete("/whiteboard/sketches/4321").status_code == 404
+    missing_node = board_client.delete("/whiteboard/nodes/4321")
+    assert missing_node.status_code == 404
+    missing_sketch = board_client.delete("/whiteboard/sketches/4321")
+    assert missing_sketch.status_code == 404
 
 
 def test_a_sketch_round_trips_on_its_own_board(board_client, session):

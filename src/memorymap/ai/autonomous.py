@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from datetime import datetime, timezone
 
 from sqlalchemy import select, text
 
@@ -54,6 +55,26 @@ _loop_thread: threading.Thread | None = None
 #: started it. `routes_tasks` reads this to show the job in the task list, and
 #: `trigger_now` reads it to refuse a second concurrent run.
 _working = threading.Event()
+
+#: What the last pass actually did, so the user can read it back and undo any
+#: of it (ROADMAP §40, item 2).
+#:
+#: This is the answer to "you are asking me to let an agent edit my notebook
+#: while I am not looking". A true dry-run — run the agent, apply nothing —
+#: does not work here: the model decides its next call from the *result* of the
+#: last one, so a pass with every write stubbed out stops resembling the pass
+#: that would really happen, and a preview that lies is worse than none.
+#:
+#: Review-after is honest and is nearly as useful, because every write tool
+#: already captures the call that would put the note back (`tools._undo_edit`).
+#: Keeping those here turns the pass from something that happened to the
+#: notebook into something the user can read, disagree with, and reverse — one
+#: item at a time, through the same endpoint the chat's own Undo buttons use.
+_last_pass: dict = {"finished_at": None, "outcome": None, "changes": []}
+
+#: A pass that made more changes than this had something go wrong with it, and
+#: a review list nobody can read is not a review.
+MAX_RECORDED_CHANGES = 200
 
 
 def is_running() -> bool:
@@ -114,6 +135,7 @@ def _run_optimization() -> None:
             persona += " Do NOT link notes."
 
         outcome, detail = "completed", "Finished analysing and linking notes."
+        changes: list[dict] = []
         db = deps.get_db()
         with db.session() as session:
             try:
@@ -148,6 +170,13 @@ def _run_optimization() -> None:
                         break
                     if event.get("type") == "tool" and not event.get("ok"):
                         logger.warning("tool error: %s", event.get("error"))
+                    # The agent hangs a `change` off every successful write,
+                    # carrying the call that would put the note back. Collected
+                    # here so the pass can be read and reversed afterwards —
+                    # see `_last_pass`.
+                    change = event.get("change")
+                    if change and len(changes) < MAX_RECORDED_CHANGES:
+                        changes.append(change)
             except Exception as exc:  # noqa: BLE001 — top of a worker thread
                 logger.error("autonomous execution failed: %s", exc, exc_info=True)
                 # Recording "completed" here regardless of what happened is
@@ -157,12 +186,46 @@ def _run_optimization() -> None:
 
         from memorymap.core import taskhistory
 
+        if changes:
+            detail = f"{detail} Changed {len(changes)} thing(s)."
+        _remember_pass(outcome, changes)
         taskhistory.record(
             "autonomous", "Autonomous knowledge base optimisation", outcome, detail
         )
-        logger.info("autonomous optimisation %s", outcome)
+        logger.info("autonomous optimisation %s, %d change(s)", outcome, len(changes))
     finally:
         _working.clear()
+
+
+def _remember_pass(outcome: str, changes: list[dict]) -> None:
+    """Record what the pass did, replacing the previous record.
+
+    One pass deep on purpose. The point of this list is "read what just
+    happened while it is still surprising you"; a scrolling history of every
+    pass is what `taskhistory` and the audit log are for, and keeping undo
+    payloads around for weeks invites someone to reverse an edit they have
+    since deliberately redone.
+    """
+    with _lock:
+        _last_pass["finished_at"] = datetime.now(timezone.utc).isoformat()
+        _last_pass["outcome"] = outcome
+        _last_pass["changes"] = list(changes)
+
+
+def last_pass() -> dict:
+    """What the last pass did, for the review panel in Settings."""
+    with _lock:
+        return {
+            "finished_at": _last_pass["finished_at"],
+            "outcome": _last_pass["outcome"],
+            "changes": list(_last_pass["changes"]),
+        }
+
+
+def forget_last_pass() -> None:
+    """Clear the review list, once the user has read it."""
+    with _lock:
+        _last_pass.update({"finished_at": None, "outcome": None, "changes": []})
 
 
 def _vacuum() -> None:

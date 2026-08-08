@@ -12959,3 +12959,18 @@ textarea.drag-over {
      truncating it would hide the half that says what it actually does. */
   overflow-wrap: anywhere;
 }
+
+/* The background librarian's review list (ROADMAP §40 item 2). Set apart from
+   the settings above it with a rule and a tint, because it is a *result* — the
+   only part of that panel reporting something that already happened to the
+   notebook rather than configuring what will. */
+.autonomous-review {
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--border);
+}
+
+.autonomous-review h4 {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-md);
+}

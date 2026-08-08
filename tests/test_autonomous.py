@@ -187,3 +187,108 @@ def test_the_pass_uses_the_utility_model_and_bars_the_dangerous_tools(
     assert seen["use_utility_model"] is True
     assert seen["mode"] == "autonomous"
     assert {"ask_user", "delete_note"} <= set(seen["blocked_tools"])
+
+
+# --- the review panel: what the last pass changed (§40 item 2) -------------------
+
+
+def test_a_pass_records_what_it_changed_so_it_can_be_undone(app_state, monkeypatch):
+    """The honest answer to "let an agent edit my notebook unattended".
+
+    A true dry-run is not available — the model picks each call from the result
+    of the last one, so a pass with the writes stubbed out stops resembling the
+    pass that would really run. What is available is the change list, which
+    every write already produces with the call that reverses it.
+    """
+    change = {
+        "tool": "tag_note",
+        "label": "🏷 Retagged note #4",
+        "note_id": 4,
+        "undo": {"tool": "edit_note", "arguments": {"note_id": 4, "tags": []}},
+    }
+    monkeypatch.setattr(
+        autonomous.agent,
+        "run_agent",
+        lambda **kwargs: iter([{"type": "tool", "ok": True, "change": change}]),
+    )
+    autonomous._working.set()
+    autonomous._run_optimization()
+
+    recorded = autonomous.last_pass()
+    assert recorded["outcome"] == "completed"
+    assert recorded["finished_at"]
+    assert recorded["changes"] == [change]
+    # Every recorded change carries the call that puts the note back — that is
+    # the whole point of keeping them.
+    assert recorded["changes"][0]["undo"]["tool"] == "edit_note"
+
+
+def test_the_review_list_only_keeps_the_most_recent_pass(app_state, monkeypatch):
+    """One pass deep on purpose: this list is "read what just happened while it
+    is still surprising you", not an archive. Undo payloads kept for weeks
+    invite reversing an edit that has since been deliberately redone."""
+
+    def pass_with(label):
+        monkeypatch.setattr(
+            autonomous.agent,
+            "run_agent",
+            lambda **kw: iter([{"type": "tool", "ok": True, "change": {"label": label}}]),
+        )
+        autonomous._working.set()
+        autonomous._run_optimization()
+
+    pass_with("first")
+    pass_with("second")
+    assert [c["label"] for c in autonomous.last_pass()["changes"]] == ["second"]
+
+
+def test_the_review_list_is_bounded(app_state, monkeypatch):
+    many = [
+        {"type": "tool", "ok": True, "change": {"label": f"change {i}"}}
+        for i in range(autonomous.MAX_RECORDED_CHANGES + 50)
+    ]
+    monkeypatch.setattr(autonomous.agent, "run_agent", lambda **kw: iter(many))
+    autonomous._working.set()
+    autonomous._run_optimization()
+    assert len(autonomous.last_pass()["changes"]) == autonomous.MAX_RECORDED_CHANGES
+
+
+def test_the_review_list_can_be_dismissed(client, app_state, monkeypatch):
+    monkeypatch.setattr(
+        autonomous.agent,
+        "run_agent",
+        lambda **kw: iter([{"type": "tool", "ok": True, "change": {"label": "x"}}]),
+    )
+    autonomous._working.set()
+    autonomous._run_optimization()
+
+    assert client.get("/tasks/autonomous/last").json()["changes"]
+    assert client.post("/tasks/autonomous/last/clear").status_code == 200
+    assert client.get("/tasks/autonomous/last").json()["changes"] == []
+
+
+def test_a_failed_pass_still_lists_what_it_managed_to_change(app_state, monkeypatch):
+    """The changes are the part that matters most when a run went wrong."""
+
+    def half_a_pass(**kwargs):
+        yield {"type": "tool", "ok": True, "change": {"label": "tagged something"}}
+        raise RuntimeError("the model fell over")
+
+    monkeypatch.setattr(autonomous.agent, "run_agent", half_a_pass)
+    autonomous._working.set()
+    autonomous._run_optimization()
+
+    recorded = autonomous.last_pass()
+    assert recorded["outcome"] == "failed"
+    assert [c["label"] for c in recorded["changes"]] == ["tagged something"]
+
+
+def test_editing_a_note_never_stops_an_unattended_pass(app_state):
+    """`edit_note` was briefly `destructive=True`, which parks the turn for a
+    confirmation — and this pass abandons itself on any `confirm`, because
+    there is nobody to ask. So the first note it tried to edit killed the run.
+    """
+    from memorymap.ai import tools
+
+    assert tools.TOOLS["edit_note"].destructive is False
+    assert tools.TOOLS["delete_note"].destructive is True

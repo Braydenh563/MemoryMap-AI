@@ -212,6 +212,32 @@ def trigger_autonomous() -> dict:
     }
 
 
+@router.get("/tasks/autonomous/last")
+def last_autonomous_pass() -> dict:
+    """What the background librarian changed last time it ran (§40 item 2).
+
+    The honest answer to "you are asking me to let an agent edit my notebook
+    unattended". A true preview is not available — the model chooses each call
+    from the result of the previous one, so a pass with the writes stubbed out
+    stops resembling the pass that would really happen — but every change
+    carries the tool call that reverses it, and the browser hands those back to
+    `POST /chat/tools/execute`, which is the same path the chat's own Undo
+    buttons already use.
+    """
+    from memorymap.ai import autonomous
+
+    return autonomous.last_pass()
+
+
+@router.post("/tasks/autonomous/last/clear")
+def clear_last_autonomous_pass() -> dict:
+    """Dismiss the review list once it has been read."""
+    from memorymap.ai import autonomous
+
+    autonomous.forget_last_pass()
+    return {"status": "ok"}
+
+
 @router.post("/tasks/history/clear")
 def clear_history() -> dict:
     """Forget the finished-job list.

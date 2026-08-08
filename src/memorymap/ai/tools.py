@@ -2885,7 +2885,24 @@ TOOLS: dict[str, ToolSpec] = {
                 "required": ["note_id"],
             },
             _edit_note,
-            destructive=True,
+            # NOT destructive, and this was reconsidered rather than inherited.
+            # It was flipped to `destructive=True` once, which sounds like the
+            # safe direction and is not, for three reasons:
+            #
+            # - An edit is the one write here that is *fully* reversible. Every
+            #   call captures `_undo_edit` — the exact call that restores the
+            #   note — before it writes, and `entry_revisions` keeps the old
+            #   text besides. A delete is not comparable, which is why that one
+            #   stays destructive.
+            # - Destructive tools park the turn for a confirmation, so an
+            #   agent asked to tidy twenty notes stopped twenty times. The
+            #   change list with an Undo on every row is the better answer to
+            #   "the AI edited something I didn't want": it costs nothing when
+            #   the edits were right, which is most of the time.
+            # - It broke the background librarian outright. That run abandons
+            #   itself on any `confirm` event, because there is nobody to ask —
+            #   so with this flag set, the first note it tried to edit ended
+            #   the entire pass.
         ),
         ToolSpec(
             "tag_note",

@@ -183,6 +183,14 @@ def reset_app_state() -> None:
     global _config, _db, _ollama, _model_manager, _embeddings
     if _db is not None:
         _db.engine.dispose()
+    # The graph's derived-value cache is keyed on the notebook, so it is
+    # already safe across data directories — but a test that reuses one path
+    # for two databases would still see the first one's numbers. Imported here
+    # rather than at module scope: the API layer imports this module, so the
+    # other direction can only be a local import.
+    from memorymap.api.routes_graph import reset_graph_cache
+
+    reset_graph_cache()
     _config = None
     _db = None
     _ollama = None

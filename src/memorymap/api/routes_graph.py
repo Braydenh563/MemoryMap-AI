@@ -11,9 +11,10 @@ Nodes are non-deleted entries; edges come from three places:
 from __future__ import annotations
 
 import re
+import threading
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from memorymap.ai.embeddings import bytes_to_vector, similar_pairs
@@ -30,6 +31,71 @@ SIMILARITY_EDGE_THRESHOLD = 0.55
 # A hard cap keeps a dense notebook from becoming a hairball (and the
 # O(n²) comparison from mattering — it's personal-notebook scale).
 MAX_SIMILARITY_EDGES = 200
+
+
+# --- caching the two expensive derivations (ROADMAP §40, items 4 and 5) ----------
+#
+# Similarity edges are an all-pairs vector comparison and PageRank is fifteen
+# passes over every node and edge. Both were recomputed from scratch on every
+# request, which made `/graph` the most expensive endpoint in the app and made
+# `/graph/local` — "focus mode", which is supposed to be the *cheap* one — pay
+# the full notebook cost to draw a neighbourhood.
+#
+# Neither can be made local. Centrality is a global property by definition, and
+# a similarity edge can join two notes at opposite ends of the notebook, so
+# restricting either to the visited set would return different, wrong numbers.
+# What they can be is computed once per version of the notebook.
+#
+# The version is a fingerprint of cheap aggregates rather than a counter
+# someone has to remember to bump — a counter is a thing to forget, and a
+# forgotten one serves a stale graph indefinitely. `updated_at` moves on any
+# note edit, and the two counts move on anything created or destroyed.
+#
+# The known gap, stated rather than papered over: adding and removing one link
+# between two requests leaves the counts identical, so that single case serves
+# one stale render. The alternative is a `max(updated_at)` on links too, and a
+# stale centrality value for one frame is not worth another aggregate on every
+# graph load.
+_cache_lock = threading.Lock()
+_cache: dict[str, tuple] = {}
+
+
+def _graph_fingerprint(session: Session) -> tuple:
+    live = Entry.is_deleted == False  # noqa: E712
+    return (
+        # Which notebook. The cache is process-global while the counts below
+        # are emphatically not unique — two notebooks holding three notes each
+        # collide trivially, and so do two tests. Without this, restoring a
+        # backup or pointing MEMORYMAP_DATA_DIR somewhere else could be served
+        # the previous notebook's centrality.
+        str(deps.get_config().data_dir),
+        session.scalar(select(func.count(Entry.id)).where(live)) or 0,
+        session.scalar(select(func.max(Entry.updated_at)).where(live)),
+        session.scalar(select(func.count(EntryLink.id))) or 0,
+    )
+
+
+def _cached(name: str, fingerprint: tuple, build):  # noqa: ANN001
+    """`build()`'s result for this version of the notebook, computed once.
+
+    One slot per name, not an LRU: only the current version is ever asked for,
+    and keeping the previous one alive holds a whole graph's worth of floats
+    for nobody.
+    """
+    with _cache_lock:
+        hit = _cache.get(name)
+        if hit is not None and hit[0] == fingerprint:
+            return hit[1]
+    value = build()
+    with _cache_lock:
+        _cache[name] = (fingerprint, value)
+    return value
+
+
+def reset_graph_cache() -> None:
+    """Drop everything. For the tests, and for a data restore."""
+    with _cache_lock:
+        _cache.clear()
 
 
 # The inline markers the note editor supports, matched with their content so
@@ -58,24 +124,49 @@ def _similarity_edges(
     session: Session, node_ids: set[int], taken: set[frozenset[int]]
 ) -> list[dict]:
     """Pairwise cosine over stored vectors of the current backend.
-    Pairs already joined by a real link/thread edge are skipped — the
-    stronger relationship wins."""
+
+    Pairs already joined by a real link/thread edge are skipped — the stronger
+    relationship wins.
+
+    The comparison itself is cached per version of the notebook; only the
+    `taken` filter and the cap are re-applied, because `taken` differs between
+    callers (the full graph has already claimed its link and thread pairs;
+    focus mode has not). The backend id is part of the key: vectors from two
+    embedding models live in different spaces, so a model switch has to
+    invalidate this even when no note changed.
+    """
     backend = deps.get_embeddings().backend_id()
-    records = session.scalars(
-        select(EmbeddingRecord).where(EmbeddingRecord.model_version == backend)
-    )
-    vectors = {
-        r.entry_id: bytes_to_vector(r.embedding)
-        for r in records
-        if r.entry_id in node_ids
-    }
+    fingerprint = (*_graph_fingerprint(session), backend)
+
+    def build() -> list[tuple[int, int, float]]:
+        records = session.scalars(
+            select(EmbeddingRecord).where(EmbeddingRecord.model_version == backend)
+        )
+        vectors = {
+            r.entry_id: bytes_to_vector(r.embedding)
+            for r in records
+            if r.entry_id in node_ids
+        }
+        return similar_pairs(vectors, SIMILARITY_EDGE_THRESHOLD)
+
     # Already sorted best-first, so the cap below keeps the strongest edges.
     scored = [
         {"source": a, "target": b, "kind": "similar", "score": round(score, 2)}
-        for a, b, score in similar_pairs(vectors, SIMILARITY_EDGE_THRESHOLD)
+        for a, b, score in _cached("similarity", fingerprint, build)
         if frozenset((a, b)) not in taken
     ]
     return scored[:MAX_SIMILARITY_EDGES]
+
+
+def _centrality(session: Session, index: paths.Connections, similarity: bool) -> dict:
+    """PageRank over the whole graph, once per version of the notebook.
+
+    `similarity` is in the key because similarity edges change the graph, so
+    they change every node's rank — the same notebook scores differently with
+    the edges on and off, and both answers are correct for their own picture.
+    """
+    fingerprint = (*_graph_fingerprint(session), similarity)
+    return _cached("centrality", fingerprint, lambda: paths.pagerank(index))
 
 
 
@@ -132,11 +223,12 @@ def graph(similarity: bool = False, session: Session = Depends(get_session)) -> 
                 edges.append({"source": e.parent_id, "target": e.id, "kind": "thread"})
 
     config = deps.get_config()
-    if similarity and not config.get_preference("battery_efficient_mode"):
+    with_similarity = similarity and not config.get_preference("battery_efficient_mode")
+    if with_similarity:
         edges.extend(_similarity_edges(session, node_ids, taken))
 
     index = paths.build(session, extra_edges=edges)
-    centrality_scores = paths.pagerank(index)
+    centrality_scores = _centrality(session, index, with_similarity)
 
     # Stable category order so the frontend assigns stable colours.
     categories = sorted({n["category"] for n in nodes})
@@ -208,7 +300,7 @@ def graph_local(
         for e_id in visited
     ]
     
-    centrality_scores = paths.pagerank(index)
+    centrality_scores = _centrality(session, index, bool(extra_edges))
     for n in nodes:
         n["centrality"] = centrality_scores.get(n["id"], 0)
         

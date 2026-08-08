@@ -13554,6 +13554,7 @@ function showSettingsSection(name) {
   if (name === "skills") renderSkillSettings();
   if (name === "tools") renderToolSettings();
   if (name === "memory") renderMemorySettings().catch(() => {});
+  if (name === "tasks") renderAutonomousReview().catch(() => {});
   if (name === "appearance") renderAppearance();
   if (name === "shortcuts") renderShortcutList();
   if (name === "account") renderAccount().catch(() => {});
@@ -19667,9 +19668,50 @@ $("pref-smart-model-routing").addEventListener("change", savePrefs);
 $("semantic-search-toggle")?.addEventListener("change", () => {
   if (noteSearch) loadAllNotes();
 });
+// The review panel for the background librarian (ROADMAP §40 item 2).
+//
+// A true dry-run is not available here — the agent picks each call from the
+// result of the last one, so a pass with the writes stubbed out stops
+// resembling the pass that would really run, and a preview that lies is worse
+// than no preview. What is available is honest and nearly as useful: every
+// write already captured the call that reverses it, so the pass can be read
+// back and undone one item at a time. `changeRow` is the same renderer the
+// chat uses for a skill's result, so Undo here goes through exactly the path
+// the chat's own Undo buttons do.
+async function renderAutonomousReview() {
+  const box = $("autonomous-review");
+  const list = $("autonomous-review-list");
+  if (!box || !list) return;
+
+  const pass = await apiJson("/tasks/autonomous/last").catch(() => null);
+  const changes = pass?.changes || [];
+  box.classList.toggle("hidden", changes.length === 0);
+  if (!changes.length) return;
+
+  const when = pass.finished_at ? new Date(pass.finished_at).toLocaleString() : "";
+  $("autonomous-review-title").textContent =
+    `What the last run changed — ${changes.length} thing(s)` + (when ? `, ${when}` : "");
+  list.replaceChildren(...changes.map((change) => changeRow(change)));
+}
+
+$("autonomous-review-clear")?.addEventListener("click", async () => {
+  await api("/tasks/autonomous/last/clear", { method: "POST" }).catch(() => {});
+  renderAutonomousReview();
+});
+
 $("autonomous-trigger").addEventListener("click", () => {
   api("/tasks/trigger-autonomous", { method: "POST" })
-    .then(() => toast("Optimization task started in the background."))
+    .then(async (response) => {
+      const body = await response.json().catch(() => ({}));
+      toast(
+        body.started === false
+          ? "A pass is already running — the results will appear below."
+          : "Optimization started. Its changes will be listed below when it finishes."
+      );
+      // The pass runs on a worker thread, so there is nothing to await. Look
+      // again shortly rather than leaving the panel showing the previous run.
+      setTimeout(renderAutonomousReview, 4000);
+    })
     .catch((err) => toast(err.message, true));
 });
 // Filters only re-draw what is already held — they never refetch, so changing

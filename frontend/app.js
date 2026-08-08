@@ -22014,6 +22014,13 @@ let wbErasing = false;
 // so an hour of erasing doesn't grow this forever; only the newest matters.
 let wbUndoStack = [];
 const WB_UNDO_MAX = 20;
+// Ids currently mid-DELETE. The eraser's mouseenter can fire again for the
+// same still-on-screen item before its first DELETE round-trip resolves (a
+// slow request, or the pointer wobbling back over it) — without this a
+// second call pushes a second undo entry and fires a second DELETE for
+// something already gone, and the 404 catch then pops the *wrong* undo
+// entry off the stack (whatever else was pushed in between).
+const wbDeleting = new Set();
 
 function handleWbZoom(e) {
   d3.select("#wb-html-layer").style("transform", `translate(${e.transform.x}px, ${e.transform.y}px) scale(${e.transform.k})`);
@@ -22605,6 +22612,9 @@ function renderWhiteboard() {
   // pointer crosses while wbErasing is true, matching how an eraser tool
   // behaves in every other drawing app.
   async function deleteSketch(d) {
+    const deletingKey = `sketch:${d.id}`;
+    if (wbDeleting.has(deletingKey)) return;
+    wbDeleting.add(deletingKey);
     wbPushUndo({
       action: "delete",
       kind: "sketch",
@@ -22617,6 +22627,8 @@ function renderWhiteboard() {
     } catch (e) {
       console.error(e);
       wbUndoStack.pop(); // the delete never happened, so neither did the undo entry
+    } finally {
+      wbDeleting.delete(deletingKey);
     }
   }
 
@@ -22687,6 +22699,9 @@ function renderWhiteboard() {
     .data(wbState.nodes, d => d.id);
     
   async function deleteNode(d) {
+    const deletingKey = `node:${d.id}`;
+    if (wbDeleting.has(deletingKey)) return;
+    wbDeleting.add(deletingKey);
     wbPushUndo({
       action: "delete",
       kind: "node",
@@ -22700,6 +22715,8 @@ function renderWhiteboard() {
     } catch (e) {
       console.error(e);
       wbUndoStack.pop();
+    } finally {
+      wbDeleting.delete(deletingKey);
     }
   }
 

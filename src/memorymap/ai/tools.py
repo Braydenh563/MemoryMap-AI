@@ -78,6 +78,13 @@ PREVIEW_CHARS = 200
 FULL_NOTE_CHARS = 4_000
 DEFAULT_LIST_LIMIT = 10
 MAX_LIST_LIMIT = 25
+
+#: What `search_notes` assumes when the caller could not report a real window.
+DEFAULT_CONTEXT_TOKENS = 4_096
+
+#: The share of the model's window one search may fill by default. Only the
+#: default scales with the window — `MAX_LIST_LIMIT` still caps the result.
+SEARCH_CONTEXT_SHARE = 0.15
 SUMMARY_NOTE_LIMIT = 40
 # Documents are long-form by definition, so they get a larger ceiling than a
 # note — but still a ceiling: one document must not fill the whole window.
@@ -258,11 +265,19 @@ def _refresh_embedding(session: Session, entry: Entry) -> None:
 
 
 def _search_notes(session: Session, args: dict) -> dict:
-    ctx = args.get("__context_tokens__", 4096)
-    # Give semantic search about 15% of the context window by default.
-    dynamic_default = max(5, int((ctx * 0.15 * CHARS_PER_TOKEN) / PREVIEW_CHARS))
-    dynamic_max = max(MAX_LIST_LIMIT, dynamic_default * 2)
-    limit = _limit_arg(args, default=dynamic_default, max_limit=dynamic_max)
+    # A big window earns more results than the flat five this used to return —
+    # a 32k model reading five previews is the tool being timid, and the model
+    # then pages through with repeated calls it does not need.
+    #
+    # But it earns *more*, not *unbounded*. The first version of this scaled
+    # the ceiling with the window too (`max_limit = default * 2`), so a 128k
+    # model's search could return 768 previews — about 38k tokens of notes for
+    # one call, which is not a search result, it is the notebook. Only the
+    # default moves; MAX_LIST_LIMIT stays the ceiling it was written to be.
+    ctx = args.get("__context_tokens__") or DEFAULT_CONTEXT_TOKENS
+    earned = int((ctx * SEARCH_CONTEXT_SHARE * CHARS_PER_TOKEN) / PREVIEW_CHARS)
+    default = min(max(5, earned), MAX_LIST_LIMIT)
+    limit = _limit_arg(args, default=default)
     found = search_manager.retrieve_detailed(
         session, str(args["query"]), deps.get_embeddings(), limit=limit
     )
@@ -402,23 +417,36 @@ def _graph_neighbours(session: Session, entry: Entry) -> list[tuple[Entry, str]]
 
     tags = set(manager.entry_tags(entry))
     if tags:
-        # Build a tag → {entry_id} index in one pass rather than checking
-        # every entry against every tag individually (the old O(n²) scan).
-        # For a 1,000-note notebook the difference is ~1,000 DB row reads
-        # vs. ~1,000,000 tag comparisons.
+        # Build a tag → [entry] index in one pass rather than checking every
+        # entry against every tag individually (the old O(n²) scan). For a
+        # 1,000-note notebook the difference is ~1,000 DB row reads vs.
+        # ~1,000,000 tag comparisons.
+        #
+        # Matching is case-insensitive throughout, and *consistently* so. The
+        # first version keyed the index by `tag.lower()` but then intersected
+        # the lowercased tags of the candidate with this note's tags at their
+        # original case — so two notes sharing "#Work" matched the index,
+        # produced an empty intersection, and were reported as unrelated.
+        # Lowercase is the key; `folded` keeps a display form for each.
+        folded = {t.lower(): t for t in tags}
         tag_to_entries: dict[str, list[Entry]] = {}
         for other in session.scalars(
             select(Entry).where(Entry.is_deleted == False)  # noqa: E712
         ):
             if other.id == entry.id:
                 continue
-            for t in manager.entry_tags(other):
-                tag_to_entries.setdefault(t.lower(), []).append(other)
-        for t in tags:
-            for other in tag_to_entries.get(t.lower(), []):
-                shared = tags & {ot.lower() for ot in manager.entry_tags(other)}
-                if shared:
-                    add(other, f"shares {', '.join('#' + s for s in sorted(shared))}")
+            for other_tag in manager.entry_tags(other):
+                key = other_tag.lower()
+                if key in folded:
+                    tag_to_entries.setdefault(key, []).append(other)
+        for other in {o.id: o for ids in tag_to_entries.values() for o in ids}.values():
+            shared = {
+                folded[t.lower()]
+                for t in manager.entry_tags(other)
+                if t.lower() in folded
+            }
+            if shared:
+                add(other, f"shares {', '.join('#' + s for s in sorted(shared))}")
     return out
 
 
@@ -1407,52 +1435,88 @@ def _edit_note(session: Session, args: dict) -> dict:
     return result
 
 
+def _requested_ids(args: dict, single: str, plural: str) -> list[int]:
+    """The ids a batch tool was asked to act on, in order and de-duplicated.
+
+    Reads both the singular and the plural argument without writing to either.
+    The first version of this built its list by `args[plural].append(...)`,
+    which mutated the caller's own dict — and the agent loop had already taken
+    a `json.dumps(arguments)` fingerprint of that dict to spot repeated calls,
+    so the fingerprint no longer matched the arguments the tool actually ran
+    with and the loop breaker stopped recognising a repeat.
+    """
+    wanted: list[int] = []
+    raw = args.get(plural) or []
+    if not isinstance(raw, list):
+        raise ToolError(f"{plural} must be a list of note ids")
+    for value in [*raw, args.get(single)]:
+        if value is None:
+            continue
+        try:
+            note_id = int(value)
+        except (TypeError, ValueError) as exc:
+            raise ToolError(f"{value!r} is not a note id") from exc
+        if note_id not in wanted:
+            wanted.append(note_id)
+    return wanted
+
+
 def _tag_note(session: Session, args: dict) -> dict:
-    note_id = args.get("note_id")
-    note_ids = args.get("note_ids", [])
-    if note_id is not None and note_id not in note_ids:
-        note_ids.append(note_id)
-        
+    note_ids = _requested_ids(args, "note_id", "note_ids")
     if not note_ids:
         raise ToolError("Must provide at least one note_id")
-        
+
     add_tags = args.get("add") or []
     remove_tags = {str(r) for r in args.get("remove") or []}
-    
+
     results = []
     undos = []
-    
-    for nid in note_ids:
-        entry = manager.get_entry(session, int(nid))
-        if entry is None or entry.is_deleted:
+    tagged: list[int] = []
+
+    for note_id in note_ids:
+        # `_require_note` rather than `manager.get_entry`: it is the one place
+        # that refuses a private note, and going around it let the AI retag
+        # notes it is not allowed to read (caught by
+        # test_write_tools_refuse_private_notes_too). A missing or binned note
+        # in a batch is skipped; a private one is refused loudly, because
+        # quietly skipping it would tell the user the tag was applied.
+        if manager.get_entry(session, note_id) is None:
             continue
-            
-        undo = _undo_edit(session, entry)
+        entry = _require_note(session, {"note_id": note_id})
+        if entry.is_deleted:
+            continue
+
+        undos.append(_undo_edit(session, entry))
         tags = manager.entry_tags(entry)
         for tag in add_tags:
             if str(tag) not in tags:
                 tags.append(str(tag))
         tags = [t for t in tags if t not in remove_tags]
         manager.update_entry(session, entry, tags=tags)
-        
+
+        tagged.append(entry.id)
         results.append(f"#{entry.id} → {', '.join(tags) or 'no tags'}")
-        undos.append(undo)
-        
-    if not results:
+
+    if not tagged:
         raise ToolError("No valid notes found to tag.")
-        
-    result_dict = {
-        "tagged": note_ids,
-        "label": f"🏷 Retagged {len(results)} notes: {', '.join(results)}",
-        "undo": undos[0] if len(undos) == 1 else None,
+
+    result: dict = {
+        "tagged": tagged,
+        "label": f"🏷 Retagged {len(results)} note(s): {', '.join(results)}",
+        # Every note's undo, not just the first. The batch version originally
+        # kept `undos[0] if len(undos) == 1 else None`, which meant tagging
+        # two notes at once could not be undone at all.
+        "undo": undos[0] if len(undos) == 1 else {"tool": "batch", "steps": undos},
     }
-    if len(note_ids) == 1:
-        # Compatibility with tests expecting a single list of tags
-        entry = manager.get_entry(session, int(note_ids[0]))
-        if entry:
-            result_dict["tags"] = manager.entry_tags(entry)
-            
-    return result_dict
+    if len(tagged) == 1:
+        # A single-note call keeps the shape the one-note tool always had, so
+        # callers that read `tags` (and the change list, which reads `id`)
+        # don't have to special-case the batch form.
+        entry = manager.get_entry(session, tagged[0])
+        if entry is not None:
+            result["tags"] = manager.entry_tags(entry)
+            result["id"] = entry.id
+    return result
 
 
 def _pin_note(session: Session, args: dict) -> dict:
@@ -1475,29 +1539,36 @@ def _pin_note(session: Session, args: dict) -> dict:
 
 def _link_notes(session: Session, args: dict) -> dict:
     source = _require_note(session, args)
-    other_id = args.get("other_note_id")
-    other_ids = args.get("other_note_ids", [])
-    if other_id is not None and other_id not in other_ids:
-        other_ids.append(other_id)
-        
+    other_ids = _requested_ids(args, "other_note_id", "other_note_ids")
     if not other_ids:
         raise ToolError("Must provide at least one target note id.")
-        
+
     linked = []
-    for tid in other_ids:
-        target = manager.get_entry(session, int(tid))
-        if target is None or target.is_deleted:
+    for target_id in other_ids:
+        if manager.get_entry(session, target_id) is None:
+            continue
+        # Same reason as `_tag_note`: the target has to go through the private
+        # guard too. Linking *to* a private note is a leak even though nothing
+        # reads its text — the link shows up in the graph and in `get_note`'s
+        # connected ids, so the note's existence and its neighbours escape.
+        target = _require_note(session, {"note_id": target_id})
+        if target.is_deleted:
             continue
         link = manager.create_link(session, source, target)
         if link is not None:
             linked.append(target.id)
-            
+
     if not linked:
-        raise ToolError("No new links were created (they may already be linked, or target doesn't exist).")
-        
+        raise ToolError(
+            "No new links were created (they may already be linked, or the target doesn't exist)."
+        )
+
     return {
         "linked": [source.id] + linked,
-        "label": f"🔗 Linked note #{source.id} to {len(linked)} other note(s): {', '.join(map(str, linked))}",
+        "label": (
+            f"🔗 Linked note #{source.id} to {len(linked)} other note(s): "
+            f"{', '.join(map(str, linked))}"
+        ),
     }
 
 
@@ -2298,93 +2369,76 @@ def handoff_event(name: str, arguments: dict, history: list[dict] | None = None)
     return build(arguments, history)
 
 
+#: The longest standing preference the model may write, and the most it may
+#: keep. Both are caps on *the system prompt*, not on storage: every active
+#: preference is replayed to the model on every round of every turn (see
+#: `agent._persona_with_memory`), so an unbounded list is a slow squeeze on the
+#: window that ends with the user's actual question falling off the front.
+#: `content` is a String(500) column and SQLite will not enforce that for us.
+MAX_PREFERENCE_CHARS = 200
+MAX_ACTIVE_PREFERENCES = 40
+
+
 def _save_user_preference(session: Session, args: dict) -> dict:
+    """Remember a standing instruction from the user (the memory stream).
+
+    Worth being careful with, because this is the one tool whose output
+    becomes part of the model's own system prompt on every later turn: text
+    that arrives here is text the model will later read as an instruction. So
+    it is length-capped, de-duplicated, and count-capped — a model that decides
+    to write itself a new rule every turn otherwise fills its own window with
+    its own voice.
+    """
     from memorymap.core.database import UserPreference
-    pref = args.get("preference")
+
+    pref = str(args.get("preference") or "").strip()
     if not pref:
         raise ToolError("Must provide 'preference'.")
-    record = UserPreference(content=pref)
-    session.add(record)
+    if len(pref) > MAX_PREFERENCE_CHARS:
+        raise ToolError(
+            f"That preference is too long — keep it under {MAX_PREFERENCE_CHARS} "
+            "characters. Save the rule, not the explanation."
+        )
+
+    active = list(
+        session.scalars(
+            select(UserPreference).where(UserPreference.active == True)  # noqa: E712
+        )
+    )
+    if any((row.content or "").strip().lower() == pref.lower() for row in active):
+        return {
+            "already_known": True,
+            "label": "🧠 Already remembered",
+            "message": f"That preference was already saved: {pref}",
+        }
+    if len(active) >= MAX_ACTIVE_PREFERENCES:
+        raise ToolError(
+            f"There are already {len(active)} saved preferences, which is the "
+            "limit. Ask the user which one to drop before saving another."
+        )
+
+    session.add(UserPreference(content=pref))
     session.commit()
-    return {"message": f"Saved preference: {pref}"}
+    return {"label": "🧠 Remembered", "message": f"Saved preference: {pref}"}
 
 
 # --- the registry ---------------------------------------------------------------
 
 _NOTE_ID = {"type": "integer", "description": "The note's id number"}
 
-def _generate_skill(session: Session, args: dict) -> dict:
-    name = args.get("name")
-    prompt = args.get("prompt")
-    description = args.get("description", "")
-    when_to_use = args.get("when_to_use", "")
-    steps = args.get("steps", [])
-    tools_list = args.get("tools", [])
-    inputs = args.get("inputs", [])
-    
-    new_skill = {
-        "name": name,
-        "prompt": prompt,
-        "description": description,
-        "when_to_use": when_to_use,
-        "steps": steps,
-        "tools": tools_list,
-        "inputs": inputs
-    }
-    
-    config = deps.get_config()
-    current_skills = config.get_preference("skills", [])
-    
-    updated = False
-    for i, s in enumerate(current_skills):
-        if s.get("name") == name:
-            current_skills[i] = new_skill
-            updated = True
-            break
-            
-    if not updated:
-        current_skills.append(new_skill)
-        
-    config.save_preference("skills", current_skills)
-    
-    return {
-        "label": f"🛠️ Generated and saved skill '{name}'",
-        "undo": None,
-    }
+# There is no `generate_skill` here, and there was briefly: a second
+# skill-writing tool that built a raw dict and pushed it straight into
+# preferences. `save_skill` above is the same intent done safely — it runs
+# `skills.normalise`, which validates the shape and checks every declared tool
+# name against this registry, refuses to shadow a built-in, and honours
+# `skills.MAX_SKILLS`. The duplicate did none of those, and a skill's `tools`
+# list is its allowlist for the run, so "the model may invent that list
+# unchecked" was the part that mattered. One tool for one job, as
+# `_save_skill`'s own docstring argues.
 
 TOOLS: dict[str, ToolSpec] = {
     spec.name: spec
-
     for spec in [
-        ToolSpec(
-            "generate_skill",
-            "Generate and save a new custom skill. Use this when the user asks you to learn a new task.",
-            {
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string", "description": "Short name for the skill"},
-                    "prompt": {"type": "string", "description": "Instruction prompt for what the skill does"},
-                    "description": {"type": "string", "description": "Short description of the skill"},
-                    "when_to_use": {"type": "string", "description": "When should this skill be used? (e.g. 'User wants to clean up tags')"},
-                    "steps": {"type": "array", "items": {"type": "string"}, "description": "Step-by-step instructions for the skill"},
-                    "tools": {"type": "array", "items": {"type": "string"}, "description": "List of tool names this skill is allowed to use"},
-                    "inputs": {
-                        "type": "array", 
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "name": {"type": "string"},
-                                "description": {"type": "string"}
-                            }
-                        },
-                        "description": "Any variables/inputs the skill needs"
-                    }
-                },
-                "required": ["name", "prompt", "steps"]
-            },
-            _generate_skill,
-            destructive=True
-        ),
         ToolSpec(
             "save_user_preference",
             "Quietly append a learned preference to the user's permanent preferences (Memory Stream). "
@@ -3086,7 +3140,12 @@ WRITE_TOOLS = {
     "pin_note",
     "link_notes",
     "unlink_notes",
-    "find_similar_notes",
+    # `find_similar_notes` is NOT here, though it was added to this set once.
+    # It only reads. Listing a read here has three consequences, all wrong: the
+    # agent's "you claimed you saved it" net counts the turn as having written
+    # something, skills that only search get labelled as acting, and — the
+    # expensive one — the write branch in `run_agent` clears `fresh_reads`, so
+    # a single call to it re-opens every already-answered read for repetition.
     "delete_note",
     "restore_note",
     "set_reminder",
@@ -3410,6 +3469,23 @@ def ollama_tools(allowed: list[str] | None = None) -> list[dict]:
 TOOL_SCHEMA_WINDOW_SHARE = 0.25
 CHARS_PER_TOKEN = 4  # close enough for a stop rule; a real tokeniser per model is not
 
+#: Below this much room for schemas, the model is a small one (roughly: a 3B
+#: on a 4k window) and the tools below come off the list.
+SMALL_WINDOW_CHARS = 6_000
+
+#: Tools that ask the model to reason about *work* rather than about notes:
+#: writing a plan, delegating to a saved skill, saving a new one. A small model
+#: handed these tends to reach for them instead of answering, and then handles
+#: the multi-step result badly — so on a small window they are the first thing
+#: to go, ahead of the size-based trim below.
+#:
+#: `ask_user` is deliberately NOT in this set, though it was put here once. It
+#: is the opposite of complex: one question, a few options, and it is the only
+#: way the agent can say "I need to know which one you meant". Taking it away
+#: from small models left them guessing — the exact failure it exists to stop —
+#: and it is one of the cheapest schemas in the registry.
+ORCHESTRATION_TOOLS = frozenset({"make_plan", "run_skill", "save_skill"})
+
 
 def schema_chars(specs: list[dict]) -> int:
     """What this list of tool schemas costs on the wire."""
@@ -3438,31 +3514,20 @@ def within_budget(
 
     kept: list[dict] = []
     dropped: list[str] = []
-    # --- OLD LOGIC ---
-    # for spec in ordered:
-    #     if not kept or schema_chars(kept + [spec]) <= budget_chars:
-    #         kept.append(spec)
-    #     else:
-    #         dropped.append(spec["function"]["name"])
-    # -----------------
-    
-    # --- NEW LOGIC (Culling complex tools for small windows) ---
-    # For small models (budget < ~6000 chars), complex abstract tools degrade 
-    # performance because the model struggles to reason about plans or delegation.
-    complex_tools = {"make_plan", "run_skill", "save_skill", "ask_user"}
-    is_small_model = budget_chars < 6000
-    
+    small_window = budget_chars < SMALL_WINDOW_CHARS
+
     for spec in ordered:
         name = spec["function"]["name"]
-        if is_small_model and name in complex_tools:
+        if small_window and name in ORCHESTRATION_TOOLS:
             dropped.append(name)
             continue
-            
+        # Measured against the list as it will actually be serialised, rather
+        # than by summing individual schemas — the brackets and commas are
+        # small but they are also the difference between fitting and not.
         if not kept or schema_chars(kept + [spec]) <= budget_chars:
             kept.append(spec)
         else:
             dropped.append(name)
-    # -----------------------------------------------------------
     return kept, dropped
 
 

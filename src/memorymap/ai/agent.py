@@ -136,11 +136,15 @@ TOOLS_GUIDE = (
     "For \"remind me… in 10 minutes / tomorrow at 9 / tonight\", call "
     "set_reminder with due_at computed from the current time given below, as "
     "an ISO 8601 datetime. "
-    "NEVER say you created, "
+    # Both halves of this earned their place and both were briefly cut. Without
+    # the first the model acts and then says nothing, so the user watches tool
+    # chips scroll past and gets no answer; without the second it narrates work
+    # it never did. They are opposite failures and the pair is the fix.
+    "After acting, tell the user briefly what you did. NEVER say you created, "
     "saved, edited, deleted, tagged, linked or unlinked anything unless you "
     "called the tool — \"we linked…\" is claiming it just as much as \"I "
     "linked…\", and a list of work you did not do is the worst thing you can "
-    "write. "
+    "write. Planning is fine: say it in the future tense, then call the tools. "
     # Asked for directly: "I need agents to use tools more and better if they
     # are required." The loop already allows several rounds; nothing told the
     # model that using them was expected rather than a failure to answer
@@ -258,6 +262,20 @@ TOOLS_GUIDE = (
 # TOOLS_GUIDE or the persona; look there rather than at the number.
 PROSE_BUDGET_CHARS = 3_000
 
+#: How much of the memory stream may ride along with the persona.
+#:
+#: `save_user_preference` lets the model write rules it will then be given back
+#: on every later turn, which is a genuinely useful feature and also the one
+#: shape of prompt text `PROSE_BUDGET_CHARS` cannot see: the constant is
+#: asserted against the *static* persona and TOOLS_GUIDE, so anything appended
+#: at runtime slips past the very guard that exists to stop the system prompt
+#: growing. A notebook that has been used for a year could otherwise hold
+#: hundreds of these and quietly push the real question out of a 4k window.
+#:
+#: Newest wins when the budget is spent — a preference stated last month is
+#: likelier to be current than one stated at setup.
+MEMORY_STREAM_BUDGET_CHARS = 600
+
 # What to do about a failed tool call.
 #
 # A failure used to be handed to the model as a bare `{"error": "..."}` and
@@ -337,7 +355,13 @@ def _recovery_hint(name: str, message: str) -> str:
         return _RECOVERY_HINTS["rate_limited"]
     if "timeout" in lowered or "timed out" in lowered:
         return _RECOVERY_HINTS["timeout"]
-    if "not found" in lowered or "no note" in lowered or "no such" in lowered or "empty" in lowered or "nothing found" in lowered:
+    # "nothing found" and "returned nothing" are about the *search*; "empty" on
+    # its own is not, and matching it here sent "the note body is empty" — an
+    # argument mistake the model can fix — down the "it isn't there, stop
+    # looking" path. Match the phrases that mean an empty result, not the word.
+    if "nothing found" in lowered or "returned nothing" in lowered or "no results" in lowered:
+        return _RECOVERY_HINTS["empty_result"]
+    if "not found" in lowered or "no note" in lowered or "no such" in lowered:
         return _RECOVERY_HINTS["not_found"]
     # ValueError/KeyError/TypeError from a handler are argument problems, and
     # execute_tool prefixes those with the tool's own name.
@@ -538,8 +562,6 @@ def build_agent_messages(
     persona_prompt: str | None = None,
     budget: "context.ContextBudget | None" = None,
     mode: str | None = None,
-    agent_model: str = "",
-    model_manager = None,
 ) -> list[dict]:
     """Like librarian.build_messages, but the system prompt allows
     acting, and each note shows its id so tools can target it.
@@ -686,6 +708,52 @@ def _focus(question: str, history: list[dict] | None = None) -> list[str] | None
     return tools.focus_for(question, _recent_text(history))
 
 
+def _persona_with_memory(session: Session, persona_prompt: str | None) -> str:
+    """The persona, plus the standing preferences the user has taught the AI.
+
+    Bounded on purpose (`MEMORY_STREAM_BUDGET_CHARS`) and newest-first: this
+    text is resent on every round of every turn, and nothing downstream trims
+    it, so an unbounded version is a slow leak that ends with a small model
+    losing the actual question off the front of its window.
+
+    Defensive about the query for a reason beyond tidiness — `run_agent` is
+    also driven with lightweight stand-in sessions (the skill runner's, the
+    test fakes'), and a notebook that predates the `user_preferences` table
+    won't have one until migrations run. Losing the memory stream should cost
+    the user their preferences on that turn, never the turn itself.
+    """
+    base = (persona_prompt or librarian.DEFAULT_PERSONA).strip()
+    try:
+        from sqlalchemy import select
+
+        from memorymap.core.database import UserPreference
+
+        rows = session.scalars(
+            select(UserPreference)
+            .where(UserPreference.active == True)  # noqa: E712
+            .order_by(UserPreference.created_at.desc())
+        ).all()
+    except Exception:  # noqa: BLE001 — see the docstring: never fail the turn
+        logging.getLogger("memorymap.agent").debug(
+            "memory stream unavailable for this turn", exc_info=True
+        )
+        return base
+
+    kept: list[str] = []
+    spent = 0
+    for row in rows:
+        line = f"USER PREFERENCE: {(row.content or '').strip()}"
+        if len(line) <= len("USER PREFERENCE: "):
+            continue
+        if spent + len(line) > MEMORY_STREAM_BUDGET_CHARS:
+            break
+        kept.append(line)
+        spent += len(line) + 1
+    # Oldest-first in the prompt even though newest-first won the budget, so
+    # the model reads them in the order they were taught.
+    return " ".join([base, *reversed(kept)]).strip()
+
+
 def run_agent(
     session: Session,
     question: str,
@@ -726,12 +794,7 @@ def run_agent(
     report = getattr(ollama, "usable_context", None)
     agent_model = model_manager.utility_model() if use_utility_model else model_manager.chat_model()
     window = report(agent_model) if callable(report) else None
-    from sqlalchemy import select
-    from memorymap.core.database import UserPreference
-    
-    prefs = session.scalars(select(UserPreference).filter_by(active=True)).all()
-    mem_stream = " ".join(f"USER PREFERENCE: {p.content}" for p in prefs)
-    persona = f"{(persona_prompt or librarian.DEFAULT_PERSONA).strip()} {mem_stream}".strip()
+    persona = _persona_with_memory(session, persona_prompt)
 
     system_chars = len(
         f"{persona} "
@@ -751,8 +814,6 @@ def run_agent(
         persona_prompt=persona,
         budget=budget,
         mode=mode,
-        agent_model=agent_model,
-        model_manager=model_manager,
     )
     # A skill's declared tools are the only ones offered for its run: fewer
     # schemas on the wire (roadmap §11a) and a narrower thing to go wrong.
@@ -805,7 +866,6 @@ def run_agent(
         len(offered),
     )
     permitted = set(allowed_tools) if allowed_tools else None
-    model = model_manager.chat_model()
     did_write = False  # did any real write tool run this turn?
     # *Which* ones ran, so a claim can be checked against the action that
     # would have made it true rather than against the turn as a whole. A
@@ -1140,13 +1200,20 @@ def run_agent(
                     # answer: after a write, re-reading is legitimate work
                     # rather than a loop, and it has to be allowed through.
                     #
-                    #
                     # Deliberately *not* `done_calls`, which is the earned-round
                     # ledger: clearing that would let a model repeating one
                     # identical write buy a fresh round every time it did so,
                     # which is the exact loop EARNED_ROUNDS exists to starve.
+                    #
+                    # Deliberately not `failed_calls` either, for the same
+                    # reason one step removed. A write briefly cleared it here,
+                    # which sounds symmetrical and is not: a call that failed on
+                    # its own arguments — a bad note id, a malformed date — fails
+                    # again for exactly the same reason after an unrelated note
+                    # is written, and forgetting it hands the model back the
+                    # infinite retry that `_RECOVERY_HINTS` and the repeat
+                    # interception exist to break. Only a read can go stale.
                     fresh_reads.clear()
-                    failed_calls.clear()
                     change = {
                         "tool": name,
                         "label": result.get("label") or name,

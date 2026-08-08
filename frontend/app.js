@@ -2588,60 +2588,49 @@ async function streamChat({
   // it — that is the only way it differs from a skill run, here and on the
   // server.
   if (plan && plan.steps && plan.steps.length) body.plan = plan;
-  return new Promise((resolve, reject) => {
-    let ws;
-    let heartbeatInterval;
-    let done = false;
-    
-    const cleanup = () => {
-      if (heartbeatInterval) clearInterval(heartbeatInterval);
-      if (ws && ws.readyState === WebSocket.OPEN) ws.close();
-      if (signal) signal.removeEventListener("abort", handleAbort);
-    };
-    
-    const handleAbort = () => {
-      if (done) return;
-      done = true;
-      cleanup();
-      reject(new Error("aborted"));
-    };
-    
-    if (signal) {
-      if (signal.aborted) return handleAbort();
-      signal.addEventListener("abort", handleAbort);
-    }
-    
-    const wsUrl = new URL("/chat/stream", window.location.href);
-    wsUrl.protocol = wsUrl.protocol === "https:" ? "wss:" : "ws:";
-    
-    try {
-      ws = new WebSocket(wsUrl.toString());
-    } catch (e) {
-      return reject(e);
-    }
-    
-    ws.onopen = () => {
-      body.token = authToken();
-      ws.send(JSON.stringify(body));
-      
-      // Ping-pong heartbeat keeps the connection alive for long LLM generations
-      heartbeatInterval = setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: "ping" }));
-        }
-      }, 30000);
-    };
-    
-    ws.onmessage = (msgEvent) => {
-      if (done) return;
+  // NDJSON over a plain POST, deliberately — not a WebSocket. A WebSocket was
+  // tried here and reverted: it needed the session on a second thread (a
+  // SQLAlchemy Session is not thread-safe), it had to be mounted outside the
+  // `locked` dependency and re-implement auth by hand, and a WS handshake is
+  // exempt from the same-origin policy that protects this `fetch` — any page
+  // the user had open could have opened it. `fetch` + a reader gives the same
+  // token-by-token delivery with none of that.
+  const response = await fetch("/chat/stream", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() },
+    body: JSON.stringify(body),
+    signal,
+  });
+  if (response.status === 401) {
+    showLockScreen(false);
+    throw new Error("Locked");
+  }
+  if (!response.ok) {
+    const detail = await response.json().catch(() => ({}));
+    throw new Error(detail.detail || `Request failed (${response.status})`);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffered = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffered += decoder.decode(value, { stream: true });
+    const lines = buffered.split("\n");
+    buffered = lines.pop(); // last piece may be a partial line
+    for (const line of lines) {
+      if (!line.trim()) continue;
       let event;
+      // One malformed line must not abort a whole answer. Before this, a
+      // single bad frame threw out of the read loop and the user saw a
+      // half-written reply with no error.
       try {
-        event = JSON.parse(msgEvent.data);
+        event = JSON.parse(line);
       } catch (parseErr) {
-        recordBrowserLog("WARN", [`[Chat stream] Unparseable message: ${msgEvent.data.slice(0, 80)}`]);
-        return;
+        recordBrowserLog("WARN", [`[Chat stream] Unparseable line: ${line.slice(0, 80)}`]);
+        continue;
       }
-      
       if (event.type === "meta") onMeta(event);
       else if (event.type === "plan" && onPlan) onPlan(event);
       else if (event.type === "step" && onStep) onStep(event);
@@ -2658,42 +2647,18 @@ async function streamChat({
       else if (event.type === "hint" && onHint) onHint(event);
       else if (event.type === "stats" && onStats) onStats(event);
       else if (event.type === "error") {
-        done = true;
-        cleanup();
-        reject(new Error(event.message || "Agent disconnected or failed."));
-      } else if (event.type === "done") {
-        done = true;
-        cleanup();
-        resolve();
+        // The server caught something mid-stream and said so. Surfacing it
+        // beats the silent truncation this used to be.
+        throw new Error(event.message || "The answer stopped early.");
       }
-      
+
       if (event.type === "tool" && event.ok === false) {
         recordBrowserLog("WARN", [
-          `[Agent tool error] ${event.label || event.name || '?'}: ${event.error || 'unknown error'}`
+          `[Agent tool error] ${event.label || event.name || "?"}: ${event.error || "unknown error"}`,
         ]);
       }
-    };
-    
-    ws.onerror = (e) => {
-      if (done) return;
-      done = true;
-      cleanup();
-      recordBrowserLog("ERROR", ["[Chat stream error] Connection lost mid-response: WebSocket error"]);
-      reject(new Error("WebSocket connection error"));
-    };
-    
-    ws.onclose = (e) => {
-      if (done) return;
-      done = true;
-      cleanup();
-      if (!e.wasClean) {
-        recordBrowserLog("ERROR", [`[Chat stream error] Connection dropped: ${e.code}`]);
-        reject(new Error("WebSocket disconnected unexpectedly."));
-      } else {
-        resolve(); // Fallback if no done event was sent
-      }
-    };
-  });
+    }
+  }
 }
 
 // Live markdown while streaming. Re-parsing the WHOLE accumulated answer on

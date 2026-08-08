@@ -195,10 +195,23 @@ def list_tasks() -> dict:
 
 @router.post("/tasks/trigger-autonomous")
 def trigger_autonomous() -> dict:
-    """Manually start the background autonomous optimization task."""
+    """Run the background librarian now, rather than waiting for its interval.
+
+    Returns `started: false` rather than 409-ing when one is already going:
+    pressing "Run now" while it runs is not an error, it is impatience, and the
+    honest answer is "it's already going". The guard itself matters — without
+    it each press started another agent loop against the same notebook.
+    """
     from memorymap.ai import autonomous
-    autonomous.trigger_now()
-    return {"status": "ok"}
+
+    started = autonomous.trigger_now()
+    return {
+        "status": "ok",
+        "started": started,
+        "detail": "" if started else "A pass is already running.",
+    }
+
+
 @router.post("/tasks/history/clear")
 def clear_history() -> dict:
     """Forget the finished-job list.

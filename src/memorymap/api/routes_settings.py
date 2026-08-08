@@ -138,15 +138,6 @@ class PreferencesBody(BaseModel):
     # what it plausibly needs (§11a — the schemas are most of the per-round
     # cost); "all" sends the whole registry, as it always did.
     tool_focus: Literal["auto", "all"] | None = None
-    # Additional AI preferences
-    autonomous_tasks_enabled: bool | None = None
-    auto_tag_enabled: bool | None = None
-    auto_link_enabled: bool | None = None
-    auto_dedupe_enabled: bool | None = None
-    autonomous_tasks_interval_hours: int | None = None
-    autonomous_tasks_model: str | None = None
-    battery_efficient_mode: bool | None = None
-    smart_model_routing_enabled: bool | None = None
     # Wave F: the ONE feature that goes online — off unless the user opts in.
     web_search_enabled: bool | None = None
     searxng_autostart: bool | None = None
@@ -156,7 +147,10 @@ class PreferencesBody(BaseModel):
     # rather than free text, so a bad value is rejected at the door instead of
     # sitting in preferences quietly meaning "auto" forever.
     search_provider: str | None = None
-    # Autonomous Tasks settings
+    # Autonomous Tasks settings. These were declared twice — once here with
+    # bare types and once above with the validated ones — and Pydantic silently
+    # keeps the last definition, so the bounds below were the only ones that
+    # ever applied. One copy, the validated one.
     autonomous_tasks_enabled: bool | None = None
     auto_tag_enabled: bool | None = None
     auto_link_enabled: bool | None = None
@@ -795,21 +789,30 @@ def export_json(session: Session = Depends(get_session)) -> Response:
         "entries": [],
         "links": [],
     }
-    
+
     category_names = manager.bulk_category_names(session, entries)
-    
+
     for e in entries:
         payload["entries"].append({
             "id": e.id,
+            # Exports decrypt while the app is unlocked. An export is for
+            # taking your notes elsewhere, and ciphertext with no key is
+            # not your notes. (The app's own backups keep the database
+            # file as-is, so those stay encrypted.)
             "content": manager.readable_content(e),
             "category": category_names.get(e.category_id, manager.UNCATEGORISED),
             "tags": manager.entry_tags(e),
             "ai_confidence": e.ai_confidence,
             "created_at": e.created_at.isoformat(),
-                "updated_at": e.updated_at.isoformat(),
+            "updated_at": e.updated_at.isoformat(),
+            # `is_deleted` is not decoration and not derivable from
+            # `deleted_at`: an export is what a re-import reads, and without
+            # this flag every note in the recycle bin comes back as a live
+            # note. It went missing when this block was rewritten as a loop.
+            "is_deleted": e.is_deleted,
             "deleted_at": e.deleted_at.isoformat() if e.deleted_at else None,
         })
-        
+
     payload["links"] = [
         {
             "id": link.id,

@@ -22,7 +22,6 @@ from dotenv import load_dotenv
 # place so the future Preferences screen (Phase 4) has one list to show.
 DEFAULT_PREFERENCES: dict[str, Any] = {
     "chat_model": "llama3.2",  # any installed Ollama model (Phase 2+)
-    "smart_model_routing_enabled": True, # Toggle to use the utility model for background tasks
     "embedding_backend": "sentence-transformers",  # or "ollama" (Phase 3.5)
     "embedding_model": "nomic-embed-text",  # only used when backend == "ollama"
     "recycle_bin_days": 30,
@@ -68,12 +67,20 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     # `core.security.check_backend_url`. Turning it off is a deliberate act
     # with a visible switch, for someone who genuinely wants a hosted API.
     "local_only_ai": True,
+    # --- the background librarian (§39) ---------------------------------------
+    # Off by default and deliberately so: it runs the agent against the whole
+    # notebook with nobody watching, which is a thing to opt into rather than
+    # discover.
     "autonomous_tasks_enabled": False,
     "auto_tag_enabled": True,
     "auto_link_enabled": True,
     "auto_dedupe_enabled": True,
     "autonomous_tasks_interval_hours": 6,
+    #: Skip the expensive extras — similarity edges on the graph, the
+    #: background pass — on a laptop running off its battery.
     "battery_efficient_mode": False,
+    #: Let background work use the (smaller, faster) utility model instead of
+    #: tying up the chat model. Off means everything uses the chat model.
     "smart_model_routing_enabled": True,
 }
 

@@ -157,6 +157,60 @@ def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
     return float(np.dot(a, b) / norms)
 
 
+#: How many notes' vectors to compare against the rest at a time.
+#:
+#: "All pairs at once" is the obvious way to write this and the reason it is
+#: not written that way: `vectors @ vectors.T` allocates an N×N float matrix,
+#: and `np.triu` of it allocates a second. At 5,000 notes that is 400 MB for a
+#: graph refresh, at 10,000 it is 1.6 GB, and the notebook this app is built
+#: for is explicitly allowed to get that big (ANALYSIS.md §34 scale-tests it).
+#: A row block at a time is the same arithmetic with a ceiling on the memory.
+SIMILARITY_BLOCK = 512
+
+
+def similar_pairs(
+    vectors: dict[int, np.ndarray], threshold: float
+) -> list[tuple[int, int, float]]:
+    """Every pair of ids scoring at or above `threshold`, best first.
+
+    Vectors of a width other than the majority's are dropped rather than
+    stacked: a notebook part-way through an embedding-model change holds both
+    widths at once, and `np.stack` on a ragged list raises — which took out the
+    graph and the link suggestions entirely rather than degrading them.
+    """
+    if not vectors:
+        return []
+
+    by_width: dict[int, list[int]] = {}
+    for node_id, vector in vectors.items():
+        by_width.setdefault(vector.shape[0], []).append(node_id)
+    # The width most of the notebook is on. Everything else is mid-reindex.
+    widest = max(by_width, key=lambda w: len(by_width[w]))
+    ids = sorted(by_width[widest])
+    if len(ids) < 2:
+        return []
+
+    matrix = np.stack([vectors[node_id] for node_id in ids]).astype("float32")
+    norms = np.linalg.norm(matrix, axis=1, keepdims=True)
+    matrix /= np.where(norms == 0, 1.0, norms)
+
+    found: list[tuple[int, int, float]] = []
+    for start in range(0, len(ids), SIMILARITY_BLOCK):
+        block = matrix[start : start + SIMILARITY_BLOCK]
+        scores = block @ matrix.T
+        # Keep each pair once: only look to the right of the diagonal.
+        rows, cols = np.where(scores >= threshold)
+        for row, col in zip(rows, cols):
+            left = start + int(row)
+            right = int(col)
+            if right <= left:
+                continue
+            found.append((ids[left], ids[right], float(scores[row, col])))
+
+    found.sort(key=lambda pair: pair[2], reverse=True)
+    return found
+
+
 class EmbeddingService:
     # After a failed model load, wait this long before trying again —
     # each attempt can hit the network and stall a save otherwise.

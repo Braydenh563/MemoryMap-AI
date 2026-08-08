@@ -11,14 +11,12 @@ Plain `def` so the blocking LLM call runs in FastAPI's threadpool.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 from collections.abc import Iterator
 from itertools import chain
 
-import threading
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -36,11 +34,7 @@ from memorymap.entry.manager import UNCATEGORISED
 from memorymap.search import search_manager
 from sqlalchemy import func
 
-from memorymap.api.routes_auth import _get_user, _token_valid
-from fastapi import status
-
 router = APIRouter(prefix="/chat", tags=["chat"])
-ws_router = APIRouter(prefix="/chat", tags=["chat"])
 
 
 @router.get("/recent", response_model=list[str])
@@ -423,31 +417,18 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
     )
 
 
-@ws_router.websocket("/stream")
-async def chat_stream(websocket: WebSocket, session: Session = Depends(get_session)):
-    """WebSocket stream. JSON events, in order:
-    {"type":"status", "stage": "searching"}   (sent immediately)
+@router.post("/stream")
+def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
+    """NDJSON stream. Line types, in order:
+    {"type":"status", "stage": "searching"}   (sent immediately, so the
+        browser gets a first byte at once instead of waiting on the — often
+        cold-start — semantic search; this is what keeps the UI's typing
+        indicator alive instead of appearing frozen)
     {"type":"meta", raw_results, search_mode, answered_by}
     {"type":"thinking", "delta": "..."}   (zero or more)
     {"type":"answer", "delta": "..."}     (one or more)
     {"type":"done"}
     """
-    await websocket.accept()
-    
-    try:
-        data = await websocket.receive_json()
-        
-        # Manually check auth to avoid global dependencies blocking the WS upgrade
-        if _get_user(session) is not None:
-            token = data.get("token")
-            if not _token_valid(token):
-                await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-                return
-                
-        body = ChatRequest(**data)
-    except Exception:
-        await websocket.close()
-        return
     ollama = deps.get_ollama()
     model_manager = deps.get_model_manager()
     history = [turn.model_dump() for turn in body.history]
@@ -545,129 +526,95 @@ async def chat_stream(websocket: WebSocket, session: Session = Depends(get_sessi
             # The model died mid-answer — tell the user, keep the results.
             yield {"type": "answer", "delta": f"\n\n{librarian.OFFLINE_MESSAGE}"}
 
-    queue = asyncio.Queue()
-    loop = asyncio.get_running_loop()
+    def lines() -> Iterator[str]:
+        def event(payload: dict) -> str:
+            return json.dumps(payload) + "\n"
 
-    def producer():
-        def emit(payload: dict):
-            loop.call_soon_threadsafe(queue.put_nowait, payload)
+        # Flush a first byte immediately. The semantic search below can be a
+        # slow cold start (loading the embedding model, warming the index);
+        # emitting this now means the browser's stream opens right away and
+        # its "typing…" indicator keeps animating instead of looking frozen
+        # while the whole request blocks (user-reported lag).
+        yield event({"type": "status", "stage": "searching"})
 
-        try:
-            # Flush a first byte immediately. The semantic search below can be a
-            # slow cold start (loading the embedding model, warming the index);
-            # emitting this now means the browser's stream opens right away and
-            # its "typing…" indicator keeps animating instead of looking frozen
-            # while the whole request blocks (user-reported lag).
-            emit({"type": "status", "stage": "searching"})
+        # Retrieval happens INSIDE the stream now, not before it — that's the
+        # whole latency win. Nothing before this line touches the model.
+        prepared = _prepare(session, question, body.note_ids)
+        ollama_running = ollama.is_running()
+        # In agent mode the model can act even when nothing matched — "save a
+        # note about X" must work on an empty notebook.
+        will_answer = ollama_running and (
+            bool(prepared["notes"])
+            or use_tools
+            or not intent.needs_retrieval(prepared["intent"])
+        )
 
-            # Retrieval happens INSIDE the stream now, not before it — that's the
-            # whole latency win. Nothing before this line touches the model.
-            prepared = _prepare(session, question, body.note_ids)
-            ollama_running = ollama.is_running()
-            # In agent mode the model can act even when nothing matched — "save a
-            # note about X" must work on an empty notebook.
-            will_answer = ollama_running and (
-                bool(prepared["notes"])
-                or use_tools
-                or not intent.needs_retrieval(prepared["intent"])
-            )
+        yield event(
+            {
+                "type": "meta",
+                "raw_results": [r.model_dump(mode="json") for r in prepared["raw_results"]],
+                "search_mode": prepared["search_mode"],
+                "connected_ids": prepared["connected_ids"],
+                "when_phrase": prepared["when_phrase"],
+                "answered_by": model_manager.chat_model() if will_answer else None,
+                "ollama_running": ollama_running,
+            }
+        )
 
-            emit(
-                {
-                    "type": "meta",
-                    "raw_results": [r.model_dump(mode="json") for r in prepared["raw_results"]],
-                    "search_mode": prepared["search_mode"],
-                    "connected_ids": prepared["connected_ids"],
-                    "when_phrase": prepared["when_phrase"],
-                    "answered_by": model_manager.chat_model() if will_answer else None,
-                    "ollama_running": ollama_running,
-                }
-            )
+        events: Iterator[dict] = plain_events(prepared, ollama_running)
+        # Small talk never goes near the agent: "hey" is not a request to do
+        # anything, and handing it a toolbox invites it to invent an errand.
+        if ollama_running and use_tools and intent.needs_retrieval(prepared["intent"]):
+            shared = {
+                "style": prepared["style"],
+                "profile": prepared["profile"],
+                "history": history,
+                "persona_prompt": persona_prompt,
+            }
+            if skill:
+                # A skill runs step by step — the runner emits the plan, ticks
+                # each step, and ends with what changed. Its first event has
+                # the same meaning as the agent's, so the fallback below is
+                # unchanged.
+                agent_events = skill_runner.run_skill(
+                    session,
+                    skill["skill"],
+                    body.skill_inputs or {},
+                    prepared["notes"],
+                    model_manager,
+                    ollama,
+                    start_at=body.skill_from_step,
+                    **shared,
+                )
+            else:
+                agent_events = agent.run_agent(
+                    session,
+                    question,
+                    prepared["notes"],
+                    model_manager,
+                    ollama,
+                    mode=mode,
+                    allowed_tools=allowed_tools,
+                    **shared,
+                )
+            first = next(agent_events, None)
+            if first is None or first.get("type") == "unsupported":
+                # The active model can't do tool calls — plain Q&A, never
+                # a hard dependency (Wave G gate).
+                pass
+            else:
+                events = chain([first], agent_events)
+        for payload in events:
+            yield event(payload)
+        yield event({"type": "done"})
 
-            events: Iterator[dict] = plain_events(prepared, ollama_running)
-            # Small talk never goes near the agent: "hey" is not a request to do
-            # anything, and handing it a toolbox invites it to invent an errand.
-            if ollama_running and use_tools and intent.needs_retrieval(prepared["intent"]):
-                shared = {
-                    "style": prepared["style"],
-                    "profile": prepared["profile"],
-                    "history": history,
-                    "persona_prompt": persona_prompt,
-                }
-                if skill:
-                    # A skill runs step by step — the runner emits the plan, ticks
-                    # each step, and ends with what changed. Its first event has
-                    # the same meaning as the agent's, so the fallback below is
-                    # unchanged.
-                    agent_events = skill_runner.run_skill(
-                        session,
-                        skill["skill"],
-                        body.skill_inputs or {},
-                        prepared["notes"],
-                        model_manager,
-                        ollama,
-                        start_at=body.skill_from_step,
-                        **shared,
-                    )
-                else:
-                    agent_events = agent.run_agent(
-                        session,
-                        question,
-                        prepared["notes"],
-                        model_manager,
-                        ollama,
-                        mode=mode,
-                        allowed_tools=allowed_tools,
-                        **shared,
-                    )
-                first = next(agent_events, None)
-                if first is None or first.get("type") == "unsupported":
-                    # The active model can't do tool calls — plain Q&A, never
-                    # a hard dependency (Wave G gate).
-                    pass
-                else:
-                    events = chain([first], agent_events)
-            
-            for payload in events:
-                emit(payload)
-            emit({"type": "done"})
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            emit({"type": "error", "message": f"Connection lost or model timed out: {str(e)}"})
-        finally:
-            loop.call_soon_threadsafe(queue.put_nowait, None) # sentinel
-            session.close()
-
-    thread = threading.Thread(target=producer)
-    thread.start()
-
-    async def consumer():
-        try:
-            while True:
-                await websocket.receive_text()
-        except Exception:
-            pass
-            
-    consumer_task = asyncio.create_task(consumer())
-
-    try:
-        while True:
-            payload = await queue.get()
-            if payload is None:
-                break
-            await websocket.send_json(payload)
-    except WebSocketDisconnect:
-        pass
-    except Exception:
-        pass
-    finally:
-        consumer_task.cancel()
-        try:
-            await asyncio.sleep(0.1)
-            await websocket.close()
-        except Exception:
-            pass
+    # X-Accel-Buffering: no tells reverse proxies (nginx) not to buffer the
+    # stream, so tokens reach the browser as they're produced.
+    return StreamingResponse(
+        lines(),
+        media_type="application/x-ndjson",
+        headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
+    )
 
 
 @router.get("/modes")

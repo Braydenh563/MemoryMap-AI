@@ -11,16 +11,14 @@ Nodes are non-deleted entries; edges come from three places:
 from __future__ import annotations
 
 import re
-from itertools import combinations
-import numpy as np
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.ai.embeddings import bytes_to_vector, cosine_similarity
+from memorymap.ai.embeddings import bytes_to_vector, similar_pairs
 from memorymap.core import deps
-from memorymap.core.database import Category, EmbeddingRecord, Entry, EntryLink
+from memorymap.core.database import EmbeddingRecord, Entry, EntryLink
 from memorymap.core.deps import get_session
 from memorymap.entry import manager, paths
 
@@ -71,32 +69,12 @@ def _similarity_edges(
         for r in records
         if r.entry_id in node_ids
     }
-    if not vectors:
-        return []
-
-    node_list = sorted(vectors)
-    vec_matrix = np.array([vectors[n] for n in node_list])
-    
-    norms = np.linalg.norm(vec_matrix, axis=1, keepdims=True)
-    vec_matrix = vec_matrix / np.where(norms == 0, 1e-10, norms)
-    
-    # Upper triangular matrix of dot products
-    sim_matrix = np.triu(np.dot(vec_matrix, vec_matrix.T), k=1)
-    
-    # Find indices where similarity >= SIMILARITY_EDGE_THRESHOLD
-    rows, cols = np.where(sim_matrix >= SIMILARITY_EDGE_THRESHOLD)
-    
-    scored = []
-    for r, c in zip(rows, cols):
-        a = node_list[r]
-        b = node_list[c]
-        if frozenset((a, b)) not in taken:
-            score = float(sim_matrix[r, c])
-            scored.append(
-                {"source": a, "target": b, "kind": "similar", "score": round(score, 2)}
-            )
-            
-    scored.sort(key=lambda e: e["score"], reverse=True)
+    # Already sorted best-first, so the cap below keeps the strongest edges.
+    scored = [
+        {"source": a, "target": b, "kind": "similar", "score": round(score, 2)}
+        for a, b, score in similar_pairs(vectors, SIMILARITY_EDGE_THRESHOLD)
+        if frozenset((a, b)) not in taken
+    ]
     return scored[:MAX_SIMILARITY_EDGES]
 
 
@@ -179,15 +157,17 @@ def graph_local(
     """Focus Mode API: Gets the local neighborhood up to N degrees."""
     config = deps.get_config()
     extra_edges = []
-    
-    entries = list(session.scalars(select(Entry).where(Entry.is_deleted == False)))
-    node_ids = {e.id for e in entries}
-    
+
     if similarity and not config.get_preference("battery_efficient_mode"):
+        node_ids = set(
+            session.scalars(
+                select(Entry.id).where(Entry.is_deleted == False)  # noqa: E712
+            )
+        )
         extra_edges = _similarity_edges(session, node_ids, set())
-        
+
     index = paths.build(session, extra_edges=extra_edges)
-    
+
     if entry_id not in index.entries:
         return {"nodes": [], "edges": [], "categories": []}
         
@@ -305,7 +285,10 @@ def graph_structure(session: Session = Depends(get_session)) -> dict:
 
 @router.get("/graph/path")
 def graph_path(
-    source: int, target: int, session: Session = Depends(get_session)
+    source: int,
+    target: int,
+    similarity: bool = False,
+    session: Session = Depends(get_session),
 ) -> dict:
     """The chain of connections between two notes (§9).
 
@@ -317,16 +300,25 @@ def graph_path(
 
     Deliberately a GET with two ids: it reads nothing but the notebook's own
     structure, so it is cacheable, linkable and safe to re-issue.
+
+    `similarity=true` additionally lets the chain hop along "these read alike"
+    edges, which finds a route between notes nothing actually connects. It is
+    opt-in and off by default for two reasons: it costs a full vector sweep of
+    the notebook, which is not what "cacheable and safe to re-issue" above
+    describes; and a path made of similarity edges answers a weaker question
+    than the one asked — `SIMILAR_WEIGHT` makes them the last resort within a
+    route, but a route made only of them is "these are both about cooking"
+    dressed up as a connection the user made.
     """
-    config = deps.get_config()
-    similarity = not config.get_preference("battery_efficient_mode")
     extra_edges = []
-    
-    if similarity:
-        entries = list(session.scalars(select(Entry).where(Entry.is_deleted == False)))
-        node_ids = {e.id for e in entries}
+    if similarity and not deps.get_config().get_preference("battery_efficient_mode"):
+        node_ids = set(
+            session.scalars(
+                select(Entry.id).where(Entry.is_deleted == False)  # noqa: E712
+            )
+        )
         extra_edges = _similarity_edges(session, node_ids, set())
-        
+
     index = paths.build(session, extra_edges=extra_edges)
     missing = [
         note_id for note_id in (source, target) if note_id not in index.entries

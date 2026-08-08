@@ -370,6 +370,25 @@ def test_each_step_is_its_own_turn_and_is_ticked_off(ai_client, fake_ollama):
     assert len(fake_ollama.tool_rounds) >= len(plan["steps"])
 
 
+def test_a_step_that_produces_nothing_is_not_ticked_done(ai_client, fake_ollama):
+    """Reported as "the AI fails to respond while still saying it is writing
+    — and the skill step counted as done": a turn that ends with no answer
+    text and no tool call (an empty reply, no `tool_script` queued) used to
+    fall through to the generic "done" branch, so the run's own progress
+    list claimed success for a step that never actually did anything. It
+    must stop and report the step as failed instead, so Resume — not the
+    next step — picks it back up."""
+    fake_ollama.librarian_reply = ""  # the model says and does nothing
+    events = _stream_events(ai_client, "run", skill="🏷 Auto-tag my notes")
+    steps = [e for e in events if e["type"] == "step"]
+    result = [e for e in events if e["type"] == "result"][0]
+
+    assert steps[-1]["state"] == "failed"
+    assert "state" not in steps[-1] or steps[-1]["state"] != "done"
+    assert not any(s["state"] == "done" for s in steps)
+    assert result["stopped_at"] == 0
+
+
 def test_a_step_only_sees_what_the_earlier_steps_said(ai_client, fake_ollama):
     _stream_events(ai_client, "run", skill="🏷 Auto-tag my notes")
     last_turn = fake_ollama.tool_rounds[-1]

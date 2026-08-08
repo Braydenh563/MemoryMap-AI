@@ -13,10 +13,14 @@ Three things this module learned the hard way, all worth keeping written down:
   anything: `app.py` imported it and called nothing, so the interval setting
   in Settings pointed at a loop that did not exist and the feature silently
   did nothing at all. `start()` is called from the app's lifespan now.
-- **`VACUUM` cannot run inside a transaction.** SQLite refuses, and SQLAlchemy
-  opens one for you, so `session.execute(text("VACUUM"))` fails every single
-  time — the maintenance half of this module had never once succeeded. It
-  needs a connection with autocommit isolation.
+- **`VACUUM` must not run through a Session.** SQLite refuses to vacuum inside
+  a transaction. `session.execute(text("VACUUM"))` — how this was written —
+  happens to work *only* while it is the first statement in a fresh session,
+  because pysqlite defers its BEGIN until the first DML; add any read or write
+  before it and the same line raises `cannot VACUUM from within a
+  transaction`. That is a landmine, not a working call: it survives on the
+  ordering of the lines around it. An autocommit connection is correct
+  whatever else the session has done.
 - **A manual trigger needs a guard.** `trigger_now()` used to spawn a thread
   unconditionally, so holding down the button in Settings started as many
   concurrent agent runs as you had patience for, all writing to the same

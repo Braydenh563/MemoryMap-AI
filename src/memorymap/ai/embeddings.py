@@ -15,6 +15,7 @@ import threading
 import time
 
 import numpy as np
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from memorymap.ai.model_manager import ModelManager
@@ -138,6 +139,43 @@ def warmup_running() -> bool:
 
 def warmup_failed() -> bool:
     return _warmup["error"]
+
+
+def clean_orphaned_vectors(session_factory=None) -> int:  # noqa: ANN001
+    """Delete vectors whose note is gone, and say how many went.
+
+    Nothing prunes the embeddings table when an entry is hard-deleted — the
+    recycle bin's purge removes the row and leaves the vector behind — so it
+    grows forever and every semantic search scans rows that can never match.
+
+    This function is called by the background pass, and for a while it was
+    *only* called: it did not exist, and the call sat inside a `try/except`
+    broad enough to swallow the `AttributeError`, so the orphan cleanup was
+    reported as running and silently never ran. Hence the return value and the
+    log line — a maintenance job that cannot say what it did is a maintenance
+    job nobody can tell is broken.
+    """
+    if session_factory is None:
+        from memorymap.core import deps
+
+        session_factory = deps.get_db().session
+
+    with session_factory() as session:
+        orphans = list(
+            session.scalars(
+                select(EmbeddingRecord).where(
+                    EmbeddingRecord.entry_id.notin_(select(Entry.id))
+                )
+            )
+        )
+        for row in orphans:
+            session.delete(row)
+        if orphans:
+            session.commit()
+
+    if orphans:
+        logger.info("removed %d embedding(s) whose note no longer exists", len(orphans))
+    return len(orphans)
 
 
 def vector_to_bytes(vector: np.ndarray) -> bytes:

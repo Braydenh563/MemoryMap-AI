@@ -274,12 +274,20 @@ def _attached_notes(session: Session, note_ids: list[int]) -> list[dict]:
     """The notes the user picked, in the order they picked them.
 
     Binned notes are skipped: attaching one would quietly resurrect content the
-    user has already thrown away.
+    user has already thrown away. Private notes are skipped too — a client-
+    supplied id list is the one path into this prompt that never went through
+    `tools._require_note`, which is the only thing that otherwise refuses a
+    private note (CLAUDE.md's own reminder of exactly this shape of bug). A
+    forged/stale `note_ids` entry for a private note would otherwise put its
+    id and category straight into what the model sees, private-notebook rule
+    or not — no plaintext leaks (the content column is ciphertext either way,
+    unreadable without `manager.readable_content`), but its existence should
+    not be either.
     """
     found = []
     for note_id in dict.fromkeys(note_ids):  # de-duplicate, keep order
         entry = session.get(Entry, note_id)
-        if entry is None or entry.is_deleted:
+        if entry is None or entry.is_deleted or entry.is_private:
             continue
         found.append(entry)
     return found

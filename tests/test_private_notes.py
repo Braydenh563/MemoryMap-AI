@@ -117,6 +117,35 @@ def test_private_notes_never_reach_the_model(ai_client, fake_ollama, session):
     assert "ELDERFLOWER" not in prompt
 
 
+def test_a_private_note_cannot_be_attached_by_id_either(ai_client, fake_ollama, session):
+    """The gap the search-side guard above doesn't cover: `note_ids` is a
+    client-supplied list, the one path into the chat prompt that never went
+    through `tools._require_note` — the only other thing that refuses a
+    private note. A forged or stale id in that list must not put the note's
+    id, category or content in front of the model just because it was named
+    directly instead of found."""
+    secret = "codeword FOXGLOVE opens the safe"
+    private = _make_private(ai_client, session, f"about kayaking: {secret}")
+    ai_client.post("/entries", json={"content": "an ordinary public note on kayaking"})
+    fake_ollama.librarian_reply = "Here's what I found."
+
+    # Everything up to here (creating and filing both notes) is allowed to
+    # have shown the model the plaintext — that's the janitor auto-filing a
+    # note that only became private afterwards, unrelated to this request.
+    # Only what the /chat call itself sends is under test.
+    before = len(fake_ollama.chat_calls)
+    body = ai_client.post(
+        "/chat", json={"question": "what do you make of this?", "note_ids": [private["id"]]}
+    ).json()
+
+    assert private["id"] not in [r["id"] for r in body["raw_results"]]
+    sent_this_request = " ".join(
+        m["content"] for call in fake_ollama.chat_calls[before:] for m in call
+    )
+    assert "FOXGLOVE" not in sent_this_request
+    assert "kayaking:" not in sent_this_request  # the private note's own content prefix
+
+
 def test_privacy_needs_an_open_vault(client, session):
     """The key only exists in memory while unlocked."""
     entry = client.post("/entries", json={"content": "x"}).json()

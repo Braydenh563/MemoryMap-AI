@@ -2,7 +2,115 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session: the audit, then the reported list
+## Latest session: §41 Tier 1 (all of it), a live whiteboard redesign, then a security/perf review
+
+Worked §41's Tier 1 list top-down, each reproduced before being fixed, each
+with a real test:
+
+1. **Meeting transcription "errors out"**: with faster-whisper actually
+   installed (`pip install`, works fine in this sandbox now), a failed
+   model download raised inside `voice.transcribe` and fell through to the
+   route's catch-all as "Couldn't transcribe that recording" — indistinguish-
+   able from a bad clip. Now a distinct 503 naming the model-load failure.
+2. **Skill step ticked "done" on an empty turn**: a turn with no answer, no
+   tool call and no failure fell through to `state: "done"` in
+   `skill_runner.py`. Now reported `failed`, same as the existing
+   `ran_out`-of-rounds case. Also added a client-side idle-read timeout to
+   `streamChat` (150s, longer than the backend's own 120s Ollama timeout).
+4. **A reply to the agent's own question read as small talk**: `ask_user`
+   asks "delete this?", the user answers "yes"/"ok", `intent.classify`
+   correctly calls that small talk in isolation, and small talk gets no
+   tools. New `answering_agent` request flag, set by the client while an
+   `ask` card is pending (covers both button-click and free-typed replies),
+   forces `intent.NOTES` for that one message.
+6. **Embedding-model downloads invisible outside one settings screen**:
+   `embedmodels.DownloadState`'s own docstring said "for /tasks and the
+   panel" — the panel half existed, `/tasks` never got it. Added, plus
+   `taskhistory.record()` on completion so a failed download doesn't vanish.
+
+**Then a live, mid-session redesign of the whiteboard**, driven directly by
+the user watching it: a cursor-lag bug ("mouse keeps snapping to an
+invisible grid" — a regression from this session's own first pass at a
+custom cursor, fixed by switching to a native `cursor: url(svg)` per tool
+instead of a JS-tracked div), a missing eraser, Undo (Ctrl+Z), keyboard
+shortcuts, an SVG-icon toolbar redesign, a board background colour (also
+fixes the generative-art canvas bleeding through), draggable toolbar panels,
+and an empty-state hint. Full writeup and the bug found along the way (a
+freshly drawn stroke wasn't in `wbState.sketches`, so it couldn't be
+deleted until a reload) is in [ROADMAP.md §11](../ROADMAP.md).
+
+**Then item 3** (skills producing network errors): the same disguise problem
+as item 2, one layer up — `agent.run_agent`'s `OllamaError` handler turns
+"Ollama died mid-round" into a real `answer` event (the correct thing for
+ordinary chat, which just renders it like any other reply) but `skill_runner`
+had no way to tell that from a genuine answer, so the step was ticked done
+and the run repeated the identical failure on every later step. The answer
+event now carries `offline: true`; `skill_runner` checks for it and stops
+with a real reason, same shape as the `ran_out` case.
+
+**Then item 5** (notifications): audited before building anything, per this
+file's own rule — found it was **already done**. `recordNotification` has
+exactly three call sites (a stopped run, a due reminder, every finished
+background job via `renderTaskHistory`), and the third already picks up
+whatever `routes_tasks.collect()` lists, including this session's own
+embedding-model addition, with no extra wiring. ROADMAP.md §5 corrected
+rather than rebuilt. Item 7 (claim-specificity) is still blocked on real
+model output, as originally scoped — nothing to add there.
+
+**Then two background review agents** (security, and backend/graph
+perf+correctness), dispatched to cover ground beyond §41 at the user's
+request. Findings and what was done with each:
+
+- **XSS, high severity, fixed.** The Command Palette (`Ctrl+K`) rendered the
+  streamed chat answer via `innerHTML` with a hand-rolled, unescaped
+  `\n`→`<br>`/`**bold**` replace. Worse and better at once: the handler also
+  called `/chat` (non-streaming) and parsed the response as `/chat/stream`'s
+  NDJSON, so `msg.type` was never `"content"` and no answer had ever actually
+  rendered — a "feature that never ran once" that would have gone live the
+  moment someone fixed the parsing without also fixing the escaping. Rewired
+  to reuse `streamChat`/`renderMarkdown` (the app's one real streaming client
+  and its one safe renderer) instead of a second, parallel, broken
+  implementation of both. Verified live in Chromium with a payload that
+  would have executed under the old code.
+- **Private-note leak via `note_ids`, fixed.** `_attached_notes` checked
+  `is_deleted` but not `is_private` — the one path into the chat prompt that
+  never went through `tools._require_note`. Now excluded, matching that
+  guard. No plaintext ever leaked (private content is ciphertext at rest
+  either way); the note's id and category were the exposure.
+- **`execute_tool`'s exception net too narrow, fixed.** Only `ToolError`/
+  `KeyError`/`TypeError`/`ValueError` were caught; anything else (a
+  SQLAlchemy error, a filesystem error) propagated through `agent.py`'s tool
+  loop — which has no try/except of its own — and killed the whole SSE
+  stream mid-turn with no rollback and nothing the model or user ever saw.
+  Added a backstop: roll back, log the real exception, return an ordinary
+  tool-error result the model can read and try something else with.
+- **Two backend perf findings, reproduced but NOT fixed** — see
+  [ROADMAP.md §8](../ROADMAP.md), start of Tier 1: `tools.py`'s
+  `_graph_neighbours` does an unfiltered full-table `Entry` scan per BFS
+  node instead of a SQL tag filter (up to ~12 scans per `related_notes`
+  call), and `manager.entry_dates` is an N+1 inside `_note_summary`, hit by
+  `list_notes`/`summarize_notes`. Left unfixed deliberately: verifying
+  either properly needs a realistic-size notebook, which this sandbox's
+  test suite doesn't give a session — start here next, with a synthetic
+  large notebook to measure against before and after.
+- Also found, while verifying the eraser's undo: a double-delete race
+  (re-entrant `mouseenter` on an item already mid-DELETE could pop the
+  wrong undo entry). Fixed with an in-flight-id guard.
+
+**What could not be verified**: real-Ollama behaviour, as always (every fix
+above is pinned by `fake_ollama`/mocked-network tests, not a live model).
+Every UI change this session *was* driven in Chromium with real
+measurements (network calls, computed styles, DOM counts, payload
+execution checks), not just screenshots — including the XSS fix, verified
+by confirming a real script payload did *not* execute.
+
+**Not reached**: the two perf findings above (§8), and anything from
+"the user's list for next session" mentioned when this session closed —
+ask them what's on it; nothing here names it.
+
+---
+
+## Previous session: the audit, then the reported list
 
 **Read [§41 in ROADMAP.md](../ROADMAP.md#41-the-reported-list-triaged--and-the-ordered-plan)
 before deciding anything.** It is the ordered plan in four tiers, and it exists

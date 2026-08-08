@@ -271,6 +271,18 @@ def _run_download(model: EmbedModel) -> None:
         _state.step = f"Couldn't download {model.label}: {exc}"
     finally:
         _state.running = False
+        # The other half of "for /tasks and the panel" (this dataclass's own
+        # docstring): a job that fails must not just vanish from the running
+        # list, the way a re-index dying halfway used to.
+        from memorymap.core import taskhistory
+
+        taskhistory.record(
+            "embedding-model",
+            f"Downloading {model.label}",
+            _state.outcome,
+            _state.step,
+            name=model.id,
+        )
 
 
 def start(model_id: str) -> tuple[bool, str]:

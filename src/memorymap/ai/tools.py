@@ -3618,6 +3618,23 @@ def execute_tool(session: Session, name: str, arguments: dict, context_tokens: i
                 f"wrong type. Re-read the tool's schema and try once more."
             )
         }
+    except Exception as exc:  # noqa: BLE001 — the backstop, not the rule
+        # Anything else a handler can raise (a SQLAlchemy error, a filesystem
+        # error, a bug the two branches above don't name) used to propagate
+        # straight through — `agent.run_agent`'s tool loop has no try/except
+        # of its own, so one bad call killed the whole SSE stream mid-turn,
+        # with no rollback and no error the model or the user ever saw. A
+        # tool failing is not supposed to be fatal to the turn; it is
+        # supposed to be a result the model can read and try something else
+        # with, the same as every other tool error here.
+        session.rollback()
+        logging.getLogger("memorymap.tools").error(
+            "tool %s failed unexpectedly (%s)",
+            safe_value(name, 40),
+            type(exc).__name__,
+            exc_info=True,
+        )
+        return {"error": f"{name}: something went wrong running this tool. Try a different approach."}
     manager.log_action(
         session,
         "ai_tool",

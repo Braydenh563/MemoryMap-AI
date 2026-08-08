@@ -155,6 +155,25 @@ def test_execute_bad_arguments_return_error_not_crash(ai_client, session):
     }
 
 
+def test_an_unexpected_exception_is_a_tool_error_not_a_crash(ai_client, session, monkeypatch):
+    """A handler can raise something that isn't a ToolError/KeyError/
+    TypeError/ValueError — a SQLAlchemy error, a filesystem error, a plain
+    bug. That used to propagate straight through execute_tool: agent.py's
+    tool loop has no try/except of its own, so one such call killed the
+    whole SSE stream mid-turn with no rollback and nothing the model or the
+    user ever saw. It must come back as an ordinary tool error instead."""
+    import dataclasses
+
+    def boom(session, args):
+        raise RuntimeError("the database exploded")
+
+    broken = dataclasses.replace(tools.TOOLS["count_notes"], handler=boom)
+    monkeypatch.setitem(tools.TOOLS, "count_notes", broken)
+    result = tools.execute_tool(session, "count_notes", {})
+    assert "error" in result
+    assert "count_notes" in result["error"]
+
+
 # --- the agent loop over the streaming endpoint -----------------------------------
 
 

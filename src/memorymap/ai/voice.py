@@ -46,9 +46,27 @@ def _get_model(size: str):  # noqa: ANN202 — faster_whisper types are optional
 
 def transcribe(audio_path: Path, model_size: str = "base") -> str:
     """Turn one recorded clip into text. Raises RuntimeError with the
-    install hint when Whisper isn't available."""
+    install hint when Whisper isn't available, and RuntimeError with a
+    distinct message when the model itself can't be loaded.
+
+    That second case is not hypothetical: the first transcription on a
+    machine downloads the model from Hugging Face, and a broken or
+    offline connection makes that download raise deep inside
+    faster-whisper/huggingface_hub — an exception that has nothing to do
+    with the recording. Left uncaught, it surfaced as "Couldn't
+    transcribe that recording: <httpx error>" (the route's catch-all for
+    a bad clip), which reads exactly like "transcription is broken" and
+    sends the user looking at their microphone instead of their network.
+    """
     if not whisper_available():
         raise RuntimeError(INSTALL_HINT)
-    model = _get_model(model_size)
+    try:
+        model = _get_model(model_size)
+    except Exception as exc:
+        raise RuntimeError(
+            f"Couldn't load the Whisper '{model_size}' model. The first use "
+            "downloads it from Hugging Face — check your internet connection "
+            f"and try again. ({exc})"
+        ) from exc
     segments, _info = model.transcribe(str(audio_path))
     return " ".join(segment.text.strip() for segment in segments).strip()

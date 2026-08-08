@@ -246,14 +246,20 @@ def run_skill(
         said: list[str] = []
         failures: list[str] = []
         ran_out = False
+        ran_any_tool = False
+        went_offline = False
         # Where this step's own changes start in the run's running list, so
         # they can be told apart from every earlier step's — see _step_answer.
         changes_before = len(changes)
         for event in _collect(chain([first], events) if first else events, changes):
             if event["type"] == "answer":
                 said.append(event["delta"])
-            elif event["type"] == "tool" and not event.get("ok"):
-                failures.append(str(event.get("error") or event.get("label")))
+                if event.get("offline"):
+                    went_offline = True
+            elif event["type"] == "tool":
+                ran_any_tool = True
+                if not event.get("ok"):
+                    failures.append(str(event.get("error") or event.get("label")))
             elif event["type"] == "limit":
                 # The step used every round it had and was still calling tools.
                 # Whatever it says next is a stopping notice, so it must not be
@@ -262,6 +268,23 @@ def run_skill(
             yield event
 
         answer = "".join(said).strip()
+        if went_offline:
+            # **Tier 1 §3.** Ollama died mid-round, and `agent.run_agent`'s own
+            # answer for that is a real sentence of prose ("Ollama doesn't
+            # seem to be running…") — which used to satisfy the "did this step
+            # say something" check below and get ticked done. The run then
+            # quietly repeated the identical failure on every later step,
+            # since the notebook did not get any less offline between them.
+            # Named and stopped here instead, the same way `ran_out` is.
+            yield {
+                "type": "step",
+                "index": index,
+                "state": "failed",
+                "text": step,
+                "reason": "Ollama isn't reachable — check Settings → Models and try again.",
+            }
+            stopped_at = index
+            break
         if ran_out:
             # **Stalled, not done.** This is the half of the reported failure
             # that made the other half invisible: the runner could only see
@@ -289,6 +312,26 @@ def run_skill(
                 "state": "failed",
                 "text": step,
                 "reason": failures[-1],
+            }
+            stopped_at = index
+            break
+        # **The other half of the reported bug.** A turn can end with no
+        # answer, no tool call and no failure at all — a model that replies
+        # with empty content and no tool calls produces exactly this, and it
+        # used to fall straight through to "done" below because nothing here
+        # checked for *nothing happening*. That is what made the skill's own
+        # progress list lie: a step ticked green though the model never
+        # actually said or did anything ("the AI fails to respond… and the
+        # skill step counted as done"). Reported the same way `ran_out` was:
+        # stop and let Resume pick it back up, rather than hand the next step
+        # a "done" step with nothing in its history to build on.
+        if not answer and not ran_any_tool:
+            yield {
+                "type": "step",
+                "index": index,
+                "state": "failed",
+                "text": step,
+                "reason": "the model didn't respond — no answer and no tool call",
             }
             stopped_at = index
             break

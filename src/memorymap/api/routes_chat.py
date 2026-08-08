@@ -160,6 +160,17 @@ class ChatRequest(BaseModel):
     # conversational path to exist. A flag on the request cannot misfire, costs
     # no model round, and leaves the Chat tab exactly as it was.
     notes_only: bool = False
+    # The reverse problem (Tier 1 §4): the agent's own `ask_user` question
+    # gets a one-word reply — "yes", "ok", "sure", all real answers a person
+    # gives — and `intent.classify` correctly calls a bare "yes" small talk.
+    # Routed as small talk it lands in the conversational path, which has no
+    # tools at all, so the answer to the agent's own question could not be
+    # acted on even if the model understood it perfectly. `TOOLS_GUIDE` tells
+    # the model several turns are normal; the classifier was quietly cutting
+    # this one off after the first. Same fix as `notes_only`: a flag the
+    # client sets when it already knows the context, not a smarter
+    # classifier trying to guess it from three letters.
+    answering_agent: bool = False
 
 
 def _resolve_mode(requested: str | None) -> str:
@@ -263,18 +274,31 @@ def _attached_notes(session: Session, note_ids: list[int]) -> list[dict]:
     """The notes the user picked, in the order they picked them.
 
     Binned notes are skipped: attaching one would quietly resurrect content the
-    user has already thrown away.
+    user has already thrown away. Private notes are skipped too — a client-
+    supplied id list is the one path into this prompt that never went through
+    `tools._require_note`, which is the only thing that otherwise refuses a
+    private note (CLAUDE.md's own reminder of exactly this shape of bug). A
+    forged/stale `note_ids` entry for a private note would otherwise put its
+    id and category straight into what the model sees, private-notebook rule
+    or not — no plaintext leaks (the content column is ciphertext either way,
+    unreadable without `manager.readable_content`), but its existence should
+    not be either.
     """
     found = []
     for note_id in dict.fromkeys(note_ids):  # de-duplicate, keep order
         entry = session.get(Entry, note_id)
-        if entry is None or entry.is_deleted:
+        if entry is None or entry.is_deleted or entry.is_private:
             continue
         found.append(entry)
     return found
 
 
-def _prepare(session: Session, question: str, note_ids: list[int] | None = None) -> dict:
+def _prepare(
+    session: Session,
+    question: str,
+    note_ids: list[int] | None = None,
+    force_notes_intent: bool = False,
+) -> dict:
     """The shared first half of both chat endpoints: retrieve entries,
     bump their usage counters, log the question, gather AI settings.
 
@@ -285,6 +309,13 @@ def _prepare(session: Session, question: str, note_ids: list[int] | None = None)
     from memorymap.api.routes_entries import _to_out  # avoids a route-module cycle
 
     detected = intent.classify(question)
+    # `body.answering_agent` (Tier 1 §4): a reply to the agent's own question
+    # is about the notebook by construction, however smalltalk-shaped the
+    # reply itself reads ("yes", "ok"). Same override shape as `attached`
+    # below, and the same reason: this route's job is to route what the
+    # request actually is, and the client already knows.
+    if force_notes_intent:
+        detected = intent.NOTES
     # Attaching a note is itself a statement that this is about the notebook,
     # so it overrides the classifier — "what do you think?" with three notes
     # clipped to it is a question about those notes.
@@ -539,7 +570,9 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
 
         # Retrieval happens INSIDE the stream now, not before it — that's the
         # whole latency win. Nothing before this line touches the model.
-        prepared = _prepare(session, question, body.note_ids)
+        prepared = _prepare(
+            session, question, body.note_ids, force_notes_intent=body.answering_agent
+        )
         ollama_running = ollama.is_running()
         # In agent mode the model can act even when nothing matched — "save a
         # note about X" must work on an empty notebook.

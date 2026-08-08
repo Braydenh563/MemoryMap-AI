@@ -53,11 +53,19 @@ Things that are wrong, lose work, or make the app feel unreliable.
    tells the model to take several turns and use tools; `intent.SMALLTALK`
    routes "hey" away from the agent entirely. Reconcile them — the prompt is
    resent every round, so a contradiction is paid for constantly.
-5. **Decide what notifications are for.** Asked directly: "do they actually
-   work? what appears there and when?" — the right question, and the one to
-   answer before adding to them. Audit what raises one today, move the
-   embedding-model-ready message into Background tasks where it belongs, then
-   add reminders. An indicator nobody can predict is noise.
+5. ~~**Decide what notifications are for.**~~ **Already done** — found stale
+   while auditing the list this session (checked before building, per this
+   file's own standing rule). The audit itself: `recordNotification` has
+   exactly three call sites — a chat/skill run that stopped early
+   (`app.js` ~5743), a reminder coming due (~15648, plus folding in anything
+   overdue on the server when the panel opens, ~15525), and every finished
+   background job via `renderTaskHistory` (~17427), which is *every* job
+   `routes_tasks.collect()` lists — including the embedding-model download
+   this session added to that list (§6 below), so it reached the
+   notification centre automatically rather than needing its own wiring.
+   Nothing raises a notification outside those three paths. Verified by
+   tracing every call site, not by driving it in a browser — say so plainly:
+   if this is re-reported, that is the half still worth checking live.
 6. **Background tasks that never appear.** The list is built from
    `routes_tasks.collect()`; anything on a worker thread not registered there
    is invisible. Sweep for unregistered threads and make registration the rule
@@ -67,6 +75,24 @@ Things that are wrong, lose work, or make the app feel unreliable.
    but not one that mismatches what happened ("I tagged it as Work" when a
    different tag was applied). Needs real model output to tune against, which
    this sandbox cannot provide — named rather than guessed at.
+8. **Two backend perf findings from a full review this session, not yet
+   fixed.** Both reproducible, neither fixed — deliberately: verifying either
+   properly needs a realistic-size notebook to measure against, and this
+   sandbox's suite runs against a handful of notes. Start here next.
+   - `tools.py`'s `_graph_neighbours` (~line 433) does `select(Entry).where(
+     Entry.is_deleted == False)` — a full, unfiltered table scan materialising
+     every note — whenever a visited node has tags, to find tag matches by
+     hand instead of a SQL filter. `_related_notes` calls it once per node in
+     the BFS frontier (depth 2, up to 12 notes), so one `related_notes` tool
+     call is up to ~12 full scans. The similar O(n²) at `GET
+     /graph?similarity=true` was already found and left off by default
+     (ANALYSIS.md §34); this one runs by default, inside the agent's own
+     tools.
+   - `manager.entry_dates` (one `SELECT` per entry) is called in a loop by
+     `_note_summary`, itself called per row by `list_notes` (≤25) and
+     `summarize_notes` (≤40) — an N+1 on the agent's most-used read tools.
+     Cheaper to fix than the one above: batch into one `WHERE entry_id IN
+     (...)` query and group the results by id before the loop.
 
 ### Tier 2 — half-built features, cheap to finish
 
@@ -87,10 +113,20 @@ into a good one.
     (~20 passes before anything shows) — that is the "completely wrong" in the
     report. Then a reachable size control, a background colour, and a
     selection tool. The toolbar redesign comes *after* those, not before.
-11. **The whiteboard, properly.** It works and is thin. Wanted: an empty state
-    that says how to start, a legible explanation that a board *is a note*
-    (a good idea nobody is told), resizable cards, and the edge-labelling the
-    graph has — see item 9.
+11. **The whiteboard, properly.** Done this session, reported and verified in
+    Chromium: per-tool cursors (native `cursor: url(svg)`, not a JS-tracked
+    div — the div version was reported and reproduced as "the mouse snaps to
+    an invisible grid", a lag artifact, not a real grid), an eraser
+    (drag-to-delete, matching every other drawing app), Undo (Ctrl+Z, one
+    level, covers create and delete for both sketches and cards), keyboard
+    shortcuts (V/P/L/R/O/E/X/Esc), a real toolbar redesign with SVG icons and
+    grouped sections, a board background colour (also fixes the generative-art
+    canvas showing through, reported separately), draggable toolbar panels,
+    and an empty-state hint. Also fixed while adding the eraser: a freshly
+    drawn stroke was appended as a raw un-bound SVG element, not through
+    `renderWhiteboard`'s data binding — so it could never be deleted or erased
+    until a page reload re-fetched it. Still open: resizable cards, and the
+    edge-labelling the graph has — see item 9.
 12. **Note metadata, and links that are links.** A note's linked notes should
     be clickable through to those notes; today they are decoration.
 13. **"Take me to the thing the agent just changed," the UI half.** Groundwork

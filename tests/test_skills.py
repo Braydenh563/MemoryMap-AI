@@ -352,6 +352,35 @@ def _saved(client, content, **extra):
     return response.json()
 
 
+def test_a_network_failure_mid_step_stops_the_run_instead_of_repeating(
+    ai_client, fake_ollama, monkeypatch
+):
+    """Tier 1 §3: Ollama going offline mid-round used to look, to
+    skill_runner, exactly like the model answering with a sentence of prose
+    (agent.run_agent's own OllamaError handling is a real "answer" event) —
+    so the step was ticked done and the run moved on to repeat the identical
+    failure on every later step. It must stop and name the real reason
+    instead, the same way running out of rounds already does."""
+    from memorymap.ai import agent
+
+    def offline(session, question, notes, *args, **kwargs):
+        yield {"type": "answer", "delta": "Ollama doesn't seem to be running.", "offline": True}
+
+    monkeypatch.setattr(agent, "run_agent", offline)
+    events = _stream_events(ai_client, "run", skill="🏷 Auto-tag my notes")
+    steps = [e for e in events if e["type"] == "step"]
+    result = [e for e in events if e["type"] == "result"][0]
+
+    failed = [e for e in steps if e["state"] == "failed"]
+    assert failed and failed[0]["index"] == 0
+    assert "ollama" in failed[0]["reason"].lower()
+    assert not any(s["state"] == "done" for s in steps)
+    # It stops rather than ploughing on through the remaining steps, hitting
+    # the same offline error on each one.
+    assert not [e for e in steps if e["index"] == 1]
+    assert result["stopped_at"] == 0
+
+
 def test_each_step_is_its_own_turn_and_is_ticked_off(ai_client, fake_ollama):
     """Handing a 3B model four instructions at once gets the first one done
     and the rest narrated. One step per turn is what makes "step 2 happened"
@@ -368,6 +397,25 @@ def test_each_step_is_its_own_turn_and_is_ticked_off(ai_client, fake_ollama):
     )
     # One model turn per step, not one turn carrying a numbered list.
     assert len(fake_ollama.tool_rounds) >= len(plan["steps"])
+
+
+def test_a_step_that_produces_nothing_is_not_ticked_done(ai_client, fake_ollama):
+    """Reported as "the AI fails to respond while still saying it is writing
+    — and the skill step counted as done": a turn that ends with no answer
+    text and no tool call (an empty reply, no `tool_script` queued) used to
+    fall through to the generic "done" branch, so the run's own progress
+    list claimed success for a step that never actually did anything. It
+    must stop and report the step as failed instead, so Resume — not the
+    next step — picks it back up."""
+    fake_ollama.librarian_reply = ""  # the model says and does nothing
+    events = _stream_events(ai_client, "run", skill="🏷 Auto-tag my notes")
+    steps = [e for e in events if e["type"] == "step"]
+    result = [e for e in events if e["type"] == "result"][0]
+
+    assert steps[-1]["state"] == "failed"
+    assert "state" not in steps[-1] or steps[-1]["state"] != "done"
+    assert not any(s["state"] == "done" for s in steps)
+    assert result["stopped_at"] == 0
 
 
 def test_a_step_only_sees_what_the_earlier_steps_said(ai_client, fake_ollama):

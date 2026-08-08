@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.core import embedmodels
+from memorymap.core import embedmodels, taskhistory
 
 
 @pytest.fixture(autouse=True)
@@ -82,6 +82,54 @@ def test_only_one_download_runs_at_a_time(client, monkeypatch):
     second = client.post("/embedding-models/minilm/download").json()
     assert second["started"] is False
     assert "already downloading" in second["message"]
+
+
+# --- visible outside this one screen (Tier 1 §6) -------------------------------
+#
+# `DownloadState`'s own docstring says "for /tasks and the panel" — the panel
+# half (this file's own screen) was built, /tasks never was. A multi-hundred-MB
+# download with its own dropped-connection retry logic was invisible the
+# instant you clicked away from Settings → Optional extras.
+
+
+def test_a_running_download_appears_in_the_shared_task_list(client, monkeypatch):
+    monkeypatch.setattr(embedmodels, "can_download", lambda: True)
+    monkeypatch.setattr(
+        embedmodels.threading,
+        "Thread",
+        lambda **kw: type("T", (), {"start": lambda self: None})(),
+    )
+    assert client.post("/embedding-models/bge-small/download").json()["started"] is True
+
+    tasks = client.get("/tasks").json()["tasks"]
+    job = next((t for t in tasks if t["kind"] == "embedding-model"), None)
+    assert job is not None, "the download is running but /tasks doesn't know"
+    assert "bge-small" in job["name"] or job["name"] == "bge-small"
+    assert "Downloading" in job["label"]
+    assert job["cancellable"] is False
+
+
+def test_a_failed_download_is_recorded_in_task_history(monkeypatch):
+    taskhistory.clear()
+
+    def _boom(repo_id):
+        raise ValueError("Repository Not Found for url")
+
+    import sys
+    import types
+
+    fake = types.ModuleType("huggingface_hub")
+    fake.snapshot_download = _boom
+    monkeypatch.setitem(sys.modules, "huggingface_hub", fake)
+
+    embedmodels._run_download(embedmodels.EMBED_MODELS_BY_ID["minilm"])
+
+    # Not running any more, so a poll after this point must not still list it.
+    assert embedmodels.current().running is False
+    entry = next((h for h in taskhistory.recent() if h["kind"] == "embedding-model"), None)
+    assert entry is not None, "a failed download vanished instead of being recorded"
+    assert entry["outcome"] == "failed"
+    assert entry["name"] == "minilm"
 
 
 def test_a_repo_id_can_never_name_a_directory_outside_the_cache(tmp_path, monkeypatch):

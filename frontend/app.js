@@ -2534,6 +2534,11 @@ function renderChatMeta(meta) {
   $("chat-results").classList.remove("hidden");
 }
 
+// Longer than the backend's own 120s per-chunk Ollama timeout (see the
+// idle-read guard inside streamChat below) so a real "offline" answer from
+// that always has time to arrive first.
+const STREAM_IDLE_TIMEOUT_MS = 150_000;
+
 // The one NDJSON stream reader, shared by the Notes quick-ask and the
 // Chat tab (Wave C). Callers own all rendering via the handlers.
 async function streamChat({
@@ -2548,6 +2553,7 @@ async function streamChat({
   skillFromStep,
   plan,
   notesOnly,
+  answeringAgent,
   signal,
   onMeta,
   onPlan,
@@ -2572,6 +2578,13 @@ async function streamChat({
   if (mode) body.mode = mode;
   if (typeof useTools === "boolean") body.use_tools = useTools;
   if (notesOnly) body.notes_only = true;
+  // A reply to the agent's own question ("yes", "ok") reads as small talk to
+  // intent.classify — correctly, in isolation — which would otherwise route
+  // it to the tool-less conversational path and strand whatever the model
+  // was asking about (Tier 1 §4). The caller already knows this reply is
+  // answering a pending `ask` event, so it says so rather than making the
+  // classifier guess from three letters.
+  if (answeringAgent) body.answering_agent = true;
   if (noteIds && noteIds.length) body.note_ids = noteIds;
   // Running a skill sends its name, not its prompt: the server owns what a
   // skill is — the steps, the values, the tools it may use — so the two
@@ -2614,7 +2627,36 @@ async function streamChat({
   const decoder = new TextDecoder();
   let buffered = "";
   while (true) {
-    const { done, value } = await reader.read();
+    // **No timeout on the stream** (reported: "the AI fails to respond
+    // while still saying it is writing"). The backend's own read against
+    // Ollama times out and turns into a real "offline" line on the wire —
+    // but only for a hang *inside that one socket call*. Anything that
+    // stalls the backend before or between chunks (retrieval, a stuck
+    // lock, a dead process) has nothing to catch it, and `reader.read()`
+    // then waits forever with no sign of life. `STREAM_IDLE_TIMEOUT_MS` is
+    // comfortably longer than the backend's own 120s per-chunk timeout, so
+    // a real recovery message from *that* always wins the race; this is
+    // only for the case where nothing — not even an error — ever arrives.
+    const chunk = await Promise.race([
+      reader.read(),
+      new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error("stream_idle_timeout")),
+          STREAM_IDLE_TIMEOUT_MS
+        )
+      ),
+    ]).catch((err) => {
+      if (err.message === "stream_idle_timeout") {
+        reader.cancel().catch(() => {}); // stop the underlying fetch too
+        throw new Error(
+          "The model stopped responding. It may still be loading a large " +
+            "model, or Ollama may have stalled — try again, or check " +
+            "Settings → Models."
+        );
+      }
+      throw err;
+    });
+    const { done, value } = chunk;
     if (done) break;
     buffered += decoder.decode(value, { stream: true });
     const lines = buffered.split("\n");
@@ -2880,6 +2922,13 @@ async function loadSuggestions() {
 let chatConv = { id: null, turns: [] }; // the open conversation
 let chatController = null;
 let lastChatQuestion = ""; // powers Regenerate / Edit & resend
+// Set while an `ask` card (renderAgentQuestion) is on screen waiting for a
+// reply. Covers typing a free-text answer into the composer, not just
+// clicking one of the option buttons — both are "answering the agent's
+// question" and both need answering_agent set (Tier 1 §4), or a typed "yes"
+// reads as small talk and strands the thing it was actually answering.
+// Consumed (read once, then reset) by the very next sendChatMessage call.
+let chatAwaitingAgentAnswer = false;
 
 // A summary standing in for the first `covered` turns when this conversation
 // is sent to the model (§35I). Deliberately *beside* the turns rather than
@@ -5360,6 +5409,12 @@ async function sendChatMessage(preset, opts = {}) {
   if (!question) return;
   lastChatQuestion = question;
 
+  // Consumed once: this send — button click or free-typed reply alike — is
+  // the answer to whatever question was pending, and the next one after it
+  // is an ordinary message again.
+  const answeringAgent = opts.answeringAgent ?? chatAwaitingAgentAnswer;
+  chatAwaitingAgentAnswer = false;
+
   // Snapshot the attachments for this message. A regenerate re-uses the same
   // ones; a fresh send clears them, so they don't silently ride along on
   // every later question.
@@ -5492,6 +5547,7 @@ async function sendChatMessage(preset, opts = {}) {
       skillInputs: opts.skillInputs,
       skillFromStep: opts.skillFromStep,
       plan: opts.plan,
+      answeringAgent,
       signal: chatController.signal,
       onMeta: (m) => {
         meta = m;
@@ -5564,6 +5620,7 @@ async function sendChatMessage(preset, opts = {}) {
         renderAgentQuestion(card, event);
         timeline.tool(card.firstElementChild || card);
         status.textContent = "Waiting for your answer…";
+        chatAwaitingAgentAnswer = true;
       },
       onRunSkill: (event) => {
         // The model picked a saved skill for this job (§33). Its turn is over;
@@ -5891,6 +5948,9 @@ function newChatConversation() {
   chatSummary = null;
   renderCompressionState();
   lastChatQuestion = "";
+  // A pending question belongs to the conversation that asked it — starting
+  // a new one must not silently answering_agent-tag whatever gets typed first.
+  chatAwaitingAgentAnswer = false;
   $("chat-messages").replaceChildren();
   $("chat-title").textContent = "New chat";
   renderChatUsage(0);
@@ -6487,6 +6547,7 @@ async function openConversation(id) {
   const full = await apiJson(`/conversations/${id}`).catch(() => null);
   if (!full) return;
   chatConv = { id: full.id, turns: [] };
+  chatAwaitingAgentAnswer = false; // a saved thread's own pending ask, if any, isn't answerable live
   // Not carried across conversations, and not persisted: re-deriving it is one
   // click, and a summary restored against the wrong thread would be worse than
   // no summary at all.
@@ -18195,6 +18256,11 @@ const MIRRORED_UI_EXTRAS = [
   "graph-options-open",
   "graph-trace-open",
   "chat-composer-height",
+  "wb-bg-color",
+  "wb-panel-pos-board",
+  "wb-panel-pos-library",
+  "wb-panel-pos-tools",
+  "wb-panel-pos-zoom",
 ];
 
 // A function rather than a `const` array, because `LOOK_KEYS` is declared
@@ -21939,10 +22005,107 @@ initAuth();
 let wbZoom = d3.zoom().scaleExtent([0.1, 4]).on("zoom", handleWbZoom);
 let wbState = { nodes: [], sketches: [] };
 let wbInitialized = false;
+// True only between an eraser mousedown and mouseup — the drawing tools
+// leave one mark per click-drag, the eraser is meant to remove everything
+// the pointer crosses while held, so it needs a "currently held" flag the
+// per-item hover handlers in renderWhiteboard can check.
+let wbErasing = false;
+// {action: "delete"|"create", kind: "sketch"|"node", payload, id}. Bounded
+// so an hour of erasing doesn't grow this forever; only the newest matters.
+let wbUndoStack = [];
+const WB_UNDO_MAX = 20;
+// Ids currently mid-DELETE. The eraser's mouseenter can fire again for the
+// same still-on-screen item before its first DELETE round-trip resolves (a
+// slow request, or the pointer wobbling back over it) — without this a
+// second call pushes a second undo entry and fires a second DELETE for
+// something already gone, and the 404 catch then pops the *wrong* undo
+// entry off the stack (whatever else was pushed in between).
+const wbDeleting = new Set();
 
 function handleWbZoom(e) {
   d3.select("#wb-html-layer").style("transform", `translate(${e.transform.x}px, ${e.transform.y}px) scale(${e.transform.k})`);
   d3.select("#wb-zoom-group").attr("transform", e.transform);
+}
+
+// A tiny inline SVG baked into a `cursor:` value, so the OS/GPU renders and
+// positions it — zero JS on the hot path. This replaces an earlier version
+// that tracked the pointer with a `mousemove`-positioned `<div>`: reported
+// (and reproduced) as "my mouse keeps snapping to an invisible grid" — a
+// JS-positioned cursor only moves on however often `mousemove` actually
+// fires, which is both slower and less regular than the compositor placing
+// a real cursor image, so on a fast swipe the dot visibly lagged and then
+// jumped to catch up. A `cursor:` image has no such step: once set, the
+// browser draws it exactly like the system arrow.
+function wbCursorUrl(inner, { size = 26, hx = 3, hy = size - 3 } = {}) {
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" ` +
+    `viewBox="0 0 ${size} ${size}">${inner}</svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") ${hx} ${hy}`;
+}
+
+const WB_BRUSH_TOOLS = new Set(["draw", "line", "rect", "circle"]);
+
+function wbCursorForTool(tool, strokeColor) {
+  const color = /^#[0-9a-fA-F]{3,8}$/.test(strokeColor || "") ? strokeColor : "#ffffff";
+  if (WB_BRUSH_TOOLS.has(tool)) {
+    // A crosshair with a dot in the actual stroke colour at its centre — a
+    // plain crosshair can't say what colour is about to land.
+    const inner =
+      `<line x1="13" y1="1" x2="13" y2="9" stroke="#000" stroke-opacity=".55" stroke-width="1.5"/>` +
+      `<line x1="13" y1="17" x2="13" y2="25" stroke="#000" stroke-opacity=".55" stroke-width="1.5"/>` +
+      `<line x1="1" y1="13" x2="9" y2="13" stroke="#000" stroke-opacity=".55" stroke-width="1.5"/>` +
+      `<line x1="17" y1="13" x2="25" y2="13" stroke="#000" stroke-opacity=".55" stroke-width="1.5"/>` +
+      `<circle cx="13" cy="13" r="4" fill="${color}" stroke="#000" stroke-opacity=".45"/>`;
+    return `${wbCursorUrl(inner, { hx: 13, hy: 13 })}, crosshair`;
+  }
+  if (tool === "eraser") {
+    const inner =
+      `<g transform="rotate(-30 13 13)">` +
+      `<rect x="4" y="9" width="16" height="10" rx="2" fill="#f4d9d9" stroke="#8a4a4a" stroke-width="1.5"/>` +
+      `<rect x="4" y="9" width="7" height="10" rx="2" fill="#e7bcbc"/>` +
+      `</g>`;
+    return `${wbCursorUrl(inner, { hx: 6, hy: 20 })}, cell`;
+  }
+  if (tool === "delete") {
+    const inner =
+      `<path d="M6 7h14M11 7V4h4v3M9 7l1 15h6l1-15" fill="none" stroke="#d9534f" ` +
+      `stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
+    return `${wbCursorUrl(inner, { hx: 13, hy: 3 })}, not-allowed`;
+  }
+  if (tool === "link-straight" || tool === "link-curved") return "crosshair";
+  return ""; // pan: the CSS grab/grabbing pair already says it
+}
+
+function wbPushUndo(entry) {
+  wbUndoStack.push(entry);
+  if (wbUndoStack.length > WB_UNDO_MAX) wbUndoStack.shift();
+  const btn = document.getElementById("wb-undo");
+  if (btn) btn.disabled = false;
+}
+
+// Reverses the single most recent create or delete — a sketch stroke, a
+// shape, a link, or a note card. Asked for implicitly by adding an eraser:
+// a tool whose whole job is deleting things you swipe over needs a safety
+// net more than any other control on this toolbar.
+async function wbUndo() {
+  const entry = wbUndoStack.pop();
+  const btn = document.getElementById("wb-undo");
+  if (btn) btn.disabled = wbUndoStack.length === 0;
+  if (!entry) return;
+  const base = entry.kind === "sketch" ? "/whiteboard/sketches" : "/whiteboard/nodes";
+  const list = entry.kind === "sketch" ? "sketches" : "nodes";
+  try {
+    if (entry.action === "delete") {
+      const restored = await apiJson(base, { method: "POST", body: JSON.stringify(entry.payload) });
+      wbState[list].push(restored);
+    } else {
+      await apiJson(`${base}/${entry.id}`, { method: "DELETE" });
+      wbState[list] = wbState[list].filter((item) => item.id !== entry.id);
+    }
+    renderWhiteboard();
+  } catch {
+    toast("Couldn't undo that.", true);
+  }
 }
 
 async function initWhiteboard() {
@@ -21987,39 +22150,235 @@ async function initWhiteboard() {
     });
   }
 
+  // Board background colour, asked for directly — the ambient generative-art
+  // canvas showed straight through the board before this (`--wb-board-bg`,
+  // declared in :root, is the fix for anyone who never touches the picker).
+  // `input` previews live while dragging the swatch; `change` (fires once,
+  // on release/close) is what actually persists, so dragging across ten
+  // hues doesn't write ten times.
+  const bgColorPicker = document.getElementById("wb-bg-color-picker");
+  if (bgColorPicker) {
+    const savedBg = localStorage.getItem("wb-bg-color");
+    if (savedBg) {
+      container.node().style.setProperty("--wb-board-bg", savedBg);
+      bgColorPicker.value = savedBg;
+    } else {
+      // Reflect the real default (the theme's --modal-bg) in the swatch,
+      // not an arbitrary placeholder that doesn't match what's on screen.
+      const rgb = getComputedStyle(container.node()).backgroundColor;
+      const m = rgb.match(/(\d+),\s*(\d+),\s*(\d+)/);
+      if (m) {
+        bgColorPicker.value =
+          "#" + m.slice(1, 4).map((n) => Number(n).toString(16).padStart(2, "0")).join("");
+      }
+    }
+    bgColorPicker.addEventListener("input", (e) => {
+      container.node().style.setProperty("--wb-board-bg", e.target.value);
+    });
+    bgColorPicker.addEventListener("change", (e) => {
+      localStorage.setItem("wb-bg-color", e.target.value);
+    });
+  }
+
+  // Draggable toolbar panels, asked for directly. Only the small ⠿ grip
+  // starts a drag — the panels are almost entirely buttons and inputs, so
+  // "grab anywhere on the panel" would fight every click they already
+  // handle. Clamped to `#library-view-whiteboard`'s own box, which is the
+  // visible window for this view (it fills the tab below the header), so a
+  // dragged panel stops at the edge instead of sliding out under the tab bar
+  // or off the side of the screen.
+  function makeWbPanelDraggable(panel, storageKey) {
+    const grip = panel.querySelector(".wb-panel-grip");
+    const bounds = document.getElementById("library-view-whiteboard");
+    if (!grip || !bounds) return;
+
+    function clamp(left, top) {
+      const boundsRect = bounds.getBoundingClientRect();
+      const panelRect = panel.getBoundingClientRect();
+      const maxLeft = Math.max(0, boundsRect.width - panelRect.width);
+      const maxTop = Math.max(0, boundsRect.height - panelRect.height);
+      return [Math.min(Math.max(0, left), maxLeft), Math.min(Math.max(0, top), maxTop)];
+    }
+
+    function place(left, top) {
+      panel.style.left = `${left}px`;
+      panel.style.top = `${top}px`;
+      panel.style.right = "auto";
+      panel.style.bottom = "auto";
+      // The bottom-center panel is horizontally centred via `left: 50%` +
+      // `transform: translateX(-50%)` — a centring trick, not a drag offset.
+      // Left uncleared, an explicit `left` still renders shifted left by
+      // half the panel's own width, so a drag ends up visibly ~200px from
+      // wherever the pointer actually released it (found by measuring, not
+      // by reading the CSS — the rendered box and the styled `left` disagreed
+      // by exactly panelWidth / 2).
+      panel.style.transform = "none";
+    }
+
+    const saved = localStorage.getItem(storageKey);
+    if (saved) {
+      try {
+        const { left, top } = JSON.parse(saved);
+        const [cLeft, cTop] = clamp(left, top);
+        place(cLeft, cTop);
+      } catch {
+        // A corrupt saved value is not worth failing over — the panel just
+        // keeps its CSS-anchored corner instead.
+      }
+    }
+
+    let dragging = false;
+    let startX = 0;
+    let startY = 0;
+    let startLeft = 0;
+    let startTop = 0;
+
+    grip.addEventListener("pointerdown", (e) => {
+      dragging = true;
+      grip.setPointerCapture(e.pointerId);
+      grip.classList.add("is-dragging");
+      const panelRect = panel.getBoundingClientRect();
+      const boundsRect = bounds.getBoundingClientRect();
+      // Converts from whichever CSS corner (top-left/top-right/…) the panel
+      // started anchored to into an explicit left/top box, so the first drag
+      // of a session moves it from wherever it visually is rather than
+      // snapping somewhere else first.
+      startLeft = panelRect.left - boundsRect.left;
+      startTop = panelRect.top - boundsRect.top;
+      startX = e.clientX;
+      startY = e.clientY;
+      place(startLeft, startTop);
+      e.preventDefault();
+    });
+
+    grip.addEventListener("pointermove", (e) => {
+      if (!dragging) return;
+      const [left, top] = clamp(startLeft + (e.clientX - startX), startTop + (e.clientY - startY));
+      place(left, top);
+    });
+
+    function endDrag(e) {
+      if (!dragging) return;
+      dragging = false;
+      grip.classList.remove("is-dragging");
+      if (e?.pointerId != null) grip.releasePointerCapture?.(e.pointerId);
+      localStorage.setItem(
+        storageKey,
+        JSON.stringify({ left: parseFloat(panel.style.left) || 0, top: parseFloat(panel.style.top) || 0 })
+      );
+    }
+    grip.addEventListener("pointerup", endDrag);
+    grip.addEventListener("pointercancel", endDrag);
+
+    // The box can resize (window resize, the library sidebar opening) after
+    // a position was saved for a larger one — reclamp so a panel never ends
+    // up partly or fully off-screen.
+    new ResizeObserver(() => {
+      if (!panel.style.left) return;
+      const [left, top] = clamp(parseFloat(panel.style.left), parseFloat(panel.style.top));
+      place(left, top);
+    }).observe(bounds);
+  }
+
+  document.querySelectorAll(".whiteboard-floating-panel[data-panel-id]").forEach((panel) => {
+    makeWbPanelDraggable(panel, `wb-panel-pos-${panel.dataset.panelId}`);
+  });
+
   // Tool Selection
   window.currentTool = "pan";
   let isDrawing = false;
   let currentDrawPath = null;
   let currentDrawData = []; // array of [x, y]
   window.currentStrokeColor = "#ffffff";
-  
+  // Shared with the mousedown handler below, so the cursor preview drawn
+  // here is never a different size than what actually gets drawn.
+  const WB_STROKE_WIDTH = 3;
+
   const toolGroup = document.getElementById("wb-tool-group");
   const colorPicker = document.getElementById("wb-color-picker");
-  
+  const containerEl = document.getElementById("whiteboard-container");
+  const undoBtn = document.getElementById("wb-undo");
+
+  function updateWbCursor() {
+    containerEl.setAttribute("data-current-tool", window.currentTool);
+    containerEl.style.cursor = wbCursorForTool(window.currentTool, window.currentStrokeColor);
+  }
+
+  // The one place a tool switch happens, so the toolbar click and the
+  // keyboard shortcuts below can never drift out of sync with each other.
+  function selectWbTool(tool) {
+    window.currentTool = tool;
+    if (toolGroup) {
+      toolGroup.querySelectorAll("button[data-tool]").forEach((b) => {
+        b.classList.toggle("active", b.dataset.tool === tool);
+      });
+    }
+    if (tool !== "pan") {
+      container.on(".zoom", null); // disable zoom-drag so it can't fight drawing
+    } else {
+      container.call(wbZoom).on("dblclick.zoom", null);
+    }
+    updateWbCursor();
+  }
+
   if (toolGroup) {
     toolGroup.addEventListener("click", (e) => {
       const btn = e.target.closest("button[data-tool]");
-      if (!btn) return;
-      
-      // Update active state
-      toolGroup.querySelectorAll("button").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      
-      window.currentTool = btn.dataset.tool;
-      if (window.currentTool !== "pan") {
-        container.on(".zoom", null); // disable zoom
-      } else {
-        container.call(wbZoom).on("dblclick.zoom", null);
-      }
+      if (btn) selectWbTool(btn.dataset.tool);
     });
   }
-  
+
   if (colorPicker) {
     colorPicker.addEventListener("change", (e) => {
       window.currentStrokeColor = e.target.value;
+      updateWbCursor();
     });
   }
+
+  if (undoBtn) {
+    undoBtn.disabled = true;
+    undoBtn.addEventListener("click", wbUndo);
+  }
+
+  // Keyboard shortcuts, asked for as part of the wider usability pass: a
+  // toolbar of eight icon buttons is not obviously faster than the tool you
+  // already have your hand on, and every serious drawing app (Figma,
+  // Excalidraw, tldraw) uses this exact letter set for exactly that reason —
+  // muscle memory transfers in, rather than having to be learned from
+  // scratch. Guarded to the whiteboard sub-tab and away from anything with
+  // its own idea of what typing means (an input, a textarea, a
+  // contenteditable note), the same guard the app's other global shortcuts
+  // already use.
+  const WB_TOOL_KEYS = {
+    v: "pan",
+    h: "pan",
+    p: "draw",
+    l: "line",
+    r: "rect",
+    o: "circle",
+    e: "eraser",
+    x: "delete",
+  };
+  document.addEventListener("keydown", (e) => {
+    const view = document.getElementById("library-view-whiteboard");
+    if (!view || view.classList.contains("hidden")) return;
+    const tag = (document.activeElement?.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "textarea" || document.activeElement?.isContentEditable) return;
+    if (e.key === "Escape") {
+      selectWbTool("pan");
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z") {
+      e.preventDefault();
+      wbUndo();
+      return;
+    }
+    if (e.ctrlKey || e.metaKey || e.altKey) return; // leave browser/OS shortcuts alone
+    const mapped = WB_TOOL_KEYS[e.key.toLowerCase()];
+    if (mapped) selectWbTool(mapped);
+  });
+
+  selectWbTool("pan"); // the initial state
 
   // Drawing event handlers on the SVG itself or container
   const svgCanvas = document.getElementById("wb-svg-layer");
@@ -22032,8 +22391,20 @@ async function initWhiteboard() {
     return [x, y];
   }
   
+  // The eraser doesn't draw — it deletes whatever the pointer crosses while
+  // held, which is renderWhiteboard's job (it owns the sketch/node elements
+  // this has to hit-test against). All this needs to track is "is the
+  // button currently down", on the container so it works over both the SVG
+  // sketch layer and the HTML card layer.
+  containerEl.addEventListener("mousedown", (e) => {
+    if (window.currentTool === "eraser") wbErasing = true;
+  });
+  window.addEventListener("mouseup", () => {
+    wbErasing = false;
+  });
+
   svgCanvas.addEventListener("mousedown", (e) => {
-    if (!["draw", "line", "rect", "circle"].includes(window.currentTool)) return;
+    if (!WB_BRUSH_TOOLS.has(window.currentTool)) return;
     e.stopPropagation();
     isDrawing = true;
     const [x, y] = getLogicalMouse(e);
@@ -22042,7 +22413,7 @@ async function initWhiteboard() {
     currentDrawPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
     currentDrawPath.setAttribute("fill", "none");
     currentDrawPath.setAttribute("stroke", window.currentStrokeColor);
-    currentDrawPath.setAttribute("stroke-width", "3");
+    currentDrawPath.setAttribute("stroke-width", String(WB_STROKE_WIDTH));
     currentDrawPath.setAttribute("stroke-linecap", "round");
     currentDrawPath.setAttribute("stroke-linejoin", "round");
     currentDrawPath.setAttribute("d", `M ${x} ${y}`);
@@ -22050,7 +22421,7 @@ async function initWhiteboard() {
   });
   
   svgCanvas.addEventListener("mousemove", (e) => {
-    if (!isDrawing || !["draw", "line", "rect", "circle"].includes(window.currentTool)) return;
+    if (!isDrawing || !WB_BRUSH_TOOLS.has(window.currentTool)) return;
     e.stopPropagation();
     const [x, y] = getLogicalMouse(e);
     
@@ -22075,7 +22446,7 @@ async function initWhiteboard() {
   });
   
   svgCanvas.addEventListener("mouseup", async (e) => {
-    if (!isDrawing || !["draw", "line", "rect", "circle"].includes(window.currentTool)) return;
+    if (!isDrawing || !WB_BRUSH_TOOLS.has(window.currentTool)) return;
     e.stopPropagation();
     isDrawing = false;
     
@@ -22109,14 +22480,24 @@ async function initWhiteboard() {
     // `renderWhiteboard` assigns `d => d.data`. If `d.data` is just the `d` string, all paths get `--text-color`.
     // Let's modify data to be a JSON string holding `{ d, color }` instead!
     sketchData.data = JSON.stringify({ d, color: currentStrokeColor });
-    
+
     try {
       const res = await apiJson("/whiteboard/sketches", { method: "POST", body: JSON.stringify(sketchData) });
-      currentDrawPath.setAttribute("data-id", res.id); 
+      wbState.sketches.push(res);
+      wbPushUndo({ action: "create", kind: "sketch", id: res.id });
+      // Hand off to renderWhiteboard's own data-bound element for this
+      // sketch — a real bug found while adding the eraser: this raw `<path>`
+      // is not part of the `g.sketch-group` selection renderWhiteboard binds
+      // wbState.sketches to, so a stroke just drawn had no way to be deleted
+      // or erased until a full reload re-fetched it from the server and
+      // rendered it "properly" the first time.
+      currentDrawPath.remove();
+      renderWhiteboard();
     } catch (err) {
       console.error("Failed to save sketch:", err);
+      if (currentDrawPath) currentDrawPath.remove();
     }
-    
+
     currentDrawPath = null;
     currentDrawData = [];
   });
@@ -22217,24 +22598,50 @@ async function fetchWhiteboardState() {
 }
 
 function renderWhiteboard() {
+  document
+    .getElementById("wb-empty-hint")
+    ?.classList.toggle("hidden", (wbState.nodes?.length || 0) + (wbState.sketches?.length || 0) > 0);
+
   // Render Sketches (SVG)
   const svgGroup = d3.select("#wb-zoom-group");
   const sketchSelection = svgGroup.selectAll("g.sketch-group")
     .data(wbState.sketches || [], d => d.id);
     
+  // Deleting a sketch two ways: "delete" is a click on the one thing you
+  // mean to remove; "eraser" is a drag — mouseenter fires for everything the
+  // pointer crosses while wbErasing is true, matching how an eraser tool
+  // behaves in every other drawing app.
+  async function deleteSketch(d) {
+    const deletingKey = `sketch:${d.id}`;
+    if (wbDeleting.has(deletingKey)) return;
+    wbDeleting.add(deletingKey);
+    wbPushUndo({
+      action: "delete",
+      kind: "sketch",
+      payload: { data: d.data, board_id: d.board_id, x: d.x, y: d.y, z: d.z },
+    });
+    try {
+      await apiJson(`/whiteboard/sketches/${d.id}`, { method: "DELETE" });
+      wbState.sketches = wbState.sketches.filter((s) => s.id !== d.id);
+      renderWhiteboard();
+    } catch (e) {
+      console.error(e);
+      wbUndoStack.pop(); // the delete never happened, so neither did the undo entry
+    } finally {
+      wbDeleting.delete(deletingKey);
+    }
+  }
+
   const sketchEnter = sketchSelection.enter()
     .append("g")
     .attr("class", "sketch-group")
     .attr("data-id", d => d.id)
-    .style("cursor", () => window.currentTool === "delete" ? "pointer" : "default")
-    .on("click", async (event, d) => {
-      if (window.currentTool === "delete") {
-        try {
-          await apiJson(`/whiteboard/sketches/${d.id}`, { method: "DELETE" });
-          wbState.sketches = wbState.sketches.filter(s => s.id !== d.id);
-          renderWhiteboard();
-        } catch(e) { console.error(e); }
-      }
+    .style("cursor", () => (window.currentTool === "delete" || window.currentTool === "eraser") ? "pointer" : "default")
+    .on("click", (event, d) => {
+      if (window.currentTool === "delete") deleteSketch(d);
+    })
+    .on("mouseenter", (event, d) => {
+      if (window.currentTool === "eraser" && wbErasing) deleteSketch(d);
     });
 
   sketchEnter.append("path")
@@ -22291,6 +22698,28 @@ function renderWhiteboard() {
   const nodeSelection = canvas.selectAll(".wb-card.node-card")
     .data(wbState.nodes, d => d.id);
     
+  async function deleteNode(d) {
+    const deletingKey = `node:${d.id}`;
+    if (wbDeleting.has(deletingKey)) return;
+    wbDeleting.add(deletingKey);
+    wbPushUndo({
+      action: "delete",
+      kind: "node",
+      payload: { entry_id: d.entry_id, board_id: d.board_id, x: d.x, y: d.y, z: d.z },
+    });
+    try {
+      await apiJson(`/whiteboard/nodes/${d.id}`, { method: "DELETE" });
+      wbState.nodes = wbState.nodes.filter((n) => n.id !== d.id);
+      // also delete links connected to it? For MVP just delete the node.
+      renderWhiteboard();
+    } catch (e) {
+      console.error(e);
+      wbUndoStack.pop();
+    } finally {
+      wbDeleting.delete(deletingKey);
+    }
+  }
+
   const nodeEnter = nodeSelection.enter()
     .append("div")
     .attr("class", "wb-card node-card")
@@ -22300,15 +22729,11 @@ function renderWhiteboard() {
       .on("start", dragStart)
       .on("drag", dragging)
       .on("end", dragEndNode))
-    .on("click", async (event, d) => {
-      if (window.currentTool === "delete") {
-        try {
-          await apiJson(`/whiteboard/nodes/${d.id}`, { method: "DELETE" });
-          wbState.nodes = wbState.nodes.filter(n => n.id !== d.id);
-          // also delete links connected to it? For MVP just delete the node.
-          renderWhiteboard();
-        } catch(e) { console.error(e); }
-      }
+    .on("click", (event, d) => {
+      if (window.currentTool === "delete") deleteNode(d);
+    })
+    .on("mouseenter", (event, d) => {
+      if (window.currentTool === "eraser" && wbErasing) deleteNode(d);
     });
       
   nodeEnter.append("div")
@@ -22327,6 +22752,9 @@ function renderWhiteboard() {
 }
 
 function dragStart(event, d) {
+  // Eraser/delete don't move cards — a swipe meant to erase a run of cards
+  // must not also drag the first one it touches out from under the pointer.
+  if (window.currentTool === "eraser" || window.currentTool === "delete") return;
   if (window.currentTool && window.currentTool.startsWith("link-")) {
     d.linkStartPos = { x: d.x + 125, y: d.y + 50 }; // approx center
     d.linkingPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
@@ -22340,6 +22768,7 @@ function dragStart(event, d) {
 }
 
 function dragging(event, d) {
+  if (window.currentTool === "eraser" || window.currentTool === "delete") return;
   if (window.currentTool && window.currentTool.startsWith("link-")) {
     const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
     const rect = document.getElementById("wb-svg-layer").getBoundingClientRect();
@@ -22394,6 +22823,7 @@ async function dragEndNode(event, d) {
        try {
          const res = await apiJson("/whiteboard/sketches", { method: "POST", body: JSON.stringify(sketchData) });
          wbState.sketches.push(res);
+         wbPushUndo({ action: "create", kind: "sketch", id: res.id });
          renderWhiteboard();
        } catch (err) {
          console.error(err);
@@ -22900,68 +23330,52 @@ cmdPaletteOverlay.addEventListener("click", (e) => {
   }
 });
 
-let cmdPaletteConversationId = null;
-
 cmdPaletteInput.addEventListener("keydown", async (e) => {
   if (e.key === "Enter" && cmdPaletteInput.value.trim()) {
     const text = cmdPaletteInput.value.trim();
     cmdPaletteInput.value = "";
-    
+
     // Create user bubble
     const userMsg = document.createElement("div");
     userMsg.className = "msg user";
     userMsg.textContent = text;
     cmdPaletteResults.appendChild(userMsg);
-    
+
     // Create agent thinking bubble
     const agentMsg = document.createElement("div");
     agentMsg.className = "msg assistant";
-    agentMsg.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+    agentMsg.appendChild(typingDots());
     cmdPaletteResults.appendChild(agentMsg);
     cmdPaletteResults.scrollTop = cmdPaletteResults.scrollHeight;
-    
+
+    // Was hand-rolled against `/chat` (the non-streaming endpoint, a single
+    // JSON object) as though it were the NDJSON `/chat/stream` shape — so
+    // `msg.type` was never "content" and this never actually rendered an
+    // answer at all (a "feature that never ran once", CLAUDE.md's own
+    // category for this). It also built the answer with
+    // `innerHTML = answerText.replace(...)` and no escaping — a real,
+    // reachable XSS the moment the parsing bug above was fixed, since a
+    // model can echo a note's own text back verbatim. Fixed by reusing this
+    // file's one real streaming client (`streamChat`) and its one safe
+    // renderer (`renderMarkdown`, DOM nodes only, never innerHTML) instead
+    // of a second, parallel, broken implementation of both.
+    let answerRaw = "";
+    let answered = false;
     try {
-      const res = await fetch("/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() },
-        body: JSON.stringify({
-          question: text,
-          conversation_id: cmdPaletteConversationId,
-          mode: "agent", // Command palette is specifically agent mode
-          response_mode: "quick",
-          attachments: []
-        })
+      await streamChat({
+        question: text,
+        history: [],
+        useTools: true, // the palette is meant to act on the notebook, like Chat
+        onMeta: () => {},
+        onThinking: () => {},
+        onAnswer: (delta) => {
+          answered = true;
+          answerRaw += delta;
+          renderMarkdown(agentMsg, answerRaw);
+          cmdPaletteResults.scrollTop = cmdPaletteResults.scrollHeight;
+        },
       });
-      if (!res.ok) throw new Error("Chat failed");
-      
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      
-      let answerText = "";
-      agentMsg.innerHTML = "";
-      
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop();
-        
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          const msg = JSON.parse(line);
-          
-          if (msg.type === "meta") {
-             cmdPaletteConversationId = msg.conversation_id;
-          } else if (msg.type === "content") {
-             answerText += msg.text;
-             // extremely basic markdown render for palette
-             agentMsg.innerHTML = answerText.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-             cmdPaletteResults.scrollTop = cmdPaletteResults.scrollHeight;
-          }
-        }
-      }
+      if (!answered) agentMsg.textContent = "(no answer)";
     } catch (err) {
       agentMsg.textContent = "Error communicating with agent.";
       agentMsg.classList.add("error");

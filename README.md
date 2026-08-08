@@ -9,7 +9,7 @@
 [![CI](https://github.com/Braydenh563/MemoryMap-AI-v0/actions/workflows/ci.yml/badge.svg)](https://github.com/Braydenh563/MemoryMap-AI-v0/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/Braydenh563/MemoryMap-AI-v0/actions/workflows/codeql.yml/badge.svg)](https://github.com/Braydenh563/MemoryMap-AI-v0/actions/workflows/codeql.yml)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue)](pyproject.toml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![License: AGPL v3](https://img.shields.io/badge/license-AGPL--3.0-green)](LICENSE)
 
 </div>
 
@@ -579,4 +579,11 @@ CodeQL adds static security analysis; Dependabot keeps dependencies current.
 
 ## License
 
-Released under the [MIT License](https://github.com/Braydenh563/MemoryMap-AI/blob/main/LICENSE).
+Released under the [GNU Affero General Public License v3.0](https://github.com/Braydenh563/MemoryMap-AI/blob/main/LICENSE).
+
+In short: you may use, study, modify and share this, and anything you build on
+it must stay under the same licence — **including if you run a modified copy as
+a network service.** That last clause is the AGPL's whole point and the reason
+it was chosen here: MemoryMap is a local-first app, and the licence is what
+stops a modified, closed version of it being offered back to people as a
+hosted product.

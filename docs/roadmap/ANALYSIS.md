@@ -1,7 +1,7 @@
 # Analysis and outside reads
 
 
-> **The other three:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the AGPL/MIT constraint) · [HISTORY.md](HISTORY.md) (already built).
+> **The other three:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the licence constraint — MemoryMap is AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
 Split out of `ROADMAP.md`. These sections are **reference, not work** — they
 record judgements, a competitor read, and what was deliberately *not* taken, so
@@ -254,18 +254,35 @@ odysseus is an AI workspace that happens to store things.
 
 ---
 
-### The constraint that governs everything below
+### The constraint that governs everything below — **now half-lifted**
 
-**Odysseus is AGPL-3.0-or-later. MemoryMap is MIT. No code can be copied
-across, in either direction.**
+**MemoryMap moved from MIT to AGPL-3.0. Odysseus is AGPL-3.0-or-later. The two
+are now the same licence family, so the barrier that made this section
+"lessons only" is no longer symmetrical.**
 
-This is not a formality and it is not a thing to work around by paraphrasing a
-file. Copying AGPL source into an MIT project relicenses the result and makes
-the MIT badge on this repository a false statement about what someone may do
-with it. **Everything in this section is a design lesson — an idea, a failure
-mode, a shape — to be re-implemented independently.** That is what §6 did: the
-provider work below was written from the four questions odysseus's code
-*answers*, not from its code.
+What changed, precisely, because this is the kind of thing that gets
+misremembered in one direction or the other:
+
+- **AGPL → MemoryMap is now permissible.** Copying odysseus source in no
+  longer relicenses anything, because this project is already AGPL. It still
+  requires the ordinary things copyleft requires: keep the notices, attribute
+  the source, and do not strip the licence header off a file you took.
+- **MemoryMap → an MIT project is still closed**, and is now *more* closed
+  than before. Anything taken out of here carries AGPL with it.
+- **The habit in this section is still the right one.** Everything below is
+  written as a design lesson — an idea, a failure mode, a shape — and §6 did
+  it that way deliberately: the provider work was written from the four
+  questions odysseus's code *answers*, not from its code. Re-implementing
+  independently keeps the provenance clean and keeps this codebase's own
+  reasoning in its comments, which is worth more here than the saved typing.
+  Copy only where there is a real reason to, and record where it came from.
+
+**The AGPL clause that actually matters for an app like this** is §13:
+someone who modifies MemoryMap and lets other people use it *over a network*
+must offer those users the modified source. A plain GPL would not require
+that — running a service is not distribution. Since the whole premise here is
+"your notebook, on your machine", the licence now says the same thing the
+product does: a hosted, modified, closed fork is not an option.
 
 Two smaller things worth recording so nobody re-derives them:
 

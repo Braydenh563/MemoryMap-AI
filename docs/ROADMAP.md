@@ -13,7 +13,7 @@ code comments and tests still resolve via HISTORY.md's index.
 | [roadmap/HANDOVER.md](roadmap/HANDOVER.md) | **The last session's handover.** What changed, what couldn't be checked and why. Read this first. |
 | [roadmap/HISTORY.md](roadmap/HISTORY.md) | Everything already built, and every backlog item already closed — with the reasoning, condensed. **Check here before building anything.** Four sessions have rebuilt something that already existed. |
 | [roadmap/BACKLOG.md](roadmap/BACKLOG.md) | Standing backlog items not yet promoted to this file's live list. |
-| [roadmap/ANALYSIS.md](roadmap/ANALYSIS.md) | Judgements: the odysseus/AGPL read (odysseus is AGPL, this project is MIT — no code crosses either way), what was deliberately not taken. |
+| [roadmap/ANALYSIS.md](roadmap/ANALYSIS.md) | Judgements: the odysseus read, and the licence constraint — **this project is AGPL-3.0 now, not MIT**, so §34a's "no code crosses either way" is half-lifted. What was deliberately not taken. |
 | [DESIGN.md](DESIGN.md) | The design system. `tests/test_style_scale.py` enforces it. |
 
 **The standing caveat:** every provider test runs against a fake transport —

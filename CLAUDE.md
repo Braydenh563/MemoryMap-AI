@@ -23,7 +23,7 @@ cheaper than a session of rework.
 | [`docs/roadmap/HANDOVER.md`](docs/roadmap/HANDOVER.md) | **Read this first.** The last session's handover: what changed, what could not be verified and why, where to start, and the traps that cost an hour each. |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | The live list, plus §35 and §36 — the freshly reported work. |
 | [`docs/roadmap/BACKLOG.md`](docs/roadmap/BACKLOG.md) | The standing backlog, §1–§29. |
-| [`docs/roadmap/ANALYSIS.md`](docs/roadmap/ANALYSIS.md) | §30–§34. Judgements and a competitor read — **including that odysseus is AGPL and this project is MIT, so no code crosses in either direction.** |
+| [`docs/roadmap/ANALYSIS.md`](docs/roadmap/ANALYSIS.md) | §30–§34. Judgements and a competitor read — **including the licence constraint. This project is AGPL-3.0 now, so odysseus's AGPL code may come in (with its notices); nothing may go out to an MIT project.** |
 | [`docs/roadmap/HISTORY.md`](docs/roadmap/HISTORY.md) | What is already built. Read it before starting anything. |
 | [`docs/DESIGN.md`](docs/DESIGN.md) | The design system. Any CSS work has to follow it; `tests/test_style_scale.py` fails the build otherwise. |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How the pieces fit. |

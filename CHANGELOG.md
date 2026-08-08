@@ -7,6 +7,33 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Changed — licence: MIT → AGPL-3.0
+
+MemoryMap is now under the **GNU Affero General Public License v3.0**. The
+licence text is the official one from the FSF, unmodified.
+
+What it means in practice:
+
+- Anyone may use, study, modify and share it.
+- Anything built on it must be released under the AGPL too, with source.
+- **§13, the clause that makes it AGPL rather than GPL:** if someone modifies
+  MemoryMap and lets other people use it *over a network*, they must offer
+  those users the modified source. Plain GPL would not require that, because
+  running a service is not distribution. For an app whose premise is "your
+  notebook, on your machine", this is the licence saying what the product
+  already says.
+
+**One consequence worth flagging, because it inverts a documented constraint:**
+ANALYSIS.md §34a said "odysseus is AGPL, MemoryMap is MIT, no code crosses in
+either direction." Half of that is now lifted — odysseus's AGPL code *may* come
+in, carrying its notices and attribution — and the other half is tighter:
+nothing from here can go out to an MIT project. §34a is rewritten to say so.
+
+Updated: `LICENSE`, the pyproject classifier, the README badge and footer,
+ANALYSIS.md §34a, and the cross-reference line in every roadmap file and
+CLAUDE.md.
+
+
 ### Fixed — the owner's reported list
 
 Diagnosed in the running app rather than from the report. Full triage, with

@@ -18229,6 +18229,11 @@ const MIRRORED_UI_EXTRAS = [
   "graph-options-open",
   "graph-trace-open",
   "chat-composer-height",
+  "wb-bg-color",
+  "wb-panel-pos-board",
+  "wb-panel-pos-library",
+  "wb-panel-pos-tools",
+  "wb-panel-pos-zoom",
 ];
 
 // A function rather than a `const` array, because `LOOK_KEYS` is declared
@@ -22021,39 +22026,228 @@ async function initWhiteboard() {
     });
   }
 
+  // Board background colour, asked for directly — the ambient generative-art
+  // canvas showed straight through the board before this (`--wb-board-bg`,
+  // declared in :root, is the fix for anyone who never touches the picker).
+  // `input` previews live while dragging the swatch; `change` (fires once,
+  // on release/close) is what actually persists, so dragging across ten
+  // hues doesn't write ten times.
+  const bgColorPicker = document.getElementById("wb-bg-color-picker");
+  if (bgColorPicker) {
+    const savedBg = localStorage.getItem("wb-bg-color");
+    if (savedBg) {
+      container.node().style.setProperty("--wb-board-bg", savedBg);
+      bgColorPicker.value = savedBg;
+    } else {
+      // Reflect the real default (the theme's --modal-bg) in the swatch,
+      // not an arbitrary placeholder that doesn't match what's on screen.
+      const rgb = getComputedStyle(container.node()).backgroundColor;
+      const m = rgb.match(/(\d+),\s*(\d+),\s*(\d+)/);
+      if (m) {
+        bgColorPicker.value =
+          "#" + m.slice(1, 4).map((n) => Number(n).toString(16).padStart(2, "0")).join("");
+      }
+    }
+    bgColorPicker.addEventListener("input", (e) => {
+      container.node().style.setProperty("--wb-board-bg", e.target.value);
+    });
+    bgColorPicker.addEventListener("change", (e) => {
+      localStorage.setItem("wb-bg-color", e.target.value);
+    });
+  }
+
+  // Draggable toolbar panels, asked for directly. Only the small ⠿ grip
+  // starts a drag — the panels are almost entirely buttons and inputs, so
+  // "grab anywhere on the panel" would fight every click they already
+  // handle. Clamped to `#library-view-whiteboard`'s own box, which is the
+  // visible window for this view (it fills the tab below the header), so a
+  // dragged panel stops at the edge instead of sliding out under the tab bar
+  // or off the side of the screen.
+  function makeWbPanelDraggable(panel, storageKey) {
+    const grip = panel.querySelector(".wb-panel-grip");
+    const bounds = document.getElementById("library-view-whiteboard");
+    if (!grip || !bounds) return;
+
+    function clamp(left, top) {
+      const boundsRect = bounds.getBoundingClientRect();
+      const panelRect = panel.getBoundingClientRect();
+      const maxLeft = Math.max(0, boundsRect.width - panelRect.width);
+      const maxTop = Math.max(0, boundsRect.height - panelRect.height);
+      return [Math.min(Math.max(0, left), maxLeft), Math.min(Math.max(0, top), maxTop)];
+    }
+
+    function place(left, top) {
+      panel.style.left = `${left}px`;
+      panel.style.top = `${top}px`;
+      panel.style.right = "auto";
+      panel.style.bottom = "auto";
+      // The bottom-center panel is horizontally centred via `left: 50%` +
+      // `transform: translateX(-50%)` — a centring trick, not a drag offset.
+      // Left uncleared, an explicit `left` still renders shifted left by
+      // half the panel's own width, so a drag ends up visibly ~200px from
+      // wherever the pointer actually released it (found by measuring, not
+      // by reading the CSS — the rendered box and the styled `left` disagreed
+      // by exactly panelWidth / 2).
+      panel.style.transform = "none";
+    }
+
+    const saved = localStorage.getItem(storageKey);
+    if (saved) {
+      try {
+        const { left, top } = JSON.parse(saved);
+        const [cLeft, cTop] = clamp(left, top);
+        place(cLeft, cTop);
+      } catch {
+        // A corrupt saved value is not worth failing over — the panel just
+        // keeps its CSS-anchored corner instead.
+      }
+    }
+
+    let dragging = false;
+    let startX = 0;
+    let startY = 0;
+    let startLeft = 0;
+    let startTop = 0;
+
+    grip.addEventListener("pointerdown", (e) => {
+      dragging = true;
+      grip.setPointerCapture(e.pointerId);
+      grip.classList.add("is-dragging");
+      const panelRect = panel.getBoundingClientRect();
+      const boundsRect = bounds.getBoundingClientRect();
+      // Converts from whichever CSS corner (top-left/top-right/…) the panel
+      // started anchored to into an explicit left/top box, so the first drag
+      // of a session moves it from wherever it visually is rather than
+      // snapping somewhere else first.
+      startLeft = panelRect.left - boundsRect.left;
+      startTop = panelRect.top - boundsRect.top;
+      startX = e.clientX;
+      startY = e.clientY;
+      place(startLeft, startTop);
+      e.preventDefault();
+    });
+
+    grip.addEventListener("pointermove", (e) => {
+      if (!dragging) return;
+      const [left, top] = clamp(startLeft + (e.clientX - startX), startTop + (e.clientY - startY));
+      place(left, top);
+    });
+
+    function endDrag(e) {
+      if (!dragging) return;
+      dragging = false;
+      grip.classList.remove("is-dragging");
+      if (e?.pointerId != null) grip.releasePointerCapture?.(e.pointerId);
+      localStorage.setItem(
+        storageKey,
+        JSON.stringify({ left: parseFloat(panel.style.left) || 0, top: parseFloat(panel.style.top) || 0 })
+      );
+    }
+    grip.addEventListener("pointerup", endDrag);
+    grip.addEventListener("pointercancel", endDrag);
+
+    // The box can resize (window resize, the library sidebar opening) after
+    // a position was saved for a larger one — reclamp so a panel never ends
+    // up partly or fully off-screen.
+    new ResizeObserver(() => {
+      if (!panel.style.left) return;
+      const [left, top] = clamp(parseFloat(panel.style.left), parseFloat(panel.style.top));
+      place(left, top);
+    }).observe(bounds);
+  }
+
+  document.querySelectorAll(".whiteboard-floating-panel[data-panel-id]").forEach((panel) => {
+    makeWbPanelDraggable(panel, `wb-panel-pos-${panel.dataset.panelId}`);
+  });
+
   // Tool Selection
   window.currentTool = "pan";
   let isDrawing = false;
   let currentDrawPath = null;
   let currentDrawData = []; // array of [x, y]
   window.currentStrokeColor = "#ffffff";
-  
+  // Shared with the mousedown handler below, so the cursor preview drawn
+  // here is never a different size than what actually gets drawn.
+  const WB_STROKE_WIDTH = 3;
+
   const toolGroup = document.getElementById("wb-tool-group");
   const colorPicker = document.getElementById("wb-color-picker");
-  
+  const cursorIndicator = document.getElementById("wb-cursor-indicator");
+  const containerEl = document.getElementById("whiteboard-container");
+
+  // Custom cursor, asked for directly: what #wb-cursor-indicator shows for
+  // each tool, in screen space, updated on every pointer move. The drawing
+  // tools get a live circle in the actual stroke colour (a generic
+  // crosshair can't show that); delete and the two link tools get their own
+  // toolbar icon so the cursor itself says what a click will do. Pan is
+  // deliberately absent — the native grab/grabbing cursor (CSS, above)
+  // already says it, and needs no per-frame tracking.
+  const WB_CURSOR_ICONS = { delete: "🗑️", "link-straight": "🔗", "link-curved": "⤴️" };
+  const WB_BRUSH_TOOLS = new Set(["draw", "line", "rect", "circle"]);
+
+  function updateWbCursorIndicator() {
+    if (!cursorIndicator) return;
+    containerEl.setAttribute("data-current-tool", window.currentTool);
+    if (WB_BRUSH_TOOLS.has(window.currentTool)) {
+      cursorIndicator.textContent = "";
+      cursorIndicator.classList.add("wb-cursor-brush");
+      const size = Math.max(10, WB_STROKE_WIDTH * 4);
+      cursorIndicator.style.width = `${size}px`;
+      cursorIndicator.style.height = `${size}px`;
+      cursorIndicator.style.setProperty("--wb-cursor-color", window.currentStrokeColor);
+    } else if (WB_CURSOR_ICONS[window.currentTool]) {
+      cursorIndicator.textContent = WB_CURSOR_ICONS[window.currentTool];
+      cursorIndicator.classList.remove("wb-cursor-brush");
+      cursorIndicator.style.width = "";
+      cursorIndicator.style.height = "";
+    } else {
+      // Pan (or anything added later without an entry above): the native
+      // cursor already says everything, so the indicator stays hidden.
+      cursorIndicator.classList.remove("is-visible");
+    }
+  }
+
   if (toolGroup) {
     toolGroup.addEventListener("click", (e) => {
       const btn = e.target.closest("button[data-tool]");
       if (!btn) return;
-      
+
       // Update active state
       toolGroup.querySelectorAll("button").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
-      
+
       window.currentTool = btn.dataset.tool;
       if (window.currentTool !== "pan") {
         container.on(".zoom", null); // disable zoom
       } else {
         container.call(wbZoom).on("dblclick.zoom", null);
       }
+      updateWbCursorIndicator();
     });
   }
-  
+
   if (colorPicker) {
     colorPicker.addEventListener("change", (e) => {
       window.currentStrokeColor = e.target.value;
+      updateWbCursorIndicator();
     });
   }
+
+  if (cursorIndicator && containerEl) {
+    containerEl.addEventListener("mousemove", (e) => {
+      if (!WB_BRUSH_TOOLS.has(window.currentTool) && !WB_CURSOR_ICONS[window.currentTool]) {
+        return;
+      }
+      const rect = containerEl.getBoundingClientRect();
+      cursorIndicator.style.left = `${e.clientX - rect.left}px`;
+      cursorIndicator.style.top = `${e.clientY - rect.top}px`;
+      cursorIndicator.classList.add("is-visible");
+    });
+    containerEl.addEventListener("mouseleave", () => {
+      cursorIndicator.classList.remove("is-visible");
+    });
+  }
+  updateWbCursorIndicator(); // the initial "pan" state: no indicator, grab cursor
 
   // Drawing event handlers on the SVG itself or container
   const svgCanvas = document.getElementById("wb-svg-layer");
@@ -22076,7 +22270,7 @@ async function initWhiteboard() {
     currentDrawPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
     currentDrawPath.setAttribute("fill", "none");
     currentDrawPath.setAttribute("stroke", window.currentStrokeColor);
-    currentDrawPath.setAttribute("stroke-width", "3");
+    currentDrawPath.setAttribute("stroke-width", String(WB_STROKE_WIDTH));
     currentDrawPath.setAttribute("stroke-linecap", "round");
     currentDrawPath.setAttribute("stroke-linejoin", "round");
     currentDrawPath.setAttribute("d", `M ${x} ${y}`);

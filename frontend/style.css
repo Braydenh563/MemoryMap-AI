@@ -36,6 +36,21 @@
      `zoom`'s known bad interactions with the `100dvh`/`100vw` measurements
      `--page-viewport`/`--page-sticky-h` (§36) lean on. */
   --zoom: 1;
+  /* The whiteboard cursor preview's colour — set per-element from JS to the
+     user's current stroke colour (an arbitrary choice, not a themed value,
+     the same way the colour picker itself is). Declared here, at a neutral
+     default, so the token is real rather than a fallback standing in for
+     one that was never declared. */
+  --wb-cursor-color: var(--ink);
+  /* The whiteboard's own background (asked for directly — the ambient
+     generative-art canvas showed straight through it, since the container
+     had no background of its own). `--modal-bg` rather than `--card`: the
+     card token is deliberately translucent for stacked glass panels, and a
+     translucent board would still let the art bleed through underneath it.
+     User-overridable per board via the colour picker in the top-right
+     panel, mirrored to `localStorage`/`ui_state` the same way the stroke
+     colour and panel positions below are. */
+  --wb-board-bg: var(--modal-bg);
   --border-style: solid;
   --shadow-intensity: 0.05;
   --space-1: calc(0.25rem * var(--density));
@@ -12271,6 +12286,7 @@ textarea.autogrow {
   top: 0;
   left: 0;
   cursor: grab;
+  background: var(--wb-board-bg);
 }
 
 .whiteboard-container:active {
@@ -12342,7 +12358,8 @@ textarea.autogrow {
   box-shadow: inset 0 0 0 1px var(--border);
 }
 
-#wb-color-picker {
+#wb-color-picker,
+#wb-bg-color-picker {
   width: 28px;
   height: 28px;
   padding: 0;
@@ -12355,11 +12372,13 @@ textarea.autogrow {
   margin: 0 4px;
 }
 
-#wb-color-picker::-webkit-color-swatch-wrapper {
+#wb-color-picker::-webkit-color-swatch-wrapper,
+#wb-bg-color-picker::-webkit-color-swatch-wrapper {
   padding: 0;
 }
 
-#wb-color-picker::-webkit-color-swatch {
+#wb-color-picker::-webkit-color-swatch,
+#wb-bg-color-picker::-webkit-color-swatch {
   border: none;
   border-radius: 50%;
 }
@@ -13085,6 +13104,74 @@ body.has-agent-monitor .whiteboard-floating-panel.bottom-right {
 .wb-tool-group button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* Per-tool cursor, asked for directly: grab/grabbing already told you when
+   you could pan; nothing told you what the other seven tools would do until
+   you tried them. The drawing tools hide the native cursor in favour of
+   #wb-cursor-indicator below, which shows the actual stroke colour rather
+   than a generic crosshair. */
+.whiteboard-container[data-current-tool="draw"],
+.whiteboard-container[data-current-tool="line"],
+.whiteboard-container[data-current-tool="rect"],
+.whiteboard-container[data-current-tool="circle"] {
+  cursor: none;
+}
+
+.whiteboard-container[data-current-tool="link-straight"],
+.whiteboard-container[data-current-tool="link-curved"] {
+  cursor: crosshair;
+}
+
+.whiteboard-container[data-current-tool="delete"] {
+  cursor: none; /* the 🗑️ indicator replaces it, same as the drawing tools */
+}
+
+/* Screen-space, not inside the zoom/pan group — a brush preview that grew
+   with zoom would say the wrong size, and one that panned with the canvas
+   would drift away from the actual pointer the instant you dragged. */
+#wb-cursor-indicator {
+  position: absolute;
+  z-index: 15;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-h3);
+  line-height: 1;
+}
+
+#wb-cursor-indicator.is-visible {
+  display: flex;
+}
+
+#wb-cursor-indicator.wb-cursor-brush {
+  border-radius: 50%;
+  border: 1.5px solid var(--ink);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+  background: color-mix(in srgb, var(--wb-cursor-color) 35%, transparent);
+}
+
+/* Draggable toolbar panels, asked for directly. Only the grip starts a
+   drag — the panels are almost entirely buttons/inputs, so "grab anywhere"
+   would fight every click they already handle. `touch-action: none` stops a
+   touchscreen treating the drag as a page scroll instead. Positions are
+   clamped in JS to the whiteboard's own box, which is the visible window for
+   this view (it fills the tab below the header) — a panel dragged toward an
+   edge stops at the edge instead of sliding out under the tab bar or the
+   sidebar. */
+.wb-panel-grip {
+  cursor: grab;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  padding: 0 var(--space-1);
+  touch-action: none;
+  user-select: none;
+}
+
+.wb-panel-grip.is-dragging {
+  cursor: grabbing;
 }
 
 /* Closer to the bottom edge, as asked: the palette was floating a whole

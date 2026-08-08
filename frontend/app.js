@@ -22005,10 +22005,100 @@ initAuth();
 let wbZoom = d3.zoom().scaleExtent([0.1, 4]).on("zoom", handleWbZoom);
 let wbState = { nodes: [], sketches: [] };
 let wbInitialized = false;
+// True only between an eraser mousedown and mouseup — the drawing tools
+// leave one mark per click-drag, the eraser is meant to remove everything
+// the pointer crosses while held, so it needs a "currently held" flag the
+// per-item hover handlers in renderWhiteboard can check.
+let wbErasing = false;
+// {action: "delete"|"create", kind: "sketch"|"node", payload, id}. Bounded
+// so an hour of erasing doesn't grow this forever; only the newest matters.
+let wbUndoStack = [];
+const WB_UNDO_MAX = 20;
 
 function handleWbZoom(e) {
   d3.select("#wb-html-layer").style("transform", `translate(${e.transform.x}px, ${e.transform.y}px) scale(${e.transform.k})`);
   d3.select("#wb-zoom-group").attr("transform", e.transform);
+}
+
+// A tiny inline SVG baked into a `cursor:` value, so the OS/GPU renders and
+// positions it — zero JS on the hot path. This replaces an earlier version
+// that tracked the pointer with a `mousemove`-positioned `<div>`: reported
+// (and reproduced) as "my mouse keeps snapping to an invisible grid" — a
+// JS-positioned cursor only moves on however often `mousemove` actually
+// fires, which is both slower and less regular than the compositor placing
+// a real cursor image, so on a fast swipe the dot visibly lagged and then
+// jumped to catch up. A `cursor:` image has no such step: once set, the
+// browser draws it exactly like the system arrow.
+function wbCursorUrl(inner, { size = 26, hx = 3, hy = size - 3 } = {}) {
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" ` +
+    `viewBox="0 0 ${size} ${size}">${inner}</svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") ${hx} ${hy}`;
+}
+
+const WB_BRUSH_TOOLS = new Set(["draw", "line", "rect", "circle"]);
+
+function wbCursorForTool(tool, strokeColor) {
+  const color = /^#[0-9a-fA-F]{3,8}$/.test(strokeColor || "") ? strokeColor : "#ffffff";
+  if (WB_BRUSH_TOOLS.has(tool)) {
+    // A crosshair with a dot in the actual stroke colour at its centre — a
+    // plain crosshair can't say what colour is about to land.
+    const inner =
+      `<line x1="13" y1="1" x2="13" y2="9" stroke="#000" stroke-opacity=".55" stroke-width="1.5"/>` +
+      `<line x1="13" y1="17" x2="13" y2="25" stroke="#000" stroke-opacity=".55" stroke-width="1.5"/>` +
+      `<line x1="1" y1="13" x2="9" y2="13" stroke="#000" stroke-opacity=".55" stroke-width="1.5"/>` +
+      `<line x1="17" y1="13" x2="25" y2="13" stroke="#000" stroke-opacity=".55" stroke-width="1.5"/>` +
+      `<circle cx="13" cy="13" r="4" fill="${color}" stroke="#000" stroke-opacity=".45"/>`;
+    return `${wbCursorUrl(inner, { hx: 13, hy: 13 })}, crosshair`;
+  }
+  if (tool === "eraser") {
+    const inner =
+      `<g transform="rotate(-30 13 13)">` +
+      `<rect x="4" y="9" width="16" height="10" rx="2" fill="#f4d9d9" stroke="#8a4a4a" stroke-width="1.5"/>` +
+      `<rect x="4" y="9" width="7" height="10" rx="2" fill="#e7bcbc"/>` +
+      `</g>`;
+    return `${wbCursorUrl(inner, { hx: 6, hy: 20 })}, cell`;
+  }
+  if (tool === "delete") {
+    const inner =
+      `<path d="M6 7h14M11 7V4h4v3M9 7l1 15h6l1-15" fill="none" stroke="#d9534f" ` +
+      `stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
+    return `${wbCursorUrl(inner, { hx: 13, hy: 3 })}, not-allowed`;
+  }
+  if (tool === "link-straight" || tool === "link-curved") return "crosshair";
+  return ""; // pan: the CSS grab/grabbing pair already says it
+}
+
+function wbPushUndo(entry) {
+  wbUndoStack.push(entry);
+  if (wbUndoStack.length > WB_UNDO_MAX) wbUndoStack.shift();
+  const btn = document.getElementById("wb-undo");
+  if (btn) btn.disabled = false;
+}
+
+// Reverses the single most recent create or delete — a sketch stroke, a
+// shape, a link, or a note card. Asked for implicitly by adding an eraser:
+// a tool whose whole job is deleting things you swipe over needs a safety
+// net more than any other control on this toolbar.
+async function wbUndo() {
+  const entry = wbUndoStack.pop();
+  const btn = document.getElementById("wb-undo");
+  if (btn) btn.disabled = wbUndoStack.length === 0;
+  if (!entry) return;
+  const base = entry.kind === "sketch" ? "/whiteboard/sketches" : "/whiteboard/nodes";
+  const list = entry.kind === "sketch" ? "sketches" : "nodes";
+  try {
+    if (entry.action === "delete") {
+      const restored = await apiJson(base, { method: "POST", body: JSON.stringify(entry.payload) });
+      wbState[list].push(restored);
+    } else {
+      await apiJson(`${base}/${entry.id}`, { method: "DELETE" });
+      wbState[list] = wbState[list].filter((item) => item.id !== entry.id);
+    }
+    renderWhiteboard();
+  } catch {
+    toast("Couldn't undo that.", true);
+  }
 }
 
 async function initWhiteboard() {
@@ -22199,82 +22289,89 @@ async function initWhiteboard() {
 
   const toolGroup = document.getElementById("wb-tool-group");
   const colorPicker = document.getElementById("wb-color-picker");
-  const cursorIndicator = document.getElementById("wb-cursor-indicator");
   const containerEl = document.getElementById("whiteboard-container");
+  const undoBtn = document.getElementById("wb-undo");
 
-  // Custom cursor, asked for directly: what #wb-cursor-indicator shows for
-  // each tool, in screen space, updated on every pointer move. The drawing
-  // tools get a live circle in the actual stroke colour (a generic
-  // crosshair can't show that); delete and the two link tools get their own
-  // toolbar icon so the cursor itself says what a click will do. Pan is
-  // deliberately absent — the native grab/grabbing cursor (CSS, above)
-  // already says it, and needs no per-frame tracking.
-  const WB_CURSOR_ICONS = { delete: "🗑️", "link-straight": "🔗", "link-curved": "⤴️" };
-  const WB_BRUSH_TOOLS = new Set(["draw", "line", "rect", "circle"]);
-
-  function updateWbCursorIndicator() {
-    if (!cursorIndicator) return;
+  function updateWbCursor() {
     containerEl.setAttribute("data-current-tool", window.currentTool);
-    if (WB_BRUSH_TOOLS.has(window.currentTool)) {
-      cursorIndicator.textContent = "";
-      cursorIndicator.classList.add("wb-cursor-brush");
-      const size = Math.max(10, WB_STROKE_WIDTH * 4);
-      cursorIndicator.style.width = `${size}px`;
-      cursorIndicator.style.height = `${size}px`;
-      cursorIndicator.style.setProperty("--wb-cursor-color", window.currentStrokeColor);
-    } else if (WB_CURSOR_ICONS[window.currentTool]) {
-      cursorIndicator.textContent = WB_CURSOR_ICONS[window.currentTool];
-      cursorIndicator.classList.remove("wb-cursor-brush");
-      cursorIndicator.style.width = "";
-      cursorIndicator.style.height = "";
-    } else {
-      // Pan (or anything added later without an entry above): the native
-      // cursor already says everything, so the indicator stays hidden.
-      cursorIndicator.classList.remove("is-visible");
+    containerEl.style.cursor = wbCursorForTool(window.currentTool, window.currentStrokeColor);
+  }
+
+  // The one place a tool switch happens, so the toolbar click and the
+  // keyboard shortcuts below can never drift out of sync with each other.
+  function selectWbTool(tool) {
+    window.currentTool = tool;
+    if (toolGroup) {
+      toolGroup.querySelectorAll("button[data-tool]").forEach((b) => {
+        b.classList.toggle("active", b.dataset.tool === tool);
+      });
     }
+    if (tool !== "pan") {
+      container.on(".zoom", null); // disable zoom-drag so it can't fight drawing
+    } else {
+      container.call(wbZoom).on("dblclick.zoom", null);
+    }
+    updateWbCursor();
   }
 
   if (toolGroup) {
     toolGroup.addEventListener("click", (e) => {
       const btn = e.target.closest("button[data-tool]");
-      if (!btn) return;
-
-      // Update active state
-      toolGroup.querySelectorAll("button").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-
-      window.currentTool = btn.dataset.tool;
-      if (window.currentTool !== "pan") {
-        container.on(".zoom", null); // disable zoom
-      } else {
-        container.call(wbZoom).on("dblclick.zoom", null);
-      }
-      updateWbCursorIndicator();
+      if (btn) selectWbTool(btn.dataset.tool);
     });
   }
 
   if (colorPicker) {
     colorPicker.addEventListener("change", (e) => {
       window.currentStrokeColor = e.target.value;
-      updateWbCursorIndicator();
+      updateWbCursor();
     });
   }
 
-  if (cursorIndicator && containerEl) {
-    containerEl.addEventListener("mousemove", (e) => {
-      if (!WB_BRUSH_TOOLS.has(window.currentTool) && !WB_CURSOR_ICONS[window.currentTool]) {
-        return;
-      }
-      const rect = containerEl.getBoundingClientRect();
-      cursorIndicator.style.left = `${e.clientX - rect.left}px`;
-      cursorIndicator.style.top = `${e.clientY - rect.top}px`;
-      cursorIndicator.classList.add("is-visible");
-    });
-    containerEl.addEventListener("mouseleave", () => {
-      cursorIndicator.classList.remove("is-visible");
-    });
+  if (undoBtn) {
+    undoBtn.disabled = true;
+    undoBtn.addEventListener("click", wbUndo);
   }
-  updateWbCursorIndicator(); // the initial "pan" state: no indicator, grab cursor
+
+  // Keyboard shortcuts, asked for as part of the wider usability pass: a
+  // toolbar of eight icon buttons is not obviously faster than the tool you
+  // already have your hand on, and every serious drawing app (Figma,
+  // Excalidraw, tldraw) uses this exact letter set for exactly that reason —
+  // muscle memory transfers in, rather than having to be learned from
+  // scratch. Guarded to the whiteboard sub-tab and away from anything with
+  // its own idea of what typing means (an input, a textarea, a
+  // contenteditable note), the same guard the app's other global shortcuts
+  // already use.
+  const WB_TOOL_KEYS = {
+    v: "pan",
+    h: "pan",
+    p: "draw",
+    l: "line",
+    r: "rect",
+    o: "circle",
+    e: "eraser",
+    x: "delete",
+  };
+  document.addEventListener("keydown", (e) => {
+    const view = document.getElementById("library-view-whiteboard");
+    if (!view || view.classList.contains("hidden")) return;
+    const tag = (document.activeElement?.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "textarea" || document.activeElement?.isContentEditable) return;
+    if (e.key === "Escape") {
+      selectWbTool("pan");
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z") {
+      e.preventDefault();
+      wbUndo();
+      return;
+    }
+    if (e.ctrlKey || e.metaKey || e.altKey) return; // leave browser/OS shortcuts alone
+    const mapped = WB_TOOL_KEYS[e.key.toLowerCase()];
+    if (mapped) selectWbTool(mapped);
+  });
+
+  selectWbTool("pan"); // the initial state
 
   // Drawing event handlers on the SVG itself or container
   const svgCanvas = document.getElementById("wb-svg-layer");
@@ -22287,8 +22384,20 @@ async function initWhiteboard() {
     return [x, y];
   }
   
+  // The eraser doesn't draw — it deletes whatever the pointer crosses while
+  // held, which is renderWhiteboard's job (it owns the sketch/node elements
+  // this has to hit-test against). All this needs to track is "is the
+  // button currently down", on the container so it works over both the SVG
+  // sketch layer and the HTML card layer.
+  containerEl.addEventListener("mousedown", (e) => {
+    if (window.currentTool === "eraser") wbErasing = true;
+  });
+  window.addEventListener("mouseup", () => {
+    wbErasing = false;
+  });
+
   svgCanvas.addEventListener("mousedown", (e) => {
-    if (!["draw", "line", "rect", "circle"].includes(window.currentTool)) return;
+    if (!WB_BRUSH_TOOLS.has(window.currentTool)) return;
     e.stopPropagation();
     isDrawing = true;
     const [x, y] = getLogicalMouse(e);
@@ -22305,7 +22414,7 @@ async function initWhiteboard() {
   });
   
   svgCanvas.addEventListener("mousemove", (e) => {
-    if (!isDrawing || !["draw", "line", "rect", "circle"].includes(window.currentTool)) return;
+    if (!isDrawing || !WB_BRUSH_TOOLS.has(window.currentTool)) return;
     e.stopPropagation();
     const [x, y] = getLogicalMouse(e);
     
@@ -22330,7 +22439,7 @@ async function initWhiteboard() {
   });
   
   svgCanvas.addEventListener("mouseup", async (e) => {
-    if (!isDrawing || !["draw", "line", "rect", "circle"].includes(window.currentTool)) return;
+    if (!isDrawing || !WB_BRUSH_TOOLS.has(window.currentTool)) return;
     e.stopPropagation();
     isDrawing = false;
     
@@ -22364,14 +22473,24 @@ async function initWhiteboard() {
     // `renderWhiteboard` assigns `d => d.data`. If `d.data` is just the `d` string, all paths get `--text-color`.
     // Let's modify data to be a JSON string holding `{ d, color }` instead!
     sketchData.data = JSON.stringify({ d, color: currentStrokeColor });
-    
+
     try {
       const res = await apiJson("/whiteboard/sketches", { method: "POST", body: JSON.stringify(sketchData) });
-      currentDrawPath.setAttribute("data-id", res.id); 
+      wbState.sketches.push(res);
+      wbPushUndo({ action: "create", kind: "sketch", id: res.id });
+      // Hand off to renderWhiteboard's own data-bound element for this
+      // sketch — a real bug found while adding the eraser: this raw `<path>`
+      // is not part of the `g.sketch-group` selection renderWhiteboard binds
+      // wbState.sketches to, so a stroke just drawn had no way to be deleted
+      // or erased until a full reload re-fetched it from the server and
+      // rendered it "properly" the first time.
+      currentDrawPath.remove();
+      renderWhiteboard();
     } catch (err) {
       console.error("Failed to save sketch:", err);
+      if (currentDrawPath) currentDrawPath.remove();
     }
-    
+
     currentDrawPath = null;
     currentDrawData = [];
   });
@@ -22472,24 +22591,45 @@ async function fetchWhiteboardState() {
 }
 
 function renderWhiteboard() {
+  document
+    .getElementById("wb-empty-hint")
+    ?.classList.toggle("hidden", (wbState.nodes?.length || 0) + (wbState.sketches?.length || 0) > 0);
+
   // Render Sketches (SVG)
   const svgGroup = d3.select("#wb-zoom-group");
   const sketchSelection = svgGroup.selectAll("g.sketch-group")
     .data(wbState.sketches || [], d => d.id);
     
+  // Deleting a sketch two ways: "delete" is a click on the one thing you
+  // mean to remove; "eraser" is a drag — mouseenter fires for everything the
+  // pointer crosses while wbErasing is true, matching how an eraser tool
+  // behaves in every other drawing app.
+  async function deleteSketch(d) {
+    wbPushUndo({
+      action: "delete",
+      kind: "sketch",
+      payload: { data: d.data, board_id: d.board_id, x: d.x, y: d.y, z: d.z },
+    });
+    try {
+      await apiJson(`/whiteboard/sketches/${d.id}`, { method: "DELETE" });
+      wbState.sketches = wbState.sketches.filter((s) => s.id !== d.id);
+      renderWhiteboard();
+    } catch (e) {
+      console.error(e);
+      wbUndoStack.pop(); // the delete never happened, so neither did the undo entry
+    }
+  }
+
   const sketchEnter = sketchSelection.enter()
     .append("g")
     .attr("class", "sketch-group")
     .attr("data-id", d => d.id)
-    .style("cursor", () => window.currentTool === "delete" ? "pointer" : "default")
-    .on("click", async (event, d) => {
-      if (window.currentTool === "delete") {
-        try {
-          await apiJson(`/whiteboard/sketches/${d.id}`, { method: "DELETE" });
-          wbState.sketches = wbState.sketches.filter(s => s.id !== d.id);
-          renderWhiteboard();
-        } catch(e) { console.error(e); }
-      }
+    .style("cursor", () => (window.currentTool === "delete" || window.currentTool === "eraser") ? "pointer" : "default")
+    .on("click", (event, d) => {
+      if (window.currentTool === "delete") deleteSketch(d);
+    })
+    .on("mouseenter", (event, d) => {
+      if (window.currentTool === "eraser" && wbErasing) deleteSketch(d);
     });
 
   sketchEnter.append("path")
@@ -22546,6 +22686,23 @@ function renderWhiteboard() {
   const nodeSelection = canvas.selectAll(".wb-card.node-card")
     .data(wbState.nodes, d => d.id);
     
+  async function deleteNode(d) {
+    wbPushUndo({
+      action: "delete",
+      kind: "node",
+      payload: { entry_id: d.entry_id, board_id: d.board_id, x: d.x, y: d.y, z: d.z },
+    });
+    try {
+      await apiJson(`/whiteboard/nodes/${d.id}`, { method: "DELETE" });
+      wbState.nodes = wbState.nodes.filter((n) => n.id !== d.id);
+      // also delete links connected to it? For MVP just delete the node.
+      renderWhiteboard();
+    } catch (e) {
+      console.error(e);
+      wbUndoStack.pop();
+    }
+  }
+
   const nodeEnter = nodeSelection.enter()
     .append("div")
     .attr("class", "wb-card node-card")
@@ -22555,15 +22712,11 @@ function renderWhiteboard() {
       .on("start", dragStart)
       .on("drag", dragging)
       .on("end", dragEndNode))
-    .on("click", async (event, d) => {
-      if (window.currentTool === "delete") {
-        try {
-          await apiJson(`/whiteboard/nodes/${d.id}`, { method: "DELETE" });
-          wbState.nodes = wbState.nodes.filter(n => n.id !== d.id);
-          // also delete links connected to it? For MVP just delete the node.
-          renderWhiteboard();
-        } catch(e) { console.error(e); }
-      }
+    .on("click", (event, d) => {
+      if (window.currentTool === "delete") deleteNode(d);
+    })
+    .on("mouseenter", (event, d) => {
+      if (window.currentTool === "eraser" && wbErasing) deleteNode(d);
     });
       
   nodeEnter.append("div")
@@ -22582,6 +22735,9 @@ function renderWhiteboard() {
 }
 
 function dragStart(event, d) {
+  // Eraser/delete don't move cards — a swipe meant to erase a run of cards
+  // must not also drag the first one it touches out from under the pointer.
+  if (window.currentTool === "eraser" || window.currentTool === "delete") return;
   if (window.currentTool && window.currentTool.startsWith("link-")) {
     d.linkStartPos = { x: d.x + 125, y: d.y + 50 }; // approx center
     d.linkingPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
@@ -22595,6 +22751,7 @@ function dragStart(event, d) {
 }
 
 function dragging(event, d) {
+  if (window.currentTool === "eraser" || window.currentTool === "delete") return;
   if (window.currentTool && window.currentTool.startsWith("link-")) {
     const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
     const rect = document.getElementById("wb-svg-layer").getBoundingClientRect();
@@ -22649,6 +22806,7 @@ async function dragEndNode(event, d) {
        try {
          const res = await apiJson("/whiteboard/sketches", { method: "POST", body: JSON.stringify(sketchData) });
          wbState.sketches.push(res);
+         wbPushUndo({ action: "create", kind: "sketch", id: res.id });
          renderWhiteboard();
        } catch (err) {
          console.error(err);

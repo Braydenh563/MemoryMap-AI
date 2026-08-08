@@ -36,12 +36,6 @@
      `zoom`'s known bad interactions with the `100dvh`/`100vw` measurements
      `--page-viewport`/`--page-sticky-h` (§36) lean on. */
   --zoom: 1;
-  /* The whiteboard cursor preview's colour — set per-element from JS to the
-     user's current stroke colour (an arbitrary choice, not a themed value,
-     the same way the colour picker itself is). Declared here, at a neutral
-     default, so the token is real rather than a fallback standing in for
-     one that was never declared. */
-  --wb-cursor-color: var(--ink);
   /* The whiteboard's own background (asked for directly — the ambient
      generative-art canvas showed straight through it, since the container
      had no background of its own). `--modal-bg` rather than `--card`: the
@@ -12302,6 +12296,34 @@ textarea.autogrow {
   transform-origin: 0 0;
 }
 
+/* An empty board explaining itself, asked for as part of the wider
+   usability pass. `pointer-events: none` so it never intercepts a click
+   meant for the canvas underneath — including the moment the first thing
+   lands on it, when this is still fading/being hidden. */
+.wb-empty-hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  pointer-events: none;
+  max-width: 30rem;
+  text-align: center;
+  color: var(--muted);
+  padding: var(--space-5);
+}
+
+.wb-empty-hint-title {
+  color: var(--ink);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  margin-bottom: var(--space-3);
+}
+
+.wb-empty-hint p {
+  margin: var(--space-2) 0;
+}
+
 .whiteboard-floating-panel {
   position: absolute;
   z-index: 10;
@@ -13107,51 +13129,16 @@ body.has-agent-monitor .whiteboard-floating-panel.bottom-right {
 }
 
 /* Per-tool cursor, asked for directly: grab/grabbing already told you when
-   you could pan; nothing told you what the other seven tools would do until
-   you tried them. The drawing tools hide the native cursor in favour of
-   #wb-cursor-indicator below, which shows the actual stroke colour rather
-   than a generic crosshair. */
-.whiteboard-container[data-current-tool="draw"],
-.whiteboard-container[data-current-tool="line"],
-.whiteboard-container[data-current-tool="rect"],
-.whiteboard-container[data-current-tool="circle"] {
-  cursor: none;
-}
-
-.whiteboard-container[data-current-tool="link-straight"],
-.whiteboard-container[data-current-tool="link-curved"] {
-  cursor: crosshair;
-}
-
-.whiteboard-container[data-current-tool="delete"] {
-  cursor: none; /* the 🗑️ indicator replaces it, same as the drawing tools */
-}
-
-/* Screen-space, not inside the zoom/pan group — a brush preview that grew
-   with zoom would say the wrong size, and one that panned with the canvas
-   would drift away from the actual pointer the instant you dragged. */
-#wb-cursor-indicator {
-  position: absolute;
-  z-index: 15;
-  pointer-events: none;
-  transform: translate(-50%, -50%);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--text-h3);
-  line-height: 1;
-}
-
-#wb-cursor-indicator.is-visible {
-  display: flex;
-}
-
-#wb-cursor-indicator.wb-cursor-brush {
-  border-radius: 50%;
-  border: 1.5px solid var(--ink);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
-  background: color-mix(in srgb, var(--wb-cursor-color) 35%, transparent);
-}
+   you could pan; nothing told you what the other tools would do until you
+   tried them. `data-current-tool` is still set (JS, on tool switch) as a
+   styling hook for anything that wants it, but the cursor image itself is
+   set as an inline `style.cursor` — a generated `cursor: url(svg) x y` per
+   tool, see `wbCursorForTool` in app.js. That replaced an earlier version
+   that hid the native cursor and tracked the pointer with a `mousemove`-
+   positioned `<div>`: reported (and reproduced) as "my mouse keeps snapping
+   to an invisible grid" — a JS-positioned overlay only moves as often as
+   `mousemove` actually fires, which lags a real, GPU-composited cursor
+   image badly enough on a fast swipe to read as snapping. */
 
 /* Draggable toolbar panels, asked for directly. Only the grip starts a
    drag — the panels are almost entirely buttons/inputs, so "grab anywhere"

@@ -1387,11 +1387,18 @@ Link to another note with [[its first few words]]."></textarea>
       </svg>
       <!-- The HTML layer for cards, pannable/zoomable -->
       <div id="wb-html-layer" class="wb-html-layer"></div>
-      <!-- Follows the pointer in screen space (outside the zoom/pan group on
-           purpose, so it stays a constant size at any zoom level) and shows
-           what the current tool would do at this exact spot: a stroke-colour
-           preview for the drawing tools, an icon for delete/link. -->
-      <div id="wb-cursor-indicator" aria-hidden="true"></div>
+      <!-- Shown only while the board is empty, cleared the moment anything
+           real lands on it (renderWhiteboard). A board is a note nobody
+           told you it was, and a blank canvas with an eight-icon toolbar
+           and no words on it is not where that gets discovered. -->
+      <div id="wb-empty-hint" class="wb-empty-hint hidden" aria-hidden="true">
+        <p class="wb-empty-hint-title">This board is a note — draw on it, or drag one in</p>
+        <p>📝 <strong>Library</strong> (top right) drops an existing note here as a card.</p>
+        <p>✏️ <strong>Pen</strong>, 📏 <strong>Line</strong>, ⬜ <strong>Rectangle</strong>, ⭕ <strong>Circle</strong> sketch on the canvas.</p>
+        <p>🔗 A <strong>link</strong> tool connects two cards — drag from one to the other.</p>
+        <p>🧽 <strong>Eraser</strong> removes whatever it drags across; ⟲ <strong>Undo</strong> (Ctrl+Z) brings it back.</p>
+        <p class="muted">Shortcuts: V pan · P pen · L line · R rectangle · O circle · E eraser · X delete · Esc back to pan</p>
+      </div>
     </div>
     <div class="whiteboard-floating-panel top-left card glass" data-panel-id="board">
       <span class="wb-panel-grip" title="Drag to move" aria-hidden="true">⠿</span>
@@ -1415,14 +1422,39 @@ Link to another note with [[its first few words]]."></textarea>
     <div class="whiteboard-floating-panel bottom-center card glass" data-panel-id="tools">
       <span class="wb-panel-grip" title="Drag to move" aria-hidden="true">⠿</span>
       <div class="wb-tool-group" id="wb-tool-group">
-        <button class="ghost icon-button active" data-tool="pan" title="Pan/Zoom">🖐️</button>
-        <button class="ghost icon-button" data-tool="draw" title="Freehand">✏️</button>
-        <button class="ghost icon-button" data-tool="line" title="Straight Line">📏</button>
-        <button class="ghost icon-button" data-tool="rect" title="Rectangle">⬛</button>
-        <button class="ghost icon-button" data-tool="circle" title="Circle">⭕</button>
-        <button class="ghost icon-button" data-tool="link-straight" title="Straight Link">🔗</button>
-        <button class="ghost icon-button" data-tool="link-curved" title="Curved Link">⤴️</button>
-        <button class="ghost icon-button" data-tool="delete" title="Delete">🗑️</button>
+        <button class="ghost icon-button active" data-tool="pan" title="Pan / Select (V)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"></polyline><polyline points="9 5 12 2 15 5"></polyline><polyline points="15 19 12 22 9 19"></polyline><polyline points="19 9 22 12 19 15"></polyline><line x1="2" y1="12" x2="22" y2="12"></line><line x1="12" y1="2" x2="12" y2="22"></line></svg>
+        </button>
+        <button class="ghost icon-button" data-tool="draw" title="Pen (P)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>
+        </button>
+        <button class="ghost icon-button" data-tool="line" title="Line (L)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="19" x2="19" y2="5"></line></svg>
+        </button>
+        <button class="ghost icon-button" data-tool="rect" title="Rectangle (R)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+        </button>
+        <button class="ghost icon-button" data-tool="circle" title="Circle (O)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle></svg>
+        </button>
+        <button class="ghost icon-button" data-tool="eraser" title="Eraser (E) — drag over strokes and cards to remove them">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16C2.5 15.5 2.5 14.5 3 14L13 4C13.5 3.5 14.5 3.5 15 4L20 9C20.5 9.5 20.5 10.5 20 11L11 20"></path><path d="M17 14L7 14"></path></svg>
+        </button>
+        <span class="header-divider" aria-hidden="true"></span>
+        <button class="ghost icon-button" data-tool="link-straight" title="Straight link — drag from one card to another">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="20" y2="4"></line><circle cx="4" cy="20" r="2.2"></circle><circle cx="20" cy="4" r="2.2"></circle></svg>
+        </button>
+        <button class="ghost icon-button" data-tool="link-curved" title="Curved link — drag from one card to another">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20 Q4 4 20 4"></path><circle cx="4" cy="20" r="2.2"></circle><circle cx="20" cy="4" r="2.2"></circle></svg>
+        </button>
+        <span class="header-divider" aria-hidden="true"></span>
+        <button class="ghost icon-button" data-tool="delete" title="Delete (X) — click a stroke or card">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+        </button>
+        <span class="header-divider" aria-hidden="true"></span>
+        <button id="wb-undo" class="ghost icon-button" title="Undo (Ctrl+Z)" disabled>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>
+        </button>
         <span class="header-divider" aria-hidden="true"></span>
         <input type="color" id="wb-color-picker" value="#ffffff" title="Stroke Color" class="wb-color-picker">
       </div>

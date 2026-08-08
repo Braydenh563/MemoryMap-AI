@@ -87,10 +87,20 @@ into a good one.
     (~20 passes before anything shows) — that is the "completely wrong" in the
     report. Then a reachable size control, a background colour, and a
     selection tool. The toolbar redesign comes *after* those, not before.
-11. **The whiteboard, properly.** It works and is thin. Wanted: an empty state
-    that says how to start, a legible explanation that a board *is a note*
-    (a good idea nobody is told), resizable cards, and the edge-labelling the
-    graph has — see item 9.
+11. **The whiteboard, properly.** Done this session, reported and verified in
+    Chromium: per-tool cursors (native `cursor: url(svg)`, not a JS-tracked
+    div — the div version was reported and reproduced as "the mouse snaps to
+    an invisible grid", a lag artifact, not a real grid), an eraser
+    (drag-to-delete, matching every other drawing app), Undo (Ctrl+Z, one
+    level, covers create and delete for both sketches and cards), keyboard
+    shortcuts (V/P/L/R/O/E/X/Esc), a real toolbar redesign with SVG icons and
+    grouped sections, a board background colour (also fixes the generative-art
+    canvas showing through, reported separately), draggable toolbar panels,
+    and an empty-state hint. Also fixed while adding the eraser: a freshly
+    drawn stroke was appended as a raw un-bound SVG element, not through
+    `renderWhiteboard`'s data binding — so it could never be deleted or erased
+    until a page reload re-fetched it. Still open: resizable cards, and the
+    edge-labelling the graph has — see item 9.
 12. **Note metadata, and links that are links.** A note's linked notes should
     be clickable through to those notes; today they are decoration.
 13. **"Take me to the thing the agent just changed," the UI half.** Groundwork

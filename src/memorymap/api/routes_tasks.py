@@ -28,7 +28,7 @@ from fastapi import APIRouter
 
 from memorymap.ai import embeddings as embeddings_module
 from memorymap.ai import model_manager as jobs
-from memorymap.core import deps, extras, taskhistory
+from memorymap.core import deps, embedmodels, extras, taskhistory
 
 router = APIRouter(tags=["tasks"])
 
@@ -132,6 +132,31 @@ def collect() -> list[dict]:
                 "progress": min(waited / max(searxng_manager.START_TIMEOUT, 1), 1.0),
                 "cancellable": False,
                 "log": [],
+            }
+        )
+
+    # Downloading an embedding model (Settings → Extras, the "Search by
+    # meaning" models list). Its own `DownloadState` docstring already says
+    # "for /tasks and the panel" — the panel half was built, this half never
+    # was, so a multi-hundred-MB download with its own dropped-connection
+    # retry logic was visible only while that one exact settings screen
+    # happened to be open (`renderEmbedModels`'s own poll gates on
+    # `currentSettingsSection === "extras"`), and invisible everywhere else
+    # in the app the instant you clicked away. Tier 1 §6.
+    embed_download = embedmodels.current()
+    if embed_download.running:
+        model = embedmodels.EMBED_MODELS_BY_ID.get(embed_download.model_id)
+        tasks.append(
+            {
+                "kind": "embedding-model",
+                "name": embed_download.model_id,
+                "label": f"Downloading {model.label}" if model else "Downloading an embedding model",
+                "detail": embed_download.step or "starting…",
+                # No fraction reported for the same reason pip's isn't below:
+                # snapshot_download doesn't hand back one worth trusting.
+                "progress": None,
+                "cancellable": False,
+                "log": list(embed_download.log),
             }
         )
 

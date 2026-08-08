@@ -325,6 +325,7 @@ class WhiteboardNode(Base):
     __tablename__ = "whiteboard_nodes"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    board_id: Mapped[int | None] = mapped_column(ForeignKey("entries.id"), default=None)
     entry_id: Mapped[int] = mapped_column(ForeignKey("entries.id"))
     x: Mapped[float] = mapped_column(Float, default=0.0)
     y: Mapped[float] = mapped_column(Float, default=0.0)
@@ -339,6 +340,7 @@ class WhiteboardSketch(Base):
     __tablename__ = "whiteboard_sketches"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    board_id: Mapped[int | None] = mapped_column(ForeignKey("entries.id"), default=None)
     # The strokes data (JSON/SVG). Can be encrypted at rest later if needed.
     data: Mapped[str] = mapped_column(Text)
     x: Mapped[float] = mapped_column(Float, default=0.0)

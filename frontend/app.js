@@ -139,7 +139,7 @@ async function api(path, options = {}) {
   }
   if (!response.ok) {
     const detail = await response.json().catch(() => ({}));
-    const errMsg = detail.detail || `Request failed (${response.status})`;
+    const errMsg = typeof detail.detail === 'string' ? detail.detail : (JSON.stringify(detail.detail) || `Request failed (${response.status})`);
     if (!silent) {
       // Log HTTP errors so they always appear in Settings → Logs for debugging.
       recordBrowserLog("ERROR", [
@@ -6027,9 +6027,17 @@ function makeSidebarResizable(aside) {
   collapseBtn.className = "sidebar-collapse-toggle";
   collapseBtn.title = "Toggle Sidebar";
   collapseBtn.innerHTML = `
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <svg class="icon-expanded" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
       <line x1="9" y1="3" x2="9" y2="21"></line>
+    </svg>
+    <svg class="icon-collapsed" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+      <line x1="15" y1="3" x2="15" y2="21"></line>
+    </svg>
+    <svg class="icon-peek" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="12" y1="17" x2="12" y2="22"></line>
+      <path d="M5 17h14v-1.5c0-1.5-1.5-2-1.5-4v-3c0-3-2-5-5.5-5S6.5 5.5 6.5 8.5v3c0 2-1.5 2.5-1.5 4V17z"></path>
     </svg>
   `;
   collapseBtn.addEventListener("click", () => {
@@ -10907,7 +10915,21 @@ let traceFromNode = null;
 let traceToNode = null;
 
 function fillTracePickers(nodes) {
-  // Pickers are gone; this is now a no-op kept so old calls don't throw.
+  const fromSel = $("graph-trace-from");
+  const toSel = $("graph-trace-to");
+  if (!fromSel || !toSel) return;
+  
+  const fromVal = fromSel.value;
+  const toVal = toSel.value;
+  
+  const sorted = [...nodes].sort((a, b) => (a.preview || "").localeCompare(b.preview || ""));
+  const options = `<option value="" disabled selected>Select note...</option>` + 
+    sorted.map(n => `<option value="${n.id}">${escapeHtml(n.preview || String(n.id))}</option>`).join("");
+    
+  fromSel.innerHTML = options;
+  toSel.innerHTML = options;
+  if (fromVal) fromSel.value = fromVal;
+  if (toVal) toSel.value = toVal;
 }
 
 function setTracePanelOpen(open) {
@@ -10917,23 +10939,17 @@ function setTracePanelOpen(open) {
   $("graph-trace-toggle")?.setAttribute("aria-expanded", String(open));
   $("graph-trace-toggle")?.classList.toggle("is-on", open);
   localStorage.setItem("graph-trace-open", open ? "1" : "0");
-  if (open) {
-    $("graph-trace-status").textContent = "Click a starting note";
-    showTraceMessage("Select a note on the graph to begin.");
-  }
 }
 
-function handleTraceClick(d) {
-  if (!traceFromNode) {
-    traceFromNode = d;
-    $("graph-trace-status").textContent = `Click a destination note (from ${d.preview})`;
-    showTraceMessage(`Start: ${d.preview}. Now select a destination note.`);
-  } else if (!traceToNode) {
-    traceToNode = d;
-    $("graph-trace-status").textContent = "Tracing...";
-    runTrace();
-  }
-}
+$("graph-trace-from")?.addEventListener("change", (e) => {
+  traceFromNode = graphNodeSelection.data().find(n => String(n.id) === e.target.value);
+  if (traceFromNode && traceToNode) runTrace();
+});
+
+$("graph-trace-to")?.addEventListener("change", (e) => {
+  traceToNode = graphNodeSelection.data().find(n => String(n.id) === e.target.value);
+  if (traceFromNode && traceToNode) runTrace();
+});
 
 function setTraceEnd(which, noteId) {
   setTracePanelOpen(true);
@@ -10944,9 +10960,12 @@ function setTraceEnd(which, noteId) {
   }
   if (which === "from") {
     traceFromNode = node;
-    $("graph-trace-status").textContent = `Click a destination note (from ${node.preview})`;
+    const sel = $("graph-trace-from");
+    if (sel) sel.value = node.id;
   } else {
     traceToNode = node;
+    const sel = $("graph-trace-to");
+    if (sel) sel.value = node.id;
   }
   if (traceFromNode && traceToNode) runTrace();
 }
@@ -14716,12 +14735,12 @@ function sketchMove(event) {
     else context.clearRect(0, 0, context.canvas.width, context.canvas.height);
   }
 
-  context.lineCap = "round";
-  context.lineJoin = "round";
-  context.globalCompositeOperation = sketchPen.eraser && sketchTool === "pen" ? "destination-out" : "source-over";
-  context.globalAlpha = sketchTool === "highlighter" ? 0.4 : 1.0;
+  context.lineCap = sketchTool === "highlighter" ? "square" : "round";
+  context.lineJoin = sketchTool === "highlighter" ? "bevel" : "round";
+  context.globalCompositeOperation = sketchPen.eraser && sketchTool === "pen" ? "destination-out" : (sketchTool === "highlighter" ? "multiply" : "source-over");
+  context.globalAlpha = sketchTool === "highlighter" ? 0.05 : 1.0;
   context.strokeStyle = sketchPen.color;
-  context.lineWidth = sketchTool === "highlighter" ? sketchPen.size * 4 : (sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size);
+  context.lineWidth = sketchTool === "highlighter" ? sketchPen.size * 6 : (sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size);
 
   if (sketchTool === "pen" || sketchTool === "highlighter") {
     context.lineTo(x, y);
@@ -14759,14 +14778,14 @@ function sketchMove(event) {
 function sketchEnd(event) {
   if (sketchDrawing && !sketchMoved && event && (event.type === "pointerup" || event.type === "click")) {
     const context = sketchContext();
-    context.lineCap = "round";
-    context.lineJoin = "round";
-    context.globalCompositeOperation = sketchPen.eraser && sketchTool === "pen" ? "destination-out" : "source-over";
-    context.globalAlpha = sketchTool === "highlighter" ? 0.4 : 1.0;
+    context.lineCap = sketchTool === "highlighter" ? "square" : "round";
+    context.lineJoin = sketchTool === "highlighter" ? "bevel" : "round";
+    context.globalCompositeOperation = sketchPen.eraser && sketchTool === "pen" ? "destination-out" : (sketchTool === "highlighter" ? "multiply" : "source-over");
+    context.globalAlpha = sketchTool === "highlighter" ? 0.05 : 1.0;
     context.strokeStyle = sketchPen.color;
     
     if (sketchTool === "pen" || sketchTool === "highlighter") {
-      context.lineWidth = sketchTool === "highlighter" ? sketchPen.size * 4 : (sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size);
+      context.lineWidth = sketchTool === "highlighter" ? sketchPen.size * 6 : (sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size);
       context.beginPath();
       context.moveTo(sketchStartX, sketchStartY);
       context.lineTo(sketchStartX, sketchStartY + 0.1);
@@ -18608,7 +18627,7 @@ function renderAppearance() {
   $("glass-blur-value").textContent = `${appearancePref("glass-blur")}px`;
   $("zoom-slider").value = appearancePref("zoom");
   $("zoom-value").textContent = `${appearancePref("zoom")}%`;
-  _segActive("border-style-seg", "data-border-choice", appearancePref("border-style", "solid"));
+  _segActive("border-style-seg", "borderChoice", appearancePref("border-style", "solid"));
   $("shadow-intensity").value = appearancePref("shadow-intensity", "5");
   $("shadow-intensity-value").textContent = `${appearancePref("shadow-intensity", "5")}%`;
   $("accent-custom").value = localStorage.getItem("accent-custom") || "#4f6df5";
@@ -19749,6 +19768,29 @@ $("persona-peek").addEventListener("click", togglePersonaPrompt);
 // the files and the bin, and with sort beside it. This is the way there, said
 // out loud, because a list that silently stops at eight is a list that has
 // lost your chats.
+
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 $("conv-browse-all").addEventListener("click", () => {
   switchTab("library");
   libraryKind = "chat";
@@ -21544,7 +21586,8 @@ let wbState = { nodes: [], sketches: [] };
 let wbInitialized = false;
 
 function handleWbZoom(e) {
-  d3.select("#whiteboard-canvas").style("transform", `translate(${e.transform.x}px, ${e.transform.y}px) scale(${e.transform.k})`);
+  d3.select("#wb-html-layer").style("transform", `translate(${e.transform.x}px, ${e.transform.y}px) scale(${e.transform.k})`);
+  d3.select("#wb-zoom-group").attr("transform", e.transform);
 }
 
 async function initWhiteboard() {
@@ -21568,33 +21611,197 @@ async function initWhiteboard() {
     }
   });
 
-  // Handle drop from library to canvas
-  const canvasEl = document.getElementById("whiteboard-container");
-  canvasEl.addEventListener("dragover", (e) => e.preventDefault());
-  canvasEl.addEventListener("drop", async (e) => {
+  const btnAddSketch = document.getElementById("wb-add-sketch");
+  if (btnAddSketch) {
+    btnAddSketch.addEventListener("click", () => {
+      openSketch();
+    });
+  }
+
+  const boardSelect = document.getElementById("wb-board-select");
+  if (boardSelect) {
+    boardSelect.addEventListener("change", async (e) => {
+      window.currentBoardId = e.target.value || null;
+      await fetchWhiteboardState();
+      renderWhiteboard();
+    });
+  }
+
+  // Tool Selection
+  window.currentTool = "pan";
+  let isDrawing = false;
+  let currentDrawPath = null;
+  let currentDrawData = []; // array of [x, y]
+  window.currentStrokeColor = "#ffffff";
+  
+  const toolGroup = document.getElementById("wb-tool-group");
+  const colorPicker = document.getElementById("wb-color-picker");
+  
+  if (toolGroup) {
+    toolGroup.addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-tool]");
+      if (!btn) return;
+      
+      // Update active state
+      toolGroup.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      
+      window.currentTool = btn.dataset.tool;
+      if (window.currentTool !== "pan") {
+        container.on(".zoom", null); // disable zoom
+      } else {
+        container.call(wbZoom).on("dblclick.zoom", null);
+      }
+    });
+  }
+  
+  if (colorPicker) {
+    colorPicker.addEventListener("change", (e) => {
+      window.currentStrokeColor = e.target.value;
+    });
+  }
+
+  // Drawing event handlers on the SVG itself or container
+  const svgCanvas = document.getElementById("wb-svg-layer");
+  
+  function getLogicalMouse(e) {
+    const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
+    const rect = svgCanvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left - transform.x) / transform.k;
+    const y = (e.clientY - rect.top - transform.y) / transform.k;
+    return [x, y];
+  }
+  
+  svgCanvas.addEventListener("mousedown", (e) => {
+    if (!["draw", "line", "rect", "circle"].includes(window.currentTool)) return;
+    e.stopPropagation();
+    isDrawing = true;
+    const [x, y] = getLogicalMouse(e);
+    
+    currentDrawData = [[x, y]];
+    currentDrawPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    currentDrawPath.setAttribute("fill", "none");
+    currentDrawPath.setAttribute("stroke", window.currentStrokeColor);
+    currentDrawPath.setAttribute("stroke-width", "3");
+    currentDrawPath.setAttribute("stroke-linecap", "round");
+    currentDrawPath.setAttribute("stroke-linejoin", "round");
+    currentDrawPath.setAttribute("d", `M ${x} ${y}`);
+    document.getElementById("wb-zoom-group").appendChild(currentDrawPath);
+  });
+  
+  svgCanvas.addEventListener("mousemove", (e) => {
+    if (!isDrawing || !["draw", "line", "rect", "circle"].includes(window.currentTool)) return;
+    e.stopPropagation();
+    const [x, y] = getLogicalMouse(e);
+    
+    if (window.currentTool === "draw") {
+      currentDrawData.push([x, y]);
+      const d = currentDrawData.map((pt, i) => (i === 0 ? `M ${pt[0]} ${pt[1]}` : `L ${pt[0]} ${pt[1]}`)).join(" ");
+      currentDrawPath.setAttribute("d", d);
+    } else {
+      // Shape tools: only start and current point matter
+      const [sx, sy] = currentDrawData[0];
+      if (window.currentTool === "line") {
+        currentDrawPath.setAttribute("d", `M ${sx} ${sy} L ${x} ${y}`);
+      } else if (window.currentTool === "rect") {
+        const mx = Math.min(sx, x), my = Math.min(sy, y);
+        const w = Math.abs(x - sx), h = Math.abs(y - sy);
+        currentDrawPath.setAttribute("d", `M ${mx} ${my} h ${w} v ${h} h ${-w} Z`);
+      } else if (window.currentTool === "circle") {
+        const rx = Math.abs(x - sx), ry = Math.abs(y - sy);
+        currentDrawPath.setAttribute("d", `M ${sx - rx} ${sy} a ${rx} ${ry} 0 1 0 ${rx * 2} 0 a ${rx} ${ry} 0 1 0 ${-rx * 2} 0`);
+      }
+    }
+  });
+  
+  svgCanvas.addEventListener("mouseup", async (e) => {
+    if (!isDrawing || !["draw", "line", "rect", "circle"].includes(window.currentTool)) return;
+    e.stopPropagation();
+    isDrawing = false;
+    
+    const [x, y] = getLogicalMouse(e);
+    const [sx, sy] = currentDrawData[0];
+    
+    // Check if user actually dragged
+    if (window.currentTool === "draw" && currentDrawData.length < 2) {
+      if (currentDrawPath) currentDrawPath.remove();
+      currentDrawPath = null;
+      return;
+    } else if (window.currentTool !== "draw" && Math.abs(x - sx) < 2 && Math.abs(y - sy) < 2) {
+      if (currentDrawPath) currentDrawPath.remove();
+      currentDrawPath = null;
+      return;
+    }
+    
+    // Save sketch to API
+    const d = currentDrawPath.getAttribute("d");
+    const sketchData = {
+      data: d, // store the SVG path data
+      x: 0,
+      y: 0,
+      z: 5,
+      board_id: window.currentBoardId
+    };
+    
+    // We want to persist the color as well, but wait, the backend schema doesn't have a color field!
+    // We can embed color into data or just ignore for now since it's an MVP. Let's just embed it in data like so:
+    // data: `<path d="..." stroke="#..."/>` or since we only render `path d`, we can just wait... 
+    // `renderWhiteboard` assigns `d => d.data`. If `d.data` is just the `d` string, all paths get `--text-color`.
+    // Let's modify data to be a JSON string holding `{ d, color }` instead!
+    sketchData.data = JSON.stringify({ d, color: currentStrokeColor });
+    
+    try {
+      const res = await apiJson("/whiteboard/sketches", { method: "POST", body: JSON.stringify(sketchData) });
+      currentDrawPath.setAttribute("data-id", res.id); 
+    } catch (err) {
+      console.error("Failed to save sketch:", err);
+    }
+    
+    currentDrawPath = null;
+    currentDrawData = [];
+  });
+
+  // Drop handler for Library
+  document.getElementById("whiteboard-container").addEventListener("dragover", (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  });
+  
+  document.getElementById("whiteboard-container").addEventListener("drop", async (e) => {
     e.preventDefault();
     const entryId = e.dataTransfer.getData("text/plain");
     if (!entryId) return;
-
-    // Convert screen coordinates to canvas coordinates based on zoom/pan
-    const transform = d3.zoomTransform(canvasEl);
+    
+    // We need to figure out coordinates relative to the transformed html layer
+    const canvasEl = document.getElementById("wb-html-layer");
+    const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
     const rect = canvasEl.getBoundingClientRect();
-    const x = (e.clientX - rect.left - transform.x) / transform.k;
-    const y = (e.clientY - rect.top - transform.y) / transform.k;
-    const z = 10;
-
+    
+    // Calculate logical x,y
+    const logicalX = (e.clientX - rect.left - transform.x) / transform.k;
+    const logicalY = (e.clientY - rect.top - transform.y) / transform.k;
+    
+    const nodeData = {
+      entry_id: parseInt(entryId, 10),
+      x: logicalX,
+      y: logicalY,
+      z: 10,
+      board_id: window.currentBoardId
+    };
+    
     try {
-      await fetch("/whiteboard/nodes/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entry_id: entryId, x, y, z })
-      });
-      await fetchWhiteboardState();
+      const res = await apiJson("/whiteboard/nodes", { method: "POST", body: JSON.stringify(nodeData) });
+      // If it exists in state already, replace it. Otherwise push.
+      const idx = wbState.nodes.findIndex(n => n.id === res.id);
+      if (idx !== -1) wbState.nodes[idx] = res;
+      else wbState.nodes.push(res);
       renderWhiteboard();
     } catch (err) {
-      console.error("Failed to add node to whiteboard:", err);
+      console.error("Error creating node:", err);
     }
   });
+
+
   
   await fetchWhiteboardState();
   renderWhiteboard();
@@ -21606,7 +21813,8 @@ function renderWbLibrary() {
   for (const entry of allEntries) {
     const li = document.createElement("li");
     li.className = "wb-library-item";
-    li.textContent = entry.text ? entry.text.substring(0, 40) + "..." : entry.id;
+    const text = entry.content || entry.preview || "";
+    li.textContent = text ? (text.length > 40 ? text.substring(0, 40) + "..." : text) : entry.id;
     li.draggable = true;
     li.addEventListener("dragstart", (e) => {
       e.dataTransfer.setData("text/plain", entry.id);
@@ -21616,19 +21824,105 @@ function renderWbLibrary() {
   }
 }
 
+window.currentBoardId = null;
+
 async function fetchWhiteboardState() {
   try {
-    const res = await apiJson("/whiteboard/");
+    const url = window.currentBoardId ? `/whiteboard/?board_id=${window.currentBoardId}` : "/whiteboard/";
+    const res = await apiJson(url);
     wbState = res;
+    
+    // Also update board dropdown
+    const select = document.getElementById("wb-board-select");
+    if (select) {
+      // populate if not populated
+      if (select.options.length <= 1 && allEntries.length > 0) {
+        allEntries.forEach(e => {
+          const opt = document.createElement("option");
+          opt.value = e.id;
+          opt.textContent = `Board: ${e.title || e.preview || "Note " + e.id}`;
+          select.appendChild(opt);
+        });
+      }
+      select.value = window.currentBoardId || "";
+    }
   } catch (err) {
     console.error("Whiteboard fetch error:", err);
   }
 }
 
 function renderWhiteboard() {
-  const canvas = d3.select("#whiteboard-canvas");
-  
+  // Render Sketches (SVG)
+  const svgGroup = d3.select("#wb-zoom-group");
+  const sketchSelection = svgGroup.selectAll("g.sketch-group")
+    .data(wbState.sketches || [], d => d.id);
+    
+  const sketchEnter = sketchSelection.enter()
+    .append("g")
+    .attr("class", "sketch-group")
+    .attr("data-id", d => d.id)
+    .style("cursor", () => window.currentTool === "delete" ? "pointer" : "default")
+    .on("click", async (event, d) => {
+      if (window.currentTool === "delete") {
+        try {
+          await apiJson(`/whiteboard/sketches/${d.id}`, { method: "DELETE" });
+          wbState.sketches = wbState.sketches.filter(s => s.id !== d.id);
+          renderWhiteboard();
+        } catch(e) { console.error(e); }
+      }
+    });
+
+  sketchEnter.append("path")
+    .attr("class", "sketch-hitbox")
+    .attr("fill", "none")
+    .attr("stroke", "transparent")
+    .attr("stroke-width", "20")
+    .attr("pointer-events", "stroke");
+
+  sketchEnter.append("path")
+    .attr("class", "sketch-path")
+    .attr("fill", "none")
+    .attr("stroke-width", "3")
+    .attr("stroke-linecap", "round")
+    .attr("stroke-linejoin", "round")
+    .attr("pointer-events", "none");
+
+  const sketchUpdate = sketchEnter.merge(sketchSelection);
+
+  sketchUpdate.each(function(d) {
+    let pathData = d.data;
+    let stroke = "var(--text-color)";
+    try {
+      const parsed = JSON.parse(d.data);
+      if (parsed.d) {
+        pathData = parsed.d;
+        stroke = parsed.color || stroke;
+      } else if (parsed.type && parsed.type.startsWith("link-")) {
+        stroke = parsed.color || stroke;
+        const source = wbState.nodes.find(n => n.id === parsed.sourceId);
+        const target = wbState.nodes.find(n => n.id === parsed.targetId);
+        if (source && target) {
+           const sx = source.x + 125, sy = source.y + 75;
+           const tx = target.x + 125, ty = target.y + 75;
+           if (parsed.type === "link-straight") {
+              pathData = `M ${sx} ${sy} L ${tx} ${ty}`;
+           } else {
+              const dx = tx - sx;
+              pathData = `M ${sx} ${sy} C ${sx + dx/2} ${sy}, ${tx - dx/2} ${ty}, ${tx} ${ty}`;
+           }
+        } else {
+           pathData = "";
+        }
+      }
+    } catch(e) {}
+    d3.select(this).select(".sketch-hitbox").attr("d", pathData);
+    d3.select(this).select(".sketch-path").attr("d", pathData).attr("stroke", stroke);
+  });
+    
+  sketchSelection.exit().remove();
+
   // Render Nodes (Cards)
+  const canvas = d3.select("#wb-html-layer");
   const nodeSelection = canvas.selectAll(".wb-card.node-card")
     .data(wbState.nodes, d => d.id);
     
@@ -21640,13 +21934,24 @@ function renderWhiteboard() {
     .call(d3.drag()
       .on("start", dragStart)
       .on("drag", dragging)
-      .on("end", dragEndNode));
+      .on("end", dragEndNode))
+    .on("click", async (event, d) => {
+      if (window.currentTool === "delete") {
+        try {
+          await apiJson(`/whiteboard/nodes/${d.id}`, { method: "DELETE" });
+          wbState.nodes = wbState.nodes.filter(n => n.id !== d.id);
+          // also delete links connected to it? For MVP just delete the node.
+          renderWhiteboard();
+        } catch(e) { console.error(e); }
+      }
+    });
       
   nodeEnter.append("div")
     .attr("class", "wb-card-content")
     .html(d => {
-      const entry = allEntries.find(e => e.id === d.entry_id);
-      return entry ? (entry.text ? entry.text.substring(0, 100) + "..." : "No text") : "Loading...";
+      const entry = allEntries.find(e => String(e.id) === String(d.entry_id));
+      const text = entry ? (entry.content || entry.preview || "") : "";
+      return entry ? (text ? escapeHtml(text.length > 100 ? text.substring(0, 100) + "..." : text) : "Empty note") : "Loading...";
     });
     
   nodeSelection.merge(nodeEnter)
@@ -21657,25 +21962,85 @@ function renderWhiteboard() {
 }
 
 function dragStart(event, d) {
-  d3.select(this).raise();
+  if (window.currentTool && window.currentTool.startsWith("link-")) {
+    d.linkStartPos = { x: d.x + 125, y: d.y + 50 }; // approx center
+    d.linkingPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    d.linkingPath.setAttribute("fill", "none");
+    d.linkingPath.setAttribute("stroke", window.currentStrokeColor || "#ffffff");
+    d.linkingPath.setAttribute("stroke-width", "3");
+    document.getElementById("wb-zoom-group").appendChild(d.linkingPath);
+  } else {
+    d3.select(this).raise();
+  }
 }
 
 function dragging(event, d) {
-  d.x += event.dx;
-  d.y += event.dy;
-  d3.select(this).style("transform", `translate(${d.x}px, ${d.y}px)`);
+  if (window.currentTool && window.currentTool.startsWith("link-")) {
+    const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
+    const rect = document.getElementById("wb-svg-layer").getBoundingClientRect();
+    const mx = (event.sourceEvent.clientX - rect.left - transform.x) / transform.k;
+    const my = (event.sourceEvent.clientY - rect.top - transform.y) / transform.k;
+    
+    const sx = d.linkStartPos.x, sy = d.linkStartPos.y;
+    if (window.currentTool === "link-straight") {
+      d.linkingPath.setAttribute("d", `M ${sx} ${sy} L ${mx} ${my}`);
+    } else {
+      const dx = mx - sx;
+      d.linkingPath.setAttribute("d", `M ${sx} ${sy} C ${sx + dx/2} ${sy}, ${mx - dx/2} ${my}, ${mx} ${my}`);
+    }
+  } else {
+    d.x += event.dx;
+    d.y += event.dy;
+    d3.select(this).style("transform", `translate(${d.x}px, ${d.y}px)`);
+    // re-render links so they move with the node
+    renderWhiteboard();
+  }
 }
 
 async function dragEndNode(event, d) {
-  // Sync back to API
-  try {
-    await fetch(`/whiteboard/nodes/${d.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ entry_id: d.entry_id, x: d.x, y: d.y, z: d.z })
-    });
-  } catch (err) {
-    console.error("Failed to update node coordinates", err);
+  if (window.currentTool && window.currentTool.startsWith("link-")) {
+    if (d.linkingPath) d.linkingPath.remove();
+    d.linkingPath = null;
+    
+    const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
+    const rect = document.getElementById("wb-svg-layer").getBoundingClientRect();
+    const mx = (event.sourceEvent.clientX - rect.left - transform.x) / transform.k;
+    const my = (event.sourceEvent.clientY - rect.top - transform.y) / transform.k;
+    
+    let targetNode = null;
+    for (const node of wbState.nodes) {
+       if (node.id === d.id) continue;
+       if (mx >= node.x && mx <= node.x + 250 && my >= node.y && my <= node.y + 150) {
+           targetNode = node; break;
+       }
+    }
+    
+    if (targetNode) {
+       const sketchData = {
+         data: JSON.stringify({
+            type: window.currentTool,
+            sourceId: d.id,
+            targetId: targetNode.id,
+            color: window.currentStrokeColor || "#ffffff"
+         }),
+         x: 0, y: 0, z: 1,
+         board_id: window.currentBoardId
+       };
+       try {
+         const res = await apiJson("/whiteboard/sketches", { method: "POST", body: JSON.stringify(sketchData) });
+         wbState.sketches.push(res);
+         renderWhiteboard();
+       } catch (err) {
+         console.error(err);
+       }
+    }
+  } else {
+    // Sync back to API
+    try {
+      await apiJson(`/whiteboard/nodes/${d.id}`, { method: "PUT", body: JSON.stringify({ entry_id: d.entry_id, x: d.x, y: d.y, z: d.z }) });
+    } catch (err) {
+      console.error("Failed to update node coordinates", err);
+    }
   }
 }
 
@@ -21800,7 +22165,7 @@ function initFloatingFormatMenu() {
   });
 }
 
-document.addEventListener("DOMContentLoaded", initFloatingFormatMenu);
+
 
 // ======================= SKILLS DASHBOARD TAB =======================
 

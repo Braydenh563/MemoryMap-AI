@@ -16,6 +16,7 @@ router = APIRouter(prefix="/whiteboard", tags=["whiteboard"])
 
 class WhiteboardNodeBase(BaseModel):
     entry_id: int
+    board_id: int | None = None
     x: float
     y: float
     z: int = 0
@@ -27,6 +28,7 @@ class WhiteboardNodeOut(WhiteboardNodeBase):
 
 class WhiteboardSketchBase(BaseModel):
     data: str
+    board_id: int | None = None
     x: float
     y: float
     z: int = 0
@@ -41,9 +43,14 @@ class WhiteboardStateOut(BaseModel):
     sketches: List[WhiteboardSketchOut]
 
 @router.get("/", response_model=WhiteboardStateOut)
-def get_whiteboard_state(db: Session = Depends(get_session)):
-    nodes = db.scalars(select(WhiteboardNode)).all()
-    sketches = db.scalars(select(WhiteboardSketch)).all()
+def get_whiteboard_state(board_id: int | None = None, db: Session = Depends(get_session)):
+    if board_id is not None:
+        nodes = db.scalars(select(WhiteboardNode).where(WhiteboardNode.board_id == board_id)).all()
+        sketches = db.scalars(select(WhiteboardSketch).where(WhiteboardSketch.board_id == board_id)).all()
+    else:
+        nodes = db.scalars(select(WhiteboardNode).where(WhiteboardNode.board_id == None)).all()
+        sketches = db.scalars(select(WhiteboardSketch).where(WhiteboardSketch.board_id == None)).all()
+        
     return WhiteboardStateOut(
         nodes=list(nodes),
         sketches=list(sketches)
@@ -51,8 +58,11 @@ def get_whiteboard_state(db: Session = Depends(get_session)):
 
 @router.post("/nodes", response_model=WhiteboardNodeOut)
 def create_node(node_in: WhiteboardNodeBase, db: Session = Depends(get_session)):
-    # Check if a node for this entry already exists
-    existing = db.scalar(select(WhiteboardNode).where(WhiteboardNode.entry_id == node_in.entry_id))
+    # Check if a node for this entry already exists on this board
+    existing = db.scalar(select(WhiteboardNode).where(
+        WhiteboardNode.entry_id == node_in.entry_id,
+        WhiteboardNode.board_id == node_in.board_id
+    ))
     if existing:
         # Just update it instead of crashing
         existing.x = node_in.x

@@ -186,6 +186,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_auth.router)
     app.include_router(routes_entries.router, dependencies=locked)
     app.include_router(routes_chat.router, dependencies=locked)
+    app.include_router(routes_chat.ws_router)
     app.include_router(routes_models.router, dependencies=locked)
     app.include_router(routes_settings.router, dependencies=locked)
     app.include_router(routes_files.router, dependencies=locked)

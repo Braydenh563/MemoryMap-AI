@@ -926,10 +926,15 @@ Link to another note with [[its first few words]]."></textarea>
            margins zeroed, per DESIGN.md. -->
       <div class="graph-trace hidden" id="graph-trace" role="group"
         aria-label="Trace the connection between two notes">
-        <span class="graph-trace-label">🔍 Trace Mode</span>
-        <span class="graph-trace-hint muted">Click two nodes to find the shortest path between them.</span>
-        <span id="graph-trace-status" class="graph-trace-status">Click a starting note</span>
-        <button id="graph-trace-clear" class="ghost small" title="Cancel or clear the traced path">Cancel</button>
+        <span class="graph-trace-label">🔍 Trace</span>
+        <select id="graph-trace-from" aria-label="Starting note">
+          <option value="" disabled selected>Start from...</option>
+        </select>
+        <span class="graph-trace-arrow">→</span>
+        <select id="graph-trace-to" aria-label="Destination note">
+          <option value="" disabled selected>End at...</option>
+        </select>
+        <button id="graph-trace-clear" class="ghost small" title="Cancel or clear the traced path">Clear</button>
       </div>
       <p id="graph-trace-result" class="graph-trace-result hidden" role="status"></p>
       <p id="graph-stats" class="muted graph-stats" role="status"></p>
@@ -1372,18 +1377,47 @@ Link to another note with [[its first few words]]."></textarea>
 
   <!-- ======================= WHITEBOARD TAB ======================= -->
   <div id="library-view-whiteboard" class="library-view-section hidden" style="height: 100%;">
-    <div class="whiteboard-container" id="whiteboard-container">
-      <!-- The pannable/zoomable D3 layer -->
-      <div id="whiteboard-canvas" class="whiteboard-canvas"></div>
+    <div class="whiteboard-container" id="whiteboard-container" style="position: relative; overflow: hidden;">
+      <!-- The SVG layer for drawing, fills the container -->
+      <svg id="wb-svg-layer" class="wb-svg-layer" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%;">
+        <g id="wb-zoom-group">
+          <g id="wb-shapes-group"></g>
+          <g id="wb-lines-group"></g>
+          <g id="wb-strokes-group"></g>
+        </g>
+      </svg>
+      <!-- The HTML layer for cards, pannable/zoomable -->
+      <div id="wb-html-layer" class="wb-html-layer" style="position: absolute; left: 0; top: 0; transform-origin: 0 0;"></div>
     </div>
-    
-    <div class="whiteboard-toolbar card glass">
+    <div class="whiteboard-floating-panel top-left card glass">
+      <select id="wb-board-select" class="ghost small" title="Switch Board">
+        <option value="">Global Board</option>
+      </select>
+    </div>
+
+    <div class="whiteboard-floating-panel top-right card glass">
+      <button id="wb-add-note" class="ghost small" title="Toggle Library">📝 Library</button>
+    </div>
+
+    <div class="whiteboard-floating-panel bottom-center card glass">
+      <div class="wb-tool-group" id="wb-tool-group">
+        <button class="ghost icon-button active" data-tool="pan" title="Pan/Zoom">🖐️</button>
+        <button class="ghost icon-button" data-tool="draw" title="Freehand">✏️</button>
+        <button class="ghost icon-button" data-tool="line" title="Straight Line">📏</button>
+        <button class="ghost icon-button" data-tool="rect" title="Rectangle">⬛</button>
+        <button class="ghost icon-button" data-tool="circle" title="Circle">⭕</button>
+        <button class="ghost icon-button" data-tool="link-straight" title="Straight Link">🔗</button>
+        <button class="ghost icon-button" data-tool="link-curved" title="Curved Link">⤴️</button>
+        <button class="ghost icon-button" data-tool="delete" title="Delete">🗑️</button>
+        <span class="header-divider" aria-hidden="true"></span>
+        <input type="color" id="wb-color-picker" value="#ffffff" title="Stroke Color" class="wb-color-picker">
+      </div>
+    </div>
+
+    <div class="whiteboard-floating-panel bottom-right card glass">
       <button id="wb-zoom-in" class="ghost small" title="Zoom In">➕</button>
       <button id="wb-zoom-out" class="ghost small" title="Zoom Out">➖</button>
       <button id="wb-zoom-fit" class="ghost small" title="Fit to Screen">⛶</button>
-      <span class="header-divider" aria-hidden="true"></span>
-      <button id="wb-add-sketch" class="ghost small" title="Add Sketch Card">🎨</button>
-      <button id="wb-add-note" class="ghost small" title="Add Note Card">📝</button>
     </div>
     
     <aside class="whiteboard-sidebar card glass hidden" id="whiteboard-sidebar">
@@ -2930,15 +2964,6 @@ Link to another note with [[its first few words]]."></textarea>
 
 
 
-  <!-- Contextual Floating Formatting Menu -->
-  <div id="floating-format-menu" class="floating-format-menu hidden card glass" role="toolbar" aria-label="Formatting tools">
-    <button type="button" data-format="bold" class="ghost small" title="Bold (Ctrl+B)"><b>B</b></button>
-    <button type="button" data-format="italic" class="ghost small" title="Italic (Ctrl+I)"><i>I</i></button>
-    <button type="button" data-format="strikethrough" class="ghost small" title="Strikethrough"><s>S</s></button>
-    <span class="header-divider" aria-hidden="true"></span>
-    <button type="button" data-format="code" class="ghost small" title="Inline Code (Ctrl+E)"><code>&lt;/&gt;</code></button>
-    <button type="button" data-format="link" class="ghost small" title="Link (Ctrl+K)">🔗</button>
-  </div>
 
   <!-- D3 v7 + p5.js, both vendored locally — the offline rule: no CDNs, ever -->
   <script src="/vendor/d3.v7.min.js"></script>

@@ -11,12 +11,12 @@ Plain `def` so the blocking LLM call runs in FastAPI's threadpool.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from collections.abc import Iterator
 from itertools import chain
 
-import asyncio
 import threading
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
@@ -642,6 +642,15 @@ async def chat_stream(websocket: WebSocket, session: Session = Depends(get_sessi
     thread = threading.Thread(target=producer)
     thread.start()
 
+    async def consumer():
+        try:
+            while True:
+                await websocket.receive_text()
+        except Exception:
+            pass
+            
+    consumer_task = asyncio.create_task(consumer())
+
     try:
         while True:
             payload = await queue.get()
@@ -653,8 +662,8 @@ async def chat_stream(websocket: WebSocket, session: Session = Depends(get_sessi
     except Exception:
         pass
     finally:
+        consumer_task.cancel()
         try:
-            import asyncio
             await asyncio.sleep(0.1)
             await websocket.close()
         except Exception:

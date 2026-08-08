@@ -98,6 +98,13 @@ def reset_graph_cache() -> None:
         _cache.clear()
 
 
+# Registered rather than imported by the container. `deps.reset_app_state`
+# used to reach up into this module to call the line above, which is the wrong
+# direction — `core/` is the bottom layer. This says "empty me when the
+# singletons go" without `core` needing to know this file exists.
+deps.register_cache_reset(reset_graph_cache)
+
+
 # The inline markers the note editor supports, matched with their content so
 # stripping keeps the words. Mirrors the frontend's notePreviewText — these
 # labels are clipped to ~40 characters, and a clip that lands mid-`**` shows

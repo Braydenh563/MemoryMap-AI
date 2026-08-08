@@ -243,7 +243,7 @@ def _vacuum() -> None:
 
     from memorymap.ai import embeddings
 
-    embeddings.clean_orphaned_vectors()
+    embeddings.clean_orphaned_vectors(deps.get_db().session)
     clean_orphaned_board_cards()
 
 

@@ -263,7 +263,8 @@ def test_the_review_list_can_be_dismissed(client, app_state, monkeypatch):
     autonomous._run_optimization()
 
     assert client.get("/tasks/autonomous/last").json()["changes"]
-    assert client.post("/tasks/autonomous/last/clear").status_code == 200
+    dismissed = client.post("/tasks/autonomous/last/clear")
+    assert dismissed.status_code == 200
     assert client.get("/tasks/autonomous/last").json()["changes"] == []
 
 

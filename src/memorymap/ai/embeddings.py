@@ -141,7 +141,7 @@ def warmup_failed() -> bool:
     return _warmup["error"]
 
 
-def clean_orphaned_vectors(session_factory=None) -> int:  # noqa: ANN001
+def clean_orphaned_vectors(session_factory) -> int:  # noqa: ANN001
     """Delete vectors whose note is gone, and say how many went.
 
     Nothing prunes the embeddings table when an entry is hard-deleted — the
@@ -154,12 +154,13 @@ def clean_orphaned_vectors(session_factory=None) -> int:  # noqa: ANN001
     reported as running and silently never ran. Hence the return value and the
     log line — a maintenance job that cannot say what it did is a maintenance
     job nobody can tell is broken.
+
+    `session_factory` is required rather than defaulted from `deps`. Defaulting
+    it meant this module importing `core.deps`, which imports `EmbeddingService`
+    from this module — a cycle CodeQL flagged, and a layering inversion besides:
+    `ai/` sits below the dependency container, not above it. Every caller
+    already holds a factory, so the parameter costs them nothing.
     """
-    if session_factory is None:
-        from memorymap.core import deps
-
-        session_factory = deps.get_db().session
-
     with session_factory() as session:
         orphans = list(
             session.scalars(

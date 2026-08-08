@@ -372,7 +372,8 @@ def test_a_preference_can_be_switched_off_without_deleting_it(ai_client, session
     tools.execute_tool(session, "save_user_preference", {"preference": "Use bullet points"})
     pref = ai_client.get("/memory").json()["preferences"][0]
 
-    assert ai_client.patch(f"/memory/{pref['id']}", json={"active": False}).status_code == 200
+    turned_off = ai_client.patch(f"/memory/{pref['id']}", json={"active": False})
+    assert turned_off.status_code == 200
 
     session.expire_all()
     assert "bullet points" not in agent._persona_with_memory(session, "P.")
@@ -394,7 +395,8 @@ def test_a_forgotten_preference_stops_reaching_the_model(ai_client, session):
     tools.execute_tool(session, "save_user_preference", {"preference": "Never use emoji"})
     pref = ai_client.get("/memory").json()["preferences"][0]
 
-    assert ai_client.delete(f"/memory/{pref['id']}").status_code == 200
+    forgotten = ai_client.delete(f"/memory/{pref['id']}")
+    assert forgotten.status_code == 200
     session.expire_all()
     assert "emoji" not in agent._persona_with_memory(session, "P.")
     assert ai_client.get("/memory").json()["preferences"] == []
@@ -411,7 +413,8 @@ def test_editing_a_preference_that_is_gone_is_a_404(ai_client):
 def test_a_preference_cannot_be_edited_into_nothing(ai_client, session):
     tools.execute_tool(session, "save_user_preference", {"preference": "Something"})
     pref = ai_client.get("/memory").json()["preferences"][0]
-    assert ai_client.patch(f"/memory/{pref['id']}", json={"content": "   "}).status_code == 422
+    blanked = ai_client.patch(f"/memory/{pref['id']}", json={"content": "   "})
+    assert blanked.status_code == 422
 
 
 # --- media uploads are not a script host (§40 open item 6) -----------------------
@@ -590,21 +593,25 @@ def test_a_preference_can_be_added_by_hand(ai_client):
 
 def test_adding_the_same_preference_twice_is_refused(ai_client):
     ai_client.post("/memory", json={"content": "Be brief"})
-    assert ai_client.post("/memory", json={"content": "  be BRIEF "}).status_code == 409
+    again = ai_client.post("/memory", json={"content": "  be BRIEF "})
+    assert again.status_code == 409
 
 
 def test_an_empty_preference_is_refused(ai_client):
-    assert ai_client.post("/memory", json={"content": "   "}).status_code == 422
+    empty = ai_client.post("/memory", json={"content": "   "})
+    assert empty.status_code == 422
 
 
 def test_a_hand_written_preference_is_capped_like_the_tools(ai_client):
     from memorymap.ai.tools import MAX_ACTIVE_PREFERENCES
 
     for i in range(MAX_ACTIVE_PREFERENCES):
-        assert ai_client.post("/memory", json={"content": f"rule {i}"}).status_code == 201
+        saved = ai_client.post("/memory", json={"content": f"rule {i}"})
+        assert saved.status_code == 201
     # The cap exists because every active preference is replayed into the
     # system prompt on every round — true whoever typed it.
-    assert ai_client.post("/memory", json={"content": "one too many"}).status_code == 409
+    over_the_cap = ai_client.post("/memory", json={"content": "one too many"})
+    assert over_the_cap.status_code == 409
 
 
 def test_moving_a_card_keeps_it_on_its_board(ai_client, session):

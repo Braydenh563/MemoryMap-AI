@@ -44,6 +44,29 @@ def test_transcribe_rejects_empty_recording(client, monkeypatch):
     assert response.status_code == 400
 
 
+def test_transcribe_model_load_failure_is_503_not_422(client, monkeypatch):
+    # Reproduces the reported "meeting transcription errors out": with
+    # faster-whisper installed but the model download failing (offline,
+    # blocked, corporate proxy), the old code let the exception fall
+    # through to the route's catch-all and reported "Couldn't transcribe
+    # that recording" — indistinguishable from a genuinely bad clip. It
+    # should instead say the model couldn't load, as a 503 (retry later),
+    # not a 422 (this specific recording is the problem).
+    monkeypatch.setattr(voice, "whisper_available", lambda: True)
+    monkeypatch.setattr(
+        voice,
+        "_get_model",
+        lambda size: (_ for _ in ()).throw(OSError("no route to huggingface.co")),
+    )
+    response = client.post(
+        "/voice/transcribe", files={"file": ("clip.webm", b"fake-audio", "audio/webm")}
+    )
+    assert response.status_code == 503
+    detail = response.json()["detail"]
+    assert "model" in detail.lower()
+    assert "recording" not in detail.lower()
+
+
 def test_status_available_with_fake_whisper(client, monkeypatch):
     monkeypatch.setattr(voice, "whisper_available", lambda: True)
     body = client.get("/voice/status").json()

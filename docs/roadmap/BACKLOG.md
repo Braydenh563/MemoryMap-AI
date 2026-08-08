@@ -1,7 +1,7 @@
 # Backlog — the numbered sections
 
 
-> **The other three:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the AGPL/MIT constraint) · [HISTORY.md](HISTORY.md) (already built).
+> **The other three:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
 Split out of `ROADMAP.md`, which had reached 4,500 lines and 47 sections. This
 file is the **standing backlog**: everything that is still work, numbered as it
@@ -2263,5 +2263,46 @@ them are close to being built:
   answering different questions about where "capture" happens, and building
   a browser extension is its own packaging problem on top of anything
   MemoryMap does today.
+
+---
+
+
+## 29b. Carried out of the §40 audit
+
+Full context in [../ROADMAP.md §40](../ROADMAP.md#40-the-antigravity-audit);
+the features these attach to are described in §39. Companions:
+[ANALYSIS.md](ANALYSIS.md) · [HISTORY.md](HISTORY.md) ·
+[HANDOVER.md](HANDOVER.md).
+
+Ranked. The first two are the same problem wearing two hats — a feature that
+changes the app's behaviour without showing the user what it did:
+
+1. ~~**A memory-stream screen.**~~ **Built** — Settings → The AI → *What it
+   remembers*. Original entry kept for the reasoning:
+   `save_user_preference` lets the model write
+   standing instructions into its own future system prompts. There is no UI:
+   the user cannot list them, edit one, or turn one off. The `user_preferences.
+   active` column exists precisely for that and nothing sets it. Small piece of
+   work, and it is the difference between a helpful feature and an
+   unexplainable one.
+2. **A dry-run for the background librarian.** Turning it on lets an agent edit
+   the notebook unattended. There is no preview. `taskhistory` records each run
+   and the agent already emits `change` events with undo payloads, so "here is
+   what the last pass did, undo any of it" is mostly assembly.
+3. ~~**Whiteboard cards outlive their notes.**~~ **Done** —
+   `autonomous.clean_orphaned_board_cards`, beside the vector sweep.
+4. **`graph_local` costs a full notebook scan** to draw a local neighbourhood:
+   every entry loaded, a full similarity sweep, and a PageRank over every node.
+   Correct, and the opposite of what "focus mode" should cost.
+5. **PageRank runs on every `/graph` call, uncached.** With similarity edges on,
+   this is now the most expensive endpoint in the app. Centrality changes when
+   the graph changes, so it wants invalidation on write rather than a TTL.
+6. ~~**`/media/{filename}` serves uploads same-origin with no type restriction.**~~
+   **Done** — allowlist on upload *and* on serve, plus `Content-Disposition`.
+   Original reasoning:
+   No traversal — the name goes through `safe_filename` — but an uploaded
+   `.svg` or `.html` is served from the app's own origin, and the AI can write
+   here too. A `Content-Disposition: attachment` and an extension allowlist.
+7. **Decide on `edit_note` being destructive.** See ANALYSIS §34b.
 
 ---

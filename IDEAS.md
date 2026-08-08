@@ -51,3 +51,49 @@ built (build plan §0: never expand scope mid-phase).
 - More skills and a way to generate new skills (I at least want a skill that can do a full audit and clean up of my notebook, such as linking notes, removing inaccurate links, analysing categores and tags, retagging notes, adding tags to notes, removing inaccurate tags from notes, changing categories (add/remove/rename categories), move notes around, combine notes to declutter etc.)
 - Different ways to sort chats (maybe group chats as well??) - could add an agent tool and skill for managing that as well
 - Have the agent able to control everything in the applicion, where the user can show a popup chat bar that can be moved around the screen or can anchor to the edges of the screen. agent workflow can show in a popup side chat like a twitch screen if automated things are happening in the background (remember all tasks are shown and logged in the background tasks page in settings), or in a collapsible side or bottom bar console or smth similar. 
+
+---
+
+## Delivered by the §40 branch — check before rebuilding
+
+Five long-standing items on this list arrived with the `fix/Antigravity-Audit`
+work and are now in the app. Left written here rather than deleted, because the
+*wording* below is what a future session will search for:
+
+- **"More skills and a way to generate new skills … a skill that can do a full
+  audit and clean up of my notebook, such as linking notes … retagging notes"**
+  → the background librarian (ROADMAP §39A). Runs on an interval, tags, links
+  and flags duplicates, off by default. It does **not** yet do the category
+  work in that sentence (rename/merge/move), which is the natural next step.
+- **"Have the agent able to control everything … a popup chat bar … agent
+  workflow can show in a popup side chat like a twitch screen"** → the command
+  palette (`Ctrl`/`Cmd`+`K`) and the agent activity monitor. The monitor is
+  fixed bottom-right rather than movable or dockable, so the "move it around
+  the screen or anchor it to an edge" half is still open.
+- **"Reduce the cap on semantic search outputs … maybe based on … ai context
+  length"** → `search_notes` now scales its *default* result count with the
+  model's real context window. The **ceiling** deliberately does not scale:
+  letting it do so meant a 128k model could pull 768 note previews into one
+  tool result, which is how that was first written.
+- **"Dynamically change models based on complexity of task"** → partly, as
+  `smart_model_routing_enabled`: background work uses the utility model so it
+  does not tie up the chat model. Routing by *complexity* rather than by
+  caller is still open.
+- **"Collapsible sidebars"** → done.
+
+## New from the §40 audit
+
+- **A dry-run for the background librarian.** It edits notes unattended and
+  there is no way to see what it *would* do first. `taskhistory` already
+  records each run; what is missing is "here is the diff, apply or discard".
+- ~~**A memory-stream screen.**~~ **Built** — Settings → The AI → *What it
+  remembers*. It lists everything the AI has saved, says how much of it is
+  actually reaching the model, and lets each one be edited, switched off or
+  forgotten.
+- ~~**Whiteboard cards should die with their note.**~~ **Done** — swept with
+  the orphaned vectors on the background pass.
+- **Sweep for orphans on a schedule, not just vectors.** `clean_orphaned_
+  vectors` is the right pattern; whiteboard nodes and attachments want it too.
+- **The sketch highlighter is at 5% opacity**, which is roughly twenty passes
+  before anything shows. Almost certainly a mistyped value — but it is a taste
+  call, so it was left alone rather than changed during an audit.

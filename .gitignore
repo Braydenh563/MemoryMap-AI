@@ -14,3 +14,7 @@ uploads/
 
 # Tooling caches
 .pytest_cache/
+
+# Editor state — machine-local, not project config
+.vscode/
+.idea/

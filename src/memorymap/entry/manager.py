@@ -587,13 +587,31 @@ def category_name_for(session: Session, entry: Entry) -> str:
     return category.name if category else UNCATEGORISED
 
 
+def bulk_category_names(session: Session, entries: list[Entry]) -> dict[int | None, str]:
+    """Resolve category names for multiple entries efficiently in a single query."""
+    ids = {e.category_id for e in entries if e.category_id is not None}
+    if not ids:
+        return {None: UNCATEGORISED}
+    rows = session.scalars(select(Category).where(Category.id.in_(ids)))
+    mapping = {c.id: c.name for c in rows}
+    mapping[None] = UNCATEGORISED
+    return mapping
+
+
+def tags_from_json(tags_json: str | None) -> list[str]:
+    """Parse a tags JSON string directly without an Entry object."""
+    if not tags_json:
+        return []
+    try:
+        loaded = json.loads(tags_json)
+        return loaded if isinstance(loaded, list) else []
+    except (json.JSONDecodeError, TypeError):
+        return []
+
+
 def entry_tags(entry: Entry) -> list[str]:
     """Tags are stored as a JSON string; hand callers a real list."""
-    try:
-        loaded = json.loads(entry.tags)
-        return loaded if isinstance(loaded, list) else []
-    except json.JSONDecodeError:
-        return []
+    return tags_from_json(entry.tags)
 
 
 # --- category management (rename / delete) -----------------------------------

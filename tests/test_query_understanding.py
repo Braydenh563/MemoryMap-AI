@@ -31,6 +31,21 @@ from memorymap.search import query, search_manager
 TODAY = date(2026, 8, 2)
 
 
+@pytest.fixture(autouse=True)
+def _today_is_fixed(monkeypatch):
+    """Pin the notebook's "today" to `TODAY` for every test in this file.
+
+    The date tests build notes at `TODAY - N days` and then ask questions like
+    "in the last week", but `search_manager.retrieve` reads the *real* clock
+    through `_user_today`. So these passed only while the wall clock happened
+    to sit within a week of `TODAY`, and started failing on their own six days
+    after they were written — with a diff that pointed at the search code and
+    an empty result set that looked exactly like a retrieval bug. A dated test
+    has to own its own date.
+    """
+    monkeypatch.setattr(search_manager, "_user_today", lambda _session: TODAY)
+
+
 def _note(session, content, tags=None, days_ago=0, parent_id=None):
     entry = Entry(
         content=content,

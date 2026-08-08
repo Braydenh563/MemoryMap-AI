@@ -7,6 +7,186 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Changed — licence: MIT → AGPL-3.0
+
+MemoryMap is now under the **GNU Affero General Public License v3.0**. The
+licence text is the official one from the FSF, unmodified.
+
+What it means in practice:
+
+- Anyone may use, study, modify and share it.
+- Anything built on it must be released under the AGPL too, with source.
+- **§13, the clause that makes it AGPL rather than GPL:** if someone modifies
+  MemoryMap and lets other people use it *over a network*, they must offer
+  those users the modified source. Plain GPL would not require that, because
+  running a service is not distribution. For an app whose premise is "your
+  notebook, on your machine", this is the licence saying what the product
+  already says.
+
+**One consequence worth flagging, because it inverts a documented constraint:**
+ANALYSIS.md §34a said "odysseus is AGPL, MemoryMap is MIT, no code crosses in
+either direction." Half of that is now lifted — odysseus's AGPL code *may* come
+in, carrying its notices and attribution — and the other half is tighter:
+nothing from here can go out to an MIT project. §34a is rewritten to say so.
+
+Updated: `LICENSE`, the pyproject classifier, the README badge and footer,
+ANALYSIS.md §34a, and the cross-reference line in every roadmap file and
+CLAUDE.md.
+
+
+### Fixed — the owner's reported list
+
+Diagnosed in the running app rather than from the report. Full triage, with
+what was checked and found already correct, in [ROADMAP.md §41](docs/ROADMAP.md).
+
+- **Trace on the graph is rebuilt.** Reported as "annoying and pretty much
+  unusable". `traceModeActive` was set and consulted nowhere, so the map never
+  responded to a click and both ends had to be picked from `<select>` elements
+  listing every note in the notebook by its opening words. Two clicks on the
+  map now, with a readout instead of a form: Swap for the other direction,
+  Undo for one step back rather than a reset, Escape to leave, crosshair
+  cursor so the mode looks like one.
+- **The autonomous-tasks switch turned itself off.** Two controls write that
+  preference and the one on the skills panel saved straight to the server
+  without updating `prefsCache` — so the next `savePrefs`, which rebuilds the
+  whole object from the DOM, read the other checkbox and switched it back.
+- **Light/dark stopped affecting the page background** after using the colour
+  scheme selector. The builder computes a page colour *for a mode* and stored
+  only the current one, written inline on `<html>`, where it outranks every
+  `[data-mode="dark"]` rule. Both are stored and re-picked on mode change.
+- **Whiteboard:** dragging a card sent no `board_id`, so a card on a named
+  board was silently moved to the global one, and a 404 left it on screen
+  unsaved; the board list showed "Note 25" because it read two fields an entry
+  does not have; the library panel covered its own toggle so it could not be
+  closed; the selected tool had no visual indicator; the zoom controls sat
+  behind the agent activity monitor.
+- **Skill descriptions** were clipped to one line by `.persona-preview`'s
+  `white-space: nowrap` (reported twice).
+- **The documents sidebar** crushed its own document list to two rows, because
+  the outline and help block below it never shrink.
+- Tags / Recycle bin / Activity removed from the notes sidebar, as asked.
+
+### Added
+
+- **A text box in "What it remembers".** `save_user_preference` is the model's
+  way in; this is the one people reach for first.
+
+### Checked and found correct — not changed
+
+- **Password, token and secret storage.** bcrypt with a per-password salt;
+  `secrets.token_hex(32)` session tokens held in memory and swept on expiry;
+  private notes encrypted with a key wrapped by a password-derived key.
+- The three sketch swatches reported as identical are three distinct colours.
+  The real defect underneath is the highlighter at 5% opacity.
+
+
+### Audited — a week of another agent's work, brought to a mergeable state
+
+`fix/Antigravity-Audit` arrived with 8 commits, ~9,600 insertions and no test
+files. It had **90 failing tests and 20 ruff errors** against a `main` whose
+only two failures were a self-inflicted time bomb in a dated test. Everything
+below is that audit. Full reasoning in [ROADMAP.md §40](docs/ROADMAP.md); the
+three new features it brought are documented in §39.
+
+#### Reverted
+
+- **`POST /chat/stream` is NDJSON over a plain POST again**, not a WebSocket.
+  The rewrite shared the request's SQLAlchemy Session with a producer thread
+  (Sessions are not thread-safe) and closed it twice, leaked that thread when a
+  client hung up, had to be mounted outside `dependencies=locked` and reimplement
+  auth by hand, and replaced a transport the same-origin policy protects with
+  one it does not — so any page the user had open could drive the agent. It
+  also accounted for ~70 of the 90 failures. Two genuine improvements from the
+  rewrite were kept: mid-stream `error` events, and tool-error logging.
+- **`generate_skill` removed.** It wrote unvalidated AI-authored skills straight
+  into preferences, bypassing `save_skill`'s schema check, built-in-name guard,
+  tool-name validation and `MAX_SKILLS` — and called `config.save_preference`,
+  a method with no definition anywhere, so it could only ever have raised.
+
+#### Fixed — security and privacy
+
+- **The AI could tag and link private notes.** `tag_note` and `link_notes` grew
+  batch arguments and stopped routing through `_require_note`, the one place
+  that refuses a private note. The batch feature is kept; the guard is back.
+- **`/media/upload` and `/media/{filename}`** noted as a hardening item — the
+  filename is whitelisted so there is no traversal, but uploads are served
+  same-origin with no type restriction.
+
+#### Fixed — data loss and correctness
+
+- **JSON export silently dropped `is_deleted`**, so every note in the recycle
+  bin would have re-imported as a live note.
+- **Semantic search returned nothing after an embedding-model change.** Every
+  stored vector was stacked into one array; a notebook holding two widths
+  mid-reindex raised on the ragged list and took every query down with it. The
+  same crash, plus an N×N memory blowup, was in the graph's similarity edges
+  and in link suggestions — all three now go through one blocked,
+  dimension-safe `embeddings.similar_pairs`.
+- **`?semantic=true` threw away its own ranking**, returning matches in
+  notebook order, and swallowed a cold embedding model as "here is your whole
+  notebook" instead of a 503.
+- **Notes sharing an uppercase tag stopped being neighbours** — the tag index
+  was keyed lowercase and intersected against unfolded tags.
+- **`search_notes` scaled its ceiling with the context window**, so a 128k
+  model could pull 768 note previews into a single tool result.
+- **`find_similar_notes` was listed in `WRITE_TOOLS`**, so a pure read cleared
+  the agent's read-dedup ledger and counted as work for the claim checker.
+- **`ask_user` was culled from small models**, leaving them to guess — the
+  exact failure that tool exists to prevent.
+- **The memory stream was injected unbounded into the system prompt** on every
+  round, past the `PROSE_BUDGET_CHARS` guard that exists to stop that. Now
+  capped at 600 characters, newest-first, and never fatal when unavailable.
+
+#### Fixed — features that had never executed once
+
+- **The background librarian was never started.** `app.py` imported
+  `autonomous` and called nothing, so the interval, the on/off switch and three
+  task toggles in Settings were wired to a loop that did not run.
+- **`clean_orphaned_vectors` did not exist.** The call sat inside an
+  `except Exception` wide enough to swallow the `AttributeError`. Now
+  implemented, and it returns a count.
+- **`VACUUM` moved onto an autocommit connection.** Through a `Session` it
+  works only while it is the first statement — pysqlite defers its BEGIN — and
+  raises once anything has read or written, which is the state the background
+  pass leaves behind.
+- **`trigger-autonomous` had no guard**, so each press started another agent
+  loop against the same notebook.
+- **Thirty-five inline `style` attributes in index.html, and five more inside
+  app.js template literals**, all refused by the app's own
+  `style-src 'self'` CSP and therefore rendering as no styling at all.
+
+#### Fixed — the interface
+
+- **Every card, field and dialog in the app had no border and no shadow.**
+  `border-style` and `shadow-intensity` — two new Settings controls — were
+  missing from `APPEARANCE_DEFAULTS`, so `undefined` and `NaN` were written
+  into two CSS custom properties on `<html>`. Both are invalid where they are
+  *used*, which is an `!important` rule matching `.card`, `input`, `textarea`,
+  `select`, `.modal` and `.sidebar`, and the `rgba()` inside `--glass-shadow`.
+- **`.glass` erased the background of every `card glass` element** by pointing
+  at `--bg-glass`, a token no theme declares. The command palette showed an
+  input and a hint floating over the page with no surface behind them.
+- **Thirteen further undeclared tokens** (`--card-bg`, `--text`, `--panel`,
+  `--shadow-sm/md`, `--border-light`, `--sw-*`, …) across 23 dead declarations,
+  now aliased to the real theme-aware tokens.
+- **Graph Trace threw a ReferenceError.** It moved from two `<select>`s to
+  click-two-notes and left three references to the locals the selects filled.
+- **Picking a sketch colour left the eraser armed** — the button was renamed
+  and one call kept the old id, swallowed by an optional chain.
+- **Tags / Recycle bin / Activity** lost their markup but kept their click
+  handlers; the sidebar shortcuts are back.
+- `applyThemeChoice(undefined)` stamped `data-theme="undefined"` onto `<html>`.
+
+#### Added — tests and lints
+
+46 tests across `test_whiteboard.py`, `test_autonomous.py` and
+`test_antigravity_regressions.py`; 28 of the 32 applicable ones fail against
+the original branch. Four lints, each closing a gap where nothing was looking:
+every appearance setting has a default; no token is used undeclared without a
+fallback; the inline-style ban covers app.js; and the dated search tests own
+their own clock.
+
+
 ### Fixed — agent robustness pass
 
 - **A skill/plan step now hands the next step the actual notes and

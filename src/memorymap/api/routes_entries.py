@@ -362,6 +362,10 @@ def improve_writing(body: ImproveBody) -> dict:
 # Notes this similar are almost certainly worth connecting.
 LINK_SUGGESTION_THRESHOLD = 0.55
 
+#: How many concept matches `?semantic=true` returns. A search result is a
+#: shortlist to read, not a second copy of the notebook.
+SEMANTIC_LIST_LIMIT = 25
+
 
 @router.get("/link-suggestions")
 def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
@@ -381,9 +385,7 @@ def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
     already-correct shape — fetch every stored vector once, compare all
     pairs in memory — which turns O(n) queries plus O(n) re-embeddings into
     one query and zero re-embedding calls."""
-    from itertools import combinations
-
-    from memorymap.ai.embeddings import bytes_to_vector, cosine_similarity
+    from memorymap.ai.embeddings import bytes_to_vector, similar_pairs
 
     entries = manager.list_entries(session)
     entries_by_id = {e.id: e for e in entries if not e.is_private}
@@ -405,23 +407,23 @@ def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
     ).all()
     vectors = {eid: bytes_to_vector(blob) for eid, blob in records if eid in entries_by_id}
 
-    suggestions: dict[frozenset[int], dict] = {}
-    for a, b in combinations(sorted(vectors), 2):
-        pair = frozenset((a, b))
-        if pair in already_linked:
+    # `similar_pairs` hands these back best-first and blocks the matrix
+    # multiply, so a big notebook costs one block of memory rather than an
+    # N×N matrix. Stop at 12 rather than scoring every pair into a list first.
+    suggestions = []
+    for a, b, score in similar_pairs(vectors, LINK_SUGGESTION_THRESHOLD):
+        if frozenset((a, b)) in already_linked:
             continue
-        score = cosine_similarity(vectors[a], vectors[b])
-        if score < LINK_SUGGESTION_THRESHOLD:
-            continue
-        suggestions[pair] = {
+        suggestions.append({
             "source_id": a,
             "target_id": b,
             "source_preview": _preview(entries_by_id[a].content),
             "target_preview": _preview(entries_by_id[b].content),
             "similarity": round(score, 2),
-        }
-    ranked = sorted(suggestions.values(), key=lambda s: s["similarity"], reverse=True)
-    return ranked[:12]
+        })
+        if len(suggestions) == 12:
+            break
+    return suggestions
 
 
 @router.get("/{entry_id}/related", response_model=list[EntryOut])
@@ -444,13 +446,45 @@ def related_entries(entry_id: int, session: Session = Depends(get_session)) -> l
 
 @router.get("", response_model=list[EntryOut])
 def list_entries(
-    deleted: bool = False, session: Session = Depends(get_session)
+    deleted: bool = False,
+    semantic: bool = False,
+    q: str = "",
+    session: Session = Depends(get_session),
 ) -> list[EntryOut]:
-    """Normal list, or the recycle bin when ?deleted=true."""
+    """Normal list, the recycle bin when ?deleted=true, or a concept search.
+
+    `?semantic=true&q=…` is the one case the browser cannot do for itself: the
+    notes list is filtered client-side by keyword, but cosine distance needs
+    the vectors, which only live here.
+    """
     if deleted:
         entries = manager.list_deleted_entries(session)
     else:
         entries = manager.list_entries(session)
+
+    if semantic and q:
+        from memorymap.core import deps
+
+        # Ranked, and returned ranked. The first version rebuilt the result as
+        # `[e for e in entries if e.id in found_ids]`, which is the *notebook's*
+        # order — so the best match could land anywhere in the list and the
+        # feature looked like it was picking notes at random.
+        results = search_manager.semantic_search(
+            session, q, deps.get_embeddings(), limit=SEMANTIC_LIST_LIMIT
+        )
+        if results is None:
+            # No embedding backend ready. Saying so beats silently handing back
+            # the entire notebook as though it were the search result — the
+            # caller can fall back to its own keyword filter.
+            raise HTTPException(
+                status_code=503,
+                detail="Semantic search isn't ready yet — the embedding model is still loading.",
+            )
+        # `semantic_search` already drops anything under MIN_SIMILARITY; a
+        # second threshold here was a different number for the same job.
+        allowed = {e.id for e in entries}
+        return [_to_out(session, e) for e, _score in results if e.id in allowed]
+
     return [_to_out(session, e) for e in entries]
 
 

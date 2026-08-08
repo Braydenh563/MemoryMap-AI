@@ -285,11 +285,27 @@ def test_a_script_with_a_src_needs_no_hash(tmp_path):
 
 def test_the_frontend_has_no_inline_style_attributes():
     """style-src 'self' is only honest while this holds. The eight attributes
-    that used to be here moved into style.css."""
+    that used to be here moved into style.css.
+
+    **app.js is checked too, and that is the half this test used to miss.**
+    A `style="…"` inside a template literal that app.js hands to `innerHTML`
+    is refused by the CSP exactly as one written into index.html is — the
+    browser does not care which file the markup came from. Only index.html was
+    read here, so five of them sat in app.js unnoticed and their elements
+    rendered unstyled: most visibly the agent's edit preview, which lost the
+    red/green that is the entire point of showing a diff.
+
+    Setting `el.style.someProperty` from JS is fine and is not what this
+    matches — the CSP blocks the *attribute*, not the CSSOM.
+    """
     from memorymap.api.app import FRONTEND_DIR
 
-    html = (FRONTEND_DIR / "index.html").read_text(encoding="utf-8")
-    assert 'style="' not in html and "style='" not in html
+    for name in ("index.html", "app.js"):
+        source = (FRONTEND_DIR / name).read_text(encoding="utf-8")
+        assert 'style="' not in source and "style='" not in source, (
+            f"{name} carries an inline style attribute. The CSP refuses it, so it "
+            "renders as no styling at all — move it into style.css as a class."
+        )
 
 
 def test_the_other_headers_are_there_too(client):

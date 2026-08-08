@@ -156,6 +156,10 @@ MemoryMap-AI-v0/
 │   │   ├── janitor.py       # LLM prompt #1: file a note into a category
 │   │   ├── librarian.py     # LLM prompt #2: answer from retrieved notes
 │   │   ├── agent.py         # tool-calling loop (Wave G)
+│   │   ├── autonomous.py    # the background librarian (§39A): a scheduled
+│   │   │                    #   agent pass over the whole notebook. Off by
+│   │   │                    #   default — it is the only place the model
+│   │   │                    #   writes with nobody watching
 │   │   ├── tools.py         # the agent's tool registry (see §7)
 │   │   ├── skills.py        # what a skill is: steps, tools, inputs (§7b)
 │   │   ├── skill_runner.py  # runs one, a step at a time, with a result
@@ -205,10 +209,30 @@ are grouped by feature area:
 | `routes_timeline` | `/timeline` | the notebook on a time axis, in bands |
 | `routes_tasks` | `/tasks` | what is running in the background right now |
 | `routes_library` | `/library` | **everything you have made, in one list** — notes, documents, chats, files, tags, bin, activity, assembled server-side |
+| `routes_whiteboard` | `/whiteboard` | note cards and freehand sketches on a pannable canvas (§39C). A *board* is itself an entry, so it is searchable and filable like anything else; `board_id IS NULL` is the unnamed scratch board |
 | system | `/health` | liveness + version (open, no unlock) |
 
 Interactive API docs live at `http://localhost:8000/docs` when the app is
 running.
+
+**`POST /chat/stream` is NDJSON over a plain POST, and that is a decision, not
+an oversight.** It was rewritten as a WebSocket once and reverted, for four
+reasons worth keeping written down because the rewrite looked like an upgrade:
+
+- The agent loop is blocking, so a WebSocket handler has to run it on another
+  thread — and the request's SQLAlchemy `Session` is not thread-safe.
+- Nothing cancels that thread when the client disappears, so a closed tab
+  leaves a model generating against a Session that is being torn down.
+- A WebSocket route cannot carry `dependencies=locked`; auth has to be
+  re-implemented by hand inside the handler, after `accept()`.
+- **A WebSocket handshake is not subject to the same-origin policy.** A
+  `fetch` from another origin is stopped by the browser; a `new WebSocket(…)`
+  to `127.0.0.1` is not. For a local server holding someone's notebook, that
+  is the whole argument on its own.
+
+NDJSON over `fetch` delivers tokens exactly as promptly and has none of that.
+The header `X-Accel-Buffering: no` is what keeps a reverse proxy from
+defeating it.
 
 **Anything that runs on a worker thread belongs in `routes_tasks.collect()`.**
 Each job reports a label, a detail line, a `progress` fraction *only where one
@@ -471,6 +495,16 @@ SQLite via SQLAlchemy 2.0 (`core/database.py`). Main tables:
   threads), `pinned`, `user_filed` (user chose the category → janitor keeps
   hands off), timestamps, and soft-delete (`is_deleted` / `deleted_at`).
 - **entry_links** — user- or AI-made connections between two entries (the graph).
+- **whiteboard_nodes / whiteboard_sketches** — a note card, or a freehand
+  stroke list, placed at an `(x, y, z)` on a board (§39C). `board_id` points at
+  an *entry*, so a board is a note and inherits searching, tagging and filing;
+  `NULL` is the unnamed scratch board. **Known gap:** deleting an entry leaves
+  its cards behind — there is no cascade and no sweep yet.
+- **user_preferences** — the memory stream (§39B): standing instructions the
+  model wrote for itself with `save_user_preference`, replayed into its system
+  prompt on every later turn. `active` exists so one can be switched off, and
+  **nothing sets it yet** — there is no UI for this table, which is the top
+  open item in §40.
 - **embeddings** — per-entry vectors, stored as raw `float32` bytes.
 - **attachments** — uploaded files, kept in `data/uploads/`.
 - **conversations** — saved chat threads. Messages are one JSON column of flat

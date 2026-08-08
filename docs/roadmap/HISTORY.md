@@ -1,7 +1,7 @@
 # What is already done
 
 
-> **The other three:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the AGPL/MIT constraint) · [HISTORY.md](HISTORY.md) (already built).
+> **The other three:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
 Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
@@ -888,3 +888,90 @@ token scale rather than to whatever looked right that day, per §35L's own
 warned-against failure mode.
 
 Full detail: git log for this range, and [CHANGELOG.md](../CHANGELOG.md).
+
+## 37. Reported in one session — the second big batch — done
+
+The four items blocked on a clarifying question (37G/37H/37I/37K) were asked
+and closed: sketch image upload with a real eraser (two canvas layers, so
+erasing reveals the photo rather than punching a white hole), a document
+importer via `markitdown`, compress-as-a-tool, and an emoji audit. 37H
+(llama.cpp) was deferred deliberately and is Tier 3 in ROADMAP.md.
+
+Full detail: git log for this range, and [CHANGELOG.md](../CHANGELOG.md).
+
+## 38. The backlog audit — done
+
+A step back from three consecutive rounds of newly-reported work to check
+§1–§34 against the actual code, because the backlog had gone stale in both
+directions: things marked open that were built, and the project's own outside
+review's top recommendation already satisfied and not marked so. Its ranking
+is superseded by ROADMAP.md's single tiered list.
+
+## 39. The background librarian, memory streams, and the whiteboard — built
+
+Three capabilities that arrived with the antigravity branch and were finished
+during its audit.
+
+- **The background librarian** (`ai/autonomous.py`): a scheduled agent pass
+  that tags, links and flags duplicates. Off by default, because it is the one
+  place the model writes with nobody watching. Destructive tools are *barred*
+  rather than confirmed (there is no one to confirm to), rounds are bounded, it
+  uses the utility model, and it skips itself on battery. Every pass records
+  what it changed, with the call that reverses each change, shown in
+  Settings → Background tasks.
+- **Memory streams** (`save_user_preference`): the model can write itself
+  standing instructions it gets back on every later turn. Bounded on three
+  axes — 200 characters each, 40 active, and a 600-character ceiling on what
+  reaches the prompt — because `PROSE_BUDGET_CHARS` is asserted against the
+  *static* prompt and anything appended at runtime slips past it. Listed,
+  editable and switch-off-able in Settings → The AI → What it remembers.
+- **The whiteboard** (`api/routes_whiteboard.py`): note cards and sketches on
+  a pannable canvas. A board is itself an entry, so it is searchable and
+  filable like anything else; `board_id IS NULL` is the scratch board.
+
+## 40. The antigravity audit — done
+
+A week of another agent's work (~9,600 insertions, no tests) arrived with **90
+failing tests and 20 ruff errors** against a `main` whose only two failures
+were a time-bomb in a dated test. One thing was reverted — `/chat/stream` had
+been rewritten as a WebSocket, costing thread-safety, the auth gate and the
+same-origin policy for no gain on a local-first app — and everything else was
+kept and fixed.
+
+**The four shapes the failures took**, which is the part that transfers:
+
+1. **A working thing rewritten into a riskier thing**, with no stated reason.
+2. **Features that never ran once** — a `start()` never called, a function
+   that does not exist called inside a broad `except`, a method name that
+   appears nowhere else, 35 inline styles refused by the app's own CSP.
+3. **A guard removed while the shape around it was kept** — two tools grew
+   batch arguments and stopped calling `_require_note`, the only thing that
+   refuses a private note.
+4. **Damage that lands far from its cause** — two missing entries in
+   `APPEARANCE_DEFAULTS` wrote `undefined`/`NaN` into CSS custom properties,
+   and every card, field and dialog in the app rendered flat and borderless on
+   every fresh profile. Nothing logged; one `getComputedStyle` found it.
+
+The lesson is narrower than "review harder": **a branch that cannot run CI has
+not been reviewed, however carefully it has been read.** 46 tests and 4 lints
+were added so the next such branch is judged in minutes. Judgement criteria in
+[ANALYSIS.md §34b](ANALYSIS.md).
+
+## 41. The reported list, triaged — done, and the plan it produced
+
+Trace on the graph was rebuilt (it was unusable because `traceModeActive` was
+consulted nowhere, so the map never responded and both ends came from selects
+listing every note); the autonomous switch that "kept disabling itself" had two
+writers and one stale cache; light/dark stopped reaching the page background
+because the scheme builder stored one inline colour for one mode. Plus six
+whiteboard bugs, the skill descriptions clipped to one line, the documents
+sidebar crushing its own list, a dead "+ New Skill" button, two `cryptography`
+advisories, and a CodeQL stack-trace exposure.
+
+**Checked and found already correct, so nobody spends a session on it:**
+password and secret storage (bcrypt with per-password salt, `token_hex(32)`
+session tokens held in memory and swept, private notes encrypted under a
+password-derived wrapping key — nothing in plaintext), and the three sketch
+swatches reported as identical, which are three distinct colours.
+
+Everything not fixed became ROADMAP.md's tiered list.

@@ -10,20 +10,23 @@ fallback, so asking a question always returns *something* (plan §4).
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass
 from datetime import datetime, time
 
+import numpy as np
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from memorymap.ai.embeddings import (
     EmbeddingService,
     bytes_to_vector,
-    cosine_similarity,
 )
 from memorymap.core.database import EmbeddingRecord, Entry
 from memorymap.search import query as query_understanding
+
+logger = logging.getLogger("memorymap.search")
 
 
 def _user_today(session: Session):
@@ -195,11 +198,61 @@ def semantic_search(
         )
     ).all()
 
+    if not records:
+        return []
+
+    query_norm = float(np.linalg.norm(query_vector))
+    if query_norm == 0:
+        return []
+
+    # One matrix multiply instead of a Python loop of dot products — the scan
+    # is still brute-force, but NumPy does it at memory speed.
+    #
+    # Only over the rows whose vector is the same width as the query, though.
+    # `model_version` narrows this to one backend, and a backend is not a
+    # dimension: swapping the embedding *model* inside the same backend (which
+    # Settings → Embedding models offers as a button) leaves the old rows in
+    # place at their old width. Stacking those into one array raises on the
+    # ragged list and took the whole search down with it — every query
+    # returning nothing, until a reindex that the error gave no hint to run.
+    # Mismatched rows are skipped instead; they get their real scores back as
+    # the reindex refills them.
+    by_width: dict[int, list[tuple[int, np.ndarray]]] = {}
+    for entry_id, blob in records:
+        vector = bytes_to_vector(blob)
+        by_width.setdefault(vector.shape[0], []).append((entry_id, vector))
+
+    usable = by_width.get(query_vector.shape[0], [])
+    if not usable:
+        logger.warning(
+            "no stored vectors match the query's %d dimensions (widths present: %s) "
+            "— reindex to score these notes again",
+            query_vector.shape[0],
+            sorted(by_width),
+        )
+        return []
+    if len(usable) < len(records):
+        logger.info(
+            "%d of %d vectors are a different width and were skipped — reindex to include them",
+            len(records) - len(usable),
+            len(records),
+        )
+
+    entry_ids = [entry_id for entry_id, _ in usable]
+    vectors = np.stack([vector for _, vector in usable])
+
+    norms = np.linalg.norm(vectors, axis=1)
+    valid = norms > 0
+
+    scores = np.zeros(len(vectors), dtype="float32")
+    if np.any(valid):
+        scores[valid] = np.dot(vectors[valid], query_vector) / (norms[valid] * query_norm)
+
     scored_ids = [
-        (entry_id, cosine_similarity(query_vector, bytes_to_vector(blob)))
-        for entry_id, blob in records
+        (entry_ids[i], float(scores[i]))
+        for i in range(len(entry_ids))
+        if scores[i] >= MIN_SIMILARITY
     ]
-    scored_ids = [(eid, score) for eid, score in scored_ids if score >= MIN_SIMILARITY]
     scored_ids.sort(key=lambda pair: pair[1], reverse=True)
     if not scored_ids:
         return []

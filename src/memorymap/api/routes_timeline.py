@@ -101,6 +101,8 @@ def timeline(
         for row in rows:
             resolved.setdefault(row.entry_id, row)
 
+    categories = manager.bulk_category_names(session, entries)
+
     placed = []
     for entry in entries:
         mention = resolved.get(entry.id)
@@ -115,7 +117,7 @@ def timeline(
                 "placed_by": "mentioned" if mention else "written",
                 "phrase": mention.phrase if mention else "",
                 "written_at": entry.created_at.isoformat(),
-                "category": manager.category_name_for(session, entry),
+                "category": categories.get(entry.category_id, manager.UNCATEGORISED),
                 "tags": manager.entry_tags(entry),
                 "pinned": entry.pinned,
                 "preview": manager.readable_content(entry)[:PREVIEW_CHARS],

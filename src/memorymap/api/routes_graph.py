@@ -11,15 +11,15 @@ Nodes are non-deleted entries; edges come from three places:
 from __future__ import annotations
 
 import re
-from itertools import combinations
+import threading
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from memorymap.ai.embeddings import bytes_to_vector, cosine_similarity
+from memorymap.ai.embeddings import bytes_to_vector, similar_pairs
 from memorymap.core import deps
-from memorymap.core.database import Category, EmbeddingRecord, Entry, EntryLink
+from memorymap.core.database import EmbeddingRecord, Entry, EntryLink
 from memorymap.core.deps import get_session
 from memorymap.entry import manager, paths
 
@@ -31,6 +31,78 @@ SIMILARITY_EDGE_THRESHOLD = 0.55
 # A hard cap keeps a dense notebook from becoming a hairball (and the
 # O(n²) comparison from mattering — it's personal-notebook scale).
 MAX_SIMILARITY_EDGES = 200
+
+
+# --- caching the two expensive derivations (ROADMAP §40, items 4 and 5) ----------
+#
+# Similarity edges are an all-pairs vector comparison and PageRank is fifteen
+# passes over every node and edge. Both were recomputed from scratch on every
+# request, which made `/graph` the most expensive endpoint in the app and made
+# `/graph/local` — "focus mode", which is supposed to be the *cheap* one — pay
+# the full notebook cost to draw a neighbourhood.
+#
+# Neither can be made local. Centrality is a global property by definition, and
+# a similarity edge can join two notes at opposite ends of the notebook, so
+# restricting either to the visited set would return different, wrong numbers.
+# What they can be is computed once per version of the notebook.
+#
+# The version is a fingerprint of cheap aggregates rather than a counter
+# someone has to remember to bump — a counter is a thing to forget, and a
+# forgotten one serves a stale graph indefinitely. `updated_at` moves on any
+# note edit, and the two counts move on anything created or destroyed.
+#
+# The known gap, stated rather than papered over: adding and removing one link
+# between two requests leaves the counts identical, so that single case serves
+# one stale render. The alternative is a `max(updated_at)` on links too, and a
+# stale centrality value for one frame is not worth another aggregate on every
+# graph load.
+_cache_lock = threading.Lock()
+_cache: dict[str, tuple] = {}
+
+
+def _graph_fingerprint(session: Session) -> tuple:
+    live = Entry.is_deleted == False  # noqa: E712
+    return (
+        # Which notebook. The cache is process-global while the counts below
+        # are emphatically not unique — two notebooks holding three notes each
+        # collide trivially, and so do two tests. Without this, restoring a
+        # backup or pointing MEMORYMAP_DATA_DIR somewhere else could be served
+        # the previous notebook's centrality.
+        str(deps.get_config().data_dir),
+        session.scalar(select(func.count(Entry.id)).where(live)) or 0,
+        session.scalar(select(func.max(Entry.updated_at)).where(live)),
+        session.scalar(select(func.count(EntryLink.id))) or 0,
+    )
+
+
+def _cached(name: str, fingerprint: tuple, build):  # noqa: ANN001
+    """`build()`'s result for this version of the notebook, computed once.
+
+    One slot per name, not an LRU: only the current version is ever asked for,
+    and keeping the previous one alive holds a whole graph's worth of floats
+    for nobody.
+    """
+    with _cache_lock:
+        hit = _cache.get(name)
+        if hit is not None and hit[0] == fingerprint:
+            return hit[1]
+    value = build()
+    with _cache_lock:
+        _cache[name] = (fingerprint, value)
+    return value
+
+
+def reset_graph_cache() -> None:
+    """Drop everything. For the tests, and for a data restore."""
+    with _cache_lock:
+        _cache.clear()
+
+
+# Registered rather than imported by the container. `deps.reset_app_state`
+# used to reach up into this module to call the line above, which is the wrong
+# direction — `core/` is the bottom layer. This says "empty me when the
+# singletons go" without `core` needing to know this file exists.
+deps.register_cache_reset(reset_graph_cache)
 
 
 # The inline markers the note editor supports, matched with their content so
@@ -59,47 +131,50 @@ def _similarity_edges(
     session: Session, node_ids: set[int], taken: set[frozenset[int]]
 ) -> list[dict]:
     """Pairwise cosine over stored vectors of the current backend.
-    Pairs already joined by a real link/thread edge are skipped — the
-    stronger relationship wins."""
+
+    Pairs already joined by a real link/thread edge are skipped — the stronger
+    relationship wins.
+
+    The comparison itself is cached per version of the notebook; only the
+    `taken` filter and the cap are re-applied, because `taken` differs between
+    callers (the full graph has already claimed its link and thread pairs;
+    focus mode has not). The backend id is part of the key: vectors from two
+    embedding models live in different spaces, so a model switch has to
+    invalidate this even when no note changed.
+    """
     backend = deps.get_embeddings().backend_id()
-    records = session.scalars(
-        select(EmbeddingRecord).where(EmbeddingRecord.model_version == backend)
-    )
-    vectors = {
-        r.entry_id: bytes_to_vector(r.embedding)
-        for r in records
-        if r.entry_id in node_ids
-    }
-    scored = []
-    for a, b in combinations(sorted(vectors), 2):
-        if frozenset((a, b)) in taken:
-            continue
-        score = cosine_similarity(vectors[a], vectors[b])
-        if score >= SIMILARITY_EDGE_THRESHOLD:
-            scored.append(
-                {"source": a, "target": b, "kind": "similar", "score": round(score, 2)}
-            )
-    scored.sort(key=lambda e: e["score"], reverse=True)
+    fingerprint = (*_graph_fingerprint(session), backend)
+
+    def build() -> list[tuple[int, int, float]]:
+        records = session.scalars(
+            select(EmbeddingRecord).where(EmbeddingRecord.model_version == backend)
+        )
+        vectors = {
+            r.entry_id: bytes_to_vector(r.embedding)
+            for r in records
+            if r.entry_id in node_ids
+        }
+        return similar_pairs(vectors, SIMILARITY_EDGE_THRESHOLD)
+
+    # Already sorted best-first, so the cap below keeps the strongest edges.
+    scored = [
+        {"source": a, "target": b, "kind": "similar", "score": round(score, 2)}
+        for a, b, score in _cached("similarity", fingerprint, build)
+        if frozenset((a, b)) not in taken
+    ]
     return scored[:MAX_SIMILARITY_EDGES]
 
 
-def _category_names(session: Session, entries: list[Entry]) -> dict[int | None, str]:
-    """`entry.category_id -> name` for every category the given entries use,
-    in one query rather than one per entry.
+def _centrality(session: Session, index: paths.Connections, similarity: bool) -> dict:
+    """PageRank over the whole graph, once per version of the notebook.
 
-    `manager.category_name_for` does the equivalent lookup with
-    `session.get()`, which is the right call for a single entry — but
-    `session.get()` still round-trips to the database even for an id it has
-    already loaded (confirmed by profiling the scale-test in ANALYSIS.md
-    §34: 10,000 calls of it were 87% of this endpoint's time on a 10k-note
-    notebook). A bulk endpoint like this one has to fetch categories once."""
-    ids = {e.category_id for e in entries if e.category_id is not None}
-    if not ids:
-        return {}
-    return {
-        c.id: c.name
-        for c in session.scalars(select(Category).where(Category.id.in_(ids)))
-    }
+    `similarity` is in the key because similarity edges change the graph, so
+    they change every node's rank — the same notebook scores differently with
+    the edges on and off, and both answers are correct for their own picture.
+    """
+    fingerprint = (*_graph_fingerprint(session), similarity)
+    return _cached("centrality", fingerprint, lambda: paths.pagerank(index))
+
 
 
 @router.get("/graph")
@@ -108,7 +183,7 @@ def graph(similarity: bool = False, session: Session = Depends(get_session)) -> 
         session.scalars(select(Entry).where(Entry.is_deleted == False))  # noqa: E712
     )
     node_ids = {e.id for e in entries}
-    category_names = _category_names(session, entries)
+    category_names = manager.bulk_category_names(session, entries)
     nodes = [
         {
             "id": e.id,
@@ -126,6 +201,7 @@ def graph(similarity: bool = False, session: Session = Depends(get_session)) -> 
             # thought under the note that started it instead of laying every
             # note out as a sibling (§9).
             "parent_id": e.parent_id if e.parent_id in node_ids else None,
+            "created_at": e.created_at.isoformat() + "Z",
         }
         for e in entries
     ]
@@ -153,22 +229,100 @@ def graph(similarity: bool = False, session: Session = Depends(get_session)) -> 
                 taken.add(pair)
                 edges.append({"source": e.parent_id, "target": e.id, "kind": "thread"})
 
-    if similarity:
+    config = deps.get_config()
+    with_similarity = similarity and not config.get_preference("battery_efficient_mode")
+    if with_similarity:
         edges.extend(_similarity_edges(session, node_ids, taken))
 
+    index = paths.build(session, extra_edges=edges)
+    centrality_scores = _centrality(session, index, with_similarity)
+
     # Stable category order so the frontend assigns stable colours.
+    categories = sorted({n["category"] for n in nodes})
+    
+    # Attach PageRank centrality to nodes for dynamic sizing
+    for n in nodes:
+        n["centrality"] = centrality_scores.get(n["id"], 0)
+        
+    return {"nodes": nodes, "edges": edges, "categories": categories}
+
+@router.get("/graph/local/{entry_id}")
+def graph_local(
+    entry_id: int, 
+    depth: int = 2, 
+    similarity: bool = False,
+    session: Session = Depends(get_session)
+) -> dict:
+    """Focus Mode API: Gets the local neighborhood up to N degrees."""
+    config = deps.get_config()
+    extra_edges = []
+
+    if similarity and not config.get_preference("battery_efficient_mode"):
+        node_ids = set(
+            session.scalars(
+                select(Entry.id).where(Entry.is_deleted == False)  # noqa: E712
+            )
+        )
+        extra_edges = _similarity_edges(session, node_ids, set())
+
+    index = paths.build(session, extra_edges=extra_edges)
+
+    if entry_id not in index.entries:
+        return {"nodes": [], "edges": [], "categories": []}
+        
+    # BFS up to `depth`
+    visited = {entry_id}
+    queue = [entry_id]
+    edges = []
+    taken = set()
+    
+    for _ in range(depth):
+        next_queue = []
+        for n in queue:
+            for neighbor, step in index.neighbours(n).items():
+                pair = frozenset((n, neighbor))
+                if pair not in taken:
+                    taken.add(pair)
+                    edges.append({
+                        "source": n,
+                        "target": neighbor,
+                        "kind": step.kind
+                    })
+                if neighbor not in visited:
+                    visited.add(neighbor)
+                    next_queue.append(neighbor)
+        queue = next_queue
+        
+    category_names = manager.bulk_category_names(session, [index.entries[n] for n in visited])
+    nodes = [
+        {
+            "id": e_id,
+            "preview": _preview(manager.readable_content(index.entries[e_id])),
+            "category": category_names.get(index.entries[e_id].category_id, manager.UNCATEGORISED),
+            "access_count": index.entries[e_id].access_count,
+            "pinned": index.entries[e_id].pinned,
+            "parent_id": index.entries[e_id].parent_id if index.entries[e_id].parent_id in visited else None,
+            "created_at": index.entries[e_id].created_at.isoformat() + "Z",
+        }
+        for e_id in visited
+    ]
+    
+    centrality_scores = _centrality(session, index, bool(extra_edges))
+    for n in nodes:
+        n["centrality"] = centrality_scores.get(n["id"], 0)
+        
     categories = sorted({n["category"] for n in nodes})
     return {"nodes": nodes, "edges": edges, "categories": categories}
 
 
-def _path_node(session: Session, entry: Entry) -> dict:
+def _path_node(entry: Entry, category_names: dict[int | None, str]) -> dict:
     """One note on a path or in a structural list. The same shape the graph's
     nodes use, so the view can highlight by id without a second lookup, plus
     enough text to read a chain as a sentence when the graph is not on screen."""
     return {
         "id": entry.id,
         "preview": _preview(manager.readable_content(entry), 60),
-        "category": manager.category_name_for(session, entry),
+        "category": category_names.get(entry.category_id, manager.UNCATEGORISED),
     }
 
 
@@ -182,9 +336,10 @@ def graph_structure(session: Session = Depends(get_session)) -> dict:
     rather than a second traversal in JavaScript.
     """
     index = paths.build(session)
+    category_names = manager.bulk_category_names(session, list(index.entries.values()))
 
     def category_of(entry: Entry) -> str:
-        return manager.category_name_for(session, entry)
+        return category_names.get(entry.category_id, manager.UNCATEGORISED)
 
     groups = paths.clusters(index, category_of)
     cluster_of: dict[str, int] = {}
@@ -203,7 +358,7 @@ def graph_structure(session: Session = Depends(get_session)) -> dict:
         "clusters": [
             {
                 "size": len(cluster.ids),
-                "core": _path_node(session, index.entries[cluster.core_id]),
+                "core": _path_node(index.entries[cluster.core_id], category_names),
                 "categories": cluster.categories[:3],
                 "ids": cluster.ids,
             }
@@ -218,10 +373,10 @@ def graph_structure(session: Session = Depends(get_session)) -> dict:
         ),
         "cluster_of": cluster_of,
         "hubs": [
-            {**_path_node(session, index.entries[note_id]), "links": count}
+            {**_path_node(index.entries[note_id], category_names), "links": count}
             for note_id, count in paths.hubs(index)
         ],
-        "orphans": [_path_node(session, index.entries[note_id]) for note_id in loose[:20]],
+        "orphans": [_path_node(index.entries[note_id], category_names) for note_id in loose[:20]],
         "orphan_count": len(loose),
         "hub_tags": index.hub_tags,
     }
@@ -229,7 +384,10 @@ def graph_structure(session: Session = Depends(get_session)) -> dict:
 
 @router.get("/graph/path")
 def graph_path(
-    source: int, target: int, session: Session = Depends(get_session)
+    source: int,
+    target: int,
+    similarity: bool = False,
+    session: Session = Depends(get_session),
 ) -> dict:
     """The chain of connections between two notes (§9).
 
@@ -241,8 +399,26 @@ def graph_path(
 
     Deliberately a GET with two ids: it reads nothing but the notebook's own
     structure, so it is cacheable, linkable and safe to re-issue.
+
+    `similarity=true` additionally lets the chain hop along "these read alike"
+    edges, which finds a route between notes nothing actually connects. It is
+    opt-in and off by default for two reasons: it costs a full vector sweep of
+    the notebook, which is not what "cacheable and safe to re-issue" above
+    describes; and a path made of similarity edges answers a weaker question
+    than the one asked — `SIMILAR_WEIGHT` makes them the last resort within a
+    route, but a route made only of them is "these are both about cooking"
+    dressed up as a connection the user made.
     """
-    index = paths.build(session)
+    extra_edges = []
+    if similarity and not deps.get_config().get_preference("battery_efficient_mode"):
+        node_ids = set(
+            session.scalars(
+                select(Entry.id).where(Entry.is_deleted == False)  # noqa: E712
+            )
+        )
+        extra_edges = _similarity_edges(session, node_ids, set())
+
+    index = paths.build(session, extra_edges=extra_edges)
     missing = [
         note_id for note_id in (source, target) if note_id not in index.entries
     ]
@@ -298,12 +474,14 @@ def graph_path(
         }
 
     order = [source] + [step.target for step in chain]
+    category_names = manager.bulk_category_names(session, [index.entries[note_id] for note_id in order])
+
     return {
         "found": True,
         "source": source,
         "target": target,
         "hops": len(chain),
-        "nodes": [_path_node(session, index.entries[note_id]) for note_id in order],
+        "nodes": [_path_node(index.entries[note_id], category_names) for note_id in order],
         "steps": [
             {
                 "source": step.source,

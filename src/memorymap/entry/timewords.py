@@ -121,6 +121,11 @@ _RULES: list[tuple[str, object]] = [
      r"twelve|few|couple of) months? ago",
      lambda m, t: (_add_months(t, -(_count(m.group(1)) or 0)), MONTH)),
     # "last friday", "next tues", "this monday", "on wednesday"
+    # The lambda is NOT redundant, though CodeQL's `py/unnecessary-lambda`
+    # says so (#47) and the suggested `_weekday` is a NameError: this table is
+    # built at import time and `_weekday` is defined below it. The lambda
+    # defers the lookup to call time, which is the only reason the module
+    # imports at all. Checked by replacing it and watching the suite fail.
     (r"(last|next|this|on) (" + "|".join(_WEEKDAYS) + r")\b",
      lambda m, t: _weekday(m, t)),
 ]

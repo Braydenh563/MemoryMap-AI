@@ -263,6 +263,7 @@ def on_this_day(session: Session = Depends(get_session)) -> list[dict]:
     resurfacing of old thoughts (from the original idea doc)."""
     now = utcnow()
     matches = []
+    matched_entries = []
     for entry in session.scalars(
         select(Entry).where(Entry.is_deleted == False)  # noqa: E712
     ):
@@ -270,14 +271,19 @@ def on_this_day(session: Session = Depends(get_session)) -> list[dict]:
         same_day = created.day == now.day
         old_enough = (now.date() - created.date()).days >= 28
         if same_day and old_enough:
-            matches.append(
-                {
-                    "id": entry.id,
-                    "content": entry.content,
-                    "category": manager.category_name_for(session, entry),
-                    "created_at": created.isoformat(),
-                }
-            )
+            matched_entries.append(entry)
+            
+    category_names = manager.bulk_category_names(session, matched_entries)
+    
+    for entry in matched_entries:
+        matches.append(
+            {
+                "id": entry.id,
+                "content": entry.content,
+                "category": category_names.get(entry.category_id, manager.UNCATEGORISED),
+                "created_at": entry.created_at.isoformat(),
+            }
+        )
     return matches[:5]
 
 
@@ -297,8 +303,9 @@ def _digest_notes(session: Session) -> list[dict]:
             .limit(30)
         )
     )
+    category_names = manager.bulk_category_names(session, entries)
     return [
-        {"content": e.content, "category": manager.category_name_for(session, e)}
+        {"content": e.content, "category": category_names.get(e.category_id, manager.UNCATEGORISED)}
         for e in entries
     ]
 
@@ -414,8 +421,9 @@ def weekly_digest(session: Session = Depends(get_session)) -> dict:
             "cacheable": True,
         }
 
+    category_names = manager.bulk_category_names(session, entries)
     notes = [
-        {"content": e.content, "category": manager.category_name_for(session, e)}
+        {"content": e.content, "category": category_names.get(e.category_id, manager.UNCATEGORISED)}
         for e in entries
     ]
     config = deps.get_config()

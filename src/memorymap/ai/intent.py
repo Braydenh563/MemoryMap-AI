@@ -102,12 +102,6 @@ def classify(message: str) -> str:
     if _matches_any(text, _SMALLTALK_PATTERNS):
         return SMALLTALK
 
-    # A very short message with no question mark and no content words is
-    # almost always conversational rather than a query.
-    if len(text.split()) <= 2 and "?" not in (message or ""):
-        if _matches_any(text, _SMALLTALK_PATTERNS):
-            return SMALLTALK
-
     return NOTES
 
 

@@ -9,7 +9,7 @@
 [![CI](https://github.com/Braydenh563/MemoryMap-AI-v0/actions/workflows/ci.yml/badge.svg)](https://github.com/Braydenh563/MemoryMap-AI-v0/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/Braydenh563/MemoryMap-AI-v0/actions/workflows/codeql.yml/badge.svg)](https://github.com/Braydenh563/MemoryMap-AI-v0/actions/workflows/codeql.yml)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue)](pyproject.toml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![License: AGPL v3](https://img.shields.io/badge/license-AGPL--3.0-green)](LICENSE)
 
 </div>
 
@@ -74,7 +74,7 @@ Seven tabs, all offline:
 | **Notes**     | Capture, browse and ask, as three sub-tabs. Auto-filing, tags, pins, threads, attachments, private notes (encrypted at rest), a recycle bin, revision history, and a search box that understands `tag:work`, `cat:recipes`, `is:pinned`, `"exact phrase"` and `-exclude` |
 | **Chat**      | A conversation with your notebook, saved and resumable. **Agent mode** lets it use 35 tools - search and read your notes, walk the connections between them, create, tag, link and unlink, organise, set reminders, open a web page - with destructive actions always confirmed, and an ask-me button when it isn't sure which note you meant. Personas change its voice; the run is shown as a timeline of thinking, tool calls and prose in the order they happened |
 | **Graph**     | Your notes as a force-directed map, and a knowledge graph the AI can walk: links, reply threads and shared tags, each labelled with *how* two notes connect. It can also point out notes that read alike and were never linked                |
-| **Library**   | Everything you have made, in one place: notes, documents, chats, files, tags, the recycle bin and the activity log. Overview tiles that are also filters, search across titles *and* previews, four sorts, bulk selection with counted confirmations, grid ⇄ list, and a coloured spine per kind so a shelf of mixed things is scannable by edge. The long-form **document editor** opens from here |
+| **Library**   | Everything you have made, in one place: notes, documents, chats, files, tags, the recycle bin and the activity log. Overview tiles that are also filters, search across titles *and* previews, four sorts, bulk selection with counted confirmations, grid ⇄ list, and a coloured spine per kind so a shelf of mixed things is scannable by edge. The long-form **document editor** opens from here, and so does the **whiteboard** — note cards and freehand sketches on a canvas you can pan and zoom, where a board is itself a note and so is searchable and filable like any other |
 | **Timeline**  | Every note plotted on a time axis - at what it's *about* when a phrase like "next week" resolves to a date, and at when it was written otherwise - in bands by category or tag, at a bucket size you pick |
 | **Reminders** | Due dates with priority, repeats, snooze and notifications - or type "call mum tomorrow evening" and let the AI schedule it                                                                              |
 
@@ -87,6 +87,22 @@ with per-setting overrides, a scheme builder that works the colours out from
 one you pick, looks you can save by name, 16 built-in skills including a
 five-part notebook audit, daily local backups, and a desktop window
 (`--desktop`).
+
+Two things run on their own once you switch them on, and both are off by
+default because both act without being asked:
+
+- **Search by meaning.** Tick ✨ Semantic beside the notes filter and the
+  search stops matching words and starts matching ideas — "things I was worried
+  about" finds the note that never uses either word. It needs the embedding
+  model from Optional extras.
+- **The background librarian.** On an interval you choose, a local agent goes
+  through the notebook tagging what is untagged, linking notes that read alike,
+  and flagging duplicates. It can never delete anything, it stops rather than
+  ask you a question, and it skips itself entirely on battery power. Off until
+  you turn it on, and every run is listed in Settings → Background tasks.
+
+The AI can also **remember standing instructions** — tell it "always answer in
+British English" and it keeps that across conversations.
 
 **Settings → Optional extras** installs the packages that turn optional
 features on — dictation, the desktop window, search-by-meaning — and shows the
@@ -563,4 +579,11 @@ CodeQL adds static security analysis; Dependabot keeps dependencies current.
 
 ## License
 
-Released under the [MIT License](https://github.com/Braydenh563/MemoryMap-AI/blob/main/LICENSE).
+Released under the [GNU Affero General Public License v3.0](https://github.com/Braydenh563/MemoryMap-AI/blob/main/LICENSE).
+
+In short: you may use, study, modify and share this, and anything you build on
+it must stay under the same licence — **including if you run a modified copy as
+a network service.** That last clause is the AGPL's whole point and the reason
+it was chosen here: MemoryMap is a local-first app, and the licence is what
+stops a modified, closed version of it being offered back to people as a
+hosted product.

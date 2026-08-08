@@ -72,7 +72,14 @@ def test_the_two_load_bearing_facts_are_flagged_from_the_entry_point():
     """Someone reading only the first screen of ROADMAP.md must still learn
     that finished work and the licence constraint live elsewhere."""
     roadmap = ROADMAP.read_text(encoding="utf-8")
-    opening = roadmap[: roadmap.index("Ordered by *how much it unlocks*")]
+    # Anchored on the heading, not on a sentence inside it. This used to slice
+    # at the literal "Ordered by *how much it unlocks*", which is prose — so
+    # restructuring the list (exactly the thing this file is meant to survive)
+    # made the assert raise `substring not found` rather than fail with a
+    # reason. "Everything before the first list item" is the durable boundary.
+    marker = "## Next up"
+    assert marker in roadmap, "ROADMAP.md no longer has a 'Next up' section"
+    opening = roadmap[: roadmap.index(marker)]
     assert "AGPL" in opening and "MIT" in opening
     assert "HISTORY.md" in opening
 

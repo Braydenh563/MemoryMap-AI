@@ -30,12 +30,15 @@ happen. Every deletion is checked to be inside the cache root as well.
 from __future__ import annotations
 
 import importlib.util
+import logging
 import os
 import shutil
 import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+
+logger = logging.getLogger("memorymap.embedmodels")
 
 
 @dataclass(frozen=True)
@@ -315,14 +318,24 @@ def remove(model_id: str) -> tuple[bool, str]:
         resolved = path.resolve()
         if not resolved.is_relative_to(root.resolve()):
             return False, "Refusing to delete outside the model cache."
-    except OSError as exc:
-        return False, f"Couldn't check that path: {exc}"
+    except OSError:
+        # The exception text carries the full filesystem path (and on some
+        # platforms more besides), and this string is returned straight to the
+        # browser by `DELETE /embedding-models/{id}`. Flagged by CodeQL as
+        # `py/stack-trace-exposure`. Logged in full where only the owner of the
+        # machine can read it; the caller gets the fact, not the internals.
+        logger.warning("couldn't resolve the cache path for %s", model.id, exc_info=True)
+        return False, "Couldn't check where that model is stored."
     if not path.is_dir():
         return False, f"{model.label} isn't on this machine."
     try:
         shutil.rmtree(path)
-    except OSError as exc:
-        return False, f"Couldn't remove {model.label}: {exc}"
+    except OSError:
+        logger.warning("couldn't remove %s from the cache", model.id, exc_info=True)
+        return False, (
+            f"Couldn't remove {model.label} — see Settings → Logs for why. "
+            "It may be in use by a running model."
+        )
     return True, f"{model.label} removed. Downloading it again is one click."
 
 

@@ -291,6 +291,13 @@ def _run_install(extra: Extra, reinstall: bool = False) -> None:
         _state.step = f"Couldn't run pip: {exc}"
     finally:
         _state.running = False
+        from memorymap.core import taskhistory
+        taskhistory.record(
+            "extra",
+            f"Installing {extra.label}",
+            _state.outcome,
+            _state.step,
+        )
 
 
 def start(extra_id: str, reinstall: bool = False) -> tuple[bool, str]:

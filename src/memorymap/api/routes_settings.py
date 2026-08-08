@@ -147,6 +147,18 @@ class PreferencesBody(BaseModel):
     # rather than free text, so a bad value is rejected at the door instead of
     # sitting in preferences quietly meaning "auto" forever.
     search_provider: str | None = None
+    # Autonomous Tasks settings. These were declared twice — once here with
+    # bare types and once above with the validated ones — and Pydantic silently
+    # keeps the last definition, so the bounds below were the only ones that
+    # ever applied. One copy, the validated one.
+    autonomous_tasks_enabled: bool | None = None
+    auto_tag_enabled: bool | None = None
+    auto_link_enabled: bool | None = None
+    auto_dedupe_enabled: bool | None = None
+    autonomous_tasks_interval_hours: int | None = Field(default=None, ge=1, le=168)
+    autonomous_tasks_model: str | None = Field(default=None, max_length=100)
+    battery_efficient_mode: bool | None = None
+    smart_model_routing_enabled: bool | None = None
     # Wave O: agent tools the user has switched off (by tool name).
     disabled_tools: list[str] | None = Field(default=None, max_length=50)
     # The user's IANA timezone, reported by the browser at startup. Anything
@@ -352,6 +364,132 @@ def list_skills() -> dict:
             "inputs": skills.MAX_INPUTS,
         },
     }
+
+
+# --- the memory stream (ROADMAP §39B) ---------------------------------------------
+#
+# What the AI has been told to remember, and the ability to un-tell it.
+#
+# `save_user_preference` lets the model write standing instructions that it
+# then receives in its own system prompt on every later turn. That is a useful
+# feature and a slightly alarming one, because it shipped with no way to see
+# the list: the assistant's behaviour could change permanently, for a reason
+# the user could not inspect, edit or undo. A rule you cannot read is
+# indistinguishable from the model simply behaving oddly.
+#
+# So: list them, switch one off, delete one. `active` is a toggle rather than
+# only a delete because "stop doing this for now" and "you never should have
+# saved that" are different intentions, and the agent already filters on it.
+
+
+class PreferenceBody(BaseModel):
+    content: str | None = Field(default=None, max_length=200)
+    active: bool | None = None
+
+
+def _preference_out(row) -> dict:  # noqa: ANN001 — a UserPreference
+    return {
+        "id": row.id,
+        "content": row.content,
+        "active": bool(row.active),
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+    }
+
+
+@router.get("/memory")
+def list_memory(session: Session = Depends(get_session)) -> dict:
+    """Everything the AI has been told to remember, newest first."""
+    from memorymap.ai import agent
+    from memorymap.core.database import UserPreference
+
+    rows = list(
+        session.scalars(select(UserPreference).order_by(UserPreference.created_at.desc()))
+    )
+    return {
+        "preferences": [_preference_out(r) for r in rows],
+        # The UI says which of these actually reach the model. Only the active
+        # ones do, and only until the character budget runs out — newest first,
+        # so a long-standing list quietly stops including its oldest entries.
+        # Showing the budget beats letting someone wonder why rule 41 is ignored.
+        "budget_chars": agent.MEMORY_STREAM_BUDGET_CHARS,
+        "in_prompt": len(agent._persona_with_memory(session, "").strip()),
+    }
+
+
+@router.post("/memory", status_code=201)
+def add_memory(body: PreferenceBody, session: Session = Depends(get_session)) -> dict:
+    """Write a standing instruction by hand.
+
+    `save_user_preference` lets the *model* add one when you tell it something
+    in conversation. This is the other direction, and it is the one people
+    reach for first: "I want it to always do X" is a thing you know before you
+    have had the conversation that would teach it.
+
+    Same limits as the tool, deliberately — the cap exists because every active
+    preference is replayed into the system prompt on every round, and that is
+    true whoever typed it.
+    """
+    from memorymap.ai.tools import MAX_ACTIVE_PREFERENCES
+    from memorymap.core.database import UserPreference
+
+    text_ = (body.content or "").strip()
+    if not text_:
+        raise HTTPException(status_code=422, detail="A preference can't be empty.")
+
+    active = list(
+        session.scalars(
+            select(UserPreference).where(UserPreference.active == True)  # noqa: E712
+        )
+    )
+    if any((row.content or "").strip().lower() == text_.lower() for row in active):
+        raise HTTPException(status_code=409, detail="That one is already saved.")
+    if len(active) >= MAX_ACTIVE_PREFERENCES:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"There are already {len(active)} saved preferences, which is the "
+                "limit. Turn one off before adding another."
+            ),
+        )
+
+    row = UserPreference(content=text_)
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return _preference_out(row)
+
+
+@router.patch("/memory/{preference_id}")
+def update_memory(
+    preference_id: int, body: PreferenceBody, session: Session = Depends(get_session)
+) -> dict:
+    from memorymap.core.database import UserPreference
+
+    row = session.get(UserPreference, preference_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="No such preference")
+    if body.content is not None:
+        text_ = body.content.strip()
+        if not text_:
+            raise HTTPException(status_code=422, detail="A preference can't be empty.")
+        row.content = text_
+    if body.active is not None:
+        row.active = body.active
+    session.commit()
+    session.refresh(row)
+    return _preference_out(row)
+
+
+@router.delete("/memory/{preference_id}")
+def forget_memory(preference_id: int, session: Session = Depends(get_session)) -> dict:
+    from memorymap.core.database import UserPreference
+
+    row = session.get(UserPreference, preference_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="No such preference")
+    session.delete(row)
+    session.commit()
+    return {"status": "ok"}
 
 
 @router.get("/audit")
@@ -774,33 +912,41 @@ def export_json(session: Session = Depends(get_session)) -> Response:
         "version": __version__,
         "exported_at": utcnow().isoformat(),
         "categories": [{"id": c.id, "name": c.name} for c in categories],
-        "entries": [
-            {
-                "id": e.id,
-                # Exports decrypt while the app is unlocked. An export is for
-                # taking your notes elsewhere, and ciphertext with no key is
-                # not your notes. (The app's own backups keep the database
-                # file as-is, so those stay encrypted.)
-                "content": manager.readable_content(e),
-                "category": manager.category_name_for(session, e),
-                "tags": manager.entry_tags(e),
-                "ai_confidence": e.ai_confidence,
-                "created_at": e.created_at.isoformat(),
-                "updated_at": e.updated_at.isoformat(),
-                "is_deleted": e.is_deleted,
-                "deleted_at": e.deleted_at.isoformat() if e.deleted_at else None,
-            }
-            for e in entries
-        ],
-        "links": [
-            {
-                "id": link.id,
-                "source_entry_id": link.source_entry_id,
-                "target_entry_id": link.target_entry_id,
-            }
-            for link in links
-        ],
+        "entries": [],
+        "links": [],
     }
+
+    category_names = manager.bulk_category_names(session, entries)
+
+    for e in entries:
+        payload["entries"].append({
+            "id": e.id,
+            # Exports decrypt while the app is unlocked. An export is for
+            # taking your notes elsewhere, and ciphertext with no key is
+            # not your notes. (The app's own backups keep the database
+            # file as-is, so those stay encrypted.)
+            "content": manager.readable_content(e),
+            "category": category_names.get(e.category_id, manager.UNCATEGORISED),
+            "tags": manager.entry_tags(e),
+            "ai_confidence": e.ai_confidence,
+            "created_at": e.created_at.isoformat(),
+            "updated_at": e.updated_at.isoformat(),
+            # `is_deleted` is not decoration and not derivable from
+            # `deleted_at`: an export is what a re-import reads, and without
+            # this flag every note in the recycle bin comes back as a live
+            # note. It went missing when this block was rewritten as a loop.
+            "is_deleted": e.is_deleted,
+            "deleted_at": e.deleted_at.isoformat() if e.deleted_at else None,
+        })
+
+    payload["links"] = [
+        {
+            "id": link.id,
+            "source_entry_id": link.source_entry_id,
+            "target_entry_id": link.target_entry_id,
+        }
+        for link in links
+    ]
     manager.log_action(session, "exported", "data", detail="json")
     session.commit()
     return Response(
@@ -822,18 +968,21 @@ def export_markdown(session: Session = Depends(get_session)) -> Response:
     folder per category, YAML frontmatter carrying the metadata. Binned
     notes go under _recycle-bin/ — exports never silently drop data."""
     _categories, entries, _links = _export_rows(session)
+    category_names = manager.bulk_category_names(session, entries)
+    
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
         for entry in entries:
+            cat_name = category_names.get(entry.category_id, manager.UNCATEGORISED)
             folder = (
                 "_recycle-bin"
                 if entry.is_deleted
-                else _slug(manager.category_name_for(session, entry), 40)
+                else _slug(cat_name, 40)
             )
             tags = manager.entry_tags(entry)
             front = [
                 "---",
-                f"category: {manager.category_name_for(session, entry)}",
+                f"category: {cat_name}",
                 f"created: {entry.created_at.isoformat()}",
             ]
             if tags:
@@ -1284,12 +1433,15 @@ def export_csv(session: Session = Depends(get_session)) -> Response:
     writer.writerow(
         ["id", "content", "category", "tags", "ai_confidence", "created_at", "is_deleted"]
     )
+    
+    category_names = manager.bulk_category_names(session, entries)
+    
     for e in entries:
         writer.writerow(
             [
                 e.id,
                 manager.readable_content(e),
-                manager.category_name_for(session, e),
+                category_names.get(e.category_id, manager.UNCATEGORISED),
                 "|".join(manager.entry_tags(e)),
                 e.ai_confidence,
                 e.created_at.isoformat(),

@@ -10,7 +10,7 @@ const browserLogs = [];
 const MAX_BROWSER_LOGS = 500;
 
 function recordBrowserLog(level, parts) {
-  browserLogs.push({
+  const record = {
     time: new Date().toISOString(),
     level,
     message: parts
@@ -23,8 +23,26 @@ function recordBrowserLog(level, parts) {
         }
       })
       .join(" "),
-  });
+  };
+  browserLogs.push(record);
   if (browserLogs.length > MAX_BROWSER_LOGS) browserLogs.shift();
+
+  // Live-push into the Logs page if it is currently open.
+  // `logRecords`, `logScreenOpen`, and `renderLogList` are defined later in
+  // this file, so guard with typeof to avoid errors during early boot.
+  if (typeof logRecords !== "undefined" && typeof logScreenOpen !== "undefined") {
+    const liveRecord = { ...record, source: "browser", logger: "browser",
+      key: `b-live-${Date.now()}-${Math.random()}` };
+    logRecords.push(liveRecord);
+    if (typeof sortLogRecords === "function") sortLogRecords();
+    if (logScreenOpen && typeof renderLogList === "function") {
+      renderLogList();
+      // Scroll to bottom so the new error is visible without manual scroll.
+      if (typeof scrollLogToBottom === "function") scrollLogToBottom();
+    }
+    // Bump the error badge in the Logs button so the user knows to check.
+    if (typeof bumpLogErrorBadge === "function") bumpLogErrorBadge(record);
+  }
 }
 
 for (const level of ["log", "info", "warn", "error"]) {
@@ -92,6 +110,15 @@ async function api(path, options = {}) {
       headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() },
       ...fetchOptions,
     });
+  } catch (networkErr) {
+    // fetch() itself threw — this is a real network failure (offline, CORS,
+    // connection refused). Log it explicitly so it always appears in Logs.
+    if (!networkErr?.name === 'AbortError') {
+      recordBrowserLog("ERROR", [
+        `[Network] ${fetchOptions.method || 'GET'} ${path} — ${networkErr.message}`
+      ]);
+    }
+    throw networkErr;
   } finally {
     if (timer) clearTimeout(timer);
   }
@@ -112,7 +139,14 @@ async function api(path, options = {}) {
   }
   if (!response.ok) {
     const detail = await response.json().catch(() => ({}));
-    throw new Error(detail.detail || `Request failed (${response.status})`);
+    const errMsg = typeof detail.detail === 'string' ? detail.detail : (JSON.stringify(detail.detail) || `Request failed (${response.status})`);
+    if (!silent) {
+      // Log HTTP errors so they always appear in Settings → Logs for debugging.
+      recordBrowserLog("ERROR", [
+        `[HTTP ${response.status}] ${fetchOptions.method || 'GET'} ${path} — ${errMsg}`
+      ]);
+    }
+    throw new Error(errMsg);
   }
   return response;
 }
@@ -235,6 +269,16 @@ function startApp() {
       applyPalette(appearancePref("palette"), false);
       renderBrandLogo();
       if (bgArtOn()) startBgArt();
+    }
+    
+    // Always check battery efficient mode regardless of ui_state seeding
+    const indicator = $("power-saver-indicator");
+    if (indicator) {
+      if (prefsCache && prefsCache.battery_efficient_mode) {
+        indicator.classList.remove("hidden");
+      } else {
+        indicator.classList.add("hidden");
+      }
     }
   });
 
@@ -835,7 +879,12 @@ function entryItem(entry, options = {}) {
         ? `${label.slice(0, LINK_CHIP_CHARS - 1).trimEnd()}…`
         : label;
       const linkChip = chip(`↔ ${short}`, "link");
-      linkChip.title = label;
+      linkChip.title = `Go to note: ${label}`;
+      linkChip.style.cursor = "pointer";
+      linkChip.addEventListener("click", (e) => {
+        if (e.target.classList.contains("unlink")) return;
+        flashEntry(link.entry_id);
+      });
       if (options.actions) {
         const unlink = document.createElement("span");
         unlink.className = "unlink";
@@ -2024,7 +2073,13 @@ function showEntrySkeletons() {
 
 async function loadEntries() {
   showEntrySkeletons();
-  allEntries = await apiJson("/entries");
+  
+  const isSemantic = $("semantic-search-toggle")?.checked;
+  const url = (isSemantic && noteSearch) 
+      ? `/entries?q=${encodeURIComponent(noteSearch)}&semantic=true` 
+      : "/entries";
+      
+  allEntries = await apiJson(url);
   entriesEverLoaded = true;
   renderStatusBar(); // the notebook's size changed, and the bar reads it here
   renderSidebar();
@@ -2533,6 +2588,13 @@ async function streamChat({
   // it — that is the only way it differs from a skill run, here and on the
   // server.
   if (plan && plan.steps && plan.steps.length) body.plan = plan;
+  // NDJSON over a plain POST, deliberately — not a WebSocket. A WebSocket was
+  // tried here and reverted: it needed the session on a second thread (a
+  // SQLAlchemy Session is not thread-safe), it had to be mounted outside the
+  // `locked` dependency and re-implement auth by hand, and a WS handshake is
+  // exempt from the same-origin policy that protects this `fetch` — any page
+  // the user had open could have opened it. `fetch` + a reader gives the same
+  // token-by-token delivery with none of that.
   const response = await fetch("/chat/stream", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() },
@@ -2559,7 +2621,16 @@ async function streamChat({
     buffered = lines.pop(); // last piece may be a partial line
     for (const line of lines) {
       if (!line.trim()) continue;
-      const event = JSON.parse(line);
+      let event;
+      // One malformed line must not abort a whole answer. Before this, a
+      // single bad frame threw out of the read loop and the user saw a
+      // half-written reply with no error.
+      try {
+        event = JSON.parse(line);
+      } catch (parseErr) {
+        recordBrowserLog("WARN", [`[Chat stream] Unparseable line: ${line.slice(0, 80)}`]);
+        continue;
+      }
       if (event.type === "meta") onMeta(event);
       else if (event.type === "plan" && onPlan) onPlan(event);
       else if (event.type === "step" && onStep) onStep(event);
@@ -2575,6 +2646,17 @@ async function streamChat({
       else if (event.type === "compress_review" && onCompressReview) onCompressReview(event);
       else if (event.type === "hint" && onHint) onHint(event);
       else if (event.type === "stats" && onStats) onStats(event);
+      else if (event.type === "error") {
+        // The server caught something mid-stream and said so. Surfacing it
+        // beats the silent truncation this used to be.
+        throw new Error(event.message || "The answer stopped early.");
+      }
+
+      if (event.type === "tool" && event.ok === false) {
+        recordBrowserLog("WARN", [
+          `[Agent tool error] ${event.label || event.name || "?"}: ${event.error || "unknown error"}`,
+        ]);
+      }
     }
   }
 }
@@ -4036,6 +4118,13 @@ function agentTimeline(holder) {
       // them.") because nothing between them closed the step.
       current = null;
     },
+    failRunningStep(reason) {
+      const entry = plans.at(-1);
+      if (!entry) return;
+      for (const [index, state] of Object.entries(entry.plan.states)) {
+        if (state.state === "running") markStep(entry, Number(index), "failed", reason);
+      }
+    },
     // What the run actually changed, with the call that puts each one back.
     // Prose claiming something happened is exactly what this replaces.
     result(event, options = {}) {
@@ -4257,7 +4346,24 @@ function renderToolConfirm(holder, event) {
   const card = document.createElement("div");
   card.className = "tool-confirm";
   const text = document.createElement("p");
-  text.textContent = `⚠️ The AI wants to: ${event.label}`;
+  text.textContent = `⚠️ The AI wants to: ${event.label || event.name}`;
+  
+  const contentArea = document.createElement("div");
+  
+  if (event.name === "edit_note" && event.arguments.content) {
+    // async fetch for diff
+    apiJson(`/entries/${event.arguments.note_id}`).then(res => {
+      const oldContent = res.content || "";
+      const newContent = event.arguments.content;
+      if (oldContent !== newContent) {
+        contentArea.innerHTML = `<div class="diff-viewer">
+          <div class="diff-removed">- ${escapeHtml(oldContent)}</div>
+          <div class="diff-added">+ ${escapeHtml(newContent)}</div>
+        </div>`;
+      }
+    }).catch(() => {});
+  }
+
   const row = document.createElement("div");
   row.className = "row";
   row.appendChild(
@@ -4270,7 +4376,7 @@ function renderToolConfirm(holder, event) {
             method: "POST",
             body: JSON.stringify({ name: event.name, arguments: event.arguments }),
           });
-          card.replaceWith(toolChip(`✅ ${result.label || event.label}`));
+          card.replaceWith(toolChip(`✅ ${result.label || event.label || event.name}`));
           toast("Done — check Activity for the audit trail.");
           refreshAfterToolChanges();
         } catch (error) {
@@ -4285,7 +4391,7 @@ function renderToolConfirm(holder, event) {
       card.replaceWith(toolChip("✖️ Cancelled — nothing was changed."));
     })
   );
-  card.append(text, row);
+  card.append(text, contentArea, row);
   holder.appendChild(card);
   chatScrollToEnd();
 }
@@ -5368,7 +5474,13 @@ async function sendChatMessage(preset, opts = {}) {
     }
   }
 
+  let slowLoadTimeout;
   try {
+    slowLoadTimeout = setTimeout(() => {
+      if (!meta && !stopped) {
+        status.textContent = "Loading model... (this may take a moment)";
+      }
+    }, 5000);
     await streamChat({
       question,
       history: chatHistoryToSend(),
@@ -5533,8 +5645,10 @@ async function sendChatMessage(preset, opts = {}) {
     } else {
       status.textContent = error.message;
       status.classList.add("error");
+      timeline.failRunningStep("Failed due to error");
     }
   } finally {
+    clearTimeout(slowLoadTimeout);
     chatController = null;
     input.disabled = false;
     show("chat-send");
@@ -5833,23 +5947,19 @@ function layoutIsStacked() {
 
 function applySidebarWidth(aside, width) {
   const clamped = Math.min(Math.max(Math.round(width), SIDEBAR_MIN), SIDEBAR_MAX);
-  // The remembered width is still saved on a phone — it belongs to the
-  // desktop layout and should survive being looked at on a small screen.
   localStorage.setItem(`sidebarWidth:${aside.id}`, String(clamped));
-  // But it is not applied there. This writes an inline grid-template-columns,
-  // and an inline style beats any stylesheet rule — so a 300px sidebar
-  // remembered from a desktop session kept the Notes and Chat tabs two
-  // columns wide on a phone, pushing the whole page sideways no matter what
-  // the media query said.
+  aside.style.setProperty("--saved-width", `${clamped}px`);
+  
   if (layoutIsStacked()) {
     aside.parentElement.style.removeProperty("grid-template-columns");
     return clamped;
   }
-  // minmax(0, 1fr), never plain 1fr: a bare `1fr` track refuses to shrink
-  // below its content's min-content width, so one wide code block or table in
-  // a chat answer pushed the whole page sideways. This inline style overrides
-  // the stylesheet, so it has to carry the same floor the stylesheet does.
-  aside.parentElement.style.gridTemplateColumns = `${clamped}px minmax(0, 1fr)`;
+  
+  if (aside.classList.contains("sidebar-collapsed")) {
+    aside.parentElement.style.gridTemplateColumns = `48px minmax(0, 1fr)`;
+  } else {
+    aside.parentElement.style.gridTemplateColumns = `${clamped}px minmax(0, 1fr)`;
+  }
   return clamped;
 }
 
@@ -5877,6 +5987,37 @@ function makeSidebarResizable(aside) {
   handle.setAttribute("tabindex", "0");
   handle.setAttribute("aria-label", "Resize the sidebar — arrow keys, or drag");
   aside.appendChild(handle);
+
+  const collapseBtn = document.createElement("button");
+  collapseBtn.className = "sidebar-collapse-toggle";
+  collapseBtn.title = "Toggle Sidebar";
+  collapseBtn.innerHTML = `
+    <svg class="icon-expanded" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+      <line x1="9" y1="3" x2="9" y2="21"></line>
+    </svg>
+    <svg class="icon-collapsed" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+      <line x1="15" y1="3" x2="15" y2="21"></line>
+    </svg>
+    <svg class="icon-peek" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="12" y1="17" x2="12" y2="22"></line>
+      <path d="M5 17h14v-1.5c0-1.5-1.5-2-1.5-4v-3c0-3-2-5-5.5-5S6.5 5.5 6.5 8.5v3c0 2-1.5 2.5-1.5 4V17z"></path>
+    </svg>
+  `;
+  collapseBtn.addEventListener("click", () => {
+    aside.classList.toggle("sidebar-collapsed");
+    aside.parentElement.classList.toggle("layout-sidebar-collapsed");
+    
+    // We update the grid column based on whether it is now collapsed or not
+    if (aside.classList.contains("sidebar-collapsed")) {
+      aside.parentElement.style.gridTemplateColumns = `48px minmax(0, 1fr)`;
+    } else {
+      const saved = Number(localStorage.getItem(`sidebarWidth:${aside.id}`)) || sidebarDefault(aside.id);
+      aside.parentElement.style.gridTemplateColumns = `${saved}px minmax(0, 1fr)`;
+    }
+  });
+  aside.appendChild(collapseBtn);
 
   const startDrag = (event) => {
     event.preventDefault();
@@ -5945,7 +6086,7 @@ function initResizableSidebars() {
 // that stylesheet rule regardless of the media query; so it stays suppressed
 // there and comes back once the window is wide enough again.
 const WEB_PANEL_MIN = 280;
-const WEB_PANEL_MAX = 640;
+const WEB_PANEL_MAX = 900;
 const WEB_PANEL_NARROW = "(max-width: 1100px)";
 
 function webPanelIsNarrow() {
@@ -5961,7 +6102,9 @@ function webPanelIsNarrow() {
 // }
 
 function applyWebPanelWidth(panel, width) {
-  const clamped = Math.min(Math.max(Math.round(width), WEB_PANEL_MIN), WEB_PANEL_MAX);
+  // Constrain max width to 900px OR 60% of the window width, whichever is smaller.
+  const dynamicMax = Math.min(WEB_PANEL_MAX, window.innerWidth * 0.6);
+  const clamped = Math.min(Math.max(Math.round(width), WEB_PANEL_MIN), dynamicMax);
   localStorage.setItem("webPanelWidth", String(clamped));
   
   if (webPanelIsNarrow()) {
@@ -6425,6 +6568,10 @@ async function loadChatSuggestions() {
   // Only the welcome placeholder may be present — real messages hide the chips.
   if ($("chat-messages").querySelector(".msg")) return;
   const picks = await apiJson("/chat/suggestions").catch(() => []);
+
+  // Re-check after the await in case a message was sent while we waited
+  if ($("chat-messages").querySelector(".msg")) return;
+
   const box = $("chat-suggest");
   box.replaceChildren();
   box.classList.toggle("hidden", picks.length === 0);
@@ -6899,7 +7046,7 @@ async function saveSkillList(skills) {
 function skillRow(skill) {
   const li = document.createElement("li");
   const row = document.createElement("div");
-  row.className = "entry-meta";
+  row.className = "entry-meta skill-row";
   row.appendChild(chip(skill.name));
   if (skill.builtin) row.appendChild(chip("built-in", "tag"));
   if (skill.changes) row.appendChild(chip("changes notes", "tag"));
@@ -6910,9 +7057,14 @@ function skillRow(skill) {
     row.appendChild(chip(`${skill.tools.length} tools`, "tag"));
   }
   for (const item of skill.inputs || []) row.appendChild(chip(`asks: ${item.name}`, "tag"));
+  // Its own class, not `persona-preview`. That one is `white-space: nowrap`
+  // with an ellipsis, which is right for a persona (one line of voice) and
+  // wrong here: a skill's description is the only thing that says what it
+  // *does*, and clipping it to the width left over after five chips showed
+  // three words. Reported twice. It wraps onto its own line now.
   const note = document.createElement("span");
-  note.className = "muted persona-preview";
-  note.textContent = (skill.description || skill.prompt).slice(0, 70);
+  note.className = "muted skill-blurb";
+  note.textContent = skill.description || skill.prompt;
   row.appendChild(note);
   if (!skill.builtin) {
     const actions = document.createElement("span");
@@ -10370,8 +10522,13 @@ function graphNodeRadius(node) {
   // A category heading in a tree layout is a fixed size — it has no access
   // count of its own, and sizing it by one would be inventing a number.
   if (node.isGroup) return node.id === "root" ? 14 : 11;
-  // Much-used notes draw the eye: base size + a gentle access bonus.
-  return 9 + Math.min(9, Math.sqrt(node.access_count || 0) * 2);
+  
+  // Sized dynamically based on PageRank centrality (hub importance) and usage.
+  // This physically represents the most important notes in the Knowledge Graph.
+  const centralityBonus = node.centrality ? Math.min(12, node.centrality * 800) : 0;
+  const accessBonus = Math.min(6, Math.sqrt(node.access_count || 0) * 1.5);
+  
+  return 9 + Math.max(centralityBonus, accessBonus);
 }
 
 // --- graph layouts (§9) -----------------------------------------------------------
@@ -10723,59 +10880,168 @@ let graphTraceLines = null;
 // on every render because the map's contents change — and the selection is
 // carried across, since a rebuild that silently forgets which notes you were
 // asking about is a control that undoes your work.
+let traceModeActive = false;
+let traceFromNode = null;
+let traceToNode = null;
+
+// The graph was redrawn, so the two picked nodes are stale objects from the
+// previous layout. Re-point them at the new ones by id — dropping them instead
+// would mean a filter change silently threw away the trace you were reading.
 function fillTracePickers(nodes) {
-  const notes = nodes
-    .filter((n) => !n.isGroup)
-    .sort((a, b) => a.preview.localeCompare(b.preview));
-  for (const [id, placeholder] of [
-    ["graph-trace-from", "from a note…"],
-    ["graph-trace-to", "to a note…"],
-  ]) {
-    const select = $(id);
-    if (!select) continue;
-    const previous = select.value;
-    const options = [new Option(placeholder, "")];
-    for (const node of notes) options.push(new Option(node.preview, String(node.id)));
-    select.replaceChildren(...options);
-    // Only restore a note that is still on the map; otherwise the picker would
-    // show a note the trace could never find.
-    if (previous && notes.some((n) => String(n.id) === previous)) {
-      select.value = previous;
-    }
-  }
+  const byId = new Map(nodes.map((n) => [String(n.id), n]));
+  if (traceFromNode) traceFromNode = byId.get(String(traceFromNode.id)) || null;
+  if (traceToNode) traceToNode = byId.get(String(traceToNode.id)) || null;
+  renderTraceState();
 }
 
-// Shared by the ⚙-style toggle button (§37F) and by every other entry point
-// that starts a trace without the user having opened the panel first — a
-// picker set behind a hidden row is a click that looks like it did nothing.
 function setTracePanelOpen(open) {
+  traceModeActive = open;
+  if (!open) clearTrace({ quiet: true });
   $("graph-trace").classList.toggle("hidden", !open);
   $("graph-trace-toggle")?.setAttribute("aria-expanded", String(open));
   $("graph-trace-toggle")?.classList.toggle("is-on", open);
+  // A mode has to look like one. Without this the map behaves differently
+  // from a moment ago with nothing on screen saying so, which is the
+  // difference between a tool and a glitch: the cursor becomes a crosshair
+  // over the nodes and the graph card picks up a tinted edge.
+  $("graph-card")?.classList.toggle("is-tracing", open);
   localStorage.setItem("graph-trace-open", open ? "1" : "0");
+  if (open) {
+    renderTraceState();
+    showTraceMessage("Click a note to start.");
+  }
 }
 
-// Fill one end of the trace from somewhere else in the app — the node popup's
-// two buttons, and the Notes tab. Traces as soon as both ends are set, because
-// the second click is the whole gesture: nobody picks two notes and then wants
-// nothing to happen.
-function setTraceEnd(which, noteId) {
-  setTracePanelOpen(true); // the pickers below are about to change; show them
-  const select = $(which === "from" ? "graph-trace-from" : "graph-trace-to");
-  if (!select) return;
-  select.value = String(noteId);
-  if (select.value !== String(noteId)) {
-    // The note is not on the map — filtered out by the legend, or by "hide
-    // unlinked". Said plainly rather than leaving a picker that ignored a
-    // click.
-    showTraceMessage(
-      "That note isn't on the map right now — clear the category filters or " +
-        "\"Hide unlinked\" and try again."
-    );
+// Escape leaves the mode. A mode you can only leave by finding the button
+// that started it is a trap, and this one changes what clicking does.
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape" || !traceModeActive) return;
+  // Any *visible* overlay, not merely a present one — and `querySelectorAll`,
+  // not `querySelector`. Nine `.modal-overlay` elements sit in the markup
+  // permanently with `.hidden` on them, so asking for the first one matched a
+  // hidden element every time and Escape appeared to do nothing; asking
+  // whether *the first* is visible would then miss a dialog further down the
+  // document. Escape belongs to whatever is on top of the trace panel.
+  const overlays = [...document.querySelectorAll(".modal-overlay, .confirm-overlay")];
+  if (overlays.some((el) => !el.classList.contains("hidden"))) return;
+  setTracePanelOpen(false);
+});
+
+// --- Trace, redesigned (§41) ------------------------------------------------------
+//
+// Reported as "annoying and pretty much unusable", and it was, for one reason
+// that made everything else about it worse: **the map did not respond.**
+// `traceModeActive` was set and consulted nowhere, so picking the two ends
+// meant using two `<select>` elements that listed every note in the notebook
+// by its opening words. On any real notebook that is a scroll through hundreds
+// of near-identical lines, to choose two notes that are visible on screen.
+//
+// It is a two-click mode now: turn Trace on, click a note, click another. The
+// panel stops being a form and becomes a readout of where you are — which end
+// you are choosing, what is chosen, and a way to swap or undo it. Escape
+// leaves. The rules that make a mode bearable rather than a trap:
+//
+// - it always says what the next click will do (`renderTraceState`);
+// - one click back — Undo removes the last end rather than resetting both;
+// - Swap, because "actually, the other direction" is the commonest correction
+//   and re-picking both to get it is the thing that made this infuriating;
+// - clicking the same note twice is a no-op with a reason, not a silent
+//   failure or a path from a note to itself.
+
+function pickTraceEnd(node) {
+  if (!node) return;
+  if (traceFromNode && String(traceFromNode.id) === String(node.id)) {
+    showTraceMessage("That's already the start — pick a different note to end at.");
     return;
   }
-  const other = $(which === "from" ? "graph-trace-to" : "graph-trace-from");
-  if (other && other.value) runTrace();
+  if (!traceFromNode || traceToNode) {
+    // Starting over: a third click begins a new trace rather than doing
+    // nothing, which is what someone who has read the answer wants next.
+    traceFromNode = node;
+    traceToNode = null;
+    graphTrace = null;
+    drawTrace();
+    applyGraphHighlight();
+  } else {
+    traceToNode = node;
+  }
+  renderTraceState();
+  if (traceFromNode && traceToNode) runTrace();
+}
+
+function traceLabel(node) {
+  const text = (node?.preview || "").trim();
+  return text.length > 32 ? `${text.slice(0, 31)}…` : text || `note #${node?.id}`;
+}
+
+// The panel as a readout: what is chosen, what the next click does, and the
+// two corrections worth having.
+function renderTraceState() {
+  const holder = $("graph-trace-ends");
+  if (!holder) return;
+  holder.replaceChildren();
+
+  const chip = (node, role) => {
+    const span = document.createElement("span");
+    span.className = "trace-chip" + (node ? " is-set" : " is-empty");
+    span.textContent = node ? traceLabel(node) : role;
+    if (node) span.title = node.preview || "";
+    return span;
+  };
+
+  const arrow = document.createElement("span");
+  arrow.className = "graph-trace-arrow";
+  arrow.textContent = "→";
+  arrow.setAttribute("aria-hidden", "true");
+  holder.append(chip(traceFromNode, "click a note to start"), arrow,
+                chip(traceToNode, "then click where to end"));
+
+  if (traceFromNode && traceToNode) {
+    const swap = document.createElement("button");
+    swap.type = "button";
+    swap.className = "ghost small";
+    swap.textContent = "⇄ Swap";
+    swap.title = "Trace the other way round";
+    swap.addEventListener("click", () => {
+      [traceFromNode, traceToNode] = [traceToNode, traceFromNode];
+      renderTraceState();
+      runTrace();
+    });
+    holder.appendChild(swap);
+  }
+  if (traceFromNode) {
+    const back = document.createElement("button");
+    back.type = "button";
+    back.className = "ghost small";
+    back.textContent = "↩ Undo";
+    back.title = "Unpick the last note";
+    back.addEventListener("click", () => {
+      // One step back, not a reset. Mis-clicking the second note should not
+      // cost you the first one.
+      if (traceToNode) traceToNode = null;
+      else traceFromNode = null;
+      graphTrace = null;
+      renderTraceState();
+      drawTrace();
+      applyGraphHighlight();
+      showTraceMessage(traceFromNode ? "Click where to end." : "Click a note to start.");
+    });
+    holder.appendChild(back);
+  }
+}
+
+// Kept for the note context menu, which offers "trace from here".
+function setTraceEnd(which, noteId) {
+  setTracePanelOpen(true);
+  const node = graphNodeSelection?.data().find(n => String(n.id) === String(noteId));
+  if (!node) {
+    showTraceMessage("That note isn't on the map right now — clear filters and try again.");
+    return;
+  }
+  if (which === "from") traceFromNode = node;
+  else traceToNode = node;
+  renderTraceState();
+  if (traceFromNode && traceToNode) runTrace();
 }
 
 function showTraceMessage(text) {
@@ -10788,29 +11054,40 @@ function showTraceMessage(text) {
 
 function clearTrace({ quiet = false } = {}) {
   graphTrace = null;
-  const box = $("graph-trace-result");
-  if (box) {
-    box.replaceChildren();
-    box.classList.add("hidden");
-    box.classList.remove("is-empty");
-  }
-  if (!quiet) {
-    for (const id of ["graph-trace-from", "graph-trace-to"]) {
-      const select = $(id);
-      if (select) select.value = "";
+  traceFromNode = null;
+  traceToNode = null;
+  if (traceModeActive && !quiet) {
+    // This looked up a "graph-trace-status" element, which does not exist —
+    // the readout is #graph-trace-result, and showTraceMessage is how you
+    // write to it. The lookup was guarded by `if (status)`, so the prompt
+    // simply never appeared and trace mode began with no instructions.
+    showTraceMessage("Click a starting note");
+  } else {
+    const box = $("graph-trace-result");
+    if (box) {
+      box.replaceChildren();
+      box.classList.add("hidden");
+      box.classList.remove("is-empty");
     }
   }
+  // Both branches still have to repaint: clearing the readout without
+  // redrawing leaves the old highlighted path drawn on the map.
   drawTrace();
   applyGraphHighlight();
 }
 
 async function runTrace() {
-  const from = $("graph-trace-from")?.value;
-  const to = $("graph-trace-to")?.value;
-  if (!from || !to) {
+  if (!traceFromNode || !traceToNode) {
     showTraceMessage("Pick two notes to trace between.");
     return;
   }
+  // Trace used to read two <select> values into local `from`/`to`. It became
+  // click-two-notes-on-the-map, the selects went away, and these three
+  // references to `from`/`to` were left behind pointing at nothing — so the
+  // moment you picked a second note, Trace threw a ReferenceError and did
+  // nothing at all, with the failure visible only in the console.
+  const from = traceFromNode.id;
+  const to = traceToNode.id;
   if (from === to) {
     showTraceMessage("Those are the same note — pick two different ones.");
     return;
@@ -10872,6 +11149,25 @@ function renderTraceReadout(result) {
   summary.className = "graph-trace-step";
   summary.textContent = `  (${result.hops} step${result.hops === 1 ? "" : "s"})`;
   pieces.push(summary);
+  
+  // Story Mode: Synthesize the path into a narrative
+  const storyBtn = document.createElement("button");
+  storyBtn.className = "graph-trace-note story-mode-btn";
+  storyBtn.style.marginLeft = "12px";
+  storyBtn.style.background = "var(--primary)";
+  storyBtn.style.color = "var(--primary-fg)";
+  storyBtn.style.fontWeight = "bold";
+  storyBtn.textContent = "✨ Generate Story from Path";
+  storyBtn.title = "Weave these notes into a cohesive narrative using the AI locally";
+  storyBtn.addEventListener("click", () => {
+    switchTab("chat");
+    sendChatMessage(
+      "Write a cohesive, publishable narrative weaving together these specific thoughts. Follow the exact chronological sequence in which these notes are attached.",
+      { noteIds: graphTrace.ids }
+    );
+  });
+  pieces.push(storyBtn);
+
   box.replaceChildren(...pieces);
 }
 
@@ -11013,19 +11309,35 @@ async function linkByDrop(from, to) {
 let graphStructure = null;
 
 function graphColourMode() {
-  return $("graph-colour")?.value === "cluster" ? "cluster" : "category";
+  return document.querySelector('input[name="graph-colour"]:checked')?.value === "cluster" ? "cluster" : "category";
 }
+
+let graphFocusModeId = null;
 
 async function renderGraph() {
   const wantSimilarity = $("graph-similarity").checked;
-  const data = await apiJson(
-    `/graph${wantSimilarity ? "?similarity=true" : ""}`
-  ).catch(() => null);
+  const endpoint = graphFocusModeId 
+    ? `/graph/local/${graphFocusModeId}?depth=2&similarity=${wantSimilarity}` 
+    : `/graph${wantSimilarity ? "?similarity=true" : ""}`;
+    
+  const data = await apiJson(endpoint).catch(() => null);
   if (!data) return;
 
   if (graphSimulation) graphSimulation.stop();
   const svg = d3.select("#graph-svg");
+  svg.on(".zoom", null); // Prevent memory leak from duplicate zoom listeners
   svg.selectAll("*").remove();
+
+  // Premium UI: Orb gradient definitions for tactile nodes
+  const defs = svg.append("defs");
+  const orbGrad = defs.append("radialGradient")
+    .attr("id", "orb-shine")
+    .attr("cx", "35%")
+    .attr("cy", "30%")
+    .attr("r", "65%");
+  orbGrad.append("stop").attr("offset", "0%").attr("stop-color", "white").attr("stop-opacity", "0.65");
+  orbGrad.append("stop").attr("offset", "100%").attr("stop-color", "white").attr("stop-opacity", "0");
+
   // Inline display beats every stylesheet rule — the overlay can never
   // float over a populated graph again (user-reported, Wave O).
   const empty = $("graph-empty");
@@ -11170,8 +11482,25 @@ async function renderGraph() {
   const canvas = svg.append("g");
   const zoomBehavior = d3
     .zoom()
-    .scaleExtent([0.2, 5])
-    .on("zoom", (event) => canvas.attr("transform", event.transform));
+    .scaleExtent([0.05, 5])
+    .on("zoom", (event) => {
+      canvas.attr("transform", event.transform);
+      // Semantic Zoom logic
+      const isZoomedOut = event.transform.k < 0.45;
+      if (canvas.classed("semantic-zoom-out") !== isZoomedOut) {
+        canvas.classed("semantic-zoom-out", isZoomedOut);
+        const duration = 250;
+        
+        // Use try/catch or typeof since these are initialized after zoom setup
+        if (typeof nodeGroups !== "undefined") {
+          nodeGroups.transition().duration(duration).style("opacity", isZoomedOut ? 0 : 1).style("pointer-events", isZoomedOut ? "none" : "all");
+          if (typeof labelLayer !== "undefined") labelLayer.transition().duration(duration).style("opacity", isZoomedOut ? 0 : 1);
+          if (typeof edgeLayer !== "undefined") edgeLayer.transition().duration(duration).style("opacity", isZoomedOut ? 0 : 1);
+          if (typeof graphTraceLayer !== "undefined" && graphTraceLayer) graphTraceLayer.transition().duration(duration).style("opacity", isZoomedOut ? 0 : 1);
+          if (typeof clusterLayer !== "undefined" && clusterLayer) clusterLayer.transition().duration(duration).style("opacity", isZoomedOut ? 1 : 0).style("pointer-events", isZoomedOut ? "all" : "none");
+        }
+      }
+    });
   svg.call(zoomBehavior).on("dblclick.zoom", null); // dblclick pins, not zooms
 
   // Keep refs so the +/−/fit buttons drive this same zoom behaviour.
@@ -11257,6 +11586,41 @@ async function renderGraph() {
         .join("line")
         .attr("class", (d) => `graph-edge graph-edge-${d.kind}`);
 
+  // Semantic Zoom: Clustering super-nodes
+  const categoryGroups = d3.group(nodes, d => d.category || "Uncategorized");
+  const clustersData = Array.from(categoryGroups, ([key, values]) => ({ id: key, category: key, nodes: values }));
+  
+  const clusterLayer = canvas.append("g")
+    .attr("class", "graph-clusters-layer")
+    .style("opacity", 0) // Hidden by default (zoomed in)
+    .style("pointer-events", "none");
+    
+  const clusterGroups = clusterLayer
+    .selectAll("g")
+    .data(clustersData)
+    .join("g")
+    .attr("class", "graph-cluster");
+    
+  clusterGroups.append("circle")
+    .attr("r", d => 25 + Math.sqrt(d.nodes.length) * 12)
+    .attr("fill", d => clusterColour(d.category))
+    .attr("fill-opacity", 0.6)
+    .attr("stroke", d => d3.color(clusterColour(d.category)).darker(1))
+    .attr("stroke-width", 2);
+    
+  clusterGroups.append("text")
+    .text(d => d.category)
+    .attr("text-anchor", "middle")
+    .attr("dy", "0.3em")
+    .style("font-size", "16px")
+    .style("font-weight", "bold")
+    .style("fill", "var(--text-main)")
+    .style("paint-order", "stroke")
+    .style("stroke", "var(--bg-main)")
+    .style("stroke-width", "4px")
+    .style("stroke-linecap", "round")
+    .style("stroke-linejoin", "round");
+
   const nodeGroups = canvas
     .append("g")
     .selectAll("g")
@@ -11333,6 +11697,16 @@ async function renderGraph() {
     )
     .on("click", (event, d) => {
       if (d.isGroup) return; // a category heading, not a note to open
+      // Trace is a *mode*: while it is on, clicking the map picks the two ends
+      // rather than opening notes. This branch is the whole reason Trace was
+      // unusable — `traceModeActive` was set and then consulted nowhere, so
+      // the map stayed inert and the only way to choose a note was two
+      // select boxes listing every note in the notebook by its first words.
+      if (traceModeActive) {
+        event.stopPropagation();
+        pickTraceEnd(d);
+        return;
+      }
       openGraphPopup(event, d);
     })
     // Double-click pins a node where it is; again releases it (Wave M).
@@ -11367,6 +11741,14 @@ async function renderGraph() {
     // Well-connected notes get a highlighted ring so the "hubs" of your
     // notebook stand out at a glance.
     .classed("graph-hub", (d) => (graphAdjacency.get(d.id)?.size || 0) >= 3);
+
+  // Apply the premium orb shine over the core for a 3D tactile aesthetic
+  nodeGroups
+    .append("circle")
+    .attr("class", "graph-orb-shine")
+    .attr("r", graphNodeRadius)
+    .attr("fill", "url(#orb-shine)")
+    .attr("pointer-events", "none");
   // A pin badge, so pinned notes are identifiable at a glance.
   nodeGroups
     .filter((d) => d.pinned)
@@ -11386,7 +11768,9 @@ async function renderGraph() {
   // pile of overlapping text. Under the node is right for the web, where
   // nodes are spread in two dimensions; in a tree the rows are only
   // TREE_ROW apart, so it has to sit *beside* the node instead.
-  const labels = nodeGroups
+  const labelLayer = canvas.append("g").attr("class", "graph-label-layer");
+  const labelGroups = labelLayer.selectAll("g").data(nodes).join("g");
+  const labels = labelGroups
     .append("text")
     .attr(
       "class",
@@ -11519,6 +11903,7 @@ async function renderGraph() {
     // Laid out, not simulated: the paths are already drawn, so this only has
     // to place the nodes and frame the result.
     nodeGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
+    labelGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
     frameTree(svg, zoomBehavior, canvas, nodes, width, height, tree.radial);
   }
 
@@ -11567,6 +11952,12 @@ async function renderGraph() {
     // is a handful of lines beside every edge in the notebook.
     positionTraceLines();
     nodeGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
+    labelGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
+    clusterGroups.attr("transform", (d) => {
+      const cx = d3.mean(d.nodes, n => n.x) || 0;
+      const cy = d3.mean(d.nodes, n => n.y) || 0;
+      return `translate(${cx},${cy})`;
+    });
     // Once the layout settles, frame all the notes so nothing sits off
     // the edge (Wave N — the old view often had nodes half-cropped).
     if (!fitted && graphSimulation.alpha() < 0.08) {
@@ -11585,6 +11976,46 @@ async function renderGraph() {
   fillTracePickers(nodes);
   drawTrace();
   applyGraphHighlight();
+  
+  // Set up temporal filter slider bounds based on data
+  if (data.nodes.length > 0) {
+    const timestamps = data.nodes.map(n => new Date(n.created_at || Date.now()).getTime());
+    const minTime = Math.min(...timestamps);
+    const maxTime = Math.max(...timestamps);
+    const slider = $("graph-time-slider");
+    if (slider) {
+      if (!window.graphSliderInitialized) {
+        window.graphSliderInitialized = true;
+        slider.min = minTime;
+        slider.max = maxTime;
+        slider.value = maxTime;
+        slider.step = (maxTime - minTime) / 100 || 1;
+      }
+       
+      slider.oninput = (e) => {
+        const val = Number(e.target.value);
+        $("graph-time-label").textContent = new Date(val).toLocaleDateString();
+        
+        // Apply temporal filter without rebuilding simulation
+        nodeGroups.style("visibility", d => new Date(d.created_at || Date.now()).getTime() <= val ? "visible" : "hidden");
+        labelGroups.style("visibility", d => new Date(d.created_at || Date.now()).getTime() <= val ? "visible" : "hidden");
+        
+        edgeLines.style("visibility", d => {
+          const srcTime = new Date(d.source.created_at || Date.now()).getTime();
+          const tgtTime = new Date(d.target.created_at || Date.now()).getTime();
+          return srcTime <= val && tgtTime <= val ? "visible" : "hidden";
+        });
+      };
+      
+      // Initialize label
+      $("graph-time-label").textContent = new Date(Number(slider.value)).toLocaleDateString();
+      // Apply initial filter if the slider was already moved
+      if (Number(slider.value) < maxTime) {
+         slider.oninput({ target: slider });
+      }
+    }
+  }
+
   initGraphKeyboard();
 }
 
@@ -11801,9 +12232,14 @@ function applyGraphHighlight() {
   // After forceLink binds, edge.source/target are node objects, not ids.
   const idOf = (end) => (end && end.id != null ? end.id : end);
 
+  const isSearchActive = !!(query || graphHighlightIds || onPath);
   graphNodeSelection.classed(
     "graph-dim",
     (d) => !(searchOk(d) && hoverOk(d.id))
+  );
+  graphNodeSelection.classed(
+    "graph-match",
+    (d) => isSearchActive && searchOk(d)
   );
   graphNodeSelection.classed("graph-focus", (d) => d.id === graphHoveredId);
   graphEdgeSelection.classed("graph-dim", (d) => {
@@ -11960,6 +12396,18 @@ function renderGraphPopupActions(entry) {
       openGraphNewNote(event, entry.id)
     )
   );
+  
+  if (graphFocusModeId !== entry.id) {
+    box.appendChild(
+      smallButton("🎯 Focus", "Isolate this note's neighborhood", () => {
+        graphFocusModeId = entry.id;
+        $("graph-focus-clear")?.classList.remove("hidden");
+        closeGraphPopup();
+        renderGraph();
+        toast("Focus Mode active. Showing local neighborhood.");
+      })
+    );
+  }
   box.appendChild(
     smallButton("≈ Similar", "Highlight notes that mean something similar", async () => {
       const related = await apiJson(`/entries/${entry.id}/related`).catch(() => []);
@@ -11985,7 +12433,7 @@ function renderGraphPopupActions(entry) {
   // trace, and the next one you pick becomes the other. The label says which
   // end it will be, because a button that does two different things without
   // saying which is a button you have to try to understand.
-  const tracingFrom = Boolean($("graph-trace-from")?.value);
+  const tracingFrom = Boolean(traceFromNode);
   box.appendChild(
     smallButton(
       tracingFrom ? "🛣 Trace to here" : "🛣 Trace from here",
@@ -12183,12 +12631,16 @@ function switchTab(name) {
   }
   if (name === "dashboard") renderDashboard();
   if (name === "graph") {
-    $("graph-layout").value = graphLayout();
+    const layout = graphLayout();
+    const layoutInput = document.querySelector(`input[name="graph-layout"][value="${layout}"]`);
+    if (layoutInput) layoutInput.checked = true;
+    
     // Same for what the colours mean: a saved setting the control does not
     // show is a control that lies about the map beside it.
     const savedColour = localStorage.getItem("graph-colour");
     if (savedColour === "cluster" || savedColour === "category") {
-      $("graph-colour").value = savedColour;
+      const colourInput = document.querySelector(`input[name="graph-colour"][value="${savedColour}"]`);
+      if (colourInput) colourInput.checked = true;
     }
     // Match the saved layout on arrival, not only on change — otherwise a
     // notebook left on Tree comes back with two live-looking dead sliders.
@@ -12329,10 +12781,10 @@ async function renderTimeline() {
 // Timeline views showing the same notebook two ways rather than two
 // different stories about it. "None" collapses to a single lane — the spine
 // itself, with every note directly on it.
-const TIMELINE_LANE_GAP = 42;
-const TIMELINE_MARGIN_X = 110; // left room for a band's label
-const TIMELINE_MARGIN_TOP = 28;
-const TIMELINE_DOT_R = 5;
+const TIMELINE_LANE_GAP = 52;
+const TIMELINE_MARGIN_X = 250; // left room for a band's label (increased so they don't cut off)
+const TIMELINE_MARGIN_TOP = 40;
+const TIMELINE_DOT_R = 10; // increased for better visibility and access
 
 function renderTimelineBranch(body) {
   const svg = d3.select("#timeline-branch-svg");
@@ -12385,16 +12837,17 @@ function renderTimelineBranch(body) {
     const tint = color(band.name);
 
     if (!single) {
-      // Where a branch starts: it peels off the spine at its first note's
-      // time, not at some arbitrary point (BACKLOG.md §10C's own rule).
+      // Where a branch starts: it peels off the spine slightly before its first
+      // note to form a smooth organic S-curve instead of a sharp vertical line.
       const startX = scale(new Date(here[0].at));
-      const midY = (spineY + laneY) / 2;
+      const branchX = Math.max(scale.range()[0], startX - 45);
+      const midX = (branchX + startX) / 2;
       laneGroup
         .append("path")
         .attr("class", "timeline-branch-stub")
         .attr("fill", "none")
         .attr("stroke", tint)
-        .attr("d", `M${startX},${spineY}C${startX},${midY} ${startX},${midY} ${startX},${laneY}`);
+        .attr("d", `M${branchX},${spineY}C${midX},${spineY} ${midX},${laneY} ${startX},${laneY}`);
     }
 
     // The thread itself — the one thing a grid cannot show at all: every
@@ -12404,25 +12857,63 @@ function renderTimelineBranch(body) {
         .line()
         .x((n) => scale(new Date(n.at)))
         .y(() => laneY);
-      laneGroup
+      const path = laneGroup
         .append("path")
         .attr("class", "timeline-branch-line")
         .attr("fill", "none")
         .attr("stroke", tint)
         .attr("d", linePath(here));
+      
+      const length = path.node().getTotalLength();
+      path
+        .attr("stroke-dasharray", length + " " + length)
+        .attr("stroke-dashoffset", length)
+        .transition()
+        .duration(800)
+        .ease(d3.easeCubicOut)
+        .attr("stroke-dashoffset", 0);
     }
 
     if (!single) {
       const label = laneGroup
         .append("text")
         .attr("class", "timeline-branch-label")
-        .attr("x", 8)
-        .attr("y", laneY)
-        .attr("dy", "0.32em")
+        .attr("x", scale.range()[0] - 10)
+        .attr("y", laneY - 14)
+        .attr("dy", "0")
+        .attr("text-anchor", "end")
         .attr("fill", tint)
-        .text(band.name);
+        .text(band.name)
+        .style("opacity", 0);
+
+      label.transition().duration(600).style("opacity", 1);
       label.append("title").text(`${band.count} note${band.count === 1 ? "" : "s"}`);
     }
+
+    // Calculate vertical staggering to prevent physical overlap
+    const placed = [];
+    const minDistance = TIMELINE_DOT_R * 2 + 2; // 2px padding
+    
+    here.forEach(n => {
+      n.cx = scale(new Date(n.at));
+      
+      // Find what dy offsets are already taken at this cx
+      const taken = placed
+        .filter(p => Math.abs(p.cx - n.cx) < minDistance)
+        .map(p => p._dy);
+        
+      // Try dy offsets: 0, 15, -15, 30, -30...
+      let step = TIMELINE_DOT_R * 1.5;
+      let offsetIdx = 0;
+      let dy = 0;
+      while (taken.includes(dy)) {
+        offsetIdx++;
+        const sign = offsetIdx % 2 === 0 ? 1 : -1;
+        dy = Math.ceil(offsetIdx / 2) * step * sign;
+      }
+      n._dy = dy;
+      placed.push(n);
+    });
 
     const dots = laneGroup
       .selectAll("circle")
@@ -12432,15 +12923,29 @@ function renderTimelineBranch(body) {
         "class",
         (n) => `timeline-branch-dot${n.placed_by === "mentioned" ? " timeline-branch-dot-mentioned" : ""}`
       )
-      .attr("cx", (n) => scale(new Date(n.at)))
-      .attr("cy", laneY)
-      .attr("r", TIMELINE_DOT_R)
+      .attr("cx", (n) => n.cx)
+      .attr("cy", (n) => laneY + (n._dy || 0))
       .attr("fill", tint)
-      .on("click", (_event, n) => {
-        switchTab("notes");
-        showNotesSection("browse"); // focusing inside a hidden section does nothing
-        flashEntry(n.id);
+      .attr("r", 0)
+      .on("mouseover", function() {
+        d3.select(this).transition().duration(150).attr("r", TIMELINE_DOT_R * 1.5);
+        d3.selectAll(".timeline-branch-lane").transition().duration(150).style("opacity", function() {
+          return (this === laneGroup.node()) ? 1 : 0.2;
+        });
+      })
+      .on("mouseout", function() {
+        d3.select(this).transition().duration(150).attr("r", TIMELINE_DOT_R);
+        d3.selectAll(".timeline-branch-lane").transition().duration(150).style("opacity", 1);
+      })
+      .on("click", (event, n) => {
+        openTimelinePopup(event, n);
       });
+      
+    dots.transition()
+      .delay((_, i) => Math.min(i * 30, 800))
+      .duration(400)
+      .ease(d3.easeElasticOut)
+      .attr("r", TIMELINE_DOT_R);
     dots.append("title").text((n) => {
       // Same honesty rule as the grid's dots: say when a note is here because
       // of what it says rather than when it was typed.
@@ -12517,10 +13022,8 @@ function timelineDot(note) {
       ? `“${note.phrase}” in this note meant ${new Date(note.at).toLocaleDateString()}.` +
         `\nWritten ${new Date(note.written_at).toLocaleDateString()}.`
       : `Written ${new Date(note.written_at).toLocaleString()}`;
-  dot.addEventListener("click", () => {
-    switchTab("notes");
-    showNotesSection("browse"); // focusing inside a hidden section does nothing
-    flashEntry(note.id);
+  dot.addEventListener("click", (event) => {
+    openTimelinePopup(event, note);
   });
   return dot;
 }
@@ -12564,6 +13067,95 @@ $("timeline-view").addEventListener("change", (event) => {
   localStorage.setItem("timeline-view", event.target.value);
   renderTimeline();
 });
+
+$("timeline-popup-close").addEventListener("click", () => {
+  $("timeline-popup").classList.add("hidden");
+});
+
+// Hide timeline popup when clicking outside
+$("tab-timeline").addEventListener("click", (e) => {
+  if (e.target === $("tab-timeline") || e.target.closest(".timeline-scroll") || e.target.closest(".timeline-branch-svg")) {
+    $("timeline-popup").classList.add("hidden");
+  }
+});
+
+let timelinePopupId = null;
+
+async function openTimelinePopup(event, noteSummary) {
+  event.stopPropagation();
+  timelinePopupId = noteSummary.id;
+  const popup = $("timeline-popup");
+  
+  $("timeline-popup-title").textContent = noteSummary.category || "Note";
+  $("timeline-popup-content").textContent = "Loading…";
+  
+  const box = $("timeline-popup-info");
+  box.replaceChildren();
+  const dateStr = noteSummary.placed_by === "mentioned"
+      ? `“${noteSummary.phrase}” meant ${new Date(noteSummary.at).toLocaleDateString()}. Written ${new Date(noteSummary.written_at).toLocaleDateString()}.`
+      : `Written ${new Date(noteSummary.written_at).toLocaleString()}`;
+  box.appendChild(chip(`🕐 ${dateStr}`, "tag"));
+
+  popup.classList.remove("hidden");
+  
+  const bounds = $("tab-timeline").getBoundingClientRect();
+  const size = popup.getBoundingClientRect();
+  const left = Math.min(
+    Math.max(event.clientX - bounds.left + 12, 8),
+    Math.max(8, bounds.width - size.width - 8)
+  );
+  const top = Math.min(
+    Math.max(event.clientY - bounds.top + 12, 8),
+    Math.max(8, bounds.height - size.height - 8)
+  );
+  popup.style.left = `${left}px`;
+  popup.style.top = `${top}px`;
+
+  const entry = await apiJson(`/entries/${noteSummary.id}`).catch(() => null);
+  if (!entry || timelinePopupId !== noteSummary.id) {
+    if (timelinePopupId === noteSummary.id) {
+      $("timeline-popup-content").textContent = "Couldn't load this note.";
+    }
+    return;
+  }
+  
+  $("timeline-popup-content").textContent = entry.content;
+  
+  const openBtn = $("timeline-popup-open");
+  const newOpenBtn = openBtn.cloneNode(true);
+  openBtn.replaceWith(newOpenBtn);
+  newOpenBtn.addEventListener("click", () => {
+    popup.classList.add("hidden");
+    switchTab("notes");
+    showNotesSection("browse");
+    flashEntry(noteSummary.id);
+  });
+}
+
+function applyTimelineSearch() {
+  const query = $("timeline-search").value.trim().toLowerCase();
+  
+  // Grid View dots
+  const gridDots = document.querySelectorAll(".timeline-dot");
+  gridDots.forEach(dot => {
+    const text = (dot.textContent || "").toLowerCase();
+    dot.classList.toggle("timeline-dim", query && !text.includes(query));
+  });
+
+  // Branch View dots (D3)
+  d3.selectAll(".timeline-branch-dot")
+    .classed("timeline-dim", function(d) {
+      const matchText = (d.preview || "").toLowerCase();
+      return query && !matchText.includes(query);
+    });
+}
+
+let timelineSearchDebounceTimeout;
+$("timeline-search").addEventListener("input", () => {
+  clearTimeout(timelineSearchDebounceTimeout);
+  timelineSearchDebounceTimeout = setTimeout(applyTimelineSearch, 150);
+});
+
 
 $("entry-document").addEventListener("change", async (event) => {
   const value = event.target.value;
@@ -12756,13 +13348,89 @@ if (chatTabNode) {
   }).observe(chatTabNode, { attributes: true, attributeFilter: ["class"] });
 }
 
+// --- what the AI remembers (ROADMAP §39B) ------------------------------------------
+//
+// The list `save_user_preference` writes into, and the only place the user can
+// see it. Worth the screen: this tool's output becomes part of the model's own
+// system prompt on every later turn, so without this the assistant's behaviour
+// could change permanently for a reason nobody could look up, edit or undo.
+//
+// The budget line is not decoration. Only active preferences reach the model,
+// newest first, and only until the character budget runs out — so a long list
+// quietly stops including its oldest entries. Saying so beats letting someone
+// wonder why the rule they saved first is being ignored.
+async function renderMemorySettings() {
+  const list = $("memory-list");
+  const empty = $("memory-empty");
+  const budget = $("memory-budget");
+  if (!list) return;
+
+  const data = await apiJson("/memory").catch(() => null);
+  if (!data) {
+    list.replaceChildren();
+    budget.textContent = "Couldn't load what the AI has remembered.";
+    return;
+  }
+
+  const active = data.preferences.filter((p) => p.active).length;
+  budget.textContent = active
+    ? `${active} in use, about ${data.in_prompt} of ${data.budget_chars} characters. ` +
+      "The newest are kept when this runs out."
+    : "";
+  empty.classList.toggle("hidden", data.preferences.length > 0);
+
+  list.replaceChildren(
+    ...data.preferences.map((pref) => {
+      const row = document.createElement("div");
+      row.className = "memory-row" + (pref.active ? "" : " is-off");
+
+      const text = document.createElement("span");
+      text.className = "memory-text";
+      text.textContent = pref.content;
+      text.title = pref.created_at
+        ? `Saved ${new Date(pref.created_at).toLocaleString()}`
+        : "";
+
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "ghost small";
+      toggle.textContent = pref.active ? "Turn off" : "Turn on";
+      toggle.addEventListener("click", async () => {
+        toggle.disabled = true;
+        await apiJson(`/memory/${pref.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ active: !pref.active }),
+        }).catch(() => {});
+        renderMemorySettings();
+      });
+
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "ghost small danger";
+      remove.textContent = "Forget";
+      remove.addEventListener("click", async () => {
+        const ok = await confirmDialog(
+          `Forget this?\n\n“${pref.content}”\n\nThe AI will stop applying it.`,
+          { confirmLabel: "Forget it" }
+        );
+        if (!ok) return;
+        await apiJson(`/memory/${pref.id}`, { method: "DELETE" }).catch(() => {});
+        renderMemorySettings();
+      });
+
+      row.append(text, toggle, remove);
+      return row;
+    })
+  );
+}
+
 // --- settings modal (Wave A) ------------------------------------------------------
 
 //: Every section id, and a new one is invisible until it is in this list —
 //: `showSettingsSection` un-hides by iterating it, so a section left out is
 //: rendered, in the DOM, and never shown. Found by driving it: the Extras
 //: panel had five rows in it and a nav button that appeared to do nothing.
-const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "websearch", "appearance", "shortcuts", "preferences", "account", "extras", "tasks", "data", "logs", "help", "about"];
+const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "memory", "websearch", "appearance", "shortcuts", "preferences", "account", "extras", "tasks", "data", "logs", "help", "about"];
 
 // Where to send focus back when a dialog closes (Wave L).
 let overlayReturnFocus = null;
@@ -13004,6 +13672,8 @@ function showSettingsSection(name) {
   if (name === "personas") renderPersonas().catch(() => {});
   if (name === "skills") renderSkillSettings();
   if (name === "tools") renderToolSettings();
+  if (name === "memory") renderMemorySettings().catch(() => {});
+  if (name === "tasks") renderAutonomousReview().catch(() => {});
   if (name === "appearance") renderAppearance();
   if (name === "shortcuts") renderShortcutList();
   if (name === "account") renderAccount().catch(() => {});
@@ -13596,6 +14266,10 @@ function closeLogs() {
 }
 
 async function copyLogs() {
+  const url = noteSearch 
+      ? `/entries?q=${encodeURIComponent(noteSearch)}&semantic=${$("semantic-search-toggle")?.checked || false}` 
+      : "/entries";
+    const response = await fetch(url);
   const shown = logRecords.filter(logMatchesFilters);
   if (!shown.length) {
     toast("Nothing to copy — the filters above are hiding every record.", true);
@@ -13691,6 +14365,15 @@ async function renderWebSearch() {
   prefsCache = await apiJson("/preferences");
   $("pref-web-search").checked = Boolean(prefsCache.web_search_enabled);
   $("pref-searxng").value = prefsCache.searxng_url || "";
+  $("pref-autonomous-tasks").checked = Boolean(prefsCache.autonomous_tasks_enabled);
+  $("pref-auto-tag").checked = prefsCache.auto_tag_enabled ?? true;
+  $("pref-auto-link").checked = prefsCache.auto_link_enabled ?? true;
+  $("pref-auto-dedupe").checked = prefsCache.auto_dedupe_enabled ?? true;
+  $("pref-autonomous-interval").value = prefsCache.autonomous_tasks_interval_hours || 6;
+  $("pref-autonomous-model").value = prefsCache.autonomous_tasks_model || "";
+  $("pref-battery-mode").checked = Boolean(prefsCache.battery_efficient_mode);
+  $("pref-smart-model-routing").checked = prefsCache.smart_model_routing_enabled ?? true;
+  toggleAutonomousPanel();
   $("searxng-autostart").checked = Boolean(prefsCache.searxng_autostart);
   $("search-provider-status").textContent = "";
 
@@ -13756,6 +14439,40 @@ async function saveWebSearchSettings() {
   }
 }
 
+//: Which checkbox in Settings mirrors which one elsewhere in the app. Two
+//: controls for one preference is a reasonable convenience and a reliable way
+//: to get them out of step; this is the list that keeps them honest.
+const MIRRORED_PREFS = {
+  autonomous_tasks_enabled: ["pref-autonomous-tasks", "skills-auto-toggle"],
+  auto_tag_enabled: ["pref-auto-tag", "skills-auto-tag"],
+  auto_link_enabled: ["pref-auto-link", "skills-auto-link"],
+};
+
+// Save one preference without rebuilding the whole object from the DOM.
+//
+// `savePrefs` reads every control on the Preferences screen and PUTs the lot,
+// which is fine when that screen is what you are looking at and wrong when it
+// is not: a control on another panel that saved directly left `prefsCache`
+// stale, and the next `savePrefs` overwrote it from a checkbox nobody had
+// touched. Anything outside the Preferences form should come through here.
+async function setPreference(key, value) {
+  try {
+    prefsCache = await apiJson("/preferences", {
+      method: "PUT",
+      body: JSON.stringify({ [key]: value }),
+    });
+    for (const id of MIRRORED_PREFS[key] || []) {
+      const box = $(id);
+      if (box && box.checked !== value) box.checked = value;
+    }
+    if (key === "autonomous_tasks_enabled") {
+      $("autonomous-settings-panel")?.classList.toggle("hidden", !value);
+    }
+  } catch (error) {
+    toast(error.message || "Couldn't save that setting.", true);
+  }
+}
+
 async function savePrefs() {
   try {
     prefsCache = await apiJson("/preferences", {
@@ -13766,9 +14483,27 @@ async function savePrefs() {
         communication_style: $("pref-style").value,
         user_profile: $("pref-profile").value,
         profile_enabled: $("pref-profile-enabled").checked,
+        autonomous_tasks_enabled: $("pref-autonomous-tasks").checked,
+        auto_tag_enabled: $("pref-auto-tag").checked,
+        auto_link_enabled: $("pref-auto-link").checked,
+        auto_dedupe_enabled: $("pref-auto-dedupe").checked,
+        autonomous_tasks_interval_hours: Number($("pref-autonomous-interval").value) || 6,
+        autonomous_tasks_model: $("pref-autonomous-model").value.trim(),
+        battery_efficient_mode: $("pref-battery-mode").checked,
+        smart_model_routing_enabled: $("pref-smart-model-routing").checked,
       }),
     });
     $("prefs-status").textContent = "Saved.";
+    
+    const indicator = $("power-saver-indicator");
+    if (indicator) {
+      if ($("pref-battery-mode").checked) {
+        indicator.classList.remove("hidden");
+      } else {
+        indicator.classList.add("hidden");
+      }
+    }
+    
     // Reflect a name change immediately if the dashboard is showing.
     if (typeof renderDashboardGreeting === "function") renderDashboardGreeting();
   } catch (error) {
@@ -14076,9 +14811,23 @@ function paletteKeydown(event) {
 
 // --- Wave F: whiteboard-lite --------------------------------------------------------
 
-let sketchPen = { color: "#4f6df5", size: 4, eraser: false };
+let sketchPen = { color: "#3b82f6", size: 4, eraser: false };
 let sketchDrawing = false;
 let sketchDirty = false;
+let sketchTool = "pen"; // "pen", "rect", "circ", "arrow", "text"
+let sketchHistory = [];
+let sketchRedoStack = [];
+let sketchStartX = 0;
+let sketchStartY = 0;
+
+function sketchSaveSnapshot() {
+  const canvas = $("sketch-canvas");
+  const ctx = canvas.getContext("2d");
+  sketchHistory.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+  if (sketchHistory.length > 30) sketchHistory.shift();
+  sketchRedoStack = [];
+}
+
 // §37G: an image the user brought in to annotate over — an `ImageBitmap`, or
 // null for a blank page. Lives on its own layer (`#sketch-bg-canvas`) below
 // the pen strokes (`#sketch-canvas`), so Clear and the eraser can affect the
@@ -14115,6 +14864,9 @@ function openSketch() {
   const canvas = $("sketch-canvas");
   canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
   sketchDirty = false;
+  sketchHistory = [];
+  sketchRedoStack = [];
+  sketchTool = "pen";
   $("sketch-status").textContent = "";
 }
 
@@ -14147,13 +14899,35 @@ function sketchPointer(event) {
   };
 }
 
+let sketchMoved = false;
+
 function sketchStart(event) {
   sketchDrawing = true;
   sketchDirty = true;
+  sketchMoved = false;
   const { x, y } = sketchPointer(event);
+  sketchStartX = x;
+  sketchStartY = y;
+  
+  if (sketchTool === "text") {
+    const text = prompt("Enter text:");
+    if (text) {
+      sketchSaveSnapshot();
+      const context = sketchContext();
+      context.font = `${sketchPen.size * 6}px sans-serif`;
+      context.fillStyle = sketchPen.color;
+      context.fillText(text, x, y);
+    }
+    sketchDrawing = false;
+    return;
+  }
+
+  sketchSaveSnapshot();
   const context = sketchContext();
-  context.beginPath();
-  context.moveTo(x, y);
+  if (sketchTool === "pen" || sketchTool === "highlighter") {
+    context.beginPath();
+    context.moveTo(x, y);
+  }
   event.target.setPointerCapture(event.pointerId);
 }
 
@@ -14161,20 +14935,98 @@ function sketchMove(event) {
   if (!sketchDrawing) return;
   const { x, y } = sketchPointer(event);
   const context = sketchContext();
-  context.lineCap = "round";
-  context.lineJoin = "round";
-  // Strokes live on their own transparent layer now (§37G), so an eraser
-  // that painted white would punch a white hole through an uploaded image
-  // rather than revealing it. `destination-out` clears pixels on THIS layer
-  // to transparent instead, which lets the background layer show through.
-  context.globalCompositeOperation = sketchPen.eraser ? "destination-out" : "source-over";
+  if (x === sketchStartX && y === sketchStartY) return;
+  sketchMoved = true;
+  
+  if (sketchTool !== "pen" && sketchTool !== "highlighter") {
+    const last = sketchHistory[sketchHistory.length - 1];
+    if (last) context.putImageData(last, 0, 0);
+    else context.clearRect(0, 0, context.canvas.width, context.canvas.height);
+  }
+
+  context.lineCap = sketchTool === "highlighter" ? "square" : "round";
+  context.lineJoin = sketchTool === "highlighter" ? "bevel" : "round";
+  context.globalCompositeOperation = sketchPen.eraser && sketchTool === "pen" ? "destination-out" : (sketchTool === "highlighter" ? "multiply" : "source-over");
+  context.globalAlpha = sketchTool === "highlighter" ? 0.05 : 1.0;
   context.strokeStyle = sketchPen.color;
-  context.lineWidth = sketchPen.eraser ? sketchPen.size * 4 : sketchPen.size;
-  context.lineTo(x, y);
-  context.stroke();
+  context.lineWidth = sketchTool === "highlighter" ? sketchPen.size * 6 : (sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size);
+
+  if (sketchTool === "pen" || sketchTool === "highlighter") {
+    context.lineTo(x, y);
+    context.stroke();
+  } else if (sketchTool === "line") {
+    context.beginPath();
+    context.moveTo(sketchStartX, sketchStartY);
+    context.lineTo(x, y);
+    context.stroke();
+  } else if (sketchTool === "rect") {
+    context.beginPath();
+    context.rect(sketchStartX, sketchStartY, x - sketchStartX, y - sketchStartY);
+    context.stroke();
+  } else if (sketchTool === "circ") {
+    context.beginPath();
+    const r = Math.sqrt(Math.pow(x - sketchStartX, 2) + Math.pow(y - sketchStartY, 2));
+    context.arc(sketchStartX, sketchStartY, r, 0, 2 * Math.PI);
+    context.stroke();
+  } else if (sketchTool === "arrow") {
+    context.beginPath();
+    context.moveTo(sketchStartX, sketchStartY);
+    context.lineTo(x, y);
+    context.stroke();
+    const angle = Math.atan2(y - sketchStartY, x - sketchStartX);
+    const headLen = sketchPen.size * 3 + 5;
+    context.beginPath();
+    context.moveTo(x, y);
+    context.lineTo(x - headLen * Math.cos(angle - Math.PI / 6), y - headLen * Math.sin(angle - Math.PI / 6));
+    context.moveTo(x, y);
+    context.lineTo(x - headLen * Math.cos(angle + Math.PI / 6), y - headLen * Math.sin(angle + Math.PI / 6));
+    context.stroke();
+  }
 }
 
-function sketchEnd() {
+function sketchEnd(event) {
+  if (sketchDrawing && !sketchMoved && event && (event.type === "pointerup" || event.type === "click")) {
+    const context = sketchContext();
+    context.lineCap = sketchTool === "highlighter" ? "square" : "round";
+    context.lineJoin = sketchTool === "highlighter" ? "bevel" : "round";
+    context.globalCompositeOperation = sketchPen.eraser && sketchTool === "pen" ? "destination-out" : (sketchTool === "highlighter" ? "multiply" : "source-over");
+    context.globalAlpha = sketchTool === "highlighter" ? 0.05 : 1.0;
+    context.strokeStyle = sketchPen.color;
+    
+    if (sketchTool === "pen" || sketchTool === "highlighter") {
+      context.lineWidth = sketchTool === "highlighter" ? sketchPen.size * 6 : (sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size);
+      context.beginPath();
+      context.moveTo(sketchStartX, sketchStartY);
+      context.lineTo(sketchStartX, sketchStartY + 0.1);
+      context.stroke();
+    } else if (sketchTool === "rect") {
+      context.lineWidth = sketchPen.size;
+      context.beginPath();
+      const s = sketchPen.size * 10 + 20;
+      context.rect(sketchStartX - s/2, sketchStartY - s/2, s, s);
+      context.stroke();
+    } else if (sketchTool === "circ") {
+      context.lineWidth = sketchPen.size;
+      context.beginPath();
+      const r = sketchPen.size * 5 + 10;
+      context.arc(sketchStartX, sketchStartY, r, 0, 2 * Math.PI);
+      context.stroke();
+    } else if (sketchTool === "arrow") {
+      context.lineWidth = sketchPen.size;
+      const len = sketchPen.size * 10 + 20;
+      context.beginPath();
+      context.moveTo(sketchStartX - len/2, sketchStartY);
+      context.lineTo(sketchStartX + len/2, sketchStartY);
+      context.stroke();
+      const headLen = sketchPen.size * 3 + 5;
+      context.beginPath();
+      context.moveTo(sketchStartX + len/2, sketchStartY);
+      context.lineTo(sketchStartX + len/2 - headLen * Math.cos(Math.PI / 6), sketchStartY - headLen * Math.sin(Math.PI / 6));
+      context.moveTo(sketchStartX + len/2, sketchStartY);
+      context.lineTo(sketchStartX + len/2 - headLen * Math.cos(-Math.PI / 6), sketchStartY - headLen * Math.sin(-Math.PI / 6));
+      context.stroke();
+    }
+  }
   sketchDrawing = false;
 }
 
@@ -15292,22 +16144,28 @@ function renderLibrary() {
   }
   items = librarySorted(items);
 
-  grid.replaceChildren();
-  grid.classList.toggle("library-list", libraryView() === "list");
-  for (const item of items) grid.appendChild(libraryCard(item));
-  renderLibraryContextBars();
+  const updateDOM = () => {
+    grid.replaceChildren();
+    grid.classList.toggle("library-list", libraryView() === "list");
+    for (const item of items) grid.appendChild(libraryCard(item));
+    renderLibraryContextBars();
 
-  const empty = $("library-empty");
-  empty.classList.toggle("hidden", items.length > 0);
-  if (!items.length) {
-    // Three different empties, because the fix for each is different: nothing
-    // made yet, nothing of this kind, or nothing matching what you typed. One
-    // message for all three is how "the library is broken" gets reported.
-    empty.textContent = !libraryItems.length
-      ? "Nothing here yet. Write a document, start a chat, or attach a file to a note."
-      : query
-        ? `Nothing matching “${$("library-search").value.trim()}”.`
-        : "Nothing of this kind yet.";
+    const empty = $("library-empty");
+    empty.classList.toggle("hidden", items.length > 0);
+    if (!items.length) {
+      empty.textContent = !libraryItems.length
+        ? "Nothing here yet. Write a document, start a chat, or attach a file to a note."
+        : query
+          ? `Nothing matching “${$("library-search").value.trim()}”.`
+          : "Nothing of this kind yet.";
+    }
+  };
+
+  // Premium UI: Use native View Transitions for buttery smooth layout animations
+  if (!document.startViewTransition) {
+    updateDOM();
+  } else {
+    document.startViewTransition(() => updateDOM());
   }
 }
 
@@ -15541,7 +16399,12 @@ function libraryCard(item) {
   const icon = document.createElement("span");
   icon.className = "library-card-icon";
   icon.textContent = meta ? meta.icon : "•";
-  icon.setAttribute("aria-hidden", "true");
+  if (meta && meta.label) {
+    icon.setAttribute("role", "img");
+    icon.setAttribute("aria-label", meta.label);
+  } else {
+    icon.setAttribute("aria-hidden", "true");
+  }
   const title = document.createElement("strong");
   title.className = "library-card-title";
   // A note's title is its first line, so it carries the note's own markup too.
@@ -16059,6 +16922,7 @@ function renderSettings() {
   if (status.ollama_running) {
     renderChatModelPicker(status);
     renderUtilityModelPicker(status);
+    renderAutonomousModelPicker(status);
     renderInstalledModels(status);
     renderSuggested(status);
     renderModelSpec(status.chat_model);
@@ -16603,6 +17467,16 @@ function renderUtilityModelPicker(status) {
   );
 }
 
+function renderAutonomousModelPicker(status) {
+  const names = status.installed_models.map((m) => m.name);
+  fillModelSelect(
+    $("pref-autonomous-model"),
+    names,
+    { value: "", label: "Same as utility model" },
+    (window.prefsCache && window.prefsCache.autonomous_tasks_model) || ""
+  );
+}
+
 function renderEmbeddingPicker(status) {
   // Name the built-in model rather than describing it. "Works out of the box,
   // no download" was wrong on both counts: it fetches ~130 MB from Hugging
@@ -16894,9 +17768,22 @@ async function loadLinkSuggestions() {
       "No new links to suggest — either everything related is already linked, or semantic search is off.";
     return;
   }
-  const heading = document.createElement("p");
-  heading.className = "muted";
-  heading.textContent = "Notes that look related — link the ones you agree with:";
+  const heading = document.createElement("div");
+  heading.style.display = "flex";
+  heading.style.justifyContent = "space-between";
+  heading.style.alignItems = "center";
+  heading.style.marginBottom = "var(--space-3)";
+  
+  const headingText = document.createElement("span");
+  headingText.className = "muted";
+  headingText.textContent = "Notes that look related — link the ones you agree with:";
+  
+  const closeAll = smallButton("✕", "Close suggestions", () => {
+    box.classList.add("hidden");
+    box.replaceChildren();
+  });
+  
+  heading.append(headingText, closeAll);
   box.appendChild(heading);
   for (const s of suggestions) {
     const row = document.createElement("div");
@@ -16914,8 +17801,16 @@ async function loadLinkSuggestions() {
       row.remove();
       toast("Linked.");
       loadEntries().catch(() => {});
+      if (!box.querySelector(".link-suggestion")) {
+        box.classList.add("hidden");
+      }
     });
-    const dismiss = smallButton("✕", "Dismiss this suggestion", () => row.remove());
+    const dismiss = smallButton("✕", "Dismiss this suggestion", () => {
+      row.remove();
+      if (!box.querySelector(".link-suggestion")) {
+        box.classList.add("hidden");
+      }
+    });
     row.append(text, score, link, dismiss);
     box.appendChild(row);
   }
@@ -16993,6 +17888,15 @@ function toggleTheme() {
   const next = current === "dark" ? "light" : "dark";
   root.dataset.theme = next;
   localStorage.setItem("theme", next); // remembered across restarts
+  
+  // Clear any custom background colour that would otherwise override the new theme
+  localStorage.removeItem("page-bg");
+  localStorage.removeItem("page-bg-dark");
+  applyPageBackground(null);
+  if (document.getElementById("page-bg-custom")) {
+    document.getElementById("page-bg-custom").value = "#f5f7fb";
+  }
+  
   applyResolvedMode();
   if (bgArtOn()) startBgArt(); // recolour the background for the new theme
   refreshArtForTheme(); // …and the dashboard constellation, which reads the
@@ -17135,6 +18039,27 @@ const APPEARANCE_DEFAULTS = {
   // yourself. Named here so appearancePref("accent") has a defined answer
   // rather than returning undefined and relying on a lookup miss.
   accent: "indigo",
+  // Both of these arrived with their Settings controls and neither was listed
+  // here, which is not a cosmetic omission — it took the borders and shadows
+  // off the entire interface. `applyAppearance` writes them onto <html> as
+  // custom properties, so a missing default became the literal strings
+  // "undefined" and "NaN" on the root element. `border-style: undefined` is
+  // invalid, so `border-style: var(--border-style) !important` — which is
+  // `!important` and matches .card, input, textarea, select, .modal and
+  // .sidebar — computed to `none` for all of them. `--shadow-intensity: NaN`
+  // poisoned `--glass-shadow`'s rgba(), so every card's box-shadow computed to
+  // `none` as well. The app rendered completely flat and borderless on a fresh
+  // profile, and stayed that way until you happened to touch both controls.
+  "border-style": "solid", // solid | dashed | none
+  "shadow-intensity": "5", // percent; divided by 100 into --shadow-intensity
+  // Matches the pre-paint script's own `pref("theme", "system")`. Without it
+  // `applyThemeChoice(undefined)` took the else branch and stamped
+  // `data-theme="undefined"` onto <html> on every fresh profile. The app still
+  // looked right, because the palettes key off the resolved `data-mode` — but
+  // it left a live element attribute that is neither "light", "dark" nor
+  // absent, so any rule written as `:root:not([data-theme])` to mean "following
+  // the system" would quietly never match.
+  theme: "system", // light | dark | system
 };
 
 // --- curated visual themes ---------------------------------------------------------
@@ -17162,67 +18087,56 @@ const APPEARANCE_DEFAULTS = {
 // work. Picking a theme never erases a manual setting, and clearing a manual
 // setting falls back to the theme rather than to the app default.
 const THEME_PRESETS = {
-  midnight: {
-    label: "Midnight",
-    values: { theme: "dark", palette: "default", glass: "on", radius: "14" },
-  },
-  daylight: {
-    label: "Daylight",
-    values: { theme: "light", palette: "default", glass: "on", radius: "14" },
+  default: {
+    label: "Default",
+    values: { palette: "default", glass: "on", radius: "14" },
   },
   manuscript: {
     label: "Manuscript",
     values: {
-      theme: "light", palette: "parchment", font: "serif", glass: "off",
+      palette: "parchment", font: "serif", glass: "off",
       radius: "6", density: "spacious",
     },
   },
   terminal: {
     label: "Terminal",
     values: {
-      theme: "dark", palette: "carbon", font: "mono", glass: "off",
+      palette: "carbon", font: "mono", glass: "off",
       radius: "2", density: "compact",
     },
   },
   study: {
     label: "Sage Study",
-    values: { theme: "light", palette: "sage", font: "serif", glass: "on", radius: "16" },
+    values: { palette: "sage", font: "serif", glass: "on", radius: "16" },
   },
   abyss: {
     label: "Deep Ocean",
     values: {
-      theme: "dark", palette: "ocean", glass: "on", "glass-blur": "26", radius: "14",
+      palette: "ocean", glass: "on", "glass-blur": "26", radius: "14",
     },
   },
-  evening: {
-    label: "Ember Evening",
-    values: { theme: "dark", palette: "ember", glass: "on", radius: "12" },
+  ember: {
+    label: "Ember",
+    values: { palette: "ember", glass: "on", radius: "12" },
   },
   orchid: {
     label: "Orchid",
-    values: { theme: "dark", palette: "plum", glass: "on", radius: "18" },
+    values: { palette: "plum", glass: "on", radius: "18" },
   },
   blueprint: {
     label: "Blueprint",
     values: {
-      theme: "light", palette: "ocean", font: "mono", glass: "off",
+      palette: "ocean", font: "mono", glass: "off",
       radius: "4", density: "compact",
     },
   },
   graphite: {
     label: "Graphite",
-    values: { theme: "dark", palette: "carbon", glass: "off", radius: "4" },
+    values: { palette: "carbon", glass: "off", radius: "4" },
   },
-  // Asked for directly: an indigo-and-teal dark theme, and a teal light one.
-  // Two themes over one palette, which is exactly what the palette/theme split
-  // is for — same colours, different light/dark commitment.
   lagoon: {
     label: "Lagoon",
-    values: { theme: "dark", palette: "lagoon", glass: "on", radius: "14" },
-  },
-  shallows: {
-    label: "Shallows",
-    values: { theme: "light", palette: "lagoon", glass: "on", radius: "14" },
+    values: { palette: "lagoon", glass: "on", radius: "14" },
   },
 };
 
@@ -17231,7 +18145,8 @@ const THEME_PRESETS = {
 // the theme cards advertising a colour the app no longer uses.
 function themeSwatch(preset) {
   const palette = PALETTES.find((p) => p.id === preset.values.palette) || PALETTES[0];
-  const set = preset.values.theme === "dark" ? palette.dark : palette.light;
+  const isDark = document.documentElement.dataset.mode === "dark";
+  const set = isDark ? palette.dark : palette.light;
   return [set.page, set.accent];
 }
 
@@ -17379,8 +18294,20 @@ function themeValue(key) {
 
 // The three layers, in order. `??` rather than `||` so a legitimate "0"
 // (corner rounding) isn't treated as unset.
-function appearancePref(key) {
-  return localStorage.getItem(key) ?? themeValue(key) ?? APPEARANCE_DEFAULTS[key];
+function appearancePref(key, fallback) {
+  // `fallback` is the last resort, after the stored value, the active theme
+  // and APPEARANCE_DEFAULTS. It exists because five call sites were already
+  // passing one to a function that took a single parameter and dropped it on
+  // the floor — so two settings resolved to `undefined` and wrote that word
+  // into a CSS custom property. A defaulted parameter that is silently ignored
+  // is worse than no parameter at all: it reads as a guarantee.
+  //
+  // The table is still the right place for a new setting's default. This just
+  // means forgetting it degrades to the caller's intent rather than to
+  // "undefined".
+  return (
+    localStorage.getItem(key) ?? themeValue(key) ?? APPEARANCE_DEFAULTS[key] ?? fallback
+  );
 }
 
 // Applying a theme only records WHICH theme. Because every read goes through
@@ -17405,6 +18332,8 @@ function applyThemePreset(name, chosenByUser = false) {
     if (THEME_PRESETS[name].values.palette) {
       localStorage.removeItem("accent");
       localStorage.removeItem("accent-custom");
+      localStorage.removeItem("page-bg");
+      localStorage.removeItem("page-bg-dark");
       applyCustomAccent(null);
       applyPageBackground(null);
     }
@@ -17545,9 +18474,20 @@ function applyHarmony() {
     return;
   }
   localStorage.setItem("accent-custom", scheme.accent);
-  localStorage.setItem("page-bg", scheme.page);
+  // A scheme's background is worked out *for a mode* — the same accent wants a
+  // near-white page in light and a near-black one in dark. Storing only the one
+  // for whichever mode happened to be on is what made the light/dark toggle
+  // "stop working on the background": the stored value is written inline on
+  // <html>, and an inline custom property outranks every `[data-mode="dark"]`
+  // rule in the stylesheet, so the page stayed put while the rest of the UI
+  // changed around it. Both are computed and stored; `currentPageBackground`
+  // picks the right one whenever the mode changes.
+  const dark = harmonyScheme(base, kind, true);
+  const light = harmonyScheme(base, kind, false);
+  localStorage.setItem("page-bg", light ? light.page : scheme.page);
+  localStorage.setItem("page-bg-dark", dark ? dark.page : scheme.page);
   applyCustomAccent(scheme.accent);
-  applyPageBackground(scheme.page);
+  applyPageBackground(currentPageBackground());
   renderAppearance();
   note.textContent =
     `Accent ${scheme.accent}, background ${scheme.page}. ` +
@@ -17712,6 +18652,17 @@ function applyPageBackground(hex) {
   else root.style.removeProperty("--page");
 }
 
+// The custom page background for the mode that is actually showing.
+//
+// `page-bg-dark` is only set by the scheme builder, which knows both. A
+// background picked by hand from the colour input stays one colour in both
+// modes, which is what picking one colour means.
+function currentPageBackground() {
+  const dark = localStorage.getItem("page-bg-dark");
+  if (dark && resolvedTheme() === "dark") return dark;
+  return appearancePref("page-bg");
+}
+
 // User CSS lives in one stylesheet we own, so applying and clearing is clean.
 //
 // A constructed stylesheet rather than a <style> tag, because the app now
@@ -17771,6 +18722,15 @@ function applyAppearance() {
   root.style.setProperty("--radius", `${appearancePref("radius")}px`);
   root.style.setProperty("--glass-blur", `${appearancePref("glass-blur")}px`);
   root.style.setProperty("--zoom", Number(appearancePref("zoom")) / 100);
+  root.style.setProperty("--border-style", appearancePref("border-style", "solid"));
+  // Belt and braces over the two fixes above. A custom property will happily
+  // hold the string "NaN"; it is only invalid where it gets *used*, which here
+  // is inside `--glass-shadow`'s rgba() — so a bad number silently removes
+  // every shadow in the app rather than failing anywhere near this line.
+  const shadow = Number(appearancePref("shadow-intensity", "5"));
+  root.style.setProperty(
+    "--shadow-intensity", String((Number.isFinite(shadow) ? shadow : 5) / 100)
+  );
   applyResolvedMode();
   // remember=false: this runs on every startup, and recording the resolved
   // value would pin whatever the theme supplied as a manual override — after
@@ -17780,7 +18740,7 @@ function applyAppearance() {
   // whatever colour the palette just supplied.
   applyEffectiveAccent();
   // A theme may set the page colour; your own pick overrides it.
-  applyPageBackground(appearancePref("page-bg"));
+  applyPageBackground(currentPageBackground());
   applyCustomCss(localStorage.getItem("custom-css"));
 }
 
@@ -17803,6 +18763,10 @@ function resolvedTheme() {
 
 function applyResolvedMode() {
   document.documentElement.dataset.mode = resolvedTheme();
+  // Light and dark can want different custom backgrounds, and the stored one
+  // is written inline — so it has to be re-picked here rather than left to the
+  // stylesheet, which cannot outrank it.
+  applyPageBackground(currentPageBackground());
 }
 
 // Follow the OS while the choice is "System", without a reload.
@@ -17821,6 +18785,15 @@ function applyThemeChoice(choice, remember = true) {
   } else {
     document.documentElement.dataset.theme = choice;
     if (remember) localStorage.setItem("theme", choice);
+  }
+  // Clear any custom background colour when explicitly switching themes,
+  // otherwise the user thinks the theme toggle is broken because the custom
+  // colour is overriding the new theme's native background.
+  if (remember) {
+    localStorage.removeItem("page-bg");
+    localStorage.removeItem("page-bg-dark");
+    applyPageBackground(null);
+    if ($("page-bg-custom")) $("page-bg-custom").value = "#f5f7fb";
   }
   applyResolvedMode();
   if (bgArtOn()) startBgArt();
@@ -17932,6 +18905,9 @@ function renderAppearance() {
   $("glass-blur-value").textContent = `${appearancePref("glass-blur")}px`;
   $("zoom-slider").value = appearancePref("zoom");
   $("zoom-value").textContent = `${appearancePref("zoom")}%`;
+  _segActive("border-style-seg", "borderChoice", appearancePref("border-style", "solid"));
+  $("shadow-intensity").value = appearancePref("shadow-intensity", "5");
+  $("shadow-intensity-value").textContent = `${appearancePref("shadow-intensity", "5")}%`;
   $("accent-custom").value = localStorage.getItem("accent-custom") || "#4f6df5";
   $("page-bg-custom").value = localStorage.getItem("page-bg") || "#f5f7fb";
   $("custom-css").value = localStorage.getItem("custom-css") || "";
@@ -18364,10 +19340,7 @@ function startBgArt() {
   // Intensity drives how much is on screen, not just the CSS opacity.
   const intensity = Number(appearancePref("bg-intensity")) || 90;
   const densityScale = Math.max(0.25, intensity / 90);
-  const dark =
-    document.documentElement.dataset.theme === "dark" ||
-    (!document.documentElement.dataset.theme &&
-      window.matchMedia("(prefers-color-scheme: dark)").matches);
+  const dark = document.documentElement.dataset.mode === "dark";
   const build = BG_ART_BUILDERS[bgStyle] || BG_ART_BUILDERS.aurora;
 
   const sketch = (p) => {
@@ -18410,7 +19383,7 @@ function startBgArt() {
 
       if (reduceMotion) {
         // One calm static frame — no motion for reduced-motion users.
-        p.background(dark ? 12 : 250);
+        p.background(0, 0, dark ? 12 : 98);
         style.frame(0);
         p.noLoop();
       }
@@ -18422,7 +19395,7 @@ function startBgArt() {
       // Kept light so the art reads clearly on every tab (and the page
       // gradient shows through) rather than flattening to near-solid.
       p.noStroke();
-      p.fill(dark ? 12 : 250, dark ? 0.10 : 0.12);
+      p.fill(0, 0, dark ? 12 : 98, dark ? 0.10 : 0.12);
       p.rect(0, 0, p.width, p.height);
       style.frame(t);
     };
@@ -18611,6 +19584,18 @@ $("zoom-slider").addEventListener("input", (e) => {
   $("zoom-value").textContent = `${e.target.value}%`;
   applyAppearance();
 });
+for (const btn of document.querySelectorAll("#border-style-seg button")) {
+  btn.addEventListener("click", () => {
+    localStorage.setItem("border-style", btn.dataset.borderChoice);
+    applyAppearance();
+    renderAppearance();
+  });
+}
+$("shadow-intensity").addEventListener("input", (e) => {
+  localStorage.setItem("shadow-intensity", e.target.value);
+  $("shadow-intensity-value").textContent = `${e.target.value}%`;
+  applyAppearance();
+});
 // Custom accent + page background.
 $("accent-custom").addEventListener("input", (e) => {
   localStorage.setItem("accent-custom", e.target.value);
@@ -18632,6 +19617,7 @@ $("page-bg-custom").addEventListener("input", (e) => {
 });
 $("page-bg-clear").addEventListener("click", () => {
   localStorage.removeItem("page-bg");
+  localStorage.removeItem("page-bg-dark");
   applyPageBackground(null);
   renderAppearance();
 });
@@ -18802,7 +19788,7 @@ async function quitApp() {
     // succeeding, not failing, so it is not worth an error toast.
   }
   document.body.innerHTML =
-    '<div style="padding:3rem;text-align:center;font-family:system-ui">' +
+    '<div class="farewell">' +
     "<h1>MemoryMap has stopped.</h1>" +
     "<p>Your notes are saved. You can close this tab.</p></div>";
 }
@@ -18845,6 +19831,108 @@ $("settings-modal").addEventListener("click", (event) => {
 // is the shape of "this control does nothing" that keeps getting reported.
 $("pref-web-search").addEventListener("change", saveWebSearchSettings);
 $("pref-searxng").addEventListener("change", saveWebSearchSettings);
+
+function toggleAutonomousPanel() {
+  const panel = $("autonomous-settings-panel");
+  if (panel) panel.classList.toggle("hidden", !$("pref-autonomous-tasks").checked);
+}
+$("pref-autonomous-tasks").addEventListener("change", () => {
+  toggleAutonomousPanel();
+  savePrefs();
+});
+$("pref-auto-tag").addEventListener("change", savePrefs);
+$("pref-auto-link").addEventListener("change", savePrefs);
+$("pref-auto-dedupe").addEventListener("change", savePrefs);
+$("pref-battery-mode").addEventListener("change", savePrefs);
+$("pref-autonomous-interval").addEventListener("change", savePrefs);
+$("pref-autonomous-model").addEventListener("change", savePrefs);
+$("pref-smart-model-routing").addEventListener("change", savePrefs);
+
+$("semantic-search-toggle")?.addEventListener("change", () => {
+  if (noteSearch) loadAllNotes();
+});
+// The review panel for the background librarian (ROADMAP §40 item 2).
+//
+// A true dry-run is not available here — the agent picks each call from the
+// result of the last one, so a pass with the writes stubbed out stops
+// resembling the pass that would really run, and a preview that lies is worse
+// than no preview. What is available is honest and nearly as useful: every
+// write already captured the call that reverses it, so the pass can be read
+// back and undone one item at a time. `changeRow` is the same renderer the
+// chat uses for a skill's result, so Undo here goes through exactly the path
+// the chat's own Undo buttons do.
+async function renderAutonomousReview() {
+  const box = $("autonomous-review");
+  const list = $("autonomous-review-list");
+  if (!box || !list) return;
+
+  const pass = await apiJson("/tasks/autonomous/last").catch(() => null);
+  const changes = pass?.changes || [];
+  box.classList.toggle("hidden", changes.length === 0);
+  if (!changes.length) return;
+
+  const when = pass.finished_at ? new Date(pass.finished_at).toLocaleString() : "";
+  $("autonomous-review-title").textContent =
+    `What the last run changed — ${changes.length} thing(s)` + (when ? `, ${when}` : "");
+  list.replaceChildren(...changes.map((change) => changeRow(change)));
+}
+
+async function addMemoryByHand() {
+  const input = $("memory-new");
+  const status = $("memory-status");
+  const text = (input?.value || "").trim();
+  status.classList.add("hidden");
+  status.classList.remove("error");
+  if (!text) return;
+  try {
+    await apiJson("/memory", { method: "POST", body: JSON.stringify({ content: text }) });
+    input.value = "";
+    renderMemorySettings();
+  } catch (error) {
+    status.textContent = error.message || "Couldn't save that.";
+    status.classList.remove("hidden");
+    status.classList.add("error");
+  }
+}
+
+// "+ New Skill" on the Library's AI Skills page. Reported as doing nothing,
+// and it did nothing: the button was in the markup and no handler was ever
+// attached to it. The skill editor lives in Settings → Skills, so this opens
+// that with a blank form rather than growing a second editor that would then
+// have to be kept in step with the first.
+$("skills-add-new")?.addEventListener("click", async () => {
+  await openSettingsModal("skills");
+  stopEditingSkill();           // clears the form and resets the button label
+  $("skill-name")?.focus();
+});
+
+$("memory-add")?.addEventListener("click", addMemoryByHand);
+$("memory-new")?.addEventListener("keydown", (e) => {
+  // Enter saves. Typing a one-line rule and having to reach for the mouse is
+  // the kind of small friction that stops people using a feature at all.
+  if (e.key === "Enter") { e.preventDefault(); addMemoryByHand(); }
+});
+
+$("autonomous-review-clear")?.addEventListener("click", async () => {
+  await api("/tasks/autonomous/last/clear", { method: "POST" }).catch(() => {});
+  renderAutonomousReview();
+});
+
+$("autonomous-trigger").addEventListener("click", () => {
+  api("/tasks/trigger-autonomous", { method: "POST" })
+    .then(async (response) => {
+      const body = await response.json().catch(() => ({}));
+      toast(
+        body.started === false
+          ? "A pass is already running — the results will appear below."
+          : "Optimization started. Its changes will be listed below when it finishes."
+      );
+      // The pass runs on a worker thread, so there is nothing to await. Look
+      // again shortly rather than leaving the panel showing the previous run.
+      setTimeout(renderAutonomousReview, 4000);
+    })
+    .catch((err) => toast(err.message, true));
+});
 // Filters only re-draw what is already held — they never refetch, so changing
 // one mid-incident cannot lose the records you were looking at.
 $("log-source").addEventListener("change", renderLogList);
@@ -18868,27 +19956,19 @@ $("log-list").addEventListener("scroll", () => {
   $("log-follow-label").classList.toggle("is-paused", !logFollowPinned);
 });
 
-// The three sidebar buttons open the Library on their kind now (§36G). Each
-// was a panel that only existed on the Notes tab, and each is a *finding*
-// surface — the bin, the activity log and the tag list are all "show me the
-// things of this sort", which is the Library's whole job. Keeping the panels
-// as well would leave two places for each of them, which is the problem the
-// Library was built to end.
-function openLibraryOn(kind) {
-  switchTab("library");
-  libraryKind = kind;
-  if (kind === "archived" && $("library-show-binned")) {
-    $("library-show-binned").checked = true;
-  }
-  // loadLibrary re-renders from the server; these paint the chosen chip
-  // immediately so the tab does not flash "Everything" on the way there.
-  renderLibraryOverview();
-  renderLibraryFilters();
-  renderLibrary();
-}
-$("bin-btn").addEventListener("click", () => openLibraryOn("archived"));
-$("activity-btn").addEventListener("click", () => openLibraryOn("activity"));
-$("tags-btn").addEventListener("click", () => openLibraryOn("tag"));
+// There is no Tags / Recycle bin / Activity shortcut in the notes sidebar, and
+// `openLibraryOn` went with them. The buttons were dropped once with their
+// handlers left behind (which is how `test_frontend_ids` found three ids that
+// nothing defined), briefly restored during the §40 audit on the assumption
+// the removal had been accidental, and then removed again — deliberately this
+// time, because the owner asked for it.
+//
+// The reasoning is the Library's own (§36G): the bin, the activity log and the
+// tag list are all "show me the things of this sort", which is what the
+// Library is, and it reaches each of them through its own filter chips. A
+// second door in a sidebar that is meant to be a category list is exactly the
+// "too much in one place, clashing with the text beside it" this app has been
+// asked to stop doing.
 $("entry-template").addEventListener("change", applyTemplate);
 
 // Chat tab (Wave C).
@@ -19036,6 +20116,29 @@ $("persona-peek").addEventListener("click", togglePersonaPrompt);
 // the files and the bin, and with sort beside it. This is the way there, said
 // out loud, because a list that silently stops at eight is a list that has
 // lost your chats.
+
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 $("conv-browse-all").addEventListener("click", () => {
   switchTab("library");
   libraryKind = "chat";
@@ -19101,8 +20204,21 @@ $("status-command").addEventListener("click", () => openPalette());
 // The Library (§4, §36F). Filter and sort are first-class here rather than an
 // afterthought, so they are wired like controls: every change re-renders from
 // the list already in memory, with no round trip.
-$("library-search").addEventListener("input", renderLibrary);
+let librarySearchDebounceTimeout;
+$("library-search").addEventListener("input", () => {
+  clearTimeout(librarySearchDebounceTimeout);
+  librarySearchDebounceTimeout = setTimeout(renderLibrary, 150);
+});
 $("library-sort").addEventListener("change", renderLibrary);
+for (const button of document.querySelectorAll("#library-sort-seg button")) {
+  button.addEventListener("click", () => {
+    document.querySelectorAll("#library-sort-seg button").forEach(b => b.classList.remove("active"));
+    button.classList.add("active");
+    const select = $("library-sort");
+    if (select) select.value = button.dataset.sort;
+    renderLibrary();
+  });
+}
 $("library-show-binned").addEventListener("change", renderLibrary);
 for (const button of document.querySelectorAll("#library-view button")) {
   button.addEventListener("click", () => {
@@ -19223,9 +20339,12 @@ $("graph-options-toggle").addEventListener("click", () => {
 $("graph-trace-toggle").addEventListener("click", () =>
   setTracePanelOpen($("graph-trace").classList.contains("hidden"))
 );
-// Trace (§9). The pickers themselves do not fire a trace on change: picking
-// the first of two notes should not run a search that can only fail.
-$("graph-trace-run").addEventListener("click", runTrace);
+$("graph-focus-clear").addEventListener("click", () => {
+  graphFocusModeId = null;
+  $("graph-focus-clear").classList.add("hidden");
+  renderGraph();
+  toast("Exited Focus Mode.");
+});
 $("graph-trace-clear").addEventListener("click", () => clearTrace());
 // What the colours mean, remembered like the layout is — it is a property of
 // how you read your notebook, not of one visit.
@@ -19238,7 +20357,11 @@ $("graph-hide-orphans").addEventListener("change", renderGraph);
 $("graph-labels").addEventListener("change", (e) => {
   $("graph-box").classList.toggle("graph-labels-hidden", !e.target.checked);
 });
-$("graph-search").addEventListener("input", applyGraphHighlight);
+let graphSearchDebounceTimeout;
+$("graph-search").addEventListener("input", () => {
+  clearTimeout(graphSearchDebounceTimeout);
+  graphSearchDebounceTimeout = setTimeout(applyGraphHighlight, 150);
+});
 
 // Physics sliders: persist, then rebuild the simulation with the new forces.
 for (const key of ["gravity", "spread"]) {
@@ -19285,6 +20408,37 @@ $("graph-zoom-fit").addEventListener("click", () => {
     fitGraphToView(graphSvg, graphCanvas, graphZoom, graphNodesRef, graphDims.w, graphDims.h);
   }
 });
+
+function toggleGraphFullscreen() {
+  const card = $("graph-card");
+  if (card) {
+    const isFull = card.classList.toggle("graph-fullscreen");
+    // Trigger a resize event to ensure D3 SVG rescales properly
+    window.dispatchEvent(new Event('resize'));
+    if (graphNodesRef && graphNodesRef.length) {
+      setTimeout(() => {
+        const box = $("graph-box");
+        graphDims.w = box.clientWidth || 800;
+        graphDims.h = box.clientHeight || 540;
+        if (graphSvg) {
+          graphSvg.attr("viewBox", [0, 0, graphDims.w, graphDims.h]);
+        }
+        if (graphSimulation) {
+          graphSimulation.force("center", d3.forceCenter(graphDims.w / 2, graphDims.h / 2));
+          graphSimulation.force("x", d3.forceX(graphDims.w / 2).strength(0.04));
+          graphSimulation.force("y", d3.forceY(graphDims.h / 2).strength(0.06));
+          graphSimulation.alpha(0.3).restart();
+        }
+        if (isFull) {
+          fitGraphToView(graphSvg, graphCanvas, graphZoom, graphNodesRef, graphDims.w, graphDims.h);
+        }
+      }, 50);
+    }
+  }
+}
+
+$("graph-fullscreen")?.addEventListener("click", toggleGraphFullscreen);
+$("graph-fullscreen-close")?.addEventListener("click", toggleGraphFullscreen);
 
 // Wave M: batch operations + skill/persona sharing.
 $("select-btn").addEventListener("click", () =>
@@ -20604,6 +21758,7 @@ document.addEventListener("keydown", (e) => {
 // Wave J: note search + sort, capture char count.
 $("note-search").addEventListener("input", (e) => {
   noteSearch = e.target.value.trim();
+  if ($("semantic-search-toggle")?.checked) loadEntries(); // trigger semantic backend search
   // Nothing to save when the box is empty; the button appears when it isn't.
   $("save-search").classList.toggle("hidden", !noteSearch);
   renderEntries();
@@ -20665,18 +21820,21 @@ $("sketch-image-input").addEventListener("change", () => {
   $("sketch-image-input").value = ""; // lets the same file be picked again
   sketchUploadImage(file);
 });
-$("sketch-eraser").addEventListener("click", () => {
-  sketchPen.eraser = !sketchPen.eraser;
-  $("sketch-eraser").classList.toggle("active", sketchPen.eraser);
-});
 $("sketch-size").addEventListener("input", () => {
   sketchPen.size = Number($("sketch-size").value);
 });
 for (const button of document.querySelectorAll(".sketch-color")) {
   button.addEventListener("click", () => {
     sketchPen.color = button.dataset.color;
+    // Picking a colour means you want to draw, not erase. The eraser button
+    // was renamed `sketch-tool-eraser` when the toolbar became icons, and this
+    // one call kept the old `sketch-eraser` id — so the optional-chain
+    // swallowed it and the eraser stayed lit while the pen drew, which reads
+    // as the colour swatches not working.
     sketchPen.eraser = false;
-    $("sketch-eraser").classList.remove("active");
+    sketchTool = "pen";
+    $("sketch-tool-eraser")?.classList.remove("active");
+    $("sketch-tool-pen")?.classList.add("active");
     document
       .querySelectorAll(".sketch-color")
       .forEach((b) => b.classList.toggle("active", b === button));
@@ -20687,6 +21845,53 @@ sketchCanvas.addEventListener("pointerdown", sketchStart);
 sketchCanvas.addEventListener("pointermove", sketchMove);
 sketchCanvas.addEventListener("pointerup", sketchEnd);
 sketchCanvas.addEventListener("pointerleave", sketchEnd);
+
+$("sketch-undo").addEventListener("click", () => {
+  if (sketchHistory.length === 0) return;
+  const canvas = $("sketch-canvas");
+  const ctx = canvas.getContext("2d");
+  sketchRedoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+  const last = sketchHistory.pop();
+  ctx.putImageData(last, 0, 0);
+  sketchDirty = true;
+});
+$("sketch-redo").addEventListener("click", () => {
+  if (sketchRedoStack.length === 0) return;
+  const canvas = $("sketch-canvas");
+  const ctx = canvas.getContext("2d");
+  sketchHistory.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+  const next = sketchRedoStack.pop();
+  ctx.putImageData(next, 0, 0);
+  sketchDirty = true;
+});
+
+const sketchToolsList = ["pen", "highlighter", "eraser", "line", "rect", "circ", "arrow", "text"];
+for (const tool of sketchToolsList) {
+  const btn = $(`sketch-tool-${tool}`);
+  if (btn) {
+    btn.addEventListener("click", () => {
+      sketchTool = tool === "eraser" ? "pen" : tool;
+      sketchPen.eraser = (tool === "eraser");
+      for (const t of sketchToolsList) {
+        const tBtn = $(`sketch-tool-${t}`);
+        if (tBtn) tBtn.classList.toggle("active", t === tool);
+      }
+    });
+  }
+}
+
+document.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && !$("sketch-overlay").classList.contains("hidden")) {
+    if (e.key === "z") {
+      if (e.shiftKey) $("sketch-redo").click();
+      else $("sketch-undo").click();
+      e.preventDefault();
+    } else if (e.key === "y") {
+      $("sketch-redo").click();
+      e.preventDefault();
+    }
+  }
+});
 
 // Wave H: dictation + read-aloud.
 $("mic-note").addEventListener("click", () =>
@@ -20729,3 +21934,1037 @@ if ("serviceWorker" in navigator) {
 renderBrandLogo();
 
 initAuth();
+
+// ======================= WHITEBOARD LOGIC =======================
+let wbZoom = d3.zoom().scaleExtent([0.1, 4]).on("zoom", handleWbZoom);
+let wbState = { nodes: [], sketches: [] };
+let wbInitialized = false;
+
+function handleWbZoom(e) {
+  d3.select("#wb-html-layer").style("transform", `translate(${e.transform.x}px, ${e.transform.y}px) scale(${e.transform.k})`);
+  d3.select("#wb-zoom-group").attr("transform", e.transform);
+}
+
+async function initWhiteboard() {
+  if (wbInitialized) return;
+  wbInitialized = true;
+  
+  const container = d3.select("#whiteboard-container");
+  container.call(wbZoom).on("dblclick.zoom", null);
+  
+  // Toolbar hooks
+  document.getElementById("wb-zoom-in").addEventListener("click", () => container.transition().call(wbZoom.scaleBy, 1.2));
+  document.getElementById("wb-zoom-out").addEventListener("click", () => container.transition().call(wbZoom.scaleBy, 0.8));
+  document.getElementById("wb-zoom-fit").addEventListener("click", () => container.transition().call(wbZoom.transform, d3.zoomIdentity));
+  
+  // Sidebar toggling
+  const setWbLibraryOpen = (open) => {
+    const sidebar = $("whiteboard-sidebar");
+    sidebar.classList.toggle("hidden", !open);
+    $("wb-add-note")?.classList.toggle("is-on", open);
+    if (open) renderWbLibrary();
+  };
+  $("wb-add-note").addEventListener("click", () => {
+    // Toggling on the class rather than reading it back: the panel covers the
+    // toggle, so "click it again to close" was not reachable.
+    setWbLibraryOpen($("whiteboard-sidebar").classList.contains("hidden"));
+  });
+  $("wb-library-close")?.addEventListener("click", () => setWbLibraryOpen(false));
+
+  const btnAddSketch = document.getElementById("wb-add-sketch");
+  if (btnAddSketch) {
+    btnAddSketch.addEventListener("click", () => {
+      openSketch();
+    });
+  }
+
+  const boardSelect = document.getElementById("wb-board-select");
+  if (boardSelect) {
+    boardSelect.addEventListener("change", async (e) => {
+      window.currentBoardId = e.target.value || null;
+      await fetchWhiteboardState();
+      renderWhiteboard();
+    });
+  }
+
+  // Tool Selection
+  window.currentTool = "pan";
+  let isDrawing = false;
+  let currentDrawPath = null;
+  let currentDrawData = []; // array of [x, y]
+  window.currentStrokeColor = "#ffffff";
+  
+  const toolGroup = document.getElementById("wb-tool-group");
+  const colorPicker = document.getElementById("wb-color-picker");
+  
+  if (toolGroup) {
+    toolGroup.addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-tool]");
+      if (!btn) return;
+      
+      // Update active state
+      toolGroup.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      
+      window.currentTool = btn.dataset.tool;
+      if (window.currentTool !== "pan") {
+        container.on(".zoom", null); // disable zoom
+      } else {
+        container.call(wbZoom).on("dblclick.zoom", null);
+      }
+    });
+  }
+  
+  if (colorPicker) {
+    colorPicker.addEventListener("change", (e) => {
+      window.currentStrokeColor = e.target.value;
+    });
+  }
+
+  // Drawing event handlers on the SVG itself or container
+  const svgCanvas = document.getElementById("wb-svg-layer");
+  
+  function getLogicalMouse(e) {
+    const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
+    const rect = svgCanvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left - transform.x) / transform.k;
+    const y = (e.clientY - rect.top - transform.y) / transform.k;
+    return [x, y];
+  }
+  
+  svgCanvas.addEventListener("mousedown", (e) => {
+    if (!["draw", "line", "rect", "circle"].includes(window.currentTool)) return;
+    e.stopPropagation();
+    isDrawing = true;
+    const [x, y] = getLogicalMouse(e);
+    
+    currentDrawData = [[x, y]];
+    currentDrawPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    currentDrawPath.setAttribute("fill", "none");
+    currentDrawPath.setAttribute("stroke", window.currentStrokeColor);
+    currentDrawPath.setAttribute("stroke-width", "3");
+    currentDrawPath.setAttribute("stroke-linecap", "round");
+    currentDrawPath.setAttribute("stroke-linejoin", "round");
+    currentDrawPath.setAttribute("d", `M ${x} ${y}`);
+    document.getElementById("wb-zoom-group").appendChild(currentDrawPath);
+  });
+  
+  svgCanvas.addEventListener("mousemove", (e) => {
+    if (!isDrawing || !["draw", "line", "rect", "circle"].includes(window.currentTool)) return;
+    e.stopPropagation();
+    const [x, y] = getLogicalMouse(e);
+    
+    if (window.currentTool === "draw") {
+      currentDrawData.push([x, y]);
+      const d = currentDrawData.map((pt, i) => (i === 0 ? `M ${pt[0]} ${pt[1]}` : `L ${pt[0]} ${pt[1]}`)).join(" ");
+      currentDrawPath.setAttribute("d", d);
+    } else {
+      // Shape tools: only start and current point matter
+      const [sx, sy] = currentDrawData[0];
+      if (window.currentTool === "line") {
+        currentDrawPath.setAttribute("d", `M ${sx} ${sy} L ${x} ${y}`);
+      } else if (window.currentTool === "rect") {
+        const mx = Math.min(sx, x), my = Math.min(sy, y);
+        const w = Math.abs(x - sx), h = Math.abs(y - sy);
+        currentDrawPath.setAttribute("d", `M ${mx} ${my} h ${w} v ${h} h ${-w} Z`);
+      } else if (window.currentTool === "circle") {
+        const rx = Math.abs(x - sx), ry = Math.abs(y - sy);
+        currentDrawPath.setAttribute("d", `M ${sx - rx} ${sy} a ${rx} ${ry} 0 1 0 ${rx * 2} 0 a ${rx} ${ry} 0 1 0 ${-rx * 2} 0`);
+      }
+    }
+  });
+  
+  svgCanvas.addEventListener("mouseup", async (e) => {
+    if (!isDrawing || !["draw", "line", "rect", "circle"].includes(window.currentTool)) return;
+    e.stopPropagation();
+    isDrawing = false;
+    
+    const [x, y] = getLogicalMouse(e);
+    const [sx, sy] = currentDrawData[0];
+    
+    // Check if user actually dragged
+    if (window.currentTool === "draw" && currentDrawData.length < 2) {
+      if (currentDrawPath) currentDrawPath.remove();
+      currentDrawPath = null;
+      return;
+    } else if (window.currentTool !== "draw" && Math.abs(x - sx) < 2 && Math.abs(y - sy) < 2) {
+      if (currentDrawPath) currentDrawPath.remove();
+      currentDrawPath = null;
+      return;
+    }
+    
+    // Save sketch to API
+    const d = currentDrawPath.getAttribute("d");
+    const sketchData = {
+      data: d, // store the SVG path data
+      x: 0,
+      y: 0,
+      z: 5,
+      board_id: window.currentBoardId
+    };
+    
+    // We want to persist the color as well, but wait, the backend schema doesn't have a color field!
+    // We can embed color into data or just ignore for now since it's an MVP. Let's just embed it in data like so:
+    // data: `<path d="..." stroke="#..."/>` or since we only render `path d`, we can just wait... 
+    // `renderWhiteboard` assigns `d => d.data`. If `d.data` is just the `d` string, all paths get `--text-color`.
+    // Let's modify data to be a JSON string holding `{ d, color }` instead!
+    sketchData.data = JSON.stringify({ d, color: currentStrokeColor });
+    
+    try {
+      const res = await apiJson("/whiteboard/sketches", { method: "POST", body: JSON.stringify(sketchData) });
+      currentDrawPath.setAttribute("data-id", res.id); 
+    } catch (err) {
+      console.error("Failed to save sketch:", err);
+    }
+    
+    currentDrawPath = null;
+    currentDrawData = [];
+  });
+
+  // Drop handler for Library
+  document.getElementById("whiteboard-container").addEventListener("dragover", (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  });
+  
+  document.getElementById("whiteboard-container").addEventListener("drop", async (e) => {
+    e.preventDefault();
+    const entryId = e.dataTransfer.getData("text/plain");
+    if (!entryId) return;
+    
+    // We need to figure out coordinates relative to the transformed html layer
+    const canvasEl = document.getElementById("wb-html-layer");
+    const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
+    const rect = canvasEl.getBoundingClientRect();
+    
+    // Calculate logical x,y
+    const logicalX = (e.clientX - rect.left - transform.x) / transform.k;
+    const logicalY = (e.clientY - rect.top - transform.y) / transform.k;
+    
+    const nodeData = {
+      entry_id: parseInt(entryId, 10),
+      x: logicalX,
+      y: logicalY,
+      z: 10,
+      board_id: window.currentBoardId
+    };
+    
+    try {
+      const res = await apiJson("/whiteboard/nodes", { method: "POST", body: JSON.stringify(nodeData) });
+      // If it exists in state already, replace it. Otherwise push.
+      const idx = wbState.nodes.findIndex(n => n.id === res.id);
+      if (idx !== -1) wbState.nodes[idx] = res;
+      else wbState.nodes.push(res);
+      renderWhiteboard();
+    } catch (err) {
+      console.error("Error creating node:", err);
+    }
+  });
+
+
+  
+  await fetchWhiteboardState();
+  renderWhiteboard();
+}
+
+function renderWbLibrary() {
+  const list = document.getElementById("wb-library-list");
+  list.innerHTML = "";
+  for (const entry of allEntries) {
+    const li = document.createElement("li");
+    li.className = "wb-library-item";
+    const text = entry.content || entry.preview || "";
+    li.textContent = text ? (text.length > 40 ? text.substring(0, 40) + "..." : text) : entry.id;
+    li.draggable = true;
+    li.addEventListener("dragstart", (e) => {
+      e.dataTransfer.setData("text/plain", entry.id);
+      e.dataTransfer.effectAllowed = "copy";
+    });
+    list.appendChild(li);
+  }
+}
+
+window.currentBoardId = null;
+
+async function fetchWhiteboardState() {
+  try {
+    const url = window.currentBoardId ? `/whiteboard/?board_id=${window.currentBoardId}` : "/whiteboard/";
+    const res = await apiJson(url);
+    wbState = res;
+    
+    // Also update board dropdown
+    const select = document.getElementById("wb-board-select");
+    if (select) {
+      // populate if not populated
+      if (select.options.length <= 1 && allEntries.length > 0) {
+        allEntries.forEach(e => {
+          const opt = document.createElement("option");
+          opt.value = e.id;
+          // `title`/`preview` are not fields on an entry — the only text an
+          // entry carries is `content` — so this always fell through to
+          // "Note 25", and a list of id numbers is not a list of boards.
+          const words = notePreviewText ? notePreviewText(e.content || "") : (e.content || "");
+          const label = words.trim().slice(0, 38) || `Note ${e.id}`;
+          opt.textContent = words.length > 38 ? `${label}…` : label;
+          select.appendChild(opt);
+        });
+      }
+      select.value = window.currentBoardId || "";
+    }
+  } catch (err) {
+    console.error("Whiteboard fetch error:", err);
+  }
+}
+
+function renderWhiteboard() {
+  // Render Sketches (SVG)
+  const svgGroup = d3.select("#wb-zoom-group");
+  const sketchSelection = svgGroup.selectAll("g.sketch-group")
+    .data(wbState.sketches || [], d => d.id);
+    
+  const sketchEnter = sketchSelection.enter()
+    .append("g")
+    .attr("class", "sketch-group")
+    .attr("data-id", d => d.id)
+    .style("cursor", () => window.currentTool === "delete" ? "pointer" : "default")
+    .on("click", async (event, d) => {
+      if (window.currentTool === "delete") {
+        try {
+          await apiJson(`/whiteboard/sketches/${d.id}`, { method: "DELETE" });
+          wbState.sketches = wbState.sketches.filter(s => s.id !== d.id);
+          renderWhiteboard();
+        } catch(e) { console.error(e); }
+      }
+    });
+
+  sketchEnter.append("path")
+    .attr("class", "sketch-hitbox")
+    .attr("fill", "none")
+    .attr("stroke", "transparent")
+    .attr("stroke-width", "20")
+    .attr("pointer-events", "stroke");
+
+  sketchEnter.append("path")
+    .attr("class", "sketch-path")
+    .attr("fill", "none")
+    .attr("stroke-width", "3")
+    .attr("stroke-linecap", "round")
+    .attr("stroke-linejoin", "round")
+    .attr("pointer-events", "none");
+
+  const sketchUpdate = sketchEnter.merge(sketchSelection);
+
+  sketchUpdate.each(function(d) {
+    let pathData = d.data;
+    let stroke = "var(--text-color)";
+    try {
+      const parsed = JSON.parse(d.data);
+      if (parsed.d) {
+        pathData = parsed.d;
+        stroke = parsed.color || stroke;
+      } else if (parsed.type && parsed.type.startsWith("link-")) {
+        stroke = parsed.color || stroke;
+        const source = wbState.nodes.find(n => n.id === parsed.sourceId);
+        const target = wbState.nodes.find(n => n.id === parsed.targetId);
+        if (source && target) {
+           const sx = source.x + 125, sy = source.y + 75;
+           const tx = target.x + 125, ty = target.y + 75;
+           if (parsed.type === "link-straight") {
+              pathData = `M ${sx} ${sy} L ${tx} ${ty}`;
+           } else {
+              const dx = tx - sx;
+              pathData = `M ${sx} ${sy} C ${sx + dx/2} ${sy}, ${tx - dx/2} ${ty}, ${tx} ${ty}`;
+           }
+        } else {
+           pathData = "";
+        }
+      }
+    } catch(e) {}
+    d3.select(this).select(".sketch-hitbox").attr("d", pathData);
+    d3.select(this).select(".sketch-path").attr("d", pathData).attr("stroke", stroke);
+  });
+    
+  sketchSelection.exit().remove();
+
+  // Render Nodes (Cards)
+  const canvas = d3.select("#wb-html-layer");
+  const nodeSelection = canvas.selectAll(".wb-card.node-card")
+    .data(wbState.nodes, d => d.id);
+    
+  const nodeEnter = nodeSelection.enter()
+    .append("div")
+    .attr("class", "wb-card node-card")
+    .style("transform", d => `translate(${d.x}px, ${d.y}px)`)
+    .style("z-index", d => d.z)
+    .call(d3.drag()
+      .on("start", dragStart)
+      .on("drag", dragging)
+      .on("end", dragEndNode))
+    .on("click", async (event, d) => {
+      if (window.currentTool === "delete") {
+        try {
+          await apiJson(`/whiteboard/nodes/${d.id}`, { method: "DELETE" });
+          wbState.nodes = wbState.nodes.filter(n => n.id !== d.id);
+          // also delete links connected to it? For MVP just delete the node.
+          renderWhiteboard();
+        } catch(e) { console.error(e); }
+      }
+    });
+      
+  nodeEnter.append("div")
+    .attr("class", "wb-card-content")
+    .html(d => {
+      const entry = allEntries.find(e => String(e.id) === String(d.entry_id));
+      const text = entry ? (entry.content || entry.preview || "") : "";
+      return entry ? (text ? escapeHtml(text.length > 100 ? text.substring(0, 100) + "..." : text) : "Empty note") : "Loading...";
+    });
+    
+  nodeSelection.merge(nodeEnter)
+    .style("transform", d => `translate(${d.x}px, ${d.y}px)`)
+    .style("z-index", d => d.z);
+    
+  nodeSelection.exit().remove();
+}
+
+function dragStart(event, d) {
+  if (window.currentTool && window.currentTool.startsWith("link-")) {
+    d.linkStartPos = { x: d.x + 125, y: d.y + 50 }; // approx center
+    d.linkingPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    d.linkingPath.setAttribute("fill", "none");
+    d.linkingPath.setAttribute("stroke", window.currentStrokeColor || "#ffffff");
+    d.linkingPath.setAttribute("stroke-width", "3");
+    document.getElementById("wb-zoom-group").appendChild(d.linkingPath);
+  } else {
+    d3.select(this).raise();
+  }
+}
+
+function dragging(event, d) {
+  if (window.currentTool && window.currentTool.startsWith("link-")) {
+    const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
+    const rect = document.getElementById("wb-svg-layer").getBoundingClientRect();
+    const mx = (event.sourceEvent.clientX - rect.left - transform.x) / transform.k;
+    const my = (event.sourceEvent.clientY - rect.top - transform.y) / transform.k;
+    
+    const sx = d.linkStartPos.x, sy = d.linkStartPos.y;
+    if (window.currentTool === "link-straight") {
+      d.linkingPath.setAttribute("d", `M ${sx} ${sy} L ${mx} ${my}`);
+    } else {
+      const dx = mx - sx;
+      d.linkingPath.setAttribute("d", `M ${sx} ${sy} C ${sx + dx/2} ${sy}, ${mx - dx/2} ${my}, ${mx} ${my}`);
+    }
+  } else {
+    d.x += event.dx;
+    d.y += event.dy;
+    d3.select(this).style("transform", `translate(${d.x}px, ${d.y}px)`);
+    // re-render links so they move with the node
+    renderWhiteboard();
+  }
+}
+
+async function dragEndNode(event, d) {
+  if (window.currentTool && window.currentTool.startsWith("link-")) {
+    if (d.linkingPath) d.linkingPath.remove();
+    d.linkingPath = null;
+    
+    const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
+    const rect = document.getElementById("wb-svg-layer").getBoundingClientRect();
+    const mx = (event.sourceEvent.clientX - rect.left - transform.x) / transform.k;
+    const my = (event.sourceEvent.clientY - rect.top - transform.y) / transform.k;
+    
+    let targetNode = null;
+    for (const node of wbState.nodes) {
+       if (node.id === d.id) continue;
+       if (mx >= node.x && mx <= node.x + 250 && my >= node.y && my <= node.y + 150) {
+           targetNode = node; break;
+       }
+    }
+    
+    if (targetNode) {
+       const sketchData = {
+         data: JSON.stringify({
+            type: window.currentTool,
+            sourceId: d.id,
+            targetId: targetNode.id,
+            color: window.currentStrokeColor || "#ffffff"
+         }),
+         x: 0, y: 0, z: 1,
+         board_id: window.currentBoardId
+       };
+       try {
+         const res = await apiJson("/whiteboard/sketches", { method: "POST", body: JSON.stringify(sketchData) });
+         wbState.sketches.push(res);
+         renderWhiteboard();
+       } catch (err) {
+         console.error(err);
+       }
+    }
+  } else {
+    // Sync back to API.
+    //
+    // `board_id` has to go with it. The server takes the whole node on a PUT,
+    // so omitting it read as "move this to the global board" — dragging a card
+    // on a named board silently moved it off that board.
+    //
+    // And a 404 here is recoverable rather than fatal: it means this client's
+    // copy of the board is stale (the note was purged, or the board was
+    // rebuilt). Refetching puts the screen back in step; leaving it, as this
+    // did, shows a card sitting where you dropped it that is not saved
+    // anywhere — the worst of both answers.
+    try {
+      await apiJson(`/whiteboard/nodes/${d.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          entry_id: d.entry_id,
+          board_id: d.board_id ?? window.currentBoardId ?? null,
+          x: d.x, y: d.y, z: d.z,
+        }),
+      });
+    } catch (err) {
+      recordBrowserLog("WARN", [`[Whiteboard] card ${d.id} is stale — reloading the board`]);
+      await fetchWhiteboardState();
+      renderWhiteboard();
+    }
+  }
+}
+
+// Hook into the library subtabs to switch views and initialize whiteboard
+document.addEventListener("DOMContentLoaded", () => {
+  const librarySubtabs = document.getElementById("library-subtabs");
+  if (librarySubtabs) {
+    const buttons = librarySubtabs.querySelectorAll("button");
+    const sections = ["library-view-documents", "library-view-skills", "library-view-whiteboard"];
+    
+    buttons.forEach(btn => {
+      btn.addEventListener("click", () => {
+        buttons.forEach(b => {
+          b.classList.remove("active");
+          b.setAttribute("aria-selected", "false");
+        });
+        btn.classList.add("active");
+        btn.setAttribute("aria-selected", "true");
+        
+        const targetId = btn.getAttribute("data-target");
+        sections.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) {
+            if (id === targetId) {
+              el.classList.remove("hidden");
+            } else {
+              el.classList.add("hidden");
+            }
+          }
+        });
+        
+        if (targetId === "library-view-whiteboard") {
+          setTimeout(initWhiteboard, 50);
+        }
+      });
+    });
+  }
+});
+
+// ======================= FLOATING FORMAT MENU =======================
+function initFloatingFormatMenu() {
+  const menu = document.getElementById("floating-format-menu");
+  if (!menu) return;
+
+  const validTargets = ["doc-content", "entry-content", "chat-input", "draft-text"];
+  let activeTextarea = null;
+
+  document.addEventListener("selectionchange", () => {
+    const active = document.activeElement;
+    if (active && active.tagName === "TEXTAREA" && validTargets.includes(active.id)) {
+      if (active.selectionStart !== active.selectionEnd) {
+        // Text is selected
+        activeTextarea = active;
+        // Approximation for popup: center top of textarea or near mouse
+        // We'll use getBoundingClientRect of textarea as a fallback
+        const rect = active.getBoundingClientRect();
+        // Just put it above the textarea for simplicity, or ideally above the selection.
+        // Doing exact caret coords in textarea requires a library, so we center it on the textarea horizontally,
+        // and place it near the top of the textarea.
+        menu.style.left = `${rect.left + rect.width / 2}px`;
+        menu.style.top = `${rect.top}px`;
+        menu.classList.remove("hidden");
+      } else {
+        menu.classList.add("hidden");
+        activeTextarea = null;
+      }
+    } else {
+      menu.classList.add("hidden");
+    }
+  });
+
+  menu.addEventListener("mousedown", (e) => {
+    // Prevent menu mousedown from stealing focus from the textarea
+    e.preventDefault();
+  });
+
+  menu.addEventListener("click", (e) => {
+    const btn = e.target.closest("button");
+    if (!btn || !activeTextarea) return;
+    
+    const format = btn.dataset.format;
+    const start = activeTextarea.selectionStart;
+    const end = activeTextarea.selectionEnd;
+    const text = activeTextarea.value;
+    const selectedText = text.substring(start, end);
+    let wrapped = selectedText;
+    let offset = 0;
+
+    switch (format) {
+      case "bold":
+        wrapped = `**${selectedText}**`;
+        offset = 2;
+        break;
+      case "italic":
+        wrapped = `*${selectedText}*`;
+        offset = 1;
+        break;
+      case "strikethrough":
+        wrapped = `~~${selectedText}~~`;
+        offset = 2;
+        break;
+      case "code":
+        wrapped = `\`${selectedText}\``;
+        offset = 1;
+        break;
+      case "link":
+        wrapped = `[${selectedText}](url)`;
+        offset = 1;
+        break;
+    }
+
+    activeTextarea.setRangeText(wrapped, start, end, "select");
+    // Move selection inside the markdown tags
+    if (format === "link") {
+      activeTextarea.setSelectionRange(start + selectedText.length + 3, start + selectedText.length + 6);
+    } else {
+      activeTextarea.setSelectionRange(start + offset, start + offset + selectedText.length);
+    }
+    
+    // Trigger input event so React/app knows it changed
+    activeTextarea.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
+
+
+// ======================= SKILLS DASHBOARD TAB =======================
+
+async function renderSkillsDashboard() {
+  const container = document.getElementById("skills-dashboard-list");
+  if (!container) return;
+  
+  const skills = await loadSkills();
+  const prefs = await apiJson("/preferences").catch(() => ({}));
+  container.innerHTML = "";
+  
+  // Render Autonomous Workers section at the top
+  const autoDiv = document.createElement("div");
+  autoDiv.className = "card";
+  autoDiv.style.marginBottom = "var(--space-6)";
+  autoDiv.innerHTML = `
+    <div class="row space-between">
+      <h3>Autonomous Background Workers</h3>
+      <label class="switch">
+        <input type="checkbox" id="skills-auto-toggle" ${prefs.autonomous_tasks_enabled ? "checked" : ""}>
+        <span class="slider"></span>
+      </label>
+    </div>
+    <p class="muted text-sm">Allow the AI to run tasks in the background automatically.</p>
+    <div class="row row-top-gap">
+      <label><input type="checkbox" id="skills-auto-tag" ${prefs.auto_tag_enabled !== false ? "checked" : ""}> Auto-tag notes</label>
+      <label><input type="checkbox" id="skills-auto-link" ${prefs.auto_link_enabled !== false ? "checked" : ""}> Auto-link ideas</label>
+    </div>
+  `;
+  container.appendChild(autoDiv);
+
+  // The autonomous toggles that live on this panel as well as in Settings →
+  // Background tasks. Reported as **"the automated tasks option keeps
+  // automatically disabling itself even when turned on"**, and it did:
+  //
+  // These wrote straight to the server and updated nothing locally. `savePrefs`
+  // — which seven other controls call on every change — then rebuilt the whole
+  // preferences object from the DOM, reading `#pref-autonomous-tasks`, the
+  // *other* checkbox, which nobody had ticked. So enabling it here and then
+  // touching any unrelated setting silently switched it back off.
+  //
+  // `setPreference` is the fix in one place: it saves, updates `prefsCache` so
+  // the next `savePrefs` sends the right value, and reconciles the mirrored
+  // control so the two screens cannot disagree.
+  for (const [id, key] of [
+    ["skills-auto-toggle", "autonomous_tasks_enabled"],
+    ["skills-auto-tag", "auto_tag_enabled"],
+    ["skills-auto-link", "auto_link_enabled"],
+  ]) {
+    const box = $(id);
+    if (box) box.addEventListener("change", (e) => setPreference(key, e.target.checked));
+  }
+  
+  const grid = document.createElement("div");
+  grid.className = "skills-grid";
+  container.appendChild(grid);
+  
+  if (!skills.length) {
+    grid.innerHTML = `<p class="muted">No skills found.</p>`;
+    return;
+  }
+  
+  for (const skill of skills) {
+    const card = document.createElement("div");
+    card.className = "skill-card";
+    
+    // Header: Title and Type badge
+    const header = document.createElement("div");
+    header.className = "skill-card-header";
+    const title = document.createElement("div");
+    title.className = "skill-card-title";
+    title.textContent = skill.name;
+    const badge = document.createElement("span");
+    badge.className = "status badge";
+    badge.textContent = skill.builtin ? "Built-in" : "Custom";
+    header.appendChild(title);
+    header.appendChild(badge);
+    
+    // Description
+    const desc = document.createElement("div");
+    desc.className = "skill-card-desc";
+    desc.textContent = skill.description || "No description provided.";
+    
+    // Footer: Run button
+    const footer = document.createElement("div");
+    footer.className = "skill-card-footer";
+    const runBtn = document.createElement("button");
+    runBtn.className = "small";
+    runBtn.textContent = "Run Skill";
+    runBtn.onclick = () => {
+      // Switch to chat and run it
+      switchTab("chat");
+      startSkill(skill.name);
+    };
+    
+    const schedBtn = document.createElement("button");
+    schedBtn.className = "small ghost";
+    schedBtn.textContent = "Schedule";
+    schedBtn.onclick = () => {
+      toast("Scheduler functionality coming soon!"); // Placeholder for Phase 5 implementation
+    };
+    
+    footer.appendChild(schedBtn);
+    footer.appendChild(runBtn);
+    
+    card.appendChild(header);
+    card.appendChild(desc);
+    card.appendChild(footer);
+    container.appendChild(card);
+  }
+}
+
+// Hook into switchTab by overriding it to catch the library tab
+const originalSwitchTab = switchTab;
+window.switchTab = function(name) {
+  originalSwitchTab(name);
+  if (name === "library") {
+    renderSkillsDashboard();
+    renderSkillLogs();
+  }
+};
+
+async function renderSkillLogs() {
+  const logList = document.getElementById("skills-logs-list");
+  if (!logList) return;
+  logList.innerHTML = "<p class='muted'>Loading logs...</p>";
+  
+  const logs = await apiJson("/audit?limit=20").catch(() => null);
+  logList.innerHTML = "";
+  
+  if (!logs || !logs.length) {
+    logList.innerHTML = "<p class='muted'>No logs found.</p>";
+    return;
+  }
+  
+  // Filter for skill executions if possible, or just show agent actions
+  const skillLogs = logs.filter(log => log.entity_type === "skill" || log.action === "skill_run" || log.action.includes("agent"));
+  
+  if (!skillLogs.length) {
+    logList.innerHTML = "<p class='muted'>No skill execution logs found.</p>";
+    return;
+  }
+  
+  for (const log of skillLogs) {
+    const div = document.createElement("div");
+    div.className = "entry-item";
+    div.innerHTML = `
+      <div class="row space-between">
+        <strong>${escapeHtml(log.action)}</strong>
+        <span class="muted text-sm">${new Date(log.created_at).toLocaleString()}</span>
+      </div>
+      <div class="muted text-sm log-detail">${escapeHtml(log.detail || log.entity_id || "")}</div>
+    </div>
+    `;
+    logList.appendChild(div);
+  }
+}
+
+// --- Global Drag and Drop & Paste Image Upload for Textareas ---
+document.addEventListener("dragover", (e) => {
+  if (e.target.tagName && e.target.tagName.toLowerCase() === 'textarea') {
+    e.preventDefault();
+    e.target.classList.add("drag-over");
+  }
+});
+
+document.addEventListener("dragleave", (e) => {
+  if (e.target.tagName && e.target.tagName.toLowerCase() === 'textarea') {
+    e.preventDefault();
+    e.target.classList.remove("drag-over");
+  }
+});
+
+document.addEventListener("drop", async (e) => {
+  if (!e.target.tagName || e.target.tagName.toLowerCase() !== 'textarea') return;
+  e.preventDefault();
+  e.target.classList.remove("drag-over");
+  
+  const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/") || f.type.startsWith("application/") || f.type.startsWith("text/") || f.type.startsWith("video/") || f.type.startsWith("audio/"));
+  if (!files.length) return;
+
+  await handleFileUpload(e.target, files);
+});
+
+document.addEventListener("paste", async (e) => {
+  if (!e.target.tagName || e.target.tagName.toLowerCase() !== 'textarea') return;
+  const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+  const files = [];
+  for (const item of items) {
+    if (item.kind === 'file') {
+      files.push(item.getAsFile());
+    }
+  }
+  if (!files.length) return;
+  // Don't prevent default entirely unless we have files, otherwise normal paste breaks
+  e.preventDefault();
+  await handleFileUpload(e.target, files);
+});
+
+async function handleFileUpload(textarea, files) {
+  const cursorPosition = textarea.selectionStart;
+  let textToInsert = "";
+  
+  for (const file of files) {
+    textToInsert += `![Uploading ${file.name}...]()\n`;
+  }
+  
+  const originalText = textarea.value;
+  textarea.value = originalText.substring(0, cursorPosition) + textToInsert + originalText.substring(textarea.selectionEnd);
+  textarea.dispatchEvent(new Event('input', { bubbles: true }));
+
+  for (const file of files) {
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const res = await apiJson("/media/upload", {
+        method: "POST",
+        headers: { "X-Auth-Token": authToken() },
+        body: formData
+      });
+      const imgMarkdown = `![${res.filename}](${res.url})\n`;
+      textarea.value = textarea.value.replace(`![Uploading ${file.name}...]()\n`, imgMarkdown);
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    } catch (err) {
+      console.error("Upload failed", err);
+      textarea.value = textarea.value.replace(`![Uploading ${file.name}...]()\n`, `*(Failed to upload ${file.name})*\n`);
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }
+}
+
+// --- Twitch-style Agent Monitor ---
+const agentMonitor = $("agent-monitor");
+const agentMonitorLogs = $("agent-monitor-logs");
+const agentMonitorClose = $("agent-monitor-close");
+
+// The monitor is `position: fixed` in the bottom-right corner, which is also
+// where the whiteboard keeps its zoom controls — so while it was open those
+// controls were behind it and simply could not be clicked. A floating panel
+// that covers a fixed control is a broken control, so the app is told when the
+// monitor is showing and the whiteboard lifts its panel clear.
+function setAgentMonitorVisible(visible) {
+  agentMonitor.classList.toggle("hidden", !visible);
+  document.body.classList.toggle("has-agent-monitor", visible);
+}
+
+if (agentMonitorClose) {
+  agentMonitorClose.addEventListener("click", () => setAgentMonitorVisible(false));
+}
+
+function appendAgentLog(record) {
+  // Only show autonomous/background agent logs
+  const isAgent = record.logger && (record.logger.includes("memorymap.ai") || record.message.includes("Agent") || record.logger.includes("autonomous"));
+  if (!isAgent && record.level !== "ERROR") return;
+  
+  if (agentMonitor.classList.contains("hidden")) setAgentMonitorVisible(true);
+
+  const div = document.createElement("div");
+  div.className = "monitor-log-item " + record.level.toLowerCase();
+  div.textContent = record.message;
+  
+  agentMonitorLogs.appendChild(div);
+  
+  if (agentMonitorLogs.children.length > 50) {
+    agentMonitorLogs.removeChild(agentMonitorLogs.firstChild);
+  }
+  
+  agentMonitorLogs.scrollTop = agentMonitorLogs.scrollHeight;
+}
+
+let agentLogStreamStarted = false;
+async function streamAgentLogs() {
+  if (agentLogStreamStarted) return;
+  agentLogStreamStarted = true;
+  let cursor = 0;
+  while (true) {
+    try {
+      const response = await fetch(`/logs/stream?after=${cursor}`, {
+        headers: { "X-Auth-Token": authToken() }
+      });
+      if (response.status === 401) {
+         await new Promise(r => setTimeout(r, 5000));
+         continue;
+      }
+      if (!response.ok) throw new Error("stream failed");
+      
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop(); // keep last incomplete line
+        
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const msg = JSON.parse(line);
+          if (msg.cursor) cursor = msg.cursor;
+          
+          if (msg.type === "open") {
+            cursor = msg.latest || cursor;
+          } else if (msg.type === "record") {
+            appendAgentLog(msg.record);
+          }
+        }
+      }
+    } catch (e) {
+      await new Promise(r => setTimeout(r, 5000));
+    }
+  }
+}
+
+// Hook it into startApp
+const originalStartAppAgentHook = window.startApp;
+window.startApp = async function() {
+  if (originalStartAppAgentHook) {
+    await originalStartAppAgentHook.apply(this, arguments);
+  }
+  streamAgentLogs();
+}
+
+// --- Global Command Palette (Ctrl+K) ---
+const cmdPaletteOverlay = $("command-palette-overlay");
+const cmdPaletteInput = $("command-palette-input");
+const cmdPaletteResults = $("command-palette-results");
+
+document.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+    e.preventDefault();
+    if (cmdPaletteOverlay.classList.contains("hidden")) {
+      cmdPaletteOverlay.classList.remove("hidden");
+      cmdPaletteInput.focus();
+    } else {
+      cmdPaletteOverlay.classList.add("hidden");
+    }
+  }
+  if (e.key === "Escape" && !cmdPaletteOverlay.classList.contains("hidden")) {
+    cmdPaletteOverlay.classList.add("hidden");
+  }
+});
+
+cmdPaletteOverlay.addEventListener("click", (e) => {
+  if (e.target === cmdPaletteOverlay) {
+    cmdPaletteOverlay.classList.add("hidden");
+  }
+});
+
+let cmdPaletteConversationId = null;
+
+cmdPaletteInput.addEventListener("keydown", async (e) => {
+  if (e.key === "Enter" && cmdPaletteInput.value.trim()) {
+    const text = cmdPaletteInput.value.trim();
+    cmdPaletteInput.value = "";
+    
+    // Create user bubble
+    const userMsg = document.createElement("div");
+    userMsg.className = "msg user";
+    userMsg.textContent = text;
+    cmdPaletteResults.appendChild(userMsg);
+    
+    // Create agent thinking bubble
+    const agentMsg = document.createElement("div");
+    agentMsg.className = "msg assistant";
+    agentMsg.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+    cmdPaletteResults.appendChild(agentMsg);
+    cmdPaletteResults.scrollTop = cmdPaletteResults.scrollHeight;
+    
+    try {
+      const res = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() },
+        body: JSON.stringify({
+          question: text,
+          conversation_id: cmdPaletteConversationId,
+          mode: "agent", // Command palette is specifically agent mode
+          response_mode: "quick",
+          attachments: []
+        })
+      });
+      if (!res.ok) throw new Error("Chat failed");
+      
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      
+      let answerText = "";
+      agentMsg.innerHTML = "";
+      
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop();
+        
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const msg = JSON.parse(line);
+          
+          if (msg.type === "meta") {
+             cmdPaletteConversationId = msg.conversation_id;
+          } else if (msg.type === "content") {
+             answerText += msg.text;
+             // extremely basic markdown render for palette
+             agentMsg.innerHTML = answerText.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+             cmdPaletteResults.scrollTop = cmdPaletteResults.scrollHeight;
+          }
+        }
+      }
+    } catch (err) {
+      agentMsg.textContent = "Error communicating with agent.";
+      agentMsg.classList.add("error");
+    }
+  }
+});

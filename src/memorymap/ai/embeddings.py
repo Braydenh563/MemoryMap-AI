@@ -15,6 +15,7 @@ import threading
 import time
 
 import numpy as np
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from memorymap.ai.model_manager import ModelManager
@@ -33,7 +34,7 @@ logger = logging.getLogger("memorymap.embeddings")
 
 # Warm-up bookkeeping so the UI can tell "still loading" from "failed"
 # (a silently failed load used to look like eternal "warming up…").
-_warmup = {"running": False, "started": False}
+_warmup = {"running": False, "started": False, "error": False}
 
 
 def start_warmup(service: "EmbeddingService", session_factory=None) -> None:  # noqa: ANN001
@@ -50,12 +51,23 @@ def start_warmup(service: "EmbeddingService", session_factory=None) -> None:  # 
 
     def run() -> None:
         _warmup["running"] = True
+        _warmup["error"] = False
         try:
             service.embed_text("warm up")
+        except Exception:
+            _warmup["error"] = True
         finally:
             _warmup["running"] = False
+            if _warmup["error"]:
+                from memorymap.core import taskhistory
+                taskhistory.record(
+                    "embeddings",
+                    "Loading embedding model",
+                    "failed",
+                    "Failed to load",
+                )
         # Now that the model is up, catch any notes that missed out.
-        if session_factory is not None:
+        if session_factory is not None and not _warmup["error"]:
             backfill_missing(service, session_factory)
 
     threading.Thread(target=run, name="embedding-warmup", daemon=True).start()
@@ -125,6 +137,48 @@ def warmup_running() -> bool:
     return _warmup["running"]
 
 
+def warmup_failed() -> bool:
+    return _warmup["error"]
+
+
+def clean_orphaned_vectors(session_factory) -> int:  # noqa: ANN001
+    """Delete vectors whose note is gone, and say how many went.
+
+    Nothing prunes the embeddings table when an entry is hard-deleted — the
+    recycle bin's purge removes the row and leaves the vector behind — so it
+    grows forever and every semantic search scans rows that can never match.
+
+    This function is called by the background pass, and for a while it was
+    *only* called: it did not exist, and the call sat inside a `try/except`
+    broad enough to swallow the `AttributeError`, so the orphan cleanup was
+    reported as running and silently never ran. Hence the return value and the
+    log line — a maintenance job that cannot say what it did is a maintenance
+    job nobody can tell is broken.
+
+    `session_factory` is required rather than defaulted from `deps`. Defaulting
+    it meant this module importing `core.deps`, which imports `EmbeddingService`
+    from this module — a cycle CodeQL flagged, and a layering inversion besides:
+    `ai/` sits below the dependency container, not above it. Every caller
+    already holds a factory, so the parameter costs them nothing.
+    """
+    with session_factory() as session:
+        orphans = list(
+            session.scalars(
+                select(EmbeddingRecord).where(
+                    EmbeddingRecord.entry_id.notin_(select(Entry.id))
+                )
+            )
+        )
+        for row in orphans:
+            session.delete(row)
+        if orphans:
+            session.commit()
+
+    if orphans:
+        logger.info("removed %d embedding(s) whose note no longer exists", len(orphans))
+    return len(orphans)
+
+
 def vector_to_bytes(vector: np.ndarray) -> bytes:
     """Raw float32 bytes — never pickle (plan §4)."""
     return np.asarray(vector, dtype="float32").tobytes()
@@ -140,6 +194,60 @@ def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
     if norms == 0.0:
         return 0.0
     return float(np.dot(a, b) / norms)
+
+
+#: How many notes' vectors to compare against the rest at a time.
+#:
+#: "All pairs at once" is the obvious way to write this and the reason it is
+#: not written that way: `vectors @ vectors.T` allocates an N×N float matrix,
+#: and `np.triu` of it allocates a second. At 5,000 notes that is 400 MB for a
+#: graph refresh, at 10,000 it is 1.6 GB, and the notebook this app is built
+#: for is explicitly allowed to get that big (ANALYSIS.md §34 scale-tests it).
+#: A row block at a time is the same arithmetic with a ceiling on the memory.
+SIMILARITY_BLOCK = 512
+
+
+def similar_pairs(
+    vectors: dict[int, np.ndarray], threshold: float
+) -> list[tuple[int, int, float]]:
+    """Every pair of ids scoring at or above `threshold`, best first.
+
+    Vectors of a width other than the majority's are dropped rather than
+    stacked: a notebook part-way through an embedding-model change holds both
+    widths at once, and `np.stack` on a ragged list raises — which took out the
+    graph and the link suggestions entirely rather than degrading them.
+    """
+    if not vectors:
+        return []
+
+    by_width: dict[int, list[int]] = {}
+    for node_id, vector in vectors.items():
+        by_width.setdefault(vector.shape[0], []).append(node_id)
+    # The width most of the notebook is on. Everything else is mid-reindex.
+    widest = max(by_width, key=lambda w: len(by_width[w]))
+    ids = sorted(by_width[widest])
+    if len(ids) < 2:
+        return []
+
+    matrix = np.stack([vectors[node_id] for node_id in ids]).astype("float32")
+    norms = np.linalg.norm(matrix, axis=1, keepdims=True)
+    matrix /= np.where(norms == 0, 1.0, norms)
+
+    found: list[tuple[int, int, float]] = []
+    for start in range(0, len(ids), SIMILARITY_BLOCK):
+        block = matrix[start : start + SIMILARITY_BLOCK]
+        scores = block @ matrix.T
+        # Keep each pair once: only look to the right of the diagonal.
+        rows, cols = np.where(scores >= threshold)
+        for row, col in zip(rows, cols):
+            left = start + int(row)
+            right = int(col)
+            if right <= left:
+                continue
+            found.append((ids[left], ids[right], float(scores[row, col])))
+
+    found.sort(key=lambda pair: pair[2], reverse=True)
+    return found
 
 
 class EmbeddingService:

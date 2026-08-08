@@ -106,6 +106,8 @@ class ModelManager:
         weekly digest, tidy suggestions, writing fixes (Wave N). Defaults
         to the chat model, but the user can point it at a small fast model
         so the big chat model isn't tied up categorising every note."""
+        if not self._config.get_preference("smart_model_routing_enabled", True):
+            return self.chat_model()
         return self._config.get_preference("utility_model", "") or self.chat_model()
 
     def set_utility_model(self, name: str) -> None:

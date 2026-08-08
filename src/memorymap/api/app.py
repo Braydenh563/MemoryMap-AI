@@ -19,7 +19,7 @@ from fastapi import Depends, FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from memorymap import __version__
-from memorymap.ai import embeddings
+from memorymap.ai import embeddings, autonomous
 from memorymap.search import searxng_manager
 from memorymap.api import (
     routes_auth,
@@ -41,6 +41,7 @@ from memorymap.api import (
     routes_timeline,
     routes_tags,
     routes_voice,
+    routes_whiteboard,
 )
 from memorymap.api.routes_auth import require_unlock
 from memorymap.core import backup, deps, logbuffer, security
@@ -152,6 +153,24 @@ def _start_searxng_if_asked() -> None:
         )
 
 
+def _start_autonomous_loop() -> None:
+    """Start the background librarian's scheduler (§39).
+
+    This call is the whole feature. Without it `autonomous.py` is imported and
+    never run, which is exactly how it shipped: Settings offered an interval,
+    an on/off switch and three task toggles, all of them wired to preferences
+    that nothing ever read. The switch inside the loop stays the authority on
+    whether a pass happens, so starting the scheduler unconditionally here is
+    safe — a disabled notebook just sleeps.
+    """
+    try:
+        autonomous.start()
+    except Exception:  # noqa: BLE001 — same rule as the three above
+        logging.getLogger("memorymap.startup").warning(
+            "the autonomous scheduler didn't start", exc_info=True
+        )
+
+
 def create_app() -> FastAPI:
     # First, before any singleton is built. This catches `uvicorn … --workers 4`
     # run directly against this factory, which is the only way the app can be
@@ -163,6 +182,7 @@ def create_app() -> FastAPI:
     _purge_expired_bin_entries()
     _backup_if_due()
     _start_searxng_if_asked()
+    _start_autonomous_loop()
     # The session factory is handed in so embeddings never has to import the
     # dependency container that imports it.
     embeddings.start_warmup(deps.get_embeddings(), deps.get_db().session)
@@ -201,6 +221,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_tasks.router, dependencies=locked)
     app.include_router(routes_timeline.router, dependencies=locked)
     app.include_router(routes_library.router, dependencies=locked)
+    app.include_router(routes_whiteboard.router, dependencies=locked)
 
     @app.get("/health", tags=["system"])
     def health() -> dict[str, str | bool]:

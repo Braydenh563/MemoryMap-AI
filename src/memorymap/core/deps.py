@@ -178,11 +178,33 @@ def reload_db() -> None:
     _db = DatabaseManager(_config.db_path)
 
 
+#: Caches that have to be emptied when the singletons are thrown away.
+#:
+#: Anything holding values derived from *this* notebook registers here. The
+#: graph's PageRank and similarity caches were the first, and they were
+#: originally cleared by importing `api.routes_graph` from inside
+#: `reset_app_state` — which works, and inverts the layering: `core/` is the
+#: bottom of this app and must not know the API layer exists. CodeQL called it
+#: what it was, a cycle.
+#:
+#: A registry turns it the right way up. The cache tells the container it
+#: exists; the container never goes looking.
+_cache_resets: list = []
+
+
+def register_cache_reset(drop) -> None:  # noqa: ANN001 — any zero-arg callable
+    """Have `drop()` called whenever the app's singletons are reset."""
+    if drop not in _cache_resets:
+        _cache_resets.append(drop)
+
+
 def reset_app_state() -> None:
     """Throw the singletons away — used between tests, never in the app."""
     global _config, _db, _ollama, _model_manager, _embeddings
     if _db is not None:
         _db.engine.dispose()
+    for drop in _cache_resets:
+        drop()
     _config = None
     _db = None
     _ollama = None

@@ -747,7 +747,7 @@ def _write_pwd_shim(python: str) -> bool:
     return True
 
 
-def _install_steps(python: str, src: Path) -> list[tuple[str, list[str]]]:
+def _install_steps(python: str, src: Path) -> list[tuple[int, str, list[str]]]:
     """The pip commands that install SearXNG, in the order they must run.
 
     `pip install -e .` on its own **cannot work**, and never could: SearXNG's
@@ -866,7 +866,15 @@ def install_source(data_dir: Path, on_ready=None) -> None:
             _install_log(f"Failed: {exc}")
         finally:
             _install_state["running"] = False
-        if on_ready is None or _install_state["error"]:
+            from memorymap.core import taskhistory
+            outcome = "failed" if _install_state.get("error") else "completed"
+            taskhistory.record(
+                "searxng",
+                "Installing SearXNG",
+                outcome,
+                _install_state.get("error", "Install finished successfully."),
+            )
+        if on_ready is None or _install_state.get("error"):
             return
         # The follow-on start, still on the worker thread. `running` is
         # False by now, so the start path doesn't mistake its own install

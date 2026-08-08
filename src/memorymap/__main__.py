@@ -64,12 +64,21 @@ def _run_desktop() -> None:
     # The storage lives beside the notes rather than in pywebview's own
     # default, so "where your data is" stays one answer, and deleting the data
     # directory really does remove everything.
+    # The app icon — replaces the default Python snake in the taskbar and
+    # title bar. Three levels up from src/memorymap/__main__.py lands at the
+    # repo root; frontend/icon.ico sits there. The ICO contains a 512px PNG
+    # entry, which pywebview on Windows and WebKit on macOS both accept.
+    # None is a valid fallback: a missing file never blocks the window.
+    _icon_path = Path(__file__).resolve().parents[2] / "frontend" / "icon.ico"
+    _icon = str(_icon_path) if _icon_path.is_file() else None
+
     storage = Path(os.getenv("MEMORYMAP_DATA_DIR", "data")).resolve() / "webview"
     storage.mkdir(parents=True, exist_ok=True)
     try:
         webview.start(  # blocks until the window closes; daemon dies with us
             private_mode=False,
             storage_path=str(storage),
+            **(({"icon": _icon}) if _icon else {}),
         )
     except TypeError:
         # An older pywebview without one of these arguments. Starting with a

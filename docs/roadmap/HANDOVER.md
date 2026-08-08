@@ -1,6 +1,178 @@
 # Session handover
 
-> **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the AGPL/MIT constraint) · [HISTORY.md](HISTORY.md) (already built).
+> **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
+
+## Latest session: the audit, then the reported list
+
+**Read [§41 in ROADMAP.md](../ROADMAP.md#41-the-reported-list-triaged--and-the-ordered-plan)
+before deciding anything.** It is the ordered plan in four tiers, and it exists
+because this project's recurring failure is not forgetting work — it is a
+session picking something interesting from further down the list while a
+correctness bug sits at the top. Work top-down.
+
+Two halves to this session. The first audited `fix/Antigravity-Audit` (§40) and
+is written up below. The second worked the owner's own reported list.
+
+### What was fixed from the reported list
+
+Each of these was diagnosed in the running app, not from the report:
+
+- **Trace is rebuilt.** The cause of "annoying and pretty much unusable" was
+  that `traceModeActive` was set and consulted nowhere, so the map never
+  responded to a click and both ends had to be chosen from `<select>` elements
+  listing every note by its opening words. Two-click mode now, with Swap, a
+  one-step Undo, Escape, and a crosshair cursor.
+- **"Automated tasks keeps disabling itself."** Two controls wrote the same
+  preference; the one on the skills panel never updated `prefsCache`, so the
+  next `savePrefs` rebuilt the object from the DOM and read the other,
+  unticked checkbox.
+- **"Light/dark stops affecting the background after using the scheme
+  selector."** The scheme builder stored one page colour, for whichever mode
+  was on, *inline on `<html>`* — which outranks every `[data-mode]` rule.
+- Six whiteboard bugs, the skill descriptions clipped to one line, and the
+  documents sidebar crushing its own list.
+
+### What was checked and found already correct
+
+Worth knowing so nobody spends a session on it: **password and secret storage
+is sound.** bcrypt with a per-password salt, `secrets.token_hex(32)` for
+session tokens held in memory and swept on expiry, and private notes encrypted
+with a key wrapped by a password-derived key. Nothing is stored in plaintext.
+Also: the three sketch swatches reported as identical are three different
+colours — the real complaint underneath it is the highlighter at 5% opacity.
+
+### The biggest unbuilt thing on the list
+
+**Skill runs have no manual mode.** It was explicitly requested and never
+built; `skill_from_step` is resume-after-failure, not a step-through. The ask
+is a pause after each step with a Continue button and a text box, so the user
+can add what the agent missed or answer a question it raised. §41 Tier 2,
+item 9.
+
+### The traps that will cost you an hour
+
+1. **`waitUntil: "networkidle"` never settles** — the app polls, so `goto` and
+   `reload` time out at 30s. Use `domcontentloaded` and an explicit wait. The
+   login is one field in two modes: `#lock-password`, `#lock-submit`.
+2. **`pkill -f uvicorn` kills your own shell** (same process group, exit 144).
+   Start the server with `setsid … &`.
+3. **Nine `.modal-overlay` elements sit in the markup permanently with
+   `.hidden`.** Any "is a dialog open?" check written as `querySelector
+   (".modal-overlay")` is always true. This ate an Escape handler.
+
+### What could not be verified
+
+- **No real model was called.** Every provider test uses a fake transport, so
+  the background librarian's plumbing is tested and the *quality* of its
+  tagging and linking is unknown.
+- **Semantic search ran against the fake embedder only** — the
+  mixed-dimension fix is pinned by a unit test over `similar_pairs`, not by a
+  real model switch.
+- **Meeting transcription was not reproduced.** It is reported as erroring out
+  and is Tier 1 item 1; `faster-whisper` is not installed here.
+- **Nobody drew on the whiteboard or dragged a card by hand.** The API is
+  tested and the layout measured; the pointer interactions are not.
+
+---
+
+## Latest session: auditing a week of another agent's work before it merges
+
+**Read [§40 in ROADMAP.md](../ROADMAP.md#40-the-antigravity-audit) next.** This
+session audited `fix/Antigravity-Audit` — 8 commits and ~9,600 insertions from
+a different coding agent, with no tests — and brought it to a mergeable state.
+The branch is now `claude/branch-audit-refinement-lredrg`.
+
+### The number that frames everything else
+
+`main`: 1,544 passing, 2 failures. The branch: **90 failures, 20 ruff errors.**
+CI would not have run. It is now 1,589 passing and ruff clean, with 46 new
+tests and 4 new lints.
+
+The two failures on `main` were not the other agent's doing and are worth
+knowing about on their own: `test_query_understanding` pinned its fixtures to a
+hard-coded date and then read the *real* clock through
+`search_manager._user_today`, so it passed only while the wall clock sat within
+a week of that date and began failing on its own six days later — with an empty
+result set that looked exactly like a retrieval bug. It owns its date now.
+
+### What was kept, and what was reverted
+
+**Kept, after fixing:** the whiteboard, the background librarian, memory
+streams, semantic note search, the command palette, the agent activity monitor,
+batch `tag_note`/`link_notes`, PageRank node sizing, focus mode, the vectorised
+similarity maths, the D3 timeline, and the bulk category-name lookup that
+removed a real N+1. All good ideas. See §39 for the three biggest.
+
+**Reverted, one thing:** `POST /chat/stream` had been rewritten as a WebSocket.
+Nothing asked for it, the app is local-first on 127.0.0.1, and the NDJSON
+stream it replaced already delivered tokens as they were produced. It cost a
+Session shared across threads, a leaked producer thread per request, a router
+mounted outside `dependencies=locked` with hand-rolled auth, a transport exempt
+from the same-origin policy — and ~70 of the 90 test failures.
+
+### The two traps that will cost you an hour
+
+1. **`waitUntil: "networkidle"` never settles against this app.** It polls
+   (reminders, model status, tasks), so Playwright waits out the full 30s and
+   times out on `goto` and on `reload`. Use `domcontentloaded` and an explicit
+   `waitForTimeout`. The login form is one field with two modes — `#lock-password`
+   and `#lock-submit`, with `data-mode="setup"` on the overlay on first run —
+   not the separate setup/confirm fields you might expect.
+
+2. **`pkill -f uvicorn` will kill your own shell.** The sandbox runs the shell
+   in the same process group; it returns exit 144 and takes the session's
+   command with it. Start the server with `setsid … &` and leave it running.
+
+### The finding that only a browser could have made
+
+Two settings this branch added — `border-style` and `shadow-intensity` — were
+missing from `APPEARANCE_DEFAULTS`, so `applyAppearance` wrote the literal
+strings `undefined` and `NaN` into two CSS custom properties on `<html>`.
+Neither fails where it is set. They fail where they are *used*: a
+`border-style: var(--border-style) !important` rule matching `.card`, `input`,
+`textarea`, `select`, `.modal` and `.sidebar`, and the `rgba()` inside
+`--glass-shadow`. **Every card, field and dialog in the app rendered flat and
+borderless on every fresh profile**, silently, and reading the source did not
+find it. One `getComputedStyle` in Chromium did, immediately.
+
+Two more in the same family: `.glass` set `background: var(--bg-glass)` against
+a token no theme declares, which erased the background of every
+`class="card glass"` element; and five inline `style` attributes were sitting
+inside app.js template literals, refused by the CSP exactly as the
+thirty-five in index.html were. Each of the three now has a lint.
+
+### Where to start
+
+§40 ends with a ranked list of what is still open. The top two are the ones
+worth doing next, and both are about the same thing — a feature that changes
+the app's behaviour without showing the user what it did:
+
+1. **A UI for memory streams.** The model can save itself standing
+   instructions; the user cannot see, edit or disable them. The `active` column
+   exists and nothing ever sets it to false.
+2. **A dry-run for the background librarian.** Enabling it lets an agent edit
+   the notebook unattended, with no way to preview what it would do.
+
+### What could not be verified this session
+
+- **No real model was ever called.** Every provider test runs against a fake
+  transport, as the standing caveat says. The background librarian's *plumbing*
+  is tested — scheduling, the guard against concurrent runs, battery mode, the
+  blocked tools, failure recording — but no pass has ever run against a live
+  Ollama, so the quality of its tagging and linking is unknown.
+- **Semantic search ran against the fake embedder only.** `sentence-transformers`
+  is deliberately not installed (CLAUDE.md), so the mixed-dimension fix is
+  pinned by a unit test over `similar_pairs` with hand-built vectors, not by a
+  real model switch on a real notebook.
+- **The whiteboard was not driven by hand.** Its API is tested and its two
+  canvas layers were measured as correctly overlaid in Chromium, but nobody
+  dragged a card, drew a stroke, or panned the canvas.
+- **The sketch highlighter is set to `globalAlpha = 0.05`.** That is almost
+  invisible — roughly twenty passes to show anything. It looks like a mistaken
+  value rather than a choice, but it was left alone because it is a taste call
+  the owner should make, not a defect.
+
+---
 
 ## Latest session: §37's four remaining clarifying-question items, all four asked and built
 

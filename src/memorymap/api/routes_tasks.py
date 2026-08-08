@@ -92,6 +92,21 @@ def collect() -> list[dict]:
             }
         )
 
+    # Autonomous optimization task
+    from memorymap.ai import autonomous
+    if autonomous.is_running():
+        tasks.append(
+            {
+                "kind": "autonomous",
+                "name": "",
+                "label": "Autonomous optimization",
+                "detail": "Analyzing notes in the background...",
+                "progress": None,
+                "cancellable": False,
+                "log": [],
+            }
+        )
+
     # Minutes long, on a worker thread, and previously visible only on the Web
     # search screen — so "is it still doing anything?" had no answer anywhere
     # else. Imported here rather than at module level: it pulls in the search
@@ -176,6 +191,51 @@ def list_tasks() -> dict:
     screen that you have to know to look at.
     """
     return {"tasks": collect(), "history": taskhistory.recent()}
+
+
+@router.post("/tasks/trigger-autonomous")
+def trigger_autonomous() -> dict:
+    """Run the background librarian now, rather than waiting for its interval.
+
+    Returns `started: false` rather than 409-ing when one is already going:
+    pressing "Run now" while it runs is not an error, it is impatience, and the
+    honest answer is "it's already going". The guard itself matters — without
+    it each press started another agent loop against the same notebook.
+    """
+    from memorymap.ai import autonomous
+
+    started = autonomous.trigger_now()
+    return {
+        "status": "ok",
+        "started": started,
+        "detail": "" if started else "A pass is already running.",
+    }
+
+
+@router.get("/tasks/autonomous/last")
+def last_autonomous_pass() -> dict:
+    """What the background librarian changed last time it ran (§40 item 2).
+
+    The honest answer to "you are asking me to let an agent edit my notebook
+    unattended". A true preview is not available — the model chooses each call
+    from the result of the previous one, so a pass with the writes stubbed out
+    stops resembling the pass that would really happen — but every change
+    carries the tool call that reverses it, and the browser hands those back to
+    `POST /chat/tools/execute`, which is the same path the chat's own Undo
+    buttons already use.
+    """
+    from memorymap.ai import autonomous
+
+    return autonomous.last_pass()
+
+
+@router.post("/tasks/autonomous/last/clear")
+def clear_last_autonomous_pass() -> dict:
+    """Dismiss the review list once it has been read."""
+    from memorymap.ai import autonomous
+
+    autonomous.forget_last_pass()
+    return {"status": "ok"}
 
 
 @router.post("/tasks/history/clear")

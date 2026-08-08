@@ -1,7 +1,7 @@
 # Analysis and outside reads
 
 
-> **The other three:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the AGPL/MIT constraint) · [HISTORY.md](HISTORY.md) (already built).
+> **The other three:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the licence constraint — MemoryMap is AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
 Split out of `ROADMAP.md`. These sections are **reference, not work** — they
 record judgements, a competitor read, and what was deliberately *not* taken, so
@@ -254,18 +254,35 @@ odysseus is an AI workspace that happens to store things.
 
 ---
 
-### The constraint that governs everything below
+### The constraint that governs everything below — **now half-lifted**
 
-**Odysseus is AGPL-3.0-or-later. MemoryMap is MIT. No code can be copied
-across, in either direction.**
+**MemoryMap moved from MIT to AGPL-3.0. Odysseus is AGPL-3.0-or-later. The two
+are now the same licence family, so the barrier that made this section
+"lessons only" is no longer symmetrical.**
 
-This is not a formality and it is not a thing to work around by paraphrasing a
-file. Copying AGPL source into an MIT project relicenses the result and makes
-the MIT badge on this repository a false statement about what someone may do
-with it. **Everything in this section is a design lesson — an idea, a failure
-mode, a shape — to be re-implemented independently.** That is what §6 did: the
-provider work below was written from the four questions odysseus's code
-*answers*, not from its code.
+What changed, precisely, because this is the kind of thing that gets
+misremembered in one direction or the other:
+
+- **AGPL → MemoryMap is now permissible.** Copying odysseus source in no
+  longer relicenses anything, because this project is already AGPL. It still
+  requires the ordinary things copyleft requires: keep the notices, attribute
+  the source, and do not strip the licence header off a file you took.
+- **MemoryMap → an MIT project is still closed**, and is now *more* closed
+  than before. Anything taken out of here carries AGPL with it.
+- **The habit in this section is still the right one.** Everything below is
+  written as a design lesson — an idea, a failure mode, a shape — and §6 did
+  it that way deliberately: the provider work was written from the four
+  questions odysseus's code *answers*, not from its code. Re-implementing
+  independently keeps the provenance clean and keeps this codebase's own
+  reasoning in its comments, which is worth more here than the saved typing.
+  Copy only where there is a real reason to, and record where it came from.
+
+**The AGPL clause that actually matters for an app like this** is §13:
+someone who modifies MemoryMap and lets other people use it *over a network*
+must offer those users the modified source. A plain GPL would not require
+that — running a service is not distribution. Since the whole premise here is
+"your notebook, on your machine", the licence now says the same thing the
+product does: a hosted, modified, closed fork is not an option.
 
 Two smaller things worth recording so nobody re-derives them:
 
@@ -648,3 +665,61 @@ against my idea of what Ollama does". One nightly job that pulls a 2B model and
 runs ten real turns through both providers would have caught the `think: false`
 rejection *before* I shipped it, rather than because I happened to read
 `/api/show`'s capability list an hour later.
+
+
+---
+
+## 34b. Judging another agent's branch — what was kept, and on what grounds
+
+Companions: [../ROADMAP.md](../ROADMAP.md) · [BACKLOG.md](BACKLOG.md) ·
+[HISTORY.md](HISTORY.md) · [HANDOVER.md](HANDOVER.md).
+
+The `fix/Antigravity-Audit` branch was ~9,600 insertions from a different
+coding agent with no tests. The temptation with a branch like that is to judge
+it as a whole — either trust it or throw it out. Both are wrong, and the ratio
+is why: **one thing was reverted and everything else was kept.**
+
+The test applied to each piece, in order:
+
+1. **Does it do something the app wanted?** Almost everything did. The
+   whiteboard, memory streams, semantic note search, the command palette, the
+   background librarian and the activity monitor between them close five items
+   that had been sitting in IDEAS.md for months.
+2. **Is the mechanism defensible, separately from the feature?** This is where
+   the WebSocket failed and nothing else did. The feature ("stream the answer")
+   was already working; the new mechanism cost thread-safety, the auth gate and
+   the same-origin policy, and bought nothing on a local-first app. A feature
+   can be right and its mechanism still be the wrong trade.
+3. **What does it cost at scale?** Several pieces were vectorised with NumPy,
+   which was a real improvement over per-pair Python loops — but two of them
+   allocated an N×N matrix to do it, which is a memory regression hiding inside
+   a speed win. Kept the vectorisation, blocked the matrix (§34's O(n²) note
+   now has a resolution for two of its three sites).
+4. **Would anyone notice if it silently did nothing?** This is the question
+   that found the most. Four separate features had never executed once, and
+   every one of them was invisible: an exception swallowed by a broad `except`,
+   a `start()` never called, a method that does not exist, a CSP quietly
+   refusing thirty-five declarations.
+
+### The general lesson, which is not about this agent
+
+Every failure in categories 2–4 above shares a property: **the code reads as
+correct.** A reviewer checking "does this look right" passes all of them. What
+caught them was running the suite, running the linter, and pointing a browser
+at the result — three things that take minutes and that the branch had never
+had done to it, because it shipped without tests and CI never ran.
+
+So the process conclusion is narrower and more useful than "review harder":
+**a branch that cannot run CI has not been reviewed, however carefully it has
+been read.** The 46 tests and 4 lints added in §40 exist so that the next such
+branch is judged in minutes rather than in a session.
+
+### The one thing deliberately not decided
+
+`edit_note` was changed to `destructive=True`, so the agent now pauses for
+confirmation on every edit rather than only on deletes. That is defensible —
+an edit overwrites content — and it is also an unannounced change to how
+multi-step agent work feels, and it interacts badly with the background
+librarian, which abandons a run rather than ask. Left as it arrived, and
+flagged in §40's open list, because "which of those two costs more" is a
+product judgement rather than a correctness one.

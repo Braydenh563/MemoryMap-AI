@@ -26,18 +26,16 @@
     (function () {
       const _r = document.documentElement;
       const THEMES = {
-        midnight: { theme: "dark", palette: "default", glass: "on", radius: "14" },
-        daylight: { theme: "light", palette: "default", glass: "on", radius: "14" },
-        manuscript: { theme: "light", palette: "parchment", font: "serif", glass: "off", radius: "6", density: "spacious" },
-        terminal: { theme: "dark", palette: "carbon", font: "mono", glass: "off", radius: "2", density: "compact" },
-        study: { theme: "light", palette: "sage", font: "serif", glass: "on", radius: "16" },
-        abyss: { theme: "dark", palette: "ocean", glass: "on", "glass-blur": "26", radius: "14" },
-        evening: { theme: "dark", palette: "ember", glass: "on", radius: "12" },
-        orchid: { theme: "dark", palette: "plum", glass: "on", radius: "18" },
-        blueprint: { theme: "light", palette: "ocean", font: "mono", glass: "off", radius: "4", density: "compact" },
-        graphite: { theme: "dark", palette: "carbon", glass: "off", radius: "4" },
-        lagoon: { theme: "dark", palette: "lagoon", glass: "on", radius: "14" },
-        shallows: { theme: "light", palette: "lagoon", glass: "on", radius: "14" },
+        default: { palette: "default", glass: "on", radius: "14" },
+        manuscript: { palette: "parchment", font: "serif", glass: "off", radius: "6", density: "spacious" },
+        terminal: { palette: "carbon", font: "mono", glass: "off", radius: "2", density: "compact" },
+        study: { palette: "sage", font: "serif", glass: "on", radius: "16" },
+        abyss: { palette: "ocean", glass: "on", "glass-blur": "26", radius: "14" },
+        ember: { palette: "ember", glass: "on", radius: "12" },
+        orchid: { palette: "plum", glass: "on", radius: "18" },
+        blueprint: { palette: "ocean", font: "mono", glass: "off", radius: "4", density: "compact" },
+        graphite: { palette: "carbon", glass: "off", radius: "4" },
+        lagoon: { palette: "lagoon", glass: "on", radius: "14" },
       };
       const preset = THEMES[localStorage.getItem("themePreset")] || {};
       const pref = (key, fallback) =>
@@ -168,6 +166,28 @@
     </div>
   </div>
 
+  <!-- Global Command Palette -->
+  <div id="command-palette-overlay" class="lock-overlay command-palette-overlay hidden">
+    <div class="card glass command-palette-card">
+      <div class="command-palette-bar">
+        <span class="command-palette-icon">✨</span>
+        <input id="command-palette-input" class="command-palette-input" type="text" placeholder="Ask the agent to do something… (Esc to close)">
+      </div>
+      <div id="command-palette-results" class="command-palette-results">
+        <p class="muted command-palette-hint">Press Enter to send.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Agent Monitor (Twitch-style) -->
+  <aside id="agent-monitor" class="card glass agent-monitor hidden">
+    <div class="row space-between monitor-header">
+      <h3 class="monitor-title">🤖 Agent Activity</h3>
+      <button id="agent-monitor-close" class="ghost small">✕</button>
+    </div>
+    <div id="agent-monitor-logs" class="monitor-logs"></div>
+  </aside>
+
   <!-- ======================= DASHBOARD TAB (Wave D) ======================= -->
   <div class="tab-page hidden" id="tab-dashboard" role="tabpanel" aria-labelledby="tab-btn-dashboard" tabindex="-1">
     <!-- Full-width welcome banner: greeting + a line about your notebook,
@@ -201,7 +221,7 @@
   </div>
 
   <!-- ======================= NOTES TAB (the current app) ================== -->
-  <div class="tab-page" id="tab-notes" role="tabpanel" aria-labelledby="tab-btn-notes" tabindex="-1">
+  <div class="tab-page hidden" id="tab-notes" role="tabpanel" aria-labelledby="tab-btn-notes" tabindex="-1">
     <div class="layout">
       <!-- Category sidebar: built from the loaded entries, click to filter -->
       <aside class="card" id="sidebar">
@@ -210,11 +230,6 @@
         <div id="most-used-box" class="hidden">
           <h2>Most used</h2>
           <ul id="most-used"></ul>
-        </div>
-        <div class="sidebar-tools">
-          <button id="tags-btn" class="ghost small">🏷 Tags</button>
-          <button id="bin-btn" class="ghost small">🗑 Recycle bin</button>
-          <button id="activity-btn" class="ghost small">📜 Activity</button>
         </div>
       </aside>
 
@@ -384,30 +399,30 @@ Link to another note with [[its first few words]]."></textarea>
 
         <!-- Browse: everything you've saved -->
         <section class="card" id="browse">
-          <div class="row space-between browse-header">
+          <div class="library-toolbar">
             <!-- The label lives in its own span: the heading also carries the
                  collapse chevron, and writing textContent on the h2 would
                  delete it on every re-render. -->
-            <h2 id="entries-heading"><span id="entries-heading-label">All entries</span></h2>
-            <div class="row browse-tools">
-              <input id="note-search" type="search"
-                placeholder="🔎 Filter — try tag:work or &quot;exact phrase&quot;"
-                aria-label="Filter notes. Supports tag:, cat:, is:pinned, -exclude and quoted phrases"
-                aria-describedby="search-help-hint">
-              <button id="save-search" class="ghost small hidden" type="button"
-                title="Save this filter so you can come back to it">☆ Save filter</button>
-              <button id="search-help" class="ghost small" type="button"
-                aria-expanded="false" aria-controls="search-help-hint"
-                title="What can I type here?">?</button>
-              <select id="note-sort" aria-label="Sort notes" title="Sort notes">
-                <option value="newest">Newest first</option>
-                <option value="oldest">Oldest first</option>
-                <option value="az">A → Z</option>
-                <option value="most-used">Most used</option>
-              </select>
-              <button id="select-btn" class="ghost small"
-                title="Select several notes to move, tag, or delete together">☑️ Select</button>
-            </div>
+            <h2 id="entries-heading" class="entries-heading"><span id="entries-heading-label">All entries</span></h2>
+            <button id="select-btn" class="ghost small" title="Select several notes to move, tag, or delete together">☑️ Select</button>
+            <input id="note-search" class="library-search" type="search"
+              placeholder="🔎 Filter — try tag:work or &quot;exact phrase&quot;"
+              aria-label="Filter notes. Supports tag:, cat:, is:pinned, -exclude and quoted phrases"
+              aria-describedby="search-help-hint">
+            <label class="row align-center checkbox-label semantic-toggle" title="Search by concept instead of exact keywords">
+              <input type="checkbox" id="semantic-search-toggle"> ✨ Semantic
+            </label>
+            <button id="save-search" class="ghost small hidden" type="button"
+              title="Save this filter so you can come back to it">☆ Save filter</button>
+            <button id="search-help" class="ghost small" type="button"
+              aria-expanded="false" aria-controls="search-help-hint"
+              title="What can I type here?">?</button>
+            <select id="note-sort" aria-label="Sort notes" title="Sort notes">
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="az">A → Z</option>
+              <option value="most-used">Most used</option>
+            </select>
           </div>
           <!-- Batch actions bar (Wave M): appears in select mode -->
           <div id="batch-bar" class="row hidden">
@@ -635,6 +650,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <button id="chat-dock-more-btn" class="ghost small" type="button"
                   aria-haspopup="dialog" aria-expanded="false"
                   aria-controls="chat-dock-more-panel"
+                  aria-label="Settings"
                   title="Answer length and persona">⚙</button>
                 <div id="chat-dock-more-panel" class="chat-dock-more-panel hidden"
                   role="dialog" aria-label="How it answers">
@@ -786,6 +802,9 @@ Link to another note with [[its first few words]]."></textarea>
           <option value="grid" selected>Grid</option>
           <option value="line">Line</option>
         </select>
+        <div class="spacer-flex"></div>
+        <label class="muted" for="timeline-search">Highlight</label>
+        <input type="text" id="timeline-search" class="timeline-search" placeholder="Type to filter…">
         <span id="timeline-count" class="muted"></span>
       </div>
       <p class="muted">
@@ -804,6 +823,20 @@ Link to another note with [[its first few words]]."></textarea>
         <svg id="timeline-branch-svg" class="timeline-branch-svg"></svg>
       </div>
       <p id="timeline-empty" class="muted hidden">Nothing to plot yet.</p>
+      
+      <!-- Unified Timeline Popup (Read-only view with Open button) -->
+      <div id="timeline-popup" class="graph-popup hidden" role="dialog" aria-label="View note">
+        <div class="row space-between">
+          <strong id="timeline-popup-title">Note</strong>
+          <button id="timeline-popup-close" class="ghost small" aria-label="Close">✕</button>
+        </div>
+        <div id="timeline-popup-info" class="graph-popup-info timeline-popup-info"></div>
+        <div id="timeline-popup-media" class="graph-popup-media hidden"></div>
+        <div id="timeline-popup-content" class="timeline-popup-content"></div>
+        <div class="row">
+          <button id="timeline-popup-open" class="small">Open in Editor</button>
+        </div>
+      </div>
     </section>
   </div>
 
@@ -823,20 +856,19 @@ Link to another note with [[its first few words]]."></textarea>
         <input id="graph-search" type="search" placeholder="🔎 Highlight notes…"
           aria-label="Highlight matching notes in the graph">
         <label class="muted" for="graph-layout">Layout</label>
-        <select id="graph-layout" aria-label="How the notes are arranged">
-          <option value="force" selected>Force (web)</option>
-          <option value="tree">Tree</option>
-          <option value="radial">Radial tree</option>
-          <option value="arc">Arc</option>
-        </select>
+        <div id="graph-layout" class="segmented-control" aria-label="How the notes are arranged">
+          <label><input type="radio" name="graph-layout" value="force" checked> Force</label>
+          <label><input type="radio" name="graph-layout" value="tree"> Tree</label>
+          <label><input type="radio" name="graph-layout" value="radial"> Radial</label>
+          <label><input type="radio" name="graph-layout" value="arc"> Arc</label>
+        </div>
         <!-- A layout decides where a note goes; this decides what its colour
              means. Category is the filing; cluster is the structure — which
              notes can actually reach each other (§9). -->
-        <label class="muted" for="graph-colour">Colour</label>
-        <select id="graph-colour" aria-label="What the note colours mean">
-          <option value="category" selected>By category</option>
-          <option value="cluster">By cluster</option>
-        </select>
+        <div id="graph-colour" class="segmented-control" aria-label="What the note colours mean">
+          <label><input type="radio" name="graph-colour" value="category" checked> Category</label>
+          <label><input type="radio" name="graph-colour" value="cluster"> Cluster</label>
+        </div>
         <button id="graph-add-node" class="small"
           title="Add a new note straight onto the map">＋ New note</button>
         <button id="graph-options-toggle" class="ghost small" aria-expanded="false"
@@ -850,7 +882,9 @@ Link to another note with [[its first few words]]."></textarea>
         <button id="graph-trace-toggle" class="ghost small" aria-expanded="false"
           aria-controls="graph-trace"
           title="Find how two notes connect">🛣 Trace</button>
+        <button id="graph-focus-clear" class="ghost small hidden" title="Exit Focus Mode and return to the global map">✕ Exit Focus</button>
         <button id="graph-refresh" class="ghost small">↻ Refresh</button>
+        <button id="graph-fullscreen-close" class="ghost small graph-fullscreen-close">✕ Close Full Screen</button>
       </div>
       <!-- The tuned-once controls. One row, one control height, margins
            zeroed — the control-strip rule in DESIGN.md. -->
@@ -867,6 +901,11 @@ Link to another note with [[its first few words]]."></textarea>
           <label for="graph-spread" class="muted">Spread</label>
           <input id="graph-spread" type="range" min="0" max="100" value="50"
             title="How far apart linked notes sit">
+        </span>
+        <span class="graph-temporal" id="graph-temporal">
+          <label for="graph-time-slider" class="muted">Time Filter</label>
+          <input id="graph-time-slider" class="graph-time-slider" type="range" min="0" max="100" value="100" title="Slide back in time to hide newer notes">
+          <span id="graph-time-label" class="muted text-sm graph-time-label">All Time</span>
         </span>
         <label class="muted tools-toggle" title="Draw dotted lines between notes that mean similar things (needs semantic search)">
           <input type="checkbox" id="graph-similarity"> Similarity
@@ -887,20 +926,14 @@ Link to another note with [[its first few words]]."></textarea>
            margins zeroed, per DESIGN.md. -->
       <div class="graph-trace hidden" id="graph-trace" role="group"
         aria-label="Trace the connection between two notes">
-        <span class="graph-trace-label">🛣 Trace</span>
-        <select id="graph-trace-from" aria-label="Trace from this note"></select>
-        <span class="graph-trace-arrow" aria-hidden="true">→</span>
-        <select id="graph-trace-to" aria-label="Trace to this note"></select>
-        <button id="graph-trace-run" class="small"
-          title="Find the chain of links, replies and shared tags between these two notes">Trace</button>
-        <button id="graph-trace-clear" class="ghost small"
-          title="Clear the traced path">Clear</button>
-        <!-- Asked directly: "what's the point of the trace feature". Fair — the
-             answer existed only in a tooltip and inside a folded-shut help
-             panel, and a control whose purpose is hidden is a control nobody
-             presses. It is the one question a map answers better than any
-             list, so it says so on the strip. -->
-        <span class="graph-trace-hint muted">how two notes connect — or that they don't</span>
+        <span class="graph-trace-label">🔍 Trace</span>
+        <!-- Two chips and, once both ends are picked, Swap and Undo. These
+             replaced two <select>s that listed every note in the notebook by
+             its opening words — the reason Trace was reported as unusable. The
+             ends are chosen by clicking the map now; this reads back what you
+             chose and what the next click will do. -->
+        <div class="graph-trace-ends" id="graph-trace-ends"></div>
+        <button id="graph-trace-clear" class="ghost small" title="Leave trace mode (Esc)">Done</button>
       </div>
       <p id="graph-trace-result" class="graph-trace-result hidden" role="status"></p>
       <p id="graph-stats" class="muted graph-stats" role="status"></p>
@@ -969,6 +1002,7 @@ Link to another note with [[its first few words]]."></textarea>
           <button id="graph-zoom-in" class="graph-zoom-btn" title="Zoom in" aria-label="Zoom in">＋</button>
           <button id="graph-zoom-out" class="graph-zoom-btn" title="Zoom out" aria-label="Zoom out">－</button>
           <button id="graph-zoom-fit" class="graph-zoom-btn" title="Fit the whole map to view" aria-label="Fit map to view">⤢</button>
+          <button id="graph-fullscreen" class="graph-zoom-btn" title="Toggle Full Screen" aria-label="Toggle full screen">⛶</button>
         </div>
         <div id="graph-empty" class="empty-state hidden">
           <div id="graph-empty-emblem" class="emblem emblem-centred" aria-hidden="true"></div>
@@ -1232,79 +1266,171 @@ Link to another note with [[its first few words]]."></textarea>
        same length it was. A library that duplicated two lists that already
        existed would be a third place to look. -->
   <div class="tab-page hidden" id="tab-library" role="tabpanel" aria-labelledby="tab-btn-library" tabindex="-1">
-    <section class="card library-controls">
-      <div class="row space-between library-head">
-        <h2>Library</h2>
-        <span class="row">
-          <button id="library-new-doc" class="small" type="button"
-            title="Start a new document">＋ New document</button>
-          <button id="library-refresh" class="ghost small" type="button"
-            title="Reload the list">↻</button>
-        </span>
+    <div class="seg library-subtabs" id="library-subtabs" role="tablist">
+      <button role="tab" aria-selected="true" data-target="library-view-documents" class="active">Documents</button>
+      <button role="tab" aria-selected="false" data-target="library-view-skills">AI Skills</button>
+      <button role="tab" aria-selected="false" data-target="library-view-whiteboard">Whiteboard</button>
+    </div>
+
+    <div id="library-view-documents" class="library-view-section">
+      <section class="card library-controls glass">
+          <div class="row space-between library-head">
+            <h2>Library</h2>
+            <span class="row">
+              <button id="library-new-doc" class="small" type="button"
+                title="Start a new document">＋ New document</button>
+              <button id="library-refresh" class="ghost small" type="button"
+                title="Reload the list">↻</button>
+            </span>
+          </div>
+          <!-- The state of the notebook, as the numbers a management screen opens
+               with. Derived from the same payload the grid renders, so the header
+               and the grid can never disagree. -->
+          <div id="library-overview" class="library-overview" role="group"
+            aria-label="Your notebook at a glance"></div>
+          <div class="library-toolbar">
+            <input id="library-search" type="search" class="library-search"
+              placeholder="🔎 Search titles and previews…"
+              aria-label="Search the library">
+            <!-- Binned things are out of "Everything" unless you ask for them:
+                 the Library is where you find what you have, and what you threw
+                 away is not that. The Bin chip still shows them whatever this
+                 says, because pressing a filter called Bin is asking. -->
+            <label class="library-sort library-sort-check">
+              <input type="checkbox" id="library-show-binned" class="accent-check">
+              <span class="muted">Include bin</span>
+            </label>
+            <div class="seg seg-compact library-sort-seg" id="library-sort-seg" role="group" aria-label="Sort the library">
+              <button data-sort="recent" class="active" type="button" title="Newest first">Newest</button>
+              <button data-sort="oldest" type="button" title="Oldest first">Oldest</button>
+              <button data-sort="az" type="button" title="A-Z">A-Z</button>
+              <button data-sort="biggest" type="button" title="Biggest first">Biggest</button>
+            </div>
+            <select id="library-sort" hidden>
+              <option value="recent">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="az">A–Z</option>
+              <option value="biggest">Biggest first</option>
+            </select>
+            <!-- Cards to browse, rows to manage. A grid shows you what a thing is;
+                 a list shows you forty of them at once with their metadata in
+                 columns, which is what you want when the job is tidying up. -->
+            <div class="seg seg-compact library-view" id="library-view" role="group"
+              aria-label="How to show the library">
+              <button data-library-view="grid" type="button" title="Cards">▦</button>
+              <button data-library-view="list" type="button" title="Rows">☰</button>
+            </div>
+          </div>
+          <!-- Filled by renderLibraryFilters: one chip per kind, each with its
+               count, so an empty kind says so before you press it. -->
+          <div id="library-filters" class="library-filters" role="group"
+            aria-label="Filter by kind"></div>
+          <!-- Two strips that appear only when they have something to say: the
+               bin's own controls when you are looking at the bin, and the bulk
+               actions when something is selected. A management screen that shows
+               every control it *could* offer is a toolbar you have to read. -->
+          <div id="library-binbar" class="library-contextbar hidden">
+            <span class="muted" id="library-bin-note"></span>
+            <span class="library-contextbar-end">
+              <button id="library-bin-empty" class="ghost small" type="button"
+                title="Permanently delete everything in the bin">🗑 Empty the bin</button>
+            </span>
+          </div>
+          <div id="library-selectbar" class="library-contextbar hidden" role="group"
+            aria-label="Actions for the selected items">
+            <span id="library-selected-count" class="library-selected-count"></span>
+            <span class="library-contextbar-end">
+              <button id="library-bulk-open" class="ghost small" type="button">↗ Open</button>
+              <button id="library-bulk-restore" class="ghost small hidden" type="button">↩ Restore</button>
+              <button id="library-bulk-delete" class="ghost small" type="button">🗑 Delete</button>
+              <button id="library-clear-selection" class="ghost small" type="button">Clear</button>
+            </span>
+          </div>
+        </section>
+        <div id="library-grid" class="library-grid"></div>
+        <p id="library-empty" class="muted library-empty hidden"></p>
+
+        <!-- Inject the Skills section here -->
+    </div>
+
+    <div id="library-view-skills" class="library-view-section hidden">
+      <div class="skills-split">
+        <main>
+          <section id="library-skills-section" class="card glass">
+          <div class="row space-between">
+            <h2>AI Skill Library</h2>
+            <button id="skills-add-new" class="small">+ New Skill</button>
+          </div>
+          <p class="muted">Manage the capabilities of your AI agent. Enable, configure, and review execution logs.</p>
+          <div id="skills-dashboard-list" class="skills-grid"></div>
+        </section>
+
+      
+        </main>
+        <aside class="card glass" id="skills-sidebar">
+        <h2>Skill Logs</h2>
+        <div id="skills-logs-list" class="entry-list"></div>
+      </aside>
       </div>
-      <!-- The state of the notebook, as the numbers a management screen opens
-           with. Derived from the same payload the grid renders, so the header
-           and the grid can never disagree. -->
-      <div id="library-overview" class="library-overview" role="group"
-        aria-label="Your notebook at a glance"></div>
-      <div class="library-toolbar">
-        <input id="library-search" type="search" class="library-search"
-          placeholder="🔎 Search titles and previews…"
-          aria-label="Search the library">
-        <!-- Binned things are out of "Everything" unless you ask for them:
-             the Library is where you find what you have, and what you threw
-             away is not that. The Bin chip still shows them whatever this
-             says, because pressing a filter called Bin is asking. -->
-        <label class="library-sort">
-          <input type="checkbox" id="library-show-binned">
-          <span class="muted">Include bin</span>
-        </label>
-        <label class="library-sort">
-          <span class="muted">Sort</span>
-          <select id="library-sort" aria-label="Sort the library">
-            <option value="recent">Newest first</option>
-            <option value="oldest">Oldest first</option>
-            <option value="az">A–Z</option>
-            <option value="biggest">Biggest first</option>
-          </select>
-        </label>
-        <!-- Cards to browse, rows to manage. A grid shows you what a thing is;
-             a list shows you forty of them at once with their metadata in
-             columns, which is what you want when the job is tidying up. -->
-        <div class="seg seg-compact library-view" id="library-view" role="group"
-          aria-label="How to show the library">
-          <button data-library-view="grid" type="button" title="Cards">▦</button>
-          <button data-library-view="list" type="button" title="Rows">☰</button>
-        </div>
+    </div>
+
+  <!-- ======================= WHITEBOARD TAB ======================= -->
+  <div id="library-view-whiteboard" class="library-view-section library-view-whiteboard hidden">
+    <div class="whiteboard-container" id="whiteboard-container">
+      <!-- The SVG layer for drawing, fills the container -->
+      <svg id="wb-svg-layer" class="wb-svg-layer">
+        <g id="wb-zoom-group">
+          <g id="wb-shapes-group"></g>
+          <g id="wb-lines-group"></g>
+          <g id="wb-strokes-group"></g>
+        </g>
+      </svg>
+      <!-- The HTML layer for cards, pannable/zoomable -->
+      <div id="wb-html-layer" class="wb-html-layer"></div>
+    </div>
+    <div class="whiteboard-floating-panel top-left card glass">
+      <select id="wb-board-select" class="ghost small" title="Switch Board">
+        <option value="">Global Board</option>
+      </select>
+    </div>
+
+    <div class="whiteboard-floating-panel top-right card glass">
+      <button id="wb-add-note" class="ghost small" title="Toggle Library">📝 Library</button>
+    </div>
+
+    <div class="whiteboard-floating-panel bottom-center card glass">
+      <div class="wb-tool-group" id="wb-tool-group">
+        <button class="ghost icon-button active" data-tool="pan" title="Pan/Zoom">🖐️</button>
+        <button class="ghost icon-button" data-tool="draw" title="Freehand">✏️</button>
+        <button class="ghost icon-button" data-tool="line" title="Straight Line">📏</button>
+        <button class="ghost icon-button" data-tool="rect" title="Rectangle">⬛</button>
+        <button class="ghost icon-button" data-tool="circle" title="Circle">⭕</button>
+        <button class="ghost icon-button" data-tool="link-straight" title="Straight Link">🔗</button>
+        <button class="ghost icon-button" data-tool="link-curved" title="Curved Link">⤴️</button>
+        <button class="ghost icon-button" data-tool="delete" title="Delete">🗑️</button>
+        <span class="header-divider" aria-hidden="true"></span>
+        <input type="color" id="wb-color-picker" value="#ffffff" title="Stroke Color" class="wb-color-picker">
       </div>
-      <!-- Filled by renderLibraryFilters: one chip per kind, each with its
-           count, so an empty kind says so before you press it. -->
-      <div id="library-filters" class="library-filters" role="group"
-        aria-label="Filter by kind"></div>
-      <!-- Two strips that appear only when they have something to say: the
-           bin's own controls when you are looking at the bin, and the bulk
-           actions when something is selected. A management screen that shows
-           every control it *could* offer is a toolbar you have to read. -->
-      <div id="library-binbar" class="library-contextbar hidden">
-        <span class="muted" id="library-bin-note"></span>
-        <span class="library-contextbar-end">
-          <button id="library-bin-empty" class="ghost small" type="button"
-            title="Permanently delete everything in the bin">🗑 Empty the bin</button>
-        </span>
+    </div>
+
+    <div class="whiteboard-floating-panel bottom-right card glass">
+      <button id="wb-zoom-in" class="ghost small" title="Zoom In">➕</button>
+      <button id="wb-zoom-out" class="ghost small" title="Zoom Out">➖</button>
+      <button id="wb-zoom-fit" class="ghost small" title="Fit to Screen">⛶</button>
+    </div>
+    
+    <aside class="whiteboard-sidebar card glass hidden" id="whiteboard-sidebar">
+      <!-- Its own close button. The panel sits at top-right, which is exactly
+           where the 📝 Library toggle is, so the list covered the only control
+           that would have dismissed it. -->
+      <div class="row space-between wb-sidebar-head">
+        <h3>Library</h3>
+        <button id="wb-library-close" class="ghost small" title="Close the library">✕</button>
       </div>
-      <div id="library-selectbar" class="library-contextbar hidden" role="group"
-        aria-label="Actions for the selected items">
-        <span id="library-selected-count" class="library-selected-count"></span>
-        <span class="library-contextbar-end">
-          <button id="library-bulk-open" class="ghost small" type="button">↗ Open</button>
-          <button id="library-bulk-restore" class="ghost small hidden" type="button">↩ Restore</button>
-          <button id="library-bulk-delete" class="ghost small" type="button">🗑 Delete</button>
-          <button id="library-clear-selection" class="ghost small" type="button">Clear</button>
-        </span>
-      </div>
-    </section>
-    <div id="library-grid" class="library-grid"></div>
-    <p id="library-empty" class="muted library-empty hidden"></p>
+      <input type="search" id="wb-search" placeholder="Search notes…">
+      <ul id="wb-library-list" class="wb-library-list"></ul>
+    </aside>
+  </div>
   </div>
 
   <!-- ======================= STATUS BAR (§36D) ============================
@@ -1347,6 +1473,7 @@ Link to another note with [[its first few words]]."></textarea>
          is happening" for hours is the decoration the caveat above warns
          about; a slot that appears is a thing you notice. -->
     <button id="status-task" class="status-item status-task hidden" type="button"></button>
+    <span id="power-saver-indicator" class="chip warning hidden" title="Power Saver Mode is On">🔋 Saver On</span>
     <span class="status-spacer"></span>
     <button id="status-command" class="status-item" type="button"></button>
   </footer>
@@ -1394,6 +1521,7 @@ Link to another note with [[its first few words]]."></textarea>
             <button data-section="personas">Personas</button>
             <button data-section="skills">Skills</button>
             <button data-section="tools">Tools it can use</button>
+            <button data-section="memory">What it remembers</button>
             <button data-section="websearch">Web search</button>
           </div>
 
@@ -1493,6 +1621,12 @@ Link to another note with [[its first few words]]."></textarea>
               <div class="row">
                 <select id="utility-model-select"></select>
                 <button id="utility-model-apply" class="small">Use this model</button>
+              </div>
+              <div class="stack-top-gap">
+                <label class="checkbox-label row align-center">
+                  <input type="checkbox" id="pref-smart-model-routing">
+                  <span>Use Smart Model Routing for Background Tasks</span>
+                </label>
               </div>
               <p class="muted">
                 Quick background jobs run on this model, so a big slow chat
@@ -1622,6 +1756,29 @@ Link to another note with [[its first few words]]."></textarea>
           </section>
 
           <!-- AI Tools (Wave O): toggle what the chat AI is allowed to do -->
+          <section class="settings-section hidden" id="settings-memory">
+            <p class="muted">
+              The AI can save itself standing instructions — say
+              <em>"always answer in British English"</em> and it will keep
+              doing that in every conversation from then on. This is the whole
+              list, and you can switch any of them off or delete them.
+            </p>
+            <p class="muted" id="memory-budget"></p>
+            <!-- Adding one by hand. The tool covers "tell it in conversation";
+                 this covers "I already know what I want it to always do". -->
+            <div class="row memory-add">
+              <input id="memory-new" type="text" maxlength="200"
+                placeholder="e.g. Always answer in British English">
+              <button id="memory-add" class="small">Remember this</button>
+            </div>
+            <p class="status hidden" id="memory-status" role="status"></p>
+            <div id="memory-list" class="memory-list"></div>
+            <p class="muted hidden" id="memory-empty">
+              Nothing saved yet. Tell the AI a preference in chat and ask it to
+              remember, and it will appear here.
+            </p>
+          </section>
+
           <section class="settings-section hidden" id="settings-tools">
             <p class="muted">
               When <strong>Agent mode</strong> is on in the Chat tab, these are
@@ -1844,6 +2001,28 @@ Link to another note with [[its first few words]]."></textarea>
                   <input id="zoom-slider" type="range" min="70" max="130" step="5" value="100"
                     aria-label="Interface zoom">
                   <span class="slider-value" id="zoom-value">100%</span>
+                </div>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Border style</span>
+                  <small class="muted">Lines around cards and inputs.</small>
+                </div>
+                <div class="seg" id="border-style-seg" role="group" aria-label="Border style">
+                  <button data-border-choice="solid">Solid</button>
+                  <button data-border-choice="dashed">Dashed</button>
+                  <button data-border-choice="none">None</button>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Shadow intensity</span>
+                </div>
+                <div class="row setting-control">
+                  <input id="shadow-intensity" type="range" min="0" max="50" step="5" value="5"
+                    aria-label="Shadow intensity">
+                  <span class="slider-value" id="shadow-intensity-value">5%</span>
                 </div>
               </div>
             </div>
@@ -2218,6 +2397,68 @@ Link to another note with [[its first few words]]."></textarea>
               </p>
               <ul id="task-history" class="entry-list"></ul>
               <button id="task-history-clear" class="ghost small">Clear this list</button>
+            </div>
+
+            <div class="settings-group">
+              <h3>Autonomous Background AI</h3>
+              <p class="muted">
+                Have the agent automatically optimize your notes in the background — tagging untagged notes, finding duplicates, and linking related items.
+              </p>
+              <label class="check-row">
+                <input type="checkbox" id="pref-autonomous-tasks">
+                <span>Enable autonomous optimization</span>
+              </label>
+              
+              <div id="autonomous-settings-panel" class="settings-indent hidden">
+                <label class="check-row">
+                  <input type="checkbox" id="pref-auto-tag">
+                  <span>Auto-tag untagged notes</span>
+                </label>
+                <label class="check-row">
+                  <input type="checkbox" id="pref-auto-link">
+                  <span>Auto-link related notes</span>
+                </label>
+                <label class="check-row">
+                  <input type="checkbox" id="pref-auto-dedupe">
+                  <span>Identify duplicates</span>
+                </label>
+                
+                <label for="pref-autonomous-interval" class="form-label form-label-spaced">Run every (hours)</label>
+                <input type="number" id="pref-autonomous-interval" class="wide" min="1" max="168" placeholder="6">
+                
+                <label for="pref-autonomous-model" class="form-label">Model override</label>
+                <select id="pref-autonomous-model" class="wide">
+                  <option value="">Same as Utility model</option>
+                </select>
+                
+                <div class="row row-top-gap">
+                  <button id="autonomous-trigger" class="small ghost">▶ Run optimization now</button>
+                </div>
+
+                <!-- What the last pass actually did. This is the answer to
+                     "you are asking me to let an agent edit my notebook while
+                     I am not looking": every change carries the tool call
+                     that reverses it, so the pass is reviewable rather than
+                     something you simply discover afterwards. -->
+                <div id="autonomous-review" class="autonomous-review hidden">
+                  <h4 id="autonomous-review-title">What the last run changed</h4>
+                  <div id="autonomous-review-list" class="skill-changes"></div>
+                  <div class="row row-top-gap">
+                    <button id="autonomous-review-clear" class="small ghost">Dismiss</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-group">
+              <h3>Battery Efficient Mode</h3>
+              <p class="muted">
+                Pause background AI tasks and heavy graph calculations to save power. When enabled, autonomous background tasks will not run, and the graph may be slower to update connections.
+              </p>
+              <label class="check-row">
+                <input type="checkbox" id="pref-battery-mode">
+                <span>Enable Battery Efficient Mode</span>
+              </label>
             </div>
 
             <h3>Quit MemoryMap</h3>
@@ -2608,26 +2849,74 @@ Link to another note with [[its first few words]]."></textarea>
   </div>
 
   <div id="sketch-overlay" class="hidden" role="dialog" aria-label="Sketch pad">
-    <div class="card" id="sketch-card">
+    <div class="card glass" id="sketch-card">
       <div class="row space-between">
         <h2>Quick sketch</h2>
         <button id="sketch-close" class="ghost small">Close</button>
       </div>
-      <div class="row" id="sketch-tools">
-        <span class="muted">Pen</span>
-        <button class="sketch-color active" data-color="#4f6df5" aria-label="Blue pen"></button>
-        <button class="sketch-color" data-color="#e2534b" aria-label="Red pen"></button>
-        <button class="sketch-color" data-color="#3a9e56" aria-label="Green pen"></button>
-        <button class="sketch-color" data-color="#1c1e26" aria-label="Black pen"></button>
-        <label class="muted">Size
-          <input id="sketch-size" type="range" min="2" max="14" value="4">
+      <div id="sketch-toolbar" class="sketch-docked-toolbar">
+        <div class="seg seg-compact">
+          <button id="sketch-tool-pen" class="active" title="Pen">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>
+          </button>
+          <button id="sketch-tool-highlighter" title="Highlighter">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l-6 6v3h9l3-3"></path><path d="M22 12l-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"></path></svg>
+          </button>
+          <button id="sketch-tool-eraser" title="Eraser">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16C2.5 15.5 2.5 14.5 3 14L13 4C13.5 3.5 14.5 3.5 15 4L20 9C20.5 9.5 20.5 10.5 20 11L11 20"></path><path d="M17 14L7 14"></path></svg>
+          </button>
+        </div>
+        
+        <div class="seg seg-compact">
+          <button id="sketch-tool-line" title="Line">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="19" x2="19" y2="5"></line></svg>
+          </button>
+          <button id="sketch-tool-arrow" title="Arrow">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+          </button>
+          <button id="sketch-tool-rect" title="Rectangle">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+          </button>
+          <button id="sketch-tool-circ" title="Circle">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle></svg>
+          </button>
+          <button id="sketch-tool-text" title="Text">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>
+          </button>
+        </div>
+        
+        <div class="sketch-colors">
+          <button class="sketch-color active" data-color="#3b82f6" aria-label="Blue"></button>
+          <button class="sketch-color" data-color="#ef4444" aria-label="Red"></button>
+          <button class="sketch-color" data-color="#22c55e" aria-label="Green"></button>
+          <button class="sketch-color" data-color="#eab308" aria-label="Yellow"></button>
+          <button class="sketch-color" data-color="#a855f7" aria-label="Purple"></button>
+          <button class="sketch-color" data-color="#111827" aria-label="Black"></button>
+          <button class="sketch-color" data-color="#f9fafb" aria-label="White"></button>
+        </div>
+
+        <label class="sketch-size-wrapper" title="Brush Size">
+          <input id="sketch-size" type="range" min="2" max="24" value="4" class="sketch-slider">
         </label>
-        <button id="sketch-eraser" class="ghost small">Eraser</button>
-        <button id="sketch-clear" class="ghost small">Clear</button>
-        <button id="sketch-upload-image" class="ghost small">🖼️ Add image</button>
+        
+        <div class="seg seg-compact">
+          <button id="sketch-undo" title="Undo (Ctrl+Z)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>
+          </button>
+          <button id="sketch-redo" title="Redo (Ctrl+Y)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 14 20 9 15 4"></polyline><path d="M4 20v-7a4 4 0 0 1 4-4h12"></path></svg>
+          </button>
+          <button id="sketch-clear" title="Clear Canvas">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
+          <button id="sketch-upload-image" title="Add Background Image">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+          </button>
+        </div>
         <input id="sketch-image-input" type="file" accept="image/*" class="hidden">
       </div>
-      <div id="sketch-canvas-wrap">
+      <div id="sketch-canvas-wrap" class="sketch-canvas-wrap">
+        
         <canvas id="sketch-bg-canvas" width="820" height="480"></canvas>
         <canvas id="sketch-canvas" width="820" height="480"></canvas>
       </div>
@@ -2714,6 +3003,9 @@ Link to another note with [[its first few words]]."></textarea>
       </div>
     </div>
   </div>
+
+
+
 
   <!-- D3 v7 + p5.js, both vendored locally — the offline rule: no CDNs, ever -->
   <script src="/vendor/d3.v7.min.js"></script>

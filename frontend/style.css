@@ -12861,7 +12861,15 @@ textarea.drag-over {
   white-space: pre-wrap;
 }
 
-/* The graph's "slide back in time" control. */
+/* The graph's "slide back in time" control.
+
+   Reported as the "Time Filter" text wrapping onto two lines, squeezed
+   against the physics sliders and the toggle checkboxes sharing the same
+   row. `.graph-time-label` (the trailing date/"All time" readout) already
+   had `white-space: nowrap`; the leading `<label>` naming the control did
+   not, so it was the one flex item here allowed to shrink below its own
+   content width — exactly what a text label should never do in a control
+   strip (DESIGN.md's control-height rule is the same idea one axis over). */
 .graph-temporal {
   display: flex;
   flex: 1;
@@ -12870,8 +12878,14 @@ textarea.drag-over {
   max-width: 18.75rem;
 }
 
+.graph-temporal>label {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .graph-time-slider {
   flex: 1;
+  min-width: 4rem;
 }
 
 .graph-time-label {

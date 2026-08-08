@@ -12038,43 +12038,58 @@ async function renderGraph() {
   drawTrace();
   applyGraphHighlight();
   
-  // Set up temporal filter slider bounds based on data
-  if (data.nodes.length > 0) {
-    const timestamps = data.nodes.map(n => new Date(n.created_at || Date.now()).getTime());
-    const minTime = Math.min(...timestamps);
-    const maxTime = Math.max(...timestamps);
-    const slider = $("graph-time-slider");
-    if (slider) {
-      if (!window.graphSliderInitialized) {
-        window.graphSliderInitialized = true;
-        slider.min = minTime;
-        slider.max = maxTime;
-        slider.value = maxTime;
-        slider.step = (maxTime - minTime) / 100 || 1;
-      }
-       
-      slider.oninput = (e) => {
-        const val = Number(e.target.value);
-        $("graph-time-label").textContent = new Date(val).toLocaleDateString();
-        
-        // Apply temporal filter without rebuilding simulation
-        nodeGroups.style("visibility", d => new Date(d.created_at || Date.now()).getTime() <= val ? "visible" : "hidden");
-        labelGroups.style("visibility", d => new Date(d.created_at || Date.now()).getTime() <= val ? "visible" : "hidden");
-        
-        edgeLines.style("visibility", d => {
-          const srcTime = new Date(d.source.created_at || Date.now()).getTime();
-          const tgtTime = new Date(d.target.created_at || Date.now()).getTime();
-          return srcTime <= val && tgtTime <= val ? "visible" : "hidden";
-        });
-      };
-      
-      // Initialize label
-      $("graph-time-label").textContent = new Date(Number(slider.value)).toLocaleDateString();
-      // Apply initial filter if the slider was already moved
-      if (Number(slider.value) < maxTime) {
-         slider.oninput({ target: slider });
-      }
-    }
+  // Set up temporal filter slider bounds based on data.
+  //
+  // Bounds used to be computed once, on the first render that had any notes,
+  // behind a `window.graphSliderInitialized` flag that never reset. Every
+  // later render — a new note, a refresh, a re-filed entry — kept the first
+  // render's `max` forever, so any note created after that point sat beyond
+  // the slider's own "all time" end and stayed permanently hidden the moment
+  // the filter had ever run once. Recomputed every render now; the guard
+  // below preserves what the user was actually doing with it (parked at "all
+  // time", or deliberately looking at an earlier cut-off) instead of
+  // snapping back to the far right on every refresh.
+  const timeLabel = $("graph-time-label");
+  const slider = $("graph-time-slider");
+  if (data.nodes.length > 0 && slider) {
+    const timestamps = data.nodes
+      .map(n => new Date(n.created_at || Date.now()).getTime())
+      .filter(Number.isFinite);
+    const minTime = timestamps.length ? Math.min(...timestamps) : Date.now();
+    const maxTime = timestamps.length ? Math.max(...timestamps) : Date.now();
+    const previousMax = Number(slider.max);
+    // "At the end" before this render's bounds change — i.e. no filter was
+    // actually applied — is the case to keep snapped to the new end rather
+    // than freeze at whatever timestamp used to be the newest note.
+    const wasAtEnd = !slider.dataset.graphInit || Number(slider.value) >= previousMax;
+    slider.min = minTime;
+    slider.max = maxTime;
+    slider.step = (maxTime - minTime) / 100 || 1;
+    slider.value = wasAtEnd ? maxTime : Math.min(Number(slider.value), maxTime);
+    slider.dataset.graphInit = "1";
+
+    const renderTimeLabel = (val) => {
+      if (!timeLabel) return;
+      timeLabel.textContent = val >= maxTime ? "All time" : `Up to ${new Date(val).toLocaleDateString()}`;
+    };
+
+    const applyTimeFilter = (val) => {
+      renderTimeLabel(val);
+      // Apply temporal filter without rebuilding simulation
+      nodeGroups.style("visibility", d => new Date(d.created_at || Date.now()).getTime() <= val ? "visible" : "hidden");
+      labelGroups.style("visibility", d => new Date(d.created_at || Date.now()).getTime() <= val ? "visible" : "hidden");
+      edgeLines.style("visibility", d => {
+        const srcTime = new Date(d.source.created_at || Date.now()).getTime();
+        const tgtTime = new Date(d.target.created_at || Date.now()).getTime();
+        return srcTime <= val && tgtTime <= val ? "visible" : "hidden";
+      });
+    };
+
+    slider.oninput = (e) => applyTimeFilter(Number(e.target.value));
+    renderTimeLabel(Number(slider.value));
+    // Re-apply the (possibly re-clamped) filter so a note added since the
+    // last render obeys whatever cut-off the user had actually set.
+    if (Number(slider.value) < maxTime) applyTimeFilter(Number(slider.value));
   }
 
   initGraphKeyboard();

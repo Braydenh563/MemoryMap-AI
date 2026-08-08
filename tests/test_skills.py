@@ -352,6 +352,35 @@ def _saved(client, content, **extra):
     return response.json()
 
 
+def test_a_network_failure_mid_step_stops_the_run_instead_of_repeating(
+    ai_client, fake_ollama, monkeypatch
+):
+    """Tier 1 §3: Ollama going offline mid-round used to look, to
+    skill_runner, exactly like the model answering with a sentence of prose
+    (agent.run_agent's own OllamaError handling is a real "answer" event) —
+    so the step was ticked done and the run moved on to repeat the identical
+    failure on every later step. It must stop and name the real reason
+    instead, the same way running out of rounds already does."""
+    from memorymap.ai import agent
+
+    def offline(session, question, notes, *args, **kwargs):
+        yield {"type": "answer", "delta": "Ollama doesn't seem to be running.", "offline": True}
+
+    monkeypatch.setattr(agent, "run_agent", offline)
+    events = _stream_events(ai_client, "run", skill="🏷 Auto-tag my notes")
+    steps = [e for e in events if e["type"] == "step"]
+    result = [e for e in events if e["type"] == "result"][0]
+
+    failed = [e for e in steps if e["state"] == "failed"]
+    assert failed and failed[0]["index"] == 0
+    assert "ollama" in failed[0]["reason"].lower()
+    assert not any(s["state"] == "done" for s in steps)
+    # It stops rather than ploughing on through the remaining steps, hitting
+    # the same offline error on each one.
+    assert not [e for e in steps if e["index"] == 1]
+    assert result["stopped_at"] == 0
+
+
 def test_each_step_is_its_own_turn_and_is_ticked_off(ai_client, fake_ollama):
     """Handing a 3B model four instructions at once gets the first one done
     and the rest narrated. One step per turn is what makes "step 2 happened"

@@ -923,8 +923,18 @@ def run_agent(
             return
         except OllamaError:
             # Mid-answer death: say so, but don't wipe what already streamed.
+            # `offline: True` alongside the normal answer shape (Tier 1 §3) —
+            # an ordinary chat turn renders this exactly like any other
+            # answer and needs no change, but skill_runner cannot tell an
+            # "Ollama is offline" boilerplate message apart from a real
+            # answer without it, and was ticking the step "done" and moving
+            # on to repeat the identical failure on every later step.
             prefix = "\n\n" if streamed_any else ""
-            yield {"type": "answer", "delta": f"{prefix}{librarian.OFFLINE_MESSAGE}"}
+            yield {
+                "type": "answer",
+                "delta": f"{prefix}{librarian.OFFLINE_MESSAGE}",
+                "offline": True,
+            }
             return
 
         # Report what this round cost. Agent turns used to emit nothing here,

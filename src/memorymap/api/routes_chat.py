@@ -171,6 +171,18 @@ class ChatRequest(BaseModel):
     # client sets when it already knows the context, not a smarter
     # classifier trying to guess it from three letters.
     answering_agent: bool = False
+    # A deliberately closed set of notes — e.g. Trace's "Generate story from
+    # path" — where retrieval finding *more* is pollution, not help. Without
+    # this, attaching notes still ran the normal retrieval search on the
+    # turn's own text alongside them (`_attached_notes` only ever added to
+    # what search found, never replaced it), so a generic instruction like
+    # "weave these into a narrative" — no real subject to search for — still
+    # keyword/semantic-matched against the whole notebook and appended
+    # whatever it found after the notes the user actually chose. Reported as
+    # the feature "needing to mainly use the notes within the trace" — it
+    # was already doing that, plus however many unrelated notes the
+    # instruction text itself happened to match.
+    attached_notes_only: bool = False
 
 
 def _resolve_mode(requested: str | None) -> str:
@@ -258,6 +270,11 @@ class ChatResponse(BaseModel):
     search_mode: str
     # Which of raw_results are here by connection rather than by matching.
     connected_ids: list[int] = []
+    # Why each result showed up, keyed by str(entry id) — {"type": "semantic",
+    # "score": 0.81} etc. (JSON object keys are always strings; the client
+    # converts back). Not every id in raw_results has an entry here: dated/
+    # recent/attached results are already explained by search_mode itself.
+    match_info: dict[str, dict] = {}
     # Which chat model wrote the answer, or None when it didn't answer.
     answered_by: str | None = None
     # Whether Ollama is reachable — lets the UI distinguish "offline"
@@ -298,6 +315,7 @@ def _prepare(
     question: str,
     note_ids: list[int] | None = None,
     force_notes_intent: bool = False,
+    attached_notes_only: bool = False,
 ) -> dict:
     """The shared first half of both chat endpoints: retrieve entries,
     bump their usage counters, log the question, gather AI settings.
@@ -323,8 +341,16 @@ def _prepare(
     if attached:
         detected = intent.NOTES
     connected_ids: set[int] = set()
+    match_info: dict = {}
     when_phrase = ""
-    if intent.needs_retrieval(detected):
+    # `attached_notes_only`: the caller has already chosen the exact, closed
+    # set of notes this turn should see — running retrieval on top would only
+    # add notes nobody asked for, matched against whatever the turn's own
+    # instruction text happens to contain rather than anything the user
+    # picked. Only takes effect when there is something attached to fall
+    # back to; an empty attachment list with this flag set would otherwise
+    # search nothing at all and answer from silence.
+    if intent.needs_retrieval(detected) and not (attached_notes_only and attached):
         found = search_manager.retrieve_detailed(
             session, question, deps.get_embeddings(), limit=5
         )
@@ -335,6 +361,7 @@ def _prepare(
         # looks like the search misfired — and the model, told nothing, would
         # report them as results.
         connected_ids = found.connected_ids
+        match_info = found.match_info
         when_phrase = found.when_phrase
     else:
         entries, mode = [], "none"
@@ -395,6 +422,10 @@ def _prepare(
         # search, not about the note, and every other route that returns an
         # entry would otherwise carry a field that is always false.
         "connected_ids": sorted(connected_ids),
+        # str() keys: match_info is keyed by entry id internally, but JSON
+        # object keys are always strings and Pydantic's dict[str, dict]
+        # won't silently coerce an int key for us here.
+        "match_info": {str(k): v for k, v in match_info.items()},
         "when_phrase": when_phrase,
         "style": config.get_preference("communication_style", "friendly"),
         "profile": profile,
@@ -403,7 +434,9 @@ def _prepare(
 
 @router.post("", response_model=ChatResponse)
 def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResponse:
-    prepared = _prepare(session, body.question, body.note_ids)
+    prepared = _prepare(
+        session, body.question, body.note_ids, attached_notes_only=body.attached_notes_only
+    )
     ollama_running = deps.get_ollama().is_running()
     conversational = not intent.needs_retrieval(prepared["intent"])
     answered = (conversational or bool(prepared["notes"])) and ollama_running
@@ -442,6 +475,7 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         raw_results=prepared["raw_results"],
         search_mode=prepared["search_mode"],
         connected_ids=prepared["connected_ids"],
+        match_info=prepared["match_info"],
         when_phrase=prepared["when_phrase"],
         answered_by=deps.get_model_manager().chat_model() if answered else None,
         ollama_running=ollama_running,
@@ -571,7 +605,11 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
         # Retrieval happens INSIDE the stream now, not before it — that's the
         # whole latency win. Nothing before this line touches the model.
         prepared = _prepare(
-            session, question, body.note_ids, force_notes_intent=body.answering_agent
+            session,
+            question,
+            body.note_ids,
+            force_notes_intent=body.answering_agent,
+            attached_notes_only=body.attached_notes_only,
         )
         ollama_running = ollama.is_running()
         # In agent mode the model can act even when nothing matched — "save a
@@ -588,6 +626,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                 "raw_results": [r.model_dump(mode="json") for r in prepared["raw_results"]],
                 "search_mode": prepared["search_mode"],
                 "connected_ids": prepared["connected_ids"],
+                "match_info": prepared["match_info"],
                 "when_phrase": prepared["when_phrase"],
                 "answered_by": model_manager.chat_model() if will_answer else None,
                 "ollama_running": ollama_running,

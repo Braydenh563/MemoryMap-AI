@@ -2517,21 +2517,54 @@ function renderChatMeta(meta) {
   // explanation, which reads as the search having misfired — and the whole
   // point of pulling them in is that the person can see the connection.
   const connected = new Set(meta.connected_ids || []);
+  const matchInfo = meta.match_info || {};
   for (const entry of meta.raw_results) {
     const row = clickableResult(entry);
-    if (connected.has(entry.id)) {
-      row.classList.add("result-connected");
-      const mark = document.createElement("span");
-      mark.className = "chip result-connected-chip";
-      mark.textContent = "🔗 linked to a match";
-      mark.title =
-        "This note didn't match your question — it's here because it is " +
-        "linked to one that did.";
-      row.appendChild(mark);
+    const badge = matchReasonBadge(matchInfo[entry.id]);
+    if (badge) {
+      if (connected.has(entry.id)) row.classList.add("result-connected");
+      row.appendChild(badge);
     }
     rawList.appendChild(row);
   }
   $("chat-results").classList.remove("hidden");
+}
+
+// Why a result showed up, as a badge — not a footnote. Reported directly:
+// the one existing explanation ("🔗 linked to a match") was a muted chip
+// easy to miss, and every *other* result — the actual matches — carried no
+// reason at all, so "why is this here?" only had an answer for the minority
+// of rows that arrived by connection rather than by matching. `match_info`
+// (search/search_manager.py's `_retrieve`) now carries real provenance for
+// the rest: a cosine similarity score for a semantic hit, the words that
+// matched for a keyword hit, both for a hybrid one.
+const MATCH_REASON_LABEL = {
+  connected: () => ({
+    text: "🔗 Linked to a match",
+    title: "This note didn't match your question — it's here because it is linked to one that did.",
+  }),
+  semantic: (info) => ({
+    text: `🎯 ${Math.round(info.score * 100)}% similar`,
+    title: `Matched by meaning, not exact words — ${Math.round(info.score * 100)}% cosine similarity to your question.`,
+  }),
+  keyword: (info) => ({
+    text: `🔎 Matched “${info.terms.join("”, “")}”`,
+    title: `Matched the word(s) “${info.terms.join(", ")}” in your question.`,
+  }),
+  hybrid: (info) => ({
+    text: `🎯 ${Math.round(info.score * 100)}% similar · “${info.terms.join("”, “")}”`,
+    title: `Matched both by meaning (${Math.round(info.score * 100)}% similarity) and by the word(s) “${info.terms.join(", ")}”.`,
+  }),
+};
+
+function matchReasonBadge(info) {
+  if (!info || !MATCH_REASON_LABEL[info.type]) return null;
+  const { text, title } = MATCH_REASON_LABEL[info.type](info);
+  const badge = document.createElement("span");
+  badge.className = `chip result-reason-chip result-reason-${info.type}`;
+  badge.textContent = text;
+  badge.title = title;
+  return badge;
 }
 
 // Longer than the backend's own 120s per-chunk Ollama timeout (see the
@@ -2553,6 +2586,7 @@ async function streamChat({
   skillFromStep,
   plan,
   notesOnly,
+  attachedNotesOnly,
   answeringAgent,
   signal,
   onMeta,
@@ -2578,6 +2612,9 @@ async function streamChat({
   if (mode) body.mode = mode;
   if (typeof useTools === "boolean") body.use_tools = useTools;
   if (notesOnly) body.notes_only = true;
+  // The deliberately-closed-set case (Trace's "Generate story from path"):
+  // retrieval must not add notes beyond the ones the caller attached.
+  if (attachedNotesOnly) body.attached_notes_only = true;
   // A reply to the agent's own question ("yes", "ok") reads as small talk to
   // intent.classify — correctly, in isolation — which would otherwise route
   // it to the tool-less conversational path and strand whatever the model
@@ -5547,6 +5584,7 @@ async function sendChatMessage(preset, opts = {}) {
       skillInputs: opts.skillInputs,
       skillFromStep: opts.skillFromStep,
       plan: opts.plan,
+      attachedNotesOnly: opts.attachedNotesOnly,
       answeringAgent,
       signal: chatController.signal,
       onMeta: (m) => {
@@ -11211,20 +11249,28 @@ function renderTraceReadout(result) {
   summary.textContent = `  (${result.hops} step${result.hops === 1 ? "" : "s"})`;
   pieces.push(summary);
   
-  // Story Mode: Synthesize the path into a narrative
+  // Story Mode: Synthesize the path into a narrative.
+  //
+  // Was three inline `.style.x =` assignments against `var(--primary)` /
+  // `var(--primary-fg)` — tokens that don't exist in this design system (it's
+  // `--accent`/`--on-accent`) — and the CSP's `style-src: 'self'` (no
+  // `unsafe-inline`) refuses an inline style attribute outright regardless,
+  // which is what `.style.x =` sets under the hood. Both silently no-op, so
+  // the button rendered as a bare `.graph-trace-note` with none of its
+  // intended emphasis. A real class with real tokens, per DESIGN.md.
   const storyBtn = document.createElement("button");
   storyBtn.className = "graph-trace-note story-mode-btn";
-  storyBtn.style.marginLeft = "12px";
-  storyBtn.style.background = "var(--primary)";
-  storyBtn.style.color = "var(--primary-fg)";
-  storyBtn.style.fontWeight = "bold";
   storyBtn.textContent = "✨ Generate Story from Path";
   storyBtn.title = "Weave these notes into a cohesive narrative using the AI locally";
   storyBtn.addEventListener("click", () => {
     switchTab("chat");
     sendChatMessage(
-      "Write a cohesive, publishable narrative weaving together these specific thoughts. Follow the exact chronological sequence in which these notes are attached.",
-      { noteIds: graphTrace.ids }
+      "Write a cohesive, publishable narrative weaving together these specific thoughts, " +
+        "and how they connect — use the connection between each step (" +
+        result.steps.map((s) => s.how).join("; ") +
+        ") as part of what ties the story together, not just the notes' own text. " +
+        "Follow the exact chronological sequence in which these notes are attached.",
+      { noteIds: graphTrace.ids, attachedNotesOnly: true }
     );
   });
   pieces.push(storyBtn);
@@ -17780,6 +17826,7 @@ async function applyUtilityModel() {
 
 let improveMode = "proofread";
 let improveTarget = null; // the textarea to write the accepted result into
+let improveCustomInstruction = "";
 
 function openImprove(targetTextarea) {
   const text = targetTextarea.value.trim();
@@ -17789,6 +17836,9 @@ function openImprove(targetTextarea) {
   }
   improveTarget = targetTextarea;
   improveMode = "proofread";
+  improveCustomInstruction = "";
+  $("improve-custom-input").value = "";
+  $("improve-custom-row").classList.add("hidden");
   for (const b of document.querySelectorAll(".improve-mode"))
     b.classList.toggle("active", b.dataset.mode === "proofread");
   $("improve-original").textContent = text;
@@ -17807,8 +17857,20 @@ function closeImprove() {
 async function runImprove() {
   const status = $("improve-status");
   const result = $("improve-result");
+  if (improveMode === "custom" && !improveCustomInstruction.trim()) {
+    // Nothing to send yet — the box just opened on "Custom" and the person
+    // hasn't typed anything. Prompting here instead of calling the API with
+    // an empty instruction (which the backend would reject anyway) so the
+    // very first thing that happens after picking Custom isn't an error.
+    status.textContent = "Say what you want changed, then press Go.";
+    status.classList.remove("error");
+    result.textContent = "";
+    $("improve-apply").disabled = true;
+    return;
+  }
   result.textContent = "";
   status.textContent = "The AI is editing…";
+  status.classList.remove("error");
   $("improve-apply").disabled = true;
   try {
     const body = await apiJson("/entries/improve", {
@@ -17816,6 +17878,7 @@ async function runImprove() {
       body: JSON.stringify({
         text: $("improve-original").textContent,
         mode: improveMode,
+        custom_instruction: improveMode === "custom" ? improveCustomInstruction.trim() : undefined,
       }),
     });
     result.textContent = body.improved;
@@ -21270,9 +21333,26 @@ for (const button of document.querySelectorAll(".improve-mode")) {
     improveMode = button.dataset.mode;
     for (const b of document.querySelectorAll(".improve-mode"))
       b.classList.toggle("active", b === button);
+    const isCustom = improveMode === "custom";
+    $("improve-custom-row").classList.toggle("hidden", !isCustom);
+    // Switching to Custom still calls runImprove() — it just prompts for an
+    // instruction rather than hitting the API, since there's nothing to send
+    // until the person has actually typed one and pressed Go.
+    if (isCustom) $("improve-custom-input").focus();
     runImprove();
   });
 }
+
+$("improve-custom-go").addEventListener("click", () => {
+  improveCustomInstruction = $("improve-custom-input").value;
+  runImprove();
+});
+$("improve-custom-input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    $("improve-custom-go").click();
+  }
+});
 $("link-suggest-btn").addEventListener("click", loadLinkSuggestions);
 // Mark a picker as "user has a pending choice" so the status poll stops
 // resetting it (Wave N bug fix).

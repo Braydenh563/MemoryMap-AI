@@ -464,6 +464,17 @@ class Retrieval:
     since: object = None
     until: object = None
     when_phrase: str = ""
+    #: Why each entry is here, keyed by id — e.g. {"type": "semantic",
+    #: "score": 0.81} or {"type": "keyword", "terms": ["gym"]}. Built from
+    #: information `_rank`/`_fuse` would otherwise discard once they've
+    #: collapsed two ranked lists into one ordered-by-relevance list of
+    #: entries. Best-effort: an id with no entry here matched by whatever
+    #: `mode` alone already says (`dated`, `recent`, `attached`, …).
+    match_info: dict = None
+
+    def __post_init__(self) -> None:
+        if self.match_info is None:
+            self.match_info = {}
 
 
 def retrieve_detailed(
@@ -485,6 +496,7 @@ def retrieve_detailed(
         since=found.get("since"),
         until=found.get("until"),
         when_phrase=found.get("when_phrase", ""),
+        match_info=found.get("match_info", {}),
     )
 
 
@@ -566,6 +578,14 @@ def _retrieve(
     # the stated window is still reachable as a fallback (see "outside the
     # window you named" further down) without a second, identical search.
     semantic_any_time, keyword_any_time = semantic, keyword
+    # Captured here, before range-filtering or `_rank`/`_fuse` collapse both
+    # lists into one ordered-by-relevance list of entries and lose the
+    # per-entry detail — a cosine score means something, a fused rank
+    # position doesn't. Range-filtering only removes candidates, never
+    # changes their score, so looking these up by id later stays correct
+    # regardless of what the caller keeps or drops afterwards.
+    sem_scores = {entry.id: score for entry, score in semantic} if semantic is not None else {}
+    kw_terms = _meaningful_terms(subject)
 
     # A range alongside a subject narrows the candidates before they are
     # ranked, so "the allotment, last week" cannot be answered with a note from
@@ -661,6 +681,25 @@ def _retrieve(
             return _without_private(recent), "recent"
 
     entries = _without_private(entries)
+    # Why each of these is here — built before graph expansion appends any
+    # connected notes, so "connected" always wins over an incidental keyword
+    # overlap for those (a neighbour that also happens to share a word with
+    # the question is still here *because it's linked*, not because it
+    # matched).
+    match_info = {}
+    for entry in entries:
+        content = (entry.content or "").lower()
+        matched_terms = [t for t in kw_terms if t in content]
+        if entry.id in sem_scores and matched_terms:
+            match_info[entry.id] = {
+                "type": "hybrid",
+                "score": round(sem_scores[entry.id], 2),
+                "terms": matched_terms,
+            }
+        elif entry.id in sem_scores:
+            match_info[entry.id] = {"type": "semantic", "score": round(sem_scores[entry.id], 2)}
+        elif matched_terms:
+            match_info[entry.id] = {"type": "keyword", "terms": matched_terms}
     if expand_graph and entries:
         # Appended, never interleaved: a connected note is context and a match
         # is an answer, and a prompt that has to drop something should drop the
@@ -669,6 +708,8 @@ def _retrieve(
             if all(neighbour.id != entry.id for entry in entries):
                 entries.append(neighbour)
                 found["connected"].add(neighbour.id)
+                match_info[neighbour.id] = {"type": "connected"}
+    found["match_info"] = match_info
 
     # One final filter covering every mode. Private notes are also excluded by
     # the individual queries and have no embeddings to match on, but retrieval

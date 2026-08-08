@@ -65,6 +65,35 @@ def test_improve_writing_rejects_empty(ai_client):
     assert ai_client.post("/entries/improve", json={"text": "   "}).status_code == 400
 
 
+def test_improve_writing_custom_instruction_reaches_the_model(ai_client, fake_ollama):
+    """The three presets (proofread/rewrite/concise) are fixed instructions;
+    "custom" is the user's own words instead — this is the one path where
+    what they typed has to actually reach the system prompt, not just get
+    accepted by the API."""
+    fake_ollama.librarian_reply = "Bonjour, ceci est une note."
+    body = ai_client.post(
+        "/entries/improve",
+        json={
+            "text": "hello, this is a note",
+            "mode": "custom",
+            "custom_instruction": "translate to French",
+        },
+    ).json()
+    assert body["improved"] == "Bonjour, ceci est une note."
+    system_prompt = fake_ollama.chat_calls[-1][0]["content"]
+    assert "translate to French" in system_prompt
+
+
+def test_improve_writing_custom_mode_needs_an_instruction(ai_client):
+    """Picking "Custom" with nothing typed yet is a real state the UI passes
+    through (the mode switches before the person has typed anything) — it
+    must not reach the model with an empty steering instruction."""
+    response = ai_client.post(
+        "/entries/improve", json={"text": "fix me", "mode": "custom"}
+    )
+    assert response.status_code == 400
+
+
 # --- link suggestions ---------------------------------------------------------------
 
 

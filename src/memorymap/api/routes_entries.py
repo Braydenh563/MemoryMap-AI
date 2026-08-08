@@ -11,7 +11,7 @@ import json
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import delete as sa_delete
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -334,7 +334,12 @@ def reevaluate_entry(entry_id: int, session: Session = Depends(get_session)) -> 
 
 class ImproveBody(BaseModel):
     text: str
-    mode: str = "proofread"  # proofread | rewrite | concise
+    mode: str = "proofread"  # proofread | rewrite | concise | custom
+    # Only read when mode == "custom" — the user's own instruction, in their
+    # own words, instead of picking from the three presets. Length-capped to
+    # match the input's own maxlength; this is one line of steering, not a
+    # second prompt.
+    custom_instruction: str | None = Field(default=None, max_length=200)
 
 
 @router.post("/improve")
@@ -345,6 +350,11 @@ def improve_writing(body: ImproveBody) -> dict:
     text = body.text.strip()
     if not text:
         raise HTTPException(status_code=400, detail="There's no text to improve.")
+    custom_instruction = (body.custom_instruction or "").strip()
+    if body.mode == "custom" and not custom_instruction:
+        raise HTTPException(
+            status_code=400, detail="Say what you want changed, then try again."
+        )
     if not deps.get_ollama().is_running():
         raise HTTPException(
             status_code=503,
@@ -352,7 +362,11 @@ def improve_writing(body: ImproveBody) -> dict:
         )
     try:
         improved = librarian.improve_writing(
-            text, body.mode, deps.get_model_manager(), deps.get_ollama()
+            text,
+            body.mode,
+            deps.get_model_manager(),
+            deps.get_ollama(),
+            custom_instruction=custom_instruction,
         )
     except OllamaError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc

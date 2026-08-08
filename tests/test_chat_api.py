@@ -36,6 +36,21 @@ def test_dad_joke_loop(ai_client):
     assert shopping["content"] not in contents  # only joke-topic rows come back
 
 
+def test_semantic_match_carries_its_score(ai_client):
+    """A semantic hit's `match_info` should name a real similarity score, not
+    just "semantic" with nothing behind it — the whole point of the badge is
+    to say *how* confident the match was."""
+    joke = _save(ai_client, "Why did the scarecrow win an award? Outstanding in his field!")
+    _save(ai_client, "buy milk, eggs and bread")
+
+    body = ai_client.post("/chat", json={"question": "What jokes have I saved?"}).json()
+    assert body["search_mode"] == "semantic"
+
+    info = body["match_info"][str(joke["id"])]
+    assert info["type"] == "semantic"
+    assert 0 < info["score"] <= 1
+
+
 def test_second_joke_skips_llm(ai_client, fake_ollama):
     _save(ai_client, "Why did the scarecrow win an award? Outstanding in his field!")
     calls_before = len(fake_ollama.chat_calls)

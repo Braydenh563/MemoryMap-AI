@@ -437,12 +437,27 @@ def improve_writing(
     mode: str,
     model_manager: ModelManager,
     ollama: OllamaClient,
+    custom_instruction: str = "",
 ) -> str:
-    """Return an improved version of `text` (proofread / rewrite / concise).
-    Raises OllamaError if the model is unavailable — the caller decides
-    what to tell the user. Uses the utility model: this is a quick fix,
-    not a conversation (Wave N)."""
-    instruction = IMPROVE_MODES.get(mode, IMPROVE_MODES["proofread"])
+    """Return an improved version of `text` (proofread / rewrite / concise /
+    custom). Raises OllamaError if the model is unavailable — the caller
+    decides what to tell the user. Uses the utility model: this is a quick
+    fix, not a conversation (Wave N).
+
+    `custom_instruction` is read only when `mode == "custom"` — asked for
+    directly, so a person isn't limited to the three fixed presets ("make it
+    sound more professional", "translate to French", …). It's the same
+    person's own note either way, not a second, untrusted party, but it's
+    still placed as the instruction's *content* rather than spliced into the
+    surrounding sentence, and the "reply with ONLY the edited text" rule is
+    restated after it — last word wins for a model reading top to bottom, so
+    a custom instruction that tried to talk the model into adding commentary
+    still loses to the app's own constraint on the reply shape.
+    """
+    if mode == "custom" and custom_instruction:
+        instruction = f'The user asked for this change: "{custom_instruction}"'
+    else:
+        instruction = IMPROVE_MODES.get(mode, IMPROVE_MODES["proofread"])
     system = (
         f"You are a careful copy-editor. {instruction} Reply with ONLY the "
         "edited note text — no preamble, no quotes, no explanation."

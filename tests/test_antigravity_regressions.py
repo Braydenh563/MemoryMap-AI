@@ -348,3 +348,133 @@ def test_the_path_endpoint_stays_cheap_by_default(ai_client, monkeypatch):
 
     ai_client.get("/graph/path", params={"source": 1, "target": 2, "similarity": "true"})
     assert calls == [1]
+
+
+# --- the memory stream, made visible (§39B / §40 open item 1) --------------------
+
+
+def test_the_saved_preferences_can_be_listed(ai_client, session):
+    """The feature shipped write-only: the model could save standing
+    instructions into its own future system prompts and the user had no way to
+    see them. A rule you cannot read is indistinguishable from the assistant
+    behaving oddly."""
+    tools.execute_tool(session, "save_user_preference", {"preference": "Be concise"})
+
+    body = ai_client.get("/memory").json()
+    assert [p["content"] for p in body["preferences"]] == ["Be concise"]
+    assert body["preferences"][0]["active"] is True
+    assert body["budget_chars"] == agent.MEMORY_STREAM_BUDGET_CHARS
+
+
+def test_a_preference_can_be_switched_off_without_deleting_it(ai_client, session):
+    """"Stop doing this for now" and "you should never have saved that" are
+    different intentions. `active` already existed and nothing ever set it."""
+    tools.execute_tool(session, "save_user_preference", {"preference": "Use bullet points"})
+    pref = ai_client.get("/memory").json()["preferences"][0]
+
+    assert ai_client.patch(f"/memory/{pref['id']}", json={"active": False}).status_code == 200
+
+    session.expire_all()
+    assert "bullet points" not in agent._persona_with_memory(session, "P.")
+    # Still listed, so it can be turned back on.
+    assert ai_client.get("/memory").json()["preferences"][0]["active"] is False
+
+
+def test_a_preference_can_be_edited(ai_client, session):
+    tools.execute_tool(session, "save_user_preference", {"preference": "Answer in French"})
+    pref = ai_client.get("/memory").json()["preferences"][0]
+
+    edited = ai_client.patch(f"/memory/{pref['id']}", json={"content": "Answer in German"})
+    assert edited.status_code == 200
+    session.expire_all()
+    assert "German" in agent._persona_with_memory(session, "P.")
+
+
+def test_a_forgotten_preference_stops_reaching_the_model(ai_client, session):
+    tools.execute_tool(session, "save_user_preference", {"preference": "Never use emoji"})
+    pref = ai_client.get("/memory").json()["preferences"][0]
+
+    assert ai_client.delete(f"/memory/{pref['id']}").status_code == 200
+    session.expire_all()
+    assert "emoji" not in agent._persona_with_memory(session, "P.")
+    assert ai_client.get("/memory").json()["preferences"] == []
+
+
+def test_editing_a_preference_that_is_gone_is_a_404(ai_client):
+    assert ai_client.patch("/memory/999", json={"active": False}).status_code == 404
+    assert ai_client.delete("/memory/999").status_code == 404
+
+
+def test_a_preference_cannot_be_edited_into_nothing(ai_client, session):
+    tools.execute_tool(session, "save_user_preference", {"preference": "Something"})
+    pref = ai_client.get("/memory").json()["preferences"][0]
+    assert ai_client.patch(f"/memory/{pref['id']}", json={"content": "   "}).status_code == 422
+
+
+# --- media uploads are not a script host (§40 open item 6) -----------------------
+
+
+def test_media_upload_refuses_anything_that_is_not_an_image(ai_client):
+    """`/media/{name}` serves from the app's own origin, so an .html or .svg
+    landing here runs with the notebook's token rather than being a picture.
+    The AI can write into this folder too, which is what makes it worth
+    closing on a single-user local app."""
+    for name, mime in [("x.html", "text/html"), ("x.svg", "image/svg+xml")]:
+        response = ai_client.post(
+            "/media/upload", files={"file": (name, b"<svg onload=alert(1)>", mime)}
+        )
+        assert response.status_code == 415, name
+
+
+def test_media_upload_still_takes_a_png(ai_client):
+    response = ai_client.post(
+        "/media/upload", files={"file": ("shot.png", b"\x89PNG\r\n\x1a\n", "image/png")}
+    )
+    assert response.status_code == 200
+    assert response.json()["url"].startswith("/media/")
+
+
+def test_media_is_served_with_a_disposition_header(ai_client):
+    url = ai_client.post(
+        "/media/upload", files={"file": ("shot.png", b"\x89PNG\r\n\x1a\n", "image/png")}
+    ).json()["url"]
+    served = ai_client.get(url)
+    assert served.status_code == 200
+    assert "inline" in served.headers["content-disposition"]
+
+
+def test_a_dangerous_file_already_on_disk_is_still_not_served(ai_client, app_state):
+    """Upload is not the only way into this folder — a restored backup or a
+    synced data directory is another — so the suffix is checked on the way out
+    as well as on the way in."""
+    media = app_state.data_dir / "media"
+    media.mkdir(parents=True, exist_ok=True)
+    (media / "evil.html").write_text("<script>alert(1)</script>", encoding="utf-8")
+    assert ai_client.get("/media/evil.html").status_code == 404
+
+
+# --- whiteboard cards die with their note (§40 open item 3) ----------------------
+
+
+def test_a_card_whose_note_was_purged_is_swept_up(ai_client, session):
+    """No cascade on `whiteboard_nodes.entry_id`, so purging a note from the
+    recycle bin left a card on the board pointing at nothing — visible, not
+    removable through the UI, and it makes the board look broken."""
+    from sqlalchemy import text
+
+    from memorymap.ai import autonomous
+    from memorymap.core.database import WhiteboardNode
+
+    kept = _note(session, "a note that stays")
+    doomed = _note(session, "a note about to be purged")
+    for entry in (kept, doomed):
+        ai_client.post("/whiteboard/nodes", json={"entry_id": entry.id})
+
+    session.execute(text("PRAGMA foreign_keys=OFF"))
+    session.execute(text("DELETE FROM entries WHERE id = :id"), {"id": doomed.id})
+    session.commit()
+    session.execute(text("PRAGMA foreign_keys=ON"))
+
+    assert autonomous.clean_orphaned_board_cards() == 1
+    session.expire_all()
+    assert [n.entry_id for n in session.query(WhiteboardNode).all()] == [kept.id]

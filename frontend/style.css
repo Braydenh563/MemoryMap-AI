@@ -12920,3 +12920,42 @@ textarea.drag-over {
 .log-detail {
   margin-top: var(--space-1);
 }
+
+/* --- what the AI remembers (ROADMAP §39B) -----------------------------------
+   One row per standing instruction the model has saved for itself. A switched
+   -off preference stays legible rather than being greyed to the point of
+   unreadable: the user needs to read it to decide whether to delete it, which
+   is the whole reason this screen exists. */
+.memory-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.memory-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--inner);
+}
+
+.memory-row.is-off {
+  opacity: 0.7;
+}
+
+.memory-row.is-off .memory-text {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+.memory-text {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-md);
+  /* A preference is capped at 200 characters, so it can wrap to two lines —
+     truncating it would hide the half that says what it actually does. */
+  overflow-wrap: anywhere;
+}

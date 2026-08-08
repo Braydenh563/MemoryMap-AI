@@ -13229,13 +13229,89 @@ if (chatTabNode) {
   }).observe(chatTabNode, { attributes: true, attributeFilter: ["class"] });
 }
 
+// --- what the AI remembers (ROADMAP §39B) ------------------------------------------
+//
+// The list `save_user_preference` writes into, and the only place the user can
+// see it. Worth the screen: this tool's output becomes part of the model's own
+// system prompt on every later turn, so without this the assistant's behaviour
+// could change permanently for a reason nobody could look up, edit or undo.
+//
+// The budget line is not decoration. Only active preferences reach the model,
+// newest first, and only until the character budget runs out — so a long list
+// quietly stops including its oldest entries. Saying so beats letting someone
+// wonder why the rule they saved first is being ignored.
+async function renderMemorySettings() {
+  const list = $("memory-list");
+  const empty = $("memory-empty");
+  const budget = $("memory-budget");
+  if (!list) return;
+
+  const data = await apiJson("/memory").catch(() => null);
+  if (!data) {
+    list.replaceChildren();
+    budget.textContent = "Couldn't load what the AI has remembered.";
+    return;
+  }
+
+  const active = data.preferences.filter((p) => p.active).length;
+  budget.textContent = active
+    ? `${active} in use, about ${data.in_prompt} of ${data.budget_chars} characters. ` +
+      "The newest are kept when this runs out."
+    : "";
+  empty.classList.toggle("hidden", data.preferences.length > 0);
+
+  list.replaceChildren(
+    ...data.preferences.map((pref) => {
+      const row = document.createElement("div");
+      row.className = "memory-row" + (pref.active ? "" : " is-off");
+
+      const text = document.createElement("span");
+      text.className = "memory-text";
+      text.textContent = pref.content;
+      text.title = pref.created_at
+        ? `Saved ${new Date(pref.created_at).toLocaleString()}`
+        : "";
+
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "ghost small";
+      toggle.textContent = pref.active ? "Turn off" : "Turn on";
+      toggle.addEventListener("click", async () => {
+        toggle.disabled = true;
+        await apiJson(`/memory/${pref.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ active: !pref.active }),
+        }).catch(() => {});
+        renderMemorySettings();
+      });
+
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "ghost small danger";
+      remove.textContent = "Forget";
+      remove.addEventListener("click", async () => {
+        const ok = await confirmDialog(
+          `Forget this?\n\n“${pref.content}”\n\nThe AI will stop applying it.`,
+          { confirmLabel: "Forget it" }
+        );
+        if (!ok) return;
+        await apiJson(`/memory/${pref.id}`, { method: "DELETE" }).catch(() => {});
+        renderMemorySettings();
+      });
+
+      row.append(text, toggle, remove);
+      return row;
+    })
+  );
+}
+
 // --- settings modal (Wave A) ------------------------------------------------------
 
 //: Every section id, and a new one is invisible until it is in this list —
 //: `showSettingsSection` un-hides by iterating it, so a section left out is
 //: rendered, in the DOM, and never shown. Found by driving it: the Extras
 //: panel had five rows in it and a nav button that appeared to do nothing.
-const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "websearch", "appearance", "shortcuts", "preferences", "account", "extras", "tasks", "data", "logs", "help", "about"];
+const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "memory", "websearch", "appearance", "shortcuts", "preferences", "account", "extras", "tasks", "data", "logs", "help", "about"];
 
 // Where to send focus back when a dialog closes (Wave L).
 let overlayReturnFocus = null;
@@ -13477,6 +13553,7 @@ function showSettingsSection(name) {
   if (name === "personas") renderPersonas().catch(() => {});
   if (name === "skills") renderSkillSettings();
   if (name === "tools") renderToolSettings();
+  if (name === "memory") renderMemorySettings().catch(() => {});
   if (name === "appearance") renderAppearance();
   if (name === "shortcuts") renderShortcutList();
   if (name === "account") renderAccount().catch(() => {});

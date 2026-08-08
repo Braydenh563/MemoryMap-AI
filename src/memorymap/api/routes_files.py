@@ -161,13 +161,39 @@ def save_generated_file(body: SaveFileBody) -> dict:
     return {"path": str(target), "filename": target.name, "bytes": len(data)}
 
 
+#: What `/media/` will accept and, more to the point, what it will serve.
+#:
+#: This folder exists for images dropped into markdown, and `/media/{name}`
+#: serves its contents from the app's **own origin** — so an `.html` or `.svg`
+#: landing here is a script running with the notebook's cookies and unlock
+#: token, not a picture. That is a stored-XSS shape even though the app is
+#: single-user and local, and it is worth closing for one reason above the
+#: others: the AI can write into this folder too, so "the only person who can
+#: put a file here is the person at the keyboard" is not true.
+#:
+#: An allowlist rather than a denylist of dangerous types, because the failure
+#: mode of a missing entry is "this image didn't upload", and the failure mode
+#: of a missed denylist entry is the paragraph above.
+MEDIA_SUFFIXES = frozenset(
+    {".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".bmp", ".ico", ".pdf"}
+)
+
+
 @router.post("/media/upload")
 def upload_media(file: UploadFile) -> dict:
     """General file/image upload for drag-and-drop in markdown (documents & notes)."""
     media_dir = deps.get_config().data_dir / "media"
     media_dir.mkdir(parents=True, exist_ok=True)
 
-    suffix = Path(file.filename or "file").suffix[:12]
+    suffix = Path(file.filename or "file").suffix[:12].lower()
+    if suffix not in MEDIA_SUFFIXES:
+        raise HTTPException(
+            status_code=415,
+            detail=(
+                "Only images and PDFs can be dropped in here. "
+                "Use the note's attachments for anything else."
+            ),
+        )
     stored_name = f"{uuid.uuid4().hex}{suffix}"
     destination = media_dir / stored_name
 
@@ -186,9 +212,23 @@ def upload_media(file: UploadFile) -> dict:
 
 @router.get("/media/{filename}")
 def get_media(filename: str) -> FileResponse:
-    """Serve generic uploaded media."""
+    """Serve generic uploaded media.
+
+    The suffix is checked again on the way out, not only on the way in. Upload
+    is not the only route into this folder — a restored backup, a synced data
+    directory, or a future writer could put something here — and this is the
+    endpoint that decides what the browser executes.
+    """
     name = safe_filename(filename)
+    if Path(name).suffix.lower() not in MEDIA_SUFFIXES:
+        raise HTTPException(status_code=404, detail="Media file not found")
     path = deps.get_config().data_dir / "media" / name
     if not path.is_file():
         raise HTTPException(status_code=404, detail="Media file not found")
-    return FileResponse(path)
+    # `nosniff` is already set globally, but the header below is the one that
+    # decides whether a PDF opens in the page or downloads — and an inline PDF
+    # viewer is a script host. Nothing here needs to render in-place: markdown
+    # embeds images with <img>, which ignores Content-Disposition.
+    return FileResponse(
+        path, headers={"Content-Disposition": f'inline; filename="{name}"'}
+    )

@@ -32,7 +32,7 @@ from __future__ import annotations
 import logging
 import threading
 
-from sqlalchemy import text
+from sqlalchemy import select, text
 
 from memorymap.ai import agent
 from memorymap.core import deps
@@ -181,6 +181,40 @@ def _vacuum() -> None:
     from memorymap.ai import embeddings
 
     embeddings.clean_orphaned_vectors()
+    clean_orphaned_board_cards()
+
+
+def clean_orphaned_board_cards() -> int:
+    """Remove whiteboard cards whose note is gone.
+
+    The same gap `clean_orphaned_vectors` closes, one table over: a card holds
+    an `entry_id` with no cascade behind it, so purging a note from the recycle
+    bin leaves the card on the board pointing at nothing. That is worse than a
+    stale vector, because a vector nobody can see just wastes a comparison — a
+    dead card is visible, is not removable through the UI (the thing you would
+    click is the card that fails to render), and makes the board look broken.
+
+    Sketches are deliberately left alone: a sketch has a `board_id` but no
+    `entry_id`, so it belongs to the board rather than to any one note.
+    """
+    from memorymap.core.database import Entry, WhiteboardNode
+
+    with deps.get_db().session() as session:
+        orphans = list(
+            session.scalars(
+                select(WhiteboardNode).where(
+                    WhiteboardNode.entry_id.notin_(select(Entry.id))
+                )
+            )
+        )
+        for card in orphans:
+            session.delete(card)
+        if orphans:
+            session.commit()
+
+    if orphans:
+        logger.info("removed %d whiteboard card(s) whose note no longer exists", len(orphans))
+    return len(orphans)
 
 
 def _loop(stop_event: threading.Event) -> None:

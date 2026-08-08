@@ -1527,6 +1527,7 @@ Link to another note with [[its first few words]]."></textarea>
             <button data-section="personas">Personas</button>
             <button data-section="skills">Skills</button>
             <button data-section="tools">Tools it can use</button>
+            <button data-section="memory">What it remembers</button>
             <button data-section="websearch">Web search</button>
           </div>
 
@@ -1761,6 +1762,21 @@ Link to another note with [[its first few words]]."></textarea>
           </section>
 
           <!-- AI Tools (Wave O): toggle what the chat AI is allowed to do -->
+          <section class="settings-section hidden" id="settings-memory">
+            <p class="muted">
+              The AI can save itself standing instructions — say
+              <em>"always answer in British English"</em> and it will keep
+              doing that in every conversation from then on. This is the whole
+              list, and you can switch any of them off or delete them.
+            </p>
+            <p class="muted" id="memory-budget"></p>
+            <div id="memory-list" class="memory-list"></div>
+            <p class="muted hidden" id="memory-empty">
+              Nothing saved yet. Tell the AI a preference in chat and ask it to
+              remember, and it will appear here.
+            </p>
+          </section>
+
           <section class="settings-section hidden" id="settings-tools">
             <p class="muted">
               When <strong>Agent mode</strong> is on in the Chat tab, these are

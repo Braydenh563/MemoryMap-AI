@@ -366,6 +366,89 @@ def list_skills() -> dict:
     }
 
 
+# --- the memory stream (ROADMAP §39B) ---------------------------------------------
+#
+# What the AI has been told to remember, and the ability to un-tell it.
+#
+# `save_user_preference` lets the model write standing instructions that it
+# then receives in its own system prompt on every later turn. That is a useful
+# feature and a slightly alarming one, because it shipped with no way to see
+# the list: the assistant's behaviour could change permanently, for a reason
+# the user could not inspect, edit or undo. A rule you cannot read is
+# indistinguishable from the model simply behaving oddly.
+#
+# So: list them, switch one off, delete one. `active` is a toggle rather than
+# only a delete because "stop doing this for now" and "you never should have
+# saved that" are different intentions, and the agent already filters on it.
+
+
+class PreferenceBody(BaseModel):
+    content: str | None = Field(default=None, max_length=200)
+    active: bool | None = None
+
+
+def _preference_out(row) -> dict:  # noqa: ANN001 — a UserPreference
+    return {
+        "id": row.id,
+        "content": row.content,
+        "active": bool(row.active),
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+    }
+
+
+@router.get("/memory")
+def list_memory(session: Session = Depends(get_session)) -> dict:
+    """Everything the AI has been told to remember, newest first."""
+    from memorymap.ai import agent
+    from memorymap.core.database import UserPreference
+
+    rows = list(
+        session.scalars(select(UserPreference).order_by(UserPreference.created_at.desc()))
+    )
+    return {
+        "preferences": [_preference_out(r) for r in rows],
+        # The UI says which of these actually reach the model. Only the active
+        # ones do, and only until the character budget runs out — newest first,
+        # so a long-standing list quietly stops including its oldest entries.
+        # Showing the budget beats letting someone wonder why rule 41 is ignored.
+        "budget_chars": agent.MEMORY_STREAM_BUDGET_CHARS,
+        "in_prompt": len(agent._persona_with_memory(session, "").strip()),
+    }
+
+
+@router.patch("/memory/{preference_id}")
+def update_memory(
+    preference_id: int, body: PreferenceBody, session: Session = Depends(get_session)
+) -> dict:
+    from memorymap.core.database import UserPreference
+
+    row = session.get(UserPreference, preference_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="No such preference")
+    if body.content is not None:
+        text_ = body.content.strip()
+        if not text_:
+            raise HTTPException(status_code=422, detail="A preference can't be empty.")
+        row.content = text_
+    if body.active is not None:
+        row.active = body.active
+    session.commit()
+    session.refresh(row)
+    return _preference_out(row)
+
+
+@router.delete("/memory/{preference_id}")
+def forget_memory(preference_id: int, session: Session = Depends(get_session)) -> dict:
+    from memorymap.core.database import UserPreference
+
+    row = session.get(UserPreference, preference_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="No such preference")
+    session.delete(row)
+    session.commit()
+    return {"status": "ok"}
+
+
 @router.get("/audit")
 def audit_log(limit: int = 100, session: Session = Depends(get_session)) -> list[dict]:
     """The activity log, newest first (viewer in the UI)."""

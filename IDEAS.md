@@ -86,11 +86,12 @@ work and are now in the app. Left written here rather than deleted, because the
 - **A dry-run for the background librarian.** It edits notes unattended and
   there is no way to see what it *would* do first. `taskhistory` already
   records each run; what is missing is "here is the diff, apply or discard".
-- **A memory-stream screen.** The AI can save itself standing instructions and
-  the user cannot see, edit or switch them off. The `active` column exists and
-  nothing ever sets it. A behaviour change the user cannot explain is worse
-  than one they did not ask for.
-- **Whiteboard cards should die with their note.** No cascade today.
+- ~~**A memory-stream screen.**~~ **Built** — Settings → The AI → *What it
+  remembers*. It lists everything the AI has saved, says how much of it is
+  actually reaching the model, and lets each one be edited, switched off or
+  forgotten.
+- ~~**Whiteboard cards should die with their note.**~~ **Done** — swept with
+  the orphaned vectors on the background pass.
 - **Sweep for orphans on a schedule, not just vectors.** `clean_orphaned_
   vectors` is the right pattern; whiteboard nodes and attachments want it too.
 - **The sketch highlighter is at 5% opacity**, which is roughly twenty passes

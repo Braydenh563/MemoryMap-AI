@@ -826,23 +826,38 @@ looking**:
 
 Ranked, and each is a real piece of work rather than a nit:
 
-1. **No UI for memory streams** (§39B). The model writes rules the user cannot
-   see, edit, or switch off.
-2. **No dry-run for the background librarian** (§39A). Enabling it is a large
-   act of trust with no preview.
-3. **Whiteboard cards outlive their notes** (§39C). No cascade, no sweep.
+1. ~~**No UI for memory streams.**~~ **Done.** Settings → The AI → *What it
+   remembers* lists everything `save_user_preference` has written, says how
+   much of it actually reaches the model against the 600-character budget, and
+   lets each one be edited, switched off, or forgotten. `active` is a toggle
+   rather than only a delete because "stop doing this for now" and "you should
+   never have saved that" are different intentions.
+2. **No dry-run for the background librarian** (§39A). Still open, and now the
+   top item. Enabling it lets an agent edit the notebook unattended with no
+   preview. `taskhistory` records each run and the agent already emits `change`
+   events carrying undo payloads, so "here is what the last pass did, undo any
+   of it" is mostly assembly.
+3. ~~**Whiteboard cards outlive their notes.**~~ **Done.**
+   `autonomous.clean_orphaned_board_cards` runs with the vector sweep. Sketches
+   are deliberately left alone — a sketch belongs to the board, not to a note.
 4. **`graph_local` loads the whole notebook** to render a "local neighbourhood",
    including a full similarity sweep and a PageRank over every node. Correct,
    and the opposite of what "focus mode" should cost.
 5. **PageRank runs on every `/graph` call** with no caching. Combined with the
    similarity edges this is the most expensive endpoint in the app; ANALYSIS
-   §34's O(n²) note now has a second half.
-6. **`/media/{filename}` serves uploads same-origin with no type restriction.**
-   The filename is whitelisted so there is no traversal, but an uploaded
-   `.svg` or `.html` is served from the app's own origin. Single-user and
-   local, so this is a hardening item rather than a live hole — but the AI can
-   write files here too, which is the part that makes it worth doing.
+   §34's O(n²) note now has a second half. Centrality changes when the graph
+   changes, so it wants invalidation on write rather than a TTL.
+6. ~~**`/media/{filename}` serves uploads same-origin with no type
+   restriction.**~~ **Done.** An extension allowlist on the way in *and* on the
+   way out — upload is not the only route into that folder — plus an explicit
+   `Content-Disposition`. The AI can write there too, which is what made it
+   worth closing on a single-user local app.
 7. **`edit_note` became `destructive=True`**, so the agent now stops for
    confirmation on every edit. Left as-is because it is defensible on safety
    grounds, but it was an unannounced change to how multi-step edits feel and
-   deserves a decision rather than an inheritance.
+   deserves a decision rather than an inheritance. See ANALYSIS §34b.
+
+**Three of the seven were closed in the same session that found them** — the
+two smallest and the one ranked first. What is left is one product judgement
+(7) and three performance items (2, 4, 5) that want measurement on a real
+notebook before anyone picks a design.

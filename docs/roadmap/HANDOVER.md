@@ -2,7 +2,83 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session: §41 Tier 1 (all of it), a live whiteboard redesign, then a security/perf review
+## Latest session: §42, a long unattended run — ten correctness/UX fixes, done and verified; six large asks, triaged and scoped, not built
+
+The user handed over a large, unstructured list overnight and asked for
+autonomous work with no check-ins. Ran it as this project's own process
+says to: checked the running app before building anything, worked the list
+top-down by how cheap-and-real each item was to verify, committed and
+pushed after every batch (in case of a usage-limit cutoff mid-session — it
+didn't happen, but that's why the history below is several small commits
+rather than one large one). Full detail, including exact repro steps and
+measurements, is in [HISTORY.md §42](HISTORY.md); this is the short version
+and — the part a handover is actually for — what's still open and why.
+
+**Ten fixed, each reproduced first and each with a test:** `recycle_bin_days`
+sending `0` and hitting a raw 422; `unknown timezone` on every Windows
+request (missing `tzdata` dependency — Windows has no system tz database at
+all); the autonomous loop sleeping up to 6h between reading its own
+preferences, so toggling battery-saver or the scheduler did nothing until
+that sleep ran out; a chat-tab CSS grid bug that was simultaneously "a dark
+rectangle behind the header" and "the sidebar collapse button overlaps"
+(one `grid-template-rows` never reset for the mobile breakpoint); search
+results explaining *why* they matched for exactly one case (connected) and
+none of the actual matches; a fourth "Custom…" mode for Improve Writing; the
+graph's "Generate Story from Path" button silently refused by both an
+undefined CSS token and the app's own CSP; the graph time filter's stale
+slider bounds hiding any note added after the graph was first opened; the
+trace overlay drawing an invisible flat line on Arc layout specifically;
+and a Timeline grid card's missing ellipsis (`line-clamp` unprefixed under
+`-webkit-box`, plus a bare `text[:120]` slice server-side with nothing
+appended).
+
+**Six items were large asks against small realities, and got scoped rather
+than rushed:**
+
+- **The whiteboard** (redo, select/move/rotate/shift-lock, images,
+  draw.io-style connection points, precise drop placement, toolbar default
+  position) — draw.io + MS Whiteboard + OneNote's combined feature surface
+  asked for in one report. Broken into a sequenced list in ROADMAP.md item
+  11; nothing built, because a shallow pass at any one piece here (a rotate
+  handle with no undo/redo integration, a connection-point system that
+  doesn't match how draw.io actually represents fixed-vs-free anchors)
+  would cost more to unwind later than it saves now.
+- **A widget management hub** — checked first, and the foundation already
+  exists (17 widgets, a real `dashboard_layout` preference, inline
+  add/remove/reorder). What's missing is a dedicated modal surface, which
+  is real but small — scoped in ROADMAP.md item 26, not built this session
+  because the whiteboard and search-explainability work took priority as
+  the more concretely-reported bugs.
+- **An Obsidian-style graph** — Obsidian's graph is a force layout, which
+  this app already has; asked what's actually different needs a
+  side-by-side screenshot before it's actionable, not a guess. Noted in
+  ROADMAP.md item 24.
+- **A guided onboarding tour** — added to ROADMAP.md item 19, next to the
+  reachability/seeded-notes work already scoped there.
+- **Expanding the autonomous agent's capabilities** — "expand" isn't a
+  spec; candidates listed in ROADMAP.md item 31, needs a "which of these"
+  decision before a session builds any of it.
+- **Cleaning up the test suite** — 106 files, fully green, no specific
+  duplication pointed at. In ROADMAP.md's Tier 4 with the reason: this
+  project's tests are written as narrative (each docstring is a reported
+  bug), and a mechanical consolidation pass is exactly how that gets
+  flattened into generic assertions nobody can trace back to why they
+  exist. Needs a concrete finding (real duplicated fixtures, a file that's
+  actually too large) before it's safe to start.
+
+**What could and couldn't be verified:** every fix above was driven in
+Chromium (headless, `service_workers: 'block'`, the login/onboarding recipe
+this file already documents) except the semantic-match badge — this sandbox
+has no `sentence-transformers` installed (CLAUDE.md's own standing
+instruction, since it has failed to install cleanly before), so semantic
+search always falls back to keywords here. The `match_info` "semantic" and
+"hybrid" badge types are covered by a backend test using the suite's fake
+embedding backend (`tests/test_chat_api.py::test_semantic_match_carries_its_score`),
+which proves the code path is exercised and correct, but the actual pixels
+of a semantic badge rendering in a browser were not seen — say so plainly,
+per this file's own rule, rather than claim a screenshot that doesn't exist.
+
+## Previous session: §41 Tier 1 (all of it), a live whiteboard redesign, then a security/perf review
 
 Worked §41's Tier 1 list top-down, each reproduced before being fixed, each
 with a real test:

@@ -975,3 +975,78 @@ password-derived wrapping key — nothing in plaintext), and the three sketch
 swatches reported as identical, which are three distinct colours.
 
 Everything not fixed became ROADMAP.md's tiered list.
+
+## 42. Another reported list, triaged — the correctness half, done
+
+Ten fixes, each reproduced (in Chromium where it was a UI report, against a
+fake transport otherwise) before being changed, each with a test:
+
+1. **`recycle_bin_days` 422 on the browser's own console.** The Settings
+   number input had `min="1"` but nothing enforced it client-side before the
+   PUT, so an emptied field sent `0` and hit the backend's real `ge=1`
+   validation as a raw, unexplained error. `savePrefs` clamps now.
+2. **`unknown timezone 'Australia/Brisbane'`, every request, on Windows.**
+   Not a bad preference — Windows ships no IANA tz database at all, and
+   `zoneinfo.ZoneInfo` has nothing to fall back to there without the
+   `tzdata` package, which was never a dependency. Added, unconditionally
+   (pure data, harmless where the system database already exists).
+3. **The autonomous loop only read its own settings once per scheduled
+   tick**, sleeping up to the full interval (6h default) between reads.
+   Toggling battery-saver off, or the scheduler back on, did nothing until
+   that sleep ran out — reported as "background tasks skip things thinking
+   battery mode is on" and "finishing a task disables automatic tasks,
+   forcing a re-toggle". `autonomous.wake()` interrupts the sleep;
+   `PUT /preferences` calls it when a relevant key changes.
+4. **"A dark rectangle behind the chat header" and "the sidebar collapse
+   button overlaps" were the same bug**, reported from two angles.
+   `#tab-chat`'s `.layout` hardcodes `grid-template-rows: minmax(0, 1fr)`
+   for its desktop two-column layout; the 720px breakpoint stacks it into
+   two rows without ever resetting that template, so the implicit second
+   row claimed nearly all the height and the sidebar's own row — and its
+   collapse toggle, its "Browse all" button — rendered in a ~25px sliver
+   with the rest spilling out past its own card background via
+   `overflow: visible`. Reset to `grid-template-rows: none` when stacked.
+5. **Search results explained why they matched, for exactly one case** — a
+   note pulled in by connection, "🔗 linked to a match" — **and not at all
+   for the actual matches**, the majority of every result list.
+   `search_manager._retrieve` now keeps the per-entry provenance `_rank`/
+   `_fuse` used to discard, threaded through `/chat` and `/chat/stream` as
+   `match_info`; the panel renders a badge per row — a semantic score, the
+   keyword(s) matched, or both — replacing the old single-case chip.
+6. **Improve Writing** had three fixed presets and no way to just say what
+   you want changed. Added a fourth "Custom…" mode with a text field.
+7. **The graph's "✨ Generate Story from Path" button** was three inline
+   `.style.x =` assignments against `var(--primary)`/`var(--primary-fg)` —
+   tokens this design system doesn't have — and the CSP's
+   `style-src: 'self'` refuses an inline style attribute outright
+   regardless, which is what `.style.x =` sets under the hood. Both
+   silently no-op; real CSS class, real tokens now. Separately, attaching
+   the trace's notes to the turn never stopped retrieval from *also*
+   running against the turn's own instruction text, so the story could
+   come back with notes from outside the traced path — new
+   `attached_notes_only` flag skips retrieval when there's an explicit,
+   closed attachment to fall back to.
+8. **The graph's time filter** had two bugs: `window.graphSliderInitialized`
+   gated the slider's min/max to a one-time computation, so any note added
+   after the first render sat beyond the slider's own "all time" end and
+   was silently hidden; and the label overwrote the HTML default ("All
+   Time") with a raw date on every render, so the *unfiltered* position
+   looked like an active filter. Both fixed; also fixed a `.graph-temporal`
+   label with no `flex-shrink: 0`, which is why "Time Filter" wrapped onto
+   two lines under moderate width.
+9. **The trace overlay on Arc layout** drew a straight chord regardless of
+   layout; Arc puts every node on one shared baseline (that's why its own
+   edges are curves), so a highlighted path there sat exactly where the row
+   of ordinary nodes already was. Drawn as its own taller arc in that one
+   layout now.
+10. **Timeline grid cards** clipped previews with unprefixed `line-clamp: 3`
+    under a `-webkit-box` display — a combination this Chromium doesn't
+    connect, so nothing was actually clamping and long text hard-cropped
+    mid-word with no ellipsis. Fixed, plus the backend's own preview field,
+    a bare `text[:120]` slice with no "…" on truncation.
+
+**Not fixed, and why**, plus the rest of the same report (a whiteboard
+feature-parity list, a widget-management hub, an Obsidian-style graph ask,
+a guided-tour request, and "clean up the tests") are in ROADMAP.md's tiers —
+each scoped against the actual current code, not guessed at, per this file's
+own standing rule.

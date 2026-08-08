@@ -2,7 +2,58 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session: the audit, then the reported list
+## Latest session: §41 Tier 1 items 1/2/4/6, then a live whiteboard redesign
+
+Worked §41's Tier 1 list top-down (items 1, 2, 4, 6 — 3 and 5/7 untouched,
+see below), each reproduced before being fixed, each with a real test:
+
+1. **Meeting transcription "errors out"**: with faster-whisper actually
+   installed (`pip install`, works fine in this sandbox now), a failed
+   model download raised inside `voice.transcribe` and fell through to the
+   route's catch-all as "Couldn't transcribe that recording" — indistinguish-
+   able from a bad clip. Now a distinct 503 naming the model-load failure.
+2. **Skill step ticked "done" on an empty turn**: a turn with no answer, no
+   tool call and no failure fell through to `state: "done"` in
+   `skill_runner.py`. Now reported `failed`, same as the existing
+   `ran_out`-of-rounds case. Also added a client-side idle-read timeout to
+   `streamChat` (150s, longer than the backend's own 120s Ollama timeout).
+4. **A reply to the agent's own question read as small talk**: `ask_user`
+   asks "delete this?", the user answers "yes"/"ok", `intent.classify`
+   correctly calls that small talk in isolation, and small talk gets no
+   tools. New `answering_agent` request flag, set by the client while an
+   `ask` card is pending (covers both button-click and free-typed replies),
+   forces `intent.NOTES` for that one message.
+6. **Embedding-model downloads invisible outside one settings screen**:
+   `embedmodels.DownloadState`'s own docstring said "for /tasks and the
+   panel" — the panel half existed, `/tasks` never got it. Added, plus
+   `taskhistory.record()` on completion so a failed download doesn't vanish.
+
+**Then a live, mid-session redesign of the whiteboard**, driven directly by
+the user watching it: a cursor-lag bug ("mouse keeps snapping to an
+invisible grid" — a regression from this session's own first pass at a
+custom cursor, fixed by switching to a native `cursor: url(svg)` per tool
+instead of a JS-tracked div), a missing eraser, Undo (Ctrl+Z), keyboard
+shortcuts, an SVG-icon toolbar redesign, a board background colour (also
+fixes the generative-art canvas bleeding through), draggable toolbar panels,
+and an empty-state hint. Full writeup and the bug found along the way (a
+freshly drawn stroke wasn't in `wbState.sketches`, so it couldn't be
+deleted until a reload) is in [ROADMAP.md §11](../ROADMAP.md).
+
+**What could not be verified**: real-Ollama behaviour, as always (the
+`answering_agent` fix and the skill-step fix are pinned by `fake_ollama`
+tests, not a live model). Every UI change this session — the whiteboard
+redesign, the two chat fixes' client-side halves — *was* driven in
+Chromium with real measurements (network calls, computed styles, DOM
+counts), not just screenshots.
+
+**Not reached**: §41 Tier 1 items 3 (skill network-error messaging), 5
+(notification audit) and 7 (claim-specificity) — the whiteboard redesign
+was a live, user-directed interrupt partway through the tier and the
+session ended there. Start with item 3 next.
+
+---
+
+## Previous session: the audit, then the reported list
 
 **Read [§41 in ROADMAP.md](../ROADMAP.md#41-the-reported-list-triaged--and-the-ordered-plan)
 before deciding anything.** It is the ordered plan in four tiers, and it exists

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 
 def _save(client, content, **extra):
     response = client.post("/entries", json={"content": content, **extra})
@@ -28,6 +30,36 @@ def test_graph_nodes_and_manual_link_edges(client):
     assert node["category"] == "Alpha"
     assert node["preview"] == "first note"
     assert node["pinned"] is False
+
+
+def test_graph_node_dates_are_valid_iso_not_double_timezoned(client):
+    """`created_at` used to be built as `e.created_at.isoformat() + "Z"` —
+    but `core/database.DateTime` already hands back a timezone-AWARE
+    datetime, so `.isoformat()` alone ends in `+00:00`, and the extra "Z"
+    produced `...+00:00Z`: two timezone markers in one string. Python's own
+    `datetime.fromisoformat` rejects that (and so, silently, does
+    JavaScript's `Date` constructor — `Invalid Date`, no exception) — which
+    is why the graph's time-filter slider could never move: every node's
+    date failed to parse, so the filter's min/max collapsed to "now" no
+    matter what any note's actual date was.
+    """
+    a = _save(client, "first note", category="Alpha")
+    node = next(n for n in client.get("/graph").json()["nodes"] if n["id"] == a["id"])
+    parsed = datetime.fromisoformat(node["created_at"])
+    assert parsed.tzinfo is not None
+
+
+def test_graph_local_node_dates_are_valid_iso_too(client):
+    """The focus-mode graph (`/graph/local/{id}`) builds its node list from
+    a different loop over the same data and had the identical bug."""
+    a = _save(client, "first note", category="Alpha")
+    b = _save(client, "second note", category="Beta")
+    client.post(f"/entries/{a['id']}/links", json={"target_id": b["id"]})
+
+    body = client.get(f"/graph/local/{a['id']}").json()
+    for node in body["nodes"]:
+        parsed = datetime.fromisoformat(node["created_at"])
+        assert parsed.tzinfo is not None
 
 
 def test_graph_thread_edges(client):

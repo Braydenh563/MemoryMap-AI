@@ -201,7 +201,21 @@ def graph(similarity: bool = False, session: Session = Depends(get_session)) -> 
             # thought under the note that started it instead of laying every
             # note out as a sibling (§9).
             "parent_id": e.parent_id if e.parent_id in node_ids else None,
-            "created_at": e.created_at.isoformat() + "Z",
+            # `+ "Z"` predates `core/database.DateTime`, which now always
+            # hands back a timezone-AWARE (UTC) datetime — so `.isoformat()`
+            # alone already ends in `+00:00`, and appending "Z" on top
+            # produced `...+00:00Z`: two timezone markers in one string,
+            # which `new Date(...)` in JavaScript cannot parse at all
+            # (silently `Invalid Date`, not an error). Every node's
+            # `created_at` on the graph was affected, which is why the time
+            # filter slider could never move — the frontend's own bounds
+            # calculation filters out unparseable dates, so `min` and `max`
+            # always collapsed to `Date.now()` regardless of any note's
+            # actual date, on every single note in the notebook, not a rare
+            # case. `/entries`, `/timeline` and everywhere else serialise
+            # through Pydantic directly and were never affected — this was
+            # the graph's own two hand-built dicts.
+            "created_at": e.created_at.isoformat(),
         }
         for e in entries
     ]
@@ -302,7 +316,11 @@ def graph_local(
             "access_count": index.entries[e_id].access_count,
             "pinned": index.entries[e_id].pinned,
             "parent_id": index.entries[e_id].parent_id if index.entries[e_id].parent_id in visited else None,
-            "created_at": index.entries[e_id].created_at.isoformat() + "Z",
+            # See the other node-list above: `created_at` is already
+            # timezone-aware (`core/database.DateTime` guarantees it), so
+            # `+ "Z"` on top of `.isoformat()`'s own `+00:00` produced an
+            # unparseable double-suffixed string in JavaScript.
+            "created_at": index.entries[e_id].created_at.isoformat(),
         }
         for e_id in visited
     ]

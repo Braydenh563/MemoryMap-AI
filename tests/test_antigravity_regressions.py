@@ -401,8 +401,11 @@ def test_a_forgotten_preference_stops_reaching_the_model(ai_client, session):
 
 
 def test_editing_a_preference_that_is_gone_is_a_404(ai_client):
-    assert ai_client.patch("/memory/999", json={"active": False}).status_code == 404
-    assert ai_client.delete("/memory/999").status_code == 404
+    patch_response = ai_client.patch("/memory/999", json={"active": False})
+    assert patch_response.status_code == 404
+
+    delete_response = ai_client.delete("/memory/999")
+    assert delete_response.status_code == 404
 
 
 def test_a_preference_cannot_be_edited_into_nothing(ai_client, session):

@@ -75,6 +75,24 @@ Things that are wrong, lose work, or make the app feel unreliable.
    but not one that mismatches what happened ("I tagged it as Work" when a
    different tag was applied). Needs real model output to tune against, which
    this sandbox cannot provide — named rather than guessed at.
+8. **Two backend perf findings from a full review this session, not yet
+   fixed.** Both reproducible, neither fixed — deliberately: verifying either
+   properly needs a realistic-size notebook to measure against, and this
+   sandbox's suite runs against a handful of notes. Start here next.
+   - `tools.py`'s `_graph_neighbours` (~line 433) does `select(Entry).where(
+     Entry.is_deleted == False)` — a full, unfiltered table scan materialising
+     every note — whenever a visited node has tags, to find tag matches by
+     hand instead of a SQL filter. `_related_notes` calls it once per node in
+     the BFS frontier (depth 2, up to 12 notes), so one `related_notes` tool
+     call is up to ~12 full scans. The similar O(n²) at `GET
+     /graph?similarity=true` was already found and left off by default
+     (ANALYSIS.md §34); this one runs by default, inside the agent's own
+     tools.
+   - `manager.entry_dates` (one `SELECT` per entry) is called in a loop by
+     `_note_summary`, itself called per row by `list_notes` (≤25) and
+     `summarize_notes` (≤40) — an N+1 on the agent's most-used read tools.
+     Cheaper to fix than the one above: batch into one `WHERE entry_id IN
+     (...)` query and group the results by id before the loop.
 
 ### Tier 2 — half-built features, cheap to finish
 

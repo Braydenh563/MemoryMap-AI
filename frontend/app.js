@@ -10948,15 +10948,21 @@ function clearTrace({ quiet = false } = {}) {
   traceFromNode = null;
   traceToNode = null;
   if (traceModeActive && !quiet) {
-    const status = $("graph-trace-status");
-    if (status) status.textContent = "Click a starting note";
+    // This looked up a "graph-trace-status" element, which does not exist —
+    // the readout is #graph-trace-result, and showTraceMessage is how you
+    // write to it. The lookup was guarded by `if (status)`, so the prompt
+    // simply never appeared and trace mode began with no instructions.
+    showTraceMessage("Click a starting note");
+  } else {
+    const box = $("graph-trace-result");
+    if (box) {
+      box.replaceChildren();
+      box.classList.add("hidden");
+      box.classList.remove("is-empty");
+    }
   }
-  const box = $("graph-trace-result");
-  if (box) {
-    box.replaceChildren();
-    box.classList.add("hidden");
-    box.classList.remove("is-empty");
-  }
+  // Both branches still have to repaint: clearing the readout without
+  // redrawing leaves the old highlighted path drawn on the map.
   drawTrace();
   applyGraphHighlight();
 }
@@ -10966,6 +10972,13 @@ async function runTrace() {
     showTraceMessage("Pick two notes to trace between.");
     return;
   }
+  // Trace used to read two <select> values into local `from`/`to`. It became
+  // click-two-notes-on-the-map, the selects went away, and these three
+  // references to `from`/`to` were left behind pointing at nothing — so the
+  // moment you picked a second note, Trace threw a ReferenceError and did
+  // nothing at all, with the failure visible only in the console.
+  const from = traceFromNode.id;
+  const to = traceToNode.id;
   if (from === to) {
     showTraceMessage("Those are the same note — pick two different ones.");
     return;
@@ -21443,8 +21456,15 @@ $("sketch-size").addEventListener("input", () => {
 for (const button of document.querySelectorAll(".sketch-color")) {
   button.addEventListener("click", () => {
     sketchPen.color = button.dataset.color;
+    // Picking a colour means you want to draw, not erase. The eraser button
+    // was renamed `sketch-tool-eraser` when the toolbar became icons, and this
+    // one call kept the old `sketch-eraser` id — so the optional-chain
+    // swallowed it and the eraser stayed lit while the pen drew, which reads
+    // as the colour swatches not working.
     sketchPen.eraser = false;
-    $("sketch-eraser")?.classList.remove("active");
+    sketchTool = "pen";
+    $("sketch-tool-eraser")?.classList.remove("active");
+    $("sketch-tool-pen")?.classList.add("active");
     document
       .querySelectorAll(".sketch-color")
       .forEach((b) => b.classList.toggle("active", b === button));

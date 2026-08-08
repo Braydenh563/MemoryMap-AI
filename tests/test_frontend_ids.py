@@ -65,11 +65,19 @@ def test_the_prepaint_theme_table_matches_app_js():
     copies of the same table, and a theme added to one and not the other looks
     fine until you reload, when the app flashes the wrong colours or falls back
     to the default entirely. Nothing else would notice.
+
+    The pattern matches on the entry's *shape*, not on its first key. It used
+    to require `theme:` there, which quietly stopped matching anything the day
+    the presets became palette-only — they now compose with the separate
+    light/dark choice instead of overriding it, so `midnight`/`daylight` became
+    one `default` and no preset names a mode. A zero-match regex made this
+    assert "the table has moved" while the table was sitting right there and
+    the two copies agreed perfectly.
     """
     html = _markup()
     app = (INDEX.parent / "app.js").read_text(encoding="utf-8")
 
-    inline = set(re.findall(r"^\s{8}(\w+): \{ theme:", html, re.M))
+    inline = set(re.findall(r"^\s{8}(\w+): \{ ", html, re.M))
     declared = set(re.findall(r"^  (\w+): \{\n\s+label:", app, re.M))
 
     assert inline, "the pre-paint theme table wasn't found — has it moved?"

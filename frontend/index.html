@@ -167,25 +167,25 @@
   </div>
 
   <!-- Global Command Palette -->
-  <div id="command-palette-overlay" class="lock-overlay hidden" style="z-index: 2000; align-items: flex-start; padding-top: 15vh; background: rgba(0,0,0,0.5);">
-    <div class="card glass" style="width: 100%; max-width: 600px; padding: 0;">
-      <div style="padding: 16px; border-bottom: 1px solid var(--border-light); display: flex; align-items: center; gap: 8px;">
-        <span style="font-size: 1.2rem;">✨</span>
-        <input id="command-palette-input" type="text" placeholder="Ask the agent to do something... (Esc to close)" style="flex: 1; border: none; background: transparent; font-size: 1.1rem; outline: none; padding: 4px;">
+  <div id="command-palette-overlay" class="lock-overlay command-palette-overlay hidden">
+    <div class="card glass command-palette-card">
+      <div class="command-palette-bar">
+        <span class="command-palette-icon">✨</span>
+        <input id="command-palette-input" class="command-palette-input" type="text" placeholder="Ask the agent to do something… (Esc to close)">
       </div>
-      <div id="command-palette-results" style="max-height: 400px; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 8px;">
-        <p class="muted" style="margin: 0; text-align: center; font-size: 0.9rem;">Press Enter to send.</p>
+      <div id="command-palette-results" class="command-palette-results">
+        <p class="muted command-palette-hint">Press Enter to send.</p>
       </div>
     </div>
   </div>
 
   <!-- Agent Monitor (Twitch-style) -->
   <aside id="agent-monitor" class="card glass agent-monitor hidden">
-    <div class="row space-between monitor-header" style="padding-bottom: 8px; border-bottom: 1px solid var(--border-light);">
-      <h3 style="margin: 0; font-size: 0.9rem;">🤖 Agent Activity</h3>
+    <div class="row space-between monitor-header">
+      <h3 class="monitor-title">🤖 Agent Activity</h3>
       <button id="agent-monitor-close" class="ghost small">✕</button>
     </div>
-    <div id="agent-monitor-logs" class="monitor-logs" style="max-height: 200px; overflow-y: auto; padding-top: 8px; font-size: 0.85rem; display: flex; flex-direction: column; gap: 4px;"></div>
+    <div id="agent-monitor-logs" class="monitor-logs"></div>
   </aside>
 
   <!-- ======================= DASHBOARD TAB (Wave D) ======================= -->
@@ -230,6 +230,17 @@
         <div id="most-used-box" class="hidden">
           <h2>Most used</h2>
           <ul id="most-used"></ul>
+        </div>
+        <!-- One tap from the notes list to the three Library views people
+             actually go looking for. These were dropped from the markup while
+             their click handlers stayed in app.js, so the shortcuts vanished
+             and `test_frontend_ids` started reporting three ids that nothing
+             defined. The views are still reachable through the Library's own
+             filter chips; this is the shortcut, not the only door. -->
+        <div class="sidebar-tools">
+          <button id="tags-btn" class="ghost small">🏷 Tags</button>
+          <button id="bin-btn" class="ghost small">🗑 Recycle bin</button>
+          <button id="activity-btn" class="ghost small">📜 Activity</button>
         </div>
       </aside>
 
@@ -403,13 +414,13 @@ Link to another note with [[its first few words]]."></textarea>
             <!-- The label lives in its own span: the heading also carries the
                  collapse chevron, and writing textContent on the h2 would
                  delete it on every re-render. -->
-            <h2 id="entries-heading" style="margin: 0; margin-right: 0.25rem;"><span id="entries-heading-label">All entries</span></h2>
+            <h2 id="entries-heading" class="entries-heading"><span id="entries-heading-label">All entries</span></h2>
             <button id="select-btn" class="ghost small" title="Select several notes to move, tag, or delete together">☑️ Select</button>
             <input id="note-search" class="library-search" type="search"
               placeholder="🔎 Filter — try tag:work or &quot;exact phrase&quot;"
               aria-label="Filter notes. Supports tag:, cat:, is:pinned, -exclude and quoted phrases"
               aria-describedby="search-help-hint">
-            <label class="row align-center checkbox-label" style="gap:0.25rem; font-size:0.85em; cursor:pointer;" title="Search by concept instead of exact keywords">
+            <label class="row align-center checkbox-label semantic-toggle" title="Search by concept instead of exact keywords">
               <input type="checkbox" id="semantic-search-toggle"> ✨ Semantic
             </label>
             <button id="save-search" class="ghost small hidden" type="button"
@@ -802,9 +813,9 @@ Link to another note with [[its first few words]]."></textarea>
           <option value="grid" selected>Grid</option>
           <option value="line">Line</option>
         </select>
-        <div style="flex-grow: 1;"></div>
+        <div class="spacer-flex"></div>
         <label class="muted" for="timeline-search">Highlight</label>
-        <input type="text" id="timeline-search" placeholder="Type to filter..." style="max-width: 12rem; margin-bottom: 0;">
+        <input type="text" id="timeline-search" class="timeline-search" placeholder="Type to filter…">
         <span id="timeline-count" class="muted"></span>
       </div>
       <p class="muted">
@@ -830,9 +841,9 @@ Link to another note with [[its first few words]]."></textarea>
           <strong id="timeline-popup-title">Note</strong>
           <button id="timeline-popup-close" class="ghost small" aria-label="Close">✕</button>
         </div>
-        <div id="timeline-popup-info" class="graph-popup-info" style="margin-bottom: 0.5rem;"></div>
+        <div id="timeline-popup-info" class="graph-popup-info timeline-popup-info"></div>
         <div id="timeline-popup-media" class="graph-popup-media hidden"></div>
-        <div id="timeline-popup-content" style="white-space: pre-wrap; font-size: 0.9rem; max-height: 200px; overflow-y: auto; margin-bottom: 0.8rem;"></div>
+        <div id="timeline-popup-content" class="timeline-popup-content"></div>
         <div class="row">
           <button id="timeline-popup-open" class="small">Open in Editor</button>
         </div>
@@ -902,10 +913,10 @@ Link to another note with [[its first few words]]."></textarea>
           <input id="graph-spread" type="range" min="0" max="100" value="50"
             title="How far apart linked notes sit">
         </span>
-        <span class="graph-temporal" id="graph-temporal" style="display: flex; align-items: center; gap: 0.5rem; flex: 1; max-width: 300px;">
+        <span class="graph-temporal" id="graph-temporal">
           <label for="graph-time-slider" class="muted">Time Filter</label>
-          <input id="graph-time-slider" type="range" min="0" max="100" value="100" title="Slide back in time to hide newer notes" style="flex: 1;">
-          <span id="graph-time-label" class="muted text-sm" style="min-width: 6rem; text-align: right; white-space: nowrap;">All Time</span>
+          <input id="graph-time-slider" class="graph-time-slider" type="range" min="0" max="100" value="100" title="Slide back in time to hide newer notes">
+          <span id="graph-time-label" class="muted text-sm graph-time-label">All Time</span>
         </span>
         <label class="muted tools-toggle" title="Draw dotted lines between notes that mean similar things (needs semantic search)">
           <input type="checkbox" id="graph-similarity"> Similarity
@@ -1266,15 +1277,15 @@ Link to another note with [[its first few words]]."></textarea>
        list and the chat sidebar's list are both here, and the tab bar is the
        same length it was. A library that duplicated two lists that already
        existed would be a third place to look. -->
-  <div class="tab-page hidden" id="tab-library" role="tabpanel" aria-labelledby="tab-btn-library" tabindex="-1" style="flex-direction: column;">
-    <div class="seg library-subtabs" id="library-subtabs" role="tablist" style="margin: 0 0 1.5rem 0; flex-shrink: 0;">
+  <div class="tab-page hidden" id="tab-library" role="tabpanel" aria-labelledby="tab-btn-library" tabindex="-1">
+    <div class="seg library-subtabs" id="library-subtabs" role="tablist">
       <button role="tab" aria-selected="true" data-target="library-view-documents" class="active">Documents</button>
       <button role="tab" aria-selected="false" data-target="library-view-skills">AI Skills</button>
       <button role="tab" aria-selected="false" data-target="library-view-whiteboard">Whiteboard</button>
     </div>
 
-    <div id="library-view-documents" class="library-view-section" style="flex: 1; overflow-y: auto;">
-      <section class="card library-controls glass" style="margin-bottom: 2rem;">
+    <div id="library-view-documents" class="library-view-section">
+      <section class="card library-controls glass">
           <div class="row space-between library-head">
             <h2>Library</h2>
             <span class="row">
@@ -1297,8 +1308,8 @@ Link to another note with [[its first few words]]."></textarea>
                  the Library is where you find what you have, and what you threw
                  away is not that. The Bin chip still shows them whatever this
                  says, because pressing a filter called Bin is asking. -->
-            <label class="library-sort" style="cursor: pointer; display: flex; align-items: center; gap: 6px;">
-              <input type="checkbox" id="library-show-binned" style="accent-color: var(--accent);">
+            <label class="library-sort library-sort-check">
+              <input type="checkbox" id="library-show-binned" class="accent-check">
               <span class="muted">Include bin</span>
             </label>
             <div class="seg seg-compact library-sort-seg" id="library-sort-seg" role="group" aria-label="Sort the library">
@@ -1348,14 +1359,14 @@ Link to another note with [[its first few words]]."></textarea>
             </span>
           </div>
         </section>
-        <div id="library-grid" class="library-grid" style="margin-bottom: 3rem;"></div>
+        <div id="library-grid" class="library-grid"></div>
         <p id="library-empty" class="muted library-empty hidden"></p>
 
         <!-- Inject the Skills section here -->
     </div>
 
-    <div id="library-view-skills" class="library-view-section hidden" style="flex: 1; overflow-y: auto;">
-      <div style="display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 1rem; align-items: stretch; min-height: 0;">
+    <div id="library-view-skills" class="library-view-section hidden">
+      <div class="skills-split">
         <main>
           <section id="library-skills-section" class="card glass">
           <div class="row space-between">
@@ -1376,10 +1387,10 @@ Link to another note with [[its first few words]]."></textarea>
     </div>
 
   <!-- ======================= WHITEBOARD TAB ======================= -->
-  <div id="library-view-whiteboard" class="library-view-section hidden" style="height: 100%;">
-    <div class="whiteboard-container" id="whiteboard-container" style="position: relative; overflow: hidden;">
+  <div id="library-view-whiteboard" class="library-view-section library-view-whiteboard hidden">
+    <div class="whiteboard-container" id="whiteboard-container">
       <!-- The SVG layer for drawing, fills the container -->
-      <svg id="wb-svg-layer" class="wb-svg-layer" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%;">
+      <svg id="wb-svg-layer" class="wb-svg-layer">
         <g id="wb-zoom-group">
           <g id="wb-shapes-group"></g>
           <g id="wb-lines-group"></g>
@@ -1387,7 +1398,7 @@ Link to another note with [[its first few words]]."></textarea>
         </g>
       </svg>
       <!-- The HTML layer for cards, pannable/zoomable -->
-      <div id="wb-html-layer" class="wb-html-layer" style="position: absolute; left: 0; top: 0; transform-origin: 0 0;"></div>
+      <div id="wb-html-layer" class="wb-html-layer"></div>
     </div>
     <div class="whiteboard-floating-panel top-left card glass">
       <select id="wb-board-select" class="ghost small" title="Switch Board">
@@ -1616,7 +1627,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <select id="utility-model-select"></select>
                 <button id="utility-model-apply" class="small">Use this model</button>
               </div>
-              <div style="margin-top:0.5rem">
+              <div class="stack-top-gap">
                 <label class="checkbox-label row align-center">
                   <input type="checkbox" id="pref-smart-model-routing">
                   <span>Use Smart Model Routing for Background Tasks</span>
@@ -2394,7 +2405,7 @@ Link to another note with [[its first few words]]."></textarea>
                   <span>Identify duplicates</span>
                 </label>
                 
-                <label for="pref-autonomous-interval" class="form-label" style="margin-top: 1rem;">Run every (hours)</label>
+                <label for="pref-autonomous-interval" class="form-label form-label-spaced">Run every (hours)</label>
                 <input type="number" id="pref-autonomous-interval" class="wide" min="1" max="168" placeholder="6">
                 
                 <label for="pref-autonomous-model" class="form-label">Model override</label>
@@ -2402,7 +2413,7 @@ Link to another note with [[its first few words]]."></textarea>
                   <option value="">Same as Utility model</option>
                 </select>
                 
-                <div class="row" style="margin-top: 1rem;">
+                <div class="row row-top-gap">
                   <button id="autonomous-trigger" class="small ghost">▶ Run optimization now</button>
                 </div>
               </div>

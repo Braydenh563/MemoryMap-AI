@@ -56,6 +56,9 @@
   --header-h: calc(3.7rem + 1px);
   --page: linear-gradient(135deg, #e9edfb 0%, #f6f2ec 45%, #e6f1f2 100%);
   --blob-a: rgba(79, 109, 245, 0.20);
+  /* The dim behind a modal that floats over the app (the command palette),
+     as opposed to .lock-overlay, which replaces the app entirely. */
+  --scrim: rgba(17, 20, 32, 0.45);
   --blob-b: rgba(157, 88, 245, 0.14);
   --card: rgba(255, 255, 255, 0.55);
   --inner: rgba(255, 255, 255, 0.45);
@@ -175,6 +178,14 @@
   --radius-lg: calc(var(--radius) * 0.8);
   /* cards, dialogs */
   --radius-pill: 999px;
+
+  /* The width a collapsed sidebar springs back to when you hover it. JS
+     overrides this per-sidebar (`applySidebarWidth` sets it on the element
+     from the saved width), but the default belongs here: written only as a
+     `var(--saved-width, 280px)` fallback, the 280 was what actually rendered
+     for every sidebar the user had never dragged, and nothing in the
+     stylesheet said so. */
+  --saved-width: 280px;
   /* pills and round buttons */
   --glass-blur: 18px;
 
@@ -204,6 +215,7 @@ select,
 :root[data-mode="dark"] {
   --page: linear-gradient(135deg, #0e1017 0%, #171a26 45%, #0f1720 100%);
   --blob-a: rgba(123, 144, 247, 0.16);
+  --scrim: rgba(5, 7, 14, 0.60);
   --blob-b: rgba(88, 235, 245, 0.07);
   --card: rgba(29, 33, 46, 0.55);
   --inner: rgba(255, 255, 255, 0.05);
@@ -229,6 +241,7 @@ select,
   :root:not([data-theme="light"]) {
     --page: linear-gradient(135deg, #0e1017 0%, #171a26 45%, #0f1720 100%);
     --blob-a: rgba(123, 144, 247, 0.16);
+    --scrim: rgba(5, 7, 14, 0.60);
     --blob-b: rgba(88, 235, 245, 0.07);
     --card: rgba(29, 33, 46, 0.55);
     --inner: rgba(255, 255, 255, 0.05);
@@ -6637,7 +6650,10 @@ html {
 
 @media (max-width: 720px) {
   .reminders-card {
-    margin: 0.5rem 1rem;
+    /* The horizontal inset is `.tab-page`'s job (--page-gutter). Setting one
+       here put the card 1rem inside a gutter that had already been applied,
+       so this one card sat narrower than every other card on narrow windows. */
+    margin: 0 0 var(--space-6);
   }
 }
 
@@ -12241,7 +12257,7 @@ textarea.autogrow {
   bottom: 1rem;
   left: 50%;
   transform: translateX(-50%);
-  border-radius: 9999px; /* pill shape */
+  border-radius: var(--radius-pill);
 }
 
 .wb-tool-group {
@@ -12316,11 +12332,11 @@ textarea.autogrow {
 }
 
 .wb-library-item {
-  padding: 0.75rem;
+  padding: var(--space-5);
   background: var(--inner);
   border-radius: var(--radius-sm);
   cursor: grab;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   user-select: none;
 }
 
@@ -12348,7 +12364,7 @@ textarea.autogrow {
 }
 
 .wb-card-content {
-  font-size: 0.9rem;
+  font-size: var(--text-lg);
   line-height: 1.4;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -12428,7 +12444,7 @@ aside[data-resizable="1"] {
 
 /* Hover-peek */
 .layout-sidebar-collapsed>.sidebar-collapsed:hover {
-  width: var(--saved-width, 280px) !important;
+  width: var(--saved-width) !important;
   box-shadow: var(--glass-shadow);
   z-index: 100;
   position: absolute;
@@ -12607,4 +12623,220 @@ textarea.drag-over {
     opacity: 1;
     transform: translateY(0);
   }
+}
+/* --- rules recovered from inline style attributes (audit of §40) ------------
+   Thirty-five `style="…"` attributes arrived on index.html in the antigravity
+   pass. Every one of them was dead on arrival: this app sends
+   `style-src 'self'` with no `'unsafe-inline'` (see core/security.py), so the
+   browser refused the lot and these elements rendered with no styling at all —
+   the command palette as an unpositioned block, the whiteboard's two canvas
+   layers stacked instead of overlaid, the graph's time slider with no width.
+   `test_security_boundaries.test_the_frontend_has_no_inline_style_attributes`
+   is the guard that catches this, and it was failing.
+
+   Same declarations, on the scale, in the one place a CSP allows them. */
+
+/* The command palette: a dialog pinned near the top rather than centred, so a
+   growing result list doesn't shift the input under the cursor. */
+.command-palette-overlay {
+  z-index: 2000;
+  align-items: flex-start;
+  padding-top: 15vh;
+  background: var(--scrim);
+}
+
+.command-palette-card {
+  width: 100%;
+  max-width: 37.5rem;
+  padding: 0;
+}
+
+.command-palette-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.command-palette-icon {
+  font-size: var(--text-h3);
+}
+
+.command-palette-input {
+  flex: 1;
+  padding: var(--space-1);
+  border: none;
+  background: transparent;
+  font-size: var(--text-body);
+  outline: none;
+}
+
+.command-palette-results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-height: 25rem;
+  padding: var(--space-6);
+  overflow-y: auto;
+}
+
+.command-palette-hint {
+  margin: 0;
+  text-align: center;
+  font-size: var(--text-lg);
+}
+
+/* The agent activity monitor. */
+.monitor-header {
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.monitor-title {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+
+.monitor-logs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: 12.5rem;
+  padding-top: var(--space-3);
+  overflow-y: auto;
+  font-size: var(--text-md);
+}
+
+/* Notes list header and the semantic-search toggle beside the search box. */
+.entries-heading {
+  margin: 0 var(--space-1) 0 0;
+}
+
+.semantic-toggle {
+  gap: var(--space-1);
+  font-size: var(--text-md);
+  cursor: pointer;
+}
+
+/* A flexible gap that pushes what follows it to the far end of a row. */
+.spacer-flex {
+  flex-grow: 1;
+}
+
+/* Timeline toolbar and the note popup it opens. */
+.timeline-search {
+  max-width: 12rem;
+  margin-bottom: 0;
+}
+
+.timeline-popup-info {
+  margin-bottom: var(--space-3);
+}
+
+.timeline-popup-content {
+  max-height: 12.5rem;
+  margin-bottom: var(--space-5);
+  overflow-y: auto;
+  font-size: var(--text-lg);
+  white-space: pre-wrap;
+}
+
+/* The graph's "slide back in time" control. */
+.graph-temporal {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: 18.75rem;
+}
+
+.graph-time-slider {
+  flex: 1;
+}
+
+.graph-time-label {
+  min-width: 6rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* The Library page and its three sub-views. The page is a column so that a
+   sub-view can be the part that scrolls, rather than the window. */
+#tab-library:not(.hidden) {
+  display: flex;
+  flex-direction: column;
+}
+
+.library-subtabs {
+  flex-shrink: 0;
+  margin: 0 0 var(--space-8);
+}
+
+.library-view-section {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* The whiteboard is the one sub-view that must NOT scroll: it pans instead,
+   and its two layers are absolutely positioned inside it. */
+.library-view-whiteboard {
+  height: 100%;
+  overflow: hidden;
+}
+
+.library-controls {
+  margin-bottom: var(--space-9);
+}
+
+.library-sort-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+}
+
+.accent-check {
+  accent-color: var(--accent);
+}
+
+.library-grid {
+  margin-bottom: var(--space-9);
+}
+
+.skills-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18.75rem;
+  gap: var(--space-6);
+  align-items: stretch;
+  min-height: 0;
+}
+
+/* The whiteboard's drawing layer and its card layer occupy the same box: the
+   SVG takes the strokes, the div takes the note cards on top of them. Without
+   this they stacked vertically and every card sat below the canvas. */
+.wb-svg-layer,
+.wb-html-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.wb-svg-layer {
+  width: 100%;
+  height: 100%;
+}
+
+.wb-html-layer {
+  transform-origin: 0 0;
+}
+
+/* Two small spacing helpers, so a one-off gap doesn't need an attribute. */
+.stack-top-gap {
+  margin-top: var(--space-3);
+}
+
+.row-top-gap,
+.form-label-spaced {
+  margin-top: var(--space-6);
 }

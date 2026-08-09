@@ -59,12 +59,27 @@ MAX_OBJECT_TEXT_CHARS = 20_000
 VALID_OBJECT_KINDS = {"image", "text"}
 
 
+#: A card/sketch/object's own persisted group — asked for directly (Ctrl+G).
+#: Opaque and client-generated (a `crypto.randomUUID()`), not a foreign key:
+#: one group spans three different tables, so there's no single row for it
+#: to reference. 40 chars is a UUID with room to spare.
+GROUP_ID_MAX_LEN = 40
+
+
 class WhiteboardNodeBase(BaseModel):
     entry_id: int
     board_id: int | None = None
     x: float = 0.0
     y: float = 0.0
     z: int = 0
+    #: Asked for directly ("resizing... cards"). `None` means auto-sized —
+    #: the same ~250×150 CSS default every card used before this existed.
+    width: float | None = Field(default=None, ge=20, le=4000)
+    height: float | None = Field(default=None, ge=20, le=4000)
+    #: Degrees, clockwise, about the card's own centre. Asked for directly
+    #: ("rotations"); `None` renders identically to 0.
+    rotation: float | None = Field(default=None, ge=-360, le=360)
+    group_id: str | None = Field(default=None, max_length=GROUP_ID_MAX_LEN)
 
 
 class WhiteboardNodeOut(WhiteboardNodeBase):
@@ -79,6 +94,7 @@ class WhiteboardSketchBase(BaseModel):
     x: float = 0.0
     y: float = 0.0
     z: int = 0
+    group_id: str | None = Field(default=None, max_length=GROUP_ID_MAX_LEN)
 
 
 class WhiteboardSketchOut(WhiteboardSketchBase):
@@ -97,6 +113,10 @@ class WhiteboardObjectData(BaseModel):
     content: str | None = Field(default=None, max_length=MAX_OBJECT_TEXT_CHARS)
     color: str | None = Field(default=None, max_length=20)
     font_size: int | None = Field(default=None, ge=8, le=200)
+    #: A text box's own fill/border — asked for directly (the properties
+    #: panel). Images have no use for either; left `None` there.
+    bg: str | None = Field(default=None, max_length=20)
+    border_color: str | None = Field(default=None, max_length=20)
 
 
 class WhiteboardObjectBase(BaseModel):
@@ -108,6 +128,8 @@ class WhiteboardObjectBase(BaseModel):
     z: int = 0
     width: float = Field(default=200.0, ge=20, le=4000)
     height: float = Field(default=120.0, ge=20, le=4000)
+    rotation: float | None = Field(default=None, ge=-360, le=360)
+    group_id: str | None = Field(default=None, max_length=GROUP_ID_MAX_LEN)
 
     @field_validator("kind")
     @classmethod
@@ -127,6 +149,8 @@ class WhiteboardObjectOut(BaseModel):
     z: int
     width: float
     height: float
+    rotation: float | None
+    group_id: str | None
 
 
 def _object_to_out(obj: WhiteboardObject) -> WhiteboardObjectOut:
@@ -140,6 +164,8 @@ def _object_to_out(obj: WhiteboardObject) -> WhiteboardObjectOut:
         z=obj.z,
         width=obj.width,
         height=obj.height,
+        rotation=obj.rotation,
+        group_id=obj.group_id,
     )
 
 
@@ -352,6 +378,8 @@ def create_node(
         entry_id=node_in.entry_id, board_id=node_in.board_id
     )
     node.x, node.y, node.z = node_in.x, node_in.y, node_in.z
+    node.width, node.height, node.group_id = node_in.width, node_in.height, node_in.group_id
+    node.rotation = node_in.rotation
     if existing is None:
         db.add(node)
     db.commit()
@@ -373,6 +401,8 @@ def update_node(
     # card between boards returned 200 and changed nothing.
     node.board_id = node_in.board_id
     node.x, node.y, node.z = node_in.x, node_in.y, node_in.z
+    node.width, node.height, node.group_id = node_in.width, node_in.height, node_in.group_id
+    node.rotation = node_in.rotation
     db.commit()
     db.refresh(node)
     return node
@@ -414,6 +444,7 @@ def update_sketch(
     sketch.data = sketch_in.data
     sketch.board_id = sketch_in.board_id
     sketch.x, sketch.y, sketch.z = sketch_in.x, sketch_in.y, sketch_in.z
+    sketch.group_id = sketch_in.group_id
     db.commit()
     db.refresh(sketch)
     return sketch
@@ -455,6 +486,8 @@ def create_object(
         z=body.z,
         width=body.width,
         height=body.height,
+        rotation=body.rotation,
+        group_id=body.group_id,
     )
     db.add(obj)
     db.commit()
@@ -481,6 +514,8 @@ def update_object(
     obj.board_id = body.board_id
     obj.x, obj.y, obj.z = body.x, body.y, body.z
     obj.width, obj.height = body.width, body.height
+    obj.rotation = body.rotation
+    obj.group_id = body.group_id
     db.commit()
     db.refresh(obj)
     return _object_to_out(obj)

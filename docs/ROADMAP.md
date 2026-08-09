@@ -295,10 +295,20 @@ into a good one.
     copy/paste, multi-select (shift-click/marquee/bulk move/bulk delete),
     grid-snap on every item kind (not just cards), shift-to-constrain a
     drawn shape, Alt to bypass snap for one drag, two more shape types
-    (triangle/diamond), arrowhead styles, precise drop placement, and a
-    real "glitchy and slow to update" perf bug (a full board re-render on
-    every card-drag frame)~~ **all done, verified live — see HISTORY.md §53
-    and §54 for the full list and how each was verified.**
+    (triangle/diamond), arrowhead styles, precise drop placement, a real
+    "glitchy and slow to update" perf bug (a full board re-render on every
+    card-drag frame), a properties panel (colour/width/arrowhead/fill/
+    border/font-size) for the current single selection, card resize
+    (8-handle, same as images/text boxes), object grouping (Ctrl+G/
+    Ctrl+Shift+G, a persisted `group_id`, click-one-selects-the-whole-group),
+    undo/redo extended to cover move *and* resize (not just create/delete),
+    arrow-key nudge (grid-step when snap is on, 1px/10px+Shift otherwise),
+    alignment tools (left/h-centre/right/top/v-centre/bottom) and distribute
+    (horizontal/vertical) for a multi-selection, and rotation (a drag
+    handle above the item, Shift snaps to 15°, for cards and objects — see
+    "still open" below for why sketches don't have it yet)~~ **all done,
+    verified live — see HISTORY.md §53–§55 for the full list and how each
+    was verified.**
 
     **Still genuinely open, ranked by what's actually left:**
     - **Real anchor/connection points** (fixed corners+edges, a free point
@@ -306,26 +316,17 @@ into a good one.
       wherever a drag ended) — asked for directly, "take inspiration from
       draw.io." **The one piece worth its own session before touching
       anything else here** — this project's own history already named it
-      that twice (§53, §54) and that reasoning still holds: a shallow
-      version (a connection-point system that doesn't match how draw.io
-      itself represents a fixed-vs-free anchor) would cost more to unwind
-      later than it saves now. Read how draw.io represents this before
-      starting.
-    - **A properties panel for the current selection** — colour, line
-      thickness, arrowhead style, and (for a text object) fill/border —
-      asked for directly, more than once. No longer blocked on
-      multi-select (§54, done) for the single-selection case; a version
-      that edits an entire multi-selection at once is the harder follow-up.
-    - **Rotation.** Needs a real backend schema change, not a frontend-only
-      pass — no whiteboard table (`WhiteboardNode`/`WhiteboardObject`/a
-      sketch's own path) has an angle column at all. A sketch could rotate
-      itself today via the same path-transform machinery §54 built for
-      move/resize (an SVG path can encode any transform); cards and objects
-      cannot without a migration.
-    - **Card resize.** Only images/text objects (`.wb-object`) have the
-      8-handle resize; a note's own card (`.node-card`) has none at all —
-      asked about directly, confirmed missing by reading the render code,
-      not yet built.
+      that three times now (§53, §54, §55) and that reasoning still holds:
+      a shallow version (a connection-point system that doesn't match how
+      draw.io itself represents a fixed-vs-free anchor) would cost more to
+      unwind later than it saves now. Read how draw.io represents this
+      before starting.
+    - **Sketch rotation.** Cards and objects rotate (§55); a sketch does
+      not — its "shape" *is* its path data, and rotating a path correctly
+      (including the `a` command's own elliptical-arc flags, which flip
+      under rotation in a way `wbTransformPathD`'s existing translate/scale
+      math doesn't need to handle) is real trig this session didn't spend
+      the time on. A sketch can still be deleted and redrawn at an angle.
     - **Image cropping.** Asked about directly; not scoped or built —
       needs a decision on the interaction (a crop rectangle over the full
       image vs. a separate "adjust" mode) before building.
@@ -333,7 +334,16 @@ into a good one.
       the ai to generate the diagrams guided"). Not scoped — needs a
       decision on what "guided" means here (a chat-driven placement tool
       that calls the same card/object/link creation endpoints? a
-      text-to-layout generator?) before building.
+      text-to-layout generator?) before building. Three sessions running
+      now without it being scoped; worth a design pass on its own rather
+      than guessing at an interaction model mid-session.
+    - **Uploaded whiteboard images showing in the Library as files.** Asked
+      for directly; not started — needs a decision (track `/media/` uploads
+      in a real DB table so the Library has rows to list, or surface the
+      media directory directly) before building.
+    - **A whiteboard backend/perf pass** (N+1 queries, inefficient
+      endpoints) beyond the one full-rerender bug already fixed (§54) — not
+      started, not profiled.
     - **A mind-mapping mode** — see item 25's own entry (Tier 3): decided
       to be a whiteboard mode (auto-arrange via the Graph tab's existing
       Tree/Radial layout code, plus Tab/Enter keyboard branch entry), not a

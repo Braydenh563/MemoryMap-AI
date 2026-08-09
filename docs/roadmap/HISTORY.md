@@ -2167,3 +2167,122 @@ colour/border/fill on the current selection, rotation (needs a real backend
 schema change — no whiteboard table has an angle column), card resize (only
 images/text objects have it), image cropping, and an AI-guided
 diagram-generation mode.
+
+## 55. Continuing §54's own "still open" list: a properties panel, card resize, grouping, undo/redo for move and resize, arrow-key nudge, alignment/distribute, and rotation — plus a real silent-reset bug found the same way §54's own `group_id` one was
+
+Same session as §54, continued after a context compaction — same user,
+still working top-down through the "still open" list §54 itself left
+behind, plus several more features named directly mid-session (a
+properties panel, "suggested modes", grouping, arrow-key movement,
+alignment tools). Authorised to work through the night unattended
+("assume I agree with everything... commit and push as you go"). Every
+behavioural claim below was driven against a real running server via
+Playwright, not reasoned from the code — see the coordinate traps at the
+end, which cost real time before the fixes below were confirmed real.
+
+- **A properties panel for the current single selection**, asked for
+  directly, more than once. `#wb-properties-panel`, populated by
+  `wbUpdatePropertiesPanel()` from whichever kind is selected: a sketch
+  gets colour+width (+arrowhead if it's an arrow); a text object gets
+  colour+fill+border+font-size. Hidden entirely for a multi-selection, a
+  card, or an image — none of those have a stroke/fill of their own to
+  edit here.
+- **Card resize**, asked about directly, confirmed missing by reading the
+  render code in §54. `WhiteboardNode` gained nullable `width`/`height`
+  columns (unset = the old ~250×150 CSS default, so an existing row renders
+  unchanged); the same 8-handle drag as an object's own resize, factored
+  into `nodeResizeDrag`. **Two real bugs found and fixed before this
+  shipped, not after**: the card's own move-drag `.filter()` didn't exclude
+  `.wb-resize-handle` the way an object's already did, so the card-level
+  drag silently intercepted the same pointerdown and no resize ever
+  happened; and a defensive `overflow-y: auto` added to `.wb-card` along
+  the way triggered a real CSS spec quirk — setting one overflow axis
+  non-`visible` while the other is unset forces *both* axes to compute
+  non-`visible`, silently clipping the negatively-positioned resize handles
+  sitting just outside the card's own box. Reverted; the pre-existing
+  `.wb-card-content` 3-line clamp already handles long text without it.
+- **Object grouping** (Ctrl+G / Ctrl+Shift+G), asked for directly. A
+  `group_id` column on all three whiteboard tables (opaque
+  `crypto.randomUUID()`, not a foreign key — one group spans three
+  different tables, so there's no single row for it to point at) rather
+  than an in-memory-only set: `wbMultiSelection` disappears on reload, a
+  persisted group doesn't. Clicking any one grouped member re-selects the
+  whole group (the other half of Ctrl+G, in `wbHandleItemClick`), and the
+  existing bulk-move machinery drags a group "for free" once it's selected.
+- **Undo/redo extended to cover move and resize, not just create/delete**,
+  asked for directly ("account for resizes, rotates, positional movement").
+  A new `"move"` entry type in `wbApplyHistoryEntry`, storing the item's
+  whole pre-change payload (x/y, width/height, a sketch's own `d`) as
+  `before` — one shape covers move *and* resize, since both just mean "the
+  payload changed." Wired into every drag/resize end handler across all
+  three kinds. A single dragged/resized item in a multi-selection gets its
+  own undo entry; the rest of the group, moved via the separate bulk-move
+  path, does not — a real, acknowledged limitation, not attempted further.
+- **Arrow-key nudge**, asked for directly. Step size follows grid-snap
+  (a full grid step when snap is on, 1px normally, 10px with Shift held) —
+  moves the whole current selection (single item or multi) at once. Needed
+  a genuinely new undo shape: nudging three selected items is one user
+  action, and Undo pressed once should reverse all three, not one at a
+  time — a new `"batch"` entry (an array of ordinary `"move"` sub-entries,
+  replayed through the same `wbApplyHistoryEntry` recursively) covers this,
+  and alignment/distribute below reuse it too.
+- **Alignment tools** (left/h-centre/right/top/v-centre/bottom) and
+  **distribute** (horizontal/vertical), asked for directly ("alignment
+  tools... missing", named again this session). Live in the properties
+  panel as a `wb-prop-multi-row` that replaces the single-item rows
+  whenever `wbMultiSelection` is non-empty. Align references the whole
+  selection's own combined bounding box (the same convention every other
+  drawing app uses); distribute needs three or more, keeps the two outer
+  items (by centre, along the chosen axis) fixed, and spaces what's between
+  them evenly.
+- **Rotation**, asked about directly, three sessions running. `WhiteboardNode`
+  and `WhiteboardObject` each gained a nullable `rotation` (degrees). A
+  round handle above the item's own top-centre (distinct at a glance from
+  the square resize handles); dragging it computes the angle from the
+  item's own screen-space centre to the pointer — `getBoundingClientRect()`'s
+  centre stays correct even mid-rotation, since an axis-aligned box's centre
+  coincides with the true rotation centre regardless of how far the box has
+  turned, so this needs none of the zoom/pan-scale math a position drag
+  does. Shift snaps to 15°. **Deliberately scoped to cards and objects, not
+  sketches** — a sketch's shape *is* its path data, and rotating a path
+  correctly (the `a` command's elliptical-arc flags flip under rotation)
+  is real trig `wbTransformPathD`'s existing translate/scale math doesn't
+  need; left for a future session rather than a shortcut that gets arcs
+  wrong.
+- **A real bug, found live, of the exact shape §54's own `group_id` bug
+  was**: `wbSaveObject`/`wbSaveNode` each build their own PUT body by hand,
+  independently of the `WB_KIND_INFO` payload builders used for undo — and
+  neither one had been taught about `rotation` when it was added. Since the
+  backend assigns `obj.rotation = body.rotation` unconditionally (a full
+  replace, not a partial update), every single save — not just a rotation
+  drag, *any* move, resize, or property edit — silently reset rotation
+  back to `None`. Caught by a Playwright test reading `wbState` back after
+  a rotate-and-wait, not by inspection: the live CSS transform showed
+  `rotate(90deg)` (set synchronously during the drag) while the state
+  object the async save had since overwritten already read back `null`.
+  Fixed in both functions. **The lesson repeats**: every whiteboard field
+  needs to be added at every call site that builds a request body by hand,
+  and there is more than one such site per kind — grep for all of them, not
+  just the first one found.
+
+**Two Playwright coordinate traps found live, worth recording since they
+cost real debugging time before being understood as test bugs, not app
+bugs**: a marquee drag starting near the container's own top-left corner
+lands on a floating toolbar panel sitting on top of the canvas there, and
+the pointerdown never reaches the canvas at all (0 items selected, not a
+partial miss) — start below roughly `container.top + 260`. And a marquee
+ending too far down the viewport (`container.top + 700` in a 900px-tall
+viewport) overshoots the canvas entirely and releases over the app's own
+bottom tab bar instead — confirmed by logging every pointer/mouse event's
+target during the drag, which showed the sequence ending on
+`pointerup>tab-library`, not on anything whiteboard-related. Both are
+about where a synthetic drag starts/ends, not a selection-logic bug; the
+marquee/rectangle-intersection code itself was correct throughout.
+
+Full `pytest tests/` (~1,600+ tests), `ruff check .`, and `node --check
+frontend/app.js` all green. **Still open** (see ROADMAP item 11 for the
+full ranked list): real anchor/connection points (still "worth its own
+session," now named three times), sketch rotation, image cropping, an
+AI-guided diagram-generation mode, uploaded whiteboard images not showing
+in the Library as files, and a whiteboard backend/perf pass beyond the one
+full-rerender bug already fixed in §54.

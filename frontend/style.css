@@ -12775,10 +12775,68 @@ textarea.autogrow {
   border-radius: var(--radius-pill);
 }
 
+/* Below the "library" panel (which ends ~7rem down), so a shown properties
+   panel never overlaps it. */
+.whiteboard-floating-panel.mid-right {
+  top: 6rem;
+  right: 1rem;
+  flex-direction: column;
+  align-items: stretch;
+  width: 11rem;
+}
+
+.wb-properties-title {
+  font-size: var(--text-sm);
+  font-weight: 650;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 var(--space-2);
+}
+
+.wb-properties-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+  padding: var(--space-1) 0;
+}
+
+.wb-properties-row input[type="number"] {
+  width: 3.5rem;
+}
+
+.wb-properties-row select {
+  max-width: 7rem;
+}
+
 .wb-tool-group {
   display: flex;
   align-items: center;
   gap: 0.25rem;
+}
+
+/* Grouping/alignment row of the properties panel — a stack of small button
+   rows rather than the label+control layout `.wb-properties-row` normally
+   holds, so it overrides that rule's flex-direction/justify rather than
+   fighting it. */
+.wb-prop-multi {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.wb-multi-actions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.wb-multi-actions button {
+  flex: 1;
+  padding: var(--space-1);
+  font-size: var(--text-sm);
+  line-height: 1.2;
 }
 
 .wb-tool-group button {
@@ -12995,8 +13053,48 @@ aside[data-resizable="1"] {
 }
 
 .wb-object:hover .wb-resize-handle,
-.wb-object.wb-selected .wb-resize-handle {
+.wb-object.wb-selected .wb-resize-handle,
+.node-card:hover .wb-resize-handle,
+.node-card.wb-selected .wb-resize-handle,
+.wb-object:hover .wb-rotate-handle,
+.wb-object.wb-selected .wb-rotate-handle,
+.node-card:hover .wb-rotate-handle,
+.node-card.wb-selected .wb-rotate-handle {
   opacity: 1;
+}
+
+/* One handle above top-centre, asked for directly ("rotations"). A round
+   handle (vs. the square resize ones) so the two are never confused at a
+   glance, connected to the box with a thin stem the same way every other
+   drawing app's own rotate handle reads. */
+.wb-rotate-handle {
+  position: absolute;
+  top: -28px;
+  left: calc(50% - 6px);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 1px solid var(--card-bg);
+  cursor: grab;
+  z-index: 5;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+
+.wb-rotate-handle::before {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: calc(50% - 1px);
+  width: 2px;
+  height: 16px;
+  background: var(--accent);
+  opacity: 0.6;
+}
+
+.wb-rotate-handle:active {
+  cursor: grabbing;
 }
 
 /* A sketch's own resize handles (ROADMAP.md Tier 2 §11) — real SVG elements

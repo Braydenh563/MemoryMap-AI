@@ -23138,6 +23138,12 @@ function handleWbZoom(e) {
 //: can snap to.
 const WB_GRID_SPACING = 24;
 
+//: A card's default size before a resize ever sets `width`/`height`
+//: explicitly — the CSS auto-size every card used before resize existed,
+//: and the same figure this file's own drop-centring/link-anchor math has
+//: assumed all along (see the drop handler and `dragStart`'s own comments).
+const WB_CARD_DEFAULT_SIZE = { w: 250, h: 150 };
+
 function wbSyncGridToTransform(transform) {
   const el = document.getElementById("whiteboard-container");
   if (!el) return;
@@ -23284,6 +23290,274 @@ const WB_SELECTOR_BY_KIND = {
 
 const wbMultiKey = (kind, id) => `${kind}:${id}`;
 
+// Asked for directly, more than once: "changing properties of shapes and
+// text boxes... fill, border". Single-selection only — the same reasoning
+// Grouping — asked for directly (Ctrl+G / Ctrl+Shift+G). Unlike
+// `wbMultiSelection` (in-memory, gone on reload), a group's id is persisted
+// on every member's own `group_id` column, so clicking any one member later
+// reselects the whole set — the other half of this feature lives in
+// `wbHandleItemClick` below.
+async function wbGroupSelection() {
+  if (wbMultiSelection.size < 2) {
+    toast("Select more than one item to group them.");
+    return;
+  }
+  const groupId = crypto.randomUUID ? crypto.randomUUID() : `g${Date.now()}${Math.random().toString(36).slice(2)}`;
+  for (const key of wbMultiSelection) {
+    const sep = key.indexOf(":");
+    const kind = key.slice(0, sep), id = Number(key.slice(sep + 1));
+    const item = (wbState[WB_LIST_BY_KIND[kind]] || []).find((i) => i.id === id);
+    if (!item) continue;
+    item.group_id = groupId;
+    if (kind === "sketch") await wbSaveSketchProps(item, {});
+    else if (kind === "node") await wbSaveNode(item);
+    else await wbSaveObject(item);
+  }
+  toast("Grouped.");
+}
+
+//: Clears `group_id` on every currently-selected member — the current
+//: selection is either a multi-selection built by hand, or (per
+//: `wbHandleItemClick`'s own group-select branch) already the whole group,
+//: since clicking any one grouped member selects all of it.
+async function wbUngroupSelection() {
+  const keys = wbMultiSelection.size > 0
+    ? [...wbMultiSelection]
+    : wbSelectedItem ? [wbMultiKey(wbSelectedItem.kind, wbSelectedItem.id)] : [];
+  if (keys.length === 0) return;
+  let ungrouped = 0;
+  for (const key of keys) {
+    const sep = key.indexOf(":");
+    const kind = key.slice(0, sep), id = Number(key.slice(sep + 1));
+    const item = (wbState[WB_LIST_BY_KIND[kind]] || []).find((i) => i.id === id);
+    if (!item || !item.group_id) continue;
+    item.group_id = null;
+    ungrouped++;
+    if (kind === "sketch") await wbSaveSketchProps(item, {});
+    else if (kind === "node") await wbSaveNode(item);
+    else await wbSaveObject(item);
+  }
+  if (ungrouped) toast("Ungrouped.");
+}
+
+//: A kind-agnostic bounding box (board coordinates, top-left/bottom-right)
+//: for alignment/distribute/nudge math, which all need to compare items of
+//: different kinds against each other. A sketch has no width/height of its
+//: own — its path data *is* its shape — so its box comes from
+//: `wbPathBBox`, while a card/object's box is just its x/y plus whichever
+//: width/height it currently has (falling back to the same defaults their
+//: own resize code uses).
+function wbItemBBox(kind, item) {
+  if (kind === "sketch") {
+    const parsed = wbSketchParsedData(item);
+    if (!parsed) return null; // a link sketch — no shape of its own to align
+    return wbPathBBox(parsed.d);
+  }
+  const w = item.width || (kind === "node" ? WB_CARD_DEFAULT_SIZE.w : WB_OBJECT_MIN_SIZE);
+  const h = item.height || (kind === "node" ? WB_CARD_DEFAULT_SIZE.h : WB_OBJECT_MIN_SIZE);
+  return { minX: item.x, minY: item.y, maxX: item.x + w, maxY: item.y + h };
+}
+
+//: Resolves `wbMultiSelection` into {kind, id, item, bbox} entries, dropping
+//: anything stale (deleted since selected) or box-less (a link sketch).
+//: Shared by align/distribute/nudge — every one of them needs exactly this.
+function wbSelectionEntries() {
+  return [...wbMultiSelection]
+    .map((key) => {
+      const sep = key.indexOf(":");
+      const kind = key.slice(0, sep), id = Number(key.slice(sep + 1));
+      const item = (wbState[WB_LIST_BY_KIND[kind]] || []).find((i) => i.id === id);
+      return item ? { kind, id, item, bbox: wbItemBBox(kind, item) } : null;
+    })
+    .filter((e) => e && e.bbox);
+}
+
+//: Moves one item by (dx, dy) — a sketch by transforming its path, anything
+//: else by its own x/y — saves it, and returns the "move" undo entry for
+//: it. Shared by nudge/align/distribute, each of which moves a set of items
+//: as one user action and needs one entry per item to bundle into a batch.
+async function wbMoveItemBy(kind, id, item, dx, dy) {
+  const before = WB_KIND_INFO[kind].payload(item);
+  if (kind === "sketch") {
+    const parsed = wbSketchParsedData(item);
+    const newD = wbTransformPathD(parsed.d, { dx, dy });
+    await wbSaveSketchD(item, newD);
+  } else {
+    item.x = (item.x || 0) + dx;
+    item.y = (item.y || 0) + dy;
+    if (kind === "node") await wbSaveNode(item);
+    else await wbSaveObject(item);
+  }
+  return { action: "move", kind, id, before };
+}
+
+//: Pushes N per-item move entries as the one undo step the user actually
+//: took — a single "batch" entry when more than one item moved, or the bare
+//: entry itself when only one did, so a plain single-item nudge doesn't pay
+//: for the extra indirection.
+function wbPushMoveBatch(entries) {
+  if (entries.length === 0) return;
+  wbPushUndo(entries.length === 1 ? entries[0] : { action: "batch", entries });
+  renderWhiteboard();
+}
+
+// Alignment tools — asked for directly ("alignment tools... missing"), only
+// meaningful for two or more selected items. Aligns to the selection's own
+// overall bounding box, the same reference every other drawing app uses.
+async function wbAlignSelection(edge) {
+  const entries = wbSelectionEntries();
+  if (entries.length < 2) {
+    toast("Select two or more items to align them.");
+    return;
+  }
+  let target;
+  if (edge === "left") target = Math.min(...entries.map((e) => e.bbox.minX));
+  else if (edge === "right") target = Math.max(...entries.map((e) => e.bbox.maxX));
+  else if (edge === "top") target = Math.min(...entries.map((e) => e.bbox.minY));
+  else if (edge === "bottom") target = Math.max(...entries.map((e) => e.bbox.maxY));
+  else if (edge === "hcenter") {
+    const minX = Math.min(...entries.map((e) => e.bbox.minX));
+    const maxX = Math.max(...entries.map((e) => e.bbox.maxX));
+    target = (minX + maxX) / 2;
+  } else if (edge === "vcenter") {
+    const minY = Math.min(...entries.map((e) => e.bbox.minY));
+    const maxY = Math.max(...entries.map((e) => e.bbox.maxY));
+    target = (minY + maxY) / 2;
+  }
+
+  const pushed = [];
+  for (const e of entries) {
+    let dx = 0, dy = 0;
+    if (edge === "left") dx = target - e.bbox.minX;
+    else if (edge === "right") dx = target - e.bbox.maxX;
+    else if (edge === "hcenter") dx = target - (e.bbox.minX + e.bbox.maxX) / 2;
+    else if (edge === "top") dy = target - e.bbox.minY;
+    else if (edge === "bottom") dy = target - e.bbox.maxY;
+    else if (edge === "vcenter") dy = target - (e.bbox.minY + e.bbox.maxY) / 2;
+    if (dx === 0 && dy === 0) continue;
+    pushed.push(await wbMoveItemBy(e.kind, e.id, e.item, dx, dy));
+  }
+  wbPushMoveBatch(pushed);
+}
+
+// Distribute — asked for as part of the same "alignment tools" request.
+// Needs three or more: the first and last (by centre, along the chosen
+// axis) stay put as the two ends, and whatever's between them is spaced
+// evenly — the same behaviour as every other drawing app's "distribute".
+async function wbDistributeSelection(axis) {
+  const entries = wbSelectionEntries();
+  if (entries.length < 3) {
+    toast("Select three or more items to distribute them.");
+    return;
+  }
+  const centerOf = (e) => axis === "horizontal"
+    ? (e.bbox.minX + e.bbox.maxX) / 2
+    : (e.bbox.minY + e.bbox.maxY) / 2;
+  entries.sort((a, b) => centerOf(a) - centerOf(b));
+  const first = centerOf(entries[0]);
+  const last = centerOf(entries[entries.length - 1]);
+  const step = (last - first) / (entries.length - 1);
+
+  const pushed = [];
+  for (let i = 1; i < entries.length - 1; i++) {
+    const e = entries[i];
+    const delta = first + step * i - centerOf(e);
+    const dx = axis === "horizontal" ? delta : 0;
+    const dy = axis === "horizontal" ? 0 : delta;
+    if (dx === 0 && dy === 0) continue;
+    pushed.push(await wbMoveItemBy(e.kind, e.id, e.item, dx, dy));
+  }
+  wbPushMoveBatch(pushed);
+}
+
+// Arrow-key nudge — asked for directly ("allow objects to be moved with
+// arrow keys"). Moves the whole current selection (single item or multi)
+// by one step; the keydown handler in initWhiteboard decides the step size
+// (grid spacing when snap is on, else 1px, 10px with Shift).
+async function wbNudgeSelection(dx, dy) {
+  const entries = wbMultiSelection.size > 0
+    ? wbSelectionEntries()
+    : wbSelectedItem
+      ? (() => {
+          const { kind, id } = wbSelectedItem;
+          const item = (wbState[WB_LIST_BY_KIND[kind]] || []).find((i) => i.id === id);
+          const bbox = item && wbItemBBox(kind, item);
+          return item && bbox ? [{ kind, id, item, bbox }] : [];
+        })()
+      : [];
+  if (entries.length === 0) return;
+  const pushed = [];
+  for (const e of entries) pushed.push(await wbMoveItemBy(e.kind, e.id, e.item, dx, dy));
+  wbPushMoveBatch(pushed);
+}
+
+// as the resize handles above, there is no one set of properties to show
+// for a mixed multi-selection. A node (note card) and an image object have
+// nothing here to edit yet (a card's own text is the note; an image has no
+// stroke/fill of its own), so the panel just stays hidden for those.
+function wbUpdatePropertiesPanel() {
+  const panel = document.getElementById("wb-properties-panel");
+  if (!panel) return;
+  const rows = {
+    color: document.getElementById("wb-prop-color-row"),
+    width: document.getElementById("wb-prop-width-row"),
+    arrowhead: document.getElementById("wb-prop-arrowhead-row"),
+    bg: document.getElementById("wb-prop-bg-row"),
+    border: document.getElementById("wb-prop-border-row"),
+    fontsize: document.getElementById("wb-prop-fontsize-row"),
+    multi: document.getElementById("wb-prop-multi-row"),
+  };
+  Object.values(rows).forEach((r) => r?.classList.add("hidden"));
+
+  // A multi-selection has no one fill/stroke to edit (mixed kinds), but it
+  // does have grouping and alignment, which only make sense here — shown
+  // instead of the single-item rows above rather than alongside them.
+  if (wbMultiSelection.size > 0) {
+    panel.classList.remove("hidden");
+    rows.multi.classList.remove("hidden");
+    return;
+  }
+  if (!wbSelectedItem) {
+    panel.classList.add("hidden");
+    return;
+  }
+  const { kind, id } = wbSelectedItem;
+  const item = (wbState[WB_LIST_BY_KIND[kind]] || []).find((i) => i.id === id);
+  if (!item) {
+    panel.classList.add("hidden");
+    return;
+  }
+
+  if (kind === "sketch") {
+    const parsed = wbSketchParsedData(item);
+    if (!parsed) {
+      panel.classList.add("hidden"); // a link sketch — nothing here is its own to edit
+      return;
+    }
+    panel.classList.remove("hidden");
+    rows.color.classList.remove("hidden");
+    rows.width.classList.remove("hidden");
+    document.getElementById("wb-prop-color").value = parsed.color || "#000000";
+    document.getElementById("wb-prop-width").value = parsed.width || 3;
+    if (wbSketchIsArrow(parsed.d)) {
+      rows.arrowhead.classList.remove("hidden");
+      document.getElementById("wb-prop-arrowhead").value = window.currentArrowStyle || "end";
+    }
+  } else if (kind === "object" && item.kind === "text") {
+    panel.classList.remove("hidden");
+    rows.color.classList.remove("hidden");
+    rows.bg.classList.remove("hidden");
+    rows.border.classList.remove("hidden");
+    rows.fontsize.classList.remove("hidden");
+    document.getElementById("wb-prop-color").value = item.data.color || "#1f2430";
+    document.getElementById("wb-prop-bg").value = item.data.bg || "#ffffff";
+    document.getElementById("wb-prop-border").value = item.data.border_color || "#8888aa";
+    document.getElementById("wb-prop-fontsize").value = item.data.font_size || 16;
+  } else {
+    panel.classList.add("hidden");
+  }
+}
+
 function wbApplySelectionHighlight() {
   document
     .querySelectorAll(".sketch-group.wb-selected, .node-card.wb-selected, .wb-object.wb-selected")
@@ -23294,6 +23568,7 @@ function wbApplySelectionHighlight() {
   // Only for the single-item selection — a multi-selection has no one
   // bounding box to hang 8 handles off, and resizing a set isn't built.
   wbRenderSketchHandles();
+  wbUpdatePropertiesPanel();
   for (const key of wbMultiSelection) {
     const sep = key.indexOf(":");
     const kind = key.slice(0, sep), id = Number(key.slice(sep + 1));
@@ -23335,6 +23610,19 @@ function wbHandleItemClick(kind, id, event) {
     return;
   }
   wbMultiSelection.clear();
+  // A plain click on a *grouped* item selects the whole group, not just the
+  // one thing clicked — the other half of Ctrl+G (`wbGroupSelection`).
+  const item = (wbState[WB_LIST_BY_KIND[kind]] || []).find((i) => i.id === id);
+  if (item && item.group_id) {
+    for (const [memberKind, listName] of Object.entries(WB_LIST_BY_KIND)) {
+      for (const candidate of wbState[listName] || []) {
+        if (candidate.group_id === item.group_id) wbMultiSelection.add(wbMultiKey(memberKind, candidate.id));
+      }
+    }
+    wbSelectedItem = null;
+    wbApplySelectionHighlight();
+    return;
+  }
   selectWbItem(kind, id);
 }
 
@@ -23423,7 +23711,7 @@ function wbApplyBulkMove(origin, dx, dy) {
       entry.item.x = entry.x + dx;
       entry.item.y = entry.y + dy;
       const el = document.querySelector(WB_SELECTOR_BY_KIND[entry.kind](entry.id));
-      if (el) el.style.transform = `translate(${entry.item.x}px, ${entry.item.y}px)`;
+      if (el) el.style.transform = wbItemTransform(entry.item);
     }
   }
 }
@@ -23437,18 +23725,7 @@ async function wbSaveBulkMove(origin) {
         await wbSaveSketchD(entry.item, d);
       }
     } else if (entry.kind === "node") {
-      try {
-        await apiJson(`/whiteboard/nodes/${entry.id}`, {
-          method: "PUT",
-          body: JSON.stringify({
-            entry_id: entry.item.entry_id,
-            board_id: entry.item.board_id ?? window.currentBoardId ?? null,
-            x: entry.item.x, y: entry.item.y, z: entry.item.z,
-          }),
-        });
-      } catch {
-        /* one member failing to save isn't fatal to the rest of the group */
-      }
+      await wbSaveNode(entry.item);
     } else {
       await wbSaveObject(entry.item);
     }
@@ -23558,12 +23835,16 @@ const WB_KIND_INFO = {
   sketch: {
     base: "/whiteboard/sketches",
     list: "sketches",
-    payload: (d) => ({ data: d.data, board_id: d.board_id, x: d.x, y: d.y, z: d.z }),
+    payload: (d) => ({ data: d.data, board_id: d.board_id, x: d.x, y: d.y, z: d.z, group_id: d.group_id ?? null }),
   },
   node: {
     base: "/whiteboard/nodes",
     list: "nodes",
-    payload: (d) => ({ entry_id: d.entry_id, board_id: d.board_id, x: d.x, y: d.y, z: d.z }),
+    payload: (d) => ({
+      entry_id: d.entry_id, board_id: d.board_id, x: d.x, y: d.y, z: d.z,
+      width: d.width ?? null, height: d.height ?? null, rotation: d.rotation ?? null,
+      group_id: d.group_id ?? null,
+    }),
   },
   object: {
     base: "/whiteboard/objects",
@@ -23571,13 +23852,54 @@ const WB_KIND_INFO = {
     payload: (d) => ({
       kind: d.kind, data: d.data, board_id: d.board_id,
       x: d.x, y: d.y, z: d.z, width: d.width, height: d.height,
+      rotation: d.rotation ?? null, group_id: d.group_id ?? null,
     }),
   },
 };
 
+//: A card/object's CSS transform — translate always, plus a rotate(deg)
+//: about its own centre when it has one. `translate() rotate()` (in that
+//: order) is the standard idiom for "move this box, then spin it in
+//: place": `transform-origin`'s default (50% 50%) is resolved once in the
+//: element's own untransformed box, so the rotation pivots on the box's own
+//: centre regardless of where the translate moved it to — the reverse order
+//: would instead swing the box around a point offset from its own body.
+function wbItemTransform(d) {
+  const rot = d.rotation ? ` rotate(${d.rotation}deg)` : "";
+  return `translate(${d.x}px, ${d.y}px)${rot}`;
+}
+
+//: A screen-space point's angle from a screen-space centre, in degrees,
+//: 0-360, with "straight up" (the rotate handle's own resting position) as
+//: 0 — so an untouched handle already reads as the item's actual rotation.
+//: `shiftSnap` rounds to the nearest 15°, the same modifier convention as
+//: shift-to-constrain while drawing a shape.
+function wbAngleFromCenterDeg(cx, cy, px, py, shiftSnap) {
+  let deg = Math.atan2(py - cy, px - cx) * (180 / Math.PI) + 90;
+  deg = ((deg % 360) + 360) % 360;
+  if (shiftSnap) deg = Math.round(deg / 15) * 15 % 360;
+  return Math.round(deg);
+}
+
 async function wbApplyHistoryEntry(from, to) {
   const entry = from.pop();
   if (!entry) return false;
+  if (entry.action === "batch") {
+    // A single user gesture that touched several items at once — an
+    // arrow-key nudge on a multi-selection, or an alignment/distribute pass
+    // — needs to undo/redo as the one action it visibly was, not N separate
+    // Undo presses. Bundles N sub-entries and replays each through this same
+    // function (recursively — none of the sub-actions are themselves
+    // batches), re-bundling whatever came back as the one reverse entry.
+    const reverse = [];
+    for (const sub of entry.entries) {
+      const subTo = [];
+      await wbApplyHistoryEntry([sub], subTo);
+      if (subTo.length) reverse.push(subTo[0]);
+    }
+    to.push({ action: "batch", entries: reverse });
+    return true;
+  }
   const { base, list, payload: toPayload } = WB_KIND_INFO[entry.kind];
   if (entry.action === "delete") {
     // This entry means "bring back what was deleted". Applying it recreates
@@ -23585,6 +23907,21 @@ async function wbApplyHistoryEntry(from, to) {
     const restored = await apiJson(base, { method: "POST", body: JSON.stringify(entry.payload) });
     wbState[list].push(restored);
     to.push({ action: "create", kind: entry.kind, id: restored.id });
+  } else if (entry.action === "move") {
+    // A drag, resize, or nudge's own undo — asked for directly ("account
+    // for resizes, rotates, positional movement"). `before` is the item's
+    // whole payload (x/y, width/height, a sketch's own `d`) as it was right
+    // before the change, so this one action type covers move and resize
+    // both — restoring is the same PUT either way, just a different set of
+    // fields differing from the current row. Mirrors the delete/create pair
+    // above: capture the *current* state before overwriting it, so the
+    // pushed reverse entry can undo the undo.
+    const item = wbState[list].find((i) => i.id === entry.id);
+    if (!item) return true; // stale — nothing to restore, but the stack still advances
+    const current = toPayload(item);
+    const restored = await apiJson(`${base}/${entry.id}`, { method: "PUT", body: JSON.stringify(entry.before) });
+    Object.assign(item, restored);
+    to.push({ action: "move", kind: entry.kind, id: entry.id, before: current });
   } else {
     // This entry means "remove what was created". The item's current data
     // has to be captured *before* deleting it — once gone, nothing else
@@ -24323,6 +24660,82 @@ async function initWhiteboard() {
       localStorage.setItem("wb-arrow-style", e.target.value);
     });
   }
+
+  // The properties panel's own controls — each reads `wbSelectedItem` fresh
+  // at change time rather than closing over it, since the panel can stay
+  // open across several edits to the same selection.
+  function wbSelectedSketchOrNull() {
+    if (!wbSelectedItem || wbSelectedItem.kind !== "sketch") return null;
+    return wbState.sketches.find((s) => s.id === wbSelectedItem.id) || null;
+  }
+  function wbSelectedTextObjectOrNull() {
+    if (!wbSelectedItem || wbSelectedItem.kind !== "object") return null;
+    const obj = wbState.objects?.find((o) => o.id === wbSelectedItem.id);
+    return obj && obj.kind === "text" ? obj : null;
+  }
+  document.getElementById("wb-prop-color")?.addEventListener("change", async (e) => {
+    const sketch = wbSelectedSketchOrNull();
+    if (sketch) {
+      await wbSaveSketchProps(sketch, { color: e.target.value });
+      renderWhiteboard();
+      return;
+    }
+    const obj = wbSelectedTextObjectOrNull();
+    if (obj) {
+      obj.data = { ...obj.data, color: e.target.value };
+      await wbSaveObject(obj);
+      renderWhiteboard();
+    }
+  });
+  document.getElementById("wb-prop-width")?.addEventListener("change", async (e) => {
+    const sketch = wbSelectedSketchOrNull();
+    if (!sketch) return;
+    const width = Math.max(1, Math.min(40, Number(e.target.value) || 3));
+    await wbSaveSketchProps(sketch, { width });
+    renderWhiteboard();
+  });
+  document.getElementById("wb-prop-arrowhead")?.addEventListener("change", async (e) => {
+    const sketch = wbSelectedSketchOrNull();
+    const parsed = sketch && wbSketchParsedData(sketch);
+    if (!parsed || !wbSketchIsArrow(parsed.d)) return;
+    const headLen = (parsed.width || WB_STROKE_WIDTH) * 4 + 6;
+    const newD = wbRegenerateArrowHeads(parsed.d, e.target.value, headLen);
+    await wbSaveSketchProps(sketch, { d: newD });
+    renderWhiteboard();
+  });
+  document.getElementById("wb-prop-bg")?.addEventListener("change", async (e) => {
+    const obj = wbSelectedTextObjectOrNull();
+    if (!obj) return;
+    obj.data = { ...obj.data, bg: e.target.value };
+    await wbSaveObject(obj);
+    renderWhiteboard();
+  });
+  document.getElementById("wb-prop-border")?.addEventListener("change", async (e) => {
+    const obj = wbSelectedTextObjectOrNull();
+    if (!obj) return;
+    obj.data = { ...obj.data, border_color: e.target.value };
+    await wbSaveObject(obj);
+    renderWhiteboard();
+  });
+  document.getElementById("wb-prop-fontsize")?.addEventListener("change", async (e) => {
+    const obj = wbSelectedTextObjectOrNull();
+    if (!obj) return;
+    const fontSize = Math.max(8, Math.min(200, Number(e.target.value) || 16));
+    obj.data = { ...obj.data, font_size: fontSize };
+    await wbSaveObject(obj);
+    renderWhiteboard();
+  });
+  document.getElementById("wb-multi-group")?.addEventListener("click", wbGroupSelection);
+  document.getElementById("wb-multi-ungroup")?.addEventListener("click", wbUngroupSelection);
+  document.getElementById("wb-align-left")?.addEventListener("click", () => wbAlignSelection("left"));
+  document.getElementById("wb-align-hcenter")?.addEventListener("click", () => wbAlignSelection("hcenter"));
+  document.getElementById("wb-align-right")?.addEventListener("click", () => wbAlignSelection("right"));
+  document.getElementById("wb-align-top")?.addEventListener("click", () => wbAlignSelection("top"));
+  document.getElementById("wb-align-vcenter")?.addEventListener("click", () => wbAlignSelection("vcenter"));
+  document.getElementById("wb-align-bottom")?.addEventListener("click", () => wbAlignSelection("bottom"));
+  document.getElementById("wb-distribute-h")?.addEventListener("click", () => wbDistributeSelection("horizontal"));
+  document.getElementById("wb-distribute-v")?.addEventListener("click", () => wbDistributeSelection("vertical"));
+
   const containerEl = document.getElementById("whiteboard-container");
   const undoBtn = document.getElementById("wb-undo");
 
@@ -24445,6 +24858,31 @@ async function initWhiteboard() {
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "v") {
       e.preventDefault();
       wbPasteClipboard();
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "g") {
+      e.preventDefault();
+      wbUngroupSelection();
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "g") {
+      e.preventDefault();
+      wbGroupSelection();
+      return;
+    }
+    // Arrow-key nudge, asked for directly. Grid step while snap is on (the
+    // nudge should land on the same grid a drag would), else 1px/10px —
+    // Shift for the bigger jump, the same convention a slider's own arrow
+    // keys use elsewhere in this app.
+    if (
+      ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key) &&
+      (wbSelectedItem || wbMultiSelection.size > 0)
+    ) {
+      e.preventDefault();
+      const step = wbSnapOn() ? WB_GRID_SPACING : e.shiftKey ? 10 : 1;
+      const dx = e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0;
+      const dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
+      wbNudgeSelection(dx, dy);
       return;
     }
     if (e.ctrlKey || e.metaKey || e.altKey) return; // leave browser/OS shortcuts alone
@@ -25104,15 +25542,21 @@ function wbSketchParsedData(sketch) {
   }
 }
 
-async function wbSaveSketchD(sketch, newD) {
+//: Merges `partial` into the sketch's own parsed data blob and saves the
+//: whole thing back — the general form `wbSaveSketchD` (move/resize) and
+//: the properties panel (colour/width/arrowhead) both reduce to.
+async function wbSaveSketchProps(sketch, partial) {
   const parsed = wbSketchParsedData(sketch);
   if (!parsed) return;
-  parsed.d = newD;
+  Object.assign(parsed, partial);
   sketch.data = JSON.stringify(parsed);
   try {
     const saved = await apiJson(`/whiteboard/sketches/${sketch.id}`, {
       method: "PUT",
-      body: JSON.stringify({ data: sketch.data, board_id: sketch.board_id, x: sketch.x, y: sketch.y, z: sketch.z }),
+      body: JSON.stringify({
+        data: sketch.data, board_id: sketch.board_id, x: sketch.x, y: sketch.y, z: sketch.z,
+        group_id: sketch.group_id ?? null,
+      }),
     });
     Object.assign(sketch, saved);
   } catch {
@@ -25120,6 +25564,35 @@ async function wbSaveSketchD(sketch, newD) {
     await fetchWhiteboardState();
     renderWhiteboard();
   }
+}
+
+async function wbSaveSketchD(sketch, newD) {
+  await wbSaveSketchProps(sketch, { d: newD });
+}
+
+//: True once a sketch's `d` has more than one `M` — every shape this app's
+//: own tools ever draw uses exactly one *except* an arrow (shaft + one or
+//: two head subpaths, `wbArrowHeadPath`'s own `M`s). Good enough to tell
+//: "this is an arrow" apart from a line/rect/circle/triangle/diamond/pen
+//: stroke without a dedicated `kind` field on every sketch.
+function wbSketchIsArrow(d) {
+  return (d.match(/M/g) || []).length > 1;
+}
+
+//: Rebuilds an arrow's head stroke(s) at `style` from its own shaft — the
+//: shaft is always the sketch's first subpath, `M sx sy L ex ey` (every
+//: arrow this app draws starts that way), so head style can be changed
+//: after the fact without needing to have stored which style was originally
+//: chosen.
+function wbRegenerateArrowHeads(d, style, headLen) {
+  const m = d.match(/^M\s*(-?[\d.]+(?:e-?\d+)?)\s+(-?[\d.]+(?:e-?\d+)?)\s+L\s*(-?[\d.]+(?:e-?\d+)?)\s+(-?[\d.]+(?:e-?\d+)?)/);
+  if (!m) return d;
+  const sx = parseFloat(m[1]), sy = parseFloat(m[2]), ex = parseFloat(m[3]), ey = parseFloat(m[4]);
+  const angle = Math.atan2(ey - sy, ex - sx);
+  let out = `M ${sx} ${sy} L ${ex} ${ey}`;
+  if (style === "end" || style === "both") out += " " + wbArrowHeadPath(ex, ey, angle, headLen);
+  if (style === "start" || style === "both") out += " " + wbArrowHeadPath(sx, sy, angle + Math.PI, headLen);
+  return out;
 }
 
 // The handles themselves — a fresh SVG group per selection, since (unlike a
@@ -25165,6 +25638,7 @@ function wbRenderSketchHandles() {
             // same fix as the drag-snap accumulation bug above.
             rawDX = 0;
             rawDY = 0;
+            sketch._resizeUndoBefore = WB_KIND_INFO.sketch.payload(sketch);
           })
           .on("drag", (event) => {
             const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
@@ -25177,10 +25651,13 @@ function wbRenderSketchHandles() {
             sketch._liveD = newD; // read at drag end, without waiting for a full render
           })
           .on("end", async () => {
+            const before = sketch._resizeUndoBefore;
+            delete sketch._resizeUndoBefore;
             if (sketch._liveD) {
               const finalD = sketch._liveD;
               delete sketch._liveD;
               await wbSaveSketchD(sketch, finalD);
+              if (before) wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
             }
             renderWhiteboard();
           })
@@ -25250,6 +25727,7 @@ function renderWhiteboard() {
       event.sourceEvent.stopPropagation();
       const parsed = wbSketchParsedData(d);
       d._dragOriginalD = parsed ? parsed.d : null;
+      d._moveUndoBefore = WB_KIND_INFO.sketch.payload(d);
       // Raw (never-snapped) running totals, applied fresh from the
       // *original* d each frame — the same fix as `dragging`'s own comment
       // above: re-snapping an already-snapped value every frame discards
@@ -25298,15 +25776,20 @@ function renderWhiteboard() {
       if (d._dragOriginalD == null) return;
       const finalD = d._dragLiveD;
       const bulkOrigin = d._bulkOrigin;
+      const moveBefore = d._moveUndoBefore;
       delete d._dragOriginalD;
       delete d._dragRawDX;
       delete d._dragRawDY;
       delete d._dragLiveD;
       delete d._bulkOrigin;
+      delete d._moveUndoBefore;
       // `finalD`/`bulkOrigin` are only ever set once real movement occurred
       // (in "drag" above) — a zero-movement click leaves both undefined, so
       // this correctly does nothing rather than a wasted save.
-      if (finalD) await wbSaveSketchD(d, finalD);
+      if (finalD) {
+        await wbSaveSketchD(d, finalD);
+        if (moveBefore) wbPushUndo({ action: "move", kind: "sketch", id: d.id, before: moveBefore });
+      }
       if (bulkOrigin) await wbSaveBulkMove(bulkOrigin);
       renderWhiteboard();
     });
@@ -25424,11 +25907,104 @@ function renderWhiteboard() {
   }
   wbDeleteNodeRef = deleteNode; // see the matching comment on wbDeleteSketchRef above
 
+  //: Card resize — asked for directly ("resizing... cards"). `width`/`height`
+  //: are nullable (unset means "auto", the CSS-sized default every card used
+  //: before this existed); a resize sets them explicitly for the first time.
+  //: Shares `resizeDrag`'s own maths (see `renderWbObjects`) rather than a
+  //: second copy — the two differ only in which element/datum they close
+  //: over, so it's built inline here with the same shape.
+  function nodeResizeDrag(handle) {
+    let rawDX = 0, rawDY = 0;
+    return d3.drag()
+      .on("start", (event, d) => {
+        event.sourceEvent.stopPropagation();
+        rawDX = 0;
+        rawDY = 0;
+        d._resizeUndoBefore = WB_KIND_INFO.node.payload(d);
+      })
+      .on("drag", (event, d) => {
+        const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
+        rawDX += event.dx / transform.k;
+        rawDY += event.dy / transform.k;
+        const startW = d._resizeStartW ?? (d._resizeStartW = d.width || WB_CARD_DEFAULT_SIZE.w);
+        const startH = d._resizeStartH ?? (d._resizeStartH = d.height || WB_CARD_DEFAULT_SIZE.h);
+        const startX = d._resizeStartX ?? (d._resizeStartX = d.x);
+        const startY = d._resizeStartY ?? (d._resizeStartY = d.y);
+        let width = startW, height = startH, x = startX, y = startY;
+        if (handle.includes("e")) width = Math.max(WB_OBJECT_MIN_SIZE, startW + rawDX);
+        if (handle.includes("s")) height = Math.max(WB_OBJECT_MIN_SIZE, startH + rawDY);
+        if (handle.includes("w")) {
+          width = Math.max(WB_OBJECT_MIN_SIZE, startW - rawDX);
+          x = startX + (startW - width);
+        }
+        if (handle.includes("n")) {
+          height = Math.max(WB_OBJECT_MIN_SIZE, startH - rawDY);
+          y = startY + (startH - height);
+        }
+        d.width = width;
+        d.height = height;
+        d.x = x;
+        d.y = y;
+        const el = document.querySelector(`.node-card[data-id="${d.id}"]`);
+        if (el) {
+          el.style.width = `${width}px`;
+          el.style.height = `${height}px`;
+          el.style.transform = wbItemTransform(d);
+        }
+      })
+      .on("end", async (event, d) => {
+        delete d._resizeStartW;
+        delete d._resizeStartH;
+        delete d._resizeStartX;
+        delete d._resizeStartY;
+        await wbSaveNode(d);
+        const before = d._resizeUndoBefore;
+        delete d._resizeUndoBefore;
+        if (before) wbPushUndo({ action: "move", kind: "node", id: d.id, before });
+        renderWhiteboard();
+      });
+  }
+
+  //: Rotation — asked for directly, more than once ("rotations", "anchor
+  //: points, rotations, resizing, cropping"). A single handle above the
+  //: item's own top-centre, the same convention every drawing app uses;
+  //: `getBoundingClientRect()`'s centre stays correct even mid-rotation
+  //: (an axis-aligned box's centre coincides with the true rotation centre
+  //: regardless of how far the box itself has turned), so this needs no
+  //: zoom/pan math the way position drags do — only the *angle* to the
+  //: cursor matters, and angle is unaffected by uniform scale/pan.
+  function nodeRotateDrag() {
+    return d3.drag()
+      .on("start", (event, d) => {
+        event.sourceEvent.stopPropagation();
+        d._rotateUndoBefore = WB_KIND_INFO.node.payload(d);
+      })
+      .on("drag", (event, d) => {
+        const el = document.querySelector(`.node-card[data-id="${d.id}"]`);
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        d.rotation = wbAngleFromCenterDeg(
+          rect.left + rect.width / 2, rect.top + rect.height / 2,
+          event.sourceEvent.clientX, event.sourceEvent.clientY,
+          event.sourceEvent.shiftKey
+        );
+        el.style.transform = wbItemTransform(d);
+      })
+      .on("end", async (event, d) => {
+        await wbSaveNode(d);
+        const before = d._rotateUndoBefore;
+        delete d._rotateUndoBefore;
+        if (before) wbPushUndo({ action: "move", kind: "node", id: d.id, before });
+      });
+  }
+
   const nodeEnter = nodeSelection.enter()
     .append("div")
     .attr("class", "wb-card node-card")
     .attr("data-id", (d) => d.id)
-    .style("transform", d => `translate(${d.x}px, ${d.y}px)`)
+    .style("transform", wbItemTransform)
+    .style("width", (d) => (d.width ? `${d.width}px` : ""))
+    .style("height", (d) => (d.height ? `${d.height}px` : ""))
     .style("z-index", d => d.z)
     .call(d3.drag()
       // Reported directly: drawing over a note "just moves the note
@@ -25440,7 +26016,13 @@ function renderWhiteboard() {
       // than only inside the start/drag handlers below, stops d3 from
       // capturing the gesture in the first place, so the same pointerdown
       // is free to bubble to `containerEl`'s brush listener instead.
-      .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool) && !event.ctrlKey && !event.button)
+      // A resize handle (below) owns its own drag — same reasoning as
+      // `objDrag`'s own filter, and a real bug this filter's absence caused:
+      // without the exclusion, this card-level drag also engaged for the
+      // exact same pointerdown, and whichever one's gesture-tracking the
+      // browser resolved first silently won, so a resize handle drag never
+      // visibly resized anything.
+      .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool) && !event.ctrlKey && !event.button && !event.target.closest(".wb-resize-handle, .wb-rotate-handle"))
       .on("start", dragStart)
       .on("drag", dragging)
       .on("end", dragEndNode))
@@ -25466,9 +26048,22 @@ function renderWhiteboard() {
       const text = entry ? (entry.content || entry.preview || "") : "";
       return entry ? (text ? escapeHtml(text.length > 100 ? text.substring(0, 100) + "..." : text) : "Empty note") : "Loading...";
     });
-    
+
+  for (const handle of ["nw", "n", "ne", "e", "se", "s", "sw", "w"]) {
+    nodeEnter.append("div")
+      .attr("class", "wb-resize-handle")
+      .attr("data-handle", handle)
+      .call(nodeResizeDrag(handle));
+  }
+  nodeEnter.append("div")
+    .attr("class", "wb-rotate-handle")
+    .attr("title", "Drag to rotate — hold Shift to snap to 15°")
+    .call(nodeRotateDrag());
+
   nodeSelection.merge(nodeEnter)
-    .style("transform", d => `translate(${d.x}px, ${d.y}px)`)
+    .style("transform", wbItemTransform)
+    .style("width", (d) => (d.width ? `${d.width}px` : ""))
+    .style("height", (d) => (d.height ? `${d.height}px` : ""))
     .style("z-index", d => d.z);
 
   nodeSelection.exit().remove();
@@ -25485,10 +26080,38 @@ function renderWhiteboard() {
 //: note, too small to lose an image/text box entirely off the canvas.
 const WB_OBJECT_MIN_SIZE = 40;
 
+//: One PUT body builder for a node, shared by every call site that saves
+//: one (drag-end, resize-end, bulk-move, grouping) — three of those used to
+//: each build the body by hand, and it was exactly that duplication that
+//: let a save silently drop `group_id` back to null the first time this
+//: file added it (nothing reminded the third copy to include the new field).
+async function wbSaveNode(node) {
+  try {
+    const saved = await apiJson(`/whiteboard/nodes/${node.id}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        entry_id: node.entry_id,
+        board_id: node.board_id ?? window.currentBoardId ?? null,
+        x: node.x, y: node.y, z: node.z,
+        width: node.width ?? null, height: node.height ?? null,
+        rotation: node.rotation ?? null,
+        group_id: node.group_id ?? null,
+      }),
+    });
+    Object.assign(node, saved);
+  } catch {
+    recordBrowserLog("WARN", [`[Whiteboard] card ${node.id} is stale — reloading the board`]);
+    await fetchWhiteboardState();
+    renderWhiteboard();
+  }
+}
+
 async function wbSaveObject(d) {
   const body = {
     kind: d.kind, data: d.data, board_id: d.board_id,
     x: d.x, y: d.y, z: d.z, width: d.width, height: d.height,
+    rotation: d.rotation ?? null,
+    group_id: d.group_id ?? null,
   };
   try {
     const saved = await apiJson(`/whiteboard/objects/${d.id}`, {
@@ -25534,7 +26157,7 @@ function renderWbObjects(canvas) {
     // needs plain clicks/selection to reach it, not a canvas-wide drag. And,
     // same reasoning as the card drag's own filter above: a brush tool must
     // be able to draw over an image/text object, not drag it.
-    .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool) && !event.target.closest(".wb-resize-handle, .wb-text-content"))
+    .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool) && !event.target.closest(".wb-resize-handle, .wb-rotate-handle, .wb-text-content"))
     .on("start", function (event, d) {
       if (window.currentTool === "eraser" || window.currentTool === "delete") return;
       d3.select(this).raise();
@@ -25546,6 +26169,7 @@ function renderWbObjects(canvas) {
       d._rawY = d.y;
       d._dragOriginX = d.x;
       d._dragOriginY = d.y;
+      d._moveUndoBefore = WB_KIND_INFO.object.payload(d);
       // Bulk-move detection is deliberately deferred to the first real
       // "drag" frame below, not decided here — see the matching comment on
       // the sketch drag's own "start" for the click-toggle bug that caused.
@@ -25567,7 +26191,7 @@ function renderWbObjects(canvas) {
       const bypassSnap = event.sourceEvent?.altKey;
       d.x = wbSnap(d._rawX, bypassSnap);
       d.y = wbSnap(d._rawY, bypassSnap);
-      d3.select(this).style("transform", `translate(${d.x}px, ${d.y}px)`);
+      d3.select(this).style("transform", wbItemTransform(d));
       if (d._bulkOrigin) wbApplyBulkMove(d._bulkOrigin, d.x - d._dragOriginX, d.y - d._dragOriginY);
     })
     .on("end", async function (event, d) {
@@ -25580,13 +26204,19 @@ function renderWbObjects(canvas) {
       // even after it later joins a multi-selection.
       delete d._bulkOrigin;
       await wbSaveObject(d);
+      const moveBefore = d._moveUndoBefore;
+      delete d._moveUndoBefore;
+      if (moveBefore && (moveBefore.x !== d.x || moveBefore.y !== d.y)) {
+        wbPushUndo({ action: "move", kind: "object", id: d.id, before: moveBefore });
+      }
       if (bulkOrigin) await wbSaveBulkMove(bulkOrigin);
     });
 
   function resizeDrag(handle) {
     return d3.drag()
-      .on("start", function (event) {
+      .on("start", function (event, d) {
         event.sourceEvent.stopPropagation(); // don't also start objDrag
+        d._resizeUndoBefore = WB_KIND_INFO.object.payload(d);
       })
       .on("drag", function (event, d) {
         const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
@@ -25607,9 +26237,44 @@ function renderWbObjects(canvas) {
         const el = d3.select(this.closest(".wb-object"));
         el.style("width", `${d.width}px`)
           .style("height", `${d.height}px`)
-          .style("transform", `translate(${d.x}px, ${d.y}px)`);
+          .style("transform", wbItemTransform(d));
       })
-      .on("end", (event, d) => wbSaveObject(d));
+      .on("end", async (event, d) => {
+        await wbSaveObject(d);
+        const before = d._resizeUndoBefore;
+        delete d._resizeUndoBefore;
+        if (before) wbPushUndo({ action: "move", kind: "object", id: d.id, before });
+      });
+  }
+
+  //: Same as `nodeRotateDrag` above — kept as two small copies rather than
+  //: one shared function because they close over different elements/PUT
+  //: helpers (`.node-card` vs `.wb-object`, `wbSaveNode` vs `wbSaveObject`),
+  //: the same reasoning `nodeResizeDrag`'s own comment already gives for not
+  //: sharing with `resizeDrag`.
+  function objectRotateDrag() {
+    return d3.drag()
+      .on("start", (event, d) => {
+        event.sourceEvent.stopPropagation();
+        d._rotateUndoBefore = WB_KIND_INFO.object.payload(d);
+      })
+      .on("drag", (event, d) => {
+        const el = document.querySelector(`.wb-object[data-id="${d.id}"]`);
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        d.rotation = wbAngleFromCenterDeg(
+          rect.left + rect.width / 2, rect.top + rect.height / 2,
+          event.sourceEvent.clientX, event.sourceEvent.clientY,
+          event.sourceEvent.shiftKey
+        );
+        el.style.transform = wbItemTransform(d);
+      })
+      .on("end", async (event, d) => {
+        await wbSaveObject(d);
+        const before = d._rotateUndoBefore;
+        delete d._rotateUndoBefore;
+        if (before) wbPushUndo({ action: "move", kind: "object", id: d.id, before });
+      });
   }
 
   const objectSelection = canvas.selectAll(".wb-object")
@@ -25619,7 +26284,7 @@ function renderWbObjects(canvas) {
     .append("div")
     .attr("class", (d) => `wb-object wb-object-${d.kind}`)
     .attr("data-id", (d) => d.id)
-    .style("transform", (d) => `translate(${d.x}px, ${d.y}px)`)
+    .style("transform", wbItemTransform)
     .style("width", (d) => `${d.width}px`)
     .style("height", (d) => `${d.height}px`)
     .style("z-index", (d) => d.z)
@@ -25641,6 +26306,11 @@ function renderWbObjects(canvas) {
     if (d.kind === "image") {
       el.append("img").attr("src", mediaSrc(d.data.url) || "").attr("alt", "");
     } else {
+      // Fill/border, asked for directly (the properties panel) — set on the
+      // outer object div, which is what `.wb-object-text`'s own default
+      // background/border style, so an unset value falls back to the CSS
+      // default rather than an empty override.
+      el.style("background", d.data.bg || "").style("border-color", d.data.border_color || "");
       const content = el.append("div")
         .attr("class", "wb-text-content")
         .attr("contenteditable", "true")
@@ -25666,11 +26336,15 @@ function renderWbObjects(canvas) {
         .attr("data-handle", handle)
         .call(resizeDrag(handle));
     }
+    el.append("div")
+      .attr("class", "wb-rotate-handle")
+      .attr("title", "Drag to rotate — hold Shift to snap to 15°")
+      .call(objectRotateDrag());
   });
 
   const objectUpdate = objectEnter.merge(objectSelection);
   objectUpdate
-    .style("transform", (d) => `translate(${d.x}px, ${d.y}px)`)
+    .style("transform", wbItemTransform)
     .style("width", (d) => `${d.width}px`)
     .style("height", (d) => `${d.height}px`)
     .style("z-index", (d) => d.z);
@@ -25684,6 +26358,7 @@ function renderWbObjects(canvas) {
     if (d.kind === "image") {
       el.select("img").attr("src", mediaSrc(d.data.url) || "");
     } else {
+      el.style("background", d.data.bg || "").style("border-color", d.data.border_color || "");
       const textEl = el.select(".wb-text-content");
       textEl.style("color", d.data.color || "").style("font-size", d.data.font_size ? `${d.data.font_size}px` : "");
       if (document.activeElement !== textEl.node()) textEl.text(d.data.content || "");
@@ -25756,6 +26431,9 @@ function dragStart(event, d) {
     d._rawY = d.y;
     d._dragOriginX = d.x;
     d._dragOriginY = d.y;
+    // Asked for directly: undo should cover a move, not only create/delete.
+    // Snapshotted before anything below can mutate `d`.
+    d._moveUndoBefore = WB_KIND_INFO.node.payload(d);
     // Bulk-move detection is deliberately deferred to the first real
     // "drag" frame below, not decided here — see the matching comment on
     // the sketch drag's own "start" for the click-toggle bug that caused.
@@ -25798,7 +26476,7 @@ function dragging(event, d) {
     const bypassSnap = event.sourceEvent?.altKey;
     d.x = wbSnap(d._rawX, bypassSnap);
     d.y = wbSnap(d._rawY, bypassSnap);
-    d3.select(this).style("transform", `translate(${d.x}px, ${d.y}px)`);
+    d3.select(this).style("transform", wbItemTransform(d));
     // Update this card's own link lines directly rather than a full
     // renderWhiteboard() — see wbUpdateLinkedSketches's own comment for why
     // that was the "glitchy and slow to update" report.
@@ -25857,19 +26535,15 @@ async function dragEndNode(event, d) {
     // rebuilt). Refetching puts the screen back in step; leaving it, as this
     // did, shows a card sitting where you dropped it that is not saved
     // anywhere — the worst of both answers.
-    try {
-      await apiJson(`/whiteboard/nodes/${d.id}`, {
-        method: "PUT",
-        body: JSON.stringify({
-          entry_id: d.entry_id,
-          board_id: d.board_id ?? window.currentBoardId ?? null,
-          x: d.x, y: d.y, z: d.z,
-        }),
-      });
-    } catch (err) {
-      recordBrowserLog("WARN", [`[Whiteboard] card ${d.id} is stale — reloading the board`]);
-      await fetchWhiteboardState();
-      renderWhiteboard();
+    await wbSaveNode(d);
+    // The directly-dragged item's own move-undo. A bulk drag's *other*
+    // members don't get one each — undo after a group move puts back only
+    // the card actually dragged, not the whole group; a real limitation,
+    // not attempted further this session.
+    const moveBefore = d._moveUndoBefore;
+    delete d._moveUndoBefore;
+    if (moveBefore && (moveBefore.x !== d.x || moveBefore.y !== d.y)) {
+      wbPushUndo({ action: "move", kind: "node", id: d.id, before: moveBefore });
     }
     // Reset unconditionally, even when this gesture wasn't a bulk move —
     // see the matching comment in objDrag's own "end" for why leaving a

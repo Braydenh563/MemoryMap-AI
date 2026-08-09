@@ -268,6 +268,7 @@ def test_a_text_object_round_trips_with_its_own_style(board_client):
     assert len(state["objects"]) == 1
     assert state["objects"][0]["data"] == {
         "content": "Meeting notes", "color": "#ffcc00", "font_size": 18, "url": None,
+        "bg": None, "border_color": None,
     }
 
     moved = board_client.put(

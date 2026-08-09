@@ -344,6 +344,21 @@ class WhiteboardNode(Base):
     x: Mapped[float] = mapped_column(Float, default=0.0)
     y: Mapped[float] = mapped_column(Float, default=0.0)
     z: Mapped[int] = mapped_column(Integer, default=0)
+    #: A card's own size — asked for directly ("resizing... cards"). Nullable:
+    #: unset means "auto", the CSS-sized ~250x150 every card used before this
+    #: existed, so an old row (and the auto-migrator's own NULL backfill for
+    #: it) renders exactly as it always did.
+    width: Mapped[float | None] = mapped_column(Float, default=None)
+    height: Mapped[float | None] = mapped_column(Float, default=None)
+    #: Degrees, clockwise, about the card's own centre. Asked for directly
+    #: ("rotations"); nullable/unset renders identically to 0 (no rotation),
+    #: same reasoning as `width`/`height` above.
+    rotation: Mapped[float | None] = mapped_column(Float, default=None)
+    #: A persisted group (Ctrl+G) — unlike `wbMultiSelection`'s own in-memory
+    #: set, this survives a reload. An opaque client-generated id, not a
+    #: foreign key to anything: a group spans three different tables (nodes,
+    #: sketches, objects), so there is no one row for it to point at.
+    group_id: Mapped[str | None] = mapped_column(String(40), default=None, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
@@ -360,6 +375,7 @@ class WhiteboardSketch(Base):
     x: Mapped[float] = mapped_column(Float, default=0.0)
     y: Mapped[float] = mapped_column(Float, default=0.0)
     z: Mapped[int] = mapped_column(Integer, default=0)
+    group_id: Mapped[str | None] = mapped_column(String(40), default=None, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
@@ -389,6 +405,10 @@ class WhiteboardObject(Base):
     z: Mapped[int] = mapped_column(Integer, default=0)
     width: Mapped[float] = mapped_column(Float, default=200.0)
     height: Mapped[float] = mapped_column(Float, default=120.0)
+    #: Degrees, clockwise, about the object's own centre — same reasoning as
+    #: `WhiteboardNode.rotation`.
+    rotation: Mapped[float | None] = mapped_column(Float, default=None)
+    group_id: Mapped[str | None] = mapped_column(String(40), default=None, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 

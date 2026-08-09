@@ -1543,6 +1543,69 @@ Link to another note with [[its first few words]]."></textarea>
       <button id="wb-zoom-out" class="ghost small" title="Zoom Out">➖</button>
       <button id="wb-zoom-fit" class="ghost small" title="Fit to Screen">⛶</button>
     </div>
+
+    <!-- A properties panel for the current single selection — asked for
+         directly, more than once ("changing properties of shapes and text
+         boxes... fill, border"). Hidden by default; shown/populated by
+         wbUpdatePropertiesPanel() whenever the selection changes, and each
+         row toggled to whatever the selected kind actually has to edit. -->
+    <div class="whiteboard-floating-panel mid-right card glass hidden" data-panel-id="properties" id="wb-properties-panel">
+      <span class="wb-panel-grip" title="Drag to move" aria-hidden="true">⠿</span>
+      <h3 class="wb-properties-title">Properties</h3>
+      <label class="wb-properties-row" id="wb-prop-color-row">
+        <span>Colour</span>
+        <input type="color" id="wb-prop-color">
+      </label>
+      <label class="wb-properties-row" id="wb-prop-width-row">
+        <span>Width</span>
+        <input type="number" id="wb-prop-width" min="1" max="40" step="1">
+      </label>
+      <label class="wb-properties-row hidden" id="wb-prop-arrowhead-row">
+        <span>Arrowheads</span>
+        <select id="wb-prop-arrowhead">
+          <option value="end">End</option>
+          <option value="start">Start</option>
+          <option value="both">Both</option>
+          <option value="none">None</option>
+        </select>
+      </label>
+      <label class="wb-properties-row hidden" id="wb-prop-bg-row">
+        <span>Fill</span>
+        <input type="color" id="wb-prop-bg">
+      </label>
+      <label class="wb-properties-row hidden" id="wb-prop-border-row">
+        <span>Border</span>
+        <input type="color" id="wb-prop-border">
+      </label>
+      <label class="wb-properties-row hidden" id="wb-prop-fontsize-row">
+        <span>Text size</span>
+        <input type="number" id="wb-prop-fontsize" min="8" max="200" step="1">
+      </label>
+      <!-- Multi-selection tools: grouping and alignment. Asked for directly
+           ("alignment tools... missing") and only meaningful once two or
+           more items are selected at once, so it replaces the single-item
+           rows above rather than sitting alongside them. -->
+      <div class="wb-properties-row wb-prop-multi hidden" id="wb-prop-multi-row">
+        <div class="wb-multi-actions">
+          <button type="button" id="wb-multi-group" class="ghost small" title="Group (Ctrl+G)">🔗 Group</button>
+          <button type="button" id="wb-multi-ungroup" class="ghost small" title="Ungroup (Ctrl+Shift+G)">✂️ Ungroup</button>
+        </div>
+        <div class="wb-multi-actions">
+          <button type="button" id="wb-align-left" class="ghost small" title="Align left edges">⇤</button>
+          <button type="button" id="wb-align-hcenter" class="ghost small" title="Align horizontal centres">⇔</button>
+          <button type="button" id="wb-align-right" class="ghost small" title="Align right edges">⇥</button>
+        </div>
+        <div class="wb-multi-actions">
+          <button type="button" id="wb-align-top" class="ghost small" title="Align top edges">⇡</button>
+          <button type="button" id="wb-align-vcenter" class="ghost small" title="Align vertical centres">⇕</button>
+          <button type="button" id="wb-align-bottom" class="ghost small" title="Align bottom edges">⇣</button>
+        </div>
+        <div class="wb-multi-actions">
+          <button type="button" id="wb-distribute-h" class="ghost small" title="Distribute evenly, left to right">↔ Space</button>
+          <button type="button" id="wb-distribute-v" class="ghost small" title="Distribute evenly, top to bottom">↕ Space</button>
+        </div>
+      </div>
+    </div>
     
     <aside class="whiteboard-sidebar card glass hidden" id="whiteboard-sidebar">
       <!-- Its own close button. The panel sits at top-right, which is exactly

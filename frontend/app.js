@@ -280,6 +280,10 @@ function startApp() {
         indicator.classList.add("hidden");
       }
     }
+    // The bell's own icon reads the mute preference — re-render now that
+    // prefsCache actually has it, rather than leaving the pre-load default
+    // (unmuted) on screen until the notifications panel happens to be opened.
+    renderNotificationBadge();
   });
 
   const entriesReady = step("load entries", loadEntries);
@@ -15835,10 +15839,40 @@ function renderNotificationBadge() {
   const count = unreadNotifications().length;
   button.dataset.count = count > 9 ? "9+" : String(count || "");
   button.classList.toggle("has-unread", count > 0);
+  const muted = notificationsMuted();
+  // The bell itself says whether anything but a reminder will actually get
+  // through — asked for directly, so muting isn't a setting you have to
+  // remember you turned on three screens away.
+  button.textContent = muted ? "🔕" : "🔔";
   button.setAttribute(
     "aria-label",
-    count ? `Notifications — ${count} unread` : "Notifications"
+    (count ? `Notifications — ${count} unread` : "Notifications") +
+      (muted ? " (muted except reminders)" : "")
   );
+}
+
+// The mute toggle's own state, kept in sync wherever it's shown: the bell
+// icon above, and this button inside the panel it opens.
+function renderNotifMuteToggle() {
+  const button = $("notif-mute-toggle");
+  if (!button) return;
+  const muted = notificationsMuted();
+  button.textContent = muted ? "🔔 Unmute" : "🔕 Mute";
+  button.title = muted
+    ? "Stop muting — everything will notify again"
+    : "Mute notifications except reminders";
+  button.setAttribute("aria-pressed", String(muted));
+  button.classList.toggle("active", muted);
+}
+
+async function toggleNotificationMute() {
+  const next = !notificationsMuted();
+  prefsCache = await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ notifications_muted_except_reminders: next }),
+  });
+  renderNotifMuteToggle();
+  renderNotificationBadge();
 }
 
 //: Which icon a kind gets. Colour alone is never the signal (DESIGN.md), and
@@ -15855,6 +15889,7 @@ async function openNotifications() {
   const panel = $("notif-panel");
   const list = $("notif-list");
   panel.classList.remove("hidden");
+  renderNotifMuteToggle();
 
   // Fold in anything currently overdue on the server. This is what makes the
   // centre honest about time it was not running for: the event log can only
@@ -20144,6 +20179,12 @@ $("notif-clear").addEventListener("click", () => {
   localStorage.removeItem(NOTIFICATIONS_KEY);
   localStorage.setItem(NOTIFICATIONS_READ_KEY, String(Date.now()));
   openNotifications(); // redraw in place: the panel stays open, now empty
+});
+// Asked for directly: the mute toggle reachable from the panel it affects,
+// not only three screens away in Settings — and the bell itself says
+// whether it's on, so muting isn't a setting you have to remember you set.
+$("notif-mute-toggle").addEventListener("click", () => {
+  toggleNotificationMute().catch((e) => toast(e.message, true));
 });
 // Click-away and Escape, the same two gestures every other popup here honours.
 document.addEventListener("click", (event) => {

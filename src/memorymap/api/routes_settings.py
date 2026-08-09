@@ -289,6 +289,30 @@ def get_preferences() -> dict:
         # `appearancePref` read already goes through. This is the copy that
         # survives, seeded back on first load when the local one is empty.
         "ui_state": config.get_preference("ui_state", {}),
+        # Reported (indirectly, this session): a preference that saves
+        # correctly and is honoured correctly — `autonomous.py` and
+        # `model_manager.py` both read these straight from storage — but
+        # this response never echoed any of them back, so every Settings
+        # checkbox bound to one of these showed unchecked again the moment
+        # the page reloaded or the panel reopened, regardless of what was
+        # actually saved. Defaults match the ones each reader already uses,
+        # so a profile that never touched these sees the same value the
+        # backend would have assumed anyway.
+        "autonomous_tasks_enabled": config.get_preference("autonomous_tasks_enabled", False),
+        "auto_tag_enabled": config.get_preference("auto_tag_enabled", True),
+        "auto_link_enabled": config.get_preference("auto_link_enabled", True),
+        "auto_dedupe_enabled": config.get_preference("auto_dedupe_enabled", True),
+        "autonomous_tasks_interval_hours": config.get_preference(
+            "autonomous_tasks_interval_hours", 6
+        ),
+        "autonomous_tasks_model": config.get_preference("autonomous_tasks_model", ""),
+        "battery_efficient_mode": config.get_preference("battery_efficient_mode", False),
+        "smart_model_routing_enabled": config.get_preference(
+            "smart_model_routing_enabled", True
+        ),
+        "notifications_muted_except_reminders": config.get_preference(
+            "notifications_muted_except_reminders", False
+        ),
     }
 
 

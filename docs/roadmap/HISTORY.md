@@ -1537,6 +1537,57 @@ CSS change with nothing to verify it against — the same standing rule that
 governed the Timeline "text cut off" investigation two items earlier in
 this same session (§44).
 
+## 49. A notifications-panel mute toggle, and the real bug it caught: eight preferences that saved and worked but never came back from GET
+
+Asked for directly: a mute toggle inside the notifications panel itself,
+not only in Settings, and the bell icon changing to show whether anything
+but a reminder will get through. Built `#notif-mute-toggle` (🔕 Mute / 🔔
+Unmute, `aria-pressed`) in the panel header, and `#notif-btn` now renders 🔕
+instead of 🔔 whenever `notifications_muted_except_reminders` is set —
+both driven by the same `notificationsMuted()` the toast/panel muting from
+§44 already used.
+
+**Verified live, and it didn't work — which is the real finding here.**
+Clicking the toggle correctly called `PUT /preferences`, correctly got a
+response back, and the bell still showed 🔔. Isolated with
+`page.evaluate(() => toggleNotificationMute())` to rule out a click/DOM
+issue: the function ran, returned `"ok"`, and the state still didn't
+change. The cause: `get_preferences()` in `routes_settings.py` is a
+hand-built dict of named keys, and the new `notifications_muted_except_reminders`
+key was never added to it — so every `GET /preferences` (including the one
+`update_preferences()` returns after a `PUT`) silently omitted it, no
+matter what was actually stored.
+
+**Checked whether the same shape existed elsewhere rather than assuming
+this was a one-off, and found seven more**: `autonomous_tasks_enabled`,
+`auto_tag_enabled`, `auto_link_enabled`, `auto_dedupe_enabled`,
+`autonomous_tasks_interval_hours`, `autonomous_tasks_model`,
+`battery_efficient_mode`, and `smart_model_routing_enabled` — every one of
+them settable, and every one of them read straight from storage by
+`autonomous.py` or `model_manager.py`, so the *behaviour* was always
+correct. What was never correct is what the Settings UI showed: every
+checkbox bound to one of these reset to unchecked the moment the page
+reloaded or the panel reopened, regardless of what had actually been saved
+and was actually in effect. The exact user-facing shape of "keeps
+disabling itself" this project has chased before (§42) — but a different
+cause: §42 was two controls fighting over one preference; this is the GET
+response never having the preference in it at all, for eight separate
+keys, the whole time.
+
+**Why the test suite never caught it**: plenty of tests set these
+preferences and assert on the *behaviour* that reads them (does the
+scheduler wake, does `_run_optimization` skip, does routing pick the
+utility model) — nothing ever asserted what `GET /preferences` echoes back.
+Two new regression tests close that gap directly:
+`test_autonomous_and_battery_preferences_round_trip_through_get` (all eight,
+set to non-default values, then read back) and
+`test_notification_mute_preference_round_trips_through_get`.
+
+**Verified live end to end after the fix**: `curl`/Playwright round-trip
+through the real running server — PUT true, bell shows 🔕, reload the page,
+still 🔕; PUT false, back to 🔔. Full `pytest tests/`, `ruff check .`, and
+`node --check frontend/app.js` all green.
+
 **What was and wasn't verified**: driven live in Chromium with a real
 screenshot, not just reasoning about DOM order. No code changed this item —
 say so plainly rather than claim a fix that has nothing to point at. Full

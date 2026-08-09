@@ -53,6 +53,25 @@ Things that are wrong, lose work, or make the app feel unreliable.
    tells the model to take several turns and use tools; `intent.SMALLTALK`
    routes "hey" away from the agent entirely. Reconcile them — the prompt is
    resent every round, so a contradiction is paid for constantly.
+4a. ~~**Eight preferences saved correctly and were honoured correctly, but
+    never came back from `GET /preferences`.**~~ **Fixed (HISTORY.md §49).**
+    Found live while adding a notifications-mute toggle to the panel: it
+    saved, the bell icon should have flipped, and it didn't — because
+    `get_preferences()` is a hand-built dict, and the new key wasn't in it.
+    Checking whether the same shape existed elsewhere (rather than assuming
+    this was the only one) turned up seven more: every Autonomous Background
+    Workers toggle, the interval, the model override, battery-efficient
+    mode, and smart model routing — all settable, all correctly read by
+    `autonomous.py`/`model_manager.py` straight from storage (so the
+    *behaviour* was never wrong), but never once echoed back. Every one of
+    those Settings checkboxes showed unchecked again the moment the page
+    reloaded or the panel reopened, regardless of what was actually saved
+    and actually in effect — the exact shape of "keeps disabling itself"
+    this project has chased before (§42), from a different cause. Verified
+    live: PUT a value, GET it back, on the real running app, not just a
+    passing test — the gap survived every test in the suite because nothing
+    ever asserted what `GET /preferences` echoes, only what the backend
+    that reads it *does*.
 5. ~~**Decide what notifications are for.**~~ **Already done** — found stale
    while auditing the list this session (checked before building, per this
    file's own standing rule). The audit itself: `recordNotification` has
@@ -328,8 +347,18 @@ into a good one.
     other half of the same message) — every `toast()` call site would need
     a `kind` to avoid flooding the panel with routine "Saved."/"Linked."
     noise, which needs a first pass at which toasts actually belong there
-    before it's buildable. **Not verified live** — reasoned from the code
-    path, not driven in a browser.
+    before it's buildable.
+
+    **Extended (HISTORY.md §49), asked for directly**: a mute toggle inside
+    the notifications panel itself (`#notif-mute-toggle`, reads "🔕 Mute" /
+    "🔔 Unmute" and `aria-pressed`), not only three screens away in Settings
+    — and the bell icon (`#notif-btn`) itself now shows 🔕 instead of 🔔
+    whenever muted, so the state is visible without opening anything. Built
+    and verified live end to end, which is what caught item 4a's real bug —
+    the toggle correctly PUT the preference and correctly re-rendered from
+    the response, and *still* showed unmuted, because `GET /preferences`
+    (which the PUT response is built from) never echoed the new key back.
+    Fixed there, not patched around here.
 
 ### Open questions raised this session, not built
 

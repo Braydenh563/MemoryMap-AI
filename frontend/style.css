@@ -11082,6 +11082,18 @@ textarea.autogrow {
   line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  /* Re-reported after the fix above: still cut off, this time four full
+     lines with no ellipsis rather than one. Not reproduced in this
+     sandbox's Chromium (a live check found `scrollHeight === clientHeight`
+     — nothing overflowing at all), so the runtime doing this is not the one
+     available to test against here. A plain `max-height`, independent of
+     `-webkit-line-clamp` support or of the grid row's own height, is a
+     safety net rather than a diagnosis: it cannot add the missing "…" in
+     whatever engine doesn't honour the clamp, but it guarantees every card
+     is the same, predictable three lines tall regardless of what a
+     neighbouring cell in the same grid row is doing — which a clamp with no
+     explicit height behind it does not. */
+  max-height: calc(3 * 1.4em + 2 * var(--space-5));
 }
 
 .timeline-dot:hover,
@@ -12196,6 +12208,13 @@ textarea.autogrow {
   margin-bottom: var(--space-3);
 }
 
+/* Muted is a state worth seeing at a glance, not just reading in a label —
+   the same reasoning the battery/power-saver indicator already follows. */
+#notif-mute-toggle.active {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 .notif-list {
   list-style: none;
   margin: 0;
@@ -12965,9 +12984,33 @@ textarea.drag-over {
 }
 
 .graph-time-label {
-  min-width: 6rem;
+  min-width: 8rem;
+  /* Reported: text clashing with the slider — "Up to DD/MM/YYYY" is longer
+     than "All time", which `min-width: 6rem` was sized for, and this label
+     had no `flex-shrink: 0` (unlike `.graph-temporal > label` right beside
+     it), so the row let it shrink under the slider thumb instead of pushing
+     the row wider. */
+  flex-shrink: 0;
   text-align: right;
   white-space: nowrap;
+}
+
+/* Reported: "the font is a different size to the rest of the controls" —
+   this one row had four different sizes in play: `.graph-physics label`
+   (Gravity/Spread) at 0.8rem, `.graph-temporal`'s own "Time Filter" label
+   with no size set at all (the ambient default), `.graph-time-label`
+   ("Up to…") at `--text-sm` (0.75rem), and `.tools-toggle`
+   (Similarity/Hide unlinked/Labels) at 0.85rem. One size for the whole
+   strip, matching `.tools-toggle`'s — the size already used for the
+   majority of toggle-style labels across the app — rather than four
+   separately-tuned ones nobody meant to disagree.
+   `.graph-options` in `index.html`, so a class selector without an id
+   would be no more specific than the rules above; `#graph-options` wins
+   without needing `!important`. */
+#graph-options .graph-physics label,
+#graph-options .graph-temporal label,
+#graph-options .graph-time-label {
+  font-size: 0.85rem;
 }
 
 /* Reported: "the labels and what UI control element they connect to is

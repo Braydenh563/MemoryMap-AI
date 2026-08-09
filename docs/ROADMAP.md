@@ -276,13 +276,16 @@ into a good one.
     element underneath them. Fixed by making the fill colour itself
     `sketchBgColor` instead of a hardcoded `"#ffffff"` — the actual pixels a
     save composites, verified live by reading the saved-PNG composite's own
-    pixel data back, not just the on-screen canvas. **Still genuinely open**:
-    a selection tool (clicking an existing stroke/shape to move, resize or
-    delete it; today's tools only ever draw a new one), and — asked for
-    directly — **holding Shift while drawing a shape constrains it** (a
-    perfect circle/square rather than an ellipse/rectangle, the same
-    convention every other drawing tool uses). The toolbar redesign comes
-    *after* those, not before.
+    pixel data back, not just the on-screen canvas. ~~Holding Shift while
+    drawing a shape constrains it~~ **Fixed for the rect tool** (forces a
+    square instead of a rectangle), verified live by reading back the
+    drawn pixels' bounding box mid-drag. **Still genuinely open**: a
+    selection tool (clicking an existing stroke/shape to move, resize or
+    delete it; today's tools only ever draw a new one) — the sketch pad is
+    pure-raster (`ImageData` snapshots for undo, no discrete stroke
+    objects), so this needs a real architecture change, not a small patch,
+    unlike the whiteboard's own discrete-object select (item 11). The
+    toolbar redesign comes after it, not before.
 11. **The whiteboard, properly.** Done in an earlier session, reported and
     verified in Chromium: per-tool cursors (native `cursor: url(svg)`, not a
     JS-tracked div — the div version was reported and reproduced as "the

@@ -310,17 +310,68 @@ into a good one.
     verified live — see HISTORY.md §53–§55 for the full list and how each
     was verified.**
 
-    **Still genuinely open, ranked by what's actually left:**
+    **Still genuinely open, ranked by what's actually left. The order below
+    is now a confirmed decision, not a guess** — asked directly at the end
+    of §55 ("which mode should I build first?" / "should I start now?") and
+    answered explicitly: **start with anchors, then mind-map mode**, and
+    build all three AI/whiteboard integration pieces (chat Q&A, search
+    indexing, AI-guided generation). Not started yet — the user chose to
+    open a fresh session for it rather than continue mid-§55; this is the
+    starting point for that session.
     - **Real anchor/connection points** (fixed corners+edges, a free point
       along an edge, a link that visually terminates on the border, not
       wherever a drag ended) — asked for directly, "take inspiration from
-      draw.io." **The one piece worth its own session before touching
-      anything else here** — this project's own history already named it
-      that three times now (§53, §54, §55) and that reasoning still holds:
-      a shallow version (a connection-point system that doesn't match how
-      draw.io itself represents a fixed-vs-free anchor) would cost more to
-      unwind later than it saves now. Read how draw.io represents this
-      before starting.
+      draw.io." **Confirmed as the next thing to build.** Named "worth its
+      own session" three times now (§53, §54, §55); a shallow version (one
+      that doesn't match how draw.io itself represents a fixed-vs-free
+      anchor) would cost more to unwind later than it saves now — read how
+      draw.io represents this before starting. **Where the code lives,
+      found while scoping this at the end of §55** (nothing built yet, just
+      the map): a link is a `WhiteboardSketch` whose `data` JSON has
+      `{type: "link-straight"|"link-curved", sourceId, targetId, color}` —
+      no schema migration needed, `sourceAnchor`/`targetAnchor` (`{x, y}` as
+      0–1 fractions of the shape's own bounding box, or omitted for
+      "floating") can just be two more keys in that same blob. Three call
+      sites touch link data today: drawing one (`dragStart`/`dragging`/
+      `dragEndNode`'s `currentTool.startsWith("link-")` branches, roughly
+      `frontend/app.js` lines 26410–26525 as of §55 — `dragEndNode` in
+      particular hit-tests the drop point against every node's raw
+      `x/x+250/y/y+150` box to find `targetNode`, which is also where a
+      fixed-anchor drop target would need to be resolved), and rendering
+      one (`sketchUpdate.each`'s `parsed.type.startsWith("link-")` branch,
+      `frontend/app.js` around line 25857 — currently a hardcoded
+      `source.x + 125, source.y + 75` centre-point offset for both ends,
+      which is exactly the "arbitrary corner" problem anchors fix; the
+      floating case needs the standard rectangle/centre-line intersection
+      draw.io itself uses, not the centre point). `wbUpdateLinkedSketches`
+      (the per-frame link-follow during a card drag) needs the same anchor
+      math, not just the full-render path.
+    - **A mind-mapping mode** — see item 25's own entry (Tier 3): decided
+      to be a whiteboard mode (auto-arrange via the Graph tab's existing
+      Tree/Radial layout code, plus Tab/Enter keyboard branch entry), not a
+      third tab. **Confirmed as the second thing to build**, right after
+      anchors — branch lines need real anchors to land on card borders
+      instead of arbitrary corners, which is why this stays sequenced after
+      the item above rather than before it.
+    - **AI + whiteboard, three pieces, all confirmed wanted together** (not
+      scoped or started): (1) the chat agent gets read access to a board's
+      contents as context, so it can answer "what's on my project-planning
+      board?" — a new tool in `src/memorymap/ai/tools.py`, wired into
+      `TOOLS_GUIDE` in `agent.py`, since neither currently mentions the
+      whiteboard at all (`src/memorymap/ai/autonomous.py`'s orphaned-card
+      cleanup is the only whiteboard reference under `ai/`, and it's a
+      background job, not agent context); (2) whiteboard content (sketch
+      labels, text-box content, image alt text) becomes searchable the same
+      way notes are — `src/memorymap/search/search_manager.py` currently
+      queries only `Entry`, no whiteboard table at all; (3) AI-guided
+      diagram generation (asked for directly, "allow the ai to generate the
+      diagrams guided") is the write side of (1) — the agent reads a
+      board's current state via the same tool, then places/connects
+      cards/shapes/links on it from a text description, reusing the
+      existing create/update endpoints rather than a new generation path.
+      Do (1) and (2) first; (3) depends on (1)'s read tool existing, and
+      reads better once anchors (above) exist so generated links don't land
+      on arbitrary corners either.
     - **Sketch rotation.** Cards and objects rotate (§55); a sketch does
       not — its "shape" *is* its path data, and rotating a path correctly
       (including the `a` command's own elliptical-arc flags, which flip
@@ -330,13 +381,6 @@ into a good one.
     - **Image cropping.** Asked about directly; not scoped or built —
       needs a decision on the interaction (a crop rectangle over the full
       image vs. a separate "adjust" mode) before building.
-    - **An AI-guided diagram-generation mode**, asked for directly ("allow
-      the ai to generate the diagrams guided"). Not scoped — needs a
-      decision on what "guided" means here (a chat-driven placement tool
-      that calls the same card/object/link creation endpoints? a
-      text-to-layout generator?) before building. Three sessions running
-      now without it being scoped; worth a design pass on its own rather
-      than guessing at an interaction model mid-session.
     - **Uploaded whiteboard images showing in the Library as files.** Asked
       for directly; not started — needs a decision (track `/media/` uploads
       in a real DB table so the Library has rows to list, or surface the
@@ -344,10 +388,6 @@ into a good one.
     - **A whiteboard backend/perf pass** (N+1 queries, inefficient
       endpoints) beyond the one full-rerender bug already fixed (§54) — not
       started, not profiled.
-    - **A mind-mapping mode** — see item 25's own entry (Tier 3): decided
-      to be a whiteboard mode (auto-arrange via the Graph tab's existing
-      Tree/Radial layout code, plus Tab/Enter keyboard branch entry), not a
-      third tab, and explicitly sequenced *after* the anchor-point work
       above since branch lines need real anchors to look right.
 12. ~~**Links that are links.**~~ **Already done — corrected, not rebuilt
     (HISTORY.md §47).** Checked before touching anything, per this file's

@@ -2,7 +2,43 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session: §55 — a properties panel, card resize, grouping, undo/redo for move+resize, arrow-key nudge, alignment/distribute, and rotation — continuing §54's own "still open" list
+## Next session: start here — anchors, then mind-map mode, then AI + whiteboard
+
+Nothing built yet for this — the user confirmed the plan at the end of
+§55 and chose to open a fresh session for it rather than continue mid-§55.
+**This is a decision, not a suggestion**: asked directly ("which mode
+should I build first?", multi-select on "what should AI-reads-whiteboard
+do?"), answered explicitly. Full reasoning and the code-location notes
+gathered while scoping this (nothing built, just the map) are in
+[ROADMAP.md item 11's "still genuinely open" list](../ROADMAP.md) — read
+that section before starting, not just this summary.
+
+**Build order, confirmed:**
+1. **Real anchor/connection points** (draw.io-style fixed/free anchors).
+   Named "worth its own session" three sessions running (§53, §54, §55) —
+   this is that session. A link's `sourceAnchor`/`targetAnchor` can live as
+   two more keys in the link sketch's existing `data` JSON blob (no
+   migration). Three code sites: drawing (`dragStart`/`dragging`/
+   `dragEndNode`'s `link-` branches), rendering (`sketchUpdate.each`'s
+   `link-` branch, currently a hardcoded centre-point offset — the thing
+   this whole feature replaces), and the per-drag-frame follow
+   (`wbUpdateLinkedSketches`). Read how draw.io itself represents
+   fixed-vs-free before starting; a shallow version costs more to unwind
+   later than it saves now.
+2. **Mind-mapping mode** (ROADMAP item 25: already fully designed —
+   "Arrange as mind map" reusing the Graph tab's Tree/Radial layout code,
+   plus Tab/Enter branch entry). Depends on 1 — branch lines need real
+   anchors to land on card borders.
+3. **AI + whiteboard, three pieces, confirmed wanted together**: the chat
+   agent gets a tool to read a board's contents (nothing under
+   `src/memorymap/ai/` currently mentions the whiteboard at all, other than
+   an unrelated orphan-cleanup job); whiteboard content becomes searchable
+   (`search_manager.py` currently queries only `Entry`); AI-guided diagram
+   generation is the write side of the first piece, reusing the same read
+   tool plus the existing create/update endpoints. Build the read tool and
+   search indexing before the generation piece.
+
+## §55 — a properties panel, card resize, grouping, undo/redo for move+resize, arrow-key nudge, alignment/distribute, and rotation — continuing §54's own "still open" list
 
 Same session as §54 below, continued after a context compaction. Full
 detail — every feature, the real bugs found while building it, and how

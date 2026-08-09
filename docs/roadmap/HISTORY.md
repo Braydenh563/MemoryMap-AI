@@ -1814,13 +1814,72 @@ gives up its space first"). Fixed by giving the outline a real floor
 its own internal scroll. Re-measured after: outline settles around 100px,
 visible and scrollable, instead of 0.
 
+**Then item 14's other open half — the Timeline line view's own note
+popup showed no markdown and no attachments.** `openTimelinePopup` set the
+content with `.textContent`, so `# Heading`/`**bold**` showed their raw
+punctuation, and never touched `#timeline-popup-media` at all — the div
+existed in the markup (reusing the graph popup's own CSS class) but
+nothing had ever populated it: a feature that never ran once, the exact
+shape CLAUDE.md's own review checklist names. Rewired to reuse
+`renderMarkdown` (the note card's own renderer, not a second
+implementation) and a `renderTimelinePopupMedia` that mirrors
+`renderGraphPopupMedia` almost line for line — same
+`attachmentObjectUrl`/`openLightbox` calls, so a thumbnail click still
+opens the full-size lightbox the same way. Also fixed in passing: the
+popup's screen position was computed once, before an attachment's
+thumbnail had loaded and made the popup taller — `placeTimelinePopup` now
+re-runs after the image resolves, the same fix the graph popup already
+needed and had. Verified live against a real running server, not reasoned
+from the code: a note with a heading and bold/italic text rendered as real
+`<h3>`/`<strong>`/`<em>` elements with zero literal asterisks; a real
+uploaded PNG showed as an `<img>` with a genuine `blob:` src.
+
+**Then item 16c — "images and files still can't be copied, pasted, or
+dragged into notes."** Checked live before building anything, per this
+project's own standing rule, and two of the three claimed-missing paths
+already worked: a global `document`-level `paste`/`dragover`/`drop`
+handler in `app.js` matches *any* `<textarea>` generically, and
+`#entry-content` (Capture) is one — so paste and drag-drop already
+uploaded to `/media/upload` and inserted markdown, with nobody having
+wired Capture specifically. Verified live with real dispatched `paste` and
+`drop` events carrying a PNG, not assumed from reading the handler. The
+third path — a file-picker button — was genuinely missing (the only
+"attach" control near Capture links existing *notes* to a chat message,
+not a file upload) and is now built: `📎 Attach`, reusing the same
+`handleFileUpload` the other two paths already call. Verified live with a
+real Playwright file chooser and a real PNG on disk. One trap worth
+recording for next time: Capture lives in the Notes tab's own `capture`
+sub-section, so `switchTab("notes")` alone leaves it `display: none` and
+the button unclickable — needs `showNotesSection("capture")` too, the
+CLAUDE.md-documented Notes-tab trap, hit here for a different element than
+the one it already names.
+
+**Then item 18 — the full-screen graph's suggested-links list "runs off
+the bottom without scrolling."** Reproduced live before fixing: with the
+Options panel open and 15 link suggestions, full-screen content was
+1061px tall in a 498px window, and `#graph-card`'s own `overflow: hidden`
+— added deliberately in an earlier session for a different bug entirely
+(the graph "being out of the main UI panel"; its own comment explains why)
+— still applied in full screen, since an ID beats a class on specificity
+no matter what order the rules are written in. A plain
+`.graph-fullscreen { overflow-y: auto }` would have lost that fight
+silently and changed nothing. The last several suggestions weren't just
+unscrolled, they were unreachable outright. Fixed with
+`#graph-card.graph-fullscreen { overflow-y: auto }` — an id *and* a class
+together, which wins outright — and confirmed live with a DOM marker on
+the last suggestion: off-screen and permanently so before the fix,
+reachable by scrolling after it. The item's other clause, "the sketch/image
+toggles," didn't match anything in the current Options panel (Similarity /
+Hide unlinked / Labels, no sketch or image controls at all) — left alone
+rather than guessed at; possibly a stale note from whatever session first
+triaged this list.
+
 Full `pytest tests/` (~1,600+ tests), `ruff check .`, and `node --check
 frontend/app.js` all green throughout — each fix run individually before
 moving to the next, per this project's own standing practice.
 
 **What's next**: ROADMAP.md's remaining Tier 2 items, prioritised by
-correctness-bug-over-new-feature the same way Tier 1 was — the Timeline
-line view's popup missing markdown/attachments (14), then the larger,
+correctness-bug-over-new-feature the same way Tier 1 was — the larger,
 properly scoped items (the sketch pad's selection tool, the whiteboard's
 redo/select/rotate list, onboarding's seeded-notes/guided-tour work) roughly in
 that order, unless a live report reprioritises something above them.

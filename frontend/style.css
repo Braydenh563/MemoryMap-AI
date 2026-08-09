@@ -4280,6 +4280,20 @@ html.modal-open body {
   flex-direction: column;
 }
 
+/* Reported: the Options panel's suggested-links list "runs off the bottom
+   without scrolling" in full screen. `#graph-card`'s own `overflow: hidden`
+   (above, for a different bug — see its own comment) still applies here,
+   since an ID beats a class on specificity regardless of source order; a
+   plain `.graph-fullscreen { overflow-y: auto }` would have lost that fight
+   silently. `#graph-card.graph-fullscreen` (an id *and* a class) wins
+   outright. Measured live before fixing: toolbar + open Options + 15
+   suggestions was 1061px of content in a 498px fullscreen window, and
+   `overflow: hidden` meant everything past that line wasn't scrolled away —
+   it was gone. */
+#graph-card.graph-fullscreen {
+  overflow-y: auto;
+}
+
 .graph-fullscreen #graph-box {
   flex: 1 1 100%;
   height: auto;

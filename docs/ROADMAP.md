@@ -441,11 +441,24 @@ into a good one.
     hardening, not a diagnosis — if it's still cut off after this, the next
     session needs the actual browser/OS this is happening in, since two
     separate attempts from this sandbox's Chromium haven't reproduced it.
-    **Also reported, not yet built**: the line-view's own note popup shows
-    no markdown rendering (plain text with literal `**`/`#` characters) and
-    no sketch/image attachment preview — both of which the note card
-    elsewhere in the app already does, so this is a gap in one render path
-    rather than a missing feature. **Still open:** the line view itself —
+    ~~**Also reported: the line-view's own note popup shows no markdown
+    rendering and no sketch/image attachment preview.**~~ **Fixed and
+    verified live (HISTORY.md §51).** `openTimelinePopup` set the content
+    with `.textContent`, showing literal `**`/`#` characters, and never
+    touched `#timeline-popup-media` at all — the div existed in the HTML
+    (reusing the graph popup's own CSS class) but nothing ever populated
+    it, a "feature that never ran once". Rewired to reuse `renderMarkdown`
+    (the note card's own renderer) and a `renderTimelinePopupMedia`
+    mirroring `renderGraphPopupMedia` almost exactly — same
+    `attachmentObjectUrl`/`openLightbox` calls, so a click still opens the
+    full-size lightbox. The popup's position, computed once from its
+    un-loaded size, is now recomputed after an image's thumbnail finishes
+    loading too (`placeTimelinePopup`, the same fix the graph popup already
+    had for the same reason). Verified live end to end against a real
+    server: a note with `# Heading` and `**bold**` rendered as real
+    `<h3>`/`<strong>` elements, no literal asterisks; an uploaded PNG
+    attachment showed as an `<img>` with a real `blob:` src, not just
+    reasoned from the code. **Still open:** the line view itself —
     reported as needing a real visual pass ("very professional and ready
     for public use"), and grid view could still take general UX polish
     beyond the text-cropping fix (not scoped further — say what
@@ -501,13 +514,27 @@ into a good one.
     **Still open**: "a bunch of missing features... could be improved a lot
     more" was named but not itemised — needs a concrete list from the user
     before a session can act on more than the toggle bug.
-16c. **Images and files still can't be copied, pasted, or dragged into
-    notes.** Item 20 below already names the Library surface and
-    drag-to-attach as unbuilt on top of existing `/media`/attachment
-    plumbing; this confirms notes specifically (not just documents/the
-    whiteboard) are still missing all three input paths — worth verifying
-    exactly which of paste/drag-drop/file-picker already work, if any,
-    before assuming all three need building from scratch.
+16c. ~~**Images and files still can't be copied, pasted, or dragged into
+    notes.**~~ **Two of three already worked — checked live before
+    building anything (HISTORY.md §51).** A global `document`-level
+    `paste`/`dragover`/`drop` handler (`app.js`, matches *any* `<textarea>`
+    generically, not a note-specific one) already uploads to
+    `/media/upload` and inserts markdown — and `#entry-content` (Capture)
+    is a `<textarea>`, so it was already covered without anyone having
+    wired it specifically. Verified live, not assumed: dispatched a real
+    `paste` and a real `drop` event carrying a PNG file at `#entry-content`
+    on a running server, both produced `![name](/media/…)` in the
+    textarea. **The third path — a file-picker button — was genuinely
+    missing and is now built**: `📎 Attach` next to Capture's other
+    buttons, wired to the same `handleFileUpload` the paste/drop paths
+    already use, so all three insert identically. Verified live with a
+    real file chooser (Playwright's `filechooser` event, a real PNG on
+    disk, not a synthetic DataTransfer): picking it produced the same
+    `![name](/media/…)` markdown. One trap this hit and is worth recording:
+    Capture lives in the Notes tab's `capture` sub-section — `switchTab
+    ("notes")` alone leaves it `display: none` and the button unclickable;
+    needs `showNotesSection("capture")` too, the same trap CLAUDE.md's own
+    traps list already names for a different Notes-tab element.
 16d. **An optional title field in Capture, and everywhere a note can be
     created.** Raised as a design question earlier this session (see
     HISTORY.md §44's "open questions") and asked again more directly here.
@@ -553,8 +580,25 @@ into a good one.
     is on" and "finishing a task disables automatic tasks" actually were.
     `autonomous.wake()` now interrupts the sleep; `PUT /preferences` calls
     it whenever a preference the loop reads changes.
-18. **The full-screen graph's Options panel**, the sketch/image toggles, and a
-    suggested-links list that runs off the bottom without scrolling.
+18. ~~**The full-screen graph's suggested-links list ran off the bottom
+    without scrolling.**~~ **Fixed and verified live (HISTORY.md §51).**
+    `#graph-card`'s own `overflow: hidden` (added in an earlier session for
+    a different bug — see its own comment) still applied in full screen,
+    since an ID beats a class on specificity regardless of source order —
+    a plain `.graph-fullscreen { overflow-y: auto }` would have lost that
+    fight silently. Measured live before fixing: toolbar + open Options +
+    15 suggestions was 1061px of content in a 498px fullscreen window, and
+    `overflow: hidden` meant the last several suggestions weren't merely
+    unscrolled — they were unreachable, full stop. Fixed with
+    `#graph-card.graph-fullscreen { overflow-y: auto }` (an id *and* a
+    class, which wins outright), and confirmed live that the last
+    suggestion goes from off-screen-and-permanent to reachable by scrolling
+    the fullscreen view. **"The sketch/image toggles" part of this item
+    couldn't be matched to anything in the current Options panel** (it has
+    Similarity/Hide-unlinked/Labels, no sketch or image controls) — likely
+    a stale or mis-transcribed note from whatever session first triaged
+    this; left unaddressed rather than guessed at, and worth asking
+    directly what it referred to if it's still wanted.
 19. **First-run onboarding, the rest.** Reachability diagnostics are built;
     still open: offering to pull a model, a data-dir writability check,
     seeded example notes so the graph, timeline and dashboard have something

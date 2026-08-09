@@ -13581,14 +13581,66 @@ $("tab-timeline").addEventListener("click", (e) => {
 
 let timelinePopupId = null;
 
+// Clamp the popup inside the timeline, the same way `placeGraphPopup` does
+// for the graph's own note popup. Called on open and again once media has
+// loaded, since an attachment thumbnail makes the popup taller than the
+// size it was first positioned for.
+let timelinePopupAnchor = null;
+function placeTimelinePopup() {
+  const popup = $("timeline-popup");
+  if (!timelinePopupAnchor || popup.classList.contains("hidden")) return;
+  const bounds = $("tab-timeline").getBoundingClientRect();
+  const size = popup.getBoundingClientRect();
+  const left = Math.min(
+    Math.max(timelinePopupAnchor.x - bounds.left + 12, 8),
+    Math.max(8, bounds.width - size.width - 8)
+  );
+  const top = Math.min(
+    Math.max(timelinePopupAnchor.y - bounds.top + 12, 8),
+    Math.max(8, bounds.height - size.height - 8)
+  );
+  popup.style.left = `${left}px`;
+  popup.style.top = `${top}px`;
+}
+
+// Reported directly: unlike the note card and the graph's own popup, this
+// one showed literal `**`/`#` characters instead of rendered markdown, and
+// no sketch/image attachment at all — a gap in this one render path, not a
+// missing feature, since both already exist elsewhere.
+function renderTimelinePopupMedia(entry) {
+  const box = $("timeline-popup-media");
+  box.replaceChildren();
+  const images = (entry.attachments || []).filter((a) => a.is_image);
+  box.classList.toggle("hidden", images.length === 0);
+  if (!images.length) return;
+  for (const attachment of images) {
+    const img = document.createElement("img");
+    img.className = "graph-popup-thumb"; // shared with the graph popup's own thumbnails
+    img.alt = attachment.filename;
+    img.title = `${attachment.filename} — click to view full size`;
+    attachmentObjectUrl(attachment)
+      .then((url) => {
+        img.src = url;
+        placeTimelinePopup(); // the popup just got taller
+      })
+      .catch(() => img.remove());
+    img.addEventListener("click", async () => {
+      openLightbox(await attachmentObjectUrl(attachment), attachment.filename);
+    });
+    box.appendChild(img);
+  }
+}
+
 async function openTimelinePopup(event, noteSummary) {
   event.stopPropagation();
   timelinePopupId = noteSummary.id;
   const popup = $("timeline-popup");
-  
+
   $("timeline-popup-title").textContent = noteSummary.category || "Note";
-  $("timeline-popup-content").textContent = "Loading…";
-  
+  $("timeline-popup-content").replaceChildren(document.createTextNode("Loading…"));
+  $("timeline-popup-media").replaceChildren();
+  $("timeline-popup-media").classList.add("hidden");
+
   const box = $("timeline-popup-info");
   box.replaceChildren();
   const dateStr = noteSummary.placed_by === "mentioned"
@@ -13597,19 +13649,8 @@ async function openTimelinePopup(event, noteSummary) {
   box.appendChild(chip(`🕐 ${dateStr}`, "tag"));
 
   popup.classList.remove("hidden");
-  
-  const bounds = $("tab-timeline").getBoundingClientRect();
-  const size = popup.getBoundingClientRect();
-  const left = Math.min(
-    Math.max(event.clientX - bounds.left + 12, 8),
-    Math.max(8, bounds.width - size.width - 8)
-  );
-  const top = Math.min(
-    Math.max(event.clientY - bounds.top + 12, 8),
-    Math.max(8, bounds.height - size.height - 8)
-  );
-  popup.style.left = `${left}px`;
-  popup.style.top = `${top}px`;
+  timelinePopupAnchor = { x: event.clientX, y: event.clientY };
+  placeTimelinePopup();
 
   const entry = await apiJson(`/entries/${noteSummary.id}`).catch(() => null);
   if (!entry || timelinePopupId !== noteSummary.id) {
@@ -13618,9 +13659,11 @@ async function openTimelinePopup(event, noteSummary) {
     }
     return;
   }
-  
-  $("timeline-popup-content").textContent = entry.content;
-  
+
+  renderMarkdown($("timeline-popup-content"), entry.content || "");
+  renderTimelinePopupMedia(entry);
+  placeTimelinePopup(); // the content just replaced "Loading…" — may be taller
+
   const openBtn = $("timeline-popup-open");
   const newOpenBtn = openBtn.cloneNode(true);
   openBtn.replaceWith(newOpenBtn);
@@ -23840,6 +23883,24 @@ async function handleFileUpload(textarea, files) {
       textarea.dispatchEvent(new Event('input', { bubbles: true }));
     }
   }
+}
+
+// ROADMAP.md Tier 2 §16c: paste and drag-drop already reached Capture (the
+// global textarea handler above matches any `<textarea>`, and `#entry-content`
+// is one) — checked live before building, and both already worked. The one
+// genuinely missing path was a file-picker button; the only "attach" control
+// near Capture was for linking existing *notes* to a chat message, not
+// uploading a new file. Reuses the same `handleFileUpload` the paste/drop
+// paths already use, so all three input paths insert identically.
+if ($("entry-attach-file")) {
+  $("entry-attach-file").addEventListener("click", () => {
+    $("entry-attach-file-input").click();
+  });
+  $("entry-attach-file-input").addEventListener("change", async (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length) await handleFileUpload($("entry-content"), files);
+    e.target.value = ""; // so picking the same file twice still fires "change"
+  });
 }
 
 // --- Twitch-style Agent Monitor ---

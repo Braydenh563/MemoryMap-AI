@@ -491,10 +491,19 @@ def delete_tag(session: Session, name: str) -> int:
     return changed
 
 
-def create_link(session: Session, source: Entry, target: Entry) -> EntryLink | None:
+def create_link(
+    session: Session, source: Entry, target: Entry, reason: str | None = None
+) -> EntryLink | None:
     """Manually connect two entries. Returns None if the link already
     exists (either direction) or the user tried to link an entry to
-    itself. Commits on success."""
+    itself. Commits on success.
+
+    `reason` is optional free text — "why are these connected?" — the thing
+    a shared tag or a reply thread says on its own and a link doesn't. Not
+    required: most links are still obviously why (two notes about the same
+    trip), and forcing an explanation on every one would make linking
+    slower for the common case to help the uncommon one.
+    """
     if source.id == target.id:
         return None
     existing = session.scalar(
@@ -509,10 +518,15 @@ def create_link(session: Session, source: Entry, target: Entry) -> EntryLink | N
     )
     if existing is not None:
         return None
-    link = EntryLink(source_entry_id=source.id, target_entry_id=target.id)
+    link = EntryLink(
+        source_entry_id=source.id,
+        target_entry_id=target.id,
+        reason=(reason or "").strip() or None,
+    )
     session.add(link)
     session.flush()
-    log_action(session, "linked", "entry", source.id, f"-> entry {target.id}")
+    detail = f"-> entry {target.id}" + (f" ({link.reason})" if link.reason else "")
+    log_action(session, "linked", "entry", source.id, detail)
     session.commit()
     return link
 
@@ -724,6 +738,30 @@ def readable_content(entry: Entry) -> str:
         # Kept deliberately non-fatal. The stored bytes are still there, so a
         # key problem is recoverable; crashing the list is not.
         return "🔒 This private note couldn't be decrypted."
+
+
+#: A leading Markdown heading on the first non-blank line only — a `#` three
+#: paragraphs into a long note is a section break, not what the note is
+#: *called*. Requires the space after the hashes, so "#recipe" (a tag someone
+#: typed at the very top) is never mistaken for a heading.
+_TITLE_LINE = re.compile(r"^#{1,6}[ \t]+(\S.*)$")
+
+
+def extract_title(content: str) -> str | None:
+    """A note's own title, if it wrote one — its first line, when that line
+    is a Markdown heading. Not a stored field: there is nothing to fall out
+    of sync with the content, and "editing the title" is just editing that
+    line, the same as any other (asked for directly, and simpler than a
+    second input box fighting the single-box capture flow this app is built
+    around).
+    """
+    for line in (content or "").splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        match = _TITLE_LINE.match(stripped)
+        return match.group(1).strip() if match else None
+    return None
 
 
 def set_private(session: Session, entry: Entry, private: bool) -> bool:

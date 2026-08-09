@@ -233,6 +233,7 @@ def graph(similarity: bool = False, session: Session = Depends(get_session)) -> 
                         "source": link.source_entry_id,
                         "target": link.target_entry_id,
                         "kind": "link",
+                        "reason": link.reason,
                     }
                 )
 

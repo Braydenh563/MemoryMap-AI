@@ -60,11 +60,13 @@ def _to_out(
     filed_by: str | None = None,
     similar: SimilarOut | None = None,
 ) -> EntryOut:
+    # Decrypted here if private and the vault is open — every read of a
+    # note's text goes through this one helper.
+    content = manager.readable_content(entry)
     return EntryOut(
         id=entry.id,
-        # Decrypted here if private and the vault is open — every read of a
-        # note's text goes through this one helper.
-        content=manager.readable_content(entry),
+        content=content,
+        title=manager.extract_title(content),
         category=manager.category_name_for(session, entry),
         tags=manager.entry_tags(entry),
         ai_confidence=entry.ai_confidence,
@@ -88,6 +90,7 @@ def _to_out(
                 link_id=link.id,
                 entry_id=other.id,
                 preview=_preview(manager.readable_content(other)),
+                reason=link.reason,
             )
             for link, other in manager.links_for_entry(session, entry)
         ],
@@ -633,6 +636,9 @@ def purge_entry(entry_id: int, session: Session = Depends(get_session)) -> dict:
 
 class LinkBody(BaseModel):
     target_id: int
+    # Optional — "why are these connected?" A shared tag or a reply thread
+    # says why on its own; a manual link often doesn't.
+    reason: str | None = Field(default=None, max_length=200)
 
 
 class PrivacyBody(BaseModel):
@@ -705,7 +711,7 @@ def create_link(
 ) -> EntryOut:
     source = _existing_entry(session, entry_id)
     target = _existing_entry(session, body.target_id)
-    link = manager.create_link(session, source, target)
+    link = manager.create_link(session, source, target, reason=body.reason)
     if link is None:
         raise HTTPException(
             status_code=400, detail="Already linked (or tried to link an entry to itself)"

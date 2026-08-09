@@ -48,6 +48,39 @@ def test_create_and_list_entries(session):
     assert manager.category_name_for(session, entries[0]) == "Uncategorised"
 
 
+def test_a_leading_heading_becomes_the_title():
+    assert manager.extract_title("# Trip to the coast\nPacked the tent.") == "Trip to the coast"
+
+
+def test_a_note_with_no_heading_has_no_title():
+    assert manager.extract_title("just a plain thought") is None
+
+
+def test_blank_lines_before_the_heading_are_skipped():
+    assert manager.extract_title("\n\n## Recipe idea\nmore flour next time") == "Recipe idea"
+
+
+def test_a_heading_partway_through_the_note_is_not_the_title():
+    """A `#` three paragraphs in is a section break, not what the note is
+    called — only the first non-blank line counts."""
+    assert manager.extract_title("some thoughts first\n# a heading later") is None
+
+
+def test_a_hashtag_with_no_space_is_not_mistaken_for_a_heading():
+    """"#recipe" typed as a tag-like opener must not read as an empty title."""
+    assert manager.extract_title("#recipe good one this week") is None
+
+
+def test_the_api_reports_the_extracted_title(client):
+    body = client.post(
+        "/entries", json={"content": "# Trip to the coast\nPacked the tent."}
+    ).json()
+    assert body["title"] == "Trip to the coast"
+
+    untitled = client.post("/entries", json={"content": "just a plain thought"}).json()
+    assert untitled["title"] is None
+
+
 def test_uncategorised_category_created_once(session):
     manager.create_entry(session, "first")
     manager.create_entry(session, "second")

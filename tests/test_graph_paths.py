@@ -68,6 +68,21 @@ def test_a_direct_link_is_one_step(session):
     assert chain[0].kind == "link"
 
 
+def test_a_links_reason_shows_up_in_how_it_connects(session):
+    """Trace's readout reads `step.how` directly — this is the reason a
+    user-given explanation ("both about scheduling") reaches the person
+    asking how two notes relate, not just the model."""
+    a = _note(session, "assignment due next week")
+    b = _note(session, "gym session tuesday")
+    session.add(
+        EntryLink(source_entry_id=a.id, target_entry_id=b.id, reason="both about scheduling")
+    )
+    session.commit()
+
+    chain = _chain(session, a, b)
+    assert chain[0].how == "linked to (both about scheduling)"
+
+
 def test_a_path_runs_through_the_notes_between(session):
     a = _note(session, "beans need netting")
     b = _note(session, "the netting is in the shed")

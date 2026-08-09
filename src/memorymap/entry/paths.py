@@ -150,12 +150,16 @@ def build(session: Session, include_private: bool = True, extra_edges: list[dict
 
     for link in session.scalars(select(EntryLink)):
         if link.source_entry_id in known and link.target_entry_id in known:
+            # A link's own reason, when someone gave one, is a better answer
+            # to "how are these connected?" than the generic "linked to" —
+            # same phrase either direction, since "why" doesn't have one.
+            phrase = f"linked to ({link.reason})" if link.reason else "linked to"
             index._add(
                 link.source_entry_id,
                 link.target_entry_id,
                 "link",
-                "linked to",
-                "linked to",
+                phrase,
+                phrase,
                 LINK_WEIGHT,
             )
 

@@ -24,7 +24,9 @@ def test_graph_nodes_and_manual_link_edges(client):
     body = client.get("/graph").json()
     assert {n["id"] for n in body["nodes"]} == {a["id"], b["id"]}
     assert body["categories"] == ["Alpha", "Beta"]
-    assert body["edges"] == [{"source": a["id"], "target": b["id"], "kind": "link"}]
+    assert body["edges"] == [
+        {"source": a["id"], "target": b["id"], "kind": "link", "reason": None}
+    ]
 
     node = next(n for n in body["nodes"] if n["id"] == a["id"])
     assert node["category"] == "Alpha"
@@ -60,6 +62,29 @@ def test_graph_local_node_dates_are_valid_iso_too(client):
     for node in body["nodes"]:
         parsed = datetime.fromisoformat(node["created_at"])
         assert parsed.tzinfo is not None
+
+
+def test_graph_link_edge_carries_its_reason(client):
+    a = _save(client, "assignment due next week", category="Uni")
+    b = _save(client, "gym session tuesday", category="Fitness")
+    client.post(
+        f"/entries/{a['id']}/links",
+        json={"target_id": b["id"], "reason": "both about scheduling"},
+    )
+
+    edges = client.get("/graph").json()["edges"]
+    assert edges == [
+        {"source": a["id"], "target": b["id"], "kind": "link", "reason": "both about scheduling"}
+    ]
+
+
+def test_graph_link_edge_without_a_reason_is_none(client):
+    a = _save(client, "first note", category="Alpha")
+    b = _save(client, "second note", category="Beta")
+    client.post(f"/entries/{a['id']}/links", json={"target_id": b["id"]})
+
+    edges = client.get("/graph").json()["edges"]
+    assert edges[0]["reason"] is None
 
 
 def test_graph_thread_edges(client):

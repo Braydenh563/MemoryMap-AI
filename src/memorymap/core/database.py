@@ -168,6 +168,13 @@ class EntryLink(Base):
     source_entry_id: Mapped[int] = mapped_column(ForeignKey("entries.id"))
     target_entry_id: Mapped[int] = mapped_column(ForeignKey("entries.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    # Optional, free text — "why are these connected?" A shared tag or a
+    # reply thread says why on its own; a manual or AI-made link often
+    # doesn't ("a note about uni and gym might still be related if they're
+    # both about scheduling" — user-reported). Nullable rather than an empty
+    # string default so "no reason given" and "reason is blank" aren't the
+    # same row on old links backfilled by the auto-migrator.
+    reason: Mapped[str | None] = mapped_column(Text, default=None)
 
 
 class EmbeddingRecord(Base):

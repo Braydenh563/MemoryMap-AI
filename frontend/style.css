@@ -2380,6 +2380,16 @@ progress {
   margin-bottom: 0.6rem;
 }
 
+/* A note's own leading `# Heading`, shown as what it is rather than as the
+   first line of plain body text (asked for directly). `--text-lg`, not a
+   card's own `--text-body` h2 — this sits inside a list row, not a panel. */
+.entry-title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-lg);
+  font-weight: 650;
+  color: var(--ink);
+}
+
 .entry-content {
   margin: 0 0 0.4rem;
   white-space: pre-wrap;

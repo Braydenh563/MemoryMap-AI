@@ -651,6 +651,21 @@ function entryItem(entry, options = {}) {
     li.classList.add("selectable");
   }
 
+  // A note's own leading `# Heading` becomes its title (asked for directly).
+  // Not a separate field to edit — the body below is shown with that line
+  // taken out, so the title isn't just the same text shown twice.
+  if (entry.title) {
+    // A <p>, not <h3> — `.card h3` is this app's small-caps *section label*
+    // treatment (DESIGN.md's hierarchy), which is the wrong voice for a
+    // note's own title: it read as a muted, uppercase eyebrow instead of
+    // the prominent heading a title should be. `.entry-title` below defines
+    // its own look rather than inheriting one built for a different job.
+    const titleEl = document.createElement("p");
+    titleEl.className = "entry-title";
+    titleEl.textContent = entry.title;
+    li.appendChild(titleEl);
+  }
+
   const content = document.createElement("p");
   content.className = "entry-content";
   // One long note used to push everything else off the screen, so the list
@@ -666,7 +681,11 @@ function entryItem(entry, options = {}) {
   // Mark the matched words while filtering, so it's obvious WHY a note is in
   // the list. Built with createElement/textContent rather than innerHTML —
   // note text is user content and must never be parsed as markup.
-  renderNoteText(content, entry.content, searchHighlightTerms());
+  renderNoteText(
+    content,
+    entry.title ? bodyWithoutTitleLine(entry.content) : entry.content,
+    searchHighlightTerms()
+  );
   li.appendChild(content);
   if (isLong) {
     const toggle = document.createElement("button");
@@ -1775,6 +1794,20 @@ function renderInlineMarkdown(element, text, terms) {
     highlightInto(rest, text.slice(cursor), terms);
     element.appendChild(rest);
   }
+}
+
+// Mirrors manager.extract_title's own rule (the first non-blank line, and
+// only that line) so the body shown under a title never repeats it — called
+// only when the backend has already said this note has a title, so this
+// never has to decide on its own whether a line "looks like" a heading.
+function bodyWithoutTitleLine(content) {
+  const lines = content.split("\n");
+  let i = 0;
+  while (i < lines.length && lines[i].trim() === "") i++;
+  if (i >= lines.length) return content;
+  lines.splice(i, 1);
+  if (lines[i] !== undefined && lines[i].trim() === "") lines.splice(i, 1);
+  return lines.join("\n");
 }
 
 function renderNoteText(element, text, terms) {
@@ -11726,6 +11759,17 @@ async function renderGraph() {
         .join("line")
         .attr("class", (d) => `graph-edge graph-edge-${d.kind}`);
 
+  // A link's own reason ("why are these connected?" — asked for directly),
+  // as a native SVG tooltip. `<title>` is the SVG way to get a hover
+  // tooltip on a shape; there's no HTML `title` attribute equivalent for
+  // `<line>`/`<path>`. Re-added after every join rather than left stale, so
+  // a link edited or re-drawn on refresh doesn't keep showing an old reason.
+  edgeLines.each(function (d) {
+    const el = d3.select(this);
+    el.selectAll("title").remove();
+    if (d.reason) el.append("title").text(d.reason);
+  });
+
   // Semantic Zoom: Clustering super-nodes
   const categoryGroups = d3.group(nodes, d => d.category || "Uncategorized");
   const clustersData = Array.from(categoryGroups, ([key, values]) => ({ id: key, category: key, nodes: values }));
@@ -19918,12 +19962,15 @@ startReminderWatch();
 initResizableSidebars();
 watchOverlays(); // page behind a dialog must not scroll
 initAutoGrow(); // capture + magic-add boxes follow their content
-// A returning visit still opens on whichever tab was last active — that is
-// the point of remembering it at all. Only the fallback changed: a genuinely
-// first run (nothing in `localStorage` yet) used to default to Notes, an odd
-// choice for the one visit where there is nothing to browse. Asked for
-// directly: "on first load I want it to show the dashboard."
-switchTab(localStorage.getItem("activeTab") || "dashboard");
+// Used to reopen on whichever tab was last active, with only the very
+// first-ever visit defaulting to Dashboard. Changed on direct request: every
+// load should open on Dashboard, not just the first one — closing the app on
+// Chat and coming back to Chat wasn't "picking up where you left off" in the
+// way that was wanted. `activeTab` is still tracked (`switchTab` still
+// writes it) for the things that read the *current* tab during a session —
+// the scroll-to-top button, keyboard tab-cycling — just not to decide where
+// a fresh load starts.
+switchTab("dashboard");
 
 // Settings modal (Wave A).
 $("settings-btn").addEventListener("click", () => openSettingsModal());

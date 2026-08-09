@@ -236,6 +236,11 @@
      hundred-plus places that read the tokens, so 100% (the default) renders
      byte-identical to before this existed. */
   --glass-opacity: 1;
+  /* The sheen's own intensity (its own `.card` rule, further down this file)
+     — 1 means the sheen's original fixed look, 0 means invisible. Asked for
+     directly ("can you make the sheen strength adjustable??"), the same day
+     the sheen itself shipped. */
+  --glass-sheen-strength: 1;
 
   /* Fallback mode when glass is turned off. Overrides the semi-transparent
      backgrounds and borders with solid colours so contrast holds up without
@@ -1682,29 +1687,12 @@ header#top-bar.tabs-wrapped #tab-bar {
 
 /* --- the glass card -------------------------------------------------------- */
 .card {
-  /* The sheen is what reads as *glass* rather than *tinted paint* — over the
-     page's own gradient (no texture of its own beyond two soft blobs), a
-     plain `var(--card)` fill blurs whatever's behind it into another smooth
-     gradient, which is visually almost indistinguishable from a flat opaque
-     panel regardless of the blur slider's value. Reported as "the ratio of
-     transparency and frosted glass amount... has become more opaque" — the
-     alpha itself never changed (confirmed live: `--card`'s rgba is identical
-     at every blur setting), but nothing was carrying the *glass* read on its
-     own once there was little contrast behind a card to blur. A soft
-     diagonal highlight, the standard glassmorphism tell, restores that
-     independent of the backdrop — this is layered onto the same background
-     property, not a second element, so it costs nothing extra to paint.
-     `--glass-opacity`-style alpha stays untouched deliberately; this is
-     shape, not transparency. */
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0) 45%), var(--card);
+  background: var(--card);
   backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
-  /* A 1px inner top-edge highlight — the other half of the same "this
-     catches light, it doesn't just sit there tinted" read, independent of
-     `--card`'s alpha. */
-  box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  box-shadow: var(--glass-shadow);
   padding: var(--space-6) var(--space-7);
   margin-bottom: var(--space-6);
   /* Cards are flex/grid items nearly everywhere they appear, and a flex item's
@@ -1713,6 +1701,47 @@ header#top-bar.tabs-wrapped #tab-bar {
      with it. Fixing the `.layout` track alone was not enough: the item inside
      the track carries the same auto-minimum and has to be floored too. */
   min-width: 0;
+}
+
+/* The sheen is what reads as *glass* rather than *tinted paint* — over the
+   page's own gradient (no texture of its own beyond two soft blobs), a plain
+   `var(--card)` fill blurs whatever's behind it into another smooth
+   gradient, visually almost indistinguishable from a flat opaque panel
+   regardless of the blur slider's value. Reported as "the ratio of
+   transparency and frosted glass amount... has become more opaque" — the
+   alpha itself never changed (confirmed live: `--card`'s rgba is identical
+   at every blur setting), but nothing was carrying the *glass* read on its
+   own once there was little contrast behind a card to blur.
+
+   A separate, own opt-in rather than baked into `.card` unconditionally
+   (asked for directly, after the first pass did exactly that): off when
+   glass itself is off — `[data-glass="off"]`'s own fallback rule already
+   overrides `.card`'s background/box-shadow wholesale, and this must never
+   fight that back on — and off by default even while glass is on, toggled
+   separately in Settings → Appearance (`#glass-sheen-toggle`), auto-enabled
+   the moment glass itself is switched on from off, so turning glassmorphism
+   on gets the full look without a second trip to a checkbox, while still
+   leaving that checkbox able to turn just the sheen back off on its own.
+
+   Both rgba stops below are scaled by `--glass-sheen-strength` (0–1) through
+   the same color-mix-with-transparent trick `--glass-opacity` already uses —
+   mixing a colour with transparent can only ever dial its own alpha down,
+   never past it, so the fixed 0.16/0.25 here are the strength slider's own
+   100% ceiling, not a baseline it adds to. */
+:root[data-glass-sheen="on"]:not([data-glass="off"]) .card {
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, rgba(255, 255, 255, 0.16) calc(var(--glass-sheen-strength) * 100%), transparent) 0%,
+      rgba(255, 255, 255, 0) 45%
+    ),
+    var(--card);
+  /* A 1px inner top-edge highlight — the other half of the same "this
+     catches light, it doesn't just sit there tinted" read, independent of
+     `--card`'s alpha. */
+  box-shadow:
+    var(--glass-shadow),
+    inset 0 1px 0 color-mix(in srgb, rgba(255, 255, 255, 0.25) calc(var(--glass-sheen-strength) * 100%), transparent);
 }
 
 /* --- heading hierarchy (§35L) ----------------------------------------------

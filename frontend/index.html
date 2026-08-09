@@ -2132,6 +2132,25 @@ Link to another note with [[its first few words]]."></textarea>
                 </span>
               </label>
 
+              <label class="setting-check" id="glass-sheen-row">
+                <input type="checkbox" id="glass-sheen-toggle">
+                <span>
+                  Glass sheen
+                  <small class="muted">A soft highlight that reads as glass, not flat tinted panels.</small>
+                </span>
+              </label>
+
+              <div class="setting-row" id="glass-sheen-strength-row">
+                <div class="setting-label">
+                  <span>Sheen strength</span>
+                </div>
+                <div class="row setting-control">
+                  <input id="glass-sheen-strength" type="range" min="0" max="100" value="100"
+                    aria-label="Glass sheen strength">
+                  <span class="slider-value" id="glass-sheen-strength-value">100%</span>
+                </div>
+              </div>
+
               <div class="setting-row" id="glass-blur-row">
                 <div class="setting-label">
                   <span>Blur strength</span>
@@ -2150,7 +2169,7 @@ Link to another note with [[its first few words]]."></textarea>
                   <small class="muted">How clear the glass looks — lower sees further through it.</small>
                 </div>
                 <div class="row setting-control">
-                  <input id="glass-opacity" type="range" min="30" max="100" value="100"
+                  <input id="glass-opacity" type="range" min="5" max="100" value="100"
                     aria-label="Glass opacity">
                   <span class="slider-value" id="glass-opacity-value">100%</span>
                 </div>

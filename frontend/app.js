@@ -19001,6 +19001,16 @@ const APPEARANCE_DEFAULTS = {
   // blur strength above (how frosted vs. how clear). 100 renders identically
   // to before this setting existed.
   "glass-opacity": "100",
+  // Off by default even while glass itself is on — a diagonal highlight is a
+  // stronger visual statement than the blur/opacity dials above, worth
+  // opting into rather than imposing. Turning glass on from off auto-sets
+  // this to "on" (see #glass-toggle's own listener), so the full look shows
+  // up without a second trip to Settings; unchecking #glass-sheen-toggle
+  // afterward turns just the sheen back off without touching glass itself.
+  "glass-sheen": "off",
+  // 0-100, how strong the sheen reads when it's on — its own dial, separate
+  // from whether it's on at all.
+  "glass-sheen-strength": "100",
   zoom: "100", // §37E: interface-wide scale, percent — multiplies the root font-size
   "bg-style": "aurora", // aurora | constellation | waves | bubbles | mesh
   palette: "default", // which curated colour set; themes select one
@@ -19328,8 +19338,8 @@ function applyThemePreset(name, chosenByUser = false) {
 // the UI so "why isn't the theme's colour showing?" has a visible answer.
 const OVERRIDABLE_KEYS = [
   "theme", "palette", "accent", "accent-custom", "page-bg", "font", "fontsize",
-  "density", "radius", "glass", "glass-blur", "glass-opacity", "bg-style",
-  "bg-motion", "bg-intensity", "zoom",
+  "density", "radius", "glass", "glass-blur", "glass-opacity", "glass-sheen",
+  "glass-sheen-strength", "bg-style", "bg-motion", "bg-intensity", "zoom",
 ];
 
 function manualOverrides() {
@@ -19687,6 +19697,8 @@ function applyAppearance() {
   root.dataset.font = appearancePref("font");
   root.dataset.density = appearancePref("density");
   root.dataset.glass = appearancePref("glass");
+  root.dataset.glassSheen = appearancePref("glass-sheen");
+  root.style.setProperty("--glass-sheen-strength", Number(appearancePref("glass-sheen-strength")) / 100);
   root.dataset.themePreset = activeThemePreset();
   root.dataset.motion = appearancePref("motion");
   root.style.setProperty("--bg-art-opacity", Number(appearancePref("bg-intensity")) / 100);
@@ -19871,6 +19883,14 @@ function renderAppearance() {
   $("bg-motion-row").classList.toggle("hidden", !bgArtOn());
   renderBgMotionHint();
   $("glass-toggle").checked = appearancePref("glass") === "on";
+  $("glass-sheen-toggle").checked = appearancePref("glass-sheen") === "on";
+  $("glass-sheen-row").classList.toggle("disabled-row", appearancePref("glass") !== "on");
+  $("glass-sheen-strength").value = appearancePref("glass-sheen-strength");
+  $("glass-sheen-strength-value").textContent = `${appearancePref("glass-sheen-strength")}%`;
+  $("glass-sheen-strength-row").classList.toggle(
+    "disabled-row",
+    appearancePref("glass") !== "on" || appearancePref("glass-sheen") !== "on"
+  );
   $("bg-intensity").value = appearancePref("bg-intensity");
   $("bg-intensity-value").textContent = `${appearancePref("bg-intensity")}%`;
   $("bg-art-style").value = appearancePref("bg-style");
@@ -20062,7 +20082,7 @@ function resetAppearance() {
   for (const key of [
     "fontsize", "font", "density", "glass", "motion", "bg-intensity", "accent",
     "contrast", "bgArt", "theme", "radius", "glass-blur", "glass-opacity",
-    "bg-style", "bg-motion", "palette", "themePreset",
+    "glass-sheen", "glass-sheen-strength", "bg-style", "bg-motion", "palette", "themePreset",
     "accent-custom", "page-bg", "custom-css", "zoom",
   ]) {
     localStorage.removeItem(key);
@@ -20529,9 +20549,24 @@ for (const b of document.querySelectorAll("#density-seg button")) {
   });
 }
 $("glass-toggle").addEventListener("change", (e) => {
+  const turningOn = e.target.checked && appearancePref("glass") !== "on";
   localStorage.setItem("glass", e.target.checked ? "on" : "off");
+  // Asked for directly: switching glassmorphism on from off also turns the
+  // sheen on, so the full look shows up in one action — the sheen's own
+  // checkbox can still turn it back off afterward without touching this.
+  if (turningOn) localStorage.setItem("glass-sheen", "on");
   applyAppearance();
   renderAppearance();
+});
+$("glass-sheen-toggle").addEventListener("change", (e) => {
+  localStorage.setItem("glass-sheen", e.target.checked ? "on" : "off");
+  applyAppearance();
+  $("glass-sheen-strength-row")?.classList.toggle("disabled-row", !e.target.checked);
+});
+$("glass-sheen-strength").addEventListener("input", (e) => {
+  localStorage.setItem("glass-sheen-strength", e.target.value);
+  $("glass-sheen-strength-value").textContent = `${e.target.value}%`;
+  applyAppearance();
 });
 $("reduce-motion-toggle").addEventListener("change", (e) => {
   localStorage.setItem("motion", e.target.checked ? "reduced" : "auto");
@@ -23731,7 +23766,16 @@ async function initWhiteboard() {
   let isDrawing = false;
   let currentDrawPath = null;
   let currentDrawData = []; // array of [x, y]
-  window.currentStrokeColor = "#ffffff";
+  // Reported directly: a white stroke, hardcoded regardless of theme, on a
+  // light-theme board whose background (`--wb-board-bg: var(--modal-bg)`,
+  // theme-aware) is itself light — drawing anything was invisible from the
+  // first stroke. Defaults to black on light, white on dark, matching
+  // whichever the board's own background actually resolves to; a saved
+  // choice (persisted the same way the board's own background colour is)
+  // always wins over the theme default.
+  const savedStroke = localStorage.getItem("wb-stroke-color");
+  window.currentStrokeColor =
+    savedStroke || (document.documentElement.dataset.mode === "dark" ? "#ffffff" : "#000000");
   // Shared with the mousedown handler below, so the cursor preview drawn
   // here is never a different size than what actually gets drawn.
   const WB_STROKE_WIDTH = 3;
@@ -23771,8 +23815,10 @@ async function initWhiteboard() {
   }
 
   if (colorPicker) {
+    colorPicker.value = window.currentStrokeColor;
     colorPicker.addEventListener("change", (e) => {
       window.currentStrokeColor = e.target.value;
+      localStorage.setItem("wb-stroke-color", e.target.value);
       updateWbCursor();
     });
   }

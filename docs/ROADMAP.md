@@ -35,24 +35,51 @@ The tiers are not equal. Nothing in Tier 2 is worth more than any Tier 1 item.
 
 Things that are wrong, lose work, or make the app feel unreliable.
 
-1. **Meeting transcription errors out.** Reported as simply not working, with
-   a button in the UI that offers it. Reproduce first: `faster-whisper` is an
-   optional extra, so the likeliest answer is that the missing-package path is
-   an error rather than an explanation. Nothing else in meetings is worth
-   touching until this is diagnosed.
-2. **"The AI fails to respond while still saying it is writing" — and the
-   skill step counted as done.** Two bugs in one report: no timeout on the
-   stream, and a step ticked on a turn that produced nothing. The second is
-   worse: it makes the skill's own progress list lie, which is the surface the
-   user is asked to trust. Needs a real timeout, a visible "this stopped"
-   state, and a step that only ticks on a completed turn.
-3. **Skills producing network errors, or models that cannot run them.** Same
-   family. A failing skill must say *which* step and *why*, and offer the
-   resume `skill_from_step` already supports.
-4. **Contradictions in the agent prompt around small talk.** `TOOLS_GUIDE`
-   tells the model to take several turns and use tools; `intent.SMALLTALK`
-   routes "hey" away from the agent entirely. Reconcile them — the prompt is
-   resent every round, so a contradiction is paid for constantly.
+1. ~~**Meeting transcription errors out.**~~ **Re-confirmed fixed
+   (HISTORY.md §50), one step further than before.** §41 already made a
+   failed model download raise a distinct 503 instead of the route's
+   generic "Couldn't transcribe that recording: <error>" catch-all. This
+   session installed `faster-whisper` for real (lightweight — no torch) and
+   POSTed a real WAV clip to `/voice/transcribe-meeting` on a live server:
+   got back `503 "Couldn't load the Whisper 'base' model... check your
+   internet connection"`, not the old mystery error. **Not fully verified**:
+   this sandbox's network policy blocks `huggingface.co` (403 at the proxy,
+   confirmed via `$HTTPS_PROXY/__agentproxy/status`), so an actual
+   successful transcription — real audio in, real text out — still hasn't
+   been observed by any session. If it's re-reported, that's the half still
+   worth checking, ideally from an environment that can reach Hugging Face.
+2. ~~**"The AI fails to respond while still saying it is writing" — and the
+   skill step counted as done.**~~ **Found already done (HISTORY.md §50)** —
+   checked the code before rebuilding, per this file's own rule, rather than
+   trusting that an uncrossed-out item means unbuilt. Both halves are in and
+   tested: `frontend/app.js`'s `STREAM_IDLE_TIMEOUT_MS` (150s) races
+   `reader.read()` and throws a real, visible error ("The model stopped
+   responding...") when nothing arrives at all; `skill_runner.py`'s
+   `not answer and not ran_any_tool` branch reports a step `failed` with
+   `"the model didn't respond — no answer and no tool call"` instead of
+   falling through to `done`, pinned by
+   `test_a_step_that_produces_nothing_is_not_ticked_done`. This was §41's
+   own work (see HISTORY.md) — ROADMAP.md simply never got the strikethrough.
+3. ~~**Skills producing network errors, or models that cannot run them.**~~
+   **Found already done (HISTORY.md §50), same staleness.** `went_offline`
+   in `skill_runner.py` stops the run and reports `"Ollama isn't reachable
+   — check Settings → Models and try again."` rather than repeating the
+   same failure on every later step, pinned by
+   `test_a_network_failure_mid_step_stops_the_run_instead_of_repeating`. The
+   reason names the step (`index`) and the cause (`reason`), and
+   `skill_from_step` already resumes from it — also §41's work.
+4. ~~**Contradictions in the agent prompt around small talk.**~~ **Found
+   already done (HISTORY.md §50), same staleness as items 2/3.** There is no
+   contradiction reaching the model: `routes_chat.py`'s stream only calls the
+   tool-enabled agent (and thus only sends `TOOLS_GUIDE`) when
+   `intent.needs_retrieval(...)` is true, which `SMALLTALK` never is — "Small
+   talk never goes near the agent" is the code's own comment at that gate.
+   `librarian.build_conversational_messages` (small talk's actual prompt
+   path) never references `TOOLS_GUIDE` at all — grepped, not assumed.
+   Directly tested: `test_a_bare_yes_is_ordinarily_smalltalk_not_the_agent`
+   asserts `not fake_ollama.tool_rounds` for a bare "yes", and is explicitly
+   labelled "Tier 1 §4" in its own test file. Likely resolved by the same
+   `answering_agent` work HISTORY.md's §41 already documents.
 4a. ~~**Eight preferences saved correctly and were honoured correctly, but
     never came back from `GET /preferences`.**~~ **Fixed (HISTORY.md §49).**
     Found live while adding a notifications-mute toggle to the panel: it
@@ -85,10 +112,27 @@ Things that are wrong, lose work, or make the app feel unreliable.
    Nothing raises a notification outside those three paths. Verified by
    tracing every call site, not by driving it in a browser — say so plainly:
    if this is re-reported, that is the half still worth checking live.
-6. **Background tasks that never appear.** The list is built from
-   `routes_tasks.collect()`; anything on a worker thread not registered there
-   is invisible. Sweep for unregistered threads and make registration the rule
-   rather than something each feature remembers.
+6. ~~**Background tasks that never appear.**~~ **Found already done
+   (HISTORY.md §50).** Did the sweep this item asked for rather than trusting
+   the uncrossed-out entry: every `threading.Thread(` call site in
+   `src/memorymap` checked by hand against `routes_tasks.collect()`. All
+   nine are covered — reindex/pull (`model_manager.py`), embedding warmup
+   (`embeddings.py`), the autonomous pass (`autonomous.py`, both the
+   scheduler and the manual trigger — correctly keyed off "is a pass
+   *executing*", not "is the scheduler thread alive", so an idle scheduler
+   sleeping until 3am doesn't falsely show as running), SearXNG's install
+   *and* start phases (`searxng_manager.py`; `app.py`'s autostart thread
+   calls the same `start()` and shares its state, so it needed no separate
+   entry), the embedding-model download (`embedmodels.py` — already carries
+   its own "Tier 1 §6" comment at the call site, so this was fixed in an
+   earlier pass and just never got the ROADMAP strikethrough), and extras
+   install/uninstall (`extras.py`). The one thread genuinely *not*
+   registered — `security.py`'s per-request DNS-reachability probe — is
+   correctly excluded: it blocks inside the request that spawned it and
+   resolves in milliseconds, not a background job a user would come looking
+   for on this screen. `tests/test_tasks.py` and `test_embedding_models.py`
+   already assert each kind appears, including the exact "the download is
+   running but /tasks doesn't know" regression this item describes.
 7. **Claim-specificity in the hallucination net.** `agent.unsupported_claims`
    catches a claim with *no* matching write ("I tagged it" when nothing was)
    but not one that mismatches what happened ("I tagged it as Work" when a
@@ -112,22 +156,37 @@ Things that are wrong, lose work, or make the app feel unreliable.
    "Run optimization now" button being hidden while the toggle is off is a
    UI convenience, not an authorization check. The route now checks the
    toggle itself before calling `trigger_now`.
-10. **Every graph layout except Force shows no connections when the Time
-    Filter is moved off "All time".** Reported directly with screenshots:
-    Tree, Radial and Arc all render nodes with no edges/arcs at all once the
-    slider is pulled back, while Force keeps its connections. Not yet
-    investigated — start by finding where `similarity`/edge filtering
-    intersects the time-filter's node subset for each layout function
-    (`layoutHierarchy` and friends), since Force building its own separate
-    physics-edge list is the likely reason it alone is unaffected. High
-    value: the time filter is close to useless on three of four layouts
-    right now.
-11. **Dragging on empty graph canvas sometimes highlights an unrelated
-    note.** Reported directly, not yet reproduced or investigated. Likely a
-    pointer/drag-select handler treating a click-drag on empty space as a
-    hit on whatever node happened to be under the pointer at drag-start
-    instead of requiring the drag to actually originate on a node — but
-    that is a guess, not a diagnosis. Reproduce first.
+10. ~~**Every graph layout except Force shows no connections when the Time
+    Filter is moved off "All time".**~~ **Fixed and verified live
+    (HISTORY.md §50).** Diagnosed, not guessed: `applyTimeFilter`'s edge
+    check read `d.source.created_at`/`d.target.created_at`, which only
+    holds a real note timestamp once `d3.forceLink` resolves it — true for
+    Force, never true for Tree/Radial/Arc, whose edges include synthetic
+    category-heading/root nodes (`layoutHierarchy`'s `graphGroupNode`) with
+    no `created_at` at all. `undefined || Date.now()` read every heading as
+    "created this instant", which failed any cutoff short of "All time" and
+    hid the heading *and* every edge touching it (almost all of them — every
+    note's filing edge to its category) the moment the slider moved.
+    Reproduced first with Playwright (Tree: 14/14 edges → 0/14 the instant
+    the slider left "All time"; Force stayed correct at 2/4), then fixed by
+    treating `isGroup` nodes as exempt from the time filter — organising
+    furniture, not a dated note — and re-verified the same way (Tree:
+    14/14 → 4-ish/8, no longer zero, headings stay visible).
+11. ~~**Dragging on empty graph canvas sometimes highlights an unrelated
+    note.**~~ **Fixed and verified live (HISTORY.md §50).** Reproduced with
+    Playwright before guessing: a drag starting and ending on genuinely
+    empty canvas (confirmed via `elementFromPoint`, not assumed) — a pan,
+    not a node-drag — left a node lit with `.graph-focus` long after the
+    cursor moved on. Cause: panning translates the whole canvas under a
+    *stationary* cursor, so a node sliding past mid-pan fires a real
+    `mouseenter`, and the matching `mouseleave` doesn't reliably fire before
+    the button is released. A first fix (clear hover on the zoom's own
+    `start`/`end` events) cut the failure rate but left a race — a
+    `mouseenter` mid-gesture could re-set the hover after `start` had
+    already cleared it. Fixed properly with a `graphIsPanning` flag that
+    mutes hover mouseenter/mouseleave for the whole gesture, not just its
+    two ends; 6/6 clean Playwright runs after, versus reproducing the stuck
+    highlight on the unpatched code every time.
 
 ### Tier 2 — half-built features, cheap to finish
 

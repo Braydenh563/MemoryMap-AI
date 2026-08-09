@@ -1594,3 +1594,98 @@ say so plainly rather than claim a fix that has nothing to point at. Full
 `pytest tests/`, `ruff check .`, and `node --check frontend/app.js` were
 already green from the previous item and nothing here touched either
 codebase.
+
+## 50. A CodeQL ReDoS in the title regex, then Tier 1's two highest-value graph bugs, both diagnosed live and fixed
+
+Started from a CodeQL alert (`py/polynomial-redos`, high severity) on
+`manager._TITLE_LINE.match(stripped)` in `extract_title`/`apply_title`/
+`remove_title` (§43's note-title feature). `^#{1,6}[ \t]+(\S.*)$` is exactly
+the anchored-quantifier-before-`$` shape CLAUDE.md already names as the one
+to avoid (the same family as the `_TRAILING` fix on `main`). Replaced with
+`_heading_text`, a hand-rolled linear scan (count leading `#` up to 6, require
+a space/tab, reject if what follows is empty or itself whitespace) — no
+backtracking possible because there's no backtracking engine involved.
+Checked it matches the regex's exact semantics on the edge cases that matter
+(7+ hashes, a `#` with no space, non-ASCII whitespace like `\xa0` right after
+the hashes) before trusting it, and measured 80,000 tabs at 1.8ms, flat.
+`tests/test_core.py`/`test_private_notes.py`/`test_waven_api.py`'s existing
+title tests all still pass unchanged — this is a drop-in replacement, not a
+behaviour change. (A second CodeQL alert on the same file, `py/cyclic-import`,
+Note severity, was checked and left alone: `_deduce_reason`'s
+`from memorymap.ai.embeddings import ...` is already deliberately deferred
+inside the function to break a real cycle — `ai.embeddings` →
+`ai.model_manager` → `entry.manager` for `log_action` — which is the standard
+fix for a Python import cycle, not a bug.)
+
+**Then ROADMAP.md's own "start here next" — Tier 1 items 10 and 11, both
+undiagnosed, both high value.** Read the code before touching anything, per
+this project's standing rule, and both turned out to share a family of root
+cause: a value with no sensible default read as "right now" instead of
+"never", or a hover event misfiring during a gesture that isn't really a
+hover.
+
+**Item 10 — Tree/Radial/Arc lost every edge when the Time Filter left "All
+time".** `renderGraph`'s `applyTimeFilter` checks
+`d.source.created_at`/`d.target.created_at` per edge. That only holds a real
+note's timestamp once `d3.forceLink` has resolved a link's `source`/`target`
+from an id to the actual node object — true for Force. Tree/Radial/Arc build
+their edges in `layoutHierarchy` instead, and a huge fraction of them are
+*filing* edges from a category heading (or the synthetic `root`) down to a
+note — `layoutHierarchy`'s own `graphGroupNode` has no `created_at` field at
+all. `undefined || Date.now()` read every one of those as "created this
+instant", later than any cutoff short of "All time", so the heading — and
+every edge touching it — vanished the moment the slider moved even slightly.
+Force never hits this because it has no synthetic heading nodes.
+
+Reproduced before fixing, not guessed at: seeded linked notes via Playwright,
+switched the layout in `localStorage`, called `renderGraph()`, and counted
+`.graph-edge` elements with `visibility !== "hidden"` before and after
+dragging the slider. Unpatched: Tree went from 14/14 visible edges to **0/14**
+the instant the filter left "All time"; Force stayed correct at 2/4 the whole
+time. Fixed by treating `isGroup` nodes (headings, root) as exempt from the
+time filter — they're organising furniture, not a dated note, so hiding them
+was never the intent — via a shared `timeVisible(d, val)` helper used by the
+node, label, *and* edge visibility checks (an edge shows only if both its
+ends do). Re-verified the same way after the fix: no longer zero on any
+layout.
+
+**Item 11 — dragging on empty graph canvas sometimes highlighted an unrelated
+note.** Reproduced first (the item was explicitly "not yet reproduced" in
+ROADMAP.md): a Playwright drag starting and ending on genuinely empty canvas
+— confirmed with `document.elementFromPoint` at the start coordinate, not
+assumed — left a node's `.graph-focus` class stuck on well after the pointer
+had moved away and the button released. Cause: panning translates the whole
+`<g>` canvas under a *stationary* cursor, so a node's on-screen position can
+slide directly under the pointer mid-drag without the user ever moving their
+mouse onto it — and that fires a completely genuine, native `mouseenter` on
+whatever node happens to pass by. The matching `mouseleave` doesn't reliably
+fire again before the mouse button releases, so the hover-spotlight
+(`graphHoveredId`, `applyGraphHighlight`) stays lit on a note the user never
+meant to touch.
+
+A first attempt — clearing `graphHoveredId` on the zoom behaviour's own
+`start`/`end` events — cut the failure rate but didn't close it: a
+`mouseenter` mid-gesture could still re-set the hover *after* `start` had
+already cleared it, and nothing cleared it again until the next real hover
+somewhere else. Fixed properly with a `graphIsPanning` flag, set on `start`
+and cleared on `end`, that the `mouseenter`/`mouseleave` handlers both check
+and bail out of — so a node sliding past mid-pan never lights up at all, and
+only a genuine, stationary hover once the drag has ended does. Verified with
+6 consecutive clean Playwright runs after the fix (`hoveredId: null,
+focusCount: 0`), against a 100% reproduction rate before it. One test-harness
+trap worth recording: an early "still stuck" result was the *test's* own
+200ms wait being shorter than d3-zoom's async `end` dispatch, not a bug in
+the fix — confirmed by logging the zoom's own `start`/`end` events and seeing
+`end` reliably fire, just later than the check.
+
+Both graph fixes are pure `frontend/app.js` changes with no backend
+counterpart, so there is nothing for `pytest` to pin — the Playwright
+reproduction *is* the regression test for both, run against a real `uvicorn`
+server per CLAUDE.md's recipe, not reasoned from reading the DOM. Full
+`pytest tests/` (~1,600 tests), `ruff check .`, and `node --check
+frontend/app.js` all green throughout.
+
+**What's next**: ROADMAP.md's remaining Tier 1 items (meeting transcription,
+the skill-run timeout/false-done-tick pair, the small-talk/TOOLS_GUIDE prompt
+contradiction, background tasks that never appear in the task list), then
+Tier 2 top-down.

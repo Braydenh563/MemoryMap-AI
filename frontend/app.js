@@ -10779,6 +10779,7 @@ let graphCanvas = null;
 let graphNodesRef = null;
 let graphDims = { w: 0, h: 0 };
 let graphHoveredId = null; // node the pointer is over (spotlight its links)
+let graphIsPanning = false; // an active pan/zoom drag — see zoomBehavior below
 let graphAdjacency = null; // Map<id, Set<neighbourId>>
 // The traced path is drawn in its own layer, above the edges and the nodes: a
 // step can be a shared tag, which the map draws no edge for, so highlighting
@@ -11827,6 +11828,26 @@ async function renderGraph() {
   const zoomBehavior = d3
     .zoom()
     .scaleExtent([0.05, 5])
+    // Reported: dragging on empty canvas "sometimes highlights an unrelated
+    // note". A pan drag translates the whole canvas under a stationary
+    // cursor, so whatever node happens to slide past it fires a real
+    // `mouseenter` — and clearing hover only at the start/end of the
+    // gesture left a race: a `mouseenter` mid-pan (the node passing under
+    // the cursor) could re-set it *after* "start" cleared it, and nothing
+    // cleared it again until the next real hover. `graphIsPanning` mutes
+    // hover updates for the gesture's whole duration instead, so a node
+    // sliding past during a pan never lights up at all — only a real,
+    // stationary hover once the drag is over does.
+    .on("start", () => {
+      graphIsPanning = true;
+      graphHoveredId = null;
+      applyGraphHighlight();
+    })
+    .on("end", () => {
+      graphIsPanning = false;
+      graphHoveredId = null;
+      applyGraphHighlight();
+    })
     .on("zoom", (event) => {
       canvas.attr("transform", event.transform);
       // Semantic Zoom logic
@@ -12254,10 +12275,12 @@ async function renderGraph() {
   // pipeline as search so the two never fight each other.
   nodeGroups
     .on("mouseenter", (_event, d) => {
+      if (graphIsPanning) return; // a node sliding past mid-pan isn't a hover
       graphHoveredId = d.id;
       applyGraphHighlight();
     })
     .on("mouseleave", () => {
+      if (graphIsPanning) return;
       graphHoveredId = null;
       applyGraphHighlight();
     });
@@ -12375,16 +12398,24 @@ async function renderGraph() {
       timeLabel.textContent = val >= maxTime ? "All time" : `Up to ${new Date(val).toLocaleDateString()}`;
     };
 
+    // Tree/Radial/Arc draw category-heading and root nodes alongside real
+    // notes (Force never does — it only ever has real notes/links). Those
+    // headings have no `created_at` at all, so `d.created_at || Date.now()`
+    // read them as "created this instant" — always later than any cutoff
+    // short of "All time" — which hid the heading *and* every edge touching
+    // it the moment the slider moved at all. A heading is organising
+    // furniture, not a dated note; it and its edges should never be subject
+    // to the time filter.
+    const timeVisible = (d, val) =>
+      d.isGroup || new Date(d.created_at || Date.now()).getTime() <= val;
     const applyTimeFilter = (val) => {
       renderTimeLabel(val);
       // Apply temporal filter without rebuilding simulation
-      nodeGroups.style("visibility", d => new Date(d.created_at || Date.now()).getTime() <= val ? "visible" : "hidden");
-      labelGroups.style("visibility", d => new Date(d.created_at || Date.now()).getTime() <= val ? "visible" : "hidden");
-      edgeLines.style("visibility", d => {
-        const srcTime = new Date(d.source.created_at || Date.now()).getTime();
-        const tgtTime = new Date(d.target.created_at || Date.now()).getTime();
-        return srcTime <= val && tgtTime <= val ? "visible" : "hidden";
-      });
+      nodeGroups.style("visibility", d => timeVisible(d, val) ? "visible" : "hidden");
+      labelGroups.style("visibility", d => timeVisible(d, val) ? "visible" : "hidden");
+      edgeLines.style("visibility", d =>
+        timeVisible(d.source, val) && timeVisible(d.target, val) ? "visible" : "hidden"
+      );
     };
 
     slider.oninput = (e) => applyTimeFilter(Number(e.target.value));

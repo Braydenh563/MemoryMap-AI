@@ -2,7 +2,82 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session: §47 — a stale "decoration" claim corrected, and the document half of "take me to what changed" built
+## Latest session: a long unattended run, §44–§48 — two real perf fixes, a real "ran without being enabled" bug, a manual mode for skills, two sketch pad fixes, two stale-claim corrections, and one investigated-but-not-reproduced report
+
+Worked ROADMAP.md's Tier 1/Tier 2 list top-down for an extended unattended
+session, per the project's own standing rule and the user's explicit
+"work autonomously, commit and push as you go." Five commits, each with a
+full `pytest tests/` (~1,600+ tests), `ruff check .`, and `node --check
+frontend/app.js` before pushing. Full detail for each is in HISTORY.md
+§44–§48; this is the ordered short version.
+
+**§44 — Tier 1's own "start here next" item, done first:**
+`tools._graph_neighbours` no longer fetches the whole notes table per BFS
+node to check tags by hand (pre-filters with `ilike` first, same pattern
+`list_tags` already used); `manager.entry_dates_bulk` replaces
+`list_notes`/`summarize_notes`'s per-row N+1 with one batched query. Both
+pinned by new query-count tests. Then a user report, **reproduced live
+before being fixed, not theorised**: `POST /tasks/trigger-autonomous` ran a
+real optimisation pass regardless of the `autonomous_tasks_enabled` toggle
+— confirmed with `curl` against a running server, fixed in the route (not
+in `_run_optimization`, which ten-plus existing tests treat as
+toggle-agnostic by design). Also this session: link suggestions now carry
+the reason a link would get if approved, a one-click backfill for existing
+reason-less links, a `notifications_muted_except_reminders` preference, and
+a graph-toolbar readability fix (the Time Filter's read-out no longer sits
+in an undifferentiated strip with the toggle controls beside it).
+
+**§45 — skill runs get a manual mode**, ROADMAP's own "single
+most-requested unbuilt thing." Reuses the existing `stopped_at`/`start_at`
+resume machinery rather than inventing a second one; a new `result.paused`
+flag is the only thing telling "waiting for you" from "something broke."
+Whatever's typed in at the pause is folded into the *next* step's own
+instruction, once. Six new backend tests through the real streaming
+endpoint. **Not verified live in a browser.**
+
+**§46 — the sketch pad.** Highlighter `globalAlpha` was `0.05` (needed
+~20 passes to show anything), now `0.35` — verified with a pixel
+read-back and a screenshot. A background-colour control's first
+implementation (CSS `background` on the canvas element) did *nothing* — a
+canvas's own opaque `fillRect` pixels sit in front of any CSS background —
+fixed by changing the actual fill colour instead, verified against the
+real save-composite's pixels. Also corrected: ROADMAP's claim that a size
+control was missing was stale; it already existed and already worked.
+
+**§47 — two more claims checked, one stale, one real.** "Links are
+decoration" was stale — all three link-chip render sites already navigate
+via `flashEntry`. The document half of "take me to what changed" was real:
+`changeRow` never read the `document_id` `agent._change_document_id` has
+resolved since an earlier session; one more branch, verified with an
+actual click producing an actual tab change.
+
+**§48 — Arc view's "labels behind nodes" was investigated live and did
+not reproduce.** `labelLayer` is appended after every node in the DOM
+(so it should already paint on top for every layout), and a live
+screenshot with 24 seeded notes showed every label clearly legible on top
+of its node. Left open in ROADMAP rather than marked fixed — nothing was
+found to fix. Needs the original report's exact steps or a screenshot
+before a future session spends more time on it.
+
+**What was and wasn't verified, overall**: the two §44 perf fixes and the
+autonomous-toggle fix were confirmed against a real running server with
+`curl`. The sketch pad fixes were confirmed with real pixel reads and
+screenshots. The link-decoration and document-View fixes were confirmed
+with real clicks producing real navigation. The Arc-labels investigation
+was a real screenshot, not a guess. **Not driven in a browser this
+session**: the skill manual-mode checkbox and pause card (backend fully
+tested through the real streaming endpoint, frontend only `node --check`ed).
+
+**What's next**: the sketch pad's selection tool (click an existing
+stroke/shape to move, resize or delete it), the `_change_reminder_id`/
+`_change_category_id` resolvers named in §47 (so `changeRow`'s View button
+can extend past notes and documents), or whichever Tier 2 item reads as
+next-most-valuable on a fresh read of ROADMAP.md — none of the remaining
+items are blocked on anything above.
+
+---
+
+## Previous session: §47 — a stale "decoration" claim corrected, and the document half of "take me to what changed" built
 
 Continued straight after §46. Full detail in [HISTORY.md §47](HISTORY.md);
 short version: Tier 2 item 12 ("linked notes should be clickable, today

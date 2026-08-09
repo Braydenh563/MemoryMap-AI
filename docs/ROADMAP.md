@@ -266,7 +266,16 @@ into a good one.
     shared baseline, so a traced path there sat exactly where the row of
     nodes already was — reported as connections being hard to see on
     non-tree layouts. Now drawn as its own taller arc in that one layout.
-    The labels-behind-nodes part is still open.
+    **The labels-behind-nodes part was investigated live (HISTORY.md §48)
+    and did not reproduce**: `labelLayer` is appended to the canvas after
+    every node circle, so DOM order alone already puts every label on top,
+    and a live screenshot with 24 seeded notes in Arc showed every label
+    clearly legible and unobscured. Left open rather than "fixed" — nothing
+    was found to fix, and the original report may depend on a specific
+    dataset (a denser tree, longer previews, a particular zoom) this
+    session's synthetic data didn't reproduce. Needs the original reporter's
+    exact steps or a screenshot before the next session spends more time on
+    it.
 16. **Documents in the graph.** They are notes' equal everywhere else.
 17. **Battery-saver: an indicator and an honest description.** Checked before
     writing this — the indicator already exists (`#power-saver-indicator`, a

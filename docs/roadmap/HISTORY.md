@@ -1500,3 +1500,46 @@ times over), and the document View button by an actual click producing an
 actual visible tab change. Full `pytest tests/`, `ruff check .`, and
 `node --check frontend/app.js` green (no backend change this item, so no
 new Python tests).
+
+## 48. Arc view's "labels behind nodes" — investigated live, did not reproduce
+
+Continued the same session, straight after §47. ROADMAP's next item: "Arc
+view: labels behind nodes."
+
+**Read the code first**: `labelLayer` (`canvas.append("g").attr("class",
+"graph-label-layer")`) is appended after every node circle in
+`renderGraph`, for every layout including Arc — in SVG, a later sibling
+always paints over an earlier one, so DOM order alone should already put
+every label on top of every node, with nothing layout-specific that would
+single out Arc.
+
+**Then checked live rather than trusting that reasoning on its own**,
+per this file's own rule about UI claims: seeded 8 notes, switched Graph to
+Arc, and screenshotted it. Every label was clearly legible, angled outward
+from its node at -40°, sitting on top of the nodes and the dotted
+filing-hierarchy arcs beneath them — nothing hidden behind anything. A
+first attempt at hit-testing this with `elementFromPoint` at a label's
+`getBoundingClientRect()` centre gave a false negative (the SVG background,
+not the label) — a known trap with rotated SVG text: the axis-aligned
+bounding box of a rotated shape has a centre point that can fall in empty
+space between the actual rotated glyphs, so it tests the wrong thing
+entirely. The screenshot, not the hit-test, is what actually answered the
+question.
+
+**Left open rather than marked fixed, because nothing was found to fix.**
+The report may depend on something this session's synthetic dataset
+didn't reproduce — a much larger or more deeply nested tree, longer note
+previews (this session's were short), a specific zoom level, or notes with
+real `entry_links` rather than only the filing hierarchy. Recorded in
+ROADMAP.md as needing the original report's exact steps or a screenshot
+before a future session spends more time on it, rather than guessing at a
+CSS change with nothing to verify it against — the same standing rule that
+governed the Timeline "text cut off" investigation two items earlier in
+this same session (§44).
+
+**What was and wasn't verified**: driven live in Chromium with a real
+screenshot, not just reasoning about DOM order. No code changed this item —
+say so plainly rather than claim a fix that has nothing to point at. Full
+`pytest tests/`, `ruff check .`, and `node --check frontend/app.js` were
+already green from the previous item and nothing here touched either
+codebase.

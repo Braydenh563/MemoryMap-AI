@@ -2,7 +2,72 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session: §43, a follow-up burst — the time filter's *real* bug, link reasons grew a confidence score and an editor, notes got optional titles
+## Latest session: §44 — Tier 1's top item done, a real "ran without being enabled" bug fixed live, link reasons extended twice, a mute option — plus three reports that didn't reproduce
+
+Full detail in [HISTORY.md §44](HISTORY.md). Short version and what's still
+open:
+
+**Worked ROADMAP.md's own "start here next" first**: the two Tier 1 §8 perf
+findings (`tools._graph_neighbours`'s full-table tag scan, `_note_summary`'s
+per-row `entry_dates` N+1 inside `list_notes`/`summarize_notes`) — both
+fixed, both pinned by new query-count tests in `test_scale_query_counts.py`.
+
+**Then a user report, reproduced live rather than theorised**: *"I get
+notifications that the autonomous optimisation completed when I didn't have
+it enabled??"* — real bug. `POST /tasks/trigger-autonomous` never checked
+the `autonomous_tasks_enabled` master toggle; only the scheduled loop did,
+before ever calling in. Confirmed with `curl` against a running server
+before touching code (`started: true` on a fresh, disabled profile), then
+fixed in the route rather than in `_run_optimization`/`trigger_now` — ten-
+plus existing tests call `_run_optimization()` directly and rely on it
+staying toggle-agnostic by design, so the guard belongs at the one call site
+that was actually missing it. Re-verified live after the fix, both branches.
+
+**Then link reasons, extended on two fronts asked about directly**: `GET
+/entries/link-suggestions` now carries the `reason` text a link would get
+if approved (the two thresholds are numerically identical, so it's a real
+preview, not a guess), and `POST /entries/links/backfill-reasons`
+(`manager.backfill_link_reasons`) runs deduction once over every existing
+reason-less link — the answer to "is there an easy way to give them all a
+reason?", since deduction previously only ran at the moment a link was
+first made.
+
+**Then a mute option, asked for directly**: `notifications_muted_except_reminders`
+quiets `toast()` and the notifications panel for everything except a due
+reminder and real errors.
+
+**Then a graph-toolbar readability fix, reported directly**: the Time
+Filter's "All time" read-out and the Similarity/Hide unlinked/Labels toggles
+sat in one undifferentiated strip with the same gap; grouped the toggles and
+drew a divider using `.chat-tool-group`'s existing convention.
+
+**Three more reports were investigated and correctly left alone rather than
+guessed at** — a Capture title-field question (a design decision, not a
+bug — see ROADMAP.md's new "Open questions" section), "the dashboard isn't
+detecting my name" (the code is correct; likely the nudge working as
+designed on a profile with no name saved, not reproduced as a bug), and the
+Timeline grid's "text cut off" report (re-driven live with real
+measurements; found that `display: -webkit-box` computes to `flow-root` in
+this sandbox's Chromium — worth knowing — but could not reproduce actual
+clipping with any input tried).
+
+**What was verified live vs. reasoned**: the two perf fixes and the
+autonomous-toggle fix were confirmed against a real running server with
+`curl`, not just read from the code. The graph-toolbar divider, the
+suggestion-reason text, the backfill button and the mute option are CSS/JS
+changes reasoned from the DOM and this codebase's own existing conventions
+(`.chat-tool-group`'s divider pattern, `list_tags`' `ilike` pre-filter
+pattern) but were **not** driven in a browser this session. Full `pytest
+tests/` (~1,600+ tests), `ruff check .`, and `node --check frontend/app.js`
+all green throughout.
+
+**What's next**: ROADMAP.md's Tier 2 top item (skill runs' auto/manual
+mode — still the single most-requested unbuilt thing on the list), or one of
+the three open questions above once a decision is made on each.
+
+---
+
+## Previous session: §43, a follow-up burst — the time filter's *real* bug, link reasons grew a confidence score and an editor, notes got optional titles
 
 Continued straight from §42 below, in the same session: rather than another
 big unstructured list, the user came back with a run of small, specific asks

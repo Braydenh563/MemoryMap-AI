@@ -438,10 +438,30 @@ def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
             "source_preview": _preview(entries_by_id[a].content),
             "target_preview": _preview(entries_by_id[b].content),
             "similarity": round(score, 2),
+            # Asked directly: a suggestion showed a bare percentage with no
+            # sense of *why*, unlike an actual link (which gets a reason on
+            # the graph edge and in Trace). `LINK_SUGGESTION_THRESHOLD`
+            # equals `manager.AUTO_REASON_THRESHOLD` exactly, so every
+            # suggestion here would clear the bar `create_link` uses to
+            # deduce this same text — showing it before the link exists is
+            # a preview of that outcome, not a separate guess.
+            "reason": manager.AUTO_REASON_TEXT,
         })
         if len(suggestions) == 12:
             break
     return suggestions
+
+
+@router.post("/links/backfill-reasons")
+def backfill_link_reasons(session: Session = Depends(get_session)) -> dict:
+    """"None of my notes have a linked reason yet — is there an easy way to
+    give them all a reason?" There wasn't: `_deduce_reason` only ever ran at
+    the moment a link was *made*, so every link from before that shipped, or
+    made while the embedding backend was off, stays mute forever with
+    nothing to revisit it. One pass over every reason-less link, same rule
+    as a fresh one — a link that still can't be deduced is left alone rather
+    than given a manufactured answer."""
+    return manager.backfill_link_reasons(session)
 
 
 @router.get("/{entry_id}/related", response_model=list[EntryOut])

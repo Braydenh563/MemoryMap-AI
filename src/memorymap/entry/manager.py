@@ -172,6 +172,26 @@ def entry_dates(session: Session, entry: Entry) -> list[EntryDate]:
     )
 
 
+def entry_dates_bulk(session: Session, entry_ids: list[int]) -> dict[int, list[EntryDate]]:
+    """`entry_dates` for several notes in one query, grouped by note id.
+
+    `list_notes`/`summarize_notes` called `entry_dates` once per row inside
+    `_note_summary` — an N+1 hit on the agent's most-used read tools
+    (ROADMAP.md Tier 1 item 8). This is the batched form for that path;
+    single-note callers (`get_note`, etc.) still use `entry_dates` above.
+    """
+    if not entry_ids:
+        return {}
+    out: dict[int, list[EntryDate]] = {}
+    for date in session.scalars(
+        select(EntryDate)
+        .where(EntryDate.entry_id.in_(entry_ids))
+        .order_by(EntryDate.id)
+    ):
+        out.setdefault(date.entry_id, []).append(date)
+    return out
+
+
 def record_dates(session: Session, entry: Entry) -> None:
     """Resolve the relative time phrases in a note and store what they meant.
 
@@ -496,7 +516,7 @@ def delete_tag(session: Session, name: str) -> int:
 # suggestions` ranks by, so a link made from approving a suggestion and a
 # link the AI made unprompted read the same way if they're equally close.
 AUTO_REASON_THRESHOLD = 0.55
-_AUTO_REASON_TEXT = "similar in meaning"
+AUTO_REASON_TEXT = "similar in meaning"
 
 
 def _deduce_reason(
@@ -525,7 +545,7 @@ def _deduce_reason(
     score = cosine_similarity(vectors[source_id], vectors[target_id])
     if score < AUTO_REASON_THRESHOLD:
         return None, None
-    return _AUTO_REASON_TEXT, round(score, 2)
+    return AUTO_REASON_TEXT, round(score, 2)
 
 
 def create_link(
@@ -572,6 +592,41 @@ def create_link(
     log_action(session, "linked", "entry", source.id, detail)
     session.commit()
     return link
+
+
+def backfill_link_reasons(session: Session) -> dict:
+    """Give `_deduce_reason` a try on every existing link that has none.
+
+    Asked directly: *"none of my notes have a linked reason yet — is there
+    an easy way to give them all a reason?"* There wasn't one — `_deduce_reason`
+    only ever ran at the moment `create_link` made a *new* link, so a
+    notebook full of links made before that existed (or made without an
+    embedding backend running at the time) stays mute forever with no way to
+    revisit it. This is that revisit, run once over every link rather than
+    one at a time.
+
+    Same rule as a fresh link: a reason a person already gave is never
+    touched, and a link that still can't be deduced (no embedding for one or
+    both notes, or a score under the threshold) is left exactly as it was —
+    "no reason" is still the honest answer, not a false one manufactured to
+    fill the field.
+    """
+    reasonless = list(
+        session.scalars(select(EntryLink).where(EntryLink.reason.is_(None)))
+    )
+    updated = 0
+    for link in reasonless:
+        reason, confidence = _deduce_reason(
+            session, link.source_entry_id, link.target_entry_id
+        )
+        if reason is not None:
+            link.reason = reason
+            link.reason_confidence = confidence
+            updated += 1
+    if updated:
+        log_action(session, "backfilled", "entry", detail=f"reasons for {updated} link(s)")
+        session.commit()
+    return {"checked": len(reasonless), "updated": updated}
 
 
 def remove_link(session: Session, source: Entry, target: Entry) -> bool:

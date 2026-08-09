@@ -164,6 +164,22 @@ def test_link_suggestions_empty_without_embeddings(client):
     assert client.get("/entries/link-suggestions").json() == []
 
 
+def test_link_suggestions_carry_the_reason_linking_would_deduce(ai_client):
+    """Asked directly: a suggestion showed a bare percentage with nothing
+    saying *why*, unlike an actual link. `LINK_SUGGESTION_THRESHOLD` equals
+    `manager.AUTO_REASON_THRESHOLD` exactly, so every suggestion here would
+    get this same text if it were linked with no reason given — showing it
+    up front is a preview of that outcome, not a separate guess."""
+    a = _save(ai_client, "a funny scarecrow joke")
+    b = _save(ai_client, "another funny pun")
+
+    suggestions = ai_client.get("/entries/link-suggestions").json()
+    match = next(
+        s for s in suggestions if frozenset((s["source_id"], s["target_id"])) == frozenset((a["id"], b["id"]))
+    )
+    assert match["reason"] == "similar in meaning"
+
+
 # --- link reason: deduced with a confidence score, and editable by hand -------------
 #
 # "whenever a link is made, it should try to find a reason and that reason
@@ -242,6 +258,59 @@ def test_a_links_reason_can_be_added_edited_and_cleared_by_hand(client):
 
     cleared = client.put(f"/entries/{a['id']}/links/{link_id}/reason", json={"reason": None})
     assert cleared.json()["links"][0]["reason"] is None
+
+
+def test_backfill_deduces_reasons_for_links_made_before_the_feature_existed(
+    ai_client, session
+):
+    """"none of my notes have a linked reason yet — is there an easy way to
+    give them all a reason?" `_deduce_reason` only ever ran at the moment
+    `create_link` made a *new* link, so a link made before that shipped (or
+    while the embedding backend was off) stays mute forever with nothing to
+    revisit it. Simulated here by inserting `EntryLink` rows directly,
+    bypassing `create_link`'s own deduction, the way an old link in a real
+    notebook would already sit in the table.
+    """
+    from memorymap.core.database import EntryLink
+
+    a = _save(ai_client, "a funny scarecrow joke")
+    b = _save(ai_client, "another funny pun")
+    c = _save(ai_client, "buy milk and eggs")
+    session.add(
+        EntryLink(source_entry_id=a["id"], target_entry_id=b["id"])
+    )  # similar — should clear the bar
+    session.add(
+        EntryLink(source_entry_id=a["id"], target_entry_id=c["id"])
+    )  # unrelated — should not
+    session.commit()
+
+    result = ai_client.post("/entries/links/backfill-reasons").json()
+    assert result == {"checked": 2, "updated": 1}
+
+    links = ai_client.get(f"/entries/{a['id']}").json()["links"]
+    by_target = {link["entry_id"]: link for link in links}
+    assert by_target[b["id"]]["reason"] == "similar in meaning"
+    assert by_target[b["id"]]["reason_confidence"] == 1.0
+    assert by_target[c["id"]]["reason"] is None
+
+
+def test_backfill_never_touches_a_reason_someone_already_gave(ai_client, session):
+    from memorymap.core.database import EntryLink
+
+    a = _save(ai_client, "first note")
+    b = _save(ai_client, "second note")
+    session.add(
+        EntryLink(
+            source_entry_id=a["id"], target_entry_id=b["id"], reason="written by hand"
+        )
+    )
+    session.commit()
+
+    result = ai_client.post("/entries/links/backfill-reasons").json()
+    assert result == {"checked": 0, "updated": 0}
+
+    link = ai_client.get(f"/entries/{a['id']}").json()["links"][0]
+    assert link["reason"] == "written by hand"
 
 
 def test_editing_a_reason_by_hand_clears_a_deduced_confidence(ai_client):

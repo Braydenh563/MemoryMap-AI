@@ -12956,6 +12956,31 @@ textarea.drag-over {
   white-space: nowrap;
 }
 
+/* Reported: "the labels and what UI control element they connect to is
+   confusing in the graph tab" — `.graph-time-label` ("All time") is a plain
+   read-out of the slider to its left, styled identically (`muted text-sm`)
+   to the *interactive* toggle labels (Similarity/Hide unlinked/Labels)
+   sitting right after it in the same flex row with the same gap, so nothing
+   marked where one group ended and the next began. Grouping the toggles
+   under one `.graph-toggle-group` span and drawing a divider before each
+   group — the same `+`-selector convention `.chat-tool-group` already uses,
+   so a hidden group never leaves a stranded line — makes the row read as
+   Physics | Time | Toggles rather than one undifferentiated strip. */
+.graph-toggle-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.graph-physics+.graph-temporal::before,
+.graph-temporal+.graph-toggle-group::before {
+  content: "";
+  align-self: stretch;
+  width: 1px;
+  margin-inline-end: var(--space-3);
+  background: var(--border);
+}
+
 /* The Library page and its three sub-views. The page is a column so that a
    sub-view can be the part that scrolls, rather than the window. */
 #tab-library:not(.hidden) {

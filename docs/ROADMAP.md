@@ -75,24 +75,24 @@ Things that are wrong, lose work, or make the app feel unreliable.
    but not one that mismatches what happened ("I tagged it as Work" when a
    different tag was applied). Needs real model output to tune against, which
    this sandbox cannot provide — named rather than guessed at.
-8. **Two backend perf findings from a full review this session, not yet
-   fixed.** Both reproducible, neither fixed — deliberately: verifying either
-   properly needs a realistic-size notebook to measure against, and this
-   sandbox's suite runs against a handful of notes. Start here next.
-   - `tools.py`'s `_graph_neighbours` (~line 433) does `select(Entry).where(
-     Entry.is_deleted == False)` — a full, unfiltered table scan materialising
-     every note — whenever a visited node has tags, to find tag matches by
-     hand instead of a SQL filter. `_related_notes` calls it once per node in
-     the BFS frontier (depth 2, up to 12 notes), so one `related_notes` tool
-     call is up to ~12 full scans. The similar O(n²) at `GET
-     /graph?similarity=true` was already found and left off by default
-     (ANALYSIS.md §34); this one runs by default, inside the agent's own
-     tools.
-   - `manager.entry_dates` (one `SELECT` per entry) is called in a loop by
-     `_note_summary`, itself called per row by `list_notes` (≤25) and
-     `summarize_notes` (≤40) — an N+1 on the agent's most-used read tools.
-     Cheaper to fix than the one above: batch into one `WHERE entry_id IN
-     (...)` query and group the results by id before the loop.
+8. ~~**Two backend perf findings.**~~ **Done (HISTORY.md §44).**
+   `_graph_neighbours`'s full-table scan is now pre-filtered with `ilike` per
+   tag (same pattern `list_tags`/`_count_notes` already used elsewhere in the
+   file) before the exact Python check, cutting it from one full-table fetch
+   per BFS node to one narrowed query; `_note_summary`'s per-row
+   `entry_dates` call is now `manager.entry_dates_bulk`, one `WHERE entry_id
+   IN (...)` for the whole page instead of one `SELECT` per row in
+   `list_notes`/`summarize_notes`. Both pinned by query-count regression
+   tests in `test_scale_query_counts.py` rather than timing, matching that
+   file's existing convention.
+9. ~~**A "completed" notification for a background pass the user never
+   enabled.**~~ **Done (HISTORY.md §44).** Reported directly and reproduced
+   live (not guessed at): `POST /tasks/trigger-autonomous` ran a real
+   optimisation pass regardless of the `autonomous_tasks_enabled` master
+   toggle — only the scheduled loop checked it before ever calling in; the
+   "Run optimization now" button being hidden while the toggle is off is a
+   UI convenience, not an authorization check. The route now checks the
+   toggle itself before calling `trigger_now`.
 
 ### Tier 2 — half-built features, cheap to finish
 
@@ -119,7 +119,17 @@ into a good one.
    card's own link chips), which resets any deduced confidence since a
    person's words aren't a similarity score. Turns the graph from "these are
    connected" into "connected *because*" — which is also what makes Trace
-   worth reading.
+   worth reading. **Extended (HISTORY.md §44):** asked directly — a
+   suggestion in the Graph tab's "Notes that look related" panel showed a
+   bare percentage with no sense of *why*; `GET /entries/link-suggestions`
+   now carries the same `reason` text a link would get if approved (the two
+   thresholds are numerically identical, so this is a preview of the real
+   outcome, not a separate guess). And: *"none of my notes have a linked
+   reason yet — is there an easy way to give them all a reason?"* — there
+   wasn't, since deduction only ever ran at the moment a link was first made.
+   `POST /entries/links/backfill-reasons` (`manager.backfill_link_reasons`)
+   runs it once over every existing reason-less link, behind a button next
+   to Suggest links.
 10. **The sketch pad.** The highlighter at 5% opacity is effectively invisible
     (~20 passes before anything shows) — that is the "completely wrong" in the
     report. Then a reachable size control, a background colour, and a
@@ -235,6 +245,68 @@ into a good one.
     this is about someone new knowing where to look). `#onboarding-overlay`
     already exists as a surface (see CLAUDE.md's login recipe); worth
     checking what it currently does before scoping a tour on top of it.
+19a. ~~**The graph toolbar's controls read as one undifferentiated strip.**~~
+    **Done (HISTORY.md §44).** Reported directly: `.graph-time-label` ("All
+    time") is a plain read-out of the Time Filter slider, styled identically
+    to the *interactive* toggle labels (Similarity/Hide unlinked/Labels)
+    sitting right after it with the same flex gap, so nothing marked where
+    one group ended and the next began. The three toggles are now grouped
+    under one `.graph-toggle-group` span with a divider drawn before each
+    group (`.graph-physics`/`.graph-temporal`/`.graph-toggle-group`), the
+    same `+`-selector convention `.chat-tool-group` already used, so the row
+    reads as Physics | Time | Toggles rather than one strip. **Not verified
+    live** — CSS-only, reasoned from the DOM/selectors and the existing
+    `.chat-tool-group` precedent, not screenshotted in this session.
+19b. **A mute-notifications option, asked for directly**, alongside making
+    the toast/notification split clearer: "there can be an option to mute
+    notifications except for reminders." Built as
+    `notifications_muted_except_reminders` (Settings → Preferences →
+    Notifications): `toast()` takes an `exempt` flag (set on the three
+    reminder-alert call sites) and returns early for everything else when
+    muted; `recordNotification` does the same for the persistent panel,
+    keyed off `kind !== "reminder"`. Errors are never muted — silencing a
+    real failure would hide the thing muting is least meant to hide. **Not
+    built**: mirroring ordinary toasts into the notifications panel (the
+    other half of the same message) — every `toast()` call site would need
+    a `kind` to avoid flooding the panel with routine "Saved."/"Linked."
+    noise, which needs a first pass at which toasts actually belong there
+    before it's buildable. **Not verified live** — reasoned from the code
+    path, not driven in a browser.
+
+### Open questions raised this session, not built
+
+- **Should Capture have its own title field**, separate from the leading-
+  heading convention §43 already shipped (`manager.extract_title` reads a
+  `#`–`######` first line, computed on read rather than stored)? Asked
+  directly, including "if the user begins a note with `#` maybe it moves to
+  the optional title input" — genuinely a design question in the same shape
+  §43 was worked through as, not a bug: a second, separate title field would
+  either duplicate the heading-line mechanism (keeping both in sync) or
+  replace it (undoing the "read off the note, not enforced" decision §43's
+  writeup already recorded). Needs a decision before either is built, not a
+  guess.
+- **"The dashboard isn't detecting my name."** Traced end to end
+  (`renderNameNudge`/`withDisplayName` read `prefsCache.display_name`, and
+  `savePrefs` updates both the cache and re-renders the greeting on save) and
+  the code reads correct — the nudge is *designed* to show exactly when
+  `display_name` is empty, so a fresh profile with no name saved yet showing
+  "👋 Add your name" is very likely the feature working as built, not a bug.
+  Could not reproduce a case where a name was actually saved and still not
+  shown; if it recurs, check `GET /preferences` directly for whether
+  `display_name` actually persisted, rather than assuming the render path.
+- **The Timeline grid's "text cut off with no ellipsis" report** (§38a item
+  2 was believed fixed) was re-investigated live: seeded notes up to 122
+  characters at the grid's actual 13rem column width and read
+  `getComputedStyle` on every `.timeline-dot`. Two things came out of it,
+  neither a confirmed fix: `-webkit-box`'s **computed** `display` resolves to
+  `flow-root` in this sandbox's Chromium, not `-webkit-box` — the property
+  the existing code comment says is "what this display mode actually reads"
+  isn't actually the mechanism in effect here, though clamping still worked
+  correctly in every case tested (`scrollHeight === clientHeight`, nothing
+  overflowing). Could not reproduce actual clipped, non-ellipsised text with
+  any input tried. Worth re-checking with the user's exact note content and
+  browser before guessing at a CSS change — this project's own standing rule
+  is to reproduce before theorising, and this one didn't reproduce.
 
 ### Tier 3 — new capability
 

@@ -14646,6 +14646,9 @@ async function renderPrefs() {
   $("pref-style").value = prefsCache.communication_style;
   $("pref-profile").value = prefsCache.user_profile;
   $("pref-profile-enabled").checked = prefsCache.profile_enabled;
+  $("pref-notif-mute-except-reminders").checked = Boolean(
+    prefsCache.notifications_muted_except_reminders
+  );
   $("prefs-status").textContent = "";
 }
 
@@ -14785,6 +14788,8 @@ async function savePrefs() {
         communication_style: $("pref-style").value,
         user_profile: $("pref-profile").value,
         profile_enabled: $("pref-profile-enabled").checked,
+        notifications_muted_except_reminders:
+          $("pref-notif-mute-except-reminders").checked,
         autonomous_tasks_enabled: $("pref-autonomous-tasks").checked,
         auto_tag_enabled: $("pref-auto-tag").checked,
         auto_link_enabled: $("pref-auto-link").checked,
@@ -15708,6 +15713,7 @@ function storedNotifications() {
 // Record something worth remembering. `key` de-duplicates: the reminder poll
 // runs every thirty seconds and must not add the same fired reminder twice.
 function recordNotification({ kind, title, detail = "", key = "", action = null }) {
+  if (kind !== "reminder" && notificationsMuted()) return;
   const items = storedNotifications();
   const id = key || `${kind}:${title}:${Date.now()}`;
   if (key && items.some((n) => n.id === id)) return;
@@ -15899,15 +15905,19 @@ async function checkDueReminders() {
   // separate system notifications for three reminders is worse than one.
   if (fresh.length === 1) {
     const text = fresh[0].text;
-    if (!notify("⏰ Reminder", text)) toast(`⏰ ${text}`);
+    if (!notify("⏰ Reminder", text)) toast(`⏰ ${text}`, false, { exempt: true });
   } else {
     const summary = `${fresh.length} reminders are due`;
-    if (!notify("⏰ MemoryMap", summary)) toast(`⏰ ${summary}`);
+    if (!notify("⏰ MemoryMap", summary)) toast(`⏰ ${summary}`, false, { exempt: true });
   }
   // Always in-app as well as out: a system notification can be suppressed by
   // Do Not Disturb without the app ever knowing.
   if ("Notification" in window && Notification.permission === "granted") {
-    toast(fresh.length === 1 ? `⏰ ${fresh[0].text}` : `⏰ ${fresh.length} reminders are due`);
+    toast(
+      fresh.length === 1 ? `⏰ ${fresh[0].text}` : `⏰ ${fresh.length} reminders are due`,
+      false,
+      { exempt: true }
+    );
   }
   loadReminders().catch(() => {});
 }
@@ -15924,7 +15934,17 @@ function startReminderWatch() {
   });
 }
 
-function toast(message, isError = false) {
+// Asked directly: "an option to mute notifications except for reminders".
+// A reminder toast passes `exempt: true` so it still gets through; an error
+// always does too — silencing a real failure would hide the thing muting is
+// least meant to hide. Everything else (background jobs, agent runs, general
+// activity) is what the toggle actually quiets.
+function notificationsMuted() {
+  return Boolean(prefsCache && prefsCache.notifications_muted_except_reminders);
+}
+
+function toast(message, isError = false, { exempt = false } = {}) {
+  if (!exempt && !isError && notificationsMuted()) return;
   const box = $("toast-box");
   const note = document.createElement("div");
   note.className = isError ? "toast error" : "toast";
@@ -18096,20 +18116,45 @@ async function loadLinkSuggestions() {
   const headingText = document.createElement("span");
   headingText.className = "muted";
   headingText.textContent = "Notes that look related — link the ones you agree with:";
-  
+
+  // Asked directly: "none of my notes have a linked reason yet — is there an
+  // easy way to give them all a reason?" There wasn't, since `_deduce_reason`
+  // only ever ran when a link was first made. This runs it once over every
+  // existing reason-less link instead of leaving them mute forever.
+  const backfill = smallButton(
+    "💡 Give existing links a reason",
+    "Deduce a reason for every link that doesn't have one yet, from how alike the two notes' meanings are",
+    async () => {
+      const result = await apiJson("/entries/links/backfill-reasons", {
+        method: "POST",
+      }).catch((e) => {
+        toast(e.message, true);
+        return null;
+      });
+      if (!result) return;
+      toast(
+        result.updated
+          ? `Gave ${result.updated} of ${result.checked} link${result.checked === 1 ? "" : "s"} a reason.`
+          : result.checked
+            ? "None of them were similar enough to guess a reason for."
+            : "Every link already has a reason."
+      );
+    }
+  );
+
   const closeAll = smallButton("✕", "Close suggestions", () => {
     box.classList.add("hidden");
     box.replaceChildren();
   });
-  
-  heading.append(headingText, closeAll);
+
+  heading.append(headingText, backfill, closeAll);
   box.appendChild(heading);
   for (const s of suggestions) {
     const row = document.createElement("div");
     row.className = "link-suggestion";
     const text = document.createElement("span");
     text.append(
-      document.createTextNode(`“${s.source_preview}” ↔ “${s.target_preview}” `)
+      document.createTextNode(`“${s.source_preview}” ↔ “${s.target_preview}” — ${s.reason} `)
     );
     const score = chip(`${Math.round(s.similarity * 100)}%`, "confidence");
     const link = smallButton("🔗 Link", "Connect these two notes", async () => {

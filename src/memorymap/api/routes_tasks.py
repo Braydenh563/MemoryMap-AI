@@ -226,8 +226,26 @@ def trigger_autonomous() -> dict:
     pressing "Run now" while it runs is not an error, it is impatience, and the
     honest answer is "it's already going". The guard itself matters — without
     it each press started another agent loop against the same notebook.
+
+    Reported: a "completed" notification for a pass the user "didn't have
+    enabled". `trigger_now` itself has never checked the master
+    `autonomous_tasks_enabled` toggle — only the scheduled loop did, before
+    ever calling it — so this endpoint ran the real pass regardless of the
+    toggle; the "Run now" button just happens to be hidden while it's off,
+    which is a UI convenience, not an authorization check. Checked here,
+    before `trigger_now`, rather than inside it: `trigger_now`'s own job is
+    the concurrency guard above, and folding a second, unrelated reason to
+    refuse into the same bool return would make "false" ambiguous between
+    "busy" and "disabled" for every existing caller of that function.
     """
     from memorymap.ai import autonomous
+
+    if not deps.get_config().get_preference("autonomous_tasks_enabled", False):
+        return {
+            "status": "ok",
+            "started": False,
+            "detail": "Autonomous background workers are switched off in Settings.",
+        }
 
     started = autonomous.trigger_now()
     return {

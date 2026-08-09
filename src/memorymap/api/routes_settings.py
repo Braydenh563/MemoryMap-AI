@@ -159,6 +159,10 @@ class PreferencesBody(BaseModel):
     autonomous_tasks_model: str | None = Field(default=None, max_length=100)
     battery_efficient_mode: bool | None = None
     smart_model_routing_enabled: bool | None = None
+    # Asked directly: a way to quiet toasts and the notifications panel for
+    # background jobs, agent runs and general activity while a due reminder
+    # still gets through either way.
+    notifications_muted_except_reminders: bool | None = None
     # Wave O: agent tools the user has switched off (by tool name).
     disabled_tools: list[str] | None = Field(default=None, max_length=50)
     # The user's IANA timezone, reported by the browser at startup. Anything

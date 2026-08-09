@@ -1175,3 +1175,148 @@ check above proves the same JS code path (`api(... PUT .../reason)`,
 re-render, chip title) that the auto-deduce path also runs through — but the
 pixels of a deduced reason's tooltip specifically were not seen, and that is
 worth re-checking with a real embedding backend before calling it done.
+
+## 44. §8's two perf fixes, a real "ran without being enabled" bug, link suggestions grew the reason they'd get if linked, a mute option — plus three reports investigated and not reproduced
+
+An unattended run: checked the running app and both handover files first,
+per this project's own standing rule, then worked ROADMAP.md's Tier 1 top
+item — §8's two backend perf findings, explicitly flagged "start here next"
+— before anything the user raised live mid-session. Committed and pushed in
+batches rather than one large commit, in case of a usage-limit cutoff.
+
+**§8, both perf findings, fixed and pinned by query-count tests (not
+timing):**
+
+1. `tools._graph_neighbours` fetched every non-deleted `Entry` — the whole
+   table, `content` included — whenever the note it was walking from had
+   tags, to find tag matches by hand. `_related_notes` calls it once per BFS
+   node (up to ~12 at depth 2), so this scaled per call as well as per
+   entry. Tags are a JSON text column with no per-tag index, so a SQL filter
+   can only narrow candidates, not resolve the match exactly: rewritten to
+   `ilike` pre-filter per tag (the same pattern `list_tags`/`_count_notes`
+   already used elsewhere in this file) before the existing exact Python
+   check, which also removes any substring false positive ("art" matching
+   "cart") the `ilike` lets through.
+2. `manager.entry_dates` (one `SELECT` per entry) was called inside
+   `_note_summary`, itself called per row by `list_notes` (≤25) and
+   `summarize_notes` (≤40) — an N+1 on the agent's two most-used read tools.
+   New `manager.entry_dates_bulk` fetches every returned note's dates in one
+   `WHERE entry_id IN (...)` query, grouped by id; `_note_summary` takes an
+   optional pre-fetched `dates` list so the two batch callers can pass it in
+   while single-note callers (`get_note`, etc.) keep querying one at a time.
+
+Both pinned in `tests/test_scale_query_counts.py` (extended, not a new
+file) with a query count at 20 vs. 220 entries — a fixed handful either way,
+not one-per-entry — matching that file's own stated reasoning for counting
+queries instead of timing them.
+
+**A real correctness bug, reproduced live before being fixed, not
+theorised**: the user reported *"I get notifications that the autonomous
+optimisation completed when I didn't have it enabled??"* Read
+`ai/autonomous.py` first and found the shape: `_loop()` checks
+`autonomous_tasks_enabled` before ever calling `_run_optimization`, but
+`trigger_now()` (the "Run optimization now" button, and its `POST
+/tasks/trigger-autonomous` endpoint) never did — it only guards against a
+pass already running. Confirmed with a live server rather than assumed: on
+a fresh profile (`autonomous_tasks_enabled` unset), `curl -X POST
+.../tasks/trigger-autonomous` returned `started: true` and a real pass ran.
+The button itself is hidden while the toggle is off, which is a UI
+convenience, not an authorization check — anything else reaching the
+endpoint (a stray script, a future dashboard shortcut) hit the same gap.
+Fixed in the route, not in `_run_optimization` or `trigger_now`: ten-plus
+existing tests call `_run_optimization()` directly and treat the master
+toggle as the caller's job to check (by design — its docstring is "one
+pass", and `_loop` already owns that check), so folding the guard into the
+shared function would have broken that contract and every one of those
+tests. The route now checks the preference itself before calling
+`trigger_now`, with a distinct response body (`"switched off in Settings"`)
+so a caller can't confuse "disabled" with "already running" the way a
+single bool would. Re-verified live after the fix: disabled →
+`started: false` with the new message; explicitly enabled → `started: true`,
+a real pass. Two new tests in `test_autonomous.py` pin both branches at the
+route level.
+
+**Link reasons, extended on two fronts the user asked about directly:**
+
+- *"I feel like the suggested links should include a suggested reason
+  somewhere."* `GET /entries/link-suggestions` and `manager.create_link`'s
+  own deduction threshold (`AUTO_REASON_THRESHOLD`, renamed from
+  `_AUTO_REASON_TEXT` to make it importable) are numerically identical
+  (0.55), so every suggestion already clears the bar a real link would need
+  to get this same text — added it to the response as `reason` rather than
+  computing anything new, and it's a preview of the real outcome, not a
+  separate guess.
+- *"None of my notes have a linked reason yet — is there an easy way to give
+  them all a reason?"* There wasn't: `_deduce_reason` only ever ran at the
+  moment `create_link` made a *new* link, so a notebook full of links made
+  before §43 shipped (or made while the embedding backend was off) had no
+  way back to a reason. New `manager.backfill_link_reasons` runs the same
+  deduction once over every existing reason-less link — same rule as a
+  fresh link: a person's own reason is never touched, and a link that still
+  can't be deduced (no embedding, or under threshold) is left exactly as it
+  was rather than given a manufactured answer. `POST
+  /entries/links/backfill-reasons`, and a "💡 Give existing links a reason"
+  button next to Suggest links in the graph's suggestion panel. Four new
+  tests: the suggestion's `reason` field, a backfill that fills the similar
+  pair and leaves the unrelated one alone, and one confirming a hand-written
+  reason is never overwritten.
+
+**A notifications-mute option, asked for directly**: "there can be an
+option to mute notifications except for reminders." New preference
+`notifications_muted_except_reminders` (Settings → Preferences →
+Notifications). `toast()` gained an `exempt` flag — set on the three
+reminder-alert call sites so a due reminder always gets through — and
+returns early for everything else, except errors, when muted (silencing a
+real failure would defeat the point of the toggle more than the noise it's
+meant to quiet). `recordNotification` (the persistent panel) does the same,
+keyed off `kind !== "reminder"`. Not built: mirroring ordinary UI-action
+toasts ("Saved.", "Linked.") into the panel, the other half of the same
+message — every call site would need a `kind` first, and flooding the panel
+with routine feedback isn't obviously wanted; needs its own pass at which
+toasts actually belong there.
+
+**A graph-toolbar readability fix, reported directly**: "the labels and
+what UI control element they connect to is confusing in the graph tab."
+`.graph-time-label` ("All time") is a plain read-out of the Time Filter
+slider, styled identically to the *interactive* toggle labels
+(Similarity/Hide unlinked/Labels) sitting right after it with the same flex
+gap — nothing marked where the slider's own group ended and the toggles
+began. Grouped the three toggles under one `.graph-toggle-group` span and
+drew a divider before each top-level group, reusing `.chat-tool-group`'s
+existing `+`-selector convention (a divider on the group itself survives
+any neighbour being hidden) rather than inventing a second one.
+
+**Three things reported live, investigated, and correctly left alone rather
+than guessed at** — full detail in ROADMAP.md's new "Open questions raised
+this session" section:
+
+- Whether Capture should grow its own title field, separate from §43's
+  leading-heading convention — a design question in the same shape §43 was
+  worked through as, not a bug. Not built; needs a decision first.
+- *"The dashboard isn't detecting my name."* Traced end to end
+  (`renderNameNudge`, `withDisplayName`, `savePrefs`'s cache update and
+  re-render) and the code is correct — the nudge is designed to show exactly
+  when `display_name` is empty. Read as "the feature working as built on a
+  profile with no name saved" rather than a bug, absent a case where a name
+  was actually saved and still didn't show.
+- The Timeline grid's "text cut off with no ellipsis" report, re-driven live
+  in Chromium with notes up to 122 characters at the grid's real column
+  width. Found one real, previously-undocumented fact — `display:
+  -webkit-box`'s **computed** value in this sandbox's Chromium is
+  `flow-root`, not `-webkit-box`, so the existing code comment's claim about
+  which property "actually reads" here is not quite right — but clamping
+  still worked correctly in every case tried (`scrollHeight === clientHeight`
+  throughout, nothing overflowing). Could not reproduce the reported
+  clipping with any input tried; said so rather than guess at a CSS change
+  with nothing to verify it against.
+
+**What could and couldn't be verified**: the two §8 perf fixes and the
+autonomous-toggle fix were all reproduced and re-verified against a real
+running server (`curl`, not just reasoning about the code) — the standing
+trap this project's own history has fallen into more than once. The
+graph-toolbar divider, the suggestion-reason text, the backfill button and
+the mute option are CSS/JS reasoned from the DOM and existing conventions
+but were **not** driven in a browser this session — say so plainly rather
+than claim a screenshot that doesn't exist. Full `pytest tests/` (~1,600+
+tests), `ruff check .`, and `node --check frontend/app.js` all green after
+every batch.

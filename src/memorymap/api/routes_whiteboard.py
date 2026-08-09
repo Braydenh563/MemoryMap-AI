@@ -21,11 +21,12 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from memorymap.core.database import Entry, WhiteboardNode, WhiteboardSketch
 from memorymap.core.deps import get_session
+from memorymap.entry.manager import extract_title
 
 router = APIRouter(prefix="/whiteboard", tags=["whiteboard"])
 
@@ -112,6 +113,91 @@ def get_whiteboard_state(
         select(WhiteboardSketch).where(_board_filter(WhiteboardSketch, board_id))
     ).all()
     return WhiteboardStateOut(nodes=list(nodes), sketches=list(sketches))
+
+
+class BoardOut(BaseModel):
+    #: None is the one unnamed scratch board every notebook starts with.
+    id: int | None
+    title: str
+    node_count: int
+    sketch_count: int
+
+
+class BoardCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+
+
+@router.get("/boards", response_model=list[BoardOut])
+def list_boards(db: Session = Depends(get_session)) -> list[BoardOut]:
+    """Boards actually in use — not, as the client used to build this list
+    itself, every note in the notebook.
+
+    Reported directly: "the different board options confuse me." The cause
+    wasn't a bug so much as a design choice nobody had reckoned with yet — a
+    board being *just a note* (this file's own opening comment) is right for
+    the data model, but the picker took that literally and listed every
+    single note as a "board", the vast majority of which had never been used
+    as one. A notebook with 50 notes had a 50-item "Switch board" dropdown
+    with no way to tell which one, if any, was actually a board someone had
+    drawn on. This lists only notes with at least one card or sketch on them,
+    plus the always-present default board.
+    """
+    node_counts = dict(
+        db.execute(
+            select(WhiteboardNode.board_id, func.count())
+            .where(WhiteboardNode.board_id.is_not(None))
+            .group_by(WhiteboardNode.board_id)
+        ).all()
+    )
+    sketch_counts = dict(
+        db.execute(
+            select(WhiteboardSketch.board_id, func.count())
+            .where(WhiteboardSketch.board_id.is_not(None))
+            .group_by(WhiteboardSketch.board_id)
+        ).all()
+    )
+    default_nodes = db.scalar(
+        select(func.count()).select_from(WhiteboardNode).where(WhiteboardNode.board_id.is_(None))
+    )
+    default_sketches = db.scalar(
+        select(func.count()).select_from(WhiteboardSketch).where(WhiteboardSketch.board_id.is_(None))
+    )
+    boards = [
+        BoardOut(id=None, title="Default board", node_count=default_nodes, sketch_count=default_sketches)
+    ]
+    board_ids = set(node_counts) | set(sketch_counts)
+    if board_ids:
+        entries = db.scalars(
+            select(Entry).where(Entry.id.in_(board_ids), Entry.is_deleted.is_(False))
+        ).all()
+        for entry in entries:
+            title = extract_title(entry.content) or entry.content.strip()[:40] or f"Note {entry.id}"
+            boards.append(
+                BoardOut(
+                    id=entry.id,
+                    title=title,
+                    node_count=node_counts.get(entry.id, 0),
+                    sketch_count=sketch_counts.get(entry.id, 0),
+                )
+            )
+    return boards
+
+
+@router.post("/boards", response_model=BoardOut, status_code=201)
+def create_board(body: BoardCreate, db: Session = Depends(get_session)) -> BoardOut:
+    """A fresh, empty board — a plain note whose whole job is to be one.
+
+    Named directly (`# {name}` as its first line, the same heading convention
+    every note's own title already reads), rather than the previous only way
+    in: create an ordinary note somewhere else first, then find it again in a
+    dropdown that listed the entire notebook.
+    """
+    name = body.name.strip()
+    entry = Entry(content=f"# {name}")
+    db.add(entry)
+    db.commit()
+    db.refresh(entry)
+    return BoardOut(id=entry.id, title=name, node_count=0, sketch_count=0)
 
 
 @router.post("/nodes", response_model=WhiteboardNodeOut)

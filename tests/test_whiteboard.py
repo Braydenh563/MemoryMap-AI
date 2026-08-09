@@ -183,6 +183,50 @@ def test_purging_a_note_removes_its_own_whiteboard_card(board_client, session):
     assert board_client.get("/whiteboard/").json()["nodes"] == []
 
 
+def test_the_board_list_only_shows_boards_actually_in_use(board_client, session):
+    """Reported directly: "the different board options confuse me." The
+    picker used to be built client-side from *every note in the notebook* —
+    this is the fix, and the test pins the shape it has to have: the default
+    board always present, and a note only listed once something is actually
+    on it.
+    """
+    plain_note = _note(session, "just an ordinary note, never a board")
+    board_note = _note(session, "a real board")
+    board_client.post("/whiteboard/nodes", json={"entry_id": plain_note.id, "board_id": board_note.id})
+
+    boards = board_client.get("/whiteboard/boards").json()
+    ids = [b["id"] for b in boards]
+    assert None in ids  # the default board is always offered
+    assert board_note.id in ids
+    assert plain_note.id not in ids  # never used as a board — not listed
+
+    entry = next(b for b in boards if b["id"] == board_note.id)
+    assert entry["node_count"] == 1
+    assert entry["sketch_count"] == 0
+
+
+def test_creating_a_board_makes_a_named_note_and_lists_it(board_client):
+    """The other half of the same report: there was no way to make a new
+    board except creating an ordinary note elsewhere and finding it again in
+    the all-notes dropdown."""
+    created = board_client.post("/whiteboard/boards", json={"name": "Project Atlas"})
+    assert created.status_code == 201, created.text
+    body = created.json()
+    assert body["title"] == "Project Atlas"
+    assert body["node_count"] == 0
+
+    # A fresh board isn't "in use" yet — it won't show in the list until
+    # something is actually placed on it, same as any other note.
+    boards = board_client.get("/whiteboard/boards").json()
+    assert body["id"] not in [b["id"] for b in boards]
+
+    board_client.post("/whiteboard/sketches", json={"data": "M0 0 L1 1", "board_id": body["id"]})
+    boards = board_client.get("/whiteboard/boards").json()
+    entry = next(b for b in boards if b["id"] == body["id"])
+    assert entry["title"] == "Project Atlas"
+    assert entry["sketch_count"] == 1
+
+
 def test_purging_a_board_note_detaches_its_cards_instead_of_deleting_them(
     board_client, session
 ):

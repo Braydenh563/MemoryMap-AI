@@ -23241,6 +23241,7 @@ async function initWhiteboard() {
       renderWhiteboard();
     });
   }
+  $("wb-new-board")?.addEventListener("click", createNewBoard);
 
   // Board background colour, asked for directly — the ambient generative-art
   // canvas showed straight through the board before this (`--wb-board-bg`,
@@ -23782,28 +23783,63 @@ async function fetchWhiteboardState() {
     const url = window.currentBoardId ? `/whiteboard/?board_id=${window.currentBoardId}` : "/whiteboard/";
     const res = await apiJson(url);
     wbState = res;
-    
-    // Also update board dropdown
-    const select = document.getElementById("wb-board-select");
-    if (select) {
-      // populate if not populated
-      if (select.options.length <= 1 && allEntries.length > 0) {
-        allEntries.forEach(e => {
-          const opt = document.createElement("option");
-          opt.value = e.id;
-          // `title`/`preview` are not fields on an entry — the only text an
-          // entry carries is `content` — so this always fell through to
-          // "Note 25", and a list of id numbers is not a list of boards.
-          const words = notePreviewText ? notePreviewText(e.content || "") : (e.content || "");
-          const label = words.trim().slice(0, 38) || `Note ${e.id}`;
-          opt.textContent = words.length > 38 ? `${label}…` : label;
-          select.appendChild(opt);
-        });
-      }
-      select.value = window.currentBoardId || "";
-    }
+    await refreshBoardList();
   } catch (err) {
     console.error("Whiteboard fetch error:", err);
+  }
+}
+
+// Reported directly: "the different board options confuse me." It used to
+// be every note in the notebook, since architecturally any note can serve as
+// a board_id — the picker took that literally and offered a 50-item dropdown
+// of notes that had never been anywhere near the whiteboard. GET
+// /whiteboard/boards lists only notes something is actually on, plus the
+// always-present default board (see routes_whiteboard.py for the full
+// writeup). Re-fetched on every state load rather than cached once: creating
+// or first-using a board should show up in the picker without a reload.
+// `justCreated`: a board this session just made, which won't come back from
+// the server yet — nothing is on it, and the endpoint only lists boards
+// something has actually been placed on (see its own docstring). Without
+// this, switching straight to a brand-new board made the dropdown fall back
+// to whatever option happened to match nothing, which looked like the new
+// board had failed to switch to at all.
+async function refreshBoardList(justCreated = null) {
+  const select = document.getElementById("wb-board-select");
+  if (!select) return;
+  const boards = await apiJson("/whiteboard/boards", { silent: true }).catch(() => null);
+  if (!boards) return;
+  if (justCreated && !boards.some((b) => b.id === justCreated.id)) {
+    boards.push({ ...justCreated, node_count: 0, sketch_count: 0 });
+  }
+  select.replaceChildren();
+  for (const board of boards) {
+    const opt = document.createElement("option");
+    opt.value = board.id ?? "";
+    const count = board.node_count + board.sketch_count;
+    opt.textContent = board.id === null
+      ? board.title
+      : `${board.title} (${count} item${count === 1 ? "" : "s"})`;
+    select.appendChild(opt);
+  }
+  select.value = window.currentBoardId || "";
+}
+
+async function createNewBoard() {
+  const name = await promptDialog("Name the new board:", "");
+  if (!name || !name.trim()) return;
+  try {
+    const board = await apiJson("/whiteboard/boards", {
+      method: "POST",
+      body: JSON.stringify({ name: name.trim() }),
+    });
+    window.currentBoardId = board.id;
+    const url = `/whiteboard/?board_id=${board.id}`;
+    wbState = await apiJson(url);
+    await refreshBoardList(board);
+    renderWhiteboard();
+    toast(`Board "${board.title}" created.`);
+  } catch (err) {
+    toast(err.message || "Couldn't create that board.", true);
   }
 }
 

@@ -9427,6 +9427,22 @@ button.ai-unavailable {
   opacity: 0.65;
 }
 
+/* A pasted/dropped/attached image, inline in the note card list — this used
+   to render as the literal `![name](/media/…)` markdown source, because
+   nothing in the list's own (deliberately restrained, see the comment above)
+   renderer recognised image syntax at all. Capped and clamped so a full-size
+   photo can't blow out the card the way an unbounded long line already
+   doesn't (`.entry-content code`'s own `overflow-wrap` is the same idea). */
+.entry-inline-image {
+  display: block;
+  max-width: 100%;
+  max-height: 16rem;
+  width: auto;
+  border-radius: var(--radius-md);
+  margin: var(--space-3) 0;
+  object-fit: contain;
+}
+
 .entry-content mark {
   background: var(--accent-soft);
   color: inherit;

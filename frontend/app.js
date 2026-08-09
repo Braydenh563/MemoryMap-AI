@@ -1922,7 +1922,27 @@ function matchesSearch(entry) {
 // looked at again, so `**not bold**` inside backticks stays literal.
 // Underscore italics are left out on purpose — snake_case_names are common in
 // notes and `_` italics would eat them.
-const INLINE_MD = /`([^`\n]+)`|\*\*([^*\n]+?)\*\*|~~([^~\n]+?)~~|\*([^*\n]+?)\*/g;
+//
+// Images and links, added after the original four groups rather than before
+// them, so existing callers keyed to `m[1]`–`m[4]` (`notePreviewText` below)
+// keep working unchanged. This is what an uploaded image actually looks like
+// once pasted/dropped/attached (`![name](/media/hash.ext)`, per
+// `handleFileUpload`) — and until now nothing in the note-card list rendered
+// either form at all, so it showed as the literal markdown source, brackets
+// and all. Both accept a same-origin relative URL as well as `https?://`:
+// unlike `appendInline`'s own link pattern (chat/documents, which only ever
+// links *out*), a note's images live at `/media/...` on this same server.
+const INLINE_MD =
+  /`([^`\n]+)`|\*\*([^*\n]+?)\*\*|~~([^~\n]+?)~~|\*([^*\n]+?)\*|!\[([^\]\n]*)\]\(([^)\n]+)\)|\[([^\]\n]+)\]\(([^)\n]+)\)/g;
+
+// Same allowlist an <img src> or <a href> built from note text has to pass:
+// an absolute http(s) URL, or a same-origin relative path (one leading
+// slash, not two — `//evil.com/x` is also "one string starting with /" but
+// is a protocol-relative link off this origin). Rejects `javascript:`,
+// `data:`, and anything else a pasted note could contain.
+function isRenderableUrl(url) {
+  return /^https?:\/\//i.test(url) || (url.startsWith("/") && !url.startsWith("//"));
+}
 
 // LaTeX escapes that models reach for when they want a symbol (§35H).
 //
@@ -1989,7 +2009,43 @@ function renderInlineMarkdown(element, text, terms) {
       highlightInto(before, text.slice(cursor, match.index), terms);
       element.appendChild(before);
     }
-    const [, code, bold, strike, italic] = match;
+    const [, code, bold, strike, italic, imageAlt, imageUrl, linkText, linkUrl] = match;
+    // Images and links are their own element kinds, not a wrap-in-a-tag like
+    // the four above — built and appended directly rather than falling
+    // through to the generic `tag`/`node` shape below, since neither one
+    // takes searched-term highlighting inside it (an <img> has no text to
+    // highlight, and a link's own text isn't split into marks any more than
+    // a code span's is).
+    if (imageUrl !== undefined) {
+      if (isRenderableUrl(imageUrl)) {
+        const img = document.createElement("img");
+        img.src = imageUrl;
+        img.alt = imageAlt || "";
+        img.className = "entry-inline-image";
+        img.loading = "lazy";
+        element.appendChild(img);
+      } else {
+        element.appendChild(document.createTextNode(match[0]));
+      }
+      cursor = pattern.lastIndex;
+      continue;
+    }
+    if (linkUrl !== undefined) {
+      if (isRenderableUrl(linkUrl)) {
+        const a = document.createElement("a");
+        a.href = linkUrl;
+        if (/^https?:\/\//i.test(linkUrl)) {
+          a.target = "_blank";
+          a.rel = "noopener";
+        }
+        highlightInto(a, linkText, terms);
+        element.appendChild(a);
+      } else {
+        element.appendChild(document.createTextNode(match[0]));
+      }
+      cursor = pattern.lastIndex;
+      continue;
+    }
     const tag = code ? "code" : bold ? "strong" : strike ? "s" : "em";
     const node = document.createElement(tag);
     // A code span is literal by definition, so it is never searched-highlighted
@@ -9478,7 +9534,14 @@ async function renderStatsWidget(body) {
 function notePreviewText(content) {
   return (content || "")
     .replace(/\[\[([^[\]]{1,120})\]\]/g, "$1")
-    .replace(new RegExp(INLINE_MD.source, "g"), (...m) => m[1] ?? m[2] ?? m[3] ?? m[4]);
+    .replace(
+      new RegExp(INLINE_MD.source, "g"),
+      // m[6]/m[8] are the image/link *URLs* — only checked for "which branch
+      // matched", never shown; a preview shows the image's alt text (or a
+      // placeholder, since alt is often empty) and a link's own text, not a
+      // raw path nobody asked to read.
+      (...m) => m[1] ?? m[2] ?? m[3] ?? m[4] ?? (m[6] !== undefined ? m[5] || "image" : m[7])
+    );
 }
 
 function miniEntryList(body, entries, emptyText) {
@@ -10942,8 +11005,15 @@ function renderMarkdown(container, text) {
 // [text](http…url), and bare http(s) URLs. Built with textContent only —
 // note/answer text can never inject markup.
 function appendInline(parent, text) {
+  // Images and a link's URL used to require an absolute http(s) address —
+  // fine for chat answers and documents linking *out*, wrong for a note's
+  // own `![name](/media/hash.ext)` (exactly what pasting/dropping/attaching
+  // an image writes, per `handleFileUpload`), which is same-origin and
+  // relative. Both alternatives now accept anything; `isRenderableUrl` is
+  // the actual safety gate at render time below, same guard renderInlineMarkdown
+  // (the note-card list's own renderer) uses for the identical gap there.
   const pattern =
-    /(\*\*[^*]+\*\*|__[^_]+__|~~[^~]+~~|\*[^*]+\*|(?<![\w])_[^_]+_(?![\w])|`[^`]+`|\[[^\]]+\]\((https?:\/\/[^)]+)\)|https?:\/\/[^\s)]+)/g;
+    /(\*\*[^*]+\*\*|__[^_]+__|~~[^~]+~~|\*[^*]+\*|(?<![\w])_[^_]+_(?![\w])|`[^`]+`|!\[[^\]]*\]\(([^)\s]+)\)|\[[^\]]+\]\(([^)\s]+)\)|https?:\/\/[^\s)]+)/g;
   let last = 0;
   let match;
   while ((match = pattern.exec(text)) !== null) {
@@ -10963,14 +11033,33 @@ function appendInline(parent, text) {
       const el = document.createElement("code");
       el.textContent = token.slice(1, -1);
       parent.appendChild(el);
+    } else if (token.startsWith("![")) {
+      const url = match[2];
+      if (isRenderableUrl(url)) {
+        const el = document.createElement("img");
+        el.src = url;
+        el.alt = token.slice(2, token.indexOf("]"));
+        el.className = "entry-inline-image";
+        el.loading = "lazy";
+        parent.appendChild(el);
+      } else {
+        parent.appendChild(document.createTextNode(token));
+      }
     } else if (token.startsWith("[")) {
       const linkText = token.slice(1, token.indexOf("]"));
-      const el = document.createElement("a");
-      el.href = match[2]; // only http(s) matched — safe to use as href
-      el.target = "_blank";
-      el.rel = "noopener";
-      el.textContent = linkText;
-      parent.appendChild(el);
+      const url = match[3];
+      if (isRenderableUrl(url)) {
+        const el = document.createElement("a");
+        el.href = url;
+        if (/^https?:\/\//i.test(url)) {
+          el.target = "_blank";
+          el.rel = "noopener";
+        }
+        el.textContent = linkText;
+        parent.appendChild(el);
+      } else {
+        parent.appendChild(document.createTextNode(token));
+      }
     } else if (token.startsWith("http")) {
       const el = document.createElement("a");
       el.href = token;

@@ -2,33 +2,24 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Next session: start here — anchors, then mind-map mode, then AI + whiteboard
+## Next session: start here — mind-map mode, then AI + whiteboard
 
-Nothing built yet for this — the user confirmed the plan at the end of
-§55 and chose to open a fresh session for it rather than continue mid-§55.
-**This is a decision, not a suggestion**: asked directly ("which mode
-should I build first?", multi-select on "what should AI-reads-whiteboard
-do?"), answered explicitly. Full reasoning and the code-location notes
-gathered while scoping this (nothing built, just the map) are in
-[ROADMAP.md item 11's "still genuinely open" list](../ROADMAP.md) — read
-that section before starting, not just this summary.
+§56 finished item 1 of the three-part confirmed order (anchors) and then
+worked a live-reported whiteboard bug list that arrived mid-session before
+reaching items 2/3. **Read [HISTORY.md §56](HISTORY.md) before touching
+the whiteboard** — it names a real shared-drag-instance bug pattern
+(`objDrag`/`gripDrag`) and a CSS specificity trap (`.bottom-center` vs.
+`[data-dock="side"]`) that cost real time and are easy to reintroduce.
 
-**Build order, confirmed:**
-1. **Real anchor/connection points** (draw.io-style fixed/free anchors).
-   Named "worth its own session" three sessions running (§53, §54, §55) —
-   this is that session. A link's `sourceAnchor`/`targetAnchor` can live as
-   two more keys in the link sketch's existing `data` JSON blob (no
-   migration). Three code sites: drawing (`dragStart`/`dragging`/
-   `dragEndNode`'s `link-` branches), rendering (`sketchUpdate.each`'s
-   `link-` branch, currently a hardcoded centre-point offset — the thing
-   this whole feature replaces), and the per-drag-frame follow
-   (`wbUpdateLinkedSketches`). Read how draw.io itself represents
-   fixed-vs-free before starting; a shallow version costs more to unwind
-   later than it saves now.
+**Build order, remaining:**
+1. ~~**Real anchor/connection points**~~ **Done, verified live (§56).**
+   Eight fixed points + a floating (rectangle-intersection) case, matching
+   draw.io. `wbLinkEndpoints`/`wbLinkPathD` are the shared math every call
+   site now uses — read those before touching link rendering again.
 2. **Mind-mapping mode** (ROADMAP item 25: already fully designed —
    "Arrange as mind map" reusing the Graph tab's Tree/Radial layout code,
-   plus Tab/Enter branch entry). Depends on 1 — branch lines need real
-   anchors to land on card borders.
+   plus Tab/Enter branch entry). No longer blocked — branch lines can
+   terminate on real anchors now instead of arbitrary corners.
 3. **AI + whiteboard, three pieces, confirmed wanted together**: the chat
    agent gets a tool to read a board's contents (nothing under
    `src/memorymap/ai/` currently mentions the whiteboard at all, other than
@@ -37,6 +28,70 @@ that section before starting, not just this summary.
    generation is the write side of the first piece, reusing the same read
    tool plus the existing create/update endpoints. Build the read tool and
    search indexing before the generation piece.
+
+Also still open, named directly by the user in §56 but not built: a full
+line/arrow end-cap system (circle/square/multi-line ends, independently
+per end — only the existing arrowhead was extended from Arrow-only to also
+cover Line).
+
+## §56 — real anchor/connection points, built and verified live, then a live-reported whiteboard UI/bug list worked the same session
+
+Continued from §55's confirmed build order. Full detail — every anchor-math
+helper, the resize-handle pointer-events bug anchors surfaced, and each of
+the seven live UI reports that arrived mid-session (shape-tool dropdown,
+sidebar-dock toggle, rotate cursor, object-grip drag, line end-caps,
+properties-panel header, control-height consistency, rounded corners) — is
+in [HISTORY.md §56](HISTORY.md); this is the short version.
+
+**Anchors**: done exactly as scoped at the end of §55 — `sourceAnchor`/
+`targetAnchor` as `{x,y}` 0–1 fractions in the link sketch's own `data`
+blob, no migration; a floating end (no anchor) resolves via a rectangle/ray
+intersection toward the other end's real point every render. Verified live
+end to end: a corner-to-corner drag persisted the exact fractions and
+rendered at the exact pixel; moving the target afterward re-followed the
+fixed corner correctly.
+
+**The bug anchors found**: every resize/rotate handle was `opacity: 0` but
+not `pointer-events: none` — invisible, but still won the hit-test over
+the card/object beneath it, at every corner, for any tool. Fixed (handles
+are now only interactive while visible, gated on the Select tool). This is
+very likely the root cause the next report below turned out to be about.
+
+**Then, live, unprompted, while the session was running**: "objects are
+also difficult and annoying to move" (fixed — a text object's contenteditable
+content correctly excludes itself from drag, which left only a ~0.5rem
+padding strip to grab; added a dedicated `.wb-object-grip`, and fixed a
+real bug in the fix itself — see HISTORY.md for the shared-drag-instance
+trap); "the tool bar is getting quite long... dropdown" (the 6 shape tools
+collapsed into `#wb-shape-toggle`, two groups — line+arrow, then the other
+four — per a follow-up "line and arrow should be one group"); "adjust it as
+a sidebar" (`#wb-dock-toggle`, bottom ↔ left-edge column, persisted);
+"cursor... rotate icon" (a real curved-arrow SVG cursor, not just `grab`);
+"regular lines should also get... arrow heads" (Line now shares the Arrow
+tool's own end-style control — the fuller circle/square/multi-line ask was
+scoped, not built, see above); "properties panel title... next to the drag
+move icon" (one header row now, was two stacked rows with a large gap);
+"clean up the UI spacing, height and alignment" (every control in a
+whiteboard panel now shares one explicit height — there was no
+`.icon-button` CSS rule at all); "rounded corners if the user has rounded
+edges set" (`.whiteboard-container` now follows `--radius` like everything
+else).
+
+**Two environment traps, worth reading before the next live-verification
+session**: a test object placed near board y≈700–900 in a 900px viewport
+can land under the Agent Activity monitor panel or the tab bar — the same
+shape of problem this file already names for the container's top-left
+corner, just the other edges. And a server "restart" that doesn't confirm
+the old process actually died can leave you testing a stale process on a
+port that looks healthy — check `pgrep`/kill by PID number, not `pkill -f`,
+and confirm a fresh `Started server process [PID]` line before trusting it.
+
+All ~1,600 tests pass (Python untouched this session), `ruff check .` is
+clean, `node --check frontend/app.js` is clean, and the frontend lint
+tests (`test_frontend_ids.py`, `test_frontend_handlers.py`,
+`test_style_scale.py`) all pass. Every behavioural claim above was driven
+against a real running server via Playwright — `wbState`/computed
+styles/DOM rects read back directly, not reasoned from the diff.
 
 ## §55 — a properties panel, card resize, grouping, undo/redo for move+resize, arrow-key nudge, alignment/distribute, and rotation — continuing §54's own "still open" list
 

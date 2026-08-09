@@ -2298,3 +2298,233 @@ session," now named three times), sketch rotation, image cropping, an
 AI-guided diagram-generation mode, uploaded whiteboard images not showing
 in the Library as files, and a whiteboard backend/perf pass beyond the one
 full-rerender bug already fixed in §54.
+
+## 56. Real anchor/connection points, built and verified live — then a live-reported whiteboard bug list that arrived mid-session, all fixed and verified the same way
+
+Started exactly where HANDOVER.md's own "start here" pointed: item 11's
+confirmed build order, anchors first. Built and verified live via
+Playwright before a long list of new UI reports arrived mid-session (the
+user watching and chipping in, not a scripted list) — worked those next,
+per this project's own standing rule to fix what's reported before
+resuming a build plan. Mind-mapping mode and the AI+whiteboard integration
+pieces (the second and third items in that same confirmed order) were
+**not reached this session** — see "what's next" below.
+
+**Real anchor/connection points**, matching how draw.io itself splits the
+fixed-vs-free distinction, exactly as scoped at the end of §55:
+- Eight **fixed** anchors (corners + edge midpoints) as `{x, y}` fractions
+  (0–1) of a card's own bounding box — `sourceAnchor`/`targetAnchor` live
+  as two more keys in the link sketch's existing `data` JSON blob, no
+  schema migration, per the plan. A **floating** end (no anchor persisted)
+  resolves fresh every render via the standard rectangle/ray intersection
+  toward whatever the *other* end actually is — its fixed point if it has
+  one, its centre otherwise — not always the other shape's raw centre,
+  which is what makes a floating end track a moving fixed end correctly
+  instead of just pointing at a static point.
+- One set of shared helpers (`WB_FIXED_ANCHORS`, `wbAnchorPoint`,
+  `wbNearestAnchor`, `wbBoxRayIntersection`, `wbLinkEndpoints`,
+  `wbLinkPathD`) used by all three call sites named in ROADMAP's own
+  scoping notes — the render path (`sketchUpdate.each`), the per-drag-frame
+  follow (`wbUpdateLinkedSketches`), and the link-drawing gesture itself
+  (`dragStart`/`dragging`/`dragEndNode`) — so the endpoint math can't drift
+  between them the way the old hardcoded `x+125, y+75` centre offset was
+  at least consistent about (wrong in the same way everywhere) but never
+  actually correct anywhere.
+- A drag now snaps to the nearest fixed anchor within ~16 board-px of
+  where the gesture started/ended, on both the source and target end
+  independently; anything farther persists no anchor (floating). Small
+  SVG dots at a shape's 8 fixed points appear during a link drag —
+  brighter/larger on whichever one is currently in snapping range — so the
+  snap targets are discoverable rather than a silent hit-test, matching
+  draw.io's own on-hover anchor markers.
+- **Verified live end to end via Playwright**, not reasoned from the code:
+  dragging from a card's exact top-right corner to another card's
+  top-left corner produced `sourceAnchor: {x:1,y:0}`,
+  `targetAnchor: {x:0,y:0}`, and a rendered path terminating precisely at
+  those two corners (`M 350 500 L 700 700` for cards at board (100,500)
+  and (700,700)); moving the target card afterward re-rendered the path to
+  follow the new fixed corner exactly (`M 350 500 L 900 750` after a
+  `+200,+50` move), not the old centre point. A centre-to-centre drag (no
+  anchor in snapping range on either end) persisted a sketch with **no**
+  `sourceAnchor`/`targetAnchor` keys at all and rendered at the exact
+  rectangle-intersection point the shared maths predicts by hand
+  calculation. The anchor-hint dots were confirmed to appear at drag start
+  and while hovering a valid target, and to clear on drop.
+- **Scoping decision, stated plainly rather than silently accepted**:
+  anchor points are computed against each card's *unrotated* bounding box.
+  A rotated card's anchors sit at its unrotated corners, not its visually
+  rotated ones — the same simplification the old centre-point code already
+  had (rotating around the centre doesn't move the centre, so that code
+  never had to think about rotation at all; real corner anchors do, and
+  this session didn't spend the trig on it). Worth fixing alongside sketch
+  rotation (ROADMAP item 11's own "still open" list) rather than now.
+- **A real, previously-unknown bug found *because* anchors target exact
+  corners, not despite it.** Every card/object resize and rotate handle
+  was `opacity: 0` by default (shown on hover/selection) but never
+  `pointer-events: none` — an *invisible* handle still wins a hit-test
+  over the card/object beneath it, at every corner and edge, for
+  **any** tool, not only while selected, and the browser's own `:hover`
+  fires the instant the cursor crosses the card regardless of which tool
+  is active. A synthetic drag aimed at a card's exact corner (to test
+  anchor-snapping) kept landing on the invisible resize handle instead of
+  starting a link — reproduced by checking `document.elementsFromPoint`
+  mid-gesture, not guessed at. Fixed two ways, both needed: `pointer-events:
+  none` on the handles by default, `auto` again only inside a new
+  `#whiteboard-container[data-current-tool="select"] ... :hover`/`.wb-selected`
+  rule (hover alone wasn't enough — a link/pan gesture near a corner lost
+  to the handle just as often once handles were shown on plain hover
+  outside Select too). **Very likely the whole of a report that arrived
+  minutes later** — see below.
+
+**Then, live and unprompted, the user reported a run of specific
+whiteboard UI problems while watching the session** — worked each one in
+turn, per CLAUDE.md's own "fix what's broken before building" rule, all
+reproduced and verified live before and after, not guessed at:
+
+- **"Objects are also difficult and annoying to move around."** Traced to
+  two separate causes, not one. First, the resize-handle bug just above —
+  a small object's clickable area is mostly covered by its own 8 (now
+  correctly non-interactive-when-hidden) handles, so this alone was a
+  large part of it. Second, and specific to **text** objects: `.wb-text-
+  content` (the contenteditable div) correctly excludes itself from the
+  object's own drag — typing has to reach it — but since it fills the
+  entire box, that left only the ~0.5rem padding strip around the text as
+  a draggable surface, the exact width the resize handles sit on top of.
+  Fixed with a dedicated `.wb-object-grip` (⠿, same glyph and convention as
+  the floating panels' own drag grip), always visible, with its own
+  separate d3-drag instance. **A real bug caught building the fix, not
+  shipped with it**: the grip's first version reused the object's own
+  `objDrag` behaviour (excluding `.wb-object-grip` from *that* instance's
+  filter, mirroring how the resize/rotate handles already exclude
+  themselves) — but `objDrag` is one shared behaviour bound to *both* the
+  object and the grip, so the same filter runs for both elements' own
+  pointerdown, and a target-`closest()` check can't tell "the grip's own
+  listener firing" from "the object's listener catching a bubbled grip
+  click" apart; excluding the grip's class from the filter silently
+  disabled the grip's own drag too, not just the parent's duplicate. Fixed
+  with a second, genuinely separate `gripDrag` instance (`event.sourceEvent
+  .stopPropagation()` in its own start handler, the same fix `resizeDrag`/
+  `objectRotateDrag` already use for the identical shared-parent problem).
+  Verified live: dragging by the grip moved the object by the expected
+  delta, checked mid-gesture and after drop, not just after.
+- **"The bottom tool bar is getting quite long... make them like a
+  selectable dropdown."** The six shape tools (line/arrow/rect/circle/
+  triangle/diamond) collapsed into one `#wb-shape-toggle` + popover, still
+  plain `data-tool` buttons underneath so the existing delegated click
+  listener on `#wb-tool-group` needed no change. **Grouped in two,
+  asked for directly** ("line and arrow should be one group, and the other
+  shapes should be another") — line+arrow sit together above a divider
+  from rect/circle/triangle/diamond, which is also functional: the
+  relocated "Line ends" control only applies to the first group. **A real
+  bug caught live, not shipped**: the first version called
+  `shapeMenu.addEventListener("click", stopPropagation)` to keep clicks on
+  the line-ends select from being treated as "outside the menu" by the
+  close-on-outside-click listener — except the outside-click listener
+  already excluded anything inside `#wb-shape-picker` via its own
+  `closest()` check, so this line was not just unnecessary but actively
+  wrong: it also stopped a tool-button click from *ever* bubbling to
+  `#wb-tool-group`'s delegated listener, so picking a shape did nothing at
+  all and the menu never closed. Found by an end-to-end Playwright check
+  (pick "circle" → assert `currentTool === "circle"`) that failed cleanly
+  rather than by reading the code twice. Verified live after the fix:
+  opening the menu, picking each shape, confirming `currentTool` updates,
+  the toggle's own icon swaps to match, and the menu closes both on a
+  pick and on an outside click.
+- **"I also want to be able to adjust it as a sidebar and not just a
+  bottom bar."** A `#wb-dock-toggle` button flips `data-dock` between
+  `"bottom"`/`"side"` (persisted in `localStorage`), which the CSS reads to
+  switch the tools panel between its usual horizontal row and a vertical
+  column pinned to the left edge — same controls, same click handlers,
+  laid out differently. **One specificity trap worth recording**: a later,
+  unrelated rule earlier established for spacing (`.bottom-center { bottom:
+  var(--space-3) }`) has the identical specificity (0,2,0) as a bare
+  `[data-dock="side"]` attribute selector, so without deliberately writing
+  the dock rule as `.bottom-center[data-dock="side"]` (specificity
+  (0,3,0)), source order alone would have let that later rule silently win
+  and pin the "sidebar" to the bottom edge regardless of the toggle.
+  Verified live: toggling produced a tall, narrow, left-docked panel
+  (68×656px in the test viewport) with its tool row now vertical; toggling
+  back restored the original bottom-center layout exactly.
+- **"Cursor changing to the rotate icon when hovering over or using the
+  rotate nodes."** The rotate handle already had `cursor: grab`; replaced
+  with a small inline-SVG curved-arrow cursor (same `data:image/svg+xml`
+  technique `wbCursorUrl` already uses for the drawing tools, just written
+  as static CSS here since this is one fixed element's `:hover`, not a
+  per-tool cursor computed in JS), `grab`/`grabbing` kept as the fallback.
+- **"Regular lines should also get line end options... arrow heads."** The
+  Line tool now shares the same "Line ends" control the Arrow tool already
+  had (`window.currentArrowStyle`, applied identically in the live-drag
+  preview) rather than a second, separate control — picking "End" and
+  drawing with the Line tool now produces the same multi-`M` arrowhead
+  path an Arrow draw already did, verified live by reading the saved
+  sketch's own `data.d` back (three `M`s: shaft + two head strokes). A
+  full "circles, squares, single/double/triple lines" end-cap system
+  (asked for in the same message) was **not built** — scoped, not
+  guessed at, see "what's next" below.
+- **"The properties panel title should be right at the top next to the
+  drag move icon."** The grip and the "PROPERTIES" title were two separate
+  block-level rows inside the panel's own `flex-direction: column`,
+  which is what put a large gap between them — wrapped both in one
+  `.wb-panel-header` row instead. Verified live (real selection, real
+  panel, not a static screenshot): grip and title's own bounding rects
+  now share the same `top`, a few pixels apart horizontally, not stacked.
+- **"Clean up the UI spacing, height and alignment... everything is
+  different heights."** Real and structural, not a screenshot artifact:
+  there was no `.icon-button` CSS rule at all — every plain icon button,
+  `button.small` (Library, zoom, board-picker), `<select>`, and the colour
+  swatch `<input type="color">` were each sized by their own default
+  padding/content, so a text+icon button stood taller than its round
+  neighbour. Scoped to the whiteboard's own floating panels (not a global
+  button/select change, which have their own established sizing
+  elsewhere) — every control now shares one explicit height. Verified
+  live: every visible control's `getBoundingClientRect().height` in the
+  tools panel now reads the same 36px.
+- **"Make the corners of the whiteboard rounded if the user has rounded
+  edges set in their appearance settings."** `.whiteboard-container` had
+  no `border-radius` at all — added `var(--radius)`, the same global token
+  the Appearance slider already writes everywhere else, so the board's own
+  corners now follow it instead of being the one hard-edged rectangle in
+  the app. `overflow: hidden` (already present, for the grid/background
+  layers) is what actually clips content to the rounded shape. Verified
+  live: computed `border-radius` reads `14px` at the default setting.
+
+All ~1,600 tests pass (Python side is untouched this session — every
+change above is `frontend/app.js`/`index.html`/`style.css` only), `ruff
+check .` is clean, `node --check frontend/app.js` is clean, and the three
+frontend-shape lint tests (`test_frontend_ids.py`, `test_frontend_
+handlers.py`, `test_style_scale.py`) all pass. **What was and wasn't
+verified**: every behavioural claim above — anchor snapping and its exact
+coordinates, the resize-handle pointer-events fix, the grip drag, the
+shape-menu pick/close cycle, the dock toggle's own layout, the line
+arrowhead, the properties-panel header, and the uniform control heights —
+was driven against a real running server via Playwright, reading back
+`wbState`/computed styles/DOM rects, not reasoned from the diff. The
+rounded-corner fix is a one-line, low-risk CSS token addition confirmed by
+computed style but not screenshotted. **Two environment traps cost real
+time this session and are worth recording so the next one doesn't repeat
+them**: a test object/card placed near board y≈700–900 in a 900px-tall
+viewport can land under the Agent Activity monitor panel or the app's own
+tab bar, exactly the same class of problem HISTORY.md §55 already named
+for the container's top-left corner (`container.top + 260`) — place test
+geometry away from *both* edges, not just the top one. And restarting the
+dev server without confirming the old process actually died (this
+project's own standing trap) produced a server that looked healthy
+(`curl /health` answered) while silently still being the *previous*
+process on a stale `MEMORYMAP_DATA_DIR`-free port bind failure — always
+check `pgrep`/kill by PID number and verify a fresh `Started server
+process [PID]` line in the log before trusting a restart.
+
+**What's next, unchanged from the confirmed order** except anchors
+dropping off the front: (1) **mind-mapping mode** (ROADMAP item 25 — an
+"Arrange as mind map" button reusing the Graph tab's Tree/Radial layout
+code against the whiteboard's own node/link data, plus Tab/Enter keyboard
+branch entry) is next, and can now build real anchor-terminated branch
+lines rather than arbitrary-corner ones. (2) **AI + whiteboard
+integration**, three pieces confirmed wanted together (a chat-agent read
+tool over a board's contents, whiteboard content in search, AI-guided
+diagram generation as the write side of the first) — still fully
+unscoped code-wise, though the read tool's shape is already sketched in
+ROADMAP item 11's own notes. (3) A **full end-cap system** (circle/square/
+multi-line ends, asked for directly) beyond the arrowhead-sharing done
+this session. (4) Sketch rotation and image cropping, both already named
+and both explicitly deferred again.

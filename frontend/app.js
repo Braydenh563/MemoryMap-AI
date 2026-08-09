@@ -23358,6 +23358,125 @@ function wbItemBBox(kind, item) {
   return { minX: item.x, minY: item.y, maxX: item.x + w, maxY: item.y + h };
 }
 
+//: Real anchor/connection points for links (asked for directly, "take
+//: inspiration from draw.io", named "worth its own session" three sessions
+//: running — HANDOVER.md §53-55). Eight **fixed** points (corners + edge
+//: midpoints), as fractions of the shape's own bounding box so a resize
+//: carries an anchor with it for free, no migration needed — these two
+//: fractions just live as `sourceAnchor`/`targetAnchor` keys in the link
+//: sketch's existing `data` JSON blob. Omitting either key is the **free**
+//: case: that end "floats", auto-following the rectangle border facing
+//: whatever the other end resolves to, every render — draw.io's own
+//: behaviour, not a fixed centre-point offset.
+const WB_FIXED_ANCHORS = [
+  { x: 0, y: 0 }, { x: 0.5, y: 0 }, { x: 1, y: 0 },
+  { x: 1, y: 0.5 }, { x: 1, y: 1 }, { x: 0.5, y: 1 },
+  { x: 0, y: 1 }, { x: 0, y: 0.5 },
+];
+
+//: A link only ever connects nodes (cards) today — see `dragEndNode`'s own
+//: hit-test — but takes `kind` rather than assuming "node" so a future
+//: object-to-object link doesn't need this rewritten.
+function wbAnchorPoint(kind, item, anchor) {
+  if (!anchor) return null;
+  const box = wbItemBBox(kind, item);
+  if (!box) return null;
+  return { x: box.minX + anchor.x * (box.maxX - box.minX), y: box.minY + anchor.y * (box.maxY - box.minY) };
+}
+
+//: The nearest of the 8 fixed points to a board-coordinate click, or `null`
+//: if none is within `thresholdPx` — `null` is the caller's cue to persist
+//: no anchor at all (the free/floating case) rather than a distant one.
+function wbNearestAnchor(kind, item, px, py, thresholdPx = 16) {
+  const box = wbItemBBox(kind, item);
+  if (!box) return null;
+  const w = box.maxX - box.minX, h = box.maxY - box.minY;
+  let best = null, bestDist = thresholdPx;
+  for (const a of WB_FIXED_ANCHORS) {
+    const d = Math.hypot(px - (box.minX + a.x * w), py - (box.minY + a.y * h));
+    if (d <= bestDist) { bestDist = d; best = a; }
+  }
+  return best;
+}
+
+//: The standard rectangle/ray intersection: where the line from this box's
+//: centre toward `(towardX, towardY)` crosses the box's own border. This is
+//: what a "floating" end actually resolves to each render — aimed at the
+//: other end's real point, not always the other shape's centre.
+function wbBoxRayIntersection(box, towardX, towardY) {
+  const cx = (box.minX + box.maxX) / 2, cy = (box.minY + box.maxY) / 2;
+  const dx = towardX - cx, dy = towardY - cy;
+  if (!dx && !dy) return { x: cx, y: cy };
+  const halfW = (box.maxX - box.minX) / 2, halfH = (box.maxY - box.minY) / 2;
+  const t = Math.min(dx ? halfW / Math.abs(dx) : Infinity, dy ? halfH / Math.abs(dy) : Infinity);
+  return { x: cx + dx * t, y: cy + dy * t };
+}
+
+//: The two real endpoints of a link, shared by the render path
+//: (`sketchUpdate.each`) and the per-drag-frame follow (`wbUpdateLinkedSketches`)
+//: so the two can't drift apart — same reasoning as that function's own
+//: comment, just extended to real anchors instead of a hardcoded centre.
+//: A fixed end resolves to its own point regardless of the other end; a
+//: floating end resolves toward whatever the *other* end actually is (its
+//: fixed point if it has one, its centre otherwise), not always the centre.
+function wbLinkEndpoints(sourceItem, sourceAnchor, targetItem, targetAnchor) {
+  const sourceBox = wbItemBBox("node", sourceItem);
+  const targetBox = wbItemBBox("node", targetItem);
+  const sourceCenter = { x: (sourceBox.minX + sourceBox.maxX) / 2, y: (sourceBox.minY + sourceBox.maxY) / 2 };
+  const targetCenter = { x: (targetBox.minX + targetBox.maxX) / 2, y: (targetBox.minY + targetBox.maxY) / 2 };
+  const fixedSource = wbAnchorPoint("node", sourceItem, sourceAnchor);
+  const fixedTarget = wbAnchorPoint("node", targetItem, targetAnchor);
+  return {
+    source: fixedSource || wbBoxRayIntersection(sourceBox, (fixedTarget || targetCenter).x, (fixedTarget || targetCenter).y),
+    target: fixedTarget || wbBoxRayIntersection(targetBox, (fixedSource || sourceCenter).x, (fixedSource || sourceCenter).y),
+  };
+}
+
+//: Shared by the render path and the live drag preview so a straight vs.
+//: curved link can't compute its path two different ways.
+function wbLinkPathD(type, sPt, tPt) {
+  if (type === "link-straight") return `M ${sPt.x} ${sPt.y} L ${tPt.x} ${tPt.y}`;
+  const dx = tPt.x - sPt.x;
+  return `M ${sPt.x} ${sPt.y} C ${sPt.x + dx / 2} ${sPt.y}, ${tPt.x - dx / 2} ${tPt.y}, ${tPt.x} ${tPt.y}`;
+}
+
+//: A small SVG dot at each of a shape's 8 fixed anchors, shown while a link
+//: drag is in progress so the snap targets are actually discoverable rather
+//: than a silent hit-test — draw.io shows the same thing on hover. The
+//: nearest one to the live pointer (if within snapping range) renders larger
+//: and filled, so "this is where it'll land" is visible before release.
+function wbShowAnchorHints(kind, item, nearAnchor) {
+  const zoomGroup = document.getElementById("wb-zoom-group");
+  if (!zoomGroup) return;
+  let hints = document.getElementById("wb-anchor-hints");
+  if (!hints) {
+    hints = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    hints.setAttribute("id", "wb-anchor-hints");
+    hints.setAttribute("pointer-events", "none");
+    zoomGroup.appendChild(hints);
+  }
+  hints.innerHTML = "";
+  if (!item) return;
+  const box = wbItemBBox(kind, item);
+  if (!box) return;
+  const w = box.maxX - box.minX, h = box.maxY - box.minY;
+  for (const a of WB_FIXED_ANCHORS) {
+    const near = nearAnchor && nearAnchor.x === a.x && nearAnchor.y === a.y;
+    const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    dot.setAttribute("cx", box.minX + a.x * w);
+    dot.setAttribute("cy", box.minY + a.y * h);
+    dot.setAttribute("r", near ? 6 : 4);
+    dot.setAttribute("fill", near ? "var(--accent)" : "var(--card)");
+    dot.setAttribute("stroke", "var(--accent)");
+    dot.setAttribute("stroke-width", "1.5");
+    hints.appendChild(dot);
+  }
+}
+
+function wbClearAnchorHints() {
+  document.getElementById("wb-anchor-hints")?.remove();
+}
+
 //: Resolves `wbMultiSelection` into {kind, id, item, bbox} entries, dropping
 //: anything stale (deleted since selected) or box-less (a link sketch).
 //: Shared by align/distribute/nudge — every one of them needs exactly this.
@@ -24744,6 +24863,15 @@ async function initWhiteboard() {
     containerEl.style.cursor = wbCursorForTool(window.currentTool, window.currentStrokeColor);
   }
 
+  // The six shape tools folded into the toolbar's own dropdown — asked for
+  // directly ("the tool bar is getting quite long"). Kept as one list so
+  // the toggle button's own icon/active-state and the arrow-style control's
+  // relevance can both key off it without drifting apart.
+  const WB_SHAPE_TOOLS = new Set(["line", "arrow", "rect", "circle", "triangle", "diamond"]);
+  const shapeToggle = document.getElementById("wb-shape-toggle");
+  const shapeToggleIcon = document.getElementById("wb-shape-toggle-icon");
+  const shapeMenu = document.getElementById("wb-shape-menu");
+
   // The one place a tool switch happens, so the toolbar click and the
   // keyboard shortcuts below can never drift out of sync with each other.
   function selectWbTool(tool) {
@@ -24758,10 +24886,19 @@ async function initWhiteboard() {
     } else {
       container.call(wbZoom).on("dblclick.zoom", null);
     }
-    // Reported directly: "can't change arrow heads" — only shown while the
-    // arrow tool itself is selected, the same way the colour picker is
-    // always relevant but this control only makes sense for one tool.
-    document.getElementById("wb-arrow-style")?.classList.toggle("hidden", tool !== "arrow");
+    // The toggle shows whichever shape is actually active (and reads as
+    // "on" the same way any other tool button does) instead of a fixed
+    // icon — picking "circle" from the menu should look exactly like
+    // picking "circle" used to when it was its own top-level button.
+    if (shapeToggle && WB_SHAPE_TOOLS.has(tool)) {
+      const chosen = shapeMenu?.querySelector(`button[data-tool="${tool}"] svg`);
+      if (chosen && shapeToggleIcon) shapeToggleIcon.innerHTML = chosen.innerHTML;
+      shapeToggle.classList.add("active");
+    } else if (shapeToggle) {
+      shapeToggle.classList.remove("active");
+    }
+    shapeMenu?.classList.add("hidden");
+    shapeToggle?.setAttribute("aria-expanded", "false");
     updateWbCursor();
   }
 
@@ -24771,6 +24908,46 @@ async function initWhiteboard() {
     toolGroup.addEventListener("click", (e) => {
       const btn = e.target.closest("button[data-tool]");
       if (btn) selectWbTool(btn.dataset.tool);
+    });
+  }
+
+  if (shapeToggle && shapeMenu) {
+    shapeToggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const open = shapeMenu.classList.toggle("hidden") === false;
+      shapeToggle.setAttribute("aria-expanded", String(open));
+    });
+    // No stopPropagation here: a tool-button click inside the menu has to
+    // keep bubbling up to #wb-tool-group's own delegated listener (real bug,
+    // caught live — stopping it here silently broke every shape pick, the
+    // menu just stayed open with nothing selected). The outside-click
+    // closer below already leaves clicks *inside* #wb-shape-picker alone
+    // via its own `closest` check, so nothing here needs to guard against
+    // the line-ends select/label closing the menu either.
+    document.addEventListener("click", (e) => {
+      if (!shapeMenu.classList.contains("hidden") && !e.target.closest("#wb-shape-picker")) {
+        shapeMenu.classList.add("hidden");
+        shapeToggle.setAttribute("aria-expanded", "false");
+      }
+    });
+  }
+
+  // Asked for directly: the toolbar should be adjustable as a sidebar, not
+  // only a bottom bar. `data-dock` drives the CSS (row vs. column layout,
+  // which edge it's pinned to); persisted so the choice survives a reload
+  // the same way panel positions already do.
+  const toolsPanel = document.getElementById("wb-tools-panel");
+  const dockToggle = document.getElementById("wb-dock-toggle");
+  if (toolsPanel && dockToggle) {
+    const applyDock = (dock) => {
+      toolsPanel.dataset.dock = dock;
+      dockToggle.title = dock === "bottom" ? "Dock as a sidebar" : "Dock as a bottom bar";
+    };
+    applyDock(localStorage.getItem("wb-toolbar-dock") || "bottom");
+    dockToggle.addEventListener("click", () => {
+      const next = toolsPanel.dataset.dock === "bottom" ? "side" : "bottom";
+      localStorage.setItem("wb-toolbar-dock", next);
+      applyDock(next);
     });
   }
 
@@ -25172,15 +25349,16 @@ async function initWhiteboard() {
     } else {
       // Shape tools: only start and current point matter
       const [sx, sy] = currentDrawData[0];
-      if (window.currentTool === "line") {
-        currentDrawPath.setAttribute("d", `M ${sx} ${sy} L ${x} ${y}`);
-      } else if (window.currentTool === "arrow") {
+      if (window.currentTool === "line" || window.currentTool === "arrow") {
         // One path, one or more subpaths — a plain SVG `d` string can hold
         // more than one `M`, and every subpath in it shares the same
         // stroke, so this is the shaft plus whichever head strokes
         // `window.currentArrowStyle` calls for in a single element, rather
         // than several sketches that would each need their own undo entry
-        // and could drift apart.
+        // and could drift apart. Asked for directly: "regular lines should
+        // also get line end options... arrow heads" — the Line and Arrow
+        // tools now share the same "Line ends" control (in the shape
+        // dropdown), so a plain line can carry an arrowhead too.
         const angle = Math.atan2(y - sy, x - sx);
         const headLen = WB_STROKE_WIDTH * 4 + 6;
         let d = `M ${sx} ${sy} L ${x} ${y}`;
@@ -25859,14 +26037,8 @@ function renderWhiteboard() {
         const source = wbState.nodes.find(n => n.id === parsed.sourceId);
         const target = wbState.nodes.find(n => n.id === parsed.targetId);
         if (source && target) {
-           const sx = source.x + 125, sy = source.y + 75;
-           const tx = target.x + 125, ty = target.y + 75;
-           if (parsed.type === "link-straight") {
-              pathData = `M ${sx} ${sy} L ${tx} ${ty}`;
-           } else {
-              const dx = tx - sx;
-              pathData = `M ${sx} ${sy} C ${sx + dx/2} ${sy}, ${tx - dx/2} ${ty}, ${tx} ${ty}`;
-           }
+           const { source: sPt, target: tPt } = wbLinkEndpoints(source, parsed.sourceAnchor, target, parsed.targetAnchor);
+           pathData = wbLinkPathD(parsed.type, sPt, tPt);
         } else {
            pathData = "";
         }
@@ -26155,65 +26327,96 @@ function renderWbObjects(canvas) {
   }
   wbDeleteObjectRef = deleteObject;
 
+  // Shared by both `objDrag` (bound to the whole `.wb-object`) and
+  // `gripDrag` (bound only to `.wb-object-grip`, see below) — `this` is
+  // whichever element the gesture actually started on, so every DOM write
+  // goes through `this.closest(".wb-object")` rather than `this` directly,
+  // the same convention `resizeDrag`'s own "drag" handler already uses.
+  function objDragStart(event, d) {
+    if (window.currentTool === "eraser" || window.currentTool === "delete") return;
+    d3.select(this.closest(".wb-object")).raise();
+    // See the matching comment on the card drag's own `dragStart`: a raw,
+    // never-snapped running position, so small per-frame deltas actually
+    // accumulate instead of being rounded away against the previous
+    // frame's already-snapped value.
+    d._rawX = d.x;
+    d._rawY = d.y;
+    d._dragOriginX = d.x;
+    d._dragOriginY = d.y;
+    d._moveUndoBefore = WB_KIND_INFO.object.payload(d);
+    // Bulk-move detection is deliberately deferred to the first real
+    // "drag" frame below, not decided here — see the matching comment on
+    // the sketch drag's own "start" for the click-toggle bug that caused.
+  }
+  function objDragMove(event, d) {
+    if (window.currentTool === "eraser" || window.currentTool === "delete") return;
+    if (d._bulkOrigin === undefined) {
+      d._bulkOrigin = wbDragIsBulkMove("object", d.id)
+        ? wbCaptureBulkMoveOrigin(wbMultiKey("object", d.id))
+        : null;
+    }
+    // d3.drag's dx/dy are raw screen pixels, not board-space — the
+    // resize handles below already divide by the zoom scale for exactly
+    // this reason; a plain drag has to as well, or a card/object moves
+    // faster than the cursor when zoomed out and slower when zoomed in.
+    const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
+    d._rawX = (d._rawX ?? d.x) + event.dx / transform.k;
+    d._rawY = (d._rawY ?? d.y) + event.dy / transform.k;
+    const bypassSnap = event.sourceEvent?.altKey;
+    d.x = wbSnap(d._rawX, bypassSnap);
+    d.y = wbSnap(d._rawY, bypassSnap);
+    d3.select(this.closest(".wb-object")).style("transform", wbItemTransform(d));
+    if (d._bulkOrigin) wbApplyBulkMove(d._bulkOrigin, d.x - d._dragOriginX, d.y - d._dragOriginY);
+  }
+  async function objDragEnd(event, d) {
+    if (window.currentTool === "eraser" || window.currentTool === "delete") return;
+    const bulkOrigin = d._bulkOrigin;
+    // Reset unconditionally — a solo drag sets this to `null` (see
+    // "drag" above), and leaving it there would make the *next* gesture's
+    // `=== undefined` check think bulk-move was already decided and skip
+    // redetecting it, permanently treating this object as "never bulk"
+    // even after it later joins a multi-selection.
+    delete d._bulkOrigin;
+    await wbSaveObject(d);
+    const moveBefore = d._moveUndoBefore;
+    delete d._moveUndoBefore;
+    if (moveBefore && (moveBefore.x !== d.x || moveBefore.y !== d.y)) {
+      wbPushUndo({ action: "move", kind: "object", id: d.id, before: moveBefore });
+    }
+    if (bulkOrigin) await wbSaveBulkMove(bulkOrigin);
+  }
+
   const objDrag = d3.drag()
     // A resize handle owns its own drag (below); a text box's own text
     // needs plain clicks/selection to reach it, not a canvas-wide drag. And,
     // same reasoning as the card drag's own filter above: a brush tool must
-    // be able to draw over an image/text object, not drag it.
-    .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool) && !event.target.closest(".wb-resize-handle, .wb-rotate-handle, .wb-text-content"))
+    // be able to draw over an image/text object, not drag it. `.wb-object-grip`
+    // has its own separate drag instance (`gripDrag`, below) — excluded here
+    // so a grip grab doesn't *also* start this instance for the same
+    // gesture. A real bug caught live: excluding it here alone isn't enough
+    // — `objDrag` is one shared behaviour object bound to both the object
+    // and the grip, so its filter runs for *both* elements' own pointerdown,
+    // and target-closest can't tell "the grip's own listener" from "the
+    // object's listener catching a bubbled grip click" apart. `gripDrag`
+    // below exists precisely because that distinction needs two behaviour
+    // objects, not one filter.
+    .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool) && !event.target.closest(".wb-resize-handle, .wb-rotate-handle, .wb-text-content, .wb-object-grip"))
+    .on("start", objDragStart)
+    .on("drag", objDragMove)
+    .on("end", objDragEnd);
+
+  // The grip's own drag instance (see the comment above) — `stopPropagation`
+  // on start is the same fix `resizeDrag`/`objectRotateDrag` already use to
+  // keep their own handle grabs from also bubbling into the object's own
+  // `objDrag` listener.
+  const gripDrag = d3.drag()
+    .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool))
     .on("start", function (event, d) {
-      if (window.currentTool === "eraser" || window.currentTool === "delete") return;
-      d3.select(this).raise();
-      // See the matching comment on the card drag's own `dragStart`: a raw,
-      // never-snapped running position, so small per-frame deltas actually
-      // accumulate instead of being rounded away against the previous
-      // frame's already-snapped value.
-      d._rawX = d.x;
-      d._rawY = d.y;
-      d._dragOriginX = d.x;
-      d._dragOriginY = d.y;
-      d._moveUndoBefore = WB_KIND_INFO.object.payload(d);
-      // Bulk-move detection is deliberately deferred to the first real
-      // "drag" frame below, not decided here — see the matching comment on
-      // the sketch drag's own "start" for the click-toggle bug that caused.
+      event.sourceEvent.stopPropagation();
+      objDragStart.call(this, event, d);
     })
-    .on("drag", function (event, d) {
-      if (window.currentTool === "eraser" || window.currentTool === "delete") return;
-      if (d._bulkOrigin === undefined) {
-        d._bulkOrigin = wbDragIsBulkMove("object", d.id)
-          ? wbCaptureBulkMoveOrigin(wbMultiKey("object", d.id))
-          : null;
-      }
-      // d3.drag's dx/dy are raw screen pixels, not board-space — the
-      // resize handles below already divide by the zoom scale for exactly
-      // this reason; a plain drag has to as well, or a card/object moves
-      // faster than the cursor when zoomed out and slower when zoomed in.
-      const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-      d._rawX = (d._rawX ?? d.x) + event.dx / transform.k;
-      d._rawY = (d._rawY ?? d.y) + event.dy / transform.k;
-      const bypassSnap = event.sourceEvent?.altKey;
-      d.x = wbSnap(d._rawX, bypassSnap);
-      d.y = wbSnap(d._rawY, bypassSnap);
-      d3.select(this).style("transform", wbItemTransform(d));
-      if (d._bulkOrigin) wbApplyBulkMove(d._bulkOrigin, d.x - d._dragOriginX, d.y - d._dragOriginY);
-    })
-    .on("end", async function (event, d) {
-      if (window.currentTool === "eraser" || window.currentTool === "delete") return;
-      const bulkOrigin = d._bulkOrigin;
-      // Reset unconditionally — a solo drag sets this to `null` (see
-      // "drag" above), and leaving it there would make the *next* gesture's
-      // `=== undefined` check think bulk-move was already decided and skip
-      // redetecting it, permanently treating this object as "never bulk"
-      // even after it later joins a multi-selection.
-      delete d._bulkOrigin;
-      await wbSaveObject(d);
-      const moveBefore = d._moveUndoBefore;
-      delete d._moveUndoBefore;
-      if (moveBefore && (moveBefore.x !== d.x || moveBefore.y !== d.y)) {
-        wbPushUndo({ action: "move", kind: "object", id: d.id, before: moveBefore });
-      }
-      if (bulkOrigin) await wbSaveBulkMove(bulkOrigin);
-    });
+    .on("drag", objDragMove)
+    .on("end", objDragEnd);
 
   function resizeDrag(handle) {
     return d3.drag()
@@ -26314,6 +26517,23 @@ function renderWbObjects(canvas) {
       // background/border style, so an unset value falls back to the CSS
       // default rather than an empty override.
       el.style("background", d.data.bg || "").style("border-color", d.data.border_color || "");
+      // Asked for directly ("objects are also difficult and annoying to
+      // move around"): `.wb-text-content` fills the entire box and both
+      // the filter above and its own pointerdown handler below correctly
+      // keep drag away from it while typing — which meant the *only*
+      // draggable surface left was the ~0.5rem padding strip around the
+      // text, the same width as the resize handles that sit right on top
+      // of it. A dedicated grip, same convention as the panels' own
+      // `.wb-panel-grip`, gives a guaranteed, adequately-sized place to
+      // grab regardless of how much text is in the box. Text objects only —
+      // an image has no competing contenteditable claim on its body, so it
+      // was already fully draggable once the resize-handle bug above was
+      // fixed.
+      el.append("div")
+        .attr("class", "wb-object-grip")
+        .attr("title", "Drag to move")
+        .text("⠿")
+        .call(gripDrag);
       const content = el.append("div")
         .attr("class", "wb-text-content")
         .attr("contenteditable", "true")
@@ -26392,15 +26612,8 @@ function wbUpdateLinkedSketches(nodeId) {
     const source = wbState.nodes.find((n) => n.id === parsed.sourceId);
     const target = wbState.nodes.find((n) => n.id === parsed.targetId);
     if (!source || !target) continue;
-    const sx = source.x + 125, sy = source.y + 75;
-    const tx = target.x + 125, ty = target.y + 75;
-    let pathData;
-    if (parsed.type === "link-straight") {
-      pathData = `M ${sx} ${sy} L ${tx} ${ty}`;
-    } else {
-      const dx = tx - sx;
-      pathData = `M ${sx} ${sy} C ${sx + dx / 2} ${sy}, ${tx - dx / 2} ${ty}, ${tx} ${ty}`;
-    }
+    const { source: sPt, target: tPt } = wbLinkEndpoints(source, parsed.sourceAnchor, target, parsed.targetAnchor);
+    const pathData = wbLinkPathD(parsed.type, sPt, tPt);
     const el = document.querySelector(`.sketch-group[data-id="${sketch.id}"]`);
     el?.querySelector(".sketch-path")?.setAttribute("d", pathData);
     el?.querySelector(".sketch-hitbox")?.setAttribute("d", pathData);
@@ -26412,7 +26625,17 @@ function dragStart(event, d) {
   // must not also drag the first one it touches out from under the pointer.
   if (window.currentTool === "eraser" || window.currentTool === "delete") return;
   if (window.currentTool && window.currentTool.startsWith("link-")) {
-    d.linkStartPos = { x: d.x + 125, y: d.y + 75 }; // approx center of the ~250×150 default card
+    // Real anchors: snap the link's own start to whichever of the source
+    // card's 8 fixed points the drag actually began near, so a link from a
+    // specific corner stays pinned there through a later resize — `null`
+    // (nothing near enough) is the free/floating case, resolved fresh every
+    // render in `wbLinkEndpoints` instead of frozen at drag-start.
+    const startTransform = d3.zoomTransform(document.getElementById("whiteboard-container"));
+    const startRect = document.getElementById("wb-svg-layer").getBoundingClientRect();
+    const startX = (event.sourceEvent.clientX - startRect.left - startTransform.x) / startTransform.k;
+    const startY = (event.sourceEvent.clientY - startRect.top - startTransform.y) / startTransform.k;
+    d.linkSourceAnchor = wbNearestAnchor("node", d, startX, startY);
+    wbShowAnchorHints("node", d, d.linkSourceAnchor);
     d.linkingPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
     d.linkingPath.setAttribute("fill", "none");
     d.linkingPath.setAttribute("stroke", window.currentStrokeColor || "#ffffff");
@@ -26450,14 +26673,24 @@ function dragging(event, d) {
     const rect = document.getElementById("wb-svg-layer").getBoundingClientRect();
     const mx = (event.sourceEvent.clientX - rect.left - transform.x) / transform.k;
     const my = (event.sourceEvent.clientY - rect.top - transform.y) / transform.k;
-    
-    const sx = d.linkStartPos.x, sy = d.linkStartPos.y;
-    if (window.currentTool === "link-straight") {
-      d.linkingPath.setAttribute("d", `M ${sx} ${sy} L ${mx} ${my}`);
-    } else {
-      const dx = mx - sx;
-      d.linkingPath.setAttribute("d", `M ${sx} ${sy} C ${sx + dx/2} ${sy}, ${mx - dx/2} ${my}, ${mx} ${my}`);
+
+    // A fixed source anchor stays put; a floating one re-aims at the live
+    // pointer every frame — the same rectangle-intersection the render path
+    // uses, not the old fixed centre-point.
+    const fixedStart = wbAnchorPoint("node", d, d.linkSourceAnchor);
+    const start = fixedStart || wbBoxRayIntersection(wbItemBBox("node", d), mx, my);
+    d.linkingPath.setAttribute("d", wbLinkPathD(window.currentTool, start, { x: mx, y: my }));
+
+    // Anchor hints follow whichever node the pointer is currently over, so
+    // the drop target's own snap points are visible before release.
+    let hoverNode = null;
+    for (const node of wbState.nodes) {
+      if (node.id === d.id) continue;
+      const box = wbItemBBox("node", node);
+      if (mx >= box.minX && mx <= box.maxX && my >= box.minY && my <= box.maxY) { hoverNode = node; break; }
     }
+    if (hoverNode) wbShowAnchorHints("node", hoverNode, wbNearestAnchor("node", hoverNode, mx, my));
+    else wbShowAnchorHints("node", d, d.linkSourceAnchor);
   } else {
     // Pre-existing gap, not introduced this session, caught while adding
     // snap-to-grid here: event.dx/dy are raw screen pixels — the
@@ -26492,27 +26725,35 @@ async function dragEndNode(event, d) {
   if (window.currentTool && window.currentTool.startsWith("link-")) {
     if (d.linkingPath) d.linkingPath.remove();
     d.linkingPath = null;
-    
+    wbClearAnchorHints();
+
     const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
     const rect = document.getElementById("wb-svg-layer").getBoundingClientRect();
     const mx = (event.sourceEvent.clientX - rect.left - transform.x) / transform.k;
     const my = (event.sourceEvent.clientY - rect.top - transform.y) / transform.k;
-    
+
     let targetNode = null;
     for (const node of wbState.nodes) {
        if (node.id === d.id) continue;
-       if (mx >= node.x && mx <= node.x + 250 && my >= node.y && my <= node.y + 150) {
+       const box = wbItemBBox("node", node);
+       if (mx >= box.minX && mx <= box.maxX && my >= box.minY && my <= box.maxY) {
            targetNode = node; break;
        }
     }
-    
+
     if (targetNode) {
+       // The release point's own nearest anchor on the target, same as the
+       // source got at drag-start — `null` (nothing near enough) persists
+       // as a free/floating end, same as the source's own case.
+       const targetAnchor = wbNearestAnchor("node", targetNode, mx, my);
        const sketchData = {
          data: JSON.stringify({
             type: window.currentTool,
             sourceId: d.id,
             targetId: targetNode.id,
-            color: window.currentStrokeColor || "#ffffff"
+            color: window.currentStrokeColor || "#ffffff",
+            sourceAnchor: d.linkSourceAnchor || undefined,
+            targetAnchor: targetAnchor || undefined,
          }),
          x: 0, y: 0, z: 1,
          board_id: window.currentBoardId
@@ -26526,6 +26767,7 @@ async function dragEndNode(event, d) {
          console.error(err);
        }
     }
+    d.linkSourceAnchor = null;
   } else {
     // Sync back to API.
     //

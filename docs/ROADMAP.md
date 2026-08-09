@@ -310,42 +310,24 @@ into a good one.
     verified live — see HISTORY.md §53–§55 for the full list and how each
     was verified.**
 
-    **Still genuinely open, ranked by what's actually left. The order below
-    is now a confirmed decision, not a guess** — asked directly at the end
-    of §55 ("which mode should I build first?" / "should I start now?") and
-    answered explicitly: **start with anchors, then mind-map mode**, and
-    build all three AI/whiteboard integration pieces (chat Q&A, search
-    indexing, AI-guided generation). Not started yet — the user chose to
-    open a fresh session for it rather than continue mid-§55; this is the
-    starting point for that session.
-    - **Real anchor/connection points** (fixed corners+edges, a free point
-      along an edge, a link that visually terminates on the border, not
-      wherever a drag ended) — asked for directly, "take inspiration from
-      draw.io." **Confirmed as the next thing to build.** Named "worth its
-      own session" three times now (§53, §54, §55); a shallow version (one
-      that doesn't match how draw.io itself represents a fixed-vs-free
-      anchor) would cost more to unwind later than it saves now — read how
-      draw.io represents this before starting. **Where the code lives,
-      found while scoping this at the end of §55** (nothing built yet, just
-      the map): a link is a `WhiteboardSketch` whose `data` JSON has
-      `{type: "link-straight"|"link-curved", sourceId, targetId, color}` —
-      no schema migration needed, `sourceAnchor`/`targetAnchor` (`{x, y}` as
-      0–1 fractions of the shape's own bounding box, or omitted for
-      "floating") can just be two more keys in that same blob. Three call
-      sites touch link data today: drawing one (`dragStart`/`dragging`/
-      `dragEndNode`'s `currentTool.startsWith("link-")` branches, roughly
-      `frontend/app.js` lines 26410–26525 as of §55 — `dragEndNode` in
-      particular hit-tests the drop point against every node's raw
-      `x/x+250/y/y+150` box to find `targetNode`, which is also where a
-      fixed-anchor drop target would need to be resolved), and rendering
-      one (`sketchUpdate.each`'s `parsed.type.startsWith("link-")` branch,
-      `frontend/app.js` around line 25857 — currently a hardcoded
-      `source.x + 125, source.y + 75` centre-point offset for both ends,
-      which is exactly the "arbitrary corner" problem anchors fix; the
-      floating case needs the standard rectangle/centre-line intersection
-      draw.io itself uses, not the centre point). `wbUpdateLinkedSketches`
-      (the per-frame link-follow during a card drag) needs the same anchor
-      math, not just the full-render path.
+    **Still genuinely open, ranked by what's actually left.**
+    - ~~**Real anchor/connection points**~~ **Done, verified live (HISTORY.md
+      §56).** Eight fixed points (corners + edge midpoints, as `{x,y}`
+      0–1 fractions of the shape's own bounding box) plus a floating case
+      (no anchor persisted — resolves every render via a rectangle/ray
+      intersection toward whatever the other end actually is), matching how
+      draw.io itself splits the two. `sourceAnchor`/`targetAnchor` live as
+      two more keys in the link sketch's existing `data` blob, exactly as
+      scoped — no migration. All three call sites named above
+      (`dragStart`/`dragging`/`dragEndNode`, `sketchUpdate.each`,
+      `wbUpdateLinkedSketches`) now share `wbLinkEndpoints`/`wbLinkPathD`
+      rather than three copies of the same math. A real, previously-unknown
+      bug was found and fixed along the way (see the whiteboard-fixes entry
+      below) — every resize/rotate handle was `opacity: 0` but not
+      `pointer-events: none`, so an invisible handle intercepted drags at
+      *every* card/object corner for *any* tool, not just while selected;
+      this is very likely why a link-from-corner drag felt unreliable even
+      before anchors existed.
     - **A mind-mapping mode** — see item 25's own entry (Tier 3): decided
       to be a whiteboard mode (auto-arrange via the Graph tab's existing
       Tree/Radial layout code, plus Tab/Enter keyboard branch entry), not a

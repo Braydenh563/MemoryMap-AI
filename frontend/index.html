@@ -1465,8 +1465,11 @@ Link to another note with [[its first few words]]."></textarea>
       <button id="wb-export" class="ghost small icon-button" type="button" title="Export this board">⬇</button>
     </div>
 
-    <div class="whiteboard-floating-panel bottom-center card glass" data-panel-id="tools">
+    <div class="whiteboard-floating-panel bottom-center card glass" data-panel-id="tools" id="wb-tools-panel" data-dock="bottom">
       <span class="wb-panel-grip" title="Drag to move" aria-hidden="true">⠿</span>
+      <button type="button" class="ghost icon-button" id="wb-dock-toggle" title="Dock as a sidebar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+      </button>
       <div class="wb-tool-group" id="wb-tool-group">
         <button class="ghost icon-button active" data-tool="pan" title="Pan (V)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"></polyline><polyline points="9 5 12 2 15 5"></polyline><polyline points="15 19 12 22 9 19"></polyline><polyline points="19 9 22 12 19 15"></polyline><line x1="2" y1="12" x2="22" y2="12"></line><line x1="12" y1="2" x2="12" y2="22"></line></svg>
@@ -1480,24 +1483,60 @@ Link to another note with [[its first few words]]."></textarea>
         <button class="ghost icon-button" data-tool="highlighter" title="Highlighter (M)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l6-6 4 4-6 6H9v-4z"></path><path d="M4 20l3.5-3.5"></path><path d="M13 5l4-4"></path></svg>
         </button>
-        <button class="ghost icon-button" data-tool="line" title="Line (L)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="19" x2="19" y2="5"></line></svg>
-        </button>
-        <button class="ghost icon-button" data-tool="arrow" title="Arrow (A)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="19" x2="19" y2="5"></line><polyline points="9 5 19 5 19 15"></polyline></svg>
-        </button>
-        <button class="ghost icon-button" data-tool="rect" title="Rectangle (R)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
-        </button>
-        <button class="ghost icon-button" data-tool="circle" title="Circle (O)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle></svg>
-        </button>
-        <button class="ghost icon-button" data-tool="triangle" title="Triangle (G)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 L21 20 L3 20 Z"></path></svg>
-        </button>
-        <button class="ghost icon-button" data-tool="diamond" title="Diamond (D)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 L21 12 L12 21 L3 12 Z"></path></svg>
-        </button>
+        <!-- Six shape tools (line/arrow/rect/circle/triangle/diamond) collapsed
+             into one dropdown — asked for directly ("the tool bar is getting
+             quite long"). Still plain `data-tool` buttons underneath, so the
+             existing delegated click handler on #wb-tool-group (which reads
+             `e.target.closest("button[data-tool]")`) picks them up with no
+             JS change; only the open/close and "which icon is showing" logic
+             is new (wbInitShapeMenu). -->
+        <div class="wb-shape-picker" id="wb-shape-picker">
+          <button type="button" class="ghost icon-button" id="wb-shape-toggle" title="Shapes (L/A/R/O/G/D)" aria-haspopup="true" aria-expanded="false">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="wb-shape-toggle-icon"><line x1="5" y1="19" x2="19" y2="5"></line></svg>
+            <svg class="wb-shape-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <div class="wb-shape-menu hidden" id="wb-shape-menu" role="menu">
+            <!-- Two groups, asked for directly ("line and arrow should be
+                 one group, and the other shapes should be another") — line
+                 and arrow are the two tools the "Line ends" control below
+                 actually applies to, so grouping them together above it
+                 (rather than alphabetically/by icon) is also functional,
+                 not just visual. -->
+            <div class="wb-shape-menu-group">
+              <button class="ghost icon-button" data-tool="line" title="Line (L)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="19" x2="19" y2="5"></line></svg>
+              </button>
+              <button class="ghost icon-button" data-tool="arrow" title="Arrow (A)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="19" x2="19" y2="5"></line><polyline points="9 5 19 5 19 15"></polyline></svg>
+              </button>
+            </div>
+            <div class="wb-shape-menu-divider" role="separator"></div>
+            <div class="wb-shape-menu-group">
+              <button class="ghost icon-button" data-tool="rect" title="Rectangle (R)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+              </button>
+              <button class="ghost icon-button" data-tool="circle" title="Circle (O)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle></svg>
+              </button>
+              <button class="ghost icon-button" data-tool="triangle" title="Triangle (G)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 L21 20 L3 20 Z"></path></svg>
+              </button>
+              <button class="ghost icon-button" data-tool="diamond" title="Diamond (D)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 L21 12 L12 21 L3 12 Z"></path></svg>
+              </button>
+            </div>
+            <div class="wb-shape-menu-divider" role="separator"></div>
+            <label class="wb-shape-menu-row" title="Applies to the Line and Arrow tools">
+              <span>Line ends</span>
+              <select id="wb-arrow-style">
+                <option value="end">End</option>
+                <option value="start">Start</option>
+                <option value="both">Both ends</option>
+                <option value="none">Plain</option>
+              </select>
+            </label>
+          </div>
+        </div>
         <button class="ghost icon-button" data-tool="text" title="Text box (T) — click the canvas to place one">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="12" y1="4" x2="12" y2="20"></line><line x1="9" y1="20" x2="15" y2="20"></line></svg>
         </button>
@@ -1528,12 +1567,6 @@ Link to another note with [[its first few words]]."></textarea>
         </button>
         <span class="header-divider" aria-hidden="true"></span>
         <input type="color" id="wb-color-picker" value="#ffffff" title="Stroke Color" class="wb-color-picker">
-        <select id="wb-arrow-style" class="ghost small hidden" title="Arrowheads">
-          <option value="end">Arrowhead: end</option>
-          <option value="start">Arrowhead: start</option>
-          <option value="both">Arrowhead: both ends</option>
-          <option value="none">Arrowhead: none</option>
-        </select>
       </div>
     </div>
 
@@ -1550,8 +1583,10 @@ Link to another note with [[its first few words]]."></textarea>
          wbUpdatePropertiesPanel() whenever the selection changes, and each
          row toggled to whatever the selected kind actually has to edit. -->
     <div class="whiteboard-floating-panel mid-right card glass hidden" data-panel-id="properties" id="wb-properties-panel">
-      <span class="wb-panel-grip" title="Drag to move" aria-hidden="true">⠿</span>
-      <h3 class="wb-properties-title">Properties</h3>
+      <div class="wb-panel-header">
+        <span class="wb-panel-grip" title="Drag to move" aria-hidden="true">⠿</span>
+        <h3 class="wb-properties-title">Properties</h3>
+      </div>
       <label class="wb-properties-row" id="wb-prop-color-row">
         <span>Colour</span>
         <input type="color" id="wb-prop-color">

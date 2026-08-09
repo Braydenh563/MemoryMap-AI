@@ -234,6 +234,10 @@ def graph(similarity: bool = False, session: Session = Depends(get_session)) -> 
                         "target": link.target_entry_id,
                         "kind": "link",
                         "reason": link.reason,
+                        # Set only when `reason` was deduced from embedding
+                        # similarity rather than said in words — see
+                        # EntryLink.reason_confidence.
+                        "reason_confidence": link.reason_confidence,
                     }
                 )
 

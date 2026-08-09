@@ -175,6 +175,13 @@ class EntryLink(Base):
     # string default so "no reason given" and "reason is blank" aren't the
     # same row on old links backfilled by the auto-migrator.
     reason: Mapped[str | None] = mapped_column(Text, default=None)
+    # How sure `create_link` was of a reason it deduced itself, 0..1 — set
+    # only when the reason above came from embedding similarity rather than
+    # from a person or the AI saying it in words. A human- or model-given
+    # reason is taken at face value and leaves this null; null also means
+    # "nothing could be deduced", which is deliberately indistinguishable
+    # from "nobody tried" — both display as no reason at all.
+    reason_confidence: Mapped[float | None] = mapped_column(Float, default=None)
 
 
 class EmbeddingRecord(Base):

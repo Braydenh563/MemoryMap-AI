@@ -153,7 +153,15 @@ def build(session: Session, include_private: bool = True, extra_edges: list[dict
             # A link's own reason, when someone gave one, is a better answer
             # to "how are these connected?" than the generic "linked to" —
             # same phrase either direction, since "why" doesn't have one.
-            phrase = f"linked to ({link.reason})" if link.reason else "linked to"
+            # `reason_confidence` only exists on a reason nobody actually
+            # said — "deduced" keeps Trace and the story prompt from reading
+            # a guess as a fact the way a person's or the AI's own words are.
+            phrase = "linked to"
+            if link.reason:
+                phrase = f"linked to ({link.reason}"
+                if link.reason_confidence is not None:
+                    phrase += f", {round(link.reason_confidence * 100)}% confidence, deduced"
+                phrase += ")"
             index._add(
                 link.source_entry_id,
                 link.target_entry_id,

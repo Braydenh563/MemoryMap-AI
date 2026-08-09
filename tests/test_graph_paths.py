@@ -83,6 +83,26 @@ def test_a_links_reason_shows_up_in_how_it_connects(session):
     assert chain[0].how == "linked to (both about scheduling)"
 
 
+def test_a_deduced_reasons_confidence_shows_up_in_how_it_connects(session):
+    """A reason nobody actually said carries its score, so Trace and the
+    story prompt don't read a guess with the same certainty as a person's or
+    the AI's own words (see `EntryLink.reason_confidence`)."""
+    a = _note(session, "assignment due next week")
+    b = _note(session, "gym session tuesday")
+    session.add(
+        EntryLink(
+            source_entry_id=a.id,
+            target_entry_id=b.id,
+            reason="similar in meaning",
+            reason_confidence=0.83,
+        )
+    )
+    session.commit()
+
+    chain = _chain(session, a, b)
+    assert chain[0].how == "linked to (similar in meaning, 83% confidence, deduced)"
+
+
 def test_a_path_runs_through_the_notes_between(session):
     a = _note(session, "beans need netting")
     b = _note(session, "the netting is in the shed")

@@ -491,6 +491,43 @@ def delete_tag(session: Session, name: str) -> int:
     return changed
 
 
+# How close two notes' embeddings must be, cosine-wise, before a link left
+# with no reason gets one deduced for it. The same bar `/entries/link-
+# suggestions` ranks by, so a link made from approving a suggestion and a
+# link the AI made unprompted read the same way if they're equally close.
+AUTO_REASON_THRESHOLD = 0.55
+_AUTO_REASON_TEXT = "similar in meaning"
+
+
+def _deduce_reason(
+    session: Session, source_id: int, target_id: int
+) -> tuple[str | None, float | None]:
+    """Guess why two notes might be linked from how close their embeddings
+    are. Returns `(None, None)` — "no reason" — when it can't: no embedding
+    for one or both notes, a mid-reindex width mismatch, or a score under
+    `AUTO_REASON_THRESHOLD`. That's deliberately the same pair `reason`
+    already had for "nobody gave one", so a weak guess never outranks
+    silence — see `EntryLink.reason_confidence`.
+
+    A private note has no embedding (`set_private` deletes it), so this is
+    naturally a no-op for one rather than needing its own guard.
+    """
+    from memorymap.ai.embeddings import bytes_to_vector, cosine_similarity
+
+    rows = session.scalars(
+        select(EmbeddingRecord).where(EmbeddingRecord.entry_id.in_((source_id, target_id)))
+    ).all()
+    vectors = {row.entry_id: bytes_to_vector(row.embedding) for row in rows}
+    if source_id not in vectors or target_id not in vectors:
+        return None, None
+    if vectors[source_id].shape != vectors[target_id].shape:
+        return None, None  # mid embedding-model change — see search.similar_pairs
+    score = cosine_similarity(vectors[source_id], vectors[target_id])
+    if score < AUTO_REASON_THRESHOLD:
+        return None, None
+    return _AUTO_REASON_TEXT, round(score, 2)
+
+
 def create_link(
     session: Session, source: Entry, target: Entry, reason: str | None = None
 ) -> EntryLink | None:
@@ -502,7 +539,8 @@ def create_link(
     a shared tag or a reply thread says on its own and a link doesn't. Not
     required: most links are still obviously why (two notes about the same
     trip), and forcing an explanation on every one would make linking
-    slower for the common case to help the uncommon one.
+    slower for the common case to help the uncommon one. When nobody gives
+    one, `_deduce_reason` gets a try instead of leaving the link mute.
     """
     if source.id == target.id:
         return None
@@ -518,10 +556,15 @@ def create_link(
     )
     if existing is not None:
         return None
+    reason = (reason or "").strip() or None
+    confidence = None
+    if reason is None:
+        reason, confidence = _deduce_reason(session, source.id, target.id)
     link = EntryLink(
         source_entry_id=source.id,
         target_entry_id=target.id,
-        reason=(reason or "").strip() or None,
+        reason=reason,
+        reason_confidence=confidence,
     )
     session.add(link)
     session.flush()
@@ -556,6 +599,22 @@ def remove_link(session: Session, source: Entry, target: Entry) -> bool:
         return False
     delete_link(session, link)
     return True
+
+
+def set_link_reason(session: Session, link: EntryLink, reason: str | None) -> EntryLink:
+    """A person setting, changing, or clearing a link's reason by hand.
+
+    Always wins over whatever `_deduce_reason` guessed: `reason_confidence`
+    is cleared here because a person's words aren't a similarity score, and
+    null already means "not deduced" — so an edited link and a freshly
+    auto-reasoned one that hasn't been touched stay tellable apart.
+    """
+    link.reason = (reason or "").strip() or None
+    link.reason_confidence = None
+    detail = f"-> entry {link.target_entry_id}" + (f" ({link.reason})" if link.reason else "")
+    log_action(session, "relinked", "entry", link.source_entry_id, detail)
+    session.commit()
+    return link
 
 
 def delete_link(session: Session, link: EntryLink) -> None:

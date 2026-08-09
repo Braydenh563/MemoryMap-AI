@@ -146,6 +146,13 @@ def _run_optimization() -> None:
             persona += " Do NOT change or add tags."
         if not config.get_preference("auto_link_enabled", True):
             persona += " Do NOT link notes."
+        else:
+            persona += (
+                " When you link two notes, pass a reason if the connection "
+                "isn't obvious from the titles alone (e.g. 'both about "
+                "scheduling') — it's shown on the graph and explains the "
+                "link to the person who wrote the notes."
+            )
 
         outcome, detail = "completed", "Finished analysing and linking notes."
         changes: list[dict] = []

@@ -164,6 +164,119 @@ def test_link_suggestions_empty_without_embeddings(client):
     assert client.get("/entries/link-suggestions").json() == []
 
 
+# --- link reason: deduced with a confidence score, and editable by hand -------------
+#
+# "whenever a link is made, it should try to find a reason and that reason
+# should probably have a confidence score. if a sufficient reason cant be
+# deduced or the reason doesnt match then that reason can be left as invalid"
+# (user-reported). The fake embedder puts same-topic notes on the same axis
+# (cosine 1.0) and different-topic notes on different axes (cosine 0.0), which
+# is exactly the signal `create_link` checks when nobody gives it a reason.
+
+
+def test_a_link_with_no_reason_gets_one_deduced_from_similarity(ai_client):
+    a = _save(ai_client, "a funny scarecrow joke")
+    b = _save(ai_client, "another funny pun")
+
+    linked = ai_client.post(f"/entries/{a['id']}/links", json={"target_id": b["id"]})
+    link = linked.json()["links"][0]
+    assert link["reason"] == "similar in meaning"
+    assert link["reason_confidence"] == 1.0
+
+
+def test_an_unrelated_pair_is_left_with_no_reason_at_all(ai_client):
+    a = _save(ai_client, "a funny scarecrow joke")
+    b = _save(ai_client, "buy milk and eggs")
+
+    linked = ai_client.post(f"/entries/{a['id']}/links", json={"target_id": b["id"]})
+    link = linked.json()["links"][0]
+    assert link["reason"] is None
+    assert link["reason_confidence"] is None
+
+
+def test_a_reason_someone_gave_is_never_overridden_by_a_guess(ai_client):
+    """Two notes close enough to be auto-reasoned still keep the human's own
+    words — and a stated reason never carries a similarity score, since it
+    isn't one."""
+    a = _save(ai_client, "a funny scarecrow joke")
+    b = _save(ai_client, "another funny pun")
+
+    linked = ai_client.post(
+        f"/entries/{a['id']}/links",
+        json={"target_id": b["id"], "reason": "both jokes I heard at the party"},
+    )
+    link = linked.json()["links"][0]
+    assert link["reason"] == "both jokes I heard at the party"
+    assert link["reason_confidence"] is None
+
+
+def test_no_reason_is_deduced_without_embeddings(client):
+    """The plain `client` fixture has no working embedding backend — the same
+    case `/entries/link-suggestions` already returns empty for."""
+    a = _save(client, "first note")
+    b = _save(client, "second note")
+
+    linked = client.post(f"/entries/{a['id']}/links", json={"target_id": b["id"]})
+    link = linked.json()["links"][0]
+    assert link["reason"] is None
+    assert link["reason_confidence"] is None
+
+
+def test_a_links_reason_can_be_added_edited_and_cleared_by_hand(client):
+    a = _save(client, "first note")
+    b = _save(client, "second note")
+    link_id = client.post(
+        f"/entries/{a['id']}/links", json={"target_id": b["id"]}
+    ).json()["links"][0]["link_id"]
+
+    added = client.put(
+        f"/entries/{a['id']}/links/{link_id}/reason", json={"reason": "written by hand"}
+    )
+    assert added.status_code == 200
+    assert added.json()["links"][0]["reason"] == "written by hand"
+
+    edited = client.put(
+        f"/entries/{a['id']}/links/{link_id}/reason", json={"reason": "changed my mind"}
+    )
+    assert edited.json()["links"][0]["reason"] == "changed my mind"
+
+    cleared = client.put(f"/entries/{a['id']}/links/{link_id}/reason", json={"reason": None})
+    assert cleared.json()["links"][0]["reason"] is None
+
+
+def test_editing_a_reason_by_hand_clears_a_deduced_confidence(ai_client):
+    """Once a person has spoken for the link, the similarity score that
+    produced the old reason no longer describes anything — an edited link
+    and a fresh auto-reasoned one that hasn't been touched must stay
+    tellable apart, so the score is cleared rather than left stale."""
+    a = _save(ai_client, "a funny scarecrow joke")
+    b = _save(ai_client, "another funny pun")
+    link = ai_client.post(f"/entries/{a['id']}/links", json={"target_id": b["id"]}).json()[
+        "links"
+    ][0]
+    assert link["reason_confidence"] == 1.0
+
+    edited = ai_client.put(
+        f"/entries/{a['id']}/links/{link['link_id']}/reason",
+        json={"reason": "actually, both jokes from work"},
+    )
+    edited_link = edited.json()["links"][0]
+    assert edited_link["reason"] == "actually, both jokes from work"
+    assert edited_link["reason_confidence"] is None
+
+
+def test_editing_a_reason_on_someone_elses_link_id_is_404(client):
+    a = _save(client, "first note")
+    b = _save(client, "second note")
+    c = _save(client, "an unrelated third note")
+    link_id = client.post(
+        f"/entries/{a['id']}/links", json={"target_id": b["id"]}
+    ).json()["links"][0]["link_id"]
+
+    response = client.put(f"/entries/{c['id']}/links/{link_id}/reason", json={"reason": "x"})
+    assert response.status_code == 404
+
+
 # --- job cancellation ---------------------------------------------------------------
 
 

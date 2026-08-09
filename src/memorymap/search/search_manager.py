@@ -337,8 +337,14 @@ GRAPH_EXPANSION_LIMIT = 3
 
 def graph_expansion(
     session: Session, matches: list[Entry], limit: int = GRAPH_EXPANSION_LIMIT
-) -> list[Entry]:
-    """Notes directly connected to the best matches, nearest first.
+) -> tuple[list[Entry], dict[int, str]]:
+    """Notes directly connected to the best matches, nearest first, plus
+    *why* — a link's own reason, keyed by neighbour id, for the ones that
+    have one. Only the one caller (`_retrieve`) reads the second half; it's
+    what lets the "linked to a match" badge say what the link actually is
+    instead of just that one exists (asked for directly: "does the reason
+    in the links show in [connected results] as well?" — it didn't, this is
+    that gap closed).
 
     Links and reply threads only — not shared tags. A tag is a filing label
     that can put fifty unrelated notes one hop apart, and the same reasoning
@@ -347,12 +353,13 @@ def graph_expansion(
     indistinguishable from a strong one.
     """
     if not matches:
-        return []
+        return [], {}
     from memorymap.core.database import EntryLink
 
     have = {entry.id for entry in matches}
     seeds = [entry.id for entry in matches[:GRAPH_EXPANSION_SEEDS]]
     neighbours: list[int] = []
+    reasons: dict[int, str] = {}
 
     links = session.scalars(
         select(EntryLink).where(
@@ -366,6 +373,8 @@ def graph_expansion(
         for end in (link.source_entry_id, link.target_entry_id):
             if end not in have and end not in neighbours:
                 neighbours.append(end)
+                if link.reason:
+                    reasons[end] = link.reason
     # Replies, both directions: a thread is one train of thought, so the note
     # that answers the match is as relevant as the one it answers.
     for entry in session.scalars(
@@ -379,7 +388,7 @@ def graph_expansion(
                 neighbours.append(entry.parent_id)
 
     if not neighbours:
-        return []
+        return [], {}
     found = list(
         session.scalars(
             select(Entry).where(
@@ -392,7 +401,8 @@ def graph_expansion(
     # Back into the order the walk found them, so the nearest neighbour of the
     # best match comes first rather than whatever the database returned.
     by_id = {entry.id: entry for entry in found}
-    return [by_id[note_id] for note_id in neighbours if note_id in by_id][:limit]
+    ordered = [by_id[note_id] for note_id in neighbours if note_id in by_id][:limit]
+    return ordered, {e.id: reasons[e.id] for e in ordered if e.id in reasons}
 
 
 def in_range(
@@ -704,11 +714,15 @@ def _retrieve(
         # Appended, never interleaved: a connected note is context and a match
         # is an answer, and a prompt that has to drop something should drop the
         # context first. The order encodes that.
-        for neighbour in graph_expansion(session, entries):
+        neighbours, neighbour_reasons = graph_expansion(session, entries)
+        for neighbour in neighbours:
             if all(neighbour.id != entry.id for entry in entries):
                 entries.append(neighbour)
                 found["connected"].add(neighbour.id)
-                match_info[neighbour.id] = {"type": "connected"}
+                info = {"type": "connected"}
+                if neighbour.id in neighbour_reasons:
+                    info["reason"] = neighbour_reasons[neighbour.id]
+                match_info[neighbour.id] = info
     found["match_info"] = match_info
 
     # One final filter covering every mode. Private notes are also excluded by

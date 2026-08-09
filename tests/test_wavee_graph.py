@@ -25,7 +25,13 @@ def test_graph_nodes_and_manual_link_edges(client):
     assert {n["id"] for n in body["nodes"]} == {a["id"], b["id"]}
     assert body["categories"] == ["Alpha", "Beta"]
     assert body["edges"] == [
-        {"source": a["id"], "target": b["id"], "kind": "link", "reason": None}
+        {
+            "source": a["id"],
+            "target": b["id"],
+            "kind": "link",
+            "reason": None,
+            "reason_confidence": None,
+        }
     ]
 
     node = next(n for n in body["nodes"] if n["id"] == a["id"])
@@ -74,7 +80,14 @@ def test_graph_link_edge_carries_its_reason(client):
 
     edges = client.get("/graph").json()["edges"]
     assert edges == [
-        {"source": a["id"], "target": b["id"], "kind": "link", "reason": "both about scheduling"}
+        {
+            "source": a["id"],
+            "target": b["id"],
+            "kind": "link",
+            "reason": "both about scheduling",
+            # A reason someone typed, not one deduced — no score attached.
+            "reason_confidence": None,
+        }
     ]
 
 
@@ -85,6 +98,16 @@ def test_graph_link_edge_without_a_reason_is_none(client):
 
     edges = client.get("/graph").json()["edges"]
     assert edges[0]["reason"] is None
+
+
+def test_graph_link_edge_carries_a_deduced_reasons_confidence(ai_client):
+    a = _save(ai_client, "a funny scarecrow joke", category="Alpha")
+    b = _save(ai_client, "another funny pun", category="Beta")
+    ai_client.post(f"/entries/{a['id']}/links", json={"target_id": b["id"]})
+
+    edges = ai_client.get("/graph").json()["edges"]
+    assert edges[0]["reason"] == "similar in meaning"
+    assert edges[0]["reason_confidence"] == 1.0
 
 
 def test_graph_thread_edges(client):

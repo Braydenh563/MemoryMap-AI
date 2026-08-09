@@ -104,11 +104,22 @@ into a good one.
    skill pauses after each step with a Continue button and a text box, so the
    user can add what the agent missed or answer a question it raised. **The
    single most-requested unbuilt thing on the list.**
-9. **A reason on every link.** "A note about uni and gym might still be
-   related if they're both about scheduling." Optional free text on
-   `entry_links`, shown on the edge and in Trace's readout, writable by
-   `link_notes`. Turns the graph from "these are connected" into "connected
-   *because*" — which is also what makes Trace worth reading.
+9. ~~**A reason on every link.**~~ **Done, including a confidence score and
+   an editor (HISTORY.md §43).** Optional `reason` column on `entry_links` —
+   "a note about uni and gym might still be related if they're both about
+   scheduling." Writable by `link_notes` and the manual `/entries/{id}/links`
+   endpoint; shown on the graph edge as a native SVG tooltip, in Trace's
+   readout (`entry/paths.py`'s `Step.how`), and in `related_notes`' own `how`
+   field so the model can reason about *why* two notes relate. When nobody
+   gives a reason, `manager.create_link` tries to deduce one from embedding
+   similarity and attaches a `reason_confidence` (0–1) alongside it — below
+   the threshold, or with no embedding to check, it stays as no reason at
+   all rather than a weak guess. Editable and clearable by hand afterwards
+   (`PUT /entries/{id}/links/{link_id}/reason`, a ✎/⊘ pair on the note
+   card's own link chips), which resets any deduced confidence since a
+   person's words aren't a similarity score. Turns the graph from "these are
+   connected" into "connected *because*" — which is also what makes Trace
+   worth reading.
 10. **The sketch pad.** The highlighter at 5% opacity is effectively invisible
     (~20 passes before anything shows) — that is the "completely wrong" in the
     report. Then a reachable size control, a background colour, and a

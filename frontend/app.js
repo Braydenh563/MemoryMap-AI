@@ -898,13 +898,59 @@ function entryItem(entry, options = {}) {
         ? `${label.slice(0, LINK_CHIP_CHARS - 1).trimEnd()}…`
         : label;
       const linkChip = chip(`↔ ${short}`, "link");
-      linkChip.title = `Go to note: ${label}`;
+      const reasonNote = link.reason
+        ? link.reason_confidence != null
+          ? `${link.reason} (${Math.round(link.reason_confidence * 100)}% confidence, deduced)`
+          : link.reason
+        : null;
+      linkChip.title = reasonNote
+        ? `Go to note: ${label}\nReason: ${reasonNote}`
+        : `Go to note: ${label}`;
       linkChip.style.cursor = "pointer";
       linkChip.addEventListener("click", (e) => {
         if (e.target.classList.contains("unlink")) return;
         flashEntry(link.entry_id);
       });
       if (options.actions) {
+        const editReason = document.createElement("span");
+        editReason.className = "unlink reason-edit";
+        editReason.textContent = "✎";
+        editReason.title = link.reason ? "Edit this link's reason" : "Add a reason for this link";
+        editReason.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          // promptDialog resolves "" for both Cancel and an empty Save, so it
+          // can only ever *set* a reason here — clearing one that already
+          // exists goes through the ⊘ below instead, where the intent is
+          // unambiguous.
+          const next = await promptDialog(
+            "Why are these notes connected?",
+            link.reason || ""
+          );
+          if (!next) return;
+          await api(`/entries/${entry.id}/links/${link.link_id}/reason`, {
+            method: "PUT",
+            body: JSON.stringify({ reason: next }),
+          });
+          await loadEntries();
+        });
+        linkChip.appendChild(editReason);
+
+        if (link.reason) {
+          const clearReason = document.createElement("span");
+          clearReason.className = "unlink reason-clear";
+          clearReason.textContent = "⊘";
+          clearReason.title = "Remove this link's reason";
+          clearReason.addEventListener("click", async (e) => {
+            e.stopPropagation();
+            await api(`/entries/${entry.id}/links/${link.link_id}/reason`, {
+              method: "PUT",
+              body: JSON.stringify({ reason: null }),
+            });
+            await loadEntries();
+          });
+          linkChip.appendChild(clearReason);
+        }
+
         const unlink = document.createElement("span");
         unlink.className = "unlink";
         unlink.textContent = "×";
@@ -2610,9 +2656,15 @@ function renderChatMeta(meta) {
 // the rest: a cosine similarity score for a semantic hit, the words that
 // matched for a keyword hit, both for a hybrid one.
 const MATCH_REASON_LABEL = {
-  connected: () => ({
-    text: "🔗 Linked to a match",
-    title: "This note didn't match your question — it's here because it is linked to one that did.",
+  // `info.reason` is the link's own reason, when whoever made the link gave
+  // one ("both about scheduling") — asked for directly: does a link's
+  // reason show up here too, not just on the graph and in Trace. It does
+  // now (search_manager.graph_expansion carries it through).
+  connected: (info) => ({
+    text: info.reason ? `🔗 Linked (${info.reason})` : "🔗 Linked to a match",
+    title: info.reason
+      ? `This note didn't match your question — it's here because it's linked to one that did: ${info.reason}.`
+      : "This note didn't match your question — it's here because it is linked to one that did.",
   }),
   semantic: (info) => ({
     text: `🎯 ${Math.round(info.score * 100)}% similar`,
@@ -11805,7 +11857,15 @@ async function renderGraph() {
   edgeLines.each(function (d) {
     const el = d3.select(this);
     el.selectAll("title").remove();
-    if (d.reason) el.append("title").text(d.reason);
+    if (d.reason) {
+      // A deduced reason carries a confidence score (0..1); one a person or
+      // the AI typed doesn't, so this only ever shows up on the guessed kind.
+      const text =
+        d.reason_confidence != null
+          ? `${d.reason} (${Math.round(d.reason_confidence * 100)}% confidence, deduced)`
+          : d.reason;
+      el.append("title").text(text);
+    }
   });
 
   // Semantic Zoom: Clustering super-nodes
@@ -18056,6 +18116,10 @@ async function loadLinkSuggestions() {
       await apiJson(`/entries/${s.source_id}/links`, {
         method: "POST",
         body: JSON.stringify({ target_id: s.target_id }),
+        // No `reason` here on purpose: this suggestion came from the same
+        // embeddings `create_link` checks when nobody gives it a reason, so
+        // leaving it out gets the same "similar in meaning" text and a real
+        // confidence score back, instead of a hand-built duplicate of it.
       }).catch((e) => toast(e.message, true));
       row.remove();
       toast("Linked.");

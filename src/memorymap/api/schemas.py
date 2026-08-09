@@ -42,7 +42,10 @@ class LinkOut(BaseModel):
     link_id: int
     entry_id: int  # the entry on the other end
     preview: str  # first few words of that entry
-    reason: str | None = None  # why these are connected, if anyone said
+    reason: str | None = None  # why these are connected, if anyone said or it was deduced
+    # 0..1, set only when `reason` above came from embedding similarity
+    # rather than from a person or the AI saying it — see EntryLink.reason_confidence.
+    reason_confidence: float | None = None
 
 
 class AttachmentOut(BaseModel):

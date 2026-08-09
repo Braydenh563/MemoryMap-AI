@@ -91,6 +91,7 @@ def _to_out(
                 entry_id=other.id,
                 preview=_preview(manager.readable_content(other)),
                 reason=link.reason,
+                reason_confidence=link.reason_confidence,
             )
             for link, other in manager.links_for_entry(session, entry)
         ],
@@ -641,6 +642,13 @@ class LinkBody(BaseModel):
     reason: str | None = Field(default=None, max_length=200)
 
 
+class LinkReasonBody(BaseModel):
+    # None (or omitted/blank) clears the reason — this is also how a link
+    # that got an auto-deduced reason it disagrees with is corrected back
+    # to nothing, same as it would have started with.
+    reason: str | None = Field(default=None, max_length=200)
+
+
 class PrivacyBody(BaseModel):
     private: bool
 
@@ -797,4 +805,19 @@ def delete_link(
     if link is None or entry.id not in (link.source_entry_id, link.target_entry_id):
         raise HTTPException(status_code=404, detail="Link not found")
     manager.delete_link(session, link)
+    return _to_out(session, entry)
+
+
+@router.put("/{entry_id}/links/{link_id}/reason", response_model=EntryOut)
+def update_link_reason(
+    entry_id: int, link_id: int, body: LinkReasonBody, session: Session = Depends(get_session)
+) -> EntryOut:
+    """Add, edit, or clear a link's reason by hand — whether it started
+    with none, one somebody typed, or one `create_link` deduced on its own.
+    """
+    entry = _existing_entry(session, entry_id)
+    link = session.get(EntryLink, link_id)
+    if link is None or entry.id not in (link.source_entry_id, link.target_entry_id):
+        raise HTTPException(status_code=404, detail="Link not found")
+    manager.set_link_reason(session, link, body.reason)
     return _to_out(session, entry)

@@ -1050,3 +1050,128 @@ feature-parity list, a widget-management hub, an Obsidian-style graph ask,
 a guided-tour request, and "clean up the tests") are in ROADMAP.md's tiers —
 each scoped against the actual current code, not guessed at, per this file's
 own standing rule.
+
+## 43. A follow-up burst on top of §42 — the time filter was still broken, link reasons grew a confidence score and an editor, notes got optional titles
+
+Same session as §42, continued after that write-up: the user came back with a
+run of small, specific asks in quick succession rather than another
+unstructured list. Each is below in the order it was answered.
+
+1. **The time filter slider still didn't move** — reported immediately after
+   §42 claimed it fixed. It had, for the bug §42 found (the sticky
+   `graphSliderInitialized` flag); it hadn't, for a second, worse one hiding
+   behind it. `/graph`'s two hand-built node dicts did
+   `e.created_at.isoformat() + "Z"` — a habit from before
+   `core/database.DateTime` existed, back when `.isoformat()` needed help to
+   say UTC. It says so on its own now (`...+00:00`), so the `+ "Z"` produced
+   `...+00:00Z`: two timezone markers in one string, which `new Date(...)`
+   parses as `Invalid Date` with no error anywhere. The frontend's bounds
+   calculation drops unparseable dates, so `min`/`max` always collapsed to
+   `Date.now()` — for every note in the notebook, not a rare one. §42's own
+   testing had used notes created moments apart in the same session, which
+   masked it: near-simultaneous *good* dates and near-simultaneous *invalid*
+   ones look the same on a slider with no range. Backdating a note directly in
+   SQL and reading `/graph`'s raw response is what actually showed
+   `"2025-12-01T23:40:32.022250+00:00Z"`. Fixed by dropping the redundant
+   `+ "Z"` in both places; a new pair of tests parses the returned
+   `created_at` with `datetime.fromisoformat()` rather than trusting a string
+   shape again.
+2. **Link reasons, asked about from three directions at once.** §42 shipped
+   the *reason* — free text, optional, shown on the edge, in Trace, and in
+   `related_notes`. This round added the two things a reason on its own
+   doesn't give you:
+   - **A confidence score, for the reasons nobody actually wrote.**
+     `manager.create_link` now tries `_deduce_reason` whenever it's asked to
+     link two notes with no reason given — the same embedding-cosine check
+     `/entries/link-suggestions` already ranks by (`AUTO_REASON_THRESHOLD =
+     0.55`, the same bar). At or above it, the link gets `reason = "similar
+     in meaning"` and a `reason_confidence` (0–1) alongside it; below it, or
+     with no embedding for one or both notes (private notes have none —
+     `set_private` deletes it — so this is naturally a no-op for them), both
+     stay null, which reads identically to "nobody tried." A reason a person
+     or the AI actually typed never gets a score — it isn't a similarity
+     measurement, and forcing one on it would misrepresent a stated reason as
+     a guess. `EntryLink.reason_confidence` is a new nullable column (the
+     same additive-migration path `reason` used). The suggested-links
+     "🔗 Link" button in the frontend dropped its own hand-built
+     `"NN% similar in meaning"` text for this reason — it was duplicating,
+     with a slightly different number, exactly what the backend now derives
+     from the same embeddings on every other undecorated link. Surfaced
+     everywhere a reason already showed: the graph edge's SVG `<title>` and
+     `entry/paths.py`'s `Step.how` (Trace, and the story-mode prompt) append
+     `", NN% confidence, deduced"` when `reason_confidence` is set, so a
+     guess never reads with the same certainty as something a person said.
+   - **An editor**, because a reason — typed, AI-given, or deduced — was
+     write-once until asked for directly. New `manager.set_link_reason` and
+     `PUT /entries/{id}/links/{link_id}/reason` (empty/`null` clears it);
+     always overwrites `reason_confidence` back to null, since an edited
+     link and a fresh, untouched auto-reasoned one need to stay tellable
+     apart. In the note card's own link chips, a ✎ opens the existing
+     `promptDialog` prefilled with the current reason (blank submissions are
+     read as "no change," same convention as every other rename in the app,
+     which is why clearing is a separate ⊘ next to it rather than the same
+     control with an empty box) and a ⊘ clears it outright — both only ever
+     appear next to a link, never touch the link itself.
+   - The autonomous background auto-linker's persona now explicitly invites
+     a reason ("pass a reason if the connection isn't obvious ... e.g. 'both
+     about scheduling'") when linking is enabled, matching the wording
+     `link_notes`' own tool schema already used — nudging the one path that
+     previously had no reminder at all.
+3. **Notes got an optional title.** Answered as a design question first
+   ("does a title restrict how many notes can be on one topic, or is there a
+   better way?") — recommended a title that's read off the note rather than
+   demanded or generated by default, and built what the user then confirmed:
+   a note's title is `manager.extract_title(content)`, the leading `#`–`######`
+   heading line if the first non-blank line of the note is one, computed on
+   every read rather than stored as its own column — so it can never drift
+   out of sync with an edited first line the way a duplicated, separately-
+   saved title could. Shown in the note card as its own `<p class="entry-title">`
+   above the body (`<h3>` was tried first and reverted — `.card h3` is this
+   design system's small-caps section-label convention, and it leaked
+   straight into a note's own title). The card body itself drops the heading
+   line when a title is showing (`bodyWithoutTitleLine`), so the text isn't
+   repeated. Three actions round it out, all via the note's own overflow
+   menu: **✨ Generate title** (or **Regenerate**, if one exists) calls a new
+   `librarian.generate_title` and `POST /{id}/generate-title`; **✕ Remove
+   title** strips just the leading heading line and one following blank line
+   via `manager.remove_title`, `POST /{id}/remove-title`. Both refuse a
+   private note outright (400) rather than risk it: each reads
+   `manager.readable_content` — decrypted — and would otherwise write that
+   plaintext straight back to `entry.content`, un-encrypting the note as a
+   side effect of titling it. A test asserts `crypto.is_encrypted` still
+   holds after a refused attempt on both routes.
+4. **"When I close and reopen the app, start on the dashboard."** The boot
+   sequence read `localStorage.getItem("activeTab")` and restored whatever
+   tab was last open; now it always opens on Dashboard
+   (`switchTab("dashboard")`, unconditional). Small, but worth naming the
+   trap it hit: an *earlier*, unrelated occurrence of the exact string
+   `switchTab("dashboard");` inside a menu handler meant a substring-based
+   test assertion matched the wrong call site until it was anchored with a
+   leading newline.
+5. **The glassmorphism blur slider, asked whether it actually scales the
+   frosted-glass effect** — investigated and found working as built. Two
+   screenshots at different slider positions looked identical to the eye, so
+   this was checked by comparing the raw screenshot byte buffers rather than
+   trusting a visual read: they differ (different sizes), meaning the
+   `backdrop-filter: blur(...)` value the slider drives does change between
+   settings. No fix made — there was nothing to fix — and reported as such
+   rather than as a guessed-at change, per this project's standing rule about
+   saying plainly what wasn't broken as much as what was.
+
+**Verified live in Chromium**: the manual link → ✎ add a reason → chip title
+updates → ⊘ clears it → chip title reverts, end to end, including the actual
+`PUT .../reason` round trip. **Not verified live**: the auto-deduced-reason
+path and its graph-edge tooltip specifically — this sandbox's embedding
+backend is the fake keyword one from the test suite in `pytest`, and driving
+it live needs a real embedding model this sandbox doesn't have; a set of
+notes linked in the same live session also happened to land inside the
+graph's "Uncategorised" cluster supernode (semantic-zoom clustering, all
+notes sharing the one category), which hides individual link edges behind
+the cluster rather than rendering them directly. The backend behaviour is
+covered by `pytest` (`test_waven_api.py`, `test_wavee_graph.py`,
+`test_graph_paths.py` — deduction, confidence, editing, clearing, the 404
+case, and the graph edge's own `reason_confidence` field), and the browser
+check above proves the same JS code path (`api(... PUT .../reason)`,
+re-render, chip title) that the auto-deduce path also runs through — but the
+pixels of a deduced reason's tooltip specifically were not seen, and that is
+worth re-checking with a real embedding backend before calling it done.

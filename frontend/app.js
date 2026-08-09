@@ -23070,6 +23070,60 @@ const wbDeleting = new Set();
 function handleWbZoom(e) {
   d3.select("#wb-html-layer").style("transform", `translate(${e.transform.x}px, ${e.transform.y}px) scale(${e.transform.k})`);
   d3.select("#wb-zoom-group").attr("transform", e.transform);
+  wbSyncGridToTransform(e.transform);
+}
+
+//: The grid's spacing in board coordinates. Scaled by the zoom so a square
+//: stays a square of the *board*, not of the screen — panning and zooming
+//: move the ruling with the content, which is the whole point of a grid you
+//: can snap to.
+const WB_GRID_SPACING = 24;
+
+function wbSyncGridToTransform(transform) {
+  const el = document.getElementById("whiteboard-container");
+  if (!el) return;
+  const t = transform || d3.zoomTransform(el);
+  el.style.setProperty("--wb-grid-size", `${WB_GRID_SPACING * t.k}px`);
+  el.style.setProperty("--wb-grid-offset-x", `${t.x}px`);
+  el.style.setProperty("--wb-grid-offset-y", `${t.y}px`);
+}
+
+function wbGridType() {
+  return localStorage.getItem("wb-grid") || "none";
+}
+
+function wbSnapOn() {
+  // Snapping without a visible grid is a mystery, not a feature — the
+  // toggle stays honest by only applying while a grid is actually shown.
+  return localStorage.getItem("wb-snap") === "on" && wbGridType() !== "none";
+}
+
+//: Round a board coordinate to the nearest grid intersection, when snap is
+//: on. A no-op otherwise, so every call site can use it unconditionally.
+function wbSnap(value) {
+  return wbSnapOn() ? Math.round(value / WB_GRID_SPACING) * WB_GRID_SPACING : value;
+}
+
+function wbApplyGrid() {
+  const el = document.getElementById("whiteboard-container");
+  if (!el) return;
+  el.dataset.wbGrid = wbGridType();
+  wbSyncGridToTransform();
+}
+
+//: A board's own background image, kept per board in localStorage the same
+//: way its background colour already is — it is a property of how you like
+//: to look at that board, not notebook data, and storing it server-side
+//: would mean a schema column for something the server never reads.
+function wbBgImageKey() {
+  return `wb-bg-image-${window.currentBoardId ?? "default"}`;
+}
+
+function wbApplyBgImage() {
+  const el = document.getElementById("whiteboard-container");
+  if (!el) return;
+  const url = localStorage.getItem(wbBgImageKey());
+  el.style.setProperty("--wb-bg-image", url ? `url("${url}")` : "none");
 }
 
 // A tiny inline SVG baked into a `cursor:` value, so the OS/GPU renders and
@@ -23696,6 +23750,9 @@ async function initWhiteboard() {
       window.currentBoardId = e.target.value || null;
       await fetchWhiteboardState();
       renderWhiteboard();
+      // The background image is stored per board, so switching boards has
+      // to re-read it — otherwise the previous board's image stays up.
+      wbApplyBgImage();
     });
   }
   $("wb-new-board")?.addEventListener("click", createNewBoard);
@@ -23873,6 +23930,67 @@ async function initWhiteboard() {
       toast("Panel positions reset.");
     });
   }
+
+  // Grid, snap-to-grid and a board background image (all asked for
+  // directly). Each is a per-browser display preference like the board
+  // colour beside them, so all three live in localStorage rather than
+  // costing the notebook a schema column the server would never read.
+  const gridSelect = $("wb-grid-select");
+  if (gridSelect) {
+    gridSelect.value = wbGridType();
+    gridSelect.addEventListener("change", (e) => {
+      localStorage.setItem("wb-grid", e.target.value);
+      wbApplyGrid();
+      // Snap only bites while a grid is visible, so the checkbox has to
+      // follow the grid going away rather than silently staying "on".
+      $("wb-snap-toggle").disabled = e.target.value === "none";
+    });
+  }
+  const snapToggle = $("wb-snap-toggle");
+  if (snapToggle) {
+    snapToggle.checked = localStorage.getItem("wb-snap") === "on";
+    snapToggle.disabled = wbGridType() === "none";
+    snapToggle.addEventListener("change", (e) => {
+      localStorage.setItem("wb-snap", e.target.checked ? "on" : "off");
+    });
+  }
+  const bgImageInput = $("wb-bg-image-input");
+  $("wb-bg-image")?.addEventListener("click", async () => {
+    // A background already set means the button's job is to offer removing
+    // it — a second "clear it" control for something most boards never use
+    // would be permanent clutter on a panel that is already busy.
+    if (localStorage.getItem(wbBgImageKey())) {
+      if (await confirmDialog("Remove this board's background image?")) {
+        localStorage.removeItem(wbBgImageKey());
+        wbApplyBgImage();
+        toast("Background image removed.");
+        return;
+      }
+      return;
+    }
+    bgImageInput?.click();
+  });
+  bgImageInput?.addEventListener("change", async () => {
+    const file = bgImageInput.files?.[0];
+    bgImageInput.value = "";
+    if (!file) return;
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const uploaded = await apiJson("/media/upload", {
+        method: "POST",
+        headers: { "X-Auth-Token": authToken() },
+        body: formData,
+      });
+      localStorage.setItem(wbBgImageKey(), uploaded.url);
+      wbApplyBgImage();
+      toast("Background image set.");
+    } catch (err) {
+      toast(err.message || "Couldn't set that background image.", true);
+    }
+  });
+  wbApplyGrid();
+  wbApplyBgImage();
 
   $("wb-clear-board")?.addEventListener("click", wbClearBoard);
   $("wb-export")?.addEventListener("click", wbExportBoard);
@@ -24391,7 +24509,15 @@ async function createNewBoard() {
 function renderWhiteboard() {
   document
     .getElementById("wb-empty-hint")
-    ?.classList.toggle("hidden", (wbState.nodes?.length || 0) + (wbState.sketches?.length || 0) > 0);
+    ?.classList.toggle(
+      "hidden",
+      // Objects count too — a board holding only a text box or an image is
+      // not empty, and left out of this sum the hint sat on top of them.
+      (wbState.nodes?.length || 0) +
+        (wbState.sketches?.length || 0) +
+        (wbState.objects?.length || 0) >
+        0
+    );
 
   // Render Sketches (SVG)
   const svgGroup = d3.select("#wb-zoom-group");
@@ -24646,8 +24772,8 @@ function renderWbObjects(canvas) {
     })
     .on("drag", function (event, d) {
       if (window.currentTool === "eraser" || window.currentTool === "delete") return;
-      d.x += event.dx;
-      d.y += event.dy;
+      d.x = wbSnap(d.x + event.dx);
+      d.y = wbSnap(d.y + event.dy);
       d3.select(this).style("transform", `translate(${d.x}px, ${d.y}px)`);
     })
     .on("end", function (event, d) {
@@ -24797,8 +24923,8 @@ function dragging(event, d) {
       d.linkingPath.setAttribute("d", `M ${sx} ${sy} C ${sx + dx/2} ${sy}, ${mx - dx/2} ${my}, ${mx} ${my}`);
     }
   } else {
-    d.x += event.dx;
-    d.y += event.dy;
+    d.x = wbSnap(d.x + event.dx);
+    d.y = wbSnap(d.y + event.dy);
     d3.select(this).style("transform", `translate(${d.x}px, ${d.y}px)`);
     // re-render links so they move with the node
     renderWhiteboard();

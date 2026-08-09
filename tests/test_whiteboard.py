@@ -176,7 +176,11 @@ def test_purging_a_note_removes_its_own_whiteboard_card(board_client, session):
     entry = _note(session)
     board_client.post("/whiteboard/nodes", json={"entry_id": entry.id})
 
-    assert board_client.delete(f"/entries/{entry.id}").status_code == 200
+    # The request is made on its own line, not inside the assert: `python -O`
+    # strips assert statements, which would silently skip the bin step and
+    # leave the purge below testing nothing. (CodeQL: py/side-effect-in-assert.)
+    binned = board_client.delete(f"/entries/{entry.id}")
+    assert binned.status_code == 200
     purged = board_client.delete(f"/entries/{entry.id}/purge")
     assert purged.status_code == 200, purged.text
 
@@ -379,7 +383,10 @@ def test_purging_a_board_note_detaches_its_cards_instead_of_deleting_them(
         "/whiteboard/nodes", json={"entry_id": entry.id, "board_id": board.id}
     ).json()
 
-    assert board_client.delete(f"/entries/{board.id}").status_code == 200
+    # Out of the assert for the same reason as above — under `python -O` the
+    # board would never reach the bin and the purge would be a no-op.
+    binned = board_client.delete(f"/entries/{board.id}")
+    assert binned.status_code == 200
     purged = board_client.delete(f"/entries/{board.id}/purge")
     assert purged.status_code == 200, purged.text
 

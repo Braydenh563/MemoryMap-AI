@@ -503,10 +503,17 @@ def delete_object(object_id: int, db: Session = Depends(get_session)) -> dict:
             if path is not None:
                 path.unlink(missing_ok=True)
         except (OSError, ValueError) as exc:
+            # `int(object_id)` rather than the path parameter as it arrived.
+            # FastAPI already rejects a non-integer with a 422 before this
+            # function runs, so it cannot carry the newline a forged log line
+            # would need — but a path parameter reaching a log record is a
+            # flow CodeQL flags on principle (py/log-injection), and the
+            # explicit conversion keeps that guarantee true even if the
+            # signature is ever loosened to a str.
             logging.getLogger("memorymap.whiteboard").warning(
                 "couldn't delete the file for whiteboard image %s (%s); "
                 "removing the record anyway",
-                object_id,
+                int(object_id),
                 type(exc).__name__,
             )
     db.delete(obj)

@@ -45,6 +45,22 @@
      panel, mirrored to `localStorage`/`ui_state` the same way the stroke
      colour and panel positions below are. */
   --wb-board-bg: var(--modal-bg);
+  /* The whiteboard's grid and optional background image, declared here with
+     their "off" defaults rather than written as `var(--x, fallback)` at each
+     use — an undeclared token with a fallback is what
+     `test_no_token_is_used_with_a_dead_fallback` exists to catch, and the
+     declaration is also the one place that says what "no grid" means.
+     `--wb-grid-layer` is swapped per grid type by the [data-wb-grid] rules;
+     the size/offset pair is rewritten from the live d3 zoom transform by
+     `wbSyncGridToTransform`, which is what makes the ruling pan and zoom
+     with the board. */
+  --wb-grid-layer: none;
+  --wb-grid-size: 24px;
+  --wb-grid-offset-x: 0;
+  --wb-grid-offset-y: 0;
+  --wb-bg-image: none;
+  --wb-bg-image-size: cover;
+  --wb-bg-image-repeat: no-repeat;
   --border-style: solid;
   --shadow-intensity: 0.05;
   --space-1: calc(0.25rem * var(--density));
@@ -12558,6 +12574,21 @@ textarea.autogrow {
   left: 0;
   cursor: grab;
   background: var(--wb-board-bg);
+  /* The grid and any background image are painted as layers on the
+     container itself rather than as extra DOM, so they cost nothing to
+     draw and can't be dragged/erased/selected like real board items.
+     `handleWbZoom` rewrites --wb-grid-size / --wb-grid-offset-* from the
+     live d3 transform, which is what makes the grid pan and zoom *with*
+     the board instead of sitting still behind it. `--wb-grid-layer` is
+     `none` until a grid type is chosen (see the [data-wb-grid] rules). */
+  background-image: var(--wb-grid-layer), var(--wb-bg-image);
+  background-size:
+    var(--wb-grid-size) var(--wb-grid-size),
+    var(--wb-bg-image-size);
+  background-position:
+    var(--wb-grid-offset-x) var(--wb-grid-offset-y),
+    center;
+  background-repeat: repeat, var(--wb-bg-image-repeat);
   /* Without this, a touch drag pans the *page* (or triggers pull-to-refresh)
      before D3's zoom or the pen/eraser pointer handlers ever see the
      gesture — the same reason the drag-handle grips below need it. */
@@ -12566,6 +12597,52 @@ textarea.autogrow {
 
 .whiteboard-container:active {
   cursor: grabbing;
+}
+
+/* Grid types. Asked for directly ("adding the grid", "grid lines (varying
+   types)"), scoped to the three every comparable tool offers: draw.io and
+   Microsoft Whiteboard both ship lines and dots, and isometric is the one
+   genuinely different ruling worth having for sketching in 3D. The colour
+   is a tint of the board's own ink so it reads on a light *or* dark board
+   without a second setting to keep in step. */
+:root {
+  --wb-grid-ink: color-mix(in srgb, var(--ink) 22%, transparent);
+}
+
+.whiteboard-container[data-wb-grid="lines"] {
+  --wb-grid-layer:
+    linear-gradient(to right, var(--wb-grid-ink) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--wb-grid-ink) 1px, transparent 1px);
+  background-image: var(--wb-grid-layer), var(--wb-bg-image);
+  background-size:
+    var(--wb-grid-size) var(--wb-grid-size),
+    var(--wb-grid-size) var(--wb-grid-size),
+    var(--wb-bg-image-size);
+  background-position:
+    var(--wb-grid-offset-x) var(--wb-grid-offset-y),
+    var(--wb-grid-offset-x) var(--wb-grid-offset-y),
+    center;
+  background-repeat: repeat, repeat, var(--wb-bg-image-repeat);
+}
+
+.whiteboard-container[data-wb-grid="dots"] {
+  --wb-grid-layer: radial-gradient(circle, var(--wb-grid-ink) 1.5px, transparent 1.5px);
+}
+
+.whiteboard-container[data-wb-grid="iso"] {
+  --wb-grid-layer:
+    linear-gradient(60deg, var(--wb-grid-ink) 1px, transparent 1px),
+    linear-gradient(-60deg, var(--wb-grid-ink) 1px, transparent 1px);
+  background-image: var(--wb-grid-layer), var(--wb-bg-image);
+  background-size:
+    var(--wb-grid-size) var(--wb-grid-size),
+    var(--wb-grid-size) var(--wb-grid-size),
+    var(--wb-bg-image-size);
+  background-position:
+    var(--wb-grid-offset-x) var(--wb-grid-offset-y),
+    var(--wb-grid-offset-x) var(--wb-grid-offset-y),
+    center;
+  background-repeat: repeat, repeat, var(--wb-bg-image-repeat);
 }
 
 .whiteboard-canvas {
@@ -12647,6 +12724,16 @@ textarea.autogrow {
 .wb-export-menu button:hover,
 .wb-export-menu button:focus-visible {
   background: var(--accent-soft);
+}
+
+.wb-snap-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--muted);
+  white-space: nowrap;
+  cursor: pointer;
 }
 
 .wb-export-menu .wb-export-heading {

@@ -1424,8 +1424,9 @@ Link to another note with [[its first few words]]."></textarea>
         <p>📝 <strong>Library</strong> (top right) drops an existing note here as a card.</p>
         <p>✏️ <strong>Pen</strong>, 📏 <strong>Line</strong>, ⬜ <strong>Rectangle</strong>, ⭕ <strong>Circle</strong> sketch on the canvas.</p>
         <p>🔗 A <strong>link</strong> tool connects two cards — drag from one to the other.</p>
+        <p>🅃 <strong>Text</strong> drops a box you can type in; 🖼 <strong>Image</strong> adds a picture — or just paste/drag one onto the board.</p>
         <p>🧽 <strong>Eraser</strong> removes whatever it drags across; ⟲ <strong>Undo</strong> (Ctrl+Z) brings it back.</p>
-        <p class="muted">Shortcuts: V pan · P pen · L line · R rectangle · O circle · E eraser · X delete · Esc back to pan</p>
+        <p class="muted">Shortcuts: V pan · S select · P pen · L line · A arrow · R rectangle · O circle · T text · E eraser · X delete · Esc back to pan</p>
       </div>
     </div>
     <div class="whiteboard-floating-panel top-left card glass" data-panel-id="board">
@@ -1447,6 +1448,18 @@ Link to another note with [[its first few words]]."></textarea>
         class="wb-color-picker"
       >
       <button id="wb-bg-color-reset" class="ghost small icon-button" type="button" title="Reset to theme default">↺</button>
+      <select id="wb-grid-select" class="ghost small" title="Grid">
+        <option value="none">No grid</option>
+        <option value="lines">Grid: lines</option>
+        <option value="dots">Grid: dots</option>
+        <option value="iso">Grid: isometric</option>
+      </select>
+      <label class="wb-snap-label" title="Snap items to the grid while dragging">
+        <input type="checkbox" id="wb-snap-toggle">
+        <span>Snap</span>
+      </label>
+      <button id="wb-bg-image" class="ghost small icon-button" type="button" title="Set a background image">🖼</button>
+      <input type="file" id="wb-bg-image-input" accept="image/*" class="hidden" aria-hidden="true">
       <button id="wb-reset-panels" class="ghost small icon-button" type="button" title="Reset panel positions">⟲</button>
       <button id="wb-clear-board" class="ghost small icon-button" type="button" title="Clear this board">🗑</button>
       <button id="wb-export" class="ghost small icon-button" type="button" title="Export this board">⬇</button>

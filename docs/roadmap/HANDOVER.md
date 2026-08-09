@@ -126,7 +126,8 @@ Tier 2: done except this named, bounded set —
 | Whiteboard move/rotate, text tool, size control | Named gaps vs. the sketch pad | Not started. |
 | Whiteboard shape-tool live verification | Confirm line/rect/circle/arrow actually save on a real drag | Test harness inconclusive this session (see the arrow-tool writeup above) — check this **first**, before building more on top. |
 | Line view / grid view visual pass | General polish, reported as needing one | Not itemized further — get specifics next time it's reported. |
-| Emoji picker + emoji sweep (16e/16f) | Both blocked | Needs a decision: picker source, and SVG-icons vs. monochrome-emoji vs. selective removal. **Asked the user directly this session** — see their answer recorded just above/below this note, or ask again if it's not there. |
+| Emoji picker (16e) | Still blocked | Picker-source question was dismissed, unanswered — ask again. |
+| Emoji sweep (16f) | **Decision made**: both an SVG icon set and monochrome emoji, with an Appearance-tab toggle to switch between them — not build yet. See item 16f for the four-part build plan. |
 | Onboarding, the rest (§19) | Model-pull offer, data-dir writability check, seeded example notes, guided tour | Not started. |
 | §18's "sketch/image toggles" | Couldn't be matched to anything in the current Options panel | Possibly stale/mis-transcribed — confirm what it meant if still wanted. |
 

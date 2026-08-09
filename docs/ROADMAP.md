@@ -626,7 +626,17 @@ into a good one.
     palette) before building, and probably belongs alongside item 16f's
     emoji-usage decision rather than before it, since a picker that adds
     emoji everywhere sits oddly next to a simultaneous push to use fewer.
-16f. **A full sweep of emoji usage across the app, asked for directly**:
+16f. **Decision made, not yet built**: an SVG icon set *and* monochrome
+    emoji, both available, with a toggle in Settings → Appearance to switch
+    between them (not a single fixed replacement). Needs: (1) the actual
+    count/categorisation pass (decorative vs. load-bearing) this item
+    already called for, (2) an icon set picked and the SVGs wired in
+    alongside the existing emoji rather than replacing them outright, (3)
+    the CSS monochrome-filter path for the emoji option, (4) the Appearance
+    toggle and the app-wide switch it drives. Sizeable — a full session's
+    worth, not a quick pass.
+    Original ask, kept for context: **a full sweep of emoji usage across
+    the app**:
     *"I feel the application is very heavy with emojis, it feels too much
     like AI slop... make sure they are only used professionally and with
     intention, otherwise professional icons are the better way to go."*

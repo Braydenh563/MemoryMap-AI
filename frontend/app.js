@@ -14374,6 +14374,14 @@ function showSettingsSection(name) {
   if (name === "tools") renderToolSettings();
   if (name === "memory") renderMemorySettings().catch(() => {});
   if (name === "tasks") renderAutonomousReview().catch(() => {});
+  if (name === "tasks") {
+    apiJson("/preferences")
+      .then((prefs) => {
+        prefsCache = prefs;
+        renderAutonomousSettings();
+      })
+      .catch(() => {});
+  }
   if (name === "appearance") renderAppearance();
   if (name === "shortcuts") renderShortcutList();
   if (name === "account") renderAccount().catch(() => {});
@@ -15064,10 +15072,21 @@ async function renderPrefs() {
 // The engine list comes from the server rather than being written out here:
 // the frontend and `websearch.PROVIDERS` would otherwise drift, and the first
 // symptom would be a radio button the API rejects.
-async function renderWebSearch() {
-  prefsCache = await apiJson("/preferences");
-  $("pref-web-search").checked = Boolean(prefsCache.web_search_enabled);
-  $("pref-searxng").value = prefsCache.searxng_url || "";
+// The Background tasks section's own controls (`#pref-autonomous-tasks` and
+// everything under it) — pulled out so `showSettingsSection` can populate
+// them the moment *that* section opens, not only as a side effect of opening
+// Web search. They used to be filled in exclusively by `renderWebSearch`
+// despite living in `#settings-tasks`, a different section entirely — open
+// Settings → Background tasks directly in a fresh session (never having
+// visited Web search) and every checkbox here read its raw HTML default
+// (unchecked) instead of what was actually saved. Toggling one of them then
+// called `savePrefs()`, which rebuilds the *entire* preferences object from
+// the DOM — sending those defaults back to the server and silently
+// overwriting the real values. This is "my preferences settings keep
+// getting deleted": not one bad field, but a whole section's worth of
+// settings reset the moment anything on it was touched without the
+// Web-search tab having been opened first in the same session.
+function renderAutonomousSettings() {
   $("pref-autonomous-tasks").checked = Boolean(prefsCache.autonomous_tasks_enabled);
   $("pref-auto-tag").checked = prefsCache.auto_tag_enabled ?? true;
   $("pref-auto-link").checked = prefsCache.auto_link_enabled ?? true;
@@ -15077,6 +15096,13 @@ async function renderWebSearch() {
   $("pref-battery-mode").checked = Boolean(prefsCache.battery_efficient_mode);
   $("pref-smart-model-routing").checked = prefsCache.smart_model_routing_enabled ?? true;
   toggleAutonomousPanel();
+}
+
+async function renderWebSearch() {
+  prefsCache = await apiJson("/preferences");
+  $("pref-web-search").checked = Boolean(prefsCache.web_search_enabled);
+  $("pref-searxng").value = prefsCache.searxng_url || "";
+  renderAutonomousSettings();
   $("searxng-autostart").checked = Boolean(prefsCache.searxng_autostart);
   $("search-provider-status").textContent = "";
 
@@ -15183,6 +15209,12 @@ async function savePrefs() {
       ? Math.min(365, Math.round(binDaysRaw))
       : 30;
     $("pref-bin-days").value = recycleBinDays;
+    // Only this section's own fields. Background tasks' checkboxes
+    // (autonomous_tasks_enabled and everything under it) save independently
+    // via `setPreference` now — see the comment on `renderAutonomousSettings`
+    // for why folding them in here was the actual cause of "preferences keep
+    // getting deleted": this form's DOM may never have been rendered this
+    // session, and sending its stale defaults back overwrote real values.
     prefsCache = await apiJson("/preferences", {
       method: "PUT",
       body: JSON.stringify({
@@ -15193,27 +15225,10 @@ async function savePrefs() {
         profile_enabled: $("pref-profile-enabled").checked,
         notifications_muted_except_reminders:
           $("pref-notif-mute-except-reminders").checked,
-        autonomous_tasks_enabled: $("pref-autonomous-tasks").checked,
-        auto_tag_enabled: $("pref-auto-tag").checked,
-        auto_link_enabled: $("pref-auto-link").checked,
-        auto_dedupe_enabled: $("pref-auto-dedupe").checked,
-        autonomous_tasks_interval_hours: Number($("pref-autonomous-interval").value) || 6,
-        autonomous_tasks_model: $("pref-autonomous-model").value.trim(),
-        battery_efficient_mode: $("pref-battery-mode").checked,
-        smart_model_routing_enabled: $("pref-smart-model-routing").checked,
       }),
     });
     $("prefs-status").textContent = "Saved.";
-    
-    const indicator = $("power-saver-indicator");
-    if (indicator) {
-      if ($("pref-battery-mode").checked) {
-        indicator.classList.remove("hidden");
-      } else {
-        indicator.classList.add("hidden");
-      }
-    }
-    
+
     // Reflect a name change immediately if the dashboard is showing.
     if (typeof renderDashboardGreeting === "function") renderDashboardGreeting();
   } catch (error) {
@@ -20683,17 +20698,38 @@ function toggleAutonomousPanel() {
   const panel = $("autonomous-settings-panel");
   if (panel) panel.classList.toggle("hidden", !$("pref-autonomous-tasks").checked);
 }
-$("pref-autonomous-tasks").addEventListener("change", () => {
+// Each of these saves only its own key via `setPreference` — never
+// `savePrefs`, which rebuilds and re-sends every field on the Preferences
+// section's own form. That form may never have been rendered this session
+// (a fresh page load landing straight on Background tasks, say), and its
+// stale/default DOM values would silently overwrite whatever was really
+// saved the moment any one of these checkboxes changed.
+$("pref-autonomous-tasks").addEventListener("change", (e) => {
   toggleAutonomousPanel();
-  savePrefs();
+  setPreference("autonomous_tasks_enabled", e.target.checked);
 });
-$("pref-auto-tag").addEventListener("change", savePrefs);
-$("pref-auto-link").addEventListener("change", savePrefs);
-$("pref-auto-dedupe").addEventListener("change", savePrefs);
-$("pref-battery-mode").addEventListener("change", savePrefs);
-$("pref-autonomous-interval").addEventListener("change", savePrefs);
-$("pref-autonomous-model").addEventListener("change", savePrefs);
-$("pref-smart-model-routing").addEventListener("change", savePrefs);
+$("pref-auto-tag").addEventListener("change", (e) =>
+  setPreference("auto_tag_enabled", e.target.checked)
+);
+$("pref-auto-link").addEventListener("change", (e) =>
+  setPreference("auto_link_enabled", e.target.checked)
+);
+$("pref-auto-dedupe").addEventListener("change", (e) =>
+  setPreference("auto_dedupe_enabled", e.target.checked)
+);
+$("pref-battery-mode").addEventListener("change", (e) => {
+  setPreference("battery_efficient_mode", e.target.checked);
+  $("power-saver-indicator")?.classList.toggle("hidden", !e.target.checked);
+});
+$("pref-autonomous-interval").addEventListener("change", (e) =>
+  setPreference("autonomous_tasks_interval_hours", Number(e.target.value) || 6)
+);
+$("pref-autonomous-model").addEventListener("change", (e) =>
+  setPreference("autonomous_tasks_model", e.target.value.trim())
+);
+$("pref-smart-model-routing").addEventListener("change", (e) =>
+  setPreference("smart_model_routing_enabled", e.target.checked)
+);
 
 $("semantic-search-toggle")?.addEventListener("change", () => {
   if (noteSearch) loadAllNotes();

@@ -1985,3 +1985,316 @@ and onboarding's remaining pieces (seeded notes, the model-pull UI, a
 data-dir writability probe, a guided tour). 16e/16f (an emoji picker, a
 full emoji-usage sweep) are still open design questions, not yet asked
 about directly the way 16d just was.
+
+## 53. A user-reported bug list, then the whiteboard rebuilt into a real OneNote/draw.io-style canvas
+
+Condensed from HANDOVER.md's own (much longer) writeup of this session —
+read there for the full detail, including the CodeQL path-traversal fix and
+the exact verification steps.
+
+Fixed a live-reported bug list first: `PUT /whiteboard/nodes` 500ing on a
+stale card (missing `_hard_delete` cleanup); two Preferences sections
+overwriting each other's saved fields; glassmorphism opacity having no
+independent control from blur; inline `![...]()` images rendering as raw
+markdown app-wide instead of `<img>`. Then the whiteboard, per ROADMAP §11:
+a redesigned board picker (`GET /whiteboard/boards` — only boards actually
+in use, not every note in the notebook); a new `WhiteboardObject`
+table/kind for images and text boxes (upload/paste/drag-drop, 8-handle
+resize, full drag); clear-board, SVG/PNG/PDF export, and three grid types
+with snap-to-grid wired into card/object dragging. **Explicitly not
+attempted**: real anchor/connection points (fixed corners+edges, a free
+point along an edge) — named as "the biggest single piece, worth its own
+session" rather than built shallow. A CodeQL alert on the image-object
+delete path (`py/path-injection` — a `startswith("/media/")` check that
+`/media/../../etc/passwd` passes) was fixed with an exact-shape regex plus a
+resolve-and-confirm-containment check.
+
+## 54. The whiteboard bug list — copy/paste, sketch move/resize, multi-select, a real security/correctness bug in `/media`, and the rest of §11/§53's own "still open" list
+
+A user-supplied list of 17 specific whiteboard/notes bugs, worked first per
+this project's own standing rule, then the rest of ROADMAP §11's still-open
+list and several more reports that arrived mid-session. Long session, no
+check-ins asked for; every fix below was reproduced live in this sandbox's
+Chromium before and after, not reasoned from the code.
+
+**The one that wasn't about the whiteboard at all.** "Image upload on the
+whiteboard doesn't work" turned out to be one symptom of a real, previously
+unnoticed bug reaching every `/media/` image in the app: `GET
+/media/{filename}` (and `GET /files/{attachment_id}`) required the
+`X-Auth-Token` header, which a plain `<img src>` — or a CSS
+`background-image`, or an `<image>` inside an exported SVG — never attaches;
+only `fetch`/`XHR` can set a custom header. Every such image was a silent
+401 (a blank/broken image, nothing thrown, nothing logged) on any notebook
+with a password set, which is the normal case — including, per §53's own
+"verified live" claim, the note-list inline-image fix from the previous
+session, which most likely only ever confirmed the `<img>` element existed
+in the DOM, not that it painted. Fixed with a query-param token fallback
+scoped to just those two routes (`require_unlock_media`, a separate
+`media_router` in `routes_files.py` — every other route stays header-only,
+so the token doesn't end up in every access-log line, only these two), and
+a frontend `mediaSrc()` helper wired into every affected render site
+(whiteboard image objects, inline note/doc markdown images, Library
+thumbnails, the whiteboard's own background image and SVG export). Verified
+live: an uploaded image's `naturalWidth`/`naturalHeight` now match the real
+file instead of failing to load.
+
+**Whiteboard bugs, reproduced and fixed:**
+- **Drawing over a card moved the card instead of drawing on it.** Cards
+  live in `#wb-html-layer`, a sibling painted on top of `#wb-svg-layer` — a
+  pointerdown landing on a card never reached the SVG layer's own draw
+  listener, and the card's own `d3.drag` (bound directly to it) claimed the
+  gesture regardless of which tool was active. Fixed by filtering the
+  card/object drags to bail while a brush tool is active, and moving the
+  brush pointerdown/move/up listeners from `svgCanvas` to `containerEl` (an
+  ancestor of both layers, so it sees the pointerdown either way — mirroring
+  the eraser-tracking listener's own established pattern).
+- **Sketches (pen/line/rect/circle/highlighter/arrow) had no move or resize
+  at all** — only cards/objects did. A sketch's only representation is its
+  SVG path string, so both mean rewriting the coordinates inside it: a
+  small path-transform interpreter (`wbTransformPathD`/`wbPathBBox`, scoped
+  to exactly the commands this app's own tools ever emit — M/L/C/h/v/a/Z)
+  handles translate-for-move and anchored-scale-for-resize; 8 resize
+  handles render only while a sketch is selected. A straight line's
+  bbox-corner resize doubles as "shorten the line". Link sketches (computed
+  live from two cards' positions) are excluded from handles by design.
+- **Copy/paste, asked for directly.** Ctrl+C/Ctrl+V for the current
+  selection, offset +24,+24 on paste. Cards excluded on purpose:
+  `POST /whiteboard/nodes` is one-card-per-note-per-board by backend design
+  (routes_whiteboard.py's own comment), so a "copy" would silently *move*
+  the original card to the paste offset instead of duplicating it.
+- **Multi-select — shift-click, rectangle marquee, bulk delete, bulk
+  move.** `wbMultiSelection`, a set alongside (not replacing) the existing
+  single-item `wbSelectedItem`. A real bug caught mid-build: deciding
+  bulk-move eligibility in a drag's "start" handler (which d3 calls on
+  *every* pointerdown, moved or not) meant a second shift-click meant to
+  toggle a member back off was mistaken for the start of a bulk move and
+  did nothing — fixed by deferring that decision to the first actual "drag"
+  frame instead. Lasso (freeform) select not built; rectangle marquee
+  covers the same real need.
+- **Grid-snap only moved notes, not shapes/lines — and diagonal movement
+  under snap felt stuck.** Two separate causes. Sketches had no drag at all
+  (see above) — fixed as part of it, with the same `wbSnap` wired in. The
+  "stuck" feeling was a real accumulation bug in the *existing* card/object
+  drag: `d.x = wbSnap(d.x + event.dx)` re-snaps the *already-snapped* `d.x`
+  every frame, discarding the sub-grid remainder each time instead of
+  carrying it forward, so many frames of real small motion could sum to
+  nothing until one single frame happened to cross a whole grid step by
+  itself — worse on a diagonal drag, where each frame's per-axis delta is
+  smaller for the same total speed. Fixed by tracking a raw, never-snapped
+  running position and only reading it through `wbSnap` when
+  applying/saving.
+- **"Resizing and drawing shapes is glitchy and slow to update."** Dragging
+  a card called a full `renderWhiteboard()` — rebinding every card, sketch
+  and object on the board — on *every single mousemove frame*, purely to
+  keep that card's own link lines following it. Replaced with
+  `wbUpdateLinkedSketches(nodeId)`, which updates only the link paths
+  touching the dragged card directly via `setAttribute`. Shape-drawing
+  itself was already efficient (direct `setAttribute` per frame, no
+  re-render) — this was the actual bottleneck.
+- **Board picker / library accessibility** — checked, already built
+  (`GET /whiteboard/boards`, §53), reachable via Library → Whiteboard's
+  `#wb-board-select`. No fix needed.
+- **Arrowheads.** `window.currentArrowStyle` (none/start/end/both), a
+  toolbar `<select>` shown only while the arrow tool is active, read by the
+  same drawing code (factored into `wbArrowHeadPath`, one head-stroke
+  helper both ends now share).
+- **More shapes.** Triangle and diamond, plain `L`-command polygons — no
+  new path-command type for the move/resize transform to learn.
+- **A dropped note card landed offset from the drop point** (reported
+  mid-session). `d.x`/`d.y` are a card's own top-left corner, but the drop
+  handler stored the raw cursor position there — for the ~250×150 default
+  card that reads as up to 125px right/75px down from where it was actually
+  dropped. Fixed by centring on the drop point instead, matching how a text
+  box/image already places itself. A related, smaller inconsistency in the
+  same drag-to-link code (`+125,+50` instead of `+125,+75` for a card's
+  approximate centre) was fixed alongside it.
+- **The eraser couldn't touch-drag to delete (the pen worked fine
+  touch-dragged the same way), reported mid-session.** The eraser relied
+  entirely on native `pointerenter` firing per element while held — touch
+  implicitly captures the pointer to whatever element received the initial
+  touch, so a dragging finger never fires `pointerenter` on the *other*
+  items it crosses, only the one first touched. Fixed with
+  `releasePointerCapture` on pointerdown plus coordinate-based
+  (`elementFromPoint`) hit-testing on `pointermove`, which doesn't depend on
+  capture behaving correctly at all. Verified via mouse drag-erase (no
+  regression, all three items on a drag path erased in one pass); the
+  touch-capture mechanism itself is reasoned from the Pointer Events spec,
+  not observed on real touch hardware — this sandbox has none.
+- **Text boxes were hard to see against the board.** `.wb-object-text` had
+  a 1px *dashed* `--glass-border` (10–13% alpha in most themes) and no
+  blur/shadow — every other floating surface on this board
+  (`.whiteboard-floating-panel`) is a `.card.glass` and gets both. Given a
+  solid border, a blur+shadow, and a background-opacity floor (`max(...,
+  0.55)`) so it stays legible even with glass opacity turned all the way
+  down.
+- **The snap-to-grid checkbox rendered as a bare native control** — the
+  app's own switch styling (`.settings-section label>input[type=checkbox]`
+  etc., itself the fix for "ditch the radio buttons... make the UI match")
+  never reached `.wb-snap-label`. Added to the same selector list.
+- **Shift-to-constrain (square/perfect circle/etc.) while drawing a
+  shape**, asked for directly — `wbShapeDims`, squares to the larger of the
+  two raw dimensions so the shape still reaches the cursor.
+- **Alt to temporarily bypass grid-snap for one drag**, asked for directly,
+  the same convention Figma/Illustrator use — `wbSnap` takes an optional
+  `bypass` flag, read from the drag event's own `altKey`.
+- **"Does grid-lock apply when the grid isn't shown?"** — checked: no,
+  `wbSnapOn()` already requires a grid type other than `"none"`, and the
+  checkbox itself is disabled without one. Already correct; nothing to fix.
+- **Clear board not clearing highlights, and highlights not being
+  erasable** — investigated, not reproduced. A highlighter stroke is an
+  ordinary sketch; drawing one, erasing it (both by a single click and a
+  drag), and clearing a board holding one all worked correctly on the
+  current code. Left as-is rather than guess-fixing something that
+  reproduces as already working.
+- **"Most used" list showing raw markdown or stripped-plain text instead of
+  rendering it.** Two separate widgets, two different gaps: the Notes tab's
+  own `#most-used-box` already called `renderInlineMarkdown` but truncated
+  the *raw* string first, corrupting tokens cut mid-marker (a `` `code` ``
+  span missing its closing backtick left a bare backtick visible); the
+  Dashboard's newer per-widget Most-used/Pinned/Recent (`miniEntryList`)
+  used `notePreviewText`, which strips markdown to plain text rather than
+  rendering it — a deliberate past decision, per its own comment, made
+  specifically to avoid the same mid-token corruption. A new `safeMdSlice()`
+  helper (drops a dangling marker at the truncation boundary) fixes the
+  actual problem the old workaround was avoiding, so both were switched to
+  real rendering.
+
+Full `pytest tests/` (~1,600+ tests), `ruff check .`, and `node --check
+frontend/app.js` all green throughout. **Still open from §11/§53's own
+list, not attempted this session**: real anchor/connection points (still
+"worth its own session" — see ROADMAP item 11), a properties panel for
+colour/border/fill on the current selection, rotation (needs a real backend
+schema change — no whiteboard table has an angle column), card resize (only
+images/text objects have it), image cropping, and an AI-guided
+diagram-generation mode.
+
+## 55. Continuing §54's own "still open" list: a properties panel, card resize, grouping, undo/redo for move and resize, arrow-key nudge, alignment/distribute, and rotation — plus a real silent-reset bug found the same way §54's own `group_id` one was
+
+Same session as §54, continued after a context compaction — same user,
+still working top-down through the "still open" list §54 itself left
+behind, plus several more features named directly mid-session (a
+properties panel, "suggested modes", grouping, arrow-key movement,
+alignment tools). Authorised to work through the night unattended
+("assume I agree with everything... commit and push as you go"). Every
+behavioural claim below was driven against a real running server via
+Playwright, not reasoned from the code — see the coordinate traps at the
+end, which cost real time before the fixes below were confirmed real.
+
+- **A properties panel for the current single selection**, asked for
+  directly, more than once. `#wb-properties-panel`, populated by
+  `wbUpdatePropertiesPanel()` from whichever kind is selected: a sketch
+  gets colour+width (+arrowhead if it's an arrow); a text object gets
+  colour+fill+border+font-size. Hidden entirely for a multi-selection, a
+  card, or an image — none of those have a stroke/fill of their own to
+  edit here.
+- **Card resize**, asked about directly, confirmed missing by reading the
+  render code in §54. `WhiteboardNode` gained nullable `width`/`height`
+  columns (unset = the old ~250×150 CSS default, so an existing row renders
+  unchanged); the same 8-handle drag as an object's own resize, factored
+  into `nodeResizeDrag`. **Two real bugs found and fixed before this
+  shipped, not after**: the card's own move-drag `.filter()` didn't exclude
+  `.wb-resize-handle` the way an object's already did, so the card-level
+  drag silently intercepted the same pointerdown and no resize ever
+  happened; and a defensive `overflow-y: auto` added to `.wb-card` along
+  the way triggered a real CSS spec quirk — setting one overflow axis
+  non-`visible` while the other is unset forces *both* axes to compute
+  non-`visible`, silently clipping the negatively-positioned resize handles
+  sitting just outside the card's own box. Reverted; the pre-existing
+  `.wb-card-content` 3-line clamp already handles long text without it.
+- **Object grouping** (Ctrl+G / Ctrl+Shift+G), asked for directly. A
+  `group_id` column on all three whiteboard tables (opaque
+  `crypto.randomUUID()`, not a foreign key — one group spans three
+  different tables, so there's no single row for it to point at) rather
+  than an in-memory-only set: `wbMultiSelection` disappears on reload, a
+  persisted group doesn't. Clicking any one grouped member re-selects the
+  whole group (the other half of Ctrl+G, in `wbHandleItemClick`), and the
+  existing bulk-move machinery drags a group "for free" once it's selected.
+- **Undo/redo extended to cover move and resize, not just create/delete**,
+  asked for directly ("account for resizes, rotates, positional movement").
+  A new `"move"` entry type in `wbApplyHistoryEntry`, storing the item's
+  whole pre-change payload (x/y, width/height, a sketch's own `d`) as
+  `before` — one shape covers move *and* resize, since both just mean "the
+  payload changed." Wired into every drag/resize end handler across all
+  three kinds. A single dragged/resized item in a multi-selection gets its
+  own undo entry; the rest of the group, moved via the separate bulk-move
+  path, does not — a real, acknowledged limitation, not attempted further.
+- **Arrow-key nudge**, asked for directly. Step size follows grid-snap
+  (a full grid step when snap is on, 1px normally, 10px with Shift held) —
+  moves the whole current selection (single item or multi) at once. Needed
+  a genuinely new undo shape: nudging three selected items is one user
+  action, and Undo pressed once should reverse all three, not one at a
+  time — a new `"batch"` entry (an array of ordinary `"move"` sub-entries,
+  replayed through the same `wbApplyHistoryEntry` recursively) covers this,
+  and alignment/distribute below reuse it too.
+- **Alignment tools** (left/h-centre/right/top/v-centre/bottom) and
+  **distribute** (horizontal/vertical), asked for directly ("alignment
+  tools... missing", named again this session). Live in the properties
+  panel as a `wb-prop-multi-row` that replaces the single-item rows
+  whenever `wbMultiSelection` is non-empty. Align references the whole
+  selection's own combined bounding box (the same convention every other
+  drawing app uses); distribute needs three or more, keeps the two outer
+  items (by centre, along the chosen axis) fixed, and spaces what's between
+  them evenly.
+- **Rotation**, asked about directly, three sessions running. `WhiteboardNode`
+  and `WhiteboardObject` each gained a nullable `rotation` (degrees). A
+  round handle above the item's own top-centre (distinct at a glance from
+  the square resize handles); dragging it computes the angle from the
+  item's own screen-space centre to the pointer — `getBoundingClientRect()`'s
+  centre stays correct even mid-rotation, since an axis-aligned box's centre
+  coincides with the true rotation centre regardless of how far the box has
+  turned, so this needs none of the zoom/pan-scale math a position drag
+  does. Shift snaps to 15°. **Deliberately scoped to cards and objects, not
+  sketches** — a sketch's shape *is* its path data, and rotating a path
+  correctly (the `a` command's elliptical-arc flags flip under rotation)
+  is real trig `wbTransformPathD`'s existing translate/scale math doesn't
+  need; left for a future session rather than a shortcut that gets arcs
+  wrong.
+- **A real bug, found live, of the exact shape §54's own `group_id` bug
+  was**: `wbSaveObject`/`wbSaveNode` each build their own PUT body by hand,
+  independently of the `WB_KIND_INFO` payload builders used for undo — and
+  neither one had been taught about `rotation` when it was added. Since the
+  backend assigns `obj.rotation = body.rotation` unconditionally (a full
+  replace, not a partial update), every single save — not just a rotation
+  drag, *any* move, resize, or property edit — silently reset rotation
+  back to `None`. Caught by a Playwright test reading `wbState` back after
+  a rotate-and-wait, not by inspection: the live CSS transform showed
+  `rotate(90deg)` (set synchronously during the drag) while the state
+  object the async save had since overwritten already read back `null`.
+  Fixed in both functions. **The lesson repeats**: every whiteboard field
+  needs to be added at every call site that builds a request body by hand,
+  and there is more than one such site per kind — grep for all of them, not
+  just the first one found.
+
+**One more real bug, found by looking, not testing** — the standing rule
+this project's own CLAUDE.md states plainly ("measure and look before you
+claim a UI change works"). A screenshot taken to sanity-check the new
+multi-select properties panel showed the board picker reading
+`UI screenshot (0 items)` for a board that visibly held three text boxes.
+`refreshBoardList()`'s own item count summed `node_count + sketch_count`
+only — `object_count` (images/text boxes), which `GET /whiteboard/boards`
+has returned since §53, was never added to the sum. A board holding only
+objects (no cards or sketches) read as empty in the picker even with
+content on it. One-line fix; the screenshot that caught it was taken to
+check panel *layout*, not this.
+
+**Two Playwright coordinate traps found live, worth recording since they
+cost real debugging time before being understood as test bugs, not app
+bugs**: a marquee drag starting near the container's own top-left corner
+lands on a floating toolbar panel sitting on top of the canvas there, and
+the pointerdown never reaches the canvas at all (0 items selected, not a
+partial miss) — start below roughly `container.top + 260`. And a marquee
+ending too far down the viewport (`container.top + 700` in a 900px-tall
+viewport) overshoots the canvas entirely and releases over the app's own
+bottom tab bar instead — confirmed by logging every pointer/mouse event's
+target during the drag, which showed the sequence ending on
+`pointerup>tab-library`, not on anything whiteboard-related. Both are
+about where a synthetic drag starts/ends, not a selection-logic bug; the
+marquee/rectangle-intersection code itself was correct throughout.
+
+Full `pytest tests/` (~1,600+ tests), `ruff check .`, and `node --check
+frontend/app.js` all green. **Still open** (see ROADMAP item 11 for the
+full ranked list): real anchor/connection points (still "worth its own
+session," now named three times), sketch rotation, image cropping, an
+AI-guided diagram-generation mode, uploaded whiteboard images not showing
+in the Library as files, and a whiteboard backend/perf pass beyond the one
+full-rerender bug already fixed in §54.

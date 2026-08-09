@@ -2,7 +2,229 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session: §53 — a user-reported bug list, then the whiteboard rebuilt into a real OneNote/draw.io-style canvas
+## Next session: start here — anchors, then mind-map mode, then AI + whiteboard
+
+Nothing built yet for this — the user confirmed the plan at the end of
+§55 and chose to open a fresh session for it rather than continue mid-§55.
+**This is a decision, not a suggestion**: asked directly ("which mode
+should I build first?", multi-select on "what should AI-reads-whiteboard
+do?"), answered explicitly. Full reasoning and the code-location notes
+gathered while scoping this (nothing built, just the map) are in
+[ROADMAP.md item 11's "still genuinely open" list](../ROADMAP.md) — read
+that section before starting, not just this summary.
+
+**Build order, confirmed:**
+1. **Real anchor/connection points** (draw.io-style fixed/free anchors).
+   Named "worth its own session" three sessions running (§53, §54, §55) —
+   this is that session. A link's `sourceAnchor`/`targetAnchor` can live as
+   two more keys in the link sketch's existing `data` JSON blob (no
+   migration). Three code sites: drawing (`dragStart`/`dragging`/
+   `dragEndNode`'s `link-` branches), rendering (`sketchUpdate.each`'s
+   `link-` branch, currently a hardcoded centre-point offset — the thing
+   this whole feature replaces), and the per-drag-frame follow
+   (`wbUpdateLinkedSketches`). Read how draw.io itself represents
+   fixed-vs-free before starting; a shallow version costs more to unwind
+   later than it saves now.
+2. **Mind-mapping mode** (ROADMAP item 25: already fully designed —
+   "Arrange as mind map" reusing the Graph tab's Tree/Radial layout code,
+   plus Tab/Enter branch entry). Depends on 1 — branch lines need real
+   anchors to land on card borders.
+3. **AI + whiteboard, three pieces, confirmed wanted together**: the chat
+   agent gets a tool to read a board's contents (nothing under
+   `src/memorymap/ai/` currently mentions the whiteboard at all, other than
+   an unrelated orphan-cleanup job); whiteboard content becomes searchable
+   (`search_manager.py` currently queries only `Entry`); AI-guided diagram
+   generation is the write side of the first piece, reusing the same read
+   tool plus the existing create/update endpoints. Build the read tool and
+   search indexing before the generation piece.
+
+## §55 — a properties panel, card resize, grouping, undo/redo for move+resize, arrow-key nudge, alignment/distribute, and rotation — continuing §54's own "still open" list
+
+Same session as §54 below, continued after a context compaction. Full
+detail — every feature, the real bugs found while building it, and how
+each was verified live — is in [HISTORY.md §55](HISTORY.md); this is the
+short version and what's still open. **Read this before touching the
+whiteboard's properties panel, undo/redo, or anything that saves a
+node/object (`wbSaveNode`/`wbSaveObject`) — both build their PUT body by
+hand, and a field added to the schema but not to both of them silently
+resets to `null` on the next save. It has now happened twice (`group_id`
+in §54, `rotation` in §55) — grep for every hand-built PUT body before
+adding a new whiteboard column, not just the first one found.**
+
+**Built, all live-verified via Playwright:** a properties panel for the
+current single selection (colour/width/arrowhead for a sketch,
+colour/fill/border/font-size for a text object); card resize (the same
+8-handle drag objects already had, extended to `.node-card`); object
+grouping (Ctrl+G/Ctrl+Shift+G, a persisted `group_id`, click-one-selects-
+the-group); undo/redo extended from create/delete-only to also cover move
+*and* resize (a new `"move"` entry storing the pre-change payload); a new
+`"batch"` undo-entry type so a multi-item action — arrow-key nudge, align,
+distribute — undoes as the one action it visibly was, not N separate Undo
+presses; arrow-key nudge (grid-step under snap, 1px/10px+Shift otherwise);
+alignment (6 directions) and distribute (2 axes) for a multi-selection;
+and rotation for cards and objects (a drag handle above the item, Shift
+snaps to 15°) — deliberately **not** sketches, since rotating a path
+correctly needs real trig (the `a` command's arc flags flip under
+rotation) that `wbTransformPathD` doesn't have yet.
+
+**A real bug, caught live, not by inspection:** `wbSaveObject`/
+`wbSaveNode` each hand-build their own PUT body, separately from the
+`WB_KIND_INFO` payload builders undo uses — and neither had `rotation`
+added when the column was. Since the backend does a full replace
+(`obj.rotation = body.rotation`, not a partial update), *every* save of
+*any* kind silently reset rotation to `null` — not just a rotation drag.
+Found via a Playwright test reading `wbState` back after a rotate: the
+live CSS transform correctly showed `rotate(90deg)` (set synchronously
+during the drag), but the state object the async save had since
+overwritten already read `null` — a state/DOM mismatch that only a
+real save-then-read-back test would catch, not a screenshot. Fixed in
+both functions.
+
+**Two Playwright test-coordinate traps, recorded so the next session
+doesn't re-spend the time diagnosing them as app bugs:** a drag starting
+near the whiteboard container's own top-left corner lands on a floating
+toolbar panel sitting on top of the canvas there — the pointerdown never
+reaches the canvas, and the result looks exactly like "marquee-select
+selected nothing" rather than a partial miss (start below roughly
+`container.top + 260`). And a drag ending too far down a 900px viewport
+(`container.top + 700`) overshoots the canvas and releases on the app's
+own bottom tab bar instead (confirmed by logging every pointer event's
+`target` during the drag — it ends `pointerup>tab-library`). Neither is a
+selection-logic bug; the marquee/rectangle-intersection code was correct
+throughout both investigations.
+
+**Still open, in the order worth tackling them** (unchanged from §54
+except rotation and the properties panel dropping off the list):
+1. **Real anchor/connection points** (draw.io-style fixed/free anchors) —
+   named "worth its own session" three sessions running now (§53, §54,
+   §55); do this first, and read how draw.io itself represents the
+   fixed-vs-free distinction before starting.
+2. **Sketch rotation** — cards/objects have it now; a sketch's path-based
+   shape needs real trig `wbTransformPathD` doesn't have yet (see above).
+3. **Image cropping** and **an AI-guided diagram-generation mode** — both
+   asked for directly, neither scoped yet. The diagram-generation one in
+   particular has now gone three sessions without a scoping decision
+   ("guided" could mean a chat tool that calls the existing card/object/
+   link endpoints, or a text-to-layout generator — worth deciding on its
+   own rather than guessing mid-session).
+4. **Uploaded whiteboard images showing in the Library as files** — needs
+   a decision (a real DB table tracking `/media/` uploads, or surfacing
+   the media directory directly) before building.
+5. **A whiteboard backend/perf pass** (N+1s, inefficient endpoints) beyond
+   the one full-rerender bug §54 already fixed — not started, not profiled.
+6. A **mind-mapping mode** (decided: a whiteboard mode via the Graph tab's
+   Tree/Radial layout + Tab/Enter branch entry, not a third tab — see
+   ROADMAP item 25) stays sequenced *after* item 1 above.
+
+All ~1,600+ tests pass, `ruff check .` is clean, `node --check
+frontend/app.js` is clean throughout.
+
+---
+
+## Previous session: §54 — a 17-item user bug list on the whiteboard, a real security/correctness bug reaching every `/media/` image app-wide, then the rest of §11/§53's own "still open" list
+
+Long unattended run, explicitly authorised to work through interruption
+("assume I agree with everything, don't wait for me to prompt you"). Worked
+the user's own bug list first (per this file's standing instruction), then
+ROADMAP §11's remaining "still open" list, then several more reports and
+feature asks that arrived mid-session. Full detail — every bug, the exact
+fix, and how each was verified live — is in
+[HISTORY.md §54](HISTORY.md); this is the short version and what's still
+open. **Read this before touching the whiteboard, `/media`/`/files` auth,
+or anything rendering a note's inline images.**
+
+**The one that matters most, and wasn't reported as being about the
+whiteboard specifically:** "image upload on the whiteboard doesn't work"
+was one symptom of `GET /media/{filename}`/`GET /files/{attachment_id}`
+requiring the `X-Auth-Token` header — which a plain `<img src>` (or a CSS
+`background-image`, or the whiteboard's own SVG export) never attaches.
+Every such image was a silent 401 on any notebook with a password set,
+which is the normal case, and that includes §53's own "verified live"
+inline-markdown-image fix — almost certainly a DOM-existence check, not a
+painted-pixel one. Fixed with a query-param token fallback scoped to just
+those two routes (a new `media_router`/`require_unlock_media`, so the token
+doesn't widen onto every other route's access-log line) and a frontend
+`mediaSrc()` helper wired into every affected render site. **If any image
+anywhere in this app still doesn't render, check this first** — it's
+unlikely to be a coincidence twice.
+
+**Whiteboard bugs, all reproduced live before and after, from the user's
+own list:** drawing over a card moved the card instead of drawing on it
+(cards and the SVG draw layer are siblings, and the card's own drag claimed
+the gesture first regardless of tool); sketches had no move or resize at
+all (a new path-transform interpreter, `wbTransformPathD`/`wbPathBBox`,
+scoped to exactly the commands this app's tools emit); copy/paste (cards
+excluded — one-card-per-note-per-board would make a "copy" silently *move*
+the original); multi-select (shift-click, rectangle marquee, bulk
+delete/move — a real toggle-off bug found and fixed along the way, detailed
+below); grid-snap not applying to shapes (fixed as part of the move/resize
+work) and a real "stuck" accumulation bug in the *existing* card/object
+drag under snap (re-snapping an already-snapped value every frame discards
+the sub-grid remainder — fixed by tracking a raw running position); the
+"glitchy and slow" report (dragging a card called a full board re-render on
+every mousemove frame, purely to update its own link lines — now a
+targeted update); arrowhead styles, two more shapes (triangle/diamond),
+shift-to-constrain a drawn shape, Alt to bypass snap for one drag, a
+dropped card landing offset from the drop point (top-left corner, not
+centre, was being stored), the eraser not working with a touch drag (pen
+worked fine — touch implicitly captures the pointer to the first element
+touched, so `pointerenter` never fired for the rest; fixed with
+`elementFromPoint`-based hit-testing that doesn't depend on capture at
+all), low-contrast text boxes, and the snap checkbox not matching the
+app's own switch styling. **Investigated and left alone, not reproduced**:
+"clear board doesn't clear highlights, can't erase highlights" — a
+highlighter stroke is an ordinary sketch and erased/cleared correctly every
+way tried.
+
+**A real bug in code from the same session, caught before it shipped, not
+after:** the multi-select bulk-move logic originally decided "is this a
+bulk move?" inside the drag's own `"start"` handler — which d3 fires on
+*every* pointerdown, moved or not — so a second shift-click meant to toggle
+a member back *off* an existing selection was mistaken for the start of a
+bulk move and did nothing at all. Fixed by deferring that decision to the
+first genuine `"drag"` frame instead (a zero-movement click never reaches
+it), and applied the same fix to the analogous — if less visible — problem
+in the node/object drag handlers, where a stale `d._bulkOrigin = null` left
+over from an earlier *solo* drag would have permanently skipped
+re-detecting bulk-move on a later gesture.
+
+**Still open, in the order worth tackling them:**
+1. **Real anchor/connection points** (draw.io-style fixed/free anchors) —
+   named "worth its own session" three sessions running now (§53, §54, and
+   this one again); do this first, and read how draw.io itself represents
+   the fixed-vs-free distinction before starting.
+2. **A properties panel for the current selection** — colour, stroke width,
+   arrowhead, fill/border for a text object. No longer blocked on
+   multi-select; a version that edits a whole multi-selection at once is
+   the harder follow-up, not a prerequisite.
+3. **Rotation** — needs a real schema change (no whiteboard table has an
+   angle column), not a frontend-only pass.
+4. **Card resize** — only images/text objects have it; a note's own card
+   doesn't.
+5. **Image cropping** and **an AI-guided diagram-generation mode** — both
+   asked for directly, neither scoped yet.
+6. A **mind-mapping mode** (decided: a whiteboard mode via the Graph tab's
+   own Tree/Radial layout code + Tab/Enter branch entry, not a third tab —
+   see ROADMAP item 25) is explicitly sequenced *after* item 1 above, since
+   branch lines need real anchors to look like a mind map's branches
+   instead of lines to arbitrary corners.
+
+All ~1,600+ tests pass, `ruff check .` is clean, `node --check
+frontend/app.js` is clean throughout. **What was and wasn't verified**: every
+fix above with a checkable behaviour was driven against a real running
+server via Playwright — synthetic pointer/keyboard gestures with real
+coordinate math checked against hand calculations, not screenshots alone
+(though several screenshots confirmed the visual result too, e.g. the text
+box contrast fix, the shapes/arrowheads). The one thing that could not be
+verified is the touch-eraser fix's actual premise: this sandbox has no
+touch-capable input, so the "implicit pointer capture on touch" mechanism
+is reasoned from the Pointer Events spec and the user's own report (pen
+works, eraser doesn't — consistent with a hover-detection-specific cause),
+not observed directly.
+
+---
+
+## §53 — a user-reported bug list, then the whiteboard rebuilt into a real OneNote/draw.io-style canvas
 
 Worked a list of live-reported bugs first (per standing instruction: fix
 what's broken before building), then the whiteboard feature list from

@@ -139,6 +139,28 @@ def require_unlock(
         raise HTTPException(status_code=401, detail="Locked — unlock first")
 
 
+def require_unlock_media(
+    session: Session = Depends(get_session),
+    x_auth_token: str | None = Header(default=None),
+    token: str | None = None,
+) -> None:
+    """Same gate as `require_unlock`, plus a query-param fallback.
+
+    For the handful of routes a plain `<img src>` points at directly
+    (`/media/{filename}`, `/files/{attachment_id}`) — a declarative resource
+    load never attaches a custom header, only `fetch`/`XHR` can, so every
+    such image was a silent 401 (an empty/broken `<img>`, nothing thrown,
+    nothing logged) on any notebook with a password set, which is the normal
+    case. Scoped to just these routes rather than widened onto
+    `require_unlock` itself: that would put the token in every access-log
+    line for every request, not only the two that actually need it in a URL.
+    """
+    if _get_user(session) is None:
+        return
+    if not _token_valid(x_auth_token or token):
+        raise HTTPException(status_code=401, detail="Locked — unlock first")
+
+
 def _issue_token() -> str:
     token = secrets.token_hex(32)
     now = time.time()

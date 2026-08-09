@@ -288,166 +288,107 @@ into a good one.
     toolbar redesign comes after it, not before.
 11. **The whiteboard, properly.** ~~Images, text boxes, resize (8-handle
     corner+edge), grid (lines/dots/isometric)+snap, per-board background
-    image, export (PNG/SVG/PDF), clear-board, and a redesigned board picker
-    (only boards actually in use, not every note)~~ **all done this
-    session (HANDOVER.md §53), verified live.** **Still genuinely open, and
-    the one piece worth its own session before touching anything else
-    here:** real anchor/connection points (fixed corners+edges, a free
-    point along an edge, a link that visually terminates on the border,
-    not wherever a drag ended) — asked for directly, "take inspiration
-    from draw.io." See HANDOVER.md §53 for why this was deliberately not
-    attempted alongside everything else.
+    image, export (PNG/SVG/PDF), clear-board, a redesigned board picker,
+    redo, single-item select, undo/redo, per-tool cursors, an eraser,
+    keyboard shortcuts, draggable toolbar panels, highlighter+arrow tools,
+    a board-colour reset, touch input (pointer events), sketch move+resize,
+    copy/paste, multi-select (shift-click/marquee/bulk move/bulk delete),
+    grid-snap on every item kind (not just cards), shift-to-constrain a
+    drawn shape, Alt to bypass snap for one drag, two more shape types
+    (triangle/diamond), arrowhead styles, precise drop placement, a real
+    "glitchy and slow to update" perf bug (a full board re-render on every
+    card-drag frame), a properties panel (colour/width/arrowhead/fill/
+    border/font-size) for the current single selection, card resize
+    (8-handle, same as images/text boxes), object grouping (Ctrl+G/
+    Ctrl+Shift+G, a persisted `group_id`, click-one-selects-the-whole-group),
+    undo/redo extended to cover move *and* resize (not just create/delete),
+    arrow-key nudge (grid-step when snap is on, 1px/10px+Shift otherwise),
+    alignment tools (left/h-centre/right/top/v-centre/bottom) and distribute
+    (horizontal/vertical) for a multi-selection, and rotation (a drag
+    handle above the item, Shift snaps to 15°, for cards and objects — see
+    "still open" below for why sketches don't have it yet)~~ **all done,
+    verified live — see HISTORY.md §53–§55 for the full list and how each
+    was verified.**
 
-    Done in an earlier session, reported and
-    verified in Chromium: per-tool cursors (native `cursor: url(svg)`, not a
-    JS-tracked div — the div version was reported and reproduced as "the
-    mouse snaps to an invisible grid", a lag artifact, not a real grid), an
-    eraser (drag-to-delete, matching every other drawing app), Undo (Ctrl+Z,
-    one level, covers create and delete for both sketches and cards),
-    keyboard shortcuts (V/P/L/R/O/E/X/Esc), a real toolbar redesign with SVG
-    icons and grouped sections, a board background colour (also fixes the
-    generative-art canvas showing through, reported separately), draggable
-    toolbar panels, and an empty-state hint. Also fixed while adding the
-    eraser: a freshly drawn stroke was appended as a raw un-bound SVG
-    element, not through `renderWhiteboard`'s data binding — so it could
-    never be deleted or erased until a page reload re-fetched it.
-
-    **Still open, reported directly and confirmed against the current code —
-    checked before writing any of this, per this file's own rule** (only one
-    undo level exists; there is no redo stack at all; the only tools are
-    pan/select, pen, line, rect, circle, eraser, two link types and delete —
-    no rotate, no shift-to-lock-proportions while resizing, no image
-    upload/paste/drag-drop, no text/label tool beyond a card's own text):
-    - ~~**Redo.**~~ **Fixed.** `wbRedoStack`, cleared on any fresh action the
-      same way the sketch pad's own history works; `wbApplyHistoryEntry`
-      shares the pop/apply-inverse/push-reverse logic between undo and redo
-      so they can't drift apart. Ctrl+Y and Ctrl+Shift+Z both wired, plus a
-      toolbar button. Verified live: draw → undo → redo restores it, button
-      disabled state tracks correctly.
-    - ~~**Select as a real tool.**~~ **Fixed, single-item only** — a
-      `data-tool="select"` tool (was folded into "pan"), click a card or
-      sketch to select it (outline highlight), Delete/Backspace or Escape to
-      act on it, clicking empty canvas clears it. Verified live: select →
-      Delete → gone; undo brings it back; select → click elsewhere →
-      deselected. **Move and rotate as real tools, and multi-select (Ctrl/
-      Cmd/Shift-click, rectangle marquee, lasso) are still open** — asked
-      for directly this session, not yet built; see the properties-panel
-      bullet below for the related "alter what's selected" ask.
-    - ~~**Shift-to-lock proportions**~~ **Fixed for the sketch pad's own
-      rect tool** (holding Shift forces a square). The whiteboard's own
-      rect/circle tools don't have this yet — same fix, not yet ported.
-    - **Images**: upload, paste, and drag-and-drop onto the canvas. The
-      plumbing already exists for notes (`/media`, attachments — see item
-      20) and is the thing to extend rather than a second upload path.
-    - **Precise placement.** Dropping a note/card "doesn't go exactly where
-      I want it" — likely the drop coordinate isn't being translated through
-      the canvas's own zoom/pan transform before being stored; needs
-      reproducing against the actual drop handler, not guessed at.
-    - **Connections, draw.io-style.** Links currently join whatever anchor
-      the drag started/ended on; asked for: fixed points at each edge's
-      midpoint and corners, *plus* a free point anywhere along an edge, and
-      the line should visually terminate on the card's border rather than
-      wherever the drag happened to end (today's rendering — see the
-      edge-labelling note below).
-    - **The toolbar's default position.** Reported drifting to the top-left
-      when it should default to bottom-centre unless the user has dragged
-      it — the draggable-panel code this session (item 11, done) added
-      needs a default-position check against whatever "unless moved" state
-      it persists.
-    - **Resizable cards**, and the edge-labelling the graph has — see item 9
-      — both still open from before.
-    - **Grid lines (varying types) and snap-to-grid for placement.** Asked
-      for directly, not scoped further — needs a decision on which grid
-      types (square/dot/isometric?) before building.
-    - ~~**A way to reset the board colour back to the theme default.**~~
-      **Fixed (HISTORY.md §51), asked for directly.** Once a colour was
-      picked there was no way back to the theme's own `--modal-bg` short of
-      guessing its hex. A `↺` button next to `#wb-bg-color-picker` clears
-      the `localStorage` override and re-reads the live computed colour
-      (not a hardcoded hex), so it means "the theme's colour" even after a
-      light/dark switch, not "whatever it happened to be once". Verified
-      live: pick a colour → persisted and applied; click reset → cleared,
-      swatch shows the real computed default.
-    - ~~**"A lot of the tools are missing — it should be an upgraded version
-      of the sketch pad."**~~ **Highlighter and arrow added, partially
-      verified.** A highlighter tool (M) — wider, translucent stroke — and
-      an arrow tool (A) — one path, three subpaths (shaft + both head
-      strokes, so it shares one undo entry). The highlighter had a real bug
-      caught before it shipped: the saved sketch JSON only ever stored `{d,
-      color}`, so a highlighter reloaded as a plain full-opacity 3px line —
-      fixed by adding `width`/`opacity` to the payload and reading them back
-      in the render loop; verified live (draw → `renderWhiteboard()` re-run
-      → still thick/translucent; a plain pen stroke still defaults to 3/1).
-      **The arrow tool's own drag-to-save path could not be verified live
-      this session** — Playwright's synthetic mouse drag produced a
-      "no real movement, discard" result for arrow *and* for the pre-existing
-      line tool tested the same way, so this reads as a test-harness
-      limitation rather than a code bug (pointer-event delivery to the
-      handler was separately confirmed correct, with real coordinates
-      tracking the drag), but it means line/rect/circle/arrow are **unverified
-      by a live drag** — first thing worth checking next session, with a
-      real mouse or a slower/dispatched-event test rather than
-      `page.mouse.move`. Text tool and a size control are still missing
-      entirely (sketch pad has both).
-    - **The single-node hover-highlight during a drag was re-reported as
-      still happening after item 10 above's fix**, on a live run outside
-      this sandbox. That fix targeted panning specifically (dragging empty
-      canvas) and was verified 6/6 clean in this sandbox's Chromium; dragging
-      an *actual node* was checked and doesn't share the same cause (every
-      other node is pinned — `fx`/`fy` set — for the length of a node drag,
-      so nothing else can slide under a stationary cursor the way panned
-      content does), so there's no obvious analogous quick fix. Left open
-      rather than guessed at — needs the exact gesture that reproduces it
-      (which tool, panning vs. dragging a note, which browser) from a
-      session that can watch it happen live.
-    - ~~**Drawing only responds to a drag, not a single click.**~~ **Fixed
-      and verified live (HISTORY.md §51).** Diagnosed, not guessed: the
-      sketch pad's own pen already handled this correctly (`sketchEnd`'s
-      `!sketchMoved` branch draws a near-zero-length line, which a round
-      linecap renders as a dot) — the *whiteboard*'s separate SVG-path
-      implementation didn't, discarding a stationary click outright
-      (`currentDrawData.length < 2` → remove the path, return). Same fix,
-      mirrored: a click with no drag now sets the path's `d` to a
-      near-zero-length segment instead of deleting it. The eraser had the
-      same gap for a different reason — it only ever caught a stroke via
-      `mouseenter` while the button was held, which needs *movement* to
-      fire at all, so a plain click did nothing; its own `click` handler
-      (already there for the Delete tool) now also fires for the eraser.
-      Verified live end to end against a real running server: single pen
-      click on empty canvas, 0 sketches → 1; single eraser click on that
-      same dot, 1 → 0. Shape tools (line/rect/circle) are left alone — a
-      zero-size shape isn't a reasonable click default the way a pen dot
-      is.
-
-    - **A properties panel for the current selection** — colour, line
-      thickness, arrowhead style (start/end/both) — asked for directly this
-      session, not yet built. Depends on multi-select existing first (today
-      `wbSelectedItem` is a single `{kind, id}`, not a set).
-    - ~~**Touch input.**~~ **Fixed for the whiteboard and the graph.** Both
-      used plain `mouse*` events, which touch/pen never reliably dispatch —
-      the sketch pad already used `pointer*` events and worked. Converted
-      the whiteboard's draw/erase/select listeners and the graph's own SVG
-      to pointer events, and added `touch-action: none` to both containers
-      (without it the browser treats the same gesture as page-scroll/pinch
-      before a pointer event ever arrives). d3-zoom/d3-drag (v7, already in
-      use for the graph's pan/zoom/node-drag) listen for pointer events
-      internally, so those should now work on touch too — **not verified
-      live**: this sandbox has no touch-capable input to drive a real touch
-      gesture through Playwright's touchscreen API, only reasoned from the
-      event model and mirrored against the sketch pad's already-working
-      pattern. Multi-touch gestures (pinch-zoom with two fingers) are a
-      separate, larger piece d3-zoom handles on its own; not touched here.
-
-    **This is a lot for one item** — draw.io, Microsoft Whiteboard and
-    OneNote between them are three separate mature products' worth of
-    surface. Worth sequencing rather than one pass: redo and select/move/
-    rotate are the most-requested and cheapest (state machines the app
-    already has a shape for); images and precise placement are next
-    (real user-visible correctness, not new interaction design); the
-    connection-point system is the biggest single piece and worth its own
-    session, ideally after looking at how draw.io itself represents a
-    fixed-vs-free anchor, since that's the interaction model being asked
-    for by name.
+    **Still genuinely open, ranked by what's actually left. The order below
+    is now a confirmed decision, not a guess** — asked directly at the end
+    of §55 ("which mode should I build first?" / "should I start now?") and
+    answered explicitly: **start with anchors, then mind-map mode**, and
+    build all three AI/whiteboard integration pieces (chat Q&A, search
+    indexing, AI-guided generation). Not started yet — the user chose to
+    open a fresh session for it rather than continue mid-§55; this is the
+    starting point for that session.
+    - **Real anchor/connection points** (fixed corners+edges, a free point
+      along an edge, a link that visually terminates on the border, not
+      wherever a drag ended) — asked for directly, "take inspiration from
+      draw.io." **Confirmed as the next thing to build.** Named "worth its
+      own session" three times now (§53, §54, §55); a shallow version (one
+      that doesn't match how draw.io itself represents a fixed-vs-free
+      anchor) would cost more to unwind later than it saves now — read how
+      draw.io represents this before starting. **Where the code lives,
+      found while scoping this at the end of §55** (nothing built yet, just
+      the map): a link is a `WhiteboardSketch` whose `data` JSON has
+      `{type: "link-straight"|"link-curved", sourceId, targetId, color}` —
+      no schema migration needed, `sourceAnchor`/`targetAnchor` (`{x, y}` as
+      0–1 fractions of the shape's own bounding box, or omitted for
+      "floating") can just be two more keys in that same blob. Three call
+      sites touch link data today: drawing one (`dragStart`/`dragging`/
+      `dragEndNode`'s `currentTool.startsWith("link-")` branches, roughly
+      `frontend/app.js` lines 26410–26525 as of §55 — `dragEndNode` in
+      particular hit-tests the drop point against every node's raw
+      `x/x+250/y/y+150` box to find `targetNode`, which is also where a
+      fixed-anchor drop target would need to be resolved), and rendering
+      one (`sketchUpdate.each`'s `parsed.type.startsWith("link-")` branch,
+      `frontend/app.js` around line 25857 — currently a hardcoded
+      `source.x + 125, source.y + 75` centre-point offset for both ends,
+      which is exactly the "arbitrary corner" problem anchors fix; the
+      floating case needs the standard rectangle/centre-line intersection
+      draw.io itself uses, not the centre point). `wbUpdateLinkedSketches`
+      (the per-frame link-follow during a card drag) needs the same anchor
+      math, not just the full-render path.
+    - **A mind-mapping mode** — see item 25's own entry (Tier 3): decided
+      to be a whiteboard mode (auto-arrange via the Graph tab's existing
+      Tree/Radial layout code, plus Tab/Enter keyboard branch entry), not a
+      third tab. **Confirmed as the second thing to build**, right after
+      anchors — branch lines need real anchors to land on card borders
+      instead of arbitrary corners, which is why this stays sequenced after
+      the item above rather than before it.
+    - **AI + whiteboard, three pieces, all confirmed wanted together** (not
+      scoped or started): (1) the chat agent gets read access to a board's
+      contents as context, so it can answer "what's on my project-planning
+      board?" — a new tool in `src/memorymap/ai/tools.py`, wired into
+      `TOOLS_GUIDE` in `agent.py`, since neither currently mentions the
+      whiteboard at all (`src/memorymap/ai/autonomous.py`'s orphaned-card
+      cleanup is the only whiteboard reference under `ai/`, and it's a
+      background job, not agent context); (2) whiteboard content (sketch
+      labels, text-box content, image alt text) becomes searchable the same
+      way notes are — `src/memorymap/search/search_manager.py` currently
+      queries only `Entry`, no whiteboard table at all; (3) AI-guided
+      diagram generation (asked for directly, "allow the ai to generate the
+      diagrams guided") is the write side of (1) — the agent reads a
+      board's current state via the same tool, then places/connects
+      cards/shapes/links on it from a text description, reusing the
+      existing create/update endpoints rather than a new generation path.
+      Do (1) and (2) first; (3) depends on (1)'s read tool existing, and
+      reads better once anchors (above) exist so generated links don't land
+      on arbitrary corners either.
+    - **Sketch rotation.** Cards and objects rotate (§55); a sketch does
+      not — its "shape" *is* its path data, and rotating a path correctly
+      (including the `a` command's own elliptical-arc flags, which flip
+      under rotation in a way `wbTransformPathD`'s existing translate/scale
+      math doesn't need to handle) is real trig this session didn't spend
+      the time on. A sketch can still be deleted and redrawn at an angle.
+    - **Image cropping.** Asked about directly; not scoped or built —
+      needs a decision on the interaction (a crop rectangle over the full
+      image vs. a separate "adjust" mode) before building.
+    - **Uploaded whiteboard images showing in the Library as files.** Asked
+      for directly; not started — needs a decision (track `/media/` uploads
+      in a real DB table so the Library has rows to list, or surface the
+      media directory directly) before building.
+    - **A whiteboard backend/perf pass** (N+1 queries, inefficient
+      endpoints) beyond the one full-rerender bug already fixed (§54) — not
+      started, not profiled.
+      above since branch lines need real anchors to look right.
 12. ~~**Links that are links.**~~ **Already done — corrected, not rebuilt
     (HISTORY.md §47).** Checked before touching anything, per this file's
     own rule: every place a link chip renders (a note card's own links, the
@@ -805,9 +746,32 @@ Worth doing, and worth doing after the above.
     new layout algorithm. Worth reproducing what specifically feels
     different — screenshot the two side by side — before assuming it's this
     item rather than a tuning pass on the existing force simulation.
-25. **A mapping tab** — mind maps and linked diagrams. Overlaps the whiteboard
-    heavily; decide whether it is a *mode of the whiteboard* rather than a tab
-    before building it.
+25. **Mind-mapping — decided: a whiteboard mode, not a third tab.** The
+    whiteboard already has every primitive a mind map needs (cards, text
+    boxes, straight/curved links, resize); a separate tab would duplicate all
+    of that for one missing thing, structure. Two additions, on top of the
+    whiteboard rather than beside it:
+    1. **"Arrange as mind map"** — select a card, one button, everything
+       connected to it (via the whiteboard's own links) auto-positions in a
+       radial/tree layout. Not new math: the Graph tab's Tree/Radial layout
+       algorithms (HISTORY.md) already do this against note-link data; reuse
+       that code against the whiteboard's own node/link data rather than
+       writing a second layout engine.
+    2. **Keyboard-driven branch entry** — with a card selected, `Tab` creates
+       a linked child note at the next open radial slot, `Enter` creates a
+       sibling. This is the actual ergonomic difference between "a whiteboard
+       you can draw a mind map on" and "a mind-mapping tool" — every
+       dedicated app (XMind, MindMeister) lives or dies on this; dragging
+       cards one at a time to fake it defeats the point.
+    Why not extend the Graph tab instead: it already has the layout
+    algorithms and real link data, but it's architecturally a read-only
+    *derived* view (computed from note links, not a canvas you place things
+    on) — making it editable is a bigger lift than reusing its layout math
+    from the whiteboard side, which is already an editable canvas.
+    **Sequencing: build item 11's connection-point/anchor work (draw.io-style
+    fixed/free anchors) first.** It's a direct prerequisite — without it,
+    branch lines terminate at arbitrary card corners instead of looking like
+    mind-map branches.
 26. **Widgets: a picker**, and more of them. Customisable sidebars, and note
     view options in the Notes tab. Asked for directly as "a widget management
     hub popup on the dashboard, like a widget marketplace" — the foundation

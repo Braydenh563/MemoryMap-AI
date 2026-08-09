@@ -1382,3 +1382,76 @@ prompt and nowhere else. The checkbox and the pause card's text box were
 **not** driven in a browser this session; say so plainly rather than claim
 a screenshot that doesn't exist. Full `pytest tests/`, `ruff check .`, and
 `node --check frontend/app.js` all green.
+
+## 46. The sketch pad's highlighter and a real background colour — both checked live, one caught a real CSS trap along the way
+
+Continued the same session, straight after §45. ROADMAP.md's next item: the
+sketch pad's highlighter at 5% opacity ("completely wrong" in the report),
+"then a reachable size control, a background colour, and a selection tool."
+
+**Checked before touching anything, per this file's own rule, and found
+half of it already done.** `#sketch-size` already existed, was already
+wired (`sketchPen.size = Number($("sketch-size").value)`), and already
+reached every tool — pen, highlighter, eraser, and every shape's stroke
+width (`line`, `rect`, `circ`, `arrow`) all read `sketchPen.size`. ROADMAP's
+own claim that a size control was missing was stale; corrected in place
+rather than rebuilt.
+
+**The highlighter, fixed and verified live.** `globalAlpha` was a literal
+`0.05` in two places (`sketchMove`, `sketchEnd`) — roughly twenty
+overlapping passes before a stroke showed at all, indistinguishable from the
+tool doing nothing. Now `0.35` (a named `SKETCH_HIGHLIGHTER_ALPHA` constant,
+not a second magic number), which reads as an actual highlighter given the
+existing `multiply` blend mode — translucent, tints rather than covers.
+Verified in a real Chromium session, not just the diff: drew one stroke,
+read the canvas pixel back with `getImageData` (a distinct blue rather than
+the near-white a 0.05 alpha would leave), and took a screenshot showing a
+clearly visible band.
+
+**A background colour, built and then caught doing nothing — the real find
+of this item.** A first pass added `--sketch-board-bg` as a CSS custom
+property on `#sketch-bg-canvas`'s `background`, the exact shape the
+whiteboard's own `--wb-board-bg` already uses. It changed nothing on
+screen. The reason: `sketchDrawBackground()` — called every time the pad
+opens or a background image loads — already does
+`context.fillStyle = "#ffffff"; context.fillRect(...)` across the whole
+canvas, and **that fill is opaque pixels drawn into the canvas element's own
+bitmap**, which sits in front of (and fully hides) whatever the element's
+CSS `background` is. A CSS background on a `<canvas>` is only ever visible
+through pixels the canvas itself left transparent — exactly the shape of
+trap this project's own traps list already names ("a value that is invalid
+where it is used, not where it is set, does its damage nowhere near the
+code that caused it"), just for `display` bugs rather than paint order.
+Found by checking the *pixel data* after picking a colour, not by reading
+the CSS and assuming it applied.
+
+Fixed properly: `sketchBgColor` (a plain module-level variable, persisted
+in `localStorage` the same way the whiteboard's board colour is) replaces
+the hardcoded `"#ffffff"` as `sketchDrawBackground()`'s own `fillStyle`, so
+the chosen colour is real pixel data from the moment it's picked — which
+also means it survives into `saveSketch()`'s composite untouched, since
+that function just `drawImage`s the two canvases together and never knew
+the difference. Verified three ways live: the bg-canvas's own pixels before
+and after picking a colour, and — because a canvas correctly *showing* a
+colour on screen is not the same fact as a save correctly *storing* it —
+the exact same composite `saveSketch()` builds, read back pixel by pixel,
+confirming the chosen colour (not the old default) is what actually gets
+attached to the note.
+
+**Still genuinely open**: a selection tool (clicking an existing
+stroke/shape to move, resize or delete it — today's tools only ever draw a
+new one, the same gap the whiteboard had before its own select/move/rotate
+work was scoped). The toolbar redesign stays *after* that, per the item's
+own ordering, not before.
+
+**What was and wasn't verified**: both fixes were driven in a real
+Chromium session with pixel-level reads, not screenshots alone — the
+highlighter's visible colour, the background colour's presence in the
+canvas's own bitmap, and its survival into the actual save-composite.
+Nobody actually clicked "Save as note" through the UI end to end this
+session (a stray Agent Activity toast intermittently overlapped the Save
+button in the test viewport, a test-harness nuisance rather than an app
+bug); the composite was verified by calling the exact same drawing calls
+`saveSketch()` makes, not by guessing that it would behave the same way.
+Full `pytest tests/`, `ruff check .`, and `node --check frontend/app.js`
+all green (this item has no backend surface, so no new Python tests).

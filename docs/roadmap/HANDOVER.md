@@ -2,7 +2,43 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session: §45 — skill runs get a manual mode, the single most-requested unbuilt thing on the list
+## Latest session: §46 — the sketch pad's highlighter and background colour, both fixed and verified live with pixel reads
+
+Continued straight after §45. Full detail in [HISTORY.md §46](HISTORY.md);
+short version: the highlighter's `globalAlpha` was `0.05` (needed ~20 passes
+to show anything), now `0.35`. Checked first and found already done: a size
+control (`#sketch-size`) existed and reached every tool — ROADMAP's own
+claim otherwise was stale, corrected rather than rebuilt.
+
+**The background colour is the one worth reading closely if you touch this
+file again.** A first pass wired it as a CSS `background` on
+`#sketch-bg-canvas` — the same shape the whiteboard's own board-colour
+picker uses — and it did *nothing*, because `sketchDrawBackground()`
+already paints an opaque `fillRect` into the canvas's own pixels every time
+the pad opens, and those pixels sit in front of any CSS background on the
+element underneath. **A CSS background on a `<canvas>` is only ever visible
+through pixels the canvas itself left transparent** — worth remembering
+before wiring any future control this way. Fixed by making the fill colour
+itself the chosen one (`sketchBgColor`, persisted in `localStorage`)
+instead of a hardcoded white. Verified three ways live: the bg-canvas's own
+pixels before/after picking a colour, and the exact composite `saveSketch()`
+builds, read back pixel by pixel, to prove the colour survives into what
+actually gets saved and not just what's on screen.
+
+**Not built**: the selection tool (still open, and it's the one real
+remaining gap — clicking an existing stroke to move/resize/delete it).
+**Not verified live**: nobody clicked "Save as note" through the UI
+end-to-end this session (a stray toast intermittently overlapped the
+button in the test viewport); the save composite was verified by running
+`saveSketch()`'s own drawing calls directly, not by clicking through.
+
+**What's next**: the sketch pad's selection tool, or ROADMAP.md's next
+Tier 2 item (note-links being clickable through to the notes they name, or
+the change-target View button extending past notes).
+
+---
+
+## Previous session: §45 — skill runs get a manual mode, the single most-requested unbuilt thing on the list
 
 Continued straight after §44 in the same session. Full detail in
 [HISTORY.md §45](HISTORY.md); short version: `run_skill(..., manual=True)`

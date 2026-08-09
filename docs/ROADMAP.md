@@ -145,10 +145,30 @@ into a good one.
    `POST /entries/links/backfill-reasons` (`manager.backfill_link_reasons`)
    runs it once over every existing reason-less link, behind a button next
    to Suggest links.
-10. **The sketch pad.** The highlighter at 5% opacity is effectively invisible
-    (~20 passes before anything shows) — that is the "completely wrong" in the
-    report. Then a reachable size control, a background colour, and a
-    selection tool. The toolbar redesign comes *after* those, not before.
+10. **The sketch pad.** ~~The highlighter at 5% opacity was effectively
+    invisible~~ **Fixed (HISTORY.md §46)**: `globalAlpha` was `0.05` — around
+    twenty overlapping passes before a stroke showed at all, which is the
+    "completely wrong" in the report — now `0.35`, verified live (pixel
+    read-back and a screenshot, not just the code). **Checked before
+    touching anything, per this file's own rule**: a size control
+    (`#sketch-size`) already existed and already reached every tool
+    (pen/highlighter/eraser and every shape's stroke width all read
+    `sketchPen.size`) — this file's own claim that it was missing was stale.
+    ~~A background colour for the canvas~~ **Done (HISTORY.md §46).** A
+    colour picker (`#sketch-bg-color-picker`) next to the image-upload
+    button, persisted in `localStorage` the same way the whiteboard's own
+    board colour is. **The one real trap this hit**: a first pass wired it
+    as a CSS `background` on `#sketch-bg-canvas`, which did *nothing* —
+    `sketchDrawBackground()` already paints an opaque `fillRect` into the
+    canvas's own pixels every time the pad opens or an image loads, and
+    those pixels sit in front of (and fully hide) any CSS background on the
+    element underneath them. Fixed by making the fill colour itself
+    `sketchBgColor` instead of a hardcoded `"#ffffff"` — the actual pixels a
+    save composites, verified live by reading the saved-PNG composite's own
+    pixel data back, not just the on-screen canvas. **Still genuinely open**:
+    a selection tool (clicking an existing stroke/shape to move, resize or
+    delete it; today's tools only ever draw a new one). The toolbar redesign
+    comes *after* that, not before.
 11. **The whiteboard, properly.** Done in an earlier session, reported and
     verified in Chromium: per-tool cursors (native `cursor: url(svg)`, not a
     JS-tracked div — the div version was reported and reproduced as "the

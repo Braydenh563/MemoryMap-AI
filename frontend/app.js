@@ -15185,6 +15185,13 @@ function paletteKeydown(event) {
 
 // --- Wave F: whiteboard-lite --------------------------------------------------------
 
+// Reported directly as "completely wrong": at 0.05 the highlighter needed
+// roughly twenty overlapping passes before a stroke showed at all — visually
+// indistinguishable from the tool doing nothing. 0.35 with the existing
+// "multiply" blend mode reads as an actual highlighter (translucent, tints
+// rather than covers) in one pass.
+const SKETCH_HIGHLIGHTER_ALPHA = 0.35;
+
 let sketchPen = { color: "#3b82f6", size: 4, eraser: false };
 let sketchDrawing = false;
 let sketchDirty = false;
@@ -15216,10 +15223,20 @@ function sketchContext() {
 // (if any) scaled to fit inside the canvas without cropping or stretching.
 // Called after every change to `sketchBackgroundImage`, rather than patched
 // in place, because "fit inside and centre" isn't otherwise idempotent.
+// A reachable background colour, asked for directly — the canvas painted a
+// hardcoded white fill with nothing that could change it, and a CSS
+// background on the canvas *element* would have done nothing either: this
+// fill is opaque pixels drawn into the canvas's own bitmap, which sits in
+// front of (and fully hides) whatever the element's CSS background is.
+// Persisted the same way the whiteboard's own board colour is (a
+// `localStorage` key, not a preference — a look, not notebook data).
+const SKETCH_BG_KEY = "sketch-bg-color";
+let sketchBgColor = localStorage.getItem(SKETCH_BG_KEY) || "#ffffff";
+
 function sketchDrawBackground() {
   const canvas = $("sketch-bg-canvas");
   const context = canvas.getContext("2d");
-  context.fillStyle = "#ffffff"; // a white page in both themes
+  context.fillStyle = sketchBgColor;
   context.fillRect(0, 0, canvas.width, canvas.height);
   const img = sketchBackgroundImage;
   if (!img) return;
@@ -15234,6 +15251,7 @@ function openSketch() {
   $("sketch-overlay").classList.remove("hidden");
   $("sketch-close").focus();
   sketchBackgroundImage = null;
+  $("sketch-bg-color-picker").value = sketchBgColor;
   sketchDrawBackground();
   const canvas = $("sketch-canvas");
   canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
@@ -15321,7 +15339,7 @@ function sketchMove(event) {
   context.lineCap = sketchTool === "highlighter" ? "square" : "round";
   context.lineJoin = sketchTool === "highlighter" ? "bevel" : "round";
   context.globalCompositeOperation = sketchPen.eraser && sketchTool === "pen" ? "destination-out" : (sketchTool === "highlighter" ? "multiply" : "source-over");
-  context.globalAlpha = sketchTool === "highlighter" ? 0.05 : 1.0;
+  context.globalAlpha = sketchTool === "highlighter" ? SKETCH_HIGHLIGHTER_ALPHA : 1.0;
   context.strokeStyle = sketchPen.color;
   context.lineWidth = sketchTool === "highlighter" ? sketchPen.size * 6 : (sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size);
 
@@ -15364,7 +15382,7 @@ function sketchEnd(event) {
     context.lineCap = sketchTool === "highlighter" ? "square" : "round";
     context.lineJoin = sketchTool === "highlighter" ? "bevel" : "round";
     context.globalCompositeOperation = sketchPen.eraser && sketchTool === "pen" ? "destination-out" : (sketchTool === "highlighter" ? "multiply" : "source-over");
-    context.globalAlpha = sketchTool === "highlighter" ? 0.05 : 1.0;
+    context.globalAlpha = sketchTool === "highlighter" ? SKETCH_HIGHLIGHTER_ALPHA : 1.0;
     context.strokeStyle = sketchPen.color;
     
     if (sketchTool === "pen" || sketchTool === "highlighter") {
@@ -22282,6 +22300,17 @@ $("sketch-image-input").addEventListener("change", () => {
 });
 $("sketch-size").addEventListener("input", () => {
   sketchPen.size = Number($("sketch-size").value);
+});
+// `input` previews live while dragging the swatch; `change` (fires once, on
+// release) is what persists — dragging across ten hues shouldn't write ten
+// times, same reasoning as the whiteboard's own background picker.
+$("sketch-bg-color-picker").addEventListener("input", (e) => {
+  sketchBgColor = e.target.value;
+  sketchDrawBackground();
+  sketchDirty = true; // a background colour is as much a change as a stroke
+});
+$("sketch-bg-color-picker").addEventListener("change", (e) => {
+  localStorage.setItem(SKETCH_BG_KEY, e.target.value);
 });
 for (const button of document.querySelectorAll(".sketch-color")) {
   button.addEventListener("click", () => {

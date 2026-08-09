@@ -4632,6 +4632,9 @@ html.modal-open body {
 
 #sketch-bg-canvas {
   border: 1px solid var(--border);
+  /* Cosmetic only — `sketchDrawBackground()` always paints an opaque fill
+     into the canvas's own pixels first, which fully covers this. The real
+     background colour control lives there, not here. */
   background: #fff;
 }
 

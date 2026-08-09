@@ -2132,11 +2132,24 @@ Link to another note with [[its first few words]]."></textarea>
               <div class="setting-row" id="glass-blur-row">
                 <div class="setting-label">
                   <span>Blur strength</span>
+                  <small class="muted">How frosted the glass looks.</small>
                 </div>
                 <div class="row setting-control">
                   <input id="glass-blur" type="range" min="2" max="30" value="18"
                     aria-label="Glass blur strength">
                   <span class="slider-value" id="glass-blur-value">18px</span>
+                </div>
+              </div>
+
+              <div class="setting-row" id="glass-opacity-row">
+                <div class="setting-label">
+                  <span>Glass opacity</span>
+                  <small class="muted">How clear the glass looks — lower sees further through it.</small>
+                </div>
+                <div class="row setting-control">
+                  <input id="glass-opacity" type="range" min="30" max="100" value="100"
+                    aria-label="Glass opacity">
+                  <span class="slider-value" id="glass-opacity-value">100%</span>
                 </div>
               </div>
 

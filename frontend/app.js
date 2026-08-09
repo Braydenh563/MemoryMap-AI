@@ -18880,6 +18880,10 @@ const APPEARANCE_DEFAULTS = {
   "bg-intensity": "90",
   radius: "14", // global corner rounding, px
   "glass-blur": "18", // frosted-glass blur strength, px
+  // Percent of a card's own base alpha that survives — separate dial from
+  // blur strength above (how frosted vs. how clear). 100 renders identically
+  // to before this setting existed.
+  "glass-opacity": "100",
   zoom: "100", // §37E: interface-wide scale, percent — multiplies the root font-size
   "bg-style": "aurora", // aurora | constellation | waves | bubbles | mesh
   palette: "default", // which curated colour set; themes select one
@@ -19207,8 +19211,8 @@ function applyThemePreset(name, chosenByUser = false) {
 // the UI so "why isn't the theme's colour showing?" has a visible answer.
 const OVERRIDABLE_KEYS = [
   "theme", "palette", "accent", "accent-custom", "page-bg", "font", "fontsize",
-  "density", "radius", "glass", "glass-blur", "bg-style", "bg-motion",
-  "bg-intensity", "zoom",
+  "density", "radius", "glass", "glass-blur", "glass-opacity", "bg-style",
+  "bg-motion", "bg-intensity", "zoom",
 ];
 
 function manualOverrides() {
@@ -19574,6 +19578,7 @@ function applyAppearance() {
   root.dataset.bgArt = bgArtOn() ? "on" : "off";
   root.style.setProperty("--radius", `${appearancePref("radius")}px`);
   root.style.setProperty("--glass-blur", `${appearancePref("glass-blur")}px`);
+  root.style.setProperty("--glass-opacity", Number(appearancePref("glass-opacity")) / 100);
   root.style.setProperty("--zoom", Number(appearancePref("zoom")) / 100);
   root.style.setProperty("--border-style", appearancePref("border-style", "solid"));
   // Belt and braces over the two fixes above. A custom property will happily
@@ -19756,6 +19761,8 @@ function renderAppearance() {
   $("radius-value").textContent = `${appearancePref("radius")}px`;
   $("glass-blur").value = appearancePref("glass-blur");
   $("glass-blur-value").textContent = `${appearancePref("glass-blur")}px`;
+  $("glass-opacity").value = appearancePref("glass-opacity");
+  $("glass-opacity-value").textContent = `${appearancePref("glass-opacity")}%`;
   $("zoom-slider").value = appearancePref("zoom");
   $("zoom-value").textContent = `${appearancePref("zoom")}%`;
   _segActive("border-style-seg", "borderChoice", appearancePref("border-style", "solid"));
@@ -19764,8 +19771,9 @@ function renderAppearance() {
   $("accent-custom").value = localStorage.getItem("accent-custom") || "#4f6df5";
   $("page-bg-custom").value = localStorage.getItem("page-bg") || "#f5f7fb";
   $("custom-css").value = localStorage.getItem("custom-css") || "";
-  // Blur strength only matters while glass is on.
+  // Blur strength and opacity only matter while glass is on.
   $("glass-blur-row").classList.toggle("disabled-row", appearancePref("glass") !== "on");
+  $("glass-opacity-row").classList.toggle("disabled-row", appearancePref("glass") !== "on");
   // Style/intensity only matter while the background art is on.
   const artOff = !bgArtOn();
   $("bg-style-row").classList.toggle("disabled-row", artOff);
@@ -19936,8 +19944,8 @@ function renderPaletteGrid() {
 function resetAppearance() {
   for (const key of [
     "fontsize", "font", "density", "glass", "motion", "bg-intensity", "accent",
-    "contrast", "bgArt", "theme", "radius", "glass-blur", "bg-style",
-    "bg-motion", "palette", "themePreset",
+    "contrast", "bgArt", "theme", "radius", "glass-blur", "glass-opacity",
+    "bg-style", "bg-motion", "palette", "themePreset",
     "accent-custom", "page-bg", "custom-css", "zoom",
   ]) {
     localStorage.removeItem(key);
@@ -20430,6 +20438,11 @@ $("radius-slider").addEventListener("input", (e) => {
 $("glass-blur").addEventListener("input", (e) => {
   localStorage.setItem("glass-blur", e.target.value);
   $("glass-blur-value").textContent = `${e.target.value}px`;
+  applyAppearance();
+});
+$("glass-opacity").addEventListener("input", (e) => {
+  localStorage.setItem("glass-opacity", e.target.value);
+  $("glass-opacity-value").textContent = `${e.target.value}%`;
   applyAppearance();
 });
 $("zoom-slider").addEventListener("input", (e) => {

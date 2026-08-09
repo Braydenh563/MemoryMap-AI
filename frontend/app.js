@@ -4558,6 +4558,16 @@ function changeRow(change, options = {}) {
       })
     );
   }
+  // The other half of "take me to the thing the agent just changed" — the
+  // groundwork (`agent._change_document_id`) has resolved a document's real
+  // id on every write since §21, but this was the one place that data never
+  // reached a button: `create_document`'s own change events carried it and
+  // nothing here ever read it.
+  if (change.document_id) {
+    row.appendChild(
+      smallButton("View", "Open this document", () => openDocumentFromNote(change.document_id))
+    );
+  }
   if (change.undo) {
     const undo = smallButton("Undo", "Put this back the way it was", async () => {
       undo.disabled = true;

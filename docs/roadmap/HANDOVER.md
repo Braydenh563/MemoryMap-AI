@@ -2,7 +2,31 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session: §46 — the sketch pad's highlighter and background colour, both fixed and verified live with pixel reads
+## Latest session: §47 — a stale "decoration" claim corrected, and the document half of "take me to what changed" built
+
+Continued straight after §46. Full detail in [HISTORY.md §47](HISTORY.md);
+short version: Tier 2 item 12 ("linked notes should be clickable, today
+they're decoration") was checked before touching anything and found
+**already done** — all three link-chip render sites already call
+`flashEntry` on click. Corrected in ROADMAP rather than rebuilt.
+
+Item 13 had a real gap: `changeRow` (shared by the chat's "what changed"
+list and the autonomous-pass review panel) only ever read `change.note_id`,
+never the `change.document_id` that `agent._change_document_id` has
+resolved on every write since §21. One more `if`, reusing
+`openDocumentFromNote`; verified live with an actual click producing an
+actual tab change, not just read from the diff. Reminders/categories still
+have no `_change_*_id` resolver at all — named as the real next step for
+this item rather than guessed at.
+
+**What's next**: ROADMAP.md's next open item — the reminder/category
+`_change_*_id` resolvers named above, the sketch pad's selection tool, or
+whichever Tier 2 item reads as next-most-valuable on a fresh read of the
+file.
+
+---
+
+## Previous session: §46 — the sketch pad's highlighter and background colour, both fixed and verified live with pixel reads
 
 Continued straight after §45. Full detail in [HISTORY.md §46](HISTORY.md);
 short version: the highlighter's `globalAlpha` was `0.05` (needed ~20 passes

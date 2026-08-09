@@ -226,13 +226,27 @@ into a good one.
     session, ideally after looking at how draw.io itself represents a
     fixed-vs-free anchor, since that's the interaction model being asked
     for by name.
-12. **Note metadata, and links that are links.** A note's linked notes should
-    be clickable through to those notes; today they are decoration.
-13. **"Take me to the thing the agent just changed," the UI half.** Groundwork
-    is correct — `_change_note_id`/`_change_document_id` resolve each write
-    tool's real target. Still open: a `target` field on every write tool's
-    result and a View button rendered from it for documents, reminders and
-    categories (`changeRow` already does this for notes).
+12. ~~**Links that are links.**~~ **Already done — corrected, not rebuilt
+    (HISTORY.md §47).** Checked before touching anything, per this file's
+    own rule: every place a link chip renders (a note card's own links, the
+    "Similar" panel, a reminder's attached note) already calls `flashEntry`
+    on click, which switches to Notes → Browse, clears any active filter,
+    and scrolls the target into view with a highlight — the same function
+    search results and wiki-style `[[links]]` already use. This file's own
+    claim that they were "decoration" was stale, likely inherited from
+    before that wiring existed; nothing here needed building.
+13. **"Take me to the thing the agent just changed," the UI half.** The
+    document half is **done (HISTORY.md §47)**: `agent._change_document_id`
+    has resolved a real document id on every write since §21, but
+    `changeRow` — the one place both the chat's "what changed" list and the
+    autonomous-pass review panel render a change — never read it. Now does,
+    reusing `openDocumentFromNote` (the same navigation a note's own
+    document link already used); verified live (a synthetic `document_id`
+    change renders a View button that actually un-hides `#tab-documents`,
+    not just calls something silently). **Still open**: reminders and
+    categories have no `_change_*_id` resolver on the backend at all yet
+    (only note/document exist), so extending this further needs that
+    groundwork laid first, not just another `if` in `changeRow`.
 14. **Timeline line view, and text placement in grid view.** The grid view's
     text-placement half is **done**: `.timeline-dot`'s `line-clamp: 3` was
     unprefixed under a `-webkit-box` display, a combination this Chromium

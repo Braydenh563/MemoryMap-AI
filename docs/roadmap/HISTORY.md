@@ -1455,3 +1455,48 @@ bug); the composite was verified by calling the exact same drawing calls
 `saveSketch()` makes, not by guessing that it would behave the same way.
 Full `pytest tests/`, `ruff check .`, and `node --check frontend/app.js`
 all green (this item has no backend surface, so no new Python tests).
+
+## 47. A link that turned out to already be a link, and the document half of "take me to what changed"
+
+Continued the same session, straight after §46. Tier 2 item 12 next:
+*"a note's linked notes should be clickable through to those notes; today
+they are decoration."*
+
+**Checked before touching anything and found it already done.** Every
+place a link chip renders — a note card's own `entry.links`, the "Similar"
+panel, a reminder's attached-note chip — already calls `flashEntry` on
+click, which switches to Notes → Browse, clears any active filter, and
+scrolls the target into view with a highlight, the same function search
+results and `[[wiki links]]` already use. Traced all three render sites in
+`app.js` rather than trusting the first one; all three were already wired.
+ROADMAP's own claim that they were "decoration" was stale — corrected in
+place rather than re-derived or rebuilt.
+
+**Item 13, the other half of "take me to what changed," had a real gap
+this time.** `agent._change_document_id` has resolved a real document id
+on every write since §21 — the groundwork was correct, as ROADMAP already
+said — but `changeRow`, the one shared function both the chat's "what
+changed" list and the autonomous-pass review panel render a change
+through, only ever checked `change.note_id`. A skill or the background
+librarian writing a document produced a change with a real `document_id`
+sitting right there, unused. Fixed with one more `if` reusing
+`openDocumentFromNote` — the exact function a note's own "go to this
+document" link already calls, not a new navigation path. Verified live: a
+synthetic `document_id` change rendered a View button, and clicking it
+actually un-hid `#tab-documents` (Playwright, not just reading the diff and
+assuming the click handler does what it says).
+
+**Still open**: reminders and categories have no `_change_reminder_id`/
+`_change_category_id` equivalent on the backend at all — extending
+`changeRow` further needs that resolver work first, the same shape
+`_change_note_id`/`_change_document_id` already are, not just another
+`if` with nothing behind it.
+
+**What was and wasn't verified**: both fixes were checked live in
+Chromium — the three link-chip render sites by reading and tracing the
+code (each one calling the same already-proven `flashEntry`, so a fourth
+browser round-trip would have re-confirmed a fact already established three
+times over), and the document View button by an actual click producing an
+actual visible tab change. Full `pytest tests/`, `ruff check .`, and
+`node --check frontend/app.js` green (no backend change this item, so no
+new Python tests).

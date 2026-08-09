@@ -24772,8 +24772,13 @@ function renderWbObjects(canvas) {
     })
     .on("drag", function (event, d) {
       if (window.currentTool === "eraser" || window.currentTool === "delete") return;
-      d.x = wbSnap(d.x + event.dx);
-      d.y = wbSnap(d.y + event.dy);
+      // d3.drag's dx/dy are raw screen pixels, not board-space — the
+      // resize handles below already divide by the zoom scale for exactly
+      // this reason; a plain drag has to as well, or a card/object moves
+      // faster than the cursor when zoomed out and slower when zoomed in.
+      const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
+      d.x = wbSnap(d.x + event.dx / transform.k);
+      d.y = wbSnap(d.y + event.dy / transform.k);
       d3.select(this).style("transform", `translate(${d.x}px, ${d.y}px)`);
     })
     .on("end", function (event, d) {
@@ -24923,8 +24928,15 @@ function dragging(event, d) {
       d.linkingPath.setAttribute("d", `M ${sx} ${sy} C ${sx + dx/2} ${sy}, ${mx - dx/2} ${my}, ${mx} ${my}`);
     }
   } else {
-    d.x = wbSnap(d.x + event.dx);
-    d.y = wbSnap(d.y + event.dy);
+    // Pre-existing gap, not introduced this session, caught while adding
+    // snap-to-grid here: event.dx/dy are raw screen pixels — the
+    // link-drawing branch just above already divides by the zoom scale for
+    // the same reason. Without it, a card dragged while zoomed moved faster
+    // than the cursor when zoomed out and slower when zoomed in, and snap
+    // would round a wrongly-scaled delta.
+    const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
+    d.x = wbSnap(d.x + event.dx / transform.k);
+    d.y = wbSnap(d.y + event.dy / transform.k);
     d3.select(this).style("transform", `translate(${d.x}px, ${d.y}px)`);
     // re-render links so they move with the node
     renderWhiteboard();

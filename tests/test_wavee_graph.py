@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 
 def _save(client, content, **extra):
     response = client.post("/entries", json={"content": content, **extra})
@@ -22,12 +24,90 @@ def test_graph_nodes_and_manual_link_edges(client):
     body = client.get("/graph").json()
     assert {n["id"] for n in body["nodes"]} == {a["id"], b["id"]}
     assert body["categories"] == ["Alpha", "Beta"]
-    assert body["edges"] == [{"source": a["id"], "target": b["id"], "kind": "link"}]
+    assert body["edges"] == [
+        {
+            "source": a["id"],
+            "target": b["id"],
+            "kind": "link",
+            "reason": None,
+            "reason_confidence": None,
+        }
+    ]
 
     node = next(n for n in body["nodes"] if n["id"] == a["id"])
     assert node["category"] == "Alpha"
     assert node["preview"] == "first note"
     assert node["pinned"] is False
+
+
+def test_graph_node_dates_are_valid_iso_not_double_timezoned(client):
+    """`created_at` used to be built as `e.created_at.isoformat() + "Z"` —
+    but `core/database.DateTime` already hands back a timezone-AWARE
+    datetime, so `.isoformat()` alone ends in `+00:00`, and the extra "Z"
+    produced `...+00:00Z`: two timezone markers in one string. Python's own
+    `datetime.fromisoformat` rejects that (and so, silently, does
+    JavaScript's `Date` constructor — `Invalid Date`, no exception) — which
+    is why the graph's time-filter slider could never move: every node's
+    date failed to parse, so the filter's min/max collapsed to "now" no
+    matter what any note's actual date was.
+    """
+    a = _save(client, "first note", category="Alpha")
+    node = next(n for n in client.get("/graph").json()["nodes"] if n["id"] == a["id"])
+    parsed = datetime.fromisoformat(node["created_at"])
+    assert parsed.tzinfo is not None
+
+
+def test_graph_local_node_dates_are_valid_iso_too(client):
+    """The focus-mode graph (`/graph/local/{id}`) builds its node list from
+    a different loop over the same data and had the identical bug."""
+    a = _save(client, "first note", category="Alpha")
+    b = _save(client, "second note", category="Beta")
+    client.post(f"/entries/{a['id']}/links", json={"target_id": b["id"]})
+
+    body = client.get(f"/graph/local/{a['id']}").json()
+    for node in body["nodes"]:
+        parsed = datetime.fromisoformat(node["created_at"])
+        assert parsed.tzinfo is not None
+
+
+def test_graph_link_edge_carries_its_reason(client):
+    a = _save(client, "assignment due next week", category="Uni")
+    b = _save(client, "gym session tuesday", category="Fitness")
+    client.post(
+        f"/entries/{a['id']}/links",
+        json={"target_id": b["id"], "reason": "both about scheduling"},
+    )
+
+    edges = client.get("/graph").json()["edges"]
+    assert edges == [
+        {
+            "source": a["id"],
+            "target": b["id"],
+            "kind": "link",
+            "reason": "both about scheduling",
+            # A reason someone typed, not one deduced — no score attached.
+            "reason_confidence": None,
+        }
+    ]
+
+
+def test_graph_link_edge_without_a_reason_is_none(client):
+    a = _save(client, "first note", category="Alpha")
+    b = _save(client, "second note", category="Beta")
+    client.post(f"/entries/{a['id']}/links", json={"target_id": b["id"]})
+
+    edges = client.get("/graph").json()["edges"]
+    assert edges[0]["reason"] is None
+
+
+def test_graph_link_edge_carries_a_deduced_reasons_confidence(ai_client):
+    a = _save(ai_client, "a funny scarecrow joke", category="Alpha")
+    b = _save(ai_client, "another funny pun", category="Beta")
+    ai_client.post(f"/entries/{a['id']}/links", json={"target_id": b["id"]})
+
+    edges = ai_client.get("/graph").json()["edges"]
+    assert edges[0]["reason"] == "similar in meaning"
+    assert edges[0]["reason_confidence"] == 1.0
 
 
 def test_graph_thread_edges(client):

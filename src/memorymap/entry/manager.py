@@ -491,10 +491,57 @@ def delete_tag(session: Session, name: str) -> int:
     return changed
 
 
-def create_link(session: Session, source: Entry, target: Entry) -> EntryLink | None:
+# How close two notes' embeddings must be, cosine-wise, before a link left
+# with no reason gets one deduced for it. The same bar `/entries/link-
+# suggestions` ranks by, so a link made from approving a suggestion and a
+# link the AI made unprompted read the same way if they're equally close.
+AUTO_REASON_THRESHOLD = 0.55
+_AUTO_REASON_TEXT = "similar in meaning"
+
+
+def _deduce_reason(
+    session: Session, source_id: int, target_id: int
+) -> tuple[str | None, float | None]:
+    """Guess why two notes might be linked from how close their embeddings
+    are. Returns `(None, None)` — "no reason" — when it can't: no embedding
+    for one or both notes, a mid-reindex width mismatch, or a score under
+    `AUTO_REASON_THRESHOLD`. That's deliberately the same pair `reason`
+    already had for "nobody gave one", so a weak guess never outranks
+    silence — see `EntryLink.reason_confidence`.
+
+    A private note has no embedding (`set_private` deletes it), so this is
+    naturally a no-op for one rather than needing its own guard.
+    """
+    from memorymap.ai.embeddings import bytes_to_vector, cosine_similarity
+
+    rows = session.scalars(
+        select(EmbeddingRecord).where(EmbeddingRecord.entry_id.in_((source_id, target_id)))
+    ).all()
+    vectors = {row.entry_id: bytes_to_vector(row.embedding) for row in rows}
+    if source_id not in vectors or target_id not in vectors:
+        return None, None
+    if vectors[source_id].shape != vectors[target_id].shape:
+        return None, None  # mid embedding-model change — see search.similar_pairs
+    score = cosine_similarity(vectors[source_id], vectors[target_id])
+    if score < AUTO_REASON_THRESHOLD:
+        return None, None
+    return _AUTO_REASON_TEXT, round(score, 2)
+
+
+def create_link(
+    session: Session, source: Entry, target: Entry, reason: str | None = None
+) -> EntryLink | None:
     """Manually connect two entries. Returns None if the link already
     exists (either direction) or the user tried to link an entry to
-    itself. Commits on success."""
+    itself. Commits on success.
+
+    `reason` is optional free text — "why are these connected?" — the thing
+    a shared tag or a reply thread says on its own and a link doesn't. Not
+    required: most links are still obviously why (two notes about the same
+    trip), and forcing an explanation on every one would make linking
+    slower for the common case to help the uncommon one. When nobody gives
+    one, `_deduce_reason` gets a try instead of leaving the link mute.
+    """
     if source.id == target.id:
         return None
     existing = session.scalar(
@@ -509,10 +556,20 @@ def create_link(session: Session, source: Entry, target: Entry) -> EntryLink | N
     )
     if existing is not None:
         return None
-    link = EntryLink(source_entry_id=source.id, target_entry_id=target.id)
+    reason = (reason or "").strip() or None
+    confidence = None
+    if reason is None:
+        reason, confidence = _deduce_reason(session, source.id, target.id)
+    link = EntryLink(
+        source_entry_id=source.id,
+        target_entry_id=target.id,
+        reason=reason,
+        reason_confidence=confidence,
+    )
     session.add(link)
     session.flush()
-    log_action(session, "linked", "entry", source.id, f"-> entry {target.id}")
+    detail = f"-> entry {target.id}" + (f" ({link.reason})" if link.reason else "")
+    log_action(session, "linked", "entry", source.id, detail)
     session.commit()
     return link
 
@@ -542,6 +599,22 @@ def remove_link(session: Session, source: Entry, target: Entry) -> bool:
         return False
     delete_link(session, link)
     return True
+
+
+def set_link_reason(session: Session, link: EntryLink, reason: str | None) -> EntryLink:
+    """A person setting, changing, or clearing a link's reason by hand.
+
+    Always wins over whatever `_deduce_reason` guessed: `reason_confidence`
+    is cleared here because a person's words aren't a similarity score, and
+    null already means "not deduced" — so an edited link and a freshly
+    auto-reasoned one that hasn't been touched stay tellable apart.
+    """
+    link.reason = (reason or "").strip() or None
+    link.reason_confidence = None
+    detail = f"-> entry {link.target_entry_id}" + (f" ({link.reason})" if link.reason else "")
+    log_action(session, "relinked", "entry", link.source_entry_id, detail)
+    session.commit()
+    return link
 
 
 def delete_link(session: Session, link: EntryLink) -> None:
@@ -724,6 +797,69 @@ def readable_content(entry: Entry) -> str:
         # Kept deliberately non-fatal. The stored bytes are still there, so a
         # key problem is recoverable; crashing the list is not.
         return "🔒 This private note couldn't be decrypted."
+
+
+#: A leading Markdown heading on the first non-blank line only — a `#` three
+#: paragraphs into a long note is a section break, not what the note is
+#: *called*. Requires the space after the hashes, so "#recipe" (a tag someone
+#: typed at the very top) is never mistaken for a heading.
+_TITLE_LINE = re.compile(r"^#{1,6}[ \t]+(\S.*)$")
+
+
+def extract_title(content: str) -> str | None:
+    """A note's own title, if it wrote one — its first line, when that line
+    is a Markdown heading. Not a stored field: there is nothing to fall out
+    of sync with the content, and "editing the title" is just editing that
+    line, the same as any other (asked for directly, and simpler than a
+    second input box fighting the single-box capture flow this app is built
+    around).
+    """
+    for line in (content or "").splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        match = _TITLE_LINE.match(stripped)
+        return match.group(1).strip() if match else None
+    return None
+
+
+def _first_content_line(content: str) -> int | None:
+    """Index of the first non-blank line, or None if there isn't one."""
+    lines = content.splitlines()
+    for i, line in enumerate(lines):
+        if line.strip():
+            return i
+    return None
+
+
+def apply_title(content: str, title: str) -> str:
+    """Set (or replace) a note's title — its first line, as a heading.
+    Prepends a new heading line if the note doesn't have one yet; replaces
+    the existing one otherwise, so generating a title for a note that
+    already has one swaps it rather than stacking two."""
+    lines = (content or "").splitlines()
+    i = _first_content_line(content or "")
+    heading = f"# {title}"
+    if i is not None and _TITLE_LINE.match(lines[i].strip()):
+        lines[i] = heading
+        return "\n".join(lines)
+    return heading if not content else f"{heading}\n{content}"
+
+
+def remove_title(content: str) -> str:
+    """Take a note's title back out, asked for directly — it's just the
+    leading heading line, so removing it is removing that line (and one
+    blank line right after it, so the body doesn't start with a gap). A
+    note with no title is returned unchanged.
+    """
+    lines = (content or "").splitlines()
+    i = _first_content_line(content or "")
+    if i is None or not _TITLE_LINE.match(lines[i].strip()):
+        return content
+    del lines[i]
+    if i < len(lines) and not lines[i].strip():
+        del lines[i]
+    return "\n".join(lines)
 
 
 def set_private(session: Session, entry: Entry, private: bool) -> bool:

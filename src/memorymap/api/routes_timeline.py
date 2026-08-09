@@ -49,6 +49,15 @@ PREVIEW_CHARS = 120
 MAX_NOTES = 1500  # a hard ceiling: this is drawn, not paged
 
 
+def _clip(text: str, limit: int = PREVIEW_CHARS) -> str:
+    """A preview that says it's a preview. A bare `text[:limit]` slice —
+    what this used to be — cuts a note off mid-word with nothing to say so,
+    which is the "no ellipsis" the grid view was reported for: the card
+    genuinely had less text than the note, and nothing on screen said that.
+    """
+    return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
 def _bucket_start(when: datetime, scale: str) -> str:
     """The label of the bucket this moment belongs to."""
     if scale == "day":
@@ -120,7 +129,7 @@ def timeline(
                 "category": categories.get(entry.category_id, manager.UNCATEGORISED),
                 "tags": manager.entry_tags(entry),
                 "pinned": entry.pinned,
-                "preview": manager.readable_content(entry)[:PREVIEW_CHARS],
+                "preview": _clip(manager.readable_content(entry)),
             }
         )
 

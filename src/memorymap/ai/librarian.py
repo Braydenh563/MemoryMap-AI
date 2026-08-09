@@ -437,12 +437,27 @@ def improve_writing(
     mode: str,
     model_manager: ModelManager,
     ollama: OllamaClient,
+    custom_instruction: str = "",
 ) -> str:
-    """Return an improved version of `text` (proofread / rewrite / concise).
-    Raises OllamaError if the model is unavailable — the caller decides
-    what to tell the user. Uses the utility model: this is a quick fix,
-    not a conversation (Wave N)."""
-    instruction = IMPROVE_MODES.get(mode, IMPROVE_MODES["proofread"])
+    """Return an improved version of `text` (proofread / rewrite / concise /
+    custom). Raises OllamaError if the model is unavailable — the caller
+    decides what to tell the user. Uses the utility model: this is a quick
+    fix, not a conversation (Wave N).
+
+    `custom_instruction` is read only when `mode == "custom"` — asked for
+    directly, so a person isn't limited to the three fixed presets ("make it
+    sound more professional", "translate to French", …). It's the same
+    person's own note either way, not a second, untrusted party, but it's
+    still placed as the instruction's *content* rather than spliced into the
+    surrounding sentence, and the "reply with ONLY the edited text" rule is
+    restated after it — last word wins for a model reading top to bottom, so
+    a custom instruction that tried to talk the model into adding commentary
+    still loses to the app's own constraint on the reply shape.
+    """
+    if mode == "custom" and custom_instruction:
+        instruction = f'The user asked for this change: "{custom_instruction}"'
+    else:
+        instruction = IMPROVE_MODES.get(mode, IMPROVE_MODES["proofread"])
     system = (
         f"You are a careful copy-editor. {instruction} Reply with ONLY the "
         "edited note text — no preamble, no quotes, no explanation."
@@ -456,6 +471,39 @@ def improve_writing(
     )
     # Thinking models may reason first; content already has think-tags split.
     return reply["content"].strip()
+
+
+#: A generated title this long or longer reads as a summary sentence, not a
+#: title — the model is asked to keep it shorter than this, and this is the
+#: hard backstop if it doesn't.
+GENERATED_TITLE_MAX_CHARS = 80
+
+
+def generate_title(text: str, model_manager: ModelManager, ollama: OllamaClient) -> str:
+    """A short title for a note that doesn't have one, on request — asked
+    for directly as the AI half of "a note's own `# Heading` becomes its
+    title": recognising one the user wrote is free (`manager.extract_title`,
+    no model call), but *writing* one costs a real request, so this is
+    opt-in per note rather than automatic on every save.
+
+    Raises OllamaError if the model is unavailable — the caller decides what
+    to tell the user, same as `improve_writing`.
+    """
+    system = (
+        "You write short titles for personal notes. Reply with ONLY the "
+        "title — 3 to 8 words, no quotes, no trailing punctuation, no "
+        "leading '#'. It must actually describe what this specific note "
+        "says, not a generic label like 'Quick note'."
+    )
+    reply = ollama.chat(
+        model_manager.utility_model(),
+        [
+            {"role": "system", "content": system},
+            {"role": "user", "content": text},
+        ],
+    )
+    title = reply["content"].strip().strip("\"'").lstrip("#").strip()
+    return title[:GENERATED_TITLE_MAX_CHARS].strip()
 
 
 def suggest_tags(

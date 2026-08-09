@@ -651,6 +651,21 @@ function entryItem(entry, options = {}) {
     li.classList.add("selectable");
   }
 
+  // A note's own leading `# Heading` becomes its title (asked for directly).
+  // Not a separate field to edit — the body below is shown with that line
+  // taken out, so the title isn't just the same text shown twice.
+  if (entry.title) {
+    // A <p>, not <h3> — `.card h3` is this app's small-caps *section label*
+    // treatment (DESIGN.md's hierarchy), which is the wrong voice for a
+    // note's own title: it read as a muted, uppercase eyebrow instead of
+    // the prominent heading a title should be. `.entry-title` below defines
+    // its own look rather than inheriting one built for a different job.
+    const titleEl = document.createElement("p");
+    titleEl.className = "entry-title";
+    titleEl.textContent = entry.title;
+    li.appendChild(titleEl);
+  }
+
   const content = document.createElement("p");
   content.className = "entry-content";
   // One long note used to push everything else off the screen, so the list
@@ -666,7 +681,11 @@ function entryItem(entry, options = {}) {
   // Mark the matched words while filtering, so it's obvious WHY a note is in
   // the list. Built with createElement/textContent rather than innerHTML —
   // note text is user content and must never be parsed as markup.
-  renderNoteText(content, entry.content, searchHighlightTerms());
+  renderNoteText(
+    content,
+    entry.title ? bodyWithoutTitleLine(entry.content) : entry.content,
+    searchHighlightTerms()
+  );
   li.appendChild(content);
   if (isLong) {
     const toggle = document.createElement("button");
@@ -879,13 +898,59 @@ function entryItem(entry, options = {}) {
         ? `${label.slice(0, LINK_CHIP_CHARS - 1).trimEnd()}…`
         : label;
       const linkChip = chip(`↔ ${short}`, "link");
-      linkChip.title = `Go to note: ${label}`;
+      const reasonNote = link.reason
+        ? link.reason_confidence != null
+          ? `${link.reason} (${Math.round(link.reason_confidence * 100)}% confidence, deduced)`
+          : link.reason
+        : null;
+      linkChip.title = reasonNote
+        ? `Go to note: ${label}\nReason: ${reasonNote}`
+        : `Go to note: ${label}`;
       linkChip.style.cursor = "pointer";
       linkChip.addEventListener("click", (e) => {
         if (e.target.classList.contains("unlink")) return;
         flashEntry(link.entry_id);
       });
       if (options.actions) {
+        const editReason = document.createElement("span");
+        editReason.className = "unlink reason-edit";
+        editReason.textContent = "✎";
+        editReason.title = link.reason ? "Edit this link's reason" : "Add a reason for this link";
+        editReason.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          // promptDialog resolves "" for both Cancel and an empty Save, so it
+          // can only ever *set* a reason here — clearing one that already
+          // exists goes through the ⊘ below instead, where the intent is
+          // unambiguous.
+          const next = await promptDialog(
+            "Why are these notes connected?",
+            link.reason || ""
+          );
+          if (!next) return;
+          await api(`/entries/${entry.id}/links/${link.link_id}/reason`, {
+            method: "PUT",
+            body: JSON.stringify({ reason: next }),
+          });
+          await loadEntries();
+        });
+        linkChip.appendChild(editReason);
+
+        if (link.reason) {
+          const clearReason = document.createElement("span");
+          clearReason.className = "unlink reason-clear";
+          clearReason.textContent = "⊘";
+          clearReason.title = "Remove this link's reason";
+          clearReason.addEventListener("click", async (e) => {
+            e.stopPropagation();
+            await api(`/entries/${entry.id}/links/${link.link_id}/reason`, {
+              method: "PUT",
+              body: JSON.stringify({ reason: null }),
+            });
+            await loadEntries();
+          });
+          linkChip.appendChild(clearReason);
+        }
+
         const unlink = document.createElement("span");
         unlink.className = "unlink";
         unlink.textContent = "×";
@@ -1038,6 +1103,27 @@ async function toggleEntryPrivacy(entry) {
   }
 }
 
+async function generateEntryTitle(entry) {
+  try {
+    await apiJson(`/entries/${entry.id}/generate-title`, { method: "POST" });
+    await loadEntries();
+    flashEntry(entry.id);
+    toast("Titled.");
+  } catch (error) {
+    toast(error.message || "Couldn't generate a title.", true);
+  }
+}
+
+async function removeEntryTitle(entry) {
+  try {
+    await apiJson(`/entries/${entry.id}/remove-title`, { method: "POST" });
+    await loadEntries();
+    flashEntry(entry.id);
+  } catch (error) {
+    toast(error.message || "Couldn't remove the title.", true);
+  }
+}
+
 function entryOverflowMenu(entry) {
   const wrap = document.createElement("span");
   wrap.className = "menu-wrap";
@@ -1098,6 +1184,23 @@ function entryOverflowMenu(entry) {
         if (box) openImprove(box);
       },
     },
+    {
+      // Recognising a title the note already wrote (a leading `# Heading`)
+      // is free; writing one costs a real model call, so it's this
+      // separate, on-request action rather than something automatic.
+      label: entry.title ? "✨ Regenerate title" : "✨ Generate title",
+      title: "Write a short title for this note with AI",
+      run: () => generateEntryTitle(entry),
+    },
+    ...(entry.title
+      ? [
+          {
+            label: "✕ Remove title",
+            title: "Take the title back out — the note's text is unchanged",
+            run: () => removeEntryTitle(entry),
+          },
+        ]
+      : []),
     {
       label: "➕ Add context",
       title: "Append detail — the AI may refile it",
@@ -1775,6 +1878,20 @@ function renderInlineMarkdown(element, text, terms) {
     highlightInto(rest, text.slice(cursor), terms);
     element.appendChild(rest);
   }
+}
+
+// Mirrors manager.extract_title's own rule (the first non-blank line, and
+// only that line) so the body shown under a title never repeats it — called
+// only when the backend has already said this note has a title, so this
+// never has to decide on its own whether a line "looks like" a heading.
+function bodyWithoutTitleLine(content) {
+  const lines = content.split("\n");
+  let i = 0;
+  while (i < lines.length && lines[i].trim() === "") i++;
+  if (i >= lines.length) return content;
+  lines.splice(i, 1);
+  if (lines[i] !== undefined && lines[i].trim() === "") lines.splice(i, 1);
+  return lines.join("\n");
 }
 
 function renderNoteText(element, text, terms) {
@@ -2517,21 +2634,60 @@ function renderChatMeta(meta) {
   // explanation, which reads as the search having misfired — and the whole
   // point of pulling them in is that the person can see the connection.
   const connected = new Set(meta.connected_ids || []);
+  const matchInfo = meta.match_info || {};
   for (const entry of meta.raw_results) {
     const row = clickableResult(entry);
-    if (connected.has(entry.id)) {
-      row.classList.add("result-connected");
-      const mark = document.createElement("span");
-      mark.className = "chip result-connected-chip";
-      mark.textContent = "🔗 linked to a match";
-      mark.title =
-        "This note didn't match your question — it's here because it is " +
-        "linked to one that did.";
-      row.appendChild(mark);
+    const badge = matchReasonBadge(matchInfo[entry.id]);
+    if (badge) {
+      if (connected.has(entry.id)) row.classList.add("result-connected");
+      row.appendChild(badge);
     }
     rawList.appendChild(row);
   }
   $("chat-results").classList.remove("hidden");
+}
+
+// Why a result showed up, as a badge — not a footnote. Reported directly:
+// the one existing explanation ("🔗 linked to a match") was a muted chip
+// easy to miss, and every *other* result — the actual matches — carried no
+// reason at all, so "why is this here?" only had an answer for the minority
+// of rows that arrived by connection rather than by matching. `match_info`
+// (search/search_manager.py's `_retrieve`) now carries real provenance for
+// the rest: a cosine similarity score for a semantic hit, the words that
+// matched for a keyword hit, both for a hybrid one.
+const MATCH_REASON_LABEL = {
+  // `info.reason` is the link's own reason, when whoever made the link gave
+  // one ("both about scheduling") — asked for directly: does a link's
+  // reason show up here too, not just on the graph and in Trace. It does
+  // now (search_manager.graph_expansion carries it through).
+  connected: (info) => ({
+    text: info.reason ? `🔗 Linked (${info.reason})` : "🔗 Linked to a match",
+    title: info.reason
+      ? `This note didn't match your question — it's here because it's linked to one that did: ${info.reason}.`
+      : "This note didn't match your question — it's here because it is linked to one that did.",
+  }),
+  semantic: (info) => ({
+    text: `🎯 ${Math.round(info.score * 100)}% similar`,
+    title: `Matched by meaning, not exact words — ${Math.round(info.score * 100)}% cosine similarity to your question.`,
+  }),
+  keyword: (info) => ({
+    text: `🔎 Matched “${info.terms.join("”, “")}”`,
+    title: `Matched the word(s) “${info.terms.join(", ")}” in your question.`,
+  }),
+  hybrid: (info) => ({
+    text: `🎯 ${Math.round(info.score * 100)}% similar · “${info.terms.join("”, “")}”`,
+    title: `Matched both by meaning (${Math.round(info.score * 100)}% similarity) and by the word(s) “${info.terms.join(", ")}”.`,
+  }),
+};
+
+function matchReasonBadge(info) {
+  if (!info || !MATCH_REASON_LABEL[info.type]) return null;
+  const { text, title } = MATCH_REASON_LABEL[info.type](info);
+  const badge = document.createElement("span");
+  badge.className = `chip result-reason-chip result-reason-${info.type}`;
+  badge.textContent = text;
+  badge.title = title;
+  return badge;
 }
 
 // Longer than the backend's own 120s per-chunk Ollama timeout (see the
@@ -2553,6 +2709,7 @@ async function streamChat({
   skillFromStep,
   plan,
   notesOnly,
+  attachedNotesOnly,
   answeringAgent,
   signal,
   onMeta,
@@ -2578,6 +2735,9 @@ async function streamChat({
   if (mode) body.mode = mode;
   if (typeof useTools === "boolean") body.use_tools = useTools;
   if (notesOnly) body.notes_only = true;
+  // The deliberately-closed-set case (Trace's "Generate story from path"):
+  // retrieval must not add notes beyond the ones the caller attached.
+  if (attachedNotesOnly) body.attached_notes_only = true;
   // A reply to the agent's own question ("yes", "ok") reads as small talk to
   // intent.classify — correctly, in isolation — which would otherwise route
   // it to the tool-less conversational path and strand whatever the model
@@ -5547,6 +5707,7 @@ async function sendChatMessage(preset, opts = {}) {
       skillInputs: opts.skillInputs,
       skillFromStep: opts.skillFromStep,
       plan: opts.plan,
+      attachedNotesOnly: opts.attachedNotesOnly,
       answeringAgent,
       signal: chatController.signal,
       onMeta: (m) => {
@@ -11211,20 +11372,28 @@ function renderTraceReadout(result) {
   summary.textContent = `  (${result.hops} step${result.hops === 1 ? "" : "s"})`;
   pieces.push(summary);
   
-  // Story Mode: Synthesize the path into a narrative
+  // Story Mode: Synthesize the path into a narrative.
+  //
+  // Was three inline `.style.x =` assignments against `var(--primary)` /
+  // `var(--primary-fg)` — tokens that don't exist in this design system (it's
+  // `--accent`/`--on-accent`) — and the CSP's `style-src: 'self'` (no
+  // `unsafe-inline`) refuses an inline style attribute outright regardless,
+  // which is what `.style.x =` sets under the hood. Both silently no-op, so
+  // the button rendered as a bare `.graph-trace-note` with none of its
+  // intended emphasis. A real class with real tokens, per DESIGN.md.
   const storyBtn = document.createElement("button");
   storyBtn.className = "graph-trace-note story-mode-btn";
-  storyBtn.style.marginLeft = "12px";
-  storyBtn.style.background = "var(--primary)";
-  storyBtn.style.color = "var(--primary-fg)";
-  storyBtn.style.fontWeight = "bold";
   storyBtn.textContent = "✨ Generate Story from Path";
   storyBtn.title = "Weave these notes into a cohesive narrative using the AI locally";
   storyBtn.addEventListener("click", () => {
     switchTab("chat");
     sendChatMessage(
-      "Write a cohesive, publishable narrative weaving together these specific thoughts. Follow the exact chronological sequence in which these notes are attached.",
-      { noteIds: graphTrace.ids }
+      "Write a cohesive, publishable narrative weaving together these specific thoughts, " +
+        "and how they connect — use the connection between each step (" +
+        result.steps.map((s) => s.how).join("; ") +
+        ") as part of what ties the story together, not just the notes' own text. " +
+        "Follow the exact chronological sequence in which these notes are attached.",
+      { noteIds: graphTrace.ids, attachedNotesOnly: true }
     );
   });
   pieces.push(storyBtn);
@@ -11232,16 +11401,41 @@ function renderTraceReadout(result) {
   box.replaceChildren(...pieces);
 }
 
+// Arc layout puts every node on one shared baseline (`layoutHierarchy`'s
+// `arc` branch — see `arcPath`), which is why *its* edges are curves in the
+// first place: a straight line between two nodes on that baseline is just
+// the baseline itself. The trace overlay drew a straight chord regardless of
+// layout, so in Arc specifically the "highlighted path" sat exactly where
+// the row of ordinary nodes already was — reported as connections being
+// hard to see on non-tree layouts, and this is the layout where the overlay
+// was not just hard to see but nearly the same line as no overlay at all.
+//
+// Taller than `arcPath`'s own curve (0.9 vs 0.6) so the highlighted route
+// arches visibly clear of the row instead of tracking the same shape as the
+// muted, thin edges underneath it — and unlike `arcPath`, which can assume
+// `a.x < b.x` because a pre-order walk always visits a parent before its
+// children, a traced path can run either direction through the hierarchy.
+function tracePath(a, b) {
+  const rx = Math.max(Math.abs(b.x - a.x) / 2, 1);
+  const ry = rx * 0.9;
+  const sweep = a.x <= b.x ? 1 : 0;
+  return `M${a.x},${a.y}A${rx},${ry} 0 0,${sweep} ${b.x},${b.y}`;
+}
+
 // Position the overlay from the nodes it joins. Called once for a laid-out
 // tree, and on every tick of the force simulation, which is why it is a
 // function of the current node objects rather than of stored coordinates.
 function positionTraceLines() {
   if (!graphTraceLines) return;
-  graphTraceLines
-    .attr("x1", (d) => d.from.x)
-    .attr("y1", (d) => d.from.y)
-    .attr("x2", (d) => d.to.x)
-    .attr("y2", (d) => d.to.y);
+  if (graphLayout() === "arc") {
+    graphTraceLines.attr("d", (d) => tracePath(d.from, d.to));
+  } else {
+    graphTraceLines
+      .attr("x1", (d) => d.from.x)
+      .attr("y1", (d) => d.from.y)
+      .attr("x2", (d) => d.to.x)
+      .attr("y2", (d) => d.to.y);
+  }
 }
 
 // (Re)draw the overlay for the current trace. Segments whose notes are not on
@@ -11259,10 +11453,18 @@ function drawTrace() {
           kind: step.kind,
         }))
         .filter((segment) => segment.from && segment.to);
+  // Arc draws the overlay as a <path> (see `tracePath`); every other layout
+  // draws it as a <line>. Switching layout while a trace is active must not
+  // leave the previous shape's elements behind — `.selectAll(tag)` only ever
+  // sees its own tag, so the other one is removed by hand first.
+  const isArc = graphLayout() === "arc";
+  graphTraceLayer.selectAll(isArc ? "line" : "path").remove();
   graphTraceLines = graphTraceLayer
-    .selectAll("line")
+    .selectAll(isArc ? "path" : "line")
     .data(segments)
-    .join("line")
+    .join(isArc ? "path" : "line")
+    // `.graph-path-line` already sets `fill: none` — needed for the <path>
+    // case, harmless on a <line>.
     .attr("class", (d) => `graph-path-line graph-path-${d.kind}`);
   positionTraceLines();
   if (graphNodeSelection) {
@@ -11646,6 +11848,25 @@ async function renderGraph() {
         .data(edges)
         .join("line")
         .attr("class", (d) => `graph-edge graph-edge-${d.kind}`);
+
+  // A link's own reason ("why are these connected?" — asked for directly),
+  // as a native SVG tooltip. `<title>` is the SVG way to get a hover
+  // tooltip on a shape; there's no HTML `title` attribute equivalent for
+  // `<line>`/`<path>`. Re-added after every join rather than left stale, so
+  // a link edited or re-drawn on refresh doesn't keep showing an old reason.
+  edgeLines.each(function (d) {
+    const el = d3.select(this);
+    el.selectAll("title").remove();
+    if (d.reason) {
+      // A deduced reason carries a confidence score (0..1); one a person or
+      // the AI typed doesn't, so this only ever shows up on the guessed kind.
+      const text =
+        d.reason_confidence != null
+          ? `${d.reason} (${Math.round(d.reason_confidence * 100)}% confidence, deduced)`
+          : d.reason;
+      el.append("title").text(text);
+    }
+  });
 
   // Semantic Zoom: Clustering super-nodes
   const categoryGroups = d3.group(nodes, d => d.category || "Uncategorized");
@@ -12038,43 +12259,58 @@ async function renderGraph() {
   drawTrace();
   applyGraphHighlight();
   
-  // Set up temporal filter slider bounds based on data
-  if (data.nodes.length > 0) {
-    const timestamps = data.nodes.map(n => new Date(n.created_at || Date.now()).getTime());
-    const minTime = Math.min(...timestamps);
-    const maxTime = Math.max(...timestamps);
-    const slider = $("graph-time-slider");
-    if (slider) {
-      if (!window.graphSliderInitialized) {
-        window.graphSliderInitialized = true;
-        slider.min = minTime;
-        slider.max = maxTime;
-        slider.value = maxTime;
-        slider.step = (maxTime - minTime) / 100 || 1;
-      }
-       
-      slider.oninput = (e) => {
-        const val = Number(e.target.value);
-        $("graph-time-label").textContent = new Date(val).toLocaleDateString();
-        
-        // Apply temporal filter without rebuilding simulation
-        nodeGroups.style("visibility", d => new Date(d.created_at || Date.now()).getTime() <= val ? "visible" : "hidden");
-        labelGroups.style("visibility", d => new Date(d.created_at || Date.now()).getTime() <= val ? "visible" : "hidden");
-        
-        edgeLines.style("visibility", d => {
-          const srcTime = new Date(d.source.created_at || Date.now()).getTime();
-          const tgtTime = new Date(d.target.created_at || Date.now()).getTime();
-          return srcTime <= val && tgtTime <= val ? "visible" : "hidden";
-        });
-      };
-      
-      // Initialize label
-      $("graph-time-label").textContent = new Date(Number(slider.value)).toLocaleDateString();
-      // Apply initial filter if the slider was already moved
-      if (Number(slider.value) < maxTime) {
-         slider.oninput({ target: slider });
-      }
-    }
+  // Set up temporal filter slider bounds based on data.
+  //
+  // Bounds used to be computed once, on the first render that had any notes,
+  // behind a `window.graphSliderInitialized` flag that never reset. Every
+  // later render — a new note, a refresh, a re-filed entry — kept the first
+  // render's `max` forever, so any note created after that point sat beyond
+  // the slider's own "all time" end and stayed permanently hidden the moment
+  // the filter had ever run once. Recomputed every render now; the guard
+  // below preserves what the user was actually doing with it (parked at "all
+  // time", or deliberately looking at an earlier cut-off) instead of
+  // snapping back to the far right on every refresh.
+  const timeLabel = $("graph-time-label");
+  const slider = $("graph-time-slider");
+  if (data.nodes.length > 0 && slider) {
+    const timestamps = data.nodes
+      .map(n => new Date(n.created_at || Date.now()).getTime())
+      .filter(Number.isFinite);
+    const minTime = timestamps.length ? Math.min(...timestamps) : Date.now();
+    const maxTime = timestamps.length ? Math.max(...timestamps) : Date.now();
+    const previousMax = Number(slider.max);
+    // "At the end" before this render's bounds change — i.e. no filter was
+    // actually applied — is the case to keep snapped to the new end rather
+    // than freeze at whatever timestamp used to be the newest note.
+    const wasAtEnd = !slider.dataset.graphInit || Number(slider.value) >= previousMax;
+    slider.min = minTime;
+    slider.max = maxTime;
+    slider.step = (maxTime - minTime) / 100 || 1;
+    slider.value = wasAtEnd ? maxTime : Math.min(Number(slider.value), maxTime);
+    slider.dataset.graphInit = "1";
+
+    const renderTimeLabel = (val) => {
+      if (!timeLabel) return;
+      timeLabel.textContent = val >= maxTime ? "All time" : `Up to ${new Date(val).toLocaleDateString()}`;
+    };
+
+    const applyTimeFilter = (val) => {
+      renderTimeLabel(val);
+      // Apply temporal filter without rebuilding simulation
+      nodeGroups.style("visibility", d => new Date(d.created_at || Date.now()).getTime() <= val ? "visible" : "hidden");
+      labelGroups.style("visibility", d => new Date(d.created_at || Date.now()).getTime() <= val ? "visible" : "hidden");
+      edgeLines.style("visibility", d => {
+        const srcTime = new Date(d.source.created_at || Date.now()).getTime();
+        const tgtTime = new Date(d.target.created_at || Date.now()).getTime();
+        return srcTime <= val && tgtTime <= val ? "visible" : "hidden";
+      });
+    };
+
+    slider.oninput = (e) => applyTimeFilter(Number(e.target.value));
+    renderTimeLabel(Number(slider.value));
+    // Re-apply the (possibly re-clamped) filter so a note added since the
+    // last render obeys whatever cut-off the user had actually set.
+    if (Number(slider.value) < maxTime) applyTimeFilter(Number(slider.value));
   }
 
   initGraphKeyboard();
@@ -14536,11 +14772,16 @@ async function setPreference(key, value) {
 
 async function savePrefs() {
   try {
+    const binDaysRaw = Number($("pref-bin-days").value);
+    const recycleBinDays = Number.isFinite(binDaysRaw) && binDaysRaw >= 1
+      ? Math.min(365, Math.round(binDaysRaw))
+      : 30;
+    $("pref-bin-days").value = recycleBinDays;
     prefsCache = await apiJson("/preferences", {
       method: "PUT",
       body: JSON.stringify({
         display_name: $("pref-display-name").value.trim(),
-        recycle_bin_days: Number($("pref-bin-days").value),
+        recycle_bin_days: recycleBinDays,
         communication_style: $("pref-style").value,
         user_profile: $("pref-profile").value,
         profile_enabled: $("pref-profile-enabled").checked,
@@ -17760,6 +18001,7 @@ async function applyUtilityModel() {
 
 let improveMode = "proofread";
 let improveTarget = null; // the textarea to write the accepted result into
+let improveCustomInstruction = "";
 
 function openImprove(targetTextarea) {
   const text = targetTextarea.value.trim();
@@ -17769,6 +18011,9 @@ function openImprove(targetTextarea) {
   }
   improveTarget = targetTextarea;
   improveMode = "proofread";
+  improveCustomInstruction = "";
+  $("improve-custom-input").value = "";
+  $("improve-custom-row").classList.add("hidden");
   for (const b of document.querySelectorAll(".improve-mode"))
     b.classList.toggle("active", b.dataset.mode === "proofread");
   $("improve-original").textContent = text;
@@ -17787,8 +18032,20 @@ function closeImprove() {
 async function runImprove() {
   const status = $("improve-status");
   const result = $("improve-result");
+  if (improveMode === "custom" && !improveCustomInstruction.trim()) {
+    // Nothing to send yet — the box just opened on "Custom" and the person
+    // hasn't typed anything. Prompting here instead of calling the API with
+    // an empty instruction (which the backend would reject anyway) so the
+    // very first thing that happens after picking Custom isn't an error.
+    status.textContent = "Say what you want changed, then press Go.";
+    status.classList.remove("error");
+    result.textContent = "";
+    $("improve-apply").disabled = true;
+    return;
+  }
   result.textContent = "";
   status.textContent = "The AI is editing…";
+  status.classList.remove("error");
   $("improve-apply").disabled = true;
   try {
     const body = await apiJson("/entries/improve", {
@@ -17796,6 +18053,7 @@ async function runImprove() {
       body: JSON.stringify({
         text: $("improve-original").textContent,
         mode: improveMode,
+        custom_instruction: improveMode === "custom" ? improveCustomInstruction.trim() : undefined,
       }),
     });
     result.textContent = body.improved;
@@ -17858,6 +18116,10 @@ async function loadLinkSuggestions() {
       await apiJson(`/entries/${s.source_id}/links`, {
         method: "POST",
         body: JSON.stringify({ target_id: s.target_id }),
+        // No `reason` here on purpose: this suggestion came from the same
+        // embeddings `create_link` checks when nobody gives it a reason, so
+        // leaving it out gets the same "similar in meaning" text and a real
+        // confidence score back, instead of a hand-built duplicate of it.
       }).catch((e) => toast(e.message, true));
       row.remove();
       toast("Linked.");
@@ -19802,12 +20064,15 @@ startReminderWatch();
 initResizableSidebars();
 watchOverlays(); // page behind a dialog must not scroll
 initAutoGrow(); // capture + magic-add boxes follow their content
-// A returning visit still opens on whichever tab was last active — that is
-// the point of remembering it at all. Only the fallback changed: a genuinely
-// first run (nothing in `localStorage` yet) used to default to Notes, an odd
-// choice for the one visit where there is nothing to browse. Asked for
-// directly: "on first load I want it to show the dashboard."
-switchTab(localStorage.getItem("activeTab") || "dashboard");
+// Used to reopen on whichever tab was last active, with only the very
+// first-ever visit defaulting to Dashboard. Changed on direct request: every
+// load should open on Dashboard, not just the first one — closing the app on
+// Chat and coming back to Chat wasn't "picking up where you left off" in the
+// way that was wanted. `activeTab` is still tracked (`switchTab` still
+// writes it) for the things that read the *current* tab during a session —
+// the scroll-to-top button, keyboard tab-cycling — just not to decide where
+// a fresh load starts.
+switchTab("dashboard");
 
 // Settings modal (Wave A).
 $("settings-btn").addEventListener("click", () => openSettingsModal());
@@ -21250,9 +21515,26 @@ for (const button of document.querySelectorAll(".improve-mode")) {
     improveMode = button.dataset.mode;
     for (const b of document.querySelectorAll(".improve-mode"))
       b.classList.toggle("active", b === button);
+    const isCustom = improveMode === "custom";
+    $("improve-custom-row").classList.toggle("hidden", !isCustom);
+    // Switching to Custom still calls runImprove() — it just prompts for an
+    // instruction rather than hitting the API, since there's nothing to send
+    // until the person has actually typed one and pressed Go.
+    if (isCustom) $("improve-custom-input").focus();
     runImprove();
   });
 }
+
+$("improve-custom-go").addEventListener("click", () => {
+  improveCustomInstruction = $("improve-custom-input").value;
+  runImprove();
+});
+$("improve-custom-input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    $("improve-custom-go").click();
+  }
+});
 $("link-suggest-btn").addEventListener("click", loadLinkSuggestions);
 // Mark a picker as "user has a pending choice" so the status poll stops
 // resetting it (Wave N bug fix).

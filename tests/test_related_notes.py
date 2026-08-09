@@ -56,6 +56,40 @@ def test_an_explicit_link_is_reported_as_a_link(session):
     assert found[0]["how"] == "linked"
 
 
+def test_a_links_reason_is_included_when_someone_gave_one(session):
+    """"a note about uni and gym might still be related if they're both about
+    scheduling" (user-reported) — the reason is what makes that connection
+    legible instead of arbitrary."""
+    a = _note(session, "assignment due next week")
+    b = _note(session, "gym session tuesday")
+    session.add(
+        EntryLink(source_entry_id=a.id, target_entry_id=b.id, reason="both about scheduling")
+    )
+    session.commit()
+
+    found = _related(session, a.id)["related"]
+    assert found[0]["how"] == "linked (both about scheduling)"
+
+
+def test_a_link_with_no_reason_reads_as_before(session):
+    a = _note(session, "sourdough starter needs feeding")
+    b = _note(session, "the oven runs hot")
+    session.add(EntryLink(source_entry_id=a.id, target_entry_id=b.id))
+    session.commit()
+
+    assert _related(session, a.id)["related"][0]["how"] == "linked"
+
+
+def test_link_notes_can_write_a_reason(session):
+    a = _note(session, "assignment due next week")
+    b = _note(session, "gym session tuesday")
+    tools.TOOLS["link_notes"].handler(
+        session,
+        {"note_id": a.id, "other_note_id": b.id, "reason": "both about scheduling"},
+    )
+    assert _related(session, a.id)["related"][0]["how"] == "linked (both about scheduling)"
+
+
 def test_a_link_is_followed_in_both_directions(session):
     """An edge is a connection, not an arrow. A note linked *to* is just as
     related as one linked *from*, and only reporting one direction would make

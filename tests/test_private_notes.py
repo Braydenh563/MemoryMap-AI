@@ -146,6 +146,30 @@ def test_a_private_note_cannot_be_attached_by_id_either(ai_client, fake_ollama, 
     assert "kayaking:" not in sent_this_request  # the private note's own content prefix
 
 
+def test_generate_title_refuses_a_private_note(ai_client, fake_ollama, session):
+    """`generate-title` reads `readable_content` (decrypted) and writes the
+    result straight back to `entry.content` — for a private note that would
+    silently replace the ciphertext with plaintext, un-encrypting the note
+    as a side effect of titling it. Refused outright."""
+    private = _make_private(ai_client, session, "a private thought")
+    fake_ollama.librarian_reply = "A generated title"
+
+    response = ai_client.post(f"/entries/{private['id']}/generate-title")
+    assert response.status_code == 400
+
+    stored = session.get(Entry, private["id"])
+    assert crypto.is_encrypted(stored.content)
+
+
+def test_remove_title_refuses_a_private_note(ai_client, session):
+    private = _make_private(ai_client, session, "# A title\na private thought")
+    response = ai_client.post(f"/entries/{private['id']}/remove-title")
+    assert response.status_code == 400
+
+    stored = session.get(Entry, private["id"])
+    assert crypto.is_encrypted(stored.content)
+
+
 def test_privacy_needs_an_open_vault(client, session):
     """The key only exists in memory while unlocked."""
     entry = client.post("/entries", json={"content": "x"}).json()

@@ -104,29 +104,83 @@ into a good one.
    skill pauses after each step with a Continue button and a text box, so the
    user can add what the agent missed or answer a question it raised. **The
    single most-requested unbuilt thing on the list.**
-9. **A reason on every link.** "A note about uni and gym might still be
-   related if they're both about scheduling." Optional free text on
-   `entry_links`, shown on the edge and in Trace's readout, writable by
-   `link_notes`. Turns the graph from "these are connected" into "connected
-   *because*" — which is also what makes Trace worth reading.
+9. ~~**A reason on every link.**~~ **Done, including a confidence score and
+   an editor (HISTORY.md §43).** Optional `reason` column on `entry_links` —
+   "a note about uni and gym might still be related if they're both about
+   scheduling." Writable by `link_notes` and the manual `/entries/{id}/links`
+   endpoint; shown on the graph edge as a native SVG tooltip, in Trace's
+   readout (`entry/paths.py`'s `Step.how`), and in `related_notes`' own `how`
+   field so the model can reason about *why* two notes relate. When nobody
+   gives a reason, `manager.create_link` tries to deduce one from embedding
+   similarity and attaches a `reason_confidence` (0–1) alongside it — below
+   the threshold, or with no embedding to check, it stays as no reason at
+   all rather than a weak guess. Editable and clearable by hand afterwards
+   (`PUT /entries/{id}/links/{link_id}/reason`, a ✎/⊘ pair on the note
+   card's own link chips), which resets any deduced confidence since a
+   person's words aren't a similarity score. Turns the graph from "these are
+   connected" into "connected *because*" — which is also what makes Trace
+   worth reading.
 10. **The sketch pad.** The highlighter at 5% opacity is effectively invisible
     (~20 passes before anything shows) — that is the "completely wrong" in the
     report. Then a reachable size control, a background colour, and a
     selection tool. The toolbar redesign comes *after* those, not before.
-11. **The whiteboard, properly.** Done this session, reported and verified in
-    Chromium: per-tool cursors (native `cursor: url(svg)`, not a JS-tracked
-    div — the div version was reported and reproduced as "the mouse snaps to
-    an invisible grid", a lag artifact, not a real grid), an eraser
-    (drag-to-delete, matching every other drawing app), Undo (Ctrl+Z, one
-    level, covers create and delete for both sketches and cards), keyboard
-    shortcuts (V/P/L/R/O/E/X/Esc), a real toolbar redesign with SVG icons and
-    grouped sections, a board background colour (also fixes the generative-art
-    canvas showing through, reported separately), draggable toolbar panels,
-    and an empty-state hint. Also fixed while adding the eraser: a freshly
-    drawn stroke was appended as a raw un-bound SVG element, not through
-    `renderWhiteboard`'s data binding — so it could never be deleted or erased
-    until a page reload re-fetched it. Still open: resizable cards, and the
-    edge-labelling the graph has — see item 9.
+11. **The whiteboard, properly.** Done in an earlier session, reported and
+    verified in Chromium: per-tool cursors (native `cursor: url(svg)`, not a
+    JS-tracked div — the div version was reported and reproduced as "the
+    mouse snaps to an invisible grid", a lag artifact, not a real grid), an
+    eraser (drag-to-delete, matching every other drawing app), Undo (Ctrl+Z,
+    one level, covers create and delete for both sketches and cards),
+    keyboard shortcuts (V/P/L/R/O/E/X/Esc), a real toolbar redesign with SVG
+    icons and grouped sections, a board background colour (also fixes the
+    generative-art canvas showing through, reported separately), draggable
+    toolbar panels, and an empty-state hint. Also fixed while adding the
+    eraser: a freshly drawn stroke was appended as a raw un-bound SVG
+    element, not through `renderWhiteboard`'s data binding — so it could
+    never be deleted or erased until a page reload re-fetched it.
+
+    **Still open, reported directly and confirmed against the current code —
+    checked before writing any of this, per this file's own rule** (only one
+    undo level exists; there is no redo stack at all; the only tools are
+    pan/select, pen, line, rect, circle, eraser, two link types and delete —
+    no rotate, no shift-to-lock-proportions while resizing, no image
+    upload/paste/drag-drop, no text/label tool beyond a card's own text):
+    - **Redo.** `wbUndoStack` exists; nothing analogous does. A second stack
+      that a fresh action clears, same shape as the sketch pad's own history.
+    - **Select, move and rotate as real tools**, not folded into "pan" —
+      today's `data-tool="pan"` is both at once, and there is no rotate
+      handle on a card or shape at all.
+    - **Shift-to-lock proportions** while drawing/resizing a shape.
+    - **Images**: upload, paste, and drag-and-drop onto the canvas. The
+      plumbing already exists for notes (`/media`, attachments — see item
+      20) and is the thing to extend rather than a second upload path.
+    - **Precise placement.** Dropping a note/card "doesn't go exactly where
+      I want it" — likely the drop coordinate isn't being translated through
+      the canvas's own zoom/pan transform before being stored; needs
+      reproducing against the actual drop handler, not guessed at.
+    - **Connections, draw.io-style.** Links currently join whatever anchor
+      the drag started/ended on; asked for: fixed points at each edge's
+      midpoint and corners, *plus* a free point anywhere along an edge, and
+      the line should visually terminate on the card's border rather than
+      wherever the drag happened to end (today's rendering — see the
+      edge-labelling note below).
+    - **The toolbar's default position.** Reported drifting to the top-left
+      when it should default to bottom-centre unless the user has dragged
+      it — the draggable-panel code this session (item 11, done) added
+      needs a default-position check against whatever "unless moved" state
+      it persists.
+    - **Resizable cards**, and the edge-labelling the graph has — see item 9
+      — both still open from before.
+
+    **This is a lot for one item** — draw.io, Microsoft Whiteboard and
+    OneNote between them are three separate mature products' worth of
+    surface. Worth sequencing rather than one pass: redo and select/move/
+    rotate are the most-requested and cheapest (state machines the app
+    already has a shape for); images and precise placement are next
+    (real user-visible correctness, not new interaction design); the
+    connection-point system is the biggest single piece and worth its own
+    session, ideally after looking at how draw.io itself represents a
+    fixed-vs-free anchor, since that's the interaction model being asked
+    for by name.
 12. **Note metadata, and links that are links.** A note's linked notes should
     be clickable through to those notes; today they are decoration.
 13. **"Take me to the thing the agent just changed," the UI half.** Groundwork
@@ -134,20 +188,53 @@ into a good one.
     tool's real target. Still open: a `target` field on every write tool's
     result and a View button rendered from it for documents, reminders and
     categories (`changeRow` already does this for notes).
-14. **Timeline line view, and text placement in grid view.** Both reported as
-    unrefined; both are layout work with a clear target.
+14. **Timeline line view, and text placement in grid view.** The grid view's
+    text-placement half is **done**: `.timeline-dot`'s `line-clamp: 3` was
+    unprefixed under a `-webkit-box` display, a combination this Chromium
+    doesn't connect — `-webkit-line-clamp` computed to `none`, so nothing
+    was actually clamping and a long preview just hard-cropped mid-word
+    with no ellipsis. Fixed (the `-webkit-` property, kept alongside the
+    standard one), plus the backend's own `preview` field, which was a bare
+    `text[:120]` slice with no "…" on truncation even before the CSS ever
+    saw it. **Still open:** the line view itself — reported as needing a
+    real visual pass ("very professional and ready for public use"), and
+    grid view could still take general UX polish/feature expansion beyond
+    the text-cropping fix (not scoped further — say what specifically,
+    next time it's reported).
 15. **Arc view: labels behind nodes**, plus a refinement pass on that layout.
+    One piece of the refinement pass is **done**: the trace overlay drew a
+    straight chord regardless of layout, and Arc puts every node on one
+    shared baseline, so a traced path there sat exactly where the row of
+    nodes already was — reported as connections being hard to see on
+    non-tree layouts. Now drawn as its own taller arc in that one layout.
+    The labels-behind-nodes part is still open.
 16. **Documents in the graph.** They are notes' equal everywhere else.
-17. **Battery-saver: an indicator and an honest description.** It silently
-    changes what the graph shows and whether the librarian runs. A mode with
-    invisible effects is a mode people distrust.
+17. **Battery-saver: an indicator and an honest description.** Checked before
+    writing this — the indicator already exists (`#power-saver-indicator`, a
+    status-bar chip shown/hidden from `battery_efficient_mode`) and is wired
+    on both load and toggle, so that half was already done and this file
+    hadn't been told. The "honest" half had a real bug, now **fixed**: the
+    autonomous loop only re-read `battery_efficient_mode` (and the on/off
+    toggle, and the interval) once per scheduled tick, sleeping up to the
+    full interval — six hours by default — between reads. Turning battery
+    mode off, or the scheduler back on, did nothing until that sleep ran
+    out, which is what "background tasks skip things thinking battery mode
+    is on" and "finishing a task disables automatic tasks" actually were.
+    `autonomous.wake()` now interrupts the sleep; `PUT /preferences` calls
+    it whenever a preference the loop reads changes.
 18. **The full-screen graph's Options panel**, the sketch/image toggles, and a
     suggested-links list that runs off the bottom without scrolling.
 19. **First-run onboarding, the rest.** Reachability diagnostics are built;
-    still open: offering to pull a model, a data-dir writability check, and
+    still open: offering to pull a model, a data-dir writability check,
     seeded example notes so the graph, timeline and dashboard have something
     to show before the first note exists — named by the project's own outside
-    review as the highest-leverage version of onboarding.
+    review as the highest-leverage version of onboarding. Also asked for
+    directly: **a guided application tour** — a click-through walkthrough of
+    the tabs and their core actions, distinct from the reachability/seeded-
+    notes work above (that's about the notebook having something to show;
+    this is about someone new knowing where to look). `#onboarding-overlay`
+    already exists as a surface (see CLAUDE.md's login recipe); worth
+    checking what it currently does before scoping a tour on top of it.
 
 ### Tier 3 — new capability
 
@@ -166,12 +253,26 @@ Worth doing, and worth doing after the above.
     matrix. Each is a materially different rendering approach, not a fourth
     case the existing `layoutHierarchy` machinery covers free. The decorative
     half (skins, minimap, PNG export) is the smaller contained piece if a
-    session wants a quicker win.
+    session wants a quicker win. Asked for by name as "an Obsidian-style
+    knowledge graph": Obsidian's is a force layout, which this app already
+    has — the gap reported is closer to *interaction* (smooth pan/zoom feel,
+    node-drag responsiveness, a cleaner minimal aesthetic at rest) than a
+    new layout algorithm. Worth reproducing what specifically feels
+    different — screenshot the two side by side — before assuming it's this
+    item rather than a tuning pass on the existing force simulation.
 25. **A mapping tab** — mind maps and linked diagrams. Overlaps the whiteboard
     heavily; decide whether it is a *mode of the whiteboard* rather than a tab
     before building it.
 26. **Widgets: a picker**, and more of them. Customisable sidebars, and note
-    view options in the Notes tab.
+    view options in the Notes tab. Asked for directly as "a widget management
+    hub popup on the dashboard, like a widget marketplace" — the foundation
+    is already substantial and worth knowing about before rebuilding it:
+    `DASH_WIDGETS` in app.js already registers 17 widgets, `dashboard_layout`
+    (order/hidden/wide) is a real preference, and Edit layout mode already
+    supports add/remove/reorder/wide-toggle inline on the dashboard. What's
+    actually missing is a *dedicated surface* — a button opening a proper
+    modal/picker rather than an inline edit mode — and more widgets to fill
+    it. A UI-surface change on an existing data model, not new plumbing.
 27. **llama.cpp, actually wired in.** A new `ai/provider.py` entry alongside
     Ollama/OpenAI-compatible, a GGUF file picker (files on disk, not a
     registry to pull from), and `core/extras.py`'s `unavailable` string
@@ -184,6 +285,16 @@ Worth doing, and worth doing after the above.
     (note-list keyboard nav, a per-chat token meter, an eval harness,
     multi-category notes, desktop packaging, MCP support). None is blocked on
     anything above.
+31. **Expand the autonomous background agent's capabilities.** Asked for
+    directly, without a specific gap named — today it does three things
+    (`_enabled_tasks` in `ai/autonomous.py`): tag untagged notes, link
+    conceptually related ones, flag duplicates. Candidates worth scoping
+    before picking one: acting on stale/orphaned notes (nothing currently
+    reviews a note nobody has touched in months), running the digest or
+    on-this-day surfacing proactively rather than only on request, or
+    letting a saved skill run on the same schedule instead of only the three
+    fixed tasks. Needs a real "which of these, and why" before building —
+    "expand the capabilities" alone isn't a spec.
 
 ### Tier 4 — deferred, with the reason
 
@@ -212,6 +323,18 @@ Not a dump: each says why it is not Tier 3.
 - **The "full UI audit" umbrella.** Break into dated sub-items as capacity
   allows. The concrete pieces left: a colour-scale pass to match the existing
   spacing/type work, and a widget-density sweep.
+- **"Clean up, consolidate and refactor the test files."** 106 files, and the
+  suite is fully green — there is no known duplication or staleness to point
+  at, just a general request. Doing this blind risks the opposite of the
+  goal: this project's own tests are written as *narrative* (each docstring
+  is a reported bug or a design decision, not a spec), and a mechanical
+  consolidation pass — merging `test_x.py` and `test_x_more.py` because the
+  names look related — is exactly how that history gets flattened into
+  generic assertions nobody can trace back to why they exist. Worth doing
+  *with a concrete finding first*: run coverage, look for genuinely
+  duplicated setup (a fixture reinvented under a different name in three
+  files is a real, safe consolidation), or split a file that actually is
+  too large — not a scheduled tidy with no target.
 
 ### The rule this section exists to enforce
 

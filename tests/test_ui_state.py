@@ -89,8 +89,16 @@ def test_the_frontend_watches_the_keys_it_promises_to(client):
     # And `theme` reaches it through LOOK_KEYS → OVERRIDABLE_KEYS.
     overridable = re.search(r"const OVERRIDABLE_KEYS = \[(.*?)\];", source, re.S)
     assert overridable and '"theme"' in overridable.group(1)
-    # And the watch has to be installed before anything can write one.
+    # And the watch has to be installed before anything can write one. Every
+    # load now opens on Dashboard (user-requested — it used to restore
+    # whichever tab was last active) rather than reading `activeTab` to
+    # decide where to start, but the boot call still *writes* it via
+    # `switchTab`'s own `localStorage.setItem`, so the ordering still matters.
     assert "watchMirroredUiKeys();" in source
+    # `\nswitchTab("dashboard");` (unindented, right after a newline) is the
+    # boot call specifically — the same literal call also appears indented
+    # inside a couple of "go to the dashboard" button handlers earlier in
+    # the file, which `str.index` would otherwise match instead.
     assert source.index("watchMirroredUiKeys();") < source.index(
-        'switchTab(localStorage.getItem("activeTab")'
-    ), "the watch must be installed before the tab restore writes activeTab"
+        '\nswitchTab("dashboard");'
+    ), "the watch must be installed before the boot switchTab writes activeTab"

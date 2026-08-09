@@ -49,6 +49,41 @@ def test_nothing_is_marked_when_nothing_was_pulled_in(ai_client, session):
     assert body["connected_ids"] == []
 
 
+def test_match_info_names_why_each_result_showed_up(ai_client, session):
+    """A keyword match and the note it's connected to should read as two
+    different reasons — "why did this appear?" was previously answerable
+    only for the connected case, via `connected_ids`, and not at all for an
+    ordinary match."""
+    match = _note(session, "the beans need netting before the pigeons find them")
+    linked = _note(session, "netting is in the shed behind the mower")
+    session.add(EntryLink(source_entry_id=match.id, target_entry_id=linked.id))
+    session.commit()
+
+    body = ai_client.post("/chat", json={"question": "beans netting"}).json()
+    match_info = body["match_info"]
+
+    assert match_info[str(match.id)]["type"] == "keyword"
+    assert "beans" in match_info[str(match.id)]["terms"]
+    assert match_info[str(linked.id)]["type"] == "connected"
+
+
+def test_a_connected_note_carries_the_links_own_reason(ai_client, session):
+    """Asked for directly: does a link's reason show up in search results
+    too, not just on the graph and in Trace. `graph_expansion` has to carry
+    it through `_retrieve` for that to reach `/chat`'s `match_info`."""
+    match = _note(session, "the beans need netting before the pigeons find them")
+    linked = _note(session, "netting is in the shed behind the mower")
+    session.add(
+        EntryLink(
+            source_entry_id=match.id, target_entry_id=linked.id, reason="both about the shed"
+        )
+    )
+    session.commit()
+
+    body = ai_client.post("/chat", json={"question": "beans netting"}).json()
+    assert body["match_info"][str(linked.id)]["reason"] == "both about the shed"
+
+
 def test_the_prompt_tells_the_model_which_notes_did_not_match():
     notes = [
         {"id": 1, "category": "Garden", "content": "the beans need netting"},

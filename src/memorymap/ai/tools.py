@@ -403,8 +403,13 @@ def _graph_neighbours(session: Session, entry: Entry) -> list[tuple[Entry, str]]
         seen[other.id] = how
         out.append((other, how))
 
-    for _link, other in manager.links_for_entry(session, entry):
-        add(other, "linked")
+    for link, other in manager.links_for_entry(session, entry):
+        # A link's own reason, when someone gave one — "a note about uni and
+        # gym might still be related if they're both about scheduling"
+        # (user-reported) is exactly the kind of connection that reads as
+        # arbitrary without it. Optional, so "linked" alone is still the
+        # honest answer for the (more common) case nobody explained.
+        add(other, f"linked ({link.reason})" if link.reason else "linked")
 
     if entry.parent_id:
         parent = session.get(Entry, entry.parent_id)
@@ -1542,6 +1547,12 @@ def _link_notes(session: Session, args: dict) -> dict:
     other_ids = _requested_ids(args, "other_note_id", "other_note_ids")
     if not other_ids:
         raise ToolError("Must provide at least one target note id.")
+    # Optional — asked for directly ("a note about uni and gym might still be
+    # related if they're both about scheduling"): the connection the model
+    # is making, in its own words, so the graph and Trace can say *why*
+    # rather than just *that*. Applied to every target in this call; a model
+    # linking notes for different reasons in one turn makes separate calls.
+    reason = str(args.get("reason") or "").strip() or None
 
     linked = []
     for target_id in other_ids:
@@ -1554,7 +1565,7 @@ def _link_notes(session: Session, args: dict) -> dict:
         target = _require_note(session, {"note_id": target_id})
         if target.is_deleted:
             continue
-        link = manager.create_link(session, source, target)
+        link = manager.create_link(session, source, target, reason=reason)
         if link is not None:
             linked.append(target.id)
 
@@ -2948,6 +2959,14 @@ TOOLS: dict[str, ToolSpec] = {
                         "type": "array",
                         "items": {"type": "integer"},
                         "description": "IDs of multiple target notes to link to (optional)",
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": (
+                            "Optional — why these notes are connected, in a few words "
+                            "(e.g. 'both about scheduling'). Shown on the graph and in "
+                            "Trace. Skip it when the connection is obvious."
+                        ),
                     },
                 },
                 "required": ["note_id"],

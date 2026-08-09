@@ -67,3 +67,50 @@ def test_missing_note_ids_are_ignored_rather_than_erroring(ai_client, fake_ollam
     fake_ollama.librarian_reply = "Fine."
     response = ai_client.post("/chat", json={"question": "hello?", "note_ids": [9999]})
     assert response.status_code == 200
+
+
+# --- attached_notes_only (Trace's "Generate story from path") ------------------------
+#
+# Attaching notes never used to stop retrieval from running too — it only
+# guaranteed the attached ones were *included*. Fine for "what do you make of
+# this?", where more context is welcome; wrong for a deliberately closed set
+# like a traced path, where the turn's own instruction text ("weave these
+# into a narrative…") has no real subject and would keyword/semantic-match
+# whatever it happens to share words with, appending unrelated notes nobody
+# chose after the ones the user actually picked.
+
+
+def test_attached_notes_only_excludes_what_retrieval_would_have_added(ai_client, fake_ollama):
+    chosen = _note(ai_client, "the beans need netting before the pigeons find them")
+    # Shares "netting" with the question below, so ordinary retrieval would
+    # pull this in — attached_notes_only must stop that.
+    unrelated = _note(ai_client, "netting is in the shed behind the mower")
+    fake_ollama.librarian_reply = "A short story."
+
+    body = ai_client.post(
+        "/chat",
+        json={
+            "question": "beans netting — write a story about this",
+            "note_ids": [chosen],
+            "attached_notes_only": True,
+        },
+    ).json()
+
+    ids = [r["id"] for r in body["raw_results"]]
+    assert ids == [chosen]
+    assert unrelated not in ids
+    assert body["search_mode"] == "attached"
+
+
+def test_attached_notes_only_has_no_effect_without_an_attachment(ai_client, fake_ollama):
+    """Nothing to fall back to — must behave like an ordinary question, not
+    silently search nothing and answer from thin air."""
+    note_id = _note(ai_client, "a joke about a scarecrow winning an award")
+    fake_ollama.librarian_reply = "Ha."
+
+    body = ai_client.post(
+        "/chat",
+        json={"question": "scarecrow", "attached_notes_only": True},
+    ).json()
+
+    assert note_id in [r["id"] for r in body["raw_results"]]

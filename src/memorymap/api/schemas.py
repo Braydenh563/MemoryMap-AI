@@ -42,6 +42,10 @@ class LinkOut(BaseModel):
     link_id: int
     entry_id: int  # the entry on the other end
     preview: str  # first few words of that entry
+    reason: str | None = None  # why these are connected, if anyone said or it was deduced
+    # 0..1, set only when `reason` above came from embedding similarity
+    # rather than from a person or the AI saying it — see EntryLink.reason_confidence.
+    reason_confidence: float | None = None
 
 
 class AttachmentOut(BaseModel):
@@ -82,6 +86,11 @@ class EntryDateOut(BaseModel):
 class EntryOut(BaseModel):
     id: int
     content: str
+    # A note's own leading `# Heading`, if it wrote one — not a stored,
+    # separately-edited field. Editing the title is editing that line, the
+    # same as editing any other line of the note; there's no second field to
+    # go out of sync with the content it's supposedly titling.
+    title: str | None = None
     category: str
     tags: list[str]
     ai_confidence: int

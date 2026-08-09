@@ -2,7 +2,154 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session: §41 Tier 1 (all of it), a live whiteboard redesign, then a security/perf review
+## Latest session: §43, a follow-up burst — the time filter's *real* bug, link reasons grew a confidence score and an editor, notes got optional titles
+
+Continued straight from §42 below, in the same session: rather than another
+big unstructured list, the user came back with a run of small, specific asks
+in quick succession, each answered as it arrived. Full detail — the exact
+`+ "Z"` double-timezone repro, every surface a link reason now reaches, the
+title feature's design discussion — is in [HISTORY.md §43](HISTORY.md); this
+is the short version and what's still open.
+
+**The time filter slider "still doesn't move"**, reported right after §42
+claimed it fixed. It had — for the bug §42 found — and hadn't, for a second,
+worse one hiding behind it: `/graph`'s two node dicts did
+`e.created_at.isoformat() + "Z"`, and `core/database.DateTime` has said UTC
+on its own (`...+00:00`) since before this session — so every single note's
+`created_at` on the graph was `...+00:00Z`, two timezone markers in one
+string, which `new Date(...)` in JavaScript silently reads as `Invalid Date`.
+§42's own testing happened not to catch it because it used notes created
+seconds apart, and near-simultaneous *good* dates look the same as
+near-simultaneous *invalid* ones on a slider with no range to show. Found by
+backdating a note in SQL and reading `/graph`'s raw JSON, not by guessing.
+Fixed in both places; two new tests parse the response with
+`datetime.fromisoformat()` instead of trusting the shape.
+
+**Link reasons (§42's own feature) grew two things asked about directly:** a
+confidence score for the reasons nobody actually wrote — `create_link` now
+tries to deduce one from embedding similarity (the same signal
+`/entries/link-suggestions` already uses, same 0.55 threshold) whenever it's
+given none, and leaves both null rather than guess when it can't — and an
+editor, since a reason was write-once before this: `PUT
+/entries/{id}/links/{link_id}/reason`, plus a ✎/⊘ pair on the note card's
+own link chips (add-or-edit, and clear, kept as two separate controls
+because the shared confirm/prompt dialog can't tell "saved empty" from
+"cancelled"). Both the graph edge's tooltip and Trace's readout now say
+*", NN% confidence, deduced"* when the reason came from the algorithm rather
+than a person or the AI, so a guess never reads with the same certainty as
+something someone actually said.
+
+**Notes got an optional title** — worked through as a design question first
+(does a title cap how many notes fit one topic? no — it's read off the note,
+not enforced) and built to what the user confirmed: the leading
+`#`–`######` heading line, if the note's first line is one, computed on
+every read (`manager.extract_title`) rather than stored, so it can't drift
+out of sync with an edited first line. Shown as its own `<p class="entry-title">`
+above the card body (`<h3>` leaked this design system's small-caps
+section-label styling into it — reverted after a screenshot caught it, not
+after a report). **✨ Generate title** / **Regenerate**, and **✕ Remove
+title**, both in the note's overflow menu; both refuse a private note
+outright (400) because they read the decrypted text and would otherwise
+write it straight back to `entry.content`, un-encrypting the note as a side
+effect of titling it.
+
+**And two smaller ones:** the app now always boots to Dashboard rather than
+whatever tab `localStorage` remembered last (asked for directly); the
+glassmorphism blur slider was investigated after being asked whether it
+actually scales the effect and found working as built — two screenshots
+looked identical to the eye but differ byte-for-byte, so no fix was made
+because there was nothing broken.
+
+**Verified live in Chromium:** the manual link → add a reason with ✎ → the
+chip's tooltip updates → clear it with ⊘ → the tooltip reverts, the full
+round trip through the real `PUT .../reason` endpoint. **Not verified live:**
+the *auto-deduced* reason specifically, and its graph-edge tooltip — this
+sandbox has no real embedding backend (the standing `sentence-transformers`
+constraint), and a same-session live test of two linked notes happened to
+land inside the graph's "Uncategorised" cluster supernode (every note here
+shares that one category, and semantic-zoom clustering hides individual link
+edges behind a cluster node), so the tooltip's pixels specifically were not
+seen. The backend path is covered by `pytest` end to end (deduction,
+confidence, editing, clearing, the graph edge's own field); say so plainly
+rather than claim a screenshot that doesn't exist.
+
+## Previous session: §42, a long unattended run — ten correctness/UX fixes, done and verified; six large asks, triaged and scoped, not built
+
+The user handed over a large, unstructured list overnight and asked for
+autonomous work with no check-ins. Ran it as this project's own process
+says to: checked the running app before building anything, worked the list
+top-down by how cheap-and-real each item was to verify, committed and
+pushed after every batch (in case of a usage-limit cutoff mid-session — it
+didn't happen, but that's why the history below is several small commits
+rather than one large one). Full detail, including exact repro steps and
+measurements, is in [HISTORY.md §42](HISTORY.md); this is the short version
+and — the part a handover is actually for — what's still open and why.
+
+**Ten fixed, each reproduced first and each with a test:** `recycle_bin_days`
+sending `0` and hitting a raw 422; `unknown timezone` on every Windows
+request (missing `tzdata` dependency — Windows has no system tz database at
+all); the autonomous loop sleeping up to 6h between reading its own
+preferences, so toggling battery-saver or the scheduler did nothing until
+that sleep ran out; a chat-tab CSS grid bug that was simultaneously "a dark
+rectangle behind the header" and "the sidebar collapse button overlaps"
+(one `grid-template-rows` never reset for the mobile breakpoint); search
+results explaining *why* they matched for exactly one case (connected) and
+none of the actual matches; a fourth "Custom…" mode for Improve Writing; the
+graph's "Generate Story from Path" button silently refused by both an
+undefined CSS token and the app's own CSP; the graph time filter's stale
+slider bounds hiding any note added after the graph was first opened; the
+trace overlay drawing an invisible flat line on Arc layout specifically;
+and a Timeline grid card's missing ellipsis (`line-clamp` unprefixed under
+`-webkit-box`, plus a bare `text[:120]` slice server-side with nothing
+appended).
+
+**Six items were large asks against small realities, and got scoped rather
+than rushed:**
+
+- **The whiteboard** (redo, select/move/rotate/shift-lock, images,
+  draw.io-style connection points, precise drop placement, toolbar default
+  position) — draw.io + MS Whiteboard + OneNote's combined feature surface
+  asked for in one report. Broken into a sequenced list in ROADMAP.md item
+  11; nothing built, because a shallow pass at any one piece here (a rotate
+  handle with no undo/redo integration, a connection-point system that
+  doesn't match how draw.io actually represents fixed-vs-free anchors)
+  would cost more to unwind later than it saves now.
+- **A widget management hub** — checked first, and the foundation already
+  exists (17 widgets, a real `dashboard_layout` preference, inline
+  add/remove/reorder). What's missing is a dedicated modal surface, which
+  is real but small — scoped in ROADMAP.md item 26, not built this session
+  because the whiteboard and search-explainability work took priority as
+  the more concretely-reported bugs.
+- **An Obsidian-style graph** — Obsidian's graph is a force layout, which
+  this app already has; asked what's actually different needs a
+  side-by-side screenshot before it's actionable, not a guess. Noted in
+  ROADMAP.md item 24.
+- **A guided onboarding tour** — added to ROADMAP.md item 19, next to the
+  reachability/seeded-notes work already scoped there.
+- **Expanding the autonomous agent's capabilities** — "expand" isn't a
+  spec; candidates listed in ROADMAP.md item 31, needs a "which of these"
+  decision before a session builds any of it.
+- **Cleaning up the test suite** — 106 files, fully green, no specific
+  duplication pointed at. In ROADMAP.md's Tier 4 with the reason: this
+  project's tests are written as narrative (each docstring is a reported
+  bug), and a mechanical consolidation pass is exactly how that gets
+  flattened into generic assertions nobody can trace back to why they
+  exist. Needs a concrete finding (real duplicated fixtures, a file that's
+  actually too large) before it's safe to start.
+
+**What could and couldn't be verified:** every fix above was driven in
+Chromium (headless, `service_workers: 'block'`, the login/onboarding recipe
+this file already documents) except the semantic-match badge — this sandbox
+has no `sentence-transformers` installed (CLAUDE.md's own standing
+instruction, since it has failed to install cleanly before), so semantic
+search always falls back to keywords here. The `match_info` "semantic" and
+"hybrid" badge types are covered by a backend test using the suite's fake
+embedding backend (`tests/test_chat_api.py::test_semantic_match_carries_its_score`),
+which proves the code path is exercised and correct, but the actual pixels
+of a semantic badge rendering in a browser were not seen — say so plainly,
+per this file's own rule, rather than claim a screenshot that doesn't exist.
+
+## Previous session: §41 Tier 1 (all of it), a live whiteboard redesign, then a security/perf review
 
 Worked §41's Tier 1 list top-down, each reproduced before being fixed, each
 with a real test:

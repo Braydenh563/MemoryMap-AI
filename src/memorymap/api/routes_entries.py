@@ -11,7 +11,7 @@ import json
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import delete as sa_delete
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -60,11 +60,13 @@ def _to_out(
     filed_by: str | None = None,
     similar: SimilarOut | None = None,
 ) -> EntryOut:
+    # Decrypted here if private and the vault is open — every read of a
+    # note's text goes through this one helper.
+    content = manager.readable_content(entry)
     return EntryOut(
         id=entry.id,
-        # Decrypted here if private and the vault is open — every read of a
-        # note's text goes through this one helper.
-        content=manager.readable_content(entry),
+        content=content,
+        title=manager.extract_title(content),
         category=manager.category_name_for(session, entry),
         tags=manager.entry_tags(entry),
         ai_confidence=entry.ai_confidence,
@@ -88,6 +90,8 @@ def _to_out(
                 link_id=link.id,
                 entry_id=other.id,
                 preview=_preview(manager.readable_content(other)),
+                reason=link.reason,
+                reason_confidence=link.reason_confidence,
             )
             for link, other in manager.links_for_entry(session, entry)
         ],
@@ -334,7 +338,12 @@ def reevaluate_entry(entry_id: int, session: Session = Depends(get_session)) -> 
 
 class ImproveBody(BaseModel):
     text: str
-    mode: str = "proofread"  # proofread | rewrite | concise
+    mode: str = "proofread"  # proofread | rewrite | concise | custom
+    # Only read when mode == "custom" — the user's own instruction, in their
+    # own words, instead of picking from the three presets. Length-capped to
+    # match the input's own maxlength; this is one line of steering, not a
+    # second prompt.
+    custom_instruction: str | None = Field(default=None, max_length=200)
 
 
 @router.post("/improve")
@@ -345,6 +354,11 @@ def improve_writing(body: ImproveBody) -> dict:
     text = body.text.strip()
     if not text:
         raise HTTPException(status_code=400, detail="There's no text to improve.")
+    custom_instruction = (body.custom_instruction or "").strip()
+    if body.mode == "custom" and not custom_instruction:
+        raise HTTPException(
+            status_code=400, detail="Say what you want changed, then try again."
+        )
     if not deps.get_ollama().is_running():
         raise HTTPException(
             status_code=503,
@@ -352,7 +366,11 @@ def improve_writing(body: ImproveBody) -> dict:
         )
     try:
         improved = librarian.improve_writing(
-            text, body.mode, deps.get_model_manager(), deps.get_ollama()
+            text,
+            body.mode,
+            deps.get_model_manager(),
+            deps.get_ollama(),
+            custom_instruction=custom_instruction,
         )
     except OllamaError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
@@ -619,6 +637,16 @@ def purge_entry(entry_id: int, session: Session = Depends(get_session)) -> dict:
 
 class LinkBody(BaseModel):
     target_id: int
+    # Optional — "why are these connected?" A shared tag or a reply thread
+    # says why on its own; a manual link often doesn't.
+    reason: str | None = Field(default=None, max_length=200)
+
+
+class LinkReasonBody(BaseModel):
+    # None (or omitted/blank) clears the reason — this is also how a link
+    # that got an auto-deduced reason it disagrees with is corrected back
+    # to nothing, same as it would have started with.
+    reason: str | None = Field(default=None, max_length=200)
 
 
 class PrivacyBody(BaseModel):
@@ -685,13 +713,82 @@ def set_entry_privacy(
     return _to_out(session, entry)
 
 
+@router.post("/{entry_id}/generate-title", response_model=EntryOut)
+def generate_entry_title(
+    entry_id: int, session: Session = Depends(get_session)
+) -> EntryOut:
+    """Write a title for this note with AI, on request.
+
+    Recognising a title the user already wrote (`manager.extract_title`) is
+    free; writing one is a real model call, so this is its own opt-in
+    action rather than something that runs on every save. Replaces an
+    existing title rather than stacking a second heading on top of it.
+    """
+    entry = _existing_entry(session, entry_id)
+    # `readable_content` decrypts a private note for reading; writing that
+    # decrypted text straight back to `entry.content` (below) would silently
+    # replace the ciphertext with plaintext — the note would stop being
+    # private as a side effect of titling it. Refused outright rather than
+    # risked: unlike a plain edit, there's no form here the user reviewed
+    # before it reached the server.
+    if entry.is_private:
+        raise HTTPException(
+            status_code=400, detail="Make this note readable first — private notes can't be re-titled here."
+        )
+    content = manager.readable_content(entry)
+    if not content.strip():
+        raise HTTPException(status_code=400, detail="There's no text to title yet.")
+    if not deps.get_ollama().is_running():
+        raise HTTPException(
+            status_code=503,
+            detail="The AI isn't available right now (Ollama doesn't seem to be running).",
+        )
+    try:
+        title = librarian.generate_title(content, deps.get_model_manager(), deps.get_ollama())
+    except OllamaError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    if not title:
+        raise HTTPException(status_code=502, detail="The AI didn't return a usable title.")
+
+    manager.record_revision(session, entry)
+    entry.content = manager.apply_title(content, title)
+    manager.log_action(session, "edited", "entry", entry.id, f"generated title: {title}")
+    session.commit()
+    session.refresh(entry)
+    return _to_out(session, entry)
+
+
+@router.post("/{entry_id}/remove-title", response_model=EntryOut)
+def remove_entry_title(entry_id: int, session: Session = Depends(get_session)) -> EntryOut:
+    """Take a note's title back out — asked for directly. Just the leading
+    heading line; a note with no title is returned unchanged rather than
+    treated as an error, since the client only offers this action when
+    `entry.title` is already set and a stale menu shouldn't 400."""
+    entry = _existing_entry(session, entry_id)
+    # Same reason as generate-title: writing decrypted text back to
+    # `entry.content` would un-encrypt the note as a side effect.
+    if entry.is_private:
+        raise HTTPException(
+            status_code=400, detail="Make this note readable first — private notes can't be edited here."
+        )
+    content = manager.readable_content(entry)
+    stripped = manager.remove_title(content)
+    if stripped != content:
+        manager.record_revision(session, entry)
+        entry.content = stripped
+        manager.log_action(session, "edited", "entry", entry.id, "removed the title")
+        session.commit()
+        session.refresh(entry)
+    return _to_out(session, entry)
+
+
 @router.post("/{entry_id}/links", response_model=EntryOut)
 def create_link(
     entry_id: int, body: LinkBody, session: Session = Depends(get_session)
 ) -> EntryOut:
     source = _existing_entry(session, entry_id)
     target = _existing_entry(session, body.target_id)
-    link = manager.create_link(session, source, target)
+    link = manager.create_link(session, source, target, reason=body.reason)
     if link is None:
         raise HTTPException(
             status_code=400, detail="Already linked (or tried to link an entry to itself)"
@@ -708,4 +805,19 @@ def delete_link(
     if link is None or entry.id not in (link.source_entry_id, link.target_entry_id):
         raise HTTPException(status_code=404, detail="Link not found")
     manager.delete_link(session, link)
+    return _to_out(session, entry)
+
+
+@router.put("/{entry_id}/links/{link_id}/reason", response_model=EntryOut)
+def update_link_reason(
+    entry_id: int, link_id: int, body: LinkReasonBody, session: Session = Depends(get_session)
+) -> EntryOut:
+    """Add, edit, or clear a link's reason by hand — whether it started
+    with none, one somebody typed, or one `create_link` deduced on its own.
+    """
+    entry = _existing_entry(session, entry_id)
+    link = session.get(EntryLink, link_id)
+    if link is None or entry.id not in (link.source_entry_id, link.target_entry_id):
+        raise HTTPException(status_code=404, detail="Link not found")
+    manager.set_link_reason(session, link, body.reason)
     return _to_out(session, entry)

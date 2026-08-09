@@ -26,6 +26,9 @@ from memorymap.core.database import (
     EntryLink,
     EntryRevision,
     Reminder,
+    WhiteboardNode,
+    WhiteboardObject,
+    WhiteboardSketch,
     utcnow,
 )
 
@@ -178,6 +181,17 @@ def test_a_note_with_every_kind_of_attached_row_can_still_be_destroyed(client, s
                 mime="image/png",
                 size=1,
             ),
+            # Whiteboard: two different relationships to the same entry.
+            # `entry_id` is the card's own note — added to the schema after
+            # this test was first written, and not handled until it was.
+            WhiteboardNode(entry_id=goner.id),
+            # `board_id` names which board a card/sketch lives *on* — a
+            # different note, so it belongs on `other`, not `goner`.
+            WhiteboardNode(entry_id=other.id, board_id=goner.id),
+            WhiteboardSketch(data="M0 0 L1 1", board_id=goner.id),
+            # Images and text boxes: no entry_id relationship at all (neither
+            # wraps a note), only board_id — same detach-not-delete rule.
+            WhiteboardObject(kind="text", data='{"content": "hi"}', board_id=goner.id),
         ]
     )
     session.commit()
@@ -191,6 +205,15 @@ def test_a_note_with_every_kind_of_attached_row_can_still_be_destroyed(client, s
     assert session.query(EntryDate).filter_by(entry_id=goner.id).count() == 0
     assert session.query(EntryRevision).filter_by(entry_id=goner.id).count() == 0
     assert session.query(DocumentLink).filter_by(entry_id=goner.id).count() == 0
+    # The card whose own note was purged is gone with it...
+    assert session.query(WhiteboardNode).filter_by(entry_id=goner.id).count() == 0
+    # ...but the card that merely lived *on* the purged board survives,
+    # detached to the default board rather than deleted.
+    survivor = session.query(WhiteboardNode).filter_by(entry_id=other.id).one()
+    assert survivor.board_id is None
+    assert session.query(WhiteboardSketch).filter_by(board_id=goner.id).count() == 0
+    assert session.query(WhiteboardObject).filter_by(board_id=goner.id).count() == 0
+    assert session.query(WhiteboardObject).filter_by(kind="text").one().board_id is None
 
 
 def test_a_reminder_outlives_the_note_it_came_from(client, session):

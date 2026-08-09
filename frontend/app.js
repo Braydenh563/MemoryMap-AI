@@ -901,7 +901,15 @@ function entryItem(entry, options = {}) {
       const short = label.length > LINK_CHIP_CHARS
         ? `${label.slice(0, LINK_CHIP_CHARS - 1).trimEnd()}…`
         : label;
-      const linkChip = chip(`↔ ${short}`, "link");
+      // chip() sets plain textContent, right for a tag or category name but
+      // not here — `link.preview` is a clip of the *other* note's own text,
+      // which can carry the same **bold**/`code` a reader would expect to
+      // see rendered, the way the note's own body already does.
+      const linkChip = chip("", "link");
+      linkChip.appendChild(document.createTextNode("↔ "));
+      const linkPreview = document.createElement("span");
+      renderInlineMarkdown(linkPreview, short, [], true);
+      linkChip.appendChild(linkPreview);
       const reasonNote = link.reason
         ? link.reason_confidence != null
           ? `${link.reason} (${Math.round(link.reason_confidence * 100)}% confidence, deduced)`
@@ -1491,7 +1499,7 @@ function renderReevaluateResult(entry, wrap) {
       const row = document.createElement("div");
       row.className = "row space-between reevaluate-link";
       const preview = document.createElement("span");
-      preview.textContent = link.preview;
+      renderInlineMarkdown(preview, link.preview, [], true);
       row.appendChild(preview);
       row.appendChild(
         smallButton("🔗 Link", "Link these two notes", async () => {
@@ -1707,7 +1715,11 @@ async function toggleRelated(entry) {
   row.appendChild(label);
   for (const other of related) {
     const preview = other.content.length > 50 ? other.content.slice(0, 49) + "…" : other.content;
-    const relChip = chip(`≈ ${preview}`, "link", () => flashEntry(other.id));
+    const relChip = chip("", "link", () => flashEntry(other.id));
+    relChip.appendChild(document.createTextNode("≈ "));
+    const previewSpan = document.createElement("span");
+    renderInlineMarkdown(previewSpan, preview, [], true);
+    relChip.appendChild(previewSpan);
     row.appendChild(relChip);
   }
   card.appendChild(row);
@@ -1922,7 +1934,37 @@ function matchesSearch(entry) {
 // looked at again, so `**not bold**` inside backticks stays literal.
 // Underscore italics are left out on purpose — snake_case_names are common in
 // notes and `_` italics would eat them.
-const INLINE_MD = /`([^`\n]+)`|\*\*([^*\n]+?)\*\*|~~([^~\n]+?)~~|\*([^*\n]+?)\*/g;
+//
+// Images and links, added after the original four groups rather than before
+// them, so existing callers keyed to `m[1]`–`m[4]` (`notePreviewText` below)
+// keep working unchanged. This is what an uploaded image actually looks like
+// once pasted/dropped/attached (`![name](/media/hash.ext)`, per
+// `handleFileUpload`) — and until now nothing in the note-card list rendered
+// either form at all, so it showed as the literal markdown source, brackets
+// and all. Both accept a same-origin relative URL as well as `https?://`:
+// unlike `appendInline`'s own link pattern (chat/documents, which only ever
+// links *out*), a note's images live at `/media/...` on this same server.
+//
+// **The two link/image alternatives are length-bounded, and that is not
+// cosmetic.** `\[([^\]\n]+)\]\(...\)` against text with an unclosed `[`
+// makes the engine consume to the end of the line and back off one
+// character at a time looking for a `]` that isn't there — once per start
+// position, so O(n²) on a note that is entirely user-controlled text. That
+// is CodeQL's `js/polynomial-redos`, and this file's own `[[wiki link]]`
+// pattern already bounds itself (`{1,120}`) for exactly this reason. The
+// caps are far past any real link (200 characters of link text, 500 of
+// URL) and turn the per-position work into a constant.
+const INLINE_MD =
+  /`([^`\n]+)`|\*\*([^*\n]+?)\*\*|~~([^~\n]+?)~~|\*([^*\n]+?)\*|!\[([^\]\n]{0,200})\]\(([^)\n]{1,500})\)|\[([^\]\n]{1,200})\]\(([^)\n]{1,500})\)/g;
+
+// Same allowlist an <img src> or <a href> built from note text has to pass:
+// an absolute http(s) URL, or a same-origin relative path (one leading
+// slash, not two — `//evil.com/x` is also "one string starting with /" but
+// is a protocol-relative link off this origin). Rejects `javascript:`,
+// `data:`, and anything else a pasted note could contain.
+function isRenderableUrl(url) {
+  return /^https?:\/\//i.test(url) || (url.startsWith("/") && !url.startsWith("//"));
+}
 
 // LaTeX escapes that models reach for when they want a symbol (§35H).
 //
@@ -1977,7 +2019,13 @@ function unlatex(text) {
   );
 }
 
-function renderInlineMarkdown(element, text, terms) {
+// `compact`: skip the actual <img> and show the alt text instead — for a
+// label-sized surface (a link chip, a document sidebar button) where a
+// note's own image markdown would otherwise cram a thumbnail into a spot
+// sized for a line of text. The note card's own body always gets the real
+// image; everywhere smaller gets the same treatment `notePreviewText`
+// already gives one to a plain-text preview.
+function renderInlineMarkdown(element, text, terms, compact = false) {
   element.replaceChildren();
   text = unlatex(text);
   const pattern = new RegExp(INLINE_MD.source, "g");
@@ -1989,7 +2037,45 @@ function renderInlineMarkdown(element, text, terms) {
       highlightInto(before, text.slice(cursor, match.index), terms);
       element.appendChild(before);
     }
-    const [, code, bold, strike, italic] = match;
+    const [, code, bold, strike, italic, imageAlt, imageUrl, linkText, linkUrl] = match;
+    // Images and links are their own element kinds, not a wrap-in-a-tag like
+    // the four above — built and appended directly rather than falling
+    // through to the generic `tag`/`node` shape below, since neither one
+    // takes searched-term highlighting inside it (an <img> has no text to
+    // highlight, and a link's own text isn't split into marks any more than
+    // a code span's is).
+    if (imageUrl !== undefined) {
+      if (compact) {
+        element.appendChild(document.createTextNode(imageAlt || "🖼"));
+      } else if (isRenderableUrl(imageUrl)) {
+        const img = document.createElement("img");
+        img.src = imageUrl;
+        img.alt = imageAlt || "";
+        img.className = "entry-inline-image";
+        img.loading = "lazy";
+        element.appendChild(img);
+      } else {
+        element.appendChild(document.createTextNode(match[0]));
+      }
+      cursor = pattern.lastIndex;
+      continue;
+    }
+    if (linkUrl !== undefined) {
+      if (isRenderableUrl(linkUrl)) {
+        const a = document.createElement("a");
+        a.href = linkUrl;
+        if (/^https?:\/\//i.test(linkUrl)) {
+          a.target = "_blank";
+          a.rel = "noopener";
+        }
+        highlightInto(a, linkText, terms);
+        element.appendChild(a);
+      } else {
+        element.appendChild(document.createTextNode(match[0]));
+      }
+      cursor = pattern.lastIndex;
+      continue;
+    }
     const tag = code ? "code" : bold ? "strong" : strike ? "s" : "em";
     const node = document.createElement(tag);
     // A code span is literal by definition, so it is never searched-highlighted
@@ -5015,7 +5101,11 @@ function renderDocNotes() {
     const open = document.createElement("button");
     open.type = "button";
     open.className = "outline-link";
-    open.textContent = note.is_private ? "🔒 (private note)" : note.preview;
+    if (note.is_private) {
+      open.textContent = "🔒 (private note)";
+    } else {
+      renderInlineMarkdown(open, note.preview, [], true);
+    }
     open.title = "Show this note";
     open.addEventListener("click", () => {
       switchTab("notes");
@@ -9478,7 +9568,14 @@ async function renderStatsWidget(body) {
 function notePreviewText(content) {
   return (content || "")
     .replace(/\[\[([^[\]]{1,120})\]\]/g, "$1")
-    .replace(new RegExp(INLINE_MD.source, "g"), (...m) => m[1] ?? m[2] ?? m[3] ?? m[4]);
+    .replace(
+      new RegExp(INLINE_MD.source, "g"),
+      // m[6]/m[8] are the image/link *URLs* — only checked for "which branch
+      // matched", never shown; a preview shows the image's alt text (or a
+      // placeholder, since alt is often empty) and a link's own text, not a
+      // raw path nobody asked to read.
+      (...m) => m[1] ?? m[2] ?? m[3] ?? m[4] ?? (m[6] !== undefined ? m[5] || "image" : m[7])
+    );
 }
 
 function miniEntryList(body, entries, emptyText) {
@@ -10942,8 +11039,17 @@ function renderMarkdown(container, text) {
 // [text](http…url), and bare http(s) URLs. Built with textContent only —
 // note/answer text can never inject markup.
 function appendInline(parent, text) {
+  // Images and a link's URL used to require an absolute http(s) address —
+  // fine for chat answers and documents linking *out*, wrong for a note's
+  // own `![name](/media/hash.ext)` (exactly what pasting/dropping/attaching
+  // an image writes, per `handleFileUpload`), which is same-origin and
+  // relative. Both alternatives now accept anything; `isRenderableUrl` is
+  // the actual safety gate at render time below, same guard renderInlineMarkdown
+  // (the note-card list's own renderer) uses for the identical gap there.
+  // Length-bounded for the same reason INLINE_MD's are — see the comment
+  // there: an unclosed `[` otherwise costs O(n²) against user-written text.
   const pattern =
-    /(\*\*[^*]+\*\*|__[^_]+__|~~[^~]+~~|\*[^*]+\*|(?<![\w])_[^_]+_(?![\w])|`[^`]+`|\[[^\]]+\]\((https?:\/\/[^)]+)\)|https?:\/\/[^\s)]+)/g;
+    /(\*\*[^*]+\*\*|__[^_]+__|~~[^~]+~~|\*[^*]+\*|(?<![\w])_[^_]+_(?![\w])|`[^`]+`|!\[[^\]]{0,200}\]\(([^)\s]{1,500})\)|\[[^\]]{1,200}\]\(([^)\s]{1,500})\)|https?:\/\/[^\s)]+)/g;
   let last = 0;
   let match;
   while ((match = pattern.exec(text)) !== null) {
@@ -10963,14 +11069,33 @@ function appendInline(parent, text) {
       const el = document.createElement("code");
       el.textContent = token.slice(1, -1);
       parent.appendChild(el);
+    } else if (token.startsWith("![")) {
+      const url = match[2];
+      if (isRenderableUrl(url)) {
+        const el = document.createElement("img");
+        el.src = url;
+        el.alt = token.slice(2, token.indexOf("]"));
+        el.className = "entry-inline-image";
+        el.loading = "lazy";
+        parent.appendChild(el);
+      } else {
+        parent.appendChild(document.createTextNode(token));
+      }
     } else if (token.startsWith("[")) {
       const linkText = token.slice(1, token.indexOf("]"));
-      const el = document.createElement("a");
-      el.href = match[2]; // only http(s) matched — safe to use as href
-      el.target = "_blank";
-      el.rel = "noopener";
-      el.textContent = linkText;
-      parent.appendChild(el);
+      const url = match[3];
+      if (isRenderableUrl(url)) {
+        const el = document.createElement("a");
+        el.href = url;
+        if (/^https?:\/\//i.test(url)) {
+          el.target = "_blank";
+          el.rel = "noopener";
+        }
+        el.textContent = linkText;
+        parent.appendChild(el);
+      } else {
+        parent.appendChild(document.createTextNode(token));
+      }
     } else if (token.startsWith("http")) {
       const el = document.createElement("a");
       el.href = token;
@@ -11669,7 +11794,7 @@ function renderTraceReadout(result) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "graph-trace-note";
-    button.textContent = node.preview;
+    renderInlineMarkdown(button, node.preview, [], true);
     button.title = `Open this note (${node.category})`;
     button.addEventListener("click", () => flashEntry(node.id));
     return button;
@@ -14374,6 +14499,14 @@ function showSettingsSection(name) {
   if (name === "tools") renderToolSettings();
   if (name === "memory") renderMemorySettings().catch(() => {});
   if (name === "tasks") renderAutonomousReview().catch(() => {});
+  if (name === "tasks") {
+    apiJson("/preferences")
+      .then((prefs) => {
+        prefsCache = prefs;
+        renderAutonomousSettings();
+      })
+      .catch(() => {});
+  }
   if (name === "appearance") renderAppearance();
   if (name === "shortcuts") renderShortcutList();
   if (name === "account") renderAccount().catch(() => {});
@@ -15064,10 +15197,21 @@ async function renderPrefs() {
 // The engine list comes from the server rather than being written out here:
 // the frontend and `websearch.PROVIDERS` would otherwise drift, and the first
 // symptom would be a radio button the API rejects.
-async function renderWebSearch() {
-  prefsCache = await apiJson("/preferences");
-  $("pref-web-search").checked = Boolean(prefsCache.web_search_enabled);
-  $("pref-searxng").value = prefsCache.searxng_url || "";
+// The Background tasks section's own controls (`#pref-autonomous-tasks` and
+// everything under it) — pulled out so `showSettingsSection` can populate
+// them the moment *that* section opens, not only as a side effect of opening
+// Web search. They used to be filled in exclusively by `renderWebSearch`
+// despite living in `#settings-tasks`, a different section entirely — open
+// Settings → Background tasks directly in a fresh session (never having
+// visited Web search) and every checkbox here read its raw HTML default
+// (unchecked) instead of what was actually saved. Toggling one of them then
+// called `savePrefs()`, which rebuilds the *entire* preferences object from
+// the DOM — sending those defaults back to the server and silently
+// overwriting the real values. This is "my preferences settings keep
+// getting deleted": not one bad field, but a whole section's worth of
+// settings reset the moment anything on it was touched without the
+// Web-search tab having been opened first in the same session.
+function renderAutonomousSettings() {
   $("pref-autonomous-tasks").checked = Boolean(prefsCache.autonomous_tasks_enabled);
   $("pref-auto-tag").checked = prefsCache.auto_tag_enabled ?? true;
   $("pref-auto-link").checked = prefsCache.auto_link_enabled ?? true;
@@ -15077,6 +15221,13 @@ async function renderWebSearch() {
   $("pref-battery-mode").checked = Boolean(prefsCache.battery_efficient_mode);
   $("pref-smart-model-routing").checked = prefsCache.smart_model_routing_enabled ?? true;
   toggleAutonomousPanel();
+}
+
+async function renderWebSearch() {
+  prefsCache = await apiJson("/preferences");
+  $("pref-web-search").checked = Boolean(prefsCache.web_search_enabled);
+  $("pref-searxng").value = prefsCache.searxng_url || "";
+  renderAutonomousSettings();
   $("searxng-autostart").checked = Boolean(prefsCache.searxng_autostart);
   $("search-provider-status").textContent = "";
 
@@ -15183,6 +15334,12 @@ async function savePrefs() {
       ? Math.min(365, Math.round(binDaysRaw))
       : 30;
     $("pref-bin-days").value = recycleBinDays;
+    // Only this section's own fields. Background tasks' checkboxes
+    // (autonomous_tasks_enabled and everything under it) save independently
+    // via `setPreference` now — see the comment on `renderAutonomousSettings`
+    // for why folding them in here was the actual cause of "preferences keep
+    // getting deleted": this form's DOM may never have been rendered this
+    // session, and sending its stale defaults back overwrote real values.
     prefsCache = await apiJson("/preferences", {
       method: "PUT",
       body: JSON.stringify({
@@ -15193,27 +15350,10 @@ async function savePrefs() {
         profile_enabled: $("pref-profile-enabled").checked,
         notifications_muted_except_reminders:
           $("pref-notif-mute-except-reminders").checked,
-        autonomous_tasks_enabled: $("pref-autonomous-tasks").checked,
-        auto_tag_enabled: $("pref-auto-tag").checked,
-        auto_link_enabled: $("pref-auto-link").checked,
-        auto_dedupe_enabled: $("pref-auto-dedupe").checked,
-        autonomous_tasks_interval_hours: Number($("pref-autonomous-interval").value) || 6,
-        autonomous_tasks_model: $("pref-autonomous-model").value.trim(),
-        battery_efficient_mode: $("pref-battery-mode").checked,
-        smart_model_routing_enabled: $("pref-smart-model-routing").checked,
       }),
     });
     $("prefs-status").textContent = "Saved.";
-    
-    const indicator = $("power-saver-indicator");
-    if (indicator) {
-      if ($("pref-battery-mode").checked) {
-        indicator.classList.remove("hidden");
-      } else {
-        indicator.classList.add("hidden");
-      }
-    }
-    
+
     // Reflect a name change immediately if the dashboard is showing.
     if (typeof renderDashboardGreeting === "function") renderDashboardGreeting();
   } catch (error) {
@@ -16471,8 +16611,12 @@ async function loadMostUsed() {
     const li = document.createElement("li");
     li.title = entry.content;
     const text = document.createElement("span");
-    text.textContent =
-      entry.content.length > 26 ? entry.content.slice(0, 25) + "…" : entry.content;
+    renderInlineMarkdown(
+      text,
+      entry.content.length > 26 ? entry.content.slice(0, 25) + "…" : entry.content,
+      [],
+      true
+    );
     const count = document.createElement("span");
     count.className = "count";
     count.textContent = `×${entry.access_count}`;
@@ -18865,6 +19009,20 @@ const APPEARANCE_DEFAULTS = {
   "bg-intensity": "90",
   radius: "14", // global corner rounding, px
   "glass-blur": "18", // frosted-glass blur strength, px
+  // Percent of a card's own base alpha that survives — separate dial from
+  // blur strength above (how frosted vs. how clear). 100 renders identically
+  // to before this setting existed.
+  "glass-opacity": "100",
+  // Off by default even while glass itself is on — a diagonal highlight is a
+  // stronger visual statement than the blur/opacity dials above, worth
+  // opting into rather than imposing. Turning glass on from off auto-sets
+  // this to "on" (see #glass-toggle's own listener), so the full look shows
+  // up without a second trip to Settings; unchecking #glass-sheen-toggle
+  // afterward turns just the sheen back off without touching glass itself.
+  "glass-sheen": "off",
+  // 0-100, how strong the sheen reads when it's on — its own dial, separate
+  // from whether it's on at all.
+  "glass-sheen-strength": "100",
   zoom: "100", // §37E: interface-wide scale, percent — multiplies the root font-size
   "bg-style": "aurora", // aurora | constellation | waves | bubbles | mesh
   palette: "default", // which curated colour set; themes select one
@@ -19192,8 +19350,8 @@ function applyThemePreset(name, chosenByUser = false) {
 // the UI so "why isn't the theme's colour showing?" has a visible answer.
 const OVERRIDABLE_KEYS = [
   "theme", "palette", "accent", "accent-custom", "page-bg", "font", "fontsize",
-  "density", "radius", "glass", "glass-blur", "bg-style", "bg-motion",
-  "bg-intensity", "zoom",
+  "density", "radius", "glass", "glass-blur", "glass-opacity", "glass-sheen",
+  "glass-sheen-strength", "bg-style", "bg-motion", "bg-intensity", "zoom",
 ];
 
 function manualOverrides() {
@@ -19551,6 +19709,8 @@ function applyAppearance() {
   root.dataset.font = appearancePref("font");
   root.dataset.density = appearancePref("density");
   root.dataset.glass = appearancePref("glass");
+  root.dataset.glassSheen = appearancePref("glass-sheen");
+  root.style.setProperty("--glass-sheen-strength", Number(appearancePref("glass-sheen-strength")) / 100);
   root.dataset.themePreset = activeThemePreset();
   root.dataset.motion = appearancePref("motion");
   root.style.setProperty("--bg-art-opacity", Number(appearancePref("bg-intensity")) / 100);
@@ -19559,6 +19719,7 @@ function applyAppearance() {
   root.dataset.bgArt = bgArtOn() ? "on" : "off";
   root.style.setProperty("--radius", `${appearancePref("radius")}px`);
   root.style.setProperty("--glass-blur", `${appearancePref("glass-blur")}px`);
+  root.style.setProperty("--glass-opacity", Number(appearancePref("glass-opacity")) / 100);
   root.style.setProperty("--zoom", Number(appearancePref("zoom")) / 100);
   root.style.setProperty("--border-style", appearancePref("border-style", "solid"));
   // Belt and braces over the two fixes above. A custom property will happily
@@ -19734,6 +19895,14 @@ function renderAppearance() {
   $("bg-motion-row").classList.toggle("hidden", !bgArtOn());
   renderBgMotionHint();
   $("glass-toggle").checked = appearancePref("glass") === "on";
+  $("glass-sheen-toggle").checked = appearancePref("glass-sheen") === "on";
+  $("glass-sheen-row").classList.toggle("disabled-row", appearancePref("glass") !== "on");
+  $("glass-sheen-strength").value = appearancePref("glass-sheen-strength");
+  $("glass-sheen-strength-value").textContent = `${appearancePref("glass-sheen-strength")}%`;
+  $("glass-sheen-strength-row").classList.toggle(
+    "disabled-row",
+    appearancePref("glass") !== "on" || appearancePref("glass-sheen") !== "on"
+  );
   $("bg-intensity").value = appearancePref("bg-intensity");
   $("bg-intensity-value").textContent = `${appearancePref("bg-intensity")}%`;
   $("bg-art-style").value = appearancePref("bg-style");
@@ -19741,6 +19910,8 @@ function renderAppearance() {
   $("radius-value").textContent = `${appearancePref("radius")}px`;
   $("glass-blur").value = appearancePref("glass-blur");
   $("glass-blur-value").textContent = `${appearancePref("glass-blur")}px`;
+  $("glass-opacity").value = appearancePref("glass-opacity");
+  $("glass-opacity-value").textContent = `${appearancePref("glass-opacity")}%`;
   $("zoom-slider").value = appearancePref("zoom");
   $("zoom-value").textContent = `${appearancePref("zoom")}%`;
   _segActive("border-style-seg", "borderChoice", appearancePref("border-style", "solid"));
@@ -19749,8 +19920,9 @@ function renderAppearance() {
   $("accent-custom").value = localStorage.getItem("accent-custom") || "#4f6df5";
   $("page-bg-custom").value = localStorage.getItem("page-bg") || "#f5f7fb";
   $("custom-css").value = localStorage.getItem("custom-css") || "";
-  // Blur strength only matters while glass is on.
+  // Blur strength and opacity only matter while glass is on.
   $("glass-blur-row").classList.toggle("disabled-row", appearancePref("glass") !== "on");
+  $("glass-opacity-row").classList.toggle("disabled-row", appearancePref("glass") !== "on");
   // Style/intensity only matter while the background art is on.
   const artOff = !bgArtOn();
   $("bg-style-row").classList.toggle("disabled-row", artOff);
@@ -19921,8 +20093,8 @@ function renderPaletteGrid() {
 function resetAppearance() {
   for (const key of [
     "fontsize", "font", "density", "glass", "motion", "bg-intensity", "accent",
-    "contrast", "bgArt", "theme", "radius", "glass-blur", "bg-style",
-    "bg-motion", "palette", "themePreset",
+    "contrast", "bgArt", "theme", "radius", "glass-blur", "glass-opacity",
+    "glass-sheen", "glass-sheen-strength", "bg-style", "bg-motion", "palette", "themePreset",
     "accent-custom", "page-bg", "custom-css", "zoom",
   ]) {
     localStorage.removeItem(key);
@@ -20389,9 +20561,24 @@ for (const b of document.querySelectorAll("#density-seg button")) {
   });
 }
 $("glass-toggle").addEventListener("change", (e) => {
+  const turningOn = e.target.checked && appearancePref("glass") !== "on";
   localStorage.setItem("glass", e.target.checked ? "on" : "off");
+  // Asked for directly: switching glassmorphism on from off also turns the
+  // sheen on, so the full look shows up in one action — the sheen's own
+  // checkbox can still turn it back off afterward without touching this.
+  if (turningOn) localStorage.setItem("glass-sheen", "on");
   applyAppearance();
   renderAppearance();
+});
+$("glass-sheen-toggle").addEventListener("change", (e) => {
+  localStorage.setItem("glass-sheen", e.target.checked ? "on" : "off");
+  applyAppearance();
+  $("glass-sheen-strength-row")?.classList.toggle("disabled-row", !e.target.checked);
+});
+$("glass-sheen-strength").addEventListener("input", (e) => {
+  localStorage.setItem("glass-sheen-strength", e.target.value);
+  $("glass-sheen-strength-value").textContent = `${e.target.value}%`;
+  applyAppearance();
 });
 $("reduce-motion-toggle").addEventListener("change", (e) => {
   localStorage.setItem("motion", e.target.checked ? "reduced" : "auto");
@@ -20415,6 +20602,11 @@ $("radius-slider").addEventListener("input", (e) => {
 $("glass-blur").addEventListener("input", (e) => {
   localStorage.setItem("glass-blur", e.target.value);
   $("glass-blur-value").textContent = `${e.target.value}px`;
+  applyAppearance();
+});
+$("glass-opacity").addEventListener("input", (e) => {
+  localStorage.setItem("glass-opacity", e.target.value);
+  $("glass-opacity-value").textContent = `${e.target.value}%`;
   applyAppearance();
 });
 $("zoom-slider").addEventListener("input", (e) => {
@@ -20683,17 +20875,38 @@ function toggleAutonomousPanel() {
   const panel = $("autonomous-settings-panel");
   if (panel) panel.classList.toggle("hidden", !$("pref-autonomous-tasks").checked);
 }
-$("pref-autonomous-tasks").addEventListener("change", () => {
+// Each of these saves only its own key via `setPreference` — never
+// `savePrefs`, which rebuilds and re-sends every field on the Preferences
+// section's own form. That form may never have been rendered this session
+// (a fresh page load landing straight on Background tasks, say), and its
+// stale/default DOM values would silently overwrite whatever was really
+// saved the moment any one of these checkboxes changed.
+$("pref-autonomous-tasks").addEventListener("change", (e) => {
   toggleAutonomousPanel();
-  savePrefs();
+  setPreference("autonomous_tasks_enabled", e.target.checked);
 });
-$("pref-auto-tag").addEventListener("change", savePrefs);
-$("pref-auto-link").addEventListener("change", savePrefs);
-$("pref-auto-dedupe").addEventListener("change", savePrefs);
-$("pref-battery-mode").addEventListener("change", savePrefs);
-$("pref-autonomous-interval").addEventListener("change", savePrefs);
-$("pref-autonomous-model").addEventListener("change", savePrefs);
-$("pref-smart-model-routing").addEventListener("change", savePrefs);
+$("pref-auto-tag").addEventListener("change", (e) =>
+  setPreference("auto_tag_enabled", e.target.checked)
+);
+$("pref-auto-link").addEventListener("change", (e) =>
+  setPreference("auto_link_enabled", e.target.checked)
+);
+$("pref-auto-dedupe").addEventListener("change", (e) =>
+  setPreference("auto_dedupe_enabled", e.target.checked)
+);
+$("pref-battery-mode").addEventListener("change", (e) => {
+  setPreference("battery_efficient_mode", e.target.checked);
+  $("power-saver-indicator")?.classList.toggle("hidden", !e.target.checked);
+});
+$("pref-autonomous-interval").addEventListener("change", (e) =>
+  setPreference("autonomous_tasks_interval_hours", Number(e.target.value) || 6)
+);
+$("pref-autonomous-model").addEventListener("change", (e) =>
+  setPreference("autonomous_tasks_model", e.target.value.trim())
+);
+$("pref-smart-model-routing").addEventListener("change", (e) =>
+  setPreference("smart_model_routing_enabled", e.target.checked)
+);
 
 $("semantic-search-toggle")?.addEventListener("change", () => {
   if (noteSearch) loadAllNotes();
@@ -22812,7 +23025,7 @@ initAuth();
 
 // ======================= WHITEBOARD LOGIC =======================
 let wbZoom = d3.zoom().scaleExtent([0.1, 4]).on("zoom", handleWbZoom);
-let wbState = { nodes: [], sketches: [] };
+let wbState = { nodes: [], sketches: [], objects: [] };
 let wbInitialized = false;
 // ROADMAP.md Tier 2 §11: Select was folded into Pan, with no visible
 // "this is selected" state and no way to delete without switching to the
@@ -22826,6 +23039,12 @@ let wbSelectedItem = null;
 // outside that closure (the Delete-key handler) can still call them.
 let wbDeleteSketchRef = null;
 let wbDeleteNodeRef = null;
+let wbDeleteObjectRef = null;
+// `selectWbTool` is a closure defined inside `initWhiteboard` (it needs that
+// scope's `container`/`toolGroup`); this holds the current one so code
+// outside it — placing a text box switches back to Select once typed —
+// can still call it, the same shape the delete-refs above already use.
+let wbSelectToolRef = null;
 // True only between an eraser mousedown and mouseup — the drawing tools
 // leave one mark per click-drag, the eraser is meant to remove everything
 // the pointer crosses while held, so it needs a "currently held" flag the
@@ -22851,6 +23070,60 @@ const wbDeleting = new Set();
 function handleWbZoom(e) {
   d3.select("#wb-html-layer").style("transform", `translate(${e.transform.x}px, ${e.transform.y}px) scale(${e.transform.k})`);
   d3.select("#wb-zoom-group").attr("transform", e.transform);
+  wbSyncGridToTransform(e.transform);
+}
+
+//: The grid's spacing in board coordinates. Scaled by the zoom so a square
+//: stays a square of the *board*, not of the screen — panning and zooming
+//: move the ruling with the content, which is the whole point of a grid you
+//: can snap to.
+const WB_GRID_SPACING = 24;
+
+function wbSyncGridToTransform(transform) {
+  const el = document.getElementById("whiteboard-container");
+  if (!el) return;
+  const t = transform || d3.zoomTransform(el);
+  el.style.setProperty("--wb-grid-size", `${WB_GRID_SPACING * t.k}px`);
+  el.style.setProperty("--wb-grid-offset-x", `${t.x}px`);
+  el.style.setProperty("--wb-grid-offset-y", `${t.y}px`);
+}
+
+function wbGridType() {
+  return localStorage.getItem("wb-grid") || "none";
+}
+
+function wbSnapOn() {
+  // Snapping without a visible grid is a mystery, not a feature — the
+  // toggle stays honest by only applying while a grid is actually shown.
+  return localStorage.getItem("wb-snap") === "on" && wbGridType() !== "none";
+}
+
+//: Round a board coordinate to the nearest grid intersection, when snap is
+//: on. A no-op otherwise, so every call site can use it unconditionally.
+function wbSnap(value) {
+  return wbSnapOn() ? Math.round(value / WB_GRID_SPACING) * WB_GRID_SPACING : value;
+}
+
+function wbApplyGrid() {
+  const el = document.getElementById("whiteboard-container");
+  if (!el) return;
+  el.dataset.wbGrid = wbGridType();
+  wbSyncGridToTransform();
+}
+
+//: A board's own background image, kept per board in localStorage the same
+//: way its background colour already is — it is a property of how you like
+//: to look at that board, not notebook data, and storing it server-side
+//: would mean a schema column for something the server never reads.
+function wbBgImageKey() {
+  return `wb-bg-image-${window.currentBoardId ?? "default"}`;
+}
+
+function wbApplyBgImage() {
+  const el = document.getElementById("whiteboard-container");
+  if (!el) return;
+  const url = localStorage.getItem(wbBgImageKey());
+  el.style.setProperty("--wb-bg-image", url ? `url("${url}")` : "none");
 }
 
 // A tiny inline SVG baked into a `cursor:` value, so the OS/GPU renders and
@@ -22913,15 +23186,18 @@ function wbCursorForTool(tool, strokeColor) {
 // tool, not folded into pan"). Re-applied after every `renderWhiteboard()`
 // (elements are rebuilt on each render, so a class set on the old DOM node
 // would vanish silently) as well as right after a click.
+const WB_SELECTOR_BY_KIND = {
+  sketch: (id) => `.sketch-group[data-id="${id}"]`,
+  node: (id) => `.node-card[data-id="${id}"]`,
+  object: (id) => `.wb-object[data-id="${id}"]`,
+};
+
 function wbApplySelectionHighlight() {
-  document.querySelectorAll(".sketch-group.wb-selected, .node-card.wb-selected").forEach((el) =>
-    el.classList.remove("wb-selected")
-  );
+  document
+    .querySelectorAll(".sketch-group.wb-selected, .node-card.wb-selected, .wb-object.wb-selected")
+    .forEach((el) => el.classList.remove("wb-selected"));
   if (!wbSelectedItem) return;
-  const selector =
-    wbSelectedItem.kind === "sketch"
-      ? `.sketch-group[data-id="${wbSelectedItem.id}"]`
-      : `.node-card[data-id="${wbSelectedItem.id}"]`;
+  const selector = WB_SELECTOR_BY_KIND[wbSelectedItem.kind](wbSelectedItem.id);
   document.querySelector(selector)?.classList.add("wb-selected");
 }
 
@@ -22936,21 +23212,24 @@ function clearWbSelection() {
   wbApplySelectionHighlight();
 }
 
+//: Which `wbState` list a selection's item lives in, by kind — one place so
+//: it can't drift out of step with `WB_KIND_INFO`'s own list names.
+const WB_LIST_BY_KIND = { sketch: "sketches", node: "nodes", object: "objects" };
+
 // Delete/Backspace with something selected — the other half of "select as
 // a real tool": today, deleting anything meant switching to the Delete
-// tool first. Reuses `deleteSketch`/`deleteNode`, so a selection-delete
-// gets undo/redo for free, the same as every other way of deleting one.
+// tool first. Reuses `deleteSketch`/`deleteNode`/`deleteObject`, so a
+// selection-delete gets undo/redo for free, the same as every other way of
+// deleting one.
 function deleteWbSelection() {
   if (!wbSelectedItem) return false;
   const { kind, id } = wbSelectedItem;
-  const item =
-    kind === "sketch"
-      ? (wbState.sketches || []).find((s) => s.id === id)
-      : (wbState.nodes || []).find((n) => n.id === id);
+  const item = (wbState[WB_LIST_BY_KIND[kind]] || []).find((i) => i.id === id);
   clearWbSelection();
   if (!item) return false;
   if (kind === "sketch") wbDeleteSketchRef?.(item);
-  else wbDeleteNodeRef?.(item);
+  else if (kind === "node") wbDeleteNodeRef?.(item);
+  else wbDeleteObjectRef?.(item);
   return true;
 }
 
@@ -22976,11 +23255,36 @@ function wbPushUndo(entry) {
 // each other's mirror image — pop from one stack, push the reverse onto
 // the other — so one function drives both rather than two near-duplicates
 // that could drift apart.
+//: Per-kind: the collection endpoint, which key in `wbState` holds it, and
+//: how to turn a live item back into a POST body. One table rather than a
+//: three-way ternary repeated at every call site — adding the "object" kind
+//: (images/text boxes) here is the only change `wbApplyHistoryEntry` needed
+//: to cover them too.
+const WB_KIND_INFO = {
+  sketch: {
+    base: "/whiteboard/sketches",
+    list: "sketches",
+    payload: (d) => ({ data: d.data, board_id: d.board_id, x: d.x, y: d.y, z: d.z }),
+  },
+  node: {
+    base: "/whiteboard/nodes",
+    list: "nodes",
+    payload: (d) => ({ entry_id: d.entry_id, board_id: d.board_id, x: d.x, y: d.y, z: d.z }),
+  },
+  object: {
+    base: "/whiteboard/objects",
+    list: "objects",
+    payload: (d) => ({
+      kind: d.kind, data: d.data, board_id: d.board_id,
+      x: d.x, y: d.y, z: d.z, width: d.width, height: d.height,
+    }),
+  },
+};
+
 async function wbApplyHistoryEntry(from, to) {
   const entry = from.pop();
   if (!entry) return false;
-  const base = entry.kind === "sketch" ? "/whiteboard/sketches" : "/whiteboard/nodes";
-  const list = entry.kind === "sketch" ? "sketches" : "nodes";
+  const { base, list, payload: toPayload } = WB_KIND_INFO[entry.kind];
   if (entry.action === "delete") {
     // This entry means "bring back what was deleted". Applying it recreates
     // the item; reversing *that* is deleting the newly-recreated one again.
@@ -22994,11 +23298,7 @@ async function wbApplyHistoryEntry(from, to) {
     // future redo/undo) needs a real payload to recreate it from, not a
     // blank one.
     const item = wbState[list].find((i) => i.id === entry.id);
-    const payload =
-      item &&
-      (entry.kind === "sketch"
-        ? { data: item.data, board_id: item.board_id, x: item.x, y: item.y, z: item.z }
-        : { entry_id: item.entry_id, board_id: item.board_id, x: item.x, y: item.y, z: item.z });
+    const payload = item && toPayload(item);
     await apiJson(`${base}/${entry.id}`, { method: "DELETE" });
     wbState[list] = wbState[list].filter((i) => i.id !== entry.id);
     if (payload) to.push({ action: "delete", kind: entry.kind, payload });
@@ -23032,6 +23332,383 @@ async function wbRedo() {
   } catch {
     toast("Couldn't redo that.", true);
   }
+}
+
+// Images and text boxes — the two new object kinds, created here and
+// rendered by `renderWbObjects`. One shared creator (a POST plus the usual
+// create-undo-entry dance every other whiteboard item already does) rather
+// than a copy per kind, since only the `kind`/`data` differ.
+async function wbCreateObject(kind, data, x, y, width, height) {
+  const body = { kind, data, board_id: window.currentBoardId, x, y, z: 1, width, height };
+  try {
+    const created = await apiJson("/whiteboard/objects", { method: "POST", body: JSON.stringify(body) });
+    wbState.objects = wbState.objects || [];
+    wbState.objects.push(created);
+    wbPushUndo({ action: "create", kind: "object", id: created.id });
+    renderWhiteboard();
+    await refreshBoardList();
+    return created;
+  } catch (err) {
+    toast(err.message || "Couldn't add that to the board.", true);
+    return null;
+  }
+}
+
+async function wbCreateTextBox(x, y) {
+  const created = await wbCreateObject(
+    "text",
+    { content: "" },
+    x - 100, y - 40, 200, 80
+  );
+  if (!created) return;
+  wbSelectToolRef?.("select");
+  // The point of click-to-place is typing immediately — a text box with
+  // nothing in it and no visible focus is a box nobody knows they can type
+  // into. renderWhiteboard() just rebuilt the DOM, so the element has to be
+  // looked up fresh rather than kept from before the render.
+  requestAnimationFrame(() => {
+    const el = document.querySelector(`.wb-object[data-id="${created.id}"] .wb-text-content`);
+    el?.focus();
+  });
+}
+
+// Asked for directly. Deletes every card and sketch on the *current* board
+// (not other boards — clearing is scoped the same way everything else on
+// this screen is). Reuses the same undo entries a single delete already
+// pushes, one per item, rather than inventing a second "bulk" undo shape —
+// so Ctrl+Z after Clear brings items back one at a time, exactly like an
+// eraser swipe over the same items would.
+async function wbClearBoard() {
+  const total = wbState.nodes.length + wbState.sketches.length + (wbState.objects?.length || 0);
+  if (total === 0) {
+    toast("This board is already empty.");
+    return;
+  }
+  const ok = await confirmDialog(
+    `Clear this board? ${total} item${total === 1 ? "" : "s"} will be removed. ` +
+    "Ctrl+Z undoes them one at a time afterward."
+  );
+  if (!ok) return;
+  try {
+    for (const kind of ["node", "sketch", "object"]) {
+      const { base, list, payload } = WB_KIND_INFO[kind];
+      for (const item of [...(wbState[list] || [])]) {
+        await apiJson(`${base}/${item.id}`, { method: "DELETE" });
+        wbPushUndo({ action: "delete", kind, payload: payload(item) });
+      }
+      wbState[list] = [];
+    }
+    wbSelectedItem = null;
+    renderWhiteboard();
+    await refreshBoardList();
+    toast("Board cleared.");
+  } catch {
+    toast("Couldn't clear the whole board — reloading to show what's left.", true);
+    await fetchWhiteboardState();
+    renderWhiteboard();
+  }
+}
+
+// --- Whiteboard export (asked for directly: "a way to screen clip a or a
+// selected area and export as an image/pdf/svg etc") -----------------------
+//
+// No marquee/multi-select exists yet (HANDOVER's own open list), so "a
+// selected area" becomes two concrete scopes instead: what's currently
+// framed on screen (the literal "screen clip" reading), or the whole board
+// regardless of pan/zoom. Both are built the same way — as a real SVG
+// string, sized to board-space coordinates — which then serves all three
+// formats: written out directly for .svg, rasterized through an off-screen
+// <canvas> for .png, and for PDF, handed to the browser's own Print →
+// "Save as PDF" rather than hand-rolling PDF bytes, which is what every
+// pure-client web app already does for this and needs no library to do.
+function wbSvgEscape(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+// A rough character-count wrap — no live font metrics are available while
+// building a string that isn't in the DOM yet. Good enough for a legible
+// label in an export, not typeset text. `maxLines` caps height (a card's
+// own export label is deliberately short; a text box gets more room).
+function wbSvgWrapLines(text, maxWidth, maxLines = 6, charWidth = 7) {
+  const charsPerLine = Math.max(10, Math.floor(maxWidth / charWidth));
+  const words = String(text).split(/\s+/).filter(Boolean);
+  const lines = [];
+  let line = "";
+  for (const word of words) {
+    const next = (line + " " + word).trim();
+    if (next.length > charsPerLine && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = next;
+    }
+    if (lines.length >= maxLines) break;
+  }
+  if (line && lines.length < maxLines) lines.push(line);
+  return lines;
+}
+
+function wbSvgText(lines, x, y, { fontSize = 13, fill = "#1f2430", lineHeight } = {}) {
+  const dy = lineHeight || fontSize + 3;
+  const tspans = lines
+    .map((l, i) => `<tspan x="${x}" dy="${i === 0 ? 0 : dy}">${wbSvgEscape(l)}</tspan>`)
+    .join("");
+  return `<text x="${x}" y="${y}" font-family="sans-serif" font-size="${fontSize}" fill="${fill}">${tspans}</text>`;
+}
+
+function wbSvgWrappedText(text, x, y, maxWidth) {
+  return wbSvgText(wbSvgWrapLines(text, maxWidth), x, y);
+}
+
+// The board's full extent — every card and sketch, with padding — computed
+// from what's actually rendered (`getBBox`/`offsetWidth`) rather than
+// guessed constants, so it stays right if a card's real size ever changes.
+function wbBoardBounds() {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const node of wbState.nodes) {
+    const el = document.querySelector(`.node-card[data-id="${node.id}"]`);
+    const w = el ? el.offsetWidth : 250;
+    const h = el ? el.offsetHeight : 150;
+    minX = Math.min(minX, node.x);
+    minY = Math.min(minY, node.y);
+    maxX = Math.max(maxX, node.x + w);
+    maxY = Math.max(maxY, node.y + h);
+  }
+  for (const sketch of wbState.sketches) {
+    const el = document.querySelector(`.sketch-group[data-id="${sketch.id}"]`);
+    if (!el) continue;
+    try {
+      const bbox = el.getBBox();
+      minX = Math.min(minX, bbox.x);
+      minY = Math.min(minY, bbox.y);
+      maxX = Math.max(maxX, bbox.x + bbox.width);
+      maxY = Math.max(maxY, bbox.y + bbox.height);
+    } catch {
+      /* getBBox throws on an element the browser hasn't laid out yet */
+    }
+  }
+  for (const obj of wbState.objects || []) {
+    minX = Math.min(minX, obj.x);
+    minY = Math.min(minY, obj.y);
+    maxX = Math.max(maxX, obj.x + obj.width);
+    maxY = Math.max(maxY, obj.y + obj.height);
+  }
+  if (!Number.isFinite(minX)) return { minX: 0, minY: 0, width: 800, height: 600 };
+  const pad = 60;
+  return {
+    minX: minX - pad,
+    minY: minY - pad,
+    width: maxX - minX + pad * 2,
+    height: maxY - minY + pad * 2,
+  };
+}
+
+// What's actually framed on screen right now, in board-space coordinates —
+// the inverse of the pan/zoom transform the container itself carries.
+function wbVisibleBounds() {
+  const container = document.getElementById("whiteboard-container");
+  const transform = d3.zoomTransform(container);
+  const rect = container.getBoundingClientRect();
+  return {
+    minX: -transform.x / transform.k,
+    minY: -transform.y / transform.k,
+    width: rect.width / transform.k,
+    height: rect.height / transform.k,
+  };
+}
+
+function wbBuildExportSvg(scope) {
+  const { minX, minY, width, height } = scope === "visible" ? wbVisibleBounds() : wbBoardBounds();
+  const container = document.getElementById("whiteboard-container");
+  const bgColor = container ? getComputedStyle(container).backgroundColor : "#1b1f2c";
+
+  const parts = [
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${minX} ${minY} ${width} ${height}" ` +
+      `width="${Math.round(width)}" height="${Math.round(height)}">`,
+    `<rect x="${minX}" y="${minY}" width="${width}" height="${height}" fill="${bgColor}" />`,
+  ];
+
+  // Sketches already exist as real SVG — cloned as-is rather than
+  // reinterpreted, so a stroke's colour/width/opacity (including the
+  // highlighter's own translucency) survives into the export untouched.
+  for (const sketch of wbState.sketches) {
+    const el = document.querySelector(`.sketch-group[data-id="${sketch.id}"]`);
+    if (!el) continue;
+    const clone = el.cloneNode(true);
+    clone.removeAttribute("class");
+    parts.push(clone.outerHTML);
+  }
+
+  // Cards are the HTML layer, which doesn't survive SVG rasterization the
+  // way real SVG does — a simplified rect + label stands in for the live
+  // card, matching what the live card itself shows (raw content, truncated;
+  // it has no private-note masking of its own to match either).
+  for (const node of wbState.nodes) {
+    const entry = allEntries.find((e) => String(e.id) === String(node.entry_id));
+    const el = document.querySelector(`.node-card[data-id="${node.id}"]`);
+    const w = el ? el.offsetWidth : 250;
+    const h = el ? el.offsetHeight : 150;
+    const label = entry ? notePreviewText(entry.content || "").slice(0, 160) : `Note ${node.entry_id}`;
+    parts.push(`<g transform="translate(${node.x}, ${node.y})">`);
+    parts.push(
+      `<rect width="${w}" height="${h}" rx="10" fill="#ffffffcc" stroke="#8888aa" stroke-width="1.5" />`
+    );
+    parts.push(wbSvgWrappedText(label || "Empty note", 14, 24, w - 28));
+    parts.push("</g>");
+  }
+
+  // Images and text boxes — the two new object kinds, neither tied to a
+  // note. An <image> element rasterizes cleanly since the URL is always
+  // same-origin (isRenderableUrl already guarantees that server-side); a
+  // text box gets the same simplified rect+label treatment a card does,
+  // but honours the colour/size it was actually given rather than a fixed
+  // look, since those are the whole point of a text box.
+  for (const obj of wbState.objects || []) {
+    parts.push(`<g transform="translate(${obj.x}, ${obj.y})">`);
+    if (obj.kind === "image" && obj.data.url) {
+      parts.push(
+        `<image href="${wbSvgEscape(obj.data.url)}" width="${obj.width}" height="${obj.height}" ` +
+          `preserveAspectRatio="xMidYMid slice" />`
+      );
+    } else if (obj.kind === "text") {
+      const fontSize = obj.data.font_size || 16;
+      const lines = wbSvgWrapLines(obj.data.content || "", obj.width - 20, 20, fontSize * 0.55);
+      parts.push(
+        wbSvgText(lines, 10, fontSize + 8, {
+          fontSize,
+          fill: obj.data.color || "#1f2430",
+          lineHeight: fontSize * 1.25,
+        })
+      );
+    }
+    parts.push("</g>");
+  }
+
+  parts.push("</svg>");
+  return { svg: parts.join(""), width, height };
+}
+
+function wbRasterizeSvg(svgString, width, height, mime) {
+  return new Promise((resolve, reject) => {
+    const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(width));
+      canvas.height = Math.max(1, Math.round(height));
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(
+        (result) => (result ? resolve(result) : reject(new Error("Couldn't rasterize the board."))),
+        mime
+      );
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Couldn't rasterize the board."));
+    };
+    img.src = url;
+  });
+}
+
+async function wbExportSvg(scope) {
+  const { svg } = wbBuildExportSvg(scope);
+  await saveFile(`whiteboard-${scope}.svg`, new Blob([svg], { type: "image/svg+xml" }));
+  toast("Board exported as SVG.");
+}
+
+async function wbExportPng(scope) {
+  const { svg, width, height } = wbBuildExportSvg(scope);
+  const blob = await wbRasterizeSvg(svg, width, height, "image/png");
+  await saveFile(`whiteboard-${scope}.png`, blob);
+  toast("Board exported as PNG.");
+}
+
+async function wbExportPdf(scope) {
+  const { svg, width, height } = wbBuildExportSvg(scope);
+  const blob = await wbRasterizeSvg(svg, width, height, "image/png");
+  const url = URL.createObjectURL(blob);
+  const win = window.open("", "_blank");
+  if (!win) {
+    URL.revokeObjectURL(url);
+    toast("Allow pop-ups to export as PDF — it opens Print, then Save as PDF.", true);
+    return;
+  }
+  win.document.write(
+    `<!doctype html><html><head><title>MemoryMap whiteboard export</title><style>` +
+      `@page { margin: 0; } html,body{margin:0;padding:0;background:#fff;}` +
+      `img{display:block;width:100%;height:auto;}</style></head>` +
+      `<body><img src="${url}" alt="Whiteboard export"></body></html>`
+  );
+  win.document.close();
+  win.onload = () => {
+    win.focus();
+    win.print();
+  };
+  toast('Opened Print — choose "Save as PDF" as the destination.');
+}
+
+let wbExportMenuOutsideClick = null;
+
+function wbCloseExportMenu() {
+  document.getElementById("wb-export-menu")?.remove();
+  if (wbExportMenuOutsideClick) {
+    document.removeEventListener("click", wbExportMenuOutsideClick, true);
+    wbExportMenuOutsideClick = null;
+  }
+}
+
+function wbExportBoard() {
+  wbCloseExportMenu();
+  const button = document.getElementById("wb-export");
+  if (!button) return;
+  const menu = document.createElement("div");
+  menu.id = "wb-export-menu";
+  menu.className = "wb-export-menu";
+  const rect = button.getBoundingClientRect();
+  menu.style.top = `${rect.bottom + 6}px`;
+  menu.style.right = `${window.innerWidth - rect.right}px`;
+
+  const addHeading = (text) => {
+    const h = document.createElement("div");
+    h.className = "wb-export-heading";
+    h.textContent = text;
+    menu.appendChild(h);
+  };
+  const addOption = (label, run) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = label;
+    btn.addEventListener("click", async () => {
+      wbCloseExportMenu();
+      try {
+        await run();
+      } catch (err) {
+        toast(err.message || "Couldn't export the board.", true);
+      }
+    });
+    menu.appendChild(btn);
+  };
+
+  addHeading("Image (PNG)");
+  addOption("What's on screen now", () => wbExportPng("visible"));
+  addOption("The whole board", () => wbExportPng("whole"));
+  addHeading("Vector (SVG)");
+  addOption("The whole board", () => wbExportSvg("whole"));
+  addHeading("PDF");
+  addOption("The whole board, via Print", () => wbExportPdf("whole"));
+
+  document.body.appendChild(menu);
+  wbExportMenuOutsideClick = (event) => {
+    if (!menu.contains(event.target) && event.target !== button) wbCloseExportMenu();
+  };
+  setTimeout(() => document.addEventListener("click", wbExportMenuOutsideClick, true), 0);
 }
 
 async function initWhiteboard() {
@@ -23073,8 +23750,12 @@ async function initWhiteboard() {
       window.currentBoardId = e.target.value || null;
       await fetchWhiteboardState();
       renderWhiteboard();
+      // The background image is stored per board, so switching boards has
+      // to re-read it — otherwise the previous board's image stays up.
+      wbApplyBgImage();
     });
   }
+  $("wb-new-board")?.addEventListener("click", createNewBoard);
 
   // Board background colour, asked for directly — the ambient generative-art
   // canvas showed straight through the board before this (`--wb-board-bg`,
@@ -23250,12 +23931,85 @@ async function initWhiteboard() {
     });
   }
 
+  // Grid, snap-to-grid and a board background image (all asked for
+  // directly). Each is a per-browser display preference like the board
+  // colour beside them, so all three live in localStorage rather than
+  // costing the notebook a schema column the server would never read.
+  const gridSelect = $("wb-grid-select");
+  if (gridSelect) {
+    gridSelect.value = wbGridType();
+    gridSelect.addEventListener("change", (e) => {
+      localStorage.setItem("wb-grid", e.target.value);
+      wbApplyGrid();
+      // Snap only bites while a grid is visible, so the checkbox has to
+      // follow the grid going away rather than silently staying "on".
+      $("wb-snap-toggle").disabled = e.target.value === "none";
+    });
+  }
+  const snapToggle = $("wb-snap-toggle");
+  if (snapToggle) {
+    snapToggle.checked = localStorage.getItem("wb-snap") === "on";
+    snapToggle.disabled = wbGridType() === "none";
+    snapToggle.addEventListener("change", (e) => {
+      localStorage.setItem("wb-snap", e.target.checked ? "on" : "off");
+    });
+  }
+  const bgImageInput = $("wb-bg-image-input");
+  $("wb-bg-image")?.addEventListener("click", async () => {
+    // A background already set means the button's job is to offer removing
+    // it — a second "clear it" control for something most boards never use
+    // would be permanent clutter on a panel that is already busy.
+    if (localStorage.getItem(wbBgImageKey())) {
+      if (await confirmDialog("Remove this board's background image?")) {
+        localStorage.removeItem(wbBgImageKey());
+        wbApplyBgImage();
+        toast("Background image removed.");
+        return;
+      }
+      return;
+    }
+    bgImageInput?.click();
+  });
+  bgImageInput?.addEventListener("change", async () => {
+    const file = bgImageInput.files?.[0];
+    bgImageInput.value = "";
+    if (!file) return;
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const uploaded = await apiJson("/media/upload", {
+        method: "POST",
+        headers: { "X-Auth-Token": authToken() },
+        body: formData,
+      });
+      localStorage.setItem(wbBgImageKey(), uploaded.url);
+      wbApplyBgImage();
+      toast("Background image set.");
+    } catch (err) {
+      toast(err.message || "Couldn't set that background image.", true);
+    }
+  });
+  wbApplyGrid();
+  wbApplyBgImage();
+
+  $("wb-clear-board")?.addEventListener("click", wbClearBoard);
+  $("wb-export")?.addEventListener("click", wbExportBoard);
+
   // Tool Selection
   window.currentTool = "pan";
   let isDrawing = false;
   let currentDrawPath = null;
   let currentDrawData = []; // array of [x, y]
-  window.currentStrokeColor = "#ffffff";
+  // Reported directly: a white stroke, hardcoded regardless of theme, on a
+  // light-theme board whose background (`--wb-board-bg: var(--modal-bg)`,
+  // theme-aware) is itself light — drawing anything was invisible from the
+  // first stroke. Defaults to black on light, white on dark, matching
+  // whichever the board's own background actually resolves to; a saved
+  // choice (persisted the same way the board's own background colour is)
+  // always wins over the theme default.
+  const savedStroke = localStorage.getItem("wb-stroke-color");
+  window.currentStrokeColor =
+    savedStroke || (document.documentElement.dataset.mode === "dark" ? "#ffffff" : "#000000");
   // Shared with the mousedown handler below, so the cursor preview drawn
   // here is never a different size than what actually gets drawn.
   const WB_STROKE_WIDTH = 3;
@@ -23287,6 +24041,8 @@ async function initWhiteboard() {
     updateWbCursor();
   }
 
+  wbSelectToolRef = selectWbTool;
+
   if (toolGroup) {
     toolGroup.addEventListener("click", (e) => {
       const btn = e.target.closest("button[data-tool]");
@@ -23295,8 +24051,10 @@ async function initWhiteboard() {
   }
 
   if (colorPicker) {
+    colorPicker.value = window.currentStrokeColor;
     colorPicker.addEventListener("change", (e) => {
       window.currentStrokeColor = e.target.value;
+      localStorage.setItem("wb-stroke-color", e.target.value);
       updateWbCursor();
     });
   }
@@ -23330,6 +24088,7 @@ async function initWhiteboard() {
     a: "arrow",
     r: "rect",
     o: "circle",
+    t: "text",
     e: "eraser",
     x: "delete",
   };
@@ -23407,8 +24166,79 @@ async function initWhiteboard() {
   // Clicking empty canvas with Select active clears the selection — every
   // card/sketch's own click handler calls stopPropagation() under Select,
   // so a click that reaches here was never on an item.
-  containerEl.addEventListener("click", () => {
+  containerEl.addEventListener("click", (e) => {
     if (window.currentTool === "select") clearWbSelection();
+    // A text box is placed by clicking, not dragged like a shape — it has
+    // no natural "size while dragging" the way a rect does, so click-to-drop
+    // at a sensible default size (typed into afterward) is the same model
+    // OneNote and every sticky-note tool already use.
+    // No `e.target` check: like the Select-clear branch above, this relies
+    // on an item's own click handler having already called stopPropagation()
+    // if the click actually landed on a card/sketch/object — a click that
+    // reaches here bubbled up from truly empty canvas either way.
+    if (window.currentTool === "text") {
+      const [x, y] = getLogicalMouse(e);
+      wbCreateTextBox(x, y);
+    }
+  });
+
+  // Images: paste, drag-and-drop, or the upload button — asked for
+  // directly, and all three funnel through the same upload+place path
+  // `handleFileUpload` already established for notes (POST /media/upload,
+  // then a placed reference — a board object here instead of markdown text).
+  async function wbPlaceUploadedImage(file, x, y) {
+    if (!file || !file.type?.startsWith("image/")) return;
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const uploaded = await apiJson("/media/upload", {
+        method: "POST",
+        headers: { "X-Auth-Token": authToken() },
+        body: formData,
+      });
+      const img = new Image();
+      const naturalSize = await new Promise((resolve) => {
+        img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+        img.onerror = () => resolve({ w: 300, h: 200 });
+        img.src = uploaded.url;
+      });
+      const width = Math.min(400, naturalSize.w || 300);
+      const height = width * ((naturalSize.h || 200) / (naturalSize.w || 300));
+      await wbCreateObject("image", { url: uploaded.url }, x - width / 2, y - height / 2, width, height);
+    } catch (err) {
+      toast(err.message || "Couldn't add that image.", true);
+    }
+  }
+
+  containerEl.addEventListener("dragover", (e) => {
+    if (e.dataTransfer?.types?.includes("Files")) e.preventDefault();
+  });
+  containerEl.addEventListener("drop", (e) => {
+    if (!e.dataTransfer?.files?.length) return;
+    e.preventDefault();
+    const [x, y] = getLogicalMouse(e);
+    for (const file of e.dataTransfer.files) wbPlaceUploadedImage(file, x, y);
+  });
+  // Paste has no drop coordinate to place at — the centre of whatever's
+  // currently in view reads better than always the same fixed board
+  // position, which would stack every pasted image on top of the last one.
+  containerEl.addEventListener("paste", (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const files = [...items].filter((i) => i.kind === "file").map((i) => i.getAsFile());
+    if (!files.length) return;
+    e.preventDefault();
+    const rect = containerEl.getBoundingClientRect();
+    const [x, y] = getLogicalMouse({ clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 });
+    for (const file of files) wbPlaceUploadedImage(file, x, y);
+  });
+  const imageFileInput = document.getElementById("wb-image-file-input");
+  document.getElementById("wb-add-image")?.addEventListener("click", () => imageFileInput?.click());
+  imageFileInput?.addEventListener("change", () => {
+    const rect = containerEl.getBoundingClientRect();
+    const [x, y] = getLogicalMouse({ clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 });
+    for (const file of imageFileInput.files) wbPlaceUploadedImage(file, x, y);
+    imageFileInput.value = "";
   });
 
   svgCanvas.addEventListener("pointerdown", (e) => {
@@ -23616,35 +24446,78 @@ async function fetchWhiteboardState() {
     const url = window.currentBoardId ? `/whiteboard/?board_id=${window.currentBoardId}` : "/whiteboard/";
     const res = await apiJson(url);
     wbState = res;
-    
-    // Also update board dropdown
-    const select = document.getElementById("wb-board-select");
-    if (select) {
-      // populate if not populated
-      if (select.options.length <= 1 && allEntries.length > 0) {
-        allEntries.forEach(e => {
-          const opt = document.createElement("option");
-          opt.value = e.id;
-          // `title`/`preview` are not fields on an entry — the only text an
-          // entry carries is `content` — so this always fell through to
-          // "Note 25", and a list of id numbers is not a list of boards.
-          const words = notePreviewText ? notePreviewText(e.content || "") : (e.content || "");
-          const label = words.trim().slice(0, 38) || `Note ${e.id}`;
-          opt.textContent = words.length > 38 ? `${label}…` : label;
-          select.appendChild(opt);
-        });
-      }
-      select.value = window.currentBoardId || "";
-    }
+    await refreshBoardList();
   } catch (err) {
     console.error("Whiteboard fetch error:", err);
+  }
+}
+
+// Reported directly: "the different board options confuse me." It used to
+// be every note in the notebook, since architecturally any note can serve as
+// a board_id — the picker took that literally and offered a 50-item dropdown
+// of notes that had never been anywhere near the whiteboard. GET
+// /whiteboard/boards lists only notes something is actually on, plus the
+// always-present default board (see routes_whiteboard.py for the full
+// writeup). Re-fetched on every state load rather than cached once: creating
+// or first-using a board should show up in the picker without a reload.
+// `justCreated`: a board this session just made, which won't come back from
+// the server yet — nothing is on it, and the endpoint only lists boards
+// something has actually been placed on (see its own docstring). Without
+// this, switching straight to a brand-new board made the dropdown fall back
+// to whatever option happened to match nothing, which looked like the new
+// board had failed to switch to at all.
+async function refreshBoardList(justCreated = null) {
+  const select = document.getElementById("wb-board-select");
+  if (!select) return;
+  const boards = await apiJson("/whiteboard/boards", { silent: true }).catch(() => null);
+  if (!boards) return;
+  if (justCreated && !boards.some((b) => b.id === justCreated.id)) {
+    boards.push({ ...justCreated, node_count: 0, sketch_count: 0 });
+  }
+  select.replaceChildren();
+  for (const board of boards) {
+    const opt = document.createElement("option");
+    opt.value = board.id ?? "";
+    const count = board.node_count + board.sketch_count;
+    opt.textContent = board.id === null
+      ? board.title
+      : `${board.title} (${count} item${count === 1 ? "" : "s"})`;
+    select.appendChild(opt);
+  }
+  select.value = window.currentBoardId || "";
+}
+
+async function createNewBoard() {
+  const name = await promptDialog("Name the new board:", "");
+  if (!name || !name.trim()) return;
+  try {
+    const board = await apiJson("/whiteboard/boards", {
+      method: "POST",
+      body: JSON.stringify({ name: name.trim() }),
+    });
+    window.currentBoardId = board.id;
+    const url = `/whiteboard/?board_id=${board.id}`;
+    wbState = await apiJson(url);
+    await refreshBoardList(board);
+    renderWhiteboard();
+    toast(`Board "${board.title}" created.`);
+  } catch (err) {
+    toast(err.message || "Couldn't create that board.", true);
   }
 }
 
 function renderWhiteboard() {
   document
     .getElementById("wb-empty-hint")
-    ?.classList.toggle("hidden", (wbState.nodes?.length || 0) + (wbState.sketches?.length || 0) > 0);
+    ?.classList.toggle(
+      "hidden",
+      // Objects count too — a board holding only a text box or an image is
+      // not empty, and left out of this sum the hint sat on top of them.
+      (wbState.nodes?.length || 0) +
+        (wbState.sketches?.length || 0) +
+        (wbState.objects?.length || 0) >
+        0
+    );
 
   // Render Sketches (SVG)
   const svgGroup = d3.select("#wb-zoom-group");
@@ -23833,10 +24706,194 @@ function renderWhiteboard() {
 
   nodeSelection.exit().remove();
 
+  renderWbObjects(canvas);
+
   // Every element above was just rebuilt, so any `.wb-selected` class set
   // before this render is gone with it — re-apply from the state that
   // actually persists (`wbSelectedItem`), not the DOM.
   wbApplySelectionHighlight();
+}
+
+//: Min size a resize can shrink an object to — small enough for a sticky
+//: note, too small to lose an image/text box entirely off the canvas.
+const WB_OBJECT_MIN_SIZE = 40;
+
+async function wbSaveObject(d) {
+  const body = {
+    kind: d.kind, data: d.data, board_id: d.board_id,
+    x: d.x, y: d.y, z: d.z, width: d.width, height: d.height,
+  };
+  try {
+    const saved = await apiJson(`/whiteboard/objects/${d.id}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    });
+    Object.assign(d, saved);
+  } catch {
+    // Same recoverable-stale-client shape every other whiteboard write here
+    // already follows — a 404 means this object (or its board) is gone.
+    recordBrowserLog("WARN", [`[Whiteboard] object ${d.id} is stale — reloading the board`]);
+    await fetchWhiteboardState();
+    renderWhiteboard();
+  }
+}
+
+// Cards and sketches each render in their own function, inlined into
+// renderWhiteboard directly; objects get their own function instead — two
+// genuinely different element shapes (an <img>, a contenteditable <div>)
+// sharing one drag+resize+select scaffold reads better factored out than
+// inlined a third time.
+function renderWbObjects(canvas) {
+  async function deleteObject(d) {
+    const deletingKey = `object:${d.id}`;
+    if (wbDeleting.has(deletingKey)) return;
+    wbDeleting.add(deletingKey);
+    wbPushUndo({ action: "delete", kind: "object", payload: WB_KIND_INFO.object.payload(d) });
+    try {
+      await apiJson(`/whiteboard/objects/${d.id}`, { method: "DELETE" });
+      wbState.objects = wbState.objects.filter((o) => o.id !== d.id);
+      renderWhiteboard();
+    } catch (e) {
+      console.error(e);
+      wbUndoStack.pop();
+    } finally {
+      wbDeleting.delete(deletingKey);
+    }
+  }
+  wbDeleteObjectRef = deleteObject;
+
+  const objDrag = d3.drag()
+    // A resize handle owns its own drag (below); a text box's own text
+    // needs plain clicks/selection to reach it, not a canvas-wide drag.
+    .filter((event) => !event.target.closest(".wb-resize-handle, .wb-text-content"))
+    .on("start", function () {
+      if (window.currentTool === "eraser" || window.currentTool === "delete") return;
+      d3.select(this).raise();
+    })
+    .on("drag", function (event, d) {
+      if (window.currentTool === "eraser" || window.currentTool === "delete") return;
+      // d3.drag's dx/dy are raw screen pixels, not board-space — the
+      // resize handles below already divide by the zoom scale for exactly
+      // this reason; a plain drag has to as well, or a card/object moves
+      // faster than the cursor when zoomed out and slower when zoomed in.
+      const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
+      d.x = wbSnap(d.x + event.dx / transform.k);
+      d.y = wbSnap(d.y + event.dy / transform.k);
+      d3.select(this).style("transform", `translate(${d.x}px, ${d.y}px)`);
+    })
+    .on("end", function (event, d) {
+      if (window.currentTool === "eraser" || window.currentTool === "delete") return;
+      wbSaveObject(d);
+    });
+
+  function resizeDrag(handle) {
+    return d3.drag()
+      .on("start", function (event) {
+        event.sourceEvent.stopPropagation(); // don't also start objDrag
+      })
+      .on("drag", function (event, d) {
+        const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
+        const dx = event.dx / transform.k;
+        const dy = event.dy / transform.k;
+        if (handle.includes("e")) d.width = Math.max(WB_OBJECT_MIN_SIZE, d.width + dx);
+        if (handle.includes("s")) d.height = Math.max(WB_OBJECT_MIN_SIZE, d.height + dy);
+        if (handle.includes("w")) {
+          const newWidth = Math.max(WB_OBJECT_MIN_SIZE, d.width - dx);
+          d.x += d.width - newWidth;
+          d.width = newWidth;
+        }
+        if (handle.includes("n")) {
+          const newHeight = Math.max(WB_OBJECT_MIN_SIZE, d.height - dy);
+          d.y += d.height - newHeight;
+          d.height = newHeight;
+        }
+        const el = d3.select(this.closest(".wb-object"));
+        el.style("width", `${d.width}px`)
+          .style("height", `${d.height}px`)
+          .style("transform", `translate(${d.x}px, ${d.y}px)`);
+      })
+      .on("end", (event, d) => wbSaveObject(d));
+  }
+
+  const objectSelection = canvas.selectAll(".wb-object")
+    .data(wbState.objects || [], (d) => d.id);
+
+  const objectEnter = objectSelection.enter()
+    .append("div")
+    .attr("class", (d) => `wb-object wb-object-${d.kind}`)
+    .attr("data-id", (d) => d.id)
+    .style("transform", (d) => `translate(${d.x}px, ${d.y}px)`)
+    .style("width", (d) => `${d.width}px`)
+    .style("height", (d) => `${d.height}px`)
+    .style("z-index", (d) => d.z)
+    .call(objDrag)
+    .on("click", (event, d) => {
+      if (window.currentTool === "select") {
+        event.stopPropagation();
+        selectWbItem("object", d.id);
+        return;
+      }
+      if (window.currentTool === "delete" || window.currentTool === "eraser") deleteObject(d);
+    })
+    .on("pointerenter", (event, d) => {
+      if (window.currentTool === "eraser" && wbErasing) deleteObject(d);
+    });
+
+  objectEnter.each(function (d) {
+    const el = d3.select(this);
+    if (d.kind === "image") {
+      el.append("img").attr("src", d.data.url || "").attr("alt", "");
+    } else {
+      const content = el.append("div")
+        .attr("class", "wb-text-content")
+        .attr("contenteditable", "true")
+        .style("color", d.data.color || "")
+        .style("font-size", d.data.font_size ? `${d.data.font_size}px` : "")
+        .text(d.data.content || "");
+      // Saved on blur, not on every keystroke — a PUT per character would
+      // flood the server and make undo/redo of everything *else* land
+      // between two half-typed states.
+      content.on("blur", function () {
+        d.data = { ...d.data, content: this.textContent };
+        wbSaveObject(d);
+      });
+      // Typing is text-box business, not the canvas's — Delete/Backspace
+      // here must edit the text, not delete the whole box the way the same
+      // keys do when an object is merely *selected*.
+      content.on("keydown", (event) => event.stopPropagation());
+      content.on("pointerdown", (event) => event.stopPropagation());
+    }
+    for (const handle of ["nw", "n", "ne", "e", "se", "s", "sw", "w"]) {
+      el.append("div")
+        .attr("class", "wb-resize-handle")
+        .attr("data-handle", handle)
+        .call(resizeDrag(handle));
+    }
+  });
+
+  const objectUpdate = objectEnter.merge(objectSelection);
+  objectUpdate
+    .style("transform", (d) => `translate(${d.x}px, ${d.y}px)`)
+    .style("width", (d) => `${d.width}px`)
+    .style("height", (d) => `${d.height}px`)
+    .style("z-index", (d) => d.z);
+  // An image's own src can change (rare — nothing in this UI replaces one
+  // yet, but a future paste-to-replace shouldn't need this rewritten) and a
+  // text box's saved colour/size might have changed elsewhere (undo/redo);
+  // the text itself is deliberately left alone here so a re-render mid-edit
+  // (another item moving, say) can't overwrite what's being typed.
+  objectUpdate.each(function (d) {
+    const el = d3.select(this);
+    if (d.kind === "image") {
+      el.select("img").attr("src", d.data.url || "");
+    } else {
+      const textEl = el.select(".wb-text-content");
+      textEl.style("color", d.data.color || "").style("font-size", d.data.font_size ? `${d.data.font_size}px` : "");
+      if (document.activeElement !== textEl.node()) textEl.text(d.data.content || "");
+    }
+  });
+
+  objectSelection.exit().remove();
 }
 
 function dragStart(event, d) {
@@ -23871,8 +24928,15 @@ function dragging(event, d) {
       d.linkingPath.setAttribute("d", `M ${sx} ${sy} C ${sx + dx/2} ${sy}, ${mx - dx/2} ${my}, ${mx} ${my}`);
     }
   } else {
-    d.x += event.dx;
-    d.y += event.dy;
+    // Pre-existing gap, not introduced this session, caught while adding
+    // snap-to-grid here: event.dx/dy are raw screen pixels — the
+    // link-drawing branch just above already divides by the zoom scale for
+    // the same reason. Without it, a card dragged while zoomed moved faster
+    // than the cursor when zoomed out and slower when zoomed in, and snap
+    // would round a wrongly-scaled delta.
+    const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
+    d.x = wbSnap(d.x + event.dx / transform.k);
+    d.y = wbSnap(d.y + event.dy / transform.k);
     d3.select(this).style("transform", `translate(${d.x}px, ${d.y}px)`);
     // re-render links so they move with the node
     renderWhiteboard();

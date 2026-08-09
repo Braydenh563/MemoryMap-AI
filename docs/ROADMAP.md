@@ -286,7 +286,19 @@ into a good one.
     objects), so this needs a real architecture change, not a small patch,
     unlike the whiteboard's own discrete-object select (item 11). The
     toolbar redesign comes after it, not before.
-11. **The whiteboard, properly.** Done in an earlier session, reported and
+11. **The whiteboard, properly.** ~~Images, text boxes, resize (8-handle
+    corner+edge), grid (lines/dots/isometric)+snap, per-board background
+    image, export (PNG/SVG/PDF), clear-board, and a redesigned board picker
+    (only boards actually in use, not every note)~~ **all done this
+    session (HANDOVER.md §53), verified live.** **Still genuinely open, and
+    the one piece worth its own session before touching anything else
+    here:** real anchor/connection points (fixed corners+edges, a free
+    point along an edge, a link that visually terminates on the border,
+    not wherever a drag ended) — asked for directly, "take inspiration
+    from draw.io." See HANDOVER.md §53 for why this was deliberately not
+    attempted alongside everything else.
+
+    Done in an earlier session, reported and
     verified in Chromium: per-tool cursors (native `cursor: url(svg)`, not a
     JS-tracked div — the div version was reported and reproduced as "the
     mouse snaps to an invisible grid", a lag artifact, not a real grid), an

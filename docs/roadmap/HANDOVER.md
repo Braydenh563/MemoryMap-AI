@@ -2,7 +2,156 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session: §52 — whiteboard redo/select/highlighter/arrow, arc-label spacing, pointer-event touch support — and a live-verification gap on shape tools
+## Latest session: §53 — a user-reported bug list, then the whiteboard rebuilt into a real OneNote/draw.io-style canvas
+
+Worked a list of live-reported bugs first (per standing instruction: fix
+what's broken before building), then the whiteboard feature list from
+ROADMAP §11, then several follow-up asks that arrived mid-session. Ten
+commits, all pushed to `claude/roadmap-whiteboard-fixes-fhsazp` (PR #80),
+full suite green after every one. **Read this before touching the
+whiteboard, glassmorphism CSS, or inline markdown rendering.**
+
+**Bug list, all fixed and verified live:**
+- **`PUT /whiteboard/nodes` 500 / "card is stale."** Root cause:
+  `WhiteboardNode`/`WhiteboardSketch` carry a real `ForeignKey("entries.id")`
+  but were never added to `manager._hard_delete`'s cleanup list — purging a
+  note that had a card on it, or that was itself a board, threw a raw
+  `IntegrityError` out of `db.commit()`. Fixed (delete a card whose own note
+  is gone; detach `board_id` to the default board when the *board* note is
+  purged) and `routes_whiteboard.py` gained `_require_board` so a stale
+  `board_id` from a client is a clean 404, not a 500. Reproduced and
+  re-verified the exact failure live before and after.
+- **"Preferences keep getting deleted."** Two settings sections
+  (Preferences, Background Tasks) each saved via a whole-form
+  `savePrefs()`/rebuild-from-DOM, and either one may never have rendered
+  this session — so saving one silently overwrote the other's fields with
+  raw HTML defaults. Fixed by moving Background Tasks' controls onto
+  `setPreference` (single-key PUT, the pattern the codebase had already
+  established but never finished applying) and giving that section its own
+  render step. Verified live: toggling one section's field no longer
+  touches the other's.
+- **Glassmorphism "more opaque than before."** The existing blur slider
+  never touched alpha (confirmed unchanged across its whole range, live) —
+  the real gap was that *nothing* controlled transparency independent of
+  blur. Added a second slider (`--glass-opacity`, `color-mix()` at each of
+  ~20 `--card`/`--inner`/`--input-bg` definitions, default 100% = unchanged),
+  a glass "sheen" (a diagonal highlight — the standard glassmorphism tell
+  that a translucent panel is *glass*, not tinted paint), gated so it's
+  **off when glass itself is off, off by default even when glass is on, and
+  auto-enables the one time glass is switched on from off** (exact spec,
+  asked for directly, verified live in that exact sequence), with its own
+  adjustable strength slider. Opacity floor lowered 30%→5% (re-reported as
+  "still not clear enough"). Also fixed while in here: the whiteboard's
+  default stroke colour was hardcoded white regardless of theme — invisible
+  on light theme's own light board background — now black/white by theme
+  and persisted (previously reset to white every load).
+- **Images rendering as raw `![...]` markdown instead of `<img>`, app-wide.**
+  Two separate inline-markdown renderers (`renderInlineMarkdown` for the
+  note-card list, `appendInline` for chat/documents) had zero image support
+  and links restricted to absolute `http(s)` — so a note's own
+  `![name](/media/hash.ext)` (exactly what paste/drop/attach produces) never
+  rendered anywhere. Fixed both, gated through a same-origin `isRenderableUrl`
+  allowlist. Extended to every place that showed a note-text snippet as
+  plain `.textContent` (link chips, doc-sidebar buttons, related-note
+  previews, graph Trace readout, dashboard "Most used") via a new `compact`
+  render mode (alt-text instead of a real `<img>` in label-sized spots).
+  Verified live: `**bold**` renders as `<strong>` inside a link chip; a real
+  uploaded image renders as `<img src="/media/...">` in the note list.
+
+**Whiteboard, rebuilt per ROADMAP §11 plus several follow-up asks:**
+- **Board picker redesigned.** It used to list *every note in the
+  notebook* as a "board" (any note can serve as `board_id`) — a 50-note
+  notebook got a 50-item dropdown with no way to tell which were real
+  boards. New `GET /whiteboard/boards` lists only boards something is
+  actually on (plus the always-present default), `POST /whiteboard/boards`
+  creates a named one directly. Verified live: seeded 5 ordinary notes,
+  dropdown still showed only "Default board."
+- **New `WhiteboardObject` table/kind: images and text boxes.** Neither a
+  card (always wraps a note) nor a sketch (a path, not a placeable
+  rectangle) fit "paste an image onto the board" or "a real text box, like
+  OneNote." One table, `kind` discriminator, JSON `data` blob
+  (`{url}` for image, `{content, color, font_size}` for text). Frontend:
+  full render/drag/8-handle-corner-and-edge-resize, a Text tool (click to
+  place, focuses for immediate typing), image paste/drag-drop/upload-button
+  all through the existing `/media/upload` path. Verified live end to end:
+  drag moved an object by the exact mouse delta and persisted server-side;
+  SE-handle resize grew width/height by the exact delta; NW-handle resize
+  correctly anchored the *opposite* corner (x/y and w/h moved oppositely);
+  a text edit persisted through blur.
+- **Clear board, export, grid — all built and verified live.** Clear-board
+  reuses the existing per-item undo entries (no new undo shape). Export
+  builds a real SVG (sketches cloned as-is from the DOM so stroke
+  colour/width/opacity survive exactly; cards/objects as simplified
+  rect+label) that serves PNG (rasterized via canvas), SVG (written
+  directly), and PDF (handed to the browser's own Print → Save as PDF,
+  deliberately not hand-rolled PDF bytes). "Screen clip a selected area"
+  became two concrete scopes (visible viewport / whole board) since no
+  marquee-select exists yet. Grid: three types (lines/dots/isometric,
+  draw.io's own set), synced to the live zoom transform so it pans/zooms
+  with the board, plus snap-to-grid (only live while a grid is shown) wired
+  into both card and object dragging. Per-board background image via the
+  same upload path, stored in localStorage per board id.
+- **Explicitly NOT built — flagged for the next session, not attempted
+  shallow:** real anchor/connection points (fixed corners+edges, a free
+  point along an edge, a link visually terminating on the border) — this
+  project's own roadmap already named it "the biggest single piece, worth
+  its own session," and the user asked for it directly plus "take
+  inspiration from draw.io." Attempting a thin version alongside everything
+  else in this session risked exactly the shallow-then-redone pattern this
+  file's own history keeps warning about. **Do this next**, looking at how
+  draw.io itself represents a fixed-vs-free anchor before building.
+
+**A real security bug, caught by CI, not by me.** The image-object delete
+path I wrote used `url.startswith("/media/")` to decide what file to
+`unlink()` — `/media/../../../etc/passwd` passes that check and resolves
+outside the media folder entirely. CodeQL flagged it (medium severity,
+`py/path-injection`) plus two `py/log-injection`/`py/side-effect-in-assert`
+findings on the same PR. **First response to the CodeQL failure was wrong**
+— guessed at ReDoS/traversal fixes in files that felt likely rather than
+reading the actual annotations, which cost a wasted commit before fetching
+the real alert list (rule name, file, line) and fixing the three things it
+actually named. The lesson worth keeping: CodeQL's summary line ("3 new
+alerts") does not say *which* three — `gh`/the check-run API does, and
+guessing from the diff instead of reading the annotation is the same
+"reasoning about behaviour instead of reproducing it" trap this file
+already warns about elsewhere, just applied to CI output instead of a
+running server. Fixed properly: `MEDIA_URL_RE` (exact upload-produced
+shape) plus `_media_path` (resolve + confirm containment, so even a
+legacy/hand-edited row can't escape) as two independent layers, the log
+call's `object_id` explicitly `int()`-converted, and the two asserts split
+so the API call isn't inside the assert (survives `python -O`). Also
+tightened two now-unbounded regexes added earlier this session
+(`INLINE_MD`, `appendInline`'s pattern) with length caps — not what CodeQL
+flagged, but a real polynomial-ReDoS shape this project's own CLAUDE.md
+already names as a caught-before pattern, worth fixing regardless.
+
+**Not built this session, named directly by the user, worth a session
+each:** a Library "Media/Images" gallery tab; garbage-collecting orphaned
+`/media/` files when their note is purged (images pasted into *notes*,
+unlike the new whiteboard image objects, have no DB row at all — nothing
+tracks or cleans them up); an in-note delete affordance for an embedded
+image; giving the agent a token-efficient text summary of a whiteboard's
+contents/positions/links as a tool it can read (and later write); a
+cleanup pass on the "Agent Activity" background-task popup; consolidating
+the ~106-file test suite (explicitly asked for, not yet scoped).
+
+**Standing caveat, same as always:** UI claims above were checked live in
+this sandbox's Chromium — a real server, a real Playwright session,
+`wbState`/`apiJson` read directly rather than assumed. One hard-won trap
+this session: **a `let`/`const` at a script's top level is not
+`window.<name>`** — `page.evaluate(() => window.wbState...)` silently reads
+`undefined` while the bare identifier `wbState` (same script, same realm)
+works, and several early verification attempts wasted time on exactly this
+before it was caught. A second, unrelated trap cost more time than either:
+a "server restart" that doesn't check whether the old process actually
+died — `setsid … &` after a failed bind (`address already in use`) looks
+identical to a successful start from `curl /health` (the *old* process
+answers), and every verification against it was silently testing stale
+code until the port was checked directly (`ss -ltnp`) and the real PID
+killed by number, not by `pkill -f uvicorn` (which kills this shell — see
+the existing trap below).
+
+## §52 — whiteboard redo/select/highlighter/arrow, arc-label spacing, pointer-event touch support — and a live-verification gap on shape tools
 
 Continued straight from §50–§51 below on the same branch, same instruction
 ("finish Tier 1 and 2, then prioritise the rest"), with several UI reports

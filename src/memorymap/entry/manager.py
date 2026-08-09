@@ -28,6 +28,9 @@ from memorymap.core.database import (
     EntryLink,
     EntryRevision,
     Reminder,
+    WhiteboardNode,
+    WhiteboardObject,
+    WhiteboardSketch,
     utcnow,
 )
 from memorymap.entry import timewords
@@ -350,6 +353,30 @@ def _hard_delete(session: Session, entries: list[Entry], uploads_dir: Path | Non
     session.execute(delete(EntryRevision).where(EntryRevision.entry_id.in_(ids)))
     session.execute(delete(EntryDate).where(EntryDate.entry_id.in_(ids)))
     session.execute(delete(DocumentLink).where(DocumentLink.entry_id.in_(ids)))
+    # A whiteboard card *is* its note — with the note gone there is nothing
+    # left to show, so the card goes with it, same as a sketch's own delete.
+    session.execute(delete(WhiteboardNode).where(WhiteboardNode.entry_id.in_(ids)))
+    # `board_id` is a different relationship: it names which board a card or
+    # sketch lives *on*, and that board is itself just a note. Purging the
+    # board note must not take every card on it with it — that would be
+    # "delete this one note" silently wiping an entire whiteboard. Detached to
+    # the default board instead, the same "orphan becomes a root" choice
+    # already made for `Entry.parent_id` below.
+    session.execute(
+        WhiteboardNode.__table__.update()
+        .where(WhiteboardNode.board_id.in_(ids))
+        .values(board_id=None)
+    )
+    session.execute(
+        WhiteboardSketch.__table__.update()
+        .where(WhiteboardSketch.board_id.in_(ids))
+        .values(board_id=None)
+    )
+    session.execute(
+        WhiteboardObject.__table__.update()
+        .where(WhiteboardObject.board_id.in_(ids))
+        .values(board_id=None)
+    )
     # A reminder's entry is optional, so it is detached rather than deleted:
     # "water the tomatoes" is still a thing you asked to be reminded of after
     # the note that prompted it has gone, and deleting the reminder would throw

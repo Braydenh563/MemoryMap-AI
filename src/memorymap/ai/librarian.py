@@ -473,6 +473,39 @@ def improve_writing(
     return reply["content"].strip()
 
 
+#: A generated title this long or longer reads as a summary sentence, not a
+#: title — the model is asked to keep it shorter than this, and this is the
+#: hard backstop if it doesn't.
+GENERATED_TITLE_MAX_CHARS = 80
+
+
+def generate_title(text: str, model_manager: ModelManager, ollama: OllamaClient) -> str:
+    """A short title for a note that doesn't have one, on request — asked
+    for directly as the AI half of "a note's own `# Heading` becomes its
+    title": recognising one the user wrote is free (`manager.extract_title`,
+    no model call), but *writing* one costs a real request, so this is
+    opt-in per note rather than automatic on every save.
+
+    Raises OllamaError if the model is unavailable — the caller decides what
+    to tell the user, same as `improve_writing`.
+    """
+    system = (
+        "You write short titles for personal notes. Reply with ONLY the "
+        "title — 3 to 8 words, no quotes, no trailing punctuation, no "
+        "leading '#'. It must actually describe what this specific note "
+        "says, not a generic label like 'Quick note'."
+    )
+    reply = ollama.chat(
+        model_manager.utility_model(),
+        [
+            {"role": "system", "content": system},
+            {"role": "user", "content": text},
+        ],
+    )
+    title = reply["content"].strip().strip("\"'").lstrip("#").strip()
+    return title[:GENERATED_TITLE_MAX_CHARS].strip()
+
+
 def suggest_tags(
     text: str,
     existing: list[str],

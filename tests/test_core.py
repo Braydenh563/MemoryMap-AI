@@ -71,6 +71,33 @@ def test_a_hashtag_with_no_space_is_not_mistaken_for_a_heading():
     assert manager.extract_title("#recipe good one this week") is None
 
 
+def test_apply_title_prepends_a_heading_to_an_untitled_note():
+    result = manager.apply_title("just a plain thought", "A plain thought")
+    assert result == "# A plain thought\njust a plain thought"
+    assert manager.extract_title(result) == "A plain thought"
+
+
+def test_apply_title_replaces_an_existing_one():
+    result = manager.apply_title("# Old title\nsome body text", "New title")
+    assert result == "# New title\nsome body text"
+
+
+def test_apply_title_on_empty_content_is_just_the_heading():
+    assert manager.apply_title("", "A title") == "# A title"
+
+
+def test_remove_title_takes_the_heading_line_back_out():
+    assert manager.remove_title("# A trip\nPacked the tent.") == "Packed the tent."
+
+
+def test_remove_title_also_drops_one_blank_line_after_it():
+    assert manager.remove_title("# A trip\n\nPacked the tent.") == "Packed the tent."
+
+
+def test_remove_title_on_an_untitled_note_is_a_no_op():
+    assert manager.remove_title("just a plain thought") == "just a plain thought"
+
+
 def test_the_api_reports_the_extracted_title(client):
     body = client.post(
         "/entries", json={"content": "# Trip to the coast\nPacked the tent."}

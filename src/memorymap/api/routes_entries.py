@@ -705,6 +705,75 @@ def set_entry_privacy(
     return _to_out(session, entry)
 
 
+@router.post("/{entry_id}/generate-title", response_model=EntryOut)
+def generate_entry_title(
+    entry_id: int, session: Session = Depends(get_session)
+) -> EntryOut:
+    """Write a title for this note with AI, on request.
+
+    Recognising a title the user already wrote (`manager.extract_title`) is
+    free; writing one is a real model call, so this is its own opt-in
+    action rather than something that runs on every save. Replaces an
+    existing title rather than stacking a second heading on top of it.
+    """
+    entry = _existing_entry(session, entry_id)
+    # `readable_content` decrypts a private note for reading; writing that
+    # decrypted text straight back to `entry.content` (below) would silently
+    # replace the ciphertext with plaintext — the note would stop being
+    # private as a side effect of titling it. Refused outright rather than
+    # risked: unlike a plain edit, there's no form here the user reviewed
+    # before it reached the server.
+    if entry.is_private:
+        raise HTTPException(
+            status_code=400, detail="Make this note readable first — private notes can't be re-titled here."
+        )
+    content = manager.readable_content(entry)
+    if not content.strip():
+        raise HTTPException(status_code=400, detail="There's no text to title yet.")
+    if not deps.get_ollama().is_running():
+        raise HTTPException(
+            status_code=503,
+            detail="The AI isn't available right now (Ollama doesn't seem to be running).",
+        )
+    try:
+        title = librarian.generate_title(content, deps.get_model_manager(), deps.get_ollama())
+    except OllamaError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    if not title:
+        raise HTTPException(status_code=502, detail="The AI didn't return a usable title.")
+
+    manager.record_revision(session, entry)
+    entry.content = manager.apply_title(content, title)
+    manager.log_action(session, "edited", "entry", entry.id, f"generated title: {title}")
+    session.commit()
+    session.refresh(entry)
+    return _to_out(session, entry)
+
+
+@router.post("/{entry_id}/remove-title", response_model=EntryOut)
+def remove_entry_title(entry_id: int, session: Session = Depends(get_session)) -> EntryOut:
+    """Take a note's title back out — asked for directly. Just the leading
+    heading line; a note with no title is returned unchanged rather than
+    treated as an error, since the client only offers this action when
+    `entry.title` is already set and a stale menu shouldn't 400."""
+    entry = _existing_entry(session, entry_id)
+    # Same reason as generate-title: writing decrypted text back to
+    # `entry.content` would un-encrypt the note as a side effect.
+    if entry.is_private:
+        raise HTTPException(
+            status_code=400, detail="Make this note readable first — private notes can't be edited here."
+        )
+    content = manager.readable_content(entry)
+    stripped = manager.remove_title(content)
+    if stripped != content:
+        manager.record_revision(session, entry)
+        entry.content = stripped
+        manager.log_action(session, "edited", "entry", entry.id, "removed the title")
+        session.commit()
+        session.refresh(entry)
+    return _to_out(session, entry)
+
+
 @router.post("/{entry_id}/links", response_model=EntryOut)
 def create_link(
     entry_id: int, body: LinkBody, session: Session = Depends(get_session)

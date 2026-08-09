@@ -1057,6 +1057,27 @@ async function toggleEntryPrivacy(entry) {
   }
 }
 
+async function generateEntryTitle(entry) {
+  try {
+    await apiJson(`/entries/${entry.id}/generate-title`, { method: "POST" });
+    await loadEntries();
+    flashEntry(entry.id);
+    toast("Titled.");
+  } catch (error) {
+    toast(error.message || "Couldn't generate a title.", true);
+  }
+}
+
+async function removeEntryTitle(entry) {
+  try {
+    await apiJson(`/entries/${entry.id}/remove-title`, { method: "POST" });
+    await loadEntries();
+    flashEntry(entry.id);
+  } catch (error) {
+    toast(error.message || "Couldn't remove the title.", true);
+  }
+}
+
 function entryOverflowMenu(entry) {
   const wrap = document.createElement("span");
   wrap.className = "menu-wrap";
@@ -1117,6 +1138,23 @@ function entryOverflowMenu(entry) {
         if (box) openImprove(box);
       },
     },
+    {
+      // Recognising a title the note already wrote (a leading `# Heading`)
+      // is free; writing one costs a real model call, so it's this
+      // separate, on-request action rather than something automatic.
+      label: entry.title ? "✨ Regenerate title" : "✨ Generate title",
+      title: "Write a short title for this note with AI",
+      run: () => generateEntryTitle(entry),
+    },
+    ...(entry.title
+      ? [
+          {
+            label: "✕ Remove title",
+            title: "Take the title back out — the note's text is unchanged",
+            run: () => removeEntryTitle(entry),
+          },
+        ]
+      : []),
     {
       label: "➕ Add context",
       title: "Append detail — the AI may refile it",

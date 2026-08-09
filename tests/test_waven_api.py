@@ -94,6 +94,46 @@ def test_improve_writing_custom_mode_needs_an_instruction(ai_client):
     assert response.status_code == 400
 
 
+# --- generating and removing a title --------------------------------------------------
+
+
+def test_generate_title_writes_a_heading(ai_client, fake_ollama):
+    note = _save(ai_client, "Packed the tent and the good coffee. Left at dawn.")
+    fake_ollama.librarian_reply = "Weekend trip to the coast"
+
+    body = ai_client.post(f"/entries/{note['id']}/generate-title").json()
+    assert body["title"] == "Weekend trip to the coast"
+    assert body["content"].startswith("# Weekend trip to the coast\n")
+    assert "Packed the tent" in body["content"]
+
+
+def test_generate_title_replaces_an_existing_one(ai_client, fake_ollama):
+    note = _save(ai_client, "# Old title\nsome body text")
+    fake_ollama.librarian_reply = "A better title"
+
+    body = ai_client.post(f"/entries/{note['id']}/generate-title").json()
+    assert body["title"] == "A better title"
+    assert body["content"].count("#") == 1
+
+
+def test_generate_title_offline_is_503(client):
+    note = _save(client, "some text")
+    assert client.post(f"/entries/{note['id']}/generate-title").status_code == 503
+
+
+def test_remove_title_takes_the_heading_out(ai_client):
+    note = _save(ai_client, "# A trip\nPacked the tent.")
+    body = ai_client.post(f"/entries/{note['id']}/remove-title").json()
+    assert body["title"] is None
+    assert body["content"] == "Packed the tent."
+
+
+def test_remove_title_on_an_untitled_note_is_a_no_op(ai_client):
+    note = _save(ai_client, "just a plain thought")
+    body = ai_client.post(f"/entries/{note['id']}/remove-title").json()
+    assert body["content"] == "just a plain thought"
+
+
 # --- link suggestions ---------------------------------------------------------------
 
 

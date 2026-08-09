@@ -764,6 +764,45 @@ def extract_title(content: str) -> str | None:
     return None
 
 
+def _first_content_line(content: str) -> int | None:
+    """Index of the first non-blank line, or None if there isn't one."""
+    lines = content.splitlines()
+    for i, line in enumerate(lines):
+        if line.strip():
+            return i
+    return None
+
+
+def apply_title(content: str, title: str) -> str:
+    """Set (or replace) a note's title — its first line, as a heading.
+    Prepends a new heading line if the note doesn't have one yet; replaces
+    the existing one otherwise, so generating a title for a note that
+    already has one swaps it rather than stacking two."""
+    lines = (content or "").splitlines()
+    i = _first_content_line(content or "")
+    heading = f"# {title}"
+    if i is not None and _TITLE_LINE.match(lines[i].strip()):
+        lines[i] = heading
+        return "\n".join(lines)
+    return heading if not content else f"{heading}\n{content}"
+
+
+def remove_title(content: str) -> str:
+    """Take a note's title back out, asked for directly — it's just the
+    leading heading line, so removing it is removing that line (and one
+    blank line right after it, so the body doesn't start with a gap). A
+    note with no title is returned unchanged.
+    """
+    lines = (content or "").splitlines()
+    i = _first_content_line(content or "")
+    if i is None or not _TITLE_LINE.match(lines[i].strip()):
+        return content
+    del lines[i]
+    if i < len(lines) and not lines[i].strip():
+        del lines[i]
+    return "\n".join(lines)
+
+
 def set_private(session: Session, entry: Entry, private: bool) -> bool:
     """Encrypt or decrypt one note in place. False if the vault is locked.
 

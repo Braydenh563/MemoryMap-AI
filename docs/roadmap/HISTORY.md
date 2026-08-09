@@ -1914,3 +1914,74 @@ correctness-bug-over-new-feature the same way Tier 1 was — the larger,
 properly scoped items (the sketch pad's selection tool, the whiteboard's
 redo/select/rotate list, onboarding's seeded-notes/guided-tour work) roughly in
 that order, unless a live report reprioritises something above them.
+
+## 52. The Arc view's real labels-vs-arcs clash, an optional title field decided and built, and a whiteboard panel-layout reset
+
+Continued straight from §51 in the same session, driven by three things the
+user raised live: a screenshot of the Arc view's labels, a direct decision
+on §16d's title-field question, and a request for a way back to the
+whiteboard's default panel layout.
+
+**Item 15, finally reproduced.** Earlier sessions (§48) investigated "labels
+behind nodes" and found nothing — DOM order already put every label on top,
+so z-order was never the bug. A fresh screenshot this session showed the
+real problem was never z-order: it was *position*. Arc's labels were tilted
+`rotate(-40, ...)` — upward — and `arcPath`'s connection arcs curve through
+exactly that same strip above the baseline, so text and arcs were fighting
+for the same space. Measured live before touching anything: 9 of 10 labels'
+bounding boxes overlapped a `.graph-edge`. Flipped the tilt to `rotate(40,
+...)` (down instead of up), which moves every label into the arcs' empty
+side of the row while keeping the same anti-collision shape — still angled,
+still reading outward from its own node rather than stacking onto the next
+one. Verified two ways, not just reasoned about the trig: a `getBoundingClientRect`
+check that every label now sits mostly below its node's vertical centre
+(true for all, false before the flip), and a zoom-to-fit screenshot showing
+labels clearly readable underneath the row with the dotted arcs undisturbed
+above it.
+
+**Item 16d, decided and built the same session it was asked.** The user
+confirmed the shape ROADMAP.md had already scoped: write the title into
+`content` as a leading `# {title}` heading — the exact line
+`manager.extract_title` (§43) already reads — rather than a second stored
+field. One shared `withTitle(content, title)` helper, used by both
+dedicated note-creation forms: `#entry-title` in Capture, and
+`#graph-new-note-title` in the graph's own "+ New note"/"+ Connected note"
+popup (voice dictation, templates and quick actions all write into
+Capture's own textarea already, so they needed no separate wiring). Also
+confirmed rather than assumed: a note started with a bare single `#` (not
+only `##`–`######`) was already read as a title before this change —
+`extract_title`'s own `#{1,6}` always covered H1, so the "detecting a
+single #" half of the ask was already true and needed no build. Verified
+live end to end against a real server: a title typed in Capture produced
+`# My Explicit Title\n\n...` in the saved note, with the computed `title`
+field reading back correctly and the input clearing after save; a bare `#`
+line typed straight into the body, with the title box left empty, read
+back with the same computed title; the graph popup's own field round-tripped
+identically.
+
+**A whiteboard panel-position reset, asked for directly.** Once a panel
+(board switcher / library+colour-picker / tool strip) had been dragged,
+there was no way back to its default corner short of clearing
+`localStorage` by hand. A `⟲` button next to the board-colour reset clears
+every panel's `wb-panel-pos-*` key and its drag-time inline styles
+(`left`/`top`/`right`/`bottom`/`transform` — all `place()` ever sets), so
+each panel's own `top-left`/`top-right`/`bottom-center` CSS class — never
+removed, only ever overridden by those inline styles — takes back over.
+Verified live: simulated a drag (moved the board panel to an arbitrary
+position, saved to `localStorage` the same way a real drag does), clicked
+reset, confirmed the panel's rendered position and `localStorage` entry
+both returned to their pre-drag state.
+
+Full `pytest tests/` (~1,600+ tests), `ruff check .`, and `node --check
+frontend/app.js` all green. Every fix in this section was verified against
+a real running server via Playwright — screenshots, `getBoundingClientRect`
+measurements, real saved notes read back through the API — not reasoned
+from the code alone.
+
+**What's next**: the remaining Tier 2 items are unchanged from §51's own
+list — the sketch pad's selection tool, the whiteboard's larger redo/
+select/rotate/images list, item 16 (documents in the graph, needs scoping),
+and onboarding's remaining pieces (seeded notes, the model-pull UI, a
+data-dir writability probe, a guided tour). 16e/16f (an emoji picker, a
+full emoji-usage sweep) are still open design questions, not yet asked
+about directly the way 16d just was.

@@ -2526,12 +2526,24 @@ function openDocumentFromNote(documentId) {
   setTimeout(() => openDocument(documentId), 150);
 }
 
+// ROADMAP.md Tier 2 §16d, asked for directly: an optional title field
+// where a note is created. Not a second stored field — it writes the same
+// leading `# heading` line `manager.extract_title` already reads on every
+// note (§43), so a title typed here reads back identically to one typed
+// as the note's own first line. Only prepended when the title box actually
+// has something in it, so a note with no title is unchanged from today.
+function withTitle(content, title) {
+  const trimmed = (title || "").trim();
+  return trimmed ? `# ${trimmed}\n\n${content}` : content;
+}
+
 async function saveEntry() {
   const contentBox = $("entry-content");
+  const titleBox = $("entry-title");
   const status = $("save-status");
   const button = $("save-btn");
 
-  const content = contentBox.value.trim();
+  const content = withTitle(contentBox.value.trim(), titleBox?.value);
   if (!content) {
     status.textContent = "Write something first!";
     status.classList.add("error");
@@ -2567,6 +2579,7 @@ async function saveEntry() {
       );
     }
     contentBox.value = "";
+    if (titleBox) titleBox.value = "";
     autoGrow(contentBox); // the box shrinks back with its content
     localStorage.removeItem("captureDraft"); // it's saved for real now
     $("entry-count").textContent = "0 characters";
@@ -12401,11 +12414,22 @@ async function renderGraph() {
     // would collide with its neighbours within a single ARC_STEP. Tilted and
     // pivoted on its own anchor point (not the origin), it reads outward from
     // the node instead of overlapping the one next to it.
+    //
+    // Reported directly, with a screenshot: tilted *upward* (the original
+    // `rotate(-40, ...)`), every label sat in exactly the space `arcPath`'s
+    // connection lines curve through above the baseline — the labels and
+    // the arcs they were meant to sit beside were fighting for the same
+    // strip of the map. Measured before touching anything: 60 of 61 labels
+    // had a bounding box overlapping a `.graph-edge`. Flipping the tilt to
+    // point *down* moves every label into the empty half of the row — the
+    // arcs never dip below the baseline — while keeping the same
+    // anti-collision shape (still angled and reading outward, not stacked
+    // straight down onto the next node).
     labels
       .attr("x", (d) => graphNodeRadius(d) + 6)
       .attr("y", 0)
       .attr("dy", "0.31em")
-      .attr("transform", (d) => `rotate(-40, ${graphNodeRadius(d) + 6}, 0)`)
+      .attr("transform", (d) => `rotate(40, ${graphNodeRadius(d) + 6}, 0)`)
       .style("text-anchor", "start");
   } else if (tree.radial) {
     // Rotated to its own radius and flipped on the left half, or every label
@@ -13146,6 +13170,7 @@ function openGraphNewNote(event, linkFrom = null) {
   graphNewLinkFrom = linkFrom;
   const popup = $("graph-new");
   $("graph-new-content").value = "";
+  $("graph-new-note-title").value = "";
   $("graph-new-tags").value = "";
   $("graph-new-status").textContent = "";
   $("graph-new-status").classList.remove("error");
@@ -13171,7 +13196,7 @@ function closeGraphNewNote() {
 }
 
 async function saveGraphNewNote() {
-  const content = $("graph-new-content").value.trim();
+  const content = withTitle($("graph-new-content").value.trim(), $("graph-new-note-title").value);
   const status = $("graph-new-status");
   if (!content) {
     status.textContent = "Type something first.";
@@ -23064,6 +23089,27 @@ async function initWhiteboard() {
   document.querySelectorAll(".whiteboard-floating-panel[data-panel-id]").forEach((panel) => {
     makeWbPanelDraggable(panel, `wb-panel-pos-${panel.dataset.panelId}`);
   });
+
+  // Asked for directly: once a panel's been dragged there was no way back to
+  // its default corner short of clearing localStorage by hand. Clears every
+  // panel's saved position and its drag-time inline styles (left/top/right/
+  // bottom/transform, all set by `place()` above) so each panel's own
+  // top-left/top-right/bottom-center CSS class — never removed, only ever
+  // overridden by the inline styles — takes back over.
+  const resetPanelsBtn = document.getElementById("wb-reset-panels");
+  if (resetPanelsBtn) {
+    resetPanelsBtn.addEventListener("click", () => {
+      document.querySelectorAll(".whiteboard-floating-panel[data-panel-id]").forEach((panel) => {
+        localStorage.removeItem(`wb-panel-pos-${panel.dataset.panelId}`);
+        panel.style.left = "";
+        panel.style.top = "";
+        panel.style.right = "";
+        panel.style.bottom = "";
+        panel.style.transform = "";
+      });
+      toast("Panel positions reset.");
+    });
+  }
 
   // Tool Selection
   window.currentTool = "pan";

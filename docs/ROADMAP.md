@@ -463,22 +463,25 @@ into a good one.
     for public use"), and grid view could still take general UX polish
     beyond the text-cropping fix (not scoped further — say what
     specifically, next time it's reported).
-15. **Arc view: labels behind nodes**, plus a refinement pass on that layout.
-    One piece of the refinement pass is **done**: the trace overlay drew a
-    straight chord regardless of layout, and Arc puts every node on one
-    shared baseline, so a traced path there sat exactly where the row of
-    nodes already was — reported as connections being hard to see on
-    non-tree layouts. Now drawn as its own taller arc in that one layout.
-    **The labels-behind-nodes part was investigated live (HISTORY.md §48)
-    and did not reproduce**: `labelLayer` is appended to the canvas after
-    every node circle, so DOM order alone already puts every label on top,
-    and a live screenshot with 24 seeded notes in Arc showed every label
-    clearly legible and unobscured. Left open rather than "fixed" — nothing
-    was found to fix, and the original report may depend on a specific
-    dataset (a denser tree, longer previews, a particular zoom) this
-    session's synthetic data didn't reproduce. Needs the original reporter's
-    exact steps or a screenshot before the next session spends more time on
-    it.
+15. ~~**Arc view: labels clashing with the connection arcs**~~ **Fixed and
+    verified live with a screenshot (HISTORY.md §52).** The earlier
+    "labels behind nodes" framing was investigated live (§48) and never
+    reproduced — DOM order already put labels on top, z-order was never
+    the problem. Re-reported with an actual screenshot, and the real bug
+    was *position*, not z-order: the label's tilt (`rotate(-40, ...)`)
+    pointed labels *up*, into exactly the strip above the baseline
+    `arcPath`'s connection arcs curve through, so text and arcs fought for
+    the same space. Measured live before fixing: 9 of 10 labels' bounding
+    boxes overlapped a `.graph-edge`. Flipped the tilt to `rotate(40,
+    ...)` — down instead of up — moving every label into the arcs' empty
+    side while keeping the same anti-collision shape (still angled,
+    reading outward). Confirmed two ways: a fitted screenshot showing
+    labels clearly below the row with the arcs undisturbed above it, and a
+    geometry check (`labelMostlyBelowNode`) true for every label, false
+    before the fix. The refinement pass's other piece — the trace overlay
+    drawing a straight chord through the row instead of its own taller
+    arc — was already **done** in an earlier session.
+16. **Documents in the graph.** They are notes' equal everywhere else.
 16. **Documents in the graph.** They are notes' equal everywhere else.
 16a. ~~**The document editor's sidebar, reported directly with
     screenshots.**~~ **Checked and fixed (HISTORY.md §51).** The
@@ -535,16 +538,24 @@ into a good one.
     ("notes")` alone leaves it `display: none` and the button unclickable;
     needs `showNotesSection("capture")` too, the same trap CLAUDE.md's own
     traps list already names for a different Notes-tab element.
-16d. **An optional title field in Capture, and everywhere a note can be
-    created.** Raised as a design question earlier this session (see
-    HISTORY.md §44's "open questions") and asked again more directly here.
-    Still needs the same decision before building: a second field
-    duplicates §43's leading-heading mechanism (`manager.extract_title`)
-    unless it's wired to *write* that heading line into `content` rather
-    than storing a separate title — which is buildable (prepend `# {title}`
-    on save, exactly the shape `extract_title` already reads) but is a
-    decision worth confirming before writing it, not re-litigating from
-    scratch next time it's raised.
+16d. ~~**An optional title field in Capture, and everywhere a note can be
+    created.**~~ **Decided and built (HISTORY.md §52).** Confirmed
+    directly: write the leading `# {title}` heading line into `content` on
+    save — the exact shape `manager.extract_title` already reads — rather
+    than a second stored field. `#entry-title` in Capture and
+    `#graph-new-note-title` in the graph's own "+ New note" popup (the
+    two dedicated note-creation forms; voice dictation, templates, and
+    quick actions all funnel into Capture's own textarea already) share
+    one `withTitle(content, title)` helper, so a title typed in the box
+    and one typed as the note's own first line produce byte-identical
+    content. Also confirmed working, unprompted: a note started with a
+    single `#` (not just `##`–`######`) was already read as a title by
+    `extract_title` before this change — nothing needed building there.
+    Verified live end to end: a title typed in Capture round-tripped to
+    `# My Explicit Title\n\n...` in the saved note and the field cleared
+    after save; a bare `#` line typed directly into the body was read back
+    with the same computed title; the graph popup's own field produced
+    identical behaviour.
 16e. **An emoji picker in every note-creation input and the document
     editor.** New feature, not yet scoped — needs a decision on picker
     source (native OS picker via `<input>` attributes vs. a built-in

@@ -259,6 +259,15 @@
               <option value="">No template</option>
             </select>
           </div>
+          <!-- Optional — asked for directly. Not a second stored field: it
+               writes the same leading `# heading` line manager.extract_title
+               already reads on every note, so a title typed here and one
+               typed as the note's own first line ("# Recipe") work exactly
+               the same way. Starting a note with a single # already becomes
+               a title without touching this box at all. -->
+          <input id="entry-title" type="text" maxlength="200"
+            placeholder="Optional title"
+            aria-label="Optional title — becomes the note's leading heading">
           <textarea id="entry-content" rows="3" class="autogrow"
             placeholder="Type anything — a joke, a shopping list, a race result…
 Link to another note with [[its first few words]]."></textarea>
@@ -1006,6 +1015,8 @@ Link to another note with [[its first few words]]."></textarea>
             <button id="graph-new-close" class="ghost small" aria-label="Close">✕</button>
           </div>
           <p class="muted" id="graph-new-hint"></p>
+          <input id="graph-new-note-title" type="text" maxlength="200"
+            placeholder="Optional title" aria-label="Optional title">
           <textarea id="graph-new-content" rows="3"
             placeholder="Type the thought — the AI will file it…" aria-label="Note content"></textarea>
           <input id="graph-new-tags" type="text" placeholder="Tags, comma separated"
@@ -1435,6 +1446,7 @@ Link to another note with [[its first few words]]."></textarea>
         class="wb-color-picker"
       >
       <button id="wb-bg-color-reset" class="ghost small icon-button" type="button" title="Reset to theme default">↺</button>
+      <button id="wb-reset-panels" class="ghost small icon-button" type="button" title="Reset panel positions">⟲</button>
     </div>
 
     <div class="whiteboard-floating-panel bottom-center card glass" data-panel-id="tools">

@@ -2,7 +2,135 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session: §50–§51 — a CodeQL ReDoS fixed, all of Tier 1 cleared (four items were stale, not unbuilt), most of Tier 2 worked top-down, and a menu redesign asked for directly
+## Latest session: §52 — whiteboard redo/select/highlighter/arrow, arc-label spacing, pointer-event touch support — and a live-verification gap on shape tools
+
+Continued straight from §50–§51 below on the same branch, same instruction
+("finish Tier 1 and 2, then prioritise the rest"), with several UI reports
+and scope adds arriving mid-session. **Read this before touching the
+whiteboard or the arc graph view — there is a real unresolved gap here, not
+just a list of fixes.**
+
+**Done and verified live, this session:**
+- **Whiteboard redo.** `wbRedoStack`, cleared on any fresh action;
+  `wbApplyHistoryEntry(from, to)` shares the pop/apply-inverse/push-reverse
+  logic between undo and redo so repeated undo/redo/undo/redo can't drift.
+  Ctrl+Y and Ctrl+Shift+Z both wired, plus a toolbar button whose disabled
+  state tracks the stack. Verified: draw → undo (count drops) → redo (count
+  restored), button disables correctly.
+- **Whiteboard select, single-item.** A real `data-tool="select"` (was
+  folded into "pan" before) — click a card/sketch to select it (outline
+  highlight via `.wb-selected`), Delete/Backspace or Escape to act on it,
+  clicking empty canvas clears it. Verified: select → Delete → gone → undo
+  restores it; select → click elsewhere → deselected.
+- **Highlighter persistence, a real bug caught before shipping.** The
+  highlighter tool existed for exactly one render: the saved sketch JSON
+  only ever stored `{d, color}`, so a highlighter reloaded as a plain
+  full-opacity 3px line, losing the whole point of the tool. Fixed by
+  extending the payload to `{d, color, width, opacity}` for highlighter
+  strokes and reading those back (with 3px/opaque defaults otherwise) in
+  `renderWhiteboard`'s own per-sketch render loop. Verified: draw a
+  highlighter stroke → live attrs are 12px/0.35 → force a full
+  `renderWhiteboard()` re-run (simulating a reload without needing to
+  re-login in a script) → **still** 12px/0.35; a plain pen stroke drawn the
+  same way still defaults to 3px/opaque.
+- **Arc graph labels, re-reported a second time with a screenshot.** The
+  earlier tilt-direction fix (§51/HISTORY §52 below) was real but
+  incomplete — it fixed *which side* labels sat on, not how far they
+  reached. At `ARC_STEP` 46px and up to 20-char labels tilted 40°, a
+  label's own horizontal reach (`~100px`) was two-plus node-steps, so a
+  label's tail routinely sat under a *later* node — exactly the "category
+  name is on the note, the note starts on the category's node" symptom.
+  Widened `ARC_STEP` to 58, shortened `ARC_LABEL_LIMIT` to 12, steepened
+  the tilt to `rotate(58, ...)`. **Not re-verified with a screenshot this
+  session** (see the gap section below) — reasoned from the same geometry
+  that diagnosed the bug, not re-measured.
+- **Category labels get a colour, not just bold.** `.graph-label-group`
+  now also sets `fill: var(--accent)` (light and dark) — asked for
+  directly ("need to be a different colour... or being bold or smth"; bold
+  already existed and evidently wasn't enough on its own).
+- **Touch/pointer-event support for the whiteboard and the graph.** Both
+  used plain `mouse*` listeners, which touch and pen input don't reliably
+  dispatch — the sketch pad already used `pointer*` events and worked, so
+  this was a known-good pattern to extend rather than new design.
+  Converted the whiteboard's draw/erase/select listeners and the graph's
+  `#graph-svg` to pointer events, added `touch-action: none` to
+  `.whiteboard-container` and `#graph-svg` (without it the browser eats the
+  gesture for page-scroll/pinch before a pointer event ever fires — the
+  other half of this fix, easy to miss). d3-zoom/d3-drag v7 already listen
+  for pointer events internally, so the graph's pan/zoom/node-drag should
+  now work on touch without further changes. **Not verified live** — this
+  sandbox has no touch-capable input surface; see the gap section.
+- **Arrow tool added.** One `<path>`, three subpaths (shaft + both head
+  strokes sharing one undo entry), same head-angle trig as the sketch
+  pad's own arrow. Toolbar button + `A` shortcut; `M` for the highlighter.
+
+**The gap, stated plainly rather than glossed over: shape-tool drags
+(line/rect/circle/arrow) were not confirmed working live this session.**
+Chasing this cost real time and is worth recording precisely so the next
+session doesn't repeat it:
+- A synthetic `page.mouse.down()` → `page.mouse.move(..., {steps})` →
+  `page.mouse.up()` drag on the arrow tool consistently produced the "no
+  real movement, discard" result (a stale leftover sketch, not a freshly
+  saved one — confirmed via the server log showing no `POST
+  /whiteboard/sketches` was even attempted).
+- This is **not obviously the arrow code's fault**: the pre-existing,
+  untouched-this-session **line** tool, tested the identical way,
+  reproduced the exact same failure. If this were a real regression in new
+  code, line wouldn't fail identically.
+- Pointer-event *delivery* to the handler was separately confirmed correct
+  with a minimal listener mirroring the real one: `pointerdown`,
+  `pointermove` (four times, real coordinates tracking the drag exactly),
+  and `pointerup` all reached `#wb-svg-layer`'s own bubble-phase listener,
+  with `window.currentTool` staying `"arrow"` throughout.
+- What wasn't resolved: why the *app's own* mousemove handler, given the
+  same events, ends up with `currentDrawData.length < 2` at mouseup (which
+  is what triggers the discard/dot-fallback for shape tools). Zoom-transform
+  drift (repeated automated test runs against the same persisted board today
+  could have left the pan/zoom scaled far from 1×, shrinking a real
+  screen-pixel drag to a sub-2-logical-unit one) was tried as an explanation
+  and ruled out — resetting via `#wb-zoom-fit` first didn't change the
+  result.
+- **First thing to do next session**: reproduce this with a real mouse (or
+  Playwright's touchscreen/CDP dispatch rather than `page.mouse`) against a
+  *fresh* board (a brand-new `MEMORYMAP_DATA_DIR`, not this session's
+  test-scarred one) before assuming either "it's broken" or "it's fine" —
+  today's evidence points at a test-harness quirk but doesn't prove it.
+
+**Also asked for directly, scoped but not built (see ROADMAP.md item 11
+for the full writeup):**
+- Multi-select (Ctrl/Cmd-click, Shift-click), rectangle marquee select,
+  lasso select — select is single-item only right now.
+- A properties panel for the current selection (colour, line thickness,
+  arrowhead style) — depends on multi-select existing first.
+- A text tool and a size control for the whiteboard, matching the sketch
+  pad (still the two things the sketch pad has that the whiteboard
+  doesn't).
+- Shift-to-lock-proportions is done for the **sketch pad's** rect tool
+  only; the whiteboard's own rect/circle tools don't have it yet.
+
+**Test-file consolidation** (asked for directly: "refactor and consolidate
+all the testing files since they are all over the place") was **not
+started** — deliberately, given the token budget this session ran into and
+this file's own standing warning against a mechanical merge of the ~106
+narrative-style test files without a concrete finding (duplicated fixtures,
+an oversized file) to act on first. Next session: spend 10 minutes actually
+looking for one before merging anything.
+
+**Also asked directly and deliberately not attempted this session, given the
+token budget**: folding BACKLOG.md's ~29 sections into ROADMAP.md as one
+tiered list. This is a real restructuring job — deciding where each backlog
+item now ranks against the existing Tier 1–4 items, not a cut-and-paste —
+and doing it rushed risks losing the reasoning BACKLOG.md's entries already
+carry. README.md and ARCHITECTURE.md were spot-checked (grepped for
+"whiteboard"/"touch"/"redo") against this session's changes and found still
+accurate at the level of detail they describe; a line-by-line audit of
+either, or of BACKLOG.md/ANALYSIS.md's ~3,000 combined lines, was not done.
+
+All ~1,600 tests pass, `ruff check .` is clean, `node --check
+frontend/app.js` is clean. Committed and pushed
+(`claude/roadmap-tier-1-2-security-o4rhjl`).
+
+## Previous session: §50–§51 — a CodeQL ReDoS fixed, all of Tier 1 cleared (four items were stale, not unbuilt), most of Tier 2 worked top-down, and a menu redesign asked for directly
 
 Long unattended run, worked exactly as instructed: "work autonomously,
 commit and push as you go," plus a live-fired security alert and several

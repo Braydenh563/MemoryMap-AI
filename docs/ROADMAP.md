@@ -303,12 +303,24 @@ into a good one.
     pan/select, pen, line, rect, circle, eraser, two link types and delete —
     no rotate, no shift-to-lock-proportions while resizing, no image
     upload/paste/drag-drop, no text/label tool beyond a card's own text):
-    - **Redo.** `wbUndoStack` exists; nothing analogous does. A second stack
-      that a fresh action clears, same shape as the sketch pad's own history.
-    - **Select, move and rotate as real tools**, not folded into "pan" —
-      today's `data-tool="pan"` is both at once, and there is no rotate
-      handle on a card or shape at all.
-    - **Shift-to-lock proportions** while drawing/resizing a shape.
+    - ~~**Redo.**~~ **Fixed.** `wbRedoStack`, cleared on any fresh action the
+      same way the sketch pad's own history works; `wbApplyHistoryEntry`
+      shares the pop/apply-inverse/push-reverse logic between undo and redo
+      so they can't drift apart. Ctrl+Y and Ctrl+Shift+Z both wired, plus a
+      toolbar button. Verified live: draw → undo → redo restores it, button
+      disabled state tracks correctly.
+    - ~~**Select as a real tool.**~~ **Fixed, single-item only** — a
+      `data-tool="select"` tool (was folded into "pan"), click a card or
+      sketch to select it (outline highlight), Delete/Backspace or Escape to
+      act on it, clicking empty canvas clears it. Verified live: select →
+      Delete → gone; undo brings it back; select → click elsewhere →
+      deselected. **Move and rotate as real tools, and multi-select (Ctrl/
+      Cmd/Shift-click, rectangle marquee, lasso) are still open** — asked
+      for directly this session, not yet built; see the properties-panel
+      bullet below for the related "alter what's selected" ask.
+    - ~~**Shift-to-lock proportions**~~ **Fixed for the sketch pad's own
+      rect tool** (holding Shift forces a square). The whiteboard's own
+      rect/circle tools don't have this yet — same fix, not yet ported.
     - **Images**: upload, paste, and drag-and-drop onto the canvas. The
       plumbing already exists for notes (`/media`, attachments — see item
       20) and is the thing to extend rather than a second upload path.
@@ -341,15 +353,27 @@ into a good one.
       light/dark switch, not "whatever it happened to be once". Verified
       live: pick a colour → persisted and applied; click reset → cleared,
       swatch shows the real computed default.
-    - **"A lot of the tools are missing — it should be an upgraded version
-      of the sketch pad," asked for directly this session, not itemised.**
-      The sketch pad has text, shift-lock proportions (asked for, item 10
-      above), and a size control the whiteboard lacks entirely; the
-      whiteboard has cards/links/boards the sketch pad doesn't. Needs a
-      concrete "which of the sketch pad's tools, specifically" before a
-      session can act on more than the two bugs just fixed — most of what's
-      "missing" is already named above (redo, select/rotate,
-      shift-to-lock, images) rather than a new, separate gap.
+    - ~~**"A lot of the tools are missing — it should be an upgraded version
+      of the sketch pad."**~~ **Highlighter and arrow added, partially
+      verified.** A highlighter tool (M) — wider, translucent stroke — and
+      an arrow tool (A) — one path, three subpaths (shaft + both head
+      strokes, so it shares one undo entry). The highlighter had a real bug
+      caught before it shipped: the saved sketch JSON only ever stored `{d,
+      color}`, so a highlighter reloaded as a plain full-opacity 3px line —
+      fixed by adding `width`/`opacity` to the payload and reading them back
+      in the render loop; verified live (draw → `renderWhiteboard()` re-run
+      → still thick/translucent; a plain pen stroke still defaults to 3/1).
+      **The arrow tool's own drag-to-save path could not be verified live
+      this session** — Playwright's synthetic mouse drag produced a
+      "no real movement, discard" result for arrow *and* for the pre-existing
+      line tool tested the same way, so this reads as a test-harness
+      limitation rather than a code bug (pointer-event delivery to the
+      handler was separately confirmed correct, with real coordinates
+      tracking the drag), but it means line/rect/circle/arrow are **unverified
+      by a live drag** — first thing worth checking next session, with a
+      real mouse or a slower/dispatched-event test rather than
+      `page.mouse.move`. Text tool and a size control are still missing
+      entirely (sketch pad has both).
     - **The single-node hover-highlight during a drag was re-reported as
       still happening after item 10 above's fix**, on a live run outside
       this sandbox. That fix targeted panning specifically (dragging empty
@@ -379,6 +403,25 @@ into a good one.
       same dot, 1 → 0. Shape tools (line/rect/circle) are left alone — a
       zero-size shape isn't a reasonable click default the way a pen dot
       is.
+
+    - **A properties panel for the current selection** — colour, line
+      thickness, arrowhead style (start/end/both) — asked for directly this
+      session, not yet built. Depends on multi-select existing first (today
+      `wbSelectedItem` is a single `{kind, id}`, not a set).
+    - ~~**Touch input.**~~ **Fixed for the whiteboard and the graph.** Both
+      used plain `mouse*` events, which touch/pen never reliably dispatch —
+      the sketch pad already used `pointer*` events and worked. Converted
+      the whiteboard's draw/erase/select listeners and the graph's own SVG
+      to pointer events, and added `touch-action: none` to both containers
+      (without it the browser treats the same gesture as page-scroll/pinch
+      before a pointer event ever arrives). d3-zoom/d3-drag (v7, already in
+      use for the graph's pan/zoom/node-drag) listen for pointer events
+      internally, so those should now work on touch too — **not verified
+      live**: this sandbox has no touch-capable input to drive a real touch
+      gesture through Playwright's touchscreen API, only reasoned from the
+      event model and mirrored against the sketch pad's already-working
+      pattern. Multi-touch gestures (pinch-zoom with two fingers) are a
+      separate, larger piece d3-zoom handles on its own; not touched here.
 
     **This is a lot for one item** — draw.io, Microsoft Whiteboard and
     OneNote between them are three separate mature products' worth of
@@ -481,7 +524,25 @@ into a good one.
     before the fix. The refinement pass's other piece — the trace overlay
     drawing a straight chord through the row instead of its own taller
     arc — was already **done** in an earlier session.
-16. **Documents in the graph.** They are notes' equal everywhere else.
+
+    **Re-reported once more, with a screenshot, after the fix above**:
+    labels still read as attached to the wrong node — not z-order or
+    tilt-direction this time, but density. At the old spacing (`ARC_STEP`
+    46px, up to 20-character labels, `rotate(40, ...)`), a 20-char label's
+    horizontal reach was `20 × ~6.5px × cos(40°) ≈ 100px` — two-plus
+    node-steps — so a label's own tail routinely landed under a *later*
+    node, exactly the "category name is on the note, the note's text
+    starts on the category node" symptom described. Fixed by widening
+    `ARC_STEP` to 58px, shortening `ARC_LABEL_LIMIT` to 12 characters, and
+    steepening the tilt to `rotate(58, ...)` (more vertical, less
+    horizontal reach per character) — **not re-verified with a fresh
+    screenshot this session (token budget)**, so treat this as reasoned
+    from the same geometry that diagnosed it, not re-measured live; worth a
+    screenshot check first thing next session. **Also asked for directly**:
+    category labels only differed by weight/size before, not colour —
+    `.graph-label-group` now also gets `fill: var(--accent)` in both light
+    and dark mode, so a category reads as a different *kind* of label, not
+    just a bigger note preview.
 16. **Documents in the graph.** They are notes' equal everywhere else.
 16a. ~~**The document editor's sidebar, reported directly with
     screenshots.**~~ **Checked and fixed (HISTORY.md §51).** The

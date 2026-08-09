@@ -1479,6 +1479,13 @@ Link to another note with [[its first few words]]."></textarea>
         <button class="ghost icon-button" data-tool="circle" title="Circle (O)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle></svg>
         </button>
+        <button class="ghost icon-button" data-tool="text" title="Text box (T) — click the canvas to place one">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="12" y1="4" x2="12" y2="20"></line><line x1="9" y1="20" x2="15" y2="20"></line></svg>
+        </button>
+        <button id="wb-add-image" class="ghost icon-button" type="button" title="Upload an image onto the board">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+        </button>
+        <input type="file" id="wb-image-file-input" accept="image/*" class="hidden" aria-hidden="true">
         <button class="ghost icon-button" data-tool="eraser" title="Eraser (E) — drag over strokes and cards to remove them">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16C2.5 15.5 2.5 14.5 3 14L13 4C13.5 3.5 14.5 3.5 15 4L20 9C20.5 9.5 20.5 10.5 20 11L11 20"></path><path d="M17 14L7 14"></path></svg>
         </button>

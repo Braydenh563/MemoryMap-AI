@@ -12818,6 +12818,86 @@ aside[data-resizable="1"] {
   object-fit: contain;
 }
 
+/* --- whiteboard objects: images and text boxes, neither tied to a note ---
+   Asked for directly: images pasted/dropped/uploaded straight onto the
+   canvas, and a real text box ("I want the whiteboard to basically be like
+   OneNote and Microsoft Whiteboard"). Sized by inline style (width/height
+   are per-object, unlike a card's fixed 250px), with eight resize handles —
+   corners resize both axes, edges resize one. */
+.wb-object {
+  position: absolute;
+  box-sizing: border-box;
+  border-radius: var(--radius-sm);
+  cursor: grab;
+}
+
+.wb-object:active {
+  cursor: grabbing;
+}
+
+.wb-object.wb-selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.wb-object-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  pointer-events: none; /* the object div itself owns drag, not the <img> */
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.wb-object-text {
+  background: color-mix(in srgb, var(--card) calc(var(--glass-opacity) * 100%), transparent);
+  border: 1px dashed var(--glass-border);
+  padding: 0.5rem 0.6rem;
+}
+
+.wb-object-text .wb-text-content {
+  width: 100%;
+  height: 100%;
+  outline: none;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  cursor: text;
+}
+
+/* Editing text has to win over the box's own drag — a click that starts a
+   text selection must not also move the box out from under it. */
+.wb-object-text .wb-text-content:focus {
+  cursor: text;
+}
+
+.wb-resize-handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: var(--accent);
+  border: 1px solid var(--card-bg);
+  border-radius: var(--radius-sm);
+  z-index: 5;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+
+.wb-object:hover .wb-resize-handle,
+.wb-object.wb-selected .wb-resize-handle {
+  opacity: 1;
+}
+
+.wb-resize-handle[data-handle="nw"] { top: -5px; left: -5px; cursor: nwse-resize; }
+.wb-resize-handle[data-handle="n"]  { top: -5px; left: calc(50% - 5px); cursor: ns-resize; }
+.wb-resize-handle[data-handle="ne"] { top: -5px; right: -5px; cursor: nesw-resize; }
+.wb-resize-handle[data-handle="e"]  { top: calc(50% - 5px); right: -5px; cursor: ew-resize; }
+.wb-resize-handle[data-handle="se"] { bottom: -5px; right: -5px; cursor: nwse-resize; }
+.wb-resize-handle[data-handle="s"]  { bottom: -5px; left: calc(50% - 5px); cursor: ns-resize; }
+.wb-resize-handle[data-handle="sw"] { bottom: -5px; left: -5px; cursor: nesw-resize; }
+.wb-resize-handle[data-handle="w"]  { top: calc(50% - 5px); left: -5px; cursor: ew-resize; }
+
 /* ======================= SIDEBAR COLLAPSE & PEEK ======================= */
 .sidebar-collapse-toggle {
   position: absolute;

@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -33,6 +34,19 @@ from memorymap.core.deps import get_session
 from memorymap.entry.manager import extract_title
 
 router = APIRouter(prefix="/whiteboard", tags=["whiteboard"])
+
+#: An image object's `data.url`, as an allowlist rather than a prefix check.
+#:
+#: **A `startswith("/media/")` test is not enough, and the difference is a
+#: file-deletion vulnerability.** `delete_object` removes the backing file
+#: when an image object goes, and `/media/../../../etc/passwd` passes a
+#: prefix check while resolving well outside the media folder — so the
+#: delete would unlink an arbitrary path. Matching the exact shape
+#: `upload_media` actually produces (a uuid4 hex plus a short suffix) closes
+#: it at the door, and `_media_path` below refuses to resolve outside the
+#: folder as well, because one check standing between a stored string and
+#: `unlink()` is one check too few.
+MEDIA_URL_RE = re.compile(r"^/media/[A-Za-z0-9][A-Za-z0-9._-]{0,119}$")
 
 #: A sketch is a path list, not an image. Big enough for a page of scribble,
 #: small enough that a runaway client can't fill the disk one PUT at a time.
@@ -131,12 +145,29 @@ def _object_to_out(obj: WhiteboardObject) -> WhiteboardObjectOut:
 
 def _require_object_data(body: WhiteboardObjectBase) -> None:
     if body.kind == "image":
-        if not body.data.url or not body.data.url.startswith("/media/"):
+        if not body.data.url or not MEDIA_URL_RE.match(body.data.url):
             raise HTTPException(
                 status_code=422, detail="An image object needs a /media/... url"
             )
     elif body.kind == "text" and body.data.content is None:
         raise HTTPException(status_code=422, detail="A text object needs content")
+
+
+def _media_path(url: str):
+    """The file behind a `/media/...` url, or None if it isn't safely inside
+    the media folder.
+
+    Second of the two checks (`MEDIA_URL_RE` is the first, on the way in).
+    This one is what makes the delete safe even for a row written before
+    that pattern existed, or by some future writer that forgets it: resolve
+    the path and confirm the media folder is genuinely a parent, rather than
+    trusting the string it came from.
+    """
+    if not MEDIA_URL_RE.match(url):
+        return None
+    media_dir = (deps.get_config().data_dir / "media").resolve()
+    candidate = (media_dir / url.removeprefix("/media/")).resolve()
+    return candidate if candidate.is_relative_to(media_dir) else None
 
 
 class WhiteboardStateOut(BaseModel):
@@ -464,13 +495,14 @@ def delete_object(object_id: int, db: Session = Depends(get_session)) -> dict:
         # The only thing that ever pointed at this file — best-effort, the
         # same rule `_hard_delete` already follows for an attachment's own
         # file: the row goes either way, a stubborn file must not block it.
+        # `_media_path` returns None for anything that isn't provably inside
+        # the media folder, so a hand-edited or legacy row cannot turn this
+        # into "delete any file on disk".
         try:
-            url = json.loads(obj.data).get("url", "")
-            if url.startswith("/media/"):
-                (deps.get_config().data_dir / "media" / url.removeprefix("/media/")).unlink(
-                    missing_ok=True
-                )
-        except OSError as exc:
+            path = _media_path(json.loads(obj.data).get("url", "") or "")
+            if path is not None:
+                path.unlink(missing_ok=True)
+        except (OSError, ValueError) as exc:
             logging.getLogger("memorymap.whiteboard").warning(
                 "couldn't delete the file for whiteboard image %s (%s); "
                 "removing the record anyway",

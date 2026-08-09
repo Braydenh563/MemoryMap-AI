@@ -291,6 +291,52 @@ def test_an_objects_kind_cannot_be_changed_on_update(board_client):
     assert refused.status_code == 422
 
 
+def test_an_image_url_cannot_point_outside_the_media_folder(board_client, tmp_path):
+    """`delete_object` unlinks the file behind an image object, so a
+    `startswith("/media/")` check on the way in is a file-deletion hole:
+    `/media/../../../x` passes it and resolves anywhere on disk. Caught by
+    CodeQL as a path-injection alert on the commit that introduced it.
+    """
+    outsider = deps.get_config().data_dir / "DO_NOT_DELETE.txt"
+    outsider.write_text("important")
+
+    for bad in (
+        "/media/../DO_NOT_DELETE.txt",
+        "/media/../../etc/passwd",
+        "/media/sub/dir.png",
+        "/mediafoo.png",
+        "https://evil.example/x.png",
+    ):
+        refused = board_client.post(
+            "/whiteboard/objects", json={"kind": "image", "data": {"url": bad}}
+        )
+        assert refused.status_code == 422, f"{bad!r} should be refused, got {refused.status_code}"
+
+    assert outsider.exists()
+    assert board_client.get("/whiteboard/").json()["objects"] == []
+
+
+def test_a_legacy_traversing_url_still_cannot_delete_an_outside_file(board_client, session):
+    """Defence in depth: a row written before the pattern check existed (or
+    by anything that skips it) must still not be able to unlink whatever it
+    names. `_media_path` resolves and confirms containment rather than
+    trusting the stored string."""
+    from memorymap.core.database import WhiteboardObject
+
+    outsider = deps.get_config().data_dir / "SURVIVOR.txt"
+    outsider.write_text("important")
+
+    smuggled = WhiteboardObject(
+        kind="image", data='{"url": "/media/../SURVIVOR.txt"}', x=0, y=0, width=50, height=50
+    )
+    session.add(smuggled)
+    session.commit()
+
+    deleted = board_client.delete(f"/whiteboard/objects/{smuggled.id}")
+    assert deleted.status_code == 200
+    assert outsider.exists(), "the row went, but it must not take an outside file with it"
+
+
 def test_deleting_an_image_object_removes_its_file_from_disk(board_client):
     """The only row that ever pointed at this file — unlike a note's inline
     `![]()` image, which nothing in the app tracks or cleans up yet."""

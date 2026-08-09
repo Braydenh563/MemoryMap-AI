@@ -1944,8 +1944,18 @@ function matchesSearch(entry) {
 // and all. Both accept a same-origin relative URL as well as `https?://`:
 // unlike `appendInline`'s own link pattern (chat/documents, which only ever
 // links *out*), a note's images live at `/media/...` on this same server.
+//
+// **The two link/image alternatives are length-bounded, and that is not
+// cosmetic.** `\[([^\]\n]+)\]\(...\)` against text with an unclosed `[`
+// makes the engine consume to the end of the line and back off one
+// character at a time looking for a `]` that isn't there — once per start
+// position, so O(n²) on a note that is entirely user-controlled text. That
+// is CodeQL's `js/polynomial-redos`, and this file's own `[[wiki link]]`
+// pattern already bounds itself (`{1,120}`) for exactly this reason. The
+// caps are far past any real link (200 characters of link text, 500 of
+// URL) and turn the per-position work into a constant.
 const INLINE_MD =
-  /`([^`\n]+)`|\*\*([^*\n]+?)\*\*|~~([^~\n]+?)~~|\*([^*\n]+?)\*|!\[([^\]\n]*)\]\(([^)\n]+)\)|\[([^\]\n]+)\]\(([^)\n]+)\)/g;
+  /`([^`\n]+)`|\*\*([^*\n]+?)\*\*|~~([^~\n]+?)~~|\*([^*\n]+?)\*|!\[([^\]\n]{0,200})\]\(([^)\n]{1,500})\)|\[([^\]\n]{1,200})\]\(([^)\n]{1,500})\)/g;
 
 // Same allowlist an <img src> or <a href> built from note text has to pass:
 // an absolute http(s) URL, or a same-origin relative path (one leading
@@ -11036,8 +11046,10 @@ function appendInline(parent, text) {
   // relative. Both alternatives now accept anything; `isRenderableUrl` is
   // the actual safety gate at render time below, same guard renderInlineMarkdown
   // (the note-card list's own renderer) uses for the identical gap there.
+  // Length-bounded for the same reason INLINE_MD's are — see the comment
+  // there: an unclosed `[` otherwise costs O(n²) against user-written text.
   const pattern =
-    /(\*\*[^*]+\*\*|__[^_]+__|~~[^~]+~~|\*[^*]+\*|(?<![\w])_[^_]+_(?![\w])|`[^`]+`|!\[[^\]]*\]\(([^)\s]+)\)|\[[^\]]+\]\(([^)\s]+)\)|https?:\/\/[^\s)]+)/g;
+    /(\*\*[^*]+\*\*|__[^_]+__|~~[^~]+~~|\*[^*]+\*|(?<![\w])_[^_]+_(?![\w])|`[^`]+`|!\[[^\]]{0,200}\]\(([^)\s]{1,500})\)|\[[^\]]{1,200}\]\(([^)\s]{1,500})\)|https?:\/\/[^\s)]+)/g;
   let last = 0;
   let match;
   while ((match = pattern.exec(text)) !== null) {
@@ -23013,7 +23025,7 @@ initAuth();
 
 // ======================= WHITEBOARD LOGIC =======================
 let wbZoom = d3.zoom().scaleExtent([0.1, 4]).on("zoom", handleWbZoom);
-let wbState = { nodes: [], sketches: [] };
+let wbState = { nodes: [], sketches: [], objects: [] };
 let wbInitialized = false;
 // ROADMAP.md Tier 2 §11: Select was folded into Pan, with no visible
 // "this is selected" state and no way to delete without switching to the
@@ -23027,6 +23039,12 @@ let wbSelectedItem = null;
 // outside that closure (the Delete-key handler) can still call them.
 let wbDeleteSketchRef = null;
 let wbDeleteNodeRef = null;
+let wbDeleteObjectRef = null;
+// `selectWbTool` is a closure defined inside `initWhiteboard` (it needs that
+// scope's `container`/`toolGroup`); this holds the current one so code
+// outside it — placing a text box switches back to Select once typed —
+// can still call it, the same shape the delete-refs above already use.
+let wbSelectToolRef = null;
 // True only between an eraser mousedown and mouseup — the drawing tools
 // leave one mark per click-drag, the eraser is meant to remove everything
 // the pointer crosses while held, so it needs a "currently held" flag the
@@ -23114,15 +23132,18 @@ function wbCursorForTool(tool, strokeColor) {
 // tool, not folded into pan"). Re-applied after every `renderWhiteboard()`
 // (elements are rebuilt on each render, so a class set on the old DOM node
 // would vanish silently) as well as right after a click.
+const WB_SELECTOR_BY_KIND = {
+  sketch: (id) => `.sketch-group[data-id="${id}"]`,
+  node: (id) => `.node-card[data-id="${id}"]`,
+  object: (id) => `.wb-object[data-id="${id}"]`,
+};
+
 function wbApplySelectionHighlight() {
-  document.querySelectorAll(".sketch-group.wb-selected, .node-card.wb-selected").forEach((el) =>
-    el.classList.remove("wb-selected")
-  );
+  document
+    .querySelectorAll(".sketch-group.wb-selected, .node-card.wb-selected, .wb-object.wb-selected")
+    .forEach((el) => el.classList.remove("wb-selected"));
   if (!wbSelectedItem) return;
-  const selector =
-    wbSelectedItem.kind === "sketch"
-      ? `.sketch-group[data-id="${wbSelectedItem.id}"]`
-      : `.node-card[data-id="${wbSelectedItem.id}"]`;
+  const selector = WB_SELECTOR_BY_KIND[wbSelectedItem.kind](wbSelectedItem.id);
   document.querySelector(selector)?.classList.add("wb-selected");
 }
 
@@ -23137,21 +23158,24 @@ function clearWbSelection() {
   wbApplySelectionHighlight();
 }
 
+//: Which `wbState` list a selection's item lives in, by kind — one place so
+//: it can't drift out of step with `WB_KIND_INFO`'s own list names.
+const WB_LIST_BY_KIND = { sketch: "sketches", node: "nodes", object: "objects" };
+
 // Delete/Backspace with something selected — the other half of "select as
 // a real tool": today, deleting anything meant switching to the Delete
-// tool first. Reuses `deleteSketch`/`deleteNode`, so a selection-delete
-// gets undo/redo for free, the same as every other way of deleting one.
+// tool first. Reuses `deleteSketch`/`deleteNode`/`deleteObject`, so a
+// selection-delete gets undo/redo for free, the same as every other way of
+// deleting one.
 function deleteWbSelection() {
   if (!wbSelectedItem) return false;
   const { kind, id } = wbSelectedItem;
-  const item =
-    kind === "sketch"
-      ? (wbState.sketches || []).find((s) => s.id === id)
-      : (wbState.nodes || []).find((n) => n.id === id);
+  const item = (wbState[WB_LIST_BY_KIND[kind]] || []).find((i) => i.id === id);
   clearWbSelection();
   if (!item) return false;
   if (kind === "sketch") wbDeleteSketchRef?.(item);
-  else wbDeleteNodeRef?.(item);
+  else if (kind === "node") wbDeleteNodeRef?.(item);
+  else wbDeleteObjectRef?.(item);
   return true;
 }
 
@@ -23177,11 +23201,36 @@ function wbPushUndo(entry) {
 // each other's mirror image — pop from one stack, push the reverse onto
 // the other — so one function drives both rather than two near-duplicates
 // that could drift apart.
+//: Per-kind: the collection endpoint, which key in `wbState` holds it, and
+//: how to turn a live item back into a POST body. One table rather than a
+//: three-way ternary repeated at every call site — adding the "object" kind
+//: (images/text boxes) here is the only change `wbApplyHistoryEntry` needed
+//: to cover them too.
+const WB_KIND_INFO = {
+  sketch: {
+    base: "/whiteboard/sketches",
+    list: "sketches",
+    payload: (d) => ({ data: d.data, board_id: d.board_id, x: d.x, y: d.y, z: d.z }),
+  },
+  node: {
+    base: "/whiteboard/nodes",
+    list: "nodes",
+    payload: (d) => ({ entry_id: d.entry_id, board_id: d.board_id, x: d.x, y: d.y, z: d.z }),
+  },
+  object: {
+    base: "/whiteboard/objects",
+    list: "objects",
+    payload: (d) => ({
+      kind: d.kind, data: d.data, board_id: d.board_id,
+      x: d.x, y: d.y, z: d.z, width: d.width, height: d.height,
+    }),
+  },
+};
+
 async function wbApplyHistoryEntry(from, to) {
   const entry = from.pop();
   if (!entry) return false;
-  const base = entry.kind === "sketch" ? "/whiteboard/sketches" : "/whiteboard/nodes";
-  const list = entry.kind === "sketch" ? "sketches" : "nodes";
+  const { base, list, payload: toPayload } = WB_KIND_INFO[entry.kind];
   if (entry.action === "delete") {
     // This entry means "bring back what was deleted". Applying it recreates
     // the item; reversing *that* is deleting the newly-recreated one again.
@@ -23195,11 +23244,7 @@ async function wbApplyHistoryEntry(from, to) {
     // future redo/undo) needs a real payload to recreate it from, not a
     // blank one.
     const item = wbState[list].find((i) => i.id === entry.id);
-    const payload =
-      item &&
-      (entry.kind === "sketch"
-        ? { data: item.data, board_id: item.board_id, x: item.x, y: item.y, z: item.z }
-        : { entry_id: item.entry_id, board_id: item.board_id, x: item.x, y: item.y, z: item.z });
+    const payload = item && toPayload(item);
     await apiJson(`${base}/${entry.id}`, { method: "DELETE" });
     wbState[list] = wbState[list].filter((i) => i.id !== entry.id);
     if (payload) to.push({ action: "delete", kind: entry.kind, payload });
@@ -23235,6 +23280,44 @@ async function wbRedo() {
   }
 }
 
+// Images and text boxes — the two new object kinds, created here and
+// rendered by `renderWbObjects`. One shared creator (a POST plus the usual
+// create-undo-entry dance every other whiteboard item already does) rather
+// than a copy per kind, since only the `kind`/`data` differ.
+async function wbCreateObject(kind, data, x, y, width, height) {
+  const body = { kind, data, board_id: window.currentBoardId, x, y, z: 1, width, height };
+  try {
+    const created = await apiJson("/whiteboard/objects", { method: "POST", body: JSON.stringify(body) });
+    wbState.objects = wbState.objects || [];
+    wbState.objects.push(created);
+    wbPushUndo({ action: "create", kind: "object", id: created.id });
+    renderWhiteboard();
+    await refreshBoardList();
+    return created;
+  } catch (err) {
+    toast(err.message || "Couldn't add that to the board.", true);
+    return null;
+  }
+}
+
+async function wbCreateTextBox(x, y) {
+  const created = await wbCreateObject(
+    "text",
+    { content: "" },
+    x - 100, y - 40, 200, 80
+  );
+  if (!created) return;
+  wbSelectToolRef?.("select");
+  // The point of click-to-place is typing immediately — a text box with
+  // nothing in it and no visible focus is a box nobody knows they can type
+  // into. renderWhiteboard() just rebuilt the DOM, so the element has to be
+  // looked up fresh rather than kept from before the render.
+  requestAnimationFrame(() => {
+    const el = document.querySelector(`.wb-object[data-id="${created.id}"] .wb-text-content`);
+    el?.focus();
+  });
+}
+
 // Asked for directly. Deletes every card and sketch on the *current* board
 // (not other boards — clearing is scoped the same way everything else on
 // this screen is). Reuses the same undo entries a single delete already
@@ -23242,7 +23325,7 @@ async function wbRedo() {
 // so Ctrl+Z after Clear brings items back one at a time, exactly like an
 // eraser swipe over the same items would.
 async function wbClearBoard() {
-  const total = wbState.nodes.length + wbState.sketches.length;
+  const total = wbState.nodes.length + wbState.sketches.length + (wbState.objects?.length || 0);
   if (total === 0) {
     toast("This board is already empty.");
     return;
@@ -23253,24 +23336,14 @@ async function wbClearBoard() {
   );
   if (!ok) return;
   try {
-    for (const node of [...wbState.nodes]) {
-      await apiJson(`/whiteboard/nodes/${node.id}`, { method: "DELETE" });
-      wbPushUndo({
-        action: "delete",
-        kind: "node",
-        payload: { entry_id: node.entry_id, board_id: node.board_id, x: node.x, y: node.y, z: node.z },
-      });
+    for (const kind of ["node", "sketch", "object"]) {
+      const { base, list, payload } = WB_KIND_INFO[kind];
+      for (const item of [...(wbState[list] || [])]) {
+        await apiJson(`${base}/${item.id}`, { method: "DELETE" });
+        wbPushUndo({ action: "delete", kind, payload: payload(item) });
+      }
+      wbState[list] = [];
     }
-    for (const sketch of [...wbState.sketches]) {
-      await apiJson(`/whiteboard/sketches/${sketch.id}`, { method: "DELETE" });
-      wbPushUndo({
-        action: "delete",
-        kind: "sketch",
-        payload: { data: sketch.data, board_id: sketch.board_id, x: sketch.x, y: sketch.y, z: sketch.z },
-      });
-    }
-    wbState.nodes = [];
-    wbState.sketches = [];
     wbSelectedItem = null;
     renderWhiteboard();
     await refreshBoardList();
@@ -23304,9 +23377,10 @@ function wbSvgEscape(s) {
 
 // A rough character-count wrap — no live font metrics are available while
 // building a string that isn't in the DOM yet. Good enough for a legible
-// card label in an export, not typeset text.
-function wbSvgWrappedText(text, x, y, maxWidth) {
-  const charsPerLine = Math.max(10, Math.floor(maxWidth / 7));
+// label in an export, not typeset text. `maxLines` caps height (a card's
+// own export label is deliberately short; a text box gets more room).
+function wbSvgWrapLines(text, maxWidth, maxLines = 6, charWidth = 7) {
+  const charsPerLine = Math.max(10, Math.floor(maxWidth / charWidth));
   const words = String(text).split(/\s+/).filter(Boolean);
   const lines = [];
   let line = "";
@@ -23318,13 +23392,22 @@ function wbSvgWrappedText(text, x, y, maxWidth) {
     } else {
       line = next;
     }
-    if (lines.length >= 6) break; // cap a card's export label height
+    if (lines.length >= maxLines) break;
   }
-  if (line && lines.length < 6) lines.push(line);
+  if (line && lines.length < maxLines) lines.push(line);
+  return lines;
+}
+
+function wbSvgText(lines, x, y, { fontSize = 13, fill = "#1f2430", lineHeight } = {}) {
+  const dy = lineHeight || fontSize + 3;
   const tspans = lines
-    .map((l, i) => `<tspan x="${x}" dy="${i === 0 ? 0 : 16}">${wbSvgEscape(l)}</tspan>`)
+    .map((l, i) => `<tspan x="${x}" dy="${i === 0 ? 0 : dy}">${wbSvgEscape(l)}</tspan>`)
     .join("");
-  return `<text x="${x}" y="${y}" font-family="sans-serif" font-size="13" fill="#1f2430">${tspans}</text>`;
+  return `<text x="${x}" y="${y}" font-family="sans-serif" font-size="${fontSize}" fill="${fill}">${tspans}</text>`;
+}
+
+function wbSvgWrappedText(text, x, y, maxWidth) {
+  return wbSvgText(wbSvgWrapLines(text, maxWidth), x, y);
 }
 
 // The board's full extent — every card and sketch, with padding — computed
@@ -23353,6 +23436,12 @@ function wbBoardBounds() {
     } catch {
       /* getBBox throws on an element the browser hasn't laid out yet */
     }
+  }
+  for (const obj of wbState.objects || []) {
+    minX = Math.min(minX, obj.x);
+    minY = Math.min(minY, obj.y);
+    maxX = Math.max(maxX, obj.x + obj.width);
+    maxY = Math.max(maxY, obj.y + obj.height);
   }
   if (!Number.isFinite(minX)) return { minX: 0, minY: 0, width: 800, height: 600 };
   const pad = 60;
@@ -23415,6 +23504,33 @@ function wbBuildExportSvg(scope) {
       `<rect width="${w}" height="${h}" rx="10" fill="#ffffffcc" stroke="#8888aa" stroke-width="1.5" />`
     );
     parts.push(wbSvgWrappedText(label || "Empty note", 14, 24, w - 28));
+    parts.push("</g>");
+  }
+
+  // Images and text boxes — the two new object kinds, neither tied to a
+  // note. An <image> element rasterizes cleanly since the URL is always
+  // same-origin (isRenderableUrl already guarantees that server-side); a
+  // text box gets the same simplified rect+label treatment a card does,
+  // but honours the colour/size it was actually given rather than a fixed
+  // look, since those are the whole point of a text box.
+  for (const obj of wbState.objects || []) {
+    parts.push(`<g transform="translate(${obj.x}, ${obj.y})">`);
+    if (obj.kind === "image" && obj.data.url) {
+      parts.push(
+        `<image href="${wbSvgEscape(obj.data.url)}" width="${obj.width}" height="${obj.height}" ` +
+          `preserveAspectRatio="xMidYMid slice" />`
+      );
+    } else if (obj.kind === "text") {
+      const fontSize = obj.data.font_size || 16;
+      const lines = wbSvgWrapLines(obj.data.content || "", obj.width - 20, 20, fontSize * 0.55);
+      parts.push(
+        wbSvgText(lines, 10, fontSize + 8, {
+          fontSize,
+          fill: obj.data.color || "#1f2430",
+          lineHeight: fontSize * 1.25,
+        })
+      );
+    }
     parts.push("</g>");
   }
 
@@ -23807,6 +23923,8 @@ async function initWhiteboard() {
     updateWbCursor();
   }
 
+  wbSelectToolRef = selectWbTool;
+
   if (toolGroup) {
     toolGroup.addEventListener("click", (e) => {
       const btn = e.target.closest("button[data-tool]");
@@ -23852,6 +23970,7 @@ async function initWhiteboard() {
     a: "arrow",
     r: "rect",
     o: "circle",
+    t: "text",
     e: "eraser",
     x: "delete",
   };
@@ -23929,8 +24048,79 @@ async function initWhiteboard() {
   // Clicking empty canvas with Select active clears the selection — every
   // card/sketch's own click handler calls stopPropagation() under Select,
   // so a click that reaches here was never on an item.
-  containerEl.addEventListener("click", () => {
+  containerEl.addEventListener("click", (e) => {
     if (window.currentTool === "select") clearWbSelection();
+    // A text box is placed by clicking, not dragged like a shape — it has
+    // no natural "size while dragging" the way a rect does, so click-to-drop
+    // at a sensible default size (typed into afterward) is the same model
+    // OneNote and every sticky-note tool already use.
+    // No `e.target` check: like the Select-clear branch above, this relies
+    // on an item's own click handler having already called stopPropagation()
+    // if the click actually landed on a card/sketch/object — a click that
+    // reaches here bubbled up from truly empty canvas either way.
+    if (window.currentTool === "text") {
+      const [x, y] = getLogicalMouse(e);
+      wbCreateTextBox(x, y);
+    }
+  });
+
+  // Images: paste, drag-and-drop, or the upload button — asked for
+  // directly, and all three funnel through the same upload+place path
+  // `handleFileUpload` already established for notes (POST /media/upload,
+  // then a placed reference — a board object here instead of markdown text).
+  async function wbPlaceUploadedImage(file, x, y) {
+    if (!file || !file.type?.startsWith("image/")) return;
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const uploaded = await apiJson("/media/upload", {
+        method: "POST",
+        headers: { "X-Auth-Token": authToken() },
+        body: formData,
+      });
+      const img = new Image();
+      const naturalSize = await new Promise((resolve) => {
+        img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+        img.onerror = () => resolve({ w: 300, h: 200 });
+        img.src = uploaded.url;
+      });
+      const width = Math.min(400, naturalSize.w || 300);
+      const height = width * ((naturalSize.h || 200) / (naturalSize.w || 300));
+      await wbCreateObject("image", { url: uploaded.url }, x - width / 2, y - height / 2, width, height);
+    } catch (err) {
+      toast(err.message || "Couldn't add that image.", true);
+    }
+  }
+
+  containerEl.addEventListener("dragover", (e) => {
+    if (e.dataTransfer?.types?.includes("Files")) e.preventDefault();
+  });
+  containerEl.addEventListener("drop", (e) => {
+    if (!e.dataTransfer?.files?.length) return;
+    e.preventDefault();
+    const [x, y] = getLogicalMouse(e);
+    for (const file of e.dataTransfer.files) wbPlaceUploadedImage(file, x, y);
+  });
+  // Paste has no drop coordinate to place at — the centre of whatever's
+  // currently in view reads better than always the same fixed board
+  // position, which would stack every pasted image on top of the last one.
+  containerEl.addEventListener("paste", (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const files = [...items].filter((i) => i.kind === "file").map((i) => i.getAsFile());
+    if (!files.length) return;
+    e.preventDefault();
+    const rect = containerEl.getBoundingClientRect();
+    const [x, y] = getLogicalMouse({ clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 });
+    for (const file of files) wbPlaceUploadedImage(file, x, y);
+  });
+  const imageFileInput = document.getElementById("wb-image-file-input");
+  document.getElementById("wb-add-image")?.addEventListener("click", () => imageFileInput?.click());
+  imageFileInput?.addEventListener("change", () => {
+    const rect = containerEl.getBoundingClientRect();
+    const [x, y] = getLogicalMouse({ clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 });
+    for (const file of imageFileInput.files) wbPlaceUploadedImage(file, x, y);
+    imageFileInput.value = "";
   });
 
   svgCanvas.addEventListener("pointerdown", (e) => {
@@ -24390,10 +24580,189 @@ function renderWhiteboard() {
 
   nodeSelection.exit().remove();
 
+  renderWbObjects(canvas);
+
   // Every element above was just rebuilt, so any `.wb-selected` class set
   // before this render is gone with it — re-apply from the state that
   // actually persists (`wbSelectedItem`), not the DOM.
   wbApplySelectionHighlight();
+}
+
+//: Min size a resize can shrink an object to — small enough for a sticky
+//: note, too small to lose an image/text box entirely off the canvas.
+const WB_OBJECT_MIN_SIZE = 40;
+
+async function wbSaveObject(d) {
+  const body = {
+    kind: d.kind, data: d.data, board_id: d.board_id,
+    x: d.x, y: d.y, z: d.z, width: d.width, height: d.height,
+  };
+  try {
+    const saved = await apiJson(`/whiteboard/objects/${d.id}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    });
+    Object.assign(d, saved);
+  } catch {
+    // Same recoverable-stale-client shape every other whiteboard write here
+    // already follows — a 404 means this object (or its board) is gone.
+    recordBrowserLog("WARN", [`[Whiteboard] object ${d.id} is stale — reloading the board`]);
+    await fetchWhiteboardState();
+    renderWhiteboard();
+  }
+}
+
+// Cards and sketches each render in their own function, inlined into
+// renderWhiteboard directly; objects get their own function instead — two
+// genuinely different element shapes (an <img>, a contenteditable <div>)
+// sharing one drag+resize+select scaffold reads better factored out than
+// inlined a third time.
+function renderWbObjects(canvas) {
+  async function deleteObject(d) {
+    const deletingKey = `object:${d.id}`;
+    if (wbDeleting.has(deletingKey)) return;
+    wbDeleting.add(deletingKey);
+    wbPushUndo({ action: "delete", kind: "object", payload: WB_KIND_INFO.object.payload(d) });
+    try {
+      await apiJson(`/whiteboard/objects/${d.id}`, { method: "DELETE" });
+      wbState.objects = wbState.objects.filter((o) => o.id !== d.id);
+      renderWhiteboard();
+    } catch (e) {
+      console.error(e);
+      wbUndoStack.pop();
+    } finally {
+      wbDeleting.delete(deletingKey);
+    }
+  }
+  wbDeleteObjectRef = deleteObject;
+
+  const objDrag = d3.drag()
+    // A resize handle owns its own drag (below); a text box's own text
+    // needs plain clicks/selection to reach it, not a canvas-wide drag.
+    .filter((event) => !event.target.closest(".wb-resize-handle, .wb-text-content"))
+    .on("start", function () {
+      if (window.currentTool === "eraser" || window.currentTool === "delete") return;
+      d3.select(this).raise();
+    })
+    .on("drag", function (event, d) {
+      if (window.currentTool === "eraser" || window.currentTool === "delete") return;
+      d.x += event.dx;
+      d.y += event.dy;
+      d3.select(this).style("transform", `translate(${d.x}px, ${d.y}px)`);
+    })
+    .on("end", function (event, d) {
+      if (window.currentTool === "eraser" || window.currentTool === "delete") return;
+      wbSaveObject(d);
+    });
+
+  function resizeDrag(handle) {
+    return d3.drag()
+      .on("start", function (event) {
+        event.sourceEvent.stopPropagation(); // don't also start objDrag
+      })
+      .on("drag", function (event, d) {
+        const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
+        const dx = event.dx / transform.k;
+        const dy = event.dy / transform.k;
+        if (handle.includes("e")) d.width = Math.max(WB_OBJECT_MIN_SIZE, d.width + dx);
+        if (handle.includes("s")) d.height = Math.max(WB_OBJECT_MIN_SIZE, d.height + dy);
+        if (handle.includes("w")) {
+          const newWidth = Math.max(WB_OBJECT_MIN_SIZE, d.width - dx);
+          d.x += d.width - newWidth;
+          d.width = newWidth;
+        }
+        if (handle.includes("n")) {
+          const newHeight = Math.max(WB_OBJECT_MIN_SIZE, d.height - dy);
+          d.y += d.height - newHeight;
+          d.height = newHeight;
+        }
+        const el = d3.select(this.closest(".wb-object"));
+        el.style("width", `${d.width}px`)
+          .style("height", `${d.height}px`)
+          .style("transform", `translate(${d.x}px, ${d.y}px)`);
+      })
+      .on("end", (event, d) => wbSaveObject(d));
+  }
+
+  const objectSelection = canvas.selectAll(".wb-object")
+    .data(wbState.objects || [], (d) => d.id);
+
+  const objectEnter = objectSelection.enter()
+    .append("div")
+    .attr("class", (d) => `wb-object wb-object-${d.kind}`)
+    .attr("data-id", (d) => d.id)
+    .style("transform", (d) => `translate(${d.x}px, ${d.y}px)`)
+    .style("width", (d) => `${d.width}px`)
+    .style("height", (d) => `${d.height}px`)
+    .style("z-index", (d) => d.z)
+    .call(objDrag)
+    .on("click", (event, d) => {
+      if (window.currentTool === "select") {
+        event.stopPropagation();
+        selectWbItem("object", d.id);
+        return;
+      }
+      if (window.currentTool === "delete" || window.currentTool === "eraser") deleteObject(d);
+    })
+    .on("pointerenter", (event, d) => {
+      if (window.currentTool === "eraser" && wbErasing) deleteObject(d);
+    });
+
+  objectEnter.each(function (d) {
+    const el = d3.select(this);
+    if (d.kind === "image") {
+      el.append("img").attr("src", d.data.url || "").attr("alt", "");
+    } else {
+      const content = el.append("div")
+        .attr("class", "wb-text-content")
+        .attr("contenteditable", "true")
+        .style("color", d.data.color || "")
+        .style("font-size", d.data.font_size ? `${d.data.font_size}px` : "")
+        .text(d.data.content || "");
+      // Saved on blur, not on every keystroke — a PUT per character would
+      // flood the server and make undo/redo of everything *else* land
+      // between two half-typed states.
+      content.on("blur", function () {
+        d.data = { ...d.data, content: this.textContent };
+        wbSaveObject(d);
+      });
+      // Typing is text-box business, not the canvas's — Delete/Backspace
+      // here must edit the text, not delete the whole box the way the same
+      // keys do when an object is merely *selected*.
+      content.on("keydown", (event) => event.stopPropagation());
+      content.on("pointerdown", (event) => event.stopPropagation());
+    }
+    for (const handle of ["nw", "n", "ne", "e", "se", "s", "sw", "w"]) {
+      el.append("div")
+        .attr("class", "wb-resize-handle")
+        .attr("data-handle", handle)
+        .call(resizeDrag(handle));
+    }
+  });
+
+  const objectUpdate = objectEnter.merge(objectSelection);
+  objectUpdate
+    .style("transform", (d) => `translate(${d.x}px, ${d.y}px)`)
+    .style("width", (d) => `${d.width}px`)
+    .style("height", (d) => `${d.height}px`)
+    .style("z-index", (d) => d.z);
+  // An image's own src can change (rare — nothing in this UI replaces one
+  // yet, but a future paste-to-replace shouldn't need this rewritten) and a
+  // text box's saved colour/size might have changed elsewhere (undo/redo);
+  // the text itself is deliberately left alone here so a re-render mid-edit
+  // (another item moving, say) can't overwrite what's being typed.
+  objectUpdate.each(function (d) {
+    const el = d3.select(this);
+    if (d.kind === "image") {
+      el.select("img").attr("src", d.data.url || "");
+    } else {
+      const textEl = el.select(".wb-text-content");
+      textEl.style("color", d.data.color || "").style("font-size", d.data.font_size ? `${d.data.font_size}px` : "");
+      if (document.activeElement !== textEl.node()) textEl.text(d.data.content || "");
+    }
+  });
+
+  objectSelection.exit().remove();
 }
 
 function dragStart(event, d) {

@@ -227,6 +227,99 @@ def test_creating_a_board_makes_a_named_note_and_lists_it(board_client):
     assert entry["sketch_count"] == 1
 
 
+def test_an_image_object_needs_a_real_media_url(board_client):
+    """A card wraps a note, a sketch is a path — neither is a placeable
+    image. `data.url` has to be a same-origin `/media/...` path, the shape
+    `POST /media/upload` always returns, not an arbitrary string a client
+    could otherwise stash here."""
+    refused = board_client.post(
+        "/whiteboard/objects",
+        json={"kind": "image", "data": {"url": "https://evil.example/x.png"}},
+    )
+    assert refused.status_code == 422
+
+    made = board_client.post(
+        "/whiteboard/objects",
+        json={"kind": "image", "data": {"url": "/media/abc123.png"}, "x": 5, "y": 5},
+    )
+    assert made.status_code == 201, made.text
+    body = made.json()
+    assert body["data"]["url"] == "/media/abc123.png"
+    assert body["width"] == 200  # the default, not zero
+
+
+def test_a_text_object_round_trips_with_its_own_style(board_client):
+    made = board_client.post(
+        "/whiteboard/objects",
+        json={
+            "kind": "text",
+            "data": {"content": "Meeting notes", "color": "#ffcc00", "font_size": 18},
+            "x": 10, "y": 20, "width": 240, "height": 80,
+        },
+    )
+    assert made.status_code == 201, made.text
+    obj_id = made.json()["id"]
+
+    state = board_client.get("/whiteboard/").json()
+    assert len(state["objects"]) == 1
+    assert state["objects"][0]["data"] == {
+        "content": "Meeting notes", "color": "#ffcc00", "font_size": 18, "url": None,
+    }
+
+    moved = board_client.put(
+        f"/whiteboard/objects/{obj_id}",
+        json={
+            "kind": "text",
+            "data": {"content": "Meeting notes — updated"},
+            "x": 50, "y": 60, "width": 300, "height": 90,
+        },
+    )
+    assert moved.status_code == 200, moved.text
+    assert moved.json()["x"] == 50
+    assert moved.json()["width"] == 300
+    assert moved.json()["data"]["content"] == "Meeting notes — updated"
+
+
+def test_an_objects_kind_cannot_be_changed_on_update(board_client):
+    made = board_client.post(
+        "/whiteboard/objects", json={"kind": "text", "data": {"content": "hi"}}
+    ).json()
+    refused = board_client.put(
+        f"/whiteboard/objects/{made['id']}",
+        json={"kind": "image", "data": {"url": "/media/x.png"}},
+    )
+    assert refused.status_code == 422
+
+
+def test_deleting_an_image_object_removes_its_file_from_disk(board_client):
+    """The only row that ever pointed at this file — unlike a note's inline
+    `![]()` image, which nothing in the app tracks or cleans up yet."""
+    media_dir = deps.get_config().data_dir / "media"
+    media_dir.mkdir(parents=True, exist_ok=True)
+    (media_dir / "keepme.png").write_bytes(b"fake png bytes")
+
+    made = board_client.post(
+        "/whiteboard/objects", json={"kind": "image", "data": {"url": "/media/keepme.png"}}
+    ).json()
+    assert (media_dir / "keepme.png").exists()
+
+    deleted = board_client.delete(f"/whiteboard/objects/{made['id']}")
+    assert deleted.status_code == 200
+    assert not (media_dir / "keepme.png").exists()
+    assert board_client.get("/whiteboard/").json()["objects"] == []
+
+
+def test_objects_count_toward_a_board_appearing_in_the_list(board_client, session):
+    board = _note(session, "a board with only a text box on it")
+    board_client.post(
+        "/whiteboard/objects",
+        json={"kind": "text", "data": {"content": "hi"}, "board_id": board.id},
+    )
+    boards = board_client.get("/whiteboard/boards").json()
+    entry = next(b for b in boards if b["id"] == board.id)
+    assert entry["object_count"] == 1
+
+
 def test_purging_a_board_note_detaches_its_cards_instead_of_deleting_them(
     board_client, session
 ):

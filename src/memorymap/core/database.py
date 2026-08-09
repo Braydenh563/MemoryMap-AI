@@ -364,6 +364,35 @@ class WhiteboardSketch(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
 
+class WhiteboardObject(Base):
+    """A freeform item on the whiteboard that isn't tied to a note: a pasted/
+    dropped/uploaded image, or a text box — the two things asked for
+    directly ("I want the whiteboard to basically be like OneNote and
+    Microsoft Whiteboard") that a card (always wraps an existing note) and a
+    sketch (a path, not a placeable rectangle) don't cover.
+
+    One table with a `kind` discriminator rather than two — an image and a
+    text box already share every other column (board, position, size), and
+    the two things that differ (a media URL vs. styled text) both fit in one
+    JSON `data` blob the same way a sketch's own stroke data already does.
+    """
+
+    __tablename__ = "whiteboard_objects"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    board_id: Mapped[int | None] = mapped_column(ForeignKey("entries.id"), default=None)
+    kind: Mapped[str] = mapped_column(String(20))
+    #: image: {"url": "/media/..."}. text: {"content": str, "color": str, "font_size": int}.
+    data: Mapped[str] = mapped_column(Text)
+    x: Mapped[float] = mapped_column(Float, default=0.0)
+    y: Mapped[float] = mapped_column(Float, default=0.0)
+    z: Mapped[int] = mapped_column(Integer, default=0)
+    width: Mapped[float] = mapped_column(Float, default=200.0)
+    height: Mapped[float] = mapped_column(Float, default=120.0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+
+
 class UserPreference(Base):
     """Agent Memory Streams: Learned preferences and instructions appended by the AI."""
 

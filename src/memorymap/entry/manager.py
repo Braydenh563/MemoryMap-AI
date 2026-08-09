@@ -29,6 +29,7 @@ from memorymap.core.database import (
     EntryRevision,
     Reminder,
     WhiteboardNode,
+    WhiteboardObject,
     WhiteboardSketch,
     utcnow,
 )
@@ -369,6 +370,11 @@ def _hard_delete(session: Session, entries: list[Entry], uploads_dir: Path | Non
     session.execute(
         WhiteboardSketch.__table__.update()
         .where(WhiteboardSketch.board_id.in_(ids))
+        .values(board_id=None)
+    )
+    session.execute(
+        WhiteboardObject.__table__.update()
+        .where(WhiteboardObject.board_id.in_(ids))
         .values(board_id=None)
     )
     # A reminder's entry is optional, so it is detached rather than deleted:

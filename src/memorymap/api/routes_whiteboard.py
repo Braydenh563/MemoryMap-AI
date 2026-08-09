@@ -19,12 +19,16 @@ version:
 
 from __future__ import annotations
 
+import json
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from memorymap.core.database import Entry, WhiteboardNode, WhiteboardSketch
+from memorymap.core import deps
+from memorymap.core.database import Entry, WhiteboardNode, WhiteboardObject, WhiteboardSketch
 from memorymap.core.deps import get_session
 from memorymap.entry.manager import extract_title
 
@@ -33,6 +37,12 @@ router = APIRouter(prefix="/whiteboard", tags=["whiteboard"])
 #: A sketch is a path list, not an image. Big enough for a page of scribble,
 #: small enough that a runaway client can't fill the disk one PUT at a time.
 MAX_SKETCH_CHARS = 400_000
+
+#: A text box's own content. Generous — this is a whiteboard note, not a tweet
+#: — but still bounded for the same reason every other free-text field here is.
+MAX_OBJECT_TEXT_CHARS = 20_000
+
+VALID_OBJECT_KINDS = {"image", "text"}
 
 
 class WhiteboardNodeBase(BaseModel):
@@ -63,9 +73,76 @@ class WhiteboardSketchOut(WhiteboardSketchBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class WhiteboardObjectData(BaseModel):
+    """What `data` actually holds, validated by `kind` rather than left as an
+    opaque string the way a sketch's own path data is — an image needs a real
+    same-origin URL (never an arbitrary one a client could point anywhere),
+    and a text box's content has its own length bound."""
+
+    url: str | None = Field(default=None, max_length=300)
+    content: str | None = Field(default=None, max_length=MAX_OBJECT_TEXT_CHARS)
+    color: str | None = Field(default=None, max_length=20)
+    font_size: int | None = Field(default=None, ge=8, le=200)
+
+
+class WhiteboardObjectBase(BaseModel):
+    kind: str
+    data: WhiteboardObjectData
+    board_id: int | None = None
+    x: float = 0.0
+    y: float = 0.0
+    z: int = 0
+    width: float = Field(default=200.0, ge=20, le=4000)
+    height: float = Field(default=120.0, ge=20, le=4000)
+
+    @field_validator("kind")
+    @classmethod
+    def _known_kind(cls, value: str) -> str:
+        if value not in VALID_OBJECT_KINDS:
+            raise ValueError(f"Unknown object kind {value!r} — expected image or text")
+        return value
+
+
+class WhiteboardObjectOut(BaseModel):
+    id: int
+    kind: str
+    data: WhiteboardObjectData
+    board_id: int | None
+    x: float
+    y: float
+    z: int
+    width: float
+    height: float
+
+
+def _object_to_out(obj: WhiteboardObject) -> WhiteboardObjectOut:
+    return WhiteboardObjectOut(
+        id=obj.id,
+        kind=obj.kind,
+        data=WhiteboardObjectData(**json.loads(obj.data)),
+        board_id=obj.board_id,
+        x=obj.x,
+        y=obj.y,
+        z=obj.z,
+        width=obj.width,
+        height=obj.height,
+    )
+
+
+def _require_object_data(body: WhiteboardObjectBase) -> None:
+    if body.kind == "image":
+        if not body.data.url or not body.data.url.startswith("/media/"):
+            raise HTTPException(
+                status_code=422, detail="An image object needs a /media/... url"
+            )
+    elif body.kind == "text" and body.data.content is None:
+        raise HTTPException(status_code=422, detail="A text object needs content")
+
+
 class WhiteboardStateOut(BaseModel):
     nodes: list[WhiteboardNodeOut]
     sketches: list[WhiteboardSketchOut]
+    objects: list[WhiteboardObjectOut] = []
 
 
 def _board_filter(model, board_id: int | None):
@@ -112,7 +189,14 @@ def get_whiteboard_state(
     sketches = db.scalars(
         select(WhiteboardSketch).where(_board_filter(WhiteboardSketch, board_id))
     ).all()
-    return WhiteboardStateOut(nodes=list(nodes), sketches=list(sketches))
+    objects = db.scalars(
+        select(WhiteboardObject).where(_board_filter(WhiteboardObject, board_id))
+    ).all()
+    return WhiteboardStateOut(
+        nodes=list(nodes),
+        sketches=list(sketches),
+        objects=[_object_to_out(o) for o in objects],
+    )
 
 
 class BoardOut(BaseModel):
@@ -121,6 +205,7 @@ class BoardOut(BaseModel):
     title: str
     node_count: int
     sketch_count: int
+    object_count: int = 0
 
 
 class BoardCreate(BaseModel):
@@ -156,16 +241,32 @@ def list_boards(db: Session = Depends(get_session)) -> list[BoardOut]:
             .group_by(WhiteboardSketch.board_id)
         ).all()
     )
+    object_counts = dict(
+        db.execute(
+            select(WhiteboardObject.board_id, func.count())
+            .where(WhiteboardObject.board_id.is_not(None))
+            .group_by(WhiteboardObject.board_id)
+        ).all()
+    )
     default_nodes = db.scalar(
         select(func.count()).select_from(WhiteboardNode).where(WhiteboardNode.board_id.is_(None))
     )
     default_sketches = db.scalar(
         select(func.count()).select_from(WhiteboardSketch).where(WhiteboardSketch.board_id.is_(None))
     )
+    default_objects = db.scalar(
+        select(func.count()).select_from(WhiteboardObject).where(WhiteboardObject.board_id.is_(None))
+    )
     boards = [
-        BoardOut(id=None, title="Default board", node_count=default_nodes, sketch_count=default_sketches)
+        BoardOut(
+            id=None,
+            title="Default board",
+            node_count=default_nodes,
+            sketch_count=default_sketches,
+            object_count=default_objects,
+        )
     ]
-    board_ids = set(node_counts) | set(sketch_counts)
+    board_ids = set(node_counts) | set(sketch_counts) | set(object_counts)
     if board_ids:
         entries = db.scalars(
             select(Entry).where(Entry.id.in_(board_ids), Entry.is_deleted.is_(False))
@@ -178,6 +279,7 @@ def list_boards(db: Session = Depends(get_session)) -> list[BoardOut]:
                     title=title,
                     node_count=node_counts.get(entry.id, 0),
                     sketch_count=sketch_counts.get(entry.id, 0),
+                    object_count=object_counts.get(entry.id, 0),
                 )
             )
     return boards
@@ -292,5 +394,89 @@ def delete_sketch(sketch_id: int, db: Session = Depends(get_session)) -> dict:
     if sketch is None:
         raise HTTPException(status_code=404, detail="Sketch not found")
     db.delete(sketch)
+    db.commit()
+    return {"status": "ok"}
+
+
+# --- objects: images and text boxes, neither tied to a note -----------------
+#
+# Asked for directly: "images can also be attached by copy and pasting into
+# the whiteboard as well though they wouldn't be shown in a note and would
+# only be accessible from the library and the whiteboard" — and separately,
+# "I want the whiteboard to basically be like OneNote and Microsoft
+# Whiteboard", which needs a real text box. A card always wraps an existing
+# note; a sketch is a path, not a placeable rectangle. Neither fits an image
+# or a text box, hence a third kind of thing on the canvas.
+
+
+@router.post("/objects", response_model=WhiteboardObjectOut, status_code=201)
+def create_object(
+    body: WhiteboardObjectBase, db: Session = Depends(get_session)
+) -> WhiteboardObjectOut:
+    _require_board(db, body.board_id)
+    _require_object_data(body)
+    obj = WhiteboardObject(
+        kind=body.kind,
+        data=body.data.model_dump_json(exclude_none=True),
+        board_id=body.board_id,
+        x=body.x,
+        y=body.y,
+        z=body.z,
+        width=body.width,
+        height=body.height,
+    )
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return _object_to_out(obj)
+
+
+@router.put("/objects/{object_id}", response_model=WhiteboardObjectOut)
+def update_object(
+    object_id: int, body: WhiteboardObjectBase, db: Session = Depends(get_session)
+) -> WhiteboardObjectOut:
+    obj = db.get(WhiteboardObject, object_id)
+    if obj is None:
+        raise HTTPException(status_code=404, detail="Object not found")
+    _require_board(db, body.board_id)
+    _require_object_data(body)
+    # The kind an object was created as doesn't change — an image resized or
+    # moved is still an image; nothing in the UI offers "turn this into a
+    # text box", so treating a mismatched kind here as a client bug rather
+    # than silently reinterpreting the row is the safer failure.
+    if body.kind != obj.kind:
+        raise HTTPException(status_code=422, detail="An object's kind can't change")
+    obj.data = body.data.model_dump_json(exclude_none=True)
+    obj.board_id = body.board_id
+    obj.x, obj.y, obj.z = body.x, body.y, body.z
+    obj.width, obj.height = body.width, body.height
+    db.commit()
+    db.refresh(obj)
+    return _object_to_out(obj)
+
+
+@router.delete("/objects/{object_id}")
+def delete_object(object_id: int, db: Session = Depends(get_session)) -> dict:
+    obj = db.get(WhiteboardObject, object_id)
+    if obj is None:
+        raise HTTPException(status_code=404, detail="Object not found")
+    if obj.kind == "image":
+        # The only thing that ever pointed at this file — best-effort, the
+        # same rule `_hard_delete` already follows for an attachment's own
+        # file: the row goes either way, a stubborn file must not block it.
+        try:
+            url = json.loads(obj.data).get("url", "")
+            if url.startswith("/media/"):
+                (deps.get_config().data_dir / "media" / url.removeprefix("/media/")).unlink(
+                    missing_ok=True
+                )
+        except OSError as exc:
+            logging.getLogger("memorymap.whiteboard").warning(
+                "couldn't delete the file for whiteboard image %s (%s); "
+                "removing the record anyway",
+                object_id,
+                type(exc).__name__,
+            )
+    db.delete(obj)
     db.commit()
     return {"status": "ok"}

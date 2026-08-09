@@ -23200,6 +23200,312 @@ async function wbRedo() {
   }
 }
 
+// Asked for directly. Deletes every card and sketch on the *current* board
+// (not other boards — clearing is scoped the same way everything else on
+// this screen is). Reuses the same undo entries a single delete already
+// pushes, one per item, rather than inventing a second "bulk" undo shape —
+// so Ctrl+Z after Clear brings items back one at a time, exactly like an
+// eraser swipe over the same items would.
+async function wbClearBoard() {
+  const total = wbState.nodes.length + wbState.sketches.length;
+  if (total === 0) {
+    toast("This board is already empty.");
+    return;
+  }
+  const ok = await confirmDialog(
+    `Clear this board? ${total} item${total === 1 ? "" : "s"} will be removed. ` +
+    "Ctrl+Z undoes them one at a time afterward."
+  );
+  if (!ok) return;
+  try {
+    for (const node of [...wbState.nodes]) {
+      await apiJson(`/whiteboard/nodes/${node.id}`, { method: "DELETE" });
+      wbPushUndo({
+        action: "delete",
+        kind: "node",
+        payload: { entry_id: node.entry_id, board_id: node.board_id, x: node.x, y: node.y, z: node.z },
+      });
+    }
+    for (const sketch of [...wbState.sketches]) {
+      await apiJson(`/whiteboard/sketches/${sketch.id}`, { method: "DELETE" });
+      wbPushUndo({
+        action: "delete",
+        kind: "sketch",
+        payload: { data: sketch.data, board_id: sketch.board_id, x: sketch.x, y: sketch.y, z: sketch.z },
+      });
+    }
+    wbState.nodes = [];
+    wbState.sketches = [];
+    wbSelectedItem = null;
+    renderWhiteboard();
+    await refreshBoardList();
+    toast("Board cleared.");
+  } catch {
+    toast("Couldn't clear the whole board — reloading to show what's left.", true);
+    await fetchWhiteboardState();
+    renderWhiteboard();
+  }
+}
+
+// --- Whiteboard export (asked for directly: "a way to screen clip a or a
+// selected area and export as an image/pdf/svg etc") -----------------------
+//
+// No marquee/multi-select exists yet (HANDOVER's own open list), so "a
+// selected area" becomes two concrete scopes instead: what's currently
+// framed on screen (the literal "screen clip" reading), or the whole board
+// regardless of pan/zoom. Both are built the same way — as a real SVG
+// string, sized to board-space coordinates — which then serves all three
+// formats: written out directly for .svg, rasterized through an off-screen
+// <canvas> for .png, and for PDF, handed to the browser's own Print →
+// "Save as PDF" rather than hand-rolling PDF bytes, which is what every
+// pure-client web app already does for this and needs no library to do.
+function wbSvgEscape(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+// A rough character-count wrap — no live font metrics are available while
+// building a string that isn't in the DOM yet. Good enough for a legible
+// card label in an export, not typeset text.
+function wbSvgWrappedText(text, x, y, maxWidth) {
+  const charsPerLine = Math.max(10, Math.floor(maxWidth / 7));
+  const words = String(text).split(/\s+/).filter(Boolean);
+  const lines = [];
+  let line = "";
+  for (const word of words) {
+    const next = (line + " " + word).trim();
+    if (next.length > charsPerLine && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = next;
+    }
+    if (lines.length >= 6) break; // cap a card's export label height
+  }
+  if (line && lines.length < 6) lines.push(line);
+  const tspans = lines
+    .map((l, i) => `<tspan x="${x}" dy="${i === 0 ? 0 : 16}">${wbSvgEscape(l)}</tspan>`)
+    .join("");
+  return `<text x="${x}" y="${y}" font-family="sans-serif" font-size="13" fill="#1f2430">${tspans}</text>`;
+}
+
+// The board's full extent — every card and sketch, with padding — computed
+// from what's actually rendered (`getBBox`/`offsetWidth`) rather than
+// guessed constants, so it stays right if a card's real size ever changes.
+function wbBoardBounds() {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const node of wbState.nodes) {
+    const el = document.querySelector(`.node-card[data-id="${node.id}"]`);
+    const w = el ? el.offsetWidth : 250;
+    const h = el ? el.offsetHeight : 150;
+    minX = Math.min(minX, node.x);
+    minY = Math.min(minY, node.y);
+    maxX = Math.max(maxX, node.x + w);
+    maxY = Math.max(maxY, node.y + h);
+  }
+  for (const sketch of wbState.sketches) {
+    const el = document.querySelector(`.sketch-group[data-id="${sketch.id}"]`);
+    if (!el) continue;
+    try {
+      const bbox = el.getBBox();
+      minX = Math.min(minX, bbox.x);
+      minY = Math.min(minY, bbox.y);
+      maxX = Math.max(maxX, bbox.x + bbox.width);
+      maxY = Math.max(maxY, bbox.y + bbox.height);
+    } catch {
+      /* getBBox throws on an element the browser hasn't laid out yet */
+    }
+  }
+  if (!Number.isFinite(minX)) return { minX: 0, minY: 0, width: 800, height: 600 };
+  const pad = 60;
+  return {
+    minX: minX - pad,
+    minY: minY - pad,
+    width: maxX - minX + pad * 2,
+    height: maxY - minY + pad * 2,
+  };
+}
+
+// What's actually framed on screen right now, in board-space coordinates —
+// the inverse of the pan/zoom transform the container itself carries.
+function wbVisibleBounds() {
+  const container = document.getElementById("whiteboard-container");
+  const transform = d3.zoomTransform(container);
+  const rect = container.getBoundingClientRect();
+  return {
+    minX: -transform.x / transform.k,
+    minY: -transform.y / transform.k,
+    width: rect.width / transform.k,
+    height: rect.height / transform.k,
+  };
+}
+
+function wbBuildExportSvg(scope) {
+  const { minX, minY, width, height } = scope === "visible" ? wbVisibleBounds() : wbBoardBounds();
+  const container = document.getElementById("whiteboard-container");
+  const bgColor = container ? getComputedStyle(container).backgroundColor : "#1b1f2c";
+
+  const parts = [
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${minX} ${minY} ${width} ${height}" ` +
+      `width="${Math.round(width)}" height="${Math.round(height)}">`,
+    `<rect x="${minX}" y="${minY}" width="${width}" height="${height}" fill="${bgColor}" />`,
+  ];
+
+  // Sketches already exist as real SVG — cloned as-is rather than
+  // reinterpreted, so a stroke's colour/width/opacity (including the
+  // highlighter's own translucency) survives into the export untouched.
+  for (const sketch of wbState.sketches) {
+    const el = document.querySelector(`.sketch-group[data-id="${sketch.id}"]`);
+    if (!el) continue;
+    const clone = el.cloneNode(true);
+    clone.removeAttribute("class");
+    parts.push(clone.outerHTML);
+  }
+
+  // Cards are the HTML layer, which doesn't survive SVG rasterization the
+  // way real SVG does — a simplified rect + label stands in for the live
+  // card, matching what the live card itself shows (raw content, truncated;
+  // it has no private-note masking of its own to match either).
+  for (const node of wbState.nodes) {
+    const entry = allEntries.find((e) => String(e.id) === String(node.entry_id));
+    const el = document.querySelector(`.node-card[data-id="${node.id}"]`);
+    const w = el ? el.offsetWidth : 250;
+    const h = el ? el.offsetHeight : 150;
+    const label = entry ? notePreviewText(entry.content || "").slice(0, 160) : `Note ${node.entry_id}`;
+    parts.push(`<g transform="translate(${node.x}, ${node.y})">`);
+    parts.push(
+      `<rect width="${w}" height="${h}" rx="10" fill="#ffffffcc" stroke="#8888aa" stroke-width="1.5" />`
+    );
+    parts.push(wbSvgWrappedText(label || "Empty note", 14, 24, w - 28));
+    parts.push("</g>");
+  }
+
+  parts.push("</svg>");
+  return { svg: parts.join(""), width, height };
+}
+
+function wbRasterizeSvg(svgString, width, height, mime) {
+  return new Promise((resolve, reject) => {
+    const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(width));
+      canvas.height = Math.max(1, Math.round(height));
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(
+        (result) => (result ? resolve(result) : reject(new Error("Couldn't rasterize the board."))),
+        mime
+      );
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Couldn't rasterize the board."));
+    };
+    img.src = url;
+  });
+}
+
+async function wbExportSvg(scope) {
+  const { svg } = wbBuildExportSvg(scope);
+  await saveFile(`whiteboard-${scope}.svg`, new Blob([svg], { type: "image/svg+xml" }));
+  toast("Board exported as SVG.");
+}
+
+async function wbExportPng(scope) {
+  const { svg, width, height } = wbBuildExportSvg(scope);
+  const blob = await wbRasterizeSvg(svg, width, height, "image/png");
+  await saveFile(`whiteboard-${scope}.png`, blob);
+  toast("Board exported as PNG.");
+}
+
+async function wbExportPdf(scope) {
+  const { svg, width, height } = wbBuildExportSvg(scope);
+  const blob = await wbRasterizeSvg(svg, width, height, "image/png");
+  const url = URL.createObjectURL(blob);
+  const win = window.open("", "_blank");
+  if (!win) {
+    URL.revokeObjectURL(url);
+    toast("Allow pop-ups to export as PDF — it opens Print, then Save as PDF.", true);
+    return;
+  }
+  win.document.write(
+    `<!doctype html><html><head><title>MemoryMap whiteboard export</title><style>` +
+      `@page { margin: 0; } html,body{margin:0;padding:0;background:#fff;}` +
+      `img{display:block;width:100%;height:auto;}</style></head>` +
+      `<body><img src="${url}" alt="Whiteboard export"></body></html>`
+  );
+  win.document.close();
+  win.onload = () => {
+    win.focus();
+    win.print();
+  };
+  toast('Opened Print — choose "Save as PDF" as the destination.');
+}
+
+let wbExportMenuOutsideClick = null;
+
+function wbCloseExportMenu() {
+  document.getElementById("wb-export-menu")?.remove();
+  if (wbExportMenuOutsideClick) {
+    document.removeEventListener("click", wbExportMenuOutsideClick, true);
+    wbExportMenuOutsideClick = null;
+  }
+}
+
+function wbExportBoard() {
+  wbCloseExportMenu();
+  const button = document.getElementById("wb-export");
+  if (!button) return;
+  const menu = document.createElement("div");
+  menu.id = "wb-export-menu";
+  menu.className = "wb-export-menu";
+  const rect = button.getBoundingClientRect();
+  menu.style.top = `${rect.bottom + 6}px`;
+  menu.style.right = `${window.innerWidth - rect.right}px`;
+
+  const addHeading = (text) => {
+    const h = document.createElement("div");
+    h.className = "wb-export-heading";
+    h.textContent = text;
+    menu.appendChild(h);
+  };
+  const addOption = (label, run) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = label;
+    btn.addEventListener("click", async () => {
+      wbCloseExportMenu();
+      try {
+        await run();
+      } catch (err) {
+        toast(err.message || "Couldn't export the board.", true);
+      }
+    });
+    menu.appendChild(btn);
+  };
+
+  addHeading("Image (PNG)");
+  addOption("What's on screen now", () => wbExportPng("visible"));
+  addOption("The whole board", () => wbExportPng("whole"));
+  addHeading("Vector (SVG)");
+  addOption("The whole board", () => wbExportSvg("whole"));
+  addHeading("PDF");
+  addOption("The whole board, via Print", () => wbExportPdf("whole"));
+
+  document.body.appendChild(menu);
+  wbExportMenuOutsideClick = (event) => {
+    if (!menu.contains(event.target) && event.target !== button) wbCloseExportMenu();
+  };
+  setTimeout(() => document.addEventListener("click", wbExportMenuOutsideClick, true), 0);
+}
+
 async function initWhiteboard() {
   if (wbInitialized) return;
   wbInitialized = true;
@@ -23416,6 +23722,9 @@ async function initWhiteboard() {
       toast("Panel positions reset.");
     });
   }
+
+  $("wb-clear-board")?.addEventListener("click", wbClearBoard);
+  $("wb-export")?.addEventListener("click", wbExportBoard);
 
   // Tool Selection
   window.currentTool = "pan";

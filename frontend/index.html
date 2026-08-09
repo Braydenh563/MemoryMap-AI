@@ -1492,6 +1492,12 @@ Link to another note with [[its first few words]]."></textarea>
         <button class="ghost icon-button" data-tool="circle" title="Circle (O)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle></svg>
         </button>
+        <button class="ghost icon-button" data-tool="triangle" title="Triangle (G)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 L21 20 L3 20 Z"></path></svg>
+        </button>
+        <button class="ghost icon-button" data-tool="diamond" title="Diamond (D)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 L21 12 L12 21 L3 12 Z"></path></svg>
+        </button>
         <button class="ghost icon-button" data-tool="text" title="Text box (T) — click the canvas to place one">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="12" y1="4" x2="12" y2="20"></line><line x1="9" y1="20" x2="15" y2="20"></line></svg>
         </button>
@@ -1522,6 +1528,12 @@ Link to another note with [[its first few words]]."></textarea>
         </button>
         <span class="header-divider" aria-hidden="true"></span>
         <input type="color" id="wb-color-picker" value="#ffffff" title="Stroke Color" class="wb-color-picker">
+        <select id="wb-arrow-style" class="ghost small hidden" title="Arrowheads">
+          <option value="end">Arrowhead: end</option>
+          <option value="start">Arrowhead: start</option>
+          <option value="both">Arrowhead: both ends</option>
+          <option value="none">Arrowhead: none</option>
+        </select>
       </div>
     </div>
 

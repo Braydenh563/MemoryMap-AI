@@ -208,6 +208,13 @@ def create_app() -> FastAPI:
     app.include_router(routes_models.router, dependencies=locked)
     app.include_router(routes_settings.router, dependencies=locked)
     app.include_router(routes_files.router, dependencies=locked)
+    # A plain `<img src>` (or a note's own inline `![]()` markdown) never
+    # attaches the X-Auth-Token header — only these two routes need a
+    # query-param fallback, so they get their own gate rather than widening
+    # `locked` for every route. See require_unlock_media's docstring.
+    app.include_router(
+        routes_files.media_router, dependencies=[Depends(routes_auth.require_unlock_media)]
+    )
     app.include_router(routes_tags.router, dependencies=locked)
     app.include_router(routes_categories.router, dependencies=locked)
     app.include_router(routes_conversations.router, dependencies=locked)

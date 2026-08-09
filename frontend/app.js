@@ -85,6 +85,24 @@ function authToken() {
   return localStorage.getItem("token") || "";
 }
 
+// `/media/...` and `/files/...` are the two routes a plain `<img src>` (or a
+// note's own inline `![]()` markdown, rendered straight into an `<img>` tag)
+// points at directly — a declarative resource load never attaches the
+// X-Auth-Token header the way `apiJson`/`fetch` calls here do, so every such
+// image was a silent 401 (an empty/broken image, nothing thrown, nothing
+// logged, `isRenderableUrl` already having confirmed it same-origin) on any
+// notebook with a password set, which is the normal case. The backend's
+// `require_unlock_media` accepts the token this way for exactly these two
+// routes; every other endpoint stays header-only. A no-op on anything that
+// isn't one of these two paths, so every call site can use it unconditionally.
+function mediaSrc(url) {
+  if (typeof url !== "string" || !/^\/(media|files)\//.test(url)) return url;
+  const token = authToken();
+  if (!token) return url;
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}token=${encodeURIComponent(token)}`;
+}
+
 async function api(path, options = {}) {
   // `silent`: a background poll (model status, reminders) — a 401 must not
   // yank the user to the lock screen mid-session (Wave O fix for a
@@ -2049,7 +2067,7 @@ function renderInlineMarkdown(element, text, terms, compact = false) {
         element.appendChild(document.createTextNode(imageAlt || "🖼"));
       } else if (isRenderableUrl(imageUrl)) {
         const img = document.createElement("img");
-        img.src = imageUrl;
+        img.src = mediaSrc(imageUrl);
         img.alt = imageAlt || "";
         img.className = "entry-inline-image";
         img.loading = "lazy";
@@ -9559,12 +9577,31 @@ async function renderStatsWidget(body) {
 // A note's text as it should read in a preview: the [[link]] syntax is
 // scaffolding, not content, so previews show the words without the brackets.
 // Full note bodies get real clickable chips instead (renderNoteText).
-// One line of a note, as plain text, for the dashboard's little lists.
-//
-// Markers are stripped rather than rendered, unlike the note list — these are
-// clipped to about 70 characters and a clip that lands mid-`<strong>` is worse
-// than no emphasis at all. Same reasoning that already applied to `[[links]]`,
-// which this has always flattened.
+//: A raw-character slice that won't leave a markdown marker dangling at the
+//: cut — reported directly (Notes-tab "Most used" list): a clip landing
+//: mid-`` `code` `` left a bare `` ` `` sitting in the rendered text, since
+//: `INLINE_MD` only matches a marker pair that's fully present and an
+//: unmatched one falls through as a literal character. Checked longest
+//: marker first (`**`/`~~` before `*`) so a bold pair isn't mistaken for two
+//: stray italics. Not a full CommonMark-safe truncator — good enough for a
+//: short label, which is the only place this is used.
+function safeMdSlice(text, maxChars) {
+  if (text.length <= maxChars) return { text, truncated: false };
+  let cut = text.slice(0, maxChars);
+  for (const marker of ["**", "~~", "`", "*"]) {
+    if ((cut.split(marker).length - 1) % 2 === 1) {
+      cut = cut.slice(0, cut.lastIndexOf(marker));
+      break;
+    }
+  }
+  return { text: cut, truncated: true };
+}
+
+// One line of a note, as plain text — used wherever a preview genuinely
+// can't be rendered markup (a `title` tooltip, an SVG export label, a
+// whiteboard card's own text). The label-sized lists below render real
+// markdown instead, via `safeMdSlice` + `renderInlineMarkdown`'s `compact`
+// mode, the same as every other label-sized surface in this app.
 function notePreviewText(content) {
   return (content || "")
     .replace(/\[\[([^[\]]{1,120})\]\]/g, "$1")
@@ -9578,6 +9615,15 @@ function notePreviewText(content) {
     );
 }
 
+// Shared by the Pinned/Most-used/Recent-notes dashboard widgets — reported
+// directly for Most Used, but all three shared the same gap: `notePreviewText`
+// *strips* markdown syntax down to plain readable text (no literal `**`), which
+// isn't the same as *rendering* it — `**bold**` read as clean but unstyled
+// "bold", not actual bold text, and an inline image showed nothing at all.
+// `renderInlineMarkdown`'s own `compact` mode is exactly what a label-sized
+// list row already uses everywhere else in this app for the same reason
+// (link chips, the document sidebar) — swap to it here too rather than the
+// stripped-text path.
 function miniEntryList(body, entries, emptyText) {
   if (!entries.length) {
     const p = document.createElement("p");
@@ -9590,8 +9636,12 @@ function miniEntryList(body, entries, emptyText) {
   ul.className = "dash-list";
   for (const entry of entries) {
     const li = document.createElement("li");
-    const preview = notePreviewText(entry.content);
-    li.textContent = preview.length > 70 ? preview.slice(0, 69) + "…" : preview;
+    // The wiki-link unwrap notePreviewText also did — renderInlineMarkdown
+    // itself doesn't know `[[...]]`, only the full note-body renderer does.
+    const raw = (entry.content || "").replace(/\[\[([^[\]]{1,120})\]\]/g, "$1");
+    const { text, truncated } = safeMdSlice(raw, 100);
+    renderInlineMarkdown(li, text, [], true);
+    if (truncated) li.appendChild(document.createTextNode("…"));
     li.title = "Open this note";
     li.addEventListener("click", () => flashEntry(entry.id));
     ul.appendChild(li);
@@ -11073,7 +11123,7 @@ function appendInline(parent, text) {
       const url = match[2];
       if (isRenderableUrl(url)) {
         const el = document.createElement("img");
-        el.src = url;
+        el.src = mediaSrc(url);
         el.alt = token.slice(2, token.indexOf("]"));
         el.className = "entry-inline-image";
         el.loading = "lazy";
@@ -16611,12 +16661,13 @@ async function loadMostUsed() {
     const li = document.createElement("li");
     li.title = entry.content;
     const text = document.createElement("span");
-    renderInlineMarkdown(
-      text,
-      entry.content.length > 26 ? entry.content.slice(0, 25) + "…" : entry.content,
-      [],
-      true
-    );
+    // Reported directly: a clip landing mid-token (`` `code` `` cut before
+    // its closing backtick) left a stray `` ` `` sitting in the rendered
+    // text — `safeMdSlice` drops the dangling marker instead of the plain
+    // `slice(0, 25)` this used to do.
+    const { text: sliced, truncated } = safeMdSlice(entry.content, 25);
+    renderInlineMarkdown(text, sliced, [], true);
+    if (truncated) text.appendChild(document.createTextNode("…"));
     const count = document.createElement("span");
     count.className = "count";
     count.textContent = `×${entry.access_count}`;
@@ -17303,7 +17354,7 @@ function libraryCard(item) {
   if (item.kind === "file" && (item.mime || "").startsWith("image/")) {
     const thumb = document.createElement("img");
     thumb.className = "library-card-thumb";
-    thumb.src = `/files/${item.id}`;
+    thumb.src = mediaSrc(`/files/${item.id}`);
     thumb.alt = "";
     thumb.loading = "lazy";
     // A file whose bytes have gone leaves a broken-image glyph, which reads as
@@ -23034,6 +23085,14 @@ let wbInitialized = false;
 // angle column at all, so rotation needs a real backend change, not a
 // frontend-only pass; left as its own separate item.
 let wbSelectedItem = null;
+// ROADMAP.md Tier 2 §11 / reported directly: "multi-select, holding down
+// shift, area select... missing". A set of `"kind:id"` strings, alongside
+// (not replacing) `wbSelectedItem` — a lone selection still goes through
+// the single-item path (it's what the sketch resize handles and copy/paste
+// are built around, and both only ever make sense for exactly one item);
+// this is populated only once a second item joins, via shift-click or a
+// marquee drag.
+let wbMultiSelection = new Set();
 // `deleteSketch`/`deleteNode` are closures defined fresh inside every
 // `renderWhiteboard()` call; these hold whichever pair is current, so code
 // outside that closure (the Delete-key handler) can still call them.
@@ -23100,8 +23159,12 @@ function wbSnapOn() {
 
 //: Round a board coordinate to the nearest grid intersection, when snap is
 //: on. A no-op otherwise, so every call site can use it unconditionally.
-function wbSnap(value) {
-  return wbSnapOn() ? Math.round(value / WB_GRID_SPACING) * WB_GRID_SPACING : value;
+//: `bypass` (asked for directly — Alt held during a drag temporarily
+//: releases the grid lock, the same convention Figma/Illustrator use) skips
+//: the rounding for just this one call, without needing the snap toggle
+//: itself touched.
+function wbSnap(value, bypass) {
+  return wbSnapOn() && !bypass ? Math.round(value / WB_GRID_SPACING) * WB_GRID_SPACING : value;
 }
 
 function wbApplyGrid() {
@@ -23123,7 +23186,10 @@ function wbApplyBgImage() {
   const el = document.getElementById("whiteboard-container");
   if (!el) return;
   const url = localStorage.getItem(wbBgImageKey());
-  el.style.setProperty("--wb-bg-image", url ? `url("${url}")` : "none");
+  // `mediaSrc`, not the bare url — a CSS `background-image: url(...)` is a
+  // plain resource load, same as `<img src>`, so it never attaches
+  // X-Auth-Token either.
+  el.style.setProperty("--wb-bg-image", url ? `url("${mediaSrc(url)}")` : "none");
 }
 
 // A tiny inline SVG baked into a `cursor:` value, so the OS/GPU renders and
@@ -23148,8 +23214,32 @@ function wbCursorUrl(inner, { size = 26, hx = 3, hy = size - 3 } = {}) {
 // eraser; highlighter and arrow were the two genuinely missing ones (a
 // third, text, needs its own SVG element type — a `<path>` can't render
 // text — and is scoped separately rather than force-fit into this list).
-const WB_BRUSH_TOOLS = new Set(["draw", "line", "rect", "circle", "highlighter", "arrow"]);
+const WB_BRUSH_TOOLS = new Set(["draw", "line", "rect", "circle", "highlighter", "arrow", "triangle", "diamond"]);
 const WB_HIGHLIGHTER_ALPHA = 0.35; // matches the sketch pad's own SKETCH_HIGHLIGHTER_ALPHA
+
+//: Two head-stroke subpaths meeting at `(tipX, tipY)`, angled back from
+//: `approachAngle` (the direction the shaft arrives *from*, in radians) —
+//: factored out so both ends of an arrow can draw one (`window.currentArrowStyle`,
+//: reported directly: "can't change arrow heads").
+//: Absolute width/height for a shape drawn from `(0,0)` to `(dx, dy)` —
+//: equal (a square/perfect circle) while `shiftHeld`, matching the sketch
+//: pad's own rect tool (HISTORY.md) and asked for again directly for the
+//: whiteboard's shapes generally. Squares to the *larger* of the two raw
+//: dimensions so the shape still reaches all the way to the cursor.
+function wbShapeDims(dx, dy, shiftHeld) {
+  const w = Math.abs(dx), h = Math.abs(dy);
+  if (!shiftHeld) return { w, h };
+  const s = Math.max(w, h);
+  return { w: s, h: s };
+}
+
+function wbArrowHeadPath(tipX, tipY, approachAngle, headLen) {
+  const h1x = tipX - headLen * Math.cos(approachAngle - Math.PI / 6);
+  const h1y = tipY - headLen * Math.sin(approachAngle - Math.PI / 6);
+  const h2x = tipX - headLen * Math.cos(approachAngle + Math.PI / 6);
+  const h2y = tipY - headLen * Math.sin(approachAngle + Math.PI / 6);
+  return `M ${tipX} ${tipY} L ${h1x} ${h1y} M ${tipX} ${tipY} L ${h2x} ${h2y}`;
+}
 
 function wbCursorForTool(tool, strokeColor) {
   const color = /^#[0-9a-fA-F]{3,8}$/.test(strokeColor || "") ? strokeColor : "#ffffff";
@@ -23192,10 +23282,23 @@ const WB_SELECTOR_BY_KIND = {
   object: (id) => `.wb-object[data-id="${id}"]`,
 };
 
+const wbMultiKey = (kind, id) => `${kind}:${id}`;
+
 function wbApplySelectionHighlight() {
   document
     .querySelectorAll(".sketch-group.wb-selected, .node-card.wb-selected, .wb-object.wb-selected")
     .forEach((el) => el.classList.remove("wb-selected"));
+  // A sketch's resize handles have nowhere else to live between renders
+  // (unlike a card/object, which always has 8 handle children of its own) —
+  // recomputed here so they track a fresh selection or a just-finished move.
+  // Only for the single-item selection — a multi-selection has no one
+  // bounding box to hang 8 handles off, and resizing a set isn't built.
+  wbRenderSketchHandles();
+  for (const key of wbMultiSelection) {
+    const sep = key.indexOf(":");
+    const kind = key.slice(0, sep), id = Number(key.slice(sep + 1));
+    document.querySelector(WB_SELECTOR_BY_KIND[kind](id))?.classList.add("wb-selected");
+  }
   if (!wbSelectedItem) return;
   const selector = WB_SELECTOR_BY_KIND[wbSelectedItem.kind](wbSelectedItem.id);
   document.querySelector(selector)?.classList.add("wb-selected");
@@ -23207,9 +23310,32 @@ function selectWbItem(kind, id) {
 }
 
 function clearWbSelection() {
-  if (!wbSelectedItem) return;
+  if (!wbSelectedItem && wbMultiSelection.size === 0) return;
   wbSelectedItem = null;
+  wbMultiSelection.clear();
   wbApplySelectionHighlight();
+}
+
+// Shared by every item's own click handler (sketch/node/object) — a plain
+// click replaces whatever was selected, exactly as before; a shift-click
+// adds or removes just this one item from the multi-selection, first
+// folding any existing lone selection into it so "click one, then
+// shift-click another" and "shift-click two in a row" end up in the same
+// state.
+function wbHandleItemClick(kind, id, event) {
+  if (event.shiftKey) {
+    if (wbSelectedItem) {
+      wbMultiSelection.add(wbMultiKey(wbSelectedItem.kind, wbSelectedItem.id));
+      wbSelectedItem = null;
+    }
+    const key = wbMultiKey(kind, id);
+    if (wbMultiSelection.has(key)) wbMultiSelection.delete(key);
+    else wbMultiSelection.add(key);
+    wbApplySelectionHighlight();
+    return;
+  }
+  wbMultiSelection.clear();
+  selectWbItem(kind, id);
 }
 
 //: Which `wbState` list a selection's item lives in, by kind — one place so
@@ -23220,8 +23346,26 @@ const WB_LIST_BY_KIND = { sketch: "sketches", node: "nodes", object: "objects" }
 // a real tool": today, deleting anything meant switching to the Delete
 // tool first. Reuses `deleteSketch`/`deleteNode`/`deleteObject`, so a
 // selection-delete gets undo/redo for free, the same as every other way of
-// deleting one.
+// deleting one. A non-empty multi-selection takes priority over the
+// single-item one — the two are mutually exclusive by construction
+// (`wbHandleItemClick`/marquee-select always clear one when populating the
+// other), but checking the set first is the honest way to say so.
 function deleteWbSelection() {
+  if (wbMultiSelection.size > 0) {
+    const keys = [...wbMultiSelection];
+    wbMultiSelection.clear();
+    for (const key of keys) {
+      const sep = key.indexOf(":");
+      const kind = key.slice(0, sep), id = Number(key.slice(sep + 1));
+      const item = (wbState[WB_LIST_BY_KIND[kind]] || []).find((i) => i.id === id);
+      if (!item) continue;
+      if (kind === "sketch") wbDeleteSketchRef?.(item);
+      else if (kind === "node") wbDeleteNodeRef?.(item);
+      else wbDeleteObjectRef?.(item);
+    }
+    wbApplySelectionHighlight();
+    return true;
+  }
   if (!wbSelectedItem) return false;
   const { kind, id } = wbSelectedItem;
   const item = (wbState[WB_LIST_BY_KIND[kind]] || []).find((i) => i.id === id);
@@ -23233,6 +23377,156 @@ function deleteWbSelection() {
   return true;
 }
 
+// --- Bulk move: dragging one member of a multi-selection moves all of them
+// together — the reason to select more than one thing in the first place.
+// Three per-kind drag handlers (node/object/sketch) each call these three
+// functions at start/drag/end rather than reimplementing the same
+// fixed-baseline-per-frame maths three times (see wbSaveSketchD's own
+// comment on why re-deriving from a live-mutated value drifts).
+
+function wbDragIsBulkMove(kind, id) {
+  return wbMultiSelection.size > 1 && wbMultiSelection.has(wbMultiKey(kind, id));
+}
+
+//: Every other multi-selected member's position/shape at the *start* of a
+//: bulk drag, so each frame recomputes from one fixed baseline instead of
+//: compounding a per-frame delta onto an already-moved value (the exact bug
+//: `wbSnap`'s own accumulation fix above exists to avoid, here for a whole
+//: set instead of one item).
+function wbCaptureBulkMoveOrigin(excludeKey) {
+  const origin = new Map();
+  for (const key of wbMultiSelection) {
+    if (key === excludeKey) continue; // the dragged item's own handler already moves it
+    const sep = key.indexOf(":");
+    const kind = key.slice(0, sep), id = Number(key.slice(sep + 1));
+    const item = (wbState[WB_LIST_BY_KIND[kind]] || []).find((i) => i.id === id);
+    if (!item) continue;
+    if (kind === "sketch") {
+      const parsed = wbSketchParsedData(item);
+      if (parsed) origin.set(key, { kind, id, item, d: parsed.d });
+    } else {
+      origin.set(key, { kind, id, item, x: item.x, y: item.y });
+    }
+  }
+  return origin;
+}
+
+function wbApplyBulkMove(origin, dx, dy) {
+  for (const entry of origin.values()) {
+    if (entry.kind === "sketch") {
+      const newD = wbTransformPathD(entry.d, { dx, dy });
+      const el = document.querySelector(`.sketch-group[data-id="${entry.id}"]`);
+      el?.querySelector(".sketch-path")?.setAttribute("d", newD);
+      el?.querySelector(".sketch-hitbox")?.setAttribute("d", newD);
+      entry.item._liveD = newD;
+    } else {
+      entry.item.x = entry.x + dx;
+      entry.item.y = entry.y + dy;
+      const el = document.querySelector(WB_SELECTOR_BY_KIND[entry.kind](entry.id));
+      if (el) el.style.transform = `translate(${entry.item.x}px, ${entry.item.y}px)`;
+    }
+  }
+}
+
+async function wbSaveBulkMove(origin) {
+  for (const entry of origin.values()) {
+    if (entry.kind === "sketch") {
+      if (entry.item._liveD) {
+        const d = entry.item._liveD;
+        delete entry.item._liveD;
+        await wbSaveSketchD(entry.item, d);
+      }
+    } else if (entry.kind === "node") {
+      try {
+        await apiJson(`/whiteboard/nodes/${entry.id}`, {
+          method: "PUT",
+          body: JSON.stringify({
+            entry_id: entry.item.entry_id,
+            board_id: entry.item.board_id ?? window.currentBoardId ?? null,
+            x: entry.item.x, y: entry.item.y, z: entry.item.z,
+          }),
+        });
+      } catch {
+        /* one member failing to save isn't fatal to the rest of the group */
+      }
+    } else {
+      await wbSaveObject(entry.item);
+    }
+  }
+}
+
+
+// Copy/paste — reported directly: "can't copy/paste objects drawn or made
+// on whiteboard". One snapshot, not a real OS clipboard: this app has
+// nothing to gain from `navigator.clipboard` here (no cross-tab/cross-app
+// paste target makes sense for a sketch's own path data), and a plain
+// in-memory value is simpler and needs no permission prompt.
+let wbClipboard = null; // {kind, payload} — see WB_KIND_INFO's own payload() per kind
+
+//: A card is deliberately excluded. `POST /whiteboard/nodes` is "one card
+//: per note per board" by design (routes_whiteboard.py's own comment: two
+//: cards for the same note stacked on each other reads as one card that
+//: won't drag properly) — POSTing a copy would silently *move* the
+//: original card to the paste offset instead of creating a second one,
+//: which is worse than not supporting copy/paste for cards at all.
+function wbCopySelection() {
+  if (!wbSelectedItem) return false;
+  if (wbSelectedItem.kind === "node") {
+    toast("A note card can't be copied — drag it, or drop the note again from the Library.");
+    return false;
+  }
+  const { kind, id } = wbSelectedItem;
+  const item = (wbState[WB_LIST_BY_KIND[kind]] || []).find((i) => i.id === id);
+  if (!item) return false;
+  if (kind === "sketch" && !wbSketchParsedData(item)) {
+    // A link sketch — its `data` has no `d`, only sourceId/targetId, and is
+    // recomputed from two cards' positions on every render; nothing here is
+    // a standalone shape to copy.
+    toast("A link can't be copied — copy the cards it connects instead.");
+    return false;
+  }
+  wbClipboard = { kind, payload: WB_KIND_INFO[kind].payload(item) };
+  toast("Copied.");
+  return true;
+}
+
+//: Applied to both axes on paste, so the copy lands visibly beside the
+//: original rather than exactly on top of it — same reasoning as every
+//: other drawing app's paste offset.
+const WB_PASTE_OFFSET = 24;
+
+async function wbPasteClipboard() {
+  if (!wbClipboard) return;
+  const { kind, payload } = wbClipboard;
+  const { base, list } = WB_KIND_INFO[kind];
+  const body = {
+    ...payload,
+    x: (payload.x || 0) + WB_PASTE_OFFSET,
+    y: (payload.y || 0) + WB_PASTE_OFFSET,
+    board_id: window.currentBoardId,
+  };
+  if (kind === "sketch") {
+    // A sketch's own x/y isn't what positions it on screen — its path data
+    // is (wbTransformPathD's own comment) — so bumping x/y alone would draw
+    // the paste directly on top of the original, offset in the database but
+    // not on the board.
+    const parsed = wbSketchParsedData({ data: body.data });
+    if (parsed) {
+      parsed.d = wbTransformPathD(parsed.d, { dx: WB_PASTE_OFFSET, dy: WB_PASTE_OFFSET });
+      body.data = JSON.stringify(parsed);
+    }
+  }
+  try {
+    const created = await apiJson(base, { method: "POST", body: JSON.stringify(body) });
+    wbState[list].push(created);
+    wbPushUndo({ action: "create", kind, id: created.id });
+    renderWhiteboard();
+    wbSelectToolRef?.("select");
+    selectWbItem(kind, created.id);
+  } catch (err) {
+    toast(err.message || "Couldn't paste that.", true);
+  }
+}
 
 function wbUpdateUndoRedoButtons() {
   const undoBtn = document.getElementById("wb-undo");
@@ -23570,8 +23864,12 @@ function wbBuildExportSvg(scope) {
   for (const obj of wbState.objects || []) {
     parts.push(`<g transform="translate(${obj.x}, ${obj.y})">`);
     if (obj.kind === "image" && obj.data.url) {
+      // `mediaSrc`, not the bare url: rasterizing this SVG loads it through
+      // a plain `<img>` (see `wbRasterizeSvg`), which never attaches
+      // X-Auth-Token — the same gap that made the image never render on the
+      // board itself, here too.
       parts.push(
-        `<image href="${wbSvgEscape(obj.data.url)}" width="${obj.width}" height="${obj.height}" ` +
+        `<image href="${wbSvgEscape(mediaSrc(obj.data.url))}" width="${obj.width}" height="${obj.height}" ` +
           `preserveAspectRatio="xMidYMid slice" />`
       );
     } else if (obj.kind === "text") {
@@ -24016,6 +24314,15 @@ async function initWhiteboard() {
 
   const toolGroup = document.getElementById("wb-tool-group");
   const colorPicker = document.getElementById("wb-color-picker");
+  const arrowStyleSelect = document.getElementById("wb-arrow-style");
+  window.currentArrowStyle = localStorage.getItem("wb-arrow-style") || "end";
+  if (arrowStyleSelect) {
+    arrowStyleSelect.value = window.currentArrowStyle;
+    arrowStyleSelect.addEventListener("change", (e) => {
+      window.currentArrowStyle = e.target.value;
+      localStorage.setItem("wb-arrow-style", e.target.value);
+    });
+  }
   const containerEl = document.getElementById("whiteboard-container");
   const undoBtn = document.getElementById("wb-undo");
 
@@ -24038,6 +24345,10 @@ async function initWhiteboard() {
     } else {
       container.call(wbZoom).on("dblclick.zoom", null);
     }
+    // Reported directly: "can't change arrow heads" — only shown while the
+    // arrow tool itself is selected, the same way the colour picker is
+    // always relevant but this control only makes sense for one tool.
+    document.getElementById("wb-arrow-style")?.classList.toggle("hidden", tool !== "arrow");
     updateWbCursor();
   }
 
@@ -24088,6 +24399,8 @@ async function initWhiteboard() {
     a: "arrow",
     r: "rect",
     o: "circle",
+    g: "triangle",
+    d: "diamond",
     t: "text",
     e: "eraser",
     x: "delete",
@@ -24125,6 +24438,15 @@ async function initWhiteboard() {
       wbRedo();
       return;
     }
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "c") {
+      if (wbCopySelection()) e.preventDefault();
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "v") {
+      e.preventDefault();
+      wbPasteClipboard();
+      return;
+    }
     if (e.ctrlKey || e.metaKey || e.altKey) return; // leave browser/OS shortcuts alone
     const mapped = WB_TOOL_KEYS[e.key.toLowerCase()];
     if (mapped) {
@@ -24158,16 +24480,63 @@ async function initWhiteboard() {
   // is the other half of this: without it the browser eats the gesture for
   // page-scroll before a single pointer event reaches here.
   containerEl.addEventListener("pointerdown", (e) => {
-    if (window.currentTool === "eraser") wbErasing = true;
+    if (window.currentTool === "eraser") {
+      wbErasing = true;
+      // Reported directly: "with the eraser, I can't touch and drag to
+      // delete items" (the pen works fine touch-dragged the same way).
+      // Touch — unlike a mouse — implicitly captures the pointer to
+      // whatever element received this pointerdown, so a dragging finger
+      // never fires `pointerenter` on the *other* sketches/cards it passes
+      // over; the eraser's per-element `pointerenter` handlers (below) can
+      // only ever catch the one thing first touched. Releasing capture
+      // explicitly restores normal per-element pointer events for the rest
+      // of the gesture, and `pointermove` here (coordinate-based, not
+      // target-based) is the second half — it doesn't depend on capture
+      // behaving correctly at all, so it also covers browsers/pens where
+      // pointerenter is delivered unreliably during a fast drag.
+      e.target.releasePointerCapture?.(e.pointerId);
+    }
   });
   window.addEventListener("pointerup", () => {
     wbErasing = false;
   });
+  containerEl.addEventListener("pointermove", (e) => {
+    if (window.currentTool !== "eraser" || !wbErasing) return;
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const sketchEl = el?.closest(".sketch-group");
+    if (sketchEl) {
+      const item = wbState.sketches.find((s) => s.id === Number(sketchEl.dataset.id));
+      if (item) wbDeleteSketchRef?.(item);
+      return;
+    }
+    const cardEl = el?.closest(".node-card");
+    if (cardEl) {
+      const item = wbState.nodes.find((n) => n.id === Number(cardEl.dataset.id));
+      if (item) wbDeleteNodeRef?.(item);
+      return;
+    }
+    const objEl = el?.closest(".wb-object");
+    if (objEl) {
+      const item = (wbState.objects || []).find((o) => o.id === Number(objEl.dataset.id));
+      if (item) wbDeleteObjectRef?.(item);
+    }
+  });
   // Clicking empty canvas with Select active clears the selection — every
   // card/sketch's own click handler calls stopPropagation() under Select,
-  // so a click that reaches here was never on an item.
+  // so a click that reaches here was never on an item. A completed marquee
+  // drag (below) also ends on empty canvas, which fires this same native
+  // `click` right afterward (unlike d3.drag, a plain addEventListener drag
+  // gets no automatic click-suppression) — `wbMarqueeJustSelected` is the
+  // one-shot flag that stops it from wiping out the selection the marquee
+  // just made.
   containerEl.addEventListener("click", (e) => {
-    if (window.currentTool === "select") clearWbSelection();
+    if (window.currentTool === "select") {
+      if (wbMarqueeJustSelected) {
+        wbMarqueeJustSelected = false;
+      } else {
+        clearWbSelection();
+      }
+    }
     // A text box is placed by clicking, not dragged like a shape — it has
     // no natural "size while dragging" the way a rect does, so click-to-drop
     // at a sensible default size (typed into afterward) is the same model
@@ -24180,6 +24549,81 @@ async function initWhiteboard() {
       const [x, y] = getLogicalMouse(e);
       wbCreateTextBox(x, y);
     }
+  });
+
+  // Rectangle marquee select — reported directly ("area select... missing").
+  // Only engages when the pointerdown target is genuinely empty canvas: a
+  // card/sketch/object's own drag already claims the gesture otherwise (the
+  // node/object drags' `.filter()`, the sketch drag's own tool check), so
+  // checking the target here is enough without a second stopPropagation
+  // dance.
+  function wbIsEmptyCanvasTarget(target) {
+    return !target.closest?.(".node-card, .sketch-group, .wb-object");
+  }
+  function rectsIntersect(ax, ay, aw, ah, bx, by, bw, bh) {
+    return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+  }
+  let wbMarqueeStart = null;
+  let wbMarqueeEl = null;
+  let wbMarqueeJustSelected = false;
+  containerEl.addEventListener("pointerdown", (e) => {
+    if (window.currentTool !== "select" || !wbIsEmptyCanvasTarget(e.target)) return;
+    const [x, y] = getLogicalMouse(e);
+    wbMarqueeStart = { x, y, shiftKey: e.shiftKey };
+    wbMarqueeEl = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    wbMarqueeEl.setAttribute("class", "wb-marquee");
+    wbMarqueeEl.setAttribute("x", x);
+    wbMarqueeEl.setAttribute("y", y);
+    wbMarqueeEl.setAttribute("width", 0);
+    wbMarqueeEl.setAttribute("height", 0);
+    document.getElementById("wb-zoom-group").appendChild(wbMarqueeEl);
+  });
+  containerEl.addEventListener("pointermove", (e) => {
+    if (!wbMarqueeStart) return;
+    const [x, y] = getLogicalMouse(e);
+    const mx = Math.min(wbMarqueeStart.x, x), my = Math.min(wbMarqueeStart.y, y);
+    const w = Math.abs(x - wbMarqueeStart.x), h = Math.abs(y - wbMarqueeStart.y);
+    wbMarqueeEl.setAttribute("x", mx);
+    wbMarqueeEl.setAttribute("y", my);
+    wbMarqueeEl.setAttribute("width", w);
+    wbMarqueeEl.setAttribute("height", h);
+  });
+  containerEl.addEventListener("pointerup", (e) => {
+    if (!wbMarqueeStart) return;
+    const [x, y] = getLogicalMouse(e);
+    const mx = Math.min(wbMarqueeStart.x, x), my = Math.min(wbMarqueeStart.y, y);
+    const mw = Math.abs(x - wbMarqueeStart.x), mh = Math.abs(y - wbMarqueeStart.y);
+    const shiftKey = wbMarqueeStart.shiftKey;
+    wbMarqueeEl?.remove();
+    wbMarqueeEl = null;
+    wbMarqueeStart = null;
+    // Too small to be a deliberate drag — the plain "click" listener above
+    // already handles this as a click-to-clear-selection instead.
+    if (mw < 4 && mh < 4) return;
+    if (!shiftKey) wbMultiSelection.clear();
+    for (const node of wbState.nodes) {
+      const el = document.querySelector(WB_SELECTOR_BY_KIND.node(node.id));
+      const w = el?.offsetWidth || 250, h = el?.offsetHeight || 150;
+      if (rectsIntersect(mx, my, mw, mh, node.x, node.y, w, h)) {
+        wbMultiSelection.add(wbMultiKey("node", node.id));
+      }
+    }
+    for (const obj of wbState.objects || []) {
+      if (rectsIntersect(mx, my, mw, mh, obj.x, obj.y, obj.width, obj.height)) {
+        wbMultiSelection.add(wbMultiKey("object", obj.id));
+      }
+    }
+    for (const sketch of wbState.sketches) {
+      const parsed = wbSketchParsedData(sketch);
+      if (!parsed) continue; // a link sketch — nothing here to select as a shape
+      const bbox = wbPathBBox(parsed.d);
+      if (bbox && rectsIntersect(mx, my, mw, mh, bbox.minX, bbox.minY, bbox.width, bbox.height)) {
+        wbMultiSelection.add(wbMultiKey("sketch", sketch.id));
+      }
+    }
+    wbSelectedItem = null;
+    wbMarqueeJustSelected = true;
+    wbApplySelectionHighlight();
   });
 
   // Images: paste, drag-and-drop, or the upload button — asked for
@@ -24200,7 +24644,7 @@ async function initWhiteboard() {
       const naturalSize = await new Promise((resolve) => {
         img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
         img.onerror = () => resolve({ w: 300, h: 200 });
-        img.src = uploaded.url;
+        img.src = mediaSrc(uploaded.url);
       });
       const width = Math.min(400, naturalSize.w || 300);
       const height = width * ((naturalSize.h || 200) / (naturalSize.w || 300));
@@ -24241,7 +24685,16 @@ async function initWhiteboard() {
     imageFileInput.value = "";
   });
 
-  svgCanvas.addEventListener("pointerdown", (e) => {
+  // On `containerEl`, not `svgCanvas` — the same reasoning the eraser
+  // listener above already follows. `svgCanvas` only ever sees a
+  // pointerdown that lands directly on it or on something inside it; a
+  // click that starts on a card (`#wb-html-layer`, a sibling painted on
+  // top) never reaches it at all, which is the exact mechanism behind
+  // "drawing over a note just moves the note". `containerEl` is an
+  // ancestor of both layers, so it sees every pointerdown either way —
+  // and, with the card/object drags above now filtered out while a brush
+  // tool is active, nothing else claims the gesture first.
+  containerEl.addEventListener("pointerdown", (e) => {
     if (!WB_BRUSH_TOOLS.has(window.currentTool)) return;
     e.stopPropagation();
     isDrawing = true;
@@ -24269,7 +24722,7 @@ async function initWhiteboard() {
     document.getElementById("wb-zoom-group").appendChild(currentDrawPath);
   });
   
-  svgCanvas.addEventListener("pointermove", (e) => {
+  containerEl.addEventListener("pointermove", (e) => {
     if (!isDrawing || !WB_BRUSH_TOOLS.has(window.currentTool)) return;
     e.stopPropagation();
     const [x, y] = getLogicalMouse(e);
@@ -24284,34 +24737,48 @@ async function initWhiteboard() {
       if (window.currentTool === "line") {
         currentDrawPath.setAttribute("d", `M ${sx} ${sy} L ${x} ${y}`);
       } else if (window.currentTool === "arrow") {
-        // One path, three subpaths — a plain SVG `d` string can hold more
-        // than one `M`, and every subpath in it shares the same stroke, so
-        // this is the shaft plus both head strokes in a single element
-        // rather than three sketches that would each need their own undo
-        // entry and could drift apart. Same head-angle maths as the sketch
-        // pad's own arrow.
+        // One path, one or more subpaths — a plain SVG `d` string can hold
+        // more than one `M`, and every subpath in it shares the same
+        // stroke, so this is the shaft plus whichever head strokes
+        // `window.currentArrowStyle` calls for in a single element, rather
+        // than several sketches that would each need their own undo entry
+        // and could drift apart.
         const angle = Math.atan2(y - sy, x - sx);
         const headLen = WB_STROKE_WIDTH * 4 + 6;
-        const h1x = x - headLen * Math.cos(angle - Math.PI / 6);
-        const h1y = y - headLen * Math.sin(angle - Math.PI / 6);
-        const h2x = x - headLen * Math.cos(angle + Math.PI / 6);
-        const h2y = y - headLen * Math.sin(angle + Math.PI / 6);
-        currentDrawPath.setAttribute(
-          "d",
-          `M ${sx} ${sy} L ${x} ${y} M ${x} ${y} L ${h1x} ${h1y} M ${x} ${y} L ${h2x} ${h2y}`
-        );
+        let d = `M ${sx} ${sy} L ${x} ${y}`;
+        const style = window.currentArrowStyle || "end";
+        if (style === "end" || style === "both") d += " " + wbArrowHeadPath(x, y, angle, headLen);
+        if (style === "start" || style === "both") d += " " + wbArrowHeadPath(sx, sy, angle + Math.PI, headLen);
+        currentDrawPath.setAttribute("d", d);
       } else if (window.currentTool === "rect") {
         const mx = Math.min(sx, x), my = Math.min(sy, y);
-        const w = Math.abs(x - sx), h = Math.abs(y - sy);
+        const { w, h } = wbShapeDims(x - sx, y - sy, e.shiftKey);
         currentDrawPath.setAttribute("d", `M ${mx} ${my} h ${w} v ${h} h ${-w} Z`);
       } else if (window.currentTool === "circle") {
-        const rx = Math.abs(x - sx), ry = Math.abs(y - sy);
+        const { w: rx, h: ry } = wbShapeDims(x - sx, y - sy, e.shiftKey);
         currentDrawPath.setAttribute("d", `M ${sx - rx} ${sy} a ${rx} ${ry} 0 1 0 ${rx * 2} 0 a ${rx} ${ry} 0 1 0 ${-rx * 2} 0`);
+      } else if (window.currentTool === "triangle") {
+        // Asked for directly ("more types of shapes"). Plain `L` commands,
+        // same as the pen/line tools — no new command type for
+        // wbTransformPathD/wbPathBBox to learn.
+        const mx = Math.min(sx, x), my = Math.min(sy, y);
+        const { w, h } = wbShapeDims(x - sx, y - sy, e.shiftKey);
+        currentDrawPath.setAttribute(
+          "d",
+          `M ${mx + w / 2} ${my} L ${mx + w} ${my + h} L ${mx} ${my + h} Z`
+        );
+      } else if (window.currentTool === "diamond") {
+        const mx = Math.min(sx, x), my = Math.min(sy, y);
+        const { w, h } = wbShapeDims(x - sx, y - sy, e.shiftKey);
+        currentDrawPath.setAttribute(
+          "d",
+          `M ${mx + w / 2} ${my} L ${mx + w} ${my + h / 2} L ${mx + w / 2} ${my + h} L ${mx} ${my + h / 2} Z`
+        );
       }
     }
   });
   
-  svgCanvas.addEventListener("pointerup", async (e) => {
+  containerEl.addEventListener("pointerup", async (e) => {
     if (!isDrawing || !WB_BRUSH_TOOLS.has(window.currentTool)) return;
     e.stopPropagation();
     isDrawing = false;
@@ -24395,11 +24862,19 @@ async function initWhiteboard() {
     // Calculate logical x,y
     const logicalX = (e.clientX - rect.left - transform.x) / transform.k;
     const logicalY = (e.clientY - rect.top - transform.y) / transform.k;
-    
+
+    // Reported directly: a dropped note lands "quite offset from where I
+    // dropped it". `d.x`/`d.y` are the card's own top-left corner (that's
+    // what `renderWhiteboard`'s `translate(d.x, d.y)` positions), so storing
+    // the raw drop point put the *corner* under the cursor, not the card —
+    // for the app's own ~250×150 default card size that reads as up to
+    // 125px right and 75px down from where you actually let go. Centring it
+    // on the drop point instead matches how a text box/image already places
+    // itself on click/drop (`wbCreateTextBox`, `wbPlaceUploadedImage`).
     const nodeData = {
       entry_id: parseInt(entryId, 10),
-      x: logicalX,
-      y: logicalY,
+      x: logicalX - 125,
+      y: logicalY - 75,
       z: 10,
       board_id: window.currentBoardId
     };
@@ -24506,6 +24981,213 @@ async function createNewBoard() {
   }
 }
 
+// --- Sketch move/resize (ROADMAP.md Tier 2 §11 / user-reported: "can't
+// move objects drawn on the whiteboard", "can't resize... can't shorten
+// lines") -------------------------------------------------------------------
+//
+// Cards and objects have real x/y/width/height columns; a sketch is just an
+// SVG path string (`d`), so "move" and "resize" both mean rewriting the
+// coordinates inside that string rather than moving a positioned element.
+// This is *not* a general SVG path parser — it only has to round-trip
+// exactly the commands this app's own drawing tools ever emit (see the
+// `pointermove` handler above: `M`/`L` for pen and lines, `C` for link
+// curves, `h`/`v`/`Z` for rect, `a` for circle) — a path from anywhere else
+// was never a possibility, so there is no reason to handle SVG's full
+// command set.
+function wbTransformPathD(d, { dx = 0, dy = 0, sx = 1, sy = 1, anchorX = 0, anchorY = 0 } = {}) {
+  const mapX = (x) => anchorX + (x - anchorX) * sx + dx;
+  const mapY = (y) => anchorY + (y - anchorY) * sy + dy;
+  const tokens = d.match(/[MLCHVAZmlchvaz]|-?\d*\.?\d+(?:[eE]-?\d+)?/g);
+  if (!tokens) return d;
+  let i = 0;
+  const out = [];
+  while (i < tokens.length) {
+    const cmd = tokens[i++];
+    if (cmd === "M" || cmd === "L") {
+      out.push(cmd, mapX(parseFloat(tokens[i++])), mapY(parseFloat(tokens[i++])));
+    } else if (cmd === "C") {
+      const n = [];
+      for (let k = 0; k < 6; k++) n.push(parseFloat(tokens[i++]));
+      out.push(cmd, mapX(n[0]), mapY(n[1]), mapX(n[2]), mapY(n[3]), mapX(n[4]), mapY(n[5]));
+    } else if (cmd === "h") {
+      out.push(cmd, parseFloat(tokens[i++]) * sx);
+    } else if (cmd === "v") {
+      out.push(cmd, parseFloat(tokens[i++]) * sy);
+    } else if (cmd === "a") {
+      const rx = parseFloat(tokens[i++]) * sx, ry = parseFloat(tokens[i++]) * sy;
+      const rot = tokens[i++], large = tokens[i++], sweep = tokens[i++];
+      const ex = parseFloat(tokens[i++]) * sx, ey = parseFloat(tokens[i++]) * sy;
+      out.push(cmd, rx, ry, rot, large, sweep, ex, ey);
+    } else if (cmd === "Z" || cmd === "z") {
+      out.push(cmd);
+    } else {
+      return d; // an unrecognised token — leave the path untouched rather than corrupt it
+    }
+  }
+  return out.join(" ");
+}
+
+//: The bounding box of a path this app drew, walked the same way a real SVG
+//: renderer would (tracking the pen's current point through relative
+//: commands) rather than just min/maxing every raw number — `h`/`v`/`a`'s
+//: numbers are deltas and radii, not coordinates, and mixing them into a
+//: coordinate min/max would produce a nonsense box.
+function wbPathBBox(d) {
+  const tokens = d.match(/[MLCHVAZmlchvaz]|-?\d*\.?\d+(?:[eE]-?\d+)?/g);
+  if (!tokens) return null;
+  let i = 0, px = 0, py = 0;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  const visit = (x, y) => {
+    minX = Math.min(minX, x); minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+  };
+  while (i < tokens.length) {
+    const cmd = tokens[i++];
+    if (cmd === "M" || cmd === "L") {
+      px = parseFloat(tokens[i++]); py = parseFloat(tokens[i++]);
+      visit(px, py);
+    } else if (cmd === "C") {
+      const n = [];
+      for (let k = 0; k < 6; k++) n.push(parseFloat(tokens[i++]));
+      visit(n[0], n[1]); visit(n[2], n[3]); visit(n[4], n[5]);
+      px = n[4]; py = n[5];
+    } else if (cmd === "h") {
+      px += parseFloat(tokens[i++]);
+      visit(px, py);
+    } else if (cmd === "v") {
+      py += parseFloat(tokens[i++]);
+      visit(px, py);
+    } else if (cmd === "a") {
+      const rx = parseFloat(tokens[i++]), ry = parseFloat(tokens[i++]);
+      i += 3; // x-axis-rotation, large-arc-flag, sweep-flag — unused for a bbox
+      const ex = parseFloat(tokens[i++]), ey = parseFloat(tokens[i++]);
+      // Exact for the axis-aligned circle/ellipse this tool ever draws: two
+      // half-arcs whose shared chord's midpoint is the ellipse's own centre.
+      const midX = px + ex / 2, midY = py + ey / 2;
+      visit(midX - rx, midY - ry);
+      visit(midX + rx, midY + ry);
+      px += ex; py += ey;
+    }
+    // Z/z closes back to the last M — doesn't move the pen for bbox purposes.
+  }
+  return isFinite(minX) ? { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY } : null;
+}
+
+//: A handle drag's dx/dy (board-space) turned into the same
+//: {sx, sy, anchorX, anchorY} shape `wbTransformPathD` takes — the opposite
+//: corner/edge from whichever handle moved stays fixed, mirroring
+//: `resizeDrag`'s own width/height-and-floor logic for image/text objects.
+const WB_SKETCH_MIN_SIZE = 10;
+function wbSketchResizeTransform(bbox, handle, dx, dy) {
+  const { minX, minY, maxX, maxY } = bbox;
+  let newMinX = minX, newMaxX = maxX, newMinY = minY, newMaxY = maxY;
+  if (handle.includes("e")) newMaxX = Math.max(minX + WB_SKETCH_MIN_SIZE, maxX + dx);
+  if (handle.includes("w")) newMinX = Math.min(maxX - WB_SKETCH_MIN_SIZE, minX + dx);
+  if (handle.includes("s")) newMaxY = Math.max(minY + WB_SKETCH_MIN_SIZE, maxY + dy);
+  if (handle.includes("n")) newMinY = Math.min(maxY - WB_SKETCH_MIN_SIZE, minY + dy);
+  const oldW = maxX - minX || 1, oldH = maxY - minY || 1;
+  const sx = handle.includes("e") || handle.includes("w") ? (newMaxX - newMinX) / oldW : 1;
+  const sy = handle.includes("n") || handle.includes("s") ? (newMaxY - newMinY) / oldH : 1;
+  return { sx, sy, anchorX: handle.includes("w") ? maxX : minX, anchorY: handle.includes("n") ? maxY : minY };
+}
+
+//: A sketch's own `data` blob, whether it's `{d, color}` or the wider
+//: `{d, color, width, opacity}` a highlighter carries (HISTORY.md) — parsed
+//: once so move/resize can rewrite just `d` and leave every other field
+//: (colour, the highlighter's width/opacity) exactly as it was.
+function wbSketchParsedData(sketch) {
+  try {
+    const parsed = JSON.parse(sketch.data);
+    return parsed && typeof parsed.d === "string" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+async function wbSaveSketchD(sketch, newD) {
+  const parsed = wbSketchParsedData(sketch);
+  if (!parsed) return;
+  parsed.d = newD;
+  sketch.data = JSON.stringify(parsed);
+  try {
+    const saved = await apiJson(`/whiteboard/sketches/${sketch.id}`, {
+      method: "PUT",
+      body: JSON.stringify({ data: sketch.data, board_id: sketch.board_id, x: sketch.x, y: sketch.y, z: sketch.z }),
+    });
+    Object.assign(sketch, saved);
+  } catch {
+    recordBrowserLog("WARN", [`[Whiteboard] sketch ${sketch.id} is stale — reloading the board`]);
+    await fetchWhiteboardState();
+    renderWhiteboard();
+  }
+}
+
+// The handles themselves — a fresh SVG group per selection, since (unlike a
+// card/object's own always-present handles) a sketch has no fixed element to
+// attach 8 children to; it's rebuilt on every selection change and after
+// every `renderWhiteboard()` re-applies the current selection.
+function wbRenderSketchHandles() {
+  d3.select("#wb-zoom-group").selectAll(".wb-sketch-handle-group").remove();
+  if (!wbSelectedItem || wbSelectedItem.kind !== "sketch") return;
+  const sketch = wbState.sketches.find((s) => s.id === wbSelectedItem.id);
+  const parsed = sketch && wbSketchParsedData(sketch);
+  // Link sketches (a curve/line between two cards) are computed fresh from
+  // the cards' own positions on every render — dragging a handle on one
+  // would be undone the instant either card moves again, so they don't get
+  // handles at all; move/delete the cards instead.
+  if (!parsed) return;
+  const bbox = wbPathBBox(parsed.d);
+  if (!bbox) return;
+
+  const group = d3.select("#wb-zoom-group")
+    .append("g")
+    .attr("class", "wb-sketch-handle-group");
+
+  for (const handle of ["nw", "n", "ne", "e", "se", "s", "sw", "w"]) {
+    const hx = handle.includes("w") ? bbox.minX : handle.includes("e") ? bbox.maxX : (bbox.minX + bbox.maxX) / 2;
+    const hy = handle.includes("n") ? bbox.minY : handle.includes("s") ? bbox.maxY : (bbox.minY + bbox.maxY) / 2;
+    let rawDX = 0, rawDY = 0; // this handle's own running total for the drag closure below
+    group.append("rect")
+      .attr("class", "wb-sketch-resize-handle")
+      .attr("data-handle", handle)
+      .attr("x", hx - 5).attr("y", hy - 5)
+      .attr("width", 10).attr("height", 10)
+      .style("cursor", `${handle}-resize`)
+      .call(
+        d3.drag()
+          .on("start", (event) => {
+            event.sourceEvent.stopPropagation();
+            // event.dx/dy are per-frame deltas (since the *previous* event,
+            // not since the drag started) — recomputing the transform from
+            // the original bbox using only the latest frame's delta each
+            // time would apply just that one frame's worth of movement and
+            // throw the rest away. Accumulated from the start instead, the
+            // same fix as the drag-snap accumulation bug above.
+            rawDX = 0;
+            rawDY = 0;
+          })
+          .on("drag", (event) => {
+            const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
+            rawDX += event.dx / transform.k;
+            rawDY += event.dy / transform.k;
+            const t = wbSketchResizeTransform(bbox, handle, rawDX, rawDY);
+            const newD = wbTransformPathD(parsed.d, t);
+            document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-path`)?.setAttribute("d", newD);
+            document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-hitbox`)?.setAttribute("d", newD);
+            sketch._liveD = newD; // read at drag end, without waiting for a full render
+          })
+          .on("end", async () => {
+            if (sketch._liveD) {
+              const finalD = sketch._liveD;
+              delete sketch._liveD;
+              await wbSaveSketchD(sketch, finalD);
+            }
+            renderWhiteboard();
+          })
+      );
+  }
+}
+
 function renderWhiteboard() {
   document
     .getElementById("wb-empty-hint")
@@ -24555,15 +25237,90 @@ function renderWhiteboard() {
   // first wired.
   wbDeleteSketchRef = deleteSketch;
 
+  // Move — reported directly: "can't move objects made or drawn on
+  // whiteboard". Cards/objects get this from their own `d3.drag`; a sketch
+  // never had one at all. Filtered to the Select tool only, the same as a
+  // click here means "select" rather than "erase" — under any other tool
+  // (pan, a brush, eraser/delete) this must stay out of the way entirely,
+  // pan in particular, since the canvas's own zoom/pan drag needs an
+  // unclaimed pointerdown to reach it.
+  const sketchDrag = d3.drag()
+    .filter(() => window.currentTool === "select")
+    .on("start", (event, d) => {
+      event.sourceEvent.stopPropagation();
+      const parsed = wbSketchParsedData(d);
+      d._dragOriginalD = parsed ? parsed.d : null;
+      // Raw (never-snapped) running totals, applied fresh from the
+      // *original* d each frame — the same fix as `dragging`'s own comment
+      // above: re-snapping an already-snapped value every frame discards
+      // the sub-grid remainder and can get stuck.
+      d._dragRawDX = 0;
+      d._dragRawDY = 0;
+      // Selection itself is deliberately *not* touched here — it lives
+      // entirely in the 'click' listener below, which only ever fires for a
+      // genuinely unmoved gesture (d3 suppresses the native click once real
+      // movement crosses the threshold). Doing it here too, keyed off "did
+      // this drag start", was tried and had a real bug: `wbDragIsBulkMove`
+      // is also true for a second shift-click meant to *toggle a member
+      // back off* an existing multi-selection, so treating every "start" as
+      // "begin a bulk move" swallowed that click's toggle entirely — a
+      // second shift-click on an already-selected item did nothing.
+      // `d._bulkOrigin` itself is decided lazily, on the first real "drag"
+      // frame below, for the same reason.
+    })
+    .on("drag", (event, d) => {
+      if (d._dragOriginalD == null) return;
+      // First real movement of this gesture — decide once whether this is
+      // a solo move or a bulk move of the whole multi-selection. Deferred
+      // to here rather than "start" (see its own comment) specifically so
+      // a zero-movement click never reaches this at all.
+      if (d._bulkOrigin === undefined) {
+        d._bulkOrigin = wbDragIsBulkMove("sketch", d.id)
+          ? wbCaptureBulkMoveOrigin(wbMultiKey("sketch", d.id))
+          : null;
+      }
+      const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
+      d._dragRawDX += event.dx / transform.k;
+      d._dragRawDY += event.dy / transform.k;
+      const bypassSnap = event.sourceEvent?.altKey;
+      const dx = wbSnap(d._dragRawDX, bypassSnap), dy = wbSnap(d._dragRawDY, bypassSnap);
+      const newD = wbTransformPathD(d._dragOriginalD, { dx, dy });
+      d._dragLiveD = newD;
+      const el = document.querySelector(`.sketch-group[data-id="${d.id}"]`);
+      el?.querySelector(".sketch-path")?.setAttribute("d", newD);
+      el?.querySelector(".sketch-hitbox")?.setAttribute("d", newD);
+      if (d._bulkOrigin) wbApplyBulkMove(d._bulkOrigin, dx, dy);
+      // Handles would otherwise trail the sketch by a whole render — cheap
+      // to keep in step since there are at most 8 of them.
+      d3.select("#wb-zoom-group").selectAll(".wb-sketch-handle-group").remove();
+    })
+    .on("end", async (event, d) => {
+      if (d._dragOriginalD == null) return;
+      const finalD = d._dragLiveD;
+      const bulkOrigin = d._bulkOrigin;
+      delete d._dragOriginalD;
+      delete d._dragRawDX;
+      delete d._dragRawDY;
+      delete d._dragLiveD;
+      delete d._bulkOrigin;
+      // `finalD`/`bulkOrigin` are only ever set once real movement occurred
+      // (in "drag" above) — a zero-movement click leaves both undefined, so
+      // this correctly does nothing rather than a wasted save.
+      if (finalD) await wbSaveSketchD(d, finalD);
+      if (bulkOrigin) await wbSaveBulkMove(bulkOrigin);
+      renderWhiteboard();
+    });
+
   const sketchEnter = sketchSelection.enter()
     .append("g")
     .attr("class", "sketch-group")
     .attr("data-id", d => d.id)
     .style("cursor", () => (window.currentTool === "delete" || window.currentTool === "eraser" || window.currentTool === "select") ? "pointer" : "default")
+    .call(sketchDrag)
     .on("click", (event, d) => {
       if (window.currentTool === "select") {
         event.stopPropagation(); // don't also hit the "empty canvas clears selection" handler
-        selectWbItem("sketch", d.id);
+        wbHandleItemClick("sketch", d.id, event);
         return;
       }
       // Reported directly, same family as the pen's single-click dot: a
@@ -24674,13 +25431,23 @@ function renderWhiteboard() {
     .style("transform", d => `translate(${d.x}px, ${d.y}px)`)
     .style("z-index", d => d.z)
     .call(d3.drag()
+      // Reported directly: drawing over a note "just moves the note
+      // instead" of drawing on it. Cards sit in `#wb-html-layer`, a sibling
+      // painted on top of `#wb-svg-layer` — a pointerdown that lands on a
+      // card never reaches the SVG layer's own draw listener at all, and
+      // this drag (bound directly to the card) intercepted it first
+      // regardless of which tool was active. Filtering it out here, rather
+      // than only inside the start/drag handlers below, stops d3 from
+      // capturing the gesture in the first place, so the same pointerdown
+      // is free to bubble to `containerEl`'s brush listener instead.
+      .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool) && !event.ctrlKey && !event.button)
       .on("start", dragStart)
       .on("drag", dragging)
       .on("end", dragEndNode))
     .on("click", (event, d) => {
       if (window.currentTool === "select") {
         event.stopPropagation();
-        selectWbItem("node", d.id);
+        wbHandleItemClick("node", d.id, event);
         return;
       }
       // Same fix as the sketch group above: a single eraser click, no drag,
@@ -24764,26 +25531,56 @@ function renderWbObjects(canvas) {
 
   const objDrag = d3.drag()
     // A resize handle owns its own drag (below); a text box's own text
-    // needs plain clicks/selection to reach it, not a canvas-wide drag.
-    .filter((event) => !event.target.closest(".wb-resize-handle, .wb-text-content"))
-    .on("start", function () {
+    // needs plain clicks/selection to reach it, not a canvas-wide drag. And,
+    // same reasoning as the card drag's own filter above: a brush tool must
+    // be able to draw over an image/text object, not drag it.
+    .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool) && !event.target.closest(".wb-resize-handle, .wb-text-content"))
+    .on("start", function (event, d) {
       if (window.currentTool === "eraser" || window.currentTool === "delete") return;
       d3.select(this).raise();
+      // See the matching comment on the card drag's own `dragStart`: a raw,
+      // never-snapped running position, so small per-frame deltas actually
+      // accumulate instead of being rounded away against the previous
+      // frame's already-snapped value.
+      d._rawX = d.x;
+      d._rawY = d.y;
+      d._dragOriginX = d.x;
+      d._dragOriginY = d.y;
+      // Bulk-move detection is deliberately deferred to the first real
+      // "drag" frame below, not decided here — see the matching comment on
+      // the sketch drag's own "start" for the click-toggle bug that caused.
     })
     .on("drag", function (event, d) {
       if (window.currentTool === "eraser" || window.currentTool === "delete") return;
+      if (d._bulkOrigin === undefined) {
+        d._bulkOrigin = wbDragIsBulkMove("object", d.id)
+          ? wbCaptureBulkMoveOrigin(wbMultiKey("object", d.id))
+          : null;
+      }
       // d3.drag's dx/dy are raw screen pixels, not board-space — the
       // resize handles below already divide by the zoom scale for exactly
       // this reason; a plain drag has to as well, or a card/object moves
       // faster than the cursor when zoomed out and slower when zoomed in.
       const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-      d.x = wbSnap(d.x + event.dx / transform.k);
-      d.y = wbSnap(d.y + event.dy / transform.k);
+      d._rawX = (d._rawX ?? d.x) + event.dx / transform.k;
+      d._rawY = (d._rawY ?? d.y) + event.dy / transform.k;
+      const bypassSnap = event.sourceEvent?.altKey;
+      d.x = wbSnap(d._rawX, bypassSnap);
+      d.y = wbSnap(d._rawY, bypassSnap);
       d3.select(this).style("transform", `translate(${d.x}px, ${d.y}px)`);
+      if (d._bulkOrigin) wbApplyBulkMove(d._bulkOrigin, d.x - d._dragOriginX, d.y - d._dragOriginY);
     })
-    .on("end", function (event, d) {
+    .on("end", async function (event, d) {
       if (window.currentTool === "eraser" || window.currentTool === "delete") return;
-      wbSaveObject(d);
+      const bulkOrigin = d._bulkOrigin;
+      // Reset unconditionally — a solo drag sets this to `null` (see
+      // "drag" above), and leaving it there would make the *next* gesture's
+      // `=== undefined` check think bulk-move was already decided and skip
+      // redetecting it, permanently treating this object as "never bulk"
+      // even after it later joins a multi-selection.
+      delete d._bulkOrigin;
+      await wbSaveObject(d);
+      if (bulkOrigin) await wbSaveBulkMove(bulkOrigin);
     });
 
   function resizeDrag(handle) {
@@ -24830,7 +25627,7 @@ function renderWbObjects(canvas) {
     .on("click", (event, d) => {
       if (window.currentTool === "select") {
         event.stopPropagation();
-        selectWbItem("object", d.id);
+        wbHandleItemClick("object", d.id, event);
         return;
       }
       if (window.currentTool === "delete" || window.currentTool === "eraser") deleteObject(d);
@@ -24842,7 +25639,7 @@ function renderWbObjects(canvas) {
   objectEnter.each(function (d) {
     const el = d3.select(this);
     if (d.kind === "image") {
-      el.append("img").attr("src", d.data.url || "").attr("alt", "");
+      el.append("img").attr("src", mediaSrc(d.data.url) || "").attr("alt", "");
     } else {
       const content = el.append("div")
         .attr("class", "wb-text-content")
@@ -24885,7 +25682,7 @@ function renderWbObjects(canvas) {
   objectUpdate.each(function (d) {
     const el = d3.select(this);
     if (d.kind === "image") {
-      el.select("img").attr("src", d.data.url || "");
+      el.select("img").attr("src", mediaSrc(d.data.url) || "");
     } else {
       const textEl = el.select(".wb-text-content");
       textEl.style("color", d.data.color || "").style("font-size", d.data.font_size ? `${d.data.font_size}px` : "");
@@ -24896,12 +25693,48 @@ function renderWbObjects(canvas) {
   objectSelection.exit().remove();
 }
 
+//: Recomputes just the link-sketch paths touching `nodeId`, without a full
+//: `renderWhiteboard()` — reported directly as "resizing and drawing shapes
+//: is glitchy and slow to update". `dragging` below used to call the full
+//: render on every single mousemove frame of a card drag, purely to keep a
+//: link line's endpoint following the card — which re-binds *every* card,
+//: sketch and object on the board, dozens of times a second, for one card's
+//: own link. Mirrors the link-path maths in `renderWhiteboard`'s own
+//: `sketchUpdate.each` exactly, so the two can't drift apart.
+function wbUpdateLinkedSketches(nodeId) {
+  for (const sketch of wbState.sketches) {
+    let parsed;
+    try {
+      parsed = JSON.parse(sketch.data);
+    } catch {
+      continue;
+    }
+    if (!parsed.type || !parsed.type.startsWith("link-")) continue;
+    if (parsed.sourceId !== nodeId && parsed.targetId !== nodeId) continue;
+    const source = wbState.nodes.find((n) => n.id === parsed.sourceId);
+    const target = wbState.nodes.find((n) => n.id === parsed.targetId);
+    if (!source || !target) continue;
+    const sx = source.x + 125, sy = source.y + 75;
+    const tx = target.x + 125, ty = target.y + 75;
+    let pathData;
+    if (parsed.type === "link-straight") {
+      pathData = `M ${sx} ${sy} L ${tx} ${ty}`;
+    } else {
+      const dx = tx - sx;
+      pathData = `M ${sx} ${sy} C ${sx + dx / 2} ${sy}, ${tx - dx / 2} ${ty}, ${tx} ${ty}`;
+    }
+    const el = document.querySelector(`.sketch-group[data-id="${sketch.id}"]`);
+    el?.querySelector(".sketch-path")?.setAttribute("d", pathData);
+    el?.querySelector(".sketch-hitbox")?.setAttribute("d", pathData);
+  }
+}
+
 function dragStart(event, d) {
   // Eraser/delete don't move cards — a swipe meant to erase a run of cards
   // must not also drag the first one it touches out from under the pointer.
   if (window.currentTool === "eraser" || window.currentTool === "delete") return;
   if (window.currentTool && window.currentTool.startsWith("link-")) {
-    d.linkStartPos = { x: d.x + 125, y: d.y + 50 }; // approx center
+    d.linkStartPos = { x: d.x + 125, y: d.y + 75 }; // approx center of the ~250×150 default card
     d.linkingPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
     d.linkingPath.setAttribute("fill", "none");
     d.linkingPath.setAttribute("stroke", window.currentStrokeColor || "#ffffff");
@@ -24909,6 +25742,23 @@ function dragStart(event, d) {
     document.getElementById("wb-zoom-group").appendChild(d.linkingPath);
   } else {
     d3.select(this).raise();
+    // Reported directly: "hard to move notes diagonally when on grid lock".
+    // `dragging` below used to re-snap the *already-snapped* `d.x`/`d.y`
+    // every frame — each small per-frame delta got rounded straight back to
+    // the same grid line it started from, discarding the sub-grid remainder
+    // instead of carrying it forward, so many frames of real motion could
+    // add up to nothing until one single frame happened to cross a whole
+    // grid step by itself. A raw (never-snapped) running position, seeded
+    // here and only read through `wbSnap` when applying/saving, fixes it:
+    // every pixel of real cursor motion accumulates, and only the *display*
+    // rounds to the grid.
+    d._rawX = d.x;
+    d._rawY = d.y;
+    d._dragOriginX = d.x;
+    d._dragOriginY = d.y;
+    // Bulk-move detection is deliberately deferred to the first real
+    // "drag" frame below, not decided here — see the matching comment on
+    // the sketch drag's own "start" for the click-toggle bug that caused.
   }
 }
 
@@ -24934,12 +25784,26 @@ function dragging(event, d) {
     // the same reason. Without it, a card dragged while zoomed moved faster
     // than the cursor when zoomed out and slower when zoomed in, and snap
     // would round a wrongly-scaled delta.
+    if (d._bulkOrigin === undefined) {
+      d._bulkOrigin = wbDragIsBulkMove("node", d.id)
+        ? wbCaptureBulkMoveOrigin(wbMultiKey("node", d.id))
+        : null;
+    }
     const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-    d.x = wbSnap(d.x + event.dx / transform.k);
-    d.y = wbSnap(d.y + event.dy / transform.k);
+    d._rawX = (d._rawX ?? d.x) + event.dx / transform.k;
+    d._rawY = (d._rawY ?? d.y) + event.dy / transform.k;
+    // Asked for directly: Alt held during a drag temporarily releases the
+    // grid lock, the same convention Figma/Illustrator use — a per-call
+    // bypass rather than touching the snap toggle itself.
+    const bypassSnap = event.sourceEvent?.altKey;
+    d.x = wbSnap(d._rawX, bypassSnap);
+    d.y = wbSnap(d._rawY, bypassSnap);
     d3.select(this).style("transform", `translate(${d.x}px, ${d.y}px)`);
-    // re-render links so they move with the node
-    renderWhiteboard();
+    // Update this card's own link lines directly rather than a full
+    // renderWhiteboard() — see wbUpdateLinkedSketches's own comment for why
+    // that was the "glitchy and slow to update" report.
+    wbUpdateLinkedSketches(d.id);
+    if (d._bulkOrigin) wbApplyBulkMove(d._bulkOrigin, d.x - d._dragOriginX, d.y - d._dragOriginY);
   }
 }
 
@@ -25007,6 +25871,12 @@ async function dragEndNode(event, d) {
       await fetchWhiteboardState();
       renderWhiteboard();
     }
+    // Reset unconditionally, even when this gesture wasn't a bulk move —
+    // see the matching comment in objDrag's own "end" for why leaving a
+    // solo drag's `null` in place would break bulk-move detection later.
+    const bulkOrigin = d._bulkOrigin;
+    delete d._bulkOrigin;
+    if (bulkOrigin) await wbSaveBulkMove(bulkOrigin);
   }
 }
 

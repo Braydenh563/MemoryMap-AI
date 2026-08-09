@@ -12495,7 +12495,8 @@ textarea.autogrow {
 .settings-section label>input[type="checkbox"],
 .setting-check input[type="checkbox"],
 .tools-toggle input[type="checkbox"],
-.library-toolbar label>input[type="checkbox"] {
+.library-toolbar label>input[type="checkbox"],
+.wb-snap-label input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
   /* A control's own size — not a spacing token, and it must not move with the
@@ -12520,7 +12521,8 @@ textarea.autogrow {
 .settings-section label>input[type="checkbox"]::after,
 .setting-check input[type="checkbox"]::after,
 .tools-toggle input[type="checkbox"]::after,
-.library-toolbar label>input[type="checkbox"]::after {
+.library-toolbar label>input[type="checkbox"]::after,
+.wb-snap-label input[type="checkbox"]::after {
   content: "";
   position: absolute;
   top: 50%;
@@ -12536,7 +12538,8 @@ textarea.autogrow {
 .settings-section label>input[type="checkbox"]:checked,
 .setting-check input[type="checkbox"]:checked,
 .tools-toggle input[type="checkbox"]:checked,
-.library-toolbar label>input[type="checkbox"]:checked {
+.library-toolbar label>input[type="checkbox"]:checked,
+.wb-snap-label input[type="checkbox"]:checked {
   background: var(--accent);
   border-color: var(--accent);
 }
@@ -12544,9 +12547,15 @@ textarea.autogrow {
 .settings-section label>input[type="checkbox"]:checked::after,
 .setting-check input[type="checkbox"]:checked::after,
 .tools-toggle input[type="checkbox"]:checked::after,
-.library-toolbar label>input[type="checkbox"]:checked::after {
+.library-toolbar label>input[type="checkbox"]:checked::after,
+.wb-snap-label input[type="checkbox"]:checked::after {
   transform: translateY(-50%) translateX(0.85rem);
   background: #fff;
+}
+
+.wb-snap-label input[type="checkbox"]:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* The label's own alignment has to change with the control: `flex-start` was
@@ -12938,8 +12947,22 @@ aside[data-resizable="1"] {
 }
 
 .wb-object-text {
-  background: color-mix(in srgb, var(--card) calc(var(--glass-opacity) * 100%), transparent);
-  border: 1px dashed var(--glass-border);
+  /* Reported directly: a text box was hard to tell apart from the board
+     behind it. Two real gaps, not one — a 1px *dashed* `--glass-border`
+     (10-13% alpha in most themes) reads as barely-there even against the
+     app's own known background, and the board's own background colour is
+     picked freely by the user (`#wb-bg-color-picker`), so nothing here can
+     assume it contrasts with `--card` the way an ordinary panel can. Every
+     other floating surface on this board (`.whiteboard-floating-panel`) is
+     a `.card.glass` and gets a blur + shadow for exactly this reason; a
+     text box had neither. `max(…, 0.55)` keeps the box legible even with
+     glass opacity turned all the way down, where the mix alone would fall
+     to near-transparent. */
+  background: color-mix(in srgb, var(--card) calc(max(var(--glass-opacity), 0.55) * 100%), transparent);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  border: 1.5px solid var(--border);
+  box-shadow: var(--glass-shadow);
   padding: 0.5rem 0.6rem;
 }
 
@@ -12974,6 +12997,29 @@ aside[data-resizable="1"] {
 .wb-object:hover .wb-resize-handle,
 .wb-object.wb-selected .wb-resize-handle {
   opacity: 1;
+}
+
+/* A sketch's own resize handles (ROADMAP.md Tier 2 §11) — real SVG elements
+   in board space, unlike `.wb-resize-handle` above, which is an absolutely
+   positioned HTML child of the object it belongs to. `wbRenderSketchHandles`
+   only ever appends these while a sketch is selected, so there is no
+   opacity/hover toggle to write here the way the object handles need. */
+.wb-sketch-resize-handle {
+  fill: var(--accent);
+  stroke: var(--card);
+  stroke-width: 1px;
+}
+
+/* The rectangle marquee-select drag draws while it's active — reported
+   directly ("area select... missing"). A real SVG element in board space,
+   appended/removed by the marquee's own pointerdown/pointerup, not a fixed
+   part of any template. */
+.wb-marquee {
+  fill: color-mix(in srgb, var(--accent) 12%, transparent);
+  stroke: var(--accent);
+  stroke-width: 1px;
+  stroke-dasharray: 4 3;
+  pointer-events: none;
 }
 
 .wb-resize-handle[data-handle="nw"] { top: -5px; left: -5px; cursor: nwse-resize; }

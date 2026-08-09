@@ -27,6 +27,14 @@ from memorymap.entry import manager
 
 router = APIRouter(tags=["files"])
 
+# `/media/{filename}` and `/files/{attachment_id}` are the two routes an
+# `<img src>` points at directly rather than something the frontend fetches
+# with its own X-Auth-Token header — see `require_unlock_media`'s own
+# docstring in routes_auth.py for why they need a separate router (a
+# router-level dependency and a route-level one are additive, not an
+# override, so the header-only gate on `router` can't be loosened per-route).
+media_router = APIRouter(tags=["files"])
+
 MAX_FILE_BYTES = 50 * 1024 * 1024  # a personal notebook, not a fileserver
 
 
@@ -76,7 +84,7 @@ def _existing_attachment(session: Session, attachment_id: int) -> Attachment:
     return attachment
 
 
-@router.get("/files/{attachment_id}")
+@media_router.get("/files/{attachment_id}")
 def download_file(attachment_id: int, session: Session = Depends(get_session)) -> FileResponse:
     attachment = _existing_attachment(session, attachment_id)
     path = deps.get_config().uploads_dir / attachment.stored_name
@@ -210,7 +218,7 @@ def upload_media(file: UploadFile) -> dict:
     return {"url": f"/media/{stored_name}", "filename": file.filename or stored_name}
 
 
-@router.get("/media/{filename}")
+@media_router.get("/media/{filename}")
 def get_media(filename: str) -> FileResponse:
     """Serve generic uploaded media.
 

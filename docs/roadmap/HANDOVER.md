@@ -2,7 +2,110 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session: §53 — a user-reported bug list, then the whiteboard rebuilt into a real OneNote/draw.io-style canvas
+## Latest session: §54 — a 17-item user bug list on the whiteboard, a real security/correctness bug reaching every `/media/` image app-wide, then the rest of §11/§53's own "still open" list
+
+Long unattended run, explicitly authorised to work through interruption
+("assume I agree with everything, don't wait for me to prompt you"). Worked
+the user's own bug list first (per this file's standing instruction), then
+ROADMAP §11's remaining "still open" list, then several more reports and
+feature asks that arrived mid-session. Full detail — every bug, the exact
+fix, and how each was verified live — is in
+[HISTORY.md §54](HISTORY.md); this is the short version and what's still
+open. **Read this before touching the whiteboard, `/media`/`/files` auth,
+or anything rendering a note's inline images.**
+
+**The one that matters most, and wasn't reported as being about the
+whiteboard specifically:** "image upload on the whiteboard doesn't work"
+was one symptom of `GET /media/{filename}`/`GET /files/{attachment_id}`
+requiring the `X-Auth-Token` header — which a plain `<img src>` (or a CSS
+`background-image`, or the whiteboard's own SVG export) never attaches.
+Every such image was a silent 401 on any notebook with a password set,
+which is the normal case, and that includes §53's own "verified live"
+inline-markdown-image fix — almost certainly a DOM-existence check, not a
+painted-pixel one. Fixed with a query-param token fallback scoped to just
+those two routes (a new `media_router`/`require_unlock_media`, so the token
+doesn't widen onto every other route's access-log line) and a frontend
+`mediaSrc()` helper wired into every affected render site. **If any image
+anywhere in this app still doesn't render, check this first** — it's
+unlikely to be a coincidence twice.
+
+**Whiteboard bugs, all reproduced live before and after, from the user's
+own list:** drawing over a card moved the card instead of drawing on it
+(cards and the SVG draw layer are siblings, and the card's own drag claimed
+the gesture first regardless of tool); sketches had no move or resize at
+all (a new path-transform interpreter, `wbTransformPathD`/`wbPathBBox`,
+scoped to exactly the commands this app's tools emit); copy/paste (cards
+excluded — one-card-per-note-per-board would make a "copy" silently *move*
+the original); multi-select (shift-click, rectangle marquee, bulk
+delete/move — a real toggle-off bug found and fixed along the way, detailed
+below); grid-snap not applying to shapes (fixed as part of the move/resize
+work) and a real "stuck" accumulation bug in the *existing* card/object
+drag under snap (re-snapping an already-snapped value every frame discards
+the sub-grid remainder — fixed by tracking a raw running position); the
+"glitchy and slow" report (dragging a card called a full board re-render on
+every mousemove frame, purely to update its own link lines — now a
+targeted update); arrowhead styles, two more shapes (triangle/diamond),
+shift-to-constrain a drawn shape, Alt to bypass snap for one drag, a
+dropped card landing offset from the drop point (top-left corner, not
+centre, was being stored), the eraser not working with a touch drag (pen
+worked fine — touch implicitly captures the pointer to the first element
+touched, so `pointerenter` never fired for the rest; fixed with
+`elementFromPoint`-based hit-testing that doesn't depend on capture at
+all), low-contrast text boxes, and the snap checkbox not matching the
+app's own switch styling. **Investigated and left alone, not reproduced**:
+"clear board doesn't clear highlights, can't erase highlights" — a
+highlighter stroke is an ordinary sketch and erased/cleared correctly every
+way tried.
+
+**A real bug in code from the same session, caught before it shipped, not
+after:** the multi-select bulk-move logic originally decided "is this a
+bulk move?" inside the drag's own `"start"` handler — which d3 fires on
+*every* pointerdown, moved or not — so a second shift-click meant to toggle
+a member back *off* an existing selection was mistaken for the start of a
+bulk move and did nothing at all. Fixed by deferring that decision to the
+first genuine `"drag"` frame instead (a zero-movement click never reaches
+it), and applied the same fix to the analogous — if less visible — problem
+in the node/object drag handlers, where a stale `d._bulkOrigin = null` left
+over from an earlier *solo* drag would have permanently skipped
+re-detecting bulk-move on a later gesture.
+
+**Still open, in the order worth tackling them:**
+1. **Real anchor/connection points** (draw.io-style fixed/free anchors) —
+   named "worth its own session" three sessions running now (§53, §54, and
+   this one again); do this first, and read how draw.io itself represents
+   the fixed-vs-free distinction before starting.
+2. **A properties panel for the current selection** — colour, stroke width,
+   arrowhead, fill/border for a text object. No longer blocked on
+   multi-select; a version that edits a whole multi-selection at once is
+   the harder follow-up, not a prerequisite.
+3. **Rotation** — needs a real schema change (no whiteboard table has an
+   angle column), not a frontend-only pass.
+4. **Card resize** — only images/text objects have it; a note's own card
+   doesn't.
+5. **Image cropping** and **an AI-guided diagram-generation mode** — both
+   asked for directly, neither scoped yet.
+6. A **mind-mapping mode** (decided: a whiteboard mode via the Graph tab's
+   own Tree/Radial layout code + Tab/Enter branch entry, not a third tab —
+   see ROADMAP item 25) is explicitly sequenced *after* item 1 above, since
+   branch lines need real anchors to look like a mind map's branches
+   instead of lines to arbitrary corners.
+
+All ~1,600+ tests pass, `ruff check .` is clean, `node --check
+frontend/app.js` is clean throughout. **What was and wasn't verified**: every
+fix above with a checkable behaviour was driven against a real running
+server via Playwright — synthetic pointer/keyboard gestures with real
+coordinate math checked against hand calculations, not screenshots alone
+(though several screenshots confirmed the visual result too, e.g. the text
+box contrast fix, the shapes/arrowheads). The one thing that could not be
+verified is the touch-eraser fix's actual premise: this sandbox has no
+touch-capable input, so the "implicit pointer capture on touch" mechanism
+is reasoned from the Pointer Events spec and the user's own report (pen
+works, eraser doesn't — consistent with a hover-detection-specific cause),
+not observed directly.
+
+---
+
+## Previous session: §53 — a user-reported bug list, then the whiteboard rebuilt into a real OneNote/draw.io-style canvas
 
 Worked a list of live-reported bugs first (per standing instruction: fix
 what's broken before building), then the whiteboard feature list from

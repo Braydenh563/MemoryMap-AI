@@ -1128,6 +1128,118 @@ async function removeEntryTitle(entry) {
   }
 }
 
+// A single `role="menuitem"` button — shared by the top-level menu and every
+// submenu, so a click behaves identically (close everything, then run) no
+// matter how deep the item is nested.
+function buildMenuItemButton(item) {
+  const button = document.createElement("button");
+  button.setAttribute("role", "menuitem");
+  button.className = "menu-item" + (item.danger ? " menu-danger" : "");
+  button.textContent = item.label;
+  if (item.title) button.title = item.title;
+  button.addEventListener("click", () => {
+    closeActionMenus();
+    item.run();
+  });
+  return button;
+}
+
+// A grouped trigger ("✨ AI actions ›") that opens a side flyout of its own
+// items — asked for directly, to cut a 15-item flat list down to something
+// scannable. Hover opens it on a device that has hover; click/tap opens it
+// everywhere, which is the only way in on a touchscreen. Below
+// `--menu-submenu-stack-width` (phone-width) there is nowhere for a flyout
+// to go without running off-screen, so it drops the side-popup positioning
+// entirely and expands in place instead — an accordion, not a flyout, which
+// is what "compatible with small screens like iPhones" actually means here.
+function buildMenuGroupButton(label, subItems) {
+  const groupWrap = document.createElement("div");
+  groupWrap.className = "menu-group";
+
+  const trigger = document.createElement("button");
+  trigger.setAttribute("role", "menuitem");
+  trigger.setAttribute("aria-haspopup", "menu");
+  trigger.setAttribute("aria-expanded", "false");
+  trigger.className = "menu-item has-submenu";
+  const labelSpan = document.createElement("span");
+  labelSpan.textContent = label;
+  const arrow = document.createElement("span");
+  arrow.className = "menu-submenu-arrow";
+  arrow.setAttribute("aria-hidden", "true");
+  arrow.textContent = "›";
+  trigger.append(labelSpan, arrow);
+
+  const submenu = document.createElement("div");
+  submenu.className = "action-menu submenu hidden";
+  submenu.setAttribute("role", "menu");
+  for (const item of subItems) submenu.appendChild(buildMenuItemButton(item));
+
+  const openSubmenu = () => {
+    // Only one flyout open at a time, at this level or any sibling group.
+    for (const other of groupWrap.parentElement?.querySelectorAll(".submenu:not(.hidden)") || []) {
+      if (other !== submenu) {
+        other.classList.add("hidden");
+        other.previousElementSibling?.setAttribute("aria-expanded", "false");
+      }
+    }
+    submenu.classList.remove("hidden");
+    trigger.setAttribute("aria-expanded", "true");
+    // Side popup by default; flip to the left if the right edge would run
+    // off the viewport, and drop the flyout positioning below phone-width
+    // (handled in CSS — this only measures when it's actually a flyout).
+    submenu.classList.remove("submenu-left");
+    if (window.innerWidth > 720) {
+      const rect = submenu.getBoundingClientRect();
+      if (rect.right > window.innerWidth) submenu.classList.add("submenu-left");
+    }
+  };
+  const closeSubmenu = () => {
+    submenu.classList.add("hidden");
+    trigger.setAttribute("aria-expanded", "false");
+  };
+
+  let hoverTimer = null;
+  groupWrap.addEventListener("mouseenter", () => {
+    clearTimeout(hoverTimer);
+    hoverTimer = setTimeout(openSubmenu, 120); // brief delay: a mouse crossing the item isn't a request to open it
+  });
+  groupWrap.addEventListener("mouseleave", () => {
+    clearTimeout(hoverTimer);
+    hoverTimer = setTimeout(closeSubmenu, 200); // outlives the diagonal move from the trigger into the flyout
+  });
+  trigger.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (submenu.classList.contains("hidden")) openSubmenu();
+    else closeSubmenu();
+  });
+  submenu.addEventListener("keydown", (event) => {
+    const subItems = [...submenu.querySelectorAll(':scope > [role="menuitem"]')];
+    const current = subItems.indexOf(document.activeElement);
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      subItems[(current + 1) % subItems.length]?.focus();
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      subItems[(current - 1 + subItems.length) % subItems.length]?.focus();
+    } else if (event.key === "ArrowLeft" || event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation(); // don't also close the whole menu on ArrowLeft
+      closeSubmenu();
+      trigger.focus();
+    }
+  });
+  trigger.addEventListener("keydown", (event) => {
+    if (event.key === "ArrowRight" || event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      openSubmenu();
+      submenu.querySelector('[role="menuitem"]')?.focus();
+    }
+  });
+
+  groupWrap.append(trigger, submenu);
+  return groupWrap;
+}
+
 function entryOverflowMenu(entry) {
   const wrap = document.createElement("span");
   wrap.className = "menu-wrap";
@@ -1144,7 +1256,11 @@ function entryOverflowMenu(entry) {
   opener.setAttribute("aria-haspopup", "menu");
   opener.setAttribute("aria-expanded", "false");
 
-  const items = [
+  // Kept flat: the three actions used often enough, or serious enough (a
+  // delete), that burying them a level down would cost more than the
+  // grouping below saves. Everything else groups into three side flyouts —
+  // asked for directly, to cut what had grown into a 15-item flat list.
+  const topLevel = [
     {
       label: entry.is_private ? "🔓 Make readable" : "🔒 Make private",
       title: entry.is_private
@@ -1157,21 +1273,9 @@ function entryOverflowMenu(entry) {
       title: "See earlier versions of this note, and put one back",
       run: () => openEntryHistory(entry),
     },
-    {
-      label: "📄 Add to a document",
-      title: "Attach this note to a document you have already started",
-      run: () => {
-        inlineAction = inlineActionIs(entry.id, "document")
-          ? null
-          : { id: entry.id, kind: "document" };
-        renderEntries();
-      },
-    },
-    {
-      label: "📄 Expand into a document",
-      title: "Start a document from this note — the note stays where it is",
-      run: () => expandNoteIntoDocument(entry),
-    },
+  ];
+
+  const aiItems = [
     {
       label: "🔄 Re-evaluate",
       title: "Refresh this note's AI confidence and suggest tags & links",
@@ -1205,6 +1309,29 @@ function entryOverflowMenu(entry) {
           },
         ]
       : []),
+  ];
+
+  const connectItems = [
+    {
+      label: "📄 Add to a document",
+      title: "Attach this note to a document you have already started",
+      run: () => {
+        inlineAction = inlineActionIs(entry.id, "document")
+          ? null
+          : { id: entry.id, kind: "document" };
+        renderEntries();
+      },
+    },
+    {
+      label: "📄 Expand into a document",
+      title: "Start a document from this note — the note stays where it is",
+      run: () => expandNoteIntoDocument(entry),
+    },
+    { label: "🔗 Link to another", run: () => beginOrCompleteLink(entry) },
+    { label: "≈ Similar notes", run: () => toggleRelated(entry) },
+  ];
+
+  const addItems = [
     {
       label: "➕ Add context",
       title: "Append detail — the AI may refile it",
@@ -1221,8 +1348,6 @@ function entryOverflowMenu(entry) {
         renderEntries();
       },
     },
-    { label: "📎 Attach a file", run: () => attachFileTo(entry) },
-    { label: "≈ Similar notes", run: () => toggleRelated(entry) },
     {
       label: "⏰ Remind me",
       run: () => {
@@ -1230,40 +1355,38 @@ function entryOverflowMenu(entry) {
         renderEntries();
       },
     },
-    { label: "🔗 Link to another", run: () => beginOrCompleteLink(entry) },
-    {
-      label: "🗑 Move to bin",
-      danger: true,
-      // Instant + one-click Undo, soft delete underneath (Wave J).
-      run: async () => {
-        await api(`/entries/${entry.id}`, { method: "DELETE" });
-        await loadEntries();
-        toastAction("Moved to the recycle bin.", "Undo", async () => {
-          await api(`/entries/${entry.id}/restore`, { method: "POST" });
-          await loadEntries();
-          toast("Note restored.");
-        });
-      },
-    },
+    { label: "📎 Attach a file", run: () => attachFileTo(entry) },
   ];
-  for (const item of items) {
-    const button = document.createElement("button");
-    button.setAttribute("role", "menuitem");
-    button.className = "menu-item" + (item.danger ? " menu-danger" : "");
-    button.textContent = item.label;
-    if (item.title) button.title = item.title;
-    button.addEventListener("click", () => {
-      closeActionMenus();
-      item.run();
-    });
-    menu.appendChild(button);
-  }
 
-  // Arrow-key navigation, as the role="menu" contract implies. ↑/↓ move between
-  // items (wrapping), Home/End jump to the ends, Esc closes and returns focus
-  // to the opener.
+  const danger = {
+    label: "🗑 Move to bin",
+    danger: true,
+    // Instant + one-click Undo, soft delete underneath (Wave J).
+    run: async () => {
+      await api(`/entries/${entry.id}`, { method: "DELETE" });
+      await loadEntries();
+      toastAction("Moved to the recycle bin.", "Undo", async () => {
+        await api(`/entries/${entry.id}/restore`, { method: "POST" });
+        await loadEntries();
+        toast("Note restored.");
+      });
+    },
+  };
+
+  for (const item of topLevel) menu.appendChild(buildMenuItemButton(item));
+  menu.appendChild(buildMenuGroupButton("✨ AI actions", aiItems));
+  menu.appendChild(buildMenuGroupButton("🔗 Connect", connectItems));
+  menu.appendChild(buildMenuGroupButton("➕ Add", addItems));
+  menu.appendChild(buildMenuItemButton(danger));
+
+  // Arrow-key navigation, as the role="menu" contract implies. ↑/↓ move
+  // between *top-level* items (wrapping) — `:scope >` so a hidden submenu's
+  // own items (handled by their own keydown handler above) never get mixed
+  // into this list, which would desync Home/End and let arrow keys land on
+  // an item the user can't currently see. Home/End jump to the ends, Esc
+  // closes and returns focus to the opener.
   menu.addEventListener("keydown", (event) => {
-    const menuItems = [...menu.querySelectorAll('[role="menuitem"]')];
+    const menuItems = [...menu.querySelectorAll(':scope > [role="menuitem"], :scope > .menu-group > [role="menuitem"]')];
     const current = menuItems.indexOf(document.activeElement);
     if (event.key === "ArrowDown") {
       event.preventDefault();
@@ -2403,12 +2526,24 @@ function openDocumentFromNote(documentId) {
   setTimeout(() => openDocument(documentId), 150);
 }
 
+// ROADMAP.md Tier 2 §16d, asked for directly: an optional title field
+// where a note is created. Not a second stored field — it writes the same
+// leading `# heading` line `manager.extract_title` already reads on every
+// note (§43), so a title typed here reads back identically to one typed
+// as the note's own first line. Only prepended when the title box actually
+// has something in it, so a note with no title is unchanged from today.
+function withTitle(content, title) {
+  const trimmed = (title || "").trim();
+  return trimmed ? `# ${trimmed}\n\n${content}` : content;
+}
+
 async function saveEntry() {
   const contentBox = $("entry-content");
+  const titleBox = $("entry-title");
   const status = $("save-status");
   const button = $("save-btn");
 
-  const content = contentBox.value.trim();
+  const content = withTitle(contentBox.value.trim(), titleBox?.value);
   if (!content) {
     status.textContent = "Write something first!";
     status.classList.add("error");
@@ -2444,6 +2579,7 @@ async function saveEntry() {
       );
     }
     contentBox.value = "";
+    if (titleBox) titleBox.value = "";
     autoGrow(contentBox); // the box shrinks back with its content
     localStorage.removeItem("captureDraft"); // it's saved for real now
     $("entry-count").textContent = "0 characters";
@@ -2546,6 +2682,46 @@ function flashEntry(id) {
     clearTimeout(flashEntry.timer);
     flashEntry.timer = setTimeout(() => card.classList.remove("flash"), 2700);
   });
+}
+
+// ROADMAP.md Tier 2 §13: changeRow's View button only ever reached notes and
+// documents — reminders and categories had no navigation target at all, on
+// top of having no backend id/name resolver. Same shape as flashEntry above.
+async function flashReminder(id) {
+  switchTab("reminders");
+  // The change that brought us here (setting or completing a reminder) may
+  // not match whatever filter was last active — "open" is the default, and
+  // completing one is exactly the case where it would just have vanished.
+  reminderFilter = "all";
+  for (const b of document.querySelectorAll("#reminder-filter button")) {
+    b.classList.toggle("active", b.dataset.filter === "all");
+  }
+  await loadReminders();
+  requestAnimationFrame(() => {
+    const item = document.querySelector(`#reminder-groups li[data-id="${id}"]`);
+    if (!item) return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    item.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+    item.classList.remove("flash");
+    void item.offsetWidth;
+    item.classList.add("flash");
+    announce(`Showing reminder: ${(item.textContent || "").trim().slice(0, 80)}`);
+    clearTimeout(flashReminder.timer);
+    flashReminder.timer = setTimeout(() => item.classList.remove("flash"), 2700);
+  });
+}
+
+// Categories have no single note to scroll to — "View" means "show me what's
+// in it", the same job the sidebar's own category filter already does.
+function flashCategory(name) {
+  switchTab("notes");
+  showNotesSection("browse");
+  activeCategory = name;
+  noteSearch = "";
+  const searchBox = $("note-search");
+  if (searchBox) searchBox.value = "";
+  renderSidebar();
+  renderEntries();
 }
 
 // A raw search result the user can click to open the note (Wave C).
@@ -4572,6 +4748,19 @@ function changeRow(change, options = {}) {
       smallButton("View", "Open this document", () => openDocumentFromNote(change.document_id))
     );
   }
+  // ROADMAP.md Tier 2 §13: the same View button, extended to the two kinds
+  // that never had a `_change_*_id` resolver at all — a reminder set or
+  // completed this turn, and a category a note landed in.
+  if (change.reminder_id) {
+    row.appendChild(
+      smallButton("View", "Show this reminder", () => flashReminder(change.reminder_id))
+    );
+  }
+  if (change.category_name) {
+    row.appendChild(
+      smallButton("View", "Show this category", () => flashCategory(change.category_name))
+    );
+  }
   if (change.undo) {
     const undo = smallButton("Undo", "Put this back the way it was", async () => {
       undo.disabled = true;
@@ -5126,6 +5315,43 @@ function applyMarkdown(kind) {
 function wrapDocSelection(marker, placeholder = "") {
   const box = $("doc-content");
   const { selectionStart: start, selectionEnd: end, value } = box;
+
+  // Toggle off, case 1: the selection sits *inside* an existing pair of
+  // markers ("**|bold text|**", caret positions marked). Reported directly:
+  // applying Bold to an already-bold selection didn't remove it the way
+  // every other rich-text editor's toggle does — this was a one-way
+  // "apply", never a toggle.
+  const before = value.slice(Math.max(0, start - marker.length), start);
+  const after = value.slice(end, end + marker.length);
+  if (marker && before === marker && after === marker) {
+    box.value =
+      value.slice(0, start - marker.length) + value.slice(start, end) + value.slice(end + marker.length);
+    box.selectionStart = start - marker.length;
+    box.selectionEnd = end - marker.length;
+    box.focus();
+    markDocDirty();
+    renderDocPreview();
+    return;
+  }
+  // Toggle off, case 2: the markers themselves are part of the selection
+  // ("|**bold text**|") — selecting the whole formatted span, not just its
+  // inner text, is just as natural a way to select it for un-formatting.
+  if (
+    marker &&
+    end - start >= marker.length * 2 &&
+    value.slice(start, start + marker.length) === marker &&
+    value.slice(end - marker.length, end) === marker
+  ) {
+    const inner = value.slice(start + marker.length, end - marker.length);
+    box.value = value.slice(0, start) + inner + value.slice(end);
+    box.selectionStart = start;
+    box.selectionEnd = start + inner.length;
+    box.focus();
+    markDocDirty();
+    renderDocPreview();
+    return;
+  }
+
   // With nothing selected, insert the placeholder and select it, so the next
   // keystroke replaces it — pressing Bold on an empty line should give you
   // somewhere to type, not two markers and a caret between them.
@@ -9979,6 +10205,7 @@ let editingReminderId = null;
 
 function reminderItem(reminder, label) {
   const li = document.createElement("li");
+  li.dataset.id = reminder.id; // flashReminder's own hook, same shape as #entry-list's data-id
   if (label === "Overdue") li.classList.add("overdue");
   // Colour-code by priority (styled in CSS: a coloured left border).
   if (reminder.priority && reminder.priority !== "normal") {
@@ -10779,6 +11006,7 @@ let graphCanvas = null;
 let graphNodesRef = null;
 let graphDims = { w: 0, h: 0 };
 let graphHoveredId = null; // node the pointer is over (spotlight its links)
+let graphIsPanning = false; // an active pan/zoom drag — see zoomBehavior below
 let graphAdjacency = null; // Map<id, Set<neighbourId>>
 // The traced path is drawn in its own layer, above the edges and the nodes: a
 // step can be a shared tag, which the map draws no edge for, so highlighting
@@ -10933,8 +11161,14 @@ const RADIAL_STEM = 10; // characters, for a label written down a shared spoke
 // It reads at a glance what tree/radial cannot: how many branches a
 // notebook's filing has and how deep any one of them runs, in the width of a
 // single row rather than the height of a tree or the footprint of a circle.
-const ARC_STEP = 46; // horizontal spacing per node
-const ARC_LABEL_LIMIT = 20; // characters — diagonal labels have less room before they cross the next node's arc
+const ARC_STEP = 58; // horizontal spacing per node
+// Reported directly, with a screenshot: a label's text was long enough, at a
+// 46px step and a 40° tilt, to run its own end into the *next* node's slot —
+// read as "the label is attached to the wrong node". At ARC_STEP's old value,
+// 20 chars * ~6.5px/char * cos(40°) was ~100px of horizontal travel — more
+// than two node-steps. Shortened here, and the step above widened and the
+// tilt below steepened, so a label's horizontal reach stays under one step.
+const ARC_LABEL_LIMIT = 12; // characters — diagonal labels have less room before they cross the next node's arc
 
 // Labels on the left half of the circle would read upside down, so they are
 // turned around — which swaps which way "outward" is for everything after.
@@ -11827,6 +12061,26 @@ async function renderGraph() {
   const zoomBehavior = d3
     .zoom()
     .scaleExtent([0.05, 5])
+    // Reported: dragging on empty canvas "sometimes highlights an unrelated
+    // note". A pan drag translates the whole canvas under a stationary
+    // cursor, so whatever node happens to slide past it fires a real
+    // `mouseenter` — and clearing hover only at the start/end of the
+    // gesture left a race: a `mouseenter` mid-pan (the node passing under
+    // the cursor) could re-set it *after* "start" cleared it, and nothing
+    // cleared it again until the next real hover. `graphIsPanning` mutes
+    // hover updates for the gesture's whole duration instead, so a node
+    // sliding past during a pan never lights up at all — only a real,
+    // stationary hover once the drag is over does.
+    .on("start", () => {
+      graphIsPanning = true;
+      graphHoveredId = null;
+      applyGraphHighlight();
+    })
+    .on("end", () => {
+      graphIsPanning = false;
+      graphHoveredId = null;
+      applyGraphHighlight();
+    })
     .on("zoom", (event) => {
       canvas.attr("transform", event.transform);
       // Semantic Zoom logic
@@ -12166,11 +12420,25 @@ async function renderGraph() {
     // would collide with its neighbours within a single ARC_STEP. Tilted and
     // pivoted on its own anchor point (not the origin), it reads outward from
     // the node instead of overlapping the one next to it.
+    //
+    // Reported directly, with a screenshot: tilted *upward* (the original
+    // `rotate(-40, ...)`), every label sat in exactly the space `arcPath`'s
+    // connection lines curve through above the baseline — the labels and
+    // the arcs they were meant to sit beside were fighting for the same
+    // strip of the map. Measured before touching anything: 60 of 61 labels
+    // had a bounding box overlapping a `.graph-edge`. Flipping the tilt to
+    // point *down* moves every label into the empty half of the row — the
+    // arcs never dip below the baseline — while keeping the same
+    // anti-collision shape (still angled and reading outward, not stacked
+    // straight down onto the next node).
     labels
       .attr("x", (d) => graphNodeRadius(d) + 6)
       .attr("y", 0)
       .attr("dy", "0.31em")
-      .attr("transform", (d) => `rotate(-40, ${graphNodeRadius(d) + 6}, 0)`)
+      // Steeper than the original 40° — more vertical, less horizontal reach
+      // per character — so a label's own end lands closer to underneath its
+      // node instead of drifting into the next node's slot (see ARC_STEP above).
+      .attr("transform", (d) => `rotate(58, ${graphNodeRadius(d) + 6}, 0)`)
       .style("text-anchor", "start");
   } else if (tree.radial) {
     // Rotated to its own radius and flipped on the left half, or every label
@@ -12254,10 +12522,12 @@ async function renderGraph() {
   // pipeline as search so the two never fight each other.
   nodeGroups
     .on("mouseenter", (_event, d) => {
+      if (graphIsPanning) return; // a node sliding past mid-pan isn't a hover
       graphHoveredId = d.id;
       applyGraphHighlight();
     })
     .on("mouseleave", () => {
+      if (graphIsPanning) return;
       graphHoveredId = null;
       applyGraphHighlight();
     });
@@ -12375,16 +12645,24 @@ async function renderGraph() {
       timeLabel.textContent = val >= maxTime ? "All time" : `Up to ${new Date(val).toLocaleDateString()}`;
     };
 
+    // Tree/Radial/Arc draw category-heading and root nodes alongside real
+    // notes (Force never does — it only ever has real notes/links). Those
+    // headings have no `created_at` at all, so `d.created_at || Date.now()`
+    // read them as "created this instant" — always later than any cutoff
+    // short of "All time" — which hid the heading *and* every edge touching
+    // it the moment the slider moved at all. A heading is organising
+    // furniture, not a dated note; it and its edges should never be subject
+    // to the time filter.
+    const timeVisible = (d, val) =>
+      d.isGroup || new Date(d.created_at || Date.now()).getTime() <= val;
     const applyTimeFilter = (val) => {
       renderTimeLabel(val);
       // Apply temporal filter without rebuilding simulation
-      nodeGroups.style("visibility", d => new Date(d.created_at || Date.now()).getTime() <= val ? "visible" : "hidden");
-      labelGroups.style("visibility", d => new Date(d.created_at || Date.now()).getTime() <= val ? "visible" : "hidden");
-      edgeLines.style("visibility", d => {
-        const srcTime = new Date(d.source.created_at || Date.now()).getTime();
-        const tgtTime = new Date(d.target.created_at || Date.now()).getTime();
-        return srcTime <= val && tgtTime <= val ? "visible" : "hidden";
-      });
+      nodeGroups.style("visibility", d => timeVisible(d, val) ? "visible" : "hidden");
+      labelGroups.style("visibility", d => timeVisible(d, val) ? "visible" : "hidden");
+      edgeLines.style("visibility", d =>
+        timeVisible(d.source, val) && timeVisible(d.target, val) ? "visible" : "hidden"
+      );
     };
 
     slider.oninput = (e) => applyTimeFilter(Number(e.target.value));
@@ -12901,6 +13179,7 @@ function openGraphNewNote(event, linkFrom = null) {
   graphNewLinkFrom = linkFrom;
   const popup = $("graph-new");
   $("graph-new-content").value = "";
+  $("graph-new-note-title").value = "";
   $("graph-new-tags").value = "";
   $("graph-new-status").textContent = "";
   $("graph-new-status").classList.remove("error");
@@ -12926,7 +13205,7 @@ function closeGraphNewNote() {
 }
 
 async function saveGraphNewNote() {
-  const content = $("graph-new-content").value.trim();
+  const content = withTitle($("graph-new-content").value.trim(), $("graph-new-note-title").value);
   const status = $("graph-new-status");
   if (!content) {
     status.textContent = "Type something first.";
@@ -13459,14 +13738,66 @@ $("tab-timeline").addEventListener("click", (e) => {
 
 let timelinePopupId = null;
 
+// Clamp the popup inside the timeline, the same way `placeGraphPopup` does
+// for the graph's own note popup. Called on open and again once media has
+// loaded, since an attachment thumbnail makes the popup taller than the
+// size it was first positioned for.
+let timelinePopupAnchor = null;
+function placeTimelinePopup() {
+  const popup = $("timeline-popup");
+  if (!timelinePopupAnchor || popup.classList.contains("hidden")) return;
+  const bounds = $("tab-timeline").getBoundingClientRect();
+  const size = popup.getBoundingClientRect();
+  const left = Math.min(
+    Math.max(timelinePopupAnchor.x - bounds.left + 12, 8),
+    Math.max(8, bounds.width - size.width - 8)
+  );
+  const top = Math.min(
+    Math.max(timelinePopupAnchor.y - bounds.top + 12, 8),
+    Math.max(8, bounds.height - size.height - 8)
+  );
+  popup.style.left = `${left}px`;
+  popup.style.top = `${top}px`;
+}
+
+// Reported directly: unlike the note card and the graph's own popup, this
+// one showed literal `**`/`#` characters instead of rendered markdown, and
+// no sketch/image attachment at all — a gap in this one render path, not a
+// missing feature, since both already exist elsewhere.
+function renderTimelinePopupMedia(entry) {
+  const box = $("timeline-popup-media");
+  box.replaceChildren();
+  const images = (entry.attachments || []).filter((a) => a.is_image);
+  box.classList.toggle("hidden", images.length === 0);
+  if (!images.length) return;
+  for (const attachment of images) {
+    const img = document.createElement("img");
+    img.className = "graph-popup-thumb"; // shared with the graph popup's own thumbnails
+    img.alt = attachment.filename;
+    img.title = `${attachment.filename} — click to view full size`;
+    attachmentObjectUrl(attachment)
+      .then((url) => {
+        img.src = url;
+        placeTimelinePopup(); // the popup just got taller
+      })
+      .catch(() => img.remove());
+    img.addEventListener("click", async () => {
+      openLightbox(await attachmentObjectUrl(attachment), attachment.filename);
+    });
+    box.appendChild(img);
+  }
+}
+
 async function openTimelinePopup(event, noteSummary) {
   event.stopPropagation();
   timelinePopupId = noteSummary.id;
   const popup = $("timeline-popup");
-  
+
   $("timeline-popup-title").textContent = noteSummary.category || "Note";
-  $("timeline-popup-content").textContent = "Loading…";
-  
+  $("timeline-popup-content").replaceChildren(document.createTextNode("Loading…"));
+  $("timeline-popup-media").replaceChildren();
+  $("timeline-popup-media").classList.add("hidden");
+
   const box = $("timeline-popup-info");
   box.replaceChildren();
   const dateStr = noteSummary.placed_by === "mentioned"
@@ -13475,19 +13806,8 @@ async function openTimelinePopup(event, noteSummary) {
   box.appendChild(chip(`🕐 ${dateStr}`, "tag"));
 
   popup.classList.remove("hidden");
-  
-  const bounds = $("tab-timeline").getBoundingClientRect();
-  const size = popup.getBoundingClientRect();
-  const left = Math.min(
-    Math.max(event.clientX - bounds.left + 12, 8),
-    Math.max(8, bounds.width - size.width - 8)
-  );
-  const top = Math.min(
-    Math.max(event.clientY - bounds.top + 12, 8),
-    Math.max(8, bounds.height - size.height - 8)
-  );
-  popup.style.left = `${left}px`;
-  popup.style.top = `${top}px`;
+  timelinePopupAnchor = { x: event.clientX, y: event.clientY };
+  placeTimelinePopup();
 
   const entry = await apiJson(`/entries/${noteSummary.id}`).catch(() => null);
   if (!entry || timelinePopupId !== noteSummary.id) {
@@ -13496,9 +13816,11 @@ async function openTimelinePopup(event, noteSummary) {
     }
     return;
   }
-  
-  $("timeline-popup-content").textContent = entry.content;
-  
+
+  renderMarkdown($("timeline-popup-content"), entry.content || "");
+  renderTimelinePopupMedia(entry);
+  placeTimelinePopup(); // the content just replaced "Loading…" — may be taller
+
   const openBtn = $("timeline-popup-open");
   const newOpenBtn = openBtn.cloneNode(true);
   openBtn.replaceWith(newOpenBtn);
@@ -15366,8 +15688,21 @@ function sketchMove(event) {
     context.lineTo(x, y);
     context.stroke();
   } else if (sketchTool === "rect") {
+    // Shift locks proportions — a square instead of whatever rectangle the
+    // pointer happens to trace — the same convention every other drawing
+    // tool uses, asked for directly. `circ` needs no equivalent: it has
+    // always drawn from a single radius (`context.arc`), never width/height
+    // independently, so it was already a perfect circle with no ellipse
+    // mode to lock out of.
+    let w = x - sketchStartX;
+    let h = y - sketchStartY;
+    if (event.shiftKey) {
+      const side = Math.max(Math.abs(w), Math.abs(h));
+      w = Math.sign(w || 1) * side;
+      h = Math.sign(h || 1) * side;
+    }
     context.beginPath();
-    context.rect(sketchStartX, sketchStartY, x - sketchStartX, y - sketchStartY);
+    context.rect(sketchStartX, sketchStartY, w, h);
     context.stroke();
   } else if (sketchTool === "circ") {
     context.beginPath();
@@ -22479,6 +22814,18 @@ initAuth();
 let wbZoom = d3.zoom().scaleExtent([0.1, 4]).on("zoom", handleWbZoom);
 let wbState = { nodes: [], sketches: [] };
 let wbInitialized = false;
+// ROADMAP.md Tier 2 §11: Select was folded into Pan, with no visible
+// "this is selected" state and no way to delete without switching to the
+// Delete tool. `{kind: "sketch"|"node", id}` of whatever's currently
+// selected, or null. Rotate isn't part of this — `WhiteboardNode` has no
+// angle column at all, so rotation needs a real backend change, not a
+// frontend-only pass; left as its own separate item.
+let wbSelectedItem = null;
+// `deleteSketch`/`deleteNode` are closures defined fresh inside every
+// `renderWhiteboard()` call; these hold whichever pair is current, so code
+// outside that closure (the Delete-key handler) can still call them.
+let wbDeleteSketchRef = null;
+let wbDeleteNodeRef = null;
 // True only between an eraser mousedown and mouseup — the drawing tools
 // leave one mark per click-drag, the eraser is meant to remove everything
 // the pointer crosses while held, so it needs a "currently held" flag the
@@ -22487,6 +22834,11 @@ let wbErasing = false;
 // {action: "delete"|"create", kind: "sketch"|"node", payload, id}. Bounded
 // so an hour of erasing doesn't grow this forever; only the newest matters.
 let wbUndoStack = [];
+// ROADMAP.md Tier 2 §11: a redo stack, the same shape as the sketch pad's
+// own history — cleared whenever a fresh action is pushed onto wbUndoStack,
+// since redoing something that predates a new action would resurrect a
+// version of the board the newer action never saw.
+let wbRedoStack = [];
 const WB_UNDO_MAX = 20;
 // Ids currently mid-DELETE. The eraser's mouseenter can fire again for the
 // same still-on-screen item before its first DELETE round-trip resolves (a
@@ -22517,7 +22869,14 @@ function wbCursorUrl(inner, { size = 26, hx = 3, hy = size - 3 } = {}) {
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}") ${hx} ${hy}`;
 }
 
-const WB_BRUSH_TOOLS = new Set(["draw", "line", "rect", "circle"]);
+// Asked for directly: the sketch pad is meant to be a lite version of the
+// whiteboard, so the whiteboard should have at least everything the sketch
+// pad does. It already covered pen ("draw"), line, rect, circle and
+// eraser; highlighter and arrow were the two genuinely missing ones (a
+// third, text, needs its own SVG element type — a `<path>` can't render
+// text — and is scoped separately rather than force-fit into this list).
+const WB_BRUSH_TOOLS = new Set(["draw", "line", "rect", "circle", "highlighter", "arrow"]);
+const WB_HIGHLIGHTER_ALPHA = 0.35; // matches the sketch pad's own SKETCH_HIGHLIGHTER_ALPHA
 
 function wbCursorForTool(tool, strokeColor) {
   const color = /^#[0-9a-fA-F]{3,8}$/.test(strokeColor || "") ? strokeColor : "#ffffff";
@@ -22550,11 +22909,101 @@ function wbCursorForTool(tool, strokeColor) {
   return ""; // pan: the CSS grab/grabbing pair already says it
 }
 
+// The visible half of Select — asked for directly ("select... as a real
+// tool, not folded into pan"). Re-applied after every `renderWhiteboard()`
+// (elements are rebuilt on each render, so a class set on the old DOM node
+// would vanish silently) as well as right after a click.
+function wbApplySelectionHighlight() {
+  document.querySelectorAll(".sketch-group.wb-selected, .node-card.wb-selected").forEach((el) =>
+    el.classList.remove("wb-selected")
+  );
+  if (!wbSelectedItem) return;
+  const selector =
+    wbSelectedItem.kind === "sketch"
+      ? `.sketch-group[data-id="${wbSelectedItem.id}"]`
+      : `.node-card[data-id="${wbSelectedItem.id}"]`;
+  document.querySelector(selector)?.classList.add("wb-selected");
+}
+
+function selectWbItem(kind, id) {
+  wbSelectedItem = { kind, id };
+  wbApplySelectionHighlight();
+}
+
+function clearWbSelection() {
+  if (!wbSelectedItem) return;
+  wbSelectedItem = null;
+  wbApplySelectionHighlight();
+}
+
+// Delete/Backspace with something selected — the other half of "select as
+// a real tool": today, deleting anything meant switching to the Delete
+// tool first. Reuses `deleteSketch`/`deleteNode`, so a selection-delete
+// gets undo/redo for free, the same as every other way of deleting one.
+function deleteWbSelection() {
+  if (!wbSelectedItem) return false;
+  const { kind, id } = wbSelectedItem;
+  const item =
+    kind === "sketch"
+      ? (wbState.sketches || []).find((s) => s.id === id)
+      : (wbState.nodes || []).find((n) => n.id === id);
+  clearWbSelection();
+  if (!item) return false;
+  if (kind === "sketch") wbDeleteSketchRef?.(item);
+  else wbDeleteNodeRef?.(item);
+  return true;
+}
+
+
+function wbUpdateUndoRedoButtons() {
+  const undoBtn = document.getElementById("wb-undo");
+  const redoBtn = document.getElementById("wb-redo");
+  if (undoBtn) undoBtn.disabled = wbUndoStack.length === 0;
+  if (redoBtn) redoBtn.disabled = wbRedoStack.length === 0;
+}
+
 function wbPushUndo(entry) {
   wbUndoStack.push(entry);
   if (wbUndoStack.length > WB_UNDO_MAX) wbUndoStack.shift();
-  const btn = document.getElementById("wb-undo");
-  if (btn) btn.disabled = false;
+  // A fresh action makes whatever redo history existed unreachable — the
+  // same rule the sketch pad's own `sketchSaveSnapshot` already follows.
+  wbRedoStack = [];
+  wbUpdateUndoRedoButtons();
+}
+
+// The shared half of undo and redo: pop one entry off `from`, apply its
+// inverse, and push what would undo *that* onto `to`. Undo and redo are
+// each other's mirror image — pop from one stack, push the reverse onto
+// the other — so one function drives both rather than two near-duplicates
+// that could drift apart.
+async function wbApplyHistoryEntry(from, to) {
+  const entry = from.pop();
+  if (!entry) return false;
+  const base = entry.kind === "sketch" ? "/whiteboard/sketches" : "/whiteboard/nodes";
+  const list = entry.kind === "sketch" ? "sketches" : "nodes";
+  if (entry.action === "delete") {
+    // This entry means "bring back what was deleted". Applying it recreates
+    // the item; reversing *that* is deleting the newly-recreated one again.
+    const restored = await apiJson(base, { method: "POST", body: JSON.stringify(entry.payload) });
+    wbState[list].push(restored);
+    to.push({ action: "create", kind: entry.kind, id: restored.id });
+  } else {
+    // This entry means "remove what was created". The item's current data
+    // has to be captured *before* deleting it — once gone, nothing else
+    // remembers what it looked like, and the reverse of this reverse (a
+    // future redo/undo) needs a real payload to recreate it from, not a
+    // blank one.
+    const item = wbState[list].find((i) => i.id === entry.id);
+    const payload =
+      item &&
+      (entry.kind === "sketch"
+        ? { data: item.data, board_id: item.board_id, x: item.x, y: item.y, z: item.z }
+        : { entry_id: item.entry_id, board_id: item.board_id, x: item.x, y: item.y, z: item.z });
+    await apiJson(`${base}/${entry.id}`, { method: "DELETE" });
+    wbState[list] = wbState[list].filter((i) => i.id !== entry.id);
+    if (payload) to.push({ action: "delete", kind: entry.kind, payload });
+  }
+  return true;
 }
 
 // Reverses the single most recent create or delete — a sketch stroke, a
@@ -22562,23 +23011,26 @@ function wbPushUndo(entry) {
 // a tool whose whole job is deleting things you swipe over needs a safety
 // net more than any other control on this toolbar.
 async function wbUndo() {
-  const entry = wbUndoStack.pop();
-  const btn = document.getElementById("wb-undo");
-  if (btn) btn.disabled = wbUndoStack.length === 0;
-  if (!entry) return;
-  const base = entry.kind === "sketch" ? "/whiteboard/sketches" : "/whiteboard/nodes";
-  const list = entry.kind === "sketch" ? "sketches" : "nodes";
   try {
-    if (entry.action === "delete") {
-      const restored = await apiJson(base, { method: "POST", body: JSON.stringify(entry.payload) });
-      wbState[list].push(restored);
-    } else {
-      await apiJson(`${base}/${entry.id}`, { method: "DELETE" });
-      wbState[list] = wbState[list].filter((item) => item.id !== entry.id);
-    }
+    if (!(await wbApplyHistoryEntry(wbUndoStack, wbRedoStack))) return;
+    wbUpdateUndoRedoButtons();
     renderWhiteboard();
   } catch {
     toast("Couldn't undo that.", true);
+  }
+}
+
+// Reapplies whatever the most recent undo took back — asked for directly
+// (`wbUndoStack` "exists; nothing analogous does"). Pushes the reverse onto
+// `wbUndoStack`, so undo/redo/undo/redo keeps working rather than only
+// ever reversing once.
+async function wbRedo() {
+  try {
+    if (!(await wbApplyHistoryEntry(wbRedoStack, wbUndoStack))) return;
+    wbUpdateUndoRedoButtons();
+    renderWhiteboard();
+  } catch {
+    toast("Couldn't redo that.", true);
   }
 }
 
@@ -22631,26 +23083,45 @@ async function initWhiteboard() {
   // on release/close) is what actually persists, so dragging across ten
   // hues doesn't write ten times.
   const bgColorPicker = document.getElementById("wb-bg-color-picker");
+  const bgColorReset = document.getElementById("wb-bg-color-reset");
+  // The real default (the theme's --modal-bg) as a hex string, read fresh
+  // each time rather than cached — the whole point of "reset to theme
+  // default" is that it still means the *current* theme after a switch.
+  const themeDefaultBoardHex = () => {
+    const rgb = getComputedStyle(container.node()).backgroundColor;
+    const m = rgb.match(/(\d+),\s*(\d+),\s*(\d+)/);
+    return m ? "#" + m.slice(1, 4).map((n) => Number(n).toString(16).padStart(2, "0")).join("") : null;
+  };
   if (bgColorPicker) {
     const savedBg = localStorage.getItem("wb-bg-color");
     if (savedBg) {
       container.node().style.setProperty("--wb-board-bg", savedBg);
       bgColorPicker.value = savedBg;
     } else {
-      // Reflect the real default (the theme's --modal-bg) in the swatch,
-      // not an arbitrary placeholder that doesn't match what's on screen.
-      const rgb = getComputedStyle(container.node()).backgroundColor;
-      const m = rgb.match(/(\d+),\s*(\d+),\s*(\d+)/);
-      if (m) {
-        bgColorPicker.value =
-          "#" + m.slice(1, 4).map((n) => Number(n).toString(16).padStart(2, "0")).join("");
-      }
+      // Reflect the real default in the swatch, not an arbitrary placeholder
+      // that doesn't match what's on screen.
+      const hex = themeDefaultBoardHex();
+      if (hex) bgColorPicker.value = hex;
     }
     bgColorPicker.addEventListener("input", (e) => {
       container.node().style.setProperty("--wb-board-bg", e.target.value);
     });
     bgColorPicker.addEventListener("change", (e) => {
       localStorage.setItem("wb-bg-color", e.target.value);
+    });
+  }
+  // Asked for directly: once you've picked a colour there was no way back to
+  // the theme's own board colour short of guessing its hex. Clearing the
+  // saved override and re-reading the CSS the board falls back to (rather
+  // than a hardcoded hex) means this still means "the theme's colour" after
+  // a light/dark switch, not just "whatever it happened to be once".
+  if (bgColorReset && bgColorPicker) {
+    bgColorReset.addEventListener("click", () => {
+      localStorage.removeItem("wb-bg-color");
+      container.node().style.removeProperty("--wb-board-bg");
+      const hex = themeDefaultBoardHex();
+      if (hex) bgColorPicker.value = hex;
+      toast("Board background reset to the theme default.");
     });
   }
 
@@ -22758,6 +23229,27 @@ async function initWhiteboard() {
     makeWbPanelDraggable(panel, `wb-panel-pos-${panel.dataset.panelId}`);
   });
 
+  // Asked for directly: once a panel's been dragged there was no way back to
+  // its default corner short of clearing localStorage by hand. Clears every
+  // panel's saved position and its drag-time inline styles (left/top/right/
+  // bottom/transform, all set by `place()` above) so each panel's own
+  // top-left/top-right/bottom-center CSS class — never removed, only ever
+  // overridden by the inline styles — takes back over.
+  const resetPanelsBtn = document.getElementById("wb-reset-panels");
+  if (resetPanelsBtn) {
+    resetPanelsBtn.addEventListener("click", () => {
+      document.querySelectorAll(".whiteboard-floating-panel[data-panel-id]").forEach((panel) => {
+        localStorage.removeItem(`wb-panel-pos-${panel.dataset.panelId}`);
+        panel.style.left = "";
+        panel.style.top = "";
+        panel.style.right = "";
+        panel.style.bottom = "";
+        panel.style.transform = "";
+      });
+      toast("Panel positions reset.");
+    });
+  }
+
   // Tool Selection
   window.currentTool = "pan";
   let isDrawing = false;
@@ -22813,6 +23305,11 @@ async function initWhiteboard() {
     undoBtn.disabled = true;
     undoBtn.addEventListener("click", wbUndo);
   }
+  const redoBtn = document.getElementById("wb-redo");
+  if (redoBtn) {
+    redoBtn.disabled = true;
+    redoBtn.addEventListener("click", wbRedo);
+  }
 
   // Keyboard shortcuts, asked for as part of the wider usability pass: a
   // toolbar of eight icon buttons is not obviously faster than the tool you
@@ -22826,8 +23323,11 @@ async function initWhiteboard() {
   const WB_TOOL_KEYS = {
     v: "pan",
     h: "pan",
+    s: "select",
     p: "draw",
+    m: "highlighter",
     l: "line",
+    a: "arrow",
     r: "rect",
     o: "circle",
     e: "eraser",
@@ -22839,7 +23339,16 @@ async function initWhiteboard() {
     const tag = (document.activeElement?.tagName || "").toLowerCase();
     if (tag === "input" || tag === "textarea" || document.activeElement?.isContentEditable) return;
     if (e.key === "Escape") {
+      clearWbSelection();
       selectWbTool("pan");
+      return;
+    }
+    // Delete/Backspace with a selection — the other half of Select as a
+    // real tool: previously the only way to delete anything was switching
+    // to the Delete tool and clicking it.
+    if ((e.key === "Delete" || e.key === "Backspace") && wbSelectedItem) {
+      e.preventDefault();
+      deleteWbSelection();
       return;
     }
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z") {
@@ -22847,9 +23356,22 @@ async function initWhiteboard() {
       wbUndo();
       return;
     }
+    // Both common redo chords: Ctrl+Shift+Z (the sketch pad's own
+    // convention) and Ctrl+Y (Windows' more familiar one).
+    if (
+      (e.ctrlKey || e.metaKey) &&
+      ((e.shiftKey && e.key.toLowerCase() === "z") || (!e.shiftKey && e.key.toLowerCase() === "y"))
+    ) {
+      e.preventDefault();
+      wbRedo();
+      return;
+    }
     if (e.ctrlKey || e.metaKey || e.altKey) return; // leave browser/OS shortcuts alone
     const mapped = WB_TOOL_KEYS[e.key.toLowerCase()];
-    if (mapped) selectWbTool(mapped);
+    if (mapped) {
+      if (mapped !== "select") clearWbSelection(); // switching away from Select drops it
+      selectWbTool(mapped);
+    }
   });
 
   selectWbTool("pan"); // the initial state
@@ -22870,14 +23392,26 @@ async function initWhiteboard() {
   // this has to hit-test against). All this needs to track is "is the
   // button currently down", on the container so it works over both the SVG
   // sketch layer and the HTML card layer.
-  containerEl.addEventListener("mousedown", (e) => {
+  // Pointer events, not mouse events: they unify mouse/touch/pen into one
+  // stream, which is what lets a finger draw, erase and pan here at all —
+  // touch never dispatches "mouse*" events reliably, and never dispatches
+  // them for a stylus. `touch-action: none` on .whiteboard-container (CSS)
+  // is the other half of this: without it the browser eats the gesture for
+  // page-scroll before a single pointer event reaches here.
+  containerEl.addEventListener("pointerdown", (e) => {
     if (window.currentTool === "eraser") wbErasing = true;
   });
-  window.addEventListener("mouseup", () => {
+  window.addEventListener("pointerup", () => {
     wbErasing = false;
   });
+  // Clicking empty canvas with Select active clears the selection — every
+  // card/sketch's own click handler calls stopPropagation() under Select,
+  // so a click that reaches here was never on an item.
+  containerEl.addEventListener("click", () => {
+    if (window.currentTool === "select") clearWbSelection();
+  });
 
-  svgCanvas.addEventListener("mousedown", (e) => {
+  svgCanvas.addEventListener("pointerdown", (e) => {
     if (!WB_BRUSH_TOOLS.has(window.currentTool)) return;
     e.stopPropagation();
     isDrawing = true;
@@ -22887,19 +23421,30 @@ async function initWhiteboard() {
     currentDrawPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
     currentDrawPath.setAttribute("fill", "none");
     currentDrawPath.setAttribute("stroke", window.currentStrokeColor);
-    currentDrawPath.setAttribute("stroke-width", String(WB_STROKE_WIDTH));
-    currentDrawPath.setAttribute("stroke-linecap", "round");
+    // A highlighter needs to be visibly wider and translucent, or it isn't a
+    // highlighter — the sketch pad's own version of this exact control had
+    // its opacity so low it was reported as invisible (HISTORY.md §46).
+    currentDrawPath.setAttribute(
+      "stroke-width",
+      String(window.currentTool === "highlighter" ? WB_STROKE_WIDTH * 4 : WB_STROKE_WIDTH)
+    );
+    if (window.currentTool === "highlighter") {
+      currentDrawPath.setAttribute("stroke-opacity", String(WB_HIGHLIGHTER_ALPHA));
+      currentDrawPath.setAttribute("stroke-linecap", "square");
+    } else {
+      currentDrawPath.setAttribute("stroke-linecap", "round");
+    }
     currentDrawPath.setAttribute("stroke-linejoin", "round");
     currentDrawPath.setAttribute("d", `M ${x} ${y}`);
     document.getElementById("wb-zoom-group").appendChild(currentDrawPath);
   });
   
-  svgCanvas.addEventListener("mousemove", (e) => {
+  svgCanvas.addEventListener("pointermove", (e) => {
     if (!isDrawing || !WB_BRUSH_TOOLS.has(window.currentTool)) return;
     e.stopPropagation();
     const [x, y] = getLogicalMouse(e);
     
-    if (window.currentTool === "draw") {
+    if (window.currentTool === "draw" || window.currentTool === "highlighter") {
       currentDrawData.push([x, y]);
       const d = currentDrawData.map((pt, i) => (i === 0 ? `M ${pt[0]} ${pt[1]}` : `L ${pt[0]} ${pt[1]}`)).join(" ");
       currentDrawPath.setAttribute("d", d);
@@ -22908,6 +23453,23 @@ async function initWhiteboard() {
       const [sx, sy] = currentDrawData[0];
       if (window.currentTool === "line") {
         currentDrawPath.setAttribute("d", `M ${sx} ${sy} L ${x} ${y}`);
+      } else if (window.currentTool === "arrow") {
+        // One path, three subpaths — a plain SVG `d` string can hold more
+        // than one `M`, and every subpath in it shares the same stroke, so
+        // this is the shaft plus both head strokes in a single element
+        // rather than three sketches that would each need their own undo
+        // entry and could drift apart. Same head-angle maths as the sketch
+        // pad's own arrow.
+        const angle = Math.atan2(y - sy, x - sx);
+        const headLen = WB_STROKE_WIDTH * 4 + 6;
+        const h1x = x - headLen * Math.cos(angle - Math.PI / 6);
+        const h1y = y - headLen * Math.sin(angle - Math.PI / 6);
+        const h2x = x - headLen * Math.cos(angle + Math.PI / 6);
+        const h2y = y - headLen * Math.sin(angle + Math.PI / 6);
+        currentDrawPath.setAttribute(
+          "d",
+          `M ${sx} ${sy} L ${x} ${y} M ${x} ${y} L ${h1x} ${h1y} M ${x} ${y} L ${h2x} ${h2y}`
+        );
       } else if (window.currentTool === "rect") {
         const mx = Math.min(sx, x), my = Math.min(sy, y);
         const w = Math.abs(x - sx), h = Math.abs(y - sy);
@@ -22919,7 +23481,7 @@ async function initWhiteboard() {
     }
   });
   
-  svgCanvas.addEventListener("mouseup", async (e) => {
+  svgCanvas.addEventListener("pointerup", async (e) => {
     if (!isDrawing || !WB_BRUSH_TOOLS.has(window.currentTool)) return;
     e.stopPropagation();
     isDrawing = false;
@@ -22927,33 +23489,41 @@ async function initWhiteboard() {
     const [x, y] = getLogicalMouse(e);
     const [sx, sy] = currentDrawData[0];
     
-    // Check if user actually dragged
-    if (window.currentTool === "draw" && currentDrawData.length < 2) {
-      if (currentDrawPath) currentDrawPath.remove();
-      currentDrawPath = null;
-      return;
-    } else if (window.currentTool !== "draw" && Math.abs(x - sx) < 2 && Math.abs(y - sy) < 2) {
+    // A plain click with no drag — reported directly: the pen tool "doesn't
+    // respond to a single click, only a drag", which the sketch pad's own
+    // pen never had wrong (see `sketchEnd`'s own `!sketchMoved` branch, the
+    // same fix mirrored here). A `moveto` with no `lineto` after it draws
+    // nothing at all, so a stationary click has to add a near-zero-length
+    // segment — round linecaps turn that into a visible dot — rather than
+    // being discarded as "no shape to save".
+    const isFreehand = window.currentTool === "draw" || window.currentTool === "highlighter";
+    if (isFreehand && currentDrawData.length < 2) {
+      currentDrawPath.setAttribute("d", `M ${sx} ${sy} L ${sx} ${sy + 0.1}`);
+    } else if (!isFreehand && Math.abs(x - sx) < 2 && Math.abs(y - sy) < 2) {
+      // Shape tools (line/arrow/rect/circle) need an actual drag to have a
+      // size — a zero-size shape isn't a reasonable click-to-draw default
+      // the way a pen dot is, so these are still discarded.
       if (currentDrawPath) currentDrawPath.remove();
       currentDrawPath = null;
       return;
     }
     
-    // Save sketch to API
+    // Save sketch to API. The backend schema has no width/opacity columns, so
+    // a highlighter's thick/translucent look has to travel inside `data` too
+    // — otherwise a saved highlighter reloads as a plain full-opacity line
+    // (see HISTORY.md: this exact loss was caught before shipping).
     const d = currentDrawPath.getAttribute("d");
     const sketchData = {
-      data: d, // store the SVG path data
+      data: JSON.stringify(
+        window.currentTool === "highlighter"
+          ? { d, color: currentStrokeColor, width: WB_STROKE_WIDTH * 4, opacity: WB_HIGHLIGHTER_ALPHA }
+          : { d, color: currentStrokeColor }
+      ),
       x: 0,
       y: 0,
       z: 5,
       board_id: window.currentBoardId
     };
-    
-    // We want to persist the color as well, but wait, the backend schema doesn't have a color field!
-    // We can embed color into data or just ignore for now since it's an MVP. Let's just embed it in data like so:
-    // data: `<path d="..." stroke="#..."/>` or since we only render `path d`, we can just wait... 
-    // `renderWhiteboard` assigns `d => d.data`. If `d.data` is just the `d` string, all paths get `--text-color`.
-    // Let's modify data to be a JSON string holding `{ d, color }` instead!
-    sketchData.data = JSON.stringify({ d, color: currentStrokeColor });
 
     try {
       const res = await apiJson("/whiteboard/sketches", { method: "POST", body: JSON.stringify(sketchData) });
@@ -23105,16 +23675,33 @@ function renderWhiteboard() {
       wbDeleting.delete(deletingKey);
     }
   }
+  // `deleteSketch`/`deleteNode` are re-created on every render (they close
+  // over this render's own `d3` selections), so the Delete-key handler set
+  // up once in `initWhiteboard` can't reference them directly — it always
+  // needs *this* render's version, not whichever one existed when it was
+  // first wired.
+  wbDeleteSketchRef = deleteSketch;
 
   const sketchEnter = sketchSelection.enter()
     .append("g")
     .attr("class", "sketch-group")
     .attr("data-id", d => d.id)
-    .style("cursor", () => (window.currentTool === "delete" || window.currentTool === "eraser") ? "pointer" : "default")
+    .style("cursor", () => (window.currentTool === "delete" || window.currentTool === "eraser" || window.currentTool === "select") ? "pointer" : "default")
     .on("click", (event, d) => {
-      if (window.currentTool === "delete") deleteSketch(d);
+      if (window.currentTool === "select") {
+        event.stopPropagation(); // don't also hit the "empty canvas clears selection" handler
+        selectWbItem("sketch", d.id);
+        return;
+      }
+      // Reported directly, same family as the pen's single-click dot: a
+      // plain click with the eraser (no drag across anything) did nothing —
+      // only `mouseenter` while `wbErasing` was true caught a stroke, which
+      // needs movement to fire at all. The eraser is "delete, but you can
+      // also drag across several" — a single click should erase the one
+      // thing clicked, the same as the delete tool does.
+      if (window.currentTool === "delete" || window.currentTool === "eraser") deleteSketch(d);
     })
-    .on("mouseenter", (event, d) => {
+    .on("pointerenter", (event, d) => {
       if (window.currentTool === "eraser" && wbErasing) deleteSketch(d);
     });
 
@@ -23138,11 +23725,19 @@ function renderWhiteboard() {
   sketchUpdate.each(function(d) {
     let pathData = d.data;
     let stroke = "var(--text-color)";
+    let strokeWidth = "3";
+    let strokeOpacity = 1;
     try {
       const parsed = JSON.parse(d.data);
       if (parsed.d) {
         pathData = parsed.d;
         stroke = parsed.color || stroke;
+        // Highlighter strokes carry their own width/opacity (see the mouseup
+        // handler that writes them) — everything else keeps the defaults
+        // above, set explicitly every render so a reused element can't keep
+        // a stale highlighter width after its data changes.
+        if (parsed.width) strokeWidth = String(parsed.width);
+        if (parsed.opacity != null) strokeOpacity = parsed.opacity;
       } else if (parsed.type && parsed.type.startsWith("link-")) {
         stroke = parsed.color || stroke;
         const source = wbState.nodes.find(n => n.id === parsed.sourceId);
@@ -23162,7 +23757,11 @@ function renderWhiteboard() {
       }
     } catch(e) {}
     d3.select(this).select(".sketch-hitbox").attr("d", pathData);
-    d3.select(this).select(".sketch-path").attr("d", pathData).attr("stroke", stroke);
+    d3.select(this).select(".sketch-path")
+      .attr("d", pathData)
+      .attr("stroke", stroke)
+      .attr("stroke-width", strokeWidth)
+      .attr("stroke-opacity", strokeOpacity);
   });
     
   sketchSelection.exit().remove();
@@ -23193,10 +23792,12 @@ function renderWhiteboard() {
       wbDeleting.delete(deletingKey);
     }
   }
+  wbDeleteNodeRef = deleteNode; // see the matching comment on wbDeleteSketchRef above
 
   const nodeEnter = nodeSelection.enter()
     .append("div")
     .attr("class", "wb-card node-card")
+    .attr("data-id", (d) => d.id)
     .style("transform", d => `translate(${d.x}px, ${d.y}px)`)
     .style("z-index", d => d.z)
     .call(d3.drag()
@@ -23204,9 +23805,17 @@ function renderWhiteboard() {
       .on("drag", dragging)
       .on("end", dragEndNode))
     .on("click", (event, d) => {
-      if (window.currentTool === "delete") deleteNode(d);
+      if (window.currentTool === "select") {
+        event.stopPropagation();
+        selectWbItem("node", d.id);
+        return;
+      }
+      // Same fix as the sketch group above: a single eraser click, no drag,
+      // now erases the one card clicked instead of needing movement to
+      // trigger a mouseenter.
+      if (window.currentTool === "delete" || window.currentTool === "eraser") deleteNode(d);
     })
-    .on("mouseenter", (event, d) => {
+    .on("pointerenter", (event, d) => {
       if (window.currentTool === "eraser" && wbErasing) deleteNode(d);
     });
       
@@ -23221,8 +23830,13 @@ function renderWhiteboard() {
   nodeSelection.merge(nodeEnter)
     .style("transform", d => `translate(${d.x}px, ${d.y}px)`)
     .style("z-index", d => d.z);
-    
+
   nodeSelection.exit().remove();
+
+  // Every element above was just rebuilt, so any `.wb-selected` class set
+  // before this render is gone with it — re-apply from the state that
+  // actually persists (`wbSelectedItem`), not the DOM.
+  wbApplySelectionHighlight();
 }
 
 function dragStart(event, d) {
@@ -23683,6 +24297,24 @@ async function handleFileUpload(textarea, files) {
       textarea.dispatchEvent(new Event('input', { bubbles: true }));
     }
   }
+}
+
+// ROADMAP.md Tier 2 §16c: paste and drag-drop already reached Capture (the
+// global textarea handler above matches any `<textarea>`, and `#entry-content`
+// is one) — checked live before building, and both already worked. The one
+// genuinely missing path was a file-picker button; the only "attach" control
+// near Capture was for linking existing *notes* to a chat message, not
+// uploading a new file. Reuses the same `handleFileUpload` the paste/drop
+// paths already use, so all three input paths insert identically.
+if ($("entry-attach-file")) {
+  $("entry-attach-file").addEventListener("click", () => {
+    $("entry-attach-file-input").click();
+  });
+  $("entry-attach-file-input").addEventListener("change", async (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length) await handleFileUpload($("entry-content"), files);
+    e.target.value = ""; // so picking the same file twice still fires "change"
+  });
 }
 
 // --- Twitch-style Agent Monitor ---

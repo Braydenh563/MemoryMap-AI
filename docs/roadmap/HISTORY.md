@@ -1594,3 +1594,394 @@ say so plainly rather than claim a fix that has nothing to point at. Full
 `pytest tests/`, `ruff check .`, and `node --check frontend/app.js` were
 already green from the previous item and nothing here touched either
 codebase.
+
+## 50. A CodeQL ReDoS in the title regex, then Tier 1's two highest-value graph bugs, both diagnosed live and fixed
+
+Started from a CodeQL alert (`py/polynomial-redos`, high severity) on
+`manager._TITLE_LINE.match(stripped)` in `extract_title`/`apply_title`/
+`remove_title` (§43's note-title feature). `^#{1,6}[ \t]+(\S.*)$` is exactly
+the anchored-quantifier-before-`$` shape CLAUDE.md already names as the one
+to avoid (the same family as the `_TRAILING` fix on `main`). Replaced with
+`_heading_text`, a hand-rolled linear scan (count leading `#` up to 6, require
+a space/tab, reject if what follows is empty or itself whitespace) — no
+backtracking possible because there's no backtracking engine involved.
+Checked it matches the regex's exact semantics on the edge cases that matter
+(7+ hashes, a `#` with no space, non-ASCII whitespace like `\xa0` right after
+the hashes) before trusting it, and measured 80,000 tabs at 1.8ms, flat.
+`tests/test_core.py`/`test_private_notes.py`/`test_waven_api.py`'s existing
+title tests all still pass unchanged — this is a drop-in replacement, not a
+behaviour change. (A second CodeQL alert on the same file, `py/cyclic-import`,
+Note severity, was checked and left alone: `_deduce_reason`'s
+`from memorymap.ai.embeddings import ...` is already deliberately deferred
+inside the function to break a real cycle — `ai.embeddings` →
+`ai.model_manager` → `entry.manager` for `log_action` — which is the standard
+fix for a Python import cycle, not a bug.)
+
+**Then ROADMAP.md's own "start here next" — Tier 1 items 10 and 11, both
+undiagnosed, both high value.** Read the code before touching anything, per
+this project's standing rule, and both turned out to share a family of root
+cause: a value with no sensible default read as "right now" instead of
+"never", or a hover event misfiring during a gesture that isn't really a
+hover.
+
+**Item 10 — Tree/Radial/Arc lost every edge when the Time Filter left "All
+time".** `renderGraph`'s `applyTimeFilter` checks
+`d.source.created_at`/`d.target.created_at` per edge. That only holds a real
+note's timestamp once `d3.forceLink` has resolved a link's `source`/`target`
+from an id to the actual node object — true for Force. Tree/Radial/Arc build
+their edges in `layoutHierarchy` instead, and a huge fraction of them are
+*filing* edges from a category heading (or the synthetic `root`) down to a
+note — `layoutHierarchy`'s own `graphGroupNode` has no `created_at` field at
+all. `undefined || Date.now()` read every one of those as "created this
+instant", later than any cutoff short of "All time", so the heading — and
+every edge touching it — vanished the moment the slider moved even slightly.
+Force never hits this because it has no synthetic heading nodes.
+
+Reproduced before fixing, not guessed at: seeded linked notes via Playwright,
+switched the layout in `localStorage`, called `renderGraph()`, and counted
+`.graph-edge` elements with `visibility !== "hidden"` before and after
+dragging the slider. Unpatched: Tree went from 14/14 visible edges to **0/14**
+the instant the filter left "All time"; Force stayed correct at 2/4 the whole
+time. Fixed by treating `isGroup` nodes (headings, root) as exempt from the
+time filter — they're organising furniture, not a dated note, so hiding them
+was never the intent — via a shared `timeVisible(d, val)` helper used by the
+node, label, *and* edge visibility checks (an edge shows only if both its
+ends do). Re-verified the same way after the fix: no longer zero on any
+layout.
+
+**Item 11 — dragging on empty graph canvas sometimes highlighted an unrelated
+note.** Reproduced first (the item was explicitly "not yet reproduced" in
+ROADMAP.md): a Playwright drag starting and ending on genuinely empty canvas
+— confirmed with `document.elementFromPoint` at the start coordinate, not
+assumed — left a node's `.graph-focus` class stuck on well after the pointer
+had moved away and the button released. Cause: panning translates the whole
+`<g>` canvas under a *stationary* cursor, so a node's on-screen position can
+slide directly under the pointer mid-drag without the user ever moving their
+mouse onto it — and that fires a completely genuine, native `mouseenter` on
+whatever node happens to pass by. The matching `mouseleave` doesn't reliably
+fire again before the mouse button releases, so the hover-spotlight
+(`graphHoveredId`, `applyGraphHighlight`) stays lit on a note the user never
+meant to touch.
+
+A first attempt — clearing `graphHoveredId` on the zoom behaviour's own
+`start`/`end` events — cut the failure rate but didn't close it: a
+`mouseenter` mid-gesture could still re-set the hover *after* `start` had
+already cleared it, and nothing cleared it again until the next real hover
+somewhere else. Fixed properly with a `graphIsPanning` flag, set on `start`
+and cleared on `end`, that the `mouseenter`/`mouseleave` handlers both check
+and bail out of — so a node sliding past mid-pan never lights up at all, and
+only a genuine, stationary hover once the drag has ended does. Verified with
+6 consecutive clean Playwright runs after the fix (`hoveredId: null,
+focusCount: 0`), against a 100% reproduction rate before it. One test-harness
+trap worth recording: an early "still stuck" result was the *test's* own
+200ms wait being shorter than d3-zoom's async `end` dispatch, not a bug in
+the fix — confirmed by logging the zoom's own `start`/`end` events and seeing
+`end` reliably fire, just later than the check.
+
+Both graph fixes are pure `frontend/app.js` changes with no backend
+counterpart, so there is nothing for `pytest` to pin — the Playwright
+reproduction *is* the regression test for both, run against a real `uvicorn`
+server per CLAUDE.md's recipe, not reasoned from reading the DOM. Full
+`pytest tests/` (~1,600 tests), `ruff check .`, and `node --check
+frontend/app.js` all green throughout.
+
+**What's next**: ROADMAP.md's remaining Tier 1 items (meeting transcription,
+the skill-run timeout/false-done-tick pair, the small-talk/TOOLS_GUIDE prompt
+contradiction, background tasks that never appear in the task list), then
+Tier 2 top-down.
+
+## 51. All of Tier 1 cleared (four items were already fixed, four bugs weren't), then Tier 2 top-down: change-target resolvers for reminders/categories, a real bold/italic toggle, and two whiteboard single-click bugs
+
+Continued straight from §50 in the same long unattended session, per the
+user's own "work autonomously, don't wait for my prompt" instruction. §50
+covers the ReDoS fix and the two graph bugs; this section is everything
+after Tier 1 was fully clear.
+
+**Tier 1's last four items (2, 3, 4, 6) were found already done**, not
+built. Each was checked against the actual code and existing tests before
+being crossed out — not assumed from an uncrossed-out ROADMAP line, which
+is exactly the staleness this project's own history keeps warning about.
+Items 2/3 (skill step timeout, false "done" tick, network-error handling)
+were already in `skill_runner.py` and `app.js`'s `STREAM_IDLE_TIMEOUT_MS`,
+pinned by `test_a_step_that_produces_nothing_is_not_ticked_done` and
+`test_a_network_failure_mid_step_stops_the_run_instead_of_repeating` — both
+§41's work. Item 4 (small talk reaching the agent's `TOOLS_GUIDE`) turned
+out to be a non-issue: `routes_chat.py` only ever calls the tool-enabled
+agent when `intent.needs_retrieval(...)` is true, which `SMALLTALK` never
+is, and `test_a_bare_yes_is_ordinarily_smalltalk_not_the_agent` already
+proves it. Item 6 (unregistered background threads) turned into a full
+sweep — every `threading.Thread(` call site in `src/memorymap` checked by
+hand against `routes_tasks.collect()` — and found all nine already
+covered, one of them (`embedmodels.py`) carrying its own "Tier 1 §6"
+comment from whichever earlier session actually fixed it.
+
+**Tier 1 item 1 (meeting transcription) was re-confirmed, not re-fixed,
+one step further than before.** `faster-whisper` installed cleanly (no
+torch — the standing CLAUDE.md constraint is about `sentence-transformers`
+and torch specifically, not this package). A real WAV clip POSTed to
+`/voice/transcribe-meeting` on a live server got back `503 "Couldn't load
+the Whisper 'base' model... check your internet connection"` — the exact
+distinct error §41 built, not the old generic mystery error. A genuinely
+successful transcription still couldn't be observed: this sandbox's
+network policy blocks `huggingface.co` outright (403 at the proxy,
+confirmed via `$HTTPS_PROXY/__agentproxy/status` rather than assumed from
+the symptom) — an environment limitation, not a code question. Said so
+plainly in ROADMAP.md rather than claiming a screenshot that doesn't
+exist.
+
+**Then Tier 2, item 13 — reminders and categories got the same
+`_change_*_id` resolver notes and documents already had.** `agent.py`
+gained `_change_reminder_id` (an int id, same shape as `_change_note_id`)
+and `_change_category_name` (a *name* — every category tool already works
+in names, so this names the field that carries one rather than inventing
+an id nothing else uses; `delete_category` is destructive like
+`delete_document` and never reaches this code path). `changeRow` grew two
+View buttons: `flashReminder(id)` (switches to Reminders, forces the
+filter to "all" since the change that brought you here, e.g. completing a
+reminder, is exactly the case the default "open" filter would hide, then
+scroll-flashes it the way `flashEntry` does for notes) and
+`flashCategory(name)` (reuses the sidebar's own `activeCategory` filter
+rather than a second filtering mechanism). Verified live: created a real
+reminder and a real note in a fresh category via the API, called both
+functions directly, confirmed the tab switched, the item was found, and —
+waiting the two animation frames the flash needs, which an early check
+missed — the `.flash` class was actually applied.
+
+**Item 16b — the document editor's bold/italic didn't toggle off.**
+`wrapDocSelection` only ever wrapped; a second press on already-bold text
+stacked a second `**` pair instead of removing the first. Now checks both
+shapes a selection can be in — markers just outside it, or included inside
+it — before wrapping, so a second press strips them either way. No JS test
+runner exists for this file, so verified directly against the real
+`#doc-content` textarea: `hello world` → Bold → `**hello** world` → Bold
+again → `hello world`, byte for byte; the whole-span-selected and italic
+cases both round-tripped the same way.
+
+**Then two whiteboard bugs, reported live mid-session and fixed the same
+way §50's graph bugs were — diagnosed before touching anything.** The pen
+tool's "doesn't respond to a single click, only a drag" turned out to be a
+whiteboard-only gap: the sketch pad's own pen already drew a dot on a
+stationary click (`sketchEnd`'s `!sketchMoved` branch), but the
+whiteboard's separate SVG-path implementation discarded a click with no
+movement outright (`currentDrawData.length < 2` → delete the path, return).
+Mirrored the sketch pad's own trick — a near-zero-length line segment,
+which a round linecap renders as a visible dot — instead of a second,
+different fix. The eraser had the same symptom for a different cause: it
+only ever caught a stroke via `mouseenter` while the button was held, which
+needs real movement to fire at all, so a plain click on a shape did
+nothing; its `click` handler (already there for the Delete tool) now also
+fires for the eraser. Verified live against a real running server, not
+assumed from the code: single pen click on empty canvas, 0 sketches → 1;
+single eraser click on that same dot, 1 → 0.
+
+**A related, small feature asked for directly**: a `↺` reset button next
+to the whiteboard's board-colour picker, since picking a colour left no way
+back to the theme's own default short of guessing its hex. Clears the
+`localStorage` override and re-reads the *live* computed colour rather than
+a hardcoded hex, so "reset" still means "the theme's colour" after a
+light/dark switch. Verified live: pick a colour → persisted; reset → the
+swatch shows the real computed default, not a placeholder.
+
+**What's still open, reported live and correctly not force-fixed**: the
+single-node hover-highlight during a drag was re-reported as still
+happening, outside this sandbox, after §50's fix — which specifically
+targeted panning (dragging empty canvas) and was verified 6/6 clean here.
+Checked whether an actual node-drag shares the same cause and it doesn't:
+every *other* node is pinned (`fx`/`fy` set) for the length of a node drag,
+so nothing can slide under a stationary cursor the way panned content
+does. No obvious quick fix without a fresh repro (which tool, which
+gesture, which browser) — named in ROADMAP.md rather than guessed at.
+Also named but not built: "a lot of the whiteboard's tools are missing —
+it should be an upgraded version of the sketch pad", asked for directly
+but not itemised; most of what's actually missing (redo, select/rotate,
+shift-to-lock, images) is already named in item 11's own open list rather
+than being a new, separate gap.
+
+**Then item 16a — the document editor's sidebar, reported with
+screenshots.** The sticky/floating half was already done (`#doc-sidebar`
+already has `position: sticky`) — stale by the time it was reported,
+corrected rather than rebuilt, the same shape as items 2/3/4/6 above. The
+Outline-collapses half was real, and measured live before touching
+anything: 10 headings' outline went from 258px tall to exactly **0px** the
+instant the "Where are my documents kept?" disclosure opened. Cause:
+`.doc-sidebar > details` was `flex: 0 0 auto` — flex-shrink *zero*, which
+means *exempt* from shrinking — while the outline above it had no minimum
+height at all, so the entire squeeze landed on the one sibling that could
+give and had nothing left to give. That is backwards from what the CSS
+block's own comment already said the intent was ("the help disclosure
+gives up its space first"). Fixed by giving the outline a real floor
+(`min-height: 4rem`) and actually making the disclosure shrinkable with
+its own internal scroll. Re-measured after: outline settles around 100px,
+visible and scrollable, instead of 0.
+
+**Then item 14's other open half — the Timeline line view's own note
+popup showed no markdown and no attachments.** `openTimelinePopup` set the
+content with `.textContent`, so `# Heading`/`**bold**` showed their raw
+punctuation, and never touched `#timeline-popup-media` at all — the div
+existed in the markup (reusing the graph popup's own CSS class) but
+nothing had ever populated it: a feature that never ran once, the exact
+shape CLAUDE.md's own review checklist names. Rewired to reuse
+`renderMarkdown` (the note card's own renderer, not a second
+implementation) and a `renderTimelinePopupMedia` that mirrors
+`renderGraphPopupMedia` almost line for line — same
+`attachmentObjectUrl`/`openLightbox` calls, so a thumbnail click still
+opens the full-size lightbox the same way. Also fixed in passing: the
+popup's screen position was computed once, before an attachment's
+thumbnail had loaded and made the popup taller — `placeTimelinePopup` now
+re-runs after the image resolves, the same fix the graph popup already
+needed and had. Verified live against a real running server, not reasoned
+from the code: a note with a heading and bold/italic text rendered as real
+`<h3>`/`<strong>`/`<em>` elements with zero literal asterisks; a real
+uploaded PNG showed as an `<img>` with a genuine `blob:` src.
+
+**Then item 16c — "images and files still can't be copied, pasted, or
+dragged into notes."** Checked live before building anything, per this
+project's own standing rule, and two of the three claimed-missing paths
+already worked: a global `document`-level `paste`/`dragover`/`drop`
+handler in `app.js` matches *any* `<textarea>` generically, and
+`#entry-content` (Capture) is one — so paste and drag-drop already
+uploaded to `/media/upload` and inserted markdown, with nobody having
+wired Capture specifically. Verified live with real dispatched `paste` and
+`drop` events carrying a PNG, not assumed from reading the handler. The
+third path — a file-picker button — was genuinely missing (the only
+"attach" control near Capture links existing *notes* to a chat message,
+not a file upload) and is now built: `📎 Attach`, reusing the same
+`handleFileUpload` the other two paths already call. Verified live with a
+real Playwright file chooser and a real PNG on disk. One trap worth
+recording for next time: Capture lives in the Notes tab's own `capture`
+sub-section, so `switchTab("notes")` alone leaves it `display: none` and
+the button unclickable — needs `showNotesSection("capture")` too, the
+CLAUDE.md-documented Notes-tab trap, hit here for a different element than
+the one it already names.
+
+**Then item 18 — the full-screen graph's suggested-links list "runs off
+the bottom without scrolling."** Reproduced live before fixing: with the
+Options panel open and 15 link suggestions, full-screen content was
+1061px tall in a 498px window, and `#graph-card`'s own `overflow: hidden`
+— added deliberately in an earlier session for a different bug entirely
+(the graph "being out of the main UI panel"; its own comment explains why)
+— still applied in full screen, since an ID beats a class on specificity
+no matter what order the rules are written in. A plain
+`.graph-fullscreen { overflow-y: auto }` would have lost that fight
+silently and changed nothing. The last several suggestions weren't just
+unscrolled, they were unreachable outright. Fixed with
+`#graph-card.graph-fullscreen { overflow-y: auto }` — an id *and* a class
+together, which wins outright — and confirmed live with a DOM marker on
+the last suggestion: off-screen and permanently so before the fix,
+reachable by scrolling after it. The item's other clause, "the sketch/image
+toggles," didn't match anything in the current Options panel (Similarity /
+Hide unlinked / Labels, no sketch or image controls at all) — left alone
+rather than guessed at; possibly a stale note from whatever session first
+triaged this list.
+
+**Then a note card menu redesign, asked for directly** (not a prior
+ROADMAP item): the ⋯ overflow menu had grown to 15 flat items (14 without
+a title), and the ask was to group related ones into sub-sections that
+open a side popup on hover or click, working on small screens too.
+Restructured `entryOverflowMenu`: three items stay flat at the top level
+(Make private/readable, History, and the destructive Move to bin, kept
+one click away rather than buried), and the other twelve group into three
+side flyouts — **✨ AI actions** (Re-evaluate, Improve writing,
+Generate/Regenerate title, Remove title), **🔗 Connect** (Add/Expand into
+a document, Link to another, Similar notes), and **➕ Add** (Add context,
+Continue thought, Remind me, Attach a file). A new `buildMenuGroupButton`
+opens its flyout on `mouseenter` (a 120ms delay so a mouse merely crossing
+the item doesn't trigger it) and on click (the only way in on a
+touchscreen), flips from the right side to the left when it would run off
+the viewport's right edge (measured live, the same "which side has room"
+check the graph/timeline popups already use), and — below 720px, this
+project's own standing phone breakpoint — drops the side-popup
+positioning entirely in favour of expanding in place, since there is
+nowhere for a flyout to go on a phone-width screen without running off it.
+Reused `buildMenuItemButton` for every item at both levels so a click
+behaves identically no matter how deep it's nested, and scoped the
+top-level arrow-key handler to `:scope >` children specifically — without
+that, a hidden submenu's own items would have joined the top-level
+Up/Down/Home/End list and silently broken it, since `querySelectorAll`
+does not stop at the first level by default. Verified live end to end:
+clicking a group trigger opens the correct three (or four) items, nothing
+else; hovering a *different* group closes whichever was open and opens
+the one under the pointer, never both; at 390px width (iPhone-sized) the
+submenu measured `position: static` with zero horizontal overflow, versus
+`position: absolute` and a real `left`/`right` flyout at desktop width.
+
+Full `pytest tests/` (~1,600+ tests), `ruff check .`, and `node --check
+frontend/app.js` all green throughout — each fix run individually before
+moving to the next, per this project's own standing practice.
+
+**What's next**: ROADMAP.md's remaining Tier 2 items, prioritised by
+correctness-bug-over-new-feature the same way Tier 1 was — the larger,
+properly scoped items (the sketch pad's selection tool, the whiteboard's
+redo/select/rotate list, onboarding's seeded-notes/guided-tour work) roughly in
+that order, unless a live report reprioritises something above them.
+
+## 52. The Arc view's real labels-vs-arcs clash, an optional title field decided and built, and a whiteboard panel-layout reset
+
+Continued straight from §51 in the same session, driven by three things the
+user raised live: a screenshot of the Arc view's labels, a direct decision
+on §16d's title-field question, and a request for a way back to the
+whiteboard's default panel layout.
+
+**Item 15, finally reproduced.** Earlier sessions (§48) investigated "labels
+behind nodes" and found nothing — DOM order already put every label on top,
+so z-order was never the bug. A fresh screenshot this session showed the
+real problem was never z-order: it was *position*. Arc's labels were tilted
+`rotate(-40, ...)` — upward — and `arcPath`'s connection arcs curve through
+exactly that same strip above the baseline, so text and arcs were fighting
+for the same space. Measured live before touching anything: 9 of 10 labels'
+bounding boxes overlapped a `.graph-edge`. Flipped the tilt to `rotate(40,
+...)` (down instead of up), which moves every label into the arcs' empty
+side of the row while keeping the same anti-collision shape — still angled,
+still reading outward from its own node rather than stacking onto the next
+one. Verified two ways, not just reasoned about the trig: a `getBoundingClientRect`
+check that every label now sits mostly below its node's vertical centre
+(true for all, false before the flip), and a zoom-to-fit screenshot showing
+labels clearly readable underneath the row with the dotted arcs undisturbed
+above it.
+
+**Item 16d, decided and built the same session it was asked.** The user
+confirmed the shape ROADMAP.md had already scoped: write the title into
+`content` as a leading `# {title}` heading — the exact line
+`manager.extract_title` (§43) already reads — rather than a second stored
+field. One shared `withTitle(content, title)` helper, used by both
+dedicated note-creation forms: `#entry-title` in Capture, and
+`#graph-new-note-title` in the graph's own "+ New note"/"+ Connected note"
+popup (voice dictation, templates and quick actions all write into
+Capture's own textarea already, so they needed no separate wiring). Also
+confirmed rather than assumed: a note started with a bare single `#` (not
+only `##`–`######`) was already read as a title before this change —
+`extract_title`'s own `#{1,6}` always covered H1, so the "detecting a
+single #" half of the ask was already true and needed no build. Verified
+live end to end against a real server: a title typed in Capture produced
+`# My Explicit Title\n\n...` in the saved note, with the computed `title`
+field reading back correctly and the input clearing after save; a bare `#`
+line typed straight into the body, with the title box left empty, read
+back with the same computed title; the graph popup's own field round-tripped
+identically.
+
+**A whiteboard panel-position reset, asked for directly.** Once a panel
+(board switcher / library+colour-picker / tool strip) had been dragged,
+there was no way back to its default corner short of clearing
+`localStorage` by hand. A `⟲` button next to the board-colour reset clears
+every panel's `wb-panel-pos-*` key and its drag-time inline styles
+(`left`/`top`/`right`/`bottom`/`transform` — all `place()` ever sets), so
+each panel's own `top-left`/`top-right`/`bottom-center` CSS class — never
+removed, only ever overridden by those inline styles — takes back over.
+Verified live: simulated a drag (moved the board panel to an arbitrary
+position, saved to `localStorage` the same way a real drag does), clicked
+reset, confirmed the panel's rendered position and `localStorage` entry
+both returned to their pre-drag state.
+
+Full `pytest tests/` (~1,600+ tests), `ruff check .`, and `node --check
+frontend/app.js` all green. Every fix in this section was verified against
+a real running server via Playwright — screenshots, `getBoundingClientRect`
+measurements, real saved notes read back through the API — not reasoned
+from the code alone.
+
+**What's next**: the remaining Tier 2 items are unchanged from §51's own
+list — the sketch pad's selection tool, the whiteboard's larger redo/
+select/rotate/images list, item 16 (documents in the graph, needs scoping),
+and onboarding's remaining pieces (seeded notes, the model-pull UI, a
+data-dir writability probe, a guided tour). 16e/16f (an emoji picker, a
+full emoji-usage sweep) are still open design questions, not yet asked
+about directly the way 16d just was.

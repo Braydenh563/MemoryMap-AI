@@ -438,6 +438,46 @@ def _change_document_id(name: str, result: dict) -> int | None:
     value = result.get(field)
     return value if isinstance(value, int) else None
 
+
+# ROADMAP.md Tier 2 §13: reminders and categories had no `_change_*_id`
+# resolver at all, so `changeRow`'s View button — built for notes and
+# documents — had nothing to extend to. Both tools' own results already
+# carry what's needed; this just names the field the same way the two
+# resolvers above do.
+_REMINDER_ID_FIELD = {"set_reminder": "id", "complete_reminder": "id"}
+
+
+def _change_reminder_id(name: str, result: dict) -> int | None:
+    """The reminder this write actually touched, or None otherwise."""
+    field = _REMINDER_ID_FIELD.get(name)
+    if field is None:
+        return None
+    value = result.get(field)
+    return value if isinstance(value, int) else None
+
+
+# Categories are identified by name, not id — every category tool's own
+# arguments and results already work in names, so this names the field that
+# carries the category a note ended up in rather than inventing an id
+# nothing else uses. `delete_category` is destructive (like
+# `delete_document`) and never reaches this code path — it's parked for a
+# confirm card, not executed here.
+_CATEGORY_NAME_FIELD = {
+    "create_category": "name",
+    "rename_category": "name",
+    "merge_categories": "into",
+}
+
+
+def _change_category_name(name: str, result: dict) -> str | None:
+    """The category this write actually created or landed notes in, or None
+    otherwise."""
+    field = _CATEGORY_NAME_FIELD.get(name)
+    if field is None:
+        return None
+    value = result.get(field)
+    return value if isinstance(value, str) and value else None
+
 # --- claiming work that never happened -------------------------------------------
 #
 # The failure this catches is the one that costs the most trust, because the
@@ -1229,6 +1269,8 @@ def run_agent(
                         "label": result.get("label") or name,
                         "note_id": _change_note_id(name, result),
                         "document_id": _change_document_id(name, result),
+                        "reminder_id": _change_reminder_id(name, result),
+                        "category_name": _change_category_name(name, result),
                         "undo": undo,
                     }
                 if "error" in result:

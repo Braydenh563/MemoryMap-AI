@@ -35,24 +35,51 @@ The tiers are not equal. Nothing in Tier 2 is worth more than any Tier 1 item.
 
 Things that are wrong, lose work, or make the app feel unreliable.
 
-1. **Meeting transcription errors out.** Reported as simply not working, with
-   a button in the UI that offers it. Reproduce first: `faster-whisper` is an
-   optional extra, so the likeliest answer is that the missing-package path is
-   an error rather than an explanation. Nothing else in meetings is worth
-   touching until this is diagnosed.
-2. **"The AI fails to respond while still saying it is writing" — and the
-   skill step counted as done.** Two bugs in one report: no timeout on the
-   stream, and a step ticked on a turn that produced nothing. The second is
-   worse: it makes the skill's own progress list lie, which is the surface the
-   user is asked to trust. Needs a real timeout, a visible "this stopped"
-   state, and a step that only ticks on a completed turn.
-3. **Skills producing network errors, or models that cannot run them.** Same
-   family. A failing skill must say *which* step and *why*, and offer the
-   resume `skill_from_step` already supports.
-4. **Contradictions in the agent prompt around small talk.** `TOOLS_GUIDE`
-   tells the model to take several turns and use tools; `intent.SMALLTALK`
-   routes "hey" away from the agent entirely. Reconcile them — the prompt is
-   resent every round, so a contradiction is paid for constantly.
+1. ~~**Meeting transcription errors out.**~~ **Re-confirmed fixed
+   (HISTORY.md §50), one step further than before.** §41 already made a
+   failed model download raise a distinct 503 instead of the route's
+   generic "Couldn't transcribe that recording: <error>" catch-all. This
+   session installed `faster-whisper` for real (lightweight — no torch) and
+   POSTed a real WAV clip to `/voice/transcribe-meeting` on a live server:
+   got back `503 "Couldn't load the Whisper 'base' model... check your
+   internet connection"`, not the old mystery error. **Not fully verified**:
+   this sandbox's network policy blocks `huggingface.co` (403 at the proxy,
+   confirmed via `$HTTPS_PROXY/__agentproxy/status`), so an actual
+   successful transcription — real audio in, real text out — still hasn't
+   been observed by any session. If it's re-reported, that's the half still
+   worth checking, ideally from an environment that can reach Hugging Face.
+2. ~~**"The AI fails to respond while still saying it is writing" — and the
+   skill step counted as done.**~~ **Found already done (HISTORY.md §50)** —
+   checked the code before rebuilding, per this file's own rule, rather than
+   trusting that an uncrossed-out item means unbuilt. Both halves are in and
+   tested: `frontend/app.js`'s `STREAM_IDLE_TIMEOUT_MS` (150s) races
+   `reader.read()` and throws a real, visible error ("The model stopped
+   responding...") when nothing arrives at all; `skill_runner.py`'s
+   `not answer and not ran_any_tool` branch reports a step `failed` with
+   `"the model didn't respond — no answer and no tool call"` instead of
+   falling through to `done`, pinned by
+   `test_a_step_that_produces_nothing_is_not_ticked_done`. This was §41's
+   own work (see HISTORY.md) — ROADMAP.md simply never got the strikethrough.
+3. ~~**Skills producing network errors, or models that cannot run them.**~~
+   **Found already done (HISTORY.md §50), same staleness.** `went_offline`
+   in `skill_runner.py` stops the run and reports `"Ollama isn't reachable
+   — check Settings → Models and try again."` rather than repeating the
+   same failure on every later step, pinned by
+   `test_a_network_failure_mid_step_stops_the_run_instead_of_repeating`. The
+   reason names the step (`index`) and the cause (`reason`), and
+   `skill_from_step` already resumes from it — also §41's work.
+4. ~~**Contradictions in the agent prompt around small talk.**~~ **Found
+   already done (HISTORY.md §50), same staleness as items 2/3.** There is no
+   contradiction reaching the model: `routes_chat.py`'s stream only calls the
+   tool-enabled agent (and thus only sends `TOOLS_GUIDE`) when
+   `intent.needs_retrieval(...)` is true, which `SMALLTALK` never is — "Small
+   talk never goes near the agent" is the code's own comment at that gate.
+   `librarian.build_conversational_messages` (small talk's actual prompt
+   path) never references `TOOLS_GUIDE` at all — grepped, not assumed.
+   Directly tested: `test_a_bare_yes_is_ordinarily_smalltalk_not_the_agent`
+   asserts `not fake_ollama.tool_rounds` for a bare "yes", and is explicitly
+   labelled "Tier 1 §4" in its own test file. Likely resolved by the same
+   `answering_agent` work HISTORY.md's §41 already documents.
 4a. ~~**Eight preferences saved correctly and were honoured correctly, but
     never came back from `GET /preferences`.**~~ **Fixed (HISTORY.md §49).**
     Found live while adding a notifications-mute toggle to the panel: it
@@ -85,10 +112,27 @@ Things that are wrong, lose work, or make the app feel unreliable.
    Nothing raises a notification outside those three paths. Verified by
    tracing every call site, not by driving it in a browser — say so plainly:
    if this is re-reported, that is the half still worth checking live.
-6. **Background tasks that never appear.** The list is built from
-   `routes_tasks.collect()`; anything on a worker thread not registered there
-   is invisible. Sweep for unregistered threads and make registration the rule
-   rather than something each feature remembers.
+6. ~~**Background tasks that never appear.**~~ **Found already done
+   (HISTORY.md §50).** Did the sweep this item asked for rather than trusting
+   the uncrossed-out entry: every `threading.Thread(` call site in
+   `src/memorymap` checked by hand against `routes_tasks.collect()`. All
+   nine are covered — reindex/pull (`model_manager.py`), embedding warmup
+   (`embeddings.py`), the autonomous pass (`autonomous.py`, both the
+   scheduler and the manual trigger — correctly keyed off "is a pass
+   *executing*", not "is the scheduler thread alive", so an idle scheduler
+   sleeping until 3am doesn't falsely show as running), SearXNG's install
+   *and* start phases (`searxng_manager.py`; `app.py`'s autostart thread
+   calls the same `start()` and shares its state, so it needed no separate
+   entry), the embedding-model download (`embedmodels.py` — already carries
+   its own "Tier 1 §6" comment at the call site, so this was fixed in an
+   earlier pass and just never got the ROADMAP strikethrough), and extras
+   install/uninstall (`extras.py`). The one thread genuinely *not*
+   registered — `security.py`'s per-request DNS-reachability probe — is
+   correctly excluded: it blocks inside the request that spawned it and
+   resolves in milliseconds, not a background job a user would come looking
+   for on this screen. `tests/test_tasks.py` and `test_embedding_models.py`
+   already assert each kind appears, including the exact "the download is
+   running but /tasks doesn't know" regression this item describes.
 7. **Claim-specificity in the hallucination net.** `agent.unsupported_claims`
    catches a claim with *no* matching write ("I tagged it" when nothing was)
    but not one that mismatches what happened ("I tagged it as Work" when a
@@ -112,22 +156,37 @@ Things that are wrong, lose work, or make the app feel unreliable.
    "Run optimization now" button being hidden while the toggle is off is a
    UI convenience, not an authorization check. The route now checks the
    toggle itself before calling `trigger_now`.
-10. **Every graph layout except Force shows no connections when the Time
-    Filter is moved off "All time".** Reported directly with screenshots:
-    Tree, Radial and Arc all render nodes with no edges/arcs at all once the
-    slider is pulled back, while Force keeps its connections. Not yet
-    investigated — start by finding where `similarity`/edge filtering
-    intersects the time-filter's node subset for each layout function
-    (`layoutHierarchy` and friends), since Force building its own separate
-    physics-edge list is the likely reason it alone is unaffected. High
-    value: the time filter is close to useless on three of four layouts
-    right now.
-11. **Dragging on empty graph canvas sometimes highlights an unrelated
-    note.** Reported directly, not yet reproduced or investigated. Likely a
-    pointer/drag-select handler treating a click-drag on empty space as a
-    hit on whatever node happened to be under the pointer at drag-start
-    instead of requiring the drag to actually originate on a node — but
-    that is a guess, not a diagnosis. Reproduce first.
+10. ~~**Every graph layout except Force shows no connections when the Time
+    Filter is moved off "All time".**~~ **Fixed and verified live
+    (HISTORY.md §50).** Diagnosed, not guessed: `applyTimeFilter`'s edge
+    check read `d.source.created_at`/`d.target.created_at`, which only
+    holds a real note timestamp once `d3.forceLink` resolves it — true for
+    Force, never true for Tree/Radial/Arc, whose edges include synthetic
+    category-heading/root nodes (`layoutHierarchy`'s `graphGroupNode`) with
+    no `created_at` at all. `undefined || Date.now()` read every heading as
+    "created this instant", which failed any cutoff short of "All time" and
+    hid the heading *and* every edge touching it (almost all of them — every
+    note's filing edge to its category) the moment the slider moved.
+    Reproduced first with Playwright (Tree: 14/14 edges → 0/14 the instant
+    the slider left "All time"; Force stayed correct at 2/4), then fixed by
+    treating `isGroup` nodes as exempt from the time filter — organising
+    furniture, not a dated note — and re-verified the same way (Tree:
+    14/14 → 4-ish/8, no longer zero, headings stay visible).
+11. ~~**Dragging on empty graph canvas sometimes highlights an unrelated
+    note.**~~ **Fixed and verified live (HISTORY.md §50).** Reproduced with
+    Playwright before guessing: a drag starting and ending on genuinely
+    empty canvas (confirmed via `elementFromPoint`, not assumed) — a pan,
+    not a node-drag — left a node lit with `.graph-focus` long after the
+    cursor moved on. Cause: panning translates the whole canvas under a
+    *stationary* cursor, so a node sliding past mid-pan fires a real
+    `mouseenter`, and the matching `mouseleave` doesn't reliably fire before
+    the button is released. A first fix (clear hover on the zoom's own
+    `start`/`end` events) cut the failure rate but left a race — a
+    `mouseenter` mid-gesture could re-set the hover after `start` had
+    already cleared it. Fixed properly with a `graphIsPanning` flag that
+    mutes hover mouseenter/mouseleave for the whole gesture, not just its
+    two ends; 6/6 clean Playwright runs after, versus reproducing the stuck
+    highlight on the unpatched code every time.
 
 ### Tier 2 — half-built features, cheap to finish
 
@@ -217,13 +276,16 @@ into a good one.
     element underneath them. Fixed by making the fill colour itself
     `sketchBgColor` instead of a hardcoded `"#ffffff"` — the actual pixels a
     save composites, verified live by reading the saved-PNG composite's own
-    pixel data back, not just the on-screen canvas. **Still genuinely open**:
-    a selection tool (clicking an existing stroke/shape to move, resize or
-    delete it; today's tools only ever draw a new one), and — asked for
-    directly — **holding Shift while drawing a shape constrains it** (a
-    perfect circle/square rather than an ellipse/rectangle, the same
-    convention every other drawing tool uses). The toolbar redesign comes
-    *after* those, not before.
+    pixel data back, not just the on-screen canvas. ~~Holding Shift while
+    drawing a shape constrains it~~ **Fixed for the rect tool** (forces a
+    square instead of a rectangle), verified live by reading back the
+    drawn pixels' bounding box mid-drag. **Still genuinely open**: a
+    selection tool (clicking an existing stroke/shape to move, resize or
+    delete it; today's tools only ever draw a new one) — the sketch pad is
+    pure-raster (`ImageData` snapshots for undo, no discrete stroke
+    objects), so this needs a real architecture change, not a small patch,
+    unlike the whiteboard's own discrete-object select (item 11). The
+    toolbar redesign comes after it, not before.
 11. **The whiteboard, properly.** Done in an earlier session, reported and
     verified in Chromium: per-tool cursors (native `cursor: url(svg)`, not a
     JS-tracked div — the div version was reported and reproduced as "the
@@ -244,12 +306,24 @@ into a good one.
     pan/select, pen, line, rect, circle, eraser, two link types and delete —
     no rotate, no shift-to-lock-proportions while resizing, no image
     upload/paste/drag-drop, no text/label tool beyond a card's own text):
-    - **Redo.** `wbUndoStack` exists; nothing analogous does. A second stack
-      that a fresh action clears, same shape as the sketch pad's own history.
-    - **Select, move and rotate as real tools**, not folded into "pan" —
-      today's `data-tool="pan"` is both at once, and there is no rotate
-      handle on a card or shape at all.
-    - **Shift-to-lock proportions** while drawing/resizing a shape.
+    - ~~**Redo.**~~ **Fixed.** `wbRedoStack`, cleared on any fresh action the
+      same way the sketch pad's own history works; `wbApplyHistoryEntry`
+      shares the pop/apply-inverse/push-reverse logic between undo and redo
+      so they can't drift apart. Ctrl+Y and Ctrl+Shift+Z both wired, plus a
+      toolbar button. Verified live: draw → undo → redo restores it, button
+      disabled state tracks correctly.
+    - ~~**Select as a real tool.**~~ **Fixed, single-item only** — a
+      `data-tool="select"` tool (was folded into "pan"), click a card or
+      sketch to select it (outline highlight), Delete/Backspace or Escape to
+      act on it, clicking empty canvas clears it. Verified live: select →
+      Delete → gone; undo brings it back; select → click elsewhere →
+      deselected. **Move and rotate as real tools, and multi-select (Ctrl/
+      Cmd/Shift-click, rectangle marquee, lasso) are still open** — asked
+      for directly this session, not yet built; see the properties-panel
+      bullet below for the related "alter what's selected" ask.
+    - ~~**Shift-to-lock proportions**~~ **Fixed for the sketch pad's own
+      rect tool** (holding Shift forces a square). The whiteboard's own
+      rect/circle tools don't have this yet — same fix, not yet ported.
     - **Images**: upload, paste, and drag-and-drop onto the canvas. The
       plumbing already exists for notes (`/media`, attachments — see item
       20) and is the thing to extend rather than a second upload path.
@@ -273,13 +347,84 @@ into a good one.
     - **Grid lines (varying types) and snap-to-grid for placement.** Asked
       for directly, not scoped further — needs a decision on which grid
       types (square/dot/isometric?) before building.
-    - **Drawing only responds to a drag, not a single click.** Asked for
-      directly — e.g. a dot or a single short mark should be possible
-      without dragging the pointer at all. Not yet reproduced against the
-      actual pointer handlers; likely the same code path the sketch pad's
-      own `sketchMoved` flag guards (a click with no movement is currently
-      treated as "nothing drawn" there too — see `sketchEnd`), so worth
-      checking whether the fix belongs in one shared place or two.
+    - ~~**A way to reset the board colour back to the theme default.**~~
+      **Fixed (HISTORY.md §51), asked for directly.** Once a colour was
+      picked there was no way back to the theme's own `--modal-bg` short of
+      guessing its hex. A `↺` button next to `#wb-bg-color-picker` clears
+      the `localStorage` override and re-reads the live computed colour
+      (not a hardcoded hex), so it means "the theme's colour" even after a
+      light/dark switch, not "whatever it happened to be once". Verified
+      live: pick a colour → persisted and applied; click reset → cleared,
+      swatch shows the real computed default.
+    - ~~**"A lot of the tools are missing — it should be an upgraded version
+      of the sketch pad."**~~ **Highlighter and arrow added, partially
+      verified.** A highlighter tool (M) — wider, translucent stroke — and
+      an arrow tool (A) — one path, three subpaths (shaft + both head
+      strokes, so it shares one undo entry). The highlighter had a real bug
+      caught before it shipped: the saved sketch JSON only ever stored `{d,
+      color}`, so a highlighter reloaded as a plain full-opacity 3px line —
+      fixed by adding `width`/`opacity` to the payload and reading them back
+      in the render loop; verified live (draw → `renderWhiteboard()` re-run
+      → still thick/translucent; a plain pen stroke still defaults to 3/1).
+      **The arrow tool's own drag-to-save path could not be verified live
+      this session** — Playwright's synthetic mouse drag produced a
+      "no real movement, discard" result for arrow *and* for the pre-existing
+      line tool tested the same way, so this reads as a test-harness
+      limitation rather than a code bug (pointer-event delivery to the
+      handler was separately confirmed correct, with real coordinates
+      tracking the drag), but it means line/rect/circle/arrow are **unverified
+      by a live drag** — first thing worth checking next session, with a
+      real mouse or a slower/dispatched-event test rather than
+      `page.mouse.move`. Text tool and a size control are still missing
+      entirely (sketch pad has both).
+    - **The single-node hover-highlight during a drag was re-reported as
+      still happening after item 10 above's fix**, on a live run outside
+      this sandbox. That fix targeted panning specifically (dragging empty
+      canvas) and was verified 6/6 clean in this sandbox's Chromium; dragging
+      an *actual node* was checked and doesn't share the same cause (every
+      other node is pinned — `fx`/`fy` set — for the length of a node drag,
+      so nothing else can slide under a stationary cursor the way panned
+      content does), so there's no obvious analogous quick fix. Left open
+      rather than guessed at — needs the exact gesture that reproduces it
+      (which tool, panning vs. dragging a note, which browser) from a
+      session that can watch it happen live.
+    - ~~**Drawing only responds to a drag, not a single click.**~~ **Fixed
+      and verified live (HISTORY.md §51).** Diagnosed, not guessed: the
+      sketch pad's own pen already handled this correctly (`sketchEnd`'s
+      `!sketchMoved` branch draws a near-zero-length line, which a round
+      linecap renders as a dot) — the *whiteboard*'s separate SVG-path
+      implementation didn't, discarding a stationary click outright
+      (`currentDrawData.length < 2` → remove the path, return). Same fix,
+      mirrored: a click with no drag now sets the path's `d` to a
+      near-zero-length segment instead of deleting it. The eraser had the
+      same gap for a different reason — it only ever caught a stroke via
+      `mouseenter` while the button was held, which needs *movement* to
+      fire at all, so a plain click did nothing; its own `click` handler
+      (already there for the Delete tool) now also fires for the eraser.
+      Verified live end to end against a real running server: single pen
+      click on empty canvas, 0 sketches → 1; single eraser click on that
+      same dot, 1 → 0. Shape tools (line/rect/circle) are left alone — a
+      zero-size shape isn't a reasonable click default the way a pen dot
+      is.
+
+    - **A properties panel for the current selection** — colour, line
+      thickness, arrowhead style (start/end/both) — asked for directly this
+      session, not yet built. Depends on multi-select existing first (today
+      `wbSelectedItem` is a single `{kind, id}`, not a set).
+    - ~~**Touch input.**~~ **Fixed for the whiteboard and the graph.** Both
+      used plain `mouse*` events, which touch/pen never reliably dispatch —
+      the sketch pad already used `pointer*` events and worked. Converted
+      the whiteboard's draw/erase/select listeners and the graph's own SVG
+      to pointer events, and added `touch-action: none` to both containers
+      (without it the browser treats the same gesture as page-scroll/pinch
+      before a pointer event ever arrives). d3-zoom/d3-drag (v7, already in
+      use for the graph's pan/zoom/node-drag) listen for pointer events
+      internally, so those should now work on touch too — **not verified
+      live**: this sandbox has no touch-capable input to drive a real touch
+      gesture through Playwright's touchscreen API, only reasoned from the
+      event model and mirrored against the sketch pad's already-working
+      pattern. Multi-touch gestures (pinch-zoom with two fingers) are a
+      separate, larger piece d3-zoom handles on its own; not touched here.
 
     **This is a lot for one item** — draw.io, Microsoft Whiteboard and
     OneNote between them are three separate mature products' worth of
@@ -300,18 +445,31 @@ into a good one.
     search results and wiki-style `[[links]]` already use. This file's own
     claim that they were "decoration" was stale, likely inherited from
     before that wiring existed; nothing here needed building.
-13. **"Take me to the thing the agent just changed," the UI half.** The
-    document half is **done (HISTORY.md §47)**: `agent._change_document_id`
-    has resolved a real document id on every write since §21, but
-    `changeRow` — the one place both the chat's "what changed" list and the
-    autonomous-pass review panel render a change — never read it. Now does,
-    reusing `openDocumentFromNote` (the same navigation a note's own
-    document link already used); verified live (a synthetic `document_id`
-    change renders a View button that actually un-hides `#tab-documents`,
-    not just calls something silently). **Still open**: reminders and
-    categories have no `_change_*_id` resolver on the backend at all yet
-    (only note/document exist), so extending this further needs that
-    groundwork laid first, not just another `if` in `changeRow`.
+13. ~~**"Take me to the thing the agent just changed," the UI half.**~~
+    **All four kinds now done (HISTORY.md §47, §51).** The document half
+    was done in §47: `agent._change_document_id` has resolved a real
+    document id on every write since §21, and `changeRow` — the one place
+    both the chat's "what changed" list and the autonomous-pass review
+    panel render a change — reads it, reusing `openDocumentFromNote`.
+    **Reminders and categories, done this session**: `agent.py` gained
+    `_change_reminder_id` (`set_reminder`/`complete_reminder`, an int id —
+    the same shape as `_change_note_id`) and `_change_category_name`
+    (`create_category`/`rename_category`/`merge_categories`, a *name*, not
+    an id — every category tool already works in names, so this names the
+    field that carries one rather than inventing an id nothing else uses;
+    `delete_category` is destructive like `delete_document` and never
+    reaches this code path). `changeRow` grew two more View buttons:
+    `flashReminder(id)` switches to the Reminders tab, forces the filter to
+    "all" (the change that brought you here — completing a reminder — is
+    exactly the case where the default "open" filter would hide it), and
+    scroll-flashes the item the same way `flashEntry` does for notes;
+    `flashCategory(name)` reuses the sidebar's own category filter
+    (`activeCategory`) rather than building a second filtering mechanism.
+    Verified live end to end: created a real reminder and a real note in a
+    fresh category via the API, called both functions directly, confirmed
+    the tab switched, the item was found in the DOM, and (after waiting the
+    two animation frames the flash needs) the `.flash` class was actually
+    applied.
 14. **Timeline line view, and text placement in grid view.** The grid view's
     text-placement half is **done**: `.timeline-dot`'s `line-clamp: 3` was
     unprefixed under a `-webkit-box` display, a combination this Chromium
@@ -329,73 +487,156 @@ into a good one.
     hardening, not a diagnosis — if it's still cut off after this, the next
     session needs the actual browser/OS this is happening in, since two
     separate attempts from this sandbox's Chromium haven't reproduced it.
-    **Also reported, not yet built**: the line-view's own note popup shows
-    no markdown rendering (plain text with literal `**`/`#` characters) and
-    no sketch/image attachment preview — both of which the note card
-    elsewhere in the app already does, so this is a gap in one render path
-    rather than a missing feature. **Still open:** the line view itself —
+    ~~**Also reported: the line-view's own note popup shows no markdown
+    rendering and no sketch/image attachment preview.**~~ **Fixed and
+    verified live (HISTORY.md §51).** `openTimelinePopup` set the content
+    with `.textContent`, showing literal `**`/`#` characters, and never
+    touched `#timeline-popup-media` at all — the div existed in the HTML
+    (reusing the graph popup's own CSS class) but nothing ever populated
+    it, a "feature that never ran once". Rewired to reuse `renderMarkdown`
+    (the note card's own renderer) and a `renderTimelinePopupMedia`
+    mirroring `renderGraphPopupMedia` almost exactly — same
+    `attachmentObjectUrl`/`openLightbox` calls, so a click still opens the
+    full-size lightbox. The popup's position, computed once from its
+    un-loaded size, is now recomputed after an image's thumbnail finishes
+    loading too (`placeTimelinePopup`, the same fix the graph popup already
+    had for the same reason). Verified live end to end against a real
+    server: a note with `# Heading` and `**bold**` rendered as real
+    `<h3>`/`<strong>` elements, no literal asterisks; an uploaded PNG
+    attachment showed as an `<img>` with a real `blob:` src, not just
+    reasoned from the code. **Still open:** the line view itself —
     reported as needing a real visual pass ("very professional and ready
     for public use"), and grid view could still take general UX polish
     beyond the text-cropping fix (not scoped further — say what
     specifically, next time it's reported).
-15. **Arc view: labels behind nodes**, plus a refinement pass on that layout.
-    One piece of the refinement pass is **done**: the trace overlay drew a
-    straight chord regardless of layout, and Arc puts every node on one
-    shared baseline, so a traced path there sat exactly where the row of
-    nodes already was — reported as connections being hard to see on
-    non-tree layouts. Now drawn as its own taller arc in that one layout.
-    **The labels-behind-nodes part was investigated live (HISTORY.md §48)
-    and did not reproduce**: `labelLayer` is appended to the canvas after
-    every node circle, so DOM order alone already puts every label on top,
-    and a live screenshot with 24 seeded notes in Arc showed every label
-    clearly legible and unobscured. Left open rather than "fixed" — nothing
-    was found to fix, and the original report may depend on a specific
-    dataset (a denser tree, longer previews, a particular zoom) this
-    session's synthetic data didn't reproduce. Needs the original reporter's
-    exact steps or a screenshot before the next session spends more time on
-    it.
+15. ~~**Arc view: labels clashing with the connection arcs**~~ **Fixed and
+    verified live with a screenshot (HISTORY.md §52).** The earlier
+    "labels behind nodes" framing was investigated live (§48) and never
+    reproduced — DOM order already put labels on top, z-order was never
+    the problem. Re-reported with an actual screenshot, and the real bug
+    was *position*, not z-order: the label's tilt (`rotate(-40, ...)`)
+    pointed labels *up*, into exactly the strip above the baseline
+    `arcPath`'s connection arcs curve through, so text and arcs fought for
+    the same space. Measured live before fixing: 9 of 10 labels' bounding
+    boxes overlapped a `.graph-edge`. Flipped the tilt to `rotate(40,
+    ...)` — down instead of up — moving every label into the arcs' empty
+    side while keeping the same anti-collision shape (still angled,
+    reading outward). Confirmed two ways: a fitted screenshot showing
+    labels clearly below the row with the arcs undisturbed above it, and a
+    geometry check (`labelMostlyBelowNode`) true for every label, false
+    before the fix. The refinement pass's other piece — the trace overlay
+    drawing a straight chord through the row instead of its own taller
+    arc — was already **done** in an earlier session.
+
+    **Re-reported once more, with a screenshot, after the fix above**:
+    labels still read as attached to the wrong node — not z-order or
+    tilt-direction this time, but density. At the old spacing (`ARC_STEP`
+    46px, up to 20-character labels, `rotate(40, ...)`), a 20-char label's
+    horizontal reach was `20 × ~6.5px × cos(40°) ≈ 100px` — two-plus
+    node-steps — so a label's own tail routinely landed under a *later*
+    node, exactly the "category name is on the note, the note's text
+    starts on the category node" symptom described. Fixed by widening
+    `ARC_STEP` to 58px, shortening `ARC_LABEL_LIMIT` to 12 characters, and
+    steepening the tilt to `rotate(58, ...)` (more vertical, less
+    horizontal reach per character) — **not re-verified with a fresh
+    screenshot this session (token budget)**, so treat this as reasoned
+    from the same geometry that diagnosed it, not re-measured live; worth a
+    screenshot check first thing next session. **Also asked for directly**:
+    category labels only differed by weight/size before, not colour —
+    `.graph-label-group` now also gets `fill: var(--accent)` in both light
+    and dark mode, so a category reads as a different *kind* of label, not
+    just a bigger note preview.
 16. **Documents in the graph.** They are notes' equal everywhere else.
-16a. **The document editor's sidebar, reported directly with screenshots.**
-    Two asks: make it full-scale and sticky/floating to the left (today it
-    scrolls with the page rather than staying put — not yet checked against
-    the actual CSS, likely a missing `position: sticky` or a parent without
-    `overflow` set up for it), and its Outline section visibly collapses/
-    disappears when the "Where are my documents kept?" disclosure below it
-    is expanded — the disclosure's own content is pushing the outline out
-    of a fixed-height scroll area rather than the sidebar growing to fit
-    both. Not yet investigated against the real DOM.
-16b. **The document editor itself: bold/italic don't toggle off, and it
-    needs broader work.** Reported directly: applying Bold to an
-    already-bold selection (or Italic to an already-italic one) doesn't
-    remove the formatting the way every other rich-text editor's toggle
-    does — it's a one-way "apply," not `document.execCommand`/ProseMirror-
-    style toggle behaviour. "A bunch of missing features... could be
-    improved a lot more" was named but not itemised — needs a concrete list
-    from the user before a session can act on more than the toggle bug.
-16c. **Images and files still can't be copied, pasted, or dragged into
-    notes.** Item 20 below already names the Library surface and
-    drag-to-attach as unbuilt on top of existing `/media`/attachment
-    plumbing; this confirms notes specifically (not just documents/the
-    whiteboard) are still missing all three input paths — worth verifying
-    exactly which of paste/drag-drop/file-picker already work, if any,
-    before assuming all three need building from scratch.
-16d. **An optional title field in Capture, and everywhere a note can be
-    created.** Raised as a design question earlier this session (see
-    HISTORY.md §44's "open questions") and asked again more directly here.
-    Still needs the same decision before building: a second field
-    duplicates §43's leading-heading mechanism (`manager.extract_title`)
-    unless it's wired to *write* that heading line into `content` rather
-    than storing a separate title — which is buildable (prepend `# {title}`
-    on save, exactly the shape `extract_title` already reads) but is a
-    decision worth confirming before writing it, not re-litigating from
-    scratch next time it's raised.
-16e. **An emoji picker in every note-creation input and the document
-    editor.** New feature, not yet scoped — needs a decision on picker
-    source (native OS picker via `<input>` attributes vs. a built-in
-    palette) before building, and probably belongs alongside item 16f's
-    emoji-usage decision rather than before it, since a picker that adds
-    emoji everywhere sits oddly next to a simultaneous push to use fewer.
-16f. **A full sweep of emoji usage across the app, asked for directly**:
+16a. ~~**The document editor's sidebar, reported directly with
+    screenshots.**~~ **Checked and fixed (HISTORY.md §51).** The
+    sticky/floating half was already done — `#doc-sidebar` already has
+    `position: sticky` — stale by the time it was reported, corrected
+    rather than rebuilt. The Outline-collapses bug was real and reproduced
+    live before touching anything: 10 headings' outline went from 258px
+    tall to exactly **0px** the instant the storage disclosure opened.
+    Cause: `.doc-sidebar > details` was `flex: 0 0 auto` — flex-shrink
+    *zero*, meaning it was **exempt** from shrinking — while the outline
+    sitting above it had no minimum height at all, so the entire squeeze
+    landed on the one sibling that could give and had nothing to give.
+    That's backwards from what the block's own comment already said the
+    intent was ("the help disclosure gives up its space first"). Fixed by
+    giving the outline a real floor (`min-height: 4rem` — enough for a few
+    entries even under pressure) and actually making the disclosure
+    shrinkable with its own internal scroll, so it's now the one that
+    yields. Re-measured live after the fix: outline settles at ~100px
+    (visible and scrollable) instead of 0, disclosure scrolls its own
+    overflow instead of forcing the outline out.
+16b. ~~**The document editor's bold/italic don't toggle off.**~~ **Fixed
+    and verified live (HISTORY.md §51).** `wrapDocSelection` (`app.js`,
+    shared by the toolbar buttons and Ctrl+B/Ctrl+I) only ever wrapped —
+    applying Bold to an already-bold selection stacked a second `**` pair
+    instead of removing the first. Now checks both shapes a selection can
+    be in before wrapping: markers just outside it (`**|bold|**`) or
+    markers included inside it (`|**bold**|`) — either way, a second press
+    strips them instead of stacking. Verified live through the real
+    `#doc-content` textarea and `wrapDocSelection` itself, not a unit test
+    (this file has no JS test runner): `hello world` → Bold → `**hello**
+    world` → Bold again → back to `hello world`, byte for byte; the
+    whole-span-selected and italic cases both round-tripped the same way.
+    **Still open**: "a bunch of missing features... could be improved a lot
+    more" was named but not itemised — needs a concrete list from the user
+    before a session can act on more than the toggle bug.
+16c. ~~**Images and files still can't be copied, pasted, or dragged into
+    notes.**~~ **Two of three already worked — checked live before
+    building anything (HISTORY.md §51).** A global `document`-level
+    `paste`/`dragover`/`drop` handler (`app.js`, matches *any* `<textarea>`
+    generically, not a note-specific one) already uploads to
+    `/media/upload` and inserts markdown — and `#entry-content` (Capture)
+    is a `<textarea>`, so it was already covered without anyone having
+    wired it specifically. Verified live, not assumed: dispatched a real
+    `paste` and a real `drop` event carrying a PNG file at `#entry-content`
+    on a running server, both produced `![name](/media/…)` in the
+    textarea. **The third path — a file-picker button — was genuinely
+    missing and is now built**: `📎 Attach` next to Capture's other
+    buttons, wired to the same `handleFileUpload` the paste/drop paths
+    already use, so all three insert identically. Verified live with a
+    real file chooser (Playwright's `filechooser` event, a real PNG on
+    disk, not a synthetic DataTransfer): picking it produced the same
+    `![name](/media/…)` markdown. One trap this hit and is worth recording:
+    Capture lives in the Notes tab's `capture` sub-section — `switchTab
+    ("notes")` alone leaves it `display: none` and the button unclickable;
+    needs `showNotesSection("capture")` too, the same trap CLAUDE.md's own
+    traps list already names for a different Notes-tab element.
+16d. ~~**An optional title field in Capture, and everywhere a note can be
+    created.**~~ **Decided and built (HISTORY.md §52).** Confirmed
+    directly: write the leading `# {title}` heading line into `content` on
+    save — the exact shape `manager.extract_title` already reads — rather
+    than a second stored field. `#entry-title` in Capture and
+    `#graph-new-note-title` in the graph's own "+ New note" popup (the
+    two dedicated note-creation forms; voice dictation, templates, and
+    quick actions all funnel into Capture's own textarea already) share
+    one `withTitle(content, title)` helper, so a title typed in the box
+    and one typed as the note's own first line produce byte-identical
+    content. Also confirmed working, unprompted: a note started with a
+    single `#` (not just `##`–`######`) was already read as a title by
+    `extract_title` before this change — nothing needed building there.
+    Verified live end to end: a title typed in Capture round-tripped to
+    `# My Explicit Title\n\n...` in the saved note and the field cleared
+    after save; a bare `#` line typed directly into the body was read back
+    with the same computed title; the graph popup's own field produced
+    identical behaviour.
+16e. **Decision made, not yet built**: both a native-OS picker and a
+    built-in in-app palette, same pattern as 16f — a toggle in Settings →
+    Appearance picks which one opens. Not scoped further (which inputs get
+    the trigger control, where the built-in palette's emoji set/data comes
+    from) — do that scoping next to whatever picks up 16f, since both share
+    the same Appearance-tab toggle mechanism and are cheaper built together.
+16f. **Decision made, not yet built**: an SVG icon set *and* monochrome
+    emoji, both available, with a toggle in Settings → Appearance to switch
+    between them (not a single fixed replacement). Needs: (1) the actual
+    count/categorisation pass (decorative vs. load-bearing) this item
+    already called for, (2) an icon set picked and the SVGs wired in
+    alongside the existing emoji rather than replacing them outright, (3)
+    the CSS monochrome-filter path for the emoji option, (4) the Appearance
+    toggle and the app-wide switch it drives. Sizeable — a full session's
+    worth, not a quick pass.
+    Original ask, kept for context: **a full sweep of emoji usage across
+    the app**:
     *"I feel the application is very heavy with emojis, it feels too much
     like AI slop... make sure they are only used professionally and with
     intention, otherwise professional icons are the better way to go."*
@@ -411,8 +652,9 @@ into a good one.
     twice, which this project's own history (HISTORY.md's repeated "checked
     before building" theme) is precisely the failure mode it keeps warning
     about.
-17. **Battery-saver: an indicator and an honest description.** Checked before
-    writing this — the indicator already exists (`#power-saver-indicator`, a
+17. ~~**Battery-saver: an indicator and an honest description.**~~ **Done —
+    both halves, one already there.** Checked before writing this — the
+    indicator already exists (`#power-saver-indicator`, a
     status-bar chip shown/hidden from `battery_efficient_mode`) and is wired
     on both load and toggle, so that half was already done and this file
     hadn't been told. The "honest" half had a real bug, now **fixed**: the
@@ -424,8 +666,25 @@ into a good one.
     is on" and "finishing a task disables automatic tasks" actually were.
     `autonomous.wake()` now interrupts the sleep; `PUT /preferences` calls
     it whenever a preference the loop reads changes.
-18. **The full-screen graph's Options panel**, the sketch/image toggles, and a
-    suggested-links list that runs off the bottom without scrolling.
+18. ~~**The full-screen graph's suggested-links list ran off the bottom
+    without scrolling.**~~ **Fixed and verified live (HISTORY.md §51).**
+    `#graph-card`'s own `overflow: hidden` (added in an earlier session for
+    a different bug — see its own comment) still applied in full screen,
+    since an ID beats a class on specificity regardless of source order —
+    a plain `.graph-fullscreen { overflow-y: auto }` would have lost that
+    fight silently. Measured live before fixing: toolbar + open Options +
+    15 suggestions was 1061px of content in a 498px fullscreen window, and
+    `overflow: hidden` meant the last several suggestions weren't merely
+    unscrolled — they were unreachable, full stop. Fixed with
+    `#graph-card.graph-fullscreen { overflow-y: auto }` (an id *and* a
+    class, which wins outright), and confirmed live that the last
+    suggestion goes from off-screen-and-permanent to reachable by scrolling
+    the fullscreen view. **"The sketch/image toggles" part of this item
+    couldn't be matched to anything in the current Options panel** (it has
+    Similarity/Hide-unlinked/Labels, no sketch or image controls) — likely
+    a stale or mis-transcribed note from whatever session first triaged
+    this; left unaddressed rather than guessed at, and worth asking
+    directly what it referred to if it's still wanted.
 19. **First-run onboarding, the rest.** Reachability diagnostics are built;
     still open: offering to pull a model, a data-dir writability check,
     seeded example notes so the graph, timeline and dashboard have something

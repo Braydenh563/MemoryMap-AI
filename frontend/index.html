@@ -259,6 +259,15 @@
               <option value="">No template</option>
             </select>
           </div>
+          <!-- Optional — asked for directly. Not a second stored field: it
+               writes the same leading `# heading` line manager.extract_title
+               already reads on every note, so a title typed here and one
+               typed as the note's own first line ("# Recipe") work exactly
+               the same way. Starting a note with a single # already becomes
+               a title without touching this box at all. -->
+          <input id="entry-title" type="text" maxlength="200"
+            placeholder="Optional title"
+            aria-label="Optional title — becomes the note's leading heading">
           <textarea id="entry-content" rows="3" class="autogrow"
             placeholder="Type anything — a joke, a shopping list, a race result…
 Link to another note with [[its first few words]]."></textarea>
@@ -287,6 +296,9 @@ Link to another note with [[its first few words]]."></textarea>
             <button id="improve-btn" class="ghost" title="Let the AI proofread or rewrite this before you save" aria-label="Improve writing with AI">✨ Improve</button>
             <button id="sketch-btn" class="ghost" title="Draw a quick sketch and save it as a note" aria-label="Open the sketch pad">🎨 Sketch</button>
             <button id="mic-note" class="ghost" title="Dictate a note (local Whisper)" aria-label="Dictate a note">🎙</button>
+            <button id="entry-attach-file" class="ghost" type="button"
+              title="Attach an image or file" aria-label="Attach an image or file">📎 Attach</button>
+            <input id="entry-attach-file-input" type="file" multiple class="hidden">
           </div>
           <p><span id="save-status" class="status" role="status"></span></p>
         </section>
@@ -1003,6 +1015,8 @@ Link to another note with [[its first few words]]."></textarea>
             <button id="graph-new-close" class="ghost small" aria-label="Close">✕</button>
           </div>
           <p class="muted" id="graph-new-hint"></p>
+          <input id="graph-new-note-title" type="text" maxlength="200"
+            placeholder="Optional title" aria-label="Optional title">
           <textarea id="graph-new-content" rows="3"
             placeholder="Type the thought — the AI will file it…" aria-label="Note content"></textarea>
           <input id="graph-new-tags" type="text" placeholder="Tags, comma separated"
@@ -1431,19 +1445,30 @@ Link to another note with [[its first few words]]."></textarea>
         title="Board background colour"
         class="wb-color-picker"
       >
+      <button id="wb-bg-color-reset" class="ghost small icon-button" type="button" title="Reset to theme default">↺</button>
+      <button id="wb-reset-panels" class="ghost small icon-button" type="button" title="Reset panel positions">⟲</button>
     </div>
 
     <div class="whiteboard-floating-panel bottom-center card glass" data-panel-id="tools">
       <span class="wb-panel-grip" title="Drag to move" aria-hidden="true">⠿</span>
       <div class="wb-tool-group" id="wb-tool-group">
-        <button class="ghost icon-button active" data-tool="pan" title="Pan / Select (V)">
+        <button class="ghost icon-button active" data-tool="pan" title="Pan (V)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"></polyline><polyline points="9 5 12 2 15 5"></polyline><polyline points="15 19 12 22 9 19"></polyline><polyline points="19 9 22 12 19 15"></polyline><line x1="2" y1="12" x2="22" y2="12"></line><line x1="12" y1="2" x2="12" y2="22"></line></svg>
+        </button>
+        <button class="ghost icon-button" data-tool="select" title="Select (S) — click a card or sketch, Delete to remove it">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l7 17 2-7 7-2z"></path></svg>
         </button>
         <button class="ghost icon-button" data-tool="draw" title="Pen (P)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>
         </button>
+        <button class="ghost icon-button" data-tool="highlighter" title="Highlighter (M)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l6-6 4 4-6 6H9v-4z"></path><path d="M4 20l3.5-3.5"></path><path d="M13 5l4-4"></path></svg>
+        </button>
         <button class="ghost icon-button" data-tool="line" title="Line (L)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="19" x2="19" y2="5"></line></svg>
+        </button>
+        <button class="ghost icon-button" data-tool="arrow" title="Arrow (A)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="19" x2="19" y2="5"></line><polyline points="9 5 19 5 19 15"></polyline></svg>
         </button>
         <button class="ghost icon-button" data-tool="rect" title="Rectangle (R)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
@@ -1468,6 +1493,9 @@ Link to another note with [[its first few words]]."></textarea>
         <span class="header-divider" aria-hidden="true"></span>
         <button id="wb-undo" class="ghost icon-button" title="Undo (Ctrl+Z)" disabled>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>
+        </button>
+        <button id="wb-redo" class="ghost icon-button" title="Redo (Ctrl+Y)" disabled>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 14 20 9 15 4"></polyline><path d="M4 20v-7a4 4 0 0 1 4-4h12"></path></svg>
         </button>
         <span class="header-divider" aria-hidden="true"></span>
         <input type="color" id="wb-color-picker" value="#ffffff" title="Stroke Color" class="wb-color-picker">

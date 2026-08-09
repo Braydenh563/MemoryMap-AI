@@ -7,6 +7,27 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Fixed / Added — whiteboard redo & select, highlighter persistence, arc-label spacing, touch input (roadmap §11, §15)
+
+- Whiteboard: a redo stack (Ctrl+Y / Ctrl+Shift+Z, toolbar button), and a
+  real single-item Select tool (was folded into Pan) with Delete/Backspace
+  and Escape support.
+- Whiteboard: a highlighter stroke's width/opacity is now saved and
+  restored correctly — it previously reloaded as a plain full-opacity 3px
+  line, losing the tool's whole point.
+- Whiteboard: an arrow tool (shaft + arrowhead as one path/one undo entry).
+  **Its live drag-to-save path was not confirmed working this session** —
+  see HANDOVER.md for why, and check this first next session.
+- Graph (arc view): labels were re-reported as reading like they belonged
+  to the wrong node — widened node spacing, shortened the label limit, and
+  steepened the label tilt so a label's own reach stays under one node-step.
+  Category labels also now get an accent colour, not just bold, so they
+  read as a distinct kind of label.
+- Whiteboard and graph: switched from mouse events to pointer events (the
+  sketch pad already did this) so touch and pen input work, not just a
+  mouse — not verified against real touch hardware, reasoned from the
+  event model.
+
 ### Changed — licence: MIT → AGPL-3.0
 
 MemoryMap is now under the **GNU Affero General Public License v3.0**. The

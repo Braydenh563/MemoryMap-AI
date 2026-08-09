@@ -2,7 +2,335 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session: §44–§49, then a large burst of new reports triaged and queued rather than built, on user instruction, at high usage
+## Latest session: §52 — whiteboard redo/select/highlighter/arrow, arc-label spacing, pointer-event touch support — and a live-verification gap on shape tools
+
+Continued straight from §50–§51 below on the same branch, same instruction
+("finish Tier 1 and 2, then prioritise the rest"), with several UI reports
+and scope adds arriving mid-session. **Read this before touching the
+whiteboard or the arc graph view — there is a real unresolved gap here, not
+just a list of fixes.**
+
+**Done and verified live, this session:**
+- **Whiteboard redo.** `wbRedoStack`, cleared on any fresh action;
+  `wbApplyHistoryEntry(from, to)` shares the pop/apply-inverse/push-reverse
+  logic between undo and redo so repeated undo/redo/undo/redo can't drift.
+  Ctrl+Y and Ctrl+Shift+Z both wired, plus a toolbar button whose disabled
+  state tracks the stack. Verified: draw → undo (count drops) → redo (count
+  restored), button disables correctly.
+- **Whiteboard select, single-item.** A real `data-tool="select"` (was
+  folded into "pan" before) — click a card/sketch to select it (outline
+  highlight via `.wb-selected`), Delete/Backspace or Escape to act on it,
+  clicking empty canvas clears it. Verified: select → Delete → gone → undo
+  restores it; select → click elsewhere → deselected.
+- **Highlighter persistence, a real bug caught before shipping.** The
+  highlighter tool existed for exactly one render: the saved sketch JSON
+  only ever stored `{d, color}`, so a highlighter reloaded as a plain
+  full-opacity 3px line, losing the whole point of the tool. Fixed by
+  extending the payload to `{d, color, width, opacity}` for highlighter
+  strokes and reading those back (with 3px/opaque defaults otherwise) in
+  `renderWhiteboard`'s own per-sketch render loop. Verified: draw a
+  highlighter stroke → live attrs are 12px/0.35 → force a full
+  `renderWhiteboard()` re-run (simulating a reload without needing to
+  re-login in a script) → **still** 12px/0.35; a plain pen stroke drawn the
+  same way still defaults to 3px/opaque.
+- **Arc graph labels, re-reported a second time with a screenshot.** The
+  earlier tilt-direction fix (§51/HISTORY §52 below) was real but
+  incomplete — it fixed *which side* labels sat on, not how far they
+  reached. At `ARC_STEP` 46px and up to 20-char labels tilted 40°, a
+  label's own horizontal reach (`~100px`) was two-plus node-steps, so a
+  label's tail routinely sat under a *later* node — exactly the "category
+  name is on the note, the note starts on the category's node" symptom.
+  Widened `ARC_STEP` to 58, shortened `ARC_LABEL_LIMIT` to 12, steepened
+  the tilt to `rotate(58, ...)`. **Not re-verified with a screenshot this
+  session** (see the gap section below) — reasoned from the same geometry
+  that diagnosed the bug, not re-measured.
+- **Category labels get a colour, not just bold.** `.graph-label-group`
+  now also sets `fill: var(--accent)` (light and dark) — asked for
+  directly ("need to be a different colour... or being bold or smth"; bold
+  already existed and evidently wasn't enough on its own).
+- **Touch/pointer-event support for the whiteboard and the graph.** Both
+  used plain `mouse*` listeners, which touch and pen input don't reliably
+  dispatch — the sketch pad already used `pointer*` events and worked, so
+  this was a known-good pattern to extend rather than new design.
+  Converted the whiteboard's draw/erase/select listeners and the graph's
+  `#graph-svg` to pointer events, added `touch-action: none` to
+  `.whiteboard-container` and `#graph-svg` (without it the browser eats the
+  gesture for page-scroll/pinch before a pointer event ever fires — the
+  other half of this fix, easy to miss). d3-zoom/d3-drag v7 already listen
+  for pointer events internally, so the graph's pan/zoom/node-drag should
+  now work on touch without further changes. **Not verified live** — this
+  sandbox has no touch-capable input surface; see the gap section.
+- **Arrow tool added.** One `<path>`, three subpaths (shaft + both head
+  strokes sharing one undo entry), same head-angle trig as the sketch
+  pad's own arrow. Toolbar button + `A` shortcut; `M` for the highlighter.
+
+**The gap, stated plainly rather than glossed over: shape-tool drags
+(line/rect/circle/arrow) were not confirmed working live this session.**
+Chasing this cost real time and is worth recording precisely so the next
+session doesn't repeat it:
+- A synthetic `page.mouse.down()` → `page.mouse.move(..., {steps})` →
+  `page.mouse.up()` drag on the arrow tool consistently produced the "no
+  real movement, discard" result (a stale leftover sketch, not a freshly
+  saved one — confirmed via the server log showing no `POST
+  /whiteboard/sketches` was even attempted).
+- This is **not obviously the arrow code's fault**: the pre-existing,
+  untouched-this-session **line** tool, tested the identical way,
+  reproduced the exact same failure. If this were a real regression in new
+  code, line wouldn't fail identically.
+- Pointer-event *delivery* to the handler was separately confirmed correct
+  with a minimal listener mirroring the real one: `pointerdown`,
+  `pointermove` (four times, real coordinates tracking the drag exactly),
+  and `pointerup` all reached `#wb-svg-layer`'s own bubble-phase listener,
+  with `window.currentTool` staying `"arrow"` throughout.
+- What wasn't resolved: why the *app's own* mousemove handler, given the
+  same events, ends up with `currentDrawData.length < 2` at mouseup (which
+  is what triggers the discard/dot-fallback for shape tools). Zoom-transform
+  drift (repeated automated test runs against the same persisted board today
+  could have left the pan/zoom scaled far from 1×, shrinking a real
+  screen-pixel drag to a sub-2-logical-unit one) was tried as an explanation
+  and ruled out — resetting via `#wb-zoom-fit` first didn't change the
+  result.
+- **First thing to do next session**: reproduce this with a real mouse (or
+  Playwright's touchscreen/CDP dispatch rather than `page.mouse`) against a
+  *fresh* board (a brand-new `MEMORYMAP_DATA_DIR`, not this session's
+  test-scarred one) before assuming either "it's broken" or "it's fine" —
+  today's evidence points at a test-harness quirk but doesn't prove it.
+
+**Also asked for directly, scoped but not built (see ROADMAP.md item 11
+for the full writeup):**
+- Multi-select (Ctrl/Cmd-click, Shift-click), rectangle marquee select,
+  lasso select — select is single-item only right now.
+- A properties panel for the current selection (colour, line thickness,
+  arrowhead style) — depends on multi-select existing first.
+- A text tool and a size control for the whiteboard, matching the sketch
+  pad (still the two things the sketch pad has that the whiteboard
+  doesn't).
+- Shift-to-lock-proportions is done for the **sketch pad's** rect tool
+  only; the whiteboard's own rect/circle tools don't have it yet.
+
+## Tier 1/2 status check, run at the end of the session above
+
+Tier 1: all 11 items done except **§7 — claim-specificity in the
+hallucination net** (see the dedicated section below; blocked on real model
+output, not a miss). §1 (meeting transcription) is fixed but a *successful*
+transcription has still never been observed — this sandbox blocks Hugging
+Face — only the correct failure path has been.
+
+Tier 2: done except this named, bounded set —
+
+| Item | What's left | Why it's not done |
+|---|---|---|
+| Sketch pad selection | Click an existing stroke to move/resize/delete it | Architecturally hard — pure-raster canvas (`ImageData` undo), no discrete stroke objects. Needs a rewrite, not a patch. |
+| Whiteboard multi-select | Ctrl/Cmd/Shift-click, rectangle marquee, lasso | Only single-item select exists so far. |
+| Whiteboard properties panel | Colour/thickness/arrowhead for the current selection | Depends on multi-select existing first. |
+| Whiteboard move/rotate, text tool, size control | Named gaps vs. the sketch pad | Not started. |
+| Whiteboard shape-tool live verification | Confirm line/rect/circle/arrow actually save on a real drag | Test harness inconclusive this session (see the arrow-tool writeup above) — check this **first**, before building more on top. |
+| Line view / grid view visual pass | General polish, reported as needing one | Not itemized further — get specifics next time it's reported. |
+| Emoji picker (16e) | **Decision made**: both a native-OS picker and a built-in palette, Appearance-tab toggle to pick which. Not scoped or built. |
+| Emoji sweep (16f) | **Decision made**: both an SVG icon set and monochrome emoji, same Appearance-tab toggle pattern. Not built — see item 16f's four-part plan. |
+
+16e and 16f share the same toggle mechanism — worth scoping and building together next session, not separately.
+| Onboarding, the rest (§19) | Model-pull offer, data-dir writability check, seeded example notes, guided tour | Not started. |
+| §18's "sketch/image toggles" | Couldn't be matched to anything in the current Options panel | Possibly stale/mis-transcribed — confirm what it meant if still wanted. |
+
+**Known bugs left unfixed, on purpose:**
+- Drag-highlight during an actual *node* drag (not panning — that's fixed).
+  Re-reported live outside this sandbox; the pan-fix's `graphIsPanning`
+  cause doesn't apply (every other node is pinned during a node drag), so
+  there's no obvious analogous quick fix. Needs the exact repro gesture.
+- Whiteboard shape tools (line/rect/circle/arrow): unverified, see above.
+- Touch input: wired but never run against real touch hardware.
+- Arc label spacing fix: math checks out, screenshot not retaken to confirm.
+
+**Suggested order for next session**: (1) whiteboard shape-tool
+verification, (2) whiteboard multi-select → properties panel → move/rotate,
+(3) onboarding rest (§19 — named by an earlier outside review as the
+highest-leverage thing left), (4) test-file consolidation (needs a concrete
+finding first, not a mechanical merge), (5) then Tier 3. Folding
+BACKLOG.md's ~29 sections into ROADMAP.md is a real re-prioritisation job,
+not a paste — worth its own session.
+
+**Test-file consolidation** (asked for directly: "refactor and consolidate
+all the testing files since they are all over the place") was **not
+started** — deliberately, given the token budget this session ran into and
+this file's own standing warning against a mechanical merge of the ~106
+narrative-style test files without a concrete finding (duplicated fixtures,
+an oversized file) to act on first. Next session: spend 10 minutes actually
+looking for one before merging anything.
+
+**Also asked directly and deliberately not attempted this session, given the
+token budget**: folding BACKLOG.md's ~29 sections into ROADMAP.md as one
+tiered list. This is a real restructuring job — deciding where each backlog
+item now ranks against the existing Tier 1–4 items, not a cut-and-paste —
+and doing it rushed risks losing the reasoning BACKLOG.md's entries already
+carry. README.md and ARCHITECTURE.md were spot-checked (grepped for
+"whiteboard"/"touch"/"redo") against this session's changes and found still
+accurate at the level of detail they describe; a line-by-line audit of
+either, or of BACKLOG.md/ANALYSIS.md's ~3,000 combined lines, was not done.
+
+All ~1,600 tests pass, `ruff check .` is clean, `node --check
+frontend/app.js` is clean. Committed and pushed
+(`claude/roadmap-tier-1-2-security-o4rhjl`).
+
+## Previous session: §50–§51 — a CodeQL ReDoS fixed, all of Tier 1 cleared (four items were stale, not unbuilt), most of Tier 2 worked top-down, and a menu redesign asked for directly
+
+Long unattended run, worked exactly as instructed: "work autonomously,
+commit and push as you go," plus a live-fired security alert and several
+UI reports the user added mid-session. Full detail is in
+[HISTORY.md §50](HISTORY.md) and [§51](HISTORY.md); this is the ordered
+short version and — the part a handover is actually for — what is and
+isn't done, and why.
+
+**Started from a CodeQL alert** (`py/polynomial-redos`, high severity) on
+`manager._TITLE_LINE`, the note-title regex. Replaced with a linear
+hand-rolled scan, verified against the regex's own edge cases, not just
+"tests still pass". A second alert on the same file (`py/cyclic-import`,
+Note severity) was checked and correctly left alone — a deliberate
+deferred import breaking a real cycle, not a bug.
+
+**Then Tier 1, top to bottom.** Two real, previously-undiagnosed graph
+bugs, both reproduced with Playwright before being fixed and re-verified
+the same way afterward — not reasoned from the code:
+
+- Tree/Radial/Arc lost every edge the instant the Time Filter left "All
+  time" (Force was unaffected). Cause: those layouts' edges include
+  synthetic category-heading/root nodes with no `created_at`, read as
+  "created right now" by the filter. Fixed by exempting `isGroup` nodes.
+- Dragging on empty canvas could leave an unrelated note's hover-spotlight
+  stuck lit. Cause: panning slides nodes under a stationary cursor, firing
+  a real `mouseenter` with no reliable following `mouseleave`. Fixed with
+  a `graphIsPanning` flag muting hover for the whole gesture. **Re-reported
+  as still happening, live, outside this sandbox, after the fix** — see
+  "what's still open" below; not force-fixed without a fresh repro.
+
+The other five open Tier 1 items (2, 3, 4, 6, and 17 over in Tier 2) were
+each checked against the actual code and existing tests before being
+touched, per this file's own standing rule — and turned out to be
+**already fixed**, mostly by §41, just never crossed off. Meeting
+transcription (item 1) was re-confirmed rather than re-fixed: `faster-
+whisper` installed cleanly and a real clip now gets the correct distinct
+503, but this sandbox's network policy blocks `huggingface.co` outright,
+so a genuinely successful transcription is still unobserved by any
+session. Item 7 (claim-specificity) remains the one Tier 1 item that
+cannot be closed here — it needs real model output this sandbox has never
+been able to provide.
+
+**Then Tier 2, top to bottom, each one reproduced live before being
+touched:**
+
+- **§13 done**: reminders and categories got the `_change_*_id`
+  resolvers notes/documents already had (`_change_reminder_id`, an int;
+  `_change_category_name`, since category tools work in names). `changeRow`
+  grew `flashReminder`/`flashCategory` View buttons.
+- **§16b done**: the document editor's Bold/Italic only ever wrapped, never
+  toggled off. Fixed to check both shapes a selection can be in.
+- **§11 (whiteboard) — two bugs done, one board-colour reset built**: the
+  pen tool ignored a single click (fixed the same way the sketch pad
+  already had it right); the eraser needed movement to register at all,
+  so a plain click did nothing (fixed); a `↺` reset button for the board
+  colour picker, asked for directly, reads the live theme default rather
+  than a hardcoded hex.
+- **§16a done**: the document sidebar's Outline collapsed to *exactly 0px*
+  the instant the storage disclosure opened — measured live before fixing.
+  Cause: the disclosure was `flex-shrink: 0` (exempt from shrinking) while
+  the outline had no floor, backwards from what the CSS's own comment said
+  the intent was.
+- **§14 done**: the Timeline line view's popup showed raw `**`/`#`
+  characters and never rendered an attachment at all — `#timeline-popup-
+  media` existed in the HTML and nothing had ever populated it. Rewired to
+  reuse `renderMarkdown`/`renderGraphPopupMedia`'s own pattern.
+- **§16c done**: paste and drag-drop into notes already worked (a global
+  textarea handler Capture's `#entry-content` happened to already qualify
+  for) — checked live before assuming a rebuild was needed. Only a
+  file-picker button was genuinely missing; built one.
+- **§18 done**: the full-screen graph's suggested-links list wasn't just
+  unscrolled, it was **unreachable** — `#graph-card`'s `overflow: hidden`
+  (from an earlier, unrelated fix) still applied in fullscreen, since an
+  ID beats a class on specificity no matter the source order. Fixed with
+  an id+class compound selector.
+- **A note-card menu redesign, asked for directly mid-session** (not a
+  prior ROADMAP item): the ⋯ menu had grown to 15 flat items. Three stay
+  top-level (private toggle, History, the destructive delete); the rest
+  group into three side flyouts (AI actions / Connect / Add) that open on
+  hover or click, flip side when the viewport edge is close, and collapse
+  to an in-place accordion below 720px — verified at both desktop and
+  390px (iPhone) viewport widths.
+
+**What's still open in Tier 2, and why each one is genuinely left for
+next time rather than rushed:**
+
+- **The single-node drag-highlight, re-reported live after the fix
+  above.** Checked whether an actual node-drag (not a pan) shares the
+  cause — it doesn't, every other node is pinned during one — so there's
+  no obvious quick fix without a fresh repro (which tool, which gesture,
+  which browser). Named in ROADMAP item 11, not guessed at.
+- **The whiteboard's larger list** (redo, select/move/rotate as real
+  tools, shift-to-lock, images, precise placement, draw.io-style
+  connections, toolbar default position, grid/snap) — explicitly named by
+  an earlier session as needing its own dedicated session given the
+  integration surface (drag, zoom, the trace overlay, physics sliders all
+  touch it), and that reasoning still holds. The user also asked directly
+  this session for "an upgraded version of the sketch pad" with more
+  tools generally — not itemised; needs a concrete list before a session
+  can act on more than what's already named.
+- **The sketch pad's selection tool** (click an existing stroke to move,
+  resize, or delete it) and **shift-to-lock proportions** — both scoped,
+  neither built. The selection tool in particular needs real hit-testing
+  design (a stroke is a path, not a rect) that deserves its own pass
+  rather than a rushed one at the end of an already-long session.
+- **Item 16 ("documents in the graph")** — one line, no detail beyond
+  "they are notes' equal everywhere else." Real gap (the `/graph`
+  endpoint only ever returns notes), but needs scoping before building:
+  does a document get its own node kind, its own colour, does it link to
+  the notes attached to it automatically?
+- **Item 15 (Arc labels-behind-nodes)** — investigated live in an earlier
+  session and did not reproduce with synthetic data. Needs the original
+  report's exact steps or a screenshot, not another guess.
+- **Item 19 (onboarding, the rest)** — reachability diagnostics are built
+  (BACKLOG.md §27); still open: offering to pull a model (needs its own
+  progress UI), a data-dir writability probe (the backend doesn't have
+  one yet), seeded example notes, and a guided tour. Real, valuable, and
+  substantial enough that it deserves a session of its own rather than a
+  partial pass wedged into this one.
+- **Items 16d/16e/16f** (an optional title field, an emoji picker, a full
+  emoji-usage sweep) are explicitly blocked on the user's own design
+  decisions, not on anything technical — asking is the correct next step
+  for each, not building a guess.
+
+**What was and wasn't verified**: every fix above with a concrete,
+checkable behaviour was driven against a real running server via
+Playwright — screen measurements, DOM state, real file uploads, real
+mouse gestures — not reasoned from reading the code, per this project's
+own standing rule. Full `pytest tests/` (~1,600+ tests), `ruff check .`,
+and `node --check frontend/app.js` green after every single change, not
+just at the end. What's genuinely unverified: meeting transcription's
+actual output (network-blocked in this sandbox, named above), and
+anything in the "still open" list, which is open precisely *because* it
+wasn't rushed to a guessed fix.
+
+**Where to start next**, roughly in the order this session would pick
+them, but not a mandate — re-prioritise freely against whatever's been
+reported since:
+
+1. The sketch pad's selection tool (item 10) — smallest of the remaining
+   scoped builds, self-contained, no dependency on anything else.
+2. Item 19's onboarding work (seeded notes, the writability probe, the
+   model-pull UI, the guided tour) — each piece is independently
+   buildable; seeded notes are probably the cheapest, highest-visible-
+   impact one to start with.
+3. The whiteboard's list (item 11) — biggest remaining surface, budget a
+   full session for it rather than a partial pass, and read the
+   connection-point / draw.io framing in ROADMAP.md before starting.
+4. Item 16 (documents in the graph) — scope it first (what a document
+   node looks like, what it colours as) before writing any code.
+5. Ask directly about 16d/16e/16f (title field, emoji picker, emoji
+   sweep) — each is one question away from being buildable.
+6. Item 15 (Arc labels) stays parked until a real report with exact
+   repro steps arrives — not worth another blind attempt.
+
+---
+
+## Previous session: §44–§49, then a large burst of new reports triaged and queued rather than built, on user instruction, at high usage
 
 Same session as the §44–§48 entry below, continued through §49 and then a
 large burst of new reports arrived faster than they could be safely

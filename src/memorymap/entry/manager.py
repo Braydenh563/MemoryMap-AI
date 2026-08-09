@@ -854,11 +854,28 @@ def readable_content(entry: Entry) -> str:
         return "🔒 This private note couldn't be decrypted."
 
 
-#: A leading Markdown heading on the first non-blank line only — a `#` three
-#: paragraphs into a long note is a section break, not what the note is
-#: *called*. Requires the space after the hashes, so "#recipe" (a tag someone
-#: typed at the very top) is never mistaken for a heading.
-_TITLE_LINE = re.compile(r"^#{1,6}[ \t]+(\S.*)$")
+def _heading_text(stripped: str) -> str | None:
+    r"""The text of a leading Markdown heading (1-6 `#`, then a required
+    space/tab, then the title) — a `#` three paragraphs into a long note is
+    a section break, not what the note is *called*, so this only ever looks
+    at one already-stripped line. Requires the space after the hashes, so
+    "#recipe" (a tag someone typed at the very top) is never mistaken for a
+    heading.
+
+    Hand-rolled instead of a `^#{1,6}[ \t]+(\S.*)$` regex: CodeQL flagged
+    that shape as a polynomial-ReDoS risk on note content, which is as
+    uncontrolled as input gets in this app. This scan is a single linear
+    pass with no backtracking.
+    """
+    n = 0
+    while n < len(stripped) and n < 6 and stripped[n] == "#":
+        n += 1
+    if n == 0 or n >= len(stripped) or stripped[n] not in " \t":
+        return None
+    text = stripped[n:].lstrip(" \t")
+    if not text or text[0].isspace():
+        return None
+    return text
 
 
 def extract_title(content: str) -> str | None:
@@ -873,8 +890,8 @@ def extract_title(content: str) -> str | None:
         stripped = line.strip()
         if not stripped:
             continue
-        match = _TITLE_LINE.match(stripped)
-        return match.group(1).strip() if match else None
+        text = _heading_text(stripped)
+        return text.strip() if text else None
     return None
 
 
@@ -895,7 +912,7 @@ def apply_title(content: str, title: str) -> str:
     lines = (content or "").splitlines()
     i = _first_content_line(content or "")
     heading = f"# {title}"
-    if i is not None and _TITLE_LINE.match(lines[i].strip()):
+    if i is not None and _heading_text(lines[i].strip()) is not None:
         lines[i] = heading
         return "\n".join(lines)
     return heading if not content else f"{heading}\n{content}"
@@ -909,7 +926,7 @@ def remove_title(content: str) -> str:
     """
     lines = (content or "").splitlines()
     i = _first_content_line(content or "")
-    if i is None or not _TITLE_LINE.match(lines[i].strip()):
+    if i is None or _heading_text(lines[i].strip()) is None:
         return content
     del lines[i]
     if i < len(lines) and not lines[i].strip():

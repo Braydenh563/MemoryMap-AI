@@ -139,6 +139,13 @@ class ChatRequest(BaseModel):
     # them write to the notebook, so "restart" meant tagging and linking the
     # same notes a second time.
     skill_from_step: int = Field(default=0, ge=0, le=skills.MAX_STEPS)
+    # Manual (step-through) mode, asked for directly: a pause after every
+    # completed step with a Continue button and a text box, rather than a
+    # skill running straight through unattended. `skill_manual_note` is what
+    # was typed in at that pause — folded into the very next step's own
+    # instruction, not stored anywhere.
+    skill_manual: bool = False
+    skill_manual_note: str | None = Field(default=None, max_length=skills.MAX_MANUAL_NOTE)
     # A plan the model drew for this request and handed back to be worked
     # through (§35K). Same shape as a skill run and the same runner — the
     # difference is only that nobody saved it. Sent by the client rather than
@@ -656,6 +663,8 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                     model_manager,
                     ollama,
                     start_at=body.skill_from_step,
+                    manual=body.skill_manual,
+                    manual_note=body.skill_manual_note,
                     **shared,
                 )
             else:

@@ -530,6 +530,103 @@ def test_what_changed_comes_back_as_a_list_with_a_way_to_undo_it(
     assert ai_client.get(f"/entries/{note['id']}").json()["tags"] == []
 
 
+# --- manual (step-through) mode ----------------------------------------------
+#
+# "a manual mode" — asked for directly, and named in ROADMAP.md as "the
+# single most-requested unbuilt thing on the list": a pause after every
+# completed step with a Continue button, so a person can add what the agent
+# missed or answer a question it raised before the next step starts, rather
+# than the run barrelling straight through five steps unattended.
+
+
+def test_manual_mode_pauses_after_the_first_step_instead_of_continuing(
+    ai_client, fake_ollama
+):
+    events = _stream_events(
+        ai_client, "run", skill="🏷 Auto-tag my notes", skill_manual=True
+    )
+    steps = [e for e in events if e["type"] == "step"]
+    result = [e for e in events if e["type"] == "result"][0]
+
+    assert [s["state"] for s in steps] == ["running", "done"]
+    assert result["stopped_at"] == 1
+    assert result["paused"] is True
+
+
+def test_manual_mode_off_runs_straight_through_as_before(ai_client, fake_ollama):
+    events = _stream_events(ai_client, "run", skill="🏷 Auto-tag my notes")
+    result = [e for e in events if e["type"] == "result"][0]
+    assert result["stopped_at"] is None
+    assert result["paused"] is False
+
+
+def test_manual_mode_does_not_pause_after_the_last_step(ai_client, fake_ollama):
+    """Nothing to pause for once the run is actually finished."""
+    events = _stream_events(
+        ai_client,
+        "run",
+        skill="🏷 Auto-tag my notes",
+        skill_manual=True,
+        skill_from_step=4,  # the last of the five steps
+    )
+    result = [e for e in events if e["type"] == "result"][0]
+    assert result["stopped_at"] is None
+    assert result["paused"] is False
+
+
+def test_a_paused_run_is_never_reported_as_failed_or_stalled(ai_client, fake_ollama):
+    events = _stream_events(
+        ai_client, "run", skill="🏷 Auto-tag my notes", skill_manual=True
+    )
+    steps = [e for e in events if e["type"] == "step"]
+    assert not any(s["state"] in ("failed", "stalled") for s in steps)
+
+
+def test_manual_note_is_folded_into_the_next_steps_own_instruction(
+    ai_client, fake_ollama
+):
+    """What the user typed at the pause is read as part of what the next
+    step is being asked to do — not buried in history the model may or may
+    not weigh against everything else in the window."""
+    _stream_events(
+        ai_client,
+        "run",
+        skill="🏷 Auto-tag my notes",
+        skill_manual=True,
+        skill_from_step=1,
+        skill_manual_note="focus on the work notes only",
+    )
+    sent = fake_ollama.tool_rounds[-1][-1]["content"]
+    assert "focus on the work notes only" in sent
+
+
+def test_manual_note_only_reaches_the_step_it_was_added_before(ai_client, fake_ollama):
+    """Not repeated into every later step's instruction — it was about *this*
+    step, and a note that keeps reappearing three steps later would read as
+    a standing instruction nobody actually gave."""
+    events = _stream_events(
+        ai_client,
+        "run",
+        skill="🏷 Auto-tag my notes",
+        skill_manual=True,
+        skill_from_step=1,
+        skill_manual_note="focus on the work notes only",
+    )
+    # Paused again after step 1 (index 1), one turn only having seen the note.
+    result = [e for e in events if e["type"] == "result"][0]
+    assert result["stopped_at"] == 2
+    later = _stream_events(
+        ai_client,
+        "run",
+        skill="🏷 Auto-tag my notes",
+        skill_manual=True,
+        skill_from_step=2,
+    )
+    sent = fake_ollama.tool_rounds[-1][-1]["content"]
+    assert "focus on the work notes only" not in sent
+    assert later  # the resumed run itself produced events
+
+
 def test_the_undo_never_reaches_the_model(ai_client, session, fake_ollama):
     """Every field left in a tool result is resent on every later round."""
     note = _saved(ai_client, "a note")

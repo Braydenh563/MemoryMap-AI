@@ -1175,3 +1175,422 @@ check above proves the same JS code path (`api(... PUT .../reason)`,
 re-render, chip title) that the auto-deduce path also runs through — but the
 pixels of a deduced reason's tooltip specifically were not seen, and that is
 worth re-checking with a real embedding backend before calling it done.
+
+## 44. §8's two perf fixes, a real "ran without being enabled" bug, link suggestions grew the reason they'd get if linked, a mute option — plus three reports investigated and not reproduced
+
+An unattended run: checked the running app and both handover files first,
+per this project's own standing rule, then worked ROADMAP.md's Tier 1 top
+item — §8's two backend perf findings, explicitly flagged "start here next"
+— before anything the user raised live mid-session. Committed and pushed in
+batches rather than one large commit, in case of a usage-limit cutoff.
+
+**§8, both perf findings, fixed and pinned by query-count tests (not
+timing):**
+
+1. `tools._graph_neighbours` fetched every non-deleted `Entry` — the whole
+   table, `content` included — whenever the note it was walking from had
+   tags, to find tag matches by hand. `_related_notes` calls it once per BFS
+   node (up to ~12 at depth 2), so this scaled per call as well as per
+   entry. Tags are a JSON text column with no per-tag index, so a SQL filter
+   can only narrow candidates, not resolve the match exactly: rewritten to
+   `ilike` pre-filter per tag (the same pattern `list_tags`/`_count_notes`
+   already used elsewhere in this file) before the existing exact Python
+   check, which also removes any substring false positive ("art" matching
+   "cart") the `ilike` lets through.
+2. `manager.entry_dates` (one `SELECT` per entry) was called inside
+   `_note_summary`, itself called per row by `list_notes` (≤25) and
+   `summarize_notes` (≤40) — an N+1 on the agent's two most-used read tools.
+   New `manager.entry_dates_bulk` fetches every returned note's dates in one
+   `WHERE entry_id IN (...)` query, grouped by id; `_note_summary` takes an
+   optional pre-fetched `dates` list so the two batch callers can pass it in
+   while single-note callers (`get_note`, etc.) keep querying one at a time.
+
+Both pinned in `tests/test_scale_query_counts.py` (extended, not a new
+file) with a query count at 20 vs. 220 entries — a fixed handful either way,
+not one-per-entry — matching that file's own stated reasoning for counting
+queries instead of timing them.
+
+**A real correctness bug, reproduced live before being fixed, not
+theorised**: the user reported *"I get notifications that the autonomous
+optimisation completed when I didn't have it enabled??"* Read
+`ai/autonomous.py` first and found the shape: `_loop()` checks
+`autonomous_tasks_enabled` before ever calling `_run_optimization`, but
+`trigger_now()` (the "Run optimization now" button, and its `POST
+/tasks/trigger-autonomous` endpoint) never did — it only guards against a
+pass already running. Confirmed with a live server rather than assumed: on
+a fresh profile (`autonomous_tasks_enabled` unset), `curl -X POST
+.../tasks/trigger-autonomous` returned `started: true` and a real pass ran.
+The button itself is hidden while the toggle is off, which is a UI
+convenience, not an authorization check — anything else reaching the
+endpoint (a stray script, a future dashboard shortcut) hit the same gap.
+Fixed in the route, not in `_run_optimization` or `trigger_now`: ten-plus
+existing tests call `_run_optimization()` directly and treat the master
+toggle as the caller's job to check (by design — its docstring is "one
+pass", and `_loop` already owns that check), so folding the guard into the
+shared function would have broken that contract and every one of those
+tests. The route now checks the preference itself before calling
+`trigger_now`, with a distinct response body (`"switched off in Settings"`)
+so a caller can't confuse "disabled" with "already running" the way a
+single bool would. Re-verified live after the fix: disabled →
+`started: false` with the new message; explicitly enabled → `started: true`,
+a real pass. Two new tests in `test_autonomous.py` pin both branches at the
+route level.
+
+**Link reasons, extended on two fronts the user asked about directly:**
+
+- *"I feel like the suggested links should include a suggested reason
+  somewhere."* `GET /entries/link-suggestions` and `manager.create_link`'s
+  own deduction threshold (`AUTO_REASON_THRESHOLD`, renamed from
+  `_AUTO_REASON_TEXT` to make it importable) are numerically identical
+  (0.55), so every suggestion already clears the bar a real link would need
+  to get this same text — added it to the response as `reason` rather than
+  computing anything new, and it's a preview of the real outcome, not a
+  separate guess.
+- *"None of my notes have a linked reason yet — is there an easy way to give
+  them all a reason?"* There wasn't: `_deduce_reason` only ever ran at the
+  moment `create_link` made a *new* link, so a notebook full of links made
+  before §43 shipped (or made while the embedding backend was off) had no
+  way back to a reason. New `manager.backfill_link_reasons` runs the same
+  deduction once over every existing reason-less link — same rule as a
+  fresh link: a person's own reason is never touched, and a link that still
+  can't be deduced (no embedding, or under threshold) is left exactly as it
+  was rather than given a manufactured answer. `POST
+  /entries/links/backfill-reasons`, and a "💡 Give existing links a reason"
+  button next to Suggest links in the graph's suggestion panel. Four new
+  tests: the suggestion's `reason` field, a backfill that fills the similar
+  pair and leaves the unrelated one alone, and one confirming a hand-written
+  reason is never overwritten.
+
+**A notifications-mute option, asked for directly**: "there can be an
+option to mute notifications except for reminders." New preference
+`notifications_muted_except_reminders` (Settings → Preferences →
+Notifications). `toast()` gained an `exempt` flag — set on the three
+reminder-alert call sites so a due reminder always gets through — and
+returns early for everything else, except errors, when muted (silencing a
+real failure would defeat the point of the toggle more than the noise it's
+meant to quiet). `recordNotification` (the persistent panel) does the same,
+keyed off `kind !== "reminder"`. Not built: mirroring ordinary UI-action
+toasts ("Saved.", "Linked.") into the panel, the other half of the same
+message — every call site would need a `kind` first, and flooding the panel
+with routine feedback isn't obviously wanted; needs its own pass at which
+toasts actually belong there.
+
+**A graph-toolbar readability fix, reported directly**: "the labels and
+what UI control element they connect to is confusing in the graph tab."
+`.graph-time-label` ("All time") is a plain read-out of the Time Filter
+slider, styled identically to the *interactive* toggle labels
+(Similarity/Hide unlinked/Labels) sitting right after it with the same flex
+gap — nothing marked where the slider's own group ended and the toggles
+began. Grouped the three toggles under one `.graph-toggle-group` span and
+drew a divider before each top-level group, reusing `.chat-tool-group`'s
+existing `+`-selector convention (a divider on the group itself survives
+any neighbour being hidden) rather than inventing a second one.
+
+**Three things reported live, investigated, and correctly left alone rather
+than guessed at** — full detail in ROADMAP.md's new "Open questions raised
+this session" section:
+
+- Whether Capture should grow its own title field, separate from §43's
+  leading-heading convention — a design question in the same shape §43 was
+  worked through as, not a bug. Not built; needs a decision first.
+- *"The dashboard isn't detecting my name."* Traced end to end
+  (`renderNameNudge`, `withDisplayName`, `savePrefs`'s cache update and
+  re-render) and the code is correct — the nudge is designed to show exactly
+  when `display_name` is empty. Read as "the feature working as built on a
+  profile with no name saved" rather than a bug, absent a case where a name
+  was actually saved and still didn't show.
+- The Timeline grid's "text cut off with no ellipsis" report, re-driven live
+  in Chromium with notes up to 122 characters at the grid's real column
+  width. Found one real, previously-undocumented fact — `display:
+  -webkit-box`'s **computed** value in this sandbox's Chromium is
+  `flow-root`, not `-webkit-box`, so the existing code comment's claim about
+  which property "actually reads" here is not quite right — but clamping
+  still worked correctly in every case tried (`scrollHeight === clientHeight`
+  throughout, nothing overflowing). Could not reproduce the reported
+  clipping with any input tried; said so rather than guess at a CSS change
+  with nothing to verify it against.
+
+**What could and couldn't be verified**: the two §8 perf fixes and the
+autonomous-toggle fix were all reproduced and re-verified against a real
+running server (`curl`, not just reasoning about the code) — the standing
+trap this project's own history has fallen into more than once. The
+graph-toolbar divider, the suggestion-reason text, the backfill button and
+the mute option are CSS/JS reasoned from the DOM and existing conventions
+but were **not** driven in a browser this session — say so plainly rather
+than claim a screenshot that doesn't exist. Full `pytest tests/` (~1,600+
+tests), `ruff check .`, and `node --check frontend/app.js` all green after
+every batch.
+
+## 45. Skill runs get a manual mode — the single most-requested unbuilt thing on the list
+
+Continued the same session as §44, straight after committing and pushing it.
+ROADMAP.md's own Tier 2 item 8 named this "the single most-requested unbuilt
+thing on the list" — asked for directly more than once: a pause after every
+completed step with a Continue button and a text box, so a person can add
+what the agent missed or answer a question it raised, rather than a run
+barrelling through five steps unattended.
+
+**Built by reusing the existing resume machinery, not inventing a second
+one.** `skill_runner.run_skill` already stops mid-run and hands back
+`stopped_at` for a step that failed or stalled, and `start_at` already
+resumes past it without re-running earlier steps — the exact mechanism a
+pause needs. `run_skill(..., manual=True)` now takes the same stop after
+*every* step that finishes `done` too, not only a broken one; the new
+`result.paused` field is the only difference the caller needs to tell
+"waiting for you" from "something went wrong" and render each one
+differently — a paused run is not reported as a failure, and does not raise
+the "stopped early" notification a genuine failure does (nobody needs to be
+told ten minutes later about a pause they're sitting in front of).
+
+**`manual_note` — what gets typed in at the pause — is folded into the
+*next* step's own instruction**, not appended to `step_history`: this is
+what the person is asking for as part of that step specifically, and a
+history entry is something the model may or may not weigh against
+everything else in its window, the same reasoning `_step_answer` already
+uses for putting the ids a step touched into its own line rather than a
+separate structure. Applied once, at the first step a given call actually
+runs (`index == resume_from`) — a later resume with no note of its own
+does not repeat it, so a comment made once about step 2 doesn't quietly
+keep steering step 4.
+
+**Frontend**: a "Run skills step-by-step" checkbox in the chat dock's `⚙`
+settings panel (alongside answer length and persona — a standing preference
+about how a run behaves, not a per-launch choice), read live when a run
+starts *or* resumes rather than captured once, so a run can be switched
+into or out of manual mode between steps. The pause itself renders as a new
+`manualPauseControls` card — a text input and a **▶ Continue** button — kept
+deliberately separate from the existing `continueRunControls` (Resume /
+ran-out-of-rounds), which stays exactly as it was for an actual failure.
+
+**Not built**: the identical pause for a plan run (`opts.plan` — a plan the
+model draws for one request, per §35K). The backend treats a plan and a
+saved skill identically already (`skill_manual`/`skill_manual_note` are
+sent whenever either is present, per `streamChat`'s own body-building
+logic), but the *existing* Resume-from-failure button was already
+skill-only before this session — extending both paths to plans is one
+further, separate change, not a gap this feature introduced.
+
+**What was and wasn't verified**: six new tests in `test_skills.py`
+(`test_manual_mode_pauses_after_the_first_step_instead_of_continuing`,
+`..._off_runs_straight_through_as_before`, `..._does_not_pause_after_the_last_step`,
+`test_a_paused_run_is_never_reported_as_failed_or_stalled`,
+`test_manual_note_is_folded_into_the_next_steps_own_instruction`,
+`test_manual_note_only_reaches_the_step_it_was_added_before`) drive the
+whole backend path through the real `/chat/stream` endpoint with the fake
+Ollama transport — pause, resume, the note appearing in exactly one step's
+prompt and nowhere else. The checkbox and the pause card's text box were
+**not** driven in a browser this session; say so plainly rather than claim
+a screenshot that doesn't exist. Full `pytest tests/`, `ruff check .`, and
+`node --check frontend/app.js` all green.
+
+## 46. The sketch pad's highlighter and a real background colour — both checked live, one caught a real CSS trap along the way
+
+Continued the same session, straight after §45. ROADMAP.md's next item: the
+sketch pad's highlighter at 5% opacity ("completely wrong" in the report),
+"then a reachable size control, a background colour, and a selection tool."
+
+**Checked before touching anything, per this file's own rule, and found
+half of it already done.** `#sketch-size` already existed, was already
+wired (`sketchPen.size = Number($("sketch-size").value)`), and already
+reached every tool — pen, highlighter, eraser, and every shape's stroke
+width (`line`, `rect`, `circ`, `arrow`) all read `sketchPen.size`. ROADMAP's
+own claim that a size control was missing was stale; corrected in place
+rather than rebuilt.
+
+**The highlighter, fixed and verified live.** `globalAlpha` was a literal
+`0.05` in two places (`sketchMove`, `sketchEnd`) — roughly twenty
+overlapping passes before a stroke showed at all, indistinguishable from the
+tool doing nothing. Now `0.35` (a named `SKETCH_HIGHLIGHTER_ALPHA` constant,
+not a second magic number), which reads as an actual highlighter given the
+existing `multiply` blend mode — translucent, tints rather than covers.
+Verified in a real Chromium session, not just the diff: drew one stroke,
+read the canvas pixel back with `getImageData` (a distinct blue rather than
+the near-white a 0.05 alpha would leave), and took a screenshot showing a
+clearly visible band.
+
+**A background colour, built and then caught doing nothing — the real find
+of this item.** A first pass added `--sketch-board-bg` as a CSS custom
+property on `#sketch-bg-canvas`'s `background`, the exact shape the
+whiteboard's own `--wb-board-bg` already uses. It changed nothing on
+screen. The reason: `sketchDrawBackground()` — called every time the pad
+opens or a background image loads — already does
+`context.fillStyle = "#ffffff"; context.fillRect(...)` across the whole
+canvas, and **that fill is opaque pixels drawn into the canvas element's own
+bitmap**, which sits in front of (and fully hides) whatever the element's
+CSS `background` is. A CSS background on a `<canvas>` is only ever visible
+through pixels the canvas itself left transparent — exactly the shape of
+trap this project's own traps list already names ("a value that is invalid
+where it is used, not where it is set, does its damage nowhere near the
+code that caused it"), just for `display` bugs rather than paint order.
+Found by checking the *pixel data* after picking a colour, not by reading
+the CSS and assuming it applied.
+
+Fixed properly: `sketchBgColor` (a plain module-level variable, persisted
+in `localStorage` the same way the whiteboard's board colour is) replaces
+the hardcoded `"#ffffff"` as `sketchDrawBackground()`'s own `fillStyle`, so
+the chosen colour is real pixel data from the moment it's picked — which
+also means it survives into `saveSketch()`'s composite untouched, since
+that function just `drawImage`s the two canvases together and never knew
+the difference. Verified three ways live: the bg-canvas's own pixels before
+and after picking a colour, and — because a canvas correctly *showing* a
+colour on screen is not the same fact as a save correctly *storing* it —
+the exact same composite `saveSketch()` builds, read back pixel by pixel,
+confirming the chosen colour (not the old default) is what actually gets
+attached to the note.
+
+**Still genuinely open**: a selection tool (clicking an existing
+stroke/shape to move, resize or delete it — today's tools only ever draw a
+new one, the same gap the whiteboard had before its own select/move/rotate
+work was scoped). The toolbar redesign stays *after* that, per the item's
+own ordering, not before.
+
+**What was and wasn't verified**: both fixes were driven in a real
+Chromium session with pixel-level reads, not screenshots alone — the
+highlighter's visible colour, the background colour's presence in the
+canvas's own bitmap, and its survival into the actual save-composite.
+Nobody actually clicked "Save as note" through the UI end to end this
+session (a stray Agent Activity toast intermittently overlapped the Save
+button in the test viewport, a test-harness nuisance rather than an app
+bug); the composite was verified by calling the exact same drawing calls
+`saveSketch()` makes, not by guessing that it would behave the same way.
+Full `pytest tests/`, `ruff check .`, and `node --check frontend/app.js`
+all green (this item has no backend surface, so no new Python tests).
+
+## 47. A link that turned out to already be a link, and the document half of "take me to what changed"
+
+Continued the same session, straight after §46. Tier 2 item 12 next:
+*"a note's linked notes should be clickable through to those notes; today
+they are decoration."*
+
+**Checked before touching anything and found it already done.** Every
+place a link chip renders — a note card's own `entry.links`, the "Similar"
+panel, a reminder's attached-note chip — already calls `flashEntry` on
+click, which switches to Notes → Browse, clears any active filter, and
+scrolls the target into view with a highlight, the same function search
+results and `[[wiki links]]` already use. Traced all three render sites in
+`app.js` rather than trusting the first one; all three were already wired.
+ROADMAP's own claim that they were "decoration" was stale — corrected in
+place rather than re-derived or rebuilt.
+
+**Item 13, the other half of "take me to what changed," had a real gap
+this time.** `agent._change_document_id` has resolved a real document id
+on every write since §21 — the groundwork was correct, as ROADMAP already
+said — but `changeRow`, the one shared function both the chat's "what
+changed" list and the autonomous-pass review panel render a change
+through, only ever checked `change.note_id`. A skill or the background
+librarian writing a document produced a change with a real `document_id`
+sitting right there, unused. Fixed with one more `if` reusing
+`openDocumentFromNote` — the exact function a note's own "go to this
+document" link already calls, not a new navigation path. Verified live: a
+synthetic `document_id` change rendered a View button, and clicking it
+actually un-hid `#tab-documents` (Playwright, not just reading the diff and
+assuming the click handler does what it says).
+
+**Still open**: reminders and categories have no `_change_reminder_id`/
+`_change_category_id` equivalent on the backend at all — extending
+`changeRow` further needs that resolver work first, the same shape
+`_change_note_id`/`_change_document_id` already are, not just another
+`if` with nothing behind it.
+
+**What was and wasn't verified**: both fixes were checked live in
+Chromium — the three link-chip render sites by reading and tracing the
+code (each one calling the same already-proven `flashEntry`, so a fourth
+browser round-trip would have re-confirmed a fact already established three
+times over), and the document View button by an actual click producing an
+actual visible tab change. Full `pytest tests/`, `ruff check .`, and
+`node --check frontend/app.js` green (no backend change this item, so no
+new Python tests).
+
+## 48. Arc view's "labels behind nodes" — investigated live, did not reproduce
+
+Continued the same session, straight after §47. ROADMAP's next item: "Arc
+view: labels behind nodes."
+
+**Read the code first**: `labelLayer` (`canvas.append("g").attr("class",
+"graph-label-layer")`) is appended after every node circle in
+`renderGraph`, for every layout including Arc — in SVG, a later sibling
+always paints over an earlier one, so DOM order alone should already put
+every label on top of every node, with nothing layout-specific that would
+single out Arc.
+
+**Then checked live rather than trusting that reasoning on its own**,
+per this file's own rule about UI claims: seeded 8 notes, switched Graph to
+Arc, and screenshotted it. Every label was clearly legible, angled outward
+from its node at -40°, sitting on top of the nodes and the dotted
+filing-hierarchy arcs beneath them — nothing hidden behind anything. A
+first attempt at hit-testing this with `elementFromPoint` at a label's
+`getBoundingClientRect()` centre gave a false negative (the SVG background,
+not the label) — a known trap with rotated SVG text: the axis-aligned
+bounding box of a rotated shape has a centre point that can fall in empty
+space between the actual rotated glyphs, so it tests the wrong thing
+entirely. The screenshot, not the hit-test, is what actually answered the
+question.
+
+**Left open rather than marked fixed, because nothing was found to fix.**
+The report may depend on something this session's synthetic dataset
+didn't reproduce — a much larger or more deeply nested tree, longer note
+previews (this session's were short), a specific zoom level, or notes with
+real `entry_links` rather than only the filing hierarchy. Recorded in
+ROADMAP.md as needing the original report's exact steps or a screenshot
+before a future session spends more time on it, rather than guessing at a
+CSS change with nothing to verify it against — the same standing rule that
+governed the Timeline "text cut off" investigation two items earlier in
+this same session (§44).
+
+## 49. A notifications-panel mute toggle, and the real bug it caught: eight preferences that saved and worked but never came back from GET
+
+Asked for directly: a mute toggle inside the notifications panel itself,
+not only in Settings, and the bell icon changing to show whether anything
+but a reminder will get through. Built `#notif-mute-toggle` (🔕 Mute / 🔔
+Unmute, `aria-pressed`) in the panel header, and `#notif-btn` now renders 🔕
+instead of 🔔 whenever `notifications_muted_except_reminders` is set —
+both driven by the same `notificationsMuted()` the toast/panel muting from
+§44 already used.
+
+**Verified live, and it didn't work — which is the real finding here.**
+Clicking the toggle correctly called `PUT /preferences`, correctly got a
+response back, and the bell still showed 🔔. Isolated with
+`page.evaluate(() => toggleNotificationMute())` to rule out a click/DOM
+issue: the function ran, returned `"ok"`, and the state still didn't
+change. The cause: `get_preferences()` in `routes_settings.py` is a
+hand-built dict of named keys, and the new `notifications_muted_except_reminders`
+key was never added to it — so every `GET /preferences` (including the one
+`update_preferences()` returns after a `PUT`) silently omitted it, no
+matter what was actually stored.
+
+**Checked whether the same shape existed elsewhere rather than assuming
+this was a one-off, and found seven more**: `autonomous_tasks_enabled`,
+`auto_tag_enabled`, `auto_link_enabled`, `auto_dedupe_enabled`,
+`autonomous_tasks_interval_hours`, `autonomous_tasks_model`,
+`battery_efficient_mode`, and `smart_model_routing_enabled` — every one of
+them settable, and every one of them read straight from storage by
+`autonomous.py` or `model_manager.py`, so the *behaviour* was always
+correct. What was never correct is what the Settings UI showed: every
+checkbox bound to one of these reset to unchecked the moment the page
+reloaded or the panel reopened, regardless of what had actually been saved
+and was actually in effect. The exact user-facing shape of "keeps
+disabling itself" this project has chased before (§42) — but a different
+cause: §42 was two controls fighting over one preference; this is the GET
+response never having the preference in it at all, for eight separate
+keys, the whole time.
+
+**Why the test suite never caught it**: plenty of tests set these
+preferences and assert on the *behaviour* that reads them (does the
+scheduler wake, does `_run_optimization` skip, does routing pick the
+utility model) — nothing ever asserted what `GET /preferences` echoes back.
+Two new regression tests close that gap directly:
+`test_autonomous_and_battery_preferences_round_trip_through_get` (all eight,
+set to non-default values, then read back) and
+`test_notification_mute_preference_round_trips_through_get`.
+
+**Verified live end to end after the fix**: `curl`/Playwright round-trip
+through the real running server — PUT true, bell shows 🔕, reload the page,
+still 🔕; PUT false, back to 🔔. Full `pytest tests/`, `ruff check .`, and
+`node --check frontend/app.js` all green.
+
+**What was and wasn't verified**: driven live in Chromium with a real
+screenshot, not just reasoning about DOM order. No code changed this item —
+say so plainly rather than claim a fix that has nothing to point at. Full
+`pytest tests/`, `ruff check .`, and `node --check frontend/app.js` were
+already green from the previous item and nothing here touched either
+codebase.

@@ -117,6 +117,34 @@ def test_the_endpoint_reports_a_refused_start_rather_than_pretending(
     assert body["detail"]
 
 
+def test_the_endpoint_refuses_to_run_while_the_master_toggle_is_off(
+    client, app_state, monkeypatch
+):
+    """Reported: a "completed" notification for a pass the user "didn't have
+    enabled". `trigger_now` itself never checked `autonomous_tasks_enabled`
+    — only the scheduled loop did, before ever calling it — so this endpoint
+    ran a real pass regardless of the toggle; the "Run now" button being
+    hidden while it's off is a UI convenience, not an authorization check.
+    """
+    app_state.set_preference("autonomous_tasks_enabled", False)
+    called = []
+    monkeypatch.setattr(autonomous, "trigger_now", lambda: called.append(True) or True)
+
+    body = client.post("/tasks/trigger-autonomous").json()
+
+    assert body["started"] is False
+    assert "switched off" in body["detail"]
+    assert not called, "trigger_now ran a real pass despite the toggle being off"
+
+
+def test_the_endpoint_runs_when_the_master_toggle_is_on(client, app_state, monkeypatch):
+    app_state.set_preference("autonomous_tasks_enabled", True)
+    monkeypatch.setattr(autonomous, "trigger_now", lambda: True)
+
+    body = client.post("/tasks/trigger-autonomous").json()
+    assert body["started"] is True
+
+
 def test_vacuum_survives_a_session_that_has_already_written(app_state, session):
     """The maintenance pass must not depend on statement ordering.
 

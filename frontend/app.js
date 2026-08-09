@@ -280,6 +280,10 @@ function startApp() {
         indicator.classList.add("hidden");
       }
     }
+    // The bell's own icon reads the mute preference — re-render now that
+    // prefsCache actually has it, rather than leaving the pre-load default
+    // (unmuted) on screen until the notifications panel happens to be opened.
+    renderNotificationBadge();
   });
 
   const entriesReady = step("load entries", loadEntries);
@@ -2707,6 +2711,8 @@ async function streamChat({
   skill,
   skillInputs,
   skillFromStep,
+  skillManual,
+  skillManualNote,
   plan,
   notesOnly,
   attachedNotesOnly,
@@ -2760,7 +2766,16 @@ async function streamChat({
   // A plan the model just made. Carries its own steps because nothing saved
   // it — that is the only way it differs from a skill run, here and on the
   // server.
-  if (plan && plan.steps && plan.steps.length) body.plan = plan;
+  const hasPlan = plan && plan.steps && plan.steps.length;
+  if (hasPlan) body.plan = plan;
+  // Manual (step-through) mode: a pause after every completed step. Applies
+  // equally to a saved skill or a plan the model just drew — both run
+  // through the same step-by-step runner server-side. Sent on every call for
+  // this run, resume included, since a run started manual stays manual.
+  if (skill || hasPlan) {
+    if (skillManual) body.skill_manual = true;
+    if (skillManualNote) body.skill_manual_note = skillManualNote;
+  }
   // NDJSON over a plain POST, deliberately — not a WebSocket. A WebSocket was
   // tried here and reverted: it needed the session on a second thread (a
   // SQLAlchemy Session is not thread-safe), it had to be mounted outside the
@@ -3173,6 +3188,37 @@ function continueRunControls({ label, hint, onClick }) {
     why.textContent = hint;
     row.appendChild(why);
   }
+  return row;
+}
+
+// Manual (step-through) mode's pause card: a text box to add what the agent
+// missed or answer a question it raised, and a Continue button — the answer
+// to "a manual mode" asked for directly, and the single most-requested
+// unbuilt thing on the roadmap. `onContinue(note)` gets whatever was typed,
+// or an empty string if nothing was.
+function manualPauseControls({ onContinue }) {
+  const row = document.createElement("div");
+  row.className = "run-continue run-continue-manual";
+  const note = document.createElement("input");
+  note.type = "text";
+  note.placeholder = "Add anything before the next step (optional)…";
+  note.maxLength = 500;
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "small";
+  button.textContent = "▶ Continue";
+  button.addEventListener("click", () => {
+    button.disabled = true;
+    note.disabled = true;
+    onContinue(note.value.trim());
+  });
+  note.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") button.click();
+  });
+  const why = document.createElement("span");
+  why.className = "muted";
+  why.textContent = "Paused — step by step mode.";
+  row.append(why, note, button);
   return row;
 }
 
@@ -4516,6 +4562,16 @@ function changeRow(change, options = {}) {
       })
     );
   }
+  // The other half of "take me to the thing the agent just changed" — the
+  // groundwork (`agent._change_document_id`) has resolved a document's real
+  // id on every write since §21, but this was the one place that data never
+  // reached a button: `create_document`'s own change events carried it and
+  // nothing here ever read it.
+  if (change.document_id) {
+    row.appendChild(
+      smallButton("View", "Open this document", () => openDocumentFromNote(change.document_id))
+    );
+  }
   if (change.undo) {
     const undo = smallButton("Undo", "Put this back the way it was", async () => {
       undo.disabled = true;
@@ -5628,6 +5684,7 @@ async function sendChatMessage(preset, opts = {}) {
   // bubble rather than a sentence asking the user to type "carry on".
   let ranOutOfRounds = false;
   let stoppedAtStep = null;
+  let pausedForManual = false;
   const startedAt = performance.now();
   const toolEvents = []; // {label, ok} — persisted so chips survive a reload
   chatController = new AbortController();
@@ -5706,6 +5763,11 @@ async function sendChatMessage(preset, opts = {}) {
       skill: opts.skill,
       skillInputs: opts.skillInputs,
       skillFromStep: opts.skillFromStep,
+      // Read live rather than captured at launch: a run that started
+      // straight-through and is now being Resumed can still be switched to
+      // step-by-step, and vice versa.
+      skillManual: opts.skillManual ?? Boolean($("skill-manual-toggle")?.checked),
+      skillManualNote: opts.skillManualNote,
       plan: opts.plan,
       attachedNotesOnly: opts.attachedNotesOnly,
       answeringAgent,
@@ -5737,6 +5799,7 @@ async function sendChatMessage(preset, opts = {}) {
         // Where the run stopped, if it did. A number here means the steps
         // after it never ran.
         stoppedAtStep = typeof event.stopped_at === "number" ? event.stopped_at : null;
+        pausedForManual = Boolean(event.paused);
         // A skill that changed notes has just made the list on screen stale.
         if ((event.changes || []).length) loadEntries();
         chatScrollToEnd();
@@ -5900,7 +5963,12 @@ async function sendChatMessage(preset, opts = {}) {
   // A run that stopped early is exactly the kind of thing you find out about
   // ten minutes later, having walked away from a long job (§36E). The Resume
   // button below is the fix in the moment; this is the record afterwards.
-  if (!stopped && (stoppedAtStep !== null || ranOutOfRounds)) {
+  // A deliberate manual-mode pause is not a failure and not something to
+  // notify about ten minutes later — the person is sitting right here
+  // waiting for the Continue button, which is the whole point of asking for
+  // it. Only an *unplanned* stop (a real failure, or running out of rounds)
+  // earns the notification.
+  if (!stopped && !pausedForManual && (stoppedAtStep !== null || ranOutOfRounds)) {
     recordNotification({
       kind: "run",
       title: opts.skill ? `“${opts.skill}” stopped early` : "A long answer stopped early",
@@ -5912,7 +5980,20 @@ async function sendChatMessage(preset, opts = {}) {
       action: { tab: "chat" },
     });
   }
-  if (!stopped && stoppedAtStep !== null && opts.skill) {
+  if (!stopped && stoppedAtStep !== null && opts.skill && pausedForManual) {
+    bubble.appendChild(
+      manualPauseControls({
+        onContinue: (note) =>
+          sendChatMessage(`⚡️ ${opts.skill} — from step ${stoppedAtStep + 1}`, {
+            skill: opts.skill,
+            skillInputs: opts.skillInputs || {},
+            skillFromStep: stoppedAtStep,
+            skillManual: true,
+            skillManualNote: note,
+          }),
+      })
+    );
+  } else if (!stopped && stoppedAtStep !== null && opts.skill) {
     bubble.appendChild(
       continueRunControls({
         label: `↻ Resume from step ${stoppedAtStep + 1}`,
@@ -14646,6 +14727,9 @@ async function renderPrefs() {
   $("pref-style").value = prefsCache.communication_style;
   $("pref-profile").value = prefsCache.user_profile;
   $("pref-profile-enabled").checked = prefsCache.profile_enabled;
+  $("pref-notif-mute-except-reminders").checked = Boolean(
+    prefsCache.notifications_muted_except_reminders
+  );
   $("prefs-status").textContent = "";
 }
 
@@ -14785,6 +14869,8 @@ async function savePrefs() {
         communication_style: $("pref-style").value,
         user_profile: $("pref-profile").value,
         profile_enabled: $("pref-profile-enabled").checked,
+        notifications_muted_except_reminders:
+          $("pref-notif-mute-except-reminders").checked,
         autonomous_tasks_enabled: $("pref-autonomous-tasks").checked,
         auto_tag_enabled: $("pref-auto-tag").checked,
         auto_link_enabled: $("pref-auto-link").checked,
@@ -15113,6 +15199,13 @@ function paletteKeydown(event) {
 
 // --- Wave F: whiteboard-lite --------------------------------------------------------
 
+// Reported directly as "completely wrong": at 0.05 the highlighter needed
+// roughly twenty overlapping passes before a stroke showed at all — visually
+// indistinguishable from the tool doing nothing. 0.35 with the existing
+// "multiply" blend mode reads as an actual highlighter (translucent, tints
+// rather than covers) in one pass.
+const SKETCH_HIGHLIGHTER_ALPHA = 0.35;
+
 let sketchPen = { color: "#3b82f6", size: 4, eraser: false };
 let sketchDrawing = false;
 let sketchDirty = false;
@@ -15144,10 +15237,20 @@ function sketchContext() {
 // (if any) scaled to fit inside the canvas without cropping or stretching.
 // Called after every change to `sketchBackgroundImage`, rather than patched
 // in place, because "fit inside and centre" isn't otherwise idempotent.
+// A reachable background colour, asked for directly — the canvas painted a
+// hardcoded white fill with nothing that could change it, and a CSS
+// background on the canvas *element* would have done nothing either: this
+// fill is opaque pixels drawn into the canvas's own bitmap, which sits in
+// front of (and fully hides) whatever the element's CSS background is.
+// Persisted the same way the whiteboard's own board colour is (a
+// `localStorage` key, not a preference — a look, not notebook data).
+const SKETCH_BG_KEY = "sketch-bg-color";
+let sketchBgColor = localStorage.getItem(SKETCH_BG_KEY) || "#ffffff";
+
 function sketchDrawBackground() {
   const canvas = $("sketch-bg-canvas");
   const context = canvas.getContext("2d");
-  context.fillStyle = "#ffffff"; // a white page in both themes
+  context.fillStyle = sketchBgColor;
   context.fillRect(0, 0, canvas.width, canvas.height);
   const img = sketchBackgroundImage;
   if (!img) return;
@@ -15162,6 +15265,7 @@ function openSketch() {
   $("sketch-overlay").classList.remove("hidden");
   $("sketch-close").focus();
   sketchBackgroundImage = null;
+  $("sketch-bg-color-picker").value = sketchBgColor;
   sketchDrawBackground();
   const canvas = $("sketch-canvas");
   canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
@@ -15249,7 +15353,7 @@ function sketchMove(event) {
   context.lineCap = sketchTool === "highlighter" ? "square" : "round";
   context.lineJoin = sketchTool === "highlighter" ? "bevel" : "round";
   context.globalCompositeOperation = sketchPen.eraser && sketchTool === "pen" ? "destination-out" : (sketchTool === "highlighter" ? "multiply" : "source-over");
-  context.globalAlpha = sketchTool === "highlighter" ? 0.05 : 1.0;
+  context.globalAlpha = sketchTool === "highlighter" ? SKETCH_HIGHLIGHTER_ALPHA : 1.0;
   context.strokeStyle = sketchPen.color;
   context.lineWidth = sketchTool === "highlighter" ? sketchPen.size * 6 : (sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size);
 
@@ -15292,7 +15396,7 @@ function sketchEnd(event) {
     context.lineCap = sketchTool === "highlighter" ? "square" : "round";
     context.lineJoin = sketchTool === "highlighter" ? "bevel" : "round";
     context.globalCompositeOperation = sketchPen.eraser && sketchTool === "pen" ? "destination-out" : (sketchTool === "highlighter" ? "multiply" : "source-over");
-    context.globalAlpha = sketchTool === "highlighter" ? 0.05 : 1.0;
+    context.globalAlpha = sketchTool === "highlighter" ? SKETCH_HIGHLIGHTER_ALPHA : 1.0;
     context.strokeStyle = sketchPen.color;
     
     if (sketchTool === "pen" || sketchTool === "highlighter") {
@@ -15708,6 +15812,7 @@ function storedNotifications() {
 // Record something worth remembering. `key` de-duplicates: the reminder poll
 // runs every thirty seconds and must not add the same fired reminder twice.
 function recordNotification({ kind, title, detail = "", key = "", action = null }) {
+  if (kind !== "reminder" && notificationsMuted()) return;
   const items = storedNotifications();
   const id = key || `${kind}:${title}:${Date.now()}`;
   if (key && items.some((n) => n.id === id)) return;
@@ -15734,10 +15839,40 @@ function renderNotificationBadge() {
   const count = unreadNotifications().length;
   button.dataset.count = count > 9 ? "9+" : String(count || "");
   button.classList.toggle("has-unread", count > 0);
+  const muted = notificationsMuted();
+  // The bell itself says whether anything but a reminder will actually get
+  // through — asked for directly, so muting isn't a setting you have to
+  // remember you turned on three screens away.
+  button.textContent = muted ? "🔕" : "🔔";
   button.setAttribute(
     "aria-label",
-    count ? `Notifications — ${count} unread` : "Notifications"
+    (count ? `Notifications — ${count} unread` : "Notifications") +
+      (muted ? " (muted except reminders)" : "")
   );
+}
+
+// The mute toggle's own state, kept in sync wherever it's shown: the bell
+// icon above, and this button inside the panel it opens.
+function renderNotifMuteToggle() {
+  const button = $("notif-mute-toggle");
+  if (!button) return;
+  const muted = notificationsMuted();
+  button.textContent = muted ? "🔔 Unmute" : "🔕 Mute";
+  button.title = muted
+    ? "Stop muting — everything will notify again"
+    : "Mute notifications except reminders";
+  button.setAttribute("aria-pressed", String(muted));
+  button.classList.toggle("active", muted);
+}
+
+async function toggleNotificationMute() {
+  const next = !notificationsMuted();
+  prefsCache = await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ notifications_muted_except_reminders: next }),
+  });
+  renderNotifMuteToggle();
+  renderNotificationBadge();
 }
 
 //: Which icon a kind gets. Colour alone is never the signal (DESIGN.md), and
@@ -15754,6 +15889,7 @@ async function openNotifications() {
   const panel = $("notif-panel");
   const list = $("notif-list");
   panel.classList.remove("hidden");
+  renderNotifMuteToggle();
 
   // Fold in anything currently overdue on the server. This is what makes the
   // centre honest about time it was not running for: the event log can only
@@ -15899,15 +16035,19 @@ async function checkDueReminders() {
   // separate system notifications for three reminders is worse than one.
   if (fresh.length === 1) {
     const text = fresh[0].text;
-    if (!notify("⏰ Reminder", text)) toast(`⏰ ${text}`);
+    if (!notify("⏰ Reminder", text)) toast(`⏰ ${text}`, false, { exempt: true });
   } else {
     const summary = `${fresh.length} reminders are due`;
-    if (!notify("⏰ MemoryMap", summary)) toast(`⏰ ${summary}`);
+    if (!notify("⏰ MemoryMap", summary)) toast(`⏰ ${summary}`, false, { exempt: true });
   }
   // Always in-app as well as out: a system notification can be suppressed by
   // Do Not Disturb without the app ever knowing.
   if ("Notification" in window && Notification.permission === "granted") {
-    toast(fresh.length === 1 ? `⏰ ${fresh[0].text}` : `⏰ ${fresh.length} reminders are due`);
+    toast(
+      fresh.length === 1 ? `⏰ ${fresh[0].text}` : `⏰ ${fresh.length} reminders are due`,
+      false,
+      { exempt: true }
+    );
   }
   loadReminders().catch(() => {});
 }
@@ -15924,7 +16064,17 @@ function startReminderWatch() {
   });
 }
 
-function toast(message, isError = false) {
+// Asked directly: "an option to mute notifications except for reminders".
+// A reminder toast passes `exempt: true` so it still gets through; an error
+// always does too — silencing a real failure would hide the thing muting is
+// least meant to hide. Everything else (background jobs, agent runs, general
+// activity) is what the toggle actually quiets.
+function notificationsMuted() {
+  return Boolean(prefsCache && prefsCache.notifications_muted_except_reminders);
+}
+
+function toast(message, isError = false, { exempt = false } = {}) {
+  if (!exempt && !isError && notificationsMuted()) return;
   const box = $("toast-box");
   const note = document.createElement("div");
   note.className = isError ? "toast error" : "toast";
@@ -18096,20 +18246,45 @@ async function loadLinkSuggestions() {
   const headingText = document.createElement("span");
   headingText.className = "muted";
   headingText.textContent = "Notes that look related — link the ones you agree with:";
-  
+
+  // Asked directly: "none of my notes have a linked reason yet — is there an
+  // easy way to give them all a reason?" There wasn't, since `_deduce_reason`
+  // only ever ran when a link was first made. This runs it once over every
+  // existing reason-less link instead of leaving them mute forever.
+  const backfill = smallButton(
+    "💡 Give existing links a reason",
+    "Deduce a reason for every link that doesn't have one yet, from how alike the two notes' meanings are",
+    async () => {
+      const result = await apiJson("/entries/links/backfill-reasons", {
+        method: "POST",
+      }).catch((e) => {
+        toast(e.message, true);
+        return null;
+      });
+      if (!result) return;
+      toast(
+        result.updated
+          ? `Gave ${result.updated} of ${result.checked} link${result.checked === 1 ? "" : "s"} a reason.`
+          : result.checked
+            ? "None of them were similar enough to guess a reason for."
+            : "Every link already has a reason."
+      );
+    }
+  );
+
   const closeAll = smallButton("✕", "Close suggestions", () => {
     box.classList.add("hidden");
     box.replaceChildren();
   });
-  
-  heading.append(headingText, closeAll);
+
+  heading.append(headingText, backfill, closeAll);
   box.appendChild(heading);
   for (const s of suggestions) {
     const row = document.createElement("div");
     row.className = "link-suggestion";
     const text = document.createElement("span");
     text.append(
-      document.createTextNode(`“${s.source_preview}” ↔ “${s.target_preview}” `)
+      document.createTextNode(`“${s.source_preview}” ↔ “${s.target_preview}” — ${s.reason} `)
     );
     const score = chip(`${Math.round(s.similarity * 100)}%`, "confidence");
     const link = smallButton("🔗 Link", "Connect these two notes", async () => {
@@ -20004,6 +20179,12 @@ $("notif-clear").addEventListener("click", () => {
   localStorage.removeItem(NOTIFICATIONS_KEY);
   localStorage.setItem(NOTIFICATIONS_READ_KEY, String(Date.now()));
   openNotifications(); // redraw in place: the panel stays open, now empty
+});
+// Asked for directly: the mute toggle reachable from the panel it affects,
+// not only three screens away in Settings — and the bell itself says
+// whether it's on, so muting isn't a setting you have to remember you set.
+$("notif-mute-toggle").addEventListener("click", () => {
+  toggleNotificationMute().catch((e) => toast(e.message, true));
 });
 // Click-away and Escape, the same two gestures every other popup here honours.
 document.addEventListener("click", (event) => {
@@ -22170,6 +22351,17 @@ $("sketch-image-input").addEventListener("change", () => {
 });
 $("sketch-size").addEventListener("input", () => {
   sketchPen.size = Number($("sketch-size").value);
+});
+// `input` previews live while dragging the swatch; `change` (fires once, on
+// release) is what persists — dragging across ten hues shouldn't write ten
+// times, same reasoning as the whiteboard's own background picker.
+$("sketch-bg-color-picker").addEventListener("input", (e) => {
+  sketchBgColor = e.target.value;
+  sketchDrawBackground();
+  sketchDirty = true; // a background colour is as much a change as a stroke
+});
+$("sketch-bg-color-picker").addEventListener("change", (e) => {
+  localStorage.setItem(SKETCH_BG_KEY, e.target.value);
 });
 for (const button of document.querySelectorAll(".sketch-color")) {
   button.addEventListener("click", () => {

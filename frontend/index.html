@@ -134,6 +134,8 @@
           <div class="row space-between notif-head">
             <strong>Notifications</strong>
             <span class="row">
+              <button id="notif-mute-toggle" class="ghost small" aria-pressed="false"
+                title="Mute notifications except reminders">🔕 Mute</button>
               <button id="notif-clear" class="ghost small">Clear</button>
               <button id="notif-close" class="ghost small" aria-label="Close">✕</button>
             </span>
@@ -669,6 +671,16 @@ Link to another note with [[its first few words]]."></textarea>
                   <button id="persona-peek" class="ghost small" type="button"
                     aria-expanded="false"
                     title="Show the instructions this persona gives the AI">👁 What this persona tells the AI</button>
+                  <!-- Manual (step-through) mode, asked for directly: a pause
+                       after every completed step with a Continue button and a
+                       text box, rather than a skill running straight through
+                       five steps unattended. Lives here rather than per-launch
+                       because it's a standing preference about how runs
+                       behave, the same shape as Length/Persona beside it. -->
+                  <label class="chat-dock-more-row" title="Pause after each step of a skill or planned run so you can add anything before it continues">
+                    <span class="muted">Run skills step-by-step</span>
+                    <input type="checkbox" id="skill-manual-toggle">
+                  </label>
                 </div>
               </div>
             </div>
@@ -907,15 +919,17 @@ Link to another note with [[its first few words]]."></textarea>
           <input id="graph-time-slider" class="graph-time-slider" type="range" min="0" max="100" value="100" title="Slide back in time to hide newer notes">
           <span id="graph-time-label" class="muted text-sm graph-time-label">All Time</span>
         </span>
-        <label class="muted tools-toggle" title="Draw dotted lines between notes that mean similar things (needs semantic search)">
-          <input type="checkbox" id="graph-similarity"> Similarity
-        </label>
-        <label class="muted tools-toggle" title="Hide notes that aren't linked to anything, to declutter the map">
-          <input type="checkbox" id="graph-hide-orphans"> Hide unlinked
-        </label>
-        <label class="muted tools-toggle" title="Show a short label under every note (off = labels only when you hover)">
-          <input type="checkbox" id="graph-labels" checked> Labels
-        </label>
+        <span class="graph-toggle-group" id="graph-toggle-group">
+          <label class="muted tools-toggle" title="Draw dotted lines between notes that mean similar things (needs semantic search)">
+            <input type="checkbox" id="graph-similarity"> Similarity
+          </label>
+          <label class="muted tools-toggle" title="Hide notes that aren't linked to anything, to declutter the map">
+            <input type="checkbox" id="graph-hide-orphans"> Hide unlinked
+          </label>
+          <label class="muted tools-toggle" title="Show a short label under every note (off = labels only when you hover)">
+            <input type="checkbox" id="graph-labels" checked> Labels
+          </label>
+        </span>
         <button id="link-suggest-btn" class="ghost small"
           title="Let the AI suggest links between notes that mean similar things">🔗 Suggest links</button>
       </div>
@@ -2291,6 +2305,16 @@ Link to another note with [[its first few words]]."></textarea>
               <option value="concise">Concise</option>
               <option value="detailed">Detailed</option>
             </select>
+            <h3>Notifications</h3>
+            <label>
+              <input type="checkbox" id="pref-notif-mute-except-reminders">
+              Mute notifications except reminders
+            </label>
+            <p class="muted">
+              Quiets the toasts and the notifications panel for background
+              jobs, agent runs and general activity — a due reminder still
+              gets through either way.
+            </p>
             <h3>Web search</h3>
             <p class="muted">
               Web search is the one feature that goes online, so it has a
@@ -2966,6 +2990,8 @@ Link to another note with [[its first few words]]."></textarea>
           <button id="sketch-upload-image" title="Add Background Image">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
           </button>
+          <input type="color" id="sketch-bg-color-picker" value="#ffffff"
+            title="Canvas background colour">
         </div>
         <input id="sketch-image-input" type="file" accept="image/*" class="hidden">
       </div>

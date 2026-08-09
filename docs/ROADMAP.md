@@ -53,6 +53,25 @@ Things that are wrong, lose work, or make the app feel unreliable.
    tells the model to take several turns and use tools; `intent.SMALLTALK`
    routes "hey" away from the agent entirely. Reconcile them — the prompt is
    resent every round, so a contradiction is paid for constantly.
+4a. ~~**Eight preferences saved correctly and were honoured correctly, but
+    never came back from `GET /preferences`.**~~ **Fixed (HISTORY.md §49).**
+    Found live while adding a notifications-mute toggle to the panel: it
+    saved, the bell icon should have flipped, and it didn't — because
+    `get_preferences()` is a hand-built dict, and the new key wasn't in it.
+    Checking whether the same shape existed elsewhere (rather than assuming
+    this was the only one) turned up seven more: every Autonomous Background
+    Workers toggle, the interval, the model override, battery-efficient
+    mode, and smart model routing — all settable, all correctly read by
+    `autonomous.py`/`model_manager.py` straight from storage (so the
+    *behaviour* was never wrong), but never once echoed back. Every one of
+    those Settings checkboxes showed unchecked again the moment the page
+    reloaded or the panel reopened, regardless of what was actually saved
+    and actually in effect — the exact shape of "keeps disabling itself"
+    this project has chased before (§42), from a different cause. Verified
+    live: PUT a value, GET it back, on the real running app, not just a
+    passing test — the gap survived every test in the suite because nothing
+    ever asserted what `GET /preferences` echoes, only what the backend
+    that reads it *does*.
 5. ~~**Decide what notifications are for.**~~ **Already done** — found stale
    while auditing the list this session (checked before building, per this
    file's own standing rule). The audit itself: `recordNotification` has
@@ -75,35 +94,66 @@ Things that are wrong, lose work, or make the app feel unreliable.
    but not one that mismatches what happened ("I tagged it as Work" when a
    different tag was applied). Needs real model output to tune against, which
    this sandbox cannot provide — named rather than guessed at.
-8. **Two backend perf findings from a full review this session, not yet
-   fixed.** Both reproducible, neither fixed — deliberately: verifying either
-   properly needs a realistic-size notebook to measure against, and this
-   sandbox's suite runs against a handful of notes. Start here next.
-   - `tools.py`'s `_graph_neighbours` (~line 433) does `select(Entry).where(
-     Entry.is_deleted == False)` — a full, unfiltered table scan materialising
-     every note — whenever a visited node has tags, to find tag matches by
-     hand instead of a SQL filter. `_related_notes` calls it once per node in
-     the BFS frontier (depth 2, up to 12 notes), so one `related_notes` tool
-     call is up to ~12 full scans. The similar O(n²) at `GET
-     /graph?similarity=true` was already found and left off by default
-     (ANALYSIS.md §34); this one runs by default, inside the agent's own
-     tools.
-   - `manager.entry_dates` (one `SELECT` per entry) is called in a loop by
-     `_note_summary`, itself called per row by `list_notes` (≤25) and
-     `summarize_notes` (≤40) — an N+1 on the agent's most-used read tools.
-     Cheaper to fix than the one above: batch into one `WHERE entry_id IN
-     (...)` query and group the results by id before the loop.
+8. ~~**Two backend perf findings.**~~ **Done (HISTORY.md §44).**
+   `_graph_neighbours`'s full-table scan is now pre-filtered with `ilike` per
+   tag (same pattern `list_tags`/`_count_notes` already used elsewhere in the
+   file) before the exact Python check, cutting it from one full-table fetch
+   per BFS node to one narrowed query; `_note_summary`'s per-row
+   `entry_dates` call is now `manager.entry_dates_bulk`, one `WHERE entry_id
+   IN (...)` for the whole page instead of one `SELECT` per row in
+   `list_notes`/`summarize_notes`. Both pinned by query-count regression
+   tests in `test_scale_query_counts.py` rather than timing, matching that
+   file's existing convention.
+9. ~~**A "completed" notification for a background pass the user never
+   enabled.**~~ **Done (HISTORY.md §44).** Reported directly and reproduced
+   live (not guessed at): `POST /tasks/trigger-autonomous` ran a real
+   optimisation pass regardless of the `autonomous_tasks_enabled` master
+   toggle — only the scheduled loop checked it before ever calling in; the
+   "Run optimization now" button being hidden while the toggle is off is a
+   UI convenience, not an authorization check. The route now checks the
+   toggle itself before calling `trigger_now`.
+10. **Every graph layout except Force shows no connections when the Time
+    Filter is moved off "All time".** Reported directly with screenshots:
+    Tree, Radial and Arc all render nodes with no edges/arcs at all once the
+    slider is pulled back, while Force keeps its connections. Not yet
+    investigated — start by finding where `similarity`/edge filtering
+    intersects the time-filter's node subset for each layout function
+    (`layoutHierarchy` and friends), since Force building its own separate
+    physics-edge list is the likely reason it alone is unaffected. High
+    value: the time filter is close to useless on three of four layouts
+    right now.
+11. **Dragging on empty graph canvas sometimes highlights an unrelated
+    note.** Reported directly, not yet reproduced or investigated. Likely a
+    pointer/drag-select handler treating a click-drag on empty space as a
+    hit on whatever node happened to be under the pointer at drag-start
+    instead of requiring the drag to actually originate on a node — but
+    that is a guess, not a diagnosis. Reproduce first.
 
 ### Tier 2 — half-built features, cheap to finish
 
 Each is already paid for; a small amount of work turns a frustrating surface
 into a good one.
 
-8. **Skill runs: an auto/manual mode.** Explicitly requested and never built —
-   `skill_from_step` is resume-after-failure, not a step-through. On manual, a
-   skill pauses after each step with a Continue button and a text box, so the
-   user can add what the agent missed or answer a question it raised. **The
-   single most-requested unbuilt thing on the list.**
+8. ~~**Skill runs: an auto/manual mode.**~~ **Done (HISTORY.md §45).** Reuses
+   `stopped_at`/`start_at` — the same resume machinery a failed or stalled
+   step already had — rather than a second mechanism: after every step that
+   finishes `done`, `run_skill(..., manual=True)` stops there too, with a new
+   `result.paused` flag so the client can tell "waiting for you" from
+   "something broke" and render each one differently. A `manual_note`
+   (`skill_manual_note` over the wire) is folded straight into the *next*
+   step's own instruction, not appended to history, so it reads as part of
+   what the model is being asked to do right now rather than something it
+   may or may not weigh against everything else in the window. A "Run
+   skills step-by-step" checkbox lives in the chat dock's `⚙` settings
+   panel; the pause renders as a text box + Continue button, not a failure
+   notification. **Not built**: the same pause for a plan run (`opts.plan`)
+   — the backend already treats a plan identically to a skill, but the
+   existing Resume-from-failure button was already skill-only before this
+   session, so extending both to plans is one further, separate change, not
+   a gap this feature introduced. **Not verified live** — six new backend
+   tests (`test_skills.py`) cover the pause/resume/note-folding behaviour
+   through the real streaming endpoint with a fake model, but the checkbox
+   and the pause card's text box were not driven in a browser this session.
 9. ~~**A reason on every link.**~~ **Done, including a confidence score and
    an editor (HISTORY.md §43).** Optional `reason` column on `entry_links` —
    "a note about uni and gym might still be related if they're both about
@@ -119,11 +169,61 @@ into a good one.
    card's own link chips), which resets any deduced confidence since a
    person's words aren't a similarity score. Turns the graph from "these are
    connected" into "connected *because*" — which is also what makes Trace
-   worth reading.
-10. **The sketch pad.** The highlighter at 5% opacity is effectively invisible
-    (~20 passes before anything shows) — that is the "completely wrong" in the
-    report. Then a reachable size control, a background colour, and a
-    selection tool. The toolbar redesign comes *after* those, not before.
+   worth reading. **Extended (HISTORY.md §44):** asked directly — a
+   suggestion in the Graph tab's "Notes that look related" panel showed a
+   bare percentage with no sense of *why*; `GET /entries/link-suggestions`
+   now carries the same `reason` text a link would get if approved (the two
+   thresholds are numerically identical, so this is a preview of the real
+   outcome, not a separate guess). And: *"none of my notes have a linked
+   reason yet — is there an easy way to give them all a reason?"* — there
+   wasn't, since deduction only ever ran at the moment a link was first made.
+   `POST /entries/links/backfill-reasons` (`manager.backfill_link_reasons`)
+   runs it once over every existing reason-less link, behind a button next
+   to Suggest links. **Asked again this session: "can there be a way to
+   visually see link reasons in the graph?"** — there already is (the SVG
+   tooltip on hover, above), but a hover-only affordance is easy to never
+   discover. Worth asking directly next session whether that's enough or
+   whether a reason needs a more persistent, always-visible presence (an
+   edge label, shown at least on hover-highlight or Trace) before building
+   either. **Asked for directly, not yet built:** the same
+   backfill as an agent-callable tool/skill, so it can run unattended
+   (a manual pass, or folded into the autonomous background worker's own
+   task list — see item 31) rather than only a button someone has to click.
+   Also asked for: **the deduction should weigh temporal words as well as
+   embedding similarity** — two notes both mentioning "next Tuesday" or
+   written the same day read as related even when their topics don't
+   overlap semantically. `_deduce_reason` today is embedding-only
+   (`AUTO_REASON_THRESHOLD`); this needs a second signal folded in (or
+   compared against) using `entry.timewords`/`EntryDate`, not a wholesale
+   replacement of the embedding check — a note from "next Tuesday" and one
+   from "last Tuesday" are not related just because they share a weekday.
+10. **The sketch pad.** ~~The highlighter at 5% opacity was effectively
+    invisible~~ **Fixed (HISTORY.md §46)**: `globalAlpha` was `0.05` — around
+    twenty overlapping passes before a stroke showed at all, which is the
+    "completely wrong" in the report — now `0.35`, verified live (pixel
+    read-back and a screenshot, not just the code). **Checked before
+    touching anything, per this file's own rule**: a size control
+    (`#sketch-size`) already existed and already reached every tool
+    (pen/highlighter/eraser and every shape's stroke width all read
+    `sketchPen.size`) — this file's own claim that it was missing was stale.
+    ~~A background colour for the canvas~~ **Done (HISTORY.md §46).** A
+    colour picker (`#sketch-bg-color-picker`) next to the image-upload
+    button, persisted in `localStorage` the same way the whiteboard's own
+    board colour is. **The one real trap this hit**: a first pass wired it
+    as a CSS `background` on `#sketch-bg-canvas`, which did *nothing* —
+    `sketchDrawBackground()` already paints an opaque `fillRect` into the
+    canvas's own pixels every time the pad opens or an image loads, and
+    those pixels sit in front of (and fully hide) any CSS background on the
+    element underneath them. Fixed by making the fill colour itself
+    `sketchBgColor` instead of a hardcoded `"#ffffff"` — the actual pixels a
+    save composites, verified live by reading the saved-PNG composite's own
+    pixel data back, not just the on-screen canvas. **Still genuinely open**:
+    a selection tool (clicking an existing stroke/shape to move, resize or
+    delete it; today's tools only ever draw a new one), and — asked for
+    directly — **holding Shift while drawing a shape constrains it** (a
+    perfect circle/square rather than an ellipse/rectangle, the same
+    convention every other drawing tool uses). The toolbar redesign comes
+    *after* those, not before.
 11. **The whiteboard, properly.** Done in an earlier session, reported and
     verified in Chromium: per-tool cursors (native `cursor: url(svg)`, not a
     JS-tracked div — the div version was reported and reproduced as "the
@@ -170,6 +270,16 @@ into a good one.
       it persists.
     - **Resizable cards**, and the edge-labelling the graph has — see item 9
       — both still open from before.
+    - **Grid lines (varying types) and snap-to-grid for placement.** Asked
+      for directly, not scoped further — needs a decision on which grid
+      types (square/dot/isometric?) before building.
+    - **Drawing only responds to a drag, not a single click.** Asked for
+      directly — e.g. a dot or a single short mark should be possible
+      without dragging the pointer at all. Not yet reproduced against the
+      actual pointer handlers; likely the same code path the sketch pad's
+      own `sketchMoved` flag guards (a click with no movement is currently
+      treated as "nothing drawn" there too — see `sketchEnd`), so worth
+      checking whether the fix belongs in one shared place or two.
 
     **This is a lot for one item** — draw.io, Microsoft Whiteboard and
     OneNote between them are three separate mature products' worth of
@@ -181,13 +291,27 @@ into a good one.
     session, ideally after looking at how draw.io itself represents a
     fixed-vs-free anchor, since that's the interaction model being asked
     for by name.
-12. **Note metadata, and links that are links.** A note's linked notes should
-    be clickable through to those notes; today they are decoration.
-13. **"Take me to the thing the agent just changed," the UI half.** Groundwork
-    is correct — `_change_note_id`/`_change_document_id` resolve each write
-    tool's real target. Still open: a `target` field on every write tool's
-    result and a View button rendered from it for documents, reminders and
-    categories (`changeRow` already does this for notes).
+12. ~~**Links that are links.**~~ **Already done — corrected, not rebuilt
+    (HISTORY.md §47).** Checked before touching anything, per this file's
+    own rule: every place a link chip renders (a note card's own links, the
+    "Similar" panel, a reminder's attached note) already calls `flashEntry`
+    on click, which switches to Notes → Browse, clears any active filter,
+    and scrolls the target into view with a highlight — the same function
+    search results and wiki-style `[[links]]` already use. This file's own
+    claim that they were "decoration" was stale, likely inherited from
+    before that wiring existed; nothing here needed building.
+13. **"Take me to the thing the agent just changed," the UI half.** The
+    document half is **done (HISTORY.md §47)**: `agent._change_document_id`
+    has resolved a real document id on every write since §21, but
+    `changeRow` — the one place both the chat's "what changed" list and the
+    autonomous-pass review panel render a change — never read it. Now does,
+    reusing `openDocumentFromNote` (the same navigation a note's own
+    document link already used); verified live (a synthetic `document_id`
+    change renders a View button that actually un-hides `#tab-documents`,
+    not just calls something silently). **Still open**: reminders and
+    categories have no `_change_*_id` resolver on the backend at all yet
+    (only note/document exist), so extending this further needs that
+    groundwork laid first, not just another `if` in `changeRow`.
 14. **Timeline line view, and text placement in grid view.** The grid view's
     text-placement half is **done**: `.timeline-dot`'s `line-clamp: 3` was
     unprefixed under a `-webkit-box` display, a combination this Chromium
@@ -196,19 +320,97 @@ into a good one.
     with no ellipsis. Fixed (the `-webkit-` property, kept alongside the
     standard one), plus the backend's own `preview` field, which was a bare
     `text[:120]` slice with no "…" on truncation even before the CSS ever
-    saw it. **Still open:** the line view itself — reported as needing a
-    real visual pass ("very professional and ready for public use"), and
-    grid view could still take general UX polish/feature expansion beyond
-    the text-cropping fix (not scoped further — say what specifically,
-    next time it's reported).
+    saw it. **Re-reported after that fix, still cut off** — four full lines
+    with no ellipsis this time, not reproduced in this sandbox's Chromium
+    (a live check found nothing overflowing at all: `scrollHeight ===
+    clientHeight`). A defensive `max-height` independent of
+    `-webkit-line-clamp` support was added as a safety net (HISTORY.md
+    §49-adjacent, same session as §48's Arc investigation) but this is
+    hardening, not a diagnosis — if it's still cut off after this, the next
+    session needs the actual browser/OS this is happening in, since two
+    separate attempts from this sandbox's Chromium haven't reproduced it.
+    **Also reported, not yet built**: the line-view's own note popup shows
+    no markdown rendering (plain text with literal `**`/`#` characters) and
+    no sketch/image attachment preview — both of which the note card
+    elsewhere in the app already does, so this is a gap in one render path
+    rather than a missing feature. **Still open:** the line view itself —
+    reported as needing a real visual pass ("very professional and ready
+    for public use"), and grid view could still take general UX polish
+    beyond the text-cropping fix (not scoped further — say what
+    specifically, next time it's reported).
 15. **Arc view: labels behind nodes**, plus a refinement pass on that layout.
     One piece of the refinement pass is **done**: the trace overlay drew a
     straight chord regardless of layout, and Arc puts every node on one
     shared baseline, so a traced path there sat exactly where the row of
     nodes already was — reported as connections being hard to see on
     non-tree layouts. Now drawn as its own taller arc in that one layout.
-    The labels-behind-nodes part is still open.
+    **The labels-behind-nodes part was investigated live (HISTORY.md §48)
+    and did not reproduce**: `labelLayer` is appended to the canvas after
+    every node circle, so DOM order alone already puts every label on top,
+    and a live screenshot with 24 seeded notes in Arc showed every label
+    clearly legible and unobscured. Left open rather than "fixed" — nothing
+    was found to fix, and the original report may depend on a specific
+    dataset (a denser tree, longer previews, a particular zoom) this
+    session's synthetic data didn't reproduce. Needs the original reporter's
+    exact steps or a screenshot before the next session spends more time on
+    it.
 16. **Documents in the graph.** They are notes' equal everywhere else.
+16a. **The document editor's sidebar, reported directly with screenshots.**
+    Two asks: make it full-scale and sticky/floating to the left (today it
+    scrolls with the page rather than staying put — not yet checked against
+    the actual CSS, likely a missing `position: sticky` or a parent without
+    `overflow` set up for it), and its Outline section visibly collapses/
+    disappears when the "Where are my documents kept?" disclosure below it
+    is expanded — the disclosure's own content is pushing the outline out
+    of a fixed-height scroll area rather than the sidebar growing to fit
+    both. Not yet investigated against the real DOM.
+16b. **The document editor itself: bold/italic don't toggle off, and it
+    needs broader work.** Reported directly: applying Bold to an
+    already-bold selection (or Italic to an already-italic one) doesn't
+    remove the formatting the way every other rich-text editor's toggle
+    does — it's a one-way "apply," not `document.execCommand`/ProseMirror-
+    style toggle behaviour. "A bunch of missing features... could be
+    improved a lot more" was named but not itemised — needs a concrete list
+    from the user before a session can act on more than the toggle bug.
+16c. **Images and files still can't be copied, pasted, or dragged into
+    notes.** Item 20 below already names the Library surface and
+    drag-to-attach as unbuilt on top of existing `/media`/attachment
+    plumbing; this confirms notes specifically (not just documents/the
+    whiteboard) are still missing all three input paths — worth verifying
+    exactly which of paste/drag-drop/file-picker already work, if any,
+    before assuming all three need building from scratch.
+16d. **An optional title field in Capture, and everywhere a note can be
+    created.** Raised as a design question earlier this session (see
+    HISTORY.md §44's "open questions") and asked again more directly here.
+    Still needs the same decision before building: a second field
+    duplicates §43's leading-heading mechanism (`manager.extract_title`)
+    unless it's wired to *write* that heading line into `content` rather
+    than storing a separate title — which is buildable (prepend `# {title}`
+    on save, exactly the shape `extract_title` already reads) but is a
+    decision worth confirming before writing it, not re-litigating from
+    scratch next time it's raised.
+16e. **An emoji picker in every note-creation input and the document
+    editor.** New feature, not yet scoped — needs a decision on picker
+    source (native OS picker via `<input>` attributes vs. a built-in
+    palette) before building, and probably belongs alongside item 16f's
+    emoji-usage decision rather than before it, since a picker that adds
+    emoji everywhere sits oddly next to a simultaneous push to use fewer.
+16f. **A full sweep of emoji usage across the app, asked for directly**:
+    *"I feel the application is very heavy with emojis, it feels too much
+    like AI slop... make sure they are only used professionally and with
+    intention, otherwise professional icons are the better way to go."*
+    Also considering colourless/monochrome emoji as a middle ground, but
+    undecided. This is a design decision affecting most of `index.html` and
+    a large fraction of `app.js` (tab icons, button labels, toast prefixes,
+    status chips) — not a quick pass. Needs, in order: (1) an actual count
+    and categorisation (decorative vs. load-bearing — some emoji are the
+    only differentiator between otherwise-identical icons, e.g. the
+    notification kind icons), (2) a decision on the replacement (SVG icon
+    set vs. monochrome emoji vs. selective removal), (3) then a build pass.
+    Doing the build pass before the decision risks redoing the same ground
+    twice, which this project's own history (HISTORY.md's repeated "checked
+    before building" theme) is precisely the failure mode it keeps warning
+    about.
 17. **Battery-saver: an indicator and an honest description.** Checked before
     writing this — the indicator already exists (`#power-saver-indicator`, a
     status-bar chip shown/hidden from `battery_efficient_mode`) and is wired
@@ -235,6 +437,78 @@ into a good one.
     this is about someone new knowing where to look). `#onboarding-overlay`
     already exists as a surface (see CLAUDE.md's login recipe); worth
     checking what it currently does before scoping a tour on top of it.
+19a. ~~**The graph toolbar's controls read as one undifferentiated strip.**~~
+    **Done (HISTORY.md §44).** Reported directly: `.graph-time-label` ("All
+    time") is a plain read-out of the Time Filter slider, styled identically
+    to the *interactive* toggle labels (Similarity/Hide unlinked/Labels)
+    sitting right after it with the same flex gap, so nothing marked where
+    one group ended and the next began. The three toggles are now grouped
+    under one `.graph-toggle-group` span with a divider drawn before each
+    group (`.graph-physics`/`.graph-temporal`/`.graph-toggle-group`), the
+    same `+`-selector convention `.chat-tool-group` already used, so the row
+    reads as Physics | Time | Toggles rather than one strip. **Not verified
+    live** — CSS-only, reasoned from the DOM/selectors and the existing
+    `.chat-tool-group` precedent, not screenshotted in this session.
+19b. **A mute-notifications option, asked for directly**, alongside making
+    the toast/notification split clearer: "there can be an option to mute
+    notifications except for reminders." Built as
+    `notifications_muted_except_reminders` (Settings → Preferences →
+    Notifications): `toast()` takes an `exempt` flag (set on the three
+    reminder-alert call sites) and returns early for everything else when
+    muted; `recordNotification` does the same for the persistent panel,
+    keyed off `kind !== "reminder"`. Errors are never muted — silencing a
+    real failure would hide the thing muting is least meant to hide. **Not
+    built**: mirroring ordinary toasts into the notifications panel (the
+    other half of the same message) — every `toast()` call site would need
+    a `kind` to avoid flooding the panel with routine "Saved."/"Linked."
+    noise, which needs a first pass at which toasts actually belong there
+    before it's buildable.
+
+    **Extended (HISTORY.md §49), asked for directly**: a mute toggle inside
+    the notifications panel itself (`#notif-mute-toggle`, reads "🔕 Mute" /
+    "🔔 Unmute" and `aria-pressed`), not only three screens away in Settings
+    — and the bell icon (`#notif-btn`) itself now shows 🔕 instead of 🔔
+    whenever muted, so the state is visible without opening anything. Built
+    and verified live end to end, which is what caught item 4a's real bug —
+    the toggle correctly PUT the preference and correctly re-rendered from
+    the response, and *still* showed unmuted, because `GET /preferences`
+    (which the PUT response is built from) never echoed the new key back.
+    Fixed there, not patched around here.
+
+### Open questions raised this session, not built
+
+- **Should Capture have its own title field**, separate from the leading-
+  heading convention §43 already shipped (`manager.extract_title` reads a
+  `#`–`######` first line, computed on read rather than stored)? Asked
+  directly, including "if the user begins a note with `#` maybe it moves to
+  the optional title input" — genuinely a design question in the same shape
+  §43 was worked through as, not a bug: a second, separate title field would
+  either duplicate the heading-line mechanism (keeping both in sync) or
+  replace it (undoing the "read off the note, not enforced" decision §43's
+  writeup already recorded). Needs a decision before either is built, not a
+  guess.
+- **"The dashboard isn't detecting my name."** Traced end to end
+  (`renderNameNudge`/`withDisplayName` read `prefsCache.display_name`, and
+  `savePrefs` updates both the cache and re-renders the greeting on save) and
+  the code reads correct — the nudge is *designed* to show exactly when
+  `display_name` is empty, so a fresh profile with no name saved yet showing
+  "👋 Add your name" is very likely the feature working as built, not a bug.
+  Could not reproduce a case where a name was actually saved and still not
+  shown; if it recurs, check `GET /preferences` directly for whether
+  `display_name` actually persisted, rather than assuming the render path.
+- **The Timeline grid's "text cut off with no ellipsis" report** (§38a item
+  2 was believed fixed) was re-investigated live: seeded notes up to 122
+  characters at the grid's actual 13rem column width and read
+  `getComputedStyle` on every `.timeline-dot`. Two things came out of it,
+  neither a confirmed fix: `-webkit-box`'s **computed** `display` resolves to
+  `flow-root` in this sandbox's Chromium, not `-webkit-box` — the property
+  the existing code comment says is "what this display mode actually reads"
+  isn't actually the mechanism in effect here, though clamping still worked
+  correctly in every case tested (`scrollHeight === clientHeight`, nothing
+  overflowing). Could not reproduce actual clipped, non-ellipsised text with
+  any input tried. Worth re-checking with the user's exact note content and
+  browser before guessing at a CSS change — this project's own standing rule
+  is to reproduce before theorising, and this one didn't reproduce.
 
 ### Tier 3 — new capability
 

@@ -21,7 +21,7 @@ from typing import Callable
 
 from datetime import timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from memorymap.ai import librarian, skills
@@ -117,9 +117,18 @@ def _readable(entry: Entry) -> str:
     return manager.readable_content(entry)
 
 
-def _note_summary(session: Session, entry: Entry, chars: int = PREVIEW_CHARS) -> dict:
+def _note_summary(
+    session: Session, entry: Entry, chars: int = PREVIEW_CHARS, dates: list | None = None
+) -> dict:
     """What the model gets back about a note — enough to talk about it
-    and to reference it in follow-up tool calls."""
+    and to reference it in follow-up tool calls.
+
+    `dates` lets a caller looping over many rows (`list_notes`,
+    `_summarize_notes`) pass in a pre-fetched, batched lookup instead of
+    paying one `entry_dates` query per row — the N+1 ROADMAP.md Tier 1 item
+    8 named. Left `None` for the single-note callers, which still fetch it
+    themselves below.
+    """
     text = _readable(entry)
     clipped = _clip(text, chars)
     summary = {
@@ -134,7 +143,8 @@ def _note_summary(session: Session, entry: Entry, chars: int = PREVIEW_CHARS) ->
     # What the note's own "tomorrow" meant on the day it was written (§10A).
     # Without this the model reads "the deadline is next Friday" in a note
     # from March and answers about the Friday coming up.
-    dates = manager.entry_dates(session, entry)
+    if dates is None:
+        dates = manager.entry_dates(session, entry)
     if dates:
         summary["dates"] = [
             {"phrase": d.phrase, "meant": d.at.date().isoformat()} for d in dates
@@ -422,29 +432,30 @@ def _graph_neighbours(session: Session, entry: Entry) -> list[tuple[Entry, str]]
 
     tags = set(manager.entry_tags(entry))
     if tags:
-        # Build a tag → [entry] index in one pass rather than checking every
-        # entry against every tag individually (the old O(n²) scan). For a
-        # 1,000-note notebook the difference is ~1,000 DB row reads vs.
-        # ~1,000,000 tag comparisons.
+        # `_related_notes` calls this once per node in its BFS frontier (up
+        # to ~12 at depth 2), and it used to fetch every non-deleted `Entry`
+        # — the whole table, `content` included — on every one of those
+        # calls just to check its tags (ROADMAP.md Tier 1 item 8). `tags` is
+        # a JSON text column with no per-tag index, so a SQL filter can only
+        # narrow candidates, not resolve the match exactly — `ilike` (same
+        # pre-filter `list_tags`/`_count_notes` already use elsewhere in this
+        # file) rules out rows whose raw JSON can't possibly contain the tag,
+        # and the exact per-entry check below removes any substring false
+        # positive it lets through ("art" also matching "cart").
         #
-        # Matching is case-insensitive throughout, and *consistently* so. The
-        # first version keyed the index by `tag.lower()` but then intersected
-        # the lowercased tags of the candidate with this note's tags at their
-        # original case — so two notes sharing "#Work" matched the index,
-        # produced an empty intersection, and were reported as unrelated.
-        # Lowercase is the key; `folded` keeps a display form for each.
+        # Matching is case-insensitive throughout, and *consistently* so. An
+        # earlier version keyed an index by `tag.lower()` but then
+        # intersected the lowercased tags of the candidate with this note's
+        # tags at their original case — so two notes sharing "#Work" matched
+        # the index, produced an empty intersection, and were reported as
+        # unrelated. Lowercase is the key; `folded` keeps a display form.
         folded = {t.lower(): t for t in tags}
-        tag_to_entries: dict[str, list[Entry]] = {}
-        for other in session.scalars(
-            select(Entry).where(Entry.is_deleted == False)  # noqa: E712
-        ):
-            if other.id == entry.id:
-                continue
-            for other_tag in manager.entry_tags(other):
-                key = other_tag.lower()
-                if key in folded:
-                    tag_to_entries.setdefault(key, []).append(other)
-        for other in {o.id: o for ids in tag_to_entries.values() for o in ids}.values():
+        candidates = select(Entry).where(
+            Entry.is_deleted == False,  # noqa: E712
+            Entry.id != entry.id,
+            or_(*(Entry.tags.ilike(f"%{t}%") for t in tags)),
+        )
+        for other in session.scalars(candidates):
             shared = {
                 folded[t.lower()]
                 for t in manager.entry_tags(other)
@@ -877,8 +888,9 @@ def _list_notes(session: Session, args: dict) -> dict:
         )
         if part
     )
+    dates_by_id = manager.entry_dates_bulk(session, [e.id for e in rows])
     result = {
-        "notes": [_note_summary(session, e) for e in rows],
+        "notes": [_note_summary(session, e, dates=dates_by_id.get(e.id, [])) for e in rows],
         "returned": len(rows),
         "total_matching": total,
         "offset": offset,
@@ -1043,10 +1055,11 @@ def _summarize_notes(session: Session, args: dict) -> dict:
     if wanted:
         rows = [e for e in rows if manager.category_name_for(session, e) == str(wanted)]
         period = f"{period}, {wanted}"
+    dates_by_id = manager.entry_dates_bulk(session, [e.id for e in rows])
     result = {
         "period": period,
         "count": len(rows),
-        "notes": [_note_summary(session, e) for e in rows],
+        "notes": [_note_summary(session, e, dates=dates_by_id.get(e.id, [])) for e in rows],
         "how_to_read_more": _READ_MORE,
         "label": "📝 Gathered notes to summarise",
     }

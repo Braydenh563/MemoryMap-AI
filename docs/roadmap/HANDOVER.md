@@ -2,7 +2,318 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session: §43, a follow-up burst — the time filter's *real* bug, link reasons grew a confidence score and an editor, notes got optional titles
+## Latest session: §44–§49, then a large burst of new reports triaged and queued rather than built, on user instruction, at high usage
+
+Same session as the §44–§48 entry below, continued through §49 and then a
+large burst of new reports arrived faster than they could be safely
+investigated one at a time. **The user explicitly said not to build all of
+them now** ("you can list them and properly prioritise the roadmap") — so
+this half of the session is triage, not implementation, and that was the
+right call given where usage was.
+
+**Built and verified this half (§49, HISTORY.md)**: a notifications-panel
+mute toggle (🔕/🔔 bell, `#notif-mute-toggle` in the panel itself, not only
+Settings) — and the real bug it caught live: `get_preferences()` never
+echoed back **eight** separate preferences (every Autonomous Background
+Workers toggle, its interval and model, battery mode, smart model routing)
+despite all of them saving and being correctly honoured by the code that
+reads them. Every Settings checkbox bound to one of these reset to
+unchecked on reload, the whole time, silently. Fixed with two new
+round-trip regression tests, since nothing had ever asserted what `GET
+/preferences` echoes.
+
+**Also fixed this half**: the graph toolbar had four different font sizes
+across Gravity/Spread/Time-Filter/the toggles, and the "Up to DD/MM/YYYY"
+readout could overlap the slider thumb (`flex-shrink` missing, `min-width`
+sized for the shorter "All time" text) — both from a screenshot, both
+fixed with ordinary CSS. The Timeline grid's text-cut-off bug (believed
+fixed in an earlier session) was re-reported with a new screenshot showing
+four full lines with no ellipsis; **still not reproduced in this sandbox's
+Chromium** after a second live attempt, so a defensive `max-height`
+independent of `-webkit-line-clamp` support was added as hardening, not a
+diagnosis — flagged as such in ROADMAP item 14.
+
+**Everything else from this burst was investigated only enough to scope,
+then written into ROADMAP.md rather than built**, per the user's own
+instruction and this project's standing rule that a reported item gets a
+tier immediately even when nobody is working on it yet:
+
+- Every graph layout except Force loses all its edges when the Time Filter
+  moves off "All time" (Tier 1, item 10 — not investigated at all, high
+  value, likely the top item for next session).
+- Dragging on an empty part of the graph canvas sometimes highlights an
+  unrelated note (Tier 1, item 11 — not reproduced).
+- The document editor's sidebar should be full-scale and sticky-left, and
+  its Outline visibly collapses when the "Where are my documents kept?"
+  disclosure expands (item 16a — not investigated against the real DOM).
+- Bold/Italic in the document editor don't toggle off on a second click of
+  an already-formatted selection, plus a general "needs more features" ask
+  with nothing itemised yet (item 16b).
+- Copy/paste/drag-drop of images and files into notes — still unclear which
+  of the three (if any) already work; needs checking before assuming a
+  rebuild (item 16c).
+- An optional title field in Capture and everywhere else a note is made —
+  the same design question as §44's "open questions" section, raised again
+  more directly; the buildable shape (write the heading line into `content`
+  rather than a second stored field) is scoped but not decided (item 16d).
+- An emoji picker in every note-input and the document editor (item 16e),
+  and — the bigger one — a full audit of emoji usage across the app with a
+  view to professional icons or monochrome emoji instead, because it reads
+  as "AI slop" as built (item 16f). Deliberately sequenced *audit, then
+  decide, then build* — not a quick pass, and building before the decision
+  risks doing it twice.
+- A link-reason backfill exposed as an agent-callable tool/skill (not only
+  a UI button), and folding temporal-word similarity into the reason
+  deduction alongside embeddings (extends item 9).
+- Whiteboard: grid lines with snap-to-grid, and drawing not responding to a
+  plain click (only a drag) — both new, added to item 11's already-long
+  open list. Shift-to-lock-proportions, which the user thought might
+  already be listed, **was already there** — confirmed rather than
+  duplicated.
+- The Timeline line-view's note popup renders no markdown and shows no
+  sketch/image attachments, unlike the note card elsewhere in the app
+  (folded into item 14).
+
+**What's next**: ROADMAP.md's Tier 1 items 10 and 11 (the time-filter/
+layout bug and the drag-highlight bug) are the highest-value starting
+points — both are correctness bugs, both are undiagnosed, and item 10 in
+particular makes the time filter close to useless on three of four
+layouts. After that, work top-down through Tier 2 as usual, or take
+whichever of the newly-added items the user re-prioritises after reading
+the list above.
+
+---
+
+## Previous session: a long unattended run, §44–§48 — two real perf fixes, a real "ran without being enabled" bug, a manual mode for skills, two sketch pad fixes, two stale-claim corrections, and one investigated-but-not-reproduced report
+
+Worked ROADMAP.md's Tier 1/Tier 2 list top-down for an extended unattended
+session, per the project's own standing rule and the user's explicit
+"work autonomously, commit and push as you go." Five commits, each with a
+full `pytest tests/` (~1,600+ tests), `ruff check .`, and `node --check
+frontend/app.js` before pushing. Full detail for each is in HISTORY.md
+§44–§48; this is the ordered short version.
+
+**§44 — Tier 1's own "start here next" item, done first:**
+`tools._graph_neighbours` no longer fetches the whole notes table per BFS
+node to check tags by hand (pre-filters with `ilike` first, same pattern
+`list_tags` already used); `manager.entry_dates_bulk` replaces
+`list_notes`/`summarize_notes`'s per-row N+1 with one batched query. Both
+pinned by new query-count tests. Then a user report, **reproduced live
+before being fixed, not theorised**: `POST /tasks/trigger-autonomous` ran a
+real optimisation pass regardless of the `autonomous_tasks_enabled` toggle
+— confirmed with `curl` against a running server, fixed in the route (not
+in `_run_optimization`, which ten-plus existing tests treat as
+toggle-agnostic by design). Also this session: link suggestions now carry
+the reason a link would get if approved, a one-click backfill for existing
+reason-less links, a `notifications_muted_except_reminders` preference, and
+a graph-toolbar readability fix (the Time Filter's read-out no longer sits
+in an undifferentiated strip with the toggle controls beside it).
+
+**§45 — skill runs get a manual mode**, ROADMAP's own "single
+most-requested unbuilt thing." Reuses the existing `stopped_at`/`start_at`
+resume machinery rather than inventing a second one; a new `result.paused`
+flag is the only thing telling "waiting for you" from "something broke."
+Whatever's typed in at the pause is folded into the *next* step's own
+instruction, once. Six new backend tests through the real streaming
+endpoint. **Not verified live in a browser.**
+
+**§46 — the sketch pad.** Highlighter `globalAlpha` was `0.05` (needed
+~20 passes to show anything), now `0.35` — verified with a pixel
+read-back and a screenshot. A background-colour control's first
+implementation (CSS `background` on the canvas element) did *nothing* — a
+canvas's own opaque `fillRect` pixels sit in front of any CSS background —
+fixed by changing the actual fill colour instead, verified against the
+real save-composite's pixels. Also corrected: ROADMAP's claim that a size
+control was missing was stale; it already existed and already worked.
+
+**§47 — two more claims checked, one stale, one real.** "Links are
+decoration" was stale — all three link-chip render sites already navigate
+via `flashEntry`. The document half of "take me to what changed" was real:
+`changeRow` never read the `document_id` `agent._change_document_id` has
+resolved since an earlier session; one more branch, verified with an
+actual click producing an actual tab change.
+
+**§48 — Arc view's "labels behind nodes" was investigated live and did
+not reproduce.** `labelLayer` is appended after every node in the DOM
+(so it should already paint on top for every layout), and a live
+screenshot with 24 seeded notes showed every label clearly legible on top
+of its node. Left open in ROADMAP rather than marked fixed — nothing was
+found to fix. Needs the original report's exact steps or a screenshot
+before a future session spends more time on it.
+
+**What was and wasn't verified, overall**: the two §44 perf fixes and the
+autonomous-toggle fix were confirmed against a real running server with
+`curl`. The sketch pad fixes were confirmed with real pixel reads and
+screenshots. The link-decoration and document-View fixes were confirmed
+with real clicks producing real navigation. The Arc-labels investigation
+was a real screenshot, not a guess. **Not driven in a browser this
+session**: the skill manual-mode checkbox and pause card (backend fully
+tested through the real streaming endpoint, frontend only `node --check`ed).
+
+**What's next**: the sketch pad's selection tool (click an existing
+stroke/shape to move, resize or delete it), the `_change_reminder_id`/
+`_change_category_id` resolvers named in §47 (so `changeRow`'s View button
+can extend past notes and documents), or whichever Tier 2 item reads as
+next-most-valuable on a fresh read of ROADMAP.md — none of the remaining
+items are blocked on anything above.
+
+---
+
+## Previous session: §47 — a stale "decoration" claim corrected, and the document half of "take me to what changed" built
+
+Continued straight after §46. Full detail in [HISTORY.md §47](HISTORY.md);
+short version: Tier 2 item 12 ("linked notes should be clickable, today
+they're decoration") was checked before touching anything and found
+**already done** — all three link-chip render sites already call
+`flashEntry` on click. Corrected in ROADMAP rather than rebuilt.
+
+Item 13 had a real gap: `changeRow` (shared by the chat's "what changed"
+list and the autonomous-pass review panel) only ever read `change.note_id`,
+never the `change.document_id` that `agent._change_document_id` has
+resolved on every write since §21. One more `if`, reusing
+`openDocumentFromNote`; verified live with an actual click producing an
+actual tab change, not just read from the diff. Reminders/categories still
+have no `_change_*_id` resolver at all — named as the real next step for
+this item rather than guessed at.
+
+**What's next**: ROADMAP.md's next open item — the reminder/category
+`_change_*_id` resolvers named above, the sketch pad's selection tool, or
+whichever Tier 2 item reads as next-most-valuable on a fresh read of the
+file.
+
+---
+
+## Previous session: §46 — the sketch pad's highlighter and background colour, both fixed and verified live with pixel reads
+
+Continued straight after §45. Full detail in [HISTORY.md §46](HISTORY.md);
+short version: the highlighter's `globalAlpha` was `0.05` (needed ~20 passes
+to show anything), now `0.35`. Checked first and found already done: a size
+control (`#sketch-size`) existed and reached every tool — ROADMAP's own
+claim otherwise was stale, corrected rather than rebuilt.
+
+**The background colour is the one worth reading closely if you touch this
+file again.** A first pass wired it as a CSS `background` on
+`#sketch-bg-canvas` — the same shape the whiteboard's own board-colour
+picker uses — and it did *nothing*, because `sketchDrawBackground()`
+already paints an opaque `fillRect` into the canvas's own pixels every time
+the pad opens, and those pixels sit in front of any CSS background on the
+element underneath. **A CSS background on a `<canvas>` is only ever visible
+through pixels the canvas itself left transparent** — worth remembering
+before wiring any future control this way. Fixed by making the fill colour
+itself the chosen one (`sketchBgColor`, persisted in `localStorage`)
+instead of a hardcoded white. Verified three ways live: the bg-canvas's own
+pixels before/after picking a colour, and the exact composite `saveSketch()`
+builds, read back pixel by pixel, to prove the colour survives into what
+actually gets saved and not just what's on screen.
+
+**Not built**: the selection tool (still open, and it's the one real
+remaining gap — clicking an existing stroke to move/resize/delete it).
+**Not verified live**: nobody clicked "Save as note" through the UI
+end-to-end this session (a stray toast intermittently overlapped the
+button in the test viewport); the save composite was verified by running
+`saveSketch()`'s own drawing calls directly, not by clicking through.
+
+**What's next**: the sketch pad's selection tool, or ROADMAP.md's next
+Tier 2 item (note-links being clickable through to the notes they name, or
+the change-target View button extending past notes).
+
+---
+
+## Previous session: §45 — skill runs get a manual mode, the single most-requested unbuilt thing on the list
+
+Continued straight after §44 in the same session. Full detail in
+[HISTORY.md §45](HISTORY.md); short version: `run_skill(..., manual=True)`
+now pauses after *every* completed step, reusing the exact `stopped_at`/
+`start_at` machinery a failed step already had rather than a second
+mechanism — the only new thing is `result.paused`, so the client can tell
+"waiting for you" from "something broke". Whatever gets typed in at the
+pause (`manual_note`) is folded into the *next* step's own instruction, once,
+not repeated into every later one. A "Run skills step-by-step" checkbox
+lives in the chat dock's `⚙` panel; the pause renders as a text box +
+Continue card, separate from the existing Resume/ran-out-of-rounds one so a
+real failure still reads as a failure.
+
+**Not built**: the same pause for a plan run (`opts.plan`) — the backend
+already treats a plan and a skill identically, but the pre-existing
+Resume-from-failure button was already skill-only before this session, so
+extending both to plans is a separate follow-up, not a gap this feature
+introduced. **Not verified live**: six new backend tests in `test_skills.py`
+cover pause/resume/note-folding through the real streaming endpoint with a
+fake model, but the checkbox and the pause card's text box were not driven
+in a browser this session.
+
+**What's next**: ROADMAP.md's next Tier 2 item (the sketch pad — the
+highlighter opacity, a size control, a background colour, a selection tool)
+or the plan-run pause extension named above.
+
+---
+
+## Previous session: §44 — Tier 1's top item done, a real "ran without being enabled" bug fixed live, link reasons extended twice, a mute option — plus three reports that didn't reproduce
+
+Full detail in [HISTORY.md §44](HISTORY.md). Short version and what's still
+open:
+
+**Worked ROADMAP.md's own "start here next" first**: the two Tier 1 §8 perf
+findings (`tools._graph_neighbours`'s full-table tag scan, `_note_summary`'s
+per-row `entry_dates` N+1 inside `list_notes`/`summarize_notes`) — both
+fixed, both pinned by new query-count tests in `test_scale_query_counts.py`.
+
+**Then a user report, reproduced live rather than theorised**: *"I get
+notifications that the autonomous optimisation completed when I didn't have
+it enabled??"* — real bug. `POST /tasks/trigger-autonomous` never checked
+the `autonomous_tasks_enabled` master toggle; only the scheduled loop did,
+before ever calling in. Confirmed with `curl` against a running server
+before touching code (`started: true` on a fresh, disabled profile), then
+fixed in the route rather than in `_run_optimization`/`trigger_now` — ten-
+plus existing tests call `_run_optimization()` directly and rely on it
+staying toggle-agnostic by design, so the guard belongs at the one call site
+that was actually missing it. Re-verified live after the fix, both branches.
+
+**Then link reasons, extended on two fronts asked about directly**: `GET
+/entries/link-suggestions` now carries the `reason` text a link would get
+if approved (the two thresholds are numerically identical, so it's a real
+preview, not a guess), and `POST /entries/links/backfill-reasons`
+(`manager.backfill_link_reasons`) runs deduction once over every existing
+reason-less link — the answer to "is there an easy way to give them all a
+reason?", since deduction previously only ran at the moment a link was
+first made.
+
+**Then a mute option, asked for directly**: `notifications_muted_except_reminders`
+quiets `toast()` and the notifications panel for everything except a due
+reminder and real errors.
+
+**Then a graph-toolbar readability fix, reported directly**: the Time
+Filter's "All time" read-out and the Similarity/Hide unlinked/Labels toggles
+sat in one undifferentiated strip with the same gap; grouped the toggles and
+drew a divider using `.chat-tool-group`'s existing convention.
+
+**Three more reports were investigated and correctly left alone rather than
+guessed at** — a Capture title-field question (a design decision, not a
+bug — see ROADMAP.md's new "Open questions" section), "the dashboard isn't
+detecting my name" (the code is correct; likely the nudge working as
+designed on a profile with no name saved, not reproduced as a bug), and the
+Timeline grid's "text cut off" report (re-driven live with real
+measurements; found that `display: -webkit-box` computes to `flow-root` in
+this sandbox's Chromium — worth knowing — but could not reproduce actual
+clipping with any input tried).
+
+**What was verified live vs. reasoned**: the two perf fixes and the
+autonomous-toggle fix were confirmed against a real running server with
+`curl`, not just read from the code. The graph-toolbar divider, the
+suggestion-reason text, the backfill button and the mute option are CSS/JS
+changes reasoned from the DOM and this codebase's own existing conventions
+(`.chat-tool-group`'s divider pattern, `list_tags`' `ilike` pre-filter
+pattern) but were **not** driven in a browser this session. Full `pytest
+tests/` (~1,600+ tests), `ruff check .`, and `node --check frontend/app.js`
+all green throughout.
+
+**What's next**: ROADMAP.md's Tier 2 top item (skill runs' auto/manual
+mode — still the single most-requested unbuilt thing on the list), or one of
+the three open questions above once a decision is made on each.
+
+---
+
+## Previous session: §43, a follow-up burst — the time filter's *real* bug, link reasons grew a confidence score and an editor, notes got optional titles
 
 Continued straight from §42 below, in the same session: rather than another
 big unstructured list, the user came back with a run of small, specific asks

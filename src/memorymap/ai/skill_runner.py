@@ -125,13 +125,15 @@ def run_skill(
     history: list[dict] | None = None,
     persona_prompt: str | None = None,
     start_at: int = 0,
+    manual: bool = False,
+    manual_note: str | None = None,
 ) -> Iterator[dict]:
     """Yields the agent's own event types, plus three of its own:
 
     {"type": "plan", "skill", "steps", "tools"}     — before anything runs
     {"type": "step", "index", "state", "text"}      — running | done | failed
                                                       | stalled | earlier
-    {"type": "result", "changes": [...], "stopped_at": int|None}
+    {"type": "result", "changes": [...], "stopped_at": int|None, "paused": bool}
                                                     — what actually changed,
                                                       and where it stopped
 
@@ -143,6 +145,21 @@ def run_skill(
     That is the answer to "it cuts out half way through and has to restart" —
     restarting a six-step run to reach step four means doing steps one to three
     again, and every one of them writes to the notebook.
+
+    `manual` is the other half of that same request, asked for directly and
+    explicitly, and never built until now: **"skills producing network
+    errors, or models that cannot run them" and "a manual mode"** — a pause
+    after every completed step with a Continue button, so a person can add
+    what the agent missed or answer a question it raised before the next
+    step starts, rather than the run barrelling on regardless. Reuses the
+    exact same stop-and-resume machinery `start_at` already has for a
+    failure — a pause is not a new code path, it's the same one with
+    `result.paused = True` so the caller can tell "stopped because it's
+    waiting for you" from "stopped because something went wrong" and render
+    each one differently. `manual_note` is what the user typed at that
+    pause; folded into the very next step's own instruction (not into
+    history, which the model may or may not weigh — this is read as part of
+    what it's being asked to do right now).
     """
     steps = skill.get("steps") or []
     allowed = skill.get("tools") or None
@@ -198,12 +215,13 @@ def run_skill(
         # turn, and re-running it is the only way to continue it. The turn's
         # own `limit` event is still there, and the chat's Continue button
         # reads that.
-        yield {"type": "result", "changes": changes, "stopped_at": None, "steps": 0}
+        yield {"type": "result", "changes": changes, "stopped_at": None, "steps": 0, "paused": False}
         return
 
     step_history = list(history or [])
     started = False
     stopped_at: int | None = None
+    paused = False
     resume_from = min(max(0, start_at), len(steps))
     for index, step in enumerate(steps):
         if index < resume_from:
@@ -216,8 +234,18 @@ def run_skill(
                 started = True
             yield {"type": "step", "index": index, "state": "earlier", "text": step}
             continue
+        instruction = skills.step_instruction(skill, values, index)
+        # Folded into the instruction, not appended to `step_history`: this is
+        # what the user is asking for as part of *this* step, not a fact about
+        # an earlier one, and a history entry is something the model may or
+        # may not weigh against everything else in the window.
+        if manual_note and index == resume_from:
+            instruction = (
+                f"Before this step, the person running this added: "
+                f"“{manual_note}”\n\n{instruction}"
+            )
         events = turn(
-            skills.step_instruction(skill, values, index),
+            instruction,
             step_history,
             f"I couldn't finish step {index + 1} — I used every round it had "
             "without reaching an answer.",
@@ -339,17 +367,29 @@ def run_skill(
         step_history.append(
             {"question": step, "answer": _step_answer(answer, changes[changes_before:])}
         )
+        # Manual mode: the same stop-and-resume machinery `stopped_at` already
+        # gives a failed/stalled step, used deliberately here instead of a
+        # second mechanism — the difference is only `paused` below, so the
+        # client can render "waiting for you" rather than "something broke".
+        # Nothing to pause for after the last step; that's just the run ending.
+        if manual and index + 1 < len(steps):
+            stopped_at = index + 1
+            paused = True
+            break
 
     if not started:  # every step failed before producing anything
         yield plan
     # `stopped_at` is the index the run did not get past — None when it
     # finished. The client turns it into "Resume from step N", which is the
-    # difference between carrying on and doing the first half again.
+    # difference between carrying on and doing the first half again. `paused`
+    # tells it which reason: waiting for the user (manual mode) rather than a
+    # failure — Resume becomes Continue, and it's not reported as an error.
     yield {
         "type": "result",
         "changes": changes,
         "stopped_at": stopped_at,
         "steps": len(steps),
+        "paused": paused,
     }
 
 

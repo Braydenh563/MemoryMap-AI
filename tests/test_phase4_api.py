@@ -202,6 +202,44 @@ def test_preferences_validated(client):
     )
 
 
+def test_autonomous_and_battery_preferences_round_trip_through_get(client):
+    """`get_preferences()` is a hand-built dict, and eight keys — every
+    Autonomous Background Workers toggle, the battery mode switch, and smart
+    model routing — were settable and correctly *honoured* (`autonomous.py`
+    and `model_manager.py` both read them straight from storage) but never
+    once echoed back here. Every Settings checkbox bound to one of them
+    showed unchecked again the moment the page reloaded, regardless of what
+    had actually been saved and was actually in effect."""
+    client.put(
+        "/preferences",
+        json={
+            "autonomous_tasks_enabled": True,
+            "auto_tag_enabled": False,
+            "auto_link_enabled": False,
+            "auto_dedupe_enabled": False,
+            "autonomous_tasks_interval_hours": 2,
+            "autonomous_tasks_model": "phi3.5",
+            "battery_efficient_mode": True,
+            "smart_model_routing_enabled": False,
+        },
+    )
+    fresh = client.get("/preferences").json()
+    assert fresh["autonomous_tasks_enabled"] is True
+    assert fresh["auto_tag_enabled"] is False
+    assert fresh["auto_link_enabled"] is False
+    assert fresh["auto_dedupe_enabled"] is False
+    assert fresh["autonomous_tasks_interval_hours"] == 2
+    assert fresh["autonomous_tasks_model"] == "phi3.5"
+    assert fresh["battery_efficient_mode"] is True
+    assert fresh["smart_model_routing_enabled"] is False
+
+
+def test_notification_mute_preference_round_trips_through_get(client):
+    assert client.get("/preferences").json()["notifications_muted_except_reminders"] is False
+    client.put("/preferences", json={"notifications_muted_except_reminders": True})
+    assert client.get("/preferences").json()["notifications_muted_except_reminders"] is True
+
+
 def test_saving_an_autonomous_preference_wakes_the_scheduler(client, monkeypatch):
     """Battery mode, the on/off toggle and the interval used to only be read
     once per scheduled tick — up to six hours away — so switching one off

@@ -43,9 +43,13 @@ if not defined MM_CHILD (
 )
 
 echo.
-echo  ==========================================
-echo   MemoryMap AI - starting up
-echo  ==========================================
+echo   __  __                            __  __
+echo  ^|  \/  ^| ___ _ __ ___   ___  _ __^|  \/  ^| __ _ _ __
+echo  ^| ^|\/^| ^|/ _ \ '_ ` _ \ / _ \^| '__^| ^|\/^| ^|/ _` ^| '_ \
+echo  ^| ^|  ^| ^|  __/ ^| ^| ^| ^| ^| (_) ^| ^|  ^| ^|  ^| ^| (_^| ^| ^|_) ^|
+echo  ^|_^|  ^|_^|\___^|_^| ^|_^| ^|_^|\___/^|_^|  ^|_^|  ^|_^|\__,_^| .__/
+echo                                              ^|_^|
+echo             your notebook, on your machine
 echo.
 
 set "VENV_PY=.venv\Scripts\python.exe"

@@ -1426,7 +1426,8 @@ Link to another note with [[its first few words]]."></textarea>
         <p>🔗 A <strong>link</strong> tool connects two cards — drag from one to the other.</p>
         <p>🅃 <strong>Text</strong> drops a box you can type in; 🖼 <strong>Image</strong> adds a picture — or just paste/drag one onto the board.</p>
         <p>🧽 <strong>Eraser</strong> removes whatever it drags across; ⟲ <strong>Undo</strong> (Ctrl+Z) brings it back.</p>
-        <p class="muted">Shortcuts: V pan · S select · P pen · L line · A arrow · R rectangle · O circle · T text · E eraser · X delete · Esc back to pan</p>
+        <p>🧠 Select a linked card, then <strong>Tab</strong> for a new branch, <strong>Enter</strong> for a sibling — or use "Arrange as mind map" in Properties to lay out everything it's linked to.</p>
+        <p class="muted">Shortcuts: V pan · S select · P pen · L line · A arrow · R rectangle · O circle · T text · E eraser · X delete · Tab new branch · Enter new sibling · Esc back to pan</p>
       </div>
     </div>
     <div class="whiteboard-floating-panel top-left card glass" data-panel-id="board">
@@ -1616,6 +1617,19 @@ Link to another note with [[its first few words]]."></textarea>
         <span>Text size</span>
         <input type="number" id="wb-prop-fontsize" min="8" max="200" step="1">
       </label>
+      <!-- Mind-mapping (ROADMAP item 25): select a card connected to at
+           least one other by a whiteboard link, arrange everything reached
+           from it via those links in a Tree or Radial layout — reusing the
+           Graph tab's own layout maths (`wbArrangeMindMap`), not a second
+           engine. Shown only for a single selected card, and only once it
+           actually has a link to arrange (see wbUpdatePropertiesPanel). -->
+      <div class="wb-properties-row wb-prop-mindmap hidden" id="wb-prop-mindmap-row">
+        <span>Arrange as mind map</span>
+        <div class="wb-multi-actions">
+          <button type="button" id="wb-mindmap-tree" class="ghost small" title="Tree layout, root on the left">🌳 Tree</button>
+          <button type="button" id="wb-mindmap-radial" class="ghost small" title="Radial layout, root at the centre">🎯 Radial</button>
+        </div>
+      </div>
       <!-- Multi-selection tools: grouping and alignment. Asked for directly
            ("alignment tools... missing") and only meaningful once two or
            more items are selected at once, so it replaces the single-item

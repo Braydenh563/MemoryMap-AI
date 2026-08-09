@@ -23625,6 +23625,7 @@ function wbUpdatePropertiesPanel() {
     border: document.getElementById("wb-prop-border-row"),
     fontsize: document.getElementById("wb-prop-fontsize-row"),
     multi: document.getElementById("wb-prop-multi-row"),
+    mindmap: document.getElementById("wb-prop-mindmap-row"),
   };
   Object.values(rows).forEach((r) => r?.classList.add("hidden"));
 
@@ -23672,9 +23673,231 @@ function wbUpdatePropertiesPanel() {
     document.getElementById("wb-prop-bg").value = item.data.bg || "#ffffff";
     document.getElementById("wb-prop-border").value = item.data.border_color || "#8888aa";
     document.getElementById("wb-prop-fontsize").value = item.data.font_size || 16;
+  } else if (kind === "node") {
+    // Mind-mapping (item 25): only worth offering once the card actually
+    // has something to arrange — a card with no links is already exactly
+    // where a "mind map of one" would put it.
+    const hasLink = wbState.sketches.some((s) => {
+      try {
+        const p = JSON.parse(s.data);
+        return p.type && p.type.startsWith("link-") && (p.sourceId === item.id || p.targetId === item.id);
+      } catch {
+        return false;
+      }
+    });
+    if (hasLink) {
+      panel.classList.remove("hidden");
+      rows.mindmap.classList.remove("hidden");
+    } else {
+      panel.classList.add("hidden");
+    }
   } else {
     panel.classList.add("hidden");
   }
+}
+
+//: Mind-mapping (ROADMAP item 25): "Arrange as mind map" auto-positions
+//: everything reachable from a selected card via the whiteboard's own
+//: links into a Tree or Radial layout — reusing the Graph tab's own
+//: `d3.hierarchy`/`d3.tree` approach (see `layoutHierarchy` above) rather
+//: than a second layout engine, just against the whiteboard's plain
+//: node/link data instead of the notebook's category/reply structure (no
+//: categories here, so none of that grouping machinery is needed). A link
+//: graph isn't necessarily a tree — cycles, a card linked to two others
+//: that are themselves linked — so a BFS from the root turns whatever is
+//: reachable into a real spanning tree (first link found wins the "parent"
+//: slot), which is the only sense "arrange everything connected to it" can
+//: have for a layout that needs one parent per node.
+const WB_MINDMAP_TREE_ROW = 170; // spacing across the fan-out axis
+const WB_MINDMAP_TREE_COL = 320; // spacing per depth level, left → right
+const WB_MINDMAP_RADIAL_STEP = 260; // ring spacing per depth level
+
+//: The undirected adjacency every mind-map operation starts from — every
+//: link sketch touching two *currently real* nodes (a stale link to an
+//: already-deleted card is silently excluded, same as the render path
+//: already does).
+function wbLinkAdjacency() {
+  const adjacency = new Map();
+  const addEdge = (a, b) => {
+    if (!adjacency.has(a)) adjacency.set(a, new Set());
+    if (!adjacency.has(b)) adjacency.set(b, new Set());
+    adjacency.get(a).add(b);
+    adjacency.get(b).add(a);
+  };
+  const nodeIds = new Set(wbState.nodes.map((n) => n.id));
+  for (const sketch of wbState.sketches) {
+    let parsed;
+    try {
+      parsed = JSON.parse(sketch.data);
+    } catch {
+      continue;
+    }
+    if (!parsed.type || !parsed.type.startsWith("link-")) continue;
+    if (nodeIds.has(parsed.sourceId) && nodeIds.has(parsed.targetId)) addEdge(parsed.sourceId, parsed.targetId);
+  }
+  return adjacency;
+}
+
+//: A BFS spanning tree from `rootId`, in the `{parentOf, childrenOf}` shape
+//: both `wbArrangeMindMap` and the Tab/Enter branch-entry commands share.
+function wbMindMapSpanningTree(rootId) {
+  const adjacency = wbLinkAdjacency();
+  const parentOf = new Map([[rootId, null]]);
+  const childrenOf = new Map([[rootId, []]]);
+  const queue = [rootId];
+  while (queue.length) {
+    const current = queue.shift();
+    for (const neighbour of adjacency.get(current) || []) {
+      if (parentOf.has(neighbour)) continue;
+      parentOf.set(neighbour, current);
+      childrenOf.get(current).push(neighbour);
+      childrenOf.set(neighbour, []);
+      queue.push(neighbour);
+    }
+  }
+  return { parentOf, childrenOf };
+}
+
+async function wbArrangeMindMap(rootId, kind) {
+  const root = wbState.nodes.find((n) => n.id === rootId);
+  if (!root) return;
+  const { parentOf, childrenOf } = wbMindMapSpanningTree(rootId);
+  if (parentOf.size < 2) {
+    toast("Nothing linked to this card to arrange.");
+    return;
+  }
+
+  // d3.hierarchy wants a tree of plain objects with a `children` accessor —
+  // built once, keyed by node id, the same shape `layoutHierarchy` above
+  // builds from `children`/`groups`.
+  const buildTree = (id) => ({ id, children: (childrenOf.get(id) || []).map(buildTree) });
+  const laid = d3.hierarchy(buildTree(rootId));
+
+  const positions = new Map();
+  if (kind === "radial") {
+    // Same `d3.tree().size([2*Math.PI, 1])` call `layoutHierarchy`'s own
+    // radial branch uses; ring spacing is a plain fixed step per depth
+    // here rather than that function's label-aware `radialRings` sizing,
+    // since a mind map has no per-ring label-width category to budget for.
+    d3.tree().size([2 * Math.PI, 1])(laid);
+    laid.each((point) => {
+      const radius = point.depth * WB_MINDMAP_RADIAL_STEP;
+      positions.set(point.data.id, {
+        x: radius * Math.cos(point.x - Math.PI / 2),
+        y: radius * Math.sin(point.x - Math.PI / 2),
+      });
+    });
+  } else {
+    d3.tree().nodeSize([WB_MINDMAP_TREE_ROW, WB_MINDMAP_TREE_COL])(laid);
+    laid.each((point) => {
+      positions.set(point.data.id, { x: point.depth * WB_MINDMAP_TREE_COL, y: point.x });
+    });
+  }
+
+  // The layout is computed around (0,0) at the root — shift the whole
+  // result so the root card itself doesn't move, only what's connected to
+  // it, which is what "arrange everything connected to it" (not "recentre
+  // my board") actually asked for.
+  const rootPos = positions.get(rootId);
+  const dx = root.x - rootPos.x, dy = root.y - rootPos.y;
+  for (const [id, pos] of positions) {
+    if (id === rootId) continue;
+    const node = wbState.nodes.find((n) => n.id === id);
+    if (!node) continue;
+    node.x = wbSnap(pos.x + dx);
+    node.y = wbSnap(pos.y + dy);
+    await wbSaveNode(node);
+  }
+
+  // Cached for the Tab/Enter branch-entry commands below, so a card added
+  // right after an arrange lands in the layout it was just shown, not a
+  // freshly re-derived (and possibly different, since BFS parent choice
+  // isn't unique when a card has more than one link back toward the root)
+  // spanning tree.
+  window.wbMindMap = { rootId, parentOf, childrenOf, kind };
+  renderWhiteboard();
+  toast(`Arranged ${parentOf.size} cards as a ${kind === "radial" ? "radial" : "tree"} mind map.`);
+}
+
+//: Tab/Enter branch entry (item 25's second piece) needs to know a card's
+//: "parent" in mind-map terms, which a whiteboard link doesn't carry on its
+//: own (just two ids, no direction). Reuses the cached map from a prior
+//: `wbArrangeMindMap` run when the given card is part of it; otherwise
+//: seeds one lazily, rooted at the card itself, from the board's current
+//: links — so Tab/Enter still work sensibly on a board nobody has arranged
+//: yet, not only right after clicking Tree/Radial.
+function wbMindMapEnsureMap(fromId) {
+  if (!window.wbMindMap || !window.wbMindMap.parentOf.has(fromId)) {
+    const { parentOf, childrenOf } = wbMindMapSpanningTree(fromId);
+    window.wbMindMap = { rootId: fromId, parentOf, childrenOf, kind: window.wbMindMap?.kind || "radial" };
+  }
+  return window.wbMindMap;
+}
+
+//: Creates a real note, a whiteboard card for it, and a link from
+//: `parentId` — the one operation both Tab and Enter reduce to, differing
+//: only in which card counts as the parent.
+async function wbMindMapAddCard(parentId, x, y) {
+  const entry = await apiJson("/entries", { method: "POST", body: JSON.stringify({ content: "New branch" }) });
+  const nodeRes = await apiJson("/whiteboard/nodes", {
+    method: "POST",
+    body: JSON.stringify({ entry_id: entry.id, board_id: window.currentBoardId ?? null, x: wbSnap(x), y: wbSnap(y), z: 1 }),
+  });
+  wbState.nodes.push(nodeRes);
+  const sketchRes = await apiJson("/whiteboard/sketches", {
+    method: "POST",
+    body: JSON.stringify({
+      data: JSON.stringify({
+        type: "link-curved",
+        sourceId: parentId,
+        targetId: nodeRes.id,
+        color: window.currentStrokeColor || "#ffffff",
+      }),
+      x: 0, y: 0, z: 1, board_id: window.currentBoardId ?? null,
+    }),
+  });
+  wbState.sketches.push(sketchRes);
+
+  const map = wbMindMapEnsureMap(parentId);
+  map.parentOf.set(nodeRes.id, parentId);
+  if (!map.childrenOf.has(parentId)) map.childrenOf.set(parentId, []);
+  map.childrenOf.get(parentId).push(nodeRes.id);
+  map.childrenOf.set(nodeRes.id, []);
+
+  selectWbItem("node", nodeRes.id);
+  renderWhiteboard();
+  return nodeRes;
+}
+
+//: Tab — a new child of the selected card, at "the next open radial slot":
+//: evenly spaced by angle among the parent's existing children (plus the
+//: one about to be added, so a lone first child doesn't land straight on
+//: top of the parent), one ring further out.
+async function wbMindMapAddChild(parentId) {
+  const parent = wbState.nodes.find((n) => n.id === parentId);
+  if (!parent) return;
+  const map = wbMindMapEnsureMap(parentId);
+  const existing = (map.childrenOf.get(parentId) || []).length;
+  const slots = Math.max(existing + 1, 3);
+  const angle = (existing / slots) * 2 * Math.PI - Math.PI / 2;
+  const parentBox = wbItemBBox("node", parent);
+  const cx = (parentBox.minX + parentBox.maxX) / 2, cy = (parentBox.minY + parentBox.maxY) / 2;
+  const w = parent.width || WB_CARD_DEFAULT_SIZE.w, h = parent.height || WB_CARD_DEFAULT_SIZE.h;
+  await wbMindMapAddCard(
+    parentId,
+    cx + WB_MINDMAP_RADIAL_STEP * Math.cos(angle) - w / 2,
+    cy + WB_MINDMAP_RADIAL_STEP * Math.sin(angle) - h / 2
+  );
+}
+
+//: Enter — a new sibling of the selected card (a child of *its* parent).
+//: A card with no known parent (the mind map's own root, or one never
+//: linked to anything) has no sibling slot to fill — falls back to adding
+//: a child of the card itself, the only branch that makes sense there.
+async function wbMindMapAddSibling(cardId) {
+  const map = wbMindMapEnsureMap(cardId);
+  const parentId = map.parentOf.get(cardId);
+  await wbMindMapAddChild(parentId == null ? cardId : parentId);
 }
 
 function wbApplySelectionHighlight() {
@@ -24854,6 +25077,12 @@ async function initWhiteboard() {
   document.getElementById("wb-align-bottom")?.addEventListener("click", () => wbAlignSelection("bottom"));
   document.getElementById("wb-distribute-h")?.addEventListener("click", () => wbDistributeSelection("horizontal"));
   document.getElementById("wb-distribute-v")?.addEventListener("click", () => wbDistributeSelection("vertical"));
+  document.getElementById("wb-mindmap-tree")?.addEventListener("click", () => {
+    if (wbSelectedItem?.kind === "node") wbArrangeMindMap(wbSelectedItem.id, "tree");
+  });
+  document.getElementById("wb-mindmap-radial")?.addEventListener("click", () => {
+    if (wbSelectedItem?.kind === "node") wbArrangeMindMap(wbSelectedItem.id, "radial");
+  });
 
   const containerEl = document.getElementById("whiteboard-container");
   const undoBtn = document.getElementById("wb-undo");
@@ -25045,6 +25274,23 @@ async function initWhiteboard() {
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "g") {
       e.preventDefault();
       wbGroupSelection();
+      return;
+    }
+    // Mind-mapping's keyboard-driven branch entry (item 25's second piece,
+    // asked for directly): Tab adds a linked child of the selected card,
+    // Enter adds a sibling. The actual ergonomic difference between "a
+    // whiteboard you can draw a mind map on" and "a mind-mapping tool" —
+    // dragging cards one at a time to fake this defeats the point of
+    // having it. Guarded to a single selected *card* — a sketch or object
+    // has no "branch" of its own to add one to.
+    if (e.key === "Tab" && wbSelectedItem?.kind === "node") {
+      e.preventDefault();
+      wbMindMapAddChild(wbSelectedItem.id);
+      return;
+    }
+    if (e.key === "Enter" && wbSelectedItem?.kind === "node") {
+      e.preventDefault();
+      wbMindMapAddSibling(wbSelectedItem.id);
       return;
     }
     // Arrow-key nudge, asked for directly. Grid step while snap is on (the
@@ -26334,7 +26580,10 @@ function renderWbObjects(canvas) {
   // the same convention `resizeDrag`'s own "drag" handler already uses.
   function objDragStart(event, d) {
     if (window.currentTool === "eraser" || window.currentTool === "delete") return;
-    d3.select(this.closest(".wb-object")).raise();
+    // `.raise()` deliberately does NOT happen here — moved to objDragMove.
+    // See the matching comment on the card drag's own `dragging` for the
+    // real bug this caused (raising mid-`start` breaks the browser's click
+    // synthesis, so a plain click-to-select on an object never fired).
     // See the matching comment on the card drag's own `dragStart`: a raw,
     // never-snapped running position, so small per-frame deltas actually
     // accumulate instead of being rounded away against the previous
@@ -26355,6 +26604,7 @@ function renderWbObjects(canvas) {
         ? wbCaptureBulkMoveOrigin(wbMultiKey("object", d.id))
         : null;
     }
+    d3.select(this.closest(".wb-object")).raise();
     // d3.drag's dx/dy are raw screen pixels, not board-space — the
     // resize handles below already divide by the zoom scale for exactly
     // this reason; a plain drag has to as well, or a card/object moves
@@ -26642,7 +26892,8 @@ function dragStart(event, d) {
     d.linkingPath.setAttribute("stroke-width", "3");
     document.getElementById("wb-zoom-group").appendChild(d.linkingPath);
   } else {
-    d3.select(this).raise();
+    // `.raise()` deliberately does NOT happen here — see the matching
+    // comment in `dragging` below for a real bug this caused.
     // Reported directly: "hard to move notes diagonally when on grid lock".
     // `dragging` below used to re-snap the *already-snapped* `d.x`/`d.y`
     // every frame — each small per-frame delta got rounded straight back to
@@ -26703,6 +26954,19 @@ function dragging(event, d) {
         ? wbCaptureBulkMoveOrigin(wbMultiKey("node", d.id))
         : null;
     }
+    // Real bug, found live while testing click-to-select on a card: this
+    // used to run in `dragStart`, unconditionally, on *every* pointerdown —
+    // including a plain click with zero movement. `.raise()` reappends the
+    // node as its parent's last child (for z-order while actively
+    // dragging), and doing that mid-gesture is enough to make the browser
+    // never synthesize the following "click" event at all — confirmed by
+    // instrumenting both the card's own click handler and the container's
+    // "empty canvas" one and seeing *neither* fire, while an ordinary
+    // sketch (whose own drag "start" never calls `.raise()`) selected
+    // correctly the same way. Moved here, into `dragging`, which — unlike
+    // `dragStart` — only ever runs after real movement has already
+    // happened, so a plain click's click event is never touched.
+    d3.select(this).raise();
     const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
     d._rawX = (d._rawX ?? d.x) + event.dx / transform.k;
     d._rawY = (d._rawY ?? d.y) + event.dy / transform.k;

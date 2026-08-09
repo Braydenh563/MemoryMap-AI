@@ -108,6 +108,45 @@ for the full writeup):**
 - Shift-to-lock-proportions is done for the **sketch pad's** rect tool
   only; the whiteboard's own rect/circle tools don't have it yet.
 
+## Tier 1/2 status check, run at the end of the session above
+
+Tier 1: all 11 items done except **§7 — claim-specificity in the
+hallucination net** (see the dedicated section below; blocked on real model
+output, not a miss). §1 (meeting transcription) is fixed but a *successful*
+transcription has still never been observed — this sandbox blocks Hugging
+Face — only the correct failure path has been.
+
+Tier 2: done except this named, bounded set —
+
+| Item | What's left | Why it's not done |
+|---|---|---|
+| Sketch pad selection | Click an existing stroke to move/resize/delete it | Architecturally hard — pure-raster canvas (`ImageData` undo), no discrete stroke objects. Needs a rewrite, not a patch. |
+| Whiteboard multi-select | Ctrl/Cmd/Shift-click, rectangle marquee, lasso | Only single-item select exists so far. |
+| Whiteboard properties panel | Colour/thickness/arrowhead for the current selection | Depends on multi-select existing first. |
+| Whiteboard move/rotate, text tool, size control | Named gaps vs. the sketch pad | Not started. |
+| Whiteboard shape-tool live verification | Confirm line/rect/circle/arrow actually save on a real drag | Test harness inconclusive this session (see the arrow-tool writeup above) — check this **first**, before building more on top. |
+| Line view / grid view visual pass | General polish, reported as needing one | Not itemized further — get specifics next time it's reported. |
+| Emoji picker + emoji sweep (16e/16f) | Both blocked | Needs a decision: picker source, and SVG-icons vs. monochrome-emoji vs. selective removal. **Asked the user directly this session** — see their answer recorded just above/below this note, or ask again if it's not there. |
+| Onboarding, the rest (§19) | Model-pull offer, data-dir writability check, seeded example notes, guided tour | Not started. |
+| §18's "sketch/image toggles" | Couldn't be matched to anything in the current Options panel | Possibly stale/mis-transcribed — confirm what it meant if still wanted. |
+
+**Known bugs left unfixed, on purpose:**
+- Drag-highlight during an actual *node* drag (not panning — that's fixed).
+  Re-reported live outside this sandbox; the pan-fix's `graphIsPanning`
+  cause doesn't apply (every other node is pinned during a node drag), so
+  there's no obvious analogous quick fix. Needs the exact repro gesture.
+- Whiteboard shape tools (line/rect/circle/arrow): unverified, see above.
+- Touch input: wired but never run against real touch hardware.
+- Arc label spacing fix: math checks out, screenshot not retaken to confirm.
+
+**Suggested order for next session**: (1) whiteboard shape-tool
+verification, (2) whiteboard multi-select → properties panel → move/rotate,
+(3) onboarding rest (§19 — named by an earlier outside review as the
+highest-leverage thing left), (4) test-file consolidation (needs a concrete
+finding first, not a mechanical merge), (5) then Tier 3. Folding
+BACKLOG.md's ~29 sections into ROADMAP.md is a real re-prioritisation job,
+not a paste — worth its own session.
+
 **Test-file consolidation** (asked for directly: "refactor and consolidate
 all the testing files since they are all over the place") was **not
 started** — deliberately, given the token budget this session ran into and

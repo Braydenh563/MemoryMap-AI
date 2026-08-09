@@ -11161,8 +11161,14 @@ const RADIAL_STEM = 10; // characters, for a label written down a shared spoke
 // It reads at a glance what tree/radial cannot: how many branches a
 // notebook's filing has and how deep any one of them runs, in the width of a
 // single row rather than the height of a tree or the footprint of a circle.
-const ARC_STEP = 46; // horizontal spacing per node
-const ARC_LABEL_LIMIT = 20; // characters — diagonal labels have less room before they cross the next node's arc
+const ARC_STEP = 58; // horizontal spacing per node
+// Reported directly, with a screenshot: a label's text was long enough, at a
+// 46px step and a 40° tilt, to run its own end into the *next* node's slot —
+// read as "the label is attached to the wrong node". At ARC_STEP's old value,
+// 20 chars * ~6.5px/char * cos(40°) was ~100px of horizontal travel — more
+// than two node-steps. Shortened here, and the step above widened and the
+// tilt below steepened, so a label's horizontal reach stays under one step.
+const ARC_LABEL_LIMIT = 12; // characters — diagonal labels have less room before they cross the next node's arc
 
 // Labels on the left half of the circle would read upside down, so they are
 // turned around — which swaps which way "outward" is for everything after.
@@ -12429,7 +12435,10 @@ async function renderGraph() {
       .attr("x", (d) => graphNodeRadius(d) + 6)
       .attr("y", 0)
       .attr("dy", "0.31em")
-      .attr("transform", (d) => `rotate(40, ${graphNodeRadius(d) + 6}, 0)`)
+      // Steeper than the original 40° — more vertical, less horizontal reach
+      // per character — so a label's own end lands closer to underneath its
+      // node instead of drifting into the next node's slot (see ARC_STEP above).
+      .attr("transform", (d) => `rotate(58, ${graphNodeRadius(d) + 6}, 0)`)
       .style("text-anchor", "start");
   } else if (tree.radial) {
     // Rotated to its own radius and flipped on the left half, or every label
@@ -15679,8 +15688,21 @@ function sketchMove(event) {
     context.lineTo(x, y);
     context.stroke();
   } else if (sketchTool === "rect") {
+    // Shift locks proportions — a square instead of whatever rectangle the
+    // pointer happens to trace — the same convention every other drawing
+    // tool uses, asked for directly. `circ` needs no equivalent: it has
+    // always drawn from a single radius (`context.arc`), never width/height
+    // independently, so it was already a perfect circle with no ellipse
+    // mode to lock out of.
+    let w = x - sketchStartX;
+    let h = y - sketchStartY;
+    if (event.shiftKey) {
+      const side = Math.max(Math.abs(w), Math.abs(h));
+      w = Math.sign(w || 1) * side;
+      h = Math.sign(h || 1) * side;
+    }
     context.beginPath();
-    context.rect(sketchStartX, sketchStartY, x - sketchStartX, y - sketchStartY);
+    context.rect(sketchStartX, sketchStartY, w, h);
     context.stroke();
   } else if (sketchTool === "circ") {
     context.beginPath();
@@ -22792,6 +22814,18 @@ initAuth();
 let wbZoom = d3.zoom().scaleExtent([0.1, 4]).on("zoom", handleWbZoom);
 let wbState = { nodes: [], sketches: [] };
 let wbInitialized = false;
+// ROADMAP.md Tier 2 §11: Select was folded into Pan, with no visible
+// "this is selected" state and no way to delete without switching to the
+// Delete tool. `{kind: "sketch"|"node", id}` of whatever's currently
+// selected, or null. Rotate isn't part of this — `WhiteboardNode` has no
+// angle column at all, so rotation needs a real backend change, not a
+// frontend-only pass; left as its own separate item.
+let wbSelectedItem = null;
+// `deleteSketch`/`deleteNode` are closures defined fresh inside every
+// `renderWhiteboard()` call; these hold whichever pair is current, so code
+// outside that closure (the Delete-key handler) can still call them.
+let wbDeleteSketchRef = null;
+let wbDeleteNodeRef = null;
 // True only between an eraser mousedown and mouseup — the drawing tools
 // leave one mark per click-drag, the eraser is meant to remove everything
 // the pointer crosses while held, so it needs a "currently held" flag the
@@ -22800,6 +22834,11 @@ let wbErasing = false;
 // {action: "delete"|"create", kind: "sketch"|"node", payload, id}. Bounded
 // so an hour of erasing doesn't grow this forever; only the newest matters.
 let wbUndoStack = [];
+// ROADMAP.md Tier 2 §11: a redo stack, the same shape as the sketch pad's
+// own history — cleared whenever a fresh action is pushed onto wbUndoStack,
+// since redoing something that predates a new action would resurrect a
+// version of the board the newer action never saw.
+let wbRedoStack = [];
 const WB_UNDO_MAX = 20;
 // Ids currently mid-DELETE. The eraser's mouseenter can fire again for the
 // same still-on-screen item before its first DELETE round-trip resolves (a
@@ -22830,7 +22869,14 @@ function wbCursorUrl(inner, { size = 26, hx = 3, hy = size - 3 } = {}) {
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}") ${hx} ${hy}`;
 }
 
-const WB_BRUSH_TOOLS = new Set(["draw", "line", "rect", "circle"]);
+// Asked for directly: the sketch pad is meant to be a lite version of the
+// whiteboard, so the whiteboard should have at least everything the sketch
+// pad does. It already covered pen ("draw"), line, rect, circle and
+// eraser; highlighter and arrow were the two genuinely missing ones (a
+// third, text, needs its own SVG element type — a `<path>` can't render
+// text — and is scoped separately rather than force-fit into this list).
+const WB_BRUSH_TOOLS = new Set(["draw", "line", "rect", "circle", "highlighter", "arrow"]);
+const WB_HIGHLIGHTER_ALPHA = 0.35; // matches the sketch pad's own SKETCH_HIGHLIGHTER_ALPHA
 
 function wbCursorForTool(tool, strokeColor) {
   const color = /^#[0-9a-fA-F]{3,8}$/.test(strokeColor || "") ? strokeColor : "#ffffff";
@@ -22863,11 +22909,101 @@ function wbCursorForTool(tool, strokeColor) {
   return ""; // pan: the CSS grab/grabbing pair already says it
 }
 
+// The visible half of Select — asked for directly ("select... as a real
+// tool, not folded into pan"). Re-applied after every `renderWhiteboard()`
+// (elements are rebuilt on each render, so a class set on the old DOM node
+// would vanish silently) as well as right after a click.
+function wbApplySelectionHighlight() {
+  document.querySelectorAll(".sketch-group.wb-selected, .node-card.wb-selected").forEach((el) =>
+    el.classList.remove("wb-selected")
+  );
+  if (!wbSelectedItem) return;
+  const selector =
+    wbSelectedItem.kind === "sketch"
+      ? `.sketch-group[data-id="${wbSelectedItem.id}"]`
+      : `.node-card[data-id="${wbSelectedItem.id}"]`;
+  document.querySelector(selector)?.classList.add("wb-selected");
+}
+
+function selectWbItem(kind, id) {
+  wbSelectedItem = { kind, id };
+  wbApplySelectionHighlight();
+}
+
+function clearWbSelection() {
+  if (!wbSelectedItem) return;
+  wbSelectedItem = null;
+  wbApplySelectionHighlight();
+}
+
+// Delete/Backspace with something selected — the other half of "select as
+// a real tool": today, deleting anything meant switching to the Delete
+// tool first. Reuses `deleteSketch`/`deleteNode`, so a selection-delete
+// gets undo/redo for free, the same as every other way of deleting one.
+function deleteWbSelection() {
+  if (!wbSelectedItem) return false;
+  const { kind, id } = wbSelectedItem;
+  const item =
+    kind === "sketch"
+      ? (wbState.sketches || []).find((s) => s.id === id)
+      : (wbState.nodes || []).find((n) => n.id === id);
+  clearWbSelection();
+  if (!item) return false;
+  if (kind === "sketch") wbDeleteSketchRef?.(item);
+  else wbDeleteNodeRef?.(item);
+  return true;
+}
+
+
+function wbUpdateUndoRedoButtons() {
+  const undoBtn = document.getElementById("wb-undo");
+  const redoBtn = document.getElementById("wb-redo");
+  if (undoBtn) undoBtn.disabled = wbUndoStack.length === 0;
+  if (redoBtn) redoBtn.disabled = wbRedoStack.length === 0;
+}
+
 function wbPushUndo(entry) {
   wbUndoStack.push(entry);
   if (wbUndoStack.length > WB_UNDO_MAX) wbUndoStack.shift();
-  const btn = document.getElementById("wb-undo");
-  if (btn) btn.disabled = false;
+  // A fresh action makes whatever redo history existed unreachable — the
+  // same rule the sketch pad's own `sketchSaveSnapshot` already follows.
+  wbRedoStack = [];
+  wbUpdateUndoRedoButtons();
+}
+
+// The shared half of undo and redo: pop one entry off `from`, apply its
+// inverse, and push what would undo *that* onto `to`. Undo and redo are
+// each other's mirror image — pop from one stack, push the reverse onto
+// the other — so one function drives both rather than two near-duplicates
+// that could drift apart.
+async function wbApplyHistoryEntry(from, to) {
+  const entry = from.pop();
+  if (!entry) return false;
+  const base = entry.kind === "sketch" ? "/whiteboard/sketches" : "/whiteboard/nodes";
+  const list = entry.kind === "sketch" ? "sketches" : "nodes";
+  if (entry.action === "delete") {
+    // This entry means "bring back what was deleted". Applying it recreates
+    // the item; reversing *that* is deleting the newly-recreated one again.
+    const restored = await apiJson(base, { method: "POST", body: JSON.stringify(entry.payload) });
+    wbState[list].push(restored);
+    to.push({ action: "create", kind: entry.kind, id: restored.id });
+  } else {
+    // This entry means "remove what was created". The item's current data
+    // has to be captured *before* deleting it — once gone, nothing else
+    // remembers what it looked like, and the reverse of this reverse (a
+    // future redo/undo) needs a real payload to recreate it from, not a
+    // blank one.
+    const item = wbState[list].find((i) => i.id === entry.id);
+    const payload =
+      item &&
+      (entry.kind === "sketch"
+        ? { data: item.data, board_id: item.board_id, x: item.x, y: item.y, z: item.z }
+        : { entry_id: item.entry_id, board_id: item.board_id, x: item.x, y: item.y, z: item.z });
+    await apiJson(`${base}/${entry.id}`, { method: "DELETE" });
+    wbState[list] = wbState[list].filter((i) => i.id !== entry.id);
+    if (payload) to.push({ action: "delete", kind: entry.kind, payload });
+  }
+  return true;
 }
 
 // Reverses the single most recent create or delete — a sketch stroke, a
@@ -22875,23 +23011,26 @@ function wbPushUndo(entry) {
 // a tool whose whole job is deleting things you swipe over needs a safety
 // net more than any other control on this toolbar.
 async function wbUndo() {
-  const entry = wbUndoStack.pop();
-  const btn = document.getElementById("wb-undo");
-  if (btn) btn.disabled = wbUndoStack.length === 0;
-  if (!entry) return;
-  const base = entry.kind === "sketch" ? "/whiteboard/sketches" : "/whiteboard/nodes";
-  const list = entry.kind === "sketch" ? "sketches" : "nodes";
   try {
-    if (entry.action === "delete") {
-      const restored = await apiJson(base, { method: "POST", body: JSON.stringify(entry.payload) });
-      wbState[list].push(restored);
-    } else {
-      await apiJson(`${base}/${entry.id}`, { method: "DELETE" });
-      wbState[list] = wbState[list].filter((item) => item.id !== entry.id);
-    }
+    if (!(await wbApplyHistoryEntry(wbUndoStack, wbRedoStack))) return;
+    wbUpdateUndoRedoButtons();
     renderWhiteboard();
   } catch {
     toast("Couldn't undo that.", true);
+  }
+}
+
+// Reapplies whatever the most recent undo took back — asked for directly
+// (`wbUndoStack` "exists; nothing analogous does"). Pushes the reverse onto
+// `wbUndoStack`, so undo/redo/undo/redo keeps working rather than only
+// ever reversing once.
+async function wbRedo() {
+  try {
+    if (!(await wbApplyHistoryEntry(wbRedoStack, wbUndoStack))) return;
+    wbUpdateUndoRedoButtons();
+    renderWhiteboard();
+  } catch {
+    toast("Couldn't redo that.", true);
   }
 }
 
@@ -23166,6 +23305,11 @@ async function initWhiteboard() {
     undoBtn.disabled = true;
     undoBtn.addEventListener("click", wbUndo);
   }
+  const redoBtn = document.getElementById("wb-redo");
+  if (redoBtn) {
+    redoBtn.disabled = true;
+    redoBtn.addEventListener("click", wbRedo);
+  }
 
   // Keyboard shortcuts, asked for as part of the wider usability pass: a
   // toolbar of eight icon buttons is not obviously faster than the tool you
@@ -23179,8 +23323,11 @@ async function initWhiteboard() {
   const WB_TOOL_KEYS = {
     v: "pan",
     h: "pan",
+    s: "select",
     p: "draw",
+    m: "highlighter",
     l: "line",
+    a: "arrow",
     r: "rect",
     o: "circle",
     e: "eraser",
@@ -23192,7 +23339,16 @@ async function initWhiteboard() {
     const tag = (document.activeElement?.tagName || "").toLowerCase();
     if (tag === "input" || tag === "textarea" || document.activeElement?.isContentEditable) return;
     if (e.key === "Escape") {
+      clearWbSelection();
       selectWbTool("pan");
+      return;
+    }
+    // Delete/Backspace with a selection — the other half of Select as a
+    // real tool: previously the only way to delete anything was switching
+    // to the Delete tool and clicking it.
+    if ((e.key === "Delete" || e.key === "Backspace") && wbSelectedItem) {
+      e.preventDefault();
+      deleteWbSelection();
       return;
     }
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z") {
@@ -23200,9 +23356,22 @@ async function initWhiteboard() {
       wbUndo();
       return;
     }
+    // Both common redo chords: Ctrl+Shift+Z (the sketch pad's own
+    // convention) and Ctrl+Y (Windows' more familiar one).
+    if (
+      (e.ctrlKey || e.metaKey) &&
+      ((e.shiftKey && e.key.toLowerCase() === "z") || (!e.shiftKey && e.key.toLowerCase() === "y"))
+    ) {
+      e.preventDefault();
+      wbRedo();
+      return;
+    }
     if (e.ctrlKey || e.metaKey || e.altKey) return; // leave browser/OS shortcuts alone
     const mapped = WB_TOOL_KEYS[e.key.toLowerCase()];
-    if (mapped) selectWbTool(mapped);
+    if (mapped) {
+      if (mapped !== "select") clearWbSelection(); // switching away from Select drops it
+      selectWbTool(mapped);
+    }
   });
 
   selectWbTool("pan"); // the initial state
@@ -23223,14 +23392,26 @@ async function initWhiteboard() {
   // this has to hit-test against). All this needs to track is "is the
   // button currently down", on the container so it works over both the SVG
   // sketch layer and the HTML card layer.
-  containerEl.addEventListener("mousedown", (e) => {
+  // Pointer events, not mouse events: they unify mouse/touch/pen into one
+  // stream, which is what lets a finger draw, erase and pan here at all —
+  // touch never dispatches "mouse*" events reliably, and never dispatches
+  // them for a stylus. `touch-action: none` on .whiteboard-container (CSS)
+  // is the other half of this: without it the browser eats the gesture for
+  // page-scroll before a single pointer event reaches here.
+  containerEl.addEventListener("pointerdown", (e) => {
     if (window.currentTool === "eraser") wbErasing = true;
   });
-  window.addEventListener("mouseup", () => {
+  window.addEventListener("pointerup", () => {
     wbErasing = false;
   });
+  // Clicking empty canvas with Select active clears the selection — every
+  // card/sketch's own click handler calls stopPropagation() under Select,
+  // so a click that reaches here was never on an item.
+  containerEl.addEventListener("click", () => {
+    if (window.currentTool === "select") clearWbSelection();
+  });
 
-  svgCanvas.addEventListener("mousedown", (e) => {
+  svgCanvas.addEventListener("pointerdown", (e) => {
     if (!WB_BRUSH_TOOLS.has(window.currentTool)) return;
     e.stopPropagation();
     isDrawing = true;
@@ -23240,19 +23421,30 @@ async function initWhiteboard() {
     currentDrawPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
     currentDrawPath.setAttribute("fill", "none");
     currentDrawPath.setAttribute("stroke", window.currentStrokeColor);
-    currentDrawPath.setAttribute("stroke-width", String(WB_STROKE_WIDTH));
-    currentDrawPath.setAttribute("stroke-linecap", "round");
+    // A highlighter needs to be visibly wider and translucent, or it isn't a
+    // highlighter — the sketch pad's own version of this exact control had
+    // its opacity so low it was reported as invisible (HISTORY.md §46).
+    currentDrawPath.setAttribute(
+      "stroke-width",
+      String(window.currentTool === "highlighter" ? WB_STROKE_WIDTH * 4 : WB_STROKE_WIDTH)
+    );
+    if (window.currentTool === "highlighter") {
+      currentDrawPath.setAttribute("stroke-opacity", String(WB_HIGHLIGHTER_ALPHA));
+      currentDrawPath.setAttribute("stroke-linecap", "square");
+    } else {
+      currentDrawPath.setAttribute("stroke-linecap", "round");
+    }
     currentDrawPath.setAttribute("stroke-linejoin", "round");
     currentDrawPath.setAttribute("d", `M ${x} ${y}`);
     document.getElementById("wb-zoom-group").appendChild(currentDrawPath);
   });
   
-  svgCanvas.addEventListener("mousemove", (e) => {
+  svgCanvas.addEventListener("pointermove", (e) => {
     if (!isDrawing || !WB_BRUSH_TOOLS.has(window.currentTool)) return;
     e.stopPropagation();
     const [x, y] = getLogicalMouse(e);
     
-    if (window.currentTool === "draw") {
+    if (window.currentTool === "draw" || window.currentTool === "highlighter") {
       currentDrawData.push([x, y]);
       const d = currentDrawData.map((pt, i) => (i === 0 ? `M ${pt[0]} ${pt[1]}` : `L ${pt[0]} ${pt[1]}`)).join(" ");
       currentDrawPath.setAttribute("d", d);
@@ -23261,6 +23453,23 @@ async function initWhiteboard() {
       const [sx, sy] = currentDrawData[0];
       if (window.currentTool === "line") {
         currentDrawPath.setAttribute("d", `M ${sx} ${sy} L ${x} ${y}`);
+      } else if (window.currentTool === "arrow") {
+        // One path, three subpaths — a plain SVG `d` string can hold more
+        // than one `M`, and every subpath in it shares the same stroke, so
+        // this is the shaft plus both head strokes in a single element
+        // rather than three sketches that would each need their own undo
+        // entry and could drift apart. Same head-angle maths as the sketch
+        // pad's own arrow.
+        const angle = Math.atan2(y - sy, x - sx);
+        const headLen = WB_STROKE_WIDTH * 4 + 6;
+        const h1x = x - headLen * Math.cos(angle - Math.PI / 6);
+        const h1y = y - headLen * Math.sin(angle - Math.PI / 6);
+        const h2x = x - headLen * Math.cos(angle + Math.PI / 6);
+        const h2y = y - headLen * Math.sin(angle + Math.PI / 6);
+        currentDrawPath.setAttribute(
+          "d",
+          `M ${sx} ${sy} L ${x} ${y} M ${x} ${y} L ${h1x} ${h1y} M ${x} ${y} L ${h2x} ${h2y}`
+        );
       } else if (window.currentTool === "rect") {
         const mx = Math.min(sx, x), my = Math.min(sy, y);
         const w = Math.abs(x - sx), h = Math.abs(y - sy);
@@ -23272,7 +23481,7 @@ async function initWhiteboard() {
     }
   });
   
-  svgCanvas.addEventListener("mouseup", async (e) => {
+  svgCanvas.addEventListener("pointerup", async (e) => {
     if (!isDrawing || !WB_BRUSH_TOOLS.has(window.currentTool)) return;
     e.stopPropagation();
     isDrawing = false;
@@ -23287,33 +23496,34 @@ async function initWhiteboard() {
     // nothing at all, so a stationary click has to add a near-zero-length
     // segment — round linecaps turn that into a visible dot — rather than
     // being discarded as "no shape to save".
-    if (window.currentTool === "draw" && currentDrawData.length < 2) {
+    const isFreehand = window.currentTool === "draw" || window.currentTool === "highlighter";
+    if (isFreehand && currentDrawData.length < 2) {
       currentDrawPath.setAttribute("d", `M ${sx} ${sy} L ${sx} ${sy + 0.1}`);
-    } else if (window.currentTool !== "draw" && Math.abs(x - sx) < 2 && Math.abs(y - sy) < 2) {
-      // Shape tools (line/rect/circle) need an actual drag to have a size —
-      // a zero-size shape isn't a reasonable click-to-draw default the way a
-      // pen dot is, so these are still discarded.
+    } else if (!isFreehand && Math.abs(x - sx) < 2 && Math.abs(y - sy) < 2) {
+      // Shape tools (line/arrow/rect/circle) need an actual drag to have a
+      // size — a zero-size shape isn't a reasonable click-to-draw default
+      // the way a pen dot is, so these are still discarded.
       if (currentDrawPath) currentDrawPath.remove();
       currentDrawPath = null;
       return;
     }
     
-    // Save sketch to API
+    // Save sketch to API. The backend schema has no width/opacity columns, so
+    // a highlighter's thick/translucent look has to travel inside `data` too
+    // — otherwise a saved highlighter reloads as a plain full-opacity line
+    // (see HISTORY.md: this exact loss was caught before shipping).
     const d = currentDrawPath.getAttribute("d");
     const sketchData = {
-      data: d, // store the SVG path data
+      data: JSON.stringify(
+        window.currentTool === "highlighter"
+          ? { d, color: currentStrokeColor, width: WB_STROKE_WIDTH * 4, opacity: WB_HIGHLIGHTER_ALPHA }
+          : { d, color: currentStrokeColor }
+      ),
       x: 0,
       y: 0,
       z: 5,
       board_id: window.currentBoardId
     };
-    
-    // We want to persist the color as well, but wait, the backend schema doesn't have a color field!
-    // We can embed color into data or just ignore for now since it's an MVP. Let's just embed it in data like so:
-    // data: `<path d="..." stroke="#..."/>` or since we only render `path d`, we can just wait... 
-    // `renderWhiteboard` assigns `d => d.data`. If `d.data` is just the `d` string, all paths get `--text-color`.
-    // Let's modify data to be a JSON string holding `{ d, color }` instead!
-    sketchData.data = JSON.stringify({ d, color: currentStrokeColor });
 
     try {
       const res = await apiJson("/whiteboard/sketches", { method: "POST", body: JSON.stringify(sketchData) });
@@ -23465,13 +23675,24 @@ function renderWhiteboard() {
       wbDeleting.delete(deletingKey);
     }
   }
+  // `deleteSketch`/`deleteNode` are re-created on every render (they close
+  // over this render's own `d3` selections), so the Delete-key handler set
+  // up once in `initWhiteboard` can't reference them directly — it always
+  // needs *this* render's version, not whichever one existed when it was
+  // first wired.
+  wbDeleteSketchRef = deleteSketch;
 
   const sketchEnter = sketchSelection.enter()
     .append("g")
     .attr("class", "sketch-group")
     .attr("data-id", d => d.id)
-    .style("cursor", () => (window.currentTool === "delete" || window.currentTool === "eraser") ? "pointer" : "default")
+    .style("cursor", () => (window.currentTool === "delete" || window.currentTool === "eraser" || window.currentTool === "select") ? "pointer" : "default")
     .on("click", (event, d) => {
+      if (window.currentTool === "select") {
+        event.stopPropagation(); // don't also hit the "empty canvas clears selection" handler
+        selectWbItem("sketch", d.id);
+        return;
+      }
       // Reported directly, same family as the pen's single-click dot: a
       // plain click with the eraser (no drag across anything) did nothing —
       // only `mouseenter` while `wbErasing` was true caught a stroke, which
@@ -23480,7 +23701,7 @@ function renderWhiteboard() {
       // thing clicked, the same as the delete tool does.
       if (window.currentTool === "delete" || window.currentTool === "eraser") deleteSketch(d);
     })
-    .on("mouseenter", (event, d) => {
+    .on("pointerenter", (event, d) => {
       if (window.currentTool === "eraser" && wbErasing) deleteSketch(d);
     });
 
@@ -23504,11 +23725,19 @@ function renderWhiteboard() {
   sketchUpdate.each(function(d) {
     let pathData = d.data;
     let stroke = "var(--text-color)";
+    let strokeWidth = "3";
+    let strokeOpacity = 1;
     try {
       const parsed = JSON.parse(d.data);
       if (parsed.d) {
         pathData = parsed.d;
         stroke = parsed.color || stroke;
+        // Highlighter strokes carry their own width/opacity (see the mouseup
+        // handler that writes them) — everything else keeps the defaults
+        // above, set explicitly every render so a reused element can't keep
+        // a stale highlighter width after its data changes.
+        if (parsed.width) strokeWidth = String(parsed.width);
+        if (parsed.opacity != null) strokeOpacity = parsed.opacity;
       } else if (parsed.type && parsed.type.startsWith("link-")) {
         stroke = parsed.color || stroke;
         const source = wbState.nodes.find(n => n.id === parsed.sourceId);
@@ -23528,7 +23757,11 @@ function renderWhiteboard() {
       }
     } catch(e) {}
     d3.select(this).select(".sketch-hitbox").attr("d", pathData);
-    d3.select(this).select(".sketch-path").attr("d", pathData).attr("stroke", stroke);
+    d3.select(this).select(".sketch-path")
+      .attr("d", pathData)
+      .attr("stroke", stroke)
+      .attr("stroke-width", strokeWidth)
+      .attr("stroke-opacity", strokeOpacity);
   });
     
   sketchSelection.exit().remove();
@@ -23559,10 +23792,12 @@ function renderWhiteboard() {
       wbDeleting.delete(deletingKey);
     }
   }
+  wbDeleteNodeRef = deleteNode; // see the matching comment on wbDeleteSketchRef above
 
   const nodeEnter = nodeSelection.enter()
     .append("div")
     .attr("class", "wb-card node-card")
+    .attr("data-id", (d) => d.id)
     .style("transform", d => `translate(${d.x}px, ${d.y}px)`)
     .style("z-index", d => d.z)
     .call(d3.drag()
@@ -23570,12 +23805,17 @@ function renderWhiteboard() {
       .on("drag", dragging)
       .on("end", dragEndNode))
     .on("click", (event, d) => {
+      if (window.currentTool === "select") {
+        event.stopPropagation();
+        selectWbItem("node", d.id);
+        return;
+      }
       // Same fix as the sketch group above: a single eraser click, no drag,
       // now erases the one card clicked instead of needing movement to
       // trigger a mouseenter.
       if (window.currentTool === "delete" || window.currentTool === "eraser") deleteNode(d);
     })
-    .on("mouseenter", (event, d) => {
+    .on("pointerenter", (event, d) => {
       if (window.currentTool === "eraser" && wbErasing) deleteNode(d);
     });
       
@@ -23590,8 +23830,13 @@ function renderWhiteboard() {
   nodeSelection.merge(nodeEnter)
     .style("transform", d => `translate(${d.x}px, ${d.y}px)`)
     .style("z-index", d => d.z);
-    
+
   nodeSelection.exit().remove();
+
+  // Every element above was just rebuilt, so any `.wb-selected` class set
+  // before this render is gone with it — re-apply from the state that
+  // actually persists (`wbSelectedItem`), not the DOM.
+  wbApplySelectionHighlight();
 }
 
 function dragStart(event, d) {

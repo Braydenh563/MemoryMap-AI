@@ -4259,6 +4259,10 @@ html.modal-open body {
   height: 100%;
   display: block;
   cursor: grab;
+  /* d3-zoom/d3-drag (v7) already listen for pointer events, so pan, pinch
+     and node-drag work on touch out of the box — but only once the browser
+     stops treating the same gesture as page-scroll/pinch-zoom first. */
+  touch-action: none;
 }
 
 #graph-svg:active {
@@ -11305,10 +11309,18 @@ textarea.autogrow {
   stroke-width: 5px;
 }
 
-/* Category headings label the branch they open, so they carry the weight. */
+/* Category headings label the branch they open, so they carry the weight —
+   and now a colour of their own, so they read as a different kind of label
+   at a glance rather than just a bigger/bolder note preview (user request:
+   bold alone wasn't enough to tell a category from a note in the arc view). */
 .graph-node text.graph-label-group {
   font-size: 0.8rem;
   font-weight: 650;
+  fill: var(--accent);
+}
+
+:root[data-mode="dark"] .graph-node text.graph-label-group {
+  fill: var(--accent);
 }
 
 /* The notes a document draws on, beside its outline. The row is the note plus
@@ -12459,6 +12471,10 @@ textarea.autogrow {
   left: 0;
   cursor: grab;
   background: var(--wb-board-bg);
+  /* Without this, a touch drag pans the *page* (or triggers pull-to-refresh)
+     before D3's zoom or the pen/eraser pointer handlers ever see the
+     gesture — the same reason the drag-handle grips below need it. */
+  touch-action: none;
 }
 
 .whiteboard-container:active {
@@ -12640,6 +12656,19 @@ textarea.autogrow {
   cursor: grabbing;
   z-index: 100;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+}
+
+/* Select as a real tool (ROADMAP.md Tier 2 §11): the one visible sign that
+   something is selected, on both a card and an SVG sketch group. */
+.node-card.wb-selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.sketch-group.wb-selected .sketch-hitbox {
+  stroke: var(--accent);
+  stroke-opacity: 0.35;
+  stroke-dasharray: 4 3;
 }
 
 .wb-card-content {

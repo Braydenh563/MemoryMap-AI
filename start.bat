@@ -1,4 +1,5 @@
 @echo off
+title MemoryMap AI
 REM ===================================================================
 REM  MemoryMap AI - one-click launcher for Windows
 REM
@@ -17,6 +18,10 @@ REM  script dies. Keep echoed text paren-free.
 REM ===================================================================
 
 setlocal enabledelayedexpansion
+
+REM Generate the ESC character to allow ANSI color codes in Windows CMD
+for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
+
 cd /d "%~dp0"
 
 REM --- Desktop mode ----------------------------------------------------
@@ -37,18 +42,24 @@ if not defined MM_CHILD (
     set "MM_CHILD=1"
     echo  Checking for updates...
     git pull --ff-only
+    if errorlevel 1 (
+      echo  !ESC![1;31m[X]!ESC![0m Update failed. You may have conflicting local changes.
+      pause
+      exit /b 1
+    )
     call "%~f0"
     exit /b !errorlevel!
   )
 )
 
 echo.
-echo   __  __                        __  __               _   ___
-echo  ^|  \/  ^|___ _ __  ___ _ _ _  _^|  \/  ^|__ _ _ __    /_\ ^|_ _^|
-echo  ^| ^|\/^| / -_) '  \/ _ \ '_^| ^|^| ^| ^|\/^| / _` ^| '_ \  / _ \ ^| ^|
-echo  ^|_^|  ^|_\___^|_^|_^|_\___/_^|  \_, ^|_^|  ^|_\__,_^| .__/ /_/ \_\___^|
-echo                          ^|__/            ^|_^|
-echo             your notebook, on your machine
+echo !ESC![1;38;5;73m    __  ___                                __  ___                 ___    ____
+echo    /  ^|/  /___  ____ ___  ____  _______   /  ^|/  /____ _____      /   ^|  /  _/
+echo   / /^|_/ / __ \/ __ `__ \/ __ \/ ___/ / / / /^|_/ / __ `/ __ \    / /^| ^|  / /  
+echo  / /  / /  __/ / / / / / /_/ / /  / /_/ / /  / / /_/ / /_/ /   / ___ ^|_/ /   
+echo /_/  /_/\___/_/ /_/ /_/\____/_/   \__, /_/  /_/\__,_/ .___/   /_/  ^|_/___/   
+echo                                  /____/            /_/                       
+echo            your notebook, on your machine!ESC![0m
 echo.
 
 set "VENV_PY=.venv\Scripts\python.exe"
@@ -57,7 +68,7 @@ REM --- 1. Build the venv if it doesn't exist yet ----------------------
 REM  Only the FIRST run needs a system Python; after that the app uses
 REM  its own .venv, so a flaky PATH can't stop later launches.
 if not exist "%VENV_PY%" (
-  echo  [1/4] First-time setup - looking for Python to build the environment...
+  echo  !ESC![1;38;5;73m[1/4]!ESC![0m First-time setup - looking for Python to build the environment...
   set "PYTHON="
   py -3 --version >nul 2>nul && set "PYTHON=py -3"
   if not defined PYTHON (
@@ -68,7 +79,7 @@ if not exist "%VENV_PY%" (
   )
   if not defined PYTHON (
     echo.
-    echo  [X] No Python was found. Install Python 3.11 or newer from
+    echo  !ESC![1;31m[X]!ESC![0m No Python was found. Install Python 3.11 or newer from
     echo      https://www.python.org/downloads/ and tick
     echo      "Add python.exe to PATH" during setup, then run this again.
     echo.
@@ -78,16 +89,16 @@ if not exist "%VENV_PY%" (
   echo        Using !PYTHON! to create the virtual environment...
   !PYTHON! -m venv .venv
   if errorlevel 1 (
-    echo  [X] Could not create the virtual environment.
+    echo  !ESC![1;31m[X]!ESC![0m Could not create the virtual environment.
     pause
     exit /b 1
   )
 ) else (
-  echo  [1/4] Using the app's virtual environment.
+  echo  !ESC![1;38;5;73m[1/4]!ESC![0m Using the app's virtual environment.
 )
 
 if not exist "%VENV_PY%" (
-  echo  [X] The virtual environment looks incomplete - delete the .venv
+  echo  !ESC![1;31m[X]!ESC![0m The virtual environment looks incomplete - delete the .venv
   echo      folder and run this script again.
   pause
   exit /b 1
@@ -115,29 +126,29 @@ REM  interpreter start and catches a move, a rename, and a half-deleted venv.
 if "!NEED_INSTALL!"=="0" (
   "%VENV_PY%" -c "import memorymap" >nul 2>nul
   if errorlevel 1 (
-    echo  [2/4] The app folder moved since it was installed - relinking it...
+    echo  !ESC![1;38;5;73m[2/4]!ESC![0m The app folder moved since it was installed - relinking it...
     set "NEED_INSTALL=1"
   )
 )
 
 if "!NEED_INSTALL!"=="1" (
-  echo  [2/4] Installing dependencies - this can take a few minutes the first time...
-  "%VENV_PY%" -m pip install --upgrade pip
-  "%VENV_PY%" -m pip install -r requirements.txt
+  echo  !ESC![1;38;5;73m[2/4]!ESC![0m Installing dependencies - this can take a few minutes for heavy AI models...
+  "%VENV_PY%" -m pip install --upgrade pip --quiet
+  "%VENV_PY%" -m pip install -r requirements.txt --prefer-binary --quiet
   if errorlevel 1 (
-    echo  [X] Dependency install failed. Scroll up for the error.
+    echo  !ESC![1;31m[X]!ESC![0m Dependency install failed. Check your requirements file for errors.
     pause
     exit /b 1
   )
-  "%VENV_PY%" -m pip install -e .
+  "%VENV_PY%" -m pip install -e . --quiet
   if errorlevel 1 (
-    echo  [X] Installing the app failed. Scroll up for the error.
+    echo  !ESC![1;31m[X]!ESC![0m Installing the app failed.
     pause
     exit /b 1
   )
   for %%A in ("requirements.txt") do echo %%~tA>".venv\.mm_installed"
 ) else (
-  echo  [2/4] Dependencies already up to date - skipping install.
+  echo  !ESC![1;38;5;73m[2/4]!ESC![0m Dependencies already up to date - skipping install.
 )
 
 REM  pywebview is optional and only needed for the app window, so it is
@@ -147,7 +158,7 @@ if defined MM_DESKTOP (
   echo        Checking desktop window support...
   "%VENV_PY%" -m pip install --quiet pywebview
   if errorlevel 1 (
-    echo  [!] pywebview would not install - opening a browser tab instead.
+    echo  !ESC![1;33m[!]!ESC![0m pywebview would not install - opening a browser tab instead.
     set "MM_DESKTOP="
   )
 )
@@ -156,20 +167,20 @@ REM --- 3. First-run .env ----------------------------------------------
 if not exist ".env" (
   if exist ".env.example" (
     copy /y ".env.example" ".env" >nul
-    echo  [3/4] Created .env from .env.example.
+    echo  !ESC![1;38;5;73m[3/4]!ESC![0m Created .env from .env.example.
   )
 ) else (
-  echo  [3/4] Configuration found.
+  echo  !ESC![1;38;5;73m[3/4]!ESC![0m Configuration found.
 )
 
 REM --- 4. Launch -------------------------------------------------------
 if defined MM_DESKTOP (
-  echo  [4/4] Starting MemoryMap AI in its own window.
+  echo  !ESC![1;38;5;73m[4/4]!ESC![0m Starting MemoryMap AI in its own window.
   echo        Close the app window to stop it.
   echo.
   "%VENV_PY%" -m memorymap --desktop
 ) else (
-  echo  [4/4] Starting MemoryMap AI at http://localhost:8000
+  echo  !ESC![1;38;5;73m[4/4]!ESC![0m Starting MemoryMap AI at http://localhost:8000
   echo        A browser tab opens in a moment. Close THIS window, or press
   echo        Ctrl+C in it, to stop the app.
   echo.

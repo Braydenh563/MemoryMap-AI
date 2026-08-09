@@ -4172,6 +4172,17 @@ html.modal-open body {
   font-size: 0.85rem;
 }
 
+/* Manual (step-through) mode's pause card. The text input needs its own
+   width rule — the global input[type="text"] rule is `width: 100%`, which
+   inside this flex row would otherwise fight the button and label for space
+   the way an unconstrained flex item with `min-width: auto` always does
+   (DESIGN.md's own control-strip trap). */
+.run-continue-manual input[type="text"] {
+  flex: 1;
+  min-width: 8rem;
+  width: auto;
+}
+
 /* A skill's result: what changed, with a way back. */
 .skill-result {
   margin: 0;

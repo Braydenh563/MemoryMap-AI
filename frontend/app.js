@@ -2707,6 +2707,8 @@ async function streamChat({
   skill,
   skillInputs,
   skillFromStep,
+  skillManual,
+  skillManualNote,
   plan,
   notesOnly,
   attachedNotesOnly,
@@ -2760,7 +2762,16 @@ async function streamChat({
   // A plan the model just made. Carries its own steps because nothing saved
   // it — that is the only way it differs from a skill run, here and on the
   // server.
-  if (plan && plan.steps && plan.steps.length) body.plan = plan;
+  const hasPlan = plan && plan.steps && plan.steps.length;
+  if (hasPlan) body.plan = plan;
+  // Manual (step-through) mode: a pause after every completed step. Applies
+  // equally to a saved skill or a plan the model just drew — both run
+  // through the same step-by-step runner server-side. Sent on every call for
+  // this run, resume included, since a run started manual stays manual.
+  if (skill || hasPlan) {
+    if (skillManual) body.skill_manual = true;
+    if (skillManualNote) body.skill_manual_note = skillManualNote;
+  }
   // NDJSON over a plain POST, deliberately — not a WebSocket. A WebSocket was
   // tried here and reverted: it needed the session on a second thread (a
   // SQLAlchemy Session is not thread-safe), it had to be mounted outside the
@@ -3173,6 +3184,37 @@ function continueRunControls({ label, hint, onClick }) {
     why.textContent = hint;
     row.appendChild(why);
   }
+  return row;
+}
+
+// Manual (step-through) mode's pause card: a text box to add what the agent
+// missed or answer a question it raised, and a Continue button — the answer
+// to "a manual mode" asked for directly, and the single most-requested
+// unbuilt thing on the roadmap. `onContinue(note)` gets whatever was typed,
+// or an empty string if nothing was.
+function manualPauseControls({ onContinue }) {
+  const row = document.createElement("div");
+  row.className = "run-continue run-continue-manual";
+  const note = document.createElement("input");
+  note.type = "text";
+  note.placeholder = "Add anything before the next step (optional)…";
+  note.maxLength = 500;
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "small";
+  button.textContent = "▶ Continue";
+  button.addEventListener("click", () => {
+    button.disabled = true;
+    note.disabled = true;
+    onContinue(note.value.trim());
+  });
+  note.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") button.click();
+  });
+  const why = document.createElement("span");
+  why.className = "muted";
+  why.textContent = "Paused — step by step mode.";
+  row.append(why, note, button);
   return row;
 }
 
@@ -5628,6 +5670,7 @@ async function sendChatMessage(preset, opts = {}) {
   // bubble rather than a sentence asking the user to type "carry on".
   let ranOutOfRounds = false;
   let stoppedAtStep = null;
+  let pausedForManual = false;
   const startedAt = performance.now();
   const toolEvents = []; // {label, ok} — persisted so chips survive a reload
   chatController = new AbortController();
@@ -5706,6 +5749,11 @@ async function sendChatMessage(preset, opts = {}) {
       skill: opts.skill,
       skillInputs: opts.skillInputs,
       skillFromStep: opts.skillFromStep,
+      // Read live rather than captured at launch: a run that started
+      // straight-through and is now being Resumed can still be switched to
+      // step-by-step, and vice versa.
+      skillManual: opts.skillManual ?? Boolean($("skill-manual-toggle")?.checked),
+      skillManualNote: opts.skillManualNote,
       plan: opts.plan,
       attachedNotesOnly: opts.attachedNotesOnly,
       answeringAgent,
@@ -5737,6 +5785,7 @@ async function sendChatMessage(preset, opts = {}) {
         // Where the run stopped, if it did. A number here means the steps
         // after it never ran.
         stoppedAtStep = typeof event.stopped_at === "number" ? event.stopped_at : null;
+        pausedForManual = Boolean(event.paused);
         // A skill that changed notes has just made the list on screen stale.
         if ((event.changes || []).length) loadEntries();
         chatScrollToEnd();
@@ -5900,7 +5949,12 @@ async function sendChatMessage(preset, opts = {}) {
   // A run that stopped early is exactly the kind of thing you find out about
   // ten minutes later, having walked away from a long job (§36E). The Resume
   // button below is the fix in the moment; this is the record afterwards.
-  if (!stopped && (stoppedAtStep !== null || ranOutOfRounds)) {
+  // A deliberate manual-mode pause is not a failure and not something to
+  // notify about ten minutes later — the person is sitting right here
+  // waiting for the Continue button, which is the whole point of asking for
+  // it. Only an *unplanned* stop (a real failure, or running out of rounds)
+  // earns the notification.
+  if (!stopped && !pausedForManual && (stoppedAtStep !== null || ranOutOfRounds)) {
     recordNotification({
       kind: "run",
       title: opts.skill ? `“${opts.skill}” stopped early` : "A long answer stopped early",
@@ -5912,7 +5966,20 @@ async function sendChatMessage(preset, opts = {}) {
       action: { tab: "chat" },
     });
   }
-  if (!stopped && stoppedAtStep !== null && opts.skill) {
+  if (!stopped && stoppedAtStep !== null && opts.skill && pausedForManual) {
+    bubble.appendChild(
+      manualPauseControls({
+        onContinue: (note) =>
+          sendChatMessage(`⚡️ ${opts.skill} — from step ${stoppedAtStep + 1}`, {
+            skill: opts.skill,
+            skillInputs: opts.skillInputs || {},
+            skillFromStep: stoppedAtStep,
+            skillManual: true,
+            skillManualNote: note,
+          }),
+      })
+    );
+  } else if (!stopped && stoppedAtStep !== null && opts.skill) {
     bubble.appendChild(
       continueRunControls({
         label: `↻ Resume from step ${stoppedAtStep + 1}`,

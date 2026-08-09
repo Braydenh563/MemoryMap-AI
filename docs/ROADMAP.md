@@ -99,11 +99,26 @@ Things that are wrong, lose work, or make the app feel unreliable.
 Each is already paid for; a small amount of work turns a frustrating surface
 into a good one.
 
-8. **Skill runs: an auto/manual mode.** Explicitly requested and never built —
-   `skill_from_step` is resume-after-failure, not a step-through. On manual, a
-   skill pauses after each step with a Continue button and a text box, so the
-   user can add what the agent missed or answer a question it raised. **The
-   single most-requested unbuilt thing on the list.**
+8. ~~**Skill runs: an auto/manual mode.**~~ **Done (HISTORY.md §45).** Reuses
+   `stopped_at`/`start_at` — the same resume machinery a failed or stalled
+   step already had — rather than a second mechanism: after every step that
+   finishes `done`, `run_skill(..., manual=True)` stops there too, with a new
+   `result.paused` flag so the client can tell "waiting for you" from
+   "something broke" and render each one differently. A `manual_note`
+   (`skill_manual_note` over the wire) is folded straight into the *next*
+   step's own instruction, not appended to history, so it reads as part of
+   what the model is being asked to do right now rather than something it
+   may or may not weigh against everything else in the window. A "Run
+   skills step-by-step" checkbox lives in the chat dock's `⚙` settings
+   panel; the pause renders as a text box + Continue button, not a failure
+   notification. **Not built**: the same pause for a plan run (`opts.plan`)
+   — the backend already treats a plan identically to a skill, but the
+   existing Resume-from-failure button was already skill-only before this
+   session, so extending both to plans is one further, separate change, not
+   a gap this feature introduced. **Not verified live** — six new backend
+   tests (`test_skills.py`) cover the pause/resume/note-folding behaviour
+   through the real streaming endpoint with a fake model, but the checkbox
+   and the pause card's text box were not driven in a browser this session.
 9. ~~**A reason on every link.**~~ **Done, including a confidence score and
    an editor (HISTORY.md §43).** Optional `reason` column on `entry_links` —
    "a note about uni and gym might still be related if they're both about

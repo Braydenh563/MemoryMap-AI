@@ -2,7 +2,36 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session: §44 — Tier 1's top item done, a real "ran without being enabled" bug fixed live, link reasons extended twice, a mute option — plus three reports that didn't reproduce
+## Latest session: §45 — skill runs get a manual mode, the single most-requested unbuilt thing on the list
+
+Continued straight after §44 in the same session. Full detail in
+[HISTORY.md §45](HISTORY.md); short version: `run_skill(..., manual=True)`
+now pauses after *every* completed step, reusing the exact `stopped_at`/
+`start_at` machinery a failed step already had rather than a second
+mechanism — the only new thing is `result.paused`, so the client can tell
+"waiting for you" from "something broke". Whatever gets typed in at the
+pause (`manual_note`) is folded into the *next* step's own instruction, once,
+not repeated into every later one. A "Run skills step-by-step" checkbox
+lives in the chat dock's `⚙` panel; the pause renders as a text box +
+Continue card, separate from the existing Resume/ran-out-of-rounds one so a
+real failure still reads as a failure.
+
+**Not built**: the same pause for a plan run (`opts.plan`) — the backend
+already treats a plan and a skill identically, but the pre-existing
+Resume-from-failure button was already skill-only before this session, so
+extending both to plans is a separate follow-up, not a gap this feature
+introduced. **Not verified live**: six new backend tests in `test_skills.py`
+cover pause/resume/note-folding through the real streaming endpoint with a
+fake model, but the checkbox and the pause card's text box were not driven
+in a browser this session.
+
+**What's next**: ROADMAP.md's next Tier 2 item (the sketch pad — the
+highlighter opacity, a size control, a background colour, a selection tool)
+or the plan-run pause extension named above.
+
+---
+
+## Previous session: §44 — Tier 1's top item done, a real "ran without being enabled" bug fixed live, link reasons extended twice, a mute option — plus three reports that didn't reproduce
 
 Full detail in [HISTORY.md §44](HISTORY.md). Short version and what's still
 open:

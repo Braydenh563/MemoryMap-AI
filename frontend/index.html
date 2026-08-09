@@ -669,6 +669,16 @@ Link to another note with [[its first few words]]."></textarea>
                   <button id="persona-peek" class="ghost small" type="button"
                     aria-expanded="false"
                     title="Show the instructions this persona gives the AI">👁 What this persona tells the AI</button>
+                  <!-- Manual (step-through) mode, asked for directly: a pause
+                       after every completed step with a Continue button and a
+                       text box, rather than a skill running straight through
+                       five steps unattended. Lives here rather than per-launch
+                       because it's a standing preference about how runs
+                       behave, the same shape as Length/Persona beside it. -->
+                  <label class="chat-dock-more-row" title="Pause after each step of a skill or planned run so you can add anything before it continues">
+                    <span class="muted">Run skills step-by-step</span>
+                    <input type="checkbox" id="skill-manual-toggle">
+                  </label>
                 </div>
               </div>
             </div>

@@ -1320,3 +1320,65 @@ but were **not** driven in a browser this session — say so plainly rather
 than claim a screenshot that doesn't exist. Full `pytest tests/` (~1,600+
 tests), `ruff check .`, and `node --check frontend/app.js` all green after
 every batch.
+
+## 45. Skill runs get a manual mode — the single most-requested unbuilt thing on the list
+
+Continued the same session as §44, straight after committing and pushing it.
+ROADMAP.md's own Tier 2 item 8 named this "the single most-requested unbuilt
+thing on the list" — asked for directly more than once: a pause after every
+completed step with a Continue button and a text box, so a person can add
+what the agent missed or answer a question it raised, rather than a run
+barrelling through five steps unattended.
+
+**Built by reusing the existing resume machinery, not inventing a second
+one.** `skill_runner.run_skill` already stops mid-run and hands back
+`stopped_at` for a step that failed or stalled, and `start_at` already
+resumes past it without re-running earlier steps — the exact mechanism a
+pause needs. `run_skill(..., manual=True)` now takes the same stop after
+*every* step that finishes `done` too, not only a broken one; the new
+`result.paused` field is the only difference the caller needs to tell
+"waiting for you" from "something went wrong" and render each one
+differently — a paused run is not reported as a failure, and does not raise
+the "stopped early" notification a genuine failure does (nobody needs to be
+told ten minutes later about a pause they're sitting in front of).
+
+**`manual_note` — what gets typed in at the pause — is folded into the
+*next* step's own instruction**, not appended to `step_history`: this is
+what the person is asking for as part of that step specifically, and a
+history entry is something the model may or may not weigh against
+everything else in its window, the same reasoning `_step_answer` already
+uses for putting the ids a step touched into its own line rather than a
+separate structure. Applied once, at the first step a given call actually
+runs (`index == resume_from`) — a later resume with no note of its own
+does not repeat it, so a comment made once about step 2 doesn't quietly
+keep steering step 4.
+
+**Frontend**: a "Run skills step-by-step" checkbox in the chat dock's `⚙`
+settings panel (alongside answer length and persona — a standing preference
+about how a run behaves, not a per-launch choice), read live when a run
+starts *or* resumes rather than captured once, so a run can be switched
+into or out of manual mode between steps. The pause itself renders as a new
+`manualPauseControls` card — a text input and a **▶ Continue** button — kept
+deliberately separate from the existing `continueRunControls` (Resume /
+ran-out-of-rounds), which stays exactly as it was for an actual failure.
+
+**Not built**: the identical pause for a plan run (`opts.plan` — a plan the
+model draws for one request, per §35K). The backend treats a plan and a
+saved skill identically already (`skill_manual`/`skill_manual_note` are
+sent whenever either is present, per `streamChat`'s own body-building
+logic), but the *existing* Resume-from-failure button was already
+skill-only before this session — extending both paths to plans is one
+further, separate change, not a gap this feature introduced.
+
+**What was and wasn't verified**: six new tests in `test_skills.py`
+(`test_manual_mode_pauses_after_the_first_step_instead_of_continuing`,
+`..._off_runs_straight_through_as_before`, `..._does_not_pause_after_the_last_step`,
+`test_a_paused_run_is_never_reported_as_failed_or_stalled`,
+`test_manual_note_is_folded_into_the_next_steps_own_instruction`,
+`test_manual_note_only_reaches_the_step_it_was_added_before`) drive the
+whole backend path through the real `/chat/stream` endpoint with the fake
+Ollama transport — pause, resume, the note appearing in exactly one step's
+prompt and nowhere else. The checkbox and the pause card's text box were
+**not** driven in a browser this session; say so plainly rather than claim
+a screenshot that doesn't exist. Full `pytest tests/`, `ruff check .`, and
+`node --check frontend/app.js` all green.

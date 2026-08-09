@@ -49,6 +49,11 @@ MAX_STEP = 300
 MAX_TOOLS = 12
 MAX_INPUTS = 5
 MAX_INPUT_VALUE = 200
+# Manual (step-through) mode: what the user types in at a pause between
+# steps, to add what the agent missed or answer a question it raised. Short
+# on purpose — it is folded straight into the next step's own instruction,
+# not stored anywhere.
+MAX_MANUAL_NOTE = 500
 
 #: Tools a skill may never declare. Both hand a turn to a *run*, so a skill
 #: holding one could start itself: each run brings fresh rounds, and the
